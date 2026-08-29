@@ -1,0 +1,22 @@
+pub mod auto_mode;
+pub mod cli_version;
+
+pub(crate) mod conversation;
+pub mod copilot_repos;
+pub mod custom_agents;
+pub mod diagnostics;
+pub mod dto;
+pub mod external_sessions;
+pub mod import;
+pub mod instructions;
+pub mod io;
+pub mod legacy_hooks;
+pub mod memory;
+pub(crate) mod memory_dir;
+pub mod path_safety;
+pub mod projects;
+pub mod provider_conversations;
+pub mod sanitizer;
+pub mod settings;
+pub(crate) mod settings_lock;
+pub(crate) mod settings_mutation;

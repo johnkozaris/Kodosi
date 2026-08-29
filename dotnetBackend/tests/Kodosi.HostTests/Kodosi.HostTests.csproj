@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Infrastructure\historical-migration-bytes.tsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Kodosi.Host\Kodosi.Host.csproj" />
+    <ProjectReference Include="..\..\src\Kodosi.Infrastructure\Kodosi.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Kodosi.Application\Kodosi.Application.csproj" />
+    <ProjectReference Include="..\..\src\Kodosi.Domain\Kodosi.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,8 @@
+**/.git
+**/.DS_Store
+**/bin
+**/obj
+**/TestResults
+rustProcess/target
+relayServer/target
+build

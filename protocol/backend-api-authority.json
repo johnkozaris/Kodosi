@@ -1,0 +1,216 @@
+{
+  "apiContractVersion": 10,
+  "authContractVersion": 1,
+  "sessionCreationReconciliation": {
+    "method": "GET",
+    "path": "/api/sessions/{sessionId}/creation-receipts/{createIdempotencyKey}",
+    "authentication": "required",
+    "authorization": "ownerOnly",
+    "createIdempotencyKey": "uuid-v7",
+    "lookupAuthority": "session_incarnations",
+    "targetBinding": ["sessionId", "createIdempotencyKey"],
+    "responseFields": [
+      "sessionId",
+      "createIdempotencyKey",
+      "incarnationId",
+      "generation",
+      "protocolVersion"
+    ],
+    "notFoundPolicy": ["nonOwner", "missingKey", "missingSession"],
+    "backendContentPolicy": "identifiersOnly"
+  },
+  "sessionEnd": {
+    "method": "DELETE",
+    "path": "/api/sessions/{sessionId}",
+    "requiredQuery": ["incarnationId"],
+    "requiredHeaders": {
+      "Idempotency-Key": "uuid-v7 stable across retries",
+      "Kodosi-Attempt-Id": "uuid-v7 fresh per dispatch"
+    },
+    "receiptIdentity": ["ownerUserId", "mutationId"],
+    "receiptTargetBinding": ["sessionId", "incarnationId"],
+    "receiptSemantics": "transactionallyCoupledToSessionEnd",
+    "attemptSemantics": "observabilityOnly",
+    "terminalClientOutcomes": ["success", "notFound"],
+    "retryableClientOutcomes": [
+      "transportFailure",
+      "serverFailure",
+      "CONCURRENT_MODIFICATION"
+    ],
+    "conflictPolicy": "same mutation identity with different target is rejected",
+    "conflictCodes": {
+      "mutationTargetReuse": "SESSION_END_MUTATION_TARGET_CONFLICT",
+      "optimisticConcurrency": "CONCURRENT_MODIFICATION"
+    },
+    "backendContentPolicy": "identifiersOnly"
+  },
+  "sessionAccessMutations": {
+    "authentication": "required",
+    "mutationId": "uuid-v7 stable across retries and unknown-outcome reconciliation",
+    "incarnationId": "required non-empty session incarnation identity",
+    "receiptIdentity": ["requesterUserId", "mutationId"],
+    "receiptTargetBinding": [
+      "sessionId",
+      "incarnationId",
+      "kind",
+      "targetUserId",
+      "accessLevel",
+      "requestedExpiresAt"
+    ],
+    "receiptSemantics": "transactionallyCoupledToGrantRevokeOrLeave",
+    "conflictPolicy": "same mutation identity with different exact target is rejected",
+    "conflictCode": "SESSION_ACCESS_MUTATION_TARGET_CONFLICT",
+    "grant": {
+      "method": "POST",
+      "path": "/api/sessions/{sessionId}/access",
+      "authorization": "ownerOnly",
+      "requiredBody": [
+        "expectedIncarnationId",
+        "mutationId",
+        "actorUserId",
+        "accessLevel",
+        "expiresAt"
+      ],
+      "expiryEncoding": "RFC3339 canonicalized to Unix millisecond precision"
+    },
+    "revoke": {
+      "method": "DELETE",
+      "path": "/api/sessions/{sessionId}/access/{actorUserId}",
+      "authorization": "ownerOnly",
+      "requiredQuery": ["expectedIncarnationId", "mutationId"]
+    },
+    "leave": {
+      "method": "DELETE",
+      "path": "/api/sessions/{sessionId}/access/me",
+      "authorization": "authenticatedViewerOnly",
+      "requiredQuery": ["expectedIncarnationId", "mutationId"]
+    },
+    "reconciliation": {
+      "method": "GET",
+      "path": "/api/sessions/{sessionId}/access/mutations/{mutationId}",
+      "requiredQuery": ["expectedIncarnationId"],
+      "authorization": "requesterOnlyByReceiptIdentity",
+      "responseFields": [
+        "mutationId",
+        "sessionId",
+        "incarnationId",
+        "kind",
+        "targetUserId",
+        "accessLevel",
+        "requestedExpiresAt"
+      ],
+      "notFoundPolicy": ["otherRequester", "differentSession", "differentIncarnation", "missingMutation"]
+    },
+    "retryableClientOutcomes": [
+      "transportFailure",
+      "serverFailure",
+      "CONCURRENT_MODIFICATION"
+    ],
+    "unknownOutcomePolicy": "read receipt before refreshing authoritative session and grant projections",
+    "realtimeProjectionFence": "receipt incarnation must still be current before disconnect or invalidation fanout",
+    "backendContentPolicy": "identifiers access policy and expiry only"
+  },
+  "semanticReceiptMailbox": {
+    "authentication": "required",
+    "deviceHeader": "X-Kodosi-Device-Id",
+    "deviceAuthorization": "active enrolled device required",
+    "sessionLivenessDependency": false,
+    "upload": {
+      "method": "POST",
+      "path": "/api/me/semantic-receipts",
+      "authorization": "owner account and exact owner device",
+      "idempotencyKey": ["requesterUserId", "requestId"],
+      "conflictPolicy": "metadata mismatch conflicts; a metadata-identical retry may carry a newly randomized valid ML-DSA signature and retains the first stored envelope"
+    },
+    "list": {
+      "method": "GET",
+      "path": "/api/me/semantic-receipts",
+      "requiredQuery": [],
+      "optionalQuery": {"limit": "1..64", "cursor": "opaque keyset continuation"},
+      "responseFields": ["items", "nextCursor"],
+      "targetBinding": ["authenticatedRequesterUserId", "authenticatedDeviceId"],
+      "ordering": ["storedAt", "id"],
+      "continuationPolicy": "one bounded page per sync; reset to the first page after nextCursor is absent so unmatched durable receipts remain revisitable",
+      "unmatchedReceiptPolicy": "do not acknowledge or delete a receipt without an exact locally retained request; advance through the page to prevent retry starvation"
+    },
+    "acknowledge": {
+      "method": "POST",
+      "path": "/api/me/semantic-receipts/{requestId}/ack",
+      "targetBinding": ["sessionId", "incarnationId", "requestId", "authenticatedRequesterUserId", "authenticatedDeviceId"],
+      "signatureDomain": "SEMANTIC_RECEIPT_ACK_V1",
+      "mutationOrdering": "only after active-device authorization and requester signature verification"
+    },
+    "backendContentPolicy": "signed metadata and fingerprints only; never semantic plaintext or key material"
+  },
+  "roomMutations": {
+    "authentication": "required",
+    "requestId": "required canonical uuid-v7 stable across retries",
+    "receiptIdentity": ["authenticatedActorUserId", "operation", "requestId"],
+    "receiptSemantics": "lookup conflict detection domain mutation and terminal result persistence share one scoped DbContext transaction",
+    "receiptOutcomeSemantics": "a matching receipt proves a terminal outcome; operation-specific result values distinguish success from terminal failure",
+    "invitationLifecycleFailureResults": {
+      "Expired": "INVITATION_EXPIRED",
+      "Superseded": "INVITATION_SUPERSEDED"
+    },
+    "conflictPolicy": "same receipt identity with a different exact target fingerprint is rejected",
+    "conflictCode": "ROOM_MUTATION_TARGET_CONFLICT",
+    "operationKeySemantics": "operations object keys are target-fingerprint operation keys",
+    "operationTokenSemantics": "operationToken is used in mutation responses, receipt responses, and the reconciliation operation path segment",
+    "operations": {
+      "acceptInvitation": {
+        "operationToken": "acceptInvitation",
+        "method": "POST",
+        "path": "/api/rooms/invitations/{invitationId}/accept",
+        "requiredBody": ["requestId", "decisionBody", "decisionSignature", "decisionSignerDeviceId"],
+        "targetBinding": ["roomId", "invitationId", "baseRosterGeneration", "proposedRosterGeneration", "decisionBodySha256", "decisionSignatureSha256", "decisionSignerDeviceId"]
+      },
+      "declineInvitation": {
+        "operationToken": "declineInvitation",
+        "method": "POST",
+        "path": "/api/rooms/invitations/{invitationId}/decline",
+        "requiredBody": ["requestId", "decisionBody", "decisionSignature", "decisionSignerDeviceId"],
+        "targetBinding": ["roomId", "invitationId", "baseRosterGeneration", "decisionBodySha256", "decisionSignatureSha256", "decisionSignerDeviceId"]
+      },
+      "cancelInvitation": {
+        "operationToken": "cancelInvitation",
+        "method": "DELETE",
+        "path": "/api/rooms/invitations/{invitationId}",
+        "requiredBody": ["requestId"],
+        "targetBinding": ["roomId", "invitationId", "baseRosterGeneration"]
+      },
+      "removeMember": {
+        "operationToken": "removeMember",
+        "method": "DELETE",
+        "path": "/api/rooms/{roomId}/members/{userId}",
+        "requiredBody": ["requestId", "rosterGeneration", "rosterBody", "rosterSignature", "rosterSignerDeviceId"],
+        "targetBinding": ["roomId", "userId", "baseRosterGeneration", "rosterGeneration", "rosterBodySha256", "rosterSignatureSha256", "rosterSignerDeviceId"]
+      },
+      "assignTask": {
+        "operationToken": "tasks.assign",
+        "method": "POST",
+        "path": "/api/rooms/{roomId}/tasks/{taskId}/assign",
+        "requiredBody": ["requestId", "expectedTaskRevision", "sessionId", "sessionIncarnationId"],
+        "targetBinding": ["roomId", "taskId", "expectedTaskRevision", "sessionId", "sessionIncarnationId"]
+      },
+      "transitionTask": {
+        "operationToken": "tasks.transition",
+        "method": "POST",
+        "path": "/api/rooms/{roomId}/tasks/{taskId}/status",
+        "requiredBody": ["requestId", "expectedTaskRevision", "status", "actorSessionId", "actorSessionIncarnationId", "result"],
+        "targetBinding": ["roomId", "taskId", "expectedTaskRevision", "status", "actorSessionId", "actorSessionIncarnationId", "resultSha256"]
+      }
+    },
+    "responseFields": ["requestId", "operation", "roomId", "entityId", "result", "revision", "assigneeSessionId", "assigneeSessionIncarnationId"],
+    "reconciliation": {
+      "method": "GET",
+      "path": "/api/rooms/mutations/{operation}/{requestId}",
+      "authorization": "authenticatedActorOnlyByReceiptIdentity",
+      "responseFields": ["requestId", "operation", "roomId", "entityId", "result", "revision", "assigneeSessionId", "assigneeSessionIncarnationId", "targetFingerprint", "createdAt"],
+      "notFoundPolicy": ["otherActor", "missingRequest"],
+      "notFoundSemantics": "pointInTimeUnknown",
+      "notFoundTerminal": false,
+      "notFoundClientPolicy": "retain the exact prepared mutation and retry receipt lookup; never infer non-commit or resend from 404 alone"
+    },
+    "backendContentPolicy": "identifiers operation result revisions and SHA-256 target fingerprints only; never roster bodies decision proofs task ciphertext or plaintext"
+  }
+}

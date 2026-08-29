@@ -1,0 +1,22 @@
+default_job = "rust-check"
+
+[jobs.rust-check]
+command = ["just", "rust-check"]
+need_stdout = false
+
+[jobs.rust-clippy]
+command = ["just", "rust-clippy"]
+need_stdout = false
+
+[jobs.rust-test]
+command = ["just", "rust-test"]
+need_stdout = true
+
+[jobs.rust-coverage]
+command = ["just", "rust-coverage-lcov"]
+need_stdout = true
+
+[keybindings]
+c = "job:rust-check"
+l = "job:rust-clippy"
+t = "job:rust-test"

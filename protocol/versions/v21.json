@@ -1,0 +1,5616 @@
+{
+  "protocolVersion": 21,
+  "terminalCheckpointSchemaVersion": 2,
+  "terminalCheckpointRequiredFields": [
+    "schemaVersion",
+    "rows",
+    "cols",
+    "activeScreen",
+    "semanticCheckpoint",
+    "cursorX",
+    "cursorY",
+    "cursorHidden"
+  ],
+  "terminalCheckpointByteFields": [
+    "semanticCheckpoint"
+  ],
+  "terminalCheckpointMaxRawBytes": 8388608,
+  "terminalPresentationSchemaVersion": 2,
+  "terminalPresentationRequiredFields": [
+    "schemaVersion",
+    "rows",
+    "cols",
+    "activeScreen",
+    "plainLines",
+    "cursorX",
+    "cursorY",
+    "cursorHidden"
+  ],
+  "terminalPresentationByteFields": [],
+  "terminalActiveScreens": [
+    "primary",
+    "alternate"
+  ],
+  "terminalPresentationMaxSerializedBytes": 8388608,
+  "terminalControlMaxBytes": 8454144,
+  "terminalCloseRequiredFields": [
+    "type",
+    "reason",
+    "finalSequence"
+  ],
+  "terminalCloseSequenceSemantics": "exclusive boundary; every lower data sequence is delivered before close",
+  "terminalCommandTypes": [
+    "session.input",
+    "session.inputBytes",
+    "session.resize",
+    "session.focus",
+    "session.blur"
+  ],
+  "terminalEventTypes": [
+    "term.bell",
+    "term.title",
+    "term.focusApplied",
+    "term.focusRejected",
+    "term.resizeApplied",
+    "term.resizeRejected",
+    "term.notification"
+  ],
+  "systemCommandTypes": [
+    "shutdown",
+    "claude.global.refresh",
+    "system.setTheme",
+    "agent.intel.setSnapshotSubscription",
+    "agent.intel.querySnapshotSubscription",
+    "agent.intel.queryCostSummary",
+    "agent.intel.queryPendingPermissions",
+    "agent.intel.substitutePendingToolArgs",
+    "agent.intel.allowPendingPermissionRequest",
+    "agent.intel.denyPendingPermissionRequest",
+    "agent.intel.setPermissionTimeoutPolicy",
+    "agent.intel.setApprovalRouting",
+    "agent.intel.setClaudePermissionMode",
+    "agent.intel.semanticSend",
+    "agent.intel.cancelSteer",
+    "agent.intel.querySteer"
+  ],
+  "systemEventTypes": [
+    "heartbeat",
+    "error",
+    "runtime.health"
+  ],
+  "sessionCommandTypes": [
+    "session.create",
+    "session.rename",
+    "session.mode",
+    "session.stop",
+    "session.interrupt",
+    "session.delete",
+    "session.reopen",
+    "session.openRemote",
+    "session.hide",
+    "session.leave",
+    "session.unhide",
+    "session.listHidden",
+    "session.scope",
+    "session.grantAccess",
+    "session.revokeAccess",
+    "session.listAccess",
+    "session.accessMutationsRecover",
+    "session.accessMutationReconcile",
+    "session.accessMutationAck",
+    "session.list"
+  ],
+  "sessionEventTypes": [
+    "session.list",
+    "session.upsert",
+    "session.removed",
+    "session.opened",
+    "session.interrupted",
+    "session.hiddenList",
+    "room.list",
+    "action.result",
+    "session.scopeAccepted",
+    "session.scopeChanged",
+    "session.accessMutationAccepted",
+    "session.accessMutationResult",
+    "session.accessMutationRecovered",
+    "session.journalGap",
+    "session.error",
+    "session.accessGrants"
+  ],
+  "accountContextEventLanes": [
+    "session",
+    "agentIntel",
+    "friends",
+    "devices",
+    "trust",
+    "room"
+  ],
+  "accountContextEventAuthorities": [
+    "accountContext"
+  ],
+  "accountContextEventRequiredFields": [
+    "authority",
+    "accountEpoch",
+    "type"
+  ],
+  "accountContextEventOptionalFields": [
+    "accountUserId"
+  ],
+  "accountContextEventNullableFields": [
+    "accountUserId"
+  ],
+  "agentIntelCommandTypes": [
+    "agent.intel.readSettings",
+    "agent.intel.readPromptHistory",
+    "agent.intel.listClaudePlans",
+    "agent.intel.readJournal",
+    "agent.intel.tailJournal",
+    "agent.intel.readClaudePlan",
+    "agent.intel.listCopilotPlans",
+    "agent.intel.readCopilotPlan",
+    "agent.intel.listClaudeProjects",
+    "agent.intel.listProjectSessions",
+    "agent.intel.listProjectMemories",
+    "agent.intel.readProjectMemory",
+    "agent.intel.listClaudeMemory",
+    "agent.intel.readClaudeMemory",
+    "agent.intel.readSessionConversation",
+    "agent.intel.listCopilotRepositories",
+    "agent.intel.listCopilotRepoSessions",
+    "agent.intel.copyProjectMemory",
+    "agent.intel.scanInstructions",
+    "agent.intel.readVersion",
+    "agent.intel.resolveActiveSession",
+    "agent.intel.openSessionLog",
+    "agent.intel.getClaudeLaunchSchedule",
+    "agent.intel.listSubagentTranscripts",
+    "agent.intel.readSubagentTranscript",
+    "agent.intel.supervisionStatus",
+    "agent.intel.installSupervision",
+    "agent.intel.exportJournal",
+    "agent.intel.replayJournal",
+    "agent.intel.readClaudeAutoModeRules",
+    "agent.intel.writeClaudeAutoModeRules",
+    "agent.intel.listCustomAgents",
+    "agent.intel.readCustomAgent",
+    "agent.intel.listActiveCustomizations",
+    "agent.intel.writeClaudePlan",
+    "agent.intel.discoverExternalMcpServers",
+    "agent.intel.discoverExternalSessions",
+    "agent.intel.probeMcpServer"
+  ],
+  "agentIntelEventTypes": [
+    "agent.intel.snapshot",
+    "agent.intel.cleared",
+    "agent.intel.reply",
+    "agent.intel.error",
+    "agent.intel.pendingPermissionsSnapshot",
+    "agent.intel.pendingPermissionRequest",
+    "agent.intel.permissionResolved",
+    "agent.intel.remotePermissionDecisionState",
+    "agent.intel.permissionEscalated",
+    "agent.intel.toolBoundary",
+    "agent.intel.steerState",
+    "agent.intel.journal.appended"
+  ],
+  "snapshotSubscriptionModes": [
+    "full",
+    "summaryOnly",
+    "off"
+  ],
+  "agentGlobalEventTypes": [
+    "agent.global.claude.status",
+    "agent.global.copilot.status",
+    "agent.global.mcp.health"
+  ],
+  "authCommandTypes": [
+    "auth.login.start",
+    "auth.logout",
+    "auth.identity.reset",
+    "auth.refresh"
+  ],
+  "authEventTypes": [
+    "auth.ready",
+    "auth.required",
+    "auth.device_code",
+    "auth.finalizing",
+    "auth.notice",
+    "auth.identity_health",
+    "auth.error"
+  ],
+  "authReadyKeys": [
+    "type",
+    "userId",
+    "accountEpoch"
+  ],
+  "authRequirementReasons": [
+    "signedOut",
+    "expired"
+  ],
+  "friendsCommandTypes": [
+    "friends.refresh",
+    "friends.request.send",
+    "friends.request.accept",
+    "friends.request.cancel",
+    "friends.request.reject",
+    "friends.remove"
+  ],
+  "friendsEventTypes": [
+    "friends.snapshot",
+    "friends.error"
+  ],
+  "deviceCommandTypes": [
+    "devices.refresh",
+    "devices.revoke",
+    "devices.link.approve",
+    "devices.link.startSelf",
+    "devices.link.cancelSelf",
+    "devices.trust.reset"
+  ],
+  "deviceEventTypes": [
+    "devices.list",
+    "devices.link.snapshot",
+    "devices.link.requested",
+    "devices.link.resolved",
+    "devices.link.selfPending",
+    "devices.link.selfResolved",
+    "devices.trust.resetCompleted",
+    "devices.error"
+  ],
+  "deviceLinkOutcomes": [
+    "approved",
+    "cancelled"
+  ],
+  "selfDeviceLinkOutcomes": [
+    "approved",
+    "cancelled",
+    "expired",
+    "failed"
+  ],
+  "trustCommandTypes": [
+    "trust.refresh",
+    "trust.reset"
+  ],
+  "trustEventTypes": [
+    "trust.snapshot",
+    "trust.reset",
+    "trust.error"
+  ],
+  "roomCommandTypes": [
+    "room.refresh",
+    "room.create",
+    "room.removeMember",
+    "room.invite",
+    "room.acceptInvitation",
+    "room.declineInvitation",
+    "room.cancelInvitation",
+    "room.refreshMembers",
+    "room.refreshInvitations",
+    "room.mutations.recover",
+    "room.mutations.reconcile",
+    "room.chat.list",
+    "room.chat.post",
+    "room.tasks.list",
+    "room.tasks.create",
+    "room.tasks.transition",
+    "room.tasks.assign"
+  ],
+  "roomEventTypes": [
+    "room.snapshot",
+    "room.invitations",
+    "room.members",
+    "room.chat.snapshot",
+    "room.chat.posted",
+    "room.tasks.page",
+    "room.tasks.snapshot",
+    "room.tasks.upserted",
+    "room.mutation.recovered",
+    "room.action.accepted",
+    "room.action.result",
+    "room.error"
+  ],
+  "roomEventEnvelopeRequiredFields": [
+    "accountUserId",
+    "accountEpoch",
+    "type"
+  ],
+  "roomActionStatuses": [
+    "succeeded",
+    "failed",
+    "unknown",
+    "conflict"
+  ],
+  "roomChatEntryKeys": [
+    "id",
+    "roomId",
+    "authorUserId",
+    "authorSessionId",
+    "authorKind",
+    "body",
+    "recipientSessionIds",
+    "recipientUserIds",
+    "seq",
+    "postedAt"
+  ],
+  "runtimeSessionStatuses": [
+    "active",
+    "blocked",
+    "waiting",
+    "reconnecting",
+    "stopping",
+    "stopped"
+  ],
+  "sessionScopes": [
+    "justMe",
+    "myDevices",
+    "friends",
+    "room"
+  ],
+  "sessionAccessLevels": [
+    "view",
+    "suggest",
+    "inject",
+    "approve"
+  ],
+  "relayActionStatuses": [
+    "accepted",
+    "duplicate",
+    "busy",
+    "rejected"
+  ],
+  "journalGapRecoveries": [
+    "ownerBackfillRequired"
+  ],
+  "permissionResolutionVerdicts": [
+    "allowed",
+    "denied",
+    "substituted"
+  ],
+  "permissionResolutionSources": [
+    "user",
+    "timeout",
+    "teardown"
+  ],
+  "journalIdentityTrustVerdicts": [
+    "signatureValidSelfContained",
+    "identityPinned",
+    "identityMismatch",
+    "untrustedSigner",
+    "unsignedLocalIntegrity"
+  ],
+  "journalExportEnvelopeVerdicts": [
+    "signedV3"
+  ],
+  "journalVerificationFields": [
+    "status",
+    "identityTrust",
+    "signerUserId",
+    "signerDeviceId",
+    "deviceListGeneration"
+  ],
+  "journalVerificationStatuses": [
+    "verifiedCheckpoint",
+    "verifiedChain",
+    "signedUnverified",
+    "hashChained",
+    "unverified"
+  ],
+  "semanticSendModes": [
+    "queue",
+    "steer",
+    "stopAndSend"
+  ],
+  "steerTransitions": [
+    "queued",
+    "sending",
+    "injected",
+    "failed",
+    "cancelled",
+    "deliveryUnknown"
+  ],
+  "steerDeliveryStates": [
+    "preparing",
+    "queued",
+    "deliveryUnknown",
+    "injected",
+    "cancelled"
+  ],
+  "desktopPermissionBitPositions": {
+    "approve": 8,
+    "delete": 6,
+    "focusBlur": 3,
+    "rename": 5,
+    "resize": 2,
+    "sendInput": 1,
+    "setMode": 7,
+    "stop": 4,
+    "view": 0
+  },
+  "desktopPermissionRoleMasks": {
+    "approve": 257,
+    "inject": 15,
+    "owner": 511,
+    "suggest": 1,
+    "view": 1
+  },
+  "relayPermissionBitPositions": {
+    "approveDeny": 3,
+    "focus": 6,
+    "managePolicy": 8,
+    "resize": 5,
+    "sendInput": 2,
+    "stop": 7,
+    "substitute": 4,
+    "suggest": 1,
+    "view": 0
+  },
+  "relayPermissionRoleMasks": {
+    "approve": 25,
+    "inject": 71,
+    "owner": 511,
+    "suggest": 3,
+    "view": 1
+  },
+  "runtimeSessionModes": [
+    "normal",
+    "plan",
+    "autopilot"
+  ],
+  "remoteSessionConnectionStates": [
+    "connecting",
+    "connected",
+    "reconnecting",
+    "offline"
+  ],
+  "remoteSessionAccessStates": [
+    "registeringDevice",
+    "awaitingKey",
+    "recoveringJournal",
+    "ready",
+    "accessDenied",
+    "failed"
+  ],
+  "remoteSessionAccessIssues": [
+    "peerIdentityChanged",
+    "journalHistoryGap"
+  ],
+  "sessionListEntryMetaFields": [
+    "agent",
+    "workingDir",
+    "tokenPercent",
+    "gitRepo",
+    "gitUrl",
+    "gitBranch",
+    "gitRemotes",
+    "projectType",
+    "packageManager",
+    "manifestFiles",
+    "runningCommand",
+    "detectedAgent",
+    "terminalTitle"
+  ],
+  "localSessionEntryFields": [
+    "kind",
+    "id",
+    "incarnationId",
+    "createRequestId",
+    "name",
+    "project",
+    "mode",
+    "status",
+    "recovery",
+    "scope",
+    "access",
+    "roomId",
+    "roomName",
+    "activeCount",
+    "entitledCount",
+    "lastActivity",
+    "semanticActions",
+    "backendSessionId",
+    "meta"
+  ],
+  "remoteSessionEntryFields": [
+    "kind",
+    "id",
+    "incarnationId",
+    "name",
+    "project",
+    "mode",
+    "status",
+    "scope",
+    "access",
+    "owner",
+    "permissions",
+    "roomId",
+    "roomName",
+    "connectionState",
+    "connectionReason",
+    "accessState",
+    "accessReason",
+    "accessIssue",
+    "activeCount",
+    "entitledCount",
+    "lastActivity",
+    "semanticActions"
+  ],
+  "hiddenSessionEntryFields": [
+    "id",
+    "name",
+    "project",
+    "owner"
+  ],
+  "roomListEntryFields": [
+    "id",
+    "name",
+    "slug"
+  ],
+  "roomEntryFields": [
+    "id",
+    "name",
+    "slug",
+    "ownerUserId",
+    "rosterGeneration"
+  ],
+  "trustPinEntryFields": [
+    "userId",
+    "generation",
+    "signerDeviceId",
+    "deviceCount",
+    "pinnedAtMs"
+  ],
+  "friendEntryFields": [
+    "userId",
+    "handle",
+    "displayName",
+    "avatarUrl"
+  ],
+  "friendRequestEntryFields": [
+    "userId",
+    "handle",
+    "displayName",
+    "avatarUrl",
+    "createdAt"
+  ],
+  "myDeviceEntryFields": [
+    "deviceId",
+    "label",
+    "certSignerDeviceId",
+    "certIssuedAtMs"
+  ],
+  "messageShapes": {
+    "action.result": {
+      "nullableFields": [],
+      "object": {
+        "actionId": "string",
+        "sessionId": "string",
+        "status": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "actionId",
+        "sessionId",
+        "status",
+        "type"
+      ]
+    },
+    "agent.global.claude.status": {
+      "nullableFields": [
+        "generation"
+      ],
+      "object": {
+        "generation": "number",
+        "status": {
+          "nullableFields": [
+            "claudeCodeVersion",
+            "cwd",
+            "dailyStats",
+            "notices",
+            "policyLimits"
+          ],
+          "object": {
+            "autoModeRules": {
+              "array": [
+                "string"
+              ]
+            },
+            "claudeCodeVersion": "string",
+            "cwd": "string",
+            "dailyStats": {
+              "nullableFields": [
+                "lastComputedDate"
+              ],
+              "object": {
+                "lastComputedDate": "string",
+                "recent": {
+                  "array": [
+                    {
+                      "nullableFields": [],
+                      "object": {
+                        "date": "string",
+                        "messageCount": "number",
+                        "sessionCount": "number",
+                        "toolCallCount": "number"
+                      },
+                      "optionalFields": [],
+                      "requiredFields": [
+                        "date",
+                        "messageCount",
+                        "sessionCount",
+                        "toolCallCount"
+                      ]
+                    }
+                  ]
+                },
+                "totals": {
+                  "nullableFields": [],
+                  "object": {
+                    "days": "number",
+                    "messages": "number",
+                    "sessions": "number",
+                    "toolCalls": "number"
+                  },
+                  "optionalFields": [],
+                  "requiredFields": [
+                    "days",
+                    "messages",
+                    "sessions",
+                    "toolCalls"
+                  ]
+                }
+              },
+              "optionalFields": [
+                "lastComputedDate"
+              ],
+              "requiredFields": [
+                "recent",
+                "totals"
+              ]
+            },
+            "installedPlugins": {
+              "array": [
+                {
+                  "nullableFields": [
+                    "installedAt",
+                    "version"
+                  ],
+                  "object": {
+                    "id": "string",
+                    "installedAt": "string",
+                    "marketplace": "string",
+                    "scope": "string",
+                    "version": "string"
+                  },
+                  "optionalFields": [
+                    "installedAt",
+                    "version"
+                  ],
+                  "requiredFields": [
+                    "id",
+                    "marketplace",
+                    "scope"
+                  ]
+                }
+              ]
+            },
+            "loadedAgents": {
+              "array": [
+                {
+                  "nullableFields": [
+                    "description"
+                  ],
+                  "object": {
+                    "description": "string",
+                    "disallowedTools": {
+                      "array": [
+                        "string"
+                      ]
+                    },
+                    "name": "string",
+                    "source": "string"
+                  },
+                  "optionalFields": [
+                    "description"
+                  ],
+                  "requiredFields": [
+                    "disallowedTools",
+                    "name",
+                    "source"
+                  ]
+                }
+              ]
+            },
+            "loadedSkills": {
+              "array": [
+                {
+                  "nullableFields": [
+                    "description",
+                    "sourcePath"
+                  ],
+                  "object": {
+                    "description": "string",
+                    "name": "string",
+                    "source": "string",
+                    "sourcePath": "string",
+                    "userInvocable": "boolean"
+                  },
+                  "optionalFields": [
+                    "description",
+                    "sourcePath"
+                  ],
+                  "requiredFields": [
+                    "name",
+                    "source",
+                    "userInvocable"
+                  ]
+                }
+              ]
+            },
+            "mcpServers": {
+              "array": [
+                {
+                  "nullableFields": [
+                    "health",
+                    "transport"
+                  ],
+                  "object": {
+                    "enabled": "boolean",
+                    "health": {
+                      "discriminator": {
+                        "field": "kind",
+                        "value": "unknown"
+                      },
+                      "nullableFields": [],
+                      "object": {
+                        "kind": "string"
+                      },
+                      "optionalFields": [],
+                      "requiredFields": [
+                        "kind"
+                      ]
+                    },
+                    "name": "string",
+                    "scope": "string",
+                    "transport": "string"
+                  },
+                  "optionalFields": [
+                    "health",
+                    "transport"
+                  ],
+                  "requiredFields": [
+                    "enabled",
+                    "name",
+                    "scope"
+                  ]
+                },
+                {
+                  "nullableFields": [
+                    "health",
+                    "transport"
+                  ],
+                  "object": {
+                    "enabled": "boolean",
+                    "health": {
+                      "discriminator": {
+                        "field": "kind",
+                        "value": "healthy"
+                      },
+                      "nullableFields": [],
+                      "object": {
+                        "kind": "string"
+                      },
+                      "optionalFields": [],
+                      "requiredFields": [
+                        "kind"
+                      ]
+                    },
+                    "name": "string",
+                    "scope": "string",
+                    "transport": "string"
+                  },
+                  "optionalFields": [
+                    "health",
+                    "transport"
+                  ],
+                  "requiredFields": [
+                    "enabled",
+                    "name",
+                    "scope"
+                  ]
+                },
+                {
+                  "nullableFields": [
+                    "health",
+                    "transport"
+                  ],
+                  "object": {
+                    "enabled": "boolean",
+                    "health": {
+                      "discriminator": {
+                        "field": "kind",
+                        "value": "unreachable"
+                      },
+                      "nullableFields": [
+                        "reason"
+                      ],
+                      "object": {
+                        "kind": "string",
+                        "reason": "string"
+                      },
+                      "optionalFields": [
+                        "reason"
+                      ],
+                      "requiredFields": [
+                        "kind"
+                      ]
+                    },
+                    "name": "string",
+                    "scope": "string",
+                    "transport": "string"
+                  },
+                  "optionalFields": [
+                    "health",
+                    "transport"
+                  ],
+                  "requiredFields": [
+                    "enabled",
+                    "name",
+                    "scope"
+                  ]
+                },
+                {
+                  "nullableFields": [
+                    "health",
+                    "transport"
+                  ],
+                  "object": {
+                    "enabled": "boolean",
+                    "health": {
+                      "discriminator": {
+                        "field": "kind",
+                        "value": "misconfigured"
+                      },
+                      "nullableFields": [
+                        "reason"
+                      ],
+                      "object": {
+                        "kind": "string",
+                        "reason": "string"
+                      },
+                      "optionalFields": [
+                        "reason"
+                      ],
+                      "requiredFields": [
+                        "kind"
+                      ]
+                    },
+                    "name": "string",
+                    "scope": "string",
+                    "transport": "string"
+                  },
+                  "optionalFields": [
+                    "health",
+                    "transport"
+                  ],
+                  "requiredFields": [
+                    "enabled",
+                    "name",
+                    "scope"
+                  ]
+                }
+              ]
+            },
+            "notices": {
+              "array": [
+                {
+                  "discriminator": {
+                    "field": "kind",
+                    "value": "unknownClaudeSubtype"
+                  },
+                  "nullableFields": [],
+                  "object": {
+                    "kind": "string",
+                    "subtype": "string"
+                  },
+                  "optionalFields": [],
+                  "requiredFields": [
+                    "kind",
+                    "subtype"
+                  ]
+                },
+                {
+                  "discriminator": {
+                    "field": "kind",
+                    "value": "malformedSettings"
+                  },
+                  "nullableFields": [],
+                  "object": {
+                    "kind": "string",
+                    "message": "string",
+                    "path": "string",
+                    "vendor": "string"
+                  },
+                  "optionalFields": [],
+                  "requiredFields": [
+                    "kind",
+                    "message",
+                    "path",
+                    "vendor"
+                  ]
+                },
+                {
+                  "discriminator": {
+                    "field": "kind",
+                    "value": "agentParseFailed"
+                  },
+                  "nullableFields": [],
+                  "object": {
+                    "kind": "string",
+                    "message": "string",
+                    "path": "string",
+                    "vendor": "string"
+                  },
+                  "optionalFields": [],
+                  "requiredFields": [
+                    "kind",
+                    "message",
+                    "path",
+                    "vendor"
+                  ]
+                },
+                {
+                  "discriminator": {
+                    "field": "kind",
+                    "value": "unsupportedCopilotSessionStore"
+                  },
+                  "nullableFields": [
+                    "schemaVersion"
+                  ],
+                  "object": {
+                    "kind": "string",
+                    "schemaVersion": "number",
+                    "supportedVersions": {
+                      "array": [
+                        "number"
+                      ]
+                    }
+                  },
+                  "optionalFields": [
+                    "schemaVersion"
+                  ],
+                  "requiredFields": [
+                    "kind",
+                    "supportedVersions"
+                  ]
+                },
+                {
+                  "discriminator": {
+                    "field": "kind",
+                    "value": "copilotSessionStoreFailure"
+                  },
+                  "nullableFields": [],
+                  "object": {
+                    "failure": "string",
+                    "kind": "string",
+                    "message": "string"
+                  },
+                  "optionalFields": [],
+                  "requiredFields": [
+                    "failure",
+                    "kind",
+                    "message"
+                  ]
+                },
+                {
+                  "discriminator": {
+                    "field": "kind",
+                    "value": "malformedCopilotEvent"
+                  },
+                  "nullableFields": [],
+                  "object": {
+                    "kind": "string",
+                    "message": "string"
+                  },
+                  "optionalFields": [],
+                  "requiredFields": [
+                    "kind",
+                    "message"
+                  ]
+                },
+                {
+                  "discriminator": {
+                    "field": "kind",
+                    "value": "terminalFallback"
+                  },
+                  "nullableFields": [],
+                  "object": {
+                    "fields": {
+                      "array": [
+                        "string"
+                      ]
+                    },
+                    "kind": "string"
+                  },
+                  "optionalFields": [],
+                  "requiredFields": [
+                    "fields",
+                    "kind"
+                  ]
+                }
+              ]
+            },
+            "policyLimits": {
+              "nullableFields": [],
+              "object": {
+                "restrictions": {
+                  "array": [
+                    {
+                      "nullableFields": [],
+                      "object": {
+                        "allowed": "boolean",
+                        "key": "string"
+                      },
+                      "optionalFields": [],
+                      "requiredFields": [
+                        "allowed",
+                        "key"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "optionalFields": [],
+              "requiredFields": [
+                "restrictions"
+              ]
+            }
+          },
+          "optionalFields": [
+            "claudeCodeVersion",
+            "cwd",
+            "dailyStats",
+            "notices",
+            "policyLimits"
+          ],
+          "requiredFields": [
+            "autoModeRules",
+            "installedPlugins",
+            "loadedAgents",
+            "loadedSkills",
+            "mcpServers"
+          ]
+        },
+        "type": "string"
+      },
+      "optionalFields": [
+        "generation"
+      ],
+      "requiredFields": [
+        "status",
+        "type"
+      ]
+    },
+    "agent.global.copilot.status": {
+      "nullableFields": [
+        "generation"
+      ],
+      "object": {
+        "generation": "number",
+        "status": {
+          "nullableFields": [
+            "copilotCliVersion",
+            "cwd",
+            "notices"
+          ],
+          "object": {
+            "copilotCliVersion": "string",
+            "cwd": "string",
+            "installedPlugins": {
+              "array": [
+                {
+                  "nullableFields": [
+                    "source",
+                    "version"
+                  ],
+                  "object": {
+                    "name": "string",
+                    "source": "string",
+                    "version": "string"
+                  },
+                  "optionalFields": [
+                    "source",
+                    "version"
+                  ],
+                  "requiredFields": [
+                    "name"
+                  ]
+                }
+              ]
+            },
+            "loadedAgents": {
+              "array": [
+                {
+                  "nullableFields": [
+                    "description"
+                  ],
+                  "object": {
+                    "description": "string",
+                    "name": "string",
+                    "scope": "string",
+                    "tools": {
+                      "array": [
+                        "string"
+                      ]
+                    }
+                  },
+                  "optionalFields": [
+                    "description"
+                  ],
+                  "requiredFields": [
+                    "name",
+                    "scope",
+                    "tools"
+                  ]
+                }
+              ]
+            },
+            "loadedSkills": {
+              "array": [
+                {
+                  "nullableFields": [
+                    "description"
+                  ],
+                  "object": {
+                    "description": "string",
+                    "name": "string",
+                    "scope": "string"
+                  },
+                  "optionalFields": [
+                    "description"
+                  ],
+                  "requiredFields": [
+                    "name",
+                    "scope"
+                  ]
+                }
+              ]
+            },
+            "mcpServers": {
+              "array": [
+                {
+                  "nullableFields": [
+                    "command",
+                    "health"
+                  ],
+                  "object": {
+                    "command": "string",
+                    "health": {
+                      "discriminator": {
+                        "field": "kind",
+                        "value": "unknown"
+                      },
+                      "nullableFields": [],
+                      "object": {
+                        "kind": "string"
+                      },
+                      "optionalFields": [],
+                      "requiredFields": [
+                        "kind"
+                      ]
+                    },
+                    "name": "string",
+                    "scope": "string"
+                  },
+                  "optionalFields": [
+                    "command",
+                    "health"
+                  ],
+                  "requiredFields": [
+                    "name",
+                    "scope"
+                  ]
+                },
+                {
+                  "nullableFields": [
+                    "command",
+                    "health"
+                  ],
+                  "object": {
+                    "command": "string",
+                    "health": {
+                      "discriminator": {
+                        "field": "kind",
+                        "value": "healthy"
+                      },
+                      "nullableFields": [],
+                      "object": {
+                        "kind": "string"
+                      },
+                      "optionalFields": [],
+                      "requiredFields": [
+                        "kind"
+                      ]
+                    },
+                    "name": "string",
+                    "scope": "string"
+                  },
+                  "optionalFields": [
+                    "command",
+                    "health"
+                  ],
+                  "requiredFields": [
+                    "name",
+                    "scope"
+                  ]
+                },
+                {
+                  "nullableFields": [
+                    "command",
+                    "health"
+                  ],
+                  "object": {
+                    "command": "string",
+                    "health": {
+                      "discriminator": {
+                        "field": "kind",
+                        "value": "unreachable"
+                      },
+                      "nullableFields": [
+                        "reason"
+                      ],
+                      "object": {
+                        "kind": "string",
+                        "reason": "string"
+                      },
+                      "optionalFields": [
+                        "reason"
+                      ],
+                      "requiredFields": [
+                        "kind"
+                      ]
+                    },
+                    "name": "string",
+                    "scope": "string"
+                  },
+                  "optionalFields": [
+                    "command",
+                    "health"
+                  ],
+                  "requiredFields": [
+                    "name",
+                    "scope"
+                  ]
+                },
+                {
+                  "nullableFields": [
+                    "command",
+                    "health"
+                  ],
+                  "object": {
+                    "command": "string",
+                    "health": {
+                      "discriminator": {
+                        "field": "kind",
+                        "value": "misconfigured"
+                      },
+                      "nullableFields": [
+                        "reason"
+                      ],
+                      "object": {
+                        "kind": "string",
+                        "reason": "string"
+                      },
+                      "optionalFields": [
+                        "reason"
+                      ],
+                      "requiredFields": [
+                        "kind"
+                      ]
+                    },
+                    "name": "string",
+                    "scope": "string"
+                  },
+                  "optionalFields": [
+                    "command",
+                    "health"
+                  ],
+                  "requiredFields": [
+                    "name",
+                    "scope"
+                  ]
+                }
+              ]
+            },
+            "notices": {
+              "array": [
+                {
+                  "discriminator": {
+                    "field": "kind",
+                    "value": "unknownClaudeSubtype"
+                  },
+                  "nullableFields": [],
+                  "object": {
+                    "kind": "string",
+                    "subtype": "string"
+                  },
+                  "optionalFields": [],
+                  "requiredFields": [
+                    "kind",
+                    "subtype"
+                  ]
+                },
+                {
+                  "discriminator": {
+                    "field": "kind",
+                    "value": "malformedSettings"
+                  },
+                  "nullableFields": [],
+                  "object": {
+                    "kind": "string",
+                    "message": "string",
+                    "path": "string",
+                    "vendor": "string"
+                  },
+                  "optionalFields": [],
+                  "requiredFields": [
+                    "kind",
+                    "message",
+                    "path",
+                    "vendor"
+                  ]
+                },
+                {
+                  "discriminator": {
+                    "field": "kind",
+                    "value": "agentParseFailed"
+                  },
+                  "nullableFields": [],
+                  "object": {
+                    "kind": "string",
+                    "message": "string",
+                    "path": "string",
+                    "vendor": "string"
+                  },
+                  "optionalFields": [],
+                  "requiredFields": [
+                    "kind",
+                    "message",
+                    "path",
+                    "vendor"
+                  ]
+                },
+                {
+                  "discriminator": {
+                    "field": "kind",
+                    "value": "unsupportedCopilotSessionStore"
+                  },
+                  "nullableFields": [
+                    "schemaVersion"
+                  ],
+                  "object": {
+                    "kind": "string",
+                    "schemaVersion": "number",
+                    "supportedVersions": {
+                      "array": [
+                        "number"
+                      ]
+                    }
+                  },
+                  "optionalFields": [
+                    "schemaVersion"
+                  ],
+                  "requiredFields": [
+                    "kind",
+                    "supportedVersions"
+                  ]
+                },
+                {
+                  "discriminator": {
+                    "field": "kind",
+                    "value": "copilotSessionStoreFailure"
+                  },
+                  "nullableFields": [],
+                  "object": {
+                    "failure": "string",
+                    "kind": "string",
+                    "message": "string"
+                  },
+                  "optionalFields": [],
+                  "requiredFields": [
+                    "failure",
+                    "kind",
+                    "message"
+                  ]
+                },
+                {
+                  "discriminator": {
+                    "field": "kind",
+                    "value": "malformedCopilotEvent"
+                  },
+                  "nullableFields": [],
+                  "object": {
+                    "kind": "string",
+                    "message": "string"
+                  },
+                  "optionalFields": [],
+                  "requiredFields": [
+                    "kind",
+                    "message"
+                  ]
+                },
+                {
+                  "discriminator": {
+                    "field": "kind",
+                    "value": "terminalFallback"
+                  },
+                  "nullableFields": [],
+                  "object": {
+                    "fields": {
+                      "array": [
+                        "string"
+                      ]
+                    },
+                    "kind": "string"
+                  },
+                  "optionalFields": [],
+                  "requiredFields": [
+                    "fields",
+                    "kind"
+                  ]
+                }
+              ]
+            }
+          },
+          "optionalFields": [
+            "copilotCliVersion",
+            "cwd",
+            "notices"
+          ],
+          "requiredFields": [
+            "installedPlugins",
+            "loadedAgents",
+            "loadedSkills",
+            "mcpServers"
+          ]
+        },
+        "type": "string"
+      },
+      "optionalFields": [
+        "generation"
+      ],
+      "requiredFields": [
+        "status",
+        "type"
+      ]
+    },
+    "agent.global.mcp.health": {
+      "nullableFields": [],
+      "object": {
+        "health": {
+          "nullableFields": [
+            "reason"
+          ],
+          "object": {
+            "kind": "string",
+            "reason": "string"
+          },
+          "optionalFields": [
+            "reason"
+          ],
+          "requiredFields": [
+            "kind"
+          ],
+          "union": [
+            {
+              "discriminator": {
+                "field": "kind",
+                "value": "unknown"
+              },
+              "nullableFields": [],
+              "object": {
+                "kind": "string"
+              },
+              "optionalFields": [],
+              "requiredFields": [
+                "kind"
+              ]
+            },
+            {
+              "discriminator": {
+                "field": "kind",
+                "value": "healthy"
+              },
+              "nullableFields": [],
+              "object": {
+                "kind": "string"
+              },
+              "optionalFields": [],
+              "requiredFields": [
+                "kind"
+              ]
+            },
+            {
+              "discriminator": {
+                "field": "kind",
+                "value": "unreachable"
+              },
+              "nullableFields": [
+                "reason"
+              ],
+              "object": {
+                "kind": "string",
+                "reason": "string"
+              },
+              "optionalFields": [
+                "reason"
+              ],
+              "requiredFields": [
+                "kind"
+              ]
+            },
+            {
+              "discriminator": {
+                "field": "kind",
+                "value": "misconfigured"
+              },
+              "nullableFields": [
+                "reason"
+              ],
+              "object": {
+                "kind": "string",
+                "reason": "string"
+              },
+              "optionalFields": [
+                "reason"
+              ],
+              "requiredFields": [
+                "kind"
+              ]
+            }
+          ]
+        },
+        "scope": "string",
+        "serverName": "string",
+        "type": "string",
+        "vendor": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "health",
+        "scope",
+        "serverName",
+        "type",
+        "vendor"
+      ]
+    },
+    "agent.intel.allowPendingPermissionRequest": {
+      "nullableFields": [],
+      "object": {
+        "requestGeneration": "number",
+        "sessionId": "string",
+        "sessionIncarnationId": "string",
+        "toolUseId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestGeneration",
+        "sessionId",
+        "sessionIncarnationId",
+        "toolUseId",
+        "type"
+      ]
+    },
+    "agent.intel.cancelSteer": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "sessionId": "string",
+        "steerId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "sessionId",
+        "steerId",
+        "type"
+      ]
+    },
+    "agent.intel.cleared": {
+      "nullableFields": [],
+      "object": {
+        "sessionId": "string",
+        "sessionIncarnationId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "sessionId",
+        "sessionIncarnationId",
+        "type"
+      ]
+    },
+    "agent.intel.copyProjectMemory": {
+      "nullableFields": [],
+      "object": {
+        "filename": "string",
+        "requestId": "string",
+        "sourceSlug": "string",
+        "targetSlug": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "filename",
+        "requestId",
+        "sourceSlug",
+        "targetSlug",
+        "type"
+      ]
+    },
+    "agent.intel.denyPendingPermissionRequest": {
+      "nullableFields": [
+        "reason"
+      ],
+      "object": {
+        "reason": "string",
+        "requestGeneration": "number",
+        "sessionId": "string",
+        "sessionIncarnationId": "string",
+        "toolUseId": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "reason"
+      ],
+      "requiredFields": [
+        "requestGeneration",
+        "sessionId",
+        "sessionIncarnationId",
+        "toolUseId",
+        "type"
+      ]
+    },
+    "agent.intel.discoverExternalMcpServers": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.discoverExternalSessions": {
+      "nullableFields": [
+        "agent"
+      ],
+      "object": {
+        "agent": "string",
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "agent"
+      ],
+      "requiredFields": [
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.error": {
+      "nullableFields": [],
+      "object": {
+        "message": "string",
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "message",
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.exportJournal": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "agent.intel.getClaudeLaunchSchedule": {
+      "nullableFields": [],
+      "object": {
+        "count": "number",
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "count",
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.installSupervision": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.journal.appended": {
+      "nullableFields": [],
+      "object": {
+        "record": {
+          "nullableFields": [],
+          "object": {
+            "seq": "number"
+          },
+          "optionalFields": [],
+          "requiredFields": [
+            "seq"
+          ]
+        },
+        "seq": "number",
+        "sessionId": "string",
+        "sessionIncarnationId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "record",
+        "seq",
+        "sessionId",
+        "sessionIncarnationId",
+        "type"
+      ]
+    },
+    "agent.intel.listActiveCustomizations": {
+      "nullableFields": [],
+      "object": {
+        "agent": "string",
+        "cwd": "string",
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "agent",
+        "cwd",
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.listClaudeMemory": {
+      "nullableFields": [],
+      "object": {
+        "cwd": "string",
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "cwd",
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.listClaudePlans": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.listClaudeProjects": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.listCopilotPlans": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.listCopilotRepoSessions": {
+      "nullableFields": [],
+      "object": {
+        "repository": "string",
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "repository",
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.listCopilotRepositories": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.listCustomAgents": {
+      "nullableFields": [],
+      "object": {
+        "directory": "string",
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "directory",
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.listProjectMemories": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "slug": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "slug",
+        "type"
+      ]
+    },
+    "agent.intel.listProjectSessions": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "slug": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "slug",
+        "type"
+      ]
+    },
+    "agent.intel.listSubagentTranscripts": {
+      "nullableFields": [],
+      "object": {
+        "cwd": "string",
+        "requestId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "cwd",
+        "requestId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "agent.intel.openSessionLog": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "agent.intel.pendingPermissionRequest": {
+      "nullableFields": [],
+      "object": {
+        "deadlineAtMs": "number",
+        "risk": "string",
+        "sessionId": "string",
+        "sessionIncarnationId": "string",
+        "timeoutPolicy": "string",
+        "toolInput": {
+          "nullableFields": [],
+          "object": {
+            "command": "string"
+          },
+          "optionalFields": [],
+          "requiredFields": [
+            "command"
+          ]
+        },
+        "toolName": "string",
+        "toolUseId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "deadlineAtMs",
+        "risk",
+        "sessionId",
+        "sessionIncarnationId",
+        "timeoutPolicy",
+        "toolInput",
+        "toolName",
+        "toolUseId",
+        "type"
+      ]
+    },
+    "agent.intel.pendingPermissionsSnapshot": {
+      "nullableFields": [],
+      "object": {
+        "generation": "number",
+        "requests": {
+          "array": [
+            {
+              "nullableFields": [],
+              "object": {
+                "canSubstitute": "boolean",
+                "createdAtMs": "number",
+                "deadlineAtMs": "number",
+                "decisionPhase": "string",
+                "requestGeneration": "number",
+                "risk": "string",
+                "routedTo": {
+                  "array": [
+                    "string"
+                  ]
+                },
+                "sessionId": "string",
+                "sessionIncarnationId": "string",
+                "timeoutPolicy": "string",
+                "toolInput": {
+                  "nullableFields": [],
+                  "object": {
+                    "command": "string"
+                  },
+                  "optionalFields": [],
+                  "requiredFields": [
+                    "command"
+                  ]
+                },
+                "toolName": "string",
+                "toolUseId": "string"
+              },
+              "optionalFields": [],
+              "requiredFields": [
+                "canSubstitute",
+                "createdAtMs",
+                "deadlineAtMs",
+                "decisionPhase",
+                "requestGeneration",
+                "risk",
+                "routedTo",
+                "sessionId",
+                "sessionIncarnationId",
+                "timeoutPolicy",
+                "toolInput",
+                "toolName",
+                "toolUseId"
+              ]
+            }
+          ]
+        },
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "generation",
+        "requests",
+        "type"
+      ]
+    },
+    "agent.intel.permissionEscalated": {
+      "nullableFields": [],
+      "object": {
+        "deadlineAtMs": "number",
+        "routedTo": {
+          "array": [
+            "string"
+          ]
+        },
+        "sessionId": "string",
+        "sessionIncarnationId": "string",
+        "toolUseId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "deadlineAtMs",
+        "routedTo",
+        "sessionId",
+        "sessionIncarnationId",
+        "toolUseId",
+        "type"
+      ]
+    },
+    "agent.intel.permissionResolved": {
+      "nullableFields": [
+        "actorDeviceLabel",
+        "actorHandle"
+      ],
+      "object": {
+        "actorDeviceLabel": "string",
+        "actorHandle": "string",
+        "sessionId": "string",
+        "sessionIncarnationId": "string",
+        "source": "string",
+        "toolUseId": "string",
+        "type": "string",
+        "verdict": "string"
+      },
+      "optionalFields": [
+        "actorDeviceLabel",
+        "actorHandle"
+      ],
+      "requiredFields": [
+        "sessionId",
+        "sessionIncarnationId",
+        "source",
+        "toolUseId",
+        "type",
+        "verdict"
+      ]
+    },
+    "agent.intel.probeMcpServer": {
+      "nullableFields": [
+        "command",
+        "url"
+      ],
+      "object": {
+        "command": "string",
+        "name": "string",
+        "requestId": "string",
+        "type": "string",
+        "url": "string"
+      },
+      "optionalFields": [
+        "command",
+        "url"
+      ],
+      "requiredFields": [
+        "name",
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.queryCostSummary": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "type": "string",
+        "window": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "type",
+        "window"
+      ]
+    },
+    "agent.intel.queryPendingPermissions": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.querySnapshotSubscription": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "agent.intel.querySteer": {
+      "nullableFields": [
+        "semanticRequestId"
+      ],
+      "object": {
+        "requestId": "string",
+        "semanticRequestId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "semanticRequestId"
+      ],
+      "requiredFields": [
+        "requestId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "agent.intel.readClaudeAutoModeRules": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.readClaudeMemory": {
+      "nullableFields": [],
+      "object": {
+        "cwd": "string",
+        "filename": "string",
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "cwd",
+        "filename",
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.readClaudePlan": {
+      "nullableFields": [],
+      "object": {
+        "id": "string",
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "id",
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.readCopilotPlan": {
+      "nullableFields": [],
+      "object": {
+        "id": "string",
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "id",
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.readCustomAgent": {
+      "nullableFields": [],
+      "object": {
+        "path": "string",
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "path",
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.readJournal": {
+      "nullableFields": [
+        "beforeSeq",
+        "limit"
+      ],
+      "object": {
+        "beforeSeq": "number",
+        "limit": "number",
+        "requestId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "beforeSeq",
+        "limit"
+      ],
+      "requiredFields": [
+        "requestId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "agent.intel.readProjectMemory": {
+      "nullableFields": [],
+      "object": {
+        "filename": "string",
+        "requestId": "string",
+        "slug": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "filename",
+        "requestId",
+        "slug",
+        "type"
+      ]
+    },
+    "agent.intel.readPromptHistory": {
+      "nullableFields": [
+        "limit"
+      ],
+      "object": {
+        "agent": "string",
+        "limit": "number",
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "limit"
+      ],
+      "requiredFields": [
+        "agent",
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.readSessionConversation": {
+      "nullableFields": [],
+      "object": {
+        "agent": "string",
+        "cwd": "string",
+        "requestId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "agent",
+        "cwd",
+        "requestId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "agent.intel.readSettings": {
+      "nullableFields": [
+        "cwd"
+      ],
+      "object": {
+        "agent": "string",
+        "cwd": "string",
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "cwd"
+      ],
+      "requiredFields": [
+        "agent",
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.readSubagentTranscript": {
+      "nullableFields": [],
+      "object": {
+        "agent": "string",
+        "path": "string",
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "agent",
+        "path",
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.readVersion": {
+      "nullableFields": [],
+      "object": {
+        "agent": "string",
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "agent",
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.remotePermissionDecisionState": {
+      "nullableFields": [
+        "message",
+        "status"
+      ],
+      "object": {
+        "message": "string",
+        "phase": "string",
+        "requestGeneration": "number",
+        "sessionId": "string",
+        "sessionIncarnationId": "string",
+        "status": "string",
+        "toolUseId": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "message",
+        "status"
+      ],
+      "requiredFields": [
+        "phase",
+        "requestGeneration",
+        "sessionId",
+        "sessionIncarnationId",
+        "toolUseId",
+        "type"
+      ]
+    },
+    "agent.intel.replayJournal": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "agent.intel.reply": {
+      "nullableFields": [],
+      "object": {
+        "payload": "null",
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "payload",
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.resolveActiveSession": {
+      "nullableFields": [],
+      "object": {
+        "cwd": "string",
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "cwd",
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.scanInstructions": {
+      "nullableFields": [],
+      "object": {
+        "agent": "string",
+        "cwd": "string",
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "agent",
+        "cwd",
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.semanticSend": {
+      "nullableFields": [],
+      "object": {
+        "incarnationId": "string",
+        "mode": "string",
+        "requestId": "string",
+        "sessionId": "string",
+        "text": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "incarnationId",
+        "mode",
+        "requestId",
+        "sessionId",
+        "text",
+        "type"
+      ]
+    },
+    "agent.intel.setApprovalRouting": {
+      "nullableFields": [
+        "escalateAfterSecs"
+      ],
+      "object": {
+        "approvers": {
+          "array": [
+            "string"
+          ]
+        },
+        "escalateAfterSecs": "number",
+        "fallback": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "escalateAfterSecs"
+      ],
+      "requiredFields": [
+        "approvers",
+        "fallback",
+        "sessionId",
+        "type"
+      ]
+    },
+    "agent.intel.setClaudePermissionMode": {
+      "nullableFields": [
+        "currentMode",
+        "cwd",
+        "incarnationId",
+        "sessionId"
+      ],
+      "object": {
+        "currentMode": "string",
+        "cwd": "string",
+        "incarnationId": "string",
+        "mode": "string",
+        "requestId": "string",
+        "scope": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "currentMode",
+        "cwd",
+        "incarnationId",
+        "sessionId"
+      ],
+      "requiredFields": [
+        "mode",
+        "requestId",
+        "scope",
+        "type"
+      ]
+    },
+    "agent.intel.setPermissionTimeoutPolicy": {
+      "nullableFields": [
+        "sessionId",
+        "timeoutSecs"
+      ],
+      "object": {
+        "policy": "string",
+        "sessionId": "string",
+        "timeoutSecs": "number",
+        "type": "string"
+      },
+      "optionalFields": [
+        "sessionId",
+        "timeoutSecs"
+      ],
+      "requiredFields": [
+        "policy",
+        "type"
+      ]
+    },
+    "agent.intel.setSnapshotSubscription": {
+      "nullableFields": [],
+      "object": {
+        "mode": "string",
+        "requestId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "mode",
+        "requestId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "agent.intel.snapshot": {
+      "nullableFields": [],
+      "object": {
+        "payload": "null",
+        "sessionId": "string",
+        "sessionIncarnationId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "payload",
+        "sessionId",
+        "sessionIncarnationId",
+        "type"
+      ]
+    },
+    "agent.intel.steerState": {
+      "nullableFields": [
+        "message"
+      ],
+      "object": {
+        "entry": {
+          "nullableFields": [
+            "atToolUseId"
+          ],
+          "object": {
+            "accountUserId": "string",
+            "atToolUseId": "string",
+            "deliveryState": "string",
+            "mode": "string",
+            "queuedAtMs": "number",
+            "requestId": "string",
+            "sessionId": "string",
+            "sessionIncarnationId": "string",
+            "steerId": "string",
+            "text": "string"
+          },
+          "optionalFields": [
+            "atToolUseId"
+          ],
+          "requiredFields": [
+            "accountUserId",
+            "deliveryState",
+            "mode",
+            "queuedAtMs",
+            "requestId",
+            "sessionId",
+            "sessionIncarnationId",
+            "steerId",
+            "text"
+          ]
+        },
+        "message": "string",
+        "transition": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "message"
+      ],
+      "requiredFields": [
+        "entry",
+        "transition",
+        "type"
+      ]
+    },
+    "agent.intel.substitutePendingToolArgs": {
+      "nullableFields": [],
+      "object": {
+        "newArgs": {
+          "nullableFields": [],
+          "object": {
+            "command": "string"
+          },
+          "optionalFields": [],
+          "requiredFields": [
+            "command"
+          ]
+        },
+        "requestGeneration": "number",
+        "sessionId": "string",
+        "sessionIncarnationId": "string",
+        "toolUseId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "newArgs",
+        "requestGeneration",
+        "sessionId",
+        "sessionIncarnationId",
+        "toolUseId",
+        "type"
+      ]
+    },
+    "agent.intel.supervisionStatus": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "type"
+      ]
+    },
+    "agent.intel.tailJournal": {
+      "nullableFields": [],
+      "object": {
+        "fromSeq": "number",
+        "requestId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "fromSeq",
+        "requestId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "agent.intel.toolBoundary": {
+      "nullableFields": [
+        "toolUseId"
+      ],
+      "object": {
+        "sessionId": "string",
+        "sessionIncarnationId": "string",
+        "toolName": "string",
+        "toolUseId": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "toolUseId"
+      ],
+      "requiredFields": [
+        "sessionId",
+        "sessionIncarnationId",
+        "toolName",
+        "type"
+      ]
+    },
+    "agent.intel.writeClaudeAutoModeRules": {
+      "nullableFields": [],
+      "object": {
+        "allow": {
+          "array": [
+            "string"
+          ]
+        },
+        "environment": {
+          "array": [
+            "string"
+          ]
+        },
+        "hardDeny": {
+          "array": [
+            "string"
+          ]
+        },
+        "requestId": "string",
+        "softDeny": {
+          "array": [
+            "string"
+          ]
+        },
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "allow",
+        "environment",
+        "hardDeny",
+        "requestId",
+        "softDeny",
+        "type"
+      ]
+    },
+    "agent.intel.writeClaudePlan": {
+      "nullableFields": [],
+      "object": {
+        "body": "string",
+        "id": "string",
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "body",
+        "id",
+        "requestId",
+        "type"
+      ]
+    },
+    "auth.device_code": {
+      "nullableFields": [],
+      "object": {
+        "type": "string",
+        "userCode": "string",
+        "verificationUri": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type",
+        "userCode",
+        "verificationUri"
+      ]
+    },
+    "auth.error": {
+      "nullableFields": [],
+      "object": {
+        "message": "string",
+        "operation": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "message",
+        "operation",
+        "type"
+      ]
+    },
+    "auth.finalizing": {
+      "nullableFields": [],
+      "object": {
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type"
+      ]
+    },
+    "auth.identity.reset": {
+      "nullableFields": [],
+      "object": {
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type"
+      ]
+    },
+    "auth.identity_health": {
+      "nullableFields": [
+        "message"
+      ],
+      "object": {
+        "message": "string",
+        "state": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "message"
+      ],
+      "requiredFields": [
+        "state",
+        "type"
+      ]
+    },
+    "auth.login.start": {
+      "nullableFields": [],
+      "object": {
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type"
+      ]
+    },
+    "auth.logout": {
+      "nullableFields": [],
+      "object": {
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type"
+      ]
+    },
+    "auth.notice": {
+      "nullableFields": [
+        "message"
+      ],
+      "object": {
+        "message": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "message"
+      ],
+      "requiredFields": [
+        "type"
+      ]
+    },
+    "auth.ready": {
+      "nullableFields": [
+        "userId"
+      ],
+      "object": {
+        "accountEpoch": "number",
+        "type": "string",
+        "userId": "string"
+      },
+      "optionalFields": [
+        "userId"
+      ],
+      "requiredFields": [
+        "accountEpoch",
+        "type"
+      ]
+    },
+    "auth.refresh": {
+      "nullableFields": [],
+      "object": {
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type"
+      ]
+    },
+    "auth.required": {
+      "nullableFields": [],
+      "object": {
+        "accountEpoch": "number",
+        "reason": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "accountEpoch",
+        "reason",
+        "type"
+      ]
+    },
+    "claude.global.refresh": {
+      "nullableFields": [
+        "cwd",
+        "generation"
+      ],
+      "object": {
+        "cwd": "string",
+        "generation": "number",
+        "type": "string"
+      },
+      "optionalFields": [
+        "cwd",
+        "generation"
+      ],
+      "requiredFields": [
+        "type"
+      ]
+    },
+    "devices.error": {
+      "nullableFields": [
+        "userCode"
+      ],
+      "object": {
+        "message": "string",
+        "operation": "string",
+        "type": "string",
+        "userCode": "string"
+      },
+      "optionalFields": [
+        "userCode"
+      ],
+      "requiredFields": [
+        "message",
+        "operation",
+        "type"
+      ]
+    },
+    "devices.link.approve": {
+      "nullableFields": [],
+      "object": {
+        "type": "string",
+        "userCode": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type",
+        "userCode"
+      ]
+    },
+    "devices.link.cancelSelf": {
+      "nullableFields": [],
+      "object": {
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type"
+      ]
+    },
+    "devices.link.requested": {
+      "nullableFields": [],
+      "object": {
+        "deviceLabel": "string",
+        "expiresAt": "string",
+        "type": "string",
+        "userCode": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "deviceLabel",
+        "expiresAt",
+        "type",
+        "userCode"
+      ]
+    },
+    "devices.link.resolved": {
+      "nullableFields": [],
+      "object": {
+        "outcome": "string",
+        "type": "string",
+        "userCode": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "outcome",
+        "type",
+        "userCode"
+      ]
+    },
+    "devices.link.selfPending": {
+      "nullableFields": [],
+      "object": {
+        "expiresAt": "string",
+        "type": "string",
+        "userCode": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "expiresAt",
+        "type",
+        "userCode"
+      ]
+    },
+    "devices.link.selfResolved": {
+      "nullableFields": [],
+      "object": {
+        "outcome": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "outcome",
+        "type"
+      ]
+    },
+    "devices.link.snapshot": {
+      "nullableFields": [],
+      "object": {
+        "requests": {
+          "array": [
+            {
+              "nullableFields": [],
+              "object": {
+                "deviceLabel": "string",
+                "expiresAt": "string",
+                "userCode": "string"
+              },
+              "optionalFields": [],
+              "requiredFields": [
+                "deviceLabel",
+                "expiresAt",
+                "userCode"
+              ]
+            }
+          ]
+        },
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requests",
+        "type"
+      ]
+    },
+    "devices.link.startSelf": {
+      "nullableFields": [],
+      "object": {
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type"
+      ]
+    },
+    "devices.list": {
+      "nullableFields": [],
+      "object": {
+        "devices": {
+          "array": [
+            {
+              "nullableFields": [],
+              "object": {
+                "certIssuedAtMs": "number",
+                "certSignerDeviceId": "string",
+                "deviceId": "string",
+                "label": "string"
+              },
+              "optionalFields": [],
+              "requiredFields": [
+                "certIssuedAtMs",
+                "certSignerDeviceId",
+                "deviceId",
+                "label"
+              ]
+            }
+          ]
+        },
+        "localDeviceEnrolled": "boolean",
+        "selfDeviceId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "devices",
+        "localDeviceEnrolled",
+        "selfDeviceId",
+        "type"
+      ]
+    },
+    "devices.refresh": {
+      "nullableFields": [],
+      "object": {
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type"
+      ]
+    },
+    "devices.revoke": {
+      "nullableFields": [],
+      "object": {
+        "deviceId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "deviceId",
+        "type"
+      ]
+    },
+    "devices.trust.reset": {
+      "nullableFields": [],
+      "object": {
+        "targetUserId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "targetUserId",
+        "type"
+      ]
+    },
+    "devices.trust.resetCompleted": {
+      "nullableFields": [],
+      "object": {
+        "targetUserId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "targetUserId",
+        "type"
+      ]
+    },
+    "error": {
+      "nullableFields": [
+        "context"
+      ],
+      "object": {
+        "context": "string",
+        "message": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "context"
+      ],
+      "requiredFields": [
+        "message",
+        "type"
+      ]
+    },
+    "friends.error": {
+      "nullableFields": [
+        "requestId"
+      ],
+      "object": {
+        "message": "string",
+        "operation": "string",
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "requestId"
+      ],
+      "requiredFields": [
+        "message",
+        "operation",
+        "type"
+      ]
+    },
+    "friends.refresh": {
+      "nullableFields": [],
+      "object": {
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type"
+      ]
+    },
+    "friends.remove": {
+      "nullableFields": [],
+      "object": {
+        "type": "string",
+        "username": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type",
+        "username"
+      ]
+    },
+    "friends.request.accept": {
+      "nullableFields": [],
+      "object": {
+        "type": "string",
+        "username": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type",
+        "username"
+      ]
+    },
+    "friends.request.cancel": {
+      "nullableFields": [],
+      "object": {
+        "type": "string",
+        "username": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type",
+        "username"
+      ]
+    },
+    "friends.request.reject": {
+      "nullableFields": [],
+      "object": {
+        "type": "string",
+        "username": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type",
+        "username"
+      ]
+    },
+    "friends.request.send": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "type": "string",
+        "username": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "type",
+        "username"
+      ]
+    },
+    "friends.snapshot": {
+      "nullableFields": [
+        "requestId"
+      ],
+      "object": {
+        "friends": {
+          "array": [
+            {
+              "nullableFields": [
+                "avatarUrl"
+              ],
+              "object": {
+                "avatarUrl": "string",
+                "displayName": "string",
+                "handle": "string",
+                "userId": "string"
+              },
+              "optionalFields": [
+                "avatarUrl"
+              ],
+              "requiredFields": [
+                "displayName",
+                "handle",
+                "userId"
+              ]
+            }
+          ]
+        },
+        "incoming": {
+          "array": [
+            {
+              "nullableFields": [
+                "avatarUrl"
+              ],
+              "object": {
+                "avatarUrl": "string",
+                "createdAt": "string",
+                "displayName": "string",
+                "handle": "string",
+                "userId": "string"
+              },
+              "optionalFields": [
+                "avatarUrl"
+              ],
+              "requiredFields": [
+                "createdAt",
+                "displayName",
+                "handle",
+                "userId"
+              ]
+            }
+          ]
+        },
+        "outgoing": {
+          "array": [
+            {
+              "nullableFields": [
+                "avatarUrl"
+              ],
+              "object": {
+                "avatarUrl": "string",
+                "createdAt": "string",
+                "displayName": "string",
+                "handle": "string",
+                "userId": "string"
+              },
+              "optionalFields": [
+                "avatarUrl"
+              ],
+              "requiredFields": [
+                "createdAt",
+                "displayName",
+                "handle",
+                "userId"
+              ]
+            }
+          ]
+        },
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "requestId"
+      ],
+      "requiredFields": [
+        "friends",
+        "incoming",
+        "outgoing",
+        "type"
+      ]
+    },
+    "heartbeat": {
+      "nullableFields": [],
+      "object": {
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type"
+      ]
+    },
+    "room.acceptInvitation": {
+      "nullableFields": [],
+      "object": {
+        "expected_roster_generation": "number",
+        "invitation_id": "string",
+        "requestId": "string",
+        "room_id": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "expected_roster_generation",
+        "invitation_id",
+        "requestId",
+        "room_id",
+        "type"
+      ]
+    },
+    "room.action.accepted": {
+      "nullableFields": [],
+      "object": {
+        "fingerprint": "string",
+        "operation": "string",
+        "requestId": "string",
+        "roomId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "fingerprint",
+        "operation",
+        "requestId",
+        "roomId",
+        "type"
+      ]
+    },
+    "room.action.result": {
+      "nullableFields": [
+        "entityId",
+        "fingerprint",
+        "message",
+        "roomId"
+      ],
+      "object": {
+        "entityId": "string",
+        "fingerprint": "string",
+        "message": "string",
+        "operation": "string",
+        "requestId": "string",
+        "roomId": "string",
+        "status": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "entityId",
+        "fingerprint",
+        "message",
+        "roomId"
+      ],
+      "requiredFields": [
+        "operation",
+        "requestId",
+        "status",
+        "type"
+      ]
+    },
+    "room.cancelInvitation": {
+      "nullableFields": [],
+      "object": {
+        "expected_roster_generation": "number",
+        "invitation_id": "string",
+        "requestId": "string",
+        "room_id": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "expected_roster_generation",
+        "invitation_id",
+        "requestId",
+        "room_id",
+        "type"
+      ]
+    },
+    "room.chat.list": {
+      "nullableFields": [
+        "limit",
+        "since",
+        "tail"
+      ],
+      "object": {
+        "hydration_id": "string",
+        "limit": "number",
+        "room_id": "string",
+        "since": "number",
+        "tail": "boolean",
+        "type": "string"
+      },
+      "optionalFields": [
+        "limit",
+        "since",
+        "tail"
+      ],
+      "requiredFields": [
+        "hydration_id",
+        "room_id",
+        "type"
+      ]
+    },
+    "room.chat.post": {
+      "nullableFields": [
+        "author_session_id",
+        "requestId"
+      ],
+      "object": {
+        "author_session_id": "string",
+        "body": "string",
+        "recipient_session_ids": {
+          "array": [
+            "string"
+          ]
+        },
+        "recipient_user_ids": {
+          "array": [
+            "string"
+          ]
+        },
+        "requestId": "string",
+        "room_id": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "author_session_id",
+        "recipient_session_ids",
+        "recipient_user_ids",
+        "requestId"
+      ],
+      "requiredFields": [
+        "body",
+        "room_id",
+        "type"
+      ]
+    },
+    "room.chat.posted": {
+      "nullableFields": [],
+      "object": {
+        "message": {
+          "nullableFields": [
+            "authorSessionId"
+          ],
+          "object": {
+            "authorKind": "string",
+            "authorSessionId": "string",
+            "authorUserId": "string",
+            "body": "string",
+            "id": "string",
+            "postedAt": "string",
+            "recipientSessionIds": {
+              "array": [
+                "string"
+              ]
+            },
+            "recipientUserIds": {
+              "array": [
+                "string"
+              ]
+            },
+            "roomId": "string",
+            "seq": "number"
+          },
+          "optionalFields": [
+            "authorSessionId",
+            "recipientSessionIds",
+            "recipientUserIds"
+          ],
+          "requiredFields": [
+            "authorKind",
+            "authorUserId",
+            "body",
+            "id",
+            "postedAt",
+            "roomId",
+            "seq"
+          ]
+        },
+        "room_id": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "message",
+        "room_id",
+        "type"
+      ]
+    },
+    "room.chat.snapshot": {
+      "nullableFields": [
+        "hydration_id"
+      ],
+      "object": {
+        "hydration_id": "string",
+        "messages": {
+          "array": [
+            {
+              "nullableFields": [
+                "authorSessionId"
+              ],
+              "object": {
+                "authorKind": "string",
+                "authorSessionId": "string",
+                "authorUserId": "string",
+                "body": "string",
+                "id": "string",
+                "postedAt": "string",
+                "recipientSessionIds": {
+                  "array": [
+                    "string"
+                  ]
+                },
+                "recipientUserIds": {
+                  "array": [
+                    "string"
+                  ]
+                },
+                "roomId": "string",
+                "seq": "number"
+              },
+              "optionalFields": [
+                "authorSessionId",
+                "recipientSessionIds",
+                "recipientUserIds"
+              ],
+              "requiredFields": [
+                "authorKind",
+                "authorUserId",
+                "body",
+                "id",
+                "postedAt",
+                "roomId",
+                "seq"
+              ]
+            }
+          ]
+        },
+        "room_id": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "hydration_id"
+      ],
+      "requiredFields": [
+        "messages",
+        "room_id",
+        "type"
+      ]
+    },
+    "room.create": {
+      "nullableFields": [
+        "requestId"
+      ],
+      "object": {
+        "name": "string",
+        "requestId": "string",
+        "slug": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "requestId"
+      ],
+      "requiredFields": [
+        "name",
+        "slug",
+        "type"
+      ]
+    },
+    "room.declineInvitation": {
+      "nullableFields": [],
+      "object": {
+        "expected_roster_generation": "number",
+        "invitation_id": "string",
+        "requestId": "string",
+        "room_id": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "expected_roster_generation",
+        "invitation_id",
+        "requestId",
+        "room_id",
+        "type"
+      ]
+    },
+    "room.error": {
+      "nullableFields": [
+        "room_id"
+      ],
+      "object": {
+        "message": "string",
+        "operation": "string",
+        "room_id": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "room_id"
+      ],
+      "requiredFields": [
+        "message",
+        "operation",
+        "type"
+      ]
+    },
+    "room.invitations": {
+      "nullableFields": [],
+      "object": {
+        "incoming": {
+          "array": [
+            {
+              "nullableFields": [
+                "invitedByDisplayName",
+                "inviteeDisplayName"
+              ],
+              "object": {
+                "baseRosterGeneration": "number",
+                "createdAt": "string",
+                "id": "string",
+                "invitedByDisplayName": "string",
+                "invitedByHandle": "string",
+                "invitedByUserId": "string",
+                "inviteeDisplayName": "string",
+                "inviteeHandle": "string",
+                "inviteeUserId": "string",
+                "proposedRosterGeneration": "number",
+                "roomId": "string",
+                "roomName": "string",
+                "roomSlug": "string",
+                "status": "string"
+              },
+              "optionalFields": [
+                "invitedByDisplayName",
+                "inviteeDisplayName"
+              ],
+              "requiredFields": [
+                "baseRosterGeneration",
+                "createdAt",
+                "id",
+                "invitedByHandle",
+                "invitedByUserId",
+                "inviteeHandle",
+                "inviteeUserId",
+                "proposedRosterGeneration",
+                "roomId",
+                "roomName",
+                "roomSlug",
+                "status"
+              ]
+            }
+          ]
+        },
+        "outgoing": {
+          "array": [
+            {
+              "nullableFields": [
+                "invitedByDisplayName",
+                "inviteeDisplayName"
+              ],
+              "object": {
+                "baseRosterGeneration": "number",
+                "createdAt": "string",
+                "id": "string",
+                "invitedByDisplayName": "string",
+                "invitedByHandle": "string",
+                "invitedByUserId": "string",
+                "inviteeDisplayName": "string",
+                "inviteeHandle": "string",
+                "inviteeUserId": "string",
+                "proposedRosterGeneration": "number",
+                "roomId": "string",
+                "roomName": "string",
+                "roomSlug": "string",
+                "status": "string"
+              },
+              "optionalFields": [
+                "invitedByDisplayName",
+                "inviteeDisplayName"
+              ],
+              "requiredFields": [
+                "baseRosterGeneration",
+                "createdAt",
+                "id",
+                "invitedByHandle",
+                "invitedByUserId",
+                "inviteeHandle",
+                "inviteeUserId",
+                "proposedRosterGeneration",
+                "roomId",
+                "roomName",
+                "roomSlug",
+                "status"
+              ]
+            }
+          ]
+        },
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "incoming",
+        "outgoing",
+        "type"
+      ]
+    },
+    "room.invite": {
+      "nullableFields": [
+        "requestId"
+      ],
+      "object": {
+        "invitee_user_id": "string",
+        "requestId": "string",
+        "room_id": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "requestId"
+      ],
+      "requiredFields": [
+        "invitee_user_id",
+        "room_id",
+        "type"
+      ]
+    },
+    "room.list": {
+      "nullableFields": [],
+      "object": {
+        "rooms": {
+          "array": [
+            {
+              "nullableFields": [],
+              "object": {
+                "id": "string",
+                "name": "string",
+                "slug": "string"
+              },
+              "optionalFields": [],
+              "requiredFields": [
+                "id",
+                "name",
+                "slug"
+              ]
+            }
+          ]
+        },
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "rooms",
+        "type"
+      ]
+    },
+    "room.members": {
+      "nullableFields": [
+        "hydration_id"
+      ],
+      "object": {
+        "hydration_id": "string",
+        "members": {
+          "array": [
+            {
+              "nullableFields": [
+                "displayName",
+                "username"
+              ],
+              "object": {
+                "displayName": "string",
+                "role": "string",
+                "roomId": "string",
+                "userId": "string",
+                "username": "string"
+              },
+              "optionalFields": [
+                "displayName",
+                "username"
+              ],
+              "requiredFields": [
+                "role",
+                "roomId",
+                "userId"
+              ]
+            }
+          ]
+        },
+        "room_id": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "hydration_id"
+      ],
+      "requiredFields": [
+        "members",
+        "room_id",
+        "type"
+      ]
+    },
+    "room.mutation.recovered": {
+      "nullableFields": [
+        "entityId",
+        "message",
+        "status"
+      ],
+      "object": {
+        "entityId": "string",
+        "fingerprint": "string",
+        "message": "string",
+        "operation": "string",
+        "requestId": "string",
+        "roomId": "string",
+        "status": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "entityId",
+        "message",
+        "status"
+      ],
+      "requiredFields": [
+        "fingerprint",
+        "operation",
+        "requestId",
+        "roomId",
+        "type"
+      ]
+    },
+    "room.mutations.reconcile": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "type"
+      ]
+    },
+    "room.mutations.recover": {
+      "nullableFields": [],
+      "object": {
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type"
+      ]
+    },
+    "room.refresh": {
+      "nullableFields": [],
+      "object": {
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type"
+      ]
+    },
+    "room.refreshInvitations": {
+      "nullableFields": [],
+      "object": {
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type"
+      ]
+    },
+    "room.refreshMembers": {
+      "nullableFields": [],
+      "object": {
+        "hydration_id": "string",
+        "room_id": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "hydration_id",
+        "room_id",
+        "type"
+      ]
+    },
+    "room.removeMember": {
+      "nullableFields": [],
+      "object": {
+        "expected_roster_generation": "number",
+        "requestId": "string",
+        "room_id": "string",
+        "type": "string",
+        "user_id": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "expected_roster_generation",
+        "requestId",
+        "room_id",
+        "type",
+        "user_id"
+      ]
+    },
+    "room.snapshot": {
+      "nullableFields": [],
+      "object": {
+        "rooms": {
+          "array": [
+            {
+              "nullableFields": [],
+              "object": {
+                "id": "string",
+                "name": "string",
+                "ownerUserId": "string",
+                "rosterGeneration": "number",
+                "slug": "string"
+              },
+              "optionalFields": [],
+              "requiredFields": [
+                "id",
+                "name",
+                "ownerUserId",
+                "rosterGeneration",
+                "slug"
+              ]
+            }
+          ]
+        },
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "rooms",
+        "type"
+      ]
+    },
+    "room.tasks.assign": {
+      "nullableFields": [
+        "session_id",
+        "session_incarnation_id"
+      ],
+      "object": {
+        "expected_task_revision": "number",
+        "requestId": "string",
+        "room_id": "string",
+        "session_id": "string",
+        "session_incarnation_id": "string",
+        "task_id": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "session_id",
+        "session_incarnation_id"
+      ],
+      "requiredFields": [
+        "expected_task_revision",
+        "requestId",
+        "room_id",
+        "task_id",
+        "type"
+      ]
+    },
+    "room.tasks.create": {
+      "nullableFields": [
+        "assigned_session_id",
+        "assigned_session_incarnation_id",
+        "description",
+        "due_at",
+        "requestId"
+      ],
+      "object": {
+        "assigned_session_id": "string",
+        "assigned_session_incarnation_id": "string",
+        "description": "string",
+        "due_at": "string",
+        "requestId": "string",
+        "room_id": "string",
+        "title": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "assigned_session_id",
+        "assigned_session_incarnation_id",
+        "description",
+        "due_at",
+        "requestId"
+      ],
+      "requiredFields": [
+        "room_id",
+        "title",
+        "type"
+      ]
+    },
+    "room.tasks.list": {
+      "nullableFields": [
+        "assignee",
+        "hydration_id",
+        "limit",
+        "offset",
+        "status"
+      ],
+      "object": {
+        "assignee": "string",
+        "hydration_id": "string",
+        "limit": "number",
+        "offset": "number",
+        "room_id": "string",
+        "status": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "assignee",
+        "hydration_id",
+        "limit",
+        "offset",
+        "status"
+      ],
+      "requiredFields": [
+        "room_id",
+        "type"
+      ]
+    },
+    "room.tasks.page": {
+      "nullableFields": [
+        "hydration_id",
+        "next_offset",
+        "request_offset"
+      ],
+      "object": {
+        "has_more": "boolean",
+        "hydration_id": "string",
+        "next_offset": "number",
+        "request_offset": "number",
+        "room_id": "string",
+        "tasks": {
+          "array": [
+            {
+              "nullableFields": [
+                "assignedSessionId",
+                "assignedSessionIncarnationId",
+                "completedAt",
+                "description",
+                "dueAt",
+                "result",
+                "resultAuthorUserId"
+              ],
+              "object": {
+                "assignedSessionId": "string",
+                "assignedSessionIncarnationId": "string",
+                "completedAt": "string",
+                "createdAt": "string",
+                "createdByUserId": "string",
+                "description": "string",
+                "dueAt": "string",
+                "id": "string",
+                "result": "string",
+                "resultAuthorUserId": "string",
+                "revision": "number",
+                "roomId": "string",
+                "status": "string",
+                "title": "string",
+                "updatedAt": "string"
+              },
+              "optionalFields": [
+                "assignedSessionId",
+                "assignedSessionIncarnationId",
+                "completedAt",
+                "description",
+                "dueAt",
+                "result",
+                "resultAuthorUserId"
+              ],
+              "requiredFields": [
+                "createdAt",
+                "createdByUserId",
+                "id",
+                "revision",
+                "roomId",
+                "status",
+                "title",
+                "updatedAt"
+              ]
+            }
+          ]
+        },
+        "type": "string"
+      },
+      "optionalFields": [
+        "hydration_id",
+        "next_offset",
+        "request_offset"
+      ],
+      "requiredFields": [
+        "has_more",
+        "room_id",
+        "tasks",
+        "type"
+      ]
+    },
+    "room.tasks.snapshot": {
+      "nullableFields": [],
+      "object": {
+        "room_id": "string",
+        "tasks": {
+          "array": [
+            {
+              "nullableFields": [
+                "assignedSessionId",
+                "assignedSessionIncarnationId",
+                "completedAt",
+                "description",
+                "dueAt",
+                "result",
+                "resultAuthorUserId"
+              ],
+              "object": {
+                "assignedSessionId": "string",
+                "assignedSessionIncarnationId": "string",
+                "completedAt": "string",
+                "createdAt": "string",
+                "createdByUserId": "string",
+                "description": "string",
+                "dueAt": "string",
+                "id": "string",
+                "result": "string",
+                "resultAuthorUserId": "string",
+                "revision": "number",
+                "roomId": "string",
+                "status": "string",
+                "title": "string",
+                "updatedAt": "string"
+              },
+              "optionalFields": [
+                "assignedSessionId",
+                "assignedSessionIncarnationId",
+                "completedAt",
+                "description",
+                "dueAt",
+                "result",
+                "resultAuthorUserId"
+              ],
+              "requiredFields": [
+                "createdAt",
+                "createdByUserId",
+                "id",
+                "revision",
+                "roomId",
+                "status",
+                "title",
+                "updatedAt"
+              ]
+            }
+          ]
+        },
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "room_id",
+        "tasks",
+        "type"
+      ]
+    },
+    "room.tasks.transition": {
+      "nullableFields": [
+        "actor_session_id",
+        "actor_session_incarnation_id",
+        "result"
+      ],
+      "object": {
+        "actor_session_id": "string",
+        "actor_session_incarnation_id": "string",
+        "expected_task_revision": "number",
+        "requestId": "string",
+        "result": "string",
+        "room_id": "string",
+        "task_id": "string",
+        "to_status": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "actor_session_id",
+        "actor_session_incarnation_id",
+        "result"
+      ],
+      "requiredFields": [
+        "expected_task_revision",
+        "requestId",
+        "room_id",
+        "task_id",
+        "to_status",
+        "type"
+      ]
+    },
+    "room.tasks.upserted": {
+      "nullableFields": [],
+      "object": {
+        "room_id": "string",
+        "task": {
+          "nullableFields": [
+            "assignedSessionId",
+            "assignedSessionIncarnationId",
+            "completedAt",
+            "description",
+            "dueAt",
+            "result",
+            "resultAuthorUserId"
+          ],
+          "object": {
+            "assignedSessionId": "string",
+            "assignedSessionIncarnationId": "string",
+            "completedAt": "string",
+            "createdAt": "string",
+            "createdByUserId": "string",
+            "description": "string",
+            "dueAt": "string",
+            "id": "string",
+            "result": "string",
+            "resultAuthorUserId": "string",
+            "revision": "number",
+            "roomId": "string",
+            "status": "string",
+            "title": "string",
+            "updatedAt": "string"
+          },
+          "optionalFields": [
+            "assignedSessionId",
+            "assignedSessionIncarnationId",
+            "completedAt",
+            "description",
+            "dueAt",
+            "result",
+            "resultAuthorUserId"
+          ],
+          "requiredFields": [
+            "createdAt",
+            "createdByUserId",
+            "id",
+            "revision",
+            "roomId",
+            "status",
+            "title",
+            "updatedAt"
+          ]
+        },
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "room_id",
+        "task",
+        "type"
+      ]
+    },
+    "runtime.health": {
+      "nullableFields": [],
+      "object": {
+        "collaborationCleanup": {
+          "nullableFields": [
+            "message"
+          ],
+          "object": {
+            "message": "string",
+            "pendingCount": "number",
+            "quarantinedCount": "number",
+            "state": "string"
+          },
+          "optionalFields": [
+            "message"
+          ],
+          "requiredFields": [
+            "pendingCount",
+            "quarantinedCount",
+            "state"
+          ]
+        },
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "collaborationCleanup",
+        "type"
+      ]
+    },
+    "session.accessGrants": {
+      "nullableFields": [],
+      "object": {
+        "accountUserId": "string",
+        "grants": {
+          "array": [
+            {
+              "nullableFields": [
+                "expiresAt"
+              ],
+              "object": {
+                "accessLevel": "string",
+                "actorUserId": "string",
+                "displayName": "string",
+                "expiresAt": "string",
+                "grantedAt": "string",
+                "handle": "string"
+              },
+              "optionalFields": [
+                "expiresAt"
+              ],
+              "requiredFields": [
+                "accessLevel",
+                "actorUserId",
+                "displayName",
+                "grantedAt",
+                "handle"
+              ]
+            }
+          ]
+        },
+        "runtimeIncarnationId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "accountUserId",
+        "grants",
+        "runtimeIncarnationId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.accessMutationAccepted": {
+      "nullableFields": [
+        "accessLevel",
+        "actorUserId",
+        "expiresAt"
+      ],
+      "object": {
+        "accessLevel": "string",
+        "actorUserId": "string",
+        "expectedRuntimeIncarnationId": "string",
+        "expiresAt": "string",
+        "kind": "string",
+        "mutationId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "accessLevel",
+        "actorUserId",
+        "expiresAt"
+      ],
+      "requiredFields": [
+        "expectedRuntimeIncarnationId",
+        "kind",
+        "mutationId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.accessMutationAck": {
+      "nullableFields": [],
+      "object": {
+        "fingerprint": "string",
+        "mutationId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "fingerprint",
+        "mutationId",
+        "type"
+      ]
+    },
+    "session.accessMutationReconcile": {
+      "nullableFields": [],
+      "object": {
+        "mutationId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "mutationId",
+        "type"
+      ]
+    },
+    "session.accessMutationRecovered": {
+      "nullableFields": [
+        "accessLevel",
+        "actorUserId",
+        "expiresAt",
+        "message",
+        "outcome"
+      ],
+      "object": {
+        "accessLevel": "string",
+        "actorUserId": "string",
+        "expectedRuntimeIncarnationId": "string",
+        "expiresAt": "string",
+        "fingerprint": "string",
+        "kind": "string",
+        "message": "string",
+        "mutationId": "string",
+        "originatingAccountEpoch": "number",
+        "outcome": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "accessLevel",
+        "actorUserId",
+        "expiresAt",
+        "message",
+        "outcome"
+      ],
+      "requiredFields": [
+        "expectedRuntimeIncarnationId",
+        "fingerprint",
+        "kind",
+        "mutationId",
+        "originatingAccountEpoch",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.accessMutationResult": {
+      "nullableFields": [
+        "accessLevel",
+        "actorUserId",
+        "expiresAt",
+        "message"
+      ],
+      "object": {
+        "accessLevel": "string",
+        "actorUserId": "string",
+        "expectedRuntimeIncarnationId": "string",
+        "expiresAt": "string",
+        "kind": "string",
+        "message": "string",
+        "mutationId": "string",
+        "outcome": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "accessLevel",
+        "actorUserId",
+        "expiresAt",
+        "message"
+      ],
+      "requiredFields": [
+        "expectedRuntimeIncarnationId",
+        "kind",
+        "mutationId",
+        "outcome",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.accessMutationsRecover": {
+      "nullableFields": [],
+      "object": {
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type"
+      ]
+    },
+    "session.blur": {
+      "nullableFields": [],
+      "object": {
+        "clientId": "string",
+        "expectedRuntimeIncarnationId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "clientId",
+        "expectedRuntimeIncarnationId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.create": {
+      "nullableFields": [
+        "workingDir"
+      ],
+      "object": {
+        "name": "string",
+        "requestId": "string",
+        "type": "string",
+        "workingDir": "string"
+      },
+      "optionalFields": [
+        "workingDir"
+      ],
+      "requiredFields": [
+        "name",
+        "requestId",
+        "type"
+      ]
+    },
+    "session.delete": {
+      "nullableFields": [],
+      "object": {
+        "expectedRuntimeIncarnationId": "string",
+        "requestId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "expectedRuntimeIncarnationId",
+        "requestId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.error": {
+      "nullableFields": [
+        "requestId",
+        "sessionId"
+      ],
+      "object": {
+        "message": "string",
+        "operation": "string",
+        "requestId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "requestId",
+        "sessionId"
+      ],
+      "requiredFields": [
+        "message",
+        "operation",
+        "type"
+      ]
+    },
+    "session.focus": {
+      "nullableFields": [],
+      "object": {
+        "clientId": "string",
+        "expectedRuntimeIncarnationId": "string",
+        "requestId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "clientId",
+        "expectedRuntimeIncarnationId",
+        "requestId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.grantAccess": {
+      "nullableFields": [],
+      "object": {
+        "accessLevel": "string",
+        "actorUserId": "string",
+        "expectedRuntimeIncarnationId": "string",
+        "expiresAt": "string",
+        "mutationId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "accessLevel",
+        "actorUserId",
+        "expectedRuntimeIncarnationId",
+        "expiresAt",
+        "mutationId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.hiddenList": {
+      "nullableFields": [],
+      "object": {
+        "entries": {
+          "array": [
+            {
+              "nullableFields": [],
+              "object": {
+                "id": "string",
+                "name": "string",
+                "owner": "string",
+                "project": "string"
+              },
+              "optionalFields": [],
+              "requiredFields": [
+                "id",
+                "name",
+                "owner",
+                "project"
+              ]
+            }
+          ]
+        },
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "entries",
+        "requestId",
+        "type"
+      ]
+    },
+    "session.hide": {
+      "nullableFields": [],
+      "object": {
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.input": {
+      "nullableFields": [],
+      "object": {
+        "keys": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "keys",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.inputBytes": {
+      "nullableFields": [
+        "expectedRuntimeIncarnationId",
+        "subscriptionGeneration",
+        "subscriptionId"
+      ],
+      "object": {
+        "bytes": {
+          "array": [
+            "number"
+          ]
+        },
+        "expectedRuntimeIncarnationId": "string",
+        "sessionId": "string",
+        "subscriptionGeneration": "number",
+        "subscriptionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "expectedRuntimeIncarnationId",
+        "subscriptionGeneration",
+        "subscriptionId"
+      ],
+      "requiredFields": [
+        "bytes",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.interrupt": {
+      "nullableFields": [],
+      "object": {
+        "expectedRuntimeIncarnationId": "string",
+        "requestId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "expectedRuntimeIncarnationId",
+        "requestId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.interrupted": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "runtimeIncarnationId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "runtimeIncarnationId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.journalGap": {
+      "nullableFields": [],
+      "object": {
+        "reason": "string",
+        "recovery": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "reason",
+        "recovery",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.leave": {
+      "nullableFields": [],
+      "object": {
+        "expectedRuntimeIncarnationId": "string",
+        "mutationId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "expectedRuntimeIncarnationId",
+        "mutationId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.list": {
+      "nullableFields": [],
+      "object": {
+        "sessions": {
+          "array": [
+            {
+              "discriminator": {
+                "field": "kind",
+                "value": "remote"
+              },
+              "nullableFields": [
+                "accessIssue",
+                "accessReason",
+                "accessState",
+                "connectionReason",
+                "connectionState",
+                "incarnationId",
+                "owner",
+                "roomId",
+                "roomName"
+              ],
+              "object": {
+                "access": "string",
+                "accessIssue": "string",
+                "accessReason": "string",
+                "accessState": "string",
+                "activeCount": "number",
+                "connectionReason": "string",
+                "connectionState": "string",
+                "entitledCount": "number",
+                "id": "string",
+                "incarnationId": "string",
+                "kind": "string",
+                "lastActivity": "string",
+                "mode": "string",
+                "name": "string",
+                "owner": "string",
+                "permissions": "number",
+                "project": "string",
+                "roomId": "string",
+                "roomName": "string",
+                "scope": "string",
+                "semanticActions": {
+                  "nullableFields": [],
+                  "object": {
+                    "queue": "boolean",
+                    "steer": "boolean",
+                    "stopAndSend": "boolean"
+                  },
+                  "optionalFields": [],
+                  "requiredFields": [
+                    "queue",
+                    "steer",
+                    "stopAndSend"
+                  ]
+                },
+                "status": "string"
+              },
+              "optionalFields": [
+                "accessIssue",
+                "accessReason",
+                "accessState",
+                "connectionReason",
+                "connectionState",
+                "incarnationId",
+                "owner",
+                "roomId",
+                "roomName"
+              ],
+              "requiredFields": [
+                "access",
+                "activeCount",
+                "entitledCount",
+                "id",
+                "kind",
+                "lastActivity",
+                "mode",
+                "name",
+                "permissions",
+                "project",
+                "scope",
+                "semanticActions",
+                "status"
+              ]
+            },
+            {
+              "discriminator": {
+                "field": "kind",
+                "value": "local"
+              },
+              "nullableFields": [
+                "backendSessionId",
+                "createRequestId",
+                "meta",
+                "roomId",
+                "roomName"
+              ],
+              "object": {
+                "access": "string",
+                "activeCount": "number",
+                "backendSessionId": "string",
+                "createRequestId": "string",
+                "entitledCount": "number",
+                "id": "string",
+                "incarnationId": "string",
+                "kind": "string",
+                "lastActivity": "string",
+                "meta": {
+                  "nullableFields": [
+                    "detectedAgent",
+                    "gitBranch",
+                    "gitRepo",
+                    "gitUrl",
+                    "packageManager",
+                    "projectType",
+                    "runningCommand",
+                    "terminalTitle"
+                  ],
+                  "object": {
+                    "agent": "string",
+                    "detectedAgent": "string",
+                    "gitBranch": "string",
+                    "gitRemotes": {
+                      "array": [
+                        "string"
+                      ]
+                    },
+                    "gitRepo": "string",
+                    "gitUrl": "string",
+                    "manifestFiles": {
+                      "array": [
+                        "string"
+                      ]
+                    },
+                    "packageManager": "string",
+                    "projectType": "string",
+                    "runningCommand": "string",
+                    "terminalTitle": "string",
+                    "tokenPercent": "number",
+                    "workingDir": "string"
+                  },
+                  "optionalFields": [
+                    "detectedAgent",
+                    "gitBranch",
+                    "gitRepo",
+                    "gitUrl",
+                    "packageManager",
+                    "projectType",
+                    "runningCommand",
+                    "terminalTitle"
+                  ],
+                  "requiredFields": [
+                    "agent",
+                    "gitRemotes",
+                    "manifestFiles",
+                    "tokenPercent",
+                    "workingDir"
+                  ]
+                },
+                "mode": "string",
+                "name": "string",
+                "project": "string",
+                "recovery": "string",
+                "roomId": "string",
+                "roomName": "string",
+                "scope": "string",
+                "semanticActions": {
+                  "nullableFields": [],
+                  "object": {
+                    "queue": "boolean",
+                    "steer": "boolean",
+                    "stopAndSend": "boolean"
+                  },
+                  "optionalFields": [],
+                  "requiredFields": [
+                    "queue",
+                    "steer",
+                    "stopAndSend"
+                  ]
+                },
+                "status": "string"
+              },
+              "optionalFields": [
+                "backendSessionId",
+                "createRequestId",
+                "meta",
+                "roomId",
+                "roomName"
+              ],
+              "requiredFields": [
+                "access",
+                "activeCount",
+                "entitledCount",
+                "id",
+                "incarnationId",
+                "kind",
+                "lastActivity",
+                "mode",
+                "name",
+                "project",
+                "recovery",
+                "scope",
+                "semanticActions",
+                "status"
+              ]
+            }
+          ]
+        },
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "sessions",
+        "type"
+      ]
+    },
+    "session.listAccess": {
+      "nullableFields": [],
+      "object": {
+        "expectedRuntimeIncarnationId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "expectedRuntimeIncarnationId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.listHidden": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "type"
+      ]
+    },
+    "session.mode": {
+      "nullableFields": [],
+      "object": {
+        "mode": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "mode",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.openRemote": {
+      "nullableFields": [],
+      "object": {
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.opened": {
+      "nullableFields": [],
+      "object": {
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.removed": {
+      "nullableFields": [],
+      "object": {
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.rename": {
+      "nullableFields": [],
+      "object": {
+        "name": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "name",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.reopen": {
+      "nullableFields": [],
+      "object": {
+        "expectedRuntimeIncarnationId": "string",
+        "requestId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "expectedRuntimeIncarnationId",
+        "requestId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.resize": {
+      "nullableFields": [],
+      "object": {
+        "cellHeightPixels": "number",
+        "cellWidthPixels": "number",
+        "claim": "boolean",
+        "cols": "number",
+        "expectedRuntimeIncarnationId": "string",
+        "heightPixels": "number",
+        "requestId": "string",
+        "rows": "number",
+        "sessionId": "string",
+        "subscriptionGeneration": "number",
+        "subscriptionId": "string",
+        "surfaceGeneration": "number",
+        "type": "string",
+        "widthPixels": "number"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "cellHeightPixels",
+        "cellWidthPixels",
+        "claim",
+        "cols",
+        "expectedRuntimeIncarnationId",
+        "heightPixels",
+        "requestId",
+        "rows",
+        "sessionId",
+        "subscriptionGeneration",
+        "subscriptionId",
+        "surfaceGeneration",
+        "type",
+        "widthPixels"
+      ]
+    },
+    "session.revokeAccess": {
+      "nullableFields": [],
+      "object": {
+        "actorUserId": "string",
+        "expectedRuntimeIncarnationId": "string",
+        "mutationId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "actorUserId",
+        "expectedRuntimeIncarnationId",
+        "mutationId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.scope": {
+      "nullableFields": [
+        "roomId"
+      ],
+      "object": {
+        "expectedRuntimeIncarnationId": "string",
+        "requestId": "string",
+        "roomId": "string",
+        "scope": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "roomId"
+      ],
+      "requiredFields": [
+        "expectedRuntimeIncarnationId",
+        "requestId",
+        "scope",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.scopeAccepted": {
+      "nullableFields": [
+        "roomId"
+      ],
+      "object": {
+        "budgetMs": "number",
+        "expectedRuntimeIncarnationId": "string",
+        "requestId": "string",
+        "roomId": "string",
+        "scope": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "roomId"
+      ],
+      "requiredFields": [
+        "budgetMs",
+        "expectedRuntimeIncarnationId",
+        "requestId",
+        "scope",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.scopeChanged": {
+      "nullableFields": [
+        "roomId"
+      ],
+      "object": {
+        "expectedRuntimeIncarnationId": "string",
+        "requestId": "string",
+        "roomId": "string",
+        "scope": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "roomId"
+      ],
+      "requiredFields": [
+        "expectedRuntimeIncarnationId",
+        "requestId",
+        "scope",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.stop": {
+      "nullableFields": [],
+      "object": {
+        "expectedRuntimeIncarnationId": "string",
+        "requestId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "expectedRuntimeIncarnationId",
+        "requestId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.unhide": {
+      "nullableFields": [],
+      "object": {
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "sessionId",
+        "type"
+      ]
+    },
+    "session.upsert": {
+      "nullableFields": [],
+      "object": {
+        "session": {
+          "discriminator": {
+            "field": "kind",
+            "value": "remote"
+          },
+          "nullableFields": [
+            "accessIssue",
+            "accessReason",
+            "accessState",
+            "connectionReason",
+            "connectionState",
+            "incarnationId",
+            "owner",
+            "roomId",
+            "roomName"
+          ],
+          "object": {
+            "access": "string",
+            "accessIssue": "string",
+            "accessReason": "string",
+            "accessState": "string",
+            "activeCount": "number",
+            "connectionReason": "string",
+            "connectionState": "string",
+            "entitledCount": "number",
+            "id": "string",
+            "incarnationId": "string",
+            "kind": "string",
+            "lastActivity": "string",
+            "mode": "string",
+            "name": "string",
+            "owner": "string",
+            "permissions": "number",
+            "project": "string",
+            "roomId": "string",
+            "roomName": "string",
+            "scope": "string",
+            "semanticActions": {
+              "nullableFields": [],
+              "object": {
+                "queue": "boolean",
+                "steer": "boolean",
+                "stopAndSend": "boolean"
+              },
+              "optionalFields": [],
+              "requiredFields": [
+                "queue",
+                "steer",
+                "stopAndSend"
+              ]
+            },
+            "status": "string"
+          },
+          "optionalFields": [
+            "accessIssue",
+            "accessReason",
+            "accessState",
+            "connectionReason",
+            "connectionState",
+            "incarnationId",
+            "owner",
+            "roomId",
+            "roomName"
+          ],
+          "requiredFields": [
+            "access",
+            "activeCount",
+            "entitledCount",
+            "id",
+            "kind",
+            "lastActivity",
+            "mode",
+            "name",
+            "permissions",
+            "project",
+            "scope",
+            "semanticActions",
+            "status"
+          ]
+        },
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "session",
+        "type"
+      ]
+    },
+    "shutdown": {
+      "nullableFields": [],
+      "object": {
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type"
+      ]
+    },
+    "system.setTheme": {
+      "nullableFields": [],
+      "object": {
+        "dark": "boolean",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "dark",
+        "type"
+      ]
+    },
+    "term.bell": {
+      "nullableFields": [],
+      "object": {
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "sessionId",
+        "type"
+      ]
+    },
+    "term.focusApplied": {
+      "nullableFields": [],
+      "object": {
+        "requestId": "string",
+        "runtimeIncarnationId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "requestId",
+        "runtimeIncarnationId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "term.focusRejected": {
+      "nullableFields": [],
+      "object": {
+        "reason": "string",
+        "requestId": "string",
+        "runtimeIncarnationId": "string",
+        "sessionId": "string",
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "reason",
+        "requestId",
+        "runtimeIncarnationId",
+        "sessionId",
+        "type"
+      ]
+    },
+    "term.notification": {
+      "nullableFields": [
+        "body",
+        "title"
+      ],
+      "object": {
+        "body": "string",
+        "sessionId": "string",
+        "title": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "body",
+        "title"
+      ],
+      "requiredFields": [
+        "sessionId",
+        "type"
+      ]
+    },
+    "term.resizeApplied": {
+      "nullableFields": [],
+      "object": {
+        "cellHeightPixels": "number",
+        "cellWidthPixels": "number",
+        "cols": "number",
+        "expectedRuntimeIncarnationId": "string",
+        "heightPixels": "number",
+        "requestId": "string",
+        "rows": "number",
+        "sessionId": "string",
+        "subscriptionGeneration": "number",
+        "subscriptionId": "string",
+        "surfaceGeneration": "number",
+        "type": "string",
+        "widthPixels": "number"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "cellHeightPixels",
+        "cellWidthPixels",
+        "cols",
+        "expectedRuntimeIncarnationId",
+        "heightPixels",
+        "requestId",
+        "rows",
+        "sessionId",
+        "subscriptionGeneration",
+        "subscriptionId",
+        "surfaceGeneration",
+        "type",
+        "widthPixels"
+      ]
+    },
+    "term.resizeRejected": {
+      "nullableFields": [],
+      "object": {
+        "cellHeightPixels": "number",
+        "cellWidthPixels": "number",
+        "cols": "number",
+        "expectedRuntimeIncarnationId": "string",
+        "heightPixels": "number",
+        "reason": "string",
+        "requestId": "string",
+        "rows": "number",
+        "sessionId": "string",
+        "subscriptionGeneration": "number",
+        "subscriptionId": "string",
+        "surfaceGeneration": "number",
+        "type": "string",
+        "widthPixels": "number"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "cellHeightPixels",
+        "cellWidthPixels",
+        "cols",
+        "expectedRuntimeIncarnationId",
+        "heightPixels",
+        "reason",
+        "requestId",
+        "rows",
+        "sessionId",
+        "subscriptionGeneration",
+        "subscriptionId",
+        "surfaceGeneration",
+        "type",
+        "widthPixels"
+      ]
+    },
+    "term.title": {
+      "nullableFields": [
+        "title"
+      ],
+      "object": {
+        "sessionId": "string",
+        "title": "string",
+        "type": "string"
+      },
+      "optionalFields": [
+        "title"
+      ],
+      "requiredFields": [
+        "sessionId",
+        "type"
+      ]
+    },
+    "trust.error": {
+      "nullableFields": [
+        "requestId",
+        "userId"
+      ],
+      "object": {
+        "message": "string",
+        "operation": "string",
+        "requestId": "string",
+        "type": "string",
+        "userId": "string"
+      },
+      "optionalFields": [
+        "requestId",
+        "userId"
+      ],
+      "requiredFields": [
+        "message",
+        "operation",
+        "type"
+      ]
+    },
+    "trust.refresh": {
+      "nullableFields": [],
+      "object": {
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "type"
+      ]
+    },
+    "trust.reset": {
+      "nullableFields": [
+        "cleared",
+        "requestId"
+      ],
+      "object": {
+        "cleared": "boolean",
+        "requestId": "string",
+        "type": "string",
+        "userId": "string"
+      },
+      "optionalFields": [
+        "cleared",
+        "requestId"
+      ],
+      "requiredFields": [
+        "type",
+        "userId"
+      ]
+    },
+    "trust.snapshot": {
+      "nullableFields": [],
+      "object": {
+        "pins": {
+          "array": [
+            {
+              "nullableFields": [],
+              "object": {
+                "deviceCount": "number",
+                "generation": "number",
+                "pinnedAtMs": "number",
+                "signerDeviceId": "string",
+                "userId": "string"
+              },
+              "optionalFields": [],
+              "requiredFields": [
+                "deviceCount",
+                "generation",
+                "pinnedAtMs",
+                "signerDeviceId",
+                "userId"
+              ]
+            }
+          ]
+        },
+        "type": "string"
+      },
+      "optionalFields": [],
+      "requiredFields": [
+        "pins",
+        "type"
+      ]
+    }
+  }
+}

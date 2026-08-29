@@ -1,0 +1,15 @@
+too-many-arguments-threshold = 8
+type-complexity-threshold = 350
+
+
+doc-valid-idents = [
+  "..",
+  "PoP",
+  "PowerShell",
+  "kodosi",
+  "Kodosi",
+  "SignedOut",
+  "DeviceList",
+  "SignedDeviceList",
+  "KemPublicKey",
+]

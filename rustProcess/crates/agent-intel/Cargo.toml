@@ -1,0 +1,34 @@
+[package]
+name = "agent-intel"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+publish = false
+description = "Live Claude Code and GitHub Copilot CLI intelligence for Kodosi"
+
+[dependencies]
+arc-swap = { workspace = true }
+notify = { workspace = true }
+rusqlite = { version = "0.40.1", default-features = false, features = [
+    "bundled",
+] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+jsonc-parser = { workspace = true }
+kodosi-session = { path = "../kodosi-session" }
+specta = { workspace = true, features = ["derive", "serde_json"] }
+thiserror = { workspace = true }
+time = { workspace = true, features = ["formatting"] }
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["fs", "io-util", "macros", "rt", "sync", "time"] }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+rustix = { workspace = true, features = ["fs", "process"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "test-util"] }
+
+[lints]
+workspace = true

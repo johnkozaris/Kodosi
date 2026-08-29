@@ -1,0 +1,69 @@
+root = false
+
+[*.cs]
+indent_style = space
+indent_size = 4
+end_of_line = lf
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Meziantou.Analyzer rules silenced below; everything else keeps its default
+# severity.
+
+# MA0004 — Use Task.ConfigureAwait(false).
+# ASP.NET Core has no SynchronizationContext; ConfigureAwait(false) is noise
+# that obscures real async correctness review, and Microsoft omits it in
+# ASP.NET Core samples.
+dotnet_diagnostic.MA0004.severity = none
+
+# MA0006 — Use string.Equals instead of equality operator.
+# Project convention is to use == for ordinal string compares; the
+# rule fires hundreds of times in pattern matches and switch arms
+# where the explicit method form is genuinely worse to read.
+dotnet_diagnostic.MA0006.severity = none
+
+# MA0048 — File name should match type name.
+# We deliberately co-locate small related types (DTOs, records,
+# results) in the same file as their owning service. Splitting them
+# out adds files without value.
+dotnet_diagnostic.MA0048.severity = none
+
+# MA0051 — Method is too long (default 60 lines).
+# Long methods are a code-review concern, not an analyzer one.
+# Tests routinely cross 60 lines for arrange-act-assert; production
+# methods stay short by review.
+dotnet_diagnostic.MA0051.severity = none
+
+# MA0002 — Use IEqualityComparer<T>/IComparer<T> overload.
+# Project default is StringComparer.Ordinal everywhere; explicit
+# comparers in every dictionary/lookup adds noise without changing
+# behaviour.
+dotnet_diagnostic.MA0002.severity = none
+
+# MA0008 — Add StructLayoutAttribute to value types.
+# Premature micro-optimization for our DTO/record-struct usage.
+dotnet_diagnostic.MA0008.severity = none
+
+# MA0074 — Use string overload that has StringComparison.
+# Same reasoning as MA0006: ordinal compare is the project default
+# and is set explicitly where it matters.
+dotnet_diagnostic.MA0074.severity = none
+
+# MA0016 — Prefer collection abstraction.
+# Already a default style choice; specific overrides where the
+# concrete type matters (e.g. List<T> for cap-bounded growth) are
+# intentional.
+dotnet_diagnostic.MA0016.severity = none
+
+# MA0005 — Use Array.Empty<T>().
+# C# 12+ collection expressions ([]) are clearer and avoid the
+# generic boilerplate.
+dotnet_diagnostic.MA0005.severity = none
+
+# MA0056 — Do not call overridable members in constructor.
+# Fires on entity-framework constructor wiring patterns; the
+# default-constructor + virtual-property pattern is required by EF.
+dotnet_diagnostic.MA0056.severity = none
+
+csharp_using_directive_placement = outside_namespace:silent

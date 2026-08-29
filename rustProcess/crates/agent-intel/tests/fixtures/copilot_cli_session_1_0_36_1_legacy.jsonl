@@ -1,0 +1,17 @@
+{"type":"session.start","timestamp":"2026-07-14T10:00:00.000Z","data":{"sessionId":"7f1c4a2e-9b30-4d5a-8c11-2a6f0d9e3b47","copilotVersion":"1.0.36-1","model":"claude-sonnet-4.5","context":{"cwd":"/Users/dev/workspace/demo"}}}
+{"type":"session.mode_changed","timestamp":"2026-07-14T10:00:02.000Z","data":{"previousMode":"manual","newMode":"auto"}}
+{"type":"user.message","timestamp":"2026-07-14T10:00:05.000Z","data":{"content":"Add a health check endpoint."}}
+{"type":"assistant.turn_start","timestamp":"2026-07-14T10:00:06.000Z","data":{}}
+{"type":"assistant.intent","timestamp":"2026-07-14T10:00:07.000Z","data":{"message":"Locating the router module"}}
+{"type":"tool.execution_start","timestamp":"2026-07-14T10:00:08.000Z","data":{"toolCallId":"call_001","toolName":"view","arguments":{"path":"/Users/dev/workspace/demo/src/router.rs"}}}
+{"type":"tool.execution_complete","timestamp":"2026-07-14T10:00:09.000Z","data":{"toolCallId":"call_001","success":true}}
+{"type":"tool.approval_requested","timestamp":"2026-07-14T10:00:10.000Z","data":{"toolCallId":"call_002","toolName":"edit_file","message":"Edit src/router.rs"}}
+{"type":"tool.approval_decision","timestamp":"2026-07-14T10:00:14.000Z","data":{"toolCallId":"call_002","decision":"allow"}}
+{"type":"tool.execution_start","timestamp":"2026-07-14T10:00:15.000Z","data":{"toolCallId":"call_002","toolName":"edit_file","arguments":{"path":"/Users/dev/workspace/demo/src/router.rs"}}}
+{"type":"tool.execution_complete","timestamp":"2026-07-14T10:00:16.000Z","data":{"toolCallId":"call_002","success":true}}
+{"type":"session.workspace_file_changed","timestamp":"2026-07-14T10:00:17.000Z","data":{"path":"/Users/dev/workspace/demo/src/router.rs","action":"modified"}}
+{"type":"subagent.started","timestamp":"2026-07-14T10:00:18.000Z","data":{"toolCallId":"sub_001","agentName":"reviewer","agentDescription":"Review the health route"}}
+{"type":"subagent.completed","timestamp":"2026-07-14T10:00:26.000Z","data":{"toolCallId":"sub_001"}}
+{"type":"assistant.message","timestamp":"2026-07-14T10:00:28.000Z","data":{"outputTokens":184}}
+{"type":"assistant.turn_end","timestamp":"2026-07-14T10:00:29.000Z","data":{}}
+{"type":"session.shutdown","timestamp":"2026-07-14T10:05:00.000Z","data":{"totalPremiumRequests":2.5,"modelMetrics":{"claude-sonnet-4.5":{"usage":{"inputTokens":18400,"outputTokens":2100,"cacheWriteTokens":900,"cacheReadTokens":15200},"requests":{"cost":2.5}}}}}

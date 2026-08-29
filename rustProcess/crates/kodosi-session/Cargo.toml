@@ -1,0 +1,23 @@
+[package]
+name = "kodosi-session"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+publish = false
+
+[dependencies]
+bytes = { workspace = true }
+ghostty-vt = { path = "../ghostty-vt" }
+kodosi-domain = { path = "../kodosi-domain" }
+kodosi-pty = { path = "../kodosi-pty" }
+kodosi-utils = { path = "../kodosi-utils" }
+tokio = { workspace = true, features = ["rt", "sync", "time"] }
+
+[dev-dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sysinfo = { version = "0.39.6", default-features = false, features = ["system"] }
+tokio = { workspace = true, features = ["macros", "test-util"] }
+
+[lints]
+workspace = true
