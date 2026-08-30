@@ -520,7 +520,7 @@ impl Terminal {
         let mut rows = 0_u16;
         let mut cursor_x = 0_u16;
         let mut cursor_y = 0_u16;
-        let mut active_screen = 0_u32;
+        let mut active_screen: GhosttyTerminalScreen = 0;
         let mut cursor_visible = false;
         let mut vt_processing_error = false;
         let keys = [
@@ -852,7 +852,8 @@ fn key_to_raw(key: Key) -> Result<GhosttyKey, Error> {
         Key::ArrowRight => Ok(GhosttyKey_GHOSTTY_KEY_ARROW_RIGHT),
         Key::Letter(letter) if letter.is_ascii_alphabetic() => {
             let upper = letter.to_ascii_uppercase();
-            let offset = u32::from(upper) - u32::from('A');
+            let offset = i32::try_from(u32::from(upper) - u32::from('A'))
+                .map_err(|_| Error::InvalidValue)?;
             Ok(GhosttyKey_GHOSTTY_KEY_A + offset)
         }
         Key::Letter(_) => Err(Error::InvalidValue),
@@ -974,18 +975,31 @@ unsafe extern "C" fn clipboard_callback(
     _terminal: GhosttyTerminal,
     userdata: *mut c_void,
     write: *const GhosttyClipboardWrite,
-) -> GhosttyClipboardWriteResult {
-    callback(
+) {
+    if write.is_null() {
+        callback(userdata, (), |state| state.poisoned = true);
+        return;
+    }
+
+    let write = unsafe { &*write };
+    if write.size < mem::size_of::<GhosttyClipboardWrite>() {
+        callback(userdata, (), |state| state.poisoned = true);
+        return;
+    }
+    let Some(reply) = write.reply else {
+        callback(userdata, (), |state| state.poisoned = true);
+        return;
+    };
+
+    let result = callback(
         userdata,
         GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_DENIED,
         |state| {
-            if !state.clipboard_enabled || write.is_null() {
+            if !state.clipboard_enabled {
                 return GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_DENIED;
             }
 
-            let write = unsafe { &*write };
-            if write.size < mem::size_of::<GhosttyClipboardWrite>()
-                || write.contents_len > isize::MAX as usize
+            if write.contents_len > isize::MAX as usize
                 || (write.contents_len > 0 && write.contents.is_null())
             {
                 return GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_INVALID_DATA;
@@ -1027,7 +1041,14 @@ unsafe extern "C" fn clipboard_callback(
                 .push(Effect::ClipboardWrite { location, contents });
             GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_SUCCESS
         },
-    )
+    );
+
+    let response = GhosttyClipboardWriteReply {
+        size: mem::size_of::<GhosttyClipboardWriteReply>(),
+        result,
+        remember: false,
+    };
+    unsafe { reply(write, &raw const response) };
 }
 
 unsafe extern "C" fn desktop_notification_callback(

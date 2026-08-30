@@ -15,6 +15,7 @@ pub const GhosttyResult_GHOSTTY_OUT_OF_SPACE: GhosttyResult = -3;
 pub const GhosttyResult_GHOSTTY_NO_VALUE: GhosttyResult = -4;
 pub const GhosttyResult_GHOSTTY_IO_ERROR: GhosttyResult = -5;
 pub const GhosttyResult_GHOSTTY_LIMIT_EXCEEDED: GhosttyResult = -6;
+pub const GhosttyResult_GHOSTTY_REJECTED: GhosttyResult = -7;
 pub const GhosttyResult_GHOSTTY_RESULT_MAX_VALUE: GhosttyResult = 2147483647;
 pub type GhosttyResult = ::std::os::raw::c_int;
 #[repr(C)]
@@ -34,7 +35,7 @@ pub const GhosttyFormatterFormat_GHOSTTY_FORMATTER_FORMAT_VT: GhosttyFormatterFo
 pub const GhosttyFormatterFormat_GHOSTTY_FORMATTER_FORMAT_HTML: GhosttyFormatterFormat = 2;
 pub const GhosttyFormatterFormat_GHOSTTY_FORMATTER_FORMAT_MAX_VALUE: GhosttyFormatterFormat =
     2147483647;
-pub type GhosttyFormatterFormat = ::std::os::raw::c_uint;
+pub type GhosttyFormatterFormat = ::std::os::raw::c_int;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct GhosttyString {
@@ -264,7 +265,7 @@ unsafe extern "C" {
 pub const GhosttyColorScheme_GHOSTTY_COLOR_SCHEME_LIGHT: GhosttyColorScheme = 0;
 pub const GhosttyColorScheme_GHOSTTY_COLOR_SCHEME_DARK: GhosttyColorScheme = 1;
 pub const GhosttyColorScheme_GHOSTTY_COLOR_SCHEME_MAX_VALUE: GhosttyColorScheme = 2147483647;
-pub type GhosttyColorScheme = ::std::os::raw::c_uint;
+pub type GhosttyColorScheme = ::std::os::raw::c_int;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct GhosttyDeviceAttributesPrimary {
@@ -360,7 +361,7 @@ impl Default for GhosttyDeviceAttributes {
 pub const GhosttyFocusEvent_GHOSTTY_FOCUS_GAINED: GhosttyFocusEvent = 0;
 pub const GhosttyFocusEvent_GHOSTTY_FOCUS_LOST: GhosttyFocusEvent = 1;
 pub const GhosttyFocusEvent_GHOSTTY_FOCUS_MAX_VALUE: GhosttyFocusEvent = 2147483647;
-pub type GhosttyFocusEvent = ::std::os::raw::c_uint;
+pub type GhosttyFocusEvent = ::std::os::raw::c_int;
 unsafe extern "C" {
     pub fn ghostty_focus_encode(
         event: GhosttyFocusEvent,
@@ -456,7 +457,7 @@ pub const GhosttyTerminalCompressionMode_GHOSTTY_TERMINAL_COMPRESSION_MODE_FULL:
     GhosttyTerminalCompressionMode = 1;
 pub const GhosttyTerminalCompressionMode_GHOSTTY_TERMINAL_COMPRESSION_MODE_MAX_VALUE:
     GhosttyTerminalCompressionMode = 2147483647;
-pub type GhosttyTerminalCompressionMode = ::std::os::raw::c_uint;
+pub type GhosttyTerminalCompressionMode = ::std::os::raw::c_int;
 pub const GhosttyTerminalCompressionResult_GHOSTTY_TERMINAL_COMPRESSION_RESULT_UNSUPPORTED:
     GhosttyTerminalCompressionResult = 0;
 pub const GhosttyTerminalCompressionResult_GHOSTTY_TERMINAL_COMPRESSION_RESULT_PENDING:
@@ -465,12 +466,12 @@ pub const GhosttyTerminalCompressionResult_GHOSTTY_TERMINAL_COMPRESSION_RESULT_C
     GhosttyTerminalCompressionResult = 2;
 pub const GhosttyTerminalCompressionResult_GHOSTTY_TERMINAL_COMPRESSION_RESULT_MAX_VALUE:
     GhosttyTerminalCompressionResult = 2147483647;
-pub type GhosttyTerminalCompressionResult = ::std::os::raw::c_uint;
+pub type GhosttyTerminalCompressionResult = ::std::os::raw::c_int;
 pub const GhosttyTerminalScreen_GHOSTTY_TERMINAL_SCREEN_PRIMARY: GhosttyTerminalScreen = 0;
 pub const GhosttyTerminalScreen_GHOSTTY_TERMINAL_SCREEN_ALTERNATE: GhosttyTerminalScreen = 1;
 pub const GhosttyTerminalScreen_GHOSTTY_TERMINAL_SCREEN_MAX_VALUE: GhosttyTerminalScreen =
     2147483647;
-pub type GhosttyTerminalScreen = ::std::os::raw::c_uint;
+pub type GhosttyTerminalScreen = ::std::os::raw::c_int;
 pub const GhosttyClipboardLocation_GHOSTTY_CLIPBOARD_LOCATION_STANDARD: GhosttyClipboardLocation =
     0;
 pub const GhosttyClipboardLocation_GHOSTTY_CLIPBOARD_LOCATION_SELECTION: GhosttyClipboardLocation =
@@ -478,7 +479,7 @@ pub const GhosttyClipboardLocation_GHOSTTY_CLIPBOARD_LOCATION_SELECTION: Ghostty
 pub const GhosttyClipboardLocation_GHOSTTY_CLIPBOARD_LOCATION_PRIMARY: GhosttyClipboardLocation = 2;
 pub const GhosttyClipboardLocation_GHOSTTY_CLIPBOARD_LOCATION_MAX_VALUE: GhosttyClipboardLocation =
     2147483647;
-pub type GhosttyClipboardLocation = ::std::os::raw::c_uint;
+pub type GhosttyClipboardLocation = ::std::os::raw::c_int;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct GhosttyClipboardContent {
@@ -504,37 +505,6 @@ impl Default for GhosttyClipboardContent {
         }
     }
 }
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct GhosttyClipboardWrite {
-    pub size: usize,
-    pub location: GhosttyClipboardLocation,
-    pub contents: *const GhosttyClipboardContent,
-    pub contents_len: usize,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of GhosttyClipboardWrite"][::std::mem::size_of::<GhosttyClipboardWrite>() - 32usize];
-    ["Alignment of GhosttyClipboardWrite"]
-        [::std::mem::align_of::<GhosttyClipboardWrite>() - 8usize];
-    ["Offset of field: GhosttyClipboardWrite::size"]
-        [::std::mem::offset_of!(GhosttyClipboardWrite, size) - 0usize];
-    ["Offset of field: GhosttyClipboardWrite::location"]
-        [::std::mem::offset_of!(GhosttyClipboardWrite, location) - 8usize];
-    ["Offset of field: GhosttyClipboardWrite::contents"]
-        [::std::mem::offset_of!(GhosttyClipboardWrite, contents) - 16usize];
-    ["Offset of field: GhosttyClipboardWrite::contents_len"]
-        [::std::mem::offset_of!(GhosttyClipboardWrite, contents_len) - 24usize];
-};
-impl Default for GhosttyClipboardWrite {
-    fn default() -> Self {
-        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
-        unsafe {
-            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
-            s.assume_init()
-        }
-    }
-}
 pub const GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_SUCCESS:
     GhosttyClipboardWriteResult = 0;
 pub const GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_DENIED:
@@ -549,7 +519,88 @@ pub const GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_IO_ERROR:
     GhosttyClipboardWriteResult = 5;
 pub const GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_MAX_VALUE:
     GhosttyClipboardWriteResult = 2147483647;
-pub type GhosttyClipboardWriteResult = ::std::os::raw::c_uint;
+pub type GhosttyClipboardWriteResult = ::std::os::raw::c_int;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct GhosttyClipboardWriteReply {
+    pub size: usize,
+    pub result: GhosttyClipboardWriteResult,
+    pub remember: bool,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of GhosttyClipboardWriteReply"]
+        [::std::mem::size_of::<GhosttyClipboardWriteReply>() - 16usize];
+    ["Alignment of GhosttyClipboardWriteReply"]
+        [::std::mem::align_of::<GhosttyClipboardWriteReply>() - 8usize];
+    ["Offset of field: GhosttyClipboardWriteReply::size"]
+        [::std::mem::offset_of!(GhosttyClipboardWriteReply, size) - 0usize];
+    ["Offset of field: GhosttyClipboardWriteReply::result"]
+        [::std::mem::offset_of!(GhosttyClipboardWriteReply, result) - 8usize];
+    ["Offset of field: GhosttyClipboardWriteReply::remember"]
+        [::std::mem::offset_of!(GhosttyClipboardWriteReply, remember) - 12usize];
+};
+impl Default for GhosttyClipboardWriteReply {
+    fn default() -> Self {
+        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
+}
+pub type GhosttyClipboardWriteReplyFn = ::std::option::Option<
+    unsafe extern "C" fn(
+        write: *const GhosttyClipboardWrite,
+        reply: *const GhosttyClipboardWriteReply,
+    ),
+>;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct GhosttyClipboardWrite {
+    pub size: usize,
+    pub location: GhosttyClipboardLocation,
+    pub contents: *const GhosttyClipboardContent,
+    pub contents_len: usize,
+    pub name: GhosttyString,
+    pub granted: bool,
+    pub can_remember: bool,
+    pub ctx: *const ::std::os::raw::c_void,
+    pub reply: GhosttyClipboardWriteReplyFn,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of GhosttyClipboardWrite"][::std::mem::size_of::<GhosttyClipboardWrite>() - 72usize];
+    ["Alignment of GhosttyClipboardWrite"]
+        [::std::mem::align_of::<GhosttyClipboardWrite>() - 8usize];
+    ["Offset of field: GhosttyClipboardWrite::size"]
+        [::std::mem::offset_of!(GhosttyClipboardWrite, size) - 0usize];
+    ["Offset of field: GhosttyClipboardWrite::location"]
+        [::std::mem::offset_of!(GhosttyClipboardWrite, location) - 8usize];
+    ["Offset of field: GhosttyClipboardWrite::contents"]
+        [::std::mem::offset_of!(GhosttyClipboardWrite, contents) - 16usize];
+    ["Offset of field: GhosttyClipboardWrite::contents_len"]
+        [::std::mem::offset_of!(GhosttyClipboardWrite, contents_len) - 24usize];
+    ["Offset of field: GhosttyClipboardWrite::name"]
+        [::std::mem::offset_of!(GhosttyClipboardWrite, name) - 32usize];
+    ["Offset of field: GhosttyClipboardWrite::granted"]
+        [::std::mem::offset_of!(GhosttyClipboardWrite, granted) - 48usize];
+    ["Offset of field: GhosttyClipboardWrite::can_remember"]
+        [::std::mem::offset_of!(GhosttyClipboardWrite, can_remember) - 49usize];
+    ["Offset of field: GhosttyClipboardWrite::ctx"]
+        [::std::mem::offset_of!(GhosttyClipboardWrite, ctx) - 56usize];
+    ["Offset of field: GhosttyClipboardWrite::reply"]
+        [::std::mem::offset_of!(GhosttyClipboardWrite, reply) - 64usize];
+};
+impl Default for GhosttyClipboardWrite {
+    fn default() -> Self {
+        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
+}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct GhosttyTerminalDesktopNotification {
@@ -591,7 +642,7 @@ pub const GhosttyTerminalProgressState_GHOSTTY_TERMINAL_PROGRESS_STATE_PAUSE:
     GhosttyTerminalProgressState = 4;
 pub const GhosttyTerminalProgressState_GHOSTTY_TERMINAL_PROGRESS_STATE_MAX_VALUE:
     GhosttyTerminalProgressState = 2147483647;
-pub type GhosttyTerminalProgressState = ::std::os::raw::c_uint;
+pub type GhosttyTerminalProgressState = ::std::os::raw::c_int;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct GhosttyTerminalProgressReport {
@@ -687,8 +738,11 @@ pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_MODE: GhosttyTerminalOption
 pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_UNKNOWN_SEQUENCE: GhosttyTerminalOption = 35;
 pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_UNKNOWN_MAX_BYTES: GhosttyTerminalOption = 36;
 pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_TERMINFO_NAME: GhosttyTerminalOption = 37;
+pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_CLIPBOARD_READ: GhosttyTerminalOption = 38;
+pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_CLIPBOARD_WRITE_MAX_BYTES:
+    GhosttyTerminalOption = 39;
 pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_MAX_VALUE: GhosttyTerminalOption = 2147483647;
-pub type GhosttyTerminalOption = ::std::os::raw::c_uint;
+pub type GhosttyTerminalOption = ::std::os::raw::c_int;
 pub const GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_INVALID: GhosttyTerminalData = 0;
 pub const GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_COLS: GhosttyTerminalData = 1;
 pub const GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_ROWS: GhosttyTerminalData = 2;
@@ -734,8 +788,12 @@ pub const GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_SCROLLBACK_MAX_LINES: Ghostt
 pub const GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_CONTINUATION_MAX_BYTES: GhosttyTerminalData =
     36;
 pub const GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_MODE: GhosttyTerminalData = 37;
+pub const GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_VT_GROUND: GhosttyTerminalData = 38;
+pub const GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_CURSOR_AT_PROMPT: GhosttyTerminalData = 39;
+pub const GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_CLIPBOARD_WRITE_MAX_BYTES: GhosttyTerminalData =
+    40;
 pub const GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_MAX_VALUE: GhosttyTerminalData = 2147483647;
-pub type GhosttyTerminalData = ::std::os::raw::c_uint;
+pub type GhosttyTerminalData = ::std::os::raw::c_int;
 unsafe extern "C" {
     pub fn ghostty_terminal_new(
         allocator: *const GhosttyAllocator,
@@ -932,7 +990,7 @@ pub const GhosttyKeyAction_GHOSTTY_KEY_ACTION_RELEASE: GhosttyKeyAction = 0;
 pub const GhosttyKeyAction_GHOSTTY_KEY_ACTION_PRESS: GhosttyKeyAction = 1;
 pub const GhosttyKeyAction_GHOSTTY_KEY_ACTION_REPEAT: GhosttyKeyAction = 2;
 pub const GhosttyKeyAction_GHOSTTY_KEY_ACTION_MAX_VALUE: GhosttyKeyAction = 2147483647;
-pub type GhosttyKeyAction = ::std::os::raw::c_uint;
+pub type GhosttyKeyAction = ::std::os::raw::c_int;
 pub type GhosttyMods = u16;
 pub const GhosttyKey_GHOSTTY_KEY_UNIDENTIFIED: GhosttyKey = 0;
 pub const GhosttyKey_GHOSTTY_KEY_BACKQUOTE: GhosttyKey = 1;
@@ -1111,7 +1169,7 @@ pub const GhosttyKey_GHOSTTY_KEY_COPY: GhosttyKey = 173;
 pub const GhosttyKey_GHOSTTY_KEY_CUT: GhosttyKey = 174;
 pub const GhosttyKey_GHOSTTY_KEY_PASTE: GhosttyKey = 175;
 pub const GhosttyKey_GHOSTTY_KEY_MAX_VALUE: GhosttyKey = 2147483647;
-pub type GhosttyKey = ::std::os::raw::c_uint;
+pub type GhosttyKey = ::std::os::raw::c_int;
 unsafe extern "C" {
     pub fn ghostty_key_event_new(
         allocator: *const GhosttyAllocator,
