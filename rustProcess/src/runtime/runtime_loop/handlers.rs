@@ -98,7 +98,7 @@ pub(crate) async fn apply_terminal_message(
     .await;
 
     if let Err(error) = result {
-        mark_auth_expired_if_required(app, &error);
+        runtime::auth::mark_expired_if_required(app, &error);
         runtime_event_tx
             .send_system(SystemEvent::Error {
                 message: error.to_string(),
@@ -446,6 +446,9 @@ pub(crate) async fn apply_system_message(
                 AgentIntelEvent::Error {
                     request_id: request_id.to_owned(),
                     message: reason.to_string(),
+                    failure_kind: crate::host_protocol::AgentIntelFailureKind::Deterministic,
+                    mutation_id: None,
+                    reconciliation_required: false,
                 },
             )
             .await?;
@@ -515,6 +518,15 @@ pub(crate) async fn apply_system_message(
                 },
             )
             .await?;
+            Ok(false)
+        }
+        SystemCommand::QueryLiveAgentIntelSet { request_id } => {
+            let current = app
+                .state
+                .agent_intel
+                .live_authority
+                .current(Some(request_id));
+            super::scoped_events::send_agent_intel(app, runtime_event_tx, current).await?;
             Ok(false)
         }
         SystemCommand::AllowPendingPermissionRequest {
@@ -676,7 +688,7 @@ pub(crate) async fn apply_system_message(
     let should_exit = match result {
         Ok(should_exit) => should_exit,
         Err(error) => {
-            mark_auth_expired_if_required(app, &error);
+            runtime::auth::mark_expired_if_required(app, &error);
             runtime_event_tx
                 .send_system(SystemEvent::Error {
                     message: error.to_string(),
@@ -714,6 +726,9 @@ async fn send_steer_reply(
         Err(error) => AgentIntelEvent::Error {
             request_id,
             message: error.to_string(),
+            failure_kind: crate::host_protocol::AgentIntelFailureKind::Deterministic,
+            mutation_id: None,
+            reconciliation_required: false,
         },
     };
     super::scoped_events::send_agent_intel(app, runtime_event_tx, event).await
@@ -804,7 +819,7 @@ pub(crate) async fn apply_session_message(
                 }
             }
             Err(error) => {
-                mark_auth_expired_if_required(app, &error);
+                runtime::auth::mark_expired_if_required(app, &error);
                 if let Some(target) = access_mutation {
                     let outcome = access_mutation_failure_outcome(app, &target);
                     app.state
@@ -1241,7 +1256,7 @@ pub(crate) async fn apply_devices_message(
             message: reason.to_string(),
         });
     } else if let Err(error) = dispatch_devices_message(app, message).await {
-        mark_auth_expired_if_required(app, &error);
+        runtime::auth::mark_expired_if_required(app, &error);
         app.state.runtime_outbox.queue_devices(DeviceEvent::Error {
             user_code,
             operation,
@@ -1286,9 +1301,17 @@ async fn dispatch_devices_message(
         }
         DeviceCommand::Revoke { device_id } => {
             tracing::debug!(target_device = %device_id, "received devices.revoke");
-            app.device_list_ctx().revoke(&device_id).await?;
+            let outcome = app.device_list_ctx().revoke(&device_id).await?;
             app.invalidate_hosted_session_keys();
-            app.device_list_ctx().refresh().await
+            let refreshed = app.device_list_ctx().refresh().await;
+            if let Some(message) = outcome.history_warning {
+                app.state.runtime_outbox.queue_devices(DeviceEvent::Error {
+                    user_code: None,
+                    operation: "revoke.history".to_owned(),
+                    message,
+                });
+            }
+            refreshed
         }
         DeviceCommand::LinkApprove { user_code } => {
             tracing::debug!(user_code = %user_code, "received devices.link.approve");
@@ -1319,19 +1342,6 @@ async fn dispatch_devices_message(
     })
 }
 
-fn mark_auth_expired_if_required(app: &mut runtime::Runtime, error: &AppError) {
-    match error {
-        AppError::Unauthorized | AppError::AuthRejected { .. } => {
-            if let Err(epoch_error) =
-                super::super::auth::mark_expired_from_backend(app, error.to_string())
-            {
-                app.state.record_log(epoch_error.to_string());
-            }
-        }
-        _ => {}
-    }
-}
-
 pub(crate) async fn apply_trust_message(
     app: &mut runtime::Runtime,
     message: TrustCommand,
@@ -1350,7 +1360,7 @@ pub(crate) async fn apply_trust_message(
             message: reason.to_string(),
         });
     } else if let Err(error) = dispatch_trust_message(app, message).await {
-        mark_auth_expired_if_required(app, &error);
+        runtime::auth::mark_expired_if_required(app, &error);
         app.state.runtime_outbox.queue_trust(TrustEvent::Error {
             request_id,
             user_id,
@@ -1701,7 +1711,7 @@ fn settle_room_dispatch_failure(
     error: Option<&AppError>,
 ) -> Result<()> {
     if let Some(error) = error {
-        mark_auth_expired_if_required(app, error);
+        runtime::auth::mark_expired_if_required(app, error);
     }
     let (status, fingerprint) =
         settle_failed_room_mutation(app, mutation_id, account_user_id, error)?;
@@ -1875,7 +1885,7 @@ fn queue_room_dispatch_success(
             });
     }
     for failure in follow_up_failures {
-        mark_auth_expired_if_required(app, &failure.error);
+        runtime::auth::mark_expired_if_required(app, &failure.error);
         app.state.runtime_outbox.queue_room(RoomEvent::Error {
             room_id: failure.room_id,
             operation: failure.operation.to_owned(),
@@ -2492,6 +2502,7 @@ async fn dispatch_room_message(
                 offset,
                 limit,
                 hydration_id,
+                snapshot,
             } => {
                 if offset.is_none() && limit.is_none() {
                     let tasks = runtime::rooms::RoomApplication::new(app)
@@ -2503,6 +2514,14 @@ async fn dispatch_room_message(
                     app.state
                         .runtime_outbox
                         .queue_room(RoomEvent::TasksSnapshot { room_id, tasks });
+                } else if offset.is_some_and(|offset| offset > 0) && snapshot.is_none() {
+                    app.state
+                        .runtime_outbox
+                        .queue_room(RoomEvent::TasksInvalidated {
+                            room_id,
+                            hydration_id,
+                            request_offset: offset.unwrap_or(0),
+                        });
                 } else {
                     let page = runtime::rooms::RoomApplication::new(app)
                         .fetch_room_tasks_page(
@@ -2511,16 +2530,30 @@ async fn dispatch_room_message(
                             assignee.as_deref(),
                             offset.unwrap_or(0),
                             limit.unwrap_or(100),
+                            snapshot.as_deref(),
                         )
-                        .await?;
-                    app.state.runtime_outbox.queue_room(RoomEvent::TasksPage {
-                        room_id,
-                        tasks: page.items.into_iter().map(map_task_entry).collect(),
-                        has_more: page.has_more,
-                        next_offset: page.next_offset,
-                        hydration_id,
-                        request_offset: Some(offset.unwrap_or(0)),
-                    });
+                        .await;
+                    match page {
+                        Ok(page) => app.state.runtime_outbox.queue_room(RoomEvent::TasksPage {
+                            room_id,
+                            tasks: page.items.into_iter().map(map_task_entry).collect(),
+                            has_more: page.has_more,
+                            next_offset: page.next_offset,
+                            hydration_id,
+                            request_offset: Some(offset.unwrap_or(0)),
+                            snapshot: Some(page.snapshot),
+                        }),
+                        Err(error) if runtime::rooms::is_task_snapshot_conflict(&error) => {
+                            app.state
+                                .runtime_outbox
+                                .queue_room(RoomEvent::TasksInvalidated {
+                                    room_id,
+                                    hydration_id,
+                                    request_offset: offset.unwrap_or(0),
+                                });
+                        }
+                        Err(error) => return Err(error),
+                    }
                 }
             }
             RoomCommand::TaskCreate {
@@ -3041,6 +3074,7 @@ fn map_task_entry(dto: kodosi_backend_client::api::BackendRoomTask) -> RoomTaskE
         completed_at: dto.completed_at.map(fmt_dt),
         result: dto.result,
         result_author_user_id: dto.result_author_user_id,
+        content_unavailable: dto.content_unavailable,
     }
 }
 

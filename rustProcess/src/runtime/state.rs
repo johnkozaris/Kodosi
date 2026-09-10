@@ -262,10 +262,25 @@ impl AppState {
     }
 
     pub(crate) fn delete_resurrectable_session_state(&mut self, id: SessionId) -> bool {
+        let retiring_incarnation = self
+            .local
+            .sessions
+            .record(id)
+            .map(|record| record.local_incarnation_id);
         if !self.local.sessions.delete(id) {
             return false;
         }
 
+        if let Some(incarnation_id) = retiring_incarnation
+            && let Some(live_set) = self.agent_intel.live_authority.clear(id, incarnation_id)
+        {
+            self.runtime_outbox
+                .queue_agent_intel(crate::AgentIntelEvent::Cleared {
+                    session_id: id.to_string(),
+                    session_incarnation_id: incarnation_id.to_string(),
+                });
+            self.runtime_outbox.queue_agent_intel(live_set);
+        }
         self.consume_terminal_scope_restore(id);
         self.local.owned_session_runtimes.remove(id);
         self.sharing.shared_sessions.clear(id);

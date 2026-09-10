@@ -75,6 +75,8 @@ struct RoomContentSigned<'a> {
     ciphertext: &'a str,
 }
 
+mod history;
+
 struct RoomCryptoServices {
     backend: kodosi_backend_client::http_client::BackendHttpClient,
     pin_store: crate::identity_core::device_list_pin_store::DeviceListPinStoreHandle,
@@ -86,6 +88,7 @@ pub(crate) struct RoomCryptoContext {
     local_user_id: String,
     local_keys: DeviceKeys,
     verified_identities: HashMap<String, IdentityBundleView>,
+    verified_rooms: HashMap<String, kodosi_backend_client::api::BackendRoom>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -540,6 +543,7 @@ impl RoomCryptoContext {
             local_user_id,
             local_keys,
             verified_identities: HashMap::new(),
+            verified_rooms: HashMap::new(),
         }
     }
 
@@ -839,10 +843,6 @@ impl RoomCryptoContext {
         Ok(())
     }
 
-    #[expect(
-        clippy::too_many_lines,
-        reason = "room decryption verifies historical roster, signer lifetime, signature, recipient, and AEAD as one chain"
-    )]
     pub(crate) async fn decrypt_json<T: DeserializeOwned>(
         &mut self,
         room_id: &str,
@@ -865,25 +865,23 @@ impl RoomCryptoContext {
                 reason: "signed room-content metadata does not match its backend record".to_owned(),
             });
         }
-        let room = self
-            .services
-            .backend
-            .fetch_rooms()
-            .await?
-            .into_iter()
-            .find(|room| room.id == room_id)
-            .ok_or(AppError::NotFound)?;
-        self.verify_room_roster(&room).await?;
+        if !self.verified_rooms.contains_key(room_id) {
+            let room = self
+                .services
+                .backend
+                .fetch_rooms()
+                .await?
+                .into_iter()
+                .find(|room| room.id == room_id)
+                .ok_or(AppError::NotFound)?;
+            self.verify_room_roster(&room).await?;
+            self.verified_rooms.insert(room_id.to_owned(), room);
+        }
+        let room = self.verified_rooms.get(room_id).ok_or(AppError::NotFound)?;
         let historical_members =
-            verified_roster_members_at_generation(&room, envelope.roster_generation)?;
+            verified_roster_members_at_generation(room, envelope.roster_generation)?;
         ensure_sender_is_room_member(&historical_members, &envelope.sender_user_id)?;
         let sender_view = self.verified_identity(&envelope.sender_user_id).await?;
-        let sender_key = sender_view
-            .signing_device_at(&envelope.sender_device_id, envelope.issued_at_ms)
-            .ok_or_else(|| AppError::InvalidBackendData {
-                field: "room.encryptedContent.senderDeviceId".to_owned(),
-                reason: "sender device was not valid when the content was signed".to_owned(),
-            })?;
         let aad = RoomContentAad {
             version: envelope.version,
             room_id: &envelope.room_id,
@@ -900,23 +898,15 @@ impl RoomCryptoContext {
             aad,
             ciphertext: &envelope.ciphertext,
         };
-        let signature =
-            BASE64
-                .decode(&envelope.signature)
-                .map_err(|error| AppError::InvalidBackendData {
-                    field: "room.encryptedContent.signature".to_owned(),
-                    reason: format!("invalid base64: {error}"),
-                })?;
-        aws_lc_rs::signature::ML_DSA_65
-            .verify_sig(
-                &sender_key.sig_public_key,
-                &signature_preimage(&signed)?,
-                &signature,
-            )
-            .map_err(|_| AppError::InvalidBackendData {
-                field: "room.encryptedContent.signature".to_owned(),
-                reason: "room-content signature verification failed".to_owned(),
-            })?;
+        self.verify_artifact(
+            &sender_view,
+            &envelope.sender_device_id,
+            envelope.issued_at_ms,
+            &signature_preimage(&signed)?,
+            &envelope.signature,
+            "room.encryptedContent.signature",
+        )
+        .await?;
 
         let recipient = envelope
             .recipients
@@ -925,9 +915,7 @@ impl RoomCryptoContext {
                 recipient.user_id == self.local_user_id
                     && recipient.device_id == self.local_keys.device_id
             })
-            .ok_or_else(|| AppError::Unsupported {
-                reason: "this device is not a recipient of the room content".to_owned(),
-            })?;
+            .ok_or(AppError::RoomContentNotRecipient)?;
         let wrapped_key = BASE64.decode(&recipient.wrapped_key).map_err(|error| {
             AppError::InvalidBackendData {
                 field: "room.encryptedContent.wrappedKey".to_owned(),
@@ -990,7 +978,7 @@ impl RoomCryptoContext {
             });
         }
         let owner = self.verified_identity(&room.owner_user_id).await?;
-        verify_identity_signature_at(
+        self.verify_historical_signature(
             &owner,
             &room.roster_signer_device_id,
             roster.issued_at_ms,
@@ -998,7 +986,8 @@ impl RoomCryptoContext {
             &body,
             &room.roster_signature,
             "room.rosterSignature",
-        )?;
+        )
+        .await?;
         let member_count = roster.member_user_ids.len();
         let members = roster.member_user_ids.into_iter().collect::<BTreeSet<_>>();
         if members.len() != member_count {
@@ -1073,7 +1062,7 @@ impl RoomCryptoContext {
         let plan = plan_roster_history(room, pinned)?;
         let owner = self.verified_identity(&room.owner_user_id).await?;
         for entry in &plan.entries {
-            verify_identity_signature_at(
+            self.verify_historical_signature(
                 &owner,
                 &entry.signer_device_id,
                 entry.issued_at_ms,
@@ -1081,7 +1070,8 @@ impl RoomCryptoContext {
                 &entry.body,
                 &entry.signature,
                 "room.rosterTransitions.rosterSignature",
-            )?;
+            )
+            .await?;
         }
         for admission in &plan.admissions {
             self.verify_admission_proof(
@@ -1160,7 +1150,7 @@ impl RoomCryptoContext {
         }
 
         let owner = self.verified_identity(&room.owner_user_id).await?;
-        verify_identity_signature_at(
+        self.verify_historical_signature(
             &owner,
             &proof.proposal_signer_device_id,
             proposal.issued_at_ms,
@@ -1168,9 +1158,10 @@ impl RoomCryptoContext {
             &proposal_body,
             &proof.proposal_signature,
             "room.admissionProofs.proposalSignature",
-        )?;
+        )
+        .await?;
         let invitee = self.verified_identity(invitee_user_id).await?;
-        verify_identity_signature_at(
+        self.verify_historical_signature(
             &invitee,
             &proof.decision_signer_device_id,
             decision.issued_at_ms,
@@ -1179,6 +1170,7 @@ impl RoomCryptoContext {
             &proof.decision_signature,
             "room.admissionProofs.decisionSignature",
         )
+        .await
     }
 
     async fn verify_roster_activation(
@@ -1205,22 +1197,39 @@ impl RoomCryptoContext {
         let now = current_epoch_ms()?;
         let owner = self.verified_identity(&room.owner_user_id).await?;
         let invitee = self.verified_identity(&proof.invitee_user_id).await?;
-        verify_roster_activation_proof(
+        validate_roster_activation_metadata(
             room,
             proof,
             &proposal,
             &proposal_body,
             &decision,
-            &decision_body,
             roster_body,
             roster_members,
             previous,
             added_members,
             &self.local_user_id,
             now,
+        )?;
+        self.verify_historical_signature(
             &owner,
-            &invitee,
+            &proof.proposal_signer_device_id,
+            proposal.issued_at_ms,
+            kodosi_domain::domain_tags::ROOM_INVITATION_PROPOSAL_V1,
+            &proposal_body,
+            &proof.proposal_signature,
+            "room.rosterActivationProof.proposalSignature",
         )
+        .await?;
+        self.verify_historical_signature(
+            &invitee,
+            &proof.decision_signer_device_id,
+            decision.issued_at_ms,
+            kodosi_domain::domain_tags::ROOM_INVITATION_DECISION_V1,
+            &decision_body,
+            &proof.decision_signature,
+            "room.rosterActivationProof.decisionSignature",
+        )
+        .await
     }
 
     async fn verified_identity(&mut self, user_id: &str) -> Result<IdentityBundleView> {
@@ -1232,7 +1241,7 @@ impl RoomCryptoContext {
         match self
             .services
             .pin_store
-            .verify_or_pin(view.clone(), PinContext::ExplicitShare)
+            .verify_or_pin_for_owner(&self.local_user_id, view.clone(), PinContext::ExplicitShare)
             .await?
         {
             PinVerdict::FirstShare | PinVerdict::AcceptUpdate | PinVerdict::AlreadyPinned => {}
@@ -1522,6 +1531,7 @@ fn index_admission_proofs(
     clippy::too_many_arguments,
     reason = "the arguments are every independently authenticated component of one composite proof"
 )]
+#[cfg(test)]
 fn verify_roster_activation_proof(
     room: &kodosi_backend_client::api::BackendRoom,
     proof: &kodosi_backend_client::api::BackendRoomInvitationProof,
@@ -2058,6 +2068,11 @@ pub(crate) fn reset_roster_pins_for_account_at(
         persist_roster_pin_file(path, &file)
     })
 }
+
+#[cfg(test)]
+mod integration_tests;
+#[cfg(test)]
+mod revocation_tests;
 
 #[cfg(test)]
 mod tests;

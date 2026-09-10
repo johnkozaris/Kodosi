@@ -1,6 +1,37 @@
 {
-  "apiContractVersion": 10,
+  "apiContractVersion": 12,
   "authContractVersion": 1,
+  "artifactEndorsements": {
+    "authentication": "required",
+    "signatureDomain": "ARTIFACT_ENDORSEMENT_V1",
+    "artifactDigestDomain": "AUTHENTICATED_ARTIFACT_V1",
+    "identity": ["userId", "identityIncarnationId", "artifactDigest"],
+    "put": {
+      "method": "PUT",
+      "path": "/api/me/artifact-endorsements",
+      "requiredBody": ["identityIncarnationId", "artifactDigest", "endorserDeviceId", "signature"],
+      "authorization": "current identity and active same-user endorser signature",
+      "successStatus": 204
+    },
+    "lookup": {
+      "method": "GET",
+      "path": "/api/users/{userId}/artifact-endorsements",
+      "requiredQuery": ["digest"],
+      "authorization": "same relationship policy as identity bundle lookup",
+      "maximumItems": 1
+    },
+    "inventory": {
+      "method": "GET",
+      "path": "/api/me/artifact-endorsements",
+      "optionalQuery": {"offset": "0..50000", "limit": "1..100"},
+      "maximumItemsPerIdentity": 50000
+    },
+    "responseFields": ["userId", "identityIncarnationId", "artifactDigest", "endorserDeviceId", "signature"],
+    "historicalAuthority": "only exact artifacts endorsed by a current device of the original principal; old certificates and claimed signing timestamps never grant current authority",
+    "revocationPolicy": "preserve verified committed Mission artifacts before revoking their signer; pending invitations signed by a revoked device are cancelled",
+    "identityResetPolicy": "old-incarnation endorsements are never returned or accepted",
+    "backendContentPolicy": "digests and signatures only"
+  },
   "sessionCreationReconciliation": {
     "method": "GET",
     "path": "/api/sessions/{sessionId}/creation-receipts/{createIdempotencyKey}",
@@ -141,6 +172,27 @@
       "mutationOrdering": "only after active-device authorization and requester signature verification"
     },
     "backendContentPolicy": "signed metadata and fingerprints only; never semantic plaintext or key material"
+  },
+  "roomTaskPagination": {
+    "method": "GET",
+    "path": "/api/rooms/{roomId}/tasks",
+    "optionalQuery": {"status": "task status", "assignee": "session UUID", "offset": "0 or greater", "limit": "1..500", "snapshot": "opaque 64-character lowercase hex token"},
+    "responseBody": "array of encrypted task records",
+    "requiredResponseHeaders": ["Kodosi-Task-Snapshot", "Kodosi-Has-More"],
+    "continuationHeader": "Kodosi-Next-Offset",
+    "snapshotBinding": ["roomId", "requesterUserId", "roomTaskRevision", "status", "assignee"],
+    "revisionPolicy": "every actual task create, transition or assignment increments the room task revision atomically; idempotent retries and no-op mutations do not",
+    "readPolicy": "page and snapshot are captured under the room lifecycle lock",
+    "continuationPolicy": "echo the first page snapshot on every continuation; reject missing or mismatched response snapshots; never publish a mixed aggregate",
+    "invalidationStatus": 409,
+    "invalidationCode": "CONCURRENT_MODIFICATION",
+    "recoveryPolicy": "discard the partial aggregate and restart at offset zero with bounded retries"
+  },
+  "historicalIdentityReads": {
+    "authorization": "an active Mission reader may read a former member's current identity and artifact endorsements when that Mission retains chat or task content attributed to that author",
+    "directionality": "content readership does not grant the former author reciprocal identity access",
+    "contentAttribution": ["chat.authorUserId", "task.createdByUserId", "task.resultAuthorUserId only when result exists"],
+    "transactionPolicy": "recheck active reader membership and content provenance under candidate room lifecycle locks"
   },
   "roomMutations": {
     "authentication": "required",

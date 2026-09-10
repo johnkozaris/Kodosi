@@ -739,13 +739,14 @@ fn terminal_access_ack_requires_exact_fingerprint() {
             .unwrap()
             .is_some()
     );
-    super::acknowledge_access_mutation(&mut app, mutation_id, &fingerprint).unwrap();
+    assert!(super::acknowledge_access_mutation(&mut app, mutation_id, &fingerprint).unwrap());
     assert!(
         app.access_mutations
             .get("01900000-0000-7000-8000-000000000001", mutation_id)
             .unwrap()
             .is_none()
     );
+    assert!(!super::acknowledge_access_mutation(&mut app, mutation_id, &fingerprint).unwrap());
 }
 
 #[tokio::test]

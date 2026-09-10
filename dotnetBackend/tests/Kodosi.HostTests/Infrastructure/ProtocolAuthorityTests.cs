@@ -162,6 +162,22 @@ public sealed class ProtocolAuthorityTests
     }
 
     [Fact]
+    public void ArtifactEndorsementEndpointAuthorityMatchesContracts()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(ResolveAuthorityPath("backend-api-authority.json")));
+        var authority = document.RootElement.GetProperty("artifactEndorsements");
+        Assert.Equal("/api/me/artifact-endorsements", authority.GetProperty("put").GetProperty("path").GetString());
+        Assert.Equal("/api/users/{userId}/artifact-endorsements", authority.GetProperty("lookup").GetProperty("path").GetString());
+        Assert.Equal("/api/me/artifact-endorsements", authority.GetProperty("inventory").GetProperty("path").GetString());
+        Assert.Equal(204, authority.GetProperty("put").GetProperty("successStatus").GetInt32());
+        Assert.Equal(ArtifactEndorsement.MaximumPerIdentity, authority.GetProperty("inventory").GetProperty("maximumItemsPerIdentity").GetInt32());
+        var responseFields = typeof(Kodosi.Host.Endpoints.ArtifactEndorsementResponse).GetProperties().Select(property => ToCamelCase(property.Name)).ToArray();
+        Assert.Equal(authority.GetProperty("responseFields").EnumerateArray().Select(value => value.GetString()).ToArray(), responseFields);
+        var requestFields = typeof(Kodosi.Host.Endpoints.PutArtifactEndorsementRequest).GetProperties().Select(property => ToCamelCase(property.Name)).ToArray();
+        Assert.Equal(authority.GetProperty("put").GetProperty("requiredBody").EnumerateArray().Select(value => value.GetString()).ToArray(), requestFields);
+    }
+
+    [Fact]
     public void SessionRelayAuthorityMatchesBackendWireContracts()
     {
         var authority = LoadSessionRelayAuthority();
@@ -486,8 +502,10 @@ public sealed class ProtocolAuthorityTests
     public void CryptoDomainTagsMatchProtocolAuthority()
     {
         var authority = LoadDomainTagAuthority();
-        Assert.Equal(7, authority.Version);
-        Assert.Equal(16, authority.Tags.Count);
+        Assert.Equal(8, authority.Version);
+        Assert.Equal(18, authority.Tags.Count);
+        Assert.Equal(authority.Tags["AUTHENTICATED_ARTIFACT_V1"], Encoding.UTF8.GetString(DomainTags.AuthenticatedArtifactV1));
+        Assert.Equal(authority.Tags["ARTIFACT_ENDORSEMENT_V1"], Encoding.UTF8.GetString(DomainTags.ArtifactEndorsementV1));
 
         Assert.Equal(
             authority.Tags["DEVICE_POP_V1"],
@@ -537,6 +555,19 @@ public sealed class ProtocolAuthorityTests
         Assert.Equal(
             authority.Tags["ROOM_INVITATION_DECISION_V1"],
             Encoding.ASCII.GetString(DomainTags.RoomInvitationDecisionV1));
+    }
+
+    [Fact]
+    public void ArtifactEndorsementPreimageMatchesProtocolVector()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(ResolveAuthorityPath("crypto-domain-tags.json")));
+        var vector = document.RootElement.GetProperty("artifactEndorsementPreimageVector");
+        var actual = ArtifactEndorsement.CreatePreimage(
+            UserId.From(Guid.Parse(vector.GetProperty("userId").GetString()!)),
+            Guid.Parse(vector.GetProperty("identityIncarnationId").GetString()!),
+            vector.GetProperty("artifactDigest").GetString()!,
+            vector.GetProperty("endorserDeviceId").GetString()!);
+        Assert.Equal(vector.GetProperty("preimageHex").GetString(), Convert.ToHexStringLower(actual));
     }
 
     [Fact]

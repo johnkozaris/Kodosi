@@ -2,20 +2,14 @@ use std::collections::VecDeque;
 
 use crate::{
     AppError, Result,
-    agent_intel::{mode::AgentIntelModeCtx, state::AgentIntelState},
-    runtime::{runtime_event_outbox::RuntimeEventOutbox, state::push_log},
-    session_runtime::{
-        commands::SessionInput,
-        handles::{SessionPtyInstruction, SessionScreenInstruction},
-    },
+    session_runtime::handles::{SessionPtyInstruction, SessionScreenInstruction},
 };
 use kodosi_domain::{
     ids::SessionId,
-    session::{SessionMode, SessionProvenance, SessionState},
+    session::{SessionProvenance, SessionState},
 };
 
 use super::state::LocalSessionsState;
-use crate::sessions_common::{shift_tab_bytes, shift_tab_count_for_agent};
 
 pub(crate) fn reject_non_kodosi_local(
     id: SessionId,
@@ -90,79 +84,5 @@ impl LocalSessionsState {
         self.owned_session_runtimes
             .send_to_pty(id, SessionPtyInstruction::Interrupt)
             .await
-    }
-}
-
-pub(crate) struct LocalSessionModeCtx<'a> {
-    pub(crate) local: &'a mut LocalSessionsState,
-    pub(crate) intel_state: &'a mut AgentIntelState,
-    pub(crate) outbox: &'a mut RuntimeEventOutbox,
-    pub(crate) logs: &'a mut VecDeque<String>,
-}
-
-impl LocalSessionModeCtx<'_> {
-    pub(crate) async fn set_mode(
-        &mut self,
-        id: SessionId,
-        expected_runtime_incarnation_id: uuid::Uuid,
-        mode: SessionMode,
-    ) -> Result<()> {
-        let record = self
-            .local
-            .sessions
-            .record(id)
-            .filter(|record| record.local_incarnation_id == expected_runtime_incarnation_id)
-            .ok_or(AppError::NoActiveSession)?;
-
-        reject_non_kodosi_local(
-            id,
-            record.summary.provenance,
-            "desktop mode control only applies to local sessions",
-        )?;
-
-        let current_mode = record.summary.mode;
-        if current_mode == mode {
-            return Ok(());
-        }
-
-        let detected_agent = record.summary.detected_agent.clone();
-        let shift_tab_count =
-            shift_tab_count_for_agent(detected_agent.as_deref(), current_mode, mode, id)?;
-
-        self.local
-            .owned_session_runtimes
-            .send_to_screen(
-                id,
-                SessionScreenInstruction::Input(SessionInput::new(shift_tab_bytes(
-                    shift_tab_count,
-                ))),
-            )
-            .await?;
-
-        let still_current =
-            self.local.sessions.record(id).is_some_and(|record| {
-                record.local_incarnation_id == expected_runtime_incarnation_id
-            });
-        if !still_current {
-            return Err(AppError::NoActiveSession);
-        }
-
-        AgentIntelModeCtx {
-            intel_state: self.intel_state,
-            local_sessions: self.local,
-            outbox: self.outbox,
-        }
-        .apply_mode_update(id, mode);
-
-        push_log(
-            self.logs,
-            format!(
-                "{} switched mode from {} to {}",
-                id.short(),
-                crate::sessions_common::session_mode_label(current_mode),
-                crate::sessions_common::session_mode_label(mode)
-            ),
-        );
-        Ok(())
     }
 }

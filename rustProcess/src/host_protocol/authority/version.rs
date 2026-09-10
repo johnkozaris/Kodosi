@@ -1,8 +1,8 @@
 use serde_json::Value;
 
-pub const PROTOCOL_VERSION: u32 = 31;
+pub const PROTOCOL_VERSION: u32 = 38;
 
-const FROZEN_SNAPSHOT: &str = include_str!("../../../../protocol/versions/v31.json");
+const FROZEN_SNAPSHOT: &str = include_str!("../../../../protocol/versions/v38.json");
 
 pub fn generated_frozen_snapshot() -> Result<Value, serde_json::Error> {
     serde_json::from_str(FROZEN_SNAPSHOT)

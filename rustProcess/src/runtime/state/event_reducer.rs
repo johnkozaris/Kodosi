@@ -290,6 +290,7 @@ impl AppState {
             | RuntimeSessionEvent::PermissionResolved { .. }
             | RuntimeSessionEvent::RemotePermissionDecision { .. }
             | RuntimeSessionEvent::ClipboardUpdate { .. }
+            | RuntimeSessionEvent::ClipboardWriteRequest { .. }
             | RuntimeSessionEvent::TerminalBell { .. }
             | RuntimeSessionEvent::TerminalTitleChanged { .. }
             | RuntimeSessionEvent::TerminalNotification { .. }

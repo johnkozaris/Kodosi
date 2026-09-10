@@ -473,6 +473,7 @@ fn mailbox_task(id: &str, room_id: &str, updated_second: i64) -> MailboxRoomTask
         completed_at: None,
         result: None,
         result_author_user_id: None,
+        content_unavailable: false,
     }))
 }
 

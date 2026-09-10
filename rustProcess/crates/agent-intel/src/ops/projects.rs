@@ -125,7 +125,11 @@ pub async fn list_project_sessions(home: &Path, slug: &str) -> Result<Vec<Sessio
         Err(PathSafetyError::NotFound) => return Ok(Vec::new()),
         Err(err) => return Err(format!("invalid slug: {err}")),
     };
+    list_project_sessions_at(&dir).await
+}
 
+pub async fn list_project_sessions_at(dir: &Path) -> Result<Vec<SessionRef>, String> {
+    let dir = dir.to_owned();
     tokio::task::spawn_blocking(move || -> Result<Vec<SessionRef>, String> {
         let mut out = Vec::new();
         for entry in bounded_sorted_entries(&dir, "project sessions")? {

@@ -28,6 +28,7 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
     public DbSet<IdentityResetAuditEntry> IdentityResetAuditEntries =>
         Set<IdentityResetAuditEntry>();
     public DbSet<IdentityExposure> IdentityExposures => Set<IdentityExposure>();
+    public DbSet<ArtifactEndorsement> ArtifactEndorsements => Set<ArtifactEndorsement>();
     public DbSet<UserDevice> UserDevices => Set<UserDevice>();
     public DbSet<UserDeviceList> UserDeviceLists => Set<UserDeviceList>();
     public DbSet<SessionKeyBlob> SessionKeyBlobs => Set<SessionKeyBlob>();

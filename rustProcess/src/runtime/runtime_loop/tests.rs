@@ -1786,7 +1786,7 @@ async fn invalid_semantic_fields_are_rejected_before_steering_state_changes() {
     assert!(app.query_steers(session_id, None).is_empty());
     std::assert_matches!(
         recv_agent_event(&mut rx.agent_intel_rx).await,
-        Some(AgentIntelEvent::Error { request_id, message })
+        Some(AgentIntelEvent::Error { request_id, message, .. })
             if request_id == "550e8400-e29b-41d4-a716-446655440000"
                 && message.contains("requestId")
                 && message.contains("UUIDv7")

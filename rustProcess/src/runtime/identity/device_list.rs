@@ -19,6 +19,7 @@ use super::{DeviceKeyAccess, backend_adapters, device_keys::verify_own_identity_
 
 #[derive(Debug, Clone)]
 pub(crate) struct DeviceRevocationOutcome {
+    pub(crate) history_warning: Option<String>,
     #[cfg(feature = "cli")]
     pub(crate) revoked_device_id: String,
     #[cfg(feature = "cli")]
@@ -30,6 +31,7 @@ pub(crate) struct DeviceListCtx<'a> {
     pub(crate) backend: &'a BackendHttpClient,
     pub(crate) device_key_store: &'a DeviceKeyStore,
     pub(crate) pin_store: &'a DeviceListPinStoreHandle,
+    pub(crate) room_roster_pins_path: &'a std::path::Path,
     pub(crate) outbox: &'a mut RuntimeEventOutbox,
 }
 
@@ -63,7 +65,7 @@ impl DeviceListCtx<'_> {
         };
         let verdict = self
             .pin_store
-            .verify_or_pin(view.clone(), pin_context)
+            .verify_or_pin_for_owner(&user_id, view.clone(), pin_context)
             .await?;
         match verdict {
             PinVerdict::FirstShare | PinVerdict::AcceptUpdate | PinVerdict::AlreadyPinned => {}
@@ -131,6 +133,26 @@ impl DeviceListCtx<'_> {
             .cloned()
             .collect();
 
+        let mut history = crate::room_crypto::RoomCryptoContext::from_parts(
+            self.backend.clone(),
+            self.pin_store.clone(),
+            self.room_roster_pins_path.to_owned(),
+            user_id.clone(),
+            self.device_key_store
+                .load_if_present(&user_id)?
+                .ok_or(AppError::Unauthorized)?,
+        );
+        let preservation = tokio::time::timeout(
+            std::time::Duration::from_secs(20),
+            Box::pin(history.preserve_history_before_revocation(target_device_id)),
+        )
+        .await;
+        let history_warning = match preservation {
+            Ok(Ok(())) => None,
+            Ok(Err(error)) => Some(format!("Device revoked. Some Mission history could not be preserved: {error}")),
+            Err(_) => Some("Device revoked. Preserving Mission history timed out; some older content may be unavailable.".to_owned()),
+        };
+
         let signing_key = local_keys.signing_key()?;
         #[expect(
             clippy::cast_sign_loss,
@@ -155,7 +177,23 @@ impl DeviceListCtx<'_> {
             })
             .await?;
 
+        self.outbox.queue_devices(DeviceEvent::List {
+            self_device_id: local_keys.device_id.clone(),
+            local_device_enrolled: true,
+            devices: view
+                .devices
+                .values()
+                .filter(|device| device.certificate.device_id != target_device_id)
+                .map(|device| MyDeviceEntry {
+                    device_id: device.certificate.device_id.clone(),
+                    label: device.certificate.device_label.clone(),
+                    cert_signer_device_id: device.certificate.signer_device_id.clone(),
+                    cert_issued_at_ms: device.certificate.issued_at_ms,
+                })
+                .collect(),
+        });
         Ok(DeviceRevocationOutcome {
+            history_warning,
             #[cfg(feature = "cli")]
             revoked_device_id: target_device_id.to_owned(),
             #[cfg(feature = "cli")]
@@ -201,6 +239,7 @@ mod tests {
             backend: &server.client(),
             device_key_store: &device_key_store,
             pin_store: &pin_store,
+            room_roster_pins_path: &pin_dir.path().join("rosters.json"),
             outbox: &mut outbox,
         };
 
@@ -259,6 +298,7 @@ mod tests {
             backend: &backend,
             device_key_store: &device_key_store,
             pin_store: &pin_store,
+            room_roster_pins_path: &pin_dir.path().join("rosters.json"),
             outbox: &mut outbox,
         };
 

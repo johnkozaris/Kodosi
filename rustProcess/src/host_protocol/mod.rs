@@ -24,9 +24,9 @@ pub use host_command::{AgentIntelCommand, SystemCommand};
 pub use host_event::{
     AccountAgentIntelEvent, AccountContextEvent, AccountDeviceEvent, AccountFriendsEvent,
     AccountRoomEvent, AccountSessionEvent, AccountTrustEvent, ActivePendingPermission,
-    AgentGlobalEvent, AgentIntelEvent, CollaborationCleanupHealth, CollaborationCleanupState,
-    PendingPermissionDecisionPhase, PendingPermissionsSnapshot, RemotePermissionDecisionPhase,
-    SystemEvent,
+    AgentGlobalEvent, AgentIntelEvent, AgentIntelFailureKind, CollaborationCleanupHealth,
+    CollaborationCleanupState, PendingPermissionDecisionPhase, PendingPermissionsSnapshot,
+    RemotePermissionDecisionPhase, SystemEvent,
 };
 pub use kodosi_domain::device_link::{DeviceLinkOutcome, SelfDeviceLinkOutcome};
 pub use rooms::{
@@ -49,6 +49,7 @@ pub(crate) use host_command::HostCommand;
 pub(crate) use host_command::HostCommandValidationError;
 #[cfg(feature = "cli")]
 pub(crate) use host_event::HostEvent;
+pub(crate) use host_event::LiveAgentIntelEntry;
 pub(crate) use session_catalog_events::{room_catalog_event, session_catalog_snapshot_event};
 pub(crate) use session_entries::{
     LocalSessionListEntry, PermissionFlags, RemoteSessionListEntry, RoomListEntry,

@@ -287,8 +287,16 @@ public sealed class HostMessageProcessorTests
             new CancellationTokenSource()));
         var queues = broadcaster.GetOrCreateSession(sessionId);
         var hostQueue = queues.SetHostQueue("host");
-        var requesterQueue = queues.AddParticipantQueue("requester");
-        var otherQueue = queues.AddParticipantQueue("other-device");
+        var requesterQueue = queues.AddPreparedParticipantQueue(
+            "requester",
+            AccessLevel.View,
+            static _ => { },
+            semanticReceiptDestination: new SessionSendQueues.SemanticReceiptDestination(ownerUserId, "requester-device"));
+        var otherQueue = queues.AddPreparedParticipantQueue(
+            "other-device",
+            AccessLevel.View,
+            static _ => { },
+            semanticReceiptDestination: new SessionSendQueues.SemanticReceiptDestination(ownerUserId, "other-device"));
         connections.RegisterOwnerParticipant(
             "requester",
             ownerUserId,
@@ -345,8 +353,9 @@ public sealed class HostMessageProcessorTests
                 "stopAndSend", payloadSha256, "injected", ownerUserId,
                 "host-device", signature),
             semanticRelay.Stored);
-        var participantBytes = await requesterQueue.ReadAsync(
-            TestContext.Current.CancellationToken);
+        using var deliveryTimeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        deliveryTimeout.CancelAfter(TimeSpan.FromSeconds(5));
+        var participantBytes = await requesterQueue.ReadAsync(deliveryTimeout.Token);
         var participantReceipt = JsonSerializer.Deserialize(
             participantBytes!.Value.Payload,
             WsJsonContext.Default.ParticipantSemanticReceiptMessage);
@@ -356,7 +365,7 @@ public sealed class HostMessageProcessorTests
             await Assert.ThrowsAnyAsync<OperationCanceledException>(
                 () => otherQueue.ReadAsync(timeout.Token));
         }
-        var ackBytes = await hostQueue.ReadAsync(TestContext.Current.CancellationToken);
+        var ackBytes = await hostQueue.ReadAsync(deliveryTimeout.Token);
         var ack = JsonSerializer.Deserialize(
             ackBytes!,
             WsJsonContext.Default.HostSemanticReceiptAckMessage);

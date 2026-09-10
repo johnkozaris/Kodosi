@@ -29,6 +29,8 @@ public interface IDeviceListRealtimeEffects
 
     void ReportEnforcementPending(Guid revocationId, Exception exception);
 
+    void PublishInvitationsChanged(IReadOnlyCollection<UserId> audience);
+
     void PublishChanged(
         IReadOnlyCollection<UserId> audience,
         UserId userId,

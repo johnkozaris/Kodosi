@@ -61,7 +61,7 @@ public sealed class RoomTaskService(
         DateTimeOffset? dueAt,
         CancellationToken ct)
     {
-        await EnsureMemberAsync(roomId, requesterUserId, ct);
+        var room = await EnsureMemberAsync(roomId, requesterUserId, ct);
         await EnsureAssignableRoomSessionAsync(
             roomId,
             assignedSessionId,
@@ -83,7 +83,12 @@ public sealed class RoomTaskService(
                 assignedSessionId.Value,
                 assignedSessionIncarnationId!.Value);
         }
-        return await _tasks.AddIdempotentAsync(task, ct);
+        var creation = await _tasks.AddIdempotentAsync(task, ct);
+        if (creation.Created)
+        {
+            room.AdvanceTaskRevision();
+        }
+        return creation.Task;
     }
 
     public async Task<RoomTaskMutationResult> TransitionIdempotentlyAsync(
@@ -221,6 +226,7 @@ public sealed class RoomTaskService(
             throw new PolicyViolationException(
                 "Only the assigned agent session or the room owner may transition this task.");
         }
+        room.AdvanceTaskRevision();
     }
 
     public async Task<RoomTaskMutationResult> AssignIdempotentlyAsync(
@@ -271,9 +277,10 @@ public sealed class RoomTaskService(
             sessionId,
             sessionIncarnationId,
             ct);
-        await EnsureMemberAsync(task.RoomId, requesterUserId, ct);
+        var room = await EnsureMemberAsync(task.RoomId, requesterUserId, ct);
         var now = _timeProvider.GetUtcNow();
         task.Assign(sessionId, sessionIncarnationId, now);
+        room.AdvanceTaskRevision();
         var receipt = RoomMutationReceiptPolicy.Create(
             requesterUserId,
             RoomMutationOperation.AssignTask,
@@ -310,9 +317,17 @@ public sealed class RoomTaskService(
         Guid? assigneeFilter,
         int offset,
         int limit,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? snapshot = null)
     {
-        await EnsureMemberAsync(roomId, requesterUserId, ct);
+        await using var transaction = await _unitOfWork.BeginTransactionAsync(ct);
+        await _roomLifecycleLock.AcquireAsync(roomId, ct);
+        var room = await EnsureMemberAsync(roomId, requesterUserId, ct);
+        var currentSnapshot = TaskSnapshot(room, requesterUserId, statusFilter, assigneeFilter);
+        if (snapshot is not null && !string.Equals(snapshot, currentSnapshot, StringComparison.Ordinal))
+        {
+            throw new ConcurrentModificationException();
+        }
         var normalizedOffset = Math.Max(0, offset);
         var normalizedLimit = Math.Clamp(limit, 1, MaxPageSize);
         var candidates = await _tasks.GetByRoomPageAsync(
@@ -324,10 +339,24 @@ public sealed class RoomTaskService(
             ct);
         var hasMore = candidates.Count > normalizedLimit;
         var items = hasMore ? candidates.Take(normalizedLimit).ToList() : candidates;
+        await transaction.CommitAsync(ct);
         return new RoomTaskReadPage(
             items,
             hasMore,
-            hasMore ? normalizedOffset + items.Count : null);
+            hasMore ? normalizedOffset + items.Count : null,
+            currentSnapshot);
+    }
+
+    private static string TaskSnapshot(
+        Room room,
+        UserId requesterUserId,
+        RoomTaskStatus? statusFilter,
+        Guid? assigneeFilter)
+    {
+        var identity = FormattableString.Invariant(
+            $"kodosi:room-task-snapshot:v1\n{room.Id.Value:D}\n{requesterUserId.Value:D}\n{room.TaskRevision}\n{statusFilter}\n{assigneeFilter:D}");
+        return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(identity)));
     }
 
     private static void EnsureTaskTarget(
@@ -405,7 +434,7 @@ public sealed class RoomTaskService(
             receipt.AssigneeSessionId,
             receipt.AssigneeSessionIncarnationId);
 
-    private async Task EnsureMemberAsync(RoomId roomId, UserId userId, CancellationToken ct)
+    private async Task<Room> EnsureMemberAsync(RoomId roomId, UserId userId, CancellationToken ct)
     {
         var room = await _rooms.GetByIdAsync(roomId, ct)
             ?? throw new NotFoundException(nameof(Room), roomId);
@@ -414,6 +443,7 @@ public sealed class RoomTaskService(
         {
             throw new PolicyViolationException("Only room members may manage tasks.");
         }
+        return room;
     }
 
     private async Task<bool> IsOwnedRoomSessionAsync(
@@ -434,7 +464,8 @@ public sealed class RoomTaskService(
 public sealed record RoomTaskReadPage(
     IReadOnlyList<RoomTask> Items,
     bool HasMore,
-    int? NextOffset);
+    int? NextOffset,
+    string Snapshot);
 
 public sealed record RoomTaskMutationResult(
     RoomMutationReceiptResult Receipt,

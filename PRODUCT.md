@@ -153,7 +153,7 @@ and coordinate local or remote coding work safely from one place.
 
 ## Shipping Boundary
 
-- `rustProcess/` owns the arm64 macOS runtime, PTY and process lifecycle, terminal
+- `rustProcess/` owns the arm64 macOS and x86_64 Linux runtime, PTY and process lifecycle, terminal
   semantics, supervision, identity, sharing, CLI, and C ABI.
 - `dotnetBackend/` owns durable product metadata, HTTP APIs, PostgreSQL persistence, and
   the bounded ciphertext relay.
@@ -162,9 +162,10 @@ and coordinate local or remote coding work safely from one place.
 - `../kodosi-ghostty` supplies the pinned native renderer and headless terminal engine
   used across the runtime and client.
 
-The SwiftUI macOS client and arm64 macOS runtime are the supported local product.
-Electron and Windows/Linux desktop and local-runtime surfaces are retired. Linux remains
-a backend service deployment target.
+The SwiftUI macOS client remains the shipping baseline. `../KodosiQT` develops the x86_64
+Linux client against the same Rust runtime and pinned Linux Ghostty VT artifact. Linux support
+is a complete native platform slice, not a separate execution authority. Electron and Windows
+desktop/local-runtime surfaces are retired; Linux is also the backend service deployment target.
 
 Market positioning and strategic direction live in
-[`docs/review-2026-06/PRODUCT-DIRECTION.md`](docs/review-2026-06/PRODUCT-DIRECTION.md).
+[`docs/PRODUCT-DIRECTION.md`](docs/PRODUCT-DIRECTION.md).

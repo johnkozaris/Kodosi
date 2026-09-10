@@ -2,10 +2,7 @@ use time::OffsetDateTime;
 
 use crate::{
     AppError, Result,
-    local_sessions::{
-        lifecycle::LocalSessionLifecycleCtx,
-        ops::{LocalSessionModeCtx, reject_non_kodosi_local},
-    },
+    local_sessions::{lifecycle::LocalSessionLifecycleCtx, ops::reject_non_kodosi_local},
 };
 use kodosi_domain::{ids::SessionId, session::SessionState};
 
@@ -22,15 +19,6 @@ pub(crate) fn lifecycle(app: &mut Runtime) -> LocalSessionLifecycleCtx<'_> {
         clipboard_available: app.clipboard.is_available(),
         allow_terminal_clipboard_write,
         terminal_hub: &app.terminal_hub,
-    }
-}
-
-pub(crate) fn mode(app: &mut Runtime) -> LocalSessionModeCtx<'_> {
-    LocalSessionModeCtx {
-        local: &mut app.state.local,
-        intel_state: &mut app.state.agent_intel,
-        outbox: &mut app.state.runtime_outbox,
-        logs: &mut app.state.logs,
     }
 }
 

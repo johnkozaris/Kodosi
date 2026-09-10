@@ -4,7 +4,10 @@ mod screen;
 
 use std::{collections::VecDeque, fmt, io};
 
-use kodosi_session::{KodosiPty, RawFdAsyncReader, SessionTerminalHandle, TerminalHistoryPolicy};
+use kodosi_session::{
+    ClipboardWriteOutcome, KodosiPty, RawFdAsyncReader, SessionTerminalHandle,
+    TerminalClipboardWriter, TerminalHistoryPolicy,
+};
 use tokio::{
     sync::mpsc,
     time::{self, Duration, MissedTickBehavior},
@@ -40,6 +43,24 @@ const SESSION_PTY_CAPACITY: usize = 128;
 const RUNTIME_METADATA_INTERVAL: Duration = Duration::from_secs(5);
 const PENDING_PTY_DRAIN_INTERVAL: Duration = Duration::from_millis(10);
 const RESIZE_COALESCE_WINDOW: Duration = Duration::from_millis(16);
+
+fn runtime_clipboard_writer(
+    session_events: mpsc::Sender<RuntimeSessionEvent>,
+    origin: LocalCoordinatorOrigin,
+) -> TerminalClipboardWriter {
+    Box::new(move |text| {
+        let (reply, result) = std::sync::mpsc::sync_channel(1);
+        match session_events.try_send(RuntimeSessionEvent::ClipboardWriteRequest {
+            origin,
+            text,
+            reply,
+        }) {
+            Ok(()) => result.recv().unwrap_or(ClipboardWriteOutcome::IoError),
+            Err(mpsc::error::TrySendError::Full(_)) => ClipboardWriteOutcome::Busy,
+            Err(mpsc::error::TrySendError::Closed(_)) => ClipboardWriteOutcome::IoError,
+        }
+    })
+}
 
 #[derive(Debug, Default)]
 struct ResizeCoalescer {
@@ -476,13 +497,16 @@ async fn run_owned_session(
     let mut metadata_dirty = false;
     let mut pending_resize = ResizeCoalescer::default();
     let mut notification_policy = screen::TerminalNotificationPolicy::default();
-    let terminal = match SessionTerminalHandle::spawn_with_theme(
+    let clipboard_writer =
+        supports_osc52_clipboard.then(|| runtime_clipboard_writer(session_events.clone(), origin));
+    let terminal = match SessionTerminalHandle::spawn_with_theme_and_clipboard_writer(
         current_size.rows(),
         current_size.cols(),
         spec.initial_terminal_sequence,
         supports_osc52_clipboard,
         terminal_history,
         spec.initial_theme_dark,
+        clipboard_writer,
     ) {
         Ok(terminal) => terminal,
         Err(error) => {

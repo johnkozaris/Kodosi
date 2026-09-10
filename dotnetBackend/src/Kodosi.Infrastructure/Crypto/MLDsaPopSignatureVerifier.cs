@@ -12,7 +12,9 @@ public sealed class MLDsaPopSignatureVerifier : IPopSignatureVerifier
         ReadOnlySpan<byte> message,
         ReadOnlySpan<byte> signature)
     {
-        if (publicKey.IsEmpty || message.IsEmpty || signature.IsEmpty)
+        if (publicKey.Length != MLDsaAlgorithm.MLDsa65.PublicKeySizeInBytes
+            || message.IsEmpty
+            || signature.Length != MLDsaAlgorithm.MLDsa65.SignatureSizeInBytes)
         {
             return false;
         }

@@ -52,7 +52,7 @@ public sealed class RoomTaskRepository(KodosiDbContext context) : IRoomTaskRepos
             .ToListAsync(ct);
     }
 
-    public async Task<RoomTask> AddIdempotentAsync(
+    public async Task<RoomTaskCreationResult> AddIdempotentAsync(
         RoomTask task,
         CancellationToken ct = default)
     {
@@ -74,10 +74,10 @@ public sealed class RoomTaskRepository(KodosiDbContext context) : IRoomTaskRepos
                 throw new ConflictException(
                     "Room task ID is already in use with a different request fingerprint.");
             }
-            return existing;
+            return new RoomTaskCreationResult(existing, false);
         }
 
         await _context.RoomTasks.AddAsync(task, ct);
-        return task;
+        return new RoomTaskCreationResult(task, true);
     }
 }

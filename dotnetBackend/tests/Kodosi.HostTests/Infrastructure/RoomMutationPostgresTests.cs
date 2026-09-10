@@ -135,6 +135,71 @@ public sealed class RoomMutationPostgresTests
         Assert.Equal("ROOM_MUTATION_TARGET_CONFLICT", exception.Code);
     }
 
+    [Fact]
+    public async Task TaskSnapshotRejectsReorderedPagesAndTracksOnlyCommittedMutations()
+    {
+        await using var database = await ReceiptDatabase.StartAsync();
+        var actor = UserId.New();
+        var room = Room.Create(RoomId.From(Guid.NewGuid()), actor, "Snapshot room", "snapshot-room", 1, [1], [2], "owner-device");
+        var now = DateTimeOffset.UtcNow;
+        var tasks = Enumerable.Range(0, 4).Select(index => RoomTask.Create(
+            Guid.NewGuid(), room.Id, actor, $"ciphertext-{index}", null, null, null, now.AddMinutes(-index - 1))).ToArray();
+        await database.SeedAsync(actor, room, tasks[0]);
+        await using (var setup = database.CreateContext())
+        {
+            setup.RoomTasks.AddRange(tasks.Skip(1));
+            await setup.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        var first = await database.ListAsync(actor, room.Id, 0, 2);
+        Assert.Equal([tasks[0].Id, tasks[1].Id], first.Items.Select(task => task.Id));
+        Assert.True(first.HasMore);
+        var second = await database.ListAsync(actor, room.Id, 2, 2, first.Snapshot);
+        Assert.Equal([tasks[2].Id, tasks[3].Id], second.Items.Select(task => task.Id));
+        Assert.False(second.HasMore);
+        Assert.Equal(first.Snapshot, second.Snapshot);
+
+        // Even assigning the existing null value is a task touch: its UpdatedAt and
+        // revision move it across the offset boundary, so it must advance the snapshot.
+        var requestId = Guid.CreateVersion7();
+        await database.AssignAsync(actor, room.Id, tasks[3].Id, requestId, 0);
+        await Assert.ThrowsAsync<ConcurrentModificationException>(() =>
+            database.ListAsync(actor, room.Id, 2, 2, first.Snapshot));
+        var restarted = await database.ListAsync(actor, room.Id, 0, 10);
+        Assert.Equal(4, restarted.Items.Count);
+        Assert.Equal(tasks[3].Id, restarted.Items[0].Id);
+        Assert.NotEqual(first.Snapshot, restarted.Snapshot);
+        Assert.Equal(1, await database.TaskRevisionAsync(room.Id));
+
+        Assert.True((await database.AssignAsync(actor, room.Id, tasks[3].Id, requestId, 0)).Receipt.IsDuplicate);
+        Assert.Equal(restarted.Snapshot, (await database.ListAsync(actor, room.Id, 0, 10)).Snapshot);
+        await Assert.ThrowsAsync<ConcurrentModificationException>(() =>
+            database.AssignAsync(actor, room.Id, tasks[3].Id, Guid.CreateVersion7(), 0));
+        Assert.Equal(1, await database.TaskRevisionAsync(room.Id));
+
+        var createdId = Guid.NewGuid();
+        await database.CreateTaskAsync(actor, room.Id, createdId);
+        var afterCreate = await database.ListAsync(actor, room.Id, 0, 10);
+        Assert.Equal(5, afterCreate.Items.Count);
+        Assert.Equal(2, await database.TaskRevisionAsync(room.Id));
+        await database.CreateTaskAsync(actor, room.Id, createdId);
+        Assert.Equal(afterCreate.Snapshot, (await database.ListAsync(actor, room.Id, 0, 10)).Snapshot);
+        Assert.Equal(2, await database.TaskRevisionAsync(room.Id));
+
+        await using (var transition = database.CreateContext())
+        {
+            await database.Service(transition).TransitionIdempotentlyAsync(
+                Guid.CreateVersion7(), room.Id, createdId, 0, actor, null, null,
+                RoomTaskStatus.Done, "result", TestContext.Current.CancellationToken);
+        }
+        Assert.Equal(3, await database.TaskRevisionAsync(room.Id));
+        await Assert.ThrowsAsync<ConcurrentModificationException>(() =>
+            database.ListAsync(actor, room.Id, 0, 10, afterCreate.Snapshot));
+        var latest = await database.ListAsync(actor, room.Id, 0, 10);
+        await Assert.ThrowsAsync<ConcurrentModificationException>(() =>
+            database.ListAsync(actor, room.Id, 0, 10, latest.Snapshot, RoomTaskStatus.Done));
+    }
+
     private sealed class ReceiptDatabase(
         PostgreSqlContainer container,
         DbContextOptions<KodosiDbContext> options) : IAsyncDisposable
@@ -201,16 +266,7 @@ public sealed class RoomMutationPostgresTests
             long expectedRevision)
         {
             await using var context = CreateContext();
-            var unitOfWork = new UnitOfWork(context);
-            var service = new RoomTaskService(
-                new RoomRepository(context),
-                new RoomMemberRepository(context),
-                new RoomTaskRepository(context),
-                new SessionRepository(context),
-                new RoomMutationReceiptRepository(context),
-                new PostgresRoomLifecycleLock(context),
-                unitOfWork,
-                TimeProvider.System);
+            var service = Service(context);
             return await service.AssignIdempotentlyAsync(
                 requestId,
                 roomId,
@@ -220,6 +276,34 @@ public sealed class RoomMutationPostgresTests
                 sessionId: null,
                 sessionIncarnationId: null,
                 TestContext.Current.CancellationToken);
+        }
+
+        public RoomTaskService Service(KodosiDbContext context) => new(
+            new RoomRepository(context), new RoomMemberRepository(context), new RoomTaskRepository(context),
+            new SessionRepository(context), new RoomMutationReceiptRepository(context),
+            new PostgresRoomLifecycleLock(context), new UnitOfWork(context), TimeProvider.System);
+
+        public async Task<RoomTaskReadPage> ListAsync(
+            UserId actor, RoomId roomId, int offset, int limit, string? snapshot = null,
+            RoomTaskStatus? statusFilter = null)
+        {
+            await using var context = CreateContext();
+            return await Service(context).ListAsync(roomId, actor, statusFilter, null, offset, limit,
+                TestContext.Current.CancellationToken, snapshot);
+        }
+
+        public async Task<RoomTask> CreateTaskAsync(UserId actor, RoomId roomId, Guid taskId)
+        {
+            await using var context = CreateContext();
+            return await Service(context).CreateAsync(roomId, taskId, actor, "ciphertext", null, null, null, null,
+                TestContext.Current.CancellationToken);
+        }
+
+        public async Task<long> TaskRevisionAsync(RoomId roomId)
+        {
+            await using var context = CreateContext();
+            return await context.Rooms.Where(room => room.Id == roomId).Select(room => room.TaskRevision)
+                .SingleAsync(TestContext.Current.CancellationToken);
         }
 
         public ValueTask DisposeAsync() => container.DisposeAsync();

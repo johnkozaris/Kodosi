@@ -7,8 +7,9 @@
 )]
 
 pub use ghostty_vt_sys::raw::{
-    CheckpointLimits, ClipboardContent, ClipboardLocation, CompressionProgress, Effect, Error, Key,
-    Modifiers, Screen, TerminalState,
+    CheckpointLimits, ClipboardContent, ClipboardLocation, ClipboardWriteHandler,
+    ClipboardWriteOutcome, CompressionProgress, Effect, Error, Key, Modifiers, Screen,
+    TerminalState,
 };
 
 use ghostty_vt_sys::raw::{Format, FormatOptions, Terminal as RawTerminal};
@@ -134,6 +135,13 @@ impl Terminal {
 
     pub fn set_clipboard_enabled(&mut self, enabled: bool) -> Result<(), Error> {
         self.raw.set_clipboard_enabled(enabled)
+    }
+
+    pub fn set_clipboard_writer(
+        &mut self,
+        writer: Option<ClipboardWriteHandler>,
+    ) -> Result<(), Error> {
+        self.raw.set_clipboard_writer(writer)
     }
 
     pub fn set_dark(&mut self, dark: bool) -> Result<(), Error> {

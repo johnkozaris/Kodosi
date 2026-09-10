@@ -24,6 +24,7 @@ pub(crate) struct RuntimeEventOutbox {
     auth_events: PendingDomainEvents<AuthEvent>,
     session_events: PendingDomainEvents<SessionEvent>,
     agent_intel_events: PendingDomainEvents<AgentIntelEvent>,
+    live_agent_intel_set: Option<AgentIntelEvent>,
     pending_permissions_snapshot: Option<AgentIntelEvent>,
 }
 
@@ -62,6 +63,7 @@ impl Default for RuntimeEventOutbox {
                 PENDING_AGENT_INTEL_EVENT_CAPACITY,
                 "pending agent-intel event",
             ),
+            live_agent_intel_set: None,
             pending_permissions_snapshot: None,
         }
     }
@@ -92,7 +94,11 @@ impl RuntimeEventOutbox {
     impl_outbox_lane!(queue_auth, drain_auth, auth_events, AuthEvent);
     impl_outbox_lane!(queue_session, drain_sessions, session_events, SessionEvent);
     pub(crate) fn queue_agent_intel(&mut self, event: AgentIntelEvent) {
-        self.agent_intel_events.push(event);
+        if matches!(event, AgentIntelEvent::LiveSet { .. }) {
+            self.live_agent_intel_set = Some(event);
+        } else {
+            self.agent_intel_events.push(event);
+        }
     }
 
     pub(crate) fn queue_pending_permissions_snapshot(
@@ -119,6 +125,9 @@ impl RuntimeEventOutbox {
 
     pub(crate) fn drain_agent_intel(&mut self) -> Vec<AgentIntelEvent> {
         let mut events = self.agent_intel_events.drain();
+        if let Some(live_set) = self.live_agent_intel_set.take() {
+            events.push(live_set);
+        }
         if let Some(snapshot) = self.pending_permissions_snapshot.take() {
             events.push(snapshot);
         }
@@ -154,7 +163,9 @@ impl RuntimeEventOutbox {
         self.session_events.retain(|event| match event {
             SessionEvent::List { .. }
             | SessionEvent::RoomList { .. }
-            | SessionEvent::HiddenList { .. } => false,
+            | SessionEvent::HiddenList { .. }
+            | SessionEvent::AccessMutationReconciled { .. }
+            | SessionEvent::AccessMutationAcknowledged { .. } => false,
             SessionEvent::Upsert { session } => !remote_session_ids.contains(session.id()),
             SessionEvent::Created { session_id, .. }
             | SessionEvent::Removed { session_id }
@@ -209,6 +220,9 @@ fn agent_intel_event_matches_incarnation(
         AgentIntelEvent::SteerState { entry, .. } => {
             entry.session_id == session_id && entry.session_incarnation_id == incarnation_id
         }
+        AgentIntelEvent::LiveSet { entries, .. } => entries.iter().any(|entry| {
+            entry.session_id == session_id && entry.session_incarnation_id == incarnation_id
+        }),
         AgentIntelEvent::Reply { .. } | AgentIntelEvent::Error { .. } => false,
     }
 }
@@ -226,6 +240,11 @@ fn agent_intel_event_is_for(
             return requests
                 .iter()
                 .any(|request| remote_session_ids.contains(&request.session_id));
+        }
+        AgentIntelEvent::LiveSet { entries, .. } => {
+            return entries
+                .iter()
+                .any(|entry| remote_session_ids.contains(&entry.session_id));
         }
         AgentIntelEvent::SteerState { entry, .. } => Some(&entry.session_id),
     };

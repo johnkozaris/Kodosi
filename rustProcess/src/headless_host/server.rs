@@ -332,6 +332,7 @@ async fn serve_device_rpc(
         match response.await {
             Ok(Ok(crate::runtime::identity::DeviceRpcOutcome::Revoked(outcome))) => {
                 DeviceRpcResponse::Revoked {
+                    history_warning: outcome.history_warning,
                     revoked_device_id: outcome.revoked_device_id,
                     new_generation: outcome.new_generation,
                 }

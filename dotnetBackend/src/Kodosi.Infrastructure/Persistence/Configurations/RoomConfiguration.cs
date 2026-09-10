@@ -28,6 +28,9 @@ public sealed class RoomConfiguration : IEntityTypeConfiguration<Room>
         builder.HasIndex(w => w.Slug).IsUnique();
 
         builder.Property(w => w.CreatedAt).HasColumnName("created_at");
+        builder.Property(w => w.TaskRevision).HasColumnName("task_revision").HasDefaultValue(0L);
+        builder.ToTable(table => table.HasCheckConstraint(
+            "CK_rooms_task_revision_nonnegative", "task_revision >= 0"));
         builder.Property(w => w.RosterGeneration)
             .HasColumnName("roster_generation");
         builder.Property(w => w.RosterBody).HasColumnName("roster_body").IsRequired();

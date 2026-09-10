@@ -190,10 +190,13 @@ pub struct RoomTaskDto {
     pub completed_at: Option<OffsetDateTime>,
     pub result: Option<String>,
     pub result_author_user_id: Option<String>,
+    #[serde(skip)]
+    pub content_unavailable: bool,
 }
 
 #[derive(Debug, Clone)]
 pub struct RoomTaskPageDto {
+    pub snapshot: String,
     pub items: Vec<RoomTaskDto>,
     pub has_more: bool,
     pub next_offset: Option<usize>,

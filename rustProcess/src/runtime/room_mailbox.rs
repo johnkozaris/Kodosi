@@ -170,6 +170,7 @@ fn map_task_entry(dto: kodosi_backend_client::api::BackendRoomTask) -> RoomTaskE
         completed_at: dto.completed_at.map(&format),
         result: dto.result,
         result_author_user_id: dto.result_author_user_id,
+        content_unavailable: dto.content_unavailable,
     }
 }
 
@@ -626,10 +627,19 @@ async fn sync_assigned_tasks(
     let mut seen_relevant = BTreeSet::new();
     for room in rooms {
         let mut offset = 0_usize;
+        let mut snapshot = None;
         loop {
             let page = room_application
-                .fetch_room_tasks_for_mailbox(&room.id, None, None, offset, TASK_PAGE_SIZE)
+                .fetch_room_tasks_for_mailbox(
+                    &room.id,
+                    None,
+                    None,
+                    offset,
+                    TASK_PAGE_SIZE,
+                    snapshot.as_deref(),
+                )
                 .await?;
+            snapshot = Some(page.snapshot);
             process_task_batch(
                 page.items,
                 |task| {

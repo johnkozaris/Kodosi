@@ -265,7 +265,7 @@ pub(crate) enum RuntimeSessionEvent {
         id: SessionId,
         local_incarnation_id: uuid::Uuid,
         generation: uuid::Uuid,
-        payload: serde_json::Value,
+        payload: Box<agent_intel::AgentIntelSnapshot>,
     },
     RoomAgentDeliveryState {
         id: SessionId,
@@ -371,6 +371,11 @@ pub(crate) enum RuntimeSessionEvent {
         origin: LocalCoordinatorOrigin,
         text: String,
     },
+    ClipboardWriteRequest {
+        origin: LocalCoordinatorOrigin,
+        text: String,
+        reply: std::sync::mpsc::SyncSender<kodosi_session::ClipboardWriteOutcome>,
+    },
     TerminalBell {
         origin: LocalCoordinatorOrigin,
     },
@@ -468,6 +473,7 @@ impl RuntimeSessionEvent {
             | Self::PermissionResolved { .. }
             | Self::RemoteControlTrustEstablished { .. }
             | Self::ClipboardUpdate { .. }
+            | Self::ClipboardWriteRequest { .. }
             | Self::TerminalBell { .. }
             | Self::TerminalTitleChanged { .. }
             | Self::TerminalNotification { .. }
@@ -509,6 +515,7 @@ impl RuntimeSessionEvent {
             | Self::RuntimeMetadata { .. }
             | Self::WorkingDirChanged { .. }
             | Self::ClipboardUpdate { .. }
+            | Self::ClipboardWriteRequest { .. }
             | Self::TerminalBell { .. }
             | Self::TerminalTitleChanged { .. }
             | Self::TerminalNotification { .. }
@@ -550,6 +557,7 @@ impl RuntimeSessionEvent {
             | Self::RuntimeMetadata { origin, .. }
             | Self::WorkingDirChanged { origin, .. }
             | Self::ClipboardUpdate { origin, .. }
+            | Self::ClipboardWriteRequest { origin, .. }
             | Self::TerminalBell { origin }
             | Self::TerminalTitleChanged { origin, .. }
             | Self::TerminalNotification { origin, .. }
@@ -580,6 +588,9 @@ impl RuntimeSessionEvent {
             Self::RemotePermissionDecision { reply, .. }
             | Self::HostSemanticSend { reply, .. }
             | Self::HostSemanticCancel { reply, .. } => reply.complete(false),
+            Self::ClipboardWriteRequest { reply, .. } => {
+                let _ = reply.try_send(kodosi_session::ClipboardWriteOutcome::Denied);
+            }
             _ => {}
         }
     }

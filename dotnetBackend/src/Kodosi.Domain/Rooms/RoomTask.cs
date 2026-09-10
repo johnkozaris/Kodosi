@@ -40,15 +40,15 @@ public sealed class RoomTask
             throw new DomainException("Task title cannot be empty.");
         }
 
-        if (title.Length > RoomInputRules.TaskTitleMaxLength)
+        if (title.Length > RoomInputRules.EncryptedContentMaxLength)
         {
             throw new DomainException(
-                $"Task title exceeds {RoomInputRules.TaskTitleMaxLength} UTF-16 code units.");
+                $"Encrypted task payload exceeds {RoomInputRules.EncryptedContentMaxLength} chars.");
         }
-        if (description?.Length > RoomInputRules.TaskDescriptionMaxLength)
+        if (description is not null)
         {
             throw new DomainException(
-                $"Task description exceeds {RoomInputRules.TaskDescriptionMaxLength} UTF-16 code units.");
+                "Task description must be encrypted together with the title, not stored separately.");
         }
 
         return new RoomTask
@@ -159,10 +159,10 @@ public sealed class RoomTask
 
     private static void ValidateResult(string? result)
     {
-        if (result?.Length > RoomInputRules.TaskResultMaxLength)
+        if (result?.Length > RoomInputRules.EncryptedContentMaxLength)
         {
             throw new DomainException(
-                $"Task result exceeds {RoomInputRules.TaskResultMaxLength} UTF-16 code units.");
+                $"Encrypted task result exceeds {RoomInputRules.EncryptedContentMaxLength} chars.");
         }
     }
 

@@ -16,7 +16,10 @@
     rustdoc::invalid_html_tags
 )]
 mod bindings {
-    include!("bindings.rs");
+    #[cfg(target_os = "linux")]
+    include!("bindings_linux.rs");
+    #[cfg(target_os = "macos")]
+    include!("bindings_macos.rs");
 }
 
 #[allow(clippy::wildcard_imports)]
@@ -30,13 +33,16 @@ mod tests {
 
     #[test]
     fn checked_bindings_exclude_upstream_snapshot_api() {
-        let bindings = include_str!("bindings.rs");
+        #[cfg(target_os = "linux")]
+        let bindings = include_str!("bindings_linux.rs");
+        #[cfg(target_os = "macos")]
+        let bindings = include_str!("bindings_macos.rs");
         assert!(!bindings.contains("GhosttySnapshot"));
         assert!(!bindings.contains("ghostty_snapshot_"));
     }
 
     #[test]
-    fn checkpoint_abi_layout_matches_arm64_header() {
+    fn checkpoint_abi_layout_matches_64_bit_header() {
         use std::mem::{align_of, offset_of, size_of};
 
         assert_eq!(size_of::<GhosttyCheckpointLimits>(), 40);
@@ -74,6 +80,14 @@ mod tests {
 
         assert_eq!(unsafe { ghostty_checkpoint_schema() }, 2);
     }
+
+    #[test]
+    fn clipboard_write_layout_matches_target_header() {
+        assert_eq!(std::mem::size_of::<GhosttyClipboardWrite>(), 72);
+        assert_eq!(std::mem::offset_of!(GhosttyClipboardWrite, reply), 64);
+        assert_eq!(std::mem::size_of::<GhosttyClipboardWriteReply>(), 16);
+    }
+
     #[test]
     fn terminal_create_write_and_free_links() {
         let mut terminal = std::ptr::null_mut();

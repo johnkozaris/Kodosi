@@ -72,7 +72,7 @@ pub(crate) async fn apply_session_command(
             )?;
             validate_runtime_incarnation(app, session_id, expected)?;
             tracing::debug!(session_id = %session_id, ?mode, "received session.mode");
-            app.set_session_mode(session_id, expected, mode).await?;
+            app.set_session_mode(session_id, expected, mode)?;
         }
         SessionCommand::Stop {
             request_id,
@@ -345,7 +345,12 @@ pub(crate) async fn apply_session_command(
         SessionCommand::ReconcileAccessMutation { mutation_id } => {
             let mutation_id = parse_uuid(&mutation_id, "mutationId")?;
             let account = authenticated_account_user_id(app)?;
-            if let Some(mutation) = app.access_mutations.get(&account, mutation_id)?.cloned() {
+            let mutation = app.access_mutations.get(&account, mutation_id)?.cloned();
+            effects.events.push(SessionEvent::AccessMutationReconciled {
+                mutation_id: mutation_id.to_string(),
+                present: mutation.is_some(),
+            });
+            if let Some(mutation) = mutation.as_ref() {
                 effects
                     .events
                     .push(crate::runtime::sharing::recovered_access_mutation_event(
@@ -357,7 +362,7 @@ pub(crate) async fn apply_session_command(
                         _
                     )
                 ) {
-                    crate::runtime::sharing::queue_access_mutation_reconciliation(app, &mutation);
+                    crate::runtime::sharing::queue_access_mutation_reconciliation(app, mutation);
                 }
             }
         }
@@ -365,11 +370,22 @@ pub(crate) async fn apply_session_command(
             mutation_id,
             fingerprint,
         } => {
-            crate::runtime::sharing::acknowledge_access_mutation(
+            let removed = crate::runtime::sharing::acknowledge_access_mutation(
                 app,
                 parse_uuid(&mutation_id, "mutationId")?,
                 &fingerprint,
             )?;
+            effects.events.push(if removed {
+                SessionEvent::AccessMutationAcknowledged {
+                    mutation_id,
+                    fingerprint,
+                }
+            } else {
+                SessionEvent::AccessMutationReconciled {
+                    mutation_id,
+                    present: false,
+                }
+            });
         }
         SessionCommand::SnapshotRefresh => {
             tracing::debug!("received session.list; deferring state replay to next cycle");
@@ -633,6 +649,17 @@ mod tests {
         .expect_err("stale mode command must fail closed");
 
         assert!(matches!(error, crate::AppError::NoActiveSession));
+        let unsupported = apply_session_command(
+            &mut app,
+            SessionCommand::SetMode {
+                session_id: session_id.to_string(),
+                expected_runtime_incarnation_id: current_incarnation.to_string(),
+                mode: SessionMode::Plan,
+            },
+        )
+        .await
+        .expect_err("keystrokes must not be presented as confirmed mode control");
+        assert!(matches!(unsupported, crate::AppError::Unsupported { .. }));
         assert_eq!(
             app.state
                 .discovery

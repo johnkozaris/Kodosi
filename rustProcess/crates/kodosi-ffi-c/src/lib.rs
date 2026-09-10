@@ -1682,15 +1682,31 @@ async fn drain_agent_intel_lane(
             }
             Err(error) => {
                 tracing::error!(%error, "FFI: agent-intel event serialization failed");
-                let kodosi_runtime::AgentIntelEvent::Reply { request_id, .. } = &event.event else {
+                let kodosi_runtime::AgentIntelEvent::Reply {
+                    request_id,
+                    payload,
+                } = &event.event
+                else {
                     continue;
                 };
+                let mutation_id = payload
+                    .get("mutationId")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_owned);
+                let reconciliation_required = mutation_id.is_some();
                 let fallback = kodosi_runtime::AccountAgentIntelEvent::new(
                     event.account_user_id.clone(),
                     event.account_epoch,
                     kodosi_runtime::AgentIntelEvent::Error {
                         request_id: request_id.clone(),
                         message: format!("reply serialization failed: {error}"),
+                        failure_kind: if reconciliation_required {
+                            kodosi_runtime::AgentIntelFailureKind::DeliveryAmbiguous
+                        } else {
+                            kodosi_runtime::AgentIntelFailureKind::Deterministic
+                        },
+                        mutation_id,
+                        reconciliation_required,
                     },
                 );
                 if let Ok(json) = serde_json::to_vec(&fallback)
@@ -2345,6 +2361,19 @@ impl TerminalSubscriberDrain {
 
     fn resolve_pending_data(&mut self) -> bool {
         let Some(frame) = self.pending_data.as_ref() else {
+            if let Some(resize) = self.pending_resizes.front().copied()
+                && self.next_data_sequence == Some(resize.at_sequence)
+                && self.pending_close.is_none()
+            {
+                let frame = kodosi_runtime::terminal_transport::TerminalControlFrame::Resize {
+                    rows: resize.rows,
+                    cols: resize.cols,
+                    at_sequence: resize.at_sequence,
+                };
+                emit_subscriber_control(&self.runtime.callbacks, &self.ctx, &frame);
+                self.pending_resizes.pop_front();
+                return false;
+            }
             return true;
         };
         let sequence = frame.sequence;
@@ -4300,7 +4329,7 @@ mod tests {
     }
 
     #[test]
-    fn ffi_resize_control_before_data_emits_at_exact_boundary() {
+    fn ffi_resize_at_current_cursor_does_not_wait_for_more_output() {
         let capture = Mutex::new(CallbackCapture::default());
         let mut callbacks = empty_callbacks();
         callbacks.on_terminal_data_v2 = Some(capture_data_v2);
@@ -4349,13 +4378,15 @@ mod tests {
             },
         ));
         assert!(lock_poison_ok(&capture).terminal_events.is_empty());
+        assert!(!drain.resolve_pending_data());
+        assert_eq!(lock_poison_ok(&capture).terminal_events, ["Resize(7)"]);
+        assert!(drain.resolve_pending_data());
         drain.handle_data(Some(
             kodosi_runtime::terminal_transport::TerminalDataFrame::new(
                 7,
                 b"after-resize".as_slice().into(),
             ),
         ));
-        assert!(!drain.resolve_pending_data());
         assert!(drain.resolve_pending_data());
 
         assert_eq!(

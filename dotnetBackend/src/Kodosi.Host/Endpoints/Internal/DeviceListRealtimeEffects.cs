@@ -133,6 +133,11 @@ internal sealed class DeviceListRealtimeEffects : IDeviceListRealtimeEffects
             "Device revocation enforcement marker remains pending revocation={RevocationId}",
             revocationId);
 
+    public void PublishInvitationsChanged(IReadOnlyCollection<UserId> audience) =>
+        _userEvents.PublishInvalidation(
+            DiscoveryAudience.ForUsers(audience),
+            new HashSet<DiscoverySurface> { DiscoverySurface.RoomCatalog });
+
     public void PublishChanged(
         IReadOnlyCollection<UserId> audience,
         UserId userId,

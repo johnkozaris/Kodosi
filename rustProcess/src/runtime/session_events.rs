@@ -309,6 +309,7 @@ impl Runtime {
         }
 
         if !self.accepts_local_coordinator_event(&event) {
+            event.reject_reply();
             return false;
         }
 

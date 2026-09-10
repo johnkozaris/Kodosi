@@ -1,3 +1,7 @@
+use ::agent_intel::domain::{
+    AgentAttentionKind, AgentExceptionalKind, AgentIntelSnapshot, AgentLifecycle, AgentOutcomeKind,
+    AgentSourceKind, PendingInteractionKind,
+};
 use ::agent_intel::ops::dto::{ClaudeGlobalStatus, CopilotGlobalStatus};
 use serde::{Deserialize, Serialize};
 
@@ -45,6 +49,164 @@ pub struct PendingPermissionsSnapshot {
     pub requests: Vec<ActivePendingPermission>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAgentIntelEntry {
+    pub session_id: String,
+    pub session_incarnation_id: String,
+    pub snapshot: AgentIntelSnapshotV34,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentIntelSnapshotV34 {
+    pub identity: LiveAgentIdentityV34,
+    pub lifecycle: AgentLifecycle,
+    pub attention: Option<AgentAttentionV34>,
+    pub pending_interaction: Option<PendingAgentInteractionV34>,
+    pub current_activity: Option<CurrentAgentActivityV34>,
+    pub workers: ChildAgentSummaryV34,
+    pub outcome: Option<AgentOutcomeV34>,
+    pub exceptional_state: Option<AgentExceptionalStateV34>,
+    pub source: AgentSourceV34,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAgentIdentityV34 {
+    pub agent_type: String,
+    pub version: Option<String>,
+    pub model: Option<String>,
+    pub title: Option<String>,
+    pub cwd: Option<String>,
+    pub vendor_session_id: Option<String>,
+    pub process_id: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentAttentionV34 {
+    pub kind: AgentAttentionKind,
+    pub summary: String,
+    pub actionable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "the complete v34 interaction projection exposes independent action capabilities"
+)]
+pub struct PendingAgentInteractionV34 {
+    pub kind: PendingInteractionKind,
+    pub summary: String,
+    pub tool_name: Option<String>,
+    pub can_approve: bool,
+    pub can_deny: bool,
+    pub can_answer: bool,
+    pub can_focus: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CurrentAgentActivityV34 {
+    pub summary: String,
+    pub last_progress_at: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ChildAgentSummaryV34 {
+    pub active: u32,
+    pub blocked: u32,
+    pub failed: u32,
+    pub completed: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentOutcomeV34 {
+    pub kind: AgentOutcomeKind,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentExceptionalStateV34 {
+    pub kind: AgentExceptionalKind,
+    pub summary: String,
+    pub retryable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentSourceV34 {
+    pub kind: AgentSourceKind,
+    pub degraded: bool,
+    pub detail: Option<String>,
+}
+
+impl From<AgentIntelSnapshot> for AgentIntelSnapshotV34 {
+    fn from(snapshot: AgentIntelSnapshot) -> Self {
+        Self {
+            identity: LiveAgentIdentityV34 {
+                agent_type: snapshot.identity.agent_type,
+                version: snapshot.identity.version,
+                model: snapshot.identity.model,
+                title: snapshot.identity.title,
+                cwd: snapshot.identity.cwd,
+                vendor_session_id: snapshot.identity.vendor_session_id,
+                process_id: snapshot.identity.process_id,
+            },
+            lifecycle: snapshot.lifecycle,
+            attention: snapshot.attention.map(|attention| AgentAttentionV34 {
+                kind: attention.kind,
+                summary: attention.summary,
+                actionable: attention.actionable,
+            }),
+            pending_interaction: snapshot.pending_interaction.map(|interaction| {
+                PendingAgentInteractionV34 {
+                    kind: interaction.kind,
+                    summary: interaction.summary,
+                    tool_name: interaction.tool_name,
+                    can_approve: interaction.can_approve,
+                    can_deny: interaction.can_deny,
+                    can_answer: interaction.can_answer,
+                    can_focus: interaction.can_focus,
+                }
+            }),
+            current_activity: snapshot
+                .current_activity
+                .map(|activity| CurrentAgentActivityV34 {
+                    summary: activity.summary,
+                    last_progress_at: activity.last_progress_at,
+                }),
+            workers: ChildAgentSummaryV34 {
+                active: snapshot.workers.active,
+                blocked: snapshot.workers.blocked,
+                failed: snapshot.workers.failed,
+                completed: snapshot.workers.completed,
+            },
+            outcome: snapshot.outcome.map(|outcome| AgentOutcomeV34 {
+                kind: outcome.kind,
+                summary: outcome.summary,
+            }),
+            exceptional_state: snapshot.exceptional_state.map(|exceptional| {
+                AgentExceptionalStateV34 {
+                    kind: exceptional.kind,
+                    summary: exceptional.summary,
+                    retryable: exceptional.retryable,
+                }
+            }),
+            source: AgentSourceV34 {
+                kind: snapshot.source.kind,
+                degraded: snapshot.source.degraded,
+                detail: snapshot.source.detail,
+            },
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum CollaborationCleanupState {
@@ -82,6 +244,13 @@ pub enum SystemEvent {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum AgentIntelFailureKind {
+    Deterministic,
+    DeliveryAmbiguous,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum AgentIntelEvent {
     #[serde(rename = "agent.intel.snapshot")]
@@ -99,6 +268,15 @@ pub enum AgentIntelEvent {
         #[serde(rename = "sessionIncarnationId")]
         session_incarnation_id: String,
     },
+    #[serde(rename = "agent.intel.liveSet")]
+    LiveSet {
+        #[serde(rename = "requestId")]
+        request_id: Option<String>,
+        #[serde(rename = "authorityIncarnationId")]
+        authority_incarnation_id: String,
+        revision: u64,
+        entries: Vec<LiveAgentIntelEntry>,
+    },
     #[serde(rename = "agent.intel.reply")]
     Reply {
         #[serde(rename = "requestId")]
@@ -110,6 +288,12 @@ pub enum AgentIntelEvent {
         #[serde(rename = "requestId")]
         request_id: String,
         message: String,
+        #[serde(rename = "failureKind")]
+        failure_kind: AgentIntelFailureKind,
+        #[serde(rename = "mutationId")]
+        mutation_id: Option<String>,
+        #[serde(rename = "reconciliationRequired")]
+        reconciliation_required: bool,
     },
     #[serde(rename = "agent.intel.pendingPermissionsSnapshot")]
     PendingPermissionsSnapshot {

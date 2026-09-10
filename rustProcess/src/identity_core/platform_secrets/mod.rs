@@ -4,6 +4,8 @@ use zeroize::Zeroizing;
 
 use crate::Result;
 
+#[cfg(target_os = "linux")]
+mod linux_secret_service;
 #[cfg(target_os = "macos")]
 mod macos_keychain;
 
@@ -35,19 +37,19 @@ enum SecureStoreState {
 
 #[derive(Debug)]
 pub(crate) struct PlatformSecretStore {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     service_name: String,
     secure_store_state: AtomicU8,
 }
 
 impl PlatformSecretStore {
     pub(crate) fn new(service_name: &str, file_dir: std::path::PathBuf) -> Self {
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
         let _ = service_name;
         drop(file_dir);
 
         Self {
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
             service_name: service_name.to_owned(),
             secure_store_state: AtomicU8::new(SECURE_STORE_ENABLED),
         }
@@ -66,8 +68,15 @@ impl PlatformSecretStore {
         account_label: &str,
         payload: &str,
     ) -> Result<PlatformSecretStoreResult> {
-        if self.secure_store_state() != SecureStoreState::Enabled {
-            return Ok(PlatformSecretStoreResult::Unavailable);
+        match self.secure_store_state() {
+            SecureStoreState::Enabled => {}
+            SecureStoreState::FileOnly => return Ok(PlatformSecretStoreResult::Unavailable),
+            SecureStoreState::Unavailable => {
+                #[cfg(target_os = "linux")]
+                return Err(linux_secret_service::unavailable_error("store"));
+                #[cfg(not(target_os = "linux"))]
+                return Ok(PlatformSecretStoreResult::Unavailable);
+            }
         }
 
         self.store_to_platform(account_label, payload)
@@ -113,8 +122,23 @@ impl PlatformSecretStore {
     }
 
     #[cfg(not(target_os = "macos"))]
+    #[cfg(not(target_os = "linux"))]
     fn load_from_platform(&self, _account_label: &str) -> Result<PlatformSecretLoadResult> {
         Ok(Self::platform_unavailable_load_result())
+    }
+
+    #[cfg(target_os = "linux")]
+    fn load_from_platform(&self, account_label: &str) -> Result<PlatformSecretLoadResult> {
+        match linux_secret_service::load_password(&self.service_name, account_label)? {
+            linux_secret_service::LoadResult::Loaded(payload) => {
+                Ok(PlatformSecretLoadResult::Loaded(payload))
+            }
+            linux_secret_service::LoadResult::Missing => Ok(PlatformSecretLoadResult::Missing),
+            linux_secret_service::LoadResult::Unavailable => {
+                self.mark_secure_store_unavailable();
+                Ok(Self::platform_unavailable_load_result())
+            }
+        }
     }
 
     #[cfg(target_os = "macos")]
@@ -136,12 +160,28 @@ impl PlatformSecretStore {
     }
 
     #[cfg(not(target_os = "macos"))]
+    #[cfg(not(target_os = "linux"))]
     fn store_to_platform(
         &self,
         _account_label: &str,
         _payload: &str,
     ) -> Result<PlatformSecretStoreResult> {
         Ok(PlatformSecretStoreResult::Unavailable)
+    }
+
+    #[cfg(target_os = "linux")]
+    fn store_to_platform(
+        &self,
+        account_label: &str,
+        payload: &str,
+    ) -> Result<PlatformSecretStoreResult> {
+        match linux_secret_service::store_password(&self.service_name, account_label, payload)? {
+            linux_secret_service::StoreResult::Stored => Ok(PlatformSecretStoreResult::Stored),
+            linux_secret_service::StoreResult::Unavailable => {
+                self.mark_secure_store_unavailable();
+                Err(linux_secret_service::unavailable_error("store"))
+            }
+        }
     }
 
     #[cfg(target_os = "macos")]
@@ -166,8 +206,23 @@ impl PlatformSecretStore {
     }
 
     #[cfg(not(target_os = "macos"))]
+    #[cfg(not(target_os = "linux"))]
     fn delete_from_platform(&self, _account_label: &str) -> Result<()> {
         Ok(())
+    }
+
+    #[cfg(target_os = "linux")]
+    fn delete_from_platform(&self, account_label: &str) -> Result<()> {
+        if self.secure_store_state() == SecureStoreState::FileOnly {
+            return Ok(());
+        }
+        match linux_secret_service::delete_password(&self.service_name, account_label)? {
+            linux_secret_service::DeleteResult::Deleted => Ok(()),
+            linux_secret_service::DeleteResult::Unavailable => {
+                self.mark_secure_store_unavailable();
+                Err(linux_secret_service::unavailable_error("delete"))
+            }
+        }
     }
 
     const fn file_only_load_result() -> PlatformSecretLoadResult {
@@ -178,7 +233,7 @@ impl PlatformSecretStore {
 
     const fn platform_unavailable_load_result() -> PlatformSecretLoadResult {
         PlatformSecretLoadResult::Unavailable {
-            requires_existing_file_fallback: cfg!(target_os = "macos"),
+            requires_existing_file_fallback: cfg!(any(target_os = "macos", target_os = "linux")),
         }
     }
 }
@@ -207,7 +262,7 @@ mod tests {
         store.mark_secure_store_unavailable();
 
         let expected = PlatformSecretLoadResult::Unavailable {
-            requires_existing_file_fallback: cfg!(target_os = "macos"),
+            requires_existing_file_fallback: cfg!(any(target_os = "macos", target_os = "linux")),
         };
         assert_eq!(store.load("alice.device_keys")?, expected);
         assert_eq!(store.load("alice.device_keys")?, expected);

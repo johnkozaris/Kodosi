@@ -106,12 +106,17 @@ async fn run_device_revoke(args: DeviceRevokeArgs, output: OutputMode) -> Result
         output.write_json(&serde_json::json!({
             "revoked_device_id": outcome.revoked_device_id,
             "new_generation": outcome.new_generation,
+            "history_warning": outcome.history_warning,
         }))
     } else {
         output.write_line(format!(
             "Revoked {}. New device-list generation: {}.",
             outcome.revoked_device_id, outcome.new_generation,
-        ))
+        ))?;
+        if let Some(warning) = outcome.history_warning {
+            output.write_line(warning)?;
+        }
+        Ok(())
     }
 }
 

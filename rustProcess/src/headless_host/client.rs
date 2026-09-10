@@ -377,18 +377,17 @@ impl HeadlessHostClient {
         })
     }
 
-    pub(crate) async fn stop_session(&mut self, session_id: &str) -> Result<SessionListEntry> {
+    pub(crate) async fn stop_session(&mut self, session_id: &str) -> Result<()> {
         let incarnation = self.exact_session_incarnation(session_id).await?;
+        let request_id = Uuid::now_v7().to_string();
         self.send_session(SessionCommand::Stop {
-            request_id: Uuid::now_v7().to_string(),
+            request_id: request_id.clone(),
             session_id: session_id.to_owned(),
             expected_runtime_incarnation_id: incarnation.to_string(),
         })
         .await?;
-        self.wait_for_session_condition(session_id, |session| {
-            matches!(session.status(), RuntimeSessionStatus::Stopped)
-        })
-        .await
+        self.wait_for_session_stopped_or_removed(&request_id, session_id)
+            .await
     }
 
     pub(crate) async fn interrupt_session(&mut self, session_id: &str) -> Result<()> {
@@ -540,6 +539,82 @@ impl HeadlessHostClient {
         }
         Err(AppError::Unsupported {
             reason: format!("timed out waiting for session {operation} ({session_id})"),
+        })
+    }
+
+    async fn session_is_stopped_or_removed(&mut self, session_id: &str) -> Result<bool> {
+        let snapshot = self.snapshot().await?;
+        Ok(snapshot
+            .sessions
+            .iter()
+            .find(|session| session.id() == session_id)
+            .is_none_or(|session| matches!(session.status(), RuntimeSessionStatus::Stopped)))
+    }
+
+    async fn wait_for_session_stopped_or_removed(
+        &mut self,
+        request_id: &str,
+        session_id: &str,
+    ) -> Result<()> {
+        if self.session_is_stopped_or_removed(session_id).await? {
+            return Ok(());
+        }
+
+        let deadline = time::Instant::now() + SESSION_UPDATE_TIMEOUT;
+        while time::Instant::now() < deadline {
+            let remaining = deadline.saturating_duration_since(time::Instant::now());
+            let Some(message) = time::timeout(remaining, self.recv()).await.map_err(|_| {
+                AppError::Unsupported {
+                    reason: format!("timed out waiting for session stop ({session_id})"),
+                }
+            })??
+            else {
+                return Err(AppError::Unsupported {
+                    reason: "headless host closed the connection".to_owned(),
+                });
+            };
+
+            match message {
+                HostEvent::Session(SessionEvent::List { sessions })
+                    if sessions
+                        .iter()
+                        .find(|session| session.id() == session_id)
+                        .is_none_or(|session| {
+                            matches!(session.status(), RuntimeSessionStatus::Stopped)
+                        }) =>
+                {
+                    if self.session_is_stopped_or_removed(session_id).await? {
+                        return Ok(());
+                    }
+                }
+                HostEvent::Session(SessionEvent::Upsert { session })
+                    if session.id() == session_id
+                        && matches!(session.status(), RuntimeSessionStatus::Stopped) =>
+                {
+                    if self.session_is_stopped_or_removed(session_id).await? {
+                        return Ok(());
+                    }
+                }
+                HostEvent::Session(SessionEvent::Removed {
+                    session_id: removed,
+                }) if removed == session_id => {
+                    if self.session_is_stopped_or_removed(session_id).await? {
+                        return Ok(());
+                    }
+                }
+                HostEvent::Session(SessionEvent::Error {
+                    request_id: Some(rejected),
+                    message,
+                    ..
+                }) if rejected == request_id => {
+                    return Err(AppError::Unsupported { reason: message });
+                }
+                _ => {}
+            }
+        }
+
+        Err(AppError::Unsupported {
+            reason: format!("timed out waiting for session stop ({session_id})"),
         })
     }
 

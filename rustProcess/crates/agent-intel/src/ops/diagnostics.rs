@@ -38,6 +38,36 @@ pub async fn list_active_customizations(
     .map_err(|error| format!("diagnostics task join error: {error}"))
 }
 
+pub async fn list_active_customizations_from_root(
+    home: &Path,
+    root: &std::fs::File,
+    root_path: &Path,
+    vendor: CustomizationVendor,
+) -> Result<ActiveCustomizationsReport, String> {
+    let agent_type = match vendor {
+        CustomizationVendor::Claude => InstructionAgentType::Claude,
+        CustomizationVendor::Copilot => InstructionAgentType::Copilot,
+        CustomizationVendor::Unknown => {
+            return Err("active customizations require vendor `claude` or `copilot`".to_owned());
+        }
+    };
+    let instructions_list =
+        instructions::scan_instructions_from_root(home, root, root_path, agent_type).await?;
+    let home_owned = home.to_path_buf();
+    let root_path = root_path.to_path_buf();
+    tokio::task::spawn_blocking(move || match vendor {
+        CustomizationVendor::Claude => {
+            build_claude_blocking(&home_owned, &root_path, instructions_list)
+        }
+        CustomizationVendor::Copilot => {
+            build_copilot_blocking(&home_owned, &root_path, instructions_list)
+        }
+        CustomizationVendor::Unknown => unreachable!("validated before spawn"),
+    })
+    .await
+    .map_err(|error| format!("diagnostics task join error: {error}"))
+}
+
 fn build_claude_blocking(
     home: &Path,
     cwd: &Path,

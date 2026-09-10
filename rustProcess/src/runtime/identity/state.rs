@@ -10,6 +10,7 @@ pub(crate) struct IdentityState {
     pub(crate) device_flow: DeviceFlowRuntime,
     pub(crate) current_user_name: Option<String>,
     account_epoch: AccountEpoch,
+    account_cancellation: tokio_util::sync::CancellationToken,
 }
 
 impl IdentityState {
@@ -20,6 +21,7 @@ impl IdentityState {
             device_flow,
             current_user_name: None,
             account_epoch: AccountEpoch::INITIAL,
+            account_cancellation: tokio_util::sync::CancellationToken::new(),
         }
     }
 
@@ -29,8 +31,14 @@ impl IdentityState {
 
     pub(crate) fn advance_account_epoch(&mut self) -> crate::Result<AccountEpoch> {
         let next = self.account_epoch.next()?;
+        self.account_cancellation.cancel();
+        self.account_cancellation = tokio_util::sync::CancellationToken::new();
         self.account_epoch = next;
         Ok(next)
+    }
+
+    pub(crate) fn account_cancellation(&self) -> tokio_util::sync::CancellationToken {
+        self.account_cancellation.child_token()
     }
 
     #[cfg(test)]

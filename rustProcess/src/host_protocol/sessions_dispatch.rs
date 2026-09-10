@@ -22,29 +22,18 @@ impl Runtime {
         }
     }
 
-    pub(crate) async fn set_session_mode(
-        &mut self,
+    pub(crate) fn set_session_mode(
+        &self,
         id: SessionId,
         expected_runtime_incarnation_id: uuid::Uuid,
-        mode: SessionMode,
+        _mode: SessionMode,
     ) -> Result<()> {
         if self.session_incarnation_id(id) != Some(expected_runtime_incarnation_id) {
             return Err(AppError::NoActiveSession);
         }
-        if self.state.local.sessions.record(id).is_some() {
-            crate::runtime::local_sessions::mode(self)
-                .set_mode(id, expected_runtime_incarnation_id, mode)
-                .await
-        } else if crate::runtime::remote_sessions::owned_remote_record(self, id).is_some() {
-            crate::runtime::remote_sessions::set_mode(
-                self,
-                id,
-                expected_runtime_incarnation_id,
-                mode,
-            )
-        } else {
-            Err(AppError::NoActiveSession)
-        }
+        Err(AppError::Unsupported {
+            reason: "Change mode in the agent terminal. This provider does not expose a confirmed mode-control API.".to_owned(),
+        })
     }
 
     pub(crate) async fn send_input_to_session(

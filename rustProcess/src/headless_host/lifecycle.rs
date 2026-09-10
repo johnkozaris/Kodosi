@@ -103,7 +103,7 @@ async fn control_handshake(
     };
 
     let mut framed = framed_json::framed(stream);
-    framed_json::send_json(
+    if let Err(error) = framed_json::send_json(
         &mut framed,
         &HostHelloRequest {
             token: state.token.clone(),
@@ -111,7 +111,10 @@ async fn control_handshake(
             lane: ConnectionLane::Control,
         },
     )
-    .await?;
+    .await
+    {
+        return classify_control_handshake_error(runtime_dir, state, error);
+    }
 
     let response = match time::timeout(
         CONTROL_HELLO_TIMEOUT,
@@ -119,7 +122,8 @@ async fn control_handshake(
     )
     .await
     {
-        Ok(result) => result?,
+        Ok(Ok(result)) => result,
+        Ok(Err(error)) => return classify_control_handshake_error(runtime_dir, state, error),
         Err(_elapsed) => return Ok(HostConnectOutcome::Silent),
     };
 
@@ -144,12 +148,35 @@ async fn control_handshake(
                 },
             )))
         }
+
         Some(ref rejection) => Ok(classify_rejection(rejection)),
         None => {
             cleanup_host_state_file_if_matches(runtime_dir, state);
             Ok(HostConnectOutcome::Gone)
         }
     }
+}
+
+fn classify_control_handshake_error(
+    runtime_dir: &Path,
+    state: &HostStateFile,
+    error: AppError,
+) -> Result<HostConnectOutcome> {
+    let AppError::Io(ref io_error) = error else {
+        return Err(error);
+    };
+    if matches!(
+        io_error.kind(),
+        std::io::ErrorKind::BrokenPipe
+            | std::io::ErrorKind::ConnectionAborted
+            | std::io::ErrorKind::ConnectionReset
+            | std::io::ErrorKind::NotConnected
+            | std::io::ErrorKind::UnexpectedEof
+    ) {
+        cleanup_host_state_file_if_matches(runtime_dir, state);
+        return Ok(HostConnectOutcome::Gone);
+    }
+    Err(error)
 }
 
 pub(in crate::headless_host) fn classify_control_connect_error(

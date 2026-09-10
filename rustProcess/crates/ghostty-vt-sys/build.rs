@@ -12,32 +12,33 @@ const GHOSTTY_LOCK: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../../Ghostty.lock"
 ));
-const EXPECTED_TARGET: &str = "aarch64-macos";
 const EXPECTED_OPTIMIZE: &str = "ReleaseFast";
 
 fn main() {
     println!("cargo:rerun-if-env-changed=KODOSI_GHOSTTY_DIR");
     println!("cargo:rerun-if-changed=../../../Ghostty.lock");
     let expected_package_commit = lock_value("package_commit");
-    let expected_ghostty_commit = lock_value("upstream_commit");
-    let expected_archive_digest = lock_value("combined_archive_sha256");
-    let target_os = env::var("CARGO_CFG_TARGET_OS").expect("Cargo target OS");
-    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").expect("Cargo target architecture");
-    assert_eq!(
-        (target_os.as_str(), target_arch.as_str()),
-        ("macos", "aarch64"),
-        "Kodosi's vendored libghostty-vt artifact supports arm64 macOS only"
-    );
+    let target = env::var("TARGET").expect("Cargo target triple");
+    let artifact = target_artifact(&target);
+    let expected_ghostty_commit = lock_value(artifact.upstream_lock_key);
+    let expected_archive_digest = lock_value(artifact.archive_lock_key);
 
     let root = env::var_os("KODOSI_GHOSTTY_DIR")
         .filter(|path| !path.is_empty())
         .map_or_else(default_ghostty_dir, PathBuf::from);
     watch_git_authority(&root);
-    let provenance = root.join("Vendor/libghostty.version");
-    let artifact_dir = root.join("Vendor/GhosttyVt/macos-arm64/lib");
+    let platform_ref = root.join(artifact.platform_ref);
+    let provenance = root.join(artifact.provenance);
+    let artifact_dir = root.join(artifact.library_dir);
     let archive = artifact_dir.join("libghostty-vt.a");
     require_package_commit(&root, expected_package_commit);
+    require_platform_ref(
+        &platform_ref,
+        expected_ghostty_commit,
+        artifact.upstream_lock_key,
+    );
 
+    println!("cargo:rerun-if-changed={}", platform_ref.display());
     println!("cargo:rerun-if-changed={}", provenance.display());
     println!("cargo:rerun-if-changed={}", archive.display());
 
@@ -49,7 +50,7 @@ fn main() {
         expected_ghostty_commit,
         &provenance,
     );
-    require_metadata(&metadata, "vt_target", EXPECTED_TARGET, &provenance);
+    require_metadata(&metadata, "vt_target", artifact.zig_target, &provenance);
     require_metadata(&metadata, "vt_cpu", "baseline", &provenance);
     require_metadata(&metadata, "vt_optimize", EXPECTED_OPTIMIZE, &provenance);
     assert!(
@@ -57,25 +58,60 @@ fn main() {
         "missing vendored VT archive: {}",
         archive.display()
     );
-    let metadata_digest = metadata_value(&metadata, "combined_archive_sha256", &provenance);
-    assert_eq!(
-        metadata_digest,
-        expected_archive_digest,
-        "{} must match combined_archive_sha256 in Ghostty.lock",
-        provenance.display()
-    );
+    let metadata_digest = metadata_value(&metadata, artifact.metadata_digest_key, &provenance);
+    assert_eq!(metadata_digest, expected_archive_digest);
     let actual_digest = sha256_file(&archive);
     assert_eq!(
         actual_digest,
         expected_archive_digest,
-        "{} digest must match combined_archive_sha256 in Ghostty.lock",
-        archive.display()
+        "{} digest must match {} in Ghostty.lock",
+        archive.display(),
+        artifact.archive_lock_key
     );
 
     println!("cargo:rustc-link-search=native={}", artifact_dir.display());
 
     println!("cargo:rustc-link-lib=static:-bundle=ghostty-vt");
-    println!("cargo:rustc-link-lib=c++");
+    if artifact.link_cxx {
+        println!("cargo:rustc-link-lib=c++");
+    }
+}
+
+struct TargetArtifact {
+    platform_ref: &'static str,
+    provenance: &'static str,
+    library_dir: &'static str,
+    zig_target: &'static str,
+    upstream_lock_key: &'static str,
+    archive_lock_key: &'static str,
+    metadata_digest_key: &'static str,
+    link_cxx: bool,
+}
+
+fn target_artifact(target: &str) -> TargetArtifact {
+    match target {
+        "aarch64-apple-darwin" => TargetArtifact {
+            platform_ref: "MacOSGhostty.ref",
+            provenance: "Vendor/libghostty.version",
+            library_dir: "Vendor/GhosttyVt/macos-arm64/lib",
+            zig_target: "aarch64-macos",
+            upstream_lock_key: "upstream_commit",
+            archive_lock_key: "combined_archive_sha256",
+            metadata_digest_key: "combined_archive_sha256",
+            link_cxx: true,
+        },
+        "x86_64-unknown-linux-gnu" => TargetArtifact {
+            platform_ref: "LinuxGhostty.ref",
+            provenance: "Vendor/GhosttyVt/linux-x86_64.version",
+            library_dir: "Vendor/GhosttyVt/linux-x86_64/lib",
+            zig_target: "x86_64-linux-gnu",
+            upstream_lock_key: "linux_upstream_commit",
+            archive_lock_key: "linux_vt_archive_sha256",
+            metadata_digest_key: "vt_archive_sha256",
+            link_cxx: false,
+        },
+        _ => panic!("Kodosi's vendored libghostty-vt artifact does not support {target}"),
+    }
 }
 
 fn watch_git_authority(root: &Path) {
@@ -144,6 +180,17 @@ fn metadata_value<'a>(metadata: &'a str, key: &str, source: &Path) -> &'a str {
         .lines()
         .find_map(|line| line.strip_prefix(&format!("{key}=")))
         .unwrap_or_else(|| panic!("{} must contain {key}", source.display()))
+}
+
+fn require_platform_ref(path: &Path, expected: &str, lock_key: &str) {
+    let value = fs::read_to_string(path)
+        .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+    assert_eq!(
+        value,
+        format!("{expected}\n"),
+        "{} must exactly match {lock_key} in Ghostty.lock",
+        path.display()
+    );
 }
 
 fn sha256_file(path: &Path) -> String {

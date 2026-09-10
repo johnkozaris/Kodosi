@@ -5,6 +5,7 @@ pub(crate) mod access_mutations;
 pub(crate) mod action_results;
 pub(crate) mod auth;
 mod collaboration_teardown_worker;
+mod device_revocation_worker;
 pub(crate) mod discovery;
 pub(crate) mod identity;
 pub(crate) mod identity_reset;
@@ -323,6 +324,7 @@ impl Runtime {
             backend: &self.backend,
             device_key_store: &self.device_key_store,
             pin_store: &self.pin_store,
+            room_roster_pins_path: &self.room_roster_pins_path,
             outbox: &mut self.state.runtime_outbox,
         }
     }

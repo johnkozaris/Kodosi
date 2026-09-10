@@ -47,6 +47,7 @@ public static class PersistenceInfrastructureModule
         services.AddScoped<ISharedRoomAuthorizationRepository>(serviceProvider =>
             (RoomMemberRepository)serviceProvider.GetRequiredService<IRoomMemberRepository>());
         services.AddScoped<IRoomInvitationRepository, RoomInvitationRepository>();
+        services.AddScoped<IRevokedDeviceInvitationCancellation, RevokedDeviceInvitationCancellation>();
         services.AddScoped<IRoomChatRepository, RoomChatRepository>();
         services.AddScoped<IRoomTaskRepository, RoomTaskRepository>();
         services.AddScoped<IRoomMutationReceiptRepository, RoomMutationReceiptRepository>();
@@ -55,6 +56,7 @@ public static class PersistenceInfrastructureModule
         services.AddScoped<IInputAuditRepository, InputAuditRepository>();
         services.AddScoped<IIdentityResetAuditRepository, IdentityResetAuditRepository>();
         services.AddScoped<IIdentityExposureRepository, IdentityExposureRepository>();
+        services.AddScoped<IArtifactEndorsementRepository, ArtifactEndorsementRepository>();
         services.AddScoped<IFriendshipAuditRepository, FriendshipAuditRepository>();
         services.AddScoped<IRoomMemberAuditRepository, RoomMemberAuditRepository>();
         services.AddScoped<IDeviceRevocationAuditRepository, DeviceRevocationAuditRepository>();

@@ -252,6 +252,44 @@ public class SessionTests
         Assert.Throws<DomainException>(() => session.MarkReconnecting());
     }
 
+    [Fact]
+    public void LifecycleTimestampsHaveStoragePrecisionBeforePersistence()
+    {
+        var session = CreateSession();
+        AssertStoragePrecision(session.StartedAt);
+        AssertStoragePrecision(session.LastHeartbeatAt);
+
+        session.ActivateHost("host");
+        AssertStoragePrecision(session.HostClaimedAt);
+        AssertStoragePrecision(session.LastHeartbeatAt);
+        session.RecordHostHeartbeat();
+        AssertStoragePrecision(session.LastHeartbeatAt);
+        session.ReleaseHostSlot("host");
+        AssertStoragePrecision(session.HostReleasedAt);
+        session.End();
+        AssertStoragePrecision(session.EndedAt);
+
+        session.Republish(
+            Guid.CreateVersion7(),
+            session.IncarnationGeneration + 1,
+            session.OwnerUserId,
+            "republished",
+            SessionScope.MyDevices,
+            ToolKind.Terminal,
+            AccessLevel.View,
+            "secret-hash",
+            null);
+        AssertStoragePrecision(session.StartedAt);
+        AssertStoragePrecision(session.LastHeartbeatAt);
+    }
+
+    private static void AssertStoragePrecision(DateTimeOffset? timestamp)
+    {
+        Assert.NotNull(timestamp);
+        Assert.Equal(0, timestamp.Value.Ticks % TimeSpan.TicksPerMicrosecond);
+        Assert.Equal(TimeSpan.Zero, timestamp.Value.Offset);
+    }
+
     private static void SetDefaultAccess(Session session, AccessLevel access)
     {
         typeof(Session)

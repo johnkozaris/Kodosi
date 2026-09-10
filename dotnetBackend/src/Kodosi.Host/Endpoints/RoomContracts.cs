@@ -139,9 +139,8 @@ public sealed record RoomChatMessageResponse(
 
 public sealed record CreateRoomTaskRequest(
     Guid TaskId,
-    [property: Required, StringLength(RoomInputRules.TaskTitleMaxLength, MinimumLength = 1)]
+    [property: Required, StringLength(RoomInputRules.EncryptedContentMaxLength, MinimumLength = 1)]
     string Title,
-    [property: StringLength(RoomInputRules.TaskDescriptionMaxLength)]
     string? Description,
     Guid? AssignedSessionId,
     Guid? AssignedSessionIncarnationId,
@@ -154,7 +153,7 @@ public sealed record UpdateRoomTaskStatusRequest(
     string Status,
     Guid? ActorSessionId,
     Guid? ActorSessionIncarnationId,
-    [property: StringLength(RoomInputRules.TaskResultMaxLength)]
+    [property: StringLength(RoomInputRules.EncryptedContentMaxLength)]
     string? Result);
 
 public sealed record AssignRoomTaskRequest(

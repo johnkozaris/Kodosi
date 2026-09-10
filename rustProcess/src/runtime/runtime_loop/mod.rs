@@ -198,8 +198,10 @@ pub(crate) async fn runtime_loop(
         terminal_dispatch_cancel.clone(),
     ));
     let mut terminal_control_open = true;
+    let mut device_revocation = super::device_revocation_worker::DeviceRevocationWorker::default();
 
     loop {
+        device_revocation.reconcile_account(&app);
         let mut maintenance_fired = false;
         if app
             .last_maintenance_ran
@@ -227,6 +229,13 @@ pub(crate) async fn runtime_loop(
         tokio::select! {
             biased;
             () = cancellation.cancelled() => break,
+            completion = device_revocation.poll() => {
+                device_revocation.finish(&mut app, completion);
+                flush_runtime_outputs(
+                    &mut app, &runtime_event_tx, &mut last_signal, &mut last_auth_event,
+                    RuntimeFlushOptions::standard(false),
+                ).await?;
+            }
             maybe_message = terminal_control_rx.recv(), if terminal_control_open => {
                 if let Some(message) = maybe_message {
                     apply_terminal_message(&mut app, message, &runtime_event_tx, &mut last_signal, &mut last_auth_event).await?;
@@ -312,7 +321,15 @@ pub(crate) async fn runtime_loop(
                     }
                     #[cfg(feature = "cli")]
                     HeadlessRuntimeRequest::Device(request) => {
-                        handlers::dispatch_device_rpc(&mut app, request).await;
+                        if let crate::DeviceRpcRequest::Revoke { expected_account_user_id, device_id, reply } = request {
+                            if app.state.identity.auth.subject_string().as_deref() != Some(expected_account_user_id.as_str()) {
+                                drop(reply.send(Err(crate::AppError::Unauthorized)));
+                            } else if let Err(error) = device_revocation.start(&app, device_id, super::device_revocation_worker::Reply::Rpc(reply)) {
+                                app.state.record_log(format!("device revocation was not started: {error}"));
+                            }
+                        } else {
+                            handlers::dispatch_device_rpc(&mut app, request).await;
+                        }
                         let force_snapshot = app.drain_session_events().await;
                         flush_runtime_outputs(
                             &mut app,
@@ -364,7 +381,19 @@ pub(crate) async fn runtime_loop(
                     break;
                 };
                 let Some(message) = accepts_account_command(&app, envelope) else { continue };
-                apply_devices_message(&mut app, message, &runtime_event_tx, &mut last_signal, &mut last_auth_event).await?;
+                if let DeviceCommand::Revoke { device_id } = message {
+                    if let Err(error) = device_revocation.start(&app, device_id, super::device_revocation_worker::Reply::Desktop) {
+                        app.state.runtime_outbox.queue_devices(crate::DeviceEvent::Error {
+                            user_code: None, operation: "revoke".to_owned(), message: error.to_string(),
+                        });
+                    }
+                    flush_runtime_outputs(
+                        &mut app, &runtime_event_tx, &mut last_signal, &mut last_auth_event,
+                        RuntimeFlushOptions::standard(false),
+                    ).await?;
+                } else {
+                    Box::pin(apply_devices_message(&mut app, message, &runtime_event_tx, &mut last_signal, &mut last_auth_event)).await?;
+                }
             }
             maybe_message = commands.trust.recv() => {
                 let Some(envelope) = maybe_message else {
@@ -410,7 +439,7 @@ pub(crate) async fn runtime_loop(
                 crate::host_protocol::agent_intel_dispatch::handle_runtime(
                     message,
                     &app.state.local.sessions,
-                    &app.state.agent_intel.registry,
+                    &mut app.state.agent_intel,
                     runtime_event_tx.agent_intel_event_sender().clone(),
                     account_user_id,
                     account_epoch,
@@ -483,6 +512,7 @@ pub(crate) async fn runtime_loop(
         }
     }
 
+    drop(device_revocation);
     let shutdown_deadline = time::Instant::now()
         + crate::shutdown::TASK_DRAIN_BUDGET
         + crate::shutdown::SESSION_DRAIN_BUDGET;
@@ -494,6 +524,7 @@ pub(crate) async fn runtime_loop(
         &mut app.state.pending_discovery_surfaces,
     );
 
+    app.state.agent_intel.clear_bound_authority();
     terminal_dispatch_cancel.cancel();
     crate::shutdown::join_within(
         "local terminal input dispatcher",

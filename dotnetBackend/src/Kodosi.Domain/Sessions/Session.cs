@@ -72,7 +72,7 @@ public sealed class Session
 
         ValidateRequestedDefaultAccess(defaultAccess);
 
-        var now = DateTimeOffset.UtcNow;
+        var now = UtcNowAtStoragePrecision();
         return new Session
         {
             Id = id,
@@ -108,7 +108,7 @@ public sealed class Session
             throw new DomainException($"Cannot activate a host from {Status} state.");
         }
 
-        var now = DateTimeOffset.UtcNow;
+        var now = UtcNowAtStoragePrecision();
         Status = SessionStatus.Live;
         LastHeartbeatAt = now;
         HostConnectionSlot = connectionId;
@@ -130,7 +130,7 @@ public sealed class Session
 
         HostConnectionSlot = null;
         HostClaimedAt = null;
-        HostReleasedAt = DateTimeOffset.UtcNow;
+        HostReleasedAt = UtcNowAtStoragePrecision();
     }
 
     public void Republish(
@@ -162,7 +162,7 @@ public sealed class Session
         }
         ValidateRequestedDefaultAccess(defaultAccess);
 
-        var now = DateTimeOffset.UtcNow;
+        var now = UtcNowAtStoragePrecision();
         if (CurrentKeyGeneration == int.MaxValue)
         {
             throw new DomainException("Session key generation is exhausted.");
@@ -204,7 +204,7 @@ public sealed class Session
     public void End()
     {
         Status = SessionStatus.Ended;
-        EndedAt = DateTimeOffset.UtcNow;
+        EndedAt = UtcNowAtStoragePrecision();
     }
 
     public void FenceKeyPublication()
@@ -221,7 +221,7 @@ public sealed class Session
     public void RecordHostHeartbeat()
     {
         EnsureNotEnded();
-        LastHeartbeatAt = DateTimeOffset.UtcNow;
+        LastHeartbeatAt = UtcNowAtStoragePrecision();
     }
 
     public void UpdateTitle(string title)
@@ -268,6 +268,14 @@ public sealed class Session
         {
             throw new DomainException($"Default access cannot be {access}.");
         }
+    }
+
+    private static DateTimeOffset UtcNowAtStoragePrecision()
+    {
+        // Session timestamps participate in exact lifecycle fences and idempotent responses.
+        // PostgreSQL persists microseconds, so do not publish finer in-memory timestamps.
+        var now = DateTimeOffset.UtcNow;
+        return now.AddTicks(-(now.Ticks % TimeSpan.TicksPerMicrosecond));
     }
 
     private void EnsureNotEnded()

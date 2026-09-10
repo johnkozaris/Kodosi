@@ -55,6 +55,8 @@ pub enum AppError {
     MissingConfig { key: &'static str },
     #[error("backend returned invalid data for `{field}`: {reason}")]
     InvalidBackendData { field: String, reason: String },
+    #[error("this device is not a recipient of the room content")]
+    RoomContentNotRecipient,
     #[error("unsupported operation: {reason}")]
     Unsupported { reason: String },
     #[error("local device identity recovery is required: {reason}")]
@@ -89,6 +91,7 @@ impl AppError {
             Self::InvalidUrl { .. } => "invalid_url",
             Self::MissingConfig { .. } => "missing_configuration",
             Self::InvalidBackendData { .. } => "invalid_data",
+            Self::RoomContentNotRecipient => "room_content_not_recipient",
             Self::Unsupported { .. } => "unsupported",
             Self::IdentityRecoveryRequired { .. } => "identity_recovery_required",
             Self::PeerIdentityChanged { .. } => "peer_identity_changed",

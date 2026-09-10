@@ -2,6 +2,8 @@ namespace Kodosi.Domain;
 
 public static class DomainTags
 {
+    public static ReadOnlySpan<byte> AuthenticatedArtifactV1 => "kodosi:authenticated-artifact:v1\0"u8;
+    public static ReadOnlySpan<byte> ArtifactEndorsementV1 => "kodosi:artifact-endorsement:v1\0"u8;
     public static ReadOnlySpan<byte> DevicePopV1 => "kodosi-device-pop-v1"u8;
     public static ReadOnlySpan<byte> DeviceConnectionProofV1 =>
         "kodosi-device-connection-proof-v1"u8;

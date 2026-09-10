@@ -827,7 +827,8 @@ mod concurrent_client_snapshot {
     };
     use super::{HeadlessHostAuthState, RuntimeSessionStatus, sample_local_session_with_id};
     use crate::{
-        AuthEvent, HostEvent, RemoteCommandStatus, SessionEvent, support::io::framed_json,
+        AuthEvent, HostCommand, HostEvent, RemoteCommandStatus, SessionCommand, SessionEvent,
+        support::io::framed_json,
     };
 
     const OTHER_SESSION: &str = "019d1bd1-c0ae-72a0-88cb-c8519739adaa";
@@ -912,6 +913,7 @@ mod concurrent_client_snapshot {
                             break;
                         }
                     }
+
                 }
                 event = events_rx.recv() => {
                     let Ok(event) = event else { break };
@@ -926,6 +928,186 @@ mod concurrent_client_snapshot {
                     {
                         break;
                     }
+                }
+            }
+        }
+    }
+
+    async fn serve_stop_client(stream: super::super::local_endpoint::LocalStream) {
+        let (read_half, write_half) = stream.into_split();
+        let mut reader = framed_json::reader(read_half);
+        let mut writer = framed_json::writer(write_half);
+        let Some(hello) = framed_json::read_json::<_, HostHelloRequest>(&mut reader)
+            .await
+            .expect("read hello")
+        else {
+            return;
+        };
+        assert_eq!(hello.token, TOKEN);
+        framed_json::write_json(
+            &mut writer,
+            &HostHelloResponse::accept_control(RemoteCommandStatus {
+                account_user_id: None,
+                account_epoch: 1,
+                remote_operations_ready: true,
+            }),
+        )
+        .await
+        .expect("write hello");
+
+        let mut active = true;
+        while let Some(frame) = framed_json::read_json::<_, ControlClientFrame>(&mut reader)
+            .await
+            .expect("read control frame")
+        {
+            match frame {
+                ControlClientFrame::Snapshot { refresh_id } => {
+                    framed_json::write_json(
+                        &mut writer,
+                        &ControlServerFrame::Snapshot {
+                            refresh_id,
+                            account_user_id: None,
+                            account_epoch: 1,
+                            remote_operations_ready: true,
+                            auth: AuthEvent::Ready {
+                                user_id: None,
+                                account_epoch: 1,
+                            },
+                            sessions: active
+                                .then(|| {
+                                    sample_local_session_with_id(
+                                        "session-1",
+                                        RuntimeSessionStatus::Active,
+                                        "Mine",
+                                    )
+                                })
+                                .into_iter()
+                                .collect(),
+                            rooms: Vec::new(),
+                        },
+                    )
+                    .await
+                    .expect("write snapshot");
+                    if !active {
+                        return;
+                    }
+                }
+                ControlClientFrame::Command { .. } => {
+                    active = false;
+                    framed_json::write_json(
+                        &mut writer,
+                        &ControlServerFrame::Event {
+                            event: Box::new(HostEvent::Session(SessionEvent::Removed {
+                                session_id: "session-1".to_owned(),
+                            })),
+                        },
+                    )
+                    .await
+                    .expect("write removal");
+                }
+            }
+        }
+    }
+
+    async fn serve_rejected_stop_with_stale_removal(
+        stream: super::super::local_endpoint::LocalStream,
+    ) {
+        let (read_half, write_half) = stream.into_split();
+        let mut reader = framed_json::reader(read_half);
+        let mut writer = framed_json::writer(write_half);
+        let Some(hello) = framed_json::read_json::<_, HostHelloRequest>(&mut reader)
+            .await
+            .expect("read hello")
+        else {
+            return;
+        };
+        assert_eq!(hello.token, TOKEN);
+        framed_json::write_json(
+            &mut writer,
+            &HostHelloResponse::accept_control(RemoteCommandStatus {
+                account_user_id: None,
+                account_epoch: 1,
+                remote_operations_ready: true,
+            }),
+        )
+        .await
+        .expect("write hello");
+
+        let mut first_snapshot = true;
+        let mut rejected_request_id: Option<String> = None;
+        let mut sent_rejection = false;
+        while let Some(frame) = framed_json::read_json::<_, ControlClientFrame>(&mut reader)
+            .await
+            .expect("read control frame")
+        {
+            match frame {
+                ControlClientFrame::Snapshot { refresh_id } => {
+                    if first_snapshot {
+                        first_snapshot = false;
+                        framed_json::write_json(
+                            &mut writer,
+                            &ControlServerFrame::Event {
+                                event: Box::new(HostEvent::Session(SessionEvent::Removed {
+                                    session_id: "session-1".to_owned(),
+                                })),
+                            },
+                        )
+                        .await
+                        .expect("write stale removal");
+                    } else if !sent_rejection {
+                        let request_id = rejected_request_id
+                            .as_ref()
+                            .expect("stop command precedes confirmation snapshot");
+                        for (event_request_id, message) in [
+                            ("another-request", "unrelated same-session rejection"),
+                            (request_id.as_str(), "stop rejected"),
+                        ] {
+                            framed_json::write_json(
+                                &mut writer,
+                                &ControlServerFrame::Event {
+                                    event: Box::new(HostEvent::Session(SessionEvent::Error {
+                                        operation: "session.stop".to_owned(),
+                                        session_id: Some("session-1".to_owned()),
+                                        request_id: Some(event_request_id.to_owned()),
+                                        message: message.to_owned(),
+                                    })),
+                                },
+                            )
+                            .await
+                            .expect("write stop error");
+                        }
+                        sent_rejection = true;
+                    }
+                    framed_json::write_json(
+                        &mut writer,
+                        &ControlServerFrame::Snapshot {
+                            refresh_id,
+                            account_user_id: None,
+                            account_epoch: 1,
+                            remote_operations_ready: true,
+                            auth: AuthEvent::Ready {
+                                user_id: None,
+                                account_epoch: 1,
+                            },
+                            sessions: vec![sample_local_session_with_id(
+                                "session-1",
+                                RuntimeSessionStatus::Active,
+                                "Mine",
+                            )],
+                            rooms: Vec::new(),
+                        },
+                    )
+                    .await
+                    .expect("write active snapshot");
+                }
+                ControlClientFrame::Command { command } => {
+                    let command =
+                        serde_json::from_value::<HostCommand>(command).expect("typed command");
+                    let HostCommand::Session(SessionCommand::Stop { request_id, .. }) = command
+                    else {
+                        panic!("expected stop command")
+                    };
+                    rejected_request_id = Some(request_id);
                 }
             }
         }
@@ -995,6 +1177,44 @@ mod concurrent_client_snapshot {
     async fn correlated_snapshot_replaces_stale_hello_readiness_in_both_directions() {
         assert_snapshot_replaces_hello_readiness(false, true).await;
         assert_snapshot_replaces_hello_readiness(true, false).await;
+    }
+
+    #[tokio::test]
+    async fn stopping_a_non_resumable_session_settles_on_authoritative_removal() {
+        let dir = tempfile::tempdir().expect("create temp dir");
+        let socket = socket_path_for_dir(dir.path());
+        let listener = bind_local(&socket).await.expect("bind host socket");
+        let host = tokio::spawn(async move {
+            let stream = accept_local(&listener).await.expect("accept client");
+            serve_stop_client(stream).await;
+        });
+
+        let mut client = connect(&socket).await;
+        client
+            .stop_session("session-1")
+            .await
+            .expect("authoritative removal settles stop");
+        host.await.expect("host task");
+    }
+
+    #[tokio::test]
+    async fn stale_removal_cannot_hide_a_request_correlated_stop_rejection() {
+        let dir = tempfile::tempdir().expect("create temp dir");
+        let socket = socket_path_for_dir(dir.path());
+        let listener = bind_local(&socket).await.expect("bind host socket");
+        let host = tokio::spawn(async move {
+            let stream = accept_local(&listener).await.expect("accept client");
+            serve_rejected_stop_with_stale_removal(stream).await;
+        });
+
+        let mut client = connect(&socket).await;
+        let error = client
+            .stop_session("session-1")
+            .await
+            .expect_err("correlated rejection must win over stale removal");
+        assert_eq!(error.to_string(), "unsupported operation: stop rejected");
+        drop(client);
+        host.await.expect("host task");
     }
 
     #[tokio::test]

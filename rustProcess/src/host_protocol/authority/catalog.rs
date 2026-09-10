@@ -25,6 +25,29 @@ use crate::{
         TerminalResizeIdentity, TrustEvent,
     },
 };
+use ::agent_intel::ops::bound_auto_mode::{
+    AutoModeMutationOutcome, AutoModeMutationReceipt, BoundAutoModeRead,
+};
+use ::agent_intel::ops::bound_custom_agents::{
+    BoundCustomAgentDetail, BoundCustomAgentList, BoundCustomAgentSummary,
+};
+use ::agent_intel::ops::bound_external::{
+    BoundExternalAction, BoundExternalDiscovery, BoundExternalMcpSummary,
+    BoundExternalSessionSummary,
+};
+use ::agent_intel::ops::bound_memory::{
+    BoundClaudeMemoryItem, BoundClaudeMemoryList, BoundClaudeMemoryRead,
+};
+use ::agent_intel::ops::bound_projects::{
+    BoundProjectAgentSettings, BoundProjectCustomAgentSummary, BoundProjectCustomizationSummary,
+    BoundProjectMemorySummary, BoundProjectSessionSummary, BoundProjectSnapshot,
+    BoundProjectSourceKind, BoundProjectSourcePage, BoundProjectSourceSummary,
+};
+use ::agent_intel::ops::custom_agents::AgentTarget;
+use ::agent_intel::ops::dto::AgentSettingsBundle;
+use ::agent_intel::ops::open_handoff::NativeOpenHandoff;
+use ::agent_intel::ops::project_mutations::{ProjectMemoryCopyOutcome, ProjectMemoryCopyReceipt};
+use ::agent_intel::ops::settings_tree::AgentSettingsTreeBundle;
 use kodosi_domain::{
     lifecycle::{ConnectionState, RemoteSessionAccessIssue, RemoteSessionAccessState},
     permissions::{AccessLevel, ShareScope},
@@ -135,6 +158,9 @@ pub(super) fn system_command_types() -> Result<Vec<String>> {
         extract_type(&SystemCommand::SetHostTheme { dark: true })?,
         extract_type(&SystemCommand::QueryPendingPermissions {
             request_id: "req-pending".to_owned(),
+        })?,
+        extract_type(&SystemCommand::QueryLiveAgentIntelSet {
+            request_id: "01900000-0000-7000-8000-000000000006".to_owned(),
         })?,
         extract_type(&SystemCommand::AllowPendingPermissionRequest {
             session_id: "00000000-0000-0000-0000-000000000000".to_owned(),
@@ -391,6 +417,14 @@ pub(super) fn session_event_types() -> Result<Vec<String>> {
             outcome: Some(SessionAccessMutationOutcome::Applied),
             message: Some("recovered access mutation completed".to_owned()),
         })?,
+        extract_type(&SessionEvent::AccessMutationReconciled {
+            mutation_id: "01900000-0000-7000-8000-000000000012".to_owned(),
+            present: true,
+        })?,
+        extract_type(&SessionEvent::AccessMutationAcknowledged {
+            mutation_id: "01900000-0000-7000-8000-000000000012".to_owned(),
+            fingerprint: "a".repeat(64),
+        })?,
         extract_type(&SessionEvent::Error {
             operation: "session.create".to_owned(),
             session_id: Some("session-1".to_owned()),
@@ -419,6 +453,16 @@ pub(super) fn session_event_types() -> Result<Vec<String>> {
 )]
 pub(super) fn agent_intel_command_types() -> Result<Vec<String>> {
     Ok(vec![
+        extract_type(&AgentIntelCommand::ListProjectSourcesBound {
+            request_id: "req-1".to_owned(),
+            cursor: Some("100".to_owned()),
+            limit: Some(100),
+            max_bytes: Some(262_144),
+        })?,
+        extract_type(&AgentIntelCommand::InspectProjectSourceBound {
+            request_id: "req-1".to_owned(),
+            selection_token: "01900000-0000-7000-8000-000000000001".to_owned(),
+        })?,
         extract_type(&AgentIntelCommand::ReadSettings {
             request_id: "req-1".to_owned(),
             agent: "claude".to_owned(),
@@ -448,6 +492,18 @@ pub(super) fn agent_intel_command_types() -> Result<Vec<String>> {
             request_id: "req-1".to_owned(),
             cwd: "/tmp/project".to_owned(),
             filename: "todo.md".to_owned(),
+        })?,
+        extract_type(&AgentIntelCommand::ListClaudeMemoryBound {
+            request_id: "req-1".to_owned(),
+            cwd: "/tmp/project".to_owned(),
+        })?,
+        extract_type(&AgentIntelCommand::ReadClaudeMemoryBound {
+            request_id: "req-1".to_owned(),
+            selection_token: "01900000-0000-7000-8000-000000000001".to_owned(),
+        })?,
+        extract_type(&AgentIntelCommand::OpenProjectMemoryBound {
+            request_id: "req-1".to_owned(),
+            selection_token: "01900000-0000-7000-8000-000000000001".to_owned(),
         })?,
         extract_type(&AgentIntelCommand::ReadSessionConversation {
             request_id: "req-1".to_owned(),
@@ -479,6 +535,16 @@ pub(super) fn agent_intel_command_types() -> Result<Vec<String>> {
             filename: "todo.md".to_owned(),
             target_slug: "-tmp-b".to_owned(),
         })?,
+        extract_type(&AgentIntelCommand::CopyProjectMemoryBound {
+            request_id: "req-1".to_owned(),
+            source_selection_token: "01900000-0000-7000-8000-000000000001".to_owned(),
+            destination_selection_token: "01900000-0000-7000-8000-000000000002".to_owned(),
+            mutation_id: "01900000-0000-7000-8000-000000000003".to_owned(),
+        })?,
+        extract_type(&AgentIntelCommand::ReconcileProjectMemoryCopy {
+            request_id: "req-1".to_owned(),
+            mutation_id: "01900000-0000-7000-8000-000000000003".to_owned(),
+        })?,
         extract_type(&AgentIntelCommand::ResolveActiveSession {
             request_id: "req-1".to_owned(),
             cwd: "/tmp/project".to_owned(),
@@ -501,6 +567,9 @@ pub(super) fn agent_intel_command_types() -> Result<Vec<String>> {
         extract_type(&AgentIntelCommand::ReadClaudeAutoModeRules {
             request_id: "req-1".to_owned(),
         })?,
+        extract_type(&AgentIntelCommand::ReadClaudeAutoModeRulesBound {
+            request_id: "req-1".to_owned(),
+        })?,
         extract_type(&AgentIntelCommand::WriteClaudeAutoModeRules {
             request_id: "req-1".to_owned(),
             environment: vec!["CI=1".to_owned()],
@@ -508,9 +577,39 @@ pub(super) fn agent_intel_command_types() -> Result<Vec<String>> {
             soft_deny: vec!["Write".to_owned()],
             hard_deny: vec!["Bash".to_owned()],
         })?,
+        extract_type(&AgentIntelCommand::WriteClaudeAutoModeRulesBound {
+            request_id: "req-1".to_owned(),
+            target_token: "01900000-0000-7000-8000-000000000005".to_owned(),
+            expected_revision: "0123456789abcdef".to_owned(),
+            mutation_id: "01900000-0000-7000-8000-000000000006".to_owned(),
+            environment: vec!["CI=1".to_owned()],
+            allow: vec!["Read".to_owned()],
+            soft_deny: vec!["Write".to_owned()],
+            hard_deny: vec!["Bash".to_owned()],
+        })?,
+        extract_type(&AgentIntelCommand::ReconcileClaudeAutoModeRulesWrite {
+            request_id: "req-1".to_owned(),
+            mutation_id: "01900000-0000-7000-8000-000000000006".to_owned(),
+        })?,
         extract_type(&AgentIntelCommand::ListCustomAgents {
             request_id: "req-1".to_owned(),
             directory: "/home/u/.claude/agents".to_owned(),
+        })?,
+        extract_type(&AgentIntelCommand::ListCustomAgentsBound {
+            request_id: "req-1".to_owned(),
+            directory: "/home/u/.claude/agents".to_owned(),
+        })?,
+        extract_type(&AgentIntelCommand::ReadCustomAgentBound {
+            request_id: "req-1".to_owned(),
+            selection_token: "01900000-0000-7000-8000-000000000001".to_owned(),
+        })?,
+        extract_type(&AgentIntelCommand::OpenCustomAgentBound {
+            request_id: "req-1".to_owned(),
+            selection_token: "01900000-0000-7000-8000-000000000002".to_owned(),
+        })?,
+        extract_type(&AgentIntelCommand::ReleaseOpenHandoff {
+            request_id: "req-1".to_owned(),
+            handoff_id: "01900000-0000-7000-8000-000000000003".to_owned(),
         })?,
         extract_type(&AgentIntelCommand::ListActiveCustomizations {
             request_id: "req-1".to_owned(),
@@ -524,7 +623,550 @@ pub(super) fn agent_intel_command_types() -> Result<Vec<String>> {
             request_id: "req-1".to_owned(),
             agent: Some("claude".to_owned()),
         })?,
+        extract_type(&AgentIntelCommand::DiscoverExternalBound {
+            request_id: "req-1".to_owned(),
+        })?,
+        extract_type(&AgentIntelCommand::ExternalSourceActionBound {
+            request_id: "req-1".to_owned(),
+            selection_token: "01900000-0000-7000-8000-000000000007".to_owned(),
+            action: "open".to_owned(),
+        })?,
     ])
+}
+
+#[expect(
+    clippy::too_many_lines,
+    reason = "one generated reply catalog keeps protocol shape samples visibly exhaustive"
+)]
+pub(super) fn agent_intel_reply_shapes() -> Result<BTreeMap<String, serde_json::Value>> {
+    let project_sources = vec![
+        BoundProjectSourcePage {
+            items: vec![BoundProjectSourceSummary {
+                selection_token: "01900000-0000-7000-8000-000000000001".to_owned(),
+                source_kind: BoundProjectSourceKind::Active,
+                agent: None,
+                label: "project".to_owned(),
+                session_count: 2,
+                memory_count: 1,
+                active_session_ids: vec!["session-1".to_owned(), "session-2".to_owned()],
+            }],
+            next_cursor: Some("100".to_owned()),
+            has_more: true,
+            response_bytes: 512,
+        },
+        BoundProjectSourcePage {
+            items: vec![
+                BoundProjectSourceSummary {
+                    selection_token: "01900000-0000-7000-8000-000000000021".to_owned(),
+                    source_kind: BoundProjectSourceKind::ClaudeArchive,
+                    agent: Some("claude".to_owned()),
+                    label: "Claude archive".to_owned(),
+                    session_count: 1,
+                    memory_count: 1,
+                    active_session_ids: Vec::new(),
+                },
+                BoundProjectSourceSummary {
+                    selection_token: "01900000-0000-7000-8000-000000000022".to_owned(),
+                    source_kind: BoundProjectSourceKind::CopilotArchive,
+                    agent: Some("copilot".to_owned()),
+                    label: "Copilot archive".to_owned(),
+                    session_count: 1,
+                    memory_count: 0,
+                    active_session_ids: Vec::new(),
+                },
+            ],
+            next_cursor: None,
+            has_more: false,
+            response_bytes: 768,
+        },
+    ];
+    let lists = vec![
+        BoundClaudeMemoryList {
+            canonical_cwd: "/home/example/project".to_owned(),
+            project_slug: "-home-example-project".to_owned(),
+            items: vec![BoundClaudeMemoryItem {
+                selection_token: "01900000-0000-7000-8000-000000000001".to_owned(),
+                filename: "MEMORY.md".to_owned(),
+                memory_type: Some("project".to_owned()),
+            }],
+        },
+        BoundClaudeMemoryList {
+            canonical_cwd: String::new(),
+            project_slug: "-home-example-archive".to_owned(),
+            items: vec![BoundClaudeMemoryItem {
+                selection_token: "01900000-0000-7000-8000-000000000031".to_owned(),
+                filename: "notes.md".to_owned(),
+                memory_type: None,
+            }],
+        },
+    ];
+    let reads = vec![
+        BoundClaudeMemoryRead {
+            content: "memory".to_owned(),
+            selection_token: "01900000-0000-7000-8000-000000000001".to_owned(),
+            canonical_cwd: "/home/example/project".to_owned(),
+            project_slug: "-home-example-project".to_owned(),
+            filename: "MEMORY.md".to_owned(),
+            memory_type: Some("project".to_owned()),
+        },
+        BoundClaudeMemoryRead {
+            content: "archive memory".to_owned(),
+            selection_token: "01900000-0000-7000-8000-000000000032".to_owned(),
+            canonical_cwd: String::new(),
+            project_slug: "-home-example-archive".to_owned(),
+            filename: "notes.md".to_owned(),
+            memory_type: None,
+        },
+    ];
+    let custom_agents = vec![
+        BoundCustomAgentList {
+            items: vec![BoundCustomAgentSummary {
+                selection_token: "01900000-0000-7000-8000-000000000002".to_owned(),
+                target: AgentTarget::Claude,
+                name: "reviewer".to_owned(),
+                description: "Reviews changes".to_owned(),
+                model: Some("sonnet".to_owned()),
+                tools: vec!["Read".to_owned(), "Grep".to_owned()],
+                error_count: 0,
+            }],
+        },
+        BoundCustomAgentList {
+            items: vec![BoundCustomAgentSummary {
+                selection_token: "01900000-0000-7000-8000-000000000033".to_owned(),
+                target: AgentTarget::VsCode,
+                name: "builder".to_owned(),
+                description: "Builds changes".to_owned(),
+                model: None,
+                tools: Vec::new(),
+                error_count: 1,
+            }],
+        },
+    ];
+    let custom_agent_details = vec![
+        BoundCustomAgentDetail {
+            selection_token: "01900000-0000-7000-8000-000000000002".to_owned(),
+            target: AgentTarget::Claude,
+            name: "reviewer".to_owned(),
+            description: "Reviews changes".to_owned(),
+            model: Some("sonnet".to_owned()),
+            tools: vec!["Read".to_owned(), "Grep".to_owned()],
+            disallowed_tools: vec!["Bash".to_owned()],
+            frontmatter: "name: reviewer".to_owned(),
+            prompt: "Review changes.".to_owned(),
+            errors: vec!["missing required frontmatter field: description".to_owned()],
+        },
+        BoundCustomAgentDetail {
+            selection_token: "01900000-0000-7000-8000-000000000034".to_owned(),
+            target: AgentTarget::VsCode,
+            name: "builder".to_owned(),
+            description: String::new(),
+            model: None,
+            tools: Vec::new(),
+            disallowed_tools: Vec::new(),
+            frontmatter: String::new(),
+            prompt: "Build changes.".to_owned(),
+            errors: Vec::new(),
+        },
+    ];
+    let scalar_matrix = serde_json::json!({
+        "string": "value",
+        "integer": 7,
+        "number": 1.5,
+        "boolean": true,
+        "object": {"nested": "value"},
+        "array": ["value", 2, 2.5, false, null],
+        "null": null
+    });
+    let settings = AgentSettingsTreeBundle::project(&AgentSettingsBundle {
+        managed: Some(scalar_matrix.clone()),
+        user: Some(scalar_matrix.clone()),
+        project: Some(scalar_matrix.clone()),
+        local: Some(scalar_matrix),
+    })
+    .map_err(|reason| AppError::InvalidBackendData {
+        field: "project settings sample".to_owned(),
+        reason,
+    })?;
+    let active_project_snapshot = BoundProjectSnapshot {
+        source_selection_token: "01900000-0000-7000-8000-000000000002".to_owned(),
+        source_kind: BoundProjectSourceKind::Active,
+        agent: None,
+        label: "project".to_owned(),
+        sessions: vec![BoundProjectSessionSummary {
+            session_id: "session-1".to_owned(),
+            runtime_incarnation_id: Some("01900000-0000-7000-8000-000000000003".to_owned()),
+            title: "Build Linux parity".to_owned(),
+            agent: "claude".to_owned(),
+            status: "active".to_owned(),
+            mode: Some("normal".to_owned()),
+            started_at: Some("2026-09-02T12:00:00Z".to_owned()),
+            updated_at: Some("2026-09-02T12:01:00Z".to_owned()),
+            size_bytes: None,
+            host_type: None,
+            transcript_available: true,
+        }],
+        memories: vec![BoundProjectMemorySummary {
+            read_selection_token: "01900000-0000-7000-8000-000000000001".to_owned(),
+            open_selection_token: "01900000-0000-7000-8000-000000000010".to_owned(),
+            copy_selection_token: "01900000-0000-7000-8000-000000000011".to_owned(),
+            filename: "MEMORY.md".to_owned(),
+            memory_type: Some("project".to_owned()),
+        }],
+        custom_agents: vec![BoundProjectCustomAgentSummary {
+            detail_selection_token: "01900000-0000-7000-8000-000000000002".to_owned(),
+            open_selection_token: "01900000-0000-7000-8000-000000000012".to_owned(),
+            target: "claude".to_owned(),
+            name: "reviewer".to_owned(),
+            description: "Reviews changes".to_owned(),
+            model: Some("sonnet".to_owned()),
+            tools: vec!["Read".to_owned(), "Grep".to_owned()],
+            error_count: 0,
+        }],
+        customizations: vec![BoundProjectCustomizationSummary {
+            kind: "mcpserver".to_owned(),
+            name: "github".to_owned(),
+            scope: "project".to_owned(),
+            enabled: true,
+            status: "loaded".to_owned(),
+            description: Some("GitHub tools".to_owned()),
+            status_message: None,
+        }],
+        settings: vec![
+            BoundProjectAgentSettings {
+                agent: "claude".to_owned(),
+                settings: settings.clone(),
+            },
+            BoundProjectAgentSettings {
+                agent: "copilot".to_owned(),
+                settings: AgentSettingsTreeBundle {
+                    managed: None,
+                    user: None,
+                    project: None,
+                    local: None,
+                },
+            },
+        ],
+    };
+    let claude_archive_snapshot = BoundProjectSnapshot {
+        source_selection_token: "01900000-0000-7000-8000-000000000035".to_owned(),
+        source_kind: BoundProjectSourceKind::ClaudeArchive,
+        agent: Some("claude".to_owned()),
+        label: "Claude archive".to_owned(),
+        sessions: vec![BoundProjectSessionSummary {
+            session_id: "claude-archive".to_owned(),
+            runtime_incarnation_id: None,
+            title: "Claude archive".to_owned(),
+            agent: "claude".to_owned(),
+            status: "archived".to_owned(),
+            mode: None,
+            started_at: None,
+            updated_at: Some("2026-09-01T12:00:00Z".to_owned()),
+            size_bytes: Some(4096),
+            host_type: None,
+            transcript_available: false,
+        }],
+        memories: vec![BoundProjectMemorySummary {
+            read_selection_token: "01900000-0000-7000-8000-000000000036".to_owned(),
+            open_selection_token: "01900000-0000-7000-8000-000000000037".to_owned(),
+            copy_selection_token: "01900000-0000-7000-8000-000000000038".to_owned(),
+            filename: "notes.md".to_owned(),
+            memory_type: None,
+        }],
+        custom_agents: Vec::new(),
+        customizations: vec![BoundProjectCustomizationSummary {
+            kind: "skill".to_owned(),
+            name: "review".to_owned(),
+            scope: "project".to_owned(),
+            enabled: false,
+            status: "disabled".to_owned(),
+            description: None,
+            status_message: Some("disabled by settings".to_owned()),
+        }],
+        settings: Vec::new(),
+    };
+    let copilot_archive_snapshot = BoundProjectSnapshot {
+        source_selection_token: "01900000-0000-7000-8000-000000000039".to_owned(),
+        source_kind: BoundProjectSourceKind::CopilotArchive,
+        agent: Some("copilot".to_owned()),
+        label: "Copilot archive".to_owned(),
+        sessions: vec![BoundProjectSessionSummary {
+            session_id: "copilot-archive".to_owned(),
+            runtime_incarnation_id: None,
+            title: "Copilot archive".to_owned(),
+            agent: "copilot".to_owned(),
+            status: "archived".to_owned(),
+            mode: None,
+            started_at: Some("2026-08-31T12:00:00Z".to_owned()),
+            updated_at: None,
+            size_bytes: None,
+            host_type: Some("github".to_owned()),
+            transcript_available: false,
+        }],
+        memories: Vec::new(),
+        custom_agents: vec![BoundProjectCustomAgentSummary {
+            detail_selection_token: "01900000-0000-7000-8000-000000000040".to_owned(),
+            open_selection_token: "01900000-0000-7000-8000-000000000041".to_owned(),
+            target: "vsCode".to_owned(),
+            name: "builder".to_owned(),
+            description: String::new(),
+            model: None,
+            tools: Vec::new(),
+            error_count: 1,
+        }],
+        customizations: Vec::new(),
+        settings: vec![BoundProjectAgentSettings {
+            agent: "copilot".to_owned(),
+            settings,
+        }],
+    };
+    let project_snapshots = vec![
+        active_project_snapshot,
+        claude_archive_snapshot,
+        copilot_archive_snapshot,
+    ];
+    let open_handoff = NativeOpenHandoff {
+        handoff_id: "01900000-0000-7000-8000-000000000004".to_owned(),
+        handoff_path: "/run/user/1000/kodosi-open-private/handoff".to_owned(),
+        display_name: "MEMORY.md".to_owned(),
+    };
+    let bound_auto_modes = [
+        ::agent_intel::ops::auto_mode::AutoModeRules::default(),
+        ::agent_intel::ops::auto_mode::AutoModeRules {
+            environment: vec!["KODOSI=1".to_owned()],
+            ..Default::default()
+        },
+        ::agent_intel::ops::auto_mode::AutoModeRules {
+            allow: vec!["Read".to_owned()],
+            ..Default::default()
+        },
+        ::agent_intel::ops::auto_mode::AutoModeRules {
+            soft_deny: vec!["Bash".to_owned()],
+            ..Default::default()
+        },
+        ::agent_intel::ops::auto_mode::AutoModeRules {
+            hard_deny: vec!["Write".to_owned()],
+            ..Default::default()
+        },
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(index, rules)| BoundAutoModeRead {
+        target_token: format!("01900000-0000-7000-8000-{index:012}"),
+        revision: "0123456789abcdef".to_owned(),
+        rules,
+    })
+    .collect::<Vec<_>>();
+    let auto_mode_receipts = vec![
+        AutoModeMutationReceipt {
+            mutation_id: "01900000-0000-7000-8000-000000000006".to_owned(),
+            outcome: AutoModeMutationOutcome::Applied,
+            revision: "fedcba9876543210".to_owned(),
+            rules: ::agent_intel::ops::auto_mode::AutoModeRules {
+                environment: vec!["KODOSI=1".to_owned()],
+                allow: vec!["Read".to_owned()],
+                soft_deny: vec!["Bash(rm:*)".to_owned()],
+                hard_deny: vec!["Write".to_owned()],
+            },
+            detail: None,
+        },
+        AutoModeMutationReceipt {
+            mutation_id: "01900000-0000-7000-8000-000000000042".to_owned(),
+            outcome: AutoModeMutationOutcome::Indeterminate,
+            revision: "0011223344556677".to_owned(),
+            rules: ::agent_intel::ops::auto_mode::AutoModeRules::default(),
+            detail: Some("commit durability could not be confirmed".to_owned()),
+        },
+    ];
+    let external_discoveries = vec![
+        BoundExternalDiscovery {
+            mcp_servers: vec![BoundExternalMcpSummary {
+                selection_token: "01900000-0000-7000-8000-000000000007".to_owned(),
+                source: "Claude Desktop".to_owned(),
+                server_name: "github".to_owned(),
+                transport: Some("stdio".to_owned()),
+                can_copy_source_path: true,
+                can_open_source: true,
+                can_reveal_source: true,
+            }],
+            sessions: vec![BoundExternalSessionSummary {
+                selection_token: "01900000-0000-7000-8000-000000000008".to_owned(),
+                agent: "claude".to_owned(),
+                session_id: "native-session".to_owned(),
+                pid: Some(123),
+                liveness: "alive".to_owned(),
+                workspace_label: Some("project".to_owned()),
+                name: Some("External agent".to_owned()),
+                started_at: Some("2026-09-02T12:00:00Z".to_owned()),
+                can_copy_source_path: true,
+                can_open_source: true,
+                can_reveal_source: true,
+            }],
+        },
+        BoundExternalDiscovery {
+            mcp_servers: vec![BoundExternalMcpSummary {
+                selection_token: "01900000-0000-7000-8000-000000000043".to_owned(),
+                source: "Copilot".to_owned(),
+                server_name: "local".to_owned(),
+                transport: None,
+                can_copy_source_path: true,
+                can_open_source: true,
+                can_reveal_source: true,
+            }],
+            sessions: vec![BoundExternalSessionSummary {
+                selection_token: "01900000-0000-7000-8000-000000000044".to_owned(),
+                agent: "copilot".to_owned(),
+                session_id: "external".to_owned(),
+                pid: None,
+                liveness: "unknown".to_owned(),
+                workspace_label: None,
+                name: None,
+                started_at: None,
+                can_copy_source_path: true,
+                can_open_source: true,
+                can_reveal_source: true,
+            }],
+        },
+    ];
+    let external_actions = vec![
+        BoundExternalAction::Open {
+            source_path: None,
+            handoff_id: "01900000-0000-7000-8000-000000000009".to_owned(),
+            handoff_path: "/run/user/1000/kodosi-open-private/handoff".to_owned(),
+            display_name: "events.jsonl".to_owned(),
+        },
+        BoundExternalAction::CopyPath {
+            source_path: "/home/example/events.jsonl".to_owned(),
+            handoff_id: None,
+            handoff_path: None,
+            display_name: "events.jsonl".to_owned(),
+        },
+        BoundExternalAction::Reveal {
+            source_path: "/home/example/events.jsonl".to_owned(),
+            handoff_id: None,
+            handoff_path: None,
+            display_name: "events.jsonl".to_owned(),
+        },
+    ];
+    let copy_receipts = vec![
+        ProjectMemoryCopyReceipt {
+            mutation_id: "01900000-0000-7000-8000-000000000003".to_owned(),
+            outcome: ProjectMemoryCopyOutcome::Copied,
+            filename: "MEMORY.md".to_owned(),
+            target_label: "destination".to_owned(),
+            detail: None,
+        },
+        ProjectMemoryCopyReceipt {
+            mutation_id: "01900000-0000-7000-8000-000000000045".to_owned(),
+            outcome: ProjectMemoryCopyOutcome::AlreadyExists,
+            filename: "MEMORY.md".to_owned(),
+            target_label: "destination".to_owned(),
+            detail: None,
+        },
+        ProjectMemoryCopyReceipt {
+            mutation_id: "01900000-0000-7000-8000-000000000046".to_owned(),
+            outcome: ProjectMemoryCopyOutcome::Indeterminate,
+            filename: "MEMORY.md".to_owned(),
+            target_label: "destination".to_owned(),
+            detail: Some("directory sync failed".to_owned()),
+        },
+    ];
+    let mut shapes = BTreeMap::from([
+        (
+            "agent.intel.listProjectSourcesBound".to_owned(),
+            shape_of_samples(
+                &project_sources,
+                "agent.intel.listProjectSourcesBound.reply",
+            )?,
+        ),
+        (
+            "agent.intel.inspectProjectSourceBound".to_owned(),
+            shape_of_samples(
+                &project_snapshots,
+                "agent.intel.inspectProjectSourceBound.reply",
+            )?,
+        ),
+        (
+            "agent.intel.openProjectMemoryBound".to_owned(),
+            shape_of(&open_handoff, "agent.intel.openProjectMemoryBound.reply")?,
+        ),
+        (
+            "agent.intel.openCustomAgentBound".to_owned(),
+            shape_of(&open_handoff, "agent.intel.openCustomAgentBound.reply")?,
+        ),
+        (
+            "agent.intel.releaseOpenHandoff".to_owned(),
+            serde_json::json!("null"),
+        ),
+        (
+            "agent.intel.readClaudeAutoModeRulesBound".to_owned(),
+            shape_of_samples(
+                &bound_auto_modes,
+                "agent.intel.readClaudeAutoModeRulesBound.reply",
+            )?,
+        ),
+        (
+            "agent.intel.writeClaudeAutoModeRulesBound".to_owned(),
+            shape_of_samples(
+                &auto_mode_receipts,
+                "agent.intel.writeClaudeAutoModeRulesBound.reply",
+            )?,
+        ),
+        (
+            "agent.intel.reconcileClaudeAutoModeRulesWrite".to_owned(),
+            shape_of_samples(
+                &auto_mode_receipts,
+                "agent.intel.reconcileClaudeAutoModeRulesWrite.reply",
+            )?,
+        ),
+        (
+            "agent.intel.discoverExternalBound".to_owned(),
+            shape_of_samples(
+                &external_discoveries,
+                "agent.intel.discoverExternalBound.reply",
+            )?,
+        ),
+        (
+            "agent.intel.externalSourceActionBound".to_owned(),
+            shape_of_samples(
+                &external_actions,
+                "agent.intel.externalSourceActionBound.reply",
+            )?,
+        ),
+        (
+            "agent.intel.copyProjectMemoryBound".to_owned(),
+            shape_of_samples(&copy_receipts, "agent.intel.copyProjectMemoryBound.reply")?,
+        ),
+        (
+            "agent.intel.reconcileProjectMemoryCopy".to_owned(),
+            shape_of_samples(
+                &copy_receipts,
+                "agent.intel.reconcileProjectMemoryCopy.reply",
+            )?,
+        ),
+        (
+            "agent.intel.listClaudeMemoryBound".to_owned(),
+            shape_of_samples(&lists, "agent.intel.listClaudeMemoryBound.reply")?,
+        ),
+        (
+            "agent.intel.readClaudeMemoryBound".to_owned(),
+            shape_of_samples(&reads, "agent.intel.readClaudeMemoryBound.reply")?,
+        ),
+        (
+            "agent.intel.listCustomAgentsBound".to_owned(),
+            shape_of_samples(&custom_agents, "agent.intel.listCustomAgentsBound.reply")?,
+        ),
+        (
+            "agent.intel.readCustomAgentBound".to_owned(),
+            shape_of_samples(
+                &custom_agent_details,
+                "agent.intel.readCustomAgentBound.reply",
+            )?,
+        ),
+    ]);
+    for shape in shapes.values_mut() {
+        require_explicit_nullable_fields(shape);
+    }
+    Ok(shapes)
 }
 
 fn register_agent_snapshot_shape() -> Result<()> {
@@ -553,6 +1195,17 @@ fn register_agent_snapshot_shape() -> Result<()> {
 }
 
 pub(super) fn agent_intel_event_types() -> Result<Vec<String>> {
+    let mut complete_snapshot = ::agent_intel::domain::snapshot::wire_authority_sample();
+    complete_snapshot.outcome = Some(::agent_intel::domain::AgentOutcome {
+        kind: ::agent_intel::domain::AgentOutcomeKind::Completed,
+        summary: "Agent work completed".to_owned(),
+    });
+    complete_snapshot.exceptional_state = Some(::agent_intel::domain::AgentExceptionalState {
+        kind: ::agent_intel::domain::AgentExceptionalKind::RateLimit,
+        summary: "Provider rate limit reached".to_owned(),
+        retryable: true,
+    });
+    complete_snapshot.source.detail = Some("Live extension telemetry".to_owned());
     let event_types = vec![
         extract_type(&AgentIntelEvent::Snapshot {
             session_id: "session-1".to_owned(),
@@ -563,6 +1216,16 @@ pub(super) fn agent_intel_event_types() -> Result<Vec<String>> {
             session_id: "session-1".to_owned(),
             session_incarnation_id: "01900000-0000-7000-8000-000000000002".to_owned(),
         })?,
+        extract_type(&AgentIntelEvent::LiveSet {
+            request_id: Some("01900000-0000-7000-8000-000000000006".to_owned()),
+            authority_incarnation_id: "01900000-0000-7000-8000-000000000007".to_owned(),
+            revision: 7,
+            entries: vec![crate::host_protocol::LiveAgentIntelEntry {
+                session_id: "session-1".to_owned(),
+                session_incarnation_id: "01900000-0000-7000-8000-000000000002".to_owned(),
+                snapshot: complete_snapshot.into(),
+            }],
+        })?,
         extract_type(&AgentIntelEvent::Reply {
             request_id: "req-1".to_owned(),
             payload: serde_json::Value::Null,
@@ -570,6 +1233,9 @@ pub(super) fn agent_intel_event_types() -> Result<Vec<String>> {
         extract_type(&AgentIntelEvent::Error {
             request_id: "req-1".to_owned(),
             message: "x".to_owned(),
+            failure_kind: crate::host_protocol::AgentIntelFailureKind::Deterministic,
+            mutation_id: None,
+            reconciliation_required: false,
         })?,
         extract_type(&AgentIntelEvent::PendingPermissionsSnapshot {
             generation: 7,
@@ -612,8 +1278,69 @@ pub(super) fn agent_intel_event_types() -> Result<Vec<String>> {
             message: Some("queued for the next safe boundary".to_owned()),
         })?,
     ];
+    extract_type(&AgentIntelEvent::Error {
+        request_id: "req-ambiguous".to_owned(),
+        message: "mutation delivery was interrupted".to_owned(),
+        failure_kind: crate::host_protocol::AgentIntelFailureKind::DeliveryAmbiguous,
+        mutation_id: Some("01900000-0000-7000-8000-000000000047".to_owned()),
+        reconciliation_required: true,
+    })?;
+    MESSAGE_SHAPES.with(|shapes| {
+        if let Some(shape) = shapes.borrow_mut().get_mut("agent.intel.error") {
+            require_explicit_nullable_fields(shape);
+        }
+    });
     register_agent_snapshot_shape()?;
+    require_nullable_fields_for_live_agent_intel_set();
     Ok(event_types)
+}
+
+fn require_nullable_fields_for_live_agent_intel_set() {
+    MESSAGE_SHAPES.with(|shapes| {
+        if let Some(shape) = shapes.borrow_mut().get_mut("agent.intel.liveSet") {
+            require_explicit_nullable_fields(shape);
+        }
+    });
+}
+
+fn require_explicit_nullable_fields(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(object) => {
+            let nullable = object
+                .get("nullableFields")
+                .and_then(serde_json::Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            if !nullable.is_empty() {
+                if let Some(optional) = object
+                    .get_mut("optionalFields")
+                    .and_then(serde_json::Value::as_array_mut)
+                {
+                    optional.retain(|field| !nullable.contains(field));
+                }
+                if let Some(required) = object
+                    .get_mut("requiredFields")
+                    .and_then(serde_json::Value::as_array_mut)
+                {
+                    for field in nullable {
+                        if !required.contains(&field) {
+                            required.push(field);
+                        }
+                    }
+                    required.sort_by_key(serde_json::Value::to_string);
+                }
+            }
+            for child in object.values_mut() {
+                require_explicit_nullable_fields(child);
+            }
+        }
+        serde_json::Value::Array(values) => {
+            for child in values {
+                require_explicit_nullable_fields(child);
+            }
+        }
+        _ => {}
+    }
 }
 
 #[expect(
@@ -1135,6 +1862,7 @@ pub(super) fn room_command_types() -> Result<Vec<String>> {
             offset: Some(0),
             limit: Some(100),
             hydration_id: Some("01900000-0000-7000-8000-000000000117".into()),
+            snapshot: Some("a".repeat(64)),
         })?,
         extract_type(&RoomCommand::TaskCreate {
             room_id: "r1".into(),
@@ -1196,6 +1924,12 @@ pub(super) fn room_event_types() -> Result<Vec<String>> {
             next_offset: Some(1),
             hydration_id: Some("01900000-0000-7000-8000-000000000117".into()),
             request_offset: Some(0),
+            snapshot: Some("a".repeat(64)),
+        })?,
+        extract_type(&RoomEvent::TasksInvalidated {
+            room_id: "r1".into(),
+            hydration_id: Some("01900000-0000-7000-8000-000000000117".into()),
+            request_offset: 100,
         })?,
         extract_type(&RoomEvent::TasksSnapshot {
             room_id: "r1".into(),
@@ -1329,6 +2063,7 @@ fn sample_task_entry() -> crate::host_protocol::RoomTaskEntry {
         completed_at: Some("2026-05-25T01:00:00Z".into()),
         result: Some("done".into()),
         result_author_user_id: Some("u2".into()),
+        content_unavailable: false,
     }
 }
 
@@ -1353,6 +2088,26 @@ fn extract_type<T: Serialize + Type>(value: &T) -> Result<String> {
             .or_insert(shape);
     });
     Ok(message_type)
+}
+
+fn shape_of<T: Serialize + Type>(value: &T, path: &str) -> Result<serde_json::Value> {
+    let serialized = serde_json::to_value(value)?;
+    let mut types = Types::default();
+    let definition = T::definition(&mut types);
+    value_shape(&serialized, Some(&definition), &types, path)
+}
+
+fn shape_of_samples<T: Serialize + Type>(values: &[T], path: &str) -> Result<serde_json::Value> {
+    let mut values = values.iter();
+    let first = values.next().ok_or_else(|| AppError::InvalidBackendData {
+        field: path.to_owned(),
+        reason: "reply shape sample set was empty".to_owned(),
+    })?;
+    let mut shape = shape_of(first, path)?;
+    for value in values {
+        shape = merge_shape(&shape, &shape_of(value, path)?);
+    }
+    Ok(shape)
 }
 
 struct ObjectFields<'a> {
@@ -1382,18 +2137,20 @@ fn value_shape(
     match value {
         serde_json::Value::Null => Ok(serde_json::Value::String("null".to_owned())),
         serde_json::Value::Bool(_) => Ok(serde_json::Value::String("boolean".to_owned())),
+        serde_json::Value::Number(number) if number.is_i64() || number.is_u64() => {
+            Ok(serde_json::Value::String("integer".to_owned()))
+        }
         serde_json::Value::Number(_) => Ok(serde_json::Value::String("number".to_owned())),
         serde_json::Value::String(_) => Ok(serde_json::Value::String("string".to_owned())),
         serde_json::Value::Array(items) => {
             let element_type = ty.and_then(|ty| list_element_type(ty, types));
             let mut shapes = Vec::new();
             for item in items {
-                let shape = value_shape(item, element_type, types, path)?;
-                if !shapes.contains(&shape) {
-                    shapes.push(shape);
-                }
+                shapes.push(value_shape(item, element_type, types, path)?);
             }
-            Ok(serde_json::json!({ "array": shapes }))
+            Ok(serde_json::json!({
+                "array": merge_array_element_shapes(shapes)
+            }))
         }
         serde_json::Value::Object(values) => object_shape(values, ty, types, path),
     }
@@ -1472,16 +2229,16 @@ fn merge_shape(existing: &serde_json::Value, new: &serde_json::Value) -> serde_j
     };
 
     if existing_object.contains_key("array") && new_object.contains_key("array") {
-        let mut items = existing_object["array"]
+        let items = existing_object["array"]
             .as_array()
+            .into_iter()
+            .flatten()
+            .chain(new_object["array"].as_array().into_iter().flatten())
             .cloned()
-            .unwrap_or_default();
-        for item in new_object["array"].as_array().into_iter().flatten() {
-            if !items.contains(item) {
-                items.push(item.clone());
-            }
-        }
-        return serde_json::json!({"array": items});
+            .collect();
+        return serde_json::json!({
+            "array": merge_array_element_shapes(items)
+        });
     }
 
     let both_are_objects =
@@ -1513,6 +2270,32 @@ fn merge_shape(existing: &serde_json::Value, new: &serde_json::Value) -> serde_j
     merged
 }
 
+fn merge_array_element_shapes(shapes: Vec<serde_json::Value>) -> Vec<serde_json::Value> {
+    let mut discriminated = Vec::new();
+    let mut aggregate = None;
+    for shape in shapes {
+        let members = union_members(&shape);
+        if members
+            .iter()
+            .any(|member| member.get("discriminator").is_some())
+        {
+            for member in members {
+                if !discriminated.contains(&member) {
+                    discriminated.push(member);
+                }
+            }
+        } else {
+            aggregate = Some(
+                aggregate.map_or_else(|| shape.clone(), |current| merge_shape(&current, &shape)),
+            );
+        }
+    }
+    if let Some(aggregate) = aggregate {
+        discriminated.push(aggregate);
+    }
+    discriminated
+}
+
 fn merge_object_shape(existing: &serde_json::Value, new: &serde_json::Value) -> serde_json::Value {
     let (Some(existing_object), Some(new_object)) = (existing.as_object(), new.as_object()) else {
         return union_shape(existing, new);
@@ -1531,11 +2314,15 @@ fn merge_object_shape(existing: &serde_json::Value, new: &serde_json::Value) -> 
 
     let existing_required = shape_string_set(existing_object, "requiredFields");
     let new_required = shape_string_set(new_object, "requiredFields");
-    let mut required = existing_required;
-    required.extend(new_required);
-    let mut optional = shape_string_set(existing_object, "optionalFields");
-    optional.extend(shape_string_set(new_object, "optionalFields"));
-    optional.retain(|field| !required.contains(field));
+    let required = existing_required
+        .intersection(&new_required)
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    let optional = fields
+        .keys()
+        .filter(|field| !required.contains(*field))
+        .cloned()
+        .collect::<BTreeSet<_>>();
     let mut nullable = shape_string_set(existing_object, "nullableFields");
     nullable.extend(shape_string_set(new_object, "nullableFields"));
 
@@ -1985,6 +2772,272 @@ mod tests {
             format!("{error}").contains("ghost"),
             "error must name the unmatched sample: {error}"
         );
+    }
+
+    #[test]
+    fn v37_reply_samples_merge_nullable_and_scalar_variants() {
+        let shapes = agent_intel_reply_shapes().expect("reply shapes");
+        let encoded = serde_json::to_string(&shapes).expect("encode shapes");
+        for scalar in [
+            "\"string\"",
+            "\"integer\"",
+            "\"number\"",
+            "\"boolean\"",
+            "\"null\"",
+        ] {
+            assert!(encoded.contains(scalar), "missing scalar shape {scalar}");
+        }
+
+        let external = &shapes["agent.intel.externalSourceActionBound"];
+        assert_eq!(external["union"].as_array().map(Vec::len), Some(3));
+        for action in ["open", "copyPath", "reveal"] {
+            assert!(
+                external["union"].as_array().is_some_and(|variants| variants
+                    .iter()
+                    .any(|variant| variant["discriminator"]["value"] == action)),
+                "missing external action variant {action}"
+            );
+        }
+
+        let auto_mode = &shapes["agent.intel.readClaudeAutoModeRulesBound"]["object"]["rules"];
+        assert_eq!(
+            auto_mode["requiredFields"].as_array().map(Vec::len),
+            Some(0)
+        );
+        assert_eq!(
+            auto_mode["optionalFields"].as_array().map(Vec::len),
+            Some(4)
+        );
+
+        let project = &shapes["agent.intel.inspectProjectSourceBound"];
+        let agent = &project["object"]["agent"];
+        assert_eq!(agent["union"].as_array().map(Vec::len), Some(2));
+        let custom_agent_model = &project["object"]["customAgents"]["array"][0]["object"]["model"];
+        assert_eq!(
+            custom_agent_model["union"].as_array().map(Vec::len),
+            Some(2)
+        );
+        let settings_managed =
+            &project["object"]["settings"]["array"][0]["object"]["settings"]["object"]["managed"];
+        assert_eq!(settings_managed["union"].as_array().map(Vec::len), Some(2));
+        for scope in ["managed", "user", "project", "local"] {
+            let scope_shape =
+                &project["object"]["settings"]["array"][0]["object"]["settings"]["object"][scope];
+            let scope_encoded = serde_json::to_string(scope_shape).expect("encode scope shape");
+            for scalar in ["string", "integer", "number", "boolean", "null"] {
+                assert!(
+                    scope_encoded.contains(&format!("\"{scalar}\"")),
+                    "{scope} settings omitted {scalar}"
+                );
+            }
+        }
+
+        let copy = &shapes["agent.intel.copyProjectMemoryBound"];
+        let detail = &copy["object"]["detail"];
+        assert_eq!(detail["union"].as_array().map(Vec::len), Some(2));
+    }
+
+    #[test]
+    fn v37_frozen_reply_shapes_accept_legal_reply_matrix() {
+        let frozen = super::super::generated_frozen_snapshot().expect("frozen v37 authority");
+        let shapes = frozen["agentIntelReplyShapes"]
+            .as_object()
+            .expect("frozen reply shapes");
+
+        let auto_rules = [
+            ::agent_intel::ops::auto_mode::AutoModeRules::default(),
+            ::agent_intel::ops::auto_mode::AutoModeRules {
+                environment: vec!["KODOSI=1".to_owned()],
+                ..Default::default()
+            },
+            ::agent_intel::ops::auto_mode::AutoModeRules {
+                allow: vec!["Read".to_owned()],
+                ..Default::default()
+            },
+            ::agent_intel::ops::auto_mode::AutoModeRules {
+                soft_deny: vec!["Bash".to_owned()],
+                ..Default::default()
+            },
+            ::agent_intel::ops::auto_mode::AutoModeRules {
+                hard_deny: vec!["Write".to_owned()],
+                ..Default::default()
+            },
+        ];
+        for rules in auto_rules {
+            let reply = BoundAutoModeRead {
+                target_token: "01900000-0000-7000-8000-000000000001".to_owned(),
+                revision: "0123456789abcdef".to_owned(),
+                rules,
+            };
+            assert_shape_accepts(
+                &serde_json::to_value(reply).unwrap(),
+                &shapes["agent.intel.readClaudeAutoModeRulesBound"],
+            );
+        }
+
+        for reply in [
+            BoundExternalAction::Open {
+                source_path: None,
+                handoff_id: "01900000-0000-7000-8000-000000000002".to_owned(),
+                handoff_path: "/run/user/1000/kodosi-open-private/handoff".to_owned(),
+                display_name: "events.jsonl".to_owned(),
+            },
+            BoundExternalAction::CopyPath {
+                source_path: "/home/example/events.jsonl".to_owned(),
+                handoff_id: None,
+                handoff_path: None,
+                display_name: "events.jsonl".to_owned(),
+            },
+            BoundExternalAction::Reveal {
+                source_path: "/home/example/events.jsonl".to_owned(),
+                handoff_id: None,
+                handoff_path: None,
+                display_name: "events.jsonl".to_owned(),
+            },
+        ] {
+            assert_shape_accepts(
+                &serde_json::to_value(reply).unwrap(),
+                &shapes["agent.intel.externalSourceActionBound"],
+            );
+        }
+
+        let scalar_matrix = serde_json::json!({
+            "string": "value",
+            "integer": 7,
+            "number": 1.5,
+            "boolean": true,
+            "object": {"nested": "value"},
+            "array": ["value", 2, 2.5, false, null],
+            "null": null
+        });
+        let settings = AgentSettingsTreeBundle::project(&AgentSettingsBundle {
+            managed: Some(scalar_matrix.clone()),
+            user: Some(scalar_matrix.clone()),
+            project: Some(scalar_matrix.clone()),
+            local: Some(scalar_matrix),
+        })
+        .unwrap();
+        for (source_kind, agent) in [
+            (BoundProjectSourceKind::Active, None),
+            (
+                BoundProjectSourceKind::ClaudeArchive,
+                Some("claude".to_owned()),
+            ),
+            (
+                BoundProjectSourceKind::CopilotArchive,
+                Some("copilot".to_owned()),
+            ),
+        ] {
+            let reply = BoundProjectSnapshot {
+                source_selection_token: "01900000-0000-7000-8000-000000000003".to_owned(),
+                source_kind,
+                agent,
+                label: "project".to_owned(),
+                sessions: Vec::new(),
+                memories: Vec::new(),
+                custom_agents: Vec::new(),
+                customizations: Vec::new(),
+                settings: vec![BoundProjectAgentSettings {
+                    agent: "claude".to_owned(),
+                    settings: settings.clone(),
+                }],
+            };
+            assert_shape_accepts(
+                &serde_json::to_value(reply).unwrap(),
+                &shapes["agent.intel.inspectProjectSourceBound"],
+            );
+        }
+
+        for impossible in [
+            serde_json::json!({
+                "action": "open",
+                "sourcePath": "/home/example/events.jsonl",
+                "handoffId": null,
+                "handoffPath": null,
+                "displayName": "events.jsonl"
+            }),
+            serde_json::json!({
+                "action": "unknown",
+                "sourcePath": null,
+                "handoffId": null,
+                "handoffPath": null,
+                "displayName": "events.jsonl"
+            }),
+        ] {
+            assert!(
+                !shape_accepts(
+                    &impossible,
+                    &shapes["agent.intel.externalSourceActionBound"]
+                ),
+                "external shape admitted impossible reply {impossible}"
+            );
+        }
+        let integer_value_shape = &shapes["agent.intel.inspectProjectSourceBound"]["object"]["settings"]
+            ["array"][0]["object"]["settings"]["object"]["managed"]["union"][0]["object"]["nodes"]
+            ["array"][0]["object"]["integerValue"];
+        assert!(!shape_accepts(&serde_json::json!(1.5), integer_value_shape));
+    }
+
+    fn assert_shape_accepts(value: &serde_json::Value, shape: &serde_json::Value) {
+        assert!(
+            shape_accepts(value, shape),
+            "shape rejected legal value\nvalue={value:#}\nshape={shape:#}"
+        );
+    }
+
+    fn shape_accepts(value: &serde_json::Value, shape: &serde_json::Value) -> bool {
+        if let Some(union) = shape.get("union").and_then(serde_json::Value::as_array) {
+            return union.iter().any(|member| shape_accepts(value, member));
+        }
+        if let Some(expected) = shape.as_str() {
+            return match expected {
+                "null" => value.is_null(),
+                "boolean" => value.is_boolean(),
+                "integer" => value.as_i64().is_some() || value.as_u64().is_some(),
+                "number" => {
+                    value.as_f64().is_some() && value.as_i64().is_none() && value.as_u64().is_none()
+                }
+                "string" => value.is_string(),
+                _ => false,
+            };
+        }
+        if let Some(items) = shape.get("array").and_then(serde_json::Value::as_array) {
+            return value.as_array().is_some_and(|values| {
+                values
+                    .iter()
+                    .all(|item| items.iter().any(|member| shape_accepts(item, member)))
+            });
+        }
+        let Some(fields) = shape.get("object").and_then(serde_json::Value::as_object) else {
+            return false;
+        };
+        let Some(object) = value.as_object() else {
+            return false;
+        };
+        if let Some(discriminator) = shape.get("discriminator") {
+            let Some(field) = discriminator
+                .get("field")
+                .and_then(serde_json::Value::as_str)
+            else {
+                return false;
+            };
+            if object.get(field) != discriminator.get("value") {
+                return false;
+            }
+        }
+        let required = shape["requiredFields"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(serde_json::Value::as_str);
+        if !required.into_iter().all(|field| object.contains_key(field)) {
+            return false;
+        }
+        object.iter().all(|(field, field_value)| {
+            fields
+                .get(field)
+                .is_some_and(|field_shape| shape_accepts(field_value, field_shape))
+        })
     }
 
     #[test]

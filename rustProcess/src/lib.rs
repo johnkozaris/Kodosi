@@ -18,8 +18,16 @@
 )]
 #![forbid(unsafe_code)]
 
-#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
-compile_error!("kodosi-runtime supports arm64 macOS only");
+#[cfg(not(any(
+    all(target_os = "macos", target_arch = "aarch64"),
+    all(
+        target_os = "linux",
+        target_arch = "x86_64",
+        target_env = "gnu",
+        target_pointer_width = "64"
+    )
+)))]
+compile_error!("kodosi-runtime supports arm64 macOS and x86_64 Linux GNU only");
 
 use std::fmt;
 
@@ -59,16 +67,16 @@ pub mod terminal_transport;
 pub use crate::host_protocol::{
     AccessGrantEntry, AccountAgentIntelEvent, AccountContextEvent, AccountDeviceEvent,
     AccountFriendsEvent, AccountRoomEvent, AccountSessionEvent, AccountTrustEvent,
-    ActivePendingPermission, AgentGlobalEvent, AgentIntelCommand, AgentIntelEvent, AuthCommand,
-    AuthEvent, AuthRequiredReason, CollaborationCleanupHealth, CollaborationCleanupState,
-    DeviceCommand, DeviceEvent, DeviceLinkOutcome, DeviceLinkRequestEntry, FriendEntry,
-    FriendRequestEntry, FriendsCommand, FriendsEvent, HiddenSessionEntry, MyDeviceEntry,
-    PendingPermissionDecisionPhase, PendingPermissionsSnapshot, RemotePermissionDecisionPhase,
-    RoomActionStatus, RoomAgentDeliveryState, RoomChatEntry, RoomCommand, RoomEntry, RoomEvent,
-    RoomInvitationEntry, RoomMemberEntry, RoomTaskEntry, SelfDeviceLinkOutcome, SemanticSendMode,
-    SessionCommand, SessionEvent, SteerDeliveryState, SteerQueueEntry, SteerTransition,
-    SystemCommand, SystemEvent, TerminalCommand, TerminalEvent, TrustCommand, TrustEvent,
-    TrustPinEntry,
+    ActivePendingPermission, AgentGlobalEvent, AgentIntelCommand, AgentIntelEvent,
+    AgentIntelFailureKind, AuthCommand, AuthEvent, AuthRequiredReason, CollaborationCleanupHealth,
+    CollaborationCleanupState, DeviceCommand, DeviceEvent, DeviceLinkOutcome,
+    DeviceLinkRequestEntry, FriendEntry, FriendRequestEntry, FriendsCommand, FriendsEvent,
+    HiddenSessionEntry, MyDeviceEntry, PendingPermissionDecisionPhase, PendingPermissionsSnapshot,
+    RemotePermissionDecisionPhase, RoomActionStatus, RoomAgentDeliveryState, RoomChatEntry,
+    RoomCommand, RoomEntry, RoomEvent, RoomInvitationEntry, RoomMemberEntry, RoomTaskEntry,
+    SelfDeviceLinkOutcome, SemanticSendMode, SessionCommand, SessionEvent, SteerDeliveryState,
+    SteerQueueEntry, SteerTransition, SystemCommand, SystemEvent, TerminalCommand, TerminalEvent,
+    TrustCommand, TrustEvent, TrustPinEntry,
 };
 
 pub use crate::agent_intel::risk::ApprovalRisk;

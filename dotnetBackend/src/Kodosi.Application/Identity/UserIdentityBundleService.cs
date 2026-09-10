@@ -49,17 +49,16 @@ public sealed class UserIdentityBundleService(
             areFriends = await _friendshipRepository
                 .AreFriendsAsync(callerUserId, targetUserId, ct)
                 .ConfigureAwait(false);
-            var candidateRoomIds = await _sharedRoomAuthorization
-                .GetSharedActiveRoomIdsAsync(callerUserId, targetUserId, ct)
-                .ConfigureAwait(false);
+            var candidateRoomIds = await GetIdentityReadableRoomIdsAsync(callerUserId, targetUserId, ct);
             foreach (var roomId in candidateRoomIds.OrderBy(roomId => roomId.Value))
             {
                 await _roomLifecycleLock.AcquireAsync(roomId, ct).ConfigureAwait(false);
             }
+            // A retained artifact author grants verification access only to current readers,
+            // never reciprocal room access. Only rechecked, locked rooms may authorize it.
             shareRoom = candidateRoomIds.Count > 0
-                && (await _sharedRoomAuthorization
-                    .GetSharedActiveRoomIdsAsync(callerUserId, targetUserId, ct)
-                    .ConfigureAwait(false)).Count > 0;
+                && (await GetIdentityReadableRoomIdsAsync(callerUserId, targetUserId, ct))
+                    .Any(candidateRoomIds.Contains);
             hasOverride = await _accessOverrideRepository
                 .HasActiveRelationshipAsync(callerUserId, targetUserId, ct)
                 .ConfigureAwait(false);
@@ -126,6 +125,18 @@ public sealed class UserIdentityBundleService(
             list,
             certified,
             historical);
+    }
+
+    private async Task<HashSet<RoomId>> GetIdentityReadableRoomIdsAsync(
+        UserId callerUserId,
+        UserId targetUserId,
+        CancellationToken ct)
+    {
+        var shared = await _sharedRoomAuthorization
+            .GetSharedActiveRoomIdsAsync(callerUserId, targetUserId, ct);
+        var historical = await _sharedRoomAuthorization
+            .GetHistoricalArtifactRoomIdsAsync(callerUserId, targetUserId, ct);
+        return shared.Concat(historical).ToHashSet();
     }
 }
 

@@ -50,6 +50,7 @@ public static class RoomTaskEndpoints
             Guid? assignee,
             int? offset,
             int? limit,
+            string? snapshot,
             RoomTaskService taskService,
             ICurrentUser currentUser,
             HttpContext http,
@@ -76,8 +77,9 @@ public static class RoomTaskEndpoints
                 assignee,
                 offset ?? 0,
                 limit ?? 100,
-                ct);
-            ApplyReadPageHeaders(http.Response, roomId, page);
+                ct,
+                snapshot);
+            ApplyReadPageHeaders(http.Response, roomId, page, statusFilter, assignee, limit ?? 100);
             return Results.Ok(page.Items.Select(RoomResponseMappers.MapTask));
         });
 
@@ -175,8 +177,12 @@ public static class RoomTaskEndpoints
     internal static void ApplyReadPageHeaders(
         HttpResponse response,
         Guid roomId,
-        RoomTaskReadPage page)
+        RoomTaskReadPage page,
+        RoomTaskStatus? statusFilter = null,
+        Guid? assignee = null,
+        int limit = 100)
     {
+        response.Headers["Kodosi-Task-Snapshot"] = page.Snapshot;
         response.Headers["Kodosi-Has-More"] = page.HasMore ? "true" : "false";
         if (page.NextOffset is not { } nextOffset)
         {
@@ -185,6 +191,8 @@ public static class RoomTaskEndpoints
 
         response.Headers["Kodosi-Next-Offset"] =
             nextOffset.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        response.Headers.Link = $"</api/rooms/{roomId:D}/tasks?offset={nextOffset}>; rel=\"next\"";
+        var statusQuery = statusFilter is { } status ? $"&status={status}" : string.Empty;
+        var assigneeQuery = assignee is { } id ? $"&assignee={id:D}" : string.Empty;
+        response.Headers.Link = $"</api/rooms/{roomId:D}/tasks?offset={nextOffset}&limit={limit}&snapshot={page.Snapshot}{statusQuery}{assigneeQuery}>; rel=\"next\"";
     }
 }

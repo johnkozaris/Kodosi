@@ -6,6 +6,7 @@ public sealed class DeviceListReplacementService(
     IUserDeviceRepository deviceRepository,
     IUserDeviceListRepository listRepository,
     IDeviceLinkRequestRepository linkRequests,
+    IRevokedDeviceInvitationCancellation invitationCancellation,
     IUserRepository userRepository,
     ISessionKeyBlobRepository blobRepository,
     ISemanticRelayLifecycleRepository semanticRelayLifecycle,
@@ -136,6 +137,13 @@ public sealed class DeviceListReplacementService(
             deviceRepository.Update(device);
         }
 
+        IReadOnlyList<UserId> cancelledInvitationRecipients = [];
+        if (revokedDeviceIds.Length > 0)
+        {
+            cancelledInvitationRecipients = await invitationCancellation.CancelPendingAsync(
+                userId, revokedDeviceIds, now, ct);
+        }
+
         var deviceList = UserDeviceList.Create(
             userId,
             parsedList.Generation,
@@ -221,6 +229,12 @@ public sealed class DeviceListReplacementService(
             {
                 realtimeEffects.ReportEnforcementPending(revocationId, exception);
             }
+        }
+
+        if (cancelledInvitationRecipients.Count > 0)
+        {
+            realtimeEffects.PublishInvitationsChanged(
+                cancelledInvitationRecipients.Append(userId).Distinct().ToList());
         }
 
         var friendIds = await friendshipRepository.GetFriendIdsAsync(userId);

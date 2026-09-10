@@ -8,6 +8,7 @@
 )]
 
 pub mod api;
+pub mod artifact_endorsement;
 pub mod auth;
 mod backoff;
 mod close_reasons;

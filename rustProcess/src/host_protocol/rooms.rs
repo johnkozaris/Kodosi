@@ -124,6 +124,8 @@ pub enum RoomCommand {
         limit: Option<usize>,
         #[serde(default)]
         hydration_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        snapshot: Option<String>,
     },
     #[serde(rename = "room.tasks.create")]
     TaskCreate {
@@ -414,9 +416,21 @@ impl RoomCommand {
                 offset,
                 limit,
                 hydration_id,
+                snapshot,
                 ..
             } => {
                 require_nonempty(room_id, "roomId")?;
+                if snapshot.as_deref().is_some_and(|value| {
+                    value.len() != 64
+                        || !value
+                            .bytes()
+                            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+                }) {
+                    return Err(HostCommandValidationError::InvalidField {
+                        field: "snapshot",
+                        reason: "must be a 64-character lowercase hex snapshot",
+                    });
+                }
                 if hydration_id
                     .as_deref()
                     .is_some_and(|value| uuid::Uuid::parse_str(value).is_err())
@@ -631,6 +645,14 @@ pub enum RoomEvent {
         hydration_id: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         request_offset: Option<usize>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        snapshot: Option<String>,
+    },
+    #[serde(rename = "room.tasks.invalidated")]
+    TasksInvalidated {
+        room_id: String,
+        hydration_id: Option<String>,
+        request_offset: usize,
     },
     #[serde(rename = "room.tasks.snapshot")]
     TasksSnapshot {
@@ -796,6 +818,8 @@ pub struct RoomTaskEntry {
     pub completed_at: Option<String>,
     pub result: Option<String>,
     pub result_author_user_id: Option<String>,
+    #[serde(default)]
+    pub content_unavailable: bool,
 }
 
 #[cfg(test)]

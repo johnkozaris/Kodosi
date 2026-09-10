@@ -630,6 +630,18 @@ pub enum SessionEvent {
         #[serde(skip_serializing_if = "Option::is_none")]
         message: Option<String>,
     },
+    #[serde(rename = "session.accessMutationReconciled")]
+    AccessMutationReconciled {
+        #[serde(rename = "mutationId")]
+        mutation_id: String,
+        present: bool,
+    },
+    #[serde(rename = "session.accessMutationAcknowledged")]
+    AccessMutationAcknowledged {
+        #[serde(rename = "mutationId")]
+        mutation_id: String,
+        fingerprint: String,
+    },
     #[serde(rename = "session.error")]
     Error {
         operation: String,

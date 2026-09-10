@@ -157,7 +157,7 @@ async fn verify_own_identity_bundle_for_user(
         });
     }
     match pin_store
-        .verify_or_pin(view.clone(), PinContext::ExplicitShare)
+        .verify_or_pin_for_owner(user_id, view.clone(), PinContext::ExplicitShare)
         .await?
     {
         PinVerdict::FirstShare | PinVerdict::AcceptUpdate | PinVerdict::AlreadyPinned => Ok(view),

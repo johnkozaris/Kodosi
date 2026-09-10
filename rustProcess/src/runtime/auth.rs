@@ -159,7 +159,12 @@ pub(crate) fn retire_local_collaboration_authority(app: &mut Runtime) {
     app.last_maintenance_ran = None;
 }
 
+fn clear_agent_intel_epoch_authority(app: &mut Runtime) {
+    app.state.agent_intel.clear_bound_authority();
+}
+
 fn teardown_account_bound_runtime(app: &mut Runtime, retiring_account_user_id: Option<&str>) {
+    clear_agent_intel_epoch_authority(app);
     let self_device_link_retired = app
         .state
         .identity
@@ -319,6 +324,16 @@ pub(crate) fn finish_logout_after_token_clear(
     app.state.record_log("signed out".to_owned());
     tracing::info!("signed out");
     Ok(())
+}
+
+pub(crate) fn mark_expired_if_required(app: &mut Runtime, error: &AppError) {
+    if matches!(
+        error,
+        AppError::Unauthorized | AppError::AuthRejected { .. }
+    ) && let Err(epoch_error) = mark_expired_from_backend(app, error.to_string())
+    {
+        app.state.record_log(epoch_error.to_string());
+    }
 }
 
 pub(crate) fn mark_expired_from_backend(
@@ -874,6 +889,8 @@ pub(crate) async fn apply_current_user_profile(
             };
             teardown_account_bound_runtime(app, retiring_account_user_id.as_deref());
             app.state.identity.auth = AuthState::Finalizing { expires_at };
+        } else {
+            clear_agent_intel_epoch_authority(app);
         }
     }
     if let Err(error) =

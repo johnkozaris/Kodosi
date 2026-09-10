@@ -486,9 +486,9 @@ fn load_domain_tag_authority() -> DomainTagAuthority {
 #[test]
 fn rust_domain_tags_match_protocol_authority() {
     let authority = load_domain_tag_authority();
-    assert_eq!(authority.version, 7);
+    assert_eq!(authority.version, 8);
 
-    let expected: [(&str, &[u8]); 16] = [
+    let expected: [(&str, &[u8]); 18] = [
         ("DEVICE_POP_V1", kodosi_domain::domain_tags::DEVICE_POP_V1),
         ("DEVICE_CERT_V2", kodosi_domain::domain_tags::DEVICE_CERT_V2),
         ("DEVICE_LIST_V1", kodosi_domain::domain_tags::DEVICE_LIST_V1),
@@ -538,6 +538,14 @@ fn rust_domain_tags_match_protocol_authority() {
             "ROOM_INVITATION_DECISION_V1",
             kodosi_domain::domain_tags::ROOM_INVITATION_DECISION_V1,
         ),
+        (
+            "AUTHENTICATED_ARTIFACT_V1",
+            kodosi_domain::domain_tags::AUTHENTICATED_ARTIFACT_V1,
+        ),
+        (
+            "ARTIFACT_ENDORSEMENT_V1",
+            kodosi_domain::domain_tags::ARTIFACT_ENDORSEMENT_V1,
+        ),
     ];
     for (name, bytes) in expected {
         let manifest_value = authority
@@ -554,6 +562,26 @@ fn rust_domain_tags_match_protocol_authority() {
         authority.tags.len(),
         expected.len(),
         "protocol/crypto-domain-tags.json carries tags unknown to this Rust build"
+    );
+}
+
+#[test]
+fn artifact_endorsement_preimage_matches_cross_language_vector() {
+    let authority: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(protocol_dir().join("crypto-domain-tags.json")).unwrap(),
+    )
+    .unwrap();
+    let vector = &authority["artifactEndorsementPreimageVector"];
+    let preimage = kodosi_backend_client::artifact_endorsement::endorsement_preimage(
+        vector["userId"].as_str().unwrap(),
+        &uuid::Uuid::parse_str(vector["identityIncarnationId"].as_str().unwrap()).unwrap(),
+        vector["artifactDigest"].as_str().unwrap(),
+        vector["endorserDeviceId"].as_str().unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        preimage,
+        decode_lower_hex(vector["preimageHex"].as_str().unwrap())
     );
 }
 

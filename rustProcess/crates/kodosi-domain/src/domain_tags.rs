@@ -15,3 +15,5 @@ pub const ROOM_CONTENT_V2: &[u8] = b"kodosi-room-content-v2";
 pub const ROOM_ROSTER_V1: &[u8] = b"kodosi-room-roster-v1";
 pub const ROOM_INVITATION_PROPOSAL_V1: &[u8] = b"kodosi-room-invitation-proposal-v1";
 pub const ROOM_INVITATION_DECISION_V1: &[u8] = b"kodosi-room-invitation-decision-v1";
+pub const AUTHENTICATED_ARTIFACT_V1: &[u8] = b"kodosi:authenticated-artifact:v1\0";
+pub const ARTIFACT_ENDORSEMENT_V1: &[u8] = b"kodosi:artifact-endorsement:v1\0";

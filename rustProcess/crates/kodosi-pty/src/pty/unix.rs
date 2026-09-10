@@ -452,13 +452,9 @@ mod tests {
     use std::{io::Read, os::fd::AsRawFd};
 
     #[test]
-    fn resizing_a_closed_pty_descriptor_reports_the_ioctl_failure() {
-        let pty = openpty(None, &None).expect("openpty failed");
-        let master = pty.master.as_raw_fd();
-        drop(pty.master);
-
-        let error = set_terminal_size_using_fd(master, 80, 24, None, None)
-            .expect_err("TIOCSWINSZ on a closed descriptor must fail");
+    fn resizing_an_invalid_pty_descriptor_reports_the_ioctl_failure() {
+        let error = set_terminal_size_using_fd(-1, 80, 24, None, None)
+            .expect_err("TIOCSWINSZ on an invalid descriptor must fail");
 
         assert!(error.to_string().contains("I/O failure"));
     }

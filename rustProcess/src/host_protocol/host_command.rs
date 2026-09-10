@@ -29,6 +29,11 @@ pub enum SystemCommand {
         #[serde(rename = "requestId")]
         request_id: String,
     },
+    #[serde(rename = "agent.intel.queryLiveSet")]
+    QueryLiveAgentIntelSet {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
 
     #[serde(rename = "agent.intel.allowPendingPermissionRequest")]
     AllowPendingPermissionRequest {
@@ -106,6 +111,9 @@ impl SystemCommand {
                 validate_uuid_v7(incarnation_id, "incarnationId")?;
                 validate_present(text, "text")
             }
+            Self::QueryLiveAgentIntelSet { request_id } => {
+                validate_uuid_v7(request_id, "requestId")
+            }
             Self::QuerySteer {
                 semantic_request_id: Some(semantic_request_id),
                 ..
@@ -127,6 +135,7 @@ impl SystemCommand {
     pub(crate) fn semantic_reply_request_id(&self) -> Option<&str> {
         match self {
             Self::SemanticSend { request_id, .. }
+            | Self::QueryLiveAgentIntelSet { request_id }
             | Self::CancelSteer { request_id, .. }
             | Self::QuerySteer { request_id, .. } => Some(request_id),
             _ => None,
@@ -159,6 +168,24 @@ fn validate_uuid_v7(value: &str, field: &'static str) -> Result<(), HostCommandV
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(tag = "type", rename_all = "camelCase", deny_unknown_fields)]
 pub enum AgentIntelCommand {
+    #[serde(rename = "agent.intel.listProjectSourcesBound")]
+    ListProjectSourcesBound {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cursor: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        limit: Option<usize>,
+        #[serde(rename = "maxBytes", default, skip_serializing_if = "Option::is_none")]
+        max_bytes: Option<usize>,
+    },
+    #[serde(rename = "agent.intel.inspectProjectSourceBound")]
+    InspectProjectSourceBound {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "selectionToken")]
+        selection_token: String,
+    },
     #[serde(rename = "agent.intel.readSettings")]
     ReadSettings {
         #[serde(rename = "requestId")]
@@ -202,6 +229,26 @@ pub enum AgentIntelCommand {
         request_id: String,
         cwd: String,
         filename: String,
+    },
+    #[serde(rename = "agent.intel.listClaudeMemoryBound")]
+    ListClaudeMemoryBound {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        cwd: String,
+    },
+    #[serde(rename = "agent.intel.readClaudeMemoryBound")]
+    ReadClaudeMemoryBound {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "selectionToken")]
+        selection_token: String,
+    },
+    #[serde(rename = "agent.intel.openProjectMemoryBound")]
+    OpenProjectMemoryBound {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "selectionToken")]
+        selection_token: String,
     },
     #[serde(rename = "agent.intel.readSessionConversation")]
     ReadSessionConversation {
@@ -261,9 +308,32 @@ pub enum AgentIntelCommand {
         #[serde(rename = "targetSlug")]
         target_slug: String,
     },
+    #[serde(rename = "agent.intel.copyProjectMemoryBound")]
+    CopyProjectMemoryBound {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "sourceSelectionToken")]
+        source_selection_token: String,
+        #[serde(rename = "destinationSelectionToken")]
+        destination_selection_token: String,
+        #[serde(rename = "mutationId")]
+        mutation_id: String,
+    },
+    #[serde(rename = "agent.intel.reconcileProjectMemoryCopy")]
+    ReconcileProjectMemoryCopy {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "mutationId")]
+        mutation_id: String,
+    },
 
     #[serde(rename = "agent.intel.readClaudeAutoModeRules")]
     ReadClaudeAutoModeRules {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    #[serde(rename = "agent.intel.readClaudeAutoModeRulesBound")]
+    ReadClaudeAutoModeRulesBound {
         #[serde(rename = "requestId")]
         request_id: String,
     },
@@ -281,12 +351,65 @@ pub enum AgentIntelCommand {
         #[serde(default, rename = "hardDeny")]
         hard_deny: Vec<String>,
     },
+    #[serde(rename = "agent.intel.writeClaudeAutoModeRulesBound")]
+    WriteClaudeAutoModeRulesBound {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "targetToken")]
+        target_token: String,
+        #[serde(rename = "expectedRevision")]
+        expected_revision: String,
+        #[serde(rename = "mutationId")]
+        mutation_id: String,
+        #[serde(default)]
+        environment: Vec<String>,
+        #[serde(default)]
+        allow: Vec<String>,
+        #[serde(default, rename = "softDeny")]
+        soft_deny: Vec<String>,
+        #[serde(default, rename = "hardDeny")]
+        hard_deny: Vec<String>,
+    },
+    #[serde(rename = "agent.intel.reconcileClaudeAutoModeRulesWrite")]
+    ReconcileClaudeAutoModeRulesWrite {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "mutationId")]
+        mutation_id: String,
+    },
     #[serde(rename = "agent.intel.listCustomAgents")]
     ListCustomAgents {
         #[serde(rename = "requestId")]
         request_id: String,
 
         directory: String,
+    },
+    #[serde(rename = "agent.intel.listCustomAgentsBound")]
+    ListCustomAgentsBound {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        directory: String,
+    },
+    #[serde(rename = "agent.intel.readCustomAgentBound")]
+    ReadCustomAgentBound {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "selectionToken")]
+        selection_token: String,
+    },
+    #[serde(rename = "agent.intel.openCustomAgentBound")]
+    OpenCustomAgentBound {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "selectionToken")]
+        selection_token: String,
+    },
+    #[serde(rename = "agent.intel.releaseOpenHandoff")]
+    ReleaseOpenHandoff {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "handoffId")]
+        handoff_id: String,
     },
     #[serde(rename = "agent.intel.listActiveCustomizations")]
     ListActiveCustomizations {
@@ -307,6 +430,19 @@ pub enum AgentIntelCommand {
 
         #[serde(default, skip_serializing_if = "Option::is_none")]
         agent: Option<String>,
+    },
+    #[serde(rename = "agent.intel.discoverExternalBound")]
+    DiscoverExternalBound {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    #[serde(rename = "agent.intel.externalSourceActionBound")]
+    ExternalSourceActionBound {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "selectionToken")]
+        selection_token: String,
+        action: String,
     },
 
     #[serde(rename = "agent.intel.resolveActiveSession")]
@@ -355,28 +491,61 @@ pub enum AgentIntelCommand {
 impl AgentIntelCommand {
     pub(crate) fn request_id(&self) -> &str {
         match self {
-            Self::ReadSettings { request_id, .. }
+            Self::ListProjectSourcesBound { request_id, .. }
+            | Self::InspectProjectSourceBound { request_id, .. }
+            | Self::ReadSettings { request_id, .. }
             | Self::ListClaudeProjects { request_id }
             | Self::ListProjectSessions { request_id, .. }
             | Self::ListProjectMemories { request_id, .. }
             | Self::ReadProjectMemory { request_id, .. }
             | Self::ListClaudeMemory { request_id, .. }
             | Self::ReadClaudeMemory { request_id, .. }
+            | Self::ListClaudeMemoryBound { request_id, .. }
+            | Self::ReadClaudeMemoryBound { request_id, .. }
+            | Self::OpenProjectMemoryBound { request_id, .. }
             | Self::ReadSessionConversation { request_id, .. }
             | Self::ListCopilotRepositories { request_id }
             | Self::ListCopilotRepoSessions { request_id, .. }
             | Self::DiscoverProviderConversations { request_id, .. }
             | Self::CopyProjectMemory { request_id, .. }
+            | Self::CopyProjectMemoryBound { request_id, .. }
+            | Self::ReconcileProjectMemoryCopy { request_id, .. }
             | Self::WriteClaudeAutoModeRules { request_id, .. }
+            | Self::ReadClaudeAutoModeRulesBound { request_id, .. }
+            | Self::WriteClaudeAutoModeRulesBound { request_id, .. }
+            | Self::ReconcileClaudeAutoModeRulesWrite { request_id, .. }
             | Self::ResolveActiveSession { request_id, .. }
             | Self::ListSubagentTranscripts { request_id, .. }
             | Self::ReadClaudeAutoModeRules { request_id, .. }
             | Self::ListCustomAgents { request_id, .. }
+            | Self::ListCustomAgentsBound { request_id, .. }
+            | Self::ReadCustomAgentBound { request_id, .. }
+            | Self::OpenCustomAgentBound { request_id, .. }
+            | Self::ReleaseOpenHandoff { request_id, .. }
             | Self::ListActiveCustomizations { request_id, .. }
             | Self::DiscoverExternalMcpServers { request_id, .. }
             | Self::DiscoverExternalSessions { request_id, .. }
+            | Self::DiscoverExternalBound { request_id, .. }
+            | Self::ExternalSourceActionBound { request_id, .. }
             | Self::ReadSubagentTranscript { request_id, .. } => request_id,
         }
+    }
+
+    pub(crate) fn mutation_id(&self) -> Option<&str> {
+        match self {
+            Self::CopyProjectMemoryBound { mutation_id, .. }
+            | Self::ReconcileProjectMemoryCopy { mutation_id, .. }
+            | Self::WriteClaudeAutoModeRulesBound { mutation_id, .. }
+            | Self::ReconcileClaudeAutoModeRulesWrite { mutation_id, .. } => Some(mutation_id),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn may_have_ambiguous_mutation_delivery(&self) -> bool {
+        matches!(
+            self,
+            Self::CopyProjectMemoryBound { .. } | Self::WriteClaudeAutoModeRulesBound { .. }
+        )
     }
 }
 
@@ -529,6 +698,8 @@ const SESSION_COMMAND_TYPES: &[&str] = &[
 
 #[cfg(feature = "cli")]
 const AGENT_INTEL_COMMAND_TYPES: &[&str] = &[
+    "agent.intel.listProjectSourcesBound",
+    "agent.intel.inspectProjectSourceBound",
     "agent.intel.readSettings",
     "agent.intel.listClaudeProjects",
     "agent.intel.listProjectSessions",
@@ -536,17 +707,31 @@ const AGENT_INTEL_COMMAND_TYPES: &[&str] = &[
     "agent.intel.readProjectMemory",
     "agent.intel.listClaudeMemory",
     "agent.intel.readClaudeMemory",
+    "agent.intel.listClaudeMemoryBound",
+    "agent.intel.readClaudeMemoryBound",
+    "agent.intel.openProjectMemoryBound",
     "agent.intel.readSessionConversation",
     "agent.intel.listCopilotRepositories",
     "agent.intel.listCopilotRepoSessions",
     "agent.intel.discoverProviderConversations",
     "agent.intel.copyProjectMemory",
+    "agent.intel.copyProjectMemoryBound",
+    "agent.intel.reconcileProjectMemoryCopy",
     "agent.intel.readClaudeAutoModeRules",
+    "agent.intel.readClaudeAutoModeRulesBound",
     "agent.intel.writeClaudeAutoModeRules",
+    "agent.intel.writeClaudeAutoModeRulesBound",
+    "agent.intel.reconcileClaudeAutoModeRulesWrite",
     "agent.intel.listCustomAgents",
+    "agent.intel.listCustomAgentsBound",
+    "agent.intel.readCustomAgentBound",
+    "agent.intel.openCustomAgentBound",
+    "agent.intel.releaseOpenHandoff",
     "agent.intel.listActiveCustomizations",
     "agent.intel.discoverExternalMcpServers",
     "agent.intel.discoverExternalSessions",
+    "agent.intel.discoverExternalBound",
+    "agent.intel.externalSourceActionBound",
     "agent.intel.resolveActiveSession",
     "agent.intel.listSubagentTranscripts",
     "agent.intel.readSubagentTranscript",
@@ -563,6 +748,7 @@ impl HostCommandFamily {
             | "claude.global.refresh"
             | "system.setTheme"
             | "agent.intel.queryPendingPermissions"
+            | "agent.intel.queryLiveSet"
             | "agent.intel.allowPendingPermissionRequest"
             | "agent.intel.denyPendingPermissionRequest"
             | "agent.intel.semanticSend"
@@ -628,6 +814,7 @@ fn system_command_type(command: &SystemCommand) -> &'static str {
         SystemCommand::RefreshClaudeGlobal { .. } => "claude.global.refresh",
         SystemCommand::SetHostTheme { .. } => "system.setTheme",
         SystemCommand::QueryPendingPermissions { .. } => "agent.intel.queryPendingPermissions",
+        SystemCommand::QueryLiveAgentIntelSet { .. } => "agent.intel.queryLiveSet",
         SystemCommand::AllowPendingPermissionRequest { .. } => {
             "agent.intel.allowPendingPermissionRequest"
         }
@@ -653,6 +840,10 @@ fn auth_command_type(command: &AuthCommand) -> &'static str {
 #[cfg(feature = "cli")]
 fn agent_intel_command_type(command: &AgentIntelCommand) -> &'static str {
     match command {
+        AgentIntelCommand::ListProjectSourcesBound { .. } => "agent.intel.listProjectSourcesBound",
+        AgentIntelCommand::InspectProjectSourceBound { .. } => {
+            "agent.intel.inspectProjectSourceBound"
+        }
         AgentIntelCommand::ReadSettings { .. } => "agent.intel.readSettings",
         AgentIntelCommand::ListClaudeProjects { .. } => "agent.intel.listClaudeProjects",
         AgentIntelCommand::ListProjectSessions { .. } => "agent.intel.listProjectSessions",
@@ -660,6 +851,9 @@ fn agent_intel_command_type(command: &AgentIntelCommand) -> &'static str {
         AgentIntelCommand::ReadProjectMemory { .. } => "agent.intel.readProjectMemory",
         AgentIntelCommand::ListClaudeMemory { .. } => "agent.intel.listClaudeMemory",
         AgentIntelCommand::ReadClaudeMemory { .. } => "agent.intel.readClaudeMemory",
+        AgentIntelCommand::ListClaudeMemoryBound { .. } => "agent.intel.listClaudeMemoryBound",
+        AgentIntelCommand::ReadClaudeMemoryBound { .. } => "agent.intel.readClaudeMemoryBound",
+        AgentIntelCommand::OpenProjectMemoryBound { .. } => "agent.intel.openProjectMemoryBound",
         AgentIntelCommand::ReadSessionConversation { .. } => "agent.intel.readSessionConversation",
         AgentIntelCommand::ListCopilotRepositories { .. } => "agent.intel.listCopilotRepositories",
         AgentIntelCommand::ListCopilotRepoSessions { .. } => "agent.intel.listCopilotRepoSessions",
@@ -667,14 +861,31 @@ fn agent_intel_command_type(command: &AgentIntelCommand) -> &'static str {
             "agent.intel.discoverProviderConversations"
         }
         AgentIntelCommand::CopyProjectMemory { .. } => "agent.intel.copyProjectMemory",
+        AgentIntelCommand::CopyProjectMemoryBound { .. } => "agent.intel.copyProjectMemoryBound",
+        AgentIntelCommand::ReconcileProjectMemoryCopy { .. } => {
+            "agent.intel.reconcileProjectMemoryCopy"
+        }
         AgentIntelCommand::WriteClaudeAutoModeRules { .. } => {
             "agent.intel.writeClaudeAutoModeRules"
+        }
+        AgentIntelCommand::ReadClaudeAutoModeRulesBound { .. } => {
+            "agent.intel.readClaudeAutoModeRulesBound"
+        }
+        AgentIntelCommand::WriteClaudeAutoModeRulesBound { .. } => {
+            "agent.intel.writeClaudeAutoModeRulesBound"
+        }
+        AgentIntelCommand::ReconcileClaudeAutoModeRulesWrite { .. } => {
+            "agent.intel.reconcileClaudeAutoModeRulesWrite"
         }
         AgentIntelCommand::ResolveActiveSession { .. } => "agent.intel.resolveActiveSession",
         AgentIntelCommand::ListSubagentTranscripts { .. } => "agent.intel.listSubagentTranscripts",
         AgentIntelCommand::ReadSubagentTranscript { .. } => "agent.intel.readSubagentTranscript",
         AgentIntelCommand::ReadClaudeAutoModeRules { .. } => "agent.intel.readClaudeAutoModeRules",
         AgentIntelCommand::ListCustomAgents { .. } => "agent.intel.listCustomAgents",
+        AgentIntelCommand::ListCustomAgentsBound { .. } => "agent.intel.listCustomAgentsBound",
+        AgentIntelCommand::ReadCustomAgentBound { .. } => "agent.intel.readCustomAgentBound",
+        AgentIntelCommand::OpenCustomAgentBound { .. } => "agent.intel.openCustomAgentBound",
+        AgentIntelCommand::ReleaseOpenHandoff { .. } => "agent.intel.releaseOpenHandoff",
         AgentIntelCommand::ListActiveCustomizations { .. } => {
             "agent.intel.listActiveCustomizations"
         }
@@ -683,6 +894,10 @@ fn agent_intel_command_type(command: &AgentIntelCommand) -> &'static str {
         }
         AgentIntelCommand::DiscoverExternalSessions { .. } => {
             "agent.intel.discoverExternalSessions"
+        }
+        AgentIntelCommand::DiscoverExternalBound { .. } => "agent.intel.discoverExternalBound",
+        AgentIntelCommand::ExternalSourceActionBound { .. } => {
+            "agent.intel.externalSourceActionBound"
         }
     }
 }
@@ -869,6 +1084,12 @@ mod tests {
                 "agent.intel.queryPendingPermissions",
                 HostCommand::System(SystemCommand::QueryPendingPermissions {
                     request_id: "r-p".to_owned(),
+                }),
+            ),
+            (
+                "agent.intel.queryLiveSet",
+                HostCommand::System(SystemCommand::QueryLiveAgentIntelSet {
+                    request_id: "01900000-0000-7000-8000-000000000006".to_owned(),
                 }),
             ),
             (

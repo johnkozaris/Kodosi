@@ -2,9 +2,11 @@ use crate::{
     agent_intel::{lifecycle::AgentIntelLifecycleCtx, mode::AgentIntelModeCtx},
     host_protocol::TerminalEvent,
     session_runtime::events::RuntimeSessionEvent,
+    support::ui::clipboard::ClipboardError,
     terminal_transport::{TerminalCloseReason, TerminalControlFrame},
 };
 use kodosi_domain::{ids::SessionId, lifecycle::ConnectionState, session::SessionState};
+use kodosi_session::ClipboardWriteOutcome;
 
 fn relay_semantic_mode(
     mode: kodosi_backend_client::session_relay::wire::RelaySemanticMode,
@@ -832,7 +834,16 @@ impl Runtime {
                 None
             }
             RuntimeSessionEvent::ClipboardUpdate { origin, text } => {
-                self.update_system_clipboard(origin.session_id, text);
+                let _ = self.update_system_clipboard(origin.session_id, text);
+                None
+            }
+            RuntimeSessionEvent::ClipboardWriteRequest {
+                origin,
+                text,
+                reply,
+            } => {
+                let outcome = self.update_system_clipboard(origin.session_id, text);
+                let _ = reply.try_send(outcome);
                 None
             }
             RuntimeSessionEvent::TerminalBell { origin } => {
@@ -871,6 +882,13 @@ impl Runtime {
                 let id = origin.session_id;
 
                 self.resolve_pending_steers_for_ended_session(id);
+                AgentIntelLifecycleCtx {
+                    intel_state: &mut self.state.agent_intel,
+                    local_sessions: &self.state.local,
+                    session_events: &self.session_events_tx,
+                    outbox: &mut self.state.runtime_outbox,
+                }
+                .teardown_session(id);
                 self.terminal_hub
                     .end_local_incarnation(*origin, &TerminalCloseReason::IoError(message.clone()));
                 self.client_focus.forget(id);
@@ -1265,27 +1283,40 @@ impl Runtime {
         }
     }
 
-    fn update_system_clipboard(&mut self, id: SessionId, text: &str) {
+    fn update_system_clipboard(&mut self, id: SessionId, text: &str) -> ClipboardWriteOutcome {
         if !self.state.config.permissions.allow_terminal_clipboard_write {
             self.state.record_log(format!(
                 "{} denied terminal-originated clipboard write by local policy",
                 id.short()
             ));
-            return;
+            return ClipboardWriteOutcome::Denied;
         }
-        if let Err(error) = self.clipboard.set_text(text) {
-            self.state.record_log(format!(
-                "{} failed to update system clipboard: {error}",
-                id.short()
-            ));
-            let ids = self.state.local.sessions.ids().to_vec();
-            for message in self
-                .state
-                .local
-                .owned_session_runtimes
-                .try_sync_clipboard_support(&ids, false)
-            {
-                self.state.record_log(message);
+
+        match self.clipboard.set_text(text) {
+            Ok(()) => ClipboardWriteOutcome::Success,
+            Err(error) => {
+                self.state.record_log(format!(
+                    "{} failed to update system clipboard: {error}",
+                    id.short()
+                ));
+                let outcome = match error {
+                    ClipboardError::BackendUnavailable | ClipboardError::InitFailed { .. } => {
+                        ClipboardWriteOutcome::Unsupported
+                    }
+                    ClipboardError::WriteFailed { .. } => ClipboardWriteOutcome::IoError,
+                    #[cfg(test)]
+                    ClipboardError::RecordingFailure { .. } => ClipboardWriteOutcome::IoError,
+                };
+                let ids = self.state.local.sessions.ids().to_vec();
+                for message in self
+                    .state
+                    .local
+                    .owned_session_runtimes
+                    .try_sync_clipboard_support(&ids, false)
+                {
+                    self.state.record_log(message);
+                }
+                outcome
             }
         }
     }

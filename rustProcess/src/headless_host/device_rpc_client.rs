@@ -25,9 +25,11 @@ pub(crate) async fn revoke_device(
     .await?
     {
         DeviceRpcResponse::Revoked {
+            history_warning,
             revoked_device_id,
             new_generation,
         } => Ok(crate::runtime::identity::DeviceRevocationOutcome {
+            history_warning,
             revoked_device_id,
             new_generation,
         }),

@@ -43,6 +43,7 @@ struct DesktopRuntimeAuthority {
     account_context_event_optional_fields: Vec<&'static str>,
     account_context_event_nullable_fields: Vec<&'static str>,
     agent_intel_command_types: Vec<String>,
+    agent_intel_reply_shapes: BTreeMap<String, serde_json::Value>,
     agent_intel_event_types: Vec<String>,
     agent_global_event_types: Vec<String>,
     auth_command_types: Vec<String>,
@@ -164,6 +165,7 @@ fn build_authority() -> Result<DesktopRuntimeAuthority> {
         account_context_event_optional_fields: vec!["accountUserId"],
         account_context_event_nullable_fields: vec!["accountUserId"],
         agent_intel_command_types: catalog::agent_intel_command_types()?,
+        agent_intel_reply_shapes: catalog::agent_intel_reply_shapes()?,
         agent_intel_event_types: catalog::agent_intel_event_types()?,
         agent_global_event_types: catalog::agent_global_event_types()?,
         auth_command_types: catalog::auth_command_types()?,
@@ -252,6 +254,96 @@ mod tests {
     }
 
     #[test]
+    fn bound_memory_reply_identity_is_complete_and_explicit() {
+        let authority: serde_json::Value =
+            serde_json::from_str(&render_desktop_runtime_authority_json().expect("authority"))
+                .expect("authority JSON");
+        let replies = authority["agentIntelReplyShapes"]
+            .as_object()
+            .expect("bound reply authority");
+        let list = &replies["agent.intel.listClaudeMemoryBound"];
+        assert_eq!(
+            string_set(&list["requiredFields"]),
+            BTreeSet::from([
+                "canonicalCwd".to_owned(),
+                "items".to_owned(),
+                "projectSlug".to_owned(),
+            ])
+        );
+        let item = &list["object"]["items"]["array"][0];
+        assert_eq!(
+            string_set(&item["requiredFields"]),
+            BTreeSet::from([
+                "filename".to_owned(),
+                "memoryType".to_owned(),
+                "selectionToken".to_owned(),
+            ])
+        );
+        assert_eq!(
+            string_set(&item["nullableFields"]),
+            BTreeSet::from(["memoryType".to_owned()])
+        );
+        let read = &replies["agent.intel.readClaudeMemoryBound"];
+        assert_eq!(
+            string_set(&read["requiredFields"]),
+            BTreeSet::from([
+                "canonicalCwd".to_owned(),
+                "content".to_owned(),
+                "filename".to_owned(),
+                "memoryType".to_owned(),
+                "projectSlug".to_owned(),
+                "selectionToken".to_owned(),
+            ])
+        );
+    }
+
+    #[test]
+    fn bound_custom_agent_replies_are_path_free_and_typed() {
+        let authority: serde_json::Value =
+            serde_json::from_str(&render_desktop_runtime_authority_json().expect("authority"))
+                .expect("authority JSON");
+        let replies = authority["agentIntelReplyShapes"]
+            .as_object()
+            .expect("bound reply authority");
+        let list = &replies["agent.intel.listCustomAgentsBound"];
+        assert_eq!(
+            string_set(&list["requiredFields"]),
+            BTreeSet::from(["items".to_owned()])
+        );
+        let item = &list["object"]["items"]["array"][0];
+        assert_eq!(
+            string_set(&item["requiredFields"]),
+            BTreeSet::from([
+                "description".to_owned(),
+                "errorCount".to_owned(),
+                "model".to_owned(),
+                "name".to_owned(),
+                "selectionToken".to_owned(),
+                "target".to_owned(),
+                "tools".to_owned(),
+            ])
+        );
+        assert!(item["object"].get("path").is_none());
+        let detail = &replies["agent.intel.readCustomAgentBound"];
+        assert_eq!(
+            string_set(&detail["requiredFields"]),
+            BTreeSet::from([
+                "description".to_owned(),
+                "disallowedTools".to_owned(),
+                "errors".to_owned(),
+                "frontmatter".to_owned(),
+                "model".to_owned(),
+                "name".to_owned(),
+                "prompt".to_owned(),
+                "selectionToken".to_owned(),
+                "target".to_owned(),
+                "tools".to_owned(),
+            ])
+        );
+        assert!(detail["object"].get("path").is_none());
+    }
+
+    #[test]
     fn every_typed_array_sample_captures_an_element_shape() {
         let authority: serde_json::Value =
             serde_json::from_str(&render_desktop_runtime_authority_json().expect("authority"))
@@ -259,12 +351,18 @@ mod tests {
         let shapes = authority["messageShapes"]
             .as_object()
             .expect("messageShapes object");
-        let incomplete = shapes
+        let mut incomplete = shapes
             .iter()
             .filter_map(|(message_type, shape)| {
                 contains_empty_array_shape(shape).then_some(message_type.as_str())
             })
             .collect::<Vec<_>>();
+        let reply_shapes = authority["agentIntelReplyShapes"]
+            .as_object()
+            .expect("agentIntelReplyShapes object");
+        incomplete.extend(reply_shapes.iter().filter_map(|(message_type, shape)| {
+            contains_empty_array_shape(shape).then_some(message_type.as_str())
+        }));
         assert!(
             incomplete.is_empty(),
             "protocol samples with empty typed arrays cannot freeze nested element fields: {incomplete:?}"
@@ -320,15 +418,43 @@ mod tests {
                 )),
                 "{path} nullableFields contains an unknown field"
             );
-
-            assert!(
-                nullable.iter().all(|key| optional.contains(key)),
-                "{path} declares a nullable field as required"
-            );
         }
 
         for (key, child) in shape {
             assert_field_presence_metadata(child, &format!("{path}.{key}"));
+        }
+    }
+
+    #[test]
+    fn live_agent_intel_set_requires_explicit_nullable_fields() {
+        let authority: serde_json::Value =
+            serde_json::from_str(&render_desktop_runtime_authority_json().expect("authority"))
+                .expect("authority JSON");
+        let live_set = &authority["messageShapes"]["agent.intel.liveSet"];
+        assert!(
+            live_set["nullableFields"]
+                .as_array()
+                .is_some_and(|fields| { fields.contains(&serde_json::json!("requestId")) })
+        );
+        assert!(
+            live_set["requiredFields"]
+                .as_array()
+                .is_some_and(|fields| { fields.contains(&serde_json::json!("requestId")) })
+        );
+        let snapshot = &live_set["object"]["entries"]["array"][0]["object"]["snapshot"];
+        for field in [
+            "attention",
+            "currentActivity",
+            "exceptionalState",
+            "outcome",
+            "pendingInteraction",
+        ] {
+            assert!(
+                snapshot["requiredFields"]
+                    .as_array()
+                    .is_some_and(|fields| fields.contains(&serde_json::json!(field))),
+                "{field} must be required and nullable"
+            );
         }
     }
 
@@ -370,11 +496,11 @@ mod tests {
         assert_eq!(cleanup["object"]["state"], serde_json::json!("string"));
         assert_eq!(
             cleanup["object"]["pendingCount"],
-            serde_json::json!("number")
+            serde_json::json!("integer")
         );
         assert_eq!(
             cleanup["object"]["quarantinedCount"],
-            serde_json::json!("number")
+            serde_json::json!("integer")
         );
         assert!(optional_fields(cleanup).contains("message"));
         assert_eq!(
@@ -455,9 +581,9 @@ mod tests {
             .expect("unsupported store variant");
         assert_eq!(
             unsupported["object"]["supportedVersions"]["array"][0],
-            "number"
+            "integer"
         );
-        assert_eq!(unsupported["object"]["schemaVersion"], "number");
+        assert_eq!(unsupported["object"]["schemaVersion"], "integer");
 
         let store_failure = notices
             .iter()

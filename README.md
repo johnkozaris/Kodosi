@@ -7,7 +7,7 @@ them from the same Mac or another enrolled Mac. It adds fail-closed control and 
 live session shareable through E2E-encrypted Missions: pull a teammate in to watch or
 steer, let authorized participants approve or deny pending requests, and hand out a
 time-boxed guest pass. The CLI, protocol, and backend call a Mission a `room`. Execution
-and content keys never leave the owner's device; the backend stores product metadata and
+stays on the owner's device; content keys are wrapped to authorized endpoints. The backend stores metadata and
 relays ciphertext.
 
 Cross-user identity bootstrap is trust-on-first-use. Device-list and roster changes,
@@ -15,15 +15,16 @@ signatures, and rollbacks fail closed after the first pin, but an actively malic
 backend at first contact stays outside the threat model until safety-number verification
 or independent key transparency ships.
 
-`rustProcess/` is the arm64 macOS runtime, CLI, and C ABI; Windows runtime/CLI support is
-retired, and Linux is used only by the backend services. `dotnetBackend/` is the REST,
+`rustProcess/` is the arm64 macOS and x86_64 Linux runtime, CLI, and C ABI; Windows runtime/CLI
+support is retired. `dotnetBackend/` is the REST,
 PostgreSQL, and WebSocket relay. `protocol/` contains normative cross-stack manifests, while the
 desktop runtime manifest is generated from Rust wire types. The shipping SwiftUI macOS client lives
-in the sibling `../kodosiSwift` checkout and links the runtime directly. The sibling
+in the sibling `../kodosiSwift` checkout and links the runtime directly. `../KodosiQT` is the
+Linux Qt client under development against the same runtime. The sibling
 `../kodosi-ghostty` package provides the pinned native renderer and headless terminal
 engine.
 
 - Product definition: [`PRODUCT.md`](PRODUCT.md)
-- Product direction: [`docs/review-2026-06/PRODUCT-DIRECTION.md`](docs/review-2026-06/PRODUCT-DIRECTION.md)
+- Product direction: [`PRODUCT-DIRECTION.md`](docs/PRODUCT-DIRECTION.md)
 - Development guidance: [`CLAUDE.md`](CLAUDE.md); this repository's gates run from the root
   `justfile`, while the shipping client's gates run from `../kodosiSwift/Justfile`

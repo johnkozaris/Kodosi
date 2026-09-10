@@ -43,6 +43,7 @@ fn pin_refresh_is_retryable(error: &AppError) -> bool {
         | AppError::InvalidUrl { .. }
         | AppError::MissingConfig { .. }
         | AppError::InvalidBackendData { .. }
+        | AppError::RoomContentNotRecipient
         | AppError::IdentityRecoveryRequired { .. }
         | AppError::PeerIdentityChanged { .. } => false,
     }
@@ -210,6 +211,7 @@ impl Runtime {
 
     pub(crate) async fn run_periodic_maintenance_force(&mut self) {
         self.last_maintenance_ran = Some(Instant::now());
+        self.state.agent_intel.purge_expired_now();
 
         let completed_coordinators = self.state.local.owned_session_runtimes.finished_ids();
         if !completed_coordinators.is_empty() && self.drain_pending_session_events() {

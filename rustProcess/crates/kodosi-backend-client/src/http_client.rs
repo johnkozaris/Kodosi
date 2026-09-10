@@ -80,6 +80,7 @@ const ROOM_TASK_DEFAULT_PAGE_SIZE: usize = 100;
 const ROOM_TASK_MAX_PAGE_SIZE: usize = 500;
 const ROOM_TASK_HAS_MORE_HEADER: &str = "kodosi-has-more";
 const ROOM_TASK_NEXT_OFFSET_HEADER: &str = "kodosi-next-offset";
+const ROOM_TASK_SNAPSHOT_HEADER: &str = "kodosi-task-snapshot";
 
 impl BackendHttpClient {
     pub fn new(config: &BackendClientConfig) -> Result<Self> {
@@ -873,6 +874,7 @@ impl BackendHttpClient {
         assignee: Option<&str>,
         offset: Option<usize>,
         limit: Option<usize>,
+        snapshot: Option<&str>,
     ) -> Result<RoomTaskPageDto> {
         let normalized_offset = offset.unwrap_or(0);
         let normalized_limit = limit
@@ -893,6 +895,9 @@ impl BackendHttpClient {
             }
             qp.append_pair("offset", &normalized_offset.to_string());
             qp.append_pair("limit", &normalized_limit.to_string());
+            if let Some(snapshot) = snapshot {
+                qp.append_pair("snapshot", snapshot);
+            }
         }
         let response = self
             .authenticated(self.client.get(url))
@@ -900,6 +905,27 @@ impl BackendHttpClient {
             .await
             .map_err(BackendClientError::Http)?;
         let response = check_status(response).await?;
+        let page_snapshot = response
+            .headers()
+            .get(ROOM_TASK_SNAPSHOT_HEADER)
+            .and_then(|value| value.to_str().ok())
+            .filter(|value| {
+                value.len() == 64
+                    && value
+                        .bytes()
+                        .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+            })
+            .ok_or_else(|| BackendClientError::Protocol {
+                reason: format!(
+                    "{ROOM_TASK_SNAPSHOT_HEADER} must contain a 64-character lowercase hex snapshot"
+                ),
+            })?
+            .to_owned();
+        if snapshot.is_some_and(|requested| requested != page_snapshot) {
+            return Err(BackendClientError::Protocol {
+                reason: "room task page does not belong to the requested snapshot".to_owned(),
+            });
+        }
         let has_more = parse_boolean_header(response.headers(), ROOM_TASK_HAS_MORE_HEADER)?;
         let next_offset =
             parse_optional_usize_header(response.headers(), ROOM_TASK_NEXT_OFFSET_HEADER)?;
@@ -925,6 +951,7 @@ impl BackendHttpClient {
             });
         }
         Ok(RoomTaskPageDto {
+            snapshot: page_snapshot,
             items,
             has_more,
             next_offset,
@@ -1248,7 +1275,63 @@ impl BackendHttpClient {
             &format!("api/users/{}/identity", encode_path_segment(user_id)),
             "backend.api",
         )?;
+        let identity: UserIdentityBundleDto = self
+            .send_json(self.authenticated(self.client.get(url)))
+            .await?;
+        if identity.user_id != user_id {
+            return Err(BackendClientError::InvalidBackendData {
+                field: "identity.userId".to_owned(),
+                reason: "identity response does not match the requested user".to_owned(),
+            });
+        }
+        Ok(identity)
+    }
+
+    pub async fn fetch_artifact_endorsements(
+        &self,
+        user_id: &str,
+        digest: &str,
+    ) -> Result<Vec<crate::artifact_endorsement::ArtifactEndorsement>> {
+        let mut url = join_endpoint(
+            self.base_url.as_ref(),
+            &format!(
+                "api/users/{}/artifact-endorsements",
+                encode_path_segment(user_id)
+            ),
+            "backend.api",
+        )?;
+        url.query_pairs_mut().append_pair("digest", digest);
         self.send_json(self.authenticated(self.client.get(url)))
+            .await
+    }
+
+    pub async fn fetch_own_artifact_endorsements(
+        &self,
+        offset: usize,
+        limit: usize,
+    ) -> Result<Vec<crate::artifact_endorsement::ArtifactEndorsement>> {
+        let mut url = join_endpoint(
+            self.base_url.as_ref(),
+            "api/me/artifact-endorsements",
+            "backend.api",
+        )?;
+        url.query_pairs_mut()
+            .append_pair("offset", &offset.to_string())
+            .append_pair("limit", &limit.to_string());
+        self.send_json(self.authenticated(self.client.get(url)))
+            .await
+    }
+
+    pub async fn put_artifact_endorsement(
+        &self,
+        endorsement: &crate::artifact_endorsement::PutArtifactEndorsement<'_>,
+    ) -> Result<()> {
+        let url = join_endpoint(
+            self.base_url.as_ref(),
+            "api/me/artifact-endorsements",
+            "backend.api",
+        )?;
+        self.send_empty(self.authenticated(self.client.put(url)).json(endorsement))
             .await
     }
 
@@ -2324,6 +2407,40 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn task_pages_require_and_echo_exact_snapshot() {
+        let token = "a".repeat(64);
+        for supplied_header in [
+            None,
+            Some("bad".to_owned()),
+            Some("b".repeat(64)),
+            Some(token.clone()),
+        ] {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let response_header = supplied_header.clone();
+            let server = tokio::spawn(async move {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut request = [0; 2048];
+                let read = socket.read(&mut request).await.unwrap();
+                let snapshot_header = response_header.map_or_else(String::new, |value| {
+                    format!("Kodosi-Task-Snapshot: {value}\r\n")
+                });
+                socket.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\nKodosi-Has-More: false\r\n{snapshot_header}Connection: close\r\n\r\n[]").as_bytes()).await.unwrap();
+                String::from_utf8_lossy(&request[..read]).into_owned()
+            });
+            let result = test_client(format!("http://{address}/"))
+                .fetch_room_tasks("room", None, None, Some(1), Some(500), Some(&token))
+                .await;
+            if supplied_header.as_deref() == Some(token.as_str()) {
+                assert_eq!(result.unwrap().snapshot, token);
+            } else {
+                assert!(matches!(result, Err(BackendClientError::Protocol { .. })));
+            }
+            assert!(server.await.unwrap().contains(&format!("snapshot={token}")));
+        }
+    }
+
+    #[tokio::test]
     async fn room_chat_parses_short_page_continuation_headers() {
         let (api, server) =
             room_chat_server("Kodosi-Has-More: true\r\nKodosi-Next-Since: 7\r\n").await;
@@ -2609,6 +2726,46 @@ mod tests {
 
         assert!(items.is_empty());
         assert_eq!(server.await.expect("server task"), MAX_ROOM_FEED_PAGES);
+    }
+
+    #[tokio::test]
+    async fn identity_response_is_bound_to_the_requested_user() {
+        const IDENTITY: &str = r#"{
+            "userId":"peer-b",
+            "identityRevision":1,
+            "identityIncarnationId":"01900000-0000-7000-8000-000000000001",
+            "deviceList":{"body":"signed-list","signature":"signature"},
+            "devices":[]
+        }"#;
+        let (api, server) = json_server(IDENTITY).await;
+        let identity = test_client(api)
+            .fetch_user_identity("peer-b")
+            .await
+            .expect("matching identity");
+        assert_eq!(identity.user_id, "peer-b");
+        assert!(
+            server
+                .await
+                .expect("server")
+                .starts_with("GET /api/users/peer-b/identity ")
+        );
+
+        let (api, server) = json_server(IDENTITY).await;
+        let error = test_client(api)
+            .fetch_user_identity("peer-a")
+            .await
+            .expect_err("another user's valid bundle must not reach pin verification");
+        std::assert_matches!(
+            error,
+            BackendClientError::InvalidBackendData { ref field, .. }
+                if field == "identity.userId"
+        );
+        assert!(
+            server
+                .await
+                .expect("server")
+                .starts_with("GET /api/users/peer-a/identity ")
+        );
     }
 
     #[tokio::test]

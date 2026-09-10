@@ -11,9 +11,7 @@ use crate::{
     identity_core::device_keys::DeviceKeys,
     remote_sessions::{focus::FocusTransition, relay::events::spawn_session_relay_event_bridge},
     session_runtime::commands::SessionInput,
-    sessions_common::{
-        session_input_bytes, session_mode_label, shift_tab_bytes, shift_tab_count_for_agent,
-    },
+    sessions_common::session_input_bytes,
 };
 use kodosi_backend_client::session_relay::{
     self, RemoteRelayMode, SessionRelayClientSpec, SessionRelayCommand, cursor::ReplayCursor,
@@ -38,8 +36,7 @@ mod semantics;
 
 pub(crate) use commands::{
     blur, blur_participant, claim_size, focus, focus_participant, interrupt, owned_remote_record,
-    owned_remote_record_mut, reassert_focus, rename, send_input, send_participant_input, set_mode,
-    stop,
+    owned_remote_record_mut, reassert_focus, rename, send_input, send_participant_input, stop,
 };
 pub(crate) use dispatch::ensure_authenticated_remote_account;
 pub(crate) use lifecycle::{hide, leave, open, reconcile_relays, unhide};

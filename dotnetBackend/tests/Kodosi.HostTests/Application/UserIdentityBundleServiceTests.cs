@@ -103,6 +103,52 @@ public sealed class UserIdentityBundleServiceTests
     }
 
     [Fact]
+    public async Task Historical_Author_Verification_Is_Directional_And_Requires_Current_Reader_Access()
+    {
+        var readerId = UserId.New();
+        var authorId = UserId.New();
+        var roomId = RoomId.From(Guid.NewGuid());
+        var rooms = new HistoricalArtifactAuthorizationRepository(readerId, authorId, [roomId], [roomId], []);
+        var exposures = new RecordingIdentityExposureRepository();
+        var locks = new RecordingRoomLifecycleLock();
+        var service = new UserIdentityBundleService(
+            new FakeUserDeviceRepository(CreateCertifiedDevice(authorId, "author-device"), CreateCertifiedDevice(readerId, "reader-device")),
+            new FakeUserDeviceListRepository(CreateDeviceList(authorId, 1, "author-device"), CreateDeviceList(readerId, 1, "reader-device")),
+            new FakeUserRepository(CreateLifecycleUser(authorId), CreateLifecycleUser(readerId)),
+            new FakeFriendshipRepository(), rooms, new FakeAccessOverrideRepository(),
+            exposures, new FakeUserLifecycleLock(), locks, new FakeUnitOfWork());
+
+        Assert.NotNull(await service.GetAsync(readerId, authorId, TestContext.Current.CancellationToken));
+        Assert.Equal([(authorId, readerId)], exposures.Records);
+        Assert.Equal([roomId], locks.AcquiredRoomIds);
+        Assert.Null(await service.GetAsync(authorId, readerId, TestContext.Current.CancellationToken));
+        Assert.Null(await service.GetAsync(readerId, authorId, TestContext.Current.CancellationToken));
+        Assert.Single(exposures.Records);
+    }
+
+    [Fact]
+    public async Task Historical_Author_Access_Is_Rechecked_Only_Against_Locked_Rooms()
+    {
+        var readerId = UserId.New();
+        var authorId = UserId.New();
+        var roomId = RoomId.From(Guid.NewGuid());
+        var unlockedRoomId = RoomId.From(Guid.NewGuid());
+        var rooms = new HistoricalArtifactAuthorizationRepository(readerId, authorId, [roomId], [unlockedRoomId]);
+        var exposures = new RecordingIdentityExposureRepository();
+        var locks = new RecordingRoomLifecycleLock();
+        var service = new UserIdentityBundleService(
+            new FakeUserDeviceRepository(CreateCertifiedDevice(authorId, "device-1")),
+            new FakeUserDeviceListRepository(CreateDeviceList(authorId, 1, "device-1")),
+            new FakeUserRepository(CreateLifecycleUser(authorId)),
+            new FakeFriendshipRepository(), rooms, new FakeAccessOverrideRepository(),
+            exposures, new FakeUserLifecycleLock(), locks, new FakeUnitOfWork());
+
+        Assert.Null(await service.GetAsync(readerId, authorId, TestContext.Current.CancellationToken));
+        Assert.Empty(exposures.Records);
+        Assert.Equal([roomId], locks.AcquiredRoomIds);
+    }
+
+    [Fact]
     public async Task Returns_Bundle_When_Caller_And_Target_Are_Friends()
     {
         var callerId = UserId.New();
@@ -408,6 +454,11 @@ public sealed class UserIdentityBundleServiceTests
             _index++;
             return Task.FromResult(snapshot);
         }
+
+        public Task<IReadOnlyList<RoomId>> GetHistoricalArtifactRoomIdsAsync(
+            UserId readerUserId,
+            UserId authorUserId,
+            CancellationToken ct = default) => Task.FromResult<IReadOnlyList<RoomId>>([]);
     }
 
     private sealed class FakeSharedRoomAuthorizationRepository(
@@ -418,6 +469,36 @@ public sealed class UserIdentityBundleServiceTests
             UserId secondUserId,
             CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<RoomId>>(sharedRooms);
+
+        public Task<IReadOnlyList<RoomId>> GetHistoricalArtifactRoomIdsAsync(
+            UserId readerUserId,
+            UserId authorUserId,
+            CancellationToken ct = default) => Task.FromResult<IReadOnlyList<RoomId>>([]);
+    }
+
+    private sealed class HistoricalArtifactAuthorizationRepository(
+        UserId readerId,
+        UserId authorId,
+        params IReadOnlyList<RoomId>[] snapshots) : ISharedRoomAuthorizationRepository
+    {
+        private int _index;
+
+        public Task<IReadOnlyList<RoomId>> GetSharedActiveRoomIdsAsync(
+            UserId firstUserId,
+            UserId secondUserId,
+            CancellationToken ct = default) => Task.FromResult<IReadOnlyList<RoomId>>([]);
+
+        public Task<IReadOnlyList<RoomId>> GetHistoricalArtifactRoomIdsAsync(
+            UserId readerUserId,
+            UserId authorUserId,
+            CancellationToken ct = default)
+        {
+            if (readerUserId != readerId || authorUserId != authorId)
+            {
+                return Task.FromResult<IReadOnlyList<RoomId>>([]);
+            }
+            return Task.FromResult(snapshots[Math.Min(_index++, snapshots.Length - 1)]);
+        }
     }
 
     private sealed class RecordingIdentityExposureRepository : IIdentityExposureRepository

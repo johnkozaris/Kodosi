@@ -267,7 +267,7 @@ public sealed class PostgresPersistenceIntegrationTests
             ToolKind.Terminal,
             AccessLevel.View,
             "secret-hash");
-        var revokedAt = DateTimeOffset.UtcNow;
+        var revokedAt = new DateTimeOffset(2026, 8, 20, 12, 0, 0, TimeSpan.Zero);
         var expiresAt = revokedAt.AddMinutes(-1);
         var accessOverride = SessionAccessOverride.Create(
             sessionId,
@@ -1886,6 +1886,8 @@ public sealed class PostgresPersistenceIntegrationTests
                     "20260820010613_WidenDeviceRevocationGeneration",
                     "20260820125920_CollapseUserDeviceCertificateAuthority",
                     "20260820153800_AddAccessOverrideExpiryEnforcement",
+                    "20260906132920_AddArtifactEndorsements",
+                    "20260906164733_AddRoomTaskSnapshotRevision",
                 ],
                 await recipientContext.Database.GetPendingMigrationsAsync(
                     TestContext.Current.CancellationToken));
@@ -5999,7 +6001,7 @@ public sealed class PostgresPersistenceIntegrationTests
                 DateTimeOffset.UtcNow,
                 TestContext.Current.CancellationToken));
 
-        var invalidatedAt = DateTimeOffset.UtcNow;
+        var invalidatedAt = new DateTimeOffset(2026, 8, 20, 12, 0, 0, TimeSpan.Zero);
         var invalidated = DeviceLinkRequest.Create(
             ownerId,
             $"device-code-{Guid.NewGuid()}",
@@ -6021,7 +6023,7 @@ public sealed class PostgresPersistenceIntegrationTests
         {
             var retainedRepository = new DeviceLinkRequestRepository(retainedContext);
             _ = await retainedRepository.DeleteStaleAsync(
-                invalidatedAt.AddHours(24).AddTicks(-1),
+                invalidatedAt.AddHours(24).AddTicks(-TimeSpan.TicksPerMicrosecond),
                 TestContext.Current.CancellationToken);
             Assert.NotNull(await retainedRepository.GetByDeviceCodeAsync(
                 invalidated.DeviceCode,

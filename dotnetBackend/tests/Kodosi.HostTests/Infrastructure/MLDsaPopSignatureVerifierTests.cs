@@ -118,20 +118,45 @@ public sealed class MLDsaPopSignatureVerifierTests
     public void Verify_RejectsEmptyInputs()
     {
         var verifier = new MLDsaPopSignatureVerifier();
+        var publicKey = new byte[MLDsaAlgorithm.MLDsa65.PublicKeySizeInBytes];
+        var signature = new byte[MLDsaAlgorithm.MLDsa65.SignatureSizeInBytes];
 
-        Assert.False(verifier.Verify(ReadOnlySpan<byte>.Empty, new byte[32], new byte[3293]));
-        Assert.False(verifier.Verify(new byte[1952], ReadOnlySpan<byte>.Empty, new byte[3293]));
-        Assert.False(verifier.Verify(new byte[1952], new byte[32], ReadOnlySpan<byte>.Empty));
+        Assert.False(verifier.Verify(ReadOnlySpan<byte>.Empty, new byte[32], signature));
+        Assert.False(verifier.Verify(publicKey, ReadOnlySpan<byte>.Empty, signature));
+        Assert.False(verifier.Verify(publicKey, new byte[32], ReadOnlySpan<byte>.Empty));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(100)]
+    [InlineData(1951)]
+    [InlineData(1953)]
+    public void Verify_RejectsMalformedPublicKey(int keyLength)
+    {
+        var badKey = new byte[keyLength];
+        var signature = new byte[MLDsaAlgorithm.MLDsa65.SignatureSizeInBytes];
+        var verifier = new MLDsaPopSignatureVerifier();
+        Assert.False(verifier.Verify(badKey, new byte[32], signature));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(3293)]
+    [InlineData(3308)]
+    [InlineData(3310)]
+    public void Verify_RejectsMalformedSignature(int signatureLength)
+    {
+        var publicKey = new byte[MLDsaAlgorithm.MLDsa65.PublicKeySizeInBytes];
+        var verifier = new MLDsaPopSignatureVerifier();
+        Assert.False(verifier.Verify(publicKey, new byte[32], new byte[signatureLength]));
     }
 
     [Fact]
-    public void Verify_RejectsMalformedPublicKey()
+    public void Verify_RejectsInvalidSignatureOfCorrectSize()
     {
-        if (!MLDsa.IsSupported)
-            return;
-
-        var badKey = new byte[100];
+        var publicKey = new byte[MLDsaAlgorithm.MLDsa65.PublicKeySizeInBytes];
+        var signature = new byte[MLDsaAlgorithm.MLDsa65.SignatureSizeInBytes];
         var verifier = new MLDsaPopSignatureVerifier();
-        Assert.False(verifier.Verify(badKey, new byte[32], new byte[3293]));
+        Assert.False(verifier.Verify(publicKey, new byte[32], signature));
     }
 }

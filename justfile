@@ -2,15 +2,21 @@ cargo_tools_root := "rustProcess/target/rust-tools"
 cargo_tools_bin := "rustProcess/target/rust-tools/bin"
 ghostty_dir := env('KODOSI_GHOSTTY_DIR', justfile_directory() + "/../kodosi-ghostty")
 
-export PATH := cargo_tools_bin + ":" + env('PATH')
+export PATH := justfile_directory() + "/.tools/dotnet:" + cargo_tools_bin + ":" + env('PATH')
 export KODOSI_GHOSTTY_DIR := ghostty_dir
 
 rust-pin-parity:
     #!/usr/bin/env bash
     set -euo pipefail
     package_commit="$(awk -F= '$1 == "package_commit" { print $2 }' Ghostty.lock)"
+    macos_upstream_commit="$(awk -F= '$1 == "upstream_commit" { print $2 }' Ghostty.lock)"
+    linux_upstream_commit="$(awk -F= '$1 == "linux_upstream_commit" { print $2 }' Ghostty.lock)"
     test -n "$package_commit"
+    test -n "$macos_upstream_commit"
+    test -n "$linux_upstream_commit"
     test "$package_commit" = "$(git -C "$KODOSI_GHOSTTY_DIR" rev-parse HEAD)"
+    test "$macos_upstream_commit" = "$(tr -d '[:space:]' < "$KODOSI_GHOSTTY_DIR/MacOSGhostty.ref")"
+    test "$linux_upstream_commit" = "$(tr -d '[:space:]' < "$KODOSI_GHOSTTY_DIR/LinuxGhostty.ref")"
     swift_dir="${KODOSI_SWIFT_DIR:-$(pwd)/../kodosiSwift}"
     if [[ ! -d "$swift_dir" ]]; then
         echo "Required sibling Swift checkout is missing: $swift_dir" >&2

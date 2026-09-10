@@ -11,6 +11,7 @@ public static class IdentityModule
     {
         services.AddScoped<UserIdentityService>();
         services.AddScoped<UserIdentityBundleService>();
+        services.AddScoped<ArtifactEndorsementService>();
         services.AddScoped<PopChallengeConsumer>();
         services.AddScoped<IdentityResetPopVerifier>();
         services.AddScoped<IdentityResetCascade>();

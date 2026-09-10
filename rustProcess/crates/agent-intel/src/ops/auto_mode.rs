@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 const MAX_AUTO_MODE_RULE_BYTES: usize = 10 * 1024;
 const MAX_AUTO_MODE_RULE_COUNT: usize = 1024;
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "snake_case")]
 pub struct AutoModeRules {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -20,7 +20,7 @@ pub struct AutoModeRules {
 }
 
 impl AutoModeRules {
-    fn validate(&self) -> Result<(), String> {
+    pub(crate) fn validate(&self) -> Result<(), String> {
         for (field, rules) in [
             ("environment", &self.environment),
             ("allow", &self.allow),
@@ -60,7 +60,11 @@ fn read_blocking(claude_home: &Path) -> Result<AutoModeRules, String> {
     }
     let contents = std::fs::read_to_string(&settings_path)
         .map_err(|error| format!("read settings.json: {error}"))?;
-    let root = CstRootNode::parse(&contents, &crate::ops::settings_mutation::parse_options())
+    parse_rules_content(&contents)
+}
+
+pub(crate) fn parse_rules_content(contents: &str) -> Result<AutoModeRules, String> {
+    let root = CstRootNode::parse(contents, &crate::ops::settings_mutation::parse_options())
         .map_err(|error| format!("parse settings.json: {error}"))?;
     let object = root
         .object_value()
@@ -76,14 +80,21 @@ fn read_blocking(claude_home: &Path) -> Result<AutoModeRules, String> {
 
 pub async fn write_auto_mode_rules(home: &Path, rules: AutoModeRules) -> Result<(), String> {
     rules.validate()?;
+    let home = home.to_owned();
+    tokio::task::spawn_blocking(move || write_auto_mode_rules_blocking(&home, &rules))
+        .await
+        .map_err(|error| format!("auto-mode rules write task join error: {error}"))?
+}
+
+pub(crate) fn write_auto_mode_rules_blocking(
+    home: &Path,
+    rules: &AutoModeRules,
+) -> Result<(), String> {
+    rules.validate()?;
     let settings_path = home.join(".claude/settings.json");
-    tokio::task::spawn_blocking(move || {
-        crate::ops::settings_mutation::mutate_settings_file(&settings_path, |root| {
-            patch_auto_mode(root, &rules)
-        })
+    crate::ops::settings_mutation::mutate_settings_file(&settings_path, |root| {
+        patch_auto_mode(root, rules)
     })
-    .await
-    .map_err(|error| format!("auto-mode rules write task join error: {error}"))?
 }
 
 fn patch_auto_mode(root: &CstRootNode, rules: &AutoModeRules) -> Result<(), String> {
@@ -98,6 +109,24 @@ fn patch_auto_mode(root: &CstRootNode, rules: &AutoModeRules) -> Result<(), Stri
     set_field(&auto_mode, "soft_deny", &rules.soft_deny);
     set_field(&auto_mode, "hard_deny", &rules.hard_deny);
     Ok(())
+}
+
+pub(crate) fn render_auto_mode_rules(
+    contents: Option<&[u8]>,
+    rules: &AutoModeRules,
+) -> Result<Vec<u8>, String> {
+    let text = match contents {
+        None => "{}",
+        Some(bytes) => std::str::from_utf8(bytes)
+            .map_err(|error| format!("settings.json is not UTF-8: {error}"))?,
+    };
+    let root = CstRootNode::parse(text, &crate::ops::settings_mutation::parse_options())
+        .map_err(|error| format!("parse settings.json: {error}"))?;
+    if root.object_value().is_none() {
+        return Err("settings.json root must be an object".to_owned());
+    }
+    patch_auto_mode(&root, rules)?;
+    Ok(root.to_string().into_bytes())
 }
 
 fn set_field(object: &CstObject, key: &str, values: &[String]) {

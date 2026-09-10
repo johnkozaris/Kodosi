@@ -1,3 +1,4 @@
+.tools/
 rustProcess/target/
 *.profraw
 *.profdata

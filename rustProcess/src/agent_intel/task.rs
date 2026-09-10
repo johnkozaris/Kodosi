@@ -816,10 +816,6 @@ async fn publish_snapshot(
     session_events_tx: &mpsc::Sender<RuntimeSessionEvent>,
     cancellation: &CancellationToken,
 ) -> bool {
-    let Ok(payload) = serde_json::to_value(snapshot) else {
-        return true;
-    };
-
     let permit = tokio::select! {
         biased;
         () = cancellation.cancelled() => return false,
@@ -839,7 +835,7 @@ async fn publish_snapshot(
                 id: *session_id,
                 local_incarnation_id,
                 generation,
-                payload,
+                payload: Box::new(snapshot.clone()),
             });
             true
         },

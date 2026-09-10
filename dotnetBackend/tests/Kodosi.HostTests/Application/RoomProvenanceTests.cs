@@ -543,7 +543,53 @@ public sealed class RoomProvenanceTests
     }
 
     [Fact]
-    public void Task_Description_And_Result_Enforce_Manifest_UTF16_Bounds()
+    public void Task_Title_And_Result_Enforce_Encrypted_Envelope_Bounds()
+    {
+        var owner = UserId.New();
+        var room = TestRoom(owner);
+        var maximum = new string('x', RoomInputRules.EncryptedContentMaxLength);
+        var oversized = maximum + "x";
+        Assert.Throws<DomainException>(() => RoomTask.Create(
+            Guid.NewGuid(),
+            room.Id,
+            owner,
+            oversized,
+            null,
+            null,
+            null, DateTimeOffset.UtcNow));
+
+        var task = RoomTask.Create(
+            Guid.NewGuid(),
+            room.Id,
+            owner,
+            maximum,
+            null,
+            null,
+            null, DateTimeOffset.UtcNow);
+        task.Claim(DateTimeOffset.UtcNow);
+        Assert.Throws<DomainException>(() => task.Complete(
+            oversized,
+            owner,
+            DateTimeOffset.UtcNow));
+        Assert.Throws<DomainException>(() => task.ApplyOwnerOverride(
+            RoomTaskStatus.Done,
+            oversized,
+            owner,
+            DateTimeOffset.UtcNow));
+        Assert.Equal(RoomTaskStatus.InProgress, task.Status);
+        Assert.Null(task.Result);
+
+        task.Complete(maximum, owner, DateTimeOffset.UtcNow);
+        Assert.Equal(maximum, task.Title);
+        Assert.Equal(maximum, task.Result);
+        task.ApplyOwnerOverride(RoomTaskStatus.Done, maximum, owner, DateTimeOffset.UtcNow);
+        Assert.Equal(maximum, task.Result);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("plaintext description")]
+    public void Task_Rejects_Separate_Description(string description)
     {
         var owner = UserId.New();
         var room = TestRoom(owner);
@@ -551,39 +597,32 @@ public sealed class RoomProvenanceTests
             Guid.NewGuid(),
             room.Id,
             owner,
-            "title",
-            new string('d', RoomInputRules.TaskDescriptionMaxLength + 1),
+            "encrypted-envelope",
+            description,
             null,
             null, DateTimeOffset.UtcNow));
+    }
 
-        var oversizedResultTask = RoomTask.Create(
-            Guid.NewGuid(),
-            room.Id,
-            owner,
-            "title",
-            null,
-            null,
-            null, DateTimeOffset.UtcNow);
-        oversizedResultTask.Claim(DateTimeOffset.UtcNow);
-        Assert.Throws<DomainException>(() => oversizedResultTask.Complete(
-            new string('r', RoomInputRules.TaskResultMaxLength + 1),
-            owner,
-            DateTimeOffset.UtcNow));
-
+    [Fact]
+    public void Task_Completion_Without_Result_Remains_Valid()
+    {
+        var owner = UserId.New();
+        var room = TestRoom(owner);
         var task = RoomTask.Create(
             Guid.NewGuid(),
             room.Id,
             owner,
-            "title",
-            new string('d', RoomInputRules.TaskDescriptionMaxLength),
+            "encrypted-envelope",
+            null,
             null,
             null, DateTimeOffset.UtcNow);
         task.Claim(DateTimeOffset.UtcNow);
-        task.Complete(
-            new string('r', RoomInputRules.TaskResultMaxLength),
-            owner,
-            DateTimeOffset.UtcNow);
-        Assert.Equal(RoomInputRules.TaskResultMaxLength, task.Result?.Length);
+        task.Complete(null, owner, DateTimeOffset.UtcNow);
+
+        Assert.Null(task.Description);
+        Assert.Null(task.Result);
+        Assert.Null(task.ResultAuthorUserId);
+        Assert.Equal(RoomTaskStatus.Done, task.Status);
     }
 
     [Fact]
@@ -1161,8 +1200,8 @@ public sealed class RoomProvenanceTests
             return Task.FromResult<IReadOnlyList<RoomTask>>([task]);
         }
 
-        public Task<RoomTask> AddIdempotentAsync(
+        public Task<RoomTaskCreationResult> AddIdempotentAsync(
             RoomTask roomTask,
-            CancellationToken ct = default) => Task.FromResult(roomTask);
+            CancellationToken ct = default) => Task.FromResult(new RoomTaskCreationResult(roomTask, true));
     }
 }

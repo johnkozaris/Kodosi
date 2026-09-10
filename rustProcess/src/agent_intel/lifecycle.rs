@@ -104,8 +104,16 @@ impl AgentIntelLifecycleCtx<'_> {
         if let Some(session_incarnation_id) = session_incarnation_id {
             self.outbox.queue_agent_intel(AgentIntelEvent::Cleared {
                 session_id: session_id.to_string(),
-                session_incarnation_id,
+                session_incarnation_id: session_incarnation_id.clone(),
             });
+            if let Ok(incarnation_id) = uuid::Uuid::parse_str(&session_incarnation_id)
+                && let Some(live_set) = self
+                    .intel_state
+                    .live_authority
+                    .clear(session_id, incarnation_id)
+            {
+                self.outbox.queue_agent_intel(live_set);
+            }
         }
         local_incarnation_id
     }

@@ -43,6 +43,94 @@ pub async fn scan_instructions(
         .map_err(|e| format!("task join error: {e}"))
 }
 
+pub async fn scan_instructions_from_root(
+    home: &Path,
+    root: &std::fs::File,
+    root_path: &Path,
+    agent_type: InstructionAgentType,
+) -> Result<Vec<InstructionSource>, String> {
+    let home = home.to_owned();
+    let root = root
+        .try_clone()
+        .map_err(|error| format!("retain project root for instructions: {error}"))?;
+    let root_path = root_path.to_owned();
+    tokio::task::spawn_blocking(move || {
+        let mut out = Vec::new();
+        let mut order = 0_u8;
+        for user_path in agent_type.user_paths(&home) {
+            if user_path.is_file() {
+                out.push(InstructionSource {
+                    path: user_path.to_string_lossy().into_owned(),
+                    scope: InstructionScope::User,
+                    order,
+                    additional_fields: std::collections::BTreeMap::new(),
+                });
+                order = order.saturating_add(1);
+            }
+        }
+        for filename in agent_type.workspace_filenames() {
+            if relative_regular_exists(&root, filename)? {
+                out.push(InstructionSource {
+                    path: root_path.join(filename).to_string_lossy().into_owned(),
+                    scope: InstructionScope::Project,
+                    order,
+                    additional_fields: std::collections::BTreeMap::new(),
+                });
+                order = order.saturating_add(1);
+            }
+        }
+        Ok(out)
+    })
+    .await
+    .map_err(|error| format!("bound instructions task join: {error}"))?
+}
+
+fn relative_regular_exists(root: &std::fs::File, relative: &str) -> Result<bool, String> {
+    use rustix::fs::{Mode, OFlags};
+
+    let path = Path::new(relative);
+    let Some(filename) = path.file_name() else {
+        return Err("instruction path is empty".to_owned());
+    };
+    let mut parent = root
+        .try_clone()
+        .map_err(|error| format!("retain instruction root: {error}"))?;
+    if let Some(directories) = path.parent() {
+        for component in directories.components() {
+            let std::path::Component::Normal(directory) = component else {
+                return Err("instruction path is invalid".to_owned());
+            };
+            let fd = match rustix::fs::openat(
+                &parent,
+                directory,
+                OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+                Mode::empty(),
+            ) {
+                Ok(fd) => fd,
+                Err(rustix::io::Errno::NOENT) => return Ok(false),
+                Err(error) => return Err(format!("open instruction directory: {error}")),
+            };
+            parent = std::fs::File::from(fd);
+        }
+    }
+    match rustix::fs::openat(
+        &parent,
+        filename,
+        OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::CLOEXEC | OFlags::NONBLOCK,
+        Mode::empty(),
+    ) {
+        Ok(fd) => {
+            let file = std::fs::File::from(fd);
+            Ok(file
+                .metadata()
+                .map_err(|error| format!("inspect instruction file: {error}"))?
+                .is_file())
+        }
+        Err(rustix::io::Errno::NOENT) => Ok(false),
+        Err(error) => Err(format!("open instruction file: {error}")),
+    }
+}
+
 pub(crate) fn scan_instructions_at(
     home: &Path,
     cwd: &Path,

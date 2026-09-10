@@ -1,8 +1,8 @@
 use std::{collections::HashSet, path::PathBuf, str, thread, time::Duration};
 
 use ghostty_vt::{
-    CheckpointLimits, ClipboardLocation, CompressionProgress, Effect, Key, Modifiers, Screen,
-    Terminal, TerminalPolicy,
+    CheckpointLimits, ClipboardContent, ClipboardLocation, ClipboardWriteOutcome,
+    CompressionProgress, Effect, Key, Modifiers, Screen, Terminal, TerminalPolicy,
 };
 use kodosi_domain::terminal::{
     TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES, TerminalCheckpointV2, TerminalPixelGeometry,
@@ -75,6 +75,8 @@ pub enum TerminalEffect {
     Cwd(PathBuf),
 }
 
+pub type TerminalClipboardWriter = Box<dyn FnMut(String) -> ClipboardWriteOutcome + Send>;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProcessedTerminalOutput {
     pub effects: Vec<TerminalEffect>,
@@ -136,6 +138,16 @@ enum TerminalCommand {
     },
 }
 
+struct TerminalActorConfig {
+    rows: u16,
+    cols: u16,
+    initial_sequence: u64,
+    supports_osc52_clipboard: bool,
+    history: TerminalHistoryPolicy,
+    initial_theme_dark: bool,
+    clipboard_writer: Option<TerminalClipboardWriter>,
+}
+
 impl SessionTerminalHandle {
     pub fn spawn_with_theme(
         rows: u16,
@@ -144,6 +156,26 @@ impl SessionTerminalHandle {
         supports_osc52_clipboard: bool,
         history: TerminalHistoryPolicy,
         initial_theme_dark: bool,
+    ) -> Result<Self> {
+        Self::spawn_with_theme_and_clipboard_writer(
+            rows,
+            cols,
+            initial_sequence,
+            supports_osc52_clipboard,
+            history,
+            initial_theme_dark,
+            None,
+        )
+    }
+
+    pub fn spawn_with_theme_and_clipboard_writer(
+        rows: u16,
+        cols: u16,
+        initial_sequence: u64,
+        supports_osc52_clipboard: bool,
+        history: TerminalHistoryPolicy,
+        initial_theme_dark: bool,
+        clipboard_writer: Option<TerminalClipboardWriter>,
     ) -> Result<Self> {
         let (command_tx, command_rx) = tokio_mpsc::channel(TERMINAL_COMMAND_CAPACITY);
         let (init_tx, init_rx) = std::sync::mpsc::sync_channel(1);
@@ -161,12 +193,15 @@ impl SessionTerminalHandle {
                 };
                 runtime.block_on(terminal_actor_main(
                     command_rx,
-                    rows,
-                    cols,
-                    initial_sequence,
-                    supports_osc52_clipboard,
-                    history,
-                    initial_theme_dark,
+                    TerminalActorConfig {
+                        rows,
+                        cols,
+                        initial_sequence,
+                        supports_osc52_clipboard,
+                        history,
+                        initial_theme_dark,
+                        clipboard_writer,
+                    },
                     init_tx,
                 ));
             })
@@ -297,8 +332,9 @@ impl SessionTerminal {
         supports_osc52_clipboard: bool,
         history: TerminalHistoryPolicy,
         initial_theme_dark: bool,
+        clipboard_writer: Option<TerminalClipboardWriter>,
     ) -> Result<Self> {
-        let terminal = Terminal::new(
+        let mut terminal = Terminal::new(
             cols,
             rows,
             TerminalPolicy {
@@ -310,6 +346,17 @@ impl SessionTerminal {
             },
         )
         .map_err(terminal_error)?;
+        terminal
+            .set_clipboard_writer(clipboard_writer.map(|mut writer| {
+                Box::new(move |location, contents: &[ClipboardContent]| {
+                    let text = match clipboard_text(location, contents) {
+                        Ok(text) => text,
+                        Err(outcome) => return outcome,
+                    };
+                    writer(text)
+                }) as ghostty_vt::ClipboardWriteHandler
+            }))
+            .map_err(terminal_error)?;
         Ok(Self {
             terminal,
             focused_clients: HashSet::new(),
@@ -503,28 +550,36 @@ fn convert_effect(effect: Effect) -> Option<TerminalEffect> {
             String::from_utf8_lossy(&bytes).into_owned(),
         )),
         Effect::Pwd(bytes) => parse_cwd(&bytes).map(TerminalEffect::Cwd),
-        Effect::ClipboardWrite { location, contents } => {
-            if location != ClipboardLocation::Standard {
-                return None;
-            }
-            if contents.is_empty() {
-                return Some(TerminalEffect::ClipboardText(String::new()));
-            }
-            contents.into_iter().find_map(|content| {
-                let mime = str::from_utf8(&content.mime).ok()?;
-                if mime != "text/plain" && mime != "text/plain;charset=utf-8" {
-                    return None;
-                }
-                String::from_utf8(content.data)
-                    .ok()
-                    .map(TerminalEffect::ClipboardText)
-            })
-        }
+        Effect::ClipboardWrite { location, contents } => clipboard_text(location, &contents)
+            .ok()
+            .map(TerminalEffect::ClipboardText),
         Effect::DesktopNotification { title, body } => Some(TerminalEffect::DesktopNotification {
             title: String::from_utf8_lossy(&title).into_owned(),
             body: String::from_utf8_lossy(&body).into_owned(),
         }),
     }
+}
+
+fn clipboard_text(
+    location: ClipboardLocation,
+    contents: &[ClipboardContent],
+) -> std::result::Result<String, ClipboardWriteOutcome> {
+    if location != ClipboardLocation::Standard {
+        return Err(ClipboardWriteOutcome::Unsupported);
+    }
+    if contents.is_empty() {
+        return Ok(String::new());
+    }
+
+    for content in contents {
+        let mime = str::from_utf8(&content.mime).map_err(|_| ClipboardWriteOutcome::InvalidData)?;
+        if mime != "text/plain" && mime != "text/plain;charset=utf-8" {
+            continue;
+        }
+        return String::from_utf8(content.data.clone())
+            .map_err(|_| ClipboardWriteOutcome::InvalidData);
+    }
+    Err(ClipboardWriteOutcome::Unsupported)
 }
 
 fn parse_cwd(raw: &[u8]) -> Option<PathBuf> {
@@ -612,16 +667,24 @@ async fn wait_for_compression(deadline: Option<Instant>) {
     clippy::future_not_send,
     reason = "the Ghostty authority is intentionally !Send and polled only by its dedicated current-thread runtime"
 )]
+#[expect(
+    clippy::too_many_lines,
+    reason = "the terminal actor keeps command ordering and compression scheduling in one loop"
+)]
 async fn terminal_actor_main(
     mut command_rx: tokio_mpsc::Receiver<TerminalCommand>,
-    rows: u16,
-    cols: u16,
-    initial_sequence: u64,
-    supports_osc52_clipboard: bool,
-    history: TerminalHistoryPolicy,
-    initial_theme_dark: bool,
+    config: TerminalActorConfig,
     init_tx: std::sync::mpsc::SyncSender<Result<()>>,
 ) {
+    let TerminalActorConfig {
+        rows,
+        cols,
+        initial_sequence,
+        supports_osc52_clipboard,
+        history,
+        initial_theme_dark,
+        clipboard_writer,
+    } = config;
     let terminal = SessionTerminal::new(
         rows,
         cols,
@@ -629,6 +692,7 @@ async fn terminal_actor_main(
         supports_osc52_clipboard,
         history,
         initial_theme_dark,
+        clipboard_writer,
     );
     let Ok(mut terminal) = terminal else {
         drop(init_tx.send(terminal.map(|_| ())));
@@ -896,6 +960,42 @@ mod tests {
             }),
             Some(TerminalEffect::ClipboardText(String::new()))
         );
+    }
+
+    #[tokio::test]
+    async fn clipboard_ack_follows_the_synchronous_writer_result() -> Result<()> {
+        let (written_tx, written_rx) = std::sync::mpsc::sync_channel(1);
+        let writer = Box::new(move |text| {
+            written_tx.send(text).expect("record clipboard text");
+            ClipboardWriteOutcome::Success
+        });
+        let terminal = SessionTerminalHandle::spawn_with_theme_and_clipboard_writer(
+            4,
+            12,
+            0,
+            true,
+            TerminalHistoryPolicy::default(),
+            true,
+            Some(writer),
+        )?;
+        let output = terminal
+            .process_output(bytes::Bytes::from_static(
+                b"\x1b]5522;type=write:id=session\x1b\\\
+                  \x1b]5522;type=wdata:mime=dGV4dC9wbGFpbg==;S29kb3Np\x1b\\\
+                  \x1b]5522;type=wdata\x1b\\",
+            ))
+            .await?;
+
+        assert_eq!(
+            written_rx.recv().expect("synchronous clipboard result"),
+            "Kodosi"
+        );
+        assert!(output.effects.iter().any(|effect| matches!(
+            effect,
+            TerminalEffect::PtyWrite(response)
+                if response == b"\x1b]5522;type=write:status=DONE:id=session\x1b\\"
+        )));
+        Ok(())
     }
 
     #[tokio::test]

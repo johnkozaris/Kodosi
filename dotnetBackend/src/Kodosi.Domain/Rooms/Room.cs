@@ -9,6 +9,7 @@ public sealed class Room
     public string Slug { get; private set; } = string.Empty;
     public DateTimeOffset CreatedAt { get; private set; }
     public long RosterGeneration { get; private set; }
+    public long TaskRevision { get; private set; }
     public byte[] RosterBody { get; private set; } = [];
     public byte[] RosterSignature { get; private set; } = [];
     public string RosterSignerDeviceId { get; private set; } = string.Empty;
@@ -57,6 +58,15 @@ public sealed class Room
             RosterSignature = rosterSignature,
             RosterSignerDeviceId = rosterSignerDeviceId,
         };
+    }
+
+    public void AdvanceTaskRevision()
+    {
+        if (TaskRevision == long.MaxValue)
+        {
+            throw new InvalidStateException("Room task revision is exhausted.");
+        }
+        TaskRevision++;
     }
 
     public void ReplaceRosterForRemoval(

@@ -42,6 +42,15 @@ pub async fn list_repo_sessions(
     if !db_path.exists() {
         return Ok(Vec::new());
     }
+    list_repo_sessions_at(&db_path, repository).await
+}
+
+pub async fn list_repo_sessions_at(
+    db_path: &Path,
+    repository: &str,
+) -> Result<Vec<RepoSessionRow>, String> {
+    validate_repository_arg(repository)?;
+    let db_path = db_path.to_owned();
     let repo_owned = repository.to_owned();
     tokio::task::spawn_blocking(move || {
         CopilotSessionStore::new(db_path)

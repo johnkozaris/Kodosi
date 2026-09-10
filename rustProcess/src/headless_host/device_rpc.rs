@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub(in crate::headless_host) enum DeviceRpcResponse {
     Revoked {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        history_warning: Option<String>,
         revoked_device_id: String,
         new_generation: u64,
     },

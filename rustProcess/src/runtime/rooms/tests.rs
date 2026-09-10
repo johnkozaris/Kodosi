@@ -59,6 +59,7 @@ fn decrypted_create_fingerprints_ignore_ciphertext_randomness_but_reject_mismatc
         completed_at: None,
         result: None,
         result_author_user_id: None,
+        content_unavailable: false,
     };
     assert!(same_task_create(
         &task,
@@ -179,6 +180,113 @@ fn room_chat_snapshot_collects_all_byte_bounded_pages() {
             .collect::<Vec<_>>(),
         [1, 2]
     );
+}
+
+#[test]
+fn unavailable_history_preserves_message_identity_and_readable_page() {
+    let mut unavailable = chat_message("older", 1);
+    super::present_chat_decryption(&mut unavailable, Err(AppError::RoomContentNotRecipient))
+        .unwrap();
+    assert_eq!(unavailable.id, "older");
+    assert_eq!(unavailable.seq, 1);
+    assert_eq!(
+        unavailable.body,
+        "This message was sent before this device had access."
+    );
+    let readable = chat_message("newer", 2);
+    let mut collector = RoomChatCollector::new(10, true);
+    collector
+        .accept(BackendRoomChatPage {
+            items: vec![unavailable, readable],
+            has_more: false,
+            next_since: None,
+            next_before: None,
+        })
+        .unwrap();
+    assert_eq!(collector.into_items().len(), 2);
+    let mut invalid = chat_message("tampered", 3);
+    assert!(
+        super::present_chat_decryption(
+            &mut invalid,
+            Err(AppError::InvalidBackendData {
+                field: "room.encryptedContent.signature".to_owned(),
+                reason: "invalid signature".to_owned(),
+            })
+        )
+        .is_err()
+    );
+    assert!(is_terminal_room_chat_content_error(
+        &AppError::RoomContentNotRecipient
+    ));
+}
+
+#[tokio::test]
+async fn task_snapshot_conflict_discards_partial_pages_before_retry() {
+    use axum::{Json, extract::Query, response::IntoResponse};
+    use std::{
+        collections::HashMap,
+        sync::{Arc, Mutex},
+    };
+    let requests = Arc::new(Mutex::new(Vec::<HashMap<String, String>>::new()));
+    let router = axum::Router::new().route("/api/rooms/room/tasks", axum::routing::get({
+        let requests = Arc::clone(&requests);
+        move |Query(query): Query<HashMap<String, String>>| {
+            let requests = Arc::clone(&requests);
+            async move {
+                let index = {
+                    let mut requests = requests.lock().unwrap();
+                    requests.push(query);
+                    requests.len()
+                };
+                match index {
+                    1 => ([("Kodosi-Has-More", "true"), ("Kodosi-Next-Offset", "1"),
+                        ("Kodosi-Task-Snapshot", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")],
+                        Json(serde_json::json!([{
+                            "id":"old", "roomId":"room", "createdByUserId":"owner", "title":"unpublished ciphertext",
+                            "description":null, "status":"Open", "revision":1, "assignedSessionId":null,
+                            "assignedSessionIncarnationId":null, "dueAt":null, "createdAt":"2026-09-01T00:00:00Z",
+                            "updatedAt":"2026-09-01T00:00:00Z", "completedAt":null, "result":null, "resultAuthorUserId":null
+                        }]))).into_response(),
+                    2 => (axum::http::StatusCode::CONFLICT, Json(serde_json::json!({
+                        "code":"CONCURRENT_MODIFICATION", "detail":"task order changed"
+                    }))).into_response(),
+                    _ => ([("Kodosi-Has-More", "false"),
+                        ("Kodosi-Task-Snapshot", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")],
+                        Json(serde_json::json!([]))).into_response(),
+                }
+            }
+        }
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap();
+    });
+    let mut config = crate::config::AppConfig::default();
+    config.backend.api = Some(format!("http://{address}/"));
+    let dependencies = crate::runtime::RuntimeDependencies::isolated(&config).unwrap();
+    let runtime = crate::runtime::Runtime::with_dependencies(
+        config,
+        tokio_util::sync::CancellationToken::new(),
+        dependencies,
+    )
+    .unwrap();
+    let tasks = super::RoomApplication::new(&runtime)
+        .fetch_room_tasks("room", None, None)
+        .await
+        .unwrap();
+    assert!(
+        tasks.is_empty(),
+        "no record from an invalidated snapshot may be published"
+    );
+    let requests = requests.lock().unwrap().clone();
+    assert_eq!(requests.len(), 3);
+    assert_eq!(requests[0].get("offset").map(String::as_str), Some("0"));
+    assert_eq!(requests[1].get("snapshot"), Some(&"a".repeat(64)));
+    assert_eq!(requests[1].get("offset").map(String::as_str), Some("1"));
+    assert_eq!(requests[2].get("offset").map(String::as_str), Some("0"));
+    assert!(!requests[2].contains_key("snapshot"));
+    server.abort();
 }
 
 fn chat_message(id: &str, seq: i64) -> BackendRoomChatMessage {

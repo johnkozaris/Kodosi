@@ -3,7 +3,7 @@ use super::{
     Runtime, SessionId, SessionInput, SessionProvenance, SessionRelayCommand, SessionRole,
     TerminalSize,
     dispatch::{ensure_participant_terminal_access, send_session_relay_control},
-    session_input_bytes, session_mode_label, shift_tab_bytes, shift_tab_count_for_agent,
+    session_input_bytes,
 };
 pub(crate) fn owned_remote_record(app: &Runtime, id: SessionId) -> Option<&RemoteSessionRecord> {
     let record = app.state.discovery.session(id)?;
@@ -35,51 +35,6 @@ pub(crate) async fn rename(app: &mut Runtime, id: SessionId, title: String) -> R
         "{} renamed remote session to {}",
         id.short(),
         title
-    ));
-    Ok(())
-}
-
-pub(crate) fn set_mode(
-    app: &mut Runtime,
-    id: SessionId,
-    expected_runtime_incarnation_id: uuid::Uuid,
-    mode: kodosi_domain::session::SessionMode,
-) -> Result<()> {
-    let Some(record) = owned_remote_record(app, id)
-        .filter(|record| record.incarnation_id == Some(expected_runtime_incarnation_id))
-    else {
-        return Err(AppError::NoActiveSession);
-    };
-    let current_mode = record.summary.mode;
-    if current_mode == mode {
-        return Ok(());
-    }
-
-    let shift_tab_count = shift_tab_count_for_agent(
-        record.summary.detected_agent.as_deref(),
-        current_mode,
-        mode,
-        id,
-    )?;
-
-    crate::runtime::sharing::send_remote_owner_input_payload(
-        app,
-        id,
-        shift_tab_bytes(shift_tab_count),
-        "session.mode",
-    )?;
-    let Some(record) = owned_remote_record_mut(app, id)
-        .filter(|record| record.incarnation_id == Some(expected_runtime_incarnation_id))
-    else {
-        return Err(AppError::NoActiveSession);
-    };
-    record.summary.mode = mode;
-    record.summary.last_update = OffsetDateTime::now_utc();
-    app.state.record_log(format!(
-        "{} switched remote mode from {} to {}",
-        id.short(),
-        session_mode_label(current_mode),
-        session_mode_label(mode)
     ));
     Ok(())
 }

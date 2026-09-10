@@ -1,6 +1,11 @@
 pub mod auto_mode;
+pub mod bound_auto_mode;
+pub mod bound_external;
+pub mod bound_memory;
+pub mod bound_projects;
 pub mod cli_version;
 
+pub mod bound_custom_agents;
 pub(crate) mod conversation;
 pub mod copilot_repos;
 pub mod custom_agents;
@@ -13,10 +18,13 @@ pub mod io;
 pub mod legacy_hooks;
 pub mod memory;
 pub(crate) mod memory_dir;
+pub mod open_handoff;
 pub mod path_safety;
+pub mod project_mutations;
 pub mod projects;
 pub mod provider_conversations;
 pub mod sanitizer;
 pub mod settings;
 pub(crate) mod settings_lock;
 pub(crate) mod settings_mutation;
+pub mod settings_tree;

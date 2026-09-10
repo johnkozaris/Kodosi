@@ -661,7 +661,7 @@ pub(crate) fn acknowledge_access_mutation(
     app: &mut Runtime,
     mutation_id: Uuid,
     fingerprint: &str,
-) -> Result<()> {
+) -> Result<bool> {
     let account = app
         .state
         .identity
@@ -669,7 +669,7 @@ pub(crate) fn acknowledge_access_mutation(
         .subject_string()
         .ok_or(AppError::Unauthorized)?;
     let Some(prepared) = app.access_mutations.get(&account, mutation_id)?.cloned() else {
-        return Ok(());
+        return Ok(false);
     };
     if prepared.fingerprint != fingerprint
         || !matches!(
@@ -683,7 +683,7 @@ pub(crate) fn acknowledge_access_mutation(
         });
     }
     app.access_mutations.remove(&account, mutation_id)?;
-    Ok(())
+    Ok(true)
 }
 
 pub(crate) fn prepare_leave_access_mutation(

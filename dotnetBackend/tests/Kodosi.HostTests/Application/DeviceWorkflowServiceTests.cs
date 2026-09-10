@@ -281,8 +281,10 @@ public sealed class DeviceWorkflowServiceTests
         Assert.Equal((userId, 2L, current.UserCode), Assert.Single(realtime.Publications));
     }
 
-    [Fact]
-    public async Task Device_List_Replacement_Invalidates_Older_Approved_Receipts()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Device_List_Replacement_Invalidates_Older_Approved_Receipts(bool revokeDevice)
     {
         var userId = UserId.New();
         var signer = TestDeviceCertificate.CreateDevice(
@@ -294,10 +296,15 @@ public sealed class DeviceWorkflowServiceTests
             signerDeviceId: "signer-device",
             issuedAt: DateTimeOffset.FromUnixTimeMilliseconds(1),
             expiresAt: null);
+        var revoked = TestDeviceCertificate.CreateDevice(
+            userId, "revoked-device", new byte[1184], new byte[1952], "Revoked",
+            "signer-device", DateTimeOffset.FromUnixTimeMilliseconds(1), null);
         var currentList = TestDeviceList.Create(
             userId,
             1,
-            TestDeviceList.Entries([("signer-device", "signer-device")]),
+            TestDeviceList.Entries(revokeDevice
+                ? [("signer-device", "signer-device"), ("revoked-device", "signer-device")]
+                : [("signer-device", "signer-device")]),
             "signer-device",
             [2],
             1,
@@ -320,13 +327,17 @@ public sealed class DeviceWorkflowServiceTests
             TimeSpan.FromMinutes(15), DateTimeOffset.UtcNow);
         older.Approve(1, DateTimeOffset.UtcNow);
         links.RequestsInternal.Add(older);
-        var effects = new ImmediateDeviceListRealtimeEffects();
+        var unitOfWork = new RecordingUnitOfWork();
+        var effects = new ImmediateDeviceListRealtimeEffects(unitOfWork);
+        var invitee = UserId.New();
+        var invitationCancellation = new RecordingRevokedInvitations(unitOfWork, invitee);
         var service = new DeviceListReplacementService(
-            new FakeUserDeviceRepository(signer),
+            new FakeUserDeviceRepository(revokeDevice ? [signer, revoked] : [signer]),
             new FakeUserDeviceListRepository(currentList),
             links,
+            invitationCancellation,
             new FakeUserRepository(user),
-            new FakeSessionKeyBlobRepository(),
+            new EmptyRevocationKeyBlobs(),
             new EmptySemanticRelayLifecycleRepository(),
             new FakeFriendshipRepository(),
             new FakeRoomMemberRepository(),
@@ -334,7 +345,7 @@ public sealed class DeviceWorkflowServiceTests
             new EmptyDeviceRevocationAuditRepository(),
             new ReplacementListVerifier(userId),
             new FakeUserLifecycleLock(),
-            new RecordingUnitOfWork(),
+            unitOfWork,
             effects,
             new EmptyDeviceRevocationDurabilityCoordinator(),
             new NoOpAuthMetrics(),
@@ -359,7 +370,17 @@ public sealed class DeviceWorkflowServiceTests
         Assert.Equal(2, invalidation.CommittedGeneration);
         Assert.Null(invalidation.ExcludingRequestId);
         Assert.NotNull(older.CancelledAt);
-        Assert.Equal(0, effects.PersistCalls);
+        Assert.Equal(revokeDevice ? 1 : 0, effects.PersistCalls);
+        Assert.Equal(revokeDevice ? 1 : 0, invitationCancellation.Calls);
+        if (revokeDevice)
+        {
+            Assert.NotNull(revoked.RevokedAt);
+            Assert.Equal(new[] { invitee, userId }, effects.InvitationAudience);
+        }
+        else
+        {
+            Assert.Empty(effects.InvitationAudience);
+        }
     }
 
     [Fact]
@@ -861,6 +882,16 @@ public sealed class DeviceWorkflowServiceTests
             ReadOnlySpan<byte> signerPublicKey) => true;
     }
 
+    private sealed class EmptyRevocationKeyBlobs : ISessionKeyBlobRepository
+    {
+        public Task<SessionKeyBlob?> GetForDeviceAsync(SessionId sessionId, string recipientDeviceId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task AddRangeAsync(IReadOnlyList<SessionKeyBlob> blobs, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task DeleteForSessionAsync(SessionId sessionId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<DeviceRevocationSessionTarget>> GetSessionTargetsForRecipientDevicesAsync(IReadOnlyCollection<string> recipientDeviceIds, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<DeviceRevocationSessionTarget>>([]);
+        public Task<IReadOnlyList<SessionId>> GetSessionIdsForRecipientDevicesAsync(IReadOnlyCollection<string> recipientDeviceIds, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<int> DeleteForRecipientDevicesAsync(IReadOnlyCollection<string> recipientDeviceIds, CancellationToken ct = default) => Task.FromResult(0);
+    }
+
     private sealed class EmptySemanticRelayLifecycleRepository
         : ISemanticRelayLifecycleRepository
     {
@@ -870,8 +901,7 @@ public sealed class DeviceWorkflowServiceTests
         public Task DeleteForDevicesAsync(
             UserId userId,
             IReadOnlyCollection<string> deviceIds,
-            CancellationToken ct = default) =>
-            throw new NotSupportedException();
+            CancellationToken ct = default) => Task.CompletedTask;
     }
 
     private sealed class EmptyIdentityExposureRepository : IIdentityExposureRepository
@@ -900,13 +930,25 @@ public sealed class DeviceWorkflowServiceTests
     {
         public Task AddAsync(
             DeviceRevocationAuditEntry entry,
-            CancellationToken ct = default) =>
-            throw new NotSupportedException();
+            CancellationToken ct = default) => Task.CompletedTask;
     }
 
-    private sealed class ImmediateDeviceListRealtimeEffects : IDeviceListRealtimeEffects
+    private sealed class RecordingRevokedInvitations(RecordingUnitOfWork unitOfWork, UserId invitee) : IRevokedDeviceInvitationCancellation
+    {
+        public int Calls { get; private set; }
+        public Task<IReadOnlyList<UserId>> CancelPendingAsync(UserId ownerUserId, IReadOnlyCollection<string> revokedDeviceIds, DateTimeOffset cancelledAt, CancellationToken ct = default)
+        {
+            Assert.Equal(0, unitOfWork.CommitCalls);
+            Assert.Contains("revoked-device", revokedDeviceIds);
+            Calls++;
+            return Task.FromResult<IReadOnlyList<UserId>>([invitee]);
+        }
+    }
+
+    private sealed class ImmediateDeviceListRealtimeEffects(RecordingUnitOfWork unitOfWork) : IDeviceListRealtimeEffects
     {
         public int PersistCalls { get; private set; }
+        public IReadOnlyCollection<UserId> InvitationAudience { get; private set; } = [];
 
         public async Task PersistAndEnforceAsync(
             UserId userId,
@@ -928,6 +970,12 @@ public sealed class DeviceWorkflowServiceTests
 
         public void ReportEnforcementPending(Guid revocationId, Exception exception) =>
             throw new NotSupportedException();
+
+        public void PublishInvitationsChanged(IReadOnlyCollection<UserId> audience)
+        {
+            Assert.Equal(1, unitOfWork.CommitCalls);
+            InvitationAudience = audience;
+        }
 
         public void PublishChanged(
             IReadOnlyCollection<UserId> audience,
@@ -953,8 +1001,7 @@ public sealed class DeviceWorkflowServiceTests
 
         public Task CompleteEnforcementAsync(
             Guid revocationId,
-            CancellationToken ct = default) =>
-            throw new NotSupportedException();
+            CancellationToken ct = default) => Task.CompletedTask;
     }
 
     private sealed class RecordingDeviceLinkRealtimeEffects : IDeviceLinkRealtimeEffects

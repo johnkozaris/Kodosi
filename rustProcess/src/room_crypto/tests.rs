@@ -961,7 +961,7 @@ fn roster_history_rejects_duplicate_members_in_an_entry() {
     assert!(plan_roster_history(&room, None).is_err());
 }
 
-fn signing_identity(user_id: &str, device_id: &str) -> (IdentityBundleView, Vec<u8>) {
+pub(super) fn signing_identity(user_id: &str, device_id: &str) -> (IdentityBundleView, Vec<u8>) {
     let keypair = PqdsaKeyPair::generate(&ML_DSA_65_SIGNING).expect("generate ML-DSA keypair");
     let pkcs8 = keypair.to_pkcs8v1().expect("serialize ML-DSA keypair");
     let public_key = keypair.public_key().as_ref().to_vec();

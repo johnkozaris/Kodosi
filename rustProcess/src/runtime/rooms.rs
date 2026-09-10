@@ -42,6 +42,7 @@ pub(crate) struct MailboxRoomChatPage {
 }
 
 pub(crate) struct MailboxRoomTaskPage {
+    pub(crate) snapshot: String,
     pub(crate) items: Vec<MailboxRoomTask>,
     pub(crate) has_more: bool,
     pub(crate) next_offset: Option<usize>,
@@ -187,7 +188,7 @@ impl<'a> RoomApplication<'a> {
             .await?;
         let mut crypto = RoomCryptoContext::new(self.runtime).await?;
         for message in &mut page.items {
-            decrypt_chat(&mut crypto, message).await?;
+            decrypt_chat_for_presentation(&mut crypto, message).await?;
         }
         Ok(page.items)
     }
@@ -229,7 +230,7 @@ impl<'a> RoomApplication<'a> {
                 .fetch_room_chat(room_id, Some(cursor), Some(request_limit))
                 .await?;
             for message in &mut page.items {
-                decrypt_chat(&mut crypto, message).await?;
+                decrypt_chat_for_presentation(&mut crypto, message).await?;
             }
             match collector.accept(page)? {
                 Some(next_since) => cursor = next_since,
@@ -407,10 +408,28 @@ impl<'a> RoomApplication<'a> {
         status: Option<&str>,
         assignee: Option<&str>,
     ) -> Result<Vec<BackendRoomTask>> {
+        let mut retries = 0;
+        loop {
+            match self
+                .fetch_room_task_snapshot(room_id, status, assignee)
+                .await
+            {
+                Err(error) if is_task_snapshot_conflict(&error) && retries < 2 => retries += 1,
+                result => return result,
+            }
+        }
+    }
+
+    async fn fetch_room_task_snapshot(
+        &self,
+        room_id: &str,
+        status: Option<&str>,
+        assignee: Option<&str>,
+    ) -> Result<Vec<BackendRoomTask>> {
         let mut items = Vec::new();
         let mut offset = 0_usize;
         let mut pages = 0_usize;
-        let mut crypto: Option<RoomCryptoContext> = None;
+        let mut snapshot = None;
         loop {
             let page = self
                 .runtime
@@ -421,26 +440,22 @@ impl<'a> RoomApplication<'a> {
                     assignee,
                     Some(offset),
                     Some(ROOM_TASK_PAGE_SIZE),
+                    snapshot.as_deref(),
                 )
                 .await?;
+            snapshot = Some(page.snapshot);
             if page.items.len() > ROOM_TASK_MAX_SNAPSHOT_ITEMS.saturating_sub(items.len()) {
                 return Err(room_task_collection_capacity_error());
             }
-            let mut page_items = page.items;
-            if !page_items.is_empty() && crypto.is_none() {
-                crypto = Some(RoomCryptoContext::new(self.runtime).await?);
-            }
-            if !page_items.is_empty() {
-                let crypto = crypto.as_mut().ok_or_else(|| AppError::Unsupported {
-                    reason: "room task decryption context was not initialized".to_owned(),
-                })?;
-                for task in &mut page_items {
-                    decrypt_task(crypto, task).await?;
-                }
-            }
-            items.extend(page_items);
+            items.extend(page.items);
             pages = pages.saturating_add(1);
             if !page.has_more {
+                if !items.is_empty() {
+                    let mut crypto = RoomCryptoContext::new(self.runtime).await?;
+                    for task in &mut items {
+                        decrypt_task_for_presentation(&mut crypto, task).await?;
+                    }
+                }
                 return Ok(items);
             }
             if pages >= ROOM_TASK_MAX_HTTP_PAGES {
@@ -462,15 +477,23 @@ impl<'a> RoomApplication<'a> {
         assignee: Option<&str>,
         offset: usize,
         limit: usize,
+        snapshot: Option<&str>,
     ) -> Result<kodosi_backend_client::api::BackendRoomTaskPage> {
         let mut page = self
             .runtime
             .backend
-            .fetch_room_tasks(room_id, status, assignee, Some(offset), Some(limit))
+            .fetch_room_tasks(
+                room_id,
+                status,
+                assignee,
+                Some(offset),
+                Some(limit),
+                snapshot,
+            )
             .await?;
         let mut crypto = RoomCryptoContext::new(self.runtime).await?;
         for task in &mut page.items {
-            decrypt_task(&mut crypto, task).await?;
+            decrypt_task_for_presentation(&mut crypto, task).await?;
         }
         Ok(page)
     }
@@ -482,11 +505,19 @@ impl<'a> RoomApplication<'a> {
         assignee: Option<&str>,
         offset: usize,
         limit: usize,
+        snapshot: Option<&str>,
     ) -> Result<MailboxRoomTaskPage> {
         let page = self
             .runtime
             .backend
-            .fetch_room_tasks(room_id, status, assignee, Some(offset), Some(limit))
+            .fetch_room_tasks(
+                room_id,
+                status,
+                assignee,
+                Some(offset),
+                Some(limit),
+                snapshot,
+            )
             .await?;
         let mut crypto = RoomCryptoContext::new(self.runtime).await?;
         let mut outcomes = Vec::with_capacity(page.items.len());
@@ -505,6 +536,7 @@ impl<'a> RoomApplication<'a> {
             }
         }
         Ok(MailboxRoomTaskPage {
+            snapshot: page.snapshot,
             items: outcomes,
             has_more: page.has_more,
             next_offset: page.next_offset,
@@ -816,6 +848,11 @@ fn same_task_create(
         && task.due_at == due_at
 }
 
+pub(crate) fn is_task_snapshot_conflict(error: &AppError) -> bool {
+    matches!(error, AppError::HttpProblem { status: 409, code: Some(code), .. }
+        if code == "CONCURRENT_MODIFICATION")
+}
+
 fn is_conflict(error: &kodosi_backend_client::BackendClientError) -> bool {
     matches!(
         error,
@@ -855,14 +892,33 @@ async fn decrypt_chat(
     Ok(())
 }
 
+async fn decrypt_chat_for_presentation(
+    crypto: &mut RoomCryptoContext,
+    message: &mut BackendRoomChatMessage,
+) -> Result<()> {
+    let result = decrypt_chat(crypto, message).await;
+    present_chat_decryption(message, result)
+}
+
+fn present_chat_decryption(message: &mut BackendRoomChatMessage, result: Result<()>) -> Result<()> {
+    match result {
+        Ok(()) => Ok(()),
+        Err(AppError::RoomContentNotRecipient) => {
+            "This message was sent before this device had access.".clone_into(&mut message.body);
+            Ok(())
+        }
+        Err(error) => Err(error),
+    }
+}
+
 fn is_terminal_room_chat_content_error(error: &AppError) -> bool {
     match error {
+        AppError::RoomContentNotRecipient => true,
         AppError::InvalidBackendData { field, .. } => {
             field == "room.encryptedContent" || field.starts_with("room.encryptedContent.")
         }
         AppError::Unsupported { reason } => {
-            reason == "this device is not a recipient of the room content"
-                || reason.contains("encrypted key blob")
+            reason.contains("encrypted key blob")
                 || reason.contains("ML-KEM-768 decapsulation failed")
                 || reason.contains("wrapped key decryption failed")
                 || reason.contains("frame decryption failed")
@@ -877,6 +933,26 @@ fn is_terminal_room_task_content_error(error: &AppError) -> bool {
         AppError::InvalidBackendData { field, .. }
             if field == "roomTask.description" || field == "roomTask.result"
     ) || is_terminal_room_chat_content_error(error)
+}
+
+async fn decrypt_task_for_presentation(
+    crypto: &mut RoomCryptoContext,
+    task: &mut BackendRoomTask,
+) -> Result<()> {
+    match decrypt_task(crypto, task).await {
+        Ok(()) => Ok(()),
+        Err(AppError::RoomContentNotRecipient) => {
+            task.content_unavailable = true;
+            "Task unavailable on this device".clone_into(&mut task.title);
+            task.description = Some(
+                "This task or its result was encrypted before this device had access.".to_owned(),
+            );
+            task.result = None;
+            task.result_author_user_id = None;
+            Ok(())
+        }
+        Err(error) => Err(error),
+    }
 }
 
 async fn decrypt_task(crypto: &mut RoomCryptoContext, task: &mut BackendRoomTask) -> Result<()> {

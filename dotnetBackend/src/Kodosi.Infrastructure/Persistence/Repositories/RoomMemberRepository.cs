@@ -93,6 +93,24 @@ public sealed class RoomMemberRepository(KodosiDbContext context)
             .OrderBy(roomId => roomId)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<RoomId>> GetHistoricalArtifactRoomIdsAsync(
+        UserId readerUserId,
+        UserId authorUserId,
+        CancellationToken ct = default) =>
+        await _context.RoomMembers
+            .AsNoTracking()
+            .Where(reader => reader.UserId == readerUserId
+                && reader.RevokedAt == null
+                && (_context.RoomChatMessages.Any(message =>
+                        message.RoomId == reader.RoomId && message.AuthorUserId == authorUserId)
+                    || _context.RoomTasks.Any(task => task.RoomId == reader.RoomId
+                        && (task.CreatedByUserId == authorUserId
+                            || (task.Result != null && task.ResultAuthorUserId == authorUserId)))))
+            .Select(reader => reader.RoomId)
+            .Distinct()
+            .OrderBy(roomId => roomId)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<UserId>> GetRoomPeerUserIdsAsync(
         UserId userId,
         CancellationToken ct = default)

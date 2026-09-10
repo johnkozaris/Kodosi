@@ -15,7 +15,9 @@ public interface IRoomTaskRepository
         int candidateLimit,
         CancellationToken ct = default);
 
-    Task<RoomTask> AddIdempotentAsync(
+    Task<RoomTaskCreationResult> AddIdempotentAsync(
         RoomTask task,
         CancellationToken ct = default);
 }
+
+public sealed record RoomTaskCreationResult(RoomTask Task, bool Created);

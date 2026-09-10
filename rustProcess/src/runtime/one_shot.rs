@@ -377,6 +377,7 @@ impl OneShotApp {
             backend: &app.backend,
             device_key_store: &app.device_key_store,
             pin_store: &app.pin_store,
+            room_roster_pins_path: &app.room_roster_pins_path,
             outbox: &mut app.state.runtime_outbox,
         }
         .revoke(target_device_id)
@@ -833,7 +834,8 @@ mod tests {
                     "/api/rooms/{room_id}/tasks",
                     get(move || async move {
                         room_read_counter.fetch_add(1, Ordering::SeqCst);
-                        ([("Kodosi-Has-More", "false")], Json(json!([])))
+                        ([("Kodosi-Has-More", "false"),
+                          ("Kodosi-Task-Snapshot", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")], Json(json!([])))
                     }),
                 );
             let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -1044,8 +1046,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn one_shot_accepts_restored_credentials_from_api_v10() {
-        let server = CompatibilityServer::spawn(10).await;
+    async fn one_shot_accepts_restored_credentials_from_current_api() {
+        let server =
+            CompatibilityServer::spawn(crate::runtime::auth::EXPECTED_BACKEND_API_CONTRACT).await;
         let mut app = OneShotApp {
             app: server.runtime(),
             runtime_authority: None,
@@ -1060,7 +1063,8 @@ mod tests {
 
     #[tokio::test]
     async fn backend_origin_mismatch_starts_signed_out_and_preserves_bound_credentials() {
-        let server = CompatibilityServer::spawn(10).await;
+        let server =
+            CompatibilityServer::spawn(crate::runtime::auth::EXPECTED_BACKEND_API_CONTRACT).await;
         let runtime = server.runtime();
         let stale_origin = "http://127.0.0.1:52385/";
         runtime
@@ -1156,7 +1160,8 @@ mod tests {
 
     #[tokio::test]
     async fn share_transition_reset_requires_runtime_authority_before_touching_evidence() {
-        let server = CompatibilityServer::spawn(10).await;
+        let server =
+            CompatibilityServer::spawn(crate::runtime::auth::EXPECTED_BACKEND_API_CONTRACT).await;
         let mut app = OneShotApp {
             app: server.runtime(),
             runtime_authority: None,
@@ -1190,7 +1195,8 @@ mod tests {
 
     #[tokio::test]
     async fn one_shot_remote_access_fails_closed_on_corruption_quarantine() {
-        let server = CompatibilityServer::spawn(10).await;
+        let server =
+            CompatibilityServer::spawn(crate::runtime::auth::EXPECTED_BACKEND_API_CONTRACT).await;
         let runtime = server.runtime();
         let mut app = OneShotApp {
             app: runtime,
@@ -1241,7 +1247,8 @@ mod tests {
 
     #[tokio::test]
     async fn one_shot_remote_access_settles_cleanup_before_returning_ready() {
-        let server = CompatibilityServer::spawn(10).await;
+        let server =
+            CompatibilityServer::spawn(crate::runtime::auth::EXPECTED_BACKEND_API_CONTRACT).await;
         let runtime = server.runtime();
         let mut app = OneShotApp {
             app: runtime,
@@ -1345,14 +1352,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn periodic_auth_check_recovers_when_backend_returns_with_api_v10() {
+    async fn periodic_auth_check_recovers_when_backend_returns_with_current_api() {
         let server = CompatibilityServer::spawn(1).await;
         let mut app = server.runtime();
         app.initialize().await.unwrap();
         assert!(!app.has_verified_backend_compatibility());
         assert!(app.state.identity.auth.subject().is_none());
 
-        server.set_api_version(10);
+        server.set_api_version(crate::runtime::auth::EXPECTED_BACKEND_API_CONTRACT);
         app.run_periodic_maintenance_force().await;
 
         assert!(app.has_verified_backend_compatibility());
@@ -1364,7 +1371,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn mailbox_waits_for_api_v10_then_resumes_pending_room_work() {
+    async fn mailbox_waits_for_current_api_then_resumes_pending_room_work() {
         let server = CompatibilityServer::spawn(1).await;
         let mut app = server.runtime();
         app.initialize().await.unwrap();
@@ -1401,7 +1408,7 @@ mod tests {
             Some(&BTreeSet::from([DiscoverySurface::RoomTasks]))
         );
 
-        server.set_api_version(10);
+        server.set_api_version(crate::runtime::auth::EXPECTED_BACKEND_API_CONTRACT);
         app.device_enrollment_satisfied = true;
         app.last_auth_refresh_check = None;
         app.run_periodic_maintenance_force().await;

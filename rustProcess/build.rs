@@ -22,7 +22,7 @@ fn main() {
         .and_then(|value| u32::try_from(value).ok())
         .expect("authContractVersion must be a u32");
     let output = format!(
-        "const EXPECTED_BACKEND_API_CONTRACT: u32 = {api};\nconst EXPECTED_BACKEND_AUTH_CONTRACT: u32 = {auth};\n"
+        "pub(crate) const EXPECTED_BACKEND_API_CONTRACT: u32 = {api};\nconst EXPECTED_BACKEND_AUTH_CONTRACT: u32 = {auth};\n"
     );
     let out_dir = PathBuf::from(env::var_os("OUT_DIR").expect("out dir"));
     fs::write(out_dir.join("backend_contract_versions.rs"), output)

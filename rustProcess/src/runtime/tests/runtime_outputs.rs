@@ -29,6 +29,39 @@ fn clipboard_updates_write_to_runtime_clipboard() {
 }
 
 #[test]
+fn clipboard_write_reply_is_sent_after_the_runtime_write_succeeds() {
+    let mut config = AppConfig::default();
+    config.auth.keyring_service = "kodosi.test".to_owned();
+    config.permissions.allow_terminal_clipboard_write = true;
+    let mut app = Runtime::with_dependencies(
+        config.clone(),
+        CancellationToken::new(),
+        crate::runtime::RuntimeDependencies::isolated(&config)
+            .expect("isolated runtime dependencies")
+            .with_clipboard(SystemClipboardBridge::recording()),
+    )
+    .unwrap_or_else(|error| panic!("test app should construct: {error}"));
+    let session_id = SessionId::new();
+    let origin = seed_local_coordinator_origin(&mut app, session_id);
+    let (reply, result) = std::sync::mpsc::sync_channel(1);
+
+    app.handle_session_event(RuntimeSessionEvent::ClipboardWriteRequest {
+        origin,
+        text: "copied synchronously".to_owned(),
+        reply,
+    });
+
+    assert_eq!(
+        result.recv().expect("clipboard result"),
+        kodosi_session::ClipboardWriteOutcome::Success
+    );
+    assert_eq!(
+        app.clipboard.recorded_texts(),
+        vec!["copied synchronously".to_owned()]
+    );
+}
+
+#[test]
 fn clipboard_update_failures_are_logged() {
     let mut config = AppConfig::default();
     config.auth.keyring_service = "kodosi.test".to_owned();
@@ -43,12 +76,18 @@ fn clipboard_update_failures_are_logged() {
     .unwrap_or_else(|error| panic!("test app should construct: {error}"));
     let session_id = SessionId::new();
     let origin = seed_local_coordinator_origin(&mut app, session_id);
+    let (reply, result) = std::sync::mpsc::sync_channel(1);
 
-    app.handle_session_event(RuntimeSessionEvent::ClipboardUpdate {
+    app.handle_session_event(RuntimeSessionEvent::ClipboardWriteRequest {
         origin,
         text: "copied text".to_owned(),
+        reply,
     });
 
+    assert_eq!(
+        result.recv().expect("clipboard result"),
+        kodosi_session::ClipboardWriteOutcome::IoError
+    );
     assert!(
         app.state
             .logs
@@ -71,12 +110,18 @@ fn clipboard_update_is_denied_without_explicit_policy() {
     .unwrap_or_else(|error| panic!("test app should construct: {error}"));
     let session_id = SessionId::new();
     let origin = seed_local_coordinator_origin(&mut app, session_id);
+    let (reply, result) = std::sync::mpsc::sync_channel(1);
 
-    app.handle_session_event(RuntimeSessionEvent::ClipboardUpdate {
+    app.handle_session_event(RuntimeSessionEvent::ClipboardWriteRequest {
         origin,
         text: "denied".to_owned(),
+        reply,
     });
 
+    assert_eq!(
+        result.recv().expect("clipboard result"),
+        kodosi_session::ClipboardWriteOutcome::Denied
+    );
     assert!(app.clipboard.recorded_texts().is_empty());
     assert!(app.state.logs.iter().any(|line| line.contains(
         "denied terminal-originated clipboard write by local policy"

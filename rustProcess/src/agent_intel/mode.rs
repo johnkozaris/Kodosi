@@ -1,6 +1,4 @@
-use time::OffsetDateTime;
-
-use kodosi_domain::{ids::SessionId, session::SessionMode};
+use kodosi_domain::ids::SessionId;
 
 use super::state::AgentIntelState;
 use crate::{
@@ -15,51 +13,47 @@ pub(crate) struct AgentIntelModeCtx<'a> {
 }
 
 impl AgentIntelModeCtx<'_> {
-    pub(crate) fn handle_snapshot(&mut self, id: SessionId, payload: &serde_json::Value) {
+    pub(crate) fn handle_snapshot(
+        &mut self,
+        id: SessionId,
+        payload: &agent_intel::AgentIntelSnapshot,
+    ) {
         let Some(session_incarnation_id) = self
             .local_sessions
             .sessions
             .record(id)
-            .map(|record| record.local_incarnation_id.to_string())
+            .map(|record| record.local_incarnation_id)
         else {
             tracing::debug!(session_id = %id, "ignored agent snapshot without a current incarnation");
             return;
         };
-        let agent_session_id = payload
-            .get("identity")
-            .and_then(|identity| identity.get("vendorSessionId"))
-            .and_then(serde_json::Value::as_str);
+        let agent_session_id = payload.identity.vendor_session_id.as_deref();
         self.intel_state
             .registry
             .set_agent_session_id(id, agent_session_id);
+        let Ok(legacy_payload) = serde_json::to_value(payload) else {
+            tracing::warn!(session_id = %id, "could not serialize typed agent snapshot");
+            return;
+        };
         self.outbox.queue_agent_intel(AgentIntelEvent::Snapshot {
             session_id: id.to_string(),
-            session_incarnation_id,
-            payload: payload.clone(),
+            session_incarnation_id: session_incarnation_id.to_string(),
+            payload: legacy_payload,
         });
+        if let Some(live_set) =
+            self.intel_state
+                .live_authority
+                .upsert(id, session_incarnation_id, payload.clone())
+        {
+            self.outbox.queue_agent_intel(live_set);
+        }
 
-        if let Some(title) = payload
-            .get("identity")
-            .and_then(|identity| identity.get("title"))
-            .and_then(serde_json::Value::as_str)
+        if let Some(title) = payload.identity.title.as_deref()
             && let Some(record) = self.local_sessions.sessions.record_mut(id)
             && !title.is_empty()
             && record.summary.title != title
         {
             title.clone_into(&mut record.summary.title);
         }
-    }
-
-    pub(crate) fn apply_mode_update(&mut self, id: SessionId, mode: SessionMode) {
-        let Some(record) = self.local_sessions.sessions.record_mut(id) else {
-            return;
-        };
-
-        if record.summary.mode == mode {
-            return;
-        }
-
-        record.summary.mode = mode;
-        record.summary.last_update = OffsetDateTime::now_utc();
     }
 }

@@ -339,6 +339,46 @@ fn session_access_recovery_wire_shapes_are_exact() {
     assert_eq!(recovered["originatingAccountEpoch"], 3);
     assert_eq!(recovered["fingerprint"], "b".repeat(64));
     assert_eq!(recovered["outcome"], "applied");
+
+    let reconciled = serde_json::to_value(SessionEvent::AccessMutationReconciled {
+        mutation_id: "01900000-0000-7000-8000-000000000010".to_owned(),
+        present: false,
+    })
+    .expect("reconciliation result should serialize");
+    assert_eq!(reconciled["type"], "session.accessMutationReconciled");
+    assert_eq!(reconciled["present"], false);
+
+    let acknowledged = serde_json::to_value(SessionEvent::AccessMutationAcknowledged {
+        mutation_id: "01900000-0000-7000-8000-000000000010".to_owned(),
+        fingerprint: "c".repeat(64),
+    })
+    .expect("acknowledgment result should serialize");
+    assert_eq!(acknowledged["type"], "session.accessMutationAcknowledged");
+    assert_eq!(acknowledged["fingerprint"], "c".repeat(64));
+}
+
+#[test]
+fn session_access_completion_events_are_in_protocol_authority() {
+    let rendered = crate::protocol_authority::render_desktop_runtime_authority_json()
+        .expect("protocol authority");
+    let authority: serde_json::Value =
+        serde_json::from_str(&rendered).expect("valid protocol authority");
+    let events = authority["sessionEventTypes"]
+        .as_array()
+        .expect("session event types");
+    for expected in [
+        "session.accessMutationReconciled",
+        "session.accessMutationAcknowledged",
+    ] {
+        assert!(
+            events.iter().any(|event| event.as_str() == Some(expected)),
+            "missing {expected}"
+        );
+        assert!(
+            authority["messageShapes"].get(expected).is_some(),
+            "missing {expected} shape"
+        );
+    }
 }
 
 #[test]
