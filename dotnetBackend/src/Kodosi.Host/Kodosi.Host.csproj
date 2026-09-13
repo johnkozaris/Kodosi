@@ -1,40 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
-
   <PropertyGroup>
-    <BackendApiAuthorityPath>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\..\protocol\backend-api-authority.json'))</BackendApiAuthorityPath>
-    <GeneratedContractVersionsPath>$(MSBuildProjectDirectory)/obj/$(Configuration)/$(TargetFramework)/Generated/BackendContractVersions.g.cs</GeneratedContractVersionsPath>
+    <RootNamespace>Kodosi</RootNamespace>
   </PropertyGroup>
-
   <ItemGroup>
-    <ProjectReference Include="..\Kodosi.Application\Kodosi.Application.csproj" />
-    <ProjectReference Include="..\Kodosi.Infrastructure\Kodosi.Infrastructure.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Include="Health/MLDsa65KnownAnswer.json"
-                      LogicalName="Kodosi.Host.Health.MLDsa65KnownAnswer.json" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
+    <PackageReference Include="BouncyCastle.Cryptography" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
-    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
   </ItemGroup>
-
-  <Target Name="GenerateBackendContractVersions"
-          BeforeTargets="CoreCompile"
-          Inputs="$(BackendApiAuthorityPath);$(MSBuildThisFileDirectory)..\..\tools\Kodosi.ContractVersionGenerator\Program.cs"
-          Outputs="$(GeneratedContractVersionsPath)">
-    <Exec Command="dotnet run --project &quot;$(MSBuildThisFileDirectory)..\..\tools\Kodosi.ContractVersionGenerator\Kodosi.ContractVersionGenerator.csproj&quot; --configuration &quot;$(Configuration)&quot; --no-restore -- &quot;$(BackendApiAuthorityPath)&quot; &quot;$(GeneratedContractVersionsPath)&quot;" />
-    <ItemGroup>
-      <Compile Include="$(GeneratedContractVersionsPath)" />
-    </ItemGroup>
-  </Target>
-
+  <ItemGroup>
+    <InternalsVisibleTo Include="Kodosi.HostTests" />
+  </ItemGroup>
 </Project>

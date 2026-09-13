@@ -1,4 +1,3 @@
-mod process_snapshot;
 #[cfg(unix)]
 mod unix;
 
@@ -16,6 +15,5 @@ pub enum WaitOutcome {
     TimedOut,
 }
 
-pub use process_snapshot::{ProcessDetails, ProcessSnapshot, ProcessTarget};
 #[cfg(unix)]
 pub use unix::{KodosiPty, RawFdAsyncReader};

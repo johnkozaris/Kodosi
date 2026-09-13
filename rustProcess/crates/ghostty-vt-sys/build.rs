@@ -16,12 +16,13 @@ const EXPECTED_OPTIMIZE: &str = "ReleaseFast";
 
 fn main() {
     println!("cargo:rerun-if-env-changed=KODOSI_GHOSTTY_DIR");
+    println!("cargo:rerun-if-env-changed=KODOSI_WORKING_TREE_VALIDATION");
     println!("cargo:rerun-if-changed=../../../Ghostty.lock");
     let expected_package_commit = lock_value("package_commit");
     let target = env::var("TARGET").expect("Cargo target triple");
     let artifact = target_artifact(&target);
-    let expected_ghostty_commit = lock_value(artifact.upstream_lock_key);
-    let expected_archive_digest = lock_value(artifact.archive_lock_key);
+    let locked_ghostty_commit = lock_value(artifact.upstream_lock_key);
+    let locked_archive_digest = lock_value(artifact.archive_lock_key);
 
     let root = env::var_os("KODOSI_GHOSTTY_DIR")
         .filter(|path| !path.is_empty())
@@ -32,6 +33,24 @@ fn main() {
     let artifact_dir = root.join(artifact.library_dir);
     let archive = artifact_dir.join("libghostty-vt.a");
     require_package_commit(&root, expected_package_commit);
+    let metadata = fs::read_to_string(&provenance)
+        .unwrap_or_else(|error| panic!("failed to read {}: {error}", provenance.display()));
+    let working_tree = env::var("KODOSI_WORKING_TREE_VALIDATION").as_deref() == Ok("1");
+    let expected_ghostty_commit = if working_tree {
+        metadata_value(&metadata, "ghostty_commit", &provenance)
+    } else {
+        locked_ghostty_commit
+    };
+    let expected_archive_digest = if working_tree {
+        metadata_value(&metadata, artifact.metadata_digest_key, &provenance)
+    } else {
+        locked_archive_digest
+    };
+    if working_tree {
+        println!(
+            "cargo:warning=Non-publishable Ghostty working-tree validation at {expected_ghostty_commit}"
+        );
+    }
     require_platform_ref(
         &platform_ref,
         expected_ghostty_commit,
@@ -42,8 +61,6 @@ fn main() {
     println!("cargo:rerun-if-changed={}", provenance.display());
     println!("cargo:rerun-if-changed={}", archive.display());
 
-    let metadata = fs::read_to_string(&provenance)
-        .unwrap_or_else(|error| panic!("failed to read {}: {error}", provenance.display()));
     require_metadata(
         &metadata,
         "ghostty_commit",

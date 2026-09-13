@@ -3,6 +3,7 @@
 **/bin
 **/obj
 **/TestResults
+**/.tools
+.claude/worktrees
 rustProcess/target
-relayServer/target
 build

@@ -1,30 +1,34 @@
 # Kodosi
 
-**Multiplayer mission control for coding agents on your machine.**
+Kodosi runs real terminals on your computer and lets you use them from your other
+approved devices or share them with trusted friends. Execution stays on the host.
+Remote terminal traffic is encrypted between endpoint devices; the backend stores
+account, device, sharing, and Mission metadata and relays ciphertext.
 
-Kodosi runs Claude Code and Copilot CLI in local shells and lets a developer supervise
-them from the same Mac or another enrolled Mac. It adds fail-closed control and makes a
-live session shareable through E2E-encrypted Missions: pull a teammate in to watch or
-steer, let authorized participants approve or deny pending requests, and hand out a
-time-boxed guest pass. The CLI, protocol, and backend call a Mission a `room`. Execution
-stays on the owner's device; content keys are wrapped to authorized endpoints. The backend stores metadata and
-relays ciphertext.
+- Start a shell, attach to a running terminal, interrupt it, or stop it.
+- Share selected sessions with friends. Everyone admitted has full terminal control,
+  including Stop. Friendship alone does not grant access.
+- Use Missions to organize people and attached terminals. Joining a Mission does not
+  grant access to its terminals.
+- Preview saved Claude Code or Copilot CLI conversations and resume them with the
+  installed provider's native CLI. Open the provider's own configuration files.
 
-Cross-user identity bootstrap is trust-on-first-use. Device-list and roster changes,
-signatures, and rollbacks fail closed after the first pin, but an actively malicious
-backend at first contact stays outside the threat model until safety-number verification
-or independent key transparency ships.
+Closing a terminal view leaves its process running. Stop ends the process. Quitting
+an app that hosts local sessions ends those processes. Saved provider conversations
+remain separate from live sessions.
 
-`rustProcess/` is the arm64 macOS and x86_64 Linux runtime, CLI, and C ABI; Windows runtime/CLI
-support is retired. `dotnetBackend/` is the REST,
-PostgreSQL, and WebSocket relay. `protocol/` contains normative cross-stack manifests, while the
-desktop runtime manifest is generated from Rust wire types. The shipping SwiftUI macOS client lives
-in the sibling `../kodosiSwift` checkout and links the runtime directly. `../KodosiQT` is the
-Linux Qt client under development against the same runtime. The sibling
-`../kodosi-ghostty` package provides the pinned native renderer and headless terminal
-engine.
+## Repository
 
-- Product definition: [`PRODUCT.md`](PRODUCT.md)
-- Product direction: [`PRODUCT-DIRECTION.md`](docs/PRODUCT-DIRECTION.md)
-- Development guidance: [`CLAUDE.md`](CLAUDE.md); this repository's gates run from the root
-  `justfile`, while the shipping client's gates run from `../kodosiSwift/Justfile`
+- `rustProcess/`: shared runtime, command-line client, and C ABI for arm64 macOS and
+  x86_64 Linux.
+- `dotnetBackend/`: one ASP.NET application, PostgreSQL metadata, and WebSocket relay.
+  Run one serving backend process.
+- `protocol/`: current cross-stack contracts. Rust generates the desktop contract.
+- `../kodosiSwift`: native macOS client.
+- `../KodosiQT`: native Linux Qt client.
+- `../kodosi-ghostty`: pinned native renderer and headless terminal engine.
+
+See [PRODUCT.md](PRODUCT.md) for the product boundary and
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for builds, tests, CLI usage, and isolated
+validation. Cross-user identity bootstrap uses trust on first use; an active backend
+substitution before the first identity pin is outside the current threat model.

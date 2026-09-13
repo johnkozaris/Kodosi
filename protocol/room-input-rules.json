@@ -1,17 +1,9 @@
 {
-  "$comment": "Cross-language authority for room input validation: task statuses and plaintext command-field limits. chatBodyMaxLength, taskTitleMaxLength, taskDescriptionMaxLength, and taskResultMaxLength apply before encryption in the runtime and clients. The backend bounds opaque encrypted envelopes separately because it cannot inspect plaintext. Other values are backend request/domain policy mirrored by the clients. .NET ProtocolAuthorityTests, Rust tests/protocol_lock.rs, and Swift WireAuthorityTests pin the applicable values. Changing a value requires updating every named consumer.",
-  "version": 1,
-  "lengthUnit": "utf16CodeUnits",
-  "taskStatuses": ["Open", "InProgress", "Review", "Done", "Archived"],
+  "version": 2,
   "limits": {
-    "roomNameMaxLength": 128,
+    "roomNameMaxBytes": 128,
     "roomSlugMinLength": 3,
     "roomSlugMaxLength": 64,
-    "roomSlugPattern": "^[a-z0-9-]{3,64}$",
-    "chatBodyMaxLength": 4000,
-    "chatRecipientMaxCount": 32,
-    "taskTitleMaxLength": 200,
-    "taskDescriptionMaxLength": 4000,
-    "taskResultMaxLength": 4000
+    "roomSlugPattern": "^[a-z0-9-]{3,64}$"
   }
 }

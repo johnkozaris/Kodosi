@@ -1,268 +1,92 @@
 {
-  "apiContractVersion": 12,
+  "apiContractVersion": 13,
   "authContractVersion": 1,
-  "artifactEndorsements": {
-    "authentication": "required",
-    "signatureDomain": "ARTIFACT_ENDORSEMENT_V1",
-    "artifactDigestDomain": "AUTHENTICATED_ARTIFACT_V1",
-    "identity": ["userId", "identityIncarnationId", "artifactDigest"],
-    "put": {
-      "method": "PUT",
-      "path": "/api/me/artifact-endorsements",
-      "requiredBody": ["identityIncarnationId", "artifactDigest", "endorserDeviceId", "signature"],
-      "authorization": "current identity and active same-user endorser signature",
-      "successStatus": 204
-    },
-    "lookup": {
-      "method": "GET",
-      "path": "/api/users/{userId}/artifact-endorsements",
-      "requiredQuery": ["digest"],
-      "authorization": "same relationship policy as identity bundle lookup",
-      "maximumItems": 1
-    },
-    "inventory": {
-      "method": "GET",
-      "path": "/api/me/artifact-endorsements",
-      "optionalQuery": {"offset": "0..50000", "limit": "1..100"},
-      "maximumItemsPerIdentity": 50000
-    },
-    "responseFields": ["userId", "identityIncarnationId", "artifactDigest", "endorserDeviceId", "signature"],
-    "historicalAuthority": "only exact artifacts endorsed by a current device of the original principal; old certificates and claimed signing timestamps never grant current authority",
-    "revocationPolicy": "preserve verified committed Mission artifacts before revoking their signer; pending invitations signed by a revoked device are cancelled",
-    "identityResetPolicy": "old-incarnation endorsements are never returned or accepted",
-    "backendContentPolicy": "digests and signatures only"
+  "authentication": "OIDC bearer identity and enrolled device proof",
+  "sessionAuthorization": {
+    "ownDevices": "current approved devices of the owner",
+    "friends": "explicit membership in the selected live publication",
+    "terminalControl": [
+      "input",
+      "resize",
+      "focus",
+      "interrupt",
+      "stop"
+    ],
+    "administration": "owner; key publication and membership updates require the hosting device",
+    "friendshipGrantsSessions": false,
+    "missionMembershipGrantsSessions": false
   },
-  "sessionCreationReconciliation": {
-    "method": "GET",
-    "path": "/api/sessions/{sessionId}/creation-receipts/{createIdempotencyKey}",
-    "authentication": "required",
-    "authorization": "ownerOnly",
-    "createIdempotencyKey": "uuid-v7",
-    "lookupAuthority": "session_incarnations",
-    "targetBinding": ["sessionId", "createIdempotencyKey"],
-    "responseFields": [
-      "sessionId",
-      "createIdempotencyKey",
+  "sessionPublication": {
+    "identity": [
+      "id",
       "incarnationId",
-      "generation",
-      "protocolVersion"
+      "hostDeviceId"
     ],
-    "notFoundPolicy": ["nonOwner", "missingKey", "missingSession"],
-    "backendContentPolicy": "identifiersOnly"
+    "reuseAfterEnd": false,
+    "membershipMutation": "replace chosen friend IDs with expected authorizationRevision",
+    "revocation": "advance revision and key generation; persist ready=false before disconnecting or redistributing keys",
+    "inputReplayOnReconnect": false,
+    "historicalMutationReceipts": false,
+    "offlineExpirySeconds": 120,
+    "expiredRecovery": "current hosting device may republish same still-live incarnation with owner-only access and fresh keys"
   },
-  "sessionEnd": {
-    "method": "DELETE",
-    "path": "/api/sessions/{sessionId}",
-    "requiredQuery": ["incarnationId"],
-    "requiredHeaders": {
-      "Idempotency-Key": "uuid-v7 stable across retries",
-      "Kodosi-Attempt-Id": "uuid-v7 fresh per dispatch"
-    },
-    "receiptIdentity": ["ownerUserId", "mutationId"],
-    "receiptTargetBinding": ["sessionId", "incarnationId"],
-    "receiptSemantics": "transactionallyCoupledToSessionEnd",
-    "attemptSemantics": "observabilityOnly",
-    "terminalClientOutcomes": ["success", "notFound"],
-    "retryableClientOutcomes": [
-      "transportFailure",
-      "serverFailure",
-      "CONCURRENT_MODIFICATION"
+  "routes": {
+    "accounts": [
+      "GET /api/me"
     ],
-    "conflictPolicy": "same mutation identity with different target is rejected",
-    "conflictCodes": {
-      "mutationTargetReuse": "SESSION_END_MUTATION_TARGET_CONFLICT",
-      "optimisticConcurrency": "CONCURRENT_MODIFICATION"
-    },
-    "backendContentPolicy": "identifiersOnly"
-  },
-  "sessionAccessMutations": {
-    "authentication": "required",
-    "mutationId": "uuid-v7 stable across retries and unknown-outcome reconciliation",
-    "incarnationId": "required non-empty session incarnation identity",
-    "receiptIdentity": ["requesterUserId", "mutationId"],
-    "receiptTargetBinding": [
-      "sessionId",
-      "incarnationId",
-      "kind",
-      "targetUserId",
-      "accessLevel",
-      "requestedExpiresAt"
+    "identity": [
+      "POST /api/me/devices/challenge",
+      "POST /api/me/device-proofs/challenge",
+      "POST /api/me/devices",
+      "GET /api/me/identity",
+      "GET /api/users/{userId}/identity",
+      "POST /api/me/identity/device-list",
+      "GET /api/me/devices"
     ],
-    "receiptSemantics": "transactionallyCoupledToGrantRevokeOrLeave",
-    "conflictPolicy": "same mutation identity with different exact target is rejected",
-    "conflictCode": "SESSION_ACCESS_MUTATION_TARGET_CONFLICT",
-    "grant": {
-      "method": "POST",
-      "path": "/api/sessions/{sessionId}/access",
-      "authorization": "ownerOnly",
-      "requiredBody": [
-        "expectedIncarnationId",
-        "mutationId",
-        "actorUserId",
-        "accessLevel",
-        "expiresAt"
-      ],
-      "expiryEncoding": "RFC3339 canonicalized to Unix millisecond precision"
-    },
-    "revoke": {
-      "method": "DELETE",
-      "path": "/api/sessions/{sessionId}/access/{actorUserId}",
-      "authorization": "ownerOnly",
-      "requiredQuery": ["expectedIncarnationId", "mutationId"]
-    },
-    "leave": {
-      "method": "DELETE",
-      "path": "/api/sessions/{sessionId}/access/me",
-      "authorization": "authenticatedViewerOnly",
-      "requiredQuery": ["expectedIncarnationId", "mutationId"]
-    },
-    "reconciliation": {
-      "method": "GET",
-      "path": "/api/sessions/{sessionId}/access/mutations/{mutationId}",
-      "requiredQuery": ["expectedIncarnationId"],
-      "authorization": "requesterOnlyByReceiptIdentity",
-      "responseFields": [
-        "mutationId",
-        "sessionId",
-        "incarnationId",
-        "kind",
-        "targetUserId",
-        "accessLevel",
-        "requestedExpiresAt"
-      ],
-      "notFoundPolicy": ["otherRequester", "differentSession", "differentIncarnation", "missingMutation"]
-    },
-    "retryableClientOutcomes": [
-      "transportFailure",
-      "serverFailure",
-      "CONCURRENT_MODIFICATION"
+    "enrollment": [
+      "POST /api/devices/link/init",
+      "GET /api/devices/link/pending",
+      "GET /api/devices/link/requests",
+      "POST /api/devices/link/approve",
+      "POST /api/devices/link/poll",
+      "POST /api/devices/link/ack",
+      "DELETE /api/devices/link/requests/{userCode}"
     ],
-    "unknownOutcomePolicy": "read receipt before refreshing authoritative session and grant projections",
-    "realtimeProjectionFence": "receipt incarnation must still be current before disconnect or invalidation fanout",
-    "backendContentPolicy": "identifiers access policy and expiry only"
+    "friends": [
+      "GET /api/friends",
+      "GET /api/friends/requests",
+      "POST /api/friends/requests",
+      "POST /api/friends/requests/{username}/accept",
+      "POST /api/friends/requests/{username}/reject",
+      "POST /api/friends/requests/{username}/cancel",
+      "DELETE /api/friends/{username}"
+    ],
+    "sessions": [
+      "GET /api/sessions",
+      "POST /api/sessions",
+      "GET /api/sessions/{id}",
+      "PATCH /api/sessions/{id}",
+      "DELETE /api/sessions/{id}",
+      "PUT /api/sessions/{id}/mission",
+      "PUT /api/sessions/{id}/members",
+      "DELETE /api/sessions/{id}/members/me",
+      "GET /api/sessions/{id}/devices",
+      "POST /api/sessions/{id}/keys",
+      "POST /api/sessions/{id}/keys/rotate",
+      "GET /api/sessions/{id}/keys/mine"
+    ],
+    "missions": [
+      "GET /api/rooms",
+      "POST /api/rooms",
+      "GET /api/rooms/{id}",
+      "PATCH /api/rooms/{id}",
+      "DELETE /api/rooms/{id}",
+      "POST /api/rooms/{id}/invitations",
+      "POST /api/rooms/invitations/{id}/accept",
+      "POST /api/rooms/invitations/{id}/reject",
+      "DELETE /api/rooms/{id}/members/{userId}"
+    ]
   },
-  "semanticReceiptMailbox": {
-    "authentication": "required",
-    "deviceHeader": "X-Kodosi-Device-Id",
-    "deviceAuthorization": "active enrolled device required",
-    "sessionLivenessDependency": false,
-    "upload": {
-      "method": "POST",
-      "path": "/api/me/semantic-receipts",
-      "authorization": "owner account and exact owner device",
-      "idempotencyKey": ["requesterUserId", "requestId"],
-      "conflictPolicy": "metadata mismatch conflicts; a metadata-identical retry may carry a newly randomized valid ML-DSA signature and retains the first stored envelope"
-    },
-    "list": {
-      "method": "GET",
-      "path": "/api/me/semantic-receipts",
-      "requiredQuery": [],
-      "optionalQuery": {"limit": "1..64", "cursor": "opaque keyset continuation"},
-      "responseFields": ["items", "nextCursor"],
-      "targetBinding": ["authenticatedRequesterUserId", "authenticatedDeviceId"],
-      "ordering": ["storedAt", "id"],
-      "continuationPolicy": "one bounded page per sync; reset to the first page after nextCursor is absent so unmatched durable receipts remain revisitable",
-      "unmatchedReceiptPolicy": "do not acknowledge or delete a receipt without an exact locally retained request; advance through the page to prevent retry starvation"
-    },
-    "acknowledge": {
-      "method": "POST",
-      "path": "/api/me/semantic-receipts/{requestId}/ack",
-      "targetBinding": ["sessionId", "incarnationId", "requestId", "authenticatedRequesterUserId", "authenticatedDeviceId"],
-      "signatureDomain": "SEMANTIC_RECEIPT_ACK_V1",
-      "mutationOrdering": "only after active-device authorization and requester signature verification"
-    },
-    "backendContentPolicy": "signed metadata and fingerprints only; never semantic plaintext or key material"
-  },
-  "roomTaskPagination": {
-    "method": "GET",
-    "path": "/api/rooms/{roomId}/tasks",
-    "optionalQuery": {"status": "task status", "assignee": "session UUID", "offset": "0 or greater", "limit": "1..500", "snapshot": "opaque 64-character lowercase hex token"},
-    "responseBody": "array of encrypted task records",
-    "requiredResponseHeaders": ["Kodosi-Task-Snapshot", "Kodosi-Has-More"],
-    "continuationHeader": "Kodosi-Next-Offset",
-    "snapshotBinding": ["roomId", "requesterUserId", "roomTaskRevision", "status", "assignee"],
-    "revisionPolicy": "every actual task create, transition or assignment increments the room task revision atomically; idempotent retries and no-op mutations do not",
-    "readPolicy": "page and snapshot are captured under the room lifecycle lock",
-    "continuationPolicy": "echo the first page snapshot on every continuation; reject missing or mismatched response snapshots; never publish a mixed aggregate",
-    "invalidationStatus": 409,
-    "invalidationCode": "CONCURRENT_MODIFICATION",
-    "recoveryPolicy": "discard the partial aggregate and restart at offset zero with bounded retries"
-  },
-  "historicalIdentityReads": {
-    "authorization": "an active Mission reader may read a former member's current identity and artifact endorsements when that Mission retains chat or task content attributed to that author",
-    "directionality": "content readership does not grant the former author reciprocal identity access",
-    "contentAttribution": ["chat.authorUserId", "task.createdByUserId", "task.resultAuthorUserId only when result exists"],
-    "transactionPolicy": "recheck active reader membership and content provenance under candidate room lifecycle locks"
-  },
-  "roomMutations": {
-    "authentication": "required",
-    "requestId": "required canonical uuid-v7 stable across retries",
-    "receiptIdentity": ["authenticatedActorUserId", "operation", "requestId"],
-    "receiptSemantics": "lookup conflict detection domain mutation and terminal result persistence share one scoped DbContext transaction",
-    "receiptOutcomeSemantics": "a matching receipt proves a terminal outcome; operation-specific result values distinguish success from terminal failure",
-    "invitationLifecycleFailureResults": {
-      "Expired": "INVITATION_EXPIRED",
-      "Superseded": "INVITATION_SUPERSEDED"
-    },
-    "conflictPolicy": "same receipt identity with a different exact target fingerprint is rejected",
-    "conflictCode": "ROOM_MUTATION_TARGET_CONFLICT",
-    "operationKeySemantics": "operations object keys are target-fingerprint operation keys",
-    "operationTokenSemantics": "operationToken is used in mutation responses, receipt responses, and the reconciliation operation path segment",
-    "operations": {
-      "acceptInvitation": {
-        "operationToken": "acceptInvitation",
-        "method": "POST",
-        "path": "/api/rooms/invitations/{invitationId}/accept",
-        "requiredBody": ["requestId", "decisionBody", "decisionSignature", "decisionSignerDeviceId"],
-        "targetBinding": ["roomId", "invitationId", "baseRosterGeneration", "proposedRosterGeneration", "decisionBodySha256", "decisionSignatureSha256", "decisionSignerDeviceId"]
-      },
-      "declineInvitation": {
-        "operationToken": "declineInvitation",
-        "method": "POST",
-        "path": "/api/rooms/invitations/{invitationId}/decline",
-        "requiredBody": ["requestId", "decisionBody", "decisionSignature", "decisionSignerDeviceId"],
-        "targetBinding": ["roomId", "invitationId", "baseRosterGeneration", "decisionBodySha256", "decisionSignatureSha256", "decisionSignerDeviceId"]
-      },
-      "cancelInvitation": {
-        "operationToken": "cancelInvitation",
-        "method": "DELETE",
-        "path": "/api/rooms/invitations/{invitationId}",
-        "requiredBody": ["requestId"],
-        "targetBinding": ["roomId", "invitationId", "baseRosterGeneration"]
-      },
-      "removeMember": {
-        "operationToken": "removeMember",
-        "method": "DELETE",
-        "path": "/api/rooms/{roomId}/members/{userId}",
-        "requiredBody": ["requestId", "rosterGeneration", "rosterBody", "rosterSignature", "rosterSignerDeviceId"],
-        "targetBinding": ["roomId", "userId", "baseRosterGeneration", "rosterGeneration", "rosterBodySha256", "rosterSignatureSha256", "rosterSignerDeviceId"]
-      },
-      "assignTask": {
-        "operationToken": "tasks.assign",
-        "method": "POST",
-        "path": "/api/rooms/{roomId}/tasks/{taskId}/assign",
-        "requiredBody": ["requestId", "expectedTaskRevision", "sessionId", "sessionIncarnationId"],
-        "targetBinding": ["roomId", "taskId", "expectedTaskRevision", "sessionId", "sessionIncarnationId"]
-      },
-      "transitionTask": {
-        "operationToken": "tasks.transition",
-        "method": "POST",
-        "path": "/api/rooms/{roomId}/tasks/{taskId}/status",
-        "requiredBody": ["requestId", "expectedTaskRevision", "status", "actorSessionId", "actorSessionIncarnationId", "result"],
-        "targetBinding": ["roomId", "taskId", "expectedTaskRevision", "status", "actorSessionId", "actorSessionIncarnationId", "resultSha256"]
-      }
-    },
-    "responseFields": ["requestId", "operation", "roomId", "entityId", "result", "revision", "assigneeSessionId", "assigneeSessionIncarnationId"],
-    "reconciliation": {
-      "method": "GET",
-      "path": "/api/rooms/mutations/{operation}/{requestId}",
-      "authorization": "authenticatedActorOnlyByReceiptIdentity",
-      "responseFields": ["requestId", "operation", "roomId", "entityId", "result", "revision", "assigneeSessionId", "assigneeSessionIncarnationId", "targetFingerprint", "createdAt"],
-      "notFoundPolicy": ["otherActor", "missingRequest"],
-      "notFoundSemantics": "pointInTimeUnknown",
-      "notFoundTerminal": false,
-      "notFoundClientPolicy": "retain the exact prepared mutation and retry receipt lookup; never infer non-commit or resend from 404 alone"
-    },
-    "backendContentPolicy": "identifiers operation result revisions and SHA-256 target fingerprints only; never roster bodies decision proofs task ciphertext or plaintext"
-  }
+  "missionContent": "directory metadata only; no chat, tasks, or agent dispatch",
+  "backendSecrets": "ciphertext and wrapped session keys only; no endpoint private keys or terminal plaintext"
 }

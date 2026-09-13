@@ -1,5 +1,5 @@
 {
-  "$comment": "Cross-language authority for the device-cert / signed-device-list binary codec bounds. These are parsed on the .NET backend by Kodosi.Domain SignedDeviceListParser / DeviceCertificateParser, with canonical constants in Kodosi.Domain.IdentityWireFormat, from bytes produced by the Rust runtime (rustProcess/src/identity_core/wire_codec.rs + signed_device_list.rs). A mismatch silently rejects valid certificates at the registration endpoint, so both sides are pinned here: .NET ProtocolAuthorityTests.IdentityWireFormatMatchesProtocolAuthority and Rust rust_identity_wire_format_matches_protocol_authority. Changing any value is a wire-breaking change.",
+  "$comment": "Current device certificate and signed-device-list binary bounds, verified by the runtime identity codec and the backend IdentityWireFormat parser. Changing these values changes the identity wire format.",
   "version": 3,
   "maxFieldLength": 65536,
   "maxEntries": 256,

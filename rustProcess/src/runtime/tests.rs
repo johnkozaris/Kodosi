@@ -1,482 +1,685 @@
-use std::collections::{BTreeMap, BTreeSet};
+use super::*;
+use std::sync::Arc;
+use tokio::time::{Instant, timeout};
 
-use time::OffsetDateTime;
-use tokio_util::sync::CancellationToken;
-
-use super::Runtime;
-use super::identity::account_runtimes::SelfDeviceLinkRuntime;
-use crate::{
-    AppError,
-    config::AppConfig,
-    discovery::{RemoteSessionRecord, ShelfItem},
-    host_protocol::{AgentIntelEvent, TerminalEvent},
-    identity_core::{
-        device_cert::{build_self_cert, verify_certificate},
-        device_flow::{DeviceFlowResult, TokenResponse},
-        device_list_pin_store::{
-            DeviceListPinStore, DeviceListPinStoreHandle, PinContext, PinVerdict,
-        },
-        identity_bundle_view::{IdentityBundleView, VerifiedDevice},
-        signed_device_list::{build_bootstrap_list, verify_signed_device_list},
-    },
-    session_runtime::{
-        events::{
-            AccountEpoch, AccountEventOrigin, DiscoverySurface, LocalCoordinatorOrigin,
-            RuntimeSessionEvent,
-        },
-        handles::{
-            OwnedSessionHandle, SessionPtyInstruction, SessionScreenInstruction, SessionSenders,
-        },
-    },
-    sharing::shared_session_registry::SharedSessionState,
-    support::ui::clipboard::SystemClipboardBridge,
-};
-use kodosi_backend_client::user_events::UserEventsHandle;
-use kodosi_domain::{
-    auth::AuthState,
-    ids::{SessionId, UserId},
-    lifecycle::{ConnectionState, RemoteSessionAccessIssue, RemoteSessionAccessState, StopReason},
-    permissions::{AccessLevel, ShareScope},
-    session::{SessionState, SessionSummary},
-    terminal::TerminalSize,
-};
-use tokio::sync::mpsc;
-
-pub(crate) fn resize_identity_for_test(
-    request_id: impl Into<String>,
-    runtime_incarnation_id: impl Into<String>,
-    subscription_id: impl Into<String>,
-    subscription_generation: u64,
-    surface_generation: u64,
-    rows: u16,
-    cols: u16,
-) -> crate::host_protocol::TerminalResizeIdentity {
-    crate::host_protocol::TerminalResizeIdentity {
-        request_id: request_id.into(),
-        expected_runtime_incarnation_id: runtime_incarnation_id.into(),
-        subscription_id: subscription_id.into(),
-        subscription_generation,
-        surface_generation,
-        cols,
-        rows,
-        width_pixels: u32::from(cols) * 10,
-        height_pixels: u32::from(rows) * 20,
-        cell_width_pixels: 10,
-        cell_height_pixels: 20,
-    }
+struct TestRuntime {
+    handle: RuntimeHandle,
+    _storage: tempfile::TempDir,
 }
 
-fn claude_owned_summary(id: SessionId, working_dir: &str) -> SessionSummary {
-    let mut summary = SessionSummary::new_owned(
-        id,
-        "Claude".to_owned(),
-        "kodosi-test".to_owned(),
-        TerminalSize::new(120, 40)
-            .unwrap_or_else(|error| panic!("terminal size should be valid: {error}")),
-        None,
-    );
-    summary.state = SessionState::Running;
-    summary.working_dir = Some(working_dir.to_owned());
-    summary.detected_agent = Some("Claude".to_owned());
-    summary
-}
-
-fn test_user_id() -> UserId {
-    UserId::try_from("11111111-1111-1111-1111-111111111111")
-        .unwrap_or_else(|error| panic!("test user id should be valid: {error}"))
-}
-
-fn authenticate_test_app_as(app: &mut Runtime, subject: UserId) -> AccountEventOrigin {
-    app.state
-        .identity
-        .advance_account_epoch()
-        .expect("test account epoch should advance");
-    app.state.identity.auth = AuthState::Authenticated {
-        subject: Some(subject),
-        expires_at: OffsetDateTime::now_utc(),
-    };
-    AccountEventOrigin {
-        account_user_id: subject.to_string(),
-        epoch: app.state.identity.account_epoch(),
-    }
-}
-
-fn authenticate_test_app(app: &mut Runtime) -> AccountEventOrigin {
-    authenticate_test_app_as(app, test_user_id())
-}
-
-fn current_account_origin(app: &Runtime) -> AccountEventOrigin {
-    AccountEventOrigin {
-        account_user_id: app
-            .state
-            .identity
-            .auth
-            .subject_string()
-            .expect("test app should have an authenticated subject"),
-        epoch: app.state.identity.account_epoch(),
-    }
-}
-
-fn current_host_relay_origin(
-    app: &Runtime,
-    session_id: SessionId,
-    relay_generation: u64,
-) -> crate::session_runtime::events::HostRelayEventOrigin {
-    crate::session_runtime::events::HostRelayEventOrigin {
-        account_origin: current_account_origin(app),
-        session_id,
-        relay_generation,
-    }
-}
-
-pub(crate) fn set_local_incarnation_for_test(
-    app: &mut Runtime,
-    session_id: SessionId,
-    local_incarnation_id: uuid::Uuid,
-) {
-    app.state
-        .local
-        .sessions
-        .record_mut(session_id)
-        .expect("test session should exist")
-        .local_incarnation_id = local_incarnation_id;
-}
-
-pub(crate) fn seed_local_coordinator_origin(
-    app: &mut Runtime,
-    session_id: SessionId,
-) -> LocalCoordinatorOrigin {
-    app.state.local.sessions.insert(SessionSummary::new_owned(
-        session_id,
-        "test".to_owned(),
-        "kodosi-test".to_owned(),
-        TerminalSize::default(),
-        None,
-    ));
-    local_coordinator_origin(app, session_id)
-}
-
-pub(crate) fn local_coordinator_origin(
-    app: &Runtime,
-    session_id: SessionId,
-) -> LocalCoordinatorOrigin {
-    LocalCoordinatorOrigin {
-        session_id,
-        local_incarnation_id: app
-            .state
-            .local
-            .sessions
-            .record(session_id)
-            .expect("test session should have coordinator origin")
-            .local_incarnation_id,
-    }
-}
-
-fn test_session_handle_with_runtime() -> (
-    OwnedSessionHandle,
-    CancellationToken,
-    tokio::task::AbortHandle,
-) {
-    let (screen_tx, _screen_rx) = mpsc::channel::<SessionScreenInstruction>(1);
-    let (pty_tx, _pty_rx) = mpsc::channel::<SessionPtyInstruction>(1);
-    let cancellation = CancellationToken::new();
-    let join_handle = tokio::spawn(std::future::pending::<()>());
-    let abort_handle = join_handle.abort_handle();
-    (
-        OwnedSessionHandle {
-            senders: SessionSenders::new(Some(screen_tx), Some(pty_tx)),
-            cancellation: cancellation.clone(),
-            join_handle,
-        },
-        cancellation,
-        abort_handle,
-    )
-}
-
-fn test_session_handle() -> OwnedSessionHandle {
-    test_session_handle_with_runtime().0
-}
-
-fn insert_owned_session_for_test(
-    app: &mut Runtime,
-    summary: SessionSummary,
-    handle: OwnedSessionHandle,
-) {
-    let id = summary.id;
-    app.state.local.sessions.insert(summary);
-    let incarnation = app
-        .state
-        .local
-        .sessions
-        .record(id)
-        .expect("inserted test session")
-        .local_incarnation_id;
-    assert!(app.terminal_hub.open_local_incarnation(id, incarnation, 0));
-    app.state
-        .local
-        .owned_session_runtimes
-        .attach(id, incarnation, handle);
-}
-
-fn test_self_device_link_runtime_with_code(
-    user_code: &str,
-) -> (
-    SelfDeviceLinkRuntime,
-    CancellationToken,
-    tokio::task::AbortHandle,
-) {
-    let cancellation = CancellationToken::new();
-    let join_handle = tokio::spawn(std::future::pending::<()>());
-    let abort_handle = join_handle.abort_handle();
-    (
-        SelfDeviceLinkRuntime {
-            identity: crate::runtime::identity::account_runtimes::SelfDeviceLinkIdentity {
-                origin: AccountEventOrigin {
-                    account_user_id: test_user_id().to_string(),
-                    epoch: AccountEpoch::for_test(1),
-                },
-                device_id: "device-local".to_owned(),
-                device_label: "Test Mac".to_owned(),
-                user_code: user_code.to_owned(),
-                expires_at: "2099-08-18T09:00:00Z".to_owned(),
-            },
-            cancellation: cancellation.clone(),
-            join_handle,
-        },
-        cancellation,
-        abort_handle,
-    )
-}
-
-fn test_self_device_link_runtime() -> (
-    SelfDeviceLinkRuntime,
-    CancellationToken,
-    tokio::task::AbortHandle,
-) {
-    test_self_device_link_runtime_with_code("ABCD-EFGH")
-}
-
-fn test_user_events_handle() -> (
-    UserEventsHandle,
-    CancellationToken,
-    tokio::task::AbortHandle,
-) {
-    let cancellation = CancellationToken::new();
-    let join_handle = tokio::spawn(std::future::pending::<()>());
-    let abort_handle = join_handle.abort_handle();
-    (
-        UserEventsHandle {
-            cancellation: cancellation.clone(),
-            join_handle,
-        },
-        cancellation,
-        abort_handle,
-    )
-}
-
-fn test_device_flow_poll_task() -> (CancellationToken, tokio::task::JoinHandle<()>) {
-    (
-        CancellationToken::new(),
-        tokio::spawn(std::future::pending::<()>()),
-    )
-}
-
-async fn wait_for_finished(abort_handle: &tokio::task::AbortHandle) {
-    for _ in 0..10 {
-        if abort_handle.is_finished() {
-            return;
+impl TestRuntime {
+    async fn new() -> Self {
+        let storage = tempfile::tempdir().unwrap();
+        let mut config = Config::isolated(&storage.path().canonicalize().unwrap()).unwrap();
+        config.initial_shell = Some("/bin/sh".to_owned());
+        let handle = start(config).await.unwrap();
+        Self {
+            handle,
+            _storage: storage,
         }
-        tokio::task::yield_now().await;
     }
-    assert!(abort_handle.is_finished());
+
+    async fn shutdown(&self) {
+        self.handle.shutdown().await;
+    }
+
+    async fn send(&self, command: Command) {
+        let events = self.handle.snapshot().await.unwrap();
+        let event = events.first().unwrap();
+        self.handle
+            .try_send(CommandEnvelope {
+                account_user_id: event.account_user_id.clone(),
+                account_epoch: event.account_epoch,
+                command,
+            })
+            .unwrap();
+    }
+
+    async fn create(&self) -> (Uuid, Uuid) {
+        let (_, mut events) = self.handle.observe().await.unwrap();
+        let request = Uuid::now_v7().to_string();
+        self.send(Command::CreateSession {
+            request_id: request.clone(),
+            name: "Test terminal".to_owned(),
+            working_dir: None,
+            resume: None,
+        })
+        .await;
+        timeout(Duration::from_secs(10), async {
+            loop {
+                let event = serde_json::to_value(events.recv().await.unwrap()).unwrap();
+                if event["type"] == "sessions.snapshot" {
+                    for entry in event["sessions"].as_array().unwrap() {
+                        if entry["createRequestId"] == request {
+                            return (
+                                Uuid::parse_str(entry["id"].as_str().unwrap()).unwrap(),
+                                Uuid::parse_str(entry["incarnationId"].as_str().unwrap()).unwrap(),
+                            );
+                        }
+                    }
+                }
+                assert_ne!(event["type"], "session.error", "{event}");
+            }
+        })
+        .await
+        .unwrap()
+    }
 }
 
-fn fake_identity_view(user_id: &str, device_id: &str) -> IdentityBundleView {
-    use aws_lc_rs::signature::{KeyPair, ML_DSA_65_SIGNING, PqdsaKeyPair};
+impl Drop for TestRuntime {
+    fn drop(&mut self) {
+        let handle = self.handle.clone();
+        tokio::spawn(async move {
+            handle.shutdown().await;
+        });
+    }
+}
 
-    let keypair = PqdsaKeyPair::generate(&ML_DSA_65_SIGNING).expect("test signing key");
-    let kem_public_key = vec![5; 1184];
-    let signed_certificate = build_self_cert(
-        user_id,
-        device_id,
-        "Test Device",
-        &kem_public_key,
-        &keypair,
-        1_700_000_000_000,
-        None,
+async fn receive_text(subscription: &mut Subscription, wanted: &[u8]) -> Vec<u8> {
+    timeout(Duration::from_secs(10), async {
+        let mut received = Vec::new();
+        while !received.windows(wanted.len()).any(|part| part == wanted) {
+            let frame = subscription
+                .data
+                .recv()
+                .await
+                .expect("terminal output stream");
+            received.extend_from_slice(&frame.bytes);
+        }
+        received
+    })
+    .await
+    .expect("terminal output timeout")
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn local_terminal_keeps_running_after_view_closes_then_stop_removes_it() {
+    let runtime = TestRuntime::new().await;
+    let (session, incarnation) = runtime.create().await;
+    let mut first = runtime.handle.subscribe_terminal(session).await.unwrap();
+    runtime
+        .handle
+        .input(
+            session,
+            incarnation,
+            first.connection_id,
+            Bytes::from_static(b"printf 'first-%s\\n' marker\n"),
+        )
+        .unwrap();
+    receive_text(&mut first, b"first-marker").await;
+    runtime
+        .handle
+        .unsubscribe_terminal(session, first.connection_id)
+        .await;
+    drop(first);
+    let mut second = runtime.handle.subscribe_terminal(session).await.unwrap();
+    runtime
+        .handle
+        .input(
+            session,
+            incarnation,
+            second.connection_id,
+            Bytes::from_static(b"printf 'second-%s\\n' marker\n"),
+        )
+        .unwrap();
+    receive_text(&mut second, b"second-marker").await;
+    let (_, mut events) = runtime.handle.observe().await.unwrap();
+    runtime
+        .send(Command::StopSession {
+            request_id: Uuid::now_v7().to_string(),
+            session_id: session.to_string(),
+            expected_runtime_incarnation_id: incarnation.to_string(),
+        })
+        .await;
+    timeout(Duration::from_secs(12), async {
+        loop {
+            let event = serde_json::to_value(events.recv().await.unwrap()).unwrap();
+            if event["type"] == "sessions.snapshot"
+                && event["sessions"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .all(|entry| entry["id"] != session.to_string())
+            {
+                break;
+            }
+        }
+    })
+    .await
+    .unwrap();
+    assert!(matches!(
+        runtime.handle.subscribe_terminal(session).await,
+        Err(Error::NotFound)
+    ));
+    runtime.shutdown().await;
+    drop(runtime);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn slow_login_does_not_block_local_terminal_or_runtime_observation() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let received = Arc::new(tokio::sync::Notify::new());
+    let signal = Arc::clone(&received);
+    let server = tokio::spawn(async move {
+        let (socket, _) = listener.accept().await.unwrap();
+        signal.notify_one();
+        tokio::time::sleep(Duration::from_secs(30)).await;
+        drop(socket);
+    });
+    let storage = tempfile::tempdir().unwrap();
+    let mut config = Config::isolated(&storage.path().canonicalize().unwrap()).unwrap();
+    config.initial_shell = Some("/bin/sh".to_owned());
+    config.oidc_issuer = format!("http://{address}");
+    let runtime = TestRuntime {
+        handle: start(config).await.unwrap(),
+        _storage: storage,
+    };
+    let (session, incarnation) = runtime.create().await;
+    let mut terminal = runtime.handle.subscribe_terminal(session).await.unwrap();
+    runtime.send(Command::Login {}).await;
+    timeout(Duration::from_secs(3), received.notified())
+        .await
+        .unwrap();
+    let (_, _) = timeout(Duration::from_millis(500), runtime.handle.observe())
+        .await
+        .expect("login blocked registry")
+        .unwrap();
+    runtime
+        .handle
+        .input(
+            session,
+            incarnation,
+            terminal.connection_id,
+            Bytes::from_static(b"printf 'during-%s\\n' login\n"),
+        )
+        .unwrap();
+    receive_text(&mut terminal, b"during-login").await;
+    timeout(Duration::from_secs(12), runtime.shutdown())
+        .await
+        .expect("shutdown waited for login HTTP timeout");
+    drop(runtime);
+    server.abort();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn stale_epoch_cannot_create_or_shutdown_current_runtime() {
+    let runtime = TestRuntime::new().await;
+    let (snapshot, mut events) = runtime.handle.observe().await.unwrap();
+    let scope = &snapshot[0];
+    for command in [
+        Command::CreateSession {
+            request_id: Uuid::now_v7().to_string(),
+            name: "stale".to_owned(),
+            working_dir: None,
+            resume: None,
+        },
+        Command::Shutdown {},
+    ] {
+        runtime
+            .handle
+            .try_send(CommandEnvelope {
+                account_user_id: scope.account_user_id.clone(),
+                account_epoch: scope.account_epoch + 1,
+                command,
+            })
+            .unwrap();
+    }
+    timeout(Duration::from_secs(2), async {
+        let mut errors = 0;
+        while errors < 2 {
+            let event = events.recv().await.unwrap();
+            if matches!(event.kind(), "session.error" | "system.error") {
+                errors += 1;
+            }
+        }
+    })
+    .await
+    .unwrap();
+    let snapshot = runtime.handle.snapshot().await.unwrap();
+    let sessions = snapshot
+        .iter()
+        .find(|event| event.kind() == "sessions.snapshot")
+        .unwrap();
+    assert!(
+        serde_json::to_value(sessions).unwrap()["sessions"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    runtime.shutdown().await;
+    drop(runtime);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn concurrent_shutdown_waits_for_the_same_completion() {
+    let runtime = TestRuntime::new().await;
+    let _ = runtime.create().await;
+    let first = runtime.handle.clone();
+    let second = runtime.handle.clone();
+    timeout(Duration::from_secs(12), async move {
+        tokio::join!(first.shutdown(), second.shutdown());
+    })
+    .await
+    .unwrap();
+    timeout(Duration::from_millis(100), runtime.handle.stopped())
+        .await
+        .unwrap();
+    assert!(matches!(
+        runtime.handle.snapshot().await,
+        Err(Error::Stopped)
+    ));
+    runtime.shutdown().await;
+    drop(runtime);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn create_retry_is_exact_and_does_not_launch_a_second_process() {
+    let runtime = TestRuntime::new().await;
+    let command = Command::CreateSession {
+        request_id: Uuid::now_v7().to_string(),
+        name: "same".to_owned(),
+        working_dir: None,
+        resume: None,
+    };
+    runtime.send(command.clone()).await;
+    runtime.send(command.clone()).await;
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let events = runtime.handle.snapshot().await.unwrap();
+        let sessions = serde_json::to_value(
+            events
+                .iter()
+                .find(|event| event.kind() == "sessions.snapshot")
+                .unwrap(),
+        )
+        .unwrap();
+        if sessions["sessions"].as_array().unwrap().len() == 1 {
+            break;
+        }
+        assert!(Instant::now() < deadline);
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    let (_, mut events) = runtime.handle.observe().await.unwrap();
+    runtime.send(command).await;
+    timeout(Duration::from_secs(2), async {
+        loop {
+            if events.recv().await.unwrap().kind() == "session.result" {
+                break;
+            }
+        }
+    })
+    .await
+    .unwrap();
+    let snapshot = runtime.handle.snapshot().await.unwrap();
+    let sessions = snapshot
+        .iter()
+        .find(|event| event.kind() == "sessions.snapshot")
+        .unwrap();
+    assert_eq!(
+        serde_json::to_value(sessions).unwrap()["sessions"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    runtime.shutdown().await;
+    drop(runtime);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn generic_terminal_command_cannot_bypass_subscription_admission() {
+    let runtime = TestRuntime::new().await;
+    let (session, incarnation) = runtime.create().await;
+    let snapshot = runtime.handle.snapshot().await.unwrap();
+    let error = runtime
+        .handle
+        .try_send(CommandEnvelope {
+            account_user_id: snapshot[0].account_user_id.clone(),
+            account_epoch: snapshot[0].account_epoch,
+            command: Command::Focus {
+                request_id: Uuid::now_v7().to_string(),
+                session_id: session.to_string(),
+                expected_runtime_incarnation_id: incarnation.to_string(),
+                client_id: Uuid::now_v7().to_string(),
+                subscription_generation: 1,
+            },
+        })
+        .unwrap_err();
+    assert!(matches!(error, Error::Invalid(_)));
+    runtime.shutdown().await;
+    drop(runtime);
+}
+
+fn registry_fixture() -> (Runtime, tempfile::TempDir) {
+    let root = tempfile::tempdir().unwrap();
+    let config = Config::isolated(&root.path().canonicalize().unwrap()).unwrap();
+    let network = Network::new(NetworkConfig {
+        api_url: config.backend_url.clone(),
+        issuer: config.oidc_issuer.clone(),
+        client_id: config.oidc_client_id.clone(),
+        scopes: config.oidc_scopes.clone(),
+        audience: None,
+        data_root: config.data_root.clone(),
+        secret_service: config.secret_service.clone(),
+        isolated: true,
+    })
+    .unwrap();
+    let scope = Scope {
+        user: None,
+        epoch: 0,
+        network_generation: network.generation(),
+    };
+    let (events, _) = broadcast::channel(256);
+    let (changes, _) = mpsc::channel(128);
+    (
+        Runtime {
+            config,
+            network,
+            events,
+            scope,
+            local: HashMap::new(),
+            creating: HashMap::new(),
+            remotes: HashMap::new(),
+            connections: HashMap::new(),
+            opening: HashMap::new(),
+            reconnect: HashMap::new(),
+            publishing: BTreeSet::new(),
+            retiring: BTreeSet::new(),
+            unpublishing: BTreeSet::new(),
+            administering: BTreeSet::new(),
+            jobs: JoinSet::new(),
+            changes,
+            dark: true,
+            initializing: false,
+            auth_pending: false,
+            latest_auth: None,
+            cached_events: BTreeMap::new(),
+        },
+        root,
     )
-    .expect("test certificate");
-    let signed_list = build_bootstrap_list(user_id, device_id, &keypair, 1_700_000_000_000, None)
-        .expect("test device list");
-    let sig_public_key = keypair.public_key().as_ref().to_vec();
-    let certificate = verify_certificate(
-        &signed_certificate.body_bytes,
-        &signed_certificate.signature,
-        &sig_public_key,
-    )
-    .expect("verified test certificate");
-    let parsed_list = verify_signed_device_list(
-        &signed_list.body_bytes,
-        &signed_list.signature,
-        &sig_public_key,
-    )
-    .expect("verified test list");
-    let mut devices = BTreeMap::new();
-    devices.insert(
-        device_id.to_owned(),
-        VerifiedDevice {
-            certificate,
-            sig_public_key,
-            certificate_body: signed_certificate.body_bytes,
-            certificate_signature: signed_certificate.signature,
+}
+
+fn remote_session(id: Uuid, incarnation_id: Uuid) -> RemoteSession {
+    RemoteSession {
+        id,
+        incarnation_id,
+        name: "Remote".to_owned(),
+        owner_user_id: Uuid::now_v7().to_string(),
+        owner_name: "Friend".to_owned(),
+        host_device_id: "other-device".to_owned(),
+        host_name: "Other computer".to_owned(),
+        room_id: None,
+        room_name: None,
+        shared_with: vec![],
+        online: true,
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn login_failure_after_retiring_account_is_visible_and_retryable() {
+    let runtime = TestRuntime::new().await;
+    for _ in 0..2 {
+        let (_, mut events) = runtime.handle.observe().await.unwrap();
+        runtime.send(Command::Login {}).await;
+        let error = timeout(Duration::from_secs(5), async {
+            loop {
+                let event = events.recv().await.unwrap();
+                if event.kind() == "auth.error" {
+                    break event;
+                }
+            }
+        })
+        .await
+        .expect("login error dropped after generation changed");
+        let value = serde_json::to_value(&error).unwrap();
+        assert_eq!(value["operation"], "auth.login.start");
+        let snapshot = runtime.handle.snapshot().await.unwrap();
+        assert_eq!(error.account_epoch, snapshot[0].account_epoch);
+    }
+    runtime.shutdown().await;
+    drop(runtime);
+}
+
+#[tokio::test]
+async fn input_admission_is_byte_bounded_before_the_registry_polls() {
+    let (commands, mut requests) = mpsc::channel(COMMAND_CAPACITY);
+    let (events, _) = broadcast::channel(16);
+    let (_stopped, stopped) = watch::channel(false);
+    let handle = RuntimeHandle {
+        commands,
+        events,
+        stopped,
+        input_budget: Arc::new(Semaphore::new(MAX_QUEUED_INPUT_BYTES)),
+    };
+    let (session, incarnation, connection) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
+    let bytes = Bytes::from(vec![b'x'; 1024 * 1024]);
+    for _ in 0..4 {
+        handle
+            .input(session, incarnation, connection, bytes.clone())
+            .unwrap();
+    }
+    assert!(matches!(
+        handle.input(session, incarnation, connection, bytes.clone()),
+        Err(Error::Busy)
+    ));
+    drop(requests.recv().await);
+    handle
+        .input(session, incarnation, connection, bytes)
+        .unwrap();
+}
+
+#[tokio::test]
+async fn stale_discovery_does_not_cancel_a_direct_link_open() {
+    let (mut runtime, _root) = registry_fixture();
+    let id = Uuid::now_v7();
+    let cancellation = CancellationToken::new();
+    runtime.opening.insert(
+        id,
+        Opening {
+            attempt: Uuid::now_v7(),
+            cancellation: cancellation.clone(),
+            commands: vec![],
         },
     );
-    IdentityBundleView {
-        user_id: user_id.to_owned(),
-        identity_revision: 1,
-        identity_incarnation_id: uuid::Uuid::from_u128(0x0190_0000_0000_7000_8000_0000_0000_0001),
-        signed_list: parsed_list,
-        list_body: signed_list.body_bytes,
-        list_signature: signed_list.signature,
-        devices,
-        historical_devices: BTreeMap::new(),
-    }
+    runtime.replace_remotes(vec![]);
+    assert!(runtime.opening.contains_key(&id));
+    assert!(!cancellation.is_cancelled());
 }
 
-fn test_shared_session_state() -> SharedSessionState {
-    SharedSessionState::new(
-        "backend-session-1".to_owned(),
-        uuid::Uuid::from_u128(1),
-        "owner-secret".to_owned(),
-        kodosi_domain::permissions::ShareScope::MyDevices,
-        None,
-        Some([9; 32]),
-        Some(1),
-    )
-}
-
-fn app_with_shared_cached_session(state: SessionState) -> (Runtime, SessionId) {
-    let mut config = AppConfig::default();
-    config.auth.keyring_service = "kodosi.test".to_owned();
-    let mut app = Runtime::with_dependencies(
-        config.clone(),
-        CancellationToken::new(),
-        crate::runtime::RuntimeDependencies::isolated(&config)
-            .expect("isolated runtime dependencies"),
-    )
-    .unwrap_or_else(|error| panic!("test app should construct: {error}"));
-    let id = SessionId::new();
-    let mut summary = claude_owned_summary(id, "/tmp/kodosi");
-    summary.state = state;
-    app.state.local.sessions.insert(summary);
-    app.state
-        .sharing
-        .shared_sessions
-        .insert(id, test_shared_session_state());
-    app.state.sync_host_relay_status();
-    let expected_status = if matches!(state, SessionState::Stopped | SessionState::Failed) {
+#[tokio::test]
+async fn closed_remote_is_not_reported_connected_and_old_close_cannot_replace_new_connection() {
+    let (mut runtime, _root) = registry_fixture();
+    let id = Uuid::now_v7();
+    let incarnation = Uuid::now_v7();
+    let remote = remote_session(id, incarnation);
+    let (old, _requests, _updates) = crate::network::test_remote_connection(remote.clone());
+    runtime
+        .connections
+        .insert(id, RemoteTerminal::spawn(old, runtime.changes.clone()));
+    let old_instance = runtime.connections[&id].instance_id;
+    runtime.connections[&id].disconnect();
+    runtime.replace_remotes(vec![remote.clone()]);
+    assert_eq!(
+        runtime.remotes[&id].connection_state,
         ConnectionState::Offline
-    } else {
-        ConnectionState::Connected
+    );
+    assert!(!runtime.connections.contains_key(&id));
+    let (new, _requests, _updates) = crate::network::test_remote_connection(remote);
+    runtime
+        .connections
+        .insert(id, RemoteTerminal::spawn(new, runtime.changes.clone()));
+    let new_instance = runtime.connections[&id].instance_id;
+    runtime.change(SessionChange::RemoteClosed {
+        id,
+        incarnation,
+        instance_id: old_instance,
+        reason: "old connection".to_owned(),
+    });
+    assert_eq!(runtime.connections[&id].instance_id, new_instance);
+    runtime.connections[&id].disconnect();
+}
+
+#[tokio::test]
+async fn observation_retains_pending_sign_in_and_discards_stale_auth_events() {
+    let (mut runtime, _root) = registry_fixture();
+    let pending = json!({"type":"auth.device_code", "userCode":"ABCD-EFGH", "verificationUri":"https://example.invalid/device"});
+    runtime.network_event(NetworkEvent {
+        generation: runtime.network.generation(),
+        user_id: None,
+        event: pending.clone(),
+    });
+    assert_eq!(runtime.auth_event(), pending);
+    runtime.network_event(NetworkEvent {
+        generation: runtime.network.generation() - 1,
+        user_id: None,
+        event: json!({"type":"auth.required", "reason":"signedOut"}),
+    });
+    assert_eq!(runtime.auth_event(), pending);
+    runtime.network_event(NetworkEvent { generation: runtime.network.generation(), user_id: None, event: json!({"type":"auth.error", "operation":"auth.login.start", "message":"Code expired"}) });
+    assert_eq!(runtime.auth_event()["type"], "auth.required");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_directory() {
+    let runtime = TestRuntime::new().await;
+    let (_, mut events) = runtime.handle.observe().await.unwrap();
+    let request_id = Uuid::now_v7().to_string();
+    let command = Command::CreateSession {
+        request_id: request_id.clone(),
+        name: "ordered".to_owned(),
+        working_dir: None,
+        resume: None,
     };
-    assert_eq!(app.state.host_ws_status, expected_status);
-    (app, id)
+    runtime.send(command).await;
+    timeout(Duration::from_secs(5), async {
+        let mut observed = false;
+        loop {
+            let value = serde_json::to_value(events.recv().await.unwrap()).unwrap();
+            if value["type"] == "sessions.snapshot" {
+                observed |= value["sessions"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|entry| entry["createRequestId"] == request_id);
+            }
+            if value["type"] == "session.result" && value["requestId"] == request_id {
+                assert!(observed);
+                break;
+            }
+        }
+    })
+    .await
+    .unwrap();
+    runtime
+        .send(Command::CreateSession {
+            request_id: request_id.clone(),
+            name: "ordered".to_owned(),
+            working_dir: Some("/".to_owned()),
+            resume: None,
+        })
+        .await;
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let event = serde_json::to_value(events.recv().await.unwrap()).unwrap();
+            if event["type"] == "session.error" && event["requestId"] == request_id {
+                break;
+            }
+        }
+    })
+    .await
+    .unwrap();
+    runtime.shutdown().await;
+    drop(runtime);
 }
 
-fn test_app() -> Runtime {
-    let mut config = AppConfig::default();
-    config.auth.keyring_service = "kodosi.test".to_owned();
-    Runtime::with_dependencies(
-        config.clone(),
-        CancellationToken::new(),
-        crate::runtime::RuntimeDependencies::isolated(&config)
-            .expect("isolated runtime dependencies"),
-    )
-    .unwrap_or_else(|error| panic!("test app should construct: {error}"))
-}
-
-impl Runtime {
-    fn insert_action_result_in_flight_for_test(&mut self, key: (SessionId, String, String, u64)) {
-        self.action_results_in_flight.insert(key);
-    }
-
-    fn action_result_in_flight_for_test(&self, key: &(SessionId, String, String, u64)) -> bool {
-        self.action_results_in_flight.contains(key)
-    }
-
-    fn insert_semantic_receipt_in_flight_for_test(&mut self, key: (SessionId, uuid::Uuid, u64)) {
-        self.semantic_receipts_in_flight.insert(key);
-    }
-
-    fn semantic_receipt_in_flight_for_test(&self, key: &(SessionId, uuid::Uuid, u64)) -> bool {
-        self.semantic_receipts_in_flight.contains(key)
-    }
-
-    fn set_share_transition_deadline_for_test(
-        &mut self,
-        transition_id: uuid::Uuid,
-        deadline: std::time::Instant,
-    ) {
-        self.share_transition_deadlines
-            .insert(transition_id, deadline);
-    }
-
-    fn install_share_transition_deadline_for_test(&mut self, transition_id: uuid::Uuid) {
-        self.share_transition_deadlines.insert(
-            transition_id,
-            std::time::Instant::now() + std::time::Duration::from_secs(500),
-        );
-    }
-
-    fn spawn_panicking_share_worker_for_test(
-        &mut self,
-        prepared: crate::runtime::share_transitions::PreparedShareTransition,
-        mode: crate::runtime::share_transition_worker::ShareTransitionWorkerMode,
-    ) -> crate::Result<()> {
-        self.spawn_share_transition_worker(
-            prepared,
-            crate::runtime::share_transition_worker::ShareTransitionWorkerInput::Panic { mode },
+#[tokio::test]
+async fn first_remote_open_retains_retry_demand_until_explicit_disconnect() {
+    let (mut runtime, _root) = registry_fixture();
+    let id = Uuid::now_v7();
+    runtime.replace_remotes(vec![remote_session(id, Uuid::now_v7())]);
+    runtime
+        .open_remote(
+            id,
+            Command::OpenRemote {
+                request_id: Uuid::now_v7().to_string(),
+                session_id: id.to_string(),
+            },
         )
-    }
-
-    fn share_completion_matches_for_test(
-        &self,
-        prepared: &crate::runtime::share_transitions::PreparedShareTransition,
-        completion_account_epoch: u64,
-        mode: crate::runtime::share_transition_worker::ShareTransitionWorkerMode,
-    ) -> bool {
-        self.share_completion_matches(prepared, completion_account_epoch, mode)
-    }
-
-    fn finish_applied_share_transition_for_test(
-        &mut self,
-        prepared: &crate::runtime::share_transitions::PreparedShareTransition,
-    ) -> crate::Result<()> {
-        self.finish_share_transition(
-            prepared,
-            crate::runtime::share_transitions::ShareTransitionTerminalStatus::Applied,
-            None,
-            crate::runtime::share_transitions::DeferredShareVerdict::ScopeChanged,
-        )
-    }
-
-    fn collaboration_change_active_for_test(
-        &self,
-        account_user_id: &str,
-        session_id: SessionId,
-    ) -> crate::Result<bool> {
-        self.collaboration_change_active(account_user_id, session_id)
-    }
+        .unwrap();
+    assert!(runtime.reconnect.contains_key(&id));
+    let attempt = runtime.opening[&id].attempt;
+    runtime.complete(Job {
+        scope: runtime.scope.clone(),
+        completion: Completion::Connected {
+            id,
+            attempt,
+            result: Err(Error::Stale),
+        },
+    });
+    assert!(runtime.reconnect.contains_key(&id));
+    runtime
+        .apply(&Command::DisconnectRemote {
+            session_id: id.to_string(),
+        })
+        .unwrap();
+    assert!(!runtime.reconnect.contains_key(&id));
 }
 
-mod account;
-mod agent_intel;
-mod discovery_session_shelf;
-mod pin_reset;
-mod relays;
-mod runtime_outputs;
-mod session_lifecycle;
-mod share_state;
-mod share_transitions;
-mod steering_lifecycle;
-mod terminal_focus_lifecycle;
+#[tokio::test]
+async fn remote_recovery_preserves_only_open_current_incarnations() {
+    let (mut runtime, _root) = registry_fixture();
+    let id = Uuid::now_v7();
+    let incarnation = Uuid::now_v7();
+    let remote = remote_session(id, incarnation);
+    runtime.replace_remotes(vec![remote]);
+    runtime.reconnect.insert(
+        id,
+        Reconnect {
+            incarnation,
+            failures: 0,
+            next: Instant::now(),
+        },
+    );
+    runtime.reconnect_views();
+    assert!(runtime.opening[&id].commands.is_empty());
+    runtime
+        .apply(&Command::DisconnectRemote {
+            session_id: id.to_string(),
+        })
+        .unwrap();
+    assert!(!runtime.reconnect.contains_key(&id));
+    assert!(!runtime.opening.contains_key(&id));
+    runtime.reconnect.insert(
+        id,
+        Reconnect {
+            incarnation,
+            failures: 0,
+            next: Instant::now(),
+        },
+    );
+    runtime.replace_remotes(vec![remote_session(id, Uuid::now_v7())]);
+    assert!(!runtime.reconnect.contains_key(&id));
+}
+
+#[tokio::test]
+async fn catalog_replacement_cancels_inflight_automatic_recovery() {
+    let (mut runtime, _root) = registry_fixture();
+    let id = Uuid::now_v7();
+    let incarnation = Uuid::now_v7();
+    runtime.replace_remotes(vec![remote_session(id, incarnation)]);
+    runtime.reconnect.insert(
+        id,
+        Reconnect {
+            incarnation,
+            failures: 0,
+            next: Instant::now(),
+        },
+    );
+    runtime.reconnect_views();
+    let cancellation = runtime.opening[&id].cancellation.clone();
+    runtime.replace_remotes(vec![remote_session(id, Uuid::now_v7())]);
+    assert!(cancellation.is_cancelled());
+    assert!(!runtime.opening.contains_key(&id));
+    assert!(!runtime.reconnect.contains_key(&id));
+}

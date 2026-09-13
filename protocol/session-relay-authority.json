@@ -1,1174 +1,171 @@
 {
-  "relayProtocolVersion": 10,
+  "relayProtocolVersion": 11,
   "compatibilityPolicy": "exactMatch",
-  "payloadAuthority": "The backend relays terminal and pending-permission payloads as ciphertext only and parses only authenticated routing headers.",
-  "unknownMessagePolicy": "terminalClose",
-  "malformedPayloadPolicy": "terminalClose",
-  "messages": {
-    "device.proofChallenge": {
-      "direction": "backendToClient",
-      "lane": "lifecycle",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "connectionId",
-        "purpose",
-        "challenge"
+  "routes": {
+    "host": "/ws/host/{sessionId}",
+    "participant": "/ws/participant/{sessionId}",
+    "events": "/ws/events"
+  },
+  "handshake": {
+    "messages": [
+      "hello",
+      "challenge",
+      "authenticate",
+      "ready"
+    ],
+    "hello": [
+      "protocolVersion",
+      "deviceId",
+      "incarnationId"
+    ],
+    "proof": "device signature over authenticated user/device/connection/purpose/session/incarnation and fresh 32-byte challenge",
+    "authorization": "active approved owner device or explicit current member; host output only from the publication's hosting device",
+    "participantHello": [
+      "protocolVersion",
+      "deviceId",
+      "incarnationId",
+      "checkpointChallenge"
+    ]
+  },
+  "frames": {
+    "checkpoint": {
+      "type": 3,
+      "headerBytes": 29,
+      "fields": [
+        "keyGeneration:u32be",
+        "counter:u64be",
+        "revision:u64be",
+        "nextSequence:u64be"
       ],
-      "optionalFields": [
-        "sessionId"
-      ],
-      "ordering": "must precede device.proof and route hello/join",
-      "idempotencyKey": null,
-      "droppable": false,
-      "coalesceable": false,
-      "security": "fresh 32-byte server nonce; single socket use; purpose and optional sessionId are signed"
+      "payload": "AES-GCM encrypted native terminal checkpoint followed by optional bounded JSON terminal metadata (directory, title, program; maximum 16384 bytes); metadata is consumed only from freshness-verified captures",
+      "semanticMaxBytes": 8388608
     },
-    "device.proof": {
-      "direction": "clientToBackend",
-      "lane": "lifecycle",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "deviceId",
-        "signature"
+    "raw": {
+      "type": 4,
+      "headerBytes": 29,
+      "fields": [
+        "keyGeneration:u32be",
+        "counter:u64be",
+        "firstSequence:u64be",
+        "nextSequence:u64be"
       ],
-      "optionalFields": [
-        "sessionId",
-        "expectedIncarnationId"
-      ],
-      "ordering": "must answer the immediately preceding device.proofChallenge before host.hello or participant.join",
-      "idempotencyKey": null,
-      "droppable": false,
-      "coalesceable": false,
-      "security": "ML-DSA signature binds authenticated user, deviceId, connectionId, purpose, sessionId, expectedIncarnationId, and fresh challenge"
-    },
-    "host.hello": {
-      "direction": "hostToBackend",
-      "lane": "lifecycle",
-      "framing": "json",
-      "maxBytes": 2097152,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "sessionSecret",
-        "deviceId",
-        "expectedIncarnationId",
-        "relayProtocolVersion"
-      ],
-      "optionalFields": [],
-      "ordering": "none",
-      "idempotencyKey": null,
-      "droppable": false,
-      "coalesceable": false,
-      "versionNegotiation": "relayProtocolVersion must equal 10. Every other version is rejected. expectedIncarnationId is required and must match the active durable incarnation."
-    },
-    "host.heartbeat": {
-      "direction": "hostToBackend",
-      "lane": "lifecycle",
-      "framing": "json",
-      "maxBytes": 2097152,
-      "requiredFields": [
-        "type",
-        "sessionId"
-      ],
-      "ordering": "none",
-      "idempotencyKey": null,
-      "droppable": false,
-      "coalesceable": true
-    },
-    "host.end": {
-      "direction": "hostToBackend",
-      "lane": "lifecycle",
-      "framing": "json",
-      "maxBytes": 2097152,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "reason"
-      ],
-      "ordering": "none",
-      "idempotencyKey": "sessionId",
-      "reasonValues": [
-        "host_stopped"
-      ],
-      "durabilityFailureMode": "closeHostWithoutFanout",
-      "droppable": false,
-      "coalesceable": false
-    },
-    "host.fenceAck": {
-      "direction": "hostToBackend",
-      "lane": "fence",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "fenceId"
-      ],
-      "ordering": "after the referenced host fence has been processed",
-      "idempotencyKey": "sessionId+fenceId",
-      "droppable": false,
-      "coalesceable": true
-    },
-    "term.semanticCheckpoint": {
-      "direction": "hostToBackendToParticipant",
-      "lane": "terminal",
-      "framing": "binary:0x03",
-      "maxBytes": 8388671,
-      "requiredFields": [
-        "frameType",
-        "keyGeneration",
-        "counter",
-        "checkpointRevision",
-        "nextSequence",
-        "ciphertext"
-      ],
-      "aeadAssociatedData": [
-        "frameType",
-        "keyGeneration",
-        "counter",
-        "checkpointRevision",
-        "nextSequence"
-      ],
-      "payloadSemantics": "opaque encrypted semantic checkpoint; backend parses only the routing header",
-      "ordering": "keyGeneration+semanticCheckpointCounterMonotonic; checkpointRevision+nextSequence remain monotonic across key generations",
-      "counterDomain": "semanticCheckpoint HKDF subkey; independent from rawBatch, presentation, and pendingPermissions",
-      "idempotencyKey": "sessionId+keyGeneration+semanticCheckpoint+counter",
-      "droppable": false,
-      "coalesceable": true
-    },
-    "term.rawBatch": {
-      "direction": "hostToBackendToParticipant",
-      "lane": "terminal",
-      "framing": "binary:0x04",
-      "maxBytes": 2097152,
-      "requiredFields": [
-        "frameType",
-        "keyGeneration",
-        "counter",
-        "firstSequence",
-        "nextSequence",
-        "ciphertext"
-      ],
-      "aeadAssociatedData": [
-        "frameType",
-        "keyGeneration",
-        "counter",
-        "firstSequence",
-        "nextSequence"
-      ],
-      "payloadSemantics": "opaque encrypted raw terminal bytes; retained in one shared ring bounded to 8 MiB and 256 frames",
-      "ordering": "keyGeneration+rawBatchCounterMonotonic; exactSequenceContiguous across key generations",
-      "counterDomain": "rawBatch HKDF subkey; independent from semanticCheckpoint, presentation, and pendingPermissions",
-      "idempotencyKey": "sessionId+keyGeneration+rawBatch+counter",
-      "droppable": true,
-      "coalesceable": false
-    },
-    "term.presentation": {
-      "direction": "hostToBackendToParticipant",
-      "lane": "terminal",
-      "framing": "binary:0x05",
-      "maxBytes": 8388645,
-      "requiredFields": [
-        "frameType",
-        "keyGeneration",
-        "counter",
-        "presentationRevision",
-        "ciphertext"
-      ],
-      "aeadAssociatedData": [
-        "frameType",
-        "keyGeneration",
-        "counter",
-        "presentationRevision"
-      ],
-      "payloadSemantics": "opaque encrypted finite presentation; backend parses only the routing header",
-      "ordering": "keyGeneration+presentationCounterMonotonic; presentationRevision remains monotonic across key generations",
-      "counterDomain": "presentation HKDF subkey; independent from semanticCheckpoint, rawBatch, and pendingPermissions",
-      "idempotencyKey": "sessionId+keyGeneration+presentation+counter",
-      "droppable": true,
-      "coalesceable": true
-    },
-    "permission.pendingSnapshot": {
-      "direction": "hostToBackendToParticipant",
-      "lane": "pendingPermissions",
-      "framing": "binary:0x06",
-      "maxBytes": 2097152,
-      "requiredFields": [
-        "frameType",
-        "keyGeneration",
-        "counter",
-        "snapshotGeneration",
-        "sessionId",
-        "incarnationId",
-        "ciphertext"
-      ],
-      "aeadAssociatedData": [
-        "frameType",
-        "keyGeneration",
-        "counter",
-        "snapshotGeneration",
-        "sessionId",
-        "incarnationId"
-      ],
-      "payloadSemantics": "opaque encrypted complete latest pending-permissions set; an empty set clears remote pending state",
-      "precondition": "key.rotation with matching keyGeneration must be accepted before the snapshot; encrypted under the pendingPermissions HKDF subkey",
-      "ordering": "snapshotGeneration strictly increases per session incarnation; counter strictly increases per key generation and WebSocket admission epoch",
-      "counterDomain": "pendingPermissions HKDF subkey; independent from semanticCheckpoint, rawBatch, and presentation",
-      "authorization": "forward only to owner participants or roles with Suggest, SendInput, or ApproveDeny",
-      "cache": "at most one latest ciphertext snapshot per live session; key rotation clears old-key ciphertext and per-key counters but preserves the incarnation and snapshot-generation high-water mark",
-      "idempotencyKey": "sessionId+incarnationId+snapshotGeneration",
-      "droppable": false,
-      "coalesceable": true
-    },
-    "key.rotation": {
-      "direction": "hostToBackendToParticipant",
-      "lane": "fence",
-      "framing": "json",
-      "maxBytes": 2097152,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "keyGeneration"
-      ],
-      "ordering": "keyGenerationMonotonic; atomically purges queued prior-generation 0x03-0x06 ciphertext per participant and precedes encrypted frames for the new keyGeneration",
-      "idempotencyKey": "sessionId+keyGeneration",
-      "droppable": false,
-      "coalesceable": false
-    },
-    "host.accepted": {
-      "direction": "backendToHost",
-      "lane": "lifecycle",
-      "framing": "json",
-      "maxBytes": 2097152,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "relayEpoch",
-        "incarnationId",
-        "incarnationGeneration",
-        "relayProtocolVersion"
-      ],
-      "ordering": "precedes fence replay and live-state publication",
-      "incarnationSemantics": "incarnationId and incarnationGeneration echo the durable incarnation validated before runtime claim or host-slot mutation",
-      "idempotencyKey": null,
-      "droppable": false,
-      "coalesceable": false
-    },
-    "host.streamDemand": {
-      "direction": "backendToHost",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 2097152,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "required",
-        "sharedParticipantCount",
-        "ownerParticipantCount",
-        "reason"
-      ],
-      "ordering": "none",
-      "idempotencyKey": "sessionId",
-      "droppable": false,
-      "coalesceable": true
-    },
-    "host.keyDistributionRequested": {
-      "direction": "backendToHost",
-      "lane": "fence",
-      "framing": "json",
-      "maxBytes": 2097152,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "fenceId"
-      ],
-      "ordering": "replayed across host reconnect until host.fenceAck",
-      "idempotencyKey": "sessionId+fenceId",
-      "droppable": false,
-      "coalesceable": true
-    },
-    "host.stop": {
-      "direction": "backendToHost",
-      "lane": "lifecycle",
-      "framing": "json",
-      "maxBytes": 2097152,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "commandId",
-        "nonce",
-        "ciphertext",
-        "senderUserId",
-        "senderDeviceId",
-        "signature"
-      ],
-      "ordering": "none",
-      "idempotencyKey": "sessionId",
-      "droppable": false,
-      "coalesceable": false
-    },
-    "host.interrupt": {
-      "direction": "backendToHost",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 2097152,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "commandId",
-        "nonce",
-        "ciphertext",
-        "senderUserId",
-        "senderDeviceId",
-        "signature"
-      ],
-      "ordering": "none",
-      "idempotencyKey": null,
-      "droppable": false,
-      "coalesceable": false
-    },
-    "host.input": {
-      "direction": "backendToHost",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 2097152,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "commandId",
-        "nonce",
-        "ciphertext",
-        "senderUserId",
-        "senderDeviceId",
-        "signature"
-      ],
-      "ordering": "none",
-      "idempotencyKey": "sessionId+commandId",
-      "droppable": false,
-      "coalesceable": false
-    },
-    "host.resize": {
-      "direction": "backendToHost",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "commandId",
-        "rows",
-        "cols",
-        "claim",
-        "nonce",
-        "ciphertext",
-        "senderUserId",
-        "senderDeviceId",
-        "signature"
-      ],
-      "optionalFields": [
-        "widthPixels",
-        "heightPixels",
-        "cellWidthPixels",
-        "cellHeightPixels"
-      ],
-      "ordering": "none",
-      "idempotencyKey": "sessionId+commandId",
-      "authorization": "ownerOnly",
-      "droppable": false,
-      "coalesceable": true
-    },
-    "host.focusChanged": {
-      "direction": "backendToHost",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 1024,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "commandId",
-        "clientId",
-        "focused",
-        "nonce",
-        "ciphertext",
-        "senderUserId",
-        "senderDeviceId",
-        "signature"
-      ],
-      "ordering": "none",
-      "idempotencyKey": "sessionId+commandId",
-      "droppable": false,
-      "coalesceable": false,
-      "requiredCapability": "focus",
-      "authorityNote": "Device-authenticated end to end and authorized against the capability the OWNER recorded for the sending device, not the access the backend stamps. There is no unauthenticated form of this message; backend-observed disconnects use host.participantDisconnected instead."
-    },
-    "host.participantDisconnected": {
-      "direction": "backendToHost",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 1024,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "clientId"
-      ],
-      "ordering": "none",
-      "idempotencyKey": "sessionId+clientId",
-      "droppable": false,
-      "coalesceable": true,
-      "authorityNote": "The backend sends this only after current exact relay admission. It is the one piece of session state the backend may author without device authentication, because transport loss is observable only by the backend. It carries no focus flag and no other state: the host may do nothing with it but release clientId from the focus aggregation, so a compromised backend gains no ability it did not already have by dropping the connection. It requires no capability because no participant authored it and it asserts nothing.",
-      "hostEffect": "releases clientId from the host focus aggregation"
-    },
-    "host.suggestion": {
-      "direction": "backendToHost",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 2097152,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "suggestionId",
-        "nonce",
-        "ciphertext",
-        "senderUserId",
-        "senderDeviceId",
-        "signature"
-      ],
-      "ordering": "none",
-      "idempotencyKey": "sessionId+suggestionId",
-      "droppable": false,
-      "coalesceable": false
-    },
-    "host.participantChanged": {
-      "direction": "backendToHost",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 2097152,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "fenceId",
-        "participantUserId",
-        "participantCount",
-        "action"
-      ],
-      "ordering": "replayed across host reconnect until host.fenceAck",
-      "idempotencyKey": "sessionId+fenceId",
-      "droppable": false,
-      "coalesceable": true
-    },
-    "host.accessRevoked": {
-      "direction": "backendToHost",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 2097152,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "fenceId",
-        "revokedUserId"
-      ],
-      "ordering": "replayed across host reconnect until host.fenceAck",
-      "idempotencyKey": "sessionId+fenceId",
-      "droppable": false,
-      "coalesceable": false
-    },
-    "host.permissionDecision": {
-      "direction": "backendToHost",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 2097152,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "commandId",
-        "requestId",
-        "requestGeneration",
-        "decision",
-        "deciderUserId",
-        "deciderDeviceId",
-        "nonce",
-        "ciphertext",
-        "signature"
-      ],
-      "ordering": "only the exact registry-owned pending request generation for the current incarnation may be admitted; stale generations are rejected",
-      "idempotencyKey": "sessionId+commandId+requestGeneration",
-      "droppable": false,
-      "coalesceable": false
-    },
-    "participant.join": {
-      "direction": "participantToBackend",
-      "lane": "lifecycle",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "checkpointRevision",
-        "presentationRevision",
-        "nextSequence",
-        "lastSeenKeyGeneration",
-        "deviceId",
-        "expectedIncarnationId",
-        "relayProtocolVersion"
-      ],
-      "optionalFields": [],
-      "versionNegotiation": "relayProtocolVersion must equal 10. Every other version is rejected. expectedIncarnationId is required and must match the active durable incarnation.",
-      "cursorSemantics": "checkpointRevision and presentationRevision are independent latest-wins revision domains. nextSequence is the first raw terminal sequence not yet applied. Replay begins exactly there, or replays the latest checkpoint plus every contiguous raw batch from checkpoint.nextSequence when that safely recovers the cursor. An interior, future, or gapped raw boundary that cannot be recovered closes as terminal_replay_gap; the client clears terminal cursor domains, preserves key generation, and retries once from a fresh terminal cursor.",
-      "ordering": "none",
-      "idempotencyKey": null,
-      "droppable": false,
-      "coalesceable": false
-    },
-    "participant.heartbeat": {
-      "direction": "participantToBackend",
-      "lane": "lifecycle",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type"
-      ],
-      "ordering": "none",
-      "idempotencyKey": null,
-      "droppable": false,
-      "coalesceable": true
-    },
-    "participant.suggest": {
-      "direction": "participantToBackend",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "actionId",
-        "nonce",
-        "ciphertext",
-        "signature"
-      ],
-      "ordering": "none",
-      "idempotencyKey": "sessionId+userId+actionId",
-      "droppable": false,
-      "coalesceable": false
-    },
-    "participant.inject": {
-      "direction": "participantToBackend",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 2097152,
-      "requiredFields": [
-        "type",
-        "actionId",
-        "nonce",
-        "ciphertext",
-        "signature"
-      ],
-      "ordering": "websocket order; each message is one contiguous byte chunk",
-      "idempotencyKey": "sessionId+userId+actionId",
-      "droppable": false,
-      "coalesceable": false
-    },
-    "participant.resize": {
-      "direction": "participantToBackend",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "actionId",
-        "rows",
-        "cols",
-        "claim",
-        "nonce",
-        "ciphertext",
-        "signature"
-      ],
-      "optionalFields": [
-        "widthPixels",
-        "heightPixels",
-        "cellWidthPixels",
-        "cellHeightPixels"
-      ],
-      "ordering": "none",
-      "idempotencyKey": "sessionId+userId+actionId",
-      "authorization": "ownerOnly",
-      "droppable": false,
-      "coalesceable": true
-    },
-    "participant.focusChanged": {
-      "direction": "participantToBackend",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 1024,
-      "requiredFields": [
-        "type",
-        "actionId",
-        "focused",
-        "nonce",
-        "ciphertext",
-        "signature"
-      ],
-      "ordering": "none",
-      "idempotencyKey": "sessionId+userId+actionId",
-      "droppable": false,
-      "coalesceable": false
-    },
-    "participant.permissionDecision": {
-      "direction": "participantToBackend",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 2097152,
-      "requiredFields": [
-        "type",
-        "actionId",
-        "requestId",
-        "requestGeneration",
-        "decision",
-        "nonce",
-        "ciphertext",
-        "signature"
-      ],
-      "ordering": "atLeastOnceUntilHostActionResult; requestGeneration must match the registry-owned current-incarnation request generation",
-      "idempotencyKey": "sessionId+userId+actionId+requestGeneration",
-      "droppable": false,
-      "coalesceable": false,
-      "finalResult": "backend sends action.result only after host.actionResult from the current authenticated host; enqueue is not acceptance"
-    },
-    "participant.stop": {
-      "direction": "participantToBackend",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "actionId",
-        "nonce",
-        "ciphertext",
-        "signature"
-      ],
-      "ordering": "none",
-      "idempotencyKey": "sessionId+userId+actionId",
-      "droppable": false,
-      "coalesceable": false
-    },
-    "participant.interrupt": {
-      "direction": "participantToBackend",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "actionId",
-        "nonce",
-        "ciphertext",
-        "signature"
-      ],
-      "ordering": "none",
-      "idempotencyKey": "sessionId+userId+actionId",
-      "droppable": false,
-      "coalesceable": false
-    },
-    "participant.accepted": {
-      "direction": "backendToParticipant",
-      "lane": "lifecycle",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "access",
-        "capabilities",
-        "incarnationId",
-        "incarnationGeneration",
-        "relayProtocolVersion"
-      ],
-      "optionalFields": [],
-      "ordering": "accepted precedes terminal replay and any cached pending-permissions snapshot",
-      "incarnationSemantics": "incarnationId and incarnationGeneration echo the durable incarnation validated before runtime lookup or participant reservation",
-      "idempotencyKey": null,
-      "droppable": false,
-      "coalesceable": false
-    },
-    "action.result": {
-      "direction": "backendToParticipant",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "actionId",
-        "status"
-      ],
-      "optionalFields": [
-        "requestId",
-        "requestGeneration"
-      ],
-      "ordering": "none",
-      "idempotencyKey": "sessionId+actionId",
-      "droppable": false,
-      "coalesceable": false
-    },
-    "session.status": {
-      "direction": "backendToParticipant",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "status"
-      ],
-      "ordering": "none",
-      "idempotencyKey": "sessionId",
-      "droppable": false,
-      "coalesceable": true
-    },
-    "session.ended": {
-      "direction": "backendToParticipant",
-      "lane": "lifecycle",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "reason"
-      ],
-      "ordering": "none",
-      "idempotencyKey": "sessionId",
-      "droppable": false,
-      "coalesceable": false
-    },
-    "session.accessRevoked": {
-      "direction": "backendToParticipant",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "sessionId"
-      ],
-      "ordering": "none",
-      "idempotencyKey": "sessionId",
-      "droppable": false,
-      "coalesceable": false
-    },
-    "participant.semanticSend": {
-      "direction": "participantToBackend",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "requestId",
-        "incarnationId",
-        "mode",
-        "payloadSha256",
-        "nonce",
-        "ciphertext",
-        "signature"
-      ],
-      "optionalFields": [],
-      "ordering": "atLeastOnceUntilAuthenticatedTerminalReceipt",
-      "idempotencyKey": "requesterUserId+requestId",
-      "droppable": false,
-      "coalesceable": false,
-      "authorization": "ownerOnly",
-      "aeadDomain": "SEMANTIC_REQUEST_V1",
-      "signatureDomain": "SEMANTIC_REQUEST_V1",
-      "fingerprint": "lowercase SHA-256 of exact UTF-8 plaintext bytes; must match decrypted text",
-      "incarnationSemantics": "exact durable incarnation; mismatch rejected",
-      "requestIdSemantics": "canonical UUIDv7; reuse with different session/incarnation/mode/fingerprint rejected"
-    },
-    "host.semanticSend": {
-      "direction": "backendToHost",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "requestId",
-        "incarnationId",
-        "mode",
-        "payloadSha256",
-        "nonce",
-        "ciphertext",
-        "senderUserId",
-        "senderDeviceId",
-        "signature"
-      ],
-      "optionalFields": [],
-      "ordering": "atLeastOnceUntilAuthenticatedTerminalReceipt",
-      "idempotencyKey": "requesterUserId+requestId",
-      "droppable": false,
-      "coalesceable": false,
-      "authorization": "ownerOnly; backend stamps sender identity from authenticated connection",
-      "aeadDomain": "SEMANTIC_REQUEST_V1",
-      "signatureDomain": "SEMANTIC_REQUEST_V1",
-      "fingerprint": "lowercase SHA-256 of exact UTF-8 plaintext bytes; host verifies after decrypt",
-      "incarnationSemantics": "exact durable incarnation; mismatch rejected",
-      "requestIdSemantics": "canonical UUIDv7 scoped by requesterUserId"
-    },
-    "participant.semanticCancel": {
-      "direction": "participantToBackend",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "requestId",
-        "incarnationId",
-        "mode",
-        "payloadSha256",
-        "signature"
-      ],
-      "optionalFields": [],
-      "ordering": "atLeastOnceUntilAuthenticatedTerminalReceipt",
-      "idempotencyKey": "requesterUserId+requestId",
-      "droppable": false,
-      "coalesceable": false,
-      "authorization": "ownerOnly",
-      "signatureDomain": "SEMANTIC_CANCEL_V1",
-      "cancellationSemantics": "only preparing or queued may become cancelled; deliveryUnknown is never cancellable"
-    },
-    "host.semanticCancel": {
-      "direction": "backendToHost",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "requestId",
-        "incarnationId",
-        "mode",
-        "payloadSha256",
-        "requesterUserId",
-        "requesterDeviceId",
-        "signature"
-      ],
-      "optionalFields": [],
-      "ordering": "atLeastOnceUntilAuthenticatedTerminalReceipt",
-      "idempotencyKey": "requesterUserId+requestId",
-      "droppable": false,
-      "coalesceable": false,
-      "authorization": "ownerOnly; backend stamps requester identity",
-      "signatureDomain": "SEMANTIC_CANCEL_V1",
-      "cancellationSemantics": "only exact requester/request/incarnation/mode/fingerprint match may cancel preparing or queued"
-    },
-    "host.actionResult": {
-      "direction": "hostToBackend",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "incarnationId",
-        "actionId",
-        "requestId",
-        "requestGeneration",
-        "requesterUserId",
-        "requesterDeviceId",
-        "status"
-      ],
-      "optionalFields": [],
-      "ordering": "after current owner runtime durably records that it applied or rejected the exact incarnation and request generation; retry until host.actionResultAck",
-      "idempotencyKey": "sessionId+incarnationId+requesterUserId+actionId+requestGeneration",
-      "droppable": false,
-      "coalesceable": false,
-      "statusValues": [
-        "accepted",
-        "rejected"
-      ]
-    },
-    "host.actionResultAck": {
-      "direction": "backendToHost",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "incarnationId",
-        "actionId",
-        "requesterUserId"
-      ],
-      "optionalFields": [],
-      "ordering": "after durable input-audit terminal status commit",
-      "idempotencyKey": "sessionId+incarnationId+requesterUserId+actionId",
-      "droppable": false,
-      "coalesceable": false,
-      "authentication": "backend transport acknowledgement on the already authenticated host connection",
-      "mailbox": "ack retires owner action-result retry only"
-    },
-    "host.semanticReceipt": {
-      "direction": "hostToBackend",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "incarnationId",
-        "requestId",
-        "mode",
-        "payloadSha256",
-        "outcome",
-        "requesterUserId",
-        "requesterDeviceId",
-        "ownerUserId",
-        "ownerDeviceId",
-        "signature"
-      ],
-      "optionalFields": [],
-      "ordering": "after owner runtime persists terminal outcome; retry until host.semanticReceiptAck",
-      "idempotencyKey": "requesterUserId+requestId+outcome",
-      "droppable": false,
-      "coalesceable": false,
-      "signatureDomain": "SEMANTIC_RECEIPT_V1",
-      "mailbox": "backend durably stores opaque owner-signed receipt before acknowledging host",
-      "terminalOutcomes": [
-        "injected",
-        "cancelled",
-        "deliveryUnknown"
-      ],
-      "plaintextPolicy": "receipt contains fingerprint and metadata only, never semantic text"
-    },
-    "host.semanticReceiptAck": {
-      "direction": "backendToHost",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "incarnationId",
-        "requestId",
-        "requesterUserId",
-        "requesterDeviceId"
-      ],
-      "optionalFields": [],
-      "ordering": "after durable receipt mailbox commit",
-      "idempotencyKey": "requesterUserId+requestId",
-      "droppable": false,
-      "coalesceable": false,
-      "authentication": "backend transport acknowledgement on the already authenticated host connection; it asserts only durable mailbox commit and carries no device signature",
-      "mailbox": "ack retires host receipt retry only; does not prove participant receipt"
-    },
-    "participant.semanticReceipt": {
-      "direction": "backendToParticipant",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "incarnationId",
-        "requestId",
-        "mode",
-        "payloadSha256",
-        "outcome",
-        "requesterUserId",
-        "requesterDeviceId",
-        "ownerUserId",
-        "ownerDeviceId",
-        "signature"
-      ],
-      "optionalFields": [],
-      "ordering": "replayed from durable mailbox until participant.semanticReceiptAck",
-      "idempotencyKey": "requesterUserId+requestId+outcome",
-      "droppable": false,
-      "coalesceable": false,
-      "signatureDomain": "SEMANTIC_RECEIPT_V1",
-      "verification": "participant verifies pinned owner device signature, exact requester, incarnation, mode, fingerprint, and requestId before applying"
-    },
-    "participant.semanticReceiptAck": {
-      "direction": "participantToBackend",
-      "lane": "control",
-      "framing": "json",
-      "maxBytes": 16384,
-      "requiredFields": [
-        "type",
-        "sessionId",
-        "incarnationId",
-        "requestId",
-        "requesterUserId",
-        "requesterDeviceId",
-        "signature"
-      ],
-      "optionalFields": [],
-      "ordering": "after participant verifies and durably applies receipt",
-      "idempotencyKey": "requesterUserId+requestId",
-      "droppable": false,
-      "coalesceable": false,
-      "signatureDomain": "SEMANTIC_RECEIPT_ACK_V1",
-      "mailbox": "backend deletes or terminally marks receipt only after valid requester-device acknowledgement"
+      "payload": "AES-GCM encrypted length-prefixed byte chunks",
+      "chunkMaxBytes": 65536,
+      "chunkMaxCount": 128
     }
   },
-  "accessLevels": [
-    "View",
-    "Suggest",
-    "Inject",
-    "Approve"
-  ],
-  "sessionCapabilityBits": {
-    "approveDeny": 3,
-    "focus": 5,
-    "resize": 4,
-    "sendInput": 2,
-    "stop": 6,
-    "suggest": 1,
-    "view": 0
+  "bootstrap": {
+    "request": "checkpointRequested",
+    "response": "checkpoint",
+    "targeted": true,
+    "resetOtherViewers": false,
+    "rawReplayMaxBytes": 8388608,
+    "rawReplayMaxFrames": 256,
+    "gapPolicy": "fresh host checkpoint or retryable close; never substitute a plain presentation",
+    "participantRequest": "checkpointRequest",
+    "freshnessProof": {
+      "challengeBytes": 32,
+      "challengeAuthority": "requesting endpoint; generated anew for initial connection and every capture refresh",
+      "message": "checkpointProof",
+      "signatureAuthority": "current verified host device",
+      "signatureFields": [
+        "challenge:bytes",
+        "sessionId",
+        "incarnationId",
+        "authorizationRevision:decimal",
+        "keyGeneration:decimal",
+        "connectionId",
+        "recipientUserId",
+        "recipientDeviceId",
+        "nextSequence:decimal",
+        "sha256:encryptedCheckpointFrameBytes"
+      ],
+      "encoding": "UTF-8 text or bytes, each preceded by u32be byte length, following TERMINAL_CHECKPOINT_PROOF_V1 domain",
+      "verification": "verify current challenge, exact recipient/publication, host signature and encrypted frame digest before releasing checkpoint or advancing replay state",
+      "liveResizeSatisfiesCapture": false
+    }
   },
-  "sessionCapabilityMasks": {
-    "Approve": 9,
-    "Inject": 39,
-    "Owner": 127,
-    "Suggest": 3,
-    "View": 1
-  },
-  "sessionStatuses": [
-    "Pending",
-    "Live",
-    "Reconnecting",
-    "Ended"
-  ],
-  "participantActionStatuses": [
-    "accepted",
-    "duplicate",
-    "busy",
-    "rejected"
-  ],
-  "lanes": [
-    "lifecycle",
-    "terminal",
-    "control",
-    "fence",
-    "pendingPermissions"
-  ],
-  "closeReasons": [
-    "access_revoked",
-    "already_hosted",
-    "auth_revoked",
-    "capacity_reached",
-    "client_messages_not_supported",
-    "closing",
-    "ended",
-    "expected_host_hello",
-    "expected_participant_join",
-    "host_missing",
-    "host_stopped",
-    "invalid_message",
-    "invalid_session_id",
-    "invalid_session_or_secret",
-    "invalid_session_state",
-    "lagging_participant",
-    "owner_identity_reset",
-    "server_error",
-    "server_restarting",
-    "session_not_found",
-    "session_not_live",
-    "session_runtime_recovering",
-    "session_timeout",
-    "terminal_replay_gap",
-    "timeout",
-    "unsupported_data"
-  ],
-  "streamDemandReasons": [
-    "host_connected",
-    "owner_participant_joined",
-    "owner_participant_left",
-    "owner_participant_timeout",
-    "shared_participant_joined",
-    "shared_participant_left",
-    "shared_participant_timeout"
-  ],
-  "semanticSend": {
-    "authorization": "ownerOnly",
-    "modes": [
-      "queue",
-      "steer",
-      "stopAndSend"
+  "controls": {
+    "message": "control",
+    "actions": [
+      "input",
+      "resize",
+      "focus",
+      "interrupt",
+      "stop"
     ],
-    "terminalOutcomes": [
-      "injected",
-      "cancelled",
-      "deliveryUnknown"
-    ],
-    "requestIdentity": [
-      "requesterUserId",
-      "requestId"
-    ],
-    "exactMatchFields": [
+    "senderProof": [
       "sessionId",
       "incarnationId",
-      "mode",
-      "payloadSha256"
-    ],
-    "requestIdFormat": "canonical UUIDv7",
-    "payloadFingerprint": "lowercase SHA-256 of exact UTF-8 bytes",
-    "canonicalSignedEncoding": "domain tag bytes followed by each field as uint32 big-endian UTF-8 byte length then exact UTF-8 bytes; UUID fields use lowercase hyphenated D form; binary nonce and ciphertext fields use uint32 big-endian byte length then raw bytes",
-    "semanticRequestAadFields": [
-      "sessionId",
-      "incarnationId",
+      "authorizationRevision",
+      "keyGeneration",
+      "connectionId",
+      "senderUserId",
+      "senderDeviceId",
+      "sequence",
       "requestId",
-      "mode",
-      "payloadSha256",
-      "requesterUserId",
-      "requesterDeviceId"
-    ],
-    "semanticRequestSignatureFields": [
-      "sessionId",
-      "incarnationId",
-      "requestId",
-      "mode",
-      "payloadSha256",
-      "requesterUserId",
-      "requesterDeviceId",
       "nonce",
       "ciphertext"
     ],
-    "semanticRequestHkdfInfo": "kodosi-semantic-request-key-v1",
-    "semanticCancelSignatureFields": [
-      "sessionId",
-      "incarnationId",
-      "requestId",
-      "mode",
-      "payloadSha256",
-      "requesterUserId",
-      "requesterDeviceId"
-    ],
-    "semanticReceiptSignatureFields": [
-      "sessionId",
-      "incarnationId",
-      "requestId",
-      "mode",
-      "payloadSha256",
-      "outcome",
-      "requesterUserId",
-      "requesterDeviceId",
-      "ownerUserId",
-      "ownerDeviceId"
-    ],
-    "semanticReceiptAckSignatureFields": [
-      "sessionId",
-      "incarnationId",
-      "requestId",
-      "requesterUserId",
-      "requesterDeviceId"
-    ],
-    "rawTerminalSeparation": "participant.inject and host.input remain arbitrary encrypted terminal bytes and are not semantic-send fallbacks",
-    "receiptDurability": "backend is untrusted durable mailbox for owner-signed receipts; host retries through relay or authenticated HTTP upload until mailbox commit, requester polls exact-device HTTP mailbox after relay end or republish, and backend retains until requester acknowledgement",
-    "deliveryUnknownPolicy": "never automatically replay or cancel",
-    "retentionPolicy": "owner ledger and backend mailbox retain each request through terminal receipt acknowledgement; bounded compaction may remove only acknowledged terminal records"
+    "sequenceStartsAt": 1,
+    "automaticReplayAfterReconnect": false,
+    "result": "controlResult",
+    "resultAuthority": "signed host result correlated with the exact current connection and request",
+    "resizeSuccess": "host applied the exact size",
+    "durableInputAudit": false
   },
-  "deviceAuthentication": {
-    "sessionRelays": "relay protocol v10: each host/participant socket answers a fresh server challenge with ML-DSA proof bound to user, device, connection, route, session, and incarnation before hello/join",
-    "userEvents": "each /me/events socket uses the same fresh challenge proof with purpose user-events before registration",
-    "deviceScopedHttp": "each semantic mailbox and keys/mine request consumes a one-time backend challenge; ML-DSA proof binds user, device, challengeId, method, exact path+query, and exact request-body SHA-256",
-    "callerSelectedIdentity": "plain device IDs are never sufficient actor authority; they remain valid only as destinations or inside independently verified signed content"
+  "freshness": {
+    "revocation": "ready=false durably before invalidation; current revision and key generation required before serving again",
+    "hostReconnect": "fresh key generation before restarting counters",
+    "identityReplacement": "never silently trust a replacement pinned identity",
+    "heartbeatSeconds": 30,
+    "idleTimeoutSeconds": 90,
+    "offlinePublicationExpirySeconds": 120,
+    "expiredPublicationRecovery": "same still-live local session; fresh key and connections; owner devices only until friends explicitly selected again"
+  },
+  "keyDerivation": {
+    "algorithm": "HKDF-SHA256",
+    "streamInputKeyBytes": 32,
+    "streamSalt": null,
+    "streamInfo": {
+      "checkpoint": "kodosi-terminal-checkpoint-v1",
+      "raw": "kodosi-terminal-raw-v1",
+      "control": "kodosi-control-v1"
+    },
+    "wrappedKey": {
+      "salt": "sessionId UTF-8",
+      "info": "kodosi-session-key-wrap",
+      "cipher": "AES-256-GCM",
+      "nonceBytes": 12,
+      "authenticatedData": [
+        "LP32BE(sessionId UTF-8)",
+        "LP32BE(recipientDeviceId UTF-8)",
+        "keyGeneration:u32be"
+      ]
+    }
+  },
+  "presence": {
+    "connected": "participantConnected after successful bootstrap",
+    "disconnected": "participantDisconnected",
+    "meaning": "Backend-reported current participant presence; not an authorization grant or cryptographic identity claim",
+    "lifetime": "Cleared on host disconnect or access rotation; deduplicated by user for display"
+  },
+  "metadataRefresh": {
+    "hint": "metadataChanged",
+    "contents": "No metadata or authority; only an invalidation hint from the current host to ready participants",
+    "delivery": "Host coalesces changes; participant coalesces fresh capture requests. Idle sessions do not poll.",
+    "verification": "Metadata is consumed only after existing challenge-bound host checkpoint proof verification."
+  },
+  "termination": {
+    "hostMessage": "end",
+    "participantMessage": "ended",
+    "hostAcknowledgement": "endAcknowledged",
+    "boundary": "finalSequence must equal the delivered raw continuation; queued output drains before viewer sockets close",
+    "drainDeadlineSeconds": 10
+  },
+  "connectionRetirement": {
+    "activeLimit": 256,
+    "retiredIds": "Fixed-size replay rejection filter; no false negatives, possible fail-closed false positives only for a new connection",
+    "isolation": "Retired controls are discarded without disconnecting unrelated viewers"
   }
 }

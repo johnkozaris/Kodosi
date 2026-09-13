@@ -7,14 +7,11 @@ use std::{
     time::Duration,
 };
 
-use kodosi_utils::{KodosiError, Result};
+use crate::{KodosiError, Result};
 use nix::{
     fcntl::{FcntlArg, OFlag, fcntl},
     pty::{Winsize, openpty},
-    sys::{
-        signal::{Signal, killpg},
-        termios,
-    },
+    sys::signal::{Signal, killpg},
     unistd::{self, Pid},
 };
 use tokio::{
@@ -73,18 +70,6 @@ impl RawFdAsyncReader {
             }
         }
     }
-
-    pub fn try_read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let async_fd = self
-            .async_fd
-            .as_ref()
-            .ok_or_else(|| io::Error::other("PTY reader not yet initialized"))?;
-        match unistd::read(async_fd.get_ref(), buf) {
-            Ok(n) => Ok(n),
-            Err(nix::errno::Errno::EAGAIN) => Err(io::Error::from(io::ErrorKind::WouldBlock)),
-            Err(error) => Err(io::Error::from_raw_os_error(error as i32)),
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -95,58 +80,20 @@ pub struct KodosiPty {
 }
 
 impl KodosiPty {
-    pub fn spawn_shell(
-        initial_shell: Option<&str>,
-        working_dir: Option<&str>,
-        rows: u16,
-        cols: u16,
-        pane_identity: &str,
-    ) -> Result<(Self, RawFdAsyncReader)> {
-        Self::spawn_shell_with_env(initial_shell, working_dir, rows, cols, pane_identity, &[])
-    }
-
-    pub fn spawn_shell_with_env(
-        initial_shell: Option<&str>,
-        working_dir: Option<&str>,
-        rows: u16,
-        cols: u16,
-        pane_identity: &str,
-        session_environment: &[(String, String)],
-    ) -> Result<(Self, RawFdAsyncReader)> {
-        let program = shell_program(initial_shell);
-        Self::spawn_program_with_env(
-            &program,
-            &[],
-            working_dir,
-            rows,
-            cols,
-            pane_identity,
-            session_environment,
-        )
-    }
-
-    pub fn spawn_program_with_env(
+    pub fn spawn_program(
         program: &Path,
         arguments: &[String],
         working_dir: Option<&str>,
         rows: u16,
         cols: u16,
-        pane_identity: &str,
-        session_environment: &[(String, String)],
     ) -> Result<(Self, RawFdAsyncReader)> {
         let working_dir = validate_working_dir(working_dir)?;
         let resolved_program = resolve_program(program, working_dir).ok_or_else(|| {
             KodosiError::Spawn(format!("command not found: {}", program.display()))
         })?;
 
-        let current_termios = termios::tcgetattr(io::stdin()).ok();
-        if current_termios.is_none() {
-            tracing::warn!(
-                "starting Kodosi PTY without a controlling terminal; falling back to default termios"
-            );
-        }
-        let openpty_result = openpty(None, &current_termios)
-            .map_err(|error| io::Error::from_raw_os_error(error as i32))?;
+        let openpty_result =
+            openpty(None, &None).map_err(|error| io::Error::from_raw_os_error(error as i32))?;
         let master_raw = openpty_result.master.as_raw_fd();
         let slave_raw = openpty_result.slave.as_raw_fd();
         set_terminal_size_using_fd(master_raw, cols, rows, None, None)?;
@@ -160,10 +107,20 @@ impl KodosiPty {
         if let Some(directory) = working_dir {
             command.current_dir(directory);
         }
-        command.env("KODOSI_SESSION_ID", pane_identity);
-        command.envs(session_environment.iter().map(|(key, value)| (key, value)));
-        if env::var_os("TERM").is_none() {
-            command.env("TERM", "xterm-256color");
+        command.env("TERM", "xterm-256color");
+        command.env("COLORTERM", "truecolor");
+        command.env("TERM_PROGRAM", "Kodosi");
+        for key in [
+            "COLUMNS",
+            "LINES",
+            "CLAUDE_CODE_CHILD_SESSION",
+            "CLAUDECODE",
+            "CLAUDE_CODE_ENTRYPOINT",
+            "CLAUDE_CODE_SSE_PORT",
+            "CLAUDE_CODE_SSE_TOKEN",
+            "CLAUDE_CODE_SESSION_ID",
+        ] {
+            command.env_remove(key);
         }
 
         command.kill_on_drop(true);
@@ -193,6 +150,17 @@ impl KodosiPty {
             },
             reader,
         ))
+    }
+
+    pub fn working_directory(&self) -> Option<PathBuf> {
+        let pid = foreground_process_group(self.master_fd).unwrap_or(self.child_pid);
+        process_directory(pid).or_else(|| process_directory(self.child_pid))
+    }
+
+    pub fn foreground_program(&self) -> Option<String> {
+        let pid = foreground_process_group(self.master_fd)?;
+        let arguments = process_arguments(pid)?;
+        program_identity(&arguments).map(str::to_owned)
     }
 
     pub fn write(&mut self, buf: &[u8]) -> Result<usize> {
@@ -229,16 +197,6 @@ impl KodosiPty {
         Ok(())
     }
 
-    pub fn tcdrain(&self) -> Result<()> {
-        let fd = unsafe { BorrowedFd::borrow_raw(self.master_fd) };
-        termios::tcdrain(fd).map_err(|error| {
-            KodosiError::Io(io::Error::other(format!(
-                "failed to drain PTY output for child {}: {error}",
-                self.child_pid
-            )))
-        })
-    }
-
     pub async fn wait(&mut self) -> Result<Option<i32>> {
         let status = self.child.wait().await?;
         Ok(status.code())
@@ -249,14 +207,6 @@ impl KodosiPty {
             Ok(result) => result.map(WaitOutcome::Reaped),
             Err(_) => Ok(WaitOutcome::TimedOut),
         }
-    }
-
-    pub fn child_pid(&self) -> u32 {
-        self.child_pid
-    }
-
-    pub fn foreground_process_group_id(&self) -> Option<u32> {
-        foreground_process_group(self.master_fd)
     }
 
     fn signal_target(&self) -> Option<Pid> {
@@ -374,13 +324,6 @@ fn try_write_to_fd(fd: RawFd, buf: &[u8]) -> std::result::Result<usize, nix::Err
     Ok(written)
 }
 
-fn shell_program(initial_shell: Option<&str>) -> PathBuf {
-    initial_shell
-        .filter(|value| !value.trim().is_empty())
-        .map(PathBuf::from)
-        .unwrap_or_else(get_default_shell)
-}
-
 fn validate_working_dir(working_dir: Option<&str>) -> Result<Option<&Path>> {
     let Some(directory) = working_dir.filter(|value| !value.trim().is_empty()) else {
         return Ok(None);
@@ -396,13 +339,6 @@ fn validate_working_dir(working_dir: Option<&str>) -> Result<Option<&Path>> {
     }
 }
 
-fn get_default_shell() -> PathBuf {
-    PathBuf::from(std::env::var("SHELL").unwrap_or_else(|_| {
-        tracing::warn!("Cannot read SHELL env, falling back to use /bin/sh");
-        "/bin/sh".to_owned()
-    }))
-}
-
 fn find_executable(candidate: &Path) -> Option<PathBuf> {
     use std::os::unix::fs::PermissionsExt as _;
 
@@ -412,21 +348,134 @@ fn find_executable(candidate: &Path) -> Option<PathBuf> {
 }
 
 fn resolve_program(program: &Path, working_dir: Option<&Path>) -> Option<PathBuf> {
-    if let Some(cwd) = working_dir
-        && let Some(resolved) = find_executable(&cwd.join(program))
-    {
-        return Some(resolved);
+    if program.is_absolute() {
+        return find_executable(program);
     }
-    if let Some(resolved) = find_executable(program) {
-        return Some(resolved);
+    if program.components().count() > 1 {
+        return find_executable(
+            &working_dir.map_or_else(|| program.to_owned(), |cwd| cwd.join(program)),
+        );
     }
     let paths = env::var_os("PATH")?;
     for path in env::split_paths(&paths) {
-        if let Some(resolved) = find_executable(&path.join(program)) {
+        if let Some(resolved) = find_executable(
+            &working_dir.map_or_else(|| path.join(program), |cwd| cwd.join(&path).join(program)),
+        ) {
             return Some(resolved);
         }
     }
     None
+}
+
+#[cfg(target_os = "linux")]
+fn process_directory(pid: u32) -> Option<PathBuf> {
+    std::fs::read_link(format!("/proc/{pid}/cwd")).ok()
+}
+
+#[cfg(target_os = "macos")]
+fn process_directory(pid: u32) -> Option<PathBuf> {
+    use std::os::unix::ffi::OsStringExt as _;
+    let mut info = std::mem::MaybeUninit::<libc::proc_vnodepathinfo>::zeroed();
+    let size = i32::try_from(std::mem::size_of_val(&info)).ok()?;
+    let result = unsafe {
+        libc::proc_pidinfo(
+            i32::try_from(pid).ok()?,
+            libc::PROC_PIDVNODEPATHINFO,
+            0,
+            info.as_mut_ptr().cast(),
+            size,
+        )
+    };
+    if result != size {
+        return None;
+    }
+    let info = unsafe { info.assume_init() };
+    let bytes = info
+        .pvi_cdir
+        .vip_path
+        .iter()
+        .flatten()
+        .take_while(|byte| **byte != 0)
+        .map(|byte| byte.to_ne_bytes()[0])
+        .collect::<Vec<_>>();
+    if bytes.is_empty() {
+        return None;
+    }
+    Some(PathBuf::from(std::ffi::OsString::from_vec(bytes)))
+}
+
+fn program_identity(arguments: &[String]) -> Option<&'static str> {
+    let executable = Path::new(arguments.first()?).file_name()?.to_str()?;
+    let candidate = if matches!(executable, "node" | "bun" | "deno") {
+        arguments
+            .iter()
+            .skip(1)
+            .find(|argument| !argument.starts_with('-'))?
+            .as_str()
+    } else {
+        arguments.first()?.as_str()
+    };
+    let basename = Path::new(candidate).file_name()?.to_str()?;
+    match basename {
+        "claude" => Some("claude"),
+        "copilot" => Some("copilot"),
+        "codex" | "codex.js" => Some("codex"),
+        "cursor-agent" | "agent" if basename == "cursor-agent" || candidate.contains("cursor") => {
+            Some("cursor")
+        }
+        _ if candidate.contains("@anthropic-ai/claude-code/") => Some("claude"),
+        _ if candidate.contains("@github/copilot/") => Some("copilot"),
+        _ if candidate.contains("@openai/codex/") => Some("codex"),
+        _ => None,
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn process_arguments(pid: u32) -> Option<Vec<String>> {
+    let bytes = std::fs::read(format!("/proc/{pid}/cmdline")).ok()?;
+    Some(
+        bytes
+            .split(|byte| *byte == 0)
+            .filter(|part| !part.is_empty())
+            .map(|part| String::from_utf8_lossy(part).into_owned())
+            .collect(),
+    )
+}
+
+#[cfg(target_os = "macos")]
+fn process_arguments(pid: u32) -> Option<Vec<String>> {
+    let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid as i32];
+    let mut bytes = vec![0_u8; 256 * 1024];
+    let mut length = bytes.len();
+    let result = unsafe {
+        libc::sysctl(
+            mib.as_mut_ptr(),
+            3,
+            bytes.as_mut_ptr().cast(),
+            &raw mut length,
+            std::ptr::null_mut(),
+            0,
+        )
+    };
+    if result != 0 || length < 4 {
+        return None;
+    }
+    bytes.truncate(length);
+    let count = i32::from_ne_bytes(bytes[..4].try_into().ok()?);
+    if !(1..=4096).contains(&count) {
+        return None;
+    }
+    let mut cursor = 4 + bytes[4..].iter().position(|byte| *byte == 0)?;
+    while bytes.get(cursor) == Some(&0) {
+        cursor += 1;
+    }
+    let mut arguments = Vec::new();
+    for _ in 0..count {
+        let end = cursor + bytes.get(cursor..)?.iter().position(|byte| *byte == 0)?;
+        arguments.push(String::from_utf8_lossy(&bytes[cursor..end]).into_owned());
+        cursor = end + 1;
+    }
+    Some(arguments)
 }
 
 fn foreground_process_group(fd: RawFd) -> Option<u32> {
@@ -441,15 +490,32 @@ fn foreground_process_group(fd: RawFd) -> Option<u32> {
 #[cfg(test)]
 mod tests {
     use super::{
-        ShutdownStage, Signal, WaitOutcome, find_executable, openpty, resolve_program,
-        set_terminal_size_using_fd, signal_for_shutdown_stage, try_write_to_fd,
-        validate_working_dir,
+        KodosiPty, ShutdownStage, find_executable, openpty, process_arguments, program_identity,
+        resolve_program, set_terminal_size_using_fd, try_write_to_fd, validate_working_dir,
     };
     use nix::{
         fcntl::{FcntlArg, OFlag, fcntl},
         sys::termios,
     };
-    use std::{io::Read, os::fd::AsRawFd};
+    use std::{
+        io::Read,
+        os::fd::{AsRawFd, BorrowedFd},
+        path::Path,
+        time::Duration,
+    };
+
+    #[test]
+    fn bare_shell_name_does_not_search_the_project_before_path() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let root = tempfile::tempdir().unwrap();
+        let shadow = root.path().join("sh");
+        std::fs::write(&shadow, "#!/bin/sh\nexit 42\n").unwrap();
+        std::fs::set_permissions(&shadow, std::fs::Permissions::from_mode(0o700)).unwrap();
+        assert_ne!(
+            resolve_program(Path::new("sh"), Some(root.path())),
+            Some(shadow)
+        );
+    }
 
     #[test]
     fn resizing_an_invalid_pty_descriptor_reports_the_ioctl_failure() {
@@ -457,6 +523,61 @@ mod tests {
             .expect_err("TIOCSWINSZ on an invalid descriptor must fail");
 
         assert!(error.to_string().contains("I/O failure"));
+    }
+
+    #[test]
+    fn provider_identity_uses_executable_not_prompt_arguments() {
+        for (arguments, expected) in [
+            (vec!["/opt/bin/claude"], Some("claude")),
+            (
+                vec!["node", "/lib/node_modules/@github/copilot/index.js"],
+                Some("copilot"),
+            ),
+            (
+                vec!["node", "/lib/node_modules/@openai/codex/bin/codex.js"],
+                Some("codex"),
+            ),
+            (vec!["/opt/bin/cursor-agent"], Some("cursor")),
+            (vec!["/bin/zsh", "-c", "claude"], None),
+            (vec!["/usr/bin/printf", "claude"], None),
+        ] {
+            assert_eq!(
+                program_identity(&arguments.into_iter().map(str::to_owned).collect::<Vec<_>>()),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn new_terminal_has_cooked_output_and_its_own_environment() {
+        tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(async {
+        let (mut pty, mut reader) = KodosiPty::spawn_program(Path::new("/bin/sh"),
+            &["-c".to_owned(), "printf '%s\\n' \"$TERM:$COLORTERM:$TERM_PROGRAM:${CLAUDE_CODE_CHILD_SESSION-unset}\"; sleep 1".to_owned()], None, 24, 80).unwrap();
+        let attributes =
+            termios::tcgetattr(unsafe { BorrowedFd::borrow_raw(pty.master_fd) }).unwrap();
+        assert!(
+            attributes
+                .output_flags
+                .contains(termios::OutputFlags::OPOST | termios::OutputFlags::ONLCR)
+        );
+        assert!(
+            attributes
+                .local_flags
+                .contains(termios::LocalFlags::ICANON | termios::LocalFlags::ISIG)
+        );
+        let mut bytes = [0; 4096];
+        let count = tokio::time::timeout(Duration::from_secs(2), reader.read(&mut bytes))
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            String::from_utf8_lossy(&bytes[..count])
+                .contains("xterm-256color:truecolor:Kodosi:unset\r\n")
+        );
+        assert!(process_arguments(pty.child_pid).is_some());
+        pty.request_shutdown(ShutdownStage::Force).unwrap();
+        pty.wait().await.unwrap();
+        });
     }
 
     #[test]
@@ -572,31 +693,5 @@ mod tests {
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700))
             .expect("set executable permissions");
         assert_eq!(find_executable(&path), Some(path));
-    }
-
-    #[test]
-    fn wait_outcomes_do_not_conflate_signal_exit_with_timeout() {
-        assert_ne!(WaitOutcome::Reaped(None), WaitOutcome::TimedOut);
-        assert_ne!(WaitOutcome::Reaped(Some(0)), WaitOutcome::TimedOut);
-    }
-
-    #[test]
-    fn shutdown_stages_map_to_unix_process_group_signals() {
-        assert_eq!(
-            signal_for_shutdown_stage(ShutdownStage::Interrupt),
-            Signal::SIGINT
-        );
-        assert_eq!(
-            signal_for_shutdown_stage(ShutdownStage::Hangup),
-            Signal::SIGHUP
-        );
-        assert_eq!(
-            signal_for_shutdown_stage(ShutdownStage::Terminate),
-            Signal::SIGTERM
-        );
-        assert_eq!(
-            signal_for_shutdown_stage(ShutdownStage::Force),
-            Signal::SIGKILL
-        );
     }
 }

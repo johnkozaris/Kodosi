@@ -1,26 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
+  <PropertyGroup>
+    <IsTestProject>true</IsTestProject>
+    <OutputType>Exe</OutputType>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+  </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="Testcontainers.PostgreSql" />
-    <PackageReference Include="xunit.runner.visualstudio">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
     <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <ProjectReference Include="../../src/Kodosi.Host/Kodosi.Host.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="Infrastructure\historical-migration-bytes.tsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\Kodosi.Host\Kodosi.Host.csproj" />
-    <ProjectReference Include="..\..\src\Kodosi.Infrastructure\Kodosi.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\src\Kodosi.Application\Kodosi.Application.csproj" />
-    <ProjectReference Include="..\..\src\Kodosi.Domain\Kodosi.Domain.csproj" />
-  </ItemGroup>
-
 </Project>

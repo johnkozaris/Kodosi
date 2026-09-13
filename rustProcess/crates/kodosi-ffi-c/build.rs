@@ -30,7 +30,15 @@ fn main() {
         .generate()
         .unwrap_or_else(|e| panic!("cbindgen: generation failed: {e}"));
 
-    bindings.write_to_file(&out_path);
+    let mut header = Vec::new();
+    bindings.write(&mut header);
+    let header = String::from_utf8(header).expect("cbindgen header must be UTF-8");
+    let header = header
+        .replace("#endif // __cplusplus", "#endif")
+        .replace("}  // extern \"C\"", "}")
+        .replace("#endif  // __cplusplus", "#endif")
+        .replace("#endif  /* KODOSI_RUNTIME_H */", "#endif");
+    std::fs::write(&out_path, header).expect("write generated C header");
     println!("cargo:rerun-if-changed=src/lib.rs");
     println!("cargo:rerun-if-changed=cbindgen.toml");
 }

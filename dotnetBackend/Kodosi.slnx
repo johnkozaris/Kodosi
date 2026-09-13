@@ -1,16 +1,4 @@
 <Solution>
-  <Folder Name="/src/">
-    <Project Path="src/Kodosi.Application/Kodosi.Application.csproj" />
-    <Project Path="src/Kodosi.Domain/Kodosi.Domain.csproj" />
-    <Project Path="src/Kodosi.Host/Kodosi.Host.csproj" />
-    <Project Path="src/Kodosi.Infrastructure/Kodosi.Infrastructure.csproj" />
-  </Folder>
-  <Folder Name="/tests/">
-    <Project Path="tests/Kodosi.ArchitectureTests/Kodosi.ArchitectureTests.csproj" />
-    <Project Path="tests/Kodosi.DomainTests/Kodosi.DomainTests.csproj" />
-    <Project Path="tests/Kodosi.HostTests/Kodosi.HostTests.csproj" />
-  </Folder>
-  <Folder Name="/tools/">
-    <Project Path="tools/Kodosi.ContractVersionGenerator/Kodosi.ContractVersionGenerator.csproj" />
-  </Folder>
+  <Project Path="src/Kodosi.Host/Kodosi.Host.csproj" />
+  <Project Path="tests/Kodosi.HostTests/Kodosi.HostTests.csproj" />
 </Solution>

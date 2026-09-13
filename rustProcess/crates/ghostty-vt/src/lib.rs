@@ -65,17 +65,6 @@ impl AsRef<[u8]> for SemanticCheckpoint {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PlainPresentation {
-    pub rows: u16,
-    pub cols: u16,
-    pub active_screen: Screen,
-    pub plain_lines: Vec<String>,
-    pub cursor_x: u16,
-    pub cursor_y: u16,
-    pub cursor_hidden: bool,
-}
-
 #[derive(Debug)]
 pub struct WriteOutcome {
     pub effects: Vec<Effect>,
@@ -186,21 +175,6 @@ impl Terminal {
             .map(|_| ())
     }
 
-    pub fn plain_presentation(&mut self) -> Result<PlainPresentation, Error> {
-        let state = self.raw.state()?;
-        let plain_lines = self.format_plain_lines(state.rows)?;
-
-        Ok(PlainPresentation {
-            rows: state.rows,
-            cols: state.cols,
-            active_screen: state.active_screen,
-            plain_lines,
-            cursor_x: state.cursor_x.min(state.cols.saturating_sub(1)),
-            cursor_y: state.cursor_y.min(state.rows.saturating_sub(1)),
-            cursor_hidden: !state.cursor_visible,
-        })
-    }
-
     pub fn format_finite_cli_replay(&mut self) -> Result<Vec<u8>, Error> {
         let active_screen = self.raw.state()?.active_screen;
         let screen_vt = self.raw.format(
@@ -230,36 +204,6 @@ impl Terminal {
         output.extend_from_slice(&screen_vt);
         output.extend_from_slice(CLI_REPLAY_SUFFIX);
         Ok(output)
-    }
-
-    fn format_plain_lines(&mut self, rows: u16) -> Result<Vec<String>, Error> {
-        let active_screen = self.raw.state()?.active_screen;
-        let plain = self.raw.format(
-            FormatOptions {
-                format: Format::Plain,
-                unwrap: false,
-                trim: true,
-                screen: Some(active_screen),
-                palette: false,
-                modes: false,
-                scrolling_region: false,
-                tabstops: false,
-                pwd: false,
-                keyboard: false,
-                cursor: false,
-                style: false,
-                hyperlink: false,
-                protection: false,
-                kitty_keyboard: false,
-                charsets: false,
-            },
-            FORMATTER_PROFILE_MAX_BYTES,
-        )?;
-        let plain = String::from_utf8_lossy(&plain);
-        let mut lines: Vec<_> = plain.lines().map(ToOwned::to_owned).collect();
-        lines.resize(usize::from(rows), String::new());
-        lines.truncate(usize::from(rows));
-        Ok(lines)
     }
 }
 
@@ -311,51 +255,5 @@ mod tests {
     fn semantic_checkpoint_preserves_ss2_and_ss3() {
         assert_checkpoint_suffix_parity(8, 2, b"\x1b*0\x1bN", b"q");
         assert_checkpoint_suffix_parity(8, 2, b"\x1b+0\x1bO", b"q");
-    }
-
-    #[test]
-    fn plain_presentation_pads_trimmed_output_to_exact_grid_height() {
-        let mut terminal = Terminal::new(12, 4, TerminalPolicy::default()).expect("terminal");
-
-        let empty = terminal.plain_presentation().expect("empty presentation");
-        assert_eq!(empty.plain_lines, vec![String::new(); 4]);
-
-        terminal.write(b"first\nsecond").expect("write");
-        let populated = terminal
-            .plain_presentation()
-            .expect("populated presentation");
-        assert_eq!(populated.plain_lines.len(), 4);
-        assert!(populated.plain_lines[0].contains("first"));
-        assert!(populated.plain_lines[1].contains("second"));
-    }
-
-    #[test]
-    fn plain_presentation_uses_active_screen_without_continuation() {
-        let mut terminal = Terminal::new(20, 4, TerminalPolicy::default()).expect("terminal");
-        terminal
-            .write(b"primary\x1b[?1049halternate\x1b]2;unfinished")
-            .expect("write");
-
-        let presentation = terminal.plain_presentation().expect("presentation");
-
-        assert_eq!(presentation.active_screen, Screen::Alternate);
-        assert!(
-            presentation
-                .plain_lines
-                .iter()
-                .any(|line| line.contains("alternate"))
-        );
-        assert!(
-            presentation
-                .plain_lines
-                .iter()
-                .all(|line| !line.contains("primary"))
-        );
-        assert!(
-            presentation
-                .plain_lines
-                .iter()
-                .all(|line| !line.contains("unfinished"))
-        );
     }
 }

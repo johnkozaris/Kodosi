@@ -1,49 +1,28 @@
 {
-  "channel": "/me/events",
-  "description": "Authenticated per-user invalidation stream. Clients subscribe once per login; the backend fanouts targeted events for discovery surfaces and identity-bundle changes. Matches the C# UserEventBroadcaster + DiscoveryAudience pipeline and the Rust user_events consumer.",
-  "unknownMessagePolicy": "terminalClose",
-  "malformedPayloadPolicy": "terminalClose",
-  "outgoingTypes": [
-    "discovery.invalidated",
-    "user.deviceListChanged",
-    "user.identityLifecycleChanged",
-    "user.deviceLinkSnapshot",
-    "user.deviceLinkRequested",
-    "user.deviceLinkResolved"
+  "channel": "/ws/events",
+  "authentication": "Bearer user identity plus current device connection proof",
+  "messages": [
+    "hello",
+    "challenge",
+    "authenticate",
+    "ready",
+    "ping",
+    "pong",
+    "changed"
   ],
-  "discoverySurfaces": [
-    "friends",
-    "room-catalog",
-    "room-feed",
-    "room-chat",
-    "room-tasks",
-    "own-sessions"
-  ],
-  "messageShapes": {
-    "discovery.invalidated": {
-      "fields": ["type", "surfaces", "roomId"],
-      "notes": "`surfaces` is a non-empty array of DiscoverySurface slugs from the list above. `roomId` scopes room-chat and room-tasks invalidations to the changed room; it is omitted for global discovery invalidations. Clients refresh the named authoritative projections."
-    },
-    "user.deviceListChanged": {
-      "fields": ["type", "userId", "generation"],
-      "notes": "Signals that `userId` has rotated their signed device list to a positive `generation`, triggering an identity-bundle refetch and chain-forward pin-store verification. Non-positive generations are protocol violations; `user.identityLifecycleChanged` is the sole ordered withdrawal and re-enrollment authority."
-    },
-    "user.identityLifecycleChanged": {
-      "fields": ["type", "userId", "identityRevision", "incarnationId", "state", "generation"],
-      "notes": "Latest-wins identity lifecycle authority. `identityRevision` is strictly increasing per target user and orders resets/re-enrollments. `state` is `withdrawn` with null `incarnationId` and generation 0, or `enrolled` with a UUIDv7 incarnation and generation >= 1. Clients persist the highest revision independently of pins, ignore lower/equal revisions, clear stale-incarnation trust, and never background-TOFU a new incarnation. The /me/events priming snapshot streams one current row per historically exposed target before buffered live events."
-    },
-    "user.deviceLinkSnapshot": {
-      "fields": ["type", "requests"],
-      "requestFields": ["userCode", "deviceLabel", "expiresAt"],
-      "notes": "Durable priming frame sent before buffered live device-link events. `requests` contains every unexpired pending enrollment request for the authenticated user. Clients replace their pending-link projection from this snapshot, then apply requested/resolved events incrementally."
-    },
-    "user.deviceLinkRequested": {
-      "fields": ["type", "userCode", "deviceLabel", "expiresAt"],
-      "notes": "A new device has initiated an RFC 8628-style enrollment for this user. Every enrolled device of the same user receives this and surfaces a banner prompting the user to approve on one of their existing devices. `deviceLabel` is a UX hint (not cryptographically trusted) so the user recognises their own request. Visual match of `userCode` against what the new device displays is the real out-of-band check."
-    },
-    "user.deviceLinkResolved": {
-      "fields": ["type", "userCode", "outcome"],
-      "notes": "A previously-broadcast link request has finished. `outcome` is `approved` (the user approved on another device — dismiss the banner) or `cancelled` (the initiating device cancelled — dismiss the banner). Any enrolled device that raised a banner for `userCode` drops it on receipt."
-    }
-  }
+  "changed": {
+    "fields": [
+      "type",
+      "surface"
+    ],
+    "surface": [
+      "sessions",
+      "friends",
+      "devices",
+      "rooms"
+    ]
+  },
+  "authority": "invalidation hint; refetch current authenticated metadata",
+  "reconnect": "refetch all retained surfaces; no historical event log",
+  "terminalAccess": "not granted by directory or invalidation messages"
 }

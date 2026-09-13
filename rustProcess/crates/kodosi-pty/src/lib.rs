@@ -12,7 +12,6 @@
 )]
 #![expect(
     clippy::cast_possible_wrap,
-    clippy::map_unwrap_or,
     clippy::match_same_arms,
     clippy::needless_continue,
     clippy::option_if_let_else,
@@ -29,7 +28,18 @@
 
 pub mod pty;
 
-pub use pty::{
-    KodosiPty, ProcessDetails, ProcessSnapshot, ProcessTarget, RawFdAsyncReader, ShutdownStage,
-    WaitOutcome,
-};
+pub type Result<T> = std::result::Result<T, KodosiError>;
+
+#[derive(Debug, thiserror::Error)]
+pub enum KodosiError {
+    #[error("I/O failure: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("failed to spawn child process: {0}")]
+    Spawn(String),
+    #[error("unsupported terminal operation: {0}")]
+    Unsupported(String),
+    #[error("terminal backpressure: {0}")]
+    Backpressure(String),
+}
+
+pub use pty::{KodosiPty, RawFdAsyncReader, ShutdownStage, WaitOutcome};
