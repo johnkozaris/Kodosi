@@ -1,9 +1,6 @@
 #!/bin/sh
 set -eu
 
-
-
-
 : "${KODOSI_GHOSTTY_DIR:?set KODOSI_GHOSTTY_DIR to the authoritative kodosi-ghostty checkout}"
 
 crate_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)

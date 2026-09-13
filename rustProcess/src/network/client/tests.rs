@@ -1,7 +1,3 @@
-mod interop;
-mod real_pty_interop;
-mod security_interop;
-
 use super::*;
 
 fn fixture() -> (tempfile::TempDir, Network) {

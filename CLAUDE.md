@@ -25,3 +25,7 @@ conversation preview/resume and locating native configuration files.
 - Keep explanatory comments out of source code; preserve functional tool directives and license notices.
 - Keep product scope in `PRODUCT.md`. Encode enforceable rules in types or tests
   rather than expanding architecture documents.
+
+Validate live workflows manually with available agent skills and tools (Peekaboo,
+curl, seam probes, or native platform tools). Do not add automated smoke drivers.
+Keep focused regression tests for contracts, security, lifecycle, and native behavior.

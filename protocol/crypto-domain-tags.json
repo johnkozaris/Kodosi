@@ -1,5 +1,4 @@
 {
-  "$comment": "Current endpoint cryptographic domains. Identity/device-proof byte formats remain unchanged.",
   "version": 9,
   "tags": {
     "DEVICE_POP_V1": "kodosi-device-pop-v1",

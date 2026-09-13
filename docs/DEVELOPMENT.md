@@ -10,7 +10,7 @@ lock parity checks.
 Use the Rust toolchain in `rust-toolchain.toml` and the exact .NET SDK in
 `dotnetBackend/global.json`. Install additional tools inside the repository, not
 globally. `just rust-tools-install` places the pinned Cargo audit and coverage tools
-in `rustProcess/target/rust-tools`. The backend SDK can live in
+in `.tools/rust`. The backend SDK can live in
 `dotnetBackend/.tools/dotnet-10.0.401`; the root recipes put it on `PATH`.
 
 ```sh

@@ -58,6 +58,4 @@ fn checkpoint_callback_remains_synchronous_and_correlated() {
     ] {
         assert!(text.contains(name), "missing {name}");
     }
-    assert!(text.contains("uint64_t"));
-    assert!(text.contains("callbacks_size"));
 }

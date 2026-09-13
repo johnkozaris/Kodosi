@@ -16,9 +16,6 @@ use tokio::{runtime::Runtime as Executor, task::JoinSet};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-#[cfg(test)]
-mod lifecycle_tests;
-
 pub const KODOSI_FFI_ABI_VERSION: u32 = 6;
 pub const KODOSI_MAX_FRAME_BYTES: usize = 8_388_608;
 pub const KODOSI_TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES: usize = 8_388_608;

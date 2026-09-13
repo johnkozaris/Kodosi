@@ -1,6 +1,6 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-cargo_tools_root := justfile_directory() + "/rustProcess/target/rust-tools"
+cargo_tools_root := justfile_directory() + "/.tools/rust"
 cargo_tools_bin := cargo_tools_root + "/bin"
 ghostty_dir := env('KODOSI_GHOSTTY_DIR', justfile_directory() + "/../kodosi-ghostty")
 

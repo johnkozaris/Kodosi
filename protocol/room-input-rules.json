@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "limits": {
-    "roomNameMaxBytes": 128,
-    "roomSlugMinLength": 3,
-    "roomSlugMaxLength": 64,
-    "roomSlugPattern": "^[a-z0-9-]{3,64}$"
-  }
-}
