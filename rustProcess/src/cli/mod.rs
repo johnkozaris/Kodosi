@@ -76,7 +76,7 @@ enum SessionAction {
         session: Uuid,
         name: String,
     },
-    Stop {
+    Close {
         session: Uuid,
     },
     Interrupt {
@@ -122,7 +122,7 @@ enum FriendAction {
 enum MissionAction {
     List,
     Show { room: Uuid },
-    Create { name: String, slug: String },
+    Create { name: String },
     Rename { room: Uuid, name: String },
     Delete { room: Uuid },
     Invite { room: Uuid, user: Uuid },
@@ -195,7 +195,7 @@ async fn dispatch(args: Arguments) -> Result<()> {
     let command = match args.command {
         Action::Session(SessionAction::Attach { session }) => {
             open_remote(&mut client, &mut context, session).await?;
-            return terminal::attach(&config.data_root, session).await;
+            return attach_with_demand(&config.data_root, session, &mut client).await;
         }
         Action::Session(SessionAction::Input {
             session,
@@ -219,9 +219,9 @@ async fn dispatch(args: Arguments) -> Result<()> {
         Action::Session(SessionAction::Rename { session, name }) => {
             json!({"type":"session.rename","requestId":request,"sessionId":session,"expectedRuntimeIncarnationId":context.incarnation(session)?,"name":name})
         }
-        Action::Session(SessionAction::Stop { session }) => {
+        Action::Session(SessionAction::Close { session }) => {
             open_remote(&mut client, &mut context, session).await?;
-            json!({"type":"session.stop","requestId":request,"sessionId":session,"expectedRuntimeIncarnationId":context.incarnation(session)?})
+            json!({"type":"session.close","requestId":request,"sessionId":session,"expectedRuntimeIncarnationId":context.incarnation(session)?})
         }
         Action::Session(SessionAction::Interrupt { session }) => {
             open_remote(&mut client, &mut context, session).await?;
@@ -302,6 +302,25 @@ async fn run_host(config: Config, json_output: bool) -> Result<()> {
     result
 }
 
+#[expect(
+    clippy::future_not_send,
+    reason = "the CLI mirror remains on its main thread"
+)]
+async fn attach_with_demand(
+    root: &std::path::Path,
+    session: Uuid,
+    client: &mut headless::Client,
+) -> Result<()> {
+    let attached = terminal::attach(root, session);
+    tokio::pin!(attached);
+    loop {
+        tokio::select! {
+            result = &mut attached => return result,
+            event = client.next() => { event?; }
+        }
+    }
+}
+
 async fn send_input(
     root: &std::path::Path,
     session: Uuid,
@@ -347,7 +366,7 @@ async fn send_input(
     })
     .await
     .map_err(|_| {
-        Error::Other("Input admission was not confirmed; do not retry automatically.".into())
+        Error::Other("Input delivery was not confirmed; do not retry automatically.".into())
     })??;
     if json_output {
         print_json(&json!({"submitted":true,"sessionId":session}))
@@ -383,8 +402,8 @@ fn mission_command(action: MissionAction, request: &str) -> Value {
         MissionAction::Show { room } => {
             json!({"type":"room.open","requestId":request,"roomId":room})
         }
-        MissionAction::Create { name, slug } => {
-            json!({"type":"room.create","requestId":request,"name":name,"slug":slug})
+        MissionAction::Create { name } => {
+            json!({"type":"room.create","requestId":request,"name":name})
         }
         MissionAction::Rename { room, name } => {
             json!({"type":"room.rename","requestId":request,"roomId":room,"name":name})
@@ -615,9 +634,6 @@ async fn open_remote(
     if entry.get("kind").and_then(Value::as_str) != Some("remote") {
         return Ok(());
     }
-    if entry.get("connectionState").and_then(Value::as_str) == Some("connected") {
-        return Ok(());
-    }
     let request = Uuid::now_v7().to_string();
     client
         .command(context.envelope(
@@ -651,11 +667,8 @@ async fn open_remote(
                         .to_owned(),
                 ));
             }
-            if context
-                .session(session)?
-                .get("connectionState")
-                .and_then(Value::as_str)
-                == Some("connected")
+            if event.get("type").and_then(Value::as_str) == Some("session.result")
+                && event.get("requestId").and_then(Value::as_str) == Some(&request)
             {
                 return Ok(());
             }
@@ -713,6 +726,12 @@ mod tests {
             vec!["kodosi", "repair"],
             vec!["kodosi", "session", "reopen"],
             vec!["kodosi", "session", "run"],
+            vec![
+                "kodosi",
+                "session",
+                "stop",
+                "01900000-0000-7000-8000-000000000001",
+            ],
         ] {
             assert!(Arguments::try_parse_from(args).is_err());
         }
@@ -732,12 +751,12 @@ mod tests {
         assert!(context.sessions.is_empty());
     }
     #[test]
-    fn terminal_stop_and_native_resume_remain() {
+    fn terminal_close_and_native_resume_remain() {
         assert!(
             Arguments::try_parse_from([
                 "kodosi",
                 "session",
-                "stop",
+                "close",
                 "01900000-0000-7000-8000-000000000001"
             ])
             .is_ok()

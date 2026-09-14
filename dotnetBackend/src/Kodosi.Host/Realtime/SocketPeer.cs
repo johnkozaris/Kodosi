@@ -17,6 +17,7 @@ internal sealed class SocketPeer : IAsyncDisposable
     private int queuedBytes;
     private readonly object drainSync = new();
     private Task? drain;
+    private bool draining;
     private readonly Task writer;
 
     public SocketPeer(WebSocket socket, Guid userId, string deviceId, string connectionId)
@@ -39,6 +40,14 @@ internal sealed class SocketPeer : IAsyncDisposable
         => Send(new Outbound(WebSocketMessageType.Text, Wire.Encode(proof), stillValid, frame));
     private bool Send(Outbound frame)
     {
+        lock (drainSync)
+        {
+            if (draining) return false;
+            return Enqueue(frame);
+        }
+    }
+    private bool Enqueue(Outbound frame)
+    {
         if (!IsOpen) return false;
         var bytes = Interlocked.Add(ref queuedBytes, frame.Size);
         if (bytes <= MaxBytes && queue.Writer.TryWrite(frame)) return true;
@@ -47,12 +56,17 @@ internal sealed class SocketPeer : IAsyncDisposable
     }
     public Task DrainAndCloseAsync(object final)
     {
-        lock (drainSync) return drain ??= DrainAsync(final);
+        lock (drainSync)
+        {
+            if (drain is not null) return drain;
+            draining = true;
+            Enqueue(new Outbound(WebSocketMessageType.Text, Wire.Encode(final)));
+            queue.Writer.TryComplete();
+            return drain = DrainAsync();
+        }
     }
-    private async Task DrainAsync(object final)
+    private async Task DrainAsync()
     {
-        Send(final);
-        queue.Writer.TryComplete();
         try { await writer.WaitAsync(TimeSpan.FromSeconds(10)); }
         catch (TimeoutException) { Abort(); return; }
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(1));

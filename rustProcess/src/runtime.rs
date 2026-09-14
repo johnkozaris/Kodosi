@@ -47,10 +47,31 @@ pub struct RuntimeHandle {
     events: broadcast::Sender<Event>,
     stopped: watch::Receiver<bool>,
     input_budget: Arc<Semaphore>,
+    consumer: Arc<Consumer>,
+}
+
+struct Consumer {
+    id: Uuid,
+    lifetime: CancellationToken,
+}
+
+impl Default for Consumer {
+    fn default() -> Self {
+        Self {
+            id: Uuid::now_v7(),
+            lifetime: CancellationToken::new(),
+        }
+    }
+}
+
+impl Drop for Consumer {
+    fn drop(&mut self) {
+        self.lifetime.cancel();
+    }
 }
 
 enum Request {
-    AdmitInput {
+    WriteInput {
         session: Uuid,
         incarnation: Uuid,
         connection: Uuid,
@@ -58,7 +79,11 @@ enum Request {
         reply: oneshot::Sender<Result<()>>,
         permit: OwnedSemaphorePermit,
     },
-    Command(CommandEnvelope),
+    Command {
+        envelope: CommandEnvelope,
+        consumer: Uuid,
+        lifetime: CancellationToken,
+    },
     TerminalCommand {
         envelope: CommandEnvelope,
         connection: Uuid,
@@ -106,7 +131,18 @@ impl RuntimeHandle {
                 "terminal control requires a current subscription".to_owned(),
             ));
         }
-        self.send(Request::Command(command))
+        self.send(Request::Command {
+            envelope: command,
+            consumer: self.consumer.id,
+            lifetime: self.consumer.lifetime.clone(),
+        })
+    }
+
+    pub(crate) fn command_client(&self) -> Self {
+        Self {
+            consumer: Arc::new(Consumer::default()),
+            ..self.clone()
+        }
     }
 
     pub fn try_send_terminal(&self, envelope: CommandEnvelope, connection: Uuid) -> Result<()> {
@@ -174,7 +210,7 @@ impl RuntimeHandle {
         })
     }
 
-    pub async fn admit_input(
+    pub async fn write_input(
         &self,
         session: Uuid,
         incarnation: Uuid,
@@ -189,7 +225,7 @@ impl RuntimeHandle {
             .try_acquire_many_owned(permits)
             .map_err(|_| Error::Busy)?;
         let (reply, response) = oneshot::channel();
-        self.send(Request::AdmitInput {
+        self.send(Request::WriteInput {
             session,
             incarnation,
             connection,
@@ -200,9 +236,7 @@ impl RuntimeHandle {
         tokio::time::timeout(Duration::from_secs(5), response)
             .await
             .map_err(|_| {
-                Error::Other(
-                    "Input admission was not confirmed; do not retry automatically.".into(),
-                )
+                Error::Other("Input delivery was not confirmed; do not retry automatically.".into())
             })?
             .map_err(|_| Error::Stopped)?
     }
@@ -441,15 +475,15 @@ impl TerminalTarget {
         }
     }
 
-    fn end(&self, stop: bool) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    fn end(&self, closing: bool) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
         match self {
-            Self::Local(terminal) if stop => Box::pin(terminal.stop()),
+            Self::Local(terminal) if closing => Box::pin(terminal.close()),
             Self::Local(terminal) => Box::pin(terminal.interrupt()),
             Self::Remote(terminal) => {
                 let result = terminal.control(
                     None,
-                    if stop {
-                        TerminalControl::Stop
+                    if closing {
+                        TerminalControl::Close
                     } else {
                         TerminalControl::Interrupt
                     },
@@ -506,6 +540,7 @@ struct Runtime {
     remotes: HashMap<Uuid, SessionEntry>,
     connections: HashMap<Uuid, RemoteTerminal>,
     opening: HashMap<Uuid, Opening>,
+    views: HashMap<Uuid, HashMap<Uuid, CancellationToken>>,
     reconnect: HashMap<Uuid, Reconnect>,
     publishing: BTreeSet<Uuid>,
     retiring: BTreeSet<Uuid>,
@@ -546,6 +581,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         events: events.clone(),
         stopped: stopped_rx,
         input_budget: Arc::new(Semaphore::new(MAX_QUEUED_INPUT_BYTES)),
+        consumer: Arc::new(Consumer::default()),
     };
     let server = crate::headless::serve(handle.clone(), config.data_root.clone()).await?;
     let runtime = Runtime {
@@ -558,6 +594,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         remotes: HashMap::new(),
         connections: HashMap::new(),
         opening: HashMap::new(),
+        views: HashMap::new(),
         reconnect: HashMap::new(),
         publishing: BTreeSet::new(),
         retiring: BTreeSet::new(),
@@ -670,6 +707,7 @@ impl Runtime {
         self.spawn(async move {
             Completion::Initialized(network.initialize().await.map_err(Error::from))
         });
+        let mut demand = tokio::time::interval(Duration::from_millis(100));
         let mut retry = tokio::time::interval(Duration::from_secs(5));
         retry.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
@@ -681,12 +719,12 @@ impl Runtime {
                     if self.synchronize_account().is_err() { break; }
                     match request {
                         None | Some(Request::Shutdown) => break,
-                        Some(Request::Command(envelope)) => {
-                            if envelope.account_epoch != self.scope.epoch || envelope.account_user_id != self.scope.user {
+                        Some(Request::Command { envelope, consumer, lifetime }) => {
+                            if envelope.account_epoch != self.scope.epoch || envelope.account_user_id != self.scope.user || lifetime.is_cancelled() {
                                 self.error(&envelope.command, &Error::Stale);
                             } else if matches!(envelope.command, Command::Shutdown {}) {
                                 break;
-                            } else if let Err(error) = self.apply(&envelope.command) {
+                            } else if let Err(error) = self.apply_for_consumer(&envelope.command, consumer, lifetime) {
                                 self.error(&envelope.command, &error);
                             }
                         }
@@ -724,6 +762,7 @@ impl Runtime {
                         None => {},
                     }
                 }
+                _ = demand.tick() => self.prune_views(),
                 _ = retry.tick() => { self.publish_locals(); self.retire_publications(); self.reconnect_views(); }
             }
         }
@@ -753,7 +792,7 @@ impl Runtime {
         for local in self.local.values() {
             let terminal = local.terminal.clone();
             stopping.spawn(async move {
-                if terminal.stop().await.is_err() {
+                if terminal.close().await.is_err() {
                     terminal.cancel();
                 }
             });
@@ -763,7 +802,7 @@ impl Runtime {
         server.shutdown().await;
     }
 
-    fn admit_input(
+    fn write_input(
         &mut self,
         session: Uuid,
         incarnation: Uuid,
@@ -780,10 +819,10 @@ impl Runtime {
             Ok(target) => {
                 let admission = match target {
                     TerminalTarget::Local(terminal) => {
-                        terminal.admit_input(connection, bytes).boxed()
+                        terminal.write_input(connection, bytes).boxed()
                     }
                     TerminalTarget::Remote(terminal) => {
-                        terminal.admit_input(connection, bytes).boxed()
+                        terminal.write_input(connection, bytes).boxed()
                     }
                 };
                 self.spawn(async move {
@@ -814,10 +853,10 @@ impl Runtime {
             Ok(target) => {
                 let admission = match target {
                     TerminalTarget::Local(terminal) => {
-                        terminal.admit_input(connection, bytes).boxed()
+                        terminal.write_input(connection, bytes).boxed()
                     }
                     TerminalTarget::Remote(terminal) => {
-                        terminal.admit_input(connection, bytes).boxed()
+                        terminal.write_input(connection, bytes).boxed()
                     }
                 };
                 self.spawn(async move {
@@ -884,7 +923,7 @@ impl Runtime {
                     target.unsubscribe(connection);
                 }
             }
-            Request::AdmitInput {
+            Request::WriteInput {
                 session,
                 incarnation,
                 connection,
@@ -892,7 +931,7 @@ impl Runtime {
                 reply,
                 permit,
             } => {
-                self.admit_input(session, incarnation, connection, bytes, reply, permit);
+                self.write_input(session, incarnation, connection, bytes, reply, permit);
             }
             Request::Input {
                 session,
@@ -927,7 +966,7 @@ impl Runtime {
                     }
                 }
             }
-            Request::Command(_) | Request::TerminalCommand { .. } | Request::Shutdown => {}
+            Request::Command { .. } | Request::TerminalCommand { .. } | Request::Shutdown => {}
         }
     }
 
@@ -1022,6 +1061,7 @@ impl Runtime {
         }
         self.connections.clear();
         self.opening.clear();
+        self.views.clear();
         self.reconnect.clear();
         self.remotes.clear();
         self.cached_events.clear();
@@ -1164,6 +1204,8 @@ impl Runtime {
                 opening.cancellation.cancel();
             }
         }
+        self.views
+            .retain(|id, _| desired.contains_key(id) || self.opening.contains_key(id));
         self.connections.retain(|id, connection| {
             let keep =
                 desired.get(id) == Some(&connection.incarnation_id) && !connection.is_closed();
@@ -1241,6 +1283,7 @@ impl Runtime {
                     .is_some_and(|connection| connection.instance_id == instance_id)
                 {
                     self.connections.remove(&id);
+                    self.views.remove(&id);
                     self.reconnect.remove(&id);
                     self.remotes.remove(&id);
                     self.publish_catalog();
@@ -1272,9 +1315,12 @@ impl Runtime {
                 self.emit(json!({"type":"term.title", "sessionId":id, "title":title}));
             }
             SessionChange::Bell { id } => self.emit(json!({"type":"term.bell", "sessionId":id})),
-            SessionChange::Notification { id, title, body } => self.emit(
-                json!({"type":"term.notification", "sessionId":id, "title":title, "body":body}),
-            ),
+            SessionChange::Notification { id, title, body } => {
+                if let Some(local) = self.local.get(&id) {
+                    self.emit(json!({"type":"term.notification", "sessionId":id,
+                        "runtimeIncarnationId":local.terminal.incarnation_id, "title":title, "body":body}));
+                }
+            }
             SessionChange::Ended { id, reason } => {
                 if self.local.remove(&id).is_some_and(|local| local.published)
                     || self.publishing.contains(&id)

@@ -570,9 +570,7 @@ impl Network {
             "room.create" => (
                 Method::POST,
                 "api/rooms".to_owned(),
-                Some(
-                    json!({"id":request_id,"name":wire::text(args,"name")?,"slug":wire::text(args,"slug")?}),
-                ),
+                Some(json!({"id":request_id,"name":wire::text(args,"name")?})),
             ),
             "room.invitation.accept" | "room.invitation.reject" => (
                 Method::POST,

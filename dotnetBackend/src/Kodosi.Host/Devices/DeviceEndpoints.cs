@@ -1,6 +1,4 @@
 using Kodosi.Accounts;
-using Microsoft.EntityFrameworkCore;
-using Kodosi.Data;
 
 namespace Kodosi.Devices;
 
@@ -34,14 +32,6 @@ internal static class DeviceEndpoints
             await service.RequireProofAsync(context, user.Id, ct, allowExpiredList: true);
             await service.ReplaceListAsync(user.Id, body, ct);
             return Results.NoContent();
-        });
-        api.MapGet("/me/devices", async (HttpContext context, CurrentUser users, DeviceService service, KodosiDbContext db, CancellationToken ct) =>
-        {
-            var user = await users.GetAsync(context, ct);
-            var self = await service.RequireProofAsync(context, user.Id, ct);
-            var devices = await db.Devices.AsNoTracking().Where(x => x.UserId == user.Id && !x.Revoked)
-                .Select(x => new { deviceId = x.Id, x.Label, certSignerDeviceId = x.SignerDeviceId, certIssuedAtMs = x.IssuedAtMs }).ToListAsync(ct);
-            return Results.Ok(new { selfDeviceId = self.Id, devices });
         });
         api.MapPost("/devices/link/init", async (DeviceService.LinkInit body, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
             Results.Ok(await service.StartLinkAsync((await users.GetAsync(context, ct)).Id, body, ct))).RequireRateLimiting("enrollment");

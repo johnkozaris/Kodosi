@@ -184,16 +184,17 @@ impl KodosiPty {
 
     pub fn request_shutdown(&mut self, stage: ShutdownStage) -> Result<()> {
         let signal = signal_for_shutdown_stage(stage);
-        self.send_signal(signal)?;
-        if stage == ShutdownStage::Force
-            && foreground_process_group(self.master_fd).is_some_and(|group| group != self.child_pid)
-        {
-            match self.send_shell_group_signal(signal) {
-                Ok(()) => {}
-                Err(error) if is_missing_process_group(&error) => {}
-                Err(error) => return Err(error),
-            }
+        if stage == ShutdownStage::Interrupt {
+            return self.send_signal(signal);
         }
+        signal_processes(session_processes(self.child_pid)?, |process| {
+            if process_belongs_to_session(process, self.child_pid) {
+                nix::sys::signal::kill(Pid::from_raw(process), signal)
+                    .map_err(|error| io::Error::from_raw_os_error(error as i32))
+            } else {
+                Ok(())
+            }
+        })?;
         Ok(())
     }
 
@@ -203,7 +204,15 @@ impl KodosiPty {
     }
 
     pub async fn wait_within(&mut self, grace: Duration) -> Result<WaitOutcome> {
-        match tokio::time::timeout(grace, self.wait()).await {
+        match tokio::time::timeout(grace, async {
+            let code = self.wait().await?;
+            while !session_processes(self.child_pid)?.is_empty() {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+            Ok(code)
+        })
+        .await
+        {
             Ok(result) => result.map(WaitOutcome::Reaped),
             Err(_) => Ok(WaitOutcome::TimedOut),
         }
@@ -231,24 +240,125 @@ impl KodosiPty {
 
         match signal_process_group(target, signal) {
             Err(error) if target != shell_group && is_missing_process_group(&error) => {
-                signal_process_group(shell_group, signal)
+                if process_group_belongs_to_session(shell_group, shell_group) {
+                    signal_process_group(shell_group, signal)
+                } else {
+                    Ok(())
+                }
             }
             result => result,
         }
     }
+}
 
-    fn send_shell_group_signal(&self, signal: Signal) -> Result<()> {
-        let shell_group = Pid::from_raw(self.child_pid as i32);
-        if shell_group == unistd::getpgrp() || shell_group == unistd::getpid() {
-            return Err(KodosiError::Io(io::Error::other(
-                "refusing to signal Kodosi's own process or process group",
-            )));
+fn signal_processes(
+    processes: Vec<i32>,
+    mut signal: impl FnMut(i32) -> io::Result<()>,
+) -> io::Result<()> {
+    let mut failure = None;
+    for process in processes {
+        if let Err(error) = signal(process)
+            && error.raw_os_error() != Some(libc::ESRCH)
+        {
+            failure.get_or_insert(error);
         }
-        if !process_group_belongs_to_session(shell_group, shell_group) {
-            return Ok(());
-        }
-        signal_process_group(shell_group, signal)
     }
+    failure.map_or(Ok(()), Err)
+}
+
+fn process_belongs_to_session(process: i32, session: u32) -> bool {
+    process > 0
+        && process != unistd::getpid().as_raw()
+        && unistd::getsid(Some(Pid::from_raw(process)))
+            .is_ok_and(|sid| u32::try_from(sid.as_raw()) == Ok(session))
+}
+
+#[cfg(target_os = "linux")]
+fn session_processes(session: u32) -> io::Result<Vec<i32>> {
+    let mut processes = Vec::new();
+    for entry in std::fs::read_dir("/proc")? {
+        let entry = entry?;
+        let Some(pid) = entry
+            .file_name()
+            .to_str()
+            .and_then(|name| name.parse().ok())
+        else {
+            continue;
+        };
+        if !process_belongs_to_session(pid, session) {
+            continue;
+        }
+        match std::fs::read_to_string(entry.path().join("stat")) {
+            Ok(stat) => {
+                let state = stat
+                    .rsplit_once(')')
+                    .and_then(|(_, fields)| fields.split_whitespace().next());
+                if !matches!(state, Some("Z" | "X")) {
+                    processes.push(pid);
+                }
+            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) if error.kind() == io::ErrorKind::PermissionDenied => processes.push(pid),
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(processes)
+}
+
+#[cfg(target_os = "macos")]
+fn session_processes(session: u32) -> io::Result<Vec<i32>> {
+    let count = unsafe { libc::proc_listallpids(std::ptr::null_mut(), 0) };
+    if count < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let mut capacity = usize::try_from(count).unwrap_or(0).saturating_add(256);
+    let pids = loop {
+        let mut pids = vec![0_i32; capacity];
+        let bytes = i32::try_from(std::mem::size_of_val(pids.as_slice()))
+            .map_err(|_| io::Error::other("process list exceeds its native bound"))?;
+        let count = unsafe { libc::proc_listallpids(pids.as_mut_ptr().cast(), bytes) };
+        if count < 0 {
+            return Err(io::Error::last_os_error());
+        }
+        let count =
+            usize::try_from(count).map_err(|_| io::Error::other("invalid process count"))?;
+        if count < capacity {
+            pids.truncate(count);
+            break pids;
+        }
+        capacity = capacity
+            .checked_mul(2)
+            .filter(|value| *value <= 1_048_576)
+            .ok_or_else(|| io::Error::other("process list did not stabilize"))?;
+    };
+    let mut processes = Vec::new();
+    for pid in pids {
+        if !process_belongs_to_session(pid, session) {
+            continue;
+        }
+        let mut info = std::mem::MaybeUninit::<libc::proc_bsdinfo>::zeroed();
+        let size = i32::try_from(std::mem::size_of_val(&info))
+            .map_err(|_| io::Error::other("invalid native process info size"))?;
+        let read = unsafe {
+            libc::proc_pidinfo(
+                pid,
+                libc::PROC_PIDTBSDINFO,
+                0,
+                info.as_mut_ptr().cast(),
+                size,
+            )
+        };
+        if read != size {
+            if process_belongs_to_session(pid, session) {
+                processes.push(pid);
+            }
+            continue;
+        }
+        if unsafe { info.assume_init() }.pbi_status != libc::SZOMB {
+            processes.push(pid);
+        }
+    }
+    Ok(processes)
 }
 
 fn process_group_belongs_to_session(group: Pid, session: Pid) -> bool {
@@ -277,12 +387,7 @@ fn signal_for_shutdown_stage(stage: ShutdownStage) -> Signal {
 
 impl Drop for KodosiPty {
     fn drop(&mut self) {
-        let foreground = foreground_process_group(self.master_fd);
-        let _ = self.send_signal(Signal::SIGKILL);
-        if foreground.is_some_and(|group| group != self.child_pid) {
-            let _ = self.send_shell_group_signal(Signal::SIGKILL);
-        }
-
+        let _ = self.request_shutdown(ShutdownStage::Force);
         let _ = unsafe { OwnedFd::from_raw_fd(self.master_fd) };
     }
 }
@@ -505,6 +610,21 @@ mod tests {
     };
 
     #[test]
+    fn shutdown_signals_other_processes_after_a_permission_failure() {
+        let mut visited = Vec::new();
+        let result = super::signal_processes(vec![10, 20, 30], |pid| {
+            visited.push(pid);
+            match pid {
+                10 => Err(std::io::Error::from_raw_os_error(libc::EPERM)),
+                20 => Err(std::io::Error::from_raw_os_error(libc::ESRCH)),
+                _ => Ok(()),
+            }
+        });
+        assert_eq!(visited, [10, 20, 30]);
+        assert_eq!(result.unwrap_err().raw_os_error(), Some(libc::EPERM));
+    }
+
+    #[test]
     fn bare_shell_name_does_not_search_the_project_before_path() {
         use std::os::unix::fs::PermissionsExt as _;
         let root = tempfile::tempdir().unwrap();
@@ -577,6 +697,33 @@ mod tests {
         assert!(process_arguments(pty.child_pid).is_some());
         pty.request_shutdown(ShutdownStage::Force).unwrap();
         pty.wait().await.unwrap();
+        });
+    }
+
+    #[test]
+    fn stop_waits_for_background_job_groups_after_the_shell_exits() {
+        tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(async {
+            let root = tempfile::tempdir().unwrap();
+            let (mut pty, mut reader) = KodosiPty::spawn_program(
+                Path::new("/bin/sh"),
+                &["-i".to_owned()], root.path().to_str(), 24, 80,
+            ).unwrap();
+            let command = b"sh -c 'trap \"\" HUP TERM; printf \"%s\\n\" \"$$\" > child; exec sleep 30' &\n";
+            assert_eq!(pty.write(command).unwrap(), command.len());
+            let mut buffer = [0; 4096];
+            tokio::time::timeout(Duration::from_secs(3), async {
+                while !root.path().join("child").exists() {
+                    let _ = tokio::time::timeout(Duration::from_millis(10), reader.read(&mut buffer)).await;
+                }
+            }).await.unwrap();
+            let child: i32 = std::fs::read_to_string(root.path().join("child")).unwrap().trim().parse().unwrap();
+            assert_ne!(nix::unistd::getpgid(Some(nix::unistd::Pid::from_raw(child))).unwrap().as_raw(), pty.child_pid as i32);
+            pty.request_shutdown(ShutdownStage::Hangup).unwrap();
+            assert_eq!(pty.wait_within(Duration::from_millis(100)).await.unwrap(), super::WaitOutcome::TimedOut);
+            assert!(super::session_processes(pty.child_pid).unwrap().contains(&child));
+            pty.request_shutdown(ShutdownStage::Force).unwrap();
+            assert!(matches!(pty.wait_within(Duration::from_secs(2)).await.unwrap(), super::WaitOutcome::Reaped(_)));
+            assert!(super::session_processes(pty.child_pid).unwrap().is_empty());
         });
     }
 

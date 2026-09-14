@@ -46,7 +46,6 @@ pub struct Tokens {
     pub access_token: String,
     pub refresh_token: Option<String>,
     pub expires_at: u64,
-    pub token_endpoint: String,
 }
 impl Drop for Tokens {
     fn drop(&mut self) {
@@ -181,7 +180,7 @@ impl Oidc {
             let status = response.status();
             let bytes = Zeroizing::new(read_bounded(response, 256 * 1024).await?);
             if status.is_success() {
-                return tokens(&bytes, &login.token_endpoint, None);
+                return tokens(&bytes, None);
             }
             let error = serde_json::from_slice::<serde_json::Value>(&bytes)?;
             match error.get("error").and_then(serde_json::Value::as_str) {
@@ -217,13 +216,12 @@ impl Oidc {
             .error_for_status()?;
         tokens(
             &Zeroizing::new(read_bounded(response, 256 * 1024).await?),
-            &discovery.token_endpoint,
             Some(refresh),
         )
     }
 }
 
-fn tokens(bytes: &[u8], endpoint: &str, previous_refresh: Option<&str>) -> Result<Tokens> {
+fn tokens(bytes: &[u8], previous_refresh: Option<&str>) -> Result<Tokens> {
     let mut reply: TokenReply = serde_json::from_slice(bytes)?;
     if !reply.token_type.eq_ignore_ascii_case("bearer")
         || reply.access_token.is_empty()
@@ -240,7 +238,6 @@ fn tokens(bytes: &[u8], endpoint: &str, previous_refresh: Option<&str>) -> Resul
             .take()
             .or_else(|| previous_refresh.map(str::to_owned)),
         expires_at: super::now_ms().saturating_add(reply.expires_in.saturating_mul(1000)),
-        token_endpoint: endpoint.to_owned(),
     })
 }
 
@@ -285,4 +282,32 @@ pub(crate) async fn read_bounded(response: reqwest::Response, max: usize) -> Res
         bytes.extend_from_slice(&chunk);
     }
     Ok(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stored_tokens_ignore_obsolete_endpoint_without_losing_credentials() {
+        let saved = r#"{"access_token":"access","refresh_token":"refresh","expires_at":1234,"token_endpoint":"https://old.invalid/token"}"#;
+        let decoded: Tokens = serde_json::from_str(saved).unwrap();
+        assert_eq!(decoded.access_token, "access");
+        assert_eq!(decoded.refresh_token.as_deref(), Some("refresh"));
+        assert_eq!(decoded.expires_at, 1234);
+        let encoded = serde_json::to_value(&decoded).unwrap();
+        assert!(encoded.get("token_endpoint").is_none());
+        assert_eq!(encoded.as_object().unwrap().len(), 3);
+        let current: Tokens = serde_json::from_value(encoded).unwrap();
+        assert_eq!(current.refresh_token.as_deref(), Some("refresh"));
+    }
+
+    #[test]
+    fn refresh_retains_previous_refresh_token_when_server_omits_it() {
+        let reply = br#"{"access_token":"new-access","expires_in":60,"token_type":"Bearer"}"#;
+        let refreshed = tokens(reply, Some("retained-refresh")).unwrap();
+        assert_eq!(refreshed.access_token, "new-access");
+        assert_eq!(refreshed.refresh_token.as_deref(), Some("retained-refresh"));
+        assert!(refreshed.expires_at > super::super::now_ms());
+    }
 }

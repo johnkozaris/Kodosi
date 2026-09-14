@@ -107,7 +107,6 @@ keyring = { version = "4.2.0", default-features = false, features = ["v1"] }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-axum = { version = "0.8.9", features = ["json", "ws"] }
 tokio = { workspace = true, features = ["test-util"] }
 
 [lints]

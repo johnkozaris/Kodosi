@@ -29,10 +29,16 @@ reports. Test output and artifacts belong under `rustProcess/target`, not in sou
 The gates do not automatically delete the build cache or install missing tools.
 
 `just rust-ffi-build` builds the release static library;
-`just rust-ffi-debug-build` uses the `ffi-debug` profile. Both generate
-`rustProcess/target/include/kodosi_runtime.h`. Regenerate the desktop manifest with
-`just protocol-gen`; `protocol-check` is read-only. There are no historical protocol
-compatibility snapshots.
+`just rust-ffi-debug-build` uses the `ffi-debug` profile. cbindgen generates the C
+header only in Cargo's artifact-specific `OUT_DIR`. The FFI recipes publish an
+archive/header bundle under `rustProcess/target/ffi-artifacts/<target>/<profile>`
+and print `current`, which atomically selects the complete pair. A slot belongs to
+one source manifest and keeps only the current bundle. Swift consumes the selected
+bundle under the publisher's lock before old bundles are removed; Qt owns its slot
+through the build graph. Both use `scripts/build-ffi-artifact.py` with their own
+build-local caches. There is no shared `target/include` header fallback.
+Regenerate the desktop manifest with `just protocol-gen`; `protocol-check` is
+read-only. There are no historical protocol compatibility snapshots.
 
 The Rust build checks the Ghostty package commit, platform ref, and archive digest.
 The Swift and Qt repositories own their final-link and client gates. Use their
@@ -61,7 +67,7 @@ kodosi host
 kodosi session start --name Work --directory "$HOME/Repos/example"
 kodosi session list
 kodosi session attach <session-uuid>
-kodosi session stop <session-uuid>
+kodosi session close <session-uuid>
 ```
 
 Run `host` in a dedicated terminal when you want its lifetime to be explicit. It ends
@@ -75,7 +81,7 @@ kodosi devices list
 kodosi friends add <username>
 kodosi session share <session-uuid> <friend-user-uuid>
 kodosi session share <session-uuid>
-kodosi mission create "Release" release
+kodosi mission create "Release"
 kodosi session mission <session-uuid> <mission-uuid>
 kodosi provider history claude "$HOME/Repos/example"
 kodosi provider read claude <conversation-uuid> "$HOME/Repos/example"
@@ -85,10 +91,23 @@ kodosi provider inspect copilot --directory "$HOME/Repos/example"
 
 `session share` replaces the selected friend set; omit friend IDs to remove all
 friend shares. Own approved devices retain access. Mission attachment does not share
-a terminal. `session input` waits for runtime admission before reporting
-`submitted: true`; this does not mean the shell command completed. Admission timeouts
-are uncertain and must not be automatically retried. Terminal close carries the final
+a terminal. Missions use a name and UUID; no globally reserved short name is required.
+Membership and invitation limits are checked before accepting new state, and an
+oversized existing catalog returns a bounded recovery page with explicit truncation
+indicators so users can leave or decline entries. Existing legacy
+slug/profile values remain in the database; the slug migration relaxes constraints
+without deleting values. `session input` waits until the hosting PTY has accepted the entire byte
+sequence before reporting `submitted: true`; this does not mean the shell command
+completed. Delivery timeouts are uncertain and must not be automatically retried.
+Each command client owns its remote-view demand. Minimizing one desktop view releases
+that client's demand, not another CLI viewer's connection; CLI detach releases its
+own demand when its command connection closes. Terminal close carries the final
 output sequence and drains queued output before the relay closes viewers.
+
+The current desktop protocol is 42, local socket protocol is 16, and backend API is 14.
+Relay protocol remains 13 and C ABI remains 6. The terminal action is `session.close` (`close` on the relay),
+with no separate Stop action. Upgrade hosts, clients and the backend together. Input
+success still means complete byte delivery to the PTY, not command completion.
 
 New PTYs advertise `TERM=xterm-256color`, `COLORTERM=truecolor`, and
 `TERM_PROGRAM=Kodosi`, independent of the launching terminal. Inherited terminal
@@ -103,10 +122,13 @@ production root so overlap checks remain meaningful. The isolated runtime stores
 files in `<KODOSI_DATA_ROOT>/core` and rejects overlapping or symlinked storage paths.
 
 The default production root is the platform configuration directory plus `kodosi`.
-`HOME` also controls the provider-history lookup root. For provider tests, point it
-at a disposable fixture home and preserve the real production-root value explicitly.
-Never move, edit, or delete real provider settings, memory, conversation histories,
-or credentials to test discovery or resume.
+`HOME` supplies the default provider-state directories. `CLAUDE_CONFIG_DIR` and
+`COPILOT_HOME`, when set to bounded absolute paths, select the same native state for
+configuration, history and resume validation that the launched CLIs use. Provider
+read APIs receive the resolved state root explicitly. For provider tests, use disposable
+fixture roots and unset or redirect those overrides; preserve the actual production
+Kodosi root explicitly. Never move, edit, or delete real provider settings, memory,
+conversation histories or credentials to test discovery or resume.
 
 Runtime connection settings are environment variables:
 

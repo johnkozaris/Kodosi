@@ -3,6 +3,7 @@ using System;
 using Kodosi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Kodosi.Data.Migrations
 {
     [DbContext(typeof(KodosiDbContext))]
-    partial class KodosiDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260914000811_RetireMissionSlugs")]
+    partial class RetireMissionSlugs
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

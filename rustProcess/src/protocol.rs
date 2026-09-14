@@ -20,7 +20,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 39;
+pub const VERSION: u32 = 42;
 include!(concat!(env!("OUT_DIR"), "/network_versions.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 
@@ -97,8 +97,8 @@ pub enum Command {
         expected_runtime_incarnation_id: String,
         name: String,
     },
-    #[serde(rename = "session.stop")]
-    StopSession {
+    #[serde(rename = "session.close")]
+    CloseSession {
         #[serde(rename = "requestId")]
         request_id: String,
         #[serde(rename = "sessionId")]
@@ -171,7 +171,6 @@ pub enum Command {
         #[serde(rename = "requestId")]
         request_id: String,
         name: String,
-        slug: String,
     },
     #[serde(rename = "room.rename")]
     RenameRoom {
@@ -374,7 +373,7 @@ pub enum SessionKind {
 pub enum SessionStatus {
     Running,
     Reconnecting,
-    Stopping,
+    Closing,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, specta_macros::Type)]
 #[serde(rename_all = "lowercase")]
@@ -426,12 +425,6 @@ pub enum EventBody {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         message: Option<String>,
     },
-    #[serde(rename = "auth.identity_health")]
-    AuthIdentityHealth {
-        state: IdentityHealth,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        message: Option<String>,
-    },
     #[serde(rename = "auth.error")]
     AuthError {
         operation: String,
@@ -462,12 +455,6 @@ pub enum EventBody {
     },
     #[serde(rename = "devices.link.snapshot")]
     DeviceLinksSnapshot { requests: Vec<DeviceLinkRequest> },
-    #[serde(rename = "devices.link.requested")]
-    DeviceLinkRequested {
-        user_code: String,
-        device_label: String,
-        expires_at: String,
-    },
     #[serde(rename = "devices.link.resolved")]
     DeviceLinkResolved {
         user_code: String,
@@ -511,13 +498,16 @@ pub enum EventBody {
     RoomsSnapshot {
         rooms: Vec<RoomEntry>,
         invitations: Vec<RoomInvitationEntry>,
+        #[serde(default)]
+        rooms_truncated: bool,
+        #[serde(default)]
+        invitations_truncated: bool,
     },
     #[serde(rename = "room.snapshot")]
     RoomSnapshot {
         request_id: String,
         room: RoomEntry,
         members: Vec<RoomMemberEntry>,
-        session_ids: Vec<String>,
     },
     #[serde(rename = "room.result")]
     RoomResult {
@@ -554,6 +544,7 @@ pub enum EventBody {
     #[serde(rename = "term.notification")]
     TerminalNotification {
         session_id: String,
+        runtime_incarnation_id: String,
         title: String,
         body: String,
     },
@@ -586,13 +577,6 @@ pub enum AuthRequiredReason {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
-#[serde(rename_all = "camelCase")]
-pub enum IdentityHealth {
-    Healthy,
-    RecoveryRequired,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum DeviceLinkOutcome {
     Approved,
@@ -606,7 +590,6 @@ pub struct FriendEntry {
     pub user_id: String,
     pub handle: String,
     pub display_name: String,
-    pub avatar_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
@@ -615,7 +598,6 @@ pub struct FriendRequestEntry {
     pub user_id: String,
     pub handle: String,
     pub display_name: String,
-    pub avatar_url: Option<String>,
     pub created_at: String,
 }
 
@@ -641,7 +623,6 @@ pub struct DeviceLinkRequest {
 pub struct RoomEntry {
     pub id: String,
     pub name: String,
-    pub slug: String,
     pub owner_user_id: String,
 }
 
@@ -700,13 +681,11 @@ impl EventBody {
             Self::AuthDeviceCode { .. } => "auth.device_code",
             Self::AuthFinalizing {} => "auth.finalizing",
             Self::AuthNotice { .. } => "auth.notice",
-            Self::AuthIdentityHealth { .. } => "auth.identity_health",
             Self::AuthError { .. } => "auth.error",
             Self::FriendsSnapshot { .. } => "friends.snapshot",
             Self::FriendsError { .. } => "friends.error",
             Self::DevicesList { .. } => "devices.list",
             Self::DeviceLinksSnapshot { .. } => "devices.link.snapshot",
-            Self::DeviceLinkRequested { .. } => "devices.link.requested",
             Self::DeviceLinkResolved { .. } => "devices.link.resolved",
             Self::DeviceLinkSelfPending { .. } => "devices.link.selfPending",
             Self::DeviceLinkSelfResolved { .. } => "devices.link.selfResolved",
@@ -782,7 +761,7 @@ impl Command {
             Self::ListSessions {} => "session.list",
             Self::CreateSession { .. } => "session.create",
             Self::RenameSession { .. } => "session.rename",
-            Self::StopSession { .. } => "session.stop",
+            Self::CloseSession { .. } => "session.close",
             Self::InterruptSession { .. } => "session.interrupt",
             Self::OpenRemote { .. } => "session.openRemote",
             Self::DisconnectRemote { .. } => "session.disconnect",
@@ -814,7 +793,7 @@ impl Command {
             Self::RequestFriend { request_id, .. }
             | Self::CreateSession { request_id, .. }
             | Self::RenameSession { request_id, .. }
-            | Self::StopSession { request_id, .. }
+            | Self::CloseSession { request_id, .. }
             | Self::InterruptSession { request_id, .. }
             | Self::OpenRemote { request_id, .. }
             | Self::ShareSession { request_id, .. }
@@ -840,7 +819,7 @@ impl Command {
     pub fn session_id(&self) -> Option<&str> {
         match self {
             Self::RenameSession { session_id, .. }
-            | Self::StopSession { session_id, .. }
+            | Self::CloseSession { session_id, .. }
             | Self::InterruptSession { session_id, .. }
             | Self::OpenRemote { session_id, .. }
             | Self::DisconnectRemote { session_id, .. }
@@ -859,7 +838,7 @@ impl Command {
                 expected_runtime_incarnation_id,
                 ..
             }
-            | Self::StopSession {
+            | Self::CloseSession {
                 expected_runtime_incarnation_id,
                 ..
             }
@@ -1019,17 +998,6 @@ impl Command {
                     validate_participants(expected)?;
                 }
             }
-            Self::CreateRoom { slug, .. } => {
-                if !(3..=64).contains(&slug.len())
-                    || slug.starts_with('-')
-                    || slug.ends_with('-')
-                    || !slug.bytes().all(|byte| {
-                        byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-'
-                    })
-                {
-                    return Err(Error::Invalid("slug must contain 3 to 64 lowercase ASCII letters, digits, or internal hyphens".to_owned()));
-                }
-            }
             Self::Resize { identity, .. } => identity.validate()?,
             Self::Focus {
                 client_id,
@@ -1160,7 +1128,7 @@ mod tests {
             json!({"type":"session.disconnect","sessionId":ID}),
             json!({"type":"session.share","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"userIds":[ID]}),
             json!({"type":"session.attachMission","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"roomId":null}),
-            json!({"type":"room.create","requestId":ID,"name":"Release","slug":"release"}),
+            json!({"type":"room.create","requestId":ID,"name":"Release"}),
             json!({"type":"room.rename","requestId":ID,"roomId":ID,"name":"Renamed"}),
             json!({"type":"provider.discoverConversations","requestId":ID,"provider":"claude","workingDirectory":"/tmp/project"}),
             json!({"type":"provider.readConversation","requestId":ID,"provider":"copilot","workingDirectory":"/tmp/project","nativeConversationId":ID,"beforeByte":123,"limit":2,"maxBytes":4096}),
@@ -1180,7 +1148,7 @@ mod tests {
             .into_iter()
             .map(|kind| json!({"type":kind,"username":"example"})),
         );
-        values.extend(["session.stop","session.interrupt","session.leave"].into_iter().map(|kind| json!({"type":kind,"requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID})));
+        values.extend(["session.close","session.interrupt","session.leave"].into_iter().map(|kind| json!({"type":kind,"requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID})));
         values.extend(
             ["room.delete", "room.open", "room.leave"]
                 .into_iter()
@@ -1295,22 +1263,31 @@ mod tests {
         ] {
             assert!(
                 serde_json::from_value::<CommandEnvelope>(envelope(
-                    json!({"type":"room.create","requestId":ID,"name":name,"slug":"valid"})
+                    json!({"type":"room.create","requestId":ID,"name":name})
                 ))
                 .is_err()
             );
         }
-        for slug in ["ab", "Bad", "-bad", "bad-", "with space"] {
-            assert!(
-                serde_json::from_value::<CommandEnvelope>(envelope(
-                    json!({"type":"room.create","requestId":ID,"name":"Valid","slug":slug})
-                ))
-                .is_err()
-            );
-        }
+        assert!(
+            serde_json::from_value::<CommandEnvelope>(envelope(
+                json!({"type":"room.create","requestId":ID,"name":"Valid","slug":"retired"})
+            ))
+            .is_err()
+        );
         for (limit, max_bytes) in [(0, 4096), (501, 4096), (10, 1024 * 1024 + 1)] {
             assert!(serde_json::from_value::<CommandEnvelope>(envelope(json!({"type":"provider.readConversation","requestId":ID,"provider":"claude","nativeConversationId":ID,"workingDirectory":"/tmp","limit":limit,"maxBytes":max_bytes}))).is_err());
         }
+    }
+
+    #[test]
+    fn close_is_the_only_terminal_termination_command() {
+        let mut value = json!({"type":"session.close","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID});
+        assert!(matches!(
+            serde_json::from_value::<Command>(value.clone()),
+            Ok(Command::CloseSession { .. })
+        ));
+        value["type"] = json!("session.stop");
+        assert!(serde_json::from_value::<Command>(value).is_err());
     }
 
     #[test]

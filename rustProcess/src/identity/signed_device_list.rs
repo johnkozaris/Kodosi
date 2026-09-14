@@ -38,6 +38,18 @@ pub(crate) struct SignedDeviceList {
 }
 
 impl SignedDeviceList {
+    pub(crate) fn successor_issued_at(&self, now_ms: u64) -> Result<u64> {
+        let issued = self
+            .issued_at_ms
+            .checked_add(1)
+            .ok_or_else(|| Error::Invalid {
+                reason: "device list issuance overflow".to_owned(),
+            })?
+            .max(now_ms);
+        validate_timestamps(DEVICE_LIST_CONTEXT, issued, None)?;
+        Ok(issued)
+    }
+
     pub(crate) fn serialize_body(&self) -> Result<Vec<u8>> {
         self.validate_required_fields()?;
         if self.entries.len() > MAX_ENTRIES as usize {
@@ -67,11 +79,6 @@ impl SignedDeviceList {
                 + 16,
         );
         writer.write_lp_str(&self.user_id)?;
-        if self.generation == 0 {
-            return Err(Error::Invalid {
-                reason: "device list: generation must be >= 1".to_owned(),
-            });
-        }
         writer.write_u64_be(self.generation);
         writer.write_u32_be(entry_count);
         for entry in &self.entries {
@@ -105,11 +112,6 @@ impl SignedDeviceList {
         let mut cursor = LpReader::new(DEVICE_LIST_CONTEXT, bytes);
         let user_id = cursor.read_lp_str()?;
         let generation = cursor.read_u64_be()?;
-        if generation == 0 {
-            return Err(Error::Invalid {
-                reason: "device list: generation must be >= 1".to_owned(),
-            });
-        }
         let entry_count = cursor.read_u32_be()?;
         if entry_count > MAX_ENTRIES {
             return Err(Error::Invalid {
@@ -157,6 +159,11 @@ impl SignedDeviceList {
     }
 
     fn validate_required_fields(&self) -> Result<()> {
+        if self.generation == 0 || i64::try_from(self.generation).is_err() {
+            return Err(Error::Invalid {
+                reason: "device list: generation must be between 1 and i64::MAX".to_owned(),
+            });
+        }
         validate_timestamps(DEVICE_LIST_CONTEXT, self.issued_at_ms, self.expires_at_ms)?;
         validate_canonical_user_id(DEVICE_LIST_CONTEXT, &self.user_id)?;
         validate_canonical_device_id(
@@ -318,4 +325,78 @@ fn validate_entries(entries: &[DeviceListEntry]) -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::identity::keys::DeviceKeys;
+
+    #[test]
+    fn signed_addition_and_removal_advance_from_a_future_predecessor() {
+        let user = uuid::Uuid::now_v7().to_string();
+        let keys = DeviceKeys::generate().unwrap();
+        let signer = keys.signing_key().unwrap();
+        let first = build_bootstrap_list(&user, &keys.device_id, &signer, 121_000, None).unwrap();
+        let mut entries = first.list.entries.clone();
+        entries.push(DeviceListEntry {
+            device_id: "new-device".into(),
+            signer_device_id: keys.device_id.clone(),
+        });
+        let added = build_replacement_list(
+            &user,
+            first.list.generation,
+            &first.list.entries,
+            entries,
+            &keys.device_id,
+            &signer,
+            first.list.successor_issued_at(1_000).unwrap(),
+            None,
+        )
+        .unwrap();
+        let verified =
+            verify_signed_device_list(&added.body_bytes, &added.signature, keys.signing_public())
+                .unwrap();
+        assert_eq!(verified.issued_at_ms, 121_001);
+        assert_eq!(verified.generation, 2);
+        let removed = build_replacement_list(
+            &user,
+            verified.generation,
+            &verified.entries,
+            first.list.entries.clone(),
+            &keys.device_id,
+            &signer,
+            verified.successor_issued_at(1_001).unwrap(),
+            None,
+        )
+        .unwrap();
+        let verified = verify_signed_device_list(
+            &removed.body_bytes,
+            &removed.signature,
+            keys.signing_public(),
+        )
+        .unwrap();
+        assert_eq!(verified.issued_at_ms, 121_002);
+        assert_eq!(verified.generation, 3);
+        assert_eq!(verified.entries, first.list.entries);
+    }
+
+    #[test]
+    fn successor_issuance_advances_across_clock_skew_and_rejects_exhaustion() {
+        let mut list = SignedDeviceList {
+            user_id: "00000000-0000-4000-8000-000000000001".into(),
+            generation: 2,
+            entries: vec![],
+            signer_device_id: "device".into(),
+            issued_at_ms: 121_000,
+            expires_at_ms: None,
+        };
+        assert_eq!(list.successor_issued_at(1_000).unwrap(), 121_001);
+        assert_eq!(list.successor_issued_at(121_000).unwrap(), 121_001);
+        assert_eq!(list.successor_issued_at(200_000).unwrap(), 200_000);
+        list.issued_at_ms = super::super::wire_codec::MAX_UNIX_TIME_MILLISECONDS;
+        assert!(list.successor_issued_at(1_000).is_err());
+        list.issued_at_ms = u64::MAX;
+        assert!(list.successor_issued_at(1_000).is_err());
+    }
 }

@@ -1,4 +1,4 @@
-use std::{collections::HashSet, path::PathBuf, str, thread, time::Duration};
+use std::{path::PathBuf, str, thread, time::Duration};
 
 use super::types::{
     Checkpoint, TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES, TerminalPixelGeometry, TerminalScreen,
@@ -32,12 +32,6 @@ impl Default for TerminalHistoryPolicy {
             compression_idle: Duration::from_secs(2),
         }
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum ClientFocus {
-    Focused,
-    Blurred,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -81,16 +75,15 @@ enum TerminalCommand {
         reply_tx: oneshot::Sender<Result<CheckpointWithSequence>>,
     },
     SetFocused {
-        client_id: String,
-        focus: ClientFocus,
-        reply_tx: oneshot::Sender<Result<Vec<Vec<u8>>>>,
+        focused: bool,
+        reply_tx: oneshot::Sender<Result<Vec<u8>>>,
     },
     ThemeChanged {
         dark: bool,
         reply_tx: oneshot::Sender<Result<()>>,
     },
     Shutdown {
-        reply_tx: oneshot::Sender<Result<Vec<Vec<u8>>>>,
+        reply_tx: oneshot::Sender<Result<()>>,
     },
 }
 
@@ -185,17 +178,9 @@ impl SessionTerminalHandle {
             .await
     }
 
-    pub(super) async fn set_client_focus(
-        &self,
-        client_id: String,
-        focus: ClientFocus,
-    ) -> Result<Vec<Vec<u8>>> {
-        self.request(|reply_tx| TerminalCommand::SetFocused {
-            client_id,
-            focus,
-            reply_tx,
-        })
-        .await
+    pub(super) async fn set_focused(&self, focused: bool) -> Result<Vec<u8>> {
+        self.request(|reply_tx| TerminalCommand::SetFocused { focused, reply_tx })
+            .await
     }
 
     pub(super) async fn notify_theme_changed(&self, dark: bool) -> Result<()> {
@@ -203,7 +188,7 @@ impl SessionTerminalHandle {
             .await
     }
 
-    pub(super) async fn shutdown(self) -> Result<Vec<Vec<u8>>> {
+    pub(super) async fn shutdown(self) -> Result<()> {
         self.request(|reply_tx| TerminalCommand::Shutdown { reply_tx })
             .await
     }
@@ -234,7 +219,6 @@ impl SessionTerminalHandle {
 
 struct SessionTerminal {
     terminal: Terminal,
-    focused_clients: HashSet<String>,
     applied: u64,
 }
 
@@ -252,14 +236,12 @@ impl SessionTerminal {
                 continuation_max_bytes: history.continuation_max_bytes,
                 scrollback_max_bytes: history.max_bytes,
                 scrollback_max_lines: history.max_lines,
-                clipboard_enabled: false,
                 dark: initial_theme_dark,
             },
         )
         .map_err(terminal_error)?;
         Ok(Self {
             terminal,
-            focused_clients: HashSet::new(),
             applied: 0,
         })
     }
@@ -328,48 +310,12 @@ impl SessionTerminal {
         })
     }
 
-    fn set_client_focus(&mut self, client_id: String, focus: ClientFocus) -> Result<Vec<Vec<u8>>> {
-        let was_focused = !self.focused_clients.is_empty();
-        match focus {
-            ClientFocus::Focused => {
-                self.focused_clients.insert(client_id);
-            }
-            ClientFocus::Blurred => {
-                self.focused_clients.remove(&client_id);
-            }
-        }
-        let is_focused = !self.focused_clients.is_empty();
-        if was_focused == is_focused {
-            return Ok(Vec::new());
-        }
-        let message = self
-            .terminal
-            .encode_focus(is_focused)
-            .map_err(terminal_error)?;
-        Ok((!message.is_empty())
-            .then_some(message)
-            .into_iter()
-            .collect())
-    }
-
     fn compress_incremental(&mut self) -> Result<CompressionProgress> {
         self.terminal.compress_incremental().map_err(terminal_error)
     }
 
     fn compression_activity(&mut self) -> Result<u64> {
         self.terminal.compression_activity().map_err(terminal_error)
-    }
-
-    fn shutdown_messages(&mut self) -> Result<Vec<Vec<u8>>> {
-        if self.focused_clients.is_empty() {
-            return Ok(Vec::new());
-        }
-        self.focused_clients.clear();
-        let message = self.terminal.encode_focus(false).map_err(terminal_error)?;
-        Ok((!message.is_empty())
-            .then_some(message)
-            .into_iter()
-            .collect())
     }
 }
 
@@ -388,7 +334,6 @@ fn convert_effect(effect: Effect) -> Option<TerminalEffect> {
             String::from_utf8_lossy(&bytes).into_owned(),
         )),
         Effect::Pwd(bytes) => parse_cwd(&bytes).map(TerminalEffect::Cwd),
-        Effect::ClipboardWrite { .. } => None,
         Effect::DesktopNotification { title, body } => Some(TerminalEffect::DesktopNotification {
             title: String::from_utf8_lossy(&title).into_owned(),
             body: String::from_utf8_lossy(&body).into_owned(),
@@ -538,18 +483,15 @@ async fn terminal_actor_main(
                         }
                         drop(reply_tx.send(result));
                     }
-                    TerminalCommand::SetFocused {
-                        client_id,
-                        focus,
-                        reply_tx,
-                    } => {
-                        drop(reply_tx.send(terminal.set_client_focus(client_id, focus)));
+                    TerminalCommand::SetFocused { focused, reply_tx } => {
+                        drop(reply_tx.send(terminal.terminal.encode_focus(focused).map_err(terminal_error)));
                     }
                     TerminalCommand::ThemeChanged { dark, reply_tx } => {
                         drop(reply_tx.send(terminal.theme_changed(dark)));
                     }
                     TerminalCommand::Shutdown { reply_tx } => {
-                        drop(reply_tx.send(terminal.shutdown_messages()));
+                        drop(terminal);
+                        drop(reply_tx.send(Ok(())));
                         break;
                     }
                 }

@@ -44,7 +44,7 @@ internal static class RelayEndpoints
             if (helloFrame is null || helloFrame.Value.Type != WebSocketMessageType.Text) throw ApiException.Invalid("Expected relay hello.");
             using var hello = Wire.Parse(helloFrame.Value.Bytes);
             var root = hello.RootElement;
-            if (root.GetProperty("type").GetString() != "hello" || root.GetProperty("protocolVersion").GetInt32() != 11)
+            if (root.GetProperty("type").GetString() != "hello" || root.GetProperty("protocolVersion").GetInt32() != 13)
                 throw ApiException.Invalid("Unsupported relay protocol.");
             var deviceId = DeviceIdRules.Require(root.GetProperty("deviceId").GetString());
             Guid? incarnationId = sessionId is null ? null : root.GetProperty("incarnationId").GetGuid();

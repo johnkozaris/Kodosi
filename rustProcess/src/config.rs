@@ -1,7 +1,7 @@
 use crate::{Error, Result};
 use reqwest::Url;
 use std::{
-    os::unix::fs::{MetadataExt, PermissionsExt},
+    os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt},
     path::{Component, Path, PathBuf},
 };
 
@@ -73,7 +73,7 @@ impl Config {
             oidc_client_id: std::env::var("KODOSI__AUTH__CLIENT_ID")
                 .unwrap_or_else(|_| "kodosi-app".to_owned()),
             oidc_scopes: std::env::var("KODOSI__AUTH__SCOPE")
-                .unwrap_or_else(|_| "openid profile email offline_access".to_owned())
+                .unwrap_or_else(|_| "openid profile offline_access".to_owned())
                 .split_whitespace()
                 .map(str::to_owned)
                 .collect(),
@@ -133,8 +133,21 @@ pub(crate) fn secure_directory(path: &Path) -> Result<()> {
             }
             Ok(_) => {}
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                std::fs::create_dir(&prefix)?;
-                std::fs::set_permissions(&prefix, std::fs::Permissions::from_mode(0o700))?;
+                match std::fs::DirBuilder::new().mode(0o700).create(&prefix) {
+                    Ok(()) => {}
+                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                        let metadata = std::fs::symlink_metadata(&prefix)?;
+                        if !metadata.is_dir()
+                            || metadata.file_type().is_symlink()
+                            || metadata.uid() != rustix::process::geteuid().as_raw()
+                        {
+                            return Err(Error::Invalid(
+                                "storage directory changed during creation".to_owned(),
+                            ));
+                        }
+                    }
+                    Err(error) => return Err(error.into()),
+                }
             }
             Err(error) => return Err(error.into()),
         }
@@ -236,6 +249,42 @@ mod tests {
         assert!(secure_directory(&link.join("core")).is_err());
         assert!(!target.join("core").exists());
         assert_eq!(std::fs::metadata(target).unwrap().mode() & 0o777, 0o750);
+    }
+
+    #[test]
+    fn concurrent_bootstrap_creates_private_directories() {
+        let root = tempfile::tempdir().unwrap();
+        let real = root.path().canonicalize().unwrap();
+        let barrier = std::sync::Barrier::new(8);
+        std::thread::scope(|scope| {
+            for _ in 0..8 {
+                scope.spawn(|| {
+                    let mut failure = None;
+                    for index in 0..32 {
+                        barrier.wait();
+                        if let Err(error) =
+                            secure_directory(&real.join(format!("race-{index}/nested/core")))
+                        {
+                            failure = Some(error);
+                        }
+                    }
+                    assert!(failure.is_none(), "{failure:?}");
+                });
+            }
+        });
+        for index in 0..32 {
+            let parent = real.join(format!("race-{index}"));
+            for path in [
+                parent.clone(),
+                parent.join("nested"),
+                parent.join("nested/core"),
+            ] {
+                let metadata = std::fs::symlink_metadata(path).unwrap();
+                assert!(metadata.is_dir());
+                assert_eq!(metadata.uid(), rustix::process::geteuid().as_raw());
+                assert_eq!(metadata.mode() & 0o777, 0o700);
+            }
+        }
     }
 
     #[test]

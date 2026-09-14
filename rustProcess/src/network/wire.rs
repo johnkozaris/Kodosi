@@ -145,7 +145,7 @@ pub(crate) fn encode_control(control: &TerminalControl) -> Result<Vec<u8>> {
         }
         TerminalControl::Focus { focused } => json!({"type":"focus","focused":focused}),
         TerminalControl::Interrupt => json!({"type":"interrupt"}),
-        TerminalControl::Stop => json!({"type":"stop"}),
+        TerminalControl::Close => json!({"type":"close"}),
     };
     serde_json::to_vec(&value).map_err(Into::into)
 }
@@ -188,7 +188,7 @@ pub(crate) fn decode_control(value: &[u8], request_id: Uuid) -> Result<TerminalC
                 .ok_or_else(|| invalid("Invalid focus."))?,
         }),
         "interrupt" => Ok(TerminalControl::Interrupt),
-        "stop" => Ok(TerminalControl::Stop),
+        "close" => Ok(TerminalControl::Close),
         _ => Err(invalid("Unsupported terminal operation.")),
     }
 }

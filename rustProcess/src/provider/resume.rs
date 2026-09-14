@@ -11,23 +11,24 @@ const MAX_COPILOT_HEAD_BYTES: u64 = 64 * 1024;
 const MAX_COPILOT_TAIL_BYTES: u64 = 1024 * 1024;
 
 pub(super) fn ensure_inactive(
-    home: &Path,
+    state_root: &Path,
     provider: Provider,
     directory: &Path,
     id: &str,
     file: File,
 ) -> Result<(), String> {
     match provider {
-        Provider::Claude => claude_inactive(home, directory, id),
+        Provider::Claude => claude_inactive(state_root, directory, id),
         Provider::Copilot => {
-            let session = storage::open_directory(&storage::transcript_root(home, provider), id)?;
+            let session =
+                storage::open_directory(&storage::transcript_root(state_root, provider), id)?;
             copilot_inactive(directory, file, &session)
         }
     }
 }
 
-fn claude_inactive(home: &Path, directory: &Path, id: &str) -> Result<(), String> {
-    let root = home.join(".claude/sessions");
+fn claude_inactive(state_root: &Path, directory: &Path, id: &str) -> Result<(), String> {
+    let root = state_root.join("sessions");
     let entries = match std::fs::read_dir(&root) {
         Ok(entries) => entries,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),

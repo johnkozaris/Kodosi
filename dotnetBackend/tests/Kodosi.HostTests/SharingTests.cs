@@ -42,14 +42,14 @@ public sealed class SharingTests(PostgresFixture postgres)
         var owner = await store.UserAsync("owner"); var friend = await store.UserAsync("friend");
         await store.Friends.MutateAsync(owner.User.Id, "friend", "send", TestContext.Current.CancellationToken);
         await store.Friends.MutateAsync(friend.User.Id, "owner", "accept", TestContext.Current.CancellationToken);
-        var room = new Room { Id = Guid.CreateVersion7(), Name = "Project", Slug = "project", OwnerUserId = owner.User.Id };
+        var room = new Room { Id = Guid.CreateVersion7(), Name = "Project", OwnerUserId = owner.User.Id };
         store.Db.Rooms.Add(room); store.Db.RoomMembers.Add(new RoomMember { RoomId = room.Id, UserId = friend.User.Id }); await store.Db.SaveChangesAsync(TestContext.Current.CancellationToken);
         var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7();
         await store.Sessions.CreateAsync(owner.User.Id, owner.Device, new(id, incarnation, "Terminal", owner.Device.Id, "Host", room.Id), TestContext.Current.CancellationToken);
         Assert.Empty(await store.Sessions.ListAsync(friend.User.Id, TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ApiException>(() => store.Sessions.AuthorizedAsync(id, friend.User.Id, TestContext.Current.CancellationToken));
         var detail = JsonSerializer.SerializeToElement(await store.Rooms.OpenAsync(room.Id, friend.User.Id, TestContext.Current.CancellationToken), Wire.Json);
-        Assert.Empty(detail.GetProperty("sessionIds").EnumerateArray());
+        Assert.False(detail.TryGetProperty("sessionIds", out _));
         await store.Sessions.ShareAsync(id, owner.User.Id, owner.Device.Id, new(incarnation, 1, [friend.User.Id]), TestContext.Current.CancellationToken);
         Assert.Single(await store.Sessions.ListAsync(friend.User.Id, TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ApiException>(() => store.Sessions.ShareAsync(id, friend.User.Id, friend.Device.Id, new(incarnation, 2, []), TestContext.Current.CancellationToken));
@@ -111,10 +111,24 @@ public sealed class SharingTests(PostgresFixture postgres)
         await store.Sessions.PublishKeysAsync(id, owner.User.Id, owner.Device.Id,
             new(incarnation, shared.AuthorizationRevision, shared.KeyGeneration, [blob]), TestContext.Current.CancellationToken);
         Assert.Equal("ready", JsonSerializer.SerializeToElement(await store.Sessions.MyKeyAsync(id, owner.User.Id, owner.Device.Id, TestContext.Current.CancellationToken), Wire.Json).GetProperty("state").GetString());
-        Assert.Equal("pendingDistribution", JsonSerializer.SerializeToElement(await store.Sessions.MyKeyAsync(id, friend.User.Id, friend.Device.Id, TestContext.Current.CancellationToken), Wire.Json).GetProperty("state").GetString());
+        var state = await store.Sessions.AuthorizedAsync(id, owner.User.Id, TestContext.Current.CancellationToken);
+        var socket = new KeyRequestSocket();
+        await using var host = new SocketPeer(socket, owner.User.Id, owner.Device.Id, Guid.CreateVersion7().ToString());
+        var live = store.Relay.RegisterHost(state, host); store.Relay.MarkReady(state);
+        var generation = live.Generation;
+        Assert.Equal(403, (await Assert.ThrowsAsync<ApiException>(() => store.Sessions.MyKeyAsync(id, friend.User.Id, friend.Device.Id, TestContext.Current.CancellationToken))).Status);
+        Assert.Equal(generation, live.Generation); Assert.True(live.Ready); Assert.True(host.IsOpen);
+        Assert.Equal(0, socket.Messages);
         var expired = await store.Db.DeviceLists.SingleAsync(x => x.UserId == friend.User.Id, TestContext.Current.CancellationToken);
         expired.ExpiresAtMs = issued - 1; await store.Db.SaveChangesAsync(TestContext.Current.CancellationToken);
         Assert.Single(await store.Sessions.RecipientsAsync(await store.Sessions.AuthorizedAsync(id, owner.User.Id, TestContext.Current.CancellationToken), TestContext.Current.CancellationToken));
+    }
+
+    private sealed class KeyRequestSocket : FakeSocket
+    {
+        public int Messages;
+        public override Task SendAsync(ArraySegment<byte> buffer, System.Net.WebSockets.WebSocketMessageType type, bool endOfMessage, CancellationToken ct)
+        { Interlocked.Increment(ref Messages); return Task.CompletedTask; }
     }
 
     [Fact]
@@ -133,7 +147,7 @@ public sealed class SharingTests(PostgresFixture postgres)
         await store.Friends.MutateAsync(owner.User.Id, "friend", "send", TestContext.Current.CancellationToken);
         await store.Friends.MutateAsync(friend.User.Id, "owner", "accept", TestContext.Current.CancellationToken);
         var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7(); var room = Guid.CreateVersion7();
-        await store.Rooms.CreateAsync(owner.User.Id, new(room, "Project", "project"), TestContext.Current.CancellationToken);
+        await store.Rooms.CreateAsync(owner.User.Id, new(room, "Project"), TestContext.Current.CancellationToken);
         await store.Sessions.CreateAsync(owner.User.Id, owner.Device, new(id, incarnation, "Original", owner.Device.Id, "Host", null), TestContext.Current.CancellationToken);
         var shared = await store.Sessions.ShareAsync(id, owner.User.Id, owner.Device.Id, new(incarnation, 1, [friend.User.Id]), TestContext.Current.CancellationToken);
         var renamed = await store.Sessions.RenameAsync(id, owner.User.Id, second.DeviceId, new(incarnation, shared.AuthorizationRevision, "Renamed"), TestContext.Current.CancellationToken);

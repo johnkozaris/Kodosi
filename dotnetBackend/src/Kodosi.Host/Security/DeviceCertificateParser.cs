@@ -4,8 +4,6 @@ namespace Kodosi.Security;
 
 public sealed class DeviceCertificateParser
 {
-    public static ReadOnlySpan<byte> DomainTag => DomainTags.DeviceCertV2;
-
     private const ulong NoExpiry = IdentityWireFormat.NoExpirySentinel;
 
     public sealed record ParsedDeviceCertificate(

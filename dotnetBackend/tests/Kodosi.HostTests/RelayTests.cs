@@ -256,6 +256,58 @@ public sealed class RelayTests
     }
 
     [Fact]
+    public async Task HeartbeatsDoNotAbortAcceptedOutputWhileDraining()
+    {
+        var socket = new PausedSocket();
+        await using var peer = new SocketPeer(socket, Guid.CreateVersion7(), "device", Guid.CreateVersion7().ToString());
+        var first = new byte[] { 1 };
+        var second = new byte[] { 2 };
+        Assert.True(peer.SendBinary(first));
+        await socket.Started.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        Assert.True(peer.SendBinary(second));
+        var drain = peer.DrainAndCloseAsync(new { type = "ended", finalSequence = 2 });
+        Assert.False(peer.Send(new { type = "ping" }));
+        Assert.False(peer.Send(new { type = "pong" }));
+        Assert.True(peer.IsOpen);
+        Assert.False(drain.IsCompleted);
+        socket.Release.TrySetResult();
+        await drain.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        Assert.Equal(first, (await socket.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken)).Bytes);
+        Assert.Equal(second, (await socket.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken)).Bytes);
+        using var ended = JsonDocument.Parse((await socket.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken)).Bytes);
+        Assert.Equal("ended", ended.RootElement.GetProperty("type").GetString());
+        Assert.False(socket.Frames.Reader.TryRead(out _));
+    }
+
+    [Fact]
+    public async Task RevocationCanStillAbortADrainingPeer()
+    {
+        var socket = new PausedSocket();
+        await using var peer = new SocketPeer(socket, Guid.CreateVersion7(), "device", Guid.CreateVersion7().ToString());
+        peer.SendBinary(new byte[] { 1 });
+        await socket.Started.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        var drain = peer.DrainAndCloseAsync(new { type = "ended", finalSequence = 1 });
+        peer.Abort();
+        await drain.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        Assert.False(peer.IsOpen);
+        Assert.False(socket.Frames.Reader.TryRead(out _));
+    }
+
+    private sealed class PausedSocket : FakeSocket
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public System.Threading.Channels.Channel<(WebSocketMessageType Type, byte[] Bytes)> Frames { get; } =
+            System.Threading.Channels.Channel.CreateUnbounded<(WebSocketMessageType, byte[])>();
+        public override async Task SendAsync(ArraySegment<byte> buffer, WebSocketMessageType type, bool endOfMessage, CancellationToken ct)
+        {
+            Started.TrySetResult();
+            await Release.Task.WaitAsync(ct);
+            Frames.Writer.TryWrite((type, buffer.ToArray()));
+        }
+    }
+
+    [Fact]
     public async Task FailedMutationRecoveryDisconnectsOnlyAffectedHosts()
     {
         var directory = new RelayDirectory(TimeProvider.System);

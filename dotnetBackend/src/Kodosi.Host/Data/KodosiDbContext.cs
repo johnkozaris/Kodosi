@@ -105,8 +105,7 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
         {
             e.ToTable("rooms"); e.HasKey(x => x.Id);
             e.Property(x => x.Name).HasMaxLength(128);
-            e.Property(x => x.Slug).HasMaxLength(64);
-            e.HasIndex(x => x.Slug).IsUnique();
+            e.Property<string?>("Slug").HasMaxLength(64);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.OwnerUserId).OnDelete(DeleteBehavior.Restrict);
         });
         model.Entity<RoomMember>(e =>

@@ -1,5 +1,5 @@
 {
-  "relayProtocolVersion": 11,
+  "relayProtocolVersion": 13,
   "compatibilityPolicy": "exactMatch",
   "routes": {
     "host": "/ws/host/{sessionId}",
@@ -92,7 +92,7 @@
       "resize",
       "focus",
       "interrupt",
-      "stop"
+      "close"
     ],
     "senderProof": [
       "sessionId",
@@ -112,6 +112,7 @@
     "result": "controlResult",
     "resultAuthority": "signed host result correlated with the exact current connection and request",
     "resizeSuccess": "host applied the exact size",
+    "inputSuccess": "hosting PTY accepted the entire input byte sequence; not command execution completion",
     "durableInputAudit": false
   },
   "freshness": {

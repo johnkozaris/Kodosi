@@ -44,7 +44,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         var connection = await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken);
         await using var db = PostgresFixture.Context(connection);
         await DatabaseSetup.InitializeAsync(db, TestContext.Current.CancellationToken);
-        Assert.Single(await db.Database.GetAppliedMigrationsAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(db.Database.GetMigrations(), await db.Database.GetAppliedMigrationsAsync(TestContext.Current.CancellationToken));
         Assert.Equal(12, db.Model.GetEntityTypes().Count());
         Assert.DoesNotContain(db.Model.GetEntityTypes(), x => x.Name.Contains("Audit") || x.Name.Contains("Task") || x.Name.Contains("Message"));
         await DatabaseSetup.InitializeAsync(db, TestContext.Current.CancellationToken);
@@ -66,7 +66,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         using var anonymous = app.CreateClient();
         using var denied = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
         var health = await anonymous.GetFromJsonAsync<JsonElement>("/health/live", TestContext.Current.CancellationToken);
-        Assert.Equal(13, health.GetProperty("apiContractVersion").GetInt32());
+        Assert.Equal(14, health.GetProperty("apiContractVersion").GetInt32());
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("bad", "wrong-audience"));
         using var audience = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, audience.StatusCode);
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("unenrolled"));
@@ -77,8 +77,8 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         using var replay = new HttpRequestMessage(HttpMethod.Get, "/api/sessions");
         foreach (var header in proof.Headers) replay.Headers.TryAddWithoutValidation(header.Key, header.Value);
         using var duplicate = await owner.Client.SendAsync(replay, TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Forbidden, duplicate.StatusCode);
-        using var altered = await SignedAsync(owner, HttpMethod.Post, "/api/rooms", new { id = Guid.CreateVersion7(), name = "A", slug = "aa" });
-        altered.Content = JsonContent.Create(new { id = Guid.CreateVersion7(), name = "B", slug = "bb" });
+        using var altered = await SignedAsync(owner, HttpMethod.Post, "/api/rooms", new { id = Guid.CreateVersion7(), name = "A" });
+        altered.Content = JsonContent.Create(new { id = Guid.CreateVersion7(), name = "B" });
         using var modified = await owner.Client.SendAsync(altered, TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Forbidden, modified.StatusCode);
         foreach (var path in new[] { "/api/rooms/00000000-0000-0000-0000-000000000000/tasks", "/api/sessions/00000000-0000-0000-0000-000000000000/suggestions", "/api/session-history" })
         {
@@ -91,7 +91,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
     {
         await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));
         using var owner = await app.EnrollAsync("owner");
-        using var stale = await SignedAsync(owner, HttpMethod.Post, "/api/rooms", new { id = Guid.CreateVersion7(), name = "Forbidden", slug = "forbidden" });
+        using var stale = await SignedAsync(owner, HttpMethod.Post, "/api/rooms", new { id = Guid.CreateVersion7(), name = "Forbidden" });
         await using var scope = app.Services.CreateAsyncScope();
         var gate = scope.ServiceProvider.GetRequiredService<AdmissionGate>();
         var held = await gate.EnterAsync(TestContext.Current.CancellationToken);
@@ -116,14 +116,14 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         await CallAsync(owner, HttpMethod.Post, "/api/friends/requests", new { username = "friend" });
         await CallAsync(friend, HttpMethod.Post, "/api/friends/requests/owner/accept");
         var room = Guid.CreateVersion7();
-        await CallAsync(owner, HttpMethod.Post, "/api/rooms", new { id = room, name = "Project", slug = "project" });
+        await CallAsync(owner, HttpMethod.Post, "/api/rooms", new { id = room, name = "Project" });
         var invite = Guid.CreateVersion7();
         await CallAsync(owner, HttpMethod.Post, $"/api/rooms/{room}/invitations", new { id = invite, userId = friend.Fixture.UserId });
         await CallAsync(friend, HttpMethod.Post, $"/api/rooms/invitations/{invite}/accept");
         var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7(); var path = $"/api/sessions/{id}";
         await CallAsync(owner, HttpMethod.Post, "/api/sessions", new { id, incarnationId = incarnation, name = "Shell", hostDeviceId = owner.Fixture.DeviceId, hostName = "Host", roomId = room });
         Assert.Empty((await CallAsync(friend, HttpMethod.Get, "/api/sessions")).EnumerateArray());
-        Assert.Empty((await CallAsync(friend, HttpMethod.Get, $"/api/rooms/{room}")).GetProperty("sessionIds").EnumerateArray());
+        Assert.False((await CallAsync(friend, HttpMethod.Get, $"/api/rooms/{room}")).TryGetProperty("sessionIds", out _));
         using var ownerEvents = (await app.ConnectAsync(owner, "events")).Socket;
         using var host = (await app.ConnectAsync(owner, "host", id, incarnation)).Socket;
         var shared = await CallAsync(owner, HttpMethod.Put, path + "/members", new { incarnationId = incarnation, expectedRevision = 1, userIds = new[] { friend.Fixture.UserId } });

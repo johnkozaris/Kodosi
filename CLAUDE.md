@@ -18,8 +18,8 @@ conversation preview/resume and locating native configuration files.
   project-local. See `docs/DEVELOPMENT.md` for isolated validation.
 - Never reset live application databases or erase provider configuration, memory,
   conversations, credentials, or working files during development.
-- Closing a view leaves a process running; Stop ends it; quitting its host ends local
-  processes. Keep this distinction in runtime, CLI, and client changes.
+- Minimize dismisses a terminal view without ending its process; Close ends the
+  terminal; quitting its host ends local processes.
 - Cross-user identity bootstrap is trust on first use. Preserve pinned-device
   verification, revocation, current-publication binding, and bounded queues.
 - Keep explanatory comments out of source code; preserve functional tool directives and license notices.

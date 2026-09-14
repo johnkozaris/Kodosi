@@ -43,7 +43,7 @@ public sealed class AdmissionAndExpiryTests(PostgresFixture postgres)
         }
         using var slowRequest = await SignedAsync(owner, HttpMethod.Get, "/api/sessions");
         slowRequest.Headers.Add("X-Test-Stall-Response", "1");
-        using var otherRequest = await SignedAsync(owner, HttpMethod.Get, "/api/me/devices");
+        using var otherRequest = await SignedAsync(owner, HttpMethod.Get, "/api/devices/link/requests");
         var slow = owner.Client.SendAsync(slowRequest, TestContext.Current.CancellationToken);
         try
         {

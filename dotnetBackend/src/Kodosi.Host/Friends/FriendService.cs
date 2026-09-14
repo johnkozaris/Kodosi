@@ -21,7 +21,7 @@ public sealed class FriendService(KodosiDbContext db, RelayDirectory relay, Time
         var links = await db.Friendships.AsNoTracking().Where(x => (x.FirstUserId == user || x.SecondUserId == user) && x.Accepted).ToListAsync(ct);
         var ids = links.Select(x => x.FirstUserId == user ? x.SecondUserId : x.FirstUserId).ToArray();
         return await db.Users.AsNoTracking().Where(x => ids.Contains(x.Id))
-            .OrderBy(x => x.Handle).Select(x => new { userId = x.Id, x.Handle, x.DisplayName, x.AvatarUrl }).ToListAsync(ct);
+            .OrderBy(x => x.Handle).Select(x => new { userId = x.Id, x.Handle, x.DisplayName }).ToListAsync(ct);
     }
 
     public async Task<object> RequestsAsync(Guid user, CancellationToken ct)
@@ -32,7 +32,7 @@ public sealed class FriendService(KodosiDbContext db, RelayDirectory relay, Time
         object Project(Friendship request)
         {
             var person = people[request.FirstUserId == user ? request.SecondUserId : request.FirstUserId];
-            return new { userId = person.Id, person.Handle, person.DisplayName, person.AvatarUrl, request.CreatedAt };
+            return new { userId = person.Id, person.Handle, person.DisplayName, request.CreatedAt };
         }
         return new { incoming = requests.Where(x => x.RequestedBy != user).Select(Project), outgoing = requests.Where(x => x.RequestedBy == user).Select(Project) };
     }

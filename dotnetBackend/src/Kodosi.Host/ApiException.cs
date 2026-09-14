@@ -15,6 +15,8 @@ internal static class Limits
     public const int MaxSessionsPerUser = 128;
     public const int MaxSessionMembers = 64;
     public const int MaxRoomsPerUser = 64;
+    public const int MaxVisibleRooms = 256;
+    public const int MaxPendingRoomInvitations = 128;
     public const int MaxRoomMembers = 64;
 
     public static string Text(string? value, string field, int max)

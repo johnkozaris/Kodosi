@@ -125,7 +125,7 @@ async fn local_terminal_keeps_running_after_view_closes_then_stop_removes_it() {
     receive_text(&mut second, b"second-marker").await;
     let (_, mut events) = runtime.handle.observe().await.unwrap();
     runtime
-        .send(Command::StopSession {
+        .send(Command::CloseSession {
             request_id: Uuid::now_v7().to_string(),
             session_id: session.to_string(),
             expected_runtime_incarnation_id: incarnation.to_string(),
@@ -151,6 +151,49 @@ async fn local_terminal_keeps_running_after_view_closes_then_stop_removes_it() {
         runtime.handle.subscribe_terminal(session).await,
         Err(Error::NotFound)
     ));
+    runtime.shutdown().await;
+    drop(runtime);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn terminal_notifications_do_not_require_a_mounted_view() {
+    let runtime = TestRuntime::new().await;
+    let (id, incarnation) = runtime.create().await;
+    let (_, mut events) = runtime.handle.observe().await.unwrap();
+    let subscription = runtime.handle.subscribe_terminal(id).await.unwrap();
+    runtime
+        .handle
+        .write_input(
+            id,
+            incarnation,
+            subscription.connection_id,
+            Bytes::from_static(b"sleep 0.2; printf '\\033]9;BACKGROUND_NOTICE\\007'\n"),
+        )
+        .await
+        .unwrap();
+    runtime
+        .handle
+        .unsubscribe_terminal(id, subscription.connection_id)
+        .await;
+    drop(subscription);
+    timeout(Duration::from_secs(3), async {
+        loop {
+            if let crate::protocol::EventBody::TerminalNotification {
+                session_id,
+                runtime_incarnation_id,
+                body,
+                ..
+            } = events.recv().await.unwrap().event
+            {
+                assert_eq!(session_id, id.to_string());
+                assert_eq!(runtime_incarnation_id, incarnation.to_string());
+                assert_eq!(body, "BACKGROUND_NOTICE");
+                break;
+            }
+        }
+    })
+    .await
+    .unwrap();
     runtime.shutdown().await;
     drop(runtime);
 }
@@ -383,6 +426,7 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             remotes: HashMap::new(),
             connections: HashMap::new(),
             opening: HashMap::new(),
+            views: HashMap::new(),
             reconnect: HashMap::new(),
             publishing: BTreeSet::new(),
             retiring: BTreeSet::new(),
@@ -451,6 +495,7 @@ async fn input_admission_is_byte_bounded_before_the_registry_polls() {
         events,
         stopped,
         input_budget: Arc::new(Semaphore::new(MAX_QUEUED_INPUT_BYTES)),
+        consumer: Arc::new(Consumer::default()),
     };
     let (session, incarnation, connection) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
     let bytes = Bytes::from(vec![b'x'; 1024 * 1024]);
@@ -598,13 +643,16 @@ async fn first_remote_open_retains_retry_demand_until_explicit_disconnect() {
     let (mut runtime, _root) = registry_fixture();
     let id = Uuid::now_v7();
     runtime.replace_remotes(vec![remote_session(id, Uuid::now_v7())]);
+    let consumer = Uuid::now_v7();
+    let lifetime = CancellationToken::new();
     runtime
-        .open_remote(
-            id,
-            Command::OpenRemote {
+        .apply_for_consumer(
+            &Command::OpenRemote {
                 request_id: Uuid::now_v7().to_string(),
                 session_id: id.to_string(),
             },
+            consumer,
+            lifetime,
         )
         .unwrap();
     assert!(runtime.reconnect.contains_key(&id));
@@ -619,11 +667,57 @@ async fn first_remote_open_retains_retry_demand_until_explicit_disconnect() {
     });
     assert!(runtime.reconnect.contains_key(&id));
     runtime
-        .apply(&Command::DisconnectRemote {
-            session_id: id.to_string(),
-        })
+        .apply_for_consumer(
+            &Command::DisconnectRemote {
+                session_id: id.to_string(),
+            },
+            consumer,
+            CancellationToken::new(),
+        )
         .unwrap();
     assert!(!runtime.reconnect.contains_key(&id));
+}
+
+#[tokio::test]
+async fn remote_demand_is_released_only_by_its_consumer() {
+    let (mut runtime, _root) = registry_fixture();
+    let id = Uuid::now_v7();
+    runtime.replace_remotes(vec![remote_session(id, Uuid::now_v7())]);
+    let desktop = Uuid::now_v7();
+    let cli = Uuid::now_v7();
+    let cli_lifetime = CancellationToken::new();
+    for (consumer, lifetime) in [
+        (desktop, CancellationToken::new()),
+        (cli, cli_lifetime.clone()),
+    ] {
+        runtime
+            .apply_for_consumer(
+                &Command::OpenRemote {
+                    request_id: Uuid::now_v7().to_string(),
+                    session_id: id.to_string(),
+                },
+                consumer,
+                lifetime,
+            )
+            .unwrap();
+    }
+    runtime
+        .apply_for_consumer(
+            &Command::DisconnectRemote {
+                session_id: id.to_string(),
+            },
+            desktop,
+            CancellationToken::new(),
+        )
+        .unwrap();
+    assert!(runtime.reconnect.contains_key(&id));
+    assert_eq!(runtime.views[&id].len(), 1);
+    assert!(runtime.opening.contains_key(&id));
+    cli_lifetime.cancel();
+    runtime.prune_views();
+    assert!(!runtime.views.contains_key(&id));
+    assert!(!runtime.reconnect.contains_key(&id));
+    assert!(!runtime.opening.contains_key(&id));
 }
 
 #[tokio::test]
@@ -643,11 +737,8 @@ async fn remote_recovery_preserves_only_open_current_incarnations() {
     );
     runtime.reconnect_views();
     assert!(runtime.opening[&id].commands.is_empty());
-    runtime
-        .apply(&Command::DisconnectRemote {
-            session_id: id.to_string(),
-        })
-        .unwrap();
+    runtime.views.insert(id, HashMap::new());
+    runtime.prune_views();
     assert!(!runtime.reconnect.contains_key(&id));
     assert!(!runtime.opening.contains_key(&id));
     runtime.reconnect.insert(

@@ -3,7 +3,7 @@ use std::{fs, path::Path, time::SystemTime};
 use super::{ConversationListPage, ConversationRef, Provider, storage};
 
 pub(super) fn discover(
-    home: &Path,
+    state_root: &Path,
     provider: Provider,
     cursor: Option<&str>,
     limit: Option<usize>,
@@ -12,8 +12,8 @@ pub(super) fn discover(
     let limit = storage::bounded("limit", limit.unwrap_or(30), 100)?;
     let budget = storage::bounded("maxBytes", max_bytes.unwrap_or(128 * 1024), 512 * 1024)?;
     match provider {
-        Provider::Copilot => copilot(home, cursor, limit, budget),
-        Provider::Claude => claude(home, cursor, limit, budget),
+        Provider::Copilot => copilot(state_root, cursor, limit, budget),
+        Provider::Claude => claude(state_root, cursor, limit, budget),
     }
 }
 
@@ -33,7 +33,7 @@ fn cursor_id<'a>(cursor: Option<&'a str>, prefix: &str) -> Result<Option<&'a str
                 .strip_prefix(prefix)
                 .ok_or("Invalid history cursor")?;
             if prefix == "all-copilot:" {
-                if id.is_empty() || id.len() > 4096 || id.contains('\0') {
+                if id.is_empty() || id.len() > 116 || id.chars().any(char::is_control) {
                     return Err("Invalid history cursor".into());
                 }
             } else {
@@ -45,19 +45,19 @@ fn cursor_id<'a>(cursor: Option<&'a str>, prefix: &str) -> Result<Option<&'a str
 }
 
 fn copilot(
-    home: &Path,
+    state_root: &Path,
     cursor: Option<&str>,
     limit: usize,
     budget: usize,
 ) -> Result<ConversationListPage, String> {
-    if !home
-        .join(".copilot/session-store.db")
+    if !state_root
+        .join("session-store.db")
         .try_exists()
         .map_err(|error| error.to_string())?
     {
         return Ok(empty());
     }
-    let connection = storage::copilot_database(home)?;
+    let connection = storage::copilot_database(state_root)?;
     let cursor = cursor_id(cursor, "all-copilot:")?;
     let anchor = if let Some(id) = cursor {
         Some(
@@ -112,8 +112,8 @@ fn copilot(
         }
         if storage::conversation_id(&item.native_conversation_id).is_err() {
             if item.native_conversation_id.is_empty()
-                || item.native_conversation_id.len() > 4096
-                || item.native_conversation_id.contains('\0')
+                || item.native_conversation_id.len() > 116
+                || item.native_conversation_id.chars().any(char::is_control)
             {
                 return Err("Conversation index contains an invalid identifier".into());
             }
@@ -131,12 +131,12 @@ fn copilot(
 }
 
 fn claude(
-    home: &Path,
+    state_root: &Path,
     cursor: Option<&str>,
     limit: usize,
     budget: usize,
 ) -> Result<ConversationListPage, String> {
-    let root = storage::transcript_root(home, Provider::Claude);
+    let root = storage::transcript_root(state_root, Provider::Claude);
     let projects = match fs::read_dir(&root) {
         Ok(entries) => entries,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(empty()),

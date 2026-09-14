@@ -22,26 +22,38 @@ public sealed class CurrentUser(KodosiDbContext db)
         var name = new string(rawName.Where(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-').Take(40).ToArray()).ToLowerInvariant();
         if (name.Length < 3) name = "user";
         var suffix = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(issuer + "\n" + subject)))[..10];
-        var handle = await db.Users.AnyAsync(x => x.Handle == name, ct) ? $"{name}-{suffix}" : name;
-        loaded = new User
+        for (var attempt = 0; attempt < 8; attempt++)
         {
-            Id = Guid.CreateVersion7(),
-            Issuer = issuer,
-            Subject = subject,
-            Handle = handle,
-            DisplayName = Truncate(context.User.FindFirstValue("name") ?? rawName, 128),
-            Email = Truncate(context.User.FindFirstValue("email"), 320),
-            AvatarUrl = Truncate(context.User.FindFirstValue("picture"), 2048),
-        };
-        db.Users.Add(loaded);
-        try { await db.SaveChangesAsync(ct); }
-        catch (DbUpdateException)
-        {
-            db.Entry(loaded).State = EntityState.Detached;
-            loaded = await db.Users.SingleOrDefaultAsync(x => x.Issuer == issuer && x.Subject == subject, ct)
-                ?? throw ApiException.Conflict("The account could not be created; retry sign-in.");
+            var handle = attempt switch
+            {
+                0 => name,
+                1 => $"{name}-{suffix}",
+                _ => $"{name}-{Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(8))}"
+            };
+            if (await db.Users.AnyAsync(x => x.Handle == handle, ct)) continue;
+            var created = new User
+            {
+                Id = Guid.CreateVersion7(),
+                Issuer = issuer,
+                Subject = subject,
+                Handle = handle,
+                DisplayName = Truncate(context.User.FindFirstValue("name") ?? rawName, 128),
+            };
+            db.Users.Add(created);
+            try
+            {
+                await db.SaveChangesAsync(ct);
+                loaded = created;
+                return loaded;
+            }
+            catch (DbUpdateException error) when (error.InnerException is Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation })
+            {
+                db.Entry(created).State = EntityState.Detached;
+                loaded = await db.Users.SingleOrDefaultAsync(x => x.Issuer == issuer && x.Subject == subject, ct);
+                if (loaded is not null) return loaded;
+            }
         }
-        return loaded;
+        throw ApiException.Conflict("The account could not be created; retry sign-in.");
     }
     private static string Truncate(string? value, int maximum)
     {
@@ -64,7 +76,7 @@ internal static class AccountEndpoints
         app.MapGet("/api/me", async (HttpContext context, CurrentUser users, CancellationToken ct) =>
         {
             var user = await users.GetAsync(context, ct);
-            return Results.Ok(new { user.Id, user.Handle, user.DisplayName, user.Email, user.AvatarUrl });
+            return Results.Ok(new { user.Id, user.Handle, user.DisplayName });
         }).RequireAuthorization();
     }
 }

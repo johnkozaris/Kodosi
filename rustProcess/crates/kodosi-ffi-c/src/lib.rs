@@ -270,7 +270,7 @@ impl State {
             && value
                 .get("type")
                 .and_then(serde_json::Value::as_str)
-                .is_some_and(|kind| kind.starts_with("term."))
+                .is_some_and(|kind| kind.starts_with("term.") && kind != "term.notification")
             && let Some(session) = value
                 .get("sessionId")
                 .and_then(serde_json::Value::as_str)

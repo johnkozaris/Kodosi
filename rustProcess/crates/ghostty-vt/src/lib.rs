@@ -7,9 +7,7 @@
 )]
 
 pub use ghostty_vt_sys::raw::{
-    CheckpointLimits, ClipboardContent, ClipboardLocation, ClipboardWriteHandler,
-    ClipboardWriteOutcome, CompressionProgress, Effect, Error, Key, Modifiers, Screen,
-    TerminalState,
+    CheckpointLimits, CompressionProgress, Effect, Error, Screen, TerminalState,
 };
 
 use ghostty_vt_sys::raw::{Format, FormatOptions, Terminal as RawTerminal};
@@ -24,7 +22,6 @@ pub struct TerminalPolicy {
     pub continuation_max_bytes: usize,
     pub scrollback_max_bytes: usize,
     pub scrollback_max_lines: usize,
-    pub clipboard_enabled: bool,
     pub dark: bool,
 }
 
@@ -34,7 +31,6 @@ impl Default for TerminalPolicy {
             continuation_max_bytes: 1024 * 1024,
             scrollback_max_bytes: 64 * 1024 * 1024,
             scrollback_max_lines: 1_024,
-            clipboard_enabled: false,
             dark: true,
         }
     }
@@ -85,7 +81,6 @@ impl Terminal {
                 policy.continuation_max_bytes,
                 policy.scrollback_max_bytes,
                 policy.scrollback_max_lines,
-                policy.clipboard_enabled,
                 policy.dark,
             )?,
             processing_failed: false,
@@ -122,23 +117,8 @@ impl Terminal {
         self.raw.resize(cols, rows, cell_width_px, cell_height_px)
     }
 
-    pub fn set_clipboard_enabled(&mut self, enabled: bool) -> Result<(), Error> {
-        self.raw.set_clipboard_enabled(enabled)
-    }
-
-    pub fn set_clipboard_writer(
-        &mut self,
-        writer: Option<ClipboardWriteHandler>,
-    ) -> Result<(), Error> {
-        self.raw.set_clipboard_writer(writer)
-    }
-
     pub fn set_dark(&mut self, dark: bool) -> Result<(), Error> {
         self.raw.set_dark(dark)
-    }
-
-    pub fn encode_key(&mut self, key: Key, modifiers: Modifiers) -> Result<Vec<u8>, Error> {
-        self.raw.encode_key(key, modifiers)
     }
 
     pub fn encode_focus(&mut self, focused: bool) -> Result<Vec<u8>, Error> {

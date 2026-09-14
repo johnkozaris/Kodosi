@@ -49,11 +49,46 @@ pub(super) fn encoded_claude_directory(directory: &Path) -> Result<String, Strin
     Ok(value.replace(['/', '\\', ':'], "-"))
 }
 
-pub(super) fn transcript_root(home: &Path, provider: Provider) -> PathBuf {
-    match provider {
-        Provider::Claude => home.join(".claude/projects"),
-        Provider::Copilot => home.join(".copilot/session-state"),
+pub(super) fn provider_root(home: &Path, provider: Provider) -> Result<PathBuf, String> {
+    let key = match provider {
+        Provider::Claude => "CLAUDE_CONFIG_DIR",
+        Provider::Copilot => "COPILOT_HOME",
+    };
+    resolve_provider_root(home, provider, std::env::var_os(key).as_deref())
+}
+
+pub(super) fn resolve_provider_root(
+    home: &Path,
+    provider: Provider,
+    configured: Option<&std::ffi::OsStr>,
+) -> Result<PathBuf, String> {
+    let root = configured.filter(|value| !value.is_empty()).map_or_else(
+        || {
+            home.join(match provider {
+                Provider::Claude => ".claude",
+                Provider::Copilot => ".copilot",
+            })
+        },
+        PathBuf::from,
+    );
+    let value = root.to_str().ok_or("Provider root must be UTF-8")?;
+    if !root.is_absolute()
+        || value.len() > 4096
+        || value.chars().any(char::is_control)
+        || root.components().any(|part| part == Component::ParentDir)
+    {
+        return Err(
+            "Provider root must be a bounded absolute path without parent traversal".to_owned(),
+        );
     }
+    Ok(root)
+}
+
+pub(super) fn transcript_root(root: &Path, provider: Provider) -> PathBuf {
+    root.join(match provider {
+        Provider::Claude => "projects",
+        Provider::Copilot => "session-state",
+    })
 }
 
 pub(super) fn open_directory(root: &Path, name: &str) -> Result<File, String> {
@@ -95,12 +130,12 @@ pub(super) fn open_file(directory: &File, name: &str) -> Result<File, String> {
 }
 
 pub(super) fn conversation_file(
-    home: &Path,
+    state_root: &Path,
     provider: Provider,
     directory: &Path,
     id: &str,
 ) -> Result<File, String> {
-    let root = transcript_root(home, provider);
+    let root = transcript_root(state_root, provider);
     match provider {
         Provider::Claude => {
             let project = open_directory(&root, &encoded_claude_directory(directory)?)?;
@@ -116,7 +151,7 @@ pub(super) fn conversation_file(
         }
         Provider::Copilot => {
             let session = open_directory(&root, id)?;
-            let stored = copilot_directory(home, id)?;
+            let stored = copilot_directory(state_root, id)?;
             if canonical_directory(&stored)? != directory {
                 return Err(
                     "Copilot conversation does not belong to this working directory".to_owned(),
@@ -143,8 +178,8 @@ pub(super) fn claude_directory(file: &mut File, maximum: u64) -> Result<Option<P
     Ok(None)
 }
 
-pub(super) fn copilot_database(home: &Path) -> Result<Connection, String> {
-    let path = home.join(".copilot/session-store.db");
+pub(super) fn copilot_database(state_root: &Path) -> Result<Connection, String> {
+    let path = state_root.join("session-store.db");
     let metadata = std::fs::symlink_metadata(&path)
         .map_err(|error| format!("Copilot index unavailable: {error}"))?;
     if metadata.file_type().is_symlink() || !metadata.is_file() {
@@ -180,8 +215,8 @@ pub(super) fn copilot_database(home: &Path) -> Result<Connection, String> {
     Ok(connection)
 }
 
-fn copilot_directory(home: &Path, id: &str) -> Result<String, String> {
-    let connection = copilot_database(home)?;
+fn copilot_directory(state_root: &Path, id: &str) -> Result<String, String> {
+    let connection = copilot_database(state_root)?;
     let directory: Option<String> = connection.query_row(
         "SELECT CASE WHEN length(CAST(cwd AS BLOB)) BETWEEN 1 AND 4096 THEN cwd ELSE NULL END FROM sessions WHERE id = ? LIMIT 1",
         [id], |row| row.get(0),

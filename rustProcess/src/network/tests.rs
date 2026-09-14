@@ -16,6 +16,17 @@ fn session() -> RemoteSession {
     }
 }
 
+#[test]
+fn terminal_close_has_one_wire_action() {
+    let encoded = wire::encode_control(&TerminalControl::Close).unwrap();
+    assert_eq!(encoded, br#"{"type":"close"}"#);
+    assert!(matches!(
+        wire::decode_control(&encoded, Uuid::now_v7()),
+        Ok(TerminalControl::Close)
+    ));
+    assert!(wire::decode_control(br#"{"type":"stop"}"#, Uuid::now_v7()).is_err());
+}
+
 #[tokio::test]
 async fn independent_control_handle_does_not_block_output() {
     let (mut connection, mut requests, updates) = test_remote_connection(session());
@@ -47,10 +58,10 @@ async fn independent_control_handle_does_not_block_output() {
 }
 
 #[tokio::test]
-async fn confirmed_stop_wins_over_immediate_connection_close() {
+async fn confirmed_terminal_close_wins_over_immediate_connection_close() {
     let (connection, mut requests, _updates) = test_remote_connection(session());
     let control = connection.control_handle();
-    let pending = control.send_control(TerminalControl::Stop);
+    let pending = control.send_control(TerminalControl::Close);
     tokio::pin!(pending);
     assert!(futures_util::poll!(&mut pending).is_pending());
     let TestRemoteRequest::Control { reply, .. } = requests.recv().await.unwrap() else {

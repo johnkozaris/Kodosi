@@ -204,6 +204,59 @@ async fn failed_unpublish_retains_the_cleanup_obligation() {
     assert!(network.inner.publications.lock().await.contains_key(&id));
 }
 
+#[tokio::test]
+async fn expired_publication_discards_pending_grants_before_reconciliation() {
+    let (_root, network) = fixture();
+    let id = Uuid::now_v7();
+    let incarnation = Uuid::now_v7();
+    let friend = Uuid::now_v7().to_string();
+    let (requests, _) = mpsc::channel(4);
+    let (_output, output) = broadcast::channel(4);
+    let publication = Arc::new(relay::Publication::new(
+        LocalPublication {
+            session_id: id,
+            incarnation_id: incarnation,
+            name: "live shell".into(),
+            room_id: Some(Uuid::now_v7()),
+            shared_with: BTreeSet::from([friend.clone()]),
+        },
+        requests,
+        output,
+        SessionDto {
+            id,
+            incarnation_id: incarnation,
+            name: "live shell".into(),
+            owner_user_id: Uuid::now_v7().to_string(),
+            owner_name: "owner".into(),
+            host_device_id: "host".into(),
+            host_name: "host".into(),
+            room_id: None,
+            room_name: None,
+            shared_with: vec![friend.clone()],
+            authorization_revision: 4,
+            key_generation: 2,
+            ready: false,
+            host_online: false,
+        },
+    ));
+    *publication.pending_shares.lock().await = Some(BTreeSet::from([friend]));
+    network
+        .inner
+        .publications
+        .lock()
+        .await
+        .insert(id, Arc::clone(&publication));
+    publication.expire_sharing().await;
+    network.reconcile_shares().await.unwrap();
+    let info = publication.info.read().await;
+    assert!(info.shared_with.is_empty());
+    assert!(info.room_id.is_none());
+    assert_eq!(info.incarnation_id, incarnation);
+    drop(info);
+    assert!(publication.pending_shares.lock().await.is_none());
+    assert!(!publication.cancel.is_cancelled());
+}
+
 #[test]
 fn host_labels_are_bounded_trimmed_and_have_a_fallback() {
     assert_eq!(

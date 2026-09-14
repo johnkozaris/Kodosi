@@ -79,11 +79,6 @@ public sealed class RelayDirectory(TimeProvider clock)
             live.Revision = state.AuthorizationRevision; live.Generation = state.KeyGeneration; live.Ready = state.Ready;
         }
     }
-    public void RequestKeys(Session state)
-    {
-        if (sessions.TryGetValue(state.Id, out var live))
-            live.Host?.Send(new { type = "keysRequested", authorizationRevision = state.AuthorizationRevision, keyGeneration = state.KeyGeneration });
-    }
     public void RemoveDevice(Guid userId, string deviceId)
     {
         foreach (var peer in listeners.Values.Where(x => x.UserId == userId && x.DeviceId == deviceId)) peer.Abort();

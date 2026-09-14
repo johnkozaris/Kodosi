@@ -21,7 +21,7 @@ use uuid::Uuid;
 
 use crate::{CommandEnvelope, Error, Event, Result, RuntimeHandle, terminal};
 
-const VERSION: u32 = 13;
+const VERSION: u32 = 16;
 const MAX_FRAME: usize = 8 * 1024 * 1024 + 64 * 1024;
 const MAX_CONNECTIONS: usize = 64;
 const HELLO_TIMEOUT: Duration = Duration::from_secs(3);
@@ -270,7 +270,7 @@ async fn serve_connection(
         runtime.unsubscribe_terminal(session, connection).await;
         result
     } else {
-        serve_commands(stream, runtime, cancel).await
+        serve_commands(stream, runtime.command_client(), cancel).await
     }
 }
 
@@ -455,7 +455,7 @@ async fn serve_terminal(
                         let incarnation=subscription.incarnation_id;
                         let connection=subscription.connection_id;
                         let input=Bytes::copy_from_slice(&bytes[1..]);
-                        admissions.push_back(Box::pin(async move {handle.admit_input(session,incarnation,connection,input).await}));
+                        admissions.push_back(Box::pin(async move {handle.write_input(session,incarnation,connection,input).await}));
                     },
                     Some(&RESIZE) if bytes.len()==5=>{
                         let cols=u16::from_be_bytes([bytes[1],bytes[2]]);let rows=u16::from_be_bytes([bytes[3],bytes[4]]);
@@ -819,11 +819,11 @@ mod tests {
     #[test]
     fn local_protocol_requires_exact_version_and_root() {
         assert!(
-            serde_json::from_str::<Hello>(r#"{"version":13,"root":"a","sessionId":null}"#).is_ok()
+            serde_json::from_str::<Hello>(r#"{"version":16,"root":"a","sessionId":null}"#).is_ok()
         );
-        assert!(serde_json::from_str::<Hello>(r#"{"version":13}"#).is_err());
+        assert!(serde_json::from_str::<Hello>(r#"{"version":16}"#).is_err());
         assert!(
-            serde_json::from_str::<Hello>(r#"{"version":13,"root":"a","legacy":true}"#).is_err()
+            serde_json::from_str::<Hello>(r#"{"version":16,"root":"a","legacy":true}"#).is_err()
         );
     }
 }

@@ -70,6 +70,14 @@ impl Publication {
             output: Mutex::new(Some(output)),
         }
     }
+    pub(crate) async fn expire_sharing(&self) {
+        let mut info = self.info.write().await;
+        info.shared_with.clear();
+        info.room_id = None;
+        drop(info);
+        *self.pending_shares.lock().await = None;
+    }
+
     pub(crate) async fn invalidate(&self) {
         self.authorization.lock().await.cancel();
         self.refresh.notify_one();

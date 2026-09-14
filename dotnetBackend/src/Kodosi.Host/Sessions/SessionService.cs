@@ -99,7 +99,7 @@ public sealed class SessionService(KodosiDbContext db, RelayDirectory relay,
     {
         var session = await OwnerAsync(id, userId, deviceId, ct); Incarnation(session, body.IncarnationId);
         if (body.RoomId is { } roomId) await rooms.RequireMemberAsync(roomId, userId, ct);
-        session.RoomId = body.RoomId; await db.SaveChangesAsync(ct); await NotifyAsync(session, ct); relay.Notify(userId, "rooms");
+        session.RoomId = body.RoomId; await db.SaveChangesAsync(ct); await NotifyAsync(session, ct);
         return await DescribeAsync(session, ct);
     }
     public async Task<SessionDto> ShareAsync(Guid id, Guid userId, string deviceId, ShareSession body, CancellationToken ct)
@@ -208,11 +208,9 @@ public sealed class SessionService(KodosiDbContext db, RelayDirectory relay,
     {
         var session = await AuthorizedAsync(id, userId, ct); await devices.RequireDeviceAsync(userId, deviceId, ct);
         var blob = await db.SessionKeys.AsNoTracking().SingleOrDefaultAsync(x => x.SessionId == id && x.RecipientDeviceId == deviceId && x.RecipientUserId == userId && x.KeyGeneration == session.KeyGeneration, ct);
-        if (!session.Ready || blob is null)
-        {
-            relay.RequestKeys(session); return new { state = "pendingDistribution", session.AuthorizationRevision };
-        }
-        var host = await devices.RequireDeviceAsync(session.OwnerUserId, session.HostDeviceId, ct);
+        if (!session.Ready) return new { state = "pendingDistribution", session.AuthorizationRevision };
+        if (blob is null) throw ApiException.Forbidden("The host has not granted this device a current session key.");
+        await devices.RequireDeviceAsync(session.OwnerUserId, session.HostDeviceId, ct);
         return new
         {
             state = "ready",
@@ -220,10 +218,9 @@ public sealed class SessionService(KodosiDbContext db, RelayDirectory relay,
             keyBlob = new
             {
                 session.IncarnationId,
-                incarnationProtocolVersion = 11,
+                incarnationProtocolVersion = 13,
                 encryptedSessionKey = Convert.ToBase64String(blob.EncryptedKey),
                 blob.SenderDeviceId,
-                senderKemPublicKey = Convert.ToBase64String(host.KemPublicKey),
                 signature = Convert.ToBase64String(blob.Signature),
                 signatureVersion = 2,
                 blob.KeyGeneration,

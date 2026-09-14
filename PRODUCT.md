@@ -28,9 +28,9 @@ attach to that session; opening or reconnecting a view should show fresh state a
 continue the output without disrupting other viewers. The current transport uses
 native checkpoints followed by ordered output, with bounded buffering.
 
-Closing or minimizing a view leaves the process running. Stop ends it. Quitting the
-host ends its local processes, not processes on other computers. The current product
-focuses on live sessions rather than a stopped-shell recovery or archive system.
+Minimize hides a terminal view and keeps its process running. Close ends the terminal.
+Closing the app window leaves the host running; Quit ends its local processes, not
+processes on other computers. There is no separate stopped-terminal archive.
 
 Disconnected or stale views cannot control a replacement process. Input whose
 delivery became uncertain is not automatically replayed. Runtime admission is not
@@ -44,7 +44,7 @@ revoked friend sharing.
 
 Approved own devices can use the owner's sessions. An owner selects which friends
 may use each terminal. Admitted participants have full terminal control, including
-input, resize, focus, interrupt, and Stop. Sharing and identity administration remain
+input, resize, focus, interrupt, and closing the terminal. Sharing and identity administration remain
 owner actions; current connection and focus/resize coordination still matter.
 
 Friendship alone does not share a terminal. Removing a friend, device, or session

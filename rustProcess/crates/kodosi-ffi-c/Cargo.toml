@@ -21,9 +21,6 @@ serde_json = {workspace = true}
 
 tracing = {workspace = true}
 
-[dev-dependencies]
-tempfile = {workspace = true}
-
 [build-dependencies]
 cbindgen = "0.29.4"
 

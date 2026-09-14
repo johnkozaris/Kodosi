@@ -193,7 +193,7 @@ impl Network {
         if verified.devices.contains_key(new_device) {
             return Err(invalid("This device is already approved."));
         }
-        let now = identity::now_ms();
+        let issued = verified.list.successor_issued_at(identity::now_ms())?;
         let cert = build_cert_for(
             &credentials.user_id,
             new_device,
@@ -202,7 +202,7 @@ impl Network {
             &wire::decode_b64(&pending, "signingPublicKey", 1952)?,
             &credentials.keys.device_id,
             &credentials.keys.signing_key()?,
-            now,
+            issued,
             None,
         )?;
         let mut entries = verified.list.entries.clone();
@@ -217,8 +217,8 @@ impl Network {
             entries,
             &credentials.keys.device_id,
             &credentials.keys.signing_key()?,
-            now,
-            Some(now + 24 * 60 * 60_000),
+            issued,
+            Some(issued + 24 * 60 * 60_000),
         )?;
         let _response:Value=self.inner.http.device(Method::POST,"api/devices/link/approve",&credentials,Some(json!({"userCode":code,"deviceCertificate":BASE64.encode(cert.body_bytes),"deviceCertificateSignature":BASE64.encode(cert.signature),"signedDeviceList":BASE64.encode(list.body_bytes),"signedDeviceListSignature":BASE64.encode(list.signature)}))).await?;
         self.fetch_identity(&credentials.user_id, false).await?;
@@ -267,7 +267,7 @@ impl Network {
             .filter(|entry| entry.device_id != id)
             .cloned()
             .collect();
-        let now = identity::now_ms();
+        let issued = verified.list.successor_issued_at(identity::now_ms())?;
         let list = build_replacement_list(
             &credentials.user_id,
             verified.generation,
@@ -275,8 +275,8 @@ impl Network {
             entries,
             &credentials.keys.device_id,
             &credentials.keys.signing_key()?,
-            now,
-            Some(now + 24 * 60 * 60_000),
+            issued,
+            Some(issued + 24 * 60 * 60_000),
         )?;
         self.block_device(&credentials.user_id, id).await?;
         self.rekey_all().await?;

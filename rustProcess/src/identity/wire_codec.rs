@@ -205,6 +205,11 @@ pub(super) fn validate_timestamps(
             });
         }
     }
+    if expires_at_ms.is_some_and(|expires| expires <= issued_at_ms) {
+        return Err(Error::Invalid {
+            reason: format!("{context}: expires_at_ms must be greater than issued_at_ms"),
+        });
+    }
     Ok(())
 }
 
@@ -217,5 +222,74 @@ pub(super) fn decode_expiry(expires_at_ms: u64) -> Option<u64> {
         None
     } else {
         Some(expires_at_ms)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::identity::{
+        device_cert::DeviceCertificate,
+        signed_device_list::{DeviceListEntry, SignedDeviceList},
+    };
+
+    #[test]
+    fn certificate_and_list_share_the_backend_timestamp_contract() {
+        let mut certificate = DeviceCertificate {
+            user_id: "00000000-0000-4000-8000-000000000001".to_owned(),
+            device_id: "device".to_owned(),
+            device_label: "Device".to_owned(),
+            signer_device_id: "device".to_owned(),
+            kem_public_key: vec![0; ML_KEM_768_PUBLIC_KEY_LEN],
+            sig_public_key: vec![0; ML_DSA_65_PUBLIC_KEY_LEN],
+            issued_at_ms: 100,
+            expires_at_ms: None,
+        };
+        let mut list = SignedDeviceList {
+            user_id: certificate.user_id.clone(),
+            generation: 1,
+            entries: vec![DeviceListEntry {
+                device_id: "device".to_owned(),
+                signer_device_id: "device".to_owned(),
+            }],
+            signer_device_id: "device".to_owned(),
+            issued_at_ms: 100,
+            expires_at_ms: None,
+        };
+        let cert_body = certificate.serialize_body().unwrap();
+        let list_body = list.serialize_body().unwrap();
+        for expiry in [
+            0,
+            99,
+            100,
+            101,
+            MAX_UNIX_TIME_MILLISECONDS,
+            MAX_UNIX_TIME_MILLISECONDS + 1,
+        ] {
+            let accepted = expiry == 0 || (expiry > 100 && expiry <= MAX_UNIX_TIME_MILLISECONDS);
+            for body in [&cert_body, &list_body] {
+                let mut bytes = body.clone();
+                let end = bytes.len();
+                bytes[end - 8..].copy_from_slice(&expiry.to_be_bytes());
+                let parsed = if body.len() == cert_body.len() {
+                    DeviceCertificate::parse_body(&bytes).is_ok()
+                } else {
+                    SignedDeviceList::parse_body(&bytes).is_ok()
+                };
+                assert_eq!(parsed, accepted, "expiry {expiry}");
+            }
+            certificate.expires_at_ms = decode_expiry(expiry);
+            list.expires_at_ms = decode_expiry(expiry);
+            assert_eq!(certificate.serialize_body().is_ok(), accepted);
+            assert_eq!(list.serialize_body().is_ok(), accepted);
+        }
+        for generation in [0, 1, i64::MAX as u64, i64::MAX as u64 + 1, u64::MAX] {
+            let mut bytes = list_body.clone();
+            bytes[4 + USER_ID_LEN..12 + USER_ID_LEN].copy_from_slice(&generation.to_be_bytes());
+            assert_eq!(
+                SignedDeviceList::parse_body(&bytes).is_ok(),
+                generation > 0 && i64::try_from(generation).is_ok()
+            );
+        }
     }
 }

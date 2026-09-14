@@ -108,7 +108,7 @@ impl RemoteTerminal {
         drop(self.send(Request::Unsubscribe(connection)));
     }
 
-    pub(crate) fn admit_input(
+    pub(crate) fn write_input(
         &self,
         connection: Uuid,
         bytes: Bytes,
@@ -595,7 +595,7 @@ impl RemoteActor {
                         return Err(Error::Stale);
                     }
                 }
-                TerminalControl::Interrupt | TerminalControl::Stop => {}
+                TerminalControl::Interrupt | TerminalControl::Close => {}
             }
             self.begin(control, queued.reply, resize_owner, queued.budget);
             break;

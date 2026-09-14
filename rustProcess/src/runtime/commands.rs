@@ -17,6 +17,59 @@ use crate::{
 };
 
 impl Runtime {
+    pub(super) fn apply_for_consumer(
+        &mut self,
+        command: &Command,
+        consumer: Uuid,
+        lifetime: CancellationToken,
+    ) -> Result<()> {
+        match command {
+            Command::OpenRemote { session_id, .. } => {
+                let id = parse_id(session_id)?;
+                if self.views.len() >= MAX_SESSIONS && !self.views.contains_key(&id) {
+                    return Err(Error::Busy);
+                }
+                let consumers = self.views.entry(id).or_default();
+                consumers.retain(|_, token| !token.is_cancelled());
+                if consumers.len() >= 64 && !consumers.contains_key(&consumer) {
+                    return Err(Error::Busy);
+                }
+                consumers.insert(consumer, lifetime);
+                if let Err(error) = self.open_remote(id, command.clone()) {
+                    self.release_view(id, consumer);
+                    return Err(error);
+                }
+                Ok(())
+            }
+            Command::DisconnectRemote { session_id } => {
+                self.release_view(parse_id(session_id)?, consumer);
+                Ok(())
+            }
+            _ => self.apply(command),
+        }
+    }
+
+    fn release_view(&mut self, id: Uuid, consumer: Uuid) {
+        if let Some(consumers) = self.views.get_mut(&id) {
+            consumers.remove(&consumer);
+        }
+        self.prune_views();
+    }
+
+    pub(super) fn prune_views(&mut self) {
+        let expired = self
+            .views
+            .iter_mut()
+            .filter_map(|(id, consumers)| {
+                consumers.retain(|_, token| !token.is_cancelled());
+                consumers.is_empty().then_some(*id)
+            })
+            .collect::<Vec<_>>();
+        for id in expired {
+            self.disconnect_remote(id);
+        }
+    }
+
     pub(super) fn apply(&mut self, command: &Command) -> Result<()> {
         match command {
             Command::ListSessions {} => {
@@ -25,14 +78,13 @@ impl Runtime {
             }
             Command::CreateSession { .. } => self.create(command.clone())?,
             Command::RenameSession { .. } => self.rename(command)?,
-            Command::StopSession { .. } | Command::InterruptSession { .. } => {
+            Command::CloseSession { .. } | Command::InterruptSession { .. } => {
                 self.end_session(command)?;
             }
-            Command::OpenRemote { session_id, .. } => {
-                self.open_remote(parse_id(session_id)?, command.clone())?;
-            }
-            Command::DisconnectRemote { session_id } => {
-                self.disconnect_remote(parse_id(session_id)?);
+            Command::OpenRemote { .. } | Command::DisconnectRemote { .. } => {
+                return Err(Error::Invalid(
+                    "remote view commands require a current client".to_owned(),
+                ));
             }
             Command::ShareSession { .. }
             | Command::AttachSession { .. }
@@ -82,7 +134,7 @@ impl Runtime {
             expected_runtime_incarnation_id: incarnation,
             ..
         }
-        | Command::StopSession {
+        | Command::CloseSession {
             session_id: id,
             expected_runtime_incarnation_id: incarnation,
             ..
@@ -150,11 +202,11 @@ impl Runtime {
             return self.open_remote(id, command.clone());
         }
         self.job_capacity()?;
-        let stop = matches!(command, Command::StopSession { .. });
-        let response = self.target(id)?.end(stop);
-        if stop {
+        let closing = matches!(command, Command::CloseSession { .. });
+        let response = self.target(id)?.end(closing);
+        if closing {
             if let Some(local) = self.local.get_mut(&id) {
-                local.entry.status = SessionStatus::Stopping;
+                local.entry.status = SessionStatus::Closing;
             }
             self.publish_catalog();
         }
@@ -314,7 +366,9 @@ impl Runtime {
             },
         );
         if let Some(entry) = self.remotes.get_mut(&id) {
-            if let Ok(incarnation) = Uuid::parse_str(&entry.incarnation_id) {
+            if let Ok(incarnation) = Uuid::parse_str(&entry.incarnation_id)
+                && self.views.contains_key(&id)
+            {
                 self.reconnect.entry(id).or_insert_with(|| Reconnect {
                     incarnation,
                     failures: 0,
@@ -346,6 +400,7 @@ impl Runtime {
     }
 
     fn disconnect_remote(&mut self, id: Uuid) {
+        self.views.remove(&id);
         self.reconnect.remove(&id);
         if let Some(opening) = self.opening.remove(&id) {
             opening.cancellation.cancel();
@@ -507,7 +562,15 @@ impl Runtime {
                     Err(error) => tracing::debug!(%id, %error, "session retirement deferred"),
                 }
             }
-            Completion::Terminal { command, result } if current => self.terminal_result(&command, result),
+            Completion::Terminal { command, result } if current => {
+                self.terminal_result(&command, result);
+                if matches!(command, Command::CloseSession { .. } | Command::InterruptSession { .. })
+                    && let Some(id) = command.session_id().and_then(|id| Uuid::parse_str(id).ok())
+                    && !self.local.contains_key(&id) && !self.views.contains_key(&id)
+                {
+                    self.disconnect_remote(id);
+                }
+            },
             Completion::Provider { command, result } if current => match result {
                 Ok(value) => self.emit(json!({"type":"provider.reply", "requestId":command.request_id(), "operation":command.operation(), "result":value})),
                 Err(error) => self.error(&command, &error),
@@ -660,14 +723,16 @@ impl Runtime {
                     self.reconnect.remove(&id);
                     return;
                 }
-                self.reconnect.insert(
-                    id,
-                    Reconnect {
-                        incarnation: connection.session.incarnation_id,
-                        failures: 0,
-                        next: tokio::time::Instant::now() + Duration::from_secs(2),
-                    },
-                );
+                if self.views.contains_key(&id) {
+                    self.reconnect.insert(
+                        id,
+                        Reconnect {
+                            incarnation: connection.session.incarnation_id,
+                            failures: 0,
+                            next: tokio::time::Instant::now() + Duration::from_secs(2),
+                        },
+                    );
+                }
                 let mut entry = self.remote_entry(connection.session.clone());
                 entry.connection_state = ConnectionState::Connected;
                 entry.message = None;
@@ -802,8 +867,9 @@ async fn create_session(
         ));
     }
     let (program, arguments) = if let Some(resume) = resume {
+        let root = provider::state_root(&config.home, resume.provider).map_err(Error::Invalid)?;
         provider::validate_resume(
-            &config.home,
+            &root,
             resume.provider,
             directory
                 .to_str()
@@ -851,6 +917,13 @@ async fn create_session(
 }
 
 async fn provider_reply(home: &Path, command: &Command) -> Result<Value> {
+    let provider = match command {
+        Command::DiscoverConversations { provider, .. }
+        | Command::ReadConversation { provider, .. }
+        | Command::InspectProvider { provider, .. } => *provider,
+        _ => return Err(Error::Invalid("expected provider request".to_owned())),
+    };
+    let root = provider::state_root(home, provider).map_err(Error::Invalid)?;
     let result = match command {
         Command::DiscoverConversations {
             provider,
@@ -861,7 +934,7 @@ async fn provider_reply(home: &Path, command: &Command) -> Result<Value> {
             ..
         } => serde_json::to_value(
             provider::discover_history(
-                home,
+                &root,
                 *provider,
                 working_directory.as_deref(),
                 cursor.as_deref(),
@@ -881,7 +954,7 @@ async fn provider_reply(home: &Path, command: &Command) -> Result<Value> {
             ..
         } => serde_json::to_value(
             provider::read(
-                home,
+                &root,
                 *provider,
                 working_directory,
                 native_conversation_id,
@@ -897,7 +970,7 @@ async fn provider_reply(home: &Path, command: &Command) -> Result<Value> {
             working_directory,
             ..
         } => serde_json::to_value(
-            provider::inspect(home, *provider, working_directory.as_deref())
+            provider::inspect(&root, *provider, working_directory.as_deref())
                 .await
                 .map_err(Error::Invalid)?,
         )?,

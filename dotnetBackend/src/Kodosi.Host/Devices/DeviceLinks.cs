@@ -98,6 +98,8 @@ public sealed partial class DeviceService
         approvingDevice = await RequireDeviceAsync(userId, approvingDevice.Id, ct);
         if (cert.SignerDeviceId != approvingDevice.Id || next.SignerDeviceId != approvingDevice.Id || cert.IsSelfSigned)
             throw ApiException.Forbidden("The approving device must sign the new device and list.");
+        if (cert.IssuedAtMs < approvingDevice.IssuedAtMs || approvingDevice.ExpiresAtMs <= cert.IssuedAtMs)
+            throw ApiException.Invalid("The device certificate was issued outside its signer's validity.");
         var expected = previous.Entries.ToDictionary(x => x.DeviceId, x => x.SignerDeviceId, StringComparer.Ordinal);
         if (!expected.TryAdd(cert.DeviceId, cert.SignerDeviceId) || next.Entries.Count != expected.Count
             || next.Entries.Any(x => !expected.TryGetValue(x.DeviceId, out var signer) || signer != x.SignerDeviceId))

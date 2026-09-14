@@ -7,7 +7,7 @@ const MAX_PAGE_BYTES: usize = 512 * 1024;
 const MAX_TITLE_BYTES: usize = 1_024;
 
 pub(super) fn discover(
-    home: &Path,
+    state_root: &Path,
     provider: Provider,
     directory: &Path,
     cursor: Option<&str>,
@@ -17,8 +17,8 @@ pub(super) fn discover(
     let limit = storage::bounded("limit", limit.unwrap_or(50), 100)?;
     let max_bytes = storage::bounded("maxBytes", max_bytes.unwrap_or(128 * 1024), MAX_PAGE_BYTES)?;
     let mut items = match provider {
-        Provider::Claude => claude(home, directory)?,
-        Provider::Copilot => copilot(home, directory)?,
+        Provider::Claude => claude(state_root, directory)?,
+        Provider::Copilot => copilot(state_root, directory)?,
     };
     items.sort_by(|left, right| {
         right
@@ -33,8 +33,8 @@ pub(super) fn discover(
     paginate(&items, provider, cursor, limit, max_bytes)
 }
 
-fn claude(home: &Path, directory: &Path) -> Result<Vec<ConversationRef>, String> {
-    let root = storage::transcript_root(home, Provider::Claude);
+fn claude(state_root: &Path, directory: &Path) -> Result<Vec<ConversationRef>, String> {
+    let root = storage::transcript_root(state_root, Provider::Claude);
     let project_name = storage::encoded_claude_directory(directory)?;
     let project_path = root.join(&project_name);
     let entries = match fs::read_dir(&project_path) {
@@ -87,15 +87,15 @@ fn claude(home: &Path, directory: &Path) -> Result<Vec<ConversationRef>, String>
     Ok(items)
 }
 
-fn copilot(home: &Path, directory: &Path) -> Result<Vec<ConversationRef>, String> {
-    if !home
-        .join(".copilot/session-store.db")
+fn copilot(state_root: &Path, directory: &Path) -> Result<Vec<ConversationRef>, String> {
+    if !state_root
+        .join("session-store.db")
         .try_exists()
         .map_err(|error| error.to_string())?
     {
         return Ok(Vec::new());
     }
-    let connection = storage::copilot_database(home)?;
+    let connection = storage::copilot_database(state_root)?;
     let mut statement = connection.prepare(
         "SELECT substr(id, 1, 64), substr(summary, 1, 1024), substr(created_at, 1, 128), substr(updated_at, 1, 128)
          FROM sessions WHERE cwd = ? ORDER BY COALESCE(updated_at, created_at) DESC, id ASC LIMIT 4097",
@@ -113,7 +113,7 @@ fn copilot(home: &Path, directory: &Path) -> Result<Vec<ConversationRef>, String
         })
         .map_err(|error| format!("Could not read Copilot conversations: {error}"))?;
     let mut items = Vec::new();
-    let root = storage::transcript_root(home, Provider::Copilot);
+    let root = storage::transcript_root(state_root, Provider::Copilot);
     for (index, row) in rows.enumerate() {
         if index >= storage::MAX_DIRECTORY_ENTRIES {
             return Err("Copilot conversation index exceeds its entry limit".to_owned());

@@ -67,7 +67,7 @@ exec /bin/cat"#,
         )
         .expect("input");
     wait_text(&mut subscription, b"launch-input").await;
-    session.stop().await.expect("stop");
+    session.close().await.expect("close");
 
     let inherited_id = std::env::var_os("KODOSI_SESSION_ID").unwrap_or_default();
     assert_eq!(
@@ -117,7 +117,7 @@ async fn invalid_geometry_is_rejected_without_stopping_the_process() {
         .await
         .expect("checkpoint");
     assert_eq!(cut.checkpoint.size(), TerminalSize::default());
-    session.stop().await.expect("stop");
+    session.close().await.expect("close");
 }
 
 #[tokio::test]
@@ -145,7 +145,7 @@ async fn resize_claim_is_current_connection_ownership_not_a_permission_role() {
         .resize(first.connection_id, size, None, false)
         .await
         .expect("closed owner released");
-    session.stop().await.expect("stop");
+    session.close().await.expect("close");
 }
 
 #[tokio::test]
@@ -173,18 +173,18 @@ async fn dropping_a_view_releases_aggregated_focus_without_explicit_unsubscribe(
     assert!(observer.data.try_recv().is_err());
     drop(second);
     wait_text(&mut observer, b"\x1b[O").await;
-    session.stop().await.expect("stop");
+    session.close().await.expect("close");
 }
 
 #[tokio::test]
-async fn canceled_host_authorization_cannot_resize_focus_or_stop() {
+async fn canceled_host_authorization_cannot_resize_focus_or_close() {
     let (session, _changes, _root) = shell("exec /bin/cat").await;
     let subscription = session.subscribe().await.expect("subscribe");
     let authorization = CancellationToken::new();
     authorization.cancel();
     let connection_id = Uuid::now_v7();
     for control in [
-        TerminalControl::Stop,
+        TerminalControl::Close,
         TerminalControl::Focus { focused: true },
         TerminalControl::Resize {
             request_id: Uuid::now_v7().to_string(),
@@ -221,7 +221,7 @@ async fn canceled_host_authorization_cannot_resize_focus_or_stop() {
             .size(),
         TerminalSize::default()
     );
-    session.stop().await.expect("stop");
+    session.close().await.expect("close");
 }
 
 #[tokio::test]
@@ -263,11 +263,11 @@ async fn resize_checkpoint_precedes_bootstrap_barrier_at_the_same_output_cut() {
             _ => panic!("unexpected publication frame"),
         }
     }
-    session.stop().await.expect("stop");
+    session.close().await.expect("close");
 }
 
 #[tokio::test]
-async fn simultaneous_stop_waiters_confirm_reaping_even_with_full_admission_queue() {
+async fn simultaneous_close_waiters_confirm_reaping_even_with_full_admission_queue() {
     let (session, mut changes, root) = shell(
         "trap '' HUP TERM; while [ ! -f ready ]; do sleep 0.01; done; printf READY; sleep 30",
     )
@@ -278,15 +278,15 @@ async fn simultaneous_stop_waiters_confirm_reaping_even_with_full_admission_queu
     for _ in 0..COMMAND_CAPACITY * 2 {
         drop(session.input(subscription.connection_id, Bytes::from_static(b"x")));
     }
-    let stop_one = session.stop();
-    let stop_two = session.stop();
+    let close_one = session.close();
+    let close_two = session.close();
     assert!(session.is_closed());
     assert!(
         session
             .input(subscription.connection_id, Bytes::from_static(b"late"))
             .is_err()
     );
-    let (first, second) = tokio::join!(stop_one, stop_two);
+    let (first, second) = tokio::join!(close_one, close_two);
     first.expect("first waiter");
     second.expect("second waiter");
     tokio::time::timeout(Duration::from_secs(1), async {
@@ -423,7 +423,7 @@ async fn directory_tracking_follows_cd_without_shell_integration() {
         cut.checkpoint.metadata.unwrap().directory.as_deref(),
         expected.to_str()
     );
-    session.stop().await.unwrap();
+    session.close().await.unwrap();
 }
 
 #[tokio::test]
@@ -470,7 +470,59 @@ async fn metadata_notifications_follow_changes_not_idle_time() {
             .as_deref(),
         Some("Changed title")
     );
-    session.stop().await.unwrap();
+    session.close().await.unwrap();
+}
+
+#[tokio::test]
+async fn input_completion_waits_for_the_entire_pty_write() {
+    let (session, _changes, root) = shell(
+        "stty raw -echo; while [ ! -f ready ]; do sleep 0.01; done; printf READY; sleep 0.2; dd bs=1 count=65536 of=received 2>/dev/null; exec /bin/cat",
+    )
+    .await;
+    let mut subscription = session.subscribe().await.unwrap();
+    std::fs::write(root.path().join("ready"), b"").unwrap();
+    wait_text(&mut subscription, b"READY").await;
+    let bytes = Bytes::from(vec![b'x'; 65_536]);
+    let completion = session.write_input(subscription.connection_id, bytes.clone());
+    tokio::pin!(completion);
+    assert!(
+        tokio::time::timeout(Duration::from_millis(50), &mut completion)
+            .await
+            .is_err()
+    );
+    completion.await.unwrap();
+    drop(subscription);
+    tokio::time::timeout(Duration::from_secs(3), async {
+        while std::fs::metadata(root.path().join("received")).map_or(0, |meta| meta.len()) != 65_536
+        {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(std::fs::read(root.path().join("received")).unwrap(), bytes);
+    session.close().await.unwrap();
+}
+
+#[tokio::test]
+async fn closing_a_view_rejects_its_pending_input_completion() {
+    let (session, _changes, root) =
+        shell("stty raw -echo; while [ ! -f ready ]; do sleep 0.01; done; printf READY; sleep 30")
+            .await;
+    let mut subscription = session.subscribe().await.unwrap();
+    std::fs::write(root.path().join("ready"), b"").unwrap();
+    wait_text(&mut subscription, b"READY").await;
+    let completion =
+        session.write_input(subscription.connection_id, Bytes::from(vec![b'x'; 65_536]));
+    tokio::pin!(completion);
+    assert!(
+        tokio::time::timeout(Duration::from_millis(50), &mut completion)
+            .await
+            .is_err()
+    );
+    drop(subscription);
+    assert!(completion.await.is_err());
+    session.close().await.unwrap();
 }
 
 #[tokio::test]
@@ -481,11 +533,11 @@ async fn input_admission_rejects_a_detached_view() {
     session.unsubscribe(id);
     assert!(
         session
-            .admit_input(id, Bytes::from_static(b"rejected"))
+            .write_input(id, Bytes::from_static(b"rejected"))
             .await
             .is_err()
     );
-    session.stop().await.unwrap();
+    session.close().await.unwrap();
 }
 
 #[tokio::test]
@@ -522,6 +574,6 @@ async fn title_delivery_retries_after_the_change_channel_is_full() {
     })
     .await
     .unwrap();
-    local.stop().await.unwrap();
+    local.close().await.unwrap();
     drop(local);
 }

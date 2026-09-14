@@ -14,10 +14,6 @@ public static class IdentityWireFormat
 
     public const int MaxSignedDeviceListBodyLength = 527_432;
 
-    public const int UserIdLength = 36;
-
-    public const int DeviceIdMaxUtf16CodeUnits = 256;
-
     public const int DeviceLabelMaxUtf16CodeUnits = 128;
 
     public const int MlKem768PublicKeyLength = 1_184;

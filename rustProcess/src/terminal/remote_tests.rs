@@ -199,7 +199,7 @@ async fn live_resize_does_not_satisfy_pending_capture_or_late_subscription() {
 #[tokio::test]
 async fn output_keeps_flowing_while_the_host_has_not_acknowledged_input() {
     let (terminal, mut subscriber, mut requests, updates, _changes) = start().await;
-    let admitted = terminal.admit_input(subscriber.connection_id, Bytes::from_static(b"first"));
+    let admitted = terminal.write_input(subscriber.connection_id, Bytes::from_static(b"first"));
     tokio::pin!(admitted);
     let first = match next_request(&mut requests).await {
         TestRemoteRequest::Control {

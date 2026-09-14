@@ -74,7 +74,7 @@ async fn claude_discovery_and_read_share_directory_validation() {
     );
     let original = fs::read(&path).unwrap();
     let page = discover(
-        home.path(),
+        &home.path().join(".claude"),
         Provider::Claude,
         directory.to_str().unwrap(),
         None,
@@ -86,7 +86,7 @@ async fn claude_discovery_and_read_share_directory_validation() {
     assert_eq!(page.items.len(), 1);
     assert_eq!(page.items[0].native_conversation_id, id(1));
     let transcript = read(
-        home.path(),
+        &home.path().join(".claude"),
         Provider::Claude,
         directory.to_str().unwrap(),
         &id(1),
@@ -102,7 +102,7 @@ async fn claude_discovery_and_read_share_directory_validation() {
     fs::create_dir(&wrong).unwrap();
     assert!(
         read(
-            home.path(),
+            &home.path().join(".claude"),
             Provider::Claude,
             wrong.to_str().unwrap(),
             &id(1),
@@ -131,7 +131,7 @@ async fn claude_path_encoding_collision_does_not_authorize_another_directory() {
     claude_transcript(home.path(), &first, 1, "");
     assert!(
         discover(
-            home.path(),
+            &home.path().join(".claude"),
             Provider::Claude,
             second.to_str().unwrap(),
             None,
@@ -145,7 +145,7 @@ async fn claude_path_encoding_collision_does_not_authorize_another_directory() {
     );
     assert!(
         read(
-            home.path(),
+            &home.path().join(".claude"),
             Provider::Claude,
             second.to_str().unwrap(),
             &id(1),
@@ -166,7 +166,7 @@ async fn conversation_cursors_are_exact_provider_scoped_and_bounded() {
         claude_transcript(home.path(), &directory, index, "");
     }
     let first = discover(
-        home.path(),
+        &home.path().join(".claude"),
         Provider::Claude,
         directory.to_str().unwrap(),
         None,
@@ -176,7 +176,7 @@ async fn conversation_cursors_are_exact_provider_scoped_and_bounded() {
     .await
     .unwrap();
     let second = discover(
-        home.path(),
+        &home.path().join(".claude"),
         Provider::Claude,
         directory.to_str().unwrap(),
         first.next_cursor.as_deref(),
@@ -192,7 +192,7 @@ async fn conversation_cursors_are_exact_provider_scoped_and_bounded() {
     let cursor = format!("copilot:{}", id(1));
     assert!(
         discover(
-            home.path(),
+            &home.path().join(".claude"),
             Provider::Claude,
             directory.to_str().unwrap(),
             Some(&cursor),
@@ -204,7 +204,7 @@ async fn conversation_cursors_are_exact_provider_scoped_and_bounded() {
     );
     assert!(
         discover(
-            home.path(),
+            &home.path().join(".claude"),
             Provider::Claude,
             directory.to_str().unwrap(),
             None,
@@ -216,7 +216,7 @@ async fn conversation_cursors_are_exact_provider_scoped_and_bounded() {
     );
     assert!(
         discover(
-            home.path(),
+            &home.path().join(".claude"),
             Provider::Claude,
             directory.to_str().unwrap(),
             None,
@@ -238,7 +238,7 @@ async fn conversation_reader_rejects_symlink_files_and_parent_directories() {
     symlink(&moved, &path).unwrap();
     assert!(
         read(
-            home.path(),
+            &home.path().join(".claude"),
             Provider::Claude,
             directory.to_str().unwrap(),
             &id(1),
@@ -257,7 +257,7 @@ async fn conversation_reader_rejects_symlink_files_and_parent_directories() {
     symlink(&outside_directory, project).unwrap();
     assert!(
         read(
-            home.path(),
+            &home.path().join(".claude"),
             Provider::Claude,
             directory.to_str().unwrap(),
             &id(1),
@@ -282,7 +282,7 @@ async fn copilot_catalog_reader_and_resume_are_read_only() {
     drop(db);
     let database_bytes = fs::read(&database).unwrap();
     let list = discover(
-        home.path(),
+        &home.path().join(".copilot"),
         Provider::Copilot,
         directory.to_str().unwrap(),
         None,
@@ -294,7 +294,7 @@ async fn copilot_catalog_reader_and_resume_are_read_only() {
     assert_eq!(list.items.len(), 1);
     assert_eq!(list.items[0].title.as_deref(), Some("Example"));
     let page = read(
-        home.path(),
+        &home.path().join(".copilot"),
         Provider::Copilot,
         directory.to_str().unwrap(),
         &id(2),
@@ -307,7 +307,7 @@ async fn copilot_catalog_reader_and_resume_are_read_only() {
     assert_eq!(page.entries[0].content, "hello");
     assert_eq!(
         validate_resume(
-            home.path(),
+            &home.path().join(".copilot"),
             Provider::Copilot,
             directory.to_str().unwrap(),
             &id(2)
@@ -327,7 +327,7 @@ async fn copilot_missing_columns_or_active_session_is_not_resumed() {
     copilot_transcript(home.path(), &directory, 1, false);
     assert!(
         validate_resume(
-            home.path(),
+            &home.path().join(".copilot"),
             Provider::Copilot,
             directory.to_str().unwrap(),
             &id(1)
@@ -341,7 +341,7 @@ async fn copilot_missing_columns_or_active_session_is_not_resumed() {
         .unwrap();
     assert!(
         discover(
-            home.path(),
+            &home.path().join(".copilot"),
             Provider::Copilot,
             directory.to_str().unwrap(),
             None,
@@ -367,7 +367,7 @@ async fn copilot_resume_rejects_records_after_an_old_shutdown() {
         fs::write(&path, format!("{finished}{tail}")).unwrap();
         assert!(
             validate_resume(
-                home.path(),
+                &home.path().join(".copilot"),
                 Provider::Copilot,
                 directory.to_str().unwrap(),
                 &id(1)
@@ -388,7 +388,7 @@ async fn preview_rejects_decoded_response_amplification() {
     });
     claude_transcript(home.path(), &directory, 1, &record.to_string());
     let result = read(
-        home.path(),
+        &home.path().join(".claude"),
         Provider::Claude,
         directory.to_str().unwrap(),
         &id(1),
@@ -417,7 +417,7 @@ async fn copilot_resume_uses_workspace_metadata_when_start_record_has_no_cwd() {
     .unwrap();
     assert_eq!(
         validate_resume(
-            home.path(),
+            &home.path().join(".copilot"),
             Provider::Copilot,
             directory.to_str().unwrap(),
             &id(1)
@@ -434,7 +434,7 @@ async fn missing_copilot_index_is_not_created() {
     let directory = workspace(home.path());
     assert!(
         discover(
-            home.path(),
+            &home.path().join(".copilot"),
             Provider::Copilot,
             directory.to_str().unwrap(),
             None,
@@ -456,7 +456,7 @@ async fn active_claude_native_identity_is_not_resumed() {
     claude_transcript(home.path(), &directory, 1, "");
     assert_eq!(
         validate_resume(
-            home.path(),
+            &home.path().join(".claude"),
             Provider::Claude,
             directory.to_str().unwrap(),
             &id(1)
@@ -477,7 +477,7 @@ async fn active_claude_native_identity_is_not_resumed() {
     .unwrap();
     assert!(
         validate_resume(
-            home.path(),
+            &home.path().join(".claude"),
             Provider::Claude,
             directory.to_str().unwrap(),
             &id(1)
@@ -627,7 +627,11 @@ fn config_inspection_never_creates_or_edits_provider_files() {
     let user = home.path().join(".claude/settings.json");
     fs::create_dir_all(user.parent().unwrap()).unwrap();
     fs::write(&user, b"{\"permissions\":{}}").unwrap();
-    let info = config::inspect(home.path(), Provider::Claude, Some(&directory)).unwrap();
+    let info = config::inspect(
+        &home.path().join(".claude"),
+        Provider::Claude,
+        Some(&directory),
+    );
     assert!(info.files[0].exists);
     assert_eq!(
         info.files[0].path,
@@ -641,6 +645,85 @@ fn config_inspection_never_creates_or_edits_provider_files() {
             .get("version")
             .is_none()
     );
+}
+
+#[test]
+fn effective_provider_roots_are_explicit_read_only_paths() {
+    let home = tempfile::tempdir().unwrap();
+    for (provider, name) in [
+        (Provider::Claude, ".claude"),
+        (Provider::Copilot, ".copilot"),
+    ] {
+        assert_eq!(
+            storage::resolve_provider_root(home.path(), provider, None).unwrap(),
+            home.path().join(name)
+        );
+        let native = home.path().join("native");
+        let root = storage::resolve_provider_root(home.path(), provider, Some(native.as_os_str()))
+            .unwrap();
+        assert_eq!(root, native);
+        let info = config::inspect(&root, provider, None);
+        assert_eq!(Path::new(&info.files[0].path), root.join("settings.json"));
+        assert!(!root.exists());
+        for invalid in ["relative", "/tmp/../outside", "/tmp/bad\nroot"] {
+            assert!(
+                storage::resolve_provider_root(home.path(), provider, Some(invalid.as_ref()))
+                    .is_err()
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn native_state_override_is_shared_by_discovery_read_and_resume() {
+    let home = tempfile::tempdir().unwrap();
+    let directory = workspace(home.path());
+    claude_transcript(
+        home.path(),
+        &directory,
+        1,
+        "{\"type\":\"user\",\"message\":{\"content\":\"native\"}}\n",
+    );
+    let native = home.path().join("custom-native-state");
+    fs::rename(home.path().join(".claude"), &native).unwrap();
+    let root =
+        storage::resolve_provider_root(home.path(), Provider::Claude, Some(native.as_os_str()))
+            .unwrap();
+    assert_eq!(
+        discover(
+            &root,
+            Provider::Claude,
+            directory.to_str().unwrap(),
+            None,
+            None,
+            None
+        )
+        .await
+        .unwrap()
+        .items
+        .len(),
+        1
+    );
+    assert_eq!(
+        read(
+            &root,
+            Provider::Claude,
+            directory.to_str().unwrap(),
+            &id(1),
+            None,
+            None,
+            None
+        )
+        .await
+        .unwrap()
+        .entries[0]
+            .content,
+        "native"
+    );
+    validate_resume(&root, Provider::Claude, directory.to_str().unwrap(), &id(1))
+        .await
+        .unwrap();
+    assert!(!home.path().join(".claude").exists());
 }
 
 #[test]
@@ -687,7 +770,7 @@ async fn all_project_history_and_large_file_pages_are_bounded() {
         .unwrap();
     claude_transcript(home.path(), &second, 202, "");
     let page = discover_history(
-        home.path(),
+        &home.path().join(".claude"),
         Provider::Claude,
         None,
         None,
@@ -699,7 +782,7 @@ async fn all_project_history_and_large_file_pages_are_bounded() {
     assert_eq!(page.items.len(), 1);
     assert!(page.has_more);
     let next = discover_history(
-        home.path(),
+        &home.path().join(".claude"),
         Provider::Claude,
         None,
         page.next_cursor.as_deref(),
@@ -714,7 +797,7 @@ async fn all_project_history_and_large_file_pages_are_bounded() {
         next.items[0].native_conversation_id
     );
     let read = read(
-        home.path(),
+        &home.path().join(".claude"),
         Provider::Claude,
         first.to_str().unwrap(),
         &id(201),
@@ -746,13 +829,20 @@ async fn malformed_history_ids_still_advance_the_cursor() {
         )
         .unwrap();
     drop(database);
-    let first = discover_history(home.path(), Provider::Copilot, None, None, Some(1), None)
-        .await
-        .unwrap();
+    let first = discover_history(
+        &home.path().join(".copilot"),
+        Provider::Copilot,
+        None,
+        None,
+        Some(1),
+        None,
+    )
+    .await
+    .unwrap();
     assert!(first.items.is_empty());
     assert!(first.has_more);
     let next = discover_history(
-        home.path(),
+        &home.path().join(".copilot"),
         Provider::Copilot,
         None,
         first.next_cursor.as_deref(),
@@ -770,13 +860,20 @@ async fn history_paging_does_not_repeat_entries_when_new_conversations_arrive() 
     let directory = workspace(home.path());
     copilot_transcript(home.path(), &directory, 10, true);
     copilot_transcript(home.path(), &directory, 20, true);
-    let first = discover_history(home.path(), Provider::Copilot, None, None, Some(1), None)
-        .await
-        .unwrap();
+    let first = discover_history(
+        &home.path().join(".copilot"),
+        Provider::Copilot,
+        None,
+        None,
+        Some(1),
+        None,
+    )
+    .await
+    .unwrap();
     assert_eq!(first.items[0].native_conversation_id, id(10));
     copilot_transcript(home.path(), &directory, 1, true);
     let second = discover_history(
-        home.path(),
+        &home.path().join(".copilot"),
         Provider::Copilot,
         None,
         first.next_cursor.as_deref(),

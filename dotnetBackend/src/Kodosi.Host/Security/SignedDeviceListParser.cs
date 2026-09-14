@@ -5,14 +5,9 @@ namespace Kodosi.Security;
 
 public sealed class SignedDeviceListParser
 {
-    public static ReadOnlySpan<byte> DomainTag => DomainTags.DeviceListV1;
-
     private const ulong NoExpiry = IdentityWireFormat.NoExpirySentinel;
 
-    public sealed record ListEntry(string DeviceId, string SignerDeviceId)
-    {
-        public bool IsSelfSigned => SignerDeviceId == DeviceId;
-    }
+    public sealed record ListEntry(string DeviceId, string SignerDeviceId);
 
     public sealed record ParsedSignedDeviceList(
         string UserId,

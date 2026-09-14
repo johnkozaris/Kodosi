@@ -22,69 +22,13 @@ pub enum Screen {
     Alternate,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ClipboardLocation {
-    Standard,
-    Selection,
-    Primary,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ClipboardContent {
-    pub mime: Vec<u8>,
-    pub data: Vec<u8>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ClipboardWriteOutcome {
-    Success,
-    Denied,
-    Unsupported,
-    Busy,
-    InvalidData,
-    IoError,
-}
-
-pub type ClipboardWriteHandler =
-    Box<dyn FnMut(ClipboardLocation, &[ClipboardContent]) -> ClipboardWriteOutcome + Send>;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Effect {
     PtyWrite(Vec<u8>),
     Bell,
     Title(Vec<u8>),
     Pwd(Vec<u8>),
-    ClipboardWrite {
-        location: ClipboardLocation,
-        contents: Vec<ClipboardContent>,
-    },
-    DesktopNotification {
-        title: Vec<u8>,
-        body: Vec<u8>,
-    },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Key {
-    Enter,
-    Backspace,
-    Tab,
-    Escape,
-    Home,
-    End,
-    ArrowUp,
-    ArrowDown,
-    ArrowLeft,
-    ArrowRight,
-    Letter(char),
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct Modifiers {
-    pub shift: bool,
-    pub control: bool,
-    pub alt: bool,
-    pub super_key: bool,
+    DesktopNotification { title: Vec<u8>, body: Vec<u8> },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -180,8 +124,6 @@ impl std::error::Error for Error {}
 
 struct CallbackState {
     effects: Vec<Effect>,
-    clipboard_enabled: bool,
-    clipboard_writer: Option<ClipboardWriteHandler>,
     dark: bool,
     size: GhosttySizeReportSize,
     poisoned: bool,
@@ -191,7 +133,6 @@ struct CallbackState {
 
 pub struct Terminal {
     raw: GhosttyTerminal,
-    key_encoder: GhosttyKeyEncoder,
     callbacks: Box<CallbackState>,
     _thread_owned: PhantomData<Rc<()>>,
 }
@@ -203,7 +144,6 @@ impl Terminal {
         continuation_max_bytes: usize,
         scrollback_max_bytes: usize,
         scrollback_max_lines: usize,
-        clipboard_enabled: bool,
         dark: bool,
     ) -> Result<Self, Error> {
         let mut raw = ptr::null_mut();
@@ -212,18 +152,8 @@ impl Terminal {
         if raw.is_null() {
             return Err(Error::InvalidValue);
         }
-        let mut key_encoder = ptr::null_mut();
-
-        let key_encoder_result =
-            unsafe { ghostty_key_encoder_new(ptr::null(), ptr::from_mut(&mut key_encoder)) };
-        if let Err(error) = result(key_encoder_result) {
-            unsafe { ghostty_terminal_free(raw) };
-            return Err(error);
-        }
         let callbacks = Box::new(CallbackState {
             effects: Vec::new(),
-            clipboard_enabled,
-            clipboard_writer: None,
             dark,
             size: GhosttySizeReportSize {
                 rows,
@@ -237,7 +167,6 @@ impl Terminal {
         });
         let mut terminal = Self {
             raw,
-            key_encoder,
             callbacks,
             _thread_owned: PhantomData,
         };
@@ -382,64 +311,10 @@ impl Terminal {
         self.drain_effects()
     }
 
-    pub fn set_clipboard_enabled(&mut self, enabled: bool) -> Result<(), Error> {
-        self.ensure_healthy()?;
-        self.callbacks.clipboard_enabled = enabled;
-        Ok(())
-    }
-
-    pub fn set_clipboard_writer(
-        &mut self,
-        writer: Option<ClipboardWriteHandler>,
-    ) -> Result<(), Error> {
-        self.ensure_healthy()?;
-        self.callbacks.clipboard_writer = writer;
-        Ok(())
-    }
-
     pub fn set_dark(&mut self, dark: bool) -> Result<(), Error> {
         self.ensure_healthy()?;
         self.callbacks.dark = dark;
         Ok(())
-    }
-
-    pub fn encode_key(&mut self, key: Key, modifiers: Modifiers) -> Result<Vec<u8>, Error> {
-        self.ensure_healthy()?;
-        let raw_key = key_to_raw(key)?;
-
-        unsafe { ghostty_key_encoder_setopt_from_terminal(self.key_encoder, self.raw) };
-        let mut event = ptr::null_mut();
-
-        result(unsafe { ghostty_key_event_new(ptr::null(), ptr::from_mut(&mut event)) })?;
-        if event.is_null() {
-            return Err(Error::InvalidValue);
-        }
-        let guard = KeyEventGuard(event);
-
-        unsafe {
-            ghostty_key_event_set_action(guard.0, GhosttyKeyAction_GHOSTTY_KEY_ACTION_PRESS);
-            ghostty_key_event_set_key(guard.0, raw_key);
-            ghostty_key_event_set_mods(guard.0, modifiers_to_raw(modifiers));
-            if let Key::Letter(letter) = key {
-                let mut utf8 = [0_u8; 4];
-                let text = letter.encode_utf8(&mut utf8);
-                ghostty_key_event_set_utf8(
-                    guard.0,
-                    text.as_ptr().cast::<std::ffi::c_char>(),
-                    text.len(),
-                );
-                ghostty_key_event_set_unshifted_codepoint(guard.0, u32::from(letter));
-            }
-        }
-        encode_buffer(|buffer, capacity, written| unsafe {
-            ghostty_key_encoder_encode(
-                self.key_encoder,
-                guard.0,
-                buffer.cast::<std::ffi::c_char>(),
-                capacity,
-                written,
-            )
-        })
     }
 
     pub fn encode_focus(&mut self, focused: bool) -> Result<Vec<u8>, Error> {
@@ -760,17 +635,8 @@ impl Terminal {
 impl Drop for Terminal {
     fn drop(&mut self) {
         unsafe {
-            ghostty_key_encoder_free(self.key_encoder);
             ghostty_terminal_free(self.raw);
         }
-    }
-}
-
-struct KeyEventGuard(GhosttyKeyEvent);
-
-impl Drop for KeyEventGuard {
-    fn drop(&mut self) {
-        unsafe { ghostty_key_event_free(self.0) };
     }
 }
 
@@ -842,45 +708,6 @@ fn encode_buffer(
     }
     output.truncate(written);
     Ok(output)
-}
-
-const fn modifiers_to_raw(modifiers: Modifiers) -> GhosttyMods {
-    let mut raw = 0_u16;
-    if modifiers.shift {
-        raw |= 1;
-    }
-    if modifiers.control {
-        raw |= 1 << 1;
-    }
-    if modifiers.alt {
-        raw |= 1 << 2;
-    }
-    if modifiers.super_key {
-        raw |= 1 << 3;
-    }
-    raw
-}
-
-fn key_to_raw(key: Key) -> Result<GhosttyKey, Error> {
-    match key {
-        Key::Enter => Ok(GhosttyKey_GHOSTTY_KEY_ENTER),
-        Key::Backspace => Ok(GhosttyKey_GHOSTTY_KEY_BACKSPACE),
-        Key::Tab => Ok(GhosttyKey_GHOSTTY_KEY_TAB),
-        Key::Escape => Ok(GhosttyKey_GHOSTTY_KEY_ESCAPE),
-        Key::Home => Ok(GhosttyKey_GHOSTTY_KEY_HOME),
-        Key::End => Ok(GhosttyKey_GHOSTTY_KEY_END),
-        Key::ArrowUp => Ok(GhosttyKey_GHOSTTY_KEY_ARROW_UP),
-        Key::ArrowDown => Ok(GhosttyKey_GHOSTTY_KEY_ARROW_DOWN),
-        Key::ArrowLeft => Ok(GhosttyKey_GHOSTTY_KEY_ARROW_LEFT),
-        Key::ArrowRight => Ok(GhosttyKey_GHOSTTY_KEY_ARROW_RIGHT),
-        Key::Letter(letter) if letter.is_ascii_alphabetic() => {
-            let upper = letter.to_ascii_uppercase();
-            let offset = GhosttyKey::try_from(u32::from(upper) - u32::from('A'))
-                .map_err(|_| Error::InvalidValue)?;
-            Ok(GhosttyKey_GHOSTTY_KEY_A + offset)
-        }
-        Key::Letter(_) => Err(Error::InvalidValue),
-    }
 }
 
 const fn result(value: GhosttyResult) -> Result<(), Error> {
@@ -994,84 +821,6 @@ unsafe extern "C" fn pwd_callback(terminal: GhosttyTerminal, userdata: *mut c_vo
     });
 }
 
-fn clipboard_write_result(
-    userdata: *mut c_void,
-    write: *const GhosttyClipboardWrite,
-) -> GhosttyClipboardWriteResult {
-    callback(
-        userdata,
-        GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_DENIED,
-        |state| {
-            if !state.clipboard_enabled || write.is_null() {
-                return GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_DENIED;
-            }
-
-            let write = unsafe { &*write };
-            if write.size < mem::size_of::<GhosttyClipboardWrite>()
-                || write.contents_len > isize::MAX as usize
-                || (write.contents_len > 0 && write.contents.is_null())
-            {
-                return GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_INVALID_DATA;
-            }
-            let location = match write.location {
-                GhosttyClipboardLocation_GHOSTTY_CLIPBOARD_LOCATION_STANDARD => {
-                    ClipboardLocation::Standard
-                }
-                GhosttyClipboardLocation_GHOSTTY_CLIPBOARD_LOCATION_SELECTION => {
-                    ClipboardLocation::Selection
-                }
-                GhosttyClipboardLocation_GHOSTTY_CLIPBOARD_LOCATION_PRIMARY => {
-                    ClipboardLocation::Primary
-                }
-                _ => {
-                    return GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_UNSUPPORTED;
-                }
-            };
-            let source = if write.contents_len == 0 {
-                &[][..]
-            } else {
-                unsafe { slice::from_raw_parts(write.contents, write.contents_len) }
-            };
-            let mut contents = Vec::with_capacity(source.len());
-            for content in source {
-                let Some(mime) = (unsafe { borrowed_bytes(content.mime.ptr, content.mime.len) })
-                else {
-                    return GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_INVALID_DATA;
-                };
-
-                let Some(data) = (unsafe { borrowed_bytes(content.data.ptr, content.data.len) })
-                else {
-                    return GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_INVALID_DATA;
-                };
-                contents.push(ClipboardContent { mime, data });
-            }
-            let Some(writer) = state.clipboard_writer.as_mut() else {
-                return GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_UNSUPPORTED;
-            };
-            match writer(location, &contents) {
-                ClipboardWriteOutcome::Success => {
-                    GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_SUCCESS
-                }
-                ClipboardWriteOutcome::Denied => {
-                    GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_DENIED
-                }
-                ClipboardWriteOutcome::Unsupported => {
-                    GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_UNSUPPORTED
-                }
-                ClipboardWriteOutcome::Busy => {
-                    GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_BUSY
-                }
-                ClipboardWriteOutcome::InvalidData => {
-                    GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_INVALID_DATA
-                }
-                ClipboardWriteOutcome::IoError => {
-                    GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_IO_ERROR
-                }
-            }
-        },
-    )
-}
-
 unsafe extern "C" fn clipboard_callback(
     _terminal: GhosttyTerminal,
     userdata: *mut c_void,
@@ -1091,10 +840,9 @@ unsafe extern "C" fn clipboard_callback(
         callback(userdata, (), |state| state.poisoned = true);
         return;
     };
-    let result = clipboard_write_result(userdata, write);
     let response = GhosttyClipboardWriteReply {
         size: mem::size_of::<GhosttyClipboardWriteReply>(),
-        result,
+        result: GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_DENIED,
         remember: false,
     };
     unsafe { reply(write, &raw const response) };
@@ -1196,19 +944,12 @@ unsafe extern "C" fn device_attributes_callback(
             state.poisoned = true;
             return false;
         };
-        let Ok(clipboard) = u16::try_from(GHOSTTY_DA_FEATURE_CLIPBOARD) else {
-            state.poisoned = true;
-            return false;
-        };
         let Ok(device_type) = u16::try_from(GHOSTTY_DA_DEVICE_TYPE_VT220) else {
             state.poisoned = true;
             return false;
         };
         attributes.primary.conformance_level = conformance_level;
-        let mut features = vec![selective_erase, ansi_color];
-        if state.clipboard_enabled {
-            features.push(clipboard);
-        }
+        let features = [selective_erase, ansi_color];
         attributes.primary.features[..features.len()].copy_from_slice(&features);
         attributes.primary.num_features = features.len();
         attributes.secondary.device_type = device_type;
@@ -1224,12 +965,7 @@ mod tests {
     use super::*;
 
     fn terminal() -> Terminal {
-        let mut terminal = Terminal::new(20, 4, 1024 * 1024, 8 * 1024 * 1024, 10_000, true, true)
-            .expect("terminal");
-        terminal
-            .set_clipboard_writer(Some(Box::new(|_, _| ClipboardWriteOutcome::Success)))
-            .expect("clipboard writer");
-        terminal
+        Terminal::new(20, 4, 1024 * 1024, 8 * 1024 * 1024, 10_000, true).expect("terminal")
     }
 
     #[test]
@@ -1294,46 +1030,26 @@ mod tests {
     }
 
     #[test]
-    fn kitty_clipboard_write_is_acknowledged_after_writer_success() {
+    fn kitty_clipboard_write_is_denied_without_a_writer_capability() {
         let mut terminal = terminal();
-        terminal
+        let mut effects = terminal
             .write(b"\x1b]5522;type=write:id=linux\x1b\\")
             .expect("begin clipboard write");
-        terminal
-            .write(b"\x1b]5522;type=wdata:mime=dGV4dC9wbGFpbg==;S29kb3Np\x1b\\")
-            .expect("write clipboard data");
-        let effects = terminal
-            .write(b"\x1b]5522;type=wdata\x1b\\")
-            .expect("commit clipboard write");
-
-        assert!(effects.iter().any(|effect| matches!(
-            effect,
-            Effect::PtyWrite(response)
-                if response == b"\x1b]5522;type=write:status=DONE:id=linux\x1b\\"
-        )));
-    }
-
-    #[test]
-    fn kitty_clipboard_write_without_a_writer_is_not_acknowledged_as_success() {
-        let mut terminal = Terminal::new(20, 4, 1024 * 1024, 8 * 1024 * 1024, 10_000, true, true)
-            .expect("terminal");
-        terminal
-            .write(b"\x1b]5522;type=write:id=linux\x1b\\")
-            .expect("begin clipboard write");
-        let effects = terminal
-            .write(b"\x1b]5522;type=wdata\x1b\\")
-            .expect("commit clipboard write");
-
-        assert!(effects.iter().any(|effect| matches!(
-            effect,
-            Effect::PtyWrite(response)
-                if response == b"\x1b]5522;type=write:status=ENOSYS:id=linux\x1b\\"
-        )));
-        assert!(
-            !effects
-                .iter()
-                .any(|effect| matches!(effect, Effect::ClipboardWrite { .. }))
+        effects.extend(
+            terminal
+                .write(b"\x1b]5522;type=wdata:mime=dGV4dC9wbGFpbg==;S29kb3Np\x1b\\")
+                .expect("write clipboard data"),
         );
+        effects.extend(
+            terminal
+                .write(b"\x1b]5522;type=wdata\x1b\\")
+                .expect("commit clipboard write"),
+        );
+        assert!(effects.iter().any(|effect| matches!(
+            effect,
+            Effect::PtyWrite(response)
+                if response == b"\x1b]5522;type=write:status=EPERM:id=linux\x1b\\"
+        )));
     }
 
     #[test]
@@ -1380,24 +1096,17 @@ mod tests {
     }
 
     #[test]
-    fn ghostty_encoders_follow_terminal_modes() {
+    fn focus_encoding_follows_terminal_mode() {
         let mut terminal = terminal();
-        assert_eq!(
+        assert!(
             terminal
-                .encode_key(Key::ArrowUp, Modifiers::default())
-                .expect("normal arrow"),
-            b"\x1b[A"
+                .encode_focus(true)
+                .expect("unreported focus")
+                .is_empty()
         );
-        terminal
-            .write(b"\x1b[?1h\x1b[?1004h\x1b[?2004h")
-            .expect("modes");
-        assert_eq!(
-            terminal
-                .encode_key(Key::ArrowUp, Modifiers::default())
-                .expect("application arrow"),
-            b"\x1bOA"
-        );
+        terminal.write(b"\x1b[?1004h").expect("focus reporting");
         assert_eq!(terminal.encode_focus(true).expect("focus"), b"\x1b[I");
+        assert_eq!(terminal.encode_focus(false).expect("blur"), b"\x1b[O");
     }
 
     #[test]
@@ -1414,7 +1123,7 @@ mod tests {
         assert!(effects.iter().any(
             |effect| matches!(effect, Effect::Pwd(value) if value == b"file://host/tmp/project")
         ));
-        assert!(effects.iter().any(|effect| matches!(effect, Effect::PtyWrite(value) if value.windows(3).any(|window| window == b";52"))));
+        assert!(effects.iter().any(|effect| matches!(effect, Effect::PtyWrite(value) if value.starts_with(b"\x1b[?") && !value.windows(3).any(|window| window == b";52"))));
     }
 
     #[test]

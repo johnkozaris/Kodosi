@@ -1,5 +1,5 @@
 {
-  "apiContractVersion": 13,
+  "apiContractVersion": 14,
   "authContractVersion": 1,
   "authentication": "OIDC bearer identity and enrolled device proof",
   "sessionAuthorization": {
@@ -10,7 +10,7 @@
       "resize",
       "focus",
       "interrupt",
-      "stop"
+      "close"
     ],
     "administration": "owner; key publication and membership updates require the hosting device",
     "friendshipGrantsSessions": false,
@@ -40,8 +40,7 @@
       "POST /api/me/devices",
       "GET /api/me/identity",
       "GET /api/users/{userId}/identity",
-      "POST /api/me/identity/device-list",
-      "GET /api/me/devices"
+      "POST /api/me/identity/device-list"
     ],
     "enrollment": [
       "POST /api/devices/link/init",

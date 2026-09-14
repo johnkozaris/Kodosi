@@ -19,17 +19,11 @@ pub(super) fn executable(path: &Path) -> Option<PathBuf> {
 }
 
 pub(super) fn inspect(
-    home: &Path,
+    state_root: &Path,
     provider: Provider,
     directory: Option<&Path>,
-) -> Result<ProviderInfo, String> {
-    if !home.is_absolute() || !home.is_dir() {
-        return Err("Provider home must be an existing absolute directory".to_owned());
-    }
-    let mut paths = match provider {
-        Provider::Claude => vec![("User settings", home.join(".claude/settings.json"), true)],
-        Provider::Copilot => vec![("User settings", home.join(".copilot/settings.json"), true)],
-    };
+) -> ProviderInfo {
+    let mut paths = vec![("User settings", state_root.join("settings.json"), true)];
     if let Some(directory) = directory {
         match provider {
             Provider::Claude => {
@@ -108,10 +102,10 @@ pub(super) fn inspect(
     } else {
         None
     };
-    Ok(ProviderInfo {
+    ProviderInfo {
         provider,
         executable,
         files,
         message,
-    })
+    }
 }

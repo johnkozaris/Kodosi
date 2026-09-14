@@ -15,7 +15,6 @@ pub fn validate_terminal_checkpoint(
             continuation_max_bytes: history.continuation_max_bytes,
             scrollback_max_bytes: history.max_bytes,
             scrollback_max_lines: history.max_lines,
-            clipboard_enabled: false,
             dark: true,
         },
     )

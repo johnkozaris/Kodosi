@@ -5,17 +5,17 @@ approved devices or share them with trusted friends. Execution stays on the host
 Remote terminal traffic is encrypted between endpoint devices; the backend stores
 account, device, sharing, and Mission metadata and relays ciphertext.
 
-- Start a shell, attach to a running terminal, interrupt it, or stop it.
+- Start a shell, attach to a running terminal, interrupt it, or close it.
 - Share selected sessions with friends. Everyone admitted has full terminal control,
-  including Stop. Friendship alone does not grant access.
+  including Close. Friendship alone does not grant access.
 - Use Missions to organize people and attached terminals. Joining a Mission does not
   grant access to its terminals.
 - Preview saved Claude Code or Copilot CLI conversations and resume them with the
   installed provider's native CLI. Open the provider's own configuration files.
 
-Closing a terminal view leaves its process running. Stop ends the process. Quitting
-an app that hosts local sessions ends those processes. Saved provider conversations
-remain separate from live sessions.
+Minimize hides a terminal while it keeps running. Close ends the terminal. Closing
+the app window leaves Kodosi running; Quit ends terminals hosted by that app.
+Saved provider conversations remain separate from live terminals.
 
 ## Repository
 

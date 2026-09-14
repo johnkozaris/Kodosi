@@ -12,7 +12,7 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore, broadcast, mpsc, oneshot, wat
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use super::emulator::{ClientFocus, SessionTerminalHandle, TerminalEffect, TerminalHistoryPolicy};
+use super::emulator::{SessionTerminalHandle, TerminalEffect, TerminalHistoryPolicy};
 use super::subscribers::Subscribers;
 use super::{ControlFrame, DataFrame, Subscription, TerminalPixelGeometry, TerminalSize};
 use crate::{
@@ -86,7 +86,6 @@ enum Request {
     Input {
         connection: Uuid,
         write: PendingWrite,
-        reply: Option<oneshot::Sender<Result<()>>>,
     },
     Resize {
         connection: Uuid,
@@ -220,25 +219,18 @@ impl LocalSession {
     #[cfg(test)]
     pub(crate) fn input(&self, connection: Uuid, bytes: Bytes) -> Result<()> {
         let write = PendingWrite::new(bytes, &self.input_budget, None)?;
-        self.send(Request::Input {
-            connection,
-            write,
-            reply: None,
-        })
+        self.send(Request::Input { connection, write })
     }
 
-    pub(crate) fn admit_input(
+    pub(crate) fn write_input(
         &self,
         connection: Uuid,
         bytes: Bytes,
     ) -> impl Future<Output = Result<()>> + Send + use<> {
         let (reply, response) = oneshot::channel();
-        let admission = PendingWrite::new(bytes, &self.input_budget, None).and_then(|write| {
-            self.send(Request::Input {
-                connection,
-                write,
-                reply: Some(reply),
-            })
+        let admission = PendingWrite::new(bytes, &self.input_budget, None).and_then(|mut write| {
+            write.completion = Some(InputCompletion::Local(reply));
+            self.send(Request::Input { connection, write })
         });
         await_reply(admission, response)
     }
@@ -288,7 +280,7 @@ impl LocalSession {
         drop(self.send(Request::Theme(dark)));
     }
 
-    pub(crate) fn stop(&self) -> impl Future<Output = Result<()>> + Send + use<> {
+    pub(crate) fn close(&self) -> impl Future<Output = Result<()>> + Send + use<> {
         self.cancellation.cancel();
         let mut completion = self.completion.clone();
         async move {
@@ -336,11 +328,49 @@ async fn await_reply<T>(
         .map_err(|_| Error::Stopped)?
 }
 
+enum InputCompletion {
+    Local(oneshot::Sender<Result<()>>),
+    Remote(oneshot::Sender<std::result::Result<serde_json::Value, String>>),
+}
+
+impl InputCompletion {
+    fn is_closed(&self) -> bool {
+        match self {
+            Self::Local(reply) => reply.is_closed(),
+            Self::Remote(reply) => reply.is_closed(),
+        }
+    }
+
+    fn send(self, result: Result<()>) {
+        match self {
+            Self::Local(reply) => drop(reply.send(result)),
+            Self::Remote(reply) => drop(
+                reply.send(
+                    result
+                        .map(|()| serde_json::json!({"accepted": true}))
+                        .map_err(|error| error.to_string()),
+                ),
+            ),
+        }
+    }
+}
+
 struct PendingWrite {
     bytes: Bytes,
     offset: usize,
     authorization: Option<CancellationToken>,
+    completion: Option<InputCompletion>,
     _budget: OwnedSemaphorePermit,
+}
+
+impl Drop for PendingWrite {
+    fn drop(&mut self) {
+        if let Some(completion) = self.completion.take() {
+            completion.send(Err(Error::Other(
+                "Input delivery was interrupted; do not retry automatically.".to_owned(),
+            )));
+        }
+    }
 }
 
 impl PendingWrite {
@@ -360,6 +390,7 @@ impl PendingWrite {
             bytes,
             offset: 0,
             authorization,
+            completion: None,
             _budget: permit,
         })
     }
@@ -368,6 +399,16 @@ impl PendingWrite {
         self.authorization
             .as_ref()
             .is_some_and(CancellationToken::is_cancelled)
+            || self
+                .completion
+                .as_ref()
+                .is_some_and(InputCompletion::is_closed)
+    }
+
+    fn complete(&mut self) {
+        if let Some(completion) = self.completion.take() {
+            completion.send(Ok(()));
+        }
     }
 }
 
@@ -375,15 +416,6 @@ impl PendingWrite {
 enum Controller {
     Local(Uuid),
     Remote(Uuid),
-}
-
-impl Controller {
-    fn focus_key(self) -> String {
-        match self {
-            Self::Local(id) => format!("local:{id}"),
-            Self::Remote(id) => format!("remote:{id}"),
-        }
-    }
 }
 
 struct ResizeOwner {
@@ -492,7 +524,12 @@ impl LocalActor {
 
     fn flush(&mut self) -> Result<()> {
         while let Some(write) = self.queue.front_mut() {
-            if write.is_cancelled() || write.offset == write.bytes.len() {
+            if write.is_cancelled() {
+                self.queue.pop_front();
+                continue;
+            }
+            if write.offset == write.bytes.len() {
+                write.complete();
                 self.queue.pop_front();
                 continue;
             }
@@ -502,6 +539,7 @@ impl LocalActor {
             }
             write.offset += count;
             if write.offset == write.bytes.len() {
+                write.complete();
                 self.queue.pop_front();
             }
         }
@@ -581,17 +619,7 @@ impl LocalActor {
         {
             return Err(Error::Stale);
         }
-        let effects = self
-            .emulator
-            .set_client_focus(
-                controller.focus_key(),
-                if focused {
-                    ClientFocus::Focused
-                } else {
-                    ClientFocus::Blurred
-                },
-            )
-            .await?;
+        let was_focused = !self.focused.is_empty();
         if let Some(authorization) = &authorization {
             if focused {
                 self.focused.insert(controller, authorization.clone());
@@ -601,17 +629,19 @@ impl LocalActor {
         } else {
             self.focused.remove(&controller);
         }
-        for bytes in effects {
+        let is_focused = !self.focused.is_empty();
+        if was_focused != is_focused {
+            let bytes = self.emulator.set_focused(is_focused).await?;
             self.enqueue(
                 Bytes::from(bytes),
-                if focused { authorization.clone() } else { None },
+                if focused { authorization } else { None },
             )?;
         }
         Ok(())
     }
 
     async fn release(&mut self, controller: Controller) -> Result<()> {
-        if self.focused.remove(&controller).is_some() {
+        if self.focused.contains_key(&controller) {
             self.set_focus(controller, None, false).await?;
         }
         if self
@@ -741,29 +771,16 @@ impl LocalActor {
         Ok(())
     }
 
-    fn accept_input(
-        &mut self,
-        connection: Uuid,
-        mut write: PendingWrite,
-        reply: Option<oneshot::Sender<Result<()>>>,
-    ) -> Option<String> {
+    fn accept_input(&mut self, connection: Uuid, mut write: PendingWrite) -> Option<String> {
         let Ok(authorization) = self.subscribers.authorization(connection) else {
-            if let Some(reply) = reply {
-                drop(reply.send(Err(Error::Stale)));
+            if let Some(completion) = write.completion.take() {
+                completion.send(Err(Error::Stale));
             }
             return None;
         };
         write.authorization = Some(authorization);
         self.queue.push_back(write);
-        let result = self.flush();
-        let failure = result.as_ref().err().map(ToString::to_string);
-        if let Some(reply) = reply {
-            drop(reply.send(result));
-        }
-        if failure.is_some() {
-            return failure;
-        }
-        None
+        self.flush().err().map(|error| error.to_string())
     }
 
     async fn command(&mut self, command: Request) -> Option<String> {
@@ -797,11 +814,7 @@ impl LocalActor {
                     return Some(error.to_string());
                 }
             }
-            Request::Input {
-                connection,
-                write,
-                reply,
-            } => return self.accept_input(connection, write, reply),
+            Request::Input { connection, write } => return self.accept_input(connection, write),
             Request::Resize {
                 connection,
                 size,
@@ -975,11 +988,15 @@ impl LocalActor {
         let mut fatal = false;
         let result = match control {
             TerminalControl::Input { bytes } => {
-                let result = self
-                    .enqueue(Bytes::from(bytes), Some(authorization))
-                    .and_then(|()| self.flush());
-                fatal = matches!(result, Err(Error::Io(_) | Error::Other(_)));
-                result
+                match PendingWrite::new(Bytes::from(bytes), &self.input_budget, Some(authorization))
+                {
+                    Ok(mut write) => {
+                        write.completion = Some(InputCompletion::Remote(reply));
+                        self.queue.push_back(write);
+                        return self.flush().err().map(|error| error.to_string());
+                    }
+                    Err(error) => Err(error),
+                }
             }
             TerminalControl::Resize {
                 rows,
@@ -1036,7 +1053,7 @@ impl LocalActor {
                 .pty
                 .request_shutdown(ShutdownStage::Interrupt)
                 .map_err(Error::from),
-            TerminalControl::Stop => {
+            TerminalControl::Close => {
                 self.host_stop_reply = Some(reply);
                 return Some("Session stopped by a controller.".to_owned());
             }

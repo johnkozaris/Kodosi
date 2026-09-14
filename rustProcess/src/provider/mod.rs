@@ -92,19 +92,19 @@ pub struct ProviderInfo {
 }
 
 pub async fn discover(
-    home: &Path,
+    state_root: &Path,
     provider: Provider,
     working_directory: &str,
     cursor: Option<&str>,
     limit: Option<usize>,
     max_bytes: Option<usize>,
 ) -> Result<ConversationListPage, String> {
-    let home = home.to_owned();
+    let state_root = state_root.to_owned();
     let directory = storage::canonical_directory(working_directory)?;
     let cursor = cursor.map(str::to_owned);
     tokio::task::spawn_blocking(move || {
         catalog::discover(
-            &home,
+            &state_root,
             provider,
             &directory,
             cursor.as_deref(),
@@ -117,7 +117,7 @@ pub async fn discover(
 }
 
 pub async fn discover_history(
-    home: &Path,
+    state_root: &Path,
     provider: Provider,
     directory: Option<&str>,
     cursor: Option<&str>,
@@ -125,19 +125,19 @@ pub async fn discover_history(
     max_bytes: Option<usize>,
 ) -> Result<ConversationListPage, String> {
     if let Some(directory) = directory {
-        return discover(home, provider, directory, cursor, limit, max_bytes).await;
+        return discover(state_root, provider, directory, cursor, limit, max_bytes).await;
     }
-    let home = home.to_owned();
+    let state_root = state_root.to_owned();
     let cursor = cursor.map(str::to_owned);
     tokio::task::spawn_blocking(move || {
-        history::discover(&home, provider, cursor.as_deref(), limit, max_bytes)
+        history::discover(&state_root, provider, cursor.as_deref(), limit, max_bytes)
     })
     .await
     .map_err(|error| format!("History discovery failed: {error}"))?
 }
 
 pub async fn read(
-    home: &Path,
+    state_root: &Path,
     provider: Provider,
     working_directory: &str,
     native_conversation_id: &str,
@@ -145,11 +145,11 @@ pub async fn read(
     limit: Option<usize>,
     max_bytes: Option<usize>,
 ) -> Result<ConversationPage, String> {
-    let home = home.to_owned();
+    let state_root = state_root.to_owned();
     let directory = storage::canonical_directory(working_directory)?;
     let id = storage::conversation_id(native_conversation_id)?;
     tokio::task::spawn_blocking(move || {
-        let file = storage::conversation_file(&home, provider, &directory, &id)?;
+        let file = storage::conversation_file(&state_root, provider, &directory, &id)?;
         read::page(file, provider, before_byte, limit, max_bytes)
     })
     .await
@@ -157,17 +157,17 @@ pub async fn read(
 }
 
 pub async fn validate_resume(
-    home: &Path,
+    state_root: &Path,
     provider: Provider,
     working_directory: &str,
     native_conversation_id: &str,
 ) -> Result<PathBuf, String> {
-    let home = home.to_owned();
+    let state_root = state_root.to_owned();
     let directory = storage::canonical_directory(working_directory)?;
     let id = storage::conversation_id(native_conversation_id)?;
     tokio::task::spawn_blocking(move || {
-        let file = storage::conversation_file(&home, provider, &directory, &id)?;
-        resume::ensure_inactive(&home, provider, &directory, &id, file)?;
+        let file = storage::conversation_file(&state_root, provider, &directory, &id)?;
+        resume::ensure_inactive(&state_root, provider, &directory, &id, file)?;
         Ok(directory)
     })
     .await
@@ -175,17 +175,23 @@ pub async fn validate_resume(
 }
 
 pub async fn inspect(
-    home: &Path,
+    state_root: &Path,
     provider: Provider,
     working_directory: Option<&str>,
 ) -> Result<ProviderInfo, String> {
-    let home = home.to_owned();
+    let state_root = state_root.to_owned();
     let directory = working_directory
         .map(storage::canonical_directory)
         .transpose()?;
-    tokio::task::spawn_blocking(move || config::inspect(&home, provider, directory.as_deref()))
-        .await
-        .map_err(|error| format!("Provider configuration inspection failed: {error}"))?
+    tokio::task::spawn_blocking(move || {
+        config::inspect(&state_root, provider, directory.as_deref())
+    })
+    .await
+    .map_err(|error| format!("Provider configuration inspection failed: {error}"))
+}
+
+pub fn state_root(home: &Path, provider: Provider) -> Result<PathBuf, String> {
+    storage::provider_root(home, provider)
 }
 
 pub fn resolve_executable(provider: Provider) -> Option<PathBuf> {

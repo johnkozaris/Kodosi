@@ -108,7 +108,7 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
         await SendAsync(socket, new
         {
             type = "hello",
-            protocolVersion = 11,
+            protocolVersion = 13,
             deviceId = actor.Fixture.DeviceId,
             incarnationId = incarnation,
             checkpointChallenge = purpose == "participant" ? Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)) : null

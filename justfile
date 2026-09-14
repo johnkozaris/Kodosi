@@ -53,10 +53,10 @@ rust-cli-build:
     cargo build --manifest-path rustProcess/Cargo.toml --locked --bin kodosi
 
 rust-ffi-build:
-    if [[ "$(uname -s)" == Darwin ]]; then MACOSX_DEPLOYMENT_TARGET=26.4 cargo build --manifest-path rustProcess/Cargo.toml --locked --release -p kodosi-ffi-c; else cargo build --manifest-path rustProcess/Cargo.toml --locked --release -p kodosi-ffi-c; fi
+    if [[ "$(uname -s)" == Darwin ]]; then export MACOSX_DEPLOYMENT_TARGET=26.4; fi; python3 scripts/build-ffi-artifact.py --manifest rustProcess/Cargo.toml --output-dir rustProcess/target/ffi-artifacts --profile release --target "$(rustc -vV | grep '^host:' | cut -d' ' -f2)"
 
 rust-ffi-debug-build:
-    if [[ "$(uname -s)" == Darwin ]]; then MACOSX_DEPLOYMENT_TARGET=26.4 cargo build --manifest-path rustProcess/Cargo.toml --locked --profile ffi-debug -p kodosi-ffi-c; else cargo build --manifest-path rustProcess/Cargo.toml --locked --profile ffi-debug -p kodosi-ffi-c; fi
+    if [[ "$(uname -s)" == Darwin ]]; then export MACOSX_DEPLOYMENT_TARGET=26.4; fi; python3 scripts/build-ffi-artifact.py --manifest rustProcess/Cargo.toml --output-dir rustProcess/target/ffi-artifacts --profile ffi-debug --target "$(rustc -vV | grep '^host:' | cut -d' ' -f2)"
 
 rust-check: rust-feature-gates
     CARGO_BUILD_WARNINGS=deny cargo check --manifest-path rustProcess/Cargo.toml --locked --workspace
@@ -84,7 +84,10 @@ rust-machete: _dependency-tools
 
 rust-dependency-hygiene: rust-deny rust-machete
 
-rust-test:
+ffi-publication-test:
+    PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-ffi-artifact.py
+
+rust-test: ffi-publication-test
     CARGO_INCREMENTAL=0 cargo test --manifest-path rustProcess/Cargo.toml --locked --workspace --all-targets
     CARGO_INCREMENTAL=0 cargo test --manifest-path rustProcess/Cargo.toml --locked --workspace --doc
 

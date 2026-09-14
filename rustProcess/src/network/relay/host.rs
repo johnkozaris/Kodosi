@@ -153,7 +153,7 @@ pub(super) async fn run(
                     }
                     Ok(PublishedFrame::Closed {final_sequence,..})=>{
                         while let Some((identity,accepted))=pending.next().await { send_control_result(&mut socket,&credentials,identity,accepted).await?; }
-                        send_json(&mut socket,json!({"type":"end","reason":"Terminal stopped.","finalSequence":final_sequence})).await?;
+                        send_json(&mut socket,json!({"type":"end","reason":"Terminal closed.","finalSequence":final_sequence})).await?;
                         let _ack = tokio::time::timeout(Duration::from_secs(11), async {
                             loop {
                                 let message=socket.next().await.ok_or(Error::Closed)?.map_err(|error|invalid(error.to_string()))?;
@@ -178,9 +178,6 @@ pub(super) async fn run(
                                 "pong"=>{},
                                 "accessChanged"=>{
                                     if wire::number(&value,"authorizationRevision")?>keys.dto.authorization_revision || wire::number(&value,"keyGeneration")?>u64::from(keys.dto.key_generation){return Err(Error::Stale);}
-                                }
-                                "keysRequested"=>{
-                                    if wire::number(&value,"authorizationRevision")?==keys.dto.authorization_revision && wire::number(&value,"keyGeneration")?==u64::from(keys.dto.key_generation){return Err(Error::Stale);}
                                 }
                                 "checkpointRequested"=>{
                                     let request=wire::id(&value,"requestId")?;
@@ -240,6 +237,8 @@ async fn current_publication(
     publication: &Publication,
     credentials: &Credentials,
 ) -> Result<SessionDto> {
+    let _operation = network.inner.operations.lock().await;
+    network.check_credentials(credentials)?;
     let info = publication.info.read().await.clone();
     match network
         .inner
@@ -267,12 +266,8 @@ async fn current_publication(
             if publication.cancel.is_cancelled() {
                 return Err(Error::Stale);
             }
+            publication.expire_sharing().await;
             let dto:SessionDto=network.inner.http.device(Method::POST,"api/sessions",credentials,Some(json!({"id":info.session_id,"incarnationId":info.incarnation_id,"name":info.name,"hostDeviceId":credentials.keys.device_id,"hostName":"This computer","roomId":null}))).await?;
-            {
-                let mut info = publication.info.write().await;
-                info.shared_with.clear();
-                info.room_id = None;
-            }
             *publication.dto.write().await = dto.clone();
             network.emit_for(credentials.generation,Some(credentials.user_id.clone()),json!({"type":"system.error","message":"Remote sharing expired while this host was offline; choose friends again."}));
             Ok(dto)

@@ -163,7 +163,7 @@ impl Network {
         verified: &VerifiedIdentity,
         now: u64,
     ) -> Result<()> {
-        let issued = now.max(verified.list.issued_at_ms.saturating_add(1));
+        let issued = verified.list.successor_issued_at(now)?;
         let list = build_replacement_list(
             &credentials.user_id,
             verified.generation,

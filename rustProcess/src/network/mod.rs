@@ -154,7 +154,7 @@ pub enum TerminalControl {
         focused: bool,
     },
     Interrupt,
-    Stop,
+    Close,
 }
 
 pub struct CheckpointCut {

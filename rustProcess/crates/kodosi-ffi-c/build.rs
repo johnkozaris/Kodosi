@@ -7,18 +7,7 @@ fn main() {
     let crate_dir =
         env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR must be set by cargo");
 
-    let target_dir = env::var("CARGO_TARGET_DIR").map_or_else(
-        |_| {
-            PathBuf::from(&crate_dir)
-                .join("..")
-                .join("..")
-                .join("target")
-        },
-        PathBuf::from,
-    );
-    let out_dir = target_dir.join("include");
-    std::fs::create_dir_all(&out_dir)
-        .unwrap_or_else(|e| panic!("cbindgen: cannot create {}: {e}", out_dir.display()));
+    let out_dir = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR must be set by cargo"));
     let out_path = out_dir.join("kodosi_runtime.h");
 
     let config = cbindgen::Config::from_file(PathBuf::from(&crate_dir).join("cbindgen.toml"))
@@ -38,7 +27,9 @@ fn main() {
         .replace("}  // extern \"C\"", "}")
         .replace("#endif  // __cplusplus", "#endif")
         .replace("#endif  /* KODOSI_RUNTIME_H */", "#endif");
-    std::fs::write(&out_path, header).expect("write generated C header");
+    let temporary = out_dir.join(format!(".kodosi_runtime.h.{}", std::process::id()));
+    std::fs::write(&temporary, header).expect("write generated C header");
+    std::fs::rename(&temporary, &out_path).expect("publish generated C header");
     println!("cargo:rerun-if-changed=src/lib.rs");
     println!("cargo:rerun-if-changed=cbindgen.toml");
 }

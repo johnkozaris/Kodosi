@@ -1,12 +1,6 @@
 #![allow(clippy::expect_used)]
-use std::path::PathBuf;
-
-fn header() -> String {
-    let target = std::env::var_os("CARGO_TARGET_DIR").map_or_else(
-        || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target"),
-        PathBuf::from,
-    );
-    std::fs::read_to_string(target.join("include/kodosi_runtime.h")).expect("generated header")
+fn header() -> &'static str {
+    include_str!(concat!(env!("OUT_DIR"), "/kodosi_runtime.h"))
 }
 
 #[test]

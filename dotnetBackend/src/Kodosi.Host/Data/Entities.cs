@@ -110,7 +110,6 @@ public sealed class Room
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = "";
-    public string Slug { get; set; } = "";
     public Guid OwnerUserId { get; set; }
 }
 
