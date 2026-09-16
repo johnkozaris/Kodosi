@@ -47,6 +47,34 @@
             ]
           },
           "type": {
+            "const": "auth.login.cancel"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
             "const": "auth.logout"
           }
         },
@@ -224,6 +252,34 @@
           },
           "type": {
             "const": "devices.link.cancelSelf"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "const": "devices.reset"
           }
         },
         "required": [
@@ -1854,6 +1910,9 @@
               },
               {
                 "const": "expired"
+              },
+              {
+                "const": "cancelled"
               }
             ]
           },
@@ -3915,7 +3974,7 @@
     ]
   },
   "ffiAbiVersion": 7,
-  "protocolVersion": 42,
+  "protocolVersion": 43,
   "terminal": {
     "checkpointMaxBytes": 8388608,
     "checkpointSchema": 2,

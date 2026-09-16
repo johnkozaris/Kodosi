@@ -245,3 +245,26 @@ fn malformed_and_foreign_ancestry_is_rejected() {
     bundle.user_id = Uuid::now_v7().to_string();
     assert!(fixture.pins().verify(&bundle, true, 2000).is_err());
 }
+
+#[test]
+fn own_identity_replacement_needs_an_explicit_forget_before_first_use() {
+    let fixture = Fixture::new();
+    let now = 1_500;
+    let mut pins = fixture.pins();
+    pins.verify(&fixture.bundle, true, now).unwrap();
+    let mut replaced = fixture.bundle.clone();
+    replaced.identity_incarnation_id = Uuid::now_v7();
+    assert!(!pins.own_identity_replaced(&fixture.bundle));
+    assert!(pins.own_identity_replaced(&replaced));
+    assert!(matches!(
+        pins.verify_for_renewal(&replaced, now),
+        Err(Error::Trust(_))
+    ));
+    pins.forget(&fixture.user).unwrap();
+    assert!(!pins.contains(&fixture.user));
+    pins.verify(&replaced, true, now).unwrap();
+    let reloaded = fixture.pins();
+    assert!(reloaded.contains(&fixture.user));
+    assert!(!reloaded.own_identity_replaced(&replaced));
+    assert!(reloaded.own_identity_replaced(&fixture.bundle));
+}

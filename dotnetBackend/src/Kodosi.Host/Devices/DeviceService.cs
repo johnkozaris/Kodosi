@@ -100,7 +100,7 @@ public sealed partial class DeviceService(
         if (!signatures.Verify(signingKey, Proofs.Tagged(DomainTags.DevicePopV1, challenge), pop))
             throw ApiException.Forbidden("The device possession proof is invalid.");
         if (await db.DeviceLists.AnyAsync(x => x.UserId == userId, ct)
-            || await db.Devices.AnyAsync(x => x.UserId == userId, ct))
+            || await db.Devices.AnyAsync(x => x.UserId == userId && !x.Revoked, ct))
             throw ApiException.Forbidden("An existing trusted device must approve this device.");
         var cert = certificates.Parse(certBytes);
         var list = lists.Parse(listBytes);
@@ -147,6 +147,31 @@ public sealed partial class DeviceService(
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         foreach (var device in removed) relay.RemoveDevice(userId, device.Id);
+        foreach (var session in affected) relay.Invalidate(session);
+        relay.Notify(userId, "devices");
+    }
+
+    public static readonly TimeSpan ReauthenticationWindow = TimeSpan.FromMinutes(15);
+
+    public async Task ResetIdentityAsync(Guid userId, DateTimeOffset? authenticatedAt, CancellationToken ct)
+    {
+        var now = clock.GetUtcNow();
+        if (authenticatedAt is null || authenticatedAt > now.AddMinutes(5) || now - authenticatedAt > ReauthenticationWindow)
+            throw ApiException.Forbidden("Sign in again to start fresh on this device.");
+        var devices = await db.Devices.Where(x => x.UserId == userId && !x.Revoked).ToListAsync(ct);
+        var list = await db.DeviceLists.SingleOrDefaultAsync(x => x.UserId == userId, ct);
+        if (list is null && devices.Count == 0) return;
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        foreach (var device in devices) device.Revoked = true;
+        if (list is not null) db.DeviceLists.Remove(list);
+        await db.DeviceLinks.Where(x => x.UserId == userId && x.State == "pending")
+            .ExecuteUpdateAsync(set => set.SetProperty(x => x.State, "cancelled"), ct);
+        var user = await db.Users.SingleAsync(x => x.Id == userId, ct);
+        user.IdentityIncarnationId = null;
+        var affected = await InvalidateUserSessionsAsync(userId, ct);
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+        foreach (var device in devices) relay.RemoveDevice(userId, device.Id);
         foreach (var session in affected) relay.Invalidate(session);
         relay.Notify(userId, "devices");
     }

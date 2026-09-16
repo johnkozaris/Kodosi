@@ -114,7 +114,7 @@ that client's demand, not another CLI viewer's connection; CLI detach releases i
 own demand when its command connection closes. Terminal close carries the final
 output sequence and drains queued output before the relay closes viewers.
 
-The current desktop protocol is 42, local socket protocol is 17, and backend API is 14.
+The current desktop protocol is 43, local socket protocol is 17, and backend API is 15.
 Relay protocol remains 13 and C ABI is 7. The terminal action is `session.close` (`close` on the relay),
 with no separate Stop action. Upgrade hosts, clients and the backend together. Input
 success still means complete byte delivery to the PTY, not command completion.

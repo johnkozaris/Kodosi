@@ -26,7 +26,7 @@ pub enum Error {
     Trust(String),
     #[error("Sign in to continue.")]
     SignedOut,
-    #[error("Approve this device from an existing device to continue.")]
+    #[error("Trust this device from Settings › Account & Devices before sharing.")]
     EnrollmentRequired,
     #[error("This request belongs to an earlier account connection.")]
     Stale,

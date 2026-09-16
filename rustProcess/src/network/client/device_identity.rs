@@ -82,6 +82,9 @@ impl Network {
         }
         let now = identity::now_ms();
         let pins = Arc::clone(&self.inner.state.lock().await.pins);
+        let (credentials, replaced) = self
+            .adopt_replaced_identity(credentials, &bundle, &pins)
+            .await?;
         let identity_bundle = bundle.clone();
         let verified_user = credentials.user_id.clone();
         let mut verified = tokio::task::spawn_blocking(move || {
@@ -94,13 +97,7 @@ impl Network {
         })
         .await
         .map_err(|_| Error::Closed)??;
-        let enrolled = verified
-            .devices
-            .get(&credentials.keys.device_id)
-            .is_some_and(|cert| {
-                cert.sig_public_key == credentials.keys.signing_public()
-                    && cert.kem_public_key == credentials.keys.kem_public()
-            });
+        let enrolled = device_enrolled(&verified, &credentials);
         if !enrolled {
             let notification = self.inner.notifications.lock().await.take();
             if let Some(cancel) = notification {
@@ -128,13 +125,7 @@ impl Network {
                 "The signed device list needs renewal from an approved device.".into(),
             ));
         }
-        let enrolled = verified
-            .devices
-            .get(&credentials.keys.device_id)
-            .is_some_and(|cert| {
-                cert.sig_public_key == credentials.keys.signing_public()
-                    && cert.kem_public_key == credentials.keys.kem_public()
-            });
+        let enrolled = device_enrolled(&verified, &credentials);
         self.check_credentials(&credentials)?;
         let mut next = credentials.clone();
         next.enrolled = enrolled;
@@ -152,9 +143,35 @@ impl Network {
             self.start_notifications().await?;
         }
         if !enrolled {
-            self.emit_for(credentials.generation,Some(credentials.user_id),json!({"type":"auth.notice","message":"Approve this device from one of your existing devices."}));
+            let message = if replaced {
+                "Your trusted devices were reset from another device. Approve this device from that device, or start fresh here."
+            } else {
+                "Approve this device from one of your existing devices."
+            };
+            self.emit_for(
+                credentials.generation,
+                Some(credentials.user_id),
+                json!({"type":"auth.notice","message":message}),
+            );
         }
         Ok(())
+    }
+
+    async fn adopt_replaced_identity(
+        &self,
+        credentials: Credentials,
+        bundle: &IdentityBundle,
+        pins: &Arc<std::sync::Mutex<Pins>>,
+    ) -> Result<(Credentials, bool)> {
+        {
+            let mut guard = pins.lock().map_err(|_| Error::Closed)?;
+            if !guard.own_identity_replaced(bundle) {
+                return Ok((credentials, false));
+            }
+            guard.forget(&credentials.user_id)?;
+        }
+        self.inner.state.lock().await.link = None;
+        Ok((self.replace_local_keys(credentials).await?, true))
     }
 
     pub(super) async fn renew_device_list(
@@ -290,4 +307,14 @@ impl Network {
         drop(state);
         Ok(())
     }
+}
+
+fn device_enrolled(verified: &VerifiedIdentity, credentials: &Credentials) -> bool {
+    verified
+        .devices
+        .get(&credentials.keys.device_id)
+        .is_some_and(|cert| {
+            cert.sig_public_key == credentials.keys.signing_public()
+                && cert.kem_public_key == credentials.keys.kem_public()
+        })
 }

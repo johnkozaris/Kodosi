@@ -187,7 +187,10 @@ impl Network {
         reason = "closed command dispatch keeps retained surface mapping in one place"
     )]
     pub async fn execute(&self, operation: &str, args: Value) -> Result<NetworkReply> {
-        if matches!(operation, "auth.logout" | "auth.login.start") {
+        if matches!(
+            operation,
+            "auth.logout" | "auth.login.start" | "auth.login.cancel"
+        ) {
             if let Some(credentials) = self
                 .inner
                 .credentials
@@ -246,14 +249,21 @@ impl Network {
                 self.logout().await?;
                 events.push(json!({"type":"auth.required","reason":"signedOut"}));
             }
+            "auth.login.cancel" => {
+                self.logout().await?;
+                events.push(json!({"type":"auth.required","reason":"cancelled"}));
+            }
             "auth.refresh" => {
                 self.refresh().await?;
                 if let Some(identity) = self.identity() {
-                    events.push(json!({"type":"auth.ready","userId":identity.user_id}));
+                    events.push(json!({"type":"auth.ready","userId":identity.user_id,"enrolled":identity.enrolled}));
                 }
             }
             "devices.refresh" => {
                 events.extend(self.device_events().await?);
+            }
+            "devices.reset" => {
+                events.extend(self.reset_devices().await?);
             }
             "devices.link.startSelf" => {
                 events.push(self.start_link().await?);

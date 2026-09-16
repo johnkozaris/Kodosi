@@ -98,6 +98,29 @@ impl Pins {
         self.pins.contains_key(user_id)
     }
 
+    pub(crate) fn own_identity_replaced(&self, bundle: &IdentityBundle) -> bool {
+        self.pins
+            .get(&bundle.user_id)
+            .is_some_and(|pin| pin.identity_incarnation_id != bundle.identity_incarnation_id)
+    }
+
+    pub(crate) fn forget(&mut self, user_id: &str) -> Result<()> {
+        if !self.pins.contains_key(user_id) {
+            return Ok(());
+        }
+        let mut next = self.pins.clone();
+        next.remove(user_id);
+        private_write(
+            &self.path,
+            &serde_json::to_vec(&StoredPins {
+                version: 1,
+                pins: next.clone(),
+            })?,
+        )?;
+        self.pins = next;
+        Ok(())
+    }
+
     pub(crate) fn verify(
         &mut self,
         bundle: &IdentityBundle,

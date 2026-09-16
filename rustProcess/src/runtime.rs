@@ -736,7 +736,7 @@ impl Runtime {
                         None | Some(Request::Shutdown) => break,
                         Some(Request::Command { envelope, consumer, lifetime }) => {
                             if envelope.account_epoch != self.scope.epoch || envelope.account_user_id != self.scope.user || lifetime.is_cancelled() {
-                                self.error(&envelope.command, &Error::Stale);
+                                self.stale(&envelope.command);
                             } else if matches!(envelope.command, Command::Shutdown {}) {
                                 break;
                             } else if let Err(error) = self.apply_for_consumer(&envelope.command, consumer, lifetime) {
@@ -1014,6 +1014,12 @@ impl Runtime {
             Ok(())
         } else {
             Err(Error::Stale)
+        }
+    }
+
+    fn stale(&self, command: &Command) {
+        if !command.is_query() {
+            self.error(command, &Error::Stale);
         }
     }
 

@@ -90,7 +90,10 @@ not plaintext commands, and does not generate content keys or execute commands.
 Endpoints verify approved identities and recipients. Current host-publication,
 connection, and key identities bind traffic. Cross-user bootstrap currently uses
 trust on first use; substitution before the first pin is outside that threat model.
-Existing pins must not be silently reset or replaced through re-TOFU.
+Existing pins must not be silently reset or replaced through re-TOFU. An account owner
+who has lost every trusted device may explicitly reset the account's device list from a
+freshly signed-in device; that revokes every other device and issues a new identity
+incarnation that friends must confirm again before reconnecting.
 
 Development and validation must preserve live databases, provider configuration,
 memory, conversations, credentials, and working files. Use disposable isolated data.

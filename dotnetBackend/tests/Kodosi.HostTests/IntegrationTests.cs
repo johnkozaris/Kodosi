@@ -19,6 +19,30 @@ namespace Kodosi.HostTests;
 public sealed class IntegrationTests(PostgresFixture postgres)
 {
     [Fact]
+    public async Task IdentityResetRequiresARecentSignInAndClearsTheDeviceList()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(ct));
+        using var owner = await app.EnrollAsync("owner");
+        using var stale = app.CreateClient();
+        stale.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("owner"));
+        using var refused = await stale.PostAsync("/api/me/identity/reset", null, ct);
+        Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+        using var old = app.CreateClient();
+        old.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("owner", authenticatedAt: DateTimeOffset.UtcNow.AddHours(-1)));
+        using var refusedOld = await old.PostAsync("/api/me/identity/reset", null, ct);
+        Assert.Equal(HttpStatusCode.Forbidden, refusedOld.StatusCode);
+        using var recent = app.CreateClient();
+        recent.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("owner", authenticatedAt: DateTimeOffset.UtcNow));
+        using var accepted = await recent.PostAsync("/api/me/identity/reset", null, ct);
+        Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
+        using var identity = await owner.Client.GetAsync("/api/me/identity", ct);
+        Assert.Equal(HttpStatusCode.NotFound, identity.StatusCode);
+        using var again = await recent.PostAsync("/api/me/identity/reset", null, ct);
+        Assert.Equal(HttpStatusCode.NoContent, again.StatusCode);
+    }
+
+    [Fact]
     public async Task IssuerAndSubjectIdentifyTheAccount()
     {
         await using var store = await TestStore.CreateAsync(postgres);
@@ -65,7 +89,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         using var anonymous = app.CreateClient();
         using var denied = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
         var health = await anonymous.GetFromJsonAsync<JsonElement>("/health/live", TestContext.Current.CancellationToken);
-        Assert.Equal(14, health.GetProperty("apiContractVersion").GetInt32());
+        Assert.Equal(15, health.GetProperty("apiContractVersion").GetInt32());
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("bad", "wrong-audience"));
         using var audience = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, audience.StatusCode);
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("unenrolled"));

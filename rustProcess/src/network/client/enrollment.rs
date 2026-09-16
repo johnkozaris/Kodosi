@@ -22,7 +22,7 @@ impl Network {
     }
 
     async fn reapproval_credentials(&self) -> Result<Credentials> {
-        let mut credentials = self.credentials()?;
+        let credentials = self.credentials()?;
         if credentials.enrolled {
             return Ok(credentials);
         }
@@ -37,15 +37,22 @@ impl Network {
         {
             return Ok(credentials);
         }
-        let secrets = state.secrets.clone();
         state.link = None;
         drop(state);
+        self.replace_local_keys(credentials).await
+    }
+
+    pub(super) async fn replace_local_keys(
+        &self,
+        mut credentials: Credentials,
+    ) -> Result<Credentials> {
+        let secrets = self.inner.state.lock().await.secrets.clone();
         let user = credentials.user_id.clone();
-        let revoked = credentials.keys.device_id.clone();
+        let previous = credentials.keys.device_id.clone();
         credentials.keys = Arc::new(
             secrets
                 .run(credentials.cancel.clone(), move |store| {
-                    DeviceKeys::replace_revoked(store, &user, &revoked)
+                    DeviceKeys::replace_revoked(store, &user, &previous)
                 })
                 .await?,
         );
@@ -62,6 +69,43 @@ impl Network {
             identity.enrolled = false;
         }
         Ok(credentials)
+    }
+
+    pub(super) async fn reset_devices(&self) -> Result<Vec<Value>> {
+        let credentials = self.credentials()?;
+        if credentials.enrolled {
+            return Err(invalid(
+                "This device is already trusted. Remove other devices from Settings instead.",
+            ));
+        }
+        let _response: Value = self
+            .inner
+            .http
+            .bearer(
+                Method::POST,
+                "api/me/identity/reset",
+                &credentials.token,
+                None,
+            )
+            .await?;
+        let pins = {
+            let mut state = self.inner.state.lock().await;
+            state.link = None;
+            Arc::clone(&state.pins)
+        };
+        pins.lock()
+            .map_err(|_| Error::Closed)?
+            .forget(&credentials.user_id)?;
+        let credentials = self.replace_local_keys(credentials).await?;
+        self.ensure_enrolled().await?;
+        if !self.identity().is_some_and(|identity| identity.enrolled) {
+            return Err(invalid("This device could not be trusted after the reset."));
+        }
+        let mut events =
+            vec![json!({"type":"auth.ready","userId":credentials.user_id,"enrolled":true})];
+        events.extend(self.device_events().await?);
+        events.push(self.session_event().await?);
+        Ok(events)
     }
 
     pub(super) async fn start_link(&self) -> Result<Value> {
@@ -152,7 +196,7 @@ impl Network {
                 self.emit_for(
                     credentials.generation,
                     Some(credentials.user_id.clone()),
-                    json!({"type":"auth.ready","userId":credentials.user_id}),
+                    json!({"type":"auth.ready","userId":credentials.user_id,"enrolled":true}),
                 );
                 for event in self.device_events().await? {
                     self.emit_for(

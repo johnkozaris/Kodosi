@@ -103,10 +103,11 @@ impl Network {
         if self.generation() != expected_generation {
             return Err(Error::Stale);
         }
+        let enrolled = self.identity().is_some_and(|identity| identity.enrolled);
         self.emit_for(
             expected_generation,
             Some(user.clone()),
-            json!({"type":"auth.ready","userId":user}),
+            json!({"type":"auth.ready","userId":user,"enrolled":enrolled}),
         );
         for event in self.device_events().await? {
             self.emit_for(expected_generation, Some(user.clone()), event);

@@ -20,7 +20,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 42;
+pub const VERSION: u32 = 43;
 include!(concat!(env!("OUT_DIR"), "/network_versions.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 
@@ -39,6 +39,8 @@ pub struct CommandEnvelope {
 pub enum Command {
     #[serde(rename = "auth.login.start")]
     Login {},
+    #[serde(rename = "auth.login.cancel")]
+    CancelLogin {},
     #[serde(rename = "auth.logout")]
     Logout {},
     #[serde(rename = "auth.refresh")]
@@ -59,6 +61,8 @@ pub enum Command {
     LinkDevice {},
     #[serde(rename = "devices.link.cancelSelf")]
     CancelDeviceLink {},
+    #[serde(rename = "devices.reset")]
+    ResetDevices {},
     #[serde(rename = "friends.refresh")]
     RefreshFriends {},
     #[serde(rename = "friends.request.send")]
@@ -574,6 +578,7 @@ pub enum ProviderReply {
 pub enum AuthRequiredReason {
     SignedOut,
     Expired,
+    Cancelled,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
@@ -742,9 +747,21 @@ fn validated_command<'de, D: Deserializer<'de>>(
 }
 
 impl Command {
+    pub const fn is_query(&self) -> bool {
+        matches!(
+            self,
+            Self::RefreshAuth {}
+                | Self::RefreshDevices {}
+                | Self::RefreshFriends {}
+                | Self::ListRooms {}
+                | Self::ListSessions {}
+        )
+    }
+
     pub fn operation(&self) -> &'static str {
         match self {
             Self::Login {} => "auth.login.start",
+            Self::CancelLogin {} => "auth.login.cancel",
             Self::Logout {} => "auth.logout",
             Self::RefreshAuth {} => "auth.refresh",
             Self::RefreshDevices {} => "devices.refresh",
@@ -752,6 +769,7 @@ impl Command {
             Self::ApproveDevice { .. } => "devices.link.approve",
             Self::LinkDevice {} => "devices.link.startSelf",
             Self::CancelDeviceLink {} => "devices.link.cancelSelf",
+            Self::ResetDevices {} => "devices.reset",
             Self::RefreshFriends {} => "friends.refresh",
             Self::RequestFriend { .. } => "friends.request.send",
             Self::AcceptFriend { .. } => "friends.request.accept",
@@ -1104,9 +1122,11 @@ mod tests {
     fn commands() -> Vec<Value> {
         let mut values = [
             "auth.login.start",
+            "auth.login.cancel",
             "auth.logout",
             "auth.refresh",
             "devices.refresh",
+            "devices.reset",
             "devices.link.startSelf",
             "devices.link.cancelSelf",
             "friends.refresh",
@@ -1189,7 +1209,7 @@ mod tests {
             invalid["retiredFeature"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 42);
+        assert_eq!(kinds.len(), 44);
     }
 
     #[test]

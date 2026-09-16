@@ -104,12 +104,21 @@ impl KodosiPty {
 
         let mut command = Command::new(&resolved_program);
         command.args(arguments);
+        if arguments.is_empty()
+            && let Some(shell) = login_shell_name(&resolved_program)
+        {
+            command.arg0(format!("-{shell}"));
+            command.env("SHELL", &resolved_program);
+        }
         if let Some(directory) = working_dir {
             command.current_dir(directory);
         }
         command.env("TERM", "xterm-256color");
         command.env("COLORTERM", "truecolor");
         command.env("TERM_PROGRAM", "Kodosi");
+        if env::var_os("LANG").is_none() && env::var_os("LC_ALL").is_none() {
+            command.env("LANG", "en_US.UTF-8");
+        }
         for key in [
             "COLUMNS",
             "LINES",
@@ -429,6 +438,13 @@ fn try_write_to_fd(fd: RawFd, buf: &[u8]) -> std::result::Result<usize, nix::Err
     Ok(written)
 }
 
+const LOGIN_SHELLS: [&str; 8] = ["bash", "csh", "dash", "fish", "ksh", "sh", "tcsh", "zsh"];
+
+fn login_shell_name(program: &Path) -> Option<&str> {
+    let name = program.file_name()?.to_str()?;
+    LOGIN_SHELLS.contains(&name).then_some(name)
+}
+
 fn validate_working_dir(working_dir: Option<&str>) -> Result<Option<&Path>> {
     let Some(directory) = working_dir.filter(|value| !value.trim().is_empty()) else {
         return Ok(None);
@@ -595,14 +611,16 @@ fn foreground_process_group(fd: RawFd) -> Option<u32> {
 #[cfg(test)]
 mod tests {
     use super::{
-        KodosiPty, ShutdownStage, find_executable, openpty, process_arguments, program_identity,
-        resolve_program, set_terminal_size_using_fd, try_write_to_fd, validate_working_dir,
+        KodosiPty, ShutdownStage, find_executable, login_shell_name, openpty, process_arguments,
+        program_identity, resolve_program, set_terminal_size_using_fd, try_write_to_fd,
+        validate_working_dir,
     };
     use nix::{
         fcntl::{FcntlArg, OFlag, fcntl},
         sys::termios,
     };
     use std::{
+        env,
         io::Read,
         os::fd::{AsRawFd, BorrowedFd},
         path::Path,
@@ -666,6 +684,46 @@ mod tests {
                 expected
             );
         }
+    }
+
+    #[test]
+    fn shell_sessions_start_as_login_shells_with_a_shell_variable() {
+        assert_eq!(login_shell_name(Path::new("/bin/zsh")), Some("zsh"));
+        assert_eq!(login_shell_name(Path::new("/opt/bin/claude")), None);
+        if !Path::new("/bin/zsh").exists() {
+            return;
+        }
+        let home = tempfile::tempdir().unwrap();
+        unsafe {
+            env::set_var("ZDOTDIR", home.path());
+        }
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                let (mut pty, mut reader) =
+                    KodosiPty::spawn_program(Path::new("/bin/zsh"), &[], None, 24, 80).unwrap();
+                pty.write(b"print -r -- \"probe=${options[login]}:$0:$SHELL\"; exit\n")
+                    .unwrap();
+                let mut output = Vec::new();
+                let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+                while !String::from_utf8_lossy(&output).contains("probe=on:-zsh:/bin/zsh") {
+                    let mut bytes = [0; 4096];
+                    let count = tokio::time::timeout_at(deadline, reader.read(&mut bytes))
+                        .await
+                        .unwrap()
+                        .unwrap();
+                    assert!(
+                        count > 0,
+                        "shell exited before answering: {}",
+                        String::from_utf8_lossy(&output)
+                    );
+                    output.extend_from_slice(&bytes[..count]);
+                }
+                pty.request_shutdown(ShutdownStage::Force).unwrap();
+                pty.wait().await.unwrap();
+            });
     }
 
     #[test]

@@ -40,9 +40,13 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
         if (configure is not null) builder.ConfigureTestServices(configure);
     }
 
-    public string Token(string subject, string audience = "kodosi-app") => new JwtSecurityTokenHandler().WriteToken(
-        new JwtSecurityToken(Issuer, audience, [new Claim("sub", subject), new Claim("preferred_username", subject)],
+    public string Token(string subject, string audience = "kodosi-app", DateTimeOffset? authenticatedAt = null)
+    {
+        List<Claim> claims = [new("sub", subject), new("preferred_username", subject)];
+        if (authenticatedAt is { } at) claims.Add(new Claim("auth_time", at.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64));
+        return new JwtSecurityTokenHandler().WriteToken(new JwtSecurityToken(Issuer, audience, claims,
             DateTime.UtcNow.AddMinutes(-1), DateTime.UtcNow.AddMinutes(10), new SigningCredentials(new RsaSecurityKey(key), SecurityAlgorithms.RsaSha256)));
+    }
 
     public async Task<ApiDevice> EnrollAsync(string subject)
     {

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Kodosi.Accounts;
 
 namespace Kodosi.Devices;
@@ -33,6 +34,12 @@ internal static class DeviceEndpoints
             await service.ReplaceListAsync(user.Id, body, ct);
             return Results.NoContent();
         });
+        api.MapPost("/me/identity/reset", async (HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
+        {
+            var user = await users.GetAsync(context, ct);
+            await service.ResetIdentityAsync(user.Id, AuthenticatedAt(context.User), ct);
+            return Results.NoContent();
+        }).RequireRateLimiting("enrollment");
         api.MapPost("/devices/link/init", async (DeviceService.LinkInit body, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
             Results.Ok(await service.StartLinkAsync((await users.GetAsync(context, ct)).Id, body, ct))).RequireRateLimiting("enrollment");
         api.MapGet("/devices/link/pending", async (string userCode, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
@@ -60,5 +67,11 @@ internal static class DeviceEndpoints
         {
             await service.CancelLinkAsync((await users.GetAsync(context, ct)).Id, userCode, ct); return Results.NoContent();
         });
+    }
+
+    private static DateTimeOffset? AuthenticatedAt(ClaimsPrincipal principal)
+    {
+        var value = principal.FindFirstValue("auth_time") ?? principal.FindFirstValue("iat");
+        return long.TryParse(value, out var seconds) ? DateTimeOffset.FromUnixTimeSeconds(seconds) : null;
     }
 }
