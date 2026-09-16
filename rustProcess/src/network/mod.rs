@@ -74,7 +74,6 @@ pub struct NetworkConfig {
     pub issuer: String,
     pub client_id: String,
     pub scopes: Vec<String>,
-    pub audience: Option<String>,
     pub data_root: PathBuf,
     pub secret_service: String,
     pub isolated: bool,

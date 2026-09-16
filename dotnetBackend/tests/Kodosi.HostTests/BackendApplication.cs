@@ -22,7 +22,7 @@ namespace Kodosi.HostTests;
 
 internal sealed class BackendApplication(string connection, Action<IServiceCollection>? configure = null) : WebApplicationFactory<Program>
 {
-    private const string Issuer = "https://auth.kodosi.com/application/o/kodosi/";
+    private const string Issuer = "https://auth.kodosi.com/realms/kodosi";
     private readonly RSA key = RSA.Create(2048);
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -31,7 +31,7 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
             ["ConnectionStrings:Kodosi"] = connection,
             ["Logging:LogLevel:Default"] = "Warning",
         }));
-        builder.ConfigureTestServices(services => services.PostConfigure<JwtBearerOptions>("authentik", options =>
+        builder.ConfigureTestServices(services => services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
         {
             var config = new OpenIdConnectConfiguration { Issuer = Issuer };
             config.SigningKeys.Add(new RsaSecurityKey(key));

@@ -36,7 +36,6 @@ impl Network {
             &self.inner.config.issuer,
             self.inner.config.client_id.clone(),
             &self.inner.config.scopes,
-            self.inner.config.audience.clone(),
         )
     }
 

@@ -13,7 +13,6 @@ pub struct Oidc {
     issuer: Url,
     client_id: String,
     scope: String,
-    audience: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -74,12 +73,7 @@ impl Drop for TokenReply {
 }
 
 impl Oidc {
-    pub fn new(
-        issuer: &str,
-        client_id: String,
-        scopes: &[String],
-        audience: Option<String>,
-    ) -> Result<Self> {
+    pub fn new(issuer: &str, client_id: String, scopes: &[String]) -> Result<Self> {
         let issuer =
             Url::parse(issuer).map_err(|_| invalid("The sign-in issuer is not configured."))?;
         validate_url(&issuer)?;
@@ -96,7 +90,6 @@ impl Oidc {
             issuer,
             client_id,
             scope: scopes.join(" "),
-            audience,
         })
     }
 
@@ -129,13 +122,10 @@ impl Oidc {
 
     pub async fn start(&self) -> Result<DeviceLogin> {
         let discovery = self.discover().await?;
-        let mut form = vec![
+        let form = [
             ("client_id", self.client_id.as_str()),
             ("scope", self.scope.as_str()),
         ];
-        if let Some(audience) = &self.audience {
-            form.push(("audience", audience));
-        }
         let response = self
             .client
             .post(&discovery.device_authorization_endpoint)

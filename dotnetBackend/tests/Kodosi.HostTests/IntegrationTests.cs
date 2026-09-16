@@ -19,23 +19,22 @@ namespace Kodosi.HostTests;
 public sealed class IntegrationTests(PostgresFixture postgres)
 {
     [Fact]
-    public async Task CanonicalIssuerKeepsAliasSubjectsOnTheSameAccount()
+    public async Task IssuerAndSubjectIdentifyTheAccount()
     {
         await using var store = await TestStore.CreateAsync(postgres);
-        var subject = "alias-user";
-        var first = new Microsoft.AspNetCore.Http.DefaultHttpContext();
-        first.User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity([
-            new System.Security.Claims.Claim("iss", "https://canonical.example"), new System.Security.Claims.Claim("sub", subject)
-        ], "test"));
-        first.Items[Kodosi.Accounts.Authentication.CanonicalIssuerItem] = "https://canonical.example";
-        var user = await new Kodosi.Accounts.CurrentUser(store.Db).GetAsync(first, TestContext.Current.CancellationToken);
-        var second = new Microsoft.AspNetCore.Http.DefaultHttpContext();
-        second.User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity([
-            new System.Security.Claims.Claim("iss", "https://alias.example"), new System.Security.Claims.Claim("sub", subject)
-        ], "test"));
-        second.Items[Kodosi.Accounts.Authentication.CanonicalIssuerItem] = "https://canonical.example";
-        var alias = await new Kodosi.Accounts.CurrentUser(store.Db).GetAsync(second, TestContext.Current.CancellationToken);
-        Assert.Equal(user.Id, alias.Id);
+        static Microsoft.AspNetCore.Http.DefaultHttpContext Context(string iss, string sub)
+        {
+            var context = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+            context.User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity([
+                new System.Security.Claims.Claim("iss", iss), new System.Security.Claims.Claim("sub", sub)
+            ], "test"));
+            return context;
+        }
+        var user = await new Kodosi.Accounts.CurrentUser(store.Db).GetAsync(Context("https://auth.example/realms/kodosi", "alias-user"), TestContext.Current.CancellationToken);
+        var again = await new Kodosi.Accounts.CurrentUser(store.Db).GetAsync(Context("https://auth.example/realms/kodosi", "alias-user"), TestContext.Current.CancellationToken);
+        var other = await new Kodosi.Accounts.CurrentUser(store.Db).GetAsync(Context("https://other.example/realms/kodosi", "alias-user"), TestContext.Current.CancellationToken);
+        Assert.Equal(user.Id, again.Id);
+        Assert.NotEqual(user.Id, other.Id);
     }
 
     [Fact]

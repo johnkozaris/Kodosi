@@ -133,8 +133,9 @@ conversation histories or credentials to test discovery or resume.
 Runtime connection settings are environment variables:
 
 - `KODOSI__BACKEND__API`
-- `KODOSI__AUTH__ISSUER`, `KODOSI__AUTH__CLIENT_ID`, `KODOSI__AUTH__SCOPE`, and optional
-  `KODOSI__AUTH__AUDIENCE`
+- `KODOSI__AUTH__ISSUER` (default `https://auth.kodosi.com/realms/kodosi`, the Kodosi
+  Keycloak realm), `KODOSI__AUTH__CLIENT_ID` (default `kodosi-app`, a public client
+  using the device authorization grant), and `KODOSI__AUTH__SCOPE`
 - `KODOSI__AUTH__KEYRING_SERVICE`
 - `KODOSI__RUNTIME__INITIAL_SHELL`
 

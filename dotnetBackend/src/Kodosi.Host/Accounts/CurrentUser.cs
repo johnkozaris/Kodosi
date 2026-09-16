@@ -12,7 +12,7 @@ public sealed class CurrentUser(KodosiDbContext db)
     public async Task<User> GetAsync(HttpContext context, CancellationToken ct)
     {
         if (loaded is not null) return loaded;
-        var issuer = context.Items[Authentication.CanonicalIssuerItem] as string ?? context.User.FindFirstValue("iss");
+        var issuer = context.User.FindFirstValue("iss");
         var subject = context.User.FindFirstValue("sub");
         if (string.IsNullOrWhiteSpace(issuer) || string.IsNullOrWhiteSpace(subject) || issuer.Length > 512 || subject.Length > 512)
             throw new ApiException(401, "Sign in to continue.");

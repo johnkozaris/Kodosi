@@ -14,7 +14,6 @@ pub struct Config {
     pub oidc_issuer: String,
     pub oidc_client_id: String,
     pub oidc_scopes: Vec<String>,
-    pub oidc_audience: Option<String>,
     pub secret_service: String,
     pub isolated: bool,
 }
@@ -52,7 +51,7 @@ impl Config {
             ));
         }
         let oidc_issuer = std::env::var("KODOSI__AUTH__ISSUER")
-            .unwrap_or_else(|_| "https://auth.kodosi.com/application/o/kodosi/".to_owned());
+            .unwrap_or_else(|_| "https://auth.kodosi.com/realms/kodosi".to_owned());
         let issuer = Url::parse(&oidc_issuer).map_err(|error| Error::Invalid(error.to_string()))?;
         crate::identity::oidc::validate_url(&issuer)?;
         if issuer.query().is_some() {
@@ -77,7 +76,6 @@ impl Config {
                 .split_whitespace()
                 .map(str::to_owned)
                 .collect(),
-            oidc_audience: std::env::var("KODOSI__AUTH__AUDIENCE").ok(),
             secret_service: std::env::var("KODOSI__AUTH__KEYRING_SERVICE")
                 .unwrap_or_else(|_| "com.kodosi.local".to_owned()),
         })
@@ -98,7 +96,6 @@ impl Config {
             oidc_issuer: "http://127.0.0.1:1".to_owned(),
             oidc_client_id: "kodosi-test".to_owned(),
             oidc_scopes: vec!["openid".to_owned()],
-            oidc_audience: None,
             secret_service: "kodosi.isolated".to_owned(),
             isolated: true,
         })

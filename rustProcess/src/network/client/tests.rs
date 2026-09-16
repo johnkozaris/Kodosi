@@ -7,7 +7,6 @@ fn fixture() -> (tempfile::TempDir, Network) {
         issuer: "http://127.0.0.1:1".into(),
         client_id: "test".into(),
         scopes: vec![],
-        audience: None,
         data_root: root.path().to_owned(),
         secret_service: "test".into(),
         isolated: true,

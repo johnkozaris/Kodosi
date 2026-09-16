@@ -561,7 +561,6 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         issuer: config.oidc_issuer.clone(),
         client_id: config.oidc_client_id.clone(),
         scopes: config.oidc_scopes.clone(),
-        audience: config.oidc_audience.clone(),
         data_root: config.data_root.clone(),
         secret_service: config.secret_service.clone(),
         isolated: config.isolated,
