@@ -3914,7 +3914,7 @@
       }
     ]
   },
-  "ffiAbiVersion": 6,
+  "ffiAbiVersion": 7,
   "protocolVersion": 42,
   "terminal": {
     "checkpointMaxBytes": 8388608,

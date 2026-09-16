@@ -72,8 +72,18 @@ kodosi session close <session-uuid>
 
 Run `host` in a dedicated terminal when you want its lifetime to be explicit. It ends
 its local processes when interrupted. Other commands connect to the local host or
-start a background host if none is available. In an attached terminal, press `Ctrl+]`
-then `.` to detach without stopping the session.
+start a background host if none is available. A background host exits on its own
+after 30 seconds without terminals or clients, and yields immediately when the app
+launches while it is idle. The app reports any other host by process id and kind
+instead of starting; stopping a host that still runs terminals needs explicit
+consent, and a host started with `kodosi host` is never stopped silently. In an
+attached terminal, press `Ctrl+]` then `.` to detach without stopping the session.
+
+On macOS the app executable is the CLI. `kodosi_cli_main` runs before AppKit when the
+executable is invoked as `kodosi` or with a CLI subcommand, so a `kodosi` symlink to
+`KodosiDesktop.app/Contents/MacOS/KodosiDesktop` runs with the app's signature,
+provisioning profile, and Keychain access group. The data-protection Keychain needs a
+console login session; hosts started over SSH or by launchd cannot sign in.
 
 ```sh
 kodosi auth login
@@ -104,8 +114,8 @@ that client's demand, not another CLI viewer's connection; CLI detach releases i
 own demand when its command connection closes. Terminal close carries the final
 output sequence and drains queued output before the relay closes viewers.
 
-The current desktop protocol is 42, local socket protocol is 16, and backend API is 14.
-Relay protocol remains 13 and C ABI remains 6. The terminal action is `session.close` (`close` on the relay),
+The current desktop protocol is 42, local socket protocol is 17, and backend API is 14.
+Relay protocol remains 13 and C ABI is 7. The terminal action is `session.close` (`close` on the relay),
 with no separate Stop action. Upgrade hosts, clients and the backend together. Input
 success still means complete byte delivery to the PTY, not command completion.
 

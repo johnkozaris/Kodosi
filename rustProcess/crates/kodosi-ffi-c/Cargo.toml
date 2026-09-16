@@ -10,7 +10,7 @@ crate-type = ["staticlib"]
 path = "src/lib.rs"
 
 [dependencies]
-kodosi-runtime = {path = "../..", default-features = false}
+kodosi-runtime = {path = "../..", default-features = false, features = ["cli"]}
 bytes = {workspace = true}
 uuid = {workspace = true}
 

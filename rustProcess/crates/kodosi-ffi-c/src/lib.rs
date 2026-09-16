@@ -1,7 +1,8 @@
 use std::{
     cell::Cell,
     collections::{HashMap, HashSet},
-    ffi::{CStr, CString, c_char, c_void},
+    ffi::{CStr, CString, OsStr, OsString, c_char, c_void},
+    os::unix::ffi::OsStrExt as _,
     panic::AssertUnwindSafe,
     sync::{
         Arc, Condvar, Mutex, MutexGuard, OnceLock,
@@ -11,12 +12,12 @@ use std::{
 };
 
 use bytes::Bytes;
-use kodosi_runtime::{CommandEnvelope, Config, Error, RuntimeHandle, terminal};
+use kodosi_runtime::{CommandEnvelope, Config, Error, HostKind, RuntimeHandle, headless, terminal};
 use tokio::{runtime::Runtime as Executor, task::JoinSet};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-pub const KODOSI_FFI_ABI_VERSION: u32 = 6;
+pub const KODOSI_FFI_ABI_VERSION: u32 = 7;
 pub const KODOSI_MAX_FRAME_BYTES: usize = 8_388_608;
 pub const KODOSI_TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES: usize = 8_388_608;
 pub const KODOSI_TERMINAL_CONTROL_MAX_BYTES: usize = 65_536;
@@ -31,6 +32,22 @@ pub const KODOSI_FFI_STALE_SUBSCRIPTION: i32 = 8;
 pub const KODOSI_FFI_TERMINAL_CHECKPOINT_REJECTED: i32 = 9;
 pub const KODOSI_FFI_REQUIRED_CALLBACK_MISSING: i32 = 10;
 pub const KODOSI_FFI_PANIC: i32 = -1;
+pub const KODOSI_START_INVALID_CALLBACKS: i32 = 1;
+pub const KODOSI_START_ALREADY_ACTIVE: i32 = 2;
+pub const KODOSI_START_HOST_BUSY: i32 = 3;
+pub const KODOSI_START_REJECTED: i32 = 4;
+pub const KODOSI_START_FAILED: i32 = 5;
+pub const KODOSI_START_FAILURE_MESSAGE_BYTES: usize = 512;
+pub const KODOSI_HOST_KIND_UNKNOWN: i32 = 0;
+pub const KODOSI_HOST_KIND_APP: i32 = 1;
+pub const KODOSI_HOST_KIND_FOREGROUND: i32 = 2;
+pub const KODOSI_HOST_KIND_BACKGROUND: i32 = 3;
+pub const KODOSI_HOST_STOP_ACCEPTED: i32 = 0;
+pub const KODOSI_HOST_STOP_REFUSED: i32 = 1;
+pub const KODOSI_HOST_STOP_UNREACHABLE: i32 = 2;
+pub const KODOSI_HOST_STOP_FAILED: i32 = 3;
+pub const KODOSI_CLI_NOT_INVOKED: i32 = -1;
+pub const KODOSI_CLI_FAILED: i32 = 70;
 
 const MAX_SUBSCRIPTIONS: usize = 4_096;
 const STOP_BUDGET: Duration = Duration::from_secs(10);
@@ -72,6 +89,53 @@ pub struct KodosiCallbacks {
     pub on_terminal_control: TerminalControlCb,
     pub on_terminal_connect_result: TerminalConnectResultCb,
     pub on_terminal_checkpoint: TerminalCheckpointCb,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct KodosiStartFailure {
+    pub code: i32,
+    pub host_kind: i32,
+    pub host_pid: u32,
+    pub host_local_sessions: u32,
+    pub message: [c_char; KODOSI_START_FAILURE_MESSAGE_BYTES],
+}
+
+static LAST_START_FAILURE: Mutex<Option<KodosiStartFailure>> = Mutex::new(None);
+
+fn start_failure(
+    code: i32,
+    message: &str,
+    status: Option<headless::HostStatus>,
+) -> Box<KodosiStartFailure> {
+    let mut failure = Box::new(KodosiStartFailure {
+        code,
+        host_kind: KODOSI_HOST_KIND_UNKNOWN,
+        host_pid: 0,
+        host_local_sessions: 0,
+        message: [0; KODOSI_START_FAILURE_MESSAGE_BYTES],
+    });
+    if let Some(status) = status {
+        failure.host_kind = match status.host.kind {
+            HostKind::App => KODOSI_HOST_KIND_APP,
+            HostKind::Foreground => KODOSI_HOST_KIND_FOREGROUND,
+            HostKind::Background => KODOSI_HOST_KIND_BACKGROUND,
+        };
+        failure.host_pid = status.host.pid;
+        failure.host_local_sessions = u32::try_from(status.local_sessions).unwrap_or(u32::MAX);
+    }
+    let mut end = message.len().min(KODOSI_START_FAILURE_MESSAGE_BYTES - 1);
+    while !message.is_char_boundary(end) {
+        end -= 1;
+    }
+    for (slot, byte) in failure.message.iter_mut().zip(&message.as_bytes()[..end]) {
+        *slot = c_char::from_ne_bytes([*byte]);
+    }
+    failure
+}
+
+fn record_start_failure(failure: Option<&KodosiStartFailure>) {
+    *lock(&LAST_START_FAILURE) = failure.copied();
 }
 
 #[derive(Clone, Copy)]
@@ -494,45 +558,93 @@ pub unsafe extern "C" fn kodosi_start(
     callbacks_size: usize,
     userdata: *mut c_void,
 ) -> *mut c_void {
-    let started = std::panic::catch_unwind(AssertUnwindSafe(|| {
-        if callbacks.is_null() || callbacks_size != std::mem::size_of::<KodosiCallbacks>() {
-            return None;
-        }
-        let callbacks = unsafe { callbacks.read() };
-        if callbacks.on_event.is_none()
-            || callbacks.on_terminal_data.is_none()
-            || callbacks.on_terminal_control.is_none()
-            || callbacks.on_terminal_connect_result.is_none()
-            || callbacks.on_terminal_checkpoint.is_none()
-        {
-            return None;
-        }
-        let active = ActiveRuntime::acquire()?;
-        let key = NEXT_HANDLE
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| n.checked_add(1))
-            .ok()?;
-        let (ready, receive) = std::sync::mpsc::sync_channel(1);
-        let userdata = UserData(userdata);
-        std::thread::Builder::new()
-            .name("kodosi-runtime".into())
-            .spawn(move || run_executor(key, callbacks, userdata, ready, active))
-            .ok()?;
-        let (instance, initial, events) = receive.recv().ok()??;
-        instance.spawn(pump_events(
-            instance.runtime.clone(),
-            Arc::clone(&instance.state),
-            initial,
-            events,
-        ));
-        Some(key as *mut c_void)
-    }));
+    let started = std::panic::catch_unwind(AssertUnwindSafe(
+        || -> std::result::Result<*mut c_void, Box<KodosiStartFailure>> {
+            if callbacks.is_null() || callbacks_size != std::mem::size_of::<KodosiCallbacks>() {
+                return Err(start_failure(
+                    KODOSI_START_INVALID_CALLBACKS,
+                    "The runtime callbacks are missing or sized for another ABI.",
+                    None,
+                ));
+            }
+            let callbacks = unsafe { callbacks.read() };
+            if callbacks.on_event.is_none()
+                || callbacks.on_terminal_data.is_none()
+                || callbacks.on_terminal_control.is_none()
+                || callbacks.on_terminal_connect_result.is_none()
+                || callbacks.on_terminal_checkpoint.is_none()
+            {
+                return Err(start_failure(
+                    KODOSI_START_INVALID_CALLBACKS,
+                    "A required runtime callback is missing.",
+                    None,
+                ));
+            }
+            let Some(active) = ActiveRuntime::acquire() else {
+                return Err(start_failure(
+                    KODOSI_START_ALREADY_ACTIVE,
+                    "This process already runs the Kodosi runtime.",
+                    None,
+                ));
+            };
+            let key = NEXT_HANDLE
+                .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| n.checked_add(1))
+                .map_err(|_| {
+                    start_failure(
+                        KODOSI_START_FAILED,
+                        "The runtime handle space is exhausted.",
+                        None,
+                    )
+                })?;
+            let (ready, receive) = std::sync::mpsc::sync_channel(1);
+            let userdata = UserData(userdata);
+            std::thread::Builder::new()
+                .name("kodosi-runtime".into())
+                .spawn(move || run_executor(key, callbacks, userdata, ready, active))
+                .map_err(|error| start_failure(KODOSI_START_FAILED, &error.to_string(), None))?;
+            let (instance, initial, events) = receive.recv().map_err(|_| {
+                start_failure(
+                    KODOSI_START_FAILED,
+                    "The runtime thread ended before reporting.",
+                    None,
+                )
+            })??;
+            instance.spawn(pump_events(
+                instance.runtime.clone(),
+                Arc::clone(&instance.state),
+                initial,
+                events,
+            ));
+            Ok(key as *mut c_void)
+        },
+    ));
     match started {
-        Ok(Some(handle)) => handle,
-        _ => std::ptr::null_mut(),
+        Ok(Ok(handle)) => {
+            record_start_failure(None);
+            handle
+        }
+        Ok(Err(failure)) => {
+            record_start_failure(Some(&failure));
+            std::ptr::null_mut()
+        }
+        Err(_) => {
+            record_start_failure(Some(&start_failure(
+                KODOSI_START_FAILED,
+                "The runtime panicked during startup.",
+                None,
+            )));
+            std::ptr::null_mut()
+        }
     }
 }
 
 type Started = (
+    Arc<Instance>,
+    Vec<kodosi_runtime::Event>,
+    tokio::sync::broadcast::Receiver<kodosi_runtime::Event>,
+);
+type Setup = (
+    Executor,
     Arc<Instance>,
     Vec<kodosi_runtime::Event>,
     tokio::sync::broadcast::Receiver<kodosi_runtime::Event>,
@@ -542,50 +654,74 @@ fn run_executor(
     key: usize,
     callbacks: KodosiCallbacks,
     userdata: UserData,
-    ready: std::sync::mpsc::SyncSender<Option<Started>>,
+    ready: std::sync::mpsc::SyncSender<std::result::Result<Started, Box<KodosiStartFailure>>>,
     active: ActiveRuntime,
 ) {
-    let setup = std::panic::catch_unwind(AssertUnwindSafe(|| {
-        let executor = Executor::new().ok()?;
-        let instance = Arc::new(Instance {
-            runtime: match Config::load()
-                .and_then(|config| executor.block_on(kodosi_runtime::start(config)))
-            {
-                Ok(runtime) => runtime,
-                Err(error) => {
+    let setup = std::panic::catch_unwind(AssertUnwindSafe(
+        || -> std::result::Result<Setup, Box<KodosiStartFailure>> {
+            let executor = Executor::new()
+                .map_err(|error| start_failure(KODOSI_START_FAILED, &error.to_string(), None))?;
+            let config = Config::load()
+                .map_err(|error| start_failure(KODOSI_START_REJECTED, &error.to_string(), None))?;
+            let root = config.data_root.clone();
+            let runtime = executor
+                .block_on(kodosi_runtime::start(config))
+                .map_err(|error| {
                     tracing::error!(%error, "could not start embedded runtime");
-                    return None;
-                }
-            },
-            state: Arc::new(State {
-                callbacks,
-                userdata,
-                gate: Gate::default(),
-                serial: Mutex::new(()),
-                cancel: CancellationToken::new(),
-                subscriptions: Mutex::new(Subscriptions::default()),
-            }),
-            executor: executor.handle().clone(),
-            tasks: Mutex::new(Some(JoinSet::new())),
-            stopped: Completion::default(),
-        });
-        let (initial, events) = match executor.block_on(instance.runtime.observe()) {
-            Ok(observation) => observation,
-            Err(error) => {
-                tracing::error!(%error, "could not observe embedded runtime");
-                return None;
-            }
-        };
-        Some((executor, instance, initial, events))
-    }));
-    let Ok(Some((executor, instance, initial, events))) = setup else {
-        drop(active);
-        let _ = ready.send(None);
-        return;
+                    let code = match &error {
+                        Error::HostBusy(_) => KODOSI_START_HOST_BUSY,
+                        Error::Invalid(_) => KODOSI_START_REJECTED,
+                        _ => KODOSI_START_FAILED,
+                    };
+                    let status = (code == KODOSI_START_HOST_BUSY)
+                        .then(|| executor.block_on(headless::host_status(&root)).ok())
+                        .flatten();
+                    start_failure(code, &error.to_string(), status)
+                })?;
+            let instance = Arc::new(Instance {
+                runtime,
+                state: Arc::new(State {
+                    callbacks,
+                    userdata,
+                    gate: Gate::default(),
+                    serial: Mutex::new(()),
+                    cancel: CancellationToken::new(),
+                    subscriptions: Mutex::new(Subscriptions::default()),
+                }),
+                executor: executor.handle().clone(),
+                tasks: Mutex::new(Some(JoinSet::new())),
+                stopped: Completion::default(),
+            });
+            let (initial, events) =
+                executor
+                    .block_on(instance.runtime.observe())
+                    .map_err(|error| {
+                        tracing::error!(%error, "could not observe embedded runtime");
+                        start_failure(KODOSI_START_FAILED, &error.to_string(), None)
+                    })?;
+            Ok((executor, instance, initial, events))
+        },
+    ));
+    let (executor, instance, initial, events) = match setup {
+        Ok(Ok(started)) => started,
+        Ok(Err(failure)) => {
+            drop(active);
+            let _ = ready.send(Err(failure));
+            return;
+        }
+        Err(_) => {
+            drop(active);
+            let _ = ready.send(Err(start_failure(
+                KODOSI_START_FAILED,
+                "The embedded runtime panicked during startup.",
+                None,
+            )));
+            return;
+        }
     };
     lock(handles()).insert(key, Arc::clone(&instance));
     if ready
-        .send(Some((Arc::clone(&instance), initial, events)))
+        .send(Ok((Arc::clone(&instance), initial, events)))
         .is_err()
     {
         instance.state.close();
@@ -666,6 +802,72 @@ pub extern "C" fn kodosi_abi_version() -> u32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn kodosi_protocol_version() -> u32 {
     kodosi_runtime::protocol::VERSION
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn kodosi_last_start_failure(out: *mut KodosiStartFailure) -> i32 {
+    caught(|| {
+        if out.is_null() {
+            return KODOSI_FFI_NULL_HANDLE;
+        }
+        let failure = *lock(&LAST_START_FAILURE);
+        failure.map_or(0, |failure| {
+            unsafe { out.write(failure) };
+            1
+        })
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn kodosi_host_stop(force: i32) -> i32 {
+    caught(|| {
+        let Ok(config) = Config::load() else {
+            return KODOSI_HOST_STOP_FAILED;
+        };
+        let Ok(executor) = Executor::new() else {
+            return KODOSI_HOST_STOP_FAILED;
+        };
+        match executor.block_on(headless::stop_other_host(&config.data_root, force != 0)) {
+            Ok(()) => KODOSI_HOST_STOP_ACCEPTED,
+            Err(Error::HostBusy(_)) => KODOSI_HOST_STOP_REFUSED,
+            Err(Error::Io(error))
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::NotFound | std::io::ErrorKind::ConnectionRefused
+                ) =>
+            {
+                KODOSI_HOST_STOP_UNREACHABLE
+            }
+            Err(_) => KODOSI_HOST_STOP_FAILED,
+        }
+    })
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn kodosi_cli_main(length: i32, values: *const *const c_char) -> i32 {
+    let Ok(count) = usize::try_from(length) else {
+        return KODOSI_CLI_NOT_INVOKED;
+    };
+    if count > 0 && values.is_null() {
+        return KODOSI_CLI_NOT_INVOKED;
+    }
+    let invocation = (0..count)
+        .filter_map(|index| {
+            let pointer = unsafe { *values.add(index) };
+            (!pointer.is_null()).then(|| {
+                OsStr::from_bytes(unsafe { CStr::from_ptr(pointer) }.to_bytes()).to_owned()
+            })
+        })
+        .collect::<Vec<OsString>>();
+    if !kodosi_runtime::cli::is_invocation(&invocation) {
+        return KODOSI_CLI_NOT_INVOKED;
+    }
+    std::panic::catch_unwind(AssertUnwindSafe(|| {
+        Executor::new().map_or(KODOSI_CLI_FAILED, |executor| {
+            i32::from(executor.block_on(kodosi_runtime::cli::run_with(invocation)))
+        })
+    }))
+    .unwrap_or(KODOSI_CLI_FAILED)
 }
 
 #[unsafe(no_mangle)]

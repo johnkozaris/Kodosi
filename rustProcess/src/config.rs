@@ -1,9 +1,18 @@
 use crate::{Error, Result};
 use reqwest::Url;
+use serde::{Deserialize, Serialize};
 use std::{
     os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt},
     path::{Component, Path, PathBuf},
 };
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum HostKind {
+    App,
+    Foreground,
+    Background,
+}
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -16,6 +25,7 @@ pub struct Config {
     pub oidc_scopes: Vec<String>,
     pub secret_service: String,
     pub isolated: bool,
+    pub host: HostKind,
 }
 
 impl Config {
@@ -78,6 +88,7 @@ impl Config {
                 .collect(),
             secret_service: std::env::var("KODOSI__AUTH__KEYRING_SERVICE")
                 .unwrap_or_else(|_| "com.kodosi.local".to_owned()),
+            host: HostKind::App,
         })
     }
 
@@ -98,6 +109,7 @@ impl Config {
             oidc_scopes: vec!["openid".to_owned()],
             secret_service: "kodosi.isolated".to_owned(),
             isolated: true,
+            host: HostKind::App,
         })
     }
 }

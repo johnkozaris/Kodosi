@@ -18,7 +18,7 @@ pub mod provider;
 mod runtime;
 pub mod terminal;
 
-pub use config::Config;
+pub use config::{Config, HostKind};
 pub use protocol::{Command, CommandEnvelope, Event, EventBody};
 pub use runtime::{RuntimeHandle, start};
 
@@ -36,6 +36,8 @@ pub enum Error {
     Stale,
     #[error("{0}")]
     Invalid(String),
+    #[error("{0}")]
+    HostBusy(String),
     #[error("{0}")]
     Io(#[from] std::io::Error),
     #[error("{0}")]

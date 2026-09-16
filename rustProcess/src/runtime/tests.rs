@@ -493,6 +493,7 @@ async fn input_admission_is_byte_bounded_before_the_registry_polls() {
         commands,
         events,
         stopped,
+        clients: watch::channel(0).1,
         input_budget: Arc::new(Semaphore::new(MAX_QUEUED_INPUT_BYTES)),
         consumer: Arc::new(Consumer::default()),
     };

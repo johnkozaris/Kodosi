@@ -1,10 +1,11 @@
-use crate::{Config, Error, Result, headless};
-use clap::{Parser, Subcommand};
+use crate::{Config, Error, EventBody, HostKind, Result, headless, protocol::SessionKind};
+use clap::{CommandFactory, Parser, Subcommand};
 use serde_json::{Value, json};
 use std::{
+    ffi::OsString,
     io::{self, Write},
-    path::PathBuf,
-    process::{ExitCode, Stdio},
+    path::{Path, PathBuf},
+    process::Stdio,
     time::Duration,
 };
 use uuid::Uuid;
@@ -153,19 +154,53 @@ enum ProviderAction {
     clippy::future_not_send,
     reason = "CLI execution keeps the Ghostty mirror on the main thread"
 )]
-pub async fn run() -> ExitCode {
-    let args = Arguments::parse();
+pub async fn run_with(args: Vec<OsString>) -> u8 {
+    let args = match Arguments::try_parse_from(args) {
+        Ok(args) => args,
+        Err(error) => {
+            drop(error.print());
+            return u8::try_from(error.exit_code()).unwrap_or(2);
+        }
+    };
     let json_output = args.json;
     match dispatch(args).await {
-        Ok(()) => ExitCode::SUCCESS,
+        Ok(()) => 0,
         Err(error) => {
             if json_output {
                 drop(print_json(&json!({"error":error.to_string()})));
             } else {
                 drop(writeln!(io::stderr().lock(), "Kodosi: {error}"));
             }
-            ExitCode::FAILURE
+            1
         }
+    }
+}
+
+pub fn is_invocation(args: &[OsString]) -> bool {
+    if args
+        .first()
+        .map(Path::new)
+        .and_then(Path::file_name)
+        .is_some_and(|name| name == "kodosi")
+    {
+        return true;
+    }
+    let Some(first) = args.get(1).and_then(|argument| argument.to_str()) else {
+        return false;
+    };
+    matches!(
+        first,
+        "--help" | "-h" | "--version" | "-V" | "--json" | "help"
+    ) || Arguments::command()
+        .get_subcommands()
+        .any(|command| command.get_name() == first)
+}
+
+const fn hosted_kind(action: &Action) -> Option<HostKind> {
+    match action {
+        Action::Host => Some(HostKind::Foreground),
+        Action::InternalHost => Some(HostKind::Background),
+        _ => None,
     }
 }
 
@@ -174,8 +209,9 @@ pub async fn run() -> ExitCode {
     reason = "terminal attach runs the Ghostty mirror on the main thread"
 )]
 async fn dispatch(args: Arguments) -> Result<()> {
-    let config = Config::load()?;
-    if matches!(args.command, Action::Host | Action::InternalHost) {
+    let mut config = Config::load()?;
+    if let Some(kind) = hosted_kind(&args.command) {
+        config.host = kind;
         return run_host(config, args.json).await;
     }
     let mut client = connect_or_start(&config).await?;
@@ -279,17 +315,56 @@ fn device_command(action: DeviceAction) -> Value {
     }
 }
 
+struct IdleWatch {
+    enabled: bool,
+    since: Option<tokio::time::Instant>,
+}
+impl IdleWatch {
+    const GRACE: Duration = Duration::from_secs(30);
+    const fn new(enabled: bool) -> Self {
+        Self {
+            enabled,
+            since: None,
+        }
+    }
+    fn deadline(
+        &mut self,
+        local_sessions: usize,
+        clients: usize,
+        now: tokio::time::Instant,
+    ) -> Option<tokio::time::Instant> {
+        if !self.enabled || local_sessions > 0 || clients > 0 {
+            self.since = None;
+            return None;
+        }
+        Some(*self.since.get_or_insert(now) + Self::GRACE)
+    }
+}
+
 async fn run_host(config: Config, json_output: bool) -> Result<()> {
+    let mut idle = IdleWatch::new(config.host == HostKind::Background);
     let runtime = crate::start(config).await?;
     let result = async {
         let mut events = runtime.subscribe_events();
+        let mut clients = runtime.local_clients();
+        let mut local_sessions = headless::local_sessions(&runtime.snapshot().await?);
         loop {
+            let deadline = idle.deadline(local_sessions, *clients.borrow(), tokio::time::Instant::now());
             tokio::select! {
                 result=tokio::signal::ctrl_c()=>{result?;break;}
                 ()=runtime.stopped()=>break,
+                ()=async{match deadline{Some(at)=>tokio::time::sleep_until(at).await,None=>std::future::pending().await}}=>break,
+                changed=clients.changed()=>{if changed.is_err(){break;}}
                 event=events.recv()=>match event{
-                    Ok(event) if json_output=>print_json(&event)?,
-                    Ok(_) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_))=>{},
+                    Ok(event)=>{
+                        if let EventBody::SessionsSnapshot{sessions}=&event.event{
+                            local_sessions=sessions.iter().filter(|session|session.kind==SessionKind::Local).count();
+                        }
+                        if json_output{print_json(&event)?;}
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_))=>{
+                        local_sessions=headless::local_sessions(&runtime.snapshot().await?);
+                    }
                     Err(tokio::sync::broadcast::error::RecvError::Closed)=>break,
                 }
             }
@@ -307,7 +382,7 @@ async fn run_host(config: Config, json_output: bool) -> Result<()> {
     reason = "the CLI mirror remains on its main thread"
 )]
 async fn attach_with_demand(
-    root: &std::path::Path,
+    root: &Path,
     session: Uuid,
     client: &mut headless::Client,
 ) -> Result<()> {
@@ -322,7 +397,7 @@ async fn attach_with_demand(
 }
 
 async fn send_input(
-    root: &std::path::Path,
+    root: &Path,
     session: Uuid,
     text: String,
     enter: bool,
@@ -718,6 +793,54 @@ async fn connect_or_start(config: &Config) -> Result<headless::Client> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn app_executables_recognise_cli_invocations() {
+        let args = |list: &[&str]| list.iter().map(OsString::from).collect::<Vec<_>>();
+        let app = "/Applications/KodosiDesktop.app/Contents/MacOS/KodosiDesktop";
+        assert!(is_invocation(&args(&["/opt/homebrew/bin/kodosi"])));
+        assert!(is_invocation(&args(&["kodosi", "statsu"])));
+        assert!(is_invocation(&args(&[app, "status"])));
+        assert!(is_invocation(&args(&[app, "internal-host"])));
+        assert!(is_invocation(&args(&[app, "--json", "status"])));
+        assert!(is_invocation(&args(&[app, "--version"])));
+        assert!(is_invocation(&args(&[app, "help", "session"])));
+        assert!(!is_invocation(&args(&[app])));
+        assert!(!is_invocation(&args(&[
+            app,
+            "-NSDocumentRevisionsDebugMode",
+            "YES"
+        ])));
+        assert!(!is_invocation(&args(&[app, "statsu"])));
+        assert!(!is_invocation(&[]));
+    }
+    #[test]
+    fn background_hosts_only_exit_after_an_idle_grace_period() {
+        let now = tokio::time::Instant::now();
+        let mut foreground = IdleWatch::new(false);
+        assert!(foreground.deadline(0, 0, now).is_none());
+        let mut background = IdleWatch::new(true);
+        assert!(background.deadline(1, 0, now).is_none());
+        assert!(background.deadline(0, 1, now).is_none());
+        let deadline = background.deadline(0, 0, now).unwrap();
+        assert_eq!(deadline, now + IdleWatch::GRACE);
+        assert_eq!(
+            background
+                .deadline(0, 0, now + Duration::from_secs(5))
+                .unwrap(),
+            deadline
+        );
+        assert!(
+            background
+                .deadline(0, 1, now + Duration::from_secs(6))
+                .is_none()
+        );
+        assert_eq!(
+            background
+                .deadline(0, 0, now + Duration::from_secs(7))
+                .unwrap(),
+            now + Duration::from_secs(7) + IdleWatch::GRACE
+        );
+    }
     #[test]
     fn obsolete_products_are_not_cli_commands() {
         for args in [

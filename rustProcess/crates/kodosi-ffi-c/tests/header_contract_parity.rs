@@ -16,6 +16,10 @@ fn exported_contract_contains_only_current_entrypoints() {
         "kodosi_terminal_connect(",
         "kodosi_terminal_refresh(",
         "kodosi_terminal_disconnect(",
+        "kodosi_last_start_failure(",
+        "kodosi_host_stop(",
+        "kodosi_cli_main(",
+        "kodosi_start_failure_t",
     ] {
         assert!(text.contains(name), "missing {name}");
     }
@@ -35,7 +39,7 @@ fn exported_contract_contains_only_current_entrypoints() {
             "retired contract survived: {removed}"
         );
     }
-    assert!(text.contains("#define KODOSI_FFI_ABI_VERSION 6"));
+    assert!(text.contains("#define KODOSI_FFI_ABI_VERSION 7"));
 }
 
 #[test]

@@ -46,6 +46,7 @@ pub struct RuntimeHandle {
     commands: mpsc::Sender<Request>,
     events: broadcast::Sender<Event>,
     stopped: watch::Receiver<bool>,
+    clients: watch::Receiver<usize>,
     input_budget: Arc<Semaphore>,
     consumer: Arc<Consumer>,
 }
@@ -164,6 +165,10 @@ impl RuntimeHandle {
 
     pub fn subscribe_events(&self) -> broadcast::Receiver<Event> {
         self.events.subscribe()
+    }
+
+    pub fn local_clients(&self) -> watch::Receiver<usize> {
+        self.clients.clone()
     }
 
     pub async fn observe(&self) -> Result<Observation> {
@@ -575,14 +580,25 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
     let (events, _) = broadcast::channel(256);
     let (changes, change_rx) = mpsc::channel(128);
     let (stopped, stopped_rx) = watch::channel(false);
+    let (client_count, clients) = watch::channel(0);
     let handle = RuntimeHandle {
         commands,
         events: events.clone(),
         stopped: stopped_rx,
+        clients,
         input_budget: Arc::new(Semaphore::new(MAX_QUEUED_INPUT_BYTES)),
         consumer: Arc::new(Consumer::default()),
     };
-    let server = crate::headless::serve(handle.clone(), config.data_root.clone()).await?;
+    let server = crate::headless::serve(
+        handle.clone(),
+        config.data_root.clone(),
+        crate::headless::HostDescription {
+            pid: std::process::id(),
+            kind: config.host,
+        },
+        client_count,
+    )
+    .await?;
     let runtime = Runtime {
         config,
         network,

@@ -13,15 +13,19 @@ use serde_json::{Value, json};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     net::UnixStream,
-    sync::{Semaphore, broadcast},
+    sync::{Semaphore, broadcast, watch},
     task::JoinSet,
 };
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use crate::{CommandEnvelope, Error, Event, Result, RuntimeHandle, terminal};
+use crate::{
+    CommandEnvelope, Error, Event, EventBody, HostKind, Result, RuntimeHandle,
+    protocol::SessionKind, terminal,
+};
 
-const VERSION: u32 = 16;
+const VERSION: u32 = 17;
+const STOP_WAIT: Duration = Duration::from_secs(5);
 const MAX_FRAME: usize = 8 * 1024 * 1024 + 64 * 1024;
 const MAX_CONNECTIONS: usize = 64;
 const HELLO_TIMEOUT: Duration = Duration::from_secs(3);
@@ -41,12 +45,92 @@ struct Welcome {
     error: Option<String>,
     events: Vec<Value>,
     incarnation_id: Option<Uuid>,
+    host: Option<HostDescription>,
 }
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 enum ClientRequest {
     Command { command: Value },
     Snapshot,
+    Stop { force: bool },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct HostDescription {
+    pub pid: u32,
+    pub kind: HostKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HostStatus {
+    pub host: HostDescription,
+    pub local_sessions: usize,
+}
+
+pub(crate) fn local_sessions(events: &[Event]) -> usize {
+    events
+        .iter()
+        .rev()
+        .find_map(|event| match &event.event {
+            EventBody::SessionsSnapshot { sessions } => Some(
+                sessions
+                    .iter()
+                    .filter(|session| session.kind == SessionKind::Local)
+                    .count(),
+            ),
+            _ => None,
+        })
+        .unwrap_or(0)
+}
+
+fn local_sessions_in(events: &[Value]) -> usize {
+    events
+        .iter()
+        .rev()
+        .find(|event| event.get("type").and_then(Value::as_str) == Some("sessions.snapshot"))
+        .and_then(|event| event.get("sessions").and_then(Value::as_array))
+        .map_or(0, |sessions| {
+            sessions
+                .iter()
+                .filter(|session| session.get("kind").and_then(Value::as_str) == Some("local"))
+                .count()
+        })
+}
+
+fn stop_permission(
+    kind: HostKind,
+    force: bool,
+    local_sessions: usize,
+) -> std::result::Result<(), String> {
+    if kind == HostKind::App {
+        return Err("Kodosi is running as the app. Quit the app to stop this host.".into());
+    }
+    if force {
+        return Ok(());
+    }
+    if kind == HostKind::Foreground {
+        return Err("This host was started with `kodosi host`. Stop it from its terminal.".into());
+    }
+    if local_sessions > 0 {
+        return Err(format!(
+            "This host still runs {local_sessions} terminal(s). Close them first."
+        ));
+    }
+    Ok(())
+}
+
+struct ClientSlot(std::sync::Arc<watch::Sender<usize>>);
+impl ClientSlot {
+    fn enter(clients: &std::sync::Arc<watch::Sender<usize>>) -> Self {
+        clients.send_modify(|count| *count += 1);
+        Self(std::sync::Arc::clone(clients))
+    }
+}
+impl Drop for ClientSlot {
+    fn drop(&mut self) {
+        self.0.send_modify(|count| *count = count.saturating_sub(1));
+    }
 }
 
 pub struct HeadlessServer {
@@ -126,14 +210,19 @@ fn lock_root(root: &Path) -> Result<File> {
         return Err(Error::Invalid("host lock belongs to another user".into()));
     }
     file.try_lock().map_err(|error| {
-        Error::Other(format!(
+        Error::HostBusy(format!(
             "Kodosi is already running for this data root: {error}"
         ))
     })?;
     Ok(file)
 }
 
-pub async fn serve(runtime: RuntimeHandle, root: PathBuf) -> Result<HeadlessServer> {
+pub async fn serve(
+    runtime: RuntimeHandle,
+    root: PathBuf,
+    host: HostDescription,
+    clients: watch::Sender<usize>,
+) -> Result<HeadlessServer> {
     let root = root.canonicalize()?;
     let host_lock = lock_root(&root)?;
     let dir = socket_dir(&root)?;
@@ -142,7 +231,7 @@ pub async fn serve(runtime: RuntimeHandle, root: PathBuf) -> Result<HeadlessServ
     if existing_owned_file(&path, true)? {
         match UnixStream::connect(&path).await {
             Ok(_) => {
-                return Err(Error::Other(
+                return Err(Error::HostBusy(
                     "another Kodosi host owns this endpoint".into(),
                 ));
             }
@@ -162,6 +251,7 @@ pub async fn serve(runtime: RuntimeHandle, root: PathBuf) -> Result<HeadlessServ
     let cancel = CancellationToken::new();
     let stop = cancel.clone();
     let identity = root_identity(&root);
+    let clients = std::sync::Arc::new(clients);
     let task = tokio::spawn(async move {
         let _host_lock = host_lock;
         let slots = std::sync::Arc::new(Semaphore::new(MAX_CONNECTIONS));
@@ -175,12 +265,14 @@ pub async fn serve(runtime: RuntimeHandle, root: PathBuf) -> Result<HeadlessServ
                         let Ok(permit) = std::sync::Arc::clone(&slots).try_acquire_owned() else { continue; };
                         if !stream.peer_cred().is_ok_and(|peer| peer.uid() == rustix::process::geteuid().as_raw()) { continue; }
                         let handle = runtime.clone(); let expected = identity.clone(); let cancel = stop.child_token();
+                        let slot = ClientSlot::enter(&clients);
                         connections.spawn(async move {
                             let _permit = permit;
+                            let _slot = slot;
                             tokio::select! {
                                 biased;
                                 () = cancel.cancelled() => {},
-                                result = serve_connection(stream, handle, expected, cancel.clone()) => {
+                                result = serve_connection(stream, handle, expected, cancel.clone(), host) => {
                                     if let Err(error) = result {
                                         tracing::debug!(%error, "local client disconnected");
                                     }
@@ -211,6 +303,7 @@ async fn serve_connection(
     runtime: RuntimeHandle,
     root: String,
     cancel: CancellationToken,
+    host: HostDescription,
 ) -> Result<()> {
     let hello: Hello =
         tokio::time::timeout(HELLO_TIMEOUT, read_json(&mut FrameReader::new(&mut stream)))
@@ -224,6 +317,7 @@ async fn serve_connection(
                 error: Some("local runtime protocol or data-root mismatch".into()),
                 events: vec![],
                 incarnation_id: None,
+                host: None,
             },
         )
         .await?;
@@ -245,6 +339,7 @@ async fn serve_connection(
                         error: Some(error.to_string()),
                         events: vec![],
                         incarnation_id: None,
+                        host: None,
                     },
                 )
                 .await?;
@@ -261,6 +356,7 @@ async fn serve_connection(
                     error: None,
                     events: vec![],
                     incarnation_id: Some(incarnation),
+                    host: Some(host),
                 },
             )
             .await?;
@@ -270,7 +366,7 @@ async fn serve_connection(
         runtime.unsubscribe_terminal(session, connection).await;
         result
     } else {
-        serve_commands(stream, runtime.command_client(), cancel).await
+        serve_commands(stream, runtime.command_client(), cancel, host).await
     }
 }
 
@@ -278,6 +374,7 @@ async fn serve_commands(
     mut stream: UnixStream,
     runtime: RuntimeHandle,
     cancel: CancellationToken,
+    host: HostDescription,
 ) -> Result<()> {
     let (snapshot, mut events) = runtime.observe().await?;
     let initial = snapshot
@@ -291,6 +388,7 @@ async fn serve_commands(
             error: None,
             events: initial,
             incarnation_id: None,
+            host: Some(host),
         },
     )
     .await?;
@@ -315,6 +413,18 @@ async fn serve_commands(
                         let (snapshot, receiver) = runtime.observe().await?;
                         events = receiver;
                         for event in snapshot { write_event(&mut writer,&event).await?; }
+                    }
+                    ClientRequest::Stop{force}=>{
+                        let open = local_sessions(&runtime.snapshot().await?);
+                        match stop_permission(host.kind, force, open) {
+                            Ok(())=>{
+                                write_json(&mut writer,&json!({"kind":"stopping"})).await?;
+                                let stopping = runtime.clone();
+                                tokio::spawn(async move { stopping.shutdown().await; });
+                                return Ok(());
+                            }
+                            Err(message)=>write_json(&mut writer,&json!({"kind":"rejected","operation":"host.stop","message":message})).await?,
+                        }
                     }
                 }
             }
@@ -489,6 +599,7 @@ pub struct Client {
     reader: FrameReader<tokio::net::unix::OwnedReadHalf>,
     writer: tokio::net::unix::OwnedWriteHalf,
     pub initial_events: Vec<Value>,
+    pub host: Option<HostDescription>,
 }
 impl Client {
     pub async fn connect(root: &Path) -> Result<Self> {
@@ -498,6 +609,7 @@ impl Client {
             reader: FrameReader::new(reader),
             writer,
             initial_events: welcome.events,
+            host: welcome.host,
         })
     }
     pub async fn command(&mut self, command: Value) -> Result<()> {
@@ -514,6 +626,55 @@ impl Client {
     pub async fn next(&mut self) -> Result<Value> {
         read_json(&mut self.reader).await
     }
+    pub async fn stop_host(&mut self, force: bool) -> Result<()> {
+        write_json(&mut self.writer, &ClientRequest::Stop { force }).await?;
+        loop {
+            let reply = self.next().await?;
+            match reply.get("kind").and_then(Value::as_str) {
+                Some("stopping") => return Ok(()),
+                Some("rejected")
+                    if reply.get("operation").and_then(Value::as_str) == Some("host.stop") =>
+                {
+                    return Err(Error::HostBusy(
+                        reply
+                            .get("message")
+                            .and_then(Value::as_str)
+                            .unwrap_or("The running host refused to stop.")
+                            .to_owned(),
+                    ));
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+pub async fn host_status(root: &Path) -> Result<HostStatus> {
+    let client = Client::connect(root).await?;
+    let host = client
+        .host
+        .ok_or_else(|| Error::Invalid("the running host did not identify itself".into()))?;
+    Ok(HostStatus {
+        host,
+        local_sessions: local_sessions_in(&client.initial_events),
+    })
+}
+
+pub async fn stop_other_host(root: &Path, force: bool) -> Result<()> {
+    let mut client = Client::connect(root).await?;
+    client.stop_host(force).await?;
+    drop(client);
+    let root = root.canonicalize()?;
+    let deadline = tokio::time::Instant::now() + STOP_WAIT;
+    while lock_root(&root).is_err() {
+        if tokio::time::Instant::now() >= deadline {
+            return Err(Error::Other(
+                "The running host did not release the data root in time.".into(),
+            ));
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    Ok(())
 }
 
 pub struct TerminalClient {
@@ -819,11 +980,66 @@ mod tests {
     #[test]
     fn local_protocol_requires_exact_version_and_root() {
         assert!(
-            serde_json::from_str::<Hello>(r#"{"version":16,"root":"a","sessionId":null}"#).is_ok()
+            serde_json::from_str::<Hello>(r#"{"version":17,"root":"a","sessionId":null}"#).is_ok()
         );
-        assert!(serde_json::from_str::<Hello>(r#"{"version":16}"#).is_err());
+        assert!(serde_json::from_str::<Hello>(r#"{"version":17}"#).is_err());
         assert!(
-            serde_json::from_str::<Hello>(r#"{"version":16,"root":"a","legacy":true}"#).is_err()
+            serde_json::from_str::<Hello>(r#"{"version":17,"root":"a","legacy":true}"#).is_err()
         );
+    }
+    #[test]
+    fn stop_permission_protects_the_app_and_open_terminals() {
+        assert!(stop_permission(HostKind::App, true, 0).is_err());
+        assert!(stop_permission(HostKind::Foreground, false, 0).is_err());
+        assert!(stop_permission(HostKind::Foreground, true, 2).is_ok());
+        assert!(stop_permission(HostKind::Background, false, 1).is_err());
+        assert!(stop_permission(HostKind::Background, false, 0).is_ok());
+        assert!(stop_permission(HostKind::Background, true, 1).is_ok());
+    }
+    #[test]
+    fn local_session_counts_ignore_remote_entries() {
+        let events = [
+            json!({"type":"sessions.snapshot","sessions":[{"kind":"local"},{"kind":"remote"},{"kind":"local"}]}),
+            json!({"type":"auth.required"}),
+        ];
+        assert_eq!(local_sessions_in(&events), 2);
+        assert_eq!(local_sessions_in(&[]), 0);
+    }
+    async fn hosted(kind: HostKind) -> (tempfile::TempDir, PathBuf, RuntimeHandle) {
+        let storage = tempfile::tempdir().unwrap();
+        let mut config = crate::Config::isolated(&storage.path().canonicalize().unwrap()).unwrap();
+        config.host = kind;
+        let root = config.data_root.clone();
+        let handle = crate::start(config).await.unwrap();
+        (storage, root, handle)
+    }
+    #[tokio::test]
+    async fn idle_background_hosts_identify_themselves_and_yield() {
+        let (_storage, root, handle) = hosted(HostKind::Background).await;
+        let status = host_status(&root).await.unwrap();
+        assert_eq!(
+            status.host,
+            HostDescription {
+                pid: std::process::id(),
+                kind: HostKind::Background
+            }
+        );
+        assert_eq!(status.local_sessions, 0);
+        stop_other_host(&root, false).await.unwrap();
+        tokio::time::timeout(Duration::from_secs(10), handle.stopped())
+            .await
+            .unwrap();
+    }
+    #[tokio::test]
+    async fn foreground_hosts_only_stop_when_forced() {
+        let (_storage, root, handle) = hosted(HostKind::Foreground).await;
+        assert!(matches!(
+            stop_other_host(&root, false).await,
+            Err(Error::HostBusy(_))
+        ));
+        stop_other_host(&root, true).await.unwrap();
+        tokio::time::timeout(Duration::from_secs(10), handle.stopped())
+            .await
+            .unwrap();
     }
 }
