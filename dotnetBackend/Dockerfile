@@ -6,7 +6,8 @@ RUN dotnet publish dotnetBackend/src/Kodosi.Host/Kodosi.Host.csproj --configurat
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0.12@sha256:6a94333d37514e385650a3c81a55e5350b67253dbe136e9cf17e499c35606a8c AS runtime
 WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/* \
+    && install -d -m 0700 -o "$APP_UID" -g "$APP_UID" /home/app/.aspnet /home/app/.aspnet/DataProtection-Keys
 COPY --from=build /app/publish/ ./
 USER $APP_UID
 EXPOSE 8080
