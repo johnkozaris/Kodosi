@@ -267,7 +267,7 @@ async fn current_publication(
                 return Err(Error::Stale);
             }
             publication.expire_sharing().await;
-            let dto:SessionDto=network.inner.http.device(Method::POST,"api/sessions",credentials,Some(json!({"id":info.session_id,"incarnationId":info.incarnation_id,"name":info.name,"hostDeviceId":credentials.keys.device_id,"hostName":"This computer","roomId":null}))).await?;
+            let dto:SessionDto=network.inner.http.device(Method::POST,"api/sessions",credentials,Some(json!({"id":info.session_id,"incarnationId":info.incarnation_id,"name":info.name,"hostDeviceId":credentials.keys.device_id,"hostName":crate::network::client::host_label(),"roomId":null}))).await?;
             *publication.dto.write().await = dto.clone();
             network.emit_for(credentials.generation,Some(credentials.user_id.clone()),json!({"type":"system.error","message":"Remote sharing expired while this host was offline; choose friends again."}));
             Ok(dto)
