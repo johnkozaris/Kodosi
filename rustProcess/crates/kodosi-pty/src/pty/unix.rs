@@ -119,17 +119,10 @@ impl KodosiPty {
         if env::var_os("LANG").is_none() && env::var_os("LC_ALL").is_none() {
             command.env("LANG", "en_US.UTF-8");
         }
-        for key in [
-            "COLUMNS",
-            "LINES",
-            "CLAUDE_CODE_CHILD_SESSION",
-            "CLAUDECODE",
-            "CLAUDE_CODE_ENTRYPOINT",
-            "CLAUDE_CODE_SSE_PORT",
-            "CLAUDE_CODE_SSE_TOKEN",
-            "CLAUDE_CODE_SESSION_ID",
-        ] {
-            command.env_remove(key);
+        for (key, _) in env::vars_os() {
+            if key.to_str().is_some_and(inherits_foreign_context) {
+                command.env_remove(&key);
+            }
         }
 
         command.kill_on_drop(true);
@@ -438,6 +431,32 @@ fn try_write_to_fd(fd: RawFd, buf: &[u8]) -> std::result::Result<usize, nix::Err
     Ok(written)
 }
 
+const FOREIGN_CONTEXT_PREFIXES: [&str; 6] = [
+    "CLAUDE_CODE_",
+    "CLAUDE_EFFORT",
+    "CLAUDE_PID",
+    "COPILOT_",
+    "CODEX_",
+    "CURSOR_",
+];
+const FOREIGN_CONTEXT_KEYS: [&str; 8] = [
+    "AGENT",
+    "AI_AGENT",
+    "CLAUDECODE",
+    "COLUMNS",
+    "LINES",
+    "TERMINFO",
+    "TERM_PROGRAM_VERSION",
+    "TERM_SESSION_ID",
+];
+
+fn inherits_foreign_context(key: &str) -> bool {
+    FOREIGN_CONTEXT_KEYS.contains(&key)
+        || FOREIGN_CONTEXT_PREFIXES
+            .iter()
+            .any(|prefix| key.starts_with(prefix))
+}
+
 const LOGIN_SHELLS: [&str; 8] = ["bash", "csh", "dash", "fish", "ksh", "sh", "tcsh", "zsh"];
 
 fn login_shell_name(program: &Path) -> Option<&str> {
@@ -611,9 +630,9 @@ fn foreground_process_group(fd: RawFd) -> Option<u32> {
 #[cfg(test)]
 mod tests {
     use super::{
-        KodosiPty, ShutdownStage, find_executable, login_shell_name, openpty, process_arguments,
-        program_identity, resolve_program, set_terminal_size_using_fd, try_write_to_fd,
-        validate_working_dir,
+        KodosiPty, ShutdownStage, find_executable, inherits_foreign_context, login_shell_name,
+        openpty, process_arguments, program_identity, resolve_program, set_terminal_size_using_fd,
+        try_write_to_fd, validate_working_dir,
     };
     use nix::{
         fcntl::{FcntlArg, OFlag, fcntl},
@@ -687,6 +706,31 @@ mod tests {
     }
 
     #[test]
+    fn agent_and_foreign_terminal_context_never_reaches_a_session() {
+        for key in [
+            "AI_AGENT",
+            "CLAUDECODE",
+            "CLAUDE_CODE_MESSAGING_TOKEN",
+            "CLAUDE_PID",
+            "COPILOT_CLI",
+            "TERMINFO",
+            "TERM_PROGRAM_VERSION",
+        ] {
+            assert!(inherits_foreign_context(key), "{key}");
+        }
+        for key in [
+            "CLAUDE_CONFIG_DIR",
+            "HOME",
+            "PATH",
+            "SSH_AUTH_SOCK",
+            "TERM_PROGRAM",
+            "LANG",
+        ] {
+            assert!(!inherits_foreign_context(key), "{key}");
+        }
+    }
+
+    #[test]
     fn shell_sessions_start_as_login_shells_with_a_shell_variable() {
         assert_eq!(login_shell_name(Path::new("/bin/zsh")), Some("zsh"));
         assert_eq!(login_shell_name(Path::new("/opt/bin/claude")), None);
@@ -730,7 +774,7 @@ mod tests {
     fn new_terminal_has_cooked_output_and_its_own_environment() {
         tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(async {
         let (mut pty, mut reader) = KodosiPty::spawn_program(Path::new("/bin/sh"),
-            &["-c".to_owned(), "printf '%s\\n' \"$TERM:$COLORTERM:$TERM_PROGRAM:${CLAUDE_CODE_CHILD_SESSION-unset}\"; sleep 1".to_owned()], None, 24, 80).unwrap();
+            &["-c".to_owned(), "printf '%s\\n' \"$TERM:$COLORTERM:$TERM_PROGRAM:${CLAUDE_CODE_CHILD_SESSION-unset}:${AI_AGENT-unset}\"; sleep 1".to_owned()], None, 24, 80).unwrap();
         let attributes =
             termios::tcgetattr(unsafe { BorrowedFd::borrow_raw(pty.master_fd) }).unwrap();
         assert!(
@@ -750,7 +794,7 @@ mod tests {
             .unwrap();
         assert!(
             String::from_utf8_lossy(&bytes[..count])
-                .contains("xterm-256color:truecolor:Kodosi:unset\r\n")
+                .contains("xterm-256color:truecolor:Kodosi:unset:unset\r\n")
         );
         assert!(process_arguments(pty.child_pid).is_some());
         pty.request_shutdown(ShutdownStage::Force).unwrap();

@@ -35,7 +35,7 @@ impl Network {
                     result=network.notification_connection(&credentials,&cancel)=>result,
                 };
                 if let Err(error) = result {
-                    network.emit_for(credentials.generation,Some(credentials.user_id.clone()),json!({"type":"auth.notice","message":format!("Network notifications reconnecting: {error}")}));
+                    tracing::warn!(%error, "notification stream interrupted; reconnecting");
                 }
                 tokio::select! {
                     ()=cancel.cancelled()=>break,

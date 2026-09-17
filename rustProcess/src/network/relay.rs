@@ -126,7 +126,7 @@ pub(crate) fn spawn_host(
                 break;
             }
             if let Err(error) = result {
-                network.emit_for(generation,Some(credentials.user_id.clone()),json!({"type":"system.error","message":format!("Remote access reconnecting: {error}")}));
+                tracing::warn!(%error, "remote access interrupted; reconnecting");
             }
             tokio::select! {
                 ()=publication.cancel.cancelled()=>break,
@@ -172,7 +172,10 @@ pub(crate) async fn socket(
     )
     .await
     .map_err(|_| invalid("Relay connection timed out."))?
-    .map_err(|error| invalid(format!("Could not connect to relay: {error}")))?;
+    .map_err(|error| {
+        tracing::warn!(%error, "relay connect failed");
+        invalid("Kodosi could not reach the relay server.")
+    })?;
     let mut hello = json!({"type":"hello","protocolVersion":crate::protocol::RELAY_VERSION,"deviceId":credentials.keys.device_id,"incarnationId":session.map(|s|s.incarnation_id)});
     if let Some(challenge) = checkpoint_challenge {
         hello["checkpointChallenge"] = json!(BASE64.encode(challenge));
@@ -223,7 +226,10 @@ pub(crate) async fn send_json(socket: &mut Socket, value: Value) -> Result<()> {
     )
     .await
     .map_err(|_| Error::Closed)?
-    .map_err(|error| invalid(format!("Relay send failed: {error}")))
+    .map_err(|error| {
+        tracing::warn!(%error, "relay send failed");
+        invalid("The connection to the host dropped.")
+    })
 }
 pub(crate) async fn send_binary(socket: &mut Socket, bytes: Vec<u8>) -> Result<()> {
     tokio::time::timeout(
@@ -232,14 +238,20 @@ pub(crate) async fn send_binary(socket: &mut Socket, bytes: Vec<u8>) -> Result<(
     )
     .await
     .map_err(|_| Error::Closed)?
-    .map_err(|error| invalid(format!("Relay send failed: {error}")))
+    .map_err(|error| {
+        tracing::warn!(%error, "relay send failed");
+        invalid("The connection to the host dropped.")
+    })
 }
 pub(crate) async fn read_json(socket: &mut Socket) -> Result<Value> {
     let message = tokio::time::timeout(Duration::from_secs(10), socket.next())
         .await
         .map_err(|_| Error::Closed)?
         .ok_or(Error::Closed)?
-        .map_err(|error| invalid(format!("Relay read failed: {error}")))?;
+        .map_err(|error| {
+            tracing::warn!(%error, "relay read failed");
+            invalid("The connection to the host dropped.")
+        })?;
     match message {
         Message::Text(text) => serde_json::from_str(&text).map_err(Into::into),
         _ => Err(invalid("Expected a relay handshake message.")),

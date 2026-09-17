@@ -236,19 +236,33 @@ impl Network {
         publications: BTreeMap<Uuid, Arc<relay::Publication>>,
     ) {
         use futures_util::{StreamExt as _, stream};
-        let pending=stream::iter(publications.into_values()).map(|publication|async move {
-            let info=publication.info.read().await.clone();
-            self.inner.http.device::<Value>(Method::DELETE,&format!("api/sessions/{}?incarnationId={}",info.session_id,info.incarnation_id),credentials,None).await
-        }).buffer_unordered(8).for_each(|result|async move {
-            if let Err(error)=result {
-                self.emit_for(credentials.generation,Some(credentials.user_id.clone()),json!({"type":"system.error","message":format!("Remote publication cleanup was not confirmed: {error}")}));
-            }
-        });
+        let pending = stream::iter(publications.into_values())
+            .map(|publication| async move {
+                let info = publication.info.read().await.clone();
+                self.inner
+                    .http
+                    .device::<Value>(
+                        Method::DELETE,
+                        &format!(
+                            "api/sessions/{}?incarnationId={}",
+                            info.session_id, info.incarnation_id
+                        ),
+                        credentials,
+                        None,
+                    )
+                    .await
+            })
+            .buffer_unordered(8)
+            .for_each(|result| async move {
+                if let Err(error) = result {
+                    tracing::warn!(%error, "remote publication cleanup was not confirmed");
+                }
+            });
         if tokio::time::timeout(Duration::from_secs(6), pending)
             .await
             .is_err()
         {
-            self.emit_for(credentials.generation,Some(credentials.user_id.clone()),json!({"type":"system.error","message":"Remote publication cleanup timed out; offline metadata will expire."}));
+            tracing::warn!("remote publication cleanup timed out; offline metadata will expire");
         }
     }
 

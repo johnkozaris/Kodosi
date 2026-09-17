@@ -1150,9 +1150,7 @@ impl Runtime {
                 });
             match result {
                 Ok(remotes) => self.replace_remotes(remotes),
-                Err(error) => {
-                    self.emit(json!({"type":"system.error", "message":error.to_string()}));
-                }
+                Err(error) => tracing::warn!(%error, "remote session catalog was unreadable"),
             }
         } else {
             match kind {
