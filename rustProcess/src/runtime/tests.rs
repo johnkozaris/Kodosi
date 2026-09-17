@@ -765,6 +765,26 @@ async fn remote_recovery_preserves_only_open_current_incarnations() {
 }
 
 #[tokio::test]
+async fn sessions_hosted_by_an_earlier_run_are_ended_instead_of_listed() {
+    let (mut runtime, _root) = registry_fixture();
+    runtime.network.assume_identity(crate::network::Identity {
+        user_id: "owner".to_owned(),
+        device_id: "this-device".to_owned(),
+        display_name: "You".to_owned(),
+        enrolled: true,
+    });
+    let mut orphan = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    orphan.host_device_id = "this-device".to_owned();
+    orphan.owner_user_id = "owner".to_owned();
+    let other = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    runtime.replace_remotes(vec![orphan.clone(), other.clone()]);
+    assert!(!runtime.remotes.contains_key(&orphan.id));
+    assert!(runtime.remotes.contains_key(&other.id));
+    assert!(runtime.unpublishing.contains(&orphan.id));
+    assert!(!runtime.unpublishing.contains(&other.id));
+}
+
+#[tokio::test]
 async fn catalog_replacement_cancels_inflight_automatic_recovery() {
     let (mut runtime, _root) = registry_fixture();
     let id = Uuid::now_v7();

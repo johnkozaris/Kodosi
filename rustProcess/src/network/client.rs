@@ -685,17 +685,7 @@ impl Network {
             publication.cancel.cancel();
             publication.invalidate().await;
             let info = publication.info.read().await.clone();
-            let credentials = self.credentials()?;
-            let _response: Value = self
-                .inner
-                .http
-                .device(
-                    Method::DELETE,
-                    &format!("api/sessions/{id}?incarnationId={}", info.incarnation_id),
-                    &credentials,
-                    None,
-                )
-                .await?;
+            self.delete_session(id, info.incarnation_id).await?;
             let mut publications = self.inner.publications.lock().await;
             if publications
                 .get(&id)
@@ -705,6 +695,36 @@ impl Network {
             }
         }
         Ok(())
+    }
+
+    pub async fn end_hosted(&self, id: Uuid, incarnation: Uuid) -> Result<()> {
+        let generation = self.generation();
+        let _operation = self.inner.operations.lock().await;
+        relay::check_generation(self, generation)?;
+        self.delete_session(id, incarnation).await
+    }
+
+    async fn delete_session(&self, id: Uuid, incarnation: Uuid) -> Result<()> {
+        let credentials = self.credentials()?;
+        let _response: Value = self
+            .inner
+            .http
+            .device(
+                Method::DELETE,
+                &format!("api/sessions/{id}?incarnationId={incarnation}"),
+                &credentials,
+                None,
+            )
+            .await?;
+        Ok(())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn assume_identity(&self, identity: Identity) {
+        if let Ok(mut current) = self.inner.identity.write() {
+            *current = Some(identity);
+        }
+        self.inner.identity_settled.store(true, Ordering::Release);
     }
 
     async fn set_shares(&self, id: Uuid, incarnation: Uuid, users: BTreeSet<String>) -> Result<()> {

@@ -1182,6 +1182,7 @@ impl Runtime {
     }
 
     fn replace_remotes(&mut self, remotes: Vec<RemoteSession>) {
+        let remotes = self.end_orphaned_publications(remotes);
         for remote in &remotes {
             if let Some(local) = self
                 .local
@@ -1236,6 +1237,41 @@ impl Runtime {
             .map(|entry| (entry.id, self.remote_entry(entry)))
             .collect();
         self.publish_catalog();
+    }
+
+    fn end_orphaned_publications(&mut self, remotes: Vec<RemoteSession>) -> Vec<RemoteSession> {
+        let Some(identity) = self.network.identity() else {
+            return remotes;
+        };
+        let (orphaned, remotes): (Vec<_>, Vec<_>) = remotes.into_iter().partition(|remote| {
+            remote.host_device_id == identity.device_id && !self.local.contains_key(&remote.id)
+        });
+        for remote in orphaned {
+            if remote.owner_user_id != identity.user_id
+                || self.unpublishing.contains(&remote.id)
+                || self.job_capacity().is_err()
+            {
+                continue;
+            }
+            self.unpublishing.insert(remote.id);
+            let network = self.network.clone();
+            let generation = self.scope.network_generation;
+            self.spawn(async move {
+                let result = if network.generation() == generation {
+                    network
+                        .end_hosted(remote.id, remote.incarnation_id)
+                        .await
+                        .map_err(Error::from)
+                } else {
+                    Err(Error::Stale)
+                };
+                Completion::Unpublished {
+                    id: remote.id,
+                    result,
+                }
+            });
+        }
+        remotes
     }
 
     fn remote_entry(&self, remote: RemoteSession) -> SessionEntry {
