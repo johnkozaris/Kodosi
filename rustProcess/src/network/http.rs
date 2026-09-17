@@ -221,14 +221,24 @@ async fn decode<T: DeserializeOwned>(response: reqwest::Response) -> Result<T> {
                     .and_then(Value::as_str)
                     .map(|s| s.chars().take(512).collect())
             })
-            .unwrap_or_else(|| "The request could not be completed.".into());
+            .filter(|message: &String| !message.is_empty());
         return Err(Error::Backend {
             status: status.as_u16(),
-            message,
+            message: backend_message(status.as_u16(), message),
         });
     }
     if bytes.is_empty() {
         return serde_json::from_value(Value::Null).map_err(Error::from);
     }
     serde_json::from_slice(&bytes).map_err(Error::from)
+}
+
+fn backend_message(status: u16, body: Option<String>) -> String {
+    match status {
+        401 => "Your sign-in has expired. Sign in again.".into(),
+        404 => "That no longer exists on the Kodosi server.".into(),
+        429 => "Too many requests. Wait a minute and try again.".into(),
+        500..=599 => "The Kodosi server had a problem. Try again in a moment.".into(),
+        _ => body.unwrap_or_else(|| "The Kodosi server could not complete the request.".into()),
+    }
 }

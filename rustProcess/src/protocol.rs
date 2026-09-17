@@ -747,17 +747,6 @@ fn validated_command<'de, D: Deserializer<'de>>(
 }
 
 impl Command {
-    pub const fn is_query(&self) -> bool {
-        matches!(
-            self,
-            Self::RefreshAuth {}
-                | Self::RefreshDevices {}
-                | Self::RefreshFriends {}
-                | Self::ListRooms {}
-                | Self::ListSessions {}
-        )
-    }
-
     pub fn operation(&self) -> &'static str {
         match self {
             Self::Login {} => "auth.login.start",

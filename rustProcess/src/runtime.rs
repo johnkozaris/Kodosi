@@ -736,7 +736,7 @@ impl Runtime {
                         None | Some(Request::Shutdown) => break,
                         Some(Request::Command { envelope, consumer, lifetime }) => {
                             if envelope.account_epoch != self.scope.epoch || envelope.account_user_id != self.scope.user || lifetime.is_cancelled() {
-                                self.stale(&envelope.command);
+                                self.error(&envelope.command, &Error::Stale);
                             } else if matches!(envelope.command, Command::Shutdown {}) {
                                 break;
                             } else if let Err(error) = self.apply_for_consumer(&envelope.command, consumer, lifetime) {
@@ -1017,13 +1017,10 @@ impl Runtime {
         }
     }
 
-    fn stale(&self, command: &Command) {
-        if !command.is_query() {
-            self.error(command, &Error::Stale);
-        }
-    }
-
     fn error(&self, command: &Command, error: &Error) {
+        if matches!(error, Error::Stale | Error::Stopped) {
+            return;
+        }
         let operation = command.operation();
         let kind = match operation.split('.').next() {
             Some("session") => "session.error",

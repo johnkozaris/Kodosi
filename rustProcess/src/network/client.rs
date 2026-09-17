@@ -164,7 +164,9 @@ impl Network {
                         let Ok(_operation)=this.inner.operations.try_lock() else {continue;};
                         if let Some(identity)=this.identity() {
                             let generation=this.generation();
-                            if let Err(error)=this.refresh().await {
+                            if let Err(error)=this.refresh().await
+                                && error.user_facing()
+                            {
                                 this.emit_for(generation,Some(identity.user_id),json!({"type":"auth.notice","message":error.to_string()}));
                             }
                         }else if this.inner.restore_pending.load(Ordering::Acquire) {
@@ -240,6 +242,7 @@ impl Network {
                     .await;
                     if let Err(error) = result
                         && !cancel.is_cancelled()
+                        && error.user_facing()
                     {
                         this.emit_for(generation,None,json!({"type":"auth.error","operation":"login.start","message":error.to_string()}));
                     }
@@ -432,7 +435,11 @@ impl Network {
             }
             _ => return Err(invalid("Unsupported network command.")),
         }
-        if !matches!(operation, "auth.logout" | "auth.login.start") && before != self.generation() {
+        if !matches!(
+            operation,
+            "auth.logout" | "auth.login.start" | "auth.login.cancel"
+        ) && before != self.generation()
+        {
             return Err(Error::Stale);
         }
         Ok(NetworkReply {

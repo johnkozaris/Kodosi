@@ -268,12 +268,23 @@ async fn stale_epoch_cannot_create_or_shutdown_current_runtime() {
             })
             .unwrap();
     }
+    runtime
+        .handle
+        .try_send(CommandEnvelope {
+            account_user_id: scope.account_user_id.clone(),
+            account_epoch: scope.account_epoch,
+            command: Command::ListSessions {},
+        })
+        .unwrap();
     timeout(Duration::from_secs(2), async {
-        let mut errors = 0;
-        while errors < 2 {
+        loop {
             let event = events.recv().await.unwrap();
-            if matches!(event.kind(), "session.error" | "system.error") {
-                errors += 1;
+            assert!(
+                !matches!(event.kind(), "session.error" | "system.error"),
+                "stale requests must stay silent"
+            );
+            if event.kind() == "sessions.snapshot" {
+                break;
             }
         }
     })

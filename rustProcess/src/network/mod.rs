@@ -44,7 +44,7 @@ pub enum Error {
     Timeout,
     #[error("{0}")]
     Json(#[from] serde_json::Error),
-    #[error("Backend request failed ({status}): {message}")]
+    #[error("{message}")]
     Backend { status: u16, message: String },
 }
 
@@ -61,6 +61,12 @@ impl From<reqwest::Error> for Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+impl Error {
+    pub fn user_facing(&self) -> bool {
+        !matches!(self, Self::Stale | Self::Closed)
+    }
+}
 
 pub(crate) fn invalid(reason: impl Into<String>) -> Error {
     Error::Invalid {

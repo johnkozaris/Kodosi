@@ -266,3 +266,17 @@ fn host_labels_are_bounded_trimmed_and_have_a_fallback() {
     assert!(normalize_host_label("bad\nname").is_none());
     assert!(normalize_host_label(&"é".repeat(100)).unwrap().len() <= 128);
 }
+
+#[tokio::test]
+async fn cancelling_a_login_reports_a_cancelled_sign_out() {
+    let (_root, network) = fixture();
+    let reply = network
+        .execute("auth.login.cancel", Value::Null)
+        .await
+        .unwrap();
+    assert_eq!(
+        reply.events,
+        vec![json!({"type":"auth.required","reason":"cancelled"})]
+    );
+    assert!(network.identity().is_none());
+}
