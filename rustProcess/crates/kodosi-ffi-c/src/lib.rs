@@ -230,9 +230,6 @@ impl SubscriptionState {
     fn retire(&self) {
         self.gate.close();
         self.cancel.cancel();
-        if !CallbackScope::active() {
-            self.gate.wait();
-        }
     }
 }
 #[derive(Default)]
@@ -735,9 +732,11 @@ fn run_executor(
             }
         });
         instance.state.close();
-        instance.state.gate.wait();
         executor.block_on(async {
             let _ = tokio::time::timeout(STOP_BUDGET, instance.runtime.shutdown()).await;
+        });
+        instance.state.gate.wait();
+        executor.block_on(async {
             let tasks = lock(&instance.tasks).take();
             if let Some(mut tasks) = tasks {
                 tasks.abort_all();
@@ -1497,6 +1496,31 @@ mod tests {
         let token = subscription(Uuid::now_v7(), 1);
         assert!(state.callback(Some(&token), || token.retire()).is_some());
         assert!(state.callback(Some(&token), || ()).is_none());
+        token.gate.wait();
+    }
+    #[test]
+    fn retiring_a_subscription_does_not_wait_for_a_stalled_callback() {
+        let state = Arc::new(state());
+        let token = subscription(Uuid::now_v7(), 1);
+        let (entered_tx, entered_rx) = std::sync::mpsc::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
+        let worker = {
+            let state = Arc::clone(&state);
+            let token = Arc::clone(&token);
+            std::thread::spawn(move || {
+                state.callback(Some(&token), || {
+                    entered_tx.send(()).unwrap();
+                    release_rx.recv().unwrap();
+                })
+            })
+        };
+        entered_rx.recv().unwrap();
+        token.retire();
+        assert!(token.cancel.is_cancelled());
+        assert!(token.gate.enter().is_none());
+        assert_eq!(lock(&token.gate.state).active, 1);
+        release_tx.send(()).unwrap();
+        assert!(worker.join().unwrap().is_some());
         token.gate.wait();
     }
     #[test]
