@@ -96,6 +96,23 @@ class FfiArtifactTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 MODULE.publish(root, archive, header, "target", "dev")
 
+    def test_publication_replaces_only_empty_placeholder_directories(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            archive, header = root / "input.a", root / "input.h"
+            archive.write_bytes(b"archive")
+            header.write_bytes(b"header")
+            (root / "current/include").mkdir(parents=True)
+            bundle = MODULE.publish(root, archive, header, "target", "dev")
+            self.assertTrue((root / "current").is_symlink())
+            self.assertEqual((root / "current").resolve(), bundle.resolve())
+            (root / "current").unlink()
+            (root / "current/include").mkdir(parents=True)
+            (root / "current/include/kodosi_runtime.h").write_bytes(b"kept")
+            with self.assertRaises(ValueError):
+                MODULE.publish(root, archive, header, "target", "dev")
+            self.assertEqual((root / "current/include/kodosi_runtime.h").read_bytes(), b"kept")
+
     def test_slot_rejects_another_source_before_cargo(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()

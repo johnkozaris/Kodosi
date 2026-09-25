@@ -76,10 +76,16 @@ def publish(slot: Path, archive: Path, header: Path, target: str, profile: str) 
             stage.rename(bundle)
     if (bundle / "artifact.json").read_bytes() != canonical_json(record) or digest(bundle / "libkodosi_ffi_c.a") != record["archiveSha256"] or digest(bundle / "include/kodosi_runtime.h") != record["headerSha256"]:
         raise ValueError("An existing FFI artifact bundle does not match its content identity")
+    current = slot / "current"
+    if current.is_dir() and not current.is_symlink():
+        if any(files for _, _, files in os.walk(current)):
+            raise ValueError(f"{current} holds files and cannot be replaced by the published bundle")
+        for directory, _, _ in os.walk(current, topdown=False):
+            os.rmdir(directory)
     link = slot / f".current-{os.getpid()}"
     try:
         link.symlink_to(Path("bundles") / identity, target_is_directory=True)
-        os.replace(link, slot / "current")
+        os.replace(link, current)
     finally:
         link.unlink(missing_ok=True)
     return bundle
