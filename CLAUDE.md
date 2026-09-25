@@ -8,7 +8,7 @@ terminal access.
 - `runtime/` owns live terminals, identity, and encrypted endpoint connections.
 - `backend/` stores shared metadata and routes encrypted terminal traffic. Run one serving
   backend process.
-- `../kodosiSwift` and `../KodosiQT` are the native macOS and Linux clients.
+- `../KodosiMac` and `../KodosiUI` are the native macOS and Linux clients.
 - `protocol/` contains the current cross-stack contracts generated from Rust. Keep the
   native Ghostty pins and provenance checks aligned across repositories.
 

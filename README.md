@@ -12,6 +12,10 @@ See [PRODUCT.md](PRODUCT.md) for the product boundary and
 - `runtime/`: terminal runtime, CLI, identity, encrypted transport, and native API.
 - `backend/`: shared metadata and live encrypted terminal connections.
 - `protocol/`: current generated cross-stack contracts.
-- `../kodosiSwift`: native macOS client.
-- `../KodosiQT`: native Linux Qt client.
+- `../KodosiMac`: native macOS client.
+- `../KodosiUI`: native Linux Qt client.
 - `../kodosi-ghostty`: pinned terminal engine.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SIBLING="${KODOSI_SWIFT_DIR:-$ROOT/../kodosiSwift}"
+SIBLING="${KODOSI_SWIFT_DIR:-$ROOT/../KodosiMac}"
 LOCAL="$ROOT/Ghostty.lock"
 REMOTE="$SIBLING/Ghostty.lock"
 
@@ -19,7 +19,7 @@ if [[ ! -f "$REMOTE" ]]; then
     exit 1
 fi
 if ! cmp -s "$LOCAL" "$REMOTE"; then
-    echo "Ghostty lock drifted between Kodosi and kodosiSwift" >&2
+    echo "Ghostty lock drifted between Kodosi and KodosiMac" >&2
     diff -u "$LOCAL" "$REMOTE" >&2 || true
     exit 1
 fi

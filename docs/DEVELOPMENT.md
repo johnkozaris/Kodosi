@@ -1,6 +1,6 @@
 # Development
 
-Keep `Kodosi`, `kodosiSwift`, `KodosiQT`, and `kodosi-ghostty` next to one another
+Keep `Kodosi`, `KodosiMac`, `KodosiUI`, and `kodosi-ghostty` next to one another
 under `~/Repos`. Override adjacent checkout paths only when deliberately testing a
 different local checkout.
 
