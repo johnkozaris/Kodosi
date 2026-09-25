@@ -1,34 +1,17 @@
 # Kodosi
 
-Kodosi runs real terminals on your computer and lets you use them from your other
-approved devices or share them with trusted friends. Execution stays on the host.
-Remote terminal traffic is encrypted between endpoint devices; the backend stores
-account, device, sharing, and Mission metadata and relays ciphertext.
+Kodosi runs terminals on your computer and lets you use them from approved devices or
+share selected terminals with trusted friends. Missions organize people and terminals
+without granting access.
 
-- Start a shell, attach to a running terminal, interrupt it, or close it.
-- Share selected sessions with friends. Everyone admitted has full terminal control,
-  including Close. Friendship alone does not grant access.
-- Use Missions to organize people and attached terminals. Joining a Mission does not
-  grant access to its terminals.
-- Preview saved Claude Code or Copilot CLI conversations and resume them with the
-  installed provider's native CLI. Open the provider's own configuration files.
-
-Minimize hides a terminal while it keeps running. Close ends the terminal. Closing
-the app window leaves Kodosi running; Quit ends terminals hosted by that app.
-Saved provider conversations remain separate from live terminals.
+See [PRODUCT.md](PRODUCT.md) for the product boundary and
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for working on the repository.
 
 ## Repository
 
-- `rustProcess/`: shared runtime, command-line client, and C ABI for arm64 macOS and
-  x86_64 Linux.
-- `dotnetBackend/`: one ASP.NET application, PostgreSQL metadata, and WebSocket relay.
-  Run one serving backend process.
-- `protocol/`: current cross-stack contracts. Rust generates the desktop contract.
+- `runtime/`: terminal runtime, CLI, identity, encrypted transport, and native API.
+- `backend/`: shared metadata and live encrypted terminal connections.
+- `protocol/`: current generated cross-stack contracts.
 - `../kodosiSwift`: native macOS client.
 - `../KodosiQT`: native Linux Qt client.
-- `../kodosi-ghostty`: pinned native renderer and headless terminal engine.
-
-See [PRODUCT.md](PRODUCT.md) for the product boundary and
-[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for builds, tests, CLI usage, and isolated
-validation. Cross-user identity bootstrap uses trust on first use; an active backend
-substitution before the first identity pin is outside the current threat model.
+- `../kodosi-ghostty`: pinned terminal engine.

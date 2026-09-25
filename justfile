@@ -4,7 +4,7 @@ cargo_tools_root := justfile_directory() + "/.tools/rust"
 cargo_tools_bin := cargo_tools_root + "/bin"
 ghostty_dir := env('KODOSI_GHOSTTY_DIR', justfile_directory() + "/../kodosi-ghostty")
 
-export PATH := justfile_directory() + "/dotnetBackend/.tools/dotnet-10.0.401:" + cargo_tools_bin + ":" + env('PATH')
+export PATH := justfile_directory() + "/backend/.tools/dotnet-10.0.401:" + cargo_tools_bin + ":" + env('PATH')
 export KODOSI_GHOSTTY_DIR := ghostty_dir
 
 default:
@@ -47,40 +47,40 @@ rust-pin-parity:
     bash scripts/test-ghostty-lock-parity.sh
 
 rust-build:
-    cargo build --manifest-path rustProcess/Cargo.toml --locked --workspace
+    cargo build --manifest-path runtime/Cargo.toml --locked --workspace
 
 rust-cli-build:
-    cargo build --manifest-path rustProcess/Cargo.toml --locked --bin kodosi
+    cargo build --manifest-path runtime/Cargo.toml --locked --bin kodosi
 
 rust-ffi-build:
-    if [[ "$(uname -s)" == Darwin ]]; then export MACOSX_DEPLOYMENT_TARGET=26.4; fi; python3 scripts/build-ffi-artifact.py --manifest rustProcess/Cargo.toml --output-dir rustProcess/target/ffi-artifacts --profile release --target "$(rustc -vV | grep '^host:' | cut -d' ' -f2)"
+    if [[ "$(uname -s)" == Darwin ]]; then export MACOSX_DEPLOYMENT_TARGET=26.4; fi; python3 scripts/build-ffi-artifact.py --manifest runtime/Cargo.toml --output-dir runtime/target/ffi-artifacts --profile release --target "$(rustc -vV | grep '^host:' | cut -d' ' -f2)"
 
 rust-ffi-debug-build:
-    if [[ "$(uname -s)" == Darwin ]]; then export MACOSX_DEPLOYMENT_TARGET=26.4; fi; python3 scripts/build-ffi-artifact.py --manifest rustProcess/Cargo.toml --output-dir rustProcess/target/ffi-artifacts --profile ffi-debug --target "$(rustc -vV | grep '^host:' | cut -d' ' -f2)"
+    if [[ "$(uname -s)" == Darwin ]]; then export MACOSX_DEPLOYMENT_TARGET=26.4; fi; python3 scripts/build-ffi-artifact.py --manifest runtime/Cargo.toml --output-dir runtime/target/ffi-artifacts --profile ffi-debug --target "$(rustc -vV | grep '^host:' | cut -d' ' -f2)"
 
 rust-check: rust-feature-gates
-    CARGO_BUILD_WARNINGS=deny cargo check --manifest-path rustProcess/Cargo.toml --locked --workspace
+    CARGO_BUILD_WARNINGS=deny cargo check --manifest-path runtime/Cargo.toml --locked --workspace
 
 rust-feature-gates:
-    CARGO_BUILD_WARNINGS=deny cargo check --manifest-path rustProcess/Cargo.toml --locked -p kodosi-runtime --no-default-features --lib
-    CARGO_BUILD_WARNINGS=deny cargo test --manifest-path rustProcess/Cargo.toml --locked -p kodosi-runtime --no-default-features --lib --no-run
-    CARGO_BUILD_WARNINGS=deny cargo check --manifest-path rustProcess/Cargo.toml --locked -p kodosi-ffi-c
+    CARGO_BUILD_WARNINGS=deny cargo check --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime --no-default-features --lib
+    CARGO_BUILD_WARNINGS=deny cargo test --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime --no-default-features --lib --no-run
+    CARGO_BUILD_WARNINGS=deny cargo check --manifest-path runtime/Cargo.toml --locked -p kodosi-ffi-c
 
 rust-fmt:
-    cargo fmt --manifest-path rustProcess/Cargo.toml --all -- --check
+    cargo fmt --manifest-path runtime/Cargo.toml --all -- --check
 
 rust-doc:
-    CARGO_BUILD_WARNINGS=deny RUSTDOCFLAGS="-D warnings" cargo doc --manifest-path rustProcess/Cargo.toml --locked --workspace --no-deps
+    CARGO_BUILD_WARNINGS=deny RUSTDOCFLAGS="-D warnings" cargo doc --manifest-path runtime/Cargo.toml --locked --workspace --no-deps
 
 rust-clippy:
-    CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path rustProcess/Cargo.toml --locked --workspace --lib --bins --examples -- -D warnings
-    CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path rustProcess/Cargo.toml --locked --workspace --tests -- -D warnings -A clippy::unwrap_used -A clippy::expect_used
+    CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked --workspace --lib --bins --examples -- -D warnings
+    CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked --workspace --tests -- -D warnings -A clippy::unwrap_used -A clippy::expect_used
 
 rust-deny: _dependency-tools
-    cargo deny --manifest-path rustProcess/Cargo.toml --workspace --locked check --config deny.toml --hide-inclusion-graph advisories bans licenses sources
+    cargo deny --manifest-path runtime/Cargo.toml --workspace --locked check --config deny.toml --hide-inclusion-graph advisories bans licenses sources
 
 rust-machete: _dependency-tools
-    cargo machete --skip-target-dir rustProcess
+    cargo machete --skip-target-dir runtime
 
 rust-dependency-hygiene: rust-deny rust-machete
 
@@ -88,42 +88,42 @@ ffi-publication-test:
     PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-ffi-artifact.py
 
 rust-test: ffi-publication-test
-    CARGO_INCREMENTAL=0 cargo test --manifest-path rustProcess/Cargo.toml --locked --workspace --all-targets
-    CARGO_INCREMENTAL=0 cargo test --manifest-path rustProcess/Cargo.toml --locked --workspace --doc
+    CARGO_INCREMENTAL=0 cargo test --manifest-path runtime/Cargo.toml --locked --workspace --all-targets
+    CARGO_INCREMENTAL=0 cargo test --manifest-path runtime/Cargo.toml --locked --workspace --doc
 
 rust-coverage: _coverage-tool
-    cargo llvm-cov --manifest-path rustProcess/Cargo.toml --locked --workspace --all-targets --ignore-filename-regex '(^|/)(tests|benches|examples)/' --html --output-dir rustProcess/target/llvm-cov
+    cargo llvm-cov --manifest-path runtime/Cargo.toml --locked --workspace --all-targets --ignore-filename-regex '(^|/)(tests|benches|examples)/' --html --output-dir runtime/target/llvm-cov
 
 rust-coverage-lcov: _coverage-tool
-    mkdir -p rustProcess/target/llvm-cov
-    cargo llvm-cov --manifest-path rustProcess/Cargo.toml --locked --workspace --all-targets --ignore-filename-regex '(^|/)(tests|benches|examples)/' --lcov --output-path rustProcess/target/llvm-cov/lcov.info
+    mkdir -p runtime/target/llvm-cov
+    cargo llvm-cov --manifest-path runtime/Cargo.toml --locked --workspace --all-targets --ignore-filename-regex '(^|/)(tests|benches|examples)/' --lcov --output-path runtime/target/llvm-cov/lcov.info
 
 rust-coverage-check: _coverage-tool
-    mkdir -p rustProcess/target/llvm-cov
-    cargo llvm-cov --manifest-path rustProcess/Cargo.toml --locked --workspace --all-targets --ignore-filename-regex '(^|/)(tests|benches|examples)/' --fail-under-lines 55 --json --summary-only --output-path rustProcess/target/llvm-cov/summary.json
+    mkdir -p runtime/target/llvm-cov
+    cargo llvm-cov --manifest-path runtime/Cargo.toml --locked --workspace --all-targets --ignore-filename-regex '(^|/)(tests|benches|examples)/' --fail-under-lines 55 --json --summary-only --output-path runtime/target/llvm-cov/summary.json
 
 protocol-gen:
-    cargo run --manifest-path rustProcess/Cargo.toml --locked --bin protocol-gen -- write
+    cargo run --manifest-path runtime/Cargo.toml --locked --bin protocol-gen -- write
 
 protocol-check:
-    cargo run --manifest-path rustProcess/Cargo.toml --locked --bin protocol-gen -- check
+    cargo run --manifest-path runtime/Cargo.toml --locked --bin protocol-gen -- check
 
 rust-all: rust-pin-parity rust-fmt rust-check rust-doc rust-clippy rust-dependency-hygiene protocol-check rust-test rust-coverage-check
 
 rust-clean:
-    cargo clean --manifest-path rustProcess/Cargo.toml
+    cargo clean --manifest-path runtime/Cargo.toml
 
 backend-restore:
-    cd dotnetBackend && dotnet restore Kodosi.slnx --locked-mode
+    cd backend && dotnet restore Kodosi.slnx --locked-mode
 
 backend-build: backend-restore
-    cd dotnetBackend && dotnet build Kodosi.slnx --no-restore
+    cd backend && dotnet build Kodosi.slnx --no-restore
 
 backend-test: backend-build
-    cd dotnetBackend && dotnet test --solution Kodosi.slnx --no-restore --no-build
+    cd backend && dotnet test --solution Kodosi.slnx --no-restore --no-build
 
 backend-run: backend-restore
-    cd dotnetBackend && dotnet run --no-restore --project src/Kodosi.Host
+    cd backend && dotnet run --no-restore --project src/Kodosi.Host
 
 backend-docker-up:
     docker compose up --build --detach --wait

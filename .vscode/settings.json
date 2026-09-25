@@ -22,7 +22,7 @@
   },
   "rust-analyzer.check.command": "clippy",
   "rust-analyzer.linkedProjects": [
-    "rustProcess/Cargo.toml"
+    "runtime/Cargo.toml"
   ],
   "files.trimTrailingWhitespace": true,
   "files.insertFinalNewline": true,

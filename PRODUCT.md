@@ -1,100 +1,72 @@
 # Kodosi
 
-Kodosi is a native terminal app for running sessions on your computer, reaching them
-from your other approved devices, and sharing selected sessions with trusted friends.
-The shared runtime supports the Swift macOS client, Linux Qt client, and CLI.
+Kodosi is a native terminal app for running terminals on your computer, using them
+from your other approved devices, and sharing selected terminals with trusted friends.
 
-## Direction, not a finished specification
+## Product promise
 
-The September 2026 redesign moved Kodosi toward a smaller, terminal-first product.
-This document captures its current intent, not a complete design or proof that every
-workflow is implemented correctly. Some details, interactions, and architectural
-choices are unfinished or may be wrong.
+- A terminal is a real process on the host computer.
+- Approved own devices can use the owner's terminals.
+- Friends can use only terminals explicitly shared with them.
+- Everyone admitted to a terminal has full control, including input, resize, interrupt,
+  and Close.
+- Missions group people and terminals. Membership never grants terminal access.
 
-Use judgment and creative thinking. Look for missing workflows, question inherited
-assumptions, and propose simpler or better ways to deliver the experience. Neither
-this document nor the existing code should force a poor solution just because it is
-already written down. The audit handoff contains leads, not predetermined answers.
+Shared shell access has the host user's operating-system privileges. Kodosi is not a
+sandbox and does not offer restricted terminal roles.
 
-Use `/code-cleanup:code-cleanup`, `/code-review`, and `/simplify` as appropriate for
-the work, following their current instructions rather than a separate procedure in
-these docs. Product direction and implementation details can be reassessed; genuine
-changes to consent, trust, or user-facing guarantees need an explicit product decision.
+## A simple terminal experience
 
-## Terminals that stay understandable
+Starting, opening, minimizing, sharing, and closing a terminal should be easy to
+understand without knowing how Kodosi works internally.
 
-The host owns a terminal's process, PTY, terminal state, and ordered output. Views
-attach to that session; opening or reconnecting a view should show fresh state and
-continue the output without disrupting other viewers. The current transport uses
-native checkpoints followed by ordered output, with bounded buffering.
+- Each screen should have one clear purpose.
+- Show only the choices needed for the current task.
+- Put uncommon details behind deliberate actions instead of presenting long forms,
+  checklists, or explanatory walls.
+- Use plain product language rather than protocol or architecture terms.
+- Make the current state, consequences, and recovery path clear.
 
 Minimize hides a terminal view and keeps its process running. Close ends the terminal.
-Closing the app window leaves the host running; Quit ends its local processes, not
-processes on other computers. There is no separate stopped-terminal archive.
+Closing a window leaves the host running. Quit ends terminals hosted by that app, not
+terminals on other computers.
 
-Disconnected or stale views cannot control a replacement process. Input whose
-delivery became uncertain is not automatically replayed. Runtime admission is not
-proof that a shell command completed.
+Reconnecting should restore the current terminal without disrupting other viewers.
+Kodosi must not repeat input when delivery is uncertain or let an old connection
+control a replacement terminal.
 
-An expired remote listing does not kill its host's local terminal. Reconnection can
-restore owner-device access with fresh keys; it must not silently restore potentially
-revoked friend sharing.
+## Sharing and trust
 
-## Explicit, trusted sharing
+Friendship alone does not share anything. The owner chooses the friends for each
+terminal and remains responsible for identity and sharing changes.
 
-Approved own devices can use the owner's sessions. An owner selects which friends
-may use each terminal. Admitted participants have full terminal control, including
-input, resize, focus, interrupt, and closing the terminal. Sharing and identity administration remain
-owner actions; current connection and focus/resize coordination still matter.
+Removing a friend, device, or share blocks future access and queued delivery. It
+cannot undo commands already run or data already received.
 
-Friendship alone does not share a terminal. Removing a friend, device, or session
-share removes its access and queued delivery. Subsequent traffic uses current
-permissions and keys. Revocation cannot undo commands or retract data already received.
+Private keys and terminal contents stay on endpoint devices. The service stores the
+account, device, friendship, Mission, and sharing information needed to connect people
+and route encrypted terminal traffic. It must not execute commands or receive terminal
+plaintext.
 
-Shared shell access carries the host OS user's privileges. It is not a project
-sandbox or a restricted agent role.
+## Provider support
 
-## Missions as useful grouping
+Kodosi can preview saved Claude Code and Copilot CLI conversations and ask the
+installed provider to resume one. It can also locate the provider's own configuration
+files.
 
-A Mission currently has a name, invited members, and attached-terminal references.
-Members accept invitations, but membership never grants terminal access. The UI and
-CLI call these Missions; the backend/protocol currently use `room`.
+Provider prompts, permissions, settings, memory, and conversation storage remain
+native to the provider. Kodosi does not install hooks, wrap provider commands, bypass
+permissions, or build a second settings system.
 
-The current scope is grouping, not Mission chat, task boards, or agent dispatch.
-Those would be separate product exploration, not a reason to preserve dormant
-implementations or empty controls from the previous app.
+## Product boundary
 
-## Native provider workflows
+Kodosi does not provide:
 
-Kodosi currently previews saved Claude Code and Copilot CLI conversations through
-bounded, read-only discovery. Explicit Resume validates the saved identity and starts
-a new process through the installed provider's native resume command; it does not
-revive a stopped Kodosi shell.
+- stopped-terminal archives;
+- Mission chat, task boards, or agent dispatch;
+- agent-intelligence dashboards or permission interception;
+- provider plugin, skill, or memory management;
+- restricted sharing roles or a project sandbox.
 
-Provider prompts and permissions stay in the native CLI. Ordinary shell launch does
-not wrap executables, install hooks/plugins, inject telemetry, or add permission-bypass
-flags. Provider settings are original local files to locate and open in the user's
-editor, not a second configuration or memory-management system owned by Kodosi.
-
-Live agent-intelligence dashboards, approval interception, semantic steering queues,
-and global plugin/skill catalogs are outside the current focus. Better ideas are
-welcome, but do not bring the old product back accidentally through retained machinery.
-
-## Trust and data boundaries
-
-Private device keys and terminal plaintext stay on endpoint devices. The backend
-stores account/device/friend/Mission metadata, current session sharing, encrypted key
-envelopes, and bounded encrypted relay traffic. It sees routing information and sizes,
-not plaintext commands, and does not generate content keys or execute commands.
-
-Endpoints verify approved identities and recipients. Current host-publication,
-connection, and key identities bind traffic. Cross-user bootstrap currently uses
-trust on first use; substitution before the first pin is outside that threat model.
-Existing pins must not be silently reset or replaced through re-TOFU. An account owner
-who has lost every trusted device may explicitly reset the account's device list from a
-freshly signed-in device; that revokes every other device and issues a new identity
-incarnation that friends must confirm again before reconnecting.
-
-Development and validation must preserve live databases, provider configuration,
-memory, conversations, credentials, and working files. Use disposable isolated data.
-Do not mistake an incomplete design for permission to weaken these boundaries.
+New ideas should make the terminal experience clearer. They should not add controls,
+text, or concepts merely because the underlying systems expose them.

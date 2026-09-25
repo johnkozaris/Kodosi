@@ -5,5 +5,5 @@
 **/TestResults
 **/.tools
 .claude/worktrees
-rustProcess/target
+runtime/target
 build

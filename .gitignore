@@ -6,10 +6,10 @@
 *.hangdump
 hang-dump-*.dmp
 
-dotnetBackend/**/bin/
-dotnetBackend/**/obj/
-dotnetBackend/**/TestResults/
-dotnetBackend/packages/
+backend/**/bin/
+backend/**/obj/
+backend/**/TestResults/
+backend/packages/
 *.user
 *.suo
 *.userosscache
