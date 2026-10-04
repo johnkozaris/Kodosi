@@ -2,7 +2,10 @@ use std::{
     collections::{HashSet, VecDeque},
     future::Future,
     pin::Pin,
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Duration,
 };
 
@@ -28,6 +31,7 @@ const CONTROL_CAPACITY: usize = 64;
 const MAX_INPUT_BYTES: usize = 1024 * 1024;
 const INPUT_BUDGET: usize = 4 * 1024 * 1024;
 const BOOTSTRAP_TIMEOUT: Duration = Duration::from_secs(5);
+const MERGED_INPUT_BYTES: usize = 64 * 1024;
 const CONTROL_TIMEOUT: Duration = Duration::from_secs(12);
 
 #[derive(Clone)]
@@ -35,11 +39,13 @@ pub(crate) struct RemoteTerminal {
     requests: mpsc::Sender<Request>,
     cancellation: CancellationToken,
     input_budget: Arc<Semaphore>,
+    interrupted: Arc<AtomicBool>,
     pub incarnation_id: Uuid,
     pub instance_id: Uuid,
 }
 
 enum Request {
+    Reconnected(Box<RemoteConnection>),
     Subscribe(oneshot::Sender<Result<Subscription>>),
     Checkpoint {
         connection: Uuid,
@@ -66,21 +72,32 @@ impl RemoteTerminal {
         let (requests, receiver) = mpsc::channel(CONTROL_CAPACITY);
         let cancellation = CancellationToken::new();
         let input_budget = Arc::new(Semaphore::new(INPUT_BUDGET));
+        let interrupted = Arc::new(AtomicBool::new(false));
         let terminal = Self {
             requests,
             cancellation: cancellation.clone(),
             input_budget,
+            interrupted: Arc::clone(&interrupted),
             incarnation_id,
             instance_id,
         };
-        tokio::spawn(
-            RemoteActor::new(connection, receiver, cancellation, changes, instance_id).run(),
-        );
+        let mut actor = RemoteActor::new(connection, receiver, cancellation, changes, instance_id);
+        actor.interrupted = interrupted;
+        tokio::spawn(actor.run());
         terminal
     }
 
     pub(crate) fn is_closed(&self) -> bool {
         self.cancellation.is_cancelled() || self.requests.is_closed()
+    }
+
+    pub(crate) fn is_interrupted(&self) -> bool {
+        self.interrupted.load(Ordering::Acquire)
+    }
+
+    pub(crate) fn resume(&self, connection: RemoteConnection) -> bool {
+        self.send(Request::Reconnected(Box::new(connection)))
+            .is_ok()
     }
 
     pub(crate) fn subscribe(&self) -> impl Future<Output = Result<Subscription>> + Send + use<> {
@@ -240,11 +257,24 @@ struct PendingCapture {
 
 struct InFlight {
     result: Pin<Box<dyn Future<Output = crate::network::Result<Value>> + Send>>,
-    reply: Option<oneshot::Sender<Result<Value>>>,
+    replies: Vec<oneshot::Sender<Result<Value>>>,
     input: bool,
     focus: Option<bool>,
     resize_owner: Option<(Uuid, CancellationToken)>,
-    _budget: Option<OwnedSemaphorePermit>,
+    _budgets: Vec<OwnedSemaphorePermit>,
+}
+
+enum Step {
+    Next,
+    Failed(String),
+    Stop(String),
+    Ended,
+}
+
+impl From<Result<()>> for Step {
+    fn from(outcome: Result<()>) -> Self {
+        outcome.map_or_else(|error| Self::Failed(error.to_string()), |()| Self::Next)
+    }
 }
 
 struct RemoteActor {
@@ -258,11 +288,15 @@ struct RemoteActor {
     pending: Vec<PendingCapture>,
     metadata: Option<super::TerminalMetadata>,
     capture_requested: bool,
+    capture_due: tokio::time::Instant,
     next_sequence: Option<u64>,
+    delivered: u64,
     recent: VecDeque<DataFrame>,
     size: Option<TerminalSize>,
     last_resize: Option<u64>,
     future_checkpoint: Option<CheckpointCut>,
+    resyncing: bool,
+    interrupted: Arc<AtomicBool>,
     queued: VecDeque<QueuedControl>,
     in_flight: Option<InFlight>,
     focused: HashSet<Uuid>,
@@ -290,11 +324,15 @@ impl RemoteActor {
             pending: Vec::new(),
             metadata: None,
             capture_requested: false,
+            capture_due: tokio::time::Instant::now(),
             next_sequence: None,
+            delivered: 0,
             recent: VecDeque::new(),
             size: None,
             last_resize: None,
             future_checkpoint: None,
+            resyncing: false,
+            interrupted: Arc::new(AtomicBool::new(false)),
             queued: VecDeque::new(),
             in_flight: None,
             focused: HashSet::new(),
@@ -303,10 +341,78 @@ impl RemoteActor {
         }
     }
 
+    fn reset(&mut self) {
+        if let Some(next) = self.next_sequence.take() {
+            self.delivered = next;
+        }
+        self.recent.clear();
+        self.future_checkpoint = None;
+        self.last_resize = None;
+        self.resyncing = true;
+    }
+
+    async fn interrupt(&mut self, reason: String) -> Option<String> {
+        self.subscribers.prune();
+        if self.subscribers.is_empty() {
+            return Some(reason);
+        }
+        self.interrupted.store(true, Ordering::Release);
+        self.connection.disconnect();
+        let refuse = || Error::Other(reason.clone());
+        for reply in self
+            .in_flight
+            .take()
+            .into_iter()
+            .flat_map(|active| active.replies)
+        {
+            drop(reply.send(Err(refuse())));
+        }
+        for reply in self.queued.drain(..).filter_map(|queued| queued.reply) {
+            drop(reply.send(Err(refuse())));
+        }
+        for waiting in self.pending.drain(..) {
+            waiting.reply.reject(refuse());
+        }
+        self.reset();
+        self.capture_requested = false;
+        self.confirmed_focus = false;
+        self.resize_owner = None;
+        drop(
+            self.changes
+                .send(SessionChange::RemoteInterrupted {
+                    id: self.connection.session.id,
+                    incarnation: self.connection.session.incarnation_id,
+                    instance_id: self.instance_id,
+                    reason,
+                })
+                .await,
+        );
+        None
+    }
+
+    fn resume(&mut self, connection: RemoteConnection) {
+        if connection.session.incarnation_id != self.connection.session.incarnation_id
+            || !self.interrupted.load(Ordering::Acquire)
+        {
+            connection.disconnect();
+            return;
+        }
+        self.controls = connection.control_handle();
+        self.connection = connection;
+        self.interrupted.store(false, Ordering::Release);
+    }
+
     async fn request_capture(&mut self) -> Result<()> {
-        if !self.capture_requested && self.future_checkpoint.is_none() && !self.pending.is_empty() {
+        if self.interrupted.load(Ordering::Acquire) {
+            return Ok(());
+        }
+        if !self.capture_requested
+            && self.future_checkpoint.is_none()
+            && (!self.pending.is_empty() || self.subscribers.caught_up())
+        {
             self.controls.request_checkpoint().await?;
             self.capture_requested = true;
+            self.capture_due = tokio::time::Instant::now() + BOOTSTRAP_TIMEOUT;
         }
         Ok(())
     }
@@ -330,8 +436,7 @@ impl RemoteActor {
         self.request_capture().await
     }
 
-    fn geometry(&mut self, checkpoint: &Checkpoint, cut: u64) {
-        let size = checkpoint.size();
+    fn geometry(&mut self, size: TerminalSize, cut: u64) {
         if self.size.is_some_and(|previous| previous != size) {
             self.subscribers.control(&ControlFrame::Resize {
                 rows: size.rows(),
@@ -345,6 +450,9 @@ impl RemoteActor {
 
     fn fulfill(&mut self, checkpoint: &Checkpoint, cut: u64) {
         let current = self.next_sequence.unwrap_or(cut);
+        if cut == current {
+            self.subscribers.refresh(checkpoint, cut);
+        }
         let replayable = cut <= current
             && (cut == current
                 || (self
@@ -440,7 +548,7 @@ impl RemoteActor {
                     .is_some_and(|cut| cut.next_sequence == next)
                     && let Some(cut) = self.future_checkpoint.take()
                 {
-                    self.geometry(&cut.checkpoint, next);
+                    self.geometry(cut.checkpoint.size(), next);
                     self.fulfill(&cut.checkpoint, next);
                 }
             }
@@ -449,22 +557,10 @@ impl RemoteActor {
                 next_sequence: cut,
                 fresh,
             } => {
-                if !fresh && self.next_sequence.is_none() {
+                if !fresh {
                     return Ok(());
                 }
                 validate_terminal_checkpoint(&checkpoint, TerminalHistoryPolicy::default())?;
-                if !fresh {
-                    let current = self.next_sequence.ok_or(Error::Stale)?;
-                    if cut > current {
-                        return Err(Error::Other(
-                            "Remote resize arrived ahead of its output.".to_owned(),
-                        ));
-                    }
-                    if cut == current {
-                        self.geometry(&checkpoint, cut);
-                    }
-                    return Ok(());
-                }
                 if let Some(metadata) = checkpoint.metadata.clone() {
                     self.metadata = Some(metadata);
                 }
@@ -472,7 +568,13 @@ impl RemoteActor {
                 match self.next_sequence {
                     None => {
                         self.next_sequence = Some(cut);
-                        self.geometry(&checkpoint, cut);
+                        if std::mem::take(&mut self.resyncing) {
+                            self.subscribers.control(&ControlFrame::Snapshot {
+                                checkpoint: checkpoint.clone(),
+                                next_sequence: cut,
+                            });
+                        }
+                        self.geometry(checkpoint.size(), cut);
                     }
                     Some(current) if cut > current => {
                         if self
@@ -487,11 +589,27 @@ impl RemoteActor {
                         }
                         return Ok(());
                     }
-                    Some(current) if cut == current => self.geometry(&checkpoint, cut),
+                    Some(current) if cut == current => self.geometry(checkpoint.size(), cut),
                     Some(_) => {}
                 }
                 self.fulfill(&checkpoint, cut);
             }
+            RemoteUpdate::Metadata(metadata) => self.metadata = Some(metadata),
+            RemoteUpdate::Resize {
+                rows,
+                cols,
+                at_sequence,
+            } => {
+                if self.next_sequence != Some(at_sequence) {
+                    return Err(Error::Other(
+                        "Remote resize arrived out of order.".to_owned(),
+                    ));
+                }
+                let size = TerminalSize::new(rows, cols)
+                    .map_err(|error| Error::Invalid(error.to_string()))?;
+                self.geometry(size, at_sequence);
+            }
+            RemoteUpdate::Resync => self.reset(),
             RemoteUpdate::Ended { .. } => return Err(Error::Stopped),
             RemoteUpdate::Closed { reason } => return Err(Error::Other(reason)),
         }
@@ -528,9 +646,9 @@ impl RemoteActor {
         if aggregate != self.confirmed_focus {
             self.begin(
                 TerminalControl::Focus { focused: aggregate },
+                Vec::new(),
                 None,
-                None,
-                None,
+                Vec::new(),
             );
             return Ok(());
         }
@@ -557,6 +675,7 @@ impl RemoteActor {
             };
             let mut resize_owner = None;
             let mut control = queued.control;
+            let (mut replies, mut budgets) = (Vec::new(), Vec::new());
             match &mut control {
                 TerminalControl::Focus { focused } => {
                     let Some(id) = queued.connection else {
@@ -590,17 +709,46 @@ impl RemoteActor {
                     };
                     resize_owner = authorization.map(|token| (id, token));
                 }
-                TerminalControl::Input { .. } => {
+                TerminalControl::Input { bytes } => {
                     if authorization.is_none() {
                         return Err(Error::Stale);
                     }
+                    self.merge_input(queued.connection, bytes, &mut replies, &mut budgets);
                 }
                 TerminalControl::Interrupt | TerminalControl::Close => {}
             }
-            self.begin(control, queued.reply, resize_owner, queued.budget);
+            if let Some(reply) = queued.reply {
+                replies.insert(0, reply);
+            }
+            budgets.extend(queued.budget);
+            self.begin(control, replies, resize_owner, budgets);
             break;
         }
         Ok(())
+    }
+
+    fn merge_input(
+        &mut self,
+        connection: Option<Uuid>,
+        bytes: &mut Vec<u8>,
+        replies: &mut Vec<oneshot::Sender<Result<Value>>>,
+        budgets: &mut Vec<OwnedSemaphorePermit>,
+    ) {
+        while let Some(next) = self.queued.front()
+            && next.connection == connection
+            && let TerminalControl::Input { bytes: more } = &next.control
+            && bytes.len() + more.len() <= MERGED_INPUT_BYTES
+            && let Some(next) = self.queued.pop_front()
+        {
+            if next.reply.as_ref().is_some_and(oneshot::Sender::is_closed) {
+                continue;
+            }
+            if let TerminalControl::Input { bytes: more } = next.control {
+                bytes.extend(more);
+            }
+            replies.extend(next.reply);
+            budgets.extend(next.budget);
+        }
     }
 
     fn check_resize(&self, connection: Option<Uuid>, control: &TerminalControl) -> Result<Uuid> {
@@ -642,9 +790,9 @@ impl RemoteActor {
     fn begin(
         &mut self,
         control: TerminalControl,
-        reply: Option<oneshot::Sender<Result<Value>>>,
+        replies: Vec<oneshot::Sender<Result<Value>>>,
         resize_owner: Option<(Uuid, CancellationToken)>,
-        budget: Option<OwnedSemaphorePermit>,
+        budgets: Vec<OwnedSemaphorePermit>,
     ) {
         let focus = match &control {
             TerminalControl::Focus { focused } => Some(*focused),
@@ -654,11 +802,11 @@ impl RemoteActor {
         let controls = self.controls.clone();
         self.in_flight = Some(InFlight {
             result: Box::pin(async move { controls.send_control(control).await }),
-            reply,
+            replies,
             input,
             focus,
             resize_owner,
-            _budget: budget,
+            _budgets: budgets,
         });
     }
 
@@ -674,19 +822,29 @@ impl RemoteActor {
             if let Some(owner) = active.resize_owner {
                 self.resize_owner = Some(owner);
             }
-        } else if active.input
-            || active.focus.is_some()
-            || matches!(
-                result,
-                Err(crate::network::Error::Closed | crate::network::Error::Stale)
-            )
+        } else if !matches!(result, Err(crate::network::Error::Refreshed))
+            && (active.input
+                || active.focus.is_some()
+                || matches!(
+                    result,
+                    Err(crate::network::Error::Closed | crate::network::Error::Stale)
+                ))
         {
             fatal = result.as_ref().err().map(|error| {
                 format!("Remote control was not confirmed: {error}. It was not retried.")
             });
         }
-        if let Some(reply) = active.reply {
-            drop(reply.send(result.map_err(Error::from)));
+        let failure = result.as_ref().err().map(ToString::to_string);
+        let mut replies = active.replies.into_iter();
+        if let Some(first) = replies.next() {
+            drop(first.send(result.map_err(Error::from)));
+        }
+        for reply in replies {
+            drop(
+                reply.send(failure.as_ref().map_or(Ok(Value::Null), |message| {
+                    Err(Error::Other(message.clone()))
+                })),
+            );
         }
         fatal.map_or(Ok(()), |reason| Err(Error::Other(reason)))
     }
@@ -720,10 +878,64 @@ impl RemoteActor {
             }
         }
         self.pending = pending;
-        if self.pending.is_empty() {
+        if now >= self.capture_due || self.pending.is_empty() && !self.subscribers.caught_up() {
             self.capture_requested = false;
         }
         self.request_capture().await
+    }
+
+    fn connection_update(&mut self, update: Option<RemoteUpdate>) -> Step {
+        if matches!(
+            &update,
+            None | Some(RemoteUpdate::Closed { .. } | RemoteUpdate::Ended { .. })
+        ) && let Some(result) = self
+            .in_flight
+            .as_mut()
+            .and_then(|active| active.result.as_mut().now_or_never())
+            && let Err(error) = self.finish_control(result)
+        {
+            return Step::Failed(error.to_string());
+        }
+        match update {
+            Some(RemoteUpdate::Ended { final_sequence }) => {
+                if self.next_sequence == Some(final_sequence) {
+                    Step::Ended
+                } else {
+                    Step::Stop("Terminal end crossed output boundary.".to_owned())
+                }
+            }
+            Some(RemoteUpdate::Closed { reason }) => Step::Failed(reason),
+            Some(update) => Step::from(self.update(update)),
+            None => Step::Failed("The remote host disconnected.".to_owned()),
+        }
+    }
+
+    async fn step(&mut self, tick: &mut tokio::time::Interval) -> Step {
+        let interrupted = self.interrupted.load(Ordering::Acquire);
+        if !interrupted && let Err(error) = self.next_control() {
+            return Step::Failed(error.to_string());
+        }
+        let outcome = tokio::select! {
+            () = self.cancellation.cancelled() => return Step::Stop("Disconnected from the remote terminal.".to_owned()),
+            result = async { match self.in_flight.as_mut() { Some(active) => active.result.as_mut().await, None => std::future::pending().await } } => self.finish_control(result),
+            update = self.connection.updates.recv(), if !interrupted => return self.connection_update(update),
+            request = self.requests.recv() => match request {
+                Some(Request::Reconnected(connection)) => { self.resume(*connection); Ok(()) }
+                Some(Request::Subscribe(reply)) => self.add_capture(CaptureReply::Subscribe(reply)).await,
+                Some(Request::Checkpoint { connection, reply }) => self.add_capture(CaptureReply::Checkpoint { connection, reply }).await,
+                Some(Request::Unsubscribe(id)) => { self.subscribers.remove(id); self.focused.remove(&id); Ok(()) }
+                Some(Request::Control(queued)) if interrupted => {
+                    if let Some(reply) = queued.reply {
+                        drop(reply.send(Err(Error::Other("The remote terminal is connecting again. The operation was not sent.".to_owned()))));
+                    }
+                    Ok(())
+                }
+                Some(Request::Control(queued)) => self.queue(queued),
+                None => return Step::Stop("Disconnected from the remote terminal.".to_owned()),
+            },
+            _ = tick.tick() => self.maintain().await,
+        };
+        Step::from(outcome)
     }
 
     async fn run(mut self) {
@@ -734,46 +946,28 @@ impl RemoteActor {
             if self.cancellation.is_cancelled() {
                 break "Disconnected from the remote terminal.".to_owned();
             }
-            if let Err(error) = self.next_control() {
-                break error.to_string();
-            }
-            tokio::select! {
-                () = self.cancellation.cancelled() => break "Disconnected from the remote terminal.".to_owned(),
-                result = async { match self.in_flight.as_mut() { Some(active) => active.result.as_mut().await, None => std::future::pending().await } } => {
-                    if let Err(error) = self.finish_control(result) { break error.to_string(); }
+            match self.step(&mut tick).await {
+                Step::Next => {}
+                Step::Failed(failure) => {
+                    if let Some(reason) = self.interrupt(failure).await {
+                        break reason;
+                    }
                 }
-                update = self.connection.updates.recv() => {
-                    if matches!(&update, None | Some(RemoteUpdate::Closed { .. } | RemoteUpdate::Ended { .. }))
-                        && let Some(result) = self.in_flight.as_mut().and_then(|active| active.result.as_mut().now_or_never())
-                        && let Err(error) = self.finish_control(result)
-                    {
-                        break error.to_string();
-                    }
-                    match update {
-                        Some(RemoteUpdate::Ended { final_sequence }) => {
-                            if self.next_sequence != Some(final_sequence) { break "Terminal end crossed output boundary.".to_owned(); }
-                            ended = true;
-                            break "The host stopped this terminal.".to_owned();
-                        }
-                        Some(update) => { if let Err(error) = self.update(update) { break error.to_string(); } }
-                        None => break "The remote host disconnected.".to_owned(),
-                    }
-                },
-                request = self.requests.recv() => match request {
-                    Some(Request::Subscribe(reply)) => { if let Err(error) = self.add_capture(CaptureReply::Subscribe(reply)).await { break error.to_string(); } }
-                    Some(Request::Checkpoint { connection, reply }) => { if let Err(error) = self.add_capture(CaptureReply::Checkpoint { connection, reply }).await { break error.to_string(); } }
-                    Some(Request::Unsubscribe(id)) => { self.subscribers.remove(id); self.focused.remove(&id); }
-                    Some(Request::Control(queued)) => { if let Err(error) = self.queue(queued) { break error.to_string(); } }
-                    None => break "Disconnected from the remote terminal.".to_owned(),
-                },
-                _ = tick.tick() => { if let Err(error) = self.maintain().await { break error.to_string(); } }
+                Step::Stop(reason) => break reason,
+                Step::Ended => {
+                    ended = true;
+                    break "The host stopped this terminal.".to_owned();
+                }
+            }
+            if self.interrupted.load(Ordering::Acquire) && self.subscribers.is_empty() {
+                break "Disconnected from the remote terminal.".to_owned();
             }
         };
         self.cancellation.cancel();
         self.connection.disconnect();
         self.requests.close();
         self.subscribers
-            .close(&reason, self.next_sequence.unwrap_or(0));
+            .close(&reason, self.next_sequence.unwrap_or(self.delivered));
         for waiting in self.pending {
             waiting.reply.reject(Error::Other(reason.clone()));
         }
@@ -782,9 +976,7 @@ impl RemoteActor {
                 drop(reply.send(Err(Error::Other(reason.clone()))));
             }
         }
-        if let Some(active) = self.in_flight
-            && let Some(reply) = active.reply
-        {
+        for reply in self.in_flight.into_iter().flat_map(|active| active.replies) {
             drop(reply.send(Err(Error::Other(reason.clone()))));
         }
         if ended {

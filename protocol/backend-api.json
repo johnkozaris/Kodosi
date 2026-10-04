@@ -27,8 +27,8 @@
     "revocation": "advance revision and key generation; persist ready=false before disconnecting or redistributing keys",
     "inputReplayOnReconnect": false,
     "historicalMutationReceipts": false,
-    "offlineExpirySeconds": 120,
-    "expiredRecovery": "current hosting device may republish same still-live incarnation with owner-only access and fresh keys"
+    "offlineExpiry": false,
+    "missingRecovery": "current hosting device may republish same still-live incarnation with owner-only access and fresh keys"
   },
   "routes": {
     "accounts": [
@@ -41,7 +41,8 @@
       "GET /api/me/identity",
       "GET /api/users/{userId}/identity",
       "POST /api/me/identity/device-list",
-      "POST /api/me/identity/reset"
+      "POST /api/me/identity/reset",
+      "POST /api/me/connections/renew"
     ],
     "enrollment": [
       "POST /api/devices/link/init",

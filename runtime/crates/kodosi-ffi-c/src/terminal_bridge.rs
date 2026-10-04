@@ -6,6 +6,8 @@ use super::{
     lock, payload, terminal, text,
 };
 
+const REFRESH_RETRY: std::time::Duration = std::time::Duration::from_secs(1);
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn kodosi_terminal_input(
     handle: *mut c_void,
@@ -267,6 +269,7 @@ async fn stream_terminal(
     let mut pending = std::collections::VecDeque::new();
     let mut seed: Option<kodosi_runtime::network::CheckpointCut> = None;
     let mut closed: Option<(String, u64)> = None;
+    let mut retry: Option<tokio::time::Instant> = None;
     loop {
         if let Some(cut) = seed.as_ref() {
             if cut.next_sequence < next {
@@ -310,14 +313,31 @@ async fn stream_terminal(
                 };
                 match fresh {
                     Ok(cut) => seed = Some(cut),
-                    Err(error) => closed = Some((error.to_string(), next)),
+                    Err(error) => {
+                        tracing::warn!(%session, %error, "terminal view refresh failed; it will be tried again");
+                        retry = Some(tokio::time::Instant::now() + REFRESH_RETRY);
+                    }
                 }
+            }
+            () = async { tokio::time::sleep_until(retry.unwrap_or_else(tokio::time::Instant::now)).await }, if retry.is_some() => {
+                retry = None;
+                token.refresh.notify_one();
             }
             control = subscriber.control.recv(), if closed.is_none() => match control {
                 Some(terminal::ControlFrame::Resize { rows, cols, at_sequence }) => {
                     if pending.len() >= 32 || pending.back().is_some_and(|&(_, _, last)| last > at_sequence) {
                         closed = Some(("terminal resize queue exceeded its ordering bound".into(), next));
                     } else { pending.push_back((rows, cols, at_sequence)); }
+                }
+                Some(terminal::ControlFrame::Snapshot { checkpoint, next_sequence }) => {
+                    if next_sequence >= next && state.checkpoint(token, &checkpoint, next_sequence) {
+                        next = next_sequence;
+                        pending.clear();
+                        seed = None;
+                        retry = None;
+                    } else {
+                        closed = Some(("the terminal snapshot could not be restored".into(), next));
+                    }
                 }
                 Some(terminal::ControlFrame::Closed { reason, final_sequence }) => closed = Some((reason, final_sequence)),
                 None => closed = Some(("terminal disconnected".into(), next)),

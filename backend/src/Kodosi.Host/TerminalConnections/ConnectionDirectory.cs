@@ -30,7 +30,6 @@ public sealed class ConnectionDirectory(TimeProvider clock)
     }
 
     public bool HostOnline(Guid id) => sessions.TryGetValue(id, out var live) && live.Host?.IsOpen == true;
-    internal Guid[] OnlineSessionIds() => sessions.Values.Where(x => x.Host?.IsOpen == true).Select(x => x.Id).ToArray();
 
     internal SocketPeer[] OnlinePeers()
     {
@@ -56,16 +55,26 @@ public sealed class ConnectionDirectory(TimeProvider clock)
     }
     internal void RemoveEvents(SocketPeer peer) => listeners.TryRemove(peer.ConnectionId, out _);
 
-    public void Invalidate(Session state, bool notifyHost = true)
+    public void Invalidate(Session state, bool notifyHost = true, Func<Guid, string, bool>? keep = null)
     {
         if (!sessions.TryGetValue(state.Id, out var live)) return;
         lock (live.Sync)
         {
             mutation.Value?.Track(live);
             live.Ready = false; live.Revision = state.AuthorizationRevision; live.Generation = state.KeyGeneration;
-            live.Replay.Clear(); live.Pending.Clear(); live.Checkpoints.Clear();
-            foreach (var participant in live.Participants.Values) participant.Peer.Abort();
-            live.Participants.Clear();
+            live.Order.Clear(); live.Pending.Clear(); live.Checkpoints.Clear();
+            foreach (var participant in live.Participants.Values.ToArray())
+            {
+                var peer = participant.Peer;
+                if (peer.IsOpen && keep?.Invoke(peer.UserId, peer.DeviceId) == true)
+                {
+                    participant.Ready = false; participant.Resync = false; participant.Rekey = true;
+                    participant.BootstrapGeneration++; participant.LastSequence = 0;
+                    continue;
+                }
+                peer.Abort(); live.Participants.Remove(peer.ConnectionId);
+                live.Host?.Send(new { type = "participantDisconnected", connectionId = peer.ConnectionId, senderUserId = peer.UserId, senderDeviceId = peer.DeviceId });
+            }
             if (notifyHost) live.Host?.Send(new { type = "accessChanged", authorizationRevision = live.Revision, keyGeneration = live.Generation });
         }
     }
@@ -77,7 +86,17 @@ public sealed class ConnectionDirectory(TimeProvider clock)
         {
             if (live.IncarnationId != state.IncarnationId) return;
             live.Revision = state.AuthorizationRevision; live.Generation = state.KeyGeneration; live.Ready = state.Ready;
+            if (!live.Ready) return;
+            foreach (var participant in live.Participants.Values.Where(x => x.Rekey))
+            {
+                participant.Rekey = false; participant.Resync = true;
+                participant.Peer.Send(new { type = "rekey", authorizationRevision = live.Revision, keyGeneration = live.Generation });
+            }
         }
+    }
+    public void Renew(Guid userId, string deviceId, DateTimeOffset expires)
+    {
+        foreach (var peer in OnlinePeers().Where(x => x.UserId == userId && x.DeviceId == deviceId)) peer.ExtendUntil(expires);
     }
     public void RemoveDevice(Guid userId, string deviceId)
     {
@@ -97,7 +116,7 @@ public sealed class ConnectionDirectory(TimeProvider clock)
         lock (live.Sync)
         {
             if (host is not null && !ReferenceEquals(live.Host, host)) throw ApiException.Conflict("Host changed.");
-            last = live.Replay.NextSequence ?? 0;
+            last = live.Order.NextSequence ?? 0;
             if (finalSequence is { } expected && expected != last) throw ApiException.Conflict("Terminal end is out of order.");
             live.Ending = true;
             viewers = live.Participants.Values.Where(x => x.Ready).Select(x => x.Peer).ToArray();
@@ -112,7 +131,7 @@ public sealed class ConnectionDirectory(TimeProvider clock)
         {
             live.Ready = false; live.Host?.Abort();
             foreach (var participant in live.Participants.Values) participant.Peer.Abort();
-            live.Participants.Clear(); live.Pending.Clear(); live.Checkpoints.Clear(); live.Replay.Clear();
+            live.Participants.Clear(); live.Pending.Clear(); live.Checkpoints.Clear(); live.Order.Clear();
         }
     }
     public void StopAll()
@@ -136,7 +155,7 @@ public sealed class ConnectionDirectory(TimeProvider clock)
                 live.Ready = false;
                 live.Host?.Abort();
                 foreach (var participant in live.Participants.Values) participant.Peer.Abort();
-                live.Participants.Clear(); live.Pending.Clear(); live.Checkpoints.Clear(); live.Replay.Clear();
+                live.Participants.Clear(); live.Pending.Clear(); live.Checkpoints.Clear(); live.Order.Clear();
                 live.Host = host; live.Revision = state.AuthorizationRevision; live.Generation = state.KeyGeneration;
                 break;
             }
@@ -157,12 +176,14 @@ public sealed class ConnectionDirectory(TimeProvider clock)
         }
         return live;
     }
-    internal void BeginBootstrap(LiveSession live, SocketPeer peer, string? challenge)
+    internal void BeginBootstrap(LiveSession live, SocketPeer peer, string? challenge, bool resync = false)
     {
         var verifiedChallenge = CheckpointChallenge(challenge);
         lock (live.Sync)
         {
-            if (!live.Ready || !live.Participants.TryGetValue(peer.ConnectionId, out var participant)) return;
+            if (!live.Ready || !live.Participants.TryGetValue(peer.ConnectionId, out var participant) || participant.Resync != resync) return;
+            if (resync && verifiedChallenge == participant.CheckpointChallenge) throw ApiException.Invalid("Use a new checkpoint challenge.");
+            participant.Resync = false;
             participant.CheckpointChallenge = verifiedChallenge;
             participant.Ready = false;
             participant.BootstrapGeneration++;
@@ -212,7 +233,7 @@ public sealed class ConnectionDirectory(TimeProvider clock)
             if (host)
             {
                 if (!ReferenceEquals(live.Host, peer)) return;
-                live.Host = null; live.Ready = false; live.Replay.Clear(); live.Pending.Clear(); live.Checkpoints.Clear();
+                live.Host = null; live.Ready = false; live.Order.Clear(); live.Pending.Clear(); live.Checkpoints.Clear();
                 foreach (var participant in live.Participants.Values) participant.Peer.Abort();
                 live.Participants.Clear();
                 sessions.TryRemove(new KeyValuePair<Guid, LiveSession>(live.Id, live));
@@ -225,32 +246,44 @@ public sealed class ConnectionDirectory(TimeProvider clock)
             }
         }
     }
-    internal void MetadataChanged(LiveSession live, SocketPeer host)
+    internal void Resync(LiveSession live, SocketPeer host)
     {
         lock (live.Sync)
         {
-            if (!ReferenceEquals(live.Host, host) || !live.Ready) throw ApiException.Conflict("Host is not currently admitted.");
-            foreach (var participant in live.Participants.Values.Where(x => x.Ready))
-                participant.Peer.Send(new { type = "metadataChanged" });
+            if (!ReferenceEquals(live.Host, host)) throw ApiException.Conflict("Host is not currently admitted.");
+            if (!live.Ready || live.Ending) return;
+            live.Order.Restart();
+            foreach (var participant in live.Participants.Values) Resync(live, participant);
         }
+    }
+    private static void Resync(LiveSession live, Participant participant)
+    {
+        foreach (var id in live.Checkpoints.Where(x => x.Value.ConnectionId == participant.Peer.ConnectionId).Select(x => x.Key).ToArray()) live.Checkpoints.Remove(id);
+        participant.Ready = false;
+        participant.BootstrapGeneration++;
+        if (participant.Resync) return;
+        participant.Resync = true;
+        participant.Peer.Send(new { type = "resync" });
     }
 
     internal void Output(LiveSession live, SocketPeer host, byte[] frame)
     {
         lock (live.Sync)
         {
-            if (!ReferenceEquals(live.Host, host) || !live.Ready || live.Ending) throw ApiException.Conflict("Host output is not currently admitted.");
-            var header = TerminalReplay.Header(frame, live.Generation);
-            live.Replay.Accept(frame, live.Generation);
+            if (!ReferenceEquals(live.Host, host)) throw ApiException.Conflict("Host output is not currently admitted.");
+            if (!live.Ready || live.Ending || OutputOrder.Header(frame, live.Generation) is not { } header) return;
+            live.Order.Accept(header);
             var generation = live.Generation;
             foreach (var participant in live.Participants.Values.Where(x => x.Ready))
             {
                 if (header.Type == 4 && header.Next <= participant.NextSequence) continue;
                 if (header.Type == 4 && header.First != participant.NextSequence)
                 { participant.Peer.Abort(); continue; }
-                participant.NextSequence = header.Next;
+                if (!participant.Peer.HasOutputRoom(frame.Length)) { Resync(live, participant); continue; }
+                if (header.Type != 5) participant.NextSequence = header.Next;
                 var bootstrapGeneration = participant.BootstrapGeneration;
-                participant.Peer.SendBinary(frame, () => IsParticipantCurrent(live, participant, generation, bootstrapGeneration));
+                Func<bool> current = () => IsParticipantCurrent(live, participant, generation, bootstrapGeneration);
+                if (header.Type == 4) participant.Peer.SendOutput(frame, header.Next, current); else participant.Peer.SendBinary(frame, current);
             }
         }
     }
@@ -264,8 +297,8 @@ public sealed class ConnectionDirectory(TimeProvider clock)
         if (Limits.Base64(signature, "Checkpoint signature", 3309).Length != 3309) throw ApiException.Invalid("Invalid checkpoint signature.");
         lock (live.Sync)
         {
-            if (!ReferenceEquals(live.Host, host) || !live.Ready) throw ApiException.Conflict("Host checkpoint is not currently admitted.");
-            if (!live.Checkpoints.Remove(requestId, out var requested)
+            if (!ReferenceEquals(live.Host, host)) throw ApiException.Conflict("Host checkpoint is not currently admitted.");
+            if (!live.Ready || !live.Checkpoints.Remove(requestId, out var requested)
                 || !live.Participants.TryGetValue(requested.ConnectionId, out var participant)) return;
             if (requested.Deadline <= clock.GetUtcNow())
             {
@@ -274,8 +307,7 @@ public sealed class ConnectionDirectory(TimeProvider clock)
             }
             var generation = live.Generation;
             var bootstrapGeneration = participant.BootstrapGeneration;
-            var header = TerminalReplay.Header(frame, generation);
-            if (header.Type != 3) throw ApiException.Invalid("Expected a terminal checkpoint.");
+            if (OutputOrder.Header(frame, generation) is not { Type: 3 } header) throw ApiException.Invalid("Expected a terminal checkpoint.");
             var proof = new
             {
                 type = "checkpointProof",
@@ -296,33 +328,31 @@ public sealed class ConnectionDirectory(TimeProvider clock)
                 participant.Peer.SendCheckpoint(proof, frame, () => IsParticipantCurrent(live, participant, generation, bootstrapGeneration));
                 return;
             }
-            var bootstrap = live.Replay.Bootstrap(frame, generation);
-            if (bootstrap is null) { RequestCheckpoint(live, participant); return; }
+            if (!live.Order.Follows(header)) { RequestCheckpoint(live, participant); return; }
             participant.Ready = true;
+            participant.Admitted = true;
             live.Host?.Send(new { type = "participantConnected", connectionId = participant.Peer.ConnectionId,
                 senderUserId = participant.Peer.UserId, senderDeviceId = participant.Peer.DeviceId });
-            participant.NextSequence = TerminalReplay.Header(bootstrap[^1], generation).Next;
+            participant.NextSequence = header.Next;
             participant.Peer.SendCheckpoint(proof, frame, () => IsParticipantCurrent(live, participant, generation, bootstrapGeneration));
-            foreach (var value in bootstrap.Skip(1)) participant.Peer.SendBinary(value, () => IsParticipantCurrent(live, participant, generation, bootstrapGeneration));
         }
     }
     internal void Control(LiveSession live, SocketPeer peer, JsonElement body)
     {
         lock (live.Sync)
         {
-            if (live.Ending || !live.Ready || live.Host?.IsOpen != true || !live.Participants.TryGetValue(peer.ConnectionId, out var participant) || !participant.Ready)
+            if (!live.Participants.TryGetValue(peer.ConnectionId, out var participant) || !participant.Admitted)
                 throw ApiException.Forbidden("Session control is not currently admitted.");
             var sequence = body.GetProperty("sequence").GetUInt64();
             var generation = body.GetProperty("keyGeneration").GetInt32();
             var requestId = body.GetProperty("requestId").GetGuid();
+            if (live.Ending || !live.Ready || live.Host?.IsOpen != true || generation < live.Generation) return;
             if (sequence != participant.LastSequence + 1 || sequence == 0 || generation != live.Generation || requestId == Guid.Empty)
                 throw ApiException.Forbidden("Stale or replayed control.");
             if (live.Pending.Count >= 256 || live.Pending.ContainsKey(requestId)) throw new ApiException(503, "Too many pending terminal controls.");
             var ciphertext = body.GetProperty("ciphertext").GetString() ?? "";
             var nonce = body.GetProperty("nonce").GetString() ?? "";
-            var signature = body.GetProperty("signature").GetString() ?? "";
             if (Limits.Base64(nonce, "Control nonce", 12).Length != 12
-                || Limits.Base64(signature, "Control signature", 3309).Length != 3309
                 || Limits.Base64(ciphertext, "Control ciphertext", 2 * 1024 * 1024).Length < 16)
                 throw ApiException.Invalid("Invalid encrypted terminal control.");
             participant.LastSequence = sequence;
@@ -341,7 +371,6 @@ public sealed class ConnectionDirectory(TimeProvider clock)
                 requestId,
                 ciphertext,
                 nonce,
-                signature,
                 keyGeneration = generation
             },
                 () => IsControlCurrent(live, pending));
@@ -357,33 +386,17 @@ public sealed class ConnectionDirectory(TimeProvider clock)
     {
         lock (live.Sync)
         {
-            if (!ReferenceEquals(live.Host, host) || !live.Ready) throw ApiException.Forbidden();
+            if (!ReferenceEquals(live.Host, host)) throw ApiException.Forbidden();
             var requestId = body.GetProperty("requestId").GetGuid();
-            if (!live.Pending.TryGetValue(requestId, out var pending)) return;
+            if (!live.Ready || !live.Pending.TryGetValue(requestId, out var pending)) return;
             if (body.GetProperty("connectionId").GetString() != pending.Peer.ConnectionId || body.GetProperty("sequence").GetUInt64() != pending.Sequence
                 || !IsControlCurrent(live, pending)) throw ApiException.Forbidden("Control result does not match the current request.");
-            var accepted = body.GetProperty("accepted").GetBoolean();
-            var message = body.TryGetProperty("message", out var text) && text.ValueKind == JsonValueKind.String ? text.GetString() : null;
-            if (message?.Length > 512) throw ApiException.Invalid("Control result message is too long.");
-            var signature = body.GetProperty("signature").GetString() ?? "";
-            if (Limits.Base64(signature, "Result signature", 3309).Length != 3309) throw ApiException.Invalid("Invalid control result signature.");
+            var nonce = body.GetProperty("nonce").GetString() ?? "";
+            var ciphertext = body.GetProperty("ciphertext").GetString() ?? "";
+            if (Limits.Base64(nonce, "Result nonce", 12).Length != 12 || Limits.Base64(ciphertext, "Result ciphertext", 2048).Length < 16)
+                throw ApiException.Invalid("Invalid encrypted control result.");
             live.Pending.Remove(requestId);
-            pending.Peer.Send(new
-            {
-                type = "controlResult",
-                sessionId = live.Id,
-                incarnationId = live.IncarnationId,
-                connectionId = pending.Peer.ConnectionId,
-                senderUserId = pending.Peer.UserId,
-                senderDeviceId = pending.Peer.DeviceId,
-                authorizationRevision = pending.Revision,
-                keyGeneration = pending.Generation,
-                sequence = pending.Sequence,
-                requestId,
-                accepted,
-                message,
-                signature
-            }, () => IsControlCurrent(live, pending));
+            pending.Peer.SendUrgent(new { type = "controlResult", requestId, nonce, ciphertext }, () => IsControlCurrent(live, pending));
         }
     }
     public void Sweep()
@@ -414,7 +427,7 @@ public sealed class ConnectionDirectory(TimeProvider clock)
         public int Generation;
         public bool Ready;
         public bool Ending;
-        public TerminalReplay Replay { get; } = new();
+        public OutputOrder Order { get; } = new();
         public Dictionary<string, Participant> Participants { get; } = new(StringComparer.Ordinal);
         public Dictionary<Guid, PendingControl> Pending { get; } = new();
         public Dictionary<Guid, PendingCheckpoint> Checkpoints { get; } = new();
@@ -423,6 +436,9 @@ public sealed class ConnectionDirectory(TimeProvider clock)
     {
         public SocketPeer Peer { get; } = peer;
         public bool Ready;
+        public bool Admitted;
+        public bool Resync;
+        public bool Rekey;
         public string CheckpointChallenge = "";
         public ulong LastSequence;
         public ulong NextSequence;

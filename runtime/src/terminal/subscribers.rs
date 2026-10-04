@@ -9,7 +9,7 @@ use uuid::Uuid;
 use super::Checkpoint;
 use crate::{Error, Result};
 
-pub(super) const DATA_CAPACITY: usize = 128;
+pub(super) const DATA_CAPACITY: usize = 512;
 const CONTROL_CAPACITY: usize = 16;
 const MAX_SUBSCRIBERS: usize = 32;
 pub(super) const MAX_RAW_BYTES: usize = 64 * 1024;
@@ -20,18 +20,19 @@ pub struct DataFrame {
     pub bytes: Bytes,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[derive(Debug, Clone)]
 pub enum ControlFrame {
     Resize {
         rows: u16,
         cols: u16,
-        #[serde(rename = "atSequence")]
         at_sequence: u64,
+    },
+    Snapshot {
+        checkpoint: Checkpoint,
+        next_sequence: u64,
     },
     Closed {
         reason: String,
-        #[serde(rename = "finalSequence")]
         final_sequence: u64,
     },
 }
@@ -57,11 +58,33 @@ struct Subscriber {
     data: mpsc::Sender<DataFrame>,
     control: mpsc::Sender<ControlFrame>,
     lifetime: CancellationToken,
+    behind: bool,
 }
 
 impl Subscriber {
     fn is_active(&self) -> bool {
         !self.lifetime.is_cancelled() && !self.data.is_closed() && !self.control.is_closed()
+    }
+
+    fn caught_up(&self) -> bool {
+        self.behind && self.is_active() && self.data.capacity() == self.data.max_capacity()
+    }
+
+    fn deliver(&mut self, frame: ControlFrame) -> bool {
+        let snapshot = matches!(frame, ControlFrame::Snapshot { .. });
+        match self.control.try_send(frame) {
+            Ok(()) => {
+                if snapshot {
+                    self.behind = false;
+                }
+                true
+            }
+            Err(mpsc::error::TrySendError::Full(_)) => {
+                self.behind = true;
+                true
+            }
+            Err(mpsc::error::TrySendError::Closed(_)) => false,
+        }
     }
 }
 
@@ -97,6 +120,7 @@ impl Subscribers {
                 data: data_tx,
                 control: control_tx,
                 lifetime: lifetime.clone(),
+                behind: false,
             },
         );
         Ok(Subscription {
@@ -128,6 +152,10 @@ impl Subscribers {
         self.entries.remove(&connection_id);
     }
 
+    pub(crate) fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
     pub(crate) fn prune(&mut self) {
         self.entries.retain(|_, entry| entry.is_active());
     }
@@ -152,26 +180,39 @@ impl Subscribers {
 
     pub(crate) fn data(&mut self, frame: &DataFrame) {
         self.entries.retain(|_, entry| {
-            if entry.is_active()
-                && frame.bytes.len() <= MAX_RAW_BYTES
-                && entry.data.try_send(frame.clone()).is_ok()
+            if !entry.behind
+                && (frame.bytes.len() > MAX_RAW_BYTES
+                    || entry.data.try_send(frame.clone()).is_err())
             {
-                true
-            } else {
-                drop(entry.control.try_send(ControlFrame::Closed {
-                    reason:
-                        "Terminal output exceeded the connection buffer. Reconnect to refresh it."
-                            .to_owned(),
-                    final_sequence: frame.sequence,
-                }));
-                false
+                entry.behind = true;
             }
+            entry.is_active()
         });
     }
 
     pub(crate) fn control(&mut self, frame: &ControlFrame) {
-        self.entries
-            .retain(|_, entry| entry.is_active() && entry.control.try_send(frame.clone()).is_ok());
+        self.entries.retain(|_, entry| {
+            if entry.behind && matches!(frame, ControlFrame::Resize { .. }) {
+                return entry.is_active();
+            }
+            entry.is_active() && entry.deliver(frame.clone())
+        });
+    }
+
+    pub(crate) fn caught_up(&self) -> bool {
+        self.entries.values().any(Subscriber::caught_up)
+    }
+
+    pub(crate) fn refresh(&mut self, checkpoint: &Checkpoint, next_sequence: u64) {
+        self.entries.retain(|_, entry| {
+            if !entry.caught_up() {
+                return entry.is_active();
+            }
+            entry.deliver(ControlFrame::Snapshot {
+                checkpoint: checkpoint.clone(),
+                next_sequence,
+            })
+        });
     }
 
     pub(crate) fn close(&mut self, reason: &str, final_sequence: u64) {

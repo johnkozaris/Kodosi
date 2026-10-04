@@ -46,6 +46,7 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
         var link = await db.Friendships.SingleOrDefaultAsync(x => x.FirstUserId == first && x.SecondUserId == second, ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         var affected = new List<Session>();
+        Func<Guid, string, bool> Keep(Session session) => (user, _) => user != (session.OwnerUserId == userId ? other.Id : userId);
         switch (action)
         {
             case "send":
@@ -78,14 +79,14 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
                 {
                     session.Ready = false; session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
                     session.KeyGeneration = checked(session.KeyGeneration + 1);
-                    connections.Invalidate(session, notifyHost: false);
+                    connections.Invalidate(session, notifyHost: false, keep: Keep(session));
                     await db.SessionKeys.Where(x => x.SessionId == session.Id).ExecuteDeleteAsync(ct);
                 }
                 break;
             default: throw ApiException.Invalid("Unknown friend operation.");
         }
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
-        foreach (var session in affected) connections.Invalidate(session);
+        foreach (var session in affected) connections.Invalidate(session, keep: Keep(session));
         connections.Notify(userId, "friends"); connections.Notify(other.Id, "friends");
         connections.Notify(userId, "sessions"); connections.Notify(other.Id, "sessions");
     }

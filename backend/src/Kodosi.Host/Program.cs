@@ -13,6 +13,7 @@ using Kodosi.TerminalConnections;
 using Kodosi.Security;
 using Kodosi.Sessions;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -27,7 +28,8 @@ builder.Services.AddSingleton<DeviceCertificateParser>();
 builder.Services.AddSingleton<SignedDeviceListParser>();
 builder.Services.AddSingleton<AdmissionGate>();
 builder.Services.AddSingleton<ConnectionDirectory>();
-builder.Services.AddHostedService<ConnectionLease>();
+builder.Services.AddSingleton<ConnectionLease>();
+builder.Services.AddHostedService(services => services.GetRequiredService<ConnectionLease>());
 builder.Services.AddHostedService<ConnectionMaintenance>();
 builder.Services.AddHostedService<PublicationCleanup>();
 builder.Services.AddScoped<CurrentUser>();
@@ -58,7 +60,15 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("socket", context => RateLimitPartition.GetFixedWindowLimiter(
         context.User.FindFirst("sub")?.Value ?? "unknown", _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
+var proxies = builder.Configuration.GetSection("Proxy:Addresses").Get<string[]>() ?? [];
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    foreach (var proxy in proxies) options.KnownProxies.Add(System.Net.IPAddress.Parse(proxy));
+});
 var app = builder.Build();
+if (proxies.Length > 0) app.UseForwardedHeaders();
+await app.Services.GetRequiredService<ConnectionLease>().AcquireAsync(app.Lifetime.ApplicationStopping);
 await using (var scope = app.Services.CreateAsyncScope())
     await DatabaseSetup.InitializeAsync(scope.ServiceProvider.GetRequiredService<KodosiDbContext>(), app.Lifetime.ApplicationStopping);
 app.Use(async (context, next) =>
@@ -78,7 +88,7 @@ app.UseAuthorization();
 app.UseRateLimiter();
 app.Use(async (context, next) =>
 {
-    if (context.Request.Path.StartsWithSegments("/api"))
+    if (context.Request.Path.StartsWithSegments("/api") && context.GetEndpoint() is not null)
     {
         context.Request.EnableBuffering(bufferThreshold: 32 * 1024, bufferLimit: Limits.HttpBodyBytes + 16 * 1024);
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
@@ -99,9 +109,10 @@ app.Use(async (context, next) =>
 var websocket = new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(30) };
 foreach (var origin in builder.Configuration.GetSection("WebSockets:AllowedOrigins").Get<string[]>() ?? []) websocket.AllowedOrigins.Add(origin);
 app.UseWebSockets(websocket);
-app.MapGet("/health/live", () => Results.Ok(new { status = "ok", apiContractVersion = 16, authContractVersion = 1 }));
+app.MapGet("/health/live", () => Results.Ok(new { status = "ok", apiContractVersion = 16, authContractVersion = 1 })).DisableRateLimiting();
 app.MapGet("/health/ready", async (KodosiDbContext db, CancellationToken ct) =>
-    await db.Database.CanConnectAsync(ct) ? Results.Ok(new { status = "ok", apiContractVersion = 16, authContractVersion = 1 }) : Results.StatusCode(503));
+    await db.Database.CanConnectAsync(ct) ? Results.Ok(new { status = "ok", apiContractVersion = 16, authContractVersion = 1 }) : Results.StatusCode(503))
+    .DisableRateLimiting();
 var api = app.MapGroup("").AddEndpointFilter<AdmissionFilter>();
 api.MapAccounts(); api.MapDevices(); api.MapFriends(); api.MapSessions(); api.MapMissions();
 app.MapTerminalConnections();

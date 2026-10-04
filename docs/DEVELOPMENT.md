@@ -41,6 +41,9 @@ Never point tests at live storage. Use a disposable database and a disposable
 the runtime can reject accidental overlap. Unknown database schemas must fail without
 resetting or modifying them.
 
+The runtime writes its diagnostics to `diagnostics.log` in its data root. It keeps one
+older copy. Local terminals never show these background failures.
+
 Provider tests must use fixture directories or redirected native configuration roots.
 Never move, edit, or delete real provider settings, memory, conversations,
 credentials, or working files.

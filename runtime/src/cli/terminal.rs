@@ -4,14 +4,13 @@ use crate::{
 };
 use ghostty_vt::{CheckpointLimits, SemanticCheckpoint, Terminal, TerminalPolicy};
 use std::{
-    fs::{File, OpenOptions},
     io::{self, IsTerminal, Read, Write},
-    os::unix::fs::OpenOptionsExt,
     path::Path,
     time::Duration,
 };
-use tokio::io::unix::AsyncFd;
 use uuid::Uuid;
+
+const INPUT_WINDOW: usize = 16;
 
 struct ScreenGuard;
 impl ScreenGuard {
@@ -67,32 +66,39 @@ pub(super) async fn attach(root: &Path, session: Uuid) -> Result<()> {
     if let Ok((cols, rows)) = crossterm::terminal::size() {
         local_host::write_resize(&mut client.writer, cols, rows).await?;
     }
-    let stdin = AsyncFd::new(
-        OpenOptions::new()
-            .read(true)
-            .custom_flags(rustix::fs::OFlags::NONBLOCK.bits().cast_signed())
-            .open("/dev/tty")?,
-    )?;
-    let mut buffer = [0u8; 4096];
+    let (keys, mut typed) = tokio::sync::mpsc::channel::<Vec<u8>>(64);
+    std::thread::spawn(move || {
+        let mut input = io::stdin().lock();
+        let mut buffer = [0u8; 4096];
+        while let Ok(count) = input.read(&mut buffer) {
+            if count == 0 || keys.blocking_send(buffer[..count].to_vec()).is_err() {
+                break;
+            }
+        }
+    });
     let mut escaped = false;
+    let mut unacknowledged = 0usize;
     let mut resize = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::window_change())?;
     let mut paint = tokio::time::interval(Duration::from_millis(16));
     paint.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut dirty = false;
     loop {
         tokio::select! {
-            input=read_input(&stdin, &mut buffer)=>{
-                let count=input?;if count==0{return Ok(());}
-                let mut outgoing=Vec::with_capacity(count+1);
-                for byte in &buffer[..count]{
+            input=typed.recv(),if unacknowledged<INPUT_WINDOW=>{
+                let Some(input)=input else{return Ok(());};
+                let mut outgoing=Vec::with_capacity(input.len()+1);
+                for byte in &input{
                     if escaped{escaped=false;if *byte==b'.'{return Ok(());}outgoing.push(0x1d);}
                     if *byte==0x1d{escaped=true;}else{outgoing.push(*byte);}
                 }
-                if !outgoing.is_empty(){local_host::write_input(&mut client.writer,&outgoing).await?;}
+                if !outgoing.is_empty(){local_host::write_input(&mut client.writer,&outgoing).await?;unacknowledged+=1;}
             }
             frame=local_host::read_terminal(&mut client.reader)=>match frame?{
-                TerminalFrame::InputAck { accepted, message } => { if !accepted { return Err(Error::Other(message.unwrap_or_else(|| "Input was rejected".into()))); } },
-                TerminalFrame::Checkpoint{..}=>return Err(Error::Invalid("unexpected terminal snapshot on established stream".into())),
+                TerminalFrame::InputAck { accepted, message } => {
+                    unacknowledged=unacknowledged.saturating_sub(1);
+                    if !accepted { return Err(Error::Other(message.unwrap_or_else(|| "Input was rejected".into()))); }
+                },
+                TerminalFrame::Checkpoint{bytes,rows,cols,next_sequence}=>{mirror=restore(&bytes,rows,cols)?;next=next_sequence;dirty=true;}
                 TerminalFrame::Data{bytes,sequence}=>{
                     if sequence<next{continue;}
                     if sequence!=next{return Err(Error::Invalid("terminal stream lost output; reconnect to restore it".into()));}
@@ -113,15 +119,6 @@ pub(super) async fn attach(root: &Path, session: Uuid) -> Result<()> {
         }
     }
 }
-async fn read_input(input: &AsyncFd<File>, bytes: &mut [u8]) -> io::Result<usize> {
-    loop {
-        let mut ready = input.readable().await?;
-        if let Ok(result) = ready.try_io(|input| input.get_ref().read(bytes)) {
-            return result;
-        }
-    }
-}
-
 fn restore(bytes: &[u8], rows: u16, cols: u16) -> Result<Terminal> {
     let mut terminal = Terminal::new(cols, rows, TerminalPolicy::default())
         .map_err(|e| Error::Other(e.to_string()))?;

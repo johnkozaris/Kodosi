@@ -1,5 +1,7 @@
 use super::*;
 
+const ENROLLMENT_CHECK_MS: u64 = 5 * 60 * 1000;
+
 impl BackendClient {
     pub(super) async fn restore_saved(&self, generation: u64) -> Result<()> {
         terminal_connections::check_generation(self, generation)?;
@@ -118,41 +120,70 @@ impl BackendClient {
         Ok(())
     }
 
+    pub(super) async fn renew_token(&self) -> Result<()> {
+        let credentials = self.credentials()?;
+        let previous = { self.inner.state.lock().await.tokens.clone() };
+        let Some(previous) = previous else {
+            return Ok(());
+        };
+        if previous.expires_at > identity::now_ms() + 60_000 {
+            return Ok(());
+        }
+        let tokens = self.oidc()?.refresh(&previous).await?;
+        self.check_credentials(&credentials)?;
+        let secrets = self.inner.state.lock().await.secrets.clone();
+        let saved = Zeroizing::new(serde_json::to_string(&tokens)?);
+        secrets
+            .run(credentials.cancel.clone(), move |store| {
+                store.store("tokens", &saved)
+            })
+            .await?;
+        self.check_credentials(&credentials)?;
+        self.inner.state.lock().await.tokens = Some(tokens.clone());
+        if let Some(credentials) = self
+            .inner
+            .credentials
+            .write()
+            .map_err(|_| Error::Closed)?
+            .as_mut()
+        {
+            credentials.token = Zeroizing::new(tokens.access_token.clone());
+        }
+        self.inner.renew_connections.store(true, Ordering::Release);
+        Ok(())
+    }
+
     pub(super) async fn refresh(&self) -> Result<()> {
         if !self.inner.identity_settled.load(Ordering::Acquire) {
             self.inner.restore_pending.store(true, Ordering::Release);
             return self.restore_saved(self.generation()).await;
         }
         let credentials = self.credentials()?;
-        let previous = { self.inner.state.lock().await.tokens.clone() };
-        let Some(previous) = previous else {
+        if self.inner.state.lock().await.tokens.is_none() {
             return Ok(());
-        };
-        if previous.expires_at <= identity::now_ms() + 60_000 {
-            let tokens = self.oidc()?.refresh(&previous).await?;
-            self.check_credentials(&credentials)?;
-            let secrets = self.inner.state.lock().await.secrets.clone();
-            let saved = Zeroizing::new(serde_json::to_string(&tokens)?);
-            secrets
-                .run(credentials.cancel.clone(), move |store| {
-                    store.store("tokens", &saved)
-                })
-                .await?;
-            self.check_credentials(&credentials)?;
-            self.inner.state.lock().await.tokens = Some(tokens.clone());
-            if let Some(credentials) = self
-                .inner
-                .credentials
-                .write()
-                .map_err(|_| Error::Closed)?
-                .as_mut()
-            {
-                credentials.token = Zeroizing::new(tokens.access_token.clone());
-            }
         }
-        if let Err(error) = self.ensure_enrolled().await {
-            self.suspend_transports().await;
-            return Err(error);
+        self.renew_token().await?;
+        if self.inner.renew_connections.load(Ordering::Acquire) {
+            let renewed = self.credentials()?;
+            if renewed.enrolled {
+                self.inner
+                    .http
+                    .device::<Value>(Method::POST, "api/me/connections/renew", &renewed, None)
+                    .await?;
+            }
+            self.inner.renew_connections.store(false, Ordering::Release);
+        }
+        let now = identity::now_ms();
+        if now.saturating_sub(self.inner.enrollment_checked.load(Ordering::Acquire))
+            >= ENROLLMENT_CHECK_MS
+        {
+            if let Err(error) = self.ensure_enrolled().await {
+                if !error.unanswered() {
+                    self.suspend_transports().await;
+                }
+                return Err(error);
+            }
+            self.inner.enrollment_checked.store(now, Ordering::Release);
         }
         self.check_credentials(&credentials)?;
         self.reconcile_device_removals().await?;
@@ -264,7 +295,7 @@ impl BackendClient {
             .await
             .is_err()
         {
-            tracing::warn!("remote publication cleanup timed out; offline metadata will expire");
+            tracing::warn!("remote publication cleanup timed out");
         }
     }
 

@@ -67,6 +67,7 @@ pub(crate) struct FreshFrames {
     public: Vec<u8>,
     pending: Option<Pending>,
     discarded_frame: Option<[u8; 32]>,
+    admitted: bool,
 }
 
 impl FreshFrames {
@@ -77,6 +78,7 @@ impl FreshFrames {
             public,
             pending: Some(Self::pending(challenge)),
             discarded_frame: None,
+            admitted: false,
         }
     }
     fn pending(challenge: [u8; 32]) -> Pending {
@@ -86,12 +88,28 @@ impl FreshFrames {
             deadline: tokio::time::Instant::now() + std::time::Duration::from_secs(10),
         }
     }
+    pub(crate) fn rekey(&mut self, revision: u64, generation: u32) -> Result<[u8; 32]> {
+        self.identity.revision = revision;
+        self.identity.generation = generation;
+        self.decoder = FrameDecoder::default();
+        self.restart()
+    }
+    pub(crate) fn restart(&mut self) -> Result<[u8; 32]> {
+        let challenge = crypto::random_bytes()?;
+        self.decoder.restart();
+        self.pending = Some(Self::pending(challenge));
+        self.discarded_frame = None;
+        Ok(challenge)
+    }
     pub(crate) fn next_sequence(&self) -> Option<u64> {
         self.decoder.next_sequence
     }
 
     pub(crate) fn ready(&self) -> bool {
         self.decoder.next_sequence.is_some()
+    }
+    pub(crate) fn admitted(&self) -> bool {
+        self.admitted
     }
     pub(crate) fn request(&mut self) -> Result<Option<[u8; 32]>> {
         self.check_deadline()?;
@@ -198,6 +216,7 @@ impl FreshFrames {
         let mut updates = self.decoder.decode(key, self.identity.generation, frame)?;
         if fresh {
             self.pending = None;
+            self.admitted = true;
             for update in &mut updates {
                 if let RemoteUpdate::Checkpoint { fresh, .. } = update {
                     *fresh = true;
@@ -214,12 +233,23 @@ pub(crate) fn frame_hash(frame: &[u8]) -> [u8; 32] {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{checkpoint_frame, raw_frame};
+    use super::super::{OutputPacker, checkpoint_frame, raw_frame};
     use super::*;
     use crate::identity::keys::DeviceKeys;
     use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
     use serde_json::json;
 
+    fn raw(key: &crypto::SessionKey, counter: u64, sequence: u64, chunk: &[u8]) -> Vec<u8> {
+        raw_frame(
+            key,
+            1,
+            counter,
+            sequence,
+            &[chunk],
+            &mut OutputPacker::new(),
+        )
+        .unwrap()
+    }
     fn identity() -> CaptureIdentity {
         CaptureIdentity {
             session: Uuid::now_v7(),
@@ -280,11 +310,7 @@ mod tests {
         let old_proof = proof(&id, &keys, &old_nonce, &frame);
         let mut current = FreshFrames::new(id, keys.signing_public().to_vec(), new_nonce);
         assert!(current.decode(&key, &frame).is_err());
-        assert!(
-            current
-                .decode(&key, &raw_frame(&key, 1, 0, 5, b"old").unwrap())
-                .is_err()
-        );
+        assert!(current.decode(&key, &raw(&key, 0, 5, b"old")).is_err());
         assert!(current.proof(&old_proof).is_err());
         let mut substituted = old_proof;
         substituted["challenge"] = json!(BASE64.encode(new_nonce));
@@ -318,9 +344,7 @@ mod tests {
                 .as_slice(),
             [RemoteUpdate::Checkpoint { fresh: false, .. }]
         ));
-        current
-            .decode(&key, &raw_frame(&key, 1, 0, 5, b"live").unwrap())
-            .unwrap();
+        current.decode(&key, &raw(&key, 0, 5, b"live")).unwrap();
         assert!(matches!(
             current.decode(&key, &capture).unwrap().as_slice(),
             [RemoteUpdate::Checkpoint { fresh: true, .. }]
@@ -344,9 +368,7 @@ mod tests {
         let old = current.request().unwrap().unwrap();
         tokio::time::advance(std::time::Duration::from_secs(11)).await;
         current.check_deadline().unwrap();
-        current
-            .decode(&key, &raw_frame(&key, 1, 0, 5, b"healthy").unwrap())
-            .unwrap();
+        current.decode(&key, &raw(&key, 0, 5, b"healthy")).unwrap();
         let next = current.request().unwrap().unwrap();
         assert_ne!(old, next);
         let old_frame = checkpoint(&key, 1, 6);
@@ -359,6 +381,94 @@ mod tests {
             current.decode(&key, &fresh).unwrap().as_slice(),
             [RemoteUpdate::Checkpoint { fresh: true, .. }]
         ));
+    }
+
+    #[tokio::test]
+    async fn restart_needs_a_new_proven_snapshot_and_keeps_control_admission() {
+        let keys = DeviceKeys::generate().unwrap();
+        let key = [1; 32];
+        let id = identity();
+        let nonce = [2; 32];
+        let frame = checkpoint(&key, 0, 5);
+        let mut current = FreshFrames::new(id.clone(), keys.signing_public().to_vec(), nonce);
+        assert!(!current.admitted());
+        current.proof(&proof(&id, &keys, &nonce, &frame)).unwrap();
+        current.decode(&key, &frame).unwrap();
+        let challenge = current.restart().unwrap();
+        assert!(!current.ready() && current.admitted());
+        assert!(
+            current
+                .decode(&key, &raw(&key, 0, 9, b"after the gap"))
+                .is_err()
+        );
+        let snapshot = checkpoint(&key, 1, 9);
+        current
+            .proof(&proof(&id, &keys, &challenge, &snapshot))
+            .unwrap();
+        assert!(matches!(
+            current.decode(&key, &snapshot).unwrap().as_slice(),
+            [RemoteUpdate::Checkpoint {
+                fresh: true,
+                next_sequence: 9,
+                ..
+            }]
+        ));
+        current
+            .decode(&key, &raw(&key, 0, 9, b"after the gap"))
+            .unwrap();
+        assert_eq!(current.next_sequence(), Some(10));
+    }
+
+    #[tokio::test]
+    async fn a_key_change_needs_a_proof_and_frames_of_the_new_generation() {
+        let keys = DeviceKeys::generate().unwrap();
+        let (old_key, new_key) = ([1; 32], [9; 32]);
+        let mut id = identity();
+        let nonce = [2; 32];
+        let frame = checkpoint(&old_key, 0, 5);
+        let mut current = FreshFrames::new(id.clone(), keys.signing_public().to_vec(), nonce);
+        current.proof(&proof(&id, &keys, &nonce, &frame)).unwrap();
+        current.decode(&old_key, &frame).unwrap();
+        let challenge = current.rekey(2, 2).unwrap();
+        assert!(current.admitted() && !current.ready());
+        assert!(
+            current
+                .decode(&old_key, &raw(&old_key, 0, 5, b"old"))
+                .is_err()
+        );
+        let state = crate::terminal::Checkpoint::new(
+            crate::terminal::TerminalSize::new(24, 80).unwrap(),
+            crate::terminal::TerminalScreen::Primary,
+            b"{}".to_vec(),
+            0,
+            0,
+            false,
+        )
+        .unwrap();
+        let snapshot = checkpoint_frame(&new_key, 2, 0, 1, 7, &state).unwrap();
+        assert!(
+            current
+                .proof(&proof(&id, &keys, &challenge, &snapshot))
+                .is_ok()
+        );
+        assert!(current.decode(&new_key, &snapshot).is_err());
+        let challenge = current.rekey(2, 2).unwrap();
+        id.revision = 2;
+        id.generation = 2;
+        current
+            .proof(&proof(&id, &keys, &challenge, &snapshot))
+            .unwrap();
+        assert!(matches!(
+            current.decode(&new_key, &snapshot).unwrap().as_slice(),
+            [RemoteUpdate::Checkpoint {
+                fresh: true,
+                next_sequence: 7,
+                ..
+            }]
+        ));
+        let output = raw_frame(&new_key, 2, 0, 7, &[b"new"], &mut OutputPacker::new()).unwrap();
+        current.decode(&new_key, &output).unwrap();
+        assert_eq!(current.next_sequence(), Some(8));
     }
 
     #[tokio::test(start_paused = true)]

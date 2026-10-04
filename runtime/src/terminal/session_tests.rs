@@ -245,12 +245,13 @@ async fn resize_checkpoint_precedes_bootstrap_barrier_at_the_same_output_cut() {
     let mut resized = false;
     loop {
         match output.recv().await.expect("ordered frame") {
-            PublishedFrame::Checkpoint {
-                checkpoint,
-                next_sequence,
+            PublishedFrame::Resize {
+                rows,
+                cols,
+                at_sequence,
             } => {
-                assert_eq!(checkpoint.size(), size);
-                assert_eq!(next_sequence, cut.next_sequence);
+                assert_eq!((rows, cols), (size.rows(), size.cols()));
+                assert_eq!(at_sequence, cut.next_sequence);
                 resized = true;
             }
             PublishedFrame::BootstrapBarrier {
@@ -259,7 +260,7 @@ async fn resize_checkpoint_precedes_bootstrap_barrier_at_the_same_output_cut() {
                 assert!(resized);
                 break;
             }
-            PublishedFrame::Raw { .. } | PublishedFrame::MetadataChanged => {}
+            PublishedFrame::Raw { .. } | PublishedFrame::Metadata(_) => {}
             _ => panic!("unexpected publication frame"),
         }
     }
@@ -368,6 +369,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         published_title: None,
         metadata_dirty: false,
         next_program_check: tokio::time::Instant::now(),
+        next_refresh: tokio::time::Instant::now(),
     };
     actor
         .enqueue(
@@ -448,10 +450,7 @@ async fn metadata_notifications_follow_changes_not_idle_time() {
         .unwrap();
     tokio::time::timeout(Duration::from_secs(2), async {
         loop {
-            if matches!(
-                output.recv().await.unwrap(),
-                PublishedFrame::MetadataChanged
-            ) {
+            if matches!(output.recv().await.unwrap(), PublishedFrame::Metadata(_)) {
                 break;
             }
         }
@@ -501,6 +500,44 @@ async fn input_completion_waits_for_the_entire_pty_write() {
     .await
     .unwrap();
     assert_eq!(std::fs::read(root.path().join("received")).unwrap(), bytes);
+    session.close().await.unwrap();
+}
+
+#[tokio::test]
+async fn input_stays_whole_and_in_order_when_its_caller_stops_waiting() {
+    let (session, _changes, root) = shell(
+        "stty raw -echo; while [ ! -f ready ]; do sleep 0.01; done; printf READY; sleep 0.3; dd bs=1 count=65540 of=received 2>/dev/null; exec /bin/cat",
+    )
+    .await;
+    let mut subscription = session.subscribe().await.unwrap();
+    std::fs::write(root.path().join("ready"), b"").unwrap();
+    wait_text(&mut subscription, b"READY").await;
+    let first = Bytes::from(vec![b'x'; 65_536]);
+    let abandoned = session.write_input(subscription.connection_id, first.clone());
+    assert!(
+        tokio::time::timeout(Duration::from_millis(50), abandoned)
+            .await
+            .is_err()
+    );
+    session
+        .write_input(subscription.connection_id, Bytes::from_static(b"tail"))
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(3), async {
+        while std::fs::metadata(root.path().join("received")).map_or(0, |meta| meta.len()) != 65_540
+        {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    let mut expected = first.to_vec();
+    expected.extend_from_slice(b"tail");
+    assert_eq!(
+        std::fs::read(root.path().join("received")).unwrap(),
+        expected
+    );
+    drop(subscription);
     session.close().await.unwrap();
 }
 

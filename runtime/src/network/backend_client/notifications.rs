@@ -28,6 +28,7 @@ impl BackendClient {
                 if cancel.is_cancelled() || network.check_credentials(&credentials).is_err() {
                     break;
                 }
+                let started = tokio::time::Instant::now();
                 let result = tokio::select! {
                     biased;
                     ()=cancel.cancelled()=>break,
@@ -36,6 +37,9 @@ impl BackendClient {
                 };
                 if let Err(error) = result {
                     tracing::warn!(%error, "notification stream interrupted; reconnecting");
+                }
+                if started.elapsed() >= terminal_connections::STABLE_CONNECTION {
+                    delay = 1;
                 }
                 tokio::select! {
                     ()=cancel.cancelled()=>break,

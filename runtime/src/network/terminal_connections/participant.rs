@@ -1,5 +1,7 @@
 use super::*;
 
+const ACKNOWLEDGE_BYTES: usize = 4 * 1024;
+
 struct Pending {
     identity: ControlIdentity,
     reply: oneshot::Sender<Result<Value>>,
@@ -33,57 +35,7 @@ pub(super) async fn connect(network: BackendClient, id: Uuid) -> Result<RemoteCo
         .get(&dto.host_device_id)
         .ok_or_else(|| Error::Trust("The hosting device is not approved.".into()))?;
     let public = host.sig_public_key.clone();
-    let blob: Value = network
-        .inner
-        .http
-        .device(
-            Method::GET,
-            &format!("api/sessions/{id}/keys/mine"),
-            &credentials,
-            None,
-        )
-        .await?;
-    if wire::text(&blob, "state")? != "ready" {
-        return Err(Error::Stale);
-    }
-    let record = blob
-        .get("keyBlob")
-        .ok_or_else(|| invalid("Session key is absent."))?;
-    if wire::id(record, "incarnationId")? != dto.incarnation_id
-        || wire::text(record, "senderDeviceId")? != dto.host_device_id
-        || wire::number(record, "keyGeneration")? != u64::from(dto.key_generation)
-        || wire::number(record, "signatureVersion")? != 2
-        || wire::number(record, "incarnationProtocolVersion")?
-            != u64::from(crate::protocol::TERMINAL_CONNECTION_VERSION)
-        || wire::number(&blob, "authorizationRevision")? != dto.authorization_revision
-    {
-        return Err(Error::Stale);
-    }
-    let wrapped = wire::decode_b64(record, "encryptedSessionKey", 1 + 1088 + 12 + 32 + 16)?;
-    let signature = wire::decode_b64(record, "signature", 3309)?;
-    let issued = wire::number(record, "issuedAtMs")?;
-    if issued > identity::now_ms() + 5 * 60_000 {
-        return Err(invalid("Session key publication is from the future."));
-    }
-    crypto::verify_control_message(
-        &public,
-        &crypto::key_blob_digest(
-            &dto.id.to_string(),
-            &dto.incarnation_id,
-            &credentials.keys.device_id,
-            &wrapped,
-            dto.key_generation,
-            issued,
-        )?,
-        &signature,
-    )?;
-    let key = crypto::unwrap_session_key(
-        &credentials.keys.kem_key()?,
-        &wrapped,
-        &dto.id.to_string(),
-        &credentials.keys.device_id,
-        dto.key_generation,
-    )?;
+    let keys = session_keys(&network, &credentials, &dto, &public).await?;
     let checkpoint_challenge = crypto::random_bytes()?;
     let (socket, ready) = socket(
         &network,
@@ -138,7 +90,7 @@ pub(super) async fn connect(network: BackendClient, id: Uuid) -> Result<RemoteCo
             dto,
             credentials,
             connection_id,
-            key,
+            keys,
             public,
             frames,
             commands_rx,
@@ -164,6 +116,119 @@ pub(super) async fn connect(network: BackendClient, id: Uuid) -> Result<RemoteCo
     })
 }
 
+struct Keys {
+    session: Zeroizing<crypto::SessionKey>,
+    channel: Zeroizing<crypto::SessionKey>,
+}
+
+async fn session_keys(
+    network: &BackendClient,
+    credentials: &Credentials,
+    dto: &SessionDto,
+    public: &[u8],
+) -> Result<Keys> {
+    let blob: Value = network
+        .inner
+        .http
+        .device(
+            Method::GET,
+            &format!("api/sessions/{}/keys/mine", dto.id),
+            credentials,
+            None,
+        )
+        .await?;
+    if wire::text(&blob, "state")? != "ready" {
+        return Err(Error::Stale);
+    }
+    let record = blob
+        .get("keyBlob")
+        .ok_or_else(|| invalid("Session key is absent."))?;
+    if wire::id(record, "incarnationId")? != dto.incarnation_id
+        || wire::text(record, "senderDeviceId")? != dto.host_device_id
+        || wire::number(record, "keyGeneration")? != u64::from(dto.key_generation)
+        || wire::number(record, "signatureVersion")? != 2
+        || wire::number(record, "incarnationProtocolVersion")?
+            != u64::from(crate::protocol::TERMINAL_CONNECTION_VERSION)
+        || wire::number(&blob, "authorizationRevision")? != dto.authorization_revision
+    {
+        return Err(Error::Stale);
+    }
+    let wrapped = wire::decode_b64(record, "encryptedSessionKey", 1 + 1088 + 12 + 32 + 16)?;
+    let signature = wire::decode_b64(record, "signature", 3309)?;
+    let issued = wire::number(record, "issuedAtMs")?;
+    if issued > identity::now_ms() + 5 * 60_000 {
+        return Err(invalid("Session key publication is from the future."));
+    }
+    crypto::verify_control_message(
+        public,
+        &crypto::key_blob_digest(
+            &dto.id.to_string(),
+            &dto.incarnation_id,
+            &credentials.keys.device_id,
+            &wrapped,
+            dto.key_generation,
+            issued,
+        )?,
+        &signature,
+    )?;
+    let (session, channel) = crypto::unwrap_session_key(
+        &credentials.keys.kem_key()?,
+        &wrapped,
+        &dto.id.to_string(),
+        &credentials.keys.device_id,
+        dto.key_generation,
+    )?;
+    Ok(Keys { session, channel })
+}
+
+async fn host_trusted(
+    network: &BackendClient,
+    credentials: &Credentials,
+    dto: &SessionDto,
+    public: &[u8],
+) -> Result<()> {
+    let current_credentials = network.credentials()?;
+    network.check_credentials(credentials)?;
+    let current: SessionDto = network
+        .inner
+        .http
+        .device(
+            Method::GET,
+            &format!("api/sessions/{}", dto.id),
+            &current_credentials,
+            None,
+        )
+        .await?;
+    if current.incarnation_id != dto.incarnation_id {
+        return Err(Error::Stale);
+    }
+    let owner = network
+        .fetch_identity_with(&current_credentials, &dto.owner_user_id, false)
+        .await?;
+    if owner
+        .devices
+        .get(&dto.host_device_id)
+        .is_none_or(|certificate| certificate.sig_public_key != public)
+    {
+        return Err(Error::Trust(
+            "The hosting device is no longer trusted.".into(),
+        ));
+    }
+    Ok(())
+}
+
+async fn acknowledge(socket: &mut Socket, frame: &[u8], unacknowledged: &mut usize) -> Result<()> {
+    let Some(sequence) = wire::output_end(frame) else {
+        return Ok(());
+    };
+    *unacknowledged += frame.len();
+    if *unacknowledged >= ACKNOWLEDGE_BYTES {
+        *unacknowledged = 0;
+        send_json(socket, json!({"type":"received","sequence":sequence})).await?;
+    }
+    Ok(())
+}
+
 fn interval(milliseconds: u64) -> tokio::time::Interval {
     let mut timer = tokio::time::interval(Duration::from_millis(milliseconds));
     timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -177,10 +242,10 @@ fn interval(milliseconds: u64) -> tokio::time::Interval {
 async fn run(
     network: &BackendClient,
     mut socket: Socket,
-    dto: SessionDto,
+    mut dto: SessionDto,
     credentials: Credentials,
     connection_id: Uuid,
-    key: Zeroizing<crypto::SessionKey>,
+    mut keys: Keys,
     public: Vec<u8>,
     mut frames: wire::FreshFrames,
     mut commands: mpsc::Receiver<RemoteRequest>,
@@ -189,12 +254,13 @@ async fn run(
 ) -> Result<()> {
     let generation = credentials.generation;
     let mut outgoing_sequence = 0u64;
+    let mut unacknowledged = 0usize;
     let mut pending = BTreeMap::<Uuid, Pending>::new();
-    let mut metadata_dirty = false;
-    let mut metadata_tick = interval(2_000);
     let mut heartbeat = interval(20_000);
     let mut deadlines = interval(250);
-    let mut authorization_tick = interval(30_000);
+    let mut authorization_tick = tokio::time::interval(TRUST_CHECK);
+    authorization_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    authorization_tick.tick().await;
     loop {
         check_generation(network, generation)?;
         tokio::select! {
@@ -206,35 +272,24 @@ async fn run(
                 let expired=pending.iter().filter(|(_,pending)|pending.deadline<=now).map(|(id,_)|*id).collect::<Vec<_>>();
                 for id in expired {if let Some(pending)=pending.remove(&id){let _outcome=pending.reply.send(Err(invalid("The host did not confirm the operation; it was not retried.")));}}
             }
-            _=metadata_tick.tick(),if metadata_dirty && frames.ready()=>{
-                if let Some(challenge)=frames.request()? {
-                    metadata_dirty=false;
-                    send_json(&mut socket,json!({"type":"checkpointRequest","challenge":BASE64.encode(challenge)})).await?;
-                }
-            }
             _=heartbeat.tick()=>send_json(&mut socket,json!({"type":"ping"})).await?,
-            _=authorization_tick.tick()=>{
-                let current_credentials=network.credentials()?;
-                network.check_credentials(&credentials)?;
-                let current:SessionDto=network.inner.http.device(Method::GET,&format!("api/sessions/{}",dto.id),&current_credentials,None).await?;
-                if !current.ready || current.incarnation_id!=dto.incarnation_id || current.key_generation!=dto.key_generation || current.authorization_revision!=dto.authorization_revision{return Err(Error::Stale);}
-                let owner=network.fetch_identity_with(&current_credentials,&dto.owner_user_id,false).await?;
-                if owner.devices.get(&dto.host_device_id).is_none_or(|cert|cert.sig_public_key!=public){return Err(Error::Trust("The hosting device is no longer trusted.".into()));}
-            }
+            _=authorization_tick.tick()=>match host_trusted(network,&credentials,&dto,&public).await {
+                Err(error) if error.unanswered()=>tracing::warn!(%error,"host trust check got no answer; it will be tried again"),
+                result=>result?,
+            },
             request=commands.recv()=>match request {
                 Some(RemoteRequest::Checkpoint)=>{
                     if let Some(challenge)=frames.request()?{send_json(&mut socket,json!({"type":"checkpointRequest","challenge":BASE64.encode(challenge)})).await?;}
                 }
                 Some(RemoteRequest::Control {control,reply})=>{
-                    if !frames.ready(){let _outcome=reply.send(Err(invalid("Wait for the terminal snapshot before sending input.")));continue;}
+                    if !frames.admitted(){let _outcome=reply.send(Err(invalid("Wait for the terminal snapshot before sending input.")));continue;}
                     if pending.len()>=128{let _outcome=reply.send(Err(Error::Busy));continue;}
                     outgoing_sequence=outgoing_sequence.checked_add(1).ok_or_else(||invalid("Terminal control sequence exhausted."))?;
                     let request_id=Uuid::now_v7();
                     let identity=ControlIdentity {session_id:dto.id,incarnation_id:dto.incarnation_id,authorization_revision:dto.authorization_revision,key_generation:dto.key_generation,connection_id,user_id:credentials.user_id.clone(),device_id:credentials.keys.device_id.clone(),sequence:outgoing_sequence,request_id};
                     let encoded=match wire::encode_control(&control){Ok(value)=>value,Err(error)=>{let _outcome=reply.send(Err(error));outgoing_sequence-=1;continue;}};
-                    let (nonce,ciphertext)=crypto::encrypt_control_payload(&key,&identity.aad()?,&encoded)?;
-                    let signature=crypto::sign_control_message(credentials.keys.signing_pkcs8(),&identity.signature(&nonce,&ciphertext)?)?;
-                    send_json(&mut socket,json!({"type":"control","sequence":outgoing_sequence,"requestId":request_id,"keyGeneration":dto.key_generation,"ciphertext":BASE64.encode(ciphertext),"nonce":BASE64.encode(nonce),"signature":BASE64.encode(signature)})).await?;
+                    let (nonce,ciphertext)=crypto::encrypt_control_payload(&keys.channel,crypto::TrafficStream::Control,&identity.aad()?,&encoded)?;
+                    send_json(&mut socket,json!({"type":"control","sequence":outgoing_sequence,"requestId":request_id,"keyGeneration":dto.key_generation,"ciphertext":BASE64.encode(ciphertext),"nonce":BASE64.encode(nonce)})).await?;
                     pending.insert(request_id,Pending {identity,reply,deadline:tokio::time::Instant::now()+Duration::from_secs(5)});
                 }
                 None=>return Ok(()),
@@ -243,9 +298,10 @@ async fn run(
                 let message=incoming.ok_or(Error::Closed)?.map_err(|error|invalid(error.to_string()))?;
                 match message {
                     Message::Binary(frame)=>{
-                        for update in frames.decode(&key,&frame)? {
-                            updates.try_send(update).map_err(|_|Error::Busy)?;
+                        for update in frames.decode(&keys.session,&frame)? {
+                            updates.send(update).await.map_err(|_|Error::Closed)?;
                         }
+                        acknowledge(&mut socket,&frame,&mut unacknowledged).await?;
                     }
                     Message::Text(text)=>{
                         let value:Value=serde_json::from_str(&text)?;
@@ -253,26 +309,32 @@ async fn run(
                             "ping"=>send_json(&mut socket,json!({"type":"pong"})).await?,
                             "pong"=>{},
                             "accessChanged"=>return Err(Error::Stale),
-                            "metadataChanged"=>{metadata_dirty=true;},
+                            "rekey"=>{
+                                let current_credentials=network.credentials()?;
+                                network.check_credentials(&credentials)?;
+                                dto.authorization_revision=wire::number(&value,"authorizationRevision")?;
+                                dto.key_generation=u32::try_from(wire::number(&value,"keyGeneration")?).map_err(|_|invalid("Invalid key generation."))?;
+                                keys=session_keys(network,&current_credentials,&dto,&public).await?;
+                                let challenge=frames.rekey(dto.authorization_revision,dto.key_generation)?;
+                                outgoing_sequence=0;
+                                for (_,waiting) in std::mem::take(&mut pending){let _outcome=waiting.reply.send(Err(Error::Refreshed));}
+                                send_json(&mut socket,json!({"type":"resync","challenge":BASE64.encode(challenge)})).await?;
+                                updates.send(RemoteUpdate::Resync).await.map_err(|_|Error::Closed)?;
+                            }
+                            "resync"=>{
+                                let challenge=frames.restart()?;
+                                send_json(&mut socket,json!({"type":"resync","challenge":BASE64.encode(challenge)})).await?;
+                                updates.send(RemoteUpdate::Resync).await.map_err(|_|Error::Closed)?;
+                            }
                             "checkpointProof"=>frames.proof(&value)?,
                             "controlResult"=>{
-                                let request=wire::id(&value,"requestId")?;
-                                let Some(pending_request)=pending.get(&request)else{continue;};
-                                if wire::id(&value,"connectionId")?!=pending_request.identity.connection_id
-                                    || wire::number(&value,"sequence")?!=pending_request.identity.sequence
-                                    || wire::id(&value,"sessionId")?!=dto.id || wire::id(&value,"incarnationId")?!=dto.incarnation_id
-                                    || wire::number(&value,"authorizationRevision")?!=dto.authorization_revision
-                                    || wire::number(&value,"keyGeneration")?!=u64::from(dto.key_generation)
-                                    || wire::text(&value,"senderUserId")?!=credentials.user_id
-                                    || wire::text(&value,"senderDeviceId")?!=credentials.keys.device_id
-                                {return Err(invalid("Host result targets another terminal command."));}
-                                let accepted=value.get("accepted").and_then(Value::as_bool).ok_or_else(||invalid("Invalid terminal result."))?;
-                                let message=value.get("message").and_then(Value::as_str).unwrap_or_default();
-                                if message.len()>4096{return Err(invalid("Terminal result message exceeds its bound."));}
-                                crypto::verify_control_message(&public,&pending_request.identity.result_signature(accepted,message)?,&wire::decode_b64(&value,"signature",3309)?)?;
-                                if let Some(pending)=pending.remove(&request){let _outcome=pending.reply.send(if accepted {Ok(Value::Null)}else{Err(invalid(message))});}
+                                let Some(waiting)=pending.remove(&wire::id(&value,"requestId")?)else{continue;};
+                                let plaintext=crypto::decrypt_control_payload(&keys.channel,crypto::TrafficStream::ControlResult,&waiting.identity.aad()?,&wire::decode_b64(&value,"nonce",12)?,&wire::decode_b64(&value,"ciphertext",8192)?)?;
+                                let result:Value=serde_json::from_slice(&plaintext)?;
+                                let accepted=result.get("accepted").and_then(Value::as_bool).ok_or_else(||invalid("Invalid terminal result."))?;
+                                let _outcome=waiting.reply.send(if accepted {Ok(Value::Null)}else{Err(invalid(result.get("message").and_then(Value::as_str).unwrap_or_default()))});
                             }
-                            "ended"=>{terminal_ended(&value, &frames)?; updates.try_send(RemoteUpdate::Ended { final_sequence: wire::number(&value,"finalSequence")? }).map_err(|_|Error::Busy)?; return Ok(());},
+                            "ended"=>{terminal_ended(&value, &frames)?; updates.send(RemoteUpdate::Ended { final_sequence: wire::number(&value,"finalSequence")? }).await.map_err(|_|Error::Closed)?; return Ok(());},
                             _=>return Err(invalid("Unsupported participant connection message.")),
                         }
                     }

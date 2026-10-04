@@ -152,13 +152,13 @@ async fn live_resize_does_not_satisfy_pending_capture_or_late_subscription() {
     ));
     let capture = terminal.checkpoint(original.connection_id);
     updates
-        .send(RemoteUpdate::Checkpoint {
-            checkpoint: checkpoint(6, 30, b"live resize"),
-            next_sequence: 0,
-            fresh: false,
+        .send(RemoteUpdate::Resize {
+            rows: 6,
+            cols: 30,
+            at_sequence: 0,
         })
         .await
-        .expect("live checkpoint");
+        .expect("live resize");
     assert!(matches!(
         original.control.recv().await,
         Some(ControlFrame::Resize {
@@ -193,6 +193,184 @@ async fn live_resize_does_not_satisfy_pending_capture_or_late_subscription() {
     );
     assert_eq!(capture.await.expect("fresh capture").checkpoint.rows(), 6);
     assert!(original.control.try_recv().is_err());
+    terminal.disconnect();
+}
+
+#[tokio::test]
+async fn resync_gives_an_open_view_a_new_snapshot_without_closing_it() {
+    let (terminal, mut view, _requests, updates, _changes) = start().await;
+    updates
+        .send(RemoteUpdate::Raw {
+            sequence: 0,
+            bytes: Bytes::from_static(b"before"),
+        })
+        .await
+        .expect("output");
+    updates.send(RemoteUpdate::Resync).await.expect("resync");
+    updates
+        .send(RemoteUpdate::Checkpoint {
+            checkpoint: checkpoint(4, 20, b"after the gap"),
+            next_sequence: 40,
+            fresh: true,
+        })
+        .await
+        .expect("new cut");
+    updates
+        .send(RemoteUpdate::Raw {
+            sequence: 40,
+            bytes: Bytes::from_static(b"after"),
+        })
+        .await
+        .expect("continuation");
+    assert!(matches!(
+        view.control.recv().await,
+        Some(ControlFrame::Snapshot {
+            next_sequence: 40,
+            ..
+        })
+    ));
+    assert_eq!(view.data.recv().await.expect("old output").sequence, 0);
+    assert_eq!(view.data.recv().await.expect("new output").sequence, 40);
+    assert!(!terminal.is_closed());
+    terminal.disconnect();
+}
+
+async fn interrupted(changes: &mut mpsc::Receiver<SessionChange>, terminal: &RemoteTerminal) {
+    let change = tokio::time::timeout(Duration::from_secs(1), changes.recv())
+        .await
+        .expect("interruption timeout")
+        .expect("interruption");
+    assert!(
+        matches!(change, SessionChange::RemoteInterrupted { incarnation, instance_id, .. } if incarnation == terminal.incarnation_id && instance_id == terminal.instance_id)
+    );
+    assert!(terminal.is_interrupted() && !terminal.is_closed());
+}
+
+#[tokio::test]
+async fn a_lost_connection_keeps_the_view_and_a_later_close_keeps_its_output_position() {
+    let (terminal, mut view, _requests, updates, mut changes) = start().await;
+    updates
+        .send(RemoteUpdate::Raw {
+            sequence: 0,
+            bytes: Bytes::from_static(b"before"),
+        })
+        .await
+        .expect("output");
+    updates
+        .send(RemoteUpdate::Closed {
+            reason: "link lost".to_owned(),
+        })
+        .await
+        .expect("close");
+    interrupted(&mut changes, &terminal).await;
+    assert!(view.control.try_recv().is_err());
+    assert!(
+        terminal
+            .write_input(view.connection_id, Bytes::from_static(b"typed in the gap"))
+            .await
+            .is_err()
+    );
+    terminal.disconnect();
+    assert!(matches!(
+        view.control.recv().await,
+        Some(ControlFrame::Closed {
+            final_sequence: 1,
+            ..
+        })
+    ));
+}
+
+#[tokio::test]
+async fn a_new_connection_gives_an_open_view_a_snapshot_in_place() {
+    let (terminal, mut view, _requests, updates, mut changes) = start().await;
+    updates
+        .send(RemoteUpdate::Raw {
+            sequence: 0,
+            bytes: Bytes::from_static(b"before"),
+        })
+        .await
+        .expect("output");
+    drop(updates);
+    interrupted(&mut changes, &terminal).await;
+    let (connection, mut requests, updates) = test_remote_connection(RemoteSession {
+        incarnation_id: terminal.incarnation_id,
+        ..session()
+    });
+    assert!(terminal.resume(connection));
+    updates
+        .send(RemoteUpdate::Checkpoint {
+            checkpoint: checkpoint(4, 20, b"after the gap"),
+            next_sequence: 70,
+            fresh: true,
+        })
+        .await
+        .expect("new cut");
+    updates
+        .send(RemoteUpdate::Raw {
+            sequence: 70,
+            bytes: Bytes::from_static(b"after"),
+        })
+        .await
+        .expect("continuation");
+    assert!(matches!(
+        view.control.recv().await,
+        Some(ControlFrame::Snapshot {
+            next_sequence: 70,
+            ..
+        })
+    ));
+    assert_eq!(view.data.recv().await.expect("old output").sequence, 0);
+    assert_eq!(view.data.recv().await.expect("new output").sequence, 70);
+    assert!(!terminal.is_interrupted());
+    terminal
+        .input(view.connection_id, Bytes::from_static(b"typed after"))
+        .expect("input");
+    assert!(matches!(
+        next_request(&mut requests).await,
+        TestRemoteRequest::Control { .. }
+    ));
+    terminal.disconnect();
+}
+
+#[tokio::test]
+async fn input_that_waits_for_the_host_goes_out_as_one_ordered_control() {
+    let (terminal, subscriber, mut requests, _updates, _changes) = start().await;
+    terminal
+        .input(subscriber.connection_id, Bytes::from_static(b"a"))
+        .expect("first input");
+    let first = match next_request(&mut requests).await {
+        TestRemoteRequest::Control {
+            control: TerminalControl::Input { bytes },
+            reply,
+        } => {
+            assert_eq!(bytes, b"a");
+            reply
+        }
+        _ => panic!("input expected"),
+    };
+    let second = terminal.write_input(subscriber.connection_id, Bytes::from_static(b"b"));
+    let third = terminal.write_input(subscriber.connection_id, Bytes::from_static(b"c"));
+    tokio::pin!(second, third);
+    assert!(
+        tokio::time::timeout(Duration::from_millis(10), &mut second)
+            .await
+            .is_err()
+    );
+    assert!(requests.try_recv().is_err());
+    first.send(Ok(Value::Null)).expect("first result");
+    match next_request(&mut requests).await {
+        TestRemoteRequest::Control {
+            control: TerminalControl::Input { bytes },
+            reply,
+        } => {
+            assert_eq!(bytes, b"bc");
+            reply.send(Ok(Value::Null)).expect("merged result");
+        }
+        _ => panic!("merged input expected"),
+    }
+    second.await.expect("second input confirmed");
+    third.await.expect("third input confirmed");
+    assert!(requests.try_recv().is_err());
     terminal.disconnect();
 }
 
@@ -402,13 +580,13 @@ async fn capture_refresh_preserves_existing_subscription_and_focus() {
 async fn same_cut_resize_reaches_existing_viewers_as_an_ordered_geometry_change() {
     let (terminal, mut subscriber, _requests, updates, _changes) = start().await;
     updates
-        .send(RemoteUpdate::Checkpoint {
-            checkpoint: checkpoint(6, 30, b"initial"),
-            next_sequence: 0,
-            fresh: false,
+        .send(RemoteUpdate::Resize {
+            rows: 6,
+            cols: 30,
+            at_sequence: 0,
         })
         .await
-        .expect("resized checkpoint");
+        .expect("resize notice");
     assert!(matches!(
         subscriber.control.recv().await,
         Some(ControlFrame::Resize {
@@ -437,7 +615,7 @@ async fn same_cut_resize_reaches_existing_viewers_as_an_ordered_geometry_change(
 }
 
 #[tokio::test]
-async fn unknown_input_result_closes_once_and_reports_the_exact_remote_instance() {
+async fn unknown_input_result_is_not_retried_and_makes_the_terminal_connect_again() {
     let (terminal, subscriber, mut requests, _updates, mut changes) = start().await;
     terminal
         .input(
@@ -453,15 +631,9 @@ async fn unknown_input_result_closes_once_and_reports_the_exact_remote_instance(
         }
         TestRemoteRequest::Checkpoint => panic!("input expected"),
     }
-    let change = tokio::time::timeout(Duration::from_secs(1), changes.recv())
-        .await
-        .expect("closed event timeout")
-        .expect("closed event");
-    assert!(
-        matches!(change, SessionChange::RemoteClosed { incarnation, instance_id, .. } if incarnation == terminal.incarnation_id && instance_id == terminal.instance_id)
-    );
-    assert!(terminal.is_closed());
+    interrupted(&mut changes, &terminal).await;
     assert!(requests.try_recv().is_err());
+    terminal.disconnect();
 }
 
 #[tokio::test]

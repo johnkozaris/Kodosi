@@ -3,6 +3,7 @@ using Kodosi.Accounts;
 using Kodosi.Data;
 using Kodosi.TerminalConnections;
 using Kodosi.Security;
+using Kodosi.Sessions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.Devices;
@@ -143,11 +144,11 @@ public sealed partial class DeviceService(
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         foreach (var device in removed) { device.Revoked = true; connections.RemoveDevice(userId, device.Id); }
         UpdateList(current, next, bytes, signature);
-        var affected = removed.Count == 0 ? [] : await InvalidateUserSessionsAsync(userId, ct);
+        var affected = removed.Count == 0 ? [] : await InvalidateUserSessionsAsync(userId, ct, removed);
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         foreach (var device in removed) connections.RemoveDevice(userId, device.Id);
-        foreach (var session in affected) connections.Invalidate(session);
+        await PublishSessionChangesAsync(userId, affected, removed, ct);
         connections.Notify(userId, "devices");
     }
 
@@ -168,11 +169,11 @@ public sealed partial class DeviceService(
             .ExecuteUpdateAsync(set => set.SetProperty(x => x.State, "cancelled"), ct);
         var user = await db.Users.SingleAsync(x => x.Id == userId, ct);
         user.IdentityIncarnationId = null;
-        var affected = await InvalidateUserSessionsAsync(userId, ct);
+        var affected = await InvalidateUserSessionsAsync(userId, ct, devices);
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         foreach (var device in devices) connections.RemoveDevice(userId, device.Id);
-        foreach (var session in affected) connections.Invalidate(session);
+        await PublishSessionChangesAsync(userId, affected, devices, ct);
         connections.Notify(userId, "devices");
     }
 
@@ -214,7 +215,7 @@ public sealed partial class DeviceService(
             active.Select(CertificateWire).ToArray(), ancestors.Values.Select(CertificateWire).ToArray());
     }
 
-    internal async Task<List<Session>> InvalidateUserSessionsAsync(Guid userId, CancellationToken ct)
+    internal async Task<List<Session>> InvalidateUserSessionsAsync(Guid userId, CancellationToken ct, IReadOnlyCollection<Device>? removed = null)
     {
         var sessions = await db.Sessions.Where(s => !s.Ended && (s.OwnerUserId == userId || db.SessionMembers.Any(m => m.SessionId == s.Id && m.UserId == userId))).ToListAsync(ct);
         foreach (var session in sessions)
@@ -222,12 +223,30 @@ public sealed partial class DeviceService(
             session.Ready = false;
             session.KeyGeneration = checked(session.KeyGeneration + 1);
             session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
-            connections.Invalidate(session, notifyHost: false);
-
+            if (removed?.Any(device => device.Id == session.HostDeviceId) == true)
+            {
+                session.Ended = true;
+                session.ExpiresAt = clock.GetUtcNow() + PublicationCleanup.GracePeriod;
+            }
+            connections.Invalidate(session, notifyHost: false, keep: Keep(userId, removed));
         }
         var ids = sessions.Select(session => session.Id).ToArray();
         await db.SessionKeys.Where(key => ids.Contains(key.SessionId)).ExecuteDeleteAsync(ct);
         return sessions;
+    }
+
+    internal static Func<Guid, string, bool> Keep(Guid userId, IReadOnlyCollection<Device>? removed)
+        => (user, device) => user != userId || removed?.Any(x => x.Id == device) != true;
+
+    private async Task PublishSessionChangesAsync(Guid userId, List<Session> affected, IReadOnlyCollection<Device> removed, CancellationToken ct)
+    {
+        foreach (var session in affected)
+            if (session.Ended) connections.RemoveSession(session.Id); else connections.Invalidate(session, keep: Keep(userId, removed));
+        var ended = affected.Where(session => session.Ended).Select(session => session.Id).ToArray();
+        if (ended.Length == 0) return;
+        connections.Notify(userId, "sessions");
+        foreach (var viewer in await db.SessionMembers.Where(m => ended.Contains(m.SessionId)).Select(m => m.UserId).Distinct().ToListAsync(ct))
+            connections.Notify(viewer, "sessions");
     }
 
     private static Certificate CertificateWire(Device device) => new(Convert.ToBase64String(device.Certificate), Convert.ToBase64String(device.CertificateSignature));

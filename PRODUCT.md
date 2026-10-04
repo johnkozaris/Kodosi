@@ -32,6 +32,8 @@ Closing a window leaves the host running. Quit ends terminals hosted by that app
 terminals on other computers.
 
 Reconnecting should restore the current terminal without disrupting other viewers.
+An open view stays open through a sharing change, a slow link, or a short loss of
+connection, and then shows the current terminal.
 Kodosi must not repeat input when delivery is uncertain or let an old connection
 control a replacement terminal.
 
@@ -42,6 +44,9 @@ terminal and remains responsible for identity and sharing changes.
 
 Removing a friend, device, or share blocks future access and queued delivery. It
 cannot undo commands already run or data already received.
+
+Being offline does not change sharing. A terminal keeps its chosen friends until the
+owner changes them, closes the terminal, signs out, or removes the hosting device.
 
 Private keys and terminal contents stay on endpoint devices. The service stores the
 account, device, friendship, Mission, and sharing information needed to connect people

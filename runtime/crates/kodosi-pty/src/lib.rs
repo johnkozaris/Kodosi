@@ -42,4 +42,4 @@ pub enum KodosiError {
     Backpressure(String),
 }
 
-pub use pty::{KodosiPty, RawFdAsyncReader, ShutdownStage, WaitOutcome};
+pub use pty::{KodosiPty, RawFdAsyncReader, ShutdownStage, Transfer, WaitOutcome};

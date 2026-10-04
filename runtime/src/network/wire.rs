@@ -7,12 +7,27 @@ use super::{Result, TerminalControl, crypto, invalid};
 
 mod decoder;
 mod freshness;
+mod packing;
 pub(crate) use decoder::FrameDecoder;
 pub(crate) use freshness::{CaptureIdentity, FreshFrames, frame_hash};
+pub(crate) use packing::OutputPacker;
 
 pub(crate) const FRAME_LIMIT: usize = 8 * 1024 * 1024 + 65_536;
 pub(crate) const INPUT_LIMIT: usize = 1024 * 1024;
 pub(crate) const RAW_CHUNK_LIMIT: usize = 64 * 1024;
+pub(crate) const RAW_BATCH_LIMIT: usize = 128;
+const METADATA_LIMIT: usize = 16_384;
+const SNAPSHOT_LIMIT: usize = 8 * 1024 * 1024 + 18 + METADATA_LIMIT;
+const RAW_BODY_LIMIT: usize = RAW_BATCH_LIMIT * (4 + RAW_CHUNK_LIMIT);
+
+pub(crate) enum Notice<'a> {
+    Metadata(&'a crate::terminal::TerminalMetadata),
+    Resize {
+        rows: u16,
+        cols: u16,
+        at_sequence: u64,
+    },
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -82,21 +97,6 @@ impl ControlIdentity {
         let fields = self.fields();
         crypto::signed_fields(
             b"kodosi-terminal-control-v1",
-            &fields.iter().map(String::as_bytes).collect::<Vec<_>>(),
-        )
-    }
-    pub(crate) fn signature(&self, nonce: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>> {
-        crypto::signed_fields(
-            b"kodosi-terminal-control-signature-v1",
-            &[&self.aad()?, nonce, ciphertext],
-        )
-    }
-    pub(crate) fn result_signature(&self, accepted: bool, message: &str) -> Result<Vec<u8>> {
-        let mut fields = self.fields();
-        fields.push(accepted.to_string());
-        fields.push(message.to_owned());
-        crypto::signed_fields(
-            b"kodosi-terminal-result-v1",
             &fields.iter().map(String::as_bytes).collect::<Vec<_>>(),
         )
     }
@@ -230,7 +230,7 @@ pub(crate) fn checkpoint_frame(
     next_sequence: u64,
     checkpoint: &crate::terminal::Checkpoint,
 ) -> Result<Vec<u8>> {
-    let body = encode_checkpoint(checkpoint)?;
+    let body = packing::pack_snapshot(&encode_checkpoint(checkpoint)?)?;
     let mut header = vec![3];
     header.extend_from_slice(&generation.to_be_bytes());
     header.extend_from_slice(&counter.to_be_bytes());
@@ -247,31 +247,101 @@ pub(crate) fn raw_frame(
     generation: u32,
     counter: u64,
     sequence: u64,
-    bytes: &[u8],
+    chunks: &[impl AsRef<[u8]>],
+    packer: &mut OutputPacker,
 ) -> Result<Vec<u8>> {
-    if bytes.len() > RAW_CHUNK_LIMIT {
+    if chunks.is_empty()
+        || chunks.len() > RAW_BATCH_LIMIT
+        || chunks
+            .iter()
+            .any(|chunk| chunk.as_ref().len() > RAW_CHUNK_LIMIT)
+    {
         return Err(invalid("Terminal output batch exceeds its bound."));
     }
-    let next = sequence
-        .checked_add(1)
+    let next = u64::try_from(chunks.len())
+        .ok()
+        .and_then(|count| sequence.checked_add(count))
         .ok_or_else(|| invalid("Terminal sequence exhausted."))?;
     let mut header = vec![4];
     header.extend_from_slice(&generation.to_be_bytes());
     header.extend_from_slice(&counter.to_be_bytes());
     header.extend_from_slice(&sequence.to_be_bytes());
     header.extend_from_slice(&next.to_be_bytes());
-    let mut body = Vec::with_capacity(bytes.len() + 4);
-    body.extend_from_slice(
-        &u32::try_from(bytes.len())
-            .map_err(|_| invalid("Output too large."))?
-            .to_be_bytes(),
-    );
-    body.extend_from_slice(bytes);
+    let mut body = Vec::new();
+    for chunk in chunks {
+        let chunk = chunk.as_ref();
+        body.extend_from_slice(
+            &u32::try_from(chunk.len())
+                .map_err(|_| invalid("Output too large."))?
+                .to_be_bytes(),
+        );
+        body.extend_from_slice(chunk);
+    }
+    let body = packer.pack(&body)?;
     let derived = crypto::derive_stream_key(key, crypto::TrafficStream::TerminalRaw)?;
     header.extend_from_slice(&crypto::encrypt_frame(
         &derived, generation, counter, &header, &body,
     )?);
     Ok(header)
+}
+
+pub(crate) fn notice_frame(
+    key: &crypto::SessionKey,
+    generation: u32,
+    counter: u64,
+    revision: u64,
+    notice: &Notice<'_>,
+) -> Result<Vec<u8>> {
+    let body = match notice {
+        Notice::Metadata(metadata) => {
+            let mut body = vec![0];
+            body.extend_from_slice(&encode_metadata(metadata)?);
+            body
+        }
+        Notice::Resize {
+            rows,
+            cols,
+            at_sequence,
+        } => {
+            let mut body = vec![1];
+            body.extend_from_slice(&rows.to_be_bytes());
+            body.extend_from_slice(&cols.to_be_bytes());
+            body.extend_from_slice(&at_sequence.to_be_bytes());
+            body
+        }
+    };
+    let mut header = vec![5];
+    header.extend_from_slice(&generation.to_be_bytes());
+    header.extend_from_slice(&counter.to_be_bytes());
+    header.extend_from_slice(&revision.to_be_bytes());
+    header.extend_from_slice(&[0; 8]);
+    let derived = crypto::derive_stream_key(key, crypto::TrafficStream::Notice)?;
+    header.extend_from_slice(&crypto::encrypt_frame(
+        &derived, generation, counter, &header, &body,
+    )?);
+    Ok(header)
+}
+
+fn encode_metadata(metadata: &crate::terminal::TerminalMetadata) -> Result<Vec<u8>> {
+    if !metadata.is_valid() {
+        return Err(invalid("Invalid terminal metadata."));
+    }
+    let encoded = serde_json::to_vec(metadata)?;
+    if encoded.len() > METADATA_LIMIT {
+        return Err(invalid("Terminal metadata exceeds its bound."));
+    }
+    Ok(encoded)
+}
+
+pub(crate) fn decode_metadata(encoded: &[u8]) -> Result<crate::terminal::TerminalMetadata> {
+    if encoded.len() > METADATA_LIMIT {
+        return Err(invalid("Terminal metadata exceeds its bound."));
+    }
+    let metadata: crate::terminal::TerminalMetadata = serde_json::from_slice(encoded)?;
+    if !metadata.is_valid() {
+        return Err(invalid("Invalid terminal metadata."));
+    }
+    Ok(metadata)
 }
 
 fn encode_checkpoint(checkpoint: &crate::terminal::Checkpoint) -> Result<Vec<u8>> {
@@ -297,21 +367,14 @@ fn encode_checkpoint(checkpoint: &crate::terminal::Checkpoint) -> Result<Vec<u8>
     );
     encoded.extend_from_slice(bytes);
     if let Some(metadata) = &checkpoint.metadata {
-        if !metadata.is_valid() {
-            return Err(invalid("Invalid terminal metadata."));
-        }
-        let metadata = serde_json::to_vec(metadata)?;
-        if metadata.len() > 16_384 {
-            return Err(invalid("Terminal metadata exceeds its bound."));
-        }
-        encoded.extend_from_slice(&metadata);
+        encoded.extend_from_slice(&encode_metadata(metadata)?);
     }
     Ok(encoded)
 }
 
 pub(crate) fn decode_checkpoint(encoded: &[u8]) -> Result<crate::terminal::Checkpoint> {
     use crate::terminal::{Checkpoint, TerminalScreen, TerminalSize};
-    if encoded.len() < 18 || encoded.len() > 8 * 1024 * 1024 + 18 + 16_384 {
+    if encoded.len() < 18 || encoded.len() > 8 * 1024 * 1024 + 18 + METADATA_LIMIT {
         return Err(invalid("Checkpoint plaintext has invalid length."));
     }
     if u32::from_be_bytes(
@@ -343,7 +406,7 @@ pub(crate) fn decode_checkpoint(encoded: &[u8]) -> Result<crate::terminal::Check
     if len == 0
         || len > 8 * 1024 * 1024
         || encoded.len() < 18 + len
-        || encoded.len() - 18 - len > 16_384
+        || encoded.len() - 18 - len > METADATA_LIMIT
     {
         return Err(invalid("Checkpoint length disagrees with envelope."));
     }
@@ -357,14 +420,15 @@ pub(crate) fn decode_checkpoint(encoded: &[u8]) -> Result<crate::terminal::Check
     )
     .map_err(|error| invalid(error.to_string()))?;
     if encoded.len() > 18 + len {
-        let metadata: crate::terminal::TerminalMetadata =
-            serde_json::from_slice(&encoded[18 + len..])?;
-        if !metadata.is_valid() {
-            return Err(invalid("Invalid terminal metadata."));
-        }
-        checkpoint.metadata = Some(metadata);
+        checkpoint.metadata = Some(decode_metadata(&encoded[18 + len..])?);
     }
     Ok(checkpoint)
+}
+
+pub(crate) fn output_end(frame: &[u8]) -> Option<u64> {
+    (frame.first() == Some(&4))
+        .then(|| read_u64(frame, 21).ok())
+        .flatten()
 }
 
 pub(crate) fn read_u64(bytes: &[u8], offset: usize) -> Result<u64> {
@@ -423,21 +487,20 @@ mod tests {
                 .unwrap()
                 .starts_with(tags["TERMINAL_CONTROL_V1"].as_str().unwrap().as_bytes())
         );
-        assert!(
-            identity.signature(&[0; 12], &[]).unwrap().starts_with(
-                tags["TERMINAL_CONTROL_SIGNATURE_V1"]
-                    .as_str()
-                    .unwrap()
-                    .as_bytes()
-            )
-        );
-        assert!(
-            identity
-                .result_signature(true, "")
-                .unwrap()
-                .starts_with(tags["TERMINAL_RESULT_V1"].as_str().unwrap().as_bytes())
-        );
+        assert!(tags.get("TERMINAL_CONTROL_SIGNATURE_V1").is_none());
+        assert!(tags.get("TERMINAL_RESULT_V1").is_none());
         assert!(tags.get("SESSION_KEY_V2").is_none());
+    }
+
+    #[test]
+    fn only_an_output_frame_has_an_end_sequence_to_acknowledge() {
+        let mut frame = vec![0u8; 29];
+        frame[0] = 4;
+        frame[21..29].copy_from_slice(&7u64.to_be_bytes());
+        assert_eq!(output_end(&frame), Some(7));
+        frame[0] = 3;
+        assert_eq!(output_end(&frame), None);
+        assert_eq!(output_end(&[4, 0, 0]), None);
     }
 
     #[test]

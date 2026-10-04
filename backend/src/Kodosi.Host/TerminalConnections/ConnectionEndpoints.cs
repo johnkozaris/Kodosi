@@ -45,7 +45,7 @@ internal static class ConnectionEndpoints
             if (helloFrame is null || helloFrame.Value.Type != WebSocketMessageType.Text) throw ApiException.Invalid("Expected terminal connection hello.");
             using var hello = Wire.Parse(helloFrame.Value.Bytes);
             var root = hello.RootElement;
-            if (root.GetProperty("type").GetString() != "hello" || root.GetProperty("protocolVersion").GetInt32() != 13)
+            if (root.GetProperty("type").GetString() != "hello" || root.GetProperty("protocolVersion").GetInt32() != 15)
                 throw ApiException.Invalid("Unsupported terminal connection protocol.");
             var deviceId = DeviceIdRules.Require(root.GetProperty("deviceId").GetString());
             Guid? incarnationId = sessionId is null ? null : root.GetProperty("incarnationId").GetGuid();
@@ -66,6 +66,7 @@ internal static class ConnectionEndpoints
                 if (!signatureVerifier.Verify(device.SigningPublicKey, Proofs.Connection(current.Id, deviceId, connectionId, purpose, sessionId, incarnationId, challenge), signature))
                     throw ApiException.Forbidden("Invalid terminal connection device proof.");
                 peer = new SocketPeer(socket, current.Id, deviceId, connectionId);
+                peer.ExtendUntil(expires);
                 if (sessionId is { } id)
                 {
                     var sessions = scope.ServiceProvider.GetRequiredService<SessionService>();
@@ -76,7 +77,6 @@ internal static class ConnectionEndpoints
                     if (purpose == "host")
                     {
                         state.Ready = false;
-                        state.ExpiresAt = providers.GetRequiredService<TimeProvider>().GetUtcNow() + PublicationCleanup.GracePeriod;
                         directory.Invalidate(state, notifyHost: false);
                         var db = scope.ServiceProvider.GetRequiredService<KodosiDbContext>();
                         await using var transaction = await db.Database.BeginTransactionAsync(handshakeDeadline.Token);
@@ -102,17 +102,14 @@ internal static class ConnectionEndpoints
                     peer.Send(new { type = "ready", connectionId });
                 }
             }
-            using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, peer.Stopped);
-            var remaining = expires - DateTimeOffset.UtcNow;
-            if (remaining <= TimeSpan.Zero) return;
-            lifetime.CancelAfter(remaining);
+            using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, peer.Stopped, peer.Expired);
             try
             {
                 while (!lifetime.IsCancellationRequested)
                 {
                     using var receiveDeadline = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
                     receiveDeadline.CancelAfter(TimeSpan.FromSeconds(90));
-                    var frame = await Wire.ReadAsync(socket, TerminalReplay.MaximumFrame * 2, receiveDeadline.Token);
+                    var frame = await Wire.ReadAsync(socket, OutputOrder.MaximumFrame * 2, receiveDeadline.Token);
                     if (frame is null) break;
                     if (frame.Value.Type == WebSocketMessageType.Binary)
                     {
@@ -135,16 +132,18 @@ internal static class ConnectionEndpoints
                                 break;
                             case "checkpoint":
                                 directory.Checkpoint(live, peer, body.GetProperty("requestId").GetGuid(),
-                                    Limits.Base64(body.GetProperty("frame").GetString(), "Terminal checkpoint", TerminalReplay.MaximumFrame),
+                                    Limits.Base64(body.GetProperty("frame").GetString(), "Terminal checkpoint", OutputOrder.MaximumFrame),
                                     body.GetProperty("signature").GetString());
                                 break;
-                            case "metadataChanged": directory.MetadataChanged(live, peer); break;
+                            case "resync": directory.Resync(live, peer); break;
                             case "controlResult": directory.Result(live, peer, body); break;
                             default: throw ApiException.Invalid("Unknown host message.");
                         }
                     }
                     else if (type == "control") directory.Control(live, peer, body);
+                    else if (type == "received") peer.Acknowledge(body.GetProperty("sequence").GetUInt64());
                     else if (type == "checkpointRequest") directory.RequestCapture(live, peer, body.GetProperty("challenge").GetString());
+                    else if (type == "resync") directory.BeginBootstrap(live, peer, body.GetProperty("challenge").GetString(), resync: true);
                     else throw ApiException.Invalid("Unknown participant message.");
                 }
             }

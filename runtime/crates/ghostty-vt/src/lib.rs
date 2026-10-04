@@ -236,4 +236,9 @@ mod tests {
         assert_checkpoint_suffix_parity(8, 2, b"\x1b*0\x1bN", b"q");
         assert_checkpoint_suffix_parity(8, 2, b"\x1b+0\x1bO", b"q");
     }
+
+    #[test]
+    fn semantic_checkpoint_restores_when_a_wrapped_line_is_longer_than_the_history() {
+        assert_checkpoint_suffix_parity(100, 30, &vec![b'x'; 110_000], b"\r\nafter");
+    }
 }

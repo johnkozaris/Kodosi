@@ -8,7 +8,8 @@ terminal-sharing metadata and routes encrypted terminal traffic.
 - Identity changes, sharing changes, and revocation must take effect before more
   traffic is admitted.
 - Terminal connection state is bounded and temporary. It is not a terminal archive or durable input
-  queue, and removing expired metadata must never end the host's local process.
+  queue. An offline host keeps its terminal record and sharing. Only ended records are removed, and
+  removing them must never end the host's local process.
 - Feature services own short EF transactions directly. Do not add repository or port
   layers around them.
 - Run one serving backend process.

@@ -341,7 +341,12 @@ impl Runtime {
         {
             self.connections.remove(&id);
         }
-        if self.local.contains_key(&id) || self.connections.contains_key(&id) {
+        if self.local.contains_key(&id)
+            || self
+                .connections
+                .get(&id)
+                .is_some_and(|connection| !connection.is_interrupted())
+        {
             self.result(&command);
             return Ok(());
         }
@@ -373,6 +378,7 @@ impl Runtime {
                     incarnation,
                     failures: 0,
                     next: tokio::time::Instant::now() + Duration::from_secs(2),
+                    connected: None,
                 });
             }
             entry.connection_state = ConnectionState::Connecting;
@@ -724,20 +730,32 @@ impl Runtime {
                     return;
                 }
                 if self.views.contains_key(&id) {
+                    let failures = self.reconnect.get(&id).map_or(0, |retry| retry.failures);
                     self.reconnect.insert(
                         id,
                         Reconnect {
                             incarnation: connection.session.incarnation_id,
-                            failures: 0,
+                            failures,
                             next: tokio::time::Instant::now() + Duration::from_secs(2),
+                            connected: Some(tokio::time::Instant::now()),
                         },
                     );
                 }
                 let mut entry = self.remote_entry(connection.session.clone());
                 entry.connection_state = ConnectionState::Connected;
                 entry.message = None;
-                self.connections
-                    .insert(id, RemoteTerminal::spawn(connection, self.changes.clone()));
+                let resumed = self.connections.get(&id).is_some_and(|existing| {
+                    existing.is_interrupted()
+                        && existing.incarnation_id == connection.session.incarnation_id
+                });
+                if resumed {
+                    if let Some(existing) = self.connections.get(&id) {
+                        existing.resume(connection);
+                    }
+                } else {
+                    self.connections
+                        .insert(id, RemoteTerminal::spawn(connection, self.changes.clone()));
+                }
                 self.remotes.insert(id, entry);
                 self.publish_catalog();
                 for command in opening.commands {
@@ -749,13 +767,17 @@ impl Runtime {
                 }
             }
             Err(error) => {
+                tracing::warn!(%id, %error, "remote terminal connection failed");
                 if matches!(error, Error::Invalid(_)) {
                     self.reconnect.remove(&id);
+                    if let Some(connection) = self.connections.remove(&id) {
+                        connection.disconnect();
+                    }
                 }
                 if let Some(retry) = self.reconnect.get_mut(&id) {
                     retry.failures = retry.failures.saturating_add(1);
-                    retry.next = tokio::time::Instant::now()
-                        + Duration::from_secs(2_u64.pow(retry.failures.min(5)));
+                    retry.next = tokio::time::Instant::now() + Reconnect::delay(retry.failures);
+                    retry.connected = None;
                 }
                 if let Some(entry) = self.remotes.get_mut(&id) {
                     entry.connection_state = if matches!(error, Error::Invalid(_)) {

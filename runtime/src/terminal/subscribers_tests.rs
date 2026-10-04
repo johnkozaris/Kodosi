@@ -30,7 +30,7 @@ async fn dropping_subscription_immediately_retires_its_authorization() {
 }
 
 #[tokio::test]
-async fn a_full_data_queue_closes_only_the_slow_viewer() {
+async fn a_view_that_falls_behind_stays_open_and_gets_a_snapshot_after_it_reads_its_queue() {
     let mut subscribers = Subscribers::default();
     let mut slow = subscribers
         .subscribe(Uuid::now_v7(), checkpoint(), 0)
@@ -38,10 +38,8 @@ async fn a_full_data_queue_closes_only_the_slow_viewer() {
     let mut fast = subscribers
         .subscribe(Uuid::now_v7(), checkpoint(), 0)
         .expect("fast");
-    let slow_authorization = subscribers
-        .authorization(slow.connection_id)
-        .expect("authorization");
-    for sequence in 0..=DATA_CAPACITY as u64 {
+    let total = DATA_CAPACITY as u64 + 20;
+    for sequence in 0..total {
         subscribers.data(&DataFrame {
             sequence,
             bytes: Bytes::from_static(b"x"),
@@ -51,19 +49,38 @@ async fn a_full_data_queue_closes_only_the_slow_viewer() {
             sequence
         );
     }
-    assert!(slow_authorization.is_cancelled());
-    assert!(!subscribers.contains(slow.connection_id));
-    assert!(subscribers.contains(fast.connection_id));
-    assert!(
-        matches!(slow.control.recv().await, Some(ControlFrame::Closed { final_sequence, .. }) if final_sequence == DATA_CAPACITY as u64)
-    );
+    subscribers.control(&ControlFrame::Resize {
+        rows: 6,
+        cols: 30,
+        at_sequence: total,
+    });
+    assert!(subscribers.contains(slow.connection_id));
+    assert!(!subscribers.caught_up());
+    subscribers.refresh(&checkpoint(), total);
+    assert!(slow.control.try_recv().is_err());
     for expected in 0..DATA_CAPACITY as u64 {
         assert_eq!(
-            slow.data.recv().await.expect("bounded prefix").sequence,
+            slow.data.recv().await.expect("queued prefix").sequence,
             expected
         );
     }
-    assert!(slow.data.recv().await.is_none());
+    assert!(subscribers.caught_up());
+    subscribers.refresh(&checkpoint(), total);
+    assert!(!subscribers.caught_up());
+    assert!(matches!(
+        slow.control.recv().await,
+        Some(ControlFrame::Snapshot { next_sequence, .. }) if next_sequence == total
+    ));
+    subscribers.data(&DataFrame {
+        sequence: total,
+        bytes: Bytes::from_static(b"y"),
+    });
+    assert_eq!(slow.data.recv().await.expect("resumed").sequence, total);
+    assert!(matches!(
+        fast.control.recv().await,
+        Some(ControlFrame::Resize { .. })
+    ));
+    assert!(fast.control.try_recv().is_err());
 }
 
 #[tokio::test]
@@ -95,9 +112,9 @@ async fn replay_preflights_capacity_without_partially_enqueuing() {
 }
 
 #[tokio::test]
-async fn full_control_queue_retires_focus_and_input_lease() {
+async fn a_view_with_a_full_control_queue_stays_open_and_gets_a_snapshot_when_it_has_room() {
     let mut subscribers = Subscribers::default();
-    let subscriber = subscribers
+    let mut subscriber = subscribers
         .subscribe(Uuid::now_v7(), checkpoint(), 0)
         .expect("subscriber");
     let authorization = subscribers
@@ -110,8 +127,28 @@ async fn full_control_queue_retires_focus_and_input_lease() {
             at_sequence,
         });
     }
-    assert!(authorization.is_cancelled());
-    assert!(!subscribers.contains(subscriber.connection_id));
+    assert!(!authorization.is_cancelled());
+    assert!(subscribers.contains(subscriber.connection_id));
+
+    subscribers.refresh(&checkpoint(), 20);
+    assert!(subscribers.caught_up());
+    assert!(matches!(
+        subscriber.control.recv().await,
+        Some(ControlFrame::Resize { at_sequence: 0, .. })
+    ));
+    subscribers.refresh(&checkpoint(), 20);
+    assert!(!subscribers.caught_up());
+    let mut last = None;
+    while let Ok(frame) = subscriber.control.try_recv() {
+        last = Some(frame);
+    }
+    assert!(matches!(
+        last,
+        Some(ControlFrame::Snapshot {
+            next_sequence: 20,
+            ..
+        })
+    ));
 }
 
 #[tokio::test]

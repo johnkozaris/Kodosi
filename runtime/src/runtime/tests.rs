@@ -690,6 +690,55 @@ async fn first_remote_open_retains_retry_demand_until_explicit_disconnect() {
 }
 
 #[tokio::test]
+async fn a_failed_reconnect_waits_longer_each_time_and_only_a_final_answer_ends_it() {
+    let (mut runtime, _root) = registry_fixture();
+    let id = Uuid::now_v7();
+    runtime.replace_remotes(vec![remote_session(id, Uuid::now_v7())]);
+    runtime
+        .apply_for_consumer(
+            &Command::OpenRemote {
+                request_id: Uuid::now_v7().to_string(),
+                session_id: id.to_string(),
+            },
+            Uuid::now_v7(),
+            CancellationToken::new(),
+        )
+        .unwrap();
+    let mut waits = Vec::new();
+    for result in [
+        Error::Other("Your sign-in has expired. Sign in again.".to_owned()),
+        Error::Other("The server did not respond.".to_owned()),
+    ] {
+        let attempt = runtime.opening[&id].attempt;
+        let before = Instant::now();
+        runtime.complete(Job {
+            scope: runtime.scope.clone(),
+            completion: Completion::Connected {
+                id,
+                attempt,
+                result: Err(result),
+            },
+        });
+        waits.push(runtime.reconnect[&id].next - before);
+        runtime.reconnect.get_mut(&id).unwrap().next = Instant::now();
+        runtime.reconnect_views();
+    }
+    assert_eq!(runtime.reconnect[&id].failures, 2);
+    assert!(waits[1] > waits[0]);
+
+    let attempt = runtime.opening[&id].attempt;
+    runtime.complete(Job {
+        scope: runtime.scope.clone(),
+        completion: Completion::Connected {
+            id,
+            attempt,
+            result: Err(Error::Invalid("The session is not available.".to_owned())),
+        },
+    });
+    assert!(!runtime.reconnect.contains_key(&id));
+}
+
+#[tokio::test]
 async fn remote_demand_is_released_only_by_its_consumer() {
     let (mut runtime, _root) = registry_fixture();
     let id = Uuid::now_v7();
@@ -744,6 +793,7 @@ async fn remote_recovery_preserves_only_open_current_incarnations() {
             incarnation,
             failures: 0,
             next: Instant::now(),
+            connected: None,
         },
     );
     runtime.reconnect_views();
@@ -758,6 +808,7 @@ async fn remote_recovery_preserves_only_open_current_incarnations() {
             incarnation,
             failures: 0,
             next: Instant::now(),
+            connected: None,
         },
     );
     runtime.replace_remotes(vec![remote_session(id, Uuid::now_v7())]);
@@ -796,6 +847,7 @@ async fn catalog_replacement_cancels_inflight_automatic_recovery() {
             incarnation,
             failures: 0,
             next: Instant::now(),
+            connected: None,
         },
     );
     runtime.reconnect_views();

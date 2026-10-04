@@ -159,7 +159,6 @@ public sealed class IntegrationTests(PostgresFixture postgres)
                 Convert.ToBase64String(owner.Fixture.Sign(Proofs.SessionKey(id, incarnation, actor.Fixture.DeviceId, bytes, (uint)generation, (ulong)issued))), 2, issued);
         }).ToArray();
         await CallAsync(owner, HttpMethod.Post, path + "/keys", new { incarnationId = incarnation, authorizationRevision = revision, keyGeneration = generation, blobs });
-        await host.SendAsync(new ArraySegment<byte>(TerminalConnectionTests.Frame(3, generation, 0, 1, 0)), WebSocketMessageType.Binary, true, TestContext.Current.CancellationToken);
         var participant = await app.ConnectAsync(friend, "participant", id, incarnation); using var viewer = participant.Socket;
         JsonElement checkpointRequest;
         do { checkpointRequest = await JsonAsync(host); } while (checkpointRequest.GetProperty("type").GetString() == "accessChanged");
@@ -189,8 +188,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
             requestId,
             keyGeneration = generation,
             nonce = Convert.ToBase64String(new byte[12]),
-            ciphertext = Convert.ToBase64String(new byte[32]),
-            signature = Convert.ToBase64String(new byte[3309])
+            ciphertext = Convert.ToBase64String(new byte[32])
         });
         var presence = await JsonAsync(host); Assert.Equal("participantConnected", presence.GetProperty("type").GetString());
         var control = await JsonAsync(host); Assert.Equal("control", control.GetProperty("type").GetString());
@@ -202,11 +200,12 @@ public sealed class IntegrationTests(PostgresFixture postgres)
             connectionId = control.GetProperty("connectionId").GetString(),
             requestId,
             sequence = 1,
-            accepted = true,
-            signature = Convert.ToBase64String(new byte[3309])
+            nonce = Convert.ToBase64String(new byte[12]),
+            ciphertext = Convert.ToBase64String(new byte[40])
         });
-        var result = await JsonAsync(viewer); Assert.True(result.GetProperty("accepted").GetBoolean());
+        var result = await JsonAsync(viewer); Assert.Equal(Convert.ToBase64String(new byte[40]), result.GetProperty("ciphertext").GetString());
         Assert.Equal(requestId, result.GetProperty("requestId").GetGuid());
+        Assert.False(control.TryGetProperty("signature", out _)); Assert.False(result.TryGetProperty("signature", out _));
         await CallAsync(owner, HttpMethod.Put, path + "/members", new { incarnationId = incarnation, expectedRevision = revision, userIds = Array.Empty<Guid>() });
         Assert.Empty((await CallAsync(friend, HttpMethod.Get, "/api/sessions")).EnumerateArray());
         using var revoked = await SignedAsync(friend, HttpMethod.Get, path + "/keys/mine");

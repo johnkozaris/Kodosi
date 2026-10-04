@@ -343,6 +343,7 @@ impl IdleWatch {
 
 async fn run_host(config: Config, json_output: bool) -> Result<()> {
     let mut idle = IdleWatch::new(config.host == HostKind::Background);
+    crate::diagnostics::install(&config.data_root);
     let runtime = crate::start(config).await?;
     let result = async {
         let mut events = runtime.subscribe_events();

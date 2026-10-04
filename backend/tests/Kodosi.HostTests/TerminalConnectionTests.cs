@@ -19,19 +19,26 @@ public sealed class TerminalConnectionTests
     }
 
     [Fact]
-    public void CheckpointAndRawReplayAreBoundedAndRejectRetiredFrameTypes()
+    public void OutputOrderAcceptsContiguousOutputAndSmallNoticesAndRejectsOtherFrames()
     {
-        var replay = new TerminalReplay(); replay.Accept(Frame(3, 1, 0, 1, 10), 1);
-        replay.Accept(Frame(4, 1, 0, 10, 11), 1);
-        var joined = replay.Bootstrap(Frame(3, 1, 1, 2, 10), 1);
-        Assert.NotNull(joined); Assert.Equal(2, joined.Count);
-        Assert.Throws<ApiException>(() => replay.Accept(Frame(5, 1, 1, 2, 11), 1));
-        Assert.Throws<ApiException>(() => replay.Accept(Frame(6, 1, 1, 2, 11), 1));
-        Assert.Throws<ApiException>(() => replay.Accept(Frame(4, 1, 0, 11, 12), 1));
-        Assert.Throws<ApiException>(() => replay.Accept(Frame(4, 2, 2, 11, 12), 1));
-        for (ulong i = 11; i < 300; i++) replay.Accept(Frame(4, 1, i, i, i + 1), 1);
-        Assert.Null(replay.Bootstrap(Frame(3, 1, 2, 3, 10), 1));
-        Assert.Single(replay.Bootstrap(Frame(3, 1, 3, 4, 300), 1)!);
+        static OutputOrder.FrameHeader Header(byte type, ulong counter, ulong first, ulong next) => OutputOrder.Header(Frame(type, 1, counter, first, next), 1)!.Value;
+        var order = new OutputOrder(); order.Accept(Header(4, 0, 10, 11));
+        Assert.Throws<ApiException>(() => order.Accept(Header(4, 0, 11, 12)));
+        Assert.Throws<ApiException>(() => order.Accept(Header(4, 1, 9, 10)));
+        Assert.Throws<ApiException>(() => order.Accept(Header(3, 1, 1, 11)));
+        order.Accept(Header(5, 0, 1, 0));
+        Assert.Throws<ApiException>(() => order.Accept(Header(5, 0, 1, 0)));
+        Assert.Throws<ApiException>(() => { OutputOrder.Header(Frame(5, 1, 1, 1, 0, OutputOrder.MaximumNoticeFrame + 1), 1); });
+        Assert.Throws<ApiException>(() => { OutputOrder.Header(Frame(2, 1, 1, 2, 11), 1); });
+        Assert.Throws<ApiException>(() => { OutputOrder.Header(Frame(6, 1, 1, 2, 11), 1); });
+        Assert.Throws<ApiException>(() => { OutputOrder.Header(Frame(4, 2, 1, 11, 12), 1); });
+        Assert.Null(OutputOrder.Header(Frame(4, 1, 1, 11, 12), 2));
+        Assert.Equal(11UL, order.NextSequence);
+        Assert.True(order.Follows(Header(3, 0, 1, 11))); Assert.False(order.Follows(Header(3, 0, 1, 10)));
+        order.Accept(Header(4, 1, 40, 41));
+        Assert.Equal(41UL, order.NextSequence);
+        order.Restart(); order.Accept(Header(4, 2, 5, 6));
+        Assert.Equal(6UL, order.NextSequence);
     }
 
     [Fact]
@@ -40,7 +47,6 @@ public sealed class TerminalConnectionTests
         var directory = new ConnectionDirectory(TimeProvider.System);
         var state = new Session { Id = Guid.CreateVersion7(), IncarnationId = Guid.CreateVersion7(), AuthorizationRevision = 1, KeyGeneration = 1, Ready = true };
         await using var host = Peer(); var live = directory.RegisterHost(state, host); directory.MarkReady(state);
-        directory.Output(live, host, Frame(3, 1, 0, 1, 10));
         await using var first = Peer(); directory.RegisterParticipant(state, first); directory.BeginBootstrap(live, first, Challenge());
         var request = live.Checkpoints.Keys.Single(); directory.Checkpoint(live, host, request, Frame(3, 1, 1, 2, 10), Signature);
         directory.Output(live, host, Frame(4, 1, 0, 10, 11));
@@ -76,8 +82,7 @@ public sealed class TerminalConnectionTests
             keyGeneration = 1,
             requestId = Guid.CreateVersion7(),
             nonce = Convert.ToBase64String(new byte[12]),
-            ciphertext = Convert.ToBase64String(new byte[32]),
-            signature = Convert.ToBase64String(new byte[3309])
+            ciphertext = Convert.ToBase64String(new byte[32])
         }));
         directory.Control(live, participant, message.RootElement);
         Assert.Single(live.Pending);
@@ -131,8 +136,7 @@ public sealed class TerminalConnectionTests
             keyGeneration = 1,
             requestId,
             nonce = Convert.ToBase64String(new byte[12]),
-            ciphertext = Convert.ToBase64String(new byte[32]),
-            signature = Convert.ToBase64String(new byte[3309])
+            ciphertext = Convert.ToBase64String(new byte[32])
         }));
         directory.Control(live, peer, control.RootElement);
         using var wrong = JsonDocument.Parse(JsonSerializer.Serialize(new
@@ -141,8 +145,8 @@ public sealed class TerminalConnectionTests
             requestId,
             sequence = 1,
             connectionId = "other",
-            accepted = true,
-            signature = Convert.ToBase64String(new byte[3309])
+            nonce = Convert.ToBase64String(new byte[12]),
+            ciphertext = Convert.ToBase64String(new byte[40])
         }));
         Assert.Throws<ApiException>(() => directory.Result(live, host, wrong.RootElement)); Assert.Single(live.Pending);
         clock.Advance(TimeSpan.FromSeconds(11)); directory.Sweep();
@@ -204,7 +208,7 @@ public sealed class TerminalConnectionTests
     }
 
     [Fact]
-    public async Task MetadataHintsOnlyReachReadyViewersFromTheCurrentHost()
+    public async Task MetadataFramesOnlyReachReadyViewersFromTheCurrentHost()
     {
         var directory = new ConnectionDirectory(TimeProvider.System);
         var state = new Session { Id = Guid.CreateVersion7(), IncarnationId = Guid.CreateVersion7(), AuthorizationRevision = 1, KeyGeneration = 1, Ready = true };
@@ -212,19 +216,199 @@ public sealed class TerminalConnectionTests
         var capture = new CapturingSocket();
         await using var viewer = new SocketPeer(capture, Guid.CreateVersion7(), "viewer", Guid.CreateVersion7().ToString());
         directory.RegisterParticipant(state, viewer);
-        directory.MetadataChanged(live, host);
+        directory.Output(live, host, Frame(5, 1, 0, 0, 0));
         Assert.False(capture.Frames.Reader.TryRead(out _));
         directory.BeginBootstrap(live, viewer, Challenge());
         directory.Checkpoint(live, host, live.Checkpoints.Keys.Single(), Frame(3, 1, 0, 1, 0), Signature);
         await capture.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken);
         await capture.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken);
-        directory.MetadataChanged(live, host);
-        var hint = await capture.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken);
-        using var json = JsonDocument.Parse(hint.Bytes);
-        Assert.Equal("metadataChanged", json.RootElement.GetProperty("type").GetString());
-        Assert.Single(json.RootElement.EnumerateObject());
+        var metadata = Frame(5, 1, 1, 1, 0);
+        directory.Output(live, host, metadata);
+        var forwarded = await capture.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(WebSocketMessageType.Binary, forwarded.Type); Assert.Equal(metadata, forwarded.Bytes);
+        var output = Frame(4, 1, 0, 0, 1);
+        directory.Output(live, host, output);
+        Assert.Equal(output, (await capture.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken)).Bytes);
         await using var other = Peer();
-        Assert.Throws<ApiException>(() => directory.MetadataChanged(live, other));
+        Assert.Throws<ApiException>(() => directory.Output(live, other, Frame(5, 1, 2, 1, 0)));
+    }
+
+    [Fact]
+    public async Task HostResyncKeepsViewersConnectedUntilTheyAskForANewSnapshot()
+    {
+        var directory = new ConnectionDirectory(TimeProvider.System);
+        var state = new Session { Id = Guid.CreateVersion7(), IncarnationId = Guid.CreateVersion7(), AuthorizationRevision = 1, KeyGeneration = 1, Ready = true };
+        await using var host = Peer(); var live = directory.RegisterHost(state, host); directory.MarkReady(state);
+        var capture = new CapturingSocket();
+        await using var viewer = new SocketPeer(capture, Guid.CreateVersion7(), "viewer", Guid.CreateVersion7().ToString());
+        directory.RegisterParticipant(state, viewer); directory.BeginBootstrap(live, viewer, Challenge());
+        directory.Checkpoint(live, host, live.Checkpoints.Keys.Single(), Frame(3, 1, 0, 1, 10), Signature);
+        await capture.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken);
+        await capture.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken);
+        directory.BeginBootstrap(live, viewer, Challenge(), resync: true);
+        Assert.Empty(live.Checkpoints); Assert.True(live.Participants[viewer.ConnectionId].Ready);
+
+        directory.Resync(live, host);
+        using (var resync = JsonDocument.Parse((await capture.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken)).Bytes))
+        {
+            Assert.Equal("resync", resync.RootElement.GetProperty("type").GetString());
+            Assert.Single(resync.RootElement.EnumerateObject());
+        }
+        Assert.True(viewer.IsOpen); Assert.False(live.Participants[viewer.ConnectionId].Ready);
+        directory.Output(live, host, Frame(4, 1, 0, 40, 41));
+        directory.RequestCapture(live, viewer, Challenge());
+        Assert.Empty(live.Checkpoints);
+        using var control = JsonDocument.Parse(JsonSerializer.Serialize(new
+        {
+            type = "control",
+            sequence = 1,
+            keyGeneration = 1,
+            requestId = Guid.CreateVersion7(),
+            nonce = Convert.ToBase64String(new byte[12]),
+            ciphertext = Convert.ToBase64String(new byte[32])
+        }));
+        directory.Control(live, viewer, control.RootElement);
+        Assert.Single(live.Pending);
+
+        directory.BeginBootstrap(live, viewer, Challenge(), resync: true);
+        var snapshot = Frame(3, 1, 1, 2, 41);
+        directory.Checkpoint(live, host, live.Checkpoints.Keys.Single(), snapshot, Signature);
+        Assert.Equal(WebSocketMessageType.Text, (await capture.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken)).Type);
+        Assert.Equal(snapshot, (await capture.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken)).Bytes);
+        Assert.True(live.Participants[viewer.ConnectionId].Ready);
+        var output = Frame(4, 1, 1, 41, 42);
+        directory.Output(live, host, output);
+        Assert.Equal(output, (await capture.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken)).Bytes);
+        await using var other = Peer();
+        Assert.Throws<ApiException>(() => directory.Resync(live, other));
+    }
+
+    [Fact]
+    public async Task AccessChangeKeepsAllowedViewersConnectedAndTellsThemToTakeTheNewKey()
+    {
+        var directory = new ConnectionDirectory(TimeProvider.System);
+        var state = new Session { Id = Guid.CreateVersion7(), IncarnationId = Guid.CreateVersion7(), AuthorizationRevision = 1, KeyGeneration = 1, Ready = true };
+        var hostSocket = new CapturingSocket();
+        await using var host = new SocketPeer(hostSocket, Guid.CreateVersion7(), "host", Guid.CreateVersion7().ToString());
+        var live = directory.RegisterHost(state, host); directory.MarkReady(state);
+        var capture = new CapturingSocket();
+        await using var kept = new SocketPeer(capture, Guid.CreateVersion7(), "kept", Guid.CreateVersion7().ToString());
+        await using var removed = Peer();
+        foreach (var viewer in new[] { kept, removed })
+        {
+            directory.RegisterParticipant(state, viewer); directory.BeginBootstrap(live, viewer, Challenge());
+            directory.Checkpoint(live, host, live.Checkpoints.Keys.Single(), Frame(3, 1, 0, 1, 0), Signature);
+        }
+        await capture.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken);
+        await capture.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken);
+        for (var i = 0; i < 4; i++) await hostSocket.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken);
+        JsonDocument Control(ulong sequence, int generation) => JsonDocument.Parse(JsonSerializer.Serialize(new
+        {
+            type = "control",
+            sequence,
+            keyGeneration = generation,
+            requestId = Guid.CreateVersion7(),
+            nonce = Convert.ToBase64String(new byte[12]),
+            ciphertext = Convert.ToBase64String(new byte[32])
+        }));
+        using (var before = Control(1, 1)) directory.Control(live, kept, before.RootElement);
+        await hostSocket.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken);
+
+        state.AuthorizationRevision = 2; state.KeyGeneration = 2; state.Ready = false;
+        directory.Invalidate(state, keep: (user, _) => user == kept.UserId);
+        Assert.True(kept.IsOpen); Assert.False(removed.IsOpen); Assert.Equal(kept.ConnectionId, live.Participants.Keys.Single());
+        Assert.Empty(live.Pending);
+        using (var left = JsonDocument.Parse((await hostSocket.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken)).Bytes))
+        {
+            Assert.Equal("participantDisconnected", left.RootElement.GetProperty("type").GetString());
+            Assert.Equal(removed.ConnectionId, left.RootElement.GetProperty("connectionId").GetString());
+        }
+        using (var changed = JsonDocument.Parse((await hostSocket.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken)).Bytes))
+            Assert.Equal("accessChanged", changed.RootElement.GetProperty("type").GetString());
+        directory.Output(live, host, Frame(4, 1, 0, 0, 1));
+        using (var early = Control(2, 1)) directory.Control(live, kept, early.RootElement);
+        Assert.Empty(live.Pending); Assert.False(capture.Frames.Reader.TryRead(out _));
+
+        state.Ready = true; directory.MarkReady(state);
+        using (var rekey = JsonDocument.Parse((await capture.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken)).Bytes))
+        {
+            Assert.Equal("rekey", rekey.RootElement.GetProperty("type").GetString());
+            Assert.Equal(2, rekey.RootElement.GetProperty("keyGeneration").GetInt32());
+            Assert.Equal(2, rekey.RootElement.GetProperty("authorizationRevision").GetInt64());
+        }
+        directory.Output(live, host, Frame(4, 1, 1, 1, 2));
+        using (var stale = Control(2, 1)) directory.Control(live, kept, stale.RootElement);
+        directory.Output(live, host, Frame(4, 2, 0, 5, 6));
+        Assert.Empty(live.Pending); Assert.True(host.IsOpen); Assert.True(kept.IsOpen);
+        directory.BeginBootstrap(live, kept, Challenge(), resync: true);
+        var snapshot = Frame(3, 2, 0, 1, 6);
+        directory.Checkpoint(live, host, live.Checkpoints.Keys.Single(), snapshot, Signature);
+        Assert.Equal(WebSocketMessageType.Text, (await capture.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken)).Type);
+        Assert.Equal(snapshot, (await capture.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken)).Bytes);
+        using (var after = Control(1, 2)) directory.Control(live, kept, after.RootElement);
+        Assert.Single(live.Pending);
+    }
+
+    [Fact]
+    public async Task AViewerThatFallsBehindGetsANewSnapshotWhileOtherViewersContinue()
+    {
+        var directory = new ConnectionDirectory(TimeProvider.System);
+        var state = new Session { Id = Guid.CreateVersion7(), IncarnationId = Guid.CreateVersion7(), AuthorizationRevision = 1, KeyGeneration = 1, Ready = true };
+        await using var host = Peer(); var live = directory.RegisterHost(state, host); directory.MarkReady(state);
+        var prompt = new CapturingSocket();
+        await using var current = new SocketPeer(prompt, Guid.CreateVersion7(), "current", Guid.CreateVersion7().ToString());
+        directory.RegisterParticipant(state, current); directory.BeginBootstrap(live, current, Challenge());
+        directory.Checkpoint(live, host, live.Checkpoints.Keys.Single(), Frame(3, 1, 0, 1, 0), Signature);
+        await prompt.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken);
+        await prompt.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken);
+        var socket = new PausedSocket();
+        await using var slow = new SocketPeer(socket, Guid.CreateVersion7(), "slow", Guid.CreateVersion7().ToString());
+        directory.RegisterParticipant(state, slow); directory.BeginBootstrap(live, slow, Challenge());
+        directory.Checkpoint(live, host, live.Checkpoints.Keys.Single(), Frame(3, 1, 1, 2, 0), Signature);
+        await socket.Started.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        for (ulong i = 0; i < 12; i++)
+        {
+            directory.Output(live, host, Frame(4, 1, i, i, i + 1, 1024 * 1024));
+            await prompt.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken);
+            current.Acknowledge(i + 1);
+        }
+        Assert.True(slow.IsOpen); Assert.False(live.Participants[slow.ConnectionId].Ready);
+        Assert.True(live.Participants[current.ConnectionId].Ready);
+        Assert.Equal(12UL, live.Participants[current.ConnectionId].NextSequence);
+
+        socket.Release.TrySetResult();
+        Assert.Equal(WebSocketMessageType.Text, (await socket.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken)).Type);
+        using (var resync = JsonDocument.Parse((await socket.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken)).Bytes))
+            Assert.Equal("resync", resync.RootElement.GetProperty("type").GetString());
+        directory.BeginBootstrap(live, slow, Challenge(), resync: true);
+        var snapshot = Frame(3, 1, 2, 3, 12);
+        directory.Checkpoint(live, host, live.Checkpoints.Keys.Single(), snapshot, Signature);
+        Assert.Equal(WebSocketMessageType.Text, (await socket.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken)).Type);
+        Assert.Equal(snapshot, (await socket.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken)).Bytes);
+        Assert.True(slow.IsOpen); Assert.Equal(12UL, live.Participants[slow.ConnectionId].NextSequence);
+    }
+
+    [Fact]
+    public async Task OutputWaitsForTheViewerToAcknowledgeAndAnInputResultGoesFirst()
+    {
+        var socket = new CapturingSocket();
+        await using var viewer = new SocketPeer(socket, Guid.CreateVersion7(), "viewer", Guid.CreateVersion7().ToString());
+        var first = Frame(4, 1, 0, 0, 1, 32 * 1024); var second = Frame(4, 1, 1, 1, 2); var third = Frame(4, 1, 2, 2, 3);
+        Assert.True(viewer.SendOutput(first, 1, () => true));
+        Assert.Equal(first, (await socket.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken)).Bytes);
+        Assert.True(viewer.SendOutput(second, 2, () => true));
+        Assert.True(viewer.SendOutput(third, 3, () => false));
+        Assert.True(viewer.SendUrgent(new { type = "controlResult" }));
+        Assert.Equal(WebSocketMessageType.Text, (await socket.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken)).Type);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
+        Assert.False(socket.Frames.Reader.TryRead(out _));
+        Assert.False(viewer.HasOutputRoom(64 * 1024));
+
+        viewer.Acknowledge(1);
+        Assert.Equal(second, (await socket.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken)).Bytes);
+        Assert.True(viewer.Send(new { type = "resync" }));
+        Assert.Equal(WebSocketMessageType.Text, (await socket.Frames.Reader.ReadAsync(TestContext.Current.CancellationToken)).Type);
+        Assert.True(viewer.HasOutputRoom(1024 * 1024));
     }
 
     [Fact]

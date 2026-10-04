@@ -40,12 +40,12 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
         if (configure is not null) builder.ConfigureTestServices(configure);
     }
 
-    public string Token(string subject, string audience = "kodosi-app", DateTimeOffset? authenticatedAt = null)
+    public string Token(string subject, string audience = "kodosi-app", DateTimeOffset? authenticatedAt = null, TimeSpan? lifetime = null)
     {
         List<Claim> claims = [new("sub", subject), new("preferred_username", subject)];
         if (authenticatedAt is { } at) claims.Add(new Claim("auth_time", at.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64));
         return new JwtSecurityTokenHandler().WriteToken(new JwtSecurityToken(Issuer, audience, claims,
-            DateTime.UtcNow.AddMinutes(-1), DateTime.UtcNow.AddMinutes(10), new SigningCredentials(new RsaSecurityKey(key), SecurityAlgorithms.RsaSha256)));
+            DateTime.UtcNow.AddMinutes(-1), DateTime.UtcNow.Add(lifetime ?? TimeSpan.FromMinutes(10)), new SigningCredentials(new RsaSecurityKey(key), SecurityAlgorithms.RsaSha256)));
     }
 
     public async Task<ApiDevice> EnrollAsync(string subject)
@@ -112,7 +112,7 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
         await SendAsync(socket, new
         {
             type = "hello",
-            protocolVersion = 13,
+            protocolVersion = 15,
             deviceId = actor.Fixture.DeviceId,
             incarnationId = incarnation,
             checkpointChallenge = purpose == "participant" ? Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)) : null
@@ -131,7 +131,7 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
     public static async Task<(WebSocketMessageType Type, byte[] Bytes)> FrameAsync(WebSocket socket)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken); deadline.CancelAfter(TimeSpan.FromSeconds(10));
-        return await Wire.ReadAsync(socket, TerminalReplay.MaximumFrame * 2, deadline.Token) ?? throw new InvalidOperationException("Socket closed before expected frame.");
+        return await Wire.ReadAsync(socket, OutputOrder.MaximumFrame * 2, deadline.Token) ?? throw new InvalidOperationException("Socket closed before expected frame.");
     }
     public static async Task<JsonElement> JsonAsync(WebSocket socket)
     {

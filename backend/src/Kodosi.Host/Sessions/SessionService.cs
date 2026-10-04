@@ -119,8 +119,9 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         db.SessionMembers.RemoveRange(existing.Where(x => !selected.Contains(x.UserId)));
         foreach (var recipient in selected.Except(existing.Select(x => x.UserId))) db.SessionMembers.Add(new SessionMember { SessionId = id, UserId = recipient });
-        await InvalidateAsync(session, ct); await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
-        connections.Invalidate(session); foreach (var recipient in affected) connections.Notify(recipient, "sessions");
+        bool Keep(Guid user, string device) => user == userId || selected.Contains(user);
+        await InvalidateAsync(session, Keep, ct); await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
+        connections.Invalidate(session, keep: Keep); foreach (var recipient in affected) connections.Notify(recipient, "sessions");
         return await DescribeAsync(session, ct);
     }
     public async Task LeaveAsync(Guid id, Guid userId, LeaveSession body, CancellationToken ct)
@@ -129,8 +130,9 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         if (session.OwnerUserId == userId) throw ApiException.Invalid("The owner cannot leave their own session.");
         var member = await db.SessionMembers.SingleOrDefaultAsync(x => x.SessionId == id && x.UserId == userId, ct) ?? throw ApiException.Missing();
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        db.SessionMembers.Remove(member); await InvalidateAsync(session, ct);
-        await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct); connections.Invalidate(session);
+        bool Keep(Guid user, string device) => user != userId;
+        db.SessionMembers.Remove(member); await InvalidateAsync(session, Keep, ct);
+        await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct); connections.Invalidate(session, keep: Keep);
         await NotifyAsync(session, ct); connections.Notify(userId, "sessions");
     }
     public async Task EndAsync(Guid id, Guid userId, string deviceId, Guid incarnationId, CancellationToken ct)
@@ -154,9 +156,9 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         if (session.KeyGeneration != body.ExpectedGeneration) throw ApiException.Conflict("Session key generation changed.");
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         session.KeyGeneration = checked(session.KeyGeneration + 1); session.Ready = false;
-        connections.Invalidate(session, notifyHost: false);
+        connections.Invalidate(session, notifyHost: false, keep: (_, _) => true);
         await db.SessionKeys.Where(x => x.SessionId == id).ExecuteDeleteAsync(ct);
-        await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct); connections.Invalidate(session, notifyHost: false);
+        await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct); connections.Invalidate(session, notifyHost: false, keep: (_, _) => true);
         return await DescribeAsync(session, ct);
     }
     public async Task<object> AuthorizedDevicesAsync(Guid id, Guid userId, string deviceId, CancellationToken ct)
@@ -218,7 +220,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
             keyBlob = new
             {
                 session.IncarnationId,
-                incarnationProtocolVersion = 13,
+                incarnationProtocolVersion = 15,
                 encryptedSessionKey = Convert.ToBase64String(blob.EncryptedKey),
                 blob.SenderDeviceId,
                 signature = Convert.ToBase64String(blob.Signature),
@@ -237,10 +239,10 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         if (recipients.Count > 1024) throw ApiException.Conflict("Too many recipient devices.");
         return recipients;
     }
-    private async Task InvalidateAsync(Session session, CancellationToken ct)
+    private async Task InvalidateAsync(Session session, Func<Guid, string, bool> keep, CancellationToken ct)
     {
         session.AuthorizationRevision = checked(session.AuthorizationRevision + 1); session.KeyGeneration = checked(session.KeyGeneration + 1); session.Ready = false;
-        connections.Invalidate(session, notifyHost: false);
+        connections.Invalidate(session, notifyHost: false, keep: keep);
         await db.SessionKeys.Where(x => x.SessionId == session.Id).ExecuteDeleteAsync(ct);
     }
     private async Task NotifyAsync(Session session, CancellationToken ct)

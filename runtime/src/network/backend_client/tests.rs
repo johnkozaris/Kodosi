@@ -204,7 +204,7 @@ async fn failed_unpublish_retains_the_cleanup_obligation() {
 }
 
 #[tokio::test]
-async fn expired_publication_discards_pending_grants_before_reconciliation() {
+async fn missing_publication_discards_pending_grants_before_reconciliation() {
     let (_root, network) = fixture();
     let id = Uuid::now_v7();
     let incarnation = Uuid::now_v7();
@@ -245,7 +245,7 @@ async fn expired_publication_discards_pending_grants_before_reconciliation() {
         .lock()
         .await
         .insert(id, Arc::clone(&publication));
-    publication.expire_sharing().await;
+    publication.clear_sharing().await;
     network.reconcile_shares().await.unwrap();
     let info = publication.info.read().await;
     assert!(info.shared_with.is_empty());
@@ -279,4 +279,36 @@ async fn cancelling_a_login_reports_a_cancelled_sign_out() {
         vec![json!({"type":"auth.required","reason":"cancelled"})]
     );
     assert!(network.identity().is_none());
+}
+
+#[tokio::test]
+async fn retiring_a_terminal_leaves_operations_free_while_its_host_drains() {
+    let (_root, network) = fixture();
+    let id = Uuid::now_v7();
+    let incarnation = Uuid::now_v7();
+    let (requests, _host) = mpsc::channel(1);
+    let (_frames, output) = broadcast::channel(1);
+    let dto: SessionDto = serde_json::from_value(json!({
+        "id":id,"incarnationId":incarnation,"name":"Terminal","ownerUserId":"owner","ownerName":"Owner",
+        "hostDeviceId":"device","hostName":"Host","missionId":null,"missionName":null,"sharedWith":[],
+        "authorizationRevision":1,"keyGeneration":1,"ready":true,"hostOnline":true
+    }))
+    .unwrap();
+    let info = LocalPublication {
+        session_id: id,
+        incarnation_id: incarnation,
+        name: "Terminal".into(),
+        mission_id: None,
+        shared_with: BTreeSet::new(),
+    };
+    network.inner.publications.lock().await.insert(
+        id,
+        Arc::new(terminal_connections::Publication::new(
+            info, requests, output, dto,
+        )),
+    );
+    let retirement = network.unpublish(id);
+    tokio::pin!(retirement);
+    assert!(futures_util::poll!(&mut retirement).is_pending());
+    assert!(network.inner.operations.try_lock().is_ok());
 }

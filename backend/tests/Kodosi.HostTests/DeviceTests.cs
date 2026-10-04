@@ -13,7 +13,7 @@ namespace Kodosi.HostTests;
 public sealed class DeviceTests(PostgresFixture postgres)
 {
     [Fact]
-    public async Task DeviceRemovalPreservesOtherDevicesAndInvalidatesKeys()
+    public async Task DeviceRemovalPreservesOtherDevicesAndEndsOnlyTheTerminalsItHosted()
     {
         await using var store = await TestStore.CreateAsync(postgres);
         var owner = await store.UserAsync("owner");
@@ -30,8 +30,12 @@ public sealed class DeviceTests(PostgresFixture postgres)
         await store.Devices.ApproveLinkAsync(owner.User.Id, owner.Device,
             new(code, Convert.ToBase64String(cert), owner.Fixture.SignedCertificate(cert), Convert.ToBase64String(next), owner.Fixture.SignedList(next)), TestContext.Current.CancellationToken);
         Assert.Equal(second.DeviceId, (await store.Devices.RequireDeviceAsync(owner.User.Id, second.DeviceId, TestContext.Current.CancellationToken)).Id);
+        Session Hosted(string device) => new() { Id = Guid.CreateVersion7(), IncarnationId = Guid.CreateVersion7(), OwnerUserId = owner.User.Id, HostDeviceId = device, HostName = "Host", Name = "Terminal", KeyGeneration = 1, Ready = true };
+        var lost = Hosted(second.DeviceId); var kept = Hosted(owner.Device.Id);
+        store.Db.Sessions.AddRange(lost, kept); await store.Db.SaveChangesAsync(TestContext.Current.CancellationToken);
         var removed = DeviceFixture.ListBody(owner.User.Id, 3, [(owner.Device.Id, owner.Device.Id)], owner.Device.Id, now + 1);
         await store.Devices.ReplaceListAsync(owner.User.Id, new(Convert.ToBase64String(removed), owner.Fixture.SignedList(removed)), TestContext.Current.CancellationToken);
+        Assert.True(lost.Ended); Assert.False(kept.Ended); Assert.False(kept.Ready); Assert.Equal(2, kept.KeyGeneration);
         await Assert.ThrowsAsync<ApiException>(() => store.Devices.RequireDeviceAsync(owner.User.Id, second.DeviceId, TestContext.Current.CancellationToken));
         Assert.Equal(owner.Device.Id, (await store.Devices.RequireDeviceAsync(owner.User.Id, owner.Device.Id, TestContext.Current.CancellationToken)).Id);
         var readd = DeviceFixture.ListBody(owner.User.Id, 4, [(owner.Device.Id, owner.Device.Id), (second.DeviceId, owner.Device.Id)], owner.Device.Id, now + 2);

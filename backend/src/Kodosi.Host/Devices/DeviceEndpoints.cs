@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Kodosi.Accounts;
+using Kodosi.TerminalConnections;
 
 namespace Kodosi.Devices;
 
@@ -32,6 +33,13 @@ internal static class DeviceEndpoints
             var user = await users.GetAsync(context, ct);
             await service.RequireProofAsync(context, user.Id, ct, allowExpiredList: true);
             await service.ReplaceListAsync(user.Id, body, ct);
+            return Results.NoContent();
+        });
+        api.MapPost("/me/connections/renew", async (HttpContext context, CurrentUser users, DeviceService service, ConnectionDirectory connections, CancellationToken ct) =>
+        {
+            var user = await users.GetAsync(context, ct); var device = await service.RequireProofAsync(context, user.Id, ct);
+            if (!long.TryParse(context.User.FindFirstValue("exp"), out var expires)) return Results.Unauthorized();
+            connections.Renew(user.Id, device.Id, DateTimeOffset.FromUnixTimeSeconds(expires));
             return Results.NoContent();
         });
         api.MapPost("/me/identity/reset", async (HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>

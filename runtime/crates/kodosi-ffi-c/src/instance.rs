@@ -223,6 +223,7 @@ fn run_executor(
             let config = Config::load()
                 .map_err(|error| start_failure(KODOSI_START_REJECTED, &error.to_string(), None))?;
             let root = config.data_root.clone();
+            kodosi_runtime::diagnostics::install(&root);
             let runtime = executor
                 .block_on(kodosi_runtime::start(config))
                 .map_err(|error| {

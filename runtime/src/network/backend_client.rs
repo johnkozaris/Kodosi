@@ -52,6 +52,8 @@ pub(crate) struct Inner {
     pub(crate) connections: Mutex<Vec<CancellationToken>>,
     notifications: Mutex<Option<CancellationToken>>,
     restore_pending: AtomicBool,
+    enrollment_checked: AtomicU64,
+    renew_connections: AtomicBool,
     identity_settled: AtomicBool,
     login_interrupt: std::sync::Mutex<CancellationToken>,
 }
@@ -124,6 +126,8 @@ impl BackendClient {
                 connections: Mutex::new(Vec::new()),
                 notifications: Mutex::new(None),
                 restore_pending: AtomicBool::new(true),
+                enrollment_checked: AtomicU64::new(0),
+                renew_connections: AtomicBool::new(false),
                 identity_settled: AtomicBool::new(false),
                 login_interrupt: std::sync::Mutex::new(CancellationToken::new()),
             }),
@@ -665,7 +669,7 @@ impl BackendClient {
             return Ok(());
         }
         let mut dto:SessionDto=self.inner.http.device(Method::POST,"api/sessions",&credentials,Some(json!({"id":info.session_id,"incarnationId":info.incarnation_id,"name":info.name,"hostDeviceId":credentials.keys.device_id,"hostName":host_label(),"missionId":info.mission_id}))).await?;
-        if !info.shared_with.is_empty() {
+        if dto.shared_with.iter().cloned().collect::<BTreeSet<_>>() != info.shared_with {
             dto=self.inner.http.device(Method::PUT,&format!("api/sessions/{}/members",info.session_id),&credentials,Some(json!({"incarnationId":info.incarnation_id,"expectedRevision":dto.authorization_revision,"userIds":info.shared_with}))).await?;
         }
         self.check_credentials(&credentials)?;
@@ -682,13 +686,16 @@ impl BackendClient {
 
     pub async fn unpublish(&self, id: Uuid) -> Result<()> {
         let generation = self.generation();
+        let draining = self.inner.publications.lock().await.get(&id).cloned();
+        if let Some(publication) = draining {
+            let _drained =
+                tokio::time::timeout(Duration::from_secs(12), publication.drained.cancelled())
+                    .await;
+        }
         let _operation = self.inner.operations.lock().await;
         terminal_connections::check_generation(self, generation)?;
         let publication = self.inner.publications.lock().await.get(&id).cloned();
         if let Some(publication) = publication {
-            let _drained =
-                tokio::time::timeout(Duration::from_secs(12), publication.drained.cancelled())
-                    .await;
             publication.cancel.cancel();
             publication.invalidate().await;
             let info = publication.info.read().await.clone();
@@ -835,6 +842,7 @@ impl BackendClient {
         let generation = self.generation();
         let _operation = self.inner.operations.lock().await;
         terminal_connections::check_generation(self, generation)?;
+        self.renew_token().await?;
         terminal_connections::connect_remote(self.clone(), id).await
     }
 }

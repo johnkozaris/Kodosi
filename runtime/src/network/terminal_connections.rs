@@ -38,6 +38,9 @@ mod participant;
 
 pub(crate) type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
+pub(crate) const STABLE_CONNECTION: Duration = Duration::from_mins(1);
+const TRUST_CHECK: Duration = Duration::from_mins(5);
+
 pub(crate) struct Publication {
     pub(super) drained: CancellationToken,
     pub info: RwLock<LocalPublication>,
@@ -70,7 +73,7 @@ impl Publication {
             output: Mutex::new(Some(output)),
         }
     }
-    pub(crate) async fn expire_sharing(&self) {
+    pub(crate) async fn clear_sharing(&self) {
         let mut info = self.info.write().await;
         info.shared_with.clear();
         info.mission_id = None;
@@ -106,6 +109,7 @@ pub(crate) fn spawn_host(
         let mut delay = 1;
         loop {
             if publication.cancel.is_cancelled()
+                || publication.requests.is_closed()
                 || network.generation() != generation
                 || network.inner.shutdown.is_cancelled()
             {
@@ -115,6 +119,7 @@ pub(crate) fn spawn_host(
                 tokio::select! { ()=publication.cancel.cancelled()=>break, ()=publication.refresh.notified()=>{}, ()=tokio::time::sleep(Duration::from_millis(200))=>{} }
                 continue;
             }
+            let started = tokio::time::Instant::now();
             let result = tokio::select! {
                 biased;
                 ()=publication.cancel.cancelled()=>break,
@@ -128,8 +133,12 @@ pub(crate) fn spawn_host(
             if let Err(error) = result {
                 tracing::warn!(%error, "remote access interrupted; reconnecting");
             }
+            if started.elapsed() >= STABLE_CONNECTION {
+                delay = 1;
+            }
             tokio::select! {
                 ()=publication.cancel.cancelled()=>break,
+                ()=publication.requests.closed()=>break,
                 ()=network.inner.shutdown.cancelled()=>break,
                 ()=tokio::time::sleep(Duration::from_secs(delay))=>{}
             }
@@ -168,7 +177,7 @@ pub(crate) async fn socket(
         .max_frame_size(Some(wire::FRAME_LIMIT * 2));
     let (mut socket, _) = tokio::time::timeout(
         Duration::from_secs(10),
-        tokio_tungstenite::connect_async_with_config(request, Some(settings), false),
+        tokio_tungstenite::connect_async_with_config(request, Some(settings), true),
     )
     .await
     .map_err(|_| invalid("Terminal connection timed out."))?

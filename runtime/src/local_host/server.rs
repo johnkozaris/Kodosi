@@ -399,7 +399,9 @@ async fn serve_terminal(
                     },
                     Some(&RESIZE) if bytes.len()==5=>{
                         let cols=u16::from_be_bytes([bytes[1],bytes[2]]);let rows=u16::from_be_bytes([bytes[3],bytes[4]]);
-                        runtime.resize(session,subscription.incarnation_id,subscription.connection_id,cols,rows).await?;
+                        if let Err(error)=runtime.resize(session,subscription.incarnation_id,subscription.connection_id,cols,rows).await {
+                            tracing::warn!(%session,%error,"terminal view resize was not applied");
+                        }
                     }
                     _=>return Err(Error::Invalid("unsupported terminal input frame".into())),
                 }
@@ -408,6 +410,11 @@ async fn serve_terminal(
                 Some(terminal::ControlFrame::Resize{rows,cols,at_sequence})=>{
                     if controls.len()>=32 || controls.back().is_some_and(|&(_,_,at)|at>at_sequence){return Err(Error::Invalid("too many terminal resize boundaries".into()));}
                     controls.push_back((rows,cols,at_sequence));
+                }
+                Some(terminal::ControlFrame::Snapshot{checkpoint,next_sequence})=>{
+                    if next_sequence<next{return Err(Error::Invalid("terminal snapshot regressed".into()));}
+                    write_frame(&mut writer,&checkpoint_frame(&checkpoint,next_sequence)?).await?;
+                    next=next_sequence;controls.clear();
                 }
                 Some(terminal::ControlFrame::Closed{reason,final_sequence})=>closing=Some((reason,final_sequence)),
                 None=>return Ok(()),

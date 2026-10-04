@@ -533,6 +533,13 @@ struct Reconnect {
     incarnation: Uuid,
     failures: u32,
     next: tokio::time::Instant,
+    connected: Option<tokio::time::Instant>,
+}
+
+impl Reconnect {
+    fn delay(failures: u32) -> Duration {
+        Duration::from_millis(250 << failures.min(7))
+    }
 }
 
 struct Runtime {
@@ -771,13 +778,13 @@ impl Runtime {
                     match job {
                         Some(Ok(job)) => self.complete(job),
                         Some(Err(error)) => {
+                            tracing::error!(%error, "runtime operation failed");
                             self.emit(json!({"type":"system.error", "message":format!("Runtime operation failed: {error}")}));
-                            break;
                         }
                         None => {},
                     }
                 }
-                _ = demand.tick() => self.prune_views(),
+                _ = demand.tick() => { self.prune_views(); self.reconnect_views(); }
                 _ = retry.tick() => { self.publish_locals(); self.retire_publications(); self.reconnect_views(); }
             }
         }
@@ -1401,26 +1408,63 @@ impl Runtime {
                     self.publish_catalog();
                 }
             }
+            SessionChange::RemoteInterrupted {
+                id,
+                incarnation,
+                instance_id,
+                reason,
+            } => self.remote_lost(id, incarnation, instance_id, reason, true),
             SessionChange::RemoteClosed {
                 id,
                 incarnation,
                 instance_id,
                 reason,
-            } => {
-                if self.connections.get(&id).is_some_and(|connection| {
-                    connection.incarnation_id == incarnation
-                        && connection.instance_id == instance_id
-                }) {
-                    self.connections.remove(&id);
-                    if let Some(entry) = self.remotes.get_mut(&id) {
-                        entry.connection_state = ConnectionState::Offline;
-                        entry.connected_users.clear();
-                        entry.message = Some(reason);
-                    }
-                    self.publish_catalog();
-                }
-            }
+            } => self.remote_lost(id, incarnation, instance_id, reason, false),
         }
+    }
+
+    fn remote_lost(
+        &mut self,
+        id: Uuid,
+        incarnation: Uuid,
+        instance_id: Uuid,
+        reason: String,
+        interrupted: bool,
+    ) {
+        if !self.connections.get(&id).is_some_and(|connection| {
+            connection.incarnation_id == incarnation && connection.instance_id == instance_id
+        }) {
+            return;
+        }
+        tracing::warn!(%id, %reason, interrupted, "remote terminal connection lost");
+        if interrupted && self.views.contains_key(&id) {
+            let previous = self.reconnect.get(&id);
+            let stable = previous
+                .and_then(|retry| retry.connected)
+                .is_some_and(|at| at.elapsed() >= crate::network::STABLE_CONNECTION);
+            let failures = if stable {
+                0
+            } else {
+                previous.map_or(0, |retry| retry.failures.saturating_add(1))
+            };
+            self.reconnect.insert(
+                id,
+                Reconnect {
+                    incarnation,
+                    failures,
+                    next: tokio::time::Instant::now() + Reconnect::delay(failures),
+                    connected: None,
+                },
+            );
+        } else if let Some(connection) = self.connections.remove(&id) {
+            connection.disconnect();
+        }
+        if let Some(entry) = self.remotes.get_mut(&id) {
+            entry.connection_state = ConnectionState::Offline;
+            entry.connected_users.clear();
+            entry.message = Some(reason);
+        }
+        self.publish_catalog();
     }
 
     fn reconnect_views(&mut self) {
@@ -1430,7 +1474,10 @@ impl Runtime {
             .iter()
             .filter(|(id, retry)| {
                 retry.next <= now
-                    && !self.connections.contains_key(id)
+                    && self
+                        .connections
+                        .get(id)
+                        .is_none_or(RemoteTerminal::is_interrupted)
                     && !self.opening.contains_key(id)
             })
             .map(|(id, _)| *id)

@@ -10,6 +10,7 @@ compile_error!("Kodosi supports arm64 macOS and x86_64 Linux GNU");
 #[cfg(feature = "cli")]
 pub mod cli;
 mod config;
+pub mod diagnostics;
 pub mod identity;
 pub mod local_host;
 pub mod network;
@@ -67,8 +68,7 @@ impl From<network::Error> for Error {
             error @ (network::Error::SignedOut
             | network::Error::EnrollmentRequired
             | network::Error::Backend {
-                status: 401 | 403 | 404,
-                ..
+                status: 403 | 404, ..
             }) => Self::Invalid(error.to_string()),
             other => Self::Other(other.to_string()),
         }

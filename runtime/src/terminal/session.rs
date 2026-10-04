@@ -7,7 +7,7 @@ use std::{
 };
 
 use bytes::Bytes;
-use kodosi_pty::{KodosiPty, RawFdAsyncReader, ShutdownStage, WaitOutcome};
+use kodosi_pty::{KodosiPty, RawFdAsyncReader, ShutdownStage, Transfer, WaitOutcome};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore, broadcast, mpsc, oneshot, watch};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
@@ -67,6 +67,12 @@ pub(crate) enum SessionChange {
         incarnation: Uuid,
         instance_id: Uuid,
         metadata: super::TerminalMetadata,
+    },
+    RemoteInterrupted {
+        id: Uuid,
+        incarnation: Uuid,
+        instance_id: Uuid,
+        reason: String,
     },
     RemoteClosed {
         id: Uuid,
@@ -183,6 +189,7 @@ impl LocalSession {
             published_title: None,
             metadata_dirty: false,
             next_program_check: tokio::time::Instant::now() + Duration::from_secs(1),
+            next_refresh: tokio::time::Instant::now(),
         };
         tokio::spawn(actor.run());
         Ok(session)
@@ -334,13 +341,6 @@ enum InputCompletion {
 }
 
 impl InputCompletion {
-    fn is_closed(&self) -> bool {
-        match self {
-            Self::Local(reply) => reply.is_closed(),
-            Self::Remote(reply) => reply.is_closed(),
-        }
-    }
-
     fn send(self, result: Result<()>) {
         match self {
             Self::Local(reply) => drop(reply.send(result)),
@@ -399,10 +399,6 @@ impl PendingWrite {
         self.authorization
             .as_ref()
             .is_some_and(CancellationToken::is_cancelled)
-            || self
-                .completion
-                .as_ref()
-                .is_some_and(InputCompletion::is_closed)
     }
 
     fn complete(&mut self) {
@@ -480,6 +476,7 @@ struct LocalActor {
     published_title: Option<String>,
     metadata_dirty: bool,
     next_program_check: tokio::time::Instant,
+    next_refresh: tokio::time::Instant,
 }
 
 impl LocalActor {
@@ -500,8 +497,8 @@ impl LocalActor {
         }));
     }
 
-    fn metadata_checkpoint(&self, mut checkpoint: super::Checkpoint) -> super::Checkpoint {
-        checkpoint.metadata = Some(super::TerminalMetadata {
+    fn metadata(&self) -> super::TerminalMetadata {
+        super::TerminalMetadata {
             connected_users: self.connected_users(),
             directory: self
                 .pty
@@ -512,7 +509,11 @@ impl LocalActor {
                 .as_ref()
                 .map(|title| title.chars().take(1024).collect()),
             program: self.pty.foreground_program(),
-        });
+        }
+    }
+
+    fn metadata_checkpoint(&self, mut checkpoint: super::Checkpoint) -> super::Checkpoint {
+        checkpoint.metadata = Some(self.metadata());
         checkpoint
     }
 
@@ -544,6 +545,30 @@ impl LocalActor {
             }
         }
         Ok(())
+    }
+
+    fn pending_input(&mut self) -> Option<Bytes> {
+        while let Some(write) = self.queue.front_mut() {
+            if write.is_cancelled() {
+                self.queue.pop_front();
+            } else if write.offset == write.bytes.len() {
+                write.complete();
+                self.queue.pop_front();
+            } else {
+                return Some(write.bytes.slice(write.offset..));
+            }
+        }
+        None
+    }
+
+    fn wrote(&mut self, count: usize) {
+        if let Some(write) = self.queue.front_mut() {
+            write.offset = (write.offset + count).min(write.bytes.len());
+            if write.offset == write.bytes.len() {
+                write.complete();
+                self.queue.pop_front();
+            }
+        }
     }
 
     async fn apply_resize(
@@ -580,17 +605,6 @@ impl LocalActor {
             self.enqueue(Bytes::from(bytes), None)
                 .map_err(ResizeError::Diverged)?;
         }
-        let cut = self
-            .emulator
-            .checkpoint_data()
-            .await
-            .map_err(Error::from)
-            .map_err(ResizeError::Diverged)?;
-        if cut.applied_sequence != self.sequence {
-            return Err(ResizeError::Diverged(Error::Other(
-                "terminal resize checkpoint is out of order".to_owned(),
-            )));
-        }
         self.resize_owner = Some(ResizeOwner {
             controller,
             authorization,
@@ -600,9 +614,10 @@ impl LocalActor {
             cols: size.cols(),
             at_sequence: self.sequence,
         });
-        drop(self.output.send(PublishedFrame::Checkpoint {
-            checkpoint: self.metadata_checkpoint(cut.checkpoint),
-            next_sequence: self.sequence,
+        drop(self.output.send(PublishedFrame::Resize {
+            rows: size.rows(),
+            cols: size.cols(),
+            at_sequence: self.sequence,
         }));
         Ok(())
     }
@@ -640,10 +655,13 @@ impl LocalActor {
         Ok(())
     }
 
-    async fn release(&mut self, controller: Controller) -> Result<()> {
-        if self.focused.contains_key(&controller) {
-            self.set_focus(controller, None, false).await?;
+    async fn release_logged(&mut self, controller: Controller) {
+        if let Err(error) = self.release(controller).await {
+            tracing::warn!(id = %self.id, %error, "terminal view release was incomplete");
         }
+    }
+
+    async fn release(&mut self, controller: Controller) -> Result<()> {
         if self
             .resize_owner
             .as_ref()
@@ -651,11 +669,25 @@ impl LocalActor {
         {
             self.resize_owner = None;
         }
+        if self.focused.contains_key(&controller) {
+            self.set_focus(controller, None, false).await?;
+        }
         Ok(())
     }
 
     async fn maintain(&mut self) -> Result<()> {
         self.subscribers.prune();
+        if self.subscribers.caught_up() && tokio::time::Instant::now() >= self.next_refresh {
+            match self.emulator.checkpoint_data().await {
+                Ok(cut) => self
+                    .subscribers
+                    .refresh(&cut.checkpoint, cut.applied_sequence),
+                Err(error) => {
+                    tracing::warn!(id = %self.id, %error, "terminal view refresh failed; it will be tried again");
+                    self.next_refresh = tokio::time::Instant::now() + Duration::from_secs(1);
+                }
+            }
+        }
         if tokio::time::Instant::now() >= self.next_program_check {
             self.next_program_check = tokio::time::Instant::now() + Duration::from_secs(1);
             if let Some(path) = self.pty.working_directory()
@@ -699,7 +731,7 @@ impl LocalActor {
         }
         if self.metadata_dirty {
             self.metadata_dirty = false;
-            drop(self.output.send(PublishedFrame::MetadataChanged));
+            drop(self.output.send(PublishedFrame::Metadata(self.metadata())));
         }
         let expired = self
             .focused
@@ -708,7 +740,7 @@ impl LocalActor {
             .map(|(controller, _)| *controller)
             .collect::<Vec<_>>();
         for controller in expired {
-            self.release(controller).await?;
+            self.release_logged(controller).await;
         }
         if self
             .resize_owner
@@ -742,8 +774,8 @@ impl LocalActor {
         for effect in applied.effects {
             match effect {
                 TerminalEffect::PtyWrite(bytes) => {
-                    if accepting_input {
-                        self.enqueue(Bytes::from(bytes), None)?;
+                    if accepting_input && let Err(error) = self.enqueue(Bytes::from(bytes), None) {
+                        tracing::warn!(id = %self.id, %error, "terminal reply dropped because the input queue is full");
                     }
                 }
                 TerminalEffect::Cwd(path) => {
@@ -810,9 +842,7 @@ impl LocalActor {
             }
             Request::Unsubscribe(connection) => {
                 self.subscribers.remove(connection);
-                if let Err(error) = self.release(Controller::Local(connection)).await {
-                    return Some(error.to_string());
-                }
+                self.release_logged(Controller::Local(connection)).await;
             }
             Request::Input { connection, write } => return self.accept_input(connection, write),
             Request::Resize {
@@ -841,13 +871,7 @@ impl LocalActor {
                     }
                     Err(error) => Err(error),
                 };
-                let fatal = result
-                    .as_ref()
-                    .is_err_and(|error| !matches!(error, Error::Stale));
                 drop(reply.send(result));
-                if fatal {
-                    return Some("The terminal could not apply its focus state.".to_owned());
-                }
             }
             Request::Interrupt(reply) => {
                 if !reply.is_closed() {
@@ -862,7 +886,7 @@ impl LocalActor {
             }
             Request::Theme(dark) => {
                 if let Err(error) = self.emulator.notify_theme_changed(dark).await {
-                    return Some(error.to_string());
+                    tracing::warn!(id = %self.id, %error, "terminal theme change failed");
                 }
             }
         }
@@ -953,9 +977,7 @@ impl LocalActor {
             HostRequest::Disconnected { connection_id } => {
                 self.viewers.remove(&connection_id);
                 self.publish_presence();
-                if let Err(error) = self.release(Controller::Remote(connection_id)).await {
-                    return Some(error.to_string());
-                }
+                self.release_logged(Controller::Remote(connection_id)).await;
             }
             HostRequest::Control {
                 connection_id,
@@ -1113,6 +1135,7 @@ impl LocalActor {
             if self.cancellation.is_cancelled() {
                 break "Session stopped.".to_owned();
             }
+            let input = self.pending_input();
             tokio::select! {
                 () = self.cancellation.cancelled() => break "Session stopped.".to_owned(),
                 command = self.commands.recv() => match command {
@@ -1123,9 +1146,10 @@ impl LocalActor {
                     Some(request) => { if let Some(reason) = self.host_request(request).await { break reason; } }
                     None => host_open = false,
                 },
-                read = self.reader.read(&mut buffer) => match read {
-                    Ok(0) => break "Session ended.".to_owned(),
-                    Ok(count) => { if let Err(error) = self.apply_output(Bytes::copy_from_slice(&buffer[..count]), true).await { break error.to_string(); } }
+                transfer = self.reader.transfer(&mut buffer, input.as_deref()) => match transfer {
+                    Ok(Transfer::Read(0)) => break "Session ended.".to_owned(),
+                    Ok(Transfer::Read(count)) => { if let Err(error) = self.apply_output(Bytes::copy_from_slice(&buffer[..count]), true).await { break error.to_string(); } }
+                    Ok(Transfer::Wrote(count)) => self.wrote(count),
                     Err(error) if error.raw_os_error() == Some(5) => break "Session ended.".to_owned(),
                     Err(error) => break error.to_string(),
                 },

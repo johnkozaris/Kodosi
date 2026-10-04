@@ -162,14 +162,18 @@ pub fn device_connection_proof_preimage(
 pub enum TrafficStream {
     Checkpoint,
     TerminalRaw,
+    Notice,
     Control,
+    ControlResult,
 }
 
 pub fn derive_stream_key(key: &SessionKey, stream: TrafficStream) -> Result<Zeroizing<SessionKey>> {
     let info: &[u8] = match stream {
         TrafficStream::Checkpoint => b"kodosi-terminal-checkpoint-v1",
         TrafficStream::TerminalRaw => b"kodosi-terminal-raw-v1",
+        TrafficStream::Notice => b"kodosi-terminal-notice-v1",
         TrafficStream::Control => b"kodosi-control-v1",
+        TrafficStream::ControlResult => b"kodosi-control-result-v1",
     };
     let mut result = Zeroizing::new([0; 32]);
     Hkdf::<Sha256>::new(None, key)
@@ -229,10 +233,11 @@ fn frame_nonce(generation: u32, counter: u64) -> [u8; 12] {
 
 pub fn encrypt_control_payload(
     key: &SessionKey,
+    stream: TrafficStream,
     aad: &[u8],
     plaintext: &[u8],
 ) -> Result<([u8; 12], Vec<u8>)> {
-    let key = derive_stream_key(key, TrafficStream::Control)?;
+    let key = derive_stream_key(key, stream)?;
     let cipher =
         Aes256Gcm::new_from_slice(key.as_ref()).map_err(|_| invalid("Invalid control key."))?;
     let nonce = random_bytes()?;
@@ -250,6 +255,7 @@ pub fn encrypt_control_payload(
 
 pub fn decrypt_control_payload(
     key: &SessionKey,
+    stream: TrafficStream,
     aad: &[u8],
     nonce: &[u8],
     ciphertext: &[u8],
@@ -257,7 +263,7 @@ pub fn decrypt_control_payload(
     if nonce.len() != 12 {
         return Err(invalid("Invalid control nonce."));
     }
-    let key = derive_stream_key(key, TrafficStream::Control)?;
+    let key = derive_stream_key(key, stream)?;
     let cipher =
         Aes256Gcm::new_from_slice(key.as_ref()).map_err(|_| invalid("Invalid control key."))?;
     let nonce = Nonce::try_from(nonce).map_err(|_| invalid("Invalid control nonce."))?;
@@ -278,7 +284,7 @@ pub fn wrap_session_key(
     session_id: &str,
     recipient_device: &str,
     generation: u32,
-) -> Result<Vec<u8>> {
+) -> Result<(Vec<u8>, Zeroizing<SessionKey>)> {
     let public = EncapsulationKey::new(&ML_KEM_768, public)
         .map_err(|_| invalid("Recipient encryption key is invalid."))?;
     let (kem_ciphertext, secret) = public
@@ -302,7 +308,7 @@ pub fn wrap_session_key(
     result.extend_from_slice(kem_ciphertext.as_ref());
     result.extend_from_slice(&nonce);
     result.extend_from_slice(&ciphertext);
-    Ok(result)
+    Ok((result, derive_channel_key(secret.as_ref(), session_id)?))
 }
 
 pub fn unwrap_session_key(
@@ -311,7 +317,7 @@ pub fn unwrap_session_key(
     session_id: &str,
     recipient_device: &str,
     generation: u32,
-) -> Result<Zeroizing<SessionKey>> {
+) -> Result<(Zeroizing<SessionKey>, Zeroizing<SessionKey>)> {
     if blob.len() != 1 + KEM_CIPHERTEXT_BYTES + 12 + 32 + 16 || blob[0] != 1 {
         return Err(invalid("Wrapped session key has the wrong format."));
     }
@@ -339,13 +345,21 @@ pub fn unwrap_session_key(
     );
     let mut key = Zeroizing::new([0; 32]);
     key.copy_from_slice(&plaintext);
-    Ok(key)
+    Ok((key, derive_channel_key(shared.as_ref(), session_id)?))
 }
 
 fn wrap_aad(session_id: &str, recipient_device: &str, generation: u32) -> Result<Vec<u8>> {
     let mut aad = signed_fields(b"", &[session_id.as_bytes(), recipient_device.as_bytes()])?;
     aad.extend_from_slice(&generation.to_be_bytes());
     Ok(aad)
+}
+
+fn derive_channel_key(secret: &[u8], session_id: &str) -> Result<Zeroizing<SessionKey>> {
+    let mut key = Zeroizing::new([0; 32]);
+    Hkdf::<Sha256>::new(Some(session_id.as_bytes()), secret)
+        .expand(b"kodosi-device-channel-v1", key.as_mut())
+        .map_err(|_| invalid("Cannot derive device channel key."))?;
+    Ok(key)
 }
 
 fn derive_wrap_key(secret: &[u8], session_id: &str) -> Result<Zeroizing<SessionKey>> {
@@ -474,7 +488,7 @@ mod tests {
     fn key_envelope_cannot_move_to_another_recipient() {
         let secret = DecapsulationKey::generate(&ML_KEM_768).unwrap();
         let public = secret.encapsulation_key().unwrap();
-        let blob = wrap_session_key(
+        let (blob, host_channel) = wrap_session_key(
             public.key_bytes().unwrap().as_ref(),
             &[3; 32],
             "session",
@@ -482,10 +496,35 @@ mod tests {
             1,
         )
         .unwrap();
-        assert_eq!(
-            *unwrap_session_key(&secret, &blob, "session", "device", 1).unwrap(),
-            [3; 32]
-        );
+        let (key, device_channel) =
+            unwrap_session_key(&secret, &blob, "session", "device", 1).unwrap();
+        assert_eq!(*key, [3; 32]);
+        assert_eq!(*host_channel, *device_channel);
+        assert_ne!(*device_channel, [3; 32]);
         assert!(unwrap_session_key(&secret, &blob, "session", "other", 1).is_err());
+    }
+
+    #[test]
+    fn input_is_sealed_for_one_device_and_one_direction() {
+        let secret = DecapsulationKey::generate(&ML_KEM_768).unwrap();
+        let public = secret.encapsulation_key().unwrap();
+        let public = public.key_bytes().unwrap();
+        let (_, channel) = wrap_session_key(public.as_ref(), &[3; 32], "session", "a", 1).unwrap();
+        let (_, other) = wrap_session_key(public.as_ref(), &[3; 32], "session", "b", 1).unwrap();
+        let (nonce, sealed) =
+            encrypt_control_payload(&channel, TrafficStream::Control, b"identity", b"ls\r")
+                .unwrap();
+        assert!(sealed.len() < 32);
+        let open = |key: &SessionKey, stream, aad: &[u8]| {
+            decrypt_control_payload(key, stream, aad, &nonce, &sealed)
+        };
+        assert_eq!(
+            open(&channel, TrafficStream::Control, b"identity").unwrap(),
+            b"ls\r"
+        );
+        assert!(open(&other, TrafficStream::Control, b"identity").is_err());
+        assert!(open(&[3; 32], TrafficStream::Control, b"identity").is_err());
+        assert!(open(&channel, TrafficStream::ControlResult, b"identity").is_err());
+        assert!(open(&channel, TrafficStream::Control, b"other").is_err());
     }
 }

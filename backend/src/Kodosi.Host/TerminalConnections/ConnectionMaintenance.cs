@@ -21,9 +21,13 @@ internal sealed class ConnectionMaintenance(IServiceScopeFactory scopes, Connect
                         await scope.ServiceProvider.GetRequiredService<DeviceService>().RequireDeviceAsync(peers.Key.UserId, peers.Key.DeviceId, ct);
                         foreach (var peer in peers) peer.Send(new { type = "ping" });
                     }
-                    catch (Exception error) when (error is ApiException or DbUpdateException or Npgsql.NpgsqlException)
+                    catch (ApiException)
                     {
                         foreach (var peer in peers) peer.Abort();
+                    }
+                    catch (Exception error) when (error is DbUpdateException or Npgsql.NpgsqlException or TimeoutException
+                                                  or InvalidOperationException { InnerException: Npgsql.NpgsqlException or TimeoutException })
+                    {
                     }
                 });
         }

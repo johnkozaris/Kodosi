@@ -173,7 +173,7 @@ mod platform {
 
 #[cfg(target_os = "linux")]
 mod platform {
-    use super::*;
+    use super::{Result, Zeroizing, invalid};
     use keyring::{Entry, Error};
 
     pub(super) fn load(service: &str, label: &str) -> Result<Option<Zeroizing<String>>> {

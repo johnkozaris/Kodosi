@@ -62,7 +62,30 @@ public sealed class AdmissionAndExpiryTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task OfflineExpiryIsBoundedAllowsRestartGraceAndPreservesLiveSessions()
+    public async Task AReadCompletesWhileAnotherReadHoldsAdmissionAndAChangeWaits()
+    {
+        await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));
+        using var owner = await app.EnrollAsync("owner");
+        using var read = await SignedAsync(owner, HttpMethod.Get, "/api/sessions");
+        using var change = await SignedAsync(owner, HttpMethod.Post, "/api/missions", new { id = Guid.CreateVersion7(), name = "Project" });
+        var reading = await app.Services.GetRequiredService<AdmissionGate>().EnterSharedAsync(TestContext.Current.CancellationToken);
+        Task<HttpResponseMessage> pending;
+        try
+        {
+            using var listed = await owner.Client.SendAsync(read, TestContext.Current.CancellationToken)
+                .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, listed.StatusCode);
+            pending = owner.Client.SendAsync(change, TestContext.Current.CancellationToken);
+            using var health = await owner.Client.GetAsync("/health/ready", TestContext.Current.CancellationToken);
+            Assert.False(pending.IsCompleted);
+        }
+        finally { reading.Dispose(); }
+        using var changed = await pending;
+        Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
+    }
+
+    [Fact]
+    public async Task OfflineTerminalsKeepTheirRecordAndSharingAndOnlyEndedOnesAreRemoved()
     {
         var clock = new ManualClock();
         await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken), services =>
@@ -70,83 +93,74 @@ public sealed class AdmissionAndExpiryTests(PostgresFixture postgres)
             services.RemoveAll<TimeProvider>(); services.AddSingleton<TimeProvider>(clock);
         });
         using var owner = await app.EnrollAsync("owner");
+        using var friend = await app.EnrollAsync("friend");
         var scopes = app.Services.GetRequiredService<IServiceScopeFactory>();
-        var gate = app.Services.GetRequiredService<AdmissionGate>();
-        var connections = app.Services.GetRequiredService<ConnectionDirectory>();
-        using var cleanup = new PublicationCleanup(scopes, gate, connections, clock, NullLogger<PublicationCleanup>.Instance);
-        var abandoned = Enumerable.Range(0, 129).Select(_ => new Session
+        using var cleanup = new PublicationCleanup(scopes, app.Services.GetRequiredService<AdmissionGate>(), clock, NullLogger<PublicationCleanup>.Instance);
+        Session Terminal(string name, bool ended) => new()
         {
             Id = Guid.CreateVersion7(),
             IncarnationId = Guid.CreateVersion7(),
             OwnerUserId = owner.Fixture.UserId,
             HostDeviceId = owner.Fixture.DeviceId,
             HostName = "Host",
-            Name = "Terminal",
-            CreatedAt = clock.GetUtcNow().AddMinutes(-5),
-            ExpiresAt = clock.GetUtcNow().AddMinutes(-1)
-        }).ToArray();
-        var online = new Session
-        {
-            Id = Guid.CreateVersion7(),
-            IncarnationId = Guid.CreateVersion7(),
-            OwnerUserId = owner.Fixture.UserId,
-            HostDeviceId = owner.Fixture.DeviceId,
-            HostName = "Host",
-            Name = "Live",
-            ExpiresAt = clock.GetUtcNow().AddMinutes(-1),
+            Name = name,
+            Ended = ended,
+            ExpiresAt = clock.GetUtcNow().AddMinutes(2),
             CreatedAt = clock.GetUtcNow()
         };
-        var ended = new Session
-        {
-            Id = Guid.CreateVersion7(),
-            IncarnationId = Guid.CreateVersion7(),
-            OwnerUserId = owner.Fixture.UserId,
-            HostDeviceId = owner.Fixture.DeviceId,
-            HostName = "Host",
-            Name = "Ended",
-            Ended = true,
-            ExpiresAt = clock.GetUtcNow().AddMinutes(-1),
-            CreatedAt = clock.GetUtcNow()
-        };
+        var offline = Terminal("Offline", ended: false);
+        var ended = Terminal("Ended", ended: true);
         await using (var scope = scopes.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<KodosiDbContext>();
-            db.Sessions.AddRange(abandoned); db.Sessions.AddRange(online, ended);
+            db.Sessions.AddRange(offline, ended);
+            db.SessionMembers.Add(new SessionMember { SessionId = offline.Id, UserId = friend.Fixture.UserId });
             await db.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
-        await using var host = new SocketPeer(new FakeSocket(), owner.Fixture.UserId, owner.Fixture.DeviceId, Guid.CreateVersion7().ToString());
-        connections.RegisterHost(online, host);
         await cleanup.SweepAsync(TestContext.Current.CancellationToken);
         await using (var scope = scopes.CreateAsyncScope())
-            Assert.Equal(131, await scope.ServiceProvider.GetRequiredService<KodosiDbContext>().Sessions.CountAsync(TestContext.Current.CancellationToken));
-        clock.Advance(TimeSpan.FromSeconds(121));
-        await cleanup.SweepAsync(TestContext.Current.CancellationToken);
-        await using (var scope = scopes.CreateAsyncScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<KodosiDbContext>();
-            Assert.Equal(3, await db.Sessions.CountAsync(TestContext.Current.CancellationToken));
-            Assert.True(await db.Sessions.AnyAsync(x => x.Id == online.Id, TestContext.Current.CancellationToken));
-        }
+            Assert.Equal(2, await scope.ServiceProvider.GetRequiredService<KodosiDbContext>().Sessions.CountAsync(TestContext.Current.CancellationToken));
+        clock.Advance(TimeSpan.FromDays(30));
         await cleanup.SweepAsync(TestContext.Current.CancellationToken);
         await using (var scope = scopes.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<KodosiDbContext>();
-            Assert.Single(await db.Sessions.ToListAsync(TestContext.Current.CancellationToken));
-            Assert.False(await db.Sessions.AnyAsync(x => x.Id == ended.Id, TestContext.Current.CancellationToken));
+            Assert.Equal(offline.Id, (await db.Sessions.SingleAsync(TestContext.Current.CancellationToken)).Id);
+            Assert.Equal(friend.Fixture.UserId, (await db.SessionMembers.SingleAsync(TestContext.Current.CancellationToken)).UserId);
         }
-        var lost = abandoned[0];
-        var recreated = await CallAsync(owner, HttpMethod.Post, "/api/sessions", new
+    }
+
+    [Fact]
+    public async Task RequestsWithNoTokenCannotBlockTheHealthCheckOrMakeTheServerReadALargeBody()
+    {
+        await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));
+        using var client = app.CreateClient();
+        for (var i = 0; i < 1250; i++)
         {
-            id = lost.Id,
-            incarnationId = lost.IncarnationId,
-            name = "Restored local terminal",
-            hostDeviceId = owner.Fixture.DeviceId,
-            hostName = "Host",
-            missionId = (Guid?)null
-        });
-        Assert.False(recreated.GetProperty("ready").GetBoolean());
-        Assert.Empty(recreated.GetProperty("sharedWith").EnumerateArray());
-        Assert.True(connections.HostOnline(online.Id));
+            using var probe = await client.GetAsync("/health/ready", TestContext.Current.CancellationToken);
+            Assert.Equal(System.Net.HttpStatusCode.OK, probe.StatusCode);
+        }
+        using var body = new ByteArrayContent(new byte[Limits.HttpBodyBytes + 64 * 1024]);
+        body.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+        using var unknown = await client.PostAsync("/api/not-a-route", body, TestContext.Current.CancellationToken);
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, unknown.StatusCode);
+    }
+
+    [Fact]
+    public async Task SocketEndsWithItsTokenUnlessTheDeviceRenewsItWithANewerOne()
+    {
+        await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));
+        using var renewing = await app.EnrollAsync("renewing");
+        using var silent = await app.EnrollAsync("silent");
+        var brief = TimeSpan.FromSeconds(5);
+        var (kept, _) = await app.ConnectAsync(renewing with { Token = app.Token("renewing", lifetime: brief) }, "events");
+        var (ended, _) = await app.ConnectAsync(silent with { Token = app.Token("silent", lifetime: brief) }, "events");
+        await CallAsync(renewing, HttpMethod.Post, "/api/me/connections/renew");
+        await CallAsync(silent, HttpMethod.Get, "/api/sessions");
+        await Task.Delay(brief + TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
+        await SendAsync(kept, new { type = "ping" });
+        Assert.Equal("pong", (await JsonAsync(kept)).GetProperty("type").GetString());
+        await Assert.ThrowsAnyAsync<Exception>(() => JsonAsync(ended));
     }
 
     private sealed class ManualClock : TimeProvider

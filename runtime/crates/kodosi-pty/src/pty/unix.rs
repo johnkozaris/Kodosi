@@ -4,6 +4,7 @@ use std::{
     io,
     os::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, IntoRawFd, OwnedFd, RawFd},
     path::{Path, PathBuf},
+    sync::{Mutex, PoisonError},
     time::Duration,
 };
 
@@ -15,11 +16,19 @@ use nix::{
     unistd::{self, Pid},
 };
 use tokio::{
-    io::unix::AsyncFd,
+    io::{Interest, Ready, unix::AsyncFd},
     process::{Child, Command},
 };
 
 use super::{ShutdownStage, WaitOutcome};
+
+static OPEN_PTY: Mutex<()> = Mutex::new(());
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Transfer {
+    Read(usize),
+    Wrote(usize),
+}
 
 #[derive(Debug)]
 pub struct RawFdAsyncReader {
@@ -70,6 +79,43 @@ impl RawFdAsyncReader {
             }
         }
     }
+
+    pub async fn transfer(
+        &mut self,
+        read: &mut [u8],
+        write: Option<&[u8]>,
+    ) -> io::Result<Transfer> {
+        let async_fd = self.get_async_fd()?;
+        let interest = if write.is_some() {
+            Interest::READABLE | Interest::WRITABLE
+        } else {
+            Interest::READABLE
+        };
+        loop {
+            let mut guard = async_fd.ready(interest).await?;
+            let ready = guard.ready();
+            if let Some(bytes) = write
+                && ready.is_writable()
+            {
+                match unistd::write(guard.get_inner(), bytes) {
+                    Ok(0) | Err(nix::errno::Errno::EAGAIN) => {
+                        guard.clear_ready_matching(Ready::WRITABLE);
+                    }
+                    Ok(count) => return Ok(Transfer::Wrote(count)),
+                    Err(nix::errno::Errno::EINTR) => {}
+                    Err(error) => return Err(io::Error::from_raw_os_error(error as i32)),
+                }
+            }
+            if ready.is_readable() {
+                match unistd::read(guard.get_inner(), read) {
+                    Ok(count) => return Ok(Transfer::Read(count)),
+                    Err(nix::errno::Errno::EAGAIN) => guard.clear_ready_matching(Ready::READABLE),
+                    Err(nix::errno::Errno::EINTR) => {}
+                    Err(error) => return Err(io::Error::from_raw_os_error(error as i32)),
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -92,8 +138,10 @@ impl KodosiPty {
             KodosiError::Spawn(format!("command not found: {}", program.display()))
         })?;
 
-        let openpty_result =
-            openpty(None, &None).map_err(|error| io::Error::from_raw_os_error(error as i32))?;
+        let openpty_result = {
+            let _serial = OPEN_PTY.lock().unwrap_or_else(PoisonError::into_inner);
+            openpty(None, &None).map_err(|error| io::Error::from_raw_os_error(error as i32))?
+        };
         let master_raw = openpty_result.master.as_raw_fd();
         let slave_raw = openpty_result.slave.as_raw_fd();
         set_terminal_size_using_fd(master_raw, cols, rows, None, None)?;
@@ -738,6 +786,7 @@ mod tests {
             return;
         }
         let home = tempfile::tempdir().unwrap();
+        std::fs::write(home.path().join(".zshrc"), "").unwrap();
         unsafe {
             env::set_var("ZDOTDIR", home.path());
         }

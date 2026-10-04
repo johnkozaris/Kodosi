@@ -16,4 +16,4 @@ pub enum WaitOutcome {
 }
 
 #[cfg(unix)]
-pub use unix::{KodosiPty, RawFdAsyncReader};
+pub use unix::{KodosiPty, RawFdAsyncReader, Transfer};

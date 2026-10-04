@@ -34,6 +34,10 @@ pub enum Error {
     Busy,
     #[error("The connection has closed.")]
     Closed,
+    #[error(
+        "The terminal view was refreshed before the host confirmed the operation. It was not retried."
+    )]
+    Refreshed,
     #[error("{0}")]
     Io(#[from] std::io::Error),
     #[error("{0}")]
@@ -65,6 +69,13 @@ pub type Result<T> = std::result::Result<T, Error>;
 impl Error {
     pub fn user_facing(&self) -> bool {
         !matches!(self, Self::Stale | Self::Closed)
+    }
+
+    pub(crate) fn unanswered(&self) -> bool {
+        matches!(
+            self,
+            Self::Io(_) | Self::Http(_) | Self::Dns | Self::Timeout | Self::Busy
+        ) || matches!(self, Self::Backend { status, .. } if *status == 429 || *status >= 500)
     }
 }
 
@@ -192,7 +203,7 @@ pub enum HostRequest {
 
 #[derive(Clone)]
 pub enum PublishedFrame {
-    MetadataChanged,
+    Metadata(crate::terminal::TerminalMetadata),
     BootstrapBarrier {
         request_id: Uuid,
     },
@@ -200,9 +211,10 @@ pub enum PublishedFrame {
         sequence: u64,
         bytes: Bytes,
     },
-    Checkpoint {
-        checkpoint: crate::terminal::Checkpoint,
-        next_sequence: u64,
+    Resize {
+        rows: u16,
+        cols: u16,
+        at_sequence: u64,
     },
     Closed {
         reason: String,
@@ -223,6 +235,13 @@ pub enum RemoteUpdate {
         sequence: u64,
         bytes: Bytes,
     },
+    Metadata(crate::terminal::TerminalMetadata),
+    Resize {
+        rows: u16,
+        cols: u16,
+        at_sequence: u64,
+    },
+    Resync,
     Closed {
         reason: String,
     },
@@ -311,6 +330,7 @@ pub type PublicationOutput = broadcast::Receiver<PublishedFrame>;
 
 #[cfg(test)]
 pub(crate) use terminal_connections::RemoteRequest as TestRemoteRequest;
+pub(crate) use terminal_connections::STABLE_CONNECTION;
 
 #[cfg(test)]
 pub(crate) fn test_remote_connection(
