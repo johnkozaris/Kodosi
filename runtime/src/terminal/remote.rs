@@ -897,13 +897,7 @@ impl RemoteActor {
             return Step::Failed(error.to_string());
         }
         match update {
-            Some(RemoteUpdate::Ended { final_sequence }) => {
-                if self.next_sequence == Some(final_sequence) {
-                    Step::Ended
-                } else {
-                    Step::Stop("Terminal end crossed output boundary.".to_owned())
-                }
-            }
+            Some(RemoteUpdate::Ended { .. }) => Step::Ended,
             Some(RemoteUpdate::Closed { reason }) => Step::Failed(reason),
             Some(update) => Step::from(self.update(update)),
             None => Step::Failed("The remote host disconnected.".to_owned()),

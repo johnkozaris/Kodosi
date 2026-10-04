@@ -655,3 +655,24 @@ async fn disconnect_does_not_wait_behind_an_in_flight_control_or_full_queue() {
             .is_some()
     );
 }
+
+#[tokio::test]
+async fn the_end_from_the_host_ends_a_view_that_did_not_get_all_output() {
+    let (terminal, mut view, _requests, updates, mut changes) = start().await;
+    updates
+        .send(RemoteUpdate::Ended { final_sequence: 9 })
+        .await
+        .expect("end");
+    assert!(matches!(
+        view.control.recv().await,
+        Some(ControlFrame::Closed { .. })
+    ));
+    loop {
+        match changes.recv().await {
+            Some(SessionChange::RemoteEnded { .. }) => break,
+            Some(_) => {}
+            None => panic!("the terminal did not report its end"),
+        }
+    }
+    assert!(terminal.is_closed());
+}

@@ -76,10 +76,10 @@ one full snapshot (screen plus 1,024 history lines). A snapshot of the visible
 screen only would make it about half a second. The terminal library snapshot
 has no history limit today, so this needs a library change.
 
-Not done in this part: the Mac app and the Qt app do not yet show
-"reconnecting" on a connected tile (the view stays open and continues, with no
-mark), and the unconfirmed input count is a text in the "connection lost"
-message only.
+An open view of a remote terminal reports `connectionState: connected` with
+`status: reconnecting` while its link is lost, and `running` again when the new
+channel has its first keyframe. The Mac app and the Qt app keep the terminal on
+screen in that state and show "Reconnecting" in the tile header.
 
 ## 3. Remaining: identity that the server cannot change
 
@@ -180,11 +180,9 @@ and buys little.
 
 ## 6. Remaining: client marks
 
-- `sessions.snapshot.connectionState` gets `reconnecting`; the tile keeps its
-  view and shows a small mark. (Mac: add the value in the same change; the app
-  stops on an unknown value. Qt: add it to the allowed values.)
-- `term.inputUnconfirmed {bytes}`: after a lost connection the view says
-  "Some of your last input was not sent" when the count is not zero.
+- After a lost connection the view says "Some of your last input was not sent"
+  when the host did not confirm all input. Today this is only in the reason
+  text of the lost connection.
 - Qt: remove the limit of 20 tries for a view that is attached.
 
 ## 7. Order of work
@@ -192,11 +190,10 @@ and buys little.
 | Step | Content | Proof |
 |---|---|---|
 | done | Channel, relay pipe, per-viewer stream, input stream | section 2 |
-| next | Client marks (6) in the command-line app, Qt app and Mac app | real run with a link loss |
-| then | Device link with one typed code (3.1) in all three clients | a link with changed keys fails at the code; real link with each client |
+| next | Device link with one typed code (3.1) in all three clients | a link with changed keys fails at the code; real link with each client |
 | then | Friend list, invite text, no first use (3.2) | a friend that the server adds cannot be shared with |
 | then | Device connection and server items (4) | database pause, restart with many devices |
-| last | Direct path (5); screen-only keyframe (2) | two computers on different networks |
+| last | Direct path (5); screen-only keyframe (2); client marks (6) | two computers on different networks |
 
 Each step keeps `just check-all` green, is tested on Linux x86-64 (`ssh lenovo`),
 and changes the command-line app, the Qt app and the Mac app together when a

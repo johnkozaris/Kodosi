@@ -370,6 +370,7 @@ impl Runtime {
                 commands: vec![command],
             },
         );
+        let recovering = self.recovering(id);
         if let Some(entry) = self.remotes.get_mut(&id) {
             if let Ok(incarnation) = Uuid::parse_str(&entry.incarnation_id)
                 && self.views.contains_key(&id)
@@ -381,7 +382,9 @@ impl Runtime {
                     connected: None,
                 });
             }
-            entry.connection_state = ConnectionState::Connecting;
+            if !recovering {
+                entry.connection_state = ConnectionState::Connecting;
+            }
             entry.message = None;
         }
         self.publish_catalog();
@@ -743,6 +746,7 @@ impl Runtime {
                 }
                 let mut entry = self.remote_entry(connection.session.clone());
                 entry.connection_state = ConnectionState::Connected;
+                entry.status = SessionStatus::Running;
                 entry.message = None;
                 let resumed = self.connections.get(&id).is_some_and(|existing| {
                     existing.is_interrupted()
@@ -779,13 +783,18 @@ impl Runtime {
                     retry.next = tokio::time::Instant::now() + Reconnect::delay(retry.failures);
                     retry.connected = None;
                 }
+                let recovering = self.reconnect.contains_key(&id) && self.recovering(id);
                 if let Some(entry) = self.remotes.get_mut(&id) {
-                    entry.connection_state = if matches!(error, Error::Invalid(_)) {
-                        ConnectionState::Blocked
+                    if recovering {
+                        entry.status = SessionStatus::Reconnecting;
                     } else {
-                        ConnectionState::Offline
-                    };
-                    entry.message = Some(error.to_string());
+                        entry.connection_state = if matches!(error, Error::Invalid(_)) {
+                            ConnectionState::Blocked
+                        } else {
+                            ConnectionState::Offline
+                        };
+                        entry.message = Some(error.to_string());
+                    }
                 }
                 self.publish_catalog();
                 for command in opening.commands {

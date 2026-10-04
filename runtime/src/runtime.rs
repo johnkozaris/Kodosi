@@ -1281,6 +1281,14 @@ impl Runtime {
         remotes
     }
 
+    pub(crate) fn recovering(&self, id: Uuid) -> bool {
+        self.views.contains_key(&id)
+            && self
+                .connections
+                .get(&id)
+                .is_some_and(|connection| connection.is_interrupted() && !connection.is_closed())
+    }
+
     fn remote_entry(&self, remote: RemoteSession) -> SessionEntry {
         let is_owner = self.scope.user.as_deref() == Some(remote.owner_user_id.as_str());
         let connection_state = if self
@@ -1316,7 +1324,7 @@ impl Runtime {
             host_device_id: Some(remote.host_device_id),
             host_name: Some(remote.host_name),
             is_owner,
-            status: if remote.online {
+            status: if remote.online && !self.recovering(remote.id) {
                 SessionStatus::Running
             } else {
                 SessionStatus::Reconnecting
@@ -1459,10 +1467,16 @@ impl Runtime {
         } else if let Some(connection) = self.connections.remove(&id) {
             connection.disconnect();
         }
+        let recovering = self.recovering(id);
         if let Some(entry) = self.remotes.get_mut(&id) {
-            entry.connection_state = ConnectionState::Offline;
             entry.connected_users.clear();
-            entry.message = Some(reason);
+            if recovering {
+                entry.status = SessionStatus::Reconnecting;
+                entry.message = None;
+            } else {
+                entry.connection_state = ConnectionState::Offline;
+                entry.message = Some(reason);
+            }
         }
         self.publish_catalog();
     }

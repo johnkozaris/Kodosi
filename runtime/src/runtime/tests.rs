@@ -738,6 +738,116 @@ async fn a_failed_reconnect_waits_longer_each_time_and_only_a_final_answer_ends_
     assert!(!runtime.reconnect.contains_key(&id));
 }
 
+fn first_snapshot() -> crate::network::RemoteUpdate {
+    let mut terminal =
+        ghostty_vt::Terminal::new(20, 4, ghostty_vt::TerminalPolicy::default()).unwrap();
+    let semantic = terminal
+        .semantic_checkpoint(ghostty_vt::CheckpointLimits::default())
+        .unwrap();
+    crate::network::RemoteUpdate::Checkpoint {
+        checkpoint: crate::terminal::Checkpoint::new(
+            TerminalSize::new(4, 20).unwrap(),
+            crate::terminal::TerminalScreen::Primary,
+            semantic.into_bytes(),
+            0,
+            0,
+            false,
+        )
+        .unwrap(),
+        next_sequence: 0,
+        fresh: true,
+    }
+}
+
+#[tokio::test]
+async fn an_open_view_stays_connected_and_reports_reconnecting_while_its_link_is_lost() {
+    let (mut runtime, _root) = registry_fixture();
+    let (id, incarnation) = (Uuid::now_v7(), Uuid::now_v7());
+    let remote = remote_session(id, incarnation);
+    runtime.replace_remotes(vec![remote.clone()]);
+    runtime
+        .apply_for_consumer(
+            &Command::OpenRemote {
+                request_id: Uuid::now_v7().to_string(),
+                session_id: id.to_string(),
+            },
+            Uuid::now_v7(),
+            CancellationToken::new(),
+        )
+        .unwrap();
+    let state = |runtime: &Runtime| {
+        let entry = &runtime.remotes[&id];
+        (entry.connection_state, entry.status, entry.message.clone())
+    };
+    let connected = |runtime: &mut Runtime, result| {
+        let attempt = runtime.opening[&id].attempt;
+        runtime.complete(Job {
+            scope: runtime.scope.clone(),
+            completion: Completion::Connected {
+                id,
+                attempt,
+                result,
+            },
+        });
+    };
+    let (connection, mut requests, updates) =
+        crate::network::test_remote_connection(remote.clone());
+    connected(&mut runtime, Ok(connection));
+    assert_eq!(
+        state(&runtime),
+        (ConnectionState::Connected, SessionStatus::Running, None)
+    );
+    let view = runtime.connections[&id].subscribe();
+    requests.recv().await.unwrap();
+    updates.send(first_snapshot()).await.unwrap();
+    let _view = view.await.unwrap();
+
+    updates
+        .send(crate::network::RemoteUpdate::Closed {
+            reason: "link lost".to_owned(),
+        })
+        .await
+        .unwrap();
+    for _ in 0..400 {
+        if runtime.connections[&id].is_interrupted() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    let instance = runtime.connections[&id].instance_id;
+    runtime.remote_lost(
+        id,
+        incarnation,
+        instance,
+        "The connection has closed.".to_owned(),
+        true,
+    );
+    let reconnecting = (
+        ConnectionState::Connected,
+        SessionStatus::Reconnecting,
+        None,
+    );
+    assert_eq!(state(&runtime), reconnecting);
+
+    runtime.reconnect.get_mut(&id).unwrap().next = Instant::now();
+    runtime.reconnect_views();
+    assert_eq!(state(&runtime), reconnecting);
+    connected(
+        &mut runtime,
+        Err(Error::Other("The server did not respond.".to_owned())),
+    );
+    assert_eq!(state(&runtime), reconnecting);
+
+    runtime.reconnect.get_mut(&id).unwrap().next = Instant::now();
+    runtime.reconnect_views();
+    let (again, _again_requests, _again_updates) = crate::network::test_remote_connection(remote);
+    connected(&mut runtime, Ok(again));
+    assert_eq!(
+        state(&runtime),
+        (ConnectionState::Connected, SessionStatus::Running, None)
+    );
+}
+
 #[tokio::test]
 async fn remote_demand_is_released_only_by_its_consumer() {
     let (mut runtime, _root) = registry_fixture();
