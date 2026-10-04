@@ -266,7 +266,7 @@ impl BackendClient {
         )?;
         let _response:Value=self.inner.http.device(Method::POST,"api/devices/link/approve",&credentials,Some(json!({"userCode":code,"deviceCertificate":BASE64.encode(cert.body_bytes),"deviceCertificateSignature":BASE64.encode(cert.signature),"signedDeviceList":BASE64.encode(list.body_bytes),"signedDeviceListSignature":BASE64.encode(list.signature)}))).await?;
         self.fetch_identity(&credentials.user_id, false).await?;
-        self.rekey_all().await
+        self.review_access().await
     }
 
     pub(super) async fn reconcile_device_removals(&self) -> Result<()> {
@@ -323,9 +323,9 @@ impl BackendClient {
             Some(issued + 24 * 60 * 60_000),
         )?;
         self.block_device(&credentials.user_id, id).await?;
-        self.rekey_all().await?;
+        self.review_access().await?;
         let _response:Value=self.inner.http.device(Method::POST,"api/me/identity/device-list",&credentials,Some(json!({"signedDeviceList":BASE64.encode(list.body_bytes),"signedDeviceListSignature":BASE64.encode(list.signature)}))).await?;
         self.fetch_identity(&credentials.user_id, false).await?;
-        self.rekey_all().await
+        self.review_access().await
     }
 }

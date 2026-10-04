@@ -1,5 +1,5 @@
 {
-  "apiContractVersion": 16,
+  "apiContractVersion": 17,
   "authContractVersion": 1,
   "authentication": "OIDC bearer identity and enrolled device proof",
   "sessionAuthorization": {
@@ -12,7 +12,7 @@
       "interrupt",
       "close"
     ],
-    "administration": "owner; key publication and membership updates require the hosting device",
+    "administration": "owner; membership updates require the hosting device",
     "friendshipGrantsSessions": false,
     "missionMembershipGrantsSessions": false
   },
@@ -24,11 +24,11 @@
     ],
     "reuseAfterEnd": false,
     "membershipMutation": "replace chosen friend IDs with expected authorizationRevision",
-    "revocation": "advance revision and key generation; persist ready=false before disconnecting or redistributing keys",
+    "revocation": "advance the revision; close the relay pipes of removed people and devices at once; tell the host",
     "inputReplayOnReconnect": false,
     "historicalMutationReceipts": false,
     "offlineExpiry": false,
-    "missingRecovery": "current hosting device may republish same still-live incarnation with owner-only access and fresh keys"
+    "missingRecovery": "current hosting device may republish same still-live incarnation with owner-only access"
   },
   "routes": {
     "accounts": [
@@ -70,11 +70,7 @@
       "DELETE /api/sessions/{id}",
       "PUT /api/sessions/{id}/mission",
       "PUT /api/sessions/{id}/members",
-      "DELETE /api/sessions/{id}/members/me",
-      "GET /api/sessions/{id}/devices",
-      "POST /api/sessions/{id}/keys",
-      "POST /api/sessions/{id}/keys/rotate",
-      "GET /api/sessions/{id}/keys/mine"
+      "DELETE /api/sessions/{id}/members/me"
     ],
     "missions": [
       "GET /api/missions",
@@ -89,5 +85,5 @@
     ]
   },
   "missionContent": "directory metadata only; no chat, tasks, or agent dispatch",
-  "backendSecrets": "ciphertext and wrapped session keys only; no endpoint private keys or terminal plaintext"
+  "backendSecrets": "none; the server relays TLS records between a host device and a viewer device and holds no terminal key"
 }

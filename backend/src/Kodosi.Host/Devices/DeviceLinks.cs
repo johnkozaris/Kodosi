@@ -111,9 +111,7 @@ public sealed partial class DeviceService
         db.Devices.Add(ToDevice(userId, cert, certBytes, certSig));
         UpdateList(current, next, listBytes, listSig);
         link.State = "approved"; link.ApprovedGeneration = next.Generation;
-        var affected = await InvalidateUserSessionsAsync(userId, ct);
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
-        foreach (var session in affected) connections.Invalidate(session, keep: Keep(userId, null));
         connections.Notify(userId, "devices");
     }
 

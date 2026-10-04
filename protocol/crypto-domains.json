@@ -1,14 +1,11 @@
 {
-  "version": 10,
+  "version": 11,
   "tags": {
     "DEVICE_POP_V1": "kodosi-device-pop-v1",
     "DEVICE_CERT_V2": "kodosi-device-cert-v2",
     "DEVICE_LIST_V1": "kodosi-device-list-v1",
     "DEVICE_CONNECTION_PROOF_V1": "kodosi-device-connection-proof-v1",
-    "DEVICE_HTTP_REQUEST_PROOF_V1": "kodosi-device-http-request-proof-v1",
-    "SESSION_KEY_BLOB_V2": "kodosi-session-key-blob-v2",
-    "TERMINAL_CONTROL_V1": "kodosi-terminal-control-v1",
-    "TERMINAL_CHECKPOINT_PROOF_V1": "kodosi-terminal-checkpoint-proof-v1"
+    "DEVICE_HTTP_REQUEST_PROOF_V1": "kodosi-device-http-request-proof-v1"
   },
   "deviceProofPreimageVectors": {
     "connectionV1": {

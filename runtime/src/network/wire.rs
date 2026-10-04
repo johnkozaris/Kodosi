@@ -3,31 +3,20 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-use super::{Result, TerminalControl, crypto, invalid};
+use super::{Result, TerminalControl, invalid};
 
-mod decoder;
-mod freshness;
+mod frame;
 mod packing;
-pub(crate) use decoder::FrameDecoder;
-pub(crate) use freshness::{CaptureIdentity, FreshFrames, frame_hash};
-pub(crate) use packing::OutputPacker;
+pub(crate) use frame::{
+    Accept, ControlResult, End, Frame, Hello, KEYFRAME_PART, OUTPUT_FRAME, Refuse,
+};
 
-pub(crate) const FRAME_LIMIT: usize = 8 * 1024 * 1024 + 65_536;
 pub(crate) const INPUT_LIMIT: usize = 1024 * 1024;
 pub(crate) const RAW_CHUNK_LIMIT: usize = 64 * 1024;
 pub(crate) const RAW_BATCH_LIMIT: usize = 128;
 const METADATA_LIMIT: usize = 16_384;
 const SNAPSHOT_LIMIT: usize = 8 * 1024 * 1024 + 18 + METADATA_LIMIT;
-const RAW_BODY_LIMIT: usize = RAW_BATCH_LIMIT * (4 + RAW_CHUNK_LIMIT);
-
-pub(crate) enum Notice<'a> {
-    Metadata(&'a crate::terminal::TerminalMetadata),
-    Resize {
-        rows: u16,
-        cols: u16,
-        at_sequence: u64,
-    },
-}
+const SNAPSHOT_LEVEL: u32 = 6;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -43,8 +32,6 @@ pub(crate) struct SessionDto {
     pub mission_name: Option<String>,
     pub shared_with: Vec<String>,
     pub authorization_revision: u64,
-    pub key_generation: u32,
-    pub ready: bool,
     pub host_online: bool,
 }
 
@@ -63,42 +50,6 @@ impl From<SessionDto> for super::RemoteSession {
             shared_with: dto.shared_with,
             online: dto.host_online,
         }
-    }
-}
-
-#[derive(Clone)]
-pub(crate) struct ControlIdentity {
-    pub session_id: Uuid,
-    pub incarnation_id: Uuid,
-    pub authorization_revision: u64,
-    pub key_generation: u32,
-    pub connection_id: Uuid,
-    pub user_id: String,
-    pub device_id: String,
-    pub sequence: u64,
-    pub request_id: Uuid,
-}
-
-impl ControlIdentity {
-    fn fields(&self) -> Vec<String> {
-        vec![
-            self.session_id.to_string(),
-            self.incarnation_id.to_string(),
-            self.authorization_revision.to_string(),
-            self.key_generation.to_string(),
-            self.connection_id.to_string(),
-            self.user_id.clone(),
-            self.device_id.clone(),
-            self.sequence.to_string(),
-            self.request_id.to_string(),
-        ]
-    }
-    pub(crate) fn aad(&self) -> Result<Vec<u8>> {
-        let fields = self.fields();
-        crypto::signed_fields(
-            b"kodosi-terminal-control-v1",
-            &fields.iter().map(String::as_bytes).collect::<Vec<_>>(),
-        )
     }
 }
 
@@ -222,104 +173,21 @@ pub(crate) fn decode_b64(value: &Value, field: &str, limit: usize) -> Result<Vec
     Ok(bytes)
 }
 
-pub(crate) fn checkpoint_frame(
-    key: &crypto::SessionKey,
-    generation: u32,
-    counter: u64,
-    revision: u64,
-    next_sequence: u64,
+pub(crate) fn snapshot_parts(
     checkpoint: &crate::terminal::Checkpoint,
-) -> Result<Vec<u8>> {
-    let body = packing::pack_snapshot(&encode_checkpoint(checkpoint)?)?;
-    let mut header = vec![3];
-    header.extend_from_slice(&generation.to_be_bytes());
-    header.extend_from_slice(&counter.to_be_bytes());
-    header.extend_from_slice(&revision.to_be_bytes());
-    header.extend_from_slice(&next_sequence.to_be_bytes());
-    let derived = crypto::derive_stream_key(key, crypto::TrafficStream::Checkpoint)?;
-    let ciphertext = crypto::encrypt_frame(&derived, generation, counter, &header, &body)?;
-    header.extend_from_slice(&ciphertext);
-    Ok(header)
+) -> Result<Vec<bytes::Bytes>> {
+    let packed = bytes::Bytes::from(packing::pack(
+        &encode_checkpoint(checkpoint)?,
+        SNAPSHOT_LEVEL,
+    )?);
+    Ok((0..packed.len())
+        .step_by(KEYFRAME_PART)
+        .map(|at| packed.slice(at..packed.len().min(at + KEYFRAME_PART)))
+        .collect())
 }
 
-pub(crate) fn raw_frame(
-    key: &crypto::SessionKey,
-    generation: u32,
-    counter: u64,
-    sequence: u64,
-    chunks: &[impl AsRef<[u8]>],
-    packer: &mut OutputPacker,
-) -> Result<Vec<u8>> {
-    if chunks.is_empty()
-        || chunks.len() > RAW_BATCH_LIMIT
-        || chunks
-            .iter()
-            .any(|chunk| chunk.as_ref().len() > RAW_CHUNK_LIMIT)
-    {
-        return Err(invalid("Terminal output batch exceeds its bound."));
-    }
-    let next = u64::try_from(chunks.len())
-        .ok()
-        .and_then(|count| sequence.checked_add(count))
-        .ok_or_else(|| invalid("Terminal sequence exhausted."))?;
-    let mut header = vec![4];
-    header.extend_from_slice(&generation.to_be_bytes());
-    header.extend_from_slice(&counter.to_be_bytes());
-    header.extend_from_slice(&sequence.to_be_bytes());
-    header.extend_from_slice(&next.to_be_bytes());
-    let mut body = Vec::new();
-    for chunk in chunks {
-        let chunk = chunk.as_ref();
-        body.extend_from_slice(
-            &u32::try_from(chunk.len())
-                .map_err(|_| invalid("Output too large."))?
-                .to_be_bytes(),
-        );
-        body.extend_from_slice(chunk);
-    }
-    let body = packer.pack(&body)?;
-    let derived = crypto::derive_stream_key(key, crypto::TrafficStream::TerminalRaw)?;
-    header.extend_from_slice(&crypto::encrypt_frame(
-        &derived, generation, counter, &header, &body,
-    )?);
-    Ok(header)
-}
-
-pub(crate) fn notice_frame(
-    key: &crypto::SessionKey,
-    generation: u32,
-    counter: u64,
-    revision: u64,
-    notice: &Notice<'_>,
-) -> Result<Vec<u8>> {
-    let body = match notice {
-        Notice::Metadata(metadata) => {
-            let mut body = vec![0];
-            body.extend_from_slice(&encode_metadata(metadata)?);
-            body
-        }
-        Notice::Resize {
-            rows,
-            cols,
-            at_sequence,
-        } => {
-            let mut body = vec![1];
-            body.extend_from_slice(&rows.to_be_bytes());
-            body.extend_from_slice(&cols.to_be_bytes());
-            body.extend_from_slice(&at_sequence.to_be_bytes());
-            body
-        }
-    };
-    let mut header = vec![5];
-    header.extend_from_slice(&generation.to_be_bytes());
-    header.extend_from_slice(&counter.to_be_bytes());
-    header.extend_from_slice(&revision.to_be_bytes());
-    header.extend_from_slice(&[0; 8]);
-    let derived = crypto::derive_stream_key(key, crypto::TrafficStream::Notice)?;
-    header.extend_from_slice(&crypto::encrypt_frame(
-        &derived, generation, counter, &header, &body,
-    )?);
-    Ok(header)
+pub(crate) fn snapshot(packed: &[u8]) -> Result<crate::terminal::Checkpoint> {
+    decode_checkpoint(&packing::unpack(packed, SNAPSHOT_LIMIT)?)
 }
 
 fn encode_metadata(metadata: &crate::terminal::TerminalMetadata) -> Result<Vec<u8>> {
@@ -333,7 +201,7 @@ fn encode_metadata(metadata: &crate::terminal::TerminalMetadata) -> Result<Vec<u
     Ok(encoded)
 }
 
-pub(crate) fn decode_metadata(encoded: &[u8]) -> Result<crate::terminal::TerminalMetadata> {
+fn decode_metadata(encoded: &[u8]) -> Result<crate::terminal::TerminalMetadata> {
     if encoded.len() > METADATA_LIMIT {
         return Err(invalid("Terminal metadata exceeds its bound."));
     }
@@ -372,7 +240,7 @@ fn encode_checkpoint(checkpoint: &crate::terminal::Checkpoint) -> Result<Vec<u8>
     Ok(encoded)
 }
 
-pub(crate) fn decode_checkpoint(encoded: &[u8]) -> Result<crate::terminal::Checkpoint> {
+fn decode_checkpoint(encoded: &[u8]) -> Result<crate::terminal::Checkpoint> {
     use crate::terminal::{Checkpoint, TerminalScreen, TerminalSize};
     if encoded.len() < 18 || encoded.len() > 8 * 1024 * 1024 + 18 + METADATA_LIMIT {
         return Err(invalid("Checkpoint plaintext has invalid length."));
@@ -425,82 +293,29 @@ pub(crate) fn decode_checkpoint(encoded: &[u8]) -> Result<crate::terminal::Check
     Ok(checkpoint)
 }
 
-pub(crate) fn output_end(frame: &[u8]) -> Option<u64> {
-    (frame.first() == Some(&4))
-        .then(|| read_u64(frame, 21).ok())
-        .flatten()
-}
-
-pub(crate) fn read_u64(bytes: &[u8], offset: usize) -> Result<u64> {
-    Ok(u64::from_be_bytes(
-        bytes
-            .get(offset..offset + 8)
-            .ok_or_else(|| invalid("Truncated terminal frame."))?
-            .try_into()
-            .map_err(|_| invalid("Truncated terminal frame."))?,
-    ))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
-    fn control_proof_changes_with_connection_and_revision() {
-        let mut identity = ControlIdentity {
-            session_id: Uuid::now_v7(),
-            incarnation_id: Uuid::now_v7(),
-            authorization_revision: 1,
-            key_generation: 1,
-            connection_id: Uuid::now_v7(),
-            user_id: "user".into(),
-            device_id: "device".into(),
-            sequence: 1,
-            request_id: Uuid::now_v7(),
-        };
-        let a = identity.aad().unwrap();
-        identity.connection_id = Uuid::now_v7();
-        assert_ne!(a, identity.aad().unwrap());
-        let b = identity.aad().unwrap();
-        identity.authorization_revision += 1;
-        assert_ne!(b, identity.aad().unwrap());
-    }
-    #[test]
-    fn current_signed_domains_match_the_manifest() {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../protocol/crypto-domains.json");
-        let manifest: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
-        let tags = &manifest["tags"];
-        let identity = ControlIdentity {
-            session_id: Uuid::nil(),
-            incarnation_id: Uuid::nil(),
-            authorization_revision: 1,
-            key_generation: 1,
-            connection_id: Uuid::nil(),
-            user_id: "user".into(),
-            device_id: "device".into(),
-            sequence: 1,
-            request_id: Uuid::nil(),
-        };
-        assert!(
-            identity
-                .aad()
-                .unwrap()
-                .starts_with(tags["TERMINAL_CONTROL_V1"].as_str().unwrap().as_bytes())
-        );
-        assert!(tags.get("TERMINAL_CONTROL_SIGNATURE_V1").is_none());
-        assert!(tags.get("TERMINAL_RESULT_V1").is_none());
-        assert!(tags.get("SESSION_KEY_V2").is_none());
-    }
-
-    #[test]
-    fn only_an_output_frame_has_an_end_sequence_to_acknowledge() {
-        let mut frame = vec![0u8; 29];
-        frame[0] = 4;
-        frame[21..29].copy_from_slice(&7u64.to_be_bytes());
-        assert_eq!(output_end(&frame), Some(7));
-        frame[0] = 3;
-        assert_eq!(output_end(&frame), None);
-        assert_eq!(output_end(&[4, 0, 0]), None);
+    fn a_large_snapshot_goes_in_parts_and_comes_back_whole() {
+        use crate::terminal::{Checkpoint, TerminalScreen, TerminalSize};
+        let body = (0..700_000u32)
+            .flat_map(|value| value.wrapping_mul(2_654_435_761).to_be_bytes())
+            .collect::<Vec<_>>();
+        let checkpoint = Checkpoint::new(
+            TerminalSize::new(30, 100).unwrap(),
+            TerminalScreen::Primary,
+            body.clone(),
+            3,
+            4,
+            false,
+        )
+        .unwrap();
+        let parts = snapshot_parts(&checkpoint).unwrap();
+        assert!(parts.len() > 1 && parts.iter().all(|part| part.len() <= KEYFRAME_PART));
+        let restored = snapshot(&parts.concat()).unwrap();
+        assert_eq!(restored.semantic_checkpoint, body);
+        assert!(snapshot(&parts[0]).is_err());
     }
 
     #[test]

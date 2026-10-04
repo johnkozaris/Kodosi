@@ -12,7 +12,6 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<SessionMember> SessionMembers => Set<SessionMember>();
-    public DbSet<SessionKeyEnvelope> SessionKeys => Set<SessionKeyEnvelope>();
     public DbSet<Mission> Missions => Set<Mission>();
     public DbSet<MissionMember> MissionMembers => Set<MissionMember>();
     public DbSet<MissionInvitation> MissionInvitations => Set<MissionInvitation>();
@@ -92,14 +91,6 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
             e.ToTable("session_members"); e.HasKey(x => new { x.SessionId, x.UserId });
             e.HasOne<Session>().WithMany().HasForeignKey(x => x.SessionId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
-        });
-        model.Entity<SessionKeyEnvelope>(e =>
-        {
-            e.ToTable("session_keys"); e.HasKey(x => new { x.SessionId, x.RecipientDeviceId });
-            e.Property(x => x.RecipientDeviceId).HasMaxLength(256);
-            e.Property(x => x.SenderDeviceId).HasMaxLength(256);
-            e.HasOne<Session>().WithMany().HasForeignKey(x => x.SessionId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne<Device>().WithMany().HasForeignKey(x => x.RecipientDeviceId).OnDelete(DeleteBehavior.Restrict);
         });
         model.Entity<Mission>(e =>
         {

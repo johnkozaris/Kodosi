@@ -326,7 +326,7 @@ impl BackendClient {
                     .await?;
                 events.push(self.friend_event().await?);
                 if operation == "friends.remove" {
-                    self.rekey_all().await?;
+                    self.review_access().await?;
                 }
             }
             "session.list" => events.push(self.session_event().await?),
@@ -522,7 +522,7 @@ impl BackendClient {
                     let previous = publication.dto.read().await.clone();
                     *publication.dto.write().await = dto.clone();
                     if removed || previous.authorization_revision != dto.authorization_revision {
-                        publication.invalidate().await;
+                        publication.invalidate();
                     }
                     self.emit_for(credentials.generation, Some(credentials.user_id.clone()), json!({
                         "type":"network.sharing", "sessionId":dto.id, "incarnationId":dto.incarnation_id,
@@ -554,7 +554,7 @@ impl BackendClient {
                 if info.shared_with.remove(user) {
                     *publication.pending_shares.lock().await = Some(info.shared_with.clone());
                     drop(info);
-                    publication.invalidate().await;
+                    publication.invalidate();
                 }
             }
         }
@@ -697,7 +697,7 @@ impl BackendClient {
         let publication = self.inner.publications.lock().await.get(&id).cloned();
         if let Some(publication) = publication {
             publication.cancel.cancel();
-            publication.invalidate().await;
+            publication.invalidate();
             let info = publication.info.read().await.clone();
             self.delete_session(id, info.incarnation_id).await?;
             let mut publications = self.inner.publications.lock().await;
@@ -772,7 +772,7 @@ impl BackendClient {
             .cloned()
             .collect::<BTreeSet<_>>();
         publication.changing.store(true, Ordering::Release);
-        publication.invalidate().await;
+        publication.invalidate();
         publication.info.write().await.shared_with = users.clone();
         *publication.pending_shares.lock().await = Some(users.clone());
         let result=async {
@@ -831,9 +831,9 @@ impl BackendClient {
         Ok(())
     }
 
-    async fn rekey_all(&self) -> Result<()> {
+    async fn review_access(&self) -> Result<()> {
         for publication in self.inner.publications.lock().await.values() {
-            publication.invalidate().await;
+            publication.invalidate();
         }
         Ok(())
     }

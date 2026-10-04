@@ -1,27 +1,33 @@
+using System.Buffers;
 using System.Net.WebSockets;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Kodosi.Accounts;
 using Kodosi.Admission;
-using Kodosi.Data;
 using Kodosi.Devices;
 using Kodosi.Security;
 using Kodosi.Sessions;
-using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.TerminalConnections;
 
 internal static class ConnectionEndpoints
 {
+    private const int ProtocolVersion = 16;
+    private const int PipeMessageBytes = 256 * 1024;
+    private static readonly TimeSpan Idle = TimeSpan.FromSeconds(90);
+    private static readonly TimeSpan SlowSend = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan JoinWait = TimeSpan.FromSeconds(10);
+
     public static void MapTerminalConnections(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/ws/host/{id:guid}", (Guid id, HttpContext context) => RunAsync(context, id, "host")).RequireAuthorization().RequireRateLimiting("socket");
-        app.MapGet("/ws/participant/{id:guid}", (Guid id, HttpContext context) => RunAsync(context, id, "participant")).RequireAuthorization().RequireRateLimiting("socket");
-        app.MapGet("/ws/events", (HttpContext context) => RunAsync(context, null, "events")).RequireAuthorization().RequireRateLimiting("socket");
+        app.MapGet("/ws/host/{id:guid}", (Guid id, HttpContext context) => RunAsync(context, id, null, "host")).RequireAuthorization().RequireRateLimiting("socket");
+        app.MapGet("/ws/participant/{id:guid}", (Guid id, HttpContext context) => RunAsync(context, id, null, "participant")).RequireAuthorization().RequireRateLimiting("socket");
+        app.MapGet("/ws/relay/{id:guid}/{channel:guid}", (Guid id, Guid channel, HttpContext context) => RunAsync(context, id, channel, "relay")).RequireAuthorization().RequireRateLimiting("socket");
+        app.MapGet("/ws/events", (HttpContext context) => RunAsync(context, null, null, "events")).RequireAuthorization().RequireRateLimiting("socket");
     }
 
-    private static async Task RunAsync(HttpContext context, Guid? sessionId, string purpose)
+    private static async Task RunAsync(HttpContext context, Guid? sessionId, Guid? channelId, string purpose)
     {
         if (!context.WebSockets.IsWebSocketRequest) { context.Response.StatusCode = 400; return; }
         var providers = context.RequestServices;
@@ -35,8 +41,9 @@ internal static class ConnectionEndpoints
         var expires = DateTimeOffset.FromUnixTimeSeconds(expiresSeconds);
         if (expires <= DateTimeOffset.UtcNow) { context.Response.StatusCode = 401; return; }
         using var socket = await context.WebSockets.AcceptWebSocketAsync();
-        SocketPeer? peer = null;
+        Peer? peer = null;
         ConnectionDirectory.LiveSession? live = null;
+        Pipe? pipe = null;
         try
         {
             using var handshakeDeadline = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
@@ -45,11 +52,10 @@ internal static class ConnectionEndpoints
             if (helloFrame is null || helloFrame.Value.Type != WebSocketMessageType.Text) throw ApiException.Invalid("Expected terminal connection hello.");
             using var hello = Wire.Parse(helloFrame.Value.Bytes);
             var root = hello.RootElement;
-            if (root.GetProperty("type").GetString() != "hello" || root.GetProperty("protocolVersion").GetInt32() != 15)
+            if (root.GetProperty("type").GetString() != "hello" || root.GetProperty("protocolVersion").GetInt32() != ProtocolVersion)
                 throw ApiException.Invalid("Unsupported terminal connection protocol.");
             var deviceId = DeviceIdRules.Require(root.GetProperty("deviceId").GetString());
             Guid? incarnationId = sessionId is null ? null : root.GetProperty("incarnationId").GetGuid();
-            var checkpointChallenge = purpose == "participant" ? root.GetProperty("checkpointChallenge").GetString() : null;
             var connectionId = Guid.CreateVersion7().ToString("D");
             var challenge = RandomNumberGenerator.GetBytes(32);
             await socket.SendAsync(Wire.Encode(new { type = "challenge", connectionId, challenge = Convert.ToBase64String(challenge) }), WebSocketMessageType.Text, true, handshakeDeadline.Token);
@@ -58,110 +64,106 @@ internal static class ConnectionEndpoints
             using var auth = Wire.Parse(authFrame.Value.Bytes);
             if (auth.RootElement.GetProperty("type").GetString() != "authenticate") throw ApiException.Invalid("Expected device authentication.");
             var signature = Limits.Base64(auth.RootElement.GetProperty("signature").GetString(), "Device signature", IdentityWireFormat.MlDsa65SignatureLength);
-            using (await gate.EnterAsync(handshakeDeadline.Token))
+            using (await gate.EnterSharedAsync(handshakeDeadline.Token))
             {
                 await using var scope = scopes.CreateAsyncScope();
                 var devices = scope.ServiceProvider.GetRequiredService<DeviceService>();
                 var device = await devices.RequireDeviceAsync(current.Id, deviceId, handshakeDeadline.Token);
                 if (!signatureVerifier.Verify(device.SigningPublicKey, Proofs.Connection(current.Id, deviceId, connectionId, purpose, sessionId, incarnationId, challenge), signature))
                     throw ApiException.Forbidden("Invalid terminal connection device proof.");
-                peer = new SocketPeer(socket, current.Id, deviceId, connectionId);
-                peer.ExtendUntil(expires);
+                var ready = Wire.Encode(new { type = "ready", connectionId, incarnationId });
                 if (sessionId is { } id)
                 {
                     var sessions = scope.ServiceProvider.GetRequiredService<SessionService>();
-                    var state = purpose == "host"
-                        ? await sessions.HostAsync(id, current.Id, deviceId, handshakeDeadline.Token)
-                        : await sessions.AuthorizedAsync(id, current.Id, handshakeDeadline.Token);
+                    var state = purpose == "participant"
+                        ? await sessions.AuthorizedAsync(id, current.Id, handshakeDeadline.Token)
+                        : await sessions.HostAsync(id, current.Id, deviceId, handshakeDeadline.Token);
                     SessionService.Incarnation(state, incarnationId ?? Guid.Empty);
                     if (purpose == "host")
                     {
-                        state.Ready = false;
-                        directory.Invalidate(state, notifyHost: false);
-                        var db = scope.ServiceProvider.GetRequiredService<KodosiDbContext>();
-                        await using var transaction = await db.Database.BeginTransactionAsync(handshakeDeadline.Token);
-                        await db.SessionKeys.Where(x => x.SessionId == id).ExecuteDeleteAsync(handshakeDeadline.Token);
-                        await db.SaveChangesAsync(handshakeDeadline.Token);
-                        await transaction.CommitAsync(handshakeDeadline.Token);
-                        live = directory.RegisterHost(state, peer);
+                        var host = new SocketPeer(socket, current.Id, deviceId, connectionId);
+                        peer = host; peer.ExtendUntil(expires);
+                        live = directory.RegisterHost(state, host);
+                        host.Send(new { type = "ready", connectionId, incarnationId });
                     }
                     else
                     {
-                        var db = scope.ServiceProvider.GetRequiredService<KodosiDbContext>();
-                        if (!await db.SessionKeys.AnyAsync(x => x.SessionId == id && x.KeyGeneration == state.KeyGeneration
-                            && x.RecipientUserId == current.Id && x.RecipientDeviceId == deviceId, handshakeDeadline.Token))
-                            throw ApiException.Forbidden("This device has no current session key envelope.");
-                        live = directory.RegisterParticipant(state, peer);
+                        peer = new Peer(socket, current.Id, deviceId, connectionId); peer.ExtendUntil(expires);
+                        (live, pipe) = purpose == "participant" ? directory.OpenPipe(state, peer) : directory.JoinPipe(state, channelId ?? Guid.Empty, peer);
+                        await socket.SendAsync(ready, WebSocketMessageType.Text, true, handshakeDeadline.Token);
                     }
-                    peer.Send(new { type = "ready", connectionId, incarnationId, authorizationRevision = state.AuthorizationRevision, keyGeneration = state.KeyGeneration });
-                    if (purpose != "host") directory.BeginBootstrap(live, peer, checkpointChallenge);
                 }
                 else
                 {
-                    if (!directory.RegisterEvents(peer)) throw new ApiException(503, "Too many device event connections.");
-                    peer.Send(new { type = "ready", connectionId });
+                    var listener = new SocketPeer(socket, current.Id, deviceId, connectionId);
+                    peer = listener; peer.ExtendUntil(expires);
+                    if (!directory.RegisterEvents(listener)) throw new ApiException(503, "Too many device event connections.");
+                    listener.Send(new { type = "ready", connectionId });
                 }
             }
             using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, peer.Stopped, peer.Expired);
             try
             {
-                while (!lifetime.IsCancellationRequested)
+                if (pipe is not null)
                 {
-                    using var receiveDeadline = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
-                    receiveDeadline.CancelAfter(TimeSpan.FromSeconds(90));
-                    var frame = await Wire.ReadAsync(socket, OutputOrder.MaximumFrame * 2, receiveDeadline.Token);
-                    if (frame is null) break;
-                    if (frame.Value.Type == WebSocketMessageType.Binary)
-                    {
-                        if (purpose != "host" || live is null) throw ApiException.Invalid("Only hosts publish terminal frames.");
-                        directory.Output(live, peer, frame.Value.Bytes); continue;
-                    }
-                    using var message = Wire.Parse(frame.Value.Bytes);
-                    var body = message.RootElement;
-                    var type = body.GetProperty("type").GetString();
-                    if (type == "ping") { peer.Send(new { type = "pong" }); continue; }
-                    if (type == "pong") continue;
-                    if (live is null) throw ApiException.Invalid("Unknown event subscription message.");
-                    if (purpose == "host")
-                    {
-                        switch (type)
-                        {
-                            case "end":
-                                await directory.EndSessionAsync(live.Id, peer, body.GetProperty("finalSequence").GetUInt64());
-                                peer.Send(new { type = "endAcknowledged" });
-                                break;
-                            case "checkpoint":
-                                directory.Checkpoint(live, peer, body.GetProperty("requestId").GetGuid(),
-                                    Limits.Base64(body.GetProperty("frame").GetString(), "Terminal checkpoint", OutputOrder.MaximumFrame),
-                                    body.GetProperty("signature").GetString());
-                                break;
-                            case "resync": directory.Resync(live, peer); break;
-                            case "controlResult": directory.Result(live, peer, body); break;
-                            default: throw ApiException.Invalid("Unknown host message.");
-                        }
-                    }
-                    else if (type == "control") directory.Control(live, peer, body);
-                    else if (type == "received") peer.Acknowledge(body.GetProperty("sequence").GetUInt64());
-                    else if (type == "checkpointRequest") directory.RequestCapture(live, peer, body.GetProperty("challenge").GetString());
-                    else if (type == "resync") directory.BeginBootstrap(live, peer, body.GetProperty("challenge").GetString(), resync: true);
-                    else throw ApiException.Invalid("Unknown participant message.");
+                    var other = purpose == "participant" ? await pipe.Joined.Task.WaitAsync(JoinWait, lifetime.Token) : pipe.Viewer;
+                    await RelayAsync(socket, other.Socket, lifetime.Token);
                 }
+                else await ListenAsync((SocketPeer)peer, lifetime.Token);
             }
             finally { await lifetime.CancelAsync(); }
         }
         catch (Exception error) when (error is ApiException or JsonException or InvalidOperationException or KeyNotFoundException
-                                      or FormatException or WebSocketException or OperationCanceledException or IOException)
+                                      or FormatException or WebSocketException or OperationCanceledException or IOException or TimeoutException)
         {
             logger.LogDebug("Terminal connection {Purpose} ended: {Failure}", purpose, error.GetType().Name);
         }
         finally
         {
-            if (peer is not null)
-            {
-                if (live is not null) directory.RemovePeer(live, peer, purpose == "host"); else directory.RemoveEvents(peer);
-                await peer.DisposeAsync();
-            }
-            else socket.Abort();
+            if (live is not null && pipe is not null) ConnectionDirectory.ClosePipe(live, pipe);
+            else if (live is not null) directory.RemoveHost(live);
+            else if (peer is SocketPeer listener) directory.RemoveEvents(listener);
+            if (peer is not null) await peer.DisposeAsync(); else socket.Abort();
         }
+    }
+
+    private static async Task ListenAsync(SocketPeer peer, CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            deadline.CancelAfter(Idle);
+            var frame = await Wire.ReadAsync(peer.Socket, 16 * 1024, deadline.Token);
+            if (frame is null) return;
+            if (frame.Value.Type != WebSocketMessageType.Text) throw ApiException.Invalid("Unexpected connection message.");
+            using var message = Wire.Parse(frame.Value.Bytes);
+            var type = message.RootElement.GetProperty("type").GetString();
+            if (type == "ping") peer.Send(new { type = "pong" });
+            else if (type != "pong") throw ApiException.Invalid("Unknown connection message.");
+        }
+    }
+
+    private static async Task RelayAsync(WebSocket from, WebSocket to, CancellationToken ct)
+    {
+        var buffer = ArrayPool<byte>.Shared.Rent(64 * 1024);
+        try
+        {
+            var message = 0;
+            while (true)
+            {
+                using var idle = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                idle.CancelAfter(Idle);
+                var read = await from.ReceiveAsync(buffer.AsMemory(), idle.Token);
+                if (read.MessageType == WebSocketMessageType.Close) return;
+                if (read.MessageType != WebSocketMessageType.Binary) throw ApiException.Invalid("Unexpected terminal channel message.");
+                message += read.Count;
+                if (message > PipeMessageBytes) throw ApiException.Invalid("Terminal channel message is too large.");
+                if (read.EndOfMessage) message = 0;
+                using var send = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                send.CancelAfter(SlowSend);
+                await to.SendAsync(buffer.AsMemory(0, read.Count), WebSocketMessageType.Binary, read.EndOfMessage, send.Token);
+            }
+        }
+        finally { ArrayPool<byte>.Shared.Return(buffer); }
     }
 }

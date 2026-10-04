@@ -194,7 +194,7 @@ impl BackendClient {
 
     pub(super) async fn suspend_transports(&self) {
         for publication in self.inner.publications.lock().await.values() {
-            publication.invalidate().await;
+            publication.invalidate();
         }
         for cancel in self.inner.connections.lock().await.drain(..) {
             cancel.cancel();
@@ -211,7 +211,7 @@ impl BackendClient {
         let publications = std::mem::take(&mut *self.inner.publications.lock().await);
         for publication in publications.values() {
             publication.cancel.cancel();
-            publication.invalidate().await;
+            publication.invalidate();
         }
         for cancel in self.inner.connections.lock().await.drain(..) {
             cancel.cancel();

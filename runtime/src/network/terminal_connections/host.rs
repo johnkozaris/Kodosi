@@ -1,95 +1,46 @@
-use super::*;
-mod audience;
+use std::collections::VecDeque;
+
+use futures_util::stream::{FuturesOrdered, FuturesUnordered};
+use tokio::task::JoinSet;
+
+use super::{
+    channel::{Channel, Transport},
+    pacer::Pacer,
+    wire::{Accept, ControlResult, End, Frame, Hello, Refuse},
+    *,
+};
 use crate::terminal::TerminalMetadata;
-use audience::audience;
 
-type PendingControls = futures_util::stream::FuturesUnordered<
-    std::pin::Pin<Box<dyn Future<Output = (ControlIdentity, bool)> + Send>>,
->;
-type Published = std::result::Result<PublishedFrame, broadcast::error::RecvError>;
+const VIEWERS: usize = 32;
+const HEARTBEAT: Duration = Duration::from_secs(15);
+const LATE_HEARTBEATS: u32 = 2;
+const KEYFRAME_SPACING: Duration = Duration::from_millis(500);
+const WAITING_OUTPUT_LIMIT: usize = 8 * 1024 * 1024;
+const UNCONFIRMED_INPUT: u64 = 256 * 1024;
+const CONTROL_TIMEOUT: Duration = Duration::from_secs(12);
 
-const BATCH_BYTES: usize = 256 * 1024;
-const OUTPUT_PACE: Duration = Duration::from_millis(2);
-const JOIN_GRACE: Duration = Duration::from_secs(15);
+type Reply = oneshot::Receiver<std::result::Result<Value, String>>;
+type Inputs = FuturesOrdered<std::pin::Pin<Box<dyn Future<Output = (u64, bool)> + Send>>>;
+type Controls = FuturesUnordered<std::pin::Pin<Box<dyn Future<Output = ControlResult> + Send>>>;
 
-struct HostKeys {
-    key: Zeroizing<crypto::SessionKey>,
-    dto: SessionDto,
-    devices: BTreeMap<(String, String), Vec<u8>>,
-    channels: BTreeMap<(String, String), Zeroizing<crypto::SessionKey>>,
-    packer: wire::OutputPacker,
-    checkpoint_counter: u64,
-    raw_counter: u64,
-    notice_counter: u64,
-    revision: u64,
-    connections: BTreeMap<Uuid, Connection>,
-    retired: RetiredConnections,
-    authorization: CancellationToken,
-}
-
-struct RetiredConnections(Box<[u64]>);
-
-impl Default for RetiredConnections {
-    fn default() -> Self {
-        Self(vec![0; 16_384].into_boxed_slice())
-    }
-}
-impl RetiredConnections {
-    fn indices(id: Uuid) -> [usize; 3] {
-        use sha2::Digest as _;
-        let hash = sha2::Sha256::digest(id.as_bytes());
-        [0, 4, 8].map(|at| {
-            usize::try_from(u32::from_be_bytes([
-                hash[at],
-                hash[at + 1],
-                hash[at + 2],
-                hash[at + 3],
-            ]))
-            .unwrap_or(0)
-                % (16_384 * 64)
-        })
-    }
-    fn insert(&mut self, id: Uuid) {
-        for index in Self::indices(id) {
-            self.0[index / 64] |= 1 << (index % 64);
-        }
-    }
-    fn contains(&self, id: Uuid) -> bool {
-        Self::indices(id)
-            .iter()
-            .all(|index| self.0[index / 64] & (1 << (index % 64)) != 0)
-    }
-}
-
-struct Connection {
+#[derive(Clone)]
+struct Admitted {
     user: String,
     device: String,
-    sequence: u64,
-    authorization: CancellationToken,
+    key: Vec<u8>,
+    cancel: CancellationToken,
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "single owner select loop keeps ciphertext counters, authorization and ordered output together"
-)]
+type Viewers = Arc<std::sync::Mutex<BTreeMap<Uuid, Admitted>>>;
+
 pub(super) async fn run(
     network: &BackendClient,
-    publication: &Publication,
+    publication: &Arc<Publication>,
     output: &mut PublicationOutput,
     generation: u64,
 ) -> Result<()> {
     check_generation(network, generation)?;
     let credentials = network.credentials()?;
-    let mut authorization = credentials.cancel.child_token();
-    let mut _authorization_guard = authorization.clone().drop_guard();
-    {
-        let mut previous = publication.authorization.lock().await;
-        previous.cancel();
-        *previous = authorization.clone();
-    }
-    if publication.changing.load(Ordering::Acquire) {
-        return Err(Error::Stale);
-    }
     let current = current_publication(network, publication, &credentials).await?;
     let (mut socket, _ready) = socket(
         network,
@@ -97,189 +48,83 @@ pub(super) async fn run(
         &format!("ws/host/{}", current.id),
         "host",
         Some(&current),
-        None,
     )
     .await?;
     check_generation(network, generation)?;
-    let mut keys = tokio::select! {
-        ()=authorization.cancelled()=>return Err(Error::Stale),
-        result=distribute(network,publication,&credentials,authorization.clone(),None)=>result?,
-    };
+    drop(publication.requests.send(HostRequest::ResetPresence).await);
+    let viewers = Viewers::default();
+    let stop = credentials.cancel.child_token();
+    let _stop = stop.clone().drop_guard();
+    let mut tasks = JoinSet::new();
+    let mut heartbeat = tokio::time::interval(Duration::from_secs(20));
+    heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut trust = tokio::time::interval(TRUST_CHECK);
+    trust.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    trust.tick().await;
     let result = async {
-        let marker=Uuid::now_v7();
-        let initial=bootstrap(publication,marker).await?;
-        skip_to_barrier(output,marker)?;
-        let mut next_sequence=initial.next_sequence;
-        let mut heartbeat=tokio::time::interval(Duration::from_secs(20));
-        heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        let mut trust_refresh=tokio::time::interval(TRUST_CHECK);
-        trust_refresh.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        trust_refresh.tick().await;
-        let mut pending=PendingControls::new();
-        let mut metadata:Option<TerminalMetadata>=None;
-        let mut held:Option<Published>=None;
-        let mut paced=tokio::time::Instant::now();
-        let mut viewers=BTreeSet::<Uuid>::new();
-        let mut joining:Option<tokio::time::Instant>=None;
-        let mut metadata_tick=tokio::time::interval(Duration::from_secs(1));
-        metadata_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
-            check_generation(network,generation)?;
-            if authorization.is_cancelled(){
-                if credentials.cancel.is_cancelled(){return Err(Error::Stale);}
-                while publication.changing.load(Ordering::Acquire) {
-                    tokio::select! {
-                        ()=publication.cancel.cancelled()=>return Ok(()),
-                        ()=network.inner.shutdown.cancelled()=>return Ok(()),
-                        ()=publication.refresh.notified()=>{},
-                        ()=tokio::time::sleep(Duration::from_millis(200))=>{},
-                    }
-                }
-                authorization=credentials.cancel.child_token();
-                _authorization_guard=authorization.clone().drop_guard();
-                {
-                    let mut previous=publication.authorization.lock().await;
-                    previous.cancel();
-                    *previous=authorization.clone();
-                }
-                if publication.changing.load(Ordering::Acquire){authorization.cancel();continue;}
-                keys=match distribute(network,publication,&credentials,authorization.clone(),Some(keys.dto.key_generation)).await {
-                    Ok(keys)=>keys,
-                    Err(Error::Stale) if authorization.is_cancelled() && !credentials.cancel.is_cancelled()=>continue,
-                    Err(error)=>return Err(error),
-                };
-                pending=PendingControls::new();
-                continue;
-            }
-            let watched=!viewers.is_empty() || joining.is_some_and(|sent|sent.elapsed()<JOIN_GRACE);
+            check_generation(network, generation)?;
             tokio::select! {
                 biased;
-                ()=publication.cancel.cancelled()=>return Ok(()),
-                ()=network.inner.shutdown.cancelled()=>return Ok(()),
-                ()=authorization.cancelled()=>{},
-                _=metadata_tick.tick(),if metadata.is_some()=>{if let Some(current)=metadata.take() && watched {send_notice(&mut socket,&mut keys,&wire::Notice::Metadata(&current)).await?;}}
-                _=heartbeat.tick()=>send_json(&mut socket,json!({"type":"ping"})).await?,
-                _=trust_refresh.tick()=>match access_unchanged(network,publication,generation,&keys).await {
-                    Ok(true)=>{}
-                    Ok(false)=>authorization.cancel(),
-                    Err(error) if error.unanswered()=>tracing::warn!(%error,"terminal access check got no answer; it will be tried again"),
-                    Err(error)=>return Err(error),
-                },
-                completed=pending.next(),if !pending.is_empty()=>{
-                    if let Some((identity,accepted))=completed{send_control_result(&mut socket,&keys,&identity,accepted).await?;}
-                }
-                incoming=socket.next(),if held.is_none()=>{
-                    let message=incoming.ok_or(Error::Closed)?.map_err(|error|invalid(error.to_string()))?;
+                () = publication.cancel.cancelled() => return Ok(()),
+                () = network.inner.shutdown.cancelled() => return Ok(()),
+                () = publication.refresh.notified() => review(network, publication, &credentials, &viewers).await?,
+                _ = heartbeat.tick() => send_json(&mut socket, json!({"type":"ping"})).await?,
+                _ = trust.tick() => review(network, publication, &credentials, &viewers).await?,
+                Some(_) = tasks.join_next(), if !tasks.is_empty() => {}
+                incoming = socket.next() => {
+                    let message = incoming.ok_or(Error::Closed)?.map_err(|error| invalid(error.to_string()))?;
                     match message {
-                        Message::Text(text)=>{
-                            let value:Value=serde_json::from_str(&text)?;
-                            match wire::text(&value,"type")? {
-                                "ping"=>send_json(&mut socket,json!({"type":"pong"})).await?,
-                                "pong"=>{},
-                                "accessChanged"=>{
-                                    if wire::number(&value,"authorizationRevision")?>keys.dto.authorization_revision || wire::number(&value,"keyGeneration")?>u64::from(keys.dto.key_generation){authorization.cancel();}
-                                }
-                                "checkpointRequested"=>{
-                                    let request=wire::id(&value,"requestId")?;
-                                    let challenge:[u8;32]=wire::decode_b64(&value,"challenge",32)?.try_into().map_err(|_|invalid("Invalid viewer checkpoint challenge."))?;
-                                    let connection=wire::id(&value,"connectionId")?;
-                                    let user=wire::text(&value,"recipientUserId")?.to_owned();let device=wire::text(&value,"recipientDeviceId")?.to_owned();
-                                    if !keys.devices.contains_key(&(user.clone(),device.clone())){continue;}
-                                    let identity=wire::CaptureIdentity::new(&keys.dto,connection,user,device);
-                                    let marker=Uuid::now_v7();
-                                    let cut=match bootstrap(publication,marker).await {
-                                        Ok(cut)=>cut,
-                                        Err(Error::Closed | Error::Busy)=>continue,
-                                        Err(error)=>return Err(error),
-                                    };
-                                    if !watched {
-                                        skip_to_barrier(output,marker)?;
-                                        next_sequence=cut.next_sequence;
-                                    } else if !drain_to_barrier(&mut socket,&mut keys,publication,output,marker,&mut next_sequence,&mut metadata).await? {
-                                        send_json(&mut socket,json!({"type":"resync"})).await?;
-                                        next_sequence=cut.next_sequence;
-                                        continue;
+                        Message::Text(text) => {
+                            let value: Value = serde_json::from_str(&text)?;
+                            match wire::text(&value, "type")? {
+                                "ping" => send_json(&mut socket, json!({"type":"pong"})).await?,
+                                "pong" => {}
+                                "accessChanged" => review(network, publication, &credentials, &viewers).await?,
+                                "viewer" => {
+                                    let channel = wire::id(&value, "channelId")?;
+                                    if tasks.len() < VIEWERS * 2 {
+                                        tasks.spawn(viewer(
+                                            network.clone(),
+                                            Arc::clone(publication),
+                                            credentials.clone(),
+                                            output.resubscribe(),
+                                            channel,
+                                            Arc::clone(&viewers),
+                                            stop.child_token(),
+                                        ));
                                     }
-                                    if cut.next_sequence!=next_sequence{return Err(invalid("Checkpoint barrier does not match terminal sequence."));}
-                                    send_checkpoint(&mut socket,&mut keys,cut,request,&identity,&challenge,credentials.keys.signing_pkcs8()).await?;
-                                    joining=Some(tokio::time::Instant::now());
                                 }
-                                "control"=>handle_control(network,publication,&credentials,&mut keys,&mut pending,&value).await?,
-                                "participantConnected"=>{
-                                    let connection_id=wire::id(&value,"connectionId")?;
-                                    let user_id=wire::text(&value,"senderUserId")?.to_owned();
-                                    let device=wire::text(&value,"senderDeviceId")?.to_owned();
-                                    viewers.insert(connection_id);
-                                    if !keys.devices.contains_key(&(user_id.clone(),device)){continue;}
-                                    publication.requests.send(HostRequest::Connected { connection_id, user_id }).await.map_err(|_|Error::Closed)?;
-                                }
-                                "participantDisconnected"=>{
-                                    let connection=wire::id(&value,"connectionId")?;
-                                    viewers.remove(&connection);
-                                    keys.retired.insert(connection);
-                                    if let Some(peer)=keys.connections.remove(&connection){peer.authorization.cancel();}
-                                    release(publication,connection).await;
-                                }
-                                _=>return Err(invalid("Unsupported host connection message.")),
+                                _ => return Err(invalid("Unsupported host connection message.")),
                             }
                         }
-                        Message::Ping(payload)=>send_pong(&mut socket,payload).await?,
-                        Message::Pong(_)=>{},
-                        Message::Close(_)=>return Err(Error::Closed),
-                        _=>return Err(invalid("Unexpected host connection payload.")),
+                        Message::Ping(payload) => send_pong(&mut socket, payload).await?,
+                        Message::Pong(_) => {}
+                        Message::Close(_) => return Err(Error::Closed),
+                        _ => return Err(invalid("Unexpected host connection payload.")),
                     }
                 }
-                frame=async{match held.take(){Some(frame)=>frame,None=>output.recv().await}}=>match frame {
-                    Ok(PublishedFrame::Metadata(current))=>{metadata=Some(current);},
-                    Ok(PublishedFrame::BootstrapBarrier {..})=>{},
-                    Ok(PublishedFrame::Raw {sequence,bytes})=>{
-                        if sequence<next_sequence {continue;}
-                        if sequence!=next_sequence {return Err(invalid("Terminal output skipped a sequence."));}
-                        next_sequence=sequence.checked_add(1).ok_or_else(||invalid("Terminal sequence exhausted."))?;
-                        if !watched {continue;}
-                        let mut chunks=vec![bytes];
-                        held=batch(output,&mut next_sequence,&mut chunks);
-                        if held.is_none() && chunks.len()<wire::RAW_BATCH_LIMIT && tokio::time::Instant::now()<paced {
-                            tokio::time::sleep_until(paced).await;
-                            held=batch(output,&mut next_sequence,&mut chunks);
-                        }
-                        if authorization.is_cancelled(){continue;}
-                        let encoded=wire::raw_frame(&keys.key,keys.dto.key_generation,keys.raw_counter,sequence,&chunks,&mut keys.packer)?;
-                        keys.raw_counter=keys.raw_counter.checked_add(1).ok_or_else(||invalid("Terminal nonce space exhausted."))?;
-                        send_binary(&mut socket,encoded).await?;
-                        paced=tokio::time::Instant::now()+OUTPUT_PACE;
+                frame = output.recv() => match frame {
+                    Ok(PublishedFrame::Closed { .. }) | Err(broadcast::error::RecvError::Closed) => {
+                        let _drained = tokio::time::timeout(Duration::from_secs(10), async {
+                            while tasks.join_next().await.is_some() {}
+                        })
+                        .await;
+                        publication.cancel.cancel();
+                        return Ok(());
                     }
-                    Ok(PublishedFrame::Resize {rows,cols,at_sequence})=>{
-                        if at_sequence<next_sequence {continue;}
-                        if at_sequence!=next_sequence {return Err(invalid("Terminal resize skipped a sequence."));}
-                        if !watched {continue;}
-                        send_notice(&mut socket,&mut keys,&wire::Notice::Resize {rows,cols,at_sequence}).await?;
-                    }
-                    Ok(PublishedFrame::Closed {final_sequence,..})=>{
-                        while let Some((identity,accepted))=pending.next().await { send_control_result(&mut socket,&keys,&identity,accepted).await?; }
-                        send_json(&mut socket,json!({"type":"end","reason":"Terminal closed.","finalSequence":final_sequence})).await?;
-                        let _ack = tokio::time::timeout(Duration::from_secs(11), async {
-                            loop {
-                                let message=socket.next().await.ok_or(Error::Closed)?.map_err(|error|invalid(error.to_string()))?;
-                                if let Message::Text(text)=message {
-                                    let value:Value=serde_json::from_str(&text)?;
-                                    if wire::text(&value,"type")?=="endAcknowledged" { return Ok::<(), Error>(()); }
-                                }
-                            }
-                        }).await;
-                        publication.cancel.cancel();return Ok(());
-                    }
-                    Err(broadcast::error::RecvError::Lagged(_))=>{next_sequence=resynchronize(&mut socket,publication,output).await?;},
-                    Err(broadcast::error::RecvError::Closed)=>return Ok(()),
+                    Ok(_) | Err(broadcast::error::RecvError::Lagged(_)) => {}
                 },
             }
         }
-    }.await;
-    authorization.cancel();
-    drop(publication.requests.send(HostRequest::ResetPresence).await);
-    for connection in keys.connections.keys() {
-        release(publication, *connection).await;
     }
+    .await;
+    stop.cancel();
+    let _ended = tokio::time::timeout(Duration::from_secs(2), async {
+        while tasks.join_next().await.is_some() {}
+    })
+    .await;
+    drop(publication.requests.send(HostRequest::ResetPresence).await);
     let _outcome = tokio::time::timeout(Duration::from_secs(1), socket.close(None)).await;
     result
 }
@@ -328,528 +173,665 @@ async fn current_publication(
     }
 }
 
-async fn resynchronize(
-    socket: &mut Socket,
-    publication: &Publication,
-    output: &mut PublicationOutput,
-) -> Result<u64> {
-    send_json(socket, json!({"type":"resync"})).await?;
-    let marker = Uuid::now_v7();
-    let cut = bootstrap(publication, marker).await?;
-    skip_to_barrier(output, marker)?;
-    Ok(cut.next_sequence)
+async fn allowed(publication: &Publication, credentials: &Credentials, user: &str) -> bool {
+    user == credentials.user_id
+        || (publication.info.read().await.shared_with.contains(user)
+            && publication
+                .dto
+                .read()
+                .await
+                .shared_with
+                .iter()
+                .any(|member| member == user))
 }
 
-async fn access_unchanged(
-    network: &BackendClient,
-    publication: &Publication,
-    generation: u64,
-    keys: &HostKeys,
-) -> Result<bool> {
-    let credentials = network.credentials()?;
-    check_generation(network, generation)?;
-    let current: SessionDto = network
-        .inner
-        .http
-        .device(
-            Method::GET,
-            &format!("api/sessions/{}", keys.dto.id),
-            &credentials,
-            None,
-        )
-        .await?;
-    if !current.ready
-        || current.authorization_revision != keys.dto.authorization_revision
-        || current.key_generation != keys.dto.key_generation
-    {
-        return Ok(false);
-    }
-    let devices = audience(network, publication, &credentials, &keys.dto)
-        .await?
-        .into_iter()
-        .map(|(id, certificate)| (id, certificate.sig_public_key))
-        .collect::<BTreeMap<_, _>>();
-    Ok(devices == keys.devices)
-}
-
-async fn send_notice(
-    socket: &mut Socket,
-    keys: &mut HostKeys,
-    notice: &wire::Notice<'_>,
-) -> Result<()> {
-    if keys.authorization.is_cancelled() {
-        return Ok(());
-    }
-    let frame = wire::notice_frame(
-        &keys.key,
-        keys.dto.key_generation,
-        keys.notice_counter,
-        keys.revision,
-        notice,
-    )?;
-    keys.notice_counter = keys
-        .notice_counter
-        .checked_add(1)
-        .ok_or_else(|| invalid("Terminal nonce space exhausted."))?;
-    send_binary(socket, frame).await
-}
-
-fn batch(
-    output: &mut PublicationOutput,
-    next_sequence: &mut u64,
-    chunks: &mut Vec<Bytes>,
-) -> Option<Published> {
-    let mut size = chunks.iter().map(Bytes::len).sum::<usize>();
-    while chunks.len() < wire::RAW_BATCH_LIMIT && size < BATCH_BYTES {
-        match output.try_recv() {
-            Ok(PublishedFrame::Raw { sequence, bytes }) if sequence == *next_sequence => {
-                let Some(next) = sequence.checked_add(1) else {
-                    return Some(Ok(PublishedFrame::Raw { sequence, bytes }));
-                };
-                *next_sequence = next;
-                size += bytes.len();
-                chunks.push(bytes);
-            }
-            Ok(frame) => return Some(Ok(frame)),
-            Err(broadcast::error::TryRecvError::Empty) => return None,
-            Err(broadcast::error::TryRecvError::Lagged(missed)) => {
-                return Some(Err(broadcast::error::RecvError::Lagged(missed)));
-            }
-            Err(broadcast::error::TryRecvError::Closed) => {
-                return Some(Err(broadcast::error::RecvError::Closed));
-            }
-        }
-    }
-    None
-}
-
-fn skip_to_barrier(output: &mut PublicationOutput, marker: Uuid) -> Result<()> {
-    loop {
-        match output.try_recv() {
-            Ok(PublishedFrame::BootstrapBarrier { request_id }) if request_id == marker => {
-                return Ok(());
-            }
-            Ok(PublishedFrame::Closed { .. }) => return Err(Error::Closed),
-            Ok(_) | Err(broadcast::error::TryRecvError::Lagged(_)) => {}
-            Err(_) => return Err(invalid("Terminal checkpoint ordering barrier was lost.")),
-        }
-    }
-}
-
-async fn drain_to_barrier(
-    socket: &mut Socket,
-    keys: &mut HostKeys,
-    publication: &Publication,
-    output: &mut PublicationOutput,
-    marker: Uuid,
-    next_sequence: &mut u64,
-    metadata: &mut Option<TerminalMetadata>,
-) -> Result<bool> {
-    loop {
-        let frame = match output.try_recv() {
-            Ok(frame) => frame,
-            Err(broadcast::error::TryRecvError::Lagged(_)) => {
-                skip_to_barrier(output, marker)?;
-                return Ok(false);
-            }
-            Err(_) => return Err(invalid("Terminal checkpoint ordering barrier was lost.")),
-        };
-        if keys.authorization.is_cancelled() {
-            skip_to_barrier(output, marker)?;
-            return Ok(false);
-        }
-        match frame {
-            PublishedFrame::Metadata(current) => *metadata = Some(current),
-            PublishedFrame::BootstrapBarrier { request_id } => {
-                if request_id == marker {
-                    return Ok(true);
-                }
-            }
-            PublishedFrame::Closed { .. } => {
-                publication.cancel.cancel();
-                return Err(Error::Closed);
-            }
-            PublishedFrame::Raw { sequence, bytes } => {
-                if sequence < *next_sequence {
-                    continue;
-                }
-                if sequence != *next_sequence {
-                    return Err(invalid(
-                        "Terminal output skipped a sequence before checkpoint.",
-                    ));
-                }
-                let frame = wire::raw_frame(
-                    &keys.key,
-                    keys.dto.key_generation,
-                    keys.raw_counter,
-                    sequence,
-                    &[bytes],
-                    &mut keys.packer,
-                )?;
-                keys.raw_counter = keys
-                    .raw_counter
-                    .checked_add(1)
-                    .ok_or_else(|| invalid("Terminal nonce space exhausted."))?;
-                *next_sequence = sequence
-                    .checked_add(1)
-                    .ok_or_else(|| invalid("Terminal sequence exhausted."))?;
-                send_binary(socket, frame).await?;
-            }
-            PublishedFrame::Resize {
-                rows,
-                cols,
-                at_sequence,
-            } => {
-                if at_sequence < *next_sequence {
-                    continue;
-                }
-                if at_sequence != *next_sequence {
-                    return Err(invalid(
-                        "Terminal resize skipped a sequence before checkpoint.",
-                    ));
-                }
-                let notice = wire::Notice::Resize {
-                    rows,
-                    cols,
-                    at_sequence,
-                };
-                send_notice(socket, keys, &notice).await?;
-            }
-        }
-    }
-}
-
-async fn release(publication: &Publication, connection_id: Uuid) {
-    let _outcome = tokio::time::timeout(
-        Duration::from_millis(100),
-        publication
-            .requests
-            .send(HostRequest::Disconnected { connection_id }),
-    )
-    .await;
-}
-
-async fn send_checkpoint(
-    socket: &mut Socket,
-    keys: &mut HostKeys,
-    cut: CheckpointCut,
-    request: Uuid,
-    identity: &wire::CaptureIdentity,
-    challenge: &[u8; 32],
-    signing: &[u8],
-) -> Result<()> {
-    if keys.authorization.is_cancelled() {
-        return Ok(());
-    }
-    keys.revision = keys
-        .revision
-        .checked_add(1)
-        .ok_or_else(|| invalid("Checkpoint revision exhausted."))?;
-    let frame = wire::checkpoint_frame(
-        &keys.key,
-        keys.dto.key_generation,
-        keys.checkpoint_counter,
-        keys.revision,
-        cut.next_sequence,
-        &cut.checkpoint,
-    )?;
-    keys.checkpoint_counter = keys
-        .checkpoint_counter
-        .checked_add(1)
-        .ok_or_else(|| invalid("Checkpoint nonce space exhausted."))?;
-    let signature = crypto::sign_control_message(
-        signing,
-        &identity.preimage(challenge, cut.next_sequence, &wire::frame_hash(&frame))?,
-    )?;
-    if keys.authorization.is_cancelled() {
-        return Ok(());
-    }
-    keys.packer.restart();
-    send_json(
-        socket,
-        json!({"type":"checkpoint","requestId":request,"frame":BASE64.encode(frame),"signature":BASE64.encode(signature)}),
-    )
-    .await
-}
-
-async fn distribute(
+async fn review(
     network: &BackendClient,
     publication: &Publication,
     credentials: &Credentials,
-    authorization: CancellationToken,
-    served: Option<u32>,
-) -> Result<HostKeys> {
-    let info = publication.info.read().await.clone();
-    let mut dto: SessionDto = network
+    viewers: &Viewers,
+) -> Result<()> {
+    let session = publication.info.read().await.session_id;
+    match network
         .inner
         .http
-        .device(
+        .device::<SessionDto>(
             Method::GET,
-            &format!("api/sessions/{}", info.session_id),
+            &format!("api/sessions/{session}"),
             credentials,
             None,
         )
-        .await?;
-    if dto.incarnation_id != info.incarnation_id
-        || dto.host_device_id != credentials.keys.device_id
-        || dto.owner_user_id != credentials.user_id
+        .await
     {
-        return Err(Error::Stale);
-    }
-    let backend_members = dto.shared_with.iter().cloned().collect::<BTreeSet<_>>();
-    if !backend_members.is_subset(&info.shared_with) {
-        return Err(Error::Trust(
-            "The server proposed recipients that the host did not share with.".into(),
-        ));
-    }
-    if dto.ready || served.is_none_or(|generation| dto.key_generation <= generation) {
-        dto=network.inner.http.device(Method::POST,&format!("api/sessions/{}/keys/rotate",info.session_id),credentials,Some(json!({"incarnationId":info.incarnation_id,"expectedRevision":dto.authorization_revision,"expectedGeneration":dto.key_generation}))).await?;
-    }
-    let key = Zeroizing::new(crypto::generate_session_key()?);
-    let audience = audience(network, publication, credentials, &dto).await?;
-    let mut blobs = Vec::new();
-    let mut devices = BTreeMap::new();
-    let mut channels = BTreeMap::new();
-    let now = identity::now_ms();
-    let signing_key = credentials.keys.signing_key()?;
-    for ((user, id), device) in audience {
-        let (blob, channel) = crypto::wrap_session_key(
-            &device.kem_public_key,
-            &key,
-            &info.session_id.to_string(),
-            &id,
-            dto.key_generation,
-        )?;
-        channels.insert((user.clone(), id.clone()), channel);
-        let signature = crypto::sign(
-            &signing_key,
-            &crypto::key_blob_digest(
-                &info.session_id.to_string(),
-                &info.incarnation_id,
-                &id,
-                &blob,
-                dto.key_generation,
-                now,
-            )?,
-        )?;
-        blobs.push(json!({"recipientUserId":user,"recipientDeviceId":id,"encryptedSessionKey":BASE64.encode(blob),"senderDeviceId":credentials.keys.device_id,"signature":BASE64.encode(signature),"signatureVersion":2,"issuedAtMs":now}));
-        devices.insert((user.clone(), id), device.sig_public_key);
-    }
-    network.check_credentials(credentials)?;
-    if authorization.is_cancelled() || publication.changing.load(Ordering::Acquire) {
-        return Err(Error::Stale);
-    }
-    let _response:Value=network.inner.http.device(Method::POST,&format!("api/sessions/{}/keys",info.session_id),credentials,Some(json!({"incarnationId":info.incarnation_id,"authorizationRevision":dto.authorization_revision,"keyGeneration":dto.key_generation,"blobs":blobs}))).await?;
-    if authorization.is_cancelled() {
-        return Err(Error::Stale);
-    }
-    dto.ready = true;
-    *publication.dto.write().await = dto.clone();
-    Ok(HostKeys {
-        key,
-        dto,
-        devices,
-        channels,
-        packer: wire::OutputPacker::new(),
-        checkpoint_counter: 0,
-        raw_counter: 0,
-        notice_counter: 0,
-        revision: 0,
-        connections: BTreeMap::new(),
-        retired: RetiredConnections::default(),
-        authorization,
-    })
-}
-
-#[expect(
-    clippy::needless_pass_by_ref_mut,
-    reason = "exclusive borrow keeps non-Sync pending futures Send across authorization lock await"
-)]
-async fn handle_control(
-    network: &BackendClient,
-    publication: &Publication,
-    credentials: &Credentials,
-    keys: &mut HostKeys,
-    pending: &mut PendingControls,
-    value: &Value,
-) -> Result<()> {
-    let connection = wire::id(value, "connectionId")?;
-    let sequence = wire::number(value, "sequence")?;
-    let user = wire::text(value, "senderUserId")?.to_owned();
-    let device = wire::text(value, "senderDeviceId")?.to_owned();
-    let request = wire::id(value, "requestId")?;
-    let revision = wire::number(value, "authorizationRevision")?;
-    let key_generation = u32::try_from(wire::number(value, "keyGeneration")?)
-        .map_err(|_| invalid("Invalid key generation."))?;
-    if revision != keys.dto.authorization_revision
-        || key_generation != keys.dto.key_generation
-        || keys.authorization.is_cancelled()
-    {
-        return Ok(());
-    }
-    if keys.retired.contains(connection) {
-        return Ok(());
-    }
-    if let Some(peer) = keys.connections.get(&connection) {
-        if peer.authorization.is_cancelled()
-            || peer.user != user
-            || peer.device != device
-            || peer.sequence.checked_add(1) != Some(sequence)
-        {
-            return Err(invalid("Repeated or out-of-order terminal control."));
+        Ok(dto) => *publication.dto.write().await = dto,
+        Err(error) if error.unanswered() => {
+            tracing::warn!(%error, "terminal access check got no answer; it will be tried again");
         }
-    } else if sequence != 1 || keys.connections.len() >= 256 {
-        return Err(invalid(
-            "Terminal connection budget or sequence invalid; reconnecting with fresh keys.",
-        ));
+        Err(error) => return Err(error),
     }
-    let Some(channel) = keys.channels.get(&(user.clone(), device.clone())) else {
-        return Ok(());
-    };
-    let identity = ControlIdentity {
-        session_id: keys.dto.id,
-        incarnation_id: keys.dto.incarnation_id,
-        authorization_revision: revision,
-        key_generation,
-        connection_id: connection,
-        user_id: user.clone(),
-        device_id: device.clone(),
-        sequence,
-        request_id: request,
-    };
-    let nonce = wire::decode_b64(value, "nonce", 12)?;
-    let ciphertext = wire::decode_b64(value, "ciphertext", wire::INPUT_LIMIT * 2)?;
-    let plaintext = Zeroizing::new(crypto::decrypt_control_payload(
-        channel,
-        crypto::TrafficStream::Control,
-        &identity.aad()?,
-        &nonce,
-        &ciphertext,
-    )?);
-    let control = wire::decode_control(&plaintext, request)?;
-    let peer = keys
-        .connections
-        .entry(connection)
-        .or_insert_with(|| Connection {
-            user: user.clone(),
-            device: device.clone(),
-            sequence: 0,
-            authorization: keys.authorization.child_token(),
-        });
-    peer.sequence = sequence;
-    let authorization = peer.authorization.clone();
-    network.check_credentials(credentials)?;
-    if authorization.is_cancelled()
-        || publication.cancel.is_cancelled()
-        || publication.changing.load(Ordering::Acquire)
-        || user != credentials.user_id && !publication.info.read().await.shared_with.contains(&user)
-    {
-        return Ok(());
+    let connected = viewers
+        .lock()
+        .map(|viewers| viewers.values().cloned().collect::<Vec<_>>())
+        .unwrap_or_default();
+    let mut identities = BTreeMap::new();
+    for viewer in connected {
+        if !allowed(publication, credentials, &viewer.user).await {
+            viewer.cancel.cancel();
+            continue;
+        }
+        if !identities.contains_key(&viewer.user) {
+            let identity = network
+                .fetch_identity_with(credentials, &viewer.user, false)
+                .await;
+            identities.insert(viewer.user.clone(), identity);
+        }
+        match &identities[&viewer.user] {
+            Ok(identity) => {
+                if identity
+                    .devices
+                    .get(&viewer.device)
+                    .is_none_or(|certificate| certificate.sig_public_key != viewer.key)
+                {
+                    viewer.cancel.cancel();
+                }
+            }
+            Err(error) if error.unanswered() => {}
+            Err(Error::Stale | Error::SignedOut | Error::Closed) => return Err(Error::Stale),
+            Err(_) => viewer.cancel.cancel(),
+        }
     }
-    if pending.len() >= 128 {
-        return Err(Error::Busy);
-    }
-    let (reply, response) = oneshot::channel();
-    let admitted = publication
-        .requests
-        .try_send(HostRequest::Control {
-            sender_user_id: user,
-            sender_device_id: device,
-            connection_id: connection,
-            control,
-            authorization: authorization.clone(),
-            reply,
-        })
-        .is_ok();
-    pending.push(Box::pin(async move {
-        let accepted=if admitted {tokio::select! {
-            ()=authorization.cancelled()=>false,
-            result=tokio::time::timeout(Duration::from_millis(4750),response)=>matches!(result,Ok(Ok(Ok(_)))),
-        }}else{false};
-        (identity,accepted)
-    }));
     Ok(())
 }
 
-async fn send_control_result(
-    socket: &mut Socket,
-    keys: &HostKeys,
-    identity: &ControlIdentity,
-    accepted: bool,
+async fn viewer(
+    network: BackendClient,
+    publication: Arc<Publication>,
+    credentials: Credentials,
+    output: PublicationOutput,
+    channel: Uuid,
+    viewers: Viewers,
+    cancel: CancellationToken,
+) {
+    let result = tokio::select! {
+        () = cancel.cancelled() => Ok(()),
+        result = connect(&network, &publication, &credentials, output, channel, &viewers, &cancel) => result,
+    };
+    let admitted = viewers
+        .lock()
+        .ok()
+        .and_then(|mut viewers| viewers.remove(&channel));
+    if let Some(admitted) = admitted {
+        admitted.cancel.cancel();
+        let _outcome = tokio::time::timeout(
+            Duration::from_millis(500),
+            publication.requests.send(HostRequest::Disconnected {
+                connection_id: channel,
+            }),
+        )
+        .await;
+    }
+    if let Err(error) = result
+        && !matches!(error, Error::Closed | Error::Stale)
+    {
+        tracing::warn!(%error, "a terminal viewer connection ended");
+    }
+}
+
+async fn connect(
+    network: &BackendClient,
+    publication: &Publication,
+    credentials: &Credentials,
+    output: PublicationOutput,
+    id: Uuid,
+    viewers: &Viewers,
+    cancel: &CancellationToken,
 ) -> Result<()> {
-    let Some(channel) = keys
-        .channels
-        .get(&(identity.user_id.clone(), identity.device_id.clone()))
-    else {
+    let dto = publication.dto.read().await.clone();
+    let (socket, _ready) = socket(
+        network,
+        credentials,
+        &format!("ws/relay/{}/{id}", dto.id),
+        "relay",
+        Some(&dto),
+    )
+    .await?;
+    let mut channel = Channel::accept(socket, credentials.keys.signing_pkcs8()).await?;
+    let hello = match tokio::time::timeout(Duration::from_secs(10), channel.receive()).await {
+        Ok(Ok(Some((Frame::Hello(hello), _)))) => hello,
+        Ok(Err(error)) => return Err(error),
+        _ => return Err(Error::Closed),
+    };
+    let key = channel.peer_key()?;
+    if let Err(refuse) = admit(network, publication, credentials, &hello, &key, viewers).await {
+        channel.send(&Frame::Refuse(refuse)).await?;
+        channel.close().await;
         return Ok(());
+    }
+    let admitted = Admitted {
+        user: hello.user_id.clone(),
+        device: hello.device_id.clone(),
+        key,
+        cancel: cancel.clone(),
     };
-    let message = if accepted {
-        ""
-    } else {
-        "The terminal did not confirm the operation; it was not retried."
-    };
-    let (nonce, ciphertext) = crypto::encrypt_control_payload(
+    if let Ok(mut viewers) = viewers.lock() {
+        viewers.insert(id, admitted);
+    }
+    channel
+        .send(&Frame::Accept(Accept {
+            protocol_version: crate::protocol::TERMINAL_CONNECTION_VERSION,
+            host_device_id: credentials.keys.device_id.clone(),
+        }))
+        .await?;
+    publication
+        .requests
+        .send(HostRequest::Connected {
+            connection_id: id,
+            user_id: hello.user_id.clone(),
+        })
+        .await
+        .map_err(|_| Error::Closed)?;
+    let authorization = cancel.child_token();
+    let _authorization = authorization.clone().drop_guard();
+    let mut stream = Stream::new(
         channel,
-        crypto::TrafficStream::ControlResult,
-        &identity.aad()?,
-        &serde_json::to_vec(&json!({"accepted":accepted,"message":message}))?,
-    )?;
-    send_json(socket,json!({"type":"controlResult","connectionId":identity.connection_id,"sequence":identity.sequence,"requestId":identity.request_id,"nonce":BASE64.encode(nonce),"ciphertext":BASE64.encode(ciphertext)})).await
+        output,
+        &publication.requests,
+        Controller {
+            user: hello.user_id,
+            device: hello.device_id,
+            connection: id,
+            authorization,
+        },
+    );
+    let ended = stream.serve().await;
+    if ended.is_ok() {
+        stream.channel.close().await;
+    }
+    ended
+}
+
+fn refuse(code: &str, message: &str) -> Refuse {
+    Refuse {
+        code: code.to_owned(),
+        message: message.to_owned(),
+    }
+}
+
+async fn admit(
+    network: &BackendClient,
+    publication: &Publication,
+    credentials: &Credentials,
+    hello: &Hello,
+    key: &[u8],
+    viewers: &Viewers,
+) -> std::result::Result<(), Refuse> {
+    if hello.protocol_version != crate::protocol::TERMINAL_CONNECTION_VERSION {
+        return Err(refuse("version", "Update Kodosi to open this terminal."));
+    }
+    let info = publication.info.read().await.clone();
+    if hello.session_id != info.session_id || hello.incarnation_id != info.incarnation_id {
+        return Err(refuse("gone", "This terminal is no longer available."));
+    }
+    if !allowed(publication, credentials, &hello.user_id).await {
+        return Err(refuse("access", "This terminal is not shared with you."));
+    }
+    if viewers.lock().is_ok_and(|viewers| viewers.len() >= VIEWERS) {
+        return Err(refuse(
+            "busy",
+            "Too many devices are connected to this terminal.",
+        ));
+    }
+    match network
+        .fetch_identity_with(credentials, &hello.user_id, true)
+        .await
+    {
+        Ok(identity) => {
+            if identity
+                .devices
+                .get(&hello.device_id)
+                .is_some_and(|certificate| certificate.sig_public_key == key)
+            {
+                Ok(())
+            } else {
+                Err(refuse("access", "This device is not approved."))
+            }
+        }
+        Err(error) if error.unanswered() => Err(refuse(
+            "busy",
+            "The host could not check this device; try again.",
+        )),
+        Err(_) => Err(refuse("access", "This device is not approved.")),
+    }
+}
+
+struct Controller {
+    user: String,
+    device: String,
+    connection: Uuid,
+    authorization: CancellationToken,
+}
+
+enum Waiting {
+    Output {
+        sequence: u64,
+        bytes: Bytes,
+    },
+    Resize {
+        rows: u16,
+        cols: u16,
+        at_sequence: u64,
+    },
+}
+
+struct Stream<'a, T> {
+    channel: Channel<T>,
+    output: PublicationOutput,
+    requests: &'a mpsc::Sender<HostRequest>,
+    controller: Controller,
+    pacer: Pacer,
+    parts: VecDeque<Bytes>,
+    parts_sequence: u64,
+    waiting: VecDeque<Waiting>,
+    waiting_bytes: usize,
+    live: bool,
+    next_sequence: u64,
+    keyframe_bytes: usize,
+    keyframe_at: Option<tokio::time::Instant>,
+    metadata: Option<TerminalMetadata>,
+    heartbeat: u32,
+    input_offset: u64,
+    input_confirmed: u64,
+    inputs: Inputs,
+    controls: Controls,
+}
+
+enum Skip {
+    Reached,
+    Lost,
+    Ended(End),
+}
+
+impl<'a, T: Transport> Stream<'a, T> {
+    fn new(
+        channel: Channel<T>,
+        output: PublicationOutput,
+        requests: &'a mpsc::Sender<HostRequest>,
+        controller: Controller,
+    ) -> Self {
+        Self {
+            channel,
+            output,
+            requests,
+            controller,
+            pacer: Pacer::default(),
+            parts: VecDeque::new(),
+            parts_sequence: 0,
+            waiting: VecDeque::new(),
+            waiting_bytes: 0,
+            live: false,
+            next_sequence: 0,
+            keyframe_bytes: 0,
+            keyframe_at: None,
+            metadata: None,
+            heartbeat: 0,
+            input_offset: 0,
+            input_confirmed: 0,
+            inputs: Inputs::new(),
+            controls: Controls::new(),
+        }
+    }
+
+    async fn serve(&mut self) -> Result<()> {
+        let mut heartbeat = tokio::time::interval(HEARTBEAT);
+        heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        let mut metadata = tokio::time::interval(Duration::from_secs(1));
+        metadata.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        loop {
+            if let Some(end) = self.advance().await? {
+                self.channel.send(&Frame::End(end)).await?;
+                return Ok(());
+            }
+            let capture = (!self.live && self.parts.is_empty() && self.pacer.in_transit() == 0)
+                .then(|| self.keyframe_at.map(|at| at + KEYFRAME_SPACING))
+                .flatten();
+            tokio::select! {
+                biased;
+                () = self.controller.authorization.cancelled() => return Ok(()),
+                Some((offset, accepted)) = self.inputs.next(), if !self.inputs.is_empty() => {
+                    if !accepted {
+                        return Err(invalid("The terminal did not accept input from this connection."));
+                    }
+                    self.input_confirmed = offset;
+                    self.channel.send(&Frame::InputAck { offset }).await?;
+                }
+                Some(result) = self.controls.next(), if !self.controls.is_empty() => {
+                    self.channel.send(&Frame::ControlResult(result)).await?;
+                }
+                _ = heartbeat.tick() => {
+                    self.heartbeat = self.heartbeat.wrapping_add(1);
+                    self.channel.send(&Frame::Heartbeat { number: self.heartbeat, next_sequence: self.next_sequence }).await?;
+                }
+                _ = metadata.tick(), if self.metadata.is_some() && self.live => {
+                    if let Some(current) = self.metadata.take() {
+                        self.channel.send(&Frame::Metadata(current)).await?;
+                    }
+                }
+                frame = self.channel.receive() => match frame? {
+                    Some((frame, _)) => self.received(frame).await?,
+                    None => return Err(Error::Closed),
+                },
+                published = self.output.recv() => {
+                    if let Some(end) = self.published(published) {
+                        self.drain().await?;
+                        self.channel.send(&Frame::End(end)).await?;
+                        return Ok(());
+                    }
+                }
+                () = async { tokio::time::sleep_until(capture.unwrap_or_else(tokio::time::Instant::now)).await }, if capture.is_some() => {}
+            }
+        }
+    }
+
+    async fn advance(&mut self) -> Result<Option<End>> {
+        loop {
+            if !self.live && self.parts.is_empty() && self.pacer.in_transit() == 0 {
+                if self
+                    .keyframe_at
+                    .is_some_and(|at| at.elapsed() < KEYFRAME_SPACING)
+                {
+                    return Ok(None);
+                }
+                if let Some(end) = self.capture().await? {
+                    return Ok(Some(end));
+                }
+                if !self.live {
+                    return Ok(None);
+                }
+                continue;
+            }
+            let ready = !self.parts.is_empty() || (self.live && !self.waiting.is_empty());
+            if !ready {
+                self.pacer.idle();
+                return Ok(None);
+            }
+            if !self.pacer.room(tokio::time::Instant::now()) {
+                return Ok(None);
+            }
+            self.send_next().await?;
+        }
+    }
+
+    async fn send_next(&mut self) -> Result<()> {
+        let frame = if let Some(part) = self.parts.pop_front() {
+            Frame::Keyframe {
+                next_sequence: self.parts_sequence,
+                more: !self.parts.is_empty(),
+                part,
+            }
+        } else {
+            match self.waiting.pop_front() {
+                Some(Waiting::Resize {
+                    rows,
+                    cols,
+                    at_sequence,
+                }) => Frame::Resize {
+                    rows,
+                    cols,
+                    at_sequence,
+                },
+                Some(Waiting::Output { sequence, bytes }) => {
+                    let mut size = bytes.len();
+                    self.waiting_bytes -= bytes.len();
+                    let mut chunks = vec![bytes];
+                    while chunks.len() < wire::RAW_BATCH_LIMIT
+                        && let Some(Waiting::Output { bytes, .. }) = self.waiting.front()
+                        && size + bytes.len() <= wire::OUTPUT_FRAME
+                        && let Some(Waiting::Output { bytes, .. }) = self.waiting.pop_front()
+                    {
+                        size += bytes.len();
+                        self.waiting_bytes -= bytes.len();
+                        chunks.push(bytes);
+                    }
+                    self.next_sequence = sequence + chunks.len() as u64;
+                    Frame::Output {
+                        first_sequence: sequence,
+                        chunks,
+                    }
+                }
+                None => return Ok(()),
+            }
+        };
+        let sent = self.channel.send(&frame).await?;
+        if frame.carries_output() {
+            self.pacer.sent(sent as u64);
+        }
+        Ok(())
+    }
+
+    async fn capture(&mut self) -> Result<Option<End>> {
+        self.keyframe_at = Some(tokio::time::Instant::now());
+        let marker = Uuid::now_v7();
+        let (reply, response) = oneshot::channel();
+        if self
+            .requests
+            .try_send(HostRequest::Bootstrap {
+                request_id: marker,
+                reply,
+            })
+            .is_err()
+        {
+            return Ok(None);
+        }
+        let cut = match tokio::time::timeout(Duration::from_secs(5), response).await {
+            Ok(Ok(Ok(cut))) => cut,
+            Ok(Ok(Err(reason))) => {
+                tracing::warn!(%reason, "a terminal snapshot for a viewer failed; it will be tried again");
+                return Ok(None);
+            }
+            _ => return Ok(None),
+        };
+        match self.skip(marker) {
+            Skip::Reached => {}
+            Skip::Lost => return Ok(None),
+            Skip::Ended(end) => return Ok(Some(end)),
+        }
+        self.parts = wire::snapshot_parts(&cut.checkpoint)?.into();
+        self.keyframe_bytes = self.parts.iter().map(Bytes::len).sum();
+        self.parts_sequence = cut.next_sequence;
+        self.next_sequence = cut.next_sequence;
+        self.waiting.clear();
+        self.waiting_bytes = 0;
+        self.metadata = None;
+        self.live = true;
+        Ok(None)
+    }
+
+    fn skip(&mut self, marker: Uuid) -> Skip {
+        loop {
+            match self.output.try_recv() {
+                Ok(PublishedFrame::BootstrapBarrier { request_id }) if request_id == marker => {
+                    return Skip::Reached;
+                }
+                Ok(PublishedFrame::Closed {
+                    reason,
+                    final_sequence,
+                }) => {
+                    return Skip::Ended(End {
+                        final_sequence,
+                        reason,
+                    });
+                }
+                Ok(_) | Err(broadcast::error::TryRecvError::Lagged(_)) => {}
+                Err(_) => return Skip::Lost,
+            }
+        }
+    }
+
+    fn behind(&mut self) {
+        self.live = false;
+        self.waiting.clear();
+        self.waiting_bytes = 0;
+    }
+
+    fn published(
+        &mut self,
+        published: std::result::Result<PublishedFrame, broadcast::error::RecvError>,
+    ) -> Option<End> {
+        match published {
+            Ok(PublishedFrame::Metadata(current)) => self.metadata = Some(current),
+            Ok(PublishedFrame::BootstrapBarrier { .. }) => {}
+            Ok(PublishedFrame::Raw { sequence, bytes }) => {
+                if !self.live {
+                    return None;
+                }
+                let expected = self.next_waiting();
+                if sequence < expected {
+                    return None;
+                }
+                if sequence != expected {
+                    self.behind();
+                    return None;
+                }
+                self.waiting_bytes += bytes.len();
+                self.waiting.push_back(Waiting::Output { sequence, bytes });
+                let window = usize::try_from(self.pacer.window()).unwrap_or(WAITING_OUTPUT_LIMIT);
+                if self.waiting_bytes > self.keyframe_bytes.max(window).min(WAITING_OUTPUT_LIMIT) {
+                    self.behind();
+                }
+            }
+            Ok(PublishedFrame::Resize {
+                rows,
+                cols,
+                at_sequence,
+            }) => {
+                if self.live && at_sequence >= self.next_waiting() {
+                    self.waiting.push_back(Waiting::Resize {
+                        rows,
+                        cols,
+                        at_sequence,
+                    });
+                }
+            }
+            Ok(PublishedFrame::Closed {
+                reason,
+                final_sequence,
+            }) => {
+                return Some(End {
+                    final_sequence,
+                    reason,
+                });
+            }
+            Err(broadcast::error::RecvError::Lagged(_)) => self.behind(),
+            Err(broadcast::error::RecvError::Closed) => {
+                return Some(End {
+                    final_sequence: self.next_sequence,
+                    reason: "Terminal closed.".to_owned(),
+                });
+            }
+        }
+        None
+    }
+
+    fn next_waiting(&self) -> u64 {
+        self.waiting
+            .iter()
+            .rev()
+            .find_map(|waiting| match waiting {
+                Waiting::Output { sequence, .. } => Some(sequence + 1),
+                Waiting::Resize { .. } => None,
+            })
+            .unwrap_or(self.next_sequence)
+    }
+
+    async fn drain(&mut self) -> Result<()> {
+        while !self.parts.is_empty() || (self.live && !self.waiting.is_empty()) {
+            self.send_next().await?;
+        }
+        Ok(())
+    }
+
+    async fn received(&mut self, frame: Frame) -> Result<()> {
+        match frame {
+            Frame::Ack { received } => self
+                .pacer
+                .acknowledge(received, tokio::time::Instant::now())?,
+            Frame::Refresh => self.behind(),
+            Frame::Input {
+                offset,
+                heartbeat,
+                bytes,
+            } => {
+                if offset != self.input_offset
+                    || self.input_offset - self.input_confirmed > UNCONFIRMED_INPUT
+                {
+                    return Err(invalid("Terminal input is out of order."));
+                }
+                if self.heartbeat.wrapping_sub(heartbeat) > LATE_HEARTBEATS {
+                    return Err(invalid("Terminal input arrived too late; it was not used."));
+                }
+                self.input_offset += bytes.len() as u64;
+                let end = self.input_offset;
+                let response = self
+                    .submit(TerminalControl::Input {
+                        bytes: bytes.to_vec(),
+                    })
+                    .await?;
+                self.inputs.push_back(Box::pin(async move {
+                    (end, matches!(response.await, Ok(Ok(_))))
+                }));
+            }
+            Frame::Control {
+                request_id,
+                control,
+            } => {
+                if self.controls.len() >= 64 {
+                    return Err(Error::Busy);
+                }
+                let response = self.submit(control).await?;
+                let authorization = self.controller.authorization.clone();
+                self.controls.push(Box::pin(async move {
+                    let result = tokio::select! {
+                        () = authorization.cancelled() => Err("This terminal connection is no longer authorized.".to_owned()),
+                        result = tokio::time::timeout(CONTROL_TIMEOUT, response) => match result {
+                            Ok(Ok(result)) => result.map(|_| ()),
+                            _ => Err("The terminal did not confirm the operation; it was not retried.".to_owned()),
+                        },
+                    };
+                    ControlResult {
+                        request_id,
+                        accepted: result.is_ok(),
+                        message: result.err().unwrap_or_default(),
+                    }
+                }));
+            }
+            _ => return Err(invalid("Unsupported terminal viewer frame.")),
+        }
+        Ok(())
+    }
+
+    #[expect(
+        clippy::needless_pass_by_ref_mut,
+        reason = "exclusive borrow keeps the non-Sync pending futures Send across the await"
+    )]
+    async fn submit(&mut self, control: TerminalControl) -> Result<Reply> {
+        let (reply, response) = oneshot::channel();
+        tokio::time::timeout(
+            Duration::from_secs(5),
+            self.requests.send(HostRequest::Control {
+                sender_user_id: self.controller.user.clone(),
+                sender_device_id: self.controller.device.clone(),
+                connection_id: self.controller.connection,
+                control,
+                authorization: self.controller.authorization.clone(),
+                reply,
+            }),
+        )
+        .await
+        .map_err(|_| Error::Busy)?
+        .map_err(|_| Error::Closed)?;
+        Ok(response)
+    }
 }
 
 #[cfg(test)]
-mod barrier_tests {
-    use super::*;
-
-    #[test]
-    fn reconnect_reaches_its_barrier_after_missed_output() {
-        let (frames, mut output) = broadcast::channel(256);
-        for sequence in 0..300 {
-            drop(frames.send(PublishedFrame::Raw {
-                sequence,
-                bytes: Bytes::new(),
-            }));
-        }
-        for _ in 0..2 {
-            let marker = Uuid::now_v7();
-            drop(frames.send(PublishedFrame::BootstrapBarrier { request_id: marker }));
-            assert!(skip_to_barrier(&mut output, marker).is_ok());
-        }
-        assert!(skip_to_barrier(&mut output, Uuid::now_v7()).is_err());
-    }
-
-    #[test]
-    fn output_is_batched_in_order_and_the_next_other_frame_is_kept() {
-        let (frames, mut output) = broadcast::channel(256);
-        for sequence in 11..14 {
-            drop(frames.send(PublishedFrame::Raw {
-                sequence,
-                bytes: Bytes::from_static(b"x"),
-            }));
-        }
-        drop(frames.send(PublishedFrame::Metadata(TerminalMetadata::default())));
-        drop(frames.send(PublishedFrame::Raw {
-            sequence: 14,
-            bytes: Bytes::from_static(b"x"),
-        }));
-        let (mut next_sequence, mut chunks) = (11, vec![Bytes::from_static(b"x")]);
-        let held = batch(&mut output, &mut next_sequence, &mut chunks);
-        assert_eq!((next_sequence, chunks.len()), (14, 4));
-        assert!(matches!(held, Some(Ok(PublishedFrame::Metadata(_)))));
-    }
-}
-
-#[cfg(test)]
-mod retirement_tests {
-    use super::*;
-    #[test]
-    fn retired_connections_remain_rejected_without_a_cumulative_live_budget() {
-        let mut retired = RetiredConnections::default();
-        let ids = (0..4096).map(|_| Uuid::now_v7()).collect::<Vec<_>>();
-        for id in &ids {
-            retired.insert(*id);
-        }
-        assert!(ids.iter().all(|id| retired.contains(*id)));
-        assert_eq!(retired.0.len(), 16_384);
-    }
-}
+mod tests;

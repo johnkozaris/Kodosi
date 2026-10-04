@@ -111,10 +111,6 @@ impl DeviceKeys {
         PqdsaKeyPair::from_pkcs8(&ML_DSA_65_SIGNING, &self.signing_pkcs8)
             .map_err(|_| invalid("Stored device signing key is invalid."))
     }
-    pub fn kem_key(&self) -> Result<DecapsulationKey> {
-        DecapsulationKey::new(&ML_KEM_768, &self.kem_secret)
-            .map_err(|_| invalid("Stored device encryption key is invalid."))
-    }
 
     fn encode(&self) -> Result<Zeroizing<String>> {
         Ok(Zeroizing::new(serde_json::to_string(&StoredKeys {

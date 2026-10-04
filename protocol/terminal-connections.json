@@ -1,12 +1,13 @@
 {
-  "terminalConnectionProtocolVersion": 15,
+  "terminalConnectionProtocolVersion": 16,
   "compatibilityPolicy": "exactMatch",
   "routes": {
     "host": "/ws/host/{sessionId}",
     "participant": "/ws/participant/{sessionId}",
+    "relay": "/ws/relay/{sessionId}/{channelId}",
     "events": "/ws/events"
   },
-  "handshake": {
+  "relayHandshake": {
     "messages": [
       "hello",
       "challenge",
@@ -19,219 +20,168 @@
       "incarnationId"
     ],
     "proof": "device signature over authenticated user/device/connection/purpose/session/incarnation and fresh 32-byte challenge",
-    "authorization": "active approved owner device or explicit current member; host output only from the publication's hosting device",
-    "participantHello": [
-      "protocolVersion",
-      "deviceId",
-      "incarnationId",
-      "checkpointChallenge"
-    ]
+    "purposes": [
+      "host",
+      "participant",
+      "relay",
+      "events"
+    ],
+    "authorization": "host and relay: the publication's hosting device; participant: an approved device of the owner or of an explicit current member"
+  },
+  "relay": {
+    "hostNotice": "viewer",
+    "hostNoticeFields": [
+      "channelId",
+      "userId",
+      "deviceId"
+    ],
+    "join": "the hosting device opens the relay route for the channel within 10 seconds; the server then copies binary messages between the two sockets and reads none of them",
+    "accessNotice": "accessChanged",
+    "messageMaxBytes": 262144,
+    "idleSeconds": 90,
+    "backpressure": "the server reads from one socket only when the other socket takes the data",
+    "viewersMax": 64
+  },
+  "channel": {
+    "transport": "TLS 1.3 records in binary relay messages; the viewer is the TLS client",
+    "keyExchange": "X25519MLKEM768",
+    "cipherSuite": "TLS_AES_256_GCM_SHA384",
+    "authentication": "raw public keys (RFC 7250): the ML-DSA-65 signing key of each device certificate, both sides",
+    "viewerCheck": "the host key must equal the key of the hosting device in the verified device list of the owner",
+    "hostCheck": "the viewer key must equal the key of the device that hello names, in the verified device list of the owner or of a person the host shared this terminal with",
+    "resumption": false,
+    "newTrafficKeys": "after 16777216 frames or 1 hour"
   },
   "frames": {
-    "checkpoint": {
-      "type": 3,
-      "headerBytes": 29,
-      "fields": [
-        "keyGeneration:u32be",
-        "counter:u64be",
-        "revision:u64be",
-        "nextSequence:u64be"
-      ],
-      "payload": "AES-GCM encrypted raw deflate stream of the native terminal checkpoint followed by optional bounded JSON terminal metadata (directory, title, program; maximum 16384 bytes); sent only in answer to a participant challenge",
-      "semanticMaxBytes": 8388608,
-      "delivery": "targeted only; a broadcast checkpoint does not exist"
-    },
-    "raw": {
-      "type": 4,
-      "headerBytes": 29,
-      "fields": [
-        "keyGeneration:u32be",
-        "counter:u64be",
-        "firstSequence:u64be",
-        "nextSequence:u64be"
-      ],
-      "payload": "AES-GCM encrypted: one marker byte (1 = the deflate stream starts again at this frame, 0 = it continues) followed by a sync-flushed raw deflate segment of length-prefixed byte chunks",
-      "chunkMaxBytes": 65536,
-      "chunkMaxCount": 128,
-      "stream": "one deflate stream for each key generation; the host starts it again at the first output frame after each targeted checkpoint, so a participant always starts at a marker 1 frame",
-      "delivery": "the host sends output only while a participant is connected or a checkpoint was sent in the last 15 seconds; firstSequence can move forward between frames and never moves back",
-      "unpackedMaxBytes": 8389120
-    },
-    "notice": {
-      "type": 5,
-      "headerBytes": 29,
-      "fields": [
-        "keyGeneration:u32be",
-        "counter:u64be",
-        "checkpointRevision:u64be",
-        "reserved:u64be"
-      ],
-      "payload": "AES-GCM encrypted: one kind byte, then kind 0 = bounded JSON terminal metadata (directory, title, program), kind 1 = rows:u16be, cols:u16be, atSequence:u64be",
-      "payloadMaxBytes": 16385,
-      "resize": "kind 1 replaces the snapshot that earlier followed each resize; atSequence must equal the next output sequence of the participant"
+    "layout": "length:u24be (bytes after this field), type:u8, bodyLength:u24be, body, zero padding",
+    "maxBytes": 1048576,
+    "padding": "total length up to 1024 bytes: next multiple of 64; larger: Padme",
+    "types": {
+      "hello": {
+        "type": 1,
+        "direction": "viewer",
+        "body": "JSON: protocolVersion, sessionId, incarnationId, userId, deviceId"
+      },
+      "accept": {
+        "type": 2,
+        "direction": "host",
+        "body": "JSON: protocolVersion, hostDeviceId"
+      },
+      "refuse": {
+        "type": 3,
+        "direction": "host",
+        "body": "JSON: code (version, access, busy, gone), message"
+      },
+      "keyframe": {
+        "type": 4,
+        "direction": "host",
+        "body": "nextSequence:u64be, more:u8, part of the raw deflate of the terminal checkpoint",
+        "partMaxBytes": 32768
+      },
+      "output": {
+        "type": 5,
+        "direction": "host",
+        "body": "firstSequence:u64be, packed:u8, length-prefixed (u32be) chunks, raw deflate when packed",
+        "chunkMaxBytes": 65536,
+        "chunkMaxCount": 128,
+        "packing": "each frame alone, from 256 bytes, only when smaller"
+      },
+      "resize": {
+        "type": 6,
+        "direction": "host",
+        "body": "rows:u16be, cols:u16be, atSequence:u64be"
+      },
+      "metadata": {
+        "type": 7,
+        "direction": "host",
+        "body": "JSON terminal metadata (directory, title, program, connectedUsers); maximum 16384 bytes"
+      },
+      "heartbeat": {
+        "type": 8,
+        "direction": "host",
+        "body": "number:u32be, nextSequence:u64be",
+        "seconds": 15
+      },
+      "end": {
+        "type": 9,
+        "direction": "host",
+        "body": "JSON: finalSequence, reason"
+      },
+      "ack": {
+        "type": 10,
+        "direction": "viewer",
+        "body": "received:u64be, the total bytes of keyframe and output frames received"
+      },
+      "input": {
+        "type": 11,
+        "direction": "viewer",
+        "body": "offset:u64be, heartbeat:u32be, bytes"
+      },
+      "control": {
+        "type": 12,
+        "direction": "viewer",
+        "body": "requestId:16 bytes, JSON control (resize, focus, interrupt, close)"
+      },
+      "refresh": {
+        "type": 13,
+        "direction": "viewer",
+        "body": "empty"
+      },
+      "inputAck": {
+        "type": 14,
+        "direction": "host",
+        "body": "offset:u64be"
+      },
+      "controlResult": {
+        "type": 15,
+        "direction": "host",
+        "body": "JSON: requestId, accepted, message"
+      }
     }
   },
-  "bootstrap": {
-    "request": "checkpointRequested",
-    "response": "checkpoint",
-    "targeted": true,
-    "resetOtherViewers": false,
-    "gapPolicy": "resync with a fresh host checkpoint on the same connection, or retryable close; never substitute a plain presentation",
-    "participantRequest": "checkpointRequest",
-    "freshnessProof": {
-      "challengeBytes": 32,
-      "challengeAuthority": "requesting endpoint; generated anew for initial connection and every capture refresh",
-      "message": "checkpointProof",
-      "signatureAuthority": "current verified host device",
-      "signatureFields": [
-        "challenge:bytes",
-        "sessionId",
-        "incarnationId",
-        "authorizationRevision:decimal",
-        "keyGeneration:decimal",
-        "connectionId",
-        "recipientUserId",
-        "recipientDeviceId",
-        "nextSequence:decimal",
-        "sha256:encryptedCheckpointFrameBytes"
-      ],
-      "encoding": "UTF-8 text or bytes, each preceded by u32be byte length, following TERMINAL_CHECKPOINT_PROOF_V1 domain",
-      "verification": "verify current challenge, exact recipient/publication, host signature and encrypted frame digest before releasing checkpoint or advancing replay state",
-      "liveResizeSatisfiesCapture": false
-    },
-    "rawReplay": false
+  "output": {
+    "start": "the first output-carrying frames of a channel are a keyframe; a view never starts in another way",
+    "sequence": "one for each terminal output chunk; keyframe.nextSequence is the sequence of the next output chunk",
+    "acknowledgement": "the viewer sends ack after each 4096 bytes and at most 100 ms after the last frame",
+    "window": "the host keeps at most half a second of output at the acknowledged speed in transit (minimum 16384 bytes, 65536 before the first measurement, maximum 8388608)",
+    "behind": "when output that waits for one viewer is more than the larger of its window and its last keyframe (maximum 8388608), the host drops it for that viewer and sends a new keyframe when all sent data is acknowledged",
+    "keyframeSpacingMilliseconds": 500,
+    "refresh": "a viewer can ask for a new keyframe",
+    "otherViewers": "not affected"
   },
-  "resync": {
-    "hostMessage": "resync",
-    "participantNotice": "resync",
-    "participantRequest": "resync",
-    "participantRequestFields": [
-      "challenge"
-    ],
-    "causes": [
-      "host output buffer overrun",
-      "participant output backlog above its flow control bound",
-      "key change (rekey)"
-    ],
-    "scope": "every participant after a host resync; one participant after its own queue overrun",
-    "effect": "queued terminal frames for the participant are discarded; no terminal frame is delivered until the participant proves a fresh challenge-bound checkpoint",
-    "controls": "remain admitted for a participant that completed bootstrap on this connection",
-    "keyRotation": false,
-    "participantQueueSoftMaxFrames": 192
-  },
-  "flowControl": {
-    "participantMessage": "received",
-    "participantMessageFields": [
-      "sequence"
-    ],
-    "participant": "sends received with the nextSequence of the last output frame after each 4096 bytes of output frames",
-    "relay": "measures the acknowledged bytes each second for each participant while output waits; keeps at most half a second of output at that speed unacknowledged (minimum 16384 bytes); holds later output frames in order",
-    "backlog": "when held output for a participant is more than half a second at its speed (minimum 65536 bytes or the size of its last checkpoint, maximum 8388608 bytes or 192 frames), that participant gets resync",
-    "urgent": "controlResult is sent before held output"
-  },
-  "rekey": {
-    "trigger": "any access change: sharing, leave, friend removal, device added or removed",
-    "hostNotice": "accessChanged",
-    "host": "stays on its connection, stops output at once, makes a new session key and publishes one envelope for each allowed device; one key generation for each change",
-    "participantNotice": "rekey",
-    "participantNoticeFields": [
-      "authorizationRevision",
-      "keyGeneration"
-    ],
-    "participant": "stays on its connection, fetches and verifies its new key envelope, restarts its control sequence at 1, then sends resync with a new challenge",
-    "relay": "drops host frames, checkpoints, results and controls of the earlier generation without closing the connection"
+  "input": {
+    "stream": "ordered bytes with offsets; the host accepts a frame only at the offset it expects",
+    "confirmation": "inputAck when the terminal accepted the bytes; the viewer keeps at most 65536 bytes without confirmation",
+    "replayAfterReconnect": false,
+    "late": "the host refuses input that carries a heartbeat number more than 2 behind its own",
+    "unconfirmed": "when a channel is lost, the view reports the count of bytes without confirmation"
   },
   "controls": {
-    "message": "control",
     "actions": [
-      "input",
       "resize",
       "focus",
       "interrupt",
       "close"
     ],
-    "senderProof": "AES-GCM under the device channel key; associated data binds sessionId, incarnationId, authorizationRevision, keyGeneration, connectionId, senderUserId, senderDeviceId, sequence and requestId",
-    "sequenceStartsAt": 1,
-    "automaticReplayAfterReconnect": false,
-    "result": "controlResult",
-    "resultAuthority": "AES-GCM under the same device channel key with the control-result label; the relay cannot read or forge it",
-    "resizeSuccess": "host applied the exact size",
-    "inputSuccess": "hosting PTY accepted the entire input byte sequence; not command execution completion",
-    "durableInputAudit": false,
-    "channelKey": "HKDF-SHA256 of the ML-KEM shared secret of the session key envelope for that device (salt sessionId UTF-8, info kodosi-device-channel-v1); only the host and that device have it",
-    "fields": [
-      "sequence",
-      "requestId",
-      "keyGeneration",
-      "nonce",
-      "ciphertext"
-    ],
-    "resultFields": [
-      "connectionId",
-      "sequence",
-      "requestId",
-      "nonce",
-      "ciphertext"
-    ],
-    "perMessageSignature": false,
-    "staleGeneration": "a control of an earlier key generation is dropped, not an error"
+    "result": "controlResult for each requestId; a refused control closes no channel",
+    "timeoutSeconds": 12
   },
   "freshness": {
-    "revocation": "ready=false durably before invalidation; removed users and devices are disconnected at once; all others stay connected and must take the new key before they receive output again",
-    "hostReconnect": "fresh key generation before restarting counters",
+    "revocation": "the host closes the channels of a person at once when it stops sharing with that person; the server closes the pipes of removed people and devices; other viewers are not affected",
     "identityReplacement": "never silently trust a replacement pinned identity",
-    "heartbeatSeconds": 30,
-    "idleTimeoutSeconds": 90,
-    "offlinePublicationExpiry": false,
-    "missingPublicationRecovery": "same still-live local session; fresh key and connections; owner devices only until friends explicitly selected again",
+    "silenceSeconds": 45,
     "trustCheckSeconds": 300,
     "tokenExpiry": "a connection ends when the access token that opened it expires, unless the device proves a newer token with POST /api/me/connections/renew; the runtime does this after each token refresh",
-    "participantReconnect": "a participant runtime keeps its open views when the connection is lost, connects again and installs the next proven checkpoint in place"
-  },
-  "keyDerivation": {
-    "algorithm": "HKDF-SHA256",
-    "streamInputKeyBytes": 32,
-    "streamSalt": null,
-    "streamInfo": {
-      "checkpoint": "kodosi-terminal-checkpoint-v1",
-      "raw": "kodosi-terminal-raw-v1",
-      "notice": "kodosi-terminal-notice-v1",
-      "control": "kodosi-control-v1",
-      "controlResult": "kodosi-control-result-v1"
-    },
-    "wrappedKey": {
-      "salt": "sessionId UTF-8",
-      "info": "kodosi-session-key-wrap",
-      "cipher": "AES-256-GCM",
-      "nonceBytes": 12,
-      "authenticatedData": [
-        "LP32BE(sessionId UTF-8)",
-        "LP32BE(recipientDeviceId UTF-8)",
-        "keyGeneration:u32be"
-      ]
-    },
-    "deviceChannel": {
-      "salt": "sessionId UTF-8",
-      "info": "kodosi-device-channel-v1",
-      "input": "ML-KEM-768 shared secret of the device key envelope"
-    }
+    "participantReconnect": "a participant runtime keeps its open views when the connection is lost, connects again with a new channel and installs the first keyframe in place",
+    "missingPublicationRecovery": "same still-live local session; owner devices only until friends explicitly selected again"
   },
   "presence": {
-    "connected": "participantConnected after successful bootstrap",
-    "disconnected": "participantDisconnected",
-    "meaning": "Backend-reported current participant presence; not an authorization grant or cryptographic identity claim",
-    "lifetime": "Cleared on host disconnect or access rotation; deduplicated by user for display"
+    "source": "the host reports the people whose channels it accepted in terminal metadata",
+    "meaning": "display only; not an authorization grant"
   },
   "termination": {
-    "hostMessage": "end",
-    "participantMessage": "ended",
-    "hostAcknowledgement": "endAcknowledged",
-    "boundary": "finalSequence must equal the delivered raw continuation; queued output drains before viewer sockets close",
-    "drainDeadlineSeconds": 10
-  },
-  "connectionRetirement": {
-    "activeLimit": 256,
-    "retiredIds": "Fixed-size replay rejection filter; no false negatives, possible fail-closed false positives only for a new connection",
-    "isolation": "Retired controls are discarded without disconnecting unrelated viewers"
+    "hostFrame": "end",
+    "order": "output that waits is sent before end when the viewer is current",
+    "lostConnection": "a closed transport without end is a lost connection, not the end of the terminal"
   }
 }

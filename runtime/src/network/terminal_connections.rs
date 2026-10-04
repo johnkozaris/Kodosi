@@ -22,23 +22,24 @@ use tokio_tungstenite::{
 };
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
-use zeroize::Zeroizing;
 
 use super::{
-    BackendClient, CheckpointCut, Error, HostRequest, LocalPublication, PublicationOutput,
-    PublishedFrame, RemoteConnection, RemoteUpdate, Result, TerminalControl, crypto,
+    BackendClient, Error, HostRequest, LocalPublication, PublicationOutput, PublishedFrame,
+    RemoteConnection, RemoteUpdate, Result, TerminalControl, crypto,
     http::Credentials,
     invalid,
-    wire::{self, ControlIdentity, SessionDto},
+    wire::{self, SessionDto},
 };
-use crate::identity;
 
+mod channel;
 mod host;
+mod pacer;
 mod participant;
 
 pub(crate) type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
 pub(crate) const STABLE_CONNECTION: Duration = Duration::from_mins(1);
+const MESSAGE_LIMIT: usize = 256 * 1024;
 const TRUST_CHECK: Duration = Duration::from_mins(5);
 
 pub(crate) struct Publication {
@@ -48,7 +49,6 @@ pub(crate) struct Publication {
     pub cancel: CancellationToken,
     pub refresh: Notify,
     pub changing: AtomicBool,
-    pub authorization: Mutex<CancellationToken>,
     pub(super) pending_shares: Mutex<Option<BTreeSet<String>>>,
     requests: mpsc::Sender<HostRequest>,
     output: Mutex<Option<PublicationOutput>>,
@@ -66,7 +66,6 @@ impl Publication {
             cancel: CancellationToken::new(),
             refresh: Notify::new(),
             changing: AtomicBool::new(false),
-            authorization: Mutex::new(CancellationToken::new()),
             drained: CancellationToken::new(),
             pending_shares: Mutex::new(None),
             requests,
@@ -81,8 +80,7 @@ impl Publication {
         *self.pending_shares.lock().await = None;
     }
 
-    pub(crate) async fn invalidate(&self) {
-        self.authorization.lock().await.cancel();
+    pub(crate) fn invalidate(&self) {
         self.refresh.notify_one();
     }
 }
@@ -157,7 +155,6 @@ pub(crate) async fn socket(
     path: &str,
     purpose: &str,
     session: Option<&SessionDto>,
-    checkpoint_challenge: Option<&[u8; 32]>,
 ) -> Result<(Socket, Value)> {
     network.check_credentials(credentials)?;
     network.inner.http.compatible().await?;
@@ -173,8 +170,8 @@ pub(crate) async fn socket(
             .map_err(|_| invalid("Invalid access token."))?,
     );
     let settings = WebSocketConfig::default()
-        .max_message_size(Some(wire::FRAME_LIMIT * 2))
-        .max_frame_size(Some(wire::FRAME_LIMIT * 2));
+        .max_message_size(Some(MESSAGE_LIMIT))
+        .max_frame_size(Some(MESSAGE_LIMIT));
     let (mut socket, _) = tokio::time::timeout(
         Duration::from_secs(10),
         tokio_tungstenite::connect_async_with_config(request, Some(settings), true),
@@ -185,11 +182,7 @@ pub(crate) async fn socket(
         tracing::warn!(%error, "terminal connection failed");
         invalid("Kodosi could not reach the terminal connection service.")
     })?;
-    let mut hello = json!({"type":"hello","protocolVersion":crate::protocol::TERMINAL_CONNECTION_VERSION,"deviceId":credentials.keys.device_id,"incarnationId":session.map(|s|s.incarnation_id)});
-    if let Some(challenge) = checkpoint_challenge {
-        hello["checkpointChallenge"] = json!(BASE64.encode(challenge));
-    }
-    send_json(&mut socket, hello).await?;
+    send_json(&mut socket, json!({"type":"hello","protocolVersion":crate::protocol::TERMINAL_CONNECTION_VERSION,"deviceId":credentials.keys.device_id,"incarnationId":session.map(|s|s.incarnation_id)})).await?;
     let challenge = read_json(&mut socket).await?;
     if wire::text(&challenge, "type")? != "challenge" {
         return Err(invalid(
@@ -228,24 +221,12 @@ pub(crate) async fn socket(
 
 pub(crate) async fn send_json(socket: &mut Socket, value: Value) -> Result<()> {
     let text = serde_json::to_string(&value)?;
-    if text.len() > wire::FRAME_LIMIT * 2 {
+    if text.len() > MESSAGE_LIMIT {
         return Err(invalid("Connection message exceeds its limit."));
     }
     tokio::time::timeout(
         Duration::from_secs(10),
         socket.send(Message::Text(text.into())),
-    )
-    .await
-    .map_err(|_| Error::Closed)?
-    .map_err(|error| {
-        tracing::warn!(%error, "terminal connection send failed");
-        invalid("The connection to the host dropped.")
-    })
-}
-pub(crate) async fn send_binary(socket: &mut Socket, bytes: Vec<u8>) -> Result<()> {
-    tokio::time::timeout(
-        Duration::from_secs(10),
-        socket.send(Message::Binary(bytes.into())),
     )
     .await
     .map_err(|_| Error::Closed)?
@@ -274,25 +255,6 @@ pub(crate) async fn send_pong(socket: &mut Socket, payload: Bytes) -> Result<()>
         .await
         .map_err(|_| Error::Closed)?
         .map_err(|error| invalid(error.to_string()))
-}
-
-pub(crate) async fn bootstrap(
-    publication: &Publication,
-    request_id: Uuid,
-) -> Result<CheckpointCut> {
-    let (reply, response) = oneshot::channel();
-    publication
-        .requests
-        .try_send(HostRequest::Bootstrap { request_id, reply })
-        .map_err(|error| match error {
-            mpsc::error::TrySendError::Full(_) => Error::Busy,
-            mpsc::error::TrySendError::Closed(_) => Error::Closed,
-        })?;
-    tokio::time::timeout(Duration::from_secs(5), response)
-        .await
-        .map_err(|_| Error::Closed)?
-        .map_err(|_| Error::Closed)?
-        .map_err(invalid)
 }
 
 pub(crate) fn check_generation(network: &BackendClient, generation: u64) -> Result<()> {

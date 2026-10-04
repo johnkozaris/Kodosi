@@ -175,8 +175,6 @@ async fn failed_unpublish_retains_the_cleanup_obligation() {
             mission_name: None,
             shared_with: vec![],
             authorization_revision: 1,
-            key_generation: 1,
-            ready: true,
             host_online: true,
         },
     ));
@@ -186,10 +184,6 @@ async fn failed_unpublish_retains_the_cleanup_obligation() {
         .lock()
         .await
         .insert(id, Arc::clone(&publication));
-    assert!(matches!(
-        terminal_connections::bootstrap(&publication, Uuid::now_v7()).await,
-        Err(Error::Closed)
-    ));
     publication.drained.cancel();
     for _ in 0..2 {
         assert!(
@@ -233,8 +227,6 @@ async fn missing_publication_discards_pending_grants_before_reconciliation() {
             mission_name: None,
             shared_with: vec![friend.clone()],
             authorization_revision: 4,
-            key_generation: 2,
-            ready: false,
             host_online: false,
         },
     ));
@@ -291,7 +283,7 @@ async fn retiring_a_terminal_leaves_operations_free_while_its_host_drains() {
     let dto: SessionDto = serde_json::from_value(json!({
         "id":id,"incarnationId":incarnation,"name":"Terminal","ownerUserId":"owner","ownerName":"Owner",
         "hostDeviceId":"device","hostName":"Host","missionId":null,"missionName":null,"sharedWith":[],
-        "authorizationRevision":1,"keyGeneration":1,"ready":true,"hostOnline":true
+        "authorizationRevision":1,"hostOnline":true
     }))
     .unwrap();
     let info = LocalPublication {

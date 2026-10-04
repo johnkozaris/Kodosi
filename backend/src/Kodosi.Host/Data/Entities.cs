@@ -81,8 +81,6 @@ public sealed class Session
     public string Name { get; set; } = "";
     public Guid? MissionId { get; set; }
     public long AuthorizationRevision { get; set; } = 1;
-    public int KeyGeneration { get; set; }
-    public bool Ready { get; set; }
     public bool Ended { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
@@ -92,18 +90,6 @@ public sealed class SessionMember
 {
     public Guid SessionId { get; set; }
     public Guid UserId { get; set; }
-}
-
-public sealed class SessionKeyEnvelope
-{
-    public Guid SessionId { get; set; }
-    public string RecipientDeviceId { get; set; } = "";
-    public Guid RecipientUserId { get; set; }
-    public string SenderDeviceId { get; set; } = "";
-    public int KeyGeneration { get; set; }
-    public long IssuedAtMs { get; set; }
-    public byte[] EncryptedKey { get; set; } = [];
-    public byte[] Signature { get; set; } = [];
 }
 
 public sealed class Mission

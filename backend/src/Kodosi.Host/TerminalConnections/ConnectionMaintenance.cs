@@ -10,7 +10,6 @@ internal sealed class ConnectionMaintenance(IServiceScopeFactory scopes, Connect
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
-            directory.Sweep();
             var groups = directory.OnlinePeers().GroupBy(peer => (peer.UserId, peer.DeviceId));
             await Parallel.ForEachAsync(groups, new ParallelOptions { MaxDegreeOfParallelism = 8, CancellationToken = stoppingToken },
                 async (peers, ct) =>
@@ -19,7 +18,7 @@ internal sealed class ConnectionMaintenance(IServiceScopeFactory scopes, Connect
                     {
                         await using var scope = scopes.CreateAsyncScope();
                         await scope.ServiceProvider.GetRequiredService<DeviceService>().RequireDeviceAsync(peers.Key.UserId, peers.Key.DeviceId, ct);
-                        foreach (var peer in peers) peer.Send(new { type = "ping" });
+                        foreach (var peer in peers.OfType<SocketPeer>()) peer.Send(new { type = "ping" });
                     }
                     catch (ApiException)
                     {

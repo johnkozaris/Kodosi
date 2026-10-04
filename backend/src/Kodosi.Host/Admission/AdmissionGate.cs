@@ -1,8 +1,6 @@
-using Kodosi.TerminalConnections;
-
 namespace Kodosi.Admission;
 
-internal sealed class AdmissionFilter(AdmissionGate gate, ConnectionDirectory connections) : IEndpointFilter
+internal sealed class AdmissionFilter(AdmissionGate gate) : IEndpointFilter
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
@@ -13,9 +11,7 @@ internal sealed class AdmissionFilter(AdmissionGate gate, ConnectionDirectory co
             return await next(context);
         }
         using var held = await gate.EnterAsync(request.RequestAborted);
-        using var recovery = connections.BeginMutation();
-        try { return await next(context); }
-        catch { recovery.Recover(); throw; }
+        return await next(context);
     }
 }
 

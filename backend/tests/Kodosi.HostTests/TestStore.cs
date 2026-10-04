@@ -14,11 +14,11 @@ internal sealed class TestStore : IAsyncDisposable
 {
     private TestStore(KodosiDbContext db) { Db = db; }
     public KodosiDbContext Db { get; }
-    public ConnectionDirectory Connections { get; } = new(TimeProvider.System);
+    public ConnectionDirectory Connections { get; } = new();
     public DeviceService Devices => new(Db, new SignatureVerifier(), new DeviceCertificateParser(), new SignedDeviceListParser(), Connections, TimeProvider.System);
     public FriendService Friends => new(Db, Connections, TimeProvider.System);
     public MissionService Missions => new(Db, Connections, Friends, TimeProvider.System);
-    public SessionService Sessions => new(Db, Connections, Devices, Missions, new SignatureVerifier(), TimeProvider.System);
+    public SessionService Sessions => new(Db, Connections, Devices, Missions, TimeProvider.System);
 
     public static async Task<TestStore> CreateAsync(PostgresFixture postgres)
     {

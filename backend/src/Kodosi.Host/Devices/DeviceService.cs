@@ -144,7 +144,7 @@ public sealed partial class DeviceService(
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         foreach (var device in removed) { device.Revoked = true; connections.RemoveDevice(userId, device.Id); }
         UpdateList(current, next, bytes, signature);
-        var affected = removed.Count == 0 ? [] : await InvalidateUserSessionsAsync(userId, ct, removed);
+        var affected = removed.Count == 0 ? [] : await InvalidateUserSessionsAsync(userId, removed, ct);
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         foreach (var device in removed) connections.RemoveDevice(userId, device.Id);
@@ -169,7 +169,7 @@ public sealed partial class DeviceService(
             .ExecuteUpdateAsync(set => set.SetProperty(x => x.State, "cancelled"), ct);
         var user = await db.Users.SingleAsync(x => x.Id == userId, ct);
         user.IdentityIncarnationId = null;
-        var affected = await InvalidateUserSessionsAsync(userId, ct, devices);
+        var affected = await InvalidateUserSessionsAsync(userId, devices, ct);
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         foreach (var device in devices) connections.RemoveDevice(userId, device.Id);
@@ -215,33 +215,28 @@ public sealed partial class DeviceService(
             active.Select(CertificateWire).ToArray(), ancestors.Values.Select(CertificateWire).ToArray());
     }
 
-    internal async Task<List<Session>> InvalidateUserSessionsAsync(Guid userId, CancellationToken ct, IReadOnlyCollection<Device>? removed = null)
+    private async Task<List<Session>> InvalidateUserSessionsAsync(Guid userId, IReadOnlyCollection<Device> removed, CancellationToken ct)
     {
         var sessions = await db.Sessions.Where(s => !s.Ended && (s.OwnerUserId == userId || db.SessionMembers.Any(m => m.SessionId == s.Id && m.UserId == userId))).ToListAsync(ct);
         foreach (var session in sessions)
         {
-            session.Ready = false;
-            session.KeyGeneration = checked(session.KeyGeneration + 1);
             session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
-            if (removed?.Any(device => device.Id == session.HostDeviceId) == true)
+            if (removed.Any(device => device.Id == session.HostDeviceId))
             {
                 session.Ended = true;
                 session.ExpiresAt = clock.GetUtcNow() + PublicationCleanup.GracePeriod;
             }
-            connections.Invalidate(session, notifyHost: false, keep: Keep(userId, removed));
         }
-        var ids = sessions.Select(session => session.Id).ToArray();
-        await db.SessionKeys.Where(key => ids.Contains(key.SessionId)).ExecuteDeleteAsync(ct);
         return sessions;
     }
 
-    internal static Func<Guid, string, bool> Keep(Guid userId, IReadOnlyCollection<Device>? removed)
-        => (user, device) => user != userId || removed?.Any(x => x.Id == device) != true;
+    private static Func<Guid, string, bool> Keep(Guid userId, IReadOnlyCollection<Device> removed)
+        => (user, device) => user != userId || !removed.Any(x => x.Id == device);
 
     private async Task PublishSessionChangesAsync(Guid userId, List<Session> affected, IReadOnlyCollection<Device> removed, CancellationToken ct)
     {
         foreach (var session in affected)
-            if (session.Ended) connections.RemoveSession(session.Id); else connections.Invalidate(session, keep: Keep(userId, removed));
+            if (session.Ended) connections.RemoveSession(session.Id); else connections.Revoke(session, Keep(userId, removed));
         var ended = affected.Where(session => session.Ended).Select(session => session.Id).ToArray();
         if (ended.Length == 0) return;
         connections.Notify(userId, "sessions");

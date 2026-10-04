@@ -2,13 +2,12 @@ using Kodosi.Data;
 using Kodosi.Devices;
 using Kodosi.TerminalConnections;
 using Kodosi.Missions;
-using Kodosi.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.Sessions;
 
 public sealed class SessionService(KodosiDbContext db, ConnectionDirectory connections,
-    DeviceService devices, MissionService missions, SignatureVerifier signatures, TimeProvider clock)
+    DeviceService devices, MissionService missions, TimeProvider clock)
 {
     public async Task<Session> AuthorizedAsync(Guid id, Guid userId, CancellationToken ct)
     {
@@ -37,7 +36,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         var mission = session.MissionId is { } missionId ? await db.Missions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == missionId, ct) : null;
         return new SessionDto(session.Id, session.IncarnationId, session.Name, session.OwnerUserId, owner.DisplayName,
             session.HostDeviceId, session.HostName, session.MissionId, mission?.Name, shared, session.AuthorizationRevision,
-            session.KeyGeneration, session.Ready, connections.HostOnline(session.Id));
+            connections.HostOnline(session.Id));
     }
     public async Task<IReadOnlyList<SessionDto>> ListAsync(Guid userId, CancellationToken ct)
     {
@@ -57,7 +56,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         return sessions.Select(x => new SessionDto(x.Session.Id, x.Session.IncarnationId, x.Session.Name,
             x.Session.OwnerUserId, x.OwnerName, x.Session.HostDeviceId, x.Session.HostName,
             x.Session.MissionId, x.MissionName, shared[x.Session.Id].ToArray(), x.Session.AuthorizationRevision,
-            x.Session.KeyGeneration, x.Session.Ready, connections.HostOnline(x.Session.Id))).ToArray();
+            connections.HostOnline(x.Session.Id))).ToArray();
     }
     public async Task<SessionDto> CreateAsync(Guid userId, Device device, CreateSession body, CancellationToken ct)
     {
@@ -120,8 +119,9 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         db.SessionMembers.RemoveRange(existing.Where(x => !selected.Contains(x.UserId)));
         foreach (var recipient in selected.Except(existing.Select(x => x.UserId))) db.SessionMembers.Add(new SessionMember { SessionId = id, UserId = recipient });
         bool Keep(Guid user, string device) => user == userId || selected.Contains(user);
-        await InvalidateAsync(session, Keep, ct); await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
-        connections.Invalidate(session, keep: Keep); foreach (var recipient in affected) connections.Notify(recipient, "sessions");
+        session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
+        await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
+        connections.Revoke(session, Keep); foreach (var recipient in affected) connections.Notify(recipient, "sessions");
         return await DescribeAsync(session, ct);
     }
     public async Task LeaveAsync(Guid id, Guid userId, LeaveSession body, CancellationToken ct)
@@ -131,8 +131,8 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         var member = await db.SessionMembers.SingleOrDefaultAsync(x => x.SessionId == id && x.UserId == userId, ct) ?? throw ApiException.Missing();
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         bool Keep(Guid user, string device) => user != userId;
-        db.SessionMembers.Remove(member); await InvalidateAsync(session, Keep, ct);
-        await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct); connections.Invalidate(session, keep: Keep);
+        db.SessionMembers.Remove(member); session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
+        await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct); connections.Revoke(session, Keep);
         await NotifyAsync(session, ct); connections.Notify(userId, "sessions");
     }
     public async Task EndAsync(Guid id, Guid userId, string deviceId, Guid incarnationId, CancellationToken ct)
@@ -142,108 +142,10 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         if (session.OwnerUserId != userId || session.HostDeviceId != deviceId) throw ApiException.Forbidden();
         Incarnation(session, incarnationId);
         if (session.Ended) return;
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        session.Ended = true; session.Ready = false;
+        session.Ended = true;
         session.ExpiresAt = clock.GetUtcNow() + PublicationCleanup.GracePeriod;
-        connections.Invalidate(session, notifyHost: false);
-        await db.SessionKeys.Where(x => x.SessionId == id).ExecuteDeleteAsync(ct);
-        await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct); connections.RemoveSession(id);
+        await db.SaveChangesAsync(ct); connections.RemoveSession(id);
         await NotifyAsync(session, ct);
-    }
-    public async Task<SessionDto> RotateAsync(Guid id, Guid userId, string deviceId, RotateKeys body, CancellationToken ct)
-    {
-        var session = await HostAsync(id, userId, deviceId, ct); Match(session, body.IncarnationId, body.ExpectedRevision);
-        if (session.KeyGeneration != body.ExpectedGeneration) throw ApiException.Conflict("Session key generation changed.");
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        session.KeyGeneration = checked(session.KeyGeneration + 1); session.Ready = false;
-        connections.Invalidate(session, notifyHost: false, keep: (_, _) => true);
-        await db.SessionKeys.Where(x => x.SessionId == id).ExecuteDeleteAsync(ct);
-        await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct); connections.Invalidate(session, notifyHost: false, keep: (_, _) => true);
-        return await DescribeAsync(session, ct);
-    }
-    public async Task<object> AuthorizedDevicesAsync(Guid id, Guid userId, string deviceId, CancellationToken ct)
-    {
-        var session = await HostAsync(id, userId, deviceId, ct);
-        var recipients = await RecipientsAsync(session, ct);
-        return new { session.AuthorizationRevision, session.KeyGeneration, devices = recipients.Select(x => new { x.UserId, deviceId = x.Id }) };
-    }
-    public async Task PublishKeysAsync(Guid id, Guid userId, string deviceId, PublishKeys body, CancellationToken ct)
-    {
-        var session = await HostAsync(id, userId, deviceId, ct); Match(session, body.IncarnationId, body.AuthorizationRevision);
-        if (body.KeyGeneration <= 0 || session.KeyGeneration != body.KeyGeneration) throw ApiException.Conflict("Session key generation changed.");
-        var recipients = await RecipientsAsync(session, ct);
-        var host = await devices.RequireDeviceAsync(userId, deviceId, ct);
-        if (body.Blobs is null || body.Blobs.Length > recipients.Count || body.Blobs.Any(x => x is null)
-            || body.Blobs.Select(x => x.RecipientDeviceId).Distinct().Count() != body.Blobs.Length
-            || recipients.Where(x => x.UserId == userId).Any(x => !body.Blobs.Any(blob => blob.RecipientDeviceId == x.Id)))
-            throw ApiException.Invalid("Publish one key envelope for each owner device, and only trusted authorized friend devices.");
-        var expected = recipients.ToDictionary(x => x.Id, StringComparer.Ordinal);
-        var validated = new List<SessionKeyEnvelope>();
-        foreach (var blob in body.Blobs)
-        {
-            if (!expected.TryGetValue(blob.RecipientDeviceId, out var recipient) || recipient.UserId != blob.RecipientUserId
-                || blob.SenderDeviceId != deviceId || blob.SignatureVersion != 2
-                || blob.IssuedAtMs < 0 || blob.IssuedAtMs > clock.GetUtcNow().ToUnixTimeMilliseconds() + 300_000)
-                throw ApiException.Invalid("Key envelope does not match the authorized recipient and host.");
-            var bytes = Limits.Base64(blob.EncryptedSessionKey, "Encrypted session key", 8192);
-            var signature = Limits.Base64(blob.Signature, "Session key signature", IdentityWireFormat.MlDsa65SignatureLength);
-            if (!signatures.Verify(host.SigningPublicKey, Proofs.SessionKey(id, session.IncarnationId, recipient.Id, bytes, (uint)session.KeyGeneration, (ulong)blob.IssuedAtMs), signature))
-                throw ApiException.Forbidden("Invalid session key signature.");
-            validated.Add(new SessionKeyEnvelope
-            {
-                SessionId = id,
-                RecipientDeviceId = recipient.Id,
-                RecipientUserId = recipient.UserId,
-                SenderDeviceId = deviceId,
-                KeyGeneration = session.KeyGeneration,
-                IssuedAtMs = blob.IssuedAtMs,
-                EncryptedKey = bytes,
-                Signature = signature
-            });
-        }
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        await db.SessionKeys.Where(x => x.SessionId == id).ExecuteDeleteAsync(ct); db.SessionKeys.AddRange(validated);
-        session.Ready = true; await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
-        connections.MarkReady(session); await NotifyAsync(session, ct);
-    }
-    public async Task<object> MyKeyAsync(Guid id, Guid userId, string deviceId, CancellationToken ct)
-    {
-        var session = await AuthorizedAsync(id, userId, ct); await devices.RequireDeviceAsync(userId, deviceId, ct);
-        var blob = await db.SessionKeys.AsNoTracking().SingleOrDefaultAsync(x => x.SessionId == id && x.RecipientDeviceId == deviceId && x.RecipientUserId == userId && x.KeyGeneration == session.KeyGeneration, ct);
-        if (!session.Ready) return new { state = "pendingDistribution", session.AuthorizationRevision };
-        if (blob is null) throw ApiException.Forbidden("The host has not granted this device a current session key.");
-        await devices.RequireDeviceAsync(session.OwnerUserId, session.HostDeviceId, ct);
-        return new
-        {
-            state = "ready",
-            session.AuthorizationRevision,
-            keyBlob = new
-            {
-                session.IncarnationId,
-                incarnationProtocolVersion = 15,
-                encryptedSessionKey = Convert.ToBase64String(blob.EncryptedKey),
-                blob.SenderDeviceId,
-                signature = Convert.ToBase64String(blob.Signature),
-                signatureVersion = 2,
-                blob.KeyGeneration,
-                blob.IssuedAtMs
-            }
-        };
-    }
-    internal async Task<List<Device>> RecipientsAsync(Session session, CancellationToken ct)
-    {
-        var ids = await db.SessionMembers.Where(x => x.SessionId == session.Id).Select(x => x.UserId).ToListAsync(ct); ids.Add(session.OwnerUserId);
-        var now = clock.GetUtcNow().ToUnixTimeMilliseconds();
-        var recipients = await db.Devices.AsNoTracking().Where(d => ids.Contains(d.UserId) && !d.Revoked &&
-            (d.ExpiresAtMs == null || d.ExpiresAtMs > now) && db.DeviceLists.Any(l => l.UserId == d.UserId && (l.ExpiresAtMs == null || l.ExpiresAtMs > now))).ToListAsync(ct);
-        if (recipients.Count > 1024) throw ApiException.Conflict("Too many recipient devices.");
-        return recipients;
-    }
-    private async Task InvalidateAsync(Session session, Func<Guid, string, bool> keep, CancellationToken ct)
-    {
-        session.AuthorizationRevision = checked(session.AuthorizationRevision + 1); session.KeyGeneration = checked(session.KeyGeneration + 1); session.Ready = false;
-        connections.Invalidate(session, notifyHost: false, keep: keep);
-        await db.SessionKeys.Where(x => x.SessionId == session.Id).ExecuteDeleteAsync(ct);
     }
     private async Task NotifyAsync(Session session, CancellationToken ct)
     {
@@ -256,13 +158,10 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     { Incarnation(session, incarnation); if (session.AuthorizationRevision != revision) throw ApiException.Conflict("Session sharing changed; refresh before retrying."); }
 
     public sealed record SessionDto(Guid Id, Guid IncarnationId, string Name, Guid OwnerUserId, string OwnerName,
-        string HostDeviceId, string HostName, Guid? MissionId, string? MissionName, Guid[] SharedWith, long AuthorizationRevision, int KeyGeneration, bool Ready, bool HostOnline);
+        string HostDeviceId, string HostName, Guid? MissionId, string? MissionName, Guid[] SharedWith, long AuthorizationRevision, bool HostOnline);
     public sealed record CreateSession(Guid Id, Guid IncarnationId, string Name, string HostDeviceId, string HostName, Guid? MissionId);
     public sealed record RenameSession(Guid IncarnationId, long ExpectedRevision, string Name);
     public sealed record AttachSession(Guid IncarnationId, Guid? MissionId);
     public sealed record ShareSession(Guid IncarnationId, long ExpectedRevision, Guid[] UserIds);
     public sealed record LeaveSession(Guid IncarnationId, long ExpectedRevision);
-    public sealed record RotateKeys(Guid IncarnationId, long ExpectedRevision, int ExpectedGeneration);
-    public sealed record KeyBlob(Guid RecipientUserId, string RecipientDeviceId, string EncryptedSessionKey, string SenderDeviceId, string Signature, int SignatureVersion, long IssuedAtMs);
-    public sealed record PublishKeys(Guid IncarnationId, long AuthorizationRevision, int KeyGeneration, KeyBlob[] Blobs);
 }

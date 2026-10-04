@@ -75,18 +75,12 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
                 db.SessionMembers.RemoveRange(grants);
                 var sessionIds = grants.Select(x => x.SessionId).Distinct().ToArray();
                 affected = await db.Sessions.Where(x => sessionIds.Contains(x.Id) && !x.Ended).ToListAsync(ct);
-                foreach (var session in affected)
-                {
-                    session.Ready = false; session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
-                    session.KeyGeneration = checked(session.KeyGeneration + 1);
-                    connections.Invalidate(session, notifyHost: false, keep: Keep(session));
-                    await db.SessionKeys.Where(x => x.SessionId == session.Id).ExecuteDeleteAsync(ct);
-                }
+                foreach (var session in affected) session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
                 break;
             default: throw ApiException.Invalid("Unknown friend operation.");
         }
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
-        foreach (var session in affected) connections.Invalidate(session, keep: Keep(session));
+        foreach (var session in affected) connections.Revoke(session, Keep(session));
         connections.Notify(userId, "friends"); connections.Notify(other.Id, "friends");
         connections.Notify(userId, "sessions"); connections.Notify(other.Id, "sessions");
     }

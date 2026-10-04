@@ -105,18 +105,11 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
             ? default : await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
     }
 
-    public async Task<(WebSocket Socket, JsonElement Ready)> ConnectAsync(ApiDevice actor, string purpose, Guid? session = null, Guid? incarnation = null)
+    public async Task<(WebSocket Socket, JsonElement Ready)> ConnectAsync(ApiDevice actor, string purpose, Guid? session = null, Guid? incarnation = null, Guid? channel = null)
     {
         var client = Server.CreateWebSocketClient(); client.ConfigureRequest = request => request.Headers.Authorization = "Bearer " + actor.Token;
-        var socket = await client.ConnectAsync(new Uri("ws://localhost/ws/" + purpose + (session is null ? "" : "/" + session)), TestContext.Current.CancellationToken);
-        await SendAsync(socket, new
-        {
-            type = "hello",
-            protocolVersion = 15,
-            deviceId = actor.Fixture.DeviceId,
-            incarnationId = incarnation,
-            checkpointChallenge = purpose == "participant" ? Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)) : null
-        });
+        var socket = await client.ConnectAsync(new Uri("ws://localhost/ws/" + purpose + (session is null ? "" : "/" + session) + (channel is null ? "" : "/" + channel)), TestContext.Current.CancellationToken);
+        await SendAsync(socket, new { type = "hello", protocolVersion = 16, deviceId = actor.Fixture.DeviceId, incarnationId = incarnation });
         var challenge = await JsonAsync(socket); var connectionId = challenge.GetProperty("connectionId").GetString()!;
         var signature = actor.Fixture.Sign(Proofs.Connection(actor.Fixture.UserId, actor.Fixture.DeviceId, connectionId, purpose, session, incarnation,
             Convert.FromBase64String(challenge.GetProperty("challenge").GetString()!)));
@@ -131,7 +124,7 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
     public static async Task<(WebSocketMessageType Type, byte[] Bytes)> FrameAsync(WebSocket socket)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken); deadline.CancelAfter(TimeSpan.FromSeconds(10));
-        return await Wire.ReadAsync(socket, OutputOrder.MaximumFrame * 2, deadline.Token) ?? throw new InvalidOperationException("Socket closed before expected frame.");
+        return await Wire.ReadAsync(socket, 512 * 1024, deadline.Token) ?? throw new InvalidOperationException("Socket closed before expected frame.");
     }
     public static async Task<JsonElement> JsonAsync(WebSocket socket)
     {
