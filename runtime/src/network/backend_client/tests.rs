@@ -304,3 +304,48 @@ async fn retiring_a_terminal_leaves_operations_free_while_its_host_drains() {
     assert!(futures_util::poll!(&mut retirement).is_pending());
     assert!(network.inner.operations.try_lock().is_ok());
 }
+
+#[test]
+fn a_typed_code_selects_only_the_request_with_the_keys_of_the_device_that_showed_it() {
+    use crate::identity::link_code::{LinkIdentity, LinkKey};
+
+    const USER: &str = "11111111-1111-1111-1111-111111111111";
+    const CODE: &str = "TAFX-E5HG-TN8E";
+    let proof = LinkKey::derive(CODE, &[4; 16])
+        .request_proof(&LinkIdentity {
+            user_id: USER,
+            device_id: "laptop",
+            label: "Laptop",
+            signing_public_key: &[1; 1952],
+            kem_public_key: &[3; 1184],
+        })
+        .unwrap();
+    let request = |device: &str, signing: u8| {
+        serde_json::from_value::<enrollment::LinkRequest>(json!({
+            "requestId": Uuid::now_v7(),
+            "deviceId": device,
+            "deviceLabel": "Laptop",
+            "signingPublicKey": BASE64.encode([signing; 1952]),
+            "kemPublicKey": BASE64.encode([3; 1184]),
+            "nonce": BASE64.encode([4; 16]),
+            "proof": BASE64.encode(proof),
+            "expiresAt": "2026-10-04T12:00:00Z",
+        }))
+        .unwrap()
+    };
+    let requests = vec![request("other", 1), request("laptop", 1)];
+    let found = enrollment::request_with_code(USER, requests, CODE)
+        .unwrap()
+        .unwrap();
+    assert_eq!(found.device_id, "laptop");
+    for (requests, code) in [
+        (vec![request("laptop", 2)], CODE),
+        (vec![request("laptop", 1)], "TAFX-E5HG-TN8F"),
+    ] {
+        assert!(
+            enrollment::request_with_code(USER, requests, code)
+                .unwrap()
+                .is_none()
+        );
+    }
+}

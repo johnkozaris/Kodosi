@@ -220,9 +220,7 @@ async fn review(
             continue;
         }
         if !identities.contains_key(&viewer.user) {
-            let identity = network
-                .fetch_identity_with(credentials, &viewer.user, false)
-                .await;
+            let identity = network.fetch_identity_with(credentials, &viewer.user).await;
             identities.insert(viewer.user.clone(), identity);
         }
         match &identities[&viewer.user] {
@@ -382,7 +380,7 @@ async fn admit(
         ));
     }
     match network
-        .fetch_identity_with(credentials, &hello.user_id, true)
+        .fetch_identity_with(credentials, &hello.user_id)
         .await
     {
         Ok(identity) => {

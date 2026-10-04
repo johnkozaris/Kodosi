@@ -64,7 +64,7 @@ pub(crate) struct State {
     pub(crate) pins: Arc<std::sync::Mutex<Pins>>,
     blocked_devices: BTreeSet<(String, String)>,
     account_cancel: CancellationToken,
-    link: Option<Value>,
+    link: Option<enrollment::PendingLink>,
 }
 
 impl BackendClient {
@@ -280,10 +280,9 @@ impl BackendClient {
                 events.push(json!({"type":"devices.link.selfResolved","outcome":"cancelled"}));
             }
             "devices.link.approve" => {
-                let code = wire::text(&args, "userCode")?;
-                self.approve_link(code).await?;
+                let label = self.approve_link(wire::text(&args, "code")?).await?;
                 events.push(
-                    json!({"type":"devices.link.resolved","userCode":code,"outcome":"approved"}),
+                    json!({"type":"devices.link.resolved","deviceLabel":label,"outcome":"approved"}),
                 );
                 events.extend(self.device_events().await?);
             }

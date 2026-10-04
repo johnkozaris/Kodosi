@@ -50,11 +50,6 @@ internal static class DeviceEndpoints
         }).RequireRateLimiting("enrollment");
         api.MapPost("/devices/link/init", async (DeviceService.LinkInit body, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
             Results.Ok(await service.StartLinkAsync((await users.GetAsync(context, ct)).Id, body, ct))).RequireRateLimiting("enrollment");
-        api.MapGet("/devices/link/pending", async (string userCode, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
-        {
-            var user = await users.GetAsync(context, ct); await service.RequireProofAsync(context, user.Id, ct);
-            return Results.Ok(await service.PendingLinkAsync(user.Id, userCode, ct));
-        });
         api.MapGet("/devices/link/requests", async (HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
         {
             var user = await users.GetAsync(context, ct); await service.RequireProofAsync(context, user.Id, ct);
@@ -71,9 +66,9 @@ internal static class DeviceEndpoints
         {
             await service.AcknowledgeLinkAsync((await users.GetAsync(context, ct)).Id, body, ct); return Results.NoContent();
         });
-        api.MapDelete("/devices/link/requests/{userCode}", async (string userCode, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
+        api.MapDelete("/devices/link/requests/{requestId:guid}", async (Guid requestId, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
         {
-            await service.CancelLinkAsync((await users.GetAsync(context, ct)).Id, userCode, ct); return Results.NoContent();
+            await service.CancelLinkAsync((await users.GetAsync(context, ct)).Id, requestId, ct); return Results.NoContent();
         });
     }
 

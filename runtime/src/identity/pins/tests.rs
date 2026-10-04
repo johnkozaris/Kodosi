@@ -116,6 +116,35 @@ impl Fixture {
             ..self.bundle.clone()
         }
     }
+    fn again(&self) -> IdentityBundle {
+        let c = DeviceKeys::generate().unwrap();
+        let cert = build_self_cert(
+            &self.user,
+            &c.device_id,
+            "c",
+            c.kem_public(),
+            &c.signing_key().unwrap(),
+            1500,
+            None,
+        )
+        .unwrap();
+        let first = build_bootstrap_list(
+            &self.user,
+            &c.device_id,
+            &c.signing_key().unwrap(),
+            1500,
+            Some(20_000),
+        )
+        .unwrap();
+        IdentityBundle {
+            user_id: self.user.clone(),
+            identity_revision: 1,
+            identity_incarnation_id: Uuid::now_v7(),
+            device_list: list(&first),
+            devices: vec![certificate(cert)],
+            certificate_chain: vec![],
+        }
+    }
     fn only_b(&self) -> IdentityBundle {
         let signed = build_replacement_list(
             &self.user,
@@ -142,7 +171,11 @@ fn inactive_ancestor_verifies_but_never_receives_a_key() {
     let fixture = Fixture::new();
     let verified = fixture
         .pins()
-        .verify(&fixture.only_b(), true, 2000)
+        .verify(
+            &fixture.only_b(),
+            Anchor::Root(&fixture.only_b().root().unwrap()),
+            2000,
+        )
         .unwrap();
     assert_eq!(verified.devices.len(), 1);
     assert!(verified.devices.contains_key(&fixture.b.device_id));
@@ -153,11 +186,19 @@ fn inactive_ancestor_verifies_but_never_receives_a_key() {
 fn revocation_and_generation_survive_reload() {
     let fixture = Fixture::new();
     let mut pins = fixture.pins();
-    pins.verify(&fixture.with_both(), true, 2000).unwrap();
+    pins.verify(
+        &fixture.with_both(),
+        Anchor::Root(&fixture.with_both().root().unwrap()),
+        2000,
+    )
+    .unwrap();
     let removed = fixture.only_b();
-    pins.verify(&removed, false, 2000).unwrap();
+    pins.verify(&removed, Anchor::Pinned, 2000).unwrap();
     let mut pins = fixture.pins();
-    assert!(pins.verify(&fixture.with_both(), false, 2000).is_err());
+    assert!(
+        pins.verify(&fixture.with_both(), Anchor::Pinned, 2000)
+            .is_err()
+    );
     let previous =
         SignedDeviceList::parse_body(&decode(&removed.device_list.body, 527_432).unwrap()).unwrap();
     let readded = build_replacement_list(
@@ -177,15 +218,22 @@ fn revocation_and_generation_survive_reload() {
         certificate_chain: vec![],
         ..removed
     };
-    assert!(pins.verify(&bad, false, 2000).is_err());
+    assert!(pins.verify(&bad, Anchor::Pinned, 2000).is_err());
 }
 
 #[test]
 fn skipped_enrollment_can_chain_to_retained_pin() {
     let fixture = Fixture::new();
     let mut pins = fixture.pins();
-    pins.verify(&fixture.bundle, true, 2000).unwrap();
-    let verified = pins.verify(&fixture.only_b(), false, 2000).unwrap();
+    pins.verify(
+        &fixture.bundle,
+        Anchor::Root(&fixture.bundle.root().unwrap()),
+        2000,
+    )
+    .unwrap();
+    let verified = pins
+        .verify(&fixture.only_b(), Anchor::Pinned, 2000)
+        .unwrap();
     assert_eq!(verified.devices.len(), 1);
 }
 
@@ -193,10 +241,18 @@ fn skipped_enrollment_can_chain_to_retained_pin() {
 fn identity_replacement_and_same_generation_equivocation_fail_closed() {
     let fixture = Fixture::new();
     let mut pins = fixture.pins();
-    pins.verify(&fixture.bundle, true, 2000).unwrap();
+    pins.verify(
+        &fixture.bundle,
+        Anchor::Root(&fixture.bundle.root().unwrap()),
+        2000,
+    )
+    .unwrap();
     let mut changed = fixture.bundle.clone();
     changed.identity_incarnation_id = Uuid::now_v7();
-    assert!(pins.verify(&changed, true, 2000).is_err());
+    assert!(
+        pins.verify(&changed, Anchor::Root(&changed.root().unwrap()), 2000)
+            .is_err()
+    );
     let changed_list = build_bootstrap_list(
         &fixture.user,
         &fixture.a.device_id,
@@ -209,9 +265,12 @@ fn identity_replacement_and_same_generation_equivocation_fail_closed() {
         device_list: list(&changed_list),
         ..fixture.bundle.clone()
     };
-    assert!(pins.verify(&changed, true, 2000).is_err());
+    assert!(
+        pins.verify(&changed, Anchor::Root(&changed.root().unwrap()), 2000)
+            .is_err()
+    );
     assert_eq!(
-        pins.verify(&fixture.bundle, false, 2000)
+        pins.verify(&fixture.bundle, Anchor::Pinned, 2000)
             .unwrap()
             .generation,
         1
@@ -222,10 +281,18 @@ fn identity_replacement_and_same_generation_equivocation_fail_closed() {
 fn expired_pin_is_renewal_only_and_first_use_is_explicit() {
     let fixture = Fixture::new();
     let mut pins = fixture.pins();
-    assert!(pins.verify(&fixture.bundle, false, 2000).is_err());
+    assert!(pins.verify(&fixture.bundle, Anchor::Pinned, 2000).is_err());
     assert!(pins.verify_for_renewal(&fixture.bundle, 30_000).is_err());
-    pins.verify(&fixture.bundle, true, 2000).unwrap();
-    assert!(pins.verify(&fixture.bundle, false, 30_000).is_err());
+    pins.verify(
+        &fixture.bundle,
+        Anchor::Root(&fixture.bundle.root().unwrap()),
+        2000,
+    )
+    .unwrap();
+    assert!(
+        pins.verify(&fixture.bundle, Anchor::Pinned, 30_000)
+            .is_err()
+    );
     assert_eq!(
         pins.verify_for_renewal(&fixture.bundle, 30_000)
             .unwrap()
@@ -240,10 +307,20 @@ fn malformed_and_foreign_ancestry_is_rejected() {
     let fixture = Fixture::new();
     let mut bundle = fixture.only_b();
     bundle.certificate_chain[0].certificate_signature = BASE64.encode([0; 3309]);
-    assert!(fixture.pins().verify(&bundle, true, 2000).is_err());
+    assert!(
+        fixture
+            .pins()
+            .verify(&bundle, Anchor::Root(&bundle.root().unwrap()), 2000)
+            .is_err()
+    );
     let mut bundle = fixture.only_b();
     bundle.user_id = Uuid::now_v7().to_string();
-    assert!(fixture.pins().verify(&bundle, true, 2000).is_err());
+    assert!(
+        fixture
+            .pins()
+            .verify(&bundle, Anchor::Root(&bundle.root().unwrap()), 2000)
+            .is_err()
+    );
 }
 
 #[test]
@@ -251,7 +328,12 @@ fn own_identity_replacement_needs_an_explicit_forget_before_first_use() {
     let fixture = Fixture::new();
     let now = 1_500;
     let mut pins = fixture.pins();
-    pins.verify(&fixture.bundle, true, now).unwrap();
+    pins.verify(
+        &fixture.bundle,
+        Anchor::Root(&fixture.bundle.root().unwrap()),
+        now,
+    )
+    .unwrap();
     let mut replaced = fixture.bundle.clone();
     replaced.identity_incarnation_id = Uuid::now_v7();
     assert!(!pins.own_identity_replaced(&fixture.bundle));
@@ -262,9 +344,71 @@ fn own_identity_replacement_needs_an_explicit_forget_before_first_use() {
     ));
     pins.forget(&fixture.user).unwrap();
     assert!(!pins.contains(&fixture.user));
-    pins.verify(&replaced, true, now).unwrap();
+    pins.verify(&replaced, Anchor::Root(&replaced.root().unwrap()), now)
+        .unwrap();
     let reloaded = fixture.pins();
     assert!(reloaded.contains(&fixture.user));
     assert!(!reloaded.own_identity_replaced(&replaced));
     assert!(reloaded.own_identity_replaced(&fixture.bundle));
+}
+
+#[test]
+fn an_identity_with_another_first_device_is_refused_and_leaves_no_pin() {
+    let fixture = Fixture::new();
+    let mut pins = fixture.pins();
+    assert!(matches!(
+        pins.verify(&fixture.bundle, Anchor::Root(&[7; 32]), 2000),
+        Err(Error::Trust(_))
+    ));
+    assert!(!pins.contains(&fixture.user));
+}
+
+#[test]
+fn an_approved_new_identity_replaces_the_pin_of_the_old_identity() {
+    let fixture = Fixture::new();
+    let mut pins = fixture.pins();
+    pins.verify(
+        &fixture.with_both(),
+        Anchor::Root(&fixture.bundle.root().unwrap()),
+        2000,
+    )
+    .unwrap();
+    let again = fixture.again();
+    let root = again.root().unwrap();
+    assert_ne!(root, fixture.bundle.root().unwrap());
+    assert!(pins.verify(&again, Anchor::Pinned, 2000).is_err());
+    assert!(
+        pins.verify(&again, Anchor::Root(&fixture.bundle.root().unwrap()), 2000)
+            .is_err()
+    );
+    let verified = pins.verify(&again, Anchor::Root(&root), 2000).unwrap();
+    assert_eq!(verified.root, root);
+    assert_eq!(
+        fixture
+            .pins()
+            .verify(&again, Anchor::Pinned, 2000)
+            .unwrap()
+            .root,
+        root
+    );
+    assert!(
+        fixture
+            .pins()
+            .verify(&fixture.with_both(), Anchor::Pinned, 2000)
+            .is_err()
+    );
+}
+
+#[test]
+fn a_bundle_with_two_first_devices_is_refused() {
+    let fixture = Fixture::new();
+    let mut bundle = fixture.again();
+    bundle.certificate_chain.push(fixture.cert_a.clone());
+    assert!(bundle.root().is_err());
+    assert!(
+        fixture
+            .pins()
+            .verify(&bundle, Anchor::Root(&fixture.bundle.root().unwrap()), 2000)
+            .is_err()
+    );
 }

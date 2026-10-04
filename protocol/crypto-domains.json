@@ -1,9 +1,11 @@
 {
-  "version": 11,
+  "version": 12,
   "tags": {
     "DEVICE_POP_V1": "kodosi-device-pop-v1",
     "DEVICE_CERT_V2": "kodosi-device-cert-v2",
     "DEVICE_LIST_V1": "kodosi-device-list-v1",
+    "DEVICE_LINK_V1": "kodosi-device-link-v1",
+    "IDENTITY_ROOT_V1": "kodosi-identity-root-v1",
     "DEVICE_CONNECTION_PROOF_V1": "kodosi-device-connection-proof-v1",
     "DEVICE_HTTP_REQUEST_PROOF_V1": "kodosi-device-http-request-proof-v1"
   },

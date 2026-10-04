@@ -22,6 +22,8 @@ internal sealed class DeviceFixture
         SigningKey = ((MLDsaPublicKeyParameters)pair.Public).GetEncoded();
         KemKey = RandomNumberGenerator.GetBytes(1184);
     }
+    public static string LinkNonce { get; } = Convert.ToBase64String(new byte[16]);
+    public static string LinkProof { get; } = Convert.ToBase64String(new byte[32]);
     public Guid UserId { get; }
     public string DeviceId { get; }
     public byte[] SigningKey { get; }

@@ -310,7 +310,7 @@ fn device_command(action: DeviceAction) -> Value {
         DeviceAction::List => json!({"type":"devices.refresh"}),
         DeviceAction::Link => json!({"type":"devices.link.startSelf"}),
         DeviceAction::CancelLink => json!({"type":"devices.link.cancelSelf"}),
-        DeviceAction::Approve { code } => json!({"type":"devices.link.approve","userCode":code}),
+        DeviceAction::Approve { code } => json!({"type":"devices.link.approve","code":code}),
         DeviceAction::Revoke { device } => json!({"type":"devices.revoke","deviceId":device}),
     }
 }

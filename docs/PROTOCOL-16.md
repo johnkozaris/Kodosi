@@ -81,52 +81,45 @@ An open view of a remote terminal reports `connectionState: connected` with
 channel has its first keyframe. The Mac app and the Qt app keep the terminal on
 screen in that state and show "Reconnecting" in the tile header.
 
-## 3. Remaining: identity that the server cannot change
+## 3. Built: a device link with one typed code (contract in `protocol/backend-api.json`, `deviceLink`)
 
-Today the server can add its own device when a device is linked, and a friend's
-identity is taken from the server at first use. These are the two remaining
-ways for a hostile server to get terminal access. The fixes must follow goal 5.
+What the user does: on the new device, sign in; it shows a code of 12
+characters at once. On a device that is already approved, type that code and
+select "Approve". Nothing else. This is one time for each device.
 
-### 3.1 Linking a device: one typed code
+Why a typed code and not a button: with a button, the server selects which
+keys are approved, and the new device takes the account identity that the
+server gives. With the code, each side proves itself to the other side and the
+server cannot take the place of one of them.
 
-What the user does: on the new device, sign in; it shows an 8-character code.
-On a device that is already approved, select "Approve" on the request and type
-that code. Nothing else. This is one time for each device.
+- The new device makes the code at random. The server never gets it.
+- The new device sends a proof that binds its keys to the code. The approving
+  device signs only the request whose proof holds for the typed code. A request
+  whose keys the server changed has no such proof.
+- The approving device sends back a proof that binds the account identity to
+  the code. The new device takes the account identity only with that proof.
+- A device takes its own account identity from three sources only: it made the
+  first device itself, or an approval proof, or the identity that it has on
+  disk. It never takes that identity from the server on first use.
+- The code has 60 bits and each try costs 2^20 rounds of PBKDF2-HMAC-SHA512, so
+  a server that wants to find the code from a proof needs about 2^80 hash
+  operations in the 10 minutes of the request. The new device counts the
+  10 minutes itself.
+- Input ignores case, spaces and hyphens, and reads O as 0 and I or L as 1.
+- One proof costs about 50 ms on an Apple M-series computer.
 
-Why a typed code and not a button: the code is made from the keys of the new
-device, so the approved device signs only the device that the user holds. With
-a button, the server selects which keys are approved.
-
-How it works:
-
-1. New device N makes a random value `rN` and sends a commitment to its keys
-   and `rN`. No code exists yet.
-2. Approved device A opens the request and sends a random value `rA`. The
-   runtime does this when the user selects the request (or at once when there
-   is only one request and the approval view is open).
-3. N reveals its keys and `rN`. Both compute the code = 40 bits of
-   SHA-256(commitment, A device id, `rA`, hash of the current device list,
-   `rN`), shown as `XXXX-XXXX` (Crockford base 32; input ignores case, spaces
-   and the hyphen).
-4. N shows the code. The user types it into A. A signs only if the typed code
-   is equal to its own value and the revealed keys match the commitment. One
-   wrong code ends that request; N starts a new one with one click.
-
-The server must commit before it sees the random value of the other side, so
-it has one chance in 2^40 for each request. An account has at most 5 open
-requests; a request ends after 10 minutes.
+An exchange that cannot be attacked offline at all (a PAKE) needs a new
+cryptography library and more messages, and the new device could not finish
+alone. The cost of 2^80 for each request makes that unnecessary.
 
 No dead end: when no approved device is reachable, the new device offers
-"Start fresh" as today (new identity; friends see one question, see 3.2).
+"Start fresh" as before (new identity; friends see one question, see 4).
 
-Surfaces: `devices.link.selfPending` gets `state` (`waiting`, `code`) and
-`code`; request list entries get `requestId` and no code; new
-`devices.link.select {requestId}`; `devices.link.approve {requestId, code}`.
-Command-line app: `devices approve` selects the single request or lists them,
-then asks for the code. Qt and Mac: the request row gets one text field and
-"Approve"; the "Approve" button without a code is removed.
+## 4. Remaining: friends that the server cannot change
 
-### 3.2 Friends: verified by how they were added
+Today a friend's identity is taken from the server at first use. This is the
+remaining way for a hostile server to get terminal access. The fix must follow
+goal 5.
 
 What the user does: nothing new. "Add friend" takes a username as today, or an
 **invite text** that a friend copied from their app ("Copy my invite") and sent
@@ -154,7 +147,7 @@ Surfaces: `friends.snapshot` items get `verified` and `identityState`
 `friends.verify {userId}`, `friends.approveIdentity {userId}`; `friends.add`
 accepts an invite text.
 
-## 4. Remaining: one connection for each device
+## 5. Remaining: one connection for each device
 
 Each approved device keeps one authenticated WebSocket for requests, events and
 token renewal. This removes the challenge table and the signature on each
@@ -168,7 +161,7 @@ one `System.Diagnostics.Metrics` meter (device connections, relay pipes, relay
 bytes, refused connections by reason, seconds of database fault); the migration
 is a separate command; an account can be deleted with one request.
 
-## 5. Remaining: direct path
+## 6. Remaining: direct path
 
 Inside an open channel the two sides try a direct QUIC connection (`iroh`, with
 relay fallback). When it works, the viewer makes a new channel on it and closes
@@ -178,35 +171,34 @@ shares a terminal with you already gives you full control of a program on
 their computer, so hiding addresses between such people by default costs speed
 and buys little.
 
-## 6. Remaining: client marks
+## 7. Remaining: client marks
 
 - After a lost connection the view says "Some of your last input was not sent"
   when the host did not confirm all input. Today this is only in the reason
   text of the lost connection.
 - Qt: remove the limit of 20 tries for a view that is attached.
 
-## 7. Order of work
+## 8. Order of work
 
 | Step | Content | Proof |
 |---|---|---|
 | done | Channel, relay pipe, per-viewer stream, input stream | section 2 |
-| next | Device link with one typed code (3.1) in all three clients | a link with changed keys fails at the code; real link with each client |
-| then | Friend list, invite text, no first use (3.2) | a friend that the server adds cannot be shared with |
-| then | Device connection and server items (4) | database pause, restart with many devices |
-| last | Direct path (5); screen-only keyframe (2); client marks (6) | two computers on different networks |
+| done | Device link with one typed code in all three clients | section 3 |
+| next | Friend list, invite text, no first use (4) | a friend that the server adds cannot be shared with |
+| then | Device connection and server items (5) | database pause, restart with many devices |
+| last | Direct path (6); screen-only keyframe (2); client marks (7) | two computers on different networks |
 
 Each step keeps `just check-all` green, is tested on Linux x86-64 (`ssh lenovo`),
 and changes the command-line app, the Qt app and the Mac app together when a
 user surface changes.
 
-## 8. Risks that stay
+## 9. Risks that stay
 
 - The server reads terminal names, host names, device labels and handles, and
   sees who connects to whom, when, and padded sizes.
-- Until 3.1 and 3.2 are built, the server can add a device at link time and can
-  replace a friend at first contact.
+- Until section 4 is built, the server can replace a friend at first contact.
 - A removed device that works with the server can show a reader that did not
-  see the removal an older device list, until 3.2 is built.
+  see the removal an older device list, until section 4 is built.
 - A secret and attacker text in the same output frame leak a little through the
   frame size, also with padding and with each frame packed alone.
 - The server can stop or delay service. It cannot deliver old input.

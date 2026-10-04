@@ -28,7 +28,7 @@ pub(super) async fn connect(network: BackendClient, id: Uuid) -> Result<RemoteCo
         )
         .await?;
     let owner = network
-        .fetch_identity_with(&credentials, &dto.owner_user_id, true)
+        .fetch_identity_with(&credentials, &dto.owner_user_id)
         .await?;
     let host = owner
         .devices
@@ -146,7 +146,7 @@ async fn host_trusted(
         return Err(Error::Stale);
     }
     let owner = network
-        .fetch_identity_with(&current_credentials, &dto.owner_user_id, false)
+        .fetch_identity_with(&current_credentials, &dto.owner_user_id)
         .await?;
     if owner
         .devices

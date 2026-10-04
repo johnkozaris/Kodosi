@@ -57,12 +57,10 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
         {
             e.ToTable("device_links"); e.HasKey(x => x.Id);
             e.Property(x => x.DeviceCodeHash).HasMaxLength(64);
-            e.Property(x => x.UserCode).HasMaxLength(9);
             e.Property(x => x.DeviceId).HasMaxLength(256);
             e.Property(x => x.Label).HasMaxLength(128);
             e.Property(x => x.State).HasMaxLength(16);
             e.HasIndex(x => x.DeviceCodeHash).IsUnique();
-            e.HasIndex(x => x.UserCode).IsUnique();
             e.HasIndex(x => x.ExpiresAt);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });

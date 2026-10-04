@@ -20,7 +20,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 44;
+pub const VERSION: u32 = 45;
 include!(concat!(env!("OUT_DIR"), "/network_versions.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 
@@ -53,10 +53,7 @@ pub enum Command {
         device_id: String,
     },
     #[serde(rename = "devices.link.approve")]
-    ApproveDevice {
-        #[serde(rename = "userCode")]
-        user_code: String,
-    },
+    ApproveDevice { code: String },
     #[serde(rename = "devices.link.startSelf")]
     LinkDevice {},
     #[serde(rename = "devices.link.cancelSelf")]
@@ -461,14 +458,11 @@ pub enum EventBody {
     DeviceLinksSnapshot { requests: Vec<DeviceLinkRequest> },
     #[serde(rename = "devices.link.resolved")]
     DeviceLinkResolved {
-        user_code: String,
+        device_label: String,
         outcome: DeviceLinkOutcome,
     },
     #[serde(rename = "devices.link.selfPending")]
-    DeviceLinkSelfPending {
-        user_code: String,
-        expires_at: String,
-    },
+    DeviceLinkSelfPending { code: String, expires_at: String },
     #[serde(rename = "devices.link.selfResolved")]
     DeviceLinkSelfResolved { outcome: DeviceLinkOutcome },
     #[serde(rename = "devices.error")]
@@ -618,7 +612,7 @@ pub struct DeviceEntry {
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DeviceLinkRequest {
-    pub user_code: String,
+    pub request_id: String,
     pub device_label: String,
     pub expires_at: String,
 }
@@ -970,7 +964,7 @@ impl Command {
         self.validate_provider()?;
         match self {
             Self::RevokeDevice { device_id } => text(device_id, "deviceId", 1024)?,
-            Self::ApproveDevice { user_code } => text(user_code, "userCode", 64)?,
+            Self::ApproveDevice { code } => text(code, "code", 64)?,
             Self::RequestFriend { username, .. }
             | Self::AcceptFriend { username }
             | Self::RejectFriend { username }
@@ -1133,7 +1127,7 @@ mod tests {
         .collect::<Vec<_>>();
         values.extend([
             json!({"type":"devices.revoke","deviceId":"native-device-name"}),
-            json!({"type":"devices.link.approve","userCode":"ABCD-EFGH"}),
+            json!({"type":"devices.link.approve","code":"ABCD-EFGH-JKMN"}),
             json!({"type":"friends.request.send","username":"example","requestId":ID}),
             json!({"type":"session.create","requestId":ID,"name":"Terminal"}),
             json!({"type":"session.create","requestId":ID,"name":"Resume","workingDir":"/tmp/project","resume":{"provider":"claude","nativeConversationId":ID}}),

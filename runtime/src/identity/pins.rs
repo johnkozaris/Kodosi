@@ -5,6 +5,7 @@ use std::{
 
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest as _, Sha256};
 use uuid::Uuid;
 
 use super::{
@@ -40,11 +41,42 @@ pub struct IdentityBundle {
     pub certificate_chain: Vec<CertificateEnvelope>,
 }
 
+pub(crate) type Root = [u8; 32];
+
+pub(crate) fn root_of(certificate_body: &[u8]) -> Root {
+    let mut hash = Sha256::new();
+    hash.update(b"kodosi-identity-root-v1");
+    hash.update(certificate_body);
+    hash.finalize().into()
+}
+
+impl IdentityBundle {
+    pub(crate) fn root(&self) -> Result<Root> {
+        let mut root = None;
+        for envelope in self.devices.iter().chain(&self.certificate_chain) {
+            let body = decode(&envelope.certificate, 5772)?;
+            if DeviceCertificate::parse_body(&body)?.is_self_signed()
+                && root.replace(root_of(&body)).is_some()
+            {
+                return Err(invalid("Identity bundle has more than one first device."));
+            }
+        }
+        root.ok_or_else(|| invalid("Identity bundle has no first device."))
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum Anchor<'a> {
+    Pinned,
+    Root(&'a Root),
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct VerifiedIdentity {
     pub generation: u64,
     pub devices: BTreeMap<String, DeviceCertificate>,
     pub list: SignedDeviceList,
+    pub root: Root,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -56,6 +88,8 @@ struct Pin {
     list_signature: String,
     certificates: BTreeMap<String, CertificateEnvelope>,
     revoked: BTreeSet<String>,
+    #[serde(default)]
+    root: Option<Root>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -124,10 +158,10 @@ impl Pins {
     pub(crate) fn verify(
         &mut self,
         bundle: &IdentityBundle,
-        allow_first: bool,
+        anchor: Anchor<'_>,
         now_ms: u64,
     ) -> Result<VerifiedIdentity> {
-        self.verify_current(bundle, allow_first, now_ms, false)
+        self.verify_current(bundle, anchor, now_ms, false)
     }
 
     pub(crate) fn verify_for_renewal(
@@ -135,7 +169,7 @@ impl Pins {
         bundle: &IdentityBundle,
         now_ms: u64,
     ) -> Result<VerifiedIdentity> {
-        self.verify_current(bundle, false, now_ms, true)
+        self.verify_current(bundle, Anchor::Pinned, now_ms, true)
     }
 
     #[expect(
@@ -145,7 +179,7 @@ impl Pins {
     fn verify_current(
         &mut self,
         bundle: &IdentityBundle,
-        allow_first: bool,
+        anchor: Anchor<'_>,
         now_ms: u64,
         allow_expired: bool,
     ) -> Result<VerifiedIdentity> {
@@ -162,14 +196,30 @@ impl Pins {
         if list.user_id != bundle.user_id {
             return Err(invalid("Device list belongs to another account."));
         }
-        let existing = self.pins.get(&bundle.user_id);
-        if existing.is_none() && !allow_first {
-            return Err(Error::Trust(
-                "This person has not been explicitly trusted.".into(),
-            ));
+        let root = bundle.root()?;
+        let existing = self.pins.get(&bundle.user_id).filter(|pin| match anchor {
+            Anchor::Pinned => true,
+            Anchor::Root(approved) => pin.root.map_or(
+                pin.identity_incarnation_id == bundle.identity_incarnation_id,
+                |pinned| pinned == *approved,
+            ),
+        });
+        match anchor {
+            Anchor::Pinned if existing.is_none() => {
+                return Err(Error::Trust(
+                    "This person has not been explicitly trusted.".into(),
+                ));
+            }
+            Anchor::Root(approved) if *approved != root => {
+                return Err(Error::Trust(
+                    "This account's identity is not the identity that was approved.".into(),
+                ));
+            }
+            _ => {}
         }
         if let Some(pin) = existing {
             if pin.identity_incarnation_id != bundle.identity_incarnation_id
+                || pin.root.is_some_and(|pinned| pinned != root)
                 || bundle.identity_revision < pin.identity_revision
                 || list.generation < pin.generation
             {
@@ -349,6 +399,7 @@ impl Pins {
             list_signature: bundle.device_list.signature.clone(),
             certificates: incoming,
             revoked,
+            root: Some(root),
         };
         if self.pins.get(&bundle.user_id) != Some(&pin) {
             let mut next = self.pins.clone();
@@ -370,6 +421,7 @@ impl Pins {
                 .map(|(id, (cert, _))| (id, cert))
                 .collect(),
             list,
+            root,
         })
     }
 }

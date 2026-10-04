@@ -190,18 +190,18 @@
               }
             ]
           },
+          "code": {
+            "type": "string"
+          },
           "type": {
             "const": "devices.link.approve"
-          },
-          "userCode": {
-            "type": "string"
           }
         },
         "required": [
           "accountUserId",
           "accountEpoch",
           "type",
-          "userCode"
+          "code"
         ],
         "type": "object"
       },
@@ -2332,12 +2332,12 @@
                 "expiresAt": {
                   "type": "string"
                 },
-                "userCode": {
+                "requestId": {
                   "type": "string"
                 }
               },
               "required": [
-                "userCode",
+                "requestId",
                 "deviceLabel",
                 "expiresAt"
               ],
@@ -2374,6 +2374,9 @@
               }
             ]
           },
+          "deviceLabel": {
+            "type": "string"
+          },
           "outcome": {
             "oneOf": [
               {
@@ -2389,16 +2392,13 @@
           },
           "type": {
             "const": "devices.link.resolved"
-          },
-          "userCode": {
-            "type": "string"
           }
         },
         "required": [
           "accountUserId",
           "accountEpoch",
           "type",
-          "userCode",
+          "deviceLabel",
           "outcome"
         ],
         "type": "object"
@@ -2420,21 +2420,21 @@
               }
             ]
           },
+          "code": {
+            "type": "string"
+          },
           "expiresAt": {
             "type": "string"
           },
           "type": {
             "const": "devices.link.selfPending"
-          },
-          "userCode": {
-            "type": "string"
           }
         },
         "required": [
           "accountUserId",
           "accountEpoch",
           "type",
-          "userCode",
+          "code",
           "expiresAt"
         ],
         "type": "object"
@@ -3974,7 +3974,7 @@
     ]
   },
   "ffiAbiVersion": 7,
-  "protocolVersion": 44,
+  "protocolVersion": 45,
   "terminal": {
     "checkpointMaxBytes": 8388608,
     "checkpointSchema": 2,

@@ -52,7 +52,9 @@ public sealed class DeviceLink
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
     public string DeviceCodeHash { get; set; } = "";
-    public string UserCode { get; set; } = "";
+    public byte[] Nonce { get; set; } = [];
+    public byte[] Proof { get; set; } = [];
+    public byte[]? ApprovalProof { get; set; }
     public string DeviceId { get; set; } = "";
     public string Label { get; set; } = "";
     public byte[] SigningPublicKey { get; set; } = [];

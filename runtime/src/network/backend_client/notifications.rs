@@ -99,7 +99,7 @@ impl BackendClient {
     async fn validate_notified_device(&self) -> Result<()> {
         let credentials = self.credentials()?;
         let verified = self
-            .fetch_identity_with(&credentials, &credentials.user_id, false)
+            .fetch_identity_with(&credentials, &credentials.user_id)
             .await?;
         let active = verified
             .devices

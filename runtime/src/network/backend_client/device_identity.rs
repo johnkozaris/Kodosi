@@ -1,11 +1,9 @@
 use super::*;
+use crate::identity::pins::{Anchor, Root, root_of};
 
 impl BackendClient {
-    pub(super) async fn bootstrap_identity(
-        &self,
-        credentials: &Credentials,
-    ) -> Result<IdentityBundle> {
-        if self
+    pub(super) async fn pinned(&self, user_id: &str) -> Result<bool> {
+        Ok(self
             .inner
             .state
             .lock()
@@ -13,8 +11,14 @@ impl BackendClient {
             .pins
             .lock()
             .map_err(|_| Error::Closed)?
-            .contains(&credentials.user_id)
-        {
+            .contains(user_id))
+    }
+
+    pub(super) async fn bootstrap_identity(
+        &self,
+        credentials: &Credentials,
+    ) -> Result<(IdentityBundle, Root)> {
+        if self.pinned(&credentials.user_id).await? {
             return Err(Error::Trust(
                 "The server lost a previously trusted identity; refusing to replace it.".into(),
             ));
@@ -29,6 +33,7 @@ impl BackendClient {
             now,
             None,
         )?;
+        let root = root_of(&cert.body_bytes);
         let list = build_bootstrap_list(
             &credentials.user_id,
             &credentials.keys.device_id,
@@ -54,10 +59,12 @@ impl BackendClient {
         "challengeId":challenge["challengeId"],"popSignature":BASE64.encode(signature),"deviceCertificate":BASE64.encode(cert.body_bytes),"deviceCertificateSignature":BASE64.encode(cert.signature),
         "signedDeviceList":BASE64.encode(list.body_bytes),"signedDeviceListSignature":BASE64.encode(list.signature),
     }))).await?;
-        self.inner
+        let bundle = self
+            .inner
             .http
             .bearer(Method::GET, "api/me/identity", &credentials.token, None)
-            .await
+            .await?;
+        Ok((bundle, root))
     }
 
     pub(super) async fn ensure_enrolled(&self) -> Result<()> {
@@ -67,10 +74,11 @@ impl BackendClient {
             .http
             .bearer::<IdentityBundle>(Method::GET, "api/me/identity", &credentials.token, None)
             .await;
-        let bundle = match result {
-            Ok(bundle) => bundle,
+        let (bundle, created) = match result {
+            Ok(bundle) => (bundle, None),
             Err(Error::Backend { status: 404, .. }) => {
-                self.bootstrap_identity(&credentials).await?
+                let (bundle, root) = self.bootstrap_identity(&credentials).await?;
+                (bundle, Some(root))
             }
             Err(error) => return Err(error),
         };
@@ -85,19 +93,10 @@ impl BackendClient {
         let (credentials, replaced) = self
             .adopt_replaced_identity(credentials, &bundle, &pins)
             .await?;
-        let identity_bundle = bundle.clone();
-        let verified_user = credentials.user_id.clone();
-        let mut verified = tokio::task::spawn_blocking(move || {
-            let mut pins = pins.lock().map_err(|_| Error::Closed)?;
-            if pins.contains(&verified_user) {
-                pins.verify_for_renewal(&identity_bundle, now)
-            } else {
-                pins.verify(&identity_bundle, true, now)
-            }
-        })
-        .await
-        .map_err(|_| Error::Closed)??;
-        let enrolled = device_enrolled(&verified, &credentials);
+        let mut verified = own_identity(pins, bundle, created, now).await?;
+        let enrolled = verified
+            .as_ref()
+            .is_some_and(|verified| device_enrolled(verified, &credentials));
         if !enrolled {
             let notification = self.inner.notifications.lock().await.take();
             if let Some(cancel) = notification {
@@ -107,25 +106,29 @@ impl BackendClient {
         if !enrolled && credentials.enrolled {
             self.suspend_transports().await;
         }
-        if enrolled
-            && verified
+        if let Some(current) = verified.as_ref().filter(|current| {
+            enrolled
+                && current
+                    .list
+                    .expires_at_ms
+                    .is_some_and(|expiry| expiry <= now + 6 * 60 * 60_000)
+        }) {
+            self.renew_device_list(&credentials, current, now).await?;
+            verified = Some(self.fetch_identity(&credentials.user_id).await?);
+        }
+        if verified.as_ref().is_some_and(|verified| {
+            verified
                 .list
                 .expires_at_ms
-                .is_some_and(|expiry| expiry <= now + 6 * 60 * 60_000)
-        {
-            self.renew_device_list(&credentials, &verified, now).await?;
-            verified = self.fetch_identity(&credentials.user_id, false).await?;
-        }
-        if verified
-            .list
-            .expires_at_ms
-            .is_some_and(|expiry| expiry <= now)
-        {
+                .is_some_and(|expiry| expiry <= now)
+        }) {
             return Err(Error::Trust(
                 "The signed device list needs renewal from an approved device.".into(),
             ));
         }
-        let enrolled = device_enrolled(&verified, &credentials);
+        let enrolled = verified
+            .as_ref()
+            .is_some_and(|verified| device_enrolled(verified, &credentials));
         self.check_credentials(&credentials)?;
         let mut next = credentials.clone();
         next.enrolled = enrolled;
@@ -205,34 +208,29 @@ impl BackendClient {
     pub(crate) async fn verify_bundle(
         &self,
         bundle: &IdentityBundle,
-        allow_first: bool,
+        root: Option<Root>,
     ) -> Result<VerifiedIdentity> {
         let pins = Arc::clone(&self.inner.state.lock().await.pins);
         let bundle = bundle.clone();
         tokio::task::spawn_blocking(move || {
+            let anchor = root.as_ref().map_or(Anchor::Pinned, Anchor::Root);
             pins.lock()
                 .map_err(|_| Error::Closed)?
-                .verify(&bundle, allow_first, identity::now_ms())
+                .verify(&bundle, anchor, identity::now_ms())
         })
         .await
         .map_err(|_| Error::Closed)?
     }
 
-    pub(crate) async fn fetch_identity(
-        &self,
-        user_id: &str,
-        allow_first: bool,
-    ) -> Result<VerifiedIdentity> {
+    pub(crate) async fn fetch_identity(&self, user_id: &str) -> Result<VerifiedIdentity> {
         let credentials = self.credentials()?;
-        self.fetch_identity_with(&credentials, user_id, allow_first)
-            .await
+        self.fetch_identity_with(&credentials, user_id).await
     }
 
     pub(crate) async fn fetch_identity_with(
         &self,
         credentials: &Credentials,
         user_id: &str,
-        allow_first: bool,
     ) -> Result<VerifiedIdentity> {
         self.check_credentials(credentials)?;
         let bundle: IdentityBundle = if user_id == credentials.user_id {
@@ -257,7 +255,12 @@ impl BackendClient {
                 "Returned device identity belongs to another account.".into(),
             ));
         }
-        let mut verified = self.verify_bundle(&bundle, allow_first).await?;
+        let root = if user_id == credentials.user_id || self.pinned(user_id).await? {
+            None
+        } else {
+            Some(bundle.root()?)
+        };
+        let mut verified = self.verify_bundle(&bundle, root).await?;
         let mut state = self.inner.state.lock().await;
         let mut pending = state.blocked_devices.clone();
         pending.retain(|(user, device)| {
@@ -309,7 +312,27 @@ impl BackendClient {
     }
 }
 
-fn device_enrolled(verified: &VerifiedIdentity, credentials: &Credentials) -> bool {
+async fn own_identity(
+    pins: Arc<std::sync::Mutex<Pins>>,
+    bundle: IdentityBundle,
+    created: Option<Root>,
+    now: u64,
+) -> Result<Option<VerifiedIdentity>> {
+    tokio::task::spawn_blocking(move || {
+        let mut pins = pins.lock().map_err(|_| Error::Closed)?;
+        match created {
+            Some(root) => pins.verify(&bundle, Anchor::Root(&root), now).map(Some),
+            None if pins.contains(&bundle.user_id) => {
+                pins.verify_for_renewal(&bundle, now).map(Some)
+            }
+            None => Ok(None),
+        }
+    })
+    .await
+    .map_err(|_| Error::Closed)?
+}
+
+pub(super) fn device_enrolled(verified: &VerifiedIdentity, credentials: &Credentials) -> bool {
     verified
         .devices
         .get(&credentials.keys.device_id)
