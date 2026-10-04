@@ -440,7 +440,7 @@ mod tests {
     fn every_event_schema_decodes_and_round_trips_through_serde() {
         let schema = shape::<protocol::Event>().unwrap();
         let variants = leaves(&schema);
-        assert_eq!(variants.len(), 34);
+        assert_eq!(variants.len(), 35);
         for variant in variants {
             let value = sample(variant);
             let event: protocol::Event = serde_json::from_value(value.clone())
@@ -603,6 +603,10 @@ mod tests {
             for (name, replacement) in [
                 ("name", json!("Terminal")),
                 ("username", json!("example")),
+                (
+                    "invite",
+                    json!(format!("kodosi:example:{}", "ab".repeat(32))),
+                ),
                 ("workingDir", json!("/tmp/project")),
                 ("workingDirectory", json!("/tmp/project")),
                 ("rows", json!(24)),

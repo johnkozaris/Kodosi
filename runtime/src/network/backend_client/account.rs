@@ -239,6 +239,7 @@ impl BackendClient {
             .cancel();
         state.tokens = None;
         state.link = None;
+        state.changed_friends.clear();
         let secrets = state.secrets.clone();
         drop(state);
         let result = if erase_tokens {

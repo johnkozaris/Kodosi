@@ -233,34 +233,29 @@ impl BackendClient {
         user_id: &str,
     ) -> Result<VerifiedIdentity> {
         self.check_credentials(credentials)?;
-        let bundle: IdentityBundle = if user_id == credentials.user_id {
-            self.inner
-                .http
-                .bearer(Method::GET, "api/me/identity", &credentials.token, None)
-                .await?
-        } else {
-            self.inner
-                .http
-                .device(
-                    Method::GET,
-                    &format!("api/users/{}/identity", path_segment(user_id)?),
-                    credentials,
-                    None,
-                )
-                .await?
-        };
+        if user_id != credentials.user_id {
+            return self.friend_identity(credentials, user_id).await;
+        }
+        let bundle: IdentityBundle = self
+            .inner
+            .http
+            .bearer(Method::GET, "api/me/identity", &credentials.token, None)
+            .await?;
         self.check_credentials(credentials)?;
         if bundle.user_id != user_id {
             return Err(Error::Trust(
                 "Returned device identity belongs to another account.".into(),
             ));
         }
-        let root = if user_id == credentials.user_id || self.pinned(user_id).await? {
-            None
-        } else {
-            Some(bundle.root()?)
-        };
-        let mut verified = self.verify_bundle(&bundle, root).await?;
+        let verified = self.verify_bundle(&bundle, None).await?;
+        self.without_blocked_devices(user_id, verified).await
+    }
+
+    pub(super) async fn without_blocked_devices(
+        &self,
+        user_id: &str,
+        mut verified: VerifiedIdentity,
+    ) -> Result<VerifiedIdentity> {
         let mut state = self.inner.state.lock().await;
         let mut pending = state.blocked_devices.clone();
         pending.retain(|(user, device)| {

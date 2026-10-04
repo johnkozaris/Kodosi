@@ -73,6 +73,7 @@ impl BackendClient {
                 ()=cancel.cancelled()=>return Ok(()),
                 ()=self.inner.shutdown.cancelled()=>return Ok(()),
                 _=heartbeat.tick()=>terminal_connections::send_json(&mut socket,json!({"type":"ping"})).await?,
+                ()=self.inner.friends_changed.notified()=>self.refresh_surface(admitted,"friends").await?,
                 incoming=socket.next()=>{
                     let message=incoming.ok_or(Error::Closed)?.map_err(|error|invalid(error.to_string()))?;
                     match message {

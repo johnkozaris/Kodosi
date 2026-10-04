@@ -25,6 +25,7 @@ use super::{
 use crate::identity::{
     self,
     device_cert::{build_cert_for, build_self_cert},
+    friends::FriendLists,
     keys::DeviceKeys,
     oidc::{Oidc, Tokens},
     pins::{IdentityBundle, Pins, VerifiedIdentity},
@@ -55,6 +56,7 @@ pub(crate) struct Inner {
     enrollment_checked: AtomicU64,
     renew_connections: AtomicBool,
     identity_settled: AtomicBool,
+    friends_changed: tokio::sync::Notify,
     login_interrupt: std::sync::Mutex<CancellationToken>,
 }
 
@@ -65,6 +67,8 @@ pub(crate) struct State {
     blocked_devices: BTreeSet<(String, String)>,
     account_cancel: CancellationToken,
     link: Option<enrollment::PendingLink>,
+    friend_lists: FriendLists,
+    changed_friends: BTreeSet<String>,
 }
 
 impl BackendClient {
@@ -81,6 +85,7 @@ impl BackendClient {
             }
         }
         let pins = Pins::load(config.data_root.join("network/device-pins.json"))?;
+        let friend_lists = FriendLists::load(config.data_root.join("network/friend-lists.json"))?;
         let blocked_devices = match std::fs::read(
             config
                 .data_root
@@ -117,6 +122,8 @@ impl BackendClient {
                     blocked_devices,
                     account_cancel: CancellationToken::new(),
                     link: None,
+                    friend_lists,
+                    changed_friends: BTreeSet::new(),
                 }),
                 operations: Mutex::new(()),
                 events,
@@ -129,6 +136,7 @@ impl BackendClient {
                 enrollment_checked: AtomicU64::new(0),
                 renew_connections: AtomicBool::new(false),
                 identity_settled: AtomicBool::new(false),
+                friends_changed: tokio::sync::Notify::new(),
                 login_interrupt: std::sync::Mutex::new(CancellationToken::new()),
             }),
         })
@@ -291,42 +299,8 @@ impl BackendClient {
                 events.extend(self.device_events().await?);
             }
             "friends.refresh" => events.push(self.friend_event().await?),
-            "friends.request.send"
-            | "friends.request.accept"
-            | "friends.request.reject"
-            | "friends.request.cancel"
-            | "friends.remove" => {
-                let credentials = self.credentials()?;
-                let username = wire::text(&args, "username")?;
-                let segment = path_segment(username)?;
-                let (method, path, body) = match operation {
-                    "friends.request.send" => (
-                        Method::POST,
-                        "api/friends/requests".to_owned(),
-                        Some(json!({"username":username})),
-                    ),
-                    "friends.remove" => (Method::DELETE, format!("api/friends/{segment}"), None),
-                    other => (
-                        Method::POST,
-                        format!(
-                            "api/friends/requests/{segment}/{}",
-                            other.rsplit('.').next().unwrap_or_default()
-                        ),
-                        None,
-                    ),
-                };
-                if operation == "friends.remove" {
-                    self.exclude_friend(&credentials, username).await?;
-                }
-                let _response: Value = self
-                    .inner
-                    .http
-                    .device(method, &path, &credentials, body)
-                    .await?;
-                events.push(self.friend_event().await?);
-                if operation == "friends.remove" {
-                    self.review_access().await?;
-                }
+            operation if operation.starts_with("friends.") => {
+                events.extend(self.friend_command(operation, &args).await?);
             }
             "session.list" => events.push(self.session_event().await?),
             "session.share" => {
@@ -363,6 +337,8 @@ impl BackendClient {
                         ));
                     }
                 }
+                self.require_trusted_friends(&self.credentials()?, &users)
+                    .await?;
                 self.set_shares(id, expected, users).await?;
                 events.push(session_result(operation, &args));
                 events.push(self.session_event().await?);
@@ -558,26 +534,6 @@ impl BackendClient {
             }
         }
         Ok(())
-    }
-
-    async fn friend_event(&self) -> Result<Value> {
-        let credentials = self.credentials()?;
-        if !credentials.enrolled {
-            return Ok(json!({"type":"friends.snapshot","friends":[],"incoming":[],"outgoing":[]}));
-        }
-        let friends: Value = self
-            .inner
-            .http
-            .device(Method::GET, "api/friends", &credentials, None)
-            .await?;
-        let requests: Value = self
-            .inner
-            .http
-            .device(Method::GET, "api/friends/requests", &credentials, None)
-            .await?;
-        Ok(
-            json!({"type":"friends.snapshot","friends":friends,"incoming":requests["incoming"],"outgoing":requests["outgoing"]}),
-        )
     }
 
     async fn mission_list(&self) -> Result<Value> {
@@ -899,6 +855,7 @@ fn session_result(operation: &str, args: &Value) -> Value {
 mod account;
 mod device_identity;
 mod enrollment;
+mod friends;
 mod notifications;
 #[cfg(test)]
 mod tests;

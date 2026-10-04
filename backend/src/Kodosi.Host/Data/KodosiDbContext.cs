@@ -10,6 +10,7 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
     public DbSet<DeviceChallenge> DeviceChallenges => Set<DeviceChallenge>();
     public DbSet<DeviceLink> DeviceLinks => Set<DeviceLink>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
+    public DbSet<FriendList> FriendLists => Set<FriendList>();
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<SessionMember> SessionMembers => Set<SessionMember>();
     public DbSet<Mission> Missions => Set<Mission>();
@@ -69,6 +70,11 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
             e.ToTable("friendships"); e.HasKey(x => new { x.FirstUserId, x.SecondUserId });
             e.HasOne<User>().WithMany().HasForeignKey(x => x.FirstUserId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.SecondUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+        model.Entity<FriendList>(e =>
+        {
+            e.ToTable("friend_lists"); e.HasKey(x => x.UserId);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
         model.Entity<Session>(e =>
         {

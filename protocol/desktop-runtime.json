@@ -499,6 +499,102 @@
             ]
           },
           "type": {
+            "const": "friends.identity.trust"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "username"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "invite": {
+            "type": "string"
+          },
+          "type": {
+            "const": "friends.verify"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "username",
+          "invite"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "const": "friends.invite"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
             "const": "session.list"
           }
         },
@@ -2103,14 +2199,29 @@
                 "handle": {
                   "type": "string"
                 },
+                "identityState": {
+                  "oneOf": [
+                    {
+                      "const": "fixed"
+                    },
+                    {
+                      "const": "changed"
+                    }
+                  ]
+                },
                 "userId": {
                   "type": "string"
+                },
+                "verified": {
+                  "type": "boolean"
                 }
               },
               "required": [
                 "userId",
                 "handle",
-                "displayName"
+                "displayName",
+                "verified",
+                "identityState"
               ],
               "type": "object"
             },
@@ -2191,6 +2302,38 @@
           "friends",
           "incoming",
           "outgoing"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "type": {
+            "const": "friends.invite"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "text"
         ],
         "type": "object"
       },
@@ -3974,7 +4117,7 @@
     ]
   },
   "ffiAbiVersion": 7,
-  "protocolVersion": 45,
+  "protocolVersion": 46,
   "terminal": {
     "checkpointMaxBytes": 8388608,
     "checkpointSchema": 2,

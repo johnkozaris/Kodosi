@@ -107,8 +107,14 @@ enum DeviceAction {
     List,
     Link,
     CancelLink,
-    Approve { code: String },
-    Revoke { device: String },
+    Approve {
+        code: String,
+    },
+    Revoke {
+        device: String,
+    },
+    /// Start fresh on this device: every other device loses access until it is approved again.
+    Reset,
 }
 #[derive(Subcommand)]
 enum FriendAction {
@@ -118,6 +124,9 @@ enum FriendAction {
     Reject { username: String },
     Cancel { username: String },
     Remove { username: String },
+    Invite,
+    Verify { username: String, invite: String },
+    Trust { username: String },
 }
 #[derive(Subcommand)]
 enum MissionAction {
@@ -312,6 +321,7 @@ fn device_command(action: DeviceAction) -> Value {
         DeviceAction::CancelLink => json!({"type":"devices.link.cancelSelf"}),
         DeviceAction::Approve { code } => json!({"type":"devices.link.approve","code":code}),
         DeviceAction::Revoke { device } => json!({"type":"devices.revoke","deviceId":device}),
+        DeviceAction::Reset => json!({"type":"devices.reset"}),
     }
 }
 
@@ -470,6 +480,13 @@ fn friend_command(action: FriendAction, request: &str) -> Value {
         }
         FriendAction::Remove { username } => {
             json!({"type":"friends.remove","username":username})
+        }
+        FriendAction::Invite => json!({"type":"friends.invite"}),
+        FriendAction::Verify { username, invite } => {
+            json!({"type":"friends.verify","username":username,"invite":invite})
+        }
+        FriendAction::Trust { username } => {
+            json!({"type":"friends.identity.trust","username":username})
         }
     }
 }
@@ -679,13 +696,14 @@ async fn wait_result(
             let done = match operation {
                 "auth.login.start" => kind == "auth.ready",
                 "auth.logout" => kind == "auth.required",
-                "devices.refresh" | "devices.revoke" => kind == "devices.list",
+                "devices.refresh" | "devices.revoke" | "devices.reset" => kind == "devices.list",
                 "devices.link.startSelf" => matches!(
                     kind,
                     "devices.link.selfPending" | "devices.link.selfResolved"
                 ),
                 "devices.link.cancelSelf" => kind == "devices.link.selfResolved",
                 "devices.link.approve" => kind == "devices.link.resolved",
+                "friends.invite" => kind == "friends.invite",
                 op if op.starts_with("friends.") => kind == "friends.snapshot",
                 "mission.list" => kind == "missions.snapshot",
                 "mission.open" => kind == "mission.snapshot" && matching,

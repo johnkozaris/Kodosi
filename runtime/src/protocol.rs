@@ -4,6 +4,7 @@ use uuid::Uuid;
 
 use crate::{
     Error, Result,
+    identity::friends::parse_invite,
     provider::{ConversationIdentity, Provider},
 };
 
@@ -20,7 +21,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 45;
+pub const VERSION: u32 = 46;
 include!(concat!(env!("OUT_DIR"), "/network_versions.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 
@@ -76,6 +77,12 @@ pub enum Command {
     CancelFriend { username: String },
     #[serde(rename = "friends.remove")]
     RemoveFriend { username: String },
+    #[serde(rename = "friends.identity.trust")]
+    TrustFriend { username: String },
+    #[serde(rename = "friends.verify")]
+    VerifyFriend { username: String, invite: String },
+    #[serde(rename = "friends.invite")]
+    FriendInvite {},
     #[serde(rename = "session.list")]
     ListSessions {},
     #[serde(rename = "session.create")]
@@ -441,6 +448,8 @@ pub enum EventBody {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         request_id: Option<String>,
     },
+    #[serde(rename = "friends.invite")]
+    FriendInviteText { text: String },
     #[serde(rename = "friends.error")]
     FriendsError {
         operation: String,
@@ -589,6 +598,15 @@ pub struct FriendEntry {
     pub user_id: String,
     pub handle: String,
     pub display_name: String,
+    pub verified: bool,
+    pub identity_state: FriendIdentityState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta_macros::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum FriendIdentityState {
+    Fixed,
+    Changed,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
@@ -682,6 +700,7 @@ impl EventBody {
             Self::AuthNotice { .. } => "auth.notice",
             Self::AuthError { .. } => "auth.error",
             Self::FriendsSnapshot { .. } => "friends.snapshot",
+            Self::FriendInviteText { .. } => "friends.invite",
             Self::FriendsError { .. } => "friends.error",
             Self::DevicesList { .. } => "devices.list",
             Self::DeviceLinksSnapshot { .. } => "devices.link.snapshot",
@@ -759,6 +778,9 @@ impl Command {
             Self::RejectFriend { .. } => "friends.request.reject",
             Self::CancelFriend { .. } => "friends.request.cancel",
             Self::RemoveFriend { .. } => "friends.remove",
+            Self::TrustFriend { .. } => "friends.identity.trust",
+            Self::VerifyFriend { .. } => "friends.verify",
+            Self::FriendInvite {} => "friends.invite",
             Self::ListSessions {} => "session.list",
             Self::CreateSession { .. } => "session.create",
             Self::RenameSession { .. } => "session.rename",
@@ -965,11 +987,14 @@ impl Command {
         match self {
             Self::RevokeDevice { device_id } => text(device_id, "deviceId", 1024)?,
             Self::ApproveDevice { code } => text(code, "code", 64)?,
+            Self::RequestFriend { username, .. } if parse_invite(username).is_some() => {}
             Self::RequestFriend { username, .. }
             | Self::AcceptFriend { username }
             | Self::RejectFriend { username }
             | Self::CancelFriend { username }
-            | Self::RemoveFriend { username } => {
+            | Self::RemoveFriend { username }
+            | Self::TrustFriend { username }
+            | Self::VerifyFriend { username, .. } => {
                 let username = username.trim();
                 if !(3..=64).contains(&username.len())
                     || !username
@@ -977,6 +1002,13 @@ impl Command {
                         .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
                 {
                     return Err(Error::Invalid("username must contain 3 to 64 ASCII letters, digits, underscores, or hyphens".to_owned()));
+                }
+                if let Self::VerifyFriend { invite, .. } = self
+                    && parse_invite(invite).is_none()
+                {
+                    return Err(Error::Invalid(
+                        "invite must be the invite text of a friend".to_owned(),
+                    ));
                 }
             }
             Self::CreateSession {
@@ -1118,6 +1150,7 @@ mod tests {
             "devices.link.startSelf",
             "devices.link.cancelSelf",
             "friends.refresh",
+            "friends.invite",
             "session.list",
             "mission.list",
             "shutdown",
@@ -1152,10 +1185,16 @@ mod tests {
                 "friends.request.reject",
                 "friends.request.cancel",
                 "friends.remove",
+                "friends.identity.trust",
             ]
             .into_iter()
             .map(|kind| json!({"type":kind,"username":"example"})),
         );
+        let invite = format!("kodosi:example:{}", "ab".repeat(32));
+        values.extend([
+            json!({"type":"friends.request.send","username":invite,"requestId":ID}),
+            json!({"type":"friends.verify","username":"example","invite":invite}),
+        ]);
         values.extend(["session.close","session.interrupt","session.leave"].into_iter().map(|kind| json!({"type":kind,"requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID})));
         values.extend(
             ["mission.delete", "mission.open", "mission.leave"]
@@ -1197,7 +1236,7 @@ mod tests {
             invalid["retiredFeature"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 44);
+        assert_eq!(kinds.len(), 47);
     }
 
     #[test]

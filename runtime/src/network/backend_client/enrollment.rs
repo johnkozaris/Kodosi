@@ -451,6 +451,9 @@ impl BackendClient {
         if id == credentials.keys.device_id {
             return Err(invalid("Remove this device from another approved device."));
         }
+        if let Err(error) = self.resign_friends(&credentials).await {
+            tracing::warn!(%error, "the friend list keeps the signature of the removed device");
+        }
         let verified = self.fetch_identity(&credentials.user_id).await?;
         if !verified
             .list

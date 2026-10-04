@@ -132,6 +132,14 @@ impl Pins {
         self.pins.contains_key(user_id)
     }
 
+    pub(crate) fn root(&self, user_id: &str) -> Option<Root> {
+        self.pins.get(user_id)?.root
+    }
+
+    pub(crate) fn incarnation(&self, user_id: &str) -> Option<Uuid> {
+        Some(self.pins.get(user_id)?.identity_incarnation_id)
+    }
+
     pub(crate) fn own_identity_replaced(&self, bundle: &IdentityBundle) -> bool {
         self.pins
             .get(&bundle.user_id)

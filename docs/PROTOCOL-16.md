@@ -115,37 +115,40 @@ alone. The cost of 2^80 for each request makes that unnecessary.
 No dead end: when no approved device is reachable, the new device offers
 "Start fresh" as before (new identity; friends see one question, see 4).
 
-## 4. Remaining: friends that the server cannot change
+## 4. Built: friends that the server cannot change (contract in `protocol/backend-api.json`, `friendIdentity`)
 
-Today a friend's identity is taken from the server at first use. This is the
-remaining way for a hostile server to get terminal access. The fix must follow
-goal 5.
+What the user does: nothing new. "Add friend" takes a username as before, or
+an **invite text** that a friend copied from their app ("Copy my invite") and
+sent in any chat. A friend added by invite text is verified with no more
+steps. A friend added by username is not verified; the app shows this as a
+small mark and offers "Verify", which takes the invite text of that friend.
 
-What the user does: nothing new. "Add friend" takes a username as today, or an
-**invite text** that a friend copied from their app ("Copy my invite") and sent
-in any chat. An invite text holds the username and a fingerprint of the
-friend's identity, so a friend added by invite is verified with no more steps.
-A friend added by username only is not verified; the app shows this as a small
-mark and offers "Verify" (compare the fingerprint, 30 digits, one time).
+- An identity is named by its first device (the identity root). An invite text
+  holds the username and the identity root.
+- For each friend the user keeps a record: handle, identity root, verified.
+  Only an action of the user makes a record: a request, an accepted request,
+  "Trust", or "Verify".
+- The records are one signed list that the user's own devices share. The
+  server stores the list and cannot make or change it. A new own device reads
+  the list and accepts it only with the signature of an approved device.
+- A device reads the identity of a friend only against the record. Sharing and
+  connecting are refused for a person with no record or with another identity
+  root. A friend that the server adds cannot be shared with.
+- When a friend sets up Kodosi again, the app shows one question for that
+  friend ("Trust"). Until the user answers, that friend has no access.
+- After "Start fresh" on a device that has no friend list on disk, each friend
+  needs one "Trust" or "Verify". This is the price of a start with no device
+  and no data.
 
-- The device list gets the hash of the previous list, and each device keeps the
-  newest list of each account that it reads and never accepts an older one.
-- Friend records (account, identity fingerprint, verified) are a signed list
-  that the user's own devices share; the server stores it and cannot change it.
-- Sharing and connecting never take a friend's identity on first use. A friend
-  from the server with no record in the signed list cannot be shared with.
-- When a friend starts fresh, the app asks one time: "<name> set up Kodosi
-  again. Share with them as before?" Until the user answers, that friend has no
-  access. The answer is one click.
+Not built, by decision: the hash of the previous device list in each list.
+Each reader already keeps the newest list of each account, refuses an older
+one, and accepts a new list only from a device that it already trusts. The
+hash would only make a split between two readers visible later; it would not
+stop the first false list. See section 9.
 
 A short code made from both identities together is not used: the server could
-select two false identities that give the same short code. A fingerprint is of
-one identity only.
-
-Surfaces: `friends.snapshot` items get `verified` and `identityState`
-(`fixed`, `changed`); new `friends.invite` (own invite text),
-`friends.verify {userId}`, `friends.approveIdentity {userId}`; `friends.add`
-accepts an invite text.
+select two false identities that give the same short code. An identity root is
+of one identity only.
 
 ## 5. Remaining: one connection for each device
 
@@ -184,8 +187,8 @@ and buys little.
 |---|---|---|
 | done | Channel, relay pipe, per-viewer stream, input stream | section 2 |
 | done | Device link with one typed code in all three clients | section 3 |
-| next | Friend list, invite text, no first use (4) | a friend that the server adds cannot be shared with |
-| then | Device connection and server items (5) | database pause, restart with many devices |
+| done | Friend records, invite text, no first use in all three clients | section 4 |
+| next | Device connection and server items (5) | database pause, restart with many devices |
 | last | Direct path (6); screen-only keyframe (2); client marks (7) | two computers on different networks |
 
 Each step keeps `just check-all` green, is tested on Linux x86-64 (`ssh lenovo`),
@@ -196,9 +199,10 @@ user surface changes.
 
 - The server reads terminal names, host names, device labels and handles, and
   sees who connects to whom, when, and padded sizes.
-- Until section 4 is built, the server can replace a friend at first contact.
+- A friend added by username and not verified is taken from the server one
+  time, when the friendship starts. The mark "not verified" shows this.
 - A removed device that works with the server can show a reader that did not
-  see the removal an older device list, until section 4 is built.
+  see the removal a false newer device list.
 - A secret and attacker text in the same output frame leak a little through the
   frame size, also with padding and with each frame packed alone.
 - The server can stop or delay service. It cannot deliver old input.

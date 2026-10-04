@@ -69,7 +69,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         await using var db = PostgresFixture.Context(connection);
         await DatabaseSetup.InitializeAsync(db, TestContext.Current.CancellationToken);
         Assert.Equal(db.Database.GetMigrations(), await db.Database.GetAppliedMigrationsAsync(TestContext.Current.CancellationToken));
-        Assert.Equal(11, db.Model.GetEntityTypes().Count());
+        Assert.Equal(12, db.Model.GetEntityTypes().Count());
         Assert.DoesNotContain(db.Model.GetEntityTypes(), x => x.Name.Contains("Audit") || x.Name.Contains("Task") || x.Name.Contains("Message"));
         await DatabaseSetup.InitializeAsync(db, TestContext.Current.CancellationToken);
         var oldConnection = await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken);
@@ -90,7 +90,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         using var anonymous = app.CreateClient();
         using var denied = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
         var health = await anonymous.GetFromJsonAsync<JsonElement>("/health/live", TestContext.Current.CancellationToken);
-        Assert.Equal(18, health.GetProperty("apiContractVersion").GetInt32());
+        Assert.Equal(19, health.GetProperty("apiContractVersion").GetInt32());
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("bad", "wrong-audience"));
         using var audience = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, audience.StatusCode);
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("unenrolled"));

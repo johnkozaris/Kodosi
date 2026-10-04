@@ -398,6 +398,10 @@ async fn admit(
             "busy",
             "The host could not check this device; try again.",
         )),
+        Err(Error::Trust(_)) => Err(refuse(
+            "access",
+            "The owner of this terminal must trust your identity in Friends first.",
+        )),
         Err(_) => Err(refuse("access", "This device is not approved.")),
     }
 }

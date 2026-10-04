@@ -1,5 +1,5 @@
 {
-  "apiContractVersion": 18,
+  "apiContractVersion": 19,
   "authContractVersion": 1,
   "authentication": "OIDC bearer identity and enrolled device proof",
   "sessionAuthorization": {
@@ -41,6 +41,15 @@
     "accept": "the new device takes the account identity only when the approval proof holds for the identity root of the identity that it reads",
     "server": "stores and lists the requests and the two proofs; makes and checks no code"
   },
+  "friendIdentity": {
+    "record": "for each friend the user keeps: handle, identity root (absent until the first read), verified",
+    "list": "JSON of the records with the account id, a revision and the signing device id; signed with ML-DSA-65 over kodosi-friend-list-v1 and the body by an approved device of the account",
+    "storage": "the server stores the newest signed list of each account and replaces it only from the revision that the device read; it cannot make or change a list",
+    "use": "a device reads the identity of another account only with a record, and only when the identity root is equal to the root of the record",
+    "created": "by the user: a friend request, an accepted request, Trust, or Verify with an invite text",
+    "inviteText": "kodosi:<handle>:<identity root in 64 hexadecimal characters>",
+    "hint": "the friend list from the server gives identityIncarnationId for each friend so that a device can show a changed identity early; the hint is not trusted"
+  },
   "routes": {
     "accounts": [
       "GET /api/me"
@@ -70,7 +79,9 @@
       "POST /api/friends/requests/{username}/accept",
       "POST /api/friends/requests/{username}/reject",
       "POST /api/friends/requests/{username}/cancel",
-      "DELETE /api/friends/{username}"
+      "DELETE /api/friends/{username}",
+      "GET /api/me/friend-list",
+      "PUT /api/me/friend-list"
     ],
     "sessions": [
       "GET /api/sessions",

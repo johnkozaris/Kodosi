@@ -64,6 +64,14 @@ public sealed class DeviceLink
     public long? ApprovedGeneration { get; set; }
 }
 
+public sealed class FriendList
+{
+    public Guid UserId { get; set; }
+    public long Revision { get; set; }
+    public byte[] Body { get; set; } = [];
+    public byte[] Signature { get; set; } = [];
+}
+
 public sealed class Friendship
 {
     public Guid FirstUserId { get; set; }

@@ -36,6 +36,30 @@ public sealed class SharingTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task ASignedFriendListIsReplacedOnlyFromTheRevisionThatTheDeviceReadAndTheFriendListGivesTheIdentityOfEachFriend()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var owner = await store.UserAsync("owner"); var friend = await store.UserAsync("friend");
+        await Assert.ThrowsAsync<ApiException>(() => store.Friends.SignedListAsync(owner.User.Id, ct));
+        var signature = Convert.ToBase64String(new byte[IdentityWireFormat.MlDsa65SignatureLength]);
+        string Body(byte value) => Convert.ToBase64String([value]);
+        await store.Friends.ReplaceSignedListAsync(owner.User.Id, new(0, 1, Body(1), signature), ct);
+        var stale = await Assert.ThrowsAsync<ApiException>(() => store.Friends.ReplaceSignedListAsync(owner.User.Id, new(0, 2, Body(2), signature), ct));
+        Assert.Equal(409, stale.Status);
+        await Assert.ThrowsAsync<ApiException>(() => store.Friends.ReplaceSignedListAsync(owner.User.Id, new(1, 1, Body(2), signature), ct));
+        await store.Friends.ReplaceSignedListAsync(owner.User.Id, new(1, 3, Body(3), signature), ct);
+        var list = JsonSerializer.SerializeToElement(await store.Friends.SignedListAsync(owner.User.Id, ct), Wire.Json);
+        Assert.Equal(3, list.GetProperty("revision").GetInt64());
+        Assert.Equal(Body(3), list.GetProperty("body").GetString());
+        await Assert.ThrowsAsync<ApiException>(() => store.Friends.SignedListAsync(friend.User.Id, ct));
+        await store.Friends.MutateAsync(owner.User.Id, "friend", "send", ct);
+        await store.Friends.MutateAsync(friend.User.Id, "owner", "accept", ct);
+        var listed = Assert.Single(JsonSerializer.SerializeToElement(await store.Friends.ListAsync(owner.User.Id, ct), Wire.Json).EnumerateArray());
+        Assert.Equal(friend.User.IdentityIncarnationId, listed.GetProperty("identityIncarnationId").GetGuid());
+    }
+
+    [Fact]
     public async Task FriendshipAndMissionMembershipDoNotGrantTerminals()
     {
         await using var store = await TestStore.CreateAsync(postgres);
