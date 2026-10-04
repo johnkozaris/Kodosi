@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
@@ -26,13 +25,16 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<SignatureVerifier>();
 builder.Services.AddSingleton<DeviceCertificateParser>();
 builder.Services.AddSingleton<SignedDeviceListParser>();
-builder.Services.AddSingleton<AdmissionGate>();
+builder.Services.AddSingleton<AccountGate>();
+builder.Services.AddSingleton<DeviceSessions>();
+builder.Services.AddSingleton<ServerMetrics>();
 builder.Services.AddSingleton<ConnectionDirectory>();
 builder.Services.AddSingleton<ConnectionLease>();
 builder.Services.AddHostedService(services => services.GetRequiredService<ConnectionLease>());
 builder.Services.AddHostedService<ConnectionMaintenance>();
 builder.Services.AddHostedService<PublicationCleanup>();
 builder.Services.AddScoped<CurrentUser>();
+builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<DeviceService>();
 builder.Services.AddScoped<FriendService>();
 builder.Services.AddScoped<MissionService>();
@@ -67,10 +69,17 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     foreach (var proxy in proxies) options.KnownProxies.Add(System.Net.IPAddress.Parse(proxy));
 });
 var app = builder.Build();
+if (args is ["migrate"])
+{
+    await using var migration = app.Services.CreateAsyncScope();
+    await DatabaseSetup.MigrateAsync(migration.ServiceProvider.GetRequiredService<KodosiDbContext>(), CancellationToken.None);
+    return;
+}
 if (proxies.Length > 0) app.UseForwardedHeaders();
 await app.Services.GetRequiredService<ConnectionLease>().AcquireAsync(app.Lifetime.ApplicationStopping);
 await using (var scope = app.Services.CreateAsyncScope())
-    await DatabaseSetup.InitializeAsync(scope.ServiceProvider.GetRequiredService<KodosiDbContext>(), app.Lifetime.ApplicationStopping);
+    await DatabaseSetup.RequireCurrentAsync(scope.ServiceProvider.GetRequiredService<KodosiDbContext>(), app.Lifetime.ApplicationStopping);
+app.Services.GetRequiredService<ServerMetrics>().Observe(app.Services.GetRequiredService<ConnectionDirectory>().Count);
 app.Use(async (context, next) =>
 {
     try { await next(context); }
@@ -86,32 +95,12 @@ app.Use(async (context, next) =>
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
-app.Use(async (context, next) =>
-{
-    if (context.Request.Path.StartsWithSegments("/api") && context.GetEndpoint() is not null)
-    {
-        context.Request.EnableBuffering(bufferThreshold: 32 * 1024, bufferLimit: Limits.HttpBodyBytes + 16 * 1024);
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        var buffer = new byte[16 * 1024];
-        var total = 0;
-        int count;
-        while ((count = await context.Request.Body.ReadAsync(buffer, context.RequestAborted)) > 0)
-        {
-            total += count;
-            if (total > Limits.HttpBodyBytes) throw new ApiException(413, "Request body is too large.");
-            hash.AppendData(buffer, 0, count);
-        }
-        context.Items["bodySha256"] = Convert.ToHexStringLower(hash.GetHashAndReset());
-        context.Request.Body.Position = 0;
-    }
-    await next(context);
-});
 var websocket = new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(30) };
 foreach (var origin in builder.Configuration.GetSection("WebSockets:AllowedOrigins").Get<string[]>() ?? []) websocket.AllowedOrigins.Add(origin);
 app.UseWebSockets(websocket);
-app.MapGet("/health/live", () => Results.Ok(new { status = "ok", apiContractVersion = 19, authContractVersion = 1 })).DisableRateLimiting();
+app.MapGet("/health/live", () => Results.Ok(new { status = "ok", apiContractVersion = 20, authContractVersion = 1 })).DisableRateLimiting();
 app.MapGet("/health/ready", async (KodosiDbContext db, CancellationToken ct) =>
-    await db.Database.CanConnectAsync(ct) ? Results.Ok(new { status = "ok", apiContractVersion = 19, authContractVersion = 1 }) : Results.StatusCode(503))
+    await db.Database.CanConnectAsync(ct) ? Results.Ok(new { status = "ok", apiContractVersion = 20, authContractVersion = 1 }) : Results.StatusCode(503))
     .DisableRateLimiting();
 var api = app.MapGroup("").AddEndpointFilter<AdmissionFilter>();
 api.MapAccounts(); api.MapDevices(); api.MapFriends(); api.MapSessions(); api.MapMissions();

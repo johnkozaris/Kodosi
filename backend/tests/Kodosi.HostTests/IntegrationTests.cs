@@ -67,15 +67,15 @@ public sealed class IntegrationTests(PostgresFixture postgres)
     {
         var connection = await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken);
         await using var db = PostgresFixture.Context(connection);
-        await DatabaseSetup.InitializeAsync(db, TestContext.Current.CancellationToken);
+        await DatabaseSetup.MigrateAsync(db, TestContext.Current.CancellationToken);
         Assert.Equal(db.Database.GetMigrations(), await db.Database.GetAppliedMigrationsAsync(TestContext.Current.CancellationToken));
-        Assert.Equal(12, db.Model.GetEntityTypes().Count());
+        Assert.Equal(11, db.Model.GetEntityTypes().Count());
         Assert.DoesNotContain(db.Model.GetEntityTypes(), x => x.Name.Contains("Audit") || x.Name.Contains("Task") || x.Name.Contains("Message"));
-        await DatabaseSetup.InitializeAsync(db, TestContext.Current.CancellationToken);
+        await DatabaseSetup.MigrateAsync(db, TestContext.Current.CancellationToken);
         var oldConnection = await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken);
         await using var old = PostgresFixture.Context(oldConnection);
         await old.Database.ExecuteSqlRawAsync("CREATE TABLE legacy_marker (id integer); INSERT INTO legacy_marker VALUES (17)", TestContext.Current.CancellationToken);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => DatabaseSetup.InitializeAsync(old, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => DatabaseSetup.MigrateAsync(old, TestContext.Current.CancellationToken));
         await using var inspect = new NpgsqlConnection(oldConnection); await inspect.OpenAsync(TestContext.Current.CancellationToken);
         await using var command = new NpgsqlCommand("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'", inspect);
         Assert.Equal(1L, await command.ExecuteScalarAsync(TestContext.Current.CancellationToken));
@@ -90,20 +90,29 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         using var anonymous = app.CreateClient();
         using var denied = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
         var health = await anonymous.GetFromJsonAsync<JsonElement>("/health/live", TestContext.Current.CancellationToken);
-        Assert.Equal(19, health.GetProperty("apiContractVersion").GetInt32());
+        Assert.Equal(20, health.GetProperty("apiContractVersion").GetInt32());
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("bad", "wrong-audience"));
         using var audience = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, audience.StatusCode);
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("unenrolled"));
-        using var unenrolled = await anonymous.GetAsync("/api/sessions", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Forbidden, unenrolled.StatusCode);
+        using var unenrolled = await anonymous.GetAsync("/api/sessions", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.PreconditionRequired, unenrolled.StatusCode);
         using var owner = await app.EnrollAsync("owner");
         using var proof = await SignedAsync(owner, HttpMethod.Get, "/api/sessions");
         using var first = await owner.Client.SendAsync(proof, TestContext.Current.CancellationToken); await SuccessAsync(first);
-        using var replay = new HttpRequestMessage(HttpMethod.Get, "/api/sessions");
-        foreach (var header in proof.Headers) replay.Headers.TryAddWithoutValidation(header.Key, header.Value);
-        using var duplicate = await owner.Client.SendAsync(replay, TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Forbidden, duplicate.StatusCode);
-        using var altered = await SignedAsync(owner, HttpMethod.Post, "/api/missions", new { id = Guid.CreateVersion7(), name = "A" });
-        altered.Content = JsonContent.Create(new { id = Guid.CreateVersion7(), name = "B" });
-        using var modified = await owner.Client.SendAsync(altered, TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Forbidden, modified.StatusCode);
+        using var other = await app.EnrollAsync("other");
+        foreach (var (device, session) in new[] { (owner.Fixture.DeviceId, "not-a-session"), (owner.Fixture.DeviceId, other.Session), (other.Fixture.DeviceId, owner.Session) })
+        {
+            using var wrong = new HttpRequestMessage(HttpMethod.Get, "/api/sessions");
+            wrong.Headers.Add("X-Kodosi-Device-Id", device); wrong.Headers.Add("X-Kodosi-Device-Session", session);
+            using var refused = await owner.Client.SendAsync(wrong, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.PreconditionRequired, refused.StatusCode);
+        }
+        var challenge = await owner.Client.PostAsync("/api/me/devices/challenge", null, TestContext.Current.CancellationToken);
+        var challengeId = (await challenge.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken)).GetProperty("challengeId").GetGuid();
+        using var forged = await owner.Client.PostAsJsonAsync("/api/me/device-sessions", new
+        {
+            deviceId = owner.Fixture.DeviceId, challengeId, signature = Convert.ToBase64String(other.Fixture.Sign(new byte[40])),
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, forged.StatusCode);
         foreach (var path in new[] { "/api/missions/00000000-0000-0000-0000-000000000000/tasks", "/api/sessions/00000000-0000-0000-0000-000000000000/suggestions", "/api/session-history" })
         {
             using var retired = await owner.Client.GetAsync(path, TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.NotFound, retired.StatusCode);
@@ -117,8 +126,8 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         using var owner = await app.EnrollAsync("owner");
         using var stale = await SignedAsync(owner, HttpMethod.Post, "/api/missions", new { id = Guid.CreateVersion7(), name = "Forbidden" });
         await using var scope = app.Services.CreateAsyncScope();
-        var gate = scope.ServiceProvider.GetRequiredService<AdmissionGate>();
-        var held = await gate.EnterAsync(TestContext.Current.CancellationToken);
+        var gate = scope.ServiceProvider.GetRequiredService<AccountGate>();
+        var held = await gate.EnterAsync(owner.Fixture.UserId, TestContext.Current.CancellationToken);
         var pending = owner.Client.SendAsync(stale, TestContext.Current.CancellationToken);
         try
         {
@@ -135,6 +144,17 @@ public sealed class IntegrationTests(PostgresFixture postgres)
     [Fact]
     public async Task RealSocketJourneySharesOnlyChosenSessionAndRevocationEndsControl()
     {
+        long refused = 0, relayed = 0;
+        using var meter = new System.Diagnostics.Metrics.MeterListener
+        {
+            InstrumentPublished = (instrument, listener) => { if (instrument.Meter.Name == ServerMetrics.MeterName) listener.EnableMeasurementEvents(instrument); },
+        };
+        meter.SetMeasurementEventCallback<long>((instrument, value, _, _) =>
+        {
+            if (instrument.Name == "kodosi.connections.refused") Interlocked.Add(ref refused, value);
+            if (instrument.Name == "kodosi.relay.bytes") Interlocked.Add(ref relayed, value);
+        });
+        meter.Start();
         await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));
         using var owner = await app.EnrollAsync("owner"); using var friend = await app.EnrollAsync("friend");
         await CallAsync(owner, HttpMethod.Post, "/api/friends/requests", new { username = "friend" });
@@ -148,6 +168,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         await CallAsync(owner, HttpMethod.Post, "/api/sessions", new { id, incarnationId = incarnation, name = "Shell", hostDeviceId = owner.Fixture.DeviceId, hostName = "Host", missionId = mission });
         Assert.Empty((await CallAsync(friend, HttpMethod.Get, "/api/sessions")).EnumerateArray());
         Assert.False((await CallAsync(friend, HttpMethod.Get, $"/api/missions/{mission}")).TryGetProperty("sessionIds", out _));
+        await Assert.ThrowsAnyAsync<Exception>(() => app.ConnectAsync(owner with { Session = friend.Session }, "events"));
         using var ownerEvents = (await app.ConnectAsync(owner, "events")).Socket;
         using var host = (await app.ConnectAsync(owner, "host", id, incarnation)).Socket;
         var shared = await CallAsync(owner, HttpMethod.Put, path + "/members", new { incarnationId = incarnation, expectedRevision = 1, userIds = new[] { friend.Fixture.UserId } });
@@ -174,6 +195,9 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         await Assert.ThrowsAnyAsync<Exception>(() => FrameAsync(viewer));
         await Assert.ThrowsAnyAsync<Exception>(() => FrameAsync(relay));
         await Assert.ThrowsAnyAsync<Exception>(() => app.ConnectAsync(friend, "participant", id, incarnation));
+        for (var wait = 0; wait < 100 && Interlocked.Read(ref refused) < 3; wait++) await Task.Delay(20, TestContext.Current.CancellationToken);
+        Assert.True(Interlocked.Read(ref relayed) >= toHost.Length + toViewer.Length);
+        Assert.True(Interlocked.Read(ref refused) >= 3);
         Assert.Equal("accessChanged", (await JsonAsync(host)).GetProperty("type").GetString());
         Assert.Equal("changed", (await JsonAsync(ownerEvents)).GetProperty("type").GetString());
     }

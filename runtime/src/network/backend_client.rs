@@ -268,6 +268,17 @@ impl BackendClient {
                 self.logout().await?;
                 events.push(json!({"type":"auth.required","reason":"cancelled"}));
             }
+            "auth.deleteAccount" => {
+                let credentials = self.credentials()?;
+                let _response: Value = self
+                    .inner
+                    .http
+                    .bearer(Method::DELETE, "api/me", &credentials.token, None)
+                    .await?;
+                credentials.cancel.cancel();
+                self.logout().await?;
+                events.push(json!({"type":"auth.required","reason":"signedOut"}));
+            }
             "auth.refresh" => {
                 self.refresh().await?;
                 if let Some(identity) = self.identity() {
@@ -421,7 +432,7 @@ impl BackendClient {
         }
         if !matches!(
             operation,
-            "auth.logout" | "auth.login.start" | "auth.login.cancel"
+            "auth.logout" | "auth.login.start" | "auth.login.cancel" | "auth.deleteAccount"
         ) && before != self.generation()
         {
             return Err(Error::Stale);

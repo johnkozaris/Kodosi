@@ -78,5 +78,12 @@ internal static class AccountEndpoints
             var user = await users.GetAsync(context, ct);
             return Results.Ok(new { user.Id, user.Handle, user.DisplayName });
         }).RequireAuthorization();
+        app.MapDelete("/api/me", async (HttpContext context, CurrentUser users, AccountService accounts, CancellationToken ct) =>
+        {
+            var user = await users.GetAsync(context, ct);
+            var signedIn = context.User.FindFirstValue("auth_time") ?? context.User.FindFirstValue("iat");
+            await accounts.DeleteAsync(user.Id, long.TryParse(signedIn, out var seconds) ? DateTimeOffset.FromUnixTimeSeconds(seconds) : null, ct);
+            return Results.NoContent();
+        }).RequireAuthorization().RequireRateLimiting("enrollment");
     }
 }

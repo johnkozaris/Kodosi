@@ -103,6 +103,34 @@
             ]
           },
           "type": {
+            "const": "auth.deleteAccount"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
             "const": "auth.refresh"
           }
         },
@@ -4117,7 +4145,7 @@
     ]
   },
   "ffiAbiVersion": 7,
-  "protocolVersion": 46,
+  "protocolVersion": 47,
   "terminal": {
     "checkpointMaxBytes": 8388608,
     "checkpointSchema": 2,

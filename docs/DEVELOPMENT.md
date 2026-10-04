@@ -28,7 +28,9 @@ Ghostty pins must match the native clients and the adjacent package checkout. Pr
 the provenance checks rather than substituting local or invented identities. The
 Swift and Qt repositories own their client builds and UI validation.
 
-Run the backend with `just backend-run`. Run one serving backend process at a time.
+Run the backend with `just backend-run`. It applies the database schema with
+`just backend-migrate` first; a serving start does not change the schema and refuses a
+database that is not current. Run one serving backend process at a time.
 PostgreSQL tests require disposable storage and a working container runtime.
 
 Build the CLI with `just rust-cli-build`. Use `kodosi --help` and subcommand help for

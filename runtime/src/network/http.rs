@@ -18,6 +18,13 @@ pub(crate) struct Http {
     pub(crate) client: Client,
     base: Url,
     compatibility: Arc<tokio::sync::Mutex<Option<tokio::time::Instant>>>,
+    device_session: Arc<tokio::sync::Mutex<Option<DeviceSession>>>,
+}
+
+struct DeviceSession {
+    user_id: String,
+    device_id: String,
+    token: Zeroizing<String>,
 }
 
 #[derive(Clone)]
@@ -45,6 +52,7 @@ impl Http {
             client,
             base,
             compatibility: Arc::new(tokio::sync::Mutex::new(None)),
+            device_session: Arc::new(tokio::sync::Mutex::new(None)),
         })
     }
 
@@ -140,10 +148,57 @@ impl Http {
         if !credentials.enrolled {
             return Err(Error::EnrollmentRequired);
         }
+        self.compatible().await?;
+        let session = self.device_session(credentials).await?;
+        match self
+            .with_session(&method, path, credentials, body.as_ref(), &session)
+            .await
+        {
+            Err(Error::Backend { status: 428, .. }) => {
+                self.forget_device_session(&session).await;
+                let session = self.device_session(credentials).await?;
+                self.with_session(&method, path, credentials, body.as_ref(), &session)
+                    .await
+            }
+            result => result,
+        }
+    }
+
+    async fn with_session<T: DeserializeOwned>(
+        &self,
+        method: &Method,
+        path: &str,
+        credentials: &Credentials,
+        body: Option<&Value>,
+        session: &str,
+    ) -> Result<T> {
+        let mut request = self
+            .client
+            .request(method.clone(), self.url(path)?)
+            .bearer_auth(credentials.token.as_str())
+            .header("X-Kodosi-Device-Id", &credentials.keys.device_id)
+            .header("X-Kodosi-Device-Session", session);
+        if let Some(body) = body {
+            request = request.json(body);
+        }
+        decode(request.send().await?).await
+    }
+
+    pub(crate) async fn device_session(
+        &self,
+        credentials: &Credentials,
+    ) -> Result<Zeroizing<String>> {
+        let mut held = self.device_session.lock().await;
+        if let Some(session) = held.as_ref().filter(|session| {
+            session.user_id == credentials.user_id
+                && session.device_id == credentials.keys.device_id
+        }) {
+            return Ok(session.token.clone());
+        }
         let challenge: Value = self
             .bearer(
                 Method::POST,
-                "api/me/device-proofs/challenge",
+                "api/me/devices/challenge",
                 &credentials.token,
                 None,
             )
@@ -156,45 +211,51 @@ impl Http {
         let challenge_bytes = challenge
             .get("challengeBytes")
             .and_then(Value::as_str)
+            .and_then(|bytes| BASE64.decode(bytes).ok())
             .ok_or_else(|| invalid("Backend device challenge is absent."))?;
-        let challenge_bytes = BASE64
-            .decode(challenge_bytes)
-            .map_err(|_| invalid("Backend challenge is not base64."))?;
-        let bytes = body
-            .as_ref()
-            .map(serde_json::to_vec)
-            .transpose()?
-            .unwrap_or_default();
-        let hash = crypto::sha256_hex(&bytes);
-        let url = self.url(path)?;
-        let target = url.query().map_or_else(
-            || url.path().to_owned(),
-            |query| format!("{}?{query}", url.path()),
-        );
-        let preimage = crypto::device_http_request_proof_preimage(
+        let preimage = crypto::device_session_proof_preimage(
             &credentials.user_id,
             &credentials.keys.device_id,
             &challenge_id,
-            method.as_str(),
-            &target,
-            &hash,
             &challenge_bytes,
         )?;
         let signature = crypto::sign_control_message(credentials.keys.signing_pkcs8(), &preimage)?;
-        let mut request = self
-            .client
-            .request(method, self.url(path)?)
-            .bearer_auth(credentials.token.as_str())
-            .header("X-Kodosi-Device-Id", &credentials.keys.device_id)
-            .header("X-Kodosi-Device-Challenge-Id", challenge_id.to_string())
-            .header("X-Kodosi-Device-Signature", BASE64.encode(signature))
-            .header("X-Kodosi-Body-Sha256", hash);
-        if body.is_some() {
-            request = request
-                .header("Content-Type", "application/json")
-                .body(bytes);
+        let opened: Value = self
+            .bearer(
+                Method::POST,
+                "api/me/device-sessions",
+                &credentials.token,
+                Some(serde_json::json!({
+                    "deviceId": credentials.keys.device_id,
+                    "challengeId": challenge_id,
+                    "signature": BASE64.encode(signature),
+                })),
+            )
+            .await?;
+        let token = Zeroizing::new(
+            opened
+                .get("session")
+                .and_then(Value::as_str)
+                .ok_or_else(|| invalid("Backend device session is absent."))?
+                .to_owned(),
+        );
+        *held = Some(DeviceSession {
+            user_id: credentials.user_id.clone(),
+            device_id: credentials.keys.device_id.clone(),
+            token: token.clone(),
+        });
+        drop(held);
+        Ok(token)
+    }
+
+    pub(crate) async fn forget_device_session(&self, token: &str) {
+        let mut held = self.device_session.lock().await;
+        if held
+            .as_ref()
+            .is_some_and(|session| session.token.as_str() == token)
+        {
+            *held = None;
         }
-        decode(request.send().await?).await
     }
 }
 

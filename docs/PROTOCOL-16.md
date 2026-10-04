@@ -150,19 +150,35 @@ A short code made from both identities together is not used: the server could
 select two false identities that give the same short code. An identity root is
 of one identity only.
 
-## 5. Remaining: one connection for each device
+## 5. Built: one proof for each device session (contract in `protocol/backend-api.json`, `deviceSession` and `operation`)
 
-Each approved device keeps one authenticated WebSocket for requests, events and
-token renewal. This removes the challenge table and the signature on each
-request (two HTTP requests for each call today), and it lets the server use one
-lock for each account in place of the global lock. HTTP stays for health, first
-enrolment and the start of a device link. Close codes carry a reason; the
-device sends the protocol range that it supports.
+A device proves itself one time with one signature and gets a device session.
+Each request and each socket then carries the session. Before, each request
+needed a challenge request and a signature, and each socket needed a challenge
+and a signature.
 
-Also in this part: each refused connection writes one log line with its reason;
-one `System.Diagnostics.Metrics` meter (device connections, relay pipes, relay
-bytes, refused connections by reason, seconds of database fault); the migration
-is a separate command; an account can be deleted with one request.
+- The server keeps the sessions in memory. After a server restart a device
+  gets the answer "a device session is required", opens a new session and
+  sends the request again. The user sees nothing.
+- The challenge table is gone, and the server does not read and hash each
+  request body.
+- A change waits only for another change of the same account. A read does not
+  wait. Before, one lock held all changes of all accounts, and a slow client in
+  a socket handshake held a place in that lock.
+- A socket connection is registered first and its access is checked again
+  after that. A removal that happens at the same time refuses the connection or
+  closes it; no lock is necessary for this.
+- Each refused connection writes one log line with purpose, account, device,
+  terminal and reason.
+- The meter `Kodosi.Server` counts device connections, relay pipes, relay
+  bytes, refused connections by reason, and seconds of database fault.
+- The argument `migrate` applies the schema. A serving start refuses a
+  database that is not current and changes nothing.
+- An account can be deleted (`DELETE /api/me`, a recent sign-in is necessary).
+
+Not built, by decision: requests through one WebSocket. HTTP requests with a
+session have the same cost for the server, keep their own time limits and
+errors, and work when the event socket is down.
 
 ## 6. Remaining: direct path
 
@@ -188,7 +204,7 @@ and buys little.
 | done | Channel, relay pipe, per-viewer stream, input stream | section 2 |
 | done | Device link with one typed code in all three clients | section 3 |
 | done | Friend records, invite text, no first use in all three clients | section 4 |
-| next | Device connection and server items (5) | database pause, restart with many devices |
+| done | Device session and server items | section 5 |
 | last | Direct path (6); screen-only keyframe (2); client marks (7) | two computers on different networks |
 
 Each step keeps `just check-all` green, is tested on Linux x86-64 (`ssh lenovo`),

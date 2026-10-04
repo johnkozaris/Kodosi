@@ -47,7 +47,7 @@ public sealed class AccountTests(PostgresFixture postgres)
     {
         var connection = await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken);
         await using (var db = PostgresFixture.Context(connection))
-            await DatabaseSetup.InitializeAsync(db, TestContext.Current.CancellationToken);
+            await DatabaseSetup.MigrateAsync(db, TestContext.Current.CancellationToken);
         var tasks = Enumerable.Range(0, 4).Select(async _ =>
         {
             await using var db = PostgresFixture.Context(connection);

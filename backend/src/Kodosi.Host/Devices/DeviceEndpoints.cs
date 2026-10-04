@@ -9,9 +9,10 @@ internal static class DeviceEndpoints
     public static void MapDevices(this IEndpointRouteBuilder app)
     {
         var api = app.MapGroup("/api").RequireAuthorization();
-        foreach (var path in new[] { "/me/devices/challenge", "/me/device-proofs/challenge" })
-            api.MapPost(path, async (HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
-                Results.Ok(await service.CreateChallengeAsync((await users.GetAsync(context, ct)).Id, ct))).RequireRateLimiting("challenge");
+        api.MapPost("/me/devices/challenge", async (HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
+            Results.Ok(service.CreateChallenge((await users.GetAsync(context, ct)).Id))).RequireRateLimiting("challenge");
+        api.MapPost("/me/device-sessions", async (DeviceService.OpenDeviceSession body, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
+            Results.Ok(await service.OpenSessionAsync((await users.GetAsync(context, ct)).Id, body, ct))).RequireRateLimiting("challenge");
         api.MapPost("/me/devices", async (DeviceService.RegisterDevice body, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
         {
             await service.EnrollAsync((await users.GetAsync(context, ct)).Id, body, ct);

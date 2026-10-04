@@ -46,7 +46,6 @@ pub(super) async fn run(
         network,
         &credentials,
         &format!("ws/host/{}", current.id),
-        "host",
         Some(&current),
     )
     .await?;
@@ -289,7 +288,6 @@ async fn connect(
         network,
         credentials,
         &format!("ws/relay/{}/{id}", dto.id),
-        "relay",
         Some(&dto),
     )
     .await?;

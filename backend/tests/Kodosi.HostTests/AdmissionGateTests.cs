@@ -6,35 +6,31 @@ namespace Kodosi.HostTests;
 public sealed class AdmissionGateTests
 {
     [Fact]
-    public async Task ReadsShareAdmissionAndAChangeWaitsForThemAndGoesBeforeLaterReads()
+    public async Task AChangeWaitsForAnotherChangeOfTheSameAccountAndNotForAnotherAccount()
     {
         var ct = TestContext.Current.CancellationToken;
-        var gate = new AdmissionGate();
-        var first = await gate.EnterSharedAsync(ct);
-        var second = await gate.EnterSharedAsync(ct);
-        var change = gate.EnterAsync(ct).AsTask();
-        var later = gate.EnterSharedAsync(ct).AsTask();
+        var gate = new AccountGate();
+        var (account, other) = (Guid.CreateVersion7(), Guid.CreateVersion7());
+        var first = await gate.EnterAsync(account, ct);
+        var second = gate.EnterAsync(account, ct).AsTask();
+        (await gate.EnterAsync(other, ct).AsTask().WaitAsync(TimeSpan.FromSeconds(2), ct)).Dispose();
+        Assert.False(second.IsCompleted);
         first.Dispose();
-        Assert.False(change.IsCompleted); Assert.False(later.IsCompleted);
-        second.Dispose();
-        var changing = await change.WaitAsync(TimeSpan.FromSeconds(2), ct);
-        Assert.False(later.IsCompleted);
-        changing.Dispose();
-        (await later.WaitAsync(TimeSpan.FromSeconds(2), ct)).Dispose();
+        (await second.WaitAsync(TimeSpan.FromSeconds(2), ct)).Dispose();
     }
 
     [Fact]
-    public async Task AnAbandonedChangeDoesNotBlockLaterReadsOrChanges()
+    public async Task AnAbandonedChangeDoesNotBlockLaterChanges()
     {
         var ct = TestContext.Current.CancellationToken;
-        var gate = new AdmissionGate();
-        var reading = await gate.EnterSharedAsync(ct);
+        var gate = new AccountGate();
+        var account = Guid.CreateVersion7();
+        var first = await gate.EnterAsync(account, ct);
         using var abandon = new CancellationTokenSource();
-        var abandoned = gate.EnterAsync(abandon.Token).AsTask();
+        var abandoned = gate.EnterAsync(account, abandon.Token).AsTask();
         await abandon.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => abandoned);
-        (await gate.EnterSharedAsync(ct).AsTask().WaitAsync(TimeSpan.FromSeconds(2), ct)).Dispose();
-        reading.Dispose();
-        (await gate.EnterAsync(ct).AsTask().WaitAsync(TimeSpan.FromSeconds(2), ct)).Dispose();
+        first.Dispose();
+        (await gate.EnterAsync(account, ct).AsTask().WaitAsync(TimeSpan.FromSeconds(2), ct)).Dispose();
     }
 }

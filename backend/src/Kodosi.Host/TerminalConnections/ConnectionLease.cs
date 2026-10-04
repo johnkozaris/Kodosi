@@ -3,7 +3,7 @@ using Npgsql;
 namespace Kodosi.TerminalConnections;
 
 public sealed class ConnectionLease(NpgsqlDataSource source, ConnectionDirectory connections, IHostApplicationLifetime lifetime,
-    ILogger<ConnectionLease> logger) : IHostedService, IAsyncDisposable
+    ServerMetrics metrics, ILogger<ConnectionLease> logger) : IHostedService, IAsyncDisposable
 {
     private const long Key = 0x4B4F444F5349;
     private static readonly TimeSpan Retake = TimeSpan.FromSeconds(30);
@@ -77,6 +77,7 @@ public sealed class ConnectionLease(NpgsqlDataSource source, ConnectionDirectory
                     await Task.Delay(TimeSpan.FromSeconds(1), ct);
                     attempt = await TakeAsync(ct);
                 }
+                metrics.DatabaseFault(TimeProvider.System.GetElapsedTime(lost));
                 if (attempt == Attempt.Held)
                 {
                     logger.LogWarning("Terminal connection lease was lost and taken again after {Seconds:0} s.", TimeProvider.System.GetElapsedTime(lost).TotalSeconds);

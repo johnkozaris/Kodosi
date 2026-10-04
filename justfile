@@ -122,7 +122,10 @@ backend-build: backend-restore
 backend-test: backend-build
     cd backend && dotnet test --solution Kodosi.slnx --no-restore --no-build
 
-backend-run: backend-restore
+backend-migrate: backend-restore
+    cd backend && dotnet run --no-restore --project src/Kodosi.Host -- migrate
+
+backend-run: backend-migrate
     cd backend && dotnet run --no-restore --project src/Kodosi.Host
 
 backend-docker-up:

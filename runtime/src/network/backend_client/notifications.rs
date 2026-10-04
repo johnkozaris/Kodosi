@@ -61,7 +61,7 @@ impl BackendClient {
         let credentials = self.credentials()?;
         self.check_credentials(admitted)?;
         let (mut socket, _) =
-            terminal_connections::socket(self, &credentials, "ws/events", "events", None).await?;
+            terminal_connections::socket(self, &credentials, "ws/events", None).await?;
         for surface in ["sessions", "friends", "devices", "missions"] {
             self.refresh_surface(admitted, surface).await?;
         }

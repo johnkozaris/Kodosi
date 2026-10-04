@@ -39,7 +39,6 @@ pub(super) async fn connect(network: BackendClient, id: Uuid) -> Result<RemoteCo
         &network,
         &credentials,
         &format!("ws/participant/{id}"),
-        "participant",
         Some(&dto),
     )
     .await?;

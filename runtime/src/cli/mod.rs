@@ -101,6 +101,8 @@ enum AuthAction {
     Login,
     Logout,
     Status,
+    /// Delete this account and its devices, friends, shared terminals and missions on the server.
+    DeleteAccount,
 }
 #[derive(Subcommand)]
 enum DeviceAction {
@@ -283,6 +285,7 @@ async fn dispatch(args: Arguments) -> Result<()> {
         }
         Action::Auth(AuthAction::Login) => json!({"type":"auth.login.start"}),
         Action::Auth(AuthAction::Logout) => json!({"type":"auth.logout"}),
+        Action::Auth(AuthAction::DeleteAccount) => json!({"type":"auth.deleteAccount"}),
         Action::Devices(action) => device_command(action),
         Action::Friends(action) => friend_command(action, &request),
         Action::Mission(action) => mission_command(action, &request),
@@ -695,7 +698,7 @@ async fn wait_result(
             }
             let done = match operation {
                 "auth.login.start" => kind == "auth.ready",
-                "auth.logout" => kind == "auth.required",
+                "auth.logout" | "auth.deleteAccount" => kind == "auth.required",
                 "devices.refresh" | "devices.revoke" | "devices.reset" => kind == "devices.list",
                 "devices.link.startSelf" => matches!(
                     kind,

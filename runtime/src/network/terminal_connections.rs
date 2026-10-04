@@ -7,7 +7,6 @@ use std::{
     time::Duration,
 };
 
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use bytes::Bytes;
 use futures_util::{SinkExt as _, StreamExt as _};
 use reqwest::Method;
@@ -25,7 +24,7 @@ use uuid::Uuid;
 
 use super::{
     BackendClient, Error, HostRequest, LocalPublication, PublicationOutput, PublishedFrame,
-    RemoteConnection, RemoteUpdate, Result, TerminalControl, crypto,
+    RemoteConnection, RemoteUpdate, Result, TerminalControl,
     http::Credentials,
     invalid,
     wire::{self, SessionDto},
@@ -153,11 +152,32 @@ pub(crate) async fn socket(
     network: &BackendClient,
     credentials: &Credentials,
     path: &str,
-    purpose: &str,
     session: Option<&SessionDto>,
 ) -> Result<(Socket, Value)> {
     network.check_credentials(credentials)?;
     network.inner.http.compatible().await?;
+    let device_session = network.inner.http.device_session(credentials).await?;
+    if let Some(admitted) = admitted(network, credentials, path, session, &device_session).await? {
+        return Ok(admitted);
+    }
+    network
+        .inner
+        .http
+        .forget_device_session(&device_session)
+        .await;
+    let device_session = network.inner.http.device_session(credentials).await?;
+    admitted(network, credentials, path, session, &device_session)
+        .await?
+        .ok_or_else(|| invalid("The connection service did not admit this device."))
+}
+
+async fn admitted(
+    network: &BackendClient,
+    credentials: &Credentials,
+    path: &str,
+    session: Option<&SessionDto>,
+    device_session: &str,
+) -> Result<Option<(Socket, Value)>> {
     let url = network.inner.http.websocket_url(path)?;
     let mut request = url
         .as_str()
@@ -182,41 +202,19 @@ pub(crate) async fn socket(
         tracing::warn!(%error, "terminal connection failed");
         invalid("Kodosi could not reach the terminal connection service.")
     })?;
-    send_json(&mut socket, json!({"type":"hello","protocolVersion":crate::protocol::TERMINAL_CONNECTION_VERSION,"deviceId":credentials.keys.device_id,"incarnationId":session.map(|s|s.incarnation_id)})).await?;
-    let challenge = read_json(&mut socket).await?;
-    if wire::text(&challenge, "type")? != "challenge" {
-        return Err(invalid(
-            "The connection service did not issue a device challenge.",
-        ));
-    }
-    let connection = wire::text(&challenge, "connectionId")?;
-    let bytes = wire::decode_b64(&challenge, "challenge", 32)?;
-    let session_id = session.map(|s| s.id.to_string());
-    let preimage = crypto::device_connection_proof_preimage(
-        &credentials.user_id,
-        &credentials.keys.device_id,
-        connection,
-        purpose,
-        session_id.as_deref(),
-        session.map(|s| &s.incarnation_id),
-        &bytes,
-    )?;
-    let signature = crypto::sign_control_message(credentials.keys.signing_pkcs8(), &preimage)?;
-    send_json(
-        &mut socket,
-        json!({"type":"authenticate","signature":BASE64.encode(signature)}),
-    )
-    .await?;
+    send_json(&mut socket, json!({"type":"hello","protocolVersion":crate::protocol::TERMINAL_CONNECTION_VERSION,"deviceId":credentials.keys.device_id,"deviceSession":device_session,"incarnationId":session.map(|s|s.incarnation_id)})).await?;
     let ready = read_json(&mut socket).await?;
-    if wire::text(&ready, "type")? != "ready" || wire::text(&ready, "connectionId")? != connection {
-        return Err(invalid("The connection service did not admit this device."));
+    match wire::text(&ready, "type")? {
+        "ready" => {}
+        "refused" => return Ok(None),
+        _ => return Err(invalid("The connection service did not admit this device.")),
     }
     if let Some(session) = session
         && wire::id(&ready, "incarnationId")? != session.incarnation_id
     {
         return Err(Error::Stale);
     }
-    Ok((socket, ready))
+    Ok(Some((socket, ready)))
 }
 
 pub(crate) async fn send_json(socket: &mut Socket, value: Value) -> Result<()> {

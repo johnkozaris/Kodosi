@@ -115,7 +115,7 @@ public sealed class MissionTests(PostgresFixture postgres)
             command.Parameters.AddWithValue("owner", owner); command.Parameters.AddWithValue("mission", oldMission);
             await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
         }
-        await DatabaseSetup.InitializeAsync(db, TestContext.Current.CancellationToken);
+        await DatabaseSetup.MigrateAsync(db, TestContext.Current.CancellationToken);
         Assert.Equal("keep-this-slug", await db.Missions.Where(x => x.Id == oldMission).Select(x => EF.Property<string>(x, "Slug")).SingleAsync(TestContext.Current.CancellationToken));
         var retained = await db.Users.SingleAsync(TestContext.Current.CancellationToken);
         Assert.Equal("saved@example.invalid", retained.Email); Assert.Equal("https://saved.invalid/avatar", retained.AvatarUrl);

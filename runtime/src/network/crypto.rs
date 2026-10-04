@@ -55,73 +55,20 @@ pub fn sign_pop_challenge(key: &PqdsaKeyPair, challenge: &[u8]) -> Result<Vec<u8
     sign(key, &bytes)
 }
 
-pub fn device_http_request_proof_preimage(
+pub fn device_session_proof_preimage(
     user_id: &str,
     device_id: &str,
     challenge_id: &Uuid,
-    method: &str,
-    target: &str,
-    body_sha256: &str,
     challenge: &[u8],
 ) -> Result<Vec<u8>> {
-    if user_id.is_empty()
-        || device_id.is_empty()
-        || challenge_id.is_nil()
-        || method.is_empty()
-        || !target.starts_with('/')
-        || challenge.len() != 32
-        || body_sha256.len() != 64
-        || !body_sha256
-            .bytes()
-            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+    if user_id.is_empty() || device_id.is_empty() || challenge_id.is_nil() || challenge.len() != 32
     {
-        return Err(invalid("Device request proof is incomplete."));
+        return Err(invalid("Device session proof is incomplete."));
     }
     let id = challenge_id.to_string();
-    let method = method.to_ascii_uppercase();
     let mut bytes = signed_fields(
-        b"kodosi-device-http-request-proof-v1",
-        &[
-            user_id.as_bytes(),
-            device_id.as_bytes(),
-            id.as_bytes(),
-            method.as_bytes(),
-            target.as_bytes(),
-            body_sha256.as_bytes(),
-        ],
-    )?;
-    bytes.extend_from_slice(challenge);
-    Ok(bytes)
-}
-
-pub fn device_connection_proof_preimage(
-    user_id: &str,
-    device_id: &str,
-    connection_id: &str,
-    purpose: &str,
-    session_id: Option<&str>,
-    incarnation_id: Option<&Uuid>,
-    challenge: &[u8],
-) -> Result<Vec<u8>> {
-    if user_id.is_empty()
-        || device_id.is_empty()
-        || connection_id.is_empty()
-        || purpose.is_empty()
-        || challenge.len() != 32
-    {
-        return Err(invalid("Device connection proof is incomplete."));
-    }
-    let incarnation = incarnation_id.map(ToString::to_string).unwrap_or_default();
-    let mut bytes = signed_fields(
-        b"kodosi-device-connection-proof-v1",
-        &[
-            user_id.as_bytes(),
-            device_id.as_bytes(),
-            connection_id.as_bytes(),
-            purpose.as_bytes(),
-            session_id.unwrap_or_default().as_bytes(),
-            incarnation.as_bytes(),
-        ],
+        b"kodosi-device-session-v1",
+        &[user_id.as_bytes(), device_id.as_bytes(), id.as_bytes()],
     )?;
     bytes.extend_from_slice(challenge);
     Ok(bytes)
@@ -133,51 +80,36 @@ mod tests {
     use aws_lc_rs::signature::{KeyPair as _, ML_DSA_65, VerificationAlgorithm as _};
 
     #[test]
-    fn device_proof_binds_request_not_just_account() {
+    fn a_device_session_proof_holds_for_one_device_and_one_challenge() {
         let pair = PqdsaKeyPair::generate(&ML_DSA_65_SIGNING).unwrap();
-        let challenge = [2; 32];
         let id = Uuid::now_v7();
-        let preimage = device_http_request_proof_preimage(
-            "user",
-            "device",
-            &id,
-            "POST",
-            "/api/sessions",
-            &sha256_hex(b"a"),
-            &challenge,
-        )
-        .unwrap();
+        let preimage = device_session_proof_preimage("user", "device", &id, &[2; 32]).unwrap();
         let signature = sign(&pair, &preimage).unwrap();
         let public = pair.public_key();
         ML_DSA_65
             .verify_sig(public.as_ref(), &preimage, &signature)
             .unwrap();
-        let changed = device_http_request_proof_preimage(
-            "user",
-            "device",
-            &id,
-            "DELETE",
-            "/api/sessions",
-            &sha256_hex(b"a"),
-            &challenge,
-        )
-        .unwrap();
-        assert!(
-            ML_DSA_65
-                .verify_sig(public.as_ref(), &changed, &signature)
-                .is_err()
-        );
+        for changed in [
+            device_session_proof_preimage("user", "other", &id, &[2; 32]).unwrap(),
+            device_session_proof_preimage("user", "device", &id, &[3; 32]).unwrap(),
+            device_session_proof_preimage("user", "device", &Uuid::now_v7(), &[2; 32]).unwrap(),
+        ] {
+            assert!(
+                ML_DSA_65
+                    .verify_sig(public.as_ref(), &changed, &signature)
+                    .is_err()
+            );
+        }
     }
 
     #[test]
-    fn device_proof_vectors_match_current_manifest() {
+    fn the_device_session_proof_vector_matches_the_current_manifest() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../protocol/crypto-domains.json");
         let manifest: serde_json::Value =
             serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
-        let vectors = &manifest["deviceProofPreimageVectors"];
-        let connection = &vectors["connectionV1"];
-        let text = |value: &serde_json::Value, key: &str| value[key].as_str().unwrap().to_owned();
+        let vector = &manifest["deviceProofPreimageVectors"]["sessionV1"];
+        let text = |key: &str| vector[key].as_str().unwrap().to_owned();
         let hex = |value: String| {
             value
                 .as_bytes()
@@ -185,28 +117,13 @@ mod tests {
                 .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
                 .collect::<Vec<_>>()
         };
-        let bytes = device_connection_proof_preimage(
-            &text(connection, "userId"),
-            &text(connection, "deviceId"),
-            &text(connection, "connectionId"),
-            &text(connection, "purpose"),
-            Some(&text(connection, "sessionId")),
-            Some(&Uuid::parse_str(&text(connection, "incarnationId")).unwrap()),
-            &hex(text(connection, "challengeHex")),
+        let bytes = device_session_proof_preimage(
+            &text("userId"),
+            &text("deviceId"),
+            &Uuid::parse_str(&text("challengeId")).unwrap(),
+            &hex(text("challengeHex")),
         )
         .unwrap();
-        assert_eq!(bytes, hex(text(connection, "preimageHex")));
-        let http = &vectors["httpV1"];
-        let bytes = device_http_request_proof_preimage(
-            &text(http, "userId"),
-            &text(http, "deviceId"),
-            &Uuid::parse_str(&text(http, "challengeId")).unwrap(),
-            &text(http, "method"),
-            &text(http, "pathAndQuery"),
-            &text(http, "bodySha256"),
-            &hex(text(http, "challengeHex")),
-        )
-        .unwrap();
-        assert_eq!(bytes, hex(text(http, "preimageHex")));
+        assert_eq!(bytes, hex(text("preimageHex")));
     }
 }

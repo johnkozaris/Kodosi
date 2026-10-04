@@ -1,7 +1,19 @@
 {
-  "apiContractVersion": 19,
+  "apiContractVersion": 20,
   "authContractVersion": 1,
-  "authentication": "OIDC bearer identity and enrolled device proof",
+  "authentication": "OIDC bearer identity and a device session",
+  "deviceSession": {
+    "open": "the device signs kodosi-device-session-v1, the length-prefixed account id, device id and challenge id, and the 32-byte challenge; the server answers with a session secret",
+    "use": "headers X-Kodosi-Device-Id and X-Kodosi-Device-Session on each device request and the deviceSession field of each socket hello",
+    "refusal": "status 428 when the server does not hold the session; the device opens a new session and sends the request again",
+    "storage": "in the memory of the one serving process; 12 hours; removed with the device",
+    "changes": "one change at a time for each account; reads do not wait"
+  },
+  "operation": {
+    "migration": "the argument migrate applies the schema and exits; a serving start refuses a database that is not current",
+    "refusedConnections": "one log line for each refused socket connection with purpose, account, device, terminal and reason",
+    "meter": "Kodosi.Server: kodosi.device.connections, kodosi.relay.pipes, kodosi.relay.bytes, kodosi.connections.refused by reason, kodosi.database.fault in seconds"
+  },
   "sessionAuthorization": {
     "ownDevices": "current approved devices of the owner",
     "friends": "explicit membership in the selected live publication",
@@ -52,11 +64,12 @@
   },
   "routes": {
     "accounts": [
-      "GET /api/me"
+      "GET /api/me",
+      "DELETE /api/me"
     ],
     "identity": [
       "POST /api/me/devices/challenge",
-      "POST /api/me/device-proofs/challenge",
+      "POST /api/me/device-sessions",
       "POST /api/me/devices",
       "GET /api/me/identity",
       "GET /api/users/{userId}/identity",

@@ -71,7 +71,7 @@ public sealed class DeviceTests(PostgresFixture postgres)
         await Assert.ThrowsAsync<ApiException>(() => store.Devices.StartLinkAsync(owner.User.Id,
             new(second.DeviceId, "Second", Convert.ToBase64String(second.KemKey), Convert.ToBase64String(second.SigningKey), DeviceFixture.LinkNonce, DeviceFixture.LinkProof), ct));
         var fresh = new DeviceFixture(owner.User.Id, "fresh-device");
-        var challenge = JsonSerializer.SerializeToElement(await store.Devices.CreateChallengeAsync(owner.User.Id, ct), Wire.Json);
+        var challenge = JsonSerializer.SerializeToElement(store.Devices.CreateChallenge(owner.User.Id), Wire.Json);
         var challengeBytes = Convert.FromBase64String(challenge.GetProperty("challengeBytes").GetString()!);
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var cert = fresh.CertificateBody(fresh.DeviceId, now);

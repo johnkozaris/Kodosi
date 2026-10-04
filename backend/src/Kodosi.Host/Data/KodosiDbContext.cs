@@ -7,7 +7,6 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
     public DbSet<User> Users => Set<User>();
     public DbSet<Device> Devices => Set<Device>();
     public DbSet<DeviceList> DeviceLists => Set<DeviceList>();
-    public DbSet<DeviceChallenge> DeviceChallenges => Set<DeviceChallenge>();
     public DbSet<DeviceLink> DeviceLinks => Set<DeviceLink>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<FriendList> FriendLists => Set<FriendList>();
@@ -47,12 +46,6 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
             e.Property(x => x.SignerDeviceId).HasMaxLength(256);
             e.Property(x => x.Generation).IsConcurrencyToken();
             e.HasOne<User>().WithOne().HasForeignKey<DeviceList>(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
-        });
-        model.Entity<DeviceChallenge>(e =>
-        {
-            e.ToTable("device_challenges"); e.HasKey(x => x.Id);
-            e.HasIndex(x => x.ExpiresAt);
-            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
         model.Entity<DeviceLink>(e =>
         {

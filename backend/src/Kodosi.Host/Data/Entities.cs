@@ -39,14 +39,6 @@ public sealed class DeviceList
     public long? ExpiresAtMs { get; set; }
 }
 
-public sealed class DeviceChallenge
-{
-    public Guid Id { get; set; }
-    public Guid UserId { get; set; }
-    public byte[] Bytes { get; set; } = [];
-    public DateTimeOffset ExpiresAt { get; set; }
-}
-
 public sealed class DeviceLink
 {
     public Guid Id { get; set; }

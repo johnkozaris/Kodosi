@@ -4,9 +4,8 @@ namespace Kodosi.Data;
 
 internal static class DatabaseSetup
 {
-    public static async Task InitializeAsync(KodosiDbContext db, CancellationToken ct)
+    public static async Task MigrateAsync(KodosiDbContext db, CancellationToken ct)
     {
-        if (!db.Database.IsNpgsql()) return;
         await db.Database.OpenConnectionAsync(ct);
         try
         {
@@ -23,5 +22,11 @@ internal static class DatabaseSetup
             await db.Database.MigrateAsync(ct);
         }
         finally { await db.Database.CloseConnectionAsync(); }
+    }
+
+    public static async Task RequireCurrentAsync(KodosiDbContext db, CancellationToken ct)
+    {
+        if ((await db.Database.GetPendingMigrationsAsync(ct)).Any())
+            throw new InvalidOperationException("The database schema is not current. Run the server with the argument 'migrate' first; no data was changed.");
     }
 }

@@ -12,6 +12,13 @@ public sealed class ConnectionDirectory
 
     public bool HostOnline(Guid id) => sessions.TryGetValue(id, out var live) && live.Host.IsOpen;
 
+    internal (int Devices, int Pipes) Count()
+    {
+        var pipes = 0;
+        foreach (var live in sessions.Values) lock (live.Sync) pipes += live.Pipes.Count;
+        return (listeners.Count, pipes);
+    }
+
     internal Peer[] OnlinePeers()
     {
         var peers = new HashSet<Peer>(listeners.Values);
@@ -126,7 +133,6 @@ public sealed class ConnectionDirectory
                 || !live.Pipes.TryGetValue(channelId, out var pipe) || pipe.Host is not null || !pipe.Viewer.IsOpen)
                 throw ApiException.Missing();
             pipe.Host = host;
-            pipe.Joined.TrySetResult(host);
             return (live, pipe);
         }
     }

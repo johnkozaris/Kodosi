@@ -43,7 +43,8 @@ public sealed class TerminalConnectionTests
         await using var relay = Viewer(owner, "host");
         Assert.Equal(404, Assert.Throws<ApiException>(() => directory.JoinPipe(state, Guid.CreateVersion7(), relay)).Status);
         directory.JoinPipe(state, pipe.Id, relay);
-        Assert.Same(relay, await pipe.Joined.Task);
+        Assert.Same(relay, pipe.Host);
+        Assert.False(pipe.Joined.Task.IsCompleted);
         await using var second = Viewer(owner, "host");
         Assert.Equal(404, Assert.Throws<ApiException>(() => directory.JoinPipe(state, pipe.Id, second)).Status);
     }

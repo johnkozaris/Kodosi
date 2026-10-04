@@ -1,57 +1,56 @@
+using Kodosi.Accounts;
+
 namespace Kodosi.Admission;
 
-internal sealed class AdmissionFilter(AdmissionGate gate) : IEndpointFilter
+internal sealed class AdmissionFilter(AccountGate gate) : IEndpointFilter
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
         var request = context.HttpContext;
-        if (HttpMethods.IsGet(request.Request.Method))
-        {
-            using var shared = await gate.EnterSharedAsync(request.RequestAborted);
-            return await next(context);
-        }
-        using var held = await gate.EnterAsync(request.RequestAborted);
+        if (HttpMethods.IsGet(request.Request.Method)) return await next(context);
+        var user = await request.RequestServices.GetRequiredService<CurrentUser>().GetAsync(request, request.RequestAborted);
+        using var held = await gate.EnterAsync(user.Id, request.RequestAborted);
         return await next(context);
     }
 }
 
-public sealed class AdmissionGate
+public sealed class AccountGate
 {
-    private const int MaximumReaders = 32;
-    private readonly SemaphoreSlim turnstile = new(1, 1);
-    private readonly SemaphoreSlim empty = new(1, 1);
-    private readonly SemaphoreSlim slots = new(MaximumReaders, MaximumReaders);
-    private readonly object sync = new();
-    private int readers;
+    private readonly Lock sync = new();
+    private readonly Dictionary<Guid, Turn> turns = [];
 
-    public async ValueTask<IDisposable> EnterAsync(CancellationToken cancellationToken)
+    public async ValueTask<IDisposable> EnterAsync(Guid account, CancellationToken cancellationToken)
     {
-        await turnstile.WaitAsync(cancellationToken);
-        try { await empty.WaitAsync(cancellationToken); }
-        catch { turnstile.Release(); throw; }
-        return new Lease(this, shared: false);
+        Turn? turn;
+        lock (sync)
+        {
+            if (!turns.TryGetValue(account, out turn)) turns.Add(account, turn = new Turn());
+            turn.Users++;
+        }
+        try { await turn.Semaphore.WaitAsync(cancellationToken); }
+        catch { Leave(account, turn, held: false); throw; }
+        return new Lease(this, account, turn);
     }
 
-    public async ValueTask<IDisposable> EnterSharedAsync(CancellationToken cancellationToken)
+    private void Leave(Guid account, Turn turn, bool held)
     {
-        await slots.WaitAsync(cancellationToken);
-        try { await turnstile.WaitAsync(cancellationToken); }
-        catch { slots.Release(); throw; }
-        lock (sync) if (readers++ == 0) empty.Wait(CancellationToken.None);
-        turnstile.Release();
-        return new Lease(this, shared: true);
+        if (held) turn.Semaphore.Release();
+        lock (sync)
+        {
+            if (--turn.Users != 0) return;
+            turns.Remove(account); turn.Semaphore.Dispose();
+        }
     }
 
-    private void Exit(bool shared)
+    private sealed class Turn
     {
-        if (!shared) { empty.Release(); turnstile.Release(); return; }
-        lock (sync) if (--readers == 0) empty.Release();
-        slots.Release();
+        public SemaphoreSlim Semaphore { get; } = new(1, 1);
+        public int Users;
     }
 
-    private sealed class Lease(AdmissionGate gate, bool shared) : IDisposable
+    private sealed class Lease(AccountGate gate, Guid account, Turn turn) : IDisposable
     {
-        private AdmissionGate? held = gate;
-        public void Dispose() => Interlocked.Exchange(ref held, null)?.Exit(shared);
+        private AccountGate? held = gate;
+        public void Dispose() => Interlocked.Exchange(ref held, null)?.Leave(account, turn, held: true);
     }
 }

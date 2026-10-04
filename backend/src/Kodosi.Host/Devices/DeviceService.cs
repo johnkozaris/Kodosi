@@ -14,6 +14,7 @@ public sealed partial class DeviceService(
     DeviceCertificateParser certificates,
     SignedDeviceListParser lists,
     ConnectionDirectory connections,
+    DeviceSessions sessions,
     TimeProvider clock)
 {
     public async Task<Device> RequireDeviceAsync(Guid userId, string deviceId, CancellationToken ct, bool allowExpiredList = false)
@@ -30,55 +31,28 @@ public sealed partial class DeviceService(
 
     public async Task<Device> RequireProofAsync(HttpContext context, Guid userId, CancellationToken ct, bool allowExpiredList = false)
     {
-        var request = context.Request;
-        var deviceId = request.Headers["X-Kodosi-Device-Id"].ToString();
-        if (!Guid.TryParse(request.Headers["X-Kodosi-Device-Challenge-Id"], out var challengeId))
-            throw ApiException.Forbidden("A device proof is required.");
-        var bodyHash = request.Headers["X-Kodosi-Body-Sha256"].ToString();
-        if (bodyHash.Length != 64 || bodyHash.Any(c => !Uri.IsHexDigit(c)))
-            throw ApiException.Forbidden("Invalid device proof body hash.");
-        var actualHash = context.Items["bodySha256"] as string
-            ?? Convert.ToHexStringLower(SHA256.HashData([]));
-        if (!CryptographicOperations.FixedTimeEquals(
-                System.Text.Encoding.ASCII.GetBytes(bodyHash.ToLowerInvariant()),
-                System.Text.Encoding.ASCII.GetBytes(actualHash)))
-            throw ApiException.Forbidden("The device proof does not match this request.");
-        var challenge = await ConsumeChallengeAsync(userId, challengeId, ct);
-        var device = await RequireDeviceAsync(userId, DeviceIdRules.Require(deviceId), ct, allowExpiredList);
-        var signature = Limits.Base64(request.Headers["X-Kodosi-Device-Signature"], "Device signature", IdentityWireFormat.MlDsa65SignatureLength);
-        var target = request.PathBase.Add(request.Path).ToString() + request.QueryString;
-        if (!signatures.Verify(device.SigningPublicKey,
-                Proofs.Http(userId, deviceId, challengeId, request.Method, target, bodyHash, challenge), signature))
-            throw ApiException.Forbidden("Invalid device proof.");
-        return device;
+        var deviceId = context.Request.Headers["X-Kodosi-Device-Id"].ToString();
+        if (!sessions.Holds(userId, deviceId, context.Request.Headers["X-Kodosi-Device-Session"]))
+            throw new ApiException(428, "A device session is required.");
+        return await RequireDeviceAsync(userId, deviceId, ct, allowExpiredList);
     }
 
-    public async Task<object> CreateChallengeAsync(Guid userId, CancellationToken ct)
+    public object CreateChallenge(Guid userId)
     {
-        var now = clock.GetUtcNow();
-        await db.DeviceChallenges.Where(x => x.ExpiresAt <= now).ExecuteDeleteAsync(ct);
-        if (await db.DeviceChallenges.CountAsync(x => x.UserId == userId, ct) >= 64)
-            throw new ApiException(429, "Too many pending device challenges.");
-        var challenge = new DeviceChallenge
-        {
-            Id = Guid.CreateVersion7(),
-            UserId = userId,
-            Bytes = RandomNumberGenerator.GetBytes(32),
-            ExpiresAt = now.AddMinutes(5)
-        };
-        db.DeviceChallenges.Add(challenge);
-        await db.SaveChangesAsync(ct);
+        var challenge = sessions.NewChallenge(userId);
         return new { challengeId = challenge.Id, challengeBytes = Convert.ToBase64String(challenge.Bytes), challenge.ExpiresAt };
     }
 
-    private async Task<byte[]> ConsumeChallengeAsync(Guid userId, Guid challengeId, CancellationToken ct)
+    public async Task<object> OpenSessionAsync(Guid userId, OpenDeviceSession request, CancellationToken ct)
     {
-        var challenge = await db.DeviceChallenges.AsNoTracking().SingleOrDefaultAsync(x => x.Id == challengeId && x.UserId == userId, ct)
-            ?? throw ApiException.Forbidden("The device challenge is unavailable.");
-        if (await db.DeviceChallenges.Where(x => x.Id == challengeId && x.UserId == userId).ExecuteDeleteAsync(ct) != 1
-            || challenge.ExpiresAt <= clock.GetUtcNow())
-            throw ApiException.Forbidden("The device challenge expired or was already used.");
-        return challenge.Bytes;
+        var deviceId = DeviceIdRules.Require(request.DeviceId);
+        var challenge = sessions.ConsumeChallenge(userId, request.ChallengeId);
+        var device = await RequireDeviceAsync(userId, deviceId, ct, allowExpiredList: true);
+        var signature = Limits.Base64(request.Signature, "Device signature", IdentityWireFormat.MlDsa65SignatureLength);
+        if (!signatures.Verify(device.SigningPublicKey, Proofs.DeviceSession(userId, deviceId, request.ChallengeId, challenge), signature))
+            throw ApiException.Forbidden("Invalid device proof.");
+        var (token, expiresAt) = sessions.Open(userId, deviceId);
+        return new { session = token, expiresAt };
     }
 
     public async Task EnrollAsync(Guid userId, RegisterDevice request, CancellationToken ct)
@@ -94,7 +68,7 @@ public sealed partial class DeviceService(
                 && existing.CertificateSignature.AsSpan().SequenceEqual(certSig)) return;
             throw ApiException.Conflict("This device identity is already registered.");
         }
-        var challenge = await ConsumeChallengeAsync(userId, request.ChallengeId, ct);
+        var challenge = sessions.ConsumeChallenge(userId, request.ChallengeId);
         var signingKey = Limits.Base64(request.SigningPublicKey, "Signing key", IdentityWireFormat.MlDsa65PublicKeyLength);
         var kemKey = Limits.Base64(request.KemPublicKey, "KEM key", IdentityWireFormat.MlKem768PublicKeyLength);
         var pop = Limits.Base64(request.PopSignature, "Possession signature", IdentityWireFormat.MlDsa65SignatureLength);
@@ -147,7 +121,7 @@ public sealed partial class DeviceService(
         var affected = removed.Count == 0 ? [] : await InvalidateUserSessionsAsync(userId, removed, ct);
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
-        foreach (var device in removed) connections.RemoveDevice(userId, device.Id);
+        foreach (var device in removed) { sessions.Remove(userId, device.Id); connections.RemoveDevice(userId, device.Id); }
         await PublishSessionChangesAsync(userId, affected, removed, ct);
         connections.Notify(userId, "devices");
     }
@@ -172,6 +146,7 @@ public sealed partial class DeviceService(
         var affected = await InvalidateUserSessionsAsync(userId, devices, ct);
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
+        sessions.Remove(userId);
         foreach (var device in devices) connections.RemoveDevice(userId, device.Id);
         await PublishSessionChangesAsync(userId, affected, devices, ct);
         connections.Notify(userId, "devices");
@@ -293,6 +268,7 @@ public sealed partial class DeviceService(
     public sealed record RegisterDevice(string DeviceId, string KemPublicKey, string SigningPublicKey, Guid ChallengeId,
         string PopSignature, string DeviceCertificate, string DeviceCertificateSignature, string SignedDeviceList, string SignedDeviceListSignature);
     public sealed record ReplaceDeviceList(string SignedDeviceList, string SignedDeviceListSignature);
+    public sealed record OpenDeviceSession(string DeviceId, Guid ChallengeId, string Signature);
     public sealed record Certificate(
         [property: System.Text.Json.Serialization.JsonPropertyName("certificate")] string Body,
         string CertificateSignature);

@@ -1,11 +1,9 @@
-using Kodosi.Admission;
 using Kodosi.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.Sessions;
 
-public sealed class PublicationCleanup(IServiceScopeFactory scopes, AdmissionGate gate,
-    TimeProvider clock, ILogger<PublicationCleanup> logger) : BackgroundService
+public sealed class PublicationCleanup(IServiceScopeFactory scopes, TimeProvider clock, ILogger<PublicationCleanup> logger) : BackgroundService
 {
     internal static readonly TimeSpan GracePeriod = TimeSpan.FromMinutes(2);
 
@@ -27,7 +25,6 @@ public sealed class PublicationCleanup(IServiceScopeFactory scopes, AdmissionGat
 
     internal async Task SweepAsync(CancellationToken ct)
     {
-        using var admission = await gate.EnterAsync(ct);
         await using var scope = scopes.CreateAsyncScope();
         var now = clock.GetUtcNow();
         await scope.ServiceProvider.GetRequiredService<KodosiDbContext>().Sessions

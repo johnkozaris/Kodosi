@@ -40,6 +40,13 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
         if (configure is not null) builder.ConfigureTestServices(configure);
     }
 
+    protected override Microsoft.Extensions.Hosting.IHost CreateHost(Microsoft.Extensions.Hosting.IHostBuilder builder)
+    {
+        using (var db = PostgresFixture.Context(connection))
+            Kodosi.Data.DatabaseSetup.MigrateAsync(db, CancellationToken.None).GetAwaiter().GetResult();
+        return base.CreateHost(builder);
+    }
+
     public string Token(string subject, string audience = "kodosi-app", DateTimeOffset? authenticatedAt = null, TimeSpan? lifetime = null)
     {
         List<Claim> claims = [new("sub", subject), new("preferred_username", subject)];
@@ -72,7 +79,20 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
             signedDeviceListSignature = device.SignedList(list),
         }, TestContext.Current.CancellationToken);
         await SuccessAsync(enrolled);
-        return new ApiDevice(client, token, device);
+        return new ApiDevice(client, token, device, await OpenSessionAsync(client, device));
+    }
+
+    public static async Task<string> OpenSessionAsync(HttpClient client, DeviceFixture device)
+    {
+        var challenge = await ChallengeAsync(client, "/api/me/devices/challenge");
+        using var opened = await client.PostAsJsonAsync("/api/me/device-sessions", new
+        {
+            deviceId = device.DeviceId,
+            challengeId = challenge.Id,
+            signature = Convert.ToBase64String(device.Sign(Proofs.DeviceSession(device.UserId, device.DeviceId, challenge.Id, challenge.Bytes))),
+        }, TestContext.Current.CancellationToken);
+        await SuccessAsync(opened);
+        return (await opened.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken)).GetProperty("session").GetString()!;
     }
 
     private static async Task<(Guid Id, byte[] Bytes)> ChallengeAsync(HttpClient client, string path)
@@ -82,19 +102,17 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
         return (json.GetProperty("challengeId").GetGuid(), Convert.FromBase64String(json.GetProperty("challengeBytes").GetString()!));
     }
 
-    public static async Task<HttpRequestMessage> SignedAsync(ApiDevice actor, HttpMethod method, string path, object? body = null)
+    public static Task<HttpRequestMessage> SignedAsync(ApiDevice actor, HttpMethod method, string path, object? body = null)
     {
-        var bytes = body is null ? [] : JsonSerializer.SerializeToUtf8Bytes(body, Wire.Json);
-        var challenge = await ChallengeAsync(actor.Client, "/api/me/device-proofs/challenge");
-        var hash = Convert.ToHexStringLower(SHA256.HashData(bytes));
         var request = new HttpRequestMessage(method, path);
-        if (body is not null) { request.Content = new ByteArrayContent(bytes); request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json"); }
+        if (body is not null)
+        {
+            request.Content = new ByteArrayContent(JsonSerializer.SerializeToUtf8Bytes(body, Wire.Json));
+            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        }
         request.Headers.Add("X-Kodosi-Device-Id", actor.Fixture.DeviceId);
-        request.Headers.Add("X-Kodosi-Device-Challenge-Id", challenge.Id.ToString());
-        request.Headers.Add("X-Kodosi-Body-Sha256", hash);
-        request.Headers.Add("X-Kodosi-Device-Signature", Convert.ToBase64String(actor.Fixture.Sign(
-            Proofs.Http(actor.Fixture.UserId, actor.Fixture.DeviceId, challenge.Id, method.Method, path, hash, challenge.Bytes))));
-        return request;
+        request.Headers.Add("X-Kodosi-Device-Session", actor.Session);
+        return Task.FromResult(request);
     }
 
     public static async Task<JsonElement> CallAsync(ApiDevice actor, HttpMethod method, string path, object? body = null)
@@ -109,11 +127,7 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
     {
         var client = Server.CreateWebSocketClient(); client.ConfigureRequest = request => request.Headers.Authorization = "Bearer " + actor.Token;
         var socket = await client.ConnectAsync(new Uri("ws://localhost/ws/" + purpose + (session is null ? "" : "/" + session) + (channel is null ? "" : "/" + channel)), TestContext.Current.CancellationToken);
-        await SendAsync(socket, new { type = "hello", protocolVersion = 16, deviceId = actor.Fixture.DeviceId, incarnationId = incarnation });
-        var challenge = await JsonAsync(socket); var connectionId = challenge.GetProperty("connectionId").GetString()!;
-        var signature = actor.Fixture.Sign(Proofs.Connection(actor.Fixture.UserId, actor.Fixture.DeviceId, connectionId, purpose, session, incarnation,
-            Convert.FromBase64String(challenge.GetProperty("challenge").GetString()!)));
-        await SendAsync(socket, new { type = "authenticate", signature = Convert.ToBase64String(signature) });
+        await SendAsync(socket, new { type = "hello", protocolVersion = 17, deviceId = actor.Fixture.DeviceId, deviceSession = actor.Session, incarnationId = incarnation });
         var ready = await JsonAsync(socket); Assert.Equal("ready", ready.GetProperty("type").GetString());
         return (socket, ready);
     }
@@ -139,7 +153,7 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
     public override async ValueTask DisposeAsync() { await base.DisposeAsync(); key.Dispose(); }
 }
 
-internal sealed record ApiDevice(HttpClient Client, string Token, DeviceFixture Fixture) : IDisposable
+internal sealed record ApiDevice(HttpClient Client, string Token, DeviceFixture Fixture, string Session) : IDisposable
 {
     public void Dispose() => Client.Dispose();
 }

@@ -1,5 +1,5 @@
 {
-  "terminalConnectionProtocolVersion": 16,
+  "terminalConnectionProtocolVersion": 17,
   "compatibilityPolicy": "exactMatch",
   "routes": {
     "host": "/ws/host/{sessionId}",
@@ -10,16 +10,17 @@
   "relayHandshake": {
     "messages": [
       "hello",
-      "challenge",
-      "authenticate",
-      "ready"
+      "ready",
+      "refused"
     ],
     "hello": [
       "protocolVersion",
       "deviceId",
+      "deviceSession",
       "incarnationId"
     ],
-    "proof": "device signature over authenticated user/device/connection/purpose/session/incarnation and fresh 32-byte challenge",
+    "proof": "the device session of the device; refused with reason deviceSession when the server does not hold it, and the device then opens a new session and connects again",
+    "admission": "the server registers the connection and then checks the device and the access again, so a change that is made at the same time refuses the connection",
     "purposes": [
       "host",
       "participant",

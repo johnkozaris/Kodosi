@@ -111,7 +111,7 @@ impl Runtime {
                     "terminal control requires a current subscription".to_owned(),
                 ));
             }
-            Command::Login {} | Command::Logout {} => {
+            Command::Login {} | Command::Logout {} | Command::DeleteAccount {} => {
                 self.job_capacity()?;
                 if self.auth_pending {
                     return Err(Error::Busy);
@@ -672,7 +672,10 @@ impl Runtime {
         generation: u64,
         result: Result<BackendReply>,
     ) {
-        let changes_account = matches!(command, Command::Login {} | Command::Logout {});
+        let changes_account = matches!(
+            command,
+            Command::Login {} | Command::Logout {} | Command::DeleteAccount {}
+        );
         if changes_account {
             self.auth_pending = false;
         }

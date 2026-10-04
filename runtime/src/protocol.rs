@@ -21,7 +21,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 46;
+pub const VERSION: u32 = 47;
 include!(concat!(env!("OUT_DIR"), "/network_versions.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 
@@ -44,6 +44,8 @@ pub enum Command {
     CancelLogin {},
     #[serde(rename = "auth.logout")]
     Logout {},
+    #[serde(rename = "auth.deleteAccount")]
+    DeleteAccount {},
     #[serde(rename = "auth.refresh")]
     RefreshAuth {},
     #[serde(rename = "devices.refresh")]
@@ -765,6 +767,7 @@ impl Command {
             Self::Login {} => "auth.login.start",
             Self::CancelLogin {} => "auth.login.cancel",
             Self::Logout {} => "auth.logout",
+            Self::DeleteAccount {} => "auth.deleteAccount",
             Self::RefreshAuth {} => "auth.refresh",
             Self::RefreshDevices {} => "devices.refresh",
             Self::RevokeDevice { .. } => "devices.revoke",
@@ -1144,6 +1147,7 @@ mod tests {
             "auth.login.start",
             "auth.login.cancel",
             "auth.logout",
+            "auth.deleteAccount",
             "auth.refresh",
             "devices.refresh",
             "devices.reset",
@@ -1236,7 +1240,7 @@ mod tests {
             invalid["retiredFeature"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 47);
+        assert_eq!(kinds.len(), 48);
     }
 
     #[test]

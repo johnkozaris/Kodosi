@@ -16,6 +16,18 @@ services:
     volumes:
       - kodosi-postgres:/var/lib/postgresql
 
+  migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__Kodosi: Host=postgres;Port=5432;Database=kodosi;Username=kodosi;Password=kodosi-local
+    restart: "no"
+
   backend:
     build:
       context: .
@@ -23,6 +35,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080

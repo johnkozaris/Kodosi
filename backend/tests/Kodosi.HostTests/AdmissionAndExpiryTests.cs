@@ -62,13 +62,15 @@ public sealed class AdmissionAndExpiryTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task AReadCompletesWhileAnotherReadHoldsAdmissionAndAChangeWaits()
+    public async Task AChangeWaitsOnlyForAnotherChangeOfTheSameAccount()
     {
         await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));
         using var owner = await app.EnrollAsync("owner");
+        using var other = await app.EnrollAsync("other");
         using var read = await SignedAsync(owner, HttpMethod.Get, "/api/sessions");
         using var change = await SignedAsync(owner, HttpMethod.Post, "/api/missions", new { id = Guid.CreateVersion7(), name = "Project" });
-        var reading = await app.Services.GetRequiredService<AdmissionGate>().EnterSharedAsync(TestContext.Current.CancellationToken);
+        using var separate = await SignedAsync(other, HttpMethod.Post, "/api/missions", new { id = Guid.CreateVersion7(), name = "Other" });
+        var changing = await app.Services.GetRequiredService<AccountGate>().EnterAsync(owner.Fixture.UserId, TestContext.Current.CancellationToken);
         Task<HttpResponseMessage> pending;
         try
         {
@@ -76,10 +78,12 @@ public sealed class AdmissionAndExpiryTests(PostgresFixture postgres)
                 .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.OK, listed.StatusCode);
             pending = owner.Client.SendAsync(change, TestContext.Current.CancellationToken);
-            using var health = await owner.Client.GetAsync("/health/ready", TestContext.Current.CancellationToken);
+            using var made = await other.Client.SendAsync(separate, TestContext.Current.CancellationToken)
+                .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, made.StatusCode);
             Assert.False(pending.IsCompleted);
         }
-        finally { reading.Dispose(); }
+        finally { changing.Dispose(); }
         using var changed = await pending;
         Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
     }
@@ -95,7 +99,7 @@ public sealed class AdmissionAndExpiryTests(PostgresFixture postgres)
         using var owner = await app.EnrollAsync("owner");
         using var friend = await app.EnrollAsync("friend");
         var scopes = app.Services.GetRequiredService<IServiceScopeFactory>();
-        using var cleanup = new PublicationCleanup(scopes, app.Services.GetRequiredService<AdmissionGate>(), clock, NullLogger<PublicationCleanup>.Instance);
+        using var cleanup = new PublicationCleanup(scopes, clock, NullLogger<PublicationCleanup>.Instance);
         Session Terminal(string name, bool ended) => new()
         {
             Id = Guid.CreateVersion7(),

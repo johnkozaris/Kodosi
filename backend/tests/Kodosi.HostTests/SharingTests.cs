@@ -60,6 +60,39 @@ public sealed class SharingTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task AccountDeleteNeedsARecentSignInAndRemovesTheAccountFromEveryOtherAccount()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var owner = await store.UserAsync("owner"); var friend = await store.UserAsync("friend");
+        await store.Friends.MutateAsync(owner.User.Id, "friend", "send", ct);
+        await store.Friends.MutateAsync(friend.User.Id, "owner", "accept", ct);
+        var (mine, theirs, mission) = (Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7());
+        var (mineIncarnation, theirIncarnation) = (Guid.CreateVersion7(), Guid.CreateVersion7());
+        await store.Missions.CreateAsync(owner.User.Id, new(mission, "Project"), ct);
+        await store.Sessions.CreateAsync(owner.User.Id, owner.Device, new(mine, mineIncarnation, "Mine", owner.Device.Id, "Host", null), ct);
+        await store.Sessions.CreateAsync(friend.User.Id, friend.Device, new(theirs, theirIncarnation, "Theirs", friend.Device.Id, "Host", null), ct);
+        await store.Sessions.ShareAsync(mine, owner.User.Id, owner.Device.Id, new(mineIncarnation, 1, [friend.User.Id]), ct);
+        await store.Sessions.ShareAsync(theirs, friend.User.Id, friend.Device.Id, new(theirIncarnation, 1, [owner.User.Id]), ct);
+        var signature = Convert.ToBase64String(new byte[IdentityWireFormat.MlDsa65SignatureLength]);
+        await store.Friends.ReplaceSignedListAsync(owner.User.Id, new(0, 1, Convert.ToBase64String([1]), signature), ct);
+        await Assert.ThrowsAsync<ApiException>(() => store.Accounts.DeleteAsync(owner.User.Id, null, ct));
+        await Assert.ThrowsAsync<ApiException>(() => store.Accounts.DeleteAsync(owner.User.Id, DateTimeOffset.UtcNow.AddHours(-1), ct));
+        Assert.Equal(2, await store.Db.Users.CountAsync(ct));
+        await store.Accounts.DeleteAsync(owner.User.Id, DateTimeOffset.UtcNow.AddMinutes(-1), ct);
+        store.Db.ChangeTracker.Clear();
+        Assert.Equal(friend.User.Id, (await store.Db.Users.SingleAsync(ct)).Id);
+        Assert.Equal(friend.Device.Id, (await store.Db.Devices.SingleAsync(ct)).Id);
+        var kept = await store.Db.Sessions.SingleAsync(ct);
+        Assert.Equal(theirs, kept.Id); Assert.Equal(3, kept.AuthorizationRevision);
+        Assert.Empty(await store.Db.SessionMembers.ToListAsync(ct));
+        Assert.Empty(await store.Db.Friendships.ToListAsync(ct));
+        Assert.Empty(await store.Db.Missions.ToListAsync(ct));
+        Assert.Empty(await store.Db.FriendLists.ToListAsync(ct));
+        Assert.Empty(await store.Db.DeviceLists.Where(x => x.UserId == owner.User.Id).ToListAsync(ct));
+    }
+
+    [Fact]
     public async Task FriendshipAndMissionMembershipDoNotGrantTerminals()
     {
         await using var store = await TestStore.CreateAsync(postgres);
