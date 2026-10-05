@@ -1,19 +1,9 @@
 use aws_lc_rs::signature::{ML_DSA_65_SIGNING, PqdsaKeyPair};
-use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use super::{Result, invalid};
 
 const SIGNATURE_BYTES: usize = 3309;
-
-pub fn sha256_hex(bytes: &[u8]) -> String {
-    use std::fmt::Write as _;
-    let mut result = String::with_capacity(64);
-    for byte in Sha256::digest(bytes) {
-        let _ = write!(result, "{byte:02x}");
-    }
-    result
-}
 
 pub fn signed_fields(domain: &[u8], fields: &[&[u8]]) -> Result<Vec<u8>> {
     let mut result = domain.to_vec();

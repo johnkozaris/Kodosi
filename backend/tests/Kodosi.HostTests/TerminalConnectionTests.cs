@@ -13,7 +13,7 @@ public sealed class TerminalConnectionTests
     private static (DeviceLink Link, CapturingSocket Socket) Device(Guid? user = null, string device = "viewer")
     {
         var socket = new CapturingSocket();
-        return (new DeviceLink(socket, user ?? Guid.CreateVersion7(), device, Guid.CreateVersion7().ToString()), socket);
+        return (new DeviceLink(socket, user ?? Guid.CreateVersion7(), device), socket);
     }
 
     private static async Task<JsonElement> MessageAsync(CapturingSocket socket, string type)
@@ -147,7 +147,7 @@ public sealed class TerminalConnectionTests
     {
         var directory = new ConnectionDirectory(); var state = Terminal();
         var (host, hostSocket) = Device(device: "host"); await using var disposeHost = host;
-        await using var slow = new DeviceLink(new FakeSocket(blockWrites: true), Guid.CreateVersion7(), "slow", Guid.CreateVersion7().ToString());
+        await using var slow = new DeviceLink(new FakeSocket(blockWrites: true), Guid.CreateVersion7(), "slow");
         directory.Register(host); directory.Register(slow); directory.Host(host, state);
         var pipe = Guid.CreateVersion7();
         directory.Open(slow, pipe, state);

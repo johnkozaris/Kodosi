@@ -152,9 +152,6 @@ public sealed partial class DeviceService(
         connections.Notify(userId, "devices");
     }
 
-    public async Task<IdentityBundle> IdentityAsync(Guid callerId, Guid userId, CancellationToken ct) =>
-        (await IdentityAsync(callerId, userId, null, ct)).Bundle!;
-
     public async Task<(IdentityBundle? Bundle, string Tag)> IdentityAsync(Guid callerId, Guid userId, string? known, CancellationToken ct)
     {
         if (callerId != userId)

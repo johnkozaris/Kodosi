@@ -53,11 +53,8 @@ impl From<SessionDto> for super::RemoteSession {
 
 pub(crate) fn encode_control(control: &TerminalControl) -> Result<Vec<u8>> {
     let value = match control {
-        TerminalControl::Input { bytes } => {
-            if bytes.len() > INPUT_LIMIT {
-                return Err(invalid("Terminal input exceeds its chunk limit."));
-            }
-            json!({"type":"input","bytes":BASE64.encode(bytes)})
+        TerminalControl::Input { .. } => {
+            return Err(invalid("Terminal input is not a control."));
         }
         TerminalControl::Resize {
             rows,
@@ -103,10 +100,6 @@ pub(crate) fn decode_control(value: &[u8], request_id: Uuid) -> Result<TerminalC
     let value: Value = serde_json::from_slice(value)?;
     let kind = text(&value, "type")?;
     match kind {
-        "input" => {
-            let bytes = decode_b64(&value, "bytes", INPUT_LIMIT)?;
-            Ok(TerminalControl::Input { bytes })
-        }
         "resize" => {
             let control = TerminalControl::Resize {
                 request_id: request_id.to_string(),
@@ -314,24 +307,5 @@ mod tests {
         let restored = snapshot(&parts.concat()).unwrap();
         assert_eq!(restored.semantic_checkpoint, body);
         assert!(snapshot(&parts[0]).is_err());
-    }
-
-    #[test]
-    fn retired_controls_do_not_decode() {
-        for kind in [
-            "suggest",
-            "semanticSend",
-            "permissionDecision",
-            "queue",
-            "steer",
-        ] {
-            assert!(
-                decode_control(
-                    &serde_json::to_vec(&json!({"type":kind})).unwrap(),
-                    Uuid::now_v7()
-                )
-                .is_err()
-            );
-        }
     }
 }

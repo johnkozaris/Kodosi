@@ -294,12 +294,25 @@ impl BackendClient {
         credentials: &Credentials,
         user_id: &str,
     ) -> Option<KeptIdentity> {
+        let now = identity::now_ms();
         self.inner
             .identities
             .lock()
             .ok()?
             .get(user_id)
-            .filter(|kept| kept.generation == credentials.generation)
+            .filter(|kept| {
+                kept.generation == credentials.generation
+                    && kept
+                        .identity
+                        .list
+                        .expires_at_ms
+                        .is_none_or(|expiry| now < expiry)
+                    && kept
+                        .identity
+                        .devices
+                        .values()
+                        .all(|certificate| certificate.is_valid_at(now))
+            })
             .cloned()
     }
 

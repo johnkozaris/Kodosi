@@ -64,7 +64,6 @@ pub(super) async fn run(
                 _ = trust.tick() => review(network, publication, &network.credentials()?, &viewers).await?,
                 Some(_) = tasks.join_next(), if !tasks.is_empty() => {}
                 event = hosted.events.recv() => match event.ok_or(Error::Closed)? {
-                    HostEvent::Hosted => {}
                     HostEvent::Refused(error) => return Err(error),
                     HostEvent::AccessChanged => review(network, publication, &network.credentials()?, &viewers).await?,
                     HostEvent::Viewer { pipe, user, device } => {

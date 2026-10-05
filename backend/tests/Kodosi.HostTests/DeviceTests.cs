@@ -59,12 +59,12 @@ public sealed class DeviceTests(PostgresFixture postgres)
         var second = new DeviceFixture(owner.User.Id, "second-device");
         await store.Devices.StartLinkAsync(owner.User.Id,
             new(second.DeviceId, "Second", Convert.ToBase64String(second.KemKey), Convert.ToBase64String(second.SigningKey), DeviceFixture.LinkNonce, DeviceFixture.LinkProof), ct);
-        var before = await store.Devices.IdentityAsync(owner.User.Id, owner.User.Id, ct);
+        var before = (await store.Devices.IdentityAsync(owner.User.Id, owner.User.Id, null, ct)).Bundle!;
         await Assert.ThrowsAsync<ApiException>(() => store.Devices.ResetIdentityAsync(owner.User.Id, null, ct));
         await Assert.ThrowsAsync<ApiException>(() => store.Devices.ResetIdentityAsync(owner.User.Id, DateTimeOffset.UtcNow - DeviceService.ReauthenticationWindow - TimeSpan.FromSeconds(1), ct));
         Assert.NotNull(await store.Devices.RequireDeviceAsync(owner.User.Id, owner.Device.Id, ct));
         await store.Devices.ResetIdentityAsync(owner.User.Id, DateTimeOffset.UtcNow.AddMinutes(-1), ct);
-        await Assert.ThrowsAsync<ApiException>(() => store.Devices.IdentityAsync(owner.User.Id, owner.User.Id, ct));
+        await Assert.ThrowsAsync<ApiException>(() => store.Devices.IdentityAsync(owner.User.Id, owner.User.Id, null, ct));
         await Assert.ThrowsAsync<ApiException>(() => store.Devices.RequireDeviceAsync(owner.User.Id, owner.Device.Id, ct));
         Assert.True((await store.Db.Devices.AsNoTracking().SingleAsync(x => x.Id == owner.Device.Id, ct)).Revoked);
         Assert.Equal("cancelled", (await store.Db.DeviceLinks.AsNoTracking().SingleAsync(x => x.DeviceId == second.DeviceId, ct)).State);
@@ -79,7 +79,7 @@ public sealed class DeviceTests(PostgresFixture postgres)
         await store.Devices.EnrollAsync(owner.User.Id, new(fresh.DeviceId, Convert.ToBase64String(fresh.KemKey), Convert.ToBase64String(fresh.SigningKey),
             challenge.GetProperty("challengeId").GetGuid(), Convert.ToBase64String(fresh.Sign(Proofs.Tagged(DomainTags.DevicePopV1, challengeBytes))),
             Convert.ToBase64String(cert), fresh.SignedCertificate(cert), Convert.ToBase64String(list), fresh.SignedList(list)), ct);
-        var after = await store.Devices.IdentityAsync(owner.User.Id, owner.User.Id, ct);
+        var after = (await store.Devices.IdentityAsync(owner.User.Id, owner.User.Id, null, ct)).Bundle!;
         Assert.NotEqual(before.IdentityIncarnationId, after.IdentityIncarnationId);
         Assert.Single(after.Devices);
         Assert.Equal(fresh.DeviceId, (await store.Devices.RequireDeviceAsync(owner.User.Id, fresh.DeviceId, ct)).Id);
@@ -96,7 +96,7 @@ public sealed class DeviceTests(PostgresFixture postgres)
         stored.Body = old; stored.Signature = owner.Fixture.Sign(Proofs.Tagged(DomainTags.DeviceListV1, old));
         stored.ExpiresAtMs = now - 60_000; stored.IssuedAtMs = now - 120_000; await store.Db.SaveChangesAsync(TestContext.Current.CancellationToken);
         await Assert.ThrowsAsync<ApiException>(() => store.Devices.RequireDeviceAsync(owner.User.Id, owner.Device.Id, TestContext.Current.CancellationToken));
-        Assert.NotNull(await store.Devices.IdentityAsync(owner.User.Id, owner.User.Id, TestContext.Current.CancellationToken));
+        Assert.NotNull((await store.Devices.IdentityAsync(owner.User.Id, owner.User.Id, null, TestContext.Current.CancellationToken)).Bundle);
         var fresh = DeviceFixture.ListBody(owner.User.Id, 2, [(owner.Device.Id, owner.Device.Id)], owner.Device.Id, now, now + 3_600_000);
         await store.Devices.ReplaceListAsync(owner.User.Id, new(Convert.ToBase64String(fresh), owner.Fixture.SignedList(fresh)), TestContext.Current.CancellationToken);
         Assert.NotNull(await store.Devices.RequireDeviceAsync(owner.User.Id, owner.Device.Id, TestContext.Current.CancellationToken));

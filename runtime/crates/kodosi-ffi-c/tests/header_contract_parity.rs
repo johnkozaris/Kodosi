@@ -6,39 +6,34 @@ fn header() -> &'static str {
 #[test]
 fn exported_contract_contains_only_current_entrypoints() {
     let text = header();
-    for name in [
-        "kodosi_start(",
-        "kodosi_stop(",
-        "kodosi_send_command(",
-        "kodosi_protocol_version(",
-        "kodosi_abi_version(",
-        "kodosi_terminal_input(",
-        "kodosi_terminal_connect(",
-        "kodosi_terminal_refresh(",
-        "kodosi_terminal_disconnect(",
-        "kodosi_last_start_failure(",
-        "kodosi_host_stop(",
-        "kodosi_cli_main(",
-        "kodosi_start_failure_t",
-    ] {
-        assert!(text.contains(name), "missing {name}");
+    let mut exported = std::collections::BTreeSet::new();
+    for (at, _) in text.match_indices("kodosi_") {
+        let name = &text[at..];
+        let end = name
+            .find(|symbol: char| !(symbol.is_ascii_alphanumeric() || symbol == '_'))
+            .unwrap_or(name.len());
+        if name[end..].starts_with('(') {
+            exported.insert(&name[..end]);
+        }
     }
-    for removed in [
-        "_v2",
-        "on_auth_event",
-        "on_agent_intel_event",
-        "on_agent_global_event",
-        "kodosi_send_sessions",
-        "kodosi_send_system",
-        "kodosi_send_agent_intel",
-        "PRESENTATION",
-        "_capability",
-    ] {
-        assert!(
-            !text.contains(removed),
-            "retired contract survived: {removed}"
-        );
-    }
+    assert_eq!(
+        exported.into_iter().collect::<Vec<_>>(),
+        [
+            "kodosi_abi_version",
+            "kodosi_cli_main",
+            "kodosi_host_stop",
+            "kodosi_last_start_failure",
+            "kodosi_protocol_version",
+            "kodosi_send_command",
+            "kodosi_start",
+            "kodosi_stop",
+            "kodosi_terminal_connect",
+            "kodosi_terminal_disconnect",
+            "kodosi_terminal_input",
+            "kodosi_terminal_refresh",
+        ]
+    );
+    assert!(text.contains("kodosi_start_failure_t"));
     assert!(text.contains("#define KODOSI_FFI_ABI_VERSION 7"));
 }
 

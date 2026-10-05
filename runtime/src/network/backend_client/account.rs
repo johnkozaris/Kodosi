@@ -242,6 +242,9 @@ impl BackendClient {
         state.changed_friends.clear();
         let secrets = state.secrets.clone();
         drop(state);
+        if let Ok(mut kept) = self.inner.sessions.lock() {
+            kept.clear();
+        }
         let result = if erase_tokens {
             let deletion = secrets.run(CancellationToken::new(), |store| store.delete("tokens"));
             tokio::time::timeout(Duration::from_secs(3), deletion)

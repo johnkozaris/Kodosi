@@ -56,11 +56,11 @@ internal static class ConnectionEndpoints
                 throw new ApiException(428, "A device session is required.");
             }
             await RequireDeviceAsync(scopes, current.Id, deviceId, handshakeDeadline.Token);
-            link = new DeviceLink(socket, current.Id, deviceId, Guid.CreateVersion7().ToString("D"));
+            link = new DeviceLink(socket, current.Id, deviceId);
             link.ExtendUntil(expires);
             directory.Register(link);
             await RequireDeviceAsync(scopes, current.Id, deviceId, handshakeDeadline.Token);
-            link.Send(new { type = "ready", connectionId = link.ConnectionId });
+            link.Send(new { type = "ready" });
             using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, link.Stopped, link.Expired);
             try { await ListenAsync(link, directory, scopes, metrics, lifetime.Token); }
             finally { await lifetime.CancelAsync(); }

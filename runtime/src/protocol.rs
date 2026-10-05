@@ -1237,7 +1237,7 @@ mod tests {
             let decoded: CommandEnvelope = serde_json::from_value(encoded).unwrap();
             assert_eq!(decoded.command, command.command);
             let mut invalid = envelope(sample);
-            invalid["retiredFeature"] = json!(true);
+            invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
         assert_eq!(kinds.len(), 48);
@@ -1319,12 +1319,6 @@ mod tests {
                 .is_err()
             );
         }
-        assert!(
-            serde_json::from_value::<CommandEnvelope>(envelope(
-                json!({"type":"mission.create","requestId":ID,"name":"Valid","slug":"retired"})
-            ))
-            .is_err()
-        );
         for (limit, max_bytes) in [(0, 4096), (501, 4096), (10, 1024 * 1024 + 1)] {
             assert!(serde_json::from_value::<CommandEnvelope>(envelope(json!({"type":"provider.readConversation","requestId":ID,"provider":"claude","nativeConversationId":ID,"workingDirectory":"/tmp","limit":limit,"maxBytes":max_bytes}))).is_err());
         }
@@ -1339,27 +1333,6 @@ mod tests {
         ));
         value["type"] = json!("session.stop");
         assert!(serde_json::from_value::<Command>(value).is_err());
-    }
-
-    #[test]
-    fn retired_commands_are_absent() {
-        for kind in [
-            "agent.intel.semanticSend",
-            "agent.intel.queryPendingPermissions",
-            "claude.global.refresh",
-            "session.scope",
-            "session.mode",
-            "session.reopen",
-            "session.inputBytes",
-            "mission.chatPost",
-            "mission.taskCreate",
-            "trust.reset",
-        ] {
-            assert!(
-                serde_json::from_value::<Command>(json!({"type":kind})).is_err(),
-                "{kind}"
-            );
-        }
     }
 
     #[test]
@@ -1388,7 +1361,7 @@ mod tests {
         let encoded = serde_json::to_value(event).unwrap();
         assert_eq!(encoded["result"], reply["result"]);
         assert!(Event::new(None,0,json!({"type":"provider.reply","requestId":ID,"operation":"provider.inspect","result":{"anything":true}})).is_err());
-        assert!(Event::new(None, 0, json!({"type":"agent.intel.snapshot"})).is_err());
+        assert!(Event::new(None, 0, json!({"type":"unknown.event"})).is_err());
         assert!(Event::new(None, 0, json!({"type":"auth.finalizing","extra":true})).is_err());
     }
 }

@@ -16,16 +16,15 @@ internal sealed class DeviceLink : IAsyncDisposable
     private DateTimeOffset expires;
     private long queued;
 
-    public DeviceLink(WebSocket socket, Guid userId, string deviceId, string connectionId)
+    public DeviceLink(WebSocket socket, Guid userId, string deviceId)
     {
-        Socket = socket; UserId = userId; DeviceId = deviceId; ConnectionId = connectionId;
+        Socket = socket; UserId = userId; DeviceId = deviceId;
         writer = WriteAsync();
     }
 
     public WebSocket Socket { get; }
     public Guid UserId { get; }
     public string DeviceId { get; }
-    public string ConnectionId { get; }
     public CancellationToken Stopped => stopped.Token;
     public CancellationToken Expired => expired.Token;
     public bool IsOpen => !stopped.IsCancellationRequested && Socket.State == WebSocketState.Open;

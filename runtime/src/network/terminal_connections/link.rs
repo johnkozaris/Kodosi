@@ -9,7 +9,6 @@ const PIPE_ID: usize = 16;
 const SILENCE: Duration = Duration::from_secs(45);
 
 pub(crate) enum HostEvent {
-    Hosted,
     Refused(Error),
     AccessChanged,
     Viewer {
@@ -276,13 +275,8 @@ impl Link {
         let outgoing = shared.outgoing.clone().ok_or(Error::Closed)?;
         match wire::text(value, "type")? {
             "ping" => drop(outgoing.control.send(text(&json!({"type":"pong"})))),
-            "pong" => {}
+            "pong" | "hosted" => {}
             "changed" => return Ok(Some(wire::text(value, "surface")?.to_owned())),
-            "hosted" => {
-                if let Some(hosting) = shared.hosting.get(&wire::id(value, "sessionId")?) {
-                    drop(hosting.events.try_send(HostEvent::Hosted));
-                }
-            }
             "unhosted" => {
                 if let Some(hosting) = shared.hosting.get_mut(&wire::id(value, "sessionId")?) {
                     hosting.announced = false;
@@ -358,7 +352,7 @@ pub(crate) async fn run(
     credentials: &Credentials,
     surfaces: &mpsc::UnboundedSender<String>,
 ) -> Result<()> {
-    let (socket, _ready) = socket(network, credentials).await?;
+    let socket = socket(network, credentials).await?;
     let (mut sink, mut stream) = socket.split();
     let (control, mut controls) = mpsc::unbounded_channel();
     let (frames, mut waiting) = mpsc::channel(WAITING_FRAMES);

@@ -28,7 +28,7 @@ public sealed class MissionTests(PostgresFixture postgres)
         await store.Sessions.CreateAsync(owner.User.Id, owner.Device, new(sessionId, incarnation, "Terminal", owner.Device.Id, "Host", missionId), TestContext.Current.CancellationToken);
         await store.Sessions.ShareAsync(sessionId, owner.User.Id, owner.Device.Id, new(incarnation, 1, [invitee.User.Id]), TestContext.Current.CancellationToken);
         var socket = new EventSocket();
-        await using var events = new DeviceLink(socket, invitee.User.Id, invitee.Device.Id, Guid.CreateVersion7().ToString());
+        await using var events = new DeviceLink(socket, invitee.User.Id, invitee.Device.Id);
         store.Connections.Register(events);
         await store.Missions.RenameAsync(missionId, owner.User.Id, "After", TestContext.Current.CancellationToken);
         Assert.Equal("sessions", await socket.NextSurfaceAsync());

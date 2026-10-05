@@ -78,16 +78,6 @@ pub(crate) struct State {
 impl BackendClient {
     pub fn new(config: BackendConfig) -> Result<Self> {
         let http = Http::new(config.api_url.clone())?;
-        for legacy in [
-            config.data_root.join("device-list-pins.json"),
-            config.data_root.join("network/device-list-pins.json"),
-        ] {
-            match std::fs::symlink_metadata(&legacy) {
-                Ok(_) => return Err(Error::Trust("Existing device trust uses an older store. Preserve it and migrate its pins before enabling remote access.".into())),
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
-                Err(error) => return Err(error.into()),
-            }
-        }
         let pins = Pins::load(config.data_root.join("network/device-pins.json"))?;
         let friend_lists = FriendLists::load(config.data_root.join("network/friend-lists.json"))?;
         let blocked_devices = match std::fs::read(
@@ -898,15 +888,11 @@ fn path_segment(value: &str) -> Result<String> {
     Ok(url.path().trim_start_matches('/').to_owned())
 }
 pub(crate) fn host_label() -> String {
-    [
-        std::env::var("HOSTNAME").ok(),
-        std::env::var("COMPUTERNAME").ok(),
-        system_computer_name(),
-    ]
-    .into_iter()
-    .flatten()
-    .find_map(|value| normalize_host_label(&value))
-    .unwrap_or_else(|| "Unnamed computer".to_owned())
+    [std::env::var("HOSTNAME").ok(), system_computer_name()]
+        .into_iter()
+        .flatten()
+        .find_map(|value| normalize_host_label(&value))
+        .unwrap_or_else(|| "Unnamed computer".to_owned())
 }
 
 fn system_computer_name() -> Option<String> {

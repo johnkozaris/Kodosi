@@ -96,14 +96,7 @@ impl BackendClient {
         let verified = self
             .fetch_identity_with(&credentials, &credentials.user_id)
             .await?;
-        let active = verified
-            .devices
-            .get(&credentials.keys.device_id)
-            .is_some_and(|cert| {
-                cert.sig_public_key == credentials.keys.signing_public()
-                    && cert.kem_public_key == credentials.keys.kem_public()
-            });
-        if !active {
+        if !super::device_identity::device_enrolled(&verified, &credentials) {
             self.suspend_transports().await;
             let mut next = credentials.clone();
             next.enrolled = false;

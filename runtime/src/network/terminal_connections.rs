@@ -161,7 +161,7 @@ pub(crate) async fn run_link(
     link::run(network, credentials, surfaces).await
 }
 
-async fn socket(network: &BackendClient, credentials: &Credentials) -> Result<(Socket, Value)> {
+async fn socket(network: &BackendClient, credentials: &Credentials) -> Result<Socket> {
     network.check_credentials(credentials)?;
     network.inner.http.compatible().await?;
     let device_session = network.inner.http.device_session(credentials).await?;
@@ -183,7 +183,7 @@ async fn admitted(
     network: &BackendClient,
     credentials: &Credentials,
     device_session: &str,
-) -> Result<Option<(Socket, Value)>> {
+) -> Result<Option<Socket>> {
     let url = network.inner.http.websocket_url("ws/device")?;
     let mut request = url
         .as_str()
@@ -211,7 +211,7 @@ async fn admitted(
     send_json(&mut socket, json!({"type":"hello","protocolVersion":crate::protocol::TERMINAL_CONNECTION_VERSION,"deviceId":credentials.keys.device_id,"deviceSession":device_session})).await?;
     let ready = read_json(&mut socket).await?;
     match wire::text(&ready, "type")? {
-        "ready" => Ok(Some((socket, ready))),
+        "ready" => Ok(Some(socket)),
         "refused" => Ok(None),
         _ => Err(invalid("The connection service did not admit this device.")),
     }

@@ -79,15 +79,11 @@ impl Config {
                 .ok()
                 .filter(|value| !value.is_empty()),
             oidc_issuer,
-            oidc_client_id: std::env::var("KODOSI__AUTH__CLIENT_ID")
-                .unwrap_or_else(|_| "kodosi-app".to_owned()),
-            oidc_scopes: std::env::var("KODOSI__AUTH__SCOPE")
-                .unwrap_or_else(|_| "openid profile offline_access".to_owned())
-                .split_whitespace()
+            oidc_client_id: "kodosi-app".to_owned(),
+            oidc_scopes: ["openid", "profile", "offline_access"]
                 .map(str::to_owned)
-                .collect(),
-            secret_service: std::env::var("KODOSI__AUTH__KEYRING_SERVICE")
-                .unwrap_or_else(|_| "com.kodosi.local".to_owned()),
+                .to_vec(),
+            secret_service: "com.kodosi.local".to_owned(),
             host: HostKind::App,
         })
     }

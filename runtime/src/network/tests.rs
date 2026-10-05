@@ -25,6 +25,13 @@ fn terminal_close_has_one_wire_action() {
         Ok(TerminalControl::Close)
     ));
     assert!(wire::decode_control(br#"{"type":"stop"}"#, Uuid::now_v7()).is_err());
+    assert!(wire::decode_control(br#"{"type":"input","bytes":"bHM="}"#, Uuid::now_v7()).is_err());
+    assert!(
+        wire::encode_control(&TerminalControl::Input {
+            bytes: b"ls".to_vec()
+        })
+        .is_err()
+    );
 }
 
 #[tokio::test]

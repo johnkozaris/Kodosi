@@ -15,18 +15,6 @@ fn fixture() -> (tempfile::TempDir, BackendClient) {
     (root, network)
 }
 
-#[test]
-fn legacy_identity_pins_are_not_silently_replaced() {
-    let (root, network) = fixture();
-    let legacy = root.path().join("device-list-pins.json");
-    std::fs::write(&legacy, b"existing trust").unwrap();
-    assert!(matches!(
-        BackendClient::new(network.inner.config.clone()),
-        Err(Error::Trust(_))
-    ));
-    assert_eq!(std::fs::read(legacy).unwrap(), b"existing trust");
-}
-
 #[tokio::test]
 async fn queued_command_never_becomes_a_new_account_request() {
     let (_root, network) = fixture();
