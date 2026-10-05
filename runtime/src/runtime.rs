@@ -19,7 +19,7 @@ use uuid::Uuid;
 use crate::{
     Command, CommandEnvelope, Config, Error, Event, Result,
     network::{
-        BackendClient, BackendConfig, BackendEvent, BackendReply, LocalPublication,
+        BackendClient, BackendConfig, BackendEvent, BackendReply, INPUT_NOT_SENT, LocalPublication,
         RemoteConnection, RemoteSession, TerminalControl,
     },
     protocol::{ConnectionState, SessionEntry, SessionKind, SessionStatus},
@@ -824,6 +824,15 @@ impl Runtime {
         server.shutdown().await;
     }
 
+    fn clear_input_notice(&mut self, session: Uuid) {
+        if let Some(entry) = self.remotes.get_mut(&session)
+            && entry.message.as_deref() == Some(INPUT_NOT_SENT)
+        {
+            entry.message = None;
+            self.publish_catalog();
+        }
+    }
+
     fn write_input(
         &mut self,
         session: Uuid,
@@ -844,6 +853,7 @@ impl Runtime {
                         terminal.write_input(connection, bytes).boxed()
                     }
                     TerminalTarget::Remote(terminal) => {
+                        self.clear_input_notice(session);
                         terminal.write_input(connection, bytes).boxed()
                     }
                 };
@@ -878,6 +888,7 @@ impl Runtime {
                         terminal.write_input(connection, bytes).boxed()
                     }
                     TerminalTarget::Remote(terminal) => {
+                        self.clear_input_notice(session);
                         terminal.write_input(connection, bytes).boxed()
                     }
                 };
@@ -1472,7 +1483,9 @@ impl Runtime {
             entry.connected_users.clear();
             if recovering {
                 entry.status = SessionStatus::Reconnecting;
-                entry.message = None;
+                entry.message = reason
+                    .ends_with(INPUT_NOT_SENT)
+                    .then(|| INPUT_NOT_SENT.to_owned());
             } else {
                 entry.connection_state = ConnectionState::Offline;
                 entry.message = Some(reason);

@@ -142,10 +142,14 @@
   },
   "output": {
     "start": "the first output-carrying frames of a channel are a keyframe; a view never starts in another way",
-    "sequence": "one for each terminal output chunk; keyframe.nextSequence is the sequence of the next output chunk",
+    "sequence": "one for each output chunk that the host sends on this channel; keyframe.nextSequence is the sequence of the next output chunk; resize.atSequence and end.finalSequence use the same count",
     "acknowledgement": "the viewer sends ack after each 4096 bytes and at most 100 ms after the last frame",
-    "window": "the host keeps at most half a second of output at the acknowledged speed in transit (minimum 16384 bytes, 65536 before the first measurement, maximum 8388608)",
-    "behind": "when output that waits for one viewer is more than the larger of its window and its last keyframe (maximum 8388608), the host drops it for that viewer and sends a new keyframe when all sent data is acknowledged",
+    "window": "the host keeps at most half a second of output at the measured speed in transit (minimum 4096 bytes, 16384 before the first measurement, maximum 8388608)",
+    "speed": "the host measures the acknowledged bytes for 200 ms or more while output waits for the window, while a keyframe is in transit, or while the viewer is behind; all data that is acknowledged in full also shows a least speed, which can only increase the value",
+    "behind": "when output that waits for one viewer is more than the larger of its window and its last screen repaint, the host drops it for that viewer and sends the current state when all sent data is acknowledged",
+    "currentState": "a keyframe when the last keyframe was at most half of the window or when the viewer sent refresh; if not, a screen repaint",
+    "screenRepaint": "a resize frame, then output frames that hold a full terminal reset (ESC c) and the visible screen, cursor, modes and styles of the host; it holds no history",
+    "exactAfterRepaint": "the host sends a keyframe after 2 seconds without output; the viewer installs it in place",
     "keyframeSpacingMilliseconds": 500,
     "refresh": "a viewer can ask for a new keyframe",
     "otherViewers": "not affected"

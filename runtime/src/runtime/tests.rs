@@ -759,11 +759,34 @@ fn first_snapshot() -> crate::network::RemoteUpdate {
     }
 }
 
-#[tokio::test]
-async fn an_open_view_stays_connected_and_reports_reconnecting_while_its_link_is_lost() {
-    let (mut runtime, _root) = registry_fixture();
-    let (id, incarnation) = (Uuid::now_v7(), Uuid::now_v7());
-    let remote = remote_session(id, incarnation);
+type RemoteState = (ConnectionState, SessionStatus, Option<String>);
+
+fn remote_state(runtime: &Runtime, id: Uuid) -> RemoteState {
+    let entry = &runtime.remotes[&id];
+    (entry.connection_state, entry.status, entry.message.clone())
+}
+
+fn connected(runtime: &mut Runtime, id: Uuid, result: Result<RemoteConnection>) {
+    let attempt = runtime.opening[&id].attempt;
+    runtime.complete(Job {
+        scope: runtime.scope.clone(),
+        completion: Completion::Connected {
+            id,
+            attempt,
+            result,
+        },
+    });
+}
+
+async fn open_view(
+    runtime: &mut Runtime,
+    remote: &RemoteSession,
+) -> (
+    Subscription,
+    mpsc::Receiver<crate::network::TestRemoteRequest>,
+    mpsc::Sender<crate::network::RemoteUpdate>,
+) {
+    let id = remote.id;
     runtime.replace_remotes(vec![remote.clone()]);
     runtime
         .apply_for_consumer(
@@ -775,33 +798,26 @@ async fn an_open_view_stays_connected_and_reports_reconnecting_while_its_link_is
             CancellationToken::new(),
         )
         .unwrap();
-    let state = |runtime: &Runtime| {
-        let entry = &runtime.remotes[&id];
-        (entry.connection_state, entry.status, entry.message.clone())
-    };
-    let connected = |runtime: &mut Runtime, result| {
-        let attempt = runtime.opening[&id].attempt;
-        runtime.complete(Job {
-            scope: runtime.scope.clone(),
-            completion: Completion::Connected {
-                id,
-                attempt,
-                result,
-            },
-        });
-    };
     let (connection, mut requests, updates) =
         crate::network::test_remote_connection(remote.clone());
-    connected(&mut runtime, Ok(connection));
+    connected(runtime, id, Ok(connection));
     assert_eq!(
-        state(&runtime),
+        remote_state(runtime, id),
         (ConnectionState::Connected, SessionStatus::Running, None)
     );
     let view = runtime.connections[&id].subscribe();
     requests.recv().await.unwrap();
     updates.send(first_snapshot()).await.unwrap();
-    let _view = view.await.unwrap();
+    (view.await.unwrap(), requests, updates)
+}
 
+async fn lose_link(
+    runtime: &mut Runtime,
+    remote: &RemoteSession,
+    updates: &mpsc::Sender<crate::network::RemoteUpdate>,
+    reason: &str,
+) {
+    let id = remote.id;
     updates
         .send(crate::network::RemoteUpdate::Closed {
             reason: "link lost".to_owned(),
@@ -815,35 +831,84 @@ async fn an_open_view_stays_connected_and_reports_reconnecting_while_its_link_is
         tokio::time::sleep(Duration::from_millis(5)).await;
     }
     let instance = runtime.connections[&id].instance_id;
-    runtime.remote_lost(
-        id,
-        incarnation,
-        instance,
-        "The connection has closed.".to_owned(),
-        true,
-    );
+    runtime.remote_lost(id, remote.incarnation_id, instance, reason.to_owned(), true);
+}
+
+fn reconnect(
+    runtime: &mut Runtime,
+    remote: &RemoteSession,
+) -> mpsc::Sender<crate::network::RemoteUpdate> {
+    runtime.reconnect.get_mut(&remote.id).unwrap().next = Instant::now();
+    runtime.reconnect_views();
+    let (again, _requests, updates) = crate::network::test_remote_connection(remote.clone());
+    connected(runtime, remote.id, Ok(again));
+    updates
+}
+
+#[tokio::test]
+async fn an_open_view_stays_connected_and_reports_reconnecting_while_its_link_is_lost() {
+    let (mut runtime, _root) = registry_fixture();
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let id = remote.id;
+    let (_view, _requests, updates) = open_view(&mut runtime, &remote).await;
+
+    lose_link(
+        &mut runtime,
+        &remote,
+        &updates,
+        "The connection has closed.",
+    )
+    .await;
     let reconnecting = (
         ConnectionState::Connected,
         SessionStatus::Reconnecting,
         None,
     );
-    assert_eq!(state(&runtime), reconnecting);
+    assert_eq!(remote_state(&runtime, id), reconnecting);
 
     runtime.reconnect.get_mut(&id).unwrap().next = Instant::now();
     runtime.reconnect_views();
-    assert_eq!(state(&runtime), reconnecting);
+    assert_eq!(remote_state(&runtime, id), reconnecting);
     connected(
         &mut runtime,
+        id,
         Err(Error::Other("The server did not respond.".to_owned())),
     );
-    assert_eq!(state(&runtime), reconnecting);
+    assert_eq!(remote_state(&runtime, id), reconnecting);
 
-    runtime.reconnect.get_mut(&id).unwrap().next = Instant::now();
-    runtime.reconnect_views();
-    let (again, _again_requests, _again_updates) = crate::network::test_remote_connection(remote);
-    connected(&mut runtime, Ok(again));
+    let _updates = reconnect(&mut runtime, &remote);
     assert_eq!(
-        state(&runtime),
+        remote_state(&runtime, id),
+        (ConnectionState::Connected, SessionStatus::Running, None)
+    );
+}
+
+#[tokio::test]
+async fn a_view_says_that_input_was_not_sent_until_the_next_input() {
+    let (mut runtime, _root) = registry_fixture();
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let id = remote.id;
+    let (_view, _requests, updates) = open_view(&mut runtime, &remote).await;
+    let notice = Some(INPUT_NOT_SENT.to_owned());
+
+    let reason = format!("The connection has closed. {INPUT_NOT_SENT}");
+    lose_link(&mut runtime, &remote, &updates, &reason).await;
+    assert_eq!(
+        remote_state(&runtime, id),
+        (
+            ConnectionState::Connected,
+            SessionStatus::Reconnecting,
+            notice.clone()
+        )
+    );
+    let _updates = reconnect(&mut runtime, &remote);
+    assert_eq!(
+        remote_state(&runtime, id),
+        (ConnectionState::Connected, SessionStatus::Running, notice)
+    );
+    runtime.clear_input_notice(id);
+    assert_eq!(
+        remote_state(&runtime, id),
         (ConnectionState::Connected, SessionStatus::Running, None)
     );
 }

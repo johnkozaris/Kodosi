@@ -10,7 +10,7 @@ use uuid::Uuid;
 use super::{Completion, Job, Local, MAX_SESSIONS, Opening, Runtime, Scope, StartedSession};
 use crate::{
     Command, Config, Error, Result,
-    network::{BackendReply, RemoteConnection},
+    network::{BackendReply, INPUT_NOT_SENT, RemoteConnection},
     protocol::{ConnectionState, SessionEntry, SessionKind, SessionStatus, parse_id},
     provider,
     terminal::{LocalSession, RemoteTerminal, SessionChange, TerminalPixelGeometry, TerminalSize},
@@ -385,7 +385,7 @@ impl Runtime {
             if !recovering {
                 entry.connection_state = ConnectionState::Connecting;
             }
-            entry.message = None;
+            entry.message.take_if(|message| message != INPUT_NOT_SENT);
         }
         self.publish_catalog();
         let network = self.network.clone();
@@ -747,10 +747,15 @@ impl Runtime {
                         },
                     );
                 }
+                let notice = self
+                    .remotes
+                    .get(&id)
+                    .and_then(|entry| entry.message.clone())
+                    .filter(|message| message == INPUT_NOT_SENT);
                 let mut entry = self.remote_entry(connection.session.clone());
                 entry.connection_state = ConnectionState::Connected;
                 entry.status = SessionStatus::Running;
-                entry.message = None;
+                entry.message = notice;
                 let resumed = self.connections.get(&id).is_some_and(|existing| {
                     existing.is_interrupted()
                         && existing.incarnation_id == connection.session.incarnation_id

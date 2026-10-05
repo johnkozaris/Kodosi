@@ -17,7 +17,7 @@ use super::subscribers::Subscribers;
 use super::{ControlFrame, DataFrame, Subscription, TerminalPixelGeometry, TerminalSize};
 use crate::{
     Error, Result,
-    network::{CheckpointCut, HostRequest, PublishedFrame, TerminalControl},
+    network::{CheckpointCut, HostRequest, PublishedFrame, ScreenCut, TerminalControl},
 };
 
 const COMMAND_CAPACITY: usize = 64;
@@ -955,6 +955,26 @@ impl LocalActor {
                                 .map_err(|_| "Terminal publication disconnected.".to_owned())?;
                             Ok(CheckpointCut {
                                 checkpoint: self.metadata_checkpoint(cut.checkpoint),
+                                next_sequence: cut.applied_sequence,
+                            })
+                        });
+                    drop(reply.send(result));
+                }
+            }
+            HostRequest::Screen { request_id, reply } => {
+                if !reply.is_closed() {
+                    let result = self
+                        .emulator
+                        .screen_data()
+                        .await
+                        .map_err(|error| error.to_string())
+                        .and_then(|cut| {
+                            self.output
+                                .send(PublishedFrame::BootstrapBarrier { request_id })
+                                .map_err(|_| "Terminal publication disconnected.".to_owned())?;
+                            Ok(ScreenCut {
+                                repaint: cut.repaint.into(),
+                                size: cut.size,
                                 next_sequence: cut.applied_sequence,
                             })
                         });

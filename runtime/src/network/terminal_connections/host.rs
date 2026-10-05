@@ -15,7 +15,8 @@ const VIEWERS: usize = 32;
 const HEARTBEAT: Duration = Duration::from_secs(15);
 const LATE_HEARTBEATS: u32 = 2;
 const KEYFRAME_SPACING: Duration = Duration::from_millis(500);
-const WAITING_OUTPUT_LIMIT: usize = 8 * 1024 * 1024;
+const EXACT_AFTER_QUIET: Duration = Duration::from_secs(2);
+const SCREEN_CHUNK: usize = 16 * 1024;
 const UNCONFIRMED_INPUT: u64 = 256 * 1024;
 const CONTROL_TIMEOUT: Duration = Duration::from_secs(12);
 
@@ -412,15 +413,21 @@ struct Controller {
 }
 
 enum Waiting {
-    Output {
-        sequence: u64,
-        bytes: Bytes,
-    },
-    Resize {
-        rows: u16,
-        cols: u16,
-        at_sequence: u64,
-    },
+    Output { sequence: Option<u64>, bytes: Bytes },
+    Resize { rows: u16, cols: u16 },
+}
+
+#[derive(PartialEq, Eq)]
+enum Exact {
+    Held,
+    Owed,
+    Due,
+}
+
+enum Captured<C> {
+    Cut(C),
+    Again,
+    Ended(End),
 }
 
 struct Stream<'a, T> {
@@ -430,12 +437,15 @@ struct Stream<'a, T> {
     controller: Controller,
     pacer: Pacer,
     parts: VecDeque<Bytes>,
-    parts_sequence: u64,
     waiting: VecDeque<Waiting>,
     waiting_bytes: usize,
     live: bool,
+    exact: Exact,
     next_sequence: u64,
+    wire_next: u64,
+    output_at: tokio::time::Instant,
     keyframe_bytes: usize,
+    screen_bytes: usize,
     keyframe_at: Option<tokio::time::Instant>,
     metadata: Option<TerminalMetadata>,
     heartbeat: u32,
@@ -465,12 +475,15 @@ impl<'a, T: Transport> Stream<'a, T> {
             controller,
             pacer: Pacer::default(),
             parts: VecDeque::new(),
-            parts_sequence: 0,
             waiting: VecDeque::new(),
             waiting_bytes: 0,
             live: false,
+            exact: Exact::Due,
             next_sequence: 0,
+            wire_next: 0,
+            output_at: tokio::time::Instant::now(),
             keyframe_bytes: 0,
+            screen_bytes: 0,
             keyframe_at: None,
             metadata: None,
             heartbeat: 0,
@@ -488,12 +501,15 @@ impl<'a, T: Transport> Stream<'a, T> {
         metadata.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
             if let Some(end) = self.advance().await? {
-                self.channel.send(&Frame::End(end)).await?;
+                self.channel.send(&self.end(end)).await?;
                 return Ok(());
             }
-            let capture = (!self.live && self.parts.is_empty() && self.pacer.in_transit() == 0)
+            let idle = self.parts.is_empty() && self.pacer.in_transit() == 0;
+            let capture = (!self.live && idle)
                 .then(|| self.keyframe_at.map(|at| at + KEYFRAME_SPACING))
                 .flatten();
+            let exact = (self.exact == Exact::Owed && self.live && idle && self.waiting.is_empty())
+                .then(|| self.output_at + EXACT_AFTER_QUIET);
             tokio::select! {
                 biased;
                 () = self.controller.authorization.cancelled() => return Ok(()),
@@ -509,7 +525,7 @@ impl<'a, T: Transport> Stream<'a, T> {
                 }
                 _ = heartbeat.tick() => {
                     self.heartbeat = self.heartbeat.wrapping_add(1);
-                    self.channel.send(&Frame::Heartbeat { number: self.heartbeat, next_sequence: self.next_sequence }).await?;
+                    self.channel.send(&Frame::Heartbeat { number: self.heartbeat, next_sequence: self.wire_next }).await?;
                 }
                 _ = metadata.tick(), if self.metadata.is_some() && self.live => {
                     if let Some(current) = self.metadata.take() {
@@ -521,20 +537,48 @@ impl<'a, T: Transport> Stream<'a, T> {
                     None => return Err(Error::Closed),
                 },
                 published = self.output.recv() => {
-                    if let Some(end) = self.published(published) {
-                        self.drain().await?;
-                        self.channel.send(&Frame::End(end)).await?;
-                        return Ok(());
+                    let mut next = Some(published);
+                    for _ in 0..wire::RAW_BATCH_LIMIT {
+                        let Some(published) = next.take() else { break };
+                        if let Some(end) = self.published(published) {
+                            self.drain().await?;
+                            self.channel.send(&self.end(end)).await?;
+                            return Ok(());
+                        }
+                        next = match self.output.try_recv() {
+                            Ok(frame) => Some(Ok(frame)),
+                            Err(broadcast::error::TryRecvError::Lagged(missed)) => {
+                                Some(Err(broadcast::error::RecvError::Lagged(missed)))
+                            }
+                            Err(broadcast::error::TryRecvError::Closed) => {
+                                Some(Err(broadcast::error::RecvError::Closed))
+                            }
+                            Err(broadcast::error::TryRecvError::Empty) => None,
+                        };
                     }
                 }
                 () = async { tokio::time::sleep_until(capture.unwrap_or_else(tokio::time::Instant::now)).await }, if capture.is_some() => {}
+                () = async { tokio::time::sleep_until(exact.unwrap_or_else(tokio::time::Instant::now)).await }, if exact.is_some() => {
+                    self.live = false;
+                    self.exact = Exact::Due;
+                }
             }
         }
+    }
+
+    fn end(&self, end: End) -> Frame {
+        Frame::End(End {
+            final_sequence: self
+                .wire_next
+                .saturating_add(end.final_sequence.saturating_sub(self.next_sequence)),
+            reason: end.reason,
+        })
     }
 
     async fn advance(&mut self) -> Result<Option<End>> {
         loop {
             if !self.live && self.parts.is_empty() && self.pacer.in_transit() == 0 {
+                self.pacer.idle();
                 if self
                     .keyframe_at
                     .is_some_and(|at| at.elapsed() < KEYFRAME_SPACING)
@@ -551,10 +595,14 @@ impl<'a, T: Transport> Stream<'a, T> {
             }
             let ready = !self.parts.is_empty() || (self.live && !self.waiting.is_empty());
             if !ready {
-                self.pacer.idle();
+                if self.live {
+                    self.pacer.idle();
+                } else {
+                    self.pacer.blocked();
+                }
                 return Ok(None);
             }
-            if !self.pacer.room(tokio::time::Instant::now()) {
+            if !self.pacer.room() {
                 return Ok(None);
             }
             self.send_next().await?;
@@ -564,37 +612,40 @@ impl<'a, T: Transport> Stream<'a, T> {
     async fn send_next(&mut self) -> Result<()> {
         let frame = if let Some(part) = self.parts.pop_front() {
             Frame::Keyframe {
-                next_sequence: self.parts_sequence,
+                next_sequence: self.wire_next,
                 more: !self.parts.is_empty(),
                 part,
             }
         } else {
             match self.waiting.pop_front() {
-                Some(Waiting::Resize {
+                Some(Waiting::Resize { rows, cols }) => Frame::Resize {
                     rows,
                     cols,
-                    at_sequence,
-                }) => Frame::Resize {
-                    rows,
-                    cols,
-                    at_sequence,
+                    at_sequence: self.wire_next,
                 },
                 Some(Waiting::Output { sequence, bytes }) => {
+                    let limit = wire::OUTPUT_FRAME.min(self.window());
                     let mut size = bytes.len();
+                    let mut last = sequence;
                     self.waiting_bytes -= bytes.len();
                     let mut chunks = vec![bytes];
                     while chunks.len() < wire::RAW_BATCH_LIMIT
                         && let Some(Waiting::Output { bytes, .. }) = self.waiting.front()
-                        && size + bytes.len() <= wire::OUTPUT_FRAME
-                        && let Some(Waiting::Output { bytes, .. }) = self.waiting.pop_front()
+                        && size + bytes.len() <= limit
+                        && let Some(Waiting::Output { sequence, bytes }) = self.waiting.pop_front()
                     {
                         size += bytes.len();
+                        last = sequence.or(last);
                         self.waiting_bytes -= bytes.len();
                         chunks.push(bytes);
                     }
-                    self.next_sequence = sequence + chunks.len() as u64;
+                    if let Some(last) = last {
+                        self.next_sequence = last + 1;
+                    }
+                    let first_sequence = self.wire_next;
+                    self.wire_next += chunks.len() as u64;
                     Frame::Output {
-                        first_sequence: sequence,
+                        first_sequence,
                         chunks,
                     }
                 }
@@ -603,47 +654,92 @@ impl<'a, T: Transport> Stream<'a, T> {
         };
         let sent = self.channel.send(&frame).await?;
         if frame.carries_output() {
-            self.pacer.sent(sent as u64);
+            self.pacer.sent(sent as u64, tokio::time::Instant::now());
+        }
+        if matches!(frame, Frame::Keyframe { .. }) {
+            self.pacer.bulk();
         }
         Ok(())
     }
 
-    async fn capture(&mut self) -> Result<Option<End>> {
+    async fn cut<C>(
+        &mut self,
+        request: impl FnOnce(Uuid, oneshot::Sender<std::result::Result<C, String>>) -> HostRequest,
+    ) -> Captured<C> {
         self.keyframe_at = Some(tokio::time::Instant::now());
         let marker = Uuid::now_v7();
         let (reply, response) = oneshot::channel();
-        if self
-            .requests
-            .try_send(HostRequest::Bootstrap {
-                request_id: marker,
-                reply,
-            })
-            .is_err()
-        {
-            return Ok(None);
+        if self.requests.try_send(request(marker, reply)).is_err() {
+            return Captured::Again;
         }
         let cut = match tokio::time::timeout(Duration::from_secs(5), response).await {
             Ok(Ok(Ok(cut))) => cut,
             Ok(Ok(Err(reason))) => {
                 tracing::warn!(%reason, "a terminal snapshot for a viewer failed; it will be tried again");
-                return Ok(None);
+                return Captured::Again;
             }
-            _ => return Ok(None),
+            _ => return Captured::Again,
         };
         match self.skip(marker) {
-            Skip::Reached => {}
-            Skip::Lost => return Ok(None),
-            Skip::Ended(end) => return Ok(Some(end)),
+            Skip::Reached => Captured::Cut(cut),
+            Skip::Lost => Captured::Again,
+            Skip::Ended(end) => Captured::Ended(end),
         }
+    }
+
+    async fn capture(&mut self) -> Result<Option<End>> {
+        if self.exact != Exact::Due && self.keyframe_bytes > self.window() / 2 {
+            return Ok(self.capture_screen().await);
+        }
+        let cut = match self
+            .cut(|request_id, reply| HostRequest::Bootstrap { request_id, reply })
+            .await
+        {
+            Captured::Cut(cut) => cut,
+            Captured::Again => return Ok(None),
+            Captured::Ended(end) => return Ok(Some(end)),
+        };
         self.parts = wire::snapshot_parts(&cut.checkpoint)?.into();
+        if self.keyframe_bytes == 0 {
+            self.wire_next = cut.next_sequence;
+        }
         self.keyframe_bytes = self.parts.iter().map(Bytes::len).sum();
-        self.parts_sequence = cut.next_sequence;
         self.next_sequence = cut.next_sequence;
         self.waiting.clear();
         self.waiting_bytes = 0;
         self.metadata = None;
         self.live = true;
+        self.exact = Exact::Held;
         Ok(None)
+    }
+
+    async fn capture_screen(&mut self) -> Option<End> {
+        let mut cut = match self
+            .cut(|request_id, reply| HostRequest::Screen { request_id, reply })
+            .await
+        {
+            Captured::Cut(cut) => cut,
+            Captured::Again => return None,
+            Captured::Ended(end) => return Some(end),
+        };
+        self.waiting.clear();
+        self.waiting_bytes = cut.repaint.len();
+        self.screen_bytes = cut.repaint.len();
+        self.waiting.push_back(Waiting::Resize {
+            rows: cut.size.rows(),
+            cols: cut.size.cols(),
+        });
+        while !cut.repaint.is_empty() {
+            let chunk = cut.repaint.split_to(cut.repaint.len().min(SCREEN_CHUNK));
+            self.waiting.push_back(Waiting::Output {
+                sequence: None,
+                bytes: chunk,
+            });
+        }
+        self.next_sequence = cut.next_sequence;
+        self.live = true;
+        self.exact = Exact::Owed;
+        None
     }
 
     fn skip(&mut self, marker: Uuid) -> Skip {
@@ -665,6 +761,10 @@ impl<'a, T: Transport> Stream<'a, T> {
                 Err(_) => return Skip::Lost,
             }
         }
+    }
+
+    fn window(&self) -> usize {
+        usize::try_from(self.pacer.window()).unwrap_or(usize::MAX)
     }
 
     fn behind(&mut self) {
@@ -692,10 +792,13 @@ impl<'a, T: Transport> Stream<'a, T> {
                     self.behind();
                     return None;
                 }
+                self.output_at = tokio::time::Instant::now();
                 self.waiting_bytes += bytes.len();
-                self.waiting.push_back(Waiting::Output { sequence, bytes });
-                let window = usize::try_from(self.pacer.window()).unwrap_or(WAITING_OUTPUT_LIMIT);
-                if self.waiting_bytes > self.keyframe_bytes.max(window).min(WAITING_OUTPUT_LIMIT) {
+                self.waiting.push_back(Waiting::Output {
+                    sequence: Some(sequence),
+                    bytes,
+                });
+                if self.waiting_bytes > self.screen_bytes.max(self.window()) {
                     self.behind();
                 }
             }
@@ -705,11 +808,7 @@ impl<'a, T: Transport> Stream<'a, T> {
                 at_sequence,
             }) => {
                 if self.live && at_sequence >= self.next_waiting() {
-                    self.waiting.push_back(Waiting::Resize {
-                        rows,
-                        cols,
-                        at_sequence,
-                    });
+                    self.waiting.push_back(Waiting::Resize { rows, cols });
                 }
             }
             Ok(PublishedFrame::Closed {
@@ -737,8 +836,11 @@ impl<'a, T: Transport> Stream<'a, T> {
             .iter()
             .rev()
             .find_map(|waiting| match waiting {
-                Waiting::Output { sequence, .. } => Some(sequence + 1),
-                Waiting::Resize { .. } => None,
+                Waiting::Output {
+                    sequence: Some(sequence),
+                    ..
+                } => Some(sequence + 1),
+                Waiting::Output { sequence: None, .. } | Waiting::Resize { .. } => None,
             })
             .unwrap_or(self.next_sequence)
     }
@@ -755,7 +857,10 @@ impl<'a, T: Transport> Stream<'a, T> {
             Frame::Ack { received } => self
                 .pacer
                 .acknowledge(received, tokio::time::Instant::now())?,
-            Frame::Refresh => self.behind(),
+            Frame::Refresh => {
+                self.exact = Exact::Due;
+                self.behind();
+            }
             Frame::Input {
                 offset,
                 heartbeat,

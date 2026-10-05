@@ -16,6 +16,7 @@ const FORMATTER_PROFILE_MAX_BYTES: usize = 8 * 1024 * 1024;
 
 const CLI_REPLAY_PREFIX: &[u8] = b"\x1b]8;;\x1b\\\x1b[0m\x1b[2J\x1b[3J\x1b[H";
 const CLI_REPLAY_SUFFIX: &[u8] = b"\x1b]8;;\x1b\\\x1b[0m";
+const SCREEN_REPAINT_RESET: &[u8] = b"\x1bc";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TerminalPolicy {
@@ -162,6 +163,7 @@ impl Terminal {
                 format: Format::Vt,
                 unwrap: false,
                 trim: false,
+                active_area: false,
                 screen: Some(active_screen),
                 palette: false,
                 modes: false,
@@ -183,6 +185,39 @@ impl Terminal {
         output.extend_from_slice(CLI_REPLAY_PREFIX);
         output.extend_from_slice(&screen_vt);
         output.extend_from_slice(CLI_REPLAY_SUFFIX);
+        Ok(output)
+    }
+
+    pub fn format_screen_repaint(&mut self) -> Result<Vec<u8>, Error> {
+        let active_screen = self.raw.state()?.active_screen;
+        let screen_vt = self.raw.format(
+            FormatOptions {
+                format: Format::Vt,
+                unwrap: false,
+                trim: false,
+                active_area: true,
+                screen: Some(active_screen),
+                palette: false,
+                modes: true,
+                scrolling_region: true,
+                tabstops: true,
+                pwd: true,
+                keyboard: true,
+                cursor: true,
+                style: true,
+                hyperlink: true,
+                protection: true,
+                kitty_keyboard: true,
+                charsets: true,
+            },
+            FORMATTER_PROFILE_MAX_BYTES,
+        )?;
+        let mut output = Vec::with_capacity(SCREEN_REPAINT_RESET.len() + 8 + screen_vt.len());
+        output.extend_from_slice(SCREEN_REPAINT_RESET);
+        if active_screen == Screen::Alternate {
+            output.extend_from_slice(b"\x1b[?1049h");
+        }
+        output.extend_from_slice(&screen_vt);
         Ok(output)
     }
 }
@@ -240,5 +275,68 @@ mod tests {
     #[test]
     fn semantic_checkpoint_restores_when_a_wrapped_line_is_longer_than_the_history() {
         assert_checkpoint_suffix_parity(100, 30, &vec![b'x'; 110_000], b"\r\nafter");
+    }
+
+    fn assert_repaint_parity(host_bytes: &[u8], viewer_bytes: &[u8], suffix: &[u8]) {
+        let mut host = Terminal::new(20, 4, TerminalPolicy::default()).expect("host");
+        host.write(host_bytes).expect("host bytes");
+        let mut viewer = Terminal::new(20, 4, TerminalPolicy::default()).expect("viewer");
+        viewer.write(viewer_bytes).expect("viewer bytes");
+        let repaint = host.format_screen_repaint().expect("repaint");
+        viewer.write(&repaint).expect("apply repaint");
+        host.write(suffix).expect("host suffix");
+        viewer.write(suffix).expect("viewer suffix");
+        assert_eq!(
+            viewer.format_screen_repaint().expect("viewer screen"),
+            host.format_screen_repaint().expect("host screen")
+        );
+        assert_eq!(
+            viewer.state().expect("viewer state"),
+            host.state().expect("host state")
+        );
+    }
+
+    #[test]
+    fn a_screen_repaint_gives_a_viewer_in_any_state_the_screen_cursor_and_modes_of_the_host() {
+        let cases: [(&[u8], &[u8]); 8] = [
+            (
+                b"short\r\nrow",
+                b"a much longer line here\r\nand another long one\r\nthird\r\nfourth",
+            ),
+            (b"primary text", b"\x1b[?1049halternate junk"),
+            (
+                b"primary\x1b[?1049h\x1b[2;3Halternate",
+                b"viewer primary text\r\nmore",
+            ),
+            (b"plain", b"\x1b[?25l\x1b[2;3r\x1b[?6hxx"),
+            (
+                b"plain",
+                b"\x1b[?2004h\x1b[?1h\x1b[?1000h\x1b[?1006h\x1b[?7l\x1b[4h\x1b[>1u\x1b=",
+            ),
+            (
+                b"\x1b[?2004h\x1b[?1h\x1b[?25l\x1b[2;3r\x1b[1;31mred",
+                b"plain",
+            ),
+            (b"12345678901234567890", b"\x1b[1;31m\x1b(0qqq"),
+            (b"one\r\ntwo\r\nthree\r\nfour\r\nfive\r\nsix", b""),
+        ];
+        for (host, viewer) in cases {
+            assert_repaint_parity(host, viewer, b"");
+            assert_repaint_parity(host, viewer, b"Z\r\nnext \x1b[4mline\x1b[0m\ttab");
+        }
+    }
+
+    #[test]
+    fn a_screen_repaint_holds_the_visible_rows_and_no_history() {
+        let mut host = Terminal::new(20, 4, TerminalPolicy::default()).expect("host");
+        for line in 0..500 {
+            host.write(format!("history line {line}\r\n").as_bytes())
+                .expect("write");
+        }
+        let repaint = host.format_screen_repaint().expect("repaint");
+        let text = String::from_utf8_lossy(&repaint);
+        assert!(text.contains("history line 499"));
+        assert!(!text.contains("history line 400"));
+        assert!(repaint.len() < 400, "{} bytes", repaint.len());
     }
 }

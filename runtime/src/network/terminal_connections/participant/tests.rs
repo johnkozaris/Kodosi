@@ -211,7 +211,7 @@ async fn input_goes_at_once_in_order_and_waits_only_when_too_much_is_not_confirm
 }
 
 #[tokio::test]
-async fn a_lost_connection_names_the_input_that_the_host_did_not_confirm() {
+async fn a_lost_connection_says_that_input_was_not_sent_when_the_host_did_not_confirm_all_of_it() {
     let mut view = view().await;
     view.keyframe(0, 100).await;
     view.updates.recv().await.unwrap();
@@ -224,7 +224,7 @@ async fn a_lost_connection_names_the_input_that_the_host_did_not_confirm() {
     view.host.close().await;
     let (result, reason) = view.ended.await.unwrap();
     assert!(result.is_err());
-    assert!(reason.contains("last 3 bytes"), "{reason}");
+    assert_eq!(reason, "Lost. Some of your last input was not sent.");
 }
 
 #[tokio::test]

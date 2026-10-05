@@ -178,6 +178,12 @@ pub struct CheckpointCut {
     pub next_sequence: u64,
 }
 
+pub struct ScreenCut {
+    pub repaint: Bytes,
+    pub size: crate::terminal::TerminalSize,
+    pub next_sequence: u64,
+}
+
 pub enum HostRequest {
     ResetPresence,
     Connected {
@@ -187,6 +193,10 @@ pub enum HostRequest {
     Bootstrap {
         request_id: Uuid,
         reply: oneshot::Sender<std::result::Result<CheckpointCut, String>>,
+    },
+    Screen {
+        request_id: Uuid,
+        reply: oneshot::Sender<std::result::Result<ScreenCut, String>>,
     },
     Control {
         sender_user_id: String,
@@ -330,7 +340,7 @@ pub type PublicationOutput = broadcast::Receiver<PublishedFrame>;
 
 #[cfg(test)]
 pub(crate) use terminal_connections::RemoteRequest as TestRemoteRequest;
-pub(crate) use terminal_connections::STABLE_CONNECTION;
+pub(crate) use terminal_connections::{INPUT_NOT_SENT, STABLE_CONNECTION};
 
 #[cfg(test)]
 pub(crate) fn test_remote_connection(

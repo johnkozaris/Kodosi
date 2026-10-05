@@ -203,7 +203,7 @@ impl<T: Transport> Viewer<T> {
     fn unconfirmed(&self, reason: String) -> String {
         match self.input_sent - self.input_confirmed {
             0 => reason,
-            bytes => format!("{reason} The host did not confirm the last {bytes} bytes of input."),
+            _ => format!("{reason} {INPUT_NOT_SENT}"),
         }
     }
 

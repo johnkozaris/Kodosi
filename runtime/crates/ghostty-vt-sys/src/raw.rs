@@ -42,6 +42,7 @@ pub struct FormatOptions {
     pub format: Format,
     pub unwrap: bool,
     pub trim: bool,
+    pub active_area: bool,
     pub screen: Option<Screen>,
     pub palette: bool,
     pub modes: bool,
@@ -339,6 +340,10 @@ impl Terminal {
     ) -> Result<Vec<u8>, Error> {
         self.ensure_healthy()?;
         let screen = options.screen.map(screen_to_raw);
+        let selection = options
+            .active_area
+            .then(|| self.active_area())
+            .transpose()?;
         let raw_options = GhosttyFormatterTerminalOptions {
             size: mem::size_of::<GhosttyFormatterTerminalOptions>(),
             emit: match options.format {
@@ -365,7 +370,7 @@ impl Terminal {
                     charsets: options.charsets,
                 },
             },
-            selection: ptr::null(),
+            selection: selection.as_ref().map_or(ptr::null(), ptr::from_ref),
             screen: screen.as_ref().map_or(ptr::null(), ptr::from_ref),
         };
         let mut formatter = ptr::null_mut();
@@ -410,6 +415,31 @@ impl Terminal {
         bytes.truncate(written);
         self.ensure_healthy()?;
         Ok(bytes)
+    }
+
+    fn active_area(&mut self) -> Result<GhosttySelection, Error> {
+        let state = self.state()?;
+        let corner = |x: u16, y: u16| {
+            let mut point = GhosttyPoint {
+                tag: GhosttyPointTag_GHOSTTY_POINT_TAG_ACTIVE,
+                ..GhosttyPoint::default()
+            };
+            point.value.coordinate = GhosttyPointCoordinate { x, y: u32::from(y) };
+            let mut reference = GhosttyGridRef {
+                size: mem::size_of::<GhosttyGridRef>(),
+                ..GhosttyGridRef::default()
+            };
+            result(unsafe {
+                ghostty_terminal_grid_ref(self.raw, point, ptr::from_mut(&mut reference))
+            })?;
+            Ok::<_, Error>(reference)
+        };
+        Ok(GhosttySelection {
+            size: mem::size_of::<GhosttySelection>(),
+            start: corner(0, 0)?,
+            end: corner(state.cols.saturating_sub(1), state.rows.saturating_sub(1))?,
+            rectangle: false,
+        })
     }
 
     pub fn state(&mut self) -> Result<TerminalState, Error> {
@@ -1069,6 +1099,7 @@ mod tests {
             .format(
                 FormatOptions {
                     format: Format::Plain,
+                    active_area: false,
                     unwrap: false,
                     trim: true,
                     screen: Some(Screen::Primary),

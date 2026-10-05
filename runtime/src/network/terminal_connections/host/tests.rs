@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{
     identity::keys::DeviceKeys,
-    network::CheckpointCut,
+    network::{CheckpointCut, ScreenCut},
     terminal::{Checkpoint, TerminalScreen, TerminalSize},
 };
 
@@ -17,6 +17,7 @@ struct Terminal {
     viewer: Channel<Pipe>,
     received: u64,
     heartbeat: u32,
+    delay: Duration,
     served: tokio::task::JoinHandle<Result<()>>,
 }
 
@@ -61,6 +62,8 @@ impl Terminal {
                     part,
                 } => {
                     size += part.len();
+                    tokio::time::sleep(self.delay).await;
+                    self.acknowledge().await;
                     if !more {
                         return (next_sequence, size);
                     }
@@ -69,7 +72,17 @@ impl Terminal {
             }
         }
     }
+
+    async fn flood(&self) {
+        let line = noise(4096);
+        for _ in 0..200 {
+            self.write(&line);
+        }
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
 }
+
+const SCREEN: &[u8] = b"\x1bcthe visible screen";
 
 async fn terminal(snapshot_bytes: usize) -> Terminal {
     let (host, viewer) = (
@@ -99,6 +112,14 @@ async fn terminal(snapshot_bytes: usize) -> Terminal {
                     drop(barrier.send(PublishedFrame::BootstrapBarrier { request_id }));
                     drop(reply.send(Ok(CheckpointCut {
                         checkpoint,
+                        next_sequence: current.load(Ordering::SeqCst),
+                    })));
+                }
+                HostRequest::Screen { request_id, reply } => {
+                    drop(barrier.send(PublishedFrame::BootstrapBarrier { request_id }));
+                    drop(reply.send(Ok(ScreenCut {
+                        repaint: Bytes::from_static(SCREEN),
+                        size: TerminalSize::new(30, 100).unwrap(),
                         next_sequence: current.load(Ordering::SeqCst),
                     })));
                 }
@@ -140,6 +161,7 @@ async fn terminal(snapshot_bytes: usize) -> Terminal {
         viewer,
         received: 0,
         heartbeat: 0,
+        delay: Duration::ZERO,
         served,
     }
 }
@@ -173,29 +195,78 @@ async fn a_view_starts_with_the_current_screen_and_then_gets_output_in_order() {
 #[tokio::test]
 async fn a_view_that_falls_behind_gets_the_current_screen_and_not_the_backlog() {
     let mut terminal = terminal(100).await;
+    terminal.delay = Duration::from_millis(100);
     let (first, _) = terminal.keyframe().await;
     assert_eq!(first, 0);
-    terminal.acknowledge().await;
-    let line = noise(4096);
-    for _ in 0..200 {
-        terminal.write(&line);
-    }
-    tokio::time::sleep(Duration::from_millis(200)).await;
-    terminal.write(b"last");
-    let mut delivered = 0;
+    terminal.flood().await;
+    let mut expected = first;
     loop {
         let frame = terminal.next().await;
         terminal.acknowledge().await;
         match frame {
-            Frame::Output { chunks, .. } => delivered += chunks.len(),
+            Frame::Output {
+                first_sequence,
+                chunks,
+            } => {
+                assert_eq!(first_sequence, expected);
+                expected += chunks.len() as u64;
+            }
             Frame::Keyframe { next_sequence, .. } => {
-                assert_eq!(next_sequence, 201);
+                assert_eq!(next_sequence, expected);
                 break;
             }
             _ => {}
         }
     }
-    assert!(delivered < 100, "{delivered} chunks were delivered");
+    assert!(expected < 100, "{expected} chunks were delivered");
+    terminal.write(b"last");
+    let Frame::Output {
+        first_sequence,
+        chunks,
+    } = terminal.next().await
+    else {
+        panic!("output");
+    };
+    assert_eq!((first_sequence, &chunks[0][..]), (expected, &b"last"[..]));
+}
+
+#[tokio::test]
+async fn a_slow_view_that_falls_behind_gets_the_visible_screen_first_and_the_exact_state_when_output_is_quiet()
+ {
+    let mut terminal = terminal(400_000).await;
+    terminal.delay = Duration::from_millis(50);
+    let (first, exact) = terminal.keyframe().await;
+    terminal.flood().await;
+    let mut expected = first;
+    let mut screens = 0;
+    loop {
+        let frame = terminal.next().await;
+        terminal.acknowledge().await;
+        match frame {
+            Frame::Resize {
+                rows,
+                cols,
+                at_sequence,
+            } => assert_eq!((rows, cols, at_sequence), (30, 100, expected)),
+            Frame::Output {
+                first_sequence,
+                chunks,
+            } => {
+                assert_eq!(first_sequence, expected);
+                expected += chunks.len() as u64;
+                if chunks.iter().any(|chunk| chunk == SCREEN) {
+                    screens += 1;
+                    terminal.write(b"after the screen");
+                } else if chunks.iter().any(|chunk| &chunk[..] == b"after the screen") {
+                    break;
+                }
+            }
+            other => panic!("a slow view got {other:?} in place of the visible screen"),
+        }
+    }
+    assert_eq!(screens, 1);
+    let (next_sequence, size) = terminal.keyframe().await;
+    assert_eq!((next_sequence, size), (expected, exact));
 }
 
 #[tokio::test]
@@ -208,7 +279,7 @@ async fn a_large_snapshot_waits_for_the_viewer_between_its_parts() {
         parts += usize::from(matches!(frame, Frame::Keyframe { .. }));
     }
     assert!(
-        (2..=3).contains(&parts),
+        (1..=2).contains(&parts),
         "{parts} parts went without an acknowledgement"
     );
 }

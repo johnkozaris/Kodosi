@@ -56,6 +56,12 @@ pub(super) struct CheckpointWithSequence {
     pub applied_sequence: u64,
 }
 
+pub(super) struct ScreenWithSequence {
+    pub repaint: Vec<u8>,
+    pub size: TerminalSize,
+    pub applied_sequence: u64,
+}
+
 pub(super) struct SessionTerminalHandle {
     command_tx: tokio_mpsc::Sender<TerminalCommand>,
 }
@@ -73,6 +79,9 @@ enum TerminalCommand {
     },
     CheckpointData {
         reply_tx: oneshot::Sender<Result<CheckpointWithSequence>>,
+    },
+    ScreenData {
+        reply_tx: oneshot::Sender<Result<ScreenWithSequence>>,
     },
     SetFocused {
         focused: bool,
@@ -175,6 +184,11 @@ impl SessionTerminalHandle {
 
     pub(super) async fn checkpoint_data(&self) -> Result<CheckpointWithSequence> {
         self.request(|reply_tx| TerminalCommand::CheckpointData { reply_tx })
+            .await
+    }
+
+    pub(super) async fn screen_data(&self) -> Result<ScreenWithSequence> {
+        self.request(|reply_tx| TerminalCommand::ScreenData { reply_tx })
             .await
     }
 
@@ -306,6 +320,21 @@ impl SessionTerminal {
         })?;
         Ok(CheckpointWithSequence {
             checkpoint,
+            applied_sequence: self.applied,
+        })
+    }
+
+    fn screen_data(&mut self) -> Result<ScreenWithSequence> {
+        let repaint = self
+            .terminal
+            .format_screen_repaint()
+            .map_err(terminal_error)?;
+        let state = self.terminal.state().map_err(terminal_error)?;
+        Ok(ScreenWithSequence {
+            repaint,
+            size: TerminalSize::new(state.rows, state.cols).map_err(|error| {
+                KodosiError::Unsupported(format!("terminal screen size failed: {error}"))
+            })?,
             applied_sequence: self.applied,
         })
     }
@@ -482,6 +511,9 @@ async fn terminal_actor_main(
                             compression.restart_idle();
                         }
                         drop(reply_tx.send(result));
+                    }
+                    TerminalCommand::ScreenData { reply_tx } => {
+                        drop(reply_tx.send(terminal.screen_data()));
                     }
                     TerminalCommand::SetFocused { focused, reply_tx } => {
                         drop(reply_tx.send(terminal.terminal.encode_focus(focused).map_err(terminal_error)));
