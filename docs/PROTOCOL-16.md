@@ -1,10 +1,9 @@
-# Kodosi protocol 16: state and remaining work
+# Kodosi protocol 16: reasons and results
 
-Protocol 16 replaces the shared session key of protocol 15 with one encrypted
-channel for each viewer device. This file holds only what the code and
-`protocol/*.json` do not hold yet: the reasons, the measured results, and the
-work that remains. When a part is built, move its contract to `protocol/*.json`
-and delete it here.
+Protocol 16 replaced the shared session key of protocol 15 with one encrypted
+channel for each viewer device. All parts are built. This file holds only what
+the code and `protocol/*.json` do not hold: the reasons, the measured results,
+the parts that were decided against, and the risks that stay.
 
 Words: **Host** is the device that runs the terminal. **Viewer** is a device
 that shows and controls it. **Owner** is the account of the host. **Relay** is
@@ -49,6 +48,18 @@ Design choices:
 - The host keeps a stream for each viewer: window of half a second at the speed
   that the viewer acknowledges, the current screen in place of a backlog, input
   and results before waiting output.
+- A viewer that falls behind gets the current state. When a full snapshot is
+  more than a quarter of a second of its link, the state is a repaint of the
+  visible screen, cursor and modes, sent as ordinary output. The host sends
+  the exact snapshot after 2 seconds without output. The repaint is made by the
+  terminal library formatter, so it needed no library change and no new frame.
+  The view has no history from before the repaint until the exact snapshot
+  arrives.
+- The host learns the speed of a link from the first snapshot: data that is
+  acknowledged in full shows a least speed. It also measures while output
+  waits, while a snapshot is in transit and while the viewer is behind.
+- A viewer answers each heartbeat. Before, the relay closed a view that was
+  idle for 90 seconds, and the view connected again.
 - Input is one ordered byte stream. The view sends without waiting; the host
   confirms in order; nothing is sent again after a lost connection; the host
   refuses input that was held back.
@@ -65,16 +76,16 @@ Measured in the local end-to-end setup (release build, one computer):
 | Hold a key, 150 ms round trip: last echo after release | 14.5 s | 0.1 s |
 | Ctrl-C by a friend in an endless flood, host uplink 1 Mbit/s | 5.2 s | 0.5 s |
 | The same, viewer link 1 Mbit/s and 100 ms round trip | not measured | 0.7 s |
-| The same, 128 kbit/s on either side | view closed | 2.6 s to 3.6 s |
+| The same, viewer link 128 kbit/s | view closed | 0.3 s to 0.4 s (2.6 s to 3.6 s before the screen repaint) |
+| The same, viewer link 64 kbit/s | view closed | 0.4 s |
 | Paste of 1 MB through a remote view | stopped at 355 KB | identical file |
 | Sharing change while a second friend watches | all views get a new key and a new snapshot | the friend's view gets nothing |
 | Server stops for 3 s | views closed | views stay open and continue |
 | Join of a terminal with one line of 300,000 characters | reconnect loop | joins |
 
-Known limit: at 128 kbit/s under an endless flood the delay is the time to send
-one full snapshot (screen plus 1,024 history lines). A snapshot of the visible
-screen only would make it about half a second. The terminal library snapshot
-has no history limit today, so this needs a library change.
+Known limit: a join sends about 50 KB (two identity records and the first
+snapshot). In the test a link of 64 kbit/s opened a view and a link of
+32 kbit/s did not open it in the 10 second limit.
 
 An open view of a remote terminal reports `connectionState: connected` with
 `status: reconnecting` while its link is lost, and `running` again when the new
@@ -180,22 +191,41 @@ Not built, by decision: requests through one WebSocket. HTTP requests with a
 session have the same cost for the server, keep their own time limits and
 errors, and work when the event socket is down.
 
-## 6. Remaining: direct path
+## 6. Built: direct path on one local network (contract in `protocol/terminal-connections.json`, `direct`)
 
-Inside an open channel the two sides try a direct QUIC connection (`iroh`, with
-relay fallback). When it works, the viewer makes a new channel on it and closes
-the relay pipe after the first keyframe. The channel is the same on each
-transport. One setting, "Use direct connections", default on: a person who
-shares a terminal with you already gives you full control of a program on
-their computer, so hiding addresses between such people by default costs speed
-and buys little.
+- A host listens on TCP on its private IPv4 address. In `accept`, inside the
+  encrypted relay channel, it gives the viewer the address and a random token.
+- A viewer tries the address only when it is in its own /24 network, with a
+  limit of 400 ms. An address that failed is not tried again for 10 minutes.
+  A view between different networks does not try; it starts after one more
+  relay round trip (`start`).
+- The direct connection is the same TLS channel with the same key checks. The
+  host also requires the key of the device that it admitted for the token.
+- The relay channel stays open and carries only heartbeats. When the server or
+  one side closes it, the direct connection ends. Thus a removed device, an
+  expired sign-in and a sharing change end a direct view as they end a relay
+  view, and the server needed no change.
+- No setting in the apps. A direct connection is made only between devices that
+  can already see each other on one network, the fallback is automatic, and
+  the user has nothing to decide. `KODOSI__NETWORK__DIRECT=false` stops it on
+  one device. A host behind a firewall that blocks unknown ports gets no
+  direct views until its owner sets `KODOSI__NETWORK__DIRECT_PORT` and allows
+  that port; until then its views use the relay.
 
-## 7. Remaining: client marks
+Decided against:
 
-- After a lost connection the view says "Some of your last input was not sent"
-  when the host did not confirm all input. Today this is only in the reason
-  text of the lost connection.
-- Qt: remove the limit of 20 tries for a view that is attached.
+- **QUIC with hole punching (`iroh`) between different networks.** It needs
+  discovery and relay servers from a third party or a second server process,
+  and a large dependency. Views between different networks use the relay.
+- **Closing the relay pipe after the direct connection is open.** The server
+  could then not end a view when a device is removed or a sign-in expires.
+
+## 7. Built: client marks
+
+- After a lost connection the view says "Some of your last input was not sent."
+  when the host did not confirm all input. The text stays in the tile header
+  until the next input.
+- Qt: the limit of 20 tries for an attached view is removed.
 
 ## 8. Order of work
 
@@ -205,11 +235,7 @@ and buys little.
 | done | Device link with one typed code in all three clients | section 3 |
 | done | Friend records, invite text, no first use in all three clients | section 4 |
 | done | Device session and server items | section 5 |
-| last | Direct path (6); screen-only keyframe (2); client marks (7) | two computers on different networks |
-
-Each step keeps `just check-all` green, is tested on Linux x86-64 (`ssh lenovo`),
-and changes the command-line app, the Qt app and the Mac app together when a
-user surface changes.
+| done | Screen repaint (2); direct path (6); client marks (7) | sections 2 and 6 |
 
 ## 9. Risks that stay
 
@@ -223,3 +249,6 @@ user surface changes.
   frame size, also with padding and with each frame packed alone.
 - The server can stop or delay service. It cannot deliver old input.
 - A stolen device has the access of that device until an owner removes it.
+- A device with a direct path has one open TCP port on its local network. A
+  connection gets no data before it proves a device key and a token.
+- The host and the viewer of a direct view see the local address of each other.

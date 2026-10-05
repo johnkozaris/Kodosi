@@ -9,21 +9,33 @@ use crate::{
 
 struct View {
     host: Channel<Pipe>,
+    relay: Option<Channel<Pipe>>,
     commands: mpsc::Sender<RemoteRequest>,
     updates: mpsc::Receiver<RemoteUpdate>,
     ended: tokio::task::JoinHandle<(Result<()>, String)>,
 }
 
 async fn view() -> View {
+    view_on(false).await
+}
+
+async fn view_on(direct: bool) -> View {
     let (host, viewer) = (
         DeviceKeys::generate().unwrap(),
         DeviceKeys::generate().unwrap(),
     );
+    let (anchor, relay) = if direct {
+        let (anchor, relay) = pair(&host, &viewer).await;
+        (Some(anchor), Some(relay))
+    } else {
+        (None, None)
+    };
     let (channel, host) = pair(&host, &viewer).await;
     let (commands, requests) = mpsc::channel(128);
     let (updates_tx, updates) = mpsc::channel(128);
     let ended = tokio::spawn(async move {
         let mut viewer = Viewer::new(channel, requests, updates_tx);
+        viewer.anchor = anchor;
         let mut deadlines = tokio::time::interval(Duration::from_millis(250));
         let mut trust = tokio::time::interval(Duration::from_hours(1));
         loop {
@@ -35,6 +47,7 @@ async fn view() -> View {
     });
     View {
         host,
+        relay,
         commands,
         updates,
         ended,
@@ -94,6 +107,48 @@ impl View {
             .unwrap()
             .unwrap()
     }
+}
+
+#[tokio::test]
+async fn a_view_answers_each_heartbeat_so_that_the_relay_does_not_close_an_idle_view() {
+    let mut view = view().await;
+    for number in 1..=2 {
+        view.host
+            .send(&Frame::Heartbeat {
+                number,
+                next_sequence: 0,
+            })
+            .await
+            .unwrap();
+        assert!(matches!(
+            view.sent_by_view().await,
+            Frame::Ack { received: 0 }
+        ));
+    }
+}
+
+#[tokio::test]
+async fn a_direct_view_keeps_its_relay_channel_open_and_ends_when_the_relay_channel_closes() {
+    let mut view = view_on(true).await;
+    let mut relay = view.relay.take().unwrap();
+    relay
+        .send(&Frame::Heartbeat {
+            number: 1,
+            next_sequence: 0,
+        })
+        .await
+        .unwrap();
+    assert!(matches!(
+        tokio::time::timeout(Duration::from_secs(5), relay.receive()).await,
+        Ok(Ok(Some((Frame::Ack { received: 0 }, _))))
+    ));
+    assert!(!view.ended.is_finished());
+    drop(relay);
+    let (result, _) = tokio::time::timeout(Duration::from_secs(5), view.ended)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(matches!(result, Err(Error::Closed)));
 }
 
 #[tokio::test]
@@ -167,7 +222,7 @@ async fn input_goes_at_once_in_order_and_waits_only_when_too_much_is_not_confirm
         })
         .await
         .unwrap();
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert!(matches!(view.sent_by_view().await, Frame::Ack { .. }));
 
     view.input(b"ls").await.unwrap();
     view.input(b"\r").await.unwrap();

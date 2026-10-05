@@ -51,6 +51,7 @@ pub(crate) struct Inner {
     initialized: AtomicBool,
     pub(crate) publications: Mutex<BTreeMap<Uuid, Arc<terminal_connections::Publication>>>,
     pub(crate) connections: Mutex<Vec<CancellationToken>>,
+    pub(crate) direct: terminal_connections::Direct,
     notifications: Mutex<Option<CancellationToken>>,
     restore_pending: AtomicBool,
     enrollment_checked: AtomicU64,
@@ -108,6 +109,7 @@ impl BackendClient {
             config.isolated,
         );
         let (events, _) = broadcast::channel(128);
+        let direct = terminal_connections::Direct::new(config.direct, config.direct_port);
         Ok(Self {
             inner: Arc::new(Inner {
                 http,
@@ -131,6 +133,7 @@ impl BackendClient {
                 initialized: AtomicBool::new(false),
                 publications: Mutex::new(BTreeMap::new()),
                 connections: Mutex::new(Vec::new()),
+                direct,
                 notifications: Mutex::new(None),
                 restore_pending: AtomicBool::new(true),
                 enrollment_checked: AtomicU64::new(0),

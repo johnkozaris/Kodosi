@@ -27,6 +27,10 @@ use rustls::{
     sign::CertifiedKey,
     version::TLS13,
 };
+use tokio::{
+    io::{AsyncReadExt as _, AsyncWriteExt as _},
+    net::TcpStream,
+};
 use tokio_tungstenite::tungstenite::Message;
 
 use super::{Socket, wire::Frame};
@@ -61,6 +65,43 @@ impl Transport for Socket {
                 Some(Ok(_)) => return Err(invalid("Unexpected terminal channel message.")),
                 Some(Err(_)) => return Err(Error::Closed),
             }
+        }
+    }
+}
+
+impl Transport for TcpStream {
+    async fn send(&mut self, bytes: Vec<u8>) -> Result<()> {
+        tokio::time::timeout(SEND, self.write_all(&bytes))
+            .await
+            .map_err(|_| Error::Closed)?
+            .map_err(|_| Error::Closed)
+    }
+
+    async fn receive(&mut self) -> Result<Option<Vec<u8>>> {
+        let mut bytes = vec![0; MESSAGE_BYTES];
+        let read = self.read(&mut bytes).await.map_err(|_| Error::Closed)?;
+        bytes.truncate(read);
+        Ok((read > 0).then_some(bytes))
+    }
+}
+
+pub(super) enum Link {
+    Relay(Box<Socket>),
+    Direct(TcpStream),
+}
+
+impl Transport for Link {
+    async fn send(&mut self, bytes: Vec<u8>) -> Result<()> {
+        match self {
+            Self::Relay(socket) => Transport::send(socket.as_mut(), bytes).await,
+            Self::Direct(stream) => Transport::send(stream, bytes).await,
+        }
+    }
+
+    async fn receive(&mut self) -> Result<Option<Vec<u8>>> {
+        match self {
+            Self::Relay(socket) => Transport::receive(socket.as_mut()).await,
+            Self::Direct(stream) => Transport::receive(stream).await,
         }
     }
 }

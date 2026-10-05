@@ -416,6 +416,8 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
         data_root: config.data_root.clone(),
         secret_service: config.secret_service.clone(),
         isolated: true,
+        direct: false,
+        direct_port: 0,
     })
     .unwrap();
     let scope = Scope {

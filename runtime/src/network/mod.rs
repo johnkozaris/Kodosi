@@ -94,6 +94,8 @@ pub struct BackendConfig {
     pub data_root: PathBuf,
     pub secret_service: String,
     pub isolated: bool,
+    pub direct: bool,
+    pub direct_port: u16,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

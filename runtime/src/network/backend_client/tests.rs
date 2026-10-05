@@ -10,6 +10,8 @@ fn fixture() -> (tempfile::TempDir, BackendClient) {
         data_root: root.path().to_owned(),
         secret_service: "test".into(),
         isolated: true,
+        direct: false,
+        direct_port: 0,
     })
     .unwrap();
     (root, network)

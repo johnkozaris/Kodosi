@@ -11,6 +11,7 @@ use crate::terminal::TerminalMetadata;
 pub(crate) const FRAME_LIMIT: usize = 1024 * 1024;
 pub(crate) const KEYFRAME_PART: usize = 32 * 1024;
 pub(crate) const OUTPUT_FRAME: usize = 32 * 1024;
+pub(crate) const START_TOKEN: usize = 32;
 const HEADER: usize = 7;
 const PACK_FROM: usize = 256;
 const OUTPUT_LEVEL: u32 = 3;
@@ -31,6 +32,15 @@ pub(crate) struct Hello {
 pub(crate) struct Accept {
     pub protocol_version: u32,
     pub host_device_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub direct: Option<DirectOffer>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct DirectOffer {
+    pub token: String,
+    pub addresses: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -97,6 +107,9 @@ pub(crate) enum Frame {
         offset: u64,
     },
     ControlResult(ControlResult),
+    Start {
+        token: Bytes,
+    },
 }
 
 impl Frame {
@@ -178,6 +191,7 @@ impl Frame {
             Self::Refresh => (13, Vec::new()),
             Self::InputAck { offset } => (14, offset.to_be_bytes().to_vec()),
             Self::ControlResult(result) => (15, serde_json::to_vec(result)?),
+            Self::Start { token } => (16, token.to_vec()),
         };
         let length = padded(HEADER + body.len());
         if length > FRAME_LIMIT {
@@ -295,6 +309,14 @@ impl Frame {
                 }
             }
             15 => Self::ControlResult(serde_json::from_slice(json(4096)?)?),
+            16 => {
+                if !body.is_empty() {
+                    exact(body, START_TOKEN)?;
+                }
+                Self::Start {
+                    token: Bytes::copy_from_slice(body),
+                }
+            }
             _ => return Err(invalid("Unsupported terminal frame.")),
         })
     }
@@ -474,6 +496,48 @@ mod tests {
                 next_sequence: 12
             }
         ));
+    }
+
+    #[test]
+    fn a_start_frame_holds_no_token_or_one_whole_token_and_accept_can_offer_a_direct_address() {
+        let Frame::Start { token } = round_trip(&Frame::Start {
+            token: Bytes::new(),
+        }) else {
+            panic!("start frame");
+        };
+        assert!(token.is_empty());
+        let Frame::Start { token } = round_trip(&Frame::Start {
+            token: Bytes::from(vec![9; START_TOKEN]),
+        }) else {
+            panic!("start frame");
+        };
+        assert_eq!(&token[..], &[9; START_TOKEN][..]);
+        let mut short = Frame::Start {
+            token: Bytes::from(vec![9; START_TOKEN - 1]),
+        }
+        .encode()
+        .unwrap();
+        assert!(Frame::take(&mut short).is_err());
+
+        let accept = Accept {
+            protocol_version: 18,
+            host_device_id: "host".into(),
+            direct: Some(DirectOffer {
+                token: "07".repeat(START_TOKEN),
+                addresses: vec!["192.168.1.7:4100".into()],
+            }),
+        };
+        let Frame::Accept(decoded) = round_trip(&Frame::Accept(accept.clone())) else {
+            panic!("accept frame");
+        };
+        assert_eq!(decoded, accept);
+        let Frame::Accept(plain) = round_trip(&Frame::Accept(Accept {
+            direct: None,
+            ..accept
+        })) else {
+            panic!("accept frame");
+        };
+        assert_eq!(plain.direct, None);
     }
 
     #[test]

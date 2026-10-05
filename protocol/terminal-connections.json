@@ -1,5 +1,5 @@
 {
-  "terminalConnectionProtocolVersion": 17,
+  "terminalConnectionProtocolVersion": 18,
   "compatibilityPolicy": "exactMatch",
   "routes": {
     "host": "/ws/host/{sessionId}",
@@ -66,7 +66,7 @@
       "accept": {
         "type": 2,
         "direction": "host",
-        "body": "JSON: protocolVersion, hostDeviceId"
+        "body": "JSON: protocolVersion, hostDeviceId, optional direct (token: 64 hex characters, addresses: list of address:port)"
       },
       "refuse": {
         "type": 3,
@@ -137,13 +137,30 @@
         "type": 15,
         "direction": "host",
         "body": "JSON: requestId, accepted, message"
+      },
+      "start": {
+        "type": 16,
+        "direction": "viewer",
+        "body": "empty on the relay channel; the 32-byte token of accept.direct as the first frame of a direct connection"
       }
     }
+  },
+  "direct": {
+    "purpose": "a host and a viewer on one local network exchange the terminal traffic without the server",
+    "offer": "the host listens on TCP on its private IPv4 address and puts the address and a random token for this viewer in accept; the host then sends no keyframe until the viewer sends start",
+    "attempt": "the viewer tries an address only when it is a private IPv4 address in the /24 network of the viewer; TCP connect limit 400 ms; an address that failed is not tried again for 10 minutes",
+    "channel": "the same TLS channel as on the relay, with the same key checks; the host also requires the key of the device that it admitted on the relay channel for this token",
+    "start": "start with the token on the direct connection: the view uses the direct connection; start with no token on the relay channel: the view uses the relay channel",
+    "relayChannel": "stays open while a direct view is open; the host sends heartbeat on it and the viewer answers with ack; when the server or one side closes it, the direct connection ends, so all server rules for access apply to a direct view",
+    "noServerChange": "the server does not know that a view is direct",
+    "disable": "KODOSI__NETWORK__DIRECT=false: the device makes no offer and tries no address",
+    "port": "a free port; KODOSI__NETWORK__DIRECT_PORT sets a fixed port that a firewall can allow, and the host uses a free port when the fixed port is not available",
+    "notBuilt": "connections through NAT between different networks (hole punching); these views use the relay"
   },
   "output": {
     "start": "the first output-carrying frames of a channel are a keyframe; a view never starts in another way",
     "sequence": "one for each output chunk that the host sends on this channel; keyframe.nextSequence is the sequence of the next output chunk; resize.atSequence and end.finalSequence use the same count",
-    "acknowledgement": "the viewer sends ack after each 4096 bytes and at most 100 ms after the last frame",
+    "acknowledgement": "the viewer sends ack after each 4096 bytes, at most 100 ms after the last frame, and as the answer to each heartbeat, so the relay does not close an idle view",
     "window": "the host keeps at most half a second of output at the measured speed in transit (minimum 4096 bytes, 16384 before the first measurement, maximum 8388608)",
     "speed": "the host measures the acknowledged bytes for 200 ms or more while output waits for the window, while a keyframe is in transit, or while the viewer is behind; all data that is acknowledged in full also shows a least speed, which can only increase the value",
     "behind": "when output that waits for one viewer is more than the larger of its window and its last screen repaint, the host drops it for that viewer and sends the current state when all sent data is acknowledged",

@@ -576,6 +576,8 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         data_root: config.data_root.clone(),
         secret_service: config.secret_service.clone(),
         isolated: config.isolated,
+        direct: config.direct,
+        direct_port: config.direct_port,
     })?;
     let network_events = network.events();
     let scope = Scope {

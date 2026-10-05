@@ -1,6 +1,6 @@
 use super::{
-    channel::{Channel, Transport},
-    wire::{ControlResult, Frame, Hello},
+    channel::{Channel, Link, Transport},
+    wire::{Accept, ControlResult, Frame, Hello},
     *,
 };
 
@@ -42,8 +42,33 @@ pub(super) async fn connect(network: BackendClient, id: Uuid) -> Result<RemoteCo
         Some(&dto),
     )
     .await?;
-    let mut channel = Channel::connect(socket, credentials.keys.signing_pkcs8(), &public).await?;
-    admission(&mut channel, &dto, &credentials).await?;
+    let mut channel = Channel::connect(
+        Link::Relay(Box::new(socket)),
+        credentials.keys.signing_pkcs8(),
+        &public,
+    )
+    .await?;
+    let accept = admission(&mut channel, &dto, &credentials).await?;
+    let (channel, anchor, direct) = match accept.direct {
+        None => (channel, None, None),
+        Some(offer) => {
+            let reached = network
+                .inner
+                .direct
+                .connect(&offer, &credentials.keys, &public)
+                .await;
+            if let Some((direct, address)) = reached {
+                (direct, Some(channel), Some(address))
+            } else {
+                channel
+                    .send(&Frame::Start {
+                        token: Bytes::new(),
+                    })
+                    .await?;
+                (channel, None, None)
+            }
+        }
+    };
     let (updates_tx, updates) = mpsc::channel(128);
     let (commands, commands_rx) = mpsc::channel(128);
     network.check_credentials(&credentials)?;
@@ -57,11 +82,17 @@ pub(super) async fn connect(network: BackendClient, id: Uuid) -> Result<RemoteCo
     let cancel = cancellation.clone();
     tokio::spawn(async move {
         let mut viewer = Viewer::new(channel, commands_rx, updates_tx.clone());
+        viewer.anchor = anchor;
         let result = tokio::select! {
             () = cancel.cancelled() => Ok(()),
             () = network.inner.shutdown.cancelled() => Ok(()),
             result = viewer.run(&network, &credentials, &dto, &public) => result,
         };
+        if let Some(address) = direct
+            && !viewer.started
+        {
+            network.inner.direct.failed(address);
+        }
         if !cancel.is_cancelled() {
             let reason = result.err().map_or_else(
                 || "Remote terminal disconnected.".to_owned(),
@@ -73,6 +104,9 @@ pub(super) async fn connect(network: BackendClient, id: Uuid) -> Result<RemoteCo
         }
         cancel.cancel();
         viewer.channel.close().await;
+        if let Some(anchor) = viewer.anchor {
+            anchor.close().await;
+        }
     });
     Ok(RemoteConnection {
         session,
@@ -86,7 +120,7 @@ async fn admission<T: Transport>(
     channel: &mut Channel<T>,
     dto: &SessionDto,
     credentials: &Credentials,
-) -> Result<()> {
+) -> Result<Accept> {
     channel
         .send(&Frame::Hello(Hello {
             protocol_version: crate::protocol::TERMINAL_CONNECTION_VERSION,
@@ -108,7 +142,7 @@ async fn admission<T: Transport>(
                     "The host answered for another terminal connection.".into(),
                 ));
             }
-            Ok(())
+            Ok(accept)
         }
         Some((Frame::Refuse(refuse), _)) => Err(match refuse.code.as_str() {
             "busy" => Error::Busy,
@@ -159,8 +193,23 @@ async fn host_trusted(
     Ok(())
 }
 
+async fn anchored<T: Transport>(anchor: &mut Option<Channel<T>>) -> Result<()> {
+    let Some(anchor) = anchor else {
+        return std::future::pending().await;
+    };
+    match anchor.receive().await? {
+        Some((Frame::Heartbeat { .. }, _)) => {
+            anchor.send(&Frame::Ack { received: 0 }).await?;
+            Ok(())
+        }
+        Some(_) => Err(invalid("Unsupported frame on the relay of a direct view.")),
+        None => Err(Error::Closed),
+    }
+}
+
 struct Viewer<T> {
     channel: Channel<T>,
+    anchor: Option<Channel<T>>,
     commands: mpsc::Receiver<RemoteRequest>,
     updates: mpsc::Sender<RemoteUpdate>,
     pending: BTreeMap<Uuid, Pending>,
@@ -184,6 +233,7 @@ impl<T: Transport> Viewer<T> {
     ) -> Self {
         Self {
             channel,
+            anchor: None,
             commands,
             updates,
             pending: BTreeMap::new(),
@@ -267,6 +317,7 @@ impl<T: Transport> Viewer<T> {
                 Some((frame, size)) => self.frame(frame, size as u64).await?,
                 None => return Err(Error::Closed),
             },
+            relay = anchored(&mut self.anchor), if self.anchor.is_some() => relay?,
         }
         Ok(false)
     }
@@ -416,7 +467,16 @@ impl<T: Transport> Viewer<T> {
                 .await?;
             }
             Frame::Metadata(metadata) => self.update(RemoteUpdate::Metadata(metadata)).await?,
-            Frame::Heartbeat { number, .. } => self.heartbeat = number,
+            Frame::Heartbeat { number, .. } => {
+                self.heartbeat = number;
+                self.acknowledge_at = None;
+                self.acknowledged = self.received;
+                self.channel
+                    .send(&Frame::Ack {
+                        received: self.received,
+                    })
+                    .await?;
+            }
             Frame::End(end) => {
                 self.input_confirmed = self.input_sent;
                 self.update(RemoteUpdate::Ended {
