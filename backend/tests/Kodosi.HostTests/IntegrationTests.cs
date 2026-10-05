@@ -90,7 +90,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         using var anonymous = app.CreateClient();
         using var denied = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
         var health = await anonymous.GetFromJsonAsync<JsonElement>("/health/live", TestContext.Current.CancellationToken);
-        Assert.Equal(20, health.GetProperty("apiContractVersion").GetInt32());
+        Assert.Equal(21, health.GetProperty("apiContractVersion").GetInt32());
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("bad", "wrong-audience"));
         using var audience = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, audience.StatusCode);
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("unenrolled"));
@@ -159,6 +159,19 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         using var owner = await app.EnrollAsync("owner"); using var friend = await app.EnrollAsync("friend");
         await CallAsync(owner, HttpMethod.Post, "/api/friends/requests", new { username = "friend" });
         await CallAsync(friend, HttpMethod.Post, "/api/friends/requests/owner/accept");
+        async Task<(HttpStatusCode Status, string? Tag)> IdentityAsync(ApiDevice actor, string identity, string? known = null)
+        {
+            using var request = await SignedAsync(actor, HttpMethod.Get, identity);
+            if (known is not null) request.Headers.TryAddWithoutValidation("If-None-Match", known);
+            using var response = await actor.Client.SendAsync(request, TestContext.Current.CancellationToken);
+            return (response.StatusCode, response.Headers.ETag?.ToString());
+        }
+        var ownerIdentity = $"/api/users/{owner.Fixture.UserId}/identity";
+        var (found, tag) = await IdentityAsync(friend, ownerIdentity);
+        Assert.Equal(HttpStatusCode.OK, found); Assert.NotNull(tag);
+        Assert.Equal(HttpStatusCode.NotModified, (await IdentityAsync(friend, ownerIdentity, tag)).Status);
+        Assert.Equal(HttpStatusCode.OK, (await IdentityAsync(friend, ownerIdentity, "\"other\"")).Status);
+        Assert.Equal((HttpStatusCode.NotModified, tag), await IdentityAsync(owner, "/api/me/identity", tag));
         var mission = Guid.CreateVersion7();
         await CallAsync(owner, HttpMethod.Post, "/api/missions", new { id = mission, name = "Project" });
         var invite = Guid.CreateVersion7();
@@ -168,37 +181,62 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         await CallAsync(owner, HttpMethod.Post, "/api/sessions", new { id, incarnationId = incarnation, name = "Shell", hostDeviceId = owner.Fixture.DeviceId, hostName = "Host", missionId = mission });
         Assert.Empty((await CallAsync(friend, HttpMethod.Get, "/api/sessions")).EnumerateArray());
         Assert.False((await CallAsync(friend, HttpMethod.Get, $"/api/missions/{mission}")).TryGetProperty("sessionIds", out _));
-        await Assert.ThrowsAnyAsync<Exception>(() => app.ConnectAsync(owner with { Session = friend.Session }, "events"));
-        using var ownerEvents = (await app.ConnectAsync(owner, "events")).Socket;
-        using var host = (await app.ConnectAsync(owner, "host", id, incarnation)).Socket;
+        await Assert.ThrowsAnyAsync<Exception>(() => app.ConnectAsync(owner with { Session = friend.Session }));
+        using var host = await app.ConnectAsync(owner);
+        using var viewer = await app.ConnectAsync(friend);
+        async Task<JsonElement> NextAsync(WebSocket socket, string type)
+        {
+            while (true)
+            {
+                var message = await JsonAsync(socket);
+                if (message.GetProperty("type").GetString() == type) return message;
+            }
+        }
+        var early = Guid.CreateVersion7();
+        await SendAsync(viewer, new { type = "open", pipe = early, sessionId = id, incarnationId = incarnation });
+        Assert.Equal(404, (await NextAsync(viewer, "closed")).GetProperty("status").GetInt32());
+        await SendAsync(host, new { type = "host", sessionId = id, incarnationId = incarnation });
+        Assert.Equal(id, (await NextAsync(host, "hosted")).GetProperty("sessionId").GetGuid());
+        await SendAsync(viewer, new { type = "host", sessionId = id, incarnationId = incarnation });
+        Assert.NotEqual(0, (await NextAsync(viewer, "unhosted")).GetProperty("status").GetInt32());
         var shared = await CallAsync(owner, HttpMethod.Put, path + "/members", new { incarnationId = incarnation, expectedRevision = 1, userIds = new[] { friend.Fixture.UserId } });
         var revision = shared.GetProperty("authorizationRevision").GetInt64();
         Assert.False(shared.TryGetProperty("keyGeneration", out _));
-        var participant = app.ConnectAsync(friend, "participant", id, incarnation);
-        JsonElement notice;
-        do { notice = await JsonAsync(host); } while (notice.GetProperty("type").GetString() == "accessChanged");
-        Assert.Equal("viewer", notice.GetProperty("type").GetString());
+        Assert.True((await CallAsync(friend, HttpMethod.Get, path)).GetProperty("hostOnline").GetBoolean());
+        var pipe = Guid.CreateVersion7();
+        await SendAsync(viewer, new { type = "open", pipe, sessionId = id, incarnationId = incarnation });
+        var notice = await NextAsync(host, "viewer");
+        Assert.Equal(pipe, notice.GetProperty("pipe").GetGuid());
+        Assert.Equal(id, notice.GetProperty("sessionId").GetGuid());
         Assert.Equal(friend.Fixture.UserId, notice.GetProperty("userId").GetGuid());
         Assert.Equal(friend.Fixture.DeviceId, notice.GetProperty("deviceId").GetString());
-        var channel = notice.GetProperty("channelId").GetGuid();
-        await Assert.ThrowsAnyAsync<Exception>(() => app.ConnectAsync(friend, "relay", id, incarnation, channel));
-        using var relay = (await app.ConnectAsync(owner, "relay", id, incarnation, channel)).Socket;
-        using var viewer = (await participant).Socket;
         var toHost = new byte[70_000]; Random.Shared.NextBytes(toHost);
-        await viewer.SendAsync(toHost, WebSocketMessageType.Binary, true, TestContext.Current.CancellationToken);
-        var arrived = await FrameAsync(relay); Assert.Equal(WebSocketMessageType.Binary, arrived.Type); Assert.Equal(toHost, arrived.Bytes);
+        await viewer.SendAsync(PipeFrame(pipe, toHost), WebSocketMessageType.Binary, true, TestContext.Current.CancellationToken);
+        async Task<byte[]> BinaryAsync(WebSocket socket)
+        {
+            while (true)
+            {
+                var frame = await FrameAsync(socket);
+                if (frame.Type == WebSocketMessageType.Binary) return frame.Bytes;
+            }
+        }
+        Assert.Equal(PipeFrame(pipe, toHost), await BinaryAsync(host));
         var toViewer = new byte[] { 1, 2, 3 };
-        await relay.SendAsync(toViewer, WebSocketMessageType.Binary, true, TestContext.Current.CancellationToken);
-        Assert.Equal(toViewer, (await FrameAsync(viewer)).Bytes);
+        await host.SendAsync(PipeFrame(pipe, toViewer), WebSocketMessageType.Binary, true, TestContext.Current.CancellationToken);
+        Assert.Equal(PipeFrame(pipe, toViewer), await BinaryAsync(viewer));
+        await host.SendAsync(PipeFrame(Guid.CreateVersion7(), toViewer), WebSocketMessageType.Binary, true, TestContext.Current.CancellationToken);
         await CallAsync(owner, HttpMethod.Put, path + "/members", new { incarnationId = incarnation, expectedRevision = revision, userIds = Array.Empty<Guid>() });
         Assert.Empty((await CallAsync(friend, HttpMethod.Get, "/api/sessions")).EnumerateArray());
-        await Assert.ThrowsAnyAsync<Exception>(() => FrameAsync(viewer));
-        await Assert.ThrowsAnyAsync<Exception>(() => FrameAsync(relay));
-        await Assert.ThrowsAnyAsync<Exception>(() => app.ConnectAsync(friend, "participant", id, incarnation));
+        Assert.Equal(403, (await NextAsync(viewer, "closed")).GetProperty("status").GetInt32());
+        Assert.Equal(pipe, (await NextAsync(host, "closed")).GetProperty("pipe").GetGuid());
+        Assert.Equal(id, (await NextAsync(host, "accessChanged")).GetProperty("sessionId").GetGuid());
+        await viewer.SendAsync(PipeFrame(pipe, toHost), WebSocketMessageType.Binary, true, TestContext.Current.CancellationToken);
+        await SendAsync(viewer, new { type = "open", pipe = Guid.CreateVersion7(), sessionId = id, incarnationId = incarnation });
+        Assert.Equal(404, (await NextAsync(viewer, "closed")).GetProperty("status").GetInt32());
+        await SendAsync(host, new { type = "ping" });
+        Assert.Equal("pong", (await NextAsync(host, "pong")).GetProperty("type").GetString());
         for (var wait = 0; wait < 100 && Interlocked.Read(ref refused) < 3; wait++) await Task.Delay(20, TestContext.Current.CancellationToken);
         Assert.True(Interlocked.Read(ref relayed) >= toHost.Length + toViewer.Length);
         Assert.True(Interlocked.Read(ref refused) >= 3);
-        Assert.Equal("accessChanged", (await JsonAsync(host)).GetProperty("type").GetString());
-        Assert.Equal("changed", (await JsonAsync(ownerEvents)).GetProperty("type").GetString());
     }
 }

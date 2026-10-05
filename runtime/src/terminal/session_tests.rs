@@ -238,7 +238,11 @@ async fn resize_checkpoint_precedes_bootstrap_barrier_at_the_same_output_cut() {
     let (reply, result) = oneshot::channel();
     session
         .host_requests
-        .send(HostRequest::Bootstrap { request_id, reply })
+        .send(HostRequest::Bootstrap {
+            request_id,
+            history: true,
+            reply,
+        })
         .await
         .expect("bootstrap");
     let cut = result.await.expect("bootstrap reply").expect("cut");

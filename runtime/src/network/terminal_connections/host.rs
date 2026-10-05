@@ -5,18 +5,18 @@ use tokio::task::JoinSet;
 
 use super::{
     channel::{Channel, Transport},
+    link::{HostEvent, Pipe},
     pacer::Pacer,
-    wire::{Accept, ControlResult, End, Frame, Hello, Refuse},
+    wire::{Accept, ControlResult, End, Frame, Refuse},
     *,
 };
-use crate::terminal::TerminalMetadata;
+use crate::{network::CheckpointCut, terminal::TerminalMetadata};
 
 const VIEWERS: usize = 32;
 const HEARTBEAT: Duration = Duration::from_secs(15);
 const LATE_HEARTBEATS: u32 = 2;
 const KEYFRAME_SPACING: Duration = Duration::from_millis(500);
-const EXACT_AFTER_QUIET: Duration = Duration::from_secs(2);
-const SCREEN_CHUNK: usize = 16 * 1024;
+const EXACT_AFTER_QUIET: Duration = Duration::from_secs(1);
 const UNCONFIRMED_INPUT: u64 = 256 * 1024;
 const CONTROL_TIMEOUT: Duration = Duration::from_secs(12);
 
@@ -43,21 +43,13 @@ pub(super) async fn run(
     check_generation(network, generation)?;
     let credentials = network.credentials()?;
     let current = current_publication(network, publication, &credentials).await?;
-    let (mut socket, _ready) = socket(
-        network,
-        &credentials,
-        &format!("ws/host/{}", current.id),
-        Some(&current),
-    )
-    .await?;
+    let mut hosted = network.inner.link.host(current.id, current.incarnation_id);
     check_generation(network, generation)?;
     drop(publication.requests.send(HostRequest::ResetPresence).await);
     let viewers = Viewers::default();
     let stop = credentials.cancel.child_token();
     let _stop = stop.clone().drop_guard();
     let mut tasks = JoinSet::new();
-    let mut heartbeat = tokio::time::interval(Duration::from_secs(20));
-    heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut trust = tokio::time::interval(TRUST_CHECK);
     trust.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     trust.tick().await;
@@ -68,42 +60,28 @@ pub(super) async fn run(
                 biased;
                 () = publication.cancel.cancelled() => return Ok(()),
                 () = network.inner.shutdown.cancelled() => return Ok(()),
-                () = publication.refresh.notified() => review(network, publication, &credentials, &viewers).await?,
-                _ = heartbeat.tick() => send_json(&mut socket, json!({"type":"ping"})).await?,
-                _ = trust.tick() => review(network, publication, &credentials, &viewers).await?,
+                () = publication.refresh.notified() => review(network, publication, &network.credentials()?, &viewers).await?,
+                _ = trust.tick() => review(network, publication, &network.credentials()?, &viewers).await?,
                 Some(_) = tasks.join_next(), if !tasks.is_empty() => {}
-                incoming = socket.next() => {
-                    let message = incoming.ok_or(Error::Closed)?.map_err(|error| invalid(error.to_string()))?;
-                    match message {
-                        Message::Text(text) => {
-                            let value: Value = serde_json::from_str(&text)?;
-                            match wire::text(&value, "type")? {
-                                "ping" => send_json(&mut socket, json!({"type":"pong"})).await?,
-                                "pong" => {}
-                                "accessChanged" => review(network, publication, &credentials, &viewers).await?,
-                                "viewer" => {
-                                    let channel = wire::id(&value, "channelId")?;
-                                    if tasks.len() < VIEWERS * 2 {
-                                        tasks.spawn(viewer(
-                                            network.clone(),
-                                            Arc::clone(publication),
-                                            credentials.clone(),
-                                            output.resubscribe(),
-                                            channel,
-                                            Arc::clone(&viewers),
-                                            stop.child_token(),
-                                        ));
-                                    }
-                                }
-                                _ => return Err(invalid("Unsupported host connection message.")),
-                            }
+                event = hosted.events.recv() => match event.ok_or(Error::Closed)? {
+                    HostEvent::Hosted => {}
+                    HostEvent::Refused(error) => return Err(error),
+                    HostEvent::AccessChanged => review(network, publication, &network.credentials()?, &viewers).await?,
+                    HostEvent::Viewer { pipe, user, device } => {
+                        if tasks.len() < VIEWERS * 2 {
+                            tasks.spawn(viewer(
+                                network.clone(),
+                                Arc::clone(publication),
+                                network.credentials()?,
+                                output.resubscribe(),
+                                pipe,
+                                (user, device),
+                                Arc::clone(&viewers),
+                                stop.child_token(),
+                            ));
                         }
-                        Message::Ping(payload) => send_pong(&mut socket, payload).await?,
-                        Message::Pong(_) => {}
-                        Message::Close(_) => return Err(Error::Closed),
-                        _ => return Err(invalid("Unexpected host connection payload.")),
                     }
-                }
+                },
                 frame = output.recv() => match frame {
                     Ok(PublishedFrame::Closed { .. }) | Err(broadcast::error::RecvError::Closed) => {
                         let _drained = tokio::time::timeout(Duration::from_secs(10), async {
@@ -125,7 +103,6 @@ pub(super) async fn run(
     })
     .await;
     drop(publication.requests.send(HostRequest::ResetPresence).await);
-    let _outcome = tokio::time::timeout(Duration::from_secs(1), socket.close(None)).await;
     result
 }
 
@@ -246,13 +223,15 @@ async fn viewer(
     publication: Arc<Publication>,
     credentials: Credentials,
     output: PublicationOutput,
-    channel: Uuid,
+    pipe: Pipe,
+    (user, device): (String, String),
     viewers: Viewers,
     cancel: CancellationToken,
 ) {
+    let channel = pipe.id();
     let result = tokio::select! {
         () = cancel.cancelled() => Ok(()),
-        result = connect(&network, &publication, &credentials, output, channel, &viewers, &cancel) => result,
+        result = connect(&network, &publication, &credentials, output, pipe, (user, device), &viewers, &cancel) => result,
     };
     let admitted = viewers
         .lock()
@@ -280,42 +259,43 @@ async fn connect(
     publication: &Publication,
     credentials: &Credentials,
     output: PublicationOutput,
-    id: Uuid,
+    pipe: Pipe,
+    (user, device): (String, String),
     viewers: &Viewers,
     cancel: &CancellationToken,
 ) -> Result<()> {
-    let dto = publication.dto.read().await.clone();
-    let (socket, _ready) = socket(
-        network,
-        credentials,
-        &format!("ws/relay/{}/{id}", dto.id),
-        Some(&dto),
-    )
-    .await?;
-    let mut channel = Channel::accept(socket, credentials.keys.signing_pkcs8()).await?;
-    let hello = match tokio::time::timeout(Duration::from_secs(10), channel.receive()).await {
-        Ok(Ok(Some((Frame::Hello(hello), _)))) => hello,
-        Ok(Err(error)) => return Err(error),
-        _ => return Err(Error::Closed),
-    };
+    let id = pipe.id();
+    let mut channel = Channel::accept(pipe, &*network.channel_keys(credentials)?).await?;
     let key = channel.peer_key()?;
-    if let Err(refuse) = admit(network, publication, credentials, &hello, &key, viewers).await {
+    if let Err(refuse) = admit(
+        network,
+        publication,
+        credentials,
+        (&user, &device),
+        &key,
+        viewers,
+    )
+    .await
+    {
         channel.send(&Frame::Refuse(refuse)).await?;
         channel.close().await;
         return Ok(());
     }
     let admitted = Admitted {
-        user: hello.user_id.clone(),
-        device: hello.device_id.clone(),
+        user: user.clone(),
+        device: device.clone(),
         key,
         cancel: cancel.clone(),
     };
     if let Ok(mut viewers) = viewers.lock() {
         viewers.insert(id, admitted);
     }
+    let info = publication.info.read().await.clone();
     channel
         .send(&Frame::Accept(Accept {
             protocol_version: crate::protocol::TERMINAL_CONNECTION_VERSION,
+            session_id: info.session_id,
+            incarnation_id: info.incarnation_id,
             host_device_id: credentials.keys.device_id.clone(),
         }))
         .await?;
@@ -323,7 +303,7 @@ async fn connect(
         .requests
         .send(HostRequest::Connected {
             connection_id: id,
-            user_id: hello.user_id.clone(),
+            user_id: user.clone(),
         })
         .await
         .map_err(|_| Error::Closed)?;
@@ -334,8 +314,8 @@ async fn connect(
         output,
         &publication.requests,
         Controller {
-            user: hello.user_id,
-            device: hello.device_id,
+            user,
+            device,
             connection: id,
             authorization,
         },
@@ -358,18 +338,11 @@ async fn admit(
     network: &BackendClient,
     publication: &Publication,
     credentials: &Credentials,
-    hello: &Hello,
+    (user, device): (&str, &str),
     key: &[u8],
     viewers: &Viewers,
 ) -> std::result::Result<(), Refuse> {
-    if hello.protocol_version != crate::protocol::TERMINAL_CONNECTION_VERSION {
-        return Err(refuse("version", "Update Kodosi to open this terminal."));
-    }
-    let info = publication.info.read().await.clone();
-    if hello.session_id != info.session_id || hello.incarnation_id != info.incarnation_id {
-        return Err(refuse("gone", "This terminal is no longer available."));
-    }
-    if !allowed(publication, credentials, &hello.user_id).await {
+    if !allowed(publication, credentials, user).await {
         return Err(refuse("access", "This terminal is not shared with you."));
     }
     if viewers.lock().is_ok_and(|viewers| viewers.len() >= VIEWERS) {
@@ -378,21 +351,18 @@ async fn admit(
             "Too many devices are connected to this terminal.",
         ));
     }
-    match network
-        .fetch_identity_with(credentials, &hello.user_id)
-        .await
-    {
-        Ok(identity) => {
-            if identity
-                .devices
-                .get(&hello.device_id)
-                .is_some_and(|certificate| certificate.sig_public_key == key)
-            {
-                Ok(())
-            } else {
-                Err(refuse("access", "This device is not approved."))
-            }
-        }
+    let approved = |identity: &crate::identity::pins::VerifiedIdentity| {
+        identity
+            .devices
+            .get(device)
+            .is_some_and(|certificate| certificate.sig_public_key == key)
+    };
+    let mut identity = network.known_identity(credentials, user).await;
+    if identity.as_ref().is_ok_and(|identity| !approved(identity)) {
+        identity = network.fetch_identity_with(credentials, user).await;
+    }
+    match identity {
+        Ok(identity) if approved(&identity) => Ok(()),
         Err(error) if error.unanswered() => Err(refuse(
             "busy",
             "The host could not check this device; try again.",
@@ -401,7 +371,7 @@ async fn admit(
             "access",
             "The owner of this terminal must trust your identity in Friends first.",
         )),
-        Err(_) => Err(refuse("access", "This device is not approved.")),
+        Ok(_) | Err(_) => Err(refuse("access", "This device is not approved.")),
     }
 }
 
@@ -413,8 +383,15 @@ struct Controller {
 }
 
 enum Waiting {
-    Output { sequence: Option<u64>, bytes: Bytes },
-    Resize { rows: u16, cols: u16 },
+    Output {
+        sequence: u64,
+        bytes: Bytes,
+    },
+    Resize {
+        rows: u16,
+        cols: u16,
+        at_sequence: u64,
+    },
 }
 
 #[derive(PartialEq, Eq)]
@@ -424,8 +401,8 @@ enum Exact {
     Due,
 }
 
-enum Captured<C> {
-    Cut(C),
+enum Captured {
+    Cut(CheckpointCut),
     Again,
     Ended(End),
 }
@@ -442,10 +419,8 @@ struct Stream<'a, T> {
     live: bool,
     exact: Exact,
     next_sequence: u64,
-    wire_next: u64,
     output_at: tokio::time::Instant,
     keyframe_bytes: usize,
-    screen_bytes: usize,
     keyframe_at: Option<tokio::time::Instant>,
     metadata: Option<TerminalMetadata>,
     heartbeat: u32,
@@ -478,12 +453,10 @@ impl<'a, T: Transport> Stream<'a, T> {
             waiting: VecDeque::new(),
             waiting_bytes: 0,
             live: false,
-            exact: Exact::Due,
+            exact: Exact::Owed,
             next_sequence: 0,
-            wire_next: 0,
             output_at: tokio::time::Instant::now(),
             keyframe_bytes: 0,
-            screen_bytes: 0,
             keyframe_at: None,
             metadata: None,
             heartbeat: 0,
@@ -501,7 +474,7 @@ impl<'a, T: Transport> Stream<'a, T> {
         metadata.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
             if let Some(end) = self.advance().await? {
-                self.channel.send(&self.end(end)).await?;
+                self.channel.send(&Frame::End(end)).await?;
                 return Ok(());
             }
             let idle = self.parts.is_empty() && self.pacer.in_transit() == 0;
@@ -509,7 +482,11 @@ impl<'a, T: Transport> Stream<'a, T> {
                 .then(|| self.keyframe_at.map(|at| at + KEYFRAME_SPACING))
                 .flatten();
             let exact = (self.exact == Exact::Owed && self.live && idle && self.waiting.is_empty())
-                .then(|| self.output_at + EXACT_AFTER_QUIET);
+                .then(|| {
+                    let quiet = self.output_at + EXACT_AFTER_QUIET;
+                    self.keyframe_at
+                        .map_or(quiet, |at| quiet.max(at + KEYFRAME_SPACING))
+                });
             tokio::select! {
                 biased;
                 () = self.controller.authorization.cancelled() => return Ok(()),
@@ -525,7 +502,7 @@ impl<'a, T: Transport> Stream<'a, T> {
                 }
                 _ = heartbeat.tick() => {
                     self.heartbeat = self.heartbeat.wrapping_add(1);
-                    self.channel.send(&Frame::Heartbeat { number: self.heartbeat, next_sequence: self.wire_next }).await?;
+                    self.channel.send(&Frame::Heartbeat { number: self.heartbeat, next_sequence: self.next_sequence }).await?;
                 }
                 _ = metadata.tick(), if self.metadata.is_some() && self.live => {
                     if let Some(current) = self.metadata.take() {
@@ -542,7 +519,7 @@ impl<'a, T: Transport> Stream<'a, T> {
                         let Some(published) = next.take() else { break };
                         if let Some(end) = self.published(published) {
                             self.drain().await?;
-                            self.channel.send(&self.end(end)).await?;
+                            self.channel.send(&Frame::End(end)).await?;
                             return Ok(());
                         }
                         next = match self.output.try_recv() {
@@ -564,15 +541,6 @@ impl<'a, T: Transport> Stream<'a, T> {
                 }
             }
         }
-    }
-
-    fn end(&self, end: End) -> Frame {
-        Frame::End(End {
-            final_sequence: self
-                .wire_next
-                .saturating_add(end.final_sequence.saturating_sub(self.next_sequence)),
-            reason: end.reason,
-        })
     }
 
     async fn advance(&mut self) -> Result<Option<End>> {
@@ -612,40 +580,38 @@ impl<'a, T: Transport> Stream<'a, T> {
     async fn send_next(&mut self) -> Result<()> {
         let frame = if let Some(part) = self.parts.pop_front() {
             Frame::Keyframe {
-                next_sequence: self.wire_next,
+                next_sequence: self.next_sequence,
                 more: !self.parts.is_empty(),
                 part,
             }
         } else {
             match self.waiting.pop_front() {
-                Some(Waiting::Resize { rows, cols }) => Frame::Resize {
+                Some(Waiting::Resize {
                     rows,
                     cols,
-                    at_sequence: self.wire_next,
+                    at_sequence,
+                }) => Frame::Resize {
+                    rows,
+                    cols,
+                    at_sequence,
                 },
                 Some(Waiting::Output { sequence, bytes }) => {
                     let limit = wire::OUTPUT_FRAME.min(self.window());
                     let mut size = bytes.len();
-                    let mut last = sequence;
                     self.waiting_bytes -= bytes.len();
                     let mut chunks = vec![bytes];
                     while chunks.len() < wire::RAW_BATCH_LIMIT
                         && let Some(Waiting::Output { bytes, .. }) = self.waiting.front()
                         && size + bytes.len() <= limit
-                        && let Some(Waiting::Output { sequence, bytes }) = self.waiting.pop_front()
+                        && let Some(Waiting::Output { bytes, .. }) = self.waiting.pop_front()
                     {
                         size += bytes.len();
-                        last = sequence.or(last);
                         self.waiting_bytes -= bytes.len();
                         chunks.push(bytes);
                     }
-                    if let Some(last) = last {
-                        self.next_sequence = last + 1;
-                    }
-                    let first_sequence = self.wire_next;
-                    self.wire_next += chunks.len() as u64;
+                    self.next_sequence = sequence + chunks.len() as u64;
                     Frame::Output {
-                        first_sequence,
+                        first_sequence: sequence,
                         chunks,
                     }
                 }
@@ -662,14 +628,16 @@ impl<'a, T: Transport> Stream<'a, T> {
         Ok(())
     }
 
-    async fn cut<C>(
-        &mut self,
-        request: impl FnOnce(Uuid, oneshot::Sender<std::result::Result<C, String>>) -> HostRequest,
-    ) -> Captured<C> {
+    async fn cut(&mut self, full: bool) -> Captured {
         self.keyframe_at = Some(tokio::time::Instant::now());
         let marker = Uuid::now_v7();
         let (reply, response) = oneshot::channel();
-        if self.requests.try_send(request(marker, reply)).is_err() {
+        let request = HostRequest::Bootstrap {
+            request_id: marker,
+            history: full,
+            reply,
+        };
+        if self.requests.try_send(request).is_err() {
             return Captured::Again;
         }
         let cut = match tokio::time::timeout(Duration::from_secs(5), response).await {
@@ -688,58 +656,24 @@ impl<'a, T: Transport> Stream<'a, T> {
     }
 
     async fn capture(&mut self) -> Result<Option<End>> {
-        if self.exact != Exact::Due && self.keyframe_bytes > self.window() / 2 {
-            return Ok(self.capture_screen().await);
-        }
-        let cut = match self
-            .cut(|request_id, reply| HostRequest::Bootstrap { request_id, reply })
-            .await
-        {
+        let full = self.exact == Exact::Due
+            || (self.keyframe_bytes > 0 && self.keyframe_bytes <= self.window() / 2);
+        let cut = match self.cut(full).await {
             Captured::Cut(cut) => cut,
             Captured::Again => return Ok(None),
             Captured::Ended(end) => return Ok(Some(end)),
         };
         self.parts = wire::snapshot_parts(&cut.checkpoint)?.into();
-        if self.keyframe_bytes == 0 {
-            self.wire_next = cut.next_sequence;
+        if full {
+            self.keyframe_bytes = self.parts.iter().map(Bytes::len).sum();
         }
-        self.keyframe_bytes = self.parts.iter().map(Bytes::len).sum();
         self.next_sequence = cut.next_sequence;
         self.waiting.clear();
         self.waiting_bytes = 0;
         self.metadata = None;
         self.live = true;
-        self.exact = Exact::Held;
+        self.exact = if full { Exact::Held } else { Exact::Owed };
         Ok(None)
-    }
-
-    async fn capture_screen(&mut self) -> Option<End> {
-        let mut cut = match self
-            .cut(|request_id, reply| HostRequest::Screen { request_id, reply })
-            .await
-        {
-            Captured::Cut(cut) => cut,
-            Captured::Again => return None,
-            Captured::Ended(end) => return Some(end),
-        };
-        self.waiting.clear();
-        self.waiting_bytes = cut.repaint.len();
-        self.screen_bytes = cut.repaint.len();
-        self.waiting.push_back(Waiting::Resize {
-            rows: cut.size.rows(),
-            cols: cut.size.cols(),
-        });
-        while !cut.repaint.is_empty() {
-            let chunk = cut.repaint.split_to(cut.repaint.len().min(SCREEN_CHUNK));
-            self.waiting.push_back(Waiting::Output {
-                sequence: None,
-                bytes: chunk,
-            });
-        }
-        self.next_sequence = cut.next_sequence;
-        self.live = true;
-        self.exact = Exact::Owed;
-        None
     }
 
     fn skip(&mut self, marker: Uuid) -> Skip {
@@ -794,11 +728,8 @@ impl<'a, T: Transport> Stream<'a, T> {
                 }
                 self.output_at = tokio::time::Instant::now();
                 self.waiting_bytes += bytes.len();
-                self.waiting.push_back(Waiting::Output {
-                    sequence: Some(sequence),
-                    bytes,
-                });
-                if self.waiting_bytes > self.screen_bytes.max(self.window()) {
+                self.waiting.push_back(Waiting::Output { sequence, bytes });
+                if self.waiting_bytes > self.window() {
                     self.behind();
                 }
             }
@@ -808,7 +739,11 @@ impl<'a, T: Transport> Stream<'a, T> {
                 at_sequence,
             }) => {
                 if self.live && at_sequence >= self.next_waiting() {
-                    self.waiting.push_back(Waiting::Resize { rows, cols });
+                    self.waiting.push_back(Waiting::Resize {
+                        rows,
+                        cols,
+                        at_sequence,
+                    });
                 }
             }
             Ok(PublishedFrame::Closed {
@@ -836,11 +771,8 @@ impl<'a, T: Transport> Stream<'a, T> {
             .iter()
             .rev()
             .find_map(|waiting| match waiting {
-                Waiting::Output {
-                    sequence: Some(sequence),
-                    ..
-                } => Some(sequence + 1),
-                Waiting::Output { sequence: None, .. } | Waiting::Resize { .. } => None,
+                Waiting::Output { sequence, .. } => Some(sequence + 1),
+                Waiting::Resize { .. } => None,
             })
             .unwrap_or(self.next_sequence)
     }
@@ -858,7 +790,9 @@ impl<'a, T: Transport> Stream<'a, T> {
                 .pacer
                 .acknowledge(received, tokio::time::Instant::now())?,
             Frame::Refresh => {
-                self.exact = Exact::Due;
+                if self.exact == Exact::Held {
+                    self.exact = Exact::Owed;
+                }
                 self.behind();
             }
             Frame::Input {

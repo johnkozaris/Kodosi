@@ -1,6 +1,7 @@
 use super::{
     channel::{Channel, Transport},
-    wire::{ControlResult, Frame, Hello},
+    link::Pipe,
+    wire::{ControlResult, Frame},
     *,
 };
 
@@ -17,33 +18,22 @@ struct Pending {
 
 pub(super) async fn connect(network: BackendClient, id: Uuid) -> Result<RemoteConnection> {
     let credentials = network.credentials()?;
-    let dto: SessionDto = network
-        .inner
-        .http
-        .device(
-            Method::GET,
-            &format!("api/sessions/{id}"),
-            &credentials,
-            None,
-        )
-        .await?;
-    let owner = network
-        .fetch_identity_with(&credentials, &dto.owner_user_id)
-        .await?;
-    let host = owner
-        .devices
-        .get(&dto.host_device_id)
-        .ok_or_else(|| Error::Trust("The hosting device is not approved.".into()))?;
-    let public = host.sig_public_key.clone();
-    let (socket, _ready) = socket(
-        &network,
-        &credentials,
-        &format!("ws/participant/{id}"),
-        Some(&dto),
-    )
-    .await?;
-    let mut channel = Channel::connect(socket, credentials.keys.signing_pkcs8(), &public).await?;
-    admission(&mut channel, &dto, &credentials).await?;
+    if !credentials.enrolled {
+        return Err(Error::EnrollmentRequired);
+    }
+    let (mut dto, kept) = network.known_session(&credentials, id).await?;
+    let (channel, public) = match open(&network, &credentials, &dto).await {
+        Err(
+            Error::Stale
+            | Error::Backend {
+                status: 404 | 409, ..
+            },
+        ) if kept => {
+            dto = network.fetch_session(&credentials, id).await?;
+            open(&network, &credentials, &dto).await?
+        }
+        opened => opened?,
+    };
     let (updates_tx, updates) = mpsc::channel(128);
     let (commands, commands_rx) = mpsc::channel(128);
     network.check_credentials(&credentials)?;
@@ -82,33 +72,52 @@ pub(super) async fn connect(network: BackendClient, id: Uuid) -> Result<RemoteCo
     })
 }
 
-async fn admission<T: Transport>(
-    channel: &mut Channel<T>,
-    dto: &SessionDto,
+async fn open(
+    network: &BackendClient,
     credentials: &Credentials,
-) -> Result<()> {
-    channel
-        .send(&Frame::Hello(Hello {
-            protocol_version: crate::protocol::TERMINAL_CONNECTION_VERSION,
-            session_id: dto.id,
-            incarnation_id: dto.incarnation_id,
-            user_id: credentials.user_id.clone(),
-            device_id: credentials.keys.device_id.clone(),
-        }))
+    dto: &SessionDto,
+) -> Result<(Channel<Pipe>, Vec<u8>)> {
+    let pipe = network.inner.link.open(dto.id, dto.incarnation_id)?;
+    let host_key = |owner: &crate::identity::pins::VerifiedIdentity| {
+        owner
+            .devices
+            .get(&dto.host_device_id)
+            .map(|certificate| certificate.sig_public_key.clone())
+    };
+    let known = network
+        .known_identity(credentials, &dto.owner_user_id)
         .await?;
+    let public = match host_key(&known) {
+        Some(public) => public,
+        None => host_key(
+            &network
+                .fetch_identity_with(credentials, &dto.owner_user_id)
+                .await?,
+        )
+        .ok_or_else(|| Error::Trust("The hosting device is not approved.".into()))?,
+    };
+    let mut channel = Channel::connect(
+        pipe,
+        &*network.channel_keys(credentials)?,
+        &dto.host_device_id,
+        &public,
+    )
+    .await?;
     match tokio::time::timeout(Duration::from_secs(20), channel.receive())
         .await
         .map_err(|_| Error::Closed)??
     {
         Some((Frame::Accept(accept), _)) => {
             if accept.protocol_version != crate::protocol::TERMINAL_CONNECTION_VERSION
+                || accept.session_id != dto.id
+                || accept.incarnation_id != dto.incarnation_id
                 || accept.host_device_id != dto.host_device_id
             {
                 return Err(Error::Trust(
-                    "The host answered for another terminal connection.".into(),
+                    "The host answered for another terminal.".into(),
                 ));
             }
-            Ok(())
+            Ok((channel, public))
         }
         Some((Frame::Refuse(refuse), _)) => Err(match refuse.code.as_str() {
             "busy" => Error::Busy,

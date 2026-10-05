@@ -178,12 +178,6 @@ pub struct CheckpointCut {
     pub next_sequence: u64,
 }
 
-pub struct ScreenCut {
-    pub repaint: Bytes,
-    pub size: crate::terminal::TerminalSize,
-    pub next_sequence: u64,
-}
-
 pub enum HostRequest {
     ResetPresence,
     Connected {
@@ -192,11 +186,8 @@ pub enum HostRequest {
     },
     Bootstrap {
         request_id: Uuid,
+        history: bool,
         reply: oneshot::Sender<std::result::Result<CheckpointCut, String>>,
-    },
-    Screen {
-        request_id: Uuid,
-        reply: oneshot::Sender<std::result::Result<ScreenCut, String>>,
     },
     Control {
         sender_user_id: String,

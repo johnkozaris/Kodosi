@@ -191,17 +191,20 @@ const _: () = {
 pub struct GhosttyCheckpointEncodeOptions {
     pub size: usize,
     pub limits: GhosttyCheckpointLimits,
+    pub max_history_rows: usize,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
     ["Size of GhosttyCheckpointEncodeOptions"]
-        [::std::mem::size_of::<GhosttyCheckpointEncodeOptions>() - 48usize];
+        [::std::mem::size_of::<GhosttyCheckpointEncodeOptions>() - 56usize];
     ["Alignment of GhosttyCheckpointEncodeOptions"]
         [::std::mem::align_of::<GhosttyCheckpointEncodeOptions>() - 8usize];
     ["Offset of field: GhosttyCheckpointEncodeOptions::size"]
         [::std::mem::offset_of!(GhosttyCheckpointEncodeOptions, size) - 0usize];
     ["Offset of field: GhosttyCheckpointEncodeOptions::limits"]
         [::std::mem::offset_of!(GhosttyCheckpointEncodeOptions, limits) - 8usize];
+    ["Offset of field: GhosttyCheckpointEncodeOptions::max_history_rows"]
+        [::std::mem::offset_of!(GhosttyCheckpointEncodeOptions, max_history_rows) - 48usize];
 };
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
@@ -390,74 +393,6 @@ const _: () = {
     ["Offset of field: GhosttyGridRef::y"][::std::mem::offset_of!(GhosttyGridRef, y) - 18usize];
 };
 impl Default for GhosttyGridRef {
-    fn default() -> Self {
-        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
-        unsafe {
-            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
-            s.assume_init()
-        }
-    }
-}
-#[repr(C)]
-#[derive(Debug, Default, Copy, Clone)]
-pub struct GhosttyPointCoordinate {
-    pub x: u16,
-    pub y: u32,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of GhosttyPointCoordinate"][::std::mem::size_of::<GhosttyPointCoordinate>() - 8usize];
-    ["Alignment of GhosttyPointCoordinate"]
-        [::std::mem::align_of::<GhosttyPointCoordinate>() - 4usize];
-    ["Offset of field: GhosttyPointCoordinate::x"]
-        [::std::mem::offset_of!(GhosttyPointCoordinate, x) - 0usize];
-    ["Offset of field: GhosttyPointCoordinate::y"]
-        [::std::mem::offset_of!(GhosttyPointCoordinate, y) - 4usize];
-};
-pub const GhosttyPointTag_GHOSTTY_POINT_TAG_ACTIVE: GhosttyPointTag = 0;
-pub const GhosttyPointTag_GHOSTTY_POINT_TAG_VIEWPORT: GhosttyPointTag = 1;
-pub const GhosttyPointTag_GHOSTTY_POINT_TAG_SCREEN: GhosttyPointTag = 2;
-pub const GhosttyPointTag_GHOSTTY_POINT_TAG_HISTORY: GhosttyPointTag = 3;
-pub const GhosttyPointTag_GHOSTTY_POINT_TAG_MAX_VALUE: GhosttyPointTag = 2147483647;
-pub type GhosttyPointTag = ::std::os::raw::c_int;
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub union GhosttyPointValue {
-    pub coordinate: GhosttyPointCoordinate,
-    pub _padding: [u64; 2usize],
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of GhosttyPointValue"][::std::mem::size_of::<GhosttyPointValue>() - 16usize];
-    ["Alignment of GhosttyPointValue"][::std::mem::align_of::<GhosttyPointValue>() - 8usize];
-    ["Offset of field: GhosttyPointValue::coordinate"]
-        [::std::mem::offset_of!(GhosttyPointValue, coordinate) - 0usize];
-    ["Offset of field: GhosttyPointValue::_padding"]
-        [::std::mem::offset_of!(GhosttyPointValue, _padding) - 0usize];
-};
-impl Default for GhosttyPointValue {
-    fn default() -> Self {
-        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
-        unsafe {
-            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
-            s.assume_init()
-        }
-    }
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct GhosttyPoint {
-    pub tag: GhosttyPointTag,
-    pub value: GhosttyPointValue,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of GhosttyPoint"][::std::mem::size_of::<GhosttyPoint>() - 24usize];
-    ["Alignment of GhosttyPoint"][::std::mem::align_of::<GhosttyPoint>() - 8usize];
-    ["Offset of field: GhosttyPoint::tag"][::std::mem::offset_of!(GhosttyPoint, tag) - 0usize];
-    ["Offset of field: GhosttyPoint::value"][::std::mem::offset_of!(GhosttyPoint, value) - 8usize];
-};
-impl Default for GhosttyPoint {
     fn default() -> Self {
         let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
         unsafe {
@@ -919,13 +854,6 @@ unsafe extern "C" {
         keys: *const GhosttyTerminalData,
         values: *mut *mut ::std::os::raw::c_void,
         out_written: *mut usize,
-    ) -> GhosttyResult;
-}
-unsafe extern "C" {
-    pub fn ghostty_terminal_grid_ref(
-        terminal: GhosttyTerminal,
-        point: GhosttyPoint,
-        out_ref: *mut GhosttyGridRef,
     ) -> GhosttyResult;
 }
 #[repr(C)]

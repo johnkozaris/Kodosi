@@ -7,9 +7,7 @@ use super::{Result, TerminalControl, invalid};
 
 mod frame;
 mod packing;
-pub(crate) use frame::{
-    Accept, ControlResult, End, Frame, Hello, KEYFRAME_PART, OUTPUT_FRAME, Refuse,
-};
+pub(crate) use frame::{Accept, ControlResult, End, Frame, KEYFRAME_PART, OUTPUT_FRAME, Refuse};
 
 pub(crate) const INPUT_LIMIT: usize = 1024 * 1024;
 pub(crate) const RAW_CHUNK_LIMIT: usize = 64 * 1024;

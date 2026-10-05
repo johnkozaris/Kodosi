@@ -145,23 +145,58 @@ impl BackendClient {
         credentials: &Credentials,
         user_id: &str,
     ) -> Result<IdentityBundle> {
-        let bundle: IdentityBundle = self
+        self.forget_identity(user_id);
+        self.tagged_friend_bundle(credentials, user_id, None)
+            .await?
+            .map(|(bundle, _)| bundle)
+            .ok_or_else(|| invalid("The server sent no device identity."))
+    }
+
+    async fn tagged_friend_bundle(
+        &self,
+        credentials: &Credentials,
+        user_id: &str,
+        known: Option<&str>,
+    ) -> Result<Option<(IdentityBundle, String)>> {
+        let fresh: Option<(IdentityBundle, String)> = self
             .inner
             .http
-            .device(
-                Method::GET,
+            .tagged(
                 &format!("api/users/{}/identity", path_segment(user_id)?),
                 credentials,
-                None,
+                true,
+                known,
             )
             .await?;
         self.check_credentials(credentials)?;
-        if bundle.user_id != user_id {
+        if fresh
+            .as_ref()
+            .is_some_and(|(bundle, _)| bundle.user_id != user_id)
+        {
             return Err(Error::Trust(
                 "Returned device identity belongs to another account.".into(),
             ));
         }
-        Ok(bundle)
+        Ok(fresh)
+    }
+
+    async fn recorded_root(
+        &self,
+        credentials: &Credentials,
+        user_id: &str,
+    ) -> Result<Option<Root>> {
+        let changed = self
+            .inner
+            .state
+            .lock()
+            .await
+            .changed_friends
+            .contains(user_id);
+        Ok(self
+            .kept_friends(credentials)
+            .await?
+            .filter(|_| !changed)
+            .and_then(|list| list.friends.get(user_id).and_then(Friend::root)))
     }
 
     pub(super) async fn friend_identity(
@@ -169,9 +204,28 @@ impl BackendClient {
         credentials: &Credentials,
         user_id: &str,
     ) -> Result<VerifiedIdentity> {
-        let bundle = self.friend_bundle(credentials, user_id).await?;
+        let recorded = self.recorded_root(credentials, user_id).await?;
+        let kept = self
+            .kept_identity(credentials, user_id)
+            .filter(|kept| recorded == Some(kept.identity.root));
+        let fresh = self
+            .tagged_friend_bundle(
+                credentials,
+                user_id,
+                kept.as_ref().map(|kept| kept.tag.as_str()),
+            )
+            .await?;
+        let (bundle, tag) = match (fresh, kept) {
+            (None, Some(kept)) => {
+                self.keep_identity(credentials, user_id, &kept.identity, kept.tag);
+                return self.without_blocked_devices(user_id, kept.identity).await;
+            }
+            (None, None) => return Err(invalid("The server sent no device identity.")),
+            (Some(fresh), _) => fresh,
+        };
         let root = self.friend_root(credentials, user_id, &bundle).await?;
         if bundle.root()? != root {
+            self.forget_identity(user_id);
             self.inner
                 .state
                 .lock()
@@ -185,6 +239,7 @@ impl BackendClient {
             ));
         }
         let verified = self.verify_bundle(&bundle, Some(root)).await?;
+        self.keep_identity(credentials, user_id, &verified, tag);
         self.without_blocked_devices(user_id, verified).await
     }
 

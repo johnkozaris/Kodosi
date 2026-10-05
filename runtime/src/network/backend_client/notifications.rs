@@ -1,9 +1,7 @@
 use super::{
-    BackendClient, CancellationToken, Credentials, Duration, Error, Result, Value, invalid, json,
-    terminal_connections, wire,
+    BackendClient, CancellationToken, Credentials, Duration, Error, Result, invalid,
+    terminal_connections,
 };
-use futures_util::StreamExt as _;
-use tokio_tungstenite::tungstenite::Message;
 
 impl BackendClient {
     pub(super) async fn start_notifications(&self) -> Result<()> {
@@ -60,41 +58,37 @@ impl BackendClient {
     ) -> Result<()> {
         let credentials = self.credentials()?;
         self.check_credentials(admitted)?;
-        let (mut socket, _) =
-            terminal_connections::socket(self, &credentials, "ws/events", None).await?;
-        for surface in ["sessions", "friends", "devices", "missions"] {
-            self.refresh_surface(admitted, surface).await?;
-        }
-        let mut heartbeat = tokio::time::interval(Duration::from_secs(20));
-        heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        loop {
-            tokio::select! {
-                biased;
-                ()=cancel.cancelled()=>return Ok(()),
-                ()=self.inner.shutdown.cancelled()=>return Ok(()),
-                _=heartbeat.tick()=>terminal_connections::send_json(&mut socket,json!({"type":"ping"})).await?,
-                ()=self.inner.friends_changed.notified()=>self.refresh_surface(admitted,"friends").await?,
-                incoming=socket.next()=>{
-                    let message=incoming.ok_or(Error::Closed)?.map_err(|error|invalid(error.to_string()))?;
-                    match message {
-                        Message::Text(text)=>{
-                            if text.len()>16*1024{return Err(invalid("Notification exceeds its size limit."));}
-                            let value:Value=serde_json::from_str(&text)?;
-                            match wire::text(&value,"type")? {
-                                "ping"=>terminal_connections::send_json(&mut socket,json!({"type":"pong"})).await?,
-                                "pong"=>{},
-                                "changed"=>self.refresh_surface(admitted,wire::text(&value,"surface")?).await?,
-                                _=>return Err(invalid("Unsupported account notification.")),
-                            }
-                        }
-                        Message::Ping(payload)=>terminal_connections::send_pong(&mut socket,payload).await?,
-                        Message::Pong(_)=>{},
-                        Message::Close(_)=>return Err(Error::Closed),
-                        _=>return Err(invalid("Unexpected notification payload.")),
+        let (surfaces, mut changed) = tokio::sync::mpsc::unbounded_channel::<String>();
+        let refresh = async {
+            while let Some(surface) = changed.recv().await {
+                let mut waiting = std::collections::BTreeSet::from([surface]);
+                while let Ok(surface) = changed.try_recv() {
+                    waiting.insert(surface);
+                }
+                for surface in ["devices", "friends", "sessions", "missions"] {
+                    if waiting.contains(surface) {
+                        self.refresh_surface(admitted, surface).await?;
                     }
                 }
+                if waiting.iter().any(|surface| {
+                    !["devices", "friends", "sessions", "missions"].contains(&surface.as_str())
+                }) {
+                    return Err(invalid("Unsupported notification surface."));
+                }
             }
+            Ok(())
+        };
+        let result = tokio::select! {
+            biased;
+            () = cancel.cancelled() => Ok(()),
+            () = self.inner.shutdown.cancelled() => Ok(()),
+            result = terminal_connections::run_link(self, &credentials, &surfaces) => result,
+            result = refresh => result,
+        };
+        if matches!(result, Err(Error::Backend { status: 403, .. })) {
+            self.refresh_surface(admitted, "devices").await?;
         }
+        result
     }
 
     async fn validate_notified_device(&self) -> Result<()> {

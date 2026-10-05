@@ -236,19 +236,101 @@ impl BackendClient {
         if user_id != credentials.user_id {
             return self.friend_identity(credentials, user_id).await;
         }
-        let bundle: IdentityBundle = self
+        let kept = self.kept_identity(credentials, user_id);
+        let fresh: Option<(IdentityBundle, String)> = self
             .inner
             .http
-            .bearer(Method::GET, "api/me/identity", &credentials.token, None)
+            .tagged(
+                "api/me/identity",
+                credentials,
+                false,
+                kept.as_ref().map(|kept| kept.tag.as_str()),
+            )
             .await?;
         self.check_credentials(credentials)?;
-        if bundle.user_id != user_id {
-            return Err(Error::Trust(
-                "Returned device identity belongs to another account.".into(),
-            ));
-        }
-        let verified = self.verify_bundle(&bundle, None).await?;
+        let verified = match (fresh, kept) {
+            (None, Some(kept)) => {
+                self.keep_identity(credentials, user_id, &kept.identity, kept.tag);
+                kept.identity
+            }
+            (None, None) => return Err(invalid("The server sent no device identity.")),
+            (Some((bundle, tag)), _) => {
+                if bundle.user_id != user_id {
+                    return Err(Error::Trust(
+                        "Returned device identity belongs to another account.".into(),
+                    ));
+                }
+                let verified = self.verify_bundle(&bundle, None).await?;
+                self.keep_identity(credentials, user_id, &verified, tag);
+                verified
+            }
+        };
         self.without_blocked_devices(user_id, verified).await
+    }
+
+    pub(crate) async fn known_identity(
+        &self,
+        credentials: &Credentials,
+        user_id: &str,
+    ) -> Result<VerifiedIdentity> {
+        let kept = self
+            .kept_identity(credentials, user_id)
+            .filter(|kept| kept.checked.elapsed() < KEPT_IDENTITY);
+        let changed = self
+            .inner
+            .state
+            .lock()
+            .await
+            .changed_friends
+            .contains(user_id);
+        match kept {
+            Some(kept) if !changed => self.without_blocked_devices(user_id, kept.identity).await,
+            _ => self.fetch_identity_with(credentials, user_id).await,
+        }
+    }
+
+    pub(super) fn kept_identity(
+        &self,
+        credentials: &Credentials,
+        user_id: &str,
+    ) -> Option<KeptIdentity> {
+        self.inner
+            .identities
+            .lock()
+            .ok()?
+            .get(user_id)
+            .filter(|kept| kept.generation == credentials.generation)
+            .cloned()
+    }
+
+    pub(super) fn keep_identity(
+        &self,
+        credentials: &Credentials,
+        user_id: &str,
+        identity: &VerifiedIdentity,
+        tag: String,
+    ) {
+        if tag.is_empty() {
+            return;
+        }
+        if let Ok(mut kept) = self.inner.identities.lock() {
+            kept.retain(|_, kept| kept.generation == credentials.generation);
+            kept.insert(
+                user_id.to_owned(),
+                KeptIdentity {
+                    generation: credentials.generation,
+                    identity: identity.clone(),
+                    tag,
+                    checked: tokio::time::Instant::now(),
+                },
+            );
+        }
+    }
+
+    pub(super) fn forget_identity(&self, user_id: &str) {
+        if let Ok(mut kept) = self.inner.identities.lock() {
+            kept.remove(user_id);
+        }
     }
 
     pub(super) async fn without_blocked_devices(
@@ -335,4 +417,14 @@ pub(super) fn device_enrolled(verified: &VerifiedIdentity, credentials: &Credent
             cert.sig_public_key == credentials.keys.signing_public()
                 && cert.kem_public_key == credentials.keys.kem_public()
         })
+}
+
+const KEPT_IDENTITY: Duration = Duration::from_mins(10);
+
+#[derive(Clone)]
+pub(crate) struct KeptIdentity {
+    generation: u64,
+    pub(super) identity: VerifiedIdentity,
+    pub(super) tag: String,
+    checked: tokio::time::Instant,
 }

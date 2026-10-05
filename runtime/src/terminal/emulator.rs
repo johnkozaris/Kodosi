@@ -56,12 +56,6 @@ pub(super) struct CheckpointWithSequence {
     pub applied_sequence: u64,
 }
 
-pub(super) struct ScreenWithSequence {
-    pub repaint: Vec<u8>,
-    pub size: TerminalSize,
-    pub applied_sequence: u64,
-}
-
 pub(super) struct SessionTerminalHandle {
     command_tx: tokio_mpsc::Sender<TerminalCommand>,
 }
@@ -78,10 +72,8 @@ enum TerminalCommand {
         reply_tx: oneshot::Sender<Result<Vec<TerminalEffect>>>,
     },
     CheckpointData {
+        history: bool,
         reply_tx: oneshot::Sender<Result<CheckpointWithSequence>>,
-    },
-    ScreenData {
-        reply_tx: oneshot::Sender<Result<ScreenWithSequence>>,
     },
     SetFocused {
         focused: bool,
@@ -182,13 +174,8 @@ impl SessionTerminalHandle {
             .collect()
     }
 
-    pub(super) async fn checkpoint_data(&self) -> Result<CheckpointWithSequence> {
-        self.request(|reply_tx| TerminalCommand::CheckpointData { reply_tx })
-            .await
-    }
-
-    pub(super) async fn screen_data(&self) -> Result<ScreenWithSequence> {
-        self.request(|reply_tx| TerminalCommand::ScreenData { reply_tx })
+    pub(super) async fn checkpoint_data(&self, history: bool) -> Result<CheckpointWithSequence> {
+        self.request(|reply_tx| TerminalCommand::CheckpointData { history, reply_tx })
             .await
     }
 
@@ -296,14 +283,17 @@ impl SessionTerminal {
         self.terminal.set_dark(dark).map_err(terminal_error)
     }
 
-    fn checkpoint_data(&mut self) -> Result<CheckpointWithSequence> {
-        let checkpoint = self
-            .terminal
-            .semantic_checkpoint(CheckpointLimits {
-                max_json_bytes: TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES,
-                ..CheckpointLimits::default()
-            })
-            .map_err(terminal_error)?;
+    fn checkpoint_data(&mut self, history: bool) -> Result<CheckpointWithSequence> {
+        let limits = CheckpointLimits {
+            max_json_bytes: TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES,
+            ..CheckpointLimits::default()
+        };
+        let checkpoint = if history {
+            self.terminal.semantic_checkpoint(limits)
+        } else {
+            self.terminal.visible_checkpoint(limits)
+        }
+        .map_err(terminal_error)?;
         let state = self.terminal.state().map_err(terminal_error)?;
         let checkpoint = Checkpoint::new(
             TerminalSize::new(state.rows, state.cols).map_err(|error| {
@@ -320,21 +310,6 @@ impl SessionTerminal {
         })?;
         Ok(CheckpointWithSequence {
             checkpoint,
-            applied_sequence: self.applied,
-        })
-    }
-
-    fn screen_data(&mut self) -> Result<ScreenWithSequence> {
-        let repaint = self
-            .terminal
-            .format_screen_repaint()
-            .map_err(terminal_error)?;
-        let state = self.terminal.state().map_err(terminal_error)?;
-        Ok(ScreenWithSequence {
-            repaint,
-            size: TerminalSize::new(state.rows, state.cols).map_err(|error| {
-                KodosiError::Unsupported(format!("terminal screen size failed: {error}"))
-            })?,
             applied_sequence: self.applied,
         })
     }
@@ -505,15 +480,12 @@ async fn terminal_actor_main(
                         mutated = result.is_ok();
                         drop(reply_tx.send(result));
                     }
-                    TerminalCommand::CheckpointData { reply_tx } => {
-                        let result = terminal.checkpoint_data();
+                    TerminalCommand::CheckpointData { history, reply_tx } => {
+                        let result = terminal.checkpoint_data(history);
                         if result.is_ok() {
                             compression.restart_idle();
                         }
                         drop(reply_tx.send(result));
-                    }
-                    TerminalCommand::ScreenData { reply_tx } => {
-                        drop(reply_tx.send(terminal.screen_data()));
                     }
                     TerminalCommand::SetFocused { focused, reply_tx } => {
                         drop(reply_tx.send(terminal.terminal.encode_focus(focused).map_err(terminal_error)));

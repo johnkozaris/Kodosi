@@ -121,6 +121,55 @@ impl Http {
         decode(request.send().await?).await
     }
 
+    pub(crate) async fn tagged<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        credentials: &Credentials,
+        device: bool,
+        known: Option<&str>,
+    ) -> Result<Option<(T, String)>> {
+        self.compatible().await?;
+        let mut session = if device {
+            Some(self.device_session(credentials).await?)
+        } else {
+            None
+        };
+        for retry in [true, false] {
+            let mut request = self
+                .client
+                .get(self.url(path)?)
+                .bearer_auth(credentials.token.as_str());
+            if let Some(session) = &session {
+                request = request
+                    .header("X-Kodosi-Device-Id", &credentials.keys.device_id)
+                    .header("X-Kodosi-Device-Session", session.as_str());
+            }
+            if let Some(known) = known {
+                request = request.header(reqwest::header::IF_NONE_MATCH, known);
+            }
+            let response = request.send().await?;
+            if response.status() == reqwest::StatusCode::NOT_MODIFIED {
+                return Ok(None);
+            }
+            if retry
+                && response.status().as_u16() == 428
+                && let Some(refused) = session.take()
+            {
+                self.forget_device_session(&refused).await;
+                session = Some(self.device_session(credentials).await?);
+                continue;
+            }
+            let tag = response
+                .headers()
+                .get(reqwest::header::ETAG)
+                .and_then(|tag| tag.to_str().ok())
+                .unwrap_or_default()
+                .to_owned();
+            return Ok(Some((decode(response).await?, tag)));
+        }
+        Err(Error::Closed)
+    }
+
     pub(crate) async fn device<T: DeserializeOwned>(
         &self,
         method: Method,

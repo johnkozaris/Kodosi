@@ -6,161 +6,160 @@ namespace Kodosi.TerminalConnections;
 public sealed class ConnectionDirectory
 {
     private const int MaximumSessions = 4096;
-    private const int MaximumPipes = 64;
-    private readonly ConcurrentDictionary<Guid, LiveSession> sessions = new();
-    private readonly ConcurrentDictionary<string, SocketPeer> listeners = new(StringComparer.Ordinal);
+    private const int MaximumSessionPipes = 64;
+    private const int MaximumDevicePipes = 256;
+    private const int MaximumUserDevices = 16;
+    private readonly object sync = new();
+    private readonly Dictionary<(Guid User, string Device), DeviceLink> devices = new();
+    private readonly Dictionary<Guid, Hosted> hosted = new();
+    private readonly ConcurrentDictionary<Guid, Pipe> pipes = new();
 
-    public bool HostOnline(Guid id) => sessions.TryGetValue(id, out var live) && live.Host.IsOpen;
+    public bool HostOnline(Guid id) { lock (sync) return hosted.TryGetValue(id, out var live) && live.Host.IsOpen; }
 
-    internal (int Devices, int Pipes) Count()
-    {
-        var pipes = 0;
-        foreach (var live in sessions.Values) lock (live.Sync) pipes += live.Pipes.Count;
-        return (listeners.Count, pipes);
-    }
+    internal (int Devices, int Pipes) Count() { lock (sync) return (devices.Count, pipes.Count); }
 
-    internal Peer[] OnlinePeers()
-    {
-        var peers = new HashSet<Peer>(listeners.Values);
-        foreach (var live in sessions.Values)
-            lock (live.Sync)
-            {
-                peers.Add(live.Host);
-                foreach (var pipe in live.Pipes.Values)
-                {
-                    peers.Add(pipe.Viewer);
-                    if (pipe.Host is { } host) peers.Add(host);
-                }
-            }
-        return peers.Where(peer => peer.IsOpen).ToArray();
-    }
+    internal DeviceLink[] Online() { lock (sync) return devices.Values.Where(link => link.IsOpen).ToArray(); }
 
     public void Notify(Guid userId, string surface)
     {
-        foreach (var peer in listeners.Values.Where(x => x.UserId == userId))
-            peer.Send(new { type = "changed", surface });
+        foreach (var link in Online().Where(link => link.UserId == userId)) link.Send(new { type = "changed", surface });
     }
-    internal bool RegisterEvents(SocketPeer peer)
+
+    internal void Register(DeviceLink link)
     {
-        if (listeners.Values.Count(x => x.UserId == peer.UserId) >= 16) return false;
-        return listeners.TryAdd(peer.ConnectionId, peer);
+        DeviceLink? previous;
+        lock (sync)
+        {
+            var key = (link.UserId, link.DeviceId);
+            if (!devices.TryGetValue(key, out previous) && devices.Keys.Count(x => x.User == link.UserId) >= MaximumUserDevices)
+                throw new ApiException(503, "Too many device connections.");
+            devices[key] = link;
+        }
+        if (previous is not null) Detach(previous);
     }
-    internal void RemoveEvents(SocketPeer peer) => listeners.TryRemove(peer.ConnectionId, out _);
+
+    internal void Remove(DeviceLink link)
+    {
+        lock (sync)
+        {
+            var key = (link.UserId, link.DeviceId);
+            if (devices.TryGetValue(key, out var current) && ReferenceEquals(current, link)) devices.Remove(key);
+        }
+        Detach(link);
+    }
+
+    private void Detach(DeviceLink link)
+    {
+        link.Abort();
+        Pipe[] ended;
+        lock (sync)
+        {
+            foreach (var id in hosted.Where(x => ReferenceEquals(x.Value.Host, link)).Select(x => x.Key).ToArray()) hosted.Remove(id);
+            ended = pipes.Values.Where(pipe => ReferenceEquals(pipe.Host, link) || ReferenceEquals(pipe.Viewer, link)).ToArray();
+        }
+        foreach (var pipe in ended) End(pipe, ReferenceEquals(pipe.Host, link) ? 409 : 0, ReferenceEquals(pipe.Host, link) ? "The host is offline." : "");
+    }
+
+    internal void Host(DeviceLink link, Session state)
+    {
+        Pipe[] ended = [];
+        lock (sync)
+        {
+            if (!link.IsOpen) throw new ApiException(409, "The device connection closed.");
+            if (hosted.TryGetValue(state.Id, out var previous))
+            {
+                if (ReferenceEquals(previous.Host, link) && previous.IncarnationId == state.IncarnationId) return;
+                ended = pipes.Values.Where(pipe => pipe.SessionId == state.Id).ToArray();
+            }
+            else if (hosted.Count >= MaximumSessions) throw new ApiException(503, "Terminal connection capacity reached.");
+            hosted[state.Id] = new Hosted(state.IncarnationId, link);
+        }
+        foreach (var pipe in ended) End(pipe, 409, "Session publication changed.");
+    }
+
+    internal void Unhost(DeviceLink link, Guid sessionId)
+    {
+        lock (sync)
+        {
+            if (!hosted.TryGetValue(sessionId, out var live) || !ReferenceEquals(live.Host, link)) return;
+        }
+        RemoveSession(sessionId);
+    }
+
+    internal void Open(DeviceLink viewer, Guid pipeId, Session state)
+    {
+        lock (sync)
+        {
+            if (!hosted.TryGetValue(state.Id, out var live) || !live.Host.IsOpen) throw new ApiException(409, "The host is offline.");
+            if (live.IncarnationId != state.IncarnationId) throw ApiException.Conflict("Session publication changed.");
+            if (pipes.Values.Count(pipe => pipe.SessionId == state.Id) >= MaximumSessionPipes) throw new ApiException(503, "Too many connected participants.");
+            if (pipes.Values.Count(pipe => ReferenceEquals(pipe.Viewer, viewer)) >= MaximumDevicePipes) throw new ApiException(503, "Too many open views.");
+            if (!pipes.TryAdd(pipeId, new Pipe(pipeId, state.Id, viewer, live.Host))) throw ApiException.Conflict("The view identity is in use.");
+            live.Host.Send(new { type = "viewer", pipe = pipeId, sessionId = state.Id, userId = viewer.UserId, deviceId = viewer.DeviceId });
+        }
+    }
+
+    internal void Close(DeviceLink link, Guid pipeId)
+    {
+        if (pipes.TryGetValue(pipeId, out var pipe) && (ReferenceEquals(pipe.Viewer, link) || ReferenceEquals(pipe.Host, link))) End(pipe, 0, "", link);
+    }
+
+    internal int Relay(DeviceLink from, Guid pipeId, byte[] frame)
+    {
+        if (!pipes.TryGetValue(pipeId, out var pipe)) return 0;
+        var to = ReferenceEquals(pipe.Viewer, from) ? pipe.Host : ReferenceEquals(pipe.Host, from) ? pipe.Viewer : null;
+        if (to is null) return 0;
+        if (to.Relay(frame)) return frame.Length;
+        End(pipe, 503, "The connection is too slow.");
+        return 0;
+    }
+
+    private void End(Pipe pipe, int status, string message, DeviceLink? silent = null)
+    {
+        if (!pipes.TryRemove(new KeyValuePair<Guid, Pipe>(pipe.Id, pipe))) return;
+        foreach (var link in new[] { pipe.Viewer, pipe.Host })
+            if (!ReferenceEquals(link, silent)) link.Send(new { type = "closed", pipe = pipe.Id, status, message });
+    }
 
     public void Revoke(Session state, Func<Guid, string, bool> keep)
     {
-        if (!sessions.TryGetValue(state.Id, out var live)) return;
-        lock (live.Sync)
-        {
-            foreach (var pipe in live.Pipes.Values.Where(pipe => !keep(pipe.Viewer.UserId, pipe.Viewer.DeviceId)).ToArray())
-            { pipe.Abort(); live.Pipes.Remove(pipe.Id); }
-            live.Host.Send(new { type = "accessChanged" });
-        }
+        DeviceLink? host;
+        lock (sync) host = hosted.TryGetValue(state.Id, out var live) ? live.Host : null;
+        foreach (var pipe in pipes.Values.Where(pipe => pipe.SessionId == state.Id && !keep(pipe.Viewer.UserId, pipe.Viewer.DeviceId)).ToArray())
+            End(pipe, 403, "This terminal is not shared with you.");
+        host?.Send(new { type = "accessChanged", sessionId = state.Id });
     }
 
     public void Renew(Guid userId, string deviceId, DateTimeOffset expires)
     {
-        foreach (var peer in OnlinePeers().Where(x => x.UserId == userId && x.DeviceId == deviceId)) peer.ExtendUntil(expires);
+        lock (sync) if (devices.TryGetValue((userId, deviceId), out var link)) link.ExtendUntil(expires);
     }
 
     public void RemoveDevice(Guid userId, string deviceId)
     {
-        foreach (var peer in listeners.Values.Where(x => x.UserId == userId && x.DeviceId == deviceId)) peer.Abort();
-        foreach (var live in sessions.Values)
-            lock (live.Sync)
-            {
-                if (live.Host.UserId == userId && live.Host.DeviceId == deviceId) live.Host.Abort();
-                foreach (var pipe in live.Pipes.Values.Where(pipe => pipe.Viewer.UserId == userId && pipe.Viewer.DeviceId == deviceId).ToArray())
-                { pipe.Abort(); live.Pipes.Remove(pipe.Id); }
-            }
+        DeviceLink? link;
+        lock (sync) devices.Remove((userId, deviceId), out link);
+        if (link is not null) Detach(link);
     }
 
     public void RemoveSession(Guid id)
     {
-        if (sessions.TryRemove(id, out var live)) Close(live);
+        Pipe[] ended;
+        lock (sync)
+        {
+            if (!hosted.Remove(id)) return;
+            ended = pipes.Values.Where(pipe => pipe.SessionId == id).ToArray();
+        }
+        foreach (var pipe in ended) End(pipe, 404, "This terminal is no longer available.");
     }
 
     public void StopAll()
     {
-        foreach (var id in sessions.Keys) RemoveSession(id);
-        foreach (var peer in listeners.Values) peer.Abort();
-        listeners.Clear();
+        DeviceLink[] all;
+        lock (sync) { all = devices.Values.ToArray(); devices.Clear(); hosted.Clear(); }
+        pipes.Clear();
+        foreach (var link in all) link.Abort();
     }
 
-    internal LiveSession RegisterHost(Session state, SocketPeer host)
-    {
-        if (sessions.Count >= MaximumSessions && !sessions.ContainsKey(state.Id)) throw new ApiException(503, "Terminal connection capacity reached.");
-        var live = new LiveSession(state.Id, state.IncarnationId, host);
-        while (true)
-        {
-            if (sessions.TryGetValue(state.Id, out var previous))
-            {
-                if (previous.IncarnationId != state.IncarnationId) throw ApiException.Conflict("Session publication changed.");
-                if (!sessions.TryUpdate(state.Id, live, previous)) continue;
-                Close(previous);
-                return live;
-            }
-            if (sessions.TryAdd(state.Id, live)) return live;
-        }
-    }
-
-    internal void RemoveHost(LiveSession live)
-    {
-        sessions.TryRemove(new KeyValuePair<Guid, LiveSession>(live.Id, live));
-        Close(live);
-    }
-
-    internal (LiveSession Live, Pipe Pipe) OpenPipe(Session state, Peer viewer)
-    {
-        if (!sessions.TryGetValue(state.Id, out var live) || !live.Host.IsOpen) throw new ApiException(409, "The host is offline.");
-        var pipe = new Pipe(Guid.CreateVersion7(), viewer);
-        lock (live.Sync)
-        {
-            if (live.Closed || live.IncarnationId != state.IncarnationId) throw ApiException.Conflict("Session publication changed.");
-            if (live.Pipes.Count >= MaximumPipes) throw new ApiException(503, "Too many connected participants.");
-            live.Pipes.Add(pipe.Id, pipe);
-            live.Host.Send(new { type = "viewer", channelId = pipe.Id, userId = viewer.UserId, deviceId = viewer.DeviceId });
-        }
-        return (live, pipe);
-    }
-
-    internal (LiveSession Live, Pipe Pipe) JoinPipe(Session state, Guid channelId, Peer host)
-    {
-        if (!sessions.TryGetValue(state.Id, out var live)) throw new ApiException(409, "The host is offline.");
-        lock (live.Sync)
-        {
-            if (live.Closed || live.IncarnationId != state.IncarnationId || live.Host.UserId != host.UserId || live.Host.DeviceId != host.DeviceId
-                || !live.Pipes.TryGetValue(channelId, out var pipe) || pipe.Host is not null || !pipe.Viewer.IsOpen)
-                throw ApiException.Missing();
-            pipe.Host = host;
-            return (live, pipe);
-        }
-    }
-
-    internal static void ClosePipe(LiveSession live, Pipe pipe)
-    {
-        lock (live.Sync) live.Pipes.Remove(pipe.Id);
-        pipe.Abort();
-    }
-
-    private static void Close(LiveSession live)
-    {
-        lock (live.Sync)
-        {
-            live.Closed = true;
-            live.Host.Abort();
-            foreach (var pipe in live.Pipes.Values) pipe.Abort();
-            live.Pipes.Clear();
-        }
-    }
-
-    internal sealed class LiveSession(Guid id, Guid incarnationId, SocketPeer host)
-    {
-        public object Sync { get; } = new();
-        public Guid Id { get; } = id;
-        public Guid IncarnationId { get; } = incarnationId;
-        public SocketPeer Host { get; } = host;
-        public bool Closed;
-        public Dictionary<Guid, Pipe> Pipes { get; } = new();
-    }
+    private sealed record Hosted(Guid IncarnationId, DeviceLink Host);
 }

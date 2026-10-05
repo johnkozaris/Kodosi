@@ -14,9 +14,9 @@ public sealed class ServerMetrics : IDisposable
     public ServerMetrics()
     {
         relayBytes = meter.CreateCounter<long>("kodosi.relay.bytes", "By", "Bytes copied between a host and a viewer.");
-        refused = meter.CreateCounter<long>("kodosi.connections.refused", description: "Refused socket connections by reason.");
+        refused = meter.CreateCounter<long>("kodosi.connections.refused", description: "Refused device connections and pipes by reason.");
         databaseFault = meter.CreateCounter<double>("kodosi.database.fault", "s", "Seconds in which the database was not reachable.");
-        meter.CreateObservableGauge("kodosi.device.connections", () => connections().Devices, description: "Open device event connections.");
+        meter.CreateObservableGauge("kodosi.device.connections", () => connections().Devices, description: "Open device connections.");
         meter.CreateObservableGauge("kodosi.relay.pipes", () => connections().Pipes, description: "Open relay pipes.");
     }
 

@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{
     identity::keys::DeviceKeys,
-    network::{CheckpointCut, ScreenCut},
+    network::CheckpointCut,
     terminal::{Checkpoint, TerminalScreen, TerminalSize},
 };
 
@@ -82,7 +82,7 @@ impl Terminal {
     }
 }
 
-const SCREEN: &[u8] = b"\x1bcthe visible screen";
+const VISIBLE: usize = 300;
 
 async fn terminal(snapshot_bytes: usize) -> Terminal {
     let (host, viewer) = (
@@ -98,8 +98,12 @@ async fn terminal(snapshot_bytes: usize) -> Terminal {
     tokio::spawn(async move {
         while let Some(request) = received.recv().await {
             match request {
-                HostRequest::Bootstrap { request_id, reply } => {
-                    let body = noise(snapshot_bytes);
+                HostRequest::Bootstrap {
+                    request_id,
+                    history,
+                    reply,
+                } => {
+                    let body = noise(if history { snapshot_bytes } else { VISIBLE });
                     let checkpoint = Checkpoint::new(
                         TerminalSize::new(24, 80).unwrap(),
                         TerminalScreen::Primary,
@@ -112,14 +116,6 @@ async fn terminal(snapshot_bytes: usize) -> Terminal {
                     drop(barrier.send(PublishedFrame::BootstrapBarrier { request_id }));
                     drop(reply.send(Ok(CheckpointCut {
                         checkpoint,
-                        next_sequence: current.load(Ordering::SeqCst),
-                    })));
-                }
-                HostRequest::Screen { request_id, reply } => {
-                    drop(barrier.send(PublishedFrame::BootstrapBarrier { request_id }));
-                    drop(reply.send(Ok(ScreenCut {
-                        repaint: Bytes::from_static(SCREEN),
-                        size: TerminalSize::new(30, 100).unwrap(),
                         next_sequence: current.load(Ordering::SeqCst),
                     })));
                 }
@@ -212,13 +208,14 @@ async fn a_view_that_falls_behind_gets_the_current_screen_and_not_the_backlog() 
                 expected += chunks.len() as u64;
             }
             Frame::Keyframe { next_sequence, .. } => {
-                assert_eq!(next_sequence, expected);
+                assert!(expected < 100, "{expected} chunks were delivered");
+                assert_eq!(next_sequence, 200);
+                expected = next_sequence;
                 break;
             }
             _ => {}
         }
     }
-    assert!(expected < 100, "{expected} chunks were delivered");
     terminal.write(b"last");
     let Frame::Output {
         first_sequence,
@@ -231,50 +228,57 @@ async fn a_view_that_falls_behind_gets_the_current_screen_and_not_the_backlog() 
 }
 
 #[tokio::test]
-async fn a_slow_view_that_falls_behind_gets_the_visible_screen_first_and_the_exact_state_when_output_is_quiet()
- {
+async fn a_view_gets_the_visible_screen_first_and_the_history_when_output_is_quiet() {
     let mut terminal = terminal(400_000).await;
     terminal.delay = Duration::from_millis(50);
-    let (first, exact) = terminal.keyframe().await;
+    let (first, visible) = terminal.keyframe().await;
+    assert!(visible < 1024, "the first snapshot had {visible} bytes");
+    terminal.viewer.send(&Frame::Refresh).await.unwrap();
+    assert_eq!(terminal.keyframe().await, (first, visible));
     terminal.flood().await;
     let mut expected = first;
-    let mut screens = 0;
-    loop {
+    let screen = loop {
         let frame = terminal.next().await;
         terminal.acknowledge().await;
         match frame {
-            Frame::Resize {
-                rows,
-                cols,
-                at_sequence,
-            } => assert_eq!((rows, cols, at_sequence), (30, 100, expected)),
             Frame::Output {
                 first_sequence,
                 chunks,
             } => {
                 assert_eq!(first_sequence, expected);
                 expected += chunks.len() as u64;
-                if chunks.iter().any(|chunk| chunk == SCREEN) {
-                    screens += 1;
-                    terminal.write(b"after the screen");
-                } else if chunks.iter().any(|chunk| &chunk[..] == b"after the screen") {
-                    break;
-                }
+            }
+            Frame::Keyframe {
+                next_sequence,
+                more: false,
+                part,
+            } => {
+                assert_eq!(part.len(), visible);
+                break next_sequence;
             }
             other => panic!("a slow view got {other:?} in place of the visible screen"),
         }
-    }
-    assert_eq!(screens, 1);
-    let (next_sequence, size) = terminal.keyframe().await;
-    assert_eq!((next_sequence, size), (expected, exact));
+    };
+    assert_eq!(screen, 200);
+    terminal.write(b"after the screen");
+    let Frame::Output { first_sequence, .. } = terminal.next().await else {
+        panic!("output");
+    };
+    assert_eq!(first_sequence, screen);
+    terminal.acknowledge().await;
+    let (next_sequence, exact) = terminal.keyframe().await;
+    assert_eq!(next_sequence, screen + 1);
+    assert!(exact > 300_000, "the exact snapshot had {exact} bytes");
 }
 
 #[tokio::test]
 async fn a_large_snapshot_waits_for_the_viewer_between_its_parts() {
     let mut terminal = terminal(400_000).await;
+    terminal.delay = Duration::from_millis(100);
+    terminal.keyframe().await;
     let mut parts = 0;
     while let Ok(Ok(Some((frame, _)))) =
-        tokio::time::timeout(Duration::from_millis(300), terminal.viewer.receive()).await
+        tokio::time::timeout(Duration::from_millis(1500), terminal.viewer.receive()).await
     {
         parts += usize::from(matches!(frame, Frame::Keyframe { .. }));
     }

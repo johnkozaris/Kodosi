@@ -21,13 +21,13 @@ internal static class DeviceEndpoints
         api.MapGet("/me/identity", async (HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
         {
             var user = await users.GetAsync(context, ct);
-            return Results.Ok(await service.IdentityAsync(user.Id, user.Id, ct));
+            return Tagged(context, await service.IdentityAsync(user.Id, user.Id, context.Request.Headers.IfNoneMatch, ct));
         });
         api.MapGet("/users/{userId:guid}/identity", async (Guid userId, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
         {
             var user = await users.GetAsync(context, ct);
             await service.RequireProofAsync(context, user.Id, ct);
-            return Results.Ok(await service.IdentityAsync(user.Id, userId, ct));
+            return Tagged(context, await service.IdentityAsync(user.Id, userId, context.Request.Headers.IfNoneMatch, ct));
         });
         api.MapPost("/me/identity/device-list", async (DeviceService.ReplaceDeviceList body, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
         {
@@ -71,6 +71,12 @@ internal static class DeviceEndpoints
         {
             await service.CancelLinkAsync((await users.GetAsync(context, ct)).Id, requestId, ct); return Results.NoContent();
         });
+    }
+
+    private static IResult Tagged(HttpContext context, (DeviceService.IdentityBundle? Bundle, string Tag) identity)
+    {
+        context.Response.Headers.ETag = identity.Tag;
+        return identity.Bundle is null ? Results.StatusCode(StatusCodes.Status304NotModified) : Results.Ok(identity.Bundle);
     }
 
     private static DateTimeOffset? AuthenticatedAt(ClaimsPrincipal principal)

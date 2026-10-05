@@ -1,17 +1,21 @@
 {
-  "apiContractVersion": 20,
+  "apiContractVersion": 21,
   "authContractVersion": 1,
   "authentication": "OIDC bearer identity and a device session",
   "deviceSession": {
     "open": "the device signs kodosi-device-session-v1, the length-prefixed account id, device id and challenge id, and the 32-byte challenge; the server answers with a session secret",
-    "use": "headers X-Kodosi-Device-Id and X-Kodosi-Device-Session on each device request and the deviceSession field of each socket hello",
+    "use": "headers X-Kodosi-Device-Id and X-Kodosi-Device-Session on each device request and the deviceSession field of the device connection hello",
     "refusal": "status 428 when the server does not hold the session; the device opens a new session and sends the request again",
     "storage": "in the memory of the one serving process; 12 hours; removed with the device",
     "changes": "one change at a time for each account; reads do not wait"
   },
+  "identityRead": {
+    "tag": "GET /api/me/identity and GET /api/users/{userId}/identity give an ETag made of the identity incarnation and the device list generation",
+    "unchanged": "status 304 without a body when If-None-Match is equal to the tag"
+  },
   "operation": {
     "migration": "the argument migrate applies the schema and exits; a serving start refuses a database that is not current",
-    "refusedConnections": "one log line for each refused socket connection with purpose, account, device, terminal and reason",
+    "refusedConnections": "one log line for each refused device connection with account, device and reason",
     "meter": "Kodosi.Server: kodosi.device.connections, kodosi.relay.pipes, kodosi.relay.bytes, kodosi.connections.refused by reason, kodosi.database.fault in seconds"
   },
   "sessionAuthorization": {

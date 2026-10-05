@@ -123,14 +123,16 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
             ? default : await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
     }
 
-    public async Task<(WebSocket Socket, JsonElement Ready)> ConnectAsync(ApiDevice actor, string purpose, Guid? session = null, Guid? incarnation = null, Guid? channel = null)
+    public async Task<WebSocket> ConnectAsync(ApiDevice actor)
     {
         var client = Server.CreateWebSocketClient(); client.ConfigureRequest = request => request.Headers.Authorization = "Bearer " + actor.Token;
-        var socket = await client.ConnectAsync(new Uri("ws://localhost/ws/" + purpose + (session is null ? "" : "/" + session) + (channel is null ? "" : "/" + channel)), TestContext.Current.CancellationToken);
-        await SendAsync(socket, new { type = "hello", protocolVersion = 17, deviceId = actor.Fixture.DeviceId, deviceSession = actor.Session, incarnationId = incarnation });
-        var ready = await JsonAsync(socket); Assert.Equal("ready", ready.GetProperty("type").GetString());
-        return (socket, ready);
+        var socket = await client.ConnectAsync(new Uri("ws://localhost/ws/device"), TestContext.Current.CancellationToken);
+        await SendAsync(socket, new { type = "hello", protocolVersion = 18, deviceId = actor.Fixture.DeviceId, deviceSession = actor.Session });
+        Assert.Equal("ready", (await JsonAsync(socket)).GetProperty("type").GetString());
+        return socket;
     }
+
+    public static byte[] PipeFrame(Guid pipe, byte[] payload) => [.. pipe.ToByteArray(bigEndian: true), .. payload];
 
     public static async Task SuccessAsync(HttpResponseMessage response) => Assert.True(response.IsSuccessStatusCode,
         $"{response.StatusCode}: {await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)}");

@@ -56,10 +56,14 @@ mod tests {
         );
         assert_eq!(offset_of!(GhosttyCheckpointLimits, max_cells), 32);
 
-        assert_eq!(size_of::<GhosttyCheckpointEncodeOptions>(), 48);
+        assert_eq!(size_of::<GhosttyCheckpointEncodeOptions>(), 56);
         assert_eq!(align_of::<GhosttyCheckpointEncodeOptions>(), 8);
         assert_eq!(offset_of!(GhosttyCheckpointEncodeOptions, size), 0);
         assert_eq!(offset_of!(GhosttyCheckpointEncodeOptions, limits), 8);
+        assert_eq!(
+            offset_of!(GhosttyCheckpointEncodeOptions, max_history_rows),
+            48
+        );
 
         assert_eq!(size_of::<GhosttyCheckpointRestoreOptions>(), 48);
         assert_eq!(align_of::<GhosttyCheckpointRestoreOptions>(), 8);

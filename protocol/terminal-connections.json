@@ -1,14 +1,12 @@
 {
-  "terminalConnectionProtocolVersion": 17,
+  "terminalConnectionProtocolVersion": 18,
   "compatibilityPolicy": "exactMatch",
   "routes": {
-    "host": "/ws/host/{sessionId}",
-    "participant": "/ws/participant/{sessionId}",
-    "relay": "/ws/relay/{sessionId}/{channelId}",
-    "events": "/ws/events"
+    "device": "/ws/device"
   },
-  "relayHandshake": {
-    "messages": [
+  "deviceConnection": {
+    "count": "one connection for each device; a new connection of a device replaces the earlier one",
+    "handshake": [
       "hello",
       "ready",
       "refused"
@@ -16,57 +14,60 @@
     "hello": [
       "protocolVersion",
       "deviceId",
-      "deviceSession",
-      "incarnationId"
+      "deviceSession"
     ],
     "proof": "the device session of the device; refused with reason deviceSession when the server does not hold it, and the device then opens a new session and connects again",
-    "admission": "the server registers the connection and then checks the device and the access again, so a change that is made at the same time refuses the connection",
-    "purposes": [
-      "host",
-      "participant",
-      "relay",
-      "events"
-    ],
-    "authorization": "host and relay: the publication's hosting device; participant: an approved device of the owner or of an explicit current member"
+    "admission": "the server registers the connection and then checks the device again, so a removal that is made at the same time refuses the connection",
+    "text": "JSON control messages; maximum 16384 bytes",
+    "deviceMessages": {
+      "host": "sessionId, incarnationId: this device is the host of the terminal; the answer is hosted or unhosted with status and message",
+      "unhost": "sessionId",
+      "open": "pipe, sessionId, incarnationId: open a pipe to the host of a terminal; the device makes the pipe identity and sends channel data at once; a refusal is closed with status and message",
+      "close": "pipe",
+      "ping": "the answer is pong"
+    },
+    "serverMessages": {
+      "changed": "surface (devices, friends, sessions, missions): the device reads that list again",
+      "viewer": "pipe, sessionId, userId, deviceId: to the host, when the server admitted a viewer",
+      "accessChanged": "sessionId: to the host, after a change of the people or devices that can use the terminal",
+      "closed": "pipe, status, message: the pipe ended; status 0 when the other device closed it",
+      "ping": "each 5 seconds after a check that the device is approved; the answer is pong"
+    },
+    "authorization": "host: the hosting device of the publication; open: an approved device of the owner or of an explicit current member, checked before and after the pipe is registered",
+    "silence": "the server ends a connection that sent no message for 90 seconds; the device ends a connection that received no message for 45 seconds",
+    "lost": "a lost connection closes all pipes of the device and ends its host registrations; the device connects again, sends host again for each terminal, and opens a new pipe for each view"
   },
-  "relay": {
-    "hostNotice": "viewer",
-    "hostNoticeFields": [
-      "channelId",
-      "userId",
-      "deviceId"
-    ],
-    "join": "the hosting device opens the relay route for the channel within 10 seconds; the server then copies binary messages between the two sockets and reads none of them",
-    "accessNotice": "accessChanged",
-    "messageMaxBytes": 262144,
-    "idleSeconds": 90,
-    "backpressure": "the server reads from one socket only when the other socket takes the data",
-    "viewersMax": 64
+  "pipes": {
+    "frame": "binary message: pipe identity (16 bytes, UUID in network byte order), then channel data",
+    "messageMaxBytes": 262160,
+    "relay": "the server copies each frame to the other device of the pipe and reads none of the channel data",
+    "order": "frames of one pipe keep their order",
+    "backpressure": "the server holds at most 16777216 bytes for one device; when a frame does not fit, the server closes that pipe with status 503 and the device connection stays open",
+    "viewersMax": 64,
+    "deviceMax": 256
   },
   "channel": {
-    "transport": "TLS 1.3 records in binary relay messages; the viewer is the TLS client",
+    "transport": "TLS 1.3 records in pipe frames; the viewer is the TLS client",
     "keyExchange": "X25519MLKEM768",
     "cipherSuite": "TLS_AES_256_GCM_SHA384",
     "authentication": "raw public keys (RFC 7250): the ML-DSA-65 signing key of each device certificate, both sides",
     "viewerCheck": "the host key must equal the key of the hosting device in the verified device list of the owner",
-    "hostCheck": "the viewer key must equal the key of the device that hello names, in the verified device list of the owner or of a person the host shared this terminal with",
-    "resumption": false,
-    "newTrafficKeys": "after 16777216 frames or 1 hour"
+    "hostCheck": "the viewer key must equal the key of the device that the server named in its viewer notice, in the verified device list of the owner or of a person the host shared this terminal with",
+    "resumption": "TLS 1.3 session tickets with a new key exchange (psk_dhe_ke); a device keeps the tickets of 256 hosts in memory and a host keeps 1024 sessions in memory; a resumed channel carries the device key of the first handshake",
+    "newTrafficKeys": "after 16777216 frames or 1 hour",
+    "resumedStart": "the host of a resumed channel sends accept and the first keyframe with its first flight, so a later view of the same host starts in one round trip",
+    "identityRecords": "a device keeps each verified identity with the entity tag of the server; it uses the kept record for 10 minutes without a request, and it asks the server with If-None-Match after that time, after a friend change notice, and when a device or key is not in the record"
   },
   "frames": {
     "layout": "length:u24be (bytes after this field), type:u8, bodyLength:u24be, body, zero padding",
     "maxBytes": 1048576,
     "padding": "total length up to 1024 bytes: next multiple of 64; larger: Padme",
     "types": {
-      "hello": {
-        "type": 1,
-        "direction": "viewer",
-        "body": "JSON: protocolVersion, sessionId, incarnationId, userId, deviceId"
-      },
       "accept": {
         "type": 2,
         "direction": "host",
-        "body": "JSON: protocolVersion, hostDeviceId"
+        "body": "JSON: protocolVersion, sessionId, incarnationId, hostDeviceId; the viewer refuses a value that is not the terminal it asked for",
+        "first": "the first frame of a channel is accept or refuse"
       },
       "refuse": {
         "type": 3,
@@ -76,7 +77,7 @@
       "keyframe": {
         "type": 4,
         "direction": "host",
-        "body": "nextSequence:u64be, more:u8, part of the raw deflate of the terminal checkpoint",
+        "body": "nextSequence:u64be, more:u8, part of the raw deflate of a terminal checkpoint; the viewer installs a complete keyframe in place of its terminal state",
         "partMaxBytes": 32768
       },
       "output": {
@@ -142,16 +143,16 @@
   },
   "output": {
     "start": "the first output-carrying frames of a channel are a keyframe; a view never starts in another way",
-    "sequence": "one for each output chunk that the host sends on this channel; keyframe.nextSequence is the sequence of the next output chunk; resize.atSequence and end.finalSequence use the same count",
-    "acknowledgement": "the viewer sends ack after each 4096 bytes, at most 100 ms after the last frame, and as the answer to each heartbeat, so the relay does not close an idle view",
+    "sequence": "the count of output chunks of the terminal on the host, the same for all viewers; keyframe.nextSequence is the sequence of the next output chunk; resize.atSequence and end.finalSequence use the same count; a keyframe can skip output that the viewer did not get",
+    "acknowledgement": "the viewer sends ack after each 4096 bytes, at most 100 ms after the last frame, and as the answer to each heartbeat",
     "window": "the host keeps at most half a second of output at the measured speed in transit (minimum 4096 bytes, 16384 before the first measurement, maximum 8388608)",
     "speed": "the host measures the acknowledged bytes for 200 ms or more while output waits for the window, while a keyframe is in transit, or while the viewer is behind; all data that is acknowledged in full also shows a least speed, which can only increase the value",
-    "behind": "when output that waits for one viewer is more than the larger of its window and its last screen repaint, the host drops it for that viewer and sends the current state when all sent data is acknowledged",
-    "currentState": "a keyframe when the last keyframe was at most half of the window or when the viewer sent refresh; if not, a screen repaint",
-    "screenRepaint": "a resize frame, then output frames that hold a full terminal reset (ESC c) and the visible screen, cursor, modes and styles of the host; it holds no history",
-    "exactAfterRepaint": "the host sends a keyframe after 2 seconds without output; the viewer installs it in place",
+    "behind": "when output that waits for one viewer is more than its window, the host drops it for that viewer and sends the current state when all sent data is acknowledged",
+    "currentState": "an exact keyframe when the last exact keyframe was at most half of the window; if not, a visible keyframe",
+    "visibleKeyframe": "a checkpoint with the exact visible rows, cursor, modes and styles of the primary and the alternate screen and no history rows; a view starts with one",
+    "exactKeyframe": "a checkpoint with the history rows; the host sends one after a visible keyframe when the terminal made no output for 1 second",
     "keyframeSpacingMilliseconds": 500,
-    "refresh": "a viewer can ask for a new keyframe",
+    "refresh": "a viewer can ask for the current state",
     "otherViewers": "not affected"
   },
   "input": {
@@ -172,12 +173,12 @@
     "timeoutSeconds": 12
   },
   "freshness": {
-    "revocation": "the host closes the channels of a person at once when it stops sharing with that person; the server closes the pipes of removed people and devices; other viewers are not affected",
+    "revocation": "the host closes the channels of a person at once when it stops sharing with that person; the server closes the pipes of removed people and the connections of removed devices; other viewers are not affected",
     "identityReplacement": "never silently trust a replacement pinned identity",
     "silenceSeconds": 45,
     "trustCheckSeconds": 300,
-    "tokenExpiry": "a connection ends when the access token that opened it expires, unless the device proves a newer token with POST /api/me/connections/renew; the runtime does this after each token refresh",
-    "participantReconnect": "a participant runtime keeps its open views when the connection is lost, connects again with a new channel and installs the first keyframe in place",
+    "tokenExpiry": "the device connection ends when the access token that opened it expires, unless the device proves a newer token with POST /api/me/connections/renew; the runtime does this after each token refresh",
+    "participantReconnect": "a participant runtime keeps its open views when a pipe or the device connection is lost, opens a new pipe and installs the first keyframe in place",
     "missingPublicationRecovery": "same still-live local session; owner devices only until friends explicitly selected again"
   },
   "presence": {

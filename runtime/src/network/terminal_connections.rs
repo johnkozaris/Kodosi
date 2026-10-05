@@ -32,14 +32,18 @@ use super::{
 
 mod channel;
 mod host;
+mod link;
 mod pacer;
 mod participant;
+
+pub(crate) use channel::ChannelKeys;
+pub(crate) use link::Link;
 
 pub(crate) type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
 pub(crate) const STABLE_CONNECTION: Duration = Duration::from_mins(1);
 pub(crate) const INPUT_NOT_SENT: &str = "Some of your last input was not sent.";
-const MESSAGE_LIMIT: usize = 256 * 1024;
+const MESSAGE_LIMIT: usize = 256 * 1024 + 4096;
 const TRUST_CHECK: Duration = Duration::from_mins(5);
 
 pub(crate) struct Publication {
@@ -149,16 +153,19 @@ pub(crate) async fn connect_remote(network: BackendClient, id: Uuid) -> Result<R
     participant::connect(network, id).await
 }
 
-pub(crate) async fn socket(
+pub(crate) async fn run_link(
     network: &BackendClient,
     credentials: &Credentials,
-    path: &str,
-    session: Option<&SessionDto>,
-) -> Result<(Socket, Value)> {
+    surfaces: &mpsc::UnboundedSender<String>,
+) -> Result<()> {
+    link::run(network, credentials, surfaces).await
+}
+
+async fn socket(network: &BackendClient, credentials: &Credentials) -> Result<(Socket, Value)> {
     network.check_credentials(credentials)?;
     network.inner.http.compatible().await?;
     let device_session = network.inner.http.device_session(credentials).await?;
-    if let Some(admitted) = admitted(network, credentials, path, session, &device_session).await? {
+    if let Some(admitted) = admitted(network, credentials, &device_session).await? {
         return Ok(admitted);
     }
     network
@@ -167,7 +174,7 @@ pub(crate) async fn socket(
         .forget_device_session(&device_session)
         .await;
     let device_session = network.inner.http.device_session(credentials).await?;
-    admitted(network, credentials, path, session, &device_session)
+    admitted(network, credentials, &device_session)
         .await?
         .ok_or_else(|| invalid("The connection service did not admit this device."))
 }
@@ -175,11 +182,9 @@ pub(crate) async fn socket(
 async fn admitted(
     network: &BackendClient,
     credentials: &Credentials,
-    path: &str,
-    session: Option<&SessionDto>,
     device_session: &str,
 ) -> Result<Option<(Socket, Value)>> {
-    let url = network.inner.http.websocket_url(path)?;
+    let url = network.inner.http.websocket_url("ws/device")?;
     let mut request = url
         .as_str()
         .into_client_request()
@@ -203,22 +208,16 @@ async fn admitted(
         tracing::warn!(%error, "terminal connection failed");
         invalid("Kodosi could not reach the terminal connection service.")
     })?;
-    send_json(&mut socket, json!({"type":"hello","protocolVersion":crate::protocol::TERMINAL_CONNECTION_VERSION,"deviceId":credentials.keys.device_id,"deviceSession":device_session,"incarnationId":session.map(|s|s.incarnation_id)})).await?;
+    send_json(&mut socket, json!({"type":"hello","protocolVersion":crate::protocol::TERMINAL_CONNECTION_VERSION,"deviceId":credentials.keys.device_id,"deviceSession":device_session})).await?;
     let ready = read_json(&mut socket).await?;
     match wire::text(&ready, "type")? {
-        "ready" => {}
-        "refused" => return Ok(None),
-        _ => return Err(invalid("The connection service did not admit this device.")),
+        "ready" => Ok(Some((socket, ready))),
+        "refused" => Ok(None),
+        _ => Err(invalid("The connection service did not admit this device.")),
     }
-    if let Some(session) = session
-        && wire::id(&ready, "incarnationId")? != session.incarnation_id
-    {
-        return Err(Error::Stale);
-    }
-    Ok(Some((socket, ready)))
 }
 
-pub(crate) async fn send_json(socket: &mut Socket, value: Value) -> Result<()> {
+async fn send_json(socket: &mut Socket, value: Value) -> Result<()> {
     let text = serde_json::to_string(&value)?;
     if text.len() > MESSAGE_LIMIT {
         return Err(invalid("Connection message exceeds its limit."));
@@ -234,7 +233,7 @@ pub(crate) async fn send_json(socket: &mut Socket, value: Value) -> Result<()> {
         invalid("The connection to the host dropped.")
     })
 }
-pub(crate) async fn read_json(socket: &mut Socket) -> Result<Value> {
+async fn read_json(socket: &mut Socket) -> Result<Value> {
     let message = tokio::time::timeout(Duration::from_secs(10), socket.next())
         .await
         .map_err(|_| Error::Closed)?
@@ -247,13 +246,6 @@ pub(crate) async fn read_json(socket: &mut Socket) -> Result<Value> {
         Message::Text(text) => serde_json::from_str(&text).map_err(Into::into),
         _ => Err(invalid("Expected a connection handshake message.")),
     }
-}
-
-pub(crate) async fn send_pong(socket: &mut Socket, payload: Bytes) -> Result<()> {
-    tokio::time::timeout(Duration::from_secs(5), socket.send(Message::Pong(payload)))
-        .await
-        .map_err(|_| Error::Closed)?
-        .map_err(|error| invalid(error.to_string()))
 }
 
 pub(crate) fn check_generation(network: &BackendClient, generation: u64) -> Result<()> {

@@ -157,8 +157,8 @@ public sealed class AdmissionAndExpiryTests(PostgresFixture postgres)
         using var renewing = await app.EnrollAsync("renewing");
         using var silent = await app.EnrollAsync("silent");
         var brief = TimeSpan.FromSeconds(5);
-        var (kept, _) = await app.ConnectAsync(renewing with { Token = app.Token("renewing", lifetime: brief) }, "events");
-        var (ended, _) = await app.ConnectAsync(silent with { Token = app.Token("silent", lifetime: brief) }, "events");
+        var kept = await app.ConnectAsync(renewing with { Token = app.Token("renewing", lifetime: brief) });
+        var ended = await app.ConnectAsync(silent with { Token = app.Token("silent", lifetime: brief) });
         await CallAsync(renewing, HttpMethod.Post, "/api/me/connections/renew");
         await CallAsync(silent, HttpMethod.Get, "/api/sessions");
         await Task.Delay(brief + TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);

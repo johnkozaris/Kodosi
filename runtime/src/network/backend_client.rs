@@ -51,12 +51,16 @@ pub(crate) struct Inner {
     initialized: AtomicBool,
     pub(crate) publications: Mutex<BTreeMap<Uuid, Arc<terminal_connections::Publication>>>,
     pub(crate) connections: Mutex<Vec<CancellationToken>>,
+    pub(crate) link: Arc<terminal_connections::Link>,
+    channel_keys: std::sync::Mutex<Option<Arc<terminal_connections::ChannelKeys>>>,
+    identities: std::sync::Mutex<BTreeMap<String, device_identity::KeptIdentity>>,
+    sessions: std::sync::Mutex<BTreeMap<Uuid, SessionDto>>,
     notifications: Mutex<Option<CancellationToken>>,
     restore_pending: AtomicBool,
     enrollment_checked: AtomicU64,
     renew_connections: AtomicBool,
     identity_settled: AtomicBool,
-    friends_changed: tokio::sync::Notify,
+    pub(crate) friends_changed: tokio::sync::Notify,
     login_interrupt: std::sync::Mutex<CancellationToken>,
 }
 
@@ -131,6 +135,10 @@ impl BackendClient {
                 initialized: AtomicBool::new(false),
                 publications: Mutex::new(BTreeMap::new()),
                 connections: Mutex::new(Vec::new()),
+                link: Arc::default(),
+                channel_keys: std::sync::Mutex::new(None),
+                identities: std::sync::Mutex::default(),
+                sessions: std::sync::Mutex::default(),
                 notifications: Mutex::new(None),
                 restore_pending: AtomicBool::new(true),
                 enrollment_checked: AtomicU64::new(0),
@@ -484,6 +492,9 @@ impl BackendClient {
             .http
             .device(Method::GET, "api/sessions", &credentials, None)
             .await?;
+        if let Ok(mut kept) = self.inner.sessions.lock() {
+            *kept = sessions.iter().map(|dto| (dto.id, dto.clone())).collect();
+        }
         {
             let publications = self.inner.publications.lock().await;
             for dto in &sessions {
@@ -802,6 +813,68 @@ impl BackendClient {
             publication.invalidate();
         }
         Ok(())
+    }
+
+    pub(crate) fn channel_keys(
+        &self,
+        credentials: &Credentials,
+    ) -> Result<Arc<terminal_connections::ChannelKeys>> {
+        let kept = self
+            .inner
+            .channel_keys
+            .lock()
+            .map_err(|_| Error::Closed)?
+            .as_ref()
+            .filter(|keys| keys.belongs_to(credentials.keys.signing_public()))
+            .map(Arc::clone);
+        if let Some(keys) = kept {
+            return Ok(keys);
+        }
+        let keys = Arc::new(terminal_connections::ChannelKeys::new(
+            credentials.keys.signing_pkcs8(),
+            credentials.keys.signing_public(),
+        )?);
+        *self.inner.channel_keys.lock().map_err(|_| Error::Closed)? = Some(Arc::clone(&keys));
+        Ok(keys)
+    }
+
+    pub(crate) async fn known_session(
+        &self,
+        credentials: &Credentials,
+        id: Uuid,
+    ) -> Result<(SessionDto, bool)> {
+        let kept = self
+            .inner
+            .sessions
+            .lock()
+            .map_err(|_| Error::Closed)?
+            .get(&id)
+            .cloned();
+        match kept {
+            Some(dto) => Ok((dto, true)),
+            None => Ok((self.fetch_session(credentials, id).await?, false)),
+        }
+    }
+
+    pub(crate) async fn fetch_session(
+        &self,
+        credentials: &Credentials,
+        id: Uuid,
+    ) -> Result<SessionDto> {
+        let dto: SessionDto = self
+            .inner
+            .http
+            .device(
+                Method::GET,
+                &format!("api/sessions/{id}"),
+                credentials,
+                None,
+            )
+            .await?;
+        if let Ok(mut kept) = self.inner.sessions.lock() {
+            kept.insert(id, dto.clone());
+        }
+        Ok(dto)
     }
 
     pub async fn connect_remote(&self, id: Uuid) -> Result<RemoteConnection> {

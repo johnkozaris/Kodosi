@@ -152,7 +152,10 @@ public sealed partial class DeviceService(
         connections.Notify(userId, "devices");
     }
 
-    public async Task<IdentityBundle> IdentityAsync(Guid callerId, Guid userId, CancellationToken ct)
+    public async Task<IdentityBundle> IdentityAsync(Guid callerId, Guid userId, CancellationToken ct) =>
+        (await IdentityAsync(callerId, userId, null, ct)).Bundle!;
+
+    public async Task<(IdentityBundle? Bundle, string Tag)> IdentityAsync(Guid callerId, Guid userId, string? known, CancellationToken ct)
     {
         if (callerId != userId)
         {
@@ -168,6 +171,9 @@ public sealed partial class DeviceService(
         var list = await db.DeviceLists.AsNoTracking().SingleOrDefaultAsync(x => x.UserId == userId, ct)
             ?? throw ApiException.Missing();
         if (callerId != userId) ValidateTime(list.IssuedAtMs, list.ExpiresAtMs);
+        var incarnation = user.IdentityIncarnationId ?? throw ApiException.Conflict("Identity is not enrolled.");
+        var tag = $"\"{incarnation:N}-{list.Generation}\"";
+        if (known == tag) return (null, tag);
         var devices = await db.Devices.AsNoTracking().Where(x => x.UserId == userId).ToListAsync(ct);
         var ids = lists.Parse(list.Body).Entries.Select(x => x.DeviceId).ToHashSet(StringComparer.Ordinal);
         var active = devices.Where(x => ids.Contains(x.Id) && !x.Revoked).ToArray();
@@ -185,9 +191,9 @@ public sealed partial class DeviceService(
             }
         }
         if (ancestors.Count > IdentityWireFormat.MaxEntries) throw ApiException.Conflict("Device certificate chain is too large.");
-        return new IdentityBundle(user.Id, user.IdentityRevision, user.IdentityIncarnationId ?? throw ApiException.Conflict("Identity is not enrolled."),
+        return (new IdentityBundle(user.Id, user.IdentityRevision, incarnation,
             new SignedList(Convert.ToBase64String(list.Body), Convert.ToBase64String(list.Signature)),
-            active.Select(CertificateWire).ToArray(), ancestors.Values.Select(CertificateWire).ToArray());
+            active.Select(CertificateWire).ToArray(), ancestors.Values.Select(CertificateWire).ToArray()), tag);
     }
 
     private async Task<List<Session>> InvalidateUserSessionsAsync(Guid userId, IReadOnlyCollection<Device> removed, CancellationToken ct)

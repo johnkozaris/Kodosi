@@ -42,7 +42,6 @@ pub struct FormatOptions {
     pub format: Format,
     pub unwrap: bool,
     pub trim: bool,
-    pub active_area: bool,
     pub screen: Option<Screen>,
     pub palette: bool,
     pub modes: bool,
@@ -340,10 +339,6 @@ impl Terminal {
     ) -> Result<Vec<u8>, Error> {
         self.ensure_healthy()?;
         let screen = options.screen.map(screen_to_raw);
-        let selection = options
-            .active_area
-            .then(|| self.active_area())
-            .transpose()?;
         let raw_options = GhosttyFormatterTerminalOptions {
             size: mem::size_of::<GhosttyFormatterTerminalOptions>(),
             emit: match options.format {
@@ -370,7 +365,7 @@ impl Terminal {
                     charsets: options.charsets,
                 },
             },
-            selection: selection.as_ref().map_or(ptr::null(), ptr::from_ref),
+            selection: ptr::null(),
             screen: screen.as_ref().map_or(ptr::null(), ptr::from_ref),
         };
         let mut formatter = ptr::null_mut();
@@ -415,31 +410,6 @@ impl Terminal {
         bytes.truncate(written);
         self.ensure_healthy()?;
         Ok(bytes)
-    }
-
-    fn active_area(&mut self) -> Result<GhosttySelection, Error> {
-        let state = self.state()?;
-        let corner = |x: u16, y: u16| {
-            let mut point = GhosttyPoint {
-                tag: GhosttyPointTag_GHOSTTY_POINT_TAG_ACTIVE,
-                ..GhosttyPoint::default()
-            };
-            point.value.coordinate = GhosttyPointCoordinate { x, y: u32::from(y) };
-            let mut reference = GhosttyGridRef {
-                size: mem::size_of::<GhosttyGridRef>(),
-                ..GhosttyGridRef::default()
-            };
-            result(unsafe {
-                ghostty_terminal_grid_ref(self.raw, point, ptr::from_mut(&mut reference))
-            })?;
-            Ok::<_, Error>(reference)
-        };
-        Ok(GhosttySelection {
-            size: mem::size_of::<GhosttySelection>(),
-            start: corner(0, 0)?,
-            end: corner(state.cols.saturating_sub(1), state.rows.saturating_sub(1))?,
-            rectangle: false,
-        })
     }
 
     pub fn state(&mut self) -> Result<TerminalState, Error> {
@@ -514,12 +484,14 @@ impl Terminal {
     pub fn encode_checkpoint(
         &mut self,
         limits: CheckpointLimits,
+        max_history_rows: usize,
     ) -> Result<(Vec<u8>, CheckpointInfo), Error> {
         self.ensure_healthy()?;
         let raw_limits = checkpoint_limits(limits)?;
         let options = GhosttyCheckpointEncodeOptions {
             size: mem::size_of::<GhosttyCheckpointEncodeOptions>(),
             limits: raw_limits,
+            max_history_rows,
         };
         let mut buffer = GhosttyBuffer {
             ptr: ptr::null_mut(),
@@ -1099,7 +1071,6 @@ mod tests {
             .format(
                 FormatOptions {
                     format: Format::Plain,
-                    active_area: false,
                     unwrap: false,
                     trim: true,
                     screen: Some(Screen::Primary),
@@ -1179,7 +1150,7 @@ mod tests {
             .expect("write checkpoint source");
 
         let (bytes, info) = terminal
-            .encode_checkpoint(CheckpointLimits::default())
+            .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
             .expect("encode checkpoint");
 
         assert!(!bytes.is_empty());
@@ -1192,7 +1163,7 @@ mod tests {
     fn checkpoint_caller_limit_is_checked_before_allocation() {
         let mut terminal = terminal();
         let (checkpoint, _) = terminal
-            .encode_checkpoint(CheckpointLimits::default())
+            .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
             .expect("baseline checkpoint");
         let limits = CheckpointLimits {
             max_json_bytes: checkpoint.len() - 1,
@@ -1200,7 +1171,7 @@ mod tests {
         };
 
         assert_eq!(
-            terminal.encode_checkpoint(limits),
+            terminal.encode_checkpoint(limits, usize::MAX),
             Err(Error::LimitExceeded)
         );
     }
@@ -1210,7 +1181,7 @@ mod tests {
         let mut source = terminal();
         source.write(b"source").expect("source write");
         let (checkpoint, _) = source
-            .encode_checkpoint(CheckpointLimits::default())
+            .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
             .expect("source checkpoint");
 
         let mut destination = terminal();
@@ -1218,14 +1189,14 @@ mod tests {
             .write(b"destination")
             .expect("destination write");
         let (before, _) = destination
-            .encode_checkpoint(CheckpointLimits::default())
+            .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
             .expect("before checkpoint");
         assert_eq!(
             destination.restore_checkpoint(b"{", CheckpointLimits::default()),
             Err(Error::InvalidValue)
         );
         let (after, _) = destination
-            .encode_checkpoint(CheckpointLimits::default())
+            .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
             .expect("after failed restore");
         assert_eq!(after, before);
 
@@ -1233,7 +1204,7 @@ mod tests {
             .restore_checkpoint(&checkpoint, CheckpointLimits::default())
             .expect("retry valid restore");
         let (restored, _) = destination
-            .encode_checkpoint(CheckpointLimits::default())
+            .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
             .expect("restored checkpoint");
         assert_eq!(restored, checkpoint);
     }
@@ -1243,7 +1214,7 @@ mod tests {
         let mut terminal = terminal();
         terminal.write(b"kept").expect("write");
         let (before, _) = terminal
-            .encode_checkpoint(CheckpointLimits::default())
+            .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
             .expect("before checkpoint");
         let mut unsupported = before.clone();
         let needle = b"\"schemaVersion\":2";
@@ -1258,7 +1229,7 @@ mod tests {
             Err(Error::NoValue)
         );
         let (after, _) = terminal
-            .encode_checkpoint(CheckpointLimits::default())
+            .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
             .expect("after unsupported restore");
         assert_eq!(after, before);
     }

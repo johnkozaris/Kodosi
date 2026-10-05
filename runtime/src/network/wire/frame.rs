@@ -18,18 +18,10 @@ const UNPACKED_OUTPUT_LIMIT: usize = RAW_BATCH_LIMIT * (4 + RAW_CHUNK_LIMIT);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(crate) struct Hello {
+pub(crate) struct Accept {
     pub protocol_version: u32,
     pub session_id: Uuid,
     pub incarnation_id: Uuid,
-    pub user_id: String,
-    pub device_id: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(crate) struct Accept {
-    pub protocol_version: u32,
     pub host_device_id: String,
 }
 
@@ -57,7 +49,6 @@ pub(crate) struct ControlResult {
 
 #[derive(Debug, Clone)]
 pub(crate) enum Frame {
-    Hello(Hello),
     Accept(Accept),
     Refuse(Refuse),
     Keyframe {
@@ -106,7 +97,6 @@ impl Frame {
 
     pub(crate) fn encode(&self) -> Result<Vec<u8>> {
         let (kind, body) = match self {
-            Self::Hello(hello) => (1, serde_json::to_vec(hello)?),
             Self::Accept(accept) => (2, serde_json::to_vec(accept)?),
             Self::Refuse(refuse) => (3, serde_json::to_vec(refuse)?),
             Self::Keyframe {
@@ -222,7 +212,6 @@ impl Frame {
             }
         };
         Ok(match kind {
-            1 => Self::Hello(serde_json::from_slice(json(4096)?)?),
             2 => Self::Accept(serde_json::from_slice(json(4096)?)?),
             3 => Self::Refuse(serde_json::from_slice(json(4096)?)?),
             4 => {

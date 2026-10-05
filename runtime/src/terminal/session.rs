@@ -17,7 +17,7 @@ use super::subscribers::Subscribers;
 use super::{ControlFrame, DataFrame, Subscription, TerminalPixelGeometry, TerminalSize};
 use crate::{
     Error, Result,
-    network::{CheckpointCut, HostRequest, PublishedFrame, ScreenCut, TerminalControl},
+    network::{CheckpointCut, HostRequest, PublishedFrame, TerminalControl},
 };
 
 const COMMAND_CAPACITY: usize = 64;
@@ -678,7 +678,7 @@ impl LocalActor {
     async fn maintain(&mut self) -> Result<()> {
         self.subscribers.prune();
         if self.subscribers.caught_up() && tokio::time::Instant::now() >= self.next_refresh {
-            match self.emulator.checkpoint_data().await {
+            match self.emulator.checkpoint_data(true).await {
                 Ok(cut) => self
                     .subscribers
                     .refresh(&cut.checkpoint, cut.applied_sequence),
@@ -821,7 +821,7 @@ impl LocalActor {
                 if reply.is_closed() {
                     return None;
                 }
-                let result = match self.emulator.checkpoint_data().await {
+                let result = match self.emulator.checkpoint_data(true).await {
                     Ok(cut) => self.subscribers.subscribe(
                         self.incarnation,
                         cut.checkpoint,
@@ -895,7 +895,7 @@ impl LocalActor {
 
     async fn capture_for(&self, connection: Uuid) -> Result<CheckpointCut> {
         let authorization = self.subscribers.authorization(connection)?;
-        let cut = self.emulator.checkpoint_data().await?;
+        let cut = self.emulator.checkpoint_data(true).await?;
         if authorization.is_cancelled() {
             return Err(Error::Stale);
         }
@@ -942,11 +942,15 @@ impl LocalActor {
 
     async fn host_request(&mut self, request: HostRequest) -> Option<String> {
         match request {
-            HostRequest::Bootstrap { request_id, reply } => {
+            HostRequest::Bootstrap {
+                request_id,
+                history,
+                reply,
+            } => {
                 if !reply.is_closed() {
                     let result = self
                         .emulator
-                        .checkpoint_data()
+                        .checkpoint_data(history)
                         .await
                         .map_err(|error| error.to_string())
                         .and_then(|cut| {
@@ -955,26 +959,6 @@ impl LocalActor {
                                 .map_err(|_| "Terminal publication disconnected.".to_owned())?;
                             Ok(CheckpointCut {
                                 checkpoint: self.metadata_checkpoint(cut.checkpoint),
-                                next_sequence: cut.applied_sequence,
-                            })
-                        });
-                    drop(reply.send(result));
-                }
-            }
-            HostRequest::Screen { request_id, reply } => {
-                if !reply.is_closed() {
-                    let result = self
-                        .emulator
-                        .screen_data()
-                        .await
-                        .map_err(|error| error.to_string())
-                        .and_then(|cut| {
-                            self.output
-                                .send(PublishedFrame::BootstrapBarrier { request_id })
-                                .map_err(|_| "Terminal publication disconnected.".to_owned())?;
-                            Ok(ScreenCut {
-                                repaint: cut.repaint.into(),
-                                size: cut.size,
                                 next_sequence: cut.applied_sequence,
                             })
                         });

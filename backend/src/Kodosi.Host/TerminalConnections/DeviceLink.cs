@@ -3,17 +3,29 @@ using System.Threading.Channels;
 
 namespace Kodosi.TerminalConnections;
 
-internal class Peer(WebSocket socket, Guid userId, string deviceId, string connectionId) : IAsyncDisposable
+internal sealed class DeviceLink : IAsyncDisposable
 {
+    private const long RelayQueueBytes = 16 * 1024 * 1024;
+    private const long QueueBytes = 2 * RelayQueueBytes;
+    private readonly Channel<(byte[] Bytes, WebSocketMessageType Type)> queue =
+        Channel.CreateUnbounded<(byte[], WebSocketMessageType)>(new UnboundedChannelOptions { SingleReader = true });
     private readonly CancellationTokenSource stopped = new();
     private readonly CancellationTokenSource expired = new();
     private readonly object expirySync = new();
+    private readonly Task writer;
     private DateTimeOffset expires;
+    private long queued;
 
-    public WebSocket Socket { get; } = socket;
-    public Guid UserId { get; } = userId;
-    public string DeviceId { get; } = deviceId;
-    public string ConnectionId { get; } = connectionId;
+    public DeviceLink(WebSocket socket, Guid userId, string deviceId, string connectionId)
+    {
+        Socket = socket; UserId = userId; DeviceId = deviceId; ConnectionId = connectionId;
+        writer = WriteAsync();
+    }
+
+    public WebSocket Socket { get; }
+    public Guid UserId { get; }
+    public string DeviceId { get; }
+    public string ConnectionId { get; }
     public CancellationToken Stopped => stopped.Token;
     public CancellationToken Expired => expired.Token;
     public bool IsOpen => !stopped.IsCancellationRequested && Socket.State == WebSocketState.Open;
@@ -29,76 +41,56 @@ internal class Peer(WebSocket socket, Guid userId, string deviceId, string conne
         }
     }
 
-    public virtual void Abort()
-    {
-        if (stopped.IsCancellationRequested) return;
-        stopped.Cancel(); Socket.Abort();
-    }
-
-    public virtual ValueTask DisposeAsync()
-    {
-        Abort();
-        lock (expirySync) expired.Dispose();
-        stopped.Dispose(); Socket.Dispose();
-        return ValueTask.CompletedTask;
-    }
-}
-
-internal sealed class SocketPeer : Peer
-{
-    private readonly Channel<byte[]> queue = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(256)
-    { SingleReader = true, FullMode = BoundedChannelFullMode.Wait });
-    private readonly Task writer;
-
-    public SocketPeer(WebSocket socket, Guid userId, string deviceId, string connectionId) : base(socket, userId, deviceId, connectionId)
-        => writer = WriteAsync();
-
     public bool Send(object value)
     {
         if (!IsOpen) return false;
-        if (queue.Writer.TryWrite(Wire.Encode(value))) return true;
+        var bytes = Wire.Encode(value);
+        if (Interlocked.Add(ref queued, bytes.Length) <= QueueBytes && queue.Writer.TryWrite((bytes, WebSocketMessageType.Text))) return true;
         Abort(); return false;
     }
 
-    public override void Abort()
+    public bool Relay(byte[] frame)
     {
-        queue.Writer.TryComplete(); base.Abort();
+        if (!IsOpen) return false;
+        if (Interlocked.Add(ref queued, frame.Length) > RelayQueueBytes)
+        {
+            Interlocked.Add(ref queued, -frame.Length);
+            return false;
+        }
+        return queue.Writer.TryWrite((frame, WebSocketMessageType.Binary));
+    }
+
+    public void Abort()
+    {
+        if (stopped.IsCancellationRequested) return;
+        queue.Writer.TryComplete(); stopped.Cancel(); Socket.Abort();
     }
 
     private async Task WriteAsync()
     {
         try
         {
-            await foreach (var message in queue.Reader.ReadAllAsync(Stopped))
+            await foreach (var (bytes, type) in queue.Reader.ReadAllAsync(Stopped))
             {
                 using var deadline = CancellationTokenSource.CreateLinkedTokenSource(Stopped);
-                deadline.CancelAfter(TimeSpan.FromSeconds(10));
-                await Socket.SendAsync(message, WebSocketMessageType.Text, true, deadline.Token);
+                deadline.CancelAfter(TimeSpan.FromSeconds(30));
+                await Socket.SendAsync(bytes, type, true, deadline.Token);
+                Interlocked.Add(ref queued, -bytes.Length);
             }
         }
         catch (Exception error) when (error is OperationCanceledException or WebSocketException or ObjectDisposedException)
         { Abort(); }
     }
 
-    public override async ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         Abort(); await writer;
-        await base.DisposeAsync();
+        lock (expirySync) expired.Dispose();
+        stopped.Dispose(); Socket.Dispose();
     }
 }
 
-internal sealed class Pipe(Guid id, Peer viewer)
-{
-    public Guid Id { get; } = id;
-    public Peer Viewer { get; } = viewer;
-    public Peer? Host { get; set; }
-    public TaskCompletionSource<Peer> Joined { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-    public void Abort()
-    {
-        Joined.TrySetCanceled(); Viewer.Abort(); Host?.Abort();
-    }
-}
+internal sealed record Pipe(Guid Id, Guid SessionId, DeviceLink Viewer, DeviceLink Host);
 
 internal static class Wire
 {
