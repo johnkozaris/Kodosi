@@ -200,6 +200,26 @@ impl BackendClient {
         }
     }
 
+    async fn saved_sign_in_returns(&self, generation: u64) -> Result<bool> {
+        if !self.inner.restore_pending.load(Ordering::Acquire) {
+            return Ok(false);
+        }
+        self.new_login_interrupt()?;
+        let restored = self.restore_saved(generation).await;
+        self.sign_in_kept(restored).await?;
+        Ok(self.identity().is_some())
+    }
+
+    fn new_login_interrupt(&self) -> Result<CancellationToken> {
+        let cancel = CancellationToken::new();
+        *self
+            .inner
+            .login_interrupt
+            .lock()
+            .map_err(|_| Error::Closed)? = cancel.clone();
+        Ok(cancel)
+    }
+
     async fn sign_in_kept(&self, result: Result<()>) -> Result<()> {
         if !matches!(result, Err(Error::SignedOut)) {
             return result;
@@ -222,12 +242,13 @@ impl BackendClient {
             operation,
             "auth.logout" | "auth.login.start" | "auth.login.cancel"
         ) {
-            if let Some(credentials) = self
-                .inner
-                .credentials
-                .read()
-                .map_err(|_| Error::Closed)?
-                .as_ref()
+            if operation != "auth.login.start"
+                && let Some(credentials) = self
+                    .inner
+                    .credentials
+                    .read()
+                    .map_err(|_| Error::Closed)?
+                    .as_ref()
             {
                 credentials.cancel.cancel();
             }
@@ -242,15 +263,11 @@ impl BackendClient {
         terminal_connections::check_generation(self, before)?;
         let mut events = Vec::new();
         match operation {
+            "auth.login.start" if self.saved_sign_in_returns(before).await? => {}
             "auth.login.start" => {
-                self.logout().await?;
                 let login = self.oidc()?.start().await?;
-                let cancel = CancellationToken::new();
-                *self
-                    .inner
-                    .login_interrupt
-                    .lock()
-                    .map_err(|_| Error::Closed)? = cancel.clone();
+                self.logout().await?;
+                let cancel = self.new_login_interrupt()?;
                 let generation = self.generation();
                 events.push(json!({"type":"auth.device_code","userCode":login.user_code,"verificationUri":login.verification_uri_complete.as_ref().unwrap_or(&login.verification_uri)}));
                 let this = self.clone();
@@ -311,6 +328,7 @@ impl BackendClient {
             }
             "devices.link.startSelf" => {
                 events.push(self.start_link().await?);
+                self.watch_link().await;
             }
             "devices.link.cancelSelf" => {
                 self.cancel_link().await?;

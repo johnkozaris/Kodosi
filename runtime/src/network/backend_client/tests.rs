@@ -44,6 +44,39 @@ async fn delayed_events_keep_their_original_account() {
 }
 
 #[tokio::test]
+async fn a_sign_in_without_a_network_keeps_the_saved_sign_in() {
+    let (_root, network) = fixture();
+    let saved = r#"{"access_token":"access","refresh_token":"refresh","expires_at":0}"#;
+    network
+        .inner
+        .state
+        .lock()
+        .await
+        .secrets
+        .store("tokens", saved)
+        .unwrap();
+    let error = network
+        .execute("auth.login.start", Value::Null)
+        .await
+        .unwrap_err();
+    assert!(error.unanswered(), "{error}");
+    assert!(network.inner.restore_pending.load(Ordering::Acquire));
+    assert_eq!(
+        network
+            .inner
+            .state
+            .lock()
+            .await
+            .secrets
+            .load("tokens")
+            .unwrap()
+            .unwrap()
+            .as_str(),
+        saved
+    );
+}
+
+#[tokio::test]
 async fn quit_retains_saved_signin_but_logout_removes_it() {
     let (_root, network) = fixture();
     network

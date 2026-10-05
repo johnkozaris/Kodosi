@@ -11,6 +11,7 @@ use crate::identity::{
 
 const LINK_REQUESTS: usize = 5;
 const LINK_LIFE: Duration = Duration::from_mins(10);
+const LINK_POLL: Duration = Duration::from_secs(2);
 
 #[derive(Clone)]
 pub(crate) struct PendingLink {
@@ -274,7 +275,32 @@ impl BackendClient {
         Ok(())
     }
 
-    pub(super) async fn poll_link(&self) -> Result<()> {
+    pub(super) async fn watch_link(&self) {
+        let Some(watched) = self.inner.state.lock().await.link.clone() else {
+            return;
+        };
+        let this = self.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    () = this.inner.shutdown.cancelled() => break,
+                    () = tokio::time::sleep(LINK_POLL) => {}
+                }
+                let _operation = this.inner.operations.lock().await;
+                let current = this.inner.state.lock().await.link.clone();
+                if current.is_none_or(|link| link.request_id != watched.request_id) {
+                    break;
+                }
+                if let Err(error) = this.poll_link().await
+                    && error.user_facing()
+                {
+                    tracing::warn!(%error, "the device approval was not read; it will be tried again");
+                }
+            }
+        });
+    }
+
+    async fn poll_link(&self) -> Result<()> {
         let credentials = self.credentials()?;
         let link = self.inner.state.lock().await.link.clone();
         let Some(link) = link else {

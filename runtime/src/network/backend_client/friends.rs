@@ -449,6 +449,9 @@ impl BackendClient {
     pub(super) async fn friend_command(&self, operation: &str, args: &Value) -> Result<Vec<Value>> {
         let credentials = self.credentials()?;
         if operation == "friends.invite" {
+            if !credentials.enrolled {
+                return Err(Error::EnrollmentRequired);
+            }
             let profile: Value = self
                 .inner
                 .http

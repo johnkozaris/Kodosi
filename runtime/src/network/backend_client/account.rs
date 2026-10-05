@@ -197,7 +197,6 @@ impl BackendClient {
         self.check_credentials(&credentials)?;
         self.reconcile_device_removals().await?;
         self.reconcile_shares().await?;
-        self.poll_link().await?;
         Ok(())
     }
 

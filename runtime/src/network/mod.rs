@@ -26,7 +26,7 @@ pub enum Error {
     Trust(String),
     #[error("Sign in to continue.")]
     SignedOut,
-    #[error("Trust this device from Settings › Account & Devices before sharing.")]
+    #[error("This device is not approved for your account. Approve it first.")]
     EnrollmentRequired,
     #[error("This request belongs to an earlier account connection.")]
     Stale,
@@ -44,6 +44,8 @@ pub enum Error {
     Http(reqwest::Error),
     #[error("The server address could not be resolved. Check your connection and try again.")]
     Dns,
+    #[error("Kodosi cannot reach the server. Check your connection and try again.")]
+    Unreachable,
     #[error("The server did not respond in time. The operation was not confirmed.")]
     Timeout,
     #[error("{0}")]
@@ -56,6 +58,8 @@ impl From<reqwest::Error> for Error {
     fn from(error: reqwest::Error) -> Self {
         if error.is_dns() {
             Self::Dns
+        } else if error.is_connect() {
+            Self::Unreachable
         } else if error.is_timeout() {
             Self::Timeout
         } else {
@@ -74,7 +78,12 @@ impl Error {
     pub(crate) fn unanswered(&self) -> bool {
         matches!(
             self,
-            Self::Io(_) | Self::Http(_) | Self::Dns | Self::Timeout | Self::Busy
+            Self::Io(_)
+                | Self::Http(_)
+                | Self::Dns
+                | Self::Unreachable
+                | Self::Timeout
+                | Self::Busy
         ) || matches!(self, Self::Backend { status, .. } if *status == 429 || *status >= 500)
     }
 }
