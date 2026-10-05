@@ -305,7 +305,6 @@ fn a_typed_code_selects_only_the_request_with_the_keys_of_the_device_that_showed
             device_id: "laptop",
             label: "Laptop",
             signing_public_key: &[1; 1952],
-            kem_public_key: &[3; 1184],
         })
         .unwrap();
     let request = |device: &str, signing: u8| {
@@ -314,7 +313,6 @@ fn a_typed_code_selects_only_the_request_with_the_keys_of_the_device_that_showed
             "deviceId": device,
             "deviceLabel": "Laptop",
             "signingPublicKey": BASE64.encode([signing; 1952]),
-            "kemPublicKey": BASE64.encode([3; 1184]),
             "nonce": BASE64.encode([4; 16]),
             "proof": BASE64.encode(proof),
             "expiresAt": "2026-10-04T12:00:00Z",

@@ -52,9 +52,8 @@ internal sealed class TestStore : IAsyncDisposable
             Label = "Test device",
             SignerDeviceId = fixture.DeviceId,
             SigningPublicKey = fixture.SigningKey,
-            KemPublicKey = fixture.KemKey,
             Certificate = cert,
-            CertificateSignature = fixture.Sign(Proofs.Tagged(DomainTags.DeviceCertV2, cert)),
+            CertificateSignature = fixture.Sign(Proofs.Tagged(DomainTags.DeviceCertV3, cert)),
             IssuedAtMs = issued
         };
         Db.Users.Add(user); Db.Devices.Add(device); Db.DeviceLists.Add(new DeviceList

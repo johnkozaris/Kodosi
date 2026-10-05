@@ -12,6 +12,7 @@ use super::{
     device_cert::{DeviceCertificate, verify_certificate},
     signed_device_list::{SignedDeviceList, verify_signed_device_list},
     storage::private_write,
+    wire_codec::MAX_DEVICE_CERTIFICATE_BODY_LEN,
 };
 use crate::network::{Error, Result, invalid};
 
@@ -54,7 +55,7 @@ impl IdentityBundle {
     pub(crate) fn root(&self) -> Result<Root> {
         let mut root = None;
         for envelope in self.devices.iter().chain(&self.certificate_chain) {
-            let body = decode(&envelope.certificate, 5772)?;
+            let body = decode(&envelope.certificate, MAX_DEVICE_CERTIFICATE_BODY_LEN)?;
             if DeviceCertificate::parse_body(&body)?.is_self_signed()
                 && root.replace(root_of(&body)).is_some()
             {
@@ -259,7 +260,7 @@ impl Pins {
         let mut incoming = BTreeMap::new();
         let mut bodies = BTreeMap::new();
         for envelope in &bundle.devices {
-            let body = decode(&envelope.certificate, 5772)?;
+            let body = decode(&envelope.certificate, MAX_DEVICE_CERTIFICATE_BODY_LEN)?;
             let cert = DeviceCertificate::parse_body(&body)?;
             if cert.user_id != bundle.user_id
                 || incoming
@@ -290,7 +291,7 @@ impl Pins {
             return Err(invalid("Device certificate ancestry exceeds its bound."));
         }
         for envelope in &bundle.certificate_chain {
-            let body = decode(&envelope.certificate, 5772)?;
+            let body = decode(&envelope.certificate, MAX_DEVICE_CERTIFICATE_BODY_LEN)?;
             let certificate = DeviceCertificate::parse_body(&body)?;
             if certificate.user_id != bundle.user_id || bodies.contains_key(&certificate.device_id)
             {
@@ -306,7 +307,10 @@ impl Pins {
             for (id, envelope) in &pin.certificates {
                 prior.insert(
                     id.clone(),
-                    DeviceCertificate::parse_body(&decode(&envelope.certificate, 5772)?)?,
+                    DeviceCertificate::parse_body(&decode(
+                        &envelope.certificate,
+                        MAX_DEVICE_CERTIFICATE_BODY_LEN,
+                    )?)?,
                 );
             }
         }

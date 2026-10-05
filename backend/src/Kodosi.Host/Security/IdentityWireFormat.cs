@@ -10,13 +10,11 @@ public static class IdentityWireFormat
 
     public const long MaxUnixTimeMilliseconds = 253_402_300_799_999;
 
-    public const int MaxDeviceCertificateBodyLength = 5_772;
+    public const int MaxDeviceCertificateBodyLength = 4_584;
 
     public const int MaxSignedDeviceListBodyLength = 527_432;
 
     public const int DeviceLabelMaxUtf16CodeUnits = 128;
-
-    public const int MlKem768PublicKeyLength = 1_184;
 
     public const int MlDsa65PublicKeyLength = 1_952;
 

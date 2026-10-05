@@ -1,5 +1,5 @@
 {
-  "apiContractVersion": 21,
+  "apiContractVersion": 22,
   "authContractVersion": 1,
   "authentication": "OIDC bearer identity and a device session",
   "deviceSession": {
@@ -48,11 +48,11 @@
   },
   "deviceLink": {
     "code": "12 random symbols of Crockford base 32 (60 bits) that the new device makes and shows; the server never gets it",
-    "key": "PBKDF2-HMAC-SHA512, 1048576 rounds, password = the code as shown, salt = kodosi-device-link-v1 and the 16-byte nonce of the request, 32 bytes",
-    "requestProof": "HMAC-SHA256 with the key over the length-prefixed fields: request, account id, device id, label, signing key, KEM key",
+    "key": "PBKDF2-HMAC-SHA512, 1048576 rounds, password = the code as shown, salt = kodosi-device-link-v2 and the 16-byte nonce of the request, 32 bytes",
+    "requestProof": "HMAC-SHA256 with the key over the length-prefixed fields: request, account id, device id, label, signing key",
     "approvalProof": "HMAC-SHA256 with the key over the length-prefixed fields: approval, account id, device id, identity root",
     "identityRoot": "SHA-256 of kodosi-identity-root-v1 and the certificate body of the one self-signed device of the account",
-    "request": "the new device sends its device id, label, signing key, KEM key, nonce and request proof; at most 5 open requests for each account; 10 minutes, which the new device also counts itself",
+    "request": "the new device sends its device id, label, signing key, nonce and request proof; at most 5 open requests for each account; 10 minutes, which the new device also counts itself",
     "approve": "the approving device signs only the request whose request proof holds for the code that the user typed, and sends the approval proof",
     "accept": "the new device takes the account identity only when the approval proof holds for the identity root of the identity that it reads",
     "server": "stores and lists the requests and the two proofs; makes and checks no code"

@@ -11,7 +11,6 @@ public sealed class DeviceCertificateParser
         string DeviceId,
         string DeviceLabel,
         string SignerDeviceId,
-        byte[] KemPublicKey,
         byte[] SigPublicKey,
         long IssuedAtMs,
         long? ExpiresAtMs)
@@ -48,12 +47,6 @@ public sealed class DeviceCertificateParser
                 $"device_label must be canonical non-blank text of at most {IdentityWireFormat.DeviceLabelMaxUtf16CodeUnits} UTF-16 code units");
         }
         var signerDeviceId = ReadCanonicalDeviceId(ref cursor, "signer_device_id");
-        var kemPub = cursor.ReadLengthPrefixedBytes();
-        if (kemPub.Length != IdentityWireFormat.MlKem768PublicKeyLength)
-        {
-            throw new DeviceCertificateFormatException(
-                $"kem_public_key must be exactly {IdentityWireFormat.MlKem768PublicKeyLength} bytes");
-        }
         var sigPub = cursor.ReadLengthPrefixedBytes();
         if (sigPub.Length != IdentityWireFormat.MlDsa65PublicKeyLength)
         {
@@ -77,7 +70,6 @@ public sealed class DeviceCertificateParser
             deviceId,
             deviceLabel,
             signerDeviceId,
-            kemPub,
             sigPub,
             issuedAtMs,
             expiresAtMs);

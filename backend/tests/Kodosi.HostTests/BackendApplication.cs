@@ -69,7 +69,6 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
         using var enrolled = await client.PostAsJsonAsync("/api/me/devices", new
         {
             deviceId = device.DeviceId,
-            kemPublicKey = Convert.ToBase64String(device.KemKey),
             signingPublicKey = Convert.ToBase64String(device.SigningKey),
             challengeId = challenge.Id,
             popSignature = Convert.ToBase64String(device.Sign(Proofs.Tagged(DomainTags.DevicePopV1, challenge.Bytes))),

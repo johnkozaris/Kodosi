@@ -1,10 +1,10 @@
 {
-  "version": 14,
+  "version": 15,
   "tags": {
     "DEVICE_POP_V1": "kodosi-device-pop-v1",
-    "DEVICE_CERT_V2": "kodosi-device-cert-v2",
+    "DEVICE_CERT_V3": "kodosi-device-cert-v3",
     "DEVICE_LIST_V1": "kodosi-device-list-v1",
-    "DEVICE_LINK_V1": "kodosi-device-link-v1",
+    "DEVICE_LINK_V2": "kodosi-device-link-v2",
     "IDENTITY_ROOT_V1": "kodosi-identity-root-v1",
     "FRIEND_LIST_V1": "kodosi-friend-list-v1",
     "DEVICE_SESSION_V1": "kodosi-device-session-v1"

@@ -28,7 +28,6 @@ impl BackendClient {
             &credentials.user_id,
             &credentials.keys.device_id,
             &host_label(),
-            credentials.keys.kem_public(),
             &credentials.keys.signing_key()?,
             now,
             None,
@@ -55,7 +54,7 @@ impl BackendClient {
         let signature =
             crypto::sign_pop_challenge(&credentials.keys.signing_key()?, &challenge_bytes)?;
         let _response:Value=self.inner.http.bearer(Method::POST,"api/me/devices",&credentials.token,Some(json!({
-        "deviceId":credentials.keys.device_id,"kemPublicKey":BASE64.encode(credentials.keys.kem_public()),"signingPublicKey":BASE64.encode(credentials.keys.signing_public()),
+        "deviceId":credentials.keys.device_id,"signingPublicKey":BASE64.encode(credentials.keys.signing_public()),
         "challengeId":challenge["challengeId"],"popSignature":BASE64.encode(signature),"deviceCertificate":BASE64.encode(cert.body_bytes),"deviceCertificateSignature":BASE64.encode(cert.signature),
         "signedDeviceList":BASE64.encode(list.body_bytes),"signedDeviceListSignature":BASE64.encode(list.signature),
     }))).await?;
@@ -93,7 +92,14 @@ impl BackendClient {
         let (credentials, replaced) = self
             .adopt_replaced_identity(credentials, &bundle, &pins)
             .await?;
-        let mut verified = own_identity(pins, bundle, created, now).await?;
+        let (mut verified, unreadable) = match own_identity(pins, bundle, created, now).await {
+            Ok(verified) => (verified, false),
+            Err(Error::Invalid { reason }) => {
+                tracing::warn!(%reason, "the device identity of this account is not readable");
+                (None, true)
+            }
+            Err(error) => return Err(error),
+        };
         let enrolled = verified
             .as_ref()
             .is_some_and(|verified| device_enrolled(verified, &credentials));
@@ -146,15 +152,10 @@ impl BackendClient {
             self.start_notifications().await?;
         }
         if !enrolled {
-            let message = if replaced {
-                "Your trusted devices were reset from another device. Approve this device from that device, or start fresh here."
-            } else {
-                "Approve this device from one of your existing devices."
-            };
             self.emit_for(
                 credentials.generation,
                 Some(credentials.user_id),
-                json!({"type":"auth.notice","message":message}),
+                json!({"type":"auth.notice","message":approval_notice(unreadable, replaced)}),
             );
         }
         Ok(())
@@ -422,14 +423,21 @@ async fn own_identity(
     .map_err(|_| Error::Closed)?
 }
 
+const fn approval_notice(unreadable: bool, replaced: bool) -> &'static str {
+    if unreadable {
+        "This version of Kodosi cannot read the trusted devices of this account. Start fresh on this device, then approve your other devices again."
+    } else if replaced {
+        "Your trusted devices were reset from another device. Approve this device from that device, or start fresh here."
+    } else {
+        "Approve this device from one of your existing devices."
+    }
+}
+
 pub(super) fn device_enrolled(verified: &VerifiedIdentity, credentials: &Credentials) -> bool {
     verified
         .devices
         .get(&credentials.keys.device_id)
-        .is_some_and(|cert| {
-            cert.sig_public_key == credentials.keys.signing_public()
-                && cert.kem_public_key == credentials.keys.kem_public()
-        })
+        .is_some_and(|cert| cert.sig_public_key == credentials.keys.signing_public())
 }
 
 const KEPT_IDENTITY: Duration = Duration::from_mins(10);

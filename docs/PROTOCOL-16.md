@@ -34,8 +34,10 @@ Design choices:
   devices has its own keys from a new exchange; a removed person gets nothing
   after the removal and the other people are not disturbed.
 - **No own cryptography:** the channel is standard TLS 1.3 from `rustls`.
-- **No new keys and no new enrolment.** The channel proves each device with the
-  ML-DSA-65 signing key that its certificate has today.
+- **No new keys.** The channel proves each device with the ML-DSA-65 signing
+  key of its certificate. A device has no other key: the ML-KEM key that
+  received the shared session key of protocol 15 is removed from the device
+  certificate (certificate format 3).
 
 ## 2. Built: the channel (contract in `protocol/terminal-connections.json`)
 
@@ -94,6 +96,10 @@ Design choices:
 - A device that the owner removes loses its connection at once. Its runtime
   then reads its own identity, finds that it is not approved, and ends its
   views with the text that tells the user to approve the device.
+- An account whose devices have a certificate of an earlier format signs in
+  as "not approved" with a text that tells the way: start fresh on one device,
+  approve the other devices again with a code, and each friend trusts the new
+  identity one time.
 
 Measured in the local end-to-end setup (release build, one computer):
 

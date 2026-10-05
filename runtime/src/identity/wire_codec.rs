@@ -4,10 +4,9 @@ pub(super) const MAX_FIELD_LEN: u32 = 65_536;
 pub(crate) const USER_ID_LEN: usize = 36;
 pub(crate) const DEVICE_ID_MAX_UTF16_CODE_UNITS: usize = 256;
 pub(crate) const DEVICE_LABEL_MAX_UTF16_CODE_UNITS: usize = 128;
-pub(crate) const ML_KEM_768_PUBLIC_KEY_LEN: usize = 1184;
 pub(crate) const ML_DSA_65_PUBLIC_KEY_LEN: usize = 1952;
 pub(crate) const ML_DSA_65_SIGNATURE_LEN: usize = 3309;
-pub(crate) const MAX_DEVICE_CERTIFICATE_BODY_LEN: usize = 5772;
+pub(crate) const MAX_DEVICE_CERTIFICATE_BODY_LEN: usize = 4584;
 pub(crate) const MAX_SIGNED_DEVICE_LIST_BODY_LEN: usize = 527_432;
 pub(super) const NO_EXPIRY_SENTINEL: u64 = 0;
 pub(super) const MAX_UNIX_TIME_MILLISECONDS: u64 = 253_402_300_799_999;
@@ -240,7 +239,6 @@ mod tests {
             device_id: "device".to_owned(),
             device_label: "Device".to_owned(),
             signer_device_id: "device".to_owned(),
-            kem_public_key: vec![0; ML_KEM_768_PUBLIC_KEY_LEN],
             sig_public_key: vec![0; ML_DSA_65_PUBLIC_KEY_LEN],
             issued_at_ms: 100,
             expires_at_ms: None,

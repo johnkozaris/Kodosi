@@ -1,5 +1,4 @@
 using System.Buffers.Binary;
-using System.Security.Cryptography;
 using System.Text;
 using Kodosi.Security;
 using Org.BouncyCastle.Crypto;
@@ -20,14 +19,12 @@ internal sealed class DeviceFixture
         generator.Init(new MLDsaKeyGenerationParameters(new SecureRandom(), MLDsaParameters.ml_dsa_65));
         pair = generator.GenerateKeyPair();
         SigningKey = ((MLDsaPublicKeyParameters)pair.Public).GetEncoded();
-        KemKey = RandomNumberGenerator.GetBytes(1184);
     }
     public static string LinkNonce { get; } = Convert.ToBase64String(new byte[16]);
     public static string LinkProof { get; } = Convert.ToBase64String(new byte[32]);
     public Guid UserId { get; }
     public string DeviceId { get; }
     public byte[] SigningKey { get; }
-    public byte[] KemKey { get; }
     public byte[] Sign(ReadOnlySpan<byte> body)
     {
         var signer = new MLDsaSigner(MLDsaParameters.ml_dsa_65, deterministic: false);
@@ -37,7 +34,7 @@ internal sealed class DeviceFixture
     {
         using var stream = new MemoryStream();
         foreach (var value in new[] { UserId.ToString("D"), DeviceId, "Test device", signer }) Text(stream, value);
-        Bytes(stream, KemKey); Bytes(stream, SigningKey); U64(stream, (ulong)issued); U64(stream, (ulong)expires); return stream.ToArray();
+        Bytes(stream, SigningKey); U64(stream, (ulong)issued); U64(stream, (ulong)expires); return stream.ToArray();
     }
     public static byte[] ListBody(Guid user, long generation, IReadOnlyList<(string Device, string Signer)> entries, string signer, long issued, long expires = 0)
     {
@@ -49,6 +46,6 @@ internal sealed class DeviceFixture
     private static void Bytes(Stream stream, ReadOnlySpan<byte> bytes) { U32(stream, (uint)bytes.Length); stream.Write(bytes); }
     private static void U32(Stream stream, uint value) { Span<byte> bytes = stackalloc byte[4]; BinaryPrimitives.WriteUInt32BigEndian(bytes, value); stream.Write(bytes); }
     private static void U64(Stream stream, ulong value) { Span<byte> bytes = stackalloc byte[8]; BinaryPrimitives.WriteUInt64BigEndian(bytes, value); stream.Write(bytes); }
-    public string SignedCertificate(byte[] body) => Convert.ToBase64String(Sign(Proofs.Tagged(DomainTags.DeviceCertV2, body)));
+    public string SignedCertificate(byte[] body) => Convert.ToBase64String(Sign(Proofs.Tagged(DomainTags.DeviceCertV3, body)));
     public string SignedList(byte[] body) => Convert.ToBase64String(Sign(Proofs.Tagged(DomainTags.DeviceListV1, body)));
 }

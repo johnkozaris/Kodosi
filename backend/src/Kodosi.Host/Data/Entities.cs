@@ -22,7 +22,6 @@ public sealed class Device
     public byte[] Certificate { get; set; } = [];
     public byte[] CertificateSignature { get; set; } = [];
     public byte[] SigningPublicKey { get; set; } = [];
-    public byte[] KemPublicKey { get; set; } = [];
     public long IssuedAtMs { get; set; }
     public long? ExpiresAtMs { get; set; }
     public bool Revoked { get; set; }
@@ -50,7 +49,6 @@ public sealed class DeviceLink
     public string DeviceId { get; set; } = "";
     public string Label { get; set; } = "";
     public byte[] SigningPublicKey { get; set; } = [];
-    public byte[] KemPublicKey { get; set; } = [];
     public DateTimeOffset ExpiresAt { get; set; }
     public string State { get; set; } = "pending";
     public long? ApprovedGeneration { get; set; }

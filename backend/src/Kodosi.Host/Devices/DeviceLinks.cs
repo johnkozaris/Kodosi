@@ -16,11 +16,9 @@ public sealed partial class DeviceService
         var deviceId = DeviceIdRules.Require(request.DeviceId);
         var label = Limits.Text(request.DeviceLabel, "Device label", 128);
         var signing = Limits.Base64(request.SigningPublicKey, "Signing key", IdentityWireFormat.MlDsa65PublicKeyLength);
-        var kem = Limits.Base64(request.KemPublicKey, "KEM key", IdentityWireFormat.MlKem768PublicKeyLength);
         var nonce = Limits.Base64(request.Nonce, "Nonce", LinkNonceLength);
         var proof = Limits.Base64(request.Proof, "Proof", LinkProofLength);
-        if (signing.Length != IdentityWireFormat.MlDsa65PublicKeyLength || kem.Length != IdentityWireFormat.MlKem768PublicKeyLength
-            || nonce.Length != LinkNonceLength || proof.Length != LinkProofLength)
+        if (signing.Length != IdentityWireFormat.MlDsa65PublicKeyLength || nonce.Length != LinkNonceLength || proof.Length != LinkProofLength)
             throw ApiException.Invalid("Device keys have invalid lengths.");
         var now = clock.GetUtcNow();
         await db.DeviceLinks.Where(x => x.ExpiresAt < now.AddDays(-1)).ExecuteDeleteAsync(ct);
@@ -31,7 +29,7 @@ public sealed partial class DeviceService
         var pending = await db.DeviceLinks.SingleOrDefaultAsync(x => x.UserId == userId && x.DeviceId == deviceId && x.State == "pending" && x.ExpiresAt > now, ct);
         if (pending is not null)
         {
-            if (!pending.SigningPublicKey.AsSpan().SequenceEqual(signing) || !pending.KemPublicKey.AsSpan().SequenceEqual(kem))
+            if (!pending.SigningPublicKey.AsSpan().SequenceEqual(signing))
                 throw ApiException.Conflict("Pending device identity has different keys.");
             var retrySecret = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
             pending.DeviceCodeHash = HashCode(retrySecret);
@@ -50,7 +48,6 @@ public sealed partial class DeviceService
             DeviceId = deviceId,
             Label = label,
             SigningPublicKey = signing,
-            KemPublicKey = kem,
             Nonce = nonce,
             Proof = proof,
             DeviceCodeHash = HashCode(secret),
@@ -72,7 +69,6 @@ public sealed partial class DeviceService
             x.DeviceId,
             deviceLabel = x.Label,
             signingPublicKey = Convert.ToBase64String(x.SigningPublicKey),
-            kemPublicKey = Convert.ToBase64String(x.KemPublicKey),
             nonce = Convert.ToBase64String(x.Nonce),
             proof = Convert.ToBase64String(x.Proof),
             x.ExpiresAt
@@ -101,7 +97,7 @@ public sealed partial class DeviceService
         var previous = lists.Parse(current.Body);
         var next = lists.Parse(listBytes);
         var cert = certificates.Parse(certBytes);
-        ValidateCertificate(userId, link.DeviceId, cert, link.SigningPublicKey, link.KemPublicKey);
+        ValidateCertificate(userId, link.DeviceId, cert, link.SigningPublicKey);
         ValidateTime(cert.IssuedAtMs, cert.ExpiresAtMs);
         ValidateSuccessor(userId, previous, next);
         approvingDevice = await RequireDeviceAsync(userId, approvingDevice.Id, ct);
@@ -114,7 +110,7 @@ public sealed partial class DeviceService
             || next.Entries.Any(x => !expected.TryGetValue(x.DeviceId, out var signer) || signer != x.SignerDeviceId))
             throw ApiException.Invalid("Device approval must preserve the current devices and add only the requested device.");
         if (await db.Devices.AnyAsync(x => x.Id == cert.DeviceId, ct)) throw ApiException.Conflict("This device ID cannot be reused.");
-        VerifySignature(approvingDevice.SigningPublicKey, DomainTags.DeviceCertV2, certBytes, certSig);
+        VerifySignature(approvingDevice.SigningPublicKey, DomainTags.DeviceCertV3, certBytes, certSig);
         VerifySignature(approvingDevice.SigningPublicKey, DomainTags.DeviceListV1, listBytes, listSig);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         db.Devices.Add(ToDevice(userId, cert, certBytes, certSig));
@@ -153,7 +149,7 @@ public sealed partial class DeviceService
 
     private static string HashCode(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
-    public sealed record LinkInit(string DeviceId, string DeviceLabel, string KemPublicKey, string SigningPublicKey, string Nonce, string Proof);
+    public sealed record LinkInit(string DeviceId, string DeviceLabel, string SigningPublicKey, string Nonce, string Proof);
     public sealed record LinkApprove(Guid RequestId, string DeviceCertificate, string DeviceCertificateSignature, string SignedDeviceList, string SignedDeviceListSignature, string ApprovalProof);
     public sealed record LinkPoll(string DeviceCode);
     public sealed record LinkAcknowledge(string DeviceCode, string DeviceId);

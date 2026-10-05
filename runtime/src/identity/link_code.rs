@@ -6,7 +6,7 @@ use zeroize::Zeroizing;
 use super::{pins::Root, wire_codec::LpWriter};
 use crate::network::{Error, Result};
 
-const DOMAIN: &[u8] = b"kodosi-device-link-v1";
+const DOMAIN: &[u8] = b"kodosi-device-link-v2";
 const ROUNDS: NonZeroU32 = NonZeroU32::new(1 << 20).unwrap();
 const ALPHABET: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const SYMBOLS: usize = 12;
@@ -18,7 +18,6 @@ pub(crate) struct LinkIdentity<'a> {
     pub(crate) device_id: &'a str,
     pub(crate) label: &'a str,
     pub(crate) signing_public_key: &'a [u8],
-    pub(crate) kem_public_key: &'a [u8],
 }
 
 pub(crate) fn new_code() -> Result<String> {
@@ -107,7 +106,6 @@ fn request(identity: &LinkIdentity<'_>) -> Result<Vec<u8>> {
     fields.write_lp_str(identity.device_id)?;
     fields.write_lp_str(identity.label)?;
     fields.write_lp_bytes(identity.signing_public_key)?;
-    fields.write_lp_bytes(identity.kem_public_key)?;
     Ok(fields.finish())
 }
 
@@ -132,7 +130,6 @@ mod tests {
             device_id: "device",
             label: "Laptop",
             signing_public_key: signing,
-            kem_public_key: &[7; 1184],
         }
     }
 
@@ -142,7 +139,7 @@ mod tests {
         let proof = key.request_proof(&identity(&[1; 1952])).unwrap();
         assert_eq!(
             proof[..4],
-            [0xd2, 0x5e, 0x75, 0xc8],
+            [0x4c, 0x3d, 0xc6, 0x6e],
             "the derivation changed"
         );
         assert!(key.proves_request(&identity(&[1; 1952]), &proof).unwrap());

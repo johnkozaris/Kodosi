@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 use super::*;
 use crate::identity::{
-    ML_DSA_65_PUBLIC_KEY_LEN, ML_KEM_768_PUBLIC_KEY_LEN,
+    ML_DSA_65_PUBLIC_KEY_LEN,
     link_code::{LinkIdentity, LinkKey, NONCE_LEN, PROOF_LEN, new_code, typed_code},
     pins::decode,
 };
@@ -27,7 +27,6 @@ pub(super) struct LinkRequest {
     device_id: String,
     device_label: String,
     signing_public_key: String,
-    kem_public_key: String,
     nonce: String,
     proof: String,
     expires_at: String,
@@ -38,7 +37,6 @@ pub(super) struct LinkedDevice {
     pub(super) device_id: String,
     label: String,
     signing_public_key: Vec<u8>,
-    kem_public_key: Vec<u8>,
     key: LinkKey,
 }
 
@@ -49,14 +47,12 @@ pub(super) fn request_with_code(
 ) -> Result<Option<LinkedDevice>> {
     for request in requests.into_iter().take(LINK_REQUESTS) {
         let signing_public_key = decode(&request.signing_public_key, ML_DSA_65_PUBLIC_KEY_LEN)?;
-        let kem_public_key = decode(&request.kem_public_key, ML_KEM_768_PUBLIC_KEY_LEN)?;
         let key = LinkKey::derive(code, &decode(&request.nonce, NONCE_LEN)?);
         let identity = LinkIdentity {
             user_id,
             device_id: &request.device_id,
             label: &request.device_label,
             signing_public_key: &signing_public_key,
-            kem_public_key: &kem_public_key,
         };
         if key.proves_request(&identity, &decode(&request.proof, PROOF_LEN)?)? {
             return Ok(Some(LinkedDevice {
@@ -64,7 +60,6 @@ pub(super) fn request_with_code(
                 device_id: request.device_id,
                 label: request.device_label,
                 signing_public_key,
-                kem_public_key,
                 key,
             }));
         }
@@ -76,10 +71,14 @@ impl BackendClient {
     pub(super) async fn device_events(&self) -> Result<Vec<Value>> {
         let credentials = self.credentials()?;
         let devices = if self.pinned(&credentials.user_id).await? {
-            let verified = self
+            match self
                 .fetch_identity_with(&credentials, &credentials.user_id)
-                .await?;
-            verified.devices.values().map(|cert|json!({"deviceId":cert.device_id,"label":cert.device_label,"certSignerDeviceId":cert.signer_device_id,"certIssuedAtMs":cert.issued_at_ms})).collect()
+                .await
+            {
+                Ok(verified) => verified.devices.values().map(|cert|json!({"deviceId":cert.device_id,"label":cert.device_label,"certSignerDeviceId":cert.signer_device_id,"certIssuedAtMs":cert.issued_at_ms})).collect(),
+                Err(Error::Invalid { .. }) if !credentials.enrolled => Vec::new(),
+                Err(error) => return Err(error),
+            }
         } else {
             Vec::new()
         };
@@ -207,13 +206,12 @@ impl BackendClient {
                 device_id: &keys.device_id,
                 label: &name,
                 signing_public_key: keys.signing_public(),
-                kem_public_key: keys.kem_public(),
             })?;
             Ok::<_, Error>((key, proof))
         })
         .await
         .map_err(|_| Error::Closed)??;
-        let link:Value=self.inner.http.bearer(Method::POST,"api/devices/link/init",&credentials.token,Some(json!({"deviceId":credentials.keys.device_id,"deviceLabel":label,"kemPublicKey":BASE64.encode(credentials.keys.kem_public()),"signingPublicKey":BASE64.encode(credentials.keys.signing_public()),"nonce":BASE64.encode(nonce),"proof":BASE64.encode(proof)}))).await?;
+        let link:Value=self.inner.http.bearer(Method::POST,"api/devices/link/init",&credentials.token,Some(json!({"deviceId":credentials.keys.device_id,"deviceLabel":label,"signingPublicKey":BASE64.encode(credentials.keys.signing_public()),"nonce":BASE64.encode(nonce),"proof":BASE64.encode(proof)}))).await?;
         let result =
             json!({"type":"devices.link.selfPending","code":code,"expiresAt":link["expiresAt"]});
         self.inner.state.lock().await.link = Some(PendingLink {
@@ -397,7 +395,6 @@ impl BackendClient {
             &credentials.user_id,
             new_device,
             &pending.label,
-            &pending.kem_public_key,
             &pending.signing_public_key,
             &credentials.keys.device_id,
             &credentials.keys.signing_key()?,

@@ -8,7 +8,7 @@ pub mod signed_device_list;
 pub mod storage;
 mod wire_codec;
 
-pub(crate) use wire_codec::{ML_DSA_65_PUBLIC_KEY_LEN, ML_KEM_768_PUBLIC_KEY_LEN};
+pub(crate) use wire_codec::ML_DSA_65_PUBLIC_KEY_LEN;
 
 pub fn now_ms() -> u64 {
     std::time::SystemTime::now()

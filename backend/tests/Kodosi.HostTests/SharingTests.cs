@@ -136,7 +136,7 @@ public sealed class SharingTests(PostgresFixture postgres)
         var owner = await store.UserAsync("owner"); var friend = await store.UserAsync("friend");
         var second = new DeviceFixture(owner.User.Id, "second-device");
         var init = JsonSerializer.SerializeToElement(await store.Devices.StartLinkAsync(owner.User.Id,
-            new(second.DeviceId, "Second", Convert.ToBase64String(second.KemKey), Convert.ToBase64String(second.SigningKey), DeviceFixture.LinkNonce, DeviceFixture.LinkProof), TestContext.Current.CancellationToken), Wire.Json);
+            new(second.DeviceId, "Second", Convert.ToBase64String(second.SigningKey), DeviceFixture.LinkNonce, DeviceFixture.LinkProof), TestContext.Current.CancellationToken), Wire.Json);
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var cert = second.CertificateBody(owner.Device.Id, now);
         var list = DeviceFixture.ListBody(owner.User.Id, 2, [(owner.Device.Id, owner.Device.Id), (second.DeviceId, owner.Device.Id)], owner.Device.Id, now);

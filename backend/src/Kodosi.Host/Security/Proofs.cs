@@ -8,7 +8,7 @@ internal static class DomainTags
 {
     public static ReadOnlySpan<byte> DevicePopV1 => "kodosi-device-pop-v1"u8;
     public static ReadOnlySpan<byte> DeviceSessionV1 => "kodosi-device-session-v1"u8;
-    public static ReadOnlySpan<byte> DeviceCertV2 => "kodosi-device-cert-v2"u8;
+    public static ReadOnlySpan<byte> DeviceCertV3 => "kodosi-device-cert-v3"u8;
     public static ReadOnlySpan<byte> DeviceListV1 => "kodosi-device-list-v1"u8;
 }
 

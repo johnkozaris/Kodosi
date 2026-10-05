@@ -195,7 +195,6 @@ mod tests {
             USER,
             &keys.device_id,
             "device",
-            keys.kem_public(),
             &keys.signing_key().unwrap(),
             1000,
             None,

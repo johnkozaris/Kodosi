@@ -2,11 +2,11 @@ use aws_lc_rs::signature::{KeyPair, ML_DSA_65, PqdsaKeyPair, VerificationAlgorit
 
 use super::wire_codec::{
     DEVICE_LABEL_MAX_UTF16_CODE_UNITS, LpReader, LpWriter, MAX_DEVICE_CERTIFICATE_BODY_LEN,
-    ML_DSA_65_PUBLIC_KEY_LEN, ML_DSA_65_SIGNATURE_LEN, ML_KEM_768_PUBLIC_KEY_LEN, decode_expiry,
-    encode_expiry, validate_canonical_device_id, validate_canonical_user_id, validate_timestamps,
+    ML_DSA_65_PUBLIC_KEY_LEN, ML_DSA_65_SIGNATURE_LEN, decode_expiry, encode_expiry,
+    validate_canonical_device_id, validate_canonical_user_id, validate_timestamps,
 };
 use crate::network::{Error, Result};
-const DEVICE_CERT_V2: &[u8] = b"kodosi-device-cert-v2";
+const DEVICE_CERT_V3: &[u8] = b"kodosi-device-cert-v3";
 
 const DEVICE_CERT_CONTEXT: &str = "device cert";
 
@@ -16,7 +16,6 @@ pub(crate) struct DeviceCertificate {
     pub(crate) device_id: String,
     pub(crate) device_label: String,
     pub(crate) signer_device_id: String,
-    pub(crate) kem_public_key: Vec<u8>,
     pub(crate) sig_public_key: Vec<u8>,
     pub(crate) issued_at_ms: u64,
     pub(crate) expires_at_ms: Option<u64>,
@@ -31,20 +30,18 @@ impl DeviceCertificate {
         validate_certificate(self)?;
         let mut writer = LpWriter::with_capacity(
             DEVICE_CERT_CONTEXT,
-            6 * 4
+            5 * 4
                 + 2 * 8
                 + self.user_id.len()
                 + self.device_id.len()
                 + self.device_label.len()
                 + self.signer_device_id.len()
-                + self.kem_public_key.len()
                 + self.sig_public_key.len(),
         );
         writer.write_lp_str(&self.user_id)?;
         writer.write_lp_str(&self.device_id)?;
         writer.write_lp_str(&self.device_label)?;
         writer.write_lp_str(&self.signer_device_id)?;
-        writer.write_lp_bytes(&self.kem_public_key)?;
         writer.write_lp_bytes(&self.sig_public_key)?;
         writer.write_u64_be(self.issued_at_ms);
         writer.write_u64_be(encode_expiry(self.expires_at_ms));
@@ -74,7 +71,6 @@ impl DeviceCertificate {
         let device_id = cursor.read_lp_str()?;
         let device_label = cursor.read_lp_str()?;
         let signer_device_id = cursor.read_lp_str()?;
-        let kem_public_key = cursor.read_lp_bytes()?;
         let sig_public_key = cursor.read_lp_bytes()?;
         let issued_at_ms = cursor.read_u64_be()?;
         let expires_raw = cursor.read_u64_be()?;
@@ -85,7 +81,6 @@ impl DeviceCertificate {
             device_id,
             device_label,
             signer_device_id,
-            kem_public_key,
             sig_public_key,
             issued_at_ms,
             expires_at_ms: decode_expiry(expires_raw),
@@ -109,7 +104,6 @@ pub(crate) fn build_self_cert(
     user_id: &str,
     own_device_id: &str,
     own_label: &str,
-    own_kem_pub: &[u8],
     own_signing_keypair: &PqdsaKeyPair,
     issued_at_ms: u64,
     expires_at_ms: Option<u64>,
@@ -120,7 +114,6 @@ pub(crate) fn build_self_cert(
         device_id: own_device_id.to_owned(),
         device_label: own_label.to_owned(),
         signer_device_id: own_device_id.to_owned(),
-        kem_public_key: own_kem_pub.to_vec(),
         sig_public_key: sig_pub,
         issued_at_ms,
         expires_at_ms,
@@ -128,12 +121,10 @@ pub(crate) fn build_self_cert(
     sign_certificate(&cert, own_signing_keypair)
 }
 
-#[expect(clippy::too_many_arguments, reason = "flat signed tuple")]
 pub(crate) fn build_cert_for(
     user_id: &str,
     new_device_id: &str,
     new_device_label: &str,
-    new_kem_pub: &[u8],
     new_sig_pub: &[u8],
     signer_device_id: &str,
     signer_keypair: &PqdsaKeyPair,
@@ -152,7 +143,6 @@ pub(crate) fn build_cert_for(
         device_id: new_device_id.to_owned(),
         device_label: new_device_label.to_owned(),
         signer_device_id: signer_device_id.to_owned(),
-        kem_public_key: new_kem_pub.to_vec(),
         sig_public_key: new_sig_pub.to_vec(),
         issued_at_ms,
         expires_at_ms,
@@ -173,8 +163,8 @@ pub(crate) fn verify_certificate(
             ),
         });
     }
-    let mut payload = Vec::with_capacity(DEVICE_CERT_V2.len() + body_bytes.len());
-    payload.extend_from_slice(DEVICE_CERT_V2);
+    let mut payload = Vec::with_capacity(DEVICE_CERT_V3.len() + body_bytes.len());
+    payload.extend_from_slice(DEVICE_CERT_V3);
     payload.extend_from_slice(body_bytes);
 
     ML_DSA_65
@@ -199,8 +189,8 @@ fn sign_certificate(
     signer: &PqdsaKeyPair,
 ) -> Result<SignedDeviceCertificate> {
     let body_bytes = cert.serialize_body()?;
-    let mut payload = Vec::with_capacity(DEVICE_CERT_V2.len() + body_bytes.len());
-    payload.extend_from_slice(DEVICE_CERT_V2);
+    let mut payload = Vec::with_capacity(DEVICE_CERT_V3.len() + body_bytes.len());
+    payload.extend_from_slice(DEVICE_CERT_V3);
     payload.extend_from_slice(&body_bytes);
 
     let mut signature = vec![0u8; ML_DSA_65_SIGNATURE_LEN];
@@ -231,12 +221,6 @@ fn validate_certificate(cert: &DeviceCertificate) -> Result<()> {
         DEVICE_CERT_CONTEXT,
         "signer_device_id",
         &cert.signer_device_id,
-    )?;
-    require_exact_bytes(
-        DEVICE_CERT_CONTEXT,
-        "KEM public key",
-        &cert.kem_public_key,
-        ML_KEM_768_PUBLIC_KEY_LEN,
     )?;
     require_exact_bytes(
         DEVICE_CERT_CONTEXT,

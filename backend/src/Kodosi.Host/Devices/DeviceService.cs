@@ -70,7 +70,6 @@ public sealed partial class DeviceService(
         }
         var challenge = sessions.ConsumeChallenge(userId, request.ChallengeId);
         var signingKey = Limits.Base64(request.SigningPublicKey, "Signing key", IdentityWireFormat.MlDsa65PublicKeyLength);
-        var kemKey = Limits.Base64(request.KemPublicKey, "KEM key", IdentityWireFormat.MlKem768PublicKeyLength);
         var pop = Limits.Base64(request.PopSignature, "Possession signature", IdentityWireFormat.MlDsa65SignatureLength);
         if (!signatures.Verify(signingKey, Proofs.Tagged(DomainTags.DevicePopV1, challenge), pop))
             throw ApiException.Forbidden("The device possession proof is invalid.");
@@ -79,14 +78,14 @@ public sealed partial class DeviceService(
             throw ApiException.Forbidden("An existing trusted device must approve this device.");
         var cert = certificates.Parse(certBytes);
         var list = lists.Parse(listBytes);
-        ValidateCertificate(userId, request.DeviceId, cert, signingKey, kemKey);
+        ValidateCertificate(userId, request.DeviceId, cert, signingKey);
         ValidateTime(cert.IssuedAtMs, cert.ExpiresAtMs);
         ValidateTime(list.IssuedAtMs, list.ExpiresAtMs);
         if (!cert.IsSelfSigned || list.UserId != userId.ToString("D") || list.Generation != 1
             || list.Entries.Count != 1 || list.Entries[0].DeviceId != cert.DeviceId
             || list.Entries[0].SignerDeviceId != cert.DeviceId || list.SignerDeviceId != cert.DeviceId)
             throw ApiException.Invalid("The first device must provide one self-signed identity.");
-        VerifySignature(signingKey, DomainTags.DeviceCertV2, certBytes, certSig);
+        VerifySignature(signingKey, DomainTags.DeviceCertV3, certBytes, certSig);
         VerifySignature(signingKey, DomainTags.DeviceListV1, listBytes, listSig);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         db.Devices.Add(ToDevice(userId, cert, certBytes, certSig));
@@ -229,9 +228,9 @@ public sealed partial class DeviceService(
         if (issuedAt > now + 300_000 || expiresAt <= now)
             throw ApiException.Invalid("The device proof is expired or dated in the future.");
     }
-    private static void ValidateCertificate(Guid userId, string deviceId, DeviceCertificateParser.ParsedDeviceCertificate cert, byte[] signing, byte[] kem)
+    private static void ValidateCertificate(Guid userId, string deviceId, DeviceCertificateParser.ParsedDeviceCertificate cert, byte[] signing)
     {
-        if (cert.UserId != userId.ToString("D") || cert.DeviceId != deviceId || !cert.SigPublicKey.AsSpan().SequenceEqual(signing) || !cert.KemPublicKey.AsSpan().SequenceEqual(kem))
+        if (cert.UserId != userId.ToString("D") || cert.DeviceId != deviceId || !cert.SigPublicKey.AsSpan().SequenceEqual(signing))
             throw ApiException.Invalid("Certificate identity and keys do not match the submitted device.");
     }
     private void ValidateSuccessor(Guid userId, SignedDeviceListParser.ParsedSignedDeviceList previous, SignedDeviceListParser.ParsedSignedDeviceList next)
@@ -254,7 +253,6 @@ public sealed partial class DeviceService(
         Certificate = bytes,
         CertificateSignature = signature,
         SigningPublicKey = cert.SigPublicKey,
-        KemPublicKey = cert.KemPublicKey,
         IssuedAtMs = cert.IssuedAtMs,
         ExpiresAtMs = cert.ExpiresAtMs,
     };
@@ -268,7 +266,7 @@ public sealed partial class DeviceService(
         stored.Body = bytes; stored.Signature = signature; stored.IssuedAtMs = list.IssuedAtMs; stored.ExpiresAtMs = list.ExpiresAtMs;
     }
 
-    public sealed record RegisterDevice(string DeviceId, string KemPublicKey, string SigningPublicKey, Guid ChallengeId,
+    public sealed record RegisterDevice(string DeviceId, string SigningPublicKey, Guid ChallengeId,
         string PopSignature, string DeviceCertificate, string DeviceCertificateSignature, string SignedDeviceList, string SignedDeviceListSignature);
     public sealed record ReplaceDeviceList(string SignedDeviceList, string SignedDeviceListSignature);
     public sealed record OpenDeviceSession(string DeviceId, Guid ChallengeId, string Signature);
