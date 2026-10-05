@@ -263,7 +263,7 @@ impl Runtime {
     fn require_publication(&mut self, id: Uuid) -> Result<()> {
         if self.local.get(&id).is_some_and(|local| !local.published) {
             self.publish_locals();
-            return Err(Error::Invalid("Remote access is still connecting. Try again when this device is online and approved.".to_owned()));
+            return Err(Error::Invalid(super::NOT_PUBLISHED.to_owned()));
         }
         Ok(())
     }

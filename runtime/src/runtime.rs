@@ -33,6 +33,8 @@ mod commands;
 #[cfg(test)]
 mod tests;
 
+pub(crate) const NOT_PUBLISHED: &str =
+    "Remote access is still connecting. Try again when this device is online and approved.";
 const MAX_SESSIONS: usize = 64;
 const MAX_JOBS: usize = 64;
 const MAX_PUBLICATIONS_IN_FLIGHT: usize = 8;

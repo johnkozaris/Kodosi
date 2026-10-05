@@ -2,6 +2,7 @@ use crate::{Config, Error, EventBody, HostKind, Result, local_host, protocol::Se
 use clap::{CommandFactory, Parser, Subcommand};
 use serde_json::{Value, json};
 use std::{
+    collections::BTreeSet,
     ffi::OsString,
     io::{self, Write},
     path::{Path, PathBuf},
@@ -10,6 +11,7 @@ use std::{
 };
 use uuid::Uuid;
 
+mod render;
 mod terminal;
 
 #[derive(Parser)]
@@ -47,16 +49,18 @@ enum Action {
 }
 #[derive(Subcommand)]
 enum SessionAction {
+    /// List the terminals of this computer and the terminals that you can open.
     List,
-    Show {
-        session: Uuid,
-    },
+    /// Show one terminal.
+    Show { session: String },
+    /// Start a terminal on this computer.
     Start {
         #[arg(long)]
         name: Option<String>,
         #[arg(long)]
         directory: Option<PathBuf>,
     },
+    /// Start a terminal that resumes a saved provider conversation.
     Resume {
         provider: String,
         conversation: Uuid,
@@ -64,84 +68,109 @@ enum SessionAction {
         #[arg(long)]
         name: Option<String>,
     },
-    Attach {
-        session: Uuid,
-    },
+    /// Open a terminal in this window. Press Ctrl-] and then . to leave; the terminal keeps running.
+    Attach { session: String },
+    /// Type text into a terminal.
     Input {
-        session: Uuid,
+        session: String,
         text: String,
         #[arg(long)]
         enter: bool,
     },
-    Rename {
-        session: Uuid,
-        name: String,
-    },
-    Close {
-        session: Uuid,
-    },
-    Interrupt {
-        session: Uuid,
-    },
+    /// Give a terminal a new name.
+    Rename { session: String, name: String },
+    /// End a terminal and the programs in it.
+    Close { session: String },
+    /// Send Ctrl-C to a terminal.
+    Interrupt { session: String },
+    /// Give friends full control of a terminal of this computer.
     Share {
-        session: Uuid,
-        #[arg(required = false)]
-        users: Vec<Uuid>,
+        session: String,
+        #[arg(required = true)]
+        friends: Vec<String>,
     },
-    Leave {
-        session: Uuid,
+    /// Take a terminal back from the given friends, or from all friends.
+    Unshare {
+        session: String,
+        friends: Vec<String>,
     },
+    /// Leave a terminal that a friend shared with you.
+    Leave { session: String },
+    /// Put a terminal in a Mission, or take it out when no Mission is given.
     Mission {
-        session: Uuid,
-        mission: Option<Uuid>,
+        session: String,
+        mission: Option<String>,
     },
 }
 #[derive(Subcommand)]
 enum AuthAction {
+    /// Sign in. Terminals on this computer work without an account.
     Login,
+    /// Sign out. This ends the sharing of the terminals of this computer.
     Logout,
+    /// Show the account and the terminals.
     Status,
     /// Delete this account and its devices, friends, shared terminals and missions on the server.
     DeleteAccount,
 }
 #[derive(Subcommand)]
 enum DeviceAction {
+    /// List the approved devices of your account.
     List,
+    /// Show a code for this device and wait until an approved device accepts it.
     Link,
+    /// Cancel the request of this device.
     CancelLink,
-    Approve {
-        code: String,
-    },
-    Revoke {
-        device: String,
-    },
+    /// Approve the device that shows this code.
+    Approve { code: String },
+    /// Remove a device from your account.
+    Revoke { device: String },
     /// Start fresh on this device: every other device loses access until it is approved again.
     Reset,
 }
 #[derive(Subcommand)]
 enum FriendAction {
+    /// List your friends and the open requests.
     List,
+    /// Ask a person to be your friend, by username or invite text.
     Add { username: String },
+    /// Accept a request.
     Accept { username: String },
+    /// Reject a request.
     Reject { username: String },
+    /// Cancel a request that you sent.
     Cancel { username: String },
+    /// Remove a friend. Terminals that you shared with this friend close for them.
     Remove { username: String },
+    /// Print your invite text. A friend who adds you with it is verified at once.
     Invite,
+    /// Verify a friend with the invite text that they sent you.
     Verify { username: String, invite: String },
+    /// Trust the new identity of a friend who set up Kodosi again.
     Trust { username: String },
 }
 #[derive(Subcommand)]
 enum MissionAction {
+    /// List your Missions and invitations.
     List,
-    Show { mission: Uuid },
+    /// Show a Mission and its members.
+    Show { mission: String },
+    /// Make a Mission.
     Create { name: String },
-    Rename { mission: Uuid, name: String },
-    Delete { mission: Uuid },
-    Invite { mission: Uuid, user: Uuid },
-    Accept { invitation: Uuid },
-    Reject { invitation: Uuid },
-    RemoveMember { mission: Uuid, user: Uuid },
-    Leave { mission: Uuid },
+    /// Give a Mission a new name.
+    Rename { mission: String, name: String },
+    /// Delete a Mission. Its terminals stay.
+    Delete { mission: String },
+    /// Invite a friend to a Mission.
+    Invite { mission: String, friend: String },
+    /// Accept the invitation to a Mission.
+    Accept { mission: String },
+    /// Reject the invitation to a Mission.
+    Reject { mission: String },
+    /// Remove a member from a Mission.
+    RemoveMember { mission: String, member: String },
+    /// Leave a Mission.
+    Leave { mission: String },
 }
 #[derive(Subcommand)]
 enum ProviderAction {
@@ -227,77 +256,255 @@ async fn dispatch(args: Arguments) -> Result<()> {
     }
     let mut client = connect_or_start(&config).await?;
     let mut context = Context::from_events(&client.initial_events);
-    if matches!(
-        args.command,
-        Action::Status | Action::Session(SessionAction::List) | Action::Auth(AuthAction::Status)
-    ) {
-        return print_json(
-            &json!({"accountUserId":context.user,"accountEpoch":context.epoch,"sessions":context.sessions}),
-        );
-    }
-    if let Action::Session(SessionAction::Show { session }) = &args.command {
-        return print_json(context.session(*session)?);
-    }
-    let request = Uuid::now_v7().to_string();
-    let command = match args.command {
+    let json_output = args.json;
+    match args.command {
+        Action::Status
+        | Action::Session(SessionAction::List)
+        | Action::Auth(AuthAction::Status) => {
+            if json_output {
+                print_json(
+                    &json!({"accountUserId":context.user,"accountEpoch":context.epoch,"sessions":context.sessions}),
+                )
+            } else {
+                print_text(&render::status(&context))
+            }
+        }
+        Action::Session(SessionAction::Show { session }) => {
+            let entry = context.session(context.session_id(&session)?)?;
+            if json_output {
+                print_json(entry)
+            } else {
+                print_text(&render::session(entry, &context))
+            }
+        }
         Action::Session(SessionAction::Attach { session }) => {
+            let session = context.session_id(&session)?;
             open_remote(&mut client, &mut context, session).await?;
-            return attach_with_demand(&config.data_root, session, &mut client).await;
+            attach_with_demand(&config.data_root, session, &mut client).await
         }
         Action::Session(SessionAction::Input {
             session,
             text,
             enter,
         }) => {
+            let session = context.session_id(&session)?;
             open_remote(&mut client, &mut context, session).await?;
-            return send_input(&config.data_root, session, text, enter, args.json).await;
+            send_input(&config.data_root, session, text, enter, json_output).await
         }
-        Action::Session(SessionAction::Start { name, directory }) => {
+        Action::Session(SessionAction::Share { session, friends }) => {
+            share(
+                &mut client,
+                &mut context,
+                &session,
+                &friends,
+                true,
+                json_output,
+            )
+            .await
+        }
+        Action::Session(SessionAction::Unshare { session, friends }) => {
+            share(
+                &mut client,
+                &mut context,
+                &session,
+                &friends,
+                false,
+                json_output,
+            )
+            .await
+        }
+        Action::Devices(DeviceAction::Link) => {
+            link_device(&mut client, &mut context, json_output).await
+        }
+        action => {
+            let command = command(action, &mut client, &mut context).await?;
+            let event = request(&mut client, &mut context, command, json_output).await?;
+            if json_output {
+                print_json(&event)
+            } else {
+                print_text(&render::result(&event, &context))
+            }
+        }
+    }
+}
+
+async fn command(
+    action: Action,
+    client: &mut local_host::Client,
+    context: &mut Context,
+) -> Result<Value> {
+    let request = Uuid::now_v7().to_string();
+    Ok(match action {
+        Action::Session(action) => session_command(action, &request, client, context).await?,
+        Action::Auth(AuthAction::Login) => json!({"type":"auth.login.start"}),
+        Action::Auth(AuthAction::Logout) => json!({"type":"auth.logout"}),
+        Action::Auth(AuthAction::DeleteAccount) => json!({"type":"auth.deleteAccount"}),
+        Action::Devices(action) => device_command(action, client, context).await?,
+        Action::Friends(action) => friend_command(action, &request),
+        Action::Mission(action) => mission_command(action, &request, client, context).await?,
+        Action::Provider(action) => provider_command(action, &request)?,
+        Action::Host | Action::InternalHost | Action::Status | Action::Auth(AuthAction::Status) => {
+            return Err(Error::Invalid("unexpected command".into()));
+        }
+    })
+}
+
+async fn session_command(
+    action: SessionAction,
+    request: &str,
+    client: &mut local_host::Client,
+    context: &mut Context,
+) -> Result<Value> {
+    let located = |context: &Context, session: &str| {
+        let id = context.session_id(session)?;
+        Ok::<_, Error>((id, context.incarnation(id)?))
+    };
+    Ok(match action {
+        SessionAction::Start { name, directory } => {
             json!({"type":"session.create","requestId":request,"name":name.unwrap_or_else(||"Terminal".into()),"workingDir":path(directory)?})
         }
-        Action::Session(SessionAction::Resume {
+        SessionAction::Resume {
             provider,
             conversation,
             directory,
             name,
-        }) => {
+        } => {
             json!({"type":"session.create","requestId":request,"name":name.unwrap_or_else(||"Terminal".into()),"workingDir":path(Some(directory))?,"resume":{"provider":provider_name(provider)?,"nativeConversationId":conversation}})
         }
-        Action::Session(SessionAction::Rename { session, name }) => {
-            json!({"type":"session.rename","requestId":request,"sessionId":session,"expectedRuntimeIncarnationId":context.incarnation(session)?,"name":name})
+        SessionAction::Rename { session, name } => {
+            let (id, incarnation) = located(context, &session)?;
+            json!({"type":"session.rename","requestId":request,"sessionId":id,"expectedRuntimeIncarnationId":incarnation,"name":name})
         }
-        Action::Session(SessionAction::Close { session }) => {
-            open_remote(&mut client, &mut context, session).await?;
-            json!({"type":"session.close","requestId":request,"sessionId":session,"expectedRuntimeIncarnationId":context.incarnation(session)?})
+        SessionAction::Close { session } => {
+            let (id, incarnation) = located(context, &session)?;
+            open_remote(client, context, id).await?;
+            json!({"type":"session.close","requestId":request,"sessionId":id,"expectedRuntimeIncarnationId":incarnation})
         }
-        Action::Session(SessionAction::Interrupt { session }) => {
-            open_remote(&mut client, &mut context, session).await?;
-            json!({"type":"session.interrupt","requestId":request,"sessionId":session,"expectedRuntimeIncarnationId":context.incarnation(session)?})
+        SessionAction::Interrupt { session } => {
+            let (id, incarnation) = located(context, &session)?;
+            open_remote(client, context, id).await?;
+            json!({"type":"session.interrupt","requestId":request,"sessionId":id,"expectedRuntimeIncarnationId":incarnation})
         }
-        Action::Session(SessionAction::Share { session, users }) => {
-            json!({"type":"session.share","requestId":request,"sessionId":session,"expectedRuntimeIncarnationId":context.incarnation(session)?,"userIds":users})
+        SessionAction::Leave { session } => {
+            let (id, incarnation) = located(context, &session)?;
+            json!({"type":"session.leave","requestId":request,"sessionId":id,"expectedRuntimeIncarnationId":incarnation})
         }
-        Action::Session(SessionAction::Leave { session }) => {
-            json!({"type":"session.leave","requestId":request,"sessionId":session,"expectedRuntimeIncarnationId":context.incarnation(session)?})
+        SessionAction::Mission { session, mission } => {
+            let (id, incarnation) = located(context, &session)?;
+            let mission = match mission {
+                Some(mission) => Some(mission_id(&missions(client, context).await?, &mission)?),
+                None => None,
+            };
+            json!({"type":"session.attachMission","requestId":request,"sessionId":id,"expectedRuntimeIncarnationId":incarnation,"missionId":mission})
         }
-        Action::Session(SessionAction::Mission { session, mission }) => {
-            json!({"type":"session.attachMission","requestId":request,"sessionId":session,"expectedRuntimeIncarnationId":context.incarnation(session)?,"missionId":mission})
-        }
-        Action::Auth(AuthAction::Login) => json!({"type":"auth.login.start"}),
-        Action::Auth(AuthAction::Logout) => json!({"type":"auth.logout"}),
-        Action::Auth(AuthAction::DeleteAccount) => json!({"type":"auth.deleteAccount"}),
-        Action::Devices(action) => device_command(action),
-        Action::Friends(action) => friend_command(action, &request),
-        Action::Mission(action) => mission_command(action, &request),
-        Action::Provider(action) => provider_command(action, &request)?,
-        Action::Host
-        | Action::InternalHost
-        | Action::Status
-        | Action::Session(SessionAction::List | SessionAction::Show { .. })
-        | Action::Auth(AuthAction::Status) => {
+        SessionAction::List
+        | SessionAction::Show { .. }
+        | SessionAction::Attach { .. }
+        | SessionAction::Input { .. }
+        | SessionAction::Share { .. }
+        | SessionAction::Unshare { .. } => {
             return Err(Error::Invalid("unexpected command".into()));
         }
+    })
+}
+
+async fn share(
+    client: &mut local_host::Client,
+    context: &mut Context,
+    session: &str,
+    friends: &[String],
+    add: bool,
+    json_output: bool,
+) -> Result<()> {
+    let id = context.session_id(session)?;
+    let known = self::friends(client, context).await?;
+    let chosen = friends
+        .iter()
+        .map(|friend| friend_id(&known, friend))
+        .collect::<Result<BTreeSet<_>>>()?;
+    let current = context.session(id)?["sharedWith"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|user| user.as_str().map(str::to_owned))
+        .collect::<BTreeSet<_>>();
+    let users = if add {
+        &current | &chosen
+    } else if chosen.is_empty() {
+        BTreeSet::new()
+    } else {
+        &current - &chosen
     };
+    let started = tokio::time::Instant::now();
+    let event = loop {
+        let command = json!({"type":"session.share","requestId":Uuid::now_v7().to_string(),"sessionId":id,"expectedRuntimeIncarnationId":context.incarnation(id)?,"userIds":users});
+        match request(client, context, command, json_output).await {
+            Err(Error::Other(message))
+                if message == crate::runtime::NOT_PUBLISHED
+                    && started.elapsed() < Duration::from_secs(10) =>
+            {
+                tokio::time::sleep(Duration::from_millis(500)).await;
+            }
+            result => break result?,
+        }
+    };
+    if json_output {
+        print_json(&event)
+    } else {
+        print_text(&render::sharing(context.session(id)?, &users, &known))
+    }
+}
+
+async fn link_device(
+    client: &mut local_host::Client,
+    context: &mut Context,
+    json_output: bool,
+) -> Result<()> {
+    let mut event = request(
+        client,
+        context,
+        json!({"type":"devices.link.startSelf"}),
+        json_output,
+    )
+    .await?;
+    if event["type"] == "devices.link.selfPending" {
+        if json_output {
+            print_json(&event)?;
+        } else {
+            print_text(&render::link_code(&event))?;
+        }
+        event = tokio::time::timeout(Duration::from_mins(11), async {
+            loop {
+                let frame = client.next().await?;
+                if let Some(event) = frame.get("event")
+                    && context.observe(event)
+                    && event["type"] == "devices.link.selfResolved"
+                {
+                    return Ok::<_, Error>(event.clone());
+                }
+            }
+        })
+        .await
+        .map_err(|_| Error::Other("The code expired. Run `kodosi devices link` again.".into()))??;
+    }
+    if json_output {
+        return print_json(&event);
+    }
+    match event["outcome"].as_str() {
+        Some("approved") => print_text("This device is approved."),
+        Some("expired") => Err(Error::Other(
+            "The code expired. Run `kodosi devices link` again.".into(),
+        )),
+        _ => Err(Error::Other("The request was cancelled.".into())),
+    }
+}
+
+async fn request(
+    client: &mut local_host::Client,
+    context: &mut Context,
+    command: Value,
+    json_output: bool,
+) -> Result<Value> {
     let operation = command["type"]
         .as_str()
         .ok_or_else(|| Error::Invalid("command has no type".into()))?
@@ -308,24 +515,91 @@ async fn dispatch(args: Arguments) -> Result<()> {
         .map(str::to_owned);
     client.command(context.envelope(command)?).await?;
     wait_result(
-        &mut client,
-        &mut context,
+        client,
+        context,
         &operation,
         request_id.as_deref(),
-        args.json,
+        json_output,
     )
     .await
 }
 
-fn device_command(action: DeviceAction) -> Value {
-    match action {
+async fn friends(client: &mut local_host::Client, context: &mut Context) -> Result<Vec<Value>> {
+    let snapshot = request(client, context, json!({"type":"friends.refresh"}), true).await?;
+    Ok(snapshot["friends"].as_array().cloned().unwrap_or_default())
+}
+
+async fn missions(client: &mut local_host::Client, context: &mut Context) -> Result<Value> {
+    request(client, context, json!({"type":"mission.list"}), true).await
+}
+
+fn friend_id(friends: &[Value], reference: &str) -> Result<String> {
+    let name = reference.trim_start_matches('@');
+    let matches = friends
+        .iter()
+        .filter(|friend| {
+            friend["userId"] == reference
+                || friend["handle"]
+                    .as_str()
+                    .is_some_and(|handle| handle.eq_ignore_ascii_case(name))
+        })
+        .filter_map(|friend| friend["userId"].as_str())
+        .collect::<Vec<_>>();
+    only(&matches, "friend", reference, "kodosi friends list").map(str::to_owned)
+}
+
+fn mission_id(snapshot: &Value, reference: &str) -> Result<String> {
+    let matches = snapshot["missions"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|mission| mission["id"] == reference || mission["name"] == reference)
+        .filter_map(|mission| mission["id"].as_str())
+        .collect::<Vec<_>>();
+    only(&matches, "Mission", reference, "kodosi mission list").map(str::to_owned)
+}
+
+fn only<'a>(matches: &[&'a str], kind: &str, reference: &str, list: &str) -> Result<&'a str> {
+    match matches {
+        [one] => Ok(one),
+        [] => Err(Error::Invalid(format!(
+            "No {kind} matches \"{reference}\". Run `{list}`."
+        ))),
+        _ => Err(Error::Invalid(format!(
+            "More than one {kind} matches \"{reference}\". Use the ID from `{list}`."
+        ))),
+    }
+}
+
+async fn device_command(
+    action: DeviceAction,
+    client: &mut local_host::Client,
+    context: &mut Context,
+) -> Result<Value> {
+    Ok(match action {
         DeviceAction::List => json!({"type":"devices.refresh"}),
         DeviceAction::Link => json!({"type":"devices.link.startSelf"}),
         DeviceAction::CancelLink => json!({"type":"devices.link.cancelSelf"}),
         DeviceAction::Approve { code } => json!({"type":"devices.link.approve","code":code}),
-        DeviceAction::Revoke { device } => json!({"type":"devices.revoke","deviceId":device}),
+        DeviceAction::Revoke { device } => {
+            let list = request(client, context, json!({"type":"devices.refresh"}), true).await?;
+            let matches = list["devices"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter(|entry| {
+                    entry["label"] == device.as_str()
+                        || entry["deviceId"].as_str().is_some_and(|id| {
+                            id == device || (device.len() >= 4 && id.ends_with(&device))
+                        })
+                })
+                .filter_map(|entry| entry["deviceId"].as_str())
+                .collect::<Vec<_>>();
+            let id = only(&matches, "device", &device, "kodosi devices list")?;
+            json!({"type":"devices.revoke","deviceId":id})
+        }
         DeviceAction::Reset => json!({"type":"devices.reset"}),
-    }
+    })
 }
 
 struct IdleWatch {
@@ -494,37 +768,84 @@ fn friend_command(action: FriendAction, request: &str) -> Value {
     }
 }
 
-fn mission_command(action: MissionAction, request: &str) -> Value {
-    match action {
-        MissionAction::List => json!({"type":"mission.list"}),
-        MissionAction::Show { mission } => {
-            json!({"type":"mission.open","requestId":request,"missionId":mission})
-        }
+async fn mission_command(
+    action: MissionAction,
+    request: &str,
+    client: &mut local_host::Client,
+    context: &mut Context,
+) -> Result<Value> {
+    let (operation, mission, extra) = match action {
+        MissionAction::List => return Ok(json!({"type":"mission.list"})),
         MissionAction::Create { name } => {
-            json!({"type":"mission.create","requestId":request,"name":name})
+            return Ok(json!({"type":"mission.create","requestId":request,"name":name}));
         }
+        MissionAction::Accept { mission } => {
+            return invitation_command(
+                "mission.invitation.accept",
+                &mission,
+                request,
+                client,
+                context,
+            )
+            .await;
+        }
+        MissionAction::Reject { mission } => {
+            return invitation_command(
+                "mission.invitation.reject",
+                &mission,
+                request,
+                client,
+                context,
+            )
+            .await;
+        }
+        MissionAction::Show { mission } => ("mission.open", mission, json!({})),
         MissionAction::Rename { mission, name } => {
-            json!({"type":"mission.rename","requestId":request,"missionId":mission,"name":name})
+            ("mission.rename", mission, json!({"name":name}))
         }
-        MissionAction::Delete { mission } => {
-            json!({"type":"mission.delete","requestId":request,"missionId":mission})
+        MissionAction::Delete { mission } => ("mission.delete", mission, json!({})),
+        MissionAction::Leave { mission } => ("mission.leave", mission, json!({})),
+        MissionAction::Invite { mission, friend } => {
+            let user = friend_id(&friends(client, context).await?, &friend)?;
+            ("mission.invite", mission, json!({"userId":user}))
         }
-        MissionAction::Invite { mission, user } => {
-            json!({"type":"mission.invite","requestId":request,"missionId":mission,"userId":user})
+        MissionAction::RemoveMember { mission, member } => {
+            let user = if Uuid::parse_str(&member).is_ok() {
+                member
+            } else {
+                friend_id(&friends(client, context).await?, &member)?
+            };
+            ("mission.removeMember", mission, json!({"userId":user}))
         }
-        MissionAction::Accept { invitation } => {
-            json!({"type":"mission.invitation.accept","requestId":request,"invitationId":invitation})
-        }
-        MissionAction::Reject { invitation } => {
-            json!({"type":"mission.invitation.reject","requestId":request,"invitationId":invitation})
-        }
-        MissionAction::RemoveMember { mission, user } => {
-            json!({"type":"mission.removeMember","requestId":request,"missionId":mission,"userId":user})
-        }
-        MissionAction::Leave { mission } => {
-            json!({"type":"mission.leave","requestId":request,"missionId":mission})
-        }
-    }
+    };
+    let mut command = extra;
+    command["type"] = json!(operation);
+    command["requestId"] = json!(request);
+    command["missionId"] = json!(mission_id(&missions(client, context).await?, &mission)?);
+    Ok(command)
+}
+
+async fn invitation_command(
+    operation: &str,
+    reference: &str,
+    request: &str,
+    client: &mut local_host::Client,
+    context: &mut Context,
+) -> Result<Value> {
+    let snapshot = missions(client, context).await?;
+    let matches = snapshot["invitations"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|invitation| {
+            invitation["id"] == reference
+                || invitation["missionId"] == reference
+                || invitation["missionName"] == reference
+        })
+        .filter_map(|invitation| invitation["id"].as_str())
+        .collect::<Vec<_>>();
+    let id = only(&matches, "invitation", reference, "kodosi mission list")?;
+    Ok(json!({"type":operation,"requestId":request,"invitationId":id}))
 }
 fn provider_command(action: ProviderAction, request: &str) -> Result<Value> {
     Ok(match action {
@@ -550,6 +871,12 @@ fn provider_command(action: ProviderAction, request: &str) -> Result<Value> {
     })
 }
 
+fn print_text(text: &str) -> Result<()> {
+    let mut output = io::stdout().lock();
+    output.write_all(text.as_bytes())?;
+    output.write_all(b"\n")?;
+    Ok(())
+}
 fn print_json(value: &impl serde::Serialize) -> Result<()> {
     let mut output = io::stdout().lock();
     serde_json::to_writer_pretty(&mut output, value)?;
@@ -580,6 +907,8 @@ struct Context {
     user: Option<String>,
     epoch: u64,
     sessions: Vec<Value>,
+    account: Option<Value>,
+    friends: Vec<Value>,
 }
 impl Context {
     fn from_events(events: &[Value]) -> Self {
@@ -587,6 +916,8 @@ impl Context {
             user: None,
             epoch: 0,
             sessions: vec![],
+            account: None,
+            friends: vec![],
         };
         for event in events {
             value.observe(event);
@@ -600,6 +931,8 @@ impl Context {
             }
             if epoch > self.epoch {
                 self.sessions.clear();
+                self.friends.clear();
+                self.account = None;
             }
             self.epoch = epoch;
             self.user = event
@@ -607,14 +940,33 @@ impl Context {
                 .and_then(Value::as_str)
                 .map(str::to_owned);
         }
-        if event.get("type").and_then(Value::as_str) == Some("sessions.snapshot") {
-            self.sessions = event
-                .get("sessions")
-                .and_then(Value::as_array)
-                .cloned()
-                .unwrap_or_default();
+        match event.get("type").and_then(Value::as_str) {
+            Some("sessions.snapshot") => {
+                self.sessions = event["sessions"].as_array().cloned().unwrap_or_default();
+            }
+            Some("friends.snapshot") => {
+                self.friends = event["friends"].as_array().cloned().unwrap_or_default();
+            }
+            Some("auth.ready") => self.account = Some(event.clone()),
+            Some("auth.required") => self.account = None,
+            _ => {}
         }
         true
+    }
+    fn session_id(&self, reference: &str) -> Result<Uuid> {
+        let matches = self
+            .sessions
+            .iter()
+            .filter(|session| {
+                session["name"] == reference
+                    || session["id"].as_str().is_some_and(|id| {
+                        id == reference || (reference.len() >= 4 && id.ends_with(reference))
+                    })
+            })
+            .filter_map(|session| session["id"].as_str())
+            .collect::<Vec<_>>();
+        let id = only(&matches, "terminal", reference, "kodosi session list")?;
+        Uuid::parse_str(id).map_err(|_| Error::Stale)
     }
     fn session(&self, id: Uuid) -> Result<&Value> {
         let id = id.to_string();
@@ -645,7 +997,7 @@ async fn wait_result(
     operation: &str,
     request_id: Option<&str>,
     json_output: bool,
-) -> Result<()> {
+) -> Result<Value> {
     let budget = if operation == "auth.login.start" {
         Duration::from_mins(10)
     } else {
@@ -704,6 +1056,7 @@ async fn wait_result(
                     kind,
                     "devices.link.selfPending" | "devices.link.selfResolved"
                 ),
+                "session.share" => kind == "session.result" && matching,
                 "devices.link.cancelSelf" => kind == "devices.link.selfResolved",
                 "devices.link.approve" => kind == "devices.link.resolved",
                 "friends.invite" => kind == "friends.invite",
@@ -715,7 +1068,7 @@ async fn wait_result(
                 _ => kind == "session.result" && matching,
             };
             if done {
-                return print_json(event);
+                return Ok(event.clone());
             }
         }
     })
@@ -896,6 +1249,29 @@ mod tests {
         assert_eq!(context.epoch, 2);
         assert!(context.user.is_none());
         assert!(context.sessions.is_empty());
+    }
+    #[test]
+    fn a_terminal_and_a_friend_are_found_by_name_or_identifier() {
+        let context = Context::from_events(&[
+            json!({"type":"sessions.snapshot","accountUserId":"me","accountEpoch":1,"sessions":[
+                {"id":"01a10d06-92a7-7367-8536-65c4895d05ae","name":"work"},
+                {"id":"01a10d06-92a7-7367-8536-000000000002","name":"Terminal"},
+                {"id":"01a10d06-92a7-7367-8536-000000000003","name":"Terminal"},
+            ]}),
+        ]);
+        let work = Uuid::parse_str("01a10d06-92a7-7367-8536-65c4895d05ae").unwrap();
+        assert_eq!(context.session_id("work").unwrap(), work);
+        assert_eq!(context.session_id("5d05ae").unwrap(), work);
+        assert_eq!(context.session_id(&work.to_string()).unwrap(), work);
+        assert!(context.session_id("Terminal").is_err());
+        assert!(context.session_id("000003").is_ok());
+        assert!(context.session_id("ae").is_err());
+        assert!(context.session_id("other").is_err());
+        let friends = [json!({"userId":"u-bob","handle":"bob"})];
+        for reference in ["bob", "@bob", "Bob", "u-bob"] {
+            assert_eq!(friend_id(&friends, reference).unwrap(), "u-bob");
+        }
+        assert!(friend_id(&friends, "carol").is_err());
     }
     #[test]
     fn terminal_close_and_native_resume_remain() {
