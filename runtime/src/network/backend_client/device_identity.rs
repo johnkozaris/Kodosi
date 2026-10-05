@@ -20,7 +20,8 @@ impl BackendClient {
     ) -> Result<(IdentityBundle, Root)> {
         if self.pinned(&credentials.user_id).await? {
             return Err(Error::Trust(
-                "The server lost a previously trusted identity; refusing to replace it.".into(),
+                "The server has no trusted devices for this account, but this device knows some."
+                    .into(),
             ));
         }
         let now = identity::now_ms();
@@ -67,7 +68,65 @@ impl BackendClient {
     }
 
     pub(super) async fn ensure_enrolled(&self) -> Result<()> {
-        let credentials = self.credentials()?;
+        if self.settle_enrollment().await? {
+            self.start_notifications().await?;
+        } else {
+            let notifications = self.inner.notifications.lock().await.take();
+            if let Some(cancel) = notifications {
+                cancel.cancel();
+            }
+        }
+        self.inner.identity_settled.store(true, Ordering::Release);
+        Ok(())
+    }
+
+    pub(super) async fn settle_enrollment(&self) -> Result<bool> {
+        let started = self.credentials()?;
+        let (verified, notice) = match self.own_standing(started.clone()).await {
+            Ok((verified, true)) => (verified, REPLACED.to_owned()),
+            Ok((verified, false)) => (verified, UNAPPROVED.to_owned()),
+            Err(Error::Invalid { reason }) => {
+                tracing::warn!(%reason, "the trusted devices of this account are not readable");
+                (None, UNREADABLE.to_owned())
+            }
+            Err(Error::Trust(reason)) => {
+                tracing::warn!(%reason, "the trusted devices of this account are not confirmed");
+                (
+                    None,
+                    format!(
+                        "{reason} Approve this device from another device, or start fresh here."
+                    ),
+                )
+            }
+            Err(error) => return Err(error),
+        };
+        self.check_credentials(&started)?;
+        let mut credentials = self.credentials()?;
+        let enrolled = verified
+            .as_ref()
+            .is_some_and(|verified| device_enrolled(verified, &credentials));
+        if credentials.enrolled && !enrolled {
+            self.suspend_transports().await;
+        }
+        credentials.enrolled = enrolled;
+        credentials.notice = (!enrolled).then_some(notice);
+        *self.inner.credentials.write().map_err(|_| Error::Closed)? = Some(credentials);
+        if let Some(identity) = self
+            .inner
+            .identity
+            .write()
+            .map_err(|_| Error::Closed)?
+            .as_mut()
+        {
+            identity.enrolled = enrolled;
+        }
+        Ok(enrolled)
+    }
+
+    async fn own_standing(
+        &self,
+        credentials: Credentials,
+    ) -> Result<(Option<VerifiedIdentity>, bool)> {
         let result = self
             .inner
             .http
@@ -84,7 +143,7 @@ impl BackendClient {
         self.check_credentials(&credentials)?;
         if bundle.user_id != credentials.user_id {
             return Err(Error::Trust(
-                "Device identity belongs to another account.".into(),
+                "The server sent the trusted devices of another account.".into(),
             ));
         }
         let now = identity::now_ms();
@@ -92,28 +151,9 @@ impl BackendClient {
         let (credentials, replaced) = self
             .adopt_replaced_identity(credentials, &bundle, &pins)
             .await?;
-        let (mut verified, unreadable) = match own_identity(pins, bundle, created, now).await {
-            Ok(verified) => (verified, false),
-            Err(Error::Invalid { reason }) => {
-                tracing::warn!(%reason, "the device identity of this account is not readable");
-                (None, true)
-            }
-            Err(error) => return Err(error),
-        };
-        let enrolled = verified
-            .as_ref()
-            .is_some_and(|verified| device_enrolled(verified, &credentials));
-        if !enrolled {
-            let notification = self.inner.notifications.lock().await.take();
-            if let Some(cancel) = notification {
-                cancel.cancel();
-            }
-        }
-        if !enrolled && credentials.enrolled {
-            self.suspend_transports().await;
-        }
+        let mut verified = own_identity(pins, bundle, created, now).await?;
         if let Some(current) = verified.as_ref().filter(|current| {
-            enrolled
+            device_enrolled(current, &credentials)
                 && current
                     .list
                     .expires_at_ms
@@ -129,36 +169,10 @@ impl BackendClient {
                 .is_some_and(|expiry| expiry <= now)
         }) {
             return Err(Error::Trust(
-                "The signed device list needs renewal from an approved device.".into(),
+                "The list of trusted devices needs renewal from an approved device.".into(),
             ));
         }
-        let enrolled = verified
-            .as_ref()
-            .is_some_and(|verified| device_enrolled(verified, &credentials));
-        self.check_credentials(&credentials)?;
-        let mut next = credentials.clone();
-        next.enrolled = enrolled;
-        *self.inner.credentials.write().map_err(|_| Error::Closed)? = Some(next);
-        if let Some(identity) = self
-            .inner
-            .identity
-            .write()
-            .map_err(|_| Error::Closed)?
-            .as_mut()
-        {
-            identity.enrolled = enrolled;
-        }
-        if enrolled {
-            self.start_notifications().await?;
-        }
-        if !enrolled {
-            self.emit_for(
-                credentials.generation,
-                Some(credentials.user_id),
-                json!({"type":"auth.notice","message":approval_notice(unreadable, replaced)}),
-            );
-        }
-        Ok(())
+        Ok((verified, replaced))
     }
 
     async fn adopt_replaced_identity(
@@ -423,15 +437,9 @@ async fn own_identity(
     .map_err(|_| Error::Closed)?
 }
 
-const fn approval_notice(unreadable: bool, replaced: bool) -> &'static str {
-    if unreadable {
-        "This version of Kodosi cannot read the trusted devices of this account. Start fresh on this device, then approve your other devices again."
-    } else if replaced {
-        "Your trusted devices were reset from another device. Approve this device from that device, or start fresh here."
-    } else {
-        "Approve this device from one of your existing devices."
-    }
-}
+const UNAPPROVED: &str = "Approve this device from one of your existing devices.";
+const REPLACED: &str = "Your trusted devices were reset from another device. Approve this device from that device, or start fresh here.";
+const UNREADABLE: &str = "This version of Kodosi cannot read the trusted devices of this account. Start fresh on this device, then approve your other devices again.";
 
 pub(super) fn device_enrolled(verified: &VerifiedIdentity, credentials: &Credentials) -> bool {
     verified

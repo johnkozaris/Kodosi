@@ -33,6 +33,7 @@ pub(crate) struct Credentials {
     pub(crate) token: Zeroizing<String>,
     pub(crate) keys: Arc<DeviceKeys>,
     pub(crate) enrolled: bool,
+    pub(crate) notice: Option<String>,
     pub(crate) generation: u64,
     pub(crate) cancel: tokio_util::sync::CancellationToken,
 }

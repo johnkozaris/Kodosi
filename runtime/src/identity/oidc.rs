@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 use zeroize::{Zeroize as _, Zeroizing};
 
-use crate::network::{Result, invalid};
+use crate::network::{Error, Result, invalid};
 
 #[derive(Clone)]
 pub struct Oidc {
@@ -188,10 +188,7 @@ impl Oidc {
     }
 
     pub async fn refresh(&self, previous: &Tokens) -> Result<Tokens> {
-        let refresh = previous
-            .refresh_token
-            .as_deref()
-            .ok_or_else(|| invalid("Sign in again to continue."))?;
+        let refresh = previous.refresh_token.as_deref().ok_or(Error::SignedOut)?;
         let discovery = self.discover().await?;
         let response = self
             .client
@@ -202,13 +199,22 @@ impl Oidc {
                 ("client_id", self.client_id.as_str()),
             ])
             .send()
-            .await?
-            .error_for_status()?;
-        tokens(
-            &Zeroizing::new(read_bounded(response, 256 * 1024).await?),
-            Some(refresh),
-        )
+            .await?;
+        let failure = response.error_for_status_ref().err();
+        let bytes = Zeroizing::new(read_bounded(response, 256 * 1024).await?);
+        let Some(failure) = failure else {
+            return tokens(&bytes, Some(refresh));
+        };
+        if grant_ended(&bytes) {
+            return Err(Error::SignedOut);
+        }
+        Err(failure.into())
     }
+}
+
+fn grant_ended(reply: &[u8]) -> bool {
+    serde_json::from_slice::<serde_json::Value>(reply)
+        .is_ok_and(|reply| reply["error"] == "invalid_grant")
 }
 
 fn tokens(bytes: &[u8], previous_refresh: Option<&str>) -> Result<Tokens> {
@@ -299,5 +305,14 @@ mod tests {
         assert_eq!(refreshed.access_token, "new-access");
         assert_eq!(refreshed.refresh_token.as_deref(), Some("retained-refresh"));
         assert!(refreshed.expires_at > super::super::now_ms());
+    }
+
+    #[test]
+    fn only_a_rejected_grant_ends_the_sign_in() {
+        assert!(grant_ended(
+            br#"{"error":"invalid_grant","error_description":"Token is not active"}"#
+        ));
+        assert!(!grant_ended(br#"{"error":"invalid_client"}"#));
+        assert!(!grant_ended(b"<html>Bad Gateway</html>"));
     }
 }

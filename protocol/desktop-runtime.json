@@ -2134,44 +2134,6 @@
             ]
           },
           "message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "type": {
-            "const": "auth.notice"
-          }
-        },
-        "required": [
-          "accountUserId",
-          "accountEpoch",
-          "type"
-        ],
-        "type": "object"
-      },
-      {
-        "additionalProperties": false,
-        "properties": {
-          "accountEpoch": {
-            "format": "u64",
-            "type": "integer"
-          },
-          "accountUserId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "message": {
             "type": "string"
           },
           "operation": {
@@ -2458,6 +2420,16 @@
           },
           "localDeviceEnrolled": {
             "type": "boolean"
+          },
+          "notice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "selfDeviceId": {
             "type": "string"
@@ -4145,7 +4117,7 @@
     ]
   },
   "ffiAbiVersion": 7,
-  "protocolVersion": 47,
+  "protocolVersion": 48,
   "terminal": {
     "checkpointMaxBytes": 8388608,
     "checkpointSchema": 2,

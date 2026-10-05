@@ -21,7 +21,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 47;
+pub const VERSION: u32 = 48;
 include!(concat!(env!("OUT_DIR"), "/network_versions.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 
@@ -430,11 +430,6 @@ pub enum EventBody {
     },
     #[serde(rename = "auth.finalizing")]
     AuthFinalizing {},
-    #[serde(rename = "auth.notice")]
-    AuthNotice {
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        message: Option<String>,
-    },
     #[serde(rename = "auth.error")]
     AuthError {
         operation: String,
@@ -463,6 +458,8 @@ pub enum EventBody {
     DevicesList {
         self_device_id: String,
         local_device_enrolled: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        notice: Option<String>,
         devices: Vec<DeviceEntry>,
     },
     #[serde(rename = "devices.link.snapshot")]
@@ -699,7 +696,6 @@ impl EventBody {
             Self::AuthRequired { .. } => "auth.required",
             Self::AuthDeviceCode { .. } => "auth.device_code",
             Self::AuthFinalizing {} => "auth.finalizing",
-            Self::AuthNotice { .. } => "auth.notice",
             Self::AuthError { .. } => "auth.error",
             Self::FriendsSnapshot { .. } => "friends.snapshot",
             Self::FriendInviteText { .. } => "friends.invite",

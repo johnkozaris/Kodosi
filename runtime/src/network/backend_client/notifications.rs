@@ -23,7 +23,10 @@ impl BackendClient {
         tokio::spawn(async move {
             let mut delay = 1;
             loop {
-                if cancel.is_cancelled() || network.check_credentials(&credentials).is_err() {
+                if cancel.is_cancelled()
+                    || network.check_credentials(&credentials).is_err()
+                    || !network.credentials().is_ok_and(|current| current.enrolled)
+                {
                     break;
                 }
                 let started = tokio::time::Instant::now();
@@ -34,7 +37,7 @@ impl BackendClient {
                     result=network.notification_connection(&credentials,&cancel)=>result,
                 };
                 if let Err(error) = result {
-                    tracing::warn!(%error, "notification stream interrupted; reconnecting");
+                    tracing::warn!(%error, "notification stream interrupted");
                 }
                 if started.elapsed() >= terminal_connections::STABLE_CONNECTION {
                     delay = 1;
@@ -91,30 +94,6 @@ impl BackendClient {
         result
     }
 
-    async fn validate_notified_device(&self) -> Result<()> {
-        let credentials = self.credentials()?;
-        let verified = self
-            .fetch_identity_with(&credentials, &credentials.user_id)
-            .await?;
-        if !super::device_identity::device_enrolled(&verified, &credentials) {
-            self.suspend_transports().await;
-            let mut next = credentials.clone();
-            next.enrolled = false;
-            *self.inner.credentials.write().map_err(|_| Error::Closed)? = Some(next);
-            if let Some(identity) = self
-                .inner
-                .identity
-                .write()
-                .map_err(|_| Error::Closed)?
-                .as_mut()
-            {
-                identity.enrolled = false;
-            }
-            return Err(Error::EnrollmentRequired);
-        }
-        Ok(())
-    }
-
     async fn refresh_surface(&self, admitted: &Credentials, surface: &str) -> Result<()> {
         let _operation = self.inner.operations.lock().await;
         self.check_credentials(admitted)?;
@@ -122,8 +101,11 @@ impl BackendClient {
             "sessions" => vec![self.session_event().await?],
             "friends" => vec![self.friend_event().await?],
             "devices" => {
-                self.validate_notified_device().await?;
-                self.device_events().await?
+                if self.settle_enrollment().await? {
+                    self.device_events().await?
+                } else {
+                    self.enrollment_events().await?
+                }
             }
             "missions" => vec![self.mission_list().await?],
             _ => return Err(invalid("Unsupported notification surface.")),
@@ -131,6 +113,10 @@ impl BackendClient {
         for event in events {
             self.emit_for(admitted.generation, Some(admitted.user_id.clone()), event);
         }
-        Ok(())
+        if self.credentials()?.enrolled {
+            Ok(())
+        } else {
+            Err(Error::EnrollmentRequired)
+        }
     }
 }

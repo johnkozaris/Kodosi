@@ -86,6 +86,7 @@ impl BackendClient {
             token: Zeroizing::new(tokens.access_token.clone()),
             keys,
             enrolled: false,
+            notice: None,
             generation: expected_generation,
             cancel,
         };
@@ -101,7 +102,6 @@ impl BackendClient {
             enrolled: false,
         });
         self.ensure_enrolled().await?;
-        self.inner.identity_settled.store(true, Ordering::Release);
         if self.generation() != expected_generation {
             return Err(Error::Stale);
         }
@@ -184,6 +184,15 @@ impl BackendClient {
                 return Err(error);
             }
             self.inner.enrollment_checked.store(now, Ordering::Release);
+            if self.credentials()?.enrolled != credentials.enrolled {
+                for event in self.enrollment_events().await? {
+                    self.emit_for(
+                        credentials.generation,
+                        Some(credentials.user_id.clone()),
+                        event,
+                    );
+                }
+            }
         }
         self.check_credentials(&credentials)?;
         self.reconcile_device_removals().await?;

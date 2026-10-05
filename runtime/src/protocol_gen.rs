@@ -440,7 +440,7 @@ mod tests {
     fn every_event_schema_decodes_and_round_trips_through_serde() {
         let schema = shape::<protocol::Event>().unwrap();
         let variants = leaves(&schema);
-        assert_eq!(variants.len(), 35);
+        assert_eq!(variants.len(), 34);
         for variant in variants {
             let value = sample(variant);
             let event: protocol::Event = serde_json::from_value(value.clone())

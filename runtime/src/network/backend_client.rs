@@ -172,18 +172,17 @@ impl BackendClient {
                     ()=this.inner.shutdown.cancelled()=>break,
                     _=tick.tick()=>{
                         let Ok(_operation)=this.inner.operations.try_lock() else {continue;};
-                        if let Some(identity)=this.identity() {
-                            let generation=this.generation();
-                            if let Err(error)=this.refresh().await
-                                && error.user_facing()
-                            {
-                                this.emit_for(generation,Some(identity.user_id),json!({"type":"auth.notice","message":error.to_string()}));
-                            }
+                        let result=if this.identity().is_some() {
+                            this.refresh().await
                         }else if this.inner.restore_pending.load(Ordering::Acquire) {
-                            let generation=this.generation();
-                            if let Err(error)=this.restore_saved(generation).await {
-                                this.emit_for(generation,None,json!({"type":"auth.notice","message":error.to_string()}));
-                            }
+                            this.restore_saved(this.generation()).await
+                        }else{
+                            Ok(())
+                        };
+                        if let Err(error)=this.sign_in_kept(result).await
+                            && error.user_facing()
+                        {
+                            tracing::warn!(%error, "the account was not refreshed; it will be tried again");
                         }
                     }
                 }
@@ -191,7 +190,27 @@ impl BackendClient {
         });
         let _operation = self.inner.operations.lock().await;
         terminal_connections::check_generation(self, generation)?;
-        self.restore_saved(generation).await
+        let restored = self.restore_saved(generation).await;
+        match self.sign_in_kept(restored).await {
+            Err(error) if error.unanswered() => {
+                tracing::warn!(%error, "saved sign-in was not restored; it will be tried again");
+                Ok(())
+            }
+            result => result,
+        }
+    }
+
+    async fn sign_in_kept(&self, result: Result<()>) -> Result<()> {
+        if !matches!(result, Err(Error::SignedOut)) {
+            return result;
+        }
+        self.logout().await?;
+        self.emit_for(
+            self.generation(),
+            None,
+            json!({"type":"auth.required","reason":"expired"}),
+        );
+        Ok(())
     }
 
     #[expect(
@@ -278,7 +297,8 @@ impl BackendClient {
                 events.push(json!({"type":"auth.required","reason":"signedOut"}));
             }
             "auth.refresh" => {
-                self.refresh().await?;
+                let refreshed = self.refresh().await;
+                self.sign_in_kept(refreshed).await?;
                 if let Some(identity) = self.identity() {
                     events.push(json!({"type":"auth.ready","userId":identity.user_id,"enrolled":identity.enrolled}));
                 }

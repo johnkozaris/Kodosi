@@ -68,6 +68,15 @@ pub(super) fn request_with_code(
 }
 
 impl BackendClient {
+    pub(super) async fn enrollment_events(&self) -> Result<Vec<Value>> {
+        let credentials = self.credentials()?;
+        let mut events = vec![
+            json!({"type":"auth.ready","userId":credentials.user_id,"enrolled":credentials.enrolled}),
+        ];
+        events.extend(self.device_events().await?);
+        Ok(events)
+    }
+
     pub(super) async fn device_events(&self) -> Result<Vec<Value>> {
         let credentials = self.credentials()?;
         let devices = if self.pinned(&credentials.user_id).await? {
@@ -76,14 +85,18 @@ impl BackendClient {
                 .await
             {
                 Ok(verified) => verified.devices.values().map(|cert|json!({"deviceId":cert.device_id,"label":cert.device_label,"certSignerDeviceId":cert.signer_device_id,"certIssuedAtMs":cert.issued_at_ms})).collect(),
-                Err(Error::Invalid { .. }) if !credentials.enrolled => Vec::new(),
+                Err(Error::Invalid { .. } | Error::Trust(_) | Error::Backend { status: 404, .. })
+                    if !credentials.enrolled =>
+                {
+                    Vec::new()
+                }
                 Err(error) => return Err(error),
             }
         } else {
             Vec::new()
         };
         let mut result = vec![
-            json!({"type":"devices.list","selfDeviceId":credentials.keys.device_id,"localDeviceEnrolled":credentials.enrolled,"devices":devices}),
+            json!({"type":"devices.list","selfDeviceId":credentials.keys.device_id,"localDeviceEnrolled":credentials.enrolled,"notice":credentials.notice,"devices":devices}),
         ];
         if credentials.enrolled {
             let requests = self
@@ -102,8 +115,17 @@ impl BackendClient {
         if credentials.enrolled || !self.pinned(&credentials.user_id).await? {
             return Ok(credentials);
         }
-        self.fetch_identity_with(&credentials, &credentials.user_id)
-            .await?;
+        match self
+            .fetch_identity_with(&credentials, &credentials.user_id)
+            .await
+        {
+            Err(Error::Invalid { .. } | Error::Trust(_) | Error::Backend { status: 404, .. }) => {
+                return Err(invalid(
+                    "No device of this account can approve this device now. Start fresh on this device.",
+                ));
+            }
+            result => result?,
+        };
         let mut state = self.inner.state.lock().await;
         if !state
             .pins

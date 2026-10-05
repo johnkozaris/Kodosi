@@ -36,7 +36,7 @@ async fn delayed_events_keep_their_original_account() {
     network.emit_for(
         old,
         Some("old-account".into()),
-        json!({"type":"auth.notice","message":"old"}),
+        json!({"type":"auth.finalizing"}),
     );
     let event = events.recv().await.unwrap();
     assert_eq!(event.generation, old);
@@ -102,6 +102,7 @@ async fn logout_cancels_credentials_without_deleting_device_identity() {
             token: Zeroizing::new("secret".into()),
             keys: Arc::new(DeviceKeys::load_or_create(&state.secrets, &user).unwrap()),
             enrolled: true,
+            notice: None,
             generation: network.generation(),
             cancel: state.account_cancel.clone(),
         }
