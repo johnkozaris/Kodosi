@@ -4,7 +4,7 @@ use futures_util::stream::{FuturesOrdered, FuturesUnordered};
 use tokio::task::JoinSet;
 
 use super::{
-    channel::{Channel, Link, Transport},
+    channel::{Channel, Transport},
     pacer::Pacer,
     wire::{Accept, ControlResult, End, Frame, Hello, Refuse},
     *,
@@ -292,11 +292,7 @@ async fn connect(
         Some(&dto),
     )
     .await?;
-    let mut channel = Channel::accept(
-        Link::Relay(Box::new(socket)),
-        credentials.keys.signing_pkcs8(),
-    )
-    .await?;
+    let mut channel = Channel::accept(socket, credentials.keys.signing_pkcs8()).await?;
     let hello = match tokio::time::timeout(Duration::from_secs(10), channel.receive()).await {
         Ok(Ok(Some((Frame::Hello(hello), _)))) => hello,
         Ok(Err(error)) => return Err(error),
@@ -308,11 +304,6 @@ async fn connect(
         channel.close().await;
         return Ok(());
     }
-    let mut offered = network
-        .inner
-        .direct
-        .offer(&credentials.keys, &key, &credentials.cancel)
-        .await;
     let admitted = Admitted {
         user: hello.user_id.clone(),
         device: hello.device_id.clone(),
@@ -326,18 +317,8 @@ async fn connect(
         .send(&Frame::Accept(Accept {
             protocol_version: crate::protocol::TERMINAL_CONNECTION_VERSION,
             host_device_id: credentials.keys.device_id.clone(),
-            direct: offered.as_ref().map(|(offer, _)| offer.clone()),
         }))
         .await?;
-    let direct = match offered.as_mut() {
-        Some((_, offered)) => started(&mut channel, offered).await?,
-        None => None,
-    };
-    drop(offered);
-    let (channel, anchor) = match direct {
-        Some(direct) => (direct, Some(channel)),
-        None => (channel, None),
-    };
     publication
         .requests
         .send(HostRequest::Connected {
@@ -359,38 +340,11 @@ async fn connect(
             authorization,
         },
     );
-    stream.anchor = anchor;
     let ended = stream.serve().await;
     if ended.is_ok() {
         stream.channel.close().await;
     }
     ended
-}
-
-async fn started(
-    relay: &mut Channel<Link>,
-    offered: &mut direct::Offered,
-) -> Result<Option<Channel<Link>>> {
-    tokio::select! {
-        biased;
-        direct = &mut offered.channel => direct.map(Some).map_err(|_| Error::Closed),
-        start = tokio::time::timeout(Duration::from_secs(10), relay.receive()) => match start {
-            Ok(Ok(Some((Frame::Start { token }, _)))) if token.is_empty() => Ok(None),
-            Ok(Err(error)) => Err(error),
-            _ => Err(Error::Closed),
-        },
-    }
-}
-
-async fn anchored<T: Transport>(anchor: &mut Option<Channel<T>>) -> Result<()> {
-    let Some(anchor) = anchor else {
-        return std::future::pending().await;
-    };
-    match anchor.receive().await? {
-        Some((Frame::Ack { .. }, _)) => Ok(()),
-        Some(_) => Err(invalid("Unsupported frame on the relay of a direct view.")),
-        None => Err(Error::Closed),
-    }
 }
 
 fn refuse(code: &str, message: &str) -> Refuse {
@@ -478,7 +432,6 @@ enum Captured<C> {
 
 struct Stream<'a, T> {
     channel: Channel<T>,
-    anchor: Option<Channel<T>>,
     output: PublicationOutput,
     requests: &'a mpsc::Sender<HostRequest>,
     controller: Controller,
@@ -517,7 +470,6 @@ impl<'a, T: Transport> Stream<'a, T> {
     ) -> Self {
         Self {
             channel,
-            anchor: None,
             output,
             requests,
             controller,
@@ -573,13 +525,8 @@ impl<'a, T: Transport> Stream<'a, T> {
                 }
                 _ = heartbeat.tick() => {
                     self.heartbeat = self.heartbeat.wrapping_add(1);
-                    let heartbeat = Frame::Heartbeat { number: self.heartbeat, next_sequence: self.wire_next };
-                    self.channel.send(&heartbeat).await?;
-                    if let Some(anchor) = self.anchor.as_mut() {
-                        anchor.send(&heartbeat).await?;
-                    }
+                    self.channel.send(&Frame::Heartbeat { number: self.heartbeat, next_sequence: self.wire_next }).await?;
                 }
-                relay = anchored(&mut self.anchor), if self.anchor.is_some() => relay?,
                 _ = metadata.tick(), if self.metadata.is_some() && self.live => {
                     if let Some(current) = self.metadata.take() {
                         self.channel.send(&Frame::Metadata(current)).await?;

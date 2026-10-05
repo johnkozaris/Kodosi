@@ -12,7 +12,7 @@ namespace Kodosi.TerminalConnections;
 
 internal static class ConnectionEndpoints
 {
-    private const int ProtocolVersion = 18;
+    private const int ProtocolVersion = 17;
     private const int PipeMessageBytes = 256 * 1024;
     private static readonly TimeSpan Idle = TimeSpan.FromSeconds(90);
     private static readonly TimeSpan SlowSend = TimeSpan.FromSeconds(30);

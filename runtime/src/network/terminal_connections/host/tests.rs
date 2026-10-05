@@ -85,20 +85,10 @@ impl Terminal {
 const SCREEN: &[u8] = b"\x1bcthe visible screen";
 
 async fn terminal(snapshot_bytes: usize) -> Terminal {
-    terminal_on(snapshot_bytes, false).await.0
-}
-
-async fn terminal_on(snapshot_bytes: usize, direct: bool) -> (Terminal, Option<Channel<Pipe>>) {
     let (host, viewer) = (
         DeviceKeys::generate().unwrap(),
         DeviceKeys::generate().unwrap(),
     );
-    let (relay, anchor) = if direct {
-        let (relay, anchor) = pair(&host, &viewer).await;
-        (Some(relay), Some(anchor))
-    } else {
-        (None, None)
-    };
     let (viewer, channel) = pair(&host, &viewer).await;
     let (frames, output) = broadcast::channel(512);
     let (requests, mut received) = mpsc::channel(64);
@@ -160,12 +150,11 @@ async fn terminal_on(snapshot_bytes: usize, direct: bool) -> (Terminal, Option<C
                 authorization: CancellationToken::new(),
             },
         );
-        stream.anchor = anchor;
         let result = stream.serve().await;
         stream.channel.close().await;
         result
     });
-    let terminal = Terminal {
+    Terminal {
         frames,
         sequence,
         input,
@@ -174,41 +163,7 @@ async fn terminal_on(snapshot_bytes: usize, direct: bool) -> (Terminal, Option<C
         heartbeat: 0,
         delay: Duration::ZERO,
         served,
-    };
-    (terminal, relay)
-}
-
-#[tokio::test]
-async fn a_direct_view_gets_its_output_on_the_direct_channel_and_ends_when_the_relay_channel_closes()
- {
-    let (mut terminal, relay) = terminal_on(100, true).await;
-    let mut relay = relay.unwrap();
-    let (next_sequence, _) = terminal.keyframe().await;
-    terminal.write(b"direct");
-    let Frame::Output {
-        first_sequence,
-        chunks,
-    } = terminal.next().await
-    else {
-        panic!("output");
-    };
-    assert_eq!(
-        (first_sequence, &chunks[0][..]),
-        (next_sequence, &b"direct"[..])
-    );
-    assert!(matches!(
-        tokio::time::timeout(Duration::from_secs(5), relay.receive()).await,
-        Ok(Ok(Some((Frame::Heartbeat { number: 1, .. }, _))))
-    ));
-    relay.send(&Frame::Ack { received: 0 }).await.unwrap();
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    assert!(!terminal.served.is_finished());
-    drop(relay);
-    let ended = tokio::time::timeout(Duration::from_secs(5), terminal.served)
-        .await
-        .unwrap()
-        .unwrap();
-    assert!(matches!(ended, Err(Error::Closed)));
+    }
 }
 
 #[tokio::test]

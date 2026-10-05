@@ -31,12 +31,9 @@ use super::{
 };
 
 mod channel;
-mod direct;
 mod host;
 mod pacer;
 mod participant;
-
-pub(crate) use direct::Direct;
 
 pub(crate) type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 

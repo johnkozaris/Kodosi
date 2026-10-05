@@ -54,7 +54,8 @@ Design choices:
   the exact snapshot after 2 seconds without output. The repaint is made by the
   terminal library formatter, so it needed no library change and no new frame.
   The view has no history from before the repaint until the exact snapshot
-  arrives.
+  arrives. When a full-screen program ends in that time, the screen below it
+  is not correct until the exact snapshot arrives.
 - The host learns the speed of a link from the first snapshot: data that is
   acknowledged in full shows a least speed. It also measures while output
   waits, while a snapshot is in transit and while the viewer is behind.
@@ -191,34 +192,20 @@ Not built, by decision: requests through one WebSocket. HTTP requests with a
 session have the same cost for the server, keep their own time limits and
 errors, and work when the event socket is down.
 
-## 6. Built: direct path on one local network (contract in `protocol/terminal-connections.json`, `direct`)
+## 6. Decided against: direct path
 
-- A host listens on TCP on its private IPv4 address. In `accept`, inside the
-  encrypted relay channel, it gives the viewer the address and a random token.
-- A viewer tries the address only when it is in its own /24 network, with a
-  limit of 400 ms. An address that failed is not tried again for 10 minutes.
-  A view between different networks does not try; it starts after one more
-  relay round trip (`start`).
-- The direct connection is the same TLS channel with the same key checks. The
-  host also requires the key of the device that it admitted for the token.
-- The relay channel stays open and carries only heartbeats. When the server or
-  one side closes it, the direct connection ends. Thus a removed device, an
-  expired sign-in and a sharing change end a direct view as they end a relay
-  view, and the server needed no change.
-- No setting in the apps. A direct connection is made only between devices that
-  can already see each other on one network, the fallback is automatic, and
-  the user has nothing to decide. `KODOSI__NETWORK__DIRECT=false` stops it on
-  one device. A host behind a firewall that blocks unknown ports gets no
-  direct views until its owner sets `KODOSI__NETWORK__DIRECT_PORT` and allows
-  that port; until then its views use the relay.
+All terminal traffic goes through the relay. Two forms of a direct path were
+examined and not kept:
 
-Decided against:
-
-- **QUIC with hole punching (`iroh`) between different networks.** It needs
+- **TCP between devices on one local network** was built and tested between a
+  Mac and a Linux computer, then removed (the code is in commit `377819cb`).
+  It helped only devices of one home or office network, it did not work
+  without the server, and it gave each host an open port, a macOS question
+  about the local network, and no result behind a Linux firewall that blocks
+  unknown ports.
+- **QUIC with hole punching (`iroh`) between different networks** needs
   discovery and relay servers from a third party or a second server process,
-  and a large dependency. Views between different networks use the relay.
-- **Closing the relay pipe after the direct connection is open.** The server
-  could then not end a view when a device is removed or a sign-in expires.
+  and a large dependency.
 
 ## 7. Built: client marks
 
@@ -235,7 +222,7 @@ Decided against:
 | done | Device link with one typed code in all three clients | section 3 |
 | done | Friend records, invite text, no first use in all three clients | section 4 |
 | done | Device session and server items | section 5 |
-| done | Screen repaint (2); direct path (6); client marks (7) | sections 2 and 6 |
+| done | Screen repaint (2); client marks (7) | section 2 |
 
 ## 9. Risks that stay
 
@@ -249,6 +236,3 @@ Decided against:
   frame size, also with padding and with each frame packed alone.
 - The server can stop or delay service. It cannot deliver old input.
 - A stolen device has the access of that device until an owner removes it.
-- A device with a direct path has one open TCP port on its local network. A
-  connection gets no data before it proves a device key and a token.
-- The host and the viewer of a direct view see the local address of each other.
