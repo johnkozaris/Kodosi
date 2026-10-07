@@ -11,7 +11,7 @@ public sealed class ApiException(int status, string message) : Exception(message
 
 internal static class Limits
 {
-    public const int HttpBodyBytes = 2 * 1024 * 1024;
+    public const int HttpBodyBytes = 8 * 1024 * 1024;
     public const int MaxSessionsPerUser = 128;
     public const int MaxSessionMembers = 64;
     public const int MaxMissionsPerUser = 64;

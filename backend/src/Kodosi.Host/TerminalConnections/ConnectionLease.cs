@@ -6,7 +6,6 @@ public sealed class ConnectionLease(NpgsqlDataSource source, ConnectionDirectory
     ServerMetrics metrics, ILogger<ConnectionLease> logger) : IHostedService, IAsyncDisposable
 {
     private const long Key = 0x4B4F444F5349;
-    private static readonly TimeSpan Retake = TimeSpan.FromSeconds(30);
     private enum Attempt { Held, Other, Unreachable }
     private NpgsqlConnection? connection;
     private readonly CancellationTokenSource stopping = new();
@@ -65,26 +64,9 @@ public sealed class ConnectionLease(NpgsqlDataSource source, ConnectionDirectory
             while (await timer.WaitForNextTickAsync(ct))
             {
                 if (await HeldAsync(ct)) continue;
-                if (connection is { } broken)
-                {
-                    connection = null;
-                    _ = broken.DisposeAsync().AsTask().ContinueWith(static _ => { }, TaskScheduler.Default);
-                }
-                var lost = TimeProvider.System.GetTimestamp();
-                var attempt = await TakeAsync(ct);
-                while (attempt != Attempt.Held && TimeProvider.System.GetElapsedTime(lost) < Retake)
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(1), ct);
-                    attempt = await TakeAsync(ct);
-                }
-                metrics.DatabaseFault(TimeProvider.System.GetElapsedTime(lost));
-                if (attempt == Attempt.Held)
-                {
-                    logger.LogWarning("Terminal connection lease was lost and taken again after {Seconds:0} s.", TimeProvider.System.GetElapsedTime(lost).TotalSeconds);
-                    continue;
-                }
                 connections.StopAll();
-                logger.LogCritical("Terminal connection lease was lost ({Attempt}); stopping the backend.", attempt);
+                metrics.DatabaseFault(TimeSpan.Zero);
+                logger.LogCritical("Terminal connection lease was lost; stopping the backend.");
                 lifetime.StopApplication();
                 return;
             }

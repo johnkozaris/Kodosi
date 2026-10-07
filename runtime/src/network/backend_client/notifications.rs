@@ -9,6 +9,7 @@ impl BackendClient {
         if !credentials.enrolled {
             return Ok(());
         }
+        self.register_room_key(&credentials).await?;
         let mut current = self.inner.notifications.lock().await;
         if current
             .as_ref()
@@ -68,13 +69,14 @@ impl BackendClient {
                 while let Ok(surface) = changed.try_recv() {
                     waiting.insert(surface);
                 }
-                for surface in ["devices", "friends", "sessions", "missions"] {
+                for surface in ["devices", "friends", "sessions", "missions", "rooms"] {
                     if waiting.contains(surface) {
                         self.refresh_surface(admitted, surface).await?;
                     }
                 }
                 if waiting.iter().any(|surface| {
-                    !["devices", "friends", "sessions", "missions"].contains(&surface.as_str())
+                    !["devices", "friends", "sessions", "missions", "rooms"]
+                        .contains(&surface.as_str())
                 }) {
                     return Err(invalid("Unsupported notification surface."));
                 }
@@ -107,7 +109,12 @@ impl BackendClient {
                     self.enrollment_events().await?
                 }
             }
-            "missions" => vec![self.mission_list().await?],
+            "missions" => {
+                let mut events = vec![self.mission_list().await?];
+                events.extend(self.refresh_rooms(admitted).await?);
+                events
+            }
+            "rooms" => self.refresh_rooms(admitted).await?,
             _ => return Err(invalid("Unsupported notification surface.")),
         };
         for event in events {

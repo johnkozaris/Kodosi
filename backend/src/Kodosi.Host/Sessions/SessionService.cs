@@ -12,7 +12,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     public async Task<Session> AuthorizedAsync(Guid id, Guid userId, CancellationToken ct)
     {
         var session = await db.Sessions.SingleOrDefaultAsync(x => x.Id == id && !x.Ended, ct) ?? throw ApiException.Missing();
-        if (session.OwnerUserId != userId && !await db.SessionMembers.AnyAsync(x => x.SessionId == id && x.UserId == userId, ct))
+        if (session.OwnerUserId != userId && !(await AudienceAsync(session, ct)).Contains(userId))
             throw ApiException.Missing();
         return session;
     }
@@ -32,7 +32,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     public async Task<SessionDto> DescribeAsync(Session session, CancellationToken ct)
     {
         var owner = await db.Users.AsNoTracking().SingleAsync(x => x.Id == session.OwnerUserId, ct);
-        var shared = await db.SessionMembers.AsNoTracking().Where(x => x.SessionId == session.Id).Select(x => x.UserId).ToArrayAsync(ct);
+        var shared = (await AudienceAsync(session, ct)).Where(user => user != session.OwnerUserId).ToArray();
         var mission = session.MissionId is { } missionId ? await db.Missions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == missionId, ct) : null;
         return new SessionDto(session.Id, session.IncarnationId, session.Name, session.OwnerUserId, owner.DisplayName,
             session.HostDeviceId, session.HostName, session.MissionId, mission?.Name, shared, session.AuthorizationRevision,
@@ -41,7 +41,10 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     public async Task<IReadOnlyList<SessionDto>> ListAsync(Guid userId, CancellationToken ct)
     {
         var sessions = await (from session in db.Sessions.AsNoTracking()
-            where !session.Ended && (session.OwnerUserId == userId || db.SessionMembers.Any(m => m.SessionId == session.Id && m.UserId == userId))
+            where !session.Ended && (session.OwnerUserId == userId
+                || (session.MissionId == null && db.SessionMembers.Any(m => m.SessionId == session.Id && m.UserId == userId))
+                || db.Missions.Any(r => r.Id == session.MissionId && (r.OwnerUserId == userId
+                    || db.MissionMembers.Any(m => m.MissionId == r.Id && m.UserId == userId))))
             join owner in db.Users on session.OwnerUserId equals owner.Id
             join mission in db.Missions on session.MissionId equals mission.Id into missionsById
             from mission in missionsById.DefaultIfEmpty()
@@ -53,9 +56,17 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         var members = await db.SessionMembers.AsNoTracking().Where(x => ids.Contains(x.SessionId))
             .Select(x => new { x.SessionId, x.UserId }).ToListAsync(ct);
         var shared = members.ToLookup(x => x.SessionId, x => x.UserId);
+        var roomIds = sessions.Where(x => x.Session.MissionId != null).Select(x => x.Session.MissionId!.Value).Distinct().ToArray();
+        var roomMembers = await db.MissionMembers.AsNoTracking().Where(x => roomIds.Contains(x.MissionId))
+            .Select(x => new { x.MissionId, x.UserId }).ToListAsync(ct);
+        var roomOwners = await db.Missions.AsNoTracking().Where(x => roomIds.Contains(x.Id))
+            .Select(x => new { MissionId = x.Id, UserId = x.OwnerUserId }).ToListAsync(ct);
+        var audiences = roomMembers.Concat(roomOwners).ToLookup(x => x.MissionId, x => x.UserId);
         return sessions.Select(x => new SessionDto(x.Session.Id, x.Session.IncarnationId, x.Session.Name,
             x.Session.OwnerUserId, x.OwnerName, x.Session.HostDeviceId, x.Session.HostName,
-            x.Session.MissionId, x.MissionName, shared[x.Session.Id].ToArray(), x.Session.AuthorizationRevision,
+            x.Session.MissionId, x.MissionName,
+            (x.Session.MissionId is { } room ? audiences[room] : shared[x.Session.Id])
+                .Where(user => user != x.Session.OwnerUserId).Distinct().ToArray(), x.Session.AuthorizationRevision,
             connections.HostOnline(x.Session.Id))).ToArray();
     }
     public async Task<SessionDto> CreateAsync(Guid userId, Device device, CreateSession body, CancellationToken ct)
@@ -72,7 +83,8 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         }
         if (await db.Sessions.CountAsync(x => x.OwnerUserId == userId && !x.Ended, ct) >= Limits.MaxSessionsPerUser)
             throw ApiException.Conflict("Too many published sessions.");
-        if (body.MissionId is { } missionId) await missions.RequireMemberAsync(missionId, userId, ct);
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        if (body.MissionId is { } missionId) await missions.RequireMemberForUpdateAsync(missionId, userId, ct);
         var session = new Session
         {
             Id = body.Id,
@@ -85,7 +97,8 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
             ExpiresAt = clock.GetUtcNow() + PublicationCleanup.GracePeriod,
             CreatedAt = clock.GetUtcNow()
         };
-        db.Sessions.Add(session); await db.SaveChangesAsync(ct); connections.Notify(userId, "sessions");
+        db.Sessions.Add(session); await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
+        await NotifyAsync(session, ct);
         return await DescribeAsync(session, ct);
     }
     public async Task<SessionDto> RenameAsync(Guid id, Guid userId, string deviceId, RenameSession body, CancellationToken ct)
@@ -96,14 +109,24 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     }
     public async Task<SessionDto> AttachAsync(Guid id, Guid userId, string deviceId, AttachSession body, CancellationToken ct)
     {
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        if (body.MissionId is { } missionId) await missions.RequireMemberForUpdateAsync(missionId, userId, ct);
         var session = await OwnerAsync(id, userId, deviceId, ct); Incarnation(session, body.IncarnationId);
-        if (body.MissionId is { } missionId) await missions.RequireMemberAsync(missionId, userId, ct);
-        session.MissionId = body.MissionId; await db.SaveChangesAsync(ct); await NotifyAsync(session, ct);
+        var previous = await AudienceAsync(session, ct);
+        if (session.MissionId == body.MissionId) return await DescribeAsync(session, ct);
+        await db.SessionMembers.Where(x => x.SessionId == id).ExecuteDeleteAsync(ct);
+        session.MissionId = body.MissionId;
+        session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
+        await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
+        var audience = await AudienceAsync(session, ct);
+        connections.Revoke(session, (user, _) => audience.Contains(user));
+        foreach (var user in previous.Concat(audience).Distinct()) connections.Notify(user, "sessions");
         return await DescribeAsync(session, ct);
     }
     public async Task<SessionDto> ShareAsync(Guid id, Guid userId, string deviceId, ShareSession body, CancellationToken ct)
     {
         var session = await HostAsync(id, userId, deviceId, ct); Match(session, body.IncarnationId, body.ExpectedRevision);
+        if (session.MissionId is not null) throw ApiException.Conflict("This terminal is shared with its room. Remove it from the room to share it individually.");
         if (body.UserIds is null || body.UserIds.Length > Limits.MaxSessionMembers || body.UserIds.Any(x => x == Guid.Empty || x == userId))
             throw ApiException.Invalid("Choose up to 64 friends, excluding yourself.");
         var selected = body.UserIds.Distinct().ToHashSet();
@@ -128,6 +151,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     {
         var session = await AuthorizedAsync(id, userId, ct); Match(session, body.IncarnationId, body.ExpectedRevision);
         if (session.OwnerUserId == userId) throw ApiException.Invalid("The owner cannot leave their own session.");
+        if (session.MissionId is not null) throw ApiException.Conflict("Leave the room to leave its shared terminals.");
         var member = await db.SessionMembers.SingleOrDefaultAsync(x => x.SessionId == id && x.UserId == userId, ct) ?? throw ApiException.Missing();
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         bool Keep(Guid user, string device) => user != userId;
@@ -147,10 +171,17 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         await db.SaveChangesAsync(ct); connections.RemoveSession(id);
         await NotifyAsync(session, ct);
     }
+    private async Task<HashSet<Guid>> AudienceAsync(Session session, CancellationToken ct)
+    {
+        var audience = session.MissionId is { } room
+            ? await missions.MemberIdsAsync(room, ct)
+            : await db.SessionMembers.Where(x => x.SessionId == session.Id).Select(x => x.UserId).ToListAsync(ct);
+        audience.Add(session.OwnerUserId);
+        return audience.ToHashSet();
+    }
     private async Task NotifyAsync(Session session, CancellationToken ct)
     {
-        connections.Notify(session.OwnerUserId, "sessions");
-        foreach (var user in await db.SessionMembers.Where(x => x.SessionId == session.Id).Select(x => x.UserId).ToListAsync(ct)) connections.Notify(user, "sessions");
+        foreach (var user in await AudienceAsync(session, ct)) connections.Notify(user, "sessions");
     }
     internal static void Incarnation(Session session, Guid expected)
     { if (expected == Guid.Empty || session.IncarnationId != expected) throw ApiException.Conflict("This session publication was replaced."); }

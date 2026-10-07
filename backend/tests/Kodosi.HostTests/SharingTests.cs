@@ -93,7 +93,7 @@ public sealed class SharingTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task FriendshipAndMissionMembershipDoNotGrantTerminals()
+    public async Task RoomMembershipGrantsOnlyTerminalsSharedWithThatRoom()
     {
         await using var store = await TestStore.CreateAsync(postgres);
         var owner = await store.UserAsync("owner"); var friend = await store.UserAsync("friend");
@@ -103,13 +103,16 @@ public sealed class SharingTests(PostgresFixture postgres)
         store.Db.Missions.Add(mission); store.Db.MissionMembers.Add(new MissionMember { MissionId = mission.Id, UserId = friend.User.Id }); await store.Db.SaveChangesAsync(TestContext.Current.CancellationToken);
         var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7();
         await store.Sessions.CreateAsync(owner.User.Id, owner.Device, new(id, incarnation, "Terminal", owner.Device.Id, "Host", mission.Id), TestContext.Current.CancellationToken);
-        Assert.Empty(await store.Sessions.ListAsync(friend.User.Id, TestContext.Current.CancellationToken));
-        await Assert.ThrowsAsync<ApiException>(() => store.Sessions.AuthorizedAsync(id, friend.User.Id, TestContext.Current.CancellationToken));
-        var detail = JsonSerializer.SerializeToElement(await store.Missions.OpenAsync(mission.Id, friend.User.Id, TestContext.Current.CancellationToken), Wire.Json);
-        Assert.False(detail.TryGetProperty("sessionIds", out _));
-        await store.Sessions.ShareAsync(id, owner.User.Id, owner.Device.Id, new(incarnation, 1, [friend.User.Id]), TestContext.Current.CancellationToken);
         Assert.Single(await store.Sessions.ListAsync(friend.User.Id, TestContext.Current.CancellationToken));
-        await Assert.ThrowsAsync<ApiException>(() => store.Sessions.ShareAsync(id, friend.User.Id, friend.Device.Id, new(incarnation, 2, []), TestContext.Current.CancellationToken));
+        Assert.Equal(id, (await store.Sessions.AuthorizedAsync(id, friend.User.Id, TestContext.Current.CancellationToken)).Id);
+        var privateId = Guid.CreateVersion7();
+        await store.Sessions.CreateAsync(owner.User.Id, owner.Device, new(privateId, Guid.CreateVersion7(), "Private", owner.Device.Id, "Host", null), TestContext.Current.CancellationToken);
+        await Assert.ThrowsAsync<ApiException>(() => store.Sessions.AuthorizedAsync(privateId, friend.User.Id, TestContext.Current.CancellationToken));
+        await store.Missions.RemoveMemberAsync(mission.Id, owner.User.Id, friend.User.Id, TestContext.Current.CancellationToken);
+        store.Db.ChangeTracker.Clear();
+        Assert.Empty(await store.Sessions.ListAsync(friend.User.Id, TestContext.Current.CancellationToken));
+        Assert.Equal(2, (await store.Sessions.ListAsync(owner.User.Id, TestContext.Current.CancellationToken)).Count);
+
     }
 
     [Fact]
@@ -154,9 +157,9 @@ public sealed class SharingTests(PostgresFixture postgres)
         Assert.Null((await store.Sessions.AttachAsync(id, owner.User.Id, second.DeviceId, new(incarnation, null), TestContext.Current.CancellationToken)).MissionId);
         Assert.Equal(403, (await Assert.ThrowsAsync<ApiException>(() => store.Sessions.ShareAsync(id, owner.User.Id, second.DeviceId,
             new(incarnation, shared.AuthorizationRevision, []), TestContext.Current.CancellationToken))).Status);
-        Assert.Equal(403, (await Assert.ThrowsAsync<ApiException>(() => store.Sessions.RenameAsync(id, friend.User.Id, friend.Device.Id,
+        Assert.Equal(404, (await Assert.ThrowsAsync<ApiException>(() => store.Sessions.RenameAsync(id, friend.User.Id, friend.Device.Id,
             new(incarnation, shared.AuthorizationRevision, "Not allowed"), TestContext.Current.CancellationToken))).Status);
-        Assert.Equal(403, (await Assert.ThrowsAsync<ApiException>(() => store.Sessions.AttachAsync(id, friend.User.Id, friend.Device.Id,
+        Assert.Equal(404, (await Assert.ThrowsAsync<ApiException>(() => store.Sessions.AttachAsync(id, friend.User.Id, friend.Device.Id,
             new(incarnation, mission), TestContext.Current.CancellationToken))).Status);
     }
 

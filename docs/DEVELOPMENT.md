@@ -36,6 +36,15 @@ PostgreSQL tests require disposable storage and a working container runtime.
 Build the CLI with `just rust-cli-build`. Use `kodosi --help` and subcommand help for
 the current command surface instead of copying it into documentation.
 
+`kodosi room skill` prints the bundled agent instructions. Room commands use the
+running host's sign-in and infer the room from `KODOSI_SESSION_ID` inside a shared
+terminal. Use `--room` to select one explicitly.
+
+GitHub issue actions use the local `gh` sign-in or Git credential helper. Gitea uses
+the Git credential helper, or a `KODOSI_GITEA_TOKEN` scoped to the origin named by
+`KODOSI_GITEA_URL`. The account needs issue access; read-only credentials can browse
+but cannot change issues. These credentials are never sent to the Kodosi backend.
+
 ## Isolated runtime validation
 
 Never point tests at live storage. Use a disposable database and a disposable

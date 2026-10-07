@@ -1,10 +1,10 @@
 # Kodosi
 
 Kodosi runs terminals on your computer and lets you use them from approved devices or
-share selected terminals with trusted friends. Missions organize people and terminals
-without granting access.
+share selected terminals with other people. The product direction is rooms where
+people and agents share terminals and a conversation.
 
-See [PRODUCT.md](PRODUCT.md) for the product boundary and
+See [PRODUCT.md](PRODUCT.md) for intended behavior and current implementation gaps, and
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for working on the repository.
 
 ## Repository

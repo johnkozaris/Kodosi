@@ -19,7 +19,7 @@ internal sealed class TestStore : IAsyncDisposable
     public DeviceService Devices => new(Db, new SignatureVerifier(), new DeviceCertificateParser(), new SignedDeviceListParser(), Connections, DeviceSessions, TimeProvider.System);
     public Kodosi.Accounts.AccountService Accounts => new(Db, Connections, DeviceSessions, TimeProvider.System);
     public FriendService Friends => new(Db, Connections, TimeProvider.System);
-    public MissionService Missions => new(Db, Connections, Friends, TimeProvider.System);
+    public MissionService Missions => new(Db, Connections, Friends, TimeProvider.System, Devices, new SignatureVerifier());
     public SessionService Sessions => new(Db, Connections, Devices, Missions, TimeProvider.System);
 
     public static async Task<TestStore> CreateAsync(PostgresFixture postgres)
@@ -29,6 +29,9 @@ internal sealed class TestStore : IAsyncDisposable
         await DatabaseSetup.MigrateAsync(store.Db, TestContext.Current.CancellationToken);
         return store;
     }
+    public TestStore Fork(params Microsoft.EntityFrameworkCore.Diagnostics.IInterceptor[] interceptors) =>
+        new(new KodosiDbContext(new DbContextOptionsBuilder<KodosiDbContext>()
+            .UseNpgsql(Db.Database.GetConnectionString()).AddInterceptors(interceptors).Options));
     public async Task<(User User, DeviceFixture Fixture, Device Device)> UserAsync(string handle)
     {
         var user = new User

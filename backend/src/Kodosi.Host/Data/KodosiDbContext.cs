@@ -16,6 +16,10 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
     public DbSet<MissionMember> MissionMembers => Set<MissionMember>();
     public DbSet<MissionInvitation> MissionInvitations => Set<MissionInvitation>();
 
+    public DbSet<RoomRecipientKey> RoomRecipientKeys => Set<RoomRecipientKey>();
+    public DbSet<MissionKeyState> MissionKeyStates => Set<MissionKeyState>();
+    public DbSet<MissionItem> MissionItems => Set<MissionItem>();
+
     protected override void OnModelCreating(ModelBuilder model)
     {
         model.Entity<User>(e =>
@@ -101,6 +105,29 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
             e.ToTable("mission_members"); e.HasKey(x => new { x.MissionId, x.UserId });
             e.HasOne<Mission>().WithMany().HasForeignKey(x => x.MissionId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+        });
+        model.Entity<RoomRecipientKey>(e =>
+        {
+            e.ToTable("room_recipient_keys"); e.HasKey(x => x.DeviceId);
+            e.Property(x => x.DeviceId).HasMaxLength(256);
+            e.HasOne<Device>().WithOne().HasForeignKey<RoomRecipientKey>(x => x.DeviceId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+        model.Entity<MissionKeyState>(e =>
+        {
+            e.ToTable("mission_key_states"); e.HasKey(x => new { x.MissionId, x.Version });
+            e.Property(x => x.DeviceId).HasMaxLength(256);
+            e.HasOne<Mission>().WithMany().HasForeignKey(x => x.MissionId).OnDelete(DeleteBehavior.Cascade);
+        });
+        model.Entity<MissionItem>(e =>
+        {
+            e.ToTable("mission_items"); e.HasKey(x => new { x.MissionId, x.Id });
+            e.Property(x => x.Kind).HasMaxLength(16);
+            e.Property(x => x.DeviceId).HasMaxLength(256);
+            e.Property(x => x.Version).IsConcurrencyToken();
+            e.HasIndex(x => new { x.MissionId, x.Sequence }).IsUnique();
+            e.HasIndex(x => new { x.MissionId, x.Kind, x.Sequence });
+            e.HasOne<Mission>().WithMany().HasForeignKey(x => x.MissionId).OnDelete(DeleteBehavior.Cascade);
         });
         model.Entity<MissionInvitation>(e =>
         {

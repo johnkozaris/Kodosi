@@ -21,7 +21,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 48;
+pub const VERSION: u32 = 49;
 include!(concat!(env!("OUT_DIR"), "/network_versions.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 
@@ -173,6 +173,14 @@ pub enum Command {
         expected_runtime_incarnation_id: String,
         #[serde(rename = "missionId")]
         mission_id: Option<String>,
+    },
+    #[serde(rename = "room.command")]
+    Room {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "roomId")]
+        room_id: String,
+        action: crate::rooms::Action,
     },
     #[serde(rename = "mission.list")]
     ListMissions {},
@@ -500,6 +508,30 @@ pub enum EventBody {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         session_id: Option<String>,
     },
+    #[serde(rename = "room.snapshot")]
+    RoomSnapshot { room: crate::rooms::Snapshot },
+    #[serde(rename = "room.issues")]
+    RoomIssues {
+        request_id: String,
+        room_id: String,
+        repository_id: String,
+        issues: Vec<crate::rooms::Issue>,
+    },
+    #[serde(rename = "room.result")]
+    RoomResult {
+        request_id: String,
+        operation: String,
+        room_id: String,
+        item_id: Option<String>,
+        #[serde(default)]
+        action: Option<String>,
+    },
+    #[serde(rename = "room.error")]
+    RoomError {
+        operation: String,
+        message: String,
+        request_id: Option<String>,
+    },
     #[serde(rename = "missions.snapshot")]
     MissionsSnapshot {
         missions: Vec<MissionEntry>,
@@ -709,6 +741,10 @@ impl EventBody {
             Self::SessionsSnapshot { .. } => "sessions.snapshot",
             Self::SessionResult { .. } => "session.result",
             Self::SessionError { .. } => "session.error",
+            Self::RoomSnapshot { .. } => "room.snapshot",
+            Self::RoomIssues { .. } => "room.issues",
+            Self::RoomResult { .. } => "room.result",
+            Self::RoomError { .. } => "room.error",
             Self::MissionsSnapshot { .. } => "missions.snapshot",
             Self::MissionSnapshot { .. } => "mission.snapshot",
             Self::MissionResult { .. } => "mission.result",
@@ -790,6 +826,7 @@ impl Command {
             Self::ShareSession { .. } => "session.share",
             Self::LeaveSession { .. } => "session.leave",
             Self::AttachSession { .. } => "session.attachMission",
+            Self::Room { .. } => "room.command",
             Self::ListMissions {} => "mission.list",
             Self::CreateMission { .. } => "mission.create",
             Self::RenameMission { .. } => "mission.rename",
@@ -821,6 +858,7 @@ impl Command {
             | Self::ShareSession { request_id, .. }
             | Self::LeaveSession { request_id, .. }
             | Self::AttachSession { request_id, .. }
+            | Self::Room { request_id, .. }
             | Self::CreateMission { request_id, .. }
             | Self::RenameMission { request_id, .. }
             | Self::DeleteMission { request_id, .. }
@@ -965,6 +1003,13 @@ impl Command {
     }
 
     pub fn validate(&self) -> Result<()> {
+        if let Self::Room {
+            room_id, action, ..
+        } = self
+        {
+            parse_id(room_id)?;
+            action.validate()?;
+        }
         if let Some(id) = self.request_id() {
             parse_id(id)?;
         }

@@ -131,6 +131,11 @@ async fn current_publication(
             {
                 return Err(Error::Stale);
             }
+            if dto.mission_id.is_some() {
+                let mut local = publication.info.write().await;
+                local.mission_id = dto.mission_id;
+                local.shared_with = dto.shared_with.iter().cloned().collect();
+            }
             *publication.dto.write().await = dto.clone();
             Ok(dto)
         }
@@ -150,15 +155,14 @@ async fn current_publication(
 }
 
 async fn allowed(publication: &Publication, credentials: &Credentials, user: &str) -> bool {
-    user == credentials.user_id
-        || (publication.info.read().await.shared_with.contains(user)
-            && publication
-                .dto
-                .read()
-                .await
-                .shared_with
-                .iter()
-                .any(|member| member == user))
+    if user == credentials.user_id {
+        return true;
+    }
+    let local = publication.info.read().await;
+    let published = publication.dto.read().await;
+    let chosen_room = local.mission_id.is_some() && local.mission_id == published.mission_id;
+    (chosen_room || local.shared_with.contains(user))
+        && published.shared_with.iter().any(|member| member == user)
 }
 
 async fn review(
@@ -196,7 +200,12 @@ async fn review(
             continue;
         }
         if !identities.contains_key(&viewer.user) {
-            let identity = network.fetch_identity_with(credentials, &viewer.user).await;
+            let room = publication.info.read().await.mission_id;
+            let identity = if let Some(room) = room.filter(|_| viewer.user != credentials.user_id) {
+                network.room_identity(credentials, room, &viewer.user).await
+            } else {
+                network.fetch_identity_with(credentials, &viewer.user).await
+            };
             identities.insert(viewer.user.clone(), identity);
         }
         match &identities[&viewer.user] {
@@ -356,8 +365,13 @@ async fn admit(
             .get(device)
             .is_some_and(|certificate| certificate.sig_public_key == key)
     };
-    let mut identity = network.known_identity(credentials, user).await;
-    if identity.as_ref().is_ok_and(|identity| !approved(identity)) {
+    let room = publication.info.read().await.mission_id;
+    let mut identity = if let Some(room) = room.filter(|_| user != credentials.user_id) {
+        network.room_identity(credentials, room, user).await
+    } else {
+        network.known_identity(credentials, user).await
+    };
+    if room.is_none() && identity.as_ref().is_ok_and(|identity| !approved(identity)) {
         identity = network.fetch_identity_with(credentials, user).await;
     }
     match identity {

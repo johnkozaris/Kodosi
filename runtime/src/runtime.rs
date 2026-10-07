@@ -1046,6 +1046,7 @@ impl Runtime {
             Some("session") => "session.error",
             Some("provider") => "provider.error",
             Some("mission") => "mission.error",
+            Some("room") => "room.error",
             Some("friends") => "friends.error",
             Some("devices") => "devices.error",
             Some("auth") => "auth.error",

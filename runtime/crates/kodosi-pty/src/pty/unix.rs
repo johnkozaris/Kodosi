@@ -133,6 +133,17 @@ impl KodosiPty {
         rows: u16,
         cols: u16,
     ) -> Result<(Self, RawFdAsyncReader)> {
+        Self::spawn_program_with_env(program, arguments, working_dir, rows, cols, &[])
+    }
+
+    pub fn spawn_program_with_env(
+        program: &Path,
+        arguments: &[String],
+        working_dir: Option<&str>,
+        rows: u16,
+        cols: u16,
+        environment: &[(&str, &str)],
+    ) -> Result<(Self, RawFdAsyncReader)> {
         let working_dir = validate_working_dir(working_dir)?;
         let resolved_program = resolve_program(program, working_dir).ok_or_else(|| {
             KodosiError::Spawn(format!("command not found: {}", program.display()))
@@ -173,6 +184,9 @@ impl KodosiPty {
             }
         }
 
+        for (key, value) in environment {
+            command.env(key, value);
+        }
         command.kill_on_drop(true);
 
         unsafe {

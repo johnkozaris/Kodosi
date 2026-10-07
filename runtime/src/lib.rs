@@ -16,6 +16,7 @@ pub mod local_host;
 pub mod network;
 pub mod protocol;
 pub mod provider;
+pub mod rooms;
 mod runtime;
 pub mod terminal;
 

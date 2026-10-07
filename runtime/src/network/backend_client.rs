@@ -62,6 +62,7 @@ pub(crate) struct Inner {
     identity_settled: AtomicBool,
     pub(crate) friends_changed: tokio::sync::Notify,
     login_interrupt: std::sync::Mutex<CancellationToken>,
+    rooms: Mutex<rooms::RoomCache>,
 }
 
 pub(crate) struct State {
@@ -136,6 +137,7 @@ impl BackendClient {
                 identity_settled: AtomicBool::new(false),
                 friends_changed: tokio::sync::Notify::new(),
                 login_interrupt: std::sync::Mutex::new(CancellationToken::new()),
+                rooms: Mutex::new(rooms::RoomCache::default()),
             }),
         })
     }
@@ -345,6 +347,7 @@ impl BackendClient {
                 self.revoke_device(wire::text(&args, "deviceId")?).await?;
                 events.extend(self.device_events().await?);
             }
+            "room.command" => events.extend(self.room_command(&args).await?),
             "friends.refresh" => events.push(self.friend_event().await?),
             operation if operation.starts_with("friends.") => {
                 events.extend(self.friend_command(operation, &args).await?);
@@ -429,6 +432,13 @@ impl BackendClient {
                 if operation == "session.rename" {
                     let _response:Value=self.inner.http.device(Method::PATCH,&format!("api/sessions/{id}"),&credentials,Some(json!({"incarnationId":current.incarnation_id,"expectedRevision":current.authorization_revision,"name":wire::text(&args,"name")?}))).await?;
                 } else {
+                    if let Some(room) = args.get("missionId").and_then(Value::as_str) {
+                        self.refresh_room_keys(
+                            &credentials,
+                            Uuid::parse_str(room).map_err(|_| invalid("Invalid room identity."))?,
+                        )
+                        .await?;
+                    }
                     let _response:Value=self.inner.http.device(Method::PUT,&format!("api/sessions/{id}/mission"),&credentials,Some(json!({"incarnationId":current.incarnation_id,"missionId":args.get("missionId").cloned().unwrap_or(Value::Null)}))).await?;
                 }
                 events.push(session_result(operation, &args));
@@ -542,7 +552,11 @@ impl BackendClient {
                     info.mission_id = dto.mission_id;
                     let reported = dto.shared_with.iter().cloned().collect::<BTreeSet<_>>();
                     let removed = !info.shared_with.is_subset(&reported);
-                    info.shared_with.retain(|user| reported.contains(user));
+                    if info.mission_id.is_some() {
+                        info.shared_with.clone_from(&reported);
+                    } else {
+                        info.shared_with.retain(|user| reported.contains(user));
+                    }
                     drop(info);
                     let previous = publication.dto.read().await.clone();
                     *publication.dto.write().await = dto.clone();
@@ -576,7 +590,7 @@ impl BackendClient {
             let user = wire::text(friend, "userId")?;
             for publication in self.inner.publications.lock().await.values() {
                 let mut info = publication.info.write().await;
-                if info.shared_with.remove(user) {
+                if info.mission_id.is_none() && info.shared_with.remove(user) {
                     *publication.pending_shares.lock().await = Some(info.shared_with.clone());
                     drop(info);
                     publication.invalidate();
@@ -627,24 +641,65 @@ impl BackendClient {
                         Some(json!({"name":wire::text(args,"name")?})),
                     ),
                     "mission.delete" => (Method::DELETE, format!("api/missions/{id}"), None),
-                    "mission.invite" => (
-                        Method::POST,
-                        format!("api/missions/{id}/invitations"),
-                        Some(json!({"id":request_id,"userId":wire::text(args,"userId")?})),
-                    ),
-                    "mission.removeMember" => (
-                        Method::DELETE,
-                        format!("api/missions/{id}/members/{}", wire::id(args, "userId")?),
-                        None,
-                    ),
-                    "mission.leave" => (
-                        Method::DELETE,
-                        format!("api/missions/{id}/members/{}", credentials.user_id),
-                        None,
-                    ),
+                    "mission.invite" => {
+                        let user = wire::text(args, "userId")?;
+                        let keys = self
+                            .prepare_room_membership(&credentials, id, Some(user), None)
+                            .await?;
+                        (
+                            Method::POST,
+                            format!("api/missions/{id}/invitations"),
+                            Some(json!({"id":request_id,"userId":user,"keys":keys})),
+                        )
+                    }
+                    "mission.removeMember" => {
+                        let user = wire::text(args, "userId")?;
+                        let keys = self
+                            .prepare_room_membership(&credentials, id, None, Some(user))
+                            .await?;
+                        (
+                            Method::DELETE,
+                            format!("api/missions/{id}/members/{user}"),
+                            Some(json!({"keys":keys})),
+                        )
+                    }
+                    "mission.leave" => {
+                        let keys = self
+                            .prepare_room_membership(
+                                &credentials,
+                                id,
+                                None,
+                                Some(&credentials.user_id),
+                            )
+                            .await?;
+                        (
+                            Method::DELETE,
+                            format!("api/missions/{id}/members/{}", credentials.user_id),
+                            Some(json!({"keys":keys})),
+                        )
+                    }
                     _ => return Err(invalid("Unsupported Mission operation.")),
                 }
             }
+        };
+        let body = if operation == "mission.invitation.reject" {
+            let list = self.mission_list().await?;
+            let invitation = wire::text(args, "invitationId")?;
+            let room = list["invitations"]
+                .as_array()
+                .and_then(|items| {
+                    items
+                        .iter()
+                        .find(|item| item["id"].as_str() == Some(invitation))
+                })
+                .and_then(|item| item["missionId"].as_str())
+                .ok_or_else(|| invalid("This invitation is unavailable."))?;
+            let room = Uuid::parse_str(room).map_err(|_| invalid("Invalid room identity."))?;
+            Some(
+                json!({"keys":self.prepare_room_membership(&credentials, room, None, Some(&credentials.user_id)).await?}),
+            )
+        } else {
+            body
         };
         let _response: Value = self
             .inner
@@ -965,5 +1020,6 @@ mod device_identity;
 mod enrollment;
 mod friends;
 mod notifications;
+mod rooms;
 #[cfg(test)]
 mod tests;

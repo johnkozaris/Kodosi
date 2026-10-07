@@ -11,6 +11,8 @@ pub struct DeviceKeys {
     pub device_id: String,
     signing_pkcs8: Zeroizing<Vec<u8>>,
     signing_public: Vec<u8>,
+    room_secret: Zeroizing<Vec<u8>>,
+    room_public: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -18,11 +20,16 @@ struct StoredKeys {
     version: u8,
     device_id: String,
     signing_pkcs8: String,
+    #[serde(default)]
+    room_kem_secret: Option<String>,
+    #[serde(default)]
+    room_kem_public: Option<String>,
 }
 
 impl Drop for StoredKeys {
     fn drop(&mut self) {
         self.signing_pkcs8.zeroize();
+        self.room_kem_secret.zeroize();
     }
 }
 
@@ -31,7 +38,14 @@ impl DeviceKeys {
         let account = Uuid::parse_str(user_id).map_err(|_| invalid("Invalid account identity."))?;
         let label = format!("{account}.device");
         if let Some(payload) = store.load(&label)? {
-            return Self::decode(&payload);
+            let keys = Self::decode(&payload)?;
+            if serde_json::from_str::<StoredKeys>(&payload)?
+                .room_kem_secret
+                .is_none()
+            {
+                store.store(&label, &keys.encode()?)?;
+            }
+            return Ok(keys);
         }
         let key = Self::generate()?;
         store.store(&label, &key.encode()?)?;
@@ -66,11 +80,39 @@ impl DeviceKeys {
         let pkcs8 = pair
             .to_pkcs8v1()
             .map_err(|_| invalid("Cannot encode device signing key."))?;
+        let (room_secret, room_public) = Self::new_room_key()?;
         Ok(Self {
             device_id: Uuid::now_v7().to_string(),
             signing_pkcs8: Zeroizing::new(pkcs8.as_ref().to_vec()),
             signing_public: pair.public_key().as_ref().to_vec(),
+            room_secret,
+            room_public,
         })
+    }
+
+    fn new_room_key() -> Result<(Zeroizing<Vec<u8>>, Vec<u8>)> {
+        let key = aws_lc_rs::kem::DecapsulationKey::generate(&aws_lc_rs::kem::ML_KEM_768)
+            .map_err(|_| invalid("Cannot create the room encryption key."))?;
+        let private = key
+            .key_bytes()
+            .map_err(|_| invalid("Cannot save the room encryption key."))?;
+        let public = key
+            .encapsulation_key()
+            .and_then(|key| key.key_bytes())
+            .map_err(|_| invalid("Cannot encode the room encryption key."))?;
+        Ok((
+            Zeroizing::new(private.as_ref().to_vec()),
+            public.as_ref().to_vec(),
+        ))
+    }
+
+    pub(crate) fn room_public(&self) -> &[u8] {
+        &self.room_public
+    }
+
+    pub(crate) fn room_key(&self) -> Result<aws_lc_rs::kem::DecapsulationKey> {
+        aws_lc_rs::kem::DecapsulationKey::new(&aws_lc_rs::kem::ML_KEM_768, &self.room_secret)
+            .map_err(|_| invalid("Stored room encryption key is invalid."))
     }
 
     pub fn signing_public(&self) -> &[u8] {
@@ -89,6 +131,8 @@ impl DeviceKeys {
             version: 1,
             device_id: self.device_id.clone(),
             signing_pkcs8: BASE64.encode(self.signing_pkcs8.as_slice()),
+            room_kem_secret: Some(BASE64.encode(self.room_secret.as_slice())),
+            room_kem_public: Some(BASE64.encode(&self.room_public)),
         })?))
     }
 
@@ -106,10 +150,44 @@ impl DeviceKeys {
         );
         let pair = PqdsaKeyPair::from_pkcs8(&ML_DSA_65_SIGNING, &signing_pkcs8)
             .map_err(|_| invalid("Invalid stored signing key."))?;
+        let (room_secret, room_public) = match (&stored.room_kem_secret, &stored.room_kem_public) {
+            (Some(secret), Some(public)) => {
+                let secret = BASE64
+                    .decode(secret)
+                    .map_err(|_| invalid("Invalid stored room key."))?;
+                let public = BASE64
+                    .decode(public)
+                    .map_err(|_| invalid("Invalid stored room public key."))?;
+                let private =
+                    aws_lc_rs::kem::DecapsulationKey::new(&aws_lc_rs::kem::ML_KEM_768, &secret)
+                        .map_err(|_| invalid("Invalid stored room key."))?;
+                let encapsulation =
+                    aws_lc_rs::kem::EncapsulationKey::new(&aws_lc_rs::kem::ML_KEM_768, &public)
+                        .map_err(|_| invalid("Invalid stored room public key."))?;
+                let (ciphertext, expected) = encapsulation
+                    .encapsulate()
+                    .map_err(|_| invalid("Invalid stored room key pair."))?;
+                let actual = private
+                    .decapsulate(ciphertext)
+                    .map_err(|_| invalid("Invalid stored room key pair."))?;
+                if actual.as_ref() != expected.as_ref() {
+                    return Err(invalid("Stored room keys do not match."));
+                }
+                (Zeroizing::new(secret), public)
+            }
+            (None, None) => Self::new_room_key()?,
+            _ => {
+                return Err(invalid(
+                    "Stored room identity is incomplete; refusing to replace it.",
+                ));
+            }
+        };
         Ok(Self {
             device_id: stored.device_id.clone(),
             signing_pkcs8,
             signing_public: pair.public_key().as_ref().to_vec(),
+            room_secret,
+            room_public,
         })
     }
 }
