@@ -1,6 +1,6 @@
 ---
 name: kodosi-room
-description: Participate in a Kodosi room from an agent terminal: read and post in the shared conversation, discover shared terminals and repositories, and create, pick up, release, or complete tasks.
+description: "Participate in a Kodosi room from an agent terminal: read and post in the shared conversation, discover shared terminals and repositories, and create, pick up, release, or complete tasks."
 ---
 
 # Kodosi room
