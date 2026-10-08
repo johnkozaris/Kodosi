@@ -21,7 +21,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 49;
+pub const VERSION: u32 = 50;
 include!(concat!(env!("OUT_DIR"), "/network_versions.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 
@@ -94,6 +94,8 @@ pub enum Command {
         name: String,
         #[serde(rename = "workingDir", default)]
         working_dir: Option<String>,
+        #[serde(rename = "missionId", default)]
+        mission_id: Option<String>,
         #[serde(default)]
         resume: Option<ConversationIdentity>,
     },
@@ -1002,6 +1004,10 @@ impl Command {
         Ok(())
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one typed command validation dispatch"
+    )]
     pub fn validate(&self) -> Result<()> {
         if let Self::Room {
             room_id, action, ..
@@ -1057,9 +1063,13 @@ impl Command {
             }
             Self::CreateSession {
                 working_dir,
+                mission_id,
                 resume,
                 ..
             } => {
+                if let Some(id) = mission_id {
+                    parse_id(id)?;
+                }
                 if let Some(directory) = working_dir {
                     directory_input(directory)?;
                 }

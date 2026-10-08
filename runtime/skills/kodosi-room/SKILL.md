@@ -44,6 +44,7 @@ Gitea issue. Actions on linked tasks update the issue at its provider.
 `room share [terminal]` shares the selected terminal, or your current terminal, with
 all room members. Use `kodosi session --help` for opening and controlling shared
 terminals. Everyone admitted has full control, including interrupt and Close.
+`kodosi session start --room <name-or-id>` starts a terminal directly in a room.
 
 Use the result of each action. If delivery is reported as uncertain, read the
 current conversation or task before repeating the action.

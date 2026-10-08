@@ -6,7 +6,7 @@ and let people and agents decide how to use them.
 
 ## Rooms and terminals
 
-Rooms are called Missions in the current interface and contracts.
+The interface calls these shared spaces Rooms; runtime contracts use Missions.
 
 - A terminal is a real process on its host computer.
 - Share a terminal with a room once. Every room member gets full control, including
@@ -66,6 +66,11 @@ Keep terminals and the room conversation easy to reach. Starting work, inviting
 someone, sharing a terminal, and contributing to the conversation should take few
 steps. Use plain language and native interaction. Add controls and abstractions only
 when they help someone do the work.
+
+Opening or creating a terminal in a room keeps the conversation beside it. Tasks and
+repositories occupy the same workspace. Preserve drafts and reading position while
+people move between them. Show progress where work is happening and give failures a
+clear recovery action.
 
 ## Current implementation
 

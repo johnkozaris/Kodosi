@@ -42,6 +42,7 @@ impl TestRuntime {
             request_id: request.clone(),
             name: "Test terminal".to_owned(),
             working_dir: None,
+            mission_id: None,
             resume: None,
         })
         .await;
@@ -255,6 +256,7 @@ async fn stale_epoch_cannot_create_or_shutdown_current_runtime() {
             request_id: Uuid::now_v7().to_string(),
             name: "stale".to_owned(),
             working_dir: None,
+            mission_id: None,
             resume: None,
         },
         Command::Shutdown {},
@@ -334,6 +336,7 @@ async fn create_retry_is_exact_and_does_not_launch_a_second_process() {
         request_id: Uuid::now_v7().to_string(),
         name: "same".to_owned(),
         working_dir: None,
+        mission_id: None,
         resume: None,
     };
     runtime.send(command.clone()).await;
@@ -601,10 +604,12 @@ async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_
     let runtime = TestRuntime::new().await;
     let (_, mut events) = runtime.handle.observe().await.unwrap();
     let request_id = Uuid::now_v7().to_string();
+    let room_id = Uuid::now_v7().to_string();
     let command = Command::CreateSession {
         request_id: request_id.clone(),
         name: "ordered".to_owned(),
         working_dir: None,
+        mission_id: Some(room_id.clone()),
         resume: None,
     };
     runtime.send(command).await;
@@ -613,11 +618,9 @@ async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_
         loop {
             let value = serde_json::to_value(events.recv().await.unwrap()).unwrap();
             if value["type"] == "sessions.snapshot" {
-                observed |= value["sessions"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .any(|entry| entry["createRequestId"] == request_id);
+                observed |= value["sessions"].as_array().unwrap().iter().any(|entry| {
+                    entry["createRequestId"] == request_id && entry["missionId"] == room_id
+                });
             }
             if value["type"] == "session.result" && value["requestId"] == request_id {
                 assert!(observed);
@@ -632,6 +635,7 @@ async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_
             request_id: request_id.clone(),
             name: "ordered".to_owned(),
             working_dir: Some("/".to_owned()),
+            mission_id: Some(room_id.clone()),
             resume: None,
         })
         .await;

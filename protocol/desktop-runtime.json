@@ -650,6 +650,16 @@
               }
             ]
           },
+          "missionId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "name": {
             "type": "string"
           },
@@ -4846,7 +4856,7 @@
     ]
   },
   "ffiAbiVersion": 7,
-  "protocolVersion": 49,
+  "protocolVersion": 50,
   "terminal": {
     "checkpointMaxBytes": 8388608,
     "checkpointSchema": 2,

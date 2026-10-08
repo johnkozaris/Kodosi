@@ -62,6 +62,8 @@ enum SessionAction {
         name: Option<String>,
         #[arg(long)]
         directory: Option<PathBuf>,
+        #[arg(long)]
+        room: Option<String>,
     },
     /// Start a terminal that resumes a saved provider conversation.
     Resume {
@@ -370,8 +372,17 @@ async fn session_command(
         Ok::<_, Error>((id, context.incarnation(id)?))
     };
     Ok(match action {
-        SessionAction::Start { name, directory } => {
-            json!({"type":"session.create","requestId":request,"name":name.unwrap_or_else(||"Terminal".into()),"workingDir":path(directory)?})
+        SessionAction::Start {
+            name,
+            directory,
+            room,
+        } => {
+            let room = if let Some(reference) = room {
+                Some(mission_id(&missions(client, context).await?, &reference)?)
+            } else {
+                None
+            };
+            json!({"type":"session.create","requestId":request,"name":name.unwrap_or_else(||"Terminal".into()),"workingDir":path(directory)?,"missionId":room})
         }
         SessionAction::Resume {
             provider,
