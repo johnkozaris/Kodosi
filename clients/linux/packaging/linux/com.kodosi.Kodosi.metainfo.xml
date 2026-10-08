@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.kodosi.Kodosi</id>
+  <name>Kodosi</name>
+  <summary>Local terminals with trusted device and friend access</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="com.kodosi">
+    <name>Kodosi</name>
+  </developer>
+  <description>
+    <p>
+      Run local terminals, reach them from approved devices, share selected
+      sessions with trusted friends, and organize project groups in Missions.
+    </p>
+  </description>
+  <launchable type="desktop-id">com.kodosi.Kodosi.desktop</launchable>
+  <provides>
+    <binary>kodosi-qt</binary>
+  </provides>
+  <url type="homepage">https://kodosi.com</url>
+  <content_rating type="oars-1.1"/>
+</component>

@@ -1,0 +1,1183 @@
+{
+  "schemaVersion": 1,
+  "package": "GNU gettext/libintl 0.24",
+  "sourceIdentity": "N-V-__8AADcZkgn4cMhTUpIz6mShCKyqqB-NBtf_S2bHaTC-",
+  "compiledSources": [
+    "bindtextdom.c",
+    "dcgettext.c",
+    "dcigettext.c",
+    "dcngettext.c",
+    "dgettext.c",
+    "dngettext.c",
+    "explodename.c",
+    "finddomain.c",
+    "gettext.c",
+    "hash-string.c",
+    "intl-compat.c",
+    "l10nflist.c",
+    "langprefs.c",
+    "loadmsgcat.c",
+    "localealias.c",
+    "log.c",
+    "ngettext.c",
+    "plural-exp.c",
+    "plural.c",
+    "setlocale.c",
+    "textdomain.c",
+    "version.c",
+    "compat.c",
+    "gnulib-lib/getlocalename_l-unsafe.c",
+    "gnulib-lib/localename.c",
+    "gnulib-lib/localename-environ.c",
+    "gnulib-lib/localename-unsafe.c",
+    "gnulib-lib/setlocale-lock.c",
+    "gnulib-lib/setlocale_null.c",
+    "gnulib-lib/setlocale_null-unlocked.c"
+  ],
+  "files": [
+    {
+      "path": "ghostty/pkg/libintl/build.zig",
+      "sha256": "06a041149c20696b44a6a5256f5dbbc95d5e79a7ee5fd8a3e66b1d13674f03db"
+    },
+    {
+      "path": "ghostty/pkg/libintl/build.zig.zon",
+      "sha256": "63c216f3e46c96a41f791f59ab86194acf270d758aec4cc2248e8d604f7e1084"
+    },
+    {
+      "path": "ghostty/pkg/libintl/config.h",
+      "sha256": "00ec8d3fdd1b65c88739a1fbbfcd1d8dfbbf4b81c525cdcf51c16388004e01d3"
+    },
+    {
+      "path": "ghostty/pkg/libintl/libgnuintl.h",
+      "sha256": "99f5c76ac54a61c205ab4e3d1a7f33b477297a4880394bbb30bfe89b7c5c15b2"
+    },
+    {
+      "path": "ghostty/pkg/libintl/libintl.h",
+      "sha256": "311c1dc1e6727196f575e9eae44f440b45c955af2f8fe48b2c665820fa0d9393"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/ABOUT-NLS",
+      "sha256": "fbe8681a07eab3934d302edb4db8fbcea014b460232e3638e7f4cdb7da53e5aa"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/AUTHORS",
+      "sha256": "4bd9e2cd15ab6d68b30965512b63a1d4aae95f4c1dd040657a4d1300252a695f"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/COPYING.LIB",
+      "sha256": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/ChangeLog",
+      "sha256": "fd4de9aa7d132798f490ad5308643825f705176d99791f8268eded393dd13507"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/INSTALL",
+      "sha256": "0d8e6d699be56de5648dda9bfb63c345271d5561e4c83779b92fe9bee6e74c52"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/INSTALL.windows",
+      "sha256": "1bb81440941ae400303430b6a196c0b459526fe9f9aa9bce9218a2a6a1b462c6"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/Makefile.am",
+      "sha256": "be8fdb94ade93cd6472add47c853d5d73eb7ff7b86cdb8a0657bd24d19c23713"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/Makefile.in",
+      "sha256": "46e8ec59d47d18f1c50223c7415d9bf63781cb33e2ebfd16efd46a4a66ec11e3"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/NEWS",
+      "sha256": "134c9b34309a4be0f13fcfcded4d57231720114ff76756d883005e01941c7c0b"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/README",
+      "sha256": "515acabc5f0d6d5cb0e6316064c2fc7185ebb97a0b6366401eac8014044f4bbf"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/aclocal.m4",
+      "sha256": "cc3570a10722c2a9801b4208031ddfc7bf28ceaa4f0eff9f070e5a703f38c90c"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/bindtextdom.c",
+      "sha256": "7b28ce5c913896f77056a3cc7d39de0aed621bce68cdcbf2ab504f450ec7ab0b"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/compat.c",
+      "sha256": "04b3f4237b2005d482ffd15f895e30a0d19639a765b825b479cb173b312a4720"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/config.h.in",
+      "sha256": "737fc6cb3f1091f7f60cc8eee530b14a4d38abc4c17fca47bc0ccdb3cfb2d48c"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/configure",
+      "sha256": "7111c6a23bd4f79376edca97e770bc78f3a0ab97f3c127bf4983d61fde06cd56"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/configure.ac",
+      "sha256": "4760253acd2ac65b674e238344a46ae8e0189b130c583a32312316f0017bf635"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/dcgettext.c",
+      "sha256": "75cf5f57b14d83a992beb17b05fc762b0b7dc87c271ac1070edea77c9bb96c05"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/dcigettext.c",
+      "sha256": "dbeddd3cdbcc81a3c20401cf0feec4944169d2a64ea6e36393d8866f2df66b1c"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/dcngettext.c",
+      "sha256": "66a5e9bcc4ef4aaf0a820974030c2d2b6489a8aabb56acef07a1277cbe9d63d8"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/dgettext.c",
+      "sha256": "b3570c73b07320da8cba439e01a3f4a5d0c1070c1e83bc599d72dbe0f0bde154"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/dngettext.c",
+      "sha256": "f4771cf69ea3830226e8a226a264dcb9bc3d6c87f6bcec1ae71a5e383e7dfa00"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/eval-plural.h",
+      "sha256": "5c8938aefe2a3e9fd849b57e057fbafd2b1cd870aa0cba4f9c6a766114c0c657"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/explodename.c",
+      "sha256": "2cca5dcb0bf1f997dfc615f017b13e0e62f205a73001045d8541e0925677bbdc"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/export.h",
+      "sha256": "4ef1b6d7912fe38c760657cd7f502de714c0d259c6f2a271f444b3d1db21cd9b"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/finddomain.c",
+      "sha256": "0f0cadf37f9179ded97b1a0dce5ac9d14d46772af29810c11cd2a2382e727472"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gettext.c",
+      "sha256": "0525bd632a5156617fe10c03417f1b11263a3d69969ba44923b8f3d5220a3e7a"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gettextP.h",
+      "sha256": "e884aac81ff89c525b7c5fb7489c274c1ca1b72949b095ed17ce6a628dc1affe"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gmo.h",
+      "sha256": "e3c421ef7604de30d22dd17581b09284ce0a5f8cc9f840492991f796366cf4eb"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/Makefile.am",
+      "sha256": "310821d959aabc256286c4589cff968900ccd7391e08e87523269ddb46da2803"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/Makefile.in",
+      "sha256": "28af5bd6f8fa31f07846cd35f0bf3f215ccb16a486976722a664117573380007"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/_Noreturn.h",
+      "sha256": "028eee6d7ffcfa0fdc067e18571ce8c1841a46d6dfd04eff930d8ac1106f239c"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/alloca.in.h",
+      "sha256": "3cb2f6c7857f09bb28120d8a8e20943fa6aa1fef9250260f18ffc0f0d74c3abd"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/arg-nonnull.h",
+      "sha256": "24e06cafc9f8fd2a6990ed5803a9eeea2768d4dd399d650a5ff4af8fc5d917be"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/asnprintf.c",
+      "sha256": "b0c3c1366fd9b5f5c04d0057a19cacb8f3b525d1e1561c3cfb1ef722cdb0dc0b"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/asnwprintf.c",
+      "sha256": "6898ce43e4d2409c94d0d8beba672e0a864a3dbae75656a315bfcd65c0e4bf94"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/assert.in.h",
+      "sha256": "ee1bc4b3397cac770d2028971abc805216d9f34f10ca18d2816e086adde429e8"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/attribute.h",
+      "sha256": "08ef94a9c51e56f032cb7e66133a6f4266a5366036f98dfc81cffbbd5999b6ac"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/c++defs.h",
+      "sha256": "e29a1172e0056bf098de26c5c64b7b9608449ba11427d4c56641cfc09e28bed7"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/errno.in.h",
+      "sha256": "a5a98f25dd0ede9fcab68e9bcbc831922cf548f095417edd9fbbd3828507495a"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/fcntl.in.h",
+      "sha256": "c896e20c53e76459d484154e1874d92b11f918347a66d9dddd5ad184a142ca4a"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/filename.h",
+      "sha256": "52c6025ecdb87d180b67dd47784aa31fe01949215af8b8c1af8cab5f30ec0884"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/flexmember.h",
+      "sha256": "ee0f1c1b342d5eadf83fd25b663bafb971f8f88adde959261b8cef8096069763"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/float+.h",
+      "sha256": "3b1e7d7dad2730841f3eb8cb8a54196e9c33fe906926db492e90117823dcb6ec"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/float.c",
+      "sha256": "b9e68f99b09ab9ef986c0fc8f2e694b82854e7ef3881ebc94e0cbb38f43cad18"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/float.in.h",
+      "sha256": "5a8cb5a745afc850b0dd1bba5cddb2db4484115e0a0f461b15c3047f31fde323"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/fpucw.h",
+      "sha256": "0a4e0ffef9c8aa681708fa6bd001c29d48dfd263612cb18f00d09aba489965c5"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/free.c",
+      "sha256": "8735f1b15afc5d52fd5db6cf5aa72a07a94f8f7c38741a72b044b97c69164d30"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/frexp.c",
+      "sha256": "f21309452cc1d6fcc1604e59b6b03f8fd5fa39aac1e97eb57e0e23d6bbb1c147"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/frexpl.c",
+      "sha256": "f17275fa7b6cb61d82e0c2ce7bcc46ec4ea06f809e0a3fec7f4b515bfc84235c"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/getcwd-lgpl.c",
+      "sha256": "04dbcb4614461774ffbb82c082258d10100a3a14a4d8c38ff0f61cffd680d7e2"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/getlocalename_l-unsafe.c",
+      "sha256": "4aa01a79077a7fd7e7a15b89993423e4079b797185a20fbda4e12d2084c964f1"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/getlocalename_l-unsafe.h",
+      "sha256": "df77e453cce02ae34caced36796d051d799bfdb4ad29fcf7782bec490e3d8509"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/glthread/lock.c",
+      "sha256": "af8af9de6bbfc4ce142559d68ac3189c3d68f6faebd501e7eab54d8be88b0e9d"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/glthread/lock.h",
+      "sha256": "1c97c6c3c23f7c605151fc78da0f506c96cc19eb452196793f7b39a38ccec789"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/glthread/once.c",
+      "sha256": "4ddb8ae53802f863455ea1017823c0ff309211fc3761208f6e825b251ed20d8a"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/glthread/once.h",
+      "sha256": "31bb5780d627a9a0fe572fccbc757d8b7952670b9dab14e3c0bbfef04ecd3878"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/glthread/threadlib.c",
+      "sha256": "7a3d61ef925e5e6084c839f82c9a24c4b583090dfdb1620a4703d32d9b0b3514"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/hard-locale.c",
+      "sha256": "9a36b47021be16078b801c217003c242184dc8ee8974fcc2ce9e61456ab6e40b"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/hard-locale.h",
+      "sha256": "dffd7d4e7de776e95fe58479bddfec63012dccfc5cfcfd6a7708589ba51ff38e"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/inttypes.in.h",
+      "sha256": "cf9e8b1426c04fadbef5ef49665d2e2eee04bbac4873bfbf12032d50f8880bb5"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/isnan.c",
+      "sha256": "1a6eb80a574d943e3303ccfb9c32bb20e6e822c17980e457bfb7667116332094"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/isnand-nolibm.h",
+      "sha256": "ff1c5d413c72347959648d42b0e1175f3630d418135ef91264fae279a7a20853"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/isnand.c",
+      "sha256": "41cd072e0e4014e2cdbc2c37a57badae36241b80ed9f166224d3a76c5dc4bcc3"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/isnanf-nolibm.h",
+      "sha256": "5d32e81abe3cf997eadd911a44e6129303d437668b17629c673b02b2950f0d37"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/isnanf.c",
+      "sha256": "f0dcaafd3eb2581d3cd66e5a28aab79d327e1906364949f435a4370e952c3d8d"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/isnanl-nolibm.h",
+      "sha256": "44c01e425211cd28b03f7fd8ac727668ffce9e494c9470423a8b102d9f364bcb"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/isnanl.c",
+      "sha256": "4ca8d3b7a45cad154d25d1f671cf1f9151267aa041f72aa56f5d1e8dab721625"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/itold.c",
+      "sha256": "d7b4d8a691be608150f7222627a4b26b2196511e4422b42efd700f37844f165b"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/lc-charset-dispatch.c",
+      "sha256": "e6ecf3f5ed96aa671bf9cd561ef11c5ad8f2770b8b99737d7fe383dbb7e7edb0"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/lc-charset-dispatch.h",
+      "sha256": "4885a1b9ea11885242d9a5eb84749e5aab35b0ebae5d8d85e86a90e6d776e83b"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/limits.in.h",
+      "sha256": "e623eee3ef47bd7161d5f12cba882110cdd6dcc2e5f17904ddd6ccae3fd44228"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/localcharset.c",
+      "sha256": "b870d2f0fe9665d7bf98d6ff3e0b5addd7fdde4e68cd3a7e940bbf9ec7a12855"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/localcharset.h",
+      "sha256": "9e3f4fe7995fdea8d7ce446f8fd0c3ea5b798e825733f7e3993c333ab548ce09"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/locale.in.h",
+      "sha256": "6d63b52c40a97c16bdf628522ee766bef073e31989689cb2f2a6722a9caed6ae"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/localename-environ.c",
+      "sha256": "c801b16cc7c78dca704aa6211344abacdff0df9637cb52cf712a9d2f1d436a2f"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/localename-table.c",
+      "sha256": "897e9f12835de16e5df6ad9e428818f17b8f365c5ad90b9fa54b2ca104b94354"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/localename-table.h",
+      "sha256": "545984d499eb960d25670a452ecb61dfe284d43456fe02127350175c21f922e7"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/localename-unsafe.c",
+      "sha256": "eb224cf2396911f144e3922a46710f48a47a60bde28d5cd87fe6d2a6fc78cb3a"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/localename.c",
+      "sha256": "218e678aae71d0b6129fe6b5248657440d0a4cc37028df68553a697d7f0e9302"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/localename.h",
+      "sha256": "d14633b6efc791818967bc37f6cfd615999cc1dae2776fa65f4476bc7f50aa2c"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/math.c",
+      "sha256": "b13489b011eaf9923dad0dd2777e419d11c809debdbb838d55affd8bf87e7b08"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/math.in.h",
+      "sha256": "cef6a7614183879221c40b13a07987ac3212826a5b0b347e4a12f9eb03390cb0"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/mbrtowc-impl-utf8.h",
+      "sha256": "5a292cae9162e719c48db764b661a03e9fa1c6407a551e86ce66d00385029924"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/mbrtowc-impl.h",
+      "sha256": "4fe8d9365b40c4d7dbaed683649087e1654e435b498cb486e777d7bc5117b079"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/mbrtowc.c",
+      "sha256": "bb25a84709a70f33e0b78a205cd6a79ce1e652c6da26973f24fd4b716a80ccb0"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/mbsinit.c",
+      "sha256": "c7f65b1ee3961334fac446393ee452d1930251bdd7f500a2861d68d4ed56eb1f"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/mbszero.c",
+      "sha256": "8f1b1eab1f2d5221a40ccd28f922344f8347ec8407040fa42152646daa21c11e"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/mbtowc-lock.c",
+      "sha256": "7c6bc6a89e26545a5050382939ec698918e0b145194d8fdf6743d02863bbdcb5"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/mbtowc-lock.h",
+      "sha256": "a6564b88c8d684b5b84b2fddbbdf457e060a7aba60d20fec627d020cc10ef787"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/memchr.c",
+      "sha256": "bdc8cb76c63380c67ce91fd5297195027c93b2e7acbd4da102e89657d8868115"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/memchr.valgrind",
+      "sha256": "f0c564e35ce2f8f4cae00ad0c181f63955bb2aa2003254ba67fa152ab08cb660"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/printf-args.c",
+      "sha256": "788950022003ed158efd08f80a0520e0bd9afd7de390df1f781acfacd507ad51"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/printf-args.h",
+      "sha256": "48dab902969c60953e1ec796cbf12442021cc724099c6165069676953a18763c"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/printf-frexp.c",
+      "sha256": "d4d201b1aaa18c88dd1da08ebd7277e268393baaa9eaba30f12572c771609b04"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/printf-frexp.h",
+      "sha256": "329a146bbd02a7ef131d9683b68eb72e78a4f35884a3fbf9ad282be990c8a281"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/printf-frexpl.c",
+      "sha256": "33508bef1810cb623d43799944c9f78e80b1653d6d47b8ccaea4263e5cb9bd52"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/printf-frexpl.h",
+      "sha256": "bb24a3c044dc1d2a4903a4d3acd040545edbc6beb3a7c79cf64d6f96f9760535"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/printf-parse.c",
+      "sha256": "8dd3ce2acad53445ebfe24091f416fc88a1a998abb45149040b9f262a3f4f85f"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/printf-parse.h",
+      "sha256": "cb604a23f3efcc108690b494fb11cd6724487a160637a0414f1ecca34e5e720b"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/pthread-once.c",
+      "sha256": "664dca35c9fee4a0230012fdd7e261740ea76631bc52efa51d3b81725b90aa82"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/pthread.in.h",
+      "sha256": "62208a03799dd5c868c43b15b9db8a769bd5d709522f9ac418c9d44a05690895"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/sched.in.h",
+      "sha256": "5477dab764bbcedabde3bde82dc4405ee4ea99a4f49cab8b7b6bff9b1f6fca57"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/search.in.h",
+      "sha256": "24cdb49809e5ce3a711095a2fc378790ccbc3c9839382b92c6fc6868beeb719f"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/setlocale-lock.c",
+      "sha256": "1802ddbe8017f8624e46a5d32ee991940c7165de4198028783a40325dbc1cc04"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/setlocale-messages.c",
+      "sha256": "9d3a34040ba1f4bd3d9f38eb7616947ac9eef7ee98663716fad9b8a9a486756c"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/setlocale-messages.h",
+      "sha256": "d17ee4ea1325491091a08257ecd907770e0939382fd409301b2159bc54461ddc"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/setlocale_null-unlocked.c",
+      "sha256": "d845f754a738e05540a3980d4898225fd8589d2bb67ea616651bca441d455ae4"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/setlocale_null.c",
+      "sha256": "0b01ba097b1086593251fa108d55269ce935f7bdfbab3cca19a15e853a6770c3"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/setlocale_null.h",
+      "sha256": "7ae8093e1a6836ef5aa4096db435dc1988cdd65091844312e7bb62171c478bed"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/signbitd.c",
+      "sha256": "c9800201fd0ca81adee6f4e716fc4231049aabefef7b3d81f7212fd1c628752e"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/signbitf.c",
+      "sha256": "cbe457af5054081e01f49322d5c898c87f49c04f1a0a5add0406ed2462c36040"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/signbitl.c",
+      "sha256": "06f25f8f750d0441bcb9869089cf2b878f6b74c7b065bd347d0167ad2cc9eb75"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/size_max.h",
+      "sha256": "d2de0e9eb69de6f2e7a7ea76147c87e685e43445a1d1ee80586f6db41f14905d"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/stddef.in.h",
+      "sha256": "82595056c5bb75d32de0a6e48c194c8f188d81c80debf27616af7307d8728d85"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/stdint.in.h",
+      "sha256": "887621ecf62efb12bf642d3800ef3f18e0302224e4bc1346b52ba61c8fbe4602"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/stdio-read.c",
+      "sha256": "37f8966e52e3c070bbacd8a33c1d714b1e87d16e78217db279c81b04d5b73206"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/stdio-write.c",
+      "sha256": "1f3eeaa606e61aba213ebc96fbda0dd6cebf89d1aa6bd9dc7beaf714c10d7784"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/stdio.in.h",
+      "sha256": "9a3e2ce7ff24370eb60266359b005d3e744604e92e012c779e4dfdf1d92614c9"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/stdlib.c",
+      "sha256": "680ead6e77500e21c96914597f9a7f1d1cb83d7c8693f80f10d0eeb32f993e85"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/stdlib.in.h",
+      "sha256": "5be7fab4067278a10684260b191866b535f3299323240d0f4e9a4d29177983b0"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/streq.h",
+      "sha256": "c707fadcf3545b7e91c044cedf23ad979245536584718d0d0ac83ec7715ec584"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/string.in.h",
+      "sha256": "4693abef97d8649fea17716fc86b23237da1c667906cb1e752be7547c9296f92"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/struniq.h",
+      "sha256": "4d239bd75f89c4ef091048e6450fa62a5be3a4cabc11eb5d2425c118b064adaf"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/sys_types.in.h",
+      "sha256": "5f54e846f436aaf0d8872d0ec8aac723e34b848df6f3ae4f01b0e033b2343742"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/thread-optim.h",
+      "sha256": "ede497219372bcda9100d27923b5cdb01dc0871a5610fe9e1d570ff48ae3dd17"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/time.in.h",
+      "sha256": "b6a1733481b637e8aef2a970e4c3081317d0d044256d03648d2378f2ff6046cf"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/tsearch.c",
+      "sha256": "658c1df66a15cee17f88bc70a0b543028cfca3332dd5939d12c1dd24e1bc2be9"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/unistd.c",
+      "sha256": "dfd54af37ef66f38bd575c910d0db85b4a11afe63ee0a037e31cf9fde2350f66"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/unistd.in.h",
+      "sha256": "9eef51b5c99a17a94d97c291a04548b3e15ad1a13b5c9c5e3d706ef4feaa66cf"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/vasnprintf.c",
+      "sha256": "91515886971720d01928883734a497e15adc55fdb8971c820dfe01fdef5793a2"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/vasnprintf.h",
+      "sha256": "46b3567538321466339cc54370effb09c9d7230c3cec20b8acf14318f3ce293c"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/vasnwprintf.c",
+      "sha256": "d3543ea89dc9df65c10c6cc94ce6849e2d6b89d174ffdb725a142813f079b135"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/vasnwprintf.h",
+      "sha256": "dee49dc54f68befd00bd2abdb4726aa90641f6c0678431a204808e3f099f41aa"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/verify.h",
+      "sha256": "75701736345a8f4f796013f65586db87018a2b09ffe19454dd9befb8b548be5b"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/warn-on-use.h",
+      "sha256": "0220edd01db112c5d0934b2cfa0684a15320fe217480331c746a874bb5ec0a82"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/wchar.in.h",
+      "sha256": "fb6b8e4db69a0250fffc8f29eddbc09c26dd3eea8612af74286acd5fa5a5cd01"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/wgetcwd-lgpl.c",
+      "sha256": "939de71a0510b0f176cfc55353711f8076879dc2acf4edf3bc588007854e841d"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/windows-initguard.h",
+      "sha256": "7d299b8a3e9c3557aa3994ab02958d58b27f8e348ee19e45b4dce07405bea836"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/windows-mutex.c",
+      "sha256": "4beb458f21349b16ba942bd35272eaf612fa126ec5c3d607707ff672a57f4c12"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/windows-mutex.h",
+      "sha256": "f53789a8166c34de886d31979fc7840d4c1a4a171d7297848b255a6fab2ac1be"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/windows-once.c",
+      "sha256": "9f9db6464d01d8d1bac86e56795cb59bf711f2da051961a6c739adacc1cc78d0"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/windows-once.h",
+      "sha256": "445835d95752fec728121ad35f4f8dfc2da639ecf644e533bb8d7919111ef790"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/windows-recmutex.c",
+      "sha256": "c1877db14ca51af5a3ea502f6dcf6cf89300ed65f3df3eab7eb39b8ca2543d71"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/windows-recmutex.h",
+      "sha256": "85d543878a6743a4e54f829ab815d8346b5f2476f9263d06bc5a408b5cb78159"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/windows-rwlock.c",
+      "sha256": "5f28ada6e8e6bf8fc72949ed0f6987f11ed6d86dd4b34891bb127beefbb42089"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/windows-rwlock.h",
+      "sha256": "77d4c28c772603cc66db023d2242ac3e6d389484a5589752ee2f00e4f51320d8"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/wmemcpy-impl.h",
+      "sha256": "881a61ee92dada730cf5482015a7fe21f779d4de69d49e2653d14f36e97efa90"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/wmemcpy.c",
+      "sha256": "98ac5f127ab2b017f8be323066dd91a66516aba5424220b4c71ba138b1b0b0d4"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/wmemset-impl.h",
+      "sha256": "40bed2cfe14ce8888cdb6174cf8aef0c125bcdcca1f51e8f5523fe82452b0bd6"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/wmemset.c",
+      "sha256": "94eaf62e65300061e69bd310e4d8f7192d528f23590e1926962098df7bfd654e"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/wprintf-parse.c",
+      "sha256": "0bb7811cf327a90c6a3b14a2a5ee2cf933f135bc8046024c3369125b7b8f765d"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/wprintf-parse.h",
+      "sha256": "23745108425753b5c61206cc6bd779c7cda267b0f41bbad5d754883eb5442516"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/xsize.c",
+      "sha256": "0b9604be49754d028d372009e84d80e6fc2b143f1cfdfd097c567d04402711c1"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-lib/xsize.h",
+      "sha256": "5fe1f910a9e3c5b6b82cf314cd477a73e7a7744824a85fc47290ad66af0452f2"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/00gnulib.m4",
+      "sha256": "eeca18f889adff8ba24d8e3532344f3fcd6115cfe01fa7a45420938b7488d85d"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/absolute-header.m4",
+      "sha256": "c0fb171a7f5d8feb4b1665f2e0ef576b9bb003ef0f6184c5afc7a16307ba288f"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/alloca.m4",
+      "sha256": "391138a362c5272f5486203b6443bd2ce2ecb00d6803aa28810b3fb93737f371"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/assert_h.m4",
+      "sha256": "20d780dd722282a3aa18930c816b189cd7583ad711a5ca3e2b03056f666ebdcf"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/bison.m4",
+      "sha256": "15adb3ff82a738e0155f16a774e3eff27507b5219d5771c5d7b82f25799200b7"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/c-bool.m4",
+      "sha256": "b701b7919cf6e03aa2803f63b676c39445658575e1b9cdebeef29a54309e05fb"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/codeset.m4",
+      "sha256": "a76dfefda2d7552e8260a5cb18345a34a380a1e54cfb98904a042173eab745a2"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/errno_h.m4",
+      "sha256": "b00e8d8f82ef9c696e875d51de820b5821babbc1fd6c56867efa7ffe1a673edb"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/exponentd.m4",
+      "sha256": "bdc21da0e7b68979af5659f62c6456b0975c9817099906c24530ea1a8a16c97f"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/exponentf.m4",
+      "sha256": "eacc267627180a731494c0e8800230b98cd19840bcc0e0049078052f5ee24cd6"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/exponentl.m4",
+      "sha256": "ee9180aca918b8440cd83056452b67a14529275a80382f9a36fafa8d9160073a"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/extensions-aix.m4",
+      "sha256": "a3f2a8c6168e66b22de2e9d78c687ebb3732017daa3cc53067f11b76c3d093a5"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/extensions.m4",
+      "sha256": "1c56018bf1006b8ec11ccae8fbf2592127ef318ef53bfd7d44eddb05d569b69e"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/extern-inline.m4",
+      "sha256": "e22c4cbd5380e36e20ffe2fe3c80e68d844c50c9483f63c5e4908f2d7fbcd138"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/fcntl-o.m4",
+      "sha256": "78e927996943e70195aabefd04c358372d67c94b8cfddd1208da16dbfa1aed80"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/fcntl_h.m4",
+      "sha256": "d758e36a2bd5fa06066df292e61eda4e0ac9632ec030d8a28f9c615e94d59089"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/flexmember.m4",
+      "sha256": "0e140771b8077cc5c090d18465fc450448e5a8d732bc714e5c185ae9999a976a"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/float_h.m4",
+      "sha256": "5f019087267c40d68716075df10bc36c41b78559801815497710142c5df6a53f"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/fpieee.m4",
+      "sha256": "e5e658d02e0385913c94a12a10cd2cab1cd4ee3cf798e13acebc12438acc4d71"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/free.m4",
+      "sha256": "53d69859da3703cdb0c129dac965dfacc5224749c1fe64ed63edd41f921c1ee0"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/frexp.m4",
+      "sha256": "dacfcb50a64243dae13e1aa9e7173925fb7efef95e6d28e4cb38c159650b6821"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/frexpl.m4",
+      "sha256": "ebe81606440f0de5330ad806f847316cb96e786cf8f30319dc7477160193834a"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/getcwd.m4",
+      "sha256": "a6eb89aeab956dba676e11f1e42fed168f84e393556a514f466592b934a56c7a"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/getlocalename_l.m4",
+      "sha256": "4f1791ef4674319a68c477d493657bdd08ca0607c438eccddf51c3de97cef9bd"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/gnulib-cache.m4",
+      "sha256": "b454c2f03aad7cde1a0e205de5f50db23a1741e75516c3e40032d6474eace7b6"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/gnulib-common.m4",
+      "sha256": "be8e4b67e5de135610d7b8f2ac8e280628e2a85ec9c7be22c38c97eae0cddd2d"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/gnulib-comp.m4",
+      "sha256": "11ead9950ac19bc51e6a880d79da6f09d3bc1ef3f906fb2cb702a09575c7b8b6"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/host-cpu-c-abi.m4",
+      "sha256": "10d3496b3b895299180aa5ba2ba260bd591a82259a3a535a50a14c3a5152c55c"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/iconv.m4",
+      "sha256": "66a83c62a6b0c53871981e1d4736eae9f9d0300b108d383bfd8b757bf431765e"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/include_next.m4",
+      "sha256": "20166dd0027b4dbec32172a20fd3a876d2660b2b93b7d5da2f21ccaa04b05cd9"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/intl-thread-locale.m4",
+      "sha256": "cdc10a3a2657325437fdbf2d4ac3a979627481849d9e4c16ebdfe4aaba713796"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/intlmacosx.m4",
+      "sha256": "648f2e2b1deef6cbf82b843e0283112a8f7c5f42fa7e4f8a86df8c156817bfe4"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/intmax_t.m4",
+      "sha256": "b4242288cb4ba91b989a336940899229dd7b440e5a491c11f69a5c81e1f6f264"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/inttypes.m4",
+      "sha256": "209fc65592c16af8ec877afee8cec1e7b7d72b2ae18cd78f27572aedcc2ee192"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/inttypes_h.m4",
+      "sha256": "2e850705b989b5a496b92670c0cb7dd371416264fe8bf45fcd497da01a4a751a"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/isnand.m4",
+      "sha256": "6a98b77367adab465c91dab6c6fdfe9090e3399d81e41d9039366b9e15868223"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/isnanf.m4",
+      "sha256": "3b711414049cc582b09b6f48b21afd030c03c326fbe40c0d35e34c90edb7a39e"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/isnanl.m4",
+      "sha256": "825a1fdb380a6e2f8991af7fd9d8219acdd61841a7c0a2cd45befbe6d4e4e6a8"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/lcmessage.m4",
+      "sha256": "eef2348e0eafb18b5e702589a0fc6a914863e0cd835a28a9e3ea333c1e3fcaaa"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/ldexpl.m4",
+      "sha256": "bae031e9e58b5af6379342f0ba86f6ce9c47a23be7de04d3d614838cdd37d78d"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/lib-ld.m4",
+      "sha256": "cb511decb9d8d2536ec5ebe8c8baa65d670460e6382c02f88c91731bce763a99"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/lib-link.m4",
+      "sha256": "45235096e7563d61fce5e6da45b17f8677b95b9dd47cbf4a5ce1cf2eb73db0ed"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/lib-prefix.m4",
+      "sha256": "bb39ef3b0e50a3b86d2643b977269786bc2d45656b6b5efad03faf77c203aadc"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/limits-h.m4",
+      "sha256": "8117c0792e0fa6a7300d2b03fd9d60ffbac34cbb1bc391cea2a7cc332aa34f1b"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/localcharset.m4",
+      "sha256": "c90562076bd9ed02dfd0e7f4e58f7307331ad447270aadebe327317671534300"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/locale-en.m4",
+      "sha256": "be59927ba85cae147a6bc09b7e5586a75cfdbd5ef1c88ba585b13532050a1768"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/locale-ja.m4",
+      "sha256": "fd7905c5015999935ce4ece824abd57d7c50634592b7bf7aff7f671afddbdbed"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/locale-zh.m4",
+      "sha256": "ca3a829774e2dcf55662c5e349a33dbf202441573a9b1658860c765d9d1453f1"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/locale_h.m4",
+      "sha256": "53819237a1bdfa276ebe9fe445358c1be5aba7ea199631483e2838dfce662b50"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/localename.m4",
+      "sha256": "28932e611e8d74b8b0e15f1a56f5b3e784535a80f758115b40ce82d0096558a1"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/lock.m4",
+      "sha256": "dc92a941b3df74b102fecfb7a4c6571d52f8017ea587b06ad44b5f7660d42e53"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/manywarnings.m4",
+      "sha256": "ee3a62f54fd62f7a90f5d2e0033cc501dd6d1841e26902e5068bb999ce58ec39"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/math_h.m4",
+      "sha256": "f14708abcf4d2230e42d60794364df4a9270b4b1f3cfcbcd39f0708f6a35bc89"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/mbrtowc.m4",
+      "sha256": "7f79353ad6ba81e75abacfcd5bc63ba84e087fa7124ea8ba0a6cf695e1fe9b09"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/mbsinit.m4",
+      "sha256": "6bc89edbc78d1c0eb4190eafdba64cf50c4ad5edaddfe6abbe1555cafe793fac"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/mbstate_t.m4",
+      "sha256": "e32c29438b5f06e2254fb3654a27ff00e5f33c6cb7835296bc4351bb193614c3"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/memchr.m4",
+      "sha256": "15a095ce653735804e83d7cc6e34208488cead27490201142ea9da498ff47025"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/mmap-anon.m4",
+      "sha256": "7253bd13542281e2503f69151bb8e0bbfa708013cde32ae514657f1f098bf1af"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/multiarch.m4",
+      "sha256": "4a50965608013f1efbe80f5f25423ccfeabd492bc988d2fc8ebffeda3d21694a"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/musl.m4",
+      "sha256": "e51618285f28f3a67e3aa59329111be89967d2c3ac4b9ef85624db507de1b329"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/nocrash.m4",
+      "sha256": "70eb9560f9526d40a8addf5c1f1c60aa5d558700af802fdaf0edab89f136416d"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/off64_t.m4",
+      "sha256": "acd7fab0683365964c42e2de9bc89b0d070b7ad6a12b1c2e97e6479599174ba7"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/off_t.m4",
+      "sha256": "ce86979c1f221111956047ef3c5f28126813f4dfb39dc0a57d38f7c2f1c670f2"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/once.m4",
+      "sha256": "a00fe5d9b81f5e53a1fefe770a7b475d0d7e476a63102a74105369b628b33b49"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/printf-frexp.m4",
+      "sha256": "b66656dd6a9fb492ec5d14425401cd4586fba51d46f308cdc95e7a5799cf3546"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/printf-frexpl.m4",
+      "sha256": "c1921ce596c132ac422b1ddc89ed18533077bd7cb51f9476a4d8383dc1eb14a9"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/printf.m4",
+      "sha256": "798a4538cae5c071f1e2c3c48efe64b2361146eee95604b70b715194687489c4"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/pthread-once.m4",
+      "sha256": "6ff1b1f18ad12741a18b3e12b5e839f750aac6479422c198f8c9772115eb2cea"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/pthread-spin.m4",
+      "sha256": "98fcc8d4fa1f415925aa1ea1c4e2a5af087a3479d9bcc90dd1696aac27481bd3"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/pthread_h.m4",
+      "sha256": "a4def1ae25914187a06cd6b95d6bf76da50317b1db87957c11a69c7d0c697d30"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/pthread_rwlock_rdlock.m4",
+      "sha256": "b2a81715353595244b997802d08443c42435d55762edf9d44b825fabb536609b"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/sched_h.m4",
+      "sha256": "526209b2c11135b91b0b7c0590401f34f5def0ef2a466983baa73e2967e7006d"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/search_h.m4",
+      "sha256": "704798eb869076779872865e55fc5791f7bcd83193c41c4e530a290a62c18269"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/setlocale_null.m4",
+      "sha256": "78749ff2f35b5fba42cc3712176d4f55f9e41b0841fb36d4a17e729ffef8a400"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/signbit.m4",
+      "sha256": "945ba4259b98cb301c0a3b6bb8fb69258cb1b2b82f56afcd3fda6e0e8c657c7a"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/size_max.m4",
+      "sha256": "78ecdf64a43e08e3c100f1874f9b6e43bc9a6b21b741f6158cb8733b1c28a27d"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/ssize_t.m4",
+      "sha256": "28d7c2bf87bf59dd96a0274f089da4adca5fbe23bde6f52b7d1f8f3644ce2f44"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/stddef_h.m4",
+      "sha256": "a414c0506b46f04fbb27a36bbfea9b65683c62ee4f8669f307094e5e902a7952"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/stdint.m4",
+      "sha256": "e3b7c4ee262d721398849db7a39a269e6484dc6fd5518640926b32347a8998de"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/stdint_h.m4",
+      "sha256": "03bcfca74bfa7f9fa66eb6c38e311c3a8b67b96b2f8d9a045e7601c209ce0f03"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/stdio_h.m4",
+      "sha256": "56d8d9722b4fdb066a4d4bbf32a6c22e89b2a58b5953b090b1018b615791ff62"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/stdlib_h.m4",
+      "sha256": "6bec758693417f091276a864036d71deec7c5c8c64fe4ef9e9f990829810ce39"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/string_h.m4",
+      "sha256": "68ed733ea4bdc5b590e6ed885157b82f300ed9dd25cb1a6d6fd03ee31a4ac9e2"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/sys_cdefs_h.m4",
+      "sha256": "6ac5939e8cdd2eafef4f86d1bbd685e8f5c4783b46d2aee726e66d9f6d59be71"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/sys_types_h.m4",
+      "sha256": "cdc43448ec8e38d881c2cc390e9533dcad9758c52a5cfdb4f038456c4b3b1377"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/threadlib.m4",
+      "sha256": "9f2918239350b7585b4d7f1e56dcc35fb560e989446e945b4d7b8ab27b9cf66b"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/time_h.m4",
+      "sha256": "72e445983d4638e55f29b46ad3193b490a891855e84940d39f8cb4e4bcbe5886"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/tsearch.m4",
+      "sha256": "160a83da17da09176e69e705f5c7b1041e12f50ad1bad0f545af71c3264c6758"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/unistd_h.m4",
+      "sha256": "09754c486900609ad01a8cef8a75038007f09aafe192e87e6cc10342949f46df"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/vasnprintf-posix.m4",
+      "sha256": "af4cee24de29cb06b067f0030091d511fd15d97409cc0a4b543a98b4c9ce3c8c"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/vasnprintf.m4",
+      "sha256": "053adf0a592490cd0fcd410e2425a02a633087fb0686ba34c7ccd3e4ce6c718d"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/vasnwprintf-posix.m4",
+      "sha256": "38fbb898f510455c33f87729a43d4e03749db61b5c07e1793122f3729ea33562"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/visibility.m4",
+      "sha256": "785560bf1ba4e2e83b29ecc726f1b5928352f102b957985e203664dc332319d7"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/warn-on-use.m4",
+      "sha256": "b213313652d6e278de761f3d650aacfc3c66ee5e80194793fe5173cb7f0d3b09"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/warnings.m4",
+      "sha256": "1d00bbc73433c059cb32e0a5be86c74c1f80f1c8575ea01f50bb137e6b57b999"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/wchar_h.m4",
+      "sha256": "6276262dc143f0ac500724a92eb3898b3a2229d331cf9777f16cbad6de5fc776"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/wint_t.m4",
+      "sha256": "ba830916939364150c5d1a28fd1a8648eab2ed288f781960a3a89d85e27d4b42"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/wmemcpy.m4",
+      "sha256": "be82237399001bbb048d517b4fd077dc606d39a8a7f8a7fcb09921fcd0e13705"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/wmemset.m4",
+      "sha256": "7ec5ff62666c6378a8d335e4a0cc48c9c1d61471cdc4f5a0455e9ff9528eba7a"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/xsize.m4",
+      "sha256": "66d32900d4e60865990eb9cb7f3f6cead034f4087e1808e3f876e75e3cf09870"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/gnulib-m4/zzgnulib.m4",
+      "sha256": "be92236e2343729c231e1ee85d0cca937fa9d4d48a81046cf191987d351f719f"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/hash-string.c",
+      "sha256": "72bbd26b5e73bfa058e0955d2f506316c50d39c284005ac7455e0905ce35c433"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/hash-string.h",
+      "sha256": "51e70a83d6e5bdf315d8eaef038158c3d86d726a450e6809df75cdd987d18ac8"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/intl-compat.c",
+      "sha256": "eba2e4e12781e43a8cb367ed3f2e3885f9e0cfb73745db405c80220d953d9037"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/intl-exports.c",
+      "sha256": "08bf305f5308a3f351665582c09203533aa99bd35446a14ad0d19045c8191176"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/l10nflist.c",
+      "sha256": "0178fff39ffddca535d346d3e22a65b4573779c0860bba1862b906d172107632"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/langprefs.c",
+      "sha256": "4a7d2c969726496c35431f1da43036f432b6cf8c6564c9fcf26a5e9c1f805709"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/libgnuintl.in.h",
+      "sha256": "6ba1901654528d526a56ddd5fbb88c2d9a3d8da579f1e33445010dad7b49d790"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/libintl.glibc",
+      "sha256": "25fa4f5c5f3c2a502c6408c4911316584aede54242542132fe341a588bce9ad3"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/libintl.rc",
+      "sha256": "bad7f73c97146a5134f6bd64db36693085649502b6e95fc60e7d7056923df7ce"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/loadinfo.h",
+      "sha256": "cb2735d3d8230ef4a37b70842b860d8cf5cdc32ad4e5ada3ae114bae482223ef"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/loadmsgcat.c",
+      "sha256": "698c9150d816c3c499a0e25d93bdcecad4559c512179ff4d7dcf33e27395ef2c"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/localealias.c",
+      "sha256": "4a4ef4fb14f972b377abc02d3d4948a6132613754746e402c19bb51ccf6b7cd5"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/log.c",
+      "sha256": "49f04ca3f9a198b64faf09ac1acdf7f87057e87ed2ee725fdb2cbd64ab74dc66"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/ngettext.c",
+      "sha256": "b4428dc18bbbc00984090eaa9861d0e9648fc8e1f165e538422d303b5477b945"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/os2compat.c",
+      "sha256": "36fdb3f899665ba52fa216c84388f4978119ddbcda9e99a72f7f0dcfda0cf55d"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/os2compat.h",
+      "sha256": "187852b13eebaf292c156146664d8c3ee745cbe074c5ee963e201b38c9ec7bcd"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/osdep.c",
+      "sha256": "2becc84e52a3b768f27d7e7137501247629e5208c68dae39113af70324849719"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/plural-exp.c",
+      "sha256": "60edfffa12e4a3a3d5b50d8333a9814472df66670007971e17143bef7c542cf1"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/plural-exp.h",
+      "sha256": "bb374f210d3ac90c37095d21ba1aeef38f5ff0320f4a078ecb5538941017b7cb"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/plural.c",
+      "sha256": "03b94b30e89b737d882cccbf6c961c16c002502e2e15628aa5d20501b235e75f"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/plural.h",
+      "sha256": "f3ab093b2be5a18ffef087e992e6a48dfd61fbc31c64b9802bf1901f67aed3f6"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/plural.y",
+      "sha256": "dd8fa4fd8285b4019881c4a9ee9371b720d41cdb8373bb5edf2f7ae7432bbbe2"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/printf.c",
+      "sha256": "16e63b2a384dffb52c2ab8127e9d7d50f2a22e6df81f89033f8dba40e581f72c"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/setlocale.c",
+      "sha256": "126bbce12481947a5f62bc257f871d8e6ddfdff341b55492f17793ee75414d55"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/textdomain.c",
+      "sha256": "75bd5033bf8a81417c457ae44c18d57a08a8d1471567d08686295691e893b285"
+    },
+    {
+      "path": "upstream/gettext-runtime/intl/version.c",
+      "sha256": "5ed86e0d31f85a0606d6a1b72edb758914a1bf2e02022c0b0de5a8ef331802af"
+    }
+  ]
+}

@@ -1,0 +1,250 @@
+diff --git a/include/ghostty.h b/include/ghostty.h
+index 940602504..57e647365 100644
+--- a/include/ghostty.h
++++ b/include/ghostty.h
+@@ -1194,9 +1194,16 @@ GHOSTTY_API ghostty_surface_config_s ghostty_surface_inherited_config(ghostty_su
+ GHOSTTY_API void ghostty_surface_update_config(ghostty_surface_t, ghostty_config_t);
+ GHOSTTY_API bool ghostty_surface_needs_confirm_quit(ghostty_surface_t);
+ GHOSTTY_API bool ghostty_surface_process_exited(ghostty_surface_t);
+-// Host-managed output and exit calls must be externally serialized. Output
+-// after exit and repeated exit notifications are ignored.
++// Host-managed output, replacement, and exit calls must be externally
++// serialized. A replacement atomically establishes the terminal grid before
++// parsing its replay bytes. Output after exit and repeated exit notifications
++// are ignored.
+ GHOSTTY_API void ghostty_surface_write_buffer(ghostty_surface_t, const uint8_t*, uintptr_t);
++GHOSTTY_API bool ghostty_surface_replace_buffer(ghostty_surface_t,
++                                                  const uint8_t*,
++                                                  uintptr_t,
++                                                  uint16_t,
++                                                  uint16_t);
+ GHOSTTY_API void ghostty_surface_process_exit(ghostty_surface_t, uint32_t, uint64_t);
+ GHOSTTY_API void ghostty_surface_refresh(ghostty_surface_t);
+ GHOSTTY_API void ghostty_surface_draw(ghostty_surface_t);
+@@ -1247,6 +1254,7 @@ GHOSTTY_API void ghostty_surface_complete_clipboard_request(
+     void*);
+ GHOSTTY_API void ghostty_surface_deny_clipboard_request(ghostty_surface_t,
+                                                            void*);
++GHOSTTY_API ghostty_clipboard_request_e ghostty_clipboard_request_type(const void*);
+ GHOSTTY_API bool ghostty_surface_has_selection(ghostty_surface_t);
+ GHOSTTY_API bool ghostty_surface_read_selection(ghostty_surface_t, ghostty_text_s*);
+ GHOSTTY_API bool ghostty_surface_read_text(ghostty_surface_t,
+diff --git a/src/apprt/embedded.zig b/src/apprt/embedded.zig
+index c31c94648..dc5a5b704 100644
+--- a/src/apprt/embedded.zig
++++ b/src/apprt/embedded.zig
+@@ -1928,6 +1928,34 @@ pub const CAPI = struct {
+         surface.core_surface.io.processOutput(data[0..len]);
+     }
+ 
++    /// Atomically establish a host-managed terminal grid and parse a portable
++    /// replay before any subsequently serialized live output.
++    export fn ghostty_surface_replace_buffer(
++        surface: *Surface,
++        ptr: ?[*]const u8,
++        len: usize,
++        columns: u16,
++        rows: u16,
++    ) bool {
++        if (surface.termio_backend != .host_managed or
++            surface.core_surface.io.backend.host_managed.isExited() or
++            columns == 0 or
++            rows == 0) return false;
++        const data: []const u8 = if (len == 0)
++            &.{}
++        else
++            (ptr orelse return false)[0..len];
++        surface.core_surface.io.replaceOutput(
++            data,
++            columns,
++            rows,
++        ) catch |err| {
++            log.warn("error replacing host-managed terminal output err={}", .{err});
++            return false;
++        };
++        return true;
++    }
++
+     /// Report host process exit once, after all output has been written. Calls
+     /// must be externally serialized with ghostty_surface_write_buffer.
+     export fn ghostty_surface_process_exit(
+@@ -2359,6 +2387,13 @@ pub const CAPI = struct {
+         ptr.denyClipboardRequest(state);
+     }
+ 
++    /// Inspect an opaque clipboard request before reading host clipboard data.
++    export fn ghostty_clipboard_request_type(
++        state: *const apprt.ClipboardRequest,
++    ) c_int {
++        return @intCast(@intFromEnum(state.*));
++    }
++
+     export fn ghostty_surface_inspector(ptr: *Surface) ?*Inspector {
+         return ptr.initInspector() catch |err| {
+             log.err("error initializing inspector err={}", .{err});
+diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
+index 7d9fd45ff..b10da33d3 100644
+--- a/src/termio/Termio.zig
++++ b/src/termio/Termio.zig
+@@ -299,6 +299,7 @@ pub fn init(self: *Termio, alloc: Allocator, opts: termio.Options) !void {
+         .terminal = &self.terminal,
+         .osc_color_report_format = opts.config.osc_color_report_format,
+         .clipboard_write = opts.config.clipboard_write,
++        .image_protocols_enabled = opts.config.image_storage_limit != 0,
+         .clipboard_write_limit = opts.config.clipboard_write_limit,
+         .enquiry_response = opts.config.enquiry_response,
+     };
+@@ -668,6 +669,83 @@ pub fn processOutput(self: *Termio, buf: []const u8) void {
+     self.processOutputLocked(buf);
+ }
+ 
++/// Replace a host-managed terminal from a portable replay. The grid and replay
++/// are applied under one renderer-state lock so no live output can observe or
++/// mutate the terminal between them.
++pub fn replaceOutput(
++    self: *Termio,
++    buf: []const u8,
++    columns: u16,
++    rows: u16,
++) !void {
++    if (columns == 0 or rows == 0) return error.InvalidGridSize;
++
++    const terminal_width = try std.math.mul(
++        u32,
++        @as(u32, columns),
++        self.size.cell.width,
++    );
++    const terminal_height = try std.math.mul(
++        u32,
++        @as(u32, rows),
++        self.size.cell.height,
++    );
++    const horizontal_padding = try std.math.add(
++        u32,
++        self.size.padding.left,
++        self.size.padding.right,
++    );
++    const vertical_padding = try std.math.add(
++        u32,
++        self.size.padding.top,
++        self.size.padding.bottom,
++    );
++    const screen_width = try std.math.add(u32, terminal_width, horizontal_padding);
++    const screen_height = try std.math.add(u32, terminal_height, vertical_padding);
++
++    self.renderer_state.mutex.lockUncancelable(global.io());
++    defer self.renderer_state.mutex.unlock(global.io());
++
++    try self.terminal.resize(self.alloc, .{
++        .cols = columns,
++        .rows = rows,
++        .cell_size_px = .{
++            .width = self.size.cell.width,
++            .height = self.size.cell.height,
++        },
++    });
++    self.terminal.fullReset();
++    self.resetTerminalStream();
++    self.size.screen = .{ .width = screen_width, .height = screen_height };
++    self.processOutputLocked(buf);
++}
++
++/// Reset all parser and stream-handler state while retaining only the stable
++/// renderer, mailbox, configuration, and terminal pointers.
++fn resetTerminalStream(self: *Termio) void {
++    const current = &self.terminal_stream.handler;
++    const handler: StreamHandler = .{
++        .alloc = current.alloc,
++        .termio_mailbox = current.termio_mailbox,
++        .surface_mailbox = current.surface_mailbox,
++        .renderer_state = current.renderer_state,
++        .renderer_wakeup = current.renderer_wakeup,
++        .renderer_mailbox = current.renderer_mailbox,
++        .size = current.size,
++        .terminal = current.terminal,
++        .osc_color_report_format = current.osc_color_report_format,
++        .clipboard_write = current.clipboard_write,
++        .image_protocols_enabled = current.image_protocols_enabled,
++        .clipboard_write_limit = current.clipboard_write_limit,
++        .enquiry_response = current.enquiry_response,
++    };
++    self.terminal_stream.deinit();
++    self.terminal_stream = .init(.{
++        .allocator = self.alloc,
++        .handler = handler,
++    });
++}
++
+ /// Process output from readdata but the lock is already held.
+ fn processOutputLocked(self: *Termio, buf: []const u8) void {
+     // Schedule a render. We can call this first because we have the lock.
+diff --git a/src/termio/stream_handler.zig b/src/termio/stream_handler.zig
+index 27e06dcb7..a5544036e 100644
+--- a/src/termio/stream_handler.zig
++++ b/src/termio/stream_handler.zig
+@@ -51,6 +51,9 @@ pub const StreamHandler = struct {
+     /// The clipboard write access configuration.
+     clipboard_write: configpkg.ClipboardAccess,
+ 
++    /// Image protocols are disabled when the configured storage budget is zero.
++    image_protocols_enabled: bool,
++
+     /// Maximum total decoded bytes per Kitty clipboard protocol
+     /// (OSC 5522) write transaction; exceeding it aborts with EFBIG.
+     clipboard_write_limit: usize,
+@@ -118,6 +121,7 @@ pub const StreamHandler = struct {
+     pub fn changeConfig(self: *StreamHandler, config: *termio.DerivedConfig) void {
+         self.osc_color_report_format = config.osc_color_report_format;
+         self.clipboard_write = config.clipboard_write;
++        self.image_protocols_enabled = config.image_storage_limit != 0;
+         self.clipboard_write_limit = config.clipboard_write_limit;
+         self.enquiry_response = config.enquiry_response;
+         self.terminal.setDefaultCursorStyle(config.cursor_style);
+@@ -500,6 +504,7 @@ pub const StreamHandler = struct {
+         switch (result) {
+             .unknown => return,
+             .kitty => |*kitty_cmd| {
++                if (!imageProtocolAllowed(self.image_protocols_enabled, .kitty)) return;
+                 if (self.terminal.kittyGraphics(global.io(), self.alloc, kitty_cmd)) |resp| {
+                     var buf: [1024]u8 = undefined;
+                     var writer: std.Io.Writer = .fixed(&buf);
+@@ -513,6 +518,7 @@ pub const StreamHandler = struct {
+             },
+ 
+             .glyph => |*glyph_req| {
++                if (!imageProtocolAllowed(self.image_protocols_enabled, .glyph)) return;
+                 const resp = self.terminal.glyphProtocol(self.alloc, glyph_req);
+                 switch (glyph_req.*) {
+                     .register, .clear => try self.queueRender(),
+@@ -1894,6 +1900,31 @@ pub const StreamHandler = struct {
+     }
+ };
+ 
++const ImageProtocol = enum {
++    kitty,
++    glyph,
++};
++
++fn imageProtocolAllowed(enabled: bool, protocol: ImageProtocol) bool {
++    return enabled and switch (protocol) {
++        .kitty, .glyph => true,
++    };
++}
++
++test "image storage disabled rejects every image protocol" {
++    const testing = std.testing;
++
++    try testing.expect(!imageProtocolAllowed(false, .kitty));
++    try testing.expect(!imageProtocolAllowed(false, .glyph));
++}
++
++test "image storage enabled admits every image protocol" {
++    const testing = std.testing;
++
++    try testing.expect(imageProtocolAllowed(true, .kitty));
++    try testing.expect(imageProtocolAllowed(true, .glyph));
++}
++
+ test "kitty clipboard read: targets-only never consumes a one-time grant" {
+     const testing = std.testing;
+ 

@@ -1,0 +1,345 @@
+diff --git a/include/ghostty/vt/formatter.h b/include/ghostty/vt/formatter.h
+index 210f42284..89b7c098c 100644
+--- a/include/ghostty/vt/formatter.h
++++ b/include/ghostty/vt/formatter.h
+@@ -116,10 +116,14 @@ typedef struct {
+   /** Optional selection to restrict output to a range.
+    *  If NULL, the entire screen is formatted. */
+   const GhosttySelection *selection;
++
++  /** Optional screen to format. If NULL, the active screen is formatted.
++   *  The pointed-to value is read during formatter creation. */
++  const GhosttyTerminalScreen *screen;
+ } GhosttyFormatterTerminalOptions;
+ 
+ /**
+- * Create a formatter for a terminal's active screen.
++ * Create a formatter for one of a terminal's screens.
+  *
+  * The terminal must outlive the formatter. The formatter stores a borrowed
+  * reference to the terminal and reads its current state on each format call.
+diff --git a/src/terminal/c/formatter.zig b/src/terminal/c/formatter.zig
+index aad33a14e..975f891dc 100644
+--- a/src/terminal/c/formatter.zig
++++ b/src/terminal/c/formatter.zig
+@@ -72,6 +72,10 @@ pub const TerminalOptions = extern struct {
+     /// If null, the entire screen is formatted.
+     selection: ?*const CSelection = null,
+ 
++    /// Screen to format. Null uses the active screen. The value is copied
++    /// during formatter creation.
++    screen: ?*const terminal_c.TerminalScreen = null,
++
+     /// C: GhosttyFormatterTerminalExtra
+     pub const Extra = extern struct {
+         size: usize = @sizeOf(Extra),
+@@ -146,6 +150,10 @@ fn terminal_new_(
+         .trim = opts.trim,
+     });
+     formatter.extra = opts.extra.toZig();
++    formatter.screen = if (opts.screen) |screen| screen.* else null;
++    if (formatter.screen) |key| {
++        if (t.screens.get(key) == null) return error.InvalidValue;
++    }
+ 
+     // Setup the content that we're formatting
+     if (opts.selection) |sel| formatter.content = .{
+@@ -571,6 +579,58 @@ test "format plain with selection" {
+     try testing.expectEqualStrings("World", buf[0..written]);
+ }
+ 
++test "format inactive primary screen" {
++    var t: terminal_c.Terminal = null;
++    try testing.expectEqual(Result.success, terminal_c.new(
++        &lib.alloc.test_allocator,
++        &t,
++        80,
++        24,
++    ));
++    defer terminal_c.free(t);
++
++    terminal_c.vt_write(t, "primary", 7);
++    terminal_c.vt_write(t, "\x1b[?1049h", 8);
++    terminal_c.vt_write(t, "alternate", 9);
++
++    const primary: terminal_c.TerminalScreen = .primary;
++    var f: Formatter = null;
++    try testing.expectEqual(Result.success, terminal_new(
++        &lib.alloc.test_allocator,
++        &f,
++        t,
++        .{
++            .emit = .plain,
++            .unwrap = false,
++            .trim = true,
++            .screen = &primary,
++            .extra = .{
++                .palette = false,
++                .modes = false,
++                .scrolling_region = false,
++                .tabstops = false,
++                .pwd = false,
++                .keyboard = false,
++                .screen = .{
++                    .cursor = false,
++                    .style = false,
++                    .hyperlink = false,
++                    .protection = false,
++                    .kitty_keyboard = false,
++                    .charsets = false,
++                },
++            },
++        },
++    ));
++    defer free(f);
++
++    var buf: [1024]u8 = undefined;
++    var written: usize = 0;
++    try testing.expectEqual(Result.success, format_buf(f, &buf, buf.len, &written));
++    try testing.expectEqualStrings("primary", buf[0..written]);
++    try testing.expectEqual(.alternate, t.?.terminal.screens.active_key);
++}
++
+ test "format html" {
+     var t: terminal_c.Terminal = null;
+     try testing.expectEqual(Result.success, terminal_c.new(
+diff --git a/src/terminal/formatter.zig b/src/terminal/formatter.zig
+index 4feedda50..fedacf44a 100644
+--- a/src/terminal/formatter.zig
++++ b/src/terminal/formatter.zig
+@@ -10,6 +10,7 @@ const hyperlink = @import("hyperlink.zig");
+ const kitty = @import("kitty.zig");
+ const modespkg = @import("modes.zig");
+ const Screen = @import("Screen.zig");
++const ScreenSet = @import("ScreenSet.zig");
+ const Terminal = @import("Terminal.zig");
+ const Cell = @import("page.zig").Cell;
+ const Coordinate = @import("point.zig").Coordinate;
+@@ -233,16 +234,10 @@ pub const PinMap = struct {
+     }
+ };
+ 
+-/// Terminal formatter formats the active terminal screen.
++/// Terminal formatter formats one terminal screen.
+ ///
+-/// This will always only emit data related to the currently active screen.
+-/// If you want to emit data for a specific screen (e.g. primary vs alt), then
+-/// switch to that screen in the terminal prior to using this.
+-///
+-/// If you want to emit data for all screens (a less common operation), then
+-/// you must create a no-content TerminalFormatter followed by multiple
+-/// explicit ScreenFormatter calls. This isn't a common operation so this
+-/// little extra work should be acceptable.
++/// The active screen is formatted by default. Callers may select an initialized
++/// primary or alternate screen without changing the terminal's active screen.
+ ///
+ /// For styled formatting, this will emit the palette colors at the
+ /// beginning so that the output can be rendered properly according to
+@@ -257,6 +252,9 @@ pub const TerminalFormatter = struct {
+     /// The content to include.
+     content: ScreenFormatter.Content,
+ 
++    /// The screen to format. Null uses the active screen.
++    screen: ?ScreenSet.Key,
++
+     /// Extra stuff to emit, such as terminal modes, palette, cursor, etc.
+     /// This information is ONLY emitted when the format is "vt".
+     extra: Extra,
+@@ -347,6 +345,7 @@ pub const TerminalFormatter = struct {
+             .terminal = terminal,
+             .opts = opts,
+             .content = .{ .selection = null },
++            .screen = null,
+             .extra = .styles,
+             .pin_map = null,
+         };
+@@ -483,7 +482,11 @@ pub const TerminalFormatter = struct {
+             }
+         }
+ 
+-        var screen_formatter: ScreenFormatter = .init(self.terminal.screens.active, self.opts);
++        const screen = if (self.screen) |key|
++            self.terminal.screens.get(key) orelse return error.WriteFailed
++        else
++            self.terminal.screens.active;
++        var screen_formatter: ScreenFormatter = .init(screen, self.opts);
+         screen_formatter.content = self.content;
+         screen_formatter.pin_map = self.pin_map;
+         try screen_formatter.format(writer);
+@@ -1172,8 +1175,8 @@ pub const PageFormatter = struct {
+         else
+             true;
+ 
+-        // Track hyperlink state for HTML output. We need to close </a> tags
+-        // when the hyperlink changes or ends.
++        // Track hyperlink state for styled output so transitions can be closed
++        // and reopened as cells change.
+         var current_hyperlink_id: ?hyperlink.Id = null;
+ 
+         for (start_y..end_y + 1) |y_usize| {
+@@ -1456,10 +1459,7 @@ pub const PageFormatter = struct {
+ 
+                 // Hyperlink state
+                 hyperlink: {
+-                    // We currently only emit hyperlinks for HTML. In the
+-                    // future we can support emitting OSC 8 hyperlinks for
+-                    // VT output as well.
+-                    if (comptime emit != .html) break :hyperlink;
++                    if (comptime emit == .plain) break :hyperlink;
+ 
+                     // Get the hyperlink ID. This ID is our internal ID,
+                     // not necessarily the OSC8 ID.
+@@ -1483,19 +1483,12 @@ pub const PageFormatter = struct {
+                     const link_id = link_id_ orelse break :hyperlink;
+                     current_hyperlink_id = link_id;
+ 
+-                    // Emit the opening hyperlink tag
+-                    const uri = uri: {
+-                        const link = self.page.hyperlink_set.get(
+-                            self.page.memory,
+-                            link_id,
+-                        );
+-                        break :uri link.uri.offset.ptr(self.page.memory)[0..link.uri.len];
+-                    };
+-                    try self.formatHyperlinkOpen(
+-                        emit,
+-                        writer,
+-                        uri,
++                    // Emit the opening hyperlink sequence/tag.
++                    const link = self.page.hyperlink_set.get(
++                        self.page.memory,
++                        link_id,
+                     );
++                    try self.formatHyperlinkOpen(emit, writer, link);
+ 
+                     // If we have a point map, we map the hyperlink to
+                     // this cell.
+@@ -1504,7 +1497,7 @@ pub const PageFormatter = struct {
+                         try self.formatHyperlinkOpen(
+                             emit,
+                             &discarding.writer,
+-                            uri,
++                            link,
+                         );
+                         map.map.appendNTimes(
+                             map.alloc,
+@@ -1555,7 +1548,7 @@ pub const PageFormatter = struct {
+         // If the style is non-default, we need to close our style tag.
+         if (!style.default()) try self.formatStyleClose(emit, writer);
+ 
+-        // Close any open hyperlink for HTML output
++        // Close any open hyperlink so it cannot leak past formatted content.
+         if (current_hyperlink_id != null) try self.formatHyperlinkClose(emit, writer);
+ 
+         // Close the monospace wrapper for HTML output
+@@ -1675,11 +1668,9 @@ pub const PageFormatter = struct {
+                 }
+             }
+ 
+-            // Hyperlink state must be stable within a run: any non-blank
+-            // cell must belong to the currently open hyperlink (or none).
+-            // Transitions take the slow path. This is checked after blank
+-            // accounting because blank cells never touch hyperlink state.
+-            if (comptime emit == .html) {
++            // Hyperlink state must be stable within a styled run. Transitions
++            // take the slow path. Blank cells never touch hyperlink state.
++            if (comptime emit != .plain) {
+                 if (cell.hyperlink) {
+                     const run_id = run_hyperlink_id orelse break;
+                     const cell_id = self.page.lookupHyperlink(cell) orelse break;
+@@ -2077,19 +2068,21 @@ pub const PageFormatter = struct {
+         self: PageFormatter,
+         comptime emit: Format,
+         writer: *std.Io.Writer,
+-        uri: []const u8,
++        link: *const hyperlink.PageEntry,
+     ) std.Io.Writer.Error!void {
++        const uri = link.uri.slice(self.page.memory);
+         switch (emit) {
+-            .plain, .vt => unreachable,
+-
+-            // layout since we're primarily using it as a CSS wrapper.
++            .plain => unreachable,
++            .vt => switch (link.id) {
++                .explicit => |id| try writer.print(
++                    "\x1b]8;id={s};{s}\x1b\\",
++                    .{ id.slice(self.page.memory), uri },
++                ),
++                .implicit => try writer.print("\x1b]8;;{s}\x1b\\", .{uri}),
++            },
+             .html => {
+                 try writer.writeAll("<a href=\"");
+-                for (uri) |byte| try self.writeCodepoint(
+-                    emit,
+-                    writer,
+-                    byte,
+-                );
++                for (uri) |byte| try self.writeCodepoint(emit, writer, byte);
+                 try writer.writeAll("\">");
+             },
+         }
+@@ -2102,7 +2095,8 @@ pub const PageFormatter = struct {
+     ) std.Io.Writer.Error!void {
+         const str: []const u8 = switch (emit) {
+             .html => "</a>",
+-            .plain, .vt => return,
++            .vt => "\x1b]8;;\x1b\\",
++            .plain => return,
+         };
+ 
+         try writer.writeAll(str);
+@@ -6804,6 +6798,54 @@ test "Page VT background color on trailing blank cells" {
+     try testing.expect(has_red_bg_line1);
+ }
+ 
++test "Page VT emits OSC 8 hyperlink transitions with explicit ids" {
++    const testing = std.testing;
++    const alloc = testing.allocator;
++    var builder: std.Io.Writer.Allocating = .init(alloc);
++    defer builder.deinit();
++
++    var t = try Terminal.init(testing.io, alloc, .{ .cols = 80, .rows = 24 });
++    defer t.deinit(alloc);
++    var stream = t.vtStream();
++    defer stream.deinit();
++    stream.nextSlice("\x1b]8;id=first;https://one.example\x1b\\one");
++    stream.nextSlice("\x1b]8;;\x1b\\ ");
++    stream.nextSlice("\x1b]8;id=second;https://two.example\x1b\\\x1b[1mtwo\x1b[0m");
++    stream.nextSlice("\x1b]8;;\x1b\\ plain");
++
++    const page = t.screens.active.pages.pages.last.?.page();
++    var formatter: PageFormatter = .init(page, .vt);
++    try formatter.format(&builder.writer);
++
++    try testing.expectEqualStrings(
++        "\x1b]8;id=first;https://one.example\x1b\\one" ++
++            "\x1b]8;;\x1b\\ " ++
++            "\x1b[0m\x1b[1m\x1b]8;id=second;https://two.example\x1b\\two" ++
++            "\x1b[0m\x1b]8;;\x1b\\ plain",
++        builder.writer.buffered(),
++    );
++}
++
++test "Terminal formatter selects inactive primary without mutation" {
++    const testing = std.testing;
++    const alloc = testing.allocator;
++    var builder: std.Io.Writer.Allocating = .init(alloc);
++    defer builder.deinit();
++
++    var t = try Terminal.init(testing.io, alloc, .{ .cols = 80, .rows = 24 });
++    defer t.deinit(alloc);
++    try t.printString("primary");
++    _ = try t.switchScreen(.alternate);
++    try t.printString("alternate");
++
++    var formatter: TerminalFormatter = .init(&t, .plain);
++    formatter.screen = .primary;
++    try formatter.format(&builder.writer);
++
++    try testing.expectEqualStrings("primary", builder.writer.buffered());
++    try testing.expectEqual(.alternate, t.screens.active_key);
++}
++
+ test "Page HTML with hyperlinks" {
+     const testing = std.testing;
+     const alloc = testing.allocator;

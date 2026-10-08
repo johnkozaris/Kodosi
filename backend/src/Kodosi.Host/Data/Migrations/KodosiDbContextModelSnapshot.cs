@@ -215,6 +215,12 @@ namespace Kodosi.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<long>("ContentSequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("KeyVersion")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -262,6 +268,93 @@ namespace Kodosi.Data.Migrations
                     b.ToTable("mission_invitations", (string)null);
                 });
 
+            modelBuilder.Entity("Kodosi.Data.MissionItem", b =>
+                {
+                    b.Property<Guid>("MissionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("Body")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<long>("KeyVersion")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<long>("Sequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("Signature")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("MissionId", "Id");
+
+                    b.HasIndex("MissionId", "Sequence")
+                        .IsUnique();
+
+                    b.HasIndex("MissionId", "Kind", "Sequence");
+
+                    b.ToTable("mission_items", (string)null);
+                });
+
+            modelBuilder.Entity("Kodosi.Data.MissionKeyState", b =>
+                {
+                    b.Property<Guid>("MissionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("Version")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("Body")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<long>("Epoch")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("Signature")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("MissionId", "Version");
+
+                    b.ToTable("mission_key_states", (string)null);
+                });
+
             modelBuilder.Entity("Kodosi.Data.MissionMember", b =>
                 {
                     b.Property<Guid>("MissionId")
@@ -275,6 +368,30 @@ namespace Kodosi.Data.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("mission_members", (string)null);
+                });
+
+            modelBuilder.Entity("Kodosi.Data.RoomRecipientKey", b =>
+                {
+                    b.Property<string>("DeviceId")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<byte[]>("PublicKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("Signature")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("DeviceId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("room_recipient_keys", (string)null);
                 });
 
             modelBuilder.Entity("Kodosi.Data.Session", b =>
@@ -477,6 +594,24 @@ namespace Kodosi.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Kodosi.Data.MissionItem", b =>
+                {
+                    b.HasOne("Kodosi.Data.Mission", null)
+                        .WithMany()
+                        .HasForeignKey("MissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Kodosi.Data.MissionKeyState", b =>
+                {
+                    b.HasOne("Kodosi.Data.Mission", null)
+                        .WithMany()
+                        .HasForeignKey("MissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Kodosi.Data.MissionMember", b =>
                 {
                     b.HasOne("Kodosi.Data.Mission", null)
@@ -489,6 +624,21 @@ namespace Kodosi.Data.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Kodosi.Data.RoomRecipientKey", b =>
+                {
+                    b.HasOne("Kodosi.Data.Device", null)
+                        .WithOne()
+                        .HasForeignKey("Kodosi.Data.RoomRecipientKey", "DeviceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Kodosi.Data.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

@@ -98,9 +98,9 @@ app.UseRateLimiter();
 var websocket = new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(30) };
 foreach (var origin in builder.Configuration.GetSection("WebSockets:AllowedOrigins").Get<string[]>() ?? []) websocket.AllowedOrigins.Add(origin);
 app.UseWebSockets(websocket);
-app.MapGet("/health/live", () => Results.Ok(new { status = "ok", apiContractVersion = 22, authContractVersion = 1 })).DisableRateLimiting();
+app.MapGet("/health/live", () => Results.Ok(new { status = "ok", apiContractVersion = 23, authContractVersion = 1 })).DisableRateLimiting();
 app.MapGet("/health/ready", async (KodosiDbContext db, CancellationToken ct) =>
-    await db.Database.CanConnectAsync(ct) ? Results.Ok(new { status = "ok", apiContractVersion = 22, authContractVersion = 1 }) : Results.StatusCode(503))
+    await db.Database.CanConnectAsync(ct) ? Results.Ok(new { status = "ok", apiContractVersion = 23, authContractVersion = 1 }) : Results.StatusCode(503))
     .DisableRateLimiting();
 var api = app.MapGroup("").AddEndpointFilter<AdmissionFilter>();
 api.MapAccounts(); api.MapDevices(); api.MapFriends(); api.MapSessions(); api.MapMissions();

@@ -12,6 +12,7 @@ use std::{
 use uuid::Uuid;
 
 mod render;
+mod rooms;
 mod terminal;
 
 #[derive(Parser)]
@@ -42,6 +43,8 @@ enum Action {
     Friends(FriendAction),
     #[command(subcommand)]
     Mission(MissionAction),
+    #[command(about = "Work with a room's conversation, tasks, repositories, and terminals.")]
+    Room(rooms::Arguments),
     #[command(subcommand)]
     Provider(ProviderAction),
     #[command(hide = true)]
@@ -59,6 +62,8 @@ enum SessionAction {
         name: Option<String>,
         #[arg(long)]
         directory: Option<PathBuf>,
+        #[arg(long)]
+        room: Option<String>,
     },
     /// Start a terminal that resumes a saved provider conversation.
     Resume {
@@ -258,6 +263,9 @@ async fn dispatch(args: Arguments) -> Result<()> {
     let mut context = Context::from_events(&client.initial_events);
     let json_output = args.json;
     match args.command {
+        Action::Room(arguments) => {
+            rooms::run(arguments, &mut client, &mut context, json_output).await
+        }
         Action::Status
         | Action::Session(SessionAction::List)
         | Action::Auth(AuthAction::Status) => {
@@ -343,7 +351,11 @@ async fn command(
         Action::Friends(action) => friend_command(action, &request),
         Action::Mission(action) => mission_command(action, &request, client, context).await?,
         Action::Provider(action) => provider_command(action, &request)?,
-        Action::Host | Action::InternalHost | Action::Status | Action::Auth(AuthAction::Status) => {
+        Action::Room(_)
+        | Action::Host
+        | Action::InternalHost
+        | Action::Status
+        | Action::Auth(AuthAction::Status) => {
             return Err(Error::Invalid("unexpected command".into()));
         }
     })
@@ -360,8 +372,17 @@ async fn session_command(
         Ok::<_, Error>((id, context.incarnation(id)?))
     };
     Ok(match action {
-        SessionAction::Start { name, directory } => {
-            json!({"type":"session.create","requestId":request,"name":name.unwrap_or_else(||"Terminal".into()),"workingDir":path(directory)?})
+        SessionAction::Start {
+            name,
+            directory,
+            room,
+        } => {
+            let room = if let Some(reference) = room {
+                Some(mission_id(&missions(client, context).await?, &reference)?)
+            } else {
+                None
+            };
+            json!({"type":"session.create","requestId":request,"name":name.unwrap_or_else(||"Terminal".into()),"workingDir":path(directory)?,"missionId":room})
         }
         SessionAction::Resume {
             provider,

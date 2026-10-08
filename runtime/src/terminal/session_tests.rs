@@ -45,8 +45,8 @@ async fn wait_text(subscription: &mut Subscription, text: &[u8]) -> Vec<u8> {
 }
 
 #[tokio::test]
-async fn launch_inherits_environment_without_agent_session_injection() {
-    let (session, _changes, root) = shell(
+async fn launch_exposes_its_terminal_context_and_preserves_terminal_setup() {
+    let (session, mut changes, root) = shell(
         r#"while [ ! -f ready ]; do sleep 0.01; done
 printf '%s' "${KODOSI_SESSION_ID-}" > session-id
 printf '%s' "$TERM" > term
@@ -69,12 +69,19 @@ exec /bin/cat"#,
     wait_text(&mut subscription, b"launch-input").await;
     session.close().await.expect("close");
 
-    let inherited_id = std::env::var_os("KODOSI_SESSION_ID").unwrap_or_default();
-    assert_eq!(
-        std::fs::read(root.path().join("session-id")).expect("inherited session marker"),
-        inherited_id.as_encoded_bytes(),
-        "PTY launch must not manufacture an agent session identity"
-    );
+    let marker = std::fs::read_to_string(root.path().join("session-id")).expect("terminal context");
+    let actual = Uuid::parse_str(&marker).expect("a terminal identifier");
+    let ended = tokio::time::timeout(Duration::from_secs(2), async {
+        while let Some(change) = changes.recv().await {
+            if let SessionChange::Ended { id, .. } = change {
+                return id;
+            }
+        }
+        panic!("terminal ended without its identity");
+    })
+    .await
+    .expect("terminal completion");
+    assert_eq!(actual, ended);
     assert_eq!(
         std::fs::read(root.path().join("term")).expect("terminal type"),
         b"xterm-256color"

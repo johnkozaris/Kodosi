@@ -1,0 +1,165 @@
+name: KodosiDesktop
+
+options:
+  createIntermediateGroups: true
+  defaultConfig: Debug
+  groupSortPosition: top
+  deploymentTarget:
+    macOS: "${KODOSI_MACOS_DEPLOYMENT_TARGET}"
+
+configs:
+  Debug: debug
+  Release: release
+  WorkingTreeValidation: release
+
+packages:
+  KodosiTerminal:
+    path: Packages/KodosiTerminal
+
+aggregateTargets:
+  PrepareNativeBuild:
+    buildScripts:
+      - name: Prepare Native Build
+        basedOnDependencyAnalysis: false
+        script: |
+          "$PROJECT_DIR/scripts/build/prepare-native-build.sh"
+
+settingGroups:
+  appBase:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY: YES
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: C5886CWK32
+    GENERATE_INFOPLIST_FILE: NO
+    MACOSX_DEPLOYMENT_TARGET: "${KODOSI_MACOS_DEPLOYMENT_TARGET}"
+    SUPPORTED_PLATFORMS: macosx
+    ARCHS: arm64
+    EXCLUDED_ARCHS: x86_64
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
+    CURRENT_PROJECT_VERSION: 1
+    MARKETING_VERSION: 0.1.0
+    CLANG_WARN_DOCUMENTATION_COMMENTS: YES
+    CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED: YES
+
+    ENABLE_HARDENED_RUNTIME: YES
+    DEVELOPMENT_LANGUAGE: en
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
+
+targets:
+  KodosiDesktop:
+    type: application
+    platform: macOS
+    deploymentTarget: "${KODOSI_MACOS_DEPLOYMENT_TARGET}"
+    configFiles:
+      Debug: Config/Debug.xcconfig
+      Release: Config/Release.xcconfig
+      WorkingTreeValidation: Config/WorkingTreeValidation.xcconfig
+    settings:
+      groups:
+        - appBase
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kodosi.desktop
+        PRODUCT_NAME: KodosiDesktop
+        INFOPLIST_FILE: Config/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Config/KodosiDesktop.entitlements
+        HEADER_SEARCH_PATHS:
+          - $(PROJECT_DIR)/Frameworks/KodosiKit.xcframework/Headers
+        OTHER_LDFLAGS:
+          - -lkodosi_runtime
+          - -framework Security
+          - -framework SystemConfiguration
+          - -lresolv
+        LD_GENERATE_MAP_FILE: YES
+        LD_MAP_FILE_PATH: $(DERIVED_FILE_DIR)/KodosiDesktop-$(CONFIGURATION).linkmap
+        ENABLE_DEBUG_DYLIB: NO
+        CLANG_ENABLE_MODULES: YES
+    sources:
+      - path: Sources
+      - path: Frameworks/KodosiKit.xcframework/Headers
+        buildPhase: headers
+        type: folder
+      - path: Resources/Assets.xcassets
+        buildPhase: resources
+      - path: Resources/Notices
+        buildPhase: resources
+    dependencies:
+      - target: PrepareNativeBuild
+        link: false
+        embed: false
+      - package: KodosiTerminal
+        product: KodosiTerminal
+    preBuildScripts:
+      - name: Enforce Build Variant
+        basedOnDependencyAnalysis: false
+        script: |
+          "$PROJECT_DIR/scripts/build/enforce-build-variant.sh"
+    postBuildScripts:
+      - name: Install Native Notices
+        basedOnDependencyAnalysis: false
+        script: |
+          "$PROJECT_DIR/scripts/build/sync-native-notices.sh" \
+            "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/GhosttyNativeNotices"
+      - name: Verify final Ghostty image
+        basedOnDependencyAnalysis: false
+        script: |
+          "$PROJECT_DIR/scripts/build/verify-final-ghostty-image.sh" \
+            "$TARGET_BUILD_DIR/$EXECUTABLE_PATH" \
+            "$DERIVED_FILE_DIR/KodosiDesktop-$CONFIGURATION.linkmap" \
+            "$MACOSX_DEPLOYMENT_TARGET"
+
+  KodosiDesktopTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "${KODOSI_MACOS_DEPLOYMENT_TARGET}"
+    settings:
+      groups:
+        - appBase
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kodosi.desktop.tests
+        PRODUCT_NAME: KodosiDesktopTests
+        GENERATE_INFOPLIST_FILE: YES
+        HEADER_SEARCH_PATHS: "$(SRCROOT)/Frameworks/KodosiKit.xcframework/Headers"
+        LIBRARY_SEARCH_PATHS: "$(SRCROOT)/Frameworks/KodosiKit.xcframework/macos-host-debug"
+    sources:
+      - path: Tests
+        excludes:
+          - Tooling
+    dependencies:
+      - target: KodosiDesktop
+
+schemes:
+  KodosiDesktop:
+    build:
+      targets:
+        KodosiDesktop: all
+        KodosiDesktopTests: [test]
+    run:
+      config: Debug
+    test:
+      gatherCoverageData: false
+      environmentVariables:
+        - variable: KODOSI_DATA_ROOT
+          value: __KODOSI_XCTEST_TMPDIR__
+          isEnabled: true
+      targets:
+        - KodosiDesktopTests
+    profile:
+      config: Release
+    archive:
+      config: Release
+
+  WorkingTreeValidation:
+    build:
+      targets:
+        KodosiDesktop: all
+    run:
+      config: WorkingTreeValidation
+    profile:
+      config: WorkingTreeValidation
+    archive:
+      config: WorkingTreeValidation

@@ -1,5 +1,5 @@
 {
-  "apiContractVersion": 22,
+  "apiContractVersion": 23,
   "authContractVersion": 1,
   "authentication": "OIDC bearer identity and a device session",
   "deviceSession": {
@@ -30,7 +30,8 @@
     ],
     "administration": "owner; membership updates require the hosting device",
     "friendshipGrantsSessions": false,
-    "missionMembershipGrantsSessions": false
+    "missionMembershipGrantsSessions": true,
+    "rooms": "all current members of the room to which the terminal was shared, including later members"
   },
   "sessionPublication": {
     "identity": [
@@ -120,8 +121,22 @@
       "POST /api/missions/invitations/{id}/accept",
       "POST /api/missions/invitations/{id}/reject",
       "DELETE /api/missions/{id}/members/{userId}"
+    ],
+    "roomContent": [
+      "PUT /api/me/room-key",
+      "GET /api/users/{userId}/room-keys",
+      "GET /api/missions/{id}/keys",
+      "PUT /api/missions/{id}/keys",
+      "GET /api/missions/{id}/content",
+      "PUT /api/missions/{id}/content/{itemId}"
     ]
   },
   "missionContent": "directory metadata only; no chat, tasks, or agent dispatch",
-  "backendSecrets": "none; the server relays TLS records between a host device and a viewer device and holds no terminal key"
+  "backendSecrets": "none; the server relays TLS records between a host device and a viewer device and holds no terminal key",
+  "roomContent": {
+    "encryption": "AES-256-GCM content keys; ML-KEM-768 recipient key encapsulation and HKDF-SHA256 wrapping; ML-DSA-65 signed state and content",
+    "history": "new members receive current room keys and decrypt the backwards-wrapped key history",
+    "membership": "signed room state commits member identities; removal rotates the content key; the relay holds no plaintext key",
+    "content": "immutable messages and versioned task/repository records; read by room sequence; compare expected version on updates"
+  }
 }

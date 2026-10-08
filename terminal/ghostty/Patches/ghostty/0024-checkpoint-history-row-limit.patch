@@ -1,0 +1,174 @@
+diff --git a/include/ghostty/vt/checkpoint.h b/include/ghostty/vt/checkpoint.h
+--- a/include/ghostty/vt/checkpoint.h
++++ b/include/ghostty/vt/checkpoint.h
+@@ -33,10 +33,14 @@
+   size_t max_cells;
+ } GhosttyCheckpointLimits;
+ 
+-/** Sized checkpoint encoding options. */
++/**
++ * Sized checkpoint encoding options. `max_history_rows` is the most rows that
++ * are encoded before the visible rows of each screen.
++ */
+ typedef struct {
+   size_t size;
+   GhosttyCheckpointLimits limits;
++  size_t max_history_rows;
+ } GhosttyCheckpointEncodeOptions;
+ 
+ /** Sized transactional restore options. */
+@@ -70,7 +74,7 @@
+ 
+ /** Default initializer for GhosttyCheckpointEncodeOptions. */
+ #define GHOSTTY_CHECKPOINT_ENCODE_OPTIONS_INIT \
+-  { sizeof(GhosttyCheckpointEncodeOptions), GHOSTTY_CHECKPOINT_LIMITS_INIT }
++  { sizeof(GhosttyCheckpointEncodeOptions), GHOSTTY_CHECKPOINT_LIMITS_INIT, SIZE_MAX }
+ 
+ /** Default initializer for GhosttyCheckpointRestoreOptions. */
+ #define GHOSTTY_CHECKPOINT_RESTORE_OPTIONS_INIT \
+diff --git a/src/terminal/c/checkpoint.zig b/src/terminal/c/checkpoint.zig
+--- a/src/terminal/c/checkpoint.zig
++++ b/src/terminal/c/checkpoint.zig
+@@ -29,6 +29,7 @@
+ pub const EncodeOptions = extern struct {
+     size: usize = @sizeOf(EncodeOptions),
+     limits: Limits = .{},
++    max_history_rows: usize = std.math.maxInt(usize),
+ };
+ 
+ pub const RestoreOptions = extern struct {
+@@ -80,10 +81,10 @@
+     if (buffer.ptr == null and buffer.cap != 0) return .invalid_value;
+ 
+     var writer: std.Io.Writer = .fixed(if (buffer.ptr) |ptr| ptr[0..buffer.cap] else &.{});
+-    const result = encodeStream(wrapper.terminal.gpa(), wrapper.terminal, &wrapper.stream, options.limits, &writer, info) catch |err| switch (err) {
++    const result = encodeStream(wrapper.terminal.gpa(), wrapper.terminal, &wrapper.stream, options.limits, options.max_history_rows, &writer, info) catch |err| switch (err) {
+         error.WriteFailed => {
+             var counter: std.Io.Writer.Discarding = .init(&.{});
+-            _ = encodeStream(wrapper.terminal.gpa(), wrapper.terminal, &wrapper.stream, options.limits, &counter.writer, null) catch |count_err| return mapError(count_err);
++            _ = encodeStream(wrapper.terminal.gpa(), wrapper.terminal, &wrapper.stream, options.limits, options.max_history_rows, &counter.writer, null) catch |count_err| return mapError(count_err);
+             buffer.len = std.math.cast(usize, counter.count) orelse return .limit_exceeded;
+             return .out_of_space;
+         },
+@@ -114,7 +115,7 @@
+     const alloc = lib.alloc.default(allocator_);
+     var writer: std.Io.Writer.Allocating = .init(alloc);
+     defer writer.deinit();
+-    _ = encodeStream(wrapper.terminal.gpa(), wrapper.terminal, &wrapper.stream, options.limits, &writer.writer, info) catch |err| return mapError(err);
++    _ = encodeStream(wrapper.terminal.gpa(), wrapper.terminal, &wrapper.stream, options.limits, options.max_history_rows, &writer.writer, info) catch |err| return mapError(err);
+     const bytes = writer.toOwnedSlice() catch return .out_of_memory;
+     out_ptr.* = bytes.ptr;
+     out_len.* = bytes.len;
+@@ -126,6 +127,7 @@
+     terminal: *const @import("../Terminal.zig"),
+     stream: anytype,
+     limits: Limits,
++    max_history_rows: usize,
+     writer: *std.Io.Writer,
+     info: ?InfoOutput,
+ ) !void {
+@@ -136,7 +138,7 @@
+     const routing = screen_core.TerminalState.capture(terminal);
+     var primary_state = try screen_core.captureScreen(alloc, .primary, terminal.screens.get(.primary).?);
+     defer primary_state.deinit(alloc);
+-    var primary_grid = try page_core.capture(alloc, &terminal.screens.get(.primary).?.pages, pageLimits(limits));
++    var primary_grid = try page_core.capture(alloc, &terminal.screens.get(.primary).?.pages, pageLimits(limits), max_history_rows);
+     defer primary_grid.deinit();
+ 
+     var alternate_state: ?screen_core.ScreenState = null;
+@@ -145,7 +147,7 @@
+     defer if (alternate_grid) |*value| value.deinit();
+     if (terminal.screens.get(.alternate)) |screen| {
+         alternate_state = try screen_core.captureScreen(alloc, .alternate, screen);
+-        alternate_grid = try page_core.capture(alloc, &screen.pages, pageLimits(limits));
++        alternate_grid = try page_core.capture(alloc, &screen.pages, pageLimits(limits), max_history_rows);
+     }
+     var parser = if (stream.continuation == null and stream.ground()) parser: {
+         break :parser screen_core.ParserState{ .bytes = try alloc.dupe(u8, "") };
+diff --git a/src/terminal/checkpoint_page_json.zig b/src/terminal/checkpoint_page_json.zig
+--- a/src/terminal/checkpoint_page_json.zig
++++ b/src/terminal/checkpoint_page_json.zig
+@@ -266,9 +266,9 @@
+     }
+ };
+ 
+-/// Capture all retained history and active rows without changing compressed
+-/// source pages to resident storage.
+-pub fn capture(alloc: Allocator, list: *const PageList, limits: Limits) !Captured {
++/// Capture the active rows and at most `max_history_rows` rows before them
++/// without changing compressed source pages to resident storage.
++pub fn capture(alloc: Allocator, list: *const PageList, limits: Limits, max_history_rows: usize) !Captured {
+     var result: Captured = .{
+         .arena = std.heap.ArenaAllocator.init(alloc),
+         .value = undefined,
+@@ -279,8 +279,15 @@
+     const options = list.constructionOptions();
+     var page_values: std.ArrayList(PageDto) = .empty;
+     var counts: Counts = .{};
++    var skipped = list.total_rows -| (std.math.add(usize, options.rows, max_history_rows) catch list.total_rows);
+     var node = list.getTopLeft(.screen).node;
+     while (true) {
++        const rows = node.rows();
++        if (skipped >= rows) {
++            skipped -= rows;
++            node = node.next orelse return error.InvalidDimensions;
++            continue;
++        }
+         try counts.add("pages", 1);
+         try counts.enforce(limits);
+         var preserved = try node.pagePreservingState(alloc);
+@@ -288,9 +295,11 @@
+         try page_values.append(arena, try capturePage(
+             arena,
+             preserved.page(),
++            skipped,
+             &counts,
+             limits,
+         ));
++        skipped = 0;
+         node = node.next orelse break;
+     }
+ 
+@@ -310,7 +319,7 @@
+ 
+ /// Encode canonical minified JSON into caller-owned bytes.
+ pub fn encodeAlloc(alloc: Allocator, list: *const PageList, limits: Limits) ![]u8 {
+-    var captured = try capture(alloc, list, limits);
++    var captured = try capture(alloc, list, limits, std.math.maxInt(usize));
+     defer captured.deinit();
+     var output: std.Io.Writer.Allocating = .init(alloc);
+     errdefer output.deinit();
+@@ -527,11 +536,12 @@
+     }
+ }
+ 
+-fn capturePage(alloc: Allocator, native: *const Page, counts: *Counts, limits: Limits) !PageDto {
+-    try counts.add("rows", native.size.rows);
++fn capturePage(alloc: Allocator, native: *const Page, first_row: usize, counts: *Counts, limits: Limits) !PageDto {
++    const row_count = native.size.rows - first_row;
++    try counts.add("rows", row_count);
+     try counts.add("cells", std.math.mul(
+         usize,
+-        native.size.rows,
++        row_count,
+         native.size.cols,
+     ) catch return error.IntegerOverflow);
+     try counts.add("native_bytes", native.memory.len);
+@@ -543,7 +553,7 @@
+     var link_ids = std.AutoHashMap(hyperlink.Id, u32).init(alloc);
+     defer link_ids.deinit();
+ 
+-    const rows = native.rows.ptr(native.memory)[0..native.size.rows];
++    const rows = native.rows.ptr(native.memory)[first_row..native.size.rows];
+     for (rows) |*row| for (row.cells.ptr(native.memory)[0..native.size.cols]) |*cell| {
+         if (cell.style_id != stylepkg.default_id and !style_ids.contains(cell.style_id)) {
+             try counts.add("styles", 1);
+@@ -630,7 +640,7 @@
+     }
+     try counts.enforce(limits);
+     return .{
+-        .size = .{ .columns = native.size.cols, .rows = native.size.rows },
++        .size = .{ .columns = native.size.cols, .rows = @intCast(row_count) },
+         .capacity = capacityFromNative(native.capacity),
+         .styles = try styles.toOwnedSlice(alloc),
+         .hyperlinks = try links.toOwnedSlice(alloc),

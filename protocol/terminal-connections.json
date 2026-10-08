@@ -27,7 +27,7 @@
       "ping": "the answer is pong"
     },
     "serverMessages": {
-      "changed": "surface (devices, friends, sessions, missions): the device reads that list again",
+      "changed": "surface (devices, friends, sessions, missions, rooms): the device reads that list again",
       "viewer": "pipe, sessionId, userId, deviceId: to the host, when the server admitted a viewer",
       "accessChanged": "sessionId: to the host, after a change of the people or devices that can use the terminal",
       "closed": "pipe, status, message: the pipe ended; status 0 when the other device closed it",

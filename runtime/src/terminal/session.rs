@@ -137,12 +137,13 @@ impl LocalSession {
                 .ok_or_else(|| Error::Invalid("working directory must be UTF-8".to_owned()))?;
             let emulator =
                 SessionTerminalHandle::spawn(size, TerminalHistoryPolicy::default(), dark)?;
-            let (pty, reader) = KodosiPty::spawn_program(
+            let (pty, reader) = KodosiPty::spawn_program_with_env(
                 &program,
                 &arguments,
                 Some(cwd),
                 size.rows(),
                 size.cols(),
+                &[("KODOSI_SESSION_ID", &id.to_string())],
             )?;
             Ok((emulator, pty, reader))
         })

@@ -84,9 +84,18 @@ async fn open(
             .get(&dto.host_device_id)
             .map(|certificate| certificate.sig_public_key.clone())
     };
-    let known = network
-        .known_identity(credentials, &dto.owner_user_id)
-        .await?;
+    let known = if let Some(room) = dto
+        .mission_id
+        .filter(|_| dto.owner_user_id != credentials.user_id)
+    {
+        network
+            .room_identity(credentials, room, &dto.owner_user_id)
+            .await?
+    } else {
+        network
+            .known_identity(credentials, &dto.owner_user_id)
+            .await?
+    };
     let public = match host_key(&known) {
         Some(public) => public,
         None => host_key(
@@ -153,9 +162,18 @@ async fn host_trusted(
     if current.incarnation_id != dto.incarnation_id {
         return Err(Error::Stale);
     }
-    let owner = network
-        .fetch_identity_with(&current_credentials, &dto.owner_user_id)
-        .await?;
+    let owner = if let Some(room) = dto
+        .mission_id
+        .filter(|_| dto.owner_user_id != credentials.user_id)
+    {
+        network
+            .room_identity(&current_credentials, room, &dto.owner_user_id)
+            .await?
+    } else {
+        network
+            .fetch_identity_with(&current_credentials, &dto.owner_user_id)
+            .await?
+    };
     if owner
         .devices
         .get(&dto.host_device_id)

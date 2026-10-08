@@ -27,7 +27,15 @@ __pycache__/
 *.pyc
 /aqtinstall.log
 .env
-.env.*.local
+.env.*
+!.env.example
+!.env.*.example
+*.key
+*.pem
+*.p12
+*.pfx
+*.mobileprovision
+*.log
 .mcp.json
 .claude/worktrees/
 .claude/settings.local.json

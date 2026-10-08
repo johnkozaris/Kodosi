@@ -170,7 +170,7 @@ impl Pins {
         anchor: Anchor<'_>,
         now_ms: u64,
     ) -> Result<VerifiedIdentity> {
-        self.verify_current(bundle, anchor, now_ms, false)
+        self.verify_current(bundle, anchor, now_ms, false, true)
     }
 
     pub(crate) fn verify_for_renewal(
@@ -178,7 +178,23 @@ impl Pins {
         bundle: &IdentityBundle,
         now_ms: u64,
     ) -> Result<VerifiedIdentity> {
-        self.verify_current(bundle, Anchor::Pinned, now_ms, true)
+        self.verify_current(bundle, Anchor::Pinned, now_ms, true, true)
+    }
+
+    pub(crate) fn historical(
+        bundle: &IdentityBundle,
+        root: &Root,
+        at_ms: u64,
+        previous: Option<(&IdentityBundle, u64)>,
+    ) -> Result<VerifiedIdentity> {
+        let mut history = Self {
+            path: PathBuf::new(),
+            pins: BTreeMap::new(),
+        };
+        if let Some((older, at)) = previous {
+            history.verify_current(older, Anchor::Root(root), at, false, false)?;
+        }
+        history.verify_current(bundle, Anchor::Root(root), at_ms, false, false)
     }
 
     #[expect(
@@ -191,6 +207,7 @@ impl Pins {
         anchor: Anchor<'_>,
         now_ms: u64,
         allow_expired: bool,
+        persist: bool,
     ) -> Result<VerifiedIdentity> {
         if bundle.identity_incarnation_id.is_nil()
             || bundle.identity_revision == 0
@@ -416,13 +433,15 @@ impl Pins {
         if self.pins.get(&bundle.user_id) != Some(&pin) {
             let mut next = self.pins.clone();
             next.insert(bundle.user_id.clone(), pin);
-            private_write(
-                &self.path,
-                &serde_json::to_vec(&StoredPins {
-                    version: 1,
-                    pins: next.clone(),
-                })?,
-            )?;
+            if persist {
+                private_write(
+                    &self.path,
+                    &serde_json::to_vec(&StoredPins {
+                        version: 1,
+                        pins: next.clone(),
+                    })?,
+                )?;
+            }
             self.pins = next;
         }
         Ok(VerifiedIdentity {

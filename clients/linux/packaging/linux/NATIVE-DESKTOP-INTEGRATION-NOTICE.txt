@@ -1,0 +1,36 @@
+Kodosi native desktop integration
+=================================
+
+This package was built from the Kodosi repository together with the exact dependency pins
+recorded in /usr/share/doc/kodosi/provenance/dependencies.lock.json:
+
+- Qt 6.11.2
+- Kodosi FFI ABI 7, desktop protocol 44
+- Runtime and kodosi-ghostty source commits are recorded in the installed
+  provenance, not duplicated in this notice.
+- The Linux upstream commit is recorded in the installed ghostty/LinuxGhostty.ref.
+
+The GUI statically incorporates the pinned Linux libghostty-vt archive. Its
+exact Linux dependency closure is recorded under
+/usr/share/doc/kodosi/ghostty/ThirdPartyNotices. The bundled private Kodosi CLI
+comes from the same pinned Rust runtime checkout as the GUI's C ABI library.
+
+This package uses the dynamically linked Qt 6.11.2 libraries and plugins
+shipped in its private runtime, including Qt Widgets QFileDialog, the GTK 3
+platform theme, and the XDG Desktop Portal platform theme. Kodosi selects the
+portal theme only when QT_QPA_PLATFORMTHEME is unset. The system
+xdg-desktop-portal service discovers the active desktop backend, including a
+KDE backend when installed; Kodosi does not ship a KDE Qt platform-theme
+plugin. The GTK 3 platform theme remains available as an explicit fallback.
+
+Kodosi uses the Qt open-source redistribution terms and does not claim a Qt
+commercial license. Applicable LGPL/GPL and third-party texts, exact
+binary-distribution SPDX/CycloneDX SBOMs, and ICU 73.2 license/copyright
+evidence are installed under /usr/share/doc/kodosi/qt and
+/usr/share/doc/kodosi/icu. Official exact-version source URLs, refs, archive
+SHA-256 values, and evidence-file digests are installed at
+/usr/share/doc/kodosi/provenance/native-license-evidence.json.
+
+Kodosi asks Qt QDesktopServices to open local files and directories and does
+not invoke a shell directly. Qt or the desktop may delegate the request to a
+portal, registered desktop handler, or xdg-open.

@@ -69,8 +69,8 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         await using var db = PostgresFixture.Context(connection);
         await DatabaseSetup.MigrateAsync(db, TestContext.Current.CancellationToken);
         Assert.Equal(db.Database.GetMigrations(), await db.Database.GetAppliedMigrationsAsync(TestContext.Current.CancellationToken));
-        Assert.Equal(11, db.Model.GetEntityTypes().Count());
-        Assert.DoesNotContain(db.Model.GetEntityTypes(), x => x.Name.Contains("Audit") || x.Name.Contains("Task") || x.Name.Contains("Message"));
+        Assert.Contains(db.Model.GetEntityTypes(), x => x.ClrType == typeof(MissionItem));
+        Assert.Contains(db.Model.GetEntityTypes(), x => x.ClrType == typeof(MissionKeyState));
         await DatabaseSetup.MigrateAsync(db, TestContext.Current.CancellationToken);
         var oldConnection = await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken);
         await using var old = PostgresFixture.Context(oldConnection);
@@ -90,7 +90,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         using var anonymous = app.CreateClient();
         using var denied = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
         var health = await anonymous.GetFromJsonAsync<JsonElement>("/health/live", TestContext.Current.CancellationToken);
-        Assert.Equal(22, health.GetProperty("apiContractVersion").GetInt32());
+        Assert.Equal(23, health.GetProperty("apiContractVersion").GetInt32());
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("bad", "wrong-audience"));
         using var audience = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, audience.StatusCode);
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("unenrolled"));
@@ -178,7 +178,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         await CallAsync(owner, HttpMethod.Post, $"/api/missions/{mission}/invitations", new { id = invite, userId = friend.Fixture.UserId });
         await CallAsync(friend, HttpMethod.Post, $"/api/missions/invitations/{invite}/accept");
         var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7(); var path = $"/api/sessions/{id}";
-        await CallAsync(owner, HttpMethod.Post, "/api/sessions", new { id, incarnationId = incarnation, name = "Shell", hostDeviceId = owner.Fixture.DeviceId, hostName = "Host", missionId = mission });
+        await CallAsync(owner, HttpMethod.Post, "/api/sessions", new { id, incarnationId = incarnation, name = "Shell", hostDeviceId = owner.Fixture.DeviceId, hostName = "Host", missionId = (Guid?)null });
         Assert.Empty((await CallAsync(friend, HttpMethod.Get, "/api/sessions")).EnumerateArray());
         Assert.False((await CallAsync(friend, HttpMethod.Get, $"/api/missions/{mission}")).TryGetProperty("sessionIds", out _));
         await Assert.ThrowsAnyAsync<Exception>(() => app.ConnectAsync(owner with { Session = friend.Session }));

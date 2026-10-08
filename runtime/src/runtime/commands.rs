@@ -610,7 +610,10 @@ impl Runtime {
                     return;
                 };
                 let Command::CreateSession {
-                    request_id, name, ..
+                    request_id,
+                    name,
+                    mission_id,
+                    ..
                 } = &command
                 else {
                     terminal.cancel();
@@ -642,7 +645,7 @@ impl Runtime {
                     status: SessionStatus::Running,
                     connection_state: ConnectionState::Local,
                     message: None,
-                    mission_id: None,
+                    mission_id: mission_id.clone(),
                     mission_name: None,
                     shared_with: vec![],
                     create_request_id: Some(request_id.clone()),

@@ -1,0 +1,4 @@
+
+#include "Release.xcconfig"
+
+KODOSI_NON_PUBLISHABLE_BUILD = working-tree-validation

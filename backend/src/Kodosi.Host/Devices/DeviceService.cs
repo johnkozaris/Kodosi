@@ -160,7 +160,10 @@ public sealed partial class DeviceService(
             var shared = await db.Sessions.AnyAsync(s => !s.Ended &&
                 ((s.OwnerUserId == userId && db.SessionMembers.Any(m => m.SessionId == s.Id && m.UserId == callerId)) ||
                  (s.OwnerUserId == callerId && db.SessionMembers.Any(m => m.SessionId == s.Id && m.UserId == userId))), ct);
-            if (!friend && !shared) throw ApiException.Missing();
+            var room = await db.Missions.AnyAsync(r =>
+                (r.OwnerUserId == callerId || db.MissionMembers.Any(m => m.MissionId == r.Id && m.UserId == callerId) || db.MissionInvitations.Any(i => i.MissionId == r.Id && i.UserId == callerId))
+                && (r.OwnerUserId == userId || db.MissionMembers.Any(m => m.MissionId == r.Id && m.UserId == userId) || db.MissionInvitations.Any(i => i.MissionId == r.Id && i.UserId == userId)), ct);
+            if (!friend && !shared && !room) throw ApiException.Missing();
         }
         var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Id == userId, ct)
             ?? throw ApiException.Missing();

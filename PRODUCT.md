@@ -1,77 +1,84 @@
 # Kodosi
 
-Kodosi is a native terminal app for running terminals on your computer, using them
-from your other approved devices, and sharing selected terminals with trusted friends.
+Kodosi is a native place for people and their coding agents to work together through
+shared terminals and a room conversation. Keep it lean: make useful actions available
+and let people and agents decide how to use them.
 
-## Product promise
+## Rooms and terminals
 
-- A terminal is a real process on the host computer.
-- Approved own devices can use the owner's terminals.
-- Friends can use only terminals explicitly shared with them.
-- Everyone admitted to a terminal has full control, including input, resize, interrupt,
-  and Close.
-- Missions group people and terminals. Membership never grants terminal access.
+The interface calls these shared spaces Rooms; runtime contracts use Missions.
 
-Shared shell access has the host user's operating-system privileges. Kodosi is not a
-sandbox and does not offer restricted terminal roles.
+- A terminal is a real process on its host computer.
+- Share a terminal with a room once. Every room member gets full control, including
+  people invited later. Room sharing follows the room's membership.
+- Any member can contribute their own terminals. Alice can use Bob's shared terminals
+  and Bob can use Alice's.
+- A room can contain terminals from many machines and folders. It does not require a
+  common repository or filesystem.
+- Sharing a terminal into a room does not share the host's other terminals.
+- Approved own devices can also use the owner's terminals.
 
-## A simple terminal experience
+Full control includes typing, resizing, interrupting, and closing. People choose to
+share that control, with the host user's operating-system privileges. Restrictions on
+those actions, sandboxing, and arbitration of concurrent file edits are not product
+requirements.
 
-Starting, opening, minimizing, sharing, and closing a terminal should be easy to
-understand without knowing how Kodosi works internally.
+## People and agents in the conversation
 
-- Each screen should have one clear purpose.
-- Show only the choices needed for the current task.
-- Put uncommon details behind deliberate actions instead of presenting long forms,
-  checklists, or explanatory walls.
-- Use plain product language rather than protocol or architecture terms.
-- Make the current state, consequences, and recovery path clear.
+Humans and agents need to read and contribute to the same room conversation. Give
+agents access to room context and actions through simple runtime tools and skills
+usable from their existing harnesses.
 
-Minimize hides a terminal view and keeps its process running. Close ends the terminal.
-Closing a window leaves the host running. Quit ends terminals hosted by that app, not
-terminals on other computers.
+New members get the full conversation history. Humans and agents can post messages,
+put tasks up for grabs, pick them up, release them, and close or reopen them. A task
+can include context, repositories, and a completion note or pull request link.
+People and agents decide what to do next; no prescribed sequence of agent behavior.
 
-Reconnecting should restore the current terminal without disrupting other viewers.
-An open view stays open through a sharing change, a slow link, or a short loss of
-connection, and then shows the current terminal.
-Kodosi must not repeat input when delivery is uncertain or let an old connection
-control a replacement terminal.
+A room can connect multiple GitHub or Gitea repositories. Existing issues can become
+room tasks. The provider remains authoritative: changing a linked task updates the
+issue, and refreshing the room picks up provider changes. Provider credentials stay
+on the participant's machine. Native room tasks work without a Git provider.
 
-## Sharing and trust
+Agents run through their normal provider CLIs. Provider execution, prompts,
+permissions, settings, memory, and native conversations remain with the provider.
+Kodosi supplies the shared space and capabilities to participate in it.
 
-Friendship alone does not share anything. The owner chooses the friends for each
-terminal and remains responsible for identity and sharing changes.
+## Terminal behavior
 
-Removing a friend, device, or share blocks future access and queued delivery. It
-cannot undo commands already run or data already received.
+Minimize hides a view and keeps its terminal running. Close ends the terminal and its
+programs. Closing a window leaves the host running. Quit ends terminals hosted by that
+app, not terminals on other computers.
 
-Being offline does not change sharing. A terminal keeps its chosen friends until the
-owner changes them, closes the terminal, signs out, or removes the hosting device.
+Reconnecting restores current terminal state without disrupting other viewers or
+repeating input whose delivery is uncertain. A stale connection must not control a
+replacement terminal. A temporary loss of connection does not change chosen sharing.
 
-Private keys and terminal contents stay on endpoint devices. The service stores the
-account, device, friendship, Mission, and sharing information needed to connect people
-and route encrypted terminal traffic. It must not execute commands or receive terminal
+## Encryption
+
+Terminal traffic and room content must be end-to-end encrypted between participants.
+Private keys stay on endpoint devices. The backend connects participants and relays
+encrypted content; it does not run their commands or read their terminal or room
 plaintext.
 
-## Provider support
+## Experience
 
-Kodosi can preview saved Claude Code and Copilot CLI conversations and ask the
-installed provider to resume one. It can also locate the provider's own configuration
-files.
+Keep terminals and the room conversation easy to reach. Starting work, inviting
+someone, sharing a terminal, and contributing to the conversation should take few
+steps. Use plain language and native interaction. Add controls and abstractions only
+when they help someone do the work.
 
-Provider prompts, permissions, settings, memory, and conversation storage remain
-native to the provider. Kodosi does not install hooks, wrap provider commands, bypass
-permissions, or build a second settings system.
+Opening or creating a terminal in a room keeps the conversation beside it. Tasks and
+repositories occupy the same workspace. Preserve drafts and reading position while
+people move between them. Show progress where work is happening and give failures a
+clear recovery action.
 
-## Product boundary
+## Current implementation
 
-Kodosi does not provide:
+The runtime and backend implement room terminal sharing, encrypted conversation and
+task history, multiple repository links, and GitHub/Gitea issue actions. Native Mac
+and Linux clients expose these capabilities alongside terminals. The `kodosi room`
+CLI and its bundled skill let existing agents participate through the running host.
 
-- stopped-terminal archives;
-- Mission chat, task boards, or agent dispatch;
-- agent-intelligence dashboards or permission interception;
-- provider plugin, skill, or memory management;
-- restricted sharing roles or a project sandbox.
-
-New ideas should make the terminal experience clearer. They should not add controls,
-text, or concepts merely because the underlying systems expose them.
+Direct terminal sharing and native Claude Code and Copilot CLI conversation
+preview/resume remain available. Kodosi does not become the agent harness or require
+a shared checkout.

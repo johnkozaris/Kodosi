@@ -1,0 +1,40 @@
+diff --git a/src/font/shaper/run.zig b/src/font/shaper/run.zig
+--- a/src/font/shaper/run.zig
++++ b/src/font/shaper/run.zig
+@@ -354,8 +354,8 @@
+             const idx = if (i == 0) primary else idx: {
+                 const cp = graphemes[i - 1];
+ 
+-                // Ignore Emoji ZWJs
+-                if (cp == 0xFE0E or cp == 0xFE0F or cp == 0x200D) continue :candidate;
++                // Ignore Emoji ZWJs and zero-width format characters
++                if (isIgnoredGraphemeComponent(cp)) continue :candidate;
+ 
+                 // We explicitly do not require the additional grapheme components
+                 // to support the base presentation, since it is common for emoji
+@@ -371,8 +371,8 @@
+ 
+             if (!self.opts.grid.hasCodepoint(idx, primary_cp, presentation)) continue;
+             for (graphemes) |cp| {
+-                // Ignore Emoji ZWJs
+-                if (cp == 0xFE0E or cp == 0xFE0F or cp == 0x200D) continue;
++                // Ignore Emoji ZWJs and zero-width format characters
++                if (isIgnoredGraphemeComponent(cp)) continue;
+                 if (!self.opts.grid.hasCodepoint(idx, cp, null)) continue :candidate;
+             }
+             return idx;
+@@ -394,3 +394,14 @@
+ 
+     return s;
+ }
++
++/// Grapheme components that never need a glyph of their own: emoji
++/// presentation selectors, the emoji ZWJ, and zero-width format characters
++/// such as ZWSP/ZWNJ/WJ/BOM that prompts and shells commonly emit after
++/// symbols. Requiring a font to cover them would reject every symbol font.
++fn isIgnoredGraphemeComponent(cp: u32) bool {
++    return switch (cp) {
++        0xFE0E, 0xFE0F, 0x200B, 0x200C, 0x200D, 0x2060, 0xFEFF => true,
++        else => false,
++    };
++}

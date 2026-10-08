@@ -97,6 +97,8 @@ public sealed class Mission
     public Guid Id { get; set; }
     public string Name { get; set; } = "";
     public Guid OwnerUserId { get; set; }
+    public long KeyVersion { get; set; }
+    public long ContentSequence { get; set; }
 }
 
 public sealed class MissionMember
@@ -112,4 +114,39 @@ public sealed class MissionInvitation
     public Guid UserId { get; set; }
     public Guid InviterUserId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+}
+
+public sealed class RoomRecipientKey
+{
+    public string DeviceId { get; set; } = "";
+    public Guid UserId { get; set; }
+    public byte[] PublicKey { get; set; } = [];
+    public byte[] Signature { get; set; } = [];
+}
+
+public sealed class MissionKeyState
+{
+    public Guid MissionId { get; set; }
+    public long Version { get; set; }
+    public long Epoch { get; set; }
+    public byte[] Body { get; set; } = [];
+    public byte[] Signature { get; set; } = [];
+    public string DeviceId { get; set; } = "";
+    public Guid UserId { get; set; }
+}
+
+public sealed class MissionItem
+{
+    public Guid MissionId { get; set; }
+    public Guid Id { get; set; }
+    public string Kind { get; set; } = "";
+    public long Version { get; set; }
+    public long Sequence { get; set; }
+    public long KeyVersion { get; set; }
+    public byte[] Body { get; set; } = [];
+    public byte[] Signature { get; set; } = [];
+    public Guid UserId { get; set; }
+    public string DeviceId { get; set; } = "";
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
 }

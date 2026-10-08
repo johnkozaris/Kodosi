@@ -23,22 +23,25 @@ public sealed class MissionTests(PostgresFixture postgres)
         await store.Friends.MutateAsync(invitee.User.Id, "owner", "accept", TestContext.Current.CancellationToken);
         var missionId = Guid.CreateVersion7();
         await store.Missions.CreateAsync(owner.User.Id, new(missionId, "Before"), TestContext.Current.CancellationToken);
-        await store.Missions.InviteAsync(missionId, owner.User.Id, new(Guid.CreateVersion7(), invitee.User.Id), TestContext.Current.CancellationToken);
+        var invitation = Guid.CreateVersion7();
+        await store.Missions.InviteAsync(missionId, owner.User.Id, new(invitation, invitee.User.Id), TestContext.Current.CancellationToken);
+        await store.Missions.ResolveInvitationAsync(invitation, invitee.User.Id, true, TestContext.Current.CancellationToken);
         var sessionId = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7();
         await store.Sessions.CreateAsync(owner.User.Id, owner.Device, new(sessionId, incarnation, "Terminal", owner.Device.Id, "Host", missionId), TestContext.Current.CancellationToken);
-        await store.Sessions.ShareAsync(sessionId, owner.User.Id, owner.Device.Id, new(incarnation, 1, [invitee.User.Id]), TestContext.Current.CancellationToken);
         var socket = new EventSocket();
         await using var events = new DeviceLink(socket, invitee.User.Id, invitee.Device.Id);
         store.Connections.Register(events);
         await store.Missions.RenameAsync(missionId, owner.User.Id, "After", TestContext.Current.CancellationToken);
-        Assert.Equal("sessions", await socket.NextSurfaceAsync());
+        var renamedSurfaces = new[] { await socket.NextSurfaceAsync(), await socket.NextSurfaceAsync() };
+        Assert.Contains("missions", renamedSurfaces); Assert.Contains("sessions", renamedSurfaces);
         Assert.Equal("After", (await store.Sessions.ListAsync(invitee.User.Id, TestContext.Current.CancellationToken)).Single().MissionName);
         await store.Missions.DeleteAsync(missionId, owner.User.Id, TestContext.Current.CancellationToken);
         var surfaces = new[] { await socket.NextSurfaceAsync(), await socket.NextSurfaceAsync() };
         Assert.Contains("missions", surfaces); Assert.Contains("sessions", surfaces);
         var listed = JsonSerializer.SerializeToElement(await store.Missions.ListAsync(invitee.User.Id, TestContext.Current.CancellationToken), Wire.Json);
         Assert.Empty(listed.GetProperty("invitations").EnumerateArray());
-        Assert.Null((await store.Sessions.ListAsync(invitee.User.Id, TestContext.Current.CancellationToken)).Single().MissionId);
+        Assert.Empty(await store.Sessions.ListAsync(invitee.User.Id, TestContext.Current.CancellationToken));
+        Assert.Null((await store.Sessions.ListAsync(owner.User.Id, TestContext.Current.CancellationToken)).Single().MissionId);
         Assert.Single(await store.Db.Sessions.ToListAsync(TestContext.Current.CancellationToken));
     }
 
