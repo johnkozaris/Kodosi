@@ -1,6 +1,6 @@
 # KodosiDesktop
 
-Read `../../PRODUCT.md` for shared product intent and implementation gaps,
+Read `../../PRODUCT.md` for shared product intent and current behavior,
 `PRODUCT.md` for Mac behavior, and `docs/GHOSTTY_INTEGRATION.md` before changing
 terminal dependencies, native APIs or pins.
 

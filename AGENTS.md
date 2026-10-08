@@ -1,6 +1,6 @@
 # Kodosi
 
-Read `PRODUCT.md` for intended behavior and its current implementation gaps. Kodosi
+Read `PRODUCT.md` for product intent and current behavior. Kodosi
 brings people and agents together through room-shared terminals and conversation.
 Full terminal control is intentional. Do not turn missing capabilities into product
 exclusions or add permission tiers, sandboxing, or agent workflow machinery by default.
