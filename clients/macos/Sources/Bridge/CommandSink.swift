@@ -62,7 +62,7 @@ final class CommandSink {
         guard pending.count < 64 else { throw RuntimeError.rejected(Int32(KODOSI_FFI_BUSY)) }
         let requestId = fields["requestId"]?.stringValue ?? UUIDv7.generate()
         guard pending[requestId] == nil else {
-            throw RuntimeError.invalidResponse(String(localized: "An action with this identifier is already pending."))
+            throw RuntimeError.invalidResponse(String(localized: "That is already in progress."))
         }
         var fields = fields
         fields["requestId"] = .string(requestId)
@@ -105,7 +105,7 @@ final class CommandSink {
         guard event.type == pending.replyType || isError,
               event.type == "mission.snapshot" || event.string("operation") == pending.operation else { return }
         if isError {
-            finish(requestId, result: .failure(RuntimeError.operation(event.string("message") ?? String(localized: "The action failed."))))
+            finish(requestId, result: .failure(RuntimeError.operation(event.string("message") ?? String(localized: "That did not work."))))
         } else {
             finish(requestId, result: .success(event))
         }

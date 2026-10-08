@@ -5,16 +5,18 @@ struct KodosiCommands: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            Button("New Session") { dependencies.newSession() }
+            Button("New Terminal") { dependencies.newSession() }
                 .keyboardShortcut("n")
-            Button("History…") { dependencies.workbench.showsHistory = true }
+            Button("Resume a Conversation…") { dependencies.workbench.showsHistory = true }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
+            Button("Go to…") { dependencies.workbench.showsPalette.toggle() }
+                .keyboardShortcut("k")
         }
-        CommandMenu("Session") {
-            Button("Session Details") { dependencies.workbench.detailsSessionId = dependencies.workbench.selectedSessionId }
+        CommandMenu("Terminal") {
+            Button("Details") { dependencies.workbench.detailsSessionId = dependencies.workbench.selectedSessionId }
                 .keyboardShortcut("i")
                 .disabled(dependencies.workbench.selectedSessionId == nil)
-            Button("Focus Session") {
+            Button("Zoom") {
                 if let id = dependencies.workbench.selectedSessionId {
                     dependencies.workbench.toggleFocus(id)
                 }
@@ -30,11 +32,11 @@ struct KodosiCommands: Commands {
             .disabled(dependencies.workbench.selectedSessionId == nil)
         }
         CommandGroup(after: .sidebar) {
-            Button("Toggle sidebar") { dependencies.workbench.sidebarCollapsed.toggle() }.keyboardShortcut("b")
+            Button("Show or Hide Sidebar") { dependencies.workbench.sidebarCollapsed.toggle() }.keyboardShortcut("b")
         }
         CommandMenu("Navigate") {
-            Button("Previous terminal") { dependencies.workbench.selectAdjacentSession(offset: -1) }.keyboardShortcut("[", modifiers: [.command, .shift])
-            Button("Next terminal") { dependencies.workbench.selectAdjacentSession(offset: 1) }.keyboardShortcut("]", modifiers: [.command, .shift])
+            Button("Previous Terminal") { dependencies.workbench.selectAdjacentSession(offset: -1) }.keyboardShortcut("[", modifiers: [.command, .shift])
+            Button("Next Terminal") { dependencies.workbench.selectAdjacentSession(offset: 1) }.keyboardShortcut("]", modifiers: [.command, .shift])
         }
         CommandGroup(replacing: .appSettings) {
             Button("Settings…") { dependencies.workbench.section = .settings }

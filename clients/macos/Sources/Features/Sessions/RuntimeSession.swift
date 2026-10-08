@@ -26,9 +26,31 @@ struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     let sharedWith: [String]
     let createRequestId: String?
 
-    var headerTitle: String {
-        guard let title = TerminalSessionManager.sanitizeTerminalTitle(title), title != name else { return name }
-        return "\(name) · \(title)"
+    var activity: String? {
+        guard let title = TerminalSessionManager.sanitizeTerminalTitle(title) else { return nil }
+        let trimmed = String(title.unicodeScalars.drop { Self.isStatusGlyph($0) || $0.properties.isWhitespace })
+        return trimmed.isEmpty || trimmed == name ? nil : trimmed
+    }
+
+    var isWorking: Bool {
+        guard canControl, let first = title?.unicodeScalars.first else { return false }
+        return (0x2800 ... 0x28FF).contains(first.value)
+    }
+
+    var agent: AgentKind {
+        AgentKind(program: program)
+    }
+
+    var isTroubled: Bool {
+        connectionState == .blocked || (connectionState == .offline && (status == .reconnecting || message != nil))
+    }
+
+    var folderName: String? {
+        workingDir.map { URL(fileURLWithPath: $0).lastPathComponent }
+    }
+
+    private static func isStatusGlyph(_ scalar: Unicode.Scalar) -> Bool {
+        (0x2800 ... 0x28FF).contains(scalar.value) || [0x2733, 0x2722, 0x2736, 0x273B, 0x273D, 0x00B7, 0x25CF, 0x25CB].contains(scalar.value)
     }
 
     var isConnected: Bool {
@@ -53,9 +75,9 @@ struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
 
     var statusLabel: String {
         switch connectionState {
-        case .offline where status == .reconnecting: String(localized: "Host offline")
+        case .offline where status == .reconnecting: String(localized: "Its computer is offline")
         case .offline: String(localized: "Not connected")
-        case .blocked: String(localized: "Access unavailable")
+        case .blocked: String(localized: "No access")
         case .connecting: String(localized: "Connecting")
         case .local, .connected:
             switch status {

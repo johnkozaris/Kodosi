@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 extension AppDependencies {
@@ -24,6 +25,7 @@ extension AppDependencies {
             missionDetail = nil
             rooms.removeAll(); roomIssues.removeAll(); roomViews.removeAll(); roomCreations.removeAll()
             selfDeviceId = nil; localDeviceEnrolled = false; identityMessage = nil
+            displayName = nil; attention.removeAll(); freshTerminals.removeAll()
             activationTasks.values.forEach { $0.cancel() }; activationTasks.removeAll()
             pendingCreations.removeAll()
             missionTask?.cancel(); missionTask = nil; missionRequestId = nil
@@ -66,7 +68,7 @@ extension AppDependencies {
 
     private func receiveError(_ event: RuntimeEvent) {
         guard !event.type.hasPrefix("provider."), !event.type.hasPrefix("room.") else { return }
-        let message = event.string("message") ?? String(localized: "The action failed.")
+        let message = event.string("message") ?? String(localized: "That did not work.")
         if event.type.hasPrefix("auth.") {
             signInStage = .failed(message: message, completed: signInStage.completedSteps)
             if signInPresented {
@@ -93,6 +95,10 @@ extension AppDependencies {
     }
 
     private func receiveTerminalNotification(_ event: RuntimeEvent) {
+        if event.type == "term.bell", let id = event.string("sessionId") {
+            noteAttention(id)
+            return
+        }
         guard event.type == "term.notification",
               let id = event.string("sessionId"),
               let incarnation = event.string("runtimeIncarnationId"),
@@ -115,7 +121,7 @@ extension AppDependencies {
         guard event.type == "system.ready" else { return }
         let version: UInt32 = try event.value("protocolVersion")
         guard RuntimeHandle.isSupportedProtocolVersion(version) else {
-            throw RuntimeError.invalidResponse(String(localized: "The runtime version does not match this app."))
+            throw RuntimeError.invalidResponse(String(localized: "This copy of Kodosi is damaged. Install it again."))
         }
         appState = .ready
         refresh()
@@ -123,9 +129,12 @@ extension AppDependencies {
 
     private func receiveReady(_ event: RuntimeEvent) throws {
         guard event.string("userId") == userId else {
-            throw RuntimeError.invalidResponse(String(localized: "The runtime returned a mismatched account."))
+            throw RuntimeError.invalidResponse(String(localized: "Kodosi got an answer for a different account."))
         }
         let trusted = event.payload["enrolled"] != .bool(false)
+        if let name = event.string("displayName") {
+            displayName = name
+        }
         localDeviceEnrolled = trusted
         if trusted {
             identityMessage = nil
@@ -173,11 +182,17 @@ extension AppDependencies {
         guard event.type == "sessions.snapshot" else { return }
         let received: [RuntimeSession] = try event.value("sessions")
         guard Set(received.map(\.id)).count == received.count else {
-            throw RuntimeError.invalidResponse(String(localized: "The runtime listed a session twice."))
+            throw RuntimeError.invalidResponse(String(localized: "Kodosi got a terminal list it cannot read."))
         }
         let previous = Dictionary(uniqueKeysWithValues: sessions.map { ($0.id, $0.incarnationId) })
+        let wasWorking = Set(sessions.filter(\.isWorking).map(\.id))
         var createdIds: [String] = []
         sessions = received
+        attention.formIntersection(received.map(\.id))
+        freshTerminals.formIntersection(received.map(\.id))
+        for value in received where wasWorking.contains(value.id) && !value.isWorking {
+            noteAttention(value.id)
+        }
         terminalNotifications.reconcile(sessions: received, accountEpoch: accountEpoch)
         for value in received {
             if let old = previous[value.id], old != value.incarnationId {
@@ -185,8 +200,10 @@ extension AppDependencies {
             }
             if let request = value.createRequestId, pendingCreations.remove(request) != nil {
                 createdIds.append(value.id)
+                freshTerminals.insert(value.id)
             }
             if let request = value.createRequestId, let room = roomCreations.removeValue(forKey: request) {
+                freshTerminals.insert(value.id)
                 activateSession(value.id, inRoom: room)
             }
         }
@@ -243,6 +260,22 @@ extension AppDependencies {
         case "mission.result":
             commandSink.perform("mission.list")
         default: break
+        }
+    }
+
+    func noteAttention(_ id: String) {
+        guard session(id) != nil, !isWatching(id) else { return }
+        attention.insert(id)
+    }
+
+    func isWatching(_ id: String) -> Bool {
+        guard NSApp?.isActive == true, workbench.stagedSessionIds.contains(id) else { return false }
+        switch workbench.section {
+        case .sessions: return workbench.focusedSessionId == nil || workbench.focusedSessionId == id
+        case .missions:
+            guard let room = workbench.selectedMissionId, session(id)?.missionId == room else { return false }
+            return roomView(room).canvas == 0 && roomView(room).selectedTerminal == id
+        case .people, .settings: return false
         }
     }
 

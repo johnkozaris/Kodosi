@@ -118,7 +118,7 @@ final class RuntimeHandle: @unchecked Sendable {
         let snapshot = handleSlot.tombstone()
         let pendingTerminalConnections = terminalSubscriptions.removeAll()
         for pending in pendingTerminalConnections {
-            pending(false, String(localized: "The runtime stopped before the terminal connected."))
+            pending(false, String(localized: "Kodosi stopped before the terminal connected."))
         }
 
         guard let snapshot else {
@@ -260,7 +260,7 @@ final class RuntimeHandle: @unchecked Sendable {
         let failureMessage = message
             ?? (succeeded
                 ? nil
-                : String(localized: "The runtime could not connect the terminal (\(result))."))
+                : String(localized: "The terminal could not connect (\(result))."))
         completion(succeeded, failureMessage)
     }
 
@@ -361,7 +361,7 @@ extension RuntimeHandle {
                 subscriptionId: subscriptionId,
                 subscriptionGeneration: subscriptionGeneration,
                 result: Int32(KODOSI_FFI_RUNTIME_STOPPED),
-                message: String(localized: "The runtime is unavailable.")
+                message: String(localized: "Kodosi is not ready.")
             )
             Logger.terminal.error("connectTerminal: runtime handle is nil for \(sessionId)")
             return
@@ -431,7 +431,7 @@ extension RuntimeHandle {
                     subscriptionId: subscriptionId,
                     subscriptionGeneration: subscriptionGeneration,
                     result: result,
-                    message: String(localized: "The runtime rejected the terminal connection (\(result)).")
+                    message: String(localized: "The terminal could not connect (\(result)).")
                 )
             } else {
                 Logger.terminal.error("terminal_connect aborted after runtime restart for \(sessionId)")
@@ -440,7 +440,7 @@ extension RuntimeHandle {
                     subscriptionId: subscriptionId,
                     subscriptionGeneration: subscriptionGeneration,
                     result: Int32(KODOSI_FFI_RUNTIME_STOPPED),
-                    message: String(localized: "The runtime restarted before the terminal connected.")
+                    message: String(localized: "Kodosi started again before the terminal connected.")
                 )
             }
             return

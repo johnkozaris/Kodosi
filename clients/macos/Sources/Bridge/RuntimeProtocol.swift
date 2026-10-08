@@ -34,7 +34,7 @@ struct RuntimeEvent: Decodable, Sendable {
 
     func value<T: Decodable>(_ key: String, as type: T.Type = T.self) throws -> T {
         guard let value = payload[key] else {
-            throw RuntimeError.invalidResponse(String(localized: "The runtime response is incomplete."))
+            throw RuntimeError.invalidResponse(String(localized: "Kodosi got an incomplete answer."))
         }
         return try value.decode(as: type)
     }
@@ -50,11 +50,11 @@ enum RuntimeError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .unavailable: String(localized: "The runtime is unavailable.")
-        case let .rejected(code): String(localized: "The runtime did not accept this action (\(code)).")
+        case .unavailable: String(localized: "Kodosi is not ready.")
+        case let .rejected(code): String(localized: "That did not work (\(code)).")
         case let .invalidResponse(message), let .operation(message): message
-        case .timedOut: String(localized: "The action has not been confirmed. Refresh before trying again.")
-        case .accountChanged: String(localized: "The account changed before the action completed.")
+        case .timedOut: String(localized: "Kodosi cannot tell if that worked. Check before you try again.")
+        case .accountChanged: String(localized: "Your account changed before that finished.")
         }
     }
 }

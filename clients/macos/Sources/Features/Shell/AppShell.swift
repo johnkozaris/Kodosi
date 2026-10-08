@@ -3,90 +3,36 @@ import SwiftUI
 struct AppShell: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Namespace private var navigation
-    @State private var errorDetails = false
 
     var body: some View {
         @Bindable var workbench = deps.workbench
-        VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Image(theme.isDark ? "KodosiLogoDark" : "KodosiLogo")
-                    .resizable().scaledToFit().frame(width: 30, height: 30)
-                    .accessibilityLabel(Text("Kodosi"))
-                ForEach([WorkbenchState.Section.sessions, .missions, .people]) { section in
-                    Button { withAnimation(reduceMotion ? nil : theme.motion.selection) { workbench.section = section } } label: {
-                        Label(section.label, systemImage: section.symbol)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(workbench.section == section ? theme.colors.primary : theme.colors.mutedForeground)
-                            .padding(.horizontal, 12).padding(.vertical, 8)
-                            .background {
-                                if workbench.section == section {
-                                    RoundedRectangle(cornerRadius: 9).fill(theme.colors.secondary).matchedGeometryEffect(
-                                        id: "navigation",
-                                        in: navigation
-                                    )
-                                }
-                            }
+        ZStack {
+            GroundBackdrop()
+            HStack(spacing: 0) {
+                SidebarView()
+                    .frame(width: workbench.sidebarCollapsed ? Metrics.sidebarRailWidth : Metrics.sidebarWidth)
+                destination
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background {
+                        RaisedBackground(
+                            shape: RoundedRectangle(cornerRadius: Radius.xl, style: .continuous),
+                            fill: theme.colors.surface, elevation: .resting
+                        )
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("header.\(section.rawValue)")
-                    .accessibilityAddTraits(workbench.section == section ? .isSelected : [])
-                }
-                Spacer()
-                if let prompt = deps.signInPrompt {
-                    Button { deps.beginSignIn() }
-                        label: { Text(prompt).frame(height: 20) }
-                        .buttonStyle(SolidPrimaryButtonStyle())
-                        .accessibilityIdentifier("header.signIn")
-                }
-                Button {
-                    workbench.section = .settings
-                } label: {
-                    Image(systemName: "gearshape").font(.system(size: 17, weight: .medium)).frame(width: 20, height: 20)
-                }
-                .buttonStyle(SolidSecondaryButtonStyle())
-                .help("Settings").accessibilityLabel(Text("Settings"))
-                .accessibilityIdentifier("header.settings")
+                    .padding([.top, .trailing, .bottom], Metrics.frameInset)
             }
-            .padding(.horizontal, 16).padding(.vertical, 10)
-            .background(theme.colors.surfacePanel).seamBorder(.bottom)
-            if let error = deps.errorMessage {
-                HStack(spacing: 10) {
-                    Image(systemName: "exclamationmark.triangle").accessibilityHidden(true)
-                    Button("Action failed") { errorDetails = true }.buttonStyle(.plain)
-                        .popover(isPresented: $errorDetails) { Text(error).textSelection(.enabled).padding(18).frame(maxWidth: 380) }
-                    Spacer()
-                    Button { deps.errorMessage = nil } label: { Image(systemName: "xmark") }
-                        .buttonStyle(.plain).accessibilityLabel(Text("Dismiss error"))
-                        .accessibilityIdentifier("shell.error.dismiss")
-                }
-                .foregroundStyle(theme.colors.destructive)
-                .padding(12).background(theme.colors.surfacePanel)
-                .accessibilityIdentifier("shell.error")
+            .overlay(alignment: .top) { notice }
+            if workbench.showsPalette {
+                CommandPalette().transition(.opacity)
             }
-            ZStack {
-                switch workbench.section {
-                case .sessions:
-                    HStack(spacing: 0) {
-                        SessionSidebarView().frame(width: workbench.sidebarCollapsed ? 44 : workbench.sidebarWidth)
-                        TilingStage(workbench: workbench)
-                            .environment(
-                                \.terminalInteractionEnabled,
-                                !workbench.showsHistory && workbench.detailsSessionId == nil && workbench.sharingSessionId == nil
-                            )
-                    }
-                case .missions: MissionsView()
-                case .people: PeopleView()
-                case .settings: SettingsView()
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .buttonStyle(SolidSecondaryButtonStyle())
-        .textFieldStyle(KodosiTextFieldStyle()).toggleStyle(KodosiToggleStyle())
-        .background(theme.colors.background)
+        .ignoresSafeArea()
+        .buttonStyle(.kodosi(.secondary))
+        .textFieldStyle(WellTextFieldStyle()).toggleStyle(SwitchToggleStyle())
+        .animation(theme.motion.spring, value: deps.errorMessage)
+        .animation(theme.motion.fade, value: workbench.showsPalette)
         .sheet(isPresented: $workbench.showsHistory) { HistoryView() }
+        .sheet(isPresented: $workbench.showsNewRoom) { NewRoomSheet() }
         .sheet(isPresented: Binding(get: { deps.signInPresented }, set: {
             if !$0 {
                 deps.dismissSignIn()
@@ -108,5 +54,39 @@ struct AppShell: View {
         }
         .onChange(of: workbench.stagedSessionIds) { _, _ in deps.reconcileTerminals() }
         .onChange(of: workbench.focusedSessionId) { _, _ in deps.reconcileTerminals() }
+        .onChange(of: workbench.selectedSessionId) { _, id in
+            if let id {
+                deps.attention.remove(id)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var destination: some View {
+        let workbench = deps.workbench
+        switch workbench.section {
+        case .sessions:
+            TilingStage(workbench: workbench)
+                .environment(\.terminalInteractionEnabled, terminalsInteractive)
+        case .missions: MissionsView()
+        case .people: PeopleView()
+        case .settings: SettingsView()
+        }
+    }
+
+    private var terminalsInteractive: Bool {
+        let workbench = deps.workbench
+        return !workbench.showsHistory && !workbench.showsPalette && !workbench.showsNewRoom
+            && workbench.detailsSessionId == nil && workbench.sharingSessionId == nil
+    }
+
+    @ViewBuilder
+    private var notice: some View {
+        if let error = deps.errorMessage {
+            NoticePill(message: error, identifier: "shell.error") { deps.errorMessage = nil }
+                .padding(.top, Metrics.frameInset + 10)
+                .padding(.leading, deps.workbench.sidebarCollapsed ? Metrics.sidebarRailWidth : Metrics.sidebarWidth)
+                .transition(.move(edge: .top).combined(with: .opacity))
+        }
     }
 }

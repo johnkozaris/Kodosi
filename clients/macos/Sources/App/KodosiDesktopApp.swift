@@ -11,8 +11,8 @@ struct KodosiDesktopApp: App {
                 .kodosiTheme()
                 .defaultAppStorage(appDelegate.storageBootstrap.defaults)
         }
-        .windowStyle(.automatic)
-        .defaultSize(width: 1200, height: 800)
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 1280, height: 820)
         .commands { KodosiCommands(dependencies: appDelegate.dependencies) }
     }
 }
@@ -25,50 +25,57 @@ struct RootView: View {
         Group {
             switch deps.appState {
             case .launching:
-                ProgressView("Starting Kodosi…")
+                VStack(spacing: 18) {
+                    KodosiWordmark(size: 30)
+                    Text("Starting").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).shimmer()
+                }
+                .accessibilityElement(children: .ignore).accessibilityLabel(Text("Starting Kodosi…"))
             case .ready:
                 AppShell()
             case let .error(message):
-                VStack(spacing: 16) {
-                    Text("Kodosi couldn’t start").appTextStyle(.headingSection)
-                    Text(message).appTextStyle(.body).foregroundStyle(theme.colors.mutedForeground)
-                        .multilineTextAlignment(.center).frame(maxWidth: 500)
-                    Button("Restart runtime") { deps.retryStartup() }
-                        .buttonStyle(SolidPrimaryButtonStyle())
-                        .accessibilityIdentifier("root.error.retry")
+                EmptyState(title: "Kodosi could not start") {
+                    KodosiWordmark(size: 24, blinks: false)
+                } actions: {
+                    VStack(spacing: 16) {
+                        Text(message).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                            .multilineTextAlignment(.center).frame(maxWidth: 460).textSelection(.enabled)
+                        Button("Start again") { deps.retryStartup() }
+                            .buttonStyle(.kodosi(.primary, size: .large))
+                            .accessibilityIdentifier("root.error.retry")
+                    }
                 }
-                .padding(24)
             case let .hostConflict(failure):
-                VStack(spacing: 16) {
-                    Text("Another Kodosi host is running").appTextStyle(.headingSection)
-                    Text(Self.describe(failure)).appTextStyle(.body).foregroundStyle(theme.colors.mutedForeground)
-                        .multilineTextAlignment(.center).frame(maxWidth: 500)
-                    if let notice = deps.errorMessage {
-                        Text(notice).appTextStyle(.body).foregroundStyle(theme.colors.mutedForeground)
-                            .multilineTextAlignment(.center).frame(maxWidth: 500)
-                    }
-                    HStack(spacing: 12) {
-                        if failure.resolution == .quitDuplicateApp {
-                            Button("Quit") { NSApplication.shared.terminate(nil) }
-                                .buttonStyle(SolidPrimaryButtonStyle())
-                                .accessibilityIdentifier("root.hostConflict.quit")
-                        } else {
-                            Button(failure.hostLocalSessions == 0
-                                ? String(localized: "Stop that host")
-                                : String(localized: "Stop that host and its terminals")) { deps.stopConflictingHost() }
-                                .buttonStyle(SolidPrimaryButtonStyle())
-                                .accessibilityIdentifier("root.hostConflict.stop")
+                EmptyState(title: "Kodosi is already running") {
+                    KodosiWordmark(size: 24, blinks: false)
+                } actions: {
+                    VStack(spacing: 16) {
+                        Text(Self.describe(failure)).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                            .multilineTextAlignment(.center).frame(maxWidth: 460)
+                        if let notice = deps.errorMessage {
+                            ErrorNote(message: notice).frame(maxWidth: 460)
                         }
-                        Button("Try again") { deps.retryStartup() }
-                            .buttonStyle(.bordered)
-                            .accessibilityIdentifier("root.hostConflict.retry")
+                        HStack(spacing: 8) {
+                            Button("Try again") { deps.retryStartup() }
+                                .buttonStyle(.kodosi(.secondary, size: .large))
+                                .accessibilityIdentifier("root.hostConflict.retry")
+                            if failure.resolution == .quitDuplicateApp {
+                                Button("Quit") { NSApplication.shared.terminate(nil) }
+                                    .buttonStyle(.kodosi(.primary, size: .large))
+                                    .accessibilityIdentifier("root.hostConflict.quit")
+                            } else {
+                                Button(failure.hostLocalSessions == 0
+                                    ? String(localized: "Stop the other one")
+                                    : String(localized: "Stop it and its terminals")) { deps.stopConflictingHost() }
+                                    .buttonStyle(.kodosi(.primary, size: .large))
+                                    .accessibilityIdentifier("root.hostConflict.stop")
+                            }
+                        }
                     }
                 }
-                .padding(24)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(theme.colors.background)
+        .background { GroundBackdrop() }
         .onChange(of: theme.isDark, initial: true) { _, dark in
             if case .ready = deps.appState {
                 deps.commandSink.setHostTheme(dark: dark)
@@ -86,16 +93,16 @@ struct RootView: View {
         let pid = String(failure.hostPID)
         switch failure.hostKind {
         case .app:
-            return String(localized: "Kodosi is already open in another window. Use that copy, or quit this one.")
+            return String(localized: "Kodosi is open in another window. Use that one, or quit this one.")
         case .foreground:
             return String(localized: """
-            A host started with `kodosi host` (process \(pid)) is running \(terminals) terminal(s). \
-            Stop it from its terminal, or stop it here.
+            The `kodosi host` command (process \(pid)) runs \(terminals) terminals. \
+            Stop it in its terminal, or stop it here.
             """)
         case .background:
             return String(localized: """
-            A background host started by the kodosi command (process \(pid)) is running \(terminals) terminal(s). \
-            Stopping it ends them.
+            The kodosi command (process \(pid)) runs \(terminals) terminals in the background. \
+            If you stop it, they end.
             """)
         case .unknown:
             return failure.message

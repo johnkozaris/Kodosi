@@ -431,7 +431,7 @@ private extension TerminalSessionManager {
             guard !renderer.receive(data), link.token.deactivate() else { return }
             Task { @MainActor [weak self] in
                 self?.fail(link, message: String(
-                    localized: "Terminal output exceeded the renderer buffer. Retry the terminal to request a bounded snapshot."
+                    localized: "This terminal fell behind. Try again."
                 ))
             }
         }
@@ -451,7 +451,7 @@ private extension TerminalSessionManager {
             guard !controls.push(data), link.token.deactivate() else { return }
             controls.close(overflowed: true)
             Task { @MainActor [weak self] in
-                self?.fail(link, message: String(localized: "Terminal updates exceeded the view buffer. Retry the terminal to reconnect."))
+                self?.fail(link, message: String(localized: "This terminal fell behind. Try again."))
             }
         }
     }

@@ -11,6 +11,11 @@ struct SessionFolderGroup: Identifiable {
         return URL(fileURLWithPath: directory).lastPathComponent
     }
 
+    var label: String {
+        guard let host else { return name }
+        return directory == nil ? host : "\(name) · \(host)"
+    }
+
     static func groups(_ sessions: [RuntimeSession]) -> [Self] {
         let grouped = Dictionary(grouping: sessions) { session in
             "\(session.kind == .local ? "local" : session.hostDeviceId ?? session.ownerUserId ?? session.id):\(session.workingDir ?? "")"
