@@ -9,7 +9,7 @@ Linux desktop
 ## Purpose
 
 Kodosi brings people and coding agents together through room-shared terminals and
-conversation. Shared behavior and current implementation gaps live in
+conversation. Shared behavior and current implementation live in
 [Kodosi's PRODUCT.md](../../PRODUCT.md).
 
 ## Principles

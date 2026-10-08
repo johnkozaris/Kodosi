@@ -1,37 +1,62 @@
-# Security direction
+# Security
 
-Kodosi's product requirement is end-to-end encryption of terminal traffic and room
-content. Participants have full control of shared terminals; restricted roles and
-sandboxing are not part of this model. See [PRODUCT.md](../PRODUCT.md) for room sharing
-and the capabilities still to build.
+Kodosi encrypts terminal traffic and room content end to end. Private keys stay on
+participant devices. The backend routes connections and stores encrypted room data;
+it does not run terminal commands or receive their plaintext.
 
-## Current terminal implementation
+Sharing a terminal grants full control with the host user's operating-system
+privileges, including typing, interrupting, and closing. Everyone admitted to its
+room can use that shared terminal, including members invited later. This is the
+product's collaboration model.
 
-- A new device shows a code. The user types it on an approved device. The service
-  never gets the code, so it cannot add a device to an account.
-- Each account keeps a list of friend identities that its own devices sign. A device
-  uses a friend's identity only when it is equal to the recorded one, and shows a
-  changed identity until the user trusts it again. An invite text lets two people
-  verify each other without an extra step.
-- Each view has its own TLS 1.3 channel between the viewer device and the host device,
-  with a new classic and post-quantum key exchange and with both device keys proved.
-  The service copies the encrypted records and holds no terminal key.
-- The host admits a viewer only when the account is its own or one that it shared the
-  terminal with, and the device key is in the verified device list of that account.
-- A sharing change or a device removal closes the affected views at once and does not
-  disturb other viewers.
+## Terminal connections
 
-The reasons, the measured results and the full list of risks are in
-[PROTOCOL-16.md](PROTOCOL-16.md).
+Each viewer has a TLS 1.3 channel to the hosting device, carried through the backend
+relay. The channel authenticates device keys and uses hybrid X25519/ML-KEM-768 key
+exchange. The service copies encrypted records and holds no terminal keys.
 
-## Limits
+The host checks sharing against signed account/device identities and room membership.
+Sharing changes and device removal close affected views without disturbing other
+viewers. Reconnection restores ordered terminal state; input with uncertain delivery
+is not replayed.
 
-- A friend added by username and not verified is taken from the service one time, when
-  the friendship starts. The mark "not verified" shows this.
-- The service reads terminal names, host names, device labels and handles, and sees
-  who connects to whom, when, and padded sizes.
-- A stolen device has the access of that device until an owner removes it.
+## Room content
 
-Room conversation and room-based terminal sharing are not implemented yet. Their
-encryption must follow the product's membership and sharing behavior. The current
-per-person terminal checks above describe today's code, not a separate product rule.
+Messages, tasks, and repository links are encrypted with AES-256-GCM. Room keys are
+wrapped for participant devices using ML-KEM-768 and HKDF-SHA256. ML-DSA-65 signatures
+authenticate room key state and content.
+
+Membership changes produce signed key history. Removing a member advances the key
+epoch; wrapped prior keys preserve the conversation history available to current
+members and people invited later. Removal cannot erase content someone already read.
+
+## Identity and visible metadata
+
+A new device is approved using a code from that device; the service never receives
+the code. Account devices sign their device lists and friend identity records.
+Invites carry a friend's identity for verification. Adding a friend by username
+without an invite initially relies on the service's identity response; a changed
+identity needs the user's decision to trust it again.
+
+The service can see account and device records, room membership, room and terminal
+metadata, content routing fields, timing, and ciphertext sizes. Encryption does not
+hide that metadata or prevent service interruption. A compromised participant device
+can access what that device could access; removing it stops future authorized access.
+
+GitHub and Gitea credentials stay on the participant's machine. Linked issues retain
+the external provider's visibility and access rules.
+
+The current contracts and source map are in
+[Architecture and protocol](PROTOCOL.md). This describes the implementation; it is
+not a claim of an independent security audit.
+
+## Report a vulnerability
+
+Use [GitHub's private vulnerability reporting](https://github.com/johnkozaris/Kodosi/security/advisories/new).
+Include the affected revision, reproduction steps, impact, and any useful redacted
+logs. Keep exploitable details and private data out of public issues.
+
+For ordinary bugs or feature requests, use
+[GitHub issues](https://github.com/johnkozaris/Kodosi/issues).
+
+[All documentation](README.md)

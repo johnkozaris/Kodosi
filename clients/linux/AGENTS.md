@@ -1,6 +1,6 @@
 # Kodosi for Linux agent guide
 
-Read `../../PRODUCT.md` for shared product intent and implementation gaps,
+Read `../../PRODUCT.md` for shared product intent and current behavior,
 `PRODUCT.md` for Linux behavior, and `DESIGN.md` before changing the interface.
 
 ## Boundary

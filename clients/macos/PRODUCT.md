@@ -1,6 +1,6 @@
 # Kodosi for macOS
 
-Shared product intent and current implementation gaps live in
+Shared product intent and current behavior live in
 [Kodosi's PRODUCT.md](../../PRODUCT.md). This file describes the Mac experience.
 
 ## Sessions
