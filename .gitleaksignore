@@ -1,0 +1,5 @@
+# Historical contract/redaction fixtures reviewed as dummy credentials.
+3858d0d5d51a975bc0b408c9087319dc6d1a11cb:dotnetBackend/tests/Kodosi.ArchitectureTests/HttpJsonContractTests.cs:generic-api-key:136
+3858d0d5d51a975bc0b408c9087319dc6d1a11cb:dotnetBackend/tests/Kodosi.ArchitectureTests/HttpJsonContractTests.cs:generic-api-key:194
+3858d0d5d51a975bc0b408c9087319dc6d1a11cb:dotnetBackend/tests/Kodosi.ArchitectureTests/HttpJsonContractTests.cs:generic-api-key:31
+3858d0d5d51a975bc0b408c9087319dc6d1a11cb:rustProcess/crates/agent-intel/src/claude/transcript.rs:curl-auth-header:156

@@ -64,7 +64,7 @@ set(KODOSI_RUNTIME_HEADER_DIR "${KODOSI_RUNTIME_BUNDLE}/include")
 set(KODOSI_RUNTIME_ARCHIVE "${KODOSI_RUNTIME_BUNDLE}/libkodosi_ffi_c.a")
 set(
     KODOSI_RUNTIME_CLI
-    "${KODOSI_RUNTIME_ROOT}/runtime/target/release/kodosi"
+    "${KODOSI_RUNTIME_ROOT}/runtime/target/${KODOSI_RUST_TARGET}/release/kodosi"
 )
 file(MAKE_DIRECTORY "${KODOSI_RUNTIME_BUNDLE_ROOT}")
 set(
@@ -151,6 +151,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
             "${CARGO_EXECUTABLE}" build
             --manifest-path "${KODOSI_RUNTIME_MANIFEST}"
             --locked
+            --target "${KODOSI_RUST_TARGET}"
             --release
             -p kodosi-runtime
             --bin kodosi
