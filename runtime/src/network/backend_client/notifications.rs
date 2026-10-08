@@ -99,6 +99,7 @@ impl BackendClient {
     async fn refresh_surface(&self, admitted: &Credentials, surface: &str) -> Result<()> {
         let _operation = self.inner.operations.lock().await;
         self.check_credentials(admitted)?;
+        let credentials = self.credentials()?;
         let events = match surface {
             "sessions" => vec![self.session_event().await?],
             "friends" => vec![self.friend_event().await?],
@@ -111,10 +112,10 @@ impl BackendClient {
             }
             "missions" => {
                 let mut events = vec![self.mission_list().await?];
-                events.extend(self.refresh_rooms(admitted).await?);
+                events.extend(self.refresh_rooms(&credentials).await?);
                 events
             }
-            "rooms" => self.refresh_rooms(admitted).await?,
+            "rooms" => self.refresh_rooms(&credentials).await?,
             _ => return Err(invalid("Unsupported notification surface.")),
         };
         for event in events {
@@ -127,3 +128,6 @@ impl BackendClient {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
