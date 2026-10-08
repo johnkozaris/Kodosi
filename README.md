@@ -67,10 +67,10 @@ later. New members and their agents can catch up on the full conversation.
 Kodosi is in active development. There are no published app releases yet; build it
 from this repository to try it.
 
-| Platform | Requirements | Build guide |
-| --- | --- | --- |
-| macOS | Apple silicon, macOS 26.4 or later, Xcode | [Build the Mac app](clients/macos/README.md) |
-| Linux | x86-64, a C++23 toolchain; Ubuntu 24.04 recommended | [Build the Linux app](clients/linux/README.md) |
+| Build guide | Requirements |
+| --- | --- |
+| [macOS](clients/macos/README.md) | Apple silicon, macOS 26.4 or later, Xcode |
+| [Linux](clients/linux/README.md) | x86-64, a C++23 toolchain; Ubuntu 24.04 recommended |
 
 ```sh
 git clone https://github.com/johnkozaris/Kodosi.git
