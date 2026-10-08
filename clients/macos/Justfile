@@ -1,0 +1,105 @@
+ghostty_dir := env('KODOSI_GHOSTTY_DIR', justfile_directory() + "/../../terminal/ghostty")
+
+export KODOSI_GHOSTTY_DIR := ghostty_dir
+
+default: all
+
+ghostty:
+    scripts/build/verify-ghostty-checkout.sh
+
+rust-debug: ghostty
+    scripts/build/rust-lib-debug.sh
+
+xcode-gen:
+    scripts/build/xcode-gen.sh
+
+package-test: ghostty
+    swift test \
+        --package-path Packages/KodosiTerminal
+
+lint:
+    scripts/build/lint.sh
+
+format:
+    swiftformat Sources Tests Packages/KodosiTerminal/Sources Packages/KodosiTerminal/Tests --swiftversion 6.0
+
+test: xcode-gen package-test
+    xcodebuild -project KodosiDesktop.xcodeproj \
+        -scheme KodosiDesktop \
+        -configuration Debug \
+        -destination 'platform=macOS' \
+        test
+
+build-debug: xcode-gen package-test
+    xcodebuild -project KodosiDesktop.xcodeproj \
+        -scheme KodosiDesktop \
+        -configuration Debug \
+        -destination 'platform=macOS' \
+        build
+
+build-release: ghostty xcode-gen package-test
+    xcodebuild -project KodosiDesktop.xcodeproj \
+        -scheme KodosiDesktop \
+        -configuration Release \
+        -destination 'generic/platform=macOS' \
+        build
+
+archive-working-tree: xcode-gen
+    KODOSI_WORKING_TREE_VALIDATION=1 scripts/build/verify-ghostty-checkout.sh
+    KODOSI_WORKING_TREE_VALIDATION=1 swift test \
+        --package-path Packages/KodosiTerminal
+    KODOSI_WORKING_TREE_VALIDATION=1 xcodebuild -project KodosiDesktop.xcodeproj \
+        -scheme WorkingTreeValidation \
+        -configuration WorkingTreeValidation \
+        -archivePath build/working-tree/KodosiDesktop.xcarchive \
+        -destination 'generic/platform=macOS' \
+        archive
+
+release-graph-verifier:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root="{{ justfile_directory() }}"
+    source "$root/scripts/build/deployment-target.sh"
+    kodosi_load_macos_deployment_target "$root"
+    (
+        cd "$root"
+        Tests/Tooling/test-rust-archive-verifier.sh "$KODOSI_MACOS_DEPLOYMENT_TARGET" arm64
+    )
+    "$root/Tests/Tooling/publishability-verifier-test.sh"
+    "$root/Tests/Tooling/ghostty-link-provenance-verifier-test.sh"
+    "$root/Tests/Tooling/generated-project-verifier-test.sh"
+
+signature-verifier:
+    Tests/Tooling/signature-verifier-test.sh
+
+native-notice-verifier:
+    Tests/Tooling/native-notice-verifier-test.sh
+
+ci: lint release-graph-verifier signature-verifier native-notice-verifier package-test
+    xcodebuild -project KodosiDesktop.xcodeproj \
+        -scheme KodosiDesktop \
+        -configuration Debug \
+        -destination 'platform=macOS' \
+        test
+    xcodebuild -project KodosiDesktop.xcodeproj \
+        -scheme KodosiDesktop \
+        -configuration Release \
+        -destination 'generic/platform=macOS' \
+        build
+
+all: lint test build-release
+
+verify-signed:
+    scripts/release/verify-signed.sh
+
+export-signed:
+    scripts/release/export.sh
+
+notarize:
+    scripts/release/notarize.sh
+
+dmg:
+    scripts/release/dmg.sh
+
+local-cask:
+    scripts/release/local-cask.sh

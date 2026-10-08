@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "frameworks": {
+    "qt": {
+      "version": "6.11.2",
+      "released": "2026-08-18",
+      "source": "https://download.qt.io/official_releases/qt/6.11/6.11.2/"
+    }
+  },
+  "tools": {
+    "uv": {
+      "version": "0.12.7",
+      "source": "https://github.com/astral-sh/uv/releases/tag/0.12.7"
+    },
+    "just": {
+      "version": "1.58.0",
+      "sha256": {
+        "linux-x86_64-musl": "4a5cc2f53e6f0f8c59092a6cc38291eb729d46a7dd95d3ae582008881b84931d"
+      },
+      "source": "https://github.com/casey/just/releases/tag/1.58.0"
+    },
+    "cmake": {
+      "version": "4.4.3",
+      "sha256": {
+        "linux-x86_64": "d6c83076c575bc00b823522ac974bda66d0af05d6ddc30e739c12385cf32c6cc"
+      },
+      "source": "https://github.com/Kitware/CMake/releases/tag/v4.4.3"
+    },
+    "aqtinstall": {
+      "version": "3.3.0",
+      "source": "https://github.com/miurahr/aqtinstall/releases/tag/v3.3.0"
+    },
+    "ninja": {
+      "version": "1.13.2",
+      "sha256": {
+        "linux-x86_64": "5749cbc4e668273514150a80e387a957f933c6ed3f5f11e03fb30955e2bbead6"
+      },
+      "source": "https://github.com/ninja-build/ninja/releases/tag/v1.13.2"
+    }
+  },
+  "kodosi": {
+    "ffiAbiVersion": 7,
+    "desktopProtocolVersion": 50
+  },
+  "ghostty": {
+    "repository": "ghostty-org/ghostty",
+    "versioning": "unversioned-libghostty-tip"
+  }
+}

@@ -8,9 +8,9 @@ exclusions or add permission tiers, sandboxing, or agent workflow machinery by d
 - `runtime/` owns live terminals, identity, and encrypted endpoint connections.
 - `backend/` stores shared metadata and routes encrypted terminal traffic. Run one serving
   backend process.
-- `../KodosiMac` and `../KodosiUI` are the native macOS and Linux clients.
+- `clients/macos/` and `clients/linux/` are the native macOS and Linux clients.
 - `protocol/` contains the current cross-stack contracts generated from Rust. Keep the
-  native Ghostty pins and provenance checks aligned across repositories.
+  native Ghostty pins and provenance checks aligned with `terminal/ghostty/`.
 
 - Minimize dismisses a terminal view without ending its process; Close ends the
   terminal; quitting its host ends local processes.

@@ -1,21 +1,34 @@
 # Kodosi
 
-Kodosi runs terminals on your computer and lets you use them from approved devices or
-share selected terminals with other people. The product direction is rooms where
-people and agents share terminals and a conversation.
+Kodosi brings people and coding agents together in shared rooms. Share terminals,
+work in the same conversation, and pick up tasks across repositories and machines.
+Terminal traffic and room content are end-to-end encrypted.
 
-See [PRODUCT.md](PRODUCT.md) for intended behavior and current implementation gaps, and
-[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for working on the repository.
+## Source
 
-## Repository
+- `runtime/`: Rust terminal runtime, CLI, identity, encrypted transport and native API.
+- `backend/`: shared metadata and encrypted traffic relay.
+- `protocol/`: generated contracts shared by the runtime, backend and clients.
+- `clients/macos/`: native Swift macOS client.
+- `clients/linux/`: native Qt Linux client.
+- `terminal/ghostty/`: Ghostty integration, patches, native libraries and notices.
 
-- `runtime/`: terminal runtime, CLI, identity, encrypted transport, and native API.
-- `backend/`: shared metadata and live encrypted terminal connections.
-- `protocol/`: current generated cross-stack contracts.
-- `../KodosiMac`: native macOS client.
-- `../KodosiUI`: native Linux Qt client.
-- `../kodosi-ghostty`: pinned terminal engine.
+One checkout contains the product. Upstream dependencies and build tools remain
+pinned; no sibling Kodosi repositories or Git submodules are required.
+
+## Development
+
+See [development setup](docs/DEVELOPMENT.md) for tools and commands, and
+[PRODUCT.md](PRODUCT.md) for intended behavior. Run `just --list` for the current
+build and check commands. Mac and Linux clients build on their respective platforms.
+
+Real credentials, signing keys and local sessions belong outside Git. Environment
+examples and test fixtures must use dummy values. The public server addresses,
+OAuth public-client ID and Apple signing team identifier are intentional public
+configuration.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Kodosi is MIT licensed. See [LICENSE](LICENSE). Third-party licenses and required
+source/relinking materials accompany the native components under
+`terminal/ghostty/` and `clients/linux/packaging/licenses/`.

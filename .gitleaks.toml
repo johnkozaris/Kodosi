@@ -1,0 +1,9 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+[[rules.allowlists]]
+description = "Public key-exchange algorithm name in the generated protocol"
+regexTarget = "secret"
+regexes = ['^X25519MLKEM768$']

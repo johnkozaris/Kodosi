@@ -1,0 +1,13 @@
+diff --git a/src/Surface.zig b/src/Surface.zig
+--- a/src/Surface.zig
++++ b/src/Surface.zig
+@@ -6179,7 +6179,8 @@ fn startClipboardRequest(
+             // Event pastes request only a MIME listing, while ordinary
+             // pastes request the text representation as before.
+             self.renderer_state.mutex.lockUncancelable(global.io());
+-            const event = self.io.terminal.modes.get(.kitty_paste_events);
++            const event = std.meta.activeTag(self.io.backend) != .host_managed and
++                self.io.terminal.modes.get(.kitty_paste_events);
+             self.renderer_state.mutex.unlock(global.io());
+ 
+             break :effective if (event)

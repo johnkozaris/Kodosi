@@ -2,7 +2,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 
 cargo_tools_root := justfile_directory() + "/.tools/rust"
 cargo_tools_bin := cargo_tools_root + "/bin"
-ghostty_dir := env('KODOSI_GHOSTTY_DIR', justfile_directory() + "/../kodosi-ghostty")
+ghostty_dir := env('KODOSI_GHOSTTY_DIR', justfile_directory() + "/terminal/ghostty")
 
 export PATH := justfile_directory() + "/backend/.tools/dotnet-10.0.401:" + cargo_tools_bin + ":" + env('PATH')
 export KODOSI_GHOSTTY_DIR := ghostty_dir
@@ -24,27 +24,8 @@ _dependency-tools:
 _coverage-tool:
     @test -x {{ cargo_tools_bin }}/cargo-llvm-cov || { printf '%s\n' 'Run just rust-tools-install first.' >&2; exit 1; }
 
-rust-pin-parity:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    package_commit=""
-    macos_upstream_commit=""
-    linux_upstream_commit=""
-    while IFS='=' read -r key value; do
-        case "$key" in
-            package_commit) package_commit="$value" ;;
-            upstream_commit) macos_upstream_commit="$value" ;;
-            linux_upstream_commit) linux_upstream_commit="$value" ;;
-        esac
-    done < Ghostty.lock
-    test -n "$package_commit"
-    test -n "$macos_upstream_commit"
-    test -n "$linux_upstream_commit"
-    test "$package_commit" = "$(git -C "$KODOSI_GHOSTTY_DIR" rev-parse HEAD)"
-    test "$macos_upstream_commit" = "$(tr -d '[:space:]' < "$KODOSI_GHOSTTY_DIR/MacOSGhostty.ref")"
-    test "$linux_upstream_commit" = "$(tr -d '[:space:]' < "$KODOSI_GHOSTTY_DIR/LinuxGhostty.ref")"
-    bash scripts/verify-ghostty-lock-parity.sh
-    bash scripts/test-ghostty-lock-parity.sh
+ghostty-verify:
+    scripts/verify-ghostty.sh
 
 rust-build:
     cargo build --manifest-path runtime/Cargo.toml --locked --workspace
@@ -108,7 +89,7 @@ protocol-gen:
 protocol-check:
     cargo run --manifest-path runtime/Cargo.toml --locked --bin protocol-gen -- check
 
-rust-all: rust-pin-parity rust-fmt rust-check rust-doc rust-clippy rust-dependency-hygiene protocol-check rust-test rust-coverage-check
+rust-all: ghostty-verify rust-fmt rust-check rust-doc rust-clippy rust-dependency-hygiene protocol-check rust-test rust-coverage-check
 
 rust-clean:
     cargo clean --manifest-path runtime/Cargo.toml
@@ -140,3 +121,15 @@ backend-docker-logs:
 backend-all: backend-test
 
 check-all: rust-all backend-all
+
+mac-build:
+    just --justfile clients/macos/Justfile build-debug
+
+mac-check:
+    just --justfile clients/macos/Justfile ci
+
+linux-build:
+    just --justfile clients/linux/justfile build
+
+linux-check:
+    just --justfile clients/linux/justfile check

@@ -1,0 +1,195 @@
+diff --git a/src/build/Config.zig b/src/build/Config.zig
+index c90f3781b..79ff82640 100644
+--- a/src/build/Config.zig
++++ b/src/build/Config.zig
+@@ -31,6 +31,7 @@ font_backend: FontBackend = .freetype,
+ x11: bool = false,
+ wayland: bool = false,
+ sentry: bool = true,
++custom_shaders: bool = true, // LIBGHOSTTY_SPM_TRIM_PATCH
+ simd: bool = true,
+ i18n: bool = true,
+ wasm_shared: bool = true,
+@@ -235,6 +236,18 @@ pub fn init(b: *std.Build, appVersion: []const u8, libVersion: []const u8) !Conf
+         }
+     };
+ 
++    config.custom_shaders = b.option(
++        bool,
++        "custom-shaders",
++        "Build with custom shader (glslang/spirv-cross) support.",
++    ) orelse true;
++
++    config.inspector = b.option(
++        bool,
++        "inspector",
++        "Build with terminal inspector (dcimgui) support.",
++    ) orelse true;
++
+     config.simd = b.option(
+         bool,
+         "simd",
+@@ -663,6 +676,8 @@ pub fn addOptions(self: *const Config, step: *std.Build.Step.Options) !void {
+     step.addOption(bool, "x11", self.x11);
+     step.addOption(bool, "wayland", self.wayland);
+     step.addOption(bool, "sentry", self.sentry);
++    step.addOption(bool, "custom_shaders", self.custom_shaders);
++    step.addOption(bool, "inspector", self.inspector);
+     step.addOption(bool, "simd", self.simd);
+     step.addOption(bool, "i18n", self.i18n);
+     step.addOption(ApprtRuntime, "app_runtime", self.app_runtime);
+diff --git a/src/build/SharedDeps.zig b/src/build/SharedDeps.zig
+index 86cfecc05..d87062b57 100644
+--- a/src/build/SharedDeps.zig
++++ b/src/build/SharedDeps.zig
+@@ -362,44 +362,48 @@ pub fn add(
+         }
+     }
+ 
+-    // Glslang
+-    if (b.lazyDependency("glslang", .{
+-        .target = target,
+-        .optimize = optimize,
+-    })) |glslang_dep| {
+-        step.root_module.addImport("glslang", glslang_dep.module("glslang"));
+-        if (b.systemIntegrationOption("glslang", .{})) {
+-            step.root_module.linkSystemLibrary("glslang", dynamic_link_opts);
+-            step.root_module.linkSystemLibrary(
+-                "glslang-default-resource-limits",
+-                dynamic_link_opts,
+-            );
+-        } else {
+-            step.root_module.linkLibrary(glslang_dep.artifact("glslang"));
+-            try static_libs.append(
+-                b.allocator,
+-                glslang_dep.artifact("glslang").getEmittedBin(),
+-            );
++    // Glslang — only needed for custom shaders
++    if (self.config.custom_shaders) {
++        if (b.lazyDependency("glslang", .{
++            .target = target,
++            .optimize = optimize,
++        })) |glslang_dep| {
++            step.root_module.addImport("glslang", glslang_dep.module("glslang"));
++            if (b.systemIntegrationOption("glslang", .{})) {
++                step.root_module.linkSystemLibrary("glslang", dynamic_link_opts);
++                step.root_module.linkSystemLibrary(
++                    "glslang-default-resource-limits",
++                    dynamic_link_opts,
++                );
++            } else {
++                step.root_module.linkLibrary(glslang_dep.artifact("glslang"));
++                try static_libs.append(
++                    b.allocator,
++                    glslang_dep.artifact("glslang").getEmittedBin(),
++                );
++            }
+         }
+     }
+ 
+-    // Spirv-cross
+-    if (b.lazyDependency("spirv_cross", .{
+-        .target = target,
+-        .optimize = optimize,
+-    })) |spirv_cross_dep| {
+-        step.root_module.addImport(
+-            "spirv_cross",
+-            spirv_cross_dep.module("spirv_cross"),
+-        );
+-        if (b.systemIntegrationOption("spirv-cross", .{})) {
+-            step.root_module.linkSystemLibrary("spirv-cross-c-shared", dynamic_link_opts);
+-        } else {
+-            step.root_module.linkLibrary(spirv_cross_dep.artifact("spirv_cross"));
+-            try static_libs.append(
+-                b.allocator,
+-                spirv_cross_dep.artifact("spirv_cross").getEmittedBin(),
++    // Spirv-cross — only needed for custom shaders
++    if (self.config.custom_shaders) {
++        if (b.lazyDependency("spirv_cross", .{
++            .target = target,
++            .optimize = optimize,
++        })) |spirv_cross_dep| {
++            step.root_module.addImport(
++                "spirv_cross",
++                spirv_cross_dep.module("spirv_cross"),
+             );
++            if (b.systemIntegrationOption("spirv-cross", .{})) {
++                step.root_module.linkSystemLibrary("spirv-cross-c-shared", dynamic_link_opts);
++            } else {
++                step.root_module.linkLibrary(spirv_cross_dep.artifact("spirv_cross"));
++                try static_libs.append(
++                    b.allocator,
++                    spirv_cross_dep.artifact("spirv_cross").getEmittedBin(),
++                );
++            }
+         }
+     }
+ 
+@@ -593,8 +597,8 @@ pub fn add(
+         }
+     }
+ 
+-    // cimgui
+-    if (b.lazyDependency("dcimgui", .{
++    // cimgui — only needed for inspector
++    if (self.config.inspector) if (b.lazyDependency("dcimgui", .{
+         .target = target,
+         .optimize = optimize,
+         .freetype = true,
+@@ -610,7 +614,7 @@ pub fn add(
+             b.allocator,
+             dep.artifact("dcimgui").getEmittedBin(),
+         );
+-    }
++    };
+ 
+     // Fonts
+     {
+diff --git a/src/build_config.zig b/src/build_config.zig
+index c19f7372b..9db41ad66 100644
+--- a/src/build_config.zig
++++ b/src/build_config.zig
+@@ -5,6 +5,8 @@
+ const std = @import("std");
+ const builtin = @import("builtin");
+ const options = @import("build_options");
++pub const custom_shaders = options.custom_shaders;
++pub const inspector = options.inspector;
+ const assert = std.debug.assert;
+ const apprt = @import("apprt.zig");
+ const font = @import("font/main.zig");
+diff --git a/src/global.zig b/src/global.zig
+index 3312039a9..daf8b8ff3 100644
+--- a/src/global.zig
++++ b/src/global.zig
+@@ -5,7 +5,9 @@ const build_options = @import("build_options");
+ const cli = @import("cli.zig");
+ const internal_os = @import("os/main.zig");
+ const fontconfig = @import("fontconfig");
+-const glslang = @import("glslang");
++const glslang = if (build_config.custom_shaders) @import("glslang") else struct {
++    pub fn init() !void {}
++};
+ const harfbuzz = @import("harfbuzz");
+ const oni = @import("oniguruma");
+ const crash = @import("crash/main.zig");
+diff --git a/src/renderer/shadertoy.zig b/src/renderer/shadertoy.zig
+index 6dee18b04..d65c51d58 100644
+--- a/src/renderer/shadertoy.zig
++++ b/src/renderer/shadertoy.zig
+@@ -2,6 +2,7 @@ const std = @import("std");
+ const builtin = @import("builtin");
+ const Allocator = std.mem.Allocator;
+ const ArenaAllocator = std.heap.ArenaAllocator;
++const build_config = @import("../build_config.zig");
+ const glslang = @import("glslang");
+ const spvcross = @import("spirv_cross");
+ const configpkg = @import("../config.zig");
+@@ -51,6 +52,7 @@ pub fn loadFromFiles(
+     paths: configpkg.RepeatablePath,
+     target: Target,
+ ) ![]const [:0]const u8 {
++    if (comptime !build_config.custom_shaders) return &.{};
+     var list: std.ArrayList([:0]const u8) = .empty;
+     defer list.deinit(alloc_gpa);
+     errdefer for (list.items) |shader| alloc_gpa.free(shader);

@@ -1,0 +1,107 @@
+diff --git a/src/build/Config.zig b/src/build/Config.zig
+index adad12f5c..fb8adfe0f 100644
+--- a/src/build/Config.zig
++++ b/src/build/Config.zig
+@@ -735,6 +735,7 @@ pub fn terminalOptions(
+         .artifact = artifact,
+         .simd = self.simd,
+         .oniguruma = true,
++        .tmux_control_mode = true,
+         .c_abi = false,
+         // The application requires every feature; only lib artifacts
+         // may trim them.
+diff --git a/src/build/GhosttyZig.zig b/src/build/GhosttyZig.zig
+index 46ab05d56..488d51597 100644
+--- a/src/build/GhosttyZig.zig
++++ b/src/build/GhosttyZig.zig
+@@ -70,6 +70,7 @@ fn initInner(
+     // We should expose this as a build option in the future so we can
+     // conditionally do this.
+     vt_options.oniguruma = false;
++    vt_options.tmux_control_mode = false;
+ 
+     var simd_libs: SharedDeps.LazyPathList = .empty;
+ 
+diff --git a/src/build/SharedDeps.zig b/src/build/SharedDeps.zig
+index af12227dd..53d72e52a 100644
+--- a/src/build/SharedDeps.zig
++++ b/src/build/SharedDeps.zig
+@@ -180,7 +180,10 @@ pub fn add(
+ 
+     // Every exe needs the terminal options
+     var terminal_options = self.config.terminalOptions(.ghostty, optimize);
+-    if (self.config.emit_combined_lib) terminal_options.c_abi = true;
++    if (self.config.emit_combined_lib) {
++        terminal_options.c_abi = true;
++        terminal_options.tmux_control_mode = false;
++    }
+     terminal_options.add(b, step.root_module);
+ 
+     // Every exe needs the uucode module
+diff --git a/src/terminal/build_options.zig b/src/terminal/build_options.zig
+index 725fccfd0..d2df1ead6 100644
+--- a/src/terminal/build_options.zig
++++ b/src/terminal/build_options.zig
+@@ -13,13 +13,12 @@ pub const Options = struct {
+     /// The target artifact to build. This will gate some functionality.
+     artifact: Artifact,
+ 
++    /// Whether the built-in tmux control-mode viewer is available.
++    tmux_control_mode: bool,
++
+     /// Whether Oniguruma regex support is available. If this isn't
+     /// available, some features will be disabled. This may be outdated,
+-    /// but the specific disabled features are:
+-    ///
+-    /// - Kitty graphics protocol
+-    /// - Tmux control mode
+-    ///
++    /// but the specific disabled feature is Kitty graphics protocol.
+     oniguruma: bool,
+ 
+     /// Whether to build SIMD-accelerated code paths. This pulls in more
+@@ -284,8 +283,7 @@ pub const Options = struct {
+         opts.addOption(bool, "simd", self.simd);
+         opts.addOption(bool, "slow_runtime_safety", self.slow_runtime_safety);
+ 
+-        // These are synthesized based on other options.
+-        opts.addOption(bool, "tmux_control_mode", self.oniguruma);
++        opts.addOption(bool, "tmux_control_mode", self.tmux_control_mode);
+ 
+         // Feature gates, emitted as flat bools (e.g. `options.snapshot`).
+         const target = m.resolved_target.?.result;
+@@ -320,6 +318,22 @@ pub const Options = struct {
+     }
+ };
+ 
++test "tmux control mode is independent of regex support" {
++    const testing = std.testing;
++    const build_options: Options = .{
++        .artifact = .ghostty,
++        .tmux_control_mode = false,
++        .oniguruma = true,
++        .simd = true,
++        .slow_runtime_safety = true,
++        .c_abi = true,
++        .version = .{ .major = 1, .minor = 2, .patch = 3 },
++    };
++
++    try testing.expect(build_options.oniguruma);
++    try testing.expect(!build_options.tmux_control_mode);
++}
++
+ test {
+     _ = Options.Features;
+ }
+diff --git a/src/termio/stream_handler.zig b/src/termio/stream_handler.zig
+index 745665677..fa596a80e 100644
+--- a/src/termio/stream_handler.zig
++++ b/src/termio/stream_handler.zig
+@@ -145,6 +145,7 @@ pub const StreamHandler = struct {
+     }
+ 
+     inline fn messageWriter(self: *StreamHandler, msg: termio.Message) void {
++        comptime assert(!tmux_enabled or !@import("build_options").combined_c_api);
+         self.termio_mailbox.send(msg.terminalReport(), self.renderer_state.mutex);
+         self.termio_messaged = true;
+     }

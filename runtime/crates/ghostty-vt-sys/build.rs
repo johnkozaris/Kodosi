@@ -5,7 +5,6 @@ use std::{
     fs,
     io::Read as _,
     path::{Path, PathBuf},
-    process::Command,
 };
 
 const GHOSTTY_LOCK: &str = include_str!(concat!(
@@ -18,7 +17,6 @@ fn main() {
     println!("cargo:rerun-if-env-changed=KODOSI_GHOSTTY_DIR");
     println!("cargo:rerun-if-env-changed=KODOSI_WORKING_TREE_VALIDATION");
     println!("cargo:rerun-if-changed=../../../Ghostty.lock");
-    let expected_package_commit = lock_value("package_commit");
     let target = env::var("TARGET").expect("Cargo target triple");
     let artifact = target_artifact(&target);
     let locked_ghostty_commit = lock_value(artifact.upstream_lock_key);
@@ -27,12 +25,10 @@ fn main() {
     let root = env::var_os("KODOSI_GHOSTTY_DIR")
         .filter(|path| !path.is_empty())
         .map_or_else(default_ghostty_dir, PathBuf::from);
-    watch_git_authority(&root);
     let platform_ref = root.join(artifact.platform_ref);
     let provenance = root.join(artifact.provenance);
     let artifact_dir = root.join(artifact.library_dir);
     let archive = artifact_dir.join("libghostty-vt.a");
-    require_package_commit(&root, expected_package_commit);
     let metadata = fs::read_to_string(&provenance)
         .unwrap_or_else(|error| panic!("failed to read {}: {error}", provenance.display()));
     let working_tree = env::var("KODOSI_WORKING_TREE_VALIDATION").as_deref() == Ok("1");
@@ -131,58 +127,12 @@ fn target_artifact(target: &str) -> TargetArtifact {
     }
 }
 
-fn watch_git_authority(root: &Path) {
-    for git_path in ["HEAD", "packed-refs"] {
-        if let Ok(output) = Command::new("git")
-            .args([
-                "-C",
-                root.to_str().expect("UTF-8 Ghostty path"),
-                "rev-parse",
-                "--path-format=absolute",
-                "--git-path",
-                git_path,
-            ])
-            .output()
-            && output.status.success()
-            && let Ok(path) = std::str::from_utf8(&output.stdout)
-        {
-            println!("cargo:rerun-if-changed={}", path.trim());
-        }
-    }
-    if let Ok(output) = Command::new("git")
-        .args([
-            "-C",
-            root.to_str().expect("UTF-8 Ghostty path"),
-            "symbolic-ref",
-            "-q",
-            "HEAD",
-        ])
-        .output()
-        && output.status.success()
-        && let Ok(reference) = std::str::from_utf8(&output.stdout)
-        && let Ok(ref_path) = Command::new("git")
-            .args([
-                "-C",
-                root.to_str().expect("UTF-8 Ghostty path"),
-                "rev-parse",
-                "--path-format=absolute",
-                "--git-path",
-                reference.trim(),
-            ])
-            .output()
-        && ref_path.status.success()
-        && let Ok(path) = std::str::from_utf8(&ref_path.stdout)
-    {
-        println!("cargo:rerun-if-changed={}", path.trim());
-    }
-}
-
 fn default_ghostty_dir() -> PathBuf {
     let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     for _ in 0..3 {
         root.pop();
     }
-    root.join("../kodosi-ghostty")
+    root.join("terminal/ghostty")
 }
 
 fn lock_value(key: &str) -> &'static str {
@@ -232,31 +182,6 @@ fn sha256_file(path: &Path) -> String {
             output
         },
     )
-}
-
-fn require_package_commit(root: &Path, expected_package_commit: &str) {
-    let output = Command::new("git")
-        .args(["-C"])
-        .arg(root)
-        .args(["rev-parse", "HEAD"])
-        .output()
-        .unwrap_or_else(|error| panic!("failed to inspect {} Git commit: {error}", root.display()));
-    assert!(
-        output.status.success(),
-        "failed to inspect {} Git commit: {}",
-        root.display(),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let actual = String::from_utf8(output.stdout)
-        .expect("git rev-parse output must be UTF-8")
-        .trim()
-        .to_owned();
-    assert_eq!(
-        actual,
-        expected_package_commit,
-        "{} must be the reviewed kodosi-ghostty package commit",
-        root.display()
-    );
 }
 
 fn require_metadata(metadata: &str, key: &str, expected: &str, source: &Path) {

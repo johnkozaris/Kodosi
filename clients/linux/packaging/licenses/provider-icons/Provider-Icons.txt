@@ -1,0 +1,11 @@
+Provider marks identify installed integrations only; they do not imply endorsement.
+
+Claude, Cursor, and Codex vector artwork:
+https://github.com/lobehub/lobe-icons/tree/a94750e3f5f8fc33757b839d85030e742284e43a/packages/static-svg/icons
+Copyright 2023 LobeHub. MIT license: LobeHub-Icons-MIT.txt.
+
+GitHub Copilot artwork:
+https://github.com/primer/octicons/blob/0e21a4c2d8449102f10e533d241f04797af0914c/icons/copilot-24.svg
+MIT license: Primer-Octicons-MIT.txt.
+
+Product names and marks belong to their respective owners.

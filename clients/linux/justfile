@@ -1,0 +1,110 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+tools_dir := justfile_directory() + "/.tools"
+cmake := tools_dir + "/cmake-4.4.3/bin/cmake"
+ctest := tools_dir + "/cmake-4.4.3/bin/ctest"
+qt_dir := tools_dir + "/Qt/6.11.2/gcc_64"
+
+bootstrap:
+    ./scripts/build/bootstrap-tools.sh
+
+configure: bootstrap
+    CMAKE_PREFIX_PATH="{{ qt_dir }}" "{{ cmake }}" --preset dev
+
+build: configure
+    "{{ cmake }}" --build --preset dev
+
+lint: configure
+    "{{ cmake }}" --build build/dev --target all_qmllint
+
+test: build
+    "{{ cmake }}" --build build/dev --target test_prep/all
+    "{{ ctest }}" --preset dev
+
+release-integrity-test:
+    python3 -m unittest tests/tooling/test_release_integrity.py
+    python3 -m unittest tests/tooling/test_reproducible_archives.py
+
+rust-license-test:
+    rm -rf build/rust-license-test
+    python3 scripts/release/generate-rust-license-inventory.py \
+        --manifest ../../runtime/Cargo.toml \
+        --output-dir build/rust-license-test
+    python3 scripts/release/verify-rust-license-inventory.py \
+        --tree build/rust-license-test
+
+native-license-test: bootstrap
+    python3 scripts/release/verify-native-license-evidence.py
+    python3 -m unittest tests/tooling/test_native_license_evidence.py
+
+check: release-integrity-test rust-license-test native-license-test lint test
+
+package: bootstrap
+    mkdir -p build/release
+    find build/release -maxdepth 1 -type f \
+        \( -name 'kodosi_*.deb' \
+        -o -name 'kodosi-*-linux-x86_64.tar.gz' \
+        -o -name 'kodosi-bin-*.pkg.tar.zst' \
+        -o -name 'release-manifest.json' \
+        -o -name 'release-manifest.json.asc' \) \
+        -delete
+    git status --porcelain=v1 --untracked-files=no \
+        > build/release/tracked-status.before
+    SOURCE_DATE_EPOCH="$(python3 scripts/release/source-date-epoch.py --source-root .)" \
+        CMAKE_PREFIX_PATH="{{ qt_dir }}" "{{ cmake }}" --preset release
+    SOURCE_DATE_EPOCH="$(python3 scripts/release/source-date-epoch.py --source-root .)" \
+        "{{ cmake }}" --build --preset release
+    "{{ cmake }}" --build build/release --target test_prep/all
+    QT_QPA_PLATFORM=offscreen QSG_RHI_BACKEND=software \
+        "{{ ctest }}" --preset release
+    cd build/release && \
+        umask 022 && \
+        SOURCE_DATE_EPOCH="$(python3 ../../scripts/release/source-date-epoch.py \
+            --source-root ../..)" \
+        "{{ cmake }}" --build . --target package
+    SOURCE_DATE_EPOCH="$(python3 scripts/release/source-date-epoch.py --source-root .)" \
+        ./scripts/release/normalize-cpack-packages.sh build/release
+    git status --porcelain=v1 --untracked-files=no \
+        > build/release/tracked-status.after
+    if ! cmp -s build/release/tracked-status.before \
+        build/release/tracked-status.after; then \
+        echo "Package build modified tracked source files" >&2; \
+        diff build/release/tracked-status.before \
+            build/release/tracked-status.after || true; \
+        exit 1; \
+    fi
+    ./scripts/release/verify-linux-package.sh build/release/kodosi_0.1.0_amd64.deb
+    ./scripts/release/verify-packaged-content.sh build/release/kodosi-0.1.0-linux-x86_64.tar.gz
+
+package-arch: package
+    ./scripts/release/build-arch-package.sh
+
+package-repeatability: package package-repeatability-existing
+
+package-repeatability-existing: bootstrap
+    ./scripts/release/verify-reproducible-packages.sh
+
+release-manifest: package-repeatability package-arch release-manifest-existing
+
+release-manifest-existing:
+    python3 scripts/release/generate-release-manifest.py \
+        --source-root . \
+        --output-dir build/release \
+        --artifact kodosi_0.1.0_amd64.deb \
+        --artifact kodosi-0.1.0-linux-x86_64.tar.gz \
+        --artifact kodosi-bin-0.1.0-1-x86_64.pkg.tar.zst
+    python3 scripts/release/verify-release-manifest.py \
+        --source-root . \
+        --manifest build/release/release-manifest.json \
+        --output-dir build/release
+
+sign-release-manifest fingerprint="":
+    ./scripts/release/sign-release-manifest.sh \
+        build/release/release-manifest.json \
+        "{{ fingerprint }}"
+
+verify-release-signature fingerprint="":
+    ./scripts/release/verify-release-signature.sh \
+        build/release/release-manifest.json \
+        build/release/release-manifest.json.asc \
+        "{{ fingerprint }}"

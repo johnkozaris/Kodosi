@@ -1,0 +1,92 @@
+diff --git a/src/terminal/formatter.zig b/src/terminal/formatter.zig
+index fedacf44a..bc6a9e38b 100644
+--- a/src/terminal/formatter.zig
++++ b/src/terminal/formatter.zig
+@@ -411,14 +411,24 @@ pub const TerminalFormatter = struct {
+         if (self.opts.emit == .vt and self.extra.modes) {
+             inline for (@typeInfo(modespkg.Mode).@"enum".fields) |field| {
+                 const mode: modespkg.Mode = @enumFromInt(field.value);
+-                const current = self.terminal.modes.get(mode);
+-                const default_val = @field(self.terminal.modes.default, field.name);
+-
+-                if (current != default_val) {
+-                    const tag: modespkg.ModeTag = @bitCast(@intFromEnum(mode));
+-                    const prefix = if (tag.ansi) "" else "?";
+-                    const suffix = if (current) "h" else "l";
+-                    try writer.print("\x1b[{s}{d}{s}", .{ prefix, tag.value, suffix });
++                const screen_transition = switch (mode) {
++                    .alt_screen_legacy,
++                    .alt_screen,
++                    .save_cursor,
++                    .alt_screen_save_cursor_clear_enter,
++                    => true,
++                    else => false,
++                };
++                if (self.screen == null or !screen_transition) {
++                    const current = self.terminal.modes.get(mode);
++                    const default_val = @field(self.terminal.modes.default, field.name);
++
++                    if (current != default_val) {
++                        const tag: modespkg.ModeTag = @bitCast(@intFromEnum(mode));
++                        const prefix = if (tag.ansi) "" else "?";
++                        const suffix = if (current) "h" else "l";
++                        try writer.print("\x1b[{s}{d}{s}", .{ prefix, tag.value, suffix });
++                    }
+                 }
+             }
+ 
+@@ -486,6 +496,16 @@ pub const TerminalFormatter = struct {
+             self.terminal.screens.get(key) orelse return error.WriteFailed
+         else
+             self.terminal.screens.active;
++        if (self.opts.emit == .vt and self.screen != null) {
++            try writer.writeAll("\x1b[H");
++            if (self.pin_map) |*m| {
++                m.map.append(
++                    m.alloc,
++                    screen.pages.getTopLeft(.screen),
++                    3,
++                ) catch return error.WriteFailed;
++            }
++        }
+         var screen_formatter: ScreenFormatter = .init(screen, self.opts);
+         screen_formatter.content = self.content;
+         screen_formatter.pin_map = self.pin_map;
+@@ -5677,6 +5697,37 @@ test "Terminal vt with modes" {
+     try testing.expectEqual(t.modes.get(.wraparound), t2.modes.get(.wraparound));
+ }
+ 
++test "Terminal explicit screen omits screen transitions" {
++    const testing = std.testing;
++    const alloc = testing.allocator;
++    const io = testing.io;
++
++    var builder: std.Io.Writer.Allocating = .init(alloc);
++    defer builder.deinit();
++
++    var t = try Terminal.init(io, alloc, .{ .cols = 80, .rows = 24 });
++    defer t.deinit(alloc);
++    var stream = t.vtStream();
++    defer stream.deinit();
++    stream.nextSlice("primary\x1b[?2004h\x1b[?1049halt");
++
++    var formatter: TerminalFormatter = .init(&t, .vt);
++    formatter.screen = .primary;
++    formatter.extra.modes = true;
++    try formatter.format(&builder.writer);
++    const output = builder.writer.buffered();
++
++    try testing.expect(std.mem.indexOf(u8, output, "\x1b[?2004h") != null);
++    try testing.expect(std.mem.indexOf(u8, output, "\x1b[?47") == null);
++    try testing.expect(std.mem.indexOf(u8, output, "\x1b[?1047") == null);
++    try testing.expect(std.mem.indexOf(u8, output, "\x1b[?1048") == null);
++    try testing.expect(std.mem.indexOf(u8, output, "\x1b[?1049") == null);
++    const home = std.mem.indexOf(u8, output, "\x1b[H") orelse return error.TestExpectedEqual;
++    const primary = std.mem.indexOf(u8, output, "primary") orelse return error.TestExpectedEqual;
++    try testing.expect(home < primary);
++    try testing.expectEqual(.alternate, t.screens.active_key);
++}
++
+ test "Terminal vt with tabstops" {
+     const testing = std.testing;
+     const alloc = testing.allocator;

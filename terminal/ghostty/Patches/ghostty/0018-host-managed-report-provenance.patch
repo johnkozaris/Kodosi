@@ -1,0 +1,334 @@
+diff --git a/src/Surface.zig b/src/Surface.zig
+index 17a4ba282..623502230 100644
+--- a/src/Surface.zig
++++ b/src/Surface.zig
+@@ -888,6 +888,9 @@ fn queueIo(
+             .write_small,
+             .write_stable,
+             .write_alloc,
++            .report_small,
++            .report_stable,
++            .report_alloc,
+             => {
+                 msg.deinit();
+                 return;
+@@ -1037,7 +1040,7 @@ pub fn handleMessage(self: *Surface, msg: Message) !void {
+             // the length of the title and this isn't a performance critical
+             // path.
+             self.queueIo(.{
+-                .write_alloc = .{
++                .report_alloc = .{
+                     .alloc = self.alloc,
+                     .data = data,
+                 },
+@@ -6385,7 +6388,7 @@ fn completeClipboardReadOSC52(
+     const encoded = enc.encode(buf[prefix.len..], data);
+     assert(encoded.len == size);
+ 
+-    self.queueIo(.{ .write_alloc = .{
++    self.queueIo(.{ .report_alloc = .{
+         .alloc = self.alloc,
+         .data = buf,
+     } }, .unlocked);
+@@ -6496,7 +6499,7 @@ fn kittyClipboardStatus(
+         .terminator = terminator,
+     }).encode(&aw.writer);
+ 
+-    self.queueIo(.{ .write_alloc = .{
++    self.queueIo(.{ .report_alloc = .{
+         .alloc = self.alloc,
+         .data = try aw.toOwnedSlice(),
+     } }, .unlocked);
+@@ -6552,7 +6555,7 @@ fn completeKittyClipboardRead(
+         .terminator = req.terminator,
+     }).encode(&aw.writer);
+ 
+-    self.queueIo(.{ .write_alloc = .{
++    self.queueIo(.{ .report_alloc = .{
+         .alloc = self.alloc,
+         .data = try aw.toOwnedSlice(),
+     } }, .unlocked);
+diff --git a/src/termio/HostManaged.zig b/src/termio/HostManaged.zig
+index eb98d9c10..38464f80e 100644
+--- a/src/termio/HostManaged.zig
++++ b/src/termio/HostManaged.zig
+@@ -86,12 +86,15 @@ pub fn queueWrite(
+     td: *termio.Termio.ThreadData,
+     data: []const u8,
+     linefeed: bool,
++    origin: termio.backend.WriteOrigin,
+ ) !void {
+     _ = alloc;
+     _ = td;
+     _ = linefeed;
+ 
+-    if (data.len == 0 or self.exited.load(.acquire)) return;
++    if (origin == .terminal_report or
++        data.len == 0 or
++        self.exited.load(.acquire)) return;
+     self.write(self.userdata, data.ptr, data.len);
+ }
+ 
+@@ -171,7 +174,7 @@ test "host-managed rejects IO after exit" {
+     });
+     var thread_data: termio.Termio.ThreadData = undefined;
+ 
+-    try host_managed.queueWrite(testing.allocator, &thread_data, "test", false);
++    try host_managed.queueWrite(testing.allocator, &thread_data, "test", false, .user_input);
+     try host_managed.resize(
+         .{ .columns = 80, .rows = 24 },
+         .{ .width = 800, .height = 600 },
+@@ -181,10 +184,18 @@ test "host-managed rejects IO after exit" {
+     try testing.expectEqual(@as(u16, 24), state.resize.?.rows);
+     try testing.expectEqual(@as(u32, 800), state.resize.?.width);
+     try testing.expectEqual(@as(u32, 600), state.resize.?.height);
++    try host_managed.queueWrite(
++        testing.allocator,
++        &thread_data,
++        "report",
++        false,
++        .terminal_report,
++    );
++    try testing.expectEqual(@as(usize, 4), state.writes);
+ 
+     try testing.expect(host_managed.markExited());
+     try testing.expect(!host_managed.markExited());
+-    try host_managed.queueWrite(testing.allocator, &thread_data, "ignored", false);
++    try host_managed.queueWrite(testing.allocator, &thread_data, "ignored", false, .user_input);
+     try host_managed.resize(
+         .{ .columns = 120, .rows = 40 },
+         .{ .width = 1200, .height = 900 },
+diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
+index 377d3ea9e..d655e9c9c 100644
+--- a/src/termio/Termio.zig
++++ b/src/termio/Termio.zig
+@@ -380,7 +380,7 @@ pub fn threadEnter(
+ 
+     // If we have inputs, then queue them all up.
+     for (inputs orelse &.{}) |input| switch (input) {
+-        .string => |v| self.queueWrite(data, v, false) catch |err| {
++        .string => |v| self.queueWrite(data, v, false, .user_input) catch |err| {
+             log.warn("failed to queue input string err={}", .{err});
+             return error.InputFailed;
+         },
+@@ -395,7 +395,7 @@ pub fn threadEnter(
+             };
+             defer self.alloc.free(contents);
+ 
+-            self.queueWrite(data, contents, false) catch |err| {
++            self.queueWrite(data, contents, false, .user_input) catch |err| {
+                 log.warn("failed to queue input file err={}", .{err});
+                 return error.InputFailed;
+             };
+@@ -437,8 +437,9 @@ pub inline fn queueWrite(
+     td: *ThreadData,
+     data: []const u8,
+     linefeed: bool,
++    origin: termio.backend.WriteOrigin,
+ ) !void {
+-    try self.backend.queueWrite(self.alloc, td, data, linefeed);
++    try self.backend.queueWrite(self.alloc, td, data, linefeed, origin);
+ }
+ 
+ /// Update the configuration.
+@@ -550,7 +551,7 @@ fn sizeReportLocked(self: *Termio, td: *ThreadData, style: termio.Message.SizeRe
+         report_size,
+     );
+ 
+-    try self.queueWrite(td, writer.buffered(), false);
++    try self.queueWrite(td, writer.buffered(), false, .terminal_report);
+ }
+ 
+ /// Reset the synchronized output mode. This is usually called by timer
+@@ -615,7 +616,7 @@ pub fn clearScreen(self: *Termio, td: *ThreadData, history: bool) !void {
+     }
+ 
+     // If we reached here it means we're at a prompt, so we send a form-feed.
+-    try self.queueWrite(td, &[_]u8{0x0C}, false);
++    try self.queueWrite(td, &[_]u8{0x0C}, false, .user_input);
+ }
+ 
+ /// Scroll the viewport
+@@ -653,7 +654,7 @@ pub fn focusGained(self: *Termio, td: *ThreadData, focused: bool) !void {
+             log.err("error encoding focus event err={}", .{err});
+             return;
+         };
+-        try self.queueWrite(td, writer.buffered(), false);
++        try self.queueWrite(td, writer.buffered(), false, .terminal_report);
+     }
+ 
+     // We always notify our backend of focus changes.
+@@ -905,7 +906,7 @@ pub fn colorSchemeReportLocked(self: *Termio, td: *ThreadData, force: bool) !voi
+     var buf: [terminalpkg.device_status.max_color_scheme_report_encode_size]u8 = undefined;
+     var writer: std.Io.Writer = .fixed(&buf);
+     try terminalpkg.device_status.encodeColorSchemeReport(&writer, scheme);
+-    try self.queueWrite(td, writer.buffered(), false);
++    try self.queueWrite(td, writer.buffered(), false, .terminal_report);
+ }
+ 
+ /// Sends a visibility report to the pty. Unforced reports are only sent while
+@@ -929,7 +930,7 @@ pub fn visibilityReport(
+         &writer,
+         if (visible) .potentially_visible else .not_visible,
+     );
+-    try self.queueWrite(td, writer.buffered(), false);
++    try self.queueWrite(td, writer.buffered(), false, .terminal_report);
+ }
+ 
+ /// ThreadData is the data created and stored in the termio thread
+diff --git a/src/termio/Thread.zig b/src/termio/Thread.zig
+index 0f4d99ba3..6f813d413 100644
+--- a/src/termio/Thread.zig
++++ b/src/termio/Thread.zig
+@@ -364,11 +364,13 @@ fn drainMailbox(
+                 data,
+                 v.data[0..v.len],
+                 self.flags.linefeed_mode,
++                .user_input,
+             ),
+             .write_stable => |v| try io.queueWrite(
+                 data,
+                 v,
+                 self.flags.linefeed_mode,
++                .user_input,
+             ),
+             .write_alloc => |v| {
+                 defer v.alloc.free(v.data);
+@@ -376,6 +378,28 @@ fn drainMailbox(
+                     data,
+                     v.data,
+                     self.flags.linefeed_mode,
++                    .user_input,
++                );
++            },
++            .report_small => |v| try io.queueWrite(
++                data,
++                v.data[0..v.len],
++                self.flags.linefeed_mode,
++                .terminal_report,
++            ),
++            .report_stable => |v| try io.queueWrite(
++                data,
++                v,
++                self.flags.linefeed_mode,
++                .terminal_report,
++            ),
++            .report_alloc => |v| {
++                defer v.alloc.free(v.data);
++                try io.queueWrite(
++                    data,
++                    v.data,
++                    self.flags.linefeed_mode,
++                    .terminal_report,
+                 );
+             },
+         }
+diff --git a/src/termio/backend.zig b/src/termio/backend.zig
+index e18d693d0..42fb43a78 100644
+--- a/src/termio/backend.zig
++++ b/src/termio/backend.zig
+@@ -13,6 +13,11 @@ const WRITE_REQ_PREALLOC = std.math.pow(usize, 2, 5);
+ /// The kinds of backends.
+ pub const Kind = enum { exec, host_managed };
+ 
++pub const WriteOrigin = enum {
++    user_input,
++    terminal_report,
++};
++
+ /// Configuration for the various backend types.
+ pub const Config = union(Kind) {
+     /// Exec uses posix exec to run a command with a pty.
+@@ -89,10 +94,17 @@ pub const Backend = union(Kind) {
+         td: *termio.Termio.ThreadData,
+         data: []const u8,
+         linefeed: bool,
++        origin: WriteOrigin,
+     ) !void {
+         switch (self.*) {
+             .exec => |*exec| try exec.queueWrite(alloc, td, data, linefeed),
+-            .host_managed => |*host_managed| try host_managed.queueWrite(alloc, td, data, linefeed),
++            .host_managed => |*host_managed| try host_managed.queueWrite(
++                alloc,
++                td,
++                data,
++                linefeed,
++                origin,
++            ),
+         }
+     }
+ 
+diff --git a/src/termio/message.zig b/src/termio/message.zig
+index 3cd602dff..b6e096205 100644
+--- a/src/termio/message.zig
++++ b/src/termio/message.zig
+@@ -94,12 +94,21 @@ pub const Message = union(enum) {
+     /// Write where the data fits in the union.
+     write_small: WriteReq.Small,
+ 
++    /// Terminal-generated report where the data fits in the union.
++    report_small: WriteReq.Small,
++
+     /// Write where the data pointer is stable.
+     write_stable: WriteReq.Stable,
+ 
++    /// Terminal-generated report where the data pointer is stable.
++    report_stable: WriteReq.Stable,
++
+     /// Write where the data is allocated and must be freed.
+     write_alloc: WriteReq.Alloc,
+ 
++    /// Terminal-generated report where data is allocated and must be freed.
++    report_alloc: WriteReq.Alloc,
++
+     /// The payload of the kitty_clipboard_grant_* messages. The
+     /// password is allocated and must be freed.
+     pub const KittyClipboardGrant = struct {
+@@ -118,6 +127,16 @@ pub const Message = union(enum) {
+         };
+     }
+ 
++    /// Convert a terminal-generated write into an origin-tagged report message.
++    pub fn terminalReport(self: Message) Message {
++        return switch (self) {
++            .write_small => |value| .{ .report_small = value },
++            .write_stable => |value| .{ .report_stable = value },
++            .write_alloc => |value| .{ .report_alloc = value },
++            else => self,
++        };
++    }
++
+     /// Free resources owned by a message that will not be processed.
+     /// The message is invalid after this call.
+     pub fn deinit(self: *const Message) void {
+@@ -126,7 +145,7 @@ pub const Message = union(enum) {
+                 v.ptr.deinit();
+                 v.alloc.destroy(v.ptr);
+             },
+-            .write_alloc => |v| v.alloc.free(v.data),
++            .write_alloc, .report_alloc => |v| v.alloc.free(v.data),
+             .kitty_clipboard_grant_read,
+             .kitty_clipboard_grant_write,
+             => |v| v.alloc.free(v.pw),
+diff --git a/src/termio/stream_handler.zig b/src/termio/stream_handler.zig
+index a5544036e..745665677 100644
+--- a/src/termio/stream_handler.zig
++++ b/src/termio/stream_handler.zig
+@@ -145,7 +145,7 @@ pub const StreamHandler = struct {
+     }
+ 
+     inline fn messageWriter(self: *StreamHandler, msg: termio.Message) void {
+-        self.termio_mailbox.send(msg, self.renderer_state.mutex);
++        self.termio_mailbox.send(msg.terminalReport(), self.renderer_state.mutex);
+         self.termio_messaged = true;
+     }
+ 
+@@ -1988,7 +1988,7 @@ test "kitty clipboard write: oversized text replies EFBIG" {
+     const msg = response.?;
+     defer msg.deinit();
+     switch (msg) {
+-        .write_alloc => |v| try testing.expectEqualStrings(
++        .report_alloc => |v| try testing.expectEqualStrings(
+             "\x1B]5522;type=write:status=EFBIG:id=macos\x1B\\",
+             v.data,
+         ),

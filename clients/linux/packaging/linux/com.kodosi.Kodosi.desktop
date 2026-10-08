@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Kodosi
+Comment=Local terminals with trusted device and friend access
+Exec=kodosi-qt %u
+Icon=com.kodosi.Kodosi
+Terminal=false
+Categories=Development;
+Keywords=agents;terminal;development;mission;
+StartupNotify=true
+MimeType=x-scheme-handler/kodosi;

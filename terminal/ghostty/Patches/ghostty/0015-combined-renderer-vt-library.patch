@@ -1,0 +1,81 @@
+diff --git a/src/build/Config.zig b/src/build/Config.zig
+index bed1cb50e..adad12f5c 100644
+--- a/src/build/Config.zig
++++ b/src/build/Config.zig
+@@ -55,6 +55,7 @@ emit_docs: bool = false,
+ emit_exe: bool = false,
+ emit_helpgen: bool = false,
+ emit_lib_vt: bool = false,
++emit_combined_lib: bool = false,
+ emit_macos_app: bool = false,
+ emit_terminfo: bool = false,
+ emit_termcap: bool = false,
+@@ -88,6 +89,11 @@ pub fn init(b: *std.Build, appVersion: []const u8, libVersion: []const u8) !Conf
+         "emit-lib-vt",
+         "Set defaults for a libghostty-vt-only build (disables xcframework, macOS app, and docs).",
+     ) orelse is_dep;
++    const emit_combined_lib = b.option(
++        bool,
++        "emit-combined-lib",
++        "Export renderer and libghostty-vt C APIs from one static library.",
++    ) orelse false;
+     const target = target: {
+         var result = b.standardTargetOptions(.{});
+ 
+@@ -438,6 +444,7 @@ pub fn init(b: *std.Build, appVersion: []const u8, libVersion: []const u8) !Conf
+     // Artifacts to Emit
+ 
+     config.emit_lib_vt = emit_lib_vt;
++    config.emit_combined_lib = emit_combined_lib;
+ 
+     config.vt_features = features: {
+         const list = b.option(
+@@ -680,6 +687,7 @@ pub fn addOptions(self: *const Config, step: *std.Build.Step.Options) !void {
+     step.addOption(bool, "custom_shaders", self.custom_shaders);
+     step.addOption(bool, "inspector", self.inspector);
+     step.addOption(bool, "simd", self.simd);
++    step.addOption(bool, "combined_c_api", self.emit_combined_lib);
+     step.addOption(bool, "i18n", self.i18n);
+     step.addOption(ApprtRuntime, "app_runtime", self.app_runtime);
+     step.addOption(FontBackend, "font_backend", self.font_backend);
+diff --git a/src/build/SharedDeps.zig b/src/build/SharedDeps.zig
+index d87062b57..af12227dd 100644
+--- a/src/build/SharedDeps.zig
++++ b/src/build/SharedDeps.zig
+@@ -179,7 +179,9 @@ pub fn add(
+     step.root_module.addOptions("build_options", self.options);
+ 
+     // Every exe needs the terminal options
+-    self.config.terminalOptions(.ghostty, optimize).add(b, step.root_module);
++    var terminal_options = self.config.terminalOptions(.ghostty, optimize);
++    if (self.config.emit_combined_lib) terminal_options.c_abi = true;
++    terminal_options.add(b, step.root_module);
+ 
+     // Every exe needs the uucode module
+     step.root_module.addImport("uucode", self.uucode_mod);
+diff --git a/src/lib_vt.zig b/src/lib_vt.zig
+index 325f0e138..2bfd76794 100644
+--- a/src/lib_vt.zig
++++ b/src/lib_vt.zig
+@@ -169,7 +169,7 @@ var msvc_fltused: c_int = 1;
+ comptime {
+     // If we're building the C library (vs. the Zig module) then
+     // we want to reference the C API so that it gets exported.
+-    if (@import("root") == lib) {
++    if (@import("root") == lib or @import("build_options").combined_c_api) {
+         // MSVC requires this marker whenever floating-point code is present.
+         // Zig's compiler_rt only provides it when libc is not linked.
+         if (builtin.os.tag == .windows and
+diff --git a/src/main_c.zig b/src/main_c.zig
+index 3e331e022..717961de9 100644
+--- a/src/main_c.zig
++++ b/src/main_c.zig
+@@ -45,6 +45,8 @@ comptime {
+     // config in the future but for now we always just export it.
+     _ = @import("benchmark/main.zig").CApi;
+ 
++    if (@import("build_options").combined_c_api) _ = @import("lib_vt.zig");
++
+     // Force-reference our memset override so its export is emitted.
+     // See quirks_memset.zig for details on why this exists.
+     _ = @import("quirks_memset.zig");
