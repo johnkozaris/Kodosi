@@ -149,6 +149,7 @@ impl BackendClient {
         let display_name = self.inner.identity.read().ok().and_then(|identity| {
             identity
                 .as_ref()
+                .filter(|identity| identity.user_id == user_id)
                 .map(|identity| identity.display_name.clone())
         });
         json!({"type":"auth.ready","userId":user_id,"displayName":display_name,"enrolled":enrolled})
