@@ -96,7 +96,7 @@ Actions, tags and pills are capsules. Rounded squares are agents, rooms and kind
 - **Tasks:** cards in "Up for grabs", "In progress" and "Done".
 - **Go to (Ctrl+K):** one field finds terminals, rooms, people and actions.
 
-Working text shimmers. A terminal where an agent stopped work while you looked elsewhere shows a breathing copper dot until you look at it. With reduced motion, all changes are instant and nothing loops. QML remains authoritative.
+Working text shimmers. A terminal that rang its bell, or where an agent stopped work while you looked elsewhere, shows a breathing copper dot until you look at it. With reduced motion, all changes are instant and nothing loops. QML remains authoritative.
 
 ## Do's and Don'ts
 - **Do** animate only for an action or a real change of state.

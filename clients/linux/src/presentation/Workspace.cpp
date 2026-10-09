@@ -203,6 +203,10 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         emit m_account.loginChanged();
         return;
     }
+    if (type == QStringLiteral("term.bell")) {
+        m_sessions.noteAttention(event.value(QStringLiteral("sessionId")).toString());
+        return;
+    }
     if (type == QStringLiteral("sessions.snapshot")) {
         m_sessions.apply(event);
         if (!m_sessions.hasAuthoritativeSnapshot()) {

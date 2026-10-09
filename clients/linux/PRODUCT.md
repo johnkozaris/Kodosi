@@ -48,9 +48,10 @@ main area shows every terminal by computer. Go to (Ctrl+K) finds a terminal, a r
 a person, or an action. Rename a terminal in place.
 
 A terminal carries the mark of the program in it. While an agent works, its mark and
-title show it. A terminal where an agent stopped while you looked elsewhere keeps a
-copper dot until you look at it, and the source list offers the next one that needs
-you. One share sheet puts a terminal in a room or shares it with friends.
+title show it. A terminal that rang its bell, or an agent that stopped while you looked
+elsewhere, keeps a copper dot until you look at it, and the source list offers the
+next one that needs you. One share sheet puts a terminal in a room or shares it with
+friends.
 
 ## Experience
 

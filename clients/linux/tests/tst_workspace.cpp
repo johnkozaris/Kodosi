@@ -180,6 +180,29 @@ private slots:
         QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("session.openRemote"));
         QCOMPARE(f.commands.values.size(), count + 2);
     }
+    void aTerminalNeedsYouAfterItsAgentStopsOrItsBellRings()
+    {
+        Fixture f;
+        auto working = test::session(1);
+        working.insert(QStringLiteral("title"), QStringLiteral("\u2802 Build"));
+        f.workspace.apply(test::snapshot({ working, test::session(2) }), 0);
+        QVERIFY(f.sessions.working());
+        QVERIFY(f.sessions.attention().isEmpty());
+        auto idle = test::session(1);
+        idle.insert(QStringLiteral("title"), QStringLiteral("Build"));
+        f.workspace.apply(test::snapshot({ idle, test::session(2) }), 0);
+        QVERIFY(!f.sessions.working());
+        QCOMPARE(f.sessions.attention(), QStringList { test::id(1) });
+        f.workspace.apply({{QStringLiteral("type"), QStringLiteral("term.bell")},
+            {QStringLiteral("sessionId"), test::id(2)}}, 0);
+        f.workspace.apply({{QStringLiteral("type"), QStringLiteral("term.bell")},
+            {QStringLiteral("sessionId"), test::id(9)}}, 0);
+        QCOMPARE(f.sessions.attention(), (QStringList { test::id(1), test::id(2) }));
+        f.sessions.clearAttention(test::id(1));
+        QCOMPARE(f.sessions.attention(), QStringList { test::id(2) });
+        f.workspace.apply(test::snapshot({ idle }), 0);
+        QVERIFY(f.sessions.attention().isEmpty());
+    }
     void minimizeKeepsProcessAndClosePrunesFromCatalog()
     {
         Fixture f;

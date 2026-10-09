@@ -14,6 +14,7 @@ Item {
         switch (name) {
         case "computer": return "M4 4 H20 V17 H4 Z M8 21 H16 M12 17 V21"
         case "plus": return "M12 5 V19 M5 12 H19"
+        case "line-height": return "M11 6 H21 M11 12 H21 M11 18 H21 M5 5 V19 M3 7 L5 5 L7 7 M3 17 L5 19 L7 17"
         case "chat": return "M4 4 H20 V16 H10 L5 20 V16 H4 Z M8 8 H16 M8 12 H13"
         case "tasks": return "M3 6 L5 8 L8 4 M11 6 H21 M3 13 L5 15 L8 11 M11 13 H21 M4 20 H7 M11 20 H21"
         case "repository": return "M7 3 A2 2 0 1 0 7 7 A2 2 0 1 0 7 3 M7 7 V17 M7 17 A2 2 0 1 0 7 21 A2 2 0 1 0 7 17 M17 3 A2 2 0 1 0 17 7 A2 2 0 1 0 17 3 M17 7 V10 Q17 14 7 14"

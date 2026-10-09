@@ -9,12 +9,14 @@ ColumnLayout {
 
     readonly property bool changed: family.text !== Models.DesktopSettings.fontFamily || size.value !== Models.DesktopSettings.fontSize
         || cursorStyle !== Models.DesktopSettings.cursorStyle || scrollback.value !== Models.DesktopSettings.scrollbackLines
-        || blink.checked !== Models.DesktopSettings.cursorBlink
+        || blink.checked !== Models.DesktopSettings.cursorBlink || lineHeight.value !== storedLineHeight
+    readonly property int storedLineHeight: Math.round(Models.DesktopSettings.lineHeight * 100)
     property int cursorStyle: Models.DesktopSettings.cursorStyle
 
     function revert() {
         family.text = Models.DesktopSettings.fontFamily;
         size.value = Models.DesktopSettings.fontSize;
+        lineHeight.value = storedLineHeight;
         cursorStyle = Models.DesktopSettings.cursorStyle;
         scrollback.value = Models.DesktopSettings.scrollbackLines;
         blink.checked = Models.DesktopSettings.cursorBlink;
@@ -37,7 +39,7 @@ ColumnLayout {
         Column {
             x: 16
             y: 14
-            spacing: Math.round(size.value * 0.3)
+            spacing: 2 + Math.max(0, Math.round((lineHeight.value / 100 - 1) * size.value))
 
             Row {
                 spacing: size.value * 0.6
@@ -108,6 +110,25 @@ ColumnLayout {
                 objectName: "panel.settingsView.size"
                 to: 32
                 value: Models.DesktopSettings.fontSize
+            }
+        }
+        ListRow {
+            iconName: "line-height"
+            tint: "#8a6fc2"
+            title: qsTr("Line height")
+
+            KSpinBox {
+                id: lineHeight
+
+                Accessible.id: objectName
+                Accessible.name: qsTr("Terminal line height")
+                editable: false
+                from: 80
+                objectName: "panel.settingsView.lineHeight"
+                stepSize: 5
+                to: 200
+                value: root.storedLineHeight
+                textFromValue: value => (value / 100).toFixed(2)
             }
         }
     }
@@ -197,7 +218,7 @@ ColumnLayout {
             enabled: root.changed
             text: root.changed ? qsTr("Apply") : qsTr("Applied")
 
-            onClicked: Models.DesktopSettings.apply(family.text, size.value, root.cursorStyle, Models.DesktopSettings.lineHeight, scrollback.value, blink.checked)
+            onClicked: Models.DesktopSettings.apply(family.text, size.value, root.cursorStyle, lineHeight.value / 100, scrollback.value, blink.checked)
         }
     }
 }

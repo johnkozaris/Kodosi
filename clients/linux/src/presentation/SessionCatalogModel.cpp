@@ -52,6 +52,14 @@ void SessionCatalogModel::clearAttention(const QString& id)
         emit attentionChanged();
 }
 
+void SessionCatalogModel::noteAttention(const QString& id)
+{
+    if (!containsSession(id) || m_attention.contains(id))
+        return;
+    m_attention.append(id);
+    emit attentionChanged();
+}
+
 namespace {
 bool isSpinner(const char32_t scalar)
 {
@@ -163,7 +171,8 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
     const bool local = s->kind == QStringLiteral("local");
     return { { QStringLiteral("sessionId"), s->id }, { QStringLiteral("id"), s->id }, { QStringLiteral("name"), s->name },
         { QStringLiteral("activity"), activity(session) }, { QStringLiteral("working"), isWorking(session) },
-        { QStringLiteral("folderName"), QDir(s->workingDirectory).dirName() },
+        { QStringLiteral("folderName"),
+            s->workingDirectory.isEmpty() ? QString {} : QDir(s->workingDirectory).dirName() },
         { QStringLiteral("hostLabel"), local ? tr("This computer") : !s->hostName.isEmpty() ? s->hostName : !s->ownerName.isEmpty() ? s->ownerName : tr("Remote computer") },
         { QStringLiteral("ownerUserId"), s->ownerUserId },
         { QStringLiteral("kind"), s->kind }, { QStringLiteral("workingDirectory"), s->kind == QStringLiteral("local") ? s->workingDirectory : QString {} },

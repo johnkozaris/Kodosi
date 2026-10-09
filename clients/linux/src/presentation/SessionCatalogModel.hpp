@@ -65,6 +65,7 @@ public:
     [[nodiscard]] QStringList attention() const { return m_attention; }
     [[nodiscard]] bool working() const;
     Q_INVOKABLE void clearAttention(const QString& id);
+    void noteAttention(const QString& id);
     [[nodiscard]] int rowCount(const QModelIndex& parent = {}) const override;
     [[nodiscard]] QVariant data(const QModelIndex&, int role) const override;
     [[nodiscard]] QHash<int, QByteArray> roleNames() const override;
