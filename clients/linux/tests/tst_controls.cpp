@@ -25,7 +25,36 @@ private slots:
     void modalControlsSuppressNativeTerminalAccessibility();
     void terminalCloseConfirmsAndMinimizeOnlyHidesView();
     void missionCreationHasOneNameField();
+    void messageTextKeepsSpacesEscapesMarkupAndSkipsYourself();
 };
+
+void ControlsTest::messageTextKeepsSpacesEscapesMarkupAndSkipsYourself()
+{
+    QQmlEngine engine;
+    QQmlComponent component(&engine);
+    component.setData(R"(
+        import QtQuick
+        import Kodosi 1.0
+        QtObject {
+            readonly property var targets: [
+                { id: "u1", name: "John Kozaris", kind: "person" },
+                { id: "u2", name: "Maya Chen", kind: "person" },
+                { id: "t\"1", name: "Amber Wren", kind: "terminal" }
+            ]
+            readonly property string html: Mentions.html("a  <b> @maya chen\n  @Amber Wren a@Maya.com", targets, "#112233", "#445566")
+            readonly property string offered: Mentions.suggestions("@", targets, "u1").map(target => target.id).join(",")
+            readonly property bool mine: Mentions.mentionsUser("ping @John Kozaris", targets, "u1")
+        }
+    )", {});
+    std::unique_ptr<QObject> object(component.create());
+    QVERIFY2(object, qPrintable(component.errorString()));
+    const auto html = object->property("html").toString();
+    QVERIFY2(html.startsWith(QStringLiteral("<span style=\"white-space:pre-wrap\">a  &lt;b&gt; <span ")), qPrintable(html));
+    QVERIFY2(html.contains(QStringLiteral("&nbsp;@maya chen&nbsp;</span>\n  <a href=\"kodosi-mention://terminal/t&quot;1\"")), qPrintable(html));
+    QVERIFY2(html.endsWith(QStringLiteral("&nbsp;@Amber Wren&nbsp;</a> a@Maya.com</span>")), qPrintable(html));
+    QCOMPARE(object->property("offered").toString(), QStringLiteral("u2,t\"1"));
+    QVERIFY(object->property("mine").toBool());
+}
 
 void ControlsTest::keyboardFocusTracksButtonState()
 {
@@ -203,7 +232,7 @@ void ControlsTest::terminalCloseConfirmsAndMinimizeOnlyHidesView()
     QVERIFY(!actionText.hasError());
     bool explainsProcessExit = false;
     for (auto* item : confirmation->findChildren<QQuickItem*>()) {
-        if (item->property("text").toString() == QStringLiteral("Running programs will stop."))
+        if (item->property("text").toString() == QStringLiteral("Its programs stop."))
             explainsProcessExit = true;
     }
     QVERIFY(explainsProcessExit);

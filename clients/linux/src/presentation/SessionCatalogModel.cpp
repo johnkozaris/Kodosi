@@ -24,13 +24,71 @@ QVariantList SessionCatalogModel::folderGroups() const
         const auto folder = QDir(session.workingDirectory).dirName();
         group.insert(QStringLiteral("name"), session.workingDirectory.isEmpty() ? tr("Terminals") : folder);
         group.insert(QStringLiteral("host"), local ? QString {} : session.hostName);
+        group.insert(QStringLiteral("owner"), local || session.isOwner ? QString {} : session.ownerName);
         auto entries = group.value(QStringLiteral("sessions")).toList();
-        entries.append(QVariantMap { { QStringLiteral("id"), session.id }, { QStringLiteral("name"), session.name } });
+        entries.append(fields(session));
         group.insert(QStringLiteral("sessions"), entries);
     }
     QVariantList result;
     for (const auto& group : groups) result.append(group);
     return result;
+}
+
+QVariantList SessionCatalogModel::sessions() const
+{
+    QVariantList result;
+    for (const auto& session : m_sessions) result.append(fields(session));
+    return result;
+}
+
+bool SessionCatalogModel::working() const
+{
+    return std::any_of(m_sessions.cbegin(), m_sessions.cend(), isWorking);
+}
+
+void SessionCatalogModel::clearAttention(const QString& id)
+{
+    if (m_attention.removeAll(id) > 0)
+        emit attentionChanged();
+}
+
+void SessionCatalogModel::noteAttention(const QString& id)
+{
+    if (!containsSession(id) || m_attention.contains(id))
+        return;
+    m_attention.append(id);
+    emit attentionChanged();
+}
+
+namespace {
+bool isSpinner(const char32_t scalar)
+{
+    return scalar >= 0x2800 && scalar <= 0x28FF;
+}
+
+bool isStatusGlyph(const char32_t scalar)
+{
+    static constexpr char32_t glyphs[] { 0x2733, 0x2722, 0x2736, 0x273B, 0x273D, 0x00B7, 0x25CF, 0x25CB };
+    return isSpinner(scalar) || std::ranges::find(glyphs, scalar) != std::end(glyphs);
+}
+}
+
+bool SessionCatalogModel::isWorking(const Session& session)
+{
+    const auto scalars = session.title.toUcs4();
+    return presentation(session).canControl && !scalars.isEmpty() && isSpinner(scalars.first());
+}
+
+QString SessionCatalogModel::activity(const Session& session)
+{
+    qsizetype units = 0;
+    for (const auto scalar : session.title.toUcs4()) {
+        if (!isStatusGlyph(scalar) && !QChar::isSpace(scalar))
+            break;
+        units += QChar::requiresSurrogates(scalar) ? 2 : 1;
+    }
+    const auto text = session.title.mid(units).simplified();
+    return text == session.name ? QString {} : text;
 }
 
 int SessionCatalogModel::rowCount(const QModelIndex& parent) const
@@ -104,10 +162,19 @@ std::optional<SessionCatalogModel::PresentationSession> SessionCatalogModel::pre
 QVariantMap SessionCatalogModel::presentationForSession(const QString& id) const
 {
     const auto s = session(id);
-    if (!s)
-        return {};
-    const auto p = presentation(*s);
-    return { { QStringLiteral("sessionId"), s->id }, { QStringLiteral("name"), s->name },
+    return s ? fields(*s) : QVariantMap {};
+}
+QVariantMap SessionCatalogModel::fields(const Session& session) const
+{
+    const auto* s = &session;
+    const auto p = presentation(session);
+    const bool local = s->kind == QStringLiteral("local");
+    return { { QStringLiteral("sessionId"), s->id }, { QStringLiteral("id"), s->id }, { QStringLiteral("name"), s->name },
+        { QStringLiteral("activity"), activity(session) }, { QStringLiteral("working"), isWorking(session) },
+        { QStringLiteral("folderName"),
+            s->workingDirectory.isEmpty() ? QString {} : QDir(s->workingDirectory).dirName() },
+        { QStringLiteral("hostLabel"), local ? tr("This computer") : !s->hostName.isEmpty() ? s->hostName : !s->ownerName.isEmpty() ? s->ownerName : tr("Remote computer") },
+        { QStringLiteral("ownerUserId"), s->ownerUserId },
         { QStringLiteral("kind"), s->kind }, { QStringLiteral("workingDirectory"), s->kind == QStringLiteral("local") ? s->workingDirectory : QString {} },
         { QStringLiteral("displayDirectory"), s->workingDirectory },
         { QStringLiteral("headerTitle"), s->title.isEmpty() || s->title == s->name ? s->name : s->name + QStringLiteral(" · ") + s->title },
@@ -192,11 +259,22 @@ void SessionCatalogModel::apply(const QJsonObject& event)
         ids.insert(s->id);
         result.append(*s);
     }
+    auto attention = m_attention;
+    for (const auto& next : result) {
+        const auto before = this->session(next.id);
+        if (before && isWorking(*before) && !isWorking(next) && !attention.contains(next.id))
+            attention.append(next.id);
+    }
+    attention.removeIf([&](const QString& id) { return !ids.contains(id); });
+    const bool attentionMoved = attention != m_attention;
     beginResetModel();
     m_sessions = std::move(result);
+    m_attention = std::move(attention);
     m_state = Loaded;
     m_error.clear();
     endResetModel();
+    if (attentionMoved)
+        emit attentionChanged();
     emit countChanged();
     emit authorityStateChanged();
     emit authoritativeSnapshotApplied();
@@ -205,7 +283,9 @@ void SessionCatalogModel::resetRuntimeAuthority()
 {
     beginResetModel();
     m_sessions.clear();
+    m_attention.clear();
     endResetModel();
+    emit attentionChanged();
     m_state = Loading;
     m_error.clear();
     emit countChanged();

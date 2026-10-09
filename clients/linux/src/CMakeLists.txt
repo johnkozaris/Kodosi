@@ -1,5 +1,7 @@
 set_source_files_properties(
     qml/Theme/KodosiTheme.qml
+    qml/Theme/Identity.qml
+    qml/Theme/Mentions.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE
 )
 set_source_files_properties(
@@ -203,7 +205,6 @@ qt_add_qml_module(kodosi-ui
         qml/Screens/MissionsView.qml
         qml/Screens/RoomContent.qml
         qml/Screens/RoomSkeleton.qml
-        qml/Screens/RoomAvatar.qml
         qml/Screens/RoomConversation.qml
         qml/Screens/RoomTasks.qml
         qml/Screens/RoomRepositories.qml
@@ -212,18 +213,21 @@ qt_add_qml_module(kodosi-ui
         qml/Settings/DeviceSettings.qml
         qml/Settings/TerminalSettings.qml
         qml/Settings/ProviderSettings.qml
-        qml/Workbench/SessionDetails.qml
-        qml/Controls/ProviderIcon.qml
-        qml/Controls/NavTab.qml
+        qml/Controls/AgentMark.qml
+        qml/Controls/AvatarStack.qml
+        qml/Controls/BreathingDot.qml
+        qml/Controls/CardGrid.qml
+        qml/Controls/CountBadge.qml
+        qml/Controls/CursorBlock.qml
+        qml/Controls/EmptyState.qml
+        qml/Controls/IconTile.qml
         qml/Controls/KButton.qml
         qml/Controls/KFocusIndicator.qml
         qml/Controls/KBusyIndicator.qml
-        qml/Controls/KCheckBox.qml
         qml/Controls/KComboBox.qml
         qml/Controls/KDialog.qml
         qml/Controls/KIcon.qml
         qml/Controls/KIconButton.qml
-        qml/Controls/KItemDelegate.qml
         qml/Controls/KMenu.qml
         qml/Controls/KMenuItem.qml
         qml/Controls/KPopover.qml
@@ -231,24 +235,39 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/KScrollBar.qml
         qml/Controls/KScrollView.qml
         qml/Controls/KSpinBox.qml
+        qml/Controls/KSwitch.qml
         qml/Controls/KTextField.qml
+        qml/Controls/ListGroup.qml
+        qml/Controls/ListRow.qml
+        qml/Controls/PersonAvatar.qml
         qml/Controls/PlainLabel.qml
+        qml/Controls/ProgressRing.qml
+        qml/Controls/Raised.qml
+        qml/Controls/RoomSigil.qml
+        qml/Controls/SectionDock.qml
+        qml/Controls/SegmentedPill.qml
+        qml/Controls/ShimmerText.qml
+        qml/Controls/Tag.qml
+        qml/Controls/Well.qml
+        qml/Controls/Wordmark.qml
+        qml/Shell/CommandPalette.qml
+        qml/Shell/Sidebar.qml
         qml/Shell/StartupOverlay.qml
+        qml/Theme/Identity.qml
         qml/Theme/KodosiTheme.qml
-        qml/Workbench/SessionSidebar.qml
+        qml/Theme/Mentions.qml
         qml/Workbench/HistoryView.qml
+        qml/Workbench/SessionDetails.qml
+        qml/Workbench/ShareSheet.qml
+        qml/Workbench/StageOverview.qml
         qml/Workbench/TerminalDivider.qml
         qml/Workbench/TerminalStage.qml
         qml/Workbench/TerminalTile.qml
     RESOURCES
         qml/assets/kodosi-logo-dark.png
-        qml/assets/providers/claude-light.svg
-        qml/assets/providers/claude-dark.svg
-        qml/assets/providers/copilot-light.svg
+        qml/assets/providers/claude-mark.svg
         qml/assets/providers/copilot-dark.svg
-        qml/assets/providers/codex-light.svg
         qml/assets/providers/codex-dark.svg
-        qml/assets/providers/cursor-light.svg
         qml/assets/providers/cursor-dark.svg
 )
 

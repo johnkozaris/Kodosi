@@ -152,6 +152,28 @@ AppearanceModel::EffectiveScheme AppearanceModel::effectiveScheme() const noexce
     return m_effectiveScheme;
 }
 
+namespace {
+quint64 stableHash(const QString& key)
+{
+    quint64 hash = 0xCBF29CE484222325ULL;
+    for (const auto byte : key.toUtf8()) {
+        hash ^= static_cast<quint8>(byte);
+        hash *= 0x00000100000001B3ULL;
+    }
+    return hash;
+}
+}
+
+int AppearanceModel::stableIndex(const QString& key, const int count)
+{
+    return count > 0 ? static_cast<int>(stableHash(key) % static_cast<quint64>(count)) : 0;
+}
+
+int AppearanceModel::stableBits(const QString& key)
+{
+    return static_cast<int>(stableHash(key) & 0xFFFFULL);
+}
+
 bool AppearanceModel::dark() const noexcept
 {
     return m_effectiveScheme == EffectiveScheme::DarkScheme;

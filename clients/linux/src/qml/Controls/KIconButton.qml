@@ -1,30 +1,47 @@
 import Kodosi 1.0
 import QtQuick
+import QtQuick.Controls
 
-KButton {
+AbstractButton {
     id: root
 
     required property string glyph
-    property int size: KodosiTheme.iconButtonSize
-    property color glyphColor: KodosiTheme.textSecondary
+    property int size: 28
+    property bool active: false
+    property bool destructive: false
+    property bool onTerminal: false
+    property color glyphColor: onTerminal ? KodosiTheme.terminalInkMuted : KodosiTheme.inkMuted
+    readonly property color ink: onTerminal ? KodosiTheme.terminalInk : KodosiTheme.ink
 
-    text: ""
-    iconName: glyph
-    iconColor: !enabled
-        ? KodosiTheme.disabled
-        : checked
-          ? KodosiTheme.accent
-          : hovered
-            ? KodosiTheme.textPrimary
-            : glyphColor
-    variant: KButton.Quiet
-    compact: true
+    activeFocusOnTab: true
+    hoverEnabled: true
     implicitWidth: size
     implicitHeight: size
-    leftPadding: Math.max(0, (size - 15) / 2)
-    rightPadding: leftPadding
-    topPadding: Math.max(0, (size - 15) / 2)
-    bottomPadding: topPadding
+    scale: pressed && enabled ? 0.9 : 1
 
-    background: Item {}
+    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
+
+    contentItem: Item {
+        KIcon {
+            anchors.centerIn: parent
+            width: Math.round(root.size * 0.52)
+            height: width
+            name: root.glyph
+            strokeWidth: 1.9
+            color: !root.enabled ? KodosiTheme.alpha(root.glyphColor, 0.4)
+                : root.active ? (root.onTerminal ? KodosiTheme.terminalAccent : KodosiTheme.accentStrong)
+                : root.hovered && root.destructive ? KodosiTheme.danger
+                : root.hovered ? root.ink
+                : root.glyphColor
+        }
+    }
+    background: Rectangle {
+        radius: Math.min(width, height) * 0.32
+        color: root.active ? KodosiTheme.alpha(root.onTerminal ? KodosiTheme.terminalAccent : KodosiTheme.accent, 0.18)
+            : KodosiTheme.alpha(root.ink, root.hovered && root.enabled ? 0.09 : 0)
+        border.width: root.visualFocus ? 1.5 : 0
+        border.color: KodosiTheme.accentStrong
+
+        Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
+    }
 }

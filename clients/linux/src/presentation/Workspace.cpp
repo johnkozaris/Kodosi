@@ -178,7 +178,10 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
             clearAccountData(m_account.signedIn());
             m_account.m_epoch = accountEpoch;
             m_account.m_userId = user;
+            m_account.m_displayName.clear();
         }
+        if (const auto name = event.value(QStringLiteral("displayName")).toString(); !name.isEmpty())
+            m_account.m_displayName = name;
         m_account.m_userCode.clear();
         m_account.m_verificationUri.clear();
         m_devices.m_enrolled = !user.isEmpty() && event.value(QStringLiteral("enrolled")).toBool(true);
@@ -198,6 +201,10 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         m_account.m_userCode = event.value(QStringLiteral("userCode")).toString();
         m_account.m_verificationUri = event.value(QStringLiteral("verificationUri")).toString();
         emit m_account.loginChanged();
+        return;
+    }
+    if (type == QStringLiteral("term.bell")) {
+        m_sessions.noteAttention(event.value(QStringLiteral("sessionId")).toString());
         return;
     }
     if (type == QStringLiteral("sessions.snapshot")) {

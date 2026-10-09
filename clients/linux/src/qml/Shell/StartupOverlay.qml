@@ -33,8 +33,10 @@ KPopover {
     x: 0
     y: 0
 
+    radius: 0
+    enter: null
     background: Rectangle {
-        color: KodosiTheme.canvas
+        color: KodosiTheme.ground
     }
     contentItem: FocusScope {
         id: startupScope
@@ -42,7 +44,7 @@ KPopover {
         Accessible.description: root.failed ? Models.ApplicationLifecycle.errorText : qsTr("Kodosi is starting.")
         Accessible.id: objectName
         Accessible.ignored: !root.visible
-        Accessible.name: root.failed ? qsTr("Kodosi couldn’t start") : qsTr("Starting Kodosi")
+        Accessible.name: root.failed ? qsTr("Kodosi could not start") : qsTr("Starting Kodosi")
         Accessible.role: Accessible.Dialog
         focus: true
         objectName: "startup.overlay"
@@ -55,28 +57,29 @@ KPopover {
             anchors.centerIn: parent
             enabled: root.contentAvailable
             objectName: "startup.content"
-            spacing: KodosiTheme.spacing5
+            spacing: 12
             visible: root.contentAvailable
             width: Math.min(460, Math.max(280, parent.width - 48))
 
             Item {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.preferredHeight: 56
-                Layout.preferredWidth: 56
+                Layout.preferredWidth: Math.max(56, mark.implicitWidth)
 
-                Rectangle {
-                    anchors.fill: parent
-                    color: KodosiTheme.surfaceElevated
-                    radius: KodosiTheme.radiusLarge
-                }
-                KBusyIndicator {
-                    id: busyIndicator
-
-                    Accessible.id: objectName
-                    Accessible.ignored: true
+                Wordmark {
+                    id: mark
                     anchors.centerIn: parent
+                    size: 24
+                    blinks: true
+                    visible: root.contentAvailable && !root.failed
                     objectName: "startup.busy"
-                    running: root.contentAvailable && !root.failed
+                    Accessible.id: objectName
+                }
+                Well {
+                    anchors.centerIn: parent
+                    width: 56
+                    height: 56
+                    visible: root.contentAvailable && root.failed
                 }
                 KIcon {
                     Accessible.id: objectName
@@ -99,12 +102,13 @@ KPopover {
                 Accessible.name: text
                 Accessible.role: Accessible.StaticText
                 Layout.fillWidth: true
-                color: root.failed ? KodosiTheme.textPrimary : KodosiTheme.textSecondary
-                font.pixelSize: root.failed ? 20 : 14
+                color: root.failed ? KodosiTheme.ink : KodosiTheme.inkMuted
+                font.pixelSize: root.failed ? KodosiTheme.fontTitle : KodosiTheme.fontFootnote
                 font.weight: root.failed ? Font.DemiBold : Font.Medium
                 horizontalAlignment: Text.AlignHCenter
                 objectName: "startup.title"
-                text: root.failed ? qsTr("Kodosi couldn’t start") : qsTr("Starting Kodosi…")
+                text: root.failed ? qsTr("Kodosi could not start") : qsTr("Starting")
+                visible: root.failed
                 wrapMode: Text.Wrap
             }
             PlainLabel {
@@ -115,8 +119,7 @@ KPopover {
                 Accessible.name: text
                 Accessible.role: Accessible.StaticText
                 Layout.fillWidth: true
-                Layout.topMargin: root.failed ? 0 : -KodosiTheme.spacing2
-                color: KodosiTheme.textSecondary
+                color: KodosiTheme.inkMuted
                 elide: Text.ElideRight
                 font.pixelSize: 12
                 horizontalAlignment: Text.AlignHCenter
@@ -128,8 +131,8 @@ KPopover {
             }
             RowLayout {
                 Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: root.failed ? KodosiTheme.spacing3 : 0
-                spacing: KodosiTheme.spacing3
+                Layout.topMargin: root.failed ? 8 : 0
+                spacing: 8
                 visible: root.contentAvailable && root.failed
 
                 KButton {
@@ -140,7 +143,7 @@ KPopover {
                     Accessible.name: text
                     iconName: "refresh"
                     objectName: "startup.retry"
-                    text: qsTr("Try Again")
+                    text: qsTr("Try again")
                     variant: KButton.Primary
 
                     onClicked: Models.ApplicationLifecycle.retry()

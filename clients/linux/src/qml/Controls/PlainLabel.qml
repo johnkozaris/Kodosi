@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls
 
 Label {
+    color: KodosiTheme.ink
     font.pixelSize: KodosiTheme.fontBody
     textFormat: Text.PlainText
 }

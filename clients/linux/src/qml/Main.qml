@@ -3,104 +3,31 @@ import Kodosi 1.0
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Shapes
 import Kodosi.Models 1.0 as Models
 
 ApplicationWindow {
     id: window
 
     readonly property bool modalOpen: Models.DesktopState.modalOpen || Models.DesktopFiles.busy
+    readonly property string notice: Models.AppState.error || Models.DesktopState.lastError || Models.DesktopFiles.errorMessage
 
     function openCreate(folder) {
         Models.SessionActions.create("", folder || Models.DesktopSettings.effectiveWorkingDirectory);
     }
+    function openNewRoom() {
+        Models.DesktopState.activeView = Models.DesktopState.Missions;
+        missions.openCreate();
+    }
 
-    color: KodosiTheme.canvas
-    height: 800
+    color: KodosiTheme.ground
+    height: 820
     minimumHeight: 560
-    minimumWidth: 820
+    minimumWidth: 860
     objectName: "window.main"
     title: qsTr("Kodosi")
     visible: true
-    width: 1240
-
-    header: Models.AccessibilityScope {
-        height: 54
-        enabled: !window.modalOpen
-        suppressed: window.modalOpen
-        Rectangle { anchors.fill: parent; color: KodosiTheme.surface }
-
-        RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 16
-            anchors.rightMargin: 12
-            spacing: 8
-
-            Image {
-                Layout.rightMargin: 16
-                Layout.preferredWidth: 26
-                Layout.preferredHeight: 26
-                source: "assets/kodosi-logo-dark.png"
-                fillMode: Image.PreserveAspectFit
-                Accessible.name: qsTr("Kodosi")
-            }
-            NavTab {
-                accessibleId: "sessions"
-                iconName: "terminal"
-                selected: Models.DesktopState.activeView === Models.DesktopState.Sessions
-                title: qsTr("Terminals")
-
-                onClicked: Models.DesktopState.activeView = Models.DesktopState.Sessions
-            }
-            NavTab {
-                accessibleId: "missions"
-                iconName: "mission"
-                selected: Models.DesktopState.activeView === Models.DesktopState.Missions
-                title: qsTr("Rooms")
-
-                onClicked: Models.DesktopState.activeView = Models.DesktopState.Missions
-            }
-            NavTab {
-                accessibleId: "people"
-                iconName: "people"
-                selected: Models.DesktopState.activeView === Models.DesktopState.People
-                title: qsTr("People")
-
-                onClicked: Models.DesktopState.activeView = Models.DesktopState.People
-            }
-            Item {
-                Layout.fillWidth: true
-            }
-            KButton {
-                Accessible.id: objectName
-                objectName: "header.sign-in"
-                text: qsTr("Sign in")
-                visible: !Models.Account.signedIn
-                variant: KButton.Primary
-                onClicked: {
-                    Models.DesktopState.activeView = Models.DesktopState.Settings;
-                    Models.Account.login();
-                }
-            }
-            KButton {
-                Accessible.id: objectName
-                objectName: "header.approve-device"
-                text: qsTr("Approve this device")
-                visible: Models.Account.signedIn && !Models.Devices.localDeviceEnrolled
-                variant: KButton.Primary
-                onClicked: {
-                    settings.section = 1;
-                    Models.DesktopState.activeView = Models.DesktopState.Settings;
-                }
-            }
-            KIconButton {
-                Accessible.id: objectName
-                Accessible.name: qsTr("Settings")
-                objectName: "header.settings"
-                glyph: "settings"
-                onClicked: Models.DesktopState.activeView = Models.DesktopState.Settings
-            }
-        }
-    }
+    width: 1280
 
     onClosing: close => {
         close.accepted = false;
@@ -109,85 +36,154 @@ ApplicationWindow {
 
     Models.AccessibilityScope {
         anchors.fill: parent
+        enabled: !window.modalOpen
         suppressed: window.modalOpen
 
-        ColumnLayout {
+        Shape {
+            id: glow
+            anchors.fill: parent
+            preferredRendererType: Shape.CurveRenderer
+
+            ShapePath {
+                strokeColor: "transparent"
+                strokeWidth: 0
+                fillGradient: RadialGradient {
+                    centerX: 70
+                    centerY: 10
+                    focalX: centerX
+                    focalY: centerY
+                    centerRadius: 560
+                    GradientStop { position: 0; color: KodosiTheme.alpha(KodosiTheme.accent, KodosiTheme.isDark ? 0.11 : 0.14) }
+                    GradientStop { position: 1; color: KodosiTheme.alpha(KodosiTheme.accent, 0) }
+                }
+                PathRectangle { width: glow.width; height: glow.height }
+            }
+        }
+        RowLayout {
             anchors.fill: parent
             spacing: 0
 
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: errorRow.implicitHeight + 16
-                color: KodosiTheme.surfaceRaised
-                visible: Models.AppState.error.length > 0 || Models.DesktopState.lastError.length > 0 || Models.DesktopFiles.errorMessage.length > 0
+            Sidebar {
+                Layout.fillHeight: true
+                Layout.preferredWidth: implicitWidth
 
-                RowLayout {
-                    id: errorRow
-
-                    anchors.fill: parent
-                    anchors.margins: 8
-
-                    KButton {
-                        Layout.fillWidth: true
-                        text: qsTr("Action failed")
-                        iconName: "warning"
-                        variant: KButton.Quiet
-                        onClicked: errorDetails.open()
-                    }
-                    KIconButton {
-                        Accessible.id: objectName
-                        Accessible.name: qsTr("Dismiss error")
-                        glyph: "close"
-                        objectName: "window.error.dismiss"
-
-                        onClicked: {
-                            Models.AppState.clearError();
-                            Models.DesktopState.clearError();
-                            Models.DesktopFiles.clearError();
-                        }
-                    }
-                }
+                onDetailsRequested: sessionId => details.openSession(sessionId)
+                onShareRequested: sessionId => share.openSession(sessionId)
+                onNewTerminalRequested: folder => window.openCreate(folder)
+                onResumeRequested: history.openModal()
+                onPaletteRequested: palette.open()
+                onNewRoomRequested: window.openNewRoom()
             }
-            StackLayout {
+            Item {
                 Layout.fillHeight: true
                 Layout.fillWidth: true
-                currentIndex: Models.DesktopState.activeView
+                Layout.topMargin: KodosiTheme.frameInset
+                Layout.bottomMargin: KodosiTheme.frameInset
+                Layout.rightMargin: KodosiTheme.frameInset
 
-                RowLayout {
-                    spacing: 0
+                Raised {
+                    anchors.fill: parent
+                    radius: KodosiTheme.radiusXl
+                    fill: KodosiTheme.surface
+                }
+                StackLayout {
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    currentIndex: Models.DesktopState.activeView
 
-                    SessionSidebar {
-                        Layout.fillHeight: true
-                        Layout.preferredWidth: 230
-                        visible: Models.DesktopState.sidebarOpen
-
-                        onDetailsRequested: sessionId => details.openSession(sessionId)
-                        onNewSessionRequested: folder => window.openCreate(folder)
-                        onHistoryRequested: history.openModal()
-                    }
                     Loader {
                         id: stageLoader
-                        Layout.fillHeight: true
-                        Layout.fillWidth: true
                         active: Models.DesktopState.activeView === Models.DesktopState.Sessions
                         sourceComponent: TerminalStage {
                             interactionEnabled: !window.modalOpen
-                            sidebarOpen: Models.DesktopState.sidebarOpen
                             onInspectSessionRequested: (id, name) => details.openSession(id)
                             onNewSessionRequested: window.openCreate("")
-                            onShareSessionRequested: (id, name) => details.openSession(id)
-                            onShowSidebarRequested: Models.DesktopState.sidebarOpen = true
+                            onShareSessionRequested: (id, name) => share.openSession(id)
                         }
                     }
-                }
-                MissionsView { onInspectSessionRequested: id => details.openSession(id) }
-                PeopleView {
-                }
-                SettingsView {
-                    id: settings
+                    MissionsView {
+                        id: missions
+                        onInspectSessionRequested: id => details.openSession(id)
+                        onShareSessionRequested: id => share.openSession(id)
+                    }
+                    PeopleView {}
+                    SettingsView {
+                        id: settings
+                    }
                 }
             }
         }
+        Item {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: window.notice.length > 0 ? 22 : -height
+            width: Math.min(noticeRow.implicitWidth + 28, parent.width - 80)
+            height: Math.max(40, noticeText.implicitHeight + 20)
+            opacity: window.notice.length > 0 ? 1 : 0
+            visible: opacity > 0
+
+            Behavior on anchors.bottomMargin { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
+            Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
+
+            Raised {
+                anchors.fill: parent
+                radius: Math.min(20, height / 2)
+                fill: KodosiTheme.lifted
+                elevation: 3
+            }
+            RowLayout {
+                id: noticeRow
+                anchors.fill: parent
+                anchors.leftMargin: 16
+                anchors.rightMargin: 8
+                spacing: 10
+
+                Rectangle { Layout.preferredWidth: 7; Layout.preferredHeight: 7; radius: 3.5; color: KodosiTheme.caution }
+                PlainLabel {
+                    id: noticeText
+                    Layout.fillWidth: true
+                    Layout.maximumWidth: 520
+                    text: window.notice
+                    wrapMode: Text.WordWrap
+                    maximumLineCount: 3
+                    elide: Text.ElideRight
+                    objectName: "window.error.text"
+                    Accessible.id: objectName
+                }
+                KIconButton {
+                    Accessible.id: objectName
+                    Accessible.name: qsTr("Dismiss")
+                    glyph: "close"
+                    size: 26
+                    objectName: "window.error.dismiss"
+
+                    onClicked: {
+                        Models.AppState.clearError();
+                        Models.DesktopState.clearError();
+                        Models.DesktopFiles.clearError();
+                    }
+                }
+            }
+        }
+    }
+    Component {
+        id: tipBackground
+        Raised { radius: KodosiTheme.radiusSm; fill: KodosiTheme.lifted; elevation: 2 }
+    }
+    Component {
+        id: tipContent
+        PlainLabel { font.pixelSize: KodosiTheme.fontCaption; font.weight: Font.Medium }
+    }
+    Component.onCompleted: {
+        const tip = glow.ToolTip.toolTip;
+        tip.padding = 7;
+        const surface = tipBackground.createObject(glow);
+        const label = tipContent.createObject(glow);
+        surface.parent = null;
+        label.parent = null;
+        label.text = Qt.binding(() => tip.text);
+        tip.background = surface;
+        tip.contentItem = label;
     }
     Connections {
         function onDirectoryPicked(purpose, path) {
@@ -209,22 +205,21 @@ ApplicationWindow {
 
         target: Models.SessionActions
     }
-    KPopover {
-        id: errorDetails
-        parent: Overlay.overlay
-        x: (parent.width - width) / 2
-        y: 80
-        width: 400
-        padding: 18
-        contentItem: KReadOnlyText {
-            text: Models.AppState.error || Models.DesktopState.lastError || Models.DesktopFiles.errorMessage
-        }
-    }
     SessionDetails {
         id: details
+        onShareRequested: sessionId => share.openSession(sessionId)
+    }
+    ShareSheet {
+        id: share
     }
     HistoryView {
         id: history
+    }
+    CommandPalette {
+        id: palette
+        onNewTerminalRequested: folder => window.openCreate(folder)
+        onNewRoomRequested: window.openNewRoom()
+        onResumeRequested: history.openModal()
     }
     StartupOverlay {
         id: startup
@@ -234,6 +229,12 @@ ApplicationWindow {
         sequence: "Ctrl+Shift+N"
 
         onActivated: window.openCreate()
+    }
+    Shortcut {
+        enabled: !window.modalOpen
+        sequence: "Ctrl+K"
+
+        onActivated: palette.open()
     }
     Shortcut {
         enabled: !window.modalOpen

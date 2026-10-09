@@ -864,8 +864,10 @@ void TerminalView::drainGuiEvents(const std::uint64_t epoch)
                 presentFailure(std::move(value));
             } else if constexpr (std::is_same_v<T, std::int32_t>) {
                 emit connectionCompleted(value == KODOSI_FFI_OK, value);
-                if (m_attachmentEpoch.load(std::memory_order_acquire) == epoch
-                    && value == KODOSI_FFI_OK && hasActiveFocus() && interactionAvailable()) sendFocus(true);
+                if (m_attachmentEpoch.load(std::memory_order_acquire) == epoch && value == KODOSI_FFI_OK) {
+                    if (hasActiveFocus() && interactionAvailable()) sendFocus(true);
+                    scheduleResize();
+                }
             } else if constexpr (std::is_same_v<T, TerminalFocusOutcome>) {
                 handleFocusOutcome(std::move(value));
             } else if constexpr (std::is_same_v<T, TerminalResizeOutcome>) {
@@ -1006,7 +1008,9 @@ void TerminalView::dispatchFocus(const FocusOperation operation)
         } else {
             m_focusRetryQueued = false;
             m_focusRetryOperation = FocusOperation::None;
-            emit operationError(result.error().message);
+            if (result.error().ffiResult != KODOSI_FFI_SESSION_NOT_FOUND) {
+                emit operationError(result.error().message);
+            }
         }
         return;
     }
@@ -1211,7 +1215,7 @@ void TerminalView::dispatchResize()
         m_pendingResize.reset();
         if (result.error().ffiResult == KODOSI_FFI_BUSY) {
             scheduleResizeRetry();
-        } else {
+        } else if (result.error().ffiResult != KODOSI_FFI_SESSION_NOT_FOUND) {
             emit operationError(result.error().message);
         }
     }

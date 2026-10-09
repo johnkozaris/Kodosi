@@ -7,20 +7,16 @@ Menu {
 
     margins: 8
     padding: 6
+    overlap: 1
 
-    background: Rectangle {
-        implicitWidth: 190
-        color: KodosiTheme.surfaceRaised
-        radius: KodosiTheme.radiusLarge
-
-        Rectangle {
-            anchors.fill: parent
-            anchors.topMargin: 5
-            anchors.leftMargin: 4
-            z: -1
-            radius: parent.radius
-            color: KodosiTheme.shadow
-            opacity: 0.35
-        }
+    background: Raised {
+        implicitWidth: 200
+        radius: KodosiTheme.radiusLg
+        fill: KodosiTheme.lifted
+        elevation: 2
+    }
+    enter: Transition {
+        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: KodosiTheme.motionHover }
+        NumberAnimation { property: "scale"; from: 0.96; to: 1; duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic }
     }
 }

@@ -17,8 +17,6 @@ Item {
     signal inspectSessionRequested(string sessionId, string sessionName)
     signal shareSessionRequested(string sessionId, string sessionName)
     signal newSessionRequested()
-    signal showSidebarRequested()
-    property bool sidebarOpen: true
     property bool interactionEnabled: true
     property bool dividerDragging: false
     property string selectedSessionName
@@ -149,62 +147,10 @@ Item {
         }
     }
 
-    Rectangle {
-        anchors.fill: parent
-        color: KodosiTheme.canvas
-    }
-
     ColumnLayout {
         anchors.fill: parent
+        anchors.margins: 6
         spacing: 0
-
-        Rectangle {
-            visible: root.focusMode && root.hasStage
-            Layout.fillWidth: true
-            Layout.preferredHeight: visible ? 34 : 0
-            color: KodosiTheme.surfaceRaised
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: KodosiTheme.spacing4
-                anchors.rightMargin: KodosiTheme.spacing4
-                spacing: KodosiTheme.spacing3
-
-                KButton {
-                    objectName: "stage.focus.exit"
-                    Accessible.id: objectName
-                    Accessible.ignored: !visible
-                    compact: true
-                    variant: KButton.Quiet
-                    iconName: "chevron-left"
-                    text: qsTr("Grid")
-                    Accessible.name: qsTr("Return to terminal grid")
-                    onClicked: Models.DesktopState.exitFocusMode()
-                }
-
-                PlainLabel {
-                    objectName: "stage.focus.title"
-                    Accessible.id: objectName
-                    Accessible.ignored: !visible
-                    Layout.fillWidth: true
-                    text: root.selectedSessionName.length > 0
-                        ? root.selectedSessionName
-                        : qsTr("Terminal")
-                    Accessible.name: text
-                    color: KodosiTheme.textSecondary
-                    font.pixelSize: 10
-                    font.weight: Font.DemiBold
-                }
-            }
-
-            Rectangle {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                height: 1
-                color: KodosiTheme.seam
-            }
-        }
 
         Item {
             id: stageViewport
@@ -415,106 +361,12 @@ Item {
                 }
             }
 
-            ColumnLayout {
-                anchors.centerIn: parent
-                width: Math.min(480, parent.width - 48)
-                spacing: KodosiTheme.spacing4
+            StageOverview {
+                anchors.fill: parent
                 visible: !stageFlick.visible
-
-                KBusyIndicator {
-                    objectName: "stage.sessions.loading"
-                    Accessible.id: objectName
-                    Accessible.name: qsTr("Loading terminals")
-                    Accessible.ignored: !visible
-                    Layout.alignment: Qt.AlignHCenter
-                    visible: root.catalogLoading
-                    running: visible
-                    implicitWidth: 28
-                    implicitHeight: 28
-                }
-
-                KIcon {
-                    Accessible.ignored: true
-                    Layout.alignment: Qt.AlignHCenter
-                    visible: !root.catalogLoading
-                    Layout.preferredWidth: 30
-                    Layout.preferredHeight: 30
-                    name: root.catalogFailed ? "terminal" : "grid"
-                    color: root.catalogFailed
-                        ? KodosiTheme.danger
-                        : KodosiTheme.accent
-                }
-
-                PlainLabel {
-                    Accessible.ignored: !visible
-                    Layout.fillWidth: true
-                    text: root.catalogFailed
-                        ? qsTr("Terminals unavailable")
-                        : root.catalogLoading
-                          ? qsTr("Loading terminals...")
-                          : Models.Sessions.count === 0
-                            ? qsTr("No terminals")
-                            : qsTr("No terminals open")
-                    color: KodosiTheme.textPrimary
-                    font.pixelSize: 20
-                    font.weight: Font.DemiBold
-                    horizontalAlignment: Text.AlignHCenter
-                }
-
-                PlainLabel {
-                    Accessible.ignored: !visible
-                    Layout.fillWidth: true
-                    text: Models.Sessions.authorityError
-                    color: KodosiTheme.textSecondary
-                    font.pixelSize: 12
-                    wrapMode: Text.Wrap
-                    horizontalAlignment: Text.AlignHCenter
-                    visible: root.catalogFailed
-                }
-
-                KButton {
-                    objectName: "stage.sessions.error.retry"
-                    Accessible.id: objectName
-                    Accessible.ignored: !visible
-                    Layout.alignment: Qt.AlignHCenter
-                    visible: root.catalogFailed
-                    variant: KButton.Directional
-                    iconName: "refresh"
-                    text: qsTr("Retry")
-                    Accessible.name: qsTr("Retry loading terminals")
-                    onClicked: Models.SessionActions.refresh()
-                }
-
-                KButton {
-                    objectName: "stage.empty.new"
-                    Accessible.id: objectName
-                    Accessible.ignored: !visible
-                    Layout.alignment: Qt.AlignHCenter
-                    visible: !root.catalogFailed
-                        && !root.catalogLoading
-                        && Models.Sessions.count === 0
-                    variant: KButton.Directional
-                    iconName: "chevron-right"
-                    text: qsTr("New terminal")
-                    Accessible.name: text
-                    onClicked: root.newSessionRequested()
-                }
-
-                KButton {
-                    objectName: "stage.empty.showSidebar"
-                    Accessible.id: objectName
-                    Accessible.ignored: !visible
-                    Layout.alignment: Qt.AlignHCenter
-                    visible: !root.catalogFailed
-                        && !root.catalogLoading
-                        && Models.Sessions.count > 0
-                        && !root.sidebarOpen
-                    text: qsTr("Show Terminals")
-                    variant: KButton.Secondary
-                    iconName: "sidebar"
-                    Accessible.name: qsTr("Show Terminals sidebar")
-                    onClicked: root.showSidebarRequested()
-                }
+                loading: root.catalogLoading
+                failed: root.catalogFailed
+                onNewTerminalRequested: root.newSessionRequested()
             }
         }
     }

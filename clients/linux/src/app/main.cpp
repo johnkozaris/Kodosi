@@ -20,7 +20,6 @@
 #include "terminal/TerminalSessionRegistry.hpp"
 #include "terminal/TerminalSurfaceController.hpp"
 #include <QApplication>
-#include <QJsonDocument>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 #include <QRegularExpression>
@@ -125,20 +124,6 @@ int main(int argc, char* argv[])
     });
     QObject::connect(&lifecycle, &kodosi::ApplicationLifecycleModel::runtimeGenerationReady, &workspace,
         [&](quint64) { workspace.sessionActions().refresh(); });
-    const auto syncTheme = [&] {
-        if (runtime.isRunning()) {
-            const auto command
-                = QJsonDocument(QJsonObject { { QStringLiteral("type"), QStringLiteral("system.setTheme") },
-                                    { QStringLiteral("dark"), appearance.dark() } })
-                      .toJson(QJsonDocument::Compact);
-            (void)runtime.send(command);
-        }
-    };
-    QObject::connect(&appearance, &kodosi::AppearanceModel::effectiveSchemeChanged, &app, syncTheme);
-    QObject::connect(&runtime, &kodosi::RuntimeBridge::eventReceived, &app, [&](const QJsonObject& event) {
-        if (event.value(QStringLiteral("type")).toString() == QStringLiteral("system.ready"))
-            syncTheme();
-    });
     kodosi::qml::configureModelInstances(
         workspace, history, providerFiles, appearance, settings, desktop, sessions, tiling, files,
         lifecycle, surfaces);

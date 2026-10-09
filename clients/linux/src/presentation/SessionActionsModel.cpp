@@ -110,8 +110,16 @@ bool SessionActionsModel::createInRoom(const QString& roomId, const QString& dir
     return createInternal({}, directory, {}, {}, roomId);
 }
 
+bool SessionActionsModel::takeCreated(const QString& id)
+{
+    return m_created.remove(id);
+}
+
 void SessionActionsModel::completeCreation(const QString& id, const QString& roomId)
 {
+    if (m_created.size() > 64)
+        m_created.clear();
+    m_created.insert(id);
     if (roomId.isEmpty()) {
         if (m_sessions.containsSession(id)) activate(id);
         else m_activeLink = DeepLinkDestination {id};
@@ -214,6 +222,15 @@ bool SessionActionsModel::close(const QString& id)
     return command(QStringLiteral("session.close"), id);
 }
 
+bool SessionActionsModel::rename(const QString& id, const QString& name)
+{
+    const auto session = m_sessions.session(id);
+    if (!Workspace::validName(name) || (session && session->name == name.trimmed()))
+        return false;
+    return command(QStringLiteral("session.rename"), id,
+        { { QStringLiteral("name"), name.trimmed() } });
+}
+
 bool SessionActionsModel::share(
     const QString& id, const QStringList& users, const QStringList& expectedUsers)
 {
@@ -287,6 +304,7 @@ void SessionActionsModel::activatePendingLink()
 
 void SessionActionsModel::reset(bool clearLinks)
 {
+    m_created.clear();
     if (clearLinks) {
         m_roomCreations.clear();
         m_activeLink.reset();

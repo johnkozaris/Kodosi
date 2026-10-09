@@ -2,346 +2,298 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQml.Models
 import Kodosi 1.0
 import Kodosi.Models 1.0 as Models
 
 Item {
     id: root
+
     readonly property var presentation: Models.Missions.presentation
     readonly property var room: Models.Missions.room
     readonly property var repositories: room.repositories || []
-    property string repositoryFilter: ""
+    readonly property var tasks: room.tasks || []
+    readonly property var lanes: [
+        { key: "open", title: qsTr("Up for grabs"), tasks: tasks.filter(task => !task.closed && !task.assignedTo) },
+        { key: "progress", title: qsTr("In progress"), tasks: tasks.filter(task => !task.closed && !!task.assignedTo) },
+        { key: "done", title: qsTr("Done"), tasks: tasks.filter(task => task.closed) }
+    ]
+
     function change(task, action, note) {
-        let value = {
-            type: "updateTask",
-            taskId: task.id,
-            change: action
-        };
+        let value = { type: "updateTask", taskId: task.id, change: action };
         if (note && note.trim().length)
             value.note = note;
         Models.Missions.roomAction(value);
     }
-    ColumnLayout {
+    function add() {
+        const title = (root.presentation.taskTitle || "").trim();
+        if (title.length === 0 || Models.Missions.busy)
+            return;
+        Models.Missions.roomAction({ type: "createTask", title: title, description: "", repositoryIds: [] });
+    }
+
+    objectName: "room.tasks"
+    Accessible.id: objectName
+
+    KScrollView {
+        id: scroll
         anchors.fill: parent
-        spacing: 0
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.margins: 16
-            spacing: 10
-            KCheckBox {
-                text: qsTr("Done")
-                checked: !!root.presentation.completed
-                onToggled: Models.Missions.setPresentation("completed", checked)
-            }
-            PlainLabel {
-                text: (root.room.tasks || []).filter(task => task.closed).length
-                font.pixelSize: 11
-                color: KodosiTheme.textSecondary
-            }
+        contentWidth: availableWidth
+
+        ColumnLayout {
+            x: 14
+            width: Math.min(760, scroll.availableWidth - 28)
+            spacing: 8
+
             Item {
                 Layout.fillWidth: true
-            }
-            KComboBox {
-                model: [
-                    {
-                        id: "",
-                        name: qsTr("All repositories")
-                    }
-                ].concat(root.repositories)
-                textRole: "name"
-                valueRole: "id"
-                visible: root.repositories.length > 0
-                Layout.maximumWidth: 190
-                onActivated: root.repositoryFilter = currentValue
-            }
-            KButton {
-                text: qsTr("New task")
-                iconName: "plus"
-                variant: KButton.Primary
-                onClicked: Models.Missions.setPresentation("newTask", true)
-                objectName: "room.task.new"
-            }
-        }
-        ListView {
-            id: taskList
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            leftMargin: 16
-            rightMargin: 16
-            clip: true
-            model: (root.room.tasks || []).filter(task => task.closed === !!root.presentation.completed && (!root.repositoryFilter || task.repositoryIds.indexOf(root.repositoryFilter) >= 0))
-            ScrollBar.vertical: KScrollBar {}
-            onMovementEnded: Models.Missions.setPresentation("taskY", contentY)
-            onModelChanged: {
-                const y = root.presentation.taskY || 0;
-                Qt.callLater(function () {
-                    taskList.contentY = y;
-                });
-            }
-            delegate: ColumnLayout {
-                id: row
-                required property var modelData
-                readonly property bool expanded: root.presentation.expandedTask === modelData.id
-                width: taskList.width - 32
-                spacing: 10
+                Layout.topMargin: 2
+                implicitHeight: 42
+
+                Raised { anchors.fill: parent; radius: KodosiTheme.radiusLg; elevation: quick.activeFocus ? 2 : 1 }
                 RowLayout {
-                    Layout.fillWidth: true
-                    Layout.topMargin: 10
-                    spacing: 12
-                    KIconButton {
-                        glyph: row.modelData.closed ? "check" : "tasks"
-                        Accessible.name: row.modelData.closed ? qsTr("Reopen %1").arg(row.modelData.title) : qsTr("Complete %1").arg(row.modelData.title)
-                        enabled: !Models.Missions.busy
-                        onClicked: root.change(row.modelData, row.modelData.closed ? "reopen" : "close", "")
-                    }
-                    ItemDelegate {
-                        id: taskLabel
-                        Accessible.name: row.modelData.title
+                    anchors.fill: parent
+                    anchors.leftMargin: 14
+                    anchors.rightMargin: 8
+                    spacing: 10
+
+                    KIcon { Layout.preferredWidth: 14; Layout.preferredHeight: 14; name: "plus"; strokeWidth: 2.2; color: quick.activeFocus ? KodosiTheme.accentStrong : KodosiTheme.inkFaint }
+                    TextInput {
+                        id: quick
                         Layout.fillWidth: true
-                        implicitHeight: title.implicitHeight + 12
-                        background: Rectangle {
-                            color: taskLabel.hovered ? KodosiTheme.surface : "transparent"
-                            radius: 8
-                        }
-                        contentItem: ColumnLayout {
-                            id: title
-                            spacing: 5
-                            PlainLabel {
-                                Layout.fillWidth: true
-                                text: row.modelData.title
-                                font.weight: Font.DemiBold
-                                wrapMode: Text.WordWrap
-                                maximumLineCount: 2
-                                elide: Text.ElideRight
-                            }
-                            PlainLabel {
-                                Layout.fillWidth: true
-                                visible: row.modelData.repositoryIds.length > 0
-                                text: root.repositories.filter(repo => row.modelData.repositoryIds.indexOf(repo.id) >= 0).map(repo => repo.name).join(" · ")
-                                color: KodosiTheme.accent
-                                font.pixelSize: 10
-                                elide: Text.ElideRight
-                            }
-                        }
-                        onClicked: Models.Missions.setPresentation("expandedTask", row.expanded ? "" : row.modelData.id)
-                    }
-                    RoomAvatar {
-                        name: row.modelData.assignedName || ""
-                        visible: !!row.modelData.assignedName
-                        implicitWidth: 24
-                        implicitHeight: 24
-                    }
-                    KIconButton {
-                        glyph: "people"
-                        visible: !row.modelData.assignedTo && !row.modelData.closed
-                        Accessible.name: qsTr("Pick up %1").arg(row.modelData.title)
-                        enabled: !Models.Missions.busy
-                        onClicked: root.change(row.modelData, "claim", "")
-                    }
-                    KIcon {
-                        name: row.expanded ? "chevron-up" : "chevron-down"
-                        implicitWidth: 12
-                        implicitHeight: 12
-                    }
-                }
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.leftMargin: 44
-                    Layout.bottomMargin: 12
-                    visible: row.expanded
-                    spacing: 12
-                    KReadOnlyText {
-                        Layout.fillWidth: true
-                        text: row.modelData.description
-                        visible: text.length > 0
+                        text: root.presentation.taskTitle || ""
+                        onTextEdited: Models.Missions.setPresentation("taskTitle", text)
+                        color: KodosiTheme.ink
+                        font.pixelSize: KodosiTheme.fontBody
+                        selectionColor: KodosiTheme.accent
+                        selectedTextColor: KodosiTheme.accentInk
+                        clip: true
+                        objectName: "room.task.title"
+                        Accessible.id: objectName
+                        Accessible.name: qsTr("Add a task")
+                        Accessible.role: Accessible.EditableText
+                        onAccepted: root.add()
+
+                        PlainLabel { visible: quick.text.length === 0; text: qsTr("Add a task"); color: KodosiTheme.inkFaint }
                     }
                     KButton {
-                        visible: !!row.modelData.issue
-                        text: qsTr("Open issue")
-                        variant: KButton.Quiet
-                        onClicked: {
-                            const url = row.modelData.issue.url;
-                            if (/^https?:\/\//.test(url))
-                                Qt.openUrlExternally(url);
-                        }
+                        compact: true
+                        variant: KButton.Primary
+                        visible: quick.text.trim().length > 0
+                        working: Models.Missions.busy
+                        text: qsTr("Add")
+                        objectName: "room.task.create"
+                        Accessible.id: objectName
+                        onClicked: root.add()
                     }
-                    TextArea {
-                        Layout.fillWidth: true
-                        wrapMode: TextEdit.Wrap
-                        selectByMouse: true
-                        text: root.presentation["note." + row.modelData.id] ?? row.modelData.note ?? ""
-                        onTextChanged: {
-                            if (text !== (root.presentation["note." + row.modelData.id] ?? row.modelData.note ?? ""))
-                                Models.Missions.setPresentation("note." + row.modelData.id, text);
+                }
+            }
+            Repeater {
+                model: root.lanes
+
+                ColumnLayout {
+                    id: lane
+
+                    required property var modelData
+                    readonly property bool done: modelData.key === "done"
+                    readonly property bool open: !done || !!root.presentation.completed
+
+                    Layout.fillWidth: true
+                    visible: modelData.tasks.length > 0
+                    spacing: 8
+
+                    AbstractButton {
+                        Layout.topMargin: 10
+                        Layout.leftMargin: 4
+                        enabled: lane.done
+                        Accessible.name: lane.modelData.title
+                        objectName: "room.tasks.lane." + lane.modelData.key
+                        Accessible.id: objectName
+                        contentItem: RowLayout {
+                            spacing: 6
+                            KIcon { visible: lane.done; Layout.preferredWidth: 9; Layout.preferredHeight: 9; name: "chevron-down"; strokeWidth: 2.6; color: KodosiTheme.inkFaint; rotation: lane.open ? 0 : -90 }
+                            PlainLabel { text: lane.modelData.title; color: KodosiTheme.inkMuted; font.pixelSize: KodosiTheme.fontFootnote; font.weight: Font.DemiBold }
+                            PlainLabel { text: lane.modelData.tasks.length; color: KodosiTheme.inkFaint; font.pixelSize: KodosiTheme.fontFootnote }
                         }
-                        placeholderText: qsTr("Result or pull request link")
-                        color: KodosiTheme.textPrimary
-                        placeholderTextColor: KodosiTheme.placeholderText
-                        font.pixelSize: 13
-                        background: Rectangle {
-                            color: KodosiTheme.input
-                            radius: 8
-                            border.color: KodosiTheme.seam
-                        }
+                        onClicked: Models.Missions.setPresentation("completed", !root.presentation.completed)
                     }
-                    RowLayout {
-                        Layout.fillWidth: true
-                        KButton {
-                            text: row.modelData.assignedTo ? qsTr("Release") : qsTr("Pick up")
-                            visible: !row.modelData.closed
-                            enabled: !Models.Missions.busy
-                            onClicked: root.change(row.modelData, row.modelData.assignedTo ? "release" : "claim", "")
-                        }
+                    Repeater {
+                        model: lane.open ? lane.modelData.tasks : []
+
                         Item {
+                            id: card
+
+                            required property var modelData
+                            readonly property bool expanded: root.presentation.expandedTask === modelData.id
+                            readonly property string note: root.presentation["note." + modelData.id] ?? modelData.note ?? ""
+
                             Layout.fillWidth: true
-                        }
-                        KButton {
-                            text: row.modelData.closed ? qsTr("Save note") : qsTr("Complete")
-                            variant: KButton.Primary
-                            enabled: !Models.Missions.busy
-                            onClicked: root.change(row.modelData, "close", root.presentation["note." + row.modelData.id])
+                            implicitHeight: column.implicitHeight + 20
+
+                            Raised { anchors.fill: parent; radius: KodosiTheme.radiusLg; fill: hover.hovered ? KodosiTheme.lifted : KodosiTheme.raised }
+                            HoverHandler { id: hover }
+                            ColumnLayout {
+                                id: column
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.margins: 10
+                                anchors.leftMargin: 12
+                                spacing: 10
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+
+                                    AbstractButton {
+                                        id: check
+                                        Layout.alignment: Qt.AlignTop
+                                        implicitWidth: 22
+                                        implicitHeight: 22
+                                        hoverEnabled: true
+                                        enabled: !Models.Missions.busy
+                                        Accessible.name: card.modelData.closed ? qsTr("Reopen %1").arg(card.modelData.title) : qsTr("Complete %1").arg(card.modelData.title)
+                                        contentItem: Item {
+                                            Rectangle {
+                                                anchors.centerIn: parent
+                                                width: 18
+                                                height: 18
+                                                radius: 9
+                                                color: card.modelData.closed ? KodosiTheme.ready : "transparent"
+                                                border.width: 1.5
+                                                border.color: card.modelData.closed ? KodosiTheme.ready : check.hovered ? KodosiTheme.accent : KodosiTheme.inkFaint
+                                                KIcon { anchors.centerIn: parent; width: 10; height: 10; name: "check"; strokeWidth: 3; visible: card.modelData.closed || check.hovered; color: card.modelData.closed ? KodosiTheme.surface : KodosiTheme.accent }
+                                            }
+                                        }
+                                        onClicked: root.change(card.modelData, card.modelData.closed ? "reopen" : "close", "")
+                                    }
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 4
+
+                                        PlainLabel {
+                                            Layout.fillWidth: true
+                                            text: card.modelData.title
+                                            color: card.modelData.closed ? KodosiTheme.inkMuted : KodosiTheme.ink
+                                            font.weight: Font.DemiBold
+                                            font.strikeout: card.modelData.closed
+                                            wrapMode: Text.WordWrap
+                                            maximumLineCount: card.expanded ? 8 : 2
+                                            elide: Text.ElideRight
+
+                                            TapHandler { onTapped: Models.Missions.setPresentation("expandedTask", card.expanded ? "" : card.modelData.id) }
+                                        }
+                                        Flow {
+                                            Layout.fillWidth: true
+                                            visible: card.modelData.repositoryIds.length > 0 || !!card.modelData.issue
+                                            spacing: 5
+                                            Repeater {
+                                                model: root.repositories.filter(repo => card.modelData.repositoryIds.indexOf(repo.id) >= 0)
+                                                Tag { required property var modelData; text: modelData.name; iconName: "repository" }
+                                            }
+                                            Tag { visible: !!card.modelData.issue; text: card.modelData.issue ? "#" + card.modelData.issue.number : ""; tone: Tag.Accent }
+                                        }
+                                    }
+                                    PersonAvatar {
+                                        Layout.alignment: Qt.AlignTop
+                                        visible: !!card.modelData.assignedName
+                                        name: card.modelData.assignedName || ""
+                                        key: card.modelData.assignedTo || ""
+                                        isSelf: card.modelData.assignedTo === Models.Account.userId
+                                        size: 22
+                                    }
+                                    KButton {
+                                        Layout.alignment: Qt.AlignTop
+                                        compact: true
+                                        variant: KButton.Tinted
+                                        visible: !card.modelData.assignedTo && !card.modelData.closed && (hover.hovered || card.expanded)
+                                        enabled: !Models.Missions.busy
+                                        text: qsTr("Pick up")
+                                        Accessible.name: qsTr("Pick up %1").arg(card.modelData.title)
+                                        onClicked: root.change(card.modelData, "claim", "")
+                                    }
+                                }
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    Layout.leftMargin: 32
+                                    visible: card.expanded
+                                    spacing: 10
+
+                                    KReadOnlyText {
+                                        Layout.fillWidth: true
+                                        text: card.modelData.description
+                                        color: KodosiTheme.inkMuted
+                                        visible: text.length > 0
+                                    }
+                                    Well {
+                                        Layout.fillWidth: true
+                                        implicitHeight: Math.max(54, note.implicitHeight + 4)
+                                        radius: KodosiTheme.radiusMd
+
+                                        TextArea {
+                                            id: note
+                                            anchors.fill: parent
+                                            wrapMode: TextEdit.Wrap
+                                            selectByMouse: true
+                                            text: card.note
+                                            onTextChanged: {
+                                                if (text !== card.note)
+                                                    Models.Missions.setPresentation("note." + card.modelData.id, text);
+                                            }
+                                            placeholderText: qsTr("Result or pull request link")
+                                            color: KodosiTheme.ink
+                                            placeholderTextColor: KodosiTheme.inkFaint
+                                            font.pixelSize: KodosiTheme.fontBody
+                                            background: null
+                                        }
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 8
+
+                                        KButton {
+                                            compact: true
+                                            variant: KButton.Ghost
+                                            visible: !!card.modelData.issue
+                                            iconName: "link"
+                                            text: qsTr("Open issue")
+                                            onClicked: {
+                                                const url = card.modelData.issue.url;
+                                                if (/^https?:\/\//.test(url))
+                                                    Qt.openUrlExternally(url);
+                                            }
+                                        }
+                                        KButton {
+                                            compact: true
+                                            variant: KButton.Ghost
+                                            text: qsTr("Release")
+                                            visible: !card.modelData.closed && !!card.modelData.assignedTo
+                                            enabled: !Models.Missions.busy
+                                            onClicked: root.change(card.modelData, "release", "")
+                                        }
+                                        Item { Layout.fillWidth: true }
+                                        KButton {
+                                            compact: true
+                                            variant: KButton.Primary
+                                            text: card.modelData.closed ? qsTr("Save note") : qsTr("Complete")
+                                            enabled: !Models.Missions.busy
+                                            onClicked: root.change(card.modelData, "close", card.note)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-                Rectangle {
-                    Layout.fillWidth: true
-                    implicitHeight: 1
-                    color: KodosiTheme.seam
-                    opacity: 0.55
-                }
             }
-            add: Transition {
-                NumberAnimation {
-                    properties: "opacity"
-                    from: 0
-                    to: 1
-                    duration: KodosiTheme.motionFast
-                }
-            }
-            remove: Transition {
-                NumberAnimation {
-                    properties: "opacity"
-                    to: 0
-                    duration: KodosiTheme.motionFast
-                }
-            }
-            displaced: Transition {
-                NumberAnimation {
-                    properties: "y"
-                    duration: KodosiTheme.motionFast
-                    easing.type: Easing.OutCubic
-                }
-            }
-            ColumnLayout {
-                anchors.centerIn: parent
-                spacing: 16
-                visible: taskList.count === 0
-                KIcon {
-                    name: root.presentation.completed ? "check" : "tasks"
-                    implicitWidth: 44
-                    implicitHeight: 44
-                    Layout.alignment: Qt.AlignHCenter
-                    color: KodosiTheme.accent
-                }
-                KButton {
-                    text: qsTr("New task")
-                    visible: !root.presentation.completed
-                    onClicked: Models.Missions.setPresentation("newTask", true)
-                }
-            }
-        }
-    }
-    KPopover {
-        id: create
-        parent: Overlay.overlay
-        x: (parent.width - width) / 2
-        y: (parent.height - height) / 2
-        width: 400
-        padding: 20
-        visible: !!root.presentation.newTask
-        onClosed: Models.Missions.setPresentation("newTask", false)
-        contentItem: ColumnLayout {
-            spacing: 14
-            KTextField {
+            EmptyState {
                 Layout.fillWidth: true
-                text: root.presentation.taskTitle || ""
-                onTextEdited: Models.Missions.setPresentation("taskTitle", text)
-                placeholderText: qsTr("Task title")
-                objectName: "room.task.title"
+                Layout.topMargin: 60
+                visible: root.tasks.length === 0
+                title: qsTr("No tasks yet")
+                message: qsTr("Write one above. People and agents can pick it up.")
+                art: IconTile { iconName: "tasks"; tint: "#4f9bb0"; size: 48 }
             }
-            TextArea {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 100
-                text: root.presentation.taskDescription || ""
-                onTextChanged: {
-                    if (text !== (root.presentation.taskDescription || ""))
-                        Models.Missions.setPresentation("taskDescription", text);
-                }
-                placeholderText: qsTr("Description")
-                wrapMode: TextEdit.Wrap
-                selectByMouse: true
-                color: KodosiTheme.textPrimary
-                placeholderTextColor: KodosiTheme.placeholderText
-                font.pixelSize: 13
-                background: Rectangle {
-                    color: KodosiTheme.input
-                    radius: 8
-                    border.color: KodosiTheme.seam
-                }
-                objectName: "room.task.description"
-            }
-            KButton {
-                text: qsTr("Repositories")
-                iconName: "repository"
-                visible: root.repositories.length > 0
-                onClicked: repoChoices.popup()
-            }
-            KMenu {
-                id: repoChoices
-                Instantiator {
-                    model: root.repositories
-                    onObjectAdded: (index, item) => repoChoices.insertItem(index, item)
-                    onObjectRemoved: (index, item) => repoChoices.removeItem(item)
-                    delegate: KMenuItem {
-                        required property var modelData
-                        text: modelData.name
-                        checkable: true
-                        checked: (root.presentation.taskRepositories || []).indexOf(modelData.id) >= 0
-                        onTriggered: {
-                            let selected = (root.presentation.taskRepositories || []).slice();
-                            const index = selected.indexOf(modelData.id);
-                            if (index >= 0)
-                                selected.splice(index, 1);
-                            else
-                                selected.push(modelData.id);
-                            Models.Missions.setPresentation("taskRepositories", selected);
-                        }
-                    }
-                }
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                KButton {
-                    text: qsTr("Cancel")
-                    onClicked: create.close()
-                }
-                Item {
-                    Layout.fillWidth: true
-                }
-                KButton {
-                    text: qsTr("Create task")
-                    variant: KButton.Primary
-                    enabled: !Models.Missions.busy && (root.presentation.taskTitle || "").trim().length > 0
-                    onClicked: Models.Missions.roomAction({
-                        type: "createTask",
-                        title: root.presentation.taskTitle,
-                        description: root.presentation.taskDescription || "",
-                        repositoryIds: root.presentation.taskRepositories || []
-                    })
-                    objectName: "room.task.create"
-                }
-            }
+            Item { Layout.preferredHeight: 20 }
         }
     }
 }

@@ -1,62 +1,109 @@
 ---
 name: Kodosi for Linux
-description: A focused native workbench for shared work.
+description: A warm, living workbench for people, agents and terminals.
 colors:
+  ground: "#110e0c"
+  ground-light: "#f0e9dc"
+  surface: "#181411"
+  surface-light: "#f7f2e8"
+  raised: "#251d19"
+  raised-light: "#fefbf5"
+  lifted: "#2e241f"
+  lifted-light: "#fffdf9"
+  well: "#0c0a08"
+  well-light: "#e8e0d2"
+  terminal: "#0d0b09"
+  hairline: "#3b2f29"
+  hairline-light: "#d9ccba"
+  ink: "#f1e9e3"
+  ink-light: "#25160e"
+  inkMuted: "#b3a094"
+  inkMuted-light: "#5f4838"
+  inkFaint: "#8c7a6f"
+  inkFaint-light: "#8a7262"
   accent: "#db8a62"
-  accent-light: "#943a10"
-  accentForeground: "#160e0a"
-  accentForeground-light: "#fcf9f3"
-  canvas: "#100d0b"
-  canvas-light: "#f9f4eb"
-  surface: "#1d1714"
-  surface-light: "#efe3d2"
-  surfaceRaised: "#241c18"
-  surfaceRaised-light: "#ead8c3"
-  surfaceSelected: "#3a281f"
-  surfaceSelected-light: "#dec9b5"
-  terminal: "#0a0807"
-  terminal-light: "#e7e3de"
-  textPrimary: "#f1e9e3"
-  textPrimary-light: "#25160e"
-  textSecondary: "#ad9a8e"
-  textSecondary-light: "#5b4233"
-  seam: "#40332c"
-  seam-light: "#d6bea4"
-  input: "#17120f"
-  input-light: "#fffaf2"
+  accent-light: "#b85a26"
+  accentSoft: "#3e281c"
+  accentSoft-light: "#f4dec8"
+  accentInk: "#160e0a"
+  accentInk-light: "#fffaf3"
+  glowAmber: "#f2bc55"
+  glowOrange: "#f08a4b"
+  glowRose: "#e8707a"
+  ready: "#7dbb99"
+  ready-light: "#2f7d54"
+  caution: "#ddb866"
+  caution-light: "#8a6a1c"
+  danger: "#e77a75"
+  danger-light: "#b23a32"
 typography:
-  title: {fontFamily: "system-ui", fontSize: "16px", fontWeight: 600}
+  large: {fontFamily: "system-ui", fontSize: "28px", fontWeight: 600}
+  title: {fontFamily: "system-ui", fontSize: "20px", fontWeight: 600}
+  headline: {fontFamily: "system-ui", fontSize: "15px", fontWeight: 600}
+  callout: {fontFamily: "system-ui", fontSize: "14px"}
   body: {fontFamily: "system-ui", fontSize: "13px"}
-  label: {fontFamily: "system-ui", fontSize: "12px"}
-rounded: {radiusSmall: "8px", radiusLarge: "12px", radiusModal: "16px", selection: "9px"}
-spacing: {spacing2: "6px", spacing3: "8px", spacing4: "10px", spacing5: "12px"}
+  footnote: {fontFamily: "system-ui", fontSize: "12px"}
+  caption: {fontFamily: "system-ui", fontSize: "11px", fontWeight: 500}
+rounded: {xs: "6px", sm: "8px", md: "10px", lg: "14px", xl: "18px", sheet: "22px", tile: "12px"}
+spacing: {sidebar: "252px", rail: "78px", frame-inset: "8px", header: "54px", page: "36px"}
+motion:
+  hover: "120ms ease-out"
+  fade: "200ms ease-out"
+  snappy: "240ms ease-out"
+  spring: "360ms ease-out with a small overshoot"
 components:
-  button-primary: {backgroundColor: "{colors.accent}", textColor: "{colors.accentForeground}", rounded: "{rounded.radiusSmall}", height: "34px", padding: "6px 12px"}
-  button-secondary: {backgroundColor: "{colors.surfaceRaised}", textColor: "{colors.textPrimary}", rounded: "{rounded.radiusSmall}", height: "34px", padding: "6px 12px"}
-  input: {backgroundColor: "{colors.input}", textColor: "{colors.textPrimary}", rounded: "{rounded.radiusSmall}", height: "34px", padding: "7px 11px"}
+  button-primary: {backgroundColor: "{colors.accent}", textColor: "{colors.accentInk}", rounded: "capsule", height: "32px"}
+  button-secondary: {backgroundColor: "{colors.raised}", textColor: "{colors.ink}", rounded: "capsule", height: "32px"}
+  button-tinted: {backgroundColor: "{colors.accentSoft}", textColor: "{colors.accent}", rounded: "capsule"}
+  input: {backgroundColor: "{colors.well}", textColor: "{colors.ink}", rounded: "{rounded.md}", height: "34px"}
+  segmented-track: {backgroundColor: "{colors.well}", rounded: "capsule", padding: "3px"}
+  segmented-thumb: {backgroundColor: "{colors.raised}", rounded: "capsule"}
+  terminal-tile: {backgroundColor: "{colors.terminal}", rounded: "{rounded.tile}"}
 ---
 # Design System: Kodosi for Linux
 
 ## Overview
-A compact native workspace with warm charcoal or cream surfaces, restrained copper actions, and real terminals. Preserve the existing logo and the desktop's UI font.
-Opaque surfaces, subtle seams, and compact controls keep attention on the work.
-## Colors
-Copper `accent` carries actions and focus; warm neutrals separate panels, selection, and terminal surround. Unqualified tokens are dark; `-light` tokens are their light counterparts. Use `KodosiTheme` semantic roles, including hover, focus, and danger, rather than copying literals.
-## Typography
-Inherit the Qt application font; use the title/body/label hierarchy above and quieter metadata. Terminal text stays fixed-pitch. Vector icons carry actions; initials identify people.
-## Layout
-The room rail is (184 px), header (56 px), and canvas/conversation headers (52 px). Below a room width of (720 px), show the selected pane; otherwise retain a resizable conversation (300–500 px, preferred 370 px). Keep the composer outside the transcript, growing within (46–146 px).
-## Elevation & Depth
-Opaque tonal surfaces and one-pixel seams provide depth. Room controls and rows are flat; popovers use the raised surface. Avoid decorative gradients and glass effects.
-## Shapes
-Use the theme's control, popover, and dialog corners; the composer shares the dialog radius. Avatars are circular. Tasks and issues are compact divided rows that reveal details in place.
-## Components
-Canvas changes preserve the conversation and drafts; history updates restore a message anchor and relative offset unless following the latest. Earlier history remains reachable and message bodies stay complete.
-Terminal switching lives in the terminal toolbar. Task titles disclose description, result note, and actions. Repositories load the selected or first entry on arrival. Loading resembles content; failures expose recovery beside their subject.
-Buttons use compact native states and a lower focus indicator. Selection movement uses OutCubic easing; reduced motion makes theme transitions immediate and stops the skeleton pulse. QML remains authoritative.
-## Do's and Don'ts
-- **Do** retain keyboard focus, accessible labels, selectable message text, and short action labels.
-- **Do** keep hidden terminal surfaces inactive.
-- **Don't** add decorative cards, explanatory status furniture, or motion without a visible state change.
+Kodosi is a warm workbench, lit from above. A source list rests on the ground. One framed surface holds the work. Raised objects rest on that surface, and inputs sink into wells. The copper cursor is the sign of life: it is in the wordmark, it is the empty slot for a new terminal, and a new terminal opens from it.
 
-Sources: `src/qml/Theme/KodosiTheme.qml`, `src/qml/Controls/`, `src/qml/Screens/Room*.qml`, `MissionsView.qml`, and `src/qml/Workbench/TerminalTile.qml`.
+Each screen starts with the objects of its job: terminals, rooms, people, tasks. Text is short. One word has one meaning: terminal, room, friend, agent, device. The Mac client uses the same system.
+
+## Colors
+Copper `accent` means "act here" or "this is selected". The glow colors show only while something works or just changed. Green `ready` means done or verified, and people never use green. Unqualified tokens are dark, and `-light` tokens are the light pair. Use `KodosiTheme` roles, not literals. A terminal is a dark object in the two themes: its tile and header use the `terminal*` roles.
+
+## Typography
+Inherit the Qt application font. `large` is for page titles, `title` for sheets, `headline` for object names, `body` for conversation and rows, `footnote` and `caption` for facts. Monospace is for code, paths and the wordmark. Labels use sentence case.
+
+## Layout
+The desktop draws the window frame. The source list is (252 px), or a rail of marks (78 px). The main frame is inset (8 px) with a (18 px) radius. Pages have (36 px) margins. A room has a (54 px) header, a canvas, and the conversation on a raised sheet (300–540 px) that slides in from the right. Below (720 px) the room shows one of the two.
+
+When chrome moves, the terminal gets its final size at once. The chrome animates, the terminal does not.
+
+## Elevation & Depth
+Three levels: resting, lifted (hover, focused composer, menus) and floating (sheets, notices, the Go to palette). `Raised` draws a light rim, a dark rim and soft shadows that fall down and to the right. It uses plain shapes, so it renders the same with and without a GPU. Do not add shader effects.
+
+## Shapes
+Actions, tags and pills are capsules. Rounded squares are agents, rooms and kinds of things. Circles are people. A thin outline is a slot that you can fill.
+
+## Components
+- **Agent mark:** a rounded square in the color of the program, with its glyph. A shell shows a prompt and the copper cursor. The mark is pale when the terminal is minimized. A warm rim turns round it while the agent works.
+- **Person avatar:** a circle in a color that comes from the person's identifier. Your own circle is copper.
+- **Room sigil:** a rounded square with four small tiles. The color and the lit tiles come from the room's identifier.
+- **Selection pill:** one raised pill with a copper caret slides between rows of the source list.
+- **Sliding pills:** segmented controls use a raised thumb that slides. The room dock shows icons, and the selected section says its name.
+- **Terminal tile:** a rounded tile with a header. Actions are faint until the pointer is on the tile or the tile is selected. A new terminal opens from a copper veil. A person who joins shows as a card for a few seconds.
+- **Conversation:** your messages are bubbles on the right. Other people have an avatar and a name. An agent shows its mark, its name, the person it works for, and the terminal it wrote from. Mentions of people and terminals are tinted, and a mention of a terminal opens it. A message that mentions you has a tinted row.
+- **Composer:** a lifted capsule with a copper halo when it has focus. "@" opens a list of people and terminals.
+- **Tasks:** cards in "Up for grabs", "In progress" and "Done".
+- **Go to (Ctrl+K):** one field finds terminals, rooms, people and actions.
+
+Working text shimmers. A terminal that rang its bell, or where an agent stopped work while you looked elsewhere, shows a breathing copper dot until you look at it. With reduced motion, all changes are instant and nothing loops. QML remains authoritative.
+
+## Do's and Don'ts
+- **Do** animate only for an action or a real change of state.
+- **Do** keep keyboard focus, accessible names, stable object names and selectable message text.
+- **Do** keep hidden terminal surfaces inactive.
+- **Don't** clip or scale the terminal surface. Inset it in its tile.
+- **Don't** show glow colors at rest, or use copper as decoration.
+- **Don't** add explanatory text where an object, a state or one short line is sufficient.
+
+Sources: `src/qml/Theme/`, `src/qml/Controls/`, `src/qml/Shell/`, `src/qml/Screens/`, and `src/qml/Workbench/`.

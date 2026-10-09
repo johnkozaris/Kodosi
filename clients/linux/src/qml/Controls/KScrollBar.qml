@@ -7,34 +7,19 @@ ScrollBar {
 
     property bool prominent: false
 
-    implicitWidth: orientation === Qt.Vertical
-        ? (prominent ? 10 : 8)
-        : 80
-    implicitHeight: orientation === Qt.Vertical
-        ? 80
-        : (prominent ? 10 : 8)
+    implicitWidth: orientation === Qt.Vertical ? 9 : 80
+    implicitHeight: orientation === Qt.Vertical ? 80 : 9
     padding: 2
     policy: ScrollBar.AsNeeded
 
     contentItem: Rectangle {
-        implicitWidth: 4
-        implicitHeight: 4
-        radius: 2
-        color: root.prominent
-            ? KodosiTheme.textSecondary
-            : root.pressed
-            ? KodosiTheme.accent
-            : root.hovered
-              ? KodosiTheme.textTertiary
-              : KodosiTheme.seamStrong
-        opacity: root.prominent
-            ? 1
-            : root.active ? 0.62 : 0.28
-    }
+        implicitWidth: 5
+        implicitHeight: 5
+        radius: 2.5
+        color: root.pressed ? KodosiTheme.accent : KodosiTheme.inkFaint
+        opacity: root.prominent ? 0.8 : root.pressed || root.hovered ? 0.7 : root.active ? 0.45 : 0
 
-    background: Rectangle {
-        color: root.prominent
-            ? KodosiTheme.surface
-            : KodosiTheme.surface
+        Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
     }
+    background: Item {}
 }

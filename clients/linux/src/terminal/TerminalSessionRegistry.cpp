@@ -5,6 +5,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
+#include <algorithm>
 #include <atomic>
 #include <deque>
 #include <limits>
@@ -179,7 +180,8 @@ public:
     };
 
     std::optional<CheckpointTargets> checkpointTargets(
-        const TerminalSubscription& subscription)
+        const TerminalSubscription& subscription,
+        const std::uint64_t nextSequence)
     {
         std::scoped_lock lock(mutex);
         const auto session = sessions.find(sessionKey(subscription.sessionId));
@@ -189,11 +191,32 @@ public:
                 subscription)) {
             return std::nullopt;
         }
+        const auto displaced = [nextSequence](const std::shared_ptr<Entry>& entry) {
+            if (entry->needsCheckpoint.load(std::memory_order_acquire)) {
+                return false;
+            }
+            const auto frame = entry->kernel.frame();
+            return frame && frame->nextSequence != nextSequence;
+        };
         CheckpointTargets targets {
             .entries = {},
             .seedOnly =
                 !session->second.seedRefreshSurfaceGenerations.empty(),
         };
+        if (std::ranges::any_of(
+                session->second.surfaces,
+                [&](const auto& surface) { return displaced(surface.second); })) {
+            targets.seedOnly = false;
+            session->second.seedRefreshSurfaceGenerations.clear();
+            targets.entries.reserve(session->second.surfaces.size());
+            for (const auto& [_, entry] : session->second.surfaces) {
+                if (entry->needsCheckpoint.load(std::memory_order_acquire)
+                    || displaced(entry)) {
+                    targets.entries.push_back(entry);
+                }
+            }
+            return targets;
+        }
         if (targets.seedOnly) {
             while (!session->second.seedRefreshSurfaceGenerations.empty()) {
                 const auto surfaceGeneration =
@@ -829,7 +852,9 @@ bool TerminalSessionRegistry::installSemanticCheckpoint(
         PerformanceCategory::Terminal,
         QStringLiteral("frame.checkpoint"),
         16);
-    auto targets = m_impl->checkpointTargets(checkpoint.subscription);
+    auto targets = m_impl->checkpointTargets(
+        checkpoint.subscription,
+        checkpoint.nextSequence);
     if (!targets) {
         span.setOutcome(QStringLiteral("stale"));
         return false;
