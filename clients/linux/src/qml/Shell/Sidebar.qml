@@ -240,7 +240,7 @@ Item {
                     required property int index
                     readonly property var entry: root.rooms[index] || ({})
 
-                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
                     width: 40
                     height: 40
                     Accessible.name: entry.name || ""
@@ -266,7 +266,7 @@ Item {
                     required property int index
                     readonly property var session: Models.Sessions.sessions[index] || ({})
 
-                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
                     width: 40
                     height: 40
                     Accessible.name: session.name || ""

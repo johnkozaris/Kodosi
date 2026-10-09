@@ -38,6 +38,7 @@ namespace {
 
 constexpr std::int32_t ffiOk = 0;
 constexpr std::int32_t ffiBusy = 6;
+constexpr std::int32_t ffiSessionNotFound = 7;
 
 class FakeTerminalDispatcher final
     : public kodosi::TerminalCommandDispatcher {
@@ -46,6 +47,7 @@ public:
     int connectCount = 0;
     int disconnectCount = 0;
     int busyTerminalCommands = 0;
+    int unconnectedTerminalCommands = 0;
     int busyInputCommands = 0;
     QVector<QJsonObject> terminalCommands;
     QVector<QByteArray> inputCommands;
@@ -68,6 +70,14 @@ public:
         if (busyTerminalCommands > 0) {
             --busyTerminalCommands;
             return busyFailure();
+        }
+        if (unconnectedTerminalCommands > 0) {
+            --unconnectedTerminalCommands;
+            return std::unexpected(kodosi::RuntimeFailure {
+                .code = kodosi::RuntimeFailure::Code::FfiRejected,
+                .ffiResult = ffiSessionNotFound,
+                .message = QStringLiteral("Command failed (7)."),
+            });
         }
         return {};
     }
@@ -346,6 +356,7 @@ private slots:
     void terminalViewCopySelectionStillUsesHostClipboard();
     void terminalViewRetriesRevocationBlurBeforeRefocus();
     void terminalViewClaimsFocusedResizeExactly();
+    void terminalViewWaitsQuietlyForItsConnection();
     void terminalViewPreservesClaimAcrossInflightResize();
     void terminalViewDefersResizeWhileEffectivelyHidden();
     void surfaceControllerFencesSessionIncarnations();
@@ -2519,6 +2530,49 @@ void TerminalKernelTest::terminalViewRetriesRevocationBlurBeforeRefocus()
             QStringLiteral("session.blur"),
             QStringLiteral("session.focus"),
         }));
+}
+
+void TerminalKernelTest::terminalViewWaitsQuietlyForItsConnection()
+{
+    kodosi::TerminalSessionRegistry registry;
+    FakeTerminalDispatcher dispatcher;
+    dispatcher.unconnectedTerminalCommands = 1;
+    kodosi::TerminalView view(m_window.contentItem());
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("waiting"),
+        QStringLiteral("waiting-subscription"),
+        12,
+    };
+    QSignalSpy errors(&view, &kodosi::TerminalView::operationError);
+    view.setWidth(800);
+    view.setHeight(400);
+    view.setTerminalInteraction(false, true);
+    view.setFocusedSizeAuthority(true);
+    QVERIFY(view.attach(
+        registry,
+        dispatcher,
+        subscription,
+        QStringLiteral("incarnation")));
+    QVERIFY(registry.installSemanticCheckpoint({
+        subscription,
+        1,
+        24,
+        80,
+        checkpointFor(QByteArrayLiteral("ready"), 80, 24),
+    }));
+    QTRY_COMPARE_WITH_TIMEOUT(dispatcher.terminalCommands.size(), 1, 250);
+    QTest::qWait(60);
+    QCOMPARE(dispatcher.terminalCommands.size(), 1);
+    QVERIFY(errors.isEmpty());
+
+    registry.receiveConnectResult({subscription, ffiOk});
+    QTRY_COMPARE_WITH_TIMEOUT(dispatcher.terminalCommands.size(), 2, 250);
+    QCOMPARE(
+        dispatcher.terminalCommands.constLast()
+            .value(QStringLiteral("type"))
+            .toString(),
+        QStringLiteral("session.resize"));
+    QVERIFY(errors.isEmpty());
 }
 
 void TerminalKernelTest::terminalViewClaimsFocusedResizeExactly()
