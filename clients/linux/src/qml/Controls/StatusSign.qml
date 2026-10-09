@@ -11,17 +11,7 @@ Item {
     readonly property string form: session && session.sign ? (session.sign === "hand" || session.sign === "question" || session.sign === "key" || unseen ? session.sign : "")
         : unseen ? "changed" : ""
     readonly property color tint: form === "done" ? KodosiTheme.ready : form === "failed" ? KodosiTheme.caution : KodosiTheme.accent
-    readonly property string label: {
-        switch (form) {
-        case "changed": return qsTr("New activity")
-        case "hand": return qsTr("Needs your approval")
-        case "question": return qsTr("Needs your answer")
-        case "key": return qsTr("Needs you to sign in")
-        case "done": return qsTr("Done")
-        case "failed": return qsTr("Failed")
-        default: return ""
-        }
-    }
+    readonly property string label: form === "changed" ? qsTr("New activity") : form.length > 0 && session ? session.signLabel || "" : ""
     property real drawn: 1
     property bool ready: false
 

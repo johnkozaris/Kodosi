@@ -29,6 +29,7 @@ final class AppDependencies {
     var userId: String?
     var displayName: String?
     var attention: Set<String> = []
+    var isFront: () -> Bool = { NSApp?.isActive == true }
     var freshTerminals: Set<String> = []
     var selfDeviceId: String?
     var localDeviceEnrolled = false
@@ -256,7 +257,7 @@ final class AppDependencies {
                 return
             }
             workbench.showSession(id, inRoom: roomId)
-            attention.remove(id)
+            seen(id)
             if let roomId {
                 roomView(roomId).selectedTerminal = id
             }

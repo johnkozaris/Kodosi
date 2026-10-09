@@ -104,15 +104,34 @@ QString SessionCatalogModel::sign(const Session& session)
     return session.programKind == QStringLiteral("auth") ? QStringLiteral("key") : QStringLiteral("hand");
 }
 
-QString SessionCatalogModel::activity(const Session& session)
+QString SessionCatalogModel::signLabel(const Session& session)
 {
-    QStringList report;
+    const auto form = sign(session);
+    if (form == QStringLiteral("hand"))
+        return tr("Needs your approval");
+    if (form == QStringLiteral("question"))
+        return tr("Needs your answer");
+    if (form == QStringLiteral("key"))
+        return tr("Needs you to sign in");
+    if (form == QStringLiteral("done"))
+        return tr("Done");
+    return form == QStringLiteral("failed") ? tr("Failed") : QString {};
+}
+
+QString SessionCatalogModel::report(const Session& session)
+{
+    QStringList parts;
     for (const auto& part : { session.programTitle, session.programMessage }) {
         if (!part.isEmpty())
-            report.append(part);
+            parts.append(part);
     }
-    if (!report.isEmpty())
-        return report.join(QStringLiteral(": "));
+    return parts.join(QStringLiteral(": "));
+}
+
+QString SessionCatalogModel::activity(const Session& session)
+{
+    if (const auto words = report(session); !words.isEmpty())
+        return words;
     qsizetype units = 0;
     for (const auto scalar : session.title.toUcs4()) {
         if (!isStatusGlyph(scalar) && !QChar::isSpace(scalar))
@@ -204,7 +223,7 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
     return { { QStringLiteral("sessionId"), s->id }, { QStringLiteral("id"), s->id }, { QStringLiteral("name"), s->name },
         { QStringLiteral("activity"), activity(session) }, { QStringLiteral("working"), isWorking(session) },
         { QStringLiteral("progress"), isWorking(session) ? session.programProgress : -1 },
-        { QStringLiteral("sign"), sign(session) },
+        { QStringLiteral("sign"), sign(session) }, { QStringLiteral("signLabel"), signLabel(session) },
         { QStringLiteral("folderName"),
             s->workingDirectory.isEmpty() ? QString {} : QDir(s->workingDirectory).dirName() },
         { QStringLiteral("hostLabel"), local ? tr("This computer") : !s->hostName.isEmpty() ? s->hostName : !s->ownerName.isEmpty() ? s->ownerName : tr("Remote computer") },
@@ -319,12 +338,17 @@ void SessionCatalogModel::apply(const QJsonObject& event)
         result.append(*s);
     }
     auto attention = m_attention;
+    QVector<std::pair<QString, QString>> alerts;
     for (const auto& next : result) {
         const auto before = this->session(next.id);
         const bool stopped = before && isWorking(*before) && !isWorking(next);
         const bool waits = !waitState(next).isEmpty() && !(before && waitState(*before) == waitState(next));
         if ((stopped || waits) && !attention.contains(next.id))
             attention.append(next.id);
+        if (before && waitState(*before) != waitState(next)) {
+            const auto words = report(next);
+            alerts.append({ next.id, !next.isOwner || waitState(next).isEmpty() ? QString {} : words.isEmpty() ? signLabel(next) : words });
+        }
     }
     attention.removeIf([&](const QString& id) { return !ids.contains(id); });
     const bool attentionMoved = attention != m_attention;
@@ -339,6 +363,8 @@ void SessionCatalogModel::apply(const QJsonObject& event)
     emit countChanged();
     emit authorityStateChanged();
     emit authoritativeSnapshotApplied();
+    for (const auto& [id, text] : std::as_const(alerts))
+        emit alertChanged(id, text);
 }
 void SessionCatalogModel::resetRuntimeAuthority()
 {

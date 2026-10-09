@@ -117,6 +117,60 @@ private func awaitNotification(_ condition: () -> Bool) async {
     #expect(!app.openTerminalNotification(identifier: request.identifier))
 }
 
+@Test @MainActor func aTerminalThatNeedsItsOwnerSendsOneAlertWhileTheAppIsNotInFront() async throws {
+    let driver = NotificationDriver()
+    let defaults = try #require(EphemeralUserDefaults(prefix: "TerminalAlert"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap, notificationDriver: driver)
+    defer { app.shutdownProcess() }
+    app.commandSink.transport = { _ in 0 }
+    app.isFront = { false }
+    let own = UUIDv7.generate()
+    let shared = UUIDv7.generate()
+    func entry(_ id: String, owner: Bool, _ status: [String: JSONValue]) -> JSONValue {
+        .object([
+            "id": .string(id), "incarnationId": .string(id), "kind": .string(owner ? "local" : "remote"),
+            "name": .string(owner ? "Review" : "Shared"), "isOwner": .bool(owner), "status": .string("running"),
+            "connectionState": .string(owner ? "local" : "connected"), "sharedWith": .array([]), "programStatus": .object(status),
+        ])
+    }
+    func receive(_ status: [String: JSONValue]) throws {
+        try app.receive(runtimeEvent("sessions.snapshot", fields: [
+            "sessions": .array([entry(own, owner: true, status), entry(shared, owner: false, status)]),
+        ]))
+    }
+    let waits: [String: JSONValue] = ["state": .string("blocked"), "kind": .string("permission"), "message": .string("Allow the command?")]
+    try app.receive(runtimeEvent("system.ready", fields: ["protocolVersion": .int(51)]))
+    try receive(waits)
+    #expect(driver.posted.isEmpty)
+    try receive(["state": .string("working")])
+    try receive(waits)
+    await awaitNotification { driver.posted.count == 1 }
+    let first = try #require(driver.posted.first)
+    #expect(first.content.title == "Review")
+    #expect(first.content.body == "Allow the command?")
+    for _ in 0 ..< 20 {
+        await Task.yield()
+    }
+
+    try receive(["state": .string("working")])
+    #expect(driver.withdrawn == [first.identifier])
+    try receive(["state": .string("done")])
+    await awaitNotification { driver.posted.count == 2 }
+    #expect(driver.posted.last?.content.body == "Done")
+    for _ in 0 ..< 20 {
+        await Task.yield()
+    }
+    app.seen(own)
+    #expect(driver.withdrawn.count == 2)
+
+    app.isFront = { true }
+    try receive(["state": .string("working")])
+    try receive(["state": .string("error")])
+    #expect(driver.posted.count == 2)
+    #expect(app.attention == [own, shared])
+}
+
 @Test @MainActor func terminalNotificationLateDeliveryCannotOutliveItsSession() async throws {
     let driver = NotificationDriver(delaysDelivery: true)
     let notifications = TerminalNotifications(driver: driver)

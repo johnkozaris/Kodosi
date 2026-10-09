@@ -92,6 +92,7 @@ signals:
     void authorityStateChanged();
     void authoritativeSnapshotApplied();
     void attentionChanged();
+    void alertChanged(const QString& sessionId, const QString& text);
 
 private:
     QVector<Session> m_sessions;
@@ -103,6 +104,8 @@ private:
     [[nodiscard]] static bool isWorking(const Session& session);
     [[nodiscard]] static QString waitState(const Session& session);
     [[nodiscard]] static QString sign(const Session& session);
+    [[nodiscard]] static QString signLabel(const Session& session);
+    [[nodiscard]] static QString report(const Session& session);
     [[nodiscard]] static QString activity(const Session& session);
     [[nodiscard]] QVariantMap fields(const Session& session) const;
 };

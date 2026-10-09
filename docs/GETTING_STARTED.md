@@ -59,6 +59,10 @@ the terminal sees the same state, and `kodosi session list` shows it too.
 The check and the warning sign go away when you open the terminal. The sidebar also
 says how many terminals wait for an answer, and takes you to the next one.
 
+While Kodosi is not the front app, your own terminals also send a system notification
+when a program starts to wait, is done, or failed. Select the notification to open the
+terminal. Your system's notification settings control these notifications.
+
 Kodosi takes this from what the program reports to its terminal: the
 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status)
 (OSC 7501) and terminal progress bars (OSC 9;4). Claude Code reports its state from

@@ -8,6 +8,8 @@
 #include <QObject>
 #include <QQueue>
 
+#include <functional>
+
 namespace kodosi {
 
 class TerminalNotifications final : public QObject {
@@ -19,6 +21,8 @@ public:
         DesktopNotificationDriver& driver,
         QObject* parent = nullptr);
 
+    std::function<bool()> isFront;
+
     void apply(const QJsonObject& event);
 
 signals:
@@ -29,6 +33,7 @@ private:
     struct Context {
         QString sessionId;
         QString runtimeIncarnationId;
+        bool alert = false;
     };
 
     SessionCatalogModel& m_sessions;
@@ -40,6 +45,8 @@ private:
         const QString& key,
         const QString& action,
         const QString& activationToken);
+    void alert(const QString& sessionId, const QString& text);
+    void track(const QString& key, const Context& context);
     void remove(const QString& key, bool withdraw);
     void prune();
     [[nodiscard]] bool current(const Context& context) const;

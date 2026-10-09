@@ -81,7 +81,9 @@ CLI and its bundled skill let existing agents participate through the running ho
 
 Terminals show the state that their programs report through the Program Status
 Protocol (OSC 7501) or a progress bar: working, waiting for a person, done, or failed.
-Kodosi does not infer that state from screen content.
+Kodosi does not infer that state from screen content. While the app is not in front,
+it sends a system notification when one of the person's own terminals starts to wait,
+is done, or failed.
 
 Direct terminal sharing and native Claude Code and Copilot CLI conversation
 preview/resume remain available. Kodosi does not become the agent harness or require

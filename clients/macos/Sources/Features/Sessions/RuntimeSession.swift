@@ -79,6 +79,11 @@ struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
         isWorking ? programStatus?.progress : nil
     }
 
+    var alert: String? {
+        guard isOwner, waitState != nil else { return nil }
+        return programStatus?.caption ?? sign(unseen: true)?.label
+    }
+
     func mark(rested: AgentMark.Activity) -> AgentMark.Activity {
         if let progress {
             return .progress(progress)

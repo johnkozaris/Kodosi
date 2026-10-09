@@ -51,7 +51,8 @@ A terminal carries the mark of the program in it. While an agent works, its mark
 title show it. A program that waits for you puts a copper ring on its mark and a sign
 of what it needs beside it, and the source list offers the next terminal that waits
 for an answer. A terminal that is done, that failed, or that rang its bell keeps a
-sign until you look at it. One share sheet puts a terminal in a room or shares it with
+sign until you look at it. While Kodosi is not in front, your own terminals send a
+system notification for these changes. One share sheet puts a terminal in a room or shares it with
 friends.
 
 ## Experience
