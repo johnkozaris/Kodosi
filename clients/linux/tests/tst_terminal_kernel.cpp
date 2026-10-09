@@ -356,6 +356,7 @@ private slots:
     void surfaceControllerScopesAttachmentOutcomes();
     void registryRetiresAbandonedSeedCapacity();
     void registryRoutesMultiSurfaceControlExactly();
+    void registryRestoresOpenSurfacesFromMovedSnapshot();
 };
 
 void TerminalKernelTest::terminalViewPreservesControlAndEscapeKeys()
@@ -3217,6 +3218,103 @@ void TerminalKernelTest::registryRoutesMultiSurfaceControlExactly()
     QCOMPARE(firstFrames, 1);
     QCOMPARE(secondFrames, 2);
     QVERIFY(registry.unregisterSurface(second));
+}
+
+void TerminalKernelTest::registryRestoresOpenSurfacesFromMovedSnapshot()
+{
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("snapshot-registry"),
+        QStringLiteral("snapshot-subscription"),
+        7,
+    };
+    const kodosi::TerminalSurfaceIdentity first {
+        .subscription = subscription,
+        .surfaceGeneration = 1,
+    };
+    const kodosi::TerminalSurfaceIdentity second {
+        .subscription = subscription,
+        .surfaceGeneration = 2,
+    };
+    const kodosi::TerminalSurfaceIdentity third {
+        .subscription = subscription,
+        .surfaceGeneration = 3,
+    };
+    kodosi::GhosttyTerminalKernel::Frame firstFrame;
+    kodosi::GhosttyTerminalKernel::Frame secondFrame;
+    int firstFrames = 0;
+    int thirdFrames = 0;
+    int failures = 0;
+    kodosi::TerminalSessionRegistry registry;
+    QVERIFY(registry.registerSurface(
+        first,
+        {
+            .frameChanged = [&](auto frame) {
+                firstFrame = std::move(frame);
+                ++firstFrames;
+            },
+            .failed = [&](auto) { ++failures; },
+        }));
+    QVERIFY(registry.installSemanticCheckpoint({
+        subscription,
+        1,
+        3,
+        24,
+        checkpointFor(QByteArrayLiteral("first"), 24, 3),
+    }));
+    registry.receiveData({subscription, 1, QByteArrayLiteral(" view")});
+    QCOMPARE(firstFrames, 2);
+
+    const auto secondRegistration = registry.registerSurface(
+        second,
+        {
+            .frameChanged = [&](auto frame) { secondFrame = std::move(frame); },
+            .failed = [&](auto) { ++failures; },
+        });
+    QVERIFY(secondRegistration);
+    QVERIFY(secondRegistration->requiresRefresh);
+
+    QVERIFY(registry.installSemanticCheckpoint({
+        subscription,
+        5,
+        3,
+        24,
+        checkpointFor(QByteArrayLiteral("moved"), 24, 3),
+    }));
+    QCOMPARE(firstFrames, 3);
+    QVERIFY(firstFrame);
+    QVERIFY(secondFrame);
+    QCOMPARE(firstFrame->nextSequence, std::uint64_t {5});
+    QCOMPARE(secondFrame->nextSequence, std::uint64_t {5});
+    QVERIFY(frameText(*firstFrame).startsWith(QStringLiteral("moved")));
+
+    registry.receiveData({subscription, 5, QByteArrayLiteral(" on")});
+    QCOMPARE(failures, 0);
+    QCOMPARE(firstFrames, 4);
+    QVERIFY(frameText(*firstFrame).startsWith(QStringLiteral("moved on")));
+    QVERIFY(frameText(*secondFrame).startsWith(QStringLiteral("moved on")));
+
+    const auto thirdRegistration = registry.registerSurface(
+        third,
+        {
+            .frameChanged = [&](auto) { ++thirdFrames; },
+            .failed = [&](auto) { ++failures; },
+        });
+    QVERIFY(thirdRegistration);
+    QVERIFY(thirdRegistration->requiresRefresh);
+    QVERIFY(registry.installSemanticCheckpoint({
+        subscription,
+        6,
+        3,
+        24,
+        checkpointFor(QByteArrayLiteral("moved on"), 24, 3),
+    }));
+    QCOMPARE(thirdFrames, 1);
+    QCOMPARE(firstFrames, 4);
+    QCOMPARE(failures, 0);
+
+    QVERIFY(!registry.unregisterSurface(first));
+    QVERIFY(!registry.unregisterSurface(second));
+    QVERIFY(registry.unregisterSurface(third));
 }
 
 void TerminalKernelTest::registryConsumesNormativeControlWireWithoutLosingU64Precision()
