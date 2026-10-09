@@ -79,7 +79,7 @@ struct AvatarStack: View {
 }
 
 struct AgentMark: View {
-    enum Activity { case asleep, awake, working }
+    enum Activity: Equatable { case asleep, awake, working, progress(Int), asks }
 
     @Environment(\.theme) private var theme
     let kind: AgentKind
@@ -106,6 +106,18 @@ struct AgentMark: View {
         activity == .asleep
     }
 
+    private var rimWidth: CGFloat {
+        max(1.5, size * 0.06)
+    }
+
+    private var state: Int {
+        switch activity {
+        case .asleep, .awake: 0
+        case .working, .progress: 1
+        case .asks: 2
+        }
+    }
+
     var body: some View {
         ZStack {
             shape.fill(LinearGradient(
@@ -123,15 +135,33 @@ struct AgentMark: View {
         }
         .frame(width: size, height: size)
         .shadow(color: theme.colors.shadow.opacity(asleep ? 0 : (theme.isDark ? 0.45 : 0.2)), radius: size * 0.1, x: size * 0.03, y: size * 0.07)
-        .overlay {
-            if activity == .working {
-                WorkingRim(shape: shape, lineWidth: max(1.5, size * 0.06), glow: size * 0.16)
-                    .padding(-max(1.5, size * 0.06))
-                    .transition(.opacity)
-            }
+        .overlay { rim.padding(-rimWidth) }
+        .keyframeAnimator(initialValue: 1.0, trigger: theme.motion.reduced ? 0 : state) { mark, squash in
+            mark.scaleEffect(x: 2 - squash, y: squash, anchor: .bottom)
+        } keyframes: { _ in
+            SpringKeyframe(0.9, duration: 0.1, spring: .snappy)
+            SpringKeyframe(1.0, duration: 0.5, spring: .bouncy)
         }
         .animation(theme.motion.fade, value: activity)
         .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var rim: some View {
+        switch activity {
+        case .working:
+            WorkingRim(shape: shape, lineWidth: rimWidth, glow: size * 0.16).transition(.opacity)
+        case let .progress(percent):
+            ProgressRim(fraction: Double(percent) / 100, radius: size * 0.3 + rimWidth, lineWidth: rimWidth, glow: size * 0.16)
+                .transition(.opacity)
+        case .asks:
+            RoundedRectangle(cornerRadius: size * 0.3 + rimWidth * 2, style: .continuous)
+                .strokeBorder(theme.colors.accent, lineWidth: rimWidth)
+                .padding(-rimWidth)
+                .transition(.scale(scale: 1.3).combined(with: .opacity).animation(theme.motion.soft))
+        case .asleep, .awake:
+            EmptyView()
+        }
     }
 
     @ViewBuilder
@@ -146,6 +176,91 @@ struct AgentMark: View {
                     .frame(width: size * 0.15, height: size * 0.36)
             }
         }
+    }
+}
+
+struct StatusSign: View {
+    enum Form: Equatable { case changed, hand, question, key, done, failed }
+
+    @Environment(\.theme) private var theme
+    let form: Form
+    var size: CGFloat = 11
+    var backing: Color?
+
+    private var label: Text {
+        switch form {
+        case .changed: Text("New activity")
+        case .hand: Text("Needs your approval")
+        case .question: Text("Needs your answer")
+        case .key: Text("Needs you to sign in")
+        case .done: Text("Done")
+        case .failed: Text("Failed")
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            if let backing {
+                Circle().fill(backing)
+            }
+            glyph.id(form).transition(.blurReplace)
+        }
+        .frame(width: size + 5, height: size + 5)
+        .animation(theme.motion.snappy, value: form)
+        .accessibilityElement()
+        .accessibilityLabel(label)
+        .help(label)
+    }
+
+    @ViewBuilder
+    private var glyph: some View {
+        switch form {
+        case .changed:
+            BreathingDot(color: theme.colors.accent, size: size * 0.62)
+        case .hand:
+            symbol("hand.raised.fill", theme.colors.accent)
+                .symbolEffect(.wiggle.byLayer, options: .nonRepeating, isActive: !theme.motion.reduced)
+        case .question:
+            symbol("questionmark.bubble.fill", theme.colors.accent)
+        case .key:
+            symbol("key.fill", theme.colors.accent)
+        case .done:
+            DrawnCheck(lineWidth: max(1.5, size * 0.17)).frame(width: size, height: size)
+        case .failed:
+            symbol("exclamationmark.triangle.fill", theme.colors.caution)
+        }
+    }
+
+    private func symbol(_ name: String, _ color: Color) -> some View {
+        Image(systemName: name).font(.system(size: size, weight: .semibold)).foregroundStyle(color)
+    }
+}
+
+private struct DrawnCheck: View {
+    @Environment(\.theme) private var theme
+    @State private var drawn = false
+    let lineWidth: CGFloat
+
+    var body: some View {
+        CheckStroke().trim(from: 0, to: drawn ? 1 : 0)
+            .stroke(theme.colors.ready, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
+            .onAppear {
+                withAnimation(theme.motion.reduced ? nil : .easeOut(duration: 0.3).delay(0.1)) { drawn = true }
+            }
+    }
+}
+
+private struct CheckStroke: Shape {
+    func path(in rect: CGRect) -> Path {
+        let unit = min(rect.width, rect.height) / 24
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + x * unit, y: rect.minY + y * unit)
+        }
+        var path = Path()
+        path.move(to: point(4.6, 12.8))
+        path.addLine(to: point(9.6, 17.6))
+        path.addLine(to: point(19.4, 6.8))
+        return path
     }
 }
 

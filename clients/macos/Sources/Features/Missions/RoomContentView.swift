@@ -116,14 +116,14 @@ private struct RoomTerminals: View {
     private func tabChip(_ session: RuntimeSession, selected: Bool) -> some View {
         Button { open(session) } label: {
             HStack(spacing: 7) {
-                AgentMark(kind: session.agent, size: 18, activity: session.isWorking ? .working : selected ? .awake : .asleep)
+                AgentMark(kind: session.agent, size: 18, activity: session.mark(rested: selected ? .awake : .asleep))
                 Text(session.name).appTextStyle(.footnote).fontWeight(.medium).lineLimit(1)
                     .foregroundStyle(selected ? theme.colors.ink : theme.colors.inkMuted)
                 if !session.isOwner, let owner = session.ownerName {
                     PersonAvatar(name: owner, key: session.ownerUserId, size: 15)
                 }
-                if deps.attention.contains(session.id) {
-                    BreathingDot(color: theme.colors.accent, size: 6)
+                if let sign = deps.sign(of: session) {
+                    StatusSign(form: sign, size: 10).transition(AnyTransition.pop)
                 } else if session.isTroubled {
                     Circle().fill(theme.colors.caution).frame(width: 5, height: 5)
                 }
@@ -190,12 +190,12 @@ private struct RoomTerminalCard: View {
     var body: some View {
         Button(action: open) {
             HStack(spacing: 12) {
-                AgentMark(kind: session.agent, size: 34, activity: session.isWorking ? .working : session.canOpen ? .awake : .asleep)
+                AgentMark(kind: session.agent, size: 34, activity: session.mark(rested: session.canOpen ? .awake : .asleep))
                 VStack(alignment: .leading, spacing: 3) {
                     Text(session.name).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).lineLimit(1)
                     HStack(spacing: 4) {
                         DeviceGlyph(label: session.hostLabel).font(.system(size: 9, weight: .medium))
-                        Text(session.activity ?? session.hostLabel).lineLimit(1).shimmer(session.isWorking)
+                        SessionActivityText(session: session, fallback: session.hostLabel)
                     }
                     .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
                 }

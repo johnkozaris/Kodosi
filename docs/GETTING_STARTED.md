@@ -49,6 +49,16 @@ A terminal shows when its program is working, needs you, is done, or failed, wit
 the program's own message, such as the approval it asks for. Everyone who can open
 the terminal sees the same state, and `kodosi session list` shows it too.
 
+| You see | Meaning |
+| --- | --- |
+| A warm rim that turns round the terminal's mark | The program works. An arc and a number show its percent. |
+| A copper ring, with a hand, a question mark, or a key | The program waits for your approval, your answer, or your sign-in. |
+| A green check | The program is done. |
+| A yellow warning sign | The program failed. |
+
+The check and the warning sign go away when you open the terminal. The sidebar also
+says how many terminals wait for an answer, and takes you to the next one.
+
 Kodosi takes this from what the program reports to its terminal: the
 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status)
 (OSC 7501) and terminal progress bars (OSC 9;4). Claude Code reports its state from

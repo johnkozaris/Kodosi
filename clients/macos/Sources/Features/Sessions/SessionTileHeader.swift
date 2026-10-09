@@ -21,12 +21,12 @@ struct SessionTileHeader: View {
             if roomEmbedded {
                 place
             } else {
-                AgentMark(kind: session.agent, size: 20, activity: session.isWorking ? .working : .awake)
+                AgentMark(kind: session.agent, size: 20, activity: session.mark(rested: .awake))
                 Text(session.name).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).lineLimit(1)
                     .contentTransition(.interpolate).layoutPriority(2)
-                if let activity = session.activity {
-                    Text(activity).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
-                        .shimmer(session.isWorking).help(activity)
+                if session.activity != nil || session.progress != nil {
+                    SessionActivityText(session: session).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                        .help(session.activity ?? "")
                 }
                 if session.kind == .remote {
                     HStack(spacing: 4) {
@@ -56,9 +56,9 @@ struct SessionTileHeader: View {
                 Image(systemName: "folder").font(.system(size: 10, weight: .medium))
                 Text(folder).lineLimit(1).truncationMode(.middle)
             }
-            if let activity = session.activity {
+            if session.activity != nil || session.progress != nil {
                 Text(verbatim: "·").foregroundStyle(theme.colors.inkFaint)
-                Text(activity).lineLimit(1).shimmer(session.isWorking)
+                SessionActivityText(session: session)
             }
         }
         .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)

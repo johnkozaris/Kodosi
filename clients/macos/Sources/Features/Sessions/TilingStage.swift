@@ -155,16 +155,15 @@ struct TerminalCard: View {
     var body: some View {
         Button { deps.activateSession(session.id) } label: {
             HStack(spacing: 12) {
-                AgentMark(kind: session.agent, size: 34, activity: session.isWorking ? .working : session.isConnected ? .awake : .asleep)
+                AgentMark(kind: session.agent, size: 34, activity: session.mark(rested: session.isConnected ? .awake : .asleep))
                 VStack(alignment: .leading, spacing: 3) {
                     Text(session.name).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).lineLimit(1)
-                    Text(session.activity ?? session.folderName ?? session.agent.label)
-                        .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
-                        .shimmer(session.isWorking)
+                    SessionActivityText(session: session, fallback: session.folderName ?? session.agent.label)
+                        .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
                 }
                 Spacer(minLength: 0)
-                if deps.attention.contains(session.id) {
-                    BreathingDot(color: theme.colors.accent, size: 8)
+                if let sign = deps.sign(of: session) {
+                    StatusSign(form: sign, size: 13).transition(AnyTransition.pop)
                 } else {
                     AvatarStack(people: deps.viewers(of: session), size: 18, limit: 2, ring: theme.colors.raised)
                 }
@@ -176,6 +175,7 @@ struct TerminalCard: View {
         .buttonStyle(PressScaleStyle(scale: 0.98))
         .onHover { hovered = $0 }
         .animation(theme.motion.spring, value: hovered)
+        .animation(theme.motion.snappy, value: deps.sign(of: session))
         .accessibilityIdentifier("overview.\(AccessibilityIdentifier.session(session.id))")
     }
 }

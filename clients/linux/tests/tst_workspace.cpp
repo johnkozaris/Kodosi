@@ -213,17 +213,22 @@ private slots:
                 session.insert(QStringLiteral("title"), title);
             return session;
         };
-        const auto activity = [&](const int number) {
-            return f.sessions.presentationForSession(test::id(number)).value(QStringLiteral("activity")).toString();
+        const auto field = [&](const int number, const QString& name) {
+            return f.sessions.presentationForSession(test::id(number)).value(name);
         };
+        const auto activity = [&](const int number) { return field(number, QStringLiteral("activity")).toString(); };
+        const auto sign = [&](const int number) { return field(number, QStringLiteral("sign")).toString(); };
         f.workspace.apply(test::snapshot({
-            reported(1, {{QStringLiteral("state"), QStringLiteral("working")}}, QStringLiteral("Build")),
+            reported(1, {{QStringLiteral("state"), QStringLiteral("working")}, {QStringLiteral("progress"), 40}}, QStringLiteral("Build")),
             reported(2, {{QStringLiteral("state"), QStringLiteral("idle")}}, QStringLiteral("\u2802 Build")),
         }), 0);
         QVERIFY(f.sessions.working());
         QVERIFY(f.sessions.presentationForSession(test::id(1)).value(QStringLiteral("working")).toBool());
         QVERIFY(!f.sessions.presentationForSession(test::id(2)).value(QStringLiteral("working")).toBool());
         QCOMPARE(activity(2), QStringLiteral("Build"));
+        QCOMPARE(field(1, QStringLiteral("progress")).toInt(), 40);
+        QCOMPARE(field(2, QStringLiteral("progress")).toInt(), -1);
+        QVERIFY(sign(1).isEmpty());
         QVERIFY(f.sessions.attention().isEmpty());
 
         f.workspace.apply(test::snapshot({
@@ -233,7 +238,9 @@ private slots:
         }), 0);
         QVERIFY(!f.sessions.working());
         QCOMPARE(activity(1), QStringLiteral("Review: Allow the command?"));
-        QCOMPARE(activity(2), QStringLiteral("Needs your answer"));
+        QVERIFY(activity(2).isEmpty());
+        QCOMPARE(sign(1), QStringLiteral("hand"));
+        QCOMPARE(sign(2), QStringLiteral("question"));
         QCOMPARE(f.sessions.attention(), (QStringList { test::id(1), test::id(2) }));
 
         f.sessions.clearAttention(test::id(1));
@@ -242,11 +249,23 @@ private slots:
             reported(1, {{QStringLiteral("state"), QStringLiteral("blocked")}, {QStringLiteral("kind"), QStringLiteral("permission")}}),
             reported(2, {{QStringLiteral("state"), QStringLiteral("error")}}),
         }), 0);
-        QCOMPARE(activity(2), QStringLiteral("Failed"));
+        QVERIFY(activity(2).isEmpty());
+        QCOMPARE(sign(2), QStringLiteral("failed"));
         QCOMPARE(f.sessions.attention(), QStringList { test::id(2) });
 
+        f.workspace.apply(test::snapshot({
+            reported(1, {{QStringLiteral("state"), QStringLiteral("blocked")}, {QStringLiteral("kind"), QStringLiteral("auth")}}),
+            reported(2, {{QStringLiteral("state"), QStringLiteral("done")}}),
+        }), 0);
+        QCOMPARE(sign(1), QStringLiteral("key"));
+        QCOMPARE(sign(2), QStringLiteral("done"));
+        f.workspace.apply(test::snapshot({
+            reported(1, {{QStringLiteral("state"), QStringLiteral("working")}, {QStringLiteral("progress"), 101}}),
+        }), 0);
+        QCOMPARE(sign(2), QStringLiteral("done"));
+
         f.workspace.apply(test::snapshot({ reported(1, {{QStringLiteral("state"), QStringLiteral("dance")}}) }), 0);
-        QCOMPARE(f.sessions.session(test::id(2))->programState, QStringLiteral("error"));
+        QCOMPARE(f.sessions.session(test::id(2))->programState, QStringLiteral("done"));
     }
     void minimizeKeepsProcessAndClosePrunesFromCatalog()
     {

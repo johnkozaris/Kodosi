@@ -72,11 +72,11 @@ struct SidebarView: View {
 
     @ViewBuilder
     private var waiting: some View {
-        let waiting = deps.sessions.filter { deps.attention.contains($0.id) }
+        let waiting = deps.sessions.filter { $0.needsUser && deps.attention.contains($0.id) }
         if let next = waiting.first {
             Button { deps.activateSession(next.id) } label: {
                 HStack(spacing: 9) {
-                    BreathingDot(color: theme.colors.accent, size: 7).frame(width: 22)
+                    StatusSign(form: next.sign(unseen: true) ?? .hand).frame(width: 22)
                     Text(waiting.count == 1 ? String(localized: "\(next.name) needs you") : String(localized: "\(waiting.count) terminals need you"))
                         .appTextStyle(.footnote).fontWeight(.medium).foregroundStyle(theme.colors.accentStrong).lineLimit(1)
                     Spacer(minLength: 0)

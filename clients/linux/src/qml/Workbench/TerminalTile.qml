@@ -132,7 +132,7 @@ Item {
                 AgentMark {
                     program: root.session.program || ""
                     size: 20
-                    working: root.session.working === true
+                    session: root.session
                 }
                 PlainLabel {
                     Layout.maximumWidth: Math.max(80, root.width * 0.4)
@@ -141,13 +141,10 @@ Item {
                     font.weight: Font.DemiBold
                     elide: Text.ElideRight
                 }
-                ShimmerText {
+                ActivityLine {
                     Layout.fillWidth: true
-                    text: root.session.activity || ""
-                    active: root.session.working === true
+                    session: root.session
                     color: KodosiTheme.terminalInkMuted
-                    font.pixelSize: KodosiTheme.fontFootnote
-                    elide: Text.ElideRight
                 }
                 PlainLabel {
                     Accessible.id: objectName

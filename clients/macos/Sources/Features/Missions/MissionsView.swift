@@ -99,7 +99,7 @@ private struct RoomCard: View {
                     } else {
                         HStack(spacing: -4) {
                             ForEach(sessions.prefix(5)) { session in
-                                AgentMark(kind: session.agent, size: 18, activity: session.isWorking ? .working : .awake)
+                                AgentMark(kind: session.agent, size: 18, activity: session.mark(rested: .awake))
                             }
                         }
                         Text(sessions.contains(where: \.isWorking) ? String(localized: "Working") : Counted.terminals(sessions.count))

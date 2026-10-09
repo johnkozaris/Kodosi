@@ -13,17 +13,7 @@ struct ProgramStatus: Decodable, Equatable, Sendable {
 
     var caption: String? {
         let text = [title, message].compactMap(\.self).joined(separator: ": ")
-        if !text.isEmpty {
-            return text
-        }
-        switch (state, kind) {
-        case (.blocked, .permission): return String(localized: "Needs your approval")
-        case (.blocked, .question): return String(localized: "Needs your answer")
-        case (.blocked, .auth): return String(localized: "Needs you to sign in")
-        case (.blocked, nil): return String(localized: "Needs you")
-        case (.error, _): return String(localized: "Failed")
-        default: return nil
-        }
+        return text.isEmpty ? nil : text
     }
 }
 
@@ -82,6 +72,34 @@ struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
         case .done: .done
         case .error: .error
         default: nil
+        }
+    }
+
+    var progress: Int? {
+        isWorking ? programStatus?.progress : nil
+    }
+
+    func mark(rested: AgentMark.Activity) -> AgentMark.Activity {
+        if let progress {
+            return .progress(progress)
+        }
+        if isWorking {
+            return .working
+        }
+        return needsUser ? .asks : rested
+    }
+
+    func sign(unseen: Bool) -> StatusSign.Form? {
+        switch waitState {
+        case .blocked:
+            switch programStatus?.kind {
+            case .question: .question
+            case .auth: .key
+            case .permission, nil: .hand
+            }
+        case .done where unseen: .done
+        case .error where unseen: .failed
+        default: unseen ? .changed : nil
         }
     }
 

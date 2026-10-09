@@ -327,7 +327,7 @@ Item {
                                                         anchors.verticalCenter: parent.verticalCenter
                                                         spacing: 7
 
-                                                        AgentMark { program: tab.session.program || ""; size: 18; asleep: !tab.selected; working: tab.session.working === true }
+                                                        AgentMark { program: tab.session.program || ""; size: 18; asleep: !tab.selected; session: tab.session }
                                                         PlainLabel {
                                                             text: tab.session.name || qsTr("Terminal")
                                                             color: tab.selected || tab.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
@@ -335,7 +335,7 @@ Item {
                                                             font.weight: tab.selected ? Font.DemiBold : Font.Medium
                                                         }
                                                         AvatarStack { visible: tab.viewers.length > 0; userIds: tab.viewers; size: 16; limit: 2; ring: tab.selected ? KodosiTheme.raised : KodosiTheme.well }
-                                                        BreathingDot { visible: Models.Sessions.attention.indexOf(tab.sessionId) >= 0 && !tab.selected; size: 6 }
+                                                        StatusSign { session: tab.session; unseen: Models.Sessions.attention.indexOf(tab.sessionId) >= 0 && !tab.selected; size: 12 }
                                                     }
                                                 }
                                                 background: Item {
@@ -445,7 +445,7 @@ Item {
                                                 background: Raised { radius: KodosiTheme.radiusLg; fill: card.hovered ? KodosiTheme.lifted : KodosiTheme.raised; elevation: card.hovered ? 2 : 1 }
                                                 contentItem: RowLayout {
                                                     spacing: 12
-                                                    AgentMark { Layout.leftMargin: 12; program: card.session.program || ""; size: 32; working: card.session.working === true }
+                                                    AgentMark { Layout.leftMargin: 12; program: card.session.program || ""; size: 32; session: card.session }
                                                     ColumnLayout {
                                                         Layout.fillWidth: true
                                                         spacing: 2
@@ -453,13 +453,10 @@ Item {
                                                         RowLayout {
                                                             spacing: 5
                                                             KIcon { Layout.preferredWidth: 11; Layout.preferredHeight: 11; name: "laptop"; color: KodosiTheme.inkFaint }
-                                                            ShimmerText {
+                                                            ActivityLine {
                                                                 Layout.fillWidth: true
-                                                                text: card.session.activity || card.session.hostLabel || ""
-                                                                active: card.session.working === true
-                                                                color: KodosiTheme.inkMuted
-                                                                font.pixelSize: KodosiTheme.fontFootnote
-                                                                elide: Text.ElideRight
+                                                                session: card.session
+                                                                words: card.session.activity || card.session.hostLabel || ""
                                                             }
                                                         }
                                                     }

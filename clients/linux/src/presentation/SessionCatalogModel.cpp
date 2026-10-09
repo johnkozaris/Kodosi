@@ -90,6 +90,20 @@ QString SessionCatalogModel::waitState(const Session& session)
     return result || blocked ? session.programState : QString {};
 }
 
+QString SessionCatalogModel::sign(const Session& session)
+{
+    const auto state = waitState(session);
+    if (state == QStringLiteral("done"))
+        return state;
+    if (state == QStringLiteral("error"))
+        return QStringLiteral("failed");
+    if (state != QStringLiteral("blocked"))
+        return {};
+    if (session.programKind == QStringLiteral("question"))
+        return QStringLiteral("question");
+    return session.programKind == QStringLiteral("auth") ? QStringLiteral("key") : QStringLiteral("hand");
+}
+
 QString SessionCatalogModel::activity(const Session& session)
 {
     QStringList report;
@@ -99,17 +113,6 @@ QString SessionCatalogModel::activity(const Session& session)
     }
     if (!report.isEmpty())
         return report.join(QStringLiteral(": "));
-    if (session.programState == QStringLiteral("blocked")) {
-        if (session.programKind == QStringLiteral("permission"))
-            return tr("Needs your approval");
-        if (session.programKind == QStringLiteral("question"))
-            return tr("Needs your answer");
-        if (session.programKind == QStringLiteral("auth"))
-            return tr("Needs you to sign in");
-        return tr("Needs you");
-    }
-    if (session.programState == QStringLiteral("error"))
-        return tr("Failed");
     qsizetype units = 0;
     for (const auto scalar : session.title.toUcs4()) {
         if (!isStatusGlyph(scalar) && !QChar::isSpace(scalar))
@@ -200,6 +203,8 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
     const bool local = s->kind == QStringLiteral("local");
     return { { QStringLiteral("sessionId"), s->id }, { QStringLiteral("id"), s->id }, { QStringLiteral("name"), s->name },
         { QStringLiteral("activity"), activity(session) }, { QStringLiteral("working"), isWorking(session) },
+        { QStringLiteral("progress"), isWorking(session) ? session.programProgress : -1 },
+        { QStringLiteral("sign"), sign(session) },
         { QStringLiteral("folderName"),
             s->workingDirectory.isEmpty() ? QString {} : QDir(s->workingDirectory).dirName() },
         { QStringLiteral("hostLabel"), local ? tr("This computer") : !s->hostName.isEmpty() ? s->hostName : !s->ownerName.isEmpty() ? s->ownerName : tr("Remote computer") },
@@ -266,6 +271,12 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
         s.programKind = report.value(QStringLiteral("kind")).toString();
         s.programTitle = report.value(QStringLiteral("title")).toString();
         s.programMessage = report.value(QStringLiteral("message")).toString();
+        const auto progress = report.value(QStringLiteral("progress"));
+        if (!progress.isUndefined()) {
+            if (!progress.isDouble() || progress.toInt(-1) < 0 || progress.toInt(-1) > 100)
+                return std::nullopt;
+            s.programProgress = progress.toInt();
+        }
     }
     const auto connected = o.value(QStringLiteral("connectedUsers"));
     if (!connected.isUndefined() && (!connected.isArray() || connected.toArray().size() > 128)) return std::nullopt;

@@ -10,14 +10,25 @@ Item {
     property color color: KodosiTheme.ink
     property bool active: false
     readonly property real band: Math.max(base.paintedWidth * 0.45, 36)
+    property real arrival: 1
+    property bool ready: false
 
     implicitWidth: base.implicitWidth
     implicitHeight: base.implicitHeight
     Accessible.ignored: true
+    transform: Translate { y: (1 - root.arrival) * 4 }
+
+    Component.onCompleted: ready = true
+    onTextChanged: {
+        if (ready && visible && !KodosiTheme.reduceMotion)
+            arrive.restart()
+    }
+    NumberAnimation { id: arrive; target: root; property: "arrival"; from: 0; to: 1; duration: KodosiTheme.motionSoft; easing.type: Easing.OutCubic }
 
     Text {
         id: base
         anchors.fill: parent
+        opacity: root.arrival
         color: root.color
         textFormat: Text.PlainText
         verticalAlignment: Text.AlignVCenter
@@ -25,6 +36,7 @@ Item {
     Item {
         id: window
         visible: root.active && !KodosiTheme.reduceMotion
+        opacity: root.arrival
         height: parent.height
         width: root.band
         clip: true

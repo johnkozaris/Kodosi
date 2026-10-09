@@ -47,8 +47,9 @@ struct SidebarRail: View {
                         } content: {
                             AgentMark(kind: session.agent, size: 26, activity: deps.activity(of: session))
                                 .overlay(alignment: .topTrailing) {
-                                    if deps.attention.contains(session.id) {
-                                        BreathingDot(color: theme.colors.accent, size: 7).offset(x: 3, y: -3)
+                                    if let sign = deps.sign(of: session) {
+                                        StatusSign(form: sign, size: 9, backing: theme.colors.ground).offset(x: 5, y: -5)
+                                            .transition(AnyTransition.pop)
                                     }
                                 }
                         }

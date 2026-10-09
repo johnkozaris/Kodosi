@@ -23,7 +23,7 @@ KPopover {
     function terminals() {
         return Models.Sessions.sessions.map(session => ({
             id: "terminal." + session.id, group: qsTr("Terminals"), title: session.name, kind: "terminal", key: session.id,
-            program: session.program, working: session.working,
+            program: session.program, working: session.working, sign: session.sign, progress: session.progress,
             detail: [session.folderName, session.kind === "remote" ? session.hostLabel : ""].filter(part => !!part).join(" · ")
         }))
     }
@@ -198,7 +198,7 @@ KPopover {
                         Layout.preferredWidth: 24
                         Layout.preferredHeight: 24
 
-                        AgentMark { visible: entry.modelData.kind === "terminal"; program: entry.modelData.program || ""; size: 24; working: entry.modelData.working === true }
+                        AgentMark { visible: entry.modelData.kind === "terminal"; program: entry.modelData.program || ""; size: 24; session: entry.modelData }
                         RoomSigil { visible: entry.modelData.kind === "room"; key: entry.modelData.key || ""; size: 24 }
                         PersonAvatar { visible: entry.modelData.kind === "person"; name: entry.modelData.title; key: entry.modelData.key || ""; size: 24 }
                         Well {
