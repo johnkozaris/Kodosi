@@ -6,8 +6,7 @@ struct SessionDetailsView: View {
     @Environment(\.theme) private var theme
     let session: RuntimeSession
     @State private var sharing = false
-    @State private var missionId = ""
-    @State private var saving = false
+    @State private var name = ""
     @State private var confirmingLeave = false
     @State private var error: String?
 
@@ -16,98 +15,94 @@ struct SessionDetailsView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                SessionProgramIcon(program: current?.program)
-                Text(current?.name ?? session.name).appTextStyle(.headingSection)
-                Spacer()
-                SessionIconButton(title: "Close details", symbol: "xmark", identifier: "panel.sessionDetails.close") { dismiss() }
-                    .keyboardShortcut(.cancelAction)
-            }.padding(20).background(theme.colors.surfacePanel).seamBorder(.bottom)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    if let current {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Folder").appTextStyle(.headingItem).foregroundStyle(theme.colors.primary)
-                            if let path = current.workingDir {
-                                Text(URL(fileURLWithPath: path).lastPathComponent).appTextStyle(.headingSection)
-                                Text(path).appTextStyle(.monoCaption).foregroundStyle(theme.colors.mutedForeground).textSelection(.enabled)
-                            }
-                            Text(current.hostLabel).appTextStyle(.body)
-                            if let directory = current.localDirectory {
-                                Button("Open folder") { do { try NativeFiles.open(directory) } catch { self.error = error.localizedDescription } }
-                            }
-                            if !current.isConnected {
-                                Text(current.message ?? current.statusLabel).appTextStyle(.body).foregroundStyle(theme.colors.statusWaiting)
-                            }
-                        }
-                        Divider()
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Text("People").appTextStyle(.headingItem).foregroundStyle(theme.colors.primary)
-                                Spacer()
-                                if current.kind == .local, current.isOwner {
-                                    Button("Manage sharing") { sharing = true }
-                                        .popover(isPresented: $sharing) { SessionSharingPopover(session: current) }
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(spacing: 14) {
+                AgentMark(kind: (current ?? session).agent, size: 44, activity: (current ?? session).isWorking ? .working : .awake)
+                VStack(alignment: .leading, spacing: 2) {
+                    if current?.isOwner == true {
+                        TextField("Name", text: $name)
+                            .textFieldStyle(.plain).appTextStyle(.title).foregroundStyle(theme.colors.ink)
+                            .onSubmit {
+                                if let current {
+                                    deps.rename(current, to: name)
                                 }
                             }
-                            if deps.userId == nil {
-                                Text("Only available on this Mac while signed out.").appTextStyle(.body)
-                            } else if !deps.localDeviceEnrolled {
-                                Text("Only available on this Mac until this Mac is trusted.").appTextStyle(.body)
-                            } else if !current.isOwner {
-                                Text("Shared by \(current.ownerName ?? current.hostLabel)").appTextStyle(.body)
-                                if current.missionId == nil {
-                                    Button("Leave shared terminal…") { confirmingLeave = true }
-                                        .accessibilityIdentifier("panel.sessionDetails.leave")
-                                }
-                            } else {
-                                Text("Your approved devices").appTextStyle(.body)
-                                ForEach(current.sharedWith, id: \.self) { id in
-                                    let friend = deps.friends.first { $0.userId == id }
-                                    HStack {
-                                        Text(friend?.displayName ?? friend?.handle ?? String(localized: "Shared friend")).appTextStyle(.body)
-                                        Spacer()
-                                        if (current.connectedUsers ?? []).contains(id) {
-                                            Text("Connected now").appTextStyle(.caption).foregroundStyle(theme.colors.primary)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        if current.isOwner, deps.accountReady {
-                            Divider()
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text("Room").appTextStyle(.headingItem).foregroundStyle(theme.colors.primary)
-                                HStack {
-                                    KodosiPicker("Share with room", selection: $missionId, values: [""] + deps.missions.map(\.id), label: { id in
-                                        deps.missions.first { $0.id == id }?.name ?? String(localized: "None")
-                                    })
-                                    Button(saving ? "Saving…" : "Save") { saveMission(current) }
-                                        .disabled(saving || missionId == (current.missionId ?? ""))
-                                }
-                            }
-                        } else if let mission = current.missionName {
-                            Divider()
-                            LabeledContent("Room", value: mission).appTextStyle(.body)
-                        }
+                            .accessibilityIdentifier("panel.sessionDetails.name")
                     } else {
-                        Text("This terminal has ended.").appTextStyle(.body)
+                        Text(current?.name ?? session.name).appTextStyle(.title).foregroundStyle(theme.colors.ink)
                     }
-                    if let error {
-                        Text(error).appTextStyle(.body).foregroundStyle(theme.colors.destructive)
+                    Text((current ?? session).agent.label).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                }
+                Spacer()
+                IconButton(title: "Close", symbol: "xmark", identifier: "panel.sessionDetails.close") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+            }
+            if let current {
+                ListGroup {
+                    ListRow(current.hostLabel, subtitle: current.isConnected ? nil : current.message ?? current.statusLabel,
+                            symbol: DeviceGlyph.symbol(for: current.hostLabel), tint: TileTint.graphite)
+                    if let path = current.workingDir {
+                        ListRow(URL(fileURLWithPath: path).lastPathComponent, subtitle: path, monoSubtitle: true,
+                                symbol: "folder.fill", tint: TileTint.amber)
+                        {
+                            if let directory = current.localDirectory {
+                                Button("Open") { do { try NativeFiles.open(directory) } catch { self.error = error.localizedDescription } }
+                                    .buttonStyle(.kodosi(.secondary, size: .small))
+                            }
+                        }
                     }
-                }.padding(24).frame(maxWidth: .infinity, alignment: .leading)
+                    access(current)
+                }
+                if !current.isOwner, current.missionId == nil {
+                    Button("Leave this terminal…") { confirmingLeave = true }
+                        .buttonStyle(.kodosi(.ghost)).foregroundStyle(theme.colors.danger)
+                        .accessibilityIdentifier("panel.sessionDetails.leave")
+                }
+            } else {
+                Text("This terminal has ended.").appTextStyle(.body).foregroundStyle(theme.colors.inkMuted)
+            }
+            if let error {
+                ErrorNote(message: error)
             }
         }
-        .frame(width: 580, height: 520).background(theme.colors.background)
-        .buttonStyle(SolidSecondaryButtonStyle())
-        .onAppear { missionId = current?.missionId ?? "" }
+        .padding(24)
+        .frame(width: 480).background(theme.colors.raised.mix(with: theme.colors.surface, by: 0.4))
+        .buttonStyle(.kodosi(.secondary))
+        .onAppear { name = current?.name ?? session.name }
+        .onChange(of: current?.name) { _, value in
+            if let value {
+                name = value
+            }
+        }
         .onChange(of: deps.accountEpoch) { _, _ in dismiss() }
-        .confirmationDialog("Leave this shared terminal?", isPresented: $confirmingLeave, titleVisibility: .visible) {
+        .confirmationDialog("Leave this terminal?", isPresented: $confirmingLeave, titleVisibility: .visible) {
             Button("Leave", role: .destructive) { leave() }
         } message: {
-            Text("You lose access until the owner shares it with you again. The terminal keeps running.")
+            Text("You lose access until the owner shares it again. The terminal keeps running.")
+        }
+    }
+
+    @ViewBuilder
+    private func access(_ current: RuntimeSession) -> some View {
+        if deps.userId == nil {
+            ListRow(String(localized: "Only on this Mac"), subtitle: String(localized: "Sign in to share it"), symbol: "lock.fill", tint: TileTint.graphite)
+        } else if !deps.localDeviceEnrolled {
+            ListRow(String(localized: "Only on this Mac"), subtitle: String(localized: "Trust this Mac to share it"),
+                    symbol: "lock.fill", tint: TileTint.graphite)
+        } else if !current.isOwner {
+            ListRow(String(localized: "Shared by \(current.ownerName ?? current.hostLabel)"),
+                    subtitle: current.missionName.map { String(localized: "In \($0)") }, symbol: "person.2.fill", tint: TileTint.blue)
+        } else {
+            let names = current.sharedWith.map(deps.personName)
+            let title = current.missionName.map { String(localized: "Shared with \($0)") }
+                ?? (names.isEmpty ? String(localized: "Only you and your devices") : names.joined(separator: ", "))
+            ListRow(title, subtitle: String(localized: "Encrypted end to end"), symbol: "person.2.fill", tint: TileTint.blue) {
+                if current.kind == .local {
+                    Button("Share…") { sharing = true }
+                        .buttonStyle(.kodosi(.tinted, size: .small))
+                        .popover(isPresented: $sharing) { SessionSharingPopover(session: current) }
+                }
+            }
         }
     }
 
@@ -118,20 +113,6 @@ struct SessionDetailsView: View {
             do {
                 try await deps.mutateSession("session.leave", session: current)
                 dismiss()
-            } catch { self.error = error.localizedDescription }
-        }
-    }
-
-    private func saveMission(_ current: RuntimeSession) {
-        saving = true
-        error = nil
-        Task { @MainActor in
-            defer { saving = false }
-            do {
-                try await deps.mutateSession(
-                    "session.attachMission", session: current,
-                    fields: ["missionId": missionId.isEmpty ? .null : .string(missionId)]
-                )
             } catch { self.error = error.localizedDescription }
         }
     }

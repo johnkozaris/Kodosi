@@ -29,7 +29,7 @@ final class WorkbenchState {
         }
     }
 
-    enum SettingsSection { case terminal, providers, devices }
+    enum SettingsSection: String { case terminal, providers, devices }
 
     static let maximumStagedSessions = 6
     var section: Section = .sessions
@@ -40,12 +40,13 @@ final class WorkbenchState {
     var detailsSessionId: String?
     var sharingSessionId: String?
     var showsHistory = false
+    var showsPalette = false
+    var showsNewRoom = false
     var selectedMissionId: String?
     var sidebarCollapsed = false {
         didSet { defaults.set(sidebarCollapsed, forKey: "sidebar.collapsed") }
     }
 
-    let sidebarWidth: CGFloat = 230
     private let defaults: UserDefaults
     private var accountKey: String?
     private var restoredIds: [String] = []
@@ -118,6 +119,8 @@ final class WorkbenchState {
         sharingSessionId = nil
         selectedMissionId = nil
         showsHistory = false
+        showsPalette = false
+        showsNewRoom = false
     }
 
     func reconcile(_ sessions: [RuntimeSession]) -> [String] {

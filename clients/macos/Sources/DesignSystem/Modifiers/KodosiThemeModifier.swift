@@ -2,11 +2,12 @@ import SwiftUI
 
 struct KodosiThemeModifier: ViewModifier {
     @Environment(\.colorScheme) private var systemColorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(ThemePreference.storageKey) private var preference: String = ThemePreference.system.rawValue
 
     private var resolved: AppTheme {
         let pref = ThemePreference(rawValue: preference) ?? .system
-        return pref.resolve(systemColorScheme: systemColorScheme)
+        return pref.resolve(systemColorScheme: systemColorScheme).reducingMotion(reduceMotion)
     }
 
     private var colorSchemeOverride: ColorScheme? {
@@ -17,7 +18,8 @@ struct KodosiThemeModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .environment(\.theme, resolved)
-            .background(resolved.colors.background.ignoresSafeArea())
+            .tint(resolved.colors.accent)
+            .background(resolved.colors.ground.ignoresSafeArea())
             .preferredColorScheme(colorSchemeOverride)
     }
 }

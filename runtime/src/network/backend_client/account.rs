@@ -109,7 +109,7 @@ impl BackendClient {
         self.emit_for(
             expected_generation,
             Some(user.clone()),
-            json!({"type":"auth.ready","userId":user,"enrolled":enrolled}),
+            self.ready_event(&user, enrolled),
         );
         for event in self.device_events().await? {
             self.emit_for(expected_generation, Some(user.clone()), event);

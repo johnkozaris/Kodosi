@@ -4,24 +4,40 @@ import SwiftUI
 struct RoomConversationView: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let roomId: String
+    let detail: MissionDetail
     @Bindable var state: RoomViewState
     @State private var copied = false
+
     private var messages: [RoomMessage] {
         deps.rooms[roomId]?.messages ?? []
     }
 
+    private var targets: [MentionTarget] {
+        RoomMentions.targets(members: detail.members, sessions: deps.sessions.filter { $0.missionId == roomId }, userId: deps.userId)
+    }
+
     var body: some View {
+        let targets = targets
         VStack(spacing: 0) {
-            HStack {
-                Label("Conversation", systemImage: "bubble.left.and.bubble.right").font(.system(size: 13, weight: .semibold))
+            HStack(spacing: 8) {
+                Text("Conversation").appTextStyle(.subhead).foregroundStyle(theme.colors.ink)
                 Spacer()
-                Button(action: copyInstructions) { Image(systemName: copied ? "checkmark" : "sparkles") }
-                    .contentTransition(.symbolEffect(.replace)).buttonStyle(.plain)
-                    .help("Copy agent instructions").accessibilityLabel(Text("Copy agent instructions"))
-                    .accessibilityIdentifier("room.agent.instructions")
-            }.padding(16).frame(height: 52).seamBorder(.bottom)
+                Button(action: copyInvite) {
+                    Label(copied ? String(localized: "Copied. Paste it to your agent") : String(localized: "Bring an agent"),
+                          systemImage: copied ? "checkmark" : "sparkles")
+                        .contentTransition(.symbolEffect(.replace))
+                }
+                .buttonStyle(.kodosi(copied ? .tinted : .ghost, size: .small))
+                .help("Copy an invite that tells an agent how to join this room")
+                .accessibilityLabel(Text("Copy agent instructions")).accessibilityIdentifier("room.agent.instructions")
+                .onHover { inside in
+                    if !inside {
+                        copied = false
+                    }
+                }
+            }
+            .padding(.leading, 16).padding(.trailing, 8).frame(height: 46)
             if deps.rooms[roomId] == nil {
                 if let failure = state.failure, !state.loading {
                     RoomRecovery(message: failure) { Task { await deps.readRoom(roomId) } }
@@ -29,33 +45,46 @@ struct RoomConversationView: View {
                     RoomSkeleton()
                 }
             } else {
-                transcript
-                if let failure = state.failure {
-                    RoomActionError(message: failure) { state.failure = nil }
-                }
-                composer
+                transcript(targets)
+                RoomComposer(roomId: roomId, state: state, targets: targets)
             }
-        }.background(theme.colors.background)
+        }
+        .raised(Radius.xl, fill: theme.colors.raised.mix(with: theme.colors.surface, by: 0.45))
+        .animation(theme.motion.snappy, value: copied)
+        .environment(\.openURL, OpenURLAction { url in
+            guard url.scheme == "kodosi-mention" else { return .systemAction }
+            let id = url.lastPathComponent
+            if deps.session(id) != nil {
+                state.canvas = 0
+                state.selectedTerminal = id
+                deps.activateSession(id, inRoom: roomId)
+            }
+            return .handled
+        })
     }
 
-    private var transcript: some View {
-        ScrollViewReader { proxy in
+    private func transcript(_ targets: [MentionTarget]) -> some View {
+        let messages = messages
+        return ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 22) {
+                LazyVStack(alignment: .leading, spacing: 0) {
                     if deps.rooms[roomId]?.hasOlder == true, let first = messages.first {
-                        HStack {
-                            Spacer()
-                            Button {
-                                Task { await deps.readRoom(roomId, before: first.sequence); proxy.scrollTo(first.id, anchor: .top) }
-                            } label: { Image(systemName: "arrow.up") }
-                                .help("Earlier messages").accessibilityLabel(Text("Earlier messages"))
-                                .accessibilityIdentifier("room.messages.earlier").disabled(state.loading)
-                            Spacer()
-                        }
+                        Button {
+                            Task { await deps.readRoom(roomId, before: first.sequence); proxy.scrollTo(first.id, anchor: .top) }
+                        } label: { Label("Earlier messages", systemImage: "arrow.up") }
+                            .buttonStyle(.kodosi(.ghost, size: .small)).frame(maxWidth: .infinity)
+                            .accessibilityIdentifier("room.messages.earlier").disabled(state.loading).padding(.bottom, 10)
                     }
-                    ForEach(messages) { message in messageRow(message).id(message.id) }
+                    ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
+                        let previous = index > 0 ? messages[index - 1] : nil
+                        RoomMessageRow(
+                            roomId: roomId, message: message, previous: previous, targets: targets, state: state
+                        )
+                        .id(message.id)
+                    }
                     Color.clear.frame(height: 1).id("latest")
-                }.scrollTargetLayout().padding(18)
+                }
+                .scrollTargetLayout().padding(.horizontal, 14).padding(.vertical, 10)
             }
             .defaultScrollAnchor(.bottom)
             .scrollPosition(id: $state.readingMessage, anchor: .bottom)
@@ -67,87 +96,34 @@ struct RoomConversationView: View {
                     state.unread = 0
                 }
             }
-            .overlay(alignment: .center) {
+            .overlay {
                 if messages.isEmpty {
-                    Image(systemName: "bubble.left.and.bubble.right").font(.system(size: 42, weight: .ultraLight))
-                        .foregroundStyle(theme.colors.mutedForeground.opacity(0.5))
+                    RoomWelcome(roomId: roomId, detail: detail, state: state, copyInvite: copyInvite, copied: copied)
                 }
             }
             .overlay(alignment: .bottom) {
                 if !state.followsLatest {
                     Button {
-                        withAnimation(reduceMotion ? nil : .smooth(duration: 0.2)) { proxy.scrollTo("latest", anchor: .bottom) }
+                        withAnimation(theme.motion.soft) { proxy.scrollTo("latest", anchor: .bottom) }
                     } label: {
                         Label(state.unread > 0 ? String(localized: "\(state.unread) new") : String(localized: "Latest"), systemImage: "arrow.down")
-                    }.buttonStyle(SolidSecondaryButtonStyle()).clipShape(Capsule()).padding(10)
-                        .accessibilityIdentifier("room.messages.latest")
+                    }
+                    .buttonStyle(.kodosi(state.unread > 0 ? .primary : .secondary, size: .small)).padding(10)
+                    .accessibilityIdentifier("room.messages.latest")
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
+            .animation(theme.motion.spring, value: state.followsLatest)
+            .animation(theme.motion.spring, value: messages.last?.id)
             .onChange(of: messages.last?.id) { _, _ in
                 if state.followsLatest {
-                    withAnimation(reduceMotion ? nil : .smooth(duration: 0.2)) { proxy.scrollTo("latest", anchor: .bottom) }
+                    withAnimation(theme.motion.soft) { proxy.scrollTo("latest", anchor: .bottom) }
                 }
             }
         }
     }
 
-    private func messageRow(_ message: RoomMessage) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            RoomAvatar(name: message.authorName, size: 26)
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    Text(message.authorName).font(.system(size: 12, weight: .semibold))
-                    if let agent = message.agent {
-                        Label(agent, systemImage: "sparkles").font(.system(size: 10)).foregroundStyle(theme.colors.primary)
-                    }
-                    Spacer(minLength: 0)
-                    if let date = date(message.createdAt) {
-                        Text(date, style: .time).font(.system(size: 10)).foregroundStyle(theme.colors.mutedForeground)
-                    }
-                }
-                Text(.init(message.text)).appTextStyle(.body).textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }.accessibilityIdentifier("room.message.\(AccessibilityIdentifier.token(message.id))")
-            .transition(.opacity.combined(with: .offset(y: reduceMotion ? 0 : 6)))
-    }
-
-    private var composer: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            TextField("Message", text: $state.message, axis: .vertical)
-                .lineLimit(1 ... 6).textFieldStyle(.plain).padding(.vertical, 10).padding(.leading, 12)
-                .accessibilityLabel(Text("Message the room")).accessibilityIdentifier("room.message.input")
-                .onSubmit {
-                    if !state.busy {
-                        send()
-                    }
-                }
-            Button(action: send) {
-                ZStack {
-                    if state.busy {
-                        ProgressView().controlSize(.small)
-                    } else {
-                        Image(systemName: "arrow.up").font(.system(size: 14, weight: .semibold))
-                    }
-                }.frame(width: 30, height: 30).background(theme.colors.primary, in: Circle()).foregroundStyle(theme.colors.primaryForeground)
-            }.buttonStyle(.plain).disabled(state.busy || state.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .accessibilityLabel(Text("Send message")).accessibilityIdentifier("room.message.send").padding(6)
-        }.background(theme.colors.surfacePanel, in: RoundedRectangle(cornerRadius: 16))
-            .overlay { RoundedRectangle(cornerRadius: 16).stroke(theme.colors.border.opacity(0.5), lineWidth: 0.5) }
-            .padding(12)
-    }
-
-    private func date(_ value: String) -> Date? {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter.date(from: value) ?? ISO8601DateFormatter().date(from: value)
-    }
-
-    private func send() {
-        Task { await deps.postRoomMessage(roomId) }
-    }
-
-    private func copyInstructions() {
+    private func copyInvite() {
         let path = (Bundle.main.executablePath ?? "kodosi").replacingOccurrences(of: "'", with: "'\"'\"'")
         NSPasteboard.general.clearContents()
         let instructions = """
@@ -158,6 +134,55 @@ struct RoomConversationView: View {
         """
         NSPasteboard.general.setString(instructions, forType: .string)
         copied = true
-        Task { try? await Task.sleep(for: .seconds(2)); copied = false }
+    }
+}
+
+private struct RoomWelcome: View {
+    @Environment(AppDependencies.self) private var deps
+    @Environment(\.theme) private var theme
+    let roomId: String
+    let detail: MissionDetail
+    @Bindable var state: RoomViewState
+    let copyInvite: () -> Void
+    let copied: Bool
+
+    var body: some View {
+        let hasTerminal = deps.sessions.contains { $0.missionId == roomId }
+        VStack(spacing: 18) {
+            RoomSigil(name: detail.mission.name, key: roomId, size: 52).arrive()
+            VStack(spacing: 4) {
+                Text("This is \(detail.mission.name)").appTextStyle(.headline).foregroundStyle(theme.colors.ink)
+                    .multilineTextAlignment(.center)
+                Text("Three steps to get going").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+            }.arrive(delay: 0.04)
+            VStack(spacing: 6) {
+                step("Invite people", symbol: "person.badge.plus", tint: TileTint.blue, done: detail.members.count > 1) {
+                    state.peopleVisible = true
+                }
+                step("Add a terminal", symbol: "apple.terminal", tint: TileTint.graphite, done: hasTerminal) {
+                    deps.newRoomTerminal(roomId)
+                }
+                step(copied ? "Copied. Paste it to your agent" : "Bring an agent in", symbol: "sparkles", tint: TileTint.orange, done: copied,
+                     action: copyInvite)
+            }.arrive(delay: 0.08)
+        }
+        .padding(18).frame(maxWidth: 300)
+    }
+
+    private func step(_ title: LocalizedStringKey, symbol: String, tint: Color, done: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 11) {
+                IconTile(symbol: symbol, tint: tint, size: 28)
+                Text(title).appTextStyle(.body).foregroundStyle(done ? theme.colors.inkMuted : theme.colors.ink)
+                Spacer(minLength: 4)
+                Image(systemName: done ? "checkmark.circle.fill" : "chevron.right")
+                    .font(.system(size: done ? 15 : 10, weight: .semibold))
+                    .foregroundStyle(done ? theme.colors.ready : theme.colors.inkFaint)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .padding(.horizontal, 10).frame(height: 46)
+            .raised(Radius.lg, fill: theme.colors.lifted)
+        }
+        .buttonStyle(PressScaleStyle(scale: 0.98))
     }
 }

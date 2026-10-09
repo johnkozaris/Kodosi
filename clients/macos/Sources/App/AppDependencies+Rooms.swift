@@ -85,6 +85,13 @@ extension AppDependencies {
                     tasks[task.id] = task
                 }
                 next.tasks = tasks.values.sorted { $0.id < $1.id }
+                let watching = workbench.section == .missions && workbench.selectedMissionId == next.roomId
+                if previous.tasks.map(\.version) != next.tasks.map(\.version), !(watching && state.canvas == 1) {
+                    state.fresh.insert(1)
+                }
+                if previous.repositories.map(\.id) != next.repositories.map(\.id), !(watching && state.canvas == 2) {
+                    state.fresh.insert(2)
+                }
             }
             rooms[next.roomId] = next
         case "room.issues":

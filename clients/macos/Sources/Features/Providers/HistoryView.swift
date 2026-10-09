@@ -12,13 +12,13 @@ struct HistoryView: View {
             if let browser {
                 content(browser)
             } else {
-                ProgressView()
+                ProgressCaption(text: String(localized: "Loading"))
             }
         }
-        .frame(width: 900, height: 620)
-        .background(theme.colors.background)
-        .buttonStyle(SolidSecondaryButtonStyle())
-        .textFieldStyle(KodosiTextFieldStyle())
+        .frame(width: 940, height: 640)
+        .background(theme.colors.raised.mix(with: theme.colors.surface, by: 0.4))
+        .buttonStyle(.kodosi(.secondary))
+        .textFieldStyle(WellTextFieldStyle())
         .onAppear {
             browser = ConversationBrowser(
                 commands: deps.commandSink,
@@ -33,122 +33,155 @@ struct HistoryView: View {
     private func content(_ browser: ConversationBrowser) -> some View {
         @Bindable var browser = browser
         return VStack(spacing: 0) {
-            HStack {
-                Text("History").appTextStyle(.headingSection)
-                Spacer()
-                SessionIconButton(title: "Close history", symbol: "xmark", identifier: "panel.resume.done") { dismiss() }
-                    .keyboardShortcut(.cancelAction)
-            }.padding(16)
             HStack(spacing: 12) {
-                KodosiPicker("Provider", selection: $browser.provider, values: Provider.allCases, label: { $0.name })
-                    .frame(width: 230).accessibilityIdentifier("panel.resume.provider")
-                Text(browser.directory.isEmpty ? String(localized: "All projects") : browser.directory)
-                    .appTextStyle(.caption).lineLimit(1).truncationMode(.middle)
+                Text("Resume a conversation").appTextStyle(.title).foregroundStyle(theme.colors.ink)
                 Spacer()
-                if !browser.directory.isEmpty {
-                    Button("All projects") { browser.directory = ""; browser.load() }
-                }
-                Button("Choose folder…") {
+                SegmentedPill(selection: $browser.provider, options: Provider.allCases.map {
+                    SegmentOption(value: $0, title: $0.name)
+                }, compact: true, identifier: "panel.resume.provider")
+                Button {
                     if let directory = pickWorkingDirectory(initialDirectory: browser.directory) {
                         browser.directory = directory
                         browser.load()
                     }
-                }.accessibilityIdentifier("panel.resume.folder")
-            }.padding(.horizontal, 16).padding(.bottom, 12)
+                } label: {
+                    Label(browser.directory.isEmpty ? String(localized: "All projects") : URL(fileURLWithPath: browser.directory).lastPathComponent,
+                          systemImage: "folder")
+                }
+                .buttonStyle(.kodosi(.secondary, size: .small)).help("Choose a project folder")
+                .accessibilityIdentifier("panel.resume.folder")
+                if !browser.directory.isEmpty {
+                    IconButton(title: "All projects", symbol: "xmark.circle", identifier: "panel.resume.allProjects", size: 24) {
+                        browser.directory = ""; browser.load()
+                    }
+                }
+                IconButton(title: "Close", symbol: "xmark", identifier: "panel.resume.done") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+            }
+            .padding(.leading, 22).padding(.trailing, 14).frame(height: 60)
             HStack(spacing: 0) {
-                conversationList(browser)
+                if browser.loading || !browser.conversations.isEmpty {
+                    conversationList(browser)
+                }
                 preview(browser)
             }
             if let message = browser.message {
-                Text(message).appTextStyle(.caption).foregroundStyle(theme.colors.destructive).padding(12)
+                ErrorNote(message: message).padding(.horizontal, 16).padding(.top, 8)
             }
-            HStack {
+            HStack(spacing: 8) {
+                if browser.selected != nil {
+                    IconButton(title: "Earlier", symbol: "chevron.up", identifier: "panel.resume.earlier", size: 26) { browser.read(older: true) }
+                        .disabled(browser.nextBeforeByte == nil || browser.reading)
+                    IconButton(title: "Later", symbol: "chevron.down", identifier: "panel.resume.later", size: 26) { browser.newer() }
+                        .disabled(!browser.canReadNewer || browser.reading)
+                    if browser.canReadNewer {
+                        Button("Latest") { browser.latest() }.buttonStyle(.kodosi(.ghost, size: .small)).disabled(browser.reading)
+                    }
+                    Text(ByteCountFormatter.string(fromByteCount: Int64(clamping: browser.sourceFileBytes), countStyle: .file))
+                        .appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
+                }
                 Spacer()
-                Button(resuming ? String(localized: "Starting…") : String(localized: "Resume")) { resume(browser) }
-                    .buttonStyle(SolidPrimaryButtonStyle()).disabled(browser.selected == nil || resuming)
-                    .accessibilityIdentifier("panel.resume.start")
-            }.padding(16)
+                Button { resume(browser) } label: {
+                    Label(resuming ? String(localized: "Starting…") : String(localized: "Resume in a new terminal"), systemImage: "play.fill")
+                        .shimmer(resuming)
+                }
+                .buttonStyle(.kodosi(.primary, size: .large)).disabled(browser.selected == nil || resuming)
+                .accessibilityIdentifier("panel.resume.start")
+            }
+            .padding(.horizontal, 16).frame(height: 64)
         }
         .onChange(of: browser.provider) { _, _ in browser.load() }
     }
 
     private func conversationList(_ browser: ConversationBrowser) -> some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 4) {
+            LazyVStack(alignment: .leading, spacing: 2) {
                 if browser.loading {
-                    ProgressView().frame(maxWidth: .infinity).padding()
+                    ForEach(0 ..< 5, id: \.self) { _ in
+                        VStack(alignment: .leading, spacing: 7) { SkeletonBlock(height: 10); SkeletonBlock(width: 110, height: 8) }.padding(12)
+                    }
                 }
                 ForEach(browser.conversations) { conversation in
+                    let selected = browser.selected?.id == conversation.id
                     Button { browser.select(conversation) } label: {
                         VStack(alignment: .leading, spacing: 5) {
-                            Text(conversation.title ?? URL(fileURLWithPath: conversation.workingDirectory).lastPathComponent).appTextStyle(.body).lineLimit(2)
-                            Text(URL(fileURLWithPath: conversation.workingDirectory).lastPathComponent)
-                                .appTextStyle(.caption).foregroundStyle(theme.colors.mutedForeground)
-                            if let updated = conversation.updatedAt {
-                                Text(historyDate(updated)).appTextStyle(.caption).foregroundStyle(theme.colors.mutedForeground)
+                            Text(conversation.title ?? URL(fileURLWithPath: conversation.workingDirectory).lastPathComponent)
+                                .appTextStyle(.body).fontWeight(.medium).foregroundStyle(theme.colors.ink).lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                            HStack(spacing: 6) {
+                                Image(systemName: "folder").font(.system(size: 9))
+                                Text(URL(fileURLWithPath: conversation.workingDirectory).lastPathComponent).lineLimit(1)
+                                if let updated = conversation.updatedAt {
+                                    Text(verbatim: "·")
+                                    Text(historyDate(updated)).lineLimit(1)
+                                }
+                            }
+                            .appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint)
+                        }
+                        .padding(.horizontal, 12).padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading)
+                        .background {
+                            if selected {
+                                RaisedBackground(shape: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous),
+                                                 fill: theme.colors.raised, elevation: .resting)
                             }
                         }
-                        .padding(10).frame(maxWidth: .infinity, alignment: .leading)
-                        .background(browser.selected?.id == conversation.id ? theme.colors.secondary : .clear)
-                        .contentShape(Rectangle())
-                    }.buttonStyle(.plain)
-                        .accessibilityIdentifier("panel.resume.conversation.\(AccessibilityIdentifier.token(conversation.id))")
+                        .hoverRow(radius: Radius.lg, selected: selected)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("panel.resume.conversation.\(AccessibilityIdentifier.token(conversation.id))")
                 }
                 if browser.nextCursor != nil {
-                    Button("Load more") { browser.load(more: true) }.disabled(browser.loading).padding(10)
+                    Button("Show more") { browser.load(more: true) }.buttonStyle(.kodosi(.ghost, size: .small))
+                        .disabled(browser.loading).padding(10)
                         .accessibilityIdentifier("panel.resume.more")
                 }
             }
-        }.frame(width: 260).background(theme.colors.surfacePanel)
+            .padding(8)
+        }
+        .frame(width: 290)
+        .well(Radius.xl)
+        .padding(.leading, 14)
     }
 
     private func preview(_ browser: ConversationBrowser) -> some View {
-        VStack(spacing: 0) {
+        Group {
             if browser.selected == nil {
-                Text(browser.conversations.isEmpty && !browser.loading
-                    ? String(localized: "No saved conversations in this folder.")
-                    : String(localized: "Select a conversation to preview it."))
-                    .foregroundStyle(theme.colors.mutedForeground).appTextStyle(.body)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                EmptyState(
+                    title: browser.conversations.isEmpty && !browser.loading ? "Nothing saved here" : "Pick a conversation",
+                    message: browser.conversations.isEmpty && !browser.loading
+                        ? "Choose another project, or switch the agent." : "You see it here before you resume it."
+                ) {
+                    AgentMark(kind: browser.provider.agent, size: 52, activity: .asleep)
+                } actions: { EmptyView() }
             } else {
-                HStack(spacing: 10) {
-                    Button("Earlier") { browser.read(older: true) }.disabled(browser.nextBeforeByte == nil || browser.reading)
-                    Button("Later") { browser.newer() }.disabled(!browser.canReadNewer || browser.reading)
-                    Spacer()
-                    Text(ByteCountFormatter.string(fromByteCount: Int64(clamping: browser.sourceFileBytes), countStyle: .file))
-                        .appTextStyle(.caption).foregroundStyle(theme.colors.mutedForeground)
-                    if browser.canReadNewer {
-                        Button("Latest") { browser.latest() }.disabled(browser.reading)
-                    }
-                }.padding(12).seamBorder(.bottom)
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 18) {
+                        LazyVStack(alignment: .leading, spacing: 16) {
                             Color.clear.frame(height: 1).id("pageTop")
                             ForEach(Array(browser.entries.enumerated()), id: \.offset) { _, entry in
-                                HistoryMessageView(entry: entry)
+                                HistoryMessageView(entry: entry, agent: browser.provider.agent)
                             }
                             if browser.reading {
-                                ProgressView().frame(maxWidth: .infinity)
+                                ProgressCaption(text: String(localized: "Reading")).frame(maxWidth: .infinity)
                             }
                             if browser.entries.isEmpty, !browser.reading {
-                                Text("No messages in this page. Use Earlier to continue through the file.")
-                                    .appTextStyle(.body).foregroundStyle(theme.colors.mutedForeground)
+                                Text("No messages on this page. Go earlier.")
+                                    .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
                             }
-                        }.padding(20).id("\(browser.selected?.id ?? ""):\(browser.pageNumber)")
+                        }
+                        .padding(20).id("\(browser.selected?.id ?? ""):\(browser.pageNumber)")
                     }
                     .onChange(of: browser.pageNumber) { _, _ in proxy.scrollTo("pageTop", anchor: .top) }
                     .onChange(of: browser.selected?.id) { _, _ in proxy.scrollTo("pageTop", anchor: .top) }
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func historyDate(_ value: String) -> String {
-        let parser = ISO8601DateFormatter()
-        parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = parser.date(from: value) ?? ISO8601DateFormatter().date(from: value)
-        return date?.formatted(date: .abbreviated, time: .shortened) ?? String(value.prefix(10))
+        guard let date = RoomDates.parse(value) else { return String(value.prefix(10)) }
+        return date.formatted(.relative(presentation: .named))
     }
 
     private func resume(_ browser: ConversationBrowser) {

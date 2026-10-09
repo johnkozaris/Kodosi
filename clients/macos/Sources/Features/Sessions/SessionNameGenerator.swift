@@ -21,6 +21,6 @@ func generateSessionName() -> String {
     ]
 
     let adj = adjectives.randomElement() ?? "New"
-    let animal = animals.randomElement() ?? "Session"
+    let animal = animals.randomElement() ?? "Terminal"
     return "\(adj) \(animal)"
 }

@@ -71,9 +71,7 @@ pub(super) fn request_with_code(
 impl BackendClient {
     pub(super) async fn enrollment_events(&self) -> Result<Vec<Value>> {
         let credentials = self.credentials()?;
-        let mut events = vec![
-            json!({"type":"auth.ready","userId":credentials.user_id,"enrolled":credentials.enrolled}),
-        ];
+        let mut events = vec![self.ready_event(&credentials.user_id, credentials.enrolled)];
         events.extend(self.device_events().await?);
         Ok(events)
     }
@@ -200,8 +198,7 @@ impl BackendClient {
         if !self.identity().is_some_and(|identity| identity.enrolled) {
             return Err(invalid("This device could not be trusted after the reset."));
         }
-        let mut events =
-            vec![json!({"type":"auth.ready","userId":credentials.user_id,"enrolled":true})];
+        let mut events = vec![self.ready_event(&credentials.user_id, true)];
         events.extend(self.device_events().await?);
         events.push(self.session_event().await?);
         Ok(events)
@@ -348,7 +345,7 @@ impl BackendClient {
                 self.emit_for(
                     credentials.generation,
                     Some(credentials.user_id.clone()),
-                    json!({"type":"auth.ready","userId":credentials.user_id,"enrolled":true}),
+                    self.ready_event(&credentials.user_id, true),
                 );
                 for event in self.device_events().await? {
                     self.emit_for(

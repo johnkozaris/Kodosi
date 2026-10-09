@@ -1,56 +1,47 @@
 import SwiftUI
 
 enum AppTextStyle {
-    case headingDisplay
-    case headingSection
-    case headingItem
+    case large
+    case title
+    case headline
+    case subhead
+    case callout
     case body
+    case footnote
     case caption
-    case metadata
-    case eyebrow
-    case panelLabel
+    case caption2
     case mono
     case monoCaption
-    case button
 
     fileprivate var font: Font {
         switch self {
-        case .headingDisplay:
-            .system(.title3, weight: .semibold)
-        case .headingSection:
-            .system(.headline, weight: .semibold)
-        case .headingItem:
-            .system(.headline, weight: .semibold)
-        case .body:
-            .body
-        case .caption:
-            .callout
-        case .metadata:
-            .caption
-        case .eyebrow:
-            .system(.subheadline, weight: .medium)
-        case .panelLabel:
-            .system(.callout, weight: .bold)
-        case .mono:
-            .system(.body, design: .monospaced)
-        case .monoCaption:
-            .system(.callout, design: .monospaced)
-        case .button:
-            .system(.callout, weight: .semibold)
+        case .large: .system(size: 28, weight: .semibold)
+        case .title: .system(size: 20, weight: .semibold)
+        case .headline: .system(size: 15, weight: .semibold)
+        case .subhead: .system(size: 13, weight: .semibold)
+        case .callout: .system(size: 14)
+        case .body: .system(size: 13)
+        case .footnote: .system(size: 12)
+        case .caption: .system(size: 11, weight: .medium)
+        case .caption2: .system(size: 10, weight: .medium)
+        case .mono: .system(size: 12.5, design: .monospaced)
+        case .monoCaption: .system(size: 11, design: .monospaced)
         }
     }
-}
 
-private struct AppTextStyleModifier: ViewModifier {
-    let style: AppTextStyle
-
-    func body(content: Content) -> some View {
-        content.font(style.font)
+    fileprivate var tracking: CGFloat {
+        switch self {
+        case .large: -0.6
+        case .title: -0.4
+        case .headline: -0.2
+        case .subhead, .callout, .body: -0.08
+        case .footnote, .caption, .caption2, .mono, .monoCaption: 0
+        }
     }
 }
 
 extension View {
     func appTextStyle(_ style: AppTextStyle) -> some View {
-        modifier(AppTextStyleModifier(style: style))
+        font(style.font).tracking(style.tracking)
     }
 }

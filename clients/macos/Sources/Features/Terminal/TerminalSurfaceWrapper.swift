@@ -52,7 +52,7 @@ struct TerminalSurfaceWrapper: View {
             registerFocusRevoker: registerFocusRevoker,
             onShareShortcut: onShareShortcut
         )
-        .background(theme.colors.surfaceTerminal)
+        .background(theme.colors.terminal)
         .onChange(of: inputAllowed, initial: true) { _, enabled in
             token.setInputAllowed(enabled)
             renderer.setAllowsInput(enabled)

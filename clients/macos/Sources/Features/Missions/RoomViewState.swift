@@ -1,10 +1,18 @@
+import CoreGraphics
 import Observation
 
 @MainActor
 @Observable
 final class RoomViewState {
-    var canvas = 0
+    var canvas = 0 {
+        didSet { fresh.remove(canvas) }
+    }
+
+    var fresh: Set<Int> = []
     var conversationVisible = true
+    var conversationWidth: CGFloat = 380
+    var peopleVisible = false
+    var renaming = false
     var selectedTerminal: String?
     var message = "" {
         didSet {
@@ -37,8 +45,6 @@ final class RoomViewState {
     var expandedTask: String?
     var completionNotes: [String: String] = [:]
     var taskFilter = ""
-    var taskReading: String?
-    var showsTaskForm = false
     var showsRepositoryForm = false
     var showsCompleted = false
     var followsLatest = true

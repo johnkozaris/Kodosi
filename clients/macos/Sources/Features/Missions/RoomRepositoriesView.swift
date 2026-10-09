@@ -3,10 +3,13 @@ import SwiftUI
 struct RoomRepositoriesView: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
+    @Namespace private var chip
     let roomId: String
     @Bindable var state: RoomViewState
     @State private var loadingIssues = false
     @State private var issueFailure: String?
+    @FocusState private var connecting: Bool
+
     private var repositories: [RoomRepository] {
         deps.rooms[roomId]?.repositories ?? []
     }
@@ -17,39 +20,32 @@ struct RoomRepositoriesView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                if let selected {
-                    Text(selected.name).font(.system(size: 14, weight: .semibold)).lineLimit(1)
-                }
-                Spacer()
-                Button { state.showsRepositoryForm.toggle() } label: { Label("Connect repository", systemImage: "plus") }
-                    .buttonStyle(SolidPrimaryButtonStyle()).popover(isPresented: $state.showsRepositoryForm) { repositoryForm }
-                    .accessibilityIdentifier("room.repository.new")
-            }.padding(16)
             if repositories.isEmpty {
-                VStack(spacing: 16) {
-                    Image(systemName: "point.3.connected.trianglepath.dotted").font(.system(size: 44, weight: .ultraLight))
-                        .foregroundStyle(theme.colors.primary)
-                    Button("Connect repository") { state.showsRepositoryForm = true }
-                }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                EmptyState(title: "Connect a repository", message: "Its issues can become room tasks. Your sign-in for it stays on this Mac.") {
+                    IconTile(symbol: "shippingbox.fill", tint: TileTint.purple, size: 52)
+                } actions: {
+                    connectField.frame(width: 380)
+                }
             } else {
-                ScrollView(.horizontal) {
-                    HStack(spacing: 8) {
-                        ForEach(repositories) { repository in
-                            Button { select(repository) } label: {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "chevron.left.forwardslash.chevron.right")
-                                    Text(repository.name).lineLimit(1)
-                                }.font(.system(size: 12, weight: .medium)).padding(10)
-                                    .background(
-                                        state.selectedRepository == repository.id ? theme.colors.secondary : .clear,
-                                        in: RoundedRectangle(cornerRadius: 9)
-                                    )
-                            }.buttonStyle(.plain).help(repository.host)
-                                .accessibilityIdentifier("room.repository.\(AccessibilityIdentifier.token(repository.id))")
+                HStack(spacing: 8) {
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 2) {
+                            ForEach(repositories) { repository in repositoryChip(repository) }
                         }
-                    }.padding(.horizontal, 16)
-                }.scrollIndicators(.hidden)
+                        .padding(3)
+                    }
+                    .scrollIndicators(.never).wellCapsule().fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                    if state.showsRepositoryForm {
+                        connectField.frame(width: 320).transition(.opacity.combined(with: .move(edge: .trailing)))
+                    } else {
+                        IconButton(title: "Connect a repository", symbol: "plus", identifier: "room.repository.new", size: 30) {
+                            withAnimation(theme.motion.spring) { state.showsRepositoryForm = true }
+                            connecting = true
+                        }
+                    }
+                }
+                .padding(.horizontal, 8).padding(.bottom, 6)
                 if loadingIssues {
                     RoomSkeleton()
                 } else if let issueFailure {
@@ -64,57 +60,102 @@ struct RoomRepositoriesView: View {
                     Spacer()
                 }
             }
-        }.onAppear {
+        }
+        .onAppear {
             if let repository = selected ?? repositories.first {
+                select(repository)
+            }
+        }
+        .onChange(of: repositories.map(\.id)) { _, _ in
+            if selected == nil, let repository = repositories.first {
                 select(repository)
             }
         }
     }
 
+    private func repositoryChip(_ repository: RoomRepository) -> some View {
+        let active = state.selectedRepository == repository.id
+        return Button { withAnimation(theme.motion.snappy) { select(repository) } } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "shippingbox").font(.system(size: 10, weight: .semibold))
+                Text(repository.name).lineLimit(1)
+            }
+            .appTextStyle(.footnote).fontWeight(.medium)
+            .foregroundStyle(active ? theme.colors.ink : theme.colors.inkMuted)
+            .padding(.horizontal, 11).frame(height: 28)
+            .background {
+                if active {
+                    RaisedBackground(shape: Capsule(), fill: theme.colors.raised, elevation: .resting)
+                        .matchedGeometryEffect(id: "chip", in: chip)
+                }
+            }
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain).help("\(repository.host)/\(repository.owner)/\(repository.repository)")
+        .accessibilityAddTraits(active ? .isSelected : [])
+        .accessibilityIdentifier("room.repository.\(AccessibilityIdentifier.token(repository.id))")
+    }
+
+    private var connectField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "link").font(.system(size: 11, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
+            TextField("Paste a repository address", text: $state.repositoryURL)
+                .textFieldStyle(.plain).appTextStyle(.body).focused($connecting)
+                .onSubmit(connect).onExitCommand { state.showsRepositoryForm = false }
+                .accessibilityIdentifier("room.repository.url")
+            Button("Connect", action: connect)
+                .buttonStyle(.kodosi(.primary, size: .small)).disabled(state.busy || state.repositoryURL.isEmpty)
+                .accessibilityIdentifier("room.repository.add")
+        }
+        .padding(.leading, 12).padding(.trailing, 4).frame(height: 34)
+        .wellCapsule()
+    }
+
     private func issues(_ repository: RoomRepository) -> some View {
         let entries = deps.roomIssues[repository.id] ?? []
         return ScrollView {
-            LazyVStack(spacing: 0) {
+            LazyVStack(spacing: 6) {
                 ForEach(entries) { issue in
                     let imported = deps.rooms[roomId]?.tasks.contains { $0.issue?.url == issue.url } == true
                     HStack(alignment: .center, spacing: 12) {
-                        Image(systemName: issue.closed ? "checkmark.circle" : "circle.dotted").foregroundStyle(theme.colors.tertiary)
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(issue.title).font(.system(size: 13, weight: .medium)).lineLimit(2)
-                            Text("#\(issue.number)").font(.system(size: 11)).foregroundStyle(theme.colors.mutedForeground)
-                        }.frame(maxWidth: .infinity, alignment: .leading)
-                        Button { perform(["type": .string("importIssue"), "repositoryId": .string(repository.id), "number": .uint(issue.number)])
+                        Image(systemName: issue.closed ? "checkmark.circle.fill" : "smallcircle.filled.circle")
+                            .font(.system(size: 15)).foregroundStyle(issue.closed ? theme.colors.inkFaint : theme.colors.ready)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(issue.title).appTextStyle(.body).fontWeight(.medium).foregroundStyle(theme.colors.ink).lineLimit(2)
+                            Text(verbatim: "#\(issue.number)" + (issue.assignees.isEmpty ? "" : " · " + issue.assignees.joined(separator: ", ")))
+                                .appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint).lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Button {
+                            perform(["type": .string("importIssue"), "repositoryId": .string(repository.id), "number": .uint(issue.number)])
                         } label: {
-                            Image(systemName: imported ? "checkmark" : "plus").contentTransition(.symbolEffect(.replace))
-                        }.buttonStyle(.plain).disabled(imported || state.busy).help(imported ? "Added to tasks" : "Add to tasks")
-                            .accessibilityLabel(imported ? Text("Added to tasks") : Text("Add \(issue.title) to tasks"))
-                    }.padding(.vertical, 14)
-                    Divider().opacity(0.55)
+                            Label(imported ? String(localized: "In tasks") : String(localized: "Add to tasks"),
+                                  systemImage: imported ? "checkmark" : "plus")
+                                .contentTransition(.symbolEffect(.replace))
+                        }
+                        .buttonStyle(.kodosi(imported ? .ghost : .tinted, size: .small)).disabled(imported || state.busy)
+                        .accessibilityLabel(imported ? Text("Added to tasks") : Text("Add \(issue.title) to tasks"))
+                    }
+                    .padding(.horizontal, 14).padding(.vertical, 11)
+                    .raised(Radius.lg)
                 }
                 if entries.isEmpty {
-                    Image(systemName: "tray").font(.system(size: 36, weight: .ultraLight)).foregroundStyle(theme.colors.mutedForeground).padding(40)
+                    Text("No open issues.").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).padding(40)
                 }
-            }.padding(.horizontal, 18)
+            }
+            .padding(.horizontal, 18).padding(.top, 6).padding(.bottom, 24)
+            .frame(maxWidth: 760).frame(maxWidth: .infinity)
         }
     }
 
-    private var repositoryForm: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            TextField("Repository URL", text: $state.repositoryURL).accessibilityIdentifier("room.repository.url")
-            HStack {
-                Button("Cancel") { state.showsRepositoryForm = false }
-                Spacer()
-                Button("Connect") {
-                    let revision = state.repositoryRevision
-                    perform(["type": .string("addRepository"), "url": .string(state.repositoryURL)]) {
-                        if state.repositoryRevision == revision {
-                            state.repositoryURL = ""; state.showsRepositoryForm = false
-                        }
-                    }
-                }.buttonStyle(SolidPrimaryButtonStyle()).disabled(state.busy || state.repositoryURL.isEmpty)
-                    .accessibilityIdentifier("room.repository.add")
+    private func connect() {
+        guard !state.repositoryURL.isEmpty, !state.busy else { return }
+        let revision = state.repositoryRevision
+        perform(["type": .string("addRepository"), "url": .string(state.repositoryURL)]) {
+            if state.repositoryRevision == revision {
+                state.repositoryURL = ""; state.showsRepositoryForm = false
             }
-        }.padding(20).frame(width: 380)
+        }
     }
 
     private func select(_ repository: RoomRepository) {

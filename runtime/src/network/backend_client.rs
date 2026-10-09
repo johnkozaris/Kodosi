@@ -145,6 +145,16 @@ impl BackendClient {
     pub fn generation(&self) -> u64 {
         self.inner.generation.load(Ordering::Acquire)
     }
+    pub(super) fn ready_event(&self, user_id: &str, enrolled: bool) -> Value {
+        let display_name = self.inner.identity.read().ok().and_then(|identity| {
+            identity
+                .as_ref()
+                .filter(|identity| identity.user_id == user_id)
+                .map(|identity| identity.display_name.clone())
+        });
+        json!({"type":"auth.ready","userId":user_id,"displayName":display_name,"enrolled":enrolled})
+    }
+
     pub fn identity(&self) -> Option<Identity> {
         if !self.inner.identity_settled.load(Ordering::Acquire) {
             return None;
@@ -319,7 +329,7 @@ impl BackendClient {
                 let refreshed = self.refresh().await;
                 self.sign_in_kept(refreshed).await?;
                 if let Some(identity) = self.identity() {
-                    events.push(json!({"type":"auth.ready","userId":identity.user_id,"enrolled":identity.enrolled}));
+                    events.push(self.ready_event(&identity.user_id, identity.enrolled));
                 }
             }
             "devices.refresh" => {

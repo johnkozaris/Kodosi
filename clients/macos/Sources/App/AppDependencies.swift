@@ -27,6 +27,9 @@ final class AppDependencies {
     var roomViews: [String: RoomViewState] = [:]
     var roomCreations: [String: String] = [:]
     var userId: String?
+    var displayName: String?
+    var attention: Set<String> = []
+    var freshTerminals: Set<String> = []
     var selfDeviceId: String?
     var localDeviceEnrolled = false
     var signInPresented = false
@@ -113,11 +116,11 @@ final class AppDependencies {
                     try receive(JSONDecoder().decode(RuntimeEvent.self, from: data))
 
                 } catch {
-                    failRuntime(String(localized: "The runtime sent an invalid update: \(error.localizedDescription)")); return
+                    failRuntime(String(localized: "Kodosi got an update it cannot read: \(error.localizedDescription)")); return
                 }
             }
             if !Task.isCancelled, currentInbox.didOverflow {
-                self?.failRuntime(String(localized: "The app could not keep up with runtime updates. Restart the runtime to reconnect."))
+                self?.failRuntime(String(localized: "Kodosi fell behind. Start it again."))
             }
         }
         runtimeHandle.start(commandSink: commandSink) { [weak self] outcome in
@@ -135,7 +138,7 @@ final class AppDependencies {
             }
             appState = .ready
         case .incompatibleRuntime:
-            failRuntime(String(localized: "The embedded runtime does not match this version of Kodosi."))
+            failRuntime(String(localized: "This copy of Kodosi is damaged. Install it again."))
         case let .failed(failure):
             resolveStartFailure(failure)
         }
@@ -143,7 +146,7 @@ final class AppDependencies {
 
     private func resolveStartFailure(_ failure: RuntimeStartFailure?) {
         guard let failure else {
-            failRuntime(String(localized: "The terminal runtime could not start."))
+            failRuntime(String(localized: "Terminals could not start."))
             return
         }
         switch failure.resolution {
@@ -175,10 +178,10 @@ final class AppDependencies {
             case .accepted, .unreachable:
                 retryStartup()
             case .refused:
-                errorMessage = String(localized: "The running host refused to stop.")
+                errorMessage = String(localized: "The other Kodosi did not stop.")
                 present(.hostConflict(failure))
             case .failed:
-                errorMessage = String(localized: "Kodosi could not reach the running host.")
+                errorMessage = String(localized: "Kodosi could not reach the other Kodosi.")
                 present(.hostConflict(failure))
             }
         }
@@ -244,15 +247,16 @@ final class AppDependencies {
 
     func activateSession(_ id: String, inRoom roomId: String? = nil) {
         guard workbench.stagedSessionIds.contains(id) || workbench.stagedSessionIds.count < WorkbenchState.maximumStagedSessions else {
-            errorMessage = String(localized: "Minimize a terminal before opening another. Up to six terminals fit in the stage.")
+            errorMessage = String(localized: "Six terminals are open. Minimize one to open another.")
             return
         }
         if let current = session(id) {
             guard current.canOpen else {
-                errorMessage = String(localized: "This session is unavailable. Check that its host is running.")
+                errorMessage = String(localized: "This terminal is not available. Check that its computer is on.")
                 return
             }
             workbench.showSession(id, inRoom: roomId)
+            attention.remove(id)
             if let roomId {
                 roomView(roomId).selectedTerminal = id
             }
@@ -317,7 +321,7 @@ final class AppDependencies {
     func createSession(name: String, directory: String?, resume: ProviderConversationIdentity? = nil) async throws {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard ProductInput.validName(name) else {
-            throw RuntimeError.operation(String(localized: "Use a session name between 1 and 128 UTF-8 bytes."))
+            throw RuntimeError.operation(String(localized: "Use a shorter name."))
         }
         let requestId = UUIDv7.generate()
         pendingCreations.insert(requestId)
@@ -340,7 +344,7 @@ final class AppDependencies {
 
     func mutateSession(_ operation: String, session target: RuntimeSession, fields: [String: JSONValue] = [:]) async throws {
         guard let current = session(target.id), current.incarnationId == target.incarnationId else {
-            throw RuntimeError.operation(String(localized: "The session has changed."))
+            throw RuntimeError.operation(String(localized: "This terminal changed. Try again."))
         }
         var fields = fields
         fields["sessionId"] = .string(current.id)

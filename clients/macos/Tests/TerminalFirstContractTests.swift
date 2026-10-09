@@ -96,7 +96,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
 @Test @MainActor func stageRestorationStagesButDoesNotOpenSessionsWhoseHostIsOffline() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "StageRestorationOffline"))
     let session = try runtimeSession(status: "reconnecting")
-    #expect(session.statusLabel == "Host offline")
+    #expect(session.statusLabel == "Its computer is offline")
     #expect(try runtimeSession().statusLabel == "Not connected")
     let first = WorkbenchState(defaults: defaults)
     first.switchAccount("owner")
@@ -180,5 +180,30 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
         "isOwner": .bool(true), "status": .string("running"), "connectionState": .string("local"), "sharedWith": .array([]),
     ]))
     #expect(session.name == "Green Gecko")
-    #expect(session.headerTitle == "Green Gecko · GitHub Copilot")
+    #expect(session.activity == "GitHub Copilot")
+    #expect(!session.isWorking)
+}
+
+@Test func terminalTitleSpinnerMarksAnAgentAtWork() throws {
+    func session(title: String?) throws -> RuntimeSession {
+        var fields: [String: JSONValue] = [
+            "id": .string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
+            "kind": .string("local"), "name": .string("Amber Wren"), "program": .string("claude"),
+            "isOwner": .bool(true), "status": .string("running"), "connectionState": .string("local"), "sharedWith": .array([]),
+        ]
+        if let title {
+            fields["title"] = .string(title)
+        }
+        return try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode(fields))
+    }
+    let working = try session(title: "\u{2810} Draft the release notes")
+    #expect(working.isWorking)
+    #expect(working.activity == "Draft the release notes")
+    #expect(working.agent == .claude)
+    let resting = try session(title: "\u{2733} Draft the release notes")
+    #expect(!resting.isWorking)
+    #expect(resting.activity == "Draft the release notes")
+    #expect(try session(title: "Amber Wren").activity == nil)
+    #expect(try session(title: nil).activity == nil)
+    #expect(try !session(title: nil).isWorking)
 }

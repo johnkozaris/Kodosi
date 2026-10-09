@@ -5,32 +5,28 @@ struct SettingsView: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        HStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 8) {
-                settingsButton("Terminal", id: .terminal, symbol: "terminal")
-                settingsButton("Providers", id: .providers, symbol: "slider.horizontal.3")
-                settingsButton("Account & Devices", id: .devices, symbol: "desktopcomputer")
-                Spacer()
-            }.padding(12).frame(width: 210).background(theme.colors.surfacePanel).seamBorder(.trailing)
-            ScrollView {
+        @Bindable var workbench = deps.workbench
+        ScrollView {
+            VStack(alignment: .leading, spacing: 26) {
+                PageHeader(title: "Settings") {
+                    SegmentedPill(selection: $workbench.settingsSection, options: [
+                        SegmentOption(value: .terminal, title: String(localized: "Terminal"), symbol: "apple.terminal"),
+                        SegmentOption(value: .providers, title: String(localized: "Agents"), symbol: "sparkles"),
+                        SegmentOption(value: .devices, title: String(localized: "Account"), symbol: "person.crop.circle"),
+                    ], identifier: "settings")
+                }
                 Group {
-                    switch deps.workbench.settingsSection {
+                    switch workbench.settingsSection {
                     case .providers: ProviderSettingsView()
                     case .devices: DeviceSettingsView()
-                    default: TerminalSettingsView()
+                    case .terminal: TerminalSettingsView()
                     }
                 }
-                .padding(28).frame(maxWidth: 780, alignment: .leading).frame(maxWidth: .infinity, alignment: .leading)
+                .id(workbench.settingsSection)
+                .transition(.opacity.combined(with: .offset(y: theme.motion.reduced ? 0 : 6)))
             }
+            .padding(.horizontal, 36).padding(.top, 54).padding(.bottom, 90)
+            .frame(maxWidth: 760, alignment: .leading).frame(maxWidth: .infinity)
         }
-    }
-
-    private func settingsButton(_ title: LocalizedStringKey, id: WorkbenchState.SettingsSection, symbol: String) -> some View {
-        Button { deps.workbench.settingsSection = id } label: {
-            Label(title, systemImage: symbol).appTextStyle(.button)
-                .frame(maxWidth: .infinity, alignment: .leading).padding(10)
-                .foregroundStyle(deps.workbench.settingsSection == id ? theme.colors.primary : theme.colors.foreground)
-                .background(deps.workbench.settingsSection == id ? theme.colors.secondary : .clear)
-        }.buttonStyle(.plain).accessibilityIdentifier("settings.\(id)")
     }
 }
