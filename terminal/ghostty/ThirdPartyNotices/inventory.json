@@ -1157,7 +1157,7 @@
   "components": [
     {
       "id": "ghostty",
-      "identity": "ghostty:9bbb9b24680358c939846b79a519ce10f7638d1f;patch_set:99dc670091284e73e631b653ddfc6c0fa41e96e57aabde2f714cac77c00cc27e;patch_application:abbdfa02502f8fb92c264a0942fe8d311a8a64c24e035c0e740fc0a2ad0a3a7e",
+      "identity": "ghostty:c770410dbb57909ff4f6921a6497688a957f85db;patch_set:8f0402a3ec8c97addd105c5615d16aae2809993c9c24c3125c1aa8334f3eeb4e;patch_application:b83b4af5f72b7f91b6b3e0fc21271332844daea9c92c738a9e4a1f4b738d287e",
       "name": "Ghostty",
       "notices": [
         "LICENSE-GHOSTTY"
@@ -1170,7 +1170,7 @@
         "pinned-source:pkg/wuffs/src/"
       ],
       "spdx": "MIT",
-      "version": "commit 9bbb9b24680358c939846b79a519ce10f7638d1f"
+      "version": "commit c770410dbb57909ff4f6921a6497688a957f85db"
     },
     {
       "id": "freetype",
@@ -1401,7 +1401,7 @@
     },
     {
       "id": "uucode",
-      "identity": "uucode-0.2.0-ZZjBPlK5VADj7fdoq7G8LIHzD5o6FSkcBXXrRWr4jnrA",
+      "identity": "uucode-0.2.0-ZZjBPuuFVgC8YZ8eld4fOKsZANLIhTFMzULQxhkLi1C7",
       "name": "uucode",
       "notices": [
         "uucode.txt",
@@ -1410,22 +1410,22 @@
       "scope": "archive",
       "sourcePaths": [
         "pinned-source:build.zig.zon",
-        "pinned-source:upstream commit 2826a37a4562284fdacd8fa029d49509cc9bffcd/LICENSE.md",
-        "pinned-source:upstream commit 2826a37a4562284fdacd8fa029d49509cc9bffcd/licenses/LICENSE_Bjoern_Hoehrmann"
+        "pinned-source:upstream commit 9d55524551411b493cca41ca06363625d90aff1e/LICENSE.md",
+        "pinned-source:upstream commit 9d55524551411b493cca41ca06363625d90aff1e/licenses/LICENSE_Bjoern_Hoehrmann"
       ],
       "spdx": "MIT",
-      "version": "0.2.0 / 2826a37a4562284fdacd8fa029d49509cc9bffcd"
+      "version": "0.2.0 / 9d55524551411b493cca41ca06363625d90aff1e"
     },
     {
       "id": "unicode-data",
-      "identity": "uucode:2826a37a4562284fdacd8fa029d49509cc9bffcd:ucd",
+      "identity": "uucode:9d55524551411b493cca41ca06363625d90aff1e:ucd",
       "name": "Unicode Character Database data",
       "notices": [
         "unicode-data.txt"
       ],
       "scope": "archive",
       "sourcePaths": [
-        "pinned-source:uucode upstream commit 2826a37a4562284fdacd8fa029d49509cc9bffcd/licenses/LICENSE_unicode",
+        "pinned-source:uucode upstream commit 9d55524551411b493cca41ca06363625d90aff1e/licenses/LICENSE_unicode",
         "pinned-source:uucode/ucd/"
       ],
       "spdx": "Unicode-3.0",
@@ -1595,7 +1595,7 @@
     },
     {
       "id": "freetype-gl-atlas",
-      "identity": "ghostty:9bbb9b24680358c939846b79a519ce10f7638d1f:Atlas.zig:af51b844da19c6318261df99bd99ed580ee26dbd9f88bc6e060ac02cb591e61b;freetype-gl:85d7850744465ac1dcd00b202787d72a4a3a1f5d;rectangle-bin-pack:a40fcaf3871da57b0f6a080655b3387374840877",
+      "identity": "ghostty:c770410dbb57909ff4f6921a6497688a957f85db:Atlas.zig:af51b844da19c6318261df99bd99ed580ee26dbd9f88bc6e060ac02cb591e61b;freetype-gl:85d7850744465ac1dcd00b202787d72a4a3a1f5d;rectangle-bin-pack:a40fcaf3871da57b0f6a080655b3387374840877",
       "name": "Ghostty texture atlas derived from freetype-gl with RectangleBinPack lineage",
       "notices": [
         "freetype-gl-BSD-2-Clause.txt",
@@ -1636,7 +1636,7 @@
       ],
       "scope": "archive",
       "sourcePaths": [
-        "pinned-source:src/terminal/kitty/graphics_unicode.zig#sha256=7426803e1e2211cc675c64a40d4eba0e629f6f0ca87f3df07c488f8e1576ac12",
+        "pinned-source:src/terminal/kitty/graphics_unicode.zig#sha256=8e1bb778abad3cf7ae09434e4ed64748c1dbc69a7671c713e4e3ae5cf0590ed7",
         "pinned-source:https://raw.githubusercontent.com/kovidgoyal/kitty/d63eeada73bacce2374c6b1f1523e0551dbbd5b6/rowcolumn-diacritics.txt#sha256=a80368b3272c41d8b50f3f640cf4305b6423e5a1aae6b72a405129bc29425f2c",
         "pinned-source:https://www.unicode.org/Public/6.0.0/ucd/UnicodeData.txt#sha256=90b45b777346bef027556f9c6cb3ea5d7d745bd60d6762855c08d8a22d34f771",
         "provenance-only:kitty GPL repository LICENSE sha256=3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
@@ -1645,7 +1645,7 @@
       "version": "Unicode 6.0.0 / Kitty d63eeada73bacce2374c6b1f1523e0551dbbd5b6 / Ghostty d29073d999e88f8a35cd3c368f97f6a3bfa8a0fc"
     }
   ],
-  "ghosttyCommit": "9bbb9b24680358c939846b79a519ce10f7638d1f",
+  "ghosttyCommit": "c770410dbb57909ff4f6921a6497688a957f85db",
   "notices": {
     "RectangleBinPack-Public-Domain.txt": {
       "path": "ThirdPartyNotices/licenses/RectangleBinPack-Public-Domain.txt",
@@ -1819,5 +1819,5 @@
       "zigIdentity": "z2d-0.12.1-j5P_Hsw8EQAKyZTQICCQnAH2xYkLDW8k9uefbsYdfPZ-"
     }
   },
-  "zigStoreSha256": "6151a5d773e01ed192af50781ab5c5a3dcdb3bce7df114f19973540f87c197b1"
+  "zigStoreSha256": "a30b27bd61499a557fccc042c6ce7c232fe2c90cc19f26c2cdbd6b968e37006f"
 }

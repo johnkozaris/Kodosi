@@ -19,7 +19,7 @@ new file mode 100644
 index 000000000..94e3e2258
 --- /dev/null
 +++ b/src/build/libghostty-vt.map
-@@ -0,0 +1,212 @@
+@@ -0,0 +1,213 @@
 +{
 +  global:
 +    ghostty_alloc;
@@ -116,6 +116,7 @@ index 000000000..94e3e2258
 +    ghostty_osc_new;
 +    ghostty_osc_next;
 +    ghostty_osc_reset;
++    ghostty_osc_set;
 +    ghostty_paste_encode;
 +    ghostty_paste_is_safe;
 +    ghostty_render_state_begin_update;

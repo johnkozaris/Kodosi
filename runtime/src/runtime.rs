@@ -1328,6 +1328,7 @@ impl Runtime {
             },
             program: previous.and_then(|entry| entry.program.clone()),
             title: previous.and_then(|entry| entry.title.clone()),
+            program_status: previous.and_then(|entry| entry.program_status.clone()),
             id: remote.id.to_string(),
             incarnation_id: remote.incarnation_id.to_string(),
             kind: SessionKind::Remote,
@@ -1396,6 +1397,12 @@ impl Runtime {
                 self.emit(json!({"type":"term.title", "sessionId":id, "title":title}));
             }
             SessionChange::Bell { id } => self.emit(json!({"type":"term.bell", "sessionId":id})),
+            SessionChange::Status { id, status } => {
+                if let Some(local) = self.local.get_mut(&id) {
+                    local.entry.program_status = status;
+                    self.publish_catalog();
+                }
+            }
             SessionChange::Notification { id, title, body } => {
                 if let Some(local) = self.local.get(&id) {
                     self.emit(json!({"type":"term.notification", "sessionId":id,
@@ -1427,6 +1434,7 @@ impl Runtime {
                     entry.working_dir = metadata.directory;
                     entry.title = metadata.title;
                     entry.program = metadata.program;
+                    entry.program_status = metadata.status;
                     self.publish_catalog();
                 }
             }

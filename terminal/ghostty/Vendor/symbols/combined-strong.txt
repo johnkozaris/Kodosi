@@ -1474,6 +1474,7 @@ _ghostty_osc_free
 _ghostty_osc_new
 _ghostty_osc_next
 _ghostty_osc_reset
+_ghostty_osc_set
 _ghostty_paste_encode
 _ghostty_paste_is_safe
 _ghostty_render_state_begin_update

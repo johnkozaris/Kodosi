@@ -118,7 +118,7 @@ struct RoomMessageRow: View {
                 if startsGroup {
                     if message.agent != nil {
                         AgentMark(kind: AgentKind(agentName: message.agent, program: terminal?.program), size: 28,
-                                  activity: terminal?.isWorking == true ? .working : .awake)
+                                  activity: terminal?.mark(rested: .awake) ?? .awake)
                     } else {
                         PersonAvatar(name: message.authorName, key: message.authorId, size: 28)
                     }

@@ -30,6 +30,7 @@
 		08213AFB1C104E5C6B56BB25 /* TerminalConnectionTokenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CEC9C7E0B5C72607E741289 /* TerminalConnectionTokenTests.swift */; };
 		0AFB07F0E6E12F3EA1CA52BE /* TilingStage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F0AD9773DC98C9E50ED8EE9 /* TilingStage.swift */; };
 		0E2676EEA62CBD297C8C96D1 /* RoomMentions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B787F19E6926937E33F596D /* RoomMentions.swift */; };
+		0F95818FB64BE06A0E0AE92C /* SessionActivityText.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB91FF8C7A604EC0DDC039BF /* SessionActivityText.swift */; };
 		1248674812AE977C5EB589DB /* DesktopSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B68033EC49C087C02F0B73DB /* DesktopSettings.swift */; };
 		1349BA567F51F8E81C791D61 /* DeviceTrustView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCE1B419C4C83353B2D2E129 /* DeviceTrustView.swift */; };
 		16AD086082284975C9BFF4A7 /* RuntimeProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940EA0DFECFD3397B978A886 /* RuntimeProtocol.swift */; };
@@ -270,6 +271,7 @@
 		BFDF17EC5D6621DD663FCEF4 /* TerminalCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalCommand.swift; sourceTree = "<group>"; };
 		BFE9DC60560CCBED2791BAD6 /* AppLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLifecycleTests.swift; sourceTree = "<group>"; };
 		CB523F250C8B0408B73E240C /* RoomContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomContentView.swift; sourceTree = "<group>"; };
+		CB91FF8C7A604EC0DDC039BF /* SessionActivityText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionActivityText.swift; sourceTree = "<group>"; };
 		CBF565F9B699D5FB33959347 /* RoomTasksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomTasksView.swift; sourceTree = "<group>"; };
 		D3F4BB9A0B3BA19C7A5B2DA8 /* TerminalResizeAuthority.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalResizeAuthority.swift; sourceTree = "<group>"; };
 		DA1CAA80CAD87E1C2D1AB8D9 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
@@ -333,6 +335,7 @@
 			isa = PBXGroup;
 			children = (
 				9179F0BAC26C43C0611E454A /* RuntimeSession.swift */,
+				CB91FF8C7A604EC0DDC039BF /* SessionActivityText.swift */,
 				2F7038F3B9119903EB97C4F4 /* SessionDetailsView.swift */,
 				26624DB9E39C3FA133E5B614 /* SessionNameGenerator.swift */,
 				86B9BB14A16DCF525D135126 /* SessionSharingPopover.swift */,
@@ -934,6 +937,7 @@
 				3C58DFD9F97C9D7CAC7CF8CE /* RuntimeSession.swift in Sources */,
 				CBD358B158BF835E71CB189F /* RuntimeStartFailure.swift in Sources */,
 				FE3EE76C0E85B8955EB9FE0D /* RuntimeStorageBootstrap.swift in Sources */,
+				0F95818FB64BE06A0E0AE92C /* SessionActivityText.swift in Sources */,
 				B579FD47FE8AB87C2405E846 /* SessionDetailsView.swift in Sources */,
 				FF7BCC64C4B6AFE4BFBDEE5B /* SessionFolderGroup.swift in Sources */,
 				1BBEBAD3BDB3EFDE3BAAEA2B /* SessionNameGenerator.swift in Sources */,

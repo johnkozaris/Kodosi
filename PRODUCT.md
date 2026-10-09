@@ -79,6 +79,10 @@ task history, multiple repository links, and GitHub/Gitea issue actions. Native 
 and Linux clients expose these capabilities alongside terminals. The `kodosi room`
 CLI and its bundled skill let existing agents participate through the running host.
 
+Terminals show the state that their programs report through the Program Status
+Protocol (OSC 7501) or a progress bar: working, waiting for a person, done, or failed.
+Kodosi does not infer that state from screen content.
+
 Direct terminal sharing and native Claude Code and Copilot CLI conversation
 preview/resume remain available. Kodosi does not become the agent harness or require
 a shared checkout.

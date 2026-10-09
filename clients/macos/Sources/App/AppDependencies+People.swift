@@ -24,10 +24,11 @@ extension AppDependencies {
     }
 
     func activity(of session: RuntimeSession) -> AgentMark.Activity {
-        if session.isWorking {
-            return .working
-        }
-        return session.isConnected && workbench.stagedSessionIds.contains(session.id) ? .awake : .asleep
+        session.mark(rested: session.isConnected && workbench.stagedSessionIds.contains(session.id) ? .awake : .asleep)
+    }
+
+    func sign(of session: RuntimeSession) -> StatusSign.Form? {
+        session.sign(unseen: attention.contains(session.id))
     }
 
     func rename(_ session: RuntimeSession, to name: String) {

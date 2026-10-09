@@ -28,7 +28,53 @@ pub enum Effect {
     Bell,
     Title(Vec<u8>),
     Pwd(Vec<u8>),
-    DesktopNotification { title: Vec<u8>, body: Vec<u8> },
+    DesktopNotification {
+        title: Vec<u8>,
+        body: Vec<u8>,
+    },
+    ProgramStatus(ProgramStatus),
+    Progress {
+        state: ProgressState,
+        progress: Option<u8>,
+    },
+    Reset,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProgressState {
+    Remove,
+    Set,
+    Error,
+    Indeterminate,
+    Pause,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProgramStatusState {
+    Idle,
+    Working,
+    Done,
+    Blocked,
+    Error,
+    Clear,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProgramStatusKind {
+    Permission,
+    Question,
+    Auth,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProgramStatus {
+    pub state: ProgramStatusState,
+    pub kind: Option<ProgramStatusKind>,
+    pub progress: Option<u8>,
+    pub id: Vec<u8>,
+    pub app: Vec<u8>,
+    pub title: Vec<u8>,
+    pub message: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -212,6 +258,18 @@ impl Terminal {
         self.set_callback(
             GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_DESKTOP_NOTIFICATION,
             desktop_notification_callback as *const c_void,
+        )?;
+        self.set_callback(
+            GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_PROGRAM_STATUS,
+            program_status_callback as *const c_void,
+        )?;
+        self.set_callback(
+            GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_PROGRESS_REPORT,
+            progress_report_callback as *const c_void,
+        )?;
+        self.set_callback(
+            GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_RESET,
+            reset_callback as *const c_void,
         )?;
         self.set_callback(
             GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_SIZE,
@@ -885,6 +943,120 @@ unsafe extern "C" fn desktop_notification_callback(
     });
 }
 
+unsafe extern "C" fn program_status_callback(
+    _terminal: GhosttyTerminal,
+    userdata: *mut c_void,
+    report: *const GhosttyTerminalProgramStatus,
+) {
+    callback(userdata, (), |state| {
+        if report.is_null() {
+            state.poisoned = true;
+            return;
+        }
+
+        let report = unsafe { &*report };
+        if report.size < mem::size_of::<GhosttyTerminalProgramStatus>() {
+            state.poisoned = true;
+            return;
+        }
+
+        let status = match report.state {
+            GhosttyProgramStatusState_GHOSTTY_PROGRAM_STATUS_STATE_IDLE => ProgramStatusState::Idle,
+            GhosttyProgramStatusState_GHOSTTY_PROGRAM_STATUS_STATE_WORKING => {
+                ProgramStatusState::Working
+            }
+            GhosttyProgramStatusState_GHOSTTY_PROGRAM_STATUS_STATE_DONE => ProgramStatusState::Done,
+            GhosttyProgramStatusState_GHOSTTY_PROGRAM_STATUS_STATE_BLOCKED => {
+                ProgramStatusState::Blocked
+            }
+            GhosttyProgramStatusState_GHOSTTY_PROGRAM_STATUS_STATE_ERROR => {
+                ProgramStatusState::Error
+            }
+            GhosttyProgramStatusState_GHOSTTY_PROGRAM_STATUS_STATE_CLEAR => {
+                ProgramStatusState::Clear
+            }
+            _ => return,
+        };
+        let kind = match report.kind {
+            GhosttyProgramStatusKind_GHOSTTY_PROGRAM_STATUS_KIND_PERMISSION => {
+                Some(ProgramStatusKind::Permission)
+            }
+            GhosttyProgramStatusKind_GHOSTTY_PROGRAM_STATUS_KIND_QUESTION => {
+                Some(ProgramStatusKind::Question)
+            }
+            GhosttyProgramStatusKind_GHOSTTY_PROGRAM_STATUS_KIND_AUTH => {
+                Some(ProgramStatusKind::Auth)
+            }
+            _ => None,
+        };
+        let text = |string: &GhosttyString| unsafe { borrowed_bytes(string.ptr, string.len) };
+        let (Some(id), Some(app), Some(title), Some(message)) = (
+            text(&report.id),
+            text(&report.app),
+            text(&report.title),
+            text(&report.message),
+        ) else {
+            state.poisoned = true;
+            return;
+        };
+        state.effects.push(Effect::ProgramStatus(ProgramStatus {
+            state: status,
+            kind,
+            progress: u8::try_from(report.progress).ok(),
+            id,
+            app,
+            title,
+            message,
+        }));
+    });
+}
+
+unsafe extern "C" fn progress_report_callback(
+    _terminal: GhosttyTerminal,
+    userdata: *mut c_void,
+    report: *const GhosttyTerminalProgressReport,
+) {
+    callback(userdata, (), |state| {
+        if report.is_null() {
+            state.poisoned = true;
+            return;
+        }
+
+        let report = unsafe { &*report };
+        if report.size < mem::size_of::<GhosttyTerminalProgressReport>() {
+            state.poisoned = true;
+            return;
+        }
+
+        let progress = match report.state {
+            GhosttyTerminalProgressState_GHOSTTY_TERMINAL_PROGRESS_STATE_REMOVE => {
+                ProgressState::Remove
+            }
+            GhosttyTerminalProgressState_GHOSTTY_TERMINAL_PROGRESS_STATE_SET => ProgressState::Set,
+            GhosttyTerminalProgressState_GHOSTTY_TERMINAL_PROGRESS_STATE_ERROR => {
+                ProgressState::Error
+            }
+            GhosttyTerminalProgressState_GHOSTTY_TERMINAL_PROGRESS_STATE_INDETERMINATE => {
+                ProgressState::Indeterminate
+            }
+            GhosttyTerminalProgressState_GHOSTTY_TERMINAL_PROGRESS_STATE_PAUSE => {
+                ProgressState::Pause
+            }
+            _ => return,
+        };
+        state.effects.push(Effect::Progress {
+            state: progress,
+            progress: u8::try_from(report.progress)
+                .ok()
+                .filter(|progress| *progress <= 100),
+        });
+    });
+}
+
+unsafe extern "C" fn reset_callback(_terminal: GhosttyTerminal, userdata: *mut c_void) {
+    callback(userdata, (), |state| state.effects.push(Effect::Reset));
+}
+
 unsafe extern "C" fn size_callback(
     _terminal: GhosttyTerminal,
     userdata: *mut c_void,
@@ -1017,6 +1189,129 @@ mod tests {
             }
             assert_eq!(terminal.state(), Err(Error::CallbackRejected));
         }
+    }
+
+    #[test]
+    fn a_program_status_query_gets_its_answer_before_the_device_attributes() {
+        let mut terminal = terminal();
+        let effects = terminal.write(b"\x1b]7501;?\x1b\\\x1b[c").expect("write");
+        let replies = effects
+            .iter()
+            .filter_map(|effect| match effect {
+                Effect::PtyWrite(bytes) => Some(bytes.as_slice()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(replies.first().copied(), Some(&b"\x1b]7501;?\x1b\\"[..]));
+        assert!(
+            replies
+                .get(1)
+                .is_some_and(|reply| reply.starts_with(b"\x1b[?"))
+        );
+    }
+
+    #[test]
+    fn program_status_reports_arrive_in_order_with_their_values() {
+        let mut terminal = terminal();
+        let effects = terminal
+            .write(
+                b"\x1b]7501;state=blocked:kind=permission:progress=42:id=tasks/review:app=claude-code:title=UmV2aWV3:msg=QWxsb3c/\x07\
+                  \x1b]7501;state=working:kind=auth:progress=101\x07\
+                  \x1b]7501;state=dance\x07\
+                  \x1b]7501;state=idle:msg=bm8KbmV3bGluZQ==\x07\
+                  \x1b]7501;state=clear:id=tasks\x07",
+            )
+            .expect("write");
+        assert_eq!(
+            effects,
+            vec![
+                Effect::ProgramStatus(ProgramStatus {
+                    state: ProgramStatusState::Blocked,
+                    kind: Some(ProgramStatusKind::Permission),
+                    progress: Some(42),
+                    id: b"tasks/review".to_vec(),
+                    app: b"claude-code".to_vec(),
+                    title: b"Review".to_vec(),
+                    message: b"Allow?".to_vec(),
+                }),
+                Effect::ProgramStatus(ProgramStatus {
+                    state: ProgramStatusState::Working,
+                    kind: None,
+                    progress: None,
+                    id: Vec::new(),
+                    app: Vec::new(),
+                    title: Vec::new(),
+                    message: Vec::new(),
+                }),
+                Effect::ProgramStatus(ProgramStatus {
+                    state: ProgramStatusState::Clear,
+                    kind: None,
+                    progress: None,
+                    id: b"tasks".to_vec(),
+                    app: Vec::new(),
+                    title: Vec::new(),
+                    message: Vec::new(),
+                }),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_full_reset_clears_every_program_status_record_and_then_reports_the_reset() {
+        let mut terminal = terminal();
+        terminal
+            .write(b"\x1b]7501;state=working\x07")
+            .expect("write");
+        let effects = terminal.write(b"\x1bc").expect("reset");
+        let cleared = effects.iter().position(|effect| {
+            matches!(
+                effect,
+                Effect::ProgramStatus(ProgramStatus {
+                    state: ProgramStatusState::Clear,
+                    id,
+                    ..
+                }) if id.is_empty()
+            )
+        });
+        let reset = effects
+            .iter()
+            .position(|effect| matches!(effect, Effect::Reset));
+        assert!(cleared.is_some() && cleared < reset);
+    }
+
+    #[test]
+    fn progress_reports_arrive_with_their_state_and_value() {
+        let mut terminal = terminal();
+        let effects = terminal
+            .write(
+                b"\x1b]9;4;1;40\x07\x1b]9;4;3\x07\x1b]9;4;2;70\x07\x1b]9;4;4;10\x07\x1b]9;4;0\x07",
+            )
+            .expect("write");
+        assert_eq!(
+            effects,
+            vec![
+                Effect::Progress {
+                    state: ProgressState::Set,
+                    progress: Some(40)
+                },
+                Effect::Progress {
+                    state: ProgressState::Indeterminate,
+                    progress: None
+                },
+                Effect::Progress {
+                    state: ProgressState::Error,
+                    progress: Some(70)
+                },
+                Effect::Progress {
+                    state: ProgressState::Pause,
+                    progress: Some(10)
+                },
+                Effect::Progress {
+                    state: ProgressState::Remove,
+                    progress: None
+                },
+            ]
+        );
     }
 
     #[test]

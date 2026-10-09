@@ -17,7 +17,7 @@ struct SessionDetailsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(spacing: 14) {
-                AgentMark(kind: (current ?? session).agent, size: 44, activity: (current ?? session).isWorking ? .working : .awake)
+                AgentMark(kind: (current ?? session).agent, size: 44, activity: (current ?? session).mark(rested: .awake))
                 VStack(alignment: .leading, spacing: 2) {
                     if current?.isOwner == true {
                         TextField("Name", text: $name)

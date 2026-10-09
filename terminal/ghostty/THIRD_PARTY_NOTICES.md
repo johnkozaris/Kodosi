@@ -36,7 +36,7 @@ or application/runtime dependencies.
   including the additional upstream notices preserved in
   `ThirdPartyNotices/licenses/z2d-NOTICE.txt`.
 - zf 0.11.0 / commit `c35c421f84895193246db06c40683c1a30e616ef` — MIT.
-- uucode 0.2.0 / commit `2826a37a4562284fdacd8fa029d49509cc9bffcd` — MIT,
+- uucode 0.2.0 / commit `9d55524551411b493cca41ca06363625d90aff1e` — MIT,
   including Bjoern Hoehrmann's MIT-licensed UTF-8 decoder and Unicode data under the
   Unicode License v3.
 - zig-objc commit `c8de82ff80281215ad92900866dab7103a8efa8b` — MIT.

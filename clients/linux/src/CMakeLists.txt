@@ -213,6 +213,7 @@ qt_add_qml_module(kodosi-ui
         qml/Settings/DeviceSettings.qml
         qml/Settings/TerminalSettings.qml
         qml/Settings/ProviderSettings.qml
+        qml/Controls/ActivityLine.qml
         qml/Controls/AgentMark.qml
         qml/Controls/AvatarStack.qml
         qml/Controls/BreathingDot.qml
@@ -247,6 +248,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/SectionDock.qml
         qml/Controls/SegmentedPill.qml
         qml/Controls/ShimmerText.qml
+        qml/Controls/StatusSign.qml
         qml/Controls/Tag.qml
         qml/Controls/Well.qml
         qml/Controls/Wordmark.qml

@@ -54,7 +54,7 @@ KPopover {
         RowLayout {
             spacing: 12
 
-            AgentMark { program: root.session.program || ""; size: 40; working: root.session.working === true }
+            AgentMark { program: root.session.program || ""; size: 40; session: root.session }
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 1

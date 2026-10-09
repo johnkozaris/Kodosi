@@ -221,6 +221,10 @@ impl KodosiPty {
         process_directory(pid).or_else(|| process_directory(self.child_pid))
     }
 
+    pub fn foreground_process_group(&self) -> Option<u32> {
+        foreground_process_group(self.master_fd)
+    }
+
     pub fn foreground_program(&self) -> Option<String> {
         let pid = foreground_process_group(self.master_fd)?;
         let arguments = process_arguments(pid)?;

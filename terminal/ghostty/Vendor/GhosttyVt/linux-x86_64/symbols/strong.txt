@@ -837,6 +837,7 @@ ghostty_osc_free
 ghostty_osc_new
 ghostty_osc_next
 ghostty_osc_reset
+ghostty_osc_set
 ghostty_paste_encode
 ghostty_paste_is_safe
 ghostty_render_state_begin_update

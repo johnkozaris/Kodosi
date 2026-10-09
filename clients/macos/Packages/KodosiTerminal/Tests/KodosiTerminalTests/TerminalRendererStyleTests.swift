@@ -4,7 +4,7 @@ import SwiftUI
 import Testing
 
 @Test @MainActor func hostedSwiftUIViewAppliesStyleWithoutReplacingSession() async throws {
-    let session = TerminalRendererSession(colorScheme: .dark, write: { _ in }, resize: { _, _ in })
+    let session = TerminalRendererSession(write: { _ in }, resize: { _, _ in })
     let palette = TerminalPalette(
         background: "000000", foreground: "ffffff", cursor: "ffffff",
         selectionBackground: "333333", selectionForeground: "ffffff", ansiColors: Array(repeating: "000000", count: 16)
@@ -13,7 +13,7 @@ import Testing
         TerminalStyle(
             fontFamily: "monospace", fontSize: fontSize, lineHeightAdjustment: 0, cursorStyle: .block,
             cursorBlink: false, scrollback: TerminalScrollbackBudget(lines: 10000), paddingX: 0, paddingY: 0,
-            minimumContrast: 1, lightPalette: palette, darkPalette: palette
+            minimumContrast: 1, palette: palette
         )
     }
     session.setStyle(style(14))

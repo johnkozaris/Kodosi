@@ -63,6 +63,53 @@ struct WorkingRim<S: InsettableShape>: View {
     }
 }
 
+struct ProgressRim: View {
+    @Environment(\.theme) private var theme
+    let fraction: Double
+    let radius: CGFloat
+    var lineWidth: CGFloat = 1.5
+    var glow: CGFloat = 5
+
+    var body: some View {
+        let loop = RimLoop(radius: radius, inset: lineWidth / 2)
+        let done = loop.trim(from: 0, to: min(max(fraction, 0.02), 1))
+        let warm = AngularGradient(
+            colors: [theme.colors.glowAmber, theme.colors.glowOrange, theme.colors.glowRose],
+            center: .center, startAngle: .degrees(-90), endAngle: .degrees(270)
+        )
+        ZStack {
+            loop.stroke(theme.colors.glowOrange.opacity(0.22), lineWidth: lineWidth)
+            done.stroke(warm, style: StrokeStyle(lineWidth: lineWidth + glow, lineCap: .round)).blur(radius: glow).opacity(0.5)
+            done.stroke(warm, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+        }
+        .animation(theme.motion.soft, value: fraction)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct RimLoop: Shape {
+    let radius: CGFloat
+    let inset: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let rect = rect.insetBy(dx: inset, dy: inset)
+        let radius = min(radius - inset, min(rect.width, rect.height) / 2)
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        for (corner, next) in [
+            (CGPoint(x: rect.maxX, y: rect.minY), CGPoint(x: rect.maxX, y: rect.maxY)),
+            (CGPoint(x: rect.maxX, y: rect.maxY), CGPoint(x: rect.minX, y: rect.maxY)),
+            (CGPoint(x: rect.minX, y: rect.maxY), CGPoint(x: rect.minX, y: rect.minY)),
+            (CGPoint(x: rect.minX, y: rect.minY), CGPoint(x: rect.maxX, y: rect.minY)),
+        ] {
+            path.addArc(tangent1End: corner, tangent2End: next, radius: radius)
+        }
+        path.closeSubpath()
+        return path
+    }
+}
+
 struct BreathingDot: View {
     @Environment(\.theme) private var theme
     @State private var out = false

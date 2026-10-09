@@ -13,6 +13,7 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use super::emulator::{SessionTerminalHandle, TerminalEffect, TerminalHistoryPolicy};
+use super::status::ProgramStatusRecords;
 use super::subscribers::Subscribers;
 use super::{ControlFrame, DataFrame, Subscription, TerminalPixelGeometry, TerminalSize};
 use crate::{
@@ -52,6 +53,10 @@ pub(crate) enum SessionChange {
     },
     Bell {
         id: Uuid,
+    },
+    Status {
+        id: Uuid,
+        status: Option<super::ProgramStatus>,
     },
     Notification {
         id: Uuid,
@@ -188,6 +193,9 @@ impl LocalSession {
             working_directory: None,
             title: None,
             published_title: None,
+            status: ProgramStatusRecords::default(),
+            status_program: None,
+            published_status: None,
             metadata_dirty: false,
             next_program_check: tokio::time::Instant::now() + Duration::from_secs(1),
             next_refresh: tokio::time::Instant::now(),
@@ -475,6 +483,9 @@ struct LocalActor {
     working_directory: Option<PathBuf>,
     title: Option<String>,
     published_title: Option<String>,
+    status: ProgramStatusRecords,
+    status_program: Option<u32>,
+    published_status: Option<super::ProgramStatus>,
     metadata_dirty: bool,
     next_program_check: tokio::time::Instant,
     next_refresh: tokio::time::Instant,
@@ -510,6 +521,23 @@ impl LocalActor {
                 .as_ref()
                 .map(|title| title.chars().take(1024).collect()),
             program: self.pty.foreground_program(),
+            status: self.status.summary(),
+        }
+    }
+
+    fn publish_status(&mut self) {
+        let status = self.status.summary();
+        if status != self.published_status
+            && self
+                .changes
+                .try_send(SessionChange::Status {
+                    id: self.id,
+                    status: status.clone(),
+                })
+                .is_ok()
+        {
+            self.published_status = status;
+            self.metadata_dirty = true;
         }
     }
 
@@ -717,7 +745,14 @@ impl LocalActor {
                 self.program = program;
                 self.metadata_dirty = true;
             }
+            if self.status_program.is_some()
+                && self.pty.foreground_process_group() != self.status_program
+            {
+                self.status_program = None;
+                self.status.program_exited();
+            }
         }
+        self.publish_status();
         if self.title != self.published_title
             && let Some(title) = &self.title
             && self
@@ -791,6 +826,20 @@ impl LocalActor {
                 }
                 TerminalEffect::Bell => {
                     drop(self.changes.try_send(SessionChange::Bell { id: self.id }));
+                }
+                TerminalEffect::ProgramStatus(report) => {
+                    self.status.apply(report);
+                    self.status_program = self.pty.foreground_process_group();
+                    self.publish_status();
+                }
+                TerminalEffect::Progress(report) => {
+                    self.status.apply_progress(report);
+                    self.status_program = self.pty.foreground_process_group();
+                    self.publish_status();
+                }
+                TerminalEffect::Reset => {
+                    self.status.reset();
+                    self.publish_status();
                 }
                 TerminalEffect::DesktopNotification { title, body } => {
                     drop(self.changes.try_send(SessionChange::Notification {

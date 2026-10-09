@@ -27,6 +27,7 @@ pub(super) fn session(session: &Value, context: &Context) -> String {
         ["Name".to_owned(), text(session, "name")],
         ["Where".to_owned(), place(session)],
         ["State".to_owned(), state(session)],
+        ["Message".to_owned(), message(session)],
         ["Folder".to_owned(), text(session, "workingDir")],
         ["Mission".to_owned(), text(session, "missionName")],
         [
@@ -257,18 +258,51 @@ fn place(session: &Value) -> String {
 }
 
 fn state(session: &Value) -> String {
-    if session["kind"] == "local" {
-        return text(session, "status");
+    let state = if session["kind"] == "local" {
+        text(session, "status")
+    } else {
+        match (
+            session["connectionState"].as_str().unwrap_or_default(),
+            session["status"].as_str().unwrap_or_default(),
+        ) {
+            ("connected", "reconnecting") => "reconnecting".to_owned(),
+            ("connected", _) => "open".to_owned(),
+            ("offline", _) => "not open".to_owned(),
+            (other, _) => other.to_owned(),
+        }
+    };
+    if matches!(state.as_str(), "running" | "open")
+        && let Some(activity) = activity(session)
+    {
+        return activity;
     }
-    match (
-        session["connectionState"].as_str().unwrap_or_default(),
-        session["status"].as_str().unwrap_or_default(),
-    ) {
-        ("connected", "reconnecting") => "reconnecting".to_owned(),
-        ("connected", _) => "open".to_owned(),
-        ("offline", _) => "not open".to_owned(),
-        (other, _) => other.to_owned(),
-    }
+    state
+}
+
+fn activity(session: &Value) -> Option<String> {
+    let status = &session["programStatus"];
+    Some(match (status["state"].as_str()?, status["kind"].as_str()) {
+        ("working", _) => status["progress"].as_u64().map_or_else(
+            || "working".to_owned(),
+            |progress| format!("working {progress}%"),
+        ),
+        ("blocked", Some("permission")) => "needs approval".to_owned(),
+        ("blocked", Some("question")) => "needs an answer".to_owned(),
+        ("blocked", Some("auth")) => "needs sign-in".to_owned(),
+        ("blocked", _) => "needs you".to_owned(),
+        ("done", _) => "done".to_owned(),
+        ("error", _) => "failed".to_owned(),
+        _ => return None,
+    })
+}
+
+fn message(session: &Value) -> String {
+    let status = &session["programStatus"];
+    [text(status, "title"), text(status, "message")]
+        .into_iter()
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join(": ")
 }
 
 fn users(session: &Value) -> BTreeSet<String> {
@@ -343,15 +377,27 @@ mod tests {
             json!({"type":"friends.snapshot","accountEpoch":1,"accountUserId":"me","friends":[{"userId":"u-bob","handle":"bob"}]}),
             json!({"type":"sessions.snapshot","accountEpoch":1,"accountUserId":"me","sessions":[
                 {"id":"01a10d06-92a7-7367-8536-65c4895d05ae","name":"work","kind":"local","status":"running","isOwner":true,"sharedWith":["u-bob","u-else"]},
-                {"id":"01a10d06-92a7-7367-8536-000000000002","name":"build","kind":"remote","status":"running","connectionState":"offline","isOwner":false,"ownerName":"carol","hostName":"Studio","sharedWith":[]},
+                {"id":"01a10d06-92a7-7367-8536-000000000002","name":"build","kind":"remote","status":"running","connectionState":"offline","isOwner":false,"ownerName":"carol","hostName":"Studio","sharedWith":[],"programStatus":{"state":"working"}},
+                {"id":"01a10d06-92a7-7367-8536-000000000003","name":"agent","kind":"local","status":"running","isOwner":true,"sharedWith":[],"programStatus":{"state":"blocked","kind":"permission","title":"Review","message":"Allow the command?"}},
+                {"id":"01a10d06-92a7-7367-8536-000000000004","name":"deploy","kind":"remote","status":"running","connectionState":"connected","isOwner":true,"hostName":"Studio","sharedWith":[],"programStatus":{"state":"working","progress":40}},
+                {"id":"01a10d06-92a7-7367-8536-000000000005","name":"shell","kind":"local","status":"running","isOwner":true,"sharedWith":[],"programStatus":{"state":"idle"}},
             ]}),
         ]);
         assert_eq!(
             status(&context),
             "Signed in as alice.\n\
-             NAME   WHERE          STATE     SHARED WITH     ID\n\
-             work   this computer  running   bob and 1 more  5d05ae\n\
-             build  carol, Studio  not open                  000002"
+             NAME    WHERE          STATE           SHARED WITH     ID\n\
+             work    this computer  running         bob and 1 more  5d05ae\n\
+             build   carol, Studio  not open                        000002\n\
+             agent   this computer  needs approval                  000003\n\
+             deploy  Studio         working 40%                     000004\n\
+             shell   this computer  running                         000005"
+        );
+        assert!(
+            session(&context.sessions[2], &context)
+                .lines()
+                .any(|line| line.starts_with("Message ")
+                    && line.ends_with(" Review: Allow the command?"))
         );
     }
 

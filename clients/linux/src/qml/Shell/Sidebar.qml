@@ -22,7 +22,7 @@ Item {
         default: return "settings"
         }
     }
-    readonly property var waiting: Models.Sessions.sessions.filter(session => Models.Sessions.attention.indexOf(session.id) >= 0)
+    readonly property var waiting: Models.Sessions.sessions.filter(session => ["hand", "question", "key"].indexOf(session.sign) >= 0 && Models.Sessions.attention.indexOf(session.id) >= 0)
     property string renamingId: ""
     property Item pillTarget: null
     property var collapsedFolders: ({})
@@ -283,13 +283,15 @@ Item {
                             program: mark.session.program || ""
                             size: 26
                             asleep: Models.DesktopState.stagedSessionIds.indexOf(mark.session.id) < 0
-                            working: mark.session.working === true
+                            session: mark.session
                         }
-                        BreathingDot {
+                        StatusSign {
                             anchors.right: parent.right
                             anchors.top: parent.top
-                            anchors.margins: 3
-                            visible: Models.Sessions.attention.indexOf(mark.session.id) >= 0
+                            session: mark.session
+                            unseen: Models.Sessions.attention.indexOf(mark.session.id) >= 0
+                            size: 11
+                            backing: KodosiTheme.ground
                         }
                     }
                     onClicked: root.openTerminal(session.id)
@@ -430,12 +432,12 @@ Item {
                     Layout.leftMargin: 8
                     Layout.preferredWidth: 22
                     Layout.preferredHeight: 22
-                    BreathingDot { anchors.centerIn: parent }
+                    StatusSign { anchors.centerIn: parent; session: root.waiting[0] || null; unseen: true }
                 }
                 PlainLabel {
                     id: label
                     Layout.fillWidth: true
-                    text: root.waiting.length === 1 ? qsTr("%1 needs you").arg(root.waiting[0].name) : qsTr("%1 terminals need you").arg(root.waiting.length)
+                    text: root.waiting.length === 1 ? qsTr("%1 needs you").arg(root.waiting[0].name) : root.waiting.length > 1 ? qsTr("%1 terminals need you").arg(root.waiting.length) : ""
                     color: KodosiTheme.accentStrong
                     font.pixelSize: KodosiTheme.fontFootnote
                     font.weight: Font.Medium
@@ -733,7 +735,7 @@ Item {
                                 readonly property string detail: session.activity || (session.kind === "remote" && session.connectionState !== "connected" ? (session.message || qsTr("Not connected")) : "")
 
                                 width: parent ? parent.width : 0
-                                height: detail.length > 0 ? 40 : 34
+                                height: caption.shown ? 40 : 34
                                 hoverEnabled: true
                                 activeFocusOnTab: true
                                 objectName: "sidebar.session." + sessionId
@@ -754,7 +756,7 @@ Item {
                                         program: row.session.program || ""
                                         size: 22
                                         asleep: !row.staged
-                                        working: row.session.working === true
+                                        session: row.session
                                     }
                                     ColumnLayout {
                                         Layout.fillWidth: true
@@ -768,14 +770,14 @@ Item {
                                             font.weight: row.selected ? Font.DemiBold : Font.Medium
                                             elide: Text.ElideRight
                                         }
-                                        ShimmerText {
+                                        ActivityLine {
+                                            id: caption
                                             Layout.fillWidth: true
-                                            visible: row.detail.length > 0
-                                            text: row.detail
-                                            active: row.session.working === true
+                                            visible: shown
+                                            session: row.session
+                                            words: row.detail
                                             color: KodosiTheme.inkFaint
-                                            font.pixelSize: KodosiTheme.fontCaption
-                                            elide: Text.ElideRight
+                                            pixelSize: KodosiTheme.fontCaption
                                         }
                                     }
                                     KTextField {
@@ -806,9 +808,10 @@ Item {
                                         }
                                         Keys.onEscapePressed: root.renamingId = ""
                                     }
-                                    BreathingDot {
-                                        Layout.rightMargin: 2
-                                        visible: row.needsYou && !actions.visible
+                                    StatusSign {
+                                        session: row.session
+                                        unseen: row.needsYou
+                                        visible: form.length > 0 && !actions.visible
                                     }
                                     AvatarStack {
                                         visible: row.viewers.length > 0 && !actions.visible && !row.renaming

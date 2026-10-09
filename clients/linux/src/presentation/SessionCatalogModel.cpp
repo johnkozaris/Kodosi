@@ -75,12 +75,44 @@ bool isStatusGlyph(const char32_t scalar)
 
 bool SessionCatalogModel::isWorking(const Session& session)
 {
+    if (!presentation(session).canControl)
+        return false;
+    if (!session.programState.isEmpty())
+        return session.programState == QStringLiteral("working");
     const auto scalars = session.title.toUcs4();
-    return presentation(session).canControl && !scalars.isEmpty() && isSpinner(scalars.first());
+    return !scalars.isEmpty() && isSpinner(scalars.first());
+}
+
+QString SessionCatalogModel::waitState(const Session& session)
+{
+    const bool result = session.programState == QStringLiteral("done") || session.programState == QStringLiteral("error");
+    const bool blocked = session.programState == QStringLiteral("blocked") && presentation(session).canControl;
+    return result || blocked ? session.programState : QString {};
+}
+
+QString SessionCatalogModel::sign(const Session& session)
+{
+    const auto state = waitState(session);
+    if (state == QStringLiteral("done"))
+        return state;
+    if (state == QStringLiteral("error"))
+        return QStringLiteral("failed");
+    if (state != QStringLiteral("blocked"))
+        return {};
+    if (session.programKind == QStringLiteral("question"))
+        return QStringLiteral("question");
+    return session.programKind == QStringLiteral("auth") ? QStringLiteral("key") : QStringLiteral("hand");
 }
 
 QString SessionCatalogModel::activity(const Session& session)
 {
+    QStringList report;
+    for (const auto& part : { session.programTitle, session.programMessage }) {
+        if (!part.isEmpty())
+            report.append(part);
+    }
+    if (!report.isEmpty())
+        return report.join(QStringLiteral(": "));
     qsizetype units = 0;
     for (const auto scalar : session.title.toUcs4()) {
         if (!isStatusGlyph(scalar) && !QChar::isSpace(scalar))
@@ -171,6 +203,8 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
     const bool local = s->kind == QStringLiteral("local");
     return { { QStringLiteral("sessionId"), s->id }, { QStringLiteral("id"), s->id }, { QStringLiteral("name"), s->name },
         { QStringLiteral("activity"), activity(session) }, { QStringLiteral("working"), isWorking(session) },
+        { QStringLiteral("progress"), isWorking(session) ? session.programProgress : -1 },
+        { QStringLiteral("sign"), sign(session) },
         { QStringLiteral("folderName"),
             s->workingDirectory.isEmpty() ? QString {} : QDir(s->workingDirectory).dirName() },
         { QStringLiteral("hostLabel"), local ? tr("This computer") : !s->hostName.isEmpty() ? s->hostName : !s->ownerName.isEmpty() ? s->ownerName : tr("Remote computer") },
@@ -219,6 +253,31 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
     s.workingDirectory = text("workingDir");
     s.title = text("title");
     s.program = text("program");
+    const auto reported = o.value(QStringLiteral("programStatus"));
+    if (!reported.isUndefined() && !reported.isNull()) {
+        if (!reported.isObject())
+            return std::nullopt;
+        const auto report = reported.toObject();
+        s.programState = report.value(QStringLiteral("state")).toString();
+        if (!QStringList { QStringLiteral("idle"), QStringLiteral("working"), QStringLiteral("done"),
+                QStringLiteral("blocked"), QStringLiteral("error") }
+                .contains(s.programState))
+            return std::nullopt;
+        for (const auto* key : {"kind", "title", "message"}) {
+            const auto value = report.value(QLatin1String(key));
+            if (!value.isUndefined() && (!value.isString() || value.toString().size() > 4096))
+                return std::nullopt;
+        }
+        s.programKind = report.value(QStringLiteral("kind")).toString();
+        s.programTitle = report.value(QStringLiteral("title")).toString();
+        s.programMessage = report.value(QStringLiteral("message")).toString();
+        const auto progress = report.value(QStringLiteral("progress"));
+        if (!progress.isUndefined()) {
+            if (!progress.isDouble() || progress.toInt(-1) < 0 || progress.toInt(-1) > 100)
+                return std::nullopt;
+            s.programProgress = progress.toInt();
+        }
+    }
     const auto connected = o.value(QStringLiteral("connectedUsers"));
     if (!connected.isUndefined() && (!connected.isArray() || connected.toArray().size() > 128)) return std::nullopt;
     for (const auto& user : connected.toArray()) {
@@ -262,7 +321,9 @@ void SessionCatalogModel::apply(const QJsonObject& event)
     auto attention = m_attention;
     for (const auto& next : result) {
         const auto before = this->session(next.id);
-        if (before && isWorking(*before) && !isWorking(next) && !attention.contains(next.id))
+        const bool stopped = before && isWorking(*before) && !isWorking(next);
+        const bool waits = !waitState(next).isEmpty() && !(before && waitState(*before) == waitState(next));
+        if ((stopped || waits) && !attention.contains(next.id))
             attention.append(next.id);
     }
     attention.removeIf([&](const QString& id) { return !ids.contains(id); });

@@ -3099,6 +3099,102 @@
                     }
                   ]
                 },
+                "programStatus": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "app": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "kind": {
+                          "anyOf": [
+                            {
+                              "oneOf": [
+                                {
+                                  "const": "permission"
+                                },
+                                {
+                                  "const": "question"
+                                },
+                                {
+                                  "const": "auth"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "message": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "progress": {
+                          "anyOf": [
+                            {
+                              "format": "u8",
+                              "type": "integer"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "state": {
+                          "oneOf": [
+                            {
+                              "const": "idle"
+                            },
+                            {
+                              "const": "working"
+                            },
+                            {
+                              "const": "done"
+                            },
+                            {
+                              "const": "blocked"
+                            },
+                            {
+                              "const": "error"
+                            }
+                          ]
+                        },
+                        "title": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "state"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "sharedWith": {
                   "items": {
                     "type": "string"
@@ -4856,7 +4952,7 @@
     ]
   },
   "ffiAbiVersion": 7,
-  "protocolVersion": 50,
+  "protocolVersion": 51,
   "terminal": {
     "checkpointMaxBytes": 8388608,
     "checkpointSchema": 2,

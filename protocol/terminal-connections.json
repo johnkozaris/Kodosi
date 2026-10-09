@@ -1,5 +1,5 @@
 {
-  "terminalConnectionProtocolVersion": 18,
+  "terminalConnectionProtocolVersion": 19,
   "compatibilityPolicy": "exactMatch",
   "routes": {
     "device": "/ws/device"
@@ -96,7 +96,7 @@
       "metadata": {
         "type": 7,
         "direction": "host",
-        "body": "JSON terminal metadata (directory, title, program, connectedUsers); maximum 16384 bytes"
+        "body": "JSON terminal metadata (directory, title, program, status, connectedUsers); maximum 16384 bytes"
       },
       "heartbeat": {
         "type": 8,

@@ -33,10 +33,6 @@ struct TerminalSurfaceWrapper: View {
         interactionAllowed && allowsInput && isSurfaceVisible
     }
 
-    private var terminalColorScheme: ColorScheme {
-        theme.isDark ? .dark : .light
-    }
-
     var body: some View {
         TerminalRendererView(
             session: renderer,
@@ -64,12 +60,6 @@ struct TerminalSurfaceWrapper: View {
         .onDisappear {
             token.setInputAllowed(false)
             TerminalInputQueue.shared.cancel(sessionId: sessionId)
-        }
-        .onAppear {
-            renderer.adopt(colorScheme: terminalColorScheme)
-        }
-        .onChange(of: theme.isDark) {
-            renderer.adopt(colorScheme: terminalColorScheme)
         }
     }
 }

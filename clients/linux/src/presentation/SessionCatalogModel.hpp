@@ -26,6 +26,11 @@ public:
         QString name;
         QString title;
         QString program;
+        QString programState;
+        QString programKind;
+        QString programTitle;
+        QString programMessage;
+        int programProgress = -1;
         QStringList connectedUsers;
         QString kind;
         QString workingDirectory;
@@ -96,6 +101,8 @@ private:
     [[nodiscard]] static std::optional<Session> decode(const QJsonObject& object);
     [[nodiscard]] static PresentationSession presentation(const Session& session);
     [[nodiscard]] static bool isWorking(const Session& session);
+    [[nodiscard]] static QString waitState(const Session& session);
+    [[nodiscard]] static QString sign(const Session& session);
     [[nodiscard]] static QString activity(const Session& session);
     [[nodiscard]] QVariantMap fields(const Session& session) const;
 };

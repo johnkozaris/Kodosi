@@ -186,11 +186,15 @@ extension AppDependencies {
         }
         let previous = Dictionary(uniqueKeysWithValues: sessions.map { ($0.id, $0.incarnationId) })
         let wasWorking = Set(sessions.filter(\.isWorking).map(\.id))
+        let waitStates = Dictionary(uniqueKeysWithValues: sessions.map { ($0.id, $0.waitState) })
         var createdIds: [String] = []
         sessions = received
         attention.formIntersection(received.map(\.id))
         freshTerminals.formIntersection(received.map(\.id))
-        for value in received where wasWorking.contains(value.id) && !value.isWorking {
+        for value in received
+            where wasWorking.contains(value.id) && !value.isWorking
+            || value.waitState != nil && value.waitState != (waitStates[value.id] ?? nil)
+        {
             noteAttention(value.id)
         }
         terminalNotifications.reconcile(sessions: received, accountEpoch: accountEpoch)

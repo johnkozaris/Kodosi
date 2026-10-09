@@ -85,7 +85,8 @@ Three levels: resting, lifted (hover, focused composer, menus) and floating (she
 Actions, tags and pills are capsules. Rounded squares are agents, rooms and kinds of things. Circles are people. A thin outline is a slot that you can fill.
 
 ## Components
-- **Agent mark:** a rounded square in the color of the program, with its glyph. A shell shows a prompt and the copper cursor. The mark is pale when the terminal is minimized. A warm rim turns round it while the agent works.
+- **Agent mark:** a rounded square in the color of the program, with its glyph. A shell shows a prompt and the copper cursor. The mark is pale when the terminal is minimized. The mark shows the state of its program: a warm rim turns round it while the program works, the rim is an arc when the program reports a percent, and a still copper ring with a gap shows while the program waits for you. The mark squashes a little at each change of state.
+- **Status sign:** one small sign at the end of a terminal's row, card or tab, in the color of its state. A copper hand (approval), question or key (sign-in) stays while the program waits for you, and the hand waves one time. A green check that draws itself means done, and a `caution` triangle means failed; these two show until you open the terminal. A terminal that rang its bell, or an agent with no report that stopped work, keeps the breathing copper dot.
 - **Person avatar:** a circle in a color that comes from the person's identifier. Your own circle is copper.
 - **Room sigil:** a rounded square with four small tiles. The color and the lit tiles come from the room's identifier.
 - **Selection pill:** one raised pill with a copper caret slides between rows of the source list.
@@ -96,7 +97,7 @@ Actions, tags and pills are capsules. Rounded squares are agents, rooms and kind
 - **Tasks:** cards in "Up for grabs", "In progress" and "Done".
 - **Go to (Ctrl+K):** one field finds terminals, rooms, people and actions.
 
-Working text shimmers. A terminal that rang its bell, or where an agent stopped work while you looked elsewhere, shows a breathing copper dot until you look at it. With reduced motion, all changes are instant and nothing loops. QML remains authoritative.
+Working text shimmers. New words of a program rise into place. A terminal that rang its bell, or where an agent stopped work while you looked elsewhere, shows a breathing copper dot until you look at it. With reduced motion, all changes are instant and nothing loops. QML remains authoritative.
 
 ## Do's and Don'ts
 - **Do** animate only for an action or a real change of state.

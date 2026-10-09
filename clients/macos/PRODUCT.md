@@ -18,9 +18,10 @@ main area shows every terminal by computer. Go to (⌘K) finds a terminal, a roo
 person, or an action. Rename a terminal in place.
 
 A terminal carries the mark of the program in it. While an agent works, its mark and
-title show it. A terminal that rang its bell, or an agent that stopped while you looked
-elsewhere, keeps a copper dot until you look at it, and the source list offers the
-next one that needs you.
+title show it. A program that waits for you puts a copper ring on its mark and a sign
+of what it needs beside it, and the source list offers the next terminal that waits
+for an answer. A terminal that is done, that failed, or that rang its bell keeps a
+sign until you look at it.
 
 Minimize hides a terminal but keeps it running. Close ends it and its programs.
 Closing the window leaves Kodosi running; Quit ends terminals that run on this Mac,

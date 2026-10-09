@@ -130,10 +130,6 @@ final class CommandSink {
         result == Int32(KODOSI_FFI_OK)
     }
 
-    func setHostTheme(dark: Bool) {
-        perform("system.setTheme", ["dark": .bool(dark)])
-    }
-
     func sendTerminalFocus(sessionId: String, clientId: String, subscriptionGeneration: UInt64, requestId: String,
                            expectedRuntimeIncarnationId: String) -> Int32?
     {

@@ -93,6 +93,8 @@ struct SidebarRoomRow: View {
                 Spacer(minLength: 4)
                 if unread > 0 {
                     CountBadge(count: unread).transition(AnyTransition.pop)
+                } else if live.contains(where: \.needsUser) {
+                    StatusSign(form: .hand).transition(AnyTransition.pop)
                 } else if live.contains(where: \.isWorking) {
                     BreathingDot(color: theme.colors.glowOrange, size: 6).padding(.trailing, 4)
                 }
@@ -227,7 +229,7 @@ struct SidebarTerminalRow: View {
         .hoverRow(selected: selected)
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
-        .animation(theme.motion.snappy, value: needsAttention)
+        .animation(theme.motion.snappy, value: deps.sign(of: session))
         .help(session.isConnected ? (staged ? String(localized: "Open") : String(localized: "Minimized")) : session.statusLabel)
         .contextMenu { menu }
         .confirmationDialog("Close \(session.name)?", isPresented: $confirmingClose, titleVisibility: .visible) {
@@ -256,10 +258,9 @@ struct SidebarTerminalRow: View {
                         .foregroundStyle(staged || selected ? theme.colors.ink : theme.colors.inkMuted).lineLimit(1)
                         .contentTransition(.interpolate)
                 }
-                if let activity = session.activity {
-                    Text(activity).appTextStyle(.caption).fontWeight(.regular)
-                        .foregroundStyle(theme.colors.inkFaint).lineLimit(1)
-                        .shimmer(session.isWorking)
+                if session.activity != nil || session.progress != nil {
+                    SessionActivityText(session: session).appTextStyle(.caption).fontWeight(.regular)
+                        .foregroundStyle(theme.colors.inkFaint)
                 }
             }
             Spacer(minLength: 0)
@@ -291,9 +292,8 @@ struct SidebarTerminalRow: View {
                 if !viewers.isEmpty {
                     AvatarStack(people: viewers, size: 15, limit: 2, ring: selected ? theme.colors.raised : theme.colors.ground)
                 }
-                if needsAttention {
-                    BreathingDot(color: theme.colors.accent, size: 7).transition(AnyTransition.pop)
-                        .accessibilityLabel(Text("Needs you"))
+                if let sign = deps.sign(of: session) {
+                    StatusSign(form: sign).transition(AnyTransition.pop)
                 } else if troubled {
                     Circle().fill(theme.colors.caution).frame(width: 6, height: 6)
                 } else if !session.isOwner, let owner = session.ownerName {

@@ -205,7 +205,7 @@ private struct FriendCard: View {
                 HStack(spacing: 6) {
                     ForEach(shared.prefix(4)) { session in
                         Button { deps.activateSession(session.id) } label: {
-                            AgentMark(kind: session.agent, size: 24, activity: session.isWorking ? .working : .awake)
+                            AgentMark(kind: session.agent, size: 24, activity: session.mark(rested: .awake))
                         }
                         .buttonStyle(PressScaleStyle()).help(session.name)
                     }

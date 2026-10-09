@@ -87,7 +87,8 @@ Three levels: resting, lifted (hover, focused composer, popovers) and floating (
 Actions, tags and pills are capsules. Squircles are agents, rooms and kinds of things. Circles are people. A dashed outline is a slot that you can fill.
 
 ## Components
-- **Agent mark:** a squircle in the color of the program, with its glyph. A shell shows a prompt and the copper cursor. The mark is pale when the terminal is minimized. A warm rim turns round it while the agent works.
+- **Agent mark:** a squircle in the color of the program, with its glyph. A shell shows a prompt and the copper cursor. The mark is pale when the terminal is minimized. The mark shows the state of its program: a warm rim turns round it while the program works, the rim is an arc when the program reports a percent, and a still copper ring with a gap shows while the program waits for you. The mark squashes a little at each change of state.
+- **Status sign:** one small sign at the end of a terminal's row, card or tab, in the color of its state. A copper hand (approval), question or key (sign-in) stays while the program waits for you, and the hand waves one time. A green check that draws itself means done, and a `caution` triangle means failed; these two show until you open the terminal. A terminal that rang its bell, or an agent with no report that stopped work, keeps the breathing copper dot.
 - **Person avatar:** a circle in a color that comes from the person's identifier. Your own circle is copper.
 - **Room sigil:** a squircle with four small tiles. The color and the lit tiles come from the room's identifier.
 - **Selection pill:** one raised pill with a copper caret slides between rows of the source list.
@@ -98,7 +99,7 @@ Actions, tags and pills are capsules. Squircles are agents, rooms and kinds of t
 - **Tasks:** cards in "Up for grabs", "In progress" and "Done". A card that changed washes warm one time.
 - **Go to (⌘K):** one field finds terminals, rooms, people and actions.
 
-Working text shimmers. Counts roll. Symbols replace in place. A terminal that rang its bell, or an agent that stopped work while you looked elsewhere, shows a breathing copper dot until you open it. With reduced motion, all changes are instant and nothing loops.
+Working text shimmers. Counts roll. Symbols replace in place. The words of a program resolve in place from a light blur. A terminal that rang its bell, or an agent that stopped work while you looked elsewhere, shows a breathing copper dot until you open it. With reduced motion, all changes are instant and nothing loops.
 
 ## Do's and Don'ts
 - **Do** use the springs in `AppTheme.Motion`, and animate only for an action or a real change of state.

@@ -361,7 +361,7 @@ Item {
                                                 x: 6
                                                 anchors.verticalCenter: parent.verticalCenter
                                                 spacing: 6
-                                                AgentMark { program: shared.modelData.program || ""; size: 18; working: shared.modelData.working === true }
+                                                AgentMark { program: shared.modelData.program || ""; size: 18; session: shared.modelData }
                                                 PlainLabel { text: shared.modelData.name; font.pixelSize: KodosiTheme.fontFootnote; font.weight: Font.Medium }
                                             }
                                         }

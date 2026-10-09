@@ -207,3 +207,58 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(try session(title: nil).activity == nil)
     #expect(try !session(title: nil).isWorking)
 }
+
+@Test func aProgramStatusReportIsTheStateOfItsTerminal() throws {
+    func session(title: String? = nil, status: [String: JSONValue]) throws -> RuntimeSession {
+        var fields: [String: JSONValue] = [
+            "id": .string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
+            "kind": .string("local"), "name": .string("Amber Wren"), "program": .string("claude"),
+            "isOwner": .bool(true), "status": .string("running"), "connectionState": .string("local"), "sharedWith": .array([]),
+            "programStatus": .object(status),
+        ]
+        if let title {
+            fields["title"] = .string(title)
+        }
+        return try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode(fields))
+    }
+    let working = try session(title: "Draft the release notes", status: ["state": .string("working"), "progress": .int(40)])
+    #expect(working.isWorking)
+    #expect(!working.needsUser)
+    #expect(working.waitState == nil)
+    #expect(working.activity == "Draft the release notes")
+    #expect(working.progress == 40)
+    #expect(working.mark(rested: .asleep) == .progress(40))
+    #expect(working.sign(unseen: false) == nil)
+    #expect(try session(status: ["state": .string("working")]).mark(rested: .asleep) == .working)
+    let idle = try session(title: "\u{2810} Draft the release notes", status: ["state": .string("idle"), "app": .string("claude-code")])
+    #expect(!idle.isWorking)
+    #expect(idle.mark(rested: .asleep) == .asleep)
+    #expect(idle.sign(unseen: false) == nil)
+    #expect(idle.sign(unseen: true) == .changed)
+    #expect(idle.activity == "Draft the release notes")
+    let approval = try session(status: ["state": .string("blocked"), "kind": .string("permission"), "message": .string("Allow the command?")])
+    #expect(approval.needsUser)
+    #expect(approval.waitState == .blocked)
+    #expect(!approval.isWorking)
+    #expect(approval.activity == "Allow the command?")
+    #expect(approval.mark(rested: .asleep) == .asks)
+    #expect(approval.sign(unseen: false) == .hand)
+    let task = try session(status: ["state": .string("blocked"), "kind": .string("question"), "title": .string("Review the plan")])
+    #expect(task.activity == "Review the plan")
+    #expect(task.sign(unseen: true) == .question)
+    let signIn = try session(status: ["state": .string("blocked"), "kind": .string("auth")])
+    #expect(signIn.activity == nil)
+    #expect(signIn.sign(unseen: false) == .key)
+    #expect(try session(status: ["state": .string("blocked")]).sign(unseen: false) == .hand)
+    let failed = try session(title: "Deploy", status: ["state": .string("error")])
+    #expect(failed.waitState == .error)
+    #expect(failed.activity == "Deploy")
+    #expect(failed.sign(unseen: true) == .failed)
+    #expect(failed.sign(unseen: false) == nil)
+    let done = try session(title: "Deploy", status: ["state": .string("done")])
+    #expect(done.waitState == .done)
+    #expect(done.activity == "Deploy")
+    #expect(done.mark(rested: .awake) == .awake)
+    #expect(done.sign(unseen: true) == .done)
+    #expect(done.sign(unseen: false) == nil)
+}

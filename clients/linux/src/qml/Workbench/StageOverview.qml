@@ -197,21 +197,18 @@ Item {
                                 contentItem: RowLayout {
                                     spacing: 12
 
-                                    AgentMark { Layout.leftMargin: 12; program: card.modelData.program || ""; size: 32; working: card.modelData.working === true }
+                                    AgentMark { Layout.leftMargin: 12; program: card.modelData.program || ""; size: 32; session: card.modelData }
                                     ColumnLayout {
                                         Layout.fillWidth: true
                                         spacing: 2
                                         PlainLabel { Layout.fillWidth: true; text: card.modelData.name; font.weight: Font.DemiBold; elide: Text.ElideRight }
-                                        ShimmerText {
+                                        ActivityLine {
                                             Layout.fillWidth: true
-                                            text: card.modelData.activity || card.modelData.folderName || Identity.kindLabel(Identity.kind(card.modelData.program || ""))
-                                            active: card.modelData.working === true
-                                            color: KodosiTheme.inkMuted
-                                            font.pixelSize: KodosiTheme.fontFootnote
-                                            elide: Text.ElideRight
+                                            session: card.modelData
+                                            words: card.modelData.activity || card.modelData.folderName || Identity.kindLabel(Identity.kind(card.modelData.program || ""))
                                         }
                                     }
-                                    BreathingDot { Layout.rightMargin: 14; visible: card.needsYou }
+                                    StatusSign { Layout.rightMargin: 12; session: card.modelData; unseen: card.needsYou; size: 16 }
                                 }
                                 onClicked: {
                                     Models.Sessions.clearAttention(modelData.id)

@@ -76,16 +76,6 @@ struct RootView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { GroundBackdrop() }
-        .onChange(of: theme.isDark, initial: true) { _, dark in
-            if case .ready = deps.appState {
-                deps.commandSink.setHostTheme(dark: dark)
-            }
-        }
-        .onChange(of: deps.appState) { _, state in
-            if case .ready = state {
-                deps.commandSink.setHostTheme(dark: theme.isDark)
-            }
-        }
     }
 
     private static func describe(_ failure: RuntimeStartFailure) -> String {
