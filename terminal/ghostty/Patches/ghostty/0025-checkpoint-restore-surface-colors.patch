@@ -1,0 +1,20 @@
+diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
+--- a/src/termio/Termio.zig
++++ b/src/termio/Termio.zig
+@@ -707,6 +707,16 @@ pub fn restoreCheckpointLocked(
+     // Preserve visual configuration and safety policy, never source policy.
+     new_terminal.setScrollbackMaxBytes(self.config.scrollback_max_bytes);
+     new_terminal.setScrollbackMaxLines(self.config.scrollback_max_lines);
++    new_terminal.colors.palette.changeDefault(
++        self.alloc,
++        self.config.palette,
++    ) catch return .out_of_memory;
++    new_terminal.colors.background.default = self.config.background.toTerminalRGB();
++    new_terminal.colors.foreground.default = self.config.foreground.toTerminalRGB();
++    new_terminal.colors.cursor.default = cursor: {
++        const color = self.config.cursor_color orelse break :cursor null;
++        break :cursor color.toTerminalRGB() orelse break :cursor null;
++    };
+     new_terminal.screens.replaceGenerationsFrom(&self.terminal.screens);
+     new_terminal.flags.focused = self.terminal.flags.focused;
+     new_terminal.flags.visible = self.terminal.flags.visible;

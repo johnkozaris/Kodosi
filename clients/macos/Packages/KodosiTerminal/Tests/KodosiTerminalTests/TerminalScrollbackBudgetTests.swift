@@ -67,7 +67,6 @@ private final class AccessibilityUpdateRecorder {
 @MainActor
 @Test func accessibilitySubscribersRemainIndependent() async {
     let session = TerminalRendererSession(
-        colorScheme: .dark,
         write: { _ in },
         resize: { _, _ in }
     )
@@ -98,7 +97,6 @@ private final class AccessibilityUpdateRecorder {
 @MainActor
 @Test func accessibilityRefreshRetriesUntilCommittedViewportChanges() async {
     let session = TerminalRendererSession(
-        colorScheme: .dark,
         write: { _ in },
         resize: { _, _ in }
     )
@@ -119,7 +117,6 @@ private final class AccessibilityUpdateRecorder {
 @MainActor
 @Test func nativeSurfaceGenerationIdentifiesFirstAndReplacementAttachments() {
     let session = TerminalRendererSession(
-        colorScheme: .dark,
         write: { _ in },
         resize: { _, _ in }
     )
@@ -139,7 +136,6 @@ private final class AccessibilityUpdateRecorder {
     weak var weakSession: TerminalRendererSession?
     do {
         let session = TerminalRendererSession(
-            colorScheme: .dark,
             write: { _ in },
             resize: { _, _ in }
         )
@@ -153,7 +149,6 @@ private final class AccessibilityUpdateRecorder {
 @Test func readOnlyRendererSuppressesBackendWrites() {
     let writes = LockedByteRecorder()
     let session = TerminalRendererSession(
-        colorScheme: .dark,
         write: { writes.append($0) },
         resize: { _, _ in }
     )
@@ -231,7 +226,6 @@ private func commandKey(_ character: String, keyCode: UInt16, timestamp: TimeInt
 @Test func readOnlyHostedViewConsumesInputProducingEvents() async throws {
     let writes = LockedByteRecorder()
     let session = TerminalRendererSession(
-        colorScheme: .dark,
         write: { writes.append($0) },
         resize: { _, _ in }
     )
@@ -325,7 +319,6 @@ private func commandKey(_ character: String, keyCode: UInt16, timestamp: TimeInt
 @Test func readOnlyHostedViewScrollsViewportWithoutBackendWrites() async throws {
     let writes = LockedByteRecorder()
     let session = TerminalRendererSession(
-        colorScheme: .dark,
         write: { writes.append($0) },
         resize: { _, _ in }
     )
@@ -396,7 +389,6 @@ private func commandKey(_ character: String, keyCode: UInt16, timestamp: TimeInt
 @MainActor
 @Test func rendererAppliesScrollbackBudgetToSurfaceConfiguration() {
     let session = TerminalRendererSession(
-        colorScheme: .dark,
         write: { _ in },
         resize: { _, _ in }
     )
@@ -418,8 +410,7 @@ private func commandKey(_ character: String, keyCode: UInt16, timestamp: TimeInt
         paddingX: 0,
         paddingY: 0,
         minimumContrast: 1,
-        lightPalette: palette,
-        darkPalette: palette
+        palette: palette
     )
 
     session.setStyle(style)

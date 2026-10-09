@@ -8,8 +8,7 @@ public struct TerminalStyle: Sendable {
     public let paddingX: Int
     public let paddingY: Int
     public let minimumContrast: Double
-    public let lightPalette: TerminalPalette
-    public let darkPalette: TerminalPalette
+    public let palette: TerminalPalette
 
     public init(
         fontFamily: String,
@@ -21,8 +20,7 @@ public struct TerminalStyle: Sendable {
         paddingX: Int,
         paddingY: Int,
         minimumContrast: Double,
-        lightPalette: TerminalPalette,
-        darkPalette: TerminalPalette
+        palette: TerminalPalette
     ) {
         self.fontFamily = fontFamily
         self.fontSize = fontSize
@@ -33,7 +31,6 @@ public struct TerminalStyle: Sendable {
         self.paddingX = paddingX
         self.paddingY = paddingY
         self.minimumContrast = minimumContrast
-        self.lightPalette = lightPalette
-        self.darkPalette = darkPalette
+        self.palette = palette
     }
 }

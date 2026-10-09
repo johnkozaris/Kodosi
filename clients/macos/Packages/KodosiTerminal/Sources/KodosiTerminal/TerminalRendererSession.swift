@@ -1,7 +1,6 @@
 import Combine
 import Foundation
 import GhosttyTerminal
-import SwiftUI
 
 private final class TerminalInputAuthority: @unchecked Sendable {
     private let lock = NSLock()
@@ -140,17 +139,13 @@ public final class TerminalRendererSession: ObservableObject {
     private let backend: InMemoryTerminalSession
     private let inputAuthority: TerminalInputAuthority
     private let accessibilityUpdateRelay: TerminalAccessibilityUpdateRelay
-    private var style: TerminalStyle?
-    private var colorScheme: ColorScheme = .light
     let viewState: TerminalViewState
 
     public init(
-        colorScheme: ColorScheme,
         write: @escaping @Sendable (Data) -> Void,
         resize: @escaping @Sendable (TerminalViewport, UInt64) -> Void,
         onSurfaceAttached: @escaping @MainActor @Sendable (UInt64) -> Void = { _ in }
     ) {
-        self.colorScheme = colorScheme
         Self.configureDebugLoggingIfRequested()
         let inputAuthority = TerminalInputAuthority()
         let surfaceGeneration = TerminalSurfaceGenerationCell()
@@ -228,13 +223,13 @@ public final class TerminalRendererSession: ObservableObject {
     #endif
 
     public func setStyle(_ style: TerminalStyle) {
-        self.style = style
-        applyStyle()
-    }
-
-    public func adopt(colorScheme: ColorScheme) {
-        self.colorScheme = colorScheme
-        applyStyle()
+        objectWillChange.send()
+        viewState.configuration = TerminalSurfaceOptions(
+            session: backend,
+            fontSize: style.fontSize,
+            terminalConfiguration: Self.makeConfiguration(style: style),
+            scrollbackLimitBytes: style.scrollback.bytes
+        )
     }
 
     @discardableResult
@@ -249,21 +244,6 @@ public final class TerminalRendererSession: ObservableObject {
         guard backend.restoreCheckpointSynchronously(data) else { return false }
         accessibilityUpdateRelay.signal()
         return true
-    }
-
-    private func applyStyle() {
-        guard let style else { return }
-        let palette = colorScheme == .dark ? style.darkPalette : style.lightPalette
-        objectWillChange.send()
-        viewState.configuration = TerminalSurfaceOptions(
-            session: backend,
-            fontSize: style.fontSize,
-            terminalConfiguration: Self.makeConfiguration(
-                style: style,
-                palette: palette
-            ),
-            scrollbackLimitBytes: style.scrollback.bytes
-        )
     }
 
     private static func configureDebugLoggingIfRequested() {
@@ -284,11 +264,9 @@ public final class TerminalRendererSession: ObservableObject {
         ("mouse-shift-capture", "never"),
     ]
 
-    private static func makeConfiguration(
-        style: TerminalStyle,
-        palette: TerminalPalette
-    ) -> TerminalConfiguration {
-        TerminalConfiguration {
+    private static func makeConfiguration(style: TerminalStyle) -> TerminalConfiguration {
+        let palette = style.palette
+        return TerminalConfiguration {
             $0.withFontFamily(style.fontFamily)
             switch style.cursorStyle {
             case .block:

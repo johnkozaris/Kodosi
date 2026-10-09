@@ -60,7 +60,6 @@ final class TerminalSessionManager {
 
     private let runtimeHandle: RuntimeHandle
     private let commandSink: CommandSink
-    private let colorScheme: ColorScheme
     private let beep: @MainActor () -> Void
     private let onFocusResult: @MainActor (String, String, String, Bool) -> Void
     private let disconnectTerminal: @MainActor (
@@ -75,7 +74,6 @@ final class TerminalSessionManager {
         runtimeHandle: RuntimeHandle,
         commandSink: CommandSink,
         settings: DesktopSettings,
-        colorScheme: ColorScheme = .dark,
         disconnectTerminal: (@MainActor (
             _ sessionId: String,
             _ subscriptionId: String,
@@ -87,7 +85,6 @@ final class TerminalSessionManager {
         self.runtimeHandle = runtimeHandle
         self.commandSink = commandSink
         self.settings = settings
-        self.colorScheme = colorScheme
         self.disconnectTerminal = disconnectTerminal ?? { sessionId, subscriptionId, subscriptionGeneration in
             runtimeHandle.disconnectTerminal(
                 sessionId: sessionId,
@@ -228,7 +225,6 @@ final class TerminalSessionManager {
         }
 
         let renderer = TerminalRendererSession(
-            colorScheme: colorScheme,
             write: { [token] data in
                 Self.handleTerminalWrite(
                     data,
