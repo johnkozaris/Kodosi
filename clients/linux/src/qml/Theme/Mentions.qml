@@ -65,15 +65,15 @@ QtObject {
     }
 
     function html(text: string, targets: var, chip: color, ink: color): string {
-        return segments(text, targets).map(segment => {
-            const body = escaped(segment.text).replace(/\n/g, "<br/>")
+        return "<span style=\"white-space:pre-wrap\">" + segments(text, targets).map(segment => {
+            const body = escaped(segment.text)
             if (!segment.target)
                 return body
             const style = "color:" + ink + ";background-color:" + chip + ";font-weight:600;text-decoration:none"
             return segment.target.kind === "terminal"
-                ? "<a href=\"kodosi-mention://terminal/" + segment.target.id + "\" style=\"" + style + "\">&nbsp;" + body + "&nbsp;</a>"
+                ? "<a href=\"kodosi-mention://terminal/" + escaped(segment.target.id) + "\" style=\"" + style + "\">&nbsp;" + body + "&nbsp;</a>"
                 : "<span style=\"" + style + "\">&nbsp;" + body + "&nbsp;</span>"
-        }).join("")
+        }).join("") + "</span>"
     }
 
     function query(text: string): string {
@@ -84,11 +84,13 @@ QtObject {
         return fragment.length > 40 || fragment.indexOf("\n") >= 0 ? "" : "@" + fragment
     }
 
-    function suggestions(query: string, targets: var): var {
+    function suggestions(query: string, targets: var, selfId: string): var {
         if (query.length === 0)
             return []
         const needle = query.substring(1).toLowerCase()
         return targets.filter(target => {
+            if (target.id === selfId)
+                return false
             const name = target.name.toLowerCase()
             return name.startsWith(needle) || name.split(" ").some(word => needle.length > 0 && word.startsWith(needle))
         }).slice(0, 6)

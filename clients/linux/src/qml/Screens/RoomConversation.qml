@@ -13,7 +13,7 @@ Item {
     readonly property var messages: room.messages || []
     readonly property var targets: Mentions.targets(Models.Missions.members, Models.Missions.sessionIds)
     readonly property string query: editor.activeFocus && dismissed !== Mentions.query(editor.text) ? Mentions.query(editor.text) : ""
-    readonly property var suggestions: Mentions.suggestions(query, targets)
+    readonly property var suggestions: Mentions.suggestions(query, targets, Models.Account.userId)
     readonly property bool canSend: !Models.Missions.busy && editor.text.trim().length > 0
     property bool copied: false
     property string dismissed: ""

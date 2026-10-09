@@ -17,7 +17,7 @@ QtObject {
     }
 
     function initials(name: string): string {
-        const letters = name.trim().split(/\s+/).slice(0, 2).map(part => part.charAt(0)).join("").toUpperCase()
+        const letters = name.trim().split(/\s+/).slice(0, 2).map(part => String.fromCodePoint(part.codePointAt(0))).join("").toUpperCase()
         return letters.length > 0 ? letters : "·"
     }
 

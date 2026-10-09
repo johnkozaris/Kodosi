@@ -856,7 +856,10 @@ Item {
                                 }
 
                                 onClicked: root.openTerminal(sessionId)
-                                onDoubleClicked: root.renamingId = sessionId
+                                onDoubleClicked: {
+                                    if (row.session.isOwner === true)
+                                        root.renamingId = sessionId
+                                }
 
                                 HoverHandler { id: rowHover }
                                 TapHandler {
@@ -956,7 +959,7 @@ Item {
         readonly property var session: Models.Sessions.presentationForSession(sessionId)
 
         KMenuItem { text: qsTr("Open"); iconName: "terminal"; onTriggered: root.openTerminal(menu.sessionId) }
-        KMenuItem { text: qsTr("Rename"); iconName: "pencil"; onTriggered: root.renamingId = menu.sessionId }
+        KMenuItem { text: qsTr("Rename"); iconName: "pencil"; enabled: menu.session.isOwner === true; onTriggered: root.renamingId = menu.sessionId }
         KMenuItem { text: qsTr("Share…"); iconName: "share"; enabled: menu.session.kind === "local" && menu.session.isOwner === true; onTriggered: root.shareRequested(menu.sessionId) }
         KMenuItem { text: qsTr("Details"); iconName: "info"; onTriggered: root.detailsRequested(menu.sessionId) }
         MenuSeparator { contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.alpha(KodosiTheme.hairline, 0.7) } }

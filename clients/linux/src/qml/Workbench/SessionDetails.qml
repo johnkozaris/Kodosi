@@ -70,12 +70,13 @@ KPopover {
                     selectedTextColor: KodosiTheme.accentInk
                     selectByMouse: true
                     clip: true
+                    readOnly: root.session.isOwner !== true
                     objectName: "panel.sessionDetails.name"
                     Accessible.id: objectName
                     Accessible.name: qsTr("Terminal name")
-                    Accessible.role: Accessible.EditableText
+                    Accessible.role: readOnly ? Accessible.StaticText : Accessible.EditableText
                     onEditingFinished: {
-                        if (text.trim().length > 0 && text.trim() !== root.session.name)
+                        if (!readOnly && text.trim().length > 0 && text.trim() !== root.session.name)
                             Models.SessionActions.rename(root.sessionId, text);
                         else
                             text = Qt.binding(() => root.session.name || "");

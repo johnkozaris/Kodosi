@@ -46,7 +46,7 @@ ColumnLayout {
                 Text { text: "~/kodosi ❯"; color: KodosiTheme.terminalInkFaint; font.family: family.text; font.pixelSize: size.value }
                 Text { text: "claude"; color: KodosiTheme.terminalInk; font.family: family.text; font.pixelSize: size.value }
             }
-            Text { text: "✻ Welcome back. What are we building?"; color: KodosiTheme.terminalAccent; font.family: family.text; font.pixelSize: size.value }
+            Text { text: "✻ " + qsTr("Welcome back. What are we building?"); color: KodosiTheme.terminalAccent; font.family: family.text; font.pixelSize: size.value }
             Row {
                 spacing: size.value * 0.6
                 Text { text: "~/kodosi ❯"; color: KodosiTheme.terminalInkFaint; font.family: family.text; font.pixelSize: size.value }

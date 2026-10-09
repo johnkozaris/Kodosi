@@ -207,6 +207,7 @@ public:
                 session->second.surfaces,
                 [&](const auto& surface) { return displaced(surface.second); })) {
             targets.seedOnly = false;
+            session->second.seedRefreshSurfaceGenerations.clear();
             targets.entries.reserve(session->second.surfaces.size());
             for (const auto& [_, entry] : session->second.surfaces) {
                 if (entry->needsCheckpoint.load(std::memory_order_acquire)
