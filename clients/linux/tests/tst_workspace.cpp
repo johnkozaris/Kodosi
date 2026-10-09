@@ -203,6 +203,51 @@ private slots:
         f.workspace.apply(test::snapshot({ idle }), 0);
         QVERIFY(f.sessions.attention().isEmpty());
     }
+    void aProgramStatusReportIsTheStateOfItsTerminal()
+    {
+        Fixture f;
+        const auto reported = [](const int number, const QJsonObject& status, const QString& title = {}) {
+            auto session = test::session(number);
+            session.insert(QStringLiteral("programStatus"), status);
+            if (!title.isEmpty())
+                session.insert(QStringLiteral("title"), title);
+            return session;
+        };
+        const auto activity = [&](const int number) {
+            return f.sessions.presentationForSession(test::id(number)).value(QStringLiteral("activity")).toString();
+        };
+        f.workspace.apply(test::snapshot({
+            reported(1, {{QStringLiteral("state"), QStringLiteral("working")}}, QStringLiteral("Build")),
+            reported(2, {{QStringLiteral("state"), QStringLiteral("idle")}}, QStringLiteral("\u2802 Build")),
+        }), 0);
+        QVERIFY(f.sessions.working());
+        QVERIFY(f.sessions.presentationForSession(test::id(1)).value(QStringLiteral("working")).toBool());
+        QVERIFY(!f.sessions.presentationForSession(test::id(2)).value(QStringLiteral("working")).toBool());
+        QCOMPARE(activity(2), QStringLiteral("Build"));
+        QVERIFY(f.sessions.attention().isEmpty());
+
+        f.workspace.apply(test::snapshot({
+            reported(1, {{QStringLiteral("state"), QStringLiteral("blocked")}, {QStringLiteral("kind"), QStringLiteral("permission")},
+                {QStringLiteral("title"), QStringLiteral("Review")}, {QStringLiteral("message"), QStringLiteral("Allow the command?")}}),
+            reported(2, {{QStringLiteral("state"), QStringLiteral("blocked")}, {QStringLiteral("kind"), QStringLiteral("question")}}),
+        }), 0);
+        QVERIFY(!f.sessions.working());
+        QCOMPARE(activity(1), QStringLiteral("Review: Allow the command?"));
+        QCOMPARE(activity(2), QStringLiteral("Needs your answer"));
+        QCOMPARE(f.sessions.attention(), (QStringList { test::id(1), test::id(2) }));
+
+        f.sessions.clearAttention(test::id(1));
+        f.sessions.clearAttention(test::id(2));
+        f.workspace.apply(test::snapshot({
+            reported(1, {{QStringLiteral("state"), QStringLiteral("blocked")}, {QStringLiteral("kind"), QStringLiteral("permission")}}),
+            reported(2, {{QStringLiteral("state"), QStringLiteral("error")}}),
+        }), 0);
+        QCOMPARE(activity(2), QStringLiteral("Failed"));
+        QCOMPARE(f.sessions.attention(), QStringList { test::id(2) });
+
+        f.workspace.apply(test::snapshot({ reported(1, {{QStringLiteral("state"), QStringLiteral("dance")}}) }), 0);
+        QCOMPARE(f.sessions.session(test::id(2))->programState, QStringLiteral("error"));
+    }
     void minimizeKeepsProcessAndClosePrunesFromCatalog()
     {
         Fixture f;

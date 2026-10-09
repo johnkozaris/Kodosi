@@ -1,6 +1,7 @@
 mod emulator;
 mod remote;
 mod session;
+mod status;
 mod subscribers;
 mod types;
 mod validation;
@@ -8,6 +9,7 @@ mod validation;
 pub use emulator::TerminalHistoryPolicy;
 pub(crate) use remote::RemoteTerminal;
 pub(crate) use session::{LocalSession, SessionChange};
+pub use status::{BlockedKind, ProgramState, ProgramStatus};
 pub use subscribers::{ControlFrame, DataFrame, Subscription};
 pub use types::{
     Checkpoint, MAX_TERMINAL_COLS, MAX_TERMINAL_ROWS, TERMINAL_CHECKPOINT_SCHEMA_VERSION,

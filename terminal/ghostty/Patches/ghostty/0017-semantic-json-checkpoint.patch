@@ -1,5 +1,5 @@
 diff --git a/include/ghostty.h b/include/ghostty.h
-index 57e647365..d6c07c42b 100644
+index b6e587b6c..013acafc8 100644
 --- a/include/ghostty.h
 +++ b/include/ghostty.h
 @@ -538,6 +538,49 @@ typedef struct {
@@ -52,7 +52,7 @@ index 57e647365..d6c07c42b 100644
  typedef struct {
    uint16_t columns;
    uint16_t rows;
-@@ -1194,16 +1237,17 @@ GHOSTTY_API ghostty_surface_config_s ghostty_surface_inherited_config(ghostty_su
+@@ -1202,16 +1245,17 @@ GHOSTTY_API ghostty_surface_config_s ghostty_surface_inherited_config(ghostty_su
  GHOSTTY_API void ghostty_surface_update_config(ghostty_surface_t, ghostty_config_t);
  GHOSTTY_API bool ghostty_surface_needs_confirm_quit(ghostty_surface_t);
  GHOSTTY_API bool ghostty_surface_process_exited(ghostty_surface_t);
@@ -80,10 +80,10 @@ index 57e647365..d6c07c42b 100644
  GHOSTTY_API void ghostty_surface_refresh(ghostty_surface_t);
  GHOSTTY_API void ghostty_surface_draw(ghostty_surface_t);
 diff --git a/include/ghostty/vt.h b/include/ghostty/vt.h
-index 57f0a0e65..eccf3d559 100644
+index cfa1017e7..e6fde5e61 100644
 --- a/include/ghostty/vt.h
 +++ b/include/ghostty/vt.h
-@@ -135,6 +135,7 @@ extern "C" {
+@@ -143,6 +143,7 @@ extern "C" {
  #include <ghostty/vt/types.h>
  #include <ghostty/vt/allocator.h>
  #include <ghostty/vt/build_info.h>
@@ -251,10 +251,10 @@ index 000000000..e5f6f0016
 +
 +#endif /* GHOSTTY_VT_CHECKPOINT_H */
 diff --git a/src/App.zig b/src/App.zig
-index 2ee9f936c..d5814f955 100644
+index b484484a5..5c40fb5d7 100644
 --- a/src/App.zig
 +++ b/src/App.zig
-@@ -533,6 +533,9 @@ fn surfaceMessage(self: *App, surface: *Surface, msg: apprt.surface.Message) !vo
+@@ -534,6 +534,9 @@ fn surfaceMessage(self: *App, surface: *Surface, msg: apprt.surface.Message) !vo
      // a simple linear search here.
      if (self.hasSurface(surface)) {
          try surface.handleMessage(msg);
@@ -265,10 +265,10 @@ index 2ee9f936c..d5814f955 100644
  
      // Window was not found, it probably quit before we handled the message.
 diff --git a/src/Surface.zig b/src/Surface.zig
-index 04f4a2d4b..17a4ba282 100644
+index 077c309d7..413f88a13 100644
 --- a/src/Surface.zig
 +++ b/src/Surface.zig
-@@ -984,6 +984,20 @@ pub fn needsConfirmQuit(self: *Surface) bool {
+@@ -995,6 +995,20 @@ pub fn needsConfirmQuit(self: *Surface) bool {
  /// surface.
  pub fn handleMessage(self: *Surface, msg: Message) !void {
      switch (msg) {
@@ -289,7 +289,7 @@ index 04f4a2d4b..17a4ba282 100644
          .change_config => |config| try self.updateConfig(config),
  
          .set_title => |*v| {
-@@ -2360,7 +2374,7 @@ fn copySelectionToClipboards(
+@@ -2422,7 +2436,7 @@ fn copySelectionToClipboards(
  /// also copy per `copy_on_select`, use `setSelectionAndCopy`.
  ///
  /// This must be called with the renderer mutex held.
@@ -298,7 +298,7 @@ index 04f4a2d4b..17a4ba282 100644
      // Compute the transition before `select` below, which untracks (frees)
      // the previous selection's tracked pins; reading them after would be a
      // use-after-free.
-@@ -2384,6 +2398,10 @@ fn setSelection(self: *Surface, sel_: ?terminal.Selection) !void {
+@@ -2446,6 +2460,10 @@ fn setSelection(self: *Surface, sel_: ?terminal.Selection) !void {
      }
  }
  
@@ -309,7 +309,7 @@ index 04f4a2d4b..17a4ba282 100644
  /// Set a selection and, per `copy_on_select`, copy it to the clipboard.
  /// For committing selection gestures (mouse release, select-all binding).
  ///
-@@ -2488,7 +2506,7 @@ pub fn setFontSize(self: *Surface, size: font.face.DesiredSize) !void {
+@@ -2548,7 +2566,7 @@ pub fn setFontSize(self: *Surface, size: font.face.DesiredSize) !void {
  /// This queues a render operation with the renderer thread. The render
  /// isn't guaranteed to happen immediately but it will happen as soon as
  /// practical.
@@ -318,8 +318,8 @@ index 04f4a2d4b..17a4ba282 100644
      try self.renderer_thread.wakeup.notify();
  }
  
-@@ -2533,6 +2551,66 @@ fn resize(self: *Surface, size: rendererpkg.ScreenSize) !void {
-     self.queueIo(.{ .resize = self.size }, .unlocked);
+@@ -2622,6 +2640,66 @@ fn resize(self: *Surface, size: rendererpkg.ScreenSize) !void {
+     };
  }
  
 +pub fn checkpointSelectionChanged(self: *Surface) void {
@@ -386,7 +386,7 @@ index 04f4a2d4b..17a4ba282 100644
  fn balancePaddingIfNeeded(self: *Surface) void {
      if (self.config.window_padding_balance == .false) return;
 diff --git a/src/apprt/embedded.zig b/src/apprt/embedded.zig
-index dc5a5b704..a599bde11 100644
+index 1902f4c1e..3bd6162a2 100644
 --- a/src/apprt/embedded.zig
 +++ b/src/apprt/embedded.zig
 @@ -1928,32 +1928,56 @@ pub const CAPI = struct {
@@ -431,8 +431,6 @@ index dc5a5b704..a599bde11 100644
 -        ) catch |err| {
 -            log.warn("error replacing host-managed terminal output err={}", .{err});
 -            return false;
--        };
--        return true;
 +            return .invalid_value;
 +
 +        const core = &surface.core_surface;
@@ -442,7 +440,8 @@ index dc5a5b704..a599bde11 100644
 +        defer if (deferred_owned) switch (deferred) {
 +            .checkpoint_restored => |*value| value.pwd.deinit(),
 +            else => unreachable,
-+        };
+         };
+-        return true;
 +        core.renderer_state.mutex.lockUncancelable(global.io());
 +        const result = core.io.restoreCheckpointLocked(
 +            json,
@@ -468,7 +467,7 @@ index dc5a5b704..a599bde11 100644
  
      /// Report host process exit once, after all output has been written. Calls
 diff --git a/src/apprt/surface.zig b/src/apprt/surface.zig
-index 51da3374a..3b5c17131 100644
+index 3b1a04d8a..e5e91e8af 100644
 --- a/src/apprt/surface.zig
 +++ b/src/apprt/surface.zig
 @@ -57,6 +57,15 @@ pub const Message = union(enum) {
@@ -487,7 +486,7 @@ index 51da3374a..3b5c17131 100644
      /// Set the title of the surface.
      /// TODO: we should change this to a "WriteReq" style structure in
      /// the termio message so that we can more efficiently send strings
-@@ -199,6 +208,17 @@ pub const Mailbox = struct {
+@@ -206,6 +215,17 @@ pub const Mailbox = struct {
      }
  };
  
@@ -506,11 +505,11 @@ index 51da3374a..3b5c17131 100644
  pub const NewSurfaceContext = enum(c_int) {
      window = 0,
 diff --git a/src/lib_vt.zig b/src/lib_vt.zig
-index 2bfd76794..4145afbcb 100644
+index e1b45fcea..32b67abb8 100644
 --- a/src/lib_vt.zig
 +++ b/src/lib_vt.zig
-@@ -241,6 +241,10 @@ comptime {
-         @export(&c.osc_end, .{ .name = "ghostty_osc_end" });
+@@ -246,6 +246,10 @@ comptime {
+         @export(&c.osc_set, .{ .name = "ghostty_osc_set" });
          @export(&c.osc_command_type, .{ .name = "ghostty_osc_command_type" });
          @export(&c.osc_command_data, .{ .name = "ghostty_osc_command_data" });
 +        @export(&c.checkpoint_schema, .{ .name = "ghostty_checkpoint_schema" });
@@ -521,10 +520,10 @@ index 2bfd76794..4145afbcb 100644
          @export(&c.mode_report_encode, .{ .name = "ghostty_mode_report_encode" });
          @export(&c.unicode_codepoint_width, .{ .name = "ghostty_unicode_codepoint_width" });
 diff --git a/src/renderer/Thread.zig b/src/renderer/Thread.zig
-index f66fd3842..64443b512 100644
+index 95e708344..6ac081190 100644
 --- a/src/renderer/Thread.zig
 +++ b/src/renderer/Thread.zig
-@@ -385,6 +385,10 @@ fn drainMailbox(self: *Thread) !void {
+@@ -379,6 +379,10 @@ fn drainMailbox(self: *Thread) !void {
                  }
              },
  
@@ -536,10 +535,10 @@ index f66fd3842..64443b512 100644
                  self.flags.cursor_blink_visible = true;
                  if (self.cursor_c.state() == .active) {
 diff --git a/src/renderer/generic.zig b/src/renderer/generic.zig
-index 2a81f42b4..e2fe8c41a 100644
+index 2e01d9b66..5952b7565 100644
 --- a/src/renderer/generic.zig
 +++ b/src/renderer/generic.zig
-@@ -992,6 +992,24 @@ pub fn Renderer(comptime GraphicsAPI: type) type {
+@@ -1060,6 +1060,24 @@ pub fn Renderer(comptime GraphicsAPI: type) type {
              };
          }
  
@@ -565,7 +564,7 @@ index 2a81f42b4..e2fe8c41a 100644
          pub inline fn markDirty(self: *Self) void {
              self.terminal_state.dirty = .full;
 diff --git a/src/renderer/message.zig b/src/renderer/message.zig
-index a47b96080..c782ea3a7 100644
+index 16d3b32c6..040f9790f 100644
 --- a/src/renderer/message.zig
 +++ b/src/renderer/message.zig
 @@ -22,6 +22,9 @@ pub const Message = union(enum) {
@@ -579,10 +578,10 @@ index a47b96080..c782ea3a7 100644
      /// restarting the timer.
      reset_cursor_blink,
 diff --git a/src/terminal/PageList.zig b/src/terminal/PageList.zig
-index d33eff00a..3c844cfc5 100644
+index 52e21fd9a..8c74ab40b 100644
 --- a/src/terminal/PageList.zig
 +++ b/src/terminal/PageList.zig
-@@ -3938,6 +3938,23 @@ fn fixupViewport(
+@@ -3966,6 +3966,23 @@ fn fixupViewport(
      }
  }
  
@@ -654,7 +653,7 @@ index 7200d162a..72894d1d9 100644
      for (self.entries.values()) |*entry| entry.deinit(alloc);
 diff --git a/src/terminal/c/checkpoint.zig b/src/terminal/c/checkpoint.zig
 new file mode 100644
-index 0000000b..583e1aa0 100644
+index 000000000..583e1aa01
 --- /dev/null
 +++ b/src/terminal/c/checkpoint.zig
 @@ -0,0 +1,1261 @@
@@ -1933,7 +1932,7 @@ index 475a8e430..7115015e4 100644
          const t = wrapper.terminal;
          if (t.screens.generation(ref.screen_key) != ref.screen_generation) return null;
 diff --git a/src/terminal/c/main.zig b/src/terminal/c/main.zig
-index 562fe40e6..bd13f3d5f 100644
+index 5248c2cb6..f8434146f 100644
 --- a/src/terminal/c/main.zig
 +++ b/src/terminal/c/main.zig
 @@ -4,6 +4,8 @@ const CAllocator = lib.alloc.Allocator;
@@ -1945,7 +1944,7 @@ index 562fe40e6..bd13f3d5f 100644
  pub const color = @import("color.zig");
  pub const color_scheme = @import("color_scheme.zig");
  pub const focus = @import("focus.zig");
-@@ -59,6 +61,11 @@ pub const osc_end = osc.end;
+@@ -61,6 +63,11 @@ pub const osc_set = osc.set;
  pub const osc_command_type = osc.commandType;
  pub const osc_command_data = osc.commandData;
  
@@ -1957,7 +1956,7 @@ index 562fe40e6..bd13f3d5f 100644
  pub const color_rgb_get = color.rgb_get;
  pub const color_contrast = color.contrast;
  pub const color_luminance = color.luminance;
-@@ -252,6 +259,7 @@ test {
+@@ -262,6 +269,7 @@ test {
      _ = allocator;
      _ = buildpkg;
      _ = cell;
@@ -2033,7 +2032,7 @@ index 46253057c..d7a61db2d 100644
  
      switch (data) {
 diff --git a/src/terminal/c/terminal.zig b/src/terminal/c/terminal.zig
-index 736d0ca0..71f59058 100644
+index 0e18c07c4..58eea031d 100644
 --- a/src/terminal/c/terminal.zig
 +++ b/src/terminal/c/terminal.zig
 @@ -7,7 +7,7 @@ const CAllocator = lib.alloc.Allocator;
@@ -2045,7 +2044,7 @@ index 736d0ca0..71f59058 100644
  const Screen = @import("../Screen.zig");
  const ScreenSet = @import("../ScreenSet.zig");
  const PageList = @import("../PageList.zig");
-@@ -69,7 +69,7 @@ pub const Io = struct {
+@@ -71,7 +71,7 @@ pub const Io = struct {
  /// Wrapper around ZigTerminal that tracks additional state for C API usage,
  /// such as the persistent VT stream needed to handle escape sequences split
  /// across multiple vt_write calls.
@@ -2054,7 +2053,7 @@ index 736d0ca0..71f59058 100644
      terminal: *ZigTerminal,
      /// C construction has no I/O argument, so the wrapper retains the owner
      /// created by `new` or transferred from snapshot decoding until `free`.
-@@ -85,6 +85,7 @@ const TerminalWrapper = struct {
+@@ -87,6 +87,7 @@ const TerminalWrapper = struct {
      effects: Effects = .{},
      tracked_grid_refs: std.AutoArrayHashMapUnmanaged(*grid_ref_tracked_c.TrackedGridRef, void) = .{},
      searches: std.AutoArrayHashMapUnmanaged(*search_c.SearchWrapper, void) = .{},
@@ -2062,7 +2061,7 @@ index 736d0ca0..71f59058 100644
  
      /// Fetches a `TerminalWrapper` reference from a `Handler`.
      fn fromHandler(handler: *Handler) *TerminalWrapper {
-@@ -647,6 +648,31 @@ pub fn zigTerminal(terminal_: Terminal) ?*ZigTerminal {
+@@ -793,6 +794,31 @@ pub fn zigTerminal(terminal_: Terminal) ?*ZigTerminal {
      return (terminal_ orelse return null).terminal;
  }
  
@@ -2094,7 +2093,7 @@ index 736d0ca0..71f59058 100644
  /// Attach the persistent C stream and I/O owner to a heap-stable terminal.
  /// The caller retains ownership of both inputs if wrapper allocation fails.
  fn wrap(
-@@ -1066,7 +1092,7 @@ pub fn continuation_alloc(
+@@ -1216,7 +1242,7 @@ pub fn continuation_alloc(
      return .success;
  }
  
@@ -2103,7 +2102,7 @@ index 736d0ca0..71f59058 100644
      // Absence of a tracker is the public representation of disabled tracking.
      return if (wrapper.stream.continuation) |tracker|
          tracker.max_bytes
-@@ -1813,6 +1839,41 @@ pub fn point_from_grid_ref(
+@@ -2082,6 +2108,41 @@ pub fn point_from_grid_ref(
      return .success;
  }
  
@@ -2145,7 +2144,7 @@ index 736d0ca0..71f59058 100644
  pub fn free(terminal_: Terminal) callconv(lib.calling_conv) void {
      const wrapper = terminal_ orelse return;
      const t = wrapper.terminal;
-@@ -1822,6 +1883,8 @@ pub fn free(terminal_: Terminal) callconv(lib.calling_conv) void {
+@@ -2091,6 +2152,8 @@ pub fn free(terminal_: Terminal) callconv(lib.calling_conv) void {
      wrapper.tracked_grid_refs.deinit(alloc);
      for (wrapper.searches.keys()) |search| search.terminal = null;
      wrapper.searches.deinit(alloc);
@@ -2155,7 +2154,7 @@ index 736d0ca0..71f59058 100644
      t.deinit(alloc);
      if (wrapper.tmp_dir_path) |path| alloc.free(path);
 diff --git a/src/terminal/c/types.zig b/src/terminal/c/types.zig
-index c1f524a86..237a8e960 100644
+index 55e2b517d..937591e8b 100644
 --- a/src/terminal/c/types.zig
 +++ b/src/terminal/c/types.zig
 @@ -28,6 +28,7 @@ const input_mouse = @import("../../input/mouse.zig");
@@ -2166,7 +2165,7 @@ index c1f524a86..237a8e960 100644
  const color_c = @import("color.zig");
  const formatter = @import("formatter.zig");
  const grid_ref = @import("grid_ref.zig");
-@@ -173,6 +174,10 @@ const type_decls = [_]TypeDecl{
+@@ -174,6 +175,10 @@ const type_decls = [_]TypeDecl{
      .initStruct("GhosttyAllocator", lib.alloc.Allocator),
      .initStruct("GhosttyAllocatorVtable", lib.alloc.VTable),
      .initStruct("GhosttyBuffer", lib.Buffer),
@@ -2179,7 +2178,7 @@ index c1f524a86..237a8e960 100644
      .initStruct("GhosttyClipboardRead", terminal.ClipboardRead),
 diff --git a/src/terminal/checkpoint_json.zig b/src/terminal/checkpoint_json.zig
 new file mode 100644
-index 000000000..4aee399f7
+index 000000000..f0c2ae2a9
 --- /dev/null
 +++ b/src/terminal/checkpoint_json.zig
 @@ -0,0 +1,1145 @@
@@ -3330,7 +3329,7 @@ index 000000000..4aee399f7
 +}
 diff --git a/src/terminal/checkpoint_page_json.zig b/src/terminal/checkpoint_page_json.zig
 new file mode 100644
-index 000000000..1058888eb
+index 000000000..4f313b5a4
 --- /dev/null
 +++ b/src/terminal/checkpoint_page_json.zig
 @@ -0,0 +1,1377 @@
@@ -6034,12 +6033,12 @@ index 897c8944a..4872d527d 100644
      pub fn enabled(self: *const ImageStorage) bool {
          return self.total_limit != 0;
 diff --git a/src/terminal/main.zig b/src/terminal/main.zig
-index 5d7c73871..5139aa427 100644
+index a5a78cd5c..ecb71081d 100644
 --- a/src/terminal/main.zig
 +++ b/src/terminal/main.zig
-@@ -11,6 +11,9 @@ pub const osc = @import("osc.zig");
- pub const point = @import("point.zig");
+@@ -12,6 +12,9 @@ pub const point = @import("point.zig");
  pub const color = @import("color.zig");
+ pub const xt_checksum = @import("xt_checksum.zig");
  pub const clipboard = @import("clipboard.zig");
 +pub const checkpoint_json = @import("checkpoint_json.zig");
 +pub const checkpoint_page_json = @import("checkpoint_page_json.zig");
@@ -6048,7 +6047,7 @@ index 5d7c73871..5139aa427 100644
  pub const device_status = @import("device_status.zig");
  pub const focus = @import("focus.zig");
 diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
-index b10da33d3..377d3ea9e 100644
+index 7569c515a..ddba95b38 100644
 --- a/src/termio/Termio.zig
 +++ b/src/termio/Termio.zig
 @@ -13,6 +13,8 @@ const posix = std.posix;
@@ -6060,34 +6059,14 @@ index b10da33d3..377d3ea9e 100644
  const global = @import("../global.zig");
  const xev = global.xev;
  const renderer = @import("../renderer.zig");
-@@ -658,73 +660,134 @@ pub fn focusGained(self: *Termio, td: *ThreadData, focused: bool) !void {
+@@ -690,6 +692,157 @@ pub fn focusGained(self: *Termio, td: *ThreadData, focused: bool) !void {
      try self.backend.focusGained(td, focused);
  }
  
--/// Process output from the pty. This is the manual API that users can
--/// call with pty data but it is also called by the read thread when using
--/// an exec subprocess.
--pub fn processOutput(self: *Termio, buf: []const u8) void {
--    // We are modifying terminal state from here on out and we need
--    // the lock to grab our read data.
--    self.renderer_state.mutex.lockUncancelable(global.io());
--    defer self.renderer_state.mutex.unlock(global.io());
--    self.processOutputLocked(buf);
--}
--
--/// Replace a host-managed terminal from a portable replay. The grid and replay
--/// are applied under one renderer-state lock so no live output can observe or
--/// mutate the terminal between them.
--pub fn replaceOutput(
 +/// Transactionally restore semantic terminal and parser state for a host-managed
 +/// surface. The terminal address and every callback/config pointer remain stable.
 +pub fn restoreCheckpointLocked(
-     self: *Termio,
--    buf: []const u8,
--    columns: u16,
--    rows: u16,
--) !void {
--    if (columns == 0 or rows == 0) return error.InvalidGridSize;
++    self: *Termio,
 +    json: []const u8,
 +    options: *const checkpoint.RestoreOptions,
 +    info: ?checkpoint.InfoOutput,
@@ -6126,8 +6105,7 @@ index b10da33d3..377d3ea9e 100644
 +            screen.kitty_images.image_limits = .allWithTempDir(global.tmpDirPath());
 +        }
 +    }
- 
--    const terminal_width = try std.math.mul(
++
 +    var handler = freshStreamHandler(self);
 +    handler.terminal = &new_terminal;
 +    var new_stream: StreamHandler.Stream = .init(.{
@@ -6147,41 +6125,14 @@ index b10da33d3..377d3ea9e 100644
 +    ) catch |err| return checkpoint.mapError(err);
 +
 +    const terminal_width = std.math.mul(
-         u32,
--        @as(u32, columns),
++        u32,
 +        @as(u32, new_terminal.cols),
-         self.size.cell.width,
--    );
--    const terminal_height = try std.math.mul(
++        self.size.cell.width,
 +    ) catch return .limit_exceeded;
 +    const terminal_height = std.math.mul(
-         u32,
--        @as(u32, rows),
++        u32,
 +        @as(u32, new_terminal.rows),
-         self.size.cell.height,
--    );
--    const horizontal_padding = try std.math.add(
--        u32,
--        self.size.padding.left,
--        self.size.padding.right,
--    );
--    const vertical_padding = try std.math.add(
--        u32,
--        self.size.padding.top,
--        self.size.padding.bottom,
--    );
--    const screen_width = try std.math.add(u32, terminal_width, horizontal_padding);
--    const screen_height = try std.math.add(u32, terminal_height, vertical_padding);
--
--    self.renderer_state.mutex.lockUncancelable(global.io());
--    defer self.renderer_state.mutex.unlock(global.io());
--
--    try self.terminal.resize(self.alloc, .{
--        .cols = columns,
--        .rows = rows,
--        .cell_size_px = .{
--            .width = self.size.cell.width,
--            .height = self.size.cell.height,
++        self.size.cell.height,
 +    ) catch return .limit_exceeded;
 +    const new_size: renderer.Size = .{
 +        .screen = .{
@@ -6195,7 +6146,7 @@ index b10da33d3..377d3ea9e 100644
 +                terminal_height,
 +                self.size.padding.top + self.size.padding.bottom,
 +            ) catch return .limit_exceeded,
-         },
++        },
 +        .cell = self.size.cell,
 +        .padding = self.size.padding,
 +    };
@@ -6233,61 +6184,124 @@ index b10da33d3..377d3ea9e 100644
 +    checkpoint.writeInfo(info, .{
 +        .json_bytes = constructed.json_bytes,
 +        .continuation_bytes = checkpoint.decodedContinuationLen(constructed.parser) catch 0,
-     });
--    self.terminal.fullReset();
--    self.resetTerminalStream();
--    self.size.screen = .{ .width = screen_width, .height = screen_height };
--    self.processOutputLocked(buf);
++    });
 +    return .success;
- }
- 
--/// Reset all parser and stream-handler state while retaining only the stable
--/// renderer, mailbox, configuration, and terminal pointers.
--fn resetTerminalStream(self: *Termio) void {
++}
++
 +fn freshStreamHandler(self: *Termio) StreamHandler {
-     const current = &self.terminal_stream.handler;
--    const handler: StreamHandler = .{
++    const current = &self.terminal_stream.handler;
 +    return .{
-         .alloc = current.alloc,
-         .termio_mailbox = current.termio_mailbox,
-         .surface_mailbox = current.surface_mailbox,
-@@ -732,18 +795,30 @@ fn resetTerminalStream(self: *Termio) void {
-         .renderer_wakeup = current.renderer_wakeup,
-         .renderer_mailbox = current.renderer_mailbox,
-         .size = current.size,
--        .terminal = current.terminal,
++        .alloc = current.alloc,
++        .termio_mailbox = current.termio_mailbox,
++        .surface_mailbox = current.surface_mailbox,
++        .renderer_state = current.renderer_state,
++        .renderer_wakeup = current.renderer_wakeup,
++        .renderer_mailbox = current.renderer_mailbox,
++        .size = current.size,
 +        .terminal = &self.terminal,
-         .osc_color_report_format = current.osc_color_report_format,
-         .clipboard_write = current.clipboard_write,
-         .image_protocols_enabled = current.image_protocols_enabled,
-         .clipboard_write_limit = current.clipboard_write_limit,
-         .enquiry_response = current.enquiry_response,
++        .osc_color_report_format = current.osc_color_report_format,
++        .clipboard_write = current.clipboard_write,
++        .image_protocols_enabled = current.image_protocols_enabled,
++        .clipboard_write_limit = current.clipboard_write_limit,
++        .enquiry_response = current.enquiry_response,
++        .xt_checksum_report = current.xt_checksum_report,
 +        .apc = .{
 +            .max_bytes = current.apc.max_bytes,
 +            .enabled = current.apc.enabled,
 +            .unknown_max_bytes = current.apc.unknown_max_bytes,
 +        },
 +        .dcs = .{ .max_bytes = current.dcs.max_bytes },
-     };
++    };
++}
++
+ /// Process output from the pty. This is the manual API that users can
+ /// call with pty data but it is also called by the read thread when using
+ /// an exec subprocess.
+@@ -701,84 +854,6 @@ pub fn processOutput(self: *Termio, buf: []const u8) void {
+     self.processOutputLocked(buf);
+ }
+ 
+-/// Replace a host-managed terminal from a portable replay. The grid and replay
+-/// are applied under one renderer-state lock so no live output can observe or
+-/// mutate the terminal between them.
+-pub fn replaceOutput(
+-    self: *Termio,
+-    buf: []const u8,
+-    columns: u16,
+-    rows: u16,
+-) !void {
+-    if (columns == 0 or rows == 0) return error.InvalidGridSize;
+-
+-    const terminal_width = try std.math.mul(
+-        u32,
+-        @as(u32, columns),
+-        self.size.cell.width,
+-    );
+-    const terminal_height = try std.math.mul(
+-        u32,
+-        @as(u32, rows),
+-        self.size.cell.height,
+-    );
+-    const horizontal_padding = try std.math.add(
+-        u32,
+-        self.size.padding.left,
+-        self.size.padding.right,
+-    );
+-    const vertical_padding = try std.math.add(
+-        u32,
+-        self.size.padding.top,
+-        self.size.padding.bottom,
+-    );
+-    const screen_width = try std.math.add(u32, terminal_width, horizontal_padding);
+-    const screen_height = try std.math.add(u32, terminal_height, vertical_padding);
+-
+-    self.renderer_state.mutex.lockUncancelable(global.io());
+-    defer self.renderer_state.mutex.unlock(global.io());
+-
+-    try self.terminal.resize(self.alloc, .{
+-        .cols = columns,
+-        .rows = rows,
+-        .cell_size_px = .{
+-            .width = self.size.cell.width,
+-            .height = self.size.cell.height,
+-        },
+-    });
+-    self.terminal.fullReset();
+-    self.resetTerminalStream();
+-    self.size.screen = .{ .width = screen_width, .height = screen_height };
+-    self.processOutputLocked(buf);
+-}
+-
+-/// Reset all parser and stream-handler state while retaining only the stable
+-/// renderer, mailbox, configuration, and terminal pointers.
+-fn resetTerminalStream(self: *Termio) void {
+-    const current = &self.terminal_stream.handler;
+-    const handler: StreamHandler = .{
+-        .alloc = current.alloc,
+-        .termio_mailbox = current.termio_mailbox,
+-        .surface_mailbox = current.surface_mailbox,
+-        .renderer_state = current.renderer_state,
+-        .renderer_wakeup = current.renderer_wakeup,
+-        .renderer_mailbox = current.renderer_mailbox,
+-        .size = current.size,
+-        .terminal = current.terminal,
+-        .osc_color_report_format = current.osc_color_report_format,
+-        .clipboard_write = current.clipboard_write,
+-        .image_protocols_enabled = current.image_protocols_enabled,
+-        .clipboard_write_limit = current.clipboard_write_limit,
+-        .enquiry_response = current.enquiry_response,
+-        .xt_checksum_report = current.xt_checksum_report,
+-    };
 -    self.terminal_stream.deinit();
 -    self.terminal_stream = .init(.{
 -        .allocator = self.alloc,
 -        .handler = handler,
 -    });
-+}
-+
-+/// Process output from the pty. This is the manual API that users can
-+/// call with pty data but it is also called by the read thread when using
-+/// an exec subprocess.
-+pub fn processOutput(self: *Termio, buf: []const u8) void {
-+    // We are modifying terminal state from here on out and we need
-+    // the lock to grab our read data.
-+    self.renderer_state.mutex.lockUncancelable(global.io());
-+    defer self.renderer_state.mutex.unlock(global.io());
-+    self.processOutputLocked(buf);
- }
- 
+-}
+-
  /// Process output from readdata but the lock is already held.
+ fn processOutputLocked(self: *Termio, buf: []const u8) void {
+     // Schedule a render. We can call this first because we have the lock.
 diff --git a/src/termio/Thread.zig b/src/termio/Thread.zig
 index de268350b..0f4d99ba3 100644
 --- a/src/termio/Thread.zig

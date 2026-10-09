@@ -632,6 +632,7 @@ impl Runtime {
                     connected_users: vec![],
                     program: None,
                     title: None,
+                    program_status: None,
                     id: id.to_string(),
                     incarnation_id: terminal.incarnation_id.to_string(),
                     kind: SessionKind::Local,

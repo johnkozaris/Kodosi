@@ -21,7 +21,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 50;
+pub const VERSION: u32 = 51;
 include!(concat!(env!("OUT_DIR"), "/network_versions.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 
@@ -354,6 +354,8 @@ pub struct SessionEntry {
     pub program: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub program_status: Option<crate::terminal::ProgramStatus>,
     pub id: String,
     pub incarnation_id: String,
     pub kind: SessionKind,

@@ -7,7 +7,8 @@
 )]
 
 pub use ghostty_vt_sys::raw::{
-    CheckpointLimits, CompressionProgress, Effect, Error, Screen, TerminalState,
+    CheckpointLimits, CompressionProgress, Effect, Error, ProgramStatus, ProgramStatusKind,
+    ProgramStatusState, ProgressState, Screen, TerminalState,
 };
 
 use ghostty_vt_sys::raw::{Format, FormatOptions, Terminal as RawTerminal};

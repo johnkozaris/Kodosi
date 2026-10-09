@@ -1,10 +1,16 @@
 use std::{path::PathBuf, str, thread, time::Duration};
 
-use super::types::{
-    Checkpoint, TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES, TerminalPixelGeometry, TerminalScreen,
-    TerminalSize,
+use super::{
+    status::{BlockedKind, ProgramState, ProgramStatusReport},
+    types::{
+        Checkpoint, TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES, TerminalPixelGeometry, TerminalScreen,
+        TerminalSize,
+    },
 };
-use ghostty_vt::{CheckpointLimits, CompressionProgress, Effect, Screen, Terminal, TerminalPolicy};
+use ghostty_vt::{
+    CheckpointLimits, CompressionProgress, Effect, ProgramStatusKind, ProgramStatusState,
+    ProgressState, Screen, Terminal, TerminalPolicy,
+};
 use kodosi_pty::{KodosiError, Result};
 use tokio::{
     runtime::Builder as TokioRuntimeBuilder,
@@ -41,6 +47,9 @@ pub(super) enum TerminalEffect {
     Title(String),
     DesktopNotification { title: String, body: String },
     Cwd(PathBuf),
+    ProgramStatus(ProgramStatusReport),
+    Progress(ProgramStatusReport),
+    Reset,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -342,7 +351,51 @@ fn convert_effect(effect: Effect) -> Option<TerminalEffect> {
             title: String::from_utf8_lossy(&title).into_owned(),
             body: String::from_utf8_lossy(&body).into_owned(),
         }),
+        Effect::ProgramStatus(status) => program_status(status).map(TerminalEffect::ProgramStatus),
+        Effect::Progress { state, progress } => {
+            Some(TerminalEffect::Progress(ProgramStatusReport {
+                id: String::new(),
+                state: match state {
+                    ProgressState::Remove => None,
+                    ProgressState::Error => Some(ProgramState::Error),
+                    ProgressState::Set | ProgressState::Indeterminate | ProgressState::Pause => {
+                        Some(ProgramState::Working)
+                    }
+                },
+                kind: None,
+                progress: progress.filter(|_| state != ProgressState::Indeterminate),
+                app: None,
+                title: None,
+                message: None,
+            }))
+        }
+        Effect::Reset => Some(TerminalEffect::Reset),
     }
+}
+
+fn program_status(status: ghostty_vt::ProgramStatus) -> Option<ProgramStatusReport> {
+    let text = |bytes: Vec<u8>| String::from_utf8(bytes).ok();
+    let optional = |bytes: Vec<u8>| text(bytes).map(|text| (!text.is_empty()).then_some(text));
+    Some(ProgramStatusReport {
+        id: text(status.id)?,
+        state: match status.state {
+            ProgramStatusState::Idle => Some(ProgramState::Idle),
+            ProgramStatusState::Working => Some(ProgramState::Working),
+            ProgramStatusState::Done => Some(ProgramState::Done),
+            ProgramStatusState::Blocked => Some(ProgramState::Blocked),
+            ProgramStatusState::Error => Some(ProgramState::Error),
+            ProgramStatusState::Clear => None,
+        },
+        kind: status.kind.map(|kind| match kind {
+            ProgramStatusKind::Permission => BlockedKind::Permission,
+            ProgramStatusKind::Question => BlockedKind::Question,
+            ProgramStatusKind::Auth => BlockedKind::Auth,
+        }),
+        progress: status.progress,
+        app: optional(status.app)?,
+        title: optional(status.title)?,
+        message: optional(status.message)?,
+    })
 }
 
 fn parse_cwd(raw: &[u8]) -> Option<PathBuf> {

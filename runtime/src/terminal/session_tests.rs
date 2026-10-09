@@ -1,3 +1,4 @@
+use super::super::{BlockedKind, ProgramState, ProgramStatus};
 use super::*;
 
 async fn shell(
@@ -378,6 +379,9 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         working_directory: None,
         title: None,
         published_title: None,
+        status: ProgramStatusRecords::default(),
+        status_program: None,
+        published_status: None,
         metadata_dirty: false,
         next_program_check: tokio::time::Instant::now(),
         next_refresh: tokio::time::Instant::now(),
@@ -410,6 +414,104 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
     assert!(!captured.windows(7).any(|slice| slice == b"REVOKED"));
     actor.cancellation.cancel();
     actor.run().await;
+}
+
+async fn next_status(changes: &mut mpsc::Receiver<SessionChange>) -> Option<ProgramStatus> {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Some(SessionChange::Status { status, .. }) = changes.recv().await {
+                break status;
+            }
+        }
+    })
+    .await
+    .expect("program status change")
+}
+
+#[tokio::test]
+async fn a_program_status_report_reaches_the_host_and_the_people_who_view_the_terminal() {
+    let (session, mut changes, _root) = shell(
+        "printf '\\033]7501;state=blocked:kind=permission:app=claude-code:msg=QWxsb3c/\\007'; exec /bin/cat",
+    )
+    .await;
+    let mut output = session.output();
+    let expected = ProgramStatus {
+        state: ProgramState::Blocked,
+        kind: Some(BlockedKind::Permission),
+        progress: None,
+        app: Some("claude-code".to_owned()),
+        title: None,
+        message: Some("Allow?".to_owned()),
+    };
+    assert_eq!(next_status(&mut changes).await, Some(expected.clone()));
+    let metadata = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Ok(PublishedFrame::Metadata(metadata)) = output.recv().await
+                && metadata.status.is_some()
+            {
+                break metadata;
+            }
+        }
+    })
+    .await
+    .expect("metadata for viewers");
+    assert_eq!(metadata.status, Some(expected));
+    assert!(metadata.is_valid());
+    session.close().await.expect("close");
+}
+
+#[tokio::test]
+async fn a_program_that_ends_while_it_works_leaves_no_status() {
+    let (session, mut changes, _root) = shell(
+        "set -m; /bin/sh -c \"printf '\\033]7501;state=working:progress=40\\007'; sleep 1\"; exec /bin/cat",
+    )
+    .await;
+    assert_eq!(
+        next_status(&mut changes)
+            .await
+            .map(|status| (status.state, status.progress)),
+        Some((ProgramState::Working, Some(40)))
+    );
+    assert_eq!(next_status(&mut changes).await, None);
+    session.close().await.expect("close");
+}
+
+#[tokio::test]
+async fn a_progress_bar_shows_as_work_and_ends_with_its_program() {
+    let (session, mut changes, _root) =
+        shell("set -m; /bin/sh -c \"printf '\\033]9;4;1;40\\007'; sleep 1\"; exec /bin/cat").await;
+    assert_eq!(
+        next_status(&mut changes).await,
+        Some(ProgramStatus {
+            state: ProgramState::Working,
+            kind: None,
+            progress: Some(40),
+            app: None,
+            title: None,
+            message: None,
+        })
+    );
+    assert_eq!(next_status(&mut changes).await, None);
+    session.close().await.expect("close");
+}
+
+#[tokio::test]
+async fn a_result_stays_after_its_program_ends() {
+    let (session, mut changes, _root) = shell(
+        "set -m; /bin/sh -c \"printf '\\033]7501;state=done:msg=QnVpbHQ=\\007'\"; exec /bin/cat",
+    )
+    .await;
+    assert_eq!(
+        next_status(&mut changes)
+            .await
+            .map(|status| (status.state, status.message)),
+        Some((ProgramState::Done, Some("Built".to_owned())))
+    );
+    tokio::time::sleep(Duration::from_millis(2500)).await;
+    while let Ok(change) = changes.try_recv() {
+        assert!(!matches!(change, SessionChange::Status { .. }));
+    }
+    session.close().await.expect("close");
 }
 
 #[tokio::test]

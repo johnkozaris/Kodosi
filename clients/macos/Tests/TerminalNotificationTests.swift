@@ -95,7 +95,7 @@ private func awaitNotification(_ condition: () -> Bool) async {
         "name": .string("Quiet terminal"), "isOwner": .bool(true), "status": .string("running"),
         "connectionState": .string("local"), "sharedWith": .array([]),
     ])
-    try app.receive(runtimeEvent("system.ready", fields: ["protocolVersion": .int(50)]))
+    try app.receive(runtimeEvent("system.ready", fields: ["protocolVersion": .int(51)]))
     try app.receive(runtimeEvent("sessions.snapshot", fields: ["sessions": .array([entry])]))
     try app.receive(runtimeEvent("term.notification", fields: [
         "sessionId": .string(id), "runtimeIncarnationId": .string(incarnation), "body": .string("Ready"),

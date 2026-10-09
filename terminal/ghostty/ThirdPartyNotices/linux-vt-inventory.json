@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "ghosttyCommit": "9bbb9b24680358c939846b79a519ce10f7638d1f",
+  "ghosttyCommit": "c770410dbb57909ff4f6921a6497688a957f85db",
   "zig": {
     "version": "0.16.0",
     "target": "x86_64-linux",
@@ -13,7 +13,7 @@
   "components": [
     {
       "id": "ghostty",
-      "identity": "commit 9bbb9b24680358c939846b79a519ce10f7638d1f",
+      "identity": "commit c770410dbb57909ff4f6921a6497688a957f85db",
       "spdx": "MIT",
       "notices": ["LICENSE-GHOSTTY"]
     },
@@ -35,13 +35,13 @@
     },
     {
       "id": "uucode",
-      "identity": "0.2.0 / 2826a37a4562284fdacd8fa029d49509cc9bffcd",
+      "identity": "0.2.0 / 9d55524551411b493cca41ca06363625d90aff1e",
       "spdx": "MIT",
       "notices": ["uucode.txt", "uucode-Bjoern-Hoehrmann.txt"]
     },
     {
       "id": "unicode-data",
-      "identity": "uucode 2826a37a4562284fdacd8fa029d49509cc9bffcd UCD",
+      "identity": "uucode 9d55524551411b493cca41ca06363625d90aff1e UCD",
       "spdx": "Unicode-3.0",
       "notices": ["unicode-data.txt"]
     },

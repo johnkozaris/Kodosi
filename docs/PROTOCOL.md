@@ -42,6 +42,10 @@ single terminal process. Kodosi does not arbitrate file edits between people or 
 each tool continues to operate on its host's files. Terminal sharing follows room
 membership, while sharing one terminal leaves other local terminals alone.
 
+The host also keeps the status that programs report to the terminal (OSC 7501, or a
+progress bar until a program reports its own). It sends one status for each terminal
+to viewers with the terminal metadata, and drops unfinished work when its program ends.
+
 Reconnecting restores current state. Input whose delivery is uncertain is not replayed,
 and a stale view cannot control a replacement terminal. Minimize dismisses a view;
 Close ends its process; quitting a host ends its local terminals.

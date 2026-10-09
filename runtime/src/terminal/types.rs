@@ -164,6 +164,8 @@ pub struct TerminalMetadata {
     pub directory: Option<String>,
     pub title: Option<String>,
     pub program: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<super::ProgramStatus>,
 }
 
 impl TerminalMetadata {
@@ -183,6 +185,10 @@ impl TerminalMetadata {
                 .program
                 .as_deref()
                 .is_none_or(|value| matches!(value, "claude" | "copilot" | "codex" | "cursor"))
+            && self
+                .status
+                .as_ref()
+                .is_none_or(super::ProgramStatus::is_valid)
     }
 }
 

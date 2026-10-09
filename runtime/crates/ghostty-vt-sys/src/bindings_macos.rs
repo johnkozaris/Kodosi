@@ -675,6 +675,74 @@ impl Default for GhosttyTerminalProgressReport {
         }
     }
 }
+pub const GhosttyProgramStatusState_GHOSTTY_PROGRAM_STATUS_STATE_IDLE: GhosttyProgramStatusState =
+    0;
+pub const GhosttyProgramStatusState_GHOSTTY_PROGRAM_STATUS_STATE_WORKING:
+    GhosttyProgramStatusState = 1;
+pub const GhosttyProgramStatusState_GHOSTTY_PROGRAM_STATUS_STATE_DONE: GhosttyProgramStatusState =
+    2;
+pub const GhosttyProgramStatusState_GHOSTTY_PROGRAM_STATUS_STATE_BLOCKED:
+    GhosttyProgramStatusState = 3;
+pub const GhosttyProgramStatusState_GHOSTTY_PROGRAM_STATUS_STATE_ERROR: GhosttyProgramStatusState =
+    4;
+pub const GhosttyProgramStatusState_GHOSTTY_PROGRAM_STATUS_STATE_CLEAR: GhosttyProgramStatusState =
+    5;
+pub const GhosttyProgramStatusState_GHOSTTY_PROGRAM_STATUS_STATE_MAX_VALUE:
+    GhosttyProgramStatusState = 2147483647;
+pub type GhosttyProgramStatusState = ::std::os::raw::c_int;
+pub const GhosttyProgramStatusKind_GHOSTTY_PROGRAM_STATUS_KIND_NONE: GhosttyProgramStatusKind = 0;
+pub const GhosttyProgramStatusKind_GHOSTTY_PROGRAM_STATUS_KIND_PERMISSION:
+    GhosttyProgramStatusKind = 1;
+pub const GhosttyProgramStatusKind_GHOSTTY_PROGRAM_STATUS_KIND_QUESTION: GhosttyProgramStatusKind =
+    2;
+pub const GhosttyProgramStatusKind_GHOSTTY_PROGRAM_STATUS_KIND_AUTH: GhosttyProgramStatusKind = 3;
+pub const GhosttyProgramStatusKind_GHOSTTY_PROGRAM_STATUS_KIND_MAX_VALUE: GhosttyProgramStatusKind =
+    2147483647;
+pub type GhosttyProgramStatusKind = ::std::os::raw::c_int;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct GhosttyTerminalProgramStatus {
+    pub size: usize,
+    pub state: GhosttyProgramStatusState,
+    pub kind: GhosttyProgramStatusKind,
+    pub progress: i8,
+    pub id: GhosttyString,
+    pub app: GhosttyString,
+    pub title: GhosttyString,
+    pub message: GhosttyString,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of GhosttyTerminalProgramStatus"]
+        [::std::mem::size_of::<GhosttyTerminalProgramStatus>() - 88usize];
+    ["Alignment of GhosttyTerminalProgramStatus"]
+        [::std::mem::align_of::<GhosttyTerminalProgramStatus>() - 8usize];
+    ["Offset of field: GhosttyTerminalProgramStatus::size"]
+        [::std::mem::offset_of!(GhosttyTerminalProgramStatus, size) - 0usize];
+    ["Offset of field: GhosttyTerminalProgramStatus::state"]
+        [::std::mem::offset_of!(GhosttyTerminalProgramStatus, state) - 8usize];
+    ["Offset of field: GhosttyTerminalProgramStatus::kind"]
+        [::std::mem::offset_of!(GhosttyTerminalProgramStatus, kind) - 12usize];
+    ["Offset of field: GhosttyTerminalProgramStatus::progress"]
+        [::std::mem::offset_of!(GhosttyTerminalProgramStatus, progress) - 16usize];
+    ["Offset of field: GhosttyTerminalProgramStatus::id"]
+        [::std::mem::offset_of!(GhosttyTerminalProgramStatus, id) - 24usize];
+    ["Offset of field: GhosttyTerminalProgramStatus::app"]
+        [::std::mem::offset_of!(GhosttyTerminalProgramStatus, app) - 40usize];
+    ["Offset of field: GhosttyTerminalProgramStatus::title"]
+        [::std::mem::offset_of!(GhosttyTerminalProgramStatus, title) - 56usize];
+    ["Offset of field: GhosttyTerminalProgramStatus::message"]
+        [::std::mem::offset_of!(GhosttyTerminalProgramStatus, message) - 72usize];
+};
+impl Default for GhosttyTerminalProgramStatus {
+    fn default() -> Self {
+        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
+}
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
 pub struct GhosttyTerminalModeConfig {
@@ -744,6 +812,15 @@ pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_TERMINFO_NAME: GhosttyTermi
 pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_CLIPBOARD_READ: GhosttyTerminalOption = 38;
 pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_CLIPBOARD_WRITE_MAX_BYTES:
     GhosttyTerminalOption = 39;
+pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_RESIZE_PULL_SCROLLBACK: GhosttyTerminalOption =
+    40;
+pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_RENDER_HOLD: GhosttyTerminalOption = 41;
+pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_SEMANTIC_PROMPT: GhosttyTerminalOption = 42;
+pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_RESET: GhosttyTerminalOption = 43;
+pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_XT_CHECKSUM_REPORT: GhosttyTerminalOption = 44;
+pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_XT_CHECKSUM_EXTENSION: GhosttyTerminalOption =
+    45;
+pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_PROGRAM_STATUS: GhosttyTerminalOption = 46;
 pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_MAX_VALUE: GhosttyTerminalOption = 2147483647;
 pub type GhosttyTerminalOption = ::std::os::raw::c_int;
 pub const GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_INVALID: GhosttyTerminalData = 0;
@@ -795,6 +872,8 @@ pub const GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_VT_GROUND: GhosttyTerminalDa
 pub const GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_CURSOR_AT_PROMPT: GhosttyTerminalData = 39;
 pub const GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_CLIPBOARD_WRITE_MAX_BYTES: GhosttyTerminalData =
     40;
+pub const GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_MOUSE_SHAPE: GhosttyTerminalData = 41;
+pub const GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_MEMORY_USAGE: GhosttyTerminalData = 42;
 pub const GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_MAX_VALUE: GhosttyTerminalData = 2147483647;
 pub type GhosttyTerminalData = ::std::os::raw::c_int;
 unsafe extern "C" {

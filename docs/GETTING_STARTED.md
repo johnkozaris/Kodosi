@@ -43,6 +43,18 @@ The skill explains how to read and post messages, discover the room's terminals,
 and create or claim tasks. Use your harness's normal way of loading skills or
 instructions. See [Agents and tasks](AGENTS_AND_TASKS.md) for examples and CLI setup.
 
+## See what a terminal needs
+
+A terminal shows when its program is working, needs you, is done, or failed, with
+the program's own message, such as the approval it asks for. Everyone who can open
+the terminal sees the same state, and `kodosi session list` shows it too.
+
+Kodosi takes this from what the program reports to its terminal: the
+[Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status)
+(OSC 7501) and terminal progress bars (OSC 9;4). Claude Code reports its state from
+version 2.1.295. Kodosi does not read the screen to guess; a program that reports
+nothing shows no state.
+
 ## Keep work running
 
 | Action | Result |

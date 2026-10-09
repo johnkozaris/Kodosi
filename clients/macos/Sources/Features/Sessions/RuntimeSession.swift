@@ -1,5 +1,32 @@
 import Foundation
 
+struct ProgramStatus: Decodable, Equatable, Sendable {
+    enum State: String, Decodable, Sendable { case idle, working, done, blocked, error }
+    enum Kind: String, Decodable, Sendable { case permission, question, auth }
+
+    let state: State
+    let kind: Kind?
+    let progress: Int?
+    let app: String?
+    let title: String?
+    let message: String?
+
+    var caption: String? {
+        let text = [title, message].compactMap(\.self).joined(separator: ": ")
+        if !text.isEmpty {
+            return text
+        }
+        switch (state, kind) {
+        case (.blocked, .permission): return String(localized: "Needs your approval")
+        case (.blocked, .question): return String(localized: "Needs your answer")
+        case (.blocked, .auth): return String(localized: "Needs you to sign in")
+        case (.blocked, nil): return String(localized: "Needs you")
+        case (.error, _): return String(localized: "Failed")
+        default: return nil
+        }
+    }
+}
+
 struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     enum Kind: String, Decodable, Sendable { case local, remote }
     enum Status: String, Decodable, Sendable { case running, reconnecting, closing }
@@ -10,6 +37,7 @@ struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     let kind: Kind
     let program: String?
     let title: String?
+    let programStatus: ProgramStatus?
     let name: String
     let workingDir: String?
     let ownerUserId: String?
@@ -27,14 +55,34 @@ struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     let createRequestId: String?
 
     var activity: String? {
+        if let caption = programStatus?.caption {
+            return caption
+        }
         guard let title = TerminalSessionManager.sanitizeTerminalTitle(title) else { return nil }
         let trimmed = String(title.unicodeScalars.drop { Self.isStatusGlyph($0) || $0.properties.isWhitespace })
         return trimmed.isEmpty || trimmed == name ? nil : trimmed
     }
 
     var isWorking: Bool {
-        guard canControl, let first = title?.unicodeScalars.first else { return false }
+        guard canControl else { return false }
+        if let programStatus {
+            return programStatus.state == .working
+        }
+        guard let first = title?.unicodeScalars.first else { return false }
         return (0x2800 ... 0x28FF).contains(first.value)
+    }
+
+    var needsUser: Bool {
+        canControl && programStatus?.state == .blocked
+    }
+
+    var waitState: ProgramStatus.State? {
+        switch programStatus?.state {
+        case .blocked: needsUser ? .blocked : nil
+        case .done: .done
+        case .error: .error
+        default: nil
+        }
     }
 
     var agent: AgentKind {

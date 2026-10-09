@@ -207,3 +207,41 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(try session(title: nil).activity == nil)
     #expect(try !session(title: nil).isWorking)
 }
+
+@Test func aProgramStatusReportIsTheStateOfItsTerminal() throws {
+    func session(title: String? = nil, status: [String: JSONValue]) throws -> RuntimeSession {
+        var fields: [String: JSONValue] = [
+            "id": .string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
+            "kind": .string("local"), "name": .string("Amber Wren"), "program": .string("claude"),
+            "isOwner": .bool(true), "status": .string("running"), "connectionState": .string("local"), "sharedWith": .array([]),
+            "programStatus": .object(status),
+        ]
+        if let title {
+            fields["title"] = .string(title)
+        }
+        return try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode(fields))
+    }
+    let working = try session(title: "Draft the release notes", status: ["state": .string("working"), "progress": .int(40)])
+    #expect(working.isWorking)
+    #expect(!working.needsUser)
+    #expect(working.waitState == nil)
+    #expect(working.activity == "Draft the release notes")
+    let idle = try session(title: "\u{2810} Draft the release notes", status: ["state": .string("idle"), "app": .string("claude-code")])
+    #expect(!idle.isWorking)
+    #expect(idle.activity == "Draft the release notes")
+    let approval = try session(status: ["state": .string("blocked"), "kind": .string("permission"), "message": .string("Allow the command?")])
+    #expect(approval.needsUser)
+    #expect(approval.waitState == .blocked)
+    #expect(!approval.isWorking)
+    #expect(approval.activity == "Allow the command?")
+    let task = try session(status: ["state": .string("blocked"), "kind": .string("question"), "title": .string("Review the plan")])
+    #expect(task.activity == "Review the plan")
+    #expect(try session(status: ["state": .string("blocked"), "kind": .string("auth")]).activity == "Needs you to sign in")
+    #expect(try session(status: ["state": .string("blocked")]).activity == "Needs you")
+    let failed = try session(title: "Deploy", status: ["state": .string("error")])
+    #expect(failed.waitState == .error)
+    #expect(failed.activity == "Failed")
+    let done = try session(title: "Deploy", status: ["state": .string("done")])
+    #expect(done.waitState == .done)
+    #expect(done.activity == "Deploy")
+}
