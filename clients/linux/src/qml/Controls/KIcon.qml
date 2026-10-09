@@ -6,8 +6,9 @@ Item {
     id: root
 
     property string name: ""
-    property color color: KodosiTheme.textSecondary
+    property color color: KodosiTheme.inkMuted
     property real strokeWidth: 1.8
+    property bool filled: false
 
     readonly property string path1: {
         switch (name) {
@@ -23,7 +24,7 @@ Item {
         case "folder": return "M3 7.5 Q3 6 4.5 6 H9 L11 8 H19.5 Q21 8 21 9.5 V18 Q21 20 19 20 H5 Q3 20 3 18 Z"
         case "command": return "M9 7 A3 3 0 1 0 6 10 H18 A3 3 0 1 0 15 7 V17 A3 3 0 1 0 18 14 H6 A3 3 0 1 0 9 17 Z"
         case "people": return "M8.5 11 A3 3 0 1 0 8.5 5 A3 3 0 1 0 8.5 11 M15.5 10 A2.5 2.5 0 1 0 15.5 5 A2.5 2.5 0 1 0 15.5 10 M3.5 19 Q3.5 13.5 8.5 13.5 Q13.5 13.5 13.5 19 M13 13 Q20.5 12.5 20.5 18"
-        case "settings": return "M12 8.5 A3.5 3.5 0 1 0 12 15.5 A3.5 3.5 0 1 0 12 8.5 M12 3 V5 M12 19 V21 M3 12 H5 M19 12 H21 M5.64 5.64 L7.05 7.05 M16.95 16.95 L18.36 18.36 M18.36 5.64 L16.95 7.05 M7.05 16.95 L5.64 18.36"
+        case "settings": return "M4 7 H10 M14 7 H20 M12 5 A2 2 0 1 0 12 9 A2 2 0 1 0 12 5 M4 17 H7 M11 17 H20 M9 15 A2 2 0 1 0 9 19 A2 2 0 1 0 9 15"
         case "chevron-right": return "M9 5 L16 12 L9 19"
         case "chevron-left": return "M15 5 L8 12 L15 19"
         case "chevron-down": return "M5 9 L12 16 L19 9"
@@ -39,6 +40,22 @@ Item {
         case "mission": return "M12 3 L20 7 V17 L12 21 L4 17 V7 Z M8 9 L12 7 L16 9 V15 L12 17 L8 15 Z"
         case "sidebar": return "M4 5 H20 V19 H4 Z M9 5 V19"
         case "document": return "M6 3 H14 L19 8 V21 H6 Z M14 3 V8 H19 M9 12 H16 M9 16 H16"
+        case "search": return "M10.5 4 A6.5 6.5 0 1 0 10.5 17 A6.5 6.5 0 1 0 10.5 4 M15.5 15.5 L20 20"
+        case "at": return "M16 12 A4 4 0 1 0 8 12 A4 4 0 1 0 16 12 M16 8 V13.5 A2.5 2.5 0 0 0 21 13.5 V12 A9 9 0 1 0 17.5 19.2"
+        case "lock": return "M6 11 H18 V20 H6 Z M8.5 11 V8 A3.5 3.5 0 0 1 15.5 8 V11"
+        case "history": return "M4 12 A8 8 0 1 0 6.5 6.2 M4 4 V8 H8 M12 8 V12 L15 14"
+        case "copy": return "M9 9 H19 V20 H9 Z M5 15 V4 H15"
+        case "share": return "M10 11 A3.5 3.5 0 1 0 10 4 A3.5 3.5 0 1 0 10 11 M3.5 20 Q3.5 14 10 14 Q13 14 14.6 15.4 M18 14 V20 M15 17 H21"
+        case "arrow-right": return "M5 12 H19 M13 6 L19 12 L13 18"
+        case "pencil": return "M4 20 L5 15.5 L16 4.5 L19.5 8 L8.5 19 Z M14 6.5 L17.5 10"
+        case "play": return "M8 5 L19 12 L8 19 Z"
+        case "link": return "M10 14 A4 4 0 0 0 15.7 14.3 L19 11 A4 4 0 0 0 13.3 5.3 L12 6.6 M14 10 A4 4 0 0 0 8.3 9.7 L5 13 A4 4 0 0 0 10.7 18.7 L12 17.4"
+        case "laptop": return "M5 6 H19 V16 H5 Z M2.5 19 H21.5"
+        case "circle": return "M12 4 A8 8 0 1 0 12 20 A8 8 0 1 0 12 4"
+        case "info": return "M12 4 A8 8 0 1 0 12 20 A8 8 0 1 0 12 4 M12 11 V16 M12 8 V8.1"
+        case "prompt": return "M8 6 L14 12 L8 18"
+        case "moon": return "M20 14.5 A8 8 0 1 1 9.5 4 A6.5 6.5 0 0 0 20 14.5 Z"
+        case "sun": return "M12 8 A4 4 0 1 0 12 16 A4 4 0 1 0 12 8 M12 2.5 V5 M12 19 V21.5 M2.5 12 H5 M19 12 H21.5 M5.3 5.3 L7 7 M17 17 L18.7 18.7 M18.7 5.3 L17 7 M7 17 L5.3 18.7"
         default: return ""
         }
     }
@@ -51,13 +68,12 @@ Item {
         height: 24
         anchors.centerIn: parent
         scale: Math.min(root.width, root.height) / 24
-        layer.enabled: true
-        layer.samples: 4
+        preferredRendererType: Shape.CurveRenderer
 
         ShapePath {
             strokeColor: root.color
             strokeWidth: root.strokeWidth
-            fillColor: "transparent"
+            fillColor: root.filled ? root.color : "transparent"
             capStyle: ShapePath.RoundCap
             joinStyle: ShapePath.RoundJoin
             PathSvg { path: root.path1 }

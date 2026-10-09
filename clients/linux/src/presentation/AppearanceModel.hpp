@@ -65,6 +65,8 @@ public:
 
     Q_INVOKABLE [[nodiscard]] bool setPreference(int preference);
     Q_INVOKABLE void clearError();
+    Q_INVOKABLE [[nodiscard]] static int stableIndex(const QString& key, int count);
+    Q_INVOKABLE [[nodiscard]] static int stableBits(const QString& key);
 
     void injectSystemColorSchemeForTesting(Qt::ColorScheme scheme);
     void injectReducedMotionForTesting(bool enabled);

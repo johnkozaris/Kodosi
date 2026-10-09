@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import Kodosi 1.0
 import QtQuick
 import QtQuick.Controls
@@ -5,72 +6,146 @@ import QtQuick.Layouts
 import Kodosi.Models 1.0 as Models
 
 ColumnLayout {
-    spacing: 12
+    id: root
 
-    RowLayout {
-        Layout.fillWidth: true
+    readonly property bool hasCode: Models.Account.userCode.length > 0
 
-        PlainLabel {
-            Layout.fillWidth: true
-            color: KodosiTheme.textPrimary
-            text: qsTr("Appearance")
-        }
-        KComboBox {
-            Accessible.id: objectName
-            Accessible.name: qsTr("Appearance")
-            currentIndex: Models.Appearance.preference === Models.Appearance.Light ? 1 : Models.Appearance.preference === Models.Appearance.Dark ? 2 : 0
-            model: [qsTr("System"), qsTr("Light"), qsTr("Dark")]
-            objectName: "settings.appearance"
+    spacing: 18
 
-            onActivated: Models.Appearance.setPreference(currentIndex === 1 ? Models.Appearance.Light : currentIndex === 2 ? Models.Appearance.Dark : Models.Appearance.System)
-        }
-    }
-    RowLayout {
-        Layout.fillWidth: true
-
-        PlainLabel {
-            Layout.fillWidth: true
-            color: KodosiTheme.textPrimary
-            text: qsTr("Account")
-        }
-        KButton {
-            Accessible.id: objectName
-            enabled: !Models.Account.signingIn || Models.Account.userCode.length > 0
-            objectName: "panel.settings.account"
-            text: Models.Account.signedIn ? qsTr("Sign out…") : Models.Account.userCode.length ? qsTr("Cancel") : Models.Account.signingIn ? qsTr("Signing in…") : qsTr("Sign in")
-
-            onClicked: Models.Account.signedIn ? signOutConfirmation.open() : Models.Account.userCode.length ? Models.Account.cancelLogin() : Models.Account.login()
-        }
-    }
     ColumnLayout {
         Layout.fillWidth: true
-        spacing: 8
-        visible: Models.Account.userCode.length > 0
+        Layout.topMargin: 10
+        visible: root.hasCode
+        spacing: 16
 
         PlainLabel {
-            color: KodosiTheme.textSecondary
+            Layout.alignment: Qt.AlignHCenter
             text: qsTr("Enter this code in your browser")
+            color: KodosiTheme.inkMuted
         }
-        KReadOnlyText {
-            font.pixelSize: 24
-            text: Models.Account.userCode
-        }
-        KButton {
+        Row {
+            Layout.alignment: Qt.AlignHCenter
+            spacing: 6
+            Accessible.role: Accessible.StaticText
+            Accessible.name: Models.Account.userCode
+            objectName: "panel.settings.account.code"
             Accessible.id: objectName
-            objectName: "panel.settingsView.open-sign-in-page"
-            text: qsTr("Open sign-in page")
 
-            onClicked: Models.DesktopFiles.openWebUrl(Models.Account.verificationUri)
+            Repeater {
+                model: Models.Account.userCode.split("")
+
+                Item {
+                    id: key
+
+                    required property string modelData
+                    readonly property bool separator: modelData === "-" || modelData === " "
+
+                    width: separator ? 12 : 40
+                    height: 52
+
+                    Raised { anchors.fill: parent; visible: !key.separator; radius: KodosiTheme.radiusMd }
+                    Text {
+                        anchors.centerIn: parent
+                        text: key.modelData
+                        color: key.separator ? KodosiTheme.inkFaint : KodosiTheme.ink
+                        font.family: "monospace"
+                        font.pixelSize: 24
+                        font.weight: Font.DemiBold
+                    }
+                }
+            }
+        }
+        RowLayout {
+            Layout.alignment: Qt.AlignHCenter
+            spacing: 8
+
+            KButton {
+                Accessible.id: objectName
+                variant: KButton.Primary
+                iconName: "arrow-right"
+                iconTrailing: true
+                objectName: "panel.settingsView.open-sign-in-page"
+                text: qsTr("Open the sign-in page")
+
+                onClicked: Models.DesktopFiles.openWebUrl(Models.Account.verificationUri)
+            }
+            KButton {
+                variant: KButton.Ghost
+                text: qsTr("Cancel")
+                objectName: "panel.settings.account.cancel"
+                Accessible.id: objectName
+                onClicked: Models.Account.cancelLogin()
+            }
+        }
+        RowLayout {
+            Layout.alignment: Qt.AlignHCenter
+            spacing: 8
+            CursorBlock { Layout.preferredWidth: 6; Layout.preferredHeight: 12; blinks: true }
+            ShimmerText { text: qsTr("Waiting for you"); active: true; color: KodosiTheme.inkMuted; font.pixelSize: KodosiTheme.fontFootnote }
         }
     }
-    KButton {
-        Accessible.id: objectName
-        objectName: "panel.settingsView.delete-account"
-        text: qsTr("Delete account…")
-        variant: KButton.Quiet
-        visible: Models.Account.signedIn
+    ListGroup {
+        Layout.fillWidth: true
+        visible: !root.hasCode
 
-        onClicked: deleteConfirmation.open()
+        ListRow {
+            title: Models.Account.signedIn ? Identity.selfName : qsTr("Not signed in")
+            subtitle: Models.Account.signedIn ? qsTr("Signed in") : qsTr("Your terminals work without an account.")
+            leading: Item {
+                implicitWidth: 32
+                implicitHeight: 32
+                PersonAvatar { visible: Models.Account.signedIn; name: Identity.selfName; isSelf: true; size: 32 }
+                IconTile { visible: !Models.Account.signedIn; iconName: "people"; tint: "#54433a"; size: 32 }
+            }
+
+            KButton {
+                Accessible.id: objectName
+                variant: Models.Account.signedIn ? KButton.Secondary : KButton.Primary
+                enabled: !Models.Account.signingIn
+                working: Models.Account.signingIn
+                objectName: "panel.settings.account"
+                text: Models.Account.signedIn ? qsTr("Sign out…") : Models.Account.signingIn ? qsTr("Signing in…") : qsTr("Sign in")
+
+                onClicked: Models.Account.signedIn ? signOutConfirmation.open() : Models.Account.login()
+            }
+        }
+    }
+    ListGroup {
+        Layout.fillWidth: true
+        visible: !root.hasCode
+
+        ListRow {
+            visible: Models.Account.signedIn
+            iconName: "close"
+            tint: "#b23a32"
+            title: qsTr("Delete your account")
+            subtitle: qsTr("Removes your account, devices and friends from the server.")
+
+            KButton {
+                Accessible.id: objectName
+                compact: true
+                variant: KButton.Danger
+                objectName: "panel.settingsView.delete-account"
+                text: qsTr("Delete…")
+
+                onClicked: deleteConfirmation.open()
+            }
+        }
+        ListRow {
+            iconName: "minus"
+            tint: "#54433a"
+            title: qsTr("Quit Kodosi")
+            subtitle: qsTr("Closing the window keeps your terminals running. Quit stops them.")
+
+            KButton {
+                Accessible.id: objectName
+                compact: true
+                objectName: "panel.settingsView.quit-kodosi"
+                text: qsTr("Quit…")
+
+                onClicked: quitConfirmation.open()
+            }
+        }
     }
     KDialog {
         id: signOutConfirmation
@@ -83,46 +158,44 @@ ColumnLayout {
         onOpened: standardButton(Dialog.Ok).text = qsTr("Sign out")
 
         PlainLabel {
-            color: KodosiTheme.textPrimary
-            text: qsTr("Remote connections will close. Local terminals stay on this computer.")
-            width: 360
+            color: KodosiTheme.inkMuted
+            text: qsTr("Sharing stops. The terminals on this computer keep running.")
+            width: 340
             wrapMode: Text.WordWrap
         }
     }
     KDialog {
         id: deleteConfirmation
 
+        destructive: true
         standardButtons: Dialog.Ok | Dialog.Cancel
         title: qsTr("Delete your Kodosi account?")
+        onOpened: standardButton(Dialog.Ok).text = qsTr("Delete")
 
         onAccepted: Models.Account.deleteAccount()
 
         PlainLabel {
-            color: KodosiTheme.textPrimary
-            text: qsTr("This removes your account, devices, friends, missions and shared terminals from the Kodosi server. Local terminals stay on this computer. If Kodosi refuses, sign out, sign in again, and then delete the account.")
-            width: 400
+            color: KodosiTheme.inkMuted
+            text: qsTr("Your account, devices, friends, rooms and shared terminals go away from the server. The terminals on this computer keep running. If Kodosi refuses, sign out, sign in again, and try again.")
+            width: 380
             wrapMode: Text.WordWrap
         }
-    }
-    KButton {
-        Accessible.id: objectName
-        objectName: "panel.settingsView.quit-kodosi"
-        text: qsTr("Quit Kodosi…")
-        variant: KButton.Quiet
-
-        onClicked: quitConfirmation.open()
     }
     KDialog {
         id: quitConfirmation
 
+        destructive: true
         standardButtons: Dialog.Ok | Dialog.Cancel
         title: qsTr("Quit Kodosi?")
+        onOpened: standardButton(Dialog.Ok).text = qsTr("Quit")
 
         onAccepted: Qt.quit()
 
         PlainLabel {
-            color: KodosiTheme.textPrimary
-            text: qsTr("Local terminal processes will stop.")
+            width: 340
+            color: KodosiTheme.inkMuted
+            text: qsTr("The terminals on this computer stop.")
+            wrapMode: Text.WordWrap
         }
     }
 }

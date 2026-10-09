@@ -29,12 +29,34 @@ and participating in the conversation straightforward. Agents use simple room to
 and skills from their existing harnesses. They choose how to act on messages, tasks,
 and handoffs.
 
-Conversation stays beside the room's terminal, task list, or connected repositories.
-Keep drafts and reading position when switching rooms or work. Agents use the shared
-runtime's room CLI and bundled skill.
+Conversation stays beside the room's terminals, tasks, or connected repositories.
+Mention a person or a room terminal with "@"; a terminal mention opens that terminal.
+A message can become a task. Keep drafts and reading position when switching rooms or
+work. Agents use the shared runtime's room CLI and bundled skill.
+
+## Words
+
+Visible text uses one word for one thing: terminal, room, friend, agent, device.
+Resume is the word for saved provider conversations. Session, host, runtime, and
+mission are internal words.
+
+## Terminals
+
+New Terminal opens a shell right away. The source list groups terminals by working
+folder and shows which computer runs a remote terminal. With no terminal open, the
+main area shows every terminal by computer. Go to (Ctrl+K) finds a terminal, a room,
+a person, or an action. Rename a terminal in place.
+
+A terminal carries the mark of the program in it. While an agent works, its mark and
+title show it. A terminal where an agent stopped while you looked elsewhere keeps a
+copper dot until you look at it, and the source list offers the next one that needs
+you. One share sheet puts a terminal in a room or shares it with friends.
 
 ## Experience
 
-Kodosi should feel like a focused workbench, not an administration console.
+Kodosi should feel like a warm, living workbench, not an administration console.
+Show the objects of the job, with short text, before explanations. Motion follows an
+action or a real change of state, and never moves the terminal surface itself.
 Keyboard access, screen-reader support, visible focus, sufficient contrast, and
-reduced motion are part of the experience.
+reduced motion are part of the experience. [DESIGN.md](DESIGN.md) describes the
+visual system, which the Mac client shares.

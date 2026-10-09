@@ -6,6 +6,7 @@
 #include <QHash>
 #include <QList>
 #include <QObject>
+#include <QSet>
 #include <QStringList>
 
 #include <optional>
@@ -35,6 +36,8 @@ public:
     Q_INVOKABLE bool resume(const QString& provider, const QString& nativeConversationId,
         const QString& workingDirectory);
     Q_INVOKABLE bool close(const QString& sessionId);
+    Q_INVOKABLE bool rename(const QString& sessionId, const QString& name);
+    Q_INVOKABLE bool takeCreated(const QString& sessionId);
     Q_INVOKABLE bool share(const QString& sessionId, const QStringList& userIds,
         const QStringList& expectedUserIds = {});
     Q_INVOKABLE bool leave(const QString& sessionId);
@@ -54,6 +57,7 @@ private:
     std::optional<DeepLinkDestination> m_activeLink;
     QList<DeepLinkDestination> m_links;
     QHash<QString, QString> m_roomCreations;
+    QSet<QString> m_created;
     void completeCreation(const QString& sessionId, const QString& roomId);
     bool activateSession(const QString& sessionId, bool inRoom);
 

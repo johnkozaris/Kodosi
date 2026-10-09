@@ -203,7 +203,7 @@ void ControlsTest::terminalCloseConfirmsAndMinimizeOnlyHidesView()
     QVERIFY(!actionText.hasError());
     bool explainsProcessExit = false;
     for (auto* item : confirmation->findChildren<QQuickItem*>()) {
-        if (item->property("text").toString() == QStringLiteral("Running programs will stop."))
+        if (item->property("text").toString() == QStringLiteral("Its programs stop."))
             explainsProcessExit = true;
     }
     QVERIFY(explainsProcessExit);

@@ -12,18 +12,54 @@ Item {
     Accessible.id: objectName
     objectName: "panel.settings"
 
+    onVisibleChanged: {
+        if (!visible)
+            return;
+        if (!Models.Account.signedIn && Models.Account.userCode.length > 0)
+            section = 2;
+        else if (Models.Account.signedIn && !Models.Devices.localDeviceEnrolled)
+            section = 3;
+    }
+    Connections {
+        function onLoginChanged() {
+            if (Models.Account.userCode.length > 0 && !Models.Account.signedIn)
+                root.section = 2;
+        }
+
+        target: Models.Account
+    }
     KScrollView {
+        id: scroll
         anchors.fill: parent
-        anchors.margins: 24
+        contentWidth: availableWidth
 
         ColumnLayout {
-            spacing: 14
-            width: Math.min(720, parent.width)
+            x: Math.max(36, (scroll.availableWidth - width) / 2)
+            width: Math.min(700, scroll.availableWidth - 72)
+            spacing: 22
 
-            PlainLabel {
-                color: KodosiTheme.textPrimary
-                font.pixelSize: 22
-                text: qsTr("Settings")
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: 50
+
+                PlainLabel {
+                    Layout.fillWidth: true
+                    font.pixelSize: KodosiTheme.fontLarge
+                    font.weight: Font.DemiBold
+                    font.letterSpacing: -0.6
+                    text: qsTr("Settings")
+                }
+                SegmentedPill {
+                    identifier: "panel.settings"
+                    options: [
+                        { value: 0, label: qsTr("Terminal"), icon: "terminal" },
+                        { value: 1, label: qsTr("Agents"), icon: "agent" },
+                        { value: 2, label: qsTr("Account"), icon: "people" },
+                        { value: 3, label: qsTr("Devices"), icon: "laptop" }
+                    ]
+                    currentValue: root.section
+                    onActivated: value => root.section = value
+                }
             }
             PlainLabel {
                 Layout.fillWidth: true
@@ -32,51 +68,23 @@ Item {
                 visible: text.length > 0
                 wrapMode: Text.WordWrap
             }
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 4
-
-                Repeater {
-                    model: [
-                        { key: "general", label: qsTr("General") },
-                        { key: "devices", label: qsTr("Devices") },
-                        { key: "terminal", label: qsTr("Terminal") },
-                        { key: "providers", label: qsTr("Providers") }
-                    ]
-
-                    delegate: KButton {
-                        required property int index
-                        required property var modelData
-
-                        Accessible.id: objectName
-                        Accessible.selected: checked
-                        Layout.fillWidth: true
-                        checkable: true
-                        checked: root.section === index
-                        objectName: "panel.settings." + modelData.key
-                        text: modelData.label
-                        variant: KButton.Quiet
-
-                        onClicked: root.section = index
-                    }
-                }
-            }
-            GeneralSettings {
+            TerminalSettings {
                 Layout.fillWidth: true
                 visible: root.section === 0
             }
-            DeviceSettings {
+            ProviderSettings {
                 Layout.fillWidth: true
                 visible: root.section === 1
             }
-            TerminalSettings {
+            GeneralSettings {
                 Layout.fillWidth: true
                 visible: root.section === 2
             }
-            ProviderSettings {
+            DeviceSettings {
                 Layout.fillWidth: true
                 visible: root.section === 3
             }
+            Item { Layout.preferredHeight: 30 }
         }
     }
 }

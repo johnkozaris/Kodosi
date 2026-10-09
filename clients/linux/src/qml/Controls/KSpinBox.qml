@@ -5,88 +5,57 @@ import QtQuick.Controls
 SpinBox {
     id: root
 
-    implicitHeight: KodosiTheme.controlHeight
+    implicitHeight: 30
+    implicitWidth: 124
     editable: true
+    hoverEnabled: true
 
     contentItem: TextInput {
         z: 2
         text: root.displayText
-        color: root.enabled
-            ? KodosiTheme.textPrimary
-            : KodosiTheme.disabled
+        color: root.enabled ? KodosiTheme.ink : KodosiTheme.inkFaint
         selectionColor: KodosiTheme.accent
-        selectedTextColor: KodosiTheme.accentForeground
-        font.pixelSize: 12
-        horizontalAlignment: Qt.AlignLeft
+        selectedTextColor: KodosiTheme.accentInk
+        font.pixelSize: KodosiTheme.fontBody
+        font.weight: Font.DemiBold
+        horizontalAlignment: Qt.AlignHCenter
         verticalAlignment: Qt.AlignVCenter
-        leftPadding: 11
-        rightPadding: 41
         readOnly: !root.editable
         validator: root.validator
         inputMethodHints: Qt.ImhFormattedNumbersOnly
     }
-
-    up.indicator: Rectangle {
+    up.indicator: Item {
         x: root.width - width
-        width: 30
-        height: root.height / 2
-        color: root.up.pressed
-            ? KodosiTheme.surfaceSelected
-            : root.up.hovered
-              ? KodosiTheme.surfaceElevated
-              : KodosiTheme.surface
-        topRightRadius: KodosiTheme.radiusSmall
+        width: 34
+        height: root.height
 
         KIcon {
             anchors.centerIn: parent
             width: 11
             height: 11
-            name: "chevron-up"
-            color: KodosiTheme.textSecondary
+            name: "plus"
+            strokeWidth: 2.2
+            color: root.up.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
         }
     }
-
-    down.indicator: Rectangle {
-        x: root.width - width
-        y: root.height / 2
-        width: 30
-        height: root.height - y
-        color: root.down.pressed
-            ? KodosiTheme.surfaceSelected
-            : root.down.hovered
-              ? KodosiTheme.surfaceElevated
-              : KodosiTheme.surface
-        bottomRightRadius: KodosiTheme.radiusSmall
+    down.indicator: Item {
+        width: 34
+        height: root.height
 
         KIcon {
             anchors.centerIn: parent
             width: 11
             height: 11
-            name: "chevron-down"
-            color: KodosiTheme.textSecondary
+            name: "minus"
+            strokeWidth: 2.2
+            color: root.down.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
         }
     }
-
-    KFocusIndicator { active: root.activeFocus && root.enabled; z: 3 }
-
-    background: Rectangle {
-        color: KodosiTheme.input
-        radius: KodosiTheme.radiusSmall
-    }
-
-    Rectangle {
-        anchors.right: parent.right
-        anchors.rightMargin: 30
-        width: 1
-        height: parent.height
-        color: KodosiTheme.seam
-    }
-
-    Rectangle {
-        anchors.right: parent.right
-        width: 30
-        height: 1
-        y: Math.floor(parent.height / 2)
-        color: KodosiTheme.seam
+    background: Item {
+        Raised {
+            anchors.fill: parent
+            radius: height / 2
+        }
+        KFocusIndicator { active: root.activeFocus && root.enabled }
     }
 }

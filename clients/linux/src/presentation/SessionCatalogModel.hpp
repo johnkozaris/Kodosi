@@ -12,6 +12,9 @@ class SessionCatalogModel final : public QAbstractListModel {
     Q_OBJECT
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
     Q_PROPERTY(QVariantList folderGroups READ folderGroups NOTIFY folderGroupsChanged)
+    Q_PROPERTY(QVariantList sessions READ sessions NOTIFY folderGroupsChanged)
+    Q_PROPERTY(QStringList attention READ attention NOTIFY attentionChanged)
+    Q_PROPERTY(bool working READ working NOTIFY folderGroupsChanged)
     Q_PROPERTY(AuthorityState authorityState READ authorityState NOTIFY authorityStateChanged)
     Q_PROPERTY(QString authorityError READ authorityError NOTIFY authorityStateChanged)
 public:
@@ -58,6 +61,10 @@ public:
     };
     explicit SessionCatalogModel(QObject* parent = nullptr);
     [[nodiscard]] QVariantList folderGroups() const;
+    [[nodiscard]] QVariantList sessions() const;
+    [[nodiscard]] QStringList attention() const { return m_attention; }
+    [[nodiscard]] bool working() const;
+    Q_INVOKABLE void clearAttention(const QString& id);
     [[nodiscard]] int rowCount(const QModelIndex& parent = {}) const override;
     [[nodiscard]] QVariant data(const QModelIndex&, int role) const override;
     [[nodiscard]] QHash<int, QByteArray> roleNames() const override;
@@ -78,13 +85,18 @@ signals:
     void countChanged();
     void authorityStateChanged();
     void authoritativeSnapshotApplied();
+    void attentionChanged();
 
 private:
     QVector<Session> m_sessions;
+    QStringList m_attention;
     AuthorityState m_state = Loading;
     QString m_error;
     [[nodiscard]] static std::optional<Session> decode(const QJsonObject& object);
     [[nodiscard]] static PresentationSession presentation(const Session& session);
+    [[nodiscard]] static bool isWorking(const Session& session);
+    [[nodiscard]] static QString activity(const Session& session);
+    [[nodiscard]] QVariantMap fields(const Session& session) const;
 };
 
 }

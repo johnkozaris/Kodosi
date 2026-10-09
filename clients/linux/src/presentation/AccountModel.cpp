@@ -30,6 +30,7 @@ void AccountModel::logout()
 void AccountModel::reset()
 {
     m_userId.clear();
+    m_displayName.clear();
     m_userCode.clear();
     m_verificationUri.clear();
     m_epoch.reset();

@@ -1,40 +1,48 @@
 import Kodosi 1.0
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 
 MenuItem {
     id: root
 
-    implicitHeight: 36
-    leftPadding: checkable ? 34 : 12
+    property string iconName: ""
+    property bool destructive: false
+    readonly property color tone: !enabled ? KodosiTheme.inkFaint : destructive ? KodosiTheme.danger : KodosiTheme.ink
+
+    implicitHeight: 32
+    leftPadding: 10
     rightPadding: 12
 
-    indicator: KIcon {
-        x: 10
-        anchors.verticalCenter: parent.verticalCenter
-        implicitWidth: 14
-        implicitHeight: 14
-        name: "check"
-        visible: root.checkable && root.checked
-        color: KodosiTheme.accent
-    }
+    indicator: Item {}
+    contentItem: RowLayout {
+        spacing: 9
 
-    contentItem: PlainLabel {
-        text: root.text
-        color: !root.enabled
-            ? KodosiTheme.disabled
-            : root.highlighted
-              ? KodosiTheme.textPrimary
-              : KodosiTheme.textSecondary
-        font.pixelSize: 11
-        verticalAlignment: Text.AlignVCenter
-        elide: Text.ElideRight
+        KIcon {
+            visible: root.iconName.length > 0
+            Layout.preferredWidth: 14
+            Layout.preferredHeight: 14
+            name: root.iconName
+            color: root.destructive ? KodosiTheme.danger : root.highlighted ? KodosiTheme.ink : KodosiTheme.inkMuted
+        }
+        PlainLabel {
+            Layout.fillWidth: true
+            text: root.text
+            color: root.tone
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+        }
+        KIcon {
+            visible: root.checkable && root.checked
+            Layout.preferredWidth: 12
+            Layout.preferredHeight: 12
+            name: "check"
+            strokeWidth: 2.4
+            color: KodosiTheme.accentStrong
+        }
     }
-
     background: Rectangle {
-        color: root.highlighted
-            ? KodosiTheme.surfaceSelected
-            : KodosiTheme.surface
-        radius: KodosiTheme.radiusSmall
+        radius: KodosiTheme.radiusSm
+        color: root.highlighted && root.enabled ? (root.destructive ? KodosiTheme.dangerSoft : KodosiTheme.accentSoft) : "transparent"
     }
 }

@@ -178,7 +178,10 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
             clearAccountData(m_account.signedIn());
             m_account.m_epoch = accountEpoch;
             m_account.m_userId = user;
+            m_account.m_displayName.clear();
         }
+        if (const auto name = event.value(QStringLiteral("displayName")).toString(); !name.isEmpty())
+            m_account.m_displayName = name;
         m_account.m_userCode.clear();
         m_account.m_verificationUri.clear();
         m_devices.m_enrolled = !user.isEmpty() && event.value(QStringLiteral("enrolled")).toBool(true);

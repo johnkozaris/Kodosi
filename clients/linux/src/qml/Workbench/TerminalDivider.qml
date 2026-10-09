@@ -61,13 +61,14 @@ Item {
     }
 
     Rectangle {
-        anchors.fill: parent
-        color: root.activeFocus || dragArea.pressed
-            ? KodosiTheme.accent
-            : dragArea.containsMouse
-              ? KodosiTheme.seamStrong
-              : KodosiTheme.seam
-        opacity: root.activeFocus || dragArea.pressed ? 0.8 : 0.45
+        anchors.centerIn: parent
+        width: root.orientation === Qt.Horizontal ? Math.min(44, parent.width) : 3
+        height: root.orientation === Qt.Horizontal ? 3 : Math.min(44, parent.height)
+        radius: 1.5
+        color: root.activeFocus || dragArea.pressed ? KodosiTheme.accent : KodosiTheme.inkFaint
+        opacity: root.activeFocus || dragArea.pressed ? 0.9 : dragArea.containsMouse ? 0.6 : 0
+
+        Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionHover } }
     }
 
     MouseArea {
