@@ -224,6 +224,7 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
         { QStringLiteral("activity"), activity(session) }, { QStringLiteral("working"), isWorking(session) },
         { QStringLiteral("progress"), isWorking(session) ? session.programProgress : -1 },
         { QStringLiteral("sign"), sign(session) }, { QStringLiteral("signLabel"), signLabel(session) },
+        { QStringLiteral("atPrompt"), local && p.canControl && session.prompt },
         { QStringLiteral("folderName"),
             s->workingDirectory.isEmpty() ? QString {} : QDir(s->workingDirectory).dirName() },
         { QStringLiteral("hostLabel"), local ? tr("This computer") : !s->hostName.isEmpty() ? s->hostName : !s->ownerName.isEmpty() ? s->ownerName : tr("Remote computer") },
@@ -272,6 +273,10 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
     s.workingDirectory = text("workingDir");
     s.title = text("title");
     s.program = text("program");
+    const auto prompt = o.value(QStringLiteral("prompt"));
+    if (!prompt.isUndefined() && !prompt.isBool())
+        return std::nullopt;
+    s.prompt = prompt.toBool();
     const auto reported = o.value(QStringLiteral("programStatus"));
     if (!reported.isUndefined() && !reported.isNull()) {
         if (!reported.isObject())

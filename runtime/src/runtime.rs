@@ -1327,6 +1327,7 @@ impl Runtime {
                 vec![]
             },
             program: previous.and_then(|entry| entry.program.clone()),
+            prompt: false,
             title: previous.and_then(|entry| entry.title.clone()),
             program_status: previous.and_then(|entry| entry.program_status.clone()),
             id: remote.id.to_string(),
@@ -1386,6 +1387,12 @@ impl Runtime {
             SessionChange::Program { id, program } => {
                 if let Some(local) = self.local.get_mut(&id) {
                     local.entry.program = program;
+                    self.publish_catalog();
+                }
+            }
+            SessionChange::Prompt { id, prompt } => {
+                if let Some(local) = self.local.get_mut(&id) {
+                    local.entry.prompt = prompt;
                     self.publish_catalog();
                 }
             }

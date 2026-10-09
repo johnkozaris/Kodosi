@@ -248,6 +248,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/SectionDock.qml
         qml/Controls/SegmentedPill.qml
         qml/Controls/ShimmerText.qml
+        qml/Controls/StartMark.qml
         qml/Controls/StatusSign.qml
         qml/Controls/Tag.qml
         qml/Controls/Well.qml

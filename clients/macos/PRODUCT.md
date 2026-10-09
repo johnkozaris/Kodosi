@@ -24,6 +24,10 @@ for an answer. A terminal that is done, that failed, or that rang its bell keeps
 sign until you look at it. While Kodosi is not in front, your own terminals send a
 system notification for these changes.
 
+A terminal at its prompt offers the start commands of this computer as marks among its
+actions. Kodosi adds a command for an agent the first time that the agent runs here.
+Settings holds the list, so a second account is one more command.
+
 Minimize hides a terminal but keeps it running. Close ends it and its programs.
 Closing the window leaves Kodosi running; Quit ends terminals that run on this Mac,
 not on other computers. Hidden terminals keep their place without accepting

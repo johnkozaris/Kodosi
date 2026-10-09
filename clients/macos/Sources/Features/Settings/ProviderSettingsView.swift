@@ -69,6 +69,7 @@ struct ProviderSettingsView: View {
             if let notice = configuration?.message {
                 Text(notice).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
             }
+            StartCommandsView()
             if let message {
                 ErrorNote(message: message)
             }

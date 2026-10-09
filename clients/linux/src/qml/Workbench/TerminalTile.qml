@@ -167,6 +167,19 @@ Item {
 
                     Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
 
+                    Repeater {
+                        model: root.session.atPrompt === true ? Models.DesktopSettings.startCommands : []
+
+                        delegate: StartMark {
+                            required property var modelData
+
+                            command: modelData
+                            onTerminal: true
+                            objectName: root.objectName + ".start." + modelData.id
+                            Accessible.id: objectName
+                            onClicked: Models.SessionActions.run(root.sessionId, modelData.command)
+                        }
+                    }
                     KIconButton {
                         glyph: "warning"
                         size: 26

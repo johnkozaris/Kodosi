@@ -203,6 +203,24 @@ private slots:
         f.workspace.apply(test::snapshot({ idle }), 0);
         QVERIFY(f.sessions.attention().isEmpty());
     }
+    void onlyALocalTerminalAtItsPromptOffersToStartAProgram()
+    {
+        Fixture f;
+        auto local = test::session(1);
+        local.insert(QStringLiteral("prompt"), true);
+        auto busy = test::session(2);
+        busy.insert(QStringLiteral("prompt"), false);
+        auto remote = test::session(3, true);
+        remote.insert(QStringLiteral("prompt"), true);
+        f.workspace.apply(test::snapshot({ local, busy, remote, test::session(4) }), 0);
+        const auto atPrompt = [&](const int number) {
+            return f.sessions.presentationForSession(test::id(number)).value(QStringLiteral("atPrompt")).toBool();
+        };
+        QVERIFY(atPrompt(1));
+        QVERIFY(!atPrompt(2));
+        QVERIFY(!atPrompt(3));
+        QVERIFY(!atPrompt(4));
+    }
     void aProgramStatusReportIsTheStateOfItsTerminal()
     {
         Fixture f;

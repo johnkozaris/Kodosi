@@ -52,7 +52,11 @@ title show it. A program that waits for you puts a copper ring on its mark and a
 of what it needs beside it, and the source list offers the next terminal that waits
 for an answer. A terminal that is done, that failed, or that rang its bell keeps a
 sign until you look at it. While Kodosi is not in front, your own terminals send a
-system notification for these changes. One share sheet puts a terminal in a room or shares it with
+system notification for these changes.
+
+A terminal at its prompt offers the start commands of this computer as marks among its
+actions. Kodosi adds a command for an agent the first time that the agent runs here.
+Settings holds the list, so a second account is one more command. One share sheet puts a terminal in a room or shares it with
 friends.
 
 ## Experience

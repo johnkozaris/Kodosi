@@ -31,6 +31,7 @@ public:
         QString programTitle;
         QString programMessage;
         int programProgress = -1;
+        bool prompt = false;
         QStringList connectedUsers;
         QString kind;
         QString workingDirectory;

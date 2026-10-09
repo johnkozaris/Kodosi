@@ -860,6 +860,50 @@
               }
             ]
           },
+          "command": {
+            "type": "string"
+          },
+          "expectedRuntimeIncarnationId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "session.run"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "sessionId",
+          "expectedRuntimeIncarnationId",
+          "command"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -3195,6 +3239,9 @@
                     }
                   ]
                 },
+                "prompt": {
+                  "type": "boolean"
+                },
                 "sharedWith": {
                   "items": {
                     "type": "string"
@@ -3237,6 +3284,7 @@
               },
               "required": [
                 "connectedUsers",
+                "prompt",
                 "id",
                 "incarnationId",
                 "kind",
@@ -4952,7 +5000,7 @@
     ]
   },
   "ffiAbiVersion": 7,
-  "protocolVersion": 51,
+  "protocolVersion": 52,
   "terminal": {
     "checkpointMaxBytes": 8388608,
     "checkpointSchema": 2,

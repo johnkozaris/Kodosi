@@ -93,7 +93,7 @@ Actions, tags and pills are capsules. Squircles are agents, rooms and kinds of t
 - **Room sigil:** a squircle with four small tiles. The color and the lit tiles come from the room's identifier.
 - **Selection pill:** one raised pill with a copper caret slides between rows of the source list.
 - **Sliding pills:** segmented controls and terminal tabs use a raised thumb that slides. The room dock shows icons, and the selected section says its name. A section that changed out of view gets a breathing dot.
-- **Terminal tile:** a rounded tile with a header. Actions are faint until the pointer is on the tile or the tile is selected. A new terminal opens from a copper veil at the prompt. A person who joins shows as a card for a few seconds.
+- **Terminal tile:** a rounded tile with a header. Actions are faint until the pointer is on the tile or the tile is selected. While the terminal is at its prompt, the marks of the start commands are the first actions, and a second command of the same program shows a letter. A new terminal opens from a copper veil at the prompt. A person who joins shows as a card for a few seconds.
 - **Conversation:** your messages are bubbles on the right. Other people have an avatar and a name. An agent shows its mark, its name, the person it works for, and the terminal it wrote from. Mentions of people and terminals are tinted chips, and a mention of a terminal opens it. A message that mentions you has a tinted row.
 - **Composer:** a lifted capsule with a copper halo when it has focus. "@" opens a list of people and terminals.
 - **Tasks:** cards in "Up for grabs", "In progress" and "Done". A card that changed washes warm one time.

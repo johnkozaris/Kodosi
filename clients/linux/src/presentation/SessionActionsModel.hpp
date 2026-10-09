@@ -37,6 +37,7 @@ public:
         const QString& workingDirectory);
     Q_INVOKABLE bool close(const QString& sessionId);
     Q_INVOKABLE bool rename(const QString& sessionId, const QString& name);
+    Q_INVOKABLE bool run(const QString& sessionId, const QString& command);
     Q_INVOKABLE bool takeCreated(const QString& sessionId);
     Q_INVOKABLE bool share(const QString& sessionId, const QStringList& userIds,
         const QStringList& expectedUserIds = {});

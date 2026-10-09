@@ -81,6 +81,7 @@ impl Runtime {
             Command::CloseSession { .. } | Command::InterruptSession { .. } => {
                 self.end_session(command)?;
             }
+            Command::RunInSession { .. } => self.run_in_session(command)?,
             Command::OpenRemote { .. } | Command::DisconnectRemote { .. } => {
                 return Err(Error::Invalid(
                     "remote view commands require a current client".to_owned(),
@@ -144,6 +145,11 @@ impl Runtime {
             expected_runtime_incarnation_id: incarnation,
             ..
         }
+        | Command::RunInSession {
+            session_id: id,
+            expected_runtime_incarnation_id: incarnation,
+            ..
+        }
         | Command::ShareSession {
             session_id: id,
             expected_runtime_incarnation_id: incarnation,
@@ -189,6 +195,32 @@ impl Runtime {
         } else {
             self.administer(id, command.clone())
         }
+    }
+
+    fn run_in_session(&mut self, command: &Command) -> Result<()> {
+        let id = self.command_session(command)?;
+        let Command::RunInSession { command: line, .. } = command else {
+            return Err(Error::Invalid("expected a command to run".to_owned()));
+        };
+        self.job_capacity()?;
+        let response = self
+            .local
+            .get(&id)
+            .ok_or_else(|| {
+                Error::Invalid(
+                    "Start a program on the computer that hosts this terminal.".to_owned(),
+                )
+            })?
+            .terminal
+            .run(line.clone());
+        let command = command.clone();
+        self.spawn(async move {
+            Completion::Terminal {
+                command,
+                result: response.await,
+            }
+        });
+        Ok(())
     }
 
     fn end_session(&mut self, command: &Command) -> Result<()> {
@@ -631,6 +663,7 @@ impl Runtime {
                 let entry = SessionEntry {
                     connected_users: vec![],
                     program: None,
+                    prompt: false,
                     title: None,
                     program_status: None,
                     id: id.to_string(),

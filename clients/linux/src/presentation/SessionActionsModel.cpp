@@ -231,6 +231,15 @@ bool SessionActionsModel::rename(const QString& id, const QString& name)
         { { QStringLiteral("name"), name.trimmed() } });
 }
 
+bool SessionActionsModel::run(const QString& id, const QString& line)
+{
+    const auto text = line.trimmed();
+    const bool printable = std::ranges::none_of(text, [](const QChar character) { return !character.isPrint(); });
+    if (text.isEmpty() || text.toUtf8().size() > 1024 || !printable)
+        return false;
+    return command(QStringLiteral("session.run"), id, { { QStringLiteral("command"), text } });
+}
+
 bool SessionActionsModel::share(
     const QString& id, const QStringList& users, const QStringList& expectedUsers)
 {

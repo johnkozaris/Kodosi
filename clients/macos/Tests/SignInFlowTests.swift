@@ -16,7 +16,7 @@ private func signedOutApp(prefix: String) throws -> (AppDependencies, SignInReco
         return 0
     }
     app.openExternalURL = { opened.value.append($0) }
-    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(51)]))
+    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(52)]))
     try app.receive(runtimeEvent("auth.required", epoch: 0, userId: nil, fields: ["reason": .string("signedOut")]))
     return (app, SignInRecord(sentCommands: sent, openedPages: opened))
 }

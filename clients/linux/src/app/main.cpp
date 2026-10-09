@@ -115,6 +115,13 @@ int main(int argc, char* argv[])
         }
     });
     QObject::connect(&runtime, &kodosi::RuntimeBridge::eventError, &workspace, &kodosi::Workspace::setError);
+    QObject::connect(&sessions, &kodosi::SessionCatalogModel::authoritativeSnapshotApplied, &settings, [&] {
+        for (const auto& value : sessions.sessions()) {
+            const auto session = value.toMap();
+            if (session.value(QStringLiteral("kind")).toString() == QStringLiteral("local"))
+                settings.learn(session.value(QStringLiteral("program")).toString());
+        }
+    });
     QObject::connect(&runtime, &kodosi::RuntimeBridge::runningChanged, &app, [&](bool running) {
         if (!running) {
             workspace.reset();

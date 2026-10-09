@@ -37,8 +37,8 @@ final class RuntimeHandle: @unchecked Sendable {
 
     static let expectedFFIABIVersion: Int32 = 7
 
-    static let minimumSupportedProtocolVersion: UInt32 = 51
-    static let maximumSupportedProtocolVersion: UInt32 = 51
+    static let minimumSupportedProtocolVersion: UInt32 = 52
+    static let maximumSupportedProtocolVersion: UInt32 = 52
 
     static func isSupportedProtocolVersion(_ version: UInt32) -> Bool {
         (minimumSupportedProtocolVersion ... maximumSupportedProtocolVersion).contains(version)

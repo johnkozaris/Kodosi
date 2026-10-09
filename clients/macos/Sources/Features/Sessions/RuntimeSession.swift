@@ -26,6 +26,7 @@ struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     let incarnationId: String
     let kind: Kind
     let program: String?
+    let prompt: Bool?
     let title: String?
     let programStatus: ProgramStatus?
     let name: String
@@ -60,6 +61,10 @@ struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
         }
         guard let first = title?.unicodeScalars.first else { return false }
         return (0x2800 ... 0x28FF).contains(first.value)
+    }
+
+    var atPrompt: Bool {
+        kind == .local && canControl && prompt == true
     }
 
     var needsUser: Bool {

@@ -2,6 +2,9 @@
 #include <QObject>
 #include <QSettings>
 #include <QString>
+#include <QStringList>
+#include <QVariantList>
+#include <QVector>
 #include <memory>
 namespace kodosi {
 class DesktopSettings final : public QObject {
@@ -14,6 +17,8 @@ class DesktopSettings final : public QObject {
     Q_PROPERTY(bool cursorBlink READ cursorBlink NOTIFY settingsChanged)
     Q_PROPERTY(QString effectiveWorkingDirectory READ effectiveWorkingDirectory NOTIFY settingsChanged)
     Q_PROPERTY(QString settingsError READ settingsError NOTIFY settingsErrorChanged)
+    Q_PROPERTY(QVariantList startCommands READ startCommands NOTIFY startCommandsChanged)
+    Q_PROPERTY(QStringList startCommandIds READ startCommandIds NOTIFY startCommandIdsChanged)
 public:
     enum CursorStyle { Block, Bar, Underline };
     Q_ENUM(CursorStyle)
@@ -32,9 +37,18 @@ public:
     Q_INVOKABLE void setWorkingDirectory(const QString& path);
     Q_INVOKABLE void resetTerminal();
     Q_INVOKABLE void clearError();
+    QVariantList startCommands() const;
+    QStringList startCommandIds() const;
+    Q_INVOKABLE void learn(const QString& program);
+    Q_INVOKABLE void addStartCommand();
+    Q_INVOKABLE void setStartCommand(const QString& id, const QString& name, const QString& command);
+    Q_INVOKABLE void removeStartCommand(const QString& id);
+    [[nodiscard]] static QString agentOf(const QString& command);
 signals:
     void settingsChanged();
     void settingsErrorChanged();
+    void startCommandsChanged();
+    void startCommandIdsChanged();
 
 private:
     std::unique_ptr<QSettings> m_settings;
@@ -43,6 +57,12 @@ private:
     CursorStyle m_cursor = Block;
     double m_lineHeight = 1.0;
     bool m_blink = false;
+    struct StartCommand {
+        QString id, name, command;
+    };
+    QVector<StartCommand> m_start;
+    QStringList m_learned;
     bool persist();
+    void persistStart();
 };
 }

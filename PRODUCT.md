@@ -85,6 +85,10 @@ Kodosi does not infer that state from screen content. While the app is not in fr
 it sends a system notification when one of the person's own terminals starts to wait,
 is done, or failed.
 
+A local terminal at its prompt offers the person's start commands, such as an agent
+or the same agent with a second account. Kodosi types the command into the shell and
+does no more; the program remains the provider's own CLI.
+
 Direct terminal sharing and native Claude Code and Copilot CLI conversation
 preview/resume remain available. Kodosi does not become the agent harness or require
 a shared checkout.

@@ -27,6 +27,15 @@ extension AppDependencies {
         session.mark(rested: session.isConnected && workbench.stagedSessionIds.contains(session.id) ? .awake : .asleep)
     }
 
+    func start(_ command: StartCommand, in session: RuntimeSession) {
+        guard let line = command.line else { return }
+        Task { @MainActor in
+            do {
+                try await mutateSession("session.run", session: session, fields: ["command": .string(line)])
+            } catch { errorMessage = error.localizedDescription }
+        }
+    }
+
     func sign(of session: RuntimeSession) -> StatusSign.Form? {
         session.sign(unseen: attention.contains(session.id))
     }

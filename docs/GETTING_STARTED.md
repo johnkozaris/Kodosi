@@ -13,6 +13,12 @@ Create a terminal and choose its working folder. It is a real shell on that comp
 run your normal commands, editor, or coding agent there. Provider CLIs use their own
 installation, settings, and sign-in.
 
+After you run an agent on a computer one time, each terminal on that computer shows
+the agent's mark among its actions while the terminal is at its prompt. Select the
+mark to start the agent there. In Settings, under Agents, you can change these start
+commands and add your own, for example `env CLAUDE_CONFIG_DIR=~/.claude_personal claude`
+for a second account.
+
 Approved devices on the same account can open your terminals. The hosting computer
 must remain online with Kodosi running.
 
