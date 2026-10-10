@@ -1,0 +1,6 @@
+{
+  "name": "@keycloakify/keycloak-account-ui",
+  "version": "260700.0.0",
+  "private": true,
+  "description": "Keycloakify builds a one-page account theme only when the package of Keycloak's own account console is installed, and it reads only the version from here. The account page of Kodosi is its own code (src/account), so this folder stands in for that package and holds nothing more."
+}

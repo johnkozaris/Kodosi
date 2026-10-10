@@ -1,0 +1,4 @@
+# The sample people of ./keycloak.sh: username | e-mail | first name | last name | password | steps at the next sign-in
+# Ana Ruiz is not here: make her account on the page to see the journey of a new person.
+maya|maya@kodosi.example|Maya|Chen|copper-Fox-41|
+leo|leo@kodosi.example|Leo|Park|copper-Fox-42|"UPDATE_PASSWORD","CONFIGURE_TOTP"

@@ -1,0 +1,5 @@
+node_modules/
+dist/
+# The theme that ./theme.sh builds, and what Keycloakify puts beside the pages for the dev server.
+dist_keycloak/
+public/keycloakify-dev-resources/

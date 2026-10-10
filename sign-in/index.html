@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/src/assets/icon-32.png" />
+    <link rel="icon" type="image/png" sizes="128x128" href="/src/assets/icon-128.png" />
+    <link rel="apple-touch-icon" href="/src/assets/icon-128.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#f0e9dc" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#110e0c" media="(prefers-color-scheme: dark)" />
+    <title>Kodosi</title>
+    <!-- The K of the mark, and the letters of what a person types. The stylesheet names both.
+         The browser starts on the two files with the page, and does not wait for the stylesheet. -->
+    <link rel="preload" as="image" type="image/webp" href="/src/assets/mark.webp" />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      crossorigin
+      href="/node_modules/@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2"
+    />
+    <script>
+      // The language of the page, for a screen reader. Keycloak gives it. With no Keycloak, the
+      // development server has it in the address.
+      try {
+        var given = window.kcContext;
+        var tag = given
+          ? given.locale && (given.locale.currentLanguageTag || given.locale)
+          : new URLSearchParams(location.search).get("lang");
+        if (tag && typeof tag === "string") document.documentElement.lang = tag;
+      } catch (e) {}
+      // The first page of a visit draws the mark. A step that carries on keeps it as it is
+      // (src/frame/carry.ts has the same numbers). A page that loads while the mark is still
+      // drawn goes on with the drawing from where it was: Keycloak can send a person through
+      // two pages in less than a second.
+      try {
+        var root = document.documentElement;
+        var before = JSON.parse(sessionStorage.getItem("kodosi.carry") || "null");
+        var since = Date.now() - Number(sessionStorage.getItem("kodosi.arrive") || 0);
+        if (since < 900) {
+          root.classList.add("arrive");
+          root.style.setProperty("--arrived", since / 1000 + "s");
+        } else if (!(before && Date.now() - before.t < 6000)) {
+          root.classList.add("arrive");
+          sessionStorage.setItem("kodosi.arrive", Date.now());
+        }
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <!-- The Kodosi mark is part of the page itself: it is there before the script loads, and it
+         has the same place on each step. The word is drawn, not typed: JetBrains Mono at weight
+         800 with the tracking of the app's wordmark, so it waits for no font. The rectangle is
+         the copper cursor at rest, with the size that it has on the banner; src/frame/cursor.ts
+         gives it its life. -->
+    <div id="logo" class="logo" role="img" aria-label="Kodosi">
+      <span class="logo-mark"><span class="logo-k"></span></span>
+      <svg class="logo-word" viewBox="60 -800 3975 840" aria-hidden="true" focusable="false">
+        <path
+          class="logo-letters"
+          d="M219 0L69 0L69-730L219-730L219-342L293-342L408-550L575-550L422-281L578 0L408 0L292-216L219-216M880 10Q807 10 753-17Q699-45 670-94Q640-144 640-210L640-340Q640-406 670-455Q699-505 753-532Q807-560 880-560Q954-560 1008-532Q1061-505 1091-455Q1120-406 1120-340L1120-210Q1120-144 1091-94Q1061-45 1008-17Q954 10 880 10M880-120Q924-120 947-143Q970-167 970-210L970-340Q970-384 947-407Q924-430 880-430Q837-430 814-407Q790-384 790-340L790-210Q790-167 814-143Q837-120 880-120M1403 10Q1320 10 1270-48Q1220-106 1220-205L1220-345Q1220-443 1270-501Q1320-560 1403-560Q1471-560 1510-521Q1539-491 1546-445L1549-445L1544-580L1544-730L1694-730L1694 0L1549 0L1549-105L1546-105Q1539-59 1510-30Q1471 10 1403 10M1457-120Q1498-120 1521-143Q1544-167 1544-210L1544-340Q1544-383 1521-406Q1498-430 1457-430Q1415-430 1393-406Q1370-383 1370-340L1370-210Q1370-167 1393-143Q1415-120 1457-120M2040 10Q1967 10 1913-17Q1859-45 1830-94Q1800-144 1800-210L1800-340Q1800-406 1830-455Q1859-505 1913-532Q1967-560 2040-560Q2114-560 2168-532Q2221-505 2251-455Q2280-406 2280-340L2280-210Q2280-144 2251-94Q2221-45 2168-17Q2114 10 2040 10M2040-120Q2084-120 2107-143Q2130-167 2130-210L2130-340Q2130-384 2107-407Q2084-430 2040-430Q1997-430 1974-407Q1950-384 1950-340L1950-210Q1950-167 1974-143Q1997-120 2040-120M2641 10L2597 10Q2529 10 2478-11Q2427-33 2399-71Q2370-109 2370-160L2520-160Q2520-136 2542-121Q2563-107 2597-107L2641-107Q2682-107 2704-122Q2725-137 2725-164Q2725-189 2706-202Q2687-216 2647-221L2583-229Q2480-242 2433-279Q2386-316 2386-392Q2386-472 2441-516Q2496-560 2602-560L2640-560Q2741-560 2801-516Q2861-472 2861-398L2711-398Q2711-418 2692-430Q2672-443 2640-443L2602-443Q2565-443 2548-430Q2531-418 2531-393Q2531-370 2547-358Q2562-346 2596-341L2665-332Q2769-319 2820-280Q2870-241 2870-164Q2870-80 2812-35Q2754 10 2641 10M3460 0L2970 0L2970-136L3160-136L3160-415L2995-415L2995-550L3300-550L3300-136L3460-136L3460 0M3220-637Q3179-637 3155-658Q3130-679 3130-715Q3130-751 3155-772Q3179-793 3220-793Q3261-793 3286-772Q3310-751 3310-715Q3310-679 3286-658Q3261-637 3220-637"
+        />
+        <rect id="cursor-home" class="logo-cursor" x="3542" y="-758" width="484" height="790" rx="46" />
+      </svg>
+    </div>
+    <div id="root"></div>
+    <script>
+      // What the page before this one handed over stays in place until this page draws its own
+      // (src/frame/carry.ts): its capsule, and the cursor where it stood. A step of the sign-in
+      // never shows an empty page, and the cursor never starts again from nothing.
+      try {
+        var c = JSON.parse(sessionStorage.getItem("kodosi.carry") || "null");
+        if (
+          c &&
+          Date.now() - c.t < 6000 &&
+          c.vw === innerWidth &&
+          !matchMedia("(prefers-reduced-motion: reduce)").matches
+        ) {
+          if (c.w > 0) {
+            var g = document.createElement("div");
+            g.id = "carry";
+            g.setAttribute("aria-hidden", "true");
+            g.className = "sheet-lift";
+            g.style.cssText =
+              "position:absolute;z-index:1;left:" + c.x + "px;top:" + c.y + "px;width:" + c.w +
+              "px;height:" + c.h + "px;border-radius:" + c.r + "px";
+            document.body.appendChild(g);
+          }
+          if (c.cw > 0) {
+            var k = document.createElement("div");
+            k.id = "cursor";
+            k.setAttribute("aria-hidden", "true");
+            k.style.cssText =
+              "width:" + c.cw + "px;height:" + c.ch + "px;border-radius:" +
+              Math.max(1, c.cw * 0.1) + "px;transform:translate(" + c.cx + "px," + c.cy + "px)";
+            document.body.appendChild(k);
+            document.documentElement.classList.add("cursor-live");
+          }
+        }
+      } catch (e) {}
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

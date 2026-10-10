@@ -1,0 +1,38 @@
+{
+  "name": "@kodosi/sign-in",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "theme": "./theme.sh",
+    "lint": "oxlint src --max-warnings 0",
+    "format": "biome check --write .",
+    "format:check": "biome check .",
+    "tsc": "tsc"
+  },
+  "dependencies": {
+    "@fontsource-variable/jetbrains-mono": "5.3.0",
+    "clsx": "2.1.1",
+    "keycloak-js": "26.2.4",
+    "keycloakify": "11.16.1",
+    "lucide-react": "1.51.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "tailwind-merge": "3.7.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@keycloakify/keycloak-account-ui": "file:tools/keycloak-account-ui",
+    "@tailwindcss/vite": "4.3.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "oxlint": "1.86.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "npm:@typescript/typescript6@6.0.2",
+    "vite": "8.3.2"
+  }
+}

@@ -1,0 +1,8 @@
+[install]
+# Never install a version that was published less than 36 hours ago.
+minimumReleaseAge = 129600
+exact = true
+auto = "disable"
+
+[run]
+bun = true
