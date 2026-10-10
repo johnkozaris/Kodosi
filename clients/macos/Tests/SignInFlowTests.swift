@@ -41,7 +41,7 @@ private final class Box<T>: @unchecked Sendable {
 }
 
 private let deviceCode: [String: JSONValue] = [
-    "userCode": .string("ABCD-EFGH"), "verificationUri": .string("https://auth.example/device?user_code=ABCD-EFGH"),
+    "userCode": .string("ABCD-EFGH"), "verificationUri": .string("https://auth.example/device#ABCD-EFGH"),
 ]
 
 @Test @MainActor func signInWalksThroughTheStepsAndOnlyOpensTheBrowserOnce() throws {
@@ -52,7 +52,7 @@ private let deviceCode: [String: JSONValue] = [
     #expect(app.signInStage == .starting)
     #expect(record.sent.last == "auth.login.start")
     try app.receive(runtimeEvent("auth.device_code", epoch: 0, userId: nil, fields: deviceCode))
-    #expect(app.signInStage == .awaitingApproval(code: "ABCD-EFGH", url: URL(string: "https://auth.example/device?user_code=ABCD-EFGH")))
+    #expect(app.signInStage == .awaitingApproval(code: "ABCD-EFGH", url: URL(string: "https://auth.example/device#ABCD-EFGH")))
     #expect(record.opened.count == 1)
     app.dismissSignIn()
     #expect(app.signInPrompt == "Continue signing in")

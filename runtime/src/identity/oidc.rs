@@ -27,11 +27,18 @@ pub struct DeviceLogin {
     pub device_code: String,
     pub user_code: String,
     pub verification_uri: String,
-    pub verification_uri_complete: Option<String>,
     pub expires_in: u64,
     pub interval: Option<u64>,
     #[serde(skip)]
     token_endpoint: String,
+}
+
+impl DeviceLogin {
+    /// The code page with the code after "#": the browser keeps that part, and the Kodosi
+    /// sign-in page sends the code itself, so every later step can show it to compare.
+    pub fn code_page(&self) -> String {
+        format!("{}#{}", self.verification_uri, self.user_code)
+    }
 }
 
 impl Drop for DeviceLogin {
@@ -135,14 +142,18 @@ impl Oidc {
             .error_for_status()?;
         let mut login: DeviceLogin =
             serde_json::from_slice(&read_bounded(response, 256 * 1024).await?)?;
-        for uri in [
-            Some(login.verification_uri.as_str()),
-            login.verification_uri_complete.as_deref(),
-        ]
-        .into_iter()
-        .flatten()
+        let page = Url::parse(&login.verification_uri)
+            .map_err(|_| invalid("Invalid verification URL."))?;
+        validate_url(&page)?;
+        if page.fragment().is_some()
+            || login.user_code.is_empty()
+            || login.user_code.len() > 32
+            || !login
+                .user_code
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-')
         {
-            validate_url(&Url::parse(uri).map_err(|_| invalid("Invalid verification URL."))?)?;
+            return Err(invalid("Sign-in challenge is invalid."));
         }
         if login.expires_in == 0 || login.expires_in > 3600 || login.device_code.len() > 4096 {
             return Err(invalid("Sign-in challenge is invalid."));
@@ -283,6 +294,18 @@ pub(crate) async fn read_bounded(response: reqwest::Response, max: usize) -> Res
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_code_page_carries_the_code_after_the_hash_only() {
+        let login: DeviceLogin = serde_json::from_str(
+            r#"{"device_code":"d","user_code":"WDJB-MJHT","verification_uri":"https://auth.example/realms/kodosi/device","verification_uri_complete":"https://auth.example/realms/kodosi/device?user_code=WDJB-MJHT","expires_in":900}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            login.code_page(),
+            "https://auth.example/realms/kodosi/device#WDJB-MJHT"
+        );
+    }
 
     #[test]
     fn stored_tokens_ignore_obsolete_endpoint_without_losing_credentials() {
