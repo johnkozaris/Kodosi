@@ -231,10 +231,11 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       termsAcceptanceRequired: "Accept the terms to go on.",
       successLogout: "You are signed out",
       userDeletedSuccessfully: "Your account is deleted.",
-      accountTemporarilyDisabledMessage:
-        "This account is locked for a few minutes. Try again later.",
+      // Keycloak names a locked account on the sign-in. The words are the words of a wrong name or
+      // password, so they do not say that the account exists; the person gets the e-mail note.
+      accountTemporarilyDisabledMessage: "That name or password is not right.",
       accountTemporarilyDisabledMessageTotp:
-        "This account is locked for a few minutes. Try again later.",
+        "That code is not right. Type the code that the app shows now.",
       // What a check against programs says when it refuses a form. The row of the check shows it.
       recaptchaFailed: "The check did not pass.",
       recaptchaNotConfigured: "The check did not load. Try again in a moment.",
