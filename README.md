@@ -41,7 +41,7 @@ approved devices, and open the terminals that friends share with you. One list s
 all of them, grouped by computer.
 
 <p align="center">
-  <img src="docs/media/overview.webp" width="820" alt="The overview: five terminals on three computers, grouped as This Mac, a friend's laptop, and a second Mac.">
+  <img src="docs/media/overview.webp" width="760" alt="The overview: five terminals on three computers, grouped as This Mac, a friend's laptop, and a second Mac.">
 </p>
 
 ### See which agent needs you

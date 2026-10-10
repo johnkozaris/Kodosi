@@ -94,7 +94,7 @@ Approved devices on the same account can open your terminals. The hosting comput
 must remain online with Kodosi running.
 
 <p align="center">
-  <img src="media/overview.webp" width="820" alt="The overview of all terminals, grouped by computer.">
+  <img src="media/overview.webp" width="760" alt="The overview of all terminals, grouped by computer.">
 </p>
 
 ## Share a terminal with a friend
