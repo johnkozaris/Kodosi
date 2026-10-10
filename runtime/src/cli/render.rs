@@ -62,6 +62,10 @@ pub(super) fn result(event: &Value, context: &Context) -> String {
         "auth.required" => "Signed out.".to_owned(),
         "devices.list" => devices(event),
         "devices.link.resolved" => format!("{} is approved.", text(event, "deviceLabel")),
+        "devices.recovery.created" => format!(
+            "{}\nKeep this key in a safe place. It approves a new device when you have no other approved device. Kodosi does not show it again.",
+            text(event, "key")
+        ),
         "devices.link.selfResolved" => "The request is cancelled.".to_owned(),
         "friends.snapshot" | "missions.snapshot" if unapproved(context) => account(context),
         "friends.snapshot" => friends(event),
@@ -93,7 +97,7 @@ fn account(context: &Context) -> String {
     };
     if unapproved(context) {
         format!(
-            "{signed_in}\nThis device is not approved. Run `kodosi devices link`, or `kodosi devices reset` to start fresh."
+            "{signed_in}\nThis device is not approved. Run `kodosi devices link`, `kodosi devices recover <key>`, or `kodosi devices reset` to start fresh."
         )
     } else {
         signed_in
@@ -131,7 +135,7 @@ fn devices(event: &Value) -> String {
             text(event, "notice")
         ));
         lines.push(
-            "Run `kodosi devices link`, or `kodosi devices reset` to start fresh.".to_owned(),
+            "Run `kodosi devices link`, `kodosi devices recover <key>`, or `kodosi devices reset` to start fresh.".to_owned(),
         );
     }
     let rows = event["devices"]
@@ -143,6 +147,8 @@ fn devices(event: &Value) -> String {
                 text(device, "label"),
                 if device["deviceId"] == event["selfDeviceId"] {
                     "this device".to_owned()
+                } else if device["recoveryKey"] == true {
+                    "recovery key".to_owned()
                 } else {
                     String::new()
                 },

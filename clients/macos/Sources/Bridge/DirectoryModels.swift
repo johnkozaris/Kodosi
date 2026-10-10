@@ -30,6 +30,7 @@ struct MyDeviceEntry: Decodable, Equatable, Identifiable, Sendable {
     let label: String
     let certSignerDeviceId: String
     let certIssuedAtMs: UInt64
+    let recoveryKey: Bool
     var id: String {
         deviceId
     }

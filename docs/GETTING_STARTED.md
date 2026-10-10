@@ -93,6 +93,10 @@ enter the code.
 Approved devices on the same account can open your terminals. The hosting computer
 must remain online with Kodosi running.
 
+Make a recovery key in Settings, then Devices, and keep it in a safe place. If you lose
+all your computers, sign in on a new one and select "Use my recovery key". You keep
+your friends and rooms.
+
 <p align="center">
   <img src="media/overview.webp" width="760" alt="The overview of all terminals, grouped by computer.">
 </p>

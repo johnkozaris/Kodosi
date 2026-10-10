@@ -18,6 +18,7 @@ final class AppDependencies {
     var outgoingRequests: [FriendRequestEntry] = []
     var devices: [MyDeviceEntry] = []
     var deviceRequests: [DeviceLinkRequest] = []
+    var newRecoveryKey: String?
     var missions: [MissionEntry] = []
     var invitations: [MissionInvitationEntry] = []
     var missionListTruncated = false

@@ -357,6 +357,12 @@ impl BackendClient {
                 self.revoke_device(wire::text(&args, "deviceId")?).await?;
                 events.extend(self.device_events().await?);
             }
+            "devices.recovery.create" => {
+                events.extend(self.create_recovery_key().await?);
+            }
+            "devices.recovery.use" => {
+                events.extend(self.use_recovery_key(wire::text(&args, "key")?).await?);
+            }
             "room.command" => events.extend(self.room_command(&args).await?),
             "friends.refresh" => events.push(self.friend_event().await?),
             operation if operation.starts_with("friends.") => {
@@ -1035,6 +1041,7 @@ mod device_identity;
 mod enrollment;
 mod friends;
 mod notifications;
+mod recovery;
 mod rooms;
 #[cfg(test)]
 mod tests;

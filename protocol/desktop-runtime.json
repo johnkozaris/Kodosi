@@ -335,6 +335,66 @@
             ]
           },
           "type": {
+            "const": "devices.recovery.create"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "key": {
+            "type": "string"
+          },
+          "type": {
+            "const": "devices.recovery.use"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "key"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
             "const": "friends.refresh"
           }
         },
@@ -2731,13 +2791,17 @@
                 },
                 "label": {
                   "type": "string"
+                },
+                "recoveryKey": {
+                  "type": "boolean"
                 }
               },
               "required": [
                 "deviceId",
                 "label",
                 "certSignerDeviceId",
-                "certIssuedAtMs"
+                "certIssuedAtMs",
+                "recoveryKey"
               ],
               "type": "object"
             },
@@ -2946,6 +3010,38 @@
           "accountEpoch",
           "type",
           "outcome"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "key": {
+            "type": "string"
+          },
+          "type": {
+            "const": "devices.recovery.created"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "key"
         ],
         "type": "object"
       },
@@ -5024,7 +5120,7 @@
     ]
   },
   "ffiAbiVersion": 7,
-  "protocolVersion": 53,
+  "protocolVersion": 54,
   "terminal": {
     "checkpointMaxBytes": 8388608,
     "checkpointSchema": 2,

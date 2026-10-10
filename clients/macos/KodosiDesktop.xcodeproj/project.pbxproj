@@ -83,6 +83,7 @@
 		6E9051F5B6126F633AB4A401 /* MenuCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64E93D1A85D4567DDB06AA67 /* MenuCommands.swift */; };
 		6F4B27C5B259EBE454D4B170 /* Lists.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAC4ECBBB930DE01DAF5BABD /* Lists.swift */; };
 		6F74D0953FEB770C7E0A754B /* KodosiDesktopApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF88E3F8ACF53DFF48487B1A /* KodosiDesktopApp.swift */; };
+		71DA4DFFA9DC737D1181B2AB /* RecoveryKeySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4552D0DB75C7827960FEF38 /* RecoveryKeySheet.swift */; };
 		742E9EF5E9361C0308DF8695 /* ProviderModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB5D929795BF7579600AB8BE /* ProviderModels.swift */; };
 		7589F628814F0127A022A290 /* Primer-Octicons-MIT.txt in Resources */ = {isa = PBXBuildFile; fileRef = 236643090480E0771259CFC4 /* Primer-Octicons-MIT.txt */; };
 		762CF1AED138B7DB7F0D4F20 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3775E05C19F862BE33B3490B /* SettingsView.swift */; };
@@ -291,6 +292,7 @@
 		DCE1B419C4C83353B2D2E129 /* DeviceTrustView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceTrustView.swift; sourceTree = "<group>"; };
 		DF6902585463616B651AEFBB /* WorkingTreeValidation.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = WorkingTreeValidation.xcconfig; sourceTree = "<group>"; };
 		E369A4B3C72C476C2BF1B398 /* TerminalSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSettingsView.swift; sourceTree = "<group>"; };
+		E4552D0DB75C7827960FEF38 /* RecoveryKeySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryKeySheet.swift; sourceTree = "<group>"; };
 		E662582033C1630A8F877ACC /* JSONValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONValue.swift; sourceTree = "<group>"; };
 		EB35D73A053D99EF3E832FB5 /* RoomWorkflowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomWorkflowTests.swift; sourceTree = "<group>"; };
 		EE80ADAE44559A6E61157AF2 /* TerminalProcessFocusCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalProcessFocusCoordinator.swift; sourceTree = "<group>"; };
@@ -474,6 +476,7 @@
 				3C2BD5E1320E2E1D14D4AC57 /* DeviceSettingsView.swift */,
 				BF34BE50997BD75F613EBC09 /* EphemeralUserDefaults.swift */,
 				A84F9DAF3FB84ACAD33EEC48 /* ProviderSettingsView.swift */,
+				E4552D0DB75C7827960FEF38 /* RecoveryKeySheet.swift */,
 				3775E05C19F862BE33B3490B /* SettingsView.swift */,
 				0E130B2CE4C9FC40C754A0C8 /* StartCommand.swift */,
 				5CA938DB9302471D5B24F23B /* StartCommandsView.swift */,
@@ -936,6 +939,7 @@
 				3E4E4BBF1C55C92346829EA6 /* ProductInput.swift in Sources */,
 				742E9EF5E9361C0308DF8695 /* ProviderModels.swift in Sources */,
 				CAAC7340B889C553AC491E5B /* ProviderSettingsView.swift in Sources */,
+				71DA4DFFA9DC737D1181B2AB /* RecoveryKeySheet.swift in Sources */,
 				F8796DA002FEE322336FBFAD /* ResizeDeliveryState.swift in Sources */,
 				D4EFD055410C2320B878FC08 /* RoomComponents.swift in Sources */,
 				A77DCD51BD05780CC172446D /* RoomComposer.swift in Sources */,

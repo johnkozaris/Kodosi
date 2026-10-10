@@ -197,6 +197,15 @@ impl Pins {
         history.verify_current(bundle, Anchor::Root(root), at_ms, false, false)
     }
 
+    pub(crate) fn without_time(bundle: &IdentityBundle, root: &Root) -> Result<VerifiedIdentity> {
+        let mut history = Self {
+            path: PathBuf::new(),
+            pins: BTreeMap::new(),
+        };
+        let now = super::now_ms();
+        history.verify_current(bundle, Anchor::Root(root), now, true, false)
+    }
+
     #[expect(
         clippy::too_many_lines,
         reason = "one linear validate-then-persist trust transaction; no partial pin updates"

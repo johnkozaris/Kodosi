@@ -98,7 +98,7 @@ public sealed class RoomContentTests(PostgresFixture postgres)
         var (first, second) = Kodosi.Friends.FriendService.Pair(alice.User.Id, bob.User.Id);
         store.Db.Friendships.Add(new Friendship { FirstUserId = first, SecondUserId = second, RequestedBy = alice.User.Id, Accepted = true, CreatedAt = DateTimeOffset.UtcNow });
         await store.Db.SaveChangesAsync(ct);
-        var key = new byte[1184];
+        var key = new byte[MissionService.RoomPublicKeyLength];
         using var proof = new MemoryStream();
         proof.Write("kodosi-room-recipient-v1"u8);
         foreach (var field in new[] { Encoding.UTF8.GetBytes(bob.User.Id.ToString("D")), Encoding.UTF8.GetBytes(bob.Device.Id), key })

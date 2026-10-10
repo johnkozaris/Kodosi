@@ -1,5 +1,9 @@
-use aws_lc_rs::signature::{ML_DSA_65_SIGNING, PqdsaKeyPair};
+use aws_lc_rs::{
+    aead, rand,
+    signature::{ML_DSA_65_SIGNING, PqdsaKeyPair},
+};
 use uuid::Uuid;
+use zeroize::Zeroizing;
 
 use super::{Result, invalid};
 
@@ -19,6 +23,52 @@ fn append_field(out: &mut Vec<u8>, field: &[u8]) -> Result<()> {
     out.extend_from_slice(&len.to_be_bytes());
     out.extend_from_slice(field);
     Ok(())
+}
+
+pub(crate) const NONCE_BYTES: usize = 12;
+
+fn sealing_key(key: &[u8]) -> Option<aead::LessSafeKey> {
+    Some(aead::LessSafeKey::new(
+        aead::UnboundKey::new(&aead::AES_256_GCM, key).ok()?,
+    ))
+}
+
+pub(crate) fn seal(
+    key: &[u8],
+    context: &[u8],
+    plain: &[u8],
+) -> Option<([u8; NONCE_BYTES], Vec<u8>)> {
+    let mut nonce = [0; NONCE_BYTES];
+    rand::fill(&mut nonce).ok()?;
+    let mut ciphertext = plain.to_vec();
+    sealing_key(key)?
+        .seal_in_place_append_tag(
+            aead::Nonce::assume_unique_for_key(nonce),
+            aead::Aad::from(context),
+            &mut ciphertext,
+        )
+        .ok()?;
+    Some((nonce, ciphertext))
+}
+
+pub(crate) fn open(
+    key: &[u8],
+    context: &[u8],
+    nonce: &[u8],
+    ciphertext: Vec<u8>,
+) -> Option<Zeroizing<Vec<u8>>> {
+    let nonce: [u8; NONCE_BYTES] = nonce.try_into().ok()?;
+    let mut bytes = Zeroizing::new(ciphertext);
+    let len = sealing_key(key)?
+        .open_in_place(
+            aead::Nonce::assume_unique_for_key(nonce),
+            aead::Aad::from(context),
+            bytes.as_mut(),
+        )
+        .ok()?
+        .len();
+    bytes.truncate(len);
+    Some(bytes)
 }
 
 pub fn sign_control_message(pkcs8: &[u8], preimage: &[u8]) -> Result<Vec<u8>> {

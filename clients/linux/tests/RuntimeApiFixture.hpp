@@ -7,7 +7,7 @@ inline kodosi_callbacks_t callbacks {};
 inline void* userdata = nullptr;
 inline QByteArray lastCommand;
 inline bool allowStart = false;
-inline uint32_t protocolVersion = 53;
+inline uint32_t protocolVersion = 54;
 inline int commandResult = KODOSI_FFI_OK;
 inline void sendEvent(const QByteArray& event)
 {
@@ -21,7 +21,7 @@ inline void reset()
     userdata = nullptr;
     lastCommand.clear();
     allowStart = false;
-    protocolVersion = 53;
+    protocolVersion = 54;
     commandResult = KODOSI_FFI_OK;
 }
 }

@@ -228,6 +228,7 @@ internal static class MissionEndpoints
         app.MapPut("/api/me/room-key", async (MissionService.RecipientKeyWrite body, HttpContext ctx, CurrentUser users, DeviceService devices, MissionService missions, CancellationToken ct) =>
         {
             var user = await users.GetAsync(ctx, ct); var device = await devices.RequireProofAsync(ctx, user.Id, ct);
+            if (body.RecoveryDeviceId is { } recovery) device = await devices.RequireRecoveryDeviceAsync(user.Id, recovery, ct);
             await missions.RegisterRoomKeyAsync(user.Id, device, body, ct); return Results.NoContent();
         }).RequireAuthorization();
         app.MapGet("/api/users/{userId:guid}/room-keys", async (Guid userId, HttpContext ctx, CurrentUser users, DeviceService devices, MissionService missions, CancellationToken ct) =>

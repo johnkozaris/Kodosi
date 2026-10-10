@@ -83,7 +83,7 @@ impl BackendClient {
                 .fetch_identity_with(&credentials, &credentials.user_id)
                 .await
             {
-                Ok(verified) => verified.devices.values().map(|cert|json!({"deviceId":cert.device_id,"label":cert.device_label,"certSignerDeviceId":cert.signer_device_id,"certIssuedAtMs":cert.issued_at_ms})).collect(),
+                Ok(verified) => verified.devices.values().map(|cert|json!({"deviceId":cert.device_id,"label":cert.device_label,"certSignerDeviceId":cert.signer_device_id,"certIssuedAtMs":cert.issued_at_ms,"recoveryKey":identity::recovery::is_recovery_device(&cert.device_id)})).collect(),
                 Err(Error::Invalid { .. } | Error::Trust(_) | Error::Backend { status: 404, .. })
                     if !credentials.enrolled =>
                 {

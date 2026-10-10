@@ -135,6 +135,10 @@ enum DeviceAction {
     Revoke { device: String },
     /// Start fresh on this device: every other device loses access until it is approved again.
     Reset,
+    /// Make a recovery key and show it one time. An earlier recovery key stops working.
+    RecoveryKey,
+    /// Approve this device with your recovery key when you have no other approved device.
+    Recover { key: String },
 }
 #[derive(Subcommand)]
 enum FriendAction {
@@ -625,6 +629,8 @@ async fn device_command(
             json!({"type":"devices.revoke","deviceId":id})
         }
         DeviceAction::Reset => json!({"type":"devices.reset"}),
+        DeviceAction::RecoveryKey => json!({"type":"devices.recovery.create"}),
+        DeviceAction::Recover { key } => json!({"type":"devices.recovery.use","key":key}),
     })
 }
 
@@ -1088,7 +1094,10 @@ async fn wait_result(
             let done = match operation {
                 "auth.login.start" => kind == "auth.ready",
                 "auth.logout" | "auth.deleteAccount" => kind == "auth.required",
-                "devices.refresh" | "devices.revoke" | "devices.reset" => kind == "devices.list",
+                "devices.refresh" | "devices.revoke" | "devices.reset" | "devices.recovery.use" => {
+                    kind == "devices.list"
+                }
+                "devices.recovery.create" => kind == "devices.recovery.created",
                 "devices.link.startSelf" => matches!(
                     kind,
                     "devices.link.selfPending" | "devices.link.selfResolved"

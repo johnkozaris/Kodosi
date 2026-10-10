@@ -242,6 +242,7 @@ extension AppDependencies {
             }
             commandSink.perform("devices.refresh")
         case "devices.link.resolved": commandSink.perform("devices.refresh")
+        case "devices.recovery.created": newRecoveryKey = event.string("key")
         default: break
         }
     }

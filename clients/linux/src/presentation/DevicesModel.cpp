@@ -1,6 +1,8 @@
 #include "presentation/DevicesModel.hpp"
 #include "presentation/Workspace.hpp"
 
+#include <QClipboard>
+#include <QGuiApplication>
 #include <QJsonObject>
 
 namespace kodosi {
@@ -36,11 +38,44 @@ void DevicesModel::startFresh()
     m_workspace.sendUntracked(QStringLiteral("devices.reset"));
 }
 
+bool DevicesModel::hasRecoveryKey() const
+{
+    for (const auto& device : m_devices) {
+        if (device.toMap().value(QStringLiteral("recoveryKey")).toBool())
+            return true;
+    }
+    return false;
+}
+
+void DevicesModel::makeRecoveryKey()
+{
+    m_workspace.sendUntracked(QStringLiteral("devices.recovery.create"));
+}
+
+void DevicesModel::useRecoveryKey(const QString& key)
+{
+    m_workspace.sendUntracked(
+        QStringLiteral("devices.recovery.use"), { { QStringLiteral("key"), key } });
+}
+
+void DevicesModel::copyNewRecoveryKey()
+{
+    if (auto* application = qobject_cast<QGuiApplication*>(QCoreApplication::instance()))
+        application->clipboard()->setText(m_newRecoveryKey, QClipboard::Clipboard);
+}
+
+void DevicesModel::forgetNewRecoveryKey()
+{
+    m_newRecoveryKey.clear();
+    emit changed();
+}
+
 void DevicesModel::reset()
 {
     m_devices.clear();
     m_requests.clear();
     m_approvalCode.clear();
+    m_newRecoveryKey.clear();
     m_notice.clear();
     m_selfDeviceId.clear();
     m_enrolled = false;

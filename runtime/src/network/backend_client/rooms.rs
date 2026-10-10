@@ -2,6 +2,7 @@ use aws_lc_rs::signature::{ML_DSA_65, VerificationAlgorithm as _};
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::*;
+use crate::identity::keys::ROOM_PUBLIC_BYTES;
 use crate::rooms::{
     self, Action, Payload, Snapshot,
     crypto::{self as room_crypto, Secret, SignedState, State as KeyState, VerifiedState},
@@ -217,7 +218,10 @@ impl BackendClient {
                 let Some(device) = identity.devices.get(&key.device_id) else {
                     continue;
                 };
-                let public = room_crypto::decode(&key.public_key, 1184)?;
+                let public = room_crypto::decode(&key.public_key, ROOM_PUBLIC_BYTES)?;
+                if public.len() != ROOM_PUBLIC_BYTES {
+                    continue;
+                }
                 let preimage = crypto::signed_fields(
                     b"kodosi-room-recipient-v1",
                     &[user.as_bytes(), key.device_id.as_bytes(), &public],
@@ -245,7 +249,7 @@ impl BackendClient {
                     state,
                     &recipient.user_id,
                     &recipient.device_id,
-                    &room_crypto::decode(&recipient.public_key, 1184)?,
+                    &room_crypto::decode(&recipient.public_key, ROOM_PUBLIC_BYTES)?,
                     key,
                 )
             })
@@ -616,35 +620,42 @@ impl BackendClient {
         credentials: &Credentials,
         room: Uuid,
     ) -> Result<()> {
-        let cached = self.room_keys(credentials, room).await?;
-        let current = &cached
-            .states
-            .last_key_value()
-            .ok_or_else(|| invalid("Room keys are missing."))?
-            .1
-            .state;
-        if !current.members.contains_key(&credentials.user_id)
-            || !cached.keys.contains_key(&current.epoch)
-        {
-            return Ok(());
+        let mut attempts = 0;
+        loop {
+            let cached = self.room_keys(credentials, room).await?;
+            let current = &cached
+                .states
+                .last_key_value()
+                .ok_or_else(|| invalid("Room keys are missing."))?
+                .1
+                .state;
+            if !current.members.contains_key(&credentials.user_id)
+                || !cached.keys.contains_key(&current.epoch)
+            {
+                return Ok(());
+            }
+            let Some(body) = self
+                .next_room_state(credentials, room, &cached, None, None)
+                .await?
+            else {
+                return Ok(());
+            };
+            let stored = self
+                .inner
+                .http
+                .device::<Value>(
+                    Method::PUT,
+                    &format!("api/missions/{room}/keys"),
+                    credentials,
+                    Some(body),
+                )
+                .await;
+            attempts += 1;
+            match stored {
+                Err(Error::Backend { status: 409, .. }) if attempts < 3 => {}
+                stored => return stored.map(|_| ()),
+            }
         }
-        let Some(body) = self
-            .next_room_state(credentials, room, &cached, None, None)
-            .await?
-        else {
-            return Ok(());
-        };
-        let _response: Value = self
-            .inner
-            .http
-            .device(
-                Method::PUT,
-                &format!("api/missions/{room}/keys"),
-                credentials,
-                Some(body),
-            )
-            .await?;
-        Ok(())
     }
 
     pub(crate) async fn room_identity(

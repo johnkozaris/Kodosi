@@ -1,5 +1,5 @@
 {
-  "apiContractVersion": 23,
+  "apiContractVersion": 24,
   "authContractVersion": 1,
   "authentication": "OIDC bearer identity and a device session",
   "deviceSession": {
@@ -58,6 +58,13 @@
     "accept": "the new device takes the account identity only when the approval proof holds for the identity root of the identity that it reads",
     "server": "stores and lists the requests and the two proofs; makes and checks no code"
   },
+  "recoveryKey": {
+    "text": "32 random symbols of Crockford base 32 (160 bits) that an approved device makes and shows one time; the server never gets it",
+    "keys": "HKDF-SHA256 with salt = the length-prefixed fields kodosi-recovery-v1, account id, identity root; the labels signing, device and room-key give the ML-DSA-65 seed, the device id (UUID version 8) and an AES-256-GCM key",
+    "entry": "one more device in the signed device list, with a certificate from the approved device that made it; an account has one; it cannot open a device session and a host refuses it",
+    "roomKey": "the entry has a room recipient key; its secret part is stored on the server sealed with the AES-256-GCM key",
+    "recover": "a signed-in device that has the text proves possession of its own key and sends its certificate and the next device list, both signed with the recovery key"
+  },
   "friendIdentity": {
     "record": "for each friend the user keeps: handle, identity root (absent until the first read), verified",
     "list": "JSON of the records with the account id, a revision and the signing device id; signed with ML-DSA-65 over kodosi-friend-list-v1 and the body by an approved device of the account",
@@ -88,7 +95,10 @@
       "POST /api/devices/link/approve",
       "POST /api/devices/link/poll",
       "POST /api/devices/link/ack",
-      "DELETE /api/devices/link/requests/{requestId}"
+      "DELETE /api/devices/link/requests/{requestId}",
+      "POST /api/me/recovery-key",
+      "GET /api/me/recovery-key",
+      "POST /api/me/devices/recover"
     ],
     "friends": [
       "GET /api/friends",
@@ -134,9 +144,9 @@
   "missionContent": "directory metadata only; no chat, tasks, or agent dispatch",
   "backendSecrets": "none; the server relays TLS records between a host device and a viewer device and holds no terminal key",
   "roomContent": {
-    "encryption": "AES-256-GCM content keys; ML-KEM-768 recipient key encapsulation and HKDF-SHA256 wrapping; ML-DSA-65 signed state and content",
+    "encryption": "AES-256-GCM content keys; each recipient key is ML-KEM-768 and X25519 together, with HKDF-SHA256 over both shared secrets for the wrapping key; ML-DSA-65 signed state and content",
     "history": "new members receive current room keys and decrypt the backwards-wrapped key history",
-    "membership": "signed room state commits member identities; removal rotates the content key; the relay holds no plaintext key",
+    "membership": "signed room state commits member identities; removal rotates the content key; a member whose identity is not available keeps the last identity in the state; only the owner gives a member a new identity, with new keys; the relay holds no plaintext key",
     "content": "immutable messages and versioned task/repository records; read by room sequence; compare expected version on updates"
   }
 }

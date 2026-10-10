@@ -48,6 +48,7 @@ public sealed partial class DeviceService(
         var deviceId = DeviceIdRules.Require(request.DeviceId);
         var challenge = sessions.ConsumeChallenge(userId, request.ChallengeId);
         var device = await RequireDeviceAsync(userId, deviceId, ct, allowExpiredList: true);
+        if (device.RecoveryBox is not null) throw ApiException.Forbidden("A recovery key cannot open a device session.");
         var signature = Limits.Base64(request.Signature, "Device signature", IdentityWireFormat.MlDsa65SignatureLength);
         if (!signatures.Verify(device.SigningPublicKey, Proofs.DeviceSession(userId, deviceId, request.ChallengeId, challenge), signature))
             throw ApiException.Forbidden("Invalid device proof.");

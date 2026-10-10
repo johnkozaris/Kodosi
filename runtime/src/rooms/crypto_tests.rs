@@ -364,3 +364,46 @@ fn only_the_owner_gives_a_member_a_new_identity_and_only_with_new_room_keys() {
         replaced.members[&bob.user_id].root().unwrap()
     );
 }
+
+#[test]
+fn a_room_key_wrap_opens_only_with_both_parts_and_for_its_device() {
+    let (alice, identity) = person();
+    let user = identity.user_id.clone();
+    let key = secret().unwrap();
+    let state = State {
+        room_id: Uuid::now_v7(),
+        owner_user_id: user.clone(),
+        author_id: user.clone(),
+        device_id: alice.device_id.clone(),
+        version: 1,
+        epoch: 1,
+        created_at_ms: 2000,
+        previous_hash: String::new(),
+        members: BTreeMap::from([(user.clone(), identity)]),
+        recipients: vec![],
+        previous_key: None,
+    };
+    let mut current = state;
+    current
+        .recipients
+        .push(wrap(&current, &user, &alice.device_id, alice.room_public(), &key).unwrap());
+    assert_eq!(
+        unwrap(&current, &user, &alice).unwrap().as_ref(),
+        key.as_ref()
+    );
+    let bytes = BASE64
+        .decode(&current.recipients[0].kem_ciphertext)
+        .unwrap();
+    assert_eq!(bytes.len(), 1088 + 32);
+    for part in [0, 1088] {
+        let mut changed = bytes.clone();
+        changed[part] ^= 1;
+        let mut other = current.clone();
+        other.recipients[0].kem_ciphertext = BASE64.encode(changed);
+        assert!(unwrap(&other, &user, &alice).is_err());
+    }
+    let (other, _) = person();
+    let mut renamed = current;
+    renamed.recipients[0].device_id.clone_from(&other.device_id);
+    assert!(unwrap(&renamed, &user, &other).is_err());
+}

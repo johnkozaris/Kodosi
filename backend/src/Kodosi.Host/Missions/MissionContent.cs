@@ -12,19 +12,18 @@ public sealed partial class MissionService
     private const int MaximumKeyStateBytes = 3 * 1024 * 1024;
     private const int MaximumItemBytes = 64 * 1024;
 
+    public const int RoomPublicKeyLength = 1184 + 32;
+
     public async Task RegisterRoomKeyAsync(Guid userId, Device device, RecipientKeyWrite request, CancellationToken ct)
     {
-        var key = Limits.Base64(request.PublicKey, "Room public key", 1184);
+        var key = Limits.Base64(request.PublicKey, "Room public key", RoomPublicKeyLength);
         var signature = Limits.Base64(request.Signature, "Room public key signature", 3309);
-        if (key.Length != 1184 || !signatures.Verify(device.SigningPublicKey,
+        if (key.Length != RoomPublicKeyLength || !signatures.Verify(device.SigningPublicKey,
             RoomKeyProof(userId, device.Id, key), signature)) throw ApiException.Invalid("Invalid room public key.");
         var existing = await db.RoomRecipientKeys.SingleOrDefaultAsync(x => x.DeviceId == device.Id, ct);
-        if (existing is not null)
-        {
-            if (!existing.PublicKey.AsSpan().SequenceEqual(key)) throw ApiException.Conflict("This device already has a different room key.");
-            return;
-        }
-        db.RoomRecipientKeys.Add(new RoomRecipientKey { DeviceId = device.Id, UserId = userId, PublicKey = key, Signature = signature });
+        if (existing is null) db.RoomRecipientKeys.Add(new RoomRecipientKey { DeviceId = device.Id, UserId = userId, PublicKey = key, Signature = signature });
+        else if (existing.PublicKey.AsSpan().SequenceEqual(key)) return;
+        else { existing.PublicKey = key; existing.Signature = signature; }
         await db.SaveChangesAsync(ct);
         foreach (var room in await db.Missions.Where(r => r.OwnerUserId == userId || db.MissionMembers.Any(m => m.MissionId == r.Id && m.UserId == userId)).ToListAsync(ct))
             await NotifyAsync(room, ct);
@@ -206,7 +205,7 @@ public sealed partial class MissionService
     private sealed record ContentBody(Guid RoomId, Guid Id, string Kind, long Version, long KeyVersion,
         long Epoch, Guid AuthorId, string DeviceId, string Nonce, string Ciphertext);
 
-    public sealed record RecipientKeyWrite(string PublicKey, string Signature);
+    public sealed record RecipientKeyWrite(string PublicKey, string Signature, string? RecoveryDeviceId = null);
     public sealed record RoomKeyWrite(string DeviceId, string Body, string Signature);
     public sealed record ContentWrite(long ExpectedVersion, string DeviceId, string Body, string Signature);
     public sealed record MembershipWrite(RoomKeyWrite? Keys);
