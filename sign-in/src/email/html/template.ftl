@@ -21,7 +21,6 @@
 <style>
   .kds-card p { margin: 0 0 14px; font-size: 15px; line-height: 23px; color: #5f4838; }
   .kds-card a { color: #9a4516; font-weight: 600; }
-  .kds-card h2 { margin: 0 0 12px; font-size: 21px; line-height: 28px; font-weight: 600; color: #25160e; }
 </style>
 </head>
 <body style="margin:0;padding:0;background-color:#f0e9dc;">

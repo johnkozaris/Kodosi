@@ -534,6 +534,8 @@ export function Apps({
   const { say } = words;
   const heading = useRef<HTMLHeadingElement>(null);
   const { busy, note, run } = useChange(words);
+  // The Kodosi app stays signed in on each computer of the person: its sign-out asks once more.
+  const [armed, setArmed] = useState<string | null>(null);
   if (!programs.length && !note) return null;
 
   const revoke = (clientId: string) =>
@@ -557,9 +559,16 @@ export function Apps({
               <RowAction
                 aria-label={say(one.stays ? "signOutOf" : "remove", name)}
                 disabled={busy}
-                onClick={() => void revoke(one.clientId)}
+                onBlur={() => setArmed(null)}
+                onClick={() => {
+                  if (one.stays && armed !== one.clientId) return setArmed(one.clientId);
+                  setArmed(null);
+                  void revoke(one.clientId);
+                }}
               >
-                {say(one.stays ? "signOutOne" : "removeOne")}
+                {armed === one.clientId
+                  ? say("signOutEverywhere")
+                  : say(one.stays ? "signOutOne" : "removeOne")}
               </RowAction>
             }
           />

@@ -35,6 +35,7 @@ const en = {
   browserUnknown: "A browser",
   signOutOne: "Sign out",
   signOutOf: "Sign out: {0}",
+  signOutEverywhere: "Sign out on every computer?",
   signOutOthers: "Sign out everywhere else",
   staysSignedIn: "Stays signed in on your computers",
 
