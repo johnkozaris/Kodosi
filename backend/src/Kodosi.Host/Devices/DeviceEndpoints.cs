@@ -47,7 +47,7 @@ internal static class DeviceEndpoints
         api.MapPost("/me/identity/reset", async (HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
         {
             var user = await users.GetAsync(context, ct);
-            await service.ResetIdentityAsync(user.Id, AuthenticatedAt(context.User), ct);
+            await service.ResetIdentityAsync(user.Id, CurrentUser.SignedInAt(context.User), ct);
             return Results.NoContent();
         }).RequireRateLimiting("enrollment");
         api.MapPost("/devices/link/init", async (DeviceService.LinkInit body, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
@@ -92,9 +92,4 @@ internal static class DeviceEndpoints
         return identity.Bundle is null ? Results.StatusCode(StatusCodes.Status304NotModified) : Results.Ok(identity.Bundle);
     }
 
-    private static DateTimeOffset? AuthenticatedAt(ClaimsPrincipal principal)
-    {
-        var value = principal.FindFirstValue("auth_time") ?? principal.FindFirstValue("iat");
-        return long.TryParse(value, out var seconds) ? DateTimeOffset.FromUnixTimeSeconds(seconds) : null;
-    }
 }

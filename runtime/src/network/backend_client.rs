@@ -235,10 +235,9 @@ impl BackendClient {
     }
 
     async fn sign_in_kept(&self, result: Result<()>) -> Result<()> {
-        let deleting = self.inner.state.lock().await.deletion.is_some();
         let reason = match result {
             Err(Error::AccountDeleted) => "accountDeleted",
-            Err(Error::SignedOut) if deleting => "accountDeleted",
+            Err(Error::SignedOut) if self.deletion_confirmed().await => "accountDeleted",
             Err(Error::SignedOut) => "expired",
             result => return result,
         };
