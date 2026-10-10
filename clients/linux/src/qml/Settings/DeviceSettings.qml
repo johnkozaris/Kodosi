@@ -9,6 +9,8 @@ ColumnLayout {
     id: root
 
     readonly property bool waiting: Models.Devices.approvalCode.length > 0
+    property bool recovering: false
+    property bool copied: false
 
     spacing: 18
 
@@ -116,12 +118,50 @@ ColumnLayout {
             }
             KButton {
                 Accessible.id: objectName
+                objectName: "panel.settings.use-recovery-key"
+                text: qsTr("Use my recovery key")
+                visible: !root.waiting && !root.recovering
+
+                onClicked: root.recovering = true
+            }
+            KButton {
+                Accessible.id: objectName
                 objectName: "panel.settings.start-fresh"
                 text: qsTr("Start fresh…")
                 variant: KButton.Ghost
                 visible: !root.waiting
 
                 onClicked: startFresh.open()
+            }
+        }
+        RowLayout {
+            Layout.alignment: Qt.AlignHCenter
+            visible: root.recovering && !root.waiting
+            spacing: 8
+
+            KTextField {
+                id: recoveryKey
+
+                Accessible.id: objectName
+                Accessible.name: qsTr("Recovery key")
+                Layout.preferredWidth: 380
+                Layout.preferredHeight: 30
+                font.family: "monospace"
+                objectName: "panel.settings.recovery-key"
+                placeholderText: qsTr("Recovery key")
+                onAccepted: recover.clicked()
+            }
+            KButton {
+                id: recover
+
+                Accessible.id: objectName
+                compact: true
+                variant: KButton.Primary
+                enabled: recoveryKey.text.trim().length > 0
+                objectName: "panel.settings.recover"
+                text: qsTr("Approve")
+
+                onClicked: Models.Devices.useRecoveryKey(recoveryKey.text.trim())
             }
         }
         PlainLabel {
@@ -147,10 +187,12 @@ ColumnLayout {
 
                 required property var modelData
                 readonly property bool self: modelData.deviceId === Models.Devices.selfDeviceId
+                readonly property bool recoveryKey: modelData.recoveryKey === true
 
-                iconName: "laptop"
+                iconName: recoveryKey ? "lock" : "laptop"
                 tint: self ? KodosiTheme.accent : "#4f9bb0"
-                title: deviceRow.modelData.label
+                title: recoveryKey ? qsTr("Recovery key") : deviceRow.modelData.label
+                subtitle: recoveryKey ? qsTr("Approves a new device when you have no other") : ""
 
                 Tag { visible: deviceRow.self; text: qsTr("This computer"); tone: Tag.Accent }
                 KButton {
@@ -163,7 +205,8 @@ ColumnLayout {
 
                     onClicked: {
                         revoke.deviceId = deviceRow.modelData.deviceId;
-                        revoke.label = deviceRow.modelData.label;
+                        revoke.label = deviceRow.title;
+                        revoke.removesRecoveryKey = deviceRow.recoveryKey;
                         revoke.open();
                     }
                 }
@@ -220,6 +263,104 @@ ColumnLayout {
             }
         }
     }
+    ListGroup {
+        Layout.fillWidth: true
+        visible: Models.Account.signedIn && Models.Devices.localDeviceEnrolled
+        title: qsTr("If you lose all your devices")
+        footer: qsTr("A recovery key approves a new device when you have no other device.")
+
+        ListRow {
+            iconName: "lock"
+            tint: "#d9a441"
+            title: qsTr("Recovery key")
+
+            KButton {
+                Accessible.id: objectName
+                compact: true
+                objectName: "panel.settingsView.recovery-key"
+                text: Models.Devices.hasRecoveryKey ? qsTr("Make a new key…") : qsTr("Make a recovery key")
+
+                onClicked: Models.Devices.hasRecoveryKey ? replaceRecoveryKey.open() : Models.Devices.makeRecoveryKey()
+            }
+        }
+    }
+    Connections {
+        target: Models.Devices
+
+        function onChanged() {
+            if (Models.Devices.newRecoveryKey.length > 0 && !newRecoveryKey.opened) {
+                root.copied = false;
+                newRecoveryKey.open();
+            }
+            if (Models.Devices.localDeviceEnrolled) {
+                root.recovering = false;
+                recoveryKey.clear();
+            }
+        }
+    }
+    KDialog {
+        id: replaceRecoveryKey
+
+        objectName: "panel.settings.recovery-key.replace"
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        title: qsTr("Make a new recovery key?")
+
+        onAccepted: Models.Devices.makeRecoveryKey()
+        onOpened: standardButton(Dialog.Ok).text = qsTr("Make a new key")
+
+        PlainLabel {
+            color: KodosiTheme.inkMuted
+            text: qsTr("The recovery key that you have now stops working.")
+            width: 340
+            wrapMode: Text.WordWrap
+        }
+    }
+    KDialog {
+        id: newRecoveryKey
+
+        closePolicy: Popup.NoAutoClose
+        objectName: "panel.settings.recovery-key.new"
+        standardButtons: Dialog.Ok
+        title: qsTr("Your recovery key")
+
+        onClosed: Models.Devices.forgetNewRecoveryKey()
+        onOpened: standardButton(Dialog.Ok).text = qsTr("I saved it")
+
+        ColumnLayout {
+            spacing: 14
+            width: 400
+
+            PlainLabel {
+                Layout.fillWidth: true
+                color: KodosiTheme.inkMuted
+                text: qsTr("Keep it in a safe place, such as a password manager. It approves a new device when you have no other device. Kodosi does not show it again.")
+                wrapMode: Text.WordWrap
+            }
+            KReadOnlyText {
+                Accessible.id: objectName
+                Accessible.name: qsTr("Recovery key")
+                Layout.fillWidth: true
+                font.family: "monospace"
+                font.pixelSize: 16
+                font.weight: Font.DemiBold
+                horizontalAlignment: Text.AlignHCenter
+                objectName: "panel.settings.recovery-key.text"
+                text: Models.Devices.newRecoveryKey
+            }
+            KButton {
+                Accessible.id: objectName
+                Layout.alignment: Qt.AlignHCenter
+                iconName: root.copied ? "check" : "copy"
+                objectName: "panel.settings.recovery-key.copy"
+                text: root.copied ? qsTr("Copied") : qsTr("Copy")
+
+                onClicked: {
+                    Models.Devices.copyNewRecoveryKey();
+                    root.copied = true;
+                }
+            }
+        }
+    }
     KDialog {
         id: startFresh
 
@@ -233,7 +374,7 @@ ColumnLayout {
 
         PlainLabel {
             color: KodosiTheme.inkMuted
-            text: qsTr("Your other devices lose access until you approve them again from this computer. Friends must trust you again. Shared terminals stay shared.")
+            text: qsTr("Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. If you have a recovery key, cancel and use it: you keep your friends and rooms.")
             width: 380
             wrapMode: Text.WordWrap
         }
@@ -243,6 +384,7 @@ ColumnLayout {
 
         property string deviceId: ""
         property string label: ""
+        property bool removesRecoveryKey: false
 
         destructive: true
         standardButtons: Dialog.Ok | Dialog.Cancel
@@ -254,7 +396,9 @@ ColumnLayout {
         PlainLabel {
             width: 340
             color: KodosiTheme.inkMuted
-            text: qsTr("It loses your account and the terminals shared with you.")
+            text: revoke.removesRecoveryKey ? qsTr("The recovery key stops working. You can make a new one.")
+                : Models.Devices.hasRecoveryKey ? qsTr("It loses your account and the terminals shared with you. If it was lost or stolen, also make a new recovery key.")
+                : qsTr("It loses your account and the terminals shared with you.")
             wrapMode: Text.WordWrap
         }
     }

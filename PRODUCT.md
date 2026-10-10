@@ -60,6 +60,10 @@ Private keys stay on endpoint devices. The backend connects participants and rel
 encrypted content; it does not run their commands or read their terminal or room
 plaintext.
 
+A person can make a recovery key. It approves a new device when no other device can,
+and keeps friends and rooms. Without it, a person who lost all devices starts fresh
+with a new identity, and friends trust that identity again.
+
 ## Experience
 
 Keep terminals and the room conversation easy to reach. Starting work, inviting

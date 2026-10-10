@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Kodosi.Data;
 using Kodosi.Devices;
+using Kodosi.Missions;
 using Kodosi.TerminalConnections;
 using Kodosi.Security;
 using Microsoft.EntityFrameworkCore;
@@ -167,5 +168,65 @@ public sealed class DeviceTests(PostgresFixture postgres)
         var sig = fixture.Sign(Proofs.Tagged(DomainTags.DeviceCertV3, bytes));
         var verifier = new SignatureVerifier(); Assert.True(verifier.Verify(fixture.SigningKey, Proofs.Tagged(DomainTags.DeviceCertV3, bytes), sig));
         bytes[^1] ^= 1; Assert.False(verifier.Verify(fixture.SigningKey, Proofs.Tagged(DomainTags.DeviceCertV3, bytes), sig));
+    }
+
+    [Fact]
+    public async Task ARecoveryKeyApprovesANewDeviceAndAnAccountHasOnlyOne()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var owner = await store.UserAsync("owner");
+        var recovery = new DeviceFixture(owner.User.Id, "0a1b2c3d-4e5f-8a6b-9c7d-0e1f2a3b4c5d");
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var roomKey = new byte[MissionService.RoomPublicKeyLength];
+        DeviceService.RecoveryKeyWrite Write(DeviceFixture entry, long generation, DeviceFixture roomKeySigner, params (string Device, string Signer)[] known)
+        {
+            var cert = entry.CertificateBody(owner.Device.Id, now);
+            var list = DeviceFixture.ListBody(owner.User.Id, generation, [.. known, (entry.DeviceId, owner.Device.Id)], owner.Device.Id, now + generation);
+            var signature = roomKeySigner.Sign(MissionService.RoomKeyProof(owner.User.Id, entry.DeviceId, roomKey));
+            return new(Convert.ToBase64String(cert), owner.Fixture.SignedCertificate(cert), Convert.ToBase64String(list), owner.Fixture.SignedList(list),
+                Convert.ToBase64String(new byte[64]), new(Convert.ToBase64String(roomKey), Convert.ToBase64String(signature)));
+        }
+        var plain = new DeviceFixture(owner.User.Id, "a-computer");
+        Assert.Equal(400, (await Assert.ThrowsAsync<ApiException>(() => store.Devices.AddRecoveryKeyAsync(owner.User.Id, owner.Device,
+            Write(plain, 2, plain, (owner.Device.Id, owner.Device.Id)), ct))).Status);
+        Assert.Equal(400, (await Assert.ThrowsAsync<ApiException>(() => store.Devices.AddRecoveryKeyAsync(owner.User.Id, owner.Device,
+            Write(recovery, 2, owner.Fixture, (owner.Device.Id, owner.Device.Id)), ct))).Status);
+        Assert.False(await store.Db.Devices.AnyAsync(x => x.Id == recovery.DeviceId, ct));
+        await store.Devices.AddRecoveryKeyAsync(owner.User.Id, owner.Device, Write(recovery, 2, recovery, (owner.Device.Id, owner.Device.Id)), ct);
+        var box = JsonSerializer.SerializeToElement(await store.Devices.RecoveryBoxAsync(owner.User.Id, ct), Wire.Json);
+        Assert.Equal(recovery.DeviceId, box.GetProperty("deviceId").GetString());
+        var keys = JsonSerializer.SerializeToElement(await store.Missions.RecipientKeysAsync(owner.User.Id, owner.User.Id, ct), Wire.Json);
+        Assert.Equal(recovery.DeviceId, Assert.Single(keys.EnumerateArray()).GetProperty("deviceId").GetString());
+        var challenge = JsonSerializer.SerializeToElement(store.Devices.CreateChallenge(owner.User.Id), Wire.Json).GetProperty("challengeId").GetGuid();
+        var session = await Assert.ThrowsAsync<ApiException>(() => store.Devices.OpenSessionAsync(owner.User.Id,
+            new(recovery.DeviceId, challenge, Convert.ToBase64String(new byte[3309])), ct));
+        Assert.Equal(403, session.Status);
+        Assert.Contains("recovery key", session.Message);
+        var replacement = new DeviceFixture(owner.User.Id, "1a1b2c3d-4e5f-8a6b-9c7d-0e1f2a3b4c5d");
+        var second = await Assert.ThrowsAsync<ApiException>(() => store.Devices.AddRecoveryKeyAsync(owner.User.Id, owner.Device,
+            Write(replacement, 3, replacement, (owner.Device.Id, owner.Device.Id), (recovery.DeviceId, owner.Device.Id)), ct));
+        Assert.Equal(409, second.Status);
+
+        var next = new DeviceFixture(owner.User.Id, "new-computer");
+        var cert = next.CertificateBody(recovery.DeviceId, now + 10);
+        var list = DeviceFixture.ListBody(owner.User.Id, 3,
+            [(owner.Device.Id, owner.Device.Id), (recovery.DeviceId, owner.Device.Id), (next.DeviceId, recovery.DeviceId)], recovery.DeviceId, now + 10);
+        DeviceService.RegisterDevice Request(DeviceFixture signer)
+        {
+            var challenge = JsonSerializer.SerializeToElement(store.Devices.CreateChallenge(owner.User.Id), Wire.Json);
+            var proof = next.Sign(Proofs.Tagged(DomainTags.DevicePopV1, Convert.FromBase64String(challenge.GetProperty("challengeBytes").GetString()!)));
+            return new(next.DeviceId, Convert.ToBase64String(next.SigningKey), challenge.GetProperty("challengeId").GetGuid(), Convert.ToBase64String(proof),
+                Convert.ToBase64String(cert), signer.SignedCertificate(cert), Convert.ToBase64String(list), signer.SignedList(list));
+        }
+        var forged = await Assert.ThrowsAsync<ApiException>(() => store.Devices.RecoverAsync(owner.User.Id, Request(owner.Fixture), ct));
+        Assert.Equal(403, forged.Status);
+        Assert.False(await store.Db.Devices.AnyAsync(x => x.Id == next.DeviceId, ct));
+        await store.Devices.RecoverAsync(owner.User.Id, Request(recovery), ct);
+        Assert.NotNull(await store.Devices.RequireDeviceAsync(owner.User.Id, next.DeviceId, ct));
+        Assert.Equal(3, (await store.Db.DeviceLists.SingleAsync(x => x.UserId == owner.User.Id, ct)).Generation);
+
+        var other = await store.UserAsync("other");
+        Assert.Equal(404, (await Assert.ThrowsAsync<ApiException>(() => store.Devices.RecoveryBoxAsync(other.User.Id, ct))).Status);
     }
 }

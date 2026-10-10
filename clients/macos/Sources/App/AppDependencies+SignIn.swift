@@ -33,6 +33,7 @@ extension AppDependencies {
         case choose
         case requesting
         case pendingApproval(code: String)
+        case recovering
         case resetting
         case failed(String)
     }
@@ -105,6 +106,11 @@ extension AppDependencies {
     func cancelDeviceApproval() {
         perform("devices.link.cancelSelf")
         signInStage = .trustingDevice(.choose)
+    }
+
+    func useRecoveryKey(_ key: String) {
+        signInStage = .trustingDevice(.recovering)
+        perform("devices.recovery.use", ["key": .string(key)])
     }
 
     func resetTrustedDevices() {

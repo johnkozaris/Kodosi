@@ -2,6 +2,7 @@ use aws_lc_rs::signature::{ML_DSA_65, VerificationAlgorithm as _};
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::*;
+use crate::identity::keys::ROOM_PUBLIC_BYTES;
 use crate::rooms::{
     self, Action, Payload, Snapshot,
     crypto::{self as room_crypto, Secret, SignedState, State as KeyState, VerifiedState},
@@ -39,7 +40,6 @@ struct Item {
 #[serde(rename_all = "camelCase")]
 struct KeyHistory {
     owner_user_id: String,
-    #[serde(default)]
     members: Vec<String>,
     version: u64,
     states: Vec<SignedState>,
@@ -63,11 +63,26 @@ struct RecipientKey {
 struct Head {
     version: u64,
     hash: String,
+    owner_root: Option<identity::pins::Root>,
+}
+type Heads = BTreeMap<String, BTreeMap<Uuid, Head>>;
+
+struct Standing {
+    members: BTreeMap<String, IdentityBundle>,
+    identities: BTreeMap<String, VerifiedIdentity>,
+    replaced: BTreeSet<String>,
 }
 
 #[cfg(test)]
 #[path = "rooms_tests.rs"]
 mod tests;
+
+pub(super) fn room_key_proof(user: &str, device: &str, public: &[u8]) -> Result<Vec<u8>> {
+    crypto::signed_fields(
+        room_crypto::RECIPIENT_DOMAIN,
+        &[user.as_bytes(), device.as_bytes(), public],
+    )
+}
 
 impl BackendClient {
     pub(super) async fn register_room_key(&self, credentials: &Credentials) -> Result<()> {
@@ -83,13 +98,10 @@ impl BackendClient {
                 return Ok(());
             }
         }
-        let proof = crypto::signed_fields(
-            b"kodosi-room-recipient-v1",
-            &[
-                credentials.user_id.as_bytes(),
-                credentials.keys.device_id.as_bytes(),
-                credentials.keys.room_public(),
-            ],
+        let proof = room_key_proof(
+            &credentials.user_id,
+            &credentials.keys.device_id,
+            credentials.keys.room_public(),
         )?;
         let signature = crypto::sign_control_message(credentials.keys.signing_pkcs8(), &proof)?;
         let _response: Value = self.inner.http.device(Method::PUT, "api/me/room-key", credentials,
@@ -98,12 +110,7 @@ impl BackendClient {
         Ok(())
     }
 
-    async fn room_identity_bundle(
-        &self,
-        credentials: &Credentials,
-        user: &str,
-        root: Option<&identity::pins::Root>,
-    ) -> Result<IdentityBundle> {
+    async fn member_bundle(&self, credentials: &Credentials, user: &str) -> Result<IdentityBundle> {
         let bundle: IdentityBundle = self
             .inner
             .http
@@ -117,22 +124,76 @@ impl BackendClient {
         if bundle.user_id != user {
             return Err(invalid("The room identity belongs to another user."));
         }
-        if let Some(root) = root {
-            self.verify_bundle(&bundle, Some(*root)).await?;
-        } else {
-            self.fetch_identity_with(credentials, user).await?;
-        }
         Ok(bundle)
+    }
+
+    async fn trusted_member(
+        &self,
+        credentials: &Credentials,
+        user: &str,
+    ) -> Result<(IdentityBundle, VerifiedIdentity)> {
+        let trusted = self.fetch_identity_with(credentials, user).await?.root;
+        let bundle = self.member_bundle(credentials, user).await?;
+        let identity = self.verify_bundle(&bundle, Some(trusted)).await?;
+        Ok((bundle, identity))
+    }
+
+    async fn room_standing(
+        &self,
+        credentials: &Credentials,
+        previous: &VerifiedState,
+        at_ms: u64,
+    ) -> Result<Standing> {
+        let mut standing = Standing {
+            members: previous.state.members.clone(),
+            identities: previous.identities.clone(),
+            replaced: BTreeSet::new(),
+        };
+        for (user, known) in &previous.state.members {
+            let current = match self.member_bundle(credentials, user).await {
+                Ok(current) => current,
+                Err(Error::Backend { status: 400, .. }) => continue,
+                Err(Error::Backend {
+                    status: 404 | 409, ..
+                }) => {
+                    standing.replaced.insert(user.clone());
+                    continue;
+                }
+                Err(error) => return Err(error),
+            };
+            if current == *known {
+                continue;
+            }
+            let root = known.root()?;
+            if current.root().is_ok_and(|current| current != root) {
+                standing.replaced.insert(user.clone());
+                continue;
+            }
+            let earlier = Some((known, previous.state.created_at_ms));
+            match Pins::historical(&current, &root, at_ms, earlier) {
+                Ok(identity) => {
+                    standing.members.insert(user.clone(), current);
+                    standing.identities.insert(user.clone(), identity);
+                }
+                Err(error) if *user == credentials.user_id => return Err(error),
+                Err(error) => {
+                    tracing::warn!(%error, "the room keeps the last identity of a member whose devices are not current");
+                }
+            }
+        }
+        Ok(standing)
     }
 
     async fn room_recipients(
         &self,
         credentials: &Credentials,
-        state: &KeyState,
+        standing: &Standing,
     ) -> Result<Vec<RecipientKey>> {
         let mut recipients = Vec::new();
-        for (user, bundle) in &state.members {
-            let identity = Pins::historical(bundle, &bundle.root()?, state.created_at_ms, None)?;
+        for (user, identity) in &standing.identities {
+            if standing.replaced.contains(user) {
+                continue;
+            }
             let keys: Vec<RecipientKey> = self
                 .inner
                 .http
@@ -150,11 +211,11 @@ impl BackendClient {
                 let Some(device) = identity.devices.get(&key.device_id) else {
                     continue;
                 };
-                let public = room_crypto::decode(&key.public_key, 1184)?;
-                let preimage = crypto::signed_fields(
-                    b"kodosi-room-recipient-v1",
-                    &[user.as_bytes(), key.device_id.as_bytes(), &public],
-                )?;
+                let public = room_crypto::decode(&key.public_key, ROOM_PUBLIC_BYTES)?;
+                if public.len() != ROOM_PUBLIC_BYTES {
+                    continue;
+                }
+                let preimage = room_key_proof(user, &key.device_id, &public)?;
                 let signature = room_crypto::decode(&key.signature, 3309)?;
                 ML_DSA_65
                     .verify_sig(&device.sig_public_key, &preimage, &signature)
@@ -165,13 +226,12 @@ impl BackendClient {
         Ok(recipients)
     }
 
-    async fn wrap_room_state(
-        &self,
+    fn wrap_room_state(
         credentials: &Credentials,
         state: &mut KeyState,
+        recipients: &[RecipientKey],
         key: &Secret,
     ) -> Result<Value> {
-        let recipients = self.room_recipients(credentials, state).await?;
         state.recipients = recipients
             .iter()
             .map(|recipient| {
@@ -179,7 +239,7 @@ impl BackendClient {
                     state,
                     &recipient.user_id,
                     &recipient.device_id,
-                    &room_crypto::decode(&recipient.public_key, 1184)?,
+                    &room_crypto::decode(&recipient.public_key, ROOM_PUBLIC_BYTES)?,
                     key,
                 )
             })
@@ -220,11 +280,18 @@ impl BackendClient {
                 users.push(wire::text(member, "userId")?.to_owned());
             }
         }
-        let mut members = BTreeMap::new();
+        let created = identity::now_ms();
+        let mut standing = Standing {
+            members: BTreeMap::new(),
+            identities: BTreeMap::new(),
+            replaced: BTreeSet::new(),
+        };
         for user in users {
-            let bundle = self.room_identity_bundle(credentials, &user, None).await?;
-            members.insert(user, bundle);
+            let (bundle, identity) = self.trusted_member(credentials, &user).await?;
+            standing.identities.insert(user.clone(), identity);
+            standing.members.insert(user, bundle);
         }
+        let recipients = self.room_recipients(credentials, &standing).await?;
         let mut state = KeyState {
             room_id: room,
             owner_user_id: owner.to_owned(),
@@ -232,15 +299,18 @@ impl BackendClient {
             device_id: credentials.keys.device_id.clone(),
             version: 1,
             epoch: 1,
-            created_at_ms: identity::now_ms(),
+            created_at_ms: created,
             previous_hash: String::new(),
-            members,
+            members: standing.members,
             recipients: Vec::new(),
             previous_key: None,
         };
-        let body = self
-            .wrap_room_state(credentials, &mut state, &room_crypto::secret()?)
-            .await?;
+        let body = Self::wrap_room_state(
+            credentials,
+            &mut state,
+            &recipients,
+            &room_crypto::secret()?,
+        )?;
         let result = self
             .inner
             .http
@@ -255,6 +325,38 @@ impl BackendClient {
             result?;
         }
         Ok(())
+    }
+
+    async fn room_anchor(
+        &self,
+        credentials: &Credentials,
+        room: Uuid,
+        cached: &CachedRoom,
+        owner: &str,
+    ) -> Result<identity::pins::Root> {
+        if let Some((_, first)) = cached.states.first_key_value() {
+            return first
+                .state
+                .members
+                .get(owner)
+                .ok_or_else(|| invalid("Room owner identity is missing."))?
+                .root();
+        }
+        if let Some(saved) = self
+            .room_heads()?
+            .1
+            .get(&credentials.user_id)
+            .and_then(|rooms| rooms.get(&room))
+            .and_then(|head| head.owner_root)
+        {
+            return Ok(saved);
+        }
+        let pins = Arc::clone(&self.inner.state.lock().await.pins);
+        let pinned = pins.lock().map_err(|_| Error::Closed)?.root(owner);
+        match pinned {
+            Some(pinned) => Ok(pinned),
+            None => Ok(self.fetch_identity_with(credentials, owner).await?.root),
+        }
     }
 
     async fn room_keys(&self, credentials: &Credentials, room: Uuid) -> Result<CachedRoom> {
@@ -296,27 +398,9 @@ impl BackendClient {
                     .await?;
                 continue;
             }
-            let anchor = if let Some((_, first)) = cached.states.first_key_value() {
-                first
-                    .state
-                    .members
-                    .get(&history.owner_user_id)
-                    .ok_or_else(|| invalid("Room owner identity is missing."))?
-                    .root()?
-            } else {
-                let pins = Arc::clone(&self.inner.state.lock().await.pins);
-                let pinned = pins
-                    .lock()
-                    .map_err(|_| Error::Closed)?
-                    .root(&history.owner_user_id);
-                if let Some(anchor) = pinned {
-                    anchor
-                } else {
-                    self.fetch_identity_with(credentials, &history.owner_user_id)
-                        .await?
-                        .root
-                }
-            };
+            let anchor = self
+                .room_anchor(credentials, room, &cached, &history.owner_user_id)
+                .await?;
             if history.states.is_empty() && history.version > after {
                 return Err(invalid("Room key history is incomplete."));
             }
@@ -327,7 +411,18 @@ impl BackendClient {
                     &history.owner_user_id,
                     &anchor,
                     cached.states.last_key_value().map(|(_, state)| state),
-                )?;
+                )
+                .map_err(|error| match error {
+                    Error::Trust(_)
+                        if cached.states.is_empty()
+                            && history.owner_user_id == credentials.user_id =>
+                    {
+                        invalid(
+                            "You made this room before you started fresh. Delete it and make a new room.",
+                        )
+                    }
+                    error => error,
+                })?;
                 if let Ok(key) =
                     room_crypto::unwrap(&verified.state, &credentials.user_id, &credentials.keys)
                 {
@@ -349,6 +444,17 @@ impl BackendClient {
         self.remember_room(credentials, room, cached).await
     }
 
+    fn room_heads(&self) -> Result<(std::path::PathBuf, Heads)> {
+        let path = self.inner.config.data_root.join("network/room-heads.json");
+        let heads = match std::fs::read(&path) {
+            Ok(bytes) if bytes.len() <= 1024 * 1024 => serde_json::from_slice(&bytes)?,
+            Ok(_) => return Err(invalid("Saved room history exceeds its limit.")),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => BTreeMap::new(),
+            Err(error) => return Err(error.into()),
+        };
+        Ok((path, heads))
+    }
+
     async fn remember_room(
         &self,
         credentials: &Credentials,
@@ -361,13 +467,7 @@ impl BackendClient {
             .last_key_value()
             .ok_or_else(|| invalid("Room keys are missing."))?
             .1;
-        let path = self.inner.config.data_root.join("network/room-heads.json");
-        let mut heads: BTreeMap<String, BTreeMap<Uuid, Head>> = match std::fs::read(&path) {
-            Ok(bytes) if bytes.len() <= 1024 * 1024 => serde_json::from_slice(&bytes)?,
-            Ok(_) => return Err(invalid("Saved room history exceeds its limit.")),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => BTreeMap::new(),
-            Err(error) => return Err(error.into()),
-        };
+        let (path, mut heads) = self.room_heads()?;
         let known = heads.entry(credentials.user_id.clone()).or_default();
         if known.get(&room).is_some_and(|head| {
             head.version > current.state.version
@@ -383,6 +483,11 @@ impl BackendClient {
             Head {
                 version: current.state.version,
                 hash: current.hash.clone(),
+                owner_root: cached
+                    .states
+                    .first_key_value()
+                    .and_then(|(_, first)| first.state.members.get(&first.state.owner_user_id))
+                    .and_then(|owner| owner.root().ok()),
             },
         );
         identity::storage::private_write(&path, &serde_json::to_vec(&heads)?)?;
@@ -406,49 +511,82 @@ impl BackendClient {
         add: Option<&str>,
         remove: Option<&str>,
     ) -> Result<Value> {
-        self.prepare_room_state(credentials, room, add, remove, remove.is_some())
-            .await
+        let cached = self.room_keys(credentials, room).await?;
+        self.next_room_state(credentials, room, &cached, add, remove)
+            .await?
+            .ok_or_else(|| invalid("The room membership did not change."))
     }
 
-    async fn prepare_room_state(
+    async fn next_room_state(
         &self,
         credentials: &Credentials,
         room: Uuid,
+        cached: &CachedRoom,
         add: Option<&str>,
         remove: Option<&str>,
-        rotate: bool,
-    ) -> Result<Value> {
-        let cached = self.room_keys(credentials, room).await?;
+    ) -> Result<Option<Value>> {
         let previous = cached
             .states
             .last_key_value()
             .ok_or_else(|| invalid("Room keys are missing."))?
             .1;
-        let mut state = previous.state.clone();
         let prior_key = cached
             .keys
-            .get(&state.epoch)
+            .get(&previous.state.epoch)
             .ok_or_else(|| invalid("Room keys are still arriving on this device."))?;
-        state.version += 1;
-        state.previous_hash = previous.hash.clone();
-        state.author_id.clone_from(&credentials.user_id);
-        state.device_id.clone_from(&credentials.keys.device_id);
-        state.created_at_ms = identity::now_ms().max(state.created_at_ms);
-        for (user, bundle) in &mut state.members {
-            *bundle = self
-                .room_identity_bundle(credentials, user, Some(&bundle.root()?))
-                .await?;
+        let created = identity::now_ms().max(previous.state.created_at_ms);
+        let mut standing = self.room_standing(credentials, previous, created).await?;
+        let mut returned = false;
+        if previous.state.owner_user_id == credentials.user_id {
+            for user in standing.replaced.clone() {
+                if remove == Some(user.as_str()) {
+                    continue;
+                }
+                match self.trusted_member(credentials, &user).await {
+                    Ok((bundle, identity)) => {
+                        standing.identities.insert(user.clone(), identity);
+                        standing.members.insert(user.clone(), bundle);
+                        standing.replaced.remove(&user);
+                        returned = true;
+                    }
+                    Err(error) if error.unanswered() => return Err(error),
+                    Err(error) => {
+                        tracing::info!(%error, "a room member with a new identity waits for the trust of the owner");
+                    }
+                }
+            }
         }
         if let Some(user) = add {
-            state.members.insert(
-                user.to_owned(),
-                self.room_identity_bundle(credentials, user, None).await?,
-            );
+            let (bundle, identity) = self.trusted_member(credentials, user).await?;
+            standing.identities.insert(user.to_owned(), identity);
+            standing.members.insert(user.to_owned(), bundle);
         }
         if let Some(user) = remove {
-            state.members.remove(user);
+            standing.identities.remove(user);
+            standing.members.remove(user);
         }
-        let key = if rotate {
+        let recipients = self.room_recipients(credentials, &standing).await?;
+        let old = previous
+            .state
+            .recipients
+            .iter()
+            .map(|r| (&r.user_id, &r.device_id))
+            .collect::<BTreeSet<_>>();
+        let new = recipients
+            .iter()
+            .map(|r| (&r.user_id, &r.device_id))
+            .collect::<BTreeSet<_>>();
+        if add.is_none() && remove.is_none() && !returned && old == new {
+            return Ok(None);
+        }
+        let mut state = previous.state.clone();
+        state.version += 1;
+        state.previous_hash.clone_from(&previous.hash);
+        state.author_id.clone_from(&credentials.user_id);
+        state.device_id.clone_from(&credentials.keys.device_id);
+        state.created_at_ms = created;
+        state.members = standing.members;
+        let key = if remove.is_some() || returned || old.difference(&new).next().is_some() {
             state.epoch += 1;
             let key = room_crypto::secret()?;
             state.previous_key = Some(room_crypto::seal_previous(
@@ -461,7 +599,7 @@ impl BackendClient {
         } else {
             prior_key.clone()
         };
-        self.wrap_room_state(credentials, &mut state, &key).await
+        Self::wrap_room_state(credentials, &mut state, &recipients, &key).map(Some)
     }
 
     pub(super) async fn refresh_room_keys(
@@ -469,53 +607,42 @@ impl BackendClient {
         credentials: &Credentials,
         room: Uuid,
     ) -> Result<()> {
-        let cached = self.room_keys(credentials, room).await?;
-        let current = &cached
-            .states
-            .last_key_value()
-            .ok_or_else(|| invalid("Room keys are missing."))?
-            .1
-            .state;
-        if !current.members.contains_key(&credentials.user_id)
-            || !cached.keys.contains_key(&current.epoch)
-        {
-            return Ok(());
+        let mut attempts = 0;
+        loop {
+            let cached = self.room_keys(credentials, room).await?;
+            let current = &cached
+                .states
+                .last_key_value()
+                .ok_or_else(|| invalid("Room keys are missing."))?
+                .1
+                .state;
+            if !current.members.contains_key(&credentials.user_id)
+                || !cached.keys.contains_key(&current.epoch)
+            {
+                return Ok(());
+            }
+            let Some(body) = self
+                .next_room_state(credentials, room, &cached, None, None)
+                .await?
+            else {
+                return Ok(());
+            };
+            let stored = self
+                .inner
+                .http
+                .device::<Value>(
+                    Method::PUT,
+                    &format!("api/missions/{room}/keys"),
+                    credentials,
+                    Some(body),
+                )
+                .await;
+            attempts += 1;
+            match stored {
+                Err(Error::Backend { status: 409, .. }) if attempts < 3 => {}
+                stored => return stored.map(|_| ()),
+            }
         }
-        let mut updated = current.clone();
-        for (user, bundle) in &mut updated.members {
-            *bundle = self
-                .room_identity_bundle(credentials, user, Some(&bundle.root()?))
-                .await?;
-        }
-        updated.created_at_ms = identity::now_ms().max(updated.created_at_ms);
-        let recipients = self.room_recipients(credentials, &updated).await?;
-        let old = current
-            .recipients
-            .iter()
-            .map(|r| (&r.user_id, &r.device_id))
-            .collect::<BTreeSet<_>>();
-        let new = recipients
-            .iter()
-            .map(|r| (&r.user_id, &r.device_id))
-            .collect::<BTreeSet<_>>();
-        if old == new {
-            return Ok(());
-        }
-        let removed = old.difference(&new).next().is_some();
-        let body = self
-            .prepare_room_state(credentials, room, None, None, removed)
-            .await?;
-        let _response: Value = self
-            .inner
-            .http
-            .device(
-                Method::PUT,
-                &format!("api/missions/{room}/keys"),
-                credentials,
-                Some(body),
-            )
-            .await?;
-        Ok(())
     }
 
     pub(crate) async fn room_identity(
@@ -536,9 +663,18 @@ impl BackendClient {
             .get(user)
             .ok_or_else(|| invalid("This person is no longer in the room."))?
             .root()?;
-        let bundle = self
-            .room_identity_bundle(credentials, user, Some(&anchor))
-            .await?;
+        if user != credentials.user_id
+            && self
+                .friend_record_root(credentials, user)
+                .await?
+                .is_some_and(|recorded| recorded != anchor)
+        {
+            return Err(Error::Trust(
+                "This friend has a new identity. Trust it in Friends before you share or connect."
+                    .into(),
+            ));
+        }
+        let bundle = self.member_bundle(credentials, user).await?;
         self.verify_bundle(&bundle, Some(anchor)).await
     }
 
@@ -1034,6 +1170,7 @@ impl BackendClient {
         for room in catalog["missions"].as_array().into_iter().flatten() {
             ids.insert(wire::id(room, "id")?);
         }
+        let mut complete = catalog["missionsTruncated"] != true;
         let mut events = Vec::new();
         for id in ids {
             if let Err(error) = self.refresh_room_keys(credentials, id).await {
@@ -1048,12 +1185,22 @@ impl BackendClient {
                     continue;
                 }
                 tracing::debug!(%error, "room key refresh will retry");
+                if error.unanswered() || matches!(error, Error::Backend { status: 409, .. }) {
+                    complete = false;
+                }
                 continue;
             }
             match self.room_snapshot(credentials, id, None).await {
                 Ok(room) => events.push(json!({"type":"room.snapshot","room":room})),
                 Err(error) => tracing::debug!(%error, "room refresh will retry"),
             }
+        }
+        if complete
+            && credentials.enrolled
+            && credentials.keys.recovery().is_some()
+            && let Err(error) = self.keep_recovery_room_key(credentials, None).await
+        {
+            tracing::debug!(%error, "the recovery room key stays until the next room refresh");
         }
         Ok(events)
     }

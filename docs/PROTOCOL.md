@@ -60,7 +60,8 @@ PostgreSQL; the relay is not a durable terminal input queue.
 Room conversation, tasks, and repository links are encrypted and signed at endpoints.
 The backend assigns sequence/version metadata and stores ciphertext. Signed room key
 history distributes keys to member devices and preserves earlier history for later
-joiners. See [Security](SECURITY.md) for cryptography and visible metadata.
+joiners. See [Security](SECURITY.md) for visible metadata and
+[Encryption design](CRYPTOGRAPHY.md) for the keys and their rules.
 
 Repository issue actions run from the participant's runtime using local provider
 credentials. The Git provider remains authoritative for a linked issue. Room tools

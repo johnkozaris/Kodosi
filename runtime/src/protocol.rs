@@ -21,7 +21,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 53;
+pub const VERSION: u32 = 54;
 include!(concat!(env!("OUT_DIR"), "/network_versions.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 
@@ -63,6 +63,10 @@ pub enum Command {
     CancelDeviceLink {},
     #[serde(rename = "devices.reset")]
     ResetDevices {},
+    #[serde(rename = "devices.recovery.create")]
+    CreateRecoveryKey {},
+    #[serde(rename = "devices.recovery.use")]
+    UseRecoveryKey { key: String },
     #[serde(rename = "friends.refresh")]
     RefreshFriends {},
     #[serde(rename = "friends.request.send")]
@@ -501,6 +505,8 @@ pub enum EventBody {
     DeviceLinkSelfPending { code: String, expires_at: String },
     #[serde(rename = "devices.link.selfResolved")]
     DeviceLinkSelfResolved { outcome: DeviceLinkOutcome },
+    #[serde(rename = "devices.recovery.created")]
+    RecoveryKeyCreated { key: String },
     #[serde(rename = "devices.error")]
     DevicesError {
         operation: String,
@@ -676,6 +682,7 @@ pub struct DeviceEntry {
     pub label: String,
     pub cert_signer_device_id: String,
     pub cert_issued_at_ms: i64,
+    pub recovery_key: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
@@ -757,6 +764,7 @@ impl EventBody {
             Self::DeviceLinkResolved { .. } => "devices.link.resolved",
             Self::DeviceLinkSelfPending { .. } => "devices.link.selfPending",
             Self::DeviceLinkSelfResolved { .. } => "devices.link.selfResolved",
+            Self::RecoveryKeyCreated { .. } => "devices.recovery.created",
             Self::DevicesError { .. } => "devices.error",
             Self::SessionsSnapshot { .. } => "sessions.snapshot",
             Self::SessionResult { .. } => "session.result",
@@ -827,6 +835,8 @@ impl Command {
             Self::LinkDevice {} => "devices.link.startSelf",
             Self::CancelDeviceLink {} => "devices.link.cancelSelf",
             Self::ResetDevices {} => "devices.reset",
+            Self::CreateRecoveryKey {} => "devices.recovery.create",
+            Self::UseRecoveryKey { .. } => "devices.recovery.use",
             Self::RefreshFriends {} => "friends.refresh",
             Self::RequestFriend { .. } => "friends.request.send",
             Self::AcceptFriend { .. } => "friends.request.accept",
@@ -1244,6 +1254,7 @@ mod tests {
             "auth.refresh",
             "devices.refresh",
             "devices.reset",
+            "devices.recovery.create",
             "devices.link.startSelf",
             "devices.link.cancelSelf",
             "friends.refresh",
@@ -1258,6 +1269,7 @@ mod tests {
         values.extend([
             json!({"type":"devices.revoke","deviceId":"native-device-name"}),
             json!({"type":"devices.link.approve","code":"ABCD-EFGH-JKMN"}),
+            json!({"type":"devices.recovery.use","key":"ABCD-EFGH-JKMN-PQRS-TVWX-YZ01-2345-6789"}),
             json!({"type":"friends.request.send","username":"example","requestId":ID}),
             json!({"type":"session.create","requestId":ID,"name":"Terminal"}),
             json!({"type":"session.create","requestId":ID,"name":"Resume","workingDir":"/tmp/project","resume":{"provider":"claude","nativeConversationId":ID}}),
@@ -1333,7 +1345,7 @@ mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 48);
+        assert_eq!(kinds.len(), 50);
     }
 
     #[test]

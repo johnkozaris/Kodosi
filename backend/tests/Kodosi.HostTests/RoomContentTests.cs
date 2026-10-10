@@ -86,4 +86,27 @@ public sealed class RoomContentTests(PostgresFixture postgres)
         public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData data, InterceptionResult<int> result, CancellationToken ct=default)
         { Reached.TrySetResult(); await Resume.Task.WaitAsync(ct); return result; }
     }
+
+    [Fact]
+    public async Task RoomRecipientKeysOfAnAbsentMemberStayAvailableWhileTheIdentityIsRefused()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var alice = await store.UserAsync("alice"); var bob = await store.UserAsync("bob"); var carol = await store.UserAsync("carol");
+        var (first, second) = Kodosi.Friends.FriendService.Pair(alice.User.Id, bob.User.Id);
+        store.Db.Friendships.Add(new Friendship { FirstUserId = first, SecondUserId = second, RequestedBy = alice.User.Id, Accepted = true, CreatedAt = DateTimeOffset.UtcNow });
+        await store.Db.SaveChangesAsync(ct);
+        var key = new byte[MissionService.RoomPublicKeyLength];
+        await store.Missions.RegisterRoomKeyAsync(bob.User.Id, bob.Device,
+            new(Convert.ToBase64String(key), Convert.ToBase64String(bob.Fixture.Sign(MissionService.RoomKeyProof(bob.User.Id, bob.Device.Id, key)))), ct);
+        var list = await store.Db.DeviceLists.SingleAsync(x => x.UserId == bob.User.Id, ct);
+        list.ExpiresAtMs = DateTimeOffset.UtcNow.AddMinutes(-1).ToUnixTimeMilliseconds();
+        await store.Db.SaveChangesAsync(ct);
+        var refused = await Assert.ThrowsAsync<ApiException>(() => store.Devices.IdentityAsync(alice.User.Id, bob.User.Id, null, ct));
+        Assert.Equal(400, refused.Status);
+        var keys = JsonSerializer.SerializeToElement(await store.Missions.RecipientKeysAsync(alice.User.Id, bob.User.Id, ct), Wire.Json);
+        Assert.Equal(bob.Device.Id, Assert.Single(keys.EnumerateArray()).GetProperty("deviceId").GetString());
+        var stranger = await Assert.ThrowsAsync<ApiException>(() => store.Missions.RecipientKeysAsync(carol.User.Id, bob.User.Id, ct));
+        Assert.Equal(404, stranger.Status);
+    }
 }

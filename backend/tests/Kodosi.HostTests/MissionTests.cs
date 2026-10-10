@@ -62,7 +62,7 @@ public sealed class MissionTests(PostgresFixture postgres)
         await Assert.ThrowsAsync<ApiException>(() => store.Missions.CreateAsync(viewer.User.Id, new(Guid.CreateVersion7(), "One more"), TestContext.Current.CancellationToken));
         var result = JsonSerializer.SerializeToElement(await store.Missions.ListAsync(viewer.User.Id, TestContext.Current.CancellationToken), Wire.Json);
         Assert.Equal(Limits.MaxVisibleMissions, result.GetProperty("missions").GetArrayLength());
-        var extra = new Mission { Id = Guid.CreateVersion7(), OwnerUserId = owners[0], Name = "Legacy excess" };
+        var extra = new Mission { Id = Guid.CreateVersion7(), OwnerUserId = owners[0], Name = "Over the limit" };
         store.Db.Missions.Add(extra); store.Db.MissionMembers.Add(new MissionMember { MissionId = extra.Id, UserId = viewer.User.Id });
         await store.Db.SaveChangesAsync(TestContext.Current.CancellationToken);
         result = JsonSerializer.SerializeToElement(await store.Missions.ListAsync(viewer.User.Id, TestContext.Current.CancellationToken), Wire.Json);

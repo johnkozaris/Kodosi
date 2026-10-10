@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use aws_lc_rs::{
-    aead, hkdf, kem, rand,
+    aead, agreement, hkdf, kem, rand,
     signature::{ML_DSA_65, VerificationAlgorithm as _},
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
@@ -12,7 +12,9 @@ use zeroize::Zeroizing;
 
 use crate::{
     identity::{
-        keys::DeviceKeys,
+        keys::{
+            AGREEMENT_BYTES, DeviceKeys, ROOM_KEM_PUBLIC_BYTES, ROOM_PUBLIC_BYTES, RoomKeyPair,
+        },
         pins::{IdentityBundle, Pins, Root, VerifiedIdentity},
     },
     network::{Result, crypto, invalid},
@@ -21,6 +23,12 @@ use crate::{
 pub(crate) type Secret = Zeroizing<[u8; 32]>;
 pub(crate) const STATE_DOMAIN: &[u8] = b"kodosi-room-state-v1";
 pub(crate) const CONTENT_DOMAIN: &[u8] = b"kodosi-room-content-v1";
+pub(crate) const RECIPIENT_DOMAIN: &[u8] = b"kodosi-room-recipient-v1";
+const CONTENT_AEAD_DOMAIN: &[u8] = b"kodosi-room-content-aead-v1";
+const HISTORY_DOMAIN: &[u8] = b"kodosi-room-history-v1";
+const KEM_CIPHERTEXT_BYTES: usize = 1088;
+const WRAP_DOMAIN: &[u8] = b"kodosi-room-key-wrap-v2";
+const WRAP_SALT: &[u8] = b"kodosi-room-kem-v2";
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -87,7 +95,7 @@ pub(crate) struct Content {
 impl Content {
     fn context(&self) -> Result<Vec<u8>> {
         crypto::signed_fields(
-            b"kodosi-room-content-aead-v1",
+            CONTENT_AEAD_DOMAIN,
             &[
                 self.room_id.to_string().as_bytes(),
                 self.id.to_string().as_bytes(),
@@ -174,30 +182,7 @@ pub(crate) fn verify_state(
     {
         return Err(invalid("The room key history is invalid."));
     }
-    let mut identities = BTreeMap::new();
-    for (user, bundle) in &state.members {
-        if user != &bundle.user_id {
-            return Err(invalid("A room identity belongs to another user."));
-        }
-        let anchor = if user == owner {
-            *owner_root
-        } else {
-            bundle.root()?
-        };
-        let older = previous.and_then(|p| {
-            p.state
-                .members
-                .get(user)
-                .map(|bundle| (bundle, p.state.created_at_ms))
-        });
-        if older.is_some_and(|(bundle, _)| bundle.root().is_ok_and(|prior| prior != anchor)) {
-            return Err(invalid("A room member's identity changed."));
-        }
-        identities.insert(
-            user.clone(),
-            Pins::historical(bundle, &anchor, state.created_at_ms, older)?,
-        );
-    }
+    let identities = member_identities(&state, owner, owner_root, previous)?;
     if let Some(previous) = previous {
         if state.previous_hash != previous.hash
             || state.epoch < previous.state.epoch
@@ -259,25 +244,67 @@ pub(crate) fn verify_state(
     })
 }
 
-fn wrap_context(room: Uuid, version: u64, epoch: u64, user: &str, device: &str) -> Result<Vec<u8>> {
+fn member_identities(
+    state: &State,
+    owner: &str,
+    owner_root: &Root,
+    previous: Option<&VerifiedState>,
+) -> Result<BTreeMap<String, VerifiedIdentity>> {
+    let mut identities = BTreeMap::new();
+    for (user, bundle) in &state.members {
+        if user != &bundle.user_id {
+            return Err(invalid("A room identity belongs to another user."));
+        }
+        let prior = previous.and_then(|p| p.state.members.get(user).map(|known| (known, p)));
+        if let Some((known, p)) = prior
+            && known == bundle
+            && let Some(identity) = p.identities.get(user)
+        {
+            identities.insert(user.clone(), identity.clone());
+            continue;
+        }
+        let anchor = if user == owner {
+            *owner_root
+        } else {
+            bundle.root()?
+        };
+        let replaced =
+            prior.is_some_and(|(known, _)| known.root().is_ok_and(|prior| prior != anchor));
+        if replaced
+            && (state.author_id != owner
+                || previous.is_none_or(|p| state.epoch != p.state.epoch + 1))
+        {
+            return Err(invalid("A room member's identity changed."));
+        }
+        let older = prior
+            .filter(|_| !replaced)
+            .map(|(known, p)| (known, p.state.created_at_ms));
+        identities.insert(
+            user.clone(),
+            Pins::historical(bundle, &anchor, state.created_at_ms, older)?,
+        );
+    }
+    Ok(identities)
+}
+
+fn wrap_context(state: &State, user: &str, device: &str) -> Result<Vec<u8>> {
     crypto::signed_fields(
-        b"kodosi-room-key-wrap-v1",
+        WRAP_DOMAIN,
         &[
-            room.to_string().as_bytes(),
-            &version.to_be_bytes(),
-            &epoch.to_be_bytes(),
+            state.room_id.to_string().as_bytes(),
+            &state.version.to_be_bytes(),
+            &state.epoch.to_be_bytes(),
             user.as_bytes(),
             device.as_bytes(),
         ],
     )
 }
 
-fn wrapping_key(shared: &[u8], context: &[u8]) -> Result<Secret> {
-    let salt = hkdf::Salt::new(hkdf::HKDF_SHA256, b"kodosi-room-kem-v1");
-    let prk = salt.extract(shared);
-    let info = [context];
+fn wrapping_key(shared: &[&[u8]], info: &[&[u8]]) -> Result<Secret> {
+    let secret = Zeroizing::new(shared.concat());
+    let prk = hkdf::Salt::new(hkdf::HKDF_SHA256, WRAP_SALT).extract(&secret);
     let expanded = prk
-        .expand(&info, &aead::AES_256_GCM)
+        .expand(info, &aead::AES_256_GCM)
         .map_err(|_| invalid("Cannot derive the room wrapping key."))?;
     let mut key = Zeroizing::new([0; 32]);
     expanded
@@ -293,46 +320,87 @@ pub(crate) fn wrap(
     public: &[u8],
     key: &Secret,
 ) -> Result<Recipient> {
-    let encapsulation = kem::EncapsulationKey::new(&kem::ML_KEM_768, public)
-        .map_err(|_| invalid("Invalid room recipient key."))?;
-    let (ciphertext, shared) = encapsulation
+    if public.len() != ROOM_PUBLIC_BYTES {
+        return Err(invalid("Invalid room recipient key."));
+    }
+    let (kem_public, agreement_public) = public.split_at(ROOM_KEM_PUBLIC_BYTES);
+    let (ciphertext, shared) = kem::EncapsulationKey::new(&kem::ML_KEM_768, kem_public)
+        .map_err(|_| invalid("Invalid room recipient key."))?
         .encapsulate()
         .map_err(|_| invalid("Cannot encrypt room keys."))?;
-    let context = wrap_context(state.room_id, state.version, state.epoch, user, device)?;
-    let derived = wrapping_key(shared.as_ref(), &context)?;
+    let ephemeral = agreement::PrivateKey::generate(&agreement::X25519)
+        .map_err(|_| invalid("Cannot encrypt room keys."))?;
+    let ephemeral_public = ephemeral
+        .compute_public_key()
+        .map_err(|_| invalid("Cannot encrypt room keys."))?;
+    let context = wrap_context(state, user, device)?;
+    let derived = agreement::agree(
+        &ephemeral,
+        agreement::UnparsedPublicKey::new(&agreement::X25519, agreement_public),
+        invalid("Invalid room recipient key."),
+        |agreed| {
+            wrapping_key(
+                &[shared.as_ref(), agreed],
+                &[
+                    &context,
+                    ciphertext.as_ref(),
+                    ephemeral_public.as_ref(),
+                    agreement_public,
+                ],
+            )
+        },
+    )?;
     Ok(Recipient {
         user_id: user.to_owned(),
         device_id: device.to_owned(),
-        kem_ciphertext: BASE64.encode(ciphertext.as_ref()),
+        kem_ciphertext: BASE64.encode([ciphertext.as_ref(), ephemeral_public.as_ref()].concat()),
         sealed: seal(derived.as_ref(), &context, key.as_ref())?,
     })
 }
 
 pub(crate) fn unwrap(state: &State, user: &str, keys: &DeviceKeys) -> Result<Secret> {
+    unwrap_for(state, user, &keys.device_id, keys.room()).or_else(|error| match keys.recovery() {
+        Some((device, room)) => unwrap_for(state, user, device, room).map_err(|_| error),
+        None => Err(error),
+    })
+}
+
+fn unwrap_for(state: &State, user: &str, device: &str, room: &RoomKeyPair) -> Result<Secret> {
     let recipient = state
         .recipients
         .iter()
-        .find(|recipient| recipient.user_id == user && recipient.device_id == keys.device_id)
+        .find(|recipient| recipient.user_id == user && recipient.device_id == device)
         .ok_or_else(|| invalid("Room keys are still arriving on this device."))?;
-    let ciphertext = decode(&recipient.kem_ciphertext, 1088)?;
-    let shared = keys
-        .room_key()?
-        .decapsulate(kem::Ciphertext::from(ciphertext.as_slice()))
-        .map_err(|_| invalid("Cannot open room keys."))?;
-    let context = wrap_context(
-        state.room_id,
-        state.version,
-        state.epoch,
-        user,
-        &keys.device_id,
+    let ciphertext = decode(
+        &recipient.kem_ciphertext,
+        KEM_CIPHERTEXT_BYTES + AGREEMENT_BYTES,
     )?;
-    let derived = wrapping_key(shared.as_ref(), &context)?;
+    let (kem_ciphertext, ephemeral_public) = ciphertext
+        .split_at_checked(KEM_CIPHERTEXT_BYTES)
+        .ok_or_else(|| invalid("Cannot open room keys."))?;
+    let shared = room
+        .kem()?
+        .decapsulate(kem::Ciphertext::from(kem_ciphertext))
+        .map_err(|_| invalid("Cannot open room keys."))?;
+    let context = wrap_context(state, user, device)?;
+    let (_, agreement_public) = room.public().split_at(ROOM_KEM_PUBLIC_BYTES);
+    let derived = agreement::agree(
+        &room.agreement()?,
+        agreement::UnparsedPublicKey::new(&agreement::X25519, ephemeral_public),
+        invalid("Cannot open room keys."),
+        |agreed| {
+            wrapping_key(
+                &[shared.as_ref(), agreed],
+                &[&context, kem_ciphertext, ephemeral_public, agreement_public],
+            )
+        },
+    )?;
     key_bytes(&open(derived.as_ref(), &context, &recipient.sealed)?)
 }
 
 fn history_context(room: Uuid, epoch: u64) -> Result<Vec<u8>> {
     crypto::signed_fields(
-        b"kodosi-room-history-v1",
+        HISTORY_DOMAIN,
         &[room.to_string().as_bytes(), &epoch.to_be_bytes()],
     )
 }
@@ -370,19 +438,8 @@ fn key_bytes(bytes: &[u8]) -> Result<Secret> {
 }
 
 fn seal(key: &[u8], context: &[u8], bytes: &[u8]) -> Result<Sealed> {
-    let key = aead::LessSafeKey::new(
-        aead::UnboundKey::new(&aead::AES_256_GCM, key)
-            .map_err(|_| invalid("Invalid room encryption key."))?,
-    );
-    let mut nonce = [0; 12];
-    rand::fill(&mut nonce).map_err(|_| invalid("Cannot create an encryption nonce."))?;
-    let mut ciphertext = bytes.to_vec();
-    key.seal_in_place_append_tag(
-        aead::Nonce::assume_unique_for_key(nonce),
-        aead::Aad::from(context),
-        &mut ciphertext,
-    )
-    .map_err(|_| invalid("Cannot encrypt room content."))?;
+    let (nonce, ciphertext) =
+        crypto::seal(key, context, bytes).ok_or_else(|| invalid("Cannot encrypt room content."))?;
     Ok(Sealed {
         nonce: BASE64.encode(nonce),
         ciphertext: BASE64.encode(ciphertext),
@@ -390,24 +447,13 @@ fn seal(key: &[u8], context: &[u8], bytes: &[u8]) -> Result<Sealed> {
 }
 
 fn open(key: &[u8], context: &[u8], sealed: &Sealed) -> Result<Zeroizing<Vec<u8>>> {
-    let key = aead::LessSafeKey::new(
-        aead::UnboundKey::new(&aead::AES_256_GCM, key)
-            .map_err(|_| invalid("Invalid room encryption key."))?,
-    );
-    let nonce: [u8; 12] = decode(&sealed.nonce, 12)?
-        .try_into()
-        .map_err(|_| invalid("Invalid room nonce."))?;
-    let mut bytes = Zeroizing::new(decode(&sealed.ciphertext, 256 * 1024)?);
-    let plain = key
-        .open_in_place(
-            aead::Nonce::assume_unique_for_key(nonce),
-            aead::Aad::from(context),
-            bytes.as_mut(),
-        )
-        .map_err(|_| invalid("Room content could not be authenticated."))?;
-    let len = plain.len();
-    bytes.truncate(len);
-    Ok(bytes)
+    crypto::open(
+        key,
+        context,
+        &decode(&sealed.nonce, crypto::NONCE_BYTES)?,
+        decode(&sealed.ciphertext, 256 * 1024)?,
+    )
+    .ok_or_else(|| invalid("Room content could not be authenticated."))
 }
 
 pub(crate) fn decode(value: &str, maximum: usize) -> Result<Vec<u8>> {

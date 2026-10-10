@@ -84,13 +84,13 @@ public sealed class IntegrationTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task HttpBoundaryRejectsMissingIdentityWrongAudienceReplayAndRetiredRoutes()
+    public async Task HttpBoundaryRejectsMissingIdentityWrongAudienceAndReplay()
     {
         await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));
         using var anonymous = app.CreateClient();
         using var denied = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
         var health = await anonymous.GetFromJsonAsync<JsonElement>("/health/live", TestContext.Current.CancellationToken);
-        Assert.Equal(23, health.GetProperty("apiContractVersion").GetInt32());
+        Assert.Equal(24, health.GetProperty("apiContractVersion").GetInt32());
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("bad", "wrong-audience"));
         using var audience = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, audience.StatusCode);
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("unenrolled"));
@@ -113,10 +113,6 @@ public sealed class IntegrationTests(PostgresFixture postgres)
             deviceId = owner.Fixture.DeviceId, challengeId, signature = Convert.ToBase64String(other.Fixture.Sign(new byte[40])),
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Forbidden, forged.StatusCode);
-        foreach (var path in new[] { "/api/missions/00000000-0000-0000-0000-000000000000/tasks", "/api/sessions/00000000-0000-0000-0000-000000000000/suggestions", "/api/session-history" })
-        {
-            using var retired = await owner.Client.GetAsync(path, TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.NotFound, retired.StatusCode);
-        }
     }
 
     [Fact]

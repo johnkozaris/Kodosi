@@ -14,7 +14,7 @@ import Testing
         }
         return 0
     }
-    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(53)]))
+    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(54)]))
 
     func create(branch: String?) async throws {
         let creating = Task { try await app.createSession(name: "Test", directory: "/tmp/project", branch: branch) }

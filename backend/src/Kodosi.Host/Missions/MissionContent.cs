@@ -12,27 +12,37 @@ public sealed partial class MissionService
     private const int MaximumKeyStateBytes = 3 * 1024 * 1024;
     private const int MaximumItemBytes = 64 * 1024;
 
+    public const int RoomPublicKeyLength = 1184 + 32;
+
+    internal static (byte[] Key, byte[] Signature) ValidRoomKey(SignatureVerifier verifier, Guid userId, string deviceId, byte[] signingKey, RecipientKeyWrite request)
+    {
+        var key = Limits.Base64(request.PublicKey, "Room public key", RoomPublicKeyLength);
+        var signature = Limits.Base64(request.Signature, "Room public key signature", IdentityWireFormat.MlDsa65SignatureLength);
+        if (key.Length != RoomPublicKeyLength || !verifier.Verify(signingKey, RoomKeyProof(userId, deviceId, key), signature))
+            throw ApiException.Invalid("Invalid room public key.");
+        return (key, signature);
+    }
+
     public async Task RegisterRoomKeyAsync(Guid userId, Device device, RecipientKeyWrite request, CancellationToken ct)
     {
-        var key = Limits.Base64(request.PublicKey, "Room public key", 1184);
-        var signature = Limits.Base64(request.Signature, "Room public key signature", 3309);
-        if (key.Length != 1184 || !signatures.Verify(device.SigningPublicKey,
-            RoomKeyProof(userId, device.Id, key), signature)) throw ApiException.Invalid("Invalid room public key.");
+        var (key, signature) = ValidRoomKey(signatures, userId, device.Id, device.SigningPublicKey, request);
         var existing = await db.RoomRecipientKeys.SingleOrDefaultAsync(x => x.DeviceId == device.Id, ct);
-        if (existing is not null)
-        {
-            if (!existing.PublicKey.AsSpan().SequenceEqual(key)) throw ApiException.Conflict("This device already has a different room key.");
-            return;
-        }
-        db.RoomRecipientKeys.Add(new RoomRecipientKey { DeviceId = device.Id, UserId = userId, PublicKey = key, Signature = signature });
+        if (existing is null) db.RoomRecipientKeys.Add(new RoomRecipientKey { DeviceId = device.Id, UserId = userId, PublicKey = key, Signature = signature });
+        else if (existing.PublicKey.AsSpan().SequenceEqual(key)) return;
+        else { existing.PublicKey = key; existing.Signature = signature; }
         await db.SaveChangesAsync(ct);
+        await NotifyRoomsOfAsync(userId, ct);
+    }
+
+    public async Task NotifyRoomsOfAsync(Guid userId, CancellationToken ct)
+    {
         foreach (var room in await db.Missions.Where(r => r.OwnerUserId == userId || db.MissionMembers.Any(m => m.MissionId == r.Id && m.UserId == userId)).ToListAsync(ct))
             await NotifyAsync(room, ct);
     }
 
     public async Task<object> RecipientKeysAsync(Guid caller, Guid userId, CancellationToken ct)
     {
-        _ = await devices.IdentityAsync(caller, userId, null, ct);
+        await devices.RequireRelationAsync(caller, userId, ct);
         var keys = await (from key in db.RoomRecipientKeys.AsNoTracking()
                           join device in db.Devices.AsNoTracking() on key.DeviceId equals device.Id
                           where key.UserId == userId && !device.Revoked
@@ -40,10 +50,10 @@ public sealed partial class MissionService
         return keys.Select(key => new { key.UserId, key.DeviceId, publicKey = Convert.ToBase64String(key.PublicKey), signature = Convert.ToBase64String(key.Signature) });
     }
 
-    private static byte[] RoomKeyProof(Guid user, string device, byte[] key)
+    internal static byte[] RoomKeyProof(Guid user, string device, byte[] key)
     {
         using var stream = new MemoryStream();
-        stream.Write("kodosi-room-recipient-v1"u8);
+        stream.Write(DomainTags.RoomRecipientV1);
         CanonicalLengthPrefixedUtf8.Write(stream, user.ToString("D"));
         CanonicalLengthPrefixedUtf8.Write(stream, device);
         Span<byte> length = stackalloc byte[4];
@@ -88,7 +98,7 @@ public sealed partial class MissionService
         var device = await devices.RequireDeviceAsync(userId, request.DeviceId, ct);
         var body = Limits.Base64(request.Body, "Room keys", MaximumKeyStateBytes);
         var signature = Limits.Base64(request.Signature, "Room signature", 3309);
-        if (!signatures.Verify(device.SigningPublicKey, Proofs.Tagged("kodosi-room-state-v1"u8, body), signature))
+        if (!signatures.Verify(device.SigningPublicKey, Proofs.Tagged(DomainTags.RoomStateV1, body), signature))
             throw ApiException.Forbidden("Invalid room signature.");
         var state = ReadBody<KeyStateBody>(body);
         var version = state.Version;
@@ -156,7 +166,7 @@ public sealed partial class MissionService
         var device = await devices.RequireDeviceAsync(userId, request.DeviceId, ct);
         var body = Limits.Base64(request.Body, "Room content", MaximumItemBytes);
         var signature = Limits.Base64(request.Signature, "Content signature", 3309);
-        if (!signatures.Verify(device.SigningPublicKey, Proofs.Tagged("kodosi-room-content-v1"u8, body), signature))
+        if (!signatures.Verify(device.SigningPublicKey, Proofs.Tagged(DomainTags.RoomContentV1, body), signature))
             throw ApiException.Forbidden("Invalid room content signature.");
         var content = ReadBody<ContentBody>(body);
         var kind = content.Kind;

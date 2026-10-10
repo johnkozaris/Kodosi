@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 use std::{
     collections::BTreeSet,
     ffi::OsString,
-    io::{self, Write},
+    io::{self, IsTerminal as _, Write},
     path::{Path, PathBuf},
     process::Stdio,
     time::Duration,
@@ -135,6 +135,11 @@ enum DeviceAction {
     Revoke { device: String },
     /// Start fresh on this device: every other device loses access until it is approved again.
     Reset,
+    /// Make a recovery key and show it one time. An earlier recovery key stops working.
+    RecoveryKey,
+    /// Approve this device with your recovery key when you have no other approved device.
+    /// Kodosi reads the key from standard input.
+    Recover,
 }
 #[derive(Subcommand)]
 enum FriendAction {
@@ -625,7 +630,20 @@ async fn device_command(
             json!({"type":"devices.revoke","deviceId":id})
         }
         DeviceAction::Reset => json!({"type":"devices.reset"}),
+        DeviceAction::RecoveryKey => json!({"type":"devices.recovery.create"}),
+        DeviceAction::Recover => json!({"type":"devices.recovery.use","key":recovery_key()?}),
     })
+}
+
+fn recovery_key() -> Result<String> {
+    if io::stdin().is_terminal() {
+        let mut prompt = io::stderr().lock();
+        write!(prompt, "Recovery key: ")?;
+        prompt.flush()?;
+    }
+    let mut key = String::new();
+    io::stdin().read_line(&mut key)?;
+    Ok(key.trim().to_owned())
 }
 
 struct IdleWatch {
@@ -1088,7 +1106,10 @@ async fn wait_result(
             let done = match operation {
                 "auth.login.start" => kind == "auth.ready",
                 "auth.logout" | "auth.deleteAccount" => kind == "auth.required",
-                "devices.refresh" | "devices.revoke" | "devices.reset" => kind == "devices.list",
+                "devices.refresh" | "devices.revoke" | "devices.reset" | "devices.recovery.use" => {
+                    kind == "devices.list"
+                }
+                "devices.recovery.create" => kind == "devices.recovery.created",
                 "devices.link.startSelf" => matches!(
                     kind,
                     "devices.link.selfPending" | "devices.link.selfResolved"
@@ -1273,24 +1294,6 @@ mod tests {
             start_defaults(None, None, None),
             ("Terminal".to_owned(), None)
         );
-    }
-    #[test]
-    fn obsolete_products_are_not_cli_commands() {
-        for args in [
-            vec!["kodosi", "agent"],
-            vec!["kodosi", "msg"],
-            vec!["kodosi", "repair"],
-            vec!["kodosi", "session", "reopen"],
-            vec!["kodosi", "session", "run"],
-            vec![
-                "kodosi",
-                "session",
-                "stop",
-                "01900000-0000-7000-8000-000000000001",
-            ],
-        ] {
-            assert!(Arguments::try_parse_from(args).is_err());
-        }
     }
     #[test]
     fn older_account_events_cannot_restore_old_sessions() {

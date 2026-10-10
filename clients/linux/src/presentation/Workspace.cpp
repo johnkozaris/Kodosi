@@ -281,6 +281,11 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         sendUntracked(QStringLiteral("devices.refresh"));
         return;
     }
+    if (type == QStringLiteral("devices.recovery.created")) {
+        m_devices.m_newRecoveryKey = event.value(QStringLiteral("key")).toString();
+        emit m_devices.changed();
+        return;
+    }
     if (type == QStringLiteral("room.snapshot")) {
         m_missions.applyRoom(event.value(QStringLiteral("room")).toObject());
         return;

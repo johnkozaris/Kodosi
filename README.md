@@ -154,6 +154,7 @@ terminal, start an agent, and make a room.
 | Understand the processes and connections | [Architecture and protocol](docs/PROTOCOL.md) |
 | Run my own backend | [Self-hosting](docs/SELF-HOSTING.md) |
 | Understand encryption or report a vulnerability | [Security](docs/SECURITY.md) |
+| Review the encryption design and its limits | [Encryption design and threat model](docs/CRYPTOGRAPHY.md) |
 
 ## Project status
 

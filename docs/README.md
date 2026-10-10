@@ -20,6 +20,7 @@ Start with the guide for the job you want to do.
   [Linux build guide](../clients/linux/README.md).
 - [Self-hosting](SELF-HOSTING.md): PostgreSQL, the backend, and your OIDC provider.
 - [Architecture and protocol](PROTOCOL.md): process ownership, connections, and contracts.
+- [Encryption design and threat model](CRYPTOGRAPHY.md): keys, rules, and known limits.
 - [Contributing](../CONTRIBUTING.md): changes, issues, and review expectations.
 - [Code of Conduct](../CODE_OF_CONDUCT.md): how we treat each other in this project.
 - [About the pictures](media/README.md): what the pictures show and how to replace one.

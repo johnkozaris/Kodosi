@@ -48,6 +48,7 @@ public sealed partial class DeviceService(
         var deviceId = DeviceIdRules.Require(request.DeviceId);
         var challenge = sessions.ConsumeChallenge(userId, request.ChallengeId);
         var device = await RequireDeviceAsync(userId, deviceId, ct, allowExpiredList: true);
+        if (IsRecoveryId(deviceId)) throw ApiException.Forbidden("A recovery key cannot open a device session.");
         var signature = Limits.Base64(request.Signature, "Device signature", IdentityWireFormat.MlDsa65SignatureLength);
         if (!signatures.Verify(device.SigningPublicKey, Proofs.DeviceSession(userId, deviceId, request.ChallengeId, challenge), signature))
             throw ApiException.Forbidden("Invalid device proof.");
@@ -55,17 +56,19 @@ public sealed partial class DeviceService(
         return new { session = token, expiresAt };
     }
 
-    public async Task EnrollAsync(Guid userId, RegisterDevice request, CancellationToken ct)
+    private static (byte[] Cert, byte[] CertSig, byte[] List, byte[] ListSig) SignedParts(string certificate, string certificateSignature, string list, string listSignature) =>
+        (Limits.Base64(certificate, "Device certificate", IdentityWireFormat.MaxDeviceCertificateBodyLength),
+         Limits.Base64(certificateSignature, "Certificate signature", IdentityWireFormat.MlDsa65SignatureLength),
+         Limits.Base64(list, "Signed device list", IdentityWireFormat.MaxSignedDeviceListBodyLength),
+         Limits.Base64(listSignature, "List signature", IdentityWireFormat.MlDsa65SignatureLength));
+
+    private async Task<byte[]?> NewDeviceKeyAsync(Guid userId, RegisterDevice request, byte[] certBytes, byte[] certSig, CancellationToken ct)
     {
         var existing = await db.Devices.AsNoTracking().SingleOrDefaultAsync(x => x.Id == request.DeviceId, ct);
-        var certBytes = Limits.Base64(request.DeviceCertificate, "Device certificate", IdentityWireFormat.MaxDeviceCertificateBodyLength);
-        var certSig = Limits.Base64(request.DeviceCertificateSignature, "Certificate signature", IdentityWireFormat.MlDsa65SignatureLength);
-        var listBytes = Limits.Base64(request.SignedDeviceList, "Signed device list", IdentityWireFormat.MaxSignedDeviceListBodyLength);
-        var listSig = Limits.Base64(request.SignedDeviceListSignature, "List signature", IdentityWireFormat.MlDsa65SignatureLength);
         if (existing is not null)
         {
             if (existing.UserId == userId && !existing.Revoked && existing.Certificate.AsSpan().SequenceEqual(certBytes)
-                && existing.CertificateSignature.AsSpan().SequenceEqual(certSig)) return;
+                && existing.CertificateSignature.AsSpan().SequenceEqual(certSig)) return null;
             throw ApiException.Conflict("This device identity is already registered.");
         }
         var challenge = sessions.ConsumeChallenge(userId, request.ChallengeId);
@@ -73,6 +76,16 @@ public sealed partial class DeviceService(
         var pop = Limits.Base64(request.PopSignature, "Possession signature", IdentityWireFormat.MlDsa65SignatureLength);
         if (!signatures.Verify(signingKey, Proofs.Tagged(DomainTags.DevicePopV1, challenge), pop))
             throw ApiException.Forbidden("The device possession proof is invalid.");
+        if (IsRecoveryId(request.DeviceId)) throw ApiException.Invalid("This device identifier is for a recovery key.");
+        return signingKey;
+    }
+
+    internal static bool IsRecoveryId(string deviceId) => Guid.TryParse(deviceId, out var id) && id.Version == 8;
+
+    public async Task EnrollAsync(Guid userId, RegisterDevice request, CancellationToken ct)
+    {
+        var (certBytes, certSig, listBytes, listSig) = SignedParts(request.DeviceCertificate, request.DeviceCertificateSignature, request.SignedDeviceList, request.SignedDeviceListSignature);
+        if (await NewDeviceKeyAsync(userId, request, certBytes, certSig, ct) is not { } signingKey) return;
         if (await db.DeviceLists.AnyAsync(x => x.UserId == userId, ct)
             || await db.Devices.AnyAsync(x => x.UserId == userId && !x.Revoked, ct))
             throw ApiException.Forbidden("An existing trusted device must approve this device.");
@@ -151,20 +164,23 @@ public sealed partial class DeviceService(
         connections.Notify(userId, "devices");
     }
 
+    public async Task RequireRelationAsync(Guid callerId, Guid userId, CancellationToken ct)
+    {
+        if (callerId == userId) return;
+        var (first, second) = Friends.FriendService.Pair(callerId, userId);
+        var friend = await db.Friendships.AnyAsync(x => x.FirstUserId == first && x.SecondUserId == second && x.Accepted, ct);
+        var shared = await db.Sessions.AnyAsync(s => !s.Ended &&
+            ((s.OwnerUserId == userId && db.SessionMembers.Any(m => m.SessionId == s.Id && m.UserId == callerId)) ||
+             (s.OwnerUserId == callerId && db.SessionMembers.Any(m => m.SessionId == s.Id && m.UserId == userId))), ct);
+        var room = await db.Missions.AnyAsync(r =>
+            (r.OwnerUserId == callerId || db.MissionMembers.Any(m => m.MissionId == r.Id && m.UserId == callerId) || db.MissionInvitations.Any(i => i.MissionId == r.Id && i.UserId == callerId))
+            && (r.OwnerUserId == userId || db.MissionMembers.Any(m => m.MissionId == r.Id && m.UserId == userId) || db.MissionInvitations.Any(i => i.MissionId == r.Id && i.UserId == userId)), ct);
+        if (!friend && !shared && !room) throw ApiException.Missing();
+    }
+
     public async Task<(IdentityBundle? Bundle, string Tag)> IdentityAsync(Guid callerId, Guid userId, string? known, CancellationToken ct)
     {
-        if (callerId != userId)
-        {
-            var (first, second) = Friends.FriendService.Pair(callerId, userId);
-            var friend = await db.Friendships.AnyAsync(x => x.FirstUserId == first && x.SecondUserId == second && x.Accepted, ct);
-            var shared = await db.Sessions.AnyAsync(s => !s.Ended &&
-                ((s.OwnerUserId == userId && db.SessionMembers.Any(m => m.SessionId == s.Id && m.UserId == callerId)) ||
-                 (s.OwnerUserId == callerId && db.SessionMembers.Any(m => m.SessionId == s.Id && m.UserId == userId))), ct);
-            var room = await db.Missions.AnyAsync(r =>
-                (r.OwnerUserId == callerId || db.MissionMembers.Any(m => m.MissionId == r.Id && m.UserId == callerId) || db.MissionInvitations.Any(i => i.MissionId == r.Id && i.UserId == callerId))
-                && (r.OwnerUserId == userId || db.MissionMembers.Any(m => m.MissionId == r.Id && m.UserId == userId) || db.MissionInvitations.Any(i => i.MissionId == r.Id && i.UserId == userId)), ct);
-            if (!friend && !shared && !room) throw ApiException.Missing();
-        }
+        await RequireRelationAsync(callerId, userId, ct);
         var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Id == userId, ct)
             ?? throw ApiException.Missing();
         var list = await db.DeviceLists.AsNoTracking().SingleOrDefaultAsync(x => x.UserId == userId, ct)
