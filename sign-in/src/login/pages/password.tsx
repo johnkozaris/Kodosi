@@ -3,7 +3,7 @@ import { Check, Mail, SquareArrowOutUpRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { PersonCheckRow, REFUSALS, usePersonCheck } from "../../parts/captcha";
-import { ActionRow, Go, PasswordRow, SwitchRow, TextRow } from "../../parts/rows";
+import { ActionRow, Go, PasswordRow, SignOutOthers, TextRow } from "../../parts/rows";
 import { QuietLink, quietLink } from "../../parts/text";
 import { IconTile } from "../../parts/tile";
 import { isMessage } from "../i18n";
@@ -83,8 +83,13 @@ export function UpdatePassword({ kcContext, i18n }: Page<"login-update-password.
   const again = useRef<HTMLInputElement>(null);
   const wrong = messagesPerField.existsError("password", "password-confirm");
   const form = "kc-passwd-update-form";
-  // Keycloakify adds the realm's rules to a page with a new password.
-  const { passwordPolicies } = kcContext as { passwordPolicies?: PasswordPolicies };
+  // Keycloakify adds the realm's rules to a page with a new password, and Keycloak the name of
+  // the person.
+  const { passwordPolicies, username } = kcContext as {
+    passwordPolicies?: PasswordPolicies;
+    username?: string;
+  };
+  const person = { username: username ?? kcContext.auth?.attemptedUsername };
   return (
     <Stage
       kcContext={kcContext}
@@ -121,9 +126,7 @@ export function UpdatePassword({ kcContext, i18n }: Page<"login-update-password.
           required
           aria-invalid={wrong}
           onChange={(event) => setPassword(event.target.value)}
-          fits={meetsPolicy(i18n, passwordPolicies, password, {
-            username: kcContext.auth?.attemptedUsername,
-          })}
+          fits={meetsPolicy(i18n, passwordPolicies, password, person)}
           show={msgStr("kdsShowPassword")}
           hide={msgStr("kdsHidePassword")}
           capsLock={msgStr("kdsCapsLock")}
@@ -134,15 +137,9 @@ export function UpdatePassword({ kcContext, i18n }: Page<"login-update-password.
           i18n={i18n}
           policies={passwordPolicies}
           password={password}
-          username={kcContext.auth?.attemptedUsername}
+          username={person.username}
         />
-        <SwitchRow
-          id="logout-sessions"
-          name="logout-sessions"
-          value="on"
-          label={msgStr("kdsSignOutOthers")}
-          defaultChecked
-        />
+        <SignOutOthers shown={!!isAppInitiatedAction} label={msgStr("kdsSignOutOthers")} />
       </form>
     </Stage>
   );
@@ -253,6 +250,8 @@ export function VerifyEmail({ kcContext, i18n }: Page<"login-verify-email.ftl">)
       kcContext={kcContext}
       i18n={i18n}
       title={msgStr(asks ? "kdsConfirmEmailTitle" : "kdsInboxTitle")}
+      // Keycloak's own line says what the lead says.
+      quiet={kcContext.message?.type !== "error"}
       lead={
         asks && address
           ? msgStr("kdsConfirmEmailLead", address)

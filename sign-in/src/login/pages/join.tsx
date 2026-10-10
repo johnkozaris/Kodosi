@@ -13,7 +13,7 @@ import { buttonClass } from "../../parts/button";
 import { askOnPress, PersonCheckRow, REFUSALS, usePersonCheck } from "../../parts/captcha";
 import { cn } from "../../parts/cn";
 import { Avatar } from "../../parts/person";
-import { Go, PasswordRow, rule, SwitchRow, TextRow } from "../../parts/rows";
+import { Go, PasswordRow, rule, SignOutOthers, SwitchRow, TextRow } from "../../parts/rows";
 import { QuietLink, quietLink, safeHtml } from "../../parts/text";
 import { type I18n, isMessage } from "../i18n";
 import { Stage } from "../stage";
@@ -625,15 +625,7 @@ export function NewEmail(props: Page<"update-email.ftl">) {
       action={kcContext.url.loginAction}
       finish={msgStr("kdsSave")}
       detailsTitle={msgStr("kdsNewEmailTitle")}
-      extra={
-        <SwitchRow
-          id="logout-sessions"
-          name="logout-sessions"
-          value="on"
-          label={msgStr("kdsSignOutOthers")}
-          defaultChecked
-        />
-      }
+      extra={<SignOutOthers shown label={msgStr("kdsSignOutOthers")} />}
     />
   );
 }

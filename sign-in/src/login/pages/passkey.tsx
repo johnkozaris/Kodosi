@@ -4,7 +4,7 @@ import { useScript as useNewPasskey } from "keycloakify/login/pages/WebauthnRegi
 import { Fingerprint, RotateCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { ActionRow, Go, SwitchRow, TextRow } from "../../parts/rows";
+import { ActionRow, Go, SignOutOthers, TextRow } from "../../parts/rows";
 import { quietLink, Way } from "../../parts/text";
 import { IconTile } from "../../parts/tile";
 import { Stage } from "../stage";
@@ -197,12 +197,7 @@ export function NewPasskey({ kcContext, i18n }: Page<"webauthn-register.ftl">) {
           title={msgStr("kdsPasskeyCreate")}
           detail={asks ? msgStr("kdsPasskeyWaiting") : undefined}
         />
-        <SwitchRow
-          id="logout-sessions"
-          name="logout-sessions"
-          value="on"
-          label={msgStr("kdsSignOutOthers")}
-        />
+        <SignOutOthers shown={!!isAppInitiatedAction} label={msgStr("kdsSignOutOthers")} />
         <input type="hidden" id="clientDataJSON" name="clientDataJSON" />
         <input type="hidden" id="attestationObject" name="attestationObject" />
         <input type="hidden" id="publicKeyCredentialId" name="publicKeyCredentialId" />

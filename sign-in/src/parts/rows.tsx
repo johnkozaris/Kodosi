@@ -183,6 +183,25 @@ export function SwitchRow({
   );
 }
 
+/**
+ * Keycloak's choice to sign out the person's other sessions with this change, which its own page
+ * has on. The person sees the switch when they started the change from their account. A step that
+ * Keycloak asks for at a sign-in keeps Keycloak's choice and shows nothing.
+ */
+export function SignOutOthers({ shown, label }: { shown: boolean; label: string }) {
+  return shown ? (
+    <SwitchRow
+      id="logout-sessions"
+      name="logout-sessions"
+      value="on"
+      label={label}
+      defaultChecked
+    />
+  ) : (
+    <input type="hidden" id="logout-sessions" name="logout-sessions" value="on" />
+  );
+}
+
 /** A row of the capsule that does one thing: a way to go on, or one of some choices. */
 export function ActionRow({
   tile,

@@ -5,7 +5,7 @@ import { buttonClass } from "../../parts/button";
 import { cn } from "../../parts/cn";
 import { CodeCells } from "../../parts/code";
 import { option, Pill } from "../../parts/pill";
-import { ActionRow, Go, SwitchRow, TextRow } from "../../parts/rows";
+import { ActionRow, Go, SignOutOthers, SwitchRow, TextRow } from "../../parts/rows";
 import { QuietLink, quietLink } from "../../parts/text";
 import { IconTile } from "../../parts/tile";
 import { Stage } from "../stage";
@@ -173,13 +173,7 @@ export function ConfigTotp({ kcContext, i18n }: Page<"login-config-totp.ftl">) {
           aria-invalid={messagesPerField.existsError("userLabel")}
           end={<Go label={msgStr("kdsFinish")} id="saveTOTPBtn" />}
         />
-        <SwitchRow
-          id="logout-sessions"
-          name="logout-sessions"
-          value="on"
-          label={msgStr("kdsSignOutOthers")}
-          defaultChecked
-        />
+        <SignOutOthers shown={!!isAppInitiatedAction} label={msgStr("kdsSignOutOthers")} />
         <input type="hidden" id="totpSecret" name="totpSecret" value={totp.totpSecret} />
         {mode && <input type="hidden" id="mode" name="mode" value={mode} />}
       </form>
@@ -265,13 +259,7 @@ export function RecoveryConfig({ kcContext, i18n }: Page<"login-recovery-authn-c
           checked={kept}
           onChange={(event) => setKept(event.target.checked)}
         />
-        <SwitchRow
-          id="logout-sessions"
-          name="logout-sessions"
-          value="on"
-          label={msgStr("kdsSignOutOthers")}
-          defaultChecked
-        />
+        <SignOutOthers shown={!!isAppInitiatedAction} label={msgStr("kdsSignOutOthers")} />
         <ActionRow
           id="saveRecoveryAuthnCodesBtn"
           disabled={!kept}
