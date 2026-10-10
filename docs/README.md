@@ -5,9 +5,12 @@ Start with the guide for the job you want to do.
 
 ## Use Kodosi
 
-- [Getting started](GETTING_STARTED.md): sign in, open a terminal, and work in a room.
+- [Getting started](GETTING_STARTED.md): what you need, then sign in, open a terminal,
+  start an agent, and work in a room. With pictures.
 - [Agents and tasks](AGENTS_AND_TASKS.md): room chat, the bundled skill, shared tasks,
   and GitHub or Gitea issues.
+- [Questions and answers](FAQ.md): short answers about the app, agents, sharing, and
+  the service.
 - [Security](SECURITY.md): what is encrypted, what sharing grants, and private reporting.
 
 ## Build and operate
@@ -18,6 +21,8 @@ Start with the guide for the job you want to do.
 - [Self-hosting](SELF-HOSTING.md): PostgreSQL, the backend, and your OIDC provider.
 - [Architecture and protocol](PROTOCOL.md): process ownership, connections, and contracts.
 - [Contributing](../CONTRIBUTING.md): changes, issues, and review expectations.
+- [Code of Conduct](../CODE_OF_CONDUCT.md): how we treat each other in this project.
+- [About the pictures](media/README.md): what the pictures show and how to replace one.
 
 ## Product and native integration
 

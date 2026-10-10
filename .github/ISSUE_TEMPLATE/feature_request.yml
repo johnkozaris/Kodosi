@@ -1,0 +1,39 @@
+name: Proposal
+description: A change or a new capability for Kodosi.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Start with the problem. [PRODUCT.md](https://github.com/johnkozaris/Kodosi/blob/main/PRODUCT.md) records what Kodosi is for and what it keeps lean.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: Who has it, and what do they try to do?
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Proposed behavior
+      description: What a person or an agent sees and does. Not the implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Other ways
+      description: What you do now, or other solutions that you considered.
+  - type: dropdown
+    id: part
+    attributes:
+      label: Part
+      multiple: true
+      options:
+        - Mac app
+        - Linux app
+        - Command line (kodosi)
+        - Rooms, conversation, and tasks
+        - Backend or self-hosting
+        - Documentation
