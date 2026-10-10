@@ -21,9 +21,11 @@ pictures show the Mac app; the Linux app has the same parts.
   computer. Ubuntu 24.04 is the recommended start.
 - **The app.** Public app releases are not available yet. Build the
   [Mac app](../clients/macos/README.md) or the [Linux app](../clients/linux/README.md).
-- **A Kodosi service.** The apps connect to the hosted service by default. A Mac Debug
-  build connects to a [local backend](DEVELOPMENT.md#run-the-backend). You can also
-  [run your own](SELF-HOSTING.md). Everyone in a room uses the same service.
+- **A Kodosi service.** Kodosi needs a backend and an OIDC sign-in service. A public
+  hosted service is not open yet, so you run them: a
+  [local backend](DEVELOPMENT.md#run-the-backend) for development, or
+  [your own service](SELF-HOSTING.md) for more people. Everyone in a room uses the
+  same service.
 - **A browser** for the sign-in.
 - **Your agents (optional).** Claude Code, Codex, Copilot CLI, or another terminal
   agent, installed and signed in as usual.

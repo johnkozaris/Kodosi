@@ -118,7 +118,7 @@ content. [Security](docs/SECURITY.md)
 | --- | --- |
 | A computer | A Mac with Apple silicon and macOS 26.4 or later, or a Linux x86-64 computer. Ubuntu 24.04 is the recommended start. |
 | Build tools | App releases are not published yet, so you build Kodosi. The [Mac](clients/macos/README.md#requirements) build needs Xcode; the [Linux](clients/linux/README.md#requirements) build needs a C++23 compiler. Both need the pinned Rust toolchain, `just`, and Python 3. |
-| A Kodosi service | The apps connect to the hosted service by default. A Mac Debug build connects to a [local backend](docs/DEVELOPMENT.md#run-the-backend). You can also [run your own](docs/SELF-HOSTING.md). |
+| A Kodosi service | Kodosi needs a backend and an OIDC sign-in service. A public hosted service is not open yet, so you run them: a [local backend](docs/DEVELOPMENT.md#run-the-backend) for development, or [your own service](docs/SELF-HOSTING.md) for more people. |
 | Your agents | Optional. Install and sign in to Claude Code, Codex, Copilot CLI, or another terminal agent as usual. Kodosi uses their own installation and sign-in. |
 | Git | Optional. Git for a terminal on a new branch; `gh` or a Git credential helper for GitHub and Gitea issues. |
 
