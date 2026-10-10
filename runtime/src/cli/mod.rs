@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 use std::{
     collections::BTreeSet,
     ffi::OsString,
-    io::{self, Write},
+    io::{self, IsTerminal as _, Write},
     path::{Path, PathBuf},
     process::Stdio,
     time::Duration,
@@ -138,7 +138,8 @@ enum DeviceAction {
     /// Make a recovery key and show it one time. An earlier recovery key stops working.
     RecoveryKey,
     /// Approve this device with your recovery key when you have no other approved device.
-    Recover { key: String },
+    /// Kodosi reads the key from standard input.
+    Recover,
 }
 #[derive(Subcommand)]
 enum FriendAction {
@@ -630,8 +631,19 @@ async fn device_command(
         }
         DeviceAction::Reset => json!({"type":"devices.reset"}),
         DeviceAction::RecoveryKey => json!({"type":"devices.recovery.create"}),
-        DeviceAction::Recover { key } => json!({"type":"devices.recovery.use","key":key}),
+        DeviceAction::Recover => json!({"type":"devices.recovery.use","key":recovery_key()?}),
     })
+}
+
+fn recovery_key() -> Result<String> {
+    if io::stdin().is_terminal() {
+        let mut prompt = io::stderr().lock();
+        write!(prompt, "Recovery key: ")?;
+        prompt.flush()?;
+    }
+    let mut key = String::new();
+    io::stdin().read_line(&mut key)?;
+    Ok(key.trim().to_owned())
 }
 
 struct IdleWatch {

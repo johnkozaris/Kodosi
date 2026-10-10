@@ -4,6 +4,7 @@
 #include <QClipboard>
 #include <QGuiApplication>
 #include <QJsonObject>
+#include <QMimeData>
 
 namespace kodosi {
 DevicesModel::DevicesModel(Workspace& workspace)
@@ -60,8 +61,13 @@ void DevicesModel::useRecoveryKey(const QString& key)
 
 void DevicesModel::copyNewRecoveryKey()
 {
-    if (auto* application = qobject_cast<QGuiApplication*>(QCoreApplication::instance()))
-        application->clipboard()->setText(m_newRecoveryKey, QClipboard::Clipboard);
+    auto* application = qobject_cast<QGuiApplication*>(QCoreApplication::instance());
+    if (!application)
+        return;
+    auto* data = new QMimeData;
+    data->setText(m_newRecoveryKey);
+    data->setData(QStringLiteral("x-kde-passwordManagerHint"), QByteArrayLiteral("secret"));
+    application->clipboard()->setMimeData(data, QClipboard::Clipboard);
 }
 
 void DevicesModel::forgetNewRecoveryKey()

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Kodosi.Accounts;
+using Kodosi.Missions;
 using Kodosi.TerminalConnections;
 
 namespace Kodosi.Devices;
@@ -51,10 +52,10 @@ internal static class DeviceEndpoints
         }).RequireRateLimiting("enrollment");
         api.MapPost("/devices/link/init", async (DeviceService.LinkInit body, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
             Results.Ok(await service.StartLinkAsync((await users.GetAsync(context, ct)).Id, body, ct))).RequireRateLimiting("enrollment");
-        api.MapPost("/me/recovery-key", async (DeviceService.RecoveryKeyWrite body, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
+        api.MapPost("/me/recovery-key", async (DeviceService.RecoveryKeyWrite body, HttpContext context, CurrentUser users, DeviceService service, MissionService missions, CancellationToken ct) =>
         {
             var user = await users.GetAsync(context, ct); var device = await service.RequireProofAsync(context, user.Id, ct);
-            await service.AddRecoveryKeyAsync(user.Id, device, body, ct); return Results.Ok();
+            await service.AddRecoveryKeyAsync(user.Id, device, body, ct); await missions.NotifyRoomsOfAsync(user.Id, ct); return Results.Ok();
         }).RequireRateLimiting("enrollment");
         api.MapGet("/me/recovery-key", async (HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
             Results.Ok(await service.RecoveryBoxAsync((await users.GetAsync(context, ct)).Id, ct))).RequireRateLimiting("enrollment");

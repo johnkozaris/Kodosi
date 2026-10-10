@@ -39,7 +39,7 @@ impl BackendClient {
             &credentials.keys.device_id,
             &credentials.keys.signing_key()?,
             now,
-            Some(now + 24 * 60 * 60_000),
+            Some(now + DEVICE_LIST_LIFE_MS),
         )?;
         let challenge: Value = self
             .inner
@@ -207,7 +207,7 @@ impl BackendClient {
             &credentials.keys.device_id,
             &credentials.keys.signing_key()?,
             issued,
-            Some(issued + 24 * 60 * 60_000),
+            Some(issued + DEVICE_LIST_LIFE_MS),
         )?;
         let mut renewal = credentials.clone();
         renewal.enrolled = true;
@@ -440,6 +440,55 @@ async fn own_identity(
 const UNAPPROVED: &str = "Approve this device from one of your existing devices.";
 const REPLACED: &str = "Your trusted devices were reset from another device. Approve this device from that device, or start fresh here.";
 const UNREADABLE: &str = "This version of Kodosi cannot read the trusted devices of this account. Start fresh on this device, then approve your other devices again.";
+
+pub(super) const DEVICE_LIST_LIFE_MS: u64 = 24 * 60 * 60_000;
+
+pub(super) struct NewDevice<'a> {
+    pub(super) device_id: &'a str,
+    pub(super) label: &'a str,
+    pub(super) signing_public: &'a [u8],
+}
+
+pub(super) fn sign_addition(
+    verified: &VerifiedIdentity,
+    device: &NewDevice<'_>,
+    signer_device_id: &str,
+    signer: &aws_lc_rs::signature::PqdsaKeyPair,
+) -> Result<Value> {
+    let user_id = &verified.list.user_id;
+    let issued = verified.list.successor_issued_at(identity::now_ms())?;
+    let cert = build_cert_for(
+        user_id,
+        device.device_id,
+        device.label,
+        device.signing_public,
+        signer_device_id,
+        signer,
+        issued,
+        None,
+    )?;
+    let mut entries = verified.list.entries.clone();
+    entries.push(DeviceListEntry {
+        device_id: device.device_id.to_owned(),
+        signer_device_id: signer_device_id.to_owned(),
+    });
+    let list = build_replacement_list(
+        user_id,
+        verified.generation,
+        &verified.list.entries,
+        entries,
+        signer_device_id,
+        signer,
+        issued,
+        Some(issued + DEVICE_LIST_LIFE_MS),
+    )?;
+    Ok(json!({
+        "deviceCertificate": BASE64.encode(cert.body_bytes),
+        "deviceCertificateSignature": BASE64.encode(cert.signature),
+        "signedDeviceList": BASE64.encode(list.body_bytes),
+        "signedDeviceListSignature": BASE64.encode(list.signature),
+    }))
+}
 
 pub(super) fn device_enrolled(verified: &VerifiedIdentity, credentials: &Credentials) -> bool {
     verified

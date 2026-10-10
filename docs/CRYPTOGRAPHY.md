@@ -74,14 +74,19 @@ certificate of the new device and the next list.
 
 **Recovery key.** An approved device makes 32 random symbols (160 bits) and shows them
 one time. HKDF-SHA256, with the salt (`kodosi-recovery-v1`, account, identity root),
-gives an ML-DSA-65 seed, a device identifier, and an AES-256-GCM key. The approved
-device signs a certificate for that key; the result is one more entry in the device
-list. Because the identifier and the key depend on the root, a device that has the text
-can check that the identity from the backend is the right one. The entry has a room
-key pair; the backend stores its secret part encrypted with the AES-256-GCM key. The
-entry cannot open a device session, and a host refuses it as a viewer. To recover, a
-signed-in device proves possession of its own key and sends its certificate and the
-next list, both signed with the recovery key.
+gives an ML-DSA-65 seed, a device identifier (UUID version 8), and an AES-256-GCM key.
+The approved device signs a certificate for that key; the result is one more entry in
+the device list. Because the identifier and the key depend on the root, a device that
+has the text can check that the identity from the backend is the right one. The entry
+has a room key pair, so members wrap room keys for it as for a device. The request
+that adds the entry carries the public part, signed with the recovery key, and the
+secret part encrypted with the AES-256-GCM key; the backend stores both in one write.
+The entry cannot open a device session, and a host refuses it as a viewer.
+
+To recover, a signed-in device proves possession of its own key and sends its
+certificate and the next list, both signed with the recovery key. The new device keeps
+the room key pair of the entry until it has its own room keys in each room, and then
+deletes it. Thus a device that the person removes later cannot open new room keys.
 
 **Start fresh.** A person with no approved device and no recovery key makes a new
 identity. Friends must trust it again.
@@ -166,7 +171,9 @@ The owner puts the member in again after the owner trusts the new identity.
    records.
 8. The time in a key state comes from its author. Devices refuse only a time in the
    future.
-9. A person with the recovery key and the account sign-in can approve a device.
+9. A person with the recovery key and the account sign-in can approve a device. A
+   device that is removed before it has its own room keys in each room keeps the room
+   key pair of the recovery entry; make a new recovery key in that case.
 10. An owner who starts fresh cannot open the rooms that the owner made.
 11. The backend sees the metadata that [Security](SECURITY.md) lists.
 

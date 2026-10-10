@@ -1,5 +1,3 @@
-using System.Buffers.Binary;
-using System.Text;
 using System.Text.Json;
 using Kodosi.Data;
 using Kodosi.Missions;
@@ -99,15 +97,8 @@ public sealed class RoomContentTests(PostgresFixture postgres)
         store.Db.Friendships.Add(new Friendship { FirstUserId = first, SecondUserId = second, RequestedBy = alice.User.Id, Accepted = true, CreatedAt = DateTimeOffset.UtcNow });
         await store.Db.SaveChangesAsync(ct);
         var key = new byte[MissionService.RoomPublicKeyLength];
-        using var proof = new MemoryStream();
-        proof.Write("kodosi-room-recipient-v1"u8);
-        foreach (var field in new[] { Encoding.UTF8.GetBytes(bob.User.Id.ToString("D")), Encoding.UTF8.GetBytes(bob.Device.Id), key })
-        {
-            var length = new byte[4]; BinaryPrimitives.WriteUInt32BigEndian(length, (uint)field.Length);
-            proof.Write(length); proof.Write(field);
-        }
         await store.Missions.RegisterRoomKeyAsync(bob.User.Id, bob.Device,
-            new(Convert.ToBase64String(key), Convert.ToBase64String(bob.Fixture.Sign(proof.ToArray()))), ct);
+            new(Convert.ToBase64String(key), Convert.ToBase64String(bob.Fixture.Sign(MissionService.RoomKeyProof(bob.User.Id, bob.Device.Id, key)))), ct);
         var list = await store.Db.DeviceLists.SingleAsync(x => x.UserId == bob.User.Id, ct);
         list.ExpiresAtMs = DateTimeOffset.UtcNow.AddMinutes(-1).ToUnixTimeMilliseconds();
         await store.Db.SaveChangesAsync(ct);

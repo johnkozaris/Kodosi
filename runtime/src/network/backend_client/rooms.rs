@@ -64,7 +64,6 @@ struct RecipientKey {
 struct Head {
     version: u64,
     hash: String,
-    #[serde(default)]
     owner_root: Option<identity::pins::Root>,
 }
 type Heads = BTreeMap<String, BTreeMap<Uuid, Head>>;
@@ -78,6 +77,13 @@ struct Standing {
 #[cfg(test)]
 #[path = "rooms_tests.rs"]
 mod tests;
+
+pub(super) fn room_key_proof(user: &str, device: &str, public: &[u8]) -> Result<Vec<u8>> {
+    crypto::signed_fields(
+        b"kodosi-room-recipient-v1",
+        &[user.as_bytes(), device.as_bytes(), public],
+    )
+}
 
 impl BackendClient {
     pub(super) async fn register_room_key(&self, credentials: &Credentials) -> Result<()> {
@@ -93,13 +99,10 @@ impl BackendClient {
                 return Ok(());
             }
         }
-        let proof = crypto::signed_fields(
-            b"kodosi-room-recipient-v1",
-            &[
-                credentials.user_id.as_bytes(),
-                credentials.keys.device_id.as_bytes(),
-                credentials.keys.room_public(),
-            ],
+        let proof = room_key_proof(
+            &credentials.user_id,
+            &credentials.keys.device_id,
+            credentials.keys.room_public(),
         )?;
         let signature = crypto::sign_control_message(credentials.keys.signing_pkcs8(), &proof)?;
         let _response: Value = self.inner.http.device(Method::PUT, "api/me/room-key", credentials,
@@ -108,16 +111,7 @@ impl BackendClient {
         Ok(())
     }
 
-    async fn room_identity_bundle(
-        &self,
-        credentials: &Credentials,
-        user: &str,
-        root: Option<&identity::pins::Root>,
-    ) -> Result<IdentityBundle> {
-        let root = match root {
-            Some(root) => *root,
-            None => self.fetch_identity_with(credentials, user).await?.root,
-        };
+    async fn member_bundle(&self, credentials: &Credentials, user: &str) -> Result<IdentityBundle> {
         let bundle: IdentityBundle = self
             .inner
             .http
@@ -131,8 +125,18 @@ impl BackendClient {
         if bundle.user_id != user {
             return Err(invalid("The room identity belongs to another user."));
         }
-        self.verify_bundle(&bundle, Some(root)).await?;
         Ok(bundle)
+    }
+
+    async fn trusted_member(
+        &self,
+        credentials: &Credentials,
+        user: &str,
+    ) -> Result<(IdentityBundle, VerifiedIdentity)> {
+        let trusted = self.fetch_identity_with(credentials, user).await?.root;
+        let bundle = self.member_bundle(credentials, user).await?;
+        let identity = self.verify_bundle(&bundle, Some(trusted)).await?;
+        Ok((bundle, identity))
     }
 
     async fn room_standing(
@@ -147,19 +151,9 @@ impl BackendClient {
             replaced: BTreeSet::new(),
         };
         for (user, known) in &previous.state.members {
-            let fetched = self
-                .inner
-                .http
-                .device::<IdentityBundle>(
-                    Method::GET,
-                    &format!("api/users/{user}/identity"),
-                    credentials,
-                    None,
-                )
-                .await;
-            let current = match fetched {
-                Ok(current) if current.user_id == *user => current,
-                Ok(_) | Err(Error::Backend { status: 400, .. }) => continue,
+            let current = match self.member_bundle(credentials, user).await {
+                Ok(current) => current,
+                Err(Error::Backend { status: 400, .. }) => continue,
                 Err(Error::Backend {
                     status: 404 | 409, ..
                 }) => {
@@ -222,10 +216,7 @@ impl BackendClient {
                 if public.len() != ROOM_PUBLIC_BYTES {
                     continue;
                 }
-                let preimage = crypto::signed_fields(
-                    b"kodosi-room-recipient-v1",
-                    &[user.as_bytes(), key.device_id.as_bytes(), &public],
-                )?;
+                let preimage = room_key_proof(user, &key.device_id, &public)?;
                 let signature = room_crypto::decode(&key.signature, 3309)?;
                 ML_DSA_65
                     .verify_sig(&device.sig_public_key, &preimage, &signature)
@@ -297,8 +288,7 @@ impl BackendClient {
             replaced: BTreeSet::new(),
         };
         for user in users {
-            let bundle = self.room_identity_bundle(credentials, &user, None).await?;
-            let identity = Pins::historical(&bundle, &bundle.root()?, created, None)?;
+            let (bundle, identity) = self.trusted_member(credentials, &user).await?;
             standing.identities.insert(user.clone(), identity);
             standing.members.insert(user, bundle);
         }
@@ -553,9 +543,8 @@ impl BackendClient {
                 if remove == Some(user.as_str()) {
                     continue;
                 }
-                match self.room_identity_bundle(credentials, &user, None).await {
-                    Ok(bundle) => {
-                        let identity = Pins::historical(&bundle, &bundle.root()?, created, None)?;
+                match self.trusted_member(credentials, &user).await {
+                    Ok((bundle, identity)) => {
                         standing.identities.insert(user.clone(), identity);
                         standing.members.insert(user.clone(), bundle);
                         standing.replaced.remove(&user);
@@ -569,8 +558,7 @@ impl BackendClient {
             }
         }
         if let Some(user) = add {
-            let bundle = self.room_identity_bundle(credentials, user, None).await?;
-            let identity = Pins::historical(&bundle, &bundle.root()?, created, None)?;
+            let (bundle, identity) = self.trusted_member(credentials, user).await?;
             standing.identities.insert(user.to_owned(), identity);
             standing.members.insert(user.to_owned(), bundle);
         }
@@ -687,9 +675,7 @@ impl BackendClient {
                     .into(),
             ));
         }
-        let bundle = self
-            .room_identity_bundle(credentials, user, Some(&anchor))
-            .await?;
+        let bundle = self.member_bundle(credentials, user).await?;
         self.verify_bundle(&bundle, Some(anchor)).await
     }
 
@@ -1185,6 +1171,7 @@ impl BackendClient {
         for room in catalog["missions"].as_array().into_iter().flatten() {
             ids.insert(wire::id(room, "id")?);
         }
+        let mut complete = catalog["missionsTruncated"] != true;
         let mut events = Vec::new();
         for id in ids {
             if let Err(error) = self.refresh_room_keys(credentials, id).await {
@@ -1199,12 +1186,16 @@ impl BackendClient {
                     continue;
                 }
                 tracing::debug!(%error, "room key refresh will retry");
+                complete = false;
                 continue;
             }
             match self.room_snapshot(credentials, id, None).await {
                 Ok(room) => events.push(json!({"type":"room.snapshot","room":room})),
                 Err(error) => tracing::debug!(%error, "room refresh will retry"),
             }
+        }
+        if complete && credentials.keys.recovery().is_some() {
+            self.keep_recovery_room_key(credentials, None).await?;
         }
         Ok(events)
     }

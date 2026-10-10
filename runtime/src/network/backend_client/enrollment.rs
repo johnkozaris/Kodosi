@@ -435,33 +435,28 @@ impl BackendClient {
         if verified.devices.contains_key(new_device) {
             return Err(invalid("This device is already approved."));
         }
-        let issued = verified.list.successor_issued_at(identity::now_ms())?;
-        let cert = build_cert_for(
-            &credentials.user_id,
-            new_device,
-            &pending.label,
-            &pending.signing_public_key,
+        let mut body = device_identity::sign_addition(
+            &verified,
+            &device_identity::NewDevice {
+                device_id: new_device,
+                label: &pending.label,
+                signing_public: &pending.signing_public_key,
+            },
             &credentials.keys.device_id,
             &credentials.keys.signing_key()?,
-            issued,
-            None,
         )?;
-        let mut entries = verified.list.entries.clone();
-        entries.push(DeviceListEntry {
-            device_id: new_device.to_owned(),
-            signer_device_id: credentials.keys.device_id.clone(),
-        });
-        let list = build_replacement_list(
-            &credentials.user_id,
-            verified.generation,
-            &verified.list.entries,
-            entries,
-            &credentials.keys.device_id,
-            &credentials.keys.signing_key()?,
-            issued,
-            Some(issued + 24 * 60 * 60_000),
-        )?;
-        let _response:Value=self.inner.http.device(Method::POST,"api/devices/link/approve",&credentials,Some(json!({"requestId":pending.request_id,"deviceCertificate":BASE64.encode(cert.body_bytes),"deviceCertificateSignature":BASE64.encode(cert.signature),"signedDeviceList":BASE64.encode(list.body_bytes),"signedDeviceListSignature":BASE64.encode(list.signature),"approvalProof":BASE64.encode(approval)}))).await?;
+        body["requestId"] = json!(pending.request_id);
+        body["approvalProof"] = json!(BASE64.encode(approval));
+        let _response: Value = self
+            .inner
+            .http
+            .device(
+                Method::POST,
+                "api/devices/link/approve",
+                &credentials,
+                Some(body),
+            )
+            .await?;
         self.fetch_identity(&credentials.user_id).await?;
         self.review_access().await?;
         Ok(pending.label)
@@ -521,7 +516,7 @@ impl BackendClient {
             &credentials.keys.device_id,
             &credentials.keys.signing_key()?,
             issued,
-            Some(issued + 24 * 60 * 60_000),
+            Some(issued + device_identity::DEVICE_LIST_LIFE_MS),
         )?;
         self.block_device(&credentials.user_id, id).await?;
         self.review_access().await?;

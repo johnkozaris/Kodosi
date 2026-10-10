@@ -117,15 +117,10 @@ struct StoredKeys {
     version: u8,
     device_id: String,
     signing_pkcs8: String,
-    #[serde(default)]
     room_kem_secret: Option<String>,
-    #[serde(default)]
     room_kem_public: Option<String>,
-    #[serde(default)]
     room_agreement_secret: Option<String>,
-    #[serde(default)]
     recovery_device_id: Option<String>,
-    #[serde(default)]
     recovery_room: Option<String>,
 }
 
@@ -139,20 +134,17 @@ impl Drop for StoredKeys {
 }
 
 impl DeviceKeys {
-    fn label(user_id: &str) -> Result<String> {
-        let account = Uuid::parse_str(user_id).map_err(|_| invalid("Invalid account identity."))?;
-        Ok(format!("{account}.device"))
+    fn account(user_id: &str) -> Result<Uuid> {
+        Uuid::parse_str(user_id).map_err(|_| invalid("Invalid account identity."))
     }
 
     pub fn load_or_create(store: &Secrets, user_id: &str) -> Result<Self> {
-        let label = Self::label(user_id)?;
+        let label = format!("{}.device", Self::account(user_id)?);
         if let Some(payload) = store.load(&label)? {
             let keys = Self::decode(&payload)?;
-            if serde_json::from_str::<StoredKeys>(&payload)?
-                .room_agreement_secret
-                .is_none()
-            {
-                store.store(&label, &keys.encode()?)?;
+            let current = keys.encode()?;
+            if *current != *payload {
+                store.store(&label, &current)?;
             }
             return Ok(keys);
         }
@@ -166,7 +158,7 @@ impl DeviceKeys {
         user_id: &str,
         expected_device: &str,
     ) -> Result<Self> {
-        let account = Uuid::parse_str(user_id).map_err(|_| invalid("Invalid account identity."))?;
+        let account = Self::account(user_id)?;
         let label = format!("{account}.device");
         let payload = store
             .load(&label)?
@@ -183,14 +175,13 @@ impl DeviceKeys {
         Ok(next)
     }
 
-    pub(crate) fn keep_recovery(
+    pub(crate) fn set_recovery(
         store: &Secrets,
         user_id: &str,
         expected_device: &str,
-        recovery_device: &str,
-        room: RoomKeyPair,
+        recovery: Option<(String, RoomKeyPair)>,
     ) -> Result<Self> {
-        let label = Self::label(user_id)?;
+        let label = format!("{}.device", Self::account(user_id)?);
         let payload = store
             .load(&label)?
             .ok_or_else(|| invalid("The local device identity is missing."))?;
@@ -200,7 +191,7 @@ impl DeviceKeys {
                 "The local device identity changed during recovery.",
             ));
         }
-        keys.recovery = Some((recovery_device.to_owned(), room));
+        keys.recovery = recovery;
         store.store(&label, &keys.encode()?)?;
         Ok(keys)
     }
@@ -363,21 +354,37 @@ mod tests {
     }
 
     #[test]
-    fn the_room_key_of_a_recovery_key_stays_with_the_device() {
+    fn the_device_keeps_the_room_key_of_a_recovery_key_until_it_deletes_it() {
         let folder = tempfile::tempdir().unwrap();
         let store = Secrets::new(folder.path().to_owned(), "test".into(), true);
         let user = Uuid::now_v7().to_string();
         let keys = DeviceKeys::load_or_create(&store, &user).unwrap();
-        let pair = || RoomKeyPair::from_bytes(&RoomKeyPair::generate().unwrap().to_bytes());
-        assert!(
-            DeviceKeys::keep_recovery(&store, &user, "other", "recovery", pair().unwrap()).is_err()
-        );
-        let kept = pair().unwrap();
+        let kept = RoomKeyPair::generate().unwrap();
         let public = kept.public().to_vec();
-        DeviceKeys::keep_recovery(&store, &user, &keys.device_id, "recovery", kept).unwrap();
+        assert!(
+            DeviceKeys::set_recovery(&store, &user, "other", Some(("recovery".into(), kept)))
+                .is_err()
+        );
+        let kept = RoomKeyPair::from_bytes(&RoomKeyPair::generate().unwrap().to_bytes()).unwrap();
+        let public_kept = kept.public().to_vec();
+        assert_ne!(public, public_kept);
+        DeviceKeys::set_recovery(
+            &store,
+            &user,
+            &keys.device_id,
+            Some(("recovery".into(), kept)),
+        )
+        .unwrap();
         let loaded = DeviceKeys::load_or_create(&store, &user).unwrap();
-        let (device, kept) = loaded.recovery().unwrap();
-        assert_eq!((device, kept.public()), ("recovery", public.as_slice()));
+        let (device, room) = loaded.recovery().unwrap();
+        assert_eq!(
+            (device, room.public()),
+            ("recovery", public_kept.as_slice())
+        );
         assert_eq!(loaded.room_public(), keys.room_public());
+        DeviceKeys::set_recovery(&store, &user, &keys.device_id, None).unwrap();
+        let loaded = DeviceKeys::load_or_create(&store, &user).unwrap();
+        assert!(loaded.recovery().is_none());
+        assert_eq!(loaded.signing_public(), keys.signing_public());
     }
 }

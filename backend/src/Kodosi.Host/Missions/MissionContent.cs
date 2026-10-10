@@ -25,6 +25,11 @@ public sealed partial class MissionService
         else if (existing.PublicKey.AsSpan().SequenceEqual(key)) return;
         else { existing.PublicKey = key; existing.Signature = signature; }
         await db.SaveChangesAsync(ct);
+        await NotifyRoomsOfAsync(userId, ct);
+    }
+
+    public async Task NotifyRoomsOfAsync(Guid userId, CancellationToken ct)
+    {
         foreach (var room in await db.Missions.Where(r => r.OwnerUserId == userId || db.MissionMembers.Any(m => m.MissionId == r.Id && m.UserId == userId)).ToListAsync(ct))
             await NotifyAsync(room, ct);
     }
@@ -39,7 +44,7 @@ public sealed partial class MissionService
         return keys.Select(key => new { key.UserId, key.DeviceId, publicKey = Convert.ToBase64String(key.PublicKey), signature = Convert.ToBase64String(key.Signature) });
     }
 
-    private static byte[] RoomKeyProof(Guid user, string device, byte[] key)
+    internal static byte[] RoomKeyProof(Guid user, string device, byte[] key)
     {
         using var stream = new MemoryStream();
         stream.Write("kodosi-room-recipient-v1"u8);
@@ -205,7 +210,7 @@ public sealed partial class MissionService
     private sealed record ContentBody(Guid RoomId, Guid Id, string Kind, long Version, long KeyVersion,
         long Epoch, Guid AuthorId, string DeviceId, string Nonce, string Ciphertext);
 
-    public sealed record RecipientKeyWrite(string PublicKey, string Signature, string? RecoveryDeviceId = null);
+    public sealed record RecipientKeyWrite(string PublicKey, string Signature);
     public sealed record RoomKeyWrite(string DeviceId, string Body, string Signature);
     public sealed record ContentWrite(long ExpectedVersion, string DeviceId, string Body, string Signature);
     public sealed record MembershipWrite(RoomKeyWrite? Keys);

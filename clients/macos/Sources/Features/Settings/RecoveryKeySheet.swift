@@ -25,6 +25,7 @@ struct RecoveryKeySheet: View {
                 Button {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(key, forType: .string)
+                    NSPasteboard.general.setData(Data(), forType: NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType"))
                     copied = true
                     AccessibilityNotification.Announcement(String(localized: "Recovery key copied")).post()
                 } label: {

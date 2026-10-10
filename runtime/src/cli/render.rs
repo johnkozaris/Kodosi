@@ -97,7 +97,7 @@ fn account(context: &Context) -> String {
     };
     if unapproved(context) {
         format!(
-            "{signed_in}\nThis device is not approved. Run `kodosi devices link`, `kodosi devices recover <key>`, or `kodosi devices reset` to start fresh."
+            "{signed_in}\nThis device is not approved. Run `kodosi devices link`, `kodosi devices recover`, or `kodosi devices reset` to start fresh."
         )
     } else {
         signed_in
@@ -135,7 +135,7 @@ fn devices(event: &Value) -> String {
             text(event, "notice")
         ));
         lines.push(
-            "Run `kodosi devices link`, `kodosi devices recover <key>`, or `kodosi devices reset` to start fresh.".to_owned(),
+            "Run `kodosi devices link`, `kodosi devices recover`, or `kodosi devices reset` to start fresh.".to_owned(),
         );
     }
     let rows = event["devices"]

@@ -16,6 +16,7 @@ public sealed partial class DeviceService
         var deviceId = DeviceIdRules.Require(request.DeviceId);
         var label = Limits.Text(request.DeviceLabel, "Device label", 128);
         var signing = Limits.Base64(request.SigningPublicKey, "Signing key", IdentityWireFormat.MlDsa65PublicKeyLength);
+        if (IsRecoveryId(deviceId)) throw ApiException.Invalid("This device identifier is for a recovery key.");
         var nonce = Limits.Base64(request.Nonce, "Nonce", LinkNonceLength);
         var proof = Limits.Base64(request.Proof, "Proof", LinkProofLength);
         if (signing.Length != IdentityWireFormat.MlDsa65PublicKeyLength || nonce.Length != LinkNonceLength || proof.Length != LinkProofLength)
@@ -79,10 +80,7 @@ public sealed partial class DeviceService
     {
         var link = await db.DeviceLinks.SingleOrDefaultAsync(x => x.UserId == userId && x.Id == request.RequestId, ct)
             ?? throw ApiException.Missing();
-        var certBytes = Limits.Base64(request.DeviceCertificate, "Device certificate", IdentityWireFormat.MaxDeviceCertificateBodyLength);
-        var certSig = Limits.Base64(request.DeviceCertificateSignature, "Certificate signature", IdentityWireFormat.MlDsa65SignatureLength);
-        var listBytes = Limits.Base64(request.SignedDeviceList, "Signed device list", IdentityWireFormat.MaxSignedDeviceListBodyLength);
-        var listSig = Limits.Base64(request.SignedDeviceListSignature, "List signature", IdentityWireFormat.MlDsa65SignatureLength);
+        var (certBytes, certSig, listBytes, listSig) = SignedParts(request.DeviceCertificate, request.DeviceCertificateSignature, request.SignedDeviceList, request.SignedDeviceListSignature);
         var approval = Limits.Base64(request.ApprovalProof, "Approval proof", LinkProofLength);
         if (approval.Length != LinkProofLength) throw ApiException.Invalid("The approval proof has an invalid length.");
         if (link.State == "approved")
