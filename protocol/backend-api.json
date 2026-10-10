@@ -1,5 +1,5 @@
 {
-  "apiContractVersion": 24,
+  "apiContractVersion": 25,
   "authContractVersion": 1,
   "authentication": "OIDC bearer identity and a device session",
   "deviceSession": {
@@ -8,6 +8,14 @@
     "refusal": "status 428 when the server does not hold the session; the device opens a new session and sends the request again",
     "storage": "in the memory of the one serving process; 12 hours; removed with the device",
     "changes": "one change at a time for each account; reads do not wait"
+  },
+  "accountDeletion": {
+    "signInService": "with Auth:AccountDeletion set, GET /api/me gives deletionUri: the Keycloak action delete_account through the issuer's account-console client with a fresh PKCE challenge that nobody redeems; the person confirms there and Keycloak deletes the sign-in account",
+    "feed": "every 15 seconds the server reads DELETE_ACCOUNT user events and DELETE USER admin events of the last day with a client that has only the realm-management role view-events, and deletes the Kodosi account of each subject; after a start it reads 30 days",
+    "direct": "without Auth:AccountDeletion, deletionUri is null and DELETE /api/me deletes the account after a sign-in of at most 15 minutes; with it, DELETE /api/me answers 409",
+    "removed": "the account, its devices, device lists, links and recovery data, its friend list and friendships, its terminals and their sharing, the rooms it owns with their content, its room memberships and invitations",
+    "kept": "the room items it wrote in rooms of other people stay without an account",
+    "afterwards": "for 30 days the server keeps the issuer and subject and answers 410 to a token whose auth_time, or iat, is not after the deletion; a later sign-in starts a new account"
   },
   "identityRead": {
     "tag": "GET /api/me/identity and GET /api/users/{userId}/identity give an ETag made of the identity incarnation and the device list generation",

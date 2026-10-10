@@ -76,10 +76,10 @@ public sealed class SharingTests(PostgresFixture postgres)
         await store.Sessions.ShareAsync(theirs, friend.User.Id, friend.Device.Id, new(theirIncarnation, 1, [owner.User.Id]), ct);
         var signature = Convert.ToBase64String(new byte[IdentityWireFormat.MlDsa65SignatureLength]);
         await store.Friends.ReplaceSignedListAsync(owner.User.Id, new(0, 1, Convert.ToBase64String([1]), signature), ct);
-        await Assert.ThrowsAsync<ApiException>(() => store.Accounts.DeleteAsync(owner.User.Id, null, ct));
-        await Assert.ThrowsAsync<ApiException>(() => store.Accounts.DeleteAsync(owner.User.Id, DateTimeOffset.UtcNow.AddHours(-1), ct));
+        await Assert.ThrowsAsync<ApiException>(() => store.Accounts.DeleteSignedInAsync(owner.User, null, ct));
+        await Assert.ThrowsAsync<ApiException>(() => store.Accounts.DeleteSignedInAsync(owner.User, DateTimeOffset.UtcNow.AddHours(-1), ct));
         Assert.Equal(2, await store.Db.Users.CountAsync(ct));
-        await store.Accounts.DeleteAsync(owner.User.Id, DateTimeOffset.UtcNow.AddMinutes(-1), ct);
+        await store.Accounts.DeleteSignedInAsync(owner.User, DateTimeOffset.UtcNow.AddMinutes(-1), ct);
         store.Db.ChangeTracker.Clear();
         Assert.Equal(friend.User.Id, (await store.Db.Users.SingleAsync(ct)).Id);
         Assert.Equal(friend.Device.Id, (await store.Db.Devices.SingleAsync(ct)).Id);

@@ -1103,6 +1103,17 @@ async fn wait_result(
                     )?;
                 }
             }
+            if kind == "auth.deletion_pending" {
+                if json_output {
+                    print_json(event)?;
+                } else {
+                    writeln!(
+                        io::stdout().lock(),
+                        "Open {} and confirm the deletion",
+                        event["confirmationUri"].as_str().unwrap_or_default()
+                    )?;
+                }
+            }
             let done = match operation {
                 "auth.login.start" => kind == "auth.ready",
                 "auth.logout" | "auth.deleteAccount" => kind == "auth.required",

@@ -50,6 +50,11 @@ extension AppDependencies {
         userId != nil && localDeviceEnrolled
     }
 
+    func cancelAccountDeletion() {
+        accountDeletion = nil
+        perform("auth.deleteAccount.cancel")
+    }
+
     var signInPrompt: String? {
         switch signInStage {
         case .trustingDevice: String(localized: "Trust this Mac")
@@ -128,4 +133,8 @@ extension AppDependencies {
             signInStage = .idle
         }
     }
+}
+
+struct AccountDeletion: Equatable {
+    let page: URL?
 }

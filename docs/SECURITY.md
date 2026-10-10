@@ -56,6 +56,14 @@ metadata, content routing fields, timing, and ciphertext sizes. Encryption does 
 hide that metadata or prevent service interruption. A compromised participant device
 can access what that device could access; removing it stops future authorized access.
 
+A person deletes their account on the account page of the sign-in service; the apps
+open that page. The service then removes the account, its devices and recovery data,
+its friends and sharing, and the rooms it owns with their content. What the person
+wrote in rooms of other people stays there without an account. For 30 days the service
+keeps only the issuer and subject of the deleted sign-in, so that it can refuse tokens
+issued before the deletion. Terminals keep running, and the apps remove the account's
+device key.
+
 GitHub and Gitea credentials stay on the participant's machine. Linked issues retain
 the external provider's visibility and access rules.
 
