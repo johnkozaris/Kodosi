@@ -27,6 +27,7 @@ const MAX_PENDING_BYTES: usize = 4 * 1024 * 1024;
 const READ_BYTES: usize = 64 * 1024;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 const STOP_TIMEOUT: Duration = Duration::from_secs(10);
+const CLEAR_LINE: &str = "\x05\x15";
 
 type Completion = Option<std::result::Result<(), String>>;
 
@@ -42,6 +43,7 @@ pub(crate) enum SessionChange {
     Cwd {
         id: Uuid,
         path: PathBuf,
+        repository: bool,
     },
     Program {
         id: Uuid,
@@ -740,6 +742,7 @@ impl LocalActor {
                     .changes
                     .try_send(SessionChange::Cwd {
                         id: self.id,
+                        repository: crate::worktree::is_repository(&path),
                         path: path.clone(),
                     })
                     .is_ok()
@@ -748,6 +751,7 @@ impl LocalActor {
                 self.metadata_dirty = true;
             }
             let program = self.pty.foreground_program();
+            let prompt = self.at_prompt(program.as_deref());
             if program != self.program
                 && self
                     .changes
@@ -760,7 +764,6 @@ impl LocalActor {
                 self.program = program;
                 self.metadata_dirty = true;
             }
-            let prompt = self.at_prompt();
             if prompt != self.prompt
                 && self
                     .changes
@@ -842,10 +845,11 @@ impl LocalActor {
                     }
                 }
                 TerminalEffect::Cwd(path) => {
-                    drop(
-                        self.changes
-                            .try_send(SessionChange::Cwd { id: self.id, path }),
-                    );
+                    drop(self.changes.try_send(SessionChange::Cwd {
+                        id: self.id,
+                        repository: crate::worktree::is_repository(&path),
+                        path,
+                    }));
                 }
                 TerminalEffect::Title(title) => {
                     self.metadata_dirty |= self.title.as_ref() != Some(&title);
@@ -880,8 +884,8 @@ impl LocalActor {
         Ok(())
     }
 
-    fn at_prompt(&self) -> bool {
-        self.pty.foreground_is_child() && self.pty.foreground_program().is_none()
+    fn at_prompt(&self, program: Option<&str>) -> bool {
+        program.is_none() && self.pty.foreground_is_child()
     }
 
     fn accept_input(&mut self, connection: Uuid, mut write: PendingWrite) -> Option<String> {
@@ -966,8 +970,8 @@ impl LocalActor {
                 }
             }
             Request::Run { command, reply } => {
-                let result = if self.at_prompt() {
-                    self.enqueue(Bytes::from(format!("{command}\r")), None)
+                let result = if self.at_prompt(self.pty.foreground_program().as_deref()) {
+                    self.enqueue(Bytes::from(format!("{CLEAR_LINE}{command}\r")), None)
                         .and_then(|()| self.flush())
                 } else {
                     Err(Error::Invalid("This terminal runs a program.".to_owned()))

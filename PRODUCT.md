@@ -86,8 +86,8 @@ it sends a system notification when one of the person's own terminals starts to 
 is done, or failed.
 
 A local terminal at its prompt offers the person's start commands, such as an agent
-or the same agent with a second account. Kodosi types the command into the shell and
-does no more; the program remains the provider's own CLI.
+or the same agent with a second account. Kodosi clears the input line, types the
+command into the shell and does no more; the program remains the provider's own CLI.
 
 A terminal can start on a new branch of a local Git repository. The host makes the
 branch from the current commit with its own folder (a Git worktree) beside the

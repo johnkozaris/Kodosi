@@ -43,6 +43,16 @@ QVariantList SessionCatalogModel::sessions() const
     return result;
 }
 
+QStringList SessionCatalogModel::localPrograms() const
+{
+    QStringList programs;
+    for (const auto& session : m_sessions) {
+        if (session.kind == QStringLiteral("local") && !session.program.isEmpty() && !programs.contains(session.program))
+            programs.append(session.program);
+    }
+    return programs;
+}
+
 bool SessionCatalogModel::working() const
 {
     return std::any_of(m_sessions.cbegin(), m_sessions.cend(), isWorking);

@@ -63,7 +63,8 @@ QVariantList DesktopSettings::startCommands() const
         result.append(QVariantMap { { QStringLiteral("id"), entry.id }, { QStringLiteral("name"), entry.name },
             { QStringLiteral("command"), entry.command }, { QStringLiteral("agent"), agent },
             { QStringLiteral("repeated"), seen.contains(agent) }, { QStringLiteral("initial"), last.left(1).toUpper() } });
-        seen.append(agent);
+        if (!entry.command.trimmed().isEmpty())
+            seen.append(agent);
     }
     return result;
 }

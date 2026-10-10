@@ -222,6 +222,26 @@ private slots:
         QVERIFY(!atPrompt(3));
         QVERIFY(!atPrompt(4));
     }
+    void aStartCommandGoesToTheTerminalAsOnePrintableLine()
+    {
+        Fixture f;
+        auto local = test::session(1);
+        local.insert(QStringLiteral("program"), QStringLiteral("claude"));
+        auto remote = test::session(2, true);
+        remote.insert(QStringLiteral("program"), QStringLiteral("codex"));
+        f.workspace.apply(test::snapshot({ local, remote, test::session(3) }), 0);
+        QCOMPARE(f.sessions.localPrograms(), QStringList { QStringLiteral("claude") });
+
+        auto& actions = f.workspace.sessionActions();
+        const auto sent = f.commands.values.size();
+        QVERIFY(!actions.run(test::id(1), QStringLiteral("  ")));
+        QVERIFY(!actions.run(test::id(1), QStringLiteral("claude\nrm -rf x")));
+        QCOMPARE(f.commands.values.size(), sent);
+        const auto line = QStringLiteral("claude --add-dir ~/notes-") + QString::fromUcs4(U"\U0001F4C1");
+        QVERIFY(actions.run(test::id(1), QLatin1Char(' ') + line + QLatin1Char(' ')));
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("session.run"));
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("command")).toString(), line);
+    }
     void aProgramStatusReportIsTheStateOfItsTerminal()
     {
         Fixture f;

@@ -69,6 +69,7 @@ public:
     explicit SessionCatalogModel(QObject* parent = nullptr);
     [[nodiscard]] QVariantList folderGroups() const;
     [[nodiscard]] QVariantList sessions() const;
+    [[nodiscard]] QStringList localPrograms() const;
     [[nodiscard]] QStringList attention() const { return m_attention; }
     [[nodiscard]] bool working() const;
     Q_INVOKABLE void clearAttention(const QString& id);

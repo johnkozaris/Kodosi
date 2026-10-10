@@ -366,9 +366,7 @@ pub struct SessionEntry {
     pub connected_users: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub program: Option<String>,
-    #[serde(default)]
     pub prompt: bool,
-    #[serde(default)]
     pub repository: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,

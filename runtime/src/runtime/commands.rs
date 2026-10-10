@@ -664,7 +664,7 @@ impl Runtime {
                     connected_users: vec![],
                     program: None,
                     prompt: false,
-                    repository: crate::worktree::is_repository(&started.directory),
+                    repository: started.repository,
                     title: None,
                     program_status: None,
                     id: id.to_string(),
@@ -1016,6 +1016,7 @@ async fn create_session(
     };
     Ok(StartedSession {
         terminal: Some(terminal),
+        repository: worktree.is_some() || crate::worktree::is_repository(&directory),
         directory,
         worktree,
     })

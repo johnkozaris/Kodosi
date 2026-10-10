@@ -168,7 +168,7 @@ Item {
                     Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
 
                     Repeater {
-                        model: root.session.atPrompt === true ? Models.DesktopSettings.startCommands : []
+                        model: root.session.atPrompt === true ? Models.DesktopSettings.startCommands.filter(command => command.command.trim().length > 0) : []
 
                         delegate: StartMark {
                             required property var modelData

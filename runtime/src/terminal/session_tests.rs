@@ -525,6 +525,13 @@ async fn a_command_runs_only_while_the_shell_is_at_its_prompt() {
     .expect("interactive shell");
     assert!(next_prompt(&mut changes_receiver).await);
 
+    let subscription = session.subscribe().await.expect("subscribe");
+    session
+        .input(
+            subscription.connection_id,
+            Bytes::from_static(b": half typed "),
+        )
+        .expect("input");
     session
         .run("printf '\\033]7501;state=done:msg=UmFu\\007'".to_owned())
         .await

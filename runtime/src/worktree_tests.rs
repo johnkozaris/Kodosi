@@ -59,6 +59,14 @@ async fn a_new_branch_gets_its_own_folder_beside_the_repository() {
             .to_string(),
         "The branch main is there already. Use another name."
     );
+    let refused = create(&folder, "x.lock", None)
+        .await
+        .expect_err("a name that Git refuses")
+        .to_string();
+    assert!(
+        refused.contains("x.lock") && !refused.starts_with("hint"),
+        "{refused}"
+    );
 
     git(
         &worktree.path,
@@ -93,6 +101,11 @@ async fn a_new_branch_gets_its_own_folder_beside_the_repository() {
     );
     remove_unchanged(second.clone()).await;
     assert!(!second.path.exists());
+    assert!(
+        git(&folder, &["rev-parse", "--verify", "--quiet", "second"])
+            .await
+            .is_err()
+    );
     assert!(create(&folder, "-bad", None).await.is_err());
     assert!(create(&folder, "a..b", None).await.is_err());
 }
@@ -153,6 +166,29 @@ async fn an_unchanged_branch_goes_away_and_a_branch_with_work_stays() {
     .expect("commit");
     remove_unchanged(committed.clone()).await;
     assert!(committed.path.exists());
+
+    let switched = create(&folder, "switched", None).await.expect("switched");
+    git(&switched.path, &["checkout", "--quiet", "-b", "other"])
+        .await
+        .expect("other branch");
+    git(
+        &switched.path,
+        &[
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "--quiet",
+            "--allow-empty",
+            "-m",
+            "Work",
+        ],
+    )
+    .await
+    .expect("commit");
+    remove_unchanged(switched.clone()).await;
+    assert!(switched.path.exists());
 }
 
 #[tokio::test]

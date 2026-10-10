@@ -1,8 +1,13 @@
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use crate::{Error, Result};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+const REMOVAL_LIMIT: Duration = Duration::from_secs(5);
+
+#[derive(Debug, Clone)]
 pub(crate) struct Worktree {
     pub path: PathBuf,
     repository: PathBuf,
@@ -96,19 +101,23 @@ async fn main_folder(folder: &Path) -> Option<PathBuf> {
 }
 
 pub(crate) async fn remove_unchanged(worktree: Worktree) {
+    if tokio::time::timeout(REMOVAL_LIMIT, remove(&worktree))
+        .await
+        .is_err()
+    {
+        tracing::debug!(branch = %worktree.branch, "branch folder was kept: Git was slow");
+    }
+}
+
+async fn remove(worktree: &Worktree) {
+    let reference = format!("refs/heads/{}", worktree.branch);
+    let start = format!("{0}\n{0}", worktree.base);
     let unchanged = git(&worktree.path, &["status", "--porcelain", "--ignored"])
         .await
         .is_ok_and(|changes| changes.is_empty())
-        && git(
-            &worktree.repository,
-            &[
-                "rev-list",
-                "--count",
-                &format!("{}..{}", worktree.base, worktree.branch),
-            ],
-        )
-        .await
-        .is_ok_and(|commits| commits == "0");
+        && git(&worktree.path, &["rev-parse", "HEAD", &reference])
+            .await
+            .is_ok_and(|tips| tips == start);
     if !unchanged {
         return;
     }
@@ -119,7 +128,7 @@ pub(crate) async fn remove_unchanged(worktree: Worktree) {
         tracing::debug!(%error, "unchanged worktree was kept");
         return;
     }
-    if let Err(error) = git(&worktree.repository, &["branch", "-d", &worktree.branch]).await {
+    if let Err(error) = git(&worktree.repository, &["branch", "-D", &worktree.branch]).await {
         tracing::debug!(%error, "unchanged branch was kept");
     }
 }
@@ -142,10 +151,12 @@ async fn git(directory: &Path, arguments: &[&str]) -> Result<String> {
         Err(Error::Invalid(
             message
                 .lines()
-                .last()
-                .map_or("Git refused the command.", |line| {
-                    line.trim_start_matches("fatal: ")
+                .find_map(|line| {
+                    line.strip_prefix("fatal: ")
+                        .or_else(|| line.strip_prefix("error: "))
                 })
+                .or_else(|| message.lines().last())
+                .unwrap_or("Git refused the command.")
                 .to_owned(),
         ))
     }

@@ -379,6 +379,7 @@ impl Local {
 struct StartedSession {
     terminal: Option<LocalSession>,
     directory: PathBuf,
+    repository: bool,
     worktree: Option<crate::worktree::Worktree>,
 }
 
@@ -1381,16 +1382,23 @@ impl Runtime {
         if published || self.publishing.contains(&id) {
             self.retiring.insert(id);
         }
-        if let Some(worktree) = worktree
-            && !self.local.values().any(|other| {
-                other
-                    .entry
-                    .working_dir
+        if let Some(worktree) = worktree {
+            let inside = |directory: &Option<String>| {
+                directory
                     .as_deref()
                     .is_some_and(|directory| Path::new(directory).starts_with(&worktree.path))
-            })
-        {
-            tokio::spawn(crate::worktree::remove_unchanged(worktree));
+            };
+            let starting = self.creating.values().any(|command| {
+                matches!(command, Command::CreateSession { working_dir, .. } if inside(working_dir))
+            });
+            if !starting
+                && !self
+                    .local
+                    .values()
+                    .any(|other| inside(&other.entry.working_dir))
+            {
+                tokio::spawn(crate::worktree::remove_unchanged(worktree));
+            }
         }
         self.publish_catalog();
         self.retire_publications();
@@ -1417,9 +1425,13 @@ impl Runtime {
                     self.publish_catalog();
                 }
             }
-            SessionChange::Cwd { id, path } => {
+            SessionChange::Cwd {
+                id,
+                path,
+                repository,
+            } => {
                 if let Some(local) = self.local.get_mut(&id) {
-                    local.entry.repository = crate::worktree::is_repository(&path);
+                    local.entry.repository = repository;
                     local.entry.working_dir = Some(path.to_string_lossy().into_owned());
                     self.publish_catalog();
                 }

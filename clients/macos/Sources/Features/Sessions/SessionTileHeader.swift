@@ -80,8 +80,9 @@ struct SessionTileHeader: View {
     private var actions: some View {
         HStack(spacing: 0) {
             if session.atPrompt {
-                ForEach(deps.settings.startCommands) { command in
-                    StartMark(command: command, repeated: deps.settings.startCommands.first { $0.agent == command.agent } != command) {
+                let commands = deps.settings.startCommands.filter { $0.line != nil }
+                ForEach(commands) { command in
+                    StartMark(command: command, repeated: commands.first { $0.agent == command.agent } != command) {
                         deps.start(command, in: session)
                     }
                     .accessibilityIdentifier("\(stageId).start.\(AccessibilityIdentifier.token(command.id))")

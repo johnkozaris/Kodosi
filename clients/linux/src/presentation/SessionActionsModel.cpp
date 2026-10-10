@@ -257,7 +257,7 @@ bool SessionActionsModel::rename(const QString& id, const QString& name)
 bool SessionActionsModel::run(const QString& id, const QString& line)
 {
     const auto text = line.trimmed();
-    const bool printable = std::ranges::none_of(text, [](const QChar character) { return !character.isPrint(); });
+    const bool printable = std::ranges::all_of(text.toUcs4(), [](const char32_t scalar) { return QChar::isPrint(scalar); });
     if (text.isEmpty() || text.toUtf8().size() > 1024 || !printable)
         return false;
     return command(QStringLiteral("session.run"), id, { { QStringLiteral("command"), text } });
