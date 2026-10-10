@@ -1,0 +1,884 @@
+@import "tailwindcss";
+@import "@fontsource-variable/jetbrains-mono/wght.css";
+
+/*
+ * Kodosi's own material, from the tokens of the apps (clients/macos/Sources/DesignSystem/AppTheme.swift,
+ * clients/linux/src/qml/Theme): a warm workbench, lit from the top left. Raised objects rest on the
+ * ground, and inputs sink into wells. The pages follow the device's light or dark.
+ */
+@theme inline {
+  --font-sans:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", sans-serif;
+  --font-mono:
+    "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-footnote: 13px;
+  --text-footnote--line-height: 18px;
+  --text-body: 14.5px;
+  --text-body--line-height: 22px;
+  --text-callout: 15.5px;
+  --text-callout--line-height: 23px;
+  --text-headline: 17px;
+  --text-headline--line-height: 24px;
+  --text-title: 23px;
+  --text-title--line-height: 30px;
+  --text-title--letter-spacing: -0.035em;
+
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-sheet: 22px;
+
+  --shadow-resting: var(--e-resting);
+  --shadow-lifted: var(--e-lifted);
+  --shadow-well: var(--e-well);
+  --shadow-press: var(--e-press);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  /* The glide of the launch film: slow out of rest, long into rest. */
+  --ease-glide: cubic-bezier(0.45, 0, 0.15, 1);
+
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-lifted: var(--lifted);
+  --color-well: var(--well);
+  --color-terminal: var(--terminal);
+  --color-hairline: var(--hairline);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fill: var(--accent-fill);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-ready: var(--ready);
+  --color-ready-soft: var(--ready-soft);
+  --color-caution: var(--caution);
+  --color-caution-soft: var(--caution-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-on-danger: var(--on-danger);
+}
+
+:root {
+  color-scheme: light dark;
+
+  --ground: #f0e9dc;
+  --surface: #f7f2e8;
+  --raised: #fefbf5;
+  --lifted: #fffdf9;
+  --well: #e8e0d2;
+  --terminal: #0d0b09;
+  --hairline: #d9ccba;
+  --ink: #25160e;
+  --ink-muted: #5f4838;
+  --ink-faint: #8a7262;
+  --accent: #b85a26;
+  --accent-hover: #c5672f;
+  --accent-strong: #9a4516;
+  --accent-soft: #f4dec8;
+  --on-accent: #fffaf3;
+  /* The ground of a button with words on it: in the light theme the copper is a shade deeper
+     there, so that small words on it have the contrast of text. */
+  --accent-fill: color-mix(in srgb, var(--accent) 92%, black);
+  /* The glow colours show only while something works or just changed. */
+  --glow-amber: #f2c14e;
+  --glow-orange: #e8793a;
+  --glow-rose: #dd5f6d;
+  --ready: #2f7d54;
+  --ready-soft: #dcebdd;
+  --caution: #8a6a1c;
+  --caution-soft: #f3e6bf;
+  --danger: #b23a32;
+  --danger-soft: #f4d9d4;
+  --on-danger: #fffaf3;
+
+  --highlight: rgb(255 255 255 / 0.95);
+  --lowlight: rgb(79 48 23 / 0.06);
+  --rim: rgb(217 204 186 / 0.7);
+  --well-rim: rgb(217 204 186 / 0.45);
+  --ground-light: 7%;
+  --grain: 0.05;
+  --grain-blend: multiply;
+  --cursor-blend: darken;
+
+  /* A raised shape has a light rim on the top left, a dark rim on the bottom right, and two
+     shadows that fall down and to the right: one of contact, one of the room. */
+  --e-resting:
+    inset 1px 1px 0 var(--highlight), inset -1px -1px 0 var(--lowlight),
+    1px 2px 6px rgb(46 31 15 / 0.13), 4px 8px 24px rgb(46 31 15 / 0.08);
+  --e-lifted:
+    inset 1px 1px 0 var(--highlight), inset -1px -1px 0 var(--lowlight),
+    2px 5px 16px rgb(46 31 15 / 0.16), 8px 16px 52px rgb(46 31 15 / 0.12);
+  --e-well: inset 0 1px 3px rgb(46 31 15 / 0.1), inset 0 0 0 0.5px var(--well-rim);
+  --e-press: inset 0 1px 0 rgb(255 255 255 / 0.2), 1px 2px 4px rgb(46 31 15 / 0.2);
+
+  --stage-top: 44px;
+  --logo-size: 26px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #110e0c;
+    --surface: #181411;
+    --raised: #251d19;
+    --lifted: #2e241f;
+    --well: #0c0a08;
+    --hairline: #3b2f29;
+    --ink: #f1e9e3;
+    --ink-muted: #b3a094;
+    --ink-faint: #8c7a6f;
+    --accent: #db8a62;
+    --accent-hover: #e69b74;
+    --accent-strong: #eaa47e;
+    --accent-soft: #3e281c;
+    --on-accent: #160e0a;
+    --accent-fill: var(--accent);
+    --glow-amber: #f2bc55;
+    --glow-orange: #f08a4b;
+    --glow-rose: #e8707a;
+    --ready: #7dbb99;
+    --ready-soft: #1f3229;
+    --caution: #ddb866;
+    --caution-soft: #3a2f17;
+    --danger: #e77a75;
+    --danger-soft: #3f211f;
+    --on-danger: #1a0c0b;
+
+    --highlight: rgb(255 241 220 / 0.09);
+    --lowlight: rgb(0 0 0 / 0.3);
+    --rim: rgb(59 47 41 / 0.5);
+    --well-rim: rgb(59 47 41 / 0.35);
+    --ground-light: 9%;
+    --grain: 0.06;
+    --grain-blend: screen;
+    --cursor-blend: lighten;
+
+    --e-resting:
+      inset 1px 1px 0 var(--highlight), inset -1px -1px 0 var(--lowlight),
+      1px 2px 6px rgb(0 0 0 / 0.42), 4px 8px 24px rgb(0 0 0 / 0.3);
+    --e-lifted:
+      inset 1px 1px 0 var(--highlight), inset -1px -1px 0 var(--lowlight),
+      2px 5px 16px rgb(0 0 0 / 0.5), 8px 16px 52px rgb(0 0 0 / 0.42);
+    --e-well: inset 0 1px 3px rgb(0 0 0 / 0.5), inset 0 0 0 0.5px var(--well-rim);
+    --e-press: inset 0 1px 0 rgb(255 255 255 / 0.22), 1px 2px 4px rgb(0 0 0 / 0.45);
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --stage-top: min(13vh, 116px);
+    --logo-size: 28px;
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--hairline);
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--ink) 20%, transparent) transparent;
+  }
+
+  html,
+  body {
+    overscroll-behavior: none;
+  }
+
+  /* The ground: the copper light from the top left, and a fine grain. */
+  body {
+    position: relative;
+    min-height: 100dvh;
+    background:
+      radial-gradient(
+        max(620px, 70vmax) circle at 0 0,
+        color-mix(in srgb, var(--accent) var(--ground-light), transparent),
+        transparent
+      ),
+      var(--ground);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 14.5px;
+    line-height: 22px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: var(--grain);
+    mix-blend-mode: var(--grain-blend);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 1.4 -.35'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  #root {
+    position: relative;
+    z-index: 1;
+  }
+
+  h1,
+  h2 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  input,
+  textarea {
+    caret-color: var(--accent);
+  }
+
+  /* The keyboard's focus line is the copper of "act here". */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+/* A raised object at rest, and one that is lifted. */
+@utility sheet {
+  background-color: var(--raised);
+  border: 0.5px solid var(--rim);
+  box-shadow: var(--e-resting);
+}
+@utility sheet-lift {
+  background-color: var(--raised);
+  border: 0.5px solid var(--rim);
+  box-shadow: var(--e-lifted);
+}
+/* A recessed field. */
+@utility well {
+  background-color: var(--well);
+  box-shadow: var(--e-well);
+}
+/* The shape of an agent, a room or a kind of thing. */
+@utility squircle {
+  border-radius: 30%;
+}
+
+/* The warm rim that turns round an object while it works, as round the mark of a program in the
+   app (WorkingRim): the same colours, and one turn in 3.2 seconds. */
+@property --rim-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes rim-turn {
+  to {
+    --rim-angle: 360deg;
+  }
+}
+.working-rim {
+  position: relative;
+  isolation: isolate;
+}
+.working-rim::before,
+.working-rim::after {
+  content: "";
+  position: absolute;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--rim-angle),
+    var(--glow-amber),
+    var(--glow-orange),
+    var(--glow-rose),
+    color-mix(in srgb, var(--glow-orange) 25%, transparent),
+    var(--glow-amber)
+  );
+  animation: rim-turn 3.2s linear infinite;
+}
+.working-rim::before {
+  inset: -1.5px;
+  z-index: -1;
+  padding: 1.5px;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+.working-rim::after {
+  inset: -6px;
+  z-index: -2;
+  filter: blur(12px);
+  opacity: 0.4;
+}
+
+/*
+ * The Kodosi mark at the head of each page: the K, the word, and the copper cursor. index.html
+ * draws it, so it is there before the script loads, and it has the same place on each step.
+ * --logo-size is the size of the letters of the word.
+ */
+.logo {
+  position: absolute;
+  top: var(--stage-top);
+  left: 50%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--logo-size) * 0.42);
+  height: calc(var(--logo-size) * 1.5);
+  transform: translateX(-50%);
+  user-select: none;
+}
+.logo-mark {
+  display: block;
+  height: calc(var(--logo-size) * 1.5);
+  overflow: clip;
+}
+/* The K is the picture of the apps (clients/macos/Resources/Assets.xcassets/KodosiLogo). */
+.logo-k {
+  display: block;
+  height: 100%;
+  aspect-ratio: 304 / 320;
+  background: url("./assets/mark.webp") center / contain no-repeat;
+}
+.logo-word {
+  display: block;
+  width: auto;
+  height: calc(var(--logo-size) * 0.84);
+  fill: var(--ink);
+}
+.logo-cursor {
+  fill: var(--accent);
+}
+/* The live cursor takes the place of the drawn one (src/frame/cursor.ts). While it is in a field,
+   its place in the word keeps its outline, as the cursor of a terminal that does not have the
+   typing. */
+.cursor-live .logo-cursor {
+  visibility: hidden;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 44;
+  opacity: 0.55;
+}
+.cursor-away .logo-cursor {
+  visibility: visible;
+}
+/* The account is gone: the cursor is an outline, as the cursor of a terminal that has nobody at
+   it. */
+:root[data-ended] #cursor {
+  background-color: transparent;
+  box-shadow: inset 0 0 0 2px var(--accent);
+  mix-blend-mode: normal;
+}
+
+/* The end of a sign-in is the whole mark, as on the banner: the K above the word. */
+.logo[data-banner] {
+  flex-direction: column;
+  gap: 18px;
+  height: auto;
+  --logo-size: 40px;
+}
+.logo[data-banner] .logo-mark {
+  height: 96px;
+}
+
+/* The one cursor of the page. It rests at the end of the word, goes to the field that takes the
+   typing, and comes back. Text shows through it, as through the cursor of a terminal. */
+#cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  pointer-events: none;
+  background-color: var(--accent);
+  mix-blend-mode: var(--cursor-blend);
+  will-change: transform;
+}
+#cursor[data-glows] {
+  box-shadow: 0 0 calc(var(--logo-size) * 0.3) color-mix(in srgb, var(--accent) 45%, transparent);
+}
+@keyframes cursor-blink {
+  to {
+    opacity: 0.25;
+  }
+}
+@keyframes cursor-works {
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* The page waits for the person: the cursor blinks, as in the app while a sign-in is open. */
+  #cursor[data-blinks] {
+    animation: cursor-blink 0.62s ease-in-out infinite alternate;
+  }
+  /* Keycloak works: the glow colours pass through the cursor. */
+  #cursor[data-works] {
+    background-image: linear-gradient(
+      100deg,
+      var(--glow-amber),
+      var(--glow-orange),
+      var(--glow-rose),
+      var(--glow-orange),
+      var(--glow-amber)
+    );
+    background-size: 200% 100%;
+    animation: cursor-works 1.1s linear infinite;
+  }
+
+  /* The first page of a visit: the K and the word rise through a line, as in the launch film,
+     and the cursor comes last. --arrived is the time that the page before this one showed
+     already (index.html), so the motion goes on from there. */
+  .arrive .logo-k {
+    animation: roll-in 0.62s var(--ease-glide) both;
+    animation-delay: calc(0s - var(--arrived, 0s));
+  }
+  .arrive .logo-letters {
+    animation: letters-in 0.6s var(--ease-glide) both;
+    animation-delay: calc(0.1s - var(--arrived, 0s));
+  }
+  .arrive .logo-cursor {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    animation: cursor-in 0.34s var(--ease-out) both;
+    animation-delay: calc(0.52s - var(--arrived, 0s));
+  }
+  .arrive #cursor {
+    animation: cursor-in 0.34s var(--ease-out) both;
+    animation-delay: calc(0.52s - var(--arrived, 0s));
+    transform-origin: 50% 100%;
+  }
+}
+@keyframes roll-in {
+  from {
+    transform: translateY(104%);
+  }
+}
+@keyframes letters-in {
+  from {
+    transform: translateY(860px);
+  }
+}
+@keyframes cursor-in {
+  from {
+    opacity: 0;
+    scale: 1 0.1;
+  }
+}
+
+/* A row of the capsule: the label rests in the row and rises when the row has a value. What a
+   person types is the input of a terminal: one width for each letter, and the block cursor. */
+.row-input {
+  width: 100%;
+  height: 100%;
+  padding: 23px 18px 7px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-variant-ligatures: none;
+  line-height: 24px;
+}
+.row-label {
+  position: absolute;
+  top: 50%;
+  left: 18px;
+  max-width: calc(100% - 72px);
+  overflow: hidden;
+  /* The label is the name of the field, so it has the contrast of text, not of a hint. */
+  color: var(--ink-muted);
+  font-size: 15px;
+  line-height: 24px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateY(-50%);
+  transform-origin: 0 50%;
+  transition:
+    transform 0.2s var(--ease-out),
+    color 0.2s var(--ease-out);
+}
+.row-input:focus ~ .row-label,
+.row-input:not(:placeholder-shown) ~ .row-label,
+.row-input:autofill ~ .row-label {
+  transform: translateY(calc(-50% - 13px)) scale(0.78);
+}
+.row-input:focus ~ .row-label {
+  color: var(--accent-strong);
+}
+/* The row that Keycloak refused, until the person types. */
+.shell[data-wrong] .row-input[aria-invalid="true"] ~ .row-label,
+.row-input[data-refused] ~ .row-label {
+  color: var(--danger);
+}
+/* The block cursor is the caret of the field that it stands in. */
+.row-input[data-block],
+.handle-input[data-block] {
+  caret-color: transparent;
+}
+
+/* A phone's browser zooms into a field whose letters are smaller than 16px. */
+@media (pointer: coarse) {
+  .row-input,
+  .row-label,
+  .plain-page :is(input, select, textarea) {
+    font-size: 16px;
+  }
+}
+
+/* A browser that fills a field paints it in its own colour. The field keeps the capsule's. */
+.row-input:autofill,
+.row-input:autofill:hover,
+.row-input:autofill:focus {
+  -webkit-text-fill-color: var(--ink);
+  caret-color: var(--accent);
+  box-shadow: 0 0 0 1000px var(--raised) inset;
+  transition: background-color 100000s;
+}
+
+/* The arrow is copper when each field that the step needs has a value that can be right. A form
+   that the person meets in steps (pages/join.tsx) looks at the fields of the step alone. */
+.go {
+  background-color: var(--well);
+  color: var(--ink-muted);
+  box-shadow: var(--e-well);
+}
+:is(form, [data-step]):not(:has(:is(.row-input, .handle-input, .code-input):invalid)) .go,
+form:has(.row-input:autofill) .go {
+  background-color: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--e-press);
+}
+:is(form, [data-step]):not(:has(:is(.row-input, .handle-input, .code-input):invalid)) .go:hover {
+  background-color: var(--accent-hover);
+}
+
+/* While the request goes, the capsule keeps what the person typed and takes no more. */
+.shell[data-busy] :is(input, button, a) {
+  pointer-events: none;
+}
+.shell[data-busy] .shell-body {
+  opacity: 0.62;
+}
+.shell-body {
+  transition: opacity 0.2s var(--ease-out);
+}
+
+/* The username of a person: the "@" and the name, large, as friends see it. */
+.handle-input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 21px;
+  font-weight: 500;
+  font-variant-ligatures: none;
+  line-height: 30px;
+}
+.handle-input::placeholder {
+  color: var(--ink-faint);
+  opacity: 0.7;
+}
+
+/* One cell of a code that the person types. */
+.cell {
+  transition:
+    box-shadow 0.15s var(--ease-out),
+    background-color 0.15s var(--ease-out);
+}
+.cell[data-at] {
+  box-shadow:
+    var(--e-well),
+    0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.code-input {
+  font-size: 16px;
+}
+/* The place of the cursor in a cell. Under a finger, where the page's cursor stays in the mark,
+   the cell draws its own. */
+.cell-slot {
+  border-radius: 1.5px;
+  background-color: var(--accent);
+  opacity: 0.9;
+}
+[data-cursor-host]:has(.code-input[data-block]) .cell-slot {
+  visibility: hidden;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .cell-slot {
+    animation: cursor-blink 0.62s ease-in-out infinite alternate;
+  }
+}
+
+/* A page that opens rises into place. What a step changes on a page that carries on resolves in
+   place from a light blur, as the words of a program do in the app. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.rise {
+  animation: rise 0.36s var(--ease-out) both;
+}
+@keyframes resolve {
+  from {
+    opacity: 0;
+    filter: blur(5px);
+  }
+}
+.resolve {
+  animation: resolve 0.3s 0.06s var(--ease-out) both;
+}
+/* A small thing that comes: an avatar, a letter, a sign. */
+@keyframes pop {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+  60% {
+    scale: 1.06;
+  }
+}
+.pop {
+  animation: pop 0.32s var(--ease-out) both;
+}
+
+/* The line of a page rises through a mask line, and the line of the page before leaves upward
+   through it: the roll of the launch film. */
+.roll {
+  position: relative;
+  display: block;
+  overflow: clip;
+  overflow-clip-margin: 2px;
+}
+.roll > span {
+  display: block;
+}
+/* The line that leaves is one line, also when it had two on its own page. */
+.roll > .roll-out {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: max-content;
+  translate: -50% 0;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .roll > .roll-in {
+    animation: roll-in 0.56s var(--ease-glide) both;
+  }
+  .roll > .roll-out {
+    animation: roll-out 0.45s var(--ease-glide) both;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .roll > .roll-out {
+    display: none;
+  }
+}
+@keyframes roll-out {
+  to {
+    transform: translateY(-104%);
+  }
+}
+
+/* The green check that draws itself: done, or verified. */
+.check-draw {
+  fill: none;
+  stroke: var(--ready);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .check-draw {
+    animation: check-draw 0.32s 0.12s ease-out both;
+  }
+}
+@keyframes check-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+/* A sign that waits for the person breathes: the copper dot of the app. */
+@keyframes breathe {
+  from {
+    opacity: 0.55;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    scale: 2.4;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .breathe::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 1.5px solid currentColor;
+    border-radius: inherit;
+    animation: breathe 1.6s ease-out infinite;
+  }
+}
+
+/* A place that waits for what Keycloak sends. */
+@keyframes sweep {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -20% 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(
+      100deg,
+      transparent 30%,
+      color-mix(in srgb, var(--raised) 60%, transparent) 50%,
+      transparent 70%
+    )
+    var(--well);
+  background-size: 220% 100%;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton {
+    animation: sweep 1.6s ease-in-out infinite;
+  }
+}
+
+/* A person who asked for less motion gets each part at once: nothing waits for its turn, and
+   nothing loops. */
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .resolve,
+  .pop {
+    animation: none !important;
+  }
+  .working-rim::before,
+  .working-rim::after {
+    animation: none;
+  }
+}
+
+/* The terms of a realm: the realm's own text, with its markup. */
+.prose-terms {
+  color: var(--ink);
+  line-height: 23px;
+}
+.prose-terms :is(p, ul, ol) + :is(p, ul, ol, h2, h3) {
+  margin-top: 12px;
+}
+.prose-terms :is(h1, h2, h3) {
+  font-size: 15.5px;
+  font-weight: 600;
+}
+.prose-terms :is(ul, ol) {
+  padding-left: 1.2em;
+  list-style: disc;
+}
+.prose-terms a {
+  color: var(--accent-strong);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Keycloak's own fields, on the rare pages that keep them (pages/other.tsx): they take the
+   materials of the capsule. */
+.plain-page {
+  color: var(--ink);
+  font-size: 14.5px;
+  line-height: 22px;
+}
+.plain-page :is(p, ul, ol, form, div) + :is(p, ul, ol, form, div) {
+  margin-top: 12px;
+}
+.plain-page label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--ink-muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+.plain-page
+  :is(
+    input:not([type]),
+    input[type="text"],
+    input[type="password"],
+    input[type="email"],
+    input[type="tel"],
+    input[type="number"],
+    input[type="date"],
+    select,
+    textarea
+  ) {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  outline: none;
+  background-color: var(--well);
+  box-shadow: var(--e-well);
+  color: var(--ink);
+  font-size: 14.5px;
+}
+.plain-page textarea {
+  padding-block: 10px;
+}
+.plain-page :is(input, select, textarea):focus {
+  box-shadow:
+    var(--e-well),
+    0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.plain-page :is(button, input[type="submit"], input[type="button"]) {
+  min-height: 40px;
+  margin-top: 4px;
+  margin-right: 8px;
+  padding: 0 18px;
+  border: 0.5px solid var(--rim);
+  border-radius: 9999px;
+  background-color: var(--raised);
+  box-shadow: var(--e-resting);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.plain-page
+  :is(button[type="submit"], input[type="submit"]):not([name="cancel"], [name="cancel-aia"]) {
+  border-color: transparent;
+  background-color: var(--accent);
+  box-shadow: var(--e-press);
+  color: var(--on-accent);
+}
+.plain-page a {
+  color: var(--accent-strong);
+  font-weight: 500;
+}
+.plain-page a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.plain-page :is(ul, ol) {
+  padding-left: 1.2em;
+  list-style: disc;
+}
+.plain-page h2 {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 24px;
+}

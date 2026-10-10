@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Maven in a container, at the same paths, for a machine that has none (theme.sh).
+set -euo pipefail
+root=$(cd "$(dirname "$0")/.." && pwd)
+exec docker run --rm -v "$root":"$root" -w "$PWD" maven:3.9-eclipse-temurin-21 mvn "$@"

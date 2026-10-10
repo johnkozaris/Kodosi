@@ -281,7 +281,7 @@ impl BackendClient {
                 self.logout().await?;
                 let cancel = self.new_login_interrupt()?;
                 let generation = self.generation();
-                events.push(json!({"type":"auth.device_code","userCode":login.user_code,"verificationUri":login.verification_uri_complete.as_ref().unwrap_or(&login.verification_uri)}));
+                events.push(json!({"type":"auth.device_code","userCode":login.user_code,"verificationUri":login.code_page()}));
                 let this = self.clone();
                 tokio::spawn(async move {
                     let result = async {
