@@ -117,9 +117,9 @@ struct StoredKeys {
     version: u8,
     device_id: String,
     signing_pkcs8: String,
-    room_kem_secret: Option<String>,
-    room_kem_public: Option<String>,
-    room_agreement_secret: Option<String>,
+    room_kem_secret: String,
+    room_kem_public: String,
+    room_agreement_secret: String,
     recovery_device_id: Option<String>,
     recovery_room: Option<String>,
 }
@@ -141,12 +141,7 @@ impl DeviceKeys {
     pub fn load_or_create(store: &Secrets, user_id: &str) -> Result<Self> {
         let label = format!("{}.device", Self::account(user_id)?);
         if let Some(payload) = store.load(&label)? {
-            let keys = Self::decode(&payload)?;
-            let current = keys.encode()?;
-            if *current != *payload {
-                store.store(&label, &current)?;
-            }
-            return Ok(keys);
+            return Self::decode(&payload);
         }
         let key = Self::generate()?;
         store.store(&label, &key.encode()?)?;
@@ -242,9 +237,9 @@ impl DeviceKeys {
             version: 1,
             device_id: self.device_id.clone(),
             signing_pkcs8: BASE64.encode(self.signing_pkcs8.as_slice()),
-            room_kem_secret: Some(BASE64.encode(self.room.kem_secret.as_slice())),
-            room_kem_public: Some(BASE64.encode(kem_public)),
-            room_agreement_secret: Some(BASE64.encode(self.room.agreement_secret.as_slice())),
+            room_kem_secret: BASE64.encode(self.room.kem_secret.as_slice()),
+            room_kem_public: BASE64.encode(kem_public),
+            room_agreement_secret: BASE64.encode(self.room.agreement_secret.as_slice()),
             recovery_device_id: self.recovery.as_ref().map(|(device, _)| device.clone()),
             recovery_room: self
                 .recovery
@@ -254,12 +249,10 @@ impl DeviceKeys {
     }
 
     fn decode(payload: &str) -> Result<Self> {
-        let stored: StoredKeys = serde_json::from_str(payload)?;
-        if stored.version != 1 || Uuid::parse_str(&stored.device_id).is_err() {
-            return Err(invalid(
-                "Stored device identity is invalid; refusing to replace it.",
-            ));
-        }
+        let stored = serde_json::from_str::<StoredKeys>(payload)
+            .ok()
+            .filter(|stored| stored.version == 1 && Uuid::parse_str(&stored.device_id).is_ok())
+            .ok_or_else(|| invalid("Stored device identity is invalid; refusing to replace it."))?;
         let signing_pkcs8 = Zeroizing::new(
             BASE64
                 .decode(&stored.signing_pkcs8)
@@ -273,29 +266,18 @@ impl DeviceKeys {
                 .map(Zeroizing::new)
                 .map_err(|_| invalid(reason))
         };
-        let room = match (
-            &stored.room_kem_secret,
-            &stored.room_kem_public,
-            &stored.room_agreement_secret,
-        ) {
-            (Some(secret), Some(public), Some(agreement)) => RoomKeyPair::from_parts(
-                &bytes(secret, "Invalid stored room key.")?,
-                &bytes(public, "Invalid stored room public key.")?,
-                &bytes(agreement, "Invalid stored room key.")?,
-            )?,
-            (_, _, None) => RoomKeyPair::generate()?,
-            _ => {
-                return Err(invalid(
-                    "Stored room identity is incomplete; refusing to replace it.",
-                ));
-            }
-        };
+        let room = RoomKeyPair::from_parts(
+            &bytes(&stored.room_kem_secret, "Invalid stored room key.")?,
+            &bytes(&stored.room_kem_public, "Invalid stored room public key.")?,
+            &bytes(&stored.room_agreement_secret, "Invalid stored room key.")?,
+        )?;
         let recovery = match (&stored.recovery_device_id, &stored.recovery_room) {
             (Some(device), Some(room)) => Some((
                 device.clone(),
                 RoomKeyPair::from_bytes(&bytes(room, "Invalid stored recovery key.")?)?,
             )),
-            _ => None,
+            (None, None) => None,
+            _ => return Err(invalid("Stored recovery key is incomplete.")),
         };
         Ok(Self {
             device_id: stored.device_id.clone(),
@@ -345,20 +327,22 @@ mod tests {
     }
 
     #[test]
-    fn a_stored_identity_without_an_x25519_key_gets_a_new_room_key_and_other_gaps_are_refused() {
+    fn a_stored_identity_with_a_missing_key_is_refused() {
         let keys = DeviceKeys::generate().unwrap();
         let stored: serde_json::Value = serde_json::from_str(&keys.encode().unwrap()).unwrap();
-        let without = |field: &str| {
+        assert!(DeviceKeys::decode(&stored.to_string()).is_ok());
+        for field in [
+            "room_kem_secret",
+            "room_kem_public",
+            "room_agreement_secret",
+        ] {
             let mut changed = stored.clone();
             changed.as_object_mut().unwrap().remove(field);
-            DeviceKeys::decode(&changed.to_string())
-        };
-        let loaded = without("room_agreement_secret").unwrap();
-        assert_eq!(loaded.device_id, keys.device_id);
-        assert_eq!(loaded.signing_public(), keys.signing_public());
-        assert_ne!(loaded.room_public(), keys.room_public());
-        assert!(without("room_kem_public").is_err());
-        assert!(without("room_kem_secret").is_err());
+            assert!(DeviceKeys::decode(&changed.to_string()).is_err(), "{field}");
+        }
+        let mut half = stored;
+        half["recovery_device_id"] = serde_json::json!(Uuid::now_v7().to_string());
+        assert!(DeviceKeys::decode(&half.to_string()).is_err());
     }
 
     #[test]

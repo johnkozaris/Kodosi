@@ -92,9 +92,11 @@ commit measured build evidence, notices, pins, and affected consumers together.
 
 Kodosi has no release yet, so it keeps no code for earlier protocol versions or saved
 formats. After a format change, rooms and records in an existing development database
-may not open: use a new database volume and data root. One exception keeps a computer
-on its account: a device identity saved before the X25519 room key gets a new room key
-pair at its next start.
+may not open: use a new database volume and data root. A device identity saved in an
+earlier format stops sign-in with "Stored device identity is invalid". Delete it, then
+approve the computer again as a new one. It is the item `terminal-first.<user id>.device`
+of the service `com.kodosi.local`. On macOS, delete it in Keychain Access. On Linux, run
+`secret-tool clear service com.kodosi.local username terminal-first.<user id>.device`.
 
 ## Isolated validation
 

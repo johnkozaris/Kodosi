@@ -1,6 +1,6 @@
 use super::*;
 
-fn fixture() -> (tempfile::TempDir, BackendClient) {
+pub(super) fn fixture() -> (tempfile::TempDir, BackendClient) {
     let root = tempfile::tempdir().unwrap();
     let network = BackendClient::new(BackendConfig {
         api_url: reqwest::Url::parse("http://127.0.0.1:1/").unwrap(),

@@ -135,3 +135,31 @@ fn provider_changes_refresh_task_state_and_preserve_room_context() {
     assert!(task.assigned_to.is_none());
     assert!(task.assigned_name.is_none());
 }
+
+#[tokio::test]
+async fn a_device_with_new_keys_registers_its_own_room_key() {
+    let (_root, network) = super::super::tests::fixture();
+    let credentials = Credentials {
+        user_id: Uuid::now_v7().to_string(),
+        token: Zeroizing::new("token".into()),
+        keys: Arc::new(DeviceKeys::generate().unwrap()),
+        enrolled: true,
+        notice: None,
+        generation: network.generation(),
+        cancel: CancellationToken::new(),
+    };
+    *network.inner.rooms.lock().await = RoomCache {
+        generation: credentials.generation,
+        registered: Some(credentials.keys.device_id.clone()),
+        ..RoomCache::default()
+    };
+    network.register_room_key(&credentials).await.unwrap();
+    let replaced = Credentials {
+        keys: Arc::new(DeviceKeys::generate().unwrap()),
+        ..credentials
+    };
+    assert!(matches!(
+        network.register_room_key(&replaced).await,
+        Err(Error::Unreachable)
+    ));
+}
