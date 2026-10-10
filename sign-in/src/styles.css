@@ -368,6 +368,13 @@
 .cursor-away .logo-cursor {
   visibility: visible;
 }
+/* The account is gone: the cursor is an outline, as the cursor of a terminal that has nobody at
+   it. */
+:root[data-ended] #cursor {
+  background-color: transparent;
+  box-shadow: inset 0 0 0 2px var(--accent);
+  mix-blend-mode: normal;
+}
 
 /* The end of a sign-in is the whole mark, as on the banner: the K above the word. */
 .logo[data-banner] {

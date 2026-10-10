@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 
 import { useI18n } from "./i18n";
 import type { KcContext } from "./KcContext";
+import { CheckPage } from "./pages/check";
 import { LinkAccount, LinkByEmail, Ways } from "./pages/choices";
 import { ConfigTotp, Otp, RecoveryConfig, RecoveryInput } from "./pages/codes";
 import { DeviceCode, Grant } from "./pages/device";
@@ -77,6 +78,9 @@ export default function KcPage({ kcContext }: { kcContext: KcContext }) {
       return <RemoveWay kcContext={kcContext} i18n={i18n} />;
     case "delete-account-confirm.ftl":
       return <DeleteAccount kcContext={kcContext} i18n={i18n} />;
+    case "turnstile-form.ftl":
+    case "turnstile-registration-form.ftl":
+      return <CheckPage kcContext={kcContext} i18n={i18n} />;
     case "terms.ftl":
       return (
         <Suspense>

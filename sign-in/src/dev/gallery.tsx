@@ -17,7 +17,10 @@ import { sampleAccount, sampleContext } from "./account-sample";
  */
 const { getKcContextMock } = createGetKcContextMock({
   kcContextExtension: { themeName: themeNames[0], properties: { ...kcEnvDefaults } },
-  kcContextExtensionPerPage: {},
+  kcContextExtensionPerPage: {
+    "turnstile-form.ftl": { turnstileSiteKey: "1x00000000000000000000AA" },
+    "turnstile-registration-form.ftl": { turnstileSiteKey: "1x00000000000000000000AA" },
+  },
   overrides: {},
   overridesPerPage: {},
 });
@@ -84,29 +87,66 @@ const attribute = (name: string, more: Overrides = {}) => ({
   annotations: {},
   ...more,
 });
-// The details of a new realm of Keycloak, in its order.
+// The details of the realm of Kodosi, in its order: the username has the rule of the realm, and
+// the names are optional.
 const profile = (values: Record<string, string> = {}) => ({
   username: attribute("username", {
     value: values.username,
     autocomplete: "username",
-    validators: { length: { min: "3", max: "24" } },
+    validators: {
+      length: { min: "3", max: "40" },
+      pattern: {
+        pattern: "^[a-z0-9_-]+$",
+        "error-message": "Use 3 to 40 lowercase letters, digits, hyphens or underscores.",
+      },
+    },
   }),
   email: attribute("email", {
     value: values.email,
     autocomplete: "email",
     validators: { email: {} },
   }),
-  firstName: attribute("firstName", { value: values.firstName, autocomplete: "given-name" }),
-  lastName: attribute("lastName", { value: values.lastName, autocomplete: "family-name" }),
+  firstName: attribute("firstName", {
+    value: values.firstName,
+    autocomplete: "given-name",
+    required: false,
+  }),
+  lastName: attribute("lastName", {
+    value: values.lastName,
+    autocomplete: "family-name",
+    required: false,
+  }),
 });
-const maya = { username: "maya", firstName: "Maya", lastName: "Chen", email: "maya@example.com" };
-// A realm with the Turnstile step. The key is the one that Cloudflare gives for a test: its
-// widget asks the person each time.
-const asksPerson = (action: string) => ({
-  captchaRequired: true,
-  captchaSiteKey: "3x00000000000000000000FF",
-  captchaAction: action,
+const maya = {
+  username: "maya",
+  firstName: "Maya",
+  lastName: "Chen",
+  email: "maya@kodosi.example",
+};
+// The realm's words for its terms: the two addresses of the hosted service.
+const terms =
+  '<a href="https://kodosi.com/terms">Terms</a> · <a href="https://kodosi.com/privacy">Privacy</a>';
+// Cloudflare's keys for a test of Turnstile: one passes, one blocks, one asks the person.
+const PASSES = "1x00000000000000000000AA";
+const BLOCKS = "2x00000000000000000000AB";
+const ASKS = "3x00000000000000000000FF";
+// The values of a Turnstile step on the registration form, and the scripts with which it puts its
+// widget on the reset form (github.com/zymlabs/keycloak-cloudflare-turnstile-provider).
+const turnstile = (key: string) => ({
+  turnstileRequired: true,
+  turnstileSiteKey: key,
+  turnstileMode: "managed",
+  turnstileTheme: "auto",
 });
+const injected = (key: string) => ({
+  scripts: [
+    `/realms/kodosi/kodosi-turnstile/config.js?siteKey=${key}&mode=managed&theme=auto&debug=false`,
+    "/realms/kodosi/kodosi-turnstile/resources/js/turnstile-injector.js",
+  ],
+});
+const checkRefused = {
+  message: { type: "error", summary: "The check did not pass. Try it again." },
+};
 // A person with one authenticator app has no choice of app on the page.
 const oneApp = { otpLogin: { userOtpCredentials: [] } };
 
@@ -123,7 +163,6 @@ const SCENES: Record<string, Scene> = {
     next: "code",
   },
   "sign-in-passkey": { page: "login.ftl", with: { ...open, enableWebAuthnConditionalUI: true } },
-  "sign-in-person": { page: "login.ftl", with: { ...open, ...asksPerson("login") }, next: "check" },
   name: { page: "login-username.ftl", with: open, next: "password" },
   password: { page: "login-password.ftl", with: { auth: person }, next: "code" },
   "password-wrong": {
@@ -172,32 +211,76 @@ const SCENES: Record<string, Scene> = {
     },
   },
 
+  // The realm of Kodosi: the person confirms the email first, and chooses a password after that.
   register: {
     page: "register.ftl",
-    with: { passwordPolicies: { length: 10, digits: 1, notUsername: true } },
+    with: {
+      passwordRequired: false,
+      termsAcceptanceRequired: true,
+      "x-keycloakify": { messages: { termsText: terms } },
+      ...turnstile(PASSES),
+    },
     attributes: profile(),
+    next: "inbox",
+  },
+  "register-rule": {
+    page: "register.ftl",
+    with: {
+      passwordRequired: false,
+      termsAcceptanceRequired: true,
+      "x-keycloakify": { messages: { termsText: terms } },
+    },
+    attributes: profile({ username: "maya.chen" }),
     next: "inbox",
   },
   "register-taken": {
     page: "register.ftl",
-    with: refused("username", "That username is taken. Pick a different one."),
+    with: {
+      passwordRequired: false,
+      ...refused("username", "That username is taken. Pick a different one."),
+    },
     attributes: profile(maya),
     next: "inbox",
   },
-  "register-terms": {
+  "register-blocked": {
+    page: "register.ftl",
+    with: {
+      passwordRequired: false,
+      termsAcceptanceRequired: true,
+      "x-keycloakify": { messages: { termsText: terms } },
+      ...turnstile(BLOCKS),
+    },
+    attributes: profile(maya),
+    next: "inbox",
+  },
+  "register-ask": {
+    page: "register.ftl",
+    with: { passwordRequired: false, ...turnstile(ASKS) },
+    attributes: profile(maya),
+    next: "inbox",
+  },
+  "register-refused": {
+    page: "register.ftl",
+    with: {
+      passwordRequired: false,
+      termsAcceptanceRequired: true,
+      "x-keycloakify": { messages: { termsText: terms } },
+      ...turnstile(PASSES),
+      ...checkRefused,
+    },
+    attributes: profile(maya),
+    next: "inbox",
+  },
+  // A realm that asks for the password on the form itself.
+  "register-password": {
     page: "register.ftl",
     attributes: profile(maya),
     with: {
-      passwordPolicies: { length: 10 },
+      passwordPolicies: { length: 12, maxLength: 128, notUsername: true, notEmail: true },
       termsAcceptanceRequired: true,
-      ...refused("password", "The password must have 10 or more characters."),
+      "x-keycloakify": { messages: { termsText: terms } },
+      ...refused("password", "The password must have 12 or more characters."),
     },
-    next: "inbox",
-  },
-  "register-person": {
-    page: "register.ftl",
-    attributes: profile(maya),
-    with: { ...asksPerson("register"), ...refused("password", "Choose a password.") },
     next: "inbox",
   },
   welcome: {
@@ -213,7 +296,17 @@ const SCENES: Record<string, Scene> = {
     next: "inbox",
   },
 
-  forgot: { page: "login-reset-password.ftl", next: "forgot-sent" },
+  forgot: { page: "login-reset-password.ftl", with: injected(PASSES), next: "forgot-sent" },
+  "forgot-refused": {
+    page: "login-reset-password.ftl",
+    with: { ...injected(PASSES), ...checkRefused },
+    next: "forgot-sent",
+  },
+  "check-page": {
+    page: "turnstile-form.ftl",
+    with: { ...turnstile(PASSES), isResetFlow: true },
+    next: "forgot-sent",
+  },
   "forgot-sent": {
     page: "login.ftl",
     with: {
@@ -223,7 +316,10 @@ const SCENES: Record<string, Scene> = {
   },
   "new-password": {
     page: "login-update-password.ftl",
-    with: { passwordPolicies: { length: 10, digits: 1 } },
+    with: {
+      passwordPolicies: { length: 12, maxLength: 128, notUsername: true, notEmail: true },
+      auth: person,
+    },
     next: "info",
   },
   inbox: { page: "login-verify-email.ftl", with: { user: { email: maya.email } } },
@@ -312,7 +408,20 @@ const SCENES: Record<string, Scene> = {
   },
   terms: { page: "terms.ftl" },
   remove: { page: "delete-credential.ftl", with: { credentialLabel: "iPhone" } },
-  delete: { page: "delete-account-confirm.ftl", with: { triggered_from_aia: true } },
+  delete: {
+    page: "delete-account-confirm.ftl",
+    with: { triggered_from_aia: true },
+    next: "deleted",
+  },
+  deleted: {
+    page: "info.ftl",
+    with: {
+      messageHeader: undefined,
+      message: { type: "success", summary: "Your account is deleted." },
+      requiredActions: undefined,
+      skipLink: true,
+    },
+  },
   link: {
     page: "login-idp-link-confirm.ftl",
     with: { idpAlias: "github", idpDisplayName: "GitHub" },

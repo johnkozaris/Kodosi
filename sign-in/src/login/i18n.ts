@@ -2,6 +2,7 @@ import { i18nBuilder } from "keycloakify/login/i18n/noJsx";
 import { useEffect, useState } from "react";
 
 import type { ThemeName } from "../kc.gen";
+import { plain } from "../parts/text";
 import type { KcContext } from "./KcContext";
 
 // The words of the pages. Keycloakify reads this call when it builds the theme and writes the
@@ -46,7 +47,9 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsCheckTitle: "Check the code",
       kdsCheckLead: "{0} on your computer shows the same code.",
       kdsConnectTitle: "Connect {0}?",
-      kdsConnectLead: "{0} on your computer waits for your answer.",
+      // Without the code, the page cannot show which computer asks. A person who did not start a
+      // sign-in stops here.
+      kdsConnectLead: "Only if you just started a sign-in in {0}.",
       kdsConnect: "Connect",
       kdsNotSame: "Not the same",
       kdsGets: "{0} gets:",
@@ -59,7 +62,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsDeniedLead: "Nothing changed. To try again, start the sign-in in Kodosi.",
 
       kdsHandleTitle: "Pick your username",
-      kdsHandleLead: "Friends find you by it.",
+      kdsHandleLead: "Friends find you by it. You cannot change it later.",
       kdsHandleSample: "yourname",
       kdsDetailsTitle: "Add your details",
       kdsCheckDetailsTitle: "Check your details",
@@ -71,8 +74,14 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsSave: "Save",
       kdsHaveAccount: "I have an account",
       kdsAcceptTerms: "I accept the terms",
-      kdsReadTerms: "Read the terms",
+      kdsReadTerms: "Read them",
+      kdsOptional: "Optional",
+      // The check that a person, not a program, sends the form (parts/captcha.tsx).
       kdsNotRobot: "Show that you are a person",
+      kdsCheckFailed: "The check did not pass.",
+      kdsCheckAgain: "Try again",
+      kdsPersonCheckLead: "A short check, then you go on.",
+      kdsJoinTitle: "Make an account",
       kdsFill: "Fill in this row.",
       kdsBadEmail: "That email is not right.",
       kdsBadLength: "Use {0} to {1} characters.",
@@ -83,6 +92,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsPolicyLower: "A small letter",
       kdsPolicyUpper: "A capital letter",
       kdsPolicySpecial: "A special character",
+      kdsPolicyMax: "{0} characters at most",
       kdsPolicyNotUsername: "Not your username",
       kdsPolicyNotEmail: "Not your email",
 
@@ -90,7 +100,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsForgotLead: "We send you a link. With it, you choose a new password.",
       kdsSendLink: "Send the link",
 
-      kdsNewPasswordTitle: "Choose a new password",
+      kdsNewPasswordTitle: "Choose a password",
       kdsNewPassword: "New password",
       kdsSavePassword: "Save the password",
       kdsSignOutOthers: "Sign out everywhere else",
@@ -99,6 +109,8 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsInboxLead: "We sent a link to {0}. Open it to go on.",
       kdsInboxLeadPlain: "We sent you a link. Open it to go on.",
       kdsSendAgain: "Send it again",
+      kdsSentAgain: "Sent again",
+      kdsOpenMail: "Open {0}",
       kdsSend: "Send the link",
       kdsConfirmEmailTitle: "Confirm your email",
       kdsConfirmEmailLead: "We send a link to {0}.",
@@ -164,10 +176,18 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsRemoveTitle: "Remove “{0}”?",
       kdsRemove: "Remove",
 
-      kdsDeleteTitle: "Delete your account?",
-      kdsDeleteLead:
-        "Your account goes away for good, and you are signed out. You cannot undo this.",
-      kdsDelete: "Delete my account",
+      // The deletion of an account. The Kodosi server removes the person's data when Keycloak
+      // deletes the account; these words say what goes and what stays.
+      kdsDeleteTitle: "Delete your Kodosi account?",
+      kdsDeleteLead: "This cannot be undone.",
+      kdsDeleteGoes: "Your sign-in, devices, friends and sharing are deleted.",
+      kdsDeleteRooms: "Rooms that you own close for everyone in them.",
+      kdsDeleteWords: "What you wrote in other people's rooms stays there, from “deleted account”.",
+      kdsDeleteTerminals: "Terminals on your computers keep running.",
+      kdsDelete: "Delete account",
+      kdsKeepAccount: "Keep my account",
+      kdsDeletedTitle: "Your account is deleted",
+      kdsDeletedLead: "You can close this tab.",
 
       kdsLinkTitle: "Add {0} to your account?",
       kdsLinkLead: "An account has this email already.",
@@ -189,7 +209,20 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       notMatchPasswordMessage: "The two passwords are not the same.",
       usernameExistsMessage: "That username is taken. Pick a different one.",
       "error-user-attribute-required": "Fill in each marked row.",
+      termsAcceptanceRequired: "Accept the terms to go on.",
       successLogout: "You are signed out",
+      userDeletedSuccessfully: "Your account is deleted.",
+      accountTemporarilyDisabledMessage:
+        "This account is locked for a few minutes. Try again later.",
+      accountTemporarilyDisabledMessageTotp:
+        "This account is locked for a few minutes. Try again later.",
+      // What a check against programs says when it refuses a form. The row of the check shows it.
+      recaptchaFailed: "The check did not pass.",
+      recaptchaNotConfigured: "The check did not load. Try again in a moment.",
+      turnstileVerificationFailed: "The check did not pass.",
+      turnstileMissingToken: "The check is not done yet. Wait a moment, then send again.",
+      turnstileVerificationError: "The check did not answer. Try again in a moment.",
+      turnstileIpBlocked: "This network cannot send this form.",
       oauth2DeviceInvalidUserCodeMessage: "That code is not right. Check the code in Kodosi.",
       oauth2DeviceExpiredUserCodeMessage:
         "That code is too old. Start the sign-in again in Kodosi.",
@@ -290,4 +323,12 @@ export function useI18n({ kcContext }: { kcContext: KcContext }): { i18n: I18n }
     };
   }, [later]);
   return { i18n: words };
+}
+
+/** Keycloak gives a sentence as its key, or as the words of that key. */
+export function isMessage(i18n: I18n, text: string | undefined, key: string): boolean {
+  if (!text) return false;
+  if (text === key) return true;
+  const words = i18n.msgStr(key as Parameters<I18n["msgStr"]>[0]);
+  return words !== key && plain(text) === plain(words);
 }

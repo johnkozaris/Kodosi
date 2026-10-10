@@ -1,7 +1,6 @@
-import { kcSanitize } from "keycloakify/lib/kcSanitize";
-
 import { buttonClass } from "../../parts/button";
 import { cn } from "../../parts/cn";
+import { safeHtml } from "../../parts/text";
 import { Stage } from "../stage";
 import type { Page } from "./props";
 
@@ -22,7 +21,7 @@ export default function Terms({ kcContext, i18n }: Page<"terms.ftl">) {
       {text.trim() && (
         <div
           className="prose-terms max-h-[42vh] overflow-y-auto px-5 py-5 text-[14.5px]"
-          dangerouslySetInnerHTML={{ __html: kcSanitize(text) }}
+          dangerouslySetInnerHTML={{ __html: safeHtml(text) }}
         />
       )}
       <form

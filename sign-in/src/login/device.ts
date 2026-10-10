@@ -9,8 +9,8 @@
  * made could show one code and connect a different one.
  */
 const KEY = "kodosi.code";
-/** Keycloak keeps a code for ten minutes at most. */
-const FRESH_MS = 10 * 60 * 1000;
+/** Keycloak keeps a code for fifteen minutes in the realm of Kodosi. */
+const FRESH_MS = 15 * 60 * 1000;
 const SHAPE = /^[A-Za-z0-9]{4}-?[A-Za-z0-9]{4}$/;
 
 function shaped(code: string | null | undefined): string | null {

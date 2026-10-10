@@ -269,7 +269,11 @@ export function Account({
                     >
                       {say("signOut")}
                     </button>
-                    {kcContext.deleteAccountAllowed && (
+                  </div>
+                  {/* The end of the page, apart from the rest: Keycloak's own step asks again and
+                      says what goes. */}
+                  {kcContext.deleteAccountAllowed && (
+                    <div className="rise mt-10 flex justify-center [animation-delay:280ms]">
                       <button
                         type="button"
                         className={cn(quietLink, "text-danger")}
@@ -277,8 +281,8 @@ export function Account({
                       >
                         {say("deleteAccount")}
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>

@@ -10,6 +10,21 @@
     <meta name="theme-color" content="#f0e9dc" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#110e0c" media="(prefers-color-scheme: dark)" />
     <title>Kodosi</title>
+    <!-- Before the stylesheet: the ground of the theme, and no mark at its first, unstyled size.
+         The stylesheet takes over from these at once. -->
+    <style>
+      html {
+        background: #f0e9dc;
+      }
+      @media (prefers-color-scheme: dark) {
+        html {
+          background: #110e0c;
+        }
+      }
+      :where(.logo) {
+        display: none;
+      }
+    </style>
     <!-- The K of the mark, and the letters of what a person types. The stylesheet names both.
          The browser starts on the two files with the page, and does not wait for the stylesheet. -->
     <link rel="preload" as="image" type="image/webp" href="/src/assets/mark.webp" />

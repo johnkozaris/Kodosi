@@ -53,6 +53,12 @@ function Frame({
 /** The rare pages: they keep Keycloak's own fields and words, and they sit in the same capsule. */
 export default function Other({ kcContext, i18n }: { kcContext: KcContext; i18n: I18n }) {
   const { i18n: own } = useOwnWords({ kcContext });
+  // The pages that the theme adds to Keycloak's have pages of their own (KcPage.tsx).
+  if (
+    kcContext.pageId === "turnstile-form.ftl" ||
+    kcContext.pageId === "turnstile-registration-form.ftl"
+  )
+    return null;
   return (
     <Words value={i18n}>
       <DefaultPage

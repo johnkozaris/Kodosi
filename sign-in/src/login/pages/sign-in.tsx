@@ -5,7 +5,6 @@ import { Fingerprint } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
 import { BrandMark } from "../../parts/brands";
-import { PersonCheckRow, usePersonCheck } from "../../parts/captcha";
 import { CodeTiles } from "../../parts/code";
 import { Go, PasswordRow, SwitchRow, TextRow } from "../../parts/rows";
 import { QuietLink, Way } from "../../parts/text";
@@ -118,13 +117,11 @@ function Frame({
   i18n,
   wrong,
   problem,
-  waits,
   below,
   children,
 }: Page<"login.ftl" | "login-username.ftl" | "login-password.ftl"> & {
   wrong: boolean;
   problem: string | undefined;
-  waits?: boolean;
   below: ReactNode;
   children: ReactNode;
 }) {
@@ -140,7 +137,6 @@ function Frame({
       wrong={wrong}
       problem={problem}
       quiet={wrong}
-      waits={!!waits}
       below={below}
     >
       {children}
@@ -155,14 +151,12 @@ export function Login({ kcContext, i18n }: Page<"login.ftl">) {
   const passkey = kcContext.enableWebAuthnConditionalUI === true;
   usePasskeyFill({ webAuthnButtonId: PASSKEY_BUTTON, kcContext, i18n });
   const wrong = messagesPerField.existsError("username", "password");
-  const { check, held, hold } = usePersonCheck(kcContext, "kc-form-login");
 
   return (
     <Frame
       kcContext={kcContext}
       i18n={i18n}
       wrong={wrong}
-      waits={held}
       problem={wrong ? messagesPerField.getFirstError("username", "password") : undefined}
       below={
         <OtherWays
@@ -185,9 +179,7 @@ export function Login({ kcContext, i18n }: Page<"login.ftl">) {
           action={url.loginAction}
           method="post"
           noValidate
-          onSubmit={(event) => {
-            if (!hold(event)) keepWay(null);
-          }}
+          onSubmit={() => keepWay(null)}
         >
           {!usernameHidden && (
             <TextRow
@@ -224,7 +216,6 @@ export function Login({ kcContext, i18n }: Page<"login.ftl">) {
               defaultChecked={!!login.rememberMe}
             />
           )}
-          <PersonCheckRow check={check} label={msgStr("kdsNotRobot")} />
           <input
             type="hidden"
             id="id-hidden-input"

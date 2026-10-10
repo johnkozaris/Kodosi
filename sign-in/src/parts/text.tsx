@@ -1,3 +1,4 @@
+import { kcSanitize } from "keycloakify/lib/kcSanitize";
 import { X } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 
@@ -8,6 +9,19 @@ import { Avatar } from "./person";
 /** Keycloak's words can hold markup. A page shows the words alone, so no markup of a message runs. */
 export function plain(html: string): string {
   return new DOMParser().parseFromString(html, "text/html").body.textContent ?? "";
+}
+
+/**
+ * The realm's own markup, as its terms, cleaned. Its links open in a new tab, so a form that the
+ * person fills stays as it is.
+ */
+export function safeHtml(html: string): string {
+  const page = new DOMParser().parseFromString(kcSanitize(html), "text/html");
+  for (const link of page.querySelectorAll("a[href]")) {
+    link.setAttribute("target", "_blank");
+    link.setAttribute("rel", "noreferrer");
+  }
+  return page.body.innerHTML;
 }
 
 /** The id of the page's note. A field that Keycloak refused names it, so a screen reader says the note with the field. */

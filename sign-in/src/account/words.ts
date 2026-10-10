@@ -52,7 +52,8 @@ const en = {
   backTo: "Back to {0}",
   signOut: "Sign out",
   language: "Language",
-  deleteAccount: "Delete my account",
+  // The sentences of a deletion are on its own page (src/login/i18n.ts).
+  deleteAccount: "Delete account",
 
   unreachable: "Your account did not open.",
   tryAgain: "Try again",

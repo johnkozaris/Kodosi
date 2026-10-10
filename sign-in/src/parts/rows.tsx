@@ -4,7 +4,9 @@ import {
   type KeyboardEvent,
   type ReactNode,
   type Ref,
+  useEffect,
   useId,
+  useImperativeHandle,
   useRef,
   useState,
 } from "react";
@@ -16,11 +18,14 @@ import { NOTE_ID } from "./text";
 export const rule =
   "relative before:absolute before:top-0 before:right-0 before:left-[18px] before:h-px before:bg-hairline/60 first:before:hidden";
 
-type FieldProps = Omit<ComponentProps<"input">, "placeholder" | "className"> & {
+type FieldProps = Omit<ComponentProps<"input">, "placeholder" | "className" | "ref"> & {
   label: ReactNode;
   /** At the end of the row: the arrow of the step, or a control of the field. */
   end?: ReactNode;
   ref?: Ref<HTMLInputElement>;
+  /** The value has what the step asks, as far as the page can check it: the arrow of the step is
+      copper only then. */
+  fits?: boolean;
 };
 
 /**
@@ -28,15 +33,21 @@ type FieldProps = Omit<ComponentProps<"input">, "placeholder" | "className"> & {
  * An email is a field of text with the keyboard of an email: the cursor of the page reads the
  * place of the caret, and a browser gives it only for a field of text.
  */
-export function TextRow({ label, end, id, type, ...input }: FieldProps) {
+export function TextRow({ label, end, id, type, ref, fits = true, ...input }: FieldProps) {
   const own = useId();
   const field = id ?? own;
+  const node = useRef<HTMLInputElement>(null);
+  useImperativeHandle(ref, () => node.current as HTMLInputElement);
+  useEffect(() => {
+    node.current?.setCustomValidity(fits ? "" : "not yet");
+  }, [fits]);
   const refused = input["aria-invalid"] === true || input["aria-invalid"] === "true";
   const email = type === "email";
   return (
     <div className={cn(rule, "flex h-14 items-center")}>
       <div className="relative h-full min-w-0 flex-1">
         <input
+          ref={node}
           id={field}
           className="row-input"
           placeholder=" "
@@ -143,13 +154,27 @@ export function SwitchRow({
 }: { label: ReactNode } & Omit<ComponentProps<"input">, "type" | "className">) {
   const own = useId();
   const field = input.id ?? own;
+  const refused = input["aria-invalid"] === true || input["aria-invalid"] === "true";
   return (
     <label
       htmlFor={field}
       className={cn(rule, "flex min-h-12 cursor-pointer items-center gap-3 py-2 pr-4 pl-[18px]")}
     >
-      <span className="flex-1 text-[14.5px] text-ink">{label}</span>
-      <input id={field} type="checkbox" className="peer sr-only" {...input} />
+      <span
+        className={cn(
+          "flex-1 text-[14.5px] transition-colors duration-200",
+          refused ? "text-danger" : "text-ink",
+        )}
+      >
+        {label}
+      </span>
+      <input
+        id={field}
+        type="checkbox"
+        className="peer sr-only"
+        aria-describedby={refused ? NOTE_ID : undefined}
+        {...input}
+      />
       <span
         aria-hidden
         className="well relative h-[26px] w-[44px] shrink-0 rounded-full transition-colors duration-200 peer-checked:bg-accent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent after:absolute after:top-[3px] after:left-[3px] after:size-5 after:rounded-full after:bg-lifted after:shadow-[0_1px_2px_rgb(0_0_0/0.3)] after:transition-transform after:duration-200 after:ease-out peer-checked:after:translate-x-[18px] dark:after:bg-ink"
@@ -164,12 +189,20 @@ export function ActionRow({
   title,
   detail,
   href,
+  target,
+  rel,
+  end,
   ...button
 }: {
   tile: ReactNode;
   title: ReactNode;
   detail?: ReactNode;
+  /** The row is a link. */
   href?: string;
+  target?: string;
+  rel?: string;
+  /** At the end of the row, in place of the arrow. */
+  end?: ReactNode;
 } & Omit<ComponentProps<"button">, "title" | "className">) {
   const inside = (
     <>
@@ -184,10 +217,12 @@ export function ActionRow({
           </span>
         )}
       </span>
-      <ChevronRight
-        className="size-4 shrink-0 text-ink-faint transition-transform duration-200 ease-out group-hover:translate-x-0.5"
-        aria-hidden
-      />
+      {end ?? (
+        <ChevronRight
+          className="size-4 shrink-0 text-ink-faint transition-transform duration-200 ease-out group-hover:translate-x-0.5"
+          aria-hidden
+        />
+      )}
     </>
   );
   // The rule starts where the words start, after the tile. The focus line stays inside the row,
@@ -197,7 +232,14 @@ export function ActionRow({
     "group flex min-h-14 w-full items-center gap-3 py-2 pr-4 pl-4 text-left transition-colors duration-200 before:left-[58px] hover:bg-lifted focus-visible:-outline-offset-2 focus-visible:first:rounded-t-[20px] focus-visible:last:rounded-b-[20px] disabled:pointer-events-none disabled:opacity-45",
   );
   return href ? (
-    <a href={href} id={button.id} className={look}>
+    <a
+      href={href}
+      id={button.id}
+      target={target}
+      rel={rel}
+      onClick={button.onClick as ComponentProps<"a">["onClick"]}
+      className={look}
+    >
       {inside}
     </a>
   ) : (

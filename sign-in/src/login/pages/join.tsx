@@ -1,4 +1,3 @@
-import { kcSanitize } from "keycloakify/lib/kcSanitize";
 import type { Attribute, PasswordPolicies } from "keycloakify/login/KcContext";
 import {
   type KeyboardEvent,
@@ -11,14 +10,14 @@ import {
 } from "react";
 
 import { buttonClass } from "../../parts/button";
-import { askOnPress, PersonCheckRow, usePersonCheck } from "../../parts/captcha";
+import { askOnPress, PersonCheckRow, REFUSALS, usePersonCheck } from "../../parts/captcha";
 import { cn } from "../../parts/cn";
 import { Avatar } from "../../parts/person";
 import { Go, PasswordRow, rule, SwitchRow, TextRow } from "../../parts/rows";
-import { QuietLink, quietLink } from "../../parts/text";
-import type { I18n } from "../i18n";
+import { QuietLink, quietLink, safeHtml } from "../../parts/text";
+import { type I18n, isMessage } from "../i18n";
 import { Stage } from "../stage";
-import { PolicyTags } from "./policy";
+import { meetsPolicy, PolicyTags } from "./policy";
 import type { Page } from "./props";
 
 // A profile with fields that a row cannot hold takes Keycloak's own form, which loads then.
@@ -30,6 +29,9 @@ type Joins = Page<
 
 /** The fields that a row of the capsule can hold. */
 const PLAIN = new Set([undefined, "text", "html5-email", "html5-tel", "html5-url"]);
+
+/** Terms of this many letters or fewer show under their switch. Longer terms open on a press. */
+const SHORT_TERMS = 120;
 
 function plainProfile(kcContext: Joins["kcContext"]): boolean {
   return Object.values(kcContext.profile.attributesByName).every(
@@ -61,31 +63,38 @@ function asHandle(typed: string): string {
   return typed.replace(/^@+/, "").replace(/\s+/g, "").toLowerCase();
 }
 
+/** The realm's own words for its pattern, or the page's. */
+function patternWords(i18n: I18n, attribute: Attribute): string {
+  const words = attribute.validators.pattern?.["error-message"];
+  return words ? i18n.advancedMsgStr(words) : i18n.msgStr("kdsBadCharacters");
+}
+
+/** The value does not have the form of the realm's pattern. A pattern that the browser cannot
+    read fits each value: Keycloak does the check. */
+function breaksPattern(attribute: Attribute, typed: string): boolean {
+  const pattern = attribute.validators.pattern?.pattern;
+  if (!pattern || !typed) return false;
+  try {
+    return !new RegExp(pattern).test(typed);
+  } catch {
+    return false;
+  }
+}
+
 /** What is wrong with a value, as far as the page can know before Keycloak checks it. */
 function problemOf(i18n: I18n, attribute: Attribute, value: string): string | null {
-  const { msgStr, advancedMsgStr } = i18n;
+  const { msgStr } = i18n;
   const typed = value.trim();
   if (!typed) return attribute.required ? msgStr("kdsFill") : null;
-  const { length, pattern, email } = attribute.validators;
+  const { length, email } = attribute.validators;
   if ((email || attribute.name === "email") && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(typed))
     return msgStr("kdsBadEmail");
+  if (breaksPattern(attribute, typed)) return patternWords(i18n, attribute);
   const min = Number(length?.min ?? 0);
   const max = Number(length?.max ?? 0);
   const letters = [...typed].length;
   if (letters < min || (max > 0 && letters > max))
     return max > 0 ? msgStr("kdsBadLength", `${min}`, `${max}`) : msgStr("kdsTooShort", `${min}`);
-  if (pattern?.pattern) {
-    let fits = true;
-    try {
-      fits = new RegExp(pattern.pattern).test(typed);
-    } catch {
-      // Keycloak reads the pattern in its own way: it does the check.
-    }
-    if (!fits)
-      return pattern["error-message"]
-        ? advancedMsgStr(pattern["error-message"])
-        : msgStr("kdsBadCharacters");
-  }
   return null;
 }
 
@@ -118,12 +127,18 @@ function PersonChip({
   );
 }
 
+/** The faint word at the end of a row that a person can leave empty. */
+function Optional({ label }: { label: string }) {
+  return <span className="pr-2 text-caption text-ink-faint">{label}</span>;
+}
+
 /**
  * A new account, or the details of a first sign-in. It is one form of Keycloak, and the person
- * meets it one thing at a time: the username, then the details, then the password. The username
- * is the first moment, because it is the name that friends find a person by. Each field of
- * Keycloak's own page is in the form from the start, with its own name, so a password manager
- * and Keycloak see the form that they know.
+ * meets it one thing at a time: the username, then the details, then the password when the realm
+ * asks for one here. The username is the first moment, because it is the name that friends find
+ * a person by, and it does not change. The last step has the terms and the check that a person
+ * sends the form. Each field of Keycloak's own page is in the form from the start, with its own
+ * name, so a password manager and Keycloak see the form that they know.
  */
 function Joining({
   kcContext,
@@ -148,7 +163,7 @@ function Joining({
   extra?: ReactNode;
   below?: ReactNode;
 }) {
-  const { profile, messagesPerField, isAppInitiatedAction } = kcContext;
+  const { profile, messagesPerField, isAppInitiatedAction, message } = kcContext;
   const { msgStr } = i18n;
   const attributes = Object.values(profile.attributesByName);
   const handleAttribute = attributes.find((one) => one.name === "username" && !one.readOnly);
@@ -168,19 +183,24 @@ function Joining({
   const [accepted, setAccepted] = useState(false);
   const [reads, setReads] = useState(false);
   const again = useRef<HTMLInputElement>(null);
-  const { check, held, hold } = usePersonCheck(kcContext, form);
+  const handleField = useRef<HTMLInputElement>(null);
+  const check = usePersonCheck(kcContext, form);
 
   // Keycloak refused the form: the page opens at the step of the first field that it names.
   const refusedAt = attributes.find((one) => messagesPerField.existsError(one.name));
   const secretRefused = messagesPerField.existsError("password", "password-confirm");
   const termsRefused = messagesPerField.existsError("termsAccepted");
+  // The check refused the form: the row of the check says it, not the line under the capsule.
+  const checkRefused =
+    message?.type === "error" && REFUSALS.some((key) => isMessage(i18n, message.summary, key));
   const [step, setStep] = useState<StepId>(() => {
     if (refusedAt) return refusedAt === handleAttribute ? "handle" : "details";
-    if (secretRefused || termsRefused || kcContext.message?.type === "error") return last as StepId;
+    if (secretRefused || termsRefused || message?.type === "error") return last as StepId;
     return steps[0] as StepId;
   });
   // What the page itself found wrong, at a press of "Next".
   const [found, setFound] = useState<{ field: string; text: string; attempt: number } | null>(null);
+  const [checkAnswered, setCheckAnswered] = useState(false);
   const moved = useRef(false);
   const body = useRef<HTMLFormElement>(null);
 
@@ -192,6 +212,16 @@ function Joining({
     );
     first?.focus();
   }, [step]);
+
+  const handle = values.username ?? "";
+  // A username with a character that the realm does not take says so at once, in the realm's own
+  // words. A length that is not right yet waits for "Next": a name is short while it is typed.
+  const handleBreaks = !!handleAttribute && breaksPattern(handleAttribute, handle);
+  useEffect(() => {
+    handleField.current?.setCustomValidity(
+      handleBreaks && handleAttribute ? patternWords(i18n, handleAttribute) : "",
+    );
+  }, [handleBreaks, handleAttribute, i18n]);
 
   const go = (to: StepId) => {
     moved.current = true;
@@ -212,6 +242,8 @@ function Joining({
       if (text) return refuse(attribute.name, text);
     }
     if (step === "password" && !secret) return refuse("password", msgStr("kdsFill"));
+    if (step === last && terms && !accepted)
+      return refuse("termsAccepted", msgStr("termsAcceptanceRequired"));
     return true;
   };
   const next = () => {
@@ -225,7 +257,6 @@ function Joining({
   };
   const change = (name: string, value: string) => setValues((now) => ({ ...now, [name]: value }));
 
-  const handle = values.username ?? "";
   const name = [values.firstName, values.lastName].filter((part) => part?.trim()).join(" ");
   const serverProblem = refusedAt
     ? messagesPerField.get(refusedAt.name)
@@ -241,23 +272,87 @@ function Joining({
       : step === "details"
         ? detailsTitle
         : msgStr("kdsPasswordTitle");
-  const termsText = terms ? msgStr("termsText") : "";
+  const termsText = terms ? safeHtml(msgStr("termsText")) : "";
+  const termsShort = !!termsText && termsText.replace(/<[^>]*>/g, "").length <= SHORT_TERMS;
+  const checkProblem = check.failed
+    ? msgStr("kdsCheckFailed")
+    : checkRefused && !checkAnswered
+      ? message.summary
+      : undefined;
 
-  const finishButton = (
-    <div className={cn(rule, "p-3")}>
-      <button
-        type="submit"
-        disabled={terms && !accepted}
-        {...askOnPress(check)}
-        className={buttonClass({
-          variant: "primary",
-          size: "lg",
-          className: cn("w-full", check && !check.widget && "g-recaptcha"),
-        })}
-      >
-        {finish}
-      </button>
-    </div>
+  /** The terms, the check and the button of the last step. */
+  const finishing = (
+    <>
+      {terms && (
+        <>
+          <SwitchRow
+            id="termsAccepted"
+            name="termsAccepted"
+            label={
+              <>
+                {msgStr("kdsAcceptTerms")}
+                {termsShort && (
+                  <span
+                    className="prose-terms mt-0.5 block text-footnote text-ink-muted"
+                    dangerouslySetInnerHTML={{ __html: termsText }}
+                  />
+                )}
+                {termsText && !termsShort && (
+                  <button
+                    type="button"
+                    aria-expanded={reads}
+                    aria-controls="kc-registration-terms-text"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setReads((now) => !now);
+                    }}
+                    className={cn(quietLink, "ml-2")}
+                  >
+                    {msgStr("kdsReadTerms")}
+                  </button>
+                )}
+              </>
+            }
+            checked={accepted}
+            onChange={(event) => setAccepted(event.target.checked)}
+            aria-invalid={termsRefused || wrongField === "termsAccepted" || undefined}
+          />
+          {reads && !termsShort && (
+            <div
+              id="kc-registration-terms-text"
+              className={cn(
+                rule,
+                "prose-terms resolve max-h-[36vh] overflow-y-auto px-[18px] py-4 text-[14px]",
+              )}
+              dangerouslySetInnerHTML={{ __html: termsText }}
+            />
+          )}
+        </>
+      )}
+      <PersonCheckRow
+        check={check.check}
+        label={msgStr("kdsNotRobot")}
+        problem={checkProblem}
+        againLabel={msgStr("kdsCheckAgain")}
+        onAgain={() => {
+          setCheckAnswered(true);
+          check.again();
+        }}
+      />
+      <div className={cn(rule, "p-3")}>
+        <button
+          type="submit"
+          {...askOnPress(check.check)}
+          className={buttonClass({
+            variant: "primary",
+            size: "lg",
+            className: cn("w-full", check.check && !check.check.widget && "g-recaptcha"),
+          })}
+        >
+          {finish}
+        </button>
+      </div>
+    </>
   );
 
   return (
@@ -277,11 +372,11 @@ function Joining({
               />
             )
       }
-      wrong={!!found || !!serverProblem}
+      wrong={!!found || !!serverProblem || (checkRefused && !checkAnswered)}
       problem={found?.text ?? serverProblem}
       attempt={found?.attempt ?? 0}
-      quiet={!!serverProblem || kcContext.message?.type === "warning"}
-      waits={held}
+      quiet={!!serverProblem || checkRefused || message?.type === "warning"}
+      waits={check.held}
       below={
         <>
           {step !== steps[0] && (
@@ -316,7 +411,7 @@ function Joining({
             if (step !== last) next();
             return;
           }
-          if (hold(event)) return;
+          if (check.hold(event)) return;
           if (again.current) again.current.value = secret;
         }}
       >
@@ -332,11 +427,13 @@ function Joining({
                   @
                 </span>
                 <input
+                  ref={handleField}
                   id="username"
                   name="username"
                   className="handle-input"
                   aria-label={msgStr("kdsUsername")}
-                  aria-invalid={wrongField === "username" || undefined}
+                  aria-invalid={wrongField === "username" || handleBreaks || undefined}
+                  aria-describedby={handleBreaks ? "handle-rule" : undefined}
                   placeholder={msgStr("kdsHandleSample")}
                   value={handle}
                   onChange={(event) => change("username", asHandle(event.target.value))}
@@ -347,6 +444,7 @@ function Joining({
                   autoCorrect="off"
                   spellCheck={false}
                   required
+                  minLength={Number(handleAttribute.validators.length?.min ?? 0) || undefined}
                   maxLength={Number(handleAttribute.validators.length?.max ?? 0) || undefined}
                 />
               </label>
@@ -354,35 +452,53 @@ function Joining({
                 <Go type="button" label={msgStr("kdsNext")} onClick={next} />
               )}
             </div>
-            {last === "handle" && finishButton}
+            <div aria-live="polite">
+              {handleBreaks && (
+                <p
+                  id="handle-rule"
+                  className={cn(rule, "resolve px-[18px] py-2.5 text-footnote text-caution")}
+                >
+                  {patternWords(i18n, handleAttribute)}
+                </p>
+              )}
+            </div>
+            {last === "handle" && finishing}
           </div>
         )}
         {details.length > 0 && (
           <div data-step="details" className={step === "details" ? "resolve" : "hidden"}>
-            {details.map((attribute, i) => (
-              <TextRow
-                key={attribute.name}
-                id={attribute.name}
-                name={attribute.name}
-                label={labelOf(i18n, attribute)}
-                type={attribute.annotations.inputType?.replace("html5-", "") ?? "text"}
-                value={values[attribute.name] ?? ""}
-                onChange={(event) => change(attribute.name, event.target.value)}
-                onKeyDown={enter}
-                readOnly={attribute.readOnly}
-                required={attribute.required}
-                autoComplete={attribute.autocomplete}
-                autoFocus={step === "details" && i === 0}
-                aria-invalid={wrongField === attribute.name || undefined}
-                end={
-                  last !== "details" && i === details.length - 1 ? (
-                    <Go type="button" label={msgStr("kdsNext")} onClick={next} />
-                  ) : undefined
-                }
-              />
-            ))}
+            {details.map((attribute, i) => {
+              const value = values[attribute.name] ?? "";
+              const arrow = last !== "details" && i === details.length - 1;
+              const optional = !attribute.required && !attribute.readOnly && !value;
+              return (
+                <TextRow
+                  key={attribute.name}
+                  id={attribute.name}
+                  name={attribute.name}
+                  label={labelOf(i18n, attribute)}
+                  type={attribute.annotations.inputType?.replace("html5-", "") ?? "text"}
+                  value={value}
+                  onChange={(event) => change(attribute.name, event.target.value)}
+                  onKeyDown={enter}
+                  readOnly={attribute.readOnly}
+                  required={attribute.required}
+                  autoComplete={attribute.autocomplete}
+                  autoFocus={step === "details" && i === 0}
+                  aria-invalid={wrongField === attribute.name || undefined}
+                  end={
+                    optional || arrow ? (
+                      <>
+                        {optional && <Optional label={msgStr("kdsOptional")} />}
+                        {arrow && <Go type="button" label={msgStr("kdsNext")} onClick={next} />}
+                      </>
+                    ) : undefined
+                  }
+                />
+              );
+            })}
             {extra}
-            {last === "details" && finishButton}
+            {last === "details" && finishing}
           </div>
         )}
         {password && (
@@ -397,6 +513,10 @@ function Joining({
               aria-invalid={wrongField === "password" || undefined}
               value={secret}
               onChange={(event) => setSecret(event.target.value)}
+              fits={meetsPolicy(i18n, password.policies, secret, {
+                username: handle,
+                email: values.email,
+              })}
               show={msgStr("kdsShowPassword")}
               hide={msgStr("kdsHidePassword")}
               capsLock={msgStr("kdsCapsLock")}
@@ -411,48 +531,7 @@ function Joining({
               username={handle}
               email={values.email}
             />
-            {terms && (
-              <>
-                <SwitchRow
-                  id="termsAccepted"
-                  name="termsAccepted"
-                  label={
-                    <>
-                      {msgStr("kdsAcceptTerms")}
-                      {termsText.trim() && (
-                        <button
-                          type="button"
-                          aria-expanded={reads}
-                          aria-controls="kc-registration-terms-text"
-                          onClick={(event) => {
-                            event.preventDefault();
-                            setReads((now) => !now);
-                          }}
-                          className={cn(quietLink, "ml-2")}
-                        >
-                          {msgStr("kdsReadTerms")}
-                        </button>
-                      )}
-                    </>
-                  }
-                  checked={accepted}
-                  onChange={(event) => setAccepted(event.target.checked)}
-                  aria-invalid={termsRefused || undefined}
-                />
-                {reads && (
-                  <div
-                    id="kc-registration-terms-text"
-                    className={cn(
-                      rule,
-                      "prose-terms resolve max-h-[36vh] overflow-y-auto px-[18px] py-4 text-[14px]",
-                    )}
-                    dangerouslySetInnerHTML={{ __html: kcSanitize(termsText) }}
-                  />
-                )}
-              </>
-            )}
-            <PersonCheckRow check={check} label={msgStr("kdsNotRobot")} />
-            {finishButton}
+            {finishing}
           </div>
         )}
       </form>

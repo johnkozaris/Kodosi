@@ -1,18 +1,24 @@
-import { ArrowRight, LogOut, RotateCcw, Trash2 } from "lucide-react";
+import {
+  ArrowRight,
+  DoorClosed,
+  LogOut,
+  MessageSquareText,
+  RotateCcw,
+  SquareTerminal,
+  Trash2,
+  UserRoundX,
+} from "lucide-react";
 import { useEffect } from "react";
 
-import { ActionRow } from "../../parts/rows";
+import { buttonClass } from "../../parts/button";
+import { cn } from "../../parts/cn";
+import { ActionRow, rule } from "../../parts/rows";
 import { plain, QuietLink, quietLink } from "../../parts/text";
 import { IconTile } from "../../parts/tile";
 import { dropCode } from "../device";
-import type { I18n } from "../i18n";
+import { isMessage as says } from "../i18n";
 import { Stage } from "../stage";
 import type { Page } from "./props";
-
-/** Keycloak gives a sentence as its key, or as the words of that key. */
-function says(i18n: I18n, text: string | undefined, key: Parameters<I18n["msgStr"]>[0]): boolean {
-  return !!text && (text === key || plain(text) === i18n.msgStr(key));
-}
 
 /**
  * The end of the sign-in of the Kodosi app, and the end of the journey in the browser. The mark
@@ -41,6 +47,26 @@ function Connected({ kcContext, i18n }: Page<"info.ftl">) {
   );
 }
 
+/**
+ * The end of an account. Keycloak deleted it and ended the session, so no link of the page goes
+ * anywhere now: the page says it calmly, and the cursor of the mark is an outline.
+ */
+function Deleted({ kcContext, i18n }: Page<"info.ftl">) {
+  const { msgStr } = i18n;
+  useEffect(dropCode, []);
+  return (
+    <Stage
+      kcContext={kcContext}
+      i18n={i18n}
+      title={msgStr("kdsDeletedTitle")}
+      lead={msgStr("kdsDeletedLead")}
+      rest
+      ended
+      quiet
+    />
+  );
+}
+
 /** Keycloak tells the person something, and the capsule holds the way on. */
 export function Info({ kcContext, i18n }: Page<"info.ftl">) {
   const { messageHeader, message, requiredActions, skipLink, pageRedirectUri, actionUri, client } =
@@ -48,6 +74,8 @@ export function Info({ kcContext, i18n }: Page<"info.ftl">) {
   const { msgStr, advancedMsgStr } = i18n;
   if (says(i18n, messageHeader, "oauth2DeviceVerificationCompleteHeader"))
     return <Connected kcContext={kcContext} i18n={i18n} />;
+  if (says(i18n, message.summary, "userDeletedSuccessfully"))
+    return <Deleted kcContext={kcContext} i18n={i18n} />;
 
   const failed = says(i18n, messageHeader, "oauth2DeviceVerificationFailedHeader");
   const program = client.name ? advancedMsgStr(client.name) : "Kodosi";
@@ -205,11 +233,22 @@ export function RemoveWay({ kcContext, i18n }: Page<"delete-credential.ftl">) {
   );
 }
 
-/** The person deletes their account. One sentence says what goes, and one row does it. */
+/**
+ * The person deletes their account. Four short lines say what goes and what stays, one line says
+ * that it is for good, and one red button does it. The way back is the quiet one under the
+ * capsule. No button has the focus from the start: a key that the person pressed for a
+ * different reason must not delete an account.
+ */
 export function DeleteAccount({ kcContext, i18n }: Page<"delete-account-confirm.ftl">) {
   const { url, triggered_from_aia } = kcContext;
   const { msgStr } = i18n;
   const form = "kc-delete-account";
+  const lines = [
+    { icon: UserRoundX, text: msgStr("kdsDeleteGoes") },
+    { icon: DoorClosed, text: msgStr("kdsDeleteRooms") },
+    { icon: MessageSquareText, text: msgStr("kdsDeleteWords") },
+    { icon: SquareTerminal, text: msgStr("kdsDeleteTerminals") },
+  ];
   return (
     <Stage
       kcContext={kcContext}
@@ -219,13 +258,36 @@ export function DeleteAccount({ kcContext, i18n }: Page<"delete-account-confirm.
       below={
         triggered_from_aia && (
           <button type="submit" form={form} name="cancel-aia" value="true" className={quietLink}>
-            {msgStr("kdsCancel")}
+            {msgStr("kdsKeepAccount")}
           </button>
         )
       }
     >
-      <form id={form} action={url.loginAction} method="post">
-        <ActionRow tile={<IconTile tint="red" icon={<Trash2 />} />} title={msgStr("kdsDelete")} />
+      <ul className="flex flex-col gap-3 px-[18px] pt-5 pb-4">
+        {lines.map(({ icon: Icon, text }, i) => (
+          <li
+            key={text}
+            className="rise flex items-start gap-3 text-[14.5px] leading-[21px] text-ink"
+            style={{ animationDelay: `${80 + i * 60}ms` }}
+          >
+            <Icon
+              className="mt-0.5 size-[17px] shrink-0 text-ink-muted"
+              strokeWidth={2}
+              aria-hidden
+            />
+            <span>{text}</span>
+          </li>
+        ))}
+      </ul>
+      <form id={form} action={url.loginAction} method="post" className={cn(rule, "p-3")}>
+        <button
+          type="submit"
+          id="kc-delete"
+          className={buttonClass({ variant: "danger", size: "lg", className: "w-full" })}
+        >
+          <Trash2 aria-hidden />
+          {msgStr("kdsDelete")}
+        </button>
       </form>
     </Stage>
   );

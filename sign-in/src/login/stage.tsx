@@ -11,9 +11,10 @@ import {
 } from "react";
 
 import { carried, dropDrawn, handOver } from "../frame/carry";
-import { play, springSoft } from "../frame/motion";
+import { play, springSoft, still } from "../frame/motion";
 import { Shell } from "../frame/shell";
 import { useCursor } from "../frame/use-cursor";
+import { isInjection } from "../parts/captcha";
 import { cn } from "../parts/cn";
 import { Languages } from "../parts/languages";
 import { IdentityRow, Note, quietLink } from "../parts/text";
@@ -53,6 +54,7 @@ export function Stage({
   sign,
   rest,
   banner,
+  ended,
   wrong,
   problem,
   attempt = 0,
@@ -75,6 +77,9 @@ export function Stage({
   rest?: boolean;
   /** The page is the end of a sign-in: the mark is whole, as on the banner. */
   banner?: boolean;
+  /** The account is gone: the cursor of the mark is an outline, as the cursor of a terminal that
+      has nobody at it. */
+  ended?: boolean;
   /** Keycloak refused what the person gave: the capsule shakes its head. */
   wrong?: boolean;
   /** The words for what was wrong, when the page has them for its own fields. */
@@ -113,13 +118,35 @@ export function Stage({
   const refused = refusal !== undefined && answered !== refusal;
   const before = carried()?.title;
   const continues = carried() !== null;
+  // The line of the title rolls when a step changes it on the same page, as between two pages.
+  const [roll, setRoll] = useState<{ out: string | undefined; turn: number }>(() => ({
+    out: before && before !== name ? before : undefined,
+    turn: 0,
+  }));
+  const shownName = useRef(name);
+  useLayoutEffect(() => {
+    if (shownName.current === name) return;
+    const out = shownName.current;
+    shownName.current = name;
+    setRoll((now) => ({ out, turn: now.turn + 1 }));
+  }, [name]);
 
   useEffect(() => {
     document.title = `${name} · Kodosi`;
   }, [name]);
 
-  // A page with no capsule takes away what index.html drew of the page before.
-  useLayoutEffect(dropDrawn, []);
+  // A page with no capsule takes away what index.html drew of the page before. The end of a
+  // sign-in takes it into the mark.
+  // oxlint-disable-next-line react-hooks/exhaustive-deps -- what index.html drew is there one time
+  useLayoutEffect(() => (banner ? undefined : dropDrawn()), []);
+
+  useLayoutEffect(() => {
+    if (!ended) return;
+    document.documentElement.dataset.ended = "";
+    return () => {
+      delete document.documentElement.dataset.ended;
+    };
+  }, [ended]);
 
   useLayoutEffect(() => {
     const leave = () => handOver(shell.current, cursor.current?.box() ?? null, name);
@@ -142,13 +169,44 @@ export function Stage({
     return () => clearTimeout(timer);
   }, [busy]);
 
-  // The end of a sign-in: the mark of the head grows into the whole mark of the banner.
+  // The end of a sign-in, as the end of the launch film: what the page before held goes into the
+  // cursor, and the mark of the head grows into the whole mark of the banner.
   useLayoutEffect(() => {
     const logo = document.getElementById("logo");
     if (!logo || !banner) return;
     const parts = [...logo.children];
     const from = parts.map((part) => part.getBoundingClientRect());
     logo.dataset.banner = "";
+    const drawn = document.getElementById("carry");
+    const home = document.getElementById("cursor-home")?.getBoundingClientRect();
+    let into: Animation | undefined;
+    if (drawn && home && continues && !still()) {
+      const box = drawn.getBoundingClientRect();
+      drawn.style.transformOrigin = "0 0";
+      into = play(
+        drawn,
+        [
+          { transform: "none", opacity: 1 },
+          {
+            transform: `translate(${home.left - box.left}px, ${home.top - box.top}px) scale(${home.width / box.width}, ${home.height / box.height})`,
+            backgroundColor: "var(--accent)",
+            opacity: 1,
+            offset: 0.85,
+          },
+          {
+            transform: `translate(${home.left - box.left}px, ${home.top - box.top}px) scale(${home.width / box.width}, ${home.height / box.height})`,
+            backgroundColor: "var(--accent)",
+            opacity: 0,
+          },
+        ],
+        springSoft,
+        { fill: "forwards" },
+      );
+      into.finished.then(
+        () => drawn.remove(),
+        () => drawn.remove(),
+      );
+    } else dropDrawn();
     const moves = continues
       ? parts.map((part, i) => {
           const to = part.getBoundingClientRect();
@@ -168,6 +226,7 @@ export function Stage({
       : [];
     return () => {
       for (const move of moves) move.cancel();
+      into?.cancel();
       delete logo.dataset.banner;
     };
   }, [banner, continues]);
@@ -176,7 +235,10 @@ export function Stage({
     componentOrHookName: "Stage",
     scriptTags: [
       // The scripts that a step of Keycloak asks for: the check that a person sends the form.
-      ...(kcContext.scripts ?? []).map((src) => ({ type: "text/javascript" as const, src })),
+      // A check that puts its own widget on the page is drawn by the page itself (parts/captcha).
+      ...(kcContext.scripts ?? [])
+        .filter((src) => !isInjection(src))
+        .map((src) => ({ type: "text/javascript" as const, src })),
       // Keycloak's own watch: a sign-in in a different tab carries this tab on.
       {
         type: "module",
@@ -215,21 +277,25 @@ export function Stage({
         <div aria-hidden className={banner ? "h-[150px]" : "h-[calc(var(--logo-size)*1.5)]"} />
         <div className={cn("w-full text-center", banner ? "mt-9" : "mt-8")}>
           <h1 className="roll font-mono text-title font-medium text-ink">
-            {before && before !== name && (
-              <span aria-hidden className="roll-out">
-                {before}
+            {roll.out && (
+              <span key={`out-${roll.turn}`} aria-hidden className="roll-out">
+                {roll.out}
               </span>
             )}
-            <span className={before === name ? undefined : "roll-in"}>
+            <span
+              key={`in-${roll.turn}`}
+              className={roll.turn > 0 || (before && before !== name) ? "roll-in" : undefined}
+            >
               {sign && <Sign form={sign} />}
               {title}
             </span>
           </h1>
           {lead && (
             <div
+              key={`lead-${roll.turn}`}
               className={cn(
                 "mx-auto mt-2.5 max-w-[40ch] text-callout text-ink-muted",
-                continues && "resolve",
+                (continues || roll.turn > 0) && "resolve",
               )}
             >
               {lead}
