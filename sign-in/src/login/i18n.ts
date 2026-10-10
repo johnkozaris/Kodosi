@@ -191,9 +191,15 @@ const { getI18n, ofTypeI18n } = i18nBuilder
 
       kdsLinkTitle: "Add {0} to your account?",
       kdsLinkLead: "An account has this email already.",
+      kdsLinkLeadOf: "An account has the email {0} already.",
+      kdsLinkAddTo: "Add {0} to @{1}",
+      kdsLinkOtherName: "Pick a different username",
+      kdsHandleTaken: "is taken",
+      kdsHandleTakenTab: "That username is taken",
+      kdsHandleTakenLead: "If it is your account, add {0} to it.",
       kdsLinkAdd: "Add to my account",
       kdsLinkReview: "Check my details",
-      kdsLinkEmailLead: "We sent a link to {0}. Open it to join the two accounts.",
+      kdsLinkEmailLead: "We sent a link to the email of your account. Open it to add {0}.",
       kdsLinkVerified: "I opened the link",
 
       // Keycloak's own messages, in the words of Kodosi. A wrong name and a wrong password get
@@ -208,6 +214,9 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       emailSentMessage: "If the account exists, a link is on its way to you.",
       notMatchPasswordMessage: "The two passwords are not the same.",
       usernameExistsMessage: "That username is taken. Pick a different one.",
+      // The first sign-in with a service found an account with the same username or email. The
+      // page reads the detail and its value from this sentence (pages/choices.tsx).
+      federatedIdentityConfirmLinkMessage: "An account with the {0} {1} exists already.",
       "error-user-attribute-required": "Fill in each marked row.",
       termsAcceptanceRequired: "Accept the terms to go on.",
       successLogout: "You are signed out",
