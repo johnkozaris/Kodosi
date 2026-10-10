@@ -96,12 +96,31 @@ struct DeviceSettingsView: View {
                         .padding(.horizontal, 16).padding(.vertical, 12).raised(Radius.lg)
                     }
                 }
-                Button("Delete my account…") { deletingAccount = true }
-                    .buttonStyle(.kodosi(.ghost, size: .small)).foregroundStyle(theme.colors.danger)
-                    .accessibilityIdentifier("settings.account.delete")
+                if let deletion = deps.accountDeletion {
+                    HStack(spacing: 10) {
+                        BreathingDot(color: theme.colors.danger)
+                        Text("Confirm the deletion in your browser.").appTextStyle(.body).foregroundStyle(theme.colors.ink)
+                        Spacer()
+                        if let page = deletion.page {
+                            Button("Open Page") { deps.openExternalURL(page) }
+                                .buttonStyle(.kodosi(.secondary, size: .small))
+                                .accessibilityIdentifier("settings.account.deletionPage")
+                        }
+                        Button("Cancel") { deps.cancelAccountDeletion() }
+                            .buttonStyle(.kodosi(.ghost, size: .small))
+                            .accessibilityIdentifier("settings.account.deletionCancel")
+                    }
+                    .padding(.horizontal, 16).frame(height: 46).raised(Radius.lg)
+                    .transition(AnyTransition.rise)
+                } else {
+                    Button("Delete my account…") { deletingAccount = true }
+                        .buttonStyle(.kodosi(.ghost, size: .small)).foregroundStyle(theme.colors.danger)
+                        .accessibilityIdentifier("settings.account.delete")
+                }
             }
         }
         .animation(theme.motion.spring, value: deps.devices)
+        .animation(theme.motion.spring, value: deps.accountDeletion)
         .animation(theme.motion.spring, value: deps.deviceRequests)
         .confirmationDialog("Remove \(revoke?.label ?? "")?", isPresented: Binding(get: { revoke != nil }, set: {
             if !$0 {
@@ -126,18 +145,25 @@ struct DeviceSettingsView: View {
             Button("Sign out", role: .destructive) { deps.perform("auth.logout") }
         } message: { Text("Sharing ends. Terminals on this Mac keep running.") }
         .confirmationDialog("Delete your Kodosi account?", isPresented: $deletingAccount, titleVisibility: .visible) {
-            Button("Delete account", role: .destructive) { deps.perform("auth.deleteAccount") }
+            Button("Delete Account", role: .destructive) { deps.perform("auth.deleteAccount") }
         } message: {
-            Text(
-                "Your account, devices, friends, rooms and sharing go away. Terminals on this Mac keep running. "
-                    + "If Kodosi refuses, sign out, sign in again, then delete."
-            )
+            Text(deletionSummary)
         }
         .onAppear {
             if deps.userId != nil {
                 deps.perform("devices.refresh")
             }
         }
+    }
+
+    private var deletionSummary: String {
+        let owned = deps.missions.filter { $0.ownerUserId == deps.userId }.map(\.name)
+        var parts = [String(localized: "Your devices, friends and sharing go away. What you wrote in other rooms stays there.")]
+        if !owned.isEmpty {
+            parts.append(String(localized: "These rooms close for everyone in them: \(owned.formatted(.list(type: .and)))."))
+        }
+        parts.append(String(localized: "Terminals on this Mac keep running. This cannot be undone."))
+        return parts.joined(separator: "\n\n")
     }
 
     private var hasRecoveryKey: Bool {

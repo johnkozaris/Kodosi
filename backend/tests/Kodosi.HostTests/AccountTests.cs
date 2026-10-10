@@ -32,11 +32,11 @@ public sealed class AccountTests(PostgresFixture postgres)
         foreach (var handle in new[] { "alice", $"alice-{suffix}" })
             store.Db.Users.Add(new User { Id = Guid.CreateVersion7(), Issuer = Issuer, Subject = handle, Handle = handle, DisplayName = handle });
         await store.Db.SaveChangesAsync(TestContext.Current.CancellationToken);
-        var account = await new CurrentUser(store.Db).GetAsync(Context(subject, "Alice"), TestContext.Current.CancellationToken);
+        var account = await new CurrentUser(store.Db, TimeProvider.System).GetAsync(Context(subject, "Alice"), TestContext.Current.CancellationToken);
         Assert.StartsWith("alice-", account.Handle);
         Assert.NotEqual($"alice-{suffix}", account.Handle);
         Assert.InRange(account.Handle.Length, 3, 64);
-        var again = await new CurrentUser(store.Db).GetAsync(Context(subject, "Changed name"), TestContext.Current.CancellationToken);
+        var again = await new CurrentUser(store.Db, TimeProvider.System).GetAsync(Context(subject, "Changed name"), TestContext.Current.CancellationToken);
         Assert.Equal(account.Id, again.Id);
         Assert.Equal(account.Handle, again.Handle);
         Assert.Equal(3, await store.Db.Users.CountAsync(TestContext.Current.CancellationToken));
@@ -51,7 +51,7 @@ public sealed class AccountTests(PostgresFixture postgres)
         var tasks = Enumerable.Range(0, 4).Select(async _ =>
         {
             await using var db = PostgresFixture.Context(connection);
-            return (await new CurrentUser(db).GetAsync(Context("same-subject", "same-name"), TestContext.Current.CancellationToken)).Id;
+            return (await new CurrentUser(db, TimeProvider.System).GetAsync(Context("same-subject", "same-name"), TestContext.Current.CancellationToken)).Id;
         });
         var ids = await Task.WhenAll(tasks);
         Assert.Single(ids.Distinct());
@@ -64,14 +64,14 @@ public sealed class AccountTests(PostgresFixture postgres)
     {
         await using var store = await TestStore.CreateAsync(postgres);
         var context = Context("profile", "profile");
-        var account = await new CurrentUser(store.Db).GetAsync(context, TestContext.Current.CancellationToken);
+        var account = await new CurrentUser(store.Db, TimeProvider.System).GetAsync(context, TestContext.Current.CancellationToken);
         Assert.Null(account.Email);
         Assert.Null(account.AvatarUrl);
         account.Email = "saved@example.invalid";
         account.AvatarUrl = "https://saved.invalid/avatar.png";
         await store.Db.SaveChangesAsync(TestContext.Current.CancellationToken);
         store.Db.ChangeTracker.Clear();
-        var retained = await new CurrentUser(store.Db).GetAsync(context, TestContext.Current.CancellationToken);
+        var retained = await new CurrentUser(store.Db, TimeProvider.System).GetAsync(context, TestContext.Current.CancellationToken);
         Assert.Equal("saved@example.invalid", retained.Email);
         Assert.Equal("https://saved.invalid/avatar.png", retained.AvatarUrl);
     }
@@ -82,7 +82,8 @@ public sealed class AccountTests(PostgresFixture postgres)
         await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));
         using var actor = await app.EnrollAsync("profile-response");
         var response = await actor.Client.GetFromJsonAsync<JsonElement>("/api/me", TestContext.Current.CancellationToken);
-        Assert.Equal(3, response.EnumerateObject().Count());
+        Assert.Equal(4, response.EnumerateObject().Count());
+        Assert.Equal(JsonValueKind.Null, response.GetProperty("deletionUri").ValueKind);
         Assert.True(response.TryGetProperty("id", out _));
         Assert.True(response.TryGetProperty("handle", out _));
         Assert.True(response.TryGetProperty("displayName", out _));

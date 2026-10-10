@@ -24,7 +24,7 @@ extension AppDependencies {
             missionListTruncated = false
             missionDetail = nil
             rooms.removeAll(); roomIssues.removeAll(); roomViews.removeAll(); roomCreations.removeAll()
-            selfDeviceId = nil; localDeviceEnrolled = false; identityMessage = nil
+            selfDeviceId = nil; localDeviceEnrolled = false; identityMessage = nil; accountDeletion = nil
             displayName = nil; attention.removeAll(); freshTerminals.removeAll()
             activationTasks.values.forEach { $0.cancel() }; activationTasks.removeAll()
             pendingCreations.removeAll()
@@ -69,6 +69,11 @@ extension AppDependencies {
     private func receiveError(_ event: RuntimeEvent) {
         guard !event.type.hasPrefix("provider."), !event.type.hasPrefix("room.") else { return }
         let message = event.string("message") ?? String(localized: "That did not work.")
+        if event.string("operation") == "auth.deleteAccount" {
+            accountDeletion = nil
+            errorMessage = message
+            return
+        }
         if event.type.hasPrefix("auth.") {
             signInStage = .failed(message: message, completed: signInStage.completedSteps)
             if signInPresented {
@@ -157,13 +162,22 @@ extension AppDependencies {
         switch event.type {
         case "auth.ready": try receiveReady(event)
         case "auth.required":
+            accountDeletion = nil
             if case .failed = signInStage {} else {
                 signInStage = .idle
             }
-            if event.string("reason") == "expired" {
-                errorMessage = String(localized: "Your sign-in has ended. Sign in again.")
+            switch event.string("reason") {
+            case "expired": errorMessage = String(localized: "Your sign-in has ended. Sign in again.")
+            case "accountDeleted": errorMessage = String(localized: "Your Kodosi account is deleted.")
+            default: break
             }
             commandSink.perform("session.list")
+        case "auth.deletion_pending":
+            let page = event.string("confirmationUri").flatMap(ExternalAuthURL.parse)
+            accountDeletion = AccountDeletion(page: page)
+            if let page {
+                openExternalURL(page)
+            }
         case "auth.device_code":
             let code = event.string("userCode") ?? ""
             let url = event.string("verificationUri").flatMap(ExternalAuthURL.parse)

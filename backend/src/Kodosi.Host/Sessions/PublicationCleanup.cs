@@ -27,7 +27,9 @@ public sealed class PublicationCleanup(IServiceScopeFactory scopes, TimeProvider
     {
         await using var scope = scopes.CreateAsyncScope();
         var now = clock.GetUtcNow();
-        await scope.ServiceProvider.GetRequiredService<KodosiDbContext>().Sessions
-            .Where(s => s.Ended && s.ExpiresAt <= now).ExecuteDeleteAsync(ct);
+        var db = scope.ServiceProvider.GetRequiredService<KodosiDbContext>();
+        await db.Sessions.Where(s => s.Ended && s.ExpiresAt <= now).ExecuteDeleteAsync(ct);
+        var forgotten = now - Accounts.AccountService.DeletionMemory;
+        await db.DeletedAccounts.Where(x => x.DeletedAt < forgotten).ExecuteDeleteAsync(ct);
     }
 }

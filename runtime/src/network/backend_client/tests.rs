@@ -369,3 +369,202 @@ fn a_typed_code_selects_only_the_request_with_the_keys_of_the_device_that_showed
         );
     }
 }
+
+fn scripted_backend(
+    listener: tokio::net::TcpListener,
+    replies: Vec<(u16, Value)>,
+) -> tokio::task::JoinHandle<Vec<String>> {
+    use tokio::io::{AsyncBufReadExt as _, AsyncReadExt as _, AsyncWriteExt as _};
+    tokio::spawn(async move {
+        let mut requests = Vec::new();
+        for (status, body) in replies {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut reader = tokio::io::BufReader::new(stream);
+            let mut head = String::new();
+            loop {
+                let mut line = String::new();
+                reader.read_line(&mut line).await.unwrap();
+                head.push_str(&line);
+                if line == "\r\n" {
+                    break;
+                }
+            }
+            let length = head
+                .lines()
+                .find_map(|line| {
+                    line.to_ascii_lowercase()
+                        .strip_prefix("content-length: ")
+                        .and_then(|value| value.parse::<usize>().ok())
+                })
+                .unwrap_or(0);
+            reader.read_exact(&mut vec![0; length]).await.unwrap();
+            requests.push(head.lines().next().unwrap_or_default().to_owned());
+            let body = if body.is_null() {
+                String::new()
+            } else {
+                body.to_string()
+            };
+            let response = format!(
+                "HTTP/1.1 {status} Reply\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            reader
+                .get_mut()
+                .write_all(response.as_bytes())
+                .await
+                .unwrap();
+            reader.get_mut().shutdown().await.unwrap();
+        }
+        requests
+    })
+}
+
+async fn signed_in_at(address: &str) -> (tempfile::TempDir, BackendClient, String) {
+    let root = tempfile::tempdir().unwrap();
+    let network = BackendClient::new(BackendConfig {
+        api_url: format!("{address}/").parse().unwrap(),
+        issuer: address.to_owned(),
+        client_id: "test".into(),
+        scopes: vec![],
+        data_root: root.path().to_owned(),
+        secret_service: "test".into(),
+        isolated: true,
+    })
+    .unwrap();
+    let user = Uuid::now_v7().to_string();
+    let credentials = {
+        let state = network.inner.state.lock().await;
+        Credentials {
+            user_id: user.clone(),
+            token: Zeroizing::new("token".into()),
+            keys: Arc::new(DeviceKeys::load_or_create(&state.secrets, &user).unwrap()),
+            enrolled: true,
+            notice: None,
+            generation: network.generation(),
+            cancel: state.account_cancel.clone(),
+        }
+    };
+    *network.inner.credentials.write().unwrap() = Some(credentials);
+    (root, network, user)
+}
+
+fn compatible_server() -> (u16, Value) {
+    (
+        200,
+        json!({"apiContractVersion": crate::protocol::BACKEND_API_VERSION,
+            "authContractVersion": crate::protocol::AUTH_VERSION}),
+    )
+}
+
+async fn device_key_kept(network: &BackendClient, user: &str) -> bool {
+    let secrets = network.inner.state.lock().await.secrets.clone();
+    secrets.load(&format!("{user}.device")).unwrap().is_some()
+}
+
+#[tokio::test]
+async fn a_deletion_confirmed_in_the_browser_ends_the_account_on_this_computer() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = format!("http://{}", listener.local_addr().unwrap());
+    let page = format!(
+        "{address}/protocol/openid-connect/auth?client_id=account-console&kc_action=delete_account"
+    );
+    let server = scripted_backend(
+        listener,
+        vec![
+            compatible_server(),
+            (200, json!({"id": "account", "deletionUri": page})),
+            (410, json!({"error": "This Kodosi account was deleted."})),
+        ],
+    );
+    let (_root, network, user) = signed_in_at(&address).await;
+    let mut events = network.events();
+    let reply = network
+        .execute("auth.deleteAccount", Value::Null)
+        .await
+        .unwrap();
+    assert_eq!(
+        reply.events,
+        vec![json!({"type":"auth.deletion_pending","confirmationUri":page})]
+    );
+    assert!(device_key_kept(&network, &user).await);
+    let ended = tokio::time::timeout(Duration::from_secs(15), async {
+        loop {
+            let event = events.recv().await.unwrap().event;
+            if event["type"] == "auth.required" {
+                return event;
+            }
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        ended,
+        json!({"type":"auth.required","reason":"accountDeleted"})
+    );
+    assert!(!device_key_kept(&network, &user).await);
+    assert!(network.identity().is_none());
+    assert_eq!(
+        server.await.unwrap(),
+        [
+            "GET /health/ready HTTP/1.1",
+            "GET /api/me HTTP/1.1",
+            "GET /api/me HTTP/1.1"
+        ]
+    );
+}
+
+#[tokio::test]
+async fn without_a_deletion_page_the_server_deletes_the_account_directly() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = format!("http://{}", listener.local_addr().unwrap());
+    let server = scripted_backend(
+        listener,
+        vec![
+            compatible_server(),
+            (200, json!({"id": "account", "deletionUri": null})),
+            (204, Value::Null),
+        ],
+    );
+    let (_root, network, user) = signed_in_at(&address).await;
+    let reply = network
+        .execute("auth.deleteAccount", Value::Null)
+        .await
+        .unwrap();
+    assert_eq!(
+        reply.events,
+        vec![json!({"type":"auth.required","reason":"accountDeleted"})]
+    );
+    assert!(!device_key_kept(&network, &user).await);
+    assert_eq!(
+        server.await.unwrap(),
+        [
+            "GET /health/ready HTTP/1.1",
+            "GET /api/me HTTP/1.1",
+            "DELETE /api/me HTTP/1.1"
+        ]
+    );
+}
+
+#[tokio::test]
+async fn a_deletion_page_outside_the_sign_in_service_is_refused() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = format!("http://{}", listener.local_addr().unwrap());
+    let server = scripted_backend(
+        listener,
+        vec![
+            compatible_server(),
+            (
+                200,
+                json!({"id": "account", "deletionUri": "https://elsewhere.example/protocol/openid-connect/auth?kc_action=delete_account"}),
+            ),
+        ],
+    );
+    let (_root, network, user) = signed_in_at(&address).await;
+    let error = network
+        .execute("auth.deleteAccount", Value::Null)
+        .await
+        .unwrap_err();
+    assert!(matches!(error, Error::Invalid { .. }), "{error}");
+    assert!(device_key_kept(&network, &user).await);
+    assert_eq!(server.await.unwrap().len(), 2);
+}

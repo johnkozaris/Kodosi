@@ -619,6 +619,34 @@ private slots:
             { QStringLiteral("accountUserId"), test::id(50) }, { QStringLiteral("accountEpoch"), 1 } }, 1);
         QCOMPARE(f.workspace.people().invite(), QStringLiteral("kodosi:owner:abcd"));
     }
+    void accountDeletionWaitsForTheBrowserAndEndsSignedOutWithANote()
+    {
+        Fixture f;
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.ready") },
+            { QStringLiteral("userId"), test::id(50) } }, 1);
+        const auto page = QStringLiteral("https://auth.example/realms/kodosi/protocol/openid-connect/auth?kc_action=delete_account");
+        const QJsonObject pending { { QStringLiteral("type"), QStringLiteral("auth.deletion_pending") },
+            { QStringLiteral("confirmationUri"), page } };
+        f.workspace.apply(pending, 1);
+        QVERIFY(f.workspace.account().deleting());
+        QCOMPARE(f.workspace.account().deletionUri(), page);
+        f.workspace.account().cancelDeletion();
+        QVERIFY(!f.workspace.account().deleting());
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(),
+            QStringLiteral("auth.deleteAccount.cancel"));
+        f.workspace.apply(pending, 1);
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.error") },
+            { QStringLiteral("operation"), QStringLiteral("auth.deleteAccount") },
+            { QStringLiteral("message"), QStringLiteral("Kodosi stopped waiting for the confirmation.") } }, 1);
+        QVERIFY(!f.workspace.account().deleting());
+        QVERIFY(f.workspace.account().signedIn());
+        f.workspace.apply(pending, 1);
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.required") },
+            { QStringLiteral("reason"), QStringLiteral("accountDeleted") } }, 2);
+        QVERIFY(!f.workspace.account().deleting());
+        QVERIFY(!f.workspace.account().signedIn());
+        QCOMPARE(f.workspace.error(), QStringLiteral("Your Kodosi account is deleted."));
+    }
     void unapprovedDeviceShowsItsReasonUntilItIsApproved()
     {
         Fixture f;

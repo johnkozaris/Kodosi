@@ -131,6 +131,34 @@
             ]
           },
           "type": {
+            "const": "auth.deleteAccount.cancel"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
             "const": "auth.refresh"
           }
         },
@@ -2422,6 +2450,9 @@
               },
               {
                 "const": "cancelled"
+              },
+              {
+                "const": "accountDeleted"
               }
             ]
           },
@@ -2498,6 +2529,38 @@
           "accountUserId",
           "accountEpoch",
           "type"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "confirmationUri": {
+            "type": "string"
+          },
+          "type": {
+            "const": "auth.deletion_pending"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "confirmationUri"
         ],
         "type": "object"
       },
@@ -5120,7 +5183,7 @@
     ]
   },
   "ffiAbiVersion": 7,
-  "protocolVersion": 54,
+  "protocolVersion": 55,
   "terminal": {
     "checkpointMaxBytes": 8388608,
     "checkpointSchema": 2,

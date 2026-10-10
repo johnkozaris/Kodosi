@@ -153,6 +153,10 @@ impl DeviceKeys {
         Ok(key)
     }
 
+    pub(crate) fn forget(store: &Secrets, user_id: &str) -> Result<()> {
+        store.delete(&format!("{}.device", Self::account(user_id)?))
+    }
+
     pub(crate) fn replace_revoked(
         store: &Secrets,
         user_id: &str,

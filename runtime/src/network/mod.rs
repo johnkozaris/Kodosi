@@ -26,6 +26,8 @@ pub enum Error {
     Trust(String),
     #[error("Sign in to continue.")]
     SignedOut,
+    #[error("This Kodosi account was deleted.")]
+    AccountDeleted,
     #[error("This device is not approved for your account. Approve it first.")]
     EnrollmentRequired,
     #[error("This request belongs to an earlier account connection.")]
