@@ -1,0 +1,73 @@
+name: Bug report
+description: Something in Kodosi does not work as you expect.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for the report. Remove private terminal content, names, hosts, paths, and credentials from text, logs, and pictures before you send it.
+        Do not report a vulnerability here. Use the [private report](https://github.com/johnkozaris/Kodosi/security/advisories/new).
+  - type: dropdown
+    id: part
+    attributes:
+      label: Part
+      options:
+        - Mac app
+        - Linux app
+        - Command line (kodosi)
+        - Backend or self-hosting
+        - Documentation
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System
+      description: Operating system and version, and the computer type.
+      placeholder: macOS 26.4, Apple silicon
+    validations:
+      required: true
+  - type: input
+    id: revision
+    attributes:
+      label: Source revision
+      description: The output of `git rev-parse --short HEAD` in the checkout that you built.
+      placeholder: abc1234
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: What you did
+      description: The steps, one on each line. Say which computer hosts the terminal if more than one is involved.
+      placeholder: |
+        1. Open a terminal in the folder of a Git repository.
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What occurred
+      description: Add a picture or a recording if the problem is in the interface.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Related lines of `diagnostics.log` from the runtime data root, with private data removed.
+      render: text
+  - type: checkboxes
+    id: private
+    attributes:
+      label: Private data
+      options:
+        - label: I removed private terminal content and credentials from this report.
+          required: true

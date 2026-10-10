@@ -1,28 +1,40 @@
-# Promo media
+# Pictures
 
-These assets come from Kodosi's launch film, `kodosi-launch.mp4`
-(1440 × 1440, 60 fps, 40.367 seconds). They are product illustrations, not screenshots
-of the current app.
+The pictures in the README and the guide are captures of the Kodosi Mac app, built
+from this repository. The interface is real. The data is sample data:
 
-Source SHA-256:
-`961905028e0297e48b61751e238e1aaf3c73c60fb012206c54b1028cc359b9cf`.
+- The people (Maya Chen, Leo Park, Ana Ruiz), their devices, rooms, messages, and
+  tasks are invented. They ran on a local backend with a disposable database.
+- The terminal text comes from scripts that print sample agent output and report their
+  state through the Program Status Protocol (OSC 7501), as a real agent does. No
+  provider account, conversation, or repository was used.
 
-| File | Source and treatment |
+| File | Shows |
 | --- | --- |
-| [banner.webp](banner.webp) | Opening frame at 0 s; crop 1440 × 800 from y=240. |
-| [kodosi-terminals.gif](kodosi-terminals.gif) | 2.4–12.6 s; 12 fps, 760 px wide, 128-color palette; crop 1440 × 1040 from y=160. |
-| [agents.webp](agents.webp) | Frame at 12.6 s; crop 1440 × 920 from y=240, scaled to 1000 px wide. |
-| [machines.webp](machines.webp) | Frame at 17.65 s, scaled to 1000 × 1000. |
+| [banner.webp](banner.webp) | The Kodosi mark and line. Opening frame of the launch film. |
+| [app-dark.webp](app-dark.webp), [app-light.webp](app-light.webp) | The window with four terminals on three computers, in both appearances. Terminals stay dark. |
+| [overview.webp](overview.webp) | All terminals, grouped by computer. |
+| [status.gif](status.gif), [status.webp](status.webp) | One terminal that works, waits, works, and is done. The still is for readers who ask for reduced motion. |
+| [start.webp](start.webp), [start-settings.webp](start-settings.webp) | Start marks in a terminal header, and their commands in Settings. |
+| [branch.webp](branch.webp) | The New branch panel. |
+| [room.webp](room.webp), [tasks.webp](tasks.webp) | A room with its conversation, and its tasks. |
+| [share.webp](share.webp) | The share panel of a terminal. |
+| [people.webp](people.webp) | Friends in People. |
 
-The GIF contains no audio. Its terminal and agent scenes precede the film's Room
-sequence. Room visuals are held until the interface update. The full film and audio
-are not distributed in this repository.
+Window captures are 2640 × 1680 pixels, scaled to 2000 pixels wide. Detail pictures
+are crops of the same captures. The animation has eight frames, 1264 pixels wide,
+with a 200-color palette.
 
-The README uses a static image when the reader requests reduced motion.
+## Replace a picture
+
+Use isolated sample data: a disposable database and a disposable `KODOSI_DATA_ROOT`,
+as [isolated validation](../DEVELOPMENT.md#isolated-validation) describes. Do not
+capture your own terminals, names, hosts, or paths. Keep the file name so the README
+and the guide keep their links.
 
 ## Credits
 
-Kodosi's logo, palette, and film composition are project assets. Lettering uses
+Kodosi's logo, palette, and interface are project assets. Terminal text uses
 JetBrains Mono, by the JetBrains Mono Project Authors, under the
 [SIL Open Font License](../../terminal/ghostty/ThirdPartyNotices/licenses/jetbrains-mono-OFL-1.1.txt).
 

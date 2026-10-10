@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a vulnerability
+    url: https://github.com/johnkozaris/Kodosi/security/advisories/new
+    about: Report security problems in private, not in a public issue.
+  - name: Guide and documentation
+    url: https://github.com/johnkozaris/Kodosi/blob/main/docs/README.md
+    about: How to build Kodosi, use rooms, bring agents, and run your own backend.

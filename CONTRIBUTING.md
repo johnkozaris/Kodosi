@@ -7,9 +7,9 @@ conversation, and tasks. Read [PRODUCT.md](PRODUCT.md) for product intent and
 ## Start with the problem
 
 Use [GitHub issues](https://github.com/johnkozaris/Kodosi/issues) for bugs and feature
-proposals. For a bug, include the platform, source revision, what you did, what you
-expected, and what happened. Redact private terminal content and credentials from
-logs and screenshots.
+proposals; the issue forms ask for what a reviewer needs. For a bug, include the
+platform, source revision, what you did, what you expected, and what happened. Redact
+private terminal content and credentials from logs and screenshots.
 
 For a larger change, describe the user problem and proposed behavior in an issue
 before adding a new subsystem. Small fixes can go straight to a pull request.
@@ -53,4 +53,4 @@ runtime when possible. Public API addresses, the OAuth public-client ID, and the
 Apple signing team identifier are intentional public configuration.
 
 By contributing, you agree that your contribution is available under Kodosi's
-[MIT license](LICENSE).
+[MIT license](LICENSE), and you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
