@@ -23,6 +23,9 @@ use crate::{
 pub(crate) type Secret = Zeroizing<[u8; 32]>;
 pub(crate) const STATE_DOMAIN: &[u8] = b"kodosi-room-state-v1";
 pub(crate) const CONTENT_DOMAIN: &[u8] = b"kodosi-room-content-v1";
+pub(crate) const RECIPIENT_DOMAIN: &[u8] = b"kodosi-room-recipient-v1";
+const CONTENT_AEAD_DOMAIN: &[u8] = b"kodosi-room-content-aead-v1";
+const HISTORY_DOMAIN: &[u8] = b"kodosi-room-history-v1";
 const KEM_CIPHERTEXT_BYTES: usize = 1088;
 const WRAP_DOMAIN: &[u8] = b"kodosi-room-key-wrap-v2";
 const WRAP_SALT: &[u8] = b"kodosi-room-kem-v2";
@@ -92,7 +95,7 @@ pub(crate) struct Content {
 impl Content {
     fn context(&self) -> Result<Vec<u8>> {
         crypto::signed_fields(
-            b"kodosi-room-content-aead-v1",
+            CONTENT_AEAD_DOMAIN,
             &[
                 self.room_id.to_string().as_bytes(),
                 self.id.to_string().as_bytes(),
@@ -397,7 +400,7 @@ fn unwrap_for(state: &State, user: &str, device: &str, room: &RoomKeyPair) -> Re
 
 fn history_context(room: Uuid, epoch: u64) -> Result<Vec<u8>> {
     crypto::signed_fields(
-        b"kodosi-room-history-v1",
+        HISTORY_DOMAIN,
         &[room.to_string().as_bytes(), &epoch.to_be_bytes()],
     )
 }

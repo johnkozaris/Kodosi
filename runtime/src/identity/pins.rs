@@ -38,7 +38,6 @@ pub struct IdentityBundle {
     pub identity_incarnation_id: Uuid,
     pub device_list: DeviceListEnvelope,
     pub devices: Vec<CertificateEnvelope>,
-    #[serde(default)]
     pub certificate_chain: Vec<CertificateEnvelope>,
 }
 
@@ -89,8 +88,7 @@ struct Pin {
     list_signature: String,
     certificates: BTreeMap<String, CertificateEnvelope>,
     revoked: BTreeSet<String>,
-    #[serde(default)]
-    root: Option<Root>,
+    root: Root,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -134,7 +132,7 @@ impl Pins {
     }
 
     pub(crate) fn root(&self, user_id: &str) -> Option<Root> {
-        self.pins.get(user_id)?.root
+        self.pins.get(user_id).map(|pin| pin.root)
     }
 
     pub(crate) fn incarnation(&self, user_id: &str) -> Option<Uuid> {
@@ -234,10 +232,7 @@ impl Pins {
         let root = bundle.root()?;
         let existing = self.pins.get(&bundle.user_id).filter(|pin| match anchor {
             Anchor::Pinned => true,
-            Anchor::Root(approved) => pin.root.map_or(
-                pin.identity_incarnation_id == bundle.identity_incarnation_id,
-                |pinned| pinned == *approved,
-            ),
+            Anchor::Root(approved) => pin.root == *approved,
         });
         match anchor {
             Anchor::Pinned if existing.is_none() => {
@@ -254,7 +249,7 @@ impl Pins {
         }
         if let Some(pin) = existing {
             if pin.identity_incarnation_id != bundle.identity_incarnation_id
-                || pin.root.is_some_and(|pinned| pinned != root)
+                || pin.root != root
                 || bundle.identity_revision < pin.identity_revision
                 || list.generation < pin.generation
             {
@@ -437,7 +432,7 @@ impl Pins {
             list_signature: bundle.device_list.signature.clone(),
             certificates: incoming,
             revoked,
-            root: Some(root),
+            root,
         };
         if self.pins.get(&bundle.user_id) != Some(&pin) {
             let mut next = self.pins.clone();

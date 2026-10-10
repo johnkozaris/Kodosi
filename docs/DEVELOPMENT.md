@@ -88,6 +88,14 @@ selects the upstream revisions and artifact digests under `terminal/ghostty/`.
 Follow [Ghostty provenance](../terminal/ghostty/PROVENANCE.md) for native updates;
 commit measured build evidence, notices, pins, and affected consumers together.
 
+## Data formats
+
+Kodosi has no release yet, so it keeps no code for earlier protocol versions or saved
+formats. After a format change, rooms and records in an existing development database
+may not open: use a new database volume and data root. One exception keeps a computer
+on its account: a device identity saved before the X25519 room key gets a new room key
+pair at its next start.
+
 ## Isolated validation
 
 Validate a workflow by running the app or calling the real boundary and inspecting

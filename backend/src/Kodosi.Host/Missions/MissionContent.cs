@@ -53,7 +53,7 @@ public sealed partial class MissionService
     internal static byte[] RoomKeyProof(Guid user, string device, byte[] key)
     {
         using var stream = new MemoryStream();
-        stream.Write("kodosi-room-recipient-v1"u8);
+        stream.Write(DomainTags.RoomRecipientV1);
         CanonicalLengthPrefixedUtf8.Write(stream, user.ToString("D"));
         CanonicalLengthPrefixedUtf8.Write(stream, device);
         Span<byte> length = stackalloc byte[4];
@@ -98,7 +98,7 @@ public sealed partial class MissionService
         var device = await devices.RequireDeviceAsync(userId, request.DeviceId, ct);
         var body = Limits.Base64(request.Body, "Room keys", MaximumKeyStateBytes);
         var signature = Limits.Base64(request.Signature, "Room signature", 3309);
-        if (!signatures.Verify(device.SigningPublicKey, Proofs.Tagged("kodosi-room-state-v1"u8, body), signature))
+        if (!signatures.Verify(device.SigningPublicKey, Proofs.Tagged(DomainTags.RoomStateV1, body), signature))
             throw ApiException.Forbidden("Invalid room signature.");
         var state = ReadBody<KeyStateBody>(body);
         var version = state.Version;
@@ -166,7 +166,7 @@ public sealed partial class MissionService
         var device = await devices.RequireDeviceAsync(userId, request.DeviceId, ct);
         var body = Limits.Base64(request.Body, "Room content", MaximumItemBytes);
         var signature = Limits.Base64(request.Signature, "Content signature", 3309);
-        if (!signatures.Verify(device.SigningPublicKey, Proofs.Tagged("kodosi-room-content-v1"u8, body), signature))
+        if (!signatures.Verify(device.SigningPublicKey, Proofs.Tagged(DomainTags.RoomContentV1, body), signature))
             throw ApiException.Forbidden("Invalid room content signature.");
         var content = ReadBody<ContentBody>(body);
         var kind = content.Kind;

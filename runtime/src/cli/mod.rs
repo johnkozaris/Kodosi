@@ -1296,24 +1296,6 @@ mod tests {
         );
     }
     #[test]
-    fn obsolete_products_are_not_cli_commands() {
-        for args in [
-            vec!["kodosi", "agent"],
-            vec!["kodosi", "msg"],
-            vec!["kodosi", "repair"],
-            vec!["kodosi", "session", "reopen"],
-            vec!["kodosi", "session", "run"],
-            vec![
-                "kodosi",
-                "session",
-                "stop",
-                "01900000-0000-7000-8000-000000000001",
-            ],
-        ] {
-            assert!(Arguments::try_parse_from(args).is_err());
-        }
-    }
-    #[test]
     fn older_account_events_cannot_restore_old_sessions() {
         let mut context = Context::from_events(&[
             json!({"type":"sessions.snapshot","accountUserId":"old","accountEpoch":1,"sessions":[{"id":"old-session"}]}),

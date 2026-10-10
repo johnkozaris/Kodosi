@@ -132,16 +132,6 @@ impl KodosiPty {
         working_dir: Option<&str>,
         rows: u16,
         cols: u16,
-    ) -> Result<(Self, RawFdAsyncReader)> {
-        Self::spawn_program_with_env(program, arguments, working_dir, rows, cols, &[])
-    }
-
-    pub fn spawn_program_with_env(
-        program: &Path,
-        arguments: &[String],
-        working_dir: Option<&str>,
-        rows: u16,
-        cols: u16,
         environment: &[(&str, &str)],
     ) -> Result<(Self, RawFdAsyncReader)> {
         let working_dir = validate_working_dir(working_dir)?;
@@ -818,7 +808,8 @@ mod tests {
             .unwrap()
             .block_on(async {
                 let (mut pty, mut reader) =
-                    KodosiPty::spawn_program(Path::new("/bin/zsh"), &[], None, 24, 80).unwrap();
+                    KodosiPty::spawn_program(Path::new("/bin/zsh"), &[], None, 24, 80, &[])
+                        .unwrap();
                 pty.write(b"print -r -- \"probe=${options[login]}:$0:$SHELL\"; exit\n")
                     .unwrap();
                 let mut output = Vec::new();
@@ -845,7 +836,7 @@ mod tests {
     fn new_terminal_has_cooked_output_and_its_own_environment() {
         tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(async {
         let (mut pty, mut reader) = KodosiPty::spawn_program(Path::new("/bin/sh"),
-            &["-c".to_owned(), "printf '%s\\n' \"$TERM:$COLORTERM:$TERM_PROGRAM:${CLAUDE_CODE_CHILD_SESSION-unset}:${AI_AGENT-unset}\"; sleep 1".to_owned()], None, 24, 80).unwrap();
+            &["-c".to_owned(), "printf '%s\\n' \"$TERM:$COLORTERM:$TERM_PROGRAM:${CLAUDE_CODE_CHILD_SESSION-unset}:${AI_AGENT-unset}\"; sleep 1".to_owned()], None, 24, 80, &[]).unwrap();
         let attributes =
             termios::tcgetattr(unsafe { BorrowedFd::borrow_raw(pty.master_fd) }).unwrap();
         assert!(
@@ -879,7 +870,7 @@ mod tests {
             let root = tempfile::tempdir().unwrap();
             let (mut pty, mut reader) = KodosiPty::spawn_program(
                 Path::new("/bin/sh"),
-                &["-i".to_owned()], root.path().to_str(), 24, 80,
+                &["-i".to_owned()], root.path().to_str(), 24, 80, &[]
             ).unwrap();
             let command = b"sh -c 'trap \"\" HUP TERM; printf \"%s\\n\" \"$$\" > child; exec sleep 30' &\n";
             assert_eq!(pty.write(command).unwrap(), command.len());

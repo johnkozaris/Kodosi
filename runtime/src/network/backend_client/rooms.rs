@@ -40,7 +40,6 @@ struct Item {
 #[serde(rename_all = "camelCase")]
 struct KeyHistory {
     owner_user_id: String,
-    #[serde(default)]
     members: Vec<String>,
     version: u64,
     states: Vec<SignedState>,
@@ -80,7 +79,7 @@ mod tests;
 
 pub(super) fn room_key_proof(user: &str, device: &str, public: &[u8]) -> Result<Vec<u8>> {
     crypto::signed_fields(
-        b"kodosi-room-recipient-v1",
+        room_crypto::RECIPIENT_DOMAIN,
         &[user.as_bytes(), device.as_bytes(), public],
     )
 }

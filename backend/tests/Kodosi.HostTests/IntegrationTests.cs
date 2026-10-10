@@ -84,7 +84,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task HttpBoundaryRejectsMissingIdentityWrongAudienceReplayAndRetiredRoutes()
+    public async Task HttpBoundaryRejectsMissingIdentityWrongAudienceAndReplay()
     {
         await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));
         using var anonymous = app.CreateClient();
@@ -113,10 +113,6 @@ public sealed class IntegrationTests(PostgresFixture postgres)
             deviceId = owner.Fixture.DeviceId, challengeId, signature = Convert.ToBase64String(other.Fixture.Sign(new byte[40])),
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Forbidden, forged.StatusCode);
-        foreach (var path in new[] { "/api/missions/00000000-0000-0000-0000-000000000000/tasks", "/api/sessions/00000000-0000-0000-0000-000000000000/suggestions", "/api/session-history" })
-        {
-            using var retired = await owner.Client.GetAsync(path, TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.NotFound, retired.StatusCode);
-        }
     }
 
     [Fact]
