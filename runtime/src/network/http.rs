@@ -320,6 +320,9 @@ async fn decode<T: DeserializeOwned>(response: reqwest::Response) -> Result<T> {
         },
     )
     .await?;
+    if status == reqwest::StatusCode::GONE {
+        return Err(Error::AccountDeleted);
+    }
     if !status.is_success() {
         let message = serde_json::from_slice::<Value>(&bytes)
             .ok()

@@ -21,7 +21,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 54;
+pub const VERSION: u32 = 55;
 include!(concat!(env!("OUT_DIR"), "/network_versions.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 
@@ -46,6 +46,8 @@ pub enum Command {
     Logout {},
     #[serde(rename = "auth.deleteAccount")]
     DeleteAccount {},
+    #[serde(rename = "auth.deleteAccount.cancel")]
+    CancelDeleteAccount {},
     #[serde(rename = "auth.refresh")]
     RefreshAuth {},
     #[serde(rename = "devices.refresh")]
@@ -462,6 +464,8 @@ pub enum EventBody {
     },
     #[serde(rename = "auth.finalizing")]
     AuthFinalizing {},
+    #[serde(rename = "auth.deletion_pending")]
+    AuthDeletionPending { confirmation_uri: String },
     #[serde(rename = "auth.error")]
     AuthError {
         operation: String,
@@ -639,6 +643,7 @@ pub enum AuthRequiredReason {
     SignedOut,
     Expired,
     Cancelled,
+    AccountDeleted,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
@@ -755,6 +760,7 @@ impl EventBody {
             Self::AuthRequired { .. } => "auth.required",
             Self::AuthDeviceCode { .. } => "auth.device_code",
             Self::AuthFinalizing {} => "auth.finalizing",
+            Self::AuthDeletionPending { .. } => "auth.deletion_pending",
             Self::AuthError { .. } => "auth.error",
             Self::FriendsSnapshot { .. } => "friends.snapshot",
             Self::FriendInviteText { .. } => "friends.invite",
@@ -828,6 +834,7 @@ impl Command {
             Self::CancelLogin {} => "auth.login.cancel",
             Self::Logout {} => "auth.logout",
             Self::DeleteAccount {} => "auth.deleteAccount",
+            Self::CancelDeleteAccount {} => "auth.deleteAccount.cancel",
             Self::RefreshAuth {} => "auth.refresh",
             Self::RefreshDevices {} => "devices.refresh",
             Self::RevokeDevice { .. } => "devices.revoke",
@@ -1251,6 +1258,7 @@ mod tests {
             "auth.login.cancel",
             "auth.logout",
             "auth.deleteAccount",
+            "auth.deleteAccount.cancel",
             "auth.refresh",
             "devices.refresh",
             "devices.reset",
@@ -1345,7 +1353,7 @@ mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 50);
+        assert_eq!(kinds.len(), 51);
     }
 
     #[test]

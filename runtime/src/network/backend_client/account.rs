@@ -1,6 +1,8 @@
 use super::*;
 
 const ENROLLMENT_CHECK_MS: u64 = 5 * 60 * 1000;
+const DELETION_POLL: Duration = Duration::from_secs(3);
+const DELETION_LIFE: Duration = Duration::from_mins(15);
 
 impl BackendClient {
     pub(super) async fn restore_saved(&self, generation: u64) -> Result<()> {
@@ -247,6 +249,7 @@ impl BackendClient {
             .cancel();
         state.tokens = None;
         state.link = None;
+        state.deletion = None;
         state.changed_friends.clear();
         let secrets = state.secrets.clone();
         drop(state);
@@ -313,6 +316,95 @@ impl BackendClient {
 
     pub(super) async fn logout(&self) -> Result<()> {
         self.retire_account(true).await
+    }
+
+    pub(super) async fn forget_deleted_account(&self) -> Result<()> {
+        let user = self
+            .inner
+            .credentials
+            .read()
+            .map_err(|_| Error::Closed)?
+            .as_ref()
+            .map(|credentials| credentials.user_id.clone());
+        let secrets = self.inner.state.lock().await.secrets.clone();
+        self.retire_account(true).await?;
+        if let Some(user) = user {
+            secrets
+                .run(CancellationToken::new(), move |store| {
+                    DeviceKeys::forget(store, &user)
+                })
+                .await?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn deletion_page(&self, page: &str) -> Result<String> {
+        let issuer = self.inner.config.issuer.trim_end_matches('/');
+        if page.len() > 4096
+            || page.chars().any(char::is_control)
+            || !page.starts_with(&format!("{issuer}/protocol/openid-connect/auth?"))
+        {
+            return Err(invalid(
+                "The server named an account deletion page outside the sign-in service.",
+            ));
+        }
+        Ok(page.to_owned())
+    }
+
+    pub(super) async fn watch_deletion(&self, credentials: Credentials) {
+        let started = tokio::time::Instant::now();
+        self.inner.state.lock().await.deletion = Some(started);
+        let this = self.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    () = this.inner.shutdown.cancelled() => break,
+                    () = credentials.cancel.cancelled() => break,
+                    () = tokio::time::sleep(DELETION_POLL) => {}
+                }
+                let _operation = this.inner.operations.lock().await;
+                if this.inner.state.lock().await.deletion != Some(started) {
+                    break;
+                }
+                match this.read_deletion(&credentials, started).await {
+                    Ok(false) => {}
+                    Err(error) if error.user_facing() => {
+                        tracing::warn!(%error, "the account deletion was not read; it will be tried again");
+                    }
+                    Ok(true) | Err(_) => break,
+                }
+            }
+        });
+    }
+
+    async fn read_deletion(
+        &self,
+        credentials: &Credentials,
+        started: tokio::time::Instant,
+    ) -> Result<bool> {
+        if started.elapsed() >= DELETION_LIFE {
+            self.inner.state.lock().await.deletion = None;
+            self.emit_for(
+                credentials.generation,
+                Some(credentials.user_id.clone()),
+                json!({"type":"auth.error","operation":"auth.deleteAccount","message":"Kodosi stopped waiting for the confirmation."}),
+            );
+            return Ok(true);
+        }
+        let current = self.credentials()?;
+        match self
+            .inner
+            .http
+            .bearer::<Value>(Method::GET, "api/me", &current.token, None)
+            .await
+        {
+            Ok(_) => Ok(false),
+            Err(Error::AccountDeleted) => {
+                self.sign_in_kept(Err(Error::AccountDeleted)).await?;
+                Ok(true)
+            }
+            Err(error) => Err(error),
+        }
     }
 
     pub async fn shutdown(&self) {
