@@ -159,7 +159,8 @@ function Frame({
   const { msgStr } = i18n;
   // The code shows on the sign-in of the app that has it: the same browser tab can sign in to
   // the account page a moment later.
-  const app = kcContext.client.attributes["oauth2.device.authorization.grant.enabled"] === "true";
+  const client = kcContext.client as typeof kcContext.client | undefined;
+  const app = client?.attributes["oauth2.device.authorization.grant.enabled"] === "true";
   const code = app ? heldCode() : null;
   return (
     <Stage

@@ -211,6 +211,20 @@ const SCENES: Record<string, Scene> = {
       client: kodosiApp,
     },
   },
+  // Keycloak 26 shows a denied code as an info page that names no program.
+  "denied-info": {
+    page: "info.ftl",
+    with: {
+      messageHeader: undefined,
+      message: {
+        type: "error",
+        summary: "Nothing changed. To try again, start the sign-in in Kodosi.",
+      },
+      requiredActions: undefined,
+      client: undefined,
+      skipLink: false,
+    },
+  },
   denied: {
     page: "error.ftl",
     with: {

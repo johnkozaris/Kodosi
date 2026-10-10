@@ -67,18 +67,42 @@ function Deleted({ kcContext, i18n }: Page<"info.ftl">) {
   );
 }
 
+/**
+ * The person said that the code was not the same, so the app was not connected. Nothing is wrong:
+ * the page is calm, and it says how to try again. Keycloak shows it as an info page or as an
+ * error page, with no program to go back to.
+ */
+function Denied({ kcContext, i18n }: Page<"info.ftl" | "error.ftl">) {
+  const { msgStr } = i18n;
+  useEffect(dropCode, []);
+  return (
+    <Stage
+      kcContext={kcContext}
+      i18n={i18n}
+      title={msgStr("kdsDeniedTitle")}
+      lead={msgStr("kdsDeniedLead")}
+      rest
+      quiet
+    />
+  );
+}
+
 /** Keycloak tells the person something, and the capsule holds the way on. */
 export function Info({ kcContext, i18n }: Page<"info.ftl">) {
-  const { messageHeader, message, requiredActions, skipLink, pageRedirectUri, actionUri, client } =
+  const { messageHeader, message, requiredActions, skipLink, pageRedirectUri, actionUri } =
     kcContext;
+  // Keycloak names no program on a page whose sign-in has ended.
+  const client = kcContext.client as typeof kcContext.client | undefined;
   const { msgStr, advancedMsgStr } = i18n;
   if (says(i18n, messageHeader, "oauth2DeviceVerificationCompleteHeader"))
     return <Connected kcContext={kcContext} i18n={i18n} />;
   if (says(i18n, message.summary, "userDeletedSuccessfully"))
     return <Deleted kcContext={kcContext} i18n={i18n} />;
+  if (says(i18n, message.summary, "oauth2DeviceConsentDeniedMessage"))
+    return <Denied kcContext={kcContext} i18n={i18n} />;
 
   const failed = says(i18n, messageHeader, "oauth2DeviceVerificationFailedHeader");
-  const program = client.name ? advancedMsgStr(client.name) : "Kodosi";
+  const program = client?.name ? advancedMsgStr(client.name) : "Kodosi";
   const steps = requiredActions?.map((step) => advancedMsgStr(`requiredAction.${step}`)).join(", ");
   const on = skipLink
     ? undefined
@@ -86,7 +110,7 @@ export function Info({ kcContext, i18n }: Page<"info.ftl">) {
       ? { href: pageRedirectUri, label: msgStr("kdsBackTo", program) }
       : actionUri
         ? { href: actionUri, label: msgStr("kdsContinue") }
-        : client.baseUrl
+        : client?.baseUrl
           ? { href: client.baseUrl, label: msgStr("kdsBackTo", program) }
           : undefined;
   const said = plain(messageHeader ? advancedMsgStr(messageHeader) : message.summary).trim();
@@ -125,16 +149,16 @@ export function Info({ kcContext, i18n }: Page<"info.ftl">) {
 export function Failure({ kcContext, i18n }: Page<"error.ftl">) {
   const { message, client, skipLink } = kcContext;
   const { msgStr, advancedMsgStr } = i18n;
-  // The person said that the code was not the same: nothing is wrong.
-  const denied = says(i18n, message.summary, "oauth2DeviceConsentDeniedMessage");
   useEffect(dropCode, []);
+  if (says(i18n, message.summary, "oauth2DeviceConsentDeniedMessage"))
+    return <Denied kcContext={kcContext} i18n={i18n} />;
   return (
     <Stage
       kcContext={kcContext}
       i18n={i18n}
-      title={msgStr(denied ? "kdsDeniedTitle" : "kdsErrorTitle")}
-      lead={denied ? msgStr("kdsDeniedLead") : plain(message.summary)}
-      {...(denied ? {} : { sign: "failed" as const })}
+      title={msgStr("kdsErrorTitle")}
+      lead={plain(message.summary)}
+      sign="failed"
       rest
       quiet
     >
@@ -173,7 +197,9 @@ export function Expired({ kcContext, i18n }: Page<"login-page-expired.ftl">) {
 }
 
 export function SignOut({ kcContext, i18n }: Page<"logout-confirm.ftl">) {
-  const { url, client, logoutConfirm } = kcContext;
+  const { url, logoutConfirm } = kcContext;
+  // A sign-out that no program asked for has no program to go back to.
+  const client = kcContext.client as typeof kcContext.client | undefined;
   const { msgStr, advancedMsgStr } = i18n;
   return (
     <Stage
@@ -182,7 +208,7 @@ export function SignOut({ kcContext, i18n }: Page<"logout-confirm.ftl">) {
       title={msgStr("kdsSignOutTitle")}
       below={
         !logoutConfirm.skipLink &&
-        client.baseUrl && (
+        client?.baseUrl && (
           <QuietLink href={client.baseUrl}>
             {msgStr("kdsBackTo", client.name ? advancedMsgStr(client.name) : "Kodosi")}
           </QuietLink>
