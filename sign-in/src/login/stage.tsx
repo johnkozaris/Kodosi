@@ -294,7 +294,7 @@ export function Stage({
             <div
               key={`lead-${roll.turn}`}
               className={cn(
-                "mx-auto mt-2.5 max-w-[40ch] text-callout text-ink-muted",
+                "mx-auto mt-2.5 max-w-[40ch] text-callout text-balance text-ink-muted",
                 (continues || roll.turn > 0) && "resolve",
               )}
             >

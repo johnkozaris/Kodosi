@@ -4,9 +4,9 @@ import { useEffect, useRef, useState } from "react";
 
 import { PersonCheckRow, REFUSALS, usePersonCheck } from "../../parts/captcha";
 import { ActionRow, Go, PasswordRow, SignOutOthers, TextRow } from "../../parts/rows";
-import { QuietLink, quietLink } from "../../parts/text";
+import { plain, QuietLink, quietLink } from "../../parts/text";
 import { IconTile } from "../../parts/tile";
-import { isMessage } from "../i18n";
+import { type I18n, isMessage } from "../i18n";
 import { Stage } from "../stage";
 import { meetsPolicy, PolicyTags } from "./policy";
 import type { Page } from "./props";
@@ -189,6 +189,20 @@ function markSent() {
   }
 }
 
+/**
+ * The seconds that Keycloak asks the person to wait before it sends the link again, when the page
+ * says so. Keycloak's sentence holds the number.
+ */
+function cooldownOf(i18n: I18n, said: string | undefined): number {
+  if (!said) return 0;
+  const [before = "", after = ""] = i18n
+    .msgStr("emailVerifySendCooldown", "\u0000")
+    .split("\u0000");
+  const text = plain(said).trim();
+  if (!before || !text.startsWith(before) || !text.endsWith(after)) return 0;
+  return Number.parseInt(text.slice(before.length, text.length - after.length), 10) || 0;
+}
+
 /** The tile of the mail. While the page waits for the person to open the link, the copper dot of
     the app breathes on it. */
 function MailTile({ waits }: { waits: boolean }) {
@@ -217,41 +231,58 @@ export function VerifyEmail({ kcContext, i18n }: Page<"login-verify-email.ftl">)
   const asks = !!isAppInitiatedAction && !sentTo;
   const inbox = asks ? undefined : inboxOf(address);
   const form = "kc-verify-email-form";
-  const [again, setAgain] = useState(sentJustNow);
+  // Keycloak sends the link again only after a short time. Until then, the row counts the
+  // seconds, and it is the row that sends when they are over.
+  const [wait, setWait] = useState(() => cooldownOf(i18n, kcContext.message?.summary));
+  const [again, setAgain] = useState(() => sentJustNow() && wait === 0);
   useEffect(() => {
     if (!again) return;
     const timer = window.setTimeout(() => setAgain(false), 2600);
     return () => clearTimeout(timer);
   }, [again]);
-  const resend = again ? (
-    <ActionRow
-      type="button"
-      disabled
-      tile={<IconTile tint="green" icon={<Check />} />}
-      title={<span className="pop inline-block">{msgStr("kdsSentAgain")}</span>}
-    />
-  ) : isAppInitiatedAction ? (
-    <form id={form} action={url.loginAction} method="post" onSubmit={markSent}>
+  useEffect(() => {
+    if (wait <= 0) return;
+    const timer = window.setTimeout(() => setWait((now) => now - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [wait]);
+  const resend =
+    wait > 0 ? (
       <ActionRow
+        type="button"
+        disabled
         tile={<MailTile waits={false} />}
-        title={msgStr(sentTo ? "kdsSendAgain" : "kdsSend")}
+        title={msgStr("kdsSendAgain")}
+        detail={<span className="tabular-nums">{msgStr("kdsSendAgainIn", `${wait}`)}</span>}
       />
-    </form>
-  ) : (
-    <ActionRow
-      href={url.loginAction}
-      onClick={markSent}
-      tile={<MailTile waits={!inbox} />}
-      title={msgStr("kdsSendAgain")}
-    />
-  );
+    ) : again ? (
+      <ActionRow
+        type="button"
+        disabled
+        tile={<IconTile tint="green" icon={<Check />} />}
+        title={<span className="pop inline-block">{msgStr("kdsSentAgain")}</span>}
+      />
+    ) : isAppInitiatedAction ? (
+      <form id={form} action={url.loginAction} method="post" onSubmit={markSent}>
+        <ActionRow
+          tile={<MailTile waits={false} />}
+          title={msgStr(sentTo ? "kdsSendAgain" : "kdsSend")}
+        />
+      </form>
+    ) : (
+      <ActionRow
+        href={url.loginAction}
+        onClick={markSent}
+        tile={<MailTile waits={!inbox} />}
+        title={msgStr("kdsSendAgain")}
+      />
+    );
   return (
     <Stage
       kcContext={kcContext}
       i18n={i18n}
       title={msgStr(asks ? "kdsConfirmEmailTitle" : "kdsInboxTitle")}
-      // Keycloak's own line says what the lead says.
-      quiet={kcContext.message?.type !== "error"}
+      // Keycloak's own line says what the lead or the row says.
+      quiet={kcContext.message?.type !== "error" || wait > 0}
       lead={
         asks && address
           ? msgStr("kdsConfirmEmailLead", address)

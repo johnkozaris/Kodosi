@@ -348,6 +348,13 @@ const SCENES: Record<string, Scene> = {
     next: "info",
   },
   inbox: { page: "login-verify-email.ftl", with: { user: { email: maya.email } } },
+  "inbox-wait": {
+    page: "login-verify-email.ftl",
+    with: {
+      user: { email: maya.email },
+      message: { type: "error", summary: "Wait 28 seconds, then send it again." },
+    },
+  },
 
   code: { page: "login-otp.ftl", with: { auth: person, ...oneApp }, next: "check" },
   "code-apps": {
