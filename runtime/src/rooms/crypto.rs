@@ -12,7 +12,9 @@ use zeroize::Zeroizing;
 
 use crate::{
     identity::{
-        keys::{DeviceKeys, ROOM_KEM_PUBLIC_BYTES, ROOM_PUBLIC_BYTES, RoomKeyPair},
+        keys::{
+            AGREEMENT_BYTES, DeviceKeys, ROOM_KEM_PUBLIC_BYTES, ROOM_PUBLIC_BYTES, RoomKeyPair,
+        },
         pins::{IdentityBundle, Pins, Root, VerifiedIdentity},
     },
     network::{Result, crypto, invalid},
@@ -22,7 +24,6 @@ pub(crate) type Secret = Zeroizing<[u8; 32]>;
 pub(crate) const STATE_DOMAIN: &[u8] = b"kodosi-room-state-v1";
 pub(crate) const CONTENT_DOMAIN: &[u8] = b"kodosi-room-content-v1";
 const KEM_CIPHERTEXT_BYTES: usize = 1088;
-const AGREEMENT_BYTES: usize = ROOM_PUBLIC_BYTES - ROOM_KEM_PUBLIC_BYTES;
 const WRAP_DOMAIN: &[u8] = b"kodosi-room-key-wrap-v2";
 const WRAP_SALT: &[u8] = b"kodosi-room-kem-v2";
 

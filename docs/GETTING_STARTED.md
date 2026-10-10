@@ -95,7 +95,8 @@ must remain online with Kodosi running.
 
 Make a recovery key in Settings, then Devices, and keep it in a safe place. If you lose
 all your computers, sign in on a new one and select "Use my recovery key". You keep
-your friends and rooms.
+your friends and rooms. If you lose one computer, remove it there from a computer that
+you still use; if it was stolen, also make a new recovery key.
 
 <p align="center">
   <img src="media/overview.webp" width="760" alt="The overview of all terminals, grouped by computer.">

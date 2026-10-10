@@ -37,7 +37,7 @@ struct DeviceSettingsView: View {
                 }
                 ListGroup(title: "Your devices") {
                     ForEach(deps.devices) { device in
-                        ListRow(device.recoveryKey ? String(localized: "Recovery key") : device.label,
+                        ListRow(title(device),
                                 subtitle: subtitle(device),
                                 symbol: device.recoveryKey ? "key.fill" : DeviceGlyph.symbol(for: device.label),
                                 tint: device.deviceId == deps.selfDeviceId ? TileTint.orange : TileTint.graphite)
@@ -103,7 +103,7 @@ struct DeviceSettingsView: View {
         }
         .animation(theme.motion.spring, value: deps.devices)
         .animation(theme.motion.spring, value: deps.deviceRequests)
-        .confirmationDialog("Remove \(revoke?.label ?? "")?", isPresented: Binding(get: { revoke != nil }, set: {
+        .confirmationDialog("Remove \(revoke.map(title) ?? "")?", isPresented: Binding(get: { revoke != nil }, set: {
             if !$0 {
                 revoke = nil
             }
@@ -150,6 +150,10 @@ struct DeviceSettingsView: View {
         }
         let removal = String(localized: "It disconnects. Approve it again to use it. Commands it already ran stay done.")
         return hasRecoveryKey ? removal + " " + String(localized: "If it was lost or stolen, also make a new recovery key.") : removal
+    }
+
+    private func title(_ device: MyDeviceEntry) -> String {
+        device.recoveryKey ? String(localized: "Recovery key") : device.label
     }
 
     private func subtitle(_ device: MyDeviceEntry) -> String? {

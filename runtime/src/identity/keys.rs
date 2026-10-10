@@ -15,7 +15,7 @@ use crate::network::{Result, invalid};
 pub(crate) const ROOM_KEM_PUBLIC_BYTES: usize = 1184;
 pub(crate) const ROOM_PUBLIC_BYTES: usize = ROOM_KEM_PUBLIC_BYTES + AGREEMENT_BYTES;
 const ROOM_KEM_SECRET_BYTES: usize = 2400;
-const AGREEMENT_BYTES: usize = 32;
+pub(crate) const AGREEMENT_BYTES: usize = 32;
 
 pub(crate) struct RoomKeyPair {
     kem_secret: Zeroizing<Vec<u8>>,

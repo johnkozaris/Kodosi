@@ -178,7 +178,8 @@ The owner puts the member in again after the owner trusts the new identity.
     backend for the newest device list. A dishonest backend can show an older list
     that still holds a device that the person removed later. When a person removes a
     device and has a recovery key, Kodosi tells them to make a new recovery key if the
-    device was lost or stolen; a new key starts after the removal.
+    device was lost or stolen: a key made after the removal is in no list from before
+    it.
 11. An owner who starts fresh cannot open the rooms that the owner made.
 12. The backend sees the metadata that [Security](SECURITY.md) lists.
 
@@ -188,8 +189,8 @@ A reviewer should examine first:
 
 - The rules for a key state and for a device list, and whether a backend with one
   dishonest member can break them.
-- The recovery key: derivation, the binding to the identity root, and the recover
-  request.
+- The recovery key: derivation, the binding to the identity root, the recover request,
+  and the rule that deletes the kept room key pair.
 - The wrapping key derivation.
 - The checks of a host before it admits a viewer, also on a resumed channel.
 - The link code proofs.
