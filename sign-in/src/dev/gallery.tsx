@@ -151,7 +151,7 @@ const checkRefused = {
 const oneApp = { otpLogin: { userOtpCredentials: [] } };
 
 const SCENES: Record<string, Scene> = {
-  "sign-in": { page: "login.ftl", with: open, code: true, next: "check" },
+  "sign-in": { page: "login.ftl", with: { ...open, client: kodosiApp }, code: true, next: "check" },
   "sign-in-plain": { page: "login.ftl", next: "sign-in-wrong" },
   "sign-in-wrong": {
     page: "login.ftl",

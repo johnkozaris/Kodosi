@@ -149,17 +149,7 @@ export function usePersonCheck(kcContext: object, form: string) {
     return () => clearTimeout(timer);
   }, [held, passed, form]);
 
-  /** For the send of the form: true when the form waits for the check. */
-  const hold = (event: FormEvent) => {
-    if (passed || free.current) {
-      free.current = false;
-      return false;
-    }
-    event.preventDefault();
-    setHeld(true);
-    return true;
-  };
-
+  /** A new check, after one that said no. */
   const again = useCallback(() => {
     const names = window as unknown as Widgets;
     setFailed(false);
@@ -167,6 +157,19 @@ export function usePersonCheck(kcContext: object, form: string) {
     if (service === "turnstile") names.turnstile?.reset();
     else names.grecaptcha?.reset();
   }, [service]);
+
+  /** For the send of the form: true when the form waits for the check. A send after a check that
+      said no starts a new check, and the form goes when that one passes. */
+  const hold = (event: FormEvent) => {
+    if (passed || free.current) {
+      free.current = false;
+      return false;
+    }
+    event.preventDefault();
+    if (failed) again();
+    setHeld(true);
+    return true;
+  };
 
   useEffect(() => {
     if (!service) return;
