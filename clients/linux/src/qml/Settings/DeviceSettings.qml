@@ -161,10 +161,7 @@ ColumnLayout {
                 objectName: "panel.settings.recover"
                 text: qsTr("Approve")
 
-                onClicked: {
-                    Models.Devices.useRecoveryKey(recoveryKey.text.trim());
-                    recoveryKey.clear();
-                }
+                onClicked: Models.Devices.useRecoveryKey(recoveryKey.text.trim())
             }
         }
         PlainLabel {
@@ -209,6 +206,7 @@ ColumnLayout {
                     onClicked: {
                         revoke.deviceId = deviceRow.modelData.deviceId;
                         revoke.label = deviceRow.title;
+                        revoke.removesRecoveryKey = deviceRow.recoveryKey;
                         revoke.open();
                     }
                 }
@@ -294,8 +292,10 @@ ColumnLayout {
                 root.copied = false;
                 newRecoveryKey.open();
             }
-            if (Models.Devices.localDeviceEnrolled)
+            if (Models.Devices.localDeviceEnrolled) {
                 root.recovering = false;
+                recoveryKey.clear();
+            }
         }
     }
     KDialog {
@@ -384,6 +384,7 @@ ColumnLayout {
 
         property string deviceId: ""
         property string label: ""
+        property bool removesRecoveryKey: false
 
         destructive: true
         standardButtons: Dialog.Ok | Dialog.Cancel
@@ -395,7 +396,9 @@ ColumnLayout {
         PlainLabel {
             width: 340
             color: KodosiTheme.inkMuted
-            text: qsTr("It loses your account and the terminals shared with you.")
+            text: revoke.removesRecoveryKey ? qsTr("The recovery key stops working. You can make a new one.")
+                : Models.Devices.hasRecoveryKey ? qsTr("It loses your account and the terminals shared with you. If it was lost or stolen, also make a new recovery key.")
+                : qsTr("It loses your account and the terminals shared with you.")
             wrapMode: Text.WordWrap
         }
     }

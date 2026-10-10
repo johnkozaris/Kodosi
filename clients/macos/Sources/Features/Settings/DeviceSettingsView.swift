@@ -111,7 +111,7 @@ struct DeviceSettingsView: View {
             if let device = revoke {
                 Button("Remove", role: .destructive) { deps.perform("devices.revoke", ["deviceId": .string(device.deviceId)]); revoke = nil }
             }
-        } message: { Text("It disconnects. Approve it again to use it. Commands it already ran stay done.") }
+        } message: { Text(removalMessage) }
         .confirmationDialog("Make a new recovery key?", isPresented: $replacingRecoveryKey, titleVisibility: .visible) {
             Button("Make a new key") { deps.perform("devices.recovery.create") }
         } message: { Text("The recovery key that you have now stops working.") }
@@ -142,6 +142,14 @@ struct DeviceSettingsView: View {
 
     private var hasRecoveryKey: Bool {
         deps.devices.contains(where: \.recoveryKey)
+    }
+
+    private var removalMessage: String {
+        if revoke?.recoveryKey == true {
+            return String(localized: "The recovery key stops working. You can make a new one.")
+        }
+        let removal = String(localized: "It disconnects. Approve it again to use it. Commands it already ran stay done.")
+        return hasRecoveryKey ? removal + " " + String(localized: "If it was lost or stolen, also make a new recovery key.") : removal
     }
 
     private func subtitle(_ device: MyDeviceEntry) -> String? {

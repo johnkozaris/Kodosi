@@ -14,12 +14,18 @@ public sealed partial class MissionService
 
     public const int RoomPublicKeyLength = 1184 + 32;
 
-    public async Task RegisterRoomKeyAsync(Guid userId, Device device, RecipientKeyWrite request, CancellationToken ct)
+    internal static (byte[] Key, byte[] Signature) ValidRoomKey(SignatureVerifier verifier, Guid userId, string deviceId, byte[] signingKey, RecipientKeyWrite request)
     {
         var key = Limits.Base64(request.PublicKey, "Room public key", RoomPublicKeyLength);
-        var signature = Limits.Base64(request.Signature, "Room public key signature", 3309);
-        if (key.Length != RoomPublicKeyLength || !signatures.Verify(device.SigningPublicKey,
-            RoomKeyProof(userId, device.Id, key), signature)) throw ApiException.Invalid("Invalid room public key.");
+        var signature = Limits.Base64(request.Signature, "Room public key signature", IdentityWireFormat.MlDsa65SignatureLength);
+        if (key.Length != RoomPublicKeyLength || !verifier.Verify(signingKey, RoomKeyProof(userId, deviceId, key), signature))
+            throw ApiException.Invalid("Invalid room public key.");
+        return (key, signature);
+    }
+
+    public async Task RegisterRoomKeyAsync(Guid userId, Device device, RecipientKeyWrite request, CancellationToken ct)
+    {
+        var (key, signature) = ValidRoomKey(signatures, userId, device.Id, device.SigningPublicKey, request);
         var existing = await db.RoomRecipientKeys.SingleOrDefaultAsync(x => x.DeviceId == device.Id, ct);
         if (existing is null) db.RoomRecipientKeys.Add(new RoomRecipientKey { DeviceId = device.Id, UserId = userId, PublicKey = key, Signature = signature });
         else if (existing.PublicKey.AsSpan().SequenceEqual(key)) return;

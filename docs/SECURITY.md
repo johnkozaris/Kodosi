@@ -48,6 +48,7 @@ identity needs the user's decision to trust it again.
 A person can make a recovery key in Settings. It approves a new device when no other
 device can, and keeps friends and rooms. Kodosi shows it one time and the service never
 gets it. A person with the recovery key and the account sign-in can approve a device.
+After you remove a lost or stolen device, make a new recovery key.
 Without a recovery key, a person who lost all devices starts fresh with a new identity.
 
 The service can see account and device records, room membership, room and terminal

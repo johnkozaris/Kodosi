@@ -64,7 +64,6 @@ struct DeviceTrustView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .onChange(of: trust) { _, _ in recoveryKey = "" }
         .confirmationDialog("Start fresh on this Mac?", isPresented: $confirmingReset, titleVisibility: .visible) {
             Button("Start fresh", role: .destructive) { deps.resetTrustedDevices() }
         } message: {

@@ -1186,7 +1186,9 @@ impl BackendClient {
                     continue;
                 }
                 tracing::debug!(%error, "room key refresh will retry");
-                complete = false;
+                if error.unanswered() || matches!(error, Error::Backend { status: 409, .. }) {
+                    complete = false;
+                }
                 continue;
             }
             match self.room_snapshot(credentials, id, None).await {
@@ -1194,8 +1196,12 @@ impl BackendClient {
                 Err(error) => tracing::debug!(%error, "room refresh will retry"),
             }
         }
-        if complete && credentials.keys.recovery().is_some() {
-            self.keep_recovery_room_key(credentials, None).await?;
+        if complete
+            && credentials.enrolled
+            && credentials.keys.recovery().is_some()
+            && let Err(error) = self.keep_recovery_room_key(credentials, None).await
+        {
+            tracing::debug!(%error, "the recovery room key stays until the next room refresh");
         }
         Ok(events)
     }

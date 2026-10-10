@@ -283,7 +283,12 @@ impl DeviceKeys {
                 &bytes(public, "Invalid stored room public key.")?,
                 &bytes(agreement, "Invalid stored room key.")?,
             )?,
-            _ => RoomKeyPair::generate()?,
+            (_, _, None) => RoomKeyPair::generate()?,
+            _ => {
+                return Err(invalid(
+                    "Stored room identity is incomplete; refusing to replace it.",
+                ));
+            }
         };
         let recovery = match (&stored.recovery_device_id, &stored.recovery_room) {
             (Some(device), Some(room)) => Some((
@@ -340,17 +345,20 @@ mod tests {
     }
 
     #[test]
-    fn a_stored_identity_without_a_complete_room_key_gets_a_new_room_key() {
+    fn a_stored_identity_without_an_x25519_key_gets_a_new_room_key_and_other_gaps_are_refused() {
         let keys = DeviceKeys::generate().unwrap();
-        let mut stored: serde_json::Value = serde_json::from_str(&keys.encode().unwrap()).unwrap();
-        stored
-            .as_object_mut()
-            .unwrap()
-            .remove("room_agreement_secret");
-        let loaded = DeviceKeys::decode(&stored.to_string()).unwrap();
+        let stored: serde_json::Value = serde_json::from_str(&keys.encode().unwrap()).unwrap();
+        let without = |field: &str| {
+            let mut changed = stored.clone();
+            changed.as_object_mut().unwrap().remove(field);
+            DeviceKeys::decode(&changed.to_string())
+        };
+        let loaded = without("room_agreement_secret").unwrap();
         assert_eq!(loaded.device_id, keys.device_id);
         assert_eq!(loaded.signing_public(), keys.signing_public());
         assert_ne!(loaded.room_public(), keys.room_public());
+        assert!(without("room_kem_public").is_err());
+        assert!(without("room_kem_secret").is_err());
     }
 
     #[test]

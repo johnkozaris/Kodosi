@@ -43,14 +43,10 @@ public sealed partial class DeviceService
     {
         var (certBytes, certSig, listBytes, listSig) = SignedParts(request.DeviceCertificate, request.DeviceCertificateSignature, request.SignedDeviceList, request.SignedDeviceListSignature);
         var box = Limits.Base64(request.RoomKeyBox, "Recovery room key", RecoveryBoxLength);
-        var roomKey = Limits.Base64(request.RoomKey.PublicKey, "Room public key", MissionService.RoomPublicKeyLength);
-        var roomKeySignature = Limits.Base64(request.RoomKey.Signature, "Room public key signature", IdentityWireFormat.MlDsa65SignatureLength);
         if (box.Length == 0) throw ApiException.Invalid("The recovery room key is missing.");
         var cert = certificates.Parse(certBytes);
         if (!IsRecoveryId(cert.DeviceId)) throw ApiException.Invalid("This is not the device identifier of a recovery key.");
-        if (roomKey.Length != MissionService.RoomPublicKeyLength
-            || !signatures.Verify(cert.SigPublicKey, MissionService.RoomKeyProof(userId, cert.DeviceId, roomKey), roomKeySignature))
-            throw ApiException.Invalid("Invalid room public key.");
+        var (roomKey, roomKeySignature) = MissionService.ValidRoomKey(signatures, userId, cert.DeviceId, cert.SigPublicKey, request.RoomKey);
         if (await RecoveryDeviceAsync(userId, ct) is not null) throw ApiException.Conflict("Remove the current recovery key first.");
         var signer = await RequireDeviceAsync(userId, device.Id, ct);
         var (added, _) = await StageDeviceAsync(userId, signer, cert.DeviceId, cert.SigPublicKey, certBytes, certSig, listBytes, listSig, ct);

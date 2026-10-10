@@ -174,8 +174,13 @@ The owner puts the member in again after the owner trusts the new identity.
 9. A person with the recovery key and the account sign-in can approve a device. A
    device that is removed before it has its own room keys in each room keeps the room
    key pair of the recovery entry; make a new recovery key in that case.
-10. An owner who starts fresh cannot open the rooms that the owner made.
-11. The backend sees the metadata that [Security](SECURITY.md) lists.
+10. A device that recovers has no earlier record of the account, so it relies on the
+    backend for the newest device list. A dishonest backend can show an older list
+    that still holds a device that the person removed later. When a person removes a
+    device and has a recovery key, Kodosi tells them to make a new recovery key if the
+    device was lost or stolen; a new key starts after the removal.
+11. An owner who starts fresh cannot open the rooms that the owner made.
+12. The backend sees the metadata that [Security](SECURITY.md) lists.
 
 ## Review
 
