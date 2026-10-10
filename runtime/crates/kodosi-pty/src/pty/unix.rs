@@ -225,6 +225,10 @@ impl KodosiPty {
         foreground_process_group(self.master_fd)
     }
 
+    pub fn foreground_is_child(&self) -> bool {
+        foreground_process_group(self.master_fd) == Some(self.child_pid)
+    }
+
     pub fn foreground_program(&self) -> Option<String> {
         let pid = foreground_process_group(self.master_fd)?;
         let arguments = process_arguments(pid)?;

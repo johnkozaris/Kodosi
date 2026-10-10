@@ -1,6 +1,7 @@
 #include "presentation/DesktopSettings.hpp"
 #include <QDir>
 #include <QFileInfo>
+#include <QUuid>
 #include <algorithm>
 #include <cmath>
 namespace kodosi {
@@ -25,6 +26,115 @@ DesktopSettings::DesktopSettings(std::unique_ptr<QSettings> settings, QObject* p
     m_lineHeight = std::isfinite(line) ? std::clamp(line, 0.8, 2.0) : 1.0;
     m_blink = m_settings->value(QStringLiteral("terminal/blink"), false).toBool();
     m_directory = m_settings->value(QStringLiteral("terminal/directory")).toString();
+    m_branchFolder = m_settings->value(QStringLiteral("terminal/branchFolder")).toString();
+    m_learned = m_settings->value(QStringLiteral("agents/learned")).toStringList();
+    const int rows = std::min(m_settings->beginReadArray(QStringLiteral("agents/start")), 64);
+    for (int row = 0; row < rows; ++row) {
+        m_settings->setArrayIndex(row);
+        const StartCommand entry { m_settings->value(QStringLiteral("id")).toString(),
+            m_settings->value(QStringLiteral("name")).toString(), m_settings->value(QStringLiteral("command")).toString() };
+        if (!entry.id.isEmpty() && entry.name.size() <= 128 && entry.command.size() <= 1024)
+            m_start.append(entry);
+    }
+    m_settings->endArray();
+}
+QString DesktopSettings::agentOf(const QString& command)
+{
+    for (const auto& word : command.split(QChar::Space, Qt::SkipEmptyParts)) {
+        if (word == QStringLiteral("env") || word.contains(QLatin1Char('=')))
+            continue;
+        const auto program = QFileInfo(word).fileName();
+        if (program == QStringLiteral("cursor-agent"))
+            return QStringLiteral("cursor");
+        return QStringList { QStringLiteral("claude"), QStringLiteral("codex"), QStringLiteral("copilot") }.contains(program)
+            ? program
+            : QStringLiteral("shell");
+    }
+    return QStringLiteral("shell");
+}
+QVariantList DesktopSettings::startCommands() const
+{
+    QVariantList result;
+    QStringList seen;
+    for (const auto& entry : m_start) {
+        const auto agent = agentOf(entry.command);
+        const auto last = entry.name.split(QChar::Space, Qt::SkipEmptyParts).value(
+            entry.name.split(QChar::Space, Qt::SkipEmptyParts).size() - 1);
+        result.append(QVariantMap { { QStringLiteral("id"), entry.id }, { QStringLiteral("name"), entry.name },
+            { QStringLiteral("command"), entry.command }, { QStringLiteral("agent"), agent },
+            { QStringLiteral("repeated"), seen.contains(agent) }, { QStringLiteral("initial"), last.left(1).toUpper() } });
+        if (!entry.command.trimmed().isEmpty())
+            seen.append(agent);
+    }
+    return result;
+}
+QStringList DesktopSettings::startCommandIds() const
+{
+    QStringList ids;
+    for (const auto& entry : m_start)
+        ids.append(entry.id);
+    return ids;
+}
+void DesktopSettings::learn(const QString& program)
+{
+    static const QStringList agents { QStringLiteral("claude"), QStringLiteral("codex"), QStringLiteral("copilot"),
+        QStringLiteral("cursor") };
+    if (!agents.contains(program) || m_learned.contains(program))
+        return;
+    m_learned.append(program);
+    const bool known = std::ranges::any_of(m_start, [&](const StartCommand& entry) { return agentOf(entry.command) == program; });
+    if (!known) {
+        static const QStringList labels { QStringLiteral("Claude Code"), QStringLiteral("Codex"), QStringLiteral("Copilot"),
+            QStringLiteral("Cursor") };
+        m_start.append({ QUuid::createUuid().toString(QUuid::WithoutBraces), labels.value(agents.indexOf(program)),
+            program == QStringLiteral("cursor") ? QStringLiteral("cursor-agent") : program });
+    }
+    persistStart();
+    if (!known) {
+        emit startCommandIdsChanged();
+        emit startCommandsChanged();
+    }
+}
+void DesktopSettings::addStartCommand()
+{
+    if (m_start.size() >= 64)
+        return;
+    m_start.append({ QUuid::createUuid().toString(QUuid::WithoutBraces), {}, {} });
+    persistStart();
+    emit startCommandIdsChanged();
+    emit startCommandsChanged();
+}
+void DesktopSettings::setStartCommand(const QString& id, const QString& name, const QString& command)
+{
+    const auto entry = std::ranges::find_if(m_start, [&](const StartCommand& value) { return value.id == id; });
+    if (entry == m_start.end() || name.size() > 128 || command.size() > 1024
+        || (entry->name == name && entry->command == command))
+        return;
+    entry->name = name;
+    entry->command = command;
+    persistStart();
+    emit startCommandsChanged();
+}
+void DesktopSettings::removeStartCommand(const QString& id)
+{
+    if (m_start.removeIf([&](const StartCommand& value) { return value.id == id; }) == 0)
+        return;
+    persistStart();
+    emit startCommandIdsChanged();
+    emit startCommandsChanged();
+}
+void DesktopSettings::persistStart()
+{
+    m_settings->setValue(QStringLiteral("agents/learned"), m_learned);
+    m_settings->beginWriteArray(QStringLiteral("agents/start"), static_cast<int>(m_start.size()));
+    for (int row = 0; row < m_start.size(); ++row) {
+        m_settings->setArrayIndex(row);
+        m_settings->setValue(QStringLiteral("id"), m_start.at(row).id);
+        m_settings->setValue(QStringLiteral("name"), m_start.at(row).name);
+        m_settings->setValue(QStringLiteral("command"), m_start.at(row).command);
+    }
+    m_settings->endArray();
+    m_settings->sync();
 }
 QString DesktopSettings::effectiveWorkingDirectory() const
 {
@@ -61,6 +171,15 @@ void DesktopSettings::setWorkingDirectory(const QString& path)
     persist();
     emit settingsChanged();
 }
+void DesktopSettings::setBranchFolder(const QString& path)
+{
+    const QFileInfo info(path);
+    if (!path.isEmpty() && (!QDir::isAbsolutePath(path) || !info.isDir() || !info.isWritable()))
+        return;
+    m_branchFolder = path.isEmpty() ? QString {} : info.canonicalFilePath();
+    persist();
+    emit settingsChanged();
+}
 void DesktopSettings::resetTerminal()
 {
     apply(QStringLiteral("monospace"), 13, Block, 1.0, 10000, false);
@@ -81,6 +200,7 @@ bool DesktopSettings::persist()
     m_settings->setValue(QStringLiteral("terminal/scrollback"), m_scrollback);
     m_settings->setValue(QStringLiteral("terminal/blink"), m_blink);
     m_settings->setValue(QStringLiteral("terminal/directory"), m_directory);
+    m_settings->setValue(QStringLiteral("terminal/branchFolder"), m_branchFolder);
     m_settings->sync();
     if (m_settings->status() != QSettings::NoError) {
         m_error = tr("Terminal settings could not be saved.");

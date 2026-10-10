@@ -83,6 +83,106 @@ ColumnLayout {
             }
         }
     }
+    ListGroup {
+        Layout.fillWidth: true
+        title: qsTr("Start")
+        footer: qsTr("A terminal at its prompt shows these marks. Select a mark to start its command there.")
+
+        Repeater {
+            model: Models.DesktopSettings.startCommandIds
+
+            delegate: Item {
+                id: startRow
+
+                required property string modelData
+                readonly property var command: Models.DesktopSettings.startCommands.find(entry => entry.id === modelData) || ({})
+
+                function save() {
+                    Models.DesktopSettings.setStartCommand(modelData, nameField.text, commandField.text)
+                }
+
+                width: parent ? parent.width : 0
+                implicitHeight: 52
+
+                Rectangle {
+                    visible: startRow.Positioner.index > 0
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.leftMargin: 14
+                    anchors.rightMargin: 14
+                    height: 1
+                    color: KodosiTheme.alpha(KodosiTheme.hairline, 0.6)
+                }
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 12
+                    anchors.rightMargin: 12
+                    spacing: 10
+
+                    StartMark { command: startRow.command; size: 22; enabled: false }
+                    KTextField {
+                        id: nameField
+                        Layout.preferredWidth: 170
+                        placeholderText: qsTr("Name")
+                        objectName: "settings.start." + startRow.modelData + ".name"
+                        Accessible.id: objectName
+                        Accessible.name: placeholderText
+                        Component.onCompleted: text = startRow.command.name || ""
+                        onTextEdited: startRow.save()
+                    }
+                    KTextField {
+                        id: commandField
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("Command")
+                        font.family: "monospace"
+                        objectName: "settings.start." + startRow.modelData + ".command"
+                        Accessible.id: objectName
+                        Accessible.name: placeholderText
+                        Component.onCompleted: text = startRow.command.command || ""
+                        onTextEdited: startRow.save()
+                    }
+                    KIconButton {
+                        glyph: "close"
+                        size: 26
+                        destructive: true
+                        objectName: "settings.start." + startRow.modelData + ".remove"
+                        Accessible.id: objectName
+                        Accessible.name: qsTr("Remove")
+                        onClicked: Models.DesktopSettings.removeStartCommand(startRow.modelData)
+                    }
+                }
+            }
+        }
+        Item {
+            id: addRow
+
+            width: parent ? parent.width : 0
+            implicitHeight: 52
+
+            Rectangle {
+                visible: addRow.Positioner.index > 0
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.leftMargin: 14
+                anchors.rightMargin: 14
+                height: 1
+                color: KodosiTheme.alpha(KodosiTheme.hairline, 0.6)
+            }
+            KButton {
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.verticalCenter: parent.verticalCenter
+                text: qsTr("Add a command")
+                iconName: "plus"
+                compact: true
+                objectName: "settings.start.add"
+                Accessible.id: objectName
+                onClicked: Models.DesktopSettings.addStartCommand()
+            }
+        }
+    }
     PlainLabel {
         Layout.fillWidth: true
         color: KodosiTheme.danger

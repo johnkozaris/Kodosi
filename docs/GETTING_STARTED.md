@@ -13,6 +13,20 @@ Create a terminal and choose its working folder. It is a real shell on that comp
 run your normal commands, editor, or coding agent there. Provider CLIs use their own
 installation, settings, and sign-in.
 
+After you run an agent on a computer one time, each terminal on that computer shows
+the agent's mark among its actions while the terminal is at its prompt. Select the
+mark to start the agent there. In Settings, under Agents, you can change these start
+commands and add your own, for example `env CLAUDE_CONFIG_DIR=~/.claude_personal claude`
+for a second account.
+
+To give an agent its own copy of a repository, move the pointer to the folder of the
+repository in the sidebar and select the branch button. Give the branch a name. Kodosi
+makes the branch with its own folder beside the repository (a Git worktree) and starts
+a terminal there, so two agents do not change the same files. A folder with no changes
+goes away when its terminal ends; a folder with work stays until you remove it with
+Git. In Settings, under Terminal, you can select a different place for these folders.
+From a shell, use `kodosi session start --directory <repository> --branch <name>`.
+
 Approved devices on the same account can open your terminals. The hosting computer
 must remain online with Kodosi running.
 
@@ -58,6 +72,10 @@ the terminal sees the same state, and `kodosi session list` shows it too.
 
 The check and the warning sign go away when you open the terminal. The sidebar also
 says how many terminals wait for an answer, and takes you to the next one.
+
+While Kodosi is not the front app, your own terminals also send a system notification
+when a program starts to wait, is done, or failed. Select the notification to open the
+terminal. Your system's notification settings control these notifications.
 
 Kodosi takes this from what the program reports to its terminal: the
 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status)

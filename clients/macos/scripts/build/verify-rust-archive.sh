@@ -162,10 +162,10 @@ for architecture in "$@"; do
         "$inspection_archive" 2>/dev/null)
     case "$architecture" in
         arm64)
-            protocol_constant_pattern='mov[[:space:]]+w0,[[:space:]]+#(0x33|51)([[:space:];]|$)'
+            protocol_constant_pattern='mov[[:space:]]+w0,[[:space:]]+#(0x35|53)([[:space:];]|$)'
             ;;
         x86_64)
-            protocol_constant_pattern='movl?[[:space:]]+\$(0x33|51),[[:space:]]+%eax([[:space:];]|$)'
+            protocol_constant_pattern='movl?[[:space:]]+\$(0x35|53),[[:space:]]+%eax([[:space:];]|$)'
             ;;
         *)
             echo "Rust archive verifier cannot inspect protocol constants for $architecture" >&2
@@ -173,7 +173,7 @@ for architecture in "$@"; do
             ;;
     esac
     if ! grep -Eq "$protocol_constant_pattern" <<<"$protocol_disassembly"; then
-        echo "Rust archive $archive does not return exact desktop/runtime protocol v51 in its $architecture slice" >&2
+        echo "Rust archive $archive does not return exact desktop/runtime protocol v53 in its $architecture slice" >&2
         exit 1
     fi
     abi_disassembly=$("$rust_llvm_objdump" \

@@ -221,4 +221,42 @@ ColumnLayout {
             onClicked: Models.DesktopSettings.apply(family.text, size.value, root.cursorStyle, lineHeight.value / 100, scrollback.value, blink.checked)
         }
     }
+    ListGroup {
+        Layout.fillWidth: true
+        footer: qsTr("A terminal on a new branch gets its own folder. A folder with no changes goes away when its terminal ends.")
+
+        ListRow {
+            iconName: "branch"
+            tint: "#c96f8e"
+            title: qsTr("Branch folders")
+            subtitle: Models.DesktopSettings.branchFolder || qsTr("Beside the repository")
+
+            KButton {
+                Accessible.id: objectName
+                objectName: "panel.settingsView.branchFolder.reset"
+                compact: true
+                text: qsTr("Beside the repository")
+                variant: KButton.Ghost
+                visible: Models.DesktopSettings.branchFolder.length > 0
+
+                onClicked: Models.DesktopSettings.setBranchFolder("")
+            }
+            KButton {
+                Accessible.id: objectName
+                objectName: "panel.settingsView.branchFolder"
+                compact: true
+                text: qsTr("Choose…")
+
+                onClicked: Models.DesktopFiles.requestDirectory("branches", Models.DesktopSettings.branchFolder || Models.DesktopSettings.effectiveWorkingDirectory)
+            }
+        }
+    }
+    Connections {
+        function onDirectoryPicked(purpose, path) {
+            if (purpose === "branches")
+                Models.DesktopSettings.setBranchFolder(path);
+        }
+
+        target: Models.DesktopFiles
+    }
 }

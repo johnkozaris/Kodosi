@@ -701,6 +701,21 @@ Item {
                                     elide: Text.ElideRight
                                 }
                                 KIconButton {
+                                    id: branchButton
+                                    size: 20
+                                    glyph: "branch"
+                                    visible: folder.group.repository === true
+                                        && (folderHover.hovered || (branchPopover.visible && branchPopover.directory === folder.group.directory))
+                                    active: branchPopover.visible && branchPopover.directory === folder.group.directory
+                                    objectName: "sidebar.folder.branch." + folder.group.key
+                                    Accessible.id: objectName
+                                    Accessible.name: qsTr("New terminal on a new branch in %1").arg(folder.group.name)
+                                    ToolTip.visible: hovered && !branchPopover.visible
+                                    ToolTip.text: qsTr("New terminal on a new branch")
+                                    ToolTip.delay: 600
+                                    onClicked: branchPopover.openAt(branchButton, folder.group.directory)
+                                }
+                                KIconButton {
                                     Layout.rightMargin: 2
                                     size: 20
                                     glyph: "plus"
@@ -968,6 +983,69 @@ Item {
         MenuSeparator { contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.alpha(KodosiTheme.hairline, 0.7) } }
         KMenuItem { text: qsTr("Minimize"); iconName: "minus"; enabled: Models.DesktopState.stagedSessionIds.indexOf(menu.sessionId) >= 0; onTriggered: Models.SessionActions.minimize(menu.sessionId) }
         KMenuItem { text: qsTr("Close…"); iconName: "close"; destructive: true; onTriggered: closeDialog.ask(menu.sessionId, menu.session.name || "") }
+    }
+    KPopover {
+        id: branchPopover
+
+        property string directory: ""
+
+        function openAt(item, folder) {
+            const point = item.mapToItem(root, item.width + 8, -14)
+            x = point.x
+            y = point.y
+            directory = folder
+            branchName.text = Models.SessionActions.suggestedBranch()
+            open()
+        }
+        function start() {
+            if (Models.SessionActions.createOnBranch(directory, branchName.text))
+                close()
+        }
+
+        objectName: "sidebar.branch"
+        width: 280
+        padding: 16
+        focus: true
+        onOpened: {
+            branchName.selectAll()
+            branchName.forceActiveFocus(Qt.PopupFocusReason)
+        }
+        contentItem: ColumnLayout {
+            spacing: 10
+
+            RowLayout {
+                spacing: 8
+
+                KIcon { Layout.preferredWidth: 15; Layout.preferredHeight: 15; name: "branch"; color: KodosiTheme.inkMuted; strokeWidth: 2 }
+                PlainLabel { text: qsTr("New branch"); color: KodosiTheme.ink; font.pixelSize: KodosiTheme.fontHeadline; font.weight: Font.DemiBold }
+            }
+            KTextField {
+                id: branchName
+
+                Layout.fillWidth: true
+                objectName: "sidebar.branch.name"
+                Accessible.id: objectName
+                Accessible.name: qsTr("Branch name")
+                placeholderText: qsTr("Branch name")
+                onAccepted: branchPopover.start()
+            }
+            PlainLabel {
+                Layout.fillWidth: true
+                text: qsTr("The branch gets its own folder, and a terminal starts there.")
+                color: KodosiTheme.inkFaint
+                font.pixelSize: KodosiTheme.fontCaption
+                wrapMode: Text.WordWrap
+            }
+            KButton {
+                Layout.fillWidth: true
+                objectName: "sidebar.branch.start"
+                Accessible.id: objectName
+                variant: KButton.Primary
+                enabled: branchName.text.trim().length > 0
+                text: qsTr("Start")
+                onClicked: branchPopover.start()
+            }
+        }
     }
     KDialog {
         id: closeDialog

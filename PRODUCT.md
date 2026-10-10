@@ -81,7 +81,20 @@ CLI and its bundled skill let existing agents participate through the running ho
 
 Terminals show the state that their programs report through the Program Status
 Protocol (OSC 7501) or a progress bar: working, waiting for a person, done, or failed.
-Kodosi does not infer that state from screen content.
+Kodosi does not infer that state from screen content. While the app is not in front,
+it sends a system notification when one of the person's own terminals starts to wait,
+is done, or failed.
+
+A local terminal at its prompt offers the person's start commands, such as an agent
+or the same agent with a second account. Kodosi clears the input line, types the
+command into the shell and does no more; the program remains the provider's own CLI.
+
+A terminal can start on a new branch of a local Git repository. The host makes the
+branch from the current commit with its own folder (a Git worktree) beside the
+repository, or in the place the person selected, and starts the shell there. When that
+terminal ends, the host removes the folder and the branch only if nothing changed: no
+commit, no changed file, no new file. Kodosi keeps no record of these folders and does
+no other Git operation.
 
 Direct terminal sharing and native Claude Code and Copilot CLI conversation
 preview/resume remain available. Kodosi does not become the agent harness or require

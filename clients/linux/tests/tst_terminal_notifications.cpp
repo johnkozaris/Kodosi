@@ -47,6 +47,7 @@ private slots:
     void rejectsStaleSessionIncarnations();
     void routesOnlyTerminalNotificationKeys();
     void boundsTrackedNotifications();
+    void alertsWhenAnOwnTerminalStartsToWait();
 };
 
 namespace {
@@ -182,6 +183,43 @@ void TerminalNotificationsTest::ignoresRemoteOrMissingIncarnationEvents()
     fixture.sessionsModel.apply(test::snapshot({test::session(1)}));
     fixture.post();
     QCOMPARE(fixture.driver.posted.size(), 1);
+}
+
+void TerminalNotificationsTest::alertsWhenAnOwnTerminalStartsToWait()
+{
+    Fixture fixture;
+    fixture.notifications.isFront = [] { return false; };
+    const auto apply = [&](const QJsonObject& status) {
+        auto own = test::session(1);
+        own.insert(QStringLiteral("incarnationId"), test::id(101));
+        own.insert(QStringLiteral("programStatus"), status);
+        auto shared = test::session(2, true, false);
+        shared.insert(QStringLiteral("programStatus"), status);
+        fixture.sessionsModel.apply(test::snapshot({own, shared}));
+    };
+    const QJsonObject works {{QStringLiteral("state"), QStringLiteral("working")}};
+    apply(works);
+    QVERIFY(fixture.driver.posted.isEmpty());
+    apply({{QStringLiteral("state"), QStringLiteral("blocked")}, {QStringLiteral("kind"), QStringLiteral("permission")},
+        {QStringLiteral("message"), QStringLiteral("Allow the command?")}});
+    QCOMPARE(fixture.driver.posted.size(), 1);
+    const auto alert = fixture.driver.posted.constFirst();
+    QCOMPARE(alert.title, QStringLiteral("Terminal"));
+    QCOMPARE(alert.body, QStringLiteral("Allow the command?"));
+
+    apply(works);
+    QCOMPARE(fixture.driver.withdrawn.constLast(), alert.key);
+    apply({{QStringLiteral("state"), QStringLiteral("done")}});
+    QCOMPARE(fixture.driver.posted.size(), 2);
+    QCOMPARE(fixture.driver.posted.constLast().body, QStringLiteral("Done"));
+    const auto withdrawn = fixture.driver.withdrawn.size();
+    fixture.sessionsModel.clearAttention(test::id(1));
+    QCOMPARE(fixture.driver.withdrawn.size(), withdrawn + 1);
+
+    fixture.notifications.isFront = [] { return true; };
+    apply(works);
+    apply({{QStringLiteral("state"), QStringLiteral("error")}});
+    QCOMPARE(fixture.driver.posted.size(), 2);
 }
 
 QTEST_GUILESS_MAIN(TerminalNotificationsTest)

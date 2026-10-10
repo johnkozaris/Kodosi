@@ -21,7 +21,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 51;
+pub const VERSION: u32 = 53;
 include!(concat!(env!("OUT_DIR"), "/network_versions.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 
@@ -98,6 +98,10 @@ pub enum Command {
         mission_id: Option<String>,
         #[serde(default)]
         resume: Option<ConversationIdentity>,
+        #[serde(default)]
+        branch: Option<String>,
+        #[serde(default)]
+        worktrees: Option<String>,
     },
     #[serde(rename = "session.rename")]
     RenameSession {
@@ -126,6 +130,16 @@ pub enum Command {
         session_id: String,
         #[serde(rename = "expectedRuntimeIncarnationId")]
         expected_runtime_incarnation_id: String,
+    },
+    #[serde(rename = "session.run")]
+    RunInSession {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "expectedRuntimeIncarnationId")]
+        expected_runtime_incarnation_id: String,
+        command: String,
     },
     #[serde(rename = "session.openRemote")]
     OpenRemote {
@@ -352,6 +366,8 @@ pub struct SessionEntry {
     pub connected_users: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub program: Option<String>,
+    pub prompt: bool,
+    pub repository: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -825,6 +841,7 @@ impl Command {
             Self::RenameSession { .. } => "session.rename",
             Self::CloseSession { .. } => "session.close",
             Self::InterruptSession { .. } => "session.interrupt",
+            Self::RunInSession { .. } => "session.run",
             Self::OpenRemote { .. } => "session.openRemote",
             Self::DisconnectRemote { .. } => "session.disconnect",
             Self::ShareSession { .. } => "session.share",
@@ -858,6 +875,7 @@ impl Command {
             | Self::RenameSession { request_id, .. }
             | Self::CloseSession { request_id, .. }
             | Self::InterruptSession { request_id, .. }
+            | Self::RunInSession { request_id, .. }
             | Self::OpenRemote { request_id, .. }
             | Self::ShareSession { request_id, .. }
             | Self::LeaveSession { request_id, .. }
@@ -885,6 +903,7 @@ impl Command {
             Self::RenameSession { session_id, .. }
             | Self::CloseSession { session_id, .. }
             | Self::InterruptSession { session_id, .. }
+            | Self::RunInSession { session_id, .. }
             | Self::OpenRemote { session_id, .. }
             | Self::DisconnectRemote { session_id, .. }
             | Self::ShareSession { session_id, .. }
@@ -907,6 +926,10 @@ impl Command {
                 ..
             }
             | Self::InterruptSession {
+                expected_runtime_incarnation_id,
+                ..
+            }
+            | Self::RunInSession {
                 expected_runtime_incarnation_id,
                 ..
             }
@@ -1032,6 +1055,10 @@ impl Command {
                 text(name, "name", 128)?;
                 text(name.trim(), "name", 128)?;
             }
+            Self::RunInSession { command, .. } => {
+                text(command, "command", 1024)?;
+                text(command.trim(), "command", 1024)?;
+            }
             _ => {}
         }
         self.validate_resource_ids()?;
@@ -1067,6 +1094,8 @@ impl Command {
                 working_dir,
                 mission_id,
                 resume,
+                branch,
+                worktrees,
                 ..
             } => {
                 if let Some(id) = mission_id {
@@ -1074,6 +1103,17 @@ impl Command {
                 }
                 if let Some(directory) = working_dir {
                     directory_input(directory)?;
+                }
+                if let Some(directory) = worktrees {
+                    directory_input(directory)?;
+                }
+                if let Some(branch) = branch {
+                    crate::worktree::branch_name(branch)?;
+                    if working_dir.is_none() {
+                        return Err(Error::Invalid(
+                            "A new branch needs the folder of its repository.".to_owned(),
+                        ));
+                    }
                 }
                 if let Some(resume) = resume {
                     parse_id(&resume.native_conversation_id)?;

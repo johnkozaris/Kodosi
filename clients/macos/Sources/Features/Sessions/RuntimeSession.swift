@@ -26,6 +26,8 @@ struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     let incarnationId: String
     let kind: Kind
     let program: String?
+    let prompt: Bool?
+    let repository: Bool?
     let title: String?
     let programStatus: ProgramStatus?
     let name: String
@@ -62,6 +64,10 @@ struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
         return (0x2800 ... 0x28FF).contains(first.value)
     }
 
+    var atPrompt: Bool {
+        kind == .local && canControl && prompt == true
+    }
+
     var needsUser: Bool {
         canControl && programStatus?.state == .blocked
     }
@@ -77,6 +83,11 @@ struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
 
     var progress: Int? {
         isWorking ? programStatus?.progress : nil
+    }
+
+    var alert: String? {
+        guard isOwner, waitState != nil else { return nil }
+        return programStatus?.caption ?? sign(unseen: true)?.label
     }
 
     func mark(rested: AgentMark.Activity) -> AgentMark.Activity {

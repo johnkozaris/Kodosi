@@ -1,6 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
-    path::PathBuf,
+    path::{Path, PathBuf},
     pin::Pin,
     sync::Arc,
     time::Duration,
@@ -333,9 +333,23 @@ struct Local {
     entry: SessionEntry,
     creation: Command,
     published: bool,
+    worktree: Option<crate::worktree::Worktree>,
 }
 
 impl Local {
+    fn stop(&self) -> impl Future<Output = ()> + use<> {
+        let terminal = self.terminal.clone();
+        let worktree = self.worktree.clone();
+        async move {
+            if terminal.close().await.is_err() {
+                terminal.cancel();
+            }
+            if let Some(worktree) = worktree {
+                crate::worktree::remove_unchanged(worktree).await;
+            }
+        }
+    }
+
     fn publication(
         &self,
         id: Uuid,
@@ -365,12 +379,19 @@ impl Local {
 struct StartedSession {
     terminal: Option<LocalSession>,
     directory: PathBuf,
+    repository: bool,
+    worktree: Option<crate::worktree::Worktree>,
 }
 
 impl Drop for StartedSession {
     fn drop(&mut self) {
         if let Some(terminal) = &self.terminal {
             terminal.cancel();
+        }
+        if let Some(worktree) = self.worktree.take()
+            && let Ok(runtime) = tokio::runtime::Handle::try_current()
+        {
+            runtime.spawn(crate::worktree::remove_unchanged(worktree));
         }
     }
 }
@@ -814,12 +835,7 @@ impl Runtime {
         self.connections.clear();
         let mut stopping = JoinSet::new();
         for local in self.local.values() {
-            let terminal = local.terminal.clone();
-            stopping.spawn(async move {
-                if terminal.close().await.is_err() {
-                    terminal.cancel();
-                }
-            });
+            stopping.spawn(local.stop());
         }
         while stopping.join_next().await.is_some() {}
         self.network.shutdown().await;
@@ -1327,6 +1343,8 @@ impl Runtime {
                 vec![]
             },
             program: previous.and_then(|entry| entry.program.clone()),
+            prompt: false,
+            repository: false,
             title: previous.and_then(|entry| entry.title.clone()),
             program_status: previous.and_then(|entry| entry.program_status.clone()),
             id: remote.id.to_string(),
@@ -1356,6 +1374,36 @@ impl Runtime {
         }
     }
 
+    fn ended(&mut self, id: Uuid) {
+        let (published, worktree) = self
+            .local
+            .remove(&id)
+            .map_or((false, None), |local| (local.published, local.worktree));
+        if published || self.publishing.contains(&id) {
+            self.retiring.insert(id);
+        }
+        if let Some(worktree) = worktree {
+            let inside = |directory: &Option<String>| {
+                directory
+                    .as_deref()
+                    .is_some_and(|directory| Path::new(directory).starts_with(&worktree.path))
+            };
+            let starting = self.creating.values().any(|command| {
+                matches!(command, Command::CreateSession { working_dir, .. } if inside(working_dir))
+            });
+            if !starting
+                && !self
+                    .local
+                    .values()
+                    .any(|other| inside(&other.entry.working_dir))
+            {
+                tokio::spawn(crate::worktree::remove_unchanged(worktree));
+            }
+        }
+        self.publish_catalog();
+        self.retire_publications();
+    }
+
     fn change(&mut self, change: SessionChange) {
         match change {
             SessionChange::RemoteEnded { id, instance_id } => {
@@ -1377,8 +1425,13 @@ impl Runtime {
                     self.publish_catalog();
                 }
             }
-            SessionChange::Cwd { id, path } => {
+            SessionChange::Cwd {
+                id,
+                path,
+                repository,
+            } => {
                 if let Some(local) = self.local.get_mut(&id) {
+                    local.entry.repository = repository;
                     local.entry.working_dir = Some(path.to_string_lossy().into_owned());
                     self.publish_catalog();
                 }
@@ -1386,6 +1439,12 @@ impl Runtime {
             SessionChange::Program { id, program } => {
                 if let Some(local) = self.local.get_mut(&id) {
                     local.entry.program = program;
+                    self.publish_catalog();
+                }
+            }
+            SessionChange::Prompt { id, prompt } => {
+                if let Some(local) = self.local.get_mut(&id) {
+                    local.entry.prompt = prompt;
                     self.publish_catalog();
                 }
             }
@@ -1410,13 +1469,7 @@ impl Runtime {
                 }
             }
             SessionChange::Ended { id, reason } => {
-                if self.local.remove(&id).is_some_and(|local| local.published)
-                    || self.publishing.contains(&id)
-                {
-                    self.retiring.insert(id);
-                }
-                self.publish_catalog();
-                self.retire_publications();
+                self.ended(id);
                 tracing::info!(%id, %reason, "session ended");
             }
             SessionChange::Metadata {

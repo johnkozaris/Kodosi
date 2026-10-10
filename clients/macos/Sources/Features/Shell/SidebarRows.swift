@@ -148,6 +148,7 @@ struct SidebarFolderHeader: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
     @State private var hovered = false
+    @State private var branching = false
     let group: SessionFolderGroup
     let collapsed: Bool
     let toggle: () -> Void
@@ -174,6 +175,15 @@ struct SidebarFolderHeader: View {
             .buttonStyle(.plain).help(group.directory ?? group.name)
             .accessibilityValue(Text(collapsed ? "Collapsed" : "Expanded"))
             if group.host == nil, let directory = group.directory {
+                if group.sessions.contains(where: { $0.repository == true }) {
+                    IconButton(title: "New terminal on a new branch", symbol: "arrow.triangle.branch",
+                               identifier: "sidebar.folder.\(AccessibilityIdentifier.token(group.id)).branch", size: 20, active: branching)
+                    {
+                        branching = true
+                    }
+                    .opacity(hovered || branching ? 1 : 0)
+                    .popover(isPresented: $branching, arrowEdge: .trailing) { NewBranchPopover(directory: directory) }
+                }
                 IconButton(title: "New terminal here", symbol: "plus",
                            identifier: "sidebar.folder.\(AccessibilityIdentifier.token(group.id)).new", size: 20)
                 {

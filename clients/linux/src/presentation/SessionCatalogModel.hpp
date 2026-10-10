@@ -31,6 +31,8 @@ public:
         QString programTitle;
         QString programMessage;
         int programProgress = -1;
+        bool prompt = false;
+        bool repository = false;
         QStringList connectedUsers;
         QString kind;
         QString workingDirectory;
@@ -67,6 +69,7 @@ public:
     explicit SessionCatalogModel(QObject* parent = nullptr);
     [[nodiscard]] QVariantList folderGroups() const;
     [[nodiscard]] QVariantList sessions() const;
+    [[nodiscard]] QStringList localPrograms() const;
     [[nodiscard]] QStringList attention() const { return m_attention; }
     [[nodiscard]] bool working() const;
     Q_INVOKABLE void clearAttention(const QString& id);
@@ -92,6 +95,7 @@ signals:
     void authorityStateChanged();
     void authoritativeSnapshotApplied();
     void attentionChanged();
+    void alertChanged(const QString& sessionId, const QString& text);
 
 private:
     QVector<Session> m_sessions;
@@ -103,6 +107,8 @@ private:
     [[nodiscard]] static bool isWorking(const Session& session);
     [[nodiscard]] static QString waitState(const Session& session);
     [[nodiscard]] static QString sign(const Session& session);
+    [[nodiscard]] static QString signLabel(const Session& session);
+    [[nodiscard]] static QString report(const Session& session);
     [[nodiscard]] static QString activity(const Session& session);
     [[nodiscard]] QVariantMap fields(const Session& session) const;
 };

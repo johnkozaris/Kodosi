@@ -21,7 +21,7 @@ import Testing
         }
         return 0
     }
-    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(51)]))
+    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(53)]))
     #expect(sent == ["session.list"])
     try app.receive(runtimeEvent("auth.finalizing", epoch: 0, userId: nil))
     app.refresh()
@@ -51,7 +51,7 @@ import Testing
     let id = "01992e43-53db-7040-8e02-f6ebf4149b28"
     let url = try #require(URL(string: "kodosi://session/\(id)"))
     app.pendingDeepLink = DeepLinkRouter.destination(for: url)
-    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(51)]))
+    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(53)]))
     try app.receive(runtimeEvent("auth.finalizing", epoch: 0, userId: nil))
     try app.receive(runtimeEvent("sessions.snapshot", epoch: 0, userId: nil, fields: ["sessions": .array([])]))
     #expect(app.pendingDeepLink?.sessionId == id)

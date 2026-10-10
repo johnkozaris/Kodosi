@@ -180,23 +180,25 @@ struct AgentMark: View {
 }
 
 struct StatusSign: View {
-    enum Form: Equatable { case changed, hand, question, key, done, failed }
+    enum Form: Equatable {
+        case changed, hand, question, key, done, failed
+
+        var label: String {
+            switch self {
+            case .changed: String(localized: "New activity")
+            case .hand: String(localized: "Needs your approval")
+            case .question: String(localized: "Needs your answer")
+            case .key: String(localized: "Needs you to sign in")
+            case .done: String(localized: "Done")
+            case .failed: String(localized: "Failed")
+            }
+        }
+    }
 
     @Environment(\.theme) private var theme
     let form: Form
     var size: CGFloat = 11
     var backing: Color?
-
-    private var label: Text {
-        switch form {
-        case .changed: Text("New activity")
-        case .hand: Text("Needs your approval")
-        case .question: Text("Needs your answer")
-        case .key: Text("Needs you to sign in")
-        case .done: Text("Done")
-        case .failed: Text("Failed")
-        }
-    }
 
     var body: some View {
         ZStack {
@@ -208,8 +210,8 @@ struct StatusSign: View {
         .frame(width: size + 5, height: size + 5)
         .animation(theme.motion.snappy, value: form)
         .accessibilityElement()
-        .accessibilityLabel(label)
-        .help(label)
+        .accessibilityLabel(Text(form.label))
+        .help(form.label)
     }
 
     @ViewBuilder

@@ -650,6 +650,16 @@
               }
             ]
           },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "missionId": {
             "anyOf": [
               {
@@ -700,6 +710,16 @@
             "const": "session.create"
           },
           "workingDir": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "worktrees": {
             "anyOf": [
               {
                 "type": "string"
@@ -840,6 +860,50 @@
           "requestId",
           "sessionId",
           "expectedRuntimeIncarnationId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "command": {
+            "type": "string"
+          },
+          "expectedRuntimeIncarnationId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "session.run"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "sessionId",
+          "expectedRuntimeIncarnationId",
+          "command"
         ],
         "type": "object"
       },
@@ -3195,6 +3259,12 @@
                     }
                   ]
                 },
+                "prompt": {
+                  "type": "boolean"
+                },
+                "repository": {
+                  "type": "boolean"
+                },
                 "sharedWith": {
                   "items": {
                     "type": "string"
@@ -3237,6 +3307,8 @@
               },
               "required": [
                 "connectedUsers",
+                "prompt",
+                "repository",
                 "id",
                 "incarnationId",
                 "kind",
@@ -4952,7 +5024,7 @@
     ]
   },
   "ffiAbiVersion": 7,
-  "protocolVersion": 51,
+  "protocolVersion": 53,
   "terminal": {
     "checkpointMaxBytes": 8388608,
     "checkpointSchema": 2,

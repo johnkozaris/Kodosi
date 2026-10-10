@@ -86,7 +86,7 @@ struct SessionTileView: View {
         }
         .onChange(of: tileVisible && stageVisible, initial: true) { _, visible in
             if visible {
-                deps.attention.remove(session.id)
+                deps.seen(session.id)
             }
         }
         .onChange(of: viewers.map(\.id)) { old, new in
@@ -197,7 +197,7 @@ struct SessionTileView: View {
 
     private func select() {
         deps.workbench.selectSession(session.id)
-        deps.attention.remove(session.id)
+        deps.seen(session.id)
     }
 
     private func closeSession() {

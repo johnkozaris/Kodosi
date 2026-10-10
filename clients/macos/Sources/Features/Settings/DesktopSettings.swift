@@ -62,6 +62,9 @@ final class DesktopSettings {
     var cursorBlink: Bool = false
 
     var lastWorkingDir: String?
+    var branchFolder: String?
+    var startCommands: [StartCommand] = []
+    private var learnedAgents: Set<String> = []
 
     enum CursorStyle: String, CaseIterable, Codable, Identifiable {
         case block, bar, underline
@@ -112,6 +115,19 @@ final class DesktopSettings {
         defaults.set(data, forKey: Self.terminalSettingsKey)
     }
 
+    func learn(_ agent: AgentKind) {
+        guard agent.isAgent, learnedAgents.insert(agent.rawValue).inserted else { return }
+        if !startCommands.contains(where: { $0.agent == agent }) {
+            startCommands.append(StartCommand(name: agent.label, command: agent == .cursor ? "cursor-agent" : agent.rawValue))
+        }
+        saveStartCommands()
+    }
+
+    func saveStartCommands() {
+        defaults.set(try? JSONEncoder().encode(startCommands), forKey: "agents.startCommands")
+        defaults.set(learnedAgents.sorted(), forKey: "agents.learned")
+    }
+
     func save() {
         _ = commitTerminalSettings(terminalSettings)
         let d = defaults
@@ -120,12 +136,20 @@ final class DesktopSettings {
         } else {
             d.removeObject(forKey: "session.lastWorkingDir")
         }
+        if let branchFolder {
+            d.set(branchFolder, forKey: "session.branchFolder")
+        } else {
+            d.removeObject(forKey: "session.branchFolder")
+        }
     }
 
     func load() {
         let d = defaults
         loadTerminalSettings(from: d)
         lastWorkingDir = d.string(forKey: "session.lastWorkingDir")
+        branchFolder = d.string(forKey: "session.branchFolder")
+        startCommands = d.data(forKey: "agents.startCommands").flatMap { try? JSONDecoder().decode([StartCommand].self, from: $0) } ?? []
+        learnedAgents = Set(d.stringArray(forKey: "agents.learned") ?? [])
         clampValues()
     }
 

@@ -64,6 +64,9 @@ enum SessionAction {
         directory: Option<PathBuf>,
         #[arg(long)]
         room: Option<String>,
+        /// Make a new branch of the repository in --directory (or the current folder), with its own folder, and start the terminal there.
+        #[arg(long)]
+        branch: Option<String>,
     },
     /// Start a terminal that resumes a saved provider conversation.
     Resume {
@@ -376,13 +379,15 @@ async fn session_command(
             name,
             directory,
             room,
+            branch,
         } => {
             let room = if let Some(reference) = room {
                 Some(mission_id(&missions(client, context).await?, &reference)?)
             } else {
                 None
             };
-            json!({"type":"session.create","requestId":request,"name":name.unwrap_or_else(||"Terminal".into()),"workingDir":path(directory)?,"missionId":room})
+            let (name, directory) = start_defaults(name, directory, branch.as_deref());
+            json!({"type":"session.create","requestId":request,"name":name,"workingDir":path(directory)?,"missionId":room,"branch":branch})
         }
         SessionAction::Resume {
             provider,
@@ -904,6 +909,17 @@ fn print_json(value: &impl serde::Serialize) -> Result<()> {
     output.write_all(b"\n")?;
     Ok(())
 }
+fn start_defaults(
+    name: Option<String>,
+    directory: Option<PathBuf>,
+    branch: Option<&str>,
+) -> (String, Option<PathBuf>) {
+    (
+        name.or_else(|| branch.map(str::to_owned))
+            .unwrap_or_else(|| "Terminal".into()),
+        directory.or_else(|| branch.map(|_| PathBuf::from("."))),
+    )
+}
 fn path(value: Option<PathBuf>) -> Result<Option<String>> {
     value
         .map(|path| {
@@ -1237,6 +1253,25 @@ mod tests {
                 .deadline(0, 0, now + Duration::from_secs(7))
                 .unwrap(),
             now + Duration::from_secs(7) + IdleWatch::GRACE
+        );
+    }
+    #[test]
+    fn a_branch_terminal_starts_from_the_current_folder_with_the_name_of_its_branch() {
+        assert!(
+            Arguments::try_parse_from(["kodosi", "session", "start", "--branch", "fix/login"])
+                .is_ok()
+        );
+        assert_eq!(
+            start_defaults(None, None, Some("fix/login")),
+            ("fix/login".to_owned(), Some(PathBuf::from(".")))
+        );
+        assert_eq!(
+            start_defaults(Some("Work".to_owned()), Some("/repo".into()), Some("fix")),
+            ("Work".to_owned(), Some(PathBuf::from("/repo")))
+        );
+        assert_eq!(
+            start_defaults(None, None, None),
+            ("Terminal".to_owned(), None)
         );
     }
     #[test]

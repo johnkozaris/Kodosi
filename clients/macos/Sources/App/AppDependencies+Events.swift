@@ -198,6 +198,10 @@ extension AppDependencies {
             noteAttention(value.id)
         }
         terminalNotifications.reconcile(sessions: received, accountEpoch: accountEpoch)
+        alert(received, after: waitStates)
+        for value in received where value.kind == .local {
+            settings.learn(value.agent)
+        }
         for value in received {
             if let old = previous[value.id], old != value.incarnationId {
                 terminalFocus.releaseSession(sessionId: value.id)
@@ -267,13 +271,29 @@ extension AppDependencies {
         }
     }
 
+    private func alert(_ received: [RuntimeSession], after before: [String: ProgramStatus.State?]) {
+        for value in received {
+            guard let was = before[value.id], value.waitState != was else { continue }
+            if let alert = value.alert, !isFront() {
+                terminalNotifications.alert(alert, session: value)
+            } else {
+                terminalNotifications.withdrawAlert(value.id)
+            }
+        }
+    }
+
     func noteAttention(_ id: String) {
         guard session(id) != nil, !isWatching(id) else { return }
         attention.insert(id)
     }
 
+    func seen(_ id: String) {
+        attention.remove(id)
+        terminalNotifications.withdrawAlert(id)
+    }
+
     func isWatching(_ id: String) -> Bool {
-        guard NSApp?.isActive == true, workbench.stagedSessionIds.contains(id) else { return false }
+        guard isFront(), workbench.stagedSessionIds.contains(id) else { return false }
         switch workbench.section {
         case .sessions: return workbench.focusedSessionId == nil || workbench.focusedSessionId == id
         case .missions:

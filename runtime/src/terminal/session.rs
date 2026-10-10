@@ -27,6 +27,7 @@ const MAX_PENDING_BYTES: usize = 4 * 1024 * 1024;
 const READ_BYTES: usize = 64 * 1024;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 const STOP_TIMEOUT: Duration = Duration::from_secs(10);
+const CLEAR_LINE: &str = "\x05\x15";
 
 type Completion = Option<std::result::Result<(), String>>;
 
@@ -42,6 +43,7 @@ pub(crate) enum SessionChange {
     Cwd {
         id: Uuid,
         path: PathBuf,
+        repository: bool,
     },
     Program {
         id: Uuid,
@@ -62,6 +64,10 @@ pub(crate) enum SessionChange {
         id: Uuid,
         title: String,
         body: String,
+    },
+    Prompt {
+        id: Uuid,
+        prompt: bool,
     },
     Ended {
         id: Uuid,
@@ -111,6 +117,10 @@ enum Request {
         reply: oneshot::Sender<Result<()>>,
     },
     Interrupt(oneshot::Sender<Result<()>>),
+    Run {
+        command: String,
+        reply: oneshot::Sender<Result<()>>,
+    },
     Theme(bool),
 }
 
@@ -189,6 +199,7 @@ impl LocalSession {
             sequence: 0,
             host_stop_reply: None,
             program: None,
+            prompt: false,
             viewers: HashMap::new(),
             working_directory: None,
             title: None,
@@ -290,6 +301,11 @@ impl LocalSession {
     pub(crate) fn interrupt(&self) -> impl Future<Output = Result<()>> + Send + use<> {
         let (reply, response) = oneshot::channel();
         await_reply(self.send(Request::Interrupt(reply)), response)
+    }
+
+    pub(crate) fn run(&self, command: String) -> impl Future<Output = Result<()>> + Send + use<> {
+        let (reply, response) = oneshot::channel();
+        await_reply(self.send(Request::Run { command, reply }), response)
     }
 
     pub(crate) fn theme(&self, dark: bool) {
@@ -479,6 +495,7 @@ struct LocalActor {
     sequence: u64,
     host_stop_reply: Option<oneshot::Sender<std::result::Result<serde_json::Value, String>>>,
     program: Option<String>,
+    prompt: bool,
     viewers: HashMap<Uuid, String>,
     working_directory: Option<PathBuf>,
     title: Option<String>,
@@ -725,6 +742,7 @@ impl LocalActor {
                     .changes
                     .try_send(SessionChange::Cwd {
                         id: self.id,
+                        repository: crate::worktree::is_repository(&path),
                         path: path.clone(),
                     })
                     .is_ok()
@@ -733,6 +751,7 @@ impl LocalActor {
                 self.metadata_dirty = true;
             }
             let program = self.pty.foreground_program();
+            let prompt = self.at_prompt(program.as_deref());
             if program != self.program
                 && self
                     .changes
@@ -744,6 +763,17 @@ impl LocalActor {
             {
                 self.program = program;
                 self.metadata_dirty = true;
+            }
+            if prompt != self.prompt
+                && self
+                    .changes
+                    .try_send(SessionChange::Prompt {
+                        id: self.id,
+                        prompt,
+                    })
+                    .is_ok()
+            {
+                self.prompt = prompt;
             }
             if self.status_program.is_some()
                 && self.pty.foreground_process_group() != self.status_program
@@ -815,10 +845,11 @@ impl LocalActor {
                     }
                 }
                 TerminalEffect::Cwd(path) => {
-                    drop(
-                        self.changes
-                            .try_send(SessionChange::Cwd { id: self.id, path }),
-                    );
+                    drop(self.changes.try_send(SessionChange::Cwd {
+                        id: self.id,
+                        repository: crate::worktree::is_repository(&path),
+                        path,
+                    }));
                 }
                 TerminalEffect::Title(title) => {
                     self.metadata_dirty |= self.title.as_ref() != Some(&title);
@@ -851,6 +882,10 @@ impl LocalActor {
             }
         }
         Ok(())
+    }
+
+    fn at_prompt(&self, program: Option<&str>) -> bool {
+        program.is_none() && self.pty.foreground_is_child()
     }
 
     fn accept_input(&mut self, connection: Uuid, mut write: PendingWrite) -> Option<String> {
@@ -933,6 +968,15 @@ impl LocalActor {
                         ),
                     );
                 }
+            }
+            Request::Run { command, reply } => {
+                let result = if self.at_prompt(self.pty.foreground_program().as_deref()) {
+                    self.enqueue(Bytes::from(format!("{CLEAR_LINE}{command}\r")), None)
+                        .and_then(|()| self.flush())
+                } else {
+                    Err(Error::Invalid("This terminal runs a program.".to_owned()))
+                };
+                drop(reply.send(result));
             }
             Request::Theme(dark) => {
                 if let Err(error) = self.emulator.notify_theme_changed(dark).await {

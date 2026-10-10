@@ -165,21 +165,39 @@ bool SessionActionsModel::resume(
     return true;
 }
 
+namespace {
+QString generatedName()
+{
+    const QStringList adjectives { QStringLiteral("Amber"), QStringLiteral("Cedar"),
+        QStringLiteral("Copper"), QStringLiteral("Jade"), QStringLiteral("Pearl"),
+        QStringLiteral("Silver"), QStringLiteral("Slate"), QStringLiteral("Willow") };
+    const QStringList animals { QStringLiteral("Falcon"), QStringLiteral("Fox"),
+        QStringLiteral("Gecko"), QStringLiteral("Heron"), QStringLiteral("Lynx"),
+        QStringLiteral("Otter"), QStringLiteral("Quail"), QStringLiteral("Wren") };
+    return adjectives.at(QRandomGenerator::global()->bounded(adjectives.size()))
+        + QLatin1Char(' ')
+        + animals.at(QRandomGenerator::global()->bounded(animals.size()));
+}
+}
+
+QString SessionActionsModel::suggestedBranch() const
+{
+    return generatedName().toLower().replace(QLatin1Char(' '), QLatin1Char('-'));
+}
+
+bool SessionActionsModel::createOnBranch(const QString& directory, const QString& branch)
+{
+    const auto name = branch.trimmed();
+    return !directory.isEmpty() && !name.isEmpty() && createInternal(name, directory, {}, {}, {}, name);
+}
+
 bool SessionActionsModel::createInternal(const QString& name, const QString& directory,
-    const QString& provider, const QString& nativeConversationId, const QString& roomId)
+    const QString& provider, const QString& nativeConversationId, const QString& roomId,
+    const QString& branch)
 {
     QString title = name.trimmed();
-    if (title.isEmpty()) {
-        const QStringList adjectives { QStringLiteral("Amber"), QStringLiteral("Cedar"),
-            QStringLiteral("Copper"), QStringLiteral("Jade"), QStringLiteral("Pearl"),
-            QStringLiteral("Silver"), QStringLiteral("Slate"), QStringLiteral("Willow") };
-        const QStringList animals { QStringLiteral("Falcon"), QStringLiteral("Fox"),
-            QStringLiteral("Gecko"), QStringLiteral("Heron"), QStringLiteral("Lynx"),
-            QStringLiteral("Otter"), QStringLiteral("Quail"), QStringLiteral("Wren") };
-        title = adjectives.at(QRandomGenerator::global()->bounded(adjectives.size()))
-            + QLatin1Char(' ')
-            + animals.at(QRandomGenerator::global()->bounded(animals.size()));
-    }
+    if (title.isEmpty())
+        title = generatedName();
     if (!Workspace::validName(title)) {
         m_workspace.setError(tr("Use a name of 1–128 UTF-8 bytes."));
         return false;
@@ -188,6 +206,11 @@ bool SessionActionsModel::createInternal(const QString& name, const QString& dir
     if (!roomId.isEmpty()) values.insert(QStringLiteral("missionId"), roomId);
     if (!directory.isEmpty())
         values.insert(QStringLiteral("workingDir"), directory);
+    if (!branch.isEmpty()) {
+        values.insert(QStringLiteral("branch"), branch);
+        if (!m_settings.branchFolder().isEmpty())
+            values.insert(QStringLiteral("worktrees"), m_settings.branchFolder());
+    }
     if (!nativeConversationId.isEmpty()) {
         if (provider != QStringLiteral("claude") && provider != QStringLiteral("copilot")) {
             m_workspace.setError(tr("Choose a supported provider."));
@@ -229,6 +252,15 @@ bool SessionActionsModel::rename(const QString& id, const QString& name)
         return false;
     return command(QStringLiteral("session.rename"), id,
         { { QStringLiteral("name"), name.trimmed() } });
+}
+
+bool SessionActionsModel::run(const QString& id, const QString& line)
+{
+    const auto text = line.trimmed();
+    const bool printable = std::ranges::all_of(text.toUcs4(), [](const char32_t scalar) { return QChar::isPrint(scalar); });
+    if (text.isEmpty() || text.toUtf8().size() > 1024 || !printable)
+        return false;
+    return command(QStringLiteral("session.run"), id, { { QStringLiteral("command"), text } });
 }
 
 bool SessionActionsModel::share(

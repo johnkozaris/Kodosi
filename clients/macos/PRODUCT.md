@@ -21,7 +21,16 @@ A terminal carries the mark of the program in it. While an agent works, its mark
 title show it. A program that waits for you puts a copper ring on its mark and a sign
 of what it needs beside it, and the source list offers the next terminal that waits
 for an answer. A terminal that is done, that failed, or that rang its bell keeps a
-sign until you look at it.
+sign until you look at it. While Kodosi is not in front, your own terminals send a
+system notification for these changes.
+
+A terminal at its prompt offers the start commands of this computer as marks among its
+actions. Kodosi adds a command for an agent the first time that the agent runs here.
+Settings holds the list, so a second account is one more command.
+
+The folder of a Git repository in the sidebar offers a terminal on a new branch. You
+give the branch a name; it gets its own folder and a terminal starts there. A folder
+with no changes goes away when its terminal ends.
 
 Minimize hides a terminal but keeps it running. Close ends it and its programs.
 Closing the window leaves Kodosi running; Quit ends terminals that run on this Mac,

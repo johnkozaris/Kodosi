@@ -375,6 +375,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         sequence: 0,
         host_stop_reply: None,
         program: None,
+        prompt: false,
         viewers: HashMap::new(),
         working_directory: None,
         title: None,
@@ -493,6 +494,63 @@ async fn a_progress_bar_shows_as_work_and_ends_with_its_program() {
     );
     assert_eq!(next_status(&mut changes).await, None);
     session.close().await.expect("close");
+}
+
+async fn next_prompt(changes: &mut mpsc::Receiver<SessionChange>) -> bool {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Some(SessionChange::Prompt { prompt, .. }) = changes.recv().await {
+                break prompt;
+            }
+        }
+    })
+    .await
+    .expect("prompt change")
+}
+
+#[tokio::test]
+async fn a_command_runs_only_while_the_shell_is_at_its_prompt() {
+    let root = tempfile::tempdir().expect("temp cwd");
+    let (changes, mut changes_receiver) = mpsc::channel(128);
+    let session = LocalSession::spawn(
+        Uuid::now_v7(),
+        Uuid::now_v7(),
+        PathBuf::from("/bin/sh"),
+        vec!["-i".to_owned()],
+        root.path().canonicalize().expect("canonical cwd"),
+        true,
+        changes,
+    )
+    .await
+    .expect("interactive shell");
+    assert!(next_prompt(&mut changes_receiver).await);
+
+    let subscription = session.subscribe().await.expect("subscribe");
+    session
+        .input(
+            subscription.connection_id,
+            Bytes::from_static(b": half typed "),
+        )
+        .expect("input");
+    session
+        .run("printf '\\033]7501;state=done:msg=UmFu\\007'".to_owned())
+        .await
+        .expect("run at the prompt");
+    assert_eq!(
+        next_status(&mut changes_receiver)
+            .await
+            .and_then(|status| status.message),
+        Some("Ran".to_owned())
+    );
+
+    session
+        .run("sleep 30".to_owned())
+        .await
+        .expect("start a program");
+    assert!(!next_prompt(&mut changes_receiver).await);
+    assert!(session.run("printf no".to_owned()).await.is_err());
+    session.close().await.expect("close");
+    drop(session);
 }
 
 #[tokio::test]

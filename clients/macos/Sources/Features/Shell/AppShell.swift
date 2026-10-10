@@ -56,7 +56,7 @@ struct AppShell: View {
         .onChange(of: workbench.focusedSessionId) { _, _ in deps.reconcileTerminals() }
         .onChange(of: workbench.selectedSessionId) { _, id in
             if let id {
-                deps.attention.remove(id)
+                deps.seen(id)
             }
         }
     }

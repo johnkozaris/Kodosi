@@ -608,6 +608,8 @@ mod tests {
                 ),
                 ("workingDir", json!("/tmp/project")),
                 ("workingDirectory", json!("/tmp/project")),
+                ("worktrees", json!("/tmp/branches")),
+                ("branch", json!("fix/login")),
                 ("rows", json!(24)),
                 ("cols", json!(80)),
                 ("widthPixels", json!(800)),

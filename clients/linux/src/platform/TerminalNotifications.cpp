@@ -2,6 +2,7 @@
 
 #include "platform/NotificationText.hpp"
 
+#include <QGuiApplication>
 #include <QUuid>
 
 #include <utility>
@@ -13,6 +14,7 @@ TerminalNotifications::TerminalNotifications(
     DesktopNotificationDriver& driver,
     QObject* parent)
     : QObject(parent)
+    , isFront([] { return QGuiApplication::applicationState() == Qt::ApplicationActive; })
     , m_sessions(sessions)
     , m_driver(driver)
 {
@@ -48,6 +50,36 @@ TerminalNotifications::TerminalNotifications(
     connect(&m_sessions, &QAbstractItemModel::modelReset, this, pruneContexts);
     connect(&m_sessions, &QAbstractItemModel::rowsRemoved, this, pruneContexts);
     connect(&m_sessions, &QAbstractItemModel::dataChanged, this, pruneContexts);
+    connect(&m_sessions, &SessionCatalogModel::attentionChanged, this, pruneContexts);
+    connect(&m_sessions, &SessionCatalogModel::alertChanged, this, &TerminalNotifications::alert);
+}
+
+void TerminalNotifications::alert(const QString& sessionId, const QString& text)
+{
+    const auto key = QStringLiteral("terminal:alert:") + sessionId;
+    const auto session = m_sessions.session(sessionId);
+    if (text.isEmpty() || !session || isFront()) {
+        remove(key, true);
+        return;
+    }
+    track(key, { .sessionId = sessionId, .runtimeIncarnationId = session->incarnationId, .alert = true });
+    m_driver.post({
+        .key = key,
+        .title = notificationPlainText(session->name, 160),
+        .body = notificationPlainText(text, 240),
+    });
+}
+
+void TerminalNotifications::track(const QString& key, const Context& context)
+{
+    constexpr qsizetype maximumTracked = 256;
+    while (!m_contexts.contains(key) && m_contexts.size() >= maximumTracked && !m_order.isEmpty()) {
+        const auto oldest = m_order.head();
+        remove(oldest, true);
+    }
+    if (!m_contexts.contains(key))
+        m_order.enqueue(key);
+    m_contexts.insert(key, context);
 }
 
 void TerminalNotifications::apply(const QJsonObject& event)
@@ -61,12 +93,6 @@ void TerminalNotifications::apply(const QJsonObject& event)
         return;
     }
 
-    constexpr qsizetype maximumTracked = 256;
-    while (m_contexts.size() >= maximumTracked && !m_order.isEmpty()) {
-        const auto oldest = m_order.head();
-        remove(oldest, true);
-    }
-
     const auto key = QStringLiteral("terminal:")
         + QUuid::createUuidV7().toString(QUuid::WithoutBraces);
     auto title = notificationPlainText(event.value(QStringLiteral("title")).toString(), 160);
@@ -77,8 +103,7 @@ void TerminalNotifications::apply(const QJsonObject& event)
     if (body.isEmpty()) {
         body = notificationPlainText(context.sessionId, 160);
     }
-    m_contexts.insert(key, context);
-    m_order.enqueue(key);
+    track(key, context);
     m_driver.post({
         .key = key,
         .title = std::move(title),
@@ -135,9 +160,10 @@ void TerminalNotifications::prune()
 bool TerminalNotifications::current(const Context& context) const
 {
     const auto session = m_sessions.session(context.sessionId);
-    return m_sessions.hasAuthoritativeSnapshot() && session
-        && session->kind == QStringLiteral("local")
-        && session->incarnationId == context.runtimeIncarnationId;
+    if (!m_sessions.hasAuthoritativeSnapshot() || !session || session->incarnationId != context.runtimeIncarnationId)
+        return false;
+    return context.alert ? session->isOwner && m_sessions.attention().contains(context.sessionId)
+                         : session->kind == QStringLiteral("local");
 }
 
 bool TerminalNotifications::owns(const QString& key)

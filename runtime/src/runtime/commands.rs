@@ -81,6 +81,7 @@ impl Runtime {
             Command::CloseSession { .. } | Command::InterruptSession { .. } => {
                 self.end_session(command)?;
             }
+            Command::RunInSession { .. } => self.run_in_session(command)?,
             Command::OpenRemote { .. } | Command::DisconnectRemote { .. } => {
                 return Err(Error::Invalid(
                     "remote view commands require a current client".to_owned(),
@@ -144,6 +145,11 @@ impl Runtime {
             expected_runtime_incarnation_id: incarnation,
             ..
         }
+        | Command::RunInSession {
+            session_id: id,
+            expected_runtime_incarnation_id: incarnation,
+            ..
+        }
         | Command::ShareSession {
             session_id: id,
             expected_runtime_incarnation_id: incarnation,
@@ -189,6 +195,32 @@ impl Runtime {
         } else {
             self.administer(id, command.clone())
         }
+    }
+
+    fn run_in_session(&mut self, command: &Command) -> Result<()> {
+        let id = self.command_session(command)?;
+        let Command::RunInSession { command: line, .. } = command else {
+            return Err(Error::Invalid("expected a command to run".to_owned()));
+        };
+        self.job_capacity()?;
+        let response = self
+            .local
+            .get(&id)
+            .ok_or_else(|| {
+                Error::Invalid(
+                    "Start a program on the computer that hosts this terminal.".to_owned(),
+                )
+            })?
+            .terminal
+            .run(line.clone());
+        let command = command.clone();
+        self.spawn(async move {
+            Completion::Terminal {
+                command,
+                result: response.await,
+            }
+        });
+        Ok(())
     }
 
     fn end_session(&mut self, command: &Command) -> Result<()> {
@@ -631,6 +663,8 @@ impl Runtime {
                 let entry = SessionEntry {
                     connected_users: vec![],
                     program: None,
+                    prompt: false,
+                    repository: started.repository,
                     title: None,
                     program_status: None,
                     id: id.to_string(),
@@ -659,6 +693,7 @@ impl Runtime {
                         entry,
                         creation: command,
                         published: false,
+                        worktree: started.worktree.take(),
                     },
                 );
                 self.publish_catalog();
@@ -895,6 +930,8 @@ async fn create_session(
     let Command::CreateSession {
         working_dir,
         resume,
+        branch,
+        worktrees,
         ..
     } = command
     else {
@@ -907,6 +944,11 @@ async fn create_session(
     if !tokio::fs::metadata(&directory).await?.is_dir() {
         return Err(Error::Invalid(
             "working directory is not a directory".to_owned(),
+        ));
+    }
+    if branch.is_some() && resume.is_some() {
+        return Err(Error::Invalid(
+            "A conversation resumes in its own folder, not on a new branch.".to_owned(),
         ));
     }
     let (program, arguments) = if let Some(resume) = resume {
@@ -943,7 +985,17 @@ async fn create_session(
             vec![],
         )
     };
-    let terminal = LocalSession::spawn(
+    let worktree = match branch {
+        Some(branch) => Some(
+            crate::worktree::create(&directory, branch, worktrees.as_deref().map(Path::new))
+                .await?,
+        ),
+        None => None,
+    };
+    let directory = worktree
+        .as_ref()
+        .map_or(directory, |worktree| worktree.path.clone());
+    let terminal = match LocalSession::spawn(
         id,
         Uuid::now_v7(),
         program,
@@ -952,10 +1004,21 @@ async fn create_session(
         dark,
         changes,
     )
-    .await?;
+    .await
+    {
+        Ok(terminal) => terminal,
+        Err(error) => {
+            if let Some(worktree) = worktree {
+                crate::worktree::remove_unchanged(worktree).await;
+            }
+            return Err(error);
+        }
+    };
     Ok(StartedSession {
         terminal: Some(terminal),
+        repository: worktree.is_some() || crate::worktree::is_repository(&directory),
         directory,
+        worktree,
     })
 }
 
