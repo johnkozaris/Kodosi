@@ -7,15 +7,35 @@ import { type ReactNode, useState } from "react";
 import { BrandMark } from "../../parts/brands";
 import { CodeTiles } from "../../parts/code";
 import { Go, PasswordRow, SwitchRow, TextRow } from "../../parts/rows";
-import { QuietLink, Way } from "../../parts/text";
+import { Note, QuietLink, Way } from "../../parts/text";
 import { heldCode } from "../device";
-import type { I18n } from "../i18n";
+import { type I18n, isMessage } from "../i18n";
 import { Stage } from "../stage";
 import { keepWay, lastWay } from "../ways";
 import type { Page } from "./props";
 
 /** Keycloak's passkey script finds this button by its name. */
 const PASSKEY_BUTTON = "authenticateWebAuthnButton";
+/** Keycloak's sentences for a passkey that did not answer or did not fit: a person who closed the
+    passkey box of the browser gets the first. */
+const PASSKEY_PROBLEMS = [
+  "webauthn-error-api-get",
+  "webauthn-error-auth-verification",
+  "webauthn-error-different-user",
+  "webauthn-error-user-not-found",
+];
+
+/** What Keycloak said about the passkey, when it said something about it. */
+function passkeyProblem(
+  kcContext: { message?: { summary: string; type: string } | undefined },
+  i18n: I18n,
+): string | undefined {
+  const said = kcContext.message;
+  return said?.type === "error" &&
+    PASSKEY_PROBLEMS.some((key) => isMessage(i18n, said.summary, key))
+    ? said.summary
+    : undefined;
+}
 
 function nameLabel(
   i18n: I18n,
@@ -35,6 +55,7 @@ function OtherWays({
   i18n,
   forgot,
   passkey,
+  problem,
   providers,
   register,
   onPasskey,
@@ -42,6 +63,8 @@ function OtherWays({
   i18n: I18n;
   forgot?: string | undefined;
   passkey: boolean;
+  /** What went wrong with the passkey: it shows under the passkey's button. */
+  problem?: string | undefined;
   providers?: Provider[] | undefined;
   register?: string | undefined;
   onPasskey: () => void;
@@ -57,10 +80,18 @@ function OtherWays({
       {(passkey || sorted.length > 0) && (
         <div className="mt-2 flex w-full flex-col gap-2">
           {passkey && (
-            <Way id={PASSKEY_BUTTON} icon={<Fingerprint aria-hidden />} onClick={onPasskey}>
+            <Way
+              id={PASSKEY_BUTTON}
+              icon={<Fingerprint aria-hidden />}
+              onClick={onPasskey}
+              aria-describedby={problem ? "passkey-note" : undefined}
+            >
               {msgStr("kdsPasskeySignIn")}
             </Way>
           )}
+          <div aria-live="polite">
+            {passkey && problem && <Note tone="danger" text={problem} id="passkey-note" />}
+          </div>
           {sorted.length > 0 && (
             <div className="grid grid-cols-[repeat(auto-fit,minmax(104px,1fr))] gap-2">
               {sorted.map((provider) => (
@@ -136,7 +167,8 @@ function Frame({
       lead={code && <CodeTiles small code={code} label={msgStr("kdsCodeFromApp")} />}
       wrong={wrong}
       problem={problem}
-      quiet={wrong}
+      // A problem of the passkey is under the passkey's button, not under the capsule.
+      quiet={wrong || !!passkeyProblem(kcContext, i18n)}
       below={below}
     >
       {children}
@@ -163,6 +195,7 @@ export function Login({ kcContext, i18n }: Page<"login.ftl">) {
           i18n={i18n}
           forgot={realm.resetPasswordAllowed ? url.loginResetCredentialsUrl : undefined}
           passkey={passkey}
+          problem={passkeyProblem(kcContext, i18n)}
           providers={social?.providers}
           register={
             realm.password && realm.registrationAllowed && !kcContext.registrationDisabled
@@ -252,6 +285,7 @@ export function LoginUsername({ kcContext, i18n }: Page<"login-username.ftl">) {
         <OtherWays
           i18n={i18n}
           passkey={passkey}
+          problem={passkeyProblem(kcContext, i18n)}
           providers={social?.providers}
           register={
             realm.password && realm.registrationAllowed && !kcContext.registrationDisabled
@@ -324,6 +358,7 @@ export function LoginPassword({ kcContext, i18n }: Page<"login-password.ftl">) {
           i18n={i18n}
           forgot={realm.resetPasswordAllowed ? url.loginResetCredentialsUrl : undefined}
           passkey={passkey}
+          problem={passkeyProblem(kcContext, i18n)}
           onPasskey={() => keepWay(null)}
         />
       }

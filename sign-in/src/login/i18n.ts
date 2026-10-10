@@ -139,6 +139,15 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsPasskeyCreate: "Make the passkey",
       kdsPasskeyName: "A name for this passkey",
       kdsPasskeyFailedTitle: "The passkey did not work",
+      // Keycloak's sentences about a passkey, in the words of Kodosi. A person who closes the
+      // passkey box of the browser gets the first.
+      "webauthn-error-api-get": "The passkey did not answer. Try again, or use your password.",
+      "webauthn-error-auth-verification": "The passkey did not work. Try again.",
+      "webauthn-error-different-user": "That passkey is for a different account.",
+      "webauthn-error-user-not-found": "That passkey is not for an account here.",
+      "webauthn-error-registration": "The passkey was not made. Try again.",
+      "webauthn-error-register-verification": "The passkey was not made. Try again.",
+      "webauthn-error-title": "The passkey did not work",
 
       kdsRecoveryTitle: "Keep these codes",
       kdsRecoveryLead: "Each code signs you in one time, when you do not have your phone.",

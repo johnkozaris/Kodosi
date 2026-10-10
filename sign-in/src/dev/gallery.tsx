@@ -163,6 +163,17 @@ const SCENES: Record<string, Scene> = {
     next: "code",
   },
   "sign-in-passkey": { page: "login.ftl", with: { ...open, enableWebAuthnConditionalUI: true } },
+  "sign-in-passkey-failed": {
+    page: "login.ftl",
+    with: {
+      ...open,
+      enableWebAuthnConditionalUI: true,
+      message: {
+        type: "error",
+        summary: "The passkey did not answer. Try again, or use your password.",
+      },
+    },
+  },
   name: { page: "login-username.ftl", with: open, next: "password" },
   password: { page: "login-password.ftl", with: { auth: person }, next: "code" },
   "password-wrong": {
