@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 pub(crate) struct RoomCache {
     generation: u64,
     rooms: BTreeMap<Uuid, CachedRoom>,
-    registered: bool,
+    registered: Option<String>,
 }
 #[derive(Clone, Default)]
 struct CachedRoom {
@@ -94,7 +94,7 @@ impl BackendClient {
                     ..RoomCache::default()
                 };
             }
-            if cache.registered {
+            if cache.registered.as_ref() == Some(&credentials.keys.device_id) {
                 return Ok(());
             }
         }
@@ -106,7 +106,7 @@ impl BackendClient {
         let signature = crypto::sign_control_message(credentials.keys.signing_pkcs8(), &proof)?;
         let _response: Value = self.inner.http.device(Method::PUT, "api/me/room-key", credentials,
             Some(json!({"publicKey":BASE64.encode(credentials.keys.room_public()),"signature":BASE64.encode(signature)}))).await?;
-        self.inner.rooms.lock().await.registered = true;
+        self.inner.rooms.lock().await.registered = Some(credentials.keys.device_id.clone());
         Ok(())
     }
 

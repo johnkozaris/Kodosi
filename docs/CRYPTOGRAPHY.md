@@ -40,7 +40,8 @@ All algorithms come from AWS-LC (through `aws-lc-rs`) and `rustls`.
 
 **Device keys.** Each device makes an ML-DSA-65 signing key and a room key pair (an
 ML-KEM-768 key and an X25519 key). They stay in the macOS Keychain or the Linux Secret
-Service.
+Service. A device has one room key pair for its life: the server refuses a different
+room key for a known device, and new keys always come with a new device.
 
 **Device certificate.** A certificate holds the account, the device, a label, the
 signing device, the signing public key, and the issue and expiry times. The signing

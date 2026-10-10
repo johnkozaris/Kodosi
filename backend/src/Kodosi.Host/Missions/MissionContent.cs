@@ -27,9 +27,12 @@ public sealed partial class MissionService
     {
         var (key, signature) = ValidRoomKey(signatures, userId, device.Id, device.SigningPublicKey, request);
         var existing = await db.RoomRecipientKeys.SingleOrDefaultAsync(x => x.DeviceId == device.Id, ct);
-        if (existing is null) db.RoomRecipientKeys.Add(new RoomRecipientKey { DeviceId = device.Id, UserId = userId, PublicKey = key, Signature = signature });
-        else if (existing.PublicKey.AsSpan().SequenceEqual(key)) return;
-        else { existing.PublicKey = key; existing.Signature = signature; }
+        if (existing is not null)
+        {
+            if (!existing.PublicKey.AsSpan().SequenceEqual(key)) throw ApiException.Conflict("This device already has a different room key.");
+            return;
+        }
+        db.RoomRecipientKeys.Add(new RoomRecipientKey { DeviceId = device.Id, UserId = userId, PublicKey = key, Signature = signature });
         await db.SaveChangesAsync(ct);
         await NotifyRoomsOfAsync(userId, ct);
     }

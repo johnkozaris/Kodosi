@@ -109,4 +109,22 @@ public sealed class RoomContentTests(PostgresFixture postgres)
         var stranger = await Assert.ThrowsAsync<ApiException>(() => store.Missions.RecipientKeysAsync(carol.User.Id, bob.User.Id, ct));
         Assert.Equal(404, stranger.Status);
     }
+
+    [Fact]
+    public async Task ADeviceKeepsTheRoomKeyItRegisteredFirst()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var bob = await store.UserAsync("bob");
+        MissionService.RecipientKeyWrite Key(byte fill)
+        {
+            var key = Enumerable.Repeat(fill, MissionService.RoomPublicKeyLength).ToArray();
+            return new(Convert.ToBase64String(key), Convert.ToBase64String(bob.Fixture.Sign(MissionService.RoomKeyProof(bob.User.Id, bob.Device.Id, key))));
+        }
+        await store.Missions.RegisterRoomKeyAsync(bob.User.Id, bob.Device, Key(1), ct);
+        await store.Missions.RegisterRoomKeyAsync(bob.User.Id, bob.Device, Key(1), ct);
+        var changed = await Assert.ThrowsAsync<ApiException>(() => store.Missions.RegisterRoomKeyAsync(bob.User.Id, bob.Device, Key(2), ct));
+        Assert.Equal(409, changed.Status);
+        Assert.Equal(1, (await store.Db.RoomRecipientKeys.SingleAsync(x => x.DeviceId == bob.Device.Id, ct)).PublicKey[0]);
+    }
 }
