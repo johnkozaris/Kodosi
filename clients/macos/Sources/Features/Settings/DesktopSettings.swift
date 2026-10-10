@@ -62,6 +62,7 @@ final class DesktopSettings {
     var cursorBlink: Bool = false
 
     var lastWorkingDir: String?
+    var branchFolder: String?
     var startCommands: [StartCommand] = []
     private var learnedAgents: Set<String> = []
 
@@ -135,12 +136,18 @@ final class DesktopSettings {
         } else {
             d.removeObject(forKey: "session.lastWorkingDir")
         }
+        if let branchFolder {
+            d.set(branchFolder, forKey: "session.branchFolder")
+        } else {
+            d.removeObject(forKey: "session.branchFolder")
+        }
     }
 
     func load() {
         let d = defaults
         loadTerminalSettings(from: d)
         lastWorkingDir = d.string(forKey: "session.lastWorkingDir")
+        branchFolder = d.string(forKey: "session.branchFolder")
         startCommands = d.data(forKey: "agents.startCommands").flatMap { try? JSONDecoder().decode([StartCommand].self, from: $0) } ?? []
         learnedAgents = Set(d.stringArray(forKey: "agents.learned") ?? [])
         clampValues()

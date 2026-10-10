@@ -22,6 +22,7 @@ Item {
         case "agent": return "M12 3 L14.5 9.5 L21 12 L14.5 14.5 L12 21 L9.5 14.5 L3 12 L9.5 9.5 Z"
         case "more": return "M5 12 H5.1 M12 12 H12.1 M19 12 H19.1"
         case "minus": return "M5 12 H19"
+        case "branch": return "M6 3 V15 M18 3 A3 3 0 1 0 18 9 A3 3 0 1 0 18 3 M6 15 A3 3 0 1 0 6 21 A3 3 0 1 0 6 15 M18 9 A9 9 0 0 1 9 18"
         case "folder": return "M3 7.5 Q3 6 4.5 6 H9 L11 8 H19.5 Q21 8 21 9.5 V18 Q21 20 19 20 H5 Q3 20 3 18 Z"
         case "command": return "M9 7 A3 3 0 1 0 6 10 H18 A3 3 0 1 0 15 7 V17 A3 3 0 1 0 18 14 H6 A3 3 0 1 0 9 17 Z"
         case "people": return "M8.5 11 A3 3 0 1 0 8.5 5 A3 3 0 1 0 8.5 11 M15.5 10 A2.5 2.5 0 1 0 15.5 5 A2.5 2.5 0 1 0 15.5 10 M3.5 19 Q3.5 13.5 8.5 13.5 Q13.5 13.5 13.5 19 M13 13 Q20.5 12.5 20.5 18"

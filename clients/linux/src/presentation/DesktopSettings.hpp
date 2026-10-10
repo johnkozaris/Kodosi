@@ -16,6 +16,7 @@ class DesktopSettings final : public QObject {
     Q_PROPERTY(int scrollbackLines READ scrollbackLines NOTIFY settingsChanged)
     Q_PROPERTY(bool cursorBlink READ cursorBlink NOTIFY settingsChanged)
     Q_PROPERTY(QString effectiveWorkingDirectory READ effectiveWorkingDirectory NOTIFY settingsChanged)
+    Q_PROPERTY(QString branchFolder READ branchFolder NOTIFY settingsChanged)
     Q_PROPERTY(QString settingsError READ settingsError NOTIFY settingsErrorChanged)
     Q_PROPERTY(QVariantList startCommands READ startCommands NOTIFY startCommandsChanged)
     Q_PROPERTY(QStringList startCommandIds READ startCommandIds NOTIFY startCommandIdsChanged)
@@ -31,10 +32,12 @@ public:
     int scrollbackLines() const { return m_scrollback; }
     bool cursorBlink() const { return m_blink; }
     QString effectiveWorkingDirectory() const;
+    QString branchFolder() const { return m_branchFolder; }
     QString settingsError() const { return m_error; }
     Q_INVOKABLE bool apply(
         const QString& family, int size, int cursor, double lineHeight, int scrollback, bool blink);
     Q_INVOKABLE void setWorkingDirectory(const QString& path);
+    Q_INVOKABLE void setBranchFolder(const QString& path);
     Q_INVOKABLE void resetTerminal();
     Q_INVOKABLE void clearError();
     QVariantList startCommands() const;
@@ -52,7 +55,7 @@ signals:
 
 private:
     std::unique_ptr<QSettings> m_settings;
-    QString m_fontFamily = QStringLiteral("monospace"), m_directory, m_error;
+    QString m_fontFamily = QStringLiteral("monospace"), m_directory, m_branchFolder, m_error;
     int m_fontSize = 13, m_scrollback = 10000;
     CursorStyle m_cursor = Block;
     double m_lineHeight = 1.0;

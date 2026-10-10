@@ -1,4 +1,5 @@
 #include "presentation/DesktopSettings.hpp"
+#include <QFileInfo>
 #include <QTemporaryDir>
 #include <QtTest/QTest>
 class DesktopSettingsTest final : public QObject {
@@ -21,6 +22,26 @@ private slots:
         restored.resetTerminal();
         QCOMPARE(restored.fontSize(), 13);
         QVERIFY(!restored.cursorBlink());
+    }
+    void theBranchFolderStaysAfterARestart()
+    {
+        QTemporaryDir directory;
+        const auto path = directory.filePath(QStringLiteral("settings.ini"));
+        {
+            kodosi::DesktopSettings settings(std::make_unique<QSettings>(path, QSettings::IniFormat));
+            QVERIFY(settings.branchFolder().isEmpty());
+            settings.setBranchFolder(QStringLiteral("relative"));
+            settings.setBranchFolder(directory.filePath(QStringLiteral("missing")));
+            QVERIFY(settings.branchFolder().isEmpty());
+            settings.setBranchFolder(directory.path());
+            QCOMPARE(settings.branchFolder(), QFileInfo(directory.path()).canonicalFilePath());
+        }
+        {
+            kodosi::DesktopSettings restored(std::make_unique<QSettings>(path, QSettings::IniFormat));
+            QCOMPARE(restored.branchFolder(), QFileInfo(directory.path()).canonicalFilePath());
+            restored.setBranchFolder({});
+        }
+        QVERIFY(kodosi::DesktopSettings(std::make_unique<QSettings>(path, QSettings::IniFormat)).branchFolder().isEmpty());
     }
     void anAgentThatRunsHereGetsOneStartCommand()
     {

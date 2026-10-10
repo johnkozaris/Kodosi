@@ -44,6 +44,8 @@ impl TestRuntime {
             working_dir: None,
             mission_id: None,
             resume: None,
+            branch: None,
+            worktrees: None,
         })
         .await;
         timeout(Duration::from_secs(10), async {
@@ -91,6 +93,98 @@ async fn receive_text(subscription: &mut Subscription, wanted: &[u8]) -> Vec<u8>
     })
     .await
     .expect("terminal output timeout")
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_terminal_on_a_new_branch_starts_in_its_own_folder_and_takes_it_away_unchanged() {
+    async fn start(runtime: &TestRuntime, folder: &Path, branch: &str) -> Value {
+        let (_, mut events) = runtime.handle.observe().await.unwrap();
+        let request = Uuid::now_v7().to_string();
+        runtime
+            .send(Command::CreateSession {
+                request_id: request.clone(),
+                name: branch.to_owned(),
+                working_dir: Some(folder.to_string_lossy().into_owned()),
+                mission_id: None,
+                resume: None,
+                branch: Some(branch.to_owned()),
+                worktrees: None,
+            })
+            .await;
+        timeout(Duration::from_secs(10), async {
+            loop {
+                let event = serde_json::to_value(events.recv().await.unwrap()).unwrap();
+                assert_ne!(event["type"], "session.error", "{event}");
+                if event["type"] == "sessions.snapshot"
+                    && let Some(entry) = event["sessions"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|entry| entry["createRequestId"] == request)
+                {
+                    return entry.clone();
+                }
+            }
+        })
+        .await
+        .unwrap()
+    }
+    let root = tempfile::tempdir().unwrap();
+    let folder = root.path().canonicalize().unwrap().join("Project");
+    std::fs::create_dir(&folder).unwrap();
+    for arguments in [
+        vec!["init", "--quiet"],
+        vec![
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "--quiet",
+            "--allow-empty",
+            "-m",
+            "First",
+        ],
+    ] {
+        let status = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&folder)
+            .args(arguments)
+            .status()
+            .unwrap();
+        assert!(status.success());
+    }
+    let runtime = TestRuntime::new().await;
+    let entry = start(&runtime, &folder, "trial").await;
+    let branch_folder = folder.with_file_name("Project-trial");
+    assert_eq!(
+        entry["workingDir"],
+        branch_folder.to_string_lossy().as_ref()
+    );
+    assert_eq!(entry["repository"], true);
+    assert!(branch_folder.join(".git").exists());
+
+    runtime
+        .send(Command::CloseSession {
+            request_id: Uuid::now_v7().to_string(),
+            session_id: entry["id"].as_str().unwrap().to_owned(),
+            expected_runtime_incarnation_id: entry["incarnationId"].as_str().unwrap().to_owned(),
+        })
+        .await;
+    timeout(Duration::from_secs(12), async {
+        while branch_folder.exists() {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .unwrap();
+
+    start(&runtime, &folder, "open").await;
+    let open_folder = folder.with_file_name("Project-open");
+    assert!(open_folder.exists());
+    runtime.shutdown().await;
+    assert!(!open_folder.exists());
+    drop(runtime);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -258,6 +352,8 @@ async fn stale_epoch_cannot_create_or_shutdown_current_runtime() {
             working_dir: None,
             mission_id: None,
             resume: None,
+            branch: None,
+            worktrees: None,
         },
         Command::Shutdown {},
     ] {
@@ -338,6 +434,8 @@ async fn create_retry_is_exact_and_does_not_launch_a_second_process() {
         working_dir: None,
         mission_id: None,
         resume: None,
+        branch: None,
+        worktrees: None,
     };
     runtime.send(command.clone()).await;
     runtime.send(command.clone()).await;
@@ -611,6 +709,8 @@ async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_
         working_dir: None,
         mission_id: Some(room_id.clone()),
         resume: None,
+        branch: None,
+        worktrees: None,
     };
     runtime.send(command).await;
     timeout(Duration::from_secs(5), async {
@@ -637,6 +737,8 @@ async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_
             working_dir: Some("/".to_owned()),
             mission_id: Some(room_id.clone()),
             resume: None,
+            branch: None,
+            worktrees: None,
         })
         .await;
     timeout(Duration::from_secs(2), async {

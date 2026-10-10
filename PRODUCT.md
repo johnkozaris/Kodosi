@@ -89,6 +89,13 @@ A local terminal at its prompt offers the person's start commands, such as an ag
 or the same agent with a second account. Kodosi types the command into the shell and
 does no more; the program remains the provider's own CLI.
 
+A terminal can start on a new branch of a local Git repository. The host makes the
+branch from the current commit with its own folder (a Git worktree) beside the
+repository, or in the place the person selected, and starts the shell there. When that
+terminal ends, the host removes the folder and the branch only if nothing changed: no
+commit, no changed file, no new file. Kodosi keeps no record of these folders and does
+no other Git operation.
+
 Direct terminal sharing and native Claude Code and Copilot CLI conversation
 preview/resume remain available. Kodosi does not become the agent harness or require
 a shared checkout.

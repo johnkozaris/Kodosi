@@ -27,6 +27,7 @@ struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     let kind: Kind
     let program: String?
     let prompt: Bool?
+    let repository: Bool?
     let title: String?
     let programStatus: ProgramStatus?
     let name: String

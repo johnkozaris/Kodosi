@@ -64,6 +64,9 @@ enum SessionAction {
         directory: Option<PathBuf>,
         #[arg(long)]
         room: Option<String>,
+        /// Make a new branch of the repository in --directory (or the current folder), with its own folder, and start the terminal there.
+        #[arg(long)]
+        branch: Option<String>,
     },
     /// Start a terminal that resumes a saved provider conversation.
     Resume {
@@ -376,13 +379,15 @@ async fn session_command(
             name,
             directory,
             room,
+            branch,
         } => {
             let room = if let Some(reference) = room {
                 Some(mission_id(&missions(client, context).await?, &reference)?)
             } else {
                 None
             };
-            json!({"type":"session.create","requestId":request,"name":name.unwrap_or_else(||"Terminal".into()),"workingDir":path(directory)?,"missionId":room})
+            let directory = directory.or_else(|| branch.as_ref().map(|_| PathBuf::from(".")));
+            json!({"type":"session.create","requestId":request,"name":name.or_else(|| branch.clone()).unwrap_or_else(||"Terminal".into()),"workingDir":path(directory)?,"missionId":room,"branch":branch})
         }
         SessionAction::Resume {
             provider,

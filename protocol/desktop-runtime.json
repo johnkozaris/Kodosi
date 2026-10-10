@@ -650,6 +650,16 @@
               }
             ]
           },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "missionId": {
             "anyOf": [
               {
@@ -700,6 +710,16 @@
             "const": "session.create"
           },
           "workingDir": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "worktrees": {
             "anyOf": [
               {
                 "type": "string"
@@ -3242,6 +3262,9 @@
                 "prompt": {
                   "type": "boolean"
                 },
+                "repository": {
+                  "type": "boolean"
+                },
                 "sharedWith": {
                   "items": {
                     "type": "string"
@@ -3285,6 +3308,7 @@
               "required": [
                 "connectedUsers",
                 "prompt",
+                "repository",
                 "id",
                 "incarnationId",
                 "kind",
@@ -5000,7 +5024,7 @@
     ]
   },
   "ffiAbiVersion": 7,
-  "protocolVersion": 52,
+  "protocolVersion": 53,
   "terminal": {
     "checkpointMaxBytes": 8388608,
     "checkpointSchema": 2,

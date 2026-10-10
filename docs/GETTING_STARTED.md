@@ -19,6 +19,14 @@ mark to start the agent there. In Settings, under Agents, you can change these s
 commands and add your own, for example `env CLAUDE_CONFIG_DIR=~/.claude_personal claude`
 for a second account.
 
+To give an agent its own copy of a repository, move the pointer to the folder of the
+repository in the sidebar and select the branch button. Give the branch a name. Kodosi
+makes the branch with its own folder beside the repository (a Git worktree) and starts
+a terminal there, so two agents do not change the same files. A folder with no changes
+goes away when its terminal ends; a folder with work stays until you remove it with
+Git. In Settings, under Terminal, you can select a different place for these folders.
+From a shell, use `kodosi session start --directory <repository> --branch <name>`.
+
 Approved devices on the same account can open your terminals. The hosting computer
 must remain online with Kodosi running.
 

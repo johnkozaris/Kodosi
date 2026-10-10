@@ -59,6 +59,10 @@ actions. Kodosi adds a command for an agent the first time that the agent runs h
 Settings holds the list, so a second account is one more command. One share sheet puts a terminal in a room or shares it with
 friends.
 
+The folder of a Git repository in the sidebar offers a terminal on a new branch. You
+give the branch a name; it gets its own folder and a terminal starts there. A folder
+with no changes goes away when its terminal ends.
+
 ## Experience
 
 Kodosi should feel like a warm, living workbench, not an administration console.

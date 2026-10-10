@@ -319,7 +319,7 @@ final class AppDependencies {
         }
     }
 
-    func createSession(name: String, directory: String?, resume: ProviderConversationIdentity? = nil) async throws {
+    func createSession(name: String, directory: String?, resume: ProviderConversationIdentity? = nil, branch: String? = nil) async throws {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard ProductInput.validName(name) else {
             throw RuntimeError.operation(String(localized: "Use a shorter name."))
@@ -332,6 +332,12 @@ final class AppDependencies {
         }
         if let resume {
             fields["resume"] = .object(["provider": .string(resume.provider.rawValue), "nativeConversationId": .string(resume.nativeConversationId)])
+        }
+        if let branch {
+            fields["branch"] = .string(branch)
+            if let folder = settings.branchFolder {
+                fields["worktrees"] = .string(folder)
+            }
         }
         do {
             _ = try await commandSink.request("session.create", fields)

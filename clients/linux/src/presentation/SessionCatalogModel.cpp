@@ -25,6 +25,8 @@ QVariantList SessionCatalogModel::folderGroups() const
         group.insert(QStringLiteral("name"), session.workingDirectory.isEmpty() ? tr("Terminals") : folder);
         group.insert(QStringLiteral("host"), local ? QString {} : session.hostName);
         group.insert(QStringLiteral("owner"), local || session.isOwner ? QString {} : session.ownerName);
+        if (local && session.repository)
+            group.insert(QStringLiteral("repository"), true);
         auto entries = group.value(QStringLiteral("sessions")).toList();
         entries.append(fields(session));
         group.insert(QStringLiteral("sessions"), entries);
@@ -277,6 +279,10 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
     if (!prompt.isUndefined() && !prompt.isBool())
         return std::nullopt;
     s.prompt = prompt.toBool();
+    const auto repository = o.value(QStringLiteral("repository"));
+    if (!repository.isUndefined() && !repository.isBool())
+        return std::nullopt;
+    s.repository = repository.toBool();
     const auto reported = o.value(QStringLiteral("programStatus"));
     if (!reported.isUndefined() && !reported.isNull()) {
         if (!reported.isObject())

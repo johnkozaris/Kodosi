@@ -12,6 +12,11 @@ struct TerminalSettingsView: View {
         draft.normalized() != deps.settings.terminalSettings
     }
 
+    private func setBranchFolder(_ folder: String?) {
+        deps.settings.branchFolder = folder
+        deps.settings.save()
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
             TerminalPreview(settings: draft).terminalScope()
@@ -67,6 +72,23 @@ struct TerminalSettingsView: View {
                 }
                 .buttonStyle(.kodosi(changed ? .primary : .ghost)).disabled(!changed)
                 .accessibilityIdentifier("settings.terminal.apply")
+            }
+            ListGroup(footer: "A terminal on a new branch gets its own folder. A folder with no changes goes away when its terminal ends.") {
+                ListRow(String(localized: "Branch folders"), subtitle: deps.settings.branchFolder ?? String(localized: "Beside the repository"),
+                        monoSubtitle: deps.settings.branchFolder != nil, symbol: "arrow.triangle.branch", tint: TileTint.pink)
+                {
+                    if deps.settings.branchFolder != nil {
+                        Button("Beside the repository") { setBranchFolder(nil) }.buttonStyle(.kodosi(.ghost, size: .small))
+                    }
+                    Button("Choose…") {
+                        if let folder = pickWorkingDirectory(initialDirectory: deps.settings.branchFolder,
+                                                             message: String(localized: "Choose a folder for new branches"))
+                        {
+                            setBranchFolder(folder)
+                        }
+                    }
+                    .buttonStyle(.kodosi(.secondary, size: .small)).accessibilityIdentifier("settings.terminal.branchFolder")
+                }
             }
         }
         .animation(theme.motion.snappy, value: changed)

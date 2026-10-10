@@ -92,6 +92,7 @@ Actions, tags and pills are capsules. Rounded squares are agents, rooms and kind
 - **Selection pill:** one raised pill with a copper caret slides between rows of the source list.
 - **Sliding pills:** segmented controls use a raised thumb that slides. The room dock shows icons, and the selected section says its name.
 - **Terminal tile:** a rounded tile with a header. Actions are faint until the pointer is on the tile or the tile is selected. While the terminal is at its prompt, the marks of the start commands are the first actions, and a second command of the same program shows a letter. A new terminal opens from a copper veil. A person who joins shows as a card for a few seconds.
+- **Folder header:** a faint label above the terminals of one folder. With the pointer on it, it shows a plus for a new terminal there and, for a Git repository, a branch button. The branch button opens a small panel with one name field, filled with a name you can replace, and one Start button.
 - **Conversation:** your messages are bubbles on the right. Other people have an avatar and a name. An agent shows its mark, its name, the person it works for, and the terminal it wrote from. Mentions of people and terminals are tinted, and a mention of a terminal opens it. A message that mentions you has a tinted row.
 - **Composer:** a lifted capsule with a copper halo when it has focus. "@" opens a list of people and terminals.
 - **Tasks:** cards in "Up for grabs", "In progress" and "Done".

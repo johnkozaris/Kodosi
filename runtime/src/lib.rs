@@ -19,6 +19,7 @@ pub mod provider;
 pub mod rooms;
 mod runtime;
 pub mod terminal;
+mod worktree;
 
 pub use config::{Config, HostKind};
 pub use protocol::{Command, CommandEnvelope, Event, EventBody};

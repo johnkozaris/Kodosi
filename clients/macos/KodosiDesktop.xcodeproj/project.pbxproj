@@ -93,6 +93,7 @@
 		7FF161F61ABEA66F4204E1A8 /* ConversationBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2E595ACBFD8F955B33F6AD /* ConversationBrowser.swift */; };
 		82305850B8B0EC66ADA63AE1 /* AppLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFE9DC60560CCBED2791BAD6 /* AppLifecycleTests.swift */; };
 		85065B5460F35AD1ACD5BFB3 /* NativeFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = A30F6C61E159B08DCBDA7B41 /* NativeFiles.swift */; };
+		85361C9AE2BE4954D200F5FA /* NewBranchPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AD51D52E6176250CDDF0C4D /* NewBranchPopover.swift */; };
 		87E08E562D536C12B2A8E532 /* SignInFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33562311E97EA520593A0BCB /* SignInFlowTests.swift */; };
 		8E56C2B596C8D19EDD0936BD /* LiveEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01E2B6E86FDE25AFB15D0518 /* LiveEffects.swift */; };
 		91D0886F1F9FF6166CD04B9A /* RoomConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F4AC3B6F38000B45A5592E /* RoomConversationView.swift */; };
@@ -113,6 +114,7 @@
 		B5E2C2F0283CB9E68B16AB42 /* ThemePreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78EFFE4F5F323E20D14FB6E4 /* ThemePreference.swift */; };
 		B7DC72A81B8CC2E0F24C0B3D /* Fields.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E09B678B38D3535E98069DC /* Fields.swift */; };
 		B85DB9AD7EB1DA799CB51F52 /* TerminalNotificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE22717AAF163367882E8F1E /* TerminalNotificationTests.swift */; };
+		BDC34F547AC1E47E1B673894 /* BranchTerminalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3F5B8B7F6705EB626DDA40F /* BranchTerminalTests.swift */; };
 		BEF3CFF9295FC8B6AF389628 /* AppShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2534033624941886A4FDC8D2 /* AppShell.swift */; };
 		C11CF0ACE87B0F90E4689175 /* AccessibilityIdentifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05FA7B9076599A4F0B733CBD /* AccessibilityIdentifier.swift */; };
 		C3D76AB82F348D658079422F /* Counted.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4858A4F8BB29C36004032A2A /* Counted.swift */; };
@@ -202,6 +204,7 @@
 		3775E05C19F862BE33B3490B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		390A5C8F45403C2490F70958 /* KodosiButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KodosiButtonStyle.swift; sourceTree = "<group>"; };
 		3A4FF7B64C7E168F5B992693 /* TerminalSessionManager+Style.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TerminalSessionManager+Style.swift"; sourceTree = "<group>"; };
+		3AD51D52E6176250CDDF0C4D /* NewBranchPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewBranchPopover.swift; sourceTree = "<group>"; };
 		3C2BD5E1320E2E1D14D4AC57 /* DeviceSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSettingsView.swift; sourceTree = "<group>"; };
 		3F0AD9773DC98C9E50ED8EE9 /* TilingStage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TilingStage.swift; sourceTree = "<group>"; };
 		3F8377D3B300B8D942F65590 /* WorkbenchState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkbenchState.swift; sourceTree = "<group>"; };
@@ -252,6 +255,7 @@
 		9E09B678B38D3535E98069DC /* Fields.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Fields.swift; sourceTree = "<group>"; };
 		A1DDFAD70D5848ABE958AEFB /* RoomMessageRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomMessageRow.swift; sourceTree = "<group>"; };
 		A30F6C61E159B08DCBDA7B41 /* NativeFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeFiles.swift; sourceTree = "<group>"; };
+		A3F5B8B7F6705EB626DDA40F /* BranchTerminalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BranchTerminalTests.swift; sourceTree = "<group>"; };
 		A41C2CD87F79C57A562859D4 /* AppDependencies+Rooms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppDependencies+Rooms.swift"; sourceTree = "<group>"; };
 		A536EB8B561A3722AD4A1C22 /* UUIDv7.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UUIDv7.swift; sourceTree = "<group>"; };
 		A62DBDEA6BA949A7E27432A0 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
@@ -600,6 +604,7 @@
 			children = (
 				2534033624941886A4FDC8D2 /* AppShell.swift */,
 				4D1F38FAABB0E0D5EEAE481B /* CommandPalette.swift */,
+				3AD51D52E6176250CDDF0C4D /* NewBranchPopover.swift */,
 				488D4A1E14B51EF30B88C7B1 /* SessionFolderGroup.swift */,
 				DCA5BB4B558CC7648D2100BB /* SidebarRail.swift */,
 				03ACB43527DCD723AA6BD295 /* SidebarRows.swift */,
@@ -632,6 +637,7 @@
 			isa = PBXGroup;
 			children = (
 				BFE9DC60560CCBED2791BAD6 /* AppLifecycleTests.swift */,
+				A3F5B8B7F6705EB626DDA40F /* BranchTerminalTests.swift */,
 				18A56A38A673DC91D6E92F76 /* CommandSinkTests.swift */,
 				029562AF111A8DA313C46B44 /* EphemeralUserDefaultsTests.swift */,
 				FAFD230E170DC97767A85F22 /* HostConflictTests.swift */,
@@ -858,6 +864,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				82305850B8B0EC66ADA63AE1 /* AppLifecycleTests.swift in Sources */,
+				BDC34F547AC1E47E1B673894 /* BranchTerminalTests.swift in Sources */,
 				C684F7DB94F2975AAEBED85F /* CommandSinkTests.swift in Sources */,
 				20E7170B80F6B36019FE66A3 /* EphemeralUserDefaultsTests.swift in Sources */,
 				D2216B4D03D7FFF2DE13663E /* HostConflictTests.swift in Sources */,
@@ -921,6 +928,7 @@
 				6E9051F5B6126F633AB4A401 /* MenuCommands.swift in Sources */,
 				9F853A780FD2BB0C388DBB8A /* MissionsView.swift in Sources */,
 				85065B5460F35AD1ACD5BFB3 /* NativeFiles.swift in Sources */,
+				85361C9AE2BE4954D200F5FA /* NewBranchPopover.swift in Sources */,
 				FC4B6E6988F3151269151DC8 /* Notes.swift in Sources */,
 				38A99D65086CF3AE2742BF55 /* PeopleView.swift in Sources */,
 				97A3148027ABAEA10C50CAE9 /* PerformanceSignposts.swift in Sources */,

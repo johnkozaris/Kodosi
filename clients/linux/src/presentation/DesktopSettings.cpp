@@ -26,6 +26,7 @@ DesktopSettings::DesktopSettings(std::unique_ptr<QSettings> settings, QObject* p
     m_lineHeight = std::isfinite(line) ? std::clamp(line, 0.8, 2.0) : 1.0;
     m_blink = m_settings->value(QStringLiteral("terminal/blink"), false).toBool();
     m_directory = m_settings->value(QStringLiteral("terminal/directory")).toString();
+    m_branchFolder = m_settings->value(QStringLiteral("terminal/branchFolder")).toString();
     m_learned = m_settings->value(QStringLiteral("agents/learned")).toStringList();
     const int rows = std::min(m_settings->beginReadArray(QStringLiteral("agents/start")), 64);
     for (int row = 0; row < rows; ++row) {
@@ -169,6 +170,15 @@ void DesktopSettings::setWorkingDirectory(const QString& path)
     persist();
     emit settingsChanged();
 }
+void DesktopSettings::setBranchFolder(const QString& path)
+{
+    const QFileInfo info(path);
+    if (!path.isEmpty() && (!QDir::isAbsolutePath(path) || !info.isDir() || !info.isWritable()))
+        return;
+    m_branchFolder = path.isEmpty() ? QString {} : info.canonicalFilePath();
+    persist();
+    emit settingsChanged();
+}
 void DesktopSettings::resetTerminal()
 {
     apply(QStringLiteral("monospace"), 13, Block, 1.0, 10000, false);
@@ -189,6 +199,7 @@ bool DesktopSettings::persist()
     m_settings->setValue(QStringLiteral("terminal/scrollback"), m_scrollback);
     m_settings->setValue(QStringLiteral("terminal/blink"), m_blink);
     m_settings->setValue(QStringLiteral("terminal/directory"), m_directory);
+    m_settings->setValue(QStringLiteral("terminal/branchFolder"), m_branchFolder);
     m_settings->sync();
     if (m_settings->status() != QSettings::NoError) {
         m_error = tr("Terminal settings could not be saved.");

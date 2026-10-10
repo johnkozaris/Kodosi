@@ -664,6 +664,7 @@ impl Runtime {
                     connected_users: vec![],
                     program: None,
                     prompt: false,
+                    repository: crate::worktree::is_repository(&started.directory),
                     title: None,
                     program_status: None,
                     id: id.to_string(),
@@ -692,6 +693,7 @@ impl Runtime {
                         entry,
                         creation: command,
                         published: false,
+                        worktree: started.worktree.take(),
                     },
                 );
                 self.publish_catalog();
@@ -928,6 +930,8 @@ async fn create_session(
     let Command::CreateSession {
         working_dir,
         resume,
+        branch,
+        worktrees,
         ..
     } = command
     else {
@@ -940,6 +944,11 @@ async fn create_session(
     if !tokio::fs::metadata(&directory).await?.is_dir() {
         return Err(Error::Invalid(
             "working directory is not a directory".to_owned(),
+        ));
+    }
+    if branch.is_some() && resume.is_some() {
+        return Err(Error::Invalid(
+            "A conversation resumes in its own folder, not on a new branch.".to_owned(),
         ));
     }
     let (program, arguments) = if let Some(resume) = resume {
@@ -976,7 +985,17 @@ async fn create_session(
             vec![],
         )
     };
-    let terminal = LocalSession::spawn(
+    let worktree = match branch {
+        Some(branch) => Some(
+            crate::worktree::create(&directory, branch, worktrees.as_deref().map(Path::new))
+                .await?,
+        ),
+        None => None,
+    };
+    let directory = worktree
+        .as_ref()
+        .map_or(directory, |worktree| worktree.path.clone());
+    let terminal = match LocalSession::spawn(
         id,
         Uuid::now_v7(),
         program,
@@ -985,10 +1004,20 @@ async fn create_session(
         dark,
         changes,
     )
-    .await?;
+    .await
+    {
+        Ok(terminal) => terminal,
+        Err(error) => {
+            if let Some(worktree) = worktree {
+                crate::worktree::remove_unchanged(worktree).await;
+            }
+            return Err(error);
+        }
+    };
     Ok(StartedSession {
         terminal: Some(terminal),
         directory,
+        worktree,
     })
 }
 

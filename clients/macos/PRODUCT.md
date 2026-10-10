@@ -28,6 +28,10 @@ A terminal at its prompt offers the start commands of this computer as marks amo
 actions. Kodosi adds a command for an agent the first time that the agent runs here.
 Settings holds the list, so a second account is one more command.
 
+The folder of a Git repository in the sidebar offers a terminal on a new branch. You
+give the branch a name; it gets its own folder and a terminal starts there. A folder
+with no changes goes away when its terminal ends.
+
 Minimize hides a terminal but keeps it running. Close ends it and its programs.
 Closing the window leaves Kodosi running; Quit ends terminals that run on this Mac,
 not on other computers. Hidden terminals keep their place without accepting

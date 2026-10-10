@@ -6,6 +6,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QSignalSpy>
+#include <QFileInfo>
 #include <QTemporaryDir>
 #include <QtTest/QTest>
 #include <limits>
@@ -332,6 +333,41 @@ private slots:
         f.workspace.apply(test::snapshot({ created }), 0);
         QCOMPARE(f.desktop.selectedSessionId(), test::id(1));
         QVERIFY(!f.workspace.sessionActions().busy());
+    }
+    void aTerminalOnANewBranchSendsTheBranchAndTheChosenFolder()
+    {
+        Fixture f;
+        auto inRepository = test::session(1);
+        inRepository.insert(QStringLiteral("repository"), true);
+        inRepository.insert(QStringLiteral("workingDir"), QStringLiteral("/repo"));
+        auto elsewhere = test::session(2);
+        elsewhere.insert(QStringLiteral("workingDir"), QStringLiteral("/notes"));
+        f.workspace.apply(test::snapshot({ inRepository, elsewhere }), 0);
+        const auto groups = f.sessions.folderGroups();
+        QCOMPARE(groups.size(), 2);
+        QVERIFY(!groups.at(0).toMap().value(QStringLiteral("repository")).toBool());
+        QVERIFY(groups.at(1).toMap().value(QStringLiteral("repository")).toBool());
+
+        auto& actions = f.workspace.sessionActions();
+        QVERIFY(!actions.createOnBranch(QStringLiteral("/repo"), QStringLiteral("  ")));
+        QVERIFY(actions.createOnBranch(QStringLiteral("/repo"), QStringLiteral(" fix/login ")));
+        auto sent = f.commands.values.last();
+        QCOMPARE(sent.value(QStringLiteral("type")).toString(), QStringLiteral("session.create"));
+        QCOMPARE(sent.value(QStringLiteral("workingDir")).toString(), QStringLiteral("/repo"));
+        QCOMPARE(sent.value(QStringLiteral("branch")).toString(), QStringLiteral("fix/login"));
+        QCOMPARE(sent.value(QStringLiteral("name")).toString(), QStringLiteral("fix/login"));
+        QVERIFY(!sent.contains(QStringLiteral("worktrees")));
+
+        f.settings.setBranchFolder(f.dir.path());
+        QVERIFY(actions.createOnBranch(QStringLiteral("/repo"), QStringLiteral("fix/logout")));
+        sent = f.commands.values.last();
+        QCOMPARE(sent.value(QStringLiteral("worktrees")).toString(), QFileInfo(f.dir.path()).canonicalFilePath());
+
+        QVERIFY(actions.create(QStringLiteral("Work"), QStringLiteral("/repo")));
+        QVERIFY(!f.commands.values.last().contains(QStringLiteral("branch")));
+        QVERIFY(!f.commands.values.last().contains(QStringLiteral("worktrees")));
+        const auto suggested = actions.suggestedBranch();
+        QVERIFY(!suggested.isEmpty() && !suggested.contains(QLatin1Char(' ')) && suggested == suggested.toLower());
     }
     void startupLinkSurvivesEmptyCatalogAndSignIn()
     {

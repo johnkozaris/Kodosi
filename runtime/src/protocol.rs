@@ -21,7 +21,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 52;
+pub const VERSION: u32 = 53;
 include!(concat!(env!("OUT_DIR"), "/network_versions.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 
@@ -98,6 +98,10 @@ pub enum Command {
         mission_id: Option<String>,
         #[serde(default)]
         resume: Option<ConversationIdentity>,
+        #[serde(default)]
+        branch: Option<String>,
+        #[serde(default)]
+        worktrees: Option<String>,
     },
     #[serde(rename = "session.rename")]
     RenameSession {
@@ -364,6 +368,8 @@ pub struct SessionEntry {
     pub program: Option<String>,
     #[serde(default)]
     pub prompt: bool,
+    #[serde(default)]
+    pub repository: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1090,6 +1096,8 @@ impl Command {
                 working_dir,
                 mission_id,
                 resume,
+                branch,
+                worktrees,
                 ..
             } => {
                 if let Some(id) = mission_id {
@@ -1097,6 +1105,17 @@ impl Command {
                 }
                 if let Some(directory) = working_dir {
                     directory_input(directory)?;
+                }
+                if let Some(directory) = worktrees {
+                    directory_input(directory)?;
+                }
+                if let Some(branch) = branch {
+                    crate::worktree::branch_name(branch)?;
+                    if working_dir.is_none() {
+                        return Err(Error::Invalid(
+                            "A new branch needs the folder of its repository.".to_owned(),
+                        ));
+                    }
                 }
                 if let Some(resume) = resume {
                     parse_id(&resume.native_conversation_id)?;

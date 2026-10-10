@@ -33,6 +33,8 @@ public:
     Q_INVOKABLE bool createInRoom(const QString& roomId, const QString& directory);
     Q_INVOKABLE bool minimize(const QString& sessionId);
     Q_INVOKABLE bool create(const QString& name, const QString& directory);
+    Q_INVOKABLE bool createOnBranch(const QString& directory, const QString& branch);
+    Q_INVOKABLE QString suggestedBranch() const;
     Q_INVOKABLE bool resume(const QString& provider, const QString& nativeConversationId,
         const QString& workingDirectory);
     Q_INVOKABLE bool close(const QString& sessionId);
@@ -63,7 +65,8 @@ private:
     bool activateSession(const QString& sessionId, bool inRoom);
 
     bool createInternal(const QString& name, const QString& directory,
-        const QString& provider, const QString& nativeConversationId, const QString& roomId = {});
+        const QString& provider, const QString& nativeConversationId, const QString& roomId = {},
+        const QString& branch = {});
     bool command(QString type, const QString& id, QJsonObject values = {}, bool ownerOnly = false);
     void route(const DeepLinkDestination& destination);
     void activatePendingLink();
