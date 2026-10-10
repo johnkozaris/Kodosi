@@ -151,20 +151,23 @@ public sealed partial class DeviceService(
         connections.Notify(userId, "devices");
     }
 
+    public async Task RequireRelationAsync(Guid callerId, Guid userId, CancellationToken ct)
+    {
+        if (callerId == userId) return;
+        var (first, second) = Friends.FriendService.Pair(callerId, userId);
+        var friend = await db.Friendships.AnyAsync(x => x.FirstUserId == first && x.SecondUserId == second && x.Accepted, ct);
+        var shared = await db.Sessions.AnyAsync(s => !s.Ended &&
+            ((s.OwnerUserId == userId && db.SessionMembers.Any(m => m.SessionId == s.Id && m.UserId == callerId)) ||
+             (s.OwnerUserId == callerId && db.SessionMembers.Any(m => m.SessionId == s.Id && m.UserId == userId))), ct);
+        var room = await db.Missions.AnyAsync(r =>
+            (r.OwnerUserId == callerId || db.MissionMembers.Any(m => m.MissionId == r.Id && m.UserId == callerId) || db.MissionInvitations.Any(i => i.MissionId == r.Id && i.UserId == callerId))
+            && (r.OwnerUserId == userId || db.MissionMembers.Any(m => m.MissionId == r.Id && m.UserId == userId) || db.MissionInvitations.Any(i => i.MissionId == r.Id && i.UserId == userId)), ct);
+        if (!friend && !shared && !room) throw ApiException.Missing();
+    }
+
     public async Task<(IdentityBundle? Bundle, string Tag)> IdentityAsync(Guid callerId, Guid userId, string? known, CancellationToken ct)
     {
-        if (callerId != userId)
-        {
-            var (first, second) = Friends.FriendService.Pair(callerId, userId);
-            var friend = await db.Friendships.AnyAsync(x => x.FirstUserId == first && x.SecondUserId == second && x.Accepted, ct);
-            var shared = await db.Sessions.AnyAsync(s => !s.Ended &&
-                ((s.OwnerUserId == userId && db.SessionMembers.Any(m => m.SessionId == s.Id && m.UserId == callerId)) ||
-                 (s.OwnerUserId == callerId && db.SessionMembers.Any(m => m.SessionId == s.Id && m.UserId == userId))), ct);
-            var room = await db.Missions.AnyAsync(r =>
-                (r.OwnerUserId == callerId || db.MissionMembers.Any(m => m.MissionId == r.Id && m.UserId == callerId) || db.MissionInvitations.Any(i => i.MissionId == r.Id && i.UserId == callerId))
-                && (r.OwnerUserId == userId || db.MissionMembers.Any(m => m.MissionId == r.Id && m.UserId == userId) || db.MissionInvitations.Any(i => i.MissionId == r.Id && i.UserId == userId)), ct);
-            if (!friend && !shared && !room) throw ApiException.Missing();
-        }
+        await RequireRelationAsync(callerId, userId, ct);
         var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Id == userId, ct)
             ?? throw ApiException.Missing();
         var list = await db.DeviceLists.AsNoTracking().SingleOrDefaultAsync(x => x.UserId == userId, ct)

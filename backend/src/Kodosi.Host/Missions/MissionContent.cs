@@ -32,7 +32,7 @@ public sealed partial class MissionService
 
     public async Task<object> RecipientKeysAsync(Guid caller, Guid userId, CancellationToken ct)
     {
-        _ = await devices.IdentityAsync(caller, userId, null, ct);
+        await devices.RequireRelationAsync(caller, userId, ct);
         var keys = await (from key in db.RoomRecipientKeys.AsNoTracking()
                           join device in db.Devices.AsNoTracking() on key.DeviceId equals device.Id
                           where key.UserId == userId && !device.Revoked

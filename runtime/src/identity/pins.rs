@@ -23,14 +23,14 @@ pub struct CertificateEnvelope {
     pub certificate_signature: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DeviceListEnvelope {
     pub body: String,
     pub signature: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct IdentityBundle {
     pub user_id: String,
@@ -192,7 +192,7 @@ impl Pins {
             pins: BTreeMap::new(),
         };
         if let Some((older, at)) = previous {
-            history.verify_current(older, Anchor::Root(root), at, false, false)?;
+            history.verify_current(older, Anchor::Root(root), at, true, false)?;
         }
         history.verify_current(bundle, Anchor::Root(root), at_ms, false, false)
     }

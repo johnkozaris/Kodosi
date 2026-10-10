@@ -16,6 +16,8 @@ relay. The channel authenticates device keys and uses hybrid X25519/ML-KEM-768 k
 exchange. The service copies encrypted records and holds no terminal keys.
 
 The host checks sharing against signed account/device identities and room membership.
+When the host has its own friend record of a room member, that record must agree with
+the identity in the room.
 Sharing changes and device removal close affected views without disturbing other
 viewers. Reconnection restores ordered terminal state; input with uncertain delivery
 is not replayed.
@@ -29,6 +31,11 @@ authenticate room key state and content.
 Membership changes produce signed key history. Removing a member advances the key
 epoch; wrapped prior keys preserve the conversation history available to current
 members and people invited later. Removal cannot erase content someone already read.
+
+A room continues while a member is away. When a member starts fresh with a new
+identity, the other members stop giving new room keys to the earlier devices. After the
+room owner trusts the new identity in Friends, the member is in the room again with the
+full history. An owner who starts fresh makes a new room.
 
 ## Identity and visible metadata
 

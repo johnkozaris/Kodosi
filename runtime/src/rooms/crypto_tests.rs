@@ -10,7 +10,10 @@ use std::collections::BTreeMap;
 use uuid::Uuid;
 
 pub(crate) fn person() -> (DeviceKeys, IdentityBundle) {
-    let user = Uuid::now_v7().to_string();
+    person_with(Uuid::now_v7().to_string(), None)
+}
+
+fn person_with(user: String, list_expires_at_ms: Option<u64>) -> (DeviceKeys, IdentityBundle) {
     let keys = DeviceKeys::generate().unwrap();
     let certificate = build_self_cert(
         &user,
@@ -26,7 +29,7 @@ pub(crate) fn person() -> (DeviceKeys, IdentityBundle) {
         &keys.device_id,
         &keys.signing_key().unwrap(),
         1000,
-        None,
+        list_expires_at_ms,
     )
     .unwrap();
     let bundle = IdentityBundle {
@@ -242,4 +245,122 @@ fn member_cannot_insert_another_identity_or_rewrite_the_room_history() {
     let mut tampered = signed(&verified.state, &alice);
     tampered.body = BASE64.encode(b"{}");
     assert!(verify_state(&tampered, state.room_id, &owner, &anchor, None).is_err());
+}
+
+fn room_of(
+    owner: &(DeviceKeys, IdentityBundle),
+    member: &IdentityBundle,
+) -> (State, VerifiedState) {
+    let (keys, identity) = owner;
+    let mut state = State {
+        room_id: Uuid::now_v7(),
+        owner_user_id: identity.user_id.clone(),
+        author_id: identity.user_id.clone(),
+        device_id: keys.device_id.clone(),
+        version: 1,
+        epoch: 1,
+        created_at_ms: 2000,
+        previous_hash: String::new(),
+        members: BTreeMap::from([
+            (identity.user_id.clone(), identity.clone()),
+            (member.user_id.clone(), member.clone()),
+        ]),
+        recipients: vec![],
+        previous_key: None,
+    };
+    state.recipients.push(
+        wrap(
+            &state,
+            &identity.user_id,
+            &keys.device_id,
+            keys.room_public(),
+            &secret().unwrap(),
+        )
+        .unwrap(),
+    );
+    let verified = verify_state(
+        &signed(&state, keys),
+        state.room_id,
+        &identity.user_id,
+        &identity.root().unwrap(),
+        None,
+    )
+    .unwrap();
+    (state, verified)
+}
+
+#[test]
+fn a_room_changes_while_the_device_list_of_an_absent_member_is_past_its_time() {
+    let alice = person();
+    let (_, bob) = person_with(Uuid::now_v7().to_string(), Some(3000));
+    let (first, verified) = room_of(&alice, &bob);
+    let (owner, anchor) = (alice.1.user_id.clone(), alice.1.root().unwrap());
+    let mut later = first;
+    later.version = 2;
+    later.created_at_ms = 5000;
+    later.previous_hash = verified.hash.clone();
+    let second = verify_state(
+        &signed(&later, &alice.0),
+        later.room_id,
+        &owner,
+        &anchor,
+        Some(&verified),
+    )
+    .unwrap();
+    assert!(second.identities.contains_key(&bob.user_id));
+
+    let (carol_keys, carol) = person_with(Uuid::now_v7().to_string(), Some(4000));
+    let mut joined = later;
+    joined.version = 3;
+    joined.previous_hash = second.hash.clone();
+    joined.members.insert(carol.user_id.clone(), carol);
+    drop(carol_keys);
+    assert!(
+        verify_state(
+            &signed(&joined, &alice.0),
+            joined.room_id,
+            &owner,
+            &anchor,
+            Some(&second)
+        )
+        .is_err(),
+        "a new member needs a current device list"
+    );
+}
+
+#[test]
+fn only_the_owner_gives_a_member_a_new_identity_and_only_with_new_room_keys() {
+    let alice = person();
+    let (bob_keys, bob) = person();
+    let (first, verified) = room_of(&alice, &bob);
+    let (owner, anchor) = (alice.1.user_id.clone(), alice.1.root().unwrap());
+    let (_, bob_again) = person_with(bob.user_id.clone(), None);
+    assert_ne!(bob_again.root().unwrap(), bob.root().unwrap());
+    let mut replaced = first;
+    replaced.version = 2;
+    replaced.previous_hash = verified.hash.clone();
+    replaced.members.insert(bob.user_id.clone(), bob_again);
+    let check = |state: &State, keys: &DeviceKeys| {
+        verify_state(
+            &signed(state, keys),
+            state.room_id,
+            &owner,
+            &anchor,
+            Some(&verified),
+        )
+    };
+    assert!(
+        check(&replaced, &alice.0).is_err(),
+        "the room keys did not change"
+    );
+    replaced.epoch = 2;
+    let mut by_member = replaced.clone();
+    by_member.author_id.clone_from(&bob.user_id);
+    by_member.device_id.clone_from(&bob_keys.device_id);
+    assert!(check(&by_member, &bob_keys).is_err());
+    let accepted = check(&replaced, &alice.0).unwrap();
+    assert_eq!(
+        accepted.identities[&bob.user_id].root,
+        replaced.members[&bob.user_id].root().unwrap()
+    );
 }

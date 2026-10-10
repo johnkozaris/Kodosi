@@ -174,30 +174,7 @@ pub(crate) fn verify_state(
     {
         return Err(invalid("The room key history is invalid."));
     }
-    let mut identities = BTreeMap::new();
-    for (user, bundle) in &state.members {
-        if user != &bundle.user_id {
-            return Err(invalid("A room identity belongs to another user."));
-        }
-        let anchor = if user == owner {
-            *owner_root
-        } else {
-            bundle.root()?
-        };
-        let older = previous.and_then(|p| {
-            p.state
-                .members
-                .get(user)
-                .map(|bundle| (bundle, p.state.created_at_ms))
-        });
-        if older.is_some_and(|(bundle, _)| bundle.root().is_ok_and(|prior| prior != anchor)) {
-            return Err(invalid("A room member's identity changed."));
-        }
-        identities.insert(
-            user.clone(),
-            Pins::historical(bundle, &anchor, state.created_at_ms, older)?,
-        );
-    }
+    let identities = member_identities(&state, owner, owner_root, previous)?;
     if let Some(previous) = previous {
         if state.previous_hash != previous.hash
             || state.epoch < previous.state.epoch
@@ -257,6 +234,49 @@ pub(crate) fn verify_state(
         state,
         identities,
     })
+}
+
+fn member_identities(
+    state: &State,
+    owner: &str,
+    owner_root: &Root,
+    previous: Option<&VerifiedState>,
+) -> Result<BTreeMap<String, VerifiedIdentity>> {
+    let mut identities = BTreeMap::new();
+    for (user, bundle) in &state.members {
+        if user != &bundle.user_id {
+            return Err(invalid("A room identity belongs to another user."));
+        }
+        let prior = previous.and_then(|p| p.state.members.get(user).map(|known| (known, p)));
+        if let Some((known, p)) = prior
+            && known == bundle
+            && let Some(identity) = p.identities.get(user)
+        {
+            identities.insert(user.clone(), identity.clone());
+            continue;
+        }
+        let anchor = if user == owner {
+            *owner_root
+        } else {
+            bundle.root()?
+        };
+        let replaced =
+            prior.is_some_and(|(known, _)| known.root().is_ok_and(|prior| prior != anchor));
+        if replaced
+            && (state.author_id != owner
+                || previous.is_none_or(|p| state.epoch != p.state.epoch + 1))
+        {
+            return Err(invalid("A room member's identity changed."));
+        }
+        let older = prior
+            .filter(|_| !replaced)
+            .map(|(known, p)| (known, p.state.created_at_ms));
+        identities.insert(
+            user.clone(),
+            Pins::historical(bundle, &anchor, state.created_at_ms, older)?,
+        );
+    }
+    Ok(identities)
 }
 
 fn wrap_context(room: Uuid, version: u64, epoch: u64, user: &str, device: &str) -> Result<Vec<u8>> {
