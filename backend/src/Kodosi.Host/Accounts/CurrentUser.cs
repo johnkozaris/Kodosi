@@ -22,7 +22,8 @@ public sealed class CurrentUser(KodosiDbContext db, TimeProvider clock)
         if (deleted is not null)
         {
             var remembered = clock.GetUtcNow() - deleted.DeletedAt <= AccountService.DeletionMemory;
-            if (remembered && !(SignedInAt(context.User) > deleted.DeletedAt)) throw ApiException.Gone();
+            var signedIn = long.TryParse(context.User.FindFirstValue("auth_time"), out var seconds) ? DateTimeOffset.FromUnixTimeSeconds(seconds) : (DateTimeOffset?)null;
+            if (remembered && !(signedIn > deleted.DeletedAt)) throw ApiException.Gone();
             db.DeletedAccounts.Remove(deleted);
         }
         var rawName = context.User.FindFirstValue("preferred_username") ?? context.User.FindFirstValue("name") ?? "user";

@@ -24,7 +24,7 @@ extension AppDependencies {
             missionListTruncated = false
             missionDetail = nil
             rooms.removeAll(); roomIssues.removeAll(); roomViews.removeAll(); roomCreations.removeAll()
-            selfDeviceId = nil; localDeviceEnrolled = false; identityMessage = nil
+            selfDeviceId = nil; localDeviceEnrolled = false; identityMessage = nil; accountDeletion = nil
             displayName = nil; attention.removeAll(); freshTerminals.removeAll()
             activationTasks.values.forEach { $0.cancel() }; activationTasks.removeAll()
             pendingCreations.removeAll()

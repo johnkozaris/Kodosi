@@ -76,3 +76,10 @@ internal sealed class TestStore : IAsyncDisposable
         Connections.StopAll(); await Db.DisposeAsync();
     }
 }
+
+internal sealed class ManualClock : TimeProvider
+{
+    private DateTimeOffset now = DateTimeOffset.UtcNow;
+    public override DateTimeOffset GetUtcNow() => now;
+    public void Advance(TimeSpan duration) => now += duration;
+}

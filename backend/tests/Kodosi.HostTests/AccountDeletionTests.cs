@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -46,6 +47,28 @@ public sealed class AccountDeletionTests(PostgresFixture postgres)
         var fresh = await new CurrentUser(store.Db, TimeProvider.System).GetAsync(SignedIn("leaving", DateTimeOffset.UtcNow.AddSeconds(5)), ct);
         Assert.NotEqual(account.Id, fresh.Id);
         Assert.Empty(await store.Db.DeletedAccounts.ToListAsync(ct));
+    }
+
+    [Fact]
+    public async Task ADeletedAccountIsForgottenAfterThirtyDays()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var clock = new ManualClock();
+        await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(ct), services =>
+        {
+            services.RemoveAll<TimeProvider>(); services.AddSingleton<TimeProvider>(clock);
+        });
+        var scopes = app.Services.GetRequiredService<IServiceScopeFactory>();
+        await using (var scope = scopes.CreateAsyncScope())
+            await scope.ServiceProvider.GetRequiredService<AccountService>().ForgetAsync(BackendApplication.Issuer, "gone", clock.GetUtcNow(), ct);
+        using var cleanup = new Kodosi.Sessions.PublicationCleanup(scopes, clock, NullLogger<Kodosi.Sessions.PublicationCleanup>.Instance);
+        await cleanup.SweepAsync(ct);
+        await using (var scope = scopes.CreateAsyncScope())
+            Assert.Single(await scope.ServiceProvider.GetRequiredService<Kodosi.Data.KodosiDbContext>().DeletedAccounts.ToListAsync(ct));
+        clock.Advance(AccountService.DeletionMemory + TimeSpan.FromMinutes(1));
+        await cleanup.SweepAsync(ct);
+        await using (var scope = scopes.CreateAsyncScope())
+            Assert.Empty(await scope.ServiceProvider.GetRequiredService<Kodosi.Data.KodosiDbContext>().DeletedAccounts.ToListAsync(ct));
     }
 
     [Fact]

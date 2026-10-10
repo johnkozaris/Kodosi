@@ -78,8 +78,6 @@ public sealed class AccountService(KodosiDbContext db, ConnectionDirectory conne
 
     private async Task RememberAsync(string issuer, string subject, DateTimeOffset deletedAt, CancellationToken ct)
     {
-        var forgotten = clock.GetUtcNow() - DeletionMemory;
-        await db.DeletedAccounts.Where(x => x.DeletedAt < forgotten).ExecuteDeleteAsync(ct);
         var known = await db.DeletedAccounts.SingleOrDefaultAsync(x => x.Issuer == issuer && x.Subject == subject, ct);
         if (known is null) db.DeletedAccounts.Add(new DeletedAccount { Issuer = issuer, Subject = subject, DeletedAt = deletedAt });
         else if (known.DeletedAt < deletedAt) known.DeletedAt = deletedAt;

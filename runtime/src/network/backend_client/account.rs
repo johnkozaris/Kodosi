@@ -377,6 +377,22 @@ impl BackendClient {
         });
     }
 
+    pub(super) async fn deletion_confirmed(&self) -> bool {
+        if self.inner.state.lock().await.deletion.is_none() {
+            return false;
+        }
+        let Ok(credentials) = self.credentials() else {
+            return false;
+        };
+        matches!(
+            self.inner
+                .http
+                .bearer::<Value>(Method::GET, "api/me", &credentials.token, None)
+                .await,
+            Err(Error::AccountDeleted)
+        )
+    }
+
     async fn read_deletion(
         &self,
         credentials: &Credentials,

@@ -167,13 +167,6 @@ public sealed class AdmissionAndExpiryTests(PostgresFixture postgres)
         await Assert.ThrowsAnyAsync<Exception>(() => JsonAsync(ended));
     }
 
-    private sealed class ManualClock : TimeProvider
-    {
-        private DateTimeOffset now = DateTimeOffset.UtcNow;
-        public override DateTimeOffset GetUtcNow() => now;
-        public void Advance(TimeSpan duration) => now += duration;
-    }
-
     private sealed class ResponseStall : IStartupFilter
     {
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
