@@ -423,21 +423,27 @@ impl KodosiPty {
     }
 
     fn observe(&self) -> Observation {
-        let others: Vec<u32> = self
-            .job_processes()
-            .into_iter()
+        let processes = self.job_processes();
+        let others: Vec<u32> = processes
+            .iter()
+            .copied()
             .filter(|pid| *pid != self.child_pid)
             .collect();
         let mut observed = self.observed.lock().unwrap_or_else(PoisonError::into_inner);
-        observed.identities.retain(|pid, _| others.contains(pid));
+        observed.identities.retain(|pid, _| processes.contains(pid));
+        // A terminal started as an agent, as a resumed conversation is, runs
+        // that agent in front of whatever it starts, as on Unix.
+        let root = processes
+            .contains(&self.child_pid)
+            .then_some(self.child_pid);
         let mut agent = None;
-        for pid in &others {
+        for pid in root.into_iter().chain(others.iter().copied()) {
             let identity = *observed
                 .identities
-                .entry(*pid)
-                .or_insert_with(|| image_identity(*pid));
+                .entry(pid)
+                .or_insert_with(|| image_identity(pid));
             if agent.is_none() {
-                agent = identity.map(|name| (*pid, name));
+                agent = identity.map(|name| (pid, name));
             }
         }
         let busy = !others.is_empty();
@@ -789,7 +795,10 @@ fn resolve_program(program: &Path, working_dir: Option<&Path>) -> Result<PathBuf
     } else if program.components().count() > 1 {
         working_dir.map_or_else(|| program.to_owned(), |directory| directory.join(program))
     } else {
-        PathBuf::new()
+        program
+            .to_str()
+            .and_then(kodosi_os::process::find_executable)
+            .unwrap_or_default()
     };
     // App execution aliases are reparse points that only `symlink_metadata` reads.
     if std::fs::symlink_metadata(&candidate).is_ok_and(|metadata| !metadata.is_dir()) {
@@ -1024,6 +1033,33 @@ mod tests {
             arguments(&line),
             r#""C:\Program Files\PowerShell\7\pwsh.exe""#
         );
+    }
+
+    #[test]
+    fn bare_names_come_from_path_and_never_from_the_folder() {
+        let folder = tempfile::tempdir().unwrap();
+        let shadow = folder.path().join("cmd.exe");
+        std::fs::write(&shadow, b"").unwrap();
+        let resolved = resolve_program(Path::new("cmd"), Some(folder.path())).unwrap();
+        assert_ne!(resolved, shadow);
+        assert!(
+            resolved
+                .file_name()
+                .is_some_and(|name| name.eq_ignore_ascii_case("cmd.exe"))
+        );
+        assert!(resolve_program(Path::new("kodosi-missing-program"), None).is_err());
+    }
+
+    #[test]
+    fn a_terminal_started_as_an_agent_reports_that_agent() {
+        let folder = tempfile::tempdir().unwrap();
+        let agent = folder.path().join("codex.exe");
+        let system = std::env::var_os("SystemRoot").unwrap();
+        std::fs::copy(Path::new(&system).join(r"System32\cmd.exe"), &agent).unwrap();
+        let (pty, _reader) =
+            KodosiPty::spawn_program(&agent, &["/d".into(), "/k".into()], None, 24, 80, &[])
+                .unwrap();
+        assert_eq!(pty.foreground_program().as_deref(), Some("codex"));
     }
 
     #[test]

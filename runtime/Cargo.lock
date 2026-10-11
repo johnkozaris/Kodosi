@@ -1269,6 +1269,7 @@ name = "kodosi-pty"
 version = "0.1.0"
 dependencies = [
  "close_fds",
+ "kodosi-os",
  "libc",
  "nix",
  "tempfile",
