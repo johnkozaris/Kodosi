@@ -264,6 +264,20 @@ def _checkout_dirty(source_root: Path) -> bool:
     return dirty
 
 
+def runtime_versions(source_root: Path) -> dict[str, int]:
+    """The C ABI and desktop protocol versions from the generated contract."""
+    contract = json.loads(
+        (repository_root(source_root) / "protocol/desktop-runtime.json").read_bytes()
+    )
+    versions = {
+        "ffiAbiVersion": contract["ffiAbiVersion"],
+        "desktopProtocolVersion": contract["protocolVersion"],
+    }
+    if not all(isinstance(value, int) and value > 0 for value in versions.values()):
+        raise ValueError("the desktop contract versions are malformed")
+    return versions
+
+
 def repository_root(source_root: Path) -> Path:
     return Path(run(
         ["git", "rev-parse", "--show-toplevel"],

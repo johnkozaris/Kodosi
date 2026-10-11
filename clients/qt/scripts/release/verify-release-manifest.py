@@ -14,6 +14,7 @@ from release_common import (
     extract_source_identity,
     file_sha256,
     product_version,
+    runtime_versions,
     validate_source_identity,
     verify_reproducible_artifact,
     verify_release_sources,
@@ -219,21 +220,18 @@ def main() -> None:
             require_clean=True,
         )
         expected_version = product_version(arguments.source_root)
-    except (OSError, ValueError, json.JSONDecodeError) as error:
+        runtime = runtime_versions(arguments.source_root)
+    except (KeyError, OSError, ValueError, json.JSONDecodeError) as error:
         fail(str(error))
     if source != measured_source:
         fail("manifest source identities differ from current checkouts")
     if manifest["productVersion"] != expected_version:
         fail("manifest product version differs from source")
 
-    runtime = dependencies["kodosi"]
     ghostty = dependencies["ghostty"]
     expected_pins = {
         "qtVersion": dependencies["frameworks"]["qt"]["version"],
-        "runtime": {
-            "ffiAbiVersion": runtime["ffiAbiVersion"],
-            "desktopProtocolVersion": runtime["desktopProtocolVersion"],
-        },
+        "runtime": runtime,
         "ghostty": {
             "repository": ghostty["repository"],
             "commit": measured_ghostty["linuxUpstreamCommit"],
@@ -244,7 +242,7 @@ def main() -> None:
         "dependenciesLockSha256": file_sha256(arguments.dependencies),
     }
     if manifest["pins"] != expected_pins:
-        fail("manifest pins differ from dependencies.lock.json")
+        fail("manifest pins differ from dependencies.lock.json or the desktop contract")
     for row in manifest["artifacts"]:
         name = row["filename"]
         candidate = output_dir / name

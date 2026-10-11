@@ -46,6 +46,21 @@ fn exported_contract_contains_only_current_entrypoints() {
 }
 
 #[test]
+fn desktop_contract_states_the_header_abi() {
+    let abi: u64 = header()
+        .lines()
+        .find_map(|line| line.strip_prefix("#define KODOSI_FFI_ABI_VERSION "))
+        .and_then(|value| value.trim().parse().ok())
+        .expect("ABI version define");
+    let contract: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../protocol/desktop-runtime.json"
+    )))
+    .expect("desktop contract");
+    assert_eq!(contract["ffiAbiVersion"], abi);
+}
+
+#[test]
 fn checkpoint_callback_remains_synchronous_and_correlated() {
     let text = header();
     assert!(text.contains("typedef int32_t (*kodosi_terminal_checkpoint_cb_t)"));
