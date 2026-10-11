@@ -100,6 +100,11 @@ terminal ends, the host removes the folder and the branch only if nothing change
 commit, no changed file, no new file. Kodosi keeps no record of these folders and does
 no other Git operation.
 
+A person deletes their account from Settings. The app opens the account page of the
+sign-in service for one confirmation; then the service removes the account, its devices,
+friends and sharing, and the rooms the person owns. What the person wrote in other
+rooms stays there. Terminals on the person's computers keep running.
+
 Direct terminal sharing and native Claude Code and Copilot CLI conversation
 preview/resume remain available. Kodosi does not become the agent harness or require
 a shared checkout.

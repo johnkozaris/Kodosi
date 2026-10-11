@@ -171,6 +171,7 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     }
     if (type == QStringLiteral("auth.ready") || type == QStringLiteral("auth.required")) {
         m_account.m_finalizing = false;
+        m_account.endDeletion();
         const auto user = type == QStringLiteral("auth.ready")
             ? event.value(QStringLiteral("userId")).toString()
             : QString {};
@@ -190,10 +191,19 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         emit m_account.accountChanged();
         emit m_account.loginChanged();
         emit m_devices.changed();
-        if (event.value(QStringLiteral("reason")).toString() == QStringLiteral("expired"))
+        const auto reason = event.value(QStringLiteral("reason")).toString();
+        if (reason == QStringLiteral("expired"))
             setError(tr("Your sign-in has ended. Sign in again."));
+        else if (reason == QStringLiteral("accountDeleted"))
+            setError(tr("Your Kodosi account is deleted."));
         m_sessionActions.refresh();
         m_sessionActions.activatePendingLink();
+        return;
+    }
+    if (type == QStringLiteral("auth.deletion_pending")) {
+        m_account.m_deleting = true;
+        m_account.m_deletionUri = event.value(QStringLiteral("confirmationUri")).toString();
+        emit m_account.deletionChanged();
         return;
     }
     if (type == QStringLiteral("auth.device_code")) {
@@ -402,6 +412,8 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         m_account.m_finalizing = false;
         m_account.m_userCode.clear();
         emit m_account.loginChanged();
+        if (event.value(QStringLiteral("operation")).toString() == QStringLiteral("auth.deleteAccount"))
+            m_account.endDeletion();
     }
     setError(event.value(QStringLiteral("message")).toString());
     if (type == QStringLiteral("session.error")

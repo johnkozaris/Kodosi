@@ -55,9 +55,9 @@ public sealed class IntegrationTests(PostgresFixture postgres)
             ], "test"));
             return context;
         }
-        var user = await new Kodosi.Accounts.CurrentUser(store.Db).GetAsync(Context("https://auth.example/realms/kodosi", "alias-user"), TestContext.Current.CancellationToken);
-        var again = await new Kodosi.Accounts.CurrentUser(store.Db).GetAsync(Context("https://auth.example/realms/kodosi", "alias-user"), TestContext.Current.CancellationToken);
-        var other = await new Kodosi.Accounts.CurrentUser(store.Db).GetAsync(Context("https://other.example/realms/kodosi", "alias-user"), TestContext.Current.CancellationToken);
+        var user = await new Kodosi.Accounts.CurrentUser(store.Db, TimeProvider.System).GetAsync(Context("https://auth.example/realms/kodosi", "alias-user"), TestContext.Current.CancellationToken);
+        var again = await new Kodosi.Accounts.CurrentUser(store.Db, TimeProvider.System).GetAsync(Context("https://auth.example/realms/kodosi", "alias-user"), TestContext.Current.CancellationToken);
+        var other = await new Kodosi.Accounts.CurrentUser(store.Db, TimeProvider.System).GetAsync(Context("https://other.example/realms/kodosi", "alias-user"), TestContext.Current.CancellationToken);
         Assert.Equal(user.Id, again.Id);
         Assert.NotEqual(user.Id, other.Id);
     }
@@ -90,7 +90,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         using var anonymous = app.CreateClient();
         using var denied = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
         var health = await anonymous.GetFromJsonAsync<JsonElement>("/health/live", TestContext.Current.CancellationToken);
-        Assert.Equal(24, health.GetProperty("apiContractVersion").GetInt32());
+        Assert.Equal(25, health.GetProperty("apiContractVersion").GetInt32());
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("bad", "wrong-audience"));
         using var audience = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, audience.StatusCode);
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("unenrolled"));

@@ -44,6 +44,7 @@ final class AppDependencies {
     var openedLoginCode: String?
     var identityMessage: String?
     var errorMessage: String?
+    var accountDeletion: AccountDeletion?
     var appState: AppState = .launching
     var pendingDeepLink: DeepLinkDestination? {
         didSet { consumeDeepLink() }

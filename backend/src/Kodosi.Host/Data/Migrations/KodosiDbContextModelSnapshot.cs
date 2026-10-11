@@ -22,6 +22,26 @@ namespace Kodosi.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Kodosi.Data.DeletedAccount", b =>
+                {
+                    b.Property<string>("Issuer")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<string>("Subject")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTimeOffset>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Issuer", "Subject");
+
+                    b.HasIndex("DeletedAt");
+
+                    b.ToTable("deleted_accounts", (string)null);
+                });
+
             modelBuilder.Entity("Kodosi.Data.Device", b =>
                 {
                     b.Property<string>("Id")
