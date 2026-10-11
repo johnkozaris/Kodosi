@@ -10,9 +10,18 @@ source NativeBuild.env
 SLICES=(macos-arm64 ios-arm64 ios-arm64-simulator)
 SLICE=${2:-macos-arm64}
 case "$SLICE" in
-    macos-arm64) SLICE_TARGET=$GHOSTTY_BUILD_TARGET ;;
-    ios-arm64) SLICE_TARGET=$GHOSTTY_BUILD_IOS_TARGET ;;
-    ios-arm64-simulator) SLICE_TARGET=$GHOSTTY_BUILD_IOS_SIMULATOR_TARGET ;;
+    macos-arm64)
+        SLICE_TARGET=$GHOSTTY_BUILD_TARGET
+        SLICE_I18N=$GHOSTTY_BUILD_I18N
+        ;;
+    ios-arm64)
+        SLICE_TARGET=$GHOSTTY_BUILD_IOS_TARGET
+        SLICE_I18N=$GHOSTTY_BUILD_IOS_I18N
+        ;;
+    ios-arm64-simulator)
+        SLICE_TARGET=$GHOSTTY_BUILD_IOS_SIMULATOR_TARGET
+        SLICE_I18N=$GHOSTTY_BUILD_IOS_I18N
+        ;;
     *)
         echo "[!] unsupported Apple slice: $SLICE" >&2
         exit 1
@@ -35,6 +44,7 @@ GHOSTTY_BUILD_OPTIONS=(
     emit-xcframework="$GHOSTTY_BUILD_EMIT_XCFRAMEWORK"
     custom-shaders="$GHOSTTY_BUILD_CUSTOM_SHADERS"
     inspector="$GHOSTTY_BUILD_INSPECTOR"
+    i18n="$SLICE_I18N"
 )
 
 case "${1:-}" in

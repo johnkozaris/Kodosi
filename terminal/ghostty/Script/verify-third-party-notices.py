@@ -432,7 +432,10 @@ def verify_evidence(
     ]
     if len(libintl_members) != 30 or len(libintl_members) != len(set(libintl_members)):
         fail(f"expected 30 unique libintl archive members in {label}, found {len(libintl_members)}")
-    if "_libintl_version" not in symbols:
+    if "gettext-libintl" in absent:
+        if members & set(libintl_members) or "_libintl_version" in symbols:
+            fail(f"{label} archive contains libintl, which its notices declare absent")
+    elif "_libintl_version" not in symbols:
         fail(f"libintl version symbol is missing from the {label} archive")
 
 
@@ -443,7 +446,6 @@ def verify_apple_slices(manifest: dict) -> None:
     archive_component_ids = {
         component["id"] for component in manifest["components"] if component["scope"] == "archive"
     }
-    expected_members = [record["name"] for record in manifest["archiveMembers"]]
     for slice_name in IOS_SLICES:
         record = slices[slice_name]
         if not isinstance(record, dict) or set(record) != {"archive", "absentComponents"}:
@@ -456,9 +458,13 @@ def verify_apple_slices(manifest: dict) -> None:
             or absent != sorted(set(absent))
             or not set(absent) <= archive_component_ids
             or "ghostty" in absent
-            or "gettext-libintl" in absent
         ):
             fail(f"{slice_name} absent component list is invalid")
+        expected_members = [
+            member["name"]
+            for member in manifest["archiveMembers"]
+            if not member["owners"] or not set(member["owners"]) <= set(absent)
+        ]
         archive = safe_file(record["archive"])
         metadata = load_artifact_metadata(f"Vendor/libghostty-{slice_name}.version")
         if hashlib.sha256(archive.read_bytes()).hexdigest() != metadata.get("combined_archive_sha256"):
@@ -506,6 +512,8 @@ def verify_pins(manifest: dict) -> None:
         "GHOSTTY_BUILD_OPTIMIZE=ReleaseFast",
         "GHOSTTY_BUILD_EMIT_COMBINED_LIB=true",
         "GHOSTTY_BUILD_APP_RUNTIME=none",
+        "GHOSTTY_BUILD_I18N=true",
+        "GHOSTTY_BUILD_IOS_I18N=false",
     ):
         if required not in native_options.splitlines():
             fail(f"native build policy is missing: {required}")

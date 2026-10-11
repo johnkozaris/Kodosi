@@ -19,6 +19,38 @@ cp "$GHOSTTY_DIR/ThirdPartyNotices/licenses/"*.txt "$staging/Notices/Ghostty/Lic
 cp "$GHOSTTY_DIR/ThirdPartyNotices/inventory.json" "$staging/GhosttySource/"
 cp "$GHOSTTY_DIR/ThirdPartyNotices/corresponding-source/"*.tar* "$staging/GhosttySource/"
 
+# Leave out the notices and sources of components that the iOS archives do not contain.
+while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    rm -f "$staging/Notices/Ghostty/Licenses/$name" "$staging/GhosttySource/$name"
+done < <(python3 - "$GHOSTTY_DIR/ThirdPartyNotices/inventory.json" <<'PY'
+import json
+import sys
+from pathlib import PurePosixPath
+
+manifest = json.load(open(sys.argv[1]))
+absent = set.intersection(*(set(s["absentComponents"]) for s in manifest["appleSlices"].values()))
+source_root = PurePosixPath("ThirdPartyNotices/corresponding-source")
+
+
+def files(components):
+    names = set()
+    for component in components:
+        names.update(component.get("notices", []))
+        names.update(
+            PurePosixPath(path).name
+            for path in component.get("sourcePaths", [])
+            if PurePosixPath(path).parent == source_root
+        )
+    return names
+
+
+components = manifest["components"]
+shipped = files(c for c in components if c["id"] not in absent)
+print("\n".join(sorted(files(c for c in components if c["id"] in absent) - shipped)))
+PY
+)
+
 rm -rf "$notices" "$source_dir"
 mv "$staging/Notices" "$notices"
 mv "$staging/GhosttySource" "$source_dir"

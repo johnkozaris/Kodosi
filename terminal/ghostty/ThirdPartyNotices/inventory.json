@@ -2,6 +2,7 @@
   "appleSlices": {
     "ios-arm64": {
       "absentComponents": [
+        "gettext-libintl",
         "vaxis",
         "zf"
       ],
@@ -9,6 +10,7 @@
     },
     "ios-arm64-simulator": {
       "absentComponents": [
+        "gettext-libintl",
         "vaxis",
         "zf"
       ],
@@ -1158,7 +1160,7 @@
   ],
   "complianceArtifacts": {
     "Script/relink-libintl.sh": {
-      "sha256": "91afe41939a611e7670e02b6c89f696db4c451532016593c7c2edb8c6937bcbd"
+      "sha256": "c669696a1be9a05f67a95b275bc0d8c18d140bfd073d39f1f12e1ad9e6bfeeda"
     },
     "ThirdPartyNotices/corresponding-source/libintl-0.24.tar": {
       "sha256": "2d72c0441c2fe43287dae95935df4e194d2f8b7abd421d7ef6bb923e51276c8d"
@@ -1173,7 +1175,7 @@
   "components": [
     {
       "id": "ghostty",
-      "identity": "ghostty:c770410dbb57909ff4f6921a6497688a957f85db;patch_set:50fc2205dc58f1baf45b6cceda62c63bbf792bc883b8a5b3f4e9381f4098b8bb;patch_application:34a8dc8c58de5ad7ddfe7fa78190b6a640b7989ec71b543895b03d5f005d323e",
+      "identity": "ghostty:c770410dbb57909ff4f6921a6497688a957f85db;patch_set:d501eb0e748b29c1074047512535e8cb608487cccff3772000d0d761dc4246a7;patch_application:2de0cbcbbc7b9bd4103008517438953bdcafcd2adba2d778f3eb3a7d43f6725c",
       "name": "Ghostty",
       "notices": [
         "LICENSE-GHOSTTY"

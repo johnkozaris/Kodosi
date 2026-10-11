@@ -5,10 +5,12 @@ and `Vendor/GhosttyVt/macos-arm64/lib/libghostty-vt.a` includes the components b
 The two paths contain the same native image. The iOS and iOS Simulator archives at
 `Vendor/GhosttyKit.xcframework/ios-arm64/libghostty.a` and
 `Vendor/GhosttyKit.xcframework/ios-arm64-simulator/libghostty.a` are built from the same
-patched source and include the same components, except vaxis and zf: Ghostty compiles its
-terminal-UI CLI commands, their only users, out of iOS builds. Versions and source
-identities are pinned in `ThirdPartyNotices/inventory.json`; the full license texts copied
-from those exact source trees are under `ThirdPartyNotices/licenses/`.
+patched source and include the same components, except vaxis, zf and GNU libintl. Ghostty
+compiles its terminal-UI CLI commands, the only users of vaxis and zf, out of iOS builds.
+iOS builds also turn off Ghostty's gettext translations (`i18n=false`), the only user of
+libintl. Versions and source identities are pinned in `ThirdPartyNotices/inventory.json`;
+the full license texts copied from those exact source trees are under
+`ThirdPartyNotices/licenses/`.
 
 This notice set must accompany redistribution of binaries that incorporate these archives.
 It supplements, and does not replace, the package license in `LICENSE` and Ghostty's license
@@ -31,7 +33,7 @@ or application/runtime dependencies.
   and a separately traced Fuchsia-derived validation routine under BSD-3-Clause.
 - Highway 1.2.0 / commit `66486a10623fa0d72fe91260f96c892e41aceb06` —
   Apache-2.0 and BSD-3-Clause portions.
-- GNU gettext/libintl 0.24 — LGPL-2.1-or-later.
+- GNU gettext/libintl 0.24 — LGPL-2.1-or-later (macOS archive only).
 - stb_image 2.28 and stb_image_resize 0.97 — MIT.
 - Wuffs `0.4.0-alpha.10+3966.20260623` — MIT (also offered under Apache-2.0).
 - libxev commit `9ce8e8e6ff89e583258a7f8e7adeeeaeae8611bf` — MIT.
@@ -59,8 +61,9 @@ Ghostty itself and the local Wuffs Zig adapter are covered by `LICENSE-GHOSTTY`.
 
 ## GNU libintl static-linking notice
 
-Each Apple archive contains a statically linked copy of GNU libintl from gettext 0.24 under
+The macOS archive contains a statically linked copy of GNU libintl from gettext 0.24 under
 the GNU Lesser General Public License, version 2.1 or (at your option) any later version. The
+iOS and iOS Simulator archives do not contain libintl. The
 full license is in
 `ThirdPartyNotices/licenses/gettext-libintl-LGPL-2.1-or-later.txt`.
 
@@ -68,14 +71,12 @@ This repository supplies the exact compiled libintl corresponding-source subset,
 build configuration, headers, and LGPL text in
 `ThirdPartyNotices/corresponding-source/libintl-0.24.tar`. The file manifest and
 hashes are in
-`ThirdPartyNotices/corresponding-source/libintl-0.24/MANIFEST.json`. Each
+`ThirdPartyNotices/corresponding-source/libintl-0.24/MANIFEST.json`. The
 combined archive retains its individual object members;
 `Script/relink-libintl.sh` removes the exact 30 libintl members and recombines
 the remaining objects with a caller-supplied compatible replacement
-`libintl.a`. It relinks the macOS archive by default; pass `--slice ios-arm64` or
-`--slice ios-arm64-simulator` for an iOS archive. Distributors of final executables
-remain responsible for supplying these materials and the required relinking means with
-their distribution.
+`libintl.a`. Distributors of final executables remain responsible for supplying
+these materials and the required relinking means with their distribution.
 
 ## MPL source availability
 
