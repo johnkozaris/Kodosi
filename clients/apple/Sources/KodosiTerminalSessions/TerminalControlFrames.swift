@@ -3,20 +3,20 @@ import Foundation
 import KodosiBridge
 import os
 
-extension TerminalSessionManager {
-    struct ControlFrameHandlers {
-        let onClosed: (String?) -> Void
-        let onInvalidControl: () -> Void
-        let onFocusResult: (String, String, Bool) -> Void
-        let onResizeApplied: (TerminalResizeIdentity) -> Void
-        let onResizeRejected: (TerminalResizeIdentity) -> Void
-        let onBell: () -> Void
-    }
+struct TerminalControlHandlers {
+    let onClosed: (String?) -> Void
+    let onInvalidControl: () -> Void
+    let onFocusResult: (String, String, Bool) -> Void
+    let onResizeApplied: (TerminalResizeIdentity) -> Void
+    let onResizeRejected: (TerminalResizeIdentity, String?) -> Void
+    let onBell: () -> Void
+}
 
-    static func handleControlFrame(
+enum TerminalControlFrames {
+    static func handle(
         _ data: Data,
         sessionId: String,
-        handlers: ControlFrameHandlers
+        handlers: TerminalControlHandlers
     ) {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let type = json["type"] as? String else { return }
@@ -26,11 +26,11 @@ extension TerminalSessionManager {
         case "term.focusApplied", "term.focusRejected":
             handleFocusResult(json, applied: type == "term.focusApplied", sessionId: sessionId, handlers: handlers)
         case "term.resizeApplied":
-            guard let identity = terminalResizeIdentity(from: json, sessionId: sessionId) else { return }
+            guard let identity = resizeIdentity(from: json, sessionId: sessionId) else { return }
             handlers.onResizeApplied(identity)
         case "term.resizeRejected":
-            guard let identity = terminalResizeIdentity(from: json, sessionId: sessionId) else { return }
-            handlers.onResizeRejected(identity)
+            guard let identity = resizeIdentity(from: json, sessionId: sessionId) else { return }
+            handlers.onResizeRejected(identity, json["reason"] as? String)
         case "term.bell":
             guard controlSessionId(from: json) == sessionId else { return }
             handlers.onBell()
@@ -39,8 +39,15 @@ extension TerminalSessionManager {
         }
     }
 
+    static func closeBoundary(from json: [String: Any]) -> UInt64? {
+        guard let boundary = json["finalSequence"] as? NSNumber,
+              CFGetTypeID(boundary) != CFBooleanGetTypeID()
+        else { return nil }
+        return UInt64(boundary.stringValue)
+    }
+
     private static func handleFocusResult(
-        _ json: [String: Any], applied: Bool, sessionId: String, handlers: ControlFrameHandlers
+        _ json: [String: Any], applied: Bool, sessionId: String, handlers: TerminalControlHandlers
     ) {
         guard controlSessionId(from: json) == sessionId,
               let requestId = json["requestId"] as? String,
@@ -49,8 +56,8 @@ extension TerminalSessionManager {
         handlers.onFocusResult(requestId, runtimeIncarnationId, applied)
     }
 
-    private static func handleClosed(_ json: [String: Any], sessionId: String, handlers: ControlFrameHandlers) {
-        guard let finalSequence = terminalCloseBoundary(from: json) else {
+    private static func handleClosed(_ json: [String: Any], sessionId: String, handlers: TerminalControlHandlers) {
+        guard let finalSequence = closeBoundary(from: json) else {
             Logger.terminal.error("Invalid terminal close boundary for \(sessionId)")
             handlers.onInvalidControl()
             return
@@ -62,7 +69,7 @@ extension TerminalSessionManager {
         )
     }
 
-    private nonisolated static func terminalResizeIdentity(
+    private static func resizeIdentity(
         from json: [String: Any],
         sessionId: String
     ) -> TerminalResizeIdentity? {
@@ -98,29 +105,22 @@ extension TerminalSessionManager {
         )
     }
 
-    private nonisolated static func exactUInt64(_ value: Any?) -> UInt64? {
+    private static func exactUInt64(_ value: Any?) -> UInt64? {
         guard let number = value as? NSNumber,
               CFGetTypeID(number) != CFBooleanGetTypeID()
         else { return nil }
         return UInt64(number.stringValue)
     }
 
-    private nonisolated static func exactUInt32(_ value: Any?) -> UInt32? {
+    private static func exactUInt32(_ value: Any?) -> UInt32? {
         exactUInt64(value).flatMap(UInt32.init(exactly:))
     }
 
-    private nonisolated static func exactUInt16(_ value: Any?) -> UInt16? {
+    private static func exactUInt16(_ value: Any?) -> UInt16? {
         exactUInt64(value).flatMap(UInt16.init(exactly:))
     }
 
-    private nonisolated static func controlSessionId(from json: [String: Any]) -> String? {
+    private static func controlSessionId(from json: [String: Any]) -> String? {
         json["sessionId"] as? String
-    }
-
-    nonisolated static func terminalCloseBoundary(from json: [String: Any]) -> UInt64? {
-        guard let boundary = json["finalSequence"] as? NSNumber,
-              CFGetTypeID(boundary) != CFBooleanGetTypeID()
-        else { return nil }
-        return UInt64(boundary.stringValue)
     }
 }

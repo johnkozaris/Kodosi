@@ -2,26 +2,29 @@ import Foundation
 import KodosiBridge
 import KodosiKit
 
-extension TerminalSessionManager {
-    nonisolated static func handleTerminalWrite(
-        _ data: Data,
-        context: TerminalWriteContext
-    ) {
-        guard context.token.canSendInput,
-              !context.runtimeIncarnationId.isEmpty
+struct TerminalWriteContext: Sendable {
+    let sessionId: String
+    let runtimeHandle: RuntimeHandle
+    let token: TerminalConnectionToken
+    let runtimeIncarnationId: String
+    let onFailure: TerminalInputQueue.FailureHandler
+
+    func send(_ data: Data) {
+        guard token.canSendInput,
+              !runtimeIncarnationId.isEmpty
         else { return }
-        guard let generation = context.runtimeHandle.currentGeneration() else {
-            context.onFailure(.runtimeUnavailable)
+        guard let generation = runtimeHandle.currentGeneration() else {
+            onFailure(.runtimeUnavailable)
             return
         }
         TerminalInputQueue.shared.enqueue(
             data,
-            sessionId: context.sessionId,
-            coalescingToken: context.token.subscriptionGeneration,
-            send: { [token = context.token] bytes in
+            sessionId: sessionId,
+            coalescingToken: token.subscriptionGeneration,
+            send: { [token] bytes in
                 guard token.canSendInput else { return Int32(KODOSI_FFI_OK) }
-                return context.withPointers(for: bytes) { session, incarnation, subscription, base in
-                    context.runtimeHandle.withHandle(matching: generation) { handle in
+                return withPointers(for: bytes) { session, incarnation, subscription, base in
+                    runtimeHandle.withHandle(matching: generation) { handle in
                         kodosi_terminal_input(
                             handle,
                             session,
@@ -34,13 +37,11 @@ extension TerminalSessionManager {
                     }
                 }
             },
-            onFailure: context.onFailure
+            onFailure: onFailure
         )
     }
-}
 
-private extension TerminalWriteContext {
-    func withPointers<T>(
+    private func withPointers<T>(
         for bytes: Data,
         _ body: (
             UnsafePointer<CChar>,

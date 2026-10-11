@@ -2,36 +2,38 @@ import Foundation
 import KodosiBridge
 import KodosiKit
 
-enum TerminalInputFailure: Equatable, Sendable {
+public enum TerminalInputFailure: Equatable, Sendable {
     case budgetExceeded(perSession: Bool)
     case runtimeUnavailable
     case rejected(code: Int32)
 
-    var userMessage: String {
+    public var userMessage: String {
         switch self {
         case let .budgetExceeded(perSession):
             if perSession {
-                return String(localized: "This terminal still waits for earlier typing. Your paste was not sent.")
+                return String(localized: "This terminal still waits for earlier typing. Your paste was not sent.", bundle: .module)
             }
-            return String(localized: "That paste is too large. It was not sent.")
+            return String(localized: "That paste is too large. It was not sent.", bundle: .module)
         case .runtimeUnavailable:
-            return String(localized: "Kodosi stopped before it sent your typing.")
+            return String(localized: "Kodosi stopped before it sent your typing.", bundle: .module)
         case let .rejected(code):
-            return String(localized: "Your typing was not sent (error \(code)).")
+            return String(localized: "Your typing was not sent (error \(code)).", bundle: .module)
         }
     }
 }
 
-final class TerminalInputQueue: @unchecked Sendable {
-    static let shared = TerminalInputQueue(
+public final class TerminalInputQueue: @unchecked Sendable {
+    public static let chunkBytes = 64 * 1024
+
+    public static let shared = TerminalInputQueue(
         perSessionBudget: defaultPerSessionBudget,
         globalBudget: defaultGlobalBudget,
-        coalesceLimit: 64 * 1024,
+        coalesceLimit: chunkBytes,
         busyDelays: defaultBusyDelays
     )
 
-    typealias Sender = @Sendable (Data) -> Int32?
-    typealias FailureHandler = @Sendable (TerminalInputFailure) -> Void
+    public typealias Sender = @Sendable (Data) -> Int32?
+    public typealias FailureHandler = @Sendable (TerminalInputFailure) -> Void
 
     private struct Chunk {
         var data: Data
@@ -130,7 +132,7 @@ final class TerminalInputQueue: @unchecked Sendable {
     private var draining = false
     private var nextEpoch: UInt64 = 0
 
-    init(
+    public init(
         perSessionBudget: Int,
         globalBudget: Int,
         coalesceLimit: Int,
@@ -146,7 +148,7 @@ final class TerminalInputQueue: @unchecked Sendable {
         self.busyDelays = busyDelays
     }
 
-    func enqueue(
+    public func enqueue(
         _ data: Data,
         sessionId: String,
         coalescingToken: UInt64,
@@ -210,7 +212,7 @@ final class TerminalInputQueue: @unchecked Sendable {
         }
     }
 
-    func cancel(sessionId: String) {
+    public func cancel(sessionId: String) {
         lock.withLock {
             guard let session = sessions.removeValue(forKey: sessionId) else { return }
             totalBytes -= session.byteCount

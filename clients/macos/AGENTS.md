@@ -10,7 +10,7 @@ terminal dependencies, native APIs or pins.
   `../apple/Sources/KodosiDesign` and the Rust seam in `../apple/Sources/KodosiBridge`;
   the iOS app uses the same package. Rust owns processes, identity, sharing, and
   terminal authority.
-- Only `Packages/KodosiTerminal` imports `GhosttyTerminal`.
+- Only `../apple/Sources/KodosiTerminal` imports `GhosttyTerminal`.
 - Generate the Xcode project from `project.yml` and the C header from Rust.
   `Config/macOSDeploymentTarget` is the deployment target authority.
 - The runtime is built from the same checkout. Root `Ghostty.lock` selects upstream

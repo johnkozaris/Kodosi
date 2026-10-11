@@ -3,7 +3,10 @@
 Rust in `runtime/` owns processes, terminal state, identity, and
 transport. `terminal/ghostty/` renders host-managed sessions and handles native
 input, selection, and accessibility; it does not start processes. Only
-`Packages/KodosiTerminal` imports `GhosttyTerminal` into the app.
+`clients/apple/Sources/KodosiTerminal` imports `GhosttyTerminal`; the Mac and iOS
+apps share that one SwiftUI integration. `clients/apple/Sources/KodosiTerminalSessions`
+connects it to the runtime: subscriptions, checkpoints, ordered output, input,
+resize, and focus.
 
 A returning view receives current terminal state before continued output.
 Stale views must not control replacement sessions. Hiding a view must not

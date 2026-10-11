@@ -139,6 +139,15 @@ open class UITerminalView: UIView {
     }
 
     @discardableResult
+    open func pasteText(_ text: String) -> Bool {
+        TerminalDebugLog.log(
+            .input,
+            "paste text bytes=\(text.utf8.count) lines=\(TerminalInputText.lineCount(in: text))"
+        )
+        return surface?.sendText(text) ?? false
+    }
+
+    @discardableResult
     open func copySelectedTextToPasteboard() -> Bool {
         guard surface?.hasSelection() == true else {
             return false

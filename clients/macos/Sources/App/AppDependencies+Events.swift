@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import KodosiBridge
 import KodosiDesign
+import KodosiTerminalSessions
 
 extension AppDependencies {
     func consumeDeepLink() {
@@ -324,11 +325,6 @@ extension AppDependencies {
     }
 
     func reconcileTerminals() {
-        let visible = sessions.filter { $0.connectionState != .blocked }
-        terminalManager.reconcileSessions(
-            liveSessionIds: Set(visible.map(\.id)),
-            runtimeIncarnations: Dictionary(uniqueKeysWithValues: visible.map { ($0.id, $0.incarnationId) }),
-            resizeAuthority: Dictionary(uniqueKeysWithValues: visible.map { ($0.id, $0.canControl) })
-        )
+        terminalManager.reconcile(with: sessions)
     }
 }

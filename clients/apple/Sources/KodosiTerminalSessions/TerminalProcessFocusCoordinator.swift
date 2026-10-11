@@ -1,21 +1,28 @@
 import Foundation
 import KodosiBridge
 
-struct TerminalProcessFocusLease: Hashable {
-    let sessionId: String
-    let runtimeIncarnationId: String
-    let subscriptionId: String
-    let subscriptionGeneration: UInt64
+public struct TerminalProcessFocusLease: Hashable, Sendable {
+    public let sessionId: String
+    public let runtimeIncarnationId: String
+    public let subscriptionId: String
+    public let subscriptionGeneration: UInt64
+
+    public init(sessionId: String, runtimeIncarnationId: String, subscriptionId: String, subscriptionGeneration: UInt64) {
+        self.sessionId = sessionId
+        self.runtimeIncarnationId = runtimeIncarnationId
+        self.subscriptionId = subscriptionId
+        self.subscriptionGeneration = subscriptionGeneration
+    }
 }
 
-struct TerminalProcessFocusReleaseAuthority: Equatable {
-    let lease: TerminalProcessFocusLease
-    let generation: UInt64
-    let requestId: String
+public struct TerminalProcessFocusReleaseAuthority: Equatable, Sendable {
+    public let lease: TerminalProcessFocusLease
+    public let generation: UInt64
+    public let requestId: String
 }
 
 @MainActor
-final class TerminalProcessFocusCoordinator {
+public final class TerminalProcessFocusCoordinator {
     private struct PendingFocus: Equatable {
         let generation: UInt64
         let requestId: String
@@ -36,7 +43,7 @@ final class TerminalProcessFocusCoordinator {
     private var revokerBySurfaceId: [UUID: @MainActor () -> Void] = [:]
     private var lastGeneration: UInt64 = 0
 
-    init(
+    public init(
         sendFocus: @escaping (TerminalProcessFocusLease, String, @escaping (Bool) -> Void) -> Void,
         sendBlur: @escaping (TerminalProcessFocusReleaseAuthority, @escaping (Bool) -> Void) -> Void
     ) {
@@ -44,11 +51,11 @@ final class TerminalProcessFocusCoordinator {
         self.sendBlur = sendBlur
     }
 
-    func registerRevoker(surfaceId: UUID, revoker: (@MainActor () -> Void)?) {
+    public func registerRevoker(surfaceId: UUID, revoker: (@MainActor () -> Void)?) {
         revokerBySurfaceId[surfaceId] = revoker
     }
 
-    func acquire(
+    public func acquire(
         sessionId: String,
         runtimeIncarnationId: String,
         subscriptionId: String,
@@ -79,7 +86,7 @@ final class TerminalProcessFocusCoordinator {
         }
     }
 
-    func applyResult(sessionId: String, runtimeIncarnationId: String, requestId: String, accepted: Bool) {
+    public func applyResult(sessionId: String, runtimeIncarnationId: String, requestId: String, accepted: Bool) {
         guard let (lease, state) = leases.first(where: {
             $0.key.sessionId == sessionId && $0.key.runtimeIncarnationId == runtimeIncarnationId
                 && $0.value.focus?.requestId == requestId
@@ -95,13 +102,13 @@ final class TerminalProcessFocusCoordinator {
         }
     }
 
-    func releaseSession(sessionId: String) {
+    public func releaseSession(sessionId: String) {
         for (surface, lease) in leaseBySurfaceId where lease.sessionId == sessionId {
             release(surfaceId: surface)
         }
     }
 
-    func release(surfaceId: UUID) {
+    public func release(surfaceId: UUID) {
         guard let lease = leaseBySurfaceId.removeValue(forKey: surfaceId),
               var state = leases[lease] else { return }
         state.surfaces.remove(surfaceId)
@@ -164,5 +171,26 @@ final class TerminalProcessFocusCoordinator {
         if let state = leases[lease], state.surfaces.isEmpty, state.release == nil {
             leases.removeValue(forKey: lease)
         }
+    }
+}
+
+public extension TerminalProcessFocusCoordinator {
+    convenience init(commands: CommandSink) {
+        self.init(
+            sendFocus: { lease, requestId, completion in
+                completion(CommandSink.didAcceptSynchronously(commands.sendTerminalFocus(
+                    sessionId: lease.sessionId, clientId: lease.subscriptionId,
+                    subscriptionGeneration: lease.subscriptionGeneration,
+                    requestId: requestId, expectedRuntimeIncarnationId: lease.runtimeIncarnationId
+                )))
+            },
+            sendBlur: { authority, completion in
+                completion(CommandSink.didAcceptSynchronously(commands.sendTerminalBlur(
+                    sessionId: authority.lease.sessionId, clientId: authority.lease.subscriptionId,
+                    subscriptionGeneration: authority.lease.subscriptionGeneration,
+                    expectedRuntimeIncarnationId: authority.lease.runtimeIncarnationId
+                )))
+            }
+        )
     }
 }

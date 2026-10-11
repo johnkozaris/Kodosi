@@ -1,6 +1,11 @@
 import Combine
 import Foundation
 import GhosttyTerminal
+#if os(iOS)
+    import UIKit
+#endif
+
+public typealias TerminalFocusRevoker = @MainActor () -> Void
 
 private final class TerminalInputAuthority: @unchecked Sendable {
     private let lock = NSLock()
@@ -197,6 +202,23 @@ public final class TerminalRendererSession: ObservableObject {
     public func setAllowsInput(_ allowsInput: Bool) {
         inputAuthority.update(allowsInput)
     }
+
+    #if os(iOS)
+        weak var inputView: UITerminalView?
+
+        @discardableResult
+        public func sendKeyPress(_ usage: UIKeyboardHIDUsage, modifiers: UIKeyModifierFlags = []) -> Bool {
+            guard inputAuthority.isAllowed, let inputView else { return false }
+            inputView.sendKeyPress(usage, modifiers: modifiers)
+            return true
+        }
+
+        @discardableResult
+        public func pasteText(_ text: String) -> Bool {
+            guard inputAuthority.isAllowed, let inputView else { return false }
+            return inputView.pasteText(text)
+        }
+    #endif
 
     public nonisolated func readViewportText() -> String? {
         backend.readViewportText()

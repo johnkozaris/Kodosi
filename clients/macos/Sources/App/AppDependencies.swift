@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import KodosiBridge
+import KodosiTerminalSessions
 import Observation
 
 @MainActor
@@ -79,22 +80,7 @@ final class AppDependencies {
         self.inbox = inbox
         let runtime = RuntimeHandle(inbox: inbox)
         runtimeHandle = runtime
-        let focus = TerminalProcessFocusCoordinator(
-            sendFocus: { lease, requestId, completion in
-                completion(CommandSink.didAcceptSynchronously(commands.sendTerminalFocus(
-                    sessionId: lease.sessionId, clientId: lease.subscriptionId,
-                    subscriptionGeneration: lease.subscriptionGeneration,
-                    requestId: requestId, expectedRuntimeIncarnationId: lease.runtimeIncarnationId
-                )))
-            },
-            sendBlur: { authority, completion in
-                completion(CommandSink.didAcceptSynchronously(commands.sendTerminalBlur(
-                    sessionId: authority.lease.sessionId, clientId: authority.lease.subscriptionId,
-                    subscriptionGeneration: authority.lease.subscriptionGeneration,
-                    expectedRuntimeIncarnationId: authority.lease.runtimeIncarnationId
-                )))
-            }
-        )
+        let focus = TerminalProcessFocusCoordinator(commands: commands)
         terminalFocus = focus
         terminalManager = TerminalSessionManager(
             runtimeHandle: runtime, commandSink: commands, settings: settings,

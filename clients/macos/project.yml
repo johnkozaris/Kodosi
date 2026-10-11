@@ -15,8 +15,6 @@ configs:
 packages:
   KodosiApple:
     path: ../apple
-  KodosiTerminal:
-    path: Packages/KodosiTerminal
 
 aggregateTargets:
   PrepareNativeBuild:
@@ -84,8 +82,6 @@ targets:
       - path: Sources
       - path: Resources/Assets.xcassets
         buildPhase: resources
-      - path: Resources/Notices
-        buildPhase: resources
     dependencies:
       - target: PrepareNativeBuild
         link: false
@@ -96,14 +92,20 @@ targets:
         product: KodosiBridge
       - package: KodosiApple
         product: KodosiDesign
-      - package: KodosiTerminal
+      - package: KodosiApple
         product: KodosiTerminal
+      - package: KodosiApple
+        product: KodosiTerminalSessions
     preBuildScripts:
       - name: Enforce Build Variant
         basedOnDependencyAnalysis: false
         script: |
           "$PROJECT_DIR/scripts/build/enforce-build-variant.sh"
     postBuildScripts:
+      - name: Install Artwork Notices
+        basedOnDependencyAnalysis: false
+        script: |
+          cp "$PROJECT_DIR/../apple/Notices/"*.txt "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/"
       - name: Install Native Notices
         basedOnDependencyAnalysis: false
         script: |

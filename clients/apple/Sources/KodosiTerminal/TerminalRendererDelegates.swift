@@ -1,4 +1,9 @@
-import AppKit
+#if os(macOS)
+    import AppKit
+#elseif os(iOS)
+    import UIKit
+#endif
+import Foundation
 import GhosttyTerminal
 
 @MainActor
@@ -94,12 +99,18 @@ extension TerminalViewState: @retroactive TerminalSurfaceOpenURLDelegate {
               let scheme = parsed.scheme?.lowercased(),
               ["https", "http", "mailto"].contains(scheme)
         else { return }
-        NSWorkspace.shared.open(parsed)
+        #if os(macOS)
+            NSWorkspace.shared.open(parsed)
+        #elseif os(iOS)
+            UIApplication.shared.open(parsed)
+        #endif
     }
 }
 
 extension TerminalViewState: @retroactive TerminalSurfaceHoverLinkDelegate {
     public func terminalDidUpdateHoverLink(_ url: String?) {
-        (url == nil ? NSCursor.arrow : NSCursor.pointingHand).set()
+        #if os(macOS)
+            (url == nil ? NSCursor.arrow : NSCursor.pointingHand).set()
+        #endif
     }
 }

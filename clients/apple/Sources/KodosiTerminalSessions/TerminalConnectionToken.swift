@@ -1,37 +1,37 @@
 import Foundation
 import KodosiBridge
 
-final class TerminalConnectionToken: @unchecked Sendable {
+public final class TerminalConnectionToken: @unchecked Sendable {
     private static let generationLock = NSLock()
     private nonisolated(unsafe) static var generationCounter: UInt64 = 0
 
     private let lock = NSLock()
     private var active = true
     private var inputAllowed = false
-    let subscriptionId: String
-    let subscriptionGeneration: UInt64
+    public let subscriptionId: String
+    public let subscriptionGeneration: UInt64
 
-    init() {
+    public init() {
         subscriptionId = UUIDv7.generate()
         subscriptionGeneration = Self.nextGeneration()
     }
 
-    var isActive: Bool {
+    public var isActive: Bool {
         lock.lock()
         defer { lock.unlock() }
         return active
     }
 
-    var canSendInput: Bool {
+    public var canSendInput: Bool {
         lock.withLock { active && inputAllowed }
     }
 
-    func setInputAllowed(_ allowed: Bool) {
+    public func setInputAllowed(_ allowed: Bool) {
         lock.withLock { inputAllowed = allowed }
     }
 
     @discardableResult
-    func deactivate() -> Bool {
+    public func deactivate() -> Bool {
         lock.withLock {
             let wasActive = active
             active = false

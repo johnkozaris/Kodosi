@@ -8,7 +8,7 @@ and Linux terminal engine. Rust owns processes, terminal state, output order,
 and access. The host-managed adapter displays that state; it must not become
 another process host, parser, or fallback terminal.
 
-`../../clients/macos/Packages/KodosiTerminal` owns the SwiftUI integration and is
+`../../clients/apple/Sources/KodosiTerminal` owns the SwiftUI integration and is
 the only consumer that imports `GhosttyTerminal`. Read
 `../../clients/macos/docs/GHOSTTY_INTEGRATION.md` before changing public APIs.
 Keep the AppKit and UIKit views' host-managed APIs aligned. Preserve native

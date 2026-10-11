@@ -13,7 +13,7 @@ cleanup() {
 trap cleanup EXIT
 cleanup
 mkdir -p "$COPY_ROOT"
-for relative_path in project.yml Config Sources Tests Resources Packages KodosiDesktop.xcodeproj; do
+for relative_path in project.yml Config Sources Tests Resources KodosiDesktop.xcodeproj; do
     cp -R "$ROOT/$relative_path" "$COPY_ROOT/$relative_path"
 done
 cp -R "$ROOT/../apple" "$SCRATCH/apple"

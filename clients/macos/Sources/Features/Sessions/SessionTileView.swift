@@ -1,6 +1,6 @@
 import KodosiBridge
 import KodosiDesign
-import KodosiTerminal
+import KodosiTerminalSessions
 import SwiftUI
 
 struct SessionTileView: View {

@@ -7,7 +7,7 @@ struct VerifyGhosttyPlugin: BuildToolPlugin {
         let repository = context.package.directoryURL
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-        let verifier = repository.appending(path: "scripts/build/verify-ghostty-checkout.sh")
+        let verifier = repository.appending(path: "scripts/verify-ghostty.sh")
         let output = context.pluginWorkDirectoryURL.appending(path: "verified")
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
         var environment: [String: String] = [:]

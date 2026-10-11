@@ -36,6 +36,6 @@ custom_rules:
   ghostty_import_boundary:
     name: "Ghostty import boundary"
     regex: '^[ \t]*(?:(?:@testable|@_exported|@_implementationOnly|@preconcurrency|public|internal|package|private|fileprivate)[ \t]+)*import[ \t]+GhosttyTerminal\b'
-    message: "Ghostty types stay behind KodosiTerminal: import GhosttyTerminal only inside Packages/KodosiTerminal."
+    message: "Ghostty types stay behind KodosiTerminal: import GhosttyTerminal only inside apple/Sources/KodosiTerminal."
     severity: error
-    excluded: ".*/Packages/KodosiTerminal/.*"
+    excluded: ".*/apple/Sources/KodosiTerminal/.*"

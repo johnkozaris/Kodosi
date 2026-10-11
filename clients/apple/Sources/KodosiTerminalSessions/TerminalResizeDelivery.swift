@@ -2,7 +2,7 @@ import Foundation
 import KodosiBridge
 import Synchronization
 
-final class ResizeDeliveryState: Sendable {
+public final class ResizeDeliveryState: Sendable {
     private struct PendingResize: Sendable {
         let key: String
         let request: TerminalResizeIdentity
@@ -18,7 +18,9 @@ final class ResizeDeliveryState: Sendable {
 
     private let state = Mutex(State())
 
-    func begin(
+    public init() {}
+
+    public func begin(
         _ request: TerminalResizeIdentity,
         key: String
     ) -> TerminalResizeIdentity? {
@@ -51,13 +53,13 @@ final class ResizeDeliveryState: Sendable {
         }
     }
 
-    func queued(_ request: TerminalResizeIdentity, accepted: Bool) {
+    public func queued(_ request: TerminalResizeIdentity, accepted: Bool) {
         guard !accepted else { return }
         _ = reject(request)
     }
 
     @discardableResult
-    func apply(_ result: TerminalResizeIdentity) -> Bool {
+    public func apply(_ result: TerminalResizeIdentity) -> Bool {
         state.withLock {
             guard let pending = $0.pending[result.requestId],
                   pending.request == result
@@ -69,7 +71,7 @@ final class ResizeDeliveryState: Sendable {
     }
 
     @discardableResult
-    func reject(_ result: TerminalResizeIdentity) -> Bool {
+    public func reject(_ result: TerminalResizeIdentity) -> Bool {
         state.withLock {
             guard let pending = $0.pending[result.requestId],
                   pending.request == result
@@ -79,10 +81,26 @@ final class ResizeDeliveryState: Sendable {
         }
     }
 
-    func reset() {
+    public func reset() {
         state.withLock {
             $0.applied = ""
             $0.pending.removeAll()
         }
+    }
+}
+
+public final class TerminalResizeAuthorityCell: Sendable {
+    private let value: Mutex<Bool>
+
+    public init(_ value: Bool) {
+        self.value = Mutex(value)
+    }
+
+    public var isAllowed: Bool {
+        value.withLock { $0 }
+    }
+
+    public func update(_ newValue: Bool) {
+        value.withLock { $0 = newValue }
     }
 }
