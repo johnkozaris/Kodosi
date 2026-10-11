@@ -112,7 +112,8 @@ def publish(slot: Path, archive: Path, header: Path, target: str, profile: str) 
             (stage / "artifact.json").write_bytes(canonical_json(record))
             for path in stage.rglob("*"):
                 if path.is_file():
-                    with path.open("rb") as file:
+                    # Windows flushes only handles opened for writing.
+                    with path.open("r+b") as file:
                         os.fsync(file.fileno())
             stage.rename(bundle)
     if (bundle / "artifact.json").read_bytes() != canonical_json(record) or digest(bundle / name) != record["archiveSha256"] or digest(bundle / "include/kodosi_runtime.h") != record["headerSha256"]:
