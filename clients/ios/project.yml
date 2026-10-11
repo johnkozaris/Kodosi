@@ -1,0 +1,117 @@
+name: KodosiMobile
+
+options:
+  createIntermediateGroups: true
+  defaultConfig: Debug
+  groupSortPosition: top
+  deploymentTarget:
+    iOS: "26.0"
+
+configs:
+  Debug: debug
+  Release: release
+
+packages:
+  KodosiApple:
+    path: ../apple
+
+aggregateTargets:
+  PrepareNativeBuild:
+    buildScripts:
+      - name: Prepare Native Build
+        basedOnDependencyAnalysis: false
+        script: |
+          "$PROJECT_DIR/scripts/prepare-native-build.sh"
+
+settingGroups:
+  appBase:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY: YES
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: C5886CWK32
+    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    SUPPORTED_PLATFORMS: iphoneos iphonesimulator
+    SUPPORTS_MACCATALYST: NO
+    SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+    SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
+    ARCHS: arm64
+    CURRENT_PROJECT_VERSION: 1
+    MARKETING_VERSION: 0.1.0
+    DEVELOPMENT_LANGUAGE: en
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
+    CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+
+targets:
+  KodosiMobile:
+    type: application
+    platform: iOS
+    settings:
+      groups:
+        - appBase
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kodosi.mobile
+        PRODUCT_NAME: Kodosi
+        INFOPLIST_FILE: Config/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Config/KodosiMobile.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
+        "LIBRARY_SEARCH_PATHS[sdk=iphoneos*]": $(PROJECT_DIR)/Frameworks/Runtime/iphoneos
+        "LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]": $(PROJECT_DIR)/Frameworks/Runtime/iphonesimulator
+        OTHER_LDFLAGS:
+          - -lkodosi_runtime
+          - -framework Security
+          - -framework SystemConfiguration
+          - -lresolv
+        ENABLE_DEBUG_DYLIB: NO
+    sources:
+      - path: Sources
+      - path: Resources
+    dependencies:
+      - target: PrepareNativeBuild
+        link: false
+        embed: false
+      - package: KodosiApple
+        product: KodosiKit
+      - package: KodosiApple
+        product: KodosiBridge
+      - package: KodosiApple
+        product: KodosiDesign
+
+  KodosiMobileTests:
+    type: bundle.unit-test
+    platform: iOS
+    settings:
+      groups:
+        - appBase
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kodosi.mobile.tests
+        PRODUCT_NAME: KodosiMobileTests
+        GENERATE_INFOPLIST_FILE: YES
+    sources:
+      - path: Tests
+    dependencies:
+      - target: KodosiMobile
+
+schemes:
+  KodosiMobile:
+    build:
+      targets:
+        KodosiMobile: all
+        KodosiMobileTests: [test]
+    run:
+      config: Debug
+    test:
+      gatherCoverageData: false
+      targets:
+        - KodosiMobileTests
+    profile:
+      config: Release
+    archive:
+      config: Release

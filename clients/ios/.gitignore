@@ -1,0 +1,10 @@
+xcuserdata/
+*.xcuserstate
+DerivedData/
+/build/
+.build/
+.swiftpm/
+Package.resolved
+!KodosiMobile.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+Frameworks/
+.DS_Store
