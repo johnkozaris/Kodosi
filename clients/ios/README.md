@@ -38,6 +38,15 @@ service addresses. For a custom server in Debug, clear the two
 
 Generate the project from `project.yml`; do not edit generated project files.
 
+## Privacy manifest
+
+[Resources/PrivacyInfo.xcprivacy](Resources/PrivacyInfo.xcprivacy) lists the account
+data that the Kodosi service keeps and the reasons for the app's file-date and
+UserDefaults reads. Update it when the app or a library it links starts to use another
+[required reason API](https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api)
+or sends new data to the service. The App Privacy answers in App Store Connect must
+match it.
+
 ## Check
 
 ```sh
