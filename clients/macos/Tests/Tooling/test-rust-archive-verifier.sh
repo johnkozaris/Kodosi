@@ -12,15 +12,17 @@ scratch_directory=$(mktemp -d "${TMPDIR:-/tmp}/kodosi-archive-verifier.XXXXXX")
 trap 'rm -rf "$scratch_directory"' EXIT
 verifier="$project_directory/scripts/build/verify-rust-archive.sh"
 source "$project_directory/scripts/build/kodosi-paths.sh"
-runtime_root=$(kodosi_runtime_root "$project_directory")
+contract="$(kodosi_repository_root "$project_directory")/protocol/desktop-runtime.json"
+protocol_version=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["protocolVersion"])' "$contract")
 header="$project_directory/Frameworks/KodosiKit.xcframework/Headers/kodosi_runtime.h"
 
-python3 - "$header" "$scratch_directory" <<'PY'
+python3 - "$header" "$scratch_directory" "$protocol_version" <<'PY'
 import pathlib
 import re
 import sys
 header = pathlib.Path(sys.argv[1]).read_text()
 root = pathlib.Path(sys.argv[2])
+protocol = int(sys.argv[3])
 symbols = sorted(set(re.findall(r'\b(kodosi_[A-Za-z0-9_]+)\s*\(', header)))
 vt = ['ghostty_terminal_new', 'ghostty_terminal_vt_write',
       'ghostty_terminal_resize', 'ghostty_checkpoint_encode_buf',
@@ -31,7 +33,7 @@ for case in ['current', 'stale-protocol', 'stale-abi', 'no-vt', 'bundled-ghostty
         if case == 'partial' and symbol == 'kodosi_terminal_input':
             continue
         if symbol == 'kodosi_protocol_version':
-            lines.append(f'unsigned int {symbol}(void) {{ return {54 if case == "stale-protocol" else 55}; }}')
+            lines.append(f'unsigned int {symbol}(void) {{ return {protocol - 1 if case == "stale-protocol" else protocol}; }}')
         elif symbol == 'kodosi_abi_version':
             lines.append(f'unsigned int {symbol}(void) {{ return {6 if case == "stale-abi" else 7}; }}')
         else:
@@ -87,7 +89,7 @@ reject() {
     fi
 }
 
-reject stale-protocol "does not return exact desktop/runtime protocol v55"
+reject stale-protocol "does not return exact desktop/runtime protocol v$protocol_version"
 reject stale-abi "does not return exact C ABI v7"
 reject no-vt "lacks required libghostty-vt authority import"
 reject bundled-ghostty "bundles Ghostty definitions"

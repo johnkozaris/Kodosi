@@ -80,7 +80,7 @@ if(NOT EXISTS "${KODOSI_RUNTIME_MANIFEST}")
     message(FATAL_ERROR "Kodosi runtime manifest not found: ${KODOSI_RUNTIME_MANIFEST}")
 endif()
 if(NOT EXISTS "${KODOSI_GHOSTTY_ROOT}/LinuxGhostty.ref")
-    message(FATAL_ERROR "Verified kodosi-ghostty checkout not found: ${KODOSI_GHOSTTY_ROOT}")
+    message(FATAL_ERROR "Ghostty integration not found: ${KODOSI_GHOSTTY_ROOT}")
 endif()
 
 set(KODOSI_VERIFY_GHOSTTY_COMMAND

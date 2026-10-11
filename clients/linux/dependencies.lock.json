@@ -38,10 +38,6 @@
       "source": "https://github.com/ninja-build/ninja/releases/tag/v1.13.2"
     }
   },
-  "kodosi": {
-    "ffiAbiVersion": 7,
-    "desktopProtocolVersion": 50
-  },
   "ghostty": {
     "repository": "ghostty-org/ghostty",
     "versioning": "unversioned-libghostty-tip"

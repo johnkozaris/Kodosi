@@ -5,9 +5,9 @@ This package was built from the Kodosi repository together with the exact depend
 recorded in /usr/share/doc/kodosi/provenance/dependencies.lock.json:
 
 - Qt 6.11.2
-- Kodosi FFI ABI 7, desktop protocol 44
-- Runtime and kodosi-ghostty source commits are recorded in the installed
-  provenance, not duplicated in this notice.
+- The Kodosi source commit is recorded in the installed provenance, and the
+  release manifest records the FFI ABI and desktop protocol versions; this
+  notice does not repeat them.
 - The Linux upstream commit is recorded in the installed ghostty/LinuxGhostty.ref.
 
 The GUI statically incorporates the pinned Linux libghostty-vt archive. Its

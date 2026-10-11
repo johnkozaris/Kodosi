@@ -82,6 +82,9 @@ swift_root=$(cd "$script_directory/../.." && pwd)
 
 source "$script_directory/kodosi-paths.sh"
 runtime_directory=$(kodosi_runtime_root "$swift_root")
+contract="$(kodosi_repository_root "$swift_root")/protocol/desktop-runtime.json"
+protocol_version=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["protocolVersion"])' "$contract")
+protocol_hex=$(printf '0x%x' "$protocol_version")
 python3 - "$bundle" <<'PYVERIFY'
 import hashlib
 import json
@@ -162,10 +165,10 @@ for architecture in "$@"; do
         "$inspection_archive" 2>/dev/null)
     case "$architecture" in
         arm64)
-            protocol_constant_pattern='mov[[:space:]]+w0,[[:space:]]+#(0x37|55)([[:space:];]|$)'
+            protocol_constant_pattern="mov[[:space:]]+w0,[[:space:]]+#(${protocol_hex}|${protocol_version})([[:space:];]|\$)"
             ;;
         x86_64)
-            protocol_constant_pattern='movl?[[:space:]]+\$(0x37|55),[[:space:]]+%eax([[:space:];]|$)'
+            protocol_constant_pattern="movl?[[:space:]]+\\\$(${protocol_hex}|${protocol_version}),[[:space:]]+%eax([[:space:];]|\$)"
             ;;
         *)
             echo "Rust archive verifier cannot inspect protocol constants for $architecture" >&2
@@ -173,7 +176,7 @@ for architecture in "$@"; do
             ;;
     esac
     if ! grep -Eq "$protocol_constant_pattern" <<<"$protocol_disassembly"; then
-        echo "Rust archive $archive does not return exact desktop/runtime protocol v55 in its $architecture slice" >&2
+        echo "Rust archive $archive does not return exact desktop/runtime protocol v${protocol_version} in its $architecture slice" >&2
         exit 1
     fi
     abi_disassembly=$("$rust_llvm_objdump" \

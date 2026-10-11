@@ -271,6 +271,24 @@ def repository_root(source_root: Path) -> Path:
     ).decode("utf-8").strip()).resolve(strict=True)
 
 
+def runtime_versions(source_root: Path) -> dict[str, int]:
+    contract = json.loads(
+        (repository_root(source_root) / "protocol/desktop-runtime.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    versions = {
+        "ffiAbiVersion": contract.get("ffiAbiVersion"),
+        "desktopProtocolVersion": contract.get("protocolVersion"),
+    }
+    if not all(
+        isinstance(value, int) and not isinstance(value, bool) and value > 0
+        for value in versions.values()
+    ):
+        raise ValueError("protocol/desktop-runtime.json has no runtime versions")
+    return versions
+
+
 def checkout_identity(source_root: Path) -> dict[str, object]:
     root = repository_root(source_root)
     _, object_length = _object_format(root)

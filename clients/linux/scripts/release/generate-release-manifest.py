@@ -14,6 +14,7 @@ from release_common import (
     extract_source_identity,
     file_sha256,
     product_version,
+    runtime_versions,
     verify_reproducible_artifact,
     verify_release_sources,
 )
@@ -77,6 +78,7 @@ def main() -> None:
             require_clean=True,
         )
         version = product_version(arguments.source_root)
+        runtime = runtime_versions(arguments.source_root)
     except (KeyError, OSError, ValueError, json.JSONDecodeError) as error:
         fail(str(error))
 
@@ -118,7 +120,6 @@ def main() -> None:
 
     if dependencies.get("schemaVersion") != 1:
         fail("unsupported dependency lock schema")
-    runtime = dependencies["kodosi"]
     ghostty = dependencies["ghostty"]
 
     manifest = {
@@ -128,10 +129,7 @@ def main() -> None:
         "source": measured_source,
         "pins": {
             "qtVersion": dependencies["frameworks"]["qt"]["version"],
-            "runtime": {
-                "ffiAbiVersion": runtime["ffiAbiVersion"],
-                "desktopProtocolVersion": runtime["desktopProtocolVersion"],
-            },
+            "runtime": runtime,
             "ghostty": {
                 "repository": ghostty["repository"],
                 "commit": measured_ghostty["linuxUpstreamCommit"],

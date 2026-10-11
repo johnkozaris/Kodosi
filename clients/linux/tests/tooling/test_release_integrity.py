@@ -46,6 +46,7 @@ class ReleaseIntegrityTests(unittest.TestCase):
                 "Ghostty.lock": "".join(f"{key}={value}\n" for key, value in lock.items()),
                 "clients/linux/CMakeLists.txt": "project(KodosiQT VERSION 0.1.0 LANGUAGES CXX)\n",
                 "clients/linux/tracked.txt": "one\n",
+                "protocol/desktop-runtime.json": '{"protocolVersion": 56, "ffiAbiVersion": 7}\n',
                 "runtime/runtime.txt": "runtime-one\n",
                 "terminal/ghostty/LinuxGhostty.ref": lock["linux_upstream_commit"] + "\n",
                 "terminal/ghostty/Vendor/GhosttyVt/linux-x86_64/lib/libghostty-vt.a": "archive\n",
