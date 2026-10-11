@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use serde::{Deserialize, Deserializer, Serialize};
 
 pub const MAX_TERMINAL_ROWS: u16 = 512;
@@ -6,6 +8,25 @@ pub const MAX_TERMINAL_COLS: u16 = 1024;
 pub const TERMINAL_CHECKPOINT_SCHEMA_VERSION: u32 = 2;
 
 pub const TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES: usize = 8 * 1024 * 1024;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TerminalHistoryPolicy {
+    pub max_bytes: usize,
+    pub max_lines: usize,
+    pub continuation_max_bytes: usize,
+    pub compression_idle: Duration,
+}
+
+impl Default for TerminalHistoryPolicy {
+    fn default() -> Self {
+        Self {
+            max_bytes: 64 * 1024 * 1024,
+            max_lines: 1_024,
+            continuation_max_bytes: 1024 * 1024,
+            compression_idle: Duration::from_secs(2),
+        }
+    }
+}
 
 #[expect(
     clippy::struct_field_names,

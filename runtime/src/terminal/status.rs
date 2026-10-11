@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "host")]
 const MAX_RECORDS: usize = 64;
 const MAX_APP_BYTES: usize = 32;
 const MAX_TITLE_CHARS: usize = 192;
@@ -15,6 +16,7 @@ pub enum ProgramState {
     Error,
 }
 
+#[cfg(feature = "host")]
 impl ProgramState {
     const fn urgency(self) -> u8 {
         match self {
@@ -74,6 +76,7 @@ impl ProgramStatus {
     }
 }
 
+#[cfg(feature = "host")]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ProgramStatusReport {
     pub id: String,
@@ -85,6 +88,7 @@ pub(crate) struct ProgramStatusReport {
     pub message: Option<String>,
 }
 
+#[cfg(feature = "host")]
 #[derive(Debug)]
 struct Record {
     id: String,
@@ -97,6 +101,7 @@ struct Record {
     updated: u64,
 }
 
+#[cfg(feature = "host")]
 #[derive(Debug, Default)]
 pub(super) struct ProgramStatusRecords {
     records: Vec<Record>,
@@ -104,6 +109,7 @@ pub(super) struct ProgramStatusRecords {
     reported: bool,
 }
 
+#[cfg(feature = "host")]
 impl ProgramStatusRecords {
     pub(super) fn apply(&mut self, report: ProgramStatusReport) {
         self.reported = true;
@@ -209,6 +215,7 @@ impl ProgramStatusRecords {
     }
 }
 
+#[cfg(feature = "host")]
 fn is_descendant(id: &str, ancestor: &str) -> bool {
     id.strip_prefix(ancestor)
         .is_some_and(|rest| rest.starts_with('/'))
@@ -244,6 +251,7 @@ fn is_display_text(text: &str, max_chars: usize) -> bool {
             .any(|character| character.is_control() || is_invisible_format(character))
 }
 
+#[cfg(feature = "host")]
 fn display_text(text: &str, max_chars: usize) -> Option<String> {
     let text = text
         .chars()
@@ -254,6 +262,6 @@ fn display_text(text: &str, max_chars: usize) -> Option<String> {
     (!text.is_empty()).then(|| text.to_owned())
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "host"))]
 #[path = "status_tests.rs"]
 mod tests;

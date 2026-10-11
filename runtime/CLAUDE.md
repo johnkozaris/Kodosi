@@ -1,6 +1,7 @@
 # runtime
 
-Shared terminal runtime, CLI, and native API for macOS and Linux.
+Shared terminal runtime, CLI, and native API for macOS and Linux. iOS uses the viewer
+build (without the `host` feature): it opens terminals hosted elsewhere and hosts none.
 Follow `../AGENTS.md` and `../PRODUCT.md` for shared product behavior.
 
 - The host owns each live process and terminal state. New or reconnected views must
@@ -12,6 +13,6 @@ Follow `../AGENTS.md` and `../PRODUCT.md` for shared product behavior.
   harnesses. Leave provider execution and native data with the provider.
 - Keep module ownership direct. Separate crates exist only for real native boundaries.
 - Generate desktop and C contracts from current Rust definitions.
-- Test both the embedded library and CLI-enabled workspace.
+- Test the embedded library, the CLI-enabled workspace and the viewer build.
 - Keep Ghostty pinned and use isolated storage. Never alter live data or real provider
   histories during tests.

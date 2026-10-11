@@ -1,8 +1,14 @@
+#[cfg(feature = "host")]
 use std::{process::Stdio, time::Duration};
 
-use reqwest::{Method, Url};
+#[cfg(feature = "host")]
+use reqwest::Method;
+use reqwest::Url;
+#[cfg(feature = "host")]
 use serde_json::{Value, json};
+#[cfg(feature = "host")]
 use tokio::io::AsyncWriteExt as _;
+#[cfg(feature = "host")]
 use zeroize::Zeroizing;
 
 use super::{Issue, Repository, TaskChange};
@@ -76,6 +82,7 @@ pub(crate) fn repository(remote: &str, provider: Option<&str>) -> Result<Reposit
     })
 }
 
+#[cfg(feature = "host")]
 async fn token(repo: &Repository) -> Result<Option<Zeroizing<String>>> {
     if repo.provider == "github" {
         let output = tokio::time::timeout(
@@ -147,6 +154,7 @@ async fn token(repo: &Repository) -> Result<Option<Zeroizing<String>>> {
     Ok(None)
 }
 
+#[cfg(feature = "host")]
 fn api_url(repo: &Repository, path: &str) -> Result<Url> {
     let mut url = Url::parse(&repo.url).map_err(|_| invalid("Invalid repository address."))?;
     let prefix = if repo.provider == "github" {
@@ -168,6 +176,7 @@ fn api_url(repo: &Repository, path: &str) -> Result<Url> {
     Ok(url)
 }
 
+#[cfg(feature = "host")]
 async fn api(repo: &Repository, method: Method, path: &str, body: Option<Value>) -> Result<Value> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(20))
@@ -205,6 +214,7 @@ async fn api(repo: &Repository, method: Method, path: &str, body: Option<Value>)
     }
 }
 
+#[cfg(feature = "host")]
 fn issue(repo: &Repository, value: &Value) -> Result<Issue> {
     Ok(Issue {
         repository_id: repo.id.clone(),
@@ -224,6 +234,7 @@ fn issue(repo: &Repository, value: &Value) -> Result<Issue> {
     })
 }
 
+#[cfg(feature = "host")]
 pub(crate) async fn issues(repo: &Repository, number: Option<u64>) -> Result<Vec<Issue>> {
     let path = format!(
         "repos/{}/{}/issues{}",
@@ -265,6 +276,7 @@ pub(crate) async fn issues(repo: &Repository, number: Option<u64>) -> Result<Vec
     Ok(result)
 }
 
+#[cfg(feature = "host")]
 pub(crate) async fn update_issue(
     repo: &Repository,
     number: u64,
@@ -286,6 +298,28 @@ pub(crate) async fn update_issue(
     issue(repo, &api(repo, Method::PATCH, &path, Some(change)).await?)
 }
 
+#[cfg(not(feature = "host"))]
+#[expect(
+    clippy::unused_async,
+    reason = "issues are read through the provider credentials of a computer"
+)]
+pub(crate) async fn issues(_repo: &Repository, _number: Option<u64>) -> Result<Vec<Issue>> {
+    Err(invalid("Import issues from a computer."))
+}
+
+#[cfg(not(feature = "host"))]
+#[expect(
+    clippy::unused_async,
+    reason = "linked issues change through the provider credentials of a computer"
+)]
+pub(crate) async fn update_issue(
+    _repo: &Repository,
+    _number: u64,
+    _change: TaskChange,
+) -> Result<Issue> {
+    Err(invalid("Linked issues are changed from a computer."))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -301,6 +335,24 @@ mod tests {
         assert!(repository("https://token@github.com/team/project", None).is_err());
     }
 
+    #[cfg(not(feature = "host"))]
+    #[tokio::test]
+    async fn a_viewer_leaves_issue_providers_to_a_computer() {
+        let repository = repository("https://github.com/team/api", None).unwrap();
+        assert_eq!(
+            issues(&repository, None).await.unwrap_err().to_string(),
+            "Import issues from a computer."
+        );
+        assert_eq!(
+            update_issue(&repository, 7, TaskChange::Close)
+                .await
+                .unwrap_err()
+                .to_string(),
+            "Linked issues are changed from a computer."
+        );
+    }
+
+    #[cfg(feature = "host")]
     #[test]
     fn provider_endpoints_and_issue_fields_preserve_repository_and_assignment() {
         let github = repository("https://github.com/team/api", None).unwrap();

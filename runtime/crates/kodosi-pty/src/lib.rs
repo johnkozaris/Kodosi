@@ -26,6 +26,9 @@
     )
 )]
 
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+compile_error!("Kodosi hosts terminals on macOS and Linux; build iOS with --no-default-features");
+
 pub mod pty;
 
 pub type Result<T> = std::result::Result<T, KodosiError>;

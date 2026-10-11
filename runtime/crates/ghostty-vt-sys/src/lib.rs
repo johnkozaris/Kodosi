@@ -18,7 +18,7 @@
 mod bindings {
     #[cfg(target_os = "linux")]
     include!("bindings_linux.rs");
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     include!("bindings_macos.rs");
 }
 
@@ -35,7 +35,7 @@ mod tests {
     fn checked_bindings_exclude_upstream_snapshot_api() {
         #[cfg(target_os = "linux")]
         let bindings = include_str!("bindings_linux.rs");
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         let bindings = include_str!("bindings_macos.rs");
         assert!(!bindings.contains("GhosttySnapshot"));
         assert!(!bindings.contains("ghostty_snapshot_"));

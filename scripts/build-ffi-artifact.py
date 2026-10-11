@@ -102,7 +102,7 @@ def consume_and_prune(slot: Path, bundle: Path, consumer: list[str] | None) -> N
 
 
 def build(manifest: Path, output: Path, profile: str, target: str, offline: bool,
-          consumer: list[str] | None = None) -> Path:
+          consumer: list[str] | None = None, default_features: bool = True) -> Path:
     manifest = manifest.resolve(strict=True)
     crate_manifest = (manifest.parent / "crates/kodosi-ffi-c/Cargo.toml").resolve(strict=True)
     if target in {".", ".."} or not re.fullmatch(r"[A-Za-z0-9_.-]+", target) or not re.fullmatch(r"[A-Za-z0-9_-]+", profile):
@@ -124,6 +124,8 @@ def build(manifest: Path, output: Path, profile: str, target: str, offline: bool
         command = ["cargo", "build", "--locked", "--manifest-path", str(manifest),
             "--target-dir", str(target_dir), "--target", target, "--profile", profile,
             "-p", "kodosi-ffi-c", "--message-format=json-render-diagnostics"]
+        if not default_features:
+            command.append("--no-default-features")
         if offline:
             command.append("--offline")
         process = subprocess.Popen(command, cwd=manifest.parent, stdout=subprocess.PIPE, text=True)
@@ -165,11 +167,12 @@ def main() -> None:
     parser.add_argument("--profile", required=True)
     parser.add_argument("--target", required=True)
     parser.add_argument("--offline", action="store_true")
+    parser.add_argument("--no-default-features", action="store_true")
     parser.add_argument("--consume-command", nargs=argparse.REMAINDER)
     arguments = parser.parse_args()
     try:
         bundle = build(arguments.manifest, arguments.output_dir, arguments.profile, arguments.target,
-            arguments.offline, arguments.consume_command)
+            arguments.offline, arguments.consume_command, not arguments.no_default_features)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         raise SystemExit(f"FFI artifact publication failed: {error}") from error
     print(bundle)

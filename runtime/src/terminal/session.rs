@@ -12,10 +12,13 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore, broadcast, mpsc, oneshot, wat
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use super::emulator::{SessionTerminalHandle, TerminalEffect, TerminalHistoryPolicy};
+use super::emulator::{SessionTerminalHandle, TerminalEffect};
 use super::status::ProgramStatusRecords;
 use super::subscribers::Subscribers;
-use super::{ControlFrame, DataFrame, Subscription, TerminalPixelGeometry, TerminalSize};
+use super::{
+    ControlFrame, DataFrame, SessionChange, Subscription, TerminalHistoryPolicy,
+    TerminalPixelGeometry, TerminalSize,
+};
 use crate::{
     Error, Result,
     network::{CheckpointCut, HostRequest, PublishedFrame, TerminalControl},
@@ -30,68 +33,6 @@ const STOP_TIMEOUT: Duration = Duration::from_secs(10);
 const CLEAR_LINE: &str = "\x05\x15";
 
 type Completion = Option<std::result::Result<(), String>>;
-
-pub(crate) enum SessionChange {
-    RemoteEnded {
-        id: Uuid,
-        instance_id: Uuid,
-    },
-    Presence {
-        id: Uuid,
-        users: Vec<String>,
-    },
-    Cwd {
-        id: Uuid,
-        path: PathBuf,
-        repository: bool,
-    },
-    Program {
-        id: Uuid,
-        program: Option<String>,
-    },
-    Title {
-        id: Uuid,
-        title: String,
-    },
-    Bell {
-        id: Uuid,
-    },
-    Status {
-        id: Uuid,
-        status: Option<super::ProgramStatus>,
-    },
-    Notification {
-        id: Uuid,
-        title: String,
-        body: String,
-    },
-    Prompt {
-        id: Uuid,
-        prompt: bool,
-    },
-    Ended {
-        id: Uuid,
-        reason: String,
-    },
-    Metadata {
-        id: Uuid,
-        incarnation: Uuid,
-        instance_id: Uuid,
-        metadata: super::TerminalMetadata,
-    },
-    RemoteInterrupted {
-        id: Uuid,
-        incarnation: Uuid,
-        instance_id: Uuid,
-        reason: String,
-    },
-    RemoteClosed {
-        id: Uuid,
-        incarnation: Uuid,
-        instance_id: Uuid,
-        reason: String,
-    },
-}
 
 enum Request {
     Subscribe(oneshot::Sender<Result<Subscription>>),

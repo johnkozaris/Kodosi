@@ -1,20 +1,36 @@
 use super::Reconnect;
-use serde_json::{Value, json};
+#[cfg(feature = "host")]
+use serde_json::Value;
+use serde_json::json;
+#[cfg(feature = "host")]
 use std::collections::BTreeSet;
+#[cfg(feature = "host")]
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+#[cfg(feature = "host")]
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use super::{Completion, Job, Local, MAX_SESSIONS, Opening, Runtime, Scope, StartedSession};
+use super::{Completion, Job, MAX_SESSIONS, Opening, Runtime, Scope};
+#[cfg(feature = "host")]
+use super::{Local, StartedSession};
 use crate::{
-    Command, Config, Error, Result,
+    Command, Error, Result,
     network::{BackendReply, INPUT_NOT_SENT, RemoteConnection},
-    protocol::{ConnectionState, SessionEntry, SessionKind, SessionStatus, parse_id},
-    provider,
-    terminal::{LocalSession, RemoteTerminal, SessionChange, TerminalPixelGeometry, TerminalSize},
+    protocol::{ConnectionState, SessionStatus, parse_id},
+    terminal::{RemoteTerminal, TerminalPixelGeometry, TerminalSize},
 };
+#[cfg(feature = "host")]
+use crate::{
+    Config,
+    protocol::{SessionEntry, SessionKind},
+    provider,
+    terminal::{LocalSession, SessionChange},
+};
+
+const RUN_ON_HOST: &str = "Start a program on the computer that hosts this terminal.";
+const SHARE_ON_HOST: &str = "Change sharing on the computer hosting this session.";
 
 impl Runtime {
     pub(super) fn apply_for_consumer(
@@ -76,12 +92,25 @@ impl Runtime {
                 self.publish_catalog();
                 self.refresh_catalog();
             }
+            #[cfg(feature = "host")]
             Command::CreateSession { .. } => self.create(command.clone())?,
+            #[cfg(not(feature = "host"))]
+            Command::CreateSession { .. } => {
+                return Err(Error::Invalid(
+                    "This device cannot start terminals.".to_owned(),
+                ));
+            }
             Command::RenameSession { .. } => self.rename(command)?,
             Command::CloseSession { .. } | Command::InterruptSession { .. } => {
                 self.end_session(command)?;
             }
+            #[cfg(feature = "host")]
             Command::RunInSession { .. } => self.run_in_session(command)?,
+            #[cfg(not(feature = "host"))]
+            Command::RunInSession { .. } => {
+                self.command_session(command)?;
+                return Err(Error::Invalid(RUN_ON_HOST.to_owned()));
+            }
             Command::OpenRemote { .. } | Command::DisconnectRemote { .. } => {
                 return Err(Error::Invalid(
                     "remote view commands require a current client".to_owned(),
@@ -90,6 +119,7 @@ impl Runtime {
             Command::ShareSession { .. }
             | Command::AttachSession { .. }
             | Command::LeaveSession { .. } => self.change_membership(command)?,
+            #[cfg(feature = "host")]
             Command::DiscoverConversations { .. }
             | Command::ReadConversation { .. }
             | Command::InspectProvider { .. } => {
@@ -101,12 +131,23 @@ impl Runtime {
                     Completion::Provider { command, result }
                 });
             }
+            #[cfg(not(feature = "host"))]
+            Command::DiscoverConversations { .. }
+            | Command::ReadConversation { .. }
+            | Command::InspectProvider { .. } => {
+                return Err(Error::Invalid(
+                    "Open agent conversations on the computer that runs the agent.".to_owned(),
+                ));
+            }
+            #[cfg(feature = "host")]
             Command::Theme { dark } => {
                 self.dark = *dark;
                 for local in self.local.values() {
                     local.terminal.theme(*dark);
                 }
             }
+            #[cfg(not(feature = "host"))]
+            Command::Theme { .. } => {}
             Command::Resize { .. } | Command::Focus { .. } | Command::Blur { .. } => {
                 return Err(Error::Invalid(
                     "terminal control requires a current subscription".to_owned(),
@@ -178,6 +219,7 @@ impl Runtime {
     fn rename(&mut self, command: &Command) -> Result<()> {
         let id = self.command_session(command)?;
         self.require_owner(id)?;
+        #[cfg(feature = "host")]
         if self.local.get(&id).is_some_and(|local| !local.published)
             && !self.publishing.contains(&id)
         {
@@ -191,12 +233,12 @@ impl Runtime {
             }
             self.publish_catalog();
             self.result(command);
-            Ok(())
-        } else {
-            self.administer(id, command.clone())
+            return Ok(());
         }
+        self.administer(id, command.clone())
     }
 
+    #[cfg(feature = "host")]
     fn run_in_session(&mut self, command: &Command) -> Result<()> {
         let id = self.command_session(command)?;
         let Command::RunInSession { command: line, .. } = command else {
@@ -206,11 +248,7 @@ impl Runtime {
         let response = self
             .local
             .get(&id)
-            .ok_or_else(|| {
-                Error::Invalid(
-                    "Start a program on the computer that hosts this terminal.".to_owned(),
-                )
-            })?
+            .ok_or_else(|| Error::Invalid(RUN_ON_HOST.to_owned()))?
             .terminal
             .run(line.clone());
         let command = command.clone();
@@ -225,7 +263,7 @@ impl Runtime {
 
     fn end_session(&mut self, command: &Command) -> Result<()> {
         let id = self.command_session(command)?;
-        if !self.local.contains_key(&id)
+        if !self.hosts(&id)
             && self
                 .connections
                 .get(&id)
@@ -237,6 +275,7 @@ impl Runtime {
         let closing = matches!(command, Command::CloseSession { .. });
         let response = self.target(id)?.end(closing);
         if closing {
+            #[cfg(feature = "host")]
             if let Some(local) = self.local.get_mut(&id) {
                 local.entry.status = SessionStatus::Closing;
             }
@@ -255,6 +294,7 @@ impl Runtime {
     fn change_membership(&mut self, command: &Command) -> Result<()> {
         let id = self.command_session(command)?;
         match command {
+            #[cfg(feature = "host")]
             Command::ShareSession {
                 expected_user_ids, ..
             } => {
@@ -269,19 +309,21 @@ impl Runtime {
                     ));
                 }
                 if !self.local.contains_key(&id) {
-                    return Err(Error::Invalid(
-                        "Change sharing on the computer hosting this session.".to_owned(),
-                    ));
+                    return Err(Error::Invalid(SHARE_ON_HOST.to_owned()));
                 }
                 self.require_publication(id)?;
             }
+            #[cfg(not(feature = "host"))]
+            Command::ShareSession { .. } => {
+                return Err(Error::Invalid(SHARE_ON_HOST.to_owned()));
+            }
             Command::AttachSession { .. } => {
                 self.require_owner(id)?;
+                #[cfg(feature = "host")]
                 self.require_publication(id)?;
             }
             Command::LeaveSession { .. }
-                if self.local.contains_key(&id)
-                    || self.remotes.get(&id).is_some_and(|entry| entry.is_owner) =>
+                if self.hosts(&id) || self.remotes.get(&id).is_some_and(|entry| entry.is_owner) =>
             {
                 return Err(Error::Invalid(
                     "The owner cannot leave their own session.".to_owned(),
@@ -292,6 +334,7 @@ impl Runtime {
         self.administer(id, command.clone())
     }
 
+    #[cfg(feature = "host")]
     fn require_publication(&mut self, id: Uuid) -> Result<()> {
         if self.local.get(&id).is_some_and(|local| !local.published) {
             self.publish_locals();
@@ -301,8 +344,7 @@ impl Runtime {
     }
 
     fn require_owner(&self, id: Uuid) -> Result<()> {
-        if self.local.contains_key(&id) || self.remotes.get(&id).is_some_and(|entry| entry.is_owner)
-        {
+        if self.hosts(&id) || self.remotes.get(&id).is_some_and(|entry| entry.is_owner) {
             Ok(())
         } else {
             Err(Error::Invalid(
@@ -311,6 +353,7 @@ impl Runtime {
         }
     }
 
+    #[cfg(feature = "host")]
     fn create(&mut self, command: Command) -> Result<()> {
         let Command::CreateSession {
             request_id, resume, ..
@@ -373,7 +416,7 @@ impl Runtime {
         {
             self.connections.remove(&id);
         }
-        if self.local.contains_key(&id)
+        if self.hosts(&id)
             || self
                 .connections
                 .get(&id)
@@ -458,7 +501,10 @@ impl Runtime {
 
     fn administer(&mut self, id: Uuid, command: Command) -> Result<()> {
         self.job_capacity()?;
-        if self.administering.contains(&id) || self.publishing.contains(&id) {
+        let busy = self.administering.contains(&id);
+        #[cfg(feature = "host")]
+        let busy = busy || self.publishing.contains(&id);
+        if busy {
             return Err(Error::Busy);
         }
         self.administering.insert(id);
@@ -590,16 +636,22 @@ impl Runtime {
                 self.initializing = false;
                 self.emit(self.auth_event());
                 if job.scope.network_generation == self.network.generation() && let Err(error) = result && !matches!(error, Error::Stale) { self.error(&Command::RefreshAuth {}, &error); }
+                #[cfg(feature = "host")]
                 self.publish_locals();
             }
+            #[cfg(feature = "host")]
             Completion::Created { id, result } => self.created(id, result, current),
             Completion::BackendClient { command, generation, result } => self.network_completed(&job.scope, &command, generation, result),
             Completion::Connected { id, attempt, result } => self.connected(id, attempt, result, current),
+            #[cfg(feature = "host")]
             Completion::Published { id, incarnation, result } => self.published(id, incarnation, result, current),
             Completion::Unpublished { id, result } if current => {
                 self.unpublishing.remove(&id);
                 match result {
-                    Ok(()) => { self.retiring.remove(&id); }
+                    Ok(()) => {
+                        #[cfg(feature = "host")]
+                        self.retiring.remove(&id);
+                    }
                     Err(error) => tracing::debug!(%id, %error, "session retirement deferred"),
                 }
             }
@@ -607,11 +659,12 @@ impl Runtime {
                 self.terminal_result(&command, result);
                 if matches!(command, Command::CloseSession { .. } | Command::InterruptSession { .. })
                     && let Some(id) = command.session_id().and_then(|id| Uuid::parse_str(id).ok())
-                    && !self.local.contains_key(&id) && !self.views.contains_key(&id)
+                    && !self.hosts(&id) && !self.views.contains_key(&id)
                 {
                     self.disconnect_remote(id);
                 }
             },
+            #[cfg(feature = "host")]
             Completion::Provider { command, result } if current => match result {
                 Ok(value) => self.emit(json!({"type":"provider.reply", "requestId":command.request_id(), "operation":command.operation(), "result":value})),
                 Err(error) => self.error(&command, &error),
@@ -625,10 +678,13 @@ impl Runtime {
                 Ok(subscription) => { target.unsubscribe(subscription.connection_id); drop(reply.send(Err(Error::Stale))); }
                 Err(error) => { drop(reply.send(Err(error))); }
             },
-            Completion::Unpublished { .. } | Completion::Terminal { .. } | Completion::Provider { .. } => {},
+            Completion::Unpublished { .. } | Completion::Terminal { .. } => {},
+            #[cfg(feature = "host")]
+            Completion::Provider { .. } => {},
         }
     }
 
+    #[cfg(feature = "host")]
     fn created(&mut self, id: Uuid, result: Result<StartedSession>, current: bool) {
         let Some(command) = self.creating.remove(&id) else {
             return;
@@ -851,6 +907,7 @@ impl Runtime {
         }
     }
 
+    #[cfg(feature = "host")]
     fn published(&mut self, id: Uuid, incarnation: Uuid, result: Result<()>, current: bool) {
         if !current {
             return;
@@ -883,6 +940,7 @@ impl Runtime {
         let Some(id) = command.session_id().and_then(|id| Uuid::parse_str(id).ok()) else {
             return;
         };
+        #[cfg(feature = "host")]
         if let Some(local) = self.local.get_mut(&id) {
             match command {
                 Command::RenameSession { name, .. } => local.entry.name.clone_from(name),
@@ -920,6 +978,7 @@ fn geometry(
     Ok((size, geometry))
 }
 
+#[cfg(feature = "host")]
 async fn create_session(
     id: Uuid,
     config: Config,
@@ -1022,6 +1081,7 @@ async fn create_session(
     })
 }
 
+#[cfg(feature = "host")]
 async fn provider_reply(home: &Path, command: &Command) -> Result<Value> {
     let provider = match command {
         Command::DiscoverConversations { provider, .. }

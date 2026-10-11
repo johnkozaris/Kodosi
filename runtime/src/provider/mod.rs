@@ -1,11 +1,19 @@
+#[cfg(feature = "host")]
 mod catalog;
+#[cfg(feature = "host")]
 mod config;
+#[cfg(feature = "host")]
 mod decode;
+#[cfg(feature = "host")]
 mod history;
+#[cfg(feature = "host")]
 mod read;
+#[cfg(feature = "host")]
 mod resume;
+#[cfg(feature = "host")]
 mod storage;
 
+#[cfg(feature = "host")]
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -91,6 +99,7 @@ pub struct ProviderInfo {
     pub message: Option<String>,
 }
 
+#[cfg(feature = "host")]
 pub async fn discover(
     state_root: &Path,
     provider: Provider,
@@ -116,6 +125,7 @@ pub async fn discover(
     .map_err(|error| format!("Conversation discovery failed: {error}"))?
 }
 
+#[cfg(feature = "host")]
 pub async fn discover_history(
     state_root: &Path,
     provider: Provider,
@@ -136,6 +146,7 @@ pub async fn discover_history(
     .map_err(|error| format!("History discovery failed: {error}"))?
 }
 
+#[cfg(feature = "host")]
 pub async fn read(
     state_root: &Path,
     provider: Provider,
@@ -156,6 +167,7 @@ pub async fn read(
     .map_err(|error| format!("Conversation read failed: {error}"))?
 }
 
+#[cfg(feature = "host")]
 pub async fn validate_resume(
     state_root: &Path,
     provider: Provider,
@@ -174,6 +186,7 @@ pub async fn validate_resume(
     .map_err(|error| format!("Resume validation failed: {error}"))?
 }
 
+#[cfg(feature = "host")]
 pub async fn inspect(
     state_root: &Path,
     provider: Provider,
@@ -190,13 +203,15 @@ pub async fn inspect(
     .map_err(|error| format!("Provider configuration inspection failed: {error}"))
 }
 
+#[cfg(feature = "host")]
 pub fn state_root(home: &Path, provider: Provider) -> Result<PathBuf, String> {
     storage::provider_root(home, provider)
 }
 
+#[cfg(feature = "host")]
 pub fn resolve_executable(provider: Provider) -> Option<PathBuf> {
     config::resolve_executable(provider)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "host"))]
 mod tests;

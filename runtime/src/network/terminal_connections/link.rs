@@ -8,6 +8,13 @@ const PIPE_WAITING_BYTES: usize = 16 * 1024 * 1024;
 const PIPE_ID: usize = 16;
 const SILENCE: Duration = Duration::from_secs(45);
 
+#[cfg_attr(
+    not(feature = "host"),
+    expect(
+        dead_code,
+        reason = "only a host registers terminals on the device link"
+    )
+)]
 pub(crate) enum HostEvent {
     Refused(Error),
     AccessChanged,
@@ -28,6 +35,13 @@ struct Route {
     waiting: Arc<AtomicUsize>,
 }
 
+#[cfg_attr(
+    not(feature = "host"),
+    expect(
+        dead_code,
+        reason = "only a host registers terminals on the device link"
+    )
+)]
 struct Hosting {
     registration: Uuid,
     incarnation: Uuid,
@@ -54,6 +68,7 @@ pub(crate) struct Link {
     changed: Notify,
 }
 
+#[cfg(feature = "host")]
 pub(crate) struct Hosted {
     link: Arc<Link>,
     session: Uuid,
@@ -61,6 +76,7 @@ pub(crate) struct Hosted {
     pub(super) events: mpsc::Receiver<HostEvent>,
 }
 
+#[cfg(feature = "host")]
 impl Drop for Hosted {
     fn drop(&mut self) {
         let Ok(mut shared) = self.link.shared.lock() else {
@@ -91,6 +107,7 @@ pub(crate) struct Pipe {
     waiting: Arc<AtomicUsize>,
 }
 
+#[cfg(feature = "host")]
 impl Pipe {
     pub(super) const fn id(&self) -> Uuid {
         self.id
@@ -144,6 +161,7 @@ fn text(value: &Value) -> Message {
 }
 
 impl Link {
+    #[cfg(feature = "host")]
     pub(crate) fn host(self: &Arc<Self>, session: Uuid, incarnation: Uuid) -> Hosted {
         let (events, received) = mpsc::channel(128);
         let registration = Uuid::now_v7();

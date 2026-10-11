@@ -12,9 +12,9 @@ use std::{
 };
 
 use bytes::Bytes;
-use kodosi_runtime::{
-    CommandEnvelope, Config, Error, HostKind, RuntimeHandle, local_host, terminal,
-};
+use kodosi_runtime::{CommandEnvelope, Config, Error, RuntimeHandle, terminal};
+#[cfg(feature = "host")]
+use kodosi_runtime::{HostKind, local_host};
 use tokio::{runtime::Runtime as Executor, task::JoinSet};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
@@ -119,11 +119,7 @@ pub struct KodosiStartFailure {
 
 static LAST_START_FAILURE: Mutex<Option<KodosiStartFailure>> = Mutex::new(None);
 
-fn start_failure(
-    code: i32,
-    message: &str,
-    status: Option<local_host::HostStatus>,
-) -> Box<KodosiStartFailure> {
+fn start_failure(code: i32, message: &str) -> Box<KodosiStartFailure> {
     let mut failure = Box::new(KodosiStartFailure {
         code,
         host_kind: KODOSI_HOST_KIND_UNKNOWN,
@@ -131,6 +127,19 @@ fn start_failure(
         host_local_sessions: 0,
         message: [0; KODOSI_START_FAILURE_MESSAGE_BYTES],
     });
+    let mut end = message.len().min(KODOSI_START_FAILURE_MESSAGE_BYTES - 1);
+    while !message.is_char_boundary(end) {
+        end -= 1;
+    }
+    for (slot, byte) in failure.message.iter_mut().zip(&message.as_bytes()[..end]) {
+        *slot = c_char::from_ne_bytes([*byte]);
+    }
+    failure
+}
+
+#[cfg(feature = "host")]
+fn host_busy(message: &str, status: Option<local_host::HostStatus>) -> Box<KodosiStartFailure> {
+    let mut failure = start_failure(KODOSI_START_HOST_BUSY, message);
     if let Some(status) = status {
         failure.host_kind = match status.host.kind {
             HostKind::App => KODOSI_HOST_KIND_APP,
@@ -139,13 +148,6 @@ fn start_failure(
         };
         failure.host_pid = status.host.pid;
         failure.host_local_sessions = u32::try_from(status.local_sessions).unwrap_or(u32::MAX);
-    }
-    let mut end = message.len().min(KODOSI_START_FAILURE_MESSAGE_BYTES - 1);
-    while !message.is_char_boundary(end) {
-        end -= 1;
-    }
-    for (slot, byte) in failure.message.iter_mut().zip(&message.as_bytes()[..end]) {
-        *slot = c_char::from_ne_bytes([*byte]);
     }
     failure
 }
@@ -191,27 +193,35 @@ pub unsafe extern "C" fn kodosi_last_start_failure(out: *mut KodosiStartFailure)
 
 #[unsafe(no_mangle)]
 pub extern "C" fn kodosi_host_stop(force: i32) -> i32 {
-    caught(|| {
-        let Ok(config) = Config::load() else {
-            return KODOSI_HOST_STOP_FAILED;
-        };
-        let Ok(executor) = Executor::new() else {
-            return KODOSI_HOST_STOP_FAILED;
-        };
-        match executor.block_on(local_host::stop_other_host(&config.data_root, force != 0)) {
-            Ok(()) => KODOSI_HOST_STOP_ACCEPTED,
-            Err(Error::HostBusy(_)) => KODOSI_HOST_STOP_REFUSED,
-            Err(Error::Io(error))
-                if matches!(
-                    error.kind(),
-                    std::io::ErrorKind::NotFound | std::io::ErrorKind::ConnectionRefused
-                ) =>
-            {
-                KODOSI_HOST_STOP_UNREACHABLE
-            }
-            Err(_) => KODOSI_HOST_STOP_FAILED,
+    caught(|| stop_host(force != 0))
+}
+
+#[cfg(feature = "host")]
+fn stop_host(force: bool) -> i32 {
+    let Ok(config) = Config::load() else {
+        return KODOSI_HOST_STOP_FAILED;
+    };
+    let Ok(executor) = Executor::new() else {
+        return KODOSI_HOST_STOP_FAILED;
+    };
+    match executor.block_on(local_host::stop_other_host(&config.data_root, force)) {
+        Ok(()) => KODOSI_HOST_STOP_ACCEPTED,
+        Err(Error::HostBusy(_)) => KODOSI_HOST_STOP_REFUSED,
+        Err(Error::Io(error))
+            if matches!(
+                error.kind(),
+                std::io::ErrorKind::NotFound | std::io::ErrorKind::ConnectionRefused
+            ) =>
+        {
+            KODOSI_HOST_STOP_UNREACHABLE
         }
-    })
+        Err(_) => KODOSI_HOST_STOP_FAILED,
+    }
+}
+
+#[cfg(not(feature = "host"))]
+const fn stop_host(_force: bool) -> i32 {
+    KODOSI_HOST_STOP_UNREACHABLE
 }
 
 #[unsafe(no_mangle)]
@@ -230,6 +240,11 @@ pub unsafe extern "C" fn kodosi_cli_main(length: i32, values: *const *const c_ch
             })
         })
         .collect::<Vec<OsString>>();
+    run_cli(invocation)
+}
+
+#[cfg(feature = "cli")]
+fn run_cli(invocation: Vec<OsString>) -> i32 {
     if !kodosi_runtime::cli::is_invocation(&invocation) {
         return KODOSI_CLI_NOT_INVOKED;
     }
@@ -239,6 +254,12 @@ pub unsafe extern "C" fn kodosi_cli_main(length: i32, values: *const *const c_ch
         })
     }))
     .unwrap_or(KODOSI_CLI_FAILED)
+}
+
+#[cfg(not(feature = "cli"))]
+fn run_cli(invocation: Vec<OsString>) -> i32 {
+    drop(invocation);
+    KODOSI_CLI_NOT_INVOKED
 }
 
 #[unsafe(no_mangle)]

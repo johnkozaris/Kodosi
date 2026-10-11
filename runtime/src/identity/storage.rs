@@ -131,9 +131,11 @@ pub fn private_write(path: &Path, bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 mod platform {
     use super::{Result, Zeroizing, invalid};
+    #[cfg(target_os = "ios")]
+    use security_framework::access_control::{ProtectionMode, SecAccessControl};
     use security_framework::passwords::{
         PasswordOptions, delete_generic_password_options, generic_password,
         set_generic_password_options,
@@ -157,9 +159,32 @@ mod platform {
         }
     }
     pub(super) fn store(service: &str, label: &str, value: &str) -> Result<()> {
-        set_generic_password_options(value.as_bytes(), options(service, label))
+        let options = options(service, label);
+        #[cfg(target_os = "ios")]
+        let options = protect_new_item(options, service, label)?;
+        set_generic_password_options(value.as_bytes(), options)
             .map_err(|error| invalid(format!("Could not store credential in Keychain: {error}")))
     }
+
+    #[cfg(target_os = "ios")]
+    fn protect_new_item(
+        mut options: PasswordOptions,
+        service: &str,
+        label: &str,
+    ) -> Result<PasswordOptions> {
+        if load(service, label)?.is_none() {
+            let access = SecAccessControl::create_with_protection(
+                Some(ProtectionMode::AccessibleAfterFirstUnlockThisDeviceOnly),
+                0,
+            )
+            .map_err(|error| {
+                invalid(format!("Could not protect credential in Keychain: {error}"))
+            })?;
+            options.set_access_control(access);
+        }
+        Ok(options)
+    }
+
     pub(super) fn delete(service: &str, label: &str) -> Result<()> {
         match delete_generic_password_options(options(service, label)) {
             Ok(()) => Ok(()),
@@ -206,8 +231,8 @@ mod platform {
     }
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
-compile_error!("Kodosi identity storage supports macOS and Linux.");
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "ios")))]
+compile_error!("Kodosi identity storage supports macOS, iOS and Linux.");
 
 #[cfg(test)]
 mod tests {

@@ -43,9 +43,13 @@ rust-check: rust-feature-gates
     CARGO_BUILD_WARNINGS=deny cargo check --manifest-path runtime/Cargo.toml --locked --workspace
 
 rust-feature-gates:
+    CARGO_BUILD_WARNINGS=deny cargo check --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime --no-default-features --features host --lib
     CARGO_BUILD_WARNINGS=deny cargo check --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime --no-default-features --lib
     CARGO_BUILD_WARNINGS=deny cargo test --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime --no-default-features --lib --no-run
     CARGO_BUILD_WARNINGS=deny cargo check --manifest-path runtime/Cargo.toml --locked -p kodosi-ffi-c
+    CARGO_BUILD_WARNINGS=deny cargo check --manifest-path runtime/Cargo.toml --locked -p kodosi-ffi-c --no-default-features
+    CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --lib --bins -- -D warnings
+    CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --tests -- -D warnings -A clippy::unwrap_used -A clippy::expect_used
 
 rust-fmt:
     cargo fmt --manifest-path runtime/Cargo.toml --all -- --check
@@ -70,6 +74,7 @@ ffi-publication-test:
 
 rust-test: ffi-publication-test
     CARGO_INCREMENTAL=0 cargo test --manifest-path runtime/Cargo.toml --locked --workspace --all-targets
+    CARGO_INCREMENTAL=0 cargo test --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --all-targets
     CARGO_INCREMENTAL=0 cargo test --manifest-path runtime/Cargo.toml --locked --workspace --doc
 
 rust-coverage: _coverage-tool
@@ -88,6 +93,7 @@ protocol-gen:
 
 protocol-check:
     cargo run --manifest-path runtime/Cargo.toml --locked --bin protocol-gen -- check
+    cargo run --manifest-path runtime/Cargo.toml --locked --no-default-features --bin protocol-gen -- check
 
 rust-all: ghostty-verify rust-fmt rust-check rust-doc rust-clippy rust-dependency-hygiene protocol-check rust-test rust-coverage-check
 
@@ -136,3 +142,12 @@ linux-check:
 
 sign-in-check:
     cd sign-in && bun install --frozen-lockfile && bun run tsc && bun run lint && bun run format:check && bun run build
+
+ios-rust-targets:
+    rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+
+ios-rust-check:
+    CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --lib --target aarch64-apple-ios --target aarch64-apple-ios-sim -- -D warnings
+
+ios-ffi-build sdk profile:
+    scripts/build-ios-ffi.sh {{ sdk }} {{ profile }}

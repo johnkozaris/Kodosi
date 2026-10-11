@@ -1,3 +1,4 @@
+#[cfg(feature = "host")]
 use std::{
     path::{Path, PathBuf},
     time::Duration,
@@ -5,8 +6,10 @@ use std::{
 
 use crate::{Error, Result};
 
+#[cfg(feature = "host")]
 const REMOVAL_LIMIT: Duration = Duration::from_secs(5);
 
+#[cfg(feature = "host")]
 #[derive(Debug, Clone)]
 pub(crate) struct Worktree {
     pub path: PathBuf,
@@ -15,6 +18,7 @@ pub(crate) struct Worktree {
     base: String,
 }
 
+#[cfg(feature = "host")]
 pub(crate) fn is_repository(directory: &Path) -> bool {
     directory
         .ancestors()
@@ -40,6 +44,7 @@ pub(crate) fn branch_name(name: &str) -> Result<()> {
     }
 }
 
+#[cfg(feature = "host")]
 pub(crate) async fn create(
     directory: &Path,
     branch: &str,
@@ -89,6 +94,7 @@ pub(crate) async fn create(
     })
 }
 
+#[cfg(feature = "host")]
 async fn main_folder(folder: &Path) -> Option<PathBuf> {
     let common = git(
         folder,
@@ -100,6 +106,7 @@ async fn main_folder(folder: &Path) -> Option<PathBuf> {
     (common.file_name()? == ".git").then(|| common.parent().map(Path::to_path_buf))?
 }
 
+#[cfg(feature = "host")]
 pub(crate) async fn remove_unchanged(worktree: Worktree) {
     if tokio::time::timeout(REMOVAL_LIMIT, remove(&worktree))
         .await
@@ -109,6 +116,7 @@ pub(crate) async fn remove_unchanged(worktree: Worktree) {
     }
 }
 
+#[cfg(feature = "host")]
 async fn remove(worktree: &Worktree) {
     let reference = format!("refs/heads/{}", worktree.branch);
     let start = format!("{0}\n{0}", worktree.base);
@@ -133,6 +141,7 @@ async fn remove(worktree: &Worktree) {
     }
 }
 
+#[cfg(feature = "host")]
 async fn git(directory: &Path, arguments: &[&str]) -> Result<String> {
     let output = tokio::process::Command::new("git")
         .arg("-C")
@@ -162,6 +171,6 @@ async fn git(directory: &Path, arguments: &[&str]) -> Result<String> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "host"))]
 #[path = "worktree_tests.rs"]
 mod tests;

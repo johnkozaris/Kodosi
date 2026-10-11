@@ -17,6 +17,8 @@ mod wire;
 mod tests;
 
 pub use backend_client::BackendClient;
+#[cfg(target_os = "ios")]
+pub(crate) use backend_client::device_label;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

@@ -7,13 +7,18 @@ use super::{Result, TerminalControl, invalid};
 
 mod frame;
 mod packing;
-pub(crate) use frame::{Accept, ControlResult, End, Frame, KEYFRAME_PART, OUTPUT_FRAME, Refuse};
+#[cfg(feature = "host")]
+pub(crate) use frame::{Accept, OUTPUT_FRAME, Refuse};
+pub(crate) use frame::{ControlResult, Frame};
+#[cfg(any(feature = "host", test))]
+pub(crate) use frame::{End, KEYFRAME_PART};
 
 pub(crate) const INPUT_LIMIT: usize = 1024 * 1024;
 pub(crate) const RAW_CHUNK_LIMIT: usize = 64 * 1024;
 pub(crate) const RAW_BATCH_LIMIT: usize = 128;
 const METADATA_LIMIT: usize = 16_384;
 const SNAPSHOT_LIMIT: usize = 8 * 1024 * 1024 + 18 + METADATA_LIMIT;
+#[cfg(any(feature = "host", test))]
 const SNAPSHOT_LEVEL: u32 = 6;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -164,6 +169,7 @@ pub(crate) fn decode_b64(value: &Value, field: &str, limit: usize) -> Result<Vec
     Ok(bytes)
 }
 
+#[cfg(any(feature = "host", test))]
 pub(crate) fn snapshot_parts(
     checkpoint: &crate::terminal::Checkpoint,
 ) -> Result<Vec<bytes::Bytes>> {
@@ -203,6 +209,7 @@ fn decode_metadata(encoded: &[u8]) -> Result<crate::terminal::TerminalMetadata> 
     Ok(metadata)
 }
 
+#[cfg(any(feature = "host", test))]
 fn encode_checkpoint(checkpoint: &crate::terminal::Checkpoint) -> Result<Vec<u8>> {
     let bytes = &checkpoint.semantic_checkpoint;
     if bytes.is_empty() || bytes.len() > 8 * 1024 * 1024 {

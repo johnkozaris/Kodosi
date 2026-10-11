@@ -19,8 +19,6 @@ fn main() {
     println!("cargo:rerun-if-changed=../../../Ghostty.lock");
     let target = env::var("TARGET").expect("Cargo target triple");
     let artifact = target_artifact(&target);
-    let locked_ghostty_commit = lock_value(artifact.upstream_lock_key);
-    let locked_archive_digest = lock_value(artifact.archive_lock_key);
 
     let root = env::var_os("KODOSI_GHOSTTY_DIR")
         .filter(|path| !path.is_empty())
@@ -28,19 +26,19 @@ fn main() {
     let platform_ref = root.join(artifact.platform_ref);
     let provenance = root.join(artifact.provenance);
     let artifact_dir = root.join(artifact.library_dir);
-    let archive = artifact_dir.join("libghostty-vt.a");
+    let archive = artifact_dir.join(format!("lib{}.a", artifact.library));
     let metadata = fs::read_to_string(&provenance)
         .unwrap_or_else(|error| panic!("failed to read {}: {error}", provenance.display()));
     let working_tree = env::var("KODOSI_WORKING_TREE_VALIDATION").as_deref() == Ok("1");
     let expected_ghostty_commit = if working_tree {
         metadata_value(&metadata, "ghostty_commit", &provenance)
     } else {
-        locked_ghostty_commit
+        lock_value(artifact.upstream_lock_key)
     };
     let expected_archive_digest = if working_tree {
         metadata_value(&metadata, artifact.metadata_digest_key, &provenance)
     } else {
-        locked_archive_digest
+        lock_value(artifact.archive_lock_key)
     };
     if working_tree {
         println!(
@@ -84,7 +82,7 @@ fn main() {
 
     println!("cargo:rustc-link-search=native={}", artifact_dir.display());
 
-    println!("cargo:rustc-link-lib=static:-bundle=ghostty-vt");
+    println!("cargo:rustc-link-lib=static:-bundle={}", artifact.library);
     if artifact.link_cxx {
         println!("cargo:rustc-link-lib=c++");
     }
@@ -94,6 +92,7 @@ struct TargetArtifact {
     platform_ref: &'static str,
     provenance: &'static str,
     library_dir: &'static str,
+    library: &'static str,
     zig_target: &'static str,
     upstream_lock_key: &'static str,
     archive_lock_key: &'static str,
@@ -107,6 +106,7 @@ fn target_artifact(target: &str) -> TargetArtifact {
             platform_ref: "MacOSGhostty.ref",
             provenance: "Vendor/libghostty.version",
             library_dir: "Vendor/GhosttyVt/macos-arm64/lib",
+            library: "ghostty-vt",
             zig_target: "aarch64-macos",
             upstream_lock_key: "upstream_commit",
             archive_lock_key: "combined_archive_sha256",
@@ -117,11 +117,34 @@ fn target_artifact(target: &str) -> TargetArtifact {
             platform_ref: "LinuxGhostty.ref",
             provenance: "Vendor/GhosttyVt/linux-x86_64.version",
             library_dir: "Vendor/GhosttyVt/linux-x86_64/lib",
+            library: "ghostty-vt",
             zig_target: "x86_64-linux-gnu",
             upstream_lock_key: "linux_upstream_commit",
             archive_lock_key: "linux_vt_archive_sha256",
             metadata_digest_key: "vt_archive_sha256",
             link_cxx: false,
+        },
+        "aarch64-apple-ios" => TargetArtifact {
+            platform_ref: "MacOSGhostty.ref",
+            provenance: "Vendor/libghostty-ios-arm64.version",
+            library_dir: "Vendor/GhosttyKit.xcframework/ios-arm64",
+            library: "ghostty",
+            zig_target: "aarch64-ios.26.0",
+            upstream_lock_key: "upstream_commit",
+            archive_lock_key: "ios_combined_archive_sha256",
+            metadata_digest_key: "combined_archive_sha256",
+            link_cxx: true,
+        },
+        "aarch64-apple-ios-sim" => TargetArtifact {
+            platform_ref: "MacOSGhostty.ref",
+            provenance: "Vendor/libghostty-ios-arm64-simulator.version",
+            library_dir: "Vendor/GhosttyKit.xcframework/ios-arm64-simulator",
+            library: "ghostty",
+            zig_target: "aarch64-ios.26.0-simulator",
+            upstream_lock_key: "upstream_commit",
+            archive_lock_key: "ios_simulator_combined_archive_sha256",
+            metadata_digest_key: "combined_archive_sha256",
+            link_cxx: true,
         },
         _ => panic!("Kodosi's vendored libghostty-vt artifact does not support {target}"),
     }

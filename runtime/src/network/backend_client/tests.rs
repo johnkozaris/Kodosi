@@ -168,6 +168,7 @@ async fn explicit_pending_device_removal_survives_restart_without_clearing_pins(
     );
 }
 
+#[cfg(feature = "host")]
 #[tokio::test]
 async fn failed_unpublish_retains_the_cleanup_obligation() {
     let (_root, network) = fixture();
@@ -219,6 +220,7 @@ async fn failed_unpublish_retains_the_cleanup_obligation() {
     assert!(network.inner.publications.lock().await.contains_key(&id));
 }
 
+#[cfg(feature = "host")]
 #[tokio::test]
 async fn missing_publication_discards_pending_grants_before_reconciliation() {
     let (_root, network) = fixture();
@@ -295,6 +297,7 @@ async fn cancelling_a_login_reports_a_cancelled_sign_out() {
     assert!(network.identity().is_none());
 }
 
+#[cfg(feature = "host")]
 #[tokio::test]
 async fn retiring_a_terminal_leaves_operations_free_while_its_host_drains() {
     let (_root, network) = fixture();

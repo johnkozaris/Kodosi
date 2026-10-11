@@ -6,8 +6,8 @@ use std::{
 
 use futures_util::{SinkExt, StreamExt as _};
 use rustls::{
-    ClientConfig, ClientConnection, Connection, DigitallySignedStruct, DistinguishedName,
-    HandshakeKind, ServerConfig, ServerConnection, SignatureScheme,
+    ClientConfig, ClientConnection, Connection, DigitallySignedStruct, HandshakeKind,
+    SignatureScheme,
     client::{
         AlwaysResolvesClientRawPublicKeys, Resumption,
         danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier},
@@ -20,12 +20,16 @@ use rustls::{
         CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer, ServerName, SubjectPublicKeyInfoDer,
         UnixTime,
     },
+    sign::CertifiedKey,
+    version::TLS13,
+};
+#[cfg(any(feature = "host", test))]
+use rustls::{
+    DistinguishedName, ServerConfig, ServerConnection,
     server::{
         AlwaysResolvesServerRawPublicKeys, ServerSessionMemoryCache,
         danger::{ClientCertVerified, ClientCertVerifier},
     },
-    sign::CertifiedKey,
-    version::TLS13,
 };
 use tokio_tungstenite::tungstenite::Message;
 
@@ -39,6 +43,7 @@ const KEY_FRAMES: u64 = 1 << 24;
 const KEY_AGE: Duration = Duration::from_hours(1);
 const DEVICE_KEY_BYTES: usize = 1952;
 const RESUMABLE_HOSTS: usize = 256;
+#[cfg(any(feature = "host", test))]
 const RESUMABLE_VIEWS: usize = 1024;
 
 pub(super) trait Transport: Send {
@@ -79,6 +84,7 @@ pub(super) struct Channel<T> {
 pub(crate) struct ChannelKeys {
     public: Vec<u8>,
     client: Arc<ClientConfig>,
+    #[cfg(any(feature = "host", test))]
     server: Arc<ServerConfig>,
 }
 
@@ -86,6 +92,8 @@ impl ChannelKeys {
     pub(crate) fn new(signing_pkcs8: &[u8], signing_public: &[u8]) -> Result<Self> {
         let provider = provider();
         let own = certified(&provider, signing_pkcs8)?;
+        #[cfg(any(feature = "host", test))]
+        let server = server_config(&provider, Arc::clone(&own))?;
         let mut client = ClientConfig::builder_with_provider(Arc::clone(&provider))
             .with_protocol_versions(&[&TLS13])
             .map_err(tls)?
@@ -93,24 +101,13 @@ impl ChannelKeys {
             .with_custom_certificate_verifier(Arc::new(DeviceKey {
                 algorithms: provider.signature_verification_algorithms,
             }))
-            .with_client_cert_resolver(Arc::new(AlwaysResolvesClientRawPublicKeys::new(
-                Arc::clone(&own),
-            )));
+            .with_client_cert_resolver(Arc::new(AlwaysResolvesClientRawPublicKeys::new(own)));
         client.resumption = Resumption::in_memory_sessions(RESUMABLE_HOSTS);
         client.enable_sni = false;
-        let mut server = ServerConfig::builder_with_provider(Arc::clone(&provider))
-            .with_protocol_versions(&[&TLS13])
-            .map_err(tls)?
-            .with_client_cert_verifier(Arc::new(DeviceKey {
-                algorithms: provider.signature_verification_algorithms,
-            }))
-            .with_cert_resolver(Arc::new(AlwaysResolvesServerRawPublicKeys::new(own)));
-        server.session_storage = ServerSessionMemoryCache::new(RESUMABLE_VIEWS);
-        server.send_tls13_tickets = 2;
-        server.send_half_rtt_data = true;
         Ok(Self {
             public: signing_public.to_vec(),
             client: Arc::new(client),
+            #[cfg(any(feature = "host", test))]
             server: Arc::new(server),
         })
     }
@@ -139,6 +136,7 @@ impl<T: Transport> Channel<T> {
         Ok(channel)
     }
 
+    #[cfg(any(feature = "host", test))]
     pub(super) async fn accept(transport: T, keys: &ChannelKeys) -> Result<Self> {
         let tls = ServerConnection::new(Arc::clone(&keys.server)).map_err(tls)?;
         Self::establish(transport, Connection::Server(tls)).await
@@ -269,6 +267,21 @@ fn provider() -> Arc<CryptoProvider> {
     })
 }
 
+#[cfg(any(feature = "host", test))]
+fn server_config(provider: &Arc<CryptoProvider>, own: Arc<CertifiedKey>) -> Result<ServerConfig> {
+    let mut server = ServerConfig::builder_with_provider(Arc::clone(provider))
+        .with_protocol_versions(&[&TLS13])
+        .map_err(tls)?
+        .with_client_cert_verifier(Arc::new(DeviceKey {
+            algorithms: provider.signature_verification_algorithms,
+        }))
+        .with_cert_resolver(Arc::new(AlwaysResolvesServerRawPublicKeys::new(own)));
+    server.session_storage = ServerSessionMemoryCache::new(RESUMABLE_VIEWS);
+    server.send_tls13_tickets = 2;
+    server.send_half_rtt_data = true;
+    Ok(server)
+}
+
 fn certified(provider: &CryptoProvider, signing_pkcs8: &[u8]) -> Result<Arc<CertifiedKey>> {
     let key = provider
         .key_provider
@@ -357,6 +370,7 @@ impl ServerCertVerifier for DeviceKey {
     }
 }
 
+#[cfg(any(feature = "host", test))]
 impl ClientCertVerifier for DeviceKey {
     fn root_hint_subjects(&self) -> &[DistinguishedName] {
         &[]
