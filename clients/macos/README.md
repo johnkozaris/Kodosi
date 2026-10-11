@@ -72,10 +72,21 @@ just mac-check
 The client directory also provides `just lint`, `just test`, and release recipes.
 `just archive-working-tree` builds a non-publishable validation archive.
 
-Official distribution uses Developer ID signing, a provisioning profile for the
-Keychain access group, and notarization. `KODOSI_TEAM_ID` selects the release team;
-credentials, private keys, and provisioning profiles stay outside Git. The release
-scripts verify signatures, entitlements, native artifacts, and source provenance.
+Official distribution uses Developer ID signing, a Developer ID provisioning profile
+for the Keychain access group, and notarization. Install the profile for
+`com.kodosi.desktop` under the name `Kodosi Developer ID` (or set
+`KODOSI_PROVISIONING_PROFILE`), and store the notary credentials once with
+`xcrun notarytool store-credentials kodosi-notary`. `KODOSI_TEAM_ID` selects the
+release team; credentials, private keys, and provisioning profiles stay outside Git.
+The release scripts verify signatures, the embedded profile, entitlements, native
+artifacts, and source provenance. From a clean checkout:
+
+```sh
+KODOSI_TEAM_ID=C5886CWK32 KODOSI_MARKETING_VERSION=0.1.0 KODOSI_BUILD_NUMBER=1 \
+    just --justfile clients/macos/Justfile dmg
+```
+
+The notarized app and disk image are in `clients/macos/build/export/`.
 
 Read [Ghostty integration](docs/GHOSTTY_INTEGRATION.md) before changing the renderer.
 See [product behavior](PRODUCT.md), [design reference](DESIGN.md), and

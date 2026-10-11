@@ -13,6 +13,10 @@ rm -rf build/export
 export_options="build/ExportOptions.plist"
 cp Config/ExportOptions.plist "$export_options"
 /usr/libexec/PlistBuddy -c "Add :teamID string $KODOSI_TEAM_ID" "$export_options"
+/usr/libexec/PlistBuddy \
+    -c "Add :provisioningProfiles dict" \
+    -c "Add :provisioningProfiles:com.kodosi.desktop string ${KODOSI_PROVISIONING_PROFILE:-Kodosi Developer ID}" \
+    "$export_options"
 if [[ $(/usr/libexec/PlistBuddy -c 'Print :signingStyle' "$export_options") != manual ]] ||
    [[ $(/usr/libexec/PlistBuddy -c 'Print :signingCertificate' "$export_options") != 'Developer ID Application' ]]; then
     echo "Export must preserve manual Developer ID signing." >&2

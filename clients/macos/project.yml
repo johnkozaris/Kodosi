@@ -67,6 +67,8 @@ targets:
         PRODUCT_NAME: KodosiDesktop
         INFOPLIST_FILE: Config/Info.plist
         CODE_SIGN_ENTITLEMENTS: Config/KodosiDesktop.entitlements
+        KODOSI_PROVISIONING_PROFILE: ""
+        PROVISIONING_PROFILE_SPECIFIER: $(KODOSI_PROVISIONING_PROFILE)
         HEADER_SEARCH_PATHS:
           - $(PROJECT_DIR)/Frameworks/KodosiKit.xcframework/Headers
         OTHER_LDFLAGS:

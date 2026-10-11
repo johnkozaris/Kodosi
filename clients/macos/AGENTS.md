@@ -40,6 +40,6 @@ security, and lifecycle. For UI checks, isolate storage, use exact Peekaboo PID/
 receipts, and inspect settled results before retrying. Do not add automated
 smoke drivers.
 
-**Before a Developer ID release:** embed a provisioning profile granting the
-Keychain access group and make `just verify-signed` check the profile and
-entitlement. Local builds use an automatic development profile.
+Developer ID releases embed the `Kodosi Developer ID` provisioning profile for the
+Keychain access group, and `just verify-signed` checks the profile, the signing
+certificate, and the entitlements. Local builds use an automatic development profile.
