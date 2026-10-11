@@ -1190,6 +1190,7 @@
 					"$(PROJECT_DIR)/Frameworks/KodosiKit.xcframework/Headers",
 				);
 				INFOPLIST_FILE = Config/Info.plist;
+				KODOSI_PROVISIONING_PROFILE = "";
 				LD_GENERATE_MAP_FILE = YES;
 				LD_MAP_FILE_PATH = "$(DERIVED_FILE_DIR)/KodosiDesktop-$(CONFIGURATION).linkmap";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1207,6 +1208,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.kodosi.desktop;
 				PRODUCT_NAME = KodosiDesktop;
+				PROVISIONING_PROFILE_SPECIFIER = "$(KODOSI_PROVISIONING_PROFILE)";
 				SDKROOT = macosx;
 				SUPPORTED_PLATFORMS = macosx;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -1345,6 +1347,7 @@
 					"$(PROJECT_DIR)/Frameworks/KodosiKit.xcframework/Headers",
 				);
 				INFOPLIST_FILE = Config/Info.plist;
+				KODOSI_PROVISIONING_PROFILE = "";
 				LD_GENERATE_MAP_FILE = YES;
 				LD_MAP_FILE_PATH = "$(DERIVED_FILE_DIR)/KodosiDesktop-$(CONFIGURATION).linkmap";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1362,6 +1365,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.kodosi.desktop;
 				PRODUCT_NAME = KodosiDesktop;
+				PROVISIONING_PROFILE_SPECIFIER = "$(KODOSI_PROVISIONING_PROFILE)";
 				SDKROOT = macosx;
 				SUPPORTED_PLATFORMS = macosx;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -1397,6 +1401,7 @@
 					"$(PROJECT_DIR)/Frameworks/KodosiKit.xcframework/Headers",
 				);
 				INFOPLIST_FILE = Config/Info.plist;
+				KODOSI_PROVISIONING_PROFILE = "";
 				LD_GENERATE_MAP_FILE = YES;
 				LD_MAP_FILE_PATH = "$(DERIVED_FILE_DIR)/KodosiDesktop-$(CONFIGURATION).linkmap";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1414,6 +1419,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.kodosi.desktop;
 				PRODUCT_NAME = KodosiDesktop;
+				PROVISIONING_PROFILE_SPECIFIER = "$(KODOSI_PROVISIONING_PROFILE)";
 				SDKROOT = macosx;
 				SUPPORTED_PLATFORMS = macosx;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;

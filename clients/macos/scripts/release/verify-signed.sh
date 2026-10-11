@@ -42,4 +42,5 @@ for executable in KodosiDesktop; do
 done
 /usr/bin/codesign --verify --deep --strict --verbose=4 "$app"
 verify_developer_id_signature "$app"
+"$ROOT/scripts/release/verify-provisioning-profile.sh" "$app" "$EXPECTED_TEAM_ID"
 /usr/bin/codesign --display --verbose=4 "$app" 2>&1
