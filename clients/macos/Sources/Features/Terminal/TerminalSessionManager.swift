@@ -1,5 +1,7 @@
 import CoreFoundation
 import Foundation
+import KodosiBridge
+import KodosiDesign
 import KodosiKit
 import KodosiTerminal
 import Observation

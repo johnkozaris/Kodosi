@@ -1,4 +1,5 @@
 import AppKit
+import KodosiDesign
 import KodosiKit
 import SwiftUI
 

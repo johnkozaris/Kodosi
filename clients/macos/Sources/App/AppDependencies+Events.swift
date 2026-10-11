@@ -1,5 +1,7 @@
 import AppKit
 import Foundation
+import KodosiBridge
+import KodosiDesign
 
 extension AppDependencies {
     func consumeDeepLink() {

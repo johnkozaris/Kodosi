@@ -1,4 +1,5 @@
 import Foundation
+import KodosiBridge
 import Synchronization
 
 final class ResizeDeliveryState: Sendable {

@@ -1,4 +1,6 @@
 import AppKit
+import KodosiBridge
+import KodosiDesign
 import os
 @preconcurrency import UserNotifications
 

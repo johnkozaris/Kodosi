@@ -21,7 +21,7 @@ lint:
     scripts/build/lint.sh
 
 format:
-    swiftformat Sources Tests Packages/KodosiTerminal/Sources Packages/KodosiTerminal/Tests --swiftversion 6.0
+    swiftformat Sources Tests Packages/KodosiTerminal/Sources Packages/KodosiTerminal/Tests ../apple/Sources --swiftversion 6.0
 
 test: xcode-gen package-test
     xcodebuild -project KodosiDesktop.xcodeproj \

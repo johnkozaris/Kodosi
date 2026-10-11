@@ -1,4 +1,5 @@
 import Foundation
+import KodosiBridge
 import KodosiKit
 
 enum TerminalInputFailure: Equatable, Sendable {

@@ -13,7 +13,7 @@ trap 'rm -rf "$scratch_directory"' EXIT
 verifier="$project_directory/scripts/build/verify-rust-archive.sh"
 source "$project_directory/scripts/build/kodosi-paths.sh"
 runtime_root=$(kodosi_runtime_root "$project_directory")
-header="$project_directory/Frameworks/KodosiKit.xcframework/Headers/kodosi_runtime.h"
+header="$project_directory/../apple/Sources/KodosiKit/kodosi_runtime.h"
 
 python3 - "$header" "$scratch_directory" <<'PY'
 import pathlib

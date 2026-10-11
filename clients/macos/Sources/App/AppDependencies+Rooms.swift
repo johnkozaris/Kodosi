@@ -1,4 +1,5 @@
 import Foundation
+import KodosiBridge
 
 extension AppDependencies {
     func postRoomMessage(_ roomId: String) async {

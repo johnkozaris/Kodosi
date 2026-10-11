@@ -1,4 +1,5 @@
 import Foundation
+import KodosiBridge
 
 enum Provider: String, Codable, CaseIterable, Identifiable, Sendable {
     case claude, copilot

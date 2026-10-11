@@ -1,4 +1,5 @@
 import Foundation
+import KodosiBridge
 
 final class TerminalConnectionToken: @unchecked Sendable {
     private static let generationLock = NSLock()

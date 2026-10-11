@@ -1,4 +1,5 @@
 import Foundation
+import KodosiBridge
 
 struct TerminalProcessFocusLease: Hashable {
     let sessionId: String

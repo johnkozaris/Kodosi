@@ -110,4 +110,4 @@ Working text shimmers. Counts roll. Symbols replace in place. The words of a pro
 - **Don't** show glow colors at rest, or use copper as decoration.
 - **Don't** add explanatory text where an object, a state or one short line is sufficient.
 
-Sources: `Sources/DesignSystem/`, `Sources/Features/Shell/`, `Sources/Features/Missions/`, and `Sources/Features/Sessions/`.
+Sources: `../apple/Sources/KodosiDesign/`, `Sources/Features/Shell/`, `Sources/Features/Missions/`, and `Sources/Features/Sessions/`.

@@ -1,5 +1,6 @@
 import CoreFoundation
 import Foundation
+import KodosiBridge
 import os
 
 extension TerminalSessionManager {
@@ -110,30 +111,6 @@ extension TerminalSessionManager {
 
     private nonisolated static func exactUInt16(_ value: Any?) -> UInt16? {
         exactUInt64(value).flatMap(UInt16.init(exactly:))
-    }
-
-    nonisolated static func sanitizeTerminalTitle(_ title: String?) -> String? {
-        guard let title else { return nil }
-        let sanitized = title.unicodeScalars
-            .lazy
-            .filter {
-                !CharacterSet.controlCharacters.contains($0)
-                    && !isBidiControl($0.value)
-            }
-            .prefix(512)
-            .reduce(into: "") { result, scalar in
-                result.unicodeScalars.append(scalar)
-            }
-        return sanitized.isEmpty ? nil : sanitized
-    }
-
-    private nonisolated static func isBidiControl(_ value: UInt32) -> Bool {
-        switch value {
-        case 0x061C, 0x200E, 0x200F, 0x202A ... 0x202E, 0x2066 ... 0x2069:
-            true
-        default:
-            false
-        }
     }
 
     private nonisolated static func controlSessionId(from json: [String: Any]) -> String? {
