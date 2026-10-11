@@ -22,6 +22,15 @@ identified by issuer and subject. `preferred_username` and `name` supply display
 Configure a dedicated issuer/client for your deployment. Use the same issuer URL in
 the backend and client settings below.
 
+### Sign-in pages
+
+With Keycloak, you can use the Kodosi sign-in pages, account page and e-mails. Build
+the theme in `sign-in/` and set the realm as
+[Put the theme on a Keycloak](../sign-in/README.md#put-the-theme-on-a-keycloak) tells.
+The pages show the Kodosi name and logo. You can use them for your own team or
+organization. For a service that is open to other people, change the name and the
+logo, or ask for permission. See [Trademarks](../TRADEMARKS.md).
+
 ### Account deletion
 
 With Keycloak, a person deletes their account on its account page, and the backend
