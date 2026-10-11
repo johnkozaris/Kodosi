@@ -38,7 +38,7 @@ fn claude_inactive(state_root: &Path, directory: &Path, id: &str) -> Result<(), 
             ));
         }
     };
-    let root = File::open(root).map_err(|error| error.to_string())?;
+    let root = kodosi_os::fs::open_dir(&root).map_err(|error| error.to_string())?;
     for (index, entry) in entries.enumerate() {
         if index >= storage::MAX_DIRECTORY_ENTRIES {
             return Err("Claude session activity exceeds its entry limit".to_owned());
