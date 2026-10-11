@@ -31,7 +31,7 @@ for case in ['current', 'stale-protocol', 'stale-abi', 'no-vt', 'bundled-ghostty
         if case == 'partial' and symbol == 'kodosi_terminal_input':
             continue
         if symbol == 'kodosi_protocol_version':
-            lines.append(f'unsigned int {symbol}(void) {{ return {53 if case == "stale-protocol" else 54}; }}')
+            lines.append(f'unsigned int {symbol}(void) {{ return {54 if case == "stale-protocol" else 55}; }}')
         elif symbol == 'kodosi_abi_version':
             lines.append(f'unsigned int {symbol}(void) {{ return {6 if case == "stale-abi" else 7}; }}')
         else:
@@ -87,7 +87,7 @@ reject() {
     fi
 }
 
-reject stale-protocol "does not return exact desktop/runtime protocol v54"
+reject stale-protocol "does not return exact desktop/runtime protocol v55"
 reject stale-abi "does not return exact C ABI v7"
 reject no-vt "lacks required libghostty-vt authority import"
 reject bundled-ghostty "bundles Ghostty definitions"

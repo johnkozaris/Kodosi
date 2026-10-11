@@ -161,17 +161,7 @@ extension AppDependencies {
     private func receiveAuth(_ event: RuntimeEvent) throws {
         switch event.type {
         case "auth.ready": try receiveReady(event)
-        case "auth.required":
-            accountDeletion = nil
-            if case .failed = signInStage {} else {
-                signInStage = .idle
-            }
-            switch event.string("reason") {
-            case "expired": errorMessage = String(localized: "Your sign-in has ended. Sign in again.")
-            case "accountDeleted": errorMessage = String(localized: "Your Kodosi account is deleted.")
-            default: break
-            }
-            commandSink.perform("session.list")
+        case "auth.required": receiveRequired(event)
         case "auth.deletion_pending":
             let page = event.string("confirmationUri").flatMap(ExternalAuthURL.parse)
             accountDeletion = AccountDeletion(page: page)
@@ -190,6 +180,19 @@ extension AppDependencies {
             signInStage = .finalizing
         default: break
         }
+    }
+
+    private func receiveRequired(_ event: RuntimeEvent) {
+        accountDeletion = nil
+        if case .failed = signInStage {} else {
+            signInStage = .idle
+        }
+        switch event.string("reason") {
+        case "expired": errorMessage = String(localized: "Your sign-in has ended. Sign in again.")
+        case "accountDeleted": errorMessage = String(localized: "Your Kodosi account is deleted.")
+        default: break
+        }
+        commandSink.perform("session.list")
     }
 
     private func receiveSessions(_ event: RuntimeEvent) throws {
