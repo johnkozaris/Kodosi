@@ -246,7 +246,7 @@ impl LocalSession {
         drop(self.send(Request::Unsubscribe(connection)));
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, unix))]
     pub(crate) fn input(&self, connection: Uuid, bytes: Bytes) -> Result<()> {
         let write = PendingWrite::new(bytes, &self.input_budget, None)?;
         self.send(Request::Input { connection, write })
@@ -1382,6 +1382,6 @@ fn host_geometry(
         .map_err(|error| Error::Invalid(error.to_string()))
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 #[path = "session_tests.rs"]
 mod tests;

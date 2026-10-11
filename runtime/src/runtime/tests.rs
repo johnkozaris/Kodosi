@@ -2,6 +2,11 @@ use super::*;
 use std::sync::Arc;
 use tokio::time::{Instant, timeout};
 
+#[cfg(unix)]
+const SHELL: &str = "/bin/sh";
+#[cfg(windows)]
+const SHELL: &str = "cmd.exe";
+
 struct TestRuntime {
     handle: RuntimeHandle,
     _storage: tempfile::TempDir,
@@ -12,7 +17,7 @@ impl TestRuntime {
         let storage = tempfile::tempdir().unwrap();
         let mut config =
             Config::isolated(&kodosi_os::fs::canonicalize(storage.path()).unwrap()).unwrap();
-        config.initial_shell = Some("/bin/sh".to_owned());
+        config.initial_shell = Some(SHELL.to_owned());
         let handle = start(config).await.unwrap();
         Self {
             handle,
@@ -79,6 +84,7 @@ impl Drop for TestRuntime {
     }
 }
 
+#[cfg(unix)]
 async fn receive_text(subscription: &mut Subscription, wanted: &[u8]) -> Vec<u8> {
     timeout(Duration::from_secs(10), async {
         let mut received = Vec::new();
@@ -190,6 +196,7 @@ async fn a_terminal_on_a_new_branch_starts_in_its_own_folder_and_takes_it_away_u
     drop(runtime);
 }
 
+#[cfg(unix)]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn local_terminal_keeps_running_after_view_closes_then_stop_removes_it() {
     let runtime = TestRuntime::new().await;
@@ -253,6 +260,7 @@ async fn local_terminal_keeps_running_after_view_closes_then_stop_removes_it() {
     drop(runtime);
 }
 
+#[cfg(unix)]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn terminal_notifications_do_not_require_a_mounted_view() {
     let runtime = TestRuntime::new().await;
@@ -296,6 +304,7 @@ async fn terminal_notifications_do_not_require_a_mounted_view() {
     drop(runtime);
 }
 
+#[cfg(unix)]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn slow_login_does_not_block_local_terminal_or_runtime_observation() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
