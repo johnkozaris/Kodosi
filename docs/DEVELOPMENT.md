@@ -1,6 +1,6 @@
 # Development
 
-Clone Kodosi under `~/Repos`. One checkout contains the runtime, backend, both
+Clone Kodosi under `~/Repos`. One checkout contains the runtime, backend, the
 native clients, generated contracts, and Ghostty integration. No sibling repositories
 or submodules are needed.
 
@@ -12,6 +12,8 @@ or submodules are needed.
 | `backend/` | ASP.NET Core metadata service and encrypted traffic relay |
 | `clients/macos/` | Swift native Mac app |
 | `clients/linux/` | Qt native Linux app |
+| `clients/ios/` | Swift native iPhone and iPad app |
+| `clients/apple/` | Swift package shared by the Mac and iOS apps |
 | `protocol/` | Generated contracts shared across the stack |
 | `terminal/ghostty/` | Native terminal integration, patches, artifacts, and notices |
 
@@ -29,8 +31,10 @@ The root recipes also recognize a local .NET SDK at `backend/.tools/dotnet-10.0.
 Keep dependencies and downloaded build tools inside the project.
 
 For native prerequisites and signing, follow the
-[Mac build guide](../clients/macos/README.md) or
-[Linux build guide](../clients/linux/README.md). Build each app on its own platform.
+[Mac build guide](../clients/macos/README.md),
+[Linux build guide](../clients/linux/README.md), or
+[iOS build guide](../clients/ios/README.md). Build each app on its own platform; the
+iOS app builds on a Mac.
 
 ## Build and check
 
@@ -44,6 +48,8 @@ Run these from the repository root. `just --list` is the complete command refere
 | `just check-all` | Run the Rust and backend gates |
 | `just mac-build` / `just mac-check` | Build / check the Mac app |
 | `just linux-build` / `just linux-check` | Build / check the Linux app |
+| `just ios-build` / `just ios-check` | Build / check the iPhone and iPad app |
+| `just ios-rust-targets` / `just ios-rust-check` | Install / lint the iOS Rust targets |
 
 Platform directories retain their own `just` recipes, including release packaging.
 Artifacts stay in the component's output directories. Release packages record the

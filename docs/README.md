@@ -16,8 +16,9 @@ Start with the guide for the job you want to do.
 ## Build and operate
 
 - [Development](DEVELOPMENT.md): repository layout, toolchains, builds, and checks.
-- [macOS build guide](../clients/macos/README.md) and
-  [Linux build guide](../clients/linux/README.md).
+- [macOS build guide](../clients/macos/README.md),
+  [Linux build guide](../clients/linux/README.md), and
+  [iOS build guide](../clients/ios/README.md).
 - [Self-hosting](SELF-HOSTING.md): PostgreSQL, the backend, and your OIDC provider.
 - [Architecture and protocol](PROTOCOL.md): process ownership, connections, and contracts.
 - [Encryption design and threat model](CRYPTOGRAPHY.md): keys, rules, and known limits.
@@ -28,8 +29,9 @@ Start with the guide for the job you want to do.
 ## Product and native integration
 
 [PRODUCT.md](../PRODUCT.md) is the source of product intent. The
-[Mac](../clients/macos/PRODUCT.md) and [Linux](../clients/linux/PRODUCT.md) notes cover
-platform behavior; their design references live beside them.
+[Mac](../clients/macos/PRODUCT.md), [Linux](../clients/linux/PRODUCT.md), and
+[iPhone and iPad](../clients/ios/PRODUCT.md) notes cover platform behavior; their design
+references live beside them.
 
 For terminal engine changes, read the
 [Ghostty integration guide](../clients/macos/docs/GHOSTTY_INTEGRATION.md) and

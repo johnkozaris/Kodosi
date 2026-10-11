@@ -80,7 +80,9 @@ clear recovery action.
 
 The runtime and backend implement room terminal sharing, encrypted conversation and
 task history, multiple repository links, and GitHub/Gitea issue actions. Native Mac
-and Linux clients expose these capabilities alongside terminals. The `kodosi room`
+and Linux clients expose these capabilities alongside terminals. The iPhone and iPad
+client follows, answers, and controls the terminals of the person's computers and
+friends, and takes part in rooms; it starts no terminals. The `kodosi room`
 CLI and its bundled skill let existing agents participate through the running host.
 
 Terminals show the state that their programs report through the Program Status
