@@ -1,6 +1,6 @@
 import SwiftUI
 
-public enum AppTextStyle {
+public enum AppTextStyle: Sendable {
     case large
     case title
     case headline

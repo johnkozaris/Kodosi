@@ -1,8 +1,8 @@
 import SwiftUI
 
 public struct KodosiButtonStyle: ButtonStyle {
-    public enum Kind { case primary, secondary, ghost, tinted, danger }
-    public enum Size {
+    public enum Kind: Sendable { case primary, secondary, ghost, tinted, danger }
+    public enum Size: Sendable {
         case small, regular, large
 
         public var height: CGFloat {

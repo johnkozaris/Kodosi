@@ -1,6 +1,6 @@
 import SwiftUI
 
-public enum ThemePreference: String {
+public enum ThemePreference: String, Sendable {
     case system
     case dark
     case light

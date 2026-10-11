@@ -26,7 +26,7 @@ public enum PersonTint {
     }
 }
 
-public enum AgentKind: String {
+public enum AgentKind: String, Sendable {
     case claude, codex, copilot, cursor, shell
 
     public init(program: String?) {

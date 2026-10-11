@@ -16,7 +16,7 @@ public struct ShadowSpec: Sendable {
     public static let none = ShadowSpec(opacity: 0, radius: 0, x: 0, y: 0)
 }
 
-public enum Elevation {
+public enum Elevation: Sendable {
     case flat
     case resting
     case lifted

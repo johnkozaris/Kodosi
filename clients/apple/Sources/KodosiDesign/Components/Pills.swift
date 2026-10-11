@@ -72,7 +72,7 @@ public struct SegmentedPill<Value: Hashable>: View {
     }
 }
 
-public struct DockItem: Identifiable {
+public struct DockItem: Identifiable, Sendable {
     public let id: Int
     public let title: String
     public let symbol: String
@@ -215,7 +215,7 @@ public struct CountBadge: View {
 }
 
 public struct Tag: View {
-    public enum Tone { case neutral, accent, ready, caution, danger }
+    public enum Tone: Sendable { case neutral, accent, ready, caution, danger }
 
     @Environment(\.theme) private var theme
     public let text: String

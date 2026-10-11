@@ -57,7 +57,7 @@ public struct PersonAvatar: View {
 
 public struct AvatarStack: View {
     @Environment(\.theme) private var theme
-    public struct Person: Identifiable {
+    public struct Person: Identifiable, Sendable {
         public let id: String
         public let name: String
         public var isSelf = false
@@ -101,7 +101,7 @@ public struct AvatarStack: View {
 }
 
 public struct AgentMark: View {
-    public enum Activity: Equatable { case asleep, awake, working, progress(Int), asks }
+    public enum Activity: Equatable, Sendable { case asleep, awake, working, progress(Int), asks }
 
     @Environment(\.theme) private var theme
     public let kind: AgentKind
@@ -202,7 +202,7 @@ public struct AgentMark: View {
 }
 
 public struct StatusSign: View {
-    public enum Form: Equatable {
+    public enum Form: Equatable, Sendable {
         case changed, hand, question, key, done, failed
 
         public var label: String {
