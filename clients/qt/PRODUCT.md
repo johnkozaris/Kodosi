@@ -4,7 +4,7 @@
 
 ## Platform
 
-Linux desktop
+Linux and Windows desktop
 
 ## Purpose
 

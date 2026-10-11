@@ -17,7 +17,7 @@ Start with the guide for the job you want to do.
 
 - [Development](DEVELOPMENT.md): repository layout, toolchains, builds, and checks.
 - [macOS build guide](../clients/macos/README.md) and
-  [Linux build guide](../clients/qt/README.md).
+  [Linux and Windows build guide](../clients/qt/README.md).
 - [Self-hosting](SELF-HOSTING.md): PostgreSQL, the backend, and your OIDC provider.
 - [Architecture and protocol](PROTOCOL.md): process ownership, connections, and contracts.
 - [Contributing](../CONTRIBUTING.md): changes, issues, and review expectations.
@@ -27,8 +27,8 @@ Start with the guide for the job you want to do.
 ## Product and native integration
 
 [PRODUCT.md](../PRODUCT.md) is the source of product intent. The
-[Mac](../clients/macos/PRODUCT.md) and [Linux](../clients/qt/PRODUCT.md) notes cover
-platform behavior; their design references live beside them.
+[Mac](../clients/macos/PRODUCT.md) and [Linux and Windows](../clients/qt/PRODUCT.md)
+notes cover platform behavior; their design references live beside them.
 
 For terminal engine changes, read the
 [Ghostty integration guide](../clients/macos/docs/GHOSTTY_INTEGRATION.md) and

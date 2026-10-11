@@ -1,7 +1,7 @@
-# Kodosi for Linux
+# Kodosi for Linux and Windows
 
 The native Qt app embeds the shared Rust runtime and Ghostty terminal engine.
-Everything builds from this checkout.
+Everything builds from this checkout. Build each platform on that platform.
 
 ## Requirements
 
@@ -46,6 +46,7 @@ just rust-cli-build
 ```
 
 Add that directory to your shell's PATH to use `kodosi` from agent terminals.
+On Windows, the recipe also puts the ConPTY host beside `kodosi.exe`.
 Keep the native app running when working with its room terminals. Packaged builds
 install both `kodosi` and `kodosi-qt` launchers.
 
@@ -70,6 +71,81 @@ libraries.
 Release recipes record the monorepo revision, verify package contents and license
 materials, and can create a signed release manifest. Public app releases are not
 published yet.
+
+## Windows
+
+Kodosi for Windows runs on Windows 11, x64 or ARM64. Its terminals use the pinned
+ConPTY host, `conpty.dll` and `OpenConsole.exe`, which the build puts beside the app
+and the `kodosi` command.
+
+### Windows requirements
+
+Run the recipes in Git Bash from [Git for Windows](https://gitforwindows.org), with:
+
+- Visual Studio 2022 or later, or its Build Tools, with the *Desktop development
+  with C++* workload and *C++ Clang Compiler for Windows*; on ARM64, also the ARM64
+  build tools. The app builds with clang-cl against Qt's MSVC libraries.
+- Rust through `rustup`, `just`, and `uv`. Run `uv python install 3.12 --default` so
+  that `python3` exists.
+- On x64, [NASM](https://www.nasm.us) on `PATH`; the runtime's TLS library needs it.
+
+The bootstrap installs the pinned Qt, CMake, and Ninja under `.tools/`, as on Linux.
+
+### Terminal engine
+
+Each Windows architecture links its own Ghostty library, built on that architecture.
+If `terminal/ghostty/Vendor/GhosttyVt/windows-<arch>` is not in the checkout, build it
+from the repository root:
+
+```sh
+terminal/ghostty/Script/build.sh
+```
+
+The script prints the digest to record in [Ghostty.lock](../../Ghostty.lock). Commit
+the library and the digest together, as the
+[provenance guide](../../terminal/ghostty/PROVENANCE.md) describes.
+
+### Build and check on Windows
+
+From the repository root:
+
+```sh
+just windows-check
+```
+
+From this client directory, `just windows-run` builds the app and starts it with the
+bootstrapped Qt libraries. On any host with Docker, `just windows-cross-check` lints
+the runtime for both Windows targets. Desktop notifications need the installed
+package; a development build does not show them.
+
+### Package and sign
+
+From this client directory, `just windows-package` builds, tests, and verifies
+`build/release/kodosi-0.1.0-windows-<arch>.msix`. The package holds the app, the
+`kodosi` command, ConPTY, the C runtime, Qt, and the notices. Without
+`KODOSI_MSIX_PUBLISHER`, the package is unsigned; install it from an administrator
+PowerShell:
+
+```powershell
+Add-AppxPackage -Path build\release\kodosi-0.1.0-windows-x64.msix -AllowUnsigned
+```
+
+For a release, set `KODOSI_MSIX_PUBLISHER` to the subject of the Azure Artifact
+Signing certificate before packaging. Install the signing client with
+`winget install -e --id Microsoft.Azure.ArtifactSigningClientTools`, sign in to
+Azure, and run:
+
+```sh
+KODOSI_SIGNING_DLIB=<path>/Azure.CodeSigning.Dlib.dll \
+KODOSI_SIGNING_METADATA=<path>/metadata.json \
+just windows-sign build/release/kodosi-0.1.0-windows-x64.msix
+```
+
+Publish the signed x64 and ARM64 packages to winget with `wingetcreate`.
+
+The installed app adds the `kodosi` command to the user's PATH as an app execution
+alias and opens `kodosi://` links. The app and its command share their data in
+`%USERPROFILE%\.kodosi`.
 
 See [product behavior](PRODUCT.md), [design reference](DESIGN.md), and
 [development setup](../../docs/DEVELOPMENT.md). Kodosi is MIT licensed; third-party

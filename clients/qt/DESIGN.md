@@ -1,5 +1,5 @@
 ---
-name: Kodosi for Linux
+name: Kodosi for Linux and Windows
 description: A warm, living workbench for people, agents and terminals.
 colors:
   ground: "#110e0c"
@@ -60,7 +60,7 @@ components:
   segmented-thumb: {backgroundColor: "{colors.raised}", rounded: "capsule"}
   terminal-tile: {backgroundColor: "{colors.terminal}", rounded: "{rounded.tile}"}
 ---
-# Design System: Kodosi for Linux
+# Design System: Kodosi for Linux and Windows
 
 ## Overview
 Kodosi is a warm workbench, lit from above. A source list rests on the ground. One framed surface holds the work. Raised objects rest on that surface, and inputs sink into wells. The copper cursor is the sign of life: it is in the wordmark, it is the empty slot for a new terminal, and a new terminal opens from it.
