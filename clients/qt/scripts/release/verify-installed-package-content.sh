@@ -63,5 +63,9 @@ for notice in "${notice_names[@]}"; do
         "$root/usr/share/doc/kodosi/ghostty/ThirdPartyNotices/licenses/$notice"
 done
 
+for notice in packaging/licenses/provider-icons/*; do
+    cmp "$notice" "$root/usr/share/licenses/kodosi-qt/provider-icons/$(basename "$notice")"
+done
+
 cmp packaging/linux/NATIVE-DESKTOP-INTEGRATION-NOTICE.txt \
     "$root/usr/share/doc/kodosi/NATIVE-DESKTOP-INTEGRATION-NOTICE.txt"

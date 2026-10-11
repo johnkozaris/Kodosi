@@ -1,6 +1,7 @@
-# Notices and provenance that every package ships under one documentation
-# folder. Release builds add the source identity, the Rust dependency
-# licenses and the Qt licenses with Qt's own SBOMs.
+# Notices and provenance that every package ships, in its documentation
+# folder and, for the provider icons, its platform's license folder. Release
+# builds add the source identity, the Rust dependency licenses and the Qt
+# licenses with Qt's own SBOMs.
 
 set(KODOSI_GHOSTTY_LICENSE_TEXTS
     highway-Apache-2.0.txt
@@ -39,6 +40,10 @@ function(kodosi_install_evidence doc_dir)
     install(
         FILES ${ghostty_license_texts}
         DESTINATION "${doc_dir}/ghostty/ThirdPartyNotices/licenses"
+    )
+    install(
+        DIRECTORY "${PROJECT_SOURCE_DIR}/packaging/licenses/provider-icons/"
+        DESTINATION "${KODOSI_PROVIDER_ICON_LICENSE_DIR}"
     )
     if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
         return()

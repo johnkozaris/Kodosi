@@ -23,6 +23,7 @@ set(KODOSI_PLATFORM_SOURCES
 )
 set(KODOSI_PLATFORM_LIBRARIES Qt6::DBus)
 set(KODOSI_QT_SBOM_MODULES qtbase qtdeclarative qtsvg qtwayland)
+set(KODOSI_PROVIDER_ICON_LICENSE_DIR share/licenses/kodosi-qt/provider-icons)
 set(KODOSI_NATIVE_LICENSE_MANIFEST "${PROJECT_SOURCE_DIR}/packaging/licenses/native-license-evidence.json")
 
 find_program(DBUS_RUN_SESSION_EXECUTABLE dbus-run-session REQUIRED)
@@ -128,3 +129,27 @@ function(kodosi_install app)
         )
     endif()
 endfunction()
+
+# The Debian package and the portable archive.
+set(CPACK_PACKAGE_NAME "kodosi")
+set(CPACK_PACKAGE_VENDOR "Kodosi")
+set(CPACK_PACKAGE_CONTACT "support@kodosi.com")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
+    "Local terminals with trusted device and friend access"
+)
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
+set(CPACK_GENERATOR "TGZ;DEB")
+set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+set(CPACK_DEBIAN_PACKAGE_SECTION "devel")
+set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS OFF)
+set(CPACK_DEBIAN_PACKAGE_DEPENDS
+    "libc6 (>= 2.39), libstdc++6, libgcc-s1, desktop-file-utils, libatk1.0-0t64, libbrotli1, libcairo-gobject2, libcairo2, libdbus-1-3, libdrm2, libegl1, libfontconfig1, libfreetype6, libgbm1, libgdk-pixbuf-2.0-0, libgl1, libglib2.0-0t64, libgssapi-krb5-2, libgtk-3-0t64, libharfbuzz0b, libopengl0, libpango-1.0-0, libpangocairo-1.0-0, libwayland-client0, libwayland-cursor0, libwayland-egl1, libx11-6, libx11-xcb1, libxcb-cursor0, libxcb-glx0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-randr0, libxcb-render-util0, libxcb-render0, libxcb-shape0, libxcb-shm0, libxcb-sync1, libxcb-util1, libxcb-xfixes0, libxcb-xkb1, libxcb1, libxkbcommon-x11-0, libxkbcommon0, libzstd1, xdg-desktop-portal, xdg-utils, zlib1g"
+)
+set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://kodosi.com")
+set(CPACK_ARCHIVE_FILE_NAME
+    "kodosi-${PROJECT_VERSION}-linux-x86_64"
+)
+set(CPACK_THREADS 1)
+include(CPack)

@@ -42,6 +42,7 @@ set(KODOSI_TEST_ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software
 # Tests run from the build tree, so they find Qt's DLLs where Qt keeps them.
 set(KODOSI_TEST_ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
 set(KODOSI_QT_SBOM_MODULES qtbase qtdeclarative qtsvg)
+set(KODOSI_PROVIDER_ICON_LICENSE_DIR doc/provider-icons)
 set(KODOSI_CONPTY_DIR "${PROJECT_BINARY_DIR}/conpty")
 # Windows installs an unsigned package only when its publisher carries this
 # OID; release builds set the signing certificate's subject instead.

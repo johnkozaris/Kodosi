@@ -147,6 +147,8 @@ def verify_evidence(
         same(files, read, name, ghostty / "ThirdPartyNotices/licenses" / PurePosixPath(name).name)
     for name in ("LICENSE", "ConPTY.lock"):
         same(files, read, f"doc/conpty/{name}", REPOSITORY / "terminal/conpty" / name)
+    for notice in sorted((ROOT / "packaging/licenses/provider-icons").iterdir()):
+        same(files, read, f"doc/provider-icons/{notice.name}", notice)
     for name in ("conpty.dll", "OpenConsole.exe"):
         same(files, read, name, build_dir / "conpty" / name)
 
