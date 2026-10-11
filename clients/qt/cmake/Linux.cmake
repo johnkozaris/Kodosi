@@ -22,8 +22,8 @@ set(KODOSI_PLATFORM_SOURCES
     platform/linux/FreedesktopNotificationDriver.hpp
 )
 set(KODOSI_PLATFORM_LIBRARIES Qt6::DBus)
+set(KODOSI_QT_SBOM_MODULES qtbase qtdeclarative qtsvg qtwayland)
 set(KODOSI_NATIVE_LICENSE_MANIFEST "${PROJECT_SOURCE_DIR}/packaging/licenses/native-license-evidence.json")
-set(KODOSI_QT_SBOM_DIR "${CMAKE_PREFIX_PATH}/sbom")
 
 find_program(DBUS_RUN_SESSION_EXECUTABLE dbus-run-session REQUIRED)
 set(KODOSI_TEST_LAUNCHER "${DBUS_RUN_SESSION_EXECUTABLE}" --)
@@ -73,36 +73,6 @@ function(kodosi_install app)
         DESTINATION lib/kodosi/plugins/wayland-shell-integration
     )
 
-    set(rust_license_dir "${PROJECT_BINARY_DIR}/generated/rust-dependency-licenses")
-    if(CMAKE_BUILD_TYPE STREQUAL "Release")
-        add_custom_target(kodosi-native-license-evidence ALL
-            COMMAND
-                "${Python3_EXECUTABLE}"
-                "${PROJECT_SOURCE_DIR}/scripts/release/verify-native-license-evidence.py"
-                --manifest "${KODOSI_NATIVE_LICENSE_MANIFEST}"
-                --license-root "${PROJECT_SOURCE_DIR}/packaging/licenses"
-                --qt-root "${CMAKE_PREFIX_PATH}"
-                --dependencies "${PROJECT_SOURCE_DIR}/dependencies.lock.json"
-            COMMENT "Verifying Qt ${KODOSI_QT_VERSION} and ICU 73.2 license/SBOM evidence"
-            VERBATIM
-        )
-        add_custom_target(kodosi-rust-license-inventory ALL
-            COMMAND ${KODOSI_VERIFY_GHOSTTY_COMMAND}
-            COMMAND
-                "${Python3_EXECUTABLE}"
-                "${PROJECT_SOURCE_DIR}/scripts/release/generate-rust-license-inventory.py"
-                --manifest "${KODOSI_RUNTIME_MANIFEST}"
-                --output-dir "${rust_license_dir}"
-                --overrides
-                "${PROJECT_SOURCE_DIR}/packaging/licenses/rust-license-overrides.json"
-            BYPRODUCTS
-                "${rust_license_dir}/rust-dependency-licenses.json"
-            COMMENT "Generating the locked Linux Rust dependency license inventory"
-            VERBATIM
-        )
-        add_dependencies(kodosi-rust-license-inventory kodosi-rust-cli-build)
-    endif()
-
     install(
         FILES "${PROJECT_SOURCE_DIR}/packaging/linux/com.kodosi.Kodosi.desktop"
         DESTINATION share/applications
@@ -119,38 +89,22 @@ function(kodosi_install app)
         FILES "${PROJECT_SOURCE_DIR}/packaging/linux/NATIVE-DESKTOP-INTEGRATION-NOTICE.txt"
         DESTINATION share/doc/kodosi
     )
+    kodosi_install_evidence(share/doc/kodosi)
     install(
-        FILES "${PROJECT_SOURCE_DIR}/dependencies.lock.json"
-        DESTINATION share/doc/kodosi/provenance
+        FILES "${KODOSI_GHOSTTY_ROOT}/ThirdPartyNotices/linux-vt-inventory.json"
+        DESTINATION share/doc/kodosi/ghostty
     )
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
-        install(CODE "
-            execute_process(
-                COMMAND
-                    \"${Python3_EXECUTABLE}\"
-                    \"${PROJECT_SOURCE_DIR}/scripts/release/verify-release-sources.py\"
-                    --source-root
-                    \"${PROJECT_SOURCE_DIR}\"
-                RESULT_VARIABLE KODOSI_INSTALL_SOURCE_RESULT
-                ERROR_VARIABLE KODOSI_INSTALL_SOURCE_ERROR
-            )
-            if(NOT KODOSI_INSTALL_SOURCE_RESULT EQUAL 0)
-                message(FATAL_ERROR
-                    \"Source verification immediately before install failed: \${KODOSI_INSTALL_SOURCE_ERROR}\"
-                )
-            endif()
-        ")
-        install(
-            FILES "${KODOSI_SOURCE_IDENTITY}"
-            DESTINATION share/doc/kodosi/provenance
-        )
-        install(
-            DIRECTORY "${rust_license_dir}/"
-            DESTINATION share/doc/kodosi/rust
-        )
-        install(
-            DIRECTORY "${PROJECT_SOURCE_DIR}/packaging/licenses/qt/${KODOSI_QT_VERSION}/"
-            DESTINATION share/doc/kodosi/qt
+        add_custom_target(kodosi-native-license-evidence ALL
+            COMMAND
+                "${Python3_EXECUTABLE}"
+                "${PROJECT_SOURCE_DIR}/scripts/release/verify-native-license-evidence.py"
+                --manifest "${KODOSI_NATIVE_LICENSE_MANIFEST}"
+                --license-root "${PROJECT_SOURCE_DIR}/packaging/licenses"
+                --qt-root "${QT6_INSTALL_PREFIX}"
+                --dependencies "${PROJECT_SOURCE_DIR}/dependencies.lock.json"
+            COMMENT "Verifying Qt ${KODOSI_QT_VERSION} and ICU 73.2 license/SBOM evidence"
+            VERBATIM
         )
         install(
             DIRECTORY "${PROJECT_SOURCE_DIR}/packaging/licenses/icu/73.2/"
@@ -160,41 +114,7 @@ function(kodosi_install app)
             FILES "${KODOSI_NATIVE_LICENSE_MANIFEST}"
             DESTINATION share/doc/kodosi/provenance
         )
-        set(qt_sboms "")
-        foreach(module qtbase qtdeclarative qtsvg qtwayland)
-            foreach(format spdx spdx.json cdx.json)
-                list(APPEND qt_sboms "${KODOSI_QT_SBOM_DIR}/${module}-${KODOSI_QT_VERSION}.${format}")
-            endforeach()
-        endforeach()
-        install(FILES ${qt_sboms} DESTINATION share/doc/kodosi/qt/sbom)
     endif()
-    install(
-        FILES
-            "${KODOSI_GHOSTTY_ROOT}/LICENSE"
-            "${KODOSI_GHOSTTY_ROOT}/LICENSE-GHOSTTY"
-            "${KODOSI_GHOSTTY_ROOT}/LinuxGhostty.ref"
-            "${KODOSI_GHOSTTY_ROOT}/THIRD_PARTY_NOTICES.md"
-            "${KODOSI_GHOSTTY_ROOT}/ThirdPartyNotices/linux-vt-inventory.json"
-        DESTINATION share/doc/kodosi/ghostty
-    )
-    install(
-        FILES
-            "${KODOSI_GHOSTTY_ROOT}/ThirdPartyNotices/licenses/highway-Apache-2.0.txt"
-            "${KODOSI_GHOSTTY_ROOT}/ThirdPartyNotices/licenses/highway-BSD-3-Clause.txt"
-            "${KODOSI_GHOSTTY_ROOT}/ThirdPartyNotices/licenses/simdutf-MIT.txt"
-            "${KODOSI_GHOSTTY_ROOT}/ThirdPartyNotices/licenses/simdutf-PyTorch-BSD-3-Clause.txt"
-            "${KODOSI_GHOSTTY_ROOT}/ThirdPartyNotices/licenses/simdutf-Fuchsia-BSD-3-Clause.txt"
-            "${KODOSI_GHOSTTY_ROOT}/ThirdPartyNotices/licenses/uucode.txt"
-            "${KODOSI_GHOSTTY_ROOT}/ThirdPartyNotices/licenses/uucode-Bjoern-Hoehrmann.txt"
-            "${KODOSI_GHOSTTY_ROOT}/ThirdPartyNotices/licenses/unicode-data.txt"
-            "${KODOSI_GHOSTTY_ROOT}/ThirdPartyNotices/licenses/wuffs.txt"
-            "${KODOSI_GHOSTTY_ROOT}/ThirdPartyNotices/licenses/zig-compiler-runtime.txt"
-            "${KODOSI_GHOSTTY_ROOT}/ThirdPartyNotices/licenses/compiler-rt-LLVM-derived.txt"
-            "${KODOSI_GHOSTTY_ROOT}/ThirdPartyNotices/licenses/zig-runtime-Apache-2.0-LLVM-exception.txt"
-            "${KODOSI_GHOSTTY_ROOT}/ThirdPartyNotices/licenses/compiler-rt-musl-derived.txt"
-            "${KODOSI_GHOSTTY_ROOT}/ThirdPartyNotices/licenses/zig-runtime-MIT-derived.txt"
-        DESTINATION share/doc/kodosi/ghostty/ThirdPartyNotices/licenses
-    )
     install(
         PROGRAMS
             "${PROJECT_SOURCE_DIR}/packaging/linux/kodosi"

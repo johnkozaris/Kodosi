@@ -16,6 +16,7 @@ set(KODOSI_QT_VERSION 6.12.0)
 set(KODOSI_RUNTIME_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 set(KODOSI_GHOSTTY_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../terminal/ghostty")
 include(cmake/${CMAKE_SYSTEM_NAME}.cmake)
+include(cmake/Evidence.cmake)
 
 find_package(
     Qt6 ${KODOSI_QT_VERSION}

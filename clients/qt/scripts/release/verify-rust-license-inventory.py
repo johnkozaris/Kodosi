@@ -56,7 +56,7 @@ def load_override_manifest(tree: Path, row: object) -> tuple[dict, Path]:
     return value, path
 
 
-def validate(tree: Path) -> dict:
+def validate(tree: Path, target: str) -> dict:
     tree = tree.resolve(strict=True)
     inventory_path = tree / "rust-dependency-licenses.json"
     payload = inventory_path.read_bytes()
@@ -77,7 +77,7 @@ def validate(tree: Path) -> dict:
             "dependencies",
         }
         or value["schemaVersion"] != 2
-        or value["target"] != "x86_64-unknown-linux-gnu"
+        or value["target"] != target
         or value["roots"] != ["kodosi-ffi-c", "kodosi-runtime"]
         or not isinstance(value["dependencies"], list)
         or not value["dependencies"]
@@ -214,11 +214,12 @@ def validate(tree: Path) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--tree", required=True, type=Path)
+    parser.add_argument("--target", required=True)
     parser.add_argument("--expected-tree", type=Path)
     arguments = parser.parse_args()
-    actual = validate(arguments.tree)
+    actual = validate(arguments.tree, arguments.target)
     if arguments.expected_tree is not None:
-        expected = validate(arguments.expected_tree)
+        expected = validate(arguments.expected_tree, arguments.target)
         if actual != expected:
             fail("packaged inventory differs from generated inventory")
         for expected_file in arguments.expected_tree.resolve().rglob("*"):

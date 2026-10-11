@@ -24,14 +24,17 @@ test: build
 release-integrity-test:
     python3 -m unittest tests/tooling/test_release_integrity.py
     python3 -m unittest tests/tooling/test_reproducible_archives.py
+    python3 -m unittest tests/tooling/test_windows_package.py
 
 rust-license-test:
     rm -rf build/rust-license-test
     python3 scripts/release/generate-rust-license-inventory.py \
         --manifest ../../runtime/Cargo.toml \
+        --target x86_64-unknown-linux-gnu \
         --output-dir build/rust-license-test
     python3 scripts/release/verify-rust-license-inventory.py \
-        --tree build/rust-license-test
+        --tree build/rust-license-test \
+        --target x86_64-unknown-linux-gnu
 
 native-license-test: bootstrap
     python3 scripts/release/verify-native-license-evidence.py
@@ -41,12 +44,35 @@ check: release-integrity-test rust-license-test native-license-test lint test
 
 # Windows 11 x64 or ARM64, from Git Bash with Visual Studio's C++ and Clang tools.
 windows-check: bootstrap
-    source scripts/build/windows-env.sh && kodosi_msvc_env && \
-        architecture=$(kodosi_windows_arch) && \
-        export KODOSI_QT_ARCH="msvc2022_${architecture/x64/64}" && \
+    source scripts/build/windows-env.sh && kodosi_windows_env && \
         "{{ tools_dir }}/cmake-4.4.3/bin/cmake.exe" --preset windows-dev && \
         "{{ tools_dir }}/cmake-4.4.3/bin/cmake.exe" --build --preset windows-dev && \
         "{{ tools_dir }}/cmake-4.4.3/bin/ctest.exe" --preset windows-dev
+
+# A release sets KODOSI_MSIX_PUBLISHER to the signing certificate's subject;
+# the default publisher makes an unsigned development package.
+# Builds, tests, packs and verifies build/release/kodosi-0.1.0-windows-<arch>.msix.
+windows-package: bootstrap
+    source scripts/build/windows-env.sh && kodosi_windows_env && \
+        export SOURCE_DATE_EPOCH="$(python3 scripts/release/source-date-epoch.py --source-root .)" && \
+        "{{ tools_dir }}/cmake-4.4.3/bin/cmake.exe" --preset windows-release \
+            ${KODOSI_MSIX_PUBLISHER:+"-DKODOSI_MSIX_PUBLISHER=$KODOSI_MSIX_PUBLISHER"} && \
+        "{{ tools_dir }}/cmake-4.4.3/bin/cmake.exe" --build --preset windows-release && \
+        "{{ tools_dir }}/cmake-4.4.3/bin/ctest.exe" --preset windows-release && \
+        rm -rf build/windows-release/layout && \
+        "{{ tools_dir }}/cmake-4.4.3/bin/cmake.exe" --install build/windows-release --prefix build/windows-release/layout && \
+        mkdir -p build/release && \
+        package="build/release/kodosi-0.1.0-windows-$KODOSI_WINDOWS_ARCH.msix" && \
+        ./scripts/release/package-msix.sh build/windows-release/layout "$package" && \
+        python3 scripts/release/verify-windows-package.py "$package" \
+            --target "$KODOSI_RUST_TARGET" \
+            --build-dir build/windows-release \
+            --qt-root ".tools/Qt/6.12.0/$KODOSI_QT_ARCH"
+
+# Signs a package from windows-package with Azure Artifact Signing.
+windows-sign package:
+    source scripts/build/windows-env.sh && kodosi_windows_env && \
+        ./scripts/release/sign-msix.sh "{{ package }}"
 
 package: bootstrap
     mkdir -p build/release

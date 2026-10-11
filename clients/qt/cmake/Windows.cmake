@@ -1,5 +1,6 @@
-# Windows: clang-cl against Qt's MSVC build. The app, its Qt runtime, ConPTY
-# and the CLI sit side by side, as the MSIX package lays them out.
+# Windows: clang-cl against Qt's MSVC build. The install tree is the MSIX
+# package layout: the app, the CLI, ConPTY, the C runtime and the Qt runtime
+# side by side, with the package manifest, its assets and the notices.
 
 if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"))
     message(FATAL_ERROR "Build the Windows client with clang-cl")
@@ -8,11 +9,11 @@ endif()
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|aarch64)$")
     set(KODOSI_RUST_TARGET "aarch64-pc-windows-msvc")
     set(KODOSI_GHOSTTY_LAYOUT "windows-arm64")
-    set(KODOSI_CONPTY_ARCH "arm64")
+    set(KODOSI_WINDOWS_ARCH "arm64")
 else()
     set(KODOSI_RUST_TARGET "x86_64-pc-windows-msvc")
     set(KODOSI_GHOSTTY_LAYOUT "windows-x86_64")
-    set(KODOSI_CONPTY_ARCH "x64")
+    set(KODOSI_WINDOWS_ARCH "x64")
 endif()
 
 set(QT_DEPLOY_BIN_DIR "." CACHE STRING "" FORCE)
@@ -34,17 +35,21 @@ set(KODOSI_TEST_LAUNCHER "")
 set(KODOSI_TEST_ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 # Tests run from the build tree, so they find Qt's DLLs where Qt keeps them.
 set(KODOSI_TEST_ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
+set(KODOSI_QT_SBOM_MODULES qtbase qtdeclarative qtsvg)
 set(KODOSI_CONPTY_DIR "${PROJECT_BINARY_DIR}/conpty")
+# Windows installs an unsigned package only when its publisher carries this
+# OID; release builds set the signing certificate's subject instead.
+set(KODOSI_MSIX_PUBLISHER "CN=Kodosi Development, OID.2.25.311729368913984317654407730594956997722=1"
+    CACHE STRING "MSIX publisher, equal to the signing certificate subject")
 
 # Places ConPTY beside the app so it runs from the build tree, and installs
-# the app with its Qt runtime and the CLI. Called from the directory that
-# defines the app target.
+# the package layout. Called from the directory that defines the app target.
 function(kodosi_install app)
     set_target_properties(${app} PROPERTIES WIN32_EXECUTABLE ON)
     execute_process(
         COMMAND
             "${Python3_EXECUTABLE}" "${KODOSI_RUNTIME_ROOT}/terminal/conpty/fetch.py"
-            --arch "${KODOSI_CONPTY_ARCH}"
+            --arch "${KODOSI_WINDOWS_ARCH}"
             --output "${KODOSI_CONPTY_DIR}"
         COMMAND_ERROR_IS_FATAL ANY
     )
@@ -55,12 +60,39 @@ function(kodosi_install app)
     )
     install(TARGETS ${app} RUNTIME DESTINATION .)
     install(FILES ${conpty} DESTINATION .)
+    install(
+        FILES "${KODOSI_RUNTIME_ROOT}/terminal/conpty/LICENSE" "${KODOSI_RUNTIME_ROOT}/terminal/conpty/ConPTY.lock"
+        DESTINATION doc/conpty
+    )
+
+    # The C runtime from the toolset that built the app, rather than an older
+    # system or framework copy.
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION .)
+    include(InstallRequiredSystemLibraries)
+
+    # Windows 11 provides the Direct3D compilers; Qt Quick renders with D3D11.
     qt_generate_deploy_qml_app_script(
         TARGET ${app}
         OUTPUT_SCRIPT deploy_script
         NO_TRANSLATIONS
+        NO_COMPILER_RUNTIME
+        DEPLOY_TOOL_OPTIONS --no-opengl-sw --no-system-d3d-compiler --no-system-dxc-compiler
     )
     install(SCRIPT "${deploy_script}")
+
+    set(KODOSI_MSIX_VERSION "${PROJECT_VERSION}.0")
+    string(REPLACE "&" "&amp;" KODOSI_MSIX_PUBLISHER_XML "${KODOSI_MSIX_PUBLISHER}")
+    string(REPLACE "\"" "&quot;" KODOSI_MSIX_PUBLISHER_XML "${KODOSI_MSIX_PUBLISHER_XML}")
+    string(REPLACE "<" "&lt;" KODOSI_MSIX_PUBLISHER_XML "${KODOSI_MSIX_PUBLISHER_XML}")
+    configure_file(
+        "${PROJECT_SOURCE_DIR}/packaging/windows/AppxManifest.xml.in"
+        "${PROJECT_BINARY_DIR}/AppxManifest.xml"
+        @ONLY
+    )
+    install(FILES "${PROJECT_BINARY_DIR}/AppxManifest.xml" DESTINATION .)
+    install(DIRECTORY "${PROJECT_SOURCE_DIR}/packaging/windows/Assets" DESTINATION .)
+
+    kodosi_install_evidence(doc)
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
         install(PROGRAMS "${KODOSI_RUNTIME_CLI}" DESTINATION .)
     endif()

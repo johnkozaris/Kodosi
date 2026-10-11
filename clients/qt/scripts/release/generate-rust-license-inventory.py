@@ -93,6 +93,7 @@ def load_overrides(path: Path) -> tuple[dict[tuple[str, str, str], dict], bytes]
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest", required=True, type=Path)
+    parser.add_argument("--target", required=True)
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument(
         "--overrides",
@@ -113,7 +114,7 @@ def main() -> None:
             "--format-version",
             "1",
             "--filter-platform",
-            "x86_64-unknown-linux-gnu",
+            arguments.target,
             "--manifest-path",
             str(arguments.manifest),
         ],
@@ -249,7 +250,7 @@ def main() -> None:
         fail(f"override manifest contains unused identities: {unused}")
     document = {
         "schemaVersion": 2,
-        "target": "x86_64-unknown-linux-gnu",
+        "target": arguments.target,
         "roots": ["kodosi-ffi-c", "kodosi-runtime"],
         "overrideManifest": {
             "path": "rust-license-overrides.json",

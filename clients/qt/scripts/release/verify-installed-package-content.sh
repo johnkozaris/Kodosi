@@ -37,6 +37,7 @@ cmp ../../terminal/ghostty/LinuxGhostty.ref \
     "$root/usr/share/doc/kodosi/ghostty/LinuxGhostty.ref"
 python3 scripts/release/verify-rust-license-inventory.py \
     --tree "$root/usr/share/doc/kodosi/rust" \
+    --target x86_64-unknown-linux-gnu \
     --expected-tree build/release/generated/rust-dependency-licenses
 python3 scripts/release/verify-native-license-evidence.py \
     --installed-root "$root"
