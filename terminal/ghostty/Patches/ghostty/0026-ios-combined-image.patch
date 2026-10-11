@@ -1,0 +1,45 @@
+diff --git a/pkg/macos/build.zig b/pkg/macos/build.zig
+index f6b6f2e52..97b68d6b5 100644
+--- a/pkg/macos/build.zig
++++ b/pkg/macos/build.zig
+@@ -74,6 +74,7 @@ pub fn build(b: *std.Build) !void {
+         ) } },
+         .target = target,
+         .optimize = optimize,
++        .extra_args = if (target.result.os.tag == .ios) &.{"-fblocks"} else &.{},
+     });
+ 
+     const lib = b.addLibrary(.{
+diff --git a/src/build/Config.zig b/src/build/Config.zig
+index f7fec609d..6bf449099 100644
+--- a/src/build/Config.zig
++++ b/src/build/Config.zig
+@@ -139,7 +139,7 @@ pub fn init(b: *std.Build, appVersion: []const u8, libVersion: []const u8) !Conf
+ 
+         // The full Ghostty build no longer supports iOS; Fail early
+         // with a clear message rather than partway through the build.
+-        if (result.result.os.tag == .ios and !emit_lib_vt) {
++        if (result.result.os.tag == .ios and !emit_lib_vt and !emit_combined_lib) {
+             std.log.err(
+                 "iOS is not a supported target for the full Ghostty build; " ++
+                     "only libghostty-vt supports iOS (-Demit-lib-vt)",
+diff --git a/src/build/MetallibStep.zig b/src/build/MetallibStep.zig
+index 752cbbd53..309ba891e 100644
+--- a/src/build/MetallibStep.zig
++++ b/src/build/MetallibStep.zig
+@@ -24,10 +24,15 @@ output: LazyPath,
+ pub fn create(b: *std.Build, opts: Options) ?*MetallibStep {
+     const sdk = switch (opts.target.result.os.tag) {
+         .macos => "macosx",
++        .ios => "iphoneos",
+         else => return null,
+     };
+     const platform_version_arg = switch (opts.target.result.os.tag) {
+         .macos => "-mmacos-version-min",
++        .ios => switch (opts.target.result.abi) {
++            .simulator => "-mios-simulator-version-min",
++            else => "-mios-version-min",
++        },
+         else => null,
+     };
+ 

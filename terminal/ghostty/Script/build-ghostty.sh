@@ -6,11 +6,11 @@ cd "$(dirname "$0")/.."
 
 ROOT_DIR=$(pwd)
 SOURCE_DIR=${1:-}
-ZIG_TARGET=${2:-}
+SLICE=${2:-}
 OUTPUT_DIR=${3:-}
 
-if [ -z "$SOURCE_DIR" ] || [ -z "$ZIG_TARGET" ] || [ -z "$OUTPUT_DIR" ]; then
-    echo "Usage: $0 <source_dir> <zig_target> <output_dir>"
+if [ -z "$SOURCE_DIR" ] || [ -z "$SLICE" ] || [ -z "$OUTPUT_DIR" ]; then
+    echo "Usage: $0 <source_dir> <slice> <output_dir>"
     exit 1
 fi
 
@@ -21,10 +21,7 @@ fi
 
 # shellcheck disable=SC1091
 source NativeBuild.env
-if [ "$ZIG_TARGET" != "$GHOSTTY_BUILD_TARGET" ]; then
-    echo "[!] unsupported Ghostty target: $ZIG_TARGET"
-    exit 1
-fi
+ZIG_TARGET=$("$ROOT_DIR/Script/native-build-options.sh" target "$SLICE")
 
 if ! command -v zig >/dev/null 2>&1; then
     echo "[!] zig not found"
@@ -49,7 +46,7 @@ mkdir -p \
 COMMAND=(zig build)
 while IFS= read -r option; do
     COMMAND+=("$option")
-done < <("$ROOT_DIR/Script/native-build-options.sh" arguments)
+done < <("$ROOT_DIR/Script/native-build-options.sh" arguments "$SLICE")
 COMMAND+=(
     --system "$SOURCE_DIR/zig-pkg"
     --prefix "$PREFIX"
@@ -57,6 +54,7 @@ COMMAND+=(
 LIBRARY="$PREFIX/lib/libghostty.a"
 
 echo "[*] building combined Ghostty renderer and VT static library"
+echo "    slice: $SLICE"
 echo "    target: $ZIG_TARGET"
 echo "    cpu: $GHOSTTY_BUILD_CPU"
 echo "    source: $SOURCE_DIR"

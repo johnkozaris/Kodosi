@@ -24,6 +24,12 @@ Z2D_ARCHIVE = (
 )
 Z2D_ARCHIVE_SHA256 = "e55c9d0b156edaddfea32fb1c0e3597e1b6306b9a4ec1888e2f8008c598bced8"
 ALLOW_WORKING_TREE_COMPLIANCE = os.environ.get("KODOSI_WORKING_TREE_VALIDATION") == "1"
+APPLE_SLICES = {
+    "macos-arm64": ("macos", None, "aarch64-macos"),
+    "ios-arm64": ("ios", None, "aarch64-ios.26.0"),
+    "ios-arm64-simulator": ("ios", "simulator", "aarch64-ios.26.0-simulator"),
+}
+IOS_SLICES = ("ios-arm64", "ios-arm64-simulator")
 
 
 def fail(message: str) -> None:
@@ -44,7 +50,7 @@ def load_manifest() -> dict:
         manifest = json.loads(MANIFEST_PATH.read_text())
     except (OSError, json.JSONDecodeError) as error:
         fail(f"cannot read {MANIFEST_PATH.relative_to(ROOT)}: {error}")
-    if manifest.get("schemaVersion") != 1:
+    if manifest.get("schemaVersion") != 2:
         fail("unsupported inventory schema")
     return manifest
 
@@ -86,7 +92,7 @@ def verify_compliance_artifacts(manifest: dict) -> None:
         "Script/relink-libintl.sh",
     }
     if not isinstance(artifacts, dict) or set(artifacts) != required:
-        fail("compliance artifact set differs from the exact v1 contract")
+        fail("compliance artifact set differs from the exact contract")
     for relative, record in artifacts.items():
         if set(record) != {"sha256"}:
             fail(f"invalid compliance artifact record: {relative}")
@@ -135,7 +141,7 @@ def verify_compliance_artifacts(manifest: dict) -> None:
 def verify_z2d_source_acquisition(manifest: dict) -> None:
     acquisitions = manifest.get("sourceAcquisitions")
     if not isinstance(acquisitions, dict) or set(acquisitions) != {"z2d"}:
-        fail("source acquisition set differs from the exact v1 contract")
+        fail("source acquisition set differs from the exact contract")
     record = acquisitions["z2d"]
     required_keys = {
         "version",
@@ -297,16 +303,20 @@ def verify_components(manifest: dict) -> set[str]:
     return ids
 
 
-def load_artifact_metadata() -> dict[str, str]:
+def load_artifact_metadata(relative: str = "Vendor/libghostty.version") -> dict[str, str]:
     metadata: dict[str, str] = {}
-    for line in safe_file("Vendor/libghostty.version").read_text().splitlines():
+    for line in safe_file(relative).read_text().splitlines():
         if not line or "=" not in line:
-            fail("malformed Vendor/libghostty.version")
+            fail(f"malformed {relative}")
         key, value = line.split("=", 1)
         if key in metadata:
-            fail(f"duplicate provenance key: {key}")
+            fail(f"duplicate provenance key in {relative}: {key}")
         metadata[key] = value
     return metadata
+
+
+def slice_archive(slice_name: str) -> str:
+    return f"Vendor/GhosttyKit.xcframework/{slice_name}/libghostty.a"
 
 
 def verify_archive(manifest: dict, component_ids: set[str]) -> Path:
@@ -329,8 +339,11 @@ def verify_archive(manifest: dict, component_ids: set[str]) -> Path:
         for path in (ROOT / "Vendor").rglob("*.a")
         if "linux-x86_64" not in path.parts
     )
-    if {path.resolve() for path in all_vendored_archives} != {path.resolve() for path in archives}:
-        fail("vendored static archive set differs from the declared combined-image pair")
+    declared_archives = {path.resolve() for path in archives} | {
+        safe_file(slice_archive(slice_name)).resolve() for slice_name in IOS_SLICES
+    }
+    if {path.resolve() for path in all_vendored_archives} != declared_archives:
+        fail("vendored static archive set differs from the declared Apple slice images")
     archs = run("lipo", "-archs", str(archives[0])).split()
     if archs != ["arm64"]:
         fail(f"combined archive architectures differ: {archs}")
@@ -371,22 +384,27 @@ def verify_archive(manifest: dict, component_ids: set[str]) -> Path:
     return archives[0]
 
 
-def verify_evidence(manifest: dict, archive: Path) -> None:
+def verify_evidence(
+    manifest: dict,
+    archive: Path,
+    absent: frozenset[str] = frozenset(),
+    label: str = "macos-arm64",
+) -> None:
     symbols = run("nm", "-pa", str(archive))
     printable_strings = run("strings", str(archive))
     members = set(run("ar", "-t", str(archive)).splitlines())
     covered: set[str] = set()
     component_ids = {
         component["id"] for component in manifest["components"] if component["scope"] == "archive"
-    }
+    } - absent
     for record in manifest["archiveMembers"]:
         if record["name"] not in {"__.SYMDEF SORTED", "libghostty_zcu.o"}:
-            covered.update(record["owners"])
+            covered.update(set(record["owners"]) - absent)
     for evidence in manifest.get("archiveEvidence", []):
         if set(evidence) != {"component", "kind", "pattern"}:
             fail("invalid archive evidence record")
         component = evidence["component"]
-        if component not in component_ids:
+        if component not in component_ids | absent:
             fail(f"evidence references unknown component: {component}")
         kind, pattern = evidence["kind"], evidence["pattern"]
         if kind == "member":
@@ -397,11 +415,15 @@ def verify_evidence(manifest: dict, archive: Path) -> None:
             found = pattern in printable_strings
         else:
             fail(f"unknown archive evidence kind: {kind}")
+        if component in absent:
+            if found:
+                fail(f"{label} archive contains {component}, which its notices declare absent: {kind} {pattern}")
+            continue
         if not found:
-            fail(f"archive evidence missing for {component}: {kind} {pattern}")
+            fail(f"{label} archive evidence missing for {component}: {kind} {pattern}")
         covered.add(component)
     if covered != component_ids:
-        fail(f"components lack deterministic archive evidence: {sorted(component_ids - covered)}")
+        fail(f"{label} components lack deterministic archive evidence: {sorted(component_ids - covered)}")
 
     libintl_members = [
         record["name"]
@@ -409,9 +431,43 @@ def verify_evidence(manifest: dict, archive: Path) -> None:
         if "gettext-libintl" in record.get("owners", [])
     ]
     if len(libintl_members) != 30 or len(libintl_members) != len(set(libintl_members)):
-        fail(f"expected 30 unique libintl archive members, found {len(libintl_members)}")
+        fail(f"expected 30 unique libintl archive members in {label}, found {len(libintl_members)}")
     if "_libintl_version" not in symbols:
-        fail("libintl version symbol is missing from the archive")
+        fail(f"libintl version symbol is missing from the {label} archive")
+
+
+def verify_apple_slices(manifest: dict) -> None:
+    slices = manifest.get("appleSlices")
+    if not isinstance(slices, dict) or set(slices) != set(IOS_SLICES):
+        fail("Apple slice inventory differs from the iOS and iOS Simulator contract")
+    archive_component_ids = {
+        component["id"] for component in manifest["components"] if component["scope"] == "archive"
+    }
+    expected_members = [record["name"] for record in manifest["archiveMembers"]]
+    for slice_name in IOS_SLICES:
+        record = slices[slice_name]
+        if not isinstance(record, dict) or set(record) != {"archive", "absentComponents"}:
+            fail(f"invalid Apple slice record: {slice_name}")
+        if record["archive"] != slice_archive(slice_name):
+            fail(f"{slice_name} archive path changed")
+        absent = record["absentComponents"]
+        if (
+            not isinstance(absent, list)
+            or absent != sorted(set(absent))
+            or not set(absent) <= archive_component_ids
+            or "ghostty" in absent
+            or "gettext-libintl" in absent
+        ):
+            fail(f"{slice_name} absent component list is invalid")
+        archive = safe_file(record["archive"])
+        metadata = load_artifact_metadata(f"Vendor/libghostty-{slice_name}.version")
+        if hashlib.sha256(archive.read_bytes()).hexdigest() != metadata.get("combined_archive_sha256"):
+            fail(f"{slice_name} archive hash differs from sealed artifact provenance")
+        if run("lipo", "-archs", str(archive)).split() != ["arm64"]:
+            fail(f"{slice_name} archive architectures differ")
+        if run("ar", "-t", str(archive)).splitlines() != expected_members:
+            fail(f"{slice_name} archive member inventory differs from the declared members")
+        verify_evidence(manifest, archive, frozenset(absent), slice_name)
 
 
 def verify_pins(manifest: dict) -> None:
@@ -444,13 +500,33 @@ def verify_pins(manifest: dict) -> None:
     native_options = safe_file("NativeBuild.env").read_text()
     for required in (
         "GHOSTTY_BUILD_TARGET=aarch64-macos",
+        "GHOSTTY_BUILD_IOS_TARGET=aarch64-ios.26.0",
+        "GHOSTTY_BUILD_IOS_SIMULATOR_TARGET=aarch64-ios.26.0-simulator",
         "GHOSTTY_BUILD_CPU=baseline",
         "GHOSTTY_BUILD_OPTIMIZE=ReleaseFast",
         "GHOSTTY_BUILD_EMIT_COMBINED_LIB=true",
         "GHOSTTY_BUILD_APP_RUNTIME=none",
     ):
-        if required not in native_options:
+        if required not in native_options.splitlines():
             fail(f"native build policy is missing: {required}")
+    for slice_name in IOS_SLICES:
+        slice_metadata = load_artifact_metadata(f"Vendor/libghostty-{slice_name}.version")
+        target = APPLE_SLICES[slice_name][2]
+        if (
+            slice_metadata.get("ghostty_commit") != manifest["ghosttyCommit"]
+            or slice_metadata.get("patches_sha256") != metadata.get("patches_sha256")
+            or slice_metadata.get("patch_application_sha256") != metadata.get("patch_application_sha256")
+            or slice_metadata.get("zig_store_sha256") != manifest.get("zigStoreSha256")
+            or slice_metadata.get("zig_target") != "aarch64-macos"
+            or slice_metadata.get("library_identifier") != slice_name
+            or slice_metadata.get("renderer_target") != target
+            or slice_metadata.get("vt_target") != target
+            or slice_metadata.get("renderer_cpu") != "baseline"
+            or slice_metadata.get("vt_cpu") != "baseline"
+            or slice_metadata.get("renderer_optimize") != "ReleaseFast"
+            or slice_metadata.get("vt_optimize") != "ReleaseFast"
+        ):
+            fail(f"{slice_name} artifact source, target, CPU, or optimization differs from the release contract")
 
     info = run(
         "plutil",
@@ -461,8 +537,20 @@ def verify_pins(manifest: dict) -> None:
         "Vendor/GhosttyKit.xcframework/Info.plist",
     )
     available = json.loads(info).get("AvailableLibraries", [])
-    if len(available) != 1 or available[0].get("SupportedArchitectures") != ["arm64"] or available[0].get("SupportedPlatform") != "macos":
-        fail("XCFramework slice contract differs from one macOS arm64 image")
+    slices = {
+        library.get("LibraryIdentifier"): (
+            library.get("SupportedPlatform"),
+            library.get("SupportedPlatformVariant"),
+            library.get("SupportedArchitectures"),
+        )
+        for library in available
+    }
+    expected_slices = {
+        name: (platform, variant, ["arm64"])
+        for name, (platform, variant, _) in APPLE_SLICES.items()
+    }
+    if len(available) != len(expected_slices) or slices != expected_slices:
+        fail("XCFramework slice contract differs from the macOS, iOS, and iOS Simulator arm64 images")
 
     package_manifest = safe_file("Package.swift").read_text()
     if re.search(r"\.package\s*\(", package_manifest):
@@ -486,6 +574,7 @@ def main() -> None:
     component_ids = verify_components(manifest)
     archive = verify_archive(manifest, component_ids)
     verify_evidence(manifest, archive)
+    verify_apple_slices(manifest)
     verify_pins(manifest)
     print(f"[*] verified notices for {len(component_ids)} bundled third-party/component identities")
 

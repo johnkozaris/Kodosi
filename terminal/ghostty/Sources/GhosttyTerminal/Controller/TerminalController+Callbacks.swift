@@ -1,6 +1,5 @@
 import Foundation
 import GhosttyKit
-import AppKit
 
 func terminalClipboardRequestAllowed(
     request: ghostty_clipboard_request_e
@@ -148,9 +147,7 @@ private enum TerminalCallbacks {
         )
         let string = String(decoding: bytes, as: UTF8.self)
 
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(string, forType: .string)
+        TerminalPasteboardContent.write(string)
     }
 
     static func readClipboard(

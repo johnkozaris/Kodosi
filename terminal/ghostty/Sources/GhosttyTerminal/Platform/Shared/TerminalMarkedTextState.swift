@@ -38,6 +38,31 @@ struct TerminalMarkedTextState {
         selectedRange = NSRange(location: 0, length: 0)
     }
 
+    mutating func deleteBackward() -> Bool {
+        guard let text, !text.isEmpty else { return false }
+
+        let mutableText = NSMutableString(string: text)
+        if selectedRange.length > 0 {
+            mutableText.deleteCharacters(in: selectedRange)
+            selectedRange = NSRange(location: selectedRange.location, length: 0)
+        } else if selectedRange.location > 0 {
+            let deletionRange = mutableText.rangeOfComposedCharacterSequence(
+                at: selectedRange.location - 1
+            )
+            mutableText.deleteCharacters(in: deletionRange)
+            selectedRange = NSRange(location: deletionRange.location, length: 0)
+        } else {
+            return true
+        }
+
+        let updatedText = mutableText as String
+        self.text = updatedText.isEmpty ? nil : updatedText
+        if self.text == nil {
+            selectedRange = NSRange(location: 0, length: 0)
+        }
+        return true
+    }
+
     func text(in range: NSRange) -> String? {
         guard let text else {
             return range.length == 0 ? "" : nil

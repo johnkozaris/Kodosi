@@ -1,5 +1,9 @@
-import AppKit
 import Foundation
+#if os(macOS)
+import AppKit
+#elseif os(iOS)
+import UIKit
+#endif
 
 enum TerminalPasteboardContent {
     static func text(string: String?, urls: [URL]) -> String? {
@@ -16,10 +20,25 @@ enum TerminalPasteboardContent {
         return string
     }
 
+    #if os(macOS)
     static func text(from pasteboard: NSPasteboard = .general) -> String? {
         text(
             string: pasteboard.string(forType: .string),
             urls: (pasteboard.readObjects(forClasses: [NSURL.self]) as? [URL]) ?? []
         )
     }
+
+    static func write(_ string: String, to pasteboard: NSPasteboard = .general) {
+        pasteboard.clearContents()
+        pasteboard.setString(string, forType: .string)
+    }
+    #elseif os(iOS)
+    static func text(from pasteboard: UIPasteboard = .general) -> String? {
+        text(string: pasteboard.string, urls: pasteboard.urls ?? [])
+    }
+
+    static func write(_ string: String, to pasteboard: UIPasteboard = .general) {
+        pasteboard.string = string
+    }
+    #endif
 }

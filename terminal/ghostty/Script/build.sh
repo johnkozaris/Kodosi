@@ -14,10 +14,11 @@ Options:
   --skip-tests          Skip package verification after native artifacts build.
   -h, --help            Show this help.
 
-The macOS build produces one arm64 native image containing renderer and VT APIs.
-The Linux build produces an x86_64 VT library for the Rust authority and Qt
-renderer. Bootstrap may fetch pinned source/tool dependencies; native builds
-then run against the prepared local Zig package store with network disabled.
+The macOS build produces one arm64 native image containing renderer and VT APIs
+for each Apple slice: macOS, iOS, and iOS Simulator. The Linux build produces an
+x86_64 VT library for the Rust authority and Qt renderer. Bootstrap may fetch
+pinned source/tool dependencies; native builds then run against the prepared
+local Zig package store with network disabled.
 EOF
 }
 
@@ -171,7 +172,14 @@ if [ "$PLATFORM_GROUP" = linux ]; then
 fi
 
 STAGED_DIR="$ROOT_DIR/build/artifacts"
-"$ROOT_DIR/Script/build-ghostty.sh" "$SOURCE_DIR" aarch64-macos "$STAGED_DIR/macos-arm64"
+rm -rf "$STAGED_DIR"
+APPLE_SLICES=()
+while IFS= read -r slice; do
+    APPLE_SLICES+=("$slice")
+done < <("$ROOT_DIR/Script/native-build-options.sh" slices)
+for slice in "${APPLE_SLICES[@]}"; do
+    "$ROOT_DIR/Script/build-ghostty.sh" "$SOURCE_DIR" "$slice" "$STAGED_DIR/$slice"
+done
 
 VENDOR_STAGE=$(mktemp -d "$ROOT_DIR/build/vendor-stage.XXXXXX")
 cleanup_vendor_stage() {
@@ -206,7 +214,7 @@ source Toolchain.env
 source NativeBuild.env
 RENDERER_DIGEST=$("$ROOT_DIR/Script/artifact-digest.sh" "$VENDOR_STAGE/GhosttyKit.xcframework")
 VT_DIGEST=$("$ROOT_DIR/Script/artifact-digest.sh" "$VENDOR_STAGE/GhosttyVt/macos-arm64")
-COMBINED_ARCHIVE=$(find "$VENDOR_STAGE/GhosttyKit.xcframework" -name libghostty.a -type f -print -quit)
+COMBINED_ARCHIVE="$VENDOR_STAGE/GhosttyKit.xcframework/macos-arm64/libghostty.a"
 COMBINED_ARCHIVE_DIGEST=$(shasum -a 256 "$COMBINED_ARCHIVE" | awk '{print $1}')
 PATCHES_DIGEST=$("$ROOT_DIR/Script/artifact-digest.sh" Patches/ghostty)
 SYMBOLS_DIGEST=$("$ROOT_DIR/Script/artifact-digest.sh" "$VENDOR_STAGE/symbols")
@@ -234,6 +242,39 @@ vt_optimize=$GHOSTTY_BUILD_OPTIMIZE
 vt_artifact_sha256=$VT_DIGEST
 symbol_manifest_sha256=$SYMBOLS_DIGEST
 EOF
+
+for slice in "${APPLE_SLICES[@]}"; do
+    [ "$slice" != macos-arm64 ] || continue
+    SLICE_DIR="$VENDOR_STAGE/GhosttyKit.xcframework/$slice"
+    SLICE_TARGET=$("$ROOT_DIR/Script/native-build-options.sh" target "$slice")
+    SLICE_ARCHIVE_DIGEST=$(shasum -a 256 "$SLICE_DIR/libghostty.a" | awk '{print $1}')
+    SLICE_ARTIFACT_DIGEST=$("$ROOT_DIR/Script/artifact-digest.sh" "$SLICE_DIR")
+    SLICE_SYMBOLS_DIGEST=$(shasum -a 256 "$VENDOR_STAGE/symbols/$slice-strong.txt" | awk '{print $1}')
+    SLICE_BUILD_OPTION_VECTOR=$("$ROOT_DIR/Script/native-build-options.sh" vector "$slice")
+    cat > "$VENDOR_STAGE/libghostty-$slice.version" <<EOF
+package_version=$(tr -d '[:space:]' < VERSION)
+ghostty_commit=$GHOSTTY_REF
+patches_sha256=$PATCHES_DIGEST
+patch_application_sha256=$PATCH_APPLICATION_DIGEST
+zig_version=$ZIG_VERSION
+zig_target=$ZIG_TARGET
+zig_sha256=$ZIG_SHA256
+zig_store_sha256=$ZIG_STORE_DIGEST
+metal_toolchain_build=$METAL_TOOLCHAIN_BUILD
+metal_toolchain_dmg_sha256=$METAL_TOOLCHAIN_DMG_SHA256
+combined_archive_sha256=$SLICE_ARCHIVE_DIGEST
+ghostty_build_options=$SLICE_BUILD_OPTION_VECTOR
+library_identifier=$slice
+renderer_target=$SLICE_TARGET
+renderer_cpu=$GHOSTTY_BUILD_CPU
+renderer_optimize=$GHOSTTY_BUILD_OPTIMIZE
+slice_artifact_sha256=$SLICE_ARTIFACT_DIGEST
+vt_target=$SLICE_TARGET
+vt_cpu=$GHOSTTY_BUILD_CPU
+vt_optimize=$GHOSTTY_BUILD_OPTIMIZE
+symbol_manifest_sha256=$SLICE_SYMBOLS_DIGEST
+EOF
+done
 
 if [ "$SKIP_TESTS" -eq 0 ]; then
     KODOSI_GHOSTTY_REQUIRE_BUILD_PROVENANCE=1 \
@@ -272,5 +313,5 @@ if [ -d "$ROOT_DIR/Vendor/GhosttyVt/linux-x86_64" ]; then
         "$ROOT_DIR/Script/verify-linux-vt-artifact.sh"
 fi
 
-echo "[*] renderer: Vendor/GhosttyKit.xcframework"
+echo "[*] renderer: Vendor/GhosttyKit.xcframework (${APPLE_SLICES[*]})"
 echo "[*] VT: Vendor/GhosttyVt/macos-arm64"

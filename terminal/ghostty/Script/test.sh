@@ -15,4 +15,14 @@ export SWIFTPM_MODULECACHE_OVERRIDE="${SWIFTPM_MODULECACHE_OVERRIDE:-/tmp/swiftp
 echo "[*] build target=GhosttyTerminal platform=macOS"
 swift build --target GhosttyTerminal --disable-automatic-resolution
 
+for destination in 'generic/platform=iOS Simulator' 'generic/platform=iOS'; do
+    echo "[*] build scheme=KodosiGhostty destination=$destination"
+    xcodebuild \
+        -quiet \
+        -scheme KodosiGhostty \
+        -destination "$destination" \
+        -derivedDataPath .build/xcode \
+        build
+done
+
 echo "[*] package build and provenance checks passed"

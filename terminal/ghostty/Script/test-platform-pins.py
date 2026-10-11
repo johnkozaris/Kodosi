@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 VERIFIER = ROOT / "Script" / "verify-platform-pins.py"
 MAC_REF = "a" * 40
 LINUX_REF = "b" * 40
+IOS_SLICES = ("ios-arm64", "ios-arm64-simulator")
 
 
 class PlatformPinTests(unittest.TestCase):
@@ -39,6 +40,15 @@ class PlatformPinTests(unittest.TestCase):
             "Vendor/GhosttyVt/linux-x86_64/lib/libghostty-vt.a",
             "linux archive\n",
         )
+        for slice_name in IOS_SLICES:
+            archive = f"Vendor/GhosttyKit.xcframework/{slice_name}/libghostty.a"
+            self.write(archive, f"{slice_name} archive\n")
+            self.write(
+                f"Vendor/libghostty-{slice_name}.version",
+                f"ghostty_commit={MAC_REF}\n"
+                f"library_identifier={slice_name}\n"
+                f"combined_archive_sha256={self.digest(archive)}\n",
+            )
         mac_digest = self.digest(
             "Vendor/GhosttyKit.xcframework/macos-arm64/libghostty.a"
         )
@@ -114,6 +124,8 @@ class PlatformPinTests(unittest.TestCase):
             "Vendor/GhosttyKit.xcframework/macos-arm64/libghostty.a",
             "Vendor/GhosttyVt/macos-arm64/lib/libghostty-vt.a",
             "Vendor/GhosttyVt/linux-x86_64/lib/libghostty-vt.a",
+            "Vendor/GhosttyKit.xcframework/ios-arm64/libghostty.a",
+            "Vendor/GhosttyKit.xcframework/ios-arm64-simulator/libghostty.a",
         ):
             with self.subTest(relative=relative):
                 path = self.fixture / relative
@@ -121,6 +133,46 @@ class PlatformPinTests(unittest.TestCase):
                 path.write_bytes(original + b"substitution\n")
                 self.verify(expect_success=False)
                 path.write_bytes(original)
+
+
+    def test_ios_slices_require_their_own_commit_and_identity(self) -> None:
+        for slice_name in IOS_SLICES:
+            relative = f"Vendor/libghostty-{slice_name}.version"
+            original = (self.fixture / relative).read_text(encoding="utf-8")
+            for replacement in (
+                original.replace(MAC_REF, LINUX_REF),
+                original.replace(
+                    f"library_identifier={slice_name}",
+                    "library_identifier=macos-arm64",
+                ),
+            ):
+                with self.subTest(slice=slice_name, metadata=replacement):
+                    self.write(relative, replacement)
+                    self.verify(expect_success=False)
+                    self.write(relative, original)
+
+    def test_swapped_ios_slice_archives_are_rejected(self) -> None:
+        device = self.fixture / "Vendor/GhosttyKit.xcframework/ios-arm64/libghostty.a"
+        simulator = self.fixture / "Vendor/GhosttyKit.xcframework/ios-arm64-simulator/libghostty.a"
+        device_bytes = device.read_bytes()
+        simulator_bytes = simulator.read_bytes()
+        device.write_bytes(simulator_bytes)
+        simulator.write_bytes(device_bytes)
+        self.verify(expect_success=False)
+
+    def test_ios_slice_cannot_reuse_the_macos_image(self) -> None:
+        mac_bytes = (
+            self.fixture / "Vendor/GhosttyKit.xcframework/macos-arm64/libghostty.a"
+        ).read_bytes()
+        archive = "Vendor/GhosttyKit.xcframework/ios-arm64/libghostty.a"
+        (self.fixture / archive).write_bytes(mac_bytes)
+        self.write(
+            "Vendor/libghostty-ios-arm64.version",
+            f"ghostty_commit={MAC_REF}\n"
+            "library_identifier=ios-arm64\n"
+            f"combined_archive_sha256={self.digest(archive)}\n",
+        )
+        self.verify(expect_success=False)
 
 
 if __name__ == "__main__":

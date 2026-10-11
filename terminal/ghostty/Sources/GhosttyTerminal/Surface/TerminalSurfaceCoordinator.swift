@@ -45,6 +45,7 @@ final class TerminalSurfaceCoordinator {
     var platformSetup: ((inout ghostty_surface_config_s) -> Void)?
     var onMetricsUpdate: (() -> Void)?
     var onCellSizeDidChange: (() -> Void)?
+    var onSurfaceFreed: (() -> Void)?
 
     var onPostRender: (() -> Void)?
 
@@ -349,6 +350,7 @@ final class TerminalSurfaceCoordinator {
         lastTickTimestamp = 0
         controller?.remove(bridge)
         if hadSurface {
+            onSurfaceFreed?()
             (delegate as? any TerminalSurfaceLifecycleDelegate)?
                 .terminalDidDetachSurface()
         }

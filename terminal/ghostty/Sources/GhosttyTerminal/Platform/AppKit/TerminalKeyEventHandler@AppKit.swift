@@ -1,3 +1,4 @@
+#if os(macOS)
 import AppKit
 import GhosttyKit
 
@@ -271,3 +272,4 @@ extension UnicodeScalar {
         value < 0x20
     }
 }
+#endif

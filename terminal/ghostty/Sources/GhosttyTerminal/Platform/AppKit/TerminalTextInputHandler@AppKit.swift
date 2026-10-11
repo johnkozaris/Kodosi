@@ -1,3 +1,4 @@
+#if os(macOS)
 import AppKit
     import GhosttyKit
 
@@ -111,3 +112,4 @@ import AppKit
             view?.surface?.preedit(text)
         }
     }
+#endif

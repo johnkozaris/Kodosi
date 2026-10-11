@@ -1,3 +1,4 @@
+#if os(macOS)
 import AppKit
 import GhosttyKit
 
@@ -141,3 +142,4 @@ open class AppTerminalView: NSView {
         NotificationCenter.default.removeObserver(self)
     }
 }
+#endif

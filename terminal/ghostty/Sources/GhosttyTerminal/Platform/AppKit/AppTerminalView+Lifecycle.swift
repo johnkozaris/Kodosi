@@ -1,3 +1,4 @@
+#if os(macOS)
 import AppKit
 
 extension AppTerminalView {
@@ -198,3 +199,4 @@ extension AppTerminalView {
         controller?.setColorScheme(scheme)
     }
 }
+#endif

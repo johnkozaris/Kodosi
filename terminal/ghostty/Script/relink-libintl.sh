@@ -3,13 +3,24 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-ARCHIVE="$ROOT/Vendor/GhosttyKit.xcframework/macos-arm64/libghostty.a"
 INVENTORY="$ROOT/ThirdPartyNotices/inventory.json"
 
 usage() {
-    echo "usage: $0 <replacement-libintl.a> <output-libghostty.a> [non-libintl.a]" >&2
+    echo "usage: $0 [--slice macos-arm64|ios-arm64|ios-arm64-simulator] <replacement-libintl.a> <output-libghostty.a> [non-libintl.a]" >&2
     exit 64
 }
+
+SLICE=macos-arm64
+if [ "${1:-}" = --slice ]; then
+    [ "$#" -ge 2 ] || usage
+    SLICE=$2
+    shift 2
+fi
+case "$SLICE" in
+    macos-arm64 | ios-arm64 | ios-arm64-simulator) ;;
+    *) usage ;;
+esac
+ARCHIVE="$ROOT/Vendor/GhosttyKit.xcframework/$SLICE/libghostty.a"
 
 [ "$#" -ge 2 ] && [ "$#" -le 3 ] || usage
 REPLACEMENT="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
