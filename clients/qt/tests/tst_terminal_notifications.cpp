@@ -103,7 +103,7 @@ void TerminalNotificationsTest::postsAndActivatesCurrentSession()
     QVERIFY(notification.key.startsWith(QStringLiteral("terminal:")));
     QCOMPARE(notification.title, QStringLiteral("Build complete"));
     QCOMPARE(notification.body, QStringLiteral("All checks passed"));
-
+    QCOMPARE(notification.destination.sessionId, test::id(1));
 
     fixture.driver.invoke(
         notification.key,
@@ -206,6 +206,7 @@ void TerminalNotificationsTest::alertsWhenAnOwnTerminalStartsToWait()
     const auto alert = fixture.driver.posted.constFirst();
     QCOMPARE(alert.title, QStringLiteral("Terminal"));
     QCOMPARE(alert.body, QStringLiteral("Allow the command?"));
+    QCOMPARE(alert.destination.sessionId, test::id(1));
 
     apply(works);
     QCOMPARE(fixture.driver.withdrawn.constLast(), alert.key);

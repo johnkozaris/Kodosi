@@ -1,5 +1,7 @@
 #pragma once
 
+#include "app/DeepLinkRouter.hpp"
+
 #include <QObject>
 #include <QString>
 #include <QStringList>
@@ -10,11 +12,12 @@ struct DesktopNotification {
     QString key;
     QString title;
     QString body;
+    DeepLinkDestination destination;
 
     [[nodiscard]] bool valid() const noexcept
     {
         return !key.isEmpty() && key.size() <= 256 && !title.isEmpty() && title.size() <= 320
-            && body.size() <= 480;
+            && body.size() <= 480 && DeepLinkRouter::isSafeIdentity(destination.sessionId);
     }
 };
 

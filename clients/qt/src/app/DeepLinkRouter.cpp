@@ -120,6 +120,12 @@ DeepLinkParseResult DeepLinkRouter::parse(const QStringView rawUrl)
     };
 }
 
+QString DeepLinkRouter::url(const DeepLinkDestination& destination)
+{
+    return QStringLiteral("kodosi://session/")
+        + QString::fromLatin1(destination.sessionId.toUtf8().toPercentEncoding());
+}
+
 bool DeepLinkRouter::isSafeIdentity(const QStringView value)
 {
     return !value.isEmpty()

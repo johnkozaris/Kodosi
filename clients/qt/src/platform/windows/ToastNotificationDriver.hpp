@@ -6,9 +6,9 @@
 
 namespace kodosi {
 
-/// Shows notifications as Windows toasts. Clicking a toast while the app runs
-/// reports its default action; the app removes its toasts when it closes,
-/// because the terminals they name close with it.
+/// Shows notifications as Windows toasts. Clicking a toast opens its session
+/// link, which reaches the running app through app activation. The app removes
+/// its toasts when it closes, because the terminals they name close with it.
 class ToastNotificationDriver final : public DesktopNotificationDriver {
     Q_OBJECT
 

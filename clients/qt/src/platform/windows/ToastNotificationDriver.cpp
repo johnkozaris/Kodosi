@@ -37,7 +37,9 @@ QString message(const winrt::hresult_error& error)
 XmlDocument content(const DesktopNotification& notification)
 {
     XmlDocument xml;
-    xml.LoadXml(LR"(<toast><visual><binding template="ToastGeneric"><text/><text/></binding></visual></toast>)");
+    xml.LoadXml(
+        LR"(<toast activationType="protocol"><visual><binding template="ToastGeneric"><text/><text/></binding></visual></toast>)");
+    xml.DocumentElement().SetAttribute(L"launch", wide(DeepLinkRouter::url(notification.destination)));
     const auto texts = xml.GetElementsByTagName(L"text");
     texts.Item(0).InnerText(wide(notification.title));
     texts.Item(1).InnerText(wide(notification.body));
@@ -93,11 +95,6 @@ void ToastNotificationDriver::post(const DesktopNotification& notification)
         notifications::ToastNotification toast(content(notification));
         toast.Tag(tag(key));
         toast.Group(group);
-        toast.Activated([relay = m_relay, key](const auto&, const auto&) {
-            relay->post([key](ToastNotificationDriver& driver) {
-                emit driver.actionInvoked(key, QStringLiteral("default"), {});
-            });
-        });
         toast.Dismissed([relay = m_relay, key](const auto&, const notifications::ToastDismissedEventArgs& args) {
             if (args.Reason() == notifications::ToastDismissalReason::UserCanceled)
                 relay->post([key](ToastNotificationDriver& driver) { emit driver.notificationClosed(key); });

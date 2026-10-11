@@ -108,6 +108,7 @@ void FreedesktopNotificationDriverTest::postsHandlesActionsAndWithdraws()
         .key = QStringLiteral("request-identity"),
         .title = QStringLiteral("Bash <Session>"),
         .body = QStringLiteral("<b>plain text</b>"),
+        .destination = { .sessionId = QStringLiteral("0198aaaa-0000-7000-8000-000000000001") },
     });
 
     QTRY_COMPARE(m_service.notifications.size(), 1);
@@ -163,7 +164,7 @@ void FreedesktopNotificationDriverTest::pendingPostsRemainBoundedAfterWithdrawal
     QSignalSpy errors(&driver, &kodosi::DesktopNotificationDriver::deliveryError);
     for (int i = 0; i < 1000; ++i) {
         const auto key = QString::number(i);
-        driver.post({key, QStringLiteral("Terminal"), QStringLiteral("Complete")});
+        driver.post({key, QStringLiteral("Terminal"), QStringLiteral("Complete"), {QStringLiteral("session")}});
         driver.withdraw(key);
     }
     QCOMPARE(errors.count(), 968);

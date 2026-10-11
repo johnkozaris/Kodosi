@@ -38,6 +38,7 @@ public:
     static constexpr qsizetype MaximumIdentityCharacters = 512;
 
     [[nodiscard]] static DeepLinkParseResult parse(QStringView rawUrl);
+    [[nodiscard]] static QString url(const DeepLinkDestination& destination);
     [[nodiscard]] static bool isSafeIdentity(QStringView value);
     [[nodiscard]] static QString userMessage(DeepLinkParseError error);
 

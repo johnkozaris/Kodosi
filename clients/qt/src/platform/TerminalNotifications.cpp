@@ -67,6 +67,7 @@ void TerminalNotifications::alert(const QString& sessionId, const QString& text)
         .key = key,
         .title = notificationPlainText(session->name, 160),
         .body = notificationPlainText(text, 240),
+        .destination = { .sessionId = sessionId },
     });
 }
 
@@ -108,6 +109,7 @@ void TerminalNotifications::apply(const QJsonObject& event)
         .key = key,
         .title = std::move(title),
         .body = std::move(body),
+        .destination = { .sessionId = context.sessionId },
     });
 }
 
