@@ -1,8 +1,7 @@
 use futures_util::StreamExt as _;
 use std::{
-    fs::{File, OpenOptions},
+    fs::File,
     io,
-    os::unix::fs::{FileTypeExt, MetadataExt, OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -12,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
-    net::UnixStream,
     sync::{Semaphore, broadcast, watch},
     task::JoinSet,
 };
@@ -131,7 +129,7 @@ use framing::{
 };
 pub use framing::{FrameReader, TerminalFrame, read_terminal, write_input, write_resize};
 pub use server::{HostServer, serve};
-use server::{existing_owned_file, lock_root, root_identity, socket_dir};
+use server::{endpoint, local_error, lock_root, root_identity};
 
 #[cfg(test)]
 mod tests;

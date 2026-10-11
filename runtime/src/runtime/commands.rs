@@ -979,9 +979,7 @@ async fn create_session(
             config
                 .initial_shell
                 .as_ref()
-                .map(PathBuf::from)
-                .or_else(|| std::env::var_os("SHELL").map(PathBuf::from))
-                .unwrap_or_else(|| PathBuf::from("/bin/sh")),
+                .map_or_else(kodosi_os::process::default_shell, PathBuf::from),
             vec![],
         )
     };

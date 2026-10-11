@@ -1182,11 +1182,7 @@ async fn connect_or_start(config: &Config) -> Result<local_host::Client> {
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        command.process_group(0);
-    }
+    kodosi_os::process::detach(&mut command);
     let mut child = command.spawn()?;
     for _ in 0..100 {
         tokio::time::sleep(Duration::from_millis(50)).await;

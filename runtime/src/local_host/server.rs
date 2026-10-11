@@ -44,57 +44,30 @@ pub(super) fn root_identity(root: &Path) -> String {
     }
     value
 }
-pub(super) fn socket_dir(root: &Path) -> Result<PathBuf> {
-    let temporary = Path::new("/tmp").canonicalize()?;
-    Ok(temporary.join(format!(
-        "kodosi-{}-{}",
-        rustix::process::geteuid().as_raw(),
-        &root_identity(root)[..24]
-    )))
+pub(super) fn endpoint(root: &Path) -> Result<kodosi_os::ipc::Endpoint> {
+    Ok(kodosi_os::ipc::Endpoint::new(
+        &root_identity(root)[..24],
+        "host",
+    )?)
 }
-pub(super) fn existing_owned_file(path: &Path, socket: bool) -> Result<bool> {
-    match std::fs::symlink_metadata(path) {
-        Ok(meta) => {
-            if meta.uid() != rustix::process::geteuid().as_raw()
-                || (meta.mode() & 0o077) != 0
-                || meta.file_type().is_symlink()
-                || if socket {
-                    !meta.file_type().is_socket()
-                } else {
-                    !meta.is_file()
-                }
-            {
-                return Err(Error::Invalid(format!(
-                    "unsafe local endpoint: {}",
-                    path.display()
-                )));
-            }
-            Ok(true)
-        }
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
-        Err(error) => Err(error.into()),
-    }
-}
+
 pub(super) fn lock_root(root: &Path) -> Result<File> {
-    let path = root.join("host.lock");
-    let _ = existing_owned_file(&path, false)?;
-    let file = OpenOptions::new()
-        .create(true)
-        .truncate(false)
-        .read(true)
-        .write(true)
-        .mode(0o600)
-        .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits().cast_signed())
-        .open(path)?;
-    if file.metadata()?.uid() != rustix::process::geteuid().as_raw() {
-        return Err(Error::Invalid("host lock belongs to another user".into()));
-    }
+    let file = kodosi_os::fs::open_private(&root.join("host.lock")).map_err(local_error)?;
     file.try_lock().map_err(|error| {
         Error::HostBusy(format!(
             "Kodosi is already running for this data root: {error}"
         ))
     })?;
     Ok(file)
+}
+
+pub(super) fn local_error(error: io::Error) -> Error {
+    match error.kind() {
+        io::ErrorKind::InvalidInput | io::ErrorKind::PermissionDenied => {
+            Error::Invalid(error.to_string())
+        }
+        _ => error.into(),
+    }
 }
 
 pub async fn serve(
@@ -105,29 +78,15 @@ pub async fn serve(
 ) -> Result<HostServer> {
     let root = root.canonicalize()?;
     let host_lock = lock_root(&root)?;
-    let dir = socket_dir(&root)?;
-    crate::config::secure_directory(&dir)?;
-    let path = dir.join("host.sock");
-    if existing_owned_file(&path, true)? {
-        match UnixStream::connect(&path).await {
-            Ok(_) => {
-                return Err(Error::HostBusy(
-                    "another Kodosi host owns this endpoint".into(),
-                ));
+    let mut listener = kodosi_os::ipc::Listener::bind(&endpoint(&root)?)
+        .await
+        .map_err(|error| {
+            if error.kind() == io::ErrorKind::AddrInUse {
+                Error::HostBusy("another Kodosi host owns this endpoint".into())
+            } else {
+                local_error(error)
             }
-            Err(error)
-                if matches!(
-                    error.kind(),
-                    io::ErrorKind::ConnectionRefused | io::ErrorKind::NotFound
-                ) =>
-            {
-                std::fs::remove_file(&path)?;
-            }
-            Err(error) => return Err(error.into()),
-        }
-    }
-    let listener = tokio::net::UnixListener::bind(&path)?;
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
+        })?;
     let cancel = CancellationToken::new();
     let stop = cancel.clone();
     let identity = root_identity(&root);
@@ -141,9 +100,8 @@ pub async fn serve(
                 biased;
                 () = stop.cancelled() => break,
                 connection = listener.accept() => match connection {
-                    Ok((stream,_)) => {
+                    Ok(stream) => {
                         let Ok(permit) = std::sync::Arc::clone(&slots).try_acquire_owned() else { continue; };
-                        if !stream.peer_cred().is_ok_and(|peer| peer.uid() == rustix::process::geteuid().as_raw()) { continue; }
                         let handle = runtime.clone(); let expected = identity.clone(); let cancel = stop.child_token();
                         let slot = ClientSlot::enter(&clients);
                         connections.spawn(async move {
@@ -168,9 +126,6 @@ pub async fn serve(
         stop.cancel();
         while connections.join_next().await.is_some() {}
         drop(listener);
-        if existing_owned_file(&path, true).unwrap_or(false) {
-            drop(std::fs::remove_file(&path));
-        }
     });
     Ok(HostServer {
         cancel,
@@ -179,7 +134,7 @@ pub async fn serve(
 }
 
 async fn serve_connection(
-    mut stream: UnixStream,
+    mut stream: kodosi_os::ipc::Stream,
     runtime: RuntimeHandle,
     root: String,
     cancel: CancellationToken,
@@ -251,7 +206,7 @@ async fn serve_connection(
 }
 
 async fn serve_commands(
-    mut stream: UnixStream,
+    mut stream: kodosi_os::ipc::Stream,
     runtime: RuntimeHandle,
     cancel: CancellationToken,
     host: HostDescription,
@@ -326,7 +281,7 @@ async fn write_event<W: AsyncWrite + Unpin + Send>(writer: &mut W, event: &Event
 }
 
 async fn serve_terminal(
-    stream: UnixStream,
+    stream: kodosi_os::ipc::Stream,
     runtime: RuntimeHandle,
     session: Uuid,
     mut subscription: terminal::Subscription,

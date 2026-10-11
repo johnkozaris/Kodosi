@@ -1,8 +1,7 @@
 use std::{
     fmt::Write as _,
-    fs::{File, OpenOptions},
+    fs::File,
     io::Write as _,
-    os::unix::fs::OpenOptionsExt as _,
     path::{Path, PathBuf},
     sync::Mutex,
 };
@@ -49,12 +48,7 @@ impl Log {
             ));
         }
         if file.is_none() {
-            *file = OpenOptions::new()
-                .create(true)
-                .append(true)
-                .mode(0o600)
-                .open(&self.path)
-                .ok();
+            *file = kodosi_os::fs::append_private(&self.path).ok();
         }
         if let Some(file) = file.as_mut() {
             drop(file.write_all(line.as_bytes()));

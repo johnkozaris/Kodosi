@@ -198,7 +198,7 @@ mod tests {
     #[test]
     fn explicit_replacement_preserves_old_secret_and_does_not_reuse_removed_identity() {
         let root = tempfile::tempdir().unwrap();
-        let store = Secrets::new(root.path().to_owned(), "test".into(), true);
+        let store = Secrets::new(root.path().to_owned(), "test", true);
         let user = Uuid::now_v7().to_string();
         let old = DeviceKeys::load_or_create(&store, &user).unwrap();
         assert!(DeviceKeys::replace_revoked(&store, &user, "unrelated-device").is_err());

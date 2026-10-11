@@ -99,7 +99,7 @@ impl BackendClient {
         };
         let secrets = Secrets::new(
             config.data_root.join("secrets"),
-            config.secret_service.clone(),
+            &config.secret_service,
             config.isolated,
         );
         let (events, _) = broadcast::channel(128);
@@ -996,27 +996,14 @@ fn path_segment(value: &str) -> Result<String> {
     Ok(url.path().trim_start_matches('/').to_owned())
 }
 pub(crate) fn host_label() -> String {
-    [std::env::var("HOSTNAME").ok(), system_computer_name()]
-        .into_iter()
-        .flatten()
-        .find_map(|value| normalize_host_label(&value))
-        .unwrap_or_else(|| "Unnamed computer".to_owned())
-}
-
-fn system_computer_name() -> Option<String> {
-    let (program, arguments): (&str, &[&str]) = if cfg!(target_os = "macos") {
-        ("/usr/sbin/scutil", &["--get", "ComputerName"])
-    } else {
-        ("hostname", &[])
-    };
-    let output = std::process::Command::new(program)
-        .args(arguments)
-        .output()
-        .ok()
-        .filter(|output| output.status.success())?;
-    let name = String::from_utf8(output.stdout).ok()?;
-    let name = name.trim().trim_end_matches(".local");
-    (!name.is_empty()).then(|| name.to_owned())
+    [
+        std::env::var("HOSTNAME").ok(),
+        kodosi_os::process::computer_name(),
+    ]
+    .into_iter()
+    .flatten()
+    .find_map(|value| normalize_host_label(&value))
+    .unwrap_or_else(|| "Unnamed computer".to_owned())
 }
 
 fn normalize_host_label(value: &str) -> Option<String> {

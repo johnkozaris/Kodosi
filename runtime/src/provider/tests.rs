@@ -1,7 +1,6 @@
 use std::{
     fs,
     io::{Seek, SeekFrom, Write},
-    os::unix::fs::{PermissionsExt, symlink},
     path::{Path, PathBuf},
 };
 
@@ -228,8 +227,10 @@ async fn conversation_cursors_are_exact_provider_scoped_and_bounded() {
     );
 }
 
+#[cfg(unix)]
 #[tokio::test]
 async fn conversation_reader_rejects_symlink_files_and_parent_directories() {
+    use std::os::unix::fs::symlink;
     let home = tempfile::tempdir().unwrap();
     let directory = workspace(home.path());
     let path = claude_transcript(home.path(), &directory, 1, "");
@@ -724,20 +725,6 @@ async fn native_state_override_is_shared_by_discovery_read_and_resume() {
         .await
         .unwrap();
     assert!(!home.path().join(".claude").exists());
-}
-
-#[test]
-fn executable_resolution_requires_effective_execute_permission() {
-    let home = tempfile::tempdir().unwrap();
-    let path = home.path().join("claude");
-    fs::write(&path, b"#!/bin/sh\n").unwrap();
-    fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
-    assert!(config::executable(&path).is_none());
-    fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
-    assert_eq!(
-        config::executable(&path),
-        Some(path.canonicalize().unwrap())
-    );
 }
 
 #[test]

@@ -1,10 +1,7 @@
 use crate::{Error, Result};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use std::{
-    os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt},
-    path::{Component, Path, PathBuf},
-};
+use std::path::{Component, Path, PathBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -30,13 +27,11 @@ pub struct Config {
 
 impl Config {
     pub fn load() -> Result<Self> {
-        let dirs = directories::BaseDirs::new().ok_or_else(|| {
-            Error::Invalid("cannot determine the user's home directory".to_owned())
-        })?;
-        let home =
-            std::env::var_os("HOME").map_or_else(|| dirs.home_dir().to_path_buf(), PathBuf::from);
-        let production = std::env::var_os("KODOSI_PRODUCTION_DATA_ROOT")
-            .map_or_else(|| dirs.config_dir().join("kodosi"), PathBuf::from);
+        let home = kodosi_os::fs::home_dir()?;
+        let production = match std::env::var_os("KODOSI_PRODUCTION_DATA_ROOT") {
+            Some(root) => PathBuf::from(root),
+            None => kodosi_os::fs::default_data_root()?,
+        };
         let (data_root, isolated) = match std::env::var_os("KODOSI_DATA_ROOT") {
             Some(value) => {
                 if std::env::var_os("KODOSI_PRODUCTION_DATA_ROOT").is_none() {
@@ -111,60 +106,12 @@ impl Config {
 }
 
 pub(crate) fn secure_directory(path: &Path) -> Result<()> {
-    if !path.is_absolute()
-        || path
-            .components()
-            .any(|part| matches!(part, Component::ParentDir | Component::CurDir))
-    {
-        return Err(Error::Invalid(
-            "storage path must be absolute without dot components".to_owned(),
-        ));
-    }
-    let mut prefix = PathBuf::new();
-    for component in path.components() {
-        prefix.push(component.as_os_str());
-        match std::fs::symlink_metadata(&prefix) {
-            Ok(meta) if meta.file_type().is_symlink() => {
-                return Err(Error::Invalid(format!(
-                    "storage path contains a symlink: {}",
-                    prefix.display()
-                )));
-            }
-            Ok(meta) if !meta.is_dir() => {
-                return Err(Error::Invalid(format!(
-                    "storage path is not a directory: {}",
-                    prefix.display()
-                )));
-            }
-            Ok(_) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                match std::fs::DirBuilder::new().mode(0o700).create(&prefix) {
-                    Ok(()) => {}
-                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-                        let metadata = std::fs::symlink_metadata(&prefix)?;
-                        if !metadata.is_dir()
-                            || metadata.file_type().is_symlink()
-                            || metadata.uid() != rustix::process::geteuid().as_raw()
-                        {
-                            return Err(Error::Invalid(
-                                "storage directory changed during creation".to_owned(),
-                            ));
-                        }
-                    }
-                    Err(error) => return Err(error.into()),
-                }
-            }
-            Err(error) => return Err(error.into()),
+    kodosi_os::fs::create_private_dir(path).map_err(|error| match error.kind() {
+        std::io::ErrorKind::InvalidInput | std::io::ErrorKind::PermissionDenied => {
+            Error::Invalid(error.to_string())
         }
-    }
-    let meta = std::fs::metadata(path)?;
-    if meta.uid() != rustix::process::geteuid().as_raw() {
-        return Err(Error::Invalid(
-            "runtime storage belongs to another user".to_owned(),
-        ));
-    }
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700))?;
-    Ok(())
+        _ => error.into(),
+    })
 }
 
 fn validate_isolated(root: &Path, production: &Path, home: &Path) -> Result<()> {
@@ -229,6 +176,7 @@ fn resolve_existing(path: &Path) -> Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
     #[test]
     fn isolated_paths_reject_aliases_of_production_ancestors() {
         let root = tempfile::tempdir().unwrap();
@@ -242,56 +190,7 @@ mod tests {
         assert!(validate_isolated(&home.join("kodosi/test"), &production, &home).is_err());
     }
 
-    #[test]
-    fn secure_directory_refuses_symlinks_without_modifying_the_target() {
-        let root = tempfile::tempdir().unwrap();
-        let real = root.path().canonicalize().unwrap();
-        let target = real.join("target");
-        std::fs::create_dir(&target).unwrap();
-        std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o750)).unwrap();
-        let link = real.join("link");
-        std::os::unix::fs::symlink(&target, &link).unwrap();
-        assert!(secure_directory(&link.join("core")).is_err());
-        assert!(!target.join("core").exists());
-        assert_eq!(std::fs::metadata(target).unwrap().mode() & 0o777, 0o750);
-    }
-
-    #[test]
-    fn concurrent_bootstrap_creates_private_directories() {
-        let root = tempfile::tempdir().unwrap();
-        let real = root.path().canonicalize().unwrap();
-        let barrier = std::sync::Barrier::new(8);
-        std::thread::scope(|scope| {
-            for _ in 0..8 {
-                scope.spawn(|| {
-                    let mut failure = None;
-                    for index in 0..32 {
-                        barrier.wait();
-                        if let Err(error) =
-                            secure_directory(&real.join(format!("race-{index}/nested/core")))
-                        {
-                            failure = Some(error);
-                        }
-                    }
-                    assert!(failure.is_none(), "{failure:?}");
-                });
-            }
-        });
-        for index in 0..32 {
-            let parent = real.join(format!("race-{index}"));
-            for path in [
-                parent.clone(),
-                parent.join("nested"),
-                parent.join("nested/core"),
-            ] {
-                let metadata = std::fs::symlink_metadata(path).unwrap();
-                assert!(metadata.is_dir());
-                assert_eq!(metadata.uid(), rustix::process::geteuid().as_raw());
-                assert_eq!(metadata.mode() & 0o777, 0o700);
-            }
-        }
-    }
-
+    #[cfg(unix)]
     #[test]
     fn isolated_paths_reject_production_and_ancestors() {
         let home = Path::new("/home/person");

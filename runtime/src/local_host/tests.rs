@@ -43,17 +43,6 @@ async fn interrupted_frame_read_keeps_consumed_prefix_and_body() {
     assert_eq!(read_frame(&mut reader).await.unwrap(), b"hello");
 }
 #[test]
-fn endpoint_rejects_foreign_file_and_symlink_shapes() {
-    let directory = tempfile::tempdir().unwrap();
-    let path = directory.path().join("host.sock");
-    std::fs::write(&path, b"not a socket").unwrap();
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
-    assert!(existing_owned_file(&path, true).is_err());
-    let link = directory.path().join("link");
-    std::os::unix::fs::symlink(&path, &link).unwrap();
-    assert!(existing_owned_file(&link, false).is_err());
-}
-#[test]
 fn host_lock_prevents_competing_local_owners() {
     let directory = tempfile::tempdir().unwrap();
     let first = lock_root(directory.path()).unwrap();
