@@ -410,7 +410,15 @@ mod tests {
         assert!(second.join().unwrap());
 
         assert!(start_config().is_ok_and(|config| config.data_root != root));
-        assert!(local_host::claim_app(&root).unwrap().is_some());
+        // A process that another test starts shares this process's open files
+        // between its fork and exec, so the released claim may stay taken briefly.
+        assert!((0..100).any(|_| {
+            let claimed = local_host::claim_app(&root).unwrap().is_some();
+            if !claimed {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            claimed
+        }));
         kodosi_close_app();
     }
 }

@@ -154,7 +154,7 @@ async fn one_app_claims_a_folder_and_later_launches_hand_it_their_request() {
         assert_eq!(received.recv().await.unwrap(), activation);
     }
     server.shutdown().await;
-    assert!(claim_app(root.path()).unwrap().is_some());
+    assert!(claim_released(root.path()).await);
 }
 
 #[tokio::test]
@@ -172,7 +172,19 @@ async fn a_waiting_launch_claims_the_folder_when_the_owner_exits() {
     exit.await.unwrap();
     assert!(claim_app(root.path()).unwrap().is_none());
     drop(forwarded);
-    assert!(claim_app(root.path()).unwrap().is_some());
+    assert!(claim_released(root.path()).await);
+}
+
+/// A process that another test starts shares this process's open files
+/// between its fork and exec, so a released claim may stay taken briefly.
+async fn claim_released(root: &Path) -> bool {
+    for _ in 0..100 {
+        if claim_app(root).unwrap().is_some() {
+            return true;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    false
 }
 
 #[tokio::test]
