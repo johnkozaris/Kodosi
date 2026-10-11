@@ -16,6 +16,12 @@ else()
     set(KODOSI_WINDOWS_ARCH "x64")
 endif()
 
+# Rust links the release C runtime in every profile, so every configuration
+# does, with Qt's release libraries. The empty entry keeps the Rust runtime and
+# Ghostty imports, which have no configurations.
+set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
+set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG RelWithDebInfo "")
+
 set(QT_DEPLOY_BIN_DIR "." CACHE STRING "" FORCE)
 set(KODOSI_PLATFORM_QT_COMPONENTS "")
 set(KODOSI_RUNTIME_ARCHIVE_NAME "kodosi_ffi_c.lib")

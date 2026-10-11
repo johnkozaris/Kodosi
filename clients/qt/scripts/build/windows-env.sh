@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Sourced by the Windows recipes, which run in Git Bash.
 
-# The machine's native architecture: x64 or arm64. Git Bash itself may run
-# emulated, so ask the native cmd.exe.
+# The machine's native architecture: x64 or arm64. Git Bash may run emulated
+# and see AMD64 in its own environment, so read the system's value.
 kodosi_windows_arch() {
-    case "$(cmd //c 'echo %PROCESSOR_ARCHITECTURE%' | tr -d '\r')" in
+    case "$(reg query 'HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' //v PROCESSOR_ARCHITECTURE |
+        awk '$1 == "PROCESSOR_ARCHITECTURE" { print $3 }' | tr -d '\r')" in
         AMD64) echo x64 ;;
         ARM64) echo arm64 ;;
         *) echo "Kodosi builds on x64 or ARM64 Windows only" >&2; return 1 ;;
@@ -24,11 +25,11 @@ kodosi_windows_target() {
 # Imports the newest Visual Studio C++ environment for this machine, so
 # clang-cl, link and the Windows SDK tools work, after kodosi_windows_target.
 kodosi_windows_env() {
-    local tools vswhere install script name value
+    local tools llvm vswhere install script environment name value
     kodosi_windows_target || return 1
     case "$KODOSI_WINDOWS_ARCH" in
-        x64) tools=Microsoft.VisualStudio.Component.VC.Tools.x86.x64 ;;
-        arm64) tools=Microsoft.VisualStudio.Component.VC.Tools.ARM64 ;;
+        x64) tools=Microsoft.VisualStudio.Component.VC.Tools.x86.x64 llvm=x64 ;;
+        arm64) tools=Microsoft.VisualStudio.Component.VC.Tools.ARM64 llvm=ARM64 ;;
     esac
     vswhere="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
     if [ ! -x "$vswhere" ]; then
@@ -45,6 +46,13 @@ kodosi_windows_env() {
     script=$(mktemp --suffix=.bat)
     printf '@call "%s\\VC\\Auxiliary\\Build\\vcvarsall.bat" %s >nul || exit /b 1\r\n@set\r\n' \
         "$(cygpath -w "$install")" "$KODOSI_WINDOWS_ARCH" > "$script"
+    environment=$(cmd //c "$(cygpath -w "$script")") || {
+        rm -f "$script"
+        echo "vcvarsall.bat $KODOSI_WINDOWS_ARCH failed in $install" >&2
+        return 1
+    }
+    rm -f "$script"
+    environment=${environment//$'\r'/}
     while IFS='=' read -r name value; do
         case "$name" in
             INCLUDE | LIB | LIBPATH | VCINSTALLDIR | VCToolsInstallDir | VCToolsVersion | VSINSTALLDIR \
@@ -56,8 +64,13 @@ kodosi_windows_env() {
                 export PATH
                 ;;
         esac
-    done < <(cmd //c "$(cygpath -w "$script")" | tr -d '\r')
-    rm -f "$script"
+    done <<< "$environment"
+    # The installation's own Clang, which matches its C++ library, ahead of any
+    # other LLVM on PATH.
+    llvm="$(cygpath -u "$install")/VC/Tools/Llvm/$llvm/bin"
+    if [ -d "$llvm" ]; then
+        PATH="$llvm:$PATH"
+    fi
     command -v clang-cl.exe >/dev/null || {
         echo "The Visual Studio environment did not provide clang-cl.exe" >&2
         return 1
