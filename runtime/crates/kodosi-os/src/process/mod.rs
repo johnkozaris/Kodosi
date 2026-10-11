@@ -8,8 +8,6 @@ use unix as imp;
 mod windows;
 #[cfg(windows)]
 use windows as imp;
-#[cfg(windows)]
-pub(crate) use windows::executable_extensions;
 
 /// Finds the program `name` on `PATH`, as a shell would.
 pub fn find_executable(name: &str) -> Option<PathBuf> {

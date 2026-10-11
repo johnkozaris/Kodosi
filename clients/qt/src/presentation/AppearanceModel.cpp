@@ -210,12 +210,6 @@ void AppearanceModel::injectSystemColorSchemeForTesting(
     updateEffectiveScheme(scheme);
 }
 
-void AppearanceModel::injectReducedMotionForTesting(const bool enabled)
-{
-    m_reducedMotionTestOverride = enabled;
-    setReducedMotion(enabled);
-}
-
 void AppearanceModel::load()
 {
     m_preference = Preference::System;
@@ -289,12 +283,10 @@ void AppearanceModel::updateEffectiveScheme(const Qt::ColorScheme scheme)
 
 void AppearanceModel::setReducedMotion(const bool enabled)
 {
-    const auto effective =
-        m_reducedMotionTestOverride.value_or(enabled);
-    if (m_reduceMotion == effective) {
+    if (m_reduceMotion == enabled) {
         return;
     }
-    m_reduceMotion = effective;
+    m_reduceMotion = enabled;
     emit reduceMotionChanged();
 }
 

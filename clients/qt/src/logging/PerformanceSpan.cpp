@@ -5,25 +5,9 @@
 Q_LOGGING_CATEGORY(kodosiPerformance, "kodosi.performance")
 
 namespace kodosi {
-namespace {
 
-QString performanceCategoryName(const PerformanceCategory category)
-{
-    switch (category) {
-    case PerformanceCategory::Terminal:
-        return QStringLiteral("terminal");
-    }
-    return QStringLiteral("unknown");
-}
-
-}
-
-ScopedPerformanceSpan::ScopedPerformanceSpan(
-    const PerformanceCategory category,
-    QStringView operation,
-    const qint64 thresholdMilliseconds)
-    : m_category(category)
-    , m_operation(operation.left(64).toString())
+ScopedPerformanceSpan::ScopedPerformanceSpan(QStringView operation, const qint64 thresholdMilliseconds)
+    : m_operation(operation.left(64).toString())
     , m_thresholdMilliseconds(std::max<qint64>(0, thresholdMilliseconds))
 {
     m_timer.start();
@@ -36,12 +20,8 @@ ScopedPerformanceSpan::~ScopedPerformanceSpan()
         return;
     }
     qCInfo(kodosiPerformance).noquote()
-        << QStringLiteral("category=%1 operation=%2 duration_ms=%3 outcome=%4")
-               .arg(
-                   performanceCategoryName(m_category),
-                   m_operation,
-                   QString::number(elapsed),
-                   m_outcome);
+        << QStringLiteral("category=terminal operation=%1 duration_ms=%2 outcome=%3")
+               .arg(m_operation, QString::number(elapsed), m_outcome);
 }
 
 void ScopedPerformanceSpan::setOutcome(QStringView outcome)

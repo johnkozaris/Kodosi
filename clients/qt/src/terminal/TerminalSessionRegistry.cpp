@@ -610,7 +610,6 @@ GhosttyTerminalKernel::ConfigureResult TerminalSessionRegistry::configure(
 void TerminalSessionRegistry::receiveData(TerminalData data) noexcept
 {
     ScopedPerformanceSpan span(
-        PerformanceCategory::Terminal,
         QStringLiteral("frame.apply"),
         8);
     const auto entries = m_impl->exact(data.subscription);
@@ -633,7 +632,6 @@ void TerminalSessionRegistry::receiveData(TerminalData data) noexcept
 void TerminalSessionRegistry::receiveControl(TerminalControl control) noexcept
 {
     ScopedPerformanceSpan span(
-        PerformanceCategory::Terminal,
         QStringLiteral("frame.control"),
         8);
     const auto entries = m_impl->exact(control.subscription);
@@ -849,7 +847,6 @@ bool TerminalSessionRegistry::installSemanticCheckpoint(
     TerminalSemanticCheckpoint checkpoint) noexcept
 {
     ScopedPerformanceSpan span(
-        PerformanceCategory::Terminal,
         QStringLiteral("frame.checkpoint"),
         16);
     auto targets = m_impl->checkpointTargets(

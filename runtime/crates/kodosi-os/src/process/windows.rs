@@ -22,7 +22,7 @@ use windows_sys::Win32::{
 };
 
 /// The extensions, without dots, that make a file runnable by name.
-pub(crate) fn executable_extensions() -> Vec<String> {
+fn executable_extensions() -> Vec<String> {
     std::env::var("PATHEXT")
         .ok()
         .filter(|value| !value.is_empty())

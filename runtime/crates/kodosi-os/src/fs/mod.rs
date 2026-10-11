@@ -103,7 +103,8 @@ pub fn can_write(path: &Path) -> bool {
 }
 
 /// Whether `path` is a file the current user can run.
-pub fn is_executable(path: &Path) -> bool {
+#[cfg(unix)]
+pub(crate) fn is_executable(path: &Path) -> bool {
     path.is_file() && imp::is_executable(path)
 }
 

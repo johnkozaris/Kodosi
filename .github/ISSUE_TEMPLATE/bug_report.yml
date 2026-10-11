@@ -62,7 +62,7 @@ body:
     id: logs
     attributes:
       label: Logs
-      description: Related lines of `diagnostics.log` from the runtime data root, with private data removed.
+      description: Related lines of `app.log` (the app) or `host.log` (a CLI host) from the data folder, with private data removed.
       render: text
   - type: checkboxes
     id: private

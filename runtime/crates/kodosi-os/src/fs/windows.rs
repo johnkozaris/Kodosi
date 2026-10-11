@@ -283,11 +283,3 @@ pub(super) fn can_read(path: &Path) -> bool {
 pub(super) fn can_write(path: &Path) -> bool {
     OpenOptions::new().write(true).open(path).is_ok()
 }
-
-pub(super) fn is_executable(path: &Path) -> bool {
-    path.extension().is_some_and(|extension| {
-        crate::process::executable_extensions()
-            .iter()
-            .any(|known| extension.eq_ignore_ascii_case(known))
-    })
-}

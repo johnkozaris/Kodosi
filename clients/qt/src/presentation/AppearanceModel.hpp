@@ -6,7 +6,6 @@
 
 #include <functional>
 #include <memory>
-#include <optional>
 
 namespace kodosi {
 
@@ -61,7 +60,6 @@ public:
     Q_INVOKABLE [[nodiscard]] static int stableBits(const QString& key);
 
     void injectSystemColorSchemeForTesting(Qt::ColorScheme scheme);
-    void injectReducedMotionForTesting(bool enabled);
 
 signals:
     void preferenceChanged();
@@ -76,7 +74,6 @@ private:
     EffectiveScheme m_effectiveScheme = EffectiveScheme::LightScheme;
     bool m_reduceMotion = false;
     QString m_settingsError;
-    std::optional<bool> m_reducedMotionTestOverride;
 
     void load();
     [[nodiscard]] bool persist(Preference preference);
