@@ -129,7 +129,7 @@ if ! cmp -s "$RENDERER_ARCHIVE" "$VT_ARCHIVE"; then
     echo "[!] renderer and VT artifact paths do not contain the same native image"
     exit 1
 fi
-if [ "$(shasum -a 256 "$RENDERER_ARCHIVE" | awk '{print $1}')" != "$combined_archive_sha256" ]; then
+if [ "$(sha256sum "$RENDERER_ARCHIVE" | awk '{print $1}')" != "$combined_archive_sha256" ]; then
     echo "[!] combined Ghostty archive digest does not match provenance"
     exit 1
 fi

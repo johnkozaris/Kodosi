@@ -226,7 +226,7 @@ source NativeBuild.env
 RENDERER_DIGEST=$("$ROOT_DIR/Script/artifact-digest.sh" "$VENDOR_STAGE/GhosttyKit.xcframework")
 VT_DIGEST=$("$ROOT_DIR/Script/artifact-digest.sh" "$VENDOR_STAGE/GhosttyVt/macos-arm64")
 COMBINED_ARCHIVE=$(find "$VENDOR_STAGE/GhosttyKit.xcframework" -name libghostty.a -type f -print -quit)
-COMBINED_ARCHIVE_DIGEST=$(shasum -a 256 "$COMBINED_ARCHIVE" | awk '{print $1}')
+COMBINED_ARCHIVE_DIGEST=$(sha256sum "$COMBINED_ARCHIVE" | awk '{print $1}')
 PATCHES_DIGEST=$("$ROOT_DIR/Script/artifact-digest.sh" Patches/ghostty)
 SYMBOLS_DIGEST=$("$ROOT_DIR/Script/artifact-digest.sh" "$VENDOR_STAGE/symbols")
 GHOSTTY_BUILD_OPTION_VECTOR=$("$ROOT_DIR/Script/native-build-options.sh" vector)

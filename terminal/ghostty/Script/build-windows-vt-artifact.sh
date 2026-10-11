@@ -60,7 +60,7 @@ if ! diff -r "$STAGE/include" "$ROOT_DIR/Vendor/GhosttyVt/linux-x86_64/include" 
     exit 1
 fi
 
-ARCHIVE_DIGEST=$(shasum -a 256 "$STAGE/lib/ghostty-vt-static.lib" | awk '{print $1}')
+ARCHIVE_DIGEST=$(sha256sum "$STAGE/lib/ghostty-vt-static.lib" | awk '{print $1}')
 cat > "$METADATA" <<METADATA
 package_version=$(tr -d '[:space:]' < VERSION)
 ghostty_commit=$(tr -d '[:space:]' < WindowsGhostty.ref)

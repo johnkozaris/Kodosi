@@ -14,18 +14,18 @@ default:
     @just --list
 
 rust-tools-install:
-    cargo install --locked --root {{ cargo_tools_root }} cargo-deny --version 0.19.0
-    cargo install --locked --root {{ cargo_tools_root }} cargo-machete --version 0.9.1
-    cargo install --locked --root {{ cargo_tools_root }} cargo-llvm-cov --version 0.8.5
+    cargo install --locked --root "{{ cargo_tools_root }}" cargo-deny --version 0.19.0
+    cargo install --locked --root "{{ cargo_tools_root }}" cargo-machete --version 0.9.1
+    cargo install --locked --root "{{ cargo_tools_root }}" cargo-llvm-cov --version 0.8.5
 
 dev-tools-install: rust-tools-install
-    cargo install --locked --root {{ cargo_tools_root }} bacon --version 3.22.0
+    cargo install --locked --root "{{ cargo_tools_root }}" bacon --version 3.22.0
 
 _dependency-tools:
-    @test -x {{ cargo_tools_bin }}/cargo-deny -a -x {{ cargo_tools_bin }}/cargo-machete || { printf '%s\n' 'Run just rust-tools-install first.' >&2; exit 1; }
+    @test -x "{{ cargo_tools_bin }}/cargo-deny" -a -x "{{ cargo_tools_bin }}/cargo-machete" || { printf '%s\n' 'Run just rust-tools-install first.' >&2; exit 1; }
 
 _coverage-tool:
-    @test -x {{ cargo_tools_bin }}/cargo-llvm-cov || { printf '%s\n' 'Run just rust-tools-install first.' >&2; exit 1; }
+    @test -x "{{ cargo_tools_bin }}/cargo-llvm-cov" || { printf '%s\n' 'Run just rust-tools-install first.' >&2; exit 1; }
 
 ghostty-verify:
     scripts/verify-ghostty.sh

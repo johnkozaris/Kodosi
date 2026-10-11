@@ -64,11 +64,14 @@ def main() -> None:
     lock = read_lock()
     arguments.output.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(package(lock)) as archive:
-        for member in FILES[arguments.arch]:
-            target = arguments.output / Path(member).name
-            with archive.open(member) as source, target.open("wb") as destination:
-                shutil.copyfileobj(source, destination)
-    shutil.copyfile(ROOT / "LICENSE", arguments.output / "ConPTY-LICENSE.txt")
+        files = {Path(member).name: archive.read(member) for member in FILES[arguments.arch]}
+    files["ConPTY-LICENSE.txt"] = (ROOT / "LICENSE").read_bytes()
+    for name, content in files.items():
+        target = arguments.output / name
+        # Windows cannot replace a DLL that a running host has loaded, so an
+        # unchanged file stays untouched.
+        if not target.is_file() or target.read_bytes() != content:
+            target.write_bytes(content)
     print(f"ConPTY {lock['version']} ({arguments.arch}) -> {arguments.output}")
 
 

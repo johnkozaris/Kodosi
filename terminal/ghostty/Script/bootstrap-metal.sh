@@ -44,7 +44,7 @@ if [ -z "$DMG" ]; then
 fi
 
 printf '%s  %s\n' "$METAL_TOOLCHAIN_DMG_SHA256" "$DMG" |
-    shasum -a 256 -c - >&2
+    sha256sum -c - >&2
 
 unmount_toolchain
 mkdir -p "$MOUNT_POINT"
