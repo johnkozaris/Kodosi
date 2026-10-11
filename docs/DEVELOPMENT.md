@@ -94,9 +94,9 @@ Kodosi has no release yet, so it keeps no code for earlier protocol versions or 
 formats. After a format change, rooms and records in an existing development database
 may not open: use a new database volume and data root. A device identity saved in an
 earlier format stops sign-in with "Stored device identity is invalid". Delete it, then
-approve the computer again as a new one. It is the item `terminal-first.<user id>.device`
+approve the computer again as a new one. It is the item `kodosi.<user id>.device`
 of the service `com.kodosi.local`. On macOS, delete it in Keychain Access. On Linux, run
-`secret-tool clear service com.kodosi.local username terminal-first.<user id>.device`.
+`secret-tool clear service com.kodosi.local username kodosi.<user id>.device`.
 
 ## Isolated validation
 

@@ -70,7 +70,7 @@ impl Secrets {
         {
             return Err(invalid("Invalid credential identity."));
         }
-        Ok(format!("terminal-first.{key}"))
+        Ok(format!("kodosi.{key}"))
     }
 
     pub fn load(&self, key: &str) -> Result<Option<Zeroizing<String>>> {
@@ -250,7 +250,7 @@ mod tests {
         store.store("device", "secret").unwrap();
         assert_eq!(store.load("device").unwrap().unwrap().as_str(), "secret");
         assert_eq!(
-            fs::metadata(root.path().join("secrets/terminal-first.device"))
+            fs::metadata(root.path().join("secrets/kodosi.device"))
                 .unwrap()
                 .permissions()
                 .mode()

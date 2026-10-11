@@ -1,16 +1,29 @@
-using System;
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace Kodosi.Data.Migrations
 {
-
-    public partial class TerminalFirst : Migration
+    /// <inheritdoc />
+    public partial class Initial : Migration
     {
-
+        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.CreateTable(
+                name: "deleted_accounts",
+                columns: table => new
+                {
+                    Issuer = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: false),
+                    Subject = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: false),
+                    DeletedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_deleted_accounts", x => new { x.Issuer, x.Subject });
+                });
+
             migrationBuilder.CreateTable(
                 name: "users",
                 columns: table => new
@@ -31,37 +44,18 @@ namespace Kodosi.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "device_challenges",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Bytes = table.Column<byte[]>(type: "bytea", nullable: false),
-                    ExpiresAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_device_challenges", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_device_challenges_users_UserId",
-                        column: x => x.UserId,
-                        principalTable: "users",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "device_links",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
                     DeviceCodeHash = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
-                    UserCode = table.Column<string>(type: "character varying(9)", maxLength: 9, nullable: false),
+                    Nonce = table.Column<byte[]>(type: "bytea", nullable: false),
+                    Proof = table.Column<byte[]>(type: "bytea", nullable: false),
+                    ApprovalProof = table.Column<byte[]>(type: "bytea", nullable: true),
                     DeviceId = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
                     Label = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     SigningPublicKey = table.Column<byte[]>(type: "bytea", nullable: false),
-                    KemPublicKey = table.Column<byte[]>(type: "bytea", nullable: false),
                     ExpiresAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     State = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: false),
                     ApprovedGeneration = table.Column<long>(type: "bigint", nullable: true)
@@ -111,7 +105,7 @@ namespace Kodosi.Data.Migrations
                     Certificate = table.Column<byte[]>(type: "bytea", nullable: false),
                     CertificateSignature = table.Column<byte[]>(type: "bytea", nullable: false),
                     SigningPublicKey = table.Column<byte[]>(type: "bytea", nullable: false),
-                    KemPublicKey = table.Column<byte[]>(type: "bytea", nullable: false),
+                    RecoveryBox = table.Column<byte[]>(type: "bytea", nullable: true),
                     IssuedAtMs = table.Column<long>(type: "bigint", nullable: false),
                     ExpiresAtMs = table.Column<long>(type: "bigint", nullable: true),
                     Revoked = table.Column<bool>(type: "boolean", nullable: false)
@@ -125,6 +119,26 @@ namespace Kodosi.Data.Migrations
                         principalTable: "users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "friend_lists",
+                columns: table => new
+                {
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Revision = table.Column<long>(type: "bigint", nullable: false),
+                    Body = table.Column<byte[]>(type: "bytea", nullable: false),
+                    Signature = table.Column<byte[]>(type: "bytea", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_friend_lists", x => x.UserId);
+                    table.ForeignKey(
+                        name: "FK_friend_lists_users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -155,19 +169,20 @@ namespace Kodosi.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "rooms",
+                name: "missions",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
-                    Slug = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
-                    OwnerUserId = table.Column<Guid>(type: "uuid", nullable: false)
+                    OwnerUserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    KeyVersion = table.Column<long>(type: "bigint", nullable: false),
+                    ContentSequence = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_rooms", x => x.Id);
+                    table.PrimaryKey("PK_missions", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_rooms_users_OwnerUserId",
+                        name: "FK_missions_users_OwnerUserId",
                         column: x => x.OwnerUserId,
                         principalTable: "users",
                         principalColumn: "Id",
@@ -175,26 +190,52 @@ namespace Kodosi.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "room_invitations",
+                name: "room_recipient_keys",
+                columns: table => new
+                {
+                    DeviceId = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    PublicKey = table.Column<byte[]>(type: "bytea", nullable: false),
+                    Signature = table.Column<byte[]>(type: "bytea", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_room_recipient_keys", x => x.DeviceId);
+                    table.ForeignKey(
+                        name: "FK_room_recipient_keys_devices_DeviceId",
+                        column: x => x.DeviceId,
+                        principalTable: "devices",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_room_recipient_keys_users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "mission_invitations",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    RoomId = table.Column<Guid>(type: "uuid", nullable: false),
+                    MissionId = table.Column<Guid>(type: "uuid", nullable: false),
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
                     InviterUserId = table.Column<Guid>(type: "uuid", nullable: false),
                     CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_room_invitations", x => x.Id);
+                    table.PrimaryKey("PK_mission_invitations", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_room_invitations_rooms_RoomId",
-                        column: x => x.RoomId,
-                        principalTable: "rooms",
+                        name: "FK_mission_invitations_missions_MissionId",
+                        column: x => x.MissionId,
+                        principalTable: "missions",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_room_invitations_users_UserId",
+                        name: "FK_mission_invitations_users_UserId",
                         column: x => x.UserId,
                         principalTable: "users",
                         principalColumn: "Id",
@@ -202,23 +243,74 @@ namespace Kodosi.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "room_members",
+                name: "mission_items",
                 columns: table => new
                 {
-                    RoomId = table.Column<Guid>(type: "uuid", nullable: false),
+                    MissionId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Kind = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: false),
+                    Version = table.Column<long>(type: "bigint", nullable: false),
+                    Sequence = table.Column<long>(type: "bigint", nullable: false),
+                    KeyVersion = table.Column<long>(type: "bigint", nullable: false),
+                    Body = table.Column<byte[]>(type: "bytea", nullable: false),
+                    Signature = table.Column<byte[]>(type: "bytea", nullable: false),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    DeviceId = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                    CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_mission_items", x => new { x.MissionId, x.Id });
+                    table.ForeignKey(
+                        name: "FK_mission_items_missions_MissionId",
+                        column: x => x.MissionId,
+                        principalTable: "missions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "mission_key_states",
+                columns: table => new
+                {
+                    MissionId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Version = table.Column<long>(type: "bigint", nullable: false),
+                    Epoch = table.Column<long>(type: "bigint", nullable: false),
+                    Body = table.Column<byte[]>(type: "bytea", nullable: false),
+                    Signature = table.Column<byte[]>(type: "bytea", nullable: false),
+                    DeviceId = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
                     UserId = table.Column<Guid>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_room_members", x => new { x.RoomId, x.UserId });
+                    table.PrimaryKey("PK_mission_key_states", x => new { x.MissionId, x.Version });
                     table.ForeignKey(
-                        name: "FK_room_members_rooms_RoomId",
-                        column: x => x.RoomId,
-                        principalTable: "rooms",
+                        name: "FK_mission_key_states_missions_MissionId",
+                        column: x => x.MissionId,
+                        principalTable: "missions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "mission_members",
+                columns: table => new
+                {
+                    MissionId = table.Column<Guid>(type: "uuid", nullable: false),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_mission_members", x => new { x.MissionId, x.UserId });
+                    table.ForeignKey(
+                        name: "FK_mission_members_missions_MissionId",
+                        column: x => x.MissionId,
+                        principalTable: "missions",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_room_members_users_UserId",
+                        name: "FK_mission_members_users_UserId",
                         column: x => x.UserId,
                         principalTable: "users",
                         principalColumn: "Id",
@@ -235,10 +327,8 @@ namespace Kodosi.Data.Migrations
                     HostDeviceId = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
                     HostName = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     Name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
-                    RoomId = table.Column<Guid>(type: "uuid", nullable: true),
+                    MissionId = table.Column<Guid>(type: "uuid", nullable: true),
                     AuthorizationRevision = table.Column<long>(type: "bigint", nullable: false),
-                    KeyGeneration = table.Column<int>(type: "integer", nullable: false),
-                    Ready = table.Column<bool>(type: "boolean", nullable: false),
                     Ended = table.Column<bool>(type: "boolean", nullable: false),
                     ExpiresAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
@@ -253,9 +343,9 @@ namespace Kodosi.Data.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_sessions_rooms_RoomId",
-                        column: x => x.RoomId,
-                        principalTable: "rooms",
+                        name: "FK_sessions_missions_MissionId",
+                        column: x => x.MissionId,
+                        principalTable: "missions",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
@@ -264,36 +354,6 @@ namespace Kodosi.Data.Migrations
                         principalTable: "users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "session_keys",
-                columns: table => new
-                {
-                    SessionId = table.Column<Guid>(type: "uuid", nullable: false),
-                    RecipientDeviceId = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
-                    RecipientUserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    SenderDeviceId = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
-                    KeyGeneration = table.Column<int>(type: "integer", nullable: false),
-                    IssuedAtMs = table.Column<long>(type: "bigint", nullable: false),
-                    EncryptedKey = table.Column<byte[]>(type: "bytea", nullable: false),
-                    Signature = table.Column<byte[]>(type: "bytea", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_session_keys", x => new { x.SessionId, x.RecipientDeviceId });
-                    table.ForeignKey(
-                        name: "FK_session_keys_devices_RecipientDeviceId",
-                        column: x => x.RecipientDeviceId,
-                        principalTable: "devices",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_session_keys_sessions_SessionId",
-                        column: x => x.SessionId,
-                        principalTable: "sessions",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -321,14 +381,9 @@ namespace Kodosi.Data.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_device_challenges_ExpiresAt",
-                table: "device_challenges",
-                column: "ExpiresAt");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_device_challenges_UserId",
-                table: "device_challenges",
-                column: "UserId");
+                name: "IX_deleted_accounts_DeletedAt",
+                table: "deleted_accounts",
+                column: "DeletedAt");
 
             migrationBuilder.CreateIndex(
                 name: "IX_device_links_DeviceCodeHash",
@@ -340,12 +395,6 @@ namespace Kodosi.Data.Migrations
                 name: "IX_device_links_ExpiresAt",
                 table: "device_links",
                 column: "ExpiresAt");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_device_links_UserCode",
-                table: "device_links",
-                column: "UserCode",
-                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_device_links_UserId",
@@ -363,36 +412,41 @@ namespace Kodosi.Data.Migrations
                 column: "SecondUserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_room_invitations_RoomId_UserId",
-                table: "room_invitations",
-                columns: new[] { "RoomId", "UserId" },
+                name: "IX_mission_invitations_MissionId_UserId",
+                table: "mission_invitations",
+                columns: new[] { "MissionId", "UserId" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_room_invitations_UserId",
-                table: "room_invitations",
+                name: "IX_mission_invitations_UserId",
+                table: "mission_invitations",
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_room_members_UserId",
-                table: "room_members",
+                name: "IX_mission_items_MissionId_Kind_Sequence",
+                table: "mission_items",
+                columns: new[] { "MissionId", "Kind", "Sequence" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_mission_items_MissionId_Sequence",
+                table: "mission_items",
+                columns: new[] { "MissionId", "Sequence" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_mission_members_UserId",
+                table: "mission_members",
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_rooms_OwnerUserId",
-                table: "rooms",
+                name: "IX_missions_OwnerUserId",
+                table: "missions",
                 column: "OwnerUserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_rooms_Slug",
-                table: "rooms",
-                column: "Slug",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_session_keys_RecipientDeviceId",
-                table: "session_keys",
-                column: "RecipientDeviceId");
+                name: "IX_room_recipient_keys_UserId",
+                table: "room_recipient_keys",
+                column: "UserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_session_members_UserId",
@@ -416,14 +470,14 @@ namespace Kodosi.Data.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_sessions_MissionId",
+                table: "sessions",
+                column: "MissionId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_sessions_OwnerUserId_Ended",
                 table: "sessions",
                 columns: new[] { "OwnerUserId", "Ended" });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_sessions_RoomId",
-                table: "sessions",
-                column: "RoomId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_users_Handle",
@@ -438,11 +492,11 @@ namespace Kodosi.Data.Migrations
                 unique: true);
         }
 
-
+        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "device_challenges");
+                name: "deleted_accounts");
 
             migrationBuilder.DropTable(
                 name: "device_links");
@@ -451,16 +505,25 @@ namespace Kodosi.Data.Migrations
                 name: "device_lists");
 
             migrationBuilder.DropTable(
+                name: "friend_lists");
+
+            migrationBuilder.DropTable(
                 name: "friendships");
 
             migrationBuilder.DropTable(
-                name: "room_invitations");
+                name: "mission_invitations");
 
             migrationBuilder.DropTable(
-                name: "room_members");
+                name: "mission_items");
 
             migrationBuilder.DropTable(
-                name: "session_keys");
+                name: "mission_key_states");
+
+            migrationBuilder.DropTable(
+                name: "mission_members");
+
+            migrationBuilder.DropTable(
+                name: "room_recipient_keys");
 
             migrationBuilder.DropTable(
                 name: "session_members");
@@ -472,7 +535,7 @@ namespace Kodosi.Data.Migrations
                 name: "devices");
 
             migrationBuilder.DropTable(
-                name: "rooms");
+                name: "missions");
 
             migrationBuilder.DropTable(
                 name: "users");

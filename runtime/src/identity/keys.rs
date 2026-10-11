@@ -157,8 +157,7 @@ impl DeviceKeys {
         user_id: &str,
         expected_device: &str,
     ) -> Result<Self> {
-        let account = Self::account(user_id)?;
-        let label = format!("{account}.device");
+        let label = format!("{}.device", Self::account(user_id)?);
         let payload = store
             .load(&label)?
             .ok_or_else(|| invalid("The removed local device identity is missing."))?;
@@ -168,7 +167,6 @@ impl DeviceKeys {
                 "The local device identity changed during reapproval.",
             ));
         }
-        store.store(&format!("{account}.revoked.{expected_device}"), &payload)?;
         let next = Self::generate()?;
         store.store(&label, &next.encode()?)?;
         Ok(next)
@@ -297,7 +295,7 @@ impl DeviceKeys {
 mod tests {
     use super::*;
     #[test]
-    fn explicit_replacement_preserves_old_secret_and_does_not_reuse_removed_identity() {
+    fn explicit_replacement_keeps_nothing_of_the_removed_identity() {
         let root = tempfile::tempdir().unwrap();
         let store = Secrets::new(root.path().to_owned(), "test".into(), true);
         let user = Uuid::now_v7().to_string();
@@ -310,14 +308,7 @@ mod tests {
             DeviceKeys::load_or_create(&store, &user).unwrap().device_id,
             replacement.device_id
         );
-        let archive = store
-            .load(&format!("{user}.revoked.{}", old.device_id))
-            .unwrap()
-            .unwrap();
-        assert_eq!(
-            DeviceKeys::decode(&archive).unwrap().device_id,
-            old.device_id
-        );
+        assert_eq!(std::fs::read_dir(root.path()).unwrap().count(), 1);
     }
 
     #[test]
