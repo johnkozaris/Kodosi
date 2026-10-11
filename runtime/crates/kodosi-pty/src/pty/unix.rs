@@ -20,23 +20,20 @@ use tokio::{
     process::{Child, Command},
 };
 
-use super::{ShutdownStage, WaitOutcome};
+use super::{
+    ShutdownStage, Transfer, WaitOutcome, inherits_foreign_context, program_identity,
+    validate_working_dir,
+};
 
 static OPEN_PTY: Mutex<()> = Mutex::new(());
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Transfer {
-    Read(usize),
-    Wrote(usize),
-}
-
 #[derive(Debug)]
-pub struct RawFdAsyncReader {
+pub struct PtyReader {
     pending: Option<File>,
     async_fd: Option<AsyncFd<File>>,
 }
 
-impl RawFdAsyncReader {
+impl PtyReader {
     pub fn new(fd: OwnedFd) -> io::Result<Self> {
         let flags = fcntl(fd.as_fd(), FcntlArg::F_GETFL)
             .map_err(|error| io::Error::from_raw_os_error(error as i32))?;
@@ -63,6 +60,11 @@ impl RawFdAsyncReader {
         self.async_fd
             .as_mut()
             .ok_or_else(|| io::Error::other("PTY async reader failed to initialize"))
+    }
+
+    /// Unix writes complete inside `transfer`, so none is ever in flight.
+    pub const fn write_in_flight(&self) -> bool {
+        false
     }
 
     pub async fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
@@ -132,7 +134,7 @@ impl KodosiPty {
         working_dir: Option<&str>,
         rows: u16,
         cols: u16,
-    ) -> Result<(Self, RawFdAsyncReader)> {
+    ) -> Result<(Self, PtyReader)> {
         Self::spawn_program_with_env(program, arguments, working_dir, rows, cols, &[])
     }
 
@@ -143,7 +145,7 @@ impl KodosiPty {
         rows: u16,
         cols: u16,
         environment: &[(&str, &str)],
-    ) -> Result<(Self, RawFdAsyncReader)> {
+    ) -> Result<(Self, PtyReader)> {
         let working_dir = validate_working_dir(working_dir)?;
         let resolved_program = resolve_program(program, working_dir).ok_or_else(|| {
             KodosiError::Spawn(format!("command not found: {}", program.display()))
@@ -159,7 +161,7 @@ impl KodosiPty {
 
         let reader_fd = unistd::dup(&openpty_result.master)
             .map_err(|error| io::Error::from_raw_os_error(error as i32))?;
-        let reader = RawFdAsyncReader::new(reader_fd)?;
+        let reader = PtyReader::new(reader_fd)?;
 
         let mut command = Command::new(&resolved_program);
         command.args(arguments);
@@ -501,52 +503,11 @@ fn try_write_to_fd(fd: RawFd, buf: &[u8]) -> std::result::Result<usize, nix::Err
     Ok(written)
 }
 
-const FOREIGN_CONTEXT_PREFIXES: [&str; 6] = [
-    "CLAUDE_CODE_",
-    "CLAUDE_EFFORT",
-    "CLAUDE_PID",
-    "COPILOT_",
-    "CODEX_",
-    "CURSOR_",
-];
-const FOREIGN_CONTEXT_KEYS: [&str; 8] = [
-    "AGENT",
-    "AI_AGENT",
-    "CLAUDECODE",
-    "COLUMNS",
-    "LINES",
-    "TERMINFO",
-    "TERM_PROGRAM_VERSION",
-    "TERM_SESSION_ID",
-];
-
-fn inherits_foreign_context(key: &str) -> bool {
-    FOREIGN_CONTEXT_KEYS.contains(&key)
-        || FOREIGN_CONTEXT_PREFIXES
-            .iter()
-            .any(|prefix| key.starts_with(prefix))
-}
-
 const LOGIN_SHELLS: [&str; 8] = ["bash", "csh", "dash", "fish", "ksh", "sh", "tcsh", "zsh"];
 
 fn login_shell_name(program: &Path) -> Option<&str> {
     let name = program.file_name()?.to_str()?;
     LOGIN_SHELLS.contains(&name).then_some(name)
-}
-
-fn validate_working_dir(working_dir: Option<&str>) -> Result<Option<&Path>> {
-    let Some(directory) = working_dir.filter(|value| !value.trim().is_empty()) else {
-        return Ok(None);
-    };
-    let directory = Path::new(directory);
-    if directory.is_dir() {
-        Ok(Some(directory))
-    } else {
-        Err(KodosiError::Spawn(format!(
-            "working directory does not exist or is not a directory: {}",
-            directory.display()
-        )))
-    }
 }
 
 fn find_executable(candidate: &Path) -> Option<PathBuf> {
@@ -614,32 +575,6 @@ fn process_directory(pid: u32) -> Option<PathBuf> {
     Some(PathBuf::from(std::ffi::OsString::from_vec(bytes)))
 }
 
-fn program_identity(arguments: &[String]) -> Option<&'static str> {
-    let executable = Path::new(arguments.first()?).file_name()?.to_str()?;
-    let candidate = if matches!(executable, "node" | "bun" | "deno") {
-        arguments
-            .iter()
-            .skip(1)
-            .find(|argument| !argument.starts_with('-'))?
-            .as_str()
-    } else {
-        arguments.first()?.as_str()
-    };
-    let basename = Path::new(candidate).file_name()?.to_str()?;
-    match basename {
-        "claude" => Some("claude"),
-        "copilot" => Some("copilot"),
-        "codex" | "codex.js" => Some("codex"),
-        "cursor-agent" | "agent" if basename == "cursor-agent" || candidate.contains("cursor") => {
-            Some("cursor")
-        }
-        _ if candidate.contains("@anthropic-ai/claude-code/") => Some("claude"),
-        _ if candidate.contains("@github/copilot/") => Some("copilot"),
-        _ if candidate.contains("@openai/codex/") => Some("codex"),
-        _ => None,
-    }
-}
-
 #[cfg(target_os = "linux")]
 fn process_arguments(pid: u32) -> Option<Vec<String>> {
     let bytes = std::fs::read(format!("/proc/{pid}/cmdline")).ok()?;
@@ -700,9 +635,8 @@ fn foreground_process_group(fd: RawFd) -> Option<u32> {
 #[cfg(test)]
 mod tests {
     use super::{
-        KodosiPty, ShutdownStage, find_executable, inherits_foreign_context, login_shell_name,
-        openpty, process_arguments, program_identity, resolve_program, set_terminal_size_using_fd,
-        try_write_to_fd, validate_working_dir,
+        KodosiPty, ShutdownStage, find_executable, login_shell_name, openpty, process_arguments,
+        resolve_program, set_terminal_size_using_fd, try_write_to_fd, validate_working_dir,
     };
     use nix::{
         fcntl::{FcntlArg, OFlag, fcntl},
@@ -750,54 +684,6 @@ mod tests {
             .expect_err("TIOCSWINSZ on an invalid descriptor must fail");
 
         assert!(error.to_string().contains("I/O failure"));
-    }
-
-    #[test]
-    fn provider_identity_uses_executable_not_prompt_arguments() {
-        for (arguments, expected) in [
-            (vec!["/opt/bin/claude"], Some("claude")),
-            (
-                vec!["node", "/lib/node_modules/@github/copilot/index.js"],
-                Some("copilot"),
-            ),
-            (
-                vec!["node", "/lib/node_modules/@openai/codex/bin/codex.js"],
-                Some("codex"),
-            ),
-            (vec!["/opt/bin/cursor-agent"], Some("cursor")),
-            (vec!["/bin/zsh", "-c", "claude"], None),
-            (vec!["/usr/bin/printf", "claude"], None),
-        ] {
-            assert_eq!(
-                program_identity(&arguments.into_iter().map(str::to_owned).collect::<Vec<_>>()),
-                expected
-            );
-        }
-    }
-
-    #[test]
-    fn agent_and_foreign_terminal_context_never_reaches_a_session() {
-        for key in [
-            "AI_AGENT",
-            "CLAUDECODE",
-            "CLAUDE_CODE_MESSAGING_TOKEN",
-            "CLAUDE_PID",
-            "COPILOT_CLI",
-            "TERMINFO",
-            "TERM_PROGRAM_VERSION",
-        ] {
-            assert!(inherits_foreign_context(key), "{key}");
-        }
-        for key in [
-            "CLAUDE_CONFIG_DIR",
-            "HOME",
-            "PATH",
-            "SSH_AUTH_SOCK",
-            "TERM_PROGRAM",
-            "LANG",
-        ] {
-            assert!(!inherits_foreign_context(key), "{key}");
-        }
     }
 
     #[test]

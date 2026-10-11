@@ -1,13 +1,13 @@
 use std::{
     collections::{HashMap, VecDeque},
     future::Future,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
 };
 
 use bytes::Bytes;
-use kodosi_pty::{KodosiPty, RawFdAsyncReader, ShutdownStage, Transfer, WaitOutcome};
+use kodosi_pty::{KodosiPty, PtyReader, ShutdownStage, Transfer, WaitOutcome};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore, broadcast, mpsc, oneshot, watch};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
@@ -27,7 +27,6 @@ const MAX_PENDING_BYTES: usize = 4 * 1024 * 1024;
 const READ_BYTES: usize = 64 * 1024;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 const STOP_TIMEOUT: Duration = Duration::from_secs(10);
-const CLEAR_LINE: &str = "\x05\x15";
 
 type Completion = Option<std::result::Result<(), String>>;
 
@@ -146,6 +145,7 @@ impl LocalSession {
         changes: mpsc::Sender<SessionChange>,
     ) -> Result<Self> {
         let size = TerminalSize::default();
+        let clear_line = clear_line_keys(&program);
         let (emulator, pty, reader) = tokio::task::spawn_blocking(move || -> Result<_> {
             let cwd = directory
                 .to_str()
@@ -199,6 +199,7 @@ impl LocalSession {
             sequence: 0,
             host_stop_reply: None,
             program: None,
+            clear_line,
             prompt: false,
             viewers: HashMap::new(),
             working_directory: None,
@@ -475,11 +476,28 @@ fn validated_pixels(
     Ok((Some(width), Some(height)))
 }
 
+/// The keys that clear a half-typed line before a start command. `PowerShell`
+/// and `cmd` cancel the line with Ctrl+C; Unix line editors use Ctrl+E, Ctrl+U.
+fn clear_line_keys(shell: &Path) -> &'static str {
+    let stem = shell
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or_default();
+    if ["pwsh", "powershell", "cmd"]
+        .iter()
+        .any(|windows| windows.eq_ignore_ascii_case(stem))
+    {
+        "\x03"
+    } else {
+        "\x05\x15"
+    }
+}
+
 struct LocalActor {
     id: Uuid,
     incarnation: Uuid,
     pty: KodosiPty,
-    reader: RawFdAsyncReader,
+    reader: PtyReader,
     emulator: SessionTerminalHandle,
     commands: mpsc::Receiver<Request>,
     host: mpsc::Receiver<HostRequest>,
@@ -495,6 +513,7 @@ struct LocalActor {
     sequence: u64,
     host_stop_reply: Option<oneshot::Sender<std::result::Result<serde_json::Value, String>>>,
     program: Option<String>,
+    clear_line: &'static str,
     prompt: bool,
     viewers: HashMap<Uuid, String>,
     working_directory: Option<PathBuf>,
@@ -569,7 +588,21 @@ impl LocalActor {
         Ok(())
     }
 
+    /// Drops cancelled input, except a front write the PTY has not yet confirmed.
+    fn drop_cancelled_input(&mut self) {
+        let in_flight = self.reader.write_in_flight();
+        let mut index = 0;
+        self.queue.retain(|write| {
+            let keep = (in_flight && index == 0) || !write.is_cancelled();
+            index += 1;
+            keep
+        });
+    }
+
     fn flush(&mut self) -> Result<()> {
+        if self.reader.write_in_flight() {
+            return Ok(());
+        }
         while let Some(write) = self.queue.front_mut() {
             if write.is_cancelled() {
                 self.queue.pop_front();
@@ -593,8 +626,14 @@ impl LocalActor {
         Ok(())
     }
 
+    /// The front write's unsent bytes. A write the PTY has taken but not yet
+    /// confirmed stays at the front, cancelled or not, until `wrote` settles it.
     fn pending_input(&mut self) -> Option<Bytes> {
+        let in_flight = self.reader.write_in_flight();
         while let Some(write) = self.queue.front_mut() {
+            if in_flight {
+                return Some(write.bytes.slice(write.offset..));
+            }
             if write.is_cancelled() {
                 self.queue.pop_front();
             } else if write.offset == write.bytes.len() {
@@ -815,7 +854,7 @@ impl LocalActor {
         {
             self.resize_owner = None;
         }
-        self.queue.retain(|write| !write.is_cancelled());
+        self.drop_cancelled_input();
         self.flush()
     }
 
@@ -971,7 +1010,7 @@ impl LocalActor {
             }
             Request::Run { command, reply } => {
                 let result = if self.at_prompt(self.pty.foreground_program().as_deref()) {
-                    self.enqueue(Bytes::from(format!("{CLEAR_LINE}{command}\r")), None)
+                    self.enqueue(Bytes::from(format!("{}{command}\r", self.clear_line)), None)
                         .and_then(|()| self.flush())
                 } else {
                     Err(Error::Invalid("This terminal runs a program.".to_owned()))

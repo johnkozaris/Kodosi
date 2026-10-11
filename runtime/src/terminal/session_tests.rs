@@ -342,7 +342,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
     )
     .expect("emulator");
     let (pty, reader) = KodosiPty::spawn_program(
-        std::path::Path::new("/bin/sh"),
+        Path::new("/bin/sh"),
         &["-c".to_owned(), "stty raw -echo; exec /bin/cat".to_owned()],
         directory.to_str(),
         32,
@@ -375,6 +375,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         sequence: 0,
         host_stop_reply: None,
         program: None,
+        clear_line: "\x05\x15",
         prompt: false,
         viewers: HashMap::new(),
         working_directory: None,
@@ -784,4 +785,19 @@ async fn title_delivery_retries_after_the_change_channel_is_full() {
     .unwrap();
     local.close().await.unwrap();
     drop(local);
+}
+
+#[test]
+fn start_commands_clear_the_line_the_way_the_shell_edits() {
+    for shell in [
+        "/opt/PowerShell/7/pwsh",
+        "powershell.exe",
+        "cmd.exe",
+        "PWSH.EXE",
+    ] {
+        assert_eq!(clear_line_keys(Path::new(shell)), "\x03", "{shell}");
+    }
+    for shell in ["/bin/zsh", "/bin/bash", "bash.exe", "fish"] {
+        assert_eq!(clear_line_keys(Path::new(shell)), "\x05\x15", "{shell}");
+    }
 }

@@ -1,7 +1,17 @@
-#![expect(
-    unsafe_code,
-    unused_qualifications,
-    reason = "Kodosi PTY wraps platform file descriptors and process calls behind safe APIs"
+#![cfg_attr(
+    unix,
+    expect(
+        unsafe_code,
+        unused_qualifications,
+        reason = "Kodosi PTY wraps platform file descriptors and process calls behind safe APIs"
+    )
+)]
+#![cfg_attr(
+    windows,
+    expect(
+        unsafe_code,
+        reason = "Kodosi PTY wraps ConPTY, pipes and job objects behind safe APIs"
+    )
 )]
 #![cfg_attr(
     unix,
@@ -10,12 +20,15 @@
         reason = "Unix PTY close paths intentionally ignore best-effort cleanup results"
     )
 )]
-#![expect(
-    clippy::cast_possible_wrap,
-    clippy::match_same_arms,
-    clippy::needless_continue,
-    clippy::option_if_let_else,
-    reason = "Kodosi PTY keeps platform control flow explicit"
+#![cfg_attr(
+    unix,
+    expect(
+        clippy::cast_possible_wrap,
+        clippy::match_same_arms,
+        clippy::needless_continue,
+        clippy::option_if_let_else,
+        reason = "Kodosi PTY keeps platform control flow explicit"
+    )
 )]
 #![cfg_attr(
     test,
@@ -42,4 +55,4 @@ pub enum KodosiError {
     Backpressure(String),
 }
 
-pub use pty::{KodosiPty, RawFdAsyncReader, ShutdownStage, Transfer, WaitOutcome};
+pub use pty::{KodosiPty, PtyReader, ShutdownStage, Transfer, WaitOutcome};
