@@ -28,14 +28,13 @@ In this repository and in each place where a person speaks for the project.
 
 ## Report a problem
 
-Contact the maintainer in private through the details on the
-[maintainer's GitHub profile](https://github.com/johnkozaris). Say what occurred,
-where, and when, and add links if you have them. The maintainer keeps the identity of
+Write in private to [hello@kodosi.com](mailto:hello@kodosi.com). Say what occurred,
+where, and when, and add links if you have them. The maintainers keep the identity of
 the reporter private.
 
-## What the maintainer does
+## What the maintainers do
 
-The maintainer reads each report and decides in a fair way. The result can be a
+The maintainers read each report and decide in a fair way. The result can be a
 private note, a warning, the removal of a comment or a contribution, or a temporary
 or permanent ban from the project.
 

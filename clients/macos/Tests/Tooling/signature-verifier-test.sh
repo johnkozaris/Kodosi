@@ -29,7 +29,7 @@ EOF
 chmod +x "$FAKE_CODESIGN"
 
 good_details='Executable=/tmp/KodosiDesktop
-Authority=Developer ID Application: Ioannis Kozaris (C5886CWK32)
+Authority=Developer ID Application: Example Developer (C5886CWK32)
 Authority=Developer ID Certification Authority
 Authority=Apple Root CA
 Timestamp=Aug 14, 2026 at 12:00:00
@@ -49,7 +49,7 @@ assert_rejected() {
 FAKE_CODESIGN_DETAILS="$good_details" \
     "$VERIFIER" /tmp/KodosiDesktop "$TEAM_ID" "$FAKE_CODESIGN"
 
-assert_rejected adhoc "${good_details/Authority=Developer ID Application: Ioannis Kozaris (C5886CWK32)/Signature=adhoc}"
+assert_rejected adhoc "${good_details/Authority=Developer ID Application: Example Developer (C5886CWK32)/Signature=adhoc}"
 assert_rejected wrong-team "${good_details/TeamIdentifier=C5886CWK32/TeamIdentifier=AAAAAAAAAA}"
 assert_rejected no-timestamp "${good_details/Timestamp=Aug 14, 2026 at 12:00:00/}"
 assert_rejected no-runtime "${good_details/flags=0x10000(runtime)/flags=0x0(none)}"
