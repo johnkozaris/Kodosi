@@ -75,7 +75,7 @@ ffi-publication-test:
 # tests find it through KODOSI_CONPTY_DIR.
 [windows]
 conpty:
-    python3 terminal/conpty/fetch.py --arch "$(source clients/qt/scripts/build/windows-env.sh && kodosi_windows_arch)" --output "$KODOSI_CONPTY_DIR"
+    python3 terminal/conpty/fetch.py --arch "$(source scripts/windows-env.sh && kodosi_windows_arch)" --output "$KODOSI_CONPTY_DIR"
 
 [unix]
 conpty:

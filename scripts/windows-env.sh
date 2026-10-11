@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sourced by the Windows recipes, which run in Git Bash.
+# Sourced by the Windows builds, which run in Git Bash.
 
 # The machine's native architecture: x64 or arm64. Git Bash may run emulated
 # and see AMD64 in its own environment, so read the system's value.

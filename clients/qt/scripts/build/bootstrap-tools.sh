@@ -26,7 +26,7 @@ case "$(uname -s)-$(uname -m)" in
         HOST=windows
         EXE=.exe
         # shellcheck disable=SC1091
-        source scripts/build/windows-env.sh
+        source ../../scripts/windows-env.sh
         case "$(kodosi_windows_arch)" in
             x64)
                 CMAKE_ARCHIVE="cmake-${CMAKE_VERSION}-windows-x86_64.zip"

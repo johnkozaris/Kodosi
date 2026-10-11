@@ -46,25 +46,25 @@ check: release-integrity-test rust-license-test native-license-test lint test
 
 # Builds the Windows app in Git Bash on Windows 11 x64 or ARM64.
 windows-build: bootstrap
-    source scripts/build/windows-env.sh && kodosi_windows_env && \
+    source ../../scripts/windows-env.sh && kodosi_windows_env && \
         "{{ windows_cmake }}" --preset windows-dev && \
         "{{ windows_cmake }}" --build --preset windows-dev
 
 # Builds and tests the Windows app.
 windows-check: windows-build
-    source scripts/build/windows-env.sh && kodosi_windows_target && \
+    source ../../scripts/windows-env.sh && kodosi_windows_target && \
         "{{ windows_ctest }}" --preset windows-dev
 
 # Runs the Windows app with the bootstrapped Qt libraries.
 windows-run *arguments: windows-build
-    source scripts/build/windows-env.sh && kodosi_windows_target && \
+    source ../../scripts/windows-env.sh && kodosi_windows_target && \
         PATH="$PWD/.tools/Qt/6.12.0/$KODOSI_QT_ARCH/bin:$PATH" build/windows-dev/kodosi-qt.exe {{ arguments }}
 
 # A release sets KODOSI_MSIX_PUBLISHER to the signing certificate's subject;
 # the default publisher makes an unsigned development package.
 # Builds, tests, packs and verifies build/release/kodosi-0.1.0-windows-<arch>.msix.
 windows-package: bootstrap
-    source scripts/build/windows-env.sh && kodosi_windows_env && \
+    source ../../scripts/windows-env.sh && kodosi_windows_env && \
         export SOURCE_DATE_EPOCH="$(python3 scripts/release/source-date-epoch.py --source-root .)" && \
         "{{ windows_cmake }}" --preset windows-release \
             ${KODOSI_MSIX_PUBLISHER:+"-DKODOSI_MSIX_PUBLISHER=$KODOSI_MSIX_PUBLISHER"} && \
@@ -82,7 +82,7 @@ windows-package: bootstrap
 
 # Signs a package from windows-package with Azure Artifact Signing.
 windows-sign package:
-    source scripts/build/windows-env.sh && kodosi_windows_env && \
+    source ../../scripts/windows-env.sh && kodosi_windows_env && \
         ./scripts/release/sign-msix.sh "{{ package }}"
 
 package: bootstrap
