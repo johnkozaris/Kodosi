@@ -118,18 +118,22 @@ fn stop_permission(
     Ok(())
 }
 
+mod app;
 mod client;
 mod framing;
 mod server;
 
+pub use app::{
+    AppClaim, Forwarded, MAX_ACTIVATION_BYTES, claim_app, forward_activation, serve_activations,
+};
 pub use client::{Client, TerminalClient, host_status, stop_other_host};
 use framing::{
     DATA, INPUT, INPUT_ACK, RESIZE, checkpoint_frame, control_frame, read_frame, read_json,
     write_frame, write_json,
 };
 pub use framing::{FrameReader, TerminalFrame, read_terminal, write_input, write_resize};
-pub use server::{HostServer, serve};
-use server::{endpoint, local_error, lock_root, root_identity};
+pub use server::{LocalServer, serve};
+use server::{endpoint, local_error, lock_root, role_endpoint, root_identity};
 
 #[cfg(test)]
 mod tests;

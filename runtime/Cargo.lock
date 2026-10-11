@@ -1241,6 +1241,7 @@ dependencies = [
  "cbindgen",
  "kodosi-runtime",
  "serde_json",
+ "tempfile",
  "tokio",
  "tokio-util",
  "tracing",

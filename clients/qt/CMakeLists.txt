@@ -107,7 +107,7 @@ add_custom_target(kodosi-rust-ffi-build
     BYPRODUCTS
         "${KODOSI_RUNTIME_ARCHIVE}"
         "${KODOSI_RUNTIME_HEADER_DIR}/kodosi_runtime.h"
-    COMMENT "Building the Kodosi ABI-7 runtime"
+    COMMENT "Building the Kodosi ABI-8 runtime"
     WORKING_DIRECTORY "${KODOSI_RUNTIME_ROOT}"
     VERBATIM
 )

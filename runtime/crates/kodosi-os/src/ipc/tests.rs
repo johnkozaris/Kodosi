@@ -39,7 +39,9 @@ async fn a_listener_serves_its_user_and_refuses_a_second_owner() {
     );
     let server = tokio::spawn(async move {
         for _ in 0..2 {
-            let (mut reader, mut writer) = listener.accept().await.unwrap().into_split();
+            let stream = listener.accept().await.unwrap();
+            assert_eq!(stream.peer_pid(), Some(std::process::id()));
+            let (mut reader, mut writer) = stream.into_split();
             let mut byte = [0u8; 1];
             reader.read_exact(&mut byte).await.unwrap();
             writer.write_all(&[byte[0] + 1]).await.unwrap();
@@ -48,6 +50,7 @@ async fn a_listener_serves_its_user_and_refuses_a_second_owner() {
     });
     for value in [1u8, 7] {
         let mut client = connect(&endpoint).await.unwrap();
+        assert_eq!(client.peer_pid(), Some(std::process::id()));
         client.write_all(&[value]).await.unwrap();
         let mut reply = [0u8; 1];
         client.read_exact(&mut reply).await.unwrap();

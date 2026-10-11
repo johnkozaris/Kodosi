@@ -14,6 +14,9 @@ pub enum HostKind {
 #[derive(Debug, Clone)]
 pub struct Config {
     pub data_root: PathBuf,
+    /// The native client's preferences file in an isolated run. Other runs
+    /// keep client preferences where the platform keeps them.
+    pub preferences: Option<PathBuf>,
     pub home: PathBuf,
     pub initial_shell: Option<String>,
     pub backend_url: Url,
@@ -32,7 +35,7 @@ impl Config {
             Some(root) => PathBuf::from(root),
             None => kodosi_os::fs::default_data_root()?,
         };
-        let (data_root, isolated) = match std::env::var_os("KODOSI_DATA_ROOT") {
+        let (data_root, preferences, isolated) = match std::env::var_os("KODOSI_DATA_ROOT") {
             Some(value) => {
                 if std::env::var_os("KODOSI_PRODUCTION_DATA_ROOT").is_none() {
                     return Err(Error::Invalid(
@@ -41,9 +44,10 @@ impl Config {
                 }
                 let root = PathBuf::from(value);
                 validate_isolated(&root, &production, &home)?;
-                (root.join("core"), true)
+                secure_directory(&root)?;
+                (root.join("core"), Some(root.join("preferences.ini")), true)
             }
-            None => (production, false),
+            None => (production, None, false),
         };
         let backend = std::env::var("KODOSI__BACKEND__API")
             .unwrap_or_else(|_| "https://api.kodosi.com".to_owned());
@@ -67,6 +71,7 @@ impl Config {
         secure_directory(&data_root)?;
         Ok(Self {
             data_root,
+            preferences,
             home,
             isolated,
             backend_url,
@@ -91,6 +96,7 @@ impl Config {
         secure_directory(&data_root)?;
         Ok(Self {
             data_root,
+            preferences: Some(root.join("preferences.ini")),
             home,
             initial_shell: None,
             backend_url: Url::parse("http://127.0.0.1:1")

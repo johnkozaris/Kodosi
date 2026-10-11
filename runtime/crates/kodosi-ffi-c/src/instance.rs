@@ -1,5 +1,5 @@
 use super::{
-    ACTIVE, Arc, AssertUnwindSafe, CStr, CancellationToken, Condvar, Config, Error, Executor, Gate,
+    ACTIVE, Arc, AssertUnwindSafe, CStr, CancellationToken, Condvar, Error, Executor, Gate,
     HANDLES, HashMap, JoinSet, KODOSI_FFI_BUSY, KODOSI_FFI_DESER_FAILED, KODOSI_FFI_PANIC,
     KODOSI_FFI_PAYLOAD_TOO_LARGE, KODOSI_FFI_RUNTIME_STOPPED, KODOSI_FFI_SESSION_NOT_FOUND,
     KODOSI_FFI_STALE_SUBSCRIPTION, KODOSI_MAX_FRAME_BYTES, KODOSI_START_ALREADY_ACTIVE,
@@ -220,10 +220,9 @@ fn run_executor(
         || -> std::result::Result<Setup, Box<KodosiStartFailure>> {
             let executor = Executor::new()
                 .map_err(|error| start_failure(KODOSI_START_FAILED, &error.to_string(), None))?;
-            let config = Config::load()
-                .map_err(|error| start_failure(KODOSI_START_REJECTED, &error.to_string(), None))?;
+            let config = crate::app::start_config()?;
             let root = config.data_root.clone();
-            kodosi_runtime::diagnostics::install(&root);
+            kodosi_runtime::diagnostics::install(&root, kodosi_runtime::diagnostics::Role::App);
             let runtime = executor
                 .block_on(kodosi_runtime::start(config))
                 .map_err(|error| {

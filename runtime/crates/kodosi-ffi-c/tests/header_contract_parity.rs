@@ -21,8 +21,12 @@ fn exported_contract_contains_only_current_entrypoints() {
         [
             "kodosi_abi_version",
             "kodosi_cli_main",
+            "kodosi_close_app",
+            "kodosi_forward_activation",
             "kodosi_host_stop",
             "kodosi_last_start_failure",
+            "kodosi_log",
+            "kodosi_prepare",
             "kodosi_protocol_version",
             "kodosi_send_command",
             "kodosi_start",
@@ -34,7 +38,11 @@ fn exported_contract_contains_only_current_entrypoints() {
         ]
     );
     assert!(text.contains("kodosi_start_failure_t"));
-    assert!(text.contains("#define KODOSI_FFI_ABI_VERSION 7"));
+    assert!(text.contains("#define KODOSI_FFI_ABI_VERSION 8"));
+    assert!(
+        text.contains("typedef void (*kodosi_activation_cb_t)(const uint8_t*, uintptr_t, void*);")
+    );
+    assert!(text.contains("#define KODOSI_ACTIVATION_MAX_BYTES 16384"));
 }
 
 #[test]

@@ -13,11 +13,12 @@ impl Drop for ClientSlot {
     }
 }
 
-pub struct HostServer {
-    cancel: CancellationToken,
-    task: Option<tokio::task::JoinHandle<()>>,
+/// A local endpoint served until `shutdown` or drop.
+pub struct LocalServer {
+    pub(super) cancel: CancellationToken,
+    pub(super) task: Option<tokio::task::JoinHandle<()>>,
 }
-impl HostServer {
+impl LocalServer {
     pub async fn shutdown(mut self) {
         self.cancel.cancel();
         if let Some(task) = self.task.take() {
@@ -25,7 +26,7 @@ impl HostServer {
         }
     }
 }
-impl Drop for HostServer {
+impl Drop for LocalServer {
     fn drop(&mut self) {
         self.cancel.cancel();
     }
@@ -45,9 +46,13 @@ pub(super) fn root_identity(root: &Path) -> String {
     value
 }
 pub(super) fn endpoint(root: &Path) -> Result<kodosi_os::ipc::Endpoint> {
+    role_endpoint(root, "host")
+}
+
+pub(super) fn role_endpoint(root: &Path, role: &str) -> Result<kodosi_os::ipc::Endpoint> {
     Ok(kodosi_os::ipc::Endpoint::new(
         &root_identity(root)[..24],
-        "host",
+        role,
     )?)
 }
 
@@ -75,7 +80,7 @@ pub async fn serve(
     root: PathBuf,
     host: HostDescription,
     clients: watch::Sender<usize>,
-) -> Result<HostServer> {
+) -> Result<LocalServer> {
     let root = root.canonicalize()?;
     let host_lock = lock_root(&root)?;
     let mut listener = kodosi_os::ipc::Listener::bind(&endpoint(&root)?)
@@ -127,7 +132,7 @@ pub async fn serve(
         while connections.join_next().await.is_some() {}
         drop(listener);
     });
-    Ok(HostServer {
+    Ok(LocalServer {
         cancel,
         task: Some(task),
     })

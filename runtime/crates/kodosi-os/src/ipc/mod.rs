@@ -65,6 +65,11 @@ impl Stream {
     pub fn into_split(self) -> (ReadHalf, WriteHalf) {
         tokio::io::split(self)
     }
+
+    /// The process at the other end, as the operating system reports it.
+    pub fn peer_pid(&self) -> Option<u32> {
+        imp::peer_pid(&self.0)
+    }
 }
 
 impl AsyncRead for Stream {

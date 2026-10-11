@@ -102,6 +102,11 @@ pub(super) async fn connect(endpoint: &Endpoint) -> io::Result<Stream> {
     Ok(stream)
 }
 
+pub(super) fn peer_pid(stream: &Stream) -> Option<u32> {
+    let pid = stream.peer_cred().ok()?.pid()?;
+    u32::try_from(pid).ok()
+}
+
 fn existing_socket(path: &Path) -> io::Result<bool> {
     match fs::symlink_metadata(path) {
         Ok(metadata) => {

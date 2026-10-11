@@ -99,7 +99,8 @@ Provider tests use fixtures or redirected native configuration roots. Never move
 edit, or delete real provider settings, memory, conversations, credentials, or working
 files. Select PostgreSQL volumes explicitly; unknown schemas must fail without a reset.
 
-The runtime writes `diagnostics.log` in its data root and keeps one older copy.
-Inspect logs locally and redact private data before attaching them to an issue.
+Each process writes its own redacted log in the data root and keeps one older copy:
+the app writes `app.log` and a CLI host writes `host.log`. Inspect logs locally and
+check for private data before attaching them to an issue.
 
 [All documentation](README.md) · [Contributing](../CONTRIBUTING.md)

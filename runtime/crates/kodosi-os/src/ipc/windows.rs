@@ -18,6 +18,7 @@ use tokio::{
 use windows_sys::Win32::{
     Foundation::{ERROR_ACCESS_DENIED, ERROR_PIPE_BUSY},
     Security::Authorization::SE_KERNEL_OBJECT,
+    System::Pipes::{GetNamedPipeClientProcessId, GetNamedPipeServerProcessId},
 };
 
 use crate::win::{self, Descriptor};
@@ -107,6 +108,18 @@ pub(super) async fn connect(endpoint: &Endpoint) -> io::Result<Stream> {
 pub(super) enum Stream {
     Server(NamedPipeServer),
     Client(NamedPipeClient),
+}
+
+pub(super) fn peer_pid(stream: &Stream) -> Option<u32> {
+    let mut pid = 0;
+    // SAFETY: the pipe handle is open for the life of `stream`.
+    let found = unsafe {
+        match stream {
+            Stream::Server(pipe) => GetNamedPipeClientProcessId(pipe.as_raw_handle(), &raw mut pid),
+            Stream::Client(pipe) => GetNamedPipeServerProcessId(pipe.as_raw_handle(), &raw mut pid),
+        }
+    };
+    (found != 0 && pid != 0).then_some(pid)
 }
 
 impl AsyncRead for Stream {

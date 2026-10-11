@@ -180,11 +180,11 @@ for architecture in "$@"; do
         --disassemble-symbols=_kodosi_abi_version \
         "$inspection_archive" 2>/dev/null)
     case "$architecture" in
-        arm64) abi_constant_pattern='mov[[:space:]]+w0,[[:space:]]+#(0x7|7)([[:space:];]|$)' ;;
-        x86_64) abi_constant_pattern='movl?[[:space:]]+\$(0x7|7),[[:space:]]+%eax([[:space:];]|$)' ;;
+        arm64) abi_constant_pattern='mov[[:space:]]+w0,[[:space:]]+#(0x8|8)([[:space:];]|$)' ;;
+        x86_64) abi_constant_pattern='movl?[[:space:]]+\$(0x8|8),[[:space:]]+%eax([[:space:];]|$)' ;;
     esac
     if ! grep -Eq "$abi_constant_pattern" <<<"$abi_disassembly"; then
-        echo "Rust archive $archive does not return exact C ABI v7 in its $architecture slice" >&2
+        echo "Rust archive $archive does not return exact C ABI v8 in its $architecture slice" >&2
         exit 1
     fi
     if [[ -n "$thin_archive" ]]; then
