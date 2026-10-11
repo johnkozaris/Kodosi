@@ -28,8 +28,6 @@ struct FriendRequestEntry: Decodable, Equatable, Identifiable, Sendable {
 struct MyDeviceEntry: Decodable, Equatable, Identifiable, Sendable {
     let deviceId: String
     let label: String
-    let certSignerDeviceId: String
-    let certIssuedAtMs: UInt64
     let recoveryKey: Bool
     var id: String {
         deviceId
@@ -39,7 +37,6 @@ struct MyDeviceEntry: Decodable, Equatable, Identifiable, Sendable {
 struct DeviceLinkRequest: Decodable, Equatable, Identifiable, Sendable {
     let requestId: String
     let deviceLabel: String
-    let expiresAt: String
     var id: String {
         requestId
     }

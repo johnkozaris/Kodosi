@@ -50,7 +50,6 @@ pub struct ConversationListPage {
     pub items: Vec<ConversationRef>,
     pub next_cursor: Option<String>,
     pub has_more: bool,
-    pub response_bytes: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]

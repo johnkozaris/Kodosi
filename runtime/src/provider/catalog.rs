@@ -173,19 +173,19 @@ fn paginate(
         items: Vec::new(),
         next_cursor: None,
         has_more: false,
-        response_bytes: 0,
     };
+    let mut response_bytes = 0_usize;
     for item in items.iter().skip(start).take(limit) {
         let size = serde_json::to_vec(item)
             .map_err(|error| error.to_string())?
             .len();
-        if page.response_bytes.saturating_add(size) > max_bytes {
+        if response_bytes.saturating_add(size) > max_bytes {
             if page.items.is_empty() {
                 return Err("Conversation metadata exceeds maxBytes".to_owned());
             }
             break;
         }
-        page.response_bytes += size;
+        response_bytes += size;
         page.items.push(item.clone());
     }
     page.has_more = start + page.items.len() < items.len();

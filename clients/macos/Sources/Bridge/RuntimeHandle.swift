@@ -37,7 +37,7 @@ final class RuntimeHandle: @unchecked Sendable {
 
     static let expectedFFIABIVersion: Int32 = 7
 
-    static let expectedProtocolVersion: UInt32 = 55
+    static let expectedProtocolVersion: UInt32 = 56
 
     enum StartOutcome: Equatable {
         case started
