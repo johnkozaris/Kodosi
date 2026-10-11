@@ -304,3 +304,31 @@ fn a_progress_bar_is_the_status_until_the_program_reports_its_own() {
     records.apply_progress(progress(ProgramState::Error, None));
     assert_eq!(state(&records), Some(ProgramState::Error));
 }
+
+#[test]
+fn only_a_running_agent_names_the_live_program() {
+    let mut records = ProgramStatusRecords::default();
+    assert_eq!(records.live_program(), None);
+    records.apply(ProgramStatusReport {
+        app: Some("claude-code".to_owned()),
+        ..report("", ProgramState::Working)
+    });
+    assert_eq!(records.live_program(), Some("claude"));
+    records.apply(ProgramStatusReport {
+        app: Some("codex".to_owned()),
+        ..report("task/1", ProgramState::Blocked)
+    });
+    assert_eq!(records.live_program(), Some("codex"));
+    records.apply(report("task/1", ProgramState::Done));
+    assert_eq!(records.live_program(), Some("claude"));
+    records.apply(ProgramStatusReport {
+        app: Some("terraform".to_owned()),
+        ..report("", ProgramState::Working)
+    });
+    assert_eq!(records.live_program(), None);
+    records.apply(ProgramStatusReport {
+        app: Some("github-copilot".to_owned()),
+        ..report("", ProgramState::Error)
+    });
+    assert_eq!(records.live_program(), None);
+}

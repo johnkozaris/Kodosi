@@ -150,6 +150,10 @@ pub(super) fn open_beneath(parent: &File, name: &str, directory: bool) -> io::Re
     Ok(File::from(openat(parent, name, flags, Mode::empty())?))
 }
 
+pub(super) fn path_from_file_url(_host: &str, path: &str) -> PathBuf {
+    PathBuf::from(path)
+}
+
 pub(super) fn can_read(path: &Path) -> bool {
     accessat(CWD, path, Access::READ_OK, AtFlags::EACCESS).is_ok()
 }

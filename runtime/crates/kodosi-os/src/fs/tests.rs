@@ -141,3 +141,26 @@ fn executables_need_execute_permission() {
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
     assert!(is_executable(&path));
 }
+
+#[cfg(windows)]
+#[test]
+fn file_urls_name_drives_and_shares() {
+    assert_eq!(
+        path_from_file_url("pc", "/C:/Users/me"),
+        PathBuf::from(r"C:\Users\me")
+    );
+    assert_eq!(path_from_file_url("", "/d:/"), PathBuf::from(r"d:\"));
+    assert_eq!(
+        path_from_file_url("server", "/share/x"),
+        PathBuf::from(r"\\server\share\x")
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn file_urls_name_unix_paths() {
+    assert_eq!(
+        path_from_file_url("pc", "/home/me"),
+        PathBuf::from("/home/me")
+    );
+}

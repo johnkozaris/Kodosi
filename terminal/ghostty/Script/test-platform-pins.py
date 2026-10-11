@@ -14,6 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 VERIFIER = ROOT / "Script" / "verify-platform-pins.py"
 MAC_REF = "a" * 40
 LINUX_REF = "b" * 40
+WINDOWS_REF = "c" * 40
+WINDOWS_ARCHIVE = "Vendor/GhosttyVt/windows-x86_64/lib/ghostty-vt-static.lib"
 
 
 class PlatformPinTests(unittest.TestCase):
@@ -27,6 +29,7 @@ class PlatformPinTests(unittest.TestCase):
         self.fixture = Path(self.temporary.name)
         self.write("MacOSGhostty.ref", MAC_REF + "\n")
         self.write("LinuxGhostty.ref", LINUX_REF + "\n")
+        self.write("WindowsGhostty.ref", WINDOWS_REF + "\n")
         self.write(
             "Vendor/GhosttyKit.xcframework/macos-arm64/libghostty.a",
             "mac archive\n",
@@ -54,6 +57,12 @@ class PlatformPinTests(unittest.TestCase):
             "Vendor/GhosttyVt/linux-x86_64.version",
             f"ghostty_commit={LINUX_REF}\n"
             f"vt_archive_sha256={linux_digest}\n",
+        )
+        self.write(WINDOWS_ARCHIVE, "windows archive\n")
+        self.write(
+            "Vendor/GhosttyVt/windows-x86_64.version",
+            f"ghostty_commit={WINDOWS_REF}\n"
+            f"vt_archive_sha256={self.digest(WINDOWS_ARCHIVE)}\n",
         )
         self.write_json(
             "ThirdPartyNotices/inventory.json",
@@ -98,10 +107,11 @@ class PlatformPinTests(unittest.TestCase):
     def test_exact_platform_relationship_is_deterministic(self) -> None:
         self.assertEqual(self.verify().stdout, self.verify().stdout)
 
-    def test_swapping_either_platform_ref_is_rejected(self) -> None:
+    def test_swapping_any_platform_ref_is_rejected(self) -> None:
         for relative, replacement in (
             ("MacOSGhostty.ref", LINUX_REF),
             ("LinuxGhostty.ref", MAC_REF),
+            ("WindowsGhostty.ref", MAC_REF),
         ):
             with self.subTest(relative=relative):
                 original = (self.fixture / relative).read_bytes()
@@ -114,6 +124,7 @@ class PlatformPinTests(unittest.TestCase):
             "Vendor/GhosttyKit.xcframework/macos-arm64/libghostty.a",
             "Vendor/GhosttyVt/macos-arm64/lib/libghostty-vt.a",
             "Vendor/GhosttyVt/linux-x86_64/lib/libghostty-vt.a",
+            WINDOWS_ARCHIVE,
         ):
             with self.subTest(relative=relative):
                 path = self.fixture / relative
@@ -121,6 +132,13 @@ class PlatformPinTests(unittest.TestCase):
                 path.write_bytes(original + b"substitution\n")
                 self.verify(expect_success=False)
                 path.write_bytes(original)
+
+    def test_windows_artifacts_are_checked_only_where_vendored(self) -> None:
+        (self.fixture / WINDOWS_ARCHIVE).unlink()
+        (self.fixture / "Vendor/GhosttyVt/windows-x86_64.version").unlink()
+        self.verify()
+        (self.fixture / "WindowsGhostty.ref").unlink()
+        self.verify(expect_success=False)
 
 
 if __name__ == "__main__":

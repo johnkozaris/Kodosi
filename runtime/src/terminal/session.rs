@@ -146,6 +146,7 @@ impl LocalSession {
     ) -> Result<Self> {
         let size = TerminalSize::default();
         let clear_line = clear_line_keys(&program);
+        let launch_directory = directory.clone();
         let (emulator, pty, reader) = tokio::task::spawn_blocking(move || -> Result<_> {
             let cwd = directory
                 .to_str()
@@ -202,7 +203,8 @@ impl LocalSession {
             clear_line,
             prompt: false,
             viewers: HashMap::new(),
-            working_directory: None,
+            working_directory: launch_directory,
+            observed_directory: None,
             title: None,
             published_title: None,
             status: ProgramStatusRecords::default(),
@@ -516,7 +518,10 @@ struct LocalActor {
     clear_line: &'static str,
     prompt: bool,
     viewers: HashMap<Uuid, String>,
-    working_directory: Option<PathBuf>,
+    /// The session's folder: launch folder, then the latest OSC 7 or 9;9
+    /// report or PTY observation, whichever changed last.
+    working_directory: PathBuf,
+    observed_directory: Option<PathBuf>,
     title: Option<String>,
     published_title: Option<String>,
     status: ProgramStatusRecords,
@@ -548,15 +553,12 @@ impl LocalActor {
     fn metadata(&self) -> super::TerminalMetadata {
         super::TerminalMetadata {
             connected_users: self.connected_users(),
-            directory: self
-                .pty
-                .working_directory()
-                .map(|path| path.to_string_lossy().into_owned()),
+            directory: Some(self.working_directory.to_string_lossy().into_owned()),
             title: self
                 .title
                 .as_ref()
                 .map(|title| title.chars().take(1024).collect()),
-            program: self.pty.foreground_program(),
+            program: self.live_program(),
             status: self.status.summary(),
         }
     }
@@ -776,20 +778,12 @@ impl LocalActor {
         if tokio::time::Instant::now() >= self.next_program_check {
             self.next_program_check = tokio::time::Instant::now() + Duration::from_secs(1);
             if let Some(path) = self.pty.working_directory()
-                && self.working_directory.as_ref() != Some(&path)
-                && self
-                    .changes
-                    .try_send(SessionChange::Cwd {
-                        id: self.id,
-                        repository: crate::worktree::is_repository(&path),
-                        path: path.clone(),
-                    })
-                    .is_ok()
+                && self.observed_directory.as_ref() != Some(&path)
+                && self.set_working_directory(path.clone())
             {
-                self.working_directory = Some(path);
-                self.metadata_dirty = true;
+                self.observed_directory = Some(path);
             }
-            let program = self.pty.foreground_program();
+            let program = self.live_program();
             let prompt = self.at_prompt(program.as_deref());
             if program != self.program
                 && self
@@ -884,11 +878,7 @@ impl LocalActor {
                     }
                 }
                 TerminalEffect::Cwd(path) => {
-                    drop(self.changes.try_send(SessionChange::Cwd {
-                        id: self.id,
-                        repository: crate::worktree::is_repository(&path),
-                        path,
-                    }));
+                    self.set_working_directory(path);
                 }
                 TerminalEffect::Title(title) => {
                     self.metadata_dirty |= self.title.as_ref() != Some(&title);
@@ -921,6 +911,37 @@ impl LocalActor {
             }
         }
         Ok(())
+    }
+
+    /// What runs in the terminal: the app a running program reports, else what
+    /// its process shows.
+    fn live_program(&self) -> Option<String> {
+        self.status
+            .live_program()
+            .map(str::to_owned)
+            .or_else(|| self.pty.foreground_program())
+    }
+
+    /// Makes `path` the session's folder. False when the change cannot be
+    /// published yet, so the caller tries again.
+    fn set_working_directory(&mut self, path: PathBuf) -> bool {
+        if path == self.working_directory {
+            return true;
+        }
+        if self
+            .changes
+            .try_send(SessionChange::Cwd {
+                id: self.id,
+                repository: crate::worktree::is_repository(&path),
+                path: path.clone(),
+            })
+            .is_err()
+        {
+            return false;
+        }
+        self.working_directory = path;
+        self.metadata_dirty = true;
+        true
     }
 
     fn at_prompt(&self, program: Option<&str>) -> bool {
@@ -1009,7 +1030,7 @@ impl LocalActor {
                 }
             }
             Request::Run { command, reply } => {
-                let result = if self.at_prompt(self.pty.foreground_program().as_deref()) {
+                let result = if self.at_prompt(self.live_program().as_deref()) {
                     self.enqueue(Bytes::from(format!("{}{command}\r", self.clear_line)), None)
                         .and_then(|()| self.flush())
                 } else {

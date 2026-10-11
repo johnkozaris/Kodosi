@@ -11,6 +11,10 @@ mod windows;
 #[cfg(windows)]
 pub use windows::{KodosiPty, PtyReader};
 
+/// Terminals run behind a console host (Windows `ConPTY`) that measures
+/// grapheme clusters and keeps no scrollback of its own.
+pub const CONSOLE_HOST: bool = cfg!(windows);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShutdownStage {
     Interrupt,

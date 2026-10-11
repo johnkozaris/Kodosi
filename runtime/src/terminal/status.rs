@@ -170,6 +170,17 @@ impl ProgramStatusRecords {
         self.reported = false;
     }
 
+    /// The agent that a running program says it is. Done and error records
+    /// may outlive their program, so they never name the live program.
+    pub(super) fn live_program(&self) -> Option<&'static str> {
+        self.records
+            .iter()
+            .filter(|record| record.state.ends_with_program())
+            .max_by_key(|record| record.updated)
+            .and_then(|record| self.app(record))
+            .and_then(program_from_app)
+    }
+
     pub(super) fn summary(&self) -> Option<ProgramStatus> {
         let record = self
             .records
@@ -207,6 +218,18 @@ impl ProgramStatusRecords {
                 .and_then(|ancestor| ancestor.app.as_deref())
         })
     }
+}
+
+/// The known agent an OSC 7501 app name belongs to, such as `claude-code`.
+fn program_from_app(app: &str) -> Option<&'static str> {
+    let app = app.to_ascii_lowercase();
+    let app = app.strip_prefix("github-").unwrap_or(&app);
+    ["claude", "copilot", "codex", "cursor"]
+        .into_iter()
+        .find(|program| {
+            app.strip_prefix(program)
+                .is_some_and(|rest| rest.is_empty() || rest.starts_with('-'))
+        })
 }
 
 fn is_descendant(id: &str, ancestor: &str) -> bool {

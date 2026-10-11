@@ -369,6 +369,28 @@ impl Terminal {
         self.drain_effects()
     }
 
+    /// Matches a console host that measures grapheme clusters and keeps no
+    /// scrollback: grapheme widths (mode 2027) survive resets, and a taller
+    /// screen gains blank rows instead of pulling history back. Checkpoints
+    /// carry both, so replicas follow.
+    pub fn use_console_profile(&mut self) -> Result<(), Error> {
+        self.ensure_healthy()?;
+        let graphemes = GhosttyTerminalModeConfig {
+            mode: 2027,
+            value: true,
+        };
+        self.set_value(
+            GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_MODE_DEFAULT,
+            &graphemes,
+        )?;
+        self.set_value(GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_MODE, &graphemes)?;
+        let pull_scrollback = false;
+        self.set_value(
+            GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_RESIZE_PULL_SCROLLBACK,
+            &pull_scrollback,
+        )
+    }
+
     pub fn set_dark(&mut self, dark: bool) -> Result<(), Error> {
         self.ensure_healthy()?;
         self.callbacks.dark = dark;

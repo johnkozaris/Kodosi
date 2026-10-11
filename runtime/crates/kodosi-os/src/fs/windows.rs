@@ -263,6 +263,19 @@ pub(super) fn open_beneath(parent: &File, name: &str, directory: bool) -> io::Re
     Ok(File::from(unsafe { OwnedHandle::from_raw_handle(handle) }))
 }
 
+/// `file://pc/C:/x` names drive `C:`; `file://server/share/x` names a UNC share.
+pub(super) fn path_from_file_url(host: &str, path: &str) -> PathBuf {
+    let bytes = path.as_bytes();
+    let path = path.replace('/', "\\");
+    if bytes.len() >= 3 && bytes[0] == b'/' && bytes[1].is_ascii_alphabetic() && bytes[2] == b':' {
+        return PathBuf::from(&path[1..]);
+    }
+    if !host.is_empty() && !host.eq_ignore_ascii_case("localhost") {
+        return PathBuf::from(format!(r"\\{host}{path}"));
+    }
+    PathBuf::from(path)
+}
+
 pub(super) fn can_read(path: &Path) -> bool {
     File::open(path).is_ok()
 }

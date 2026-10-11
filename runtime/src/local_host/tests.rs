@@ -63,9 +63,9 @@ fn root_identity_and_socket_namespace_are_stable_and_separate() {
 }
 #[test]
 fn local_protocol_requires_exact_version_and_root() {
-    assert!(serde_json::from_str::<Hello>(r#"{"version":18,"root":"a","sessionId":null}"#).is_ok());
-    assert!(serde_json::from_str::<Hello>(r#"{"version":18}"#).is_err());
-    assert!(serde_json::from_str::<Hello>(r#"{"version":18,"root":"a","legacy":true}"#).is_err());
+    assert!(serde_json::from_str::<Hello>(r#"{"version":19,"root":"a","sessionId":null}"#).is_ok());
+    assert!(serde_json::from_str::<Hello>(r#"{"version":19}"#).is_err());
+    assert!(serde_json::from_str::<Hello>(r#"{"version":19,"root":"a","legacy":true}"#).is_err());
 }
 #[test]
 fn stop_permission_protects_the_app_and_open_terminals() {

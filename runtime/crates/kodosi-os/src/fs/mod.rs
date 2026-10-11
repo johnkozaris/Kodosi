@@ -87,6 +87,11 @@ pub fn open_file_beneath(parent: &File, name: &str) -> io::Result<File> {
     Ok(file)
 }
 
+/// The local path named by a `file://` URL's host and percent-decoded path.
+pub fn path_from_file_url(host: &str, path: &str) -> PathBuf {
+    imp::path_from_file_url(host, path)
+}
+
 /// Whether the current user can read the file at `path`.
 pub fn can_read(path: &Path) -> bool {
     imp::can_read(path)

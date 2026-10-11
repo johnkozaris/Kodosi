@@ -55,4 +55,4 @@ pub enum KodosiError {
     Backpressure(String),
 }
 
-pub use pty::{KodosiPty, PtyReader, ShutdownStage, Transfer, WaitOutcome};
+pub use pty::{CONSOLE_HOST, KodosiPty, PtyReader, ShutdownStage, Transfer, WaitOutcome};
