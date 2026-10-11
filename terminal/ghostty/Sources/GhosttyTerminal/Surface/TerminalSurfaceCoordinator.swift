@@ -49,14 +49,14 @@ final class TerminalSurfaceCoordinator {
 
     var onPostRender: (() -> Void)?
 
-    private static let minimumFrameInterval: TimeInterval = 1.0 / 60.0
+    private static let minimumFrameInterval: Duration = .seconds(1) / 60
 
     private var lastMetrics: TerminalViewportMetrics?
     private var isDisplayVisible = true
     private var isApplicationActive = true
     private var isSurfaceFocused = false
     private var pendingImmediateTick = true
-    private var lastTickTimestamp: TimeInterval = 0
+    private var lastTick: SuspendingClock.Instant?
     private var tickScheduled = false
     private var pendingRebuild = false
 
@@ -293,12 +293,12 @@ final class TerminalSurfaceCoordinator {
         }
     }
 
-    func tick(at timestamp: TimeInterval) {
+    func tick(at timestamp: SuspendingClock.Instant) {
         guard shouldRenderFrame(at: timestamp) else {
             return
         }
         pendingImmediateTick = false
-        lastTickTimestamp = timestamp
+        lastTick = timestamp
         TerminalDebugLog.log(.render, "tick")
         surface?.refresh()
         surface?.draw()
@@ -347,7 +347,7 @@ final class TerminalSurfaceCoordinator {
         bridge.rawSurface = nil
         lastMetrics = nil
         pendingImmediateTick = true
-        lastTickTimestamp = 0
+        lastTick = nil
         controller?.remove(bridge)
         if hadSurface {
             onSurfaceFreed?()
@@ -366,11 +366,11 @@ final class TerminalSurfaceCoordinator {
         onCellSizeDidChange?()
     }
 
-    private func shouldRenderFrame(at _: TimeInterval) -> Bool {
+    private func shouldRenderFrame(at _: SuspendingClock.Instant) -> Bool {
         guard canRenderFrame else {
             return false
         }
-        return pendingImmediateTick || lastTickTimestamp == 0
+        return pendingImmediateTick || lastTick == nil
     }
 
     private func scheduleTickIfNeeded() {
@@ -383,23 +383,16 @@ final class TerminalSurfaceCoordinator {
         }
         tickScheduled = true
         TerminalDebugLog.log(.lifecycle, "tick scheduled")
-        let now = Self.monotonicTimestamp()
-        let elapsed = now - lastTickTimestamp
-        let delay = lastTickTimestamp == 0
-            ? 0
-            : max(0, Self.minimumFrameInterval - elapsed)
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+        let now = SuspendingClock.now
+        let delay = lastTick.map { max(.zero, Self.minimumFrameInterval - $0.duration(to: now)) } ?? .zero
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay / .seconds(1)) { [weak self] in
             guard let self else { return }
             tickScheduled = false
-            tick(at: Self.monotonicTimestamp())
+            tick(at: SuspendingClock.now)
             if pendingImmediateTick {
                 scheduleTickIfNeeded()
             }
         }
-    }
-
-    private static func monotonicTimestamp() -> TimeInterval {
-        ProcessInfo.processInfo.systemUptime
     }
 
     private var effectiveSurfaceVisible: Bool {
@@ -423,6 +416,6 @@ final class TerminalSurfaceCoordinator {
 
         pendingImmediateTick = true
         tickScheduled = false
-        tick(at: Self.monotonicTimestamp())
+        tick(at: SuspendingClock.now)
     }
 }

@@ -2,7 +2,7 @@ import Foundation
 import GhosttyKit
 
 public final class InMemoryTerminalSession: @unchecked Sendable {
-    private static let slowSurfaceWriteThreshold: TimeInterval = 0.5
+    private static let slowSurfaceWriteThreshold: Duration = .milliseconds(500)
 
     private let resizeLock = NSLock()
     private let surfaceAccess: InMemoryTerminalSurfaceAccess
@@ -246,22 +246,19 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
     }
 
     private static func writeToSurface(_ surface: ghostty_surface_t, _ data: Data) {
-        let start = ProcessInfo.processInfo.systemUptime
-        defer {
-            let duration = ProcessInfo.processInfo.systemUptime - start
-            if duration >= slowSurfaceWriteThreshold {
-                TerminalDebugLog.log(
-                    .output,
-                    "surface write slow bytes=\(data.count) duration=\(String(format: "%.3f", duration))s"
-                )
+        let duration = SuspendingClock().measure {
+            data.withUnsafeBytes { buffer in
+                guard let ptr = buffer.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
+                    return
+                }
+                ghostty_surface_write_buffer(surface, ptr, UInt(buffer.count))
             }
         }
-
-        data.withUnsafeBytes { buffer in
-            guard let ptr = buffer.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
-                return
-            }
-            ghostty_surface_write_buffer(surface, ptr, UInt(buffer.count))
+        if duration >= slowSurfaceWriteThreshold {
+            TerminalDebugLog.log(
+                .output,
+                "surface write slow bytes=\(data.count) duration=\(String(format: "%.3f", duration / .seconds(1)))s"
+            )
         }
     }
 
