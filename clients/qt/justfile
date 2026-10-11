@@ -4,6 +4,8 @@ tools_dir := justfile_directory() + "/.tools"
 cmake := tools_dir + "/cmake-4.4.3/bin/cmake"
 ctest := tools_dir + "/cmake-4.4.3/bin/ctest"
 qt_dir := tools_dir + "/Qt/6.12.0/gcc_64"
+windows_cmake := tools_dir + "/cmake-4.4.3/bin/cmake.exe"
+windows_ctest := tools_dir + "/cmake-4.4.3/bin/ctest.exe"
 
 bootstrap:
     ./scripts/build/bootstrap-tools.sh
@@ -42,12 +44,21 @@ native-license-test: bootstrap
 
 check: release-integrity-test rust-license-test native-license-test lint test
 
-# Windows 11 x64 or ARM64, from Git Bash with Visual Studio's C++ and Clang tools.
-windows-check: bootstrap
+# Builds the Windows app in Git Bash on Windows 11 x64 or ARM64.
+windows-build: bootstrap
     source scripts/build/windows-env.sh && kodosi_windows_env && \
-        "{{ tools_dir }}/cmake-4.4.3/bin/cmake.exe" --preset windows-dev && \
-        "{{ tools_dir }}/cmake-4.4.3/bin/cmake.exe" --build --preset windows-dev && \
-        "{{ tools_dir }}/cmake-4.4.3/bin/ctest.exe" --preset windows-dev
+        "{{ windows_cmake }}" --preset windows-dev && \
+        "{{ windows_cmake }}" --build --preset windows-dev
+
+# Builds and tests the Windows app.
+windows-check: windows-build
+    source scripts/build/windows-env.sh && kodosi_windows_target && \
+        "{{ windows_ctest }}" --preset windows-dev
+
+# Runs the Windows app with the bootstrapped Qt libraries.
+windows-run *arguments: windows-build
+    source scripts/build/windows-env.sh && kodosi_windows_target && \
+        PATH="$PWD/.tools/Qt/6.12.0/$KODOSI_QT_ARCH/bin:$PATH" build/windows-dev/kodosi-qt.exe {{ arguments }}
 
 # A release sets KODOSI_MSIX_PUBLISHER to the signing certificate's subject;
 # the default publisher makes an unsigned development package.
@@ -55,12 +66,12 @@ windows-check: bootstrap
 windows-package: bootstrap
     source scripts/build/windows-env.sh && kodosi_windows_env && \
         export SOURCE_DATE_EPOCH="$(python3 scripts/release/source-date-epoch.py --source-root .)" && \
-        "{{ tools_dir }}/cmake-4.4.3/bin/cmake.exe" --preset windows-release \
+        "{{ windows_cmake }}" --preset windows-release \
             ${KODOSI_MSIX_PUBLISHER:+"-DKODOSI_MSIX_PUBLISHER=$KODOSI_MSIX_PUBLISHER"} && \
-        "{{ tools_dir }}/cmake-4.4.3/bin/cmake.exe" --build --preset windows-release && \
-        "{{ tools_dir }}/cmake-4.4.3/bin/ctest.exe" --preset windows-release && \
+        "{{ windows_cmake }}" --build --preset windows-release && \
+        "{{ windows_ctest }}" --preset windows-release && \
         rm -rf build/windows-release/layout && \
-        "{{ tools_dir }}/cmake-4.4.3/bin/cmake.exe" --install build/windows-release --prefix build/windows-release/layout && \
+        "{{ windows_cmake }}" --install build/windows-release --prefix build/windows-release/layout && \
         mkdir -p build/release && \
         package="build/release/kodosi-0.1.0-windows-$KODOSI_WINDOWS_ARCH.msix" && \
         ./scripts/release/package-msix.sh build/windows-release/layout "$package" && \

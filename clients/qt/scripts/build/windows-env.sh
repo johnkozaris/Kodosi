@@ -11,23 +11,25 @@ kodosi_windows_arch() {
     esac
 }
 
-# Imports the newest Visual Studio C++ environment for this machine, so
-# clang-cl, link and the Windows SDK tools work, and exports the machine's
-# KODOSI_WINDOWS_ARCH with its Qt build and Rust target.
-kodosi_windows_env() {
-    local architecture tools vswhere install script name value
-    architecture=$(kodosi_windows_arch) || return 1
-    case "$architecture" in
-        x64)
-            tools=Microsoft.VisualStudio.Component.VC.Tools.x86.x64
-            export KODOSI_QT_ARCH=msvc2022_64 KODOSI_RUST_TARGET=x86_64-pc-windows-msvc
-            ;;
-        arm64)
-            tools=Microsoft.VisualStudio.Component.VC.Tools.ARM64
-            export KODOSI_QT_ARCH=msvc2022_arm64 KODOSI_RUST_TARGET=aarch64-pc-windows-msvc
-            ;;
+# Exports this machine's KODOSI_WINDOWS_ARCH with its Qt build and Rust target.
+kodosi_windows_target() {
+    KODOSI_WINDOWS_ARCH=$(kodosi_windows_arch) || return 1
+    case "$KODOSI_WINDOWS_ARCH" in
+        x64) KODOSI_QT_ARCH=msvc2022_64 KODOSI_RUST_TARGET=x86_64-pc-windows-msvc ;;
+        arm64) KODOSI_QT_ARCH=msvc2022_arm64 KODOSI_RUST_TARGET=aarch64-pc-windows-msvc ;;
     esac
-    export KODOSI_WINDOWS_ARCH=$architecture
+    export KODOSI_WINDOWS_ARCH KODOSI_QT_ARCH KODOSI_RUST_TARGET
+}
+
+# Imports the newest Visual Studio C++ environment for this machine, so
+# clang-cl, link and the Windows SDK tools work, after kodosi_windows_target.
+kodosi_windows_env() {
+    local tools vswhere install script name value
+    kodosi_windows_target || return 1
+    case "$KODOSI_WINDOWS_ARCH" in
+        x64) tools=Microsoft.VisualStudio.Component.VC.Tools.x86.x64 ;;
+        arm64) tools=Microsoft.VisualStudio.Component.VC.Tools.ARM64 ;;
+    esac
     vswhere="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
     if [ ! -x "$vswhere" ]; then
         echo "Install Visual Studio Build Tools with the C++ workload and its Clang tools" >&2
@@ -37,12 +39,12 @@ kodosi_windows_env() {
         -requires "$tools" Microsoft.VisualStudio.Component.VC.Llvm.Clang \
         -property installationPath | tr -d '\r')
     if [ -z "$install" ]; then
-        echo "No Visual Studio installation has the $architecture C++ build tools and C++ Clang Compiler for Windows" >&2
+        echo "No Visual Studio installation has the $KODOSI_WINDOWS_ARCH C++ build tools and C++ Clang Compiler for Windows" >&2
         return 1
     fi
     script=$(mktemp --suffix=.bat)
     printf '@call "%s\\VC\\Auxiliary\\Build\\vcvarsall.bat" %s >nul || exit /b 1\r\n@set\r\n' \
-        "$(cygpath -w "$install")" "$architecture" > "$script"
+        "$(cygpath -w "$install")" "$KODOSI_WINDOWS_ARCH" > "$script"
     while IFS='=' read -r name value; do
         case "$name" in
             INCLUDE | LIB | LIBPATH | VCINSTALLDIR | VCToolsInstallDir | VCToolsVersion | VSINSTALLDIR \
