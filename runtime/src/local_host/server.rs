@@ -81,7 +81,7 @@ pub async fn serve(
     host: HostDescription,
     clients: watch::Sender<usize>,
 ) -> Result<LocalServer> {
-    let root = root.canonicalize()?;
+    let root = kodosi_os::fs::canonicalize(&root)?;
     let host_lock = lock_root(&root)?;
     let mut listener = kodosi_os::ipc::Listener::bind(&endpoint(&root)?)
         .await

@@ -15,7 +15,7 @@ fn id(index: u128) -> String {
 fn workspace(home: &Path) -> PathBuf {
     let path = home.join("project");
     fs::create_dir_all(&path).unwrap();
-    path.canonicalize().unwrap()
+    kodosi_os::fs::canonicalize(&path).unwrap()
 }
 
 fn claude_transcript(home: &Path, directory: &Path, index: u128, records: &str) -> PathBuf {
@@ -114,6 +114,23 @@ async fn claude_discovery_and_read_share_directory_validation() {
     );
 }
 
+#[test]
+fn claude_project_keys_match_claude_code() {
+    for (directory, key) in [
+        (
+            "/Users/first.last/My Project",
+            "-Users-first-last-My-Project",
+        ),
+        (r"C:\Users\first.last\repo_1", "C--Users-first-last-repo-1"),
+        ("/srv/caf\u{e9}/\u{1f600}", "-srv-caf----"),
+    ] {
+        assert_eq!(
+            storage::encoded_claude_directory(Path::new(directory)).unwrap(),
+            key
+        );
+    }
+}
+
 #[tokio::test]
 async fn claude_path_encoding_collision_does_not_authorize_another_directory() {
     let home = tempfile::tempdir().unwrap();
@@ -121,8 +138,8 @@ async fn claude_path_encoding_collision_does_not_authorize_another_directory() {
     let second = home.path().join("a/b");
     fs::create_dir_all(&first).unwrap();
     fs::create_dir_all(&second).unwrap();
-    let first = first.canonicalize().unwrap();
-    let second = second.canonicalize().unwrap();
+    let first = kodosi_os::fs::canonicalize(&first).unwrap();
+    let second = kodosi_os::fs::canonicalize(&second).unwrap();
     assert_eq!(
         storage::encoded_claude_directory(&first).unwrap(),
         storage::encoded_claude_directory(&second).unwrap()
@@ -636,7 +653,9 @@ fn config_inspection_never_creates_or_edits_provider_files() {
     assert!(info.files[0].exists);
     assert_eq!(
         info.files[0].path,
-        user.canonicalize().unwrap().to_string_lossy()
+        kodosi_os::fs::canonicalize(&user)
+            .unwrap()
+            .to_string_lossy()
     );
     assert_eq!(fs::read(&user).unwrap(), b"{\"permissions\":{}}");
     assert!(!directory.join(".claude").exists());

@@ -158,7 +158,7 @@ fn resolve_existing(path: &Path) -> Result<PathBuf> {
     let mut prefix = path;
     let mut missing = Vec::new();
     loop {
-        match prefix.canonicalize() {
+        match kodosi_os::fs::canonicalize(prefix) {
             Ok(mut resolved) => {
                 for component in missing.into_iter().rev() {
                     resolved.push(component);
@@ -185,7 +185,7 @@ mod tests {
     #[test]
     fn isolated_paths_reject_aliases_of_production_ancestors() {
         let root = tempfile::tempdir().unwrap();
-        let real = root.path().canonicalize().unwrap();
+        let real = kodosi_os::fs::canonicalize(root.path()).unwrap();
         let home = real.join("home");
         std::fs::create_dir(&home).unwrap();
         let alias = real.join("alias");

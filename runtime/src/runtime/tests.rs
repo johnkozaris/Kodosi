@@ -10,7 +10,8 @@ struct TestRuntime {
 impl TestRuntime {
     async fn new() -> Self {
         let storage = tempfile::tempdir().unwrap();
-        let mut config = Config::isolated(&storage.path().canonicalize().unwrap()).unwrap();
+        let mut config =
+            Config::isolated(&kodosi_os::fs::canonicalize(storage.path()).unwrap()).unwrap();
         config.initial_shell = Some("/bin/sh".to_owned());
         let handle = start(config).await.unwrap();
         Self {
@@ -130,7 +131,9 @@ async fn a_terminal_on_a_new_branch_starts_in_its_own_folder_and_takes_it_away_u
         .unwrap()
     }
     let root = tempfile::tempdir().unwrap();
-    let folder = root.path().canonicalize().unwrap().join("Project");
+    let folder = kodosi_os::fs::canonicalize(root.path())
+        .unwrap()
+        .join("Project");
     std::fs::create_dir(&folder).unwrap();
     for arguments in [
         vec!["init", "--quiet"],
@@ -306,7 +309,8 @@ async fn slow_login_does_not_block_local_terminal_or_runtime_observation() {
         drop(socket);
     });
     let storage = tempfile::tempdir().unwrap();
-    let mut config = Config::isolated(&storage.path().canonicalize().unwrap()).unwrap();
+    let mut config =
+        Config::isolated(&kodosi_os::fs::canonicalize(storage.path()).unwrap()).unwrap();
     config.initial_shell = Some("/bin/sh".to_owned());
     config.oidc_issuer = format!("http://{address}");
     let runtime = TestRuntime {
@@ -506,7 +510,7 @@ async fn generic_terminal_command_cannot_bypass_subscription_admission() {
 
 fn registry_fixture() -> (Runtime, tempfile::TempDir) {
     let root = tempfile::tempdir().unwrap();
-    let config = Config::isolated(&root.path().canonicalize().unwrap()).unwrap();
+    let config = Config::isolated(&kodosi_os::fs::canonicalize(root.path()).unwrap()).unwrap();
     let network = BackendClient::new(BackendConfig {
         api_url: config.backend_url.clone(),
         issuer: config.oidc_issuer.clone(),

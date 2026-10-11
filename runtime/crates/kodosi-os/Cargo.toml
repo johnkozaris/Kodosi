@@ -22,6 +22,7 @@ security-framework = { version = "3.7", features = ["OSX_10_15"] }
 keyring = { version = "4.2.0", default-features = false, features = ["v1"] }
 
 [target.'cfg(windows)'.dependencies]
+dunce = "1.0.5"
 windows-sys = { version = "0.61.2", features = [
     "Wdk_Foundation",
     "Wdk_Storage_FileSystem",

@@ -1239,6 +1239,7 @@ version = "0.1.0"
 dependencies = [
  "bytes",
  "cbindgen",
+ "kodosi-os",
  "kodosi-runtime",
  "serde_json",
  "tempfile",
@@ -1253,6 +1254,7 @@ name = "kodosi-os"
 version = "0.1.0"
 dependencies = [
  "directories",
+ "dunce",
  "keyring",
  "rustix",
  "security-framework",

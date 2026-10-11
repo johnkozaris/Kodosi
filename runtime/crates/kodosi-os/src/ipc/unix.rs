@@ -17,8 +17,7 @@ pub(super) struct Endpoint {
 
 impl Endpoint {
     pub(super) fn new(namespace: &str, role: &str) -> io::Result<Self> {
-        let directory = Path::new("/tmp")
-            .canonicalize()?
+        let directory = crate::fs::canonicalize(Path::new("/tmp"))?
             .join(format!("kodosi-{}-{namespace}", geteuid().as_raw()));
         let path = directory.join(format!("{role}.sock"));
         Ok(Self { directory, path })

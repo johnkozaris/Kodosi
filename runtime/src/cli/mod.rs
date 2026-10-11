@@ -941,7 +941,7 @@ fn start_defaults(
 fn path(value: Option<PathBuf>) -> Result<Option<String>> {
     value
         .map(|path| {
-            path.canonicalize().and_then(|p| {
+            kodosi_os::fs::canonicalize(&path).and_then(|p| {
                 p.into_os_string()
                     .into_string()
                     .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "path is not UTF-8"))

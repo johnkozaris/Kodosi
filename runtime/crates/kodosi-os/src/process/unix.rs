@@ -5,7 +5,7 @@ pub(super) fn find_executable(name: &str) -> Option<PathBuf> {
     std::env::split_paths(&paths).find_map(|directory| {
         let path = directory.join(name);
         crate::fs::is_executable(&path)
-            .then(|| path.canonicalize().ok())
+            .then(|| crate::fs::canonicalize(&path).ok())
             .flatten()
     })
 }

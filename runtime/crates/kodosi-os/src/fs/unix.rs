@@ -23,6 +23,14 @@ pub(super) fn home_dir() -> io::Result<PathBuf> {
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "cannot find the home folder"))
 }
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kodosi_os::fs::canonicalize owns path canonicalization"
+)]
+pub(super) fn canonicalize(path: &Path) -> io::Result<PathBuf> {
+    fs::canonicalize(path)
+}
+
 pub(super) fn default_data_root() -> io::Result<PathBuf> {
     directories::BaseDirs::new()
         .map(|dirs| dirs.config_dir().join("kodosi"))

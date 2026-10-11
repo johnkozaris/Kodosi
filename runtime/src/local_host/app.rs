@@ -20,7 +20,7 @@ pub struct AppClaim {
 /// Claims the data folder at `root` for this app instance. `None` means a
 /// running app already holds it.
 pub fn claim_app(root: &Path) -> Result<Option<AppClaim>> {
-    let root = root.canonicalize()?;
+    let root = kodosi_os::fs::canonicalize(root)?;
     let lock = kodosi_os::fs::open_private(&root.join("app.lock")).map_err(local_error)?;
     match lock.try_lock() {
         Ok(()) => Ok(Some(AppClaim { root, _lock: lock })),
@@ -143,7 +143,7 @@ pub async fn forward_activation(
             "an activation must be a JSON object within its bound".into(),
         ));
     }
-    let root = root.canonicalize()?;
+    let root = kodosi_os::fs::canonicalize(root)?;
     let endpoint = role_endpoint(&root, "app")?;
     let deadline = tokio::time::Instant::now() + within;
     loop {

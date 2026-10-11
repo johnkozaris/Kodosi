@@ -69,7 +69,7 @@ pub async fn stop_other_host(root: &Path, force: bool) -> Result<()> {
     let mut client = Client::connect(root).await?;
     client.stop_host(force).await?;
     drop(client);
-    let root = root.canonicalize()?;
+    let root = kodosi_os::fs::canonicalize(root)?;
     let deadline = tokio::time::Instant::now() + STOP_WAIT;
     while lock_root(&root).is_err() {
         if tokio::time::Instant::now() >= deadline {
@@ -105,7 +105,7 @@ async fn connect(
     root: &Path,
     session_id: Option<Uuid>,
 ) -> Result<(kodosi_os::ipc::Stream, Welcome)> {
-    let root = root.canonicalize()?;
+    let root = kodosi_os::fs::canonicalize(root)?;
     let mut stream =
         tokio::time::timeout(HELLO_TIMEOUT, kodosi_os::ipc::connect(&endpoint(&root)?))
             .await

@@ -64,7 +64,7 @@ pub(super) fn inspect(
             }
             let editable = readable && allow_edit && kodosi_os::fs::can_write(&path);
             let path = if readable {
-                path.canonicalize().unwrap_or(path)
+                kodosi_os::fs::canonicalize(&path).unwrap_or(path)
             } else {
                 path
             };

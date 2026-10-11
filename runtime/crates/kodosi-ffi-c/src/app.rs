@@ -365,7 +365,7 @@ mod tests {
     #[test]
     fn a_prepared_app_serves_activations_and_closes_after_its_callback() {
         let directory = tempfile::tempdir().unwrap();
-        let isolated = directory.path().canonicalize().unwrap();
+        let isolated = kodosi_os::fs::canonicalize(directory.path()).unwrap();
         let config = Config::isolated(&isolated).unwrap();
         let root = config.data_root.clone();
         let (delivered, received) = std::sync::mpsc::sync_channel(4);

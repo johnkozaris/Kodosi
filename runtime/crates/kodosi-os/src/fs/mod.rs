@@ -67,6 +67,13 @@ pub fn append_private(path: &Path) -> io::Result<File> {
     imp::append_private(path)
 }
 
+/// Resolves `path` to its absolute form with every link followed, written the
+/// way other programs report it. Windows keeps a `\\?\` prefix only for paths
+/// that cannot be written without one.
+pub fn canonicalize(path: &Path) -> io::Result<PathBuf> {
+    imp::canonicalize(path)
+}
+
 /// Opens the directory at `path` so files can be opened beneath it.
 pub fn open_dir(path: &Path) -> io::Result<File> {
     imp::open_dir(path)

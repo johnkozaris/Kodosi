@@ -4,7 +4,7 @@ use super::*;
 
 fn real_tempdir() -> (tempfile::TempDir, PathBuf) {
     let root = tempfile::tempdir().unwrap();
-    let real = root.path().canonicalize().unwrap();
+    let real = canonicalize(root.path()).unwrap();
     (root, real)
 }
 

@@ -48,6 +48,10 @@ pub(super) fn home_dir() -> io::Result<PathBuf> {
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "cannot find the home folder"))
 }
 
+pub(super) fn canonicalize(path: &Path) -> io::Result<PathBuf> {
+    dunce::canonicalize(path)
+}
+
 pub(super) fn default_data_root() -> io::Result<PathBuf> {
     Ok(home_dir()?.join(".kodosi"))
 }

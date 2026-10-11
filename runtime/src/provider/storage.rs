@@ -23,8 +23,7 @@ pub(super) fn canonical_directory(value: &str) -> Result<PathBuf, String> {
             "Working directory must be a bounded absolute path without parent traversal".to_owned(),
         );
     }
-    let canonical = path
-        .canonicalize()
+    let canonical = kodosi_os::fs::canonicalize(path)
         .map_err(|error| format!("Working directory unavailable: {error}"))?;
     if !canonical.is_dir() {
         return Err("Working directory is not a directory".to_owned());
@@ -45,7 +44,16 @@ pub(super) fn encoded_claude_directory(directory: &Path) -> Result<String, Strin
     let value = directory
         .to_str()
         .ok_or_else(|| "Working directory must be UTF-8".to_owned())?;
-    Ok(value.replace(['/', '\\', ':'], "-"))
+    let mut encoded = String::with_capacity(value.len());
+    for character in value.chars() {
+        if character.is_ascii_alphanumeric() {
+            encoded.push(character);
+        } else {
+            // Claude Code replaces every UTF-16 unit outside [A-Za-z0-9].
+            encoded.extend(std::iter::repeat_n('-', character.len_utf16()));
+        }
+    }
+    Ok(encoded)
 }
 
 pub(super) fn provider_root(home: &Path, provider: Provider) -> Result<PathBuf, String> {
