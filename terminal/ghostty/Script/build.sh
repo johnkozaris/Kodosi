@@ -10,7 +10,7 @@ Usage: ./Script/build.sh [options]
 
 Options:
   --source <path>       Use an existing clean Ghostty checkout as the source cache.
-  --platform <name>     Build macos or linux (defaults to the current host).
+  --platform <name>     Build macos, linux or windows (defaults to the current host).
   --skip-tests          Skip package verification after native artifacts build.
   -h, --help            Show this help.
 
@@ -48,6 +48,7 @@ SKIP_TESTS=0
 case "$(uname -s)" in
     Darwin) PLATFORM_GROUP=macos ;;
     Linux) PLATFORM_GROUP=linux ;;
+    MINGW64_NT* | MSYS_NT* | CLANGARM64_NT*) PLATFORM_GROUP=windows ;;
     *)
         echo "[!] unsupported build host: $(uname -s)" >&2
         exit 1
@@ -96,6 +97,16 @@ case "$PLATFORM_GROUP" in
             echo "[!] Linux artifacts require an x86_64 Linux build host" >&2
             exit 1
         fi
+        ;;
+    windows)
+        GHOSTTY_REF_FILE="$ROOT_DIR/WindowsGhostty.ref"
+        case "$(uname -s)" in
+            MINGW64_NT* | MSYS_NT* | CLANGARM64_NT*) ;;
+            *)
+                echo "[!] Windows artifacts require a Windows build host of their architecture" >&2
+                exit 1
+                ;;
+        esac
         ;;
     *)
         echo "[!] unsupported platform: $PLATFORM_GROUP" >&2
@@ -160,6 +171,14 @@ PATCH_APPLICATION_DIGEST=$(
     "$ROOT_DIR/Script/patch-application-digest.sh" "$SOURCE_DIR" "$GHOSTTY_REF"
 )
 ZIG_STORE_DIGEST=$("$ROOT_DIR/Script/prepare-zig-store.sh" "$SOURCE_DIR")
+
+if [ "$PLATFORM_GROUP" = windows ]; then
+    "$ROOT_DIR/Script/build-windows-vt-artifact.sh" \
+        "$SOURCE_DIR" \
+        "$PATCH_APPLICATION_DIGEST" \
+        "$ZIG_STORE_DIGEST"
+    exit 0
+fi
 
 if [ "$PLATFORM_GROUP" = linux ]; then
     "$ROOT_DIR/Script/build-linux-vt-artifact.sh" \

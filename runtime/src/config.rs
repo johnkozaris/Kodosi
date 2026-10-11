@@ -173,10 +173,9 @@ fn resolve_existing(path: &Path) -> Result<PathBuf> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
-    #[cfg(unix)]
     #[test]
     fn isolated_paths_reject_aliases_of_production_ancestors() {
         let root = tempfile::tempdir().unwrap();
@@ -190,7 +189,6 @@ mod tests {
         assert!(validate_isolated(&home.join("kodosi/test"), &production, &home).is_err());
     }
 
-    #[cfg(unix)]
     #[test]
     fn isolated_paths_reject_production_and_ancestors() {
         let home = Path::new("/home/person");

@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/bash
 
 set -euo pipefail
 
@@ -9,8 +9,11 @@ source Toolchain.env
 
 TOOLCHAIN_ROOT="$PWD/.tools/zig-$ZIG_VERSION-$ZIG_SHA256"
 DOWNLOAD_ROOT="$PWD/.tools/downloads"
-ARCHIVE="$DOWNLOAD_ROOT/zig-$ZIG_TARGET-$ZIG_VERSION.tar.xz"
-ZIG_BIN="$TOOLCHAIN_ROOT/zig"
+ARCHIVE="$DOWNLOAD_ROOT/${ZIG_URL##*/}"
+case "$ZIG_TARGET" in
+    *-windows) ZIG_BIN="$TOOLCHAIN_ROOT/zig.exe" ;;
+    *) ZIG_BIN="$TOOLCHAIN_ROOT/zig" ;;
+esac
 PROVENANCE_FILE="$TOOLCHAIN_ROOT/.provenance-key"
 PROVENANCE_KEY="$ZIG_VERSION:$ZIG_TARGET:$ZIG_SHA256"
 
@@ -37,9 +40,16 @@ fi
 STAGE="$TOOLCHAIN_ROOT.stage.$$"
 rm -rf "$STAGE"
 mkdir -p "$STAGE"
-tar -xJf "$ARCHIVE" -C "$STAGE" --strip-components=1
+case "$ARCHIVE" in
+    *.zip)
+        unzip -q "$ARCHIVE" -d "$STAGE.unzip"
+        mv "$STAGE.unzip"/*/* "$STAGE"/
+        rm -rf "$STAGE.unzip"
+        ;;
+    *) tar -xJf "$ARCHIVE" -C "$STAGE" --strip-components=1 ;;
+esac
 
-if [ "$("$STAGE/zig" version)" != "$ZIG_VERSION" ]; then
+if [ "$("$STAGE/${ZIG_BIN##*/}" version)" != "$ZIG_VERSION" ]; then
     echo "[!] isolated Zig toolchain failed validation" >&2
     exit 1
 fi

@@ -1,8 +1,7 @@
 use std::{
     cell::Cell,
     collections::{HashMap, HashSet},
-    ffi::{CStr, CString, OsStr, OsString, c_char, c_void},
-    os::unix::ffi::OsStrExt as _,
+    ffi::{CStr, CString, OsString, c_char, c_void},
     panic::AssertUnwindSafe,
     sync::{
         Arc, Condvar, Mutex, MutexGuard, OnceLock,
@@ -214,6 +213,22 @@ pub extern "C" fn kodosi_host_stop(force: i32) -> i32 {
     })
 }
 
+/// Unix arguments are bytes; Windows callers pass UTF-8.
+#[cfg(unix)]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "Windows arguments can fail UTF-8 validation"
+)]
+fn os_argument(bytes: &[u8]) -> Option<OsString> {
+    use std::os::unix::ffi::OsStrExt as _;
+    Some(std::ffi::OsStr::from_bytes(bytes).to_owned())
+}
+
+#[cfg(windows)]
+fn os_argument(bytes: &[u8]) -> Option<OsString> {
+    std::str::from_utf8(bytes).ok().map(OsString::from)
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn kodosi_cli_main(length: i32, values: *const *const c_char) -> i32 {
     let Ok(count) = usize::try_from(length) else {
@@ -222,14 +237,15 @@ pub unsafe extern "C" fn kodosi_cli_main(length: i32, values: *const *const c_ch
     if count > 0 && values.is_null() {
         return KODOSI_CLI_NOT_INVOKED;
     }
-    let invocation = (0..count)
+    let Some(invocation) = (0..count)
         .filter_map(|index| {
             let pointer = unsafe { *values.add(index) };
-            (!pointer.is_null()).then(|| {
-                OsStr::from_bytes(unsafe { CStr::from_ptr(pointer) }.to_bytes()).to_owned()
-            })
+            (!pointer.is_null()).then(|| os_argument(unsafe { CStr::from_ptr(pointer) }.to_bytes()))
         })
-        .collect::<Vec<OsString>>();
+        .collect::<Option<Vec<OsString>>>()
+    else {
+        return KODOSI_CLI_FAILED;
+    };
     if !kodosi_runtime::cli::is_invocation(&invocation) {
         return KODOSI_CLI_NOT_INVOKED;
     }

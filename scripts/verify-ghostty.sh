@@ -14,6 +14,9 @@ upstream_commit=
 combined_archive_sha256=
 linux_upstream_commit=
 linux_vt_archive_sha256=
+windows_upstream_commit=
+windows_x86_64_vt_archive_sha256=
+windows_arm64_vt_archive_sha256=
 
 source "$LOCK_FILE"
 
@@ -21,7 +24,8 @@ for value in \
     "$upstream_commit" \
     "$combined_archive_sha256" \
     "$linux_upstream_commit" \
-    "$linux_vt_archive_sha256"; do
+    "$linux_vt_archive_sha256" \
+    "$windows_upstream_commit"; do
     if [[ -z "$value" ]]; then
         echo "Ghostty lock is incomplete: $LOCK_FILE" >&2
         exit 1
@@ -50,6 +54,26 @@ if [[ "$actual_linux_upstream" != "$linux_upstream_commit" ]]; then
     exit 1
 fi
 
+actual_windows_upstream=$(tr -d '[:space:]' <"$GHOSTTY_DIR/WindowsGhostty.ref")
+if [[ "$actual_windows_upstream" != "$windows_upstream_commit" ]]; then
+    echo "Windows Ghostty upstream revision mismatch: expected $windows_upstream_commit, found $actual_windows_upstream" >&2
+    exit 1
+fi
+# Windows libraries are built on Windows hosts; each one vendored must match its pin.
+for layout in windows-x86_64 windows-arm64; do
+    windows_archive="$GHOSTTY_DIR/Vendor/GhosttyVt/$layout/lib/ghostty-vt-static.lib"
+    [[ -e "$windows_archive" ]] || continue
+    case "$layout" in
+        windows-x86_64) expected=$windows_x86_64_vt_archive_sha256 ;;
+        windows-arm64) expected=$windows_arm64_vt_archive_sha256 ;;
+    esac
+    actual=$(shasum -a 256 "$windows_archive" | awk '{print $1}')
+    if [[ -z "$expected" || "$actual" != "$expected" ]]; then
+        echo "$layout Ghostty VT archive mismatch: expected ${expected:-a pin in Ghostty.lock}, found $actual" >&2
+        exit 1
+    fi
+done
+
 renderer_archive="$GHOSTTY_DIR/Vendor/GhosttyKit.xcframework/macos-arm64/libghostty.a"
 vt_archive="$GHOSTTY_DIR/Vendor/GhosttyVt/macos-arm64/lib/libghostty-vt.a"
 linux_vt_archive="$GHOSTTY_DIR/Vendor/GhosttyVt/linux-x86_64/lib/libghostty-vt.a"
@@ -73,4 +97,4 @@ if [[ "$actual_linux_archive_sha" != "$linux_vt_archive_sha256" ]]; then
     exit 1
 fi
 
-echo "Verified Ghostty at macOS upstream $upstream_commit and Linux upstream $linux_upstream_commit."
+echo "Verified Ghostty at macOS upstream $upstream_commit, Linux upstream $linux_upstream_commit and Windows upstream $windows_upstream_commit."
