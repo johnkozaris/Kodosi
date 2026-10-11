@@ -50,6 +50,15 @@ if [[ "${KODOSI_WORKING_TREE_VALIDATION:-0}" == 1 ]]; then
     source "$GHOSTTY_DIR/Vendor/GhosttyVt/linux-x86_64.version"
     linux_upstream_commit=$ghostty_commit
     linux_vt_archive_sha256=$vt_archive_sha256
+    for layout in windows-x86_64 windows-arm64; do
+        [[ -f "$GHOSTTY_DIR/Vendor/GhosttyVt/$layout.version" ]] || continue
+        source "$GHOSTTY_DIR/Vendor/GhosttyVt/$layout.version"
+        windows_upstream_commit=$ghostty_commit
+        case "$layout" in
+            windows-x86_64) windows_x86_64_vt_archive_sha256=$vt_archive_sha256 ;;
+            windows-arm64) windows_arm64_vt_archive_sha256=$vt_archive_sha256 ;;
+        esac
+    done
     printf "%s\n" "Validating non-publishable Ghostty working-tree artifacts." >&2
 fi
 
