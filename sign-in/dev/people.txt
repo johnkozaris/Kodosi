@@ -1,0 +1,8 @@
+# The sample people of ./keycloak.sh: realm | username | e-mail | first name | last name | password | steps at the next sign-in
+# Ana Ruiz is not here: make her account on the page to see the journey of a new person.
+kodosi|maya|maya@kodosi.example|Maya|Chen|copper-Fox-41|
+kodosi|leo|leo@kodosi.example|Leo|Park|copper-Fox-42|"UPDATE_PASSWORD","CONFIGURE_TOTP"
+# People of the stand-in for GitHub. Leo is new to Kodosi, and his GitHub name is taken there. Maya
+# has an account with the same e-mail, so the first sign-in with GitHub links the two.
+elsewhere|leo|leo.park@elsewhere.example|Leo|Park|copper-Fox-43|
+elsewhere|maya-chen|maya@kodosi.example|Maya|Chen|copper-Fox-44|

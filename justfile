@@ -133,3 +133,6 @@ linux-build:
 
 linux-check:
     just --justfile clients/linux/justfile check
+
+sign-in-check:
+    cd sign-in && bun install --frozen-lockfile && bun run tsc && bun run lint && bun run format:check && bun run build
