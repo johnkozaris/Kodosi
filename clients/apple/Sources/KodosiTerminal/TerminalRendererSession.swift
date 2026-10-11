@@ -248,7 +248,7 @@ public final class TerminalRendererSession: ObservableObject {
         objectWillChange.send()
         viewState.configuration = TerminalSurfaceOptions(
             session: backend,
-            fontSize: style.fontSize,
+            fontSize: style.ghosttyFontSize,
             terminalConfiguration: Self.makeConfiguration(style: style),
             scrollbackLimitBytes: style.scrollback.bytes
         )

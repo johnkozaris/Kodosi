@@ -55,7 +55,7 @@ struct TerminalCaption: View {
 
     var body: some View {
         HStack(spacing: 5) {
-            if !session.isConnected {
+            if session.isTroubled || session.connectionState == .connecting {
                 Text(session.statusLabel)
                     .foregroundStyle(session.isTroubled ? theme.colors.caution : theme.colors.inkFaint)
                     .shimmer(session.connectionState == .connecting)

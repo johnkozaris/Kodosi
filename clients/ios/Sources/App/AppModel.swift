@@ -86,6 +86,7 @@ final class AppModel {
     }
 
     func sceneChanged(to scenePhase: ScenePhase) {
+        terminals.keepStatusLinks(scenePhase == .active && phase == .ready)
         guard scenePhase == .active, phase == .ready else { return }
         refresh()
     }
@@ -171,6 +172,7 @@ final class AppModel {
             throw RuntimeError.invalidResponse(String(localized: "This copy of Kodosi is damaged. Install it again."))
         }
         phase = .ready
+        terminals.keepStatusLinks(true)
         refresh()
     }
 

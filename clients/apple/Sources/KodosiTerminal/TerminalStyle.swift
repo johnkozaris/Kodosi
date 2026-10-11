@@ -33,4 +33,15 @@ public struct TerminalStyle: Sendable {
         self.minimumContrast = minimumContrast
         self.palette = palette
     }
+
+    var ghosttyFontSize: Float {
+        #if os(macOS)
+            fontSize
+        #else
+            fontSize * Self.pointsPerInch / Self.ghosttyDotsPerInch
+        #endif
+    }
+
+    private static let pointsPerInch: Float = 72
+    private static let ghosttyDotsPerInch: Float = 96
 }

@@ -82,6 +82,7 @@ struct NeedsYouCard: View {
         .animation(theme.motion.soft, value: question)
         .contentShape(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous))
         .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
         .accessibilityHint(Text("Opens the terminal"))
     }
 }

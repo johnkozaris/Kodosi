@@ -22,6 +22,9 @@ final class TerminalStore {
 
     @ObservationIgnored let commands: CommandSink
     @ObservationIgnored let notices: NoticeCenter
+    @ObservationIgnored private var keepsStatusLinks = false
+    @ObservationIgnored private var statusLinks: Set<String> = []
+    @ObservationIgnored private var viewed: Set<String> = []
     @ObservationIgnored let focus: TerminalProcessFocusCoordinator
     @ObservationIgnored let live: TerminalSessionManager
 
@@ -47,6 +50,8 @@ final class TerminalStore {
 
     func reset(userId: String?) {
         releaseLive()
+        statusLinks = []
+        viewed = []
         self.userId = userId
         sessions = []
         attention = []
@@ -57,6 +62,9 @@ final class TerminalStore {
 
     func releaseAll() {
         releaseLive()
+        keepsStatusLinks = false
+        statusLinks = []
+        viewed = []
         watchingSessionId = nil
     }
 
@@ -120,7 +128,9 @@ final class TerminalStore {
         for id in Set(before.keys).subtracting(ids) {
             focus.releaseSession(sessionId: id)
         }
+        statusLinks.formIntersection(ids)
         live.reconcile(with: received)
+        linkOwnTerminals()
     }
 
     func noteAttention(_ id: String) {
@@ -139,12 +149,43 @@ final class TerminalStore {
     }
 
     func open(_ sessionId: String) async throws {
+        viewed.insert(sessionId)
         _ = try await commands.request("session.openRemote", ["sessionId": .string(sessionId)])
     }
 
     func disconnect(_ sessionId: String) {
+        viewed.remove(sessionId)
+        guard !statusLinks.contains(sessionId) else { return }
         commands.perform("session.disconnect", ["sessionId": .string(sessionId)])
     }
+
+    func keepStatusLinks(_ keep: Bool) {
+        guard keepsStatusLinks != keep else { return }
+        keepsStatusLinks = keep
+        if keep {
+            linkOwnTerminals()
+        } else {
+            for id in statusLinks where !viewed.contains(id) {
+                commands.perform("session.disconnect", ["sessionId": .string(id)])
+            }
+            statusLinks = []
+        }
+    }
+
+    private func linkOwnTerminals() {
+        guard keepsStatusLinks else { return }
+        let wanted = sessions.filter { session in
+            session.isOwner && session.kind == .remote && session.status == .running
+                && session.connectionState == .offline && session.message == nil
+                && !statusLinks.contains(session.id)
+        }
+        for session in wanted.prefix(max(0, Self.statusLinkLimit - statusLinks.count)) {
+            statusLinks.insert(session.id)
+            commands.perform("session.openRemote", ["requestId": .string(UUIDv7.generate()), "sessionId": .string(session.id)])
+        }
+    }
+
+    private static let statusLinkLimit = 12
 
     func mutate(_ operation: String, session target: RuntimeSession, fields: [String: JSONValue] = [:]) async throws {
         guard let current = session(target.id), current.incarnationId == target.incarnationId else {

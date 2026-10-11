@@ -143,6 +143,7 @@ private final class PeopleOutbox {
 
     init() {
         commands.transport = { [weak self] data in
+            RuntimeContract.verify(data)
             if let command = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
                 self?.sent.append(command)
             }
