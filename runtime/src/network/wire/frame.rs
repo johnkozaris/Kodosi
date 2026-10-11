@@ -360,7 +360,7 @@ pub(crate) fn padded(length: usize) -> usize {
         return length.div_ceil(64) * 64;
     }
     let exponent = usize::BITS - 1 - length.leading_zeros();
-    let bits = u32::BITS - exponent.leading_zeros();
+    let bits = exponent.bit_width();
     let mask = (1usize << (exponent - bits)) - 1;
     (length + mask) & !mask
 }

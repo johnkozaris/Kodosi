@@ -91,6 +91,14 @@ protocol-check:
 
 rust-all: ghostty-verify rust-fmt rust-check rust-doc rust-clippy rust-dependency-hygiene protocol-check rust-test rust-coverage-check
 
+windows-cross-check packages="--workspace":
+    docker build --quiet --tag kodosi-windows-cross --file scripts/windows-cross-check.Dockerfile scripts >/dev/null
+    for target in x86_64-pc-windows-msvc aarch64-pc-windows-msvc; do \
+        docker run --rm --volume "$PWD:/src" --volume kodosi-cargo-registry:/usr/local/cargo/registry --volume kodosi-xwin-cache:/cache/xwin --workdir /src --env CARGO_BUILD_WARNINGS=deny --env CARGO_INCREMENTAL=0 kodosi-windows-cross bash -euo pipefail -c "\
+            cargo xwin clippy --manifest-path runtime/Cargo.toml --locked --target $target {{ packages }} --lib --bins --examples -- -D warnings && \
+            cargo xwin clippy --manifest-path runtime/Cargo.toml --locked --target $target {{ packages }} --tests -- -D warnings -A clippy::unwrap_used -A clippy::expect_used"; \
+    done
+
 rust-clean:
     cargo clean --manifest-path runtime/Cargo.toml
 
@@ -129,7 +137,7 @@ mac-check:
     just --justfile clients/macos/Justfile ci
 
 linux-build:
-    just --justfile clients/linux/justfile build
+    just --justfile clients/qt/justfile build
 
 linux-check:
-    just --justfile clients/linux/justfile check
+    just --justfile clients/qt/justfile check

@@ -28,7 +28,7 @@ From the repository root:
 
 ```sh
 just linux-build
-./clients/linux/build/dev/src/kodosi-qt
+./clients/qt/build/dev/src/kodosi-qt
 ```
 
 The first build downloads the pinned tools. Build output stays under `build/`.

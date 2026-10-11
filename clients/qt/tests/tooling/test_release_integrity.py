@@ -44,15 +44,15 @@ class ReleaseIntegrityTests(unittest.TestCase):
             {
                 ".gitignore": "**/build/\n",
                 "Ghostty.lock": "".join(f"{key}={value}\n" for key, value in lock.items()),
-                "clients/linux/CMakeLists.txt": "project(KodosiQT VERSION 0.1.0 LANGUAGES CXX)\n",
-                "clients/linux/tracked.txt": "one\n",
+                "clients/qt/CMakeLists.txt": "project(KodosiQT VERSION 0.1.0 LANGUAGES CXX)\n",
+                "clients/qt/tracked.txt": "one\n",
                 "runtime/runtime.txt": "runtime-one\n",
                 "terminal/ghostty/LinuxGhostty.ref": lock["linux_upstream_commit"] + "\n",
                 "terminal/ghostty/Vendor/GhosttyVt/linux-x86_64/lib/libghostty-vt.a": "archive\n",
                 "terminal/ghostty/LICENSES/Ghostty.txt": "Ghostty license fixture\n",
             },
         )
-        self.source = self.checkout / "clients/linux"
+        self.source = self.checkout / "clients/qt"
         self.runtime = self.checkout / "runtime"
         self.ghostty = self.checkout / "terminal/ghostty"
         (self.source / "tool.sh").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")

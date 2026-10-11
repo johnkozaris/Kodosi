@@ -87,7 +87,7 @@ aligned in the same change; do not maintain parallel historical protocol documen
 - [runtime/src](../runtime/src/): sessions, identity, transport, rooms, providers, and CLI.
 - [backend/src/Kodosi.Host](../backend/src/Kodosi.Host/): accounts, devices, friends,
   missions, sessions, and terminal connections. Internal APIs call rooms “missions.”
-- [clients/macos](../clients/macos/) and [clients/linux](../clients/linux/): native UI.
+- [clients/macos](../clients/macos/) and [clients/qt](../clients/qt/): native UI.
 - [terminal/ghostty](../terminal/ghostty/): terminal integration and native artifacts.
 
 [All documentation](README.md) · [Development](DEVELOPMENT.md)

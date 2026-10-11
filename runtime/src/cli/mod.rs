@@ -1300,11 +1300,11 @@ mod tests {
         assert!(
             context.observe(&json!({"type":"auth.required","accountUserId":null,"accountEpoch":2}))
         );
-        assert!(context.sessions.is_empty());
+        assert_eq!(context.sessions, [] as [Value; 0]);
         assert!(!context.observe(&json!({"type":"sessions.snapshot","accountUserId":"old","accountEpoch":1,"sessions":[{"id":"old-session"}]})));
         assert_eq!(context.epoch, 2);
         assert!(context.user.is_none());
-        assert!(context.sessions.is_empty());
+        assert_eq!(context.sessions, [] as [Value; 0]);
     }
     #[test]
     fn a_terminal_and_a_friend_are_found_by_name_or_identifier() {

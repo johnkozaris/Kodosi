@@ -393,11 +393,9 @@ async fn stale_epoch_cannot_create_or_shutdown_current_runtime() {
         .iter()
         .find(|event| event.kind() == "sessions.snapshot")
         .unwrap();
-    assert!(
-        serde_json::to_value(sessions).unwrap()["sessions"]
-            .as_array()
-            .unwrap()
-            .is_empty()
+    assert_eq!(
+        serde_json::to_value(sessions).unwrap()["sessions"],
+        serde_json::json!([])
     );
     runtime.shutdown().await;
     drop(runtime);
@@ -1078,7 +1076,7 @@ async fn remote_recovery_preserves_only_open_current_incarnations() {
         },
     );
     runtime.reconnect_views();
-    assert!(runtime.opening[&id].commands.is_empty());
+    assert_eq!(runtime.opening[&id].commands, [] as [Command; 0]);
     runtime.views.insert(id, HashMap::new());
     runtime.prune_views();
     assert!(!runtime.reconnect.contains_key(&id));

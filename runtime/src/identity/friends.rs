@@ -164,7 +164,7 @@ fn root_from_hex(text: &str) -> Option<Root> {
         return None;
     }
     let mut root = [0; 32];
-    for (byte, pair) in root.iter_mut().zip(text.as_bytes().chunks_exact(2)) {
+    for (byte, pair) in root.iter_mut().zip(text.as_bytes().as_chunks::<2>().0) {
         *byte = u8::from_str_radix(std::str::from_utf8(pair).ok()?, 16).ok()?;
     }
     Some(root)

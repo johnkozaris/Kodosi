@@ -147,7 +147,7 @@ pub unsafe extern "C" fn kodosi_start(
                 ));
             };
             let key = NEXT_HANDLE
-                .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| n.checked_add(1))
+                .try_update(Ordering::AcqRel, Ordering::Acquire, |n| n.checked_add(1))
                 .map_err(|_| {
                     start_failure(
                         KODOSI_START_FAILED,

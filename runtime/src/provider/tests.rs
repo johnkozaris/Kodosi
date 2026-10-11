@@ -129,7 +129,7 @@ async fn claude_path_encoding_collision_does_not_authorize_another_directory() {
         storage::encoded_claude_directory(&second).unwrap()
     );
     claude_transcript(home.path(), &first, 1, "");
-    assert!(
+    assert_eq!(
         discover(
             &home.path().join(".claude"),
             Provider::Claude,
@@ -140,8 +140,8 @@ async fn claude_path_encoding_collision_does_not_authorize_another_directory() {
         )
         .await
         .unwrap()
-        .items
-        .is_empty()
+        .items,
+        [] as [ConversationRef; 0]
     );
     assert!(
         read(
@@ -432,7 +432,7 @@ async fn copilot_resume_uses_workspace_metadata_when_start_record_has_no_cwd() {
 async fn missing_copilot_index_is_not_created() {
     let home = tempfile::tempdir().unwrap();
     let directory = workspace(home.path());
-    assert!(
+    assert_eq!(
         discover(
             &home.path().join(".copilot"),
             Provider::Copilot,
@@ -443,8 +443,8 @@ async fn missing_copilot_index_is_not_created() {
         )
         .await
         .unwrap()
-        .items
-        .is_empty()
+        .items,
+        [] as [ConversationRef; 0]
     );
     assert!(!home.path().join(".copilot").exists());
 }
@@ -584,7 +584,7 @@ fn oversized_record_advances_with_an_explicit_notice() {
         Some(128),
     )
     .unwrap();
-    assert!(page.entries.is_empty());
+    assert_eq!(page.entries, [] as [ConversationEntry; 0]);
     assert_eq!(page.next_before_byte, Some(4096 - 128));
     assert!(page.degraded_reason.is_some());
     assert!(
@@ -839,7 +839,7 @@ async fn malformed_history_ids_still_advance_the_cursor() {
     )
     .await
     .unwrap();
-    assert!(first.items.is_empty());
+    assert_eq!(first.items, [] as [ConversationRef; 0]);
     assert!(first.has_more);
     let next = discover_history(
         &home.path().join(".copilot"),

@@ -20,7 +20,7 @@ pictures show the Mac app; the Linux app has the same parts.
 - **A computer.** A Mac with Apple silicon and macOS 26.4 or later, or a Linux x86-64
   computer. Ubuntu 24.04 is the recommended start.
 - **The app.** Public app releases are not available yet. Build the
-  [Mac app](../clients/macos/README.md) or the [Linux app](../clients/linux/README.md).
+  [Mac app](../clients/macos/README.md) or the [Linux app](../clients/qt/README.md).
 - **A Kodosi service.** The apps connect to the hosted service by default. A Mac Debug
   build connects to a [local backend](DEVELOPMENT.md#run-the-backend). You can also
   [run your own](SELF-HOSTING.md). Everyone in a room uses the same service.
@@ -30,7 +30,7 @@ pictures show the Mac app; the Linux app has the same parts.
 - **Git (optional)** for a terminal on a new branch.
 - **The `kodosi` command (optional)** for agents in rooms. See the command-line
   section of the [Mac](../clients/macos/README.md#command-line-access) or
-  [Linux](../clients/linux/README.md#command-line-access) build guide.
+  [Linux](../clients/qt/README.md#command-line-access) build guide.
 
 ## Sign in and open a terminal
 

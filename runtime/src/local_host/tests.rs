@@ -9,7 +9,7 @@ async fn command_reader_rejects_large_prefix_before_allocating() {
         .await
         .unwrap();
     assert!(read_frame(&mut reader).await.is_err());
-    assert!(reader.body.is_empty());
+    assert_eq!(reader.body, [] as [u8; 0]);
 }
 
 #[tokio::test]

@@ -896,7 +896,7 @@ mod tests {
             assert!(super::session_processes(pty.child_pid).unwrap().contains(&child));
             pty.request_shutdown(ShutdownStage::Force).unwrap();
             assert!(matches!(pty.wait_within(Duration::from_secs(2)).await.unwrap(), super::WaitOutcome::Reaped(_)));
-            assert!(super::session_processes(pty.child_pid).unwrap().is_empty());
+            assert_eq!(super::session_processes(pty.child_pid).unwrap(), Vec::<i32>::new());
         });
     }
 

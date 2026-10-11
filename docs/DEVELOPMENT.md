@@ -11,7 +11,7 @@ or submodules are needed.
 | `runtime/` | Rust runtime, CLI, terminal processes, identity, encryption, native API |
 | `backend/` | ASP.NET Core metadata service and encrypted traffic relay |
 | `clients/macos/` | Swift native Mac app |
-| `clients/linux/` | Qt native Linux app |
+| `clients/qt/` | Qt native Linux app |
 | `protocol/` | Generated contracts shared across the stack |
 | `terminal/ghostty/` | Native terminal integration, patches, artifacts, and notices |
 
@@ -30,7 +30,7 @@ Keep dependencies and downloaded build tools inside the project.
 
 For native prerequisites and signing, follow the
 [Mac build guide](../clients/macos/README.md) or
-[Linux build guide](../clients/linux/README.md). Build each app on its own platform.
+[Linux build guide](../clients/qt/README.md). Build each app on its own platform.
 
 ## Build and check
 

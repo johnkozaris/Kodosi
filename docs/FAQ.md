@@ -6,7 +6,7 @@ Short answers, with a link to the page that has the details.
 
 **Can I download Kodosi?**
 Not yet. There are no published app releases. Build the
-[Mac app](../clients/macos/README.md) or the [Linux app](../clients/linux/README.md)
+[Mac app](../clients/macos/README.md) or the [Linux app](../clients/qt/README.md)
 from this repository.
 
 **Which computers does it run on?**

@@ -1395,11 +1395,9 @@ mod tests {
     #[test]
     fn focus_encoding_follows_terminal_mode() {
         let mut terminal = terminal();
-        assert!(
-            terminal
-                .encode_focus(true)
-                .expect("unreported focus")
-                .is_empty()
+        assert_eq!(
+            terminal.encode_focus(true).expect("unreported focus"),
+            [] as [u8; 0]
         );
         terminal.write(b"\x1b[?1004h").expect("focus reporting");
         assert_eq!(terminal.encode_focus(true).expect("focus"), b"\x1b[I");
@@ -1448,7 +1446,7 @@ mod tests {
             .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
             .expect("encode checkpoint");
 
-        assert!(!bytes.is_empty());
+        assert_ne!(bytes, [] as [u8; 0]);
         assert_eq!(info.schema_version, GHOSTTY_CHECKPOINT_SCHEMA_VERSION);
         assert_eq!(info.json_bytes, bytes.len());
         assert_eq!(info.continuation_bytes, 4);
