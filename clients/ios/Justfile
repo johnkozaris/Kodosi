@@ -1,4 +1,4 @@
-simulator := env('KODOSI_IOS_SIMULATOR', 'iPhone 17 Pro')
+simulator := env('KODOSI_IOS_SIMULATOR', 'Kodosi iPhone 17 Pro')
 
 default: build
 
@@ -16,14 +16,17 @@ build: xcode-gen
     xcodebuild -project KodosiMobile.xcodeproj \
         -scheme KodosiMobile \
         -configuration Debug \
-        -destination 'platform=iOS Simulator,name={{ simulator }}' \
+        -destination 'generic/platform=iOS Simulator' \
         build
 
 test: xcode-gen
+    #!/usr/bin/env bash
+    set -euo pipefail
+    id=$(scripts/simulator.sh "{{ simulator }}")
     xcodebuild -project KodosiMobile.xcodeproj \
         -scheme KodosiMobile \
         -configuration Debug \
-        -destination 'platform=iOS Simulator,name={{ simulator }}' \
+        -destination "id=$id" \
         test
 
 build-device: xcode-gen

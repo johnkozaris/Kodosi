@@ -14,6 +14,8 @@ configs:
 packages:
   KodosiApple:
     path: ../apple
+  KodosiGhostty:
+    path: ../../terminal/ghostty
 
 aggregateTargets:
   PrepareNativeBuild:
@@ -51,6 +53,9 @@ targets:
   KodosiMobile:
     type: application
     platform: iOS
+    configFiles:
+      Debug: Config/Debug.xcconfig
+      Release: Config/Release.xcconfig
     settings:
       groups:
         - appBase
@@ -67,8 +72,9 @@ targets:
         OTHER_LDFLAGS:
           - -lkodosi_runtime
           - -framework Security
-          - -framework SystemConfiguration
-          - -lresolv
+          - -framework CoreFoundation
+          - -liconv
+          - -lc++
         ENABLE_DEBUG_DYLIB: NO
     sources:
       - path: Sources
@@ -83,6 +89,8 @@ targets:
         product: KodosiBridge
       - package: KodosiApple
         product: KodosiDesign
+      - package: KodosiGhostty
+        product: GhosttyTerminal
 
   KodosiMobileTests:
     type: bundle.unit-test
@@ -94,6 +102,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.kodosi.mobile.tests
         PRODUCT_NAME: KodosiMobileTests
         GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Kodosi.app/Kodosi
+        BUNDLE_LOADER: $(TEST_HOST)
     sources:
       - path: Tests
     dependencies:

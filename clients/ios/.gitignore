@@ -5,6 +5,6 @@ DerivedData/
 .build/
 .swiftpm/
 Package.resolved
-!KodosiMobile.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 Frameworks/
 .DS_Store
+KodosiMobile.xcodeproj/

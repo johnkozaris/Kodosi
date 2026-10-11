@@ -20,7 +20,13 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>KodosiDebugBackendHost</key>
+	<string>$(KODOSI_DEBUG_BACKEND_HOST)</string>
+	<key>KodosiDebugBackendPort</key>
+	<string>$(KODOSI_DEBUG_BACKEND_PORT)</string>
 	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>

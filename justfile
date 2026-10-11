@@ -134,6 +134,12 @@ mac-build:
 mac-check:
     just --justfile clients/macos/Justfile ci
 
+ios-build:
+    just --justfile clients/ios/Justfile build
+
+ios-check:
+    just --justfile clients/ios/Justfile ci
+
 linux-build:
     just --justfile clients/linux/justfile build
 

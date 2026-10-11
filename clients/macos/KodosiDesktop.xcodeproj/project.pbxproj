@@ -49,7 +49,6 @@
 		3F110AD20A953758DE1B647E /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01EC78209F83533F35ABC3B6 /* HistoryView.swift */; };
 		3F27A09DAE499F2A68C0E2C4 /* TerminalProcessFocusCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE80ADAE44559A6E61157AF2 /* TerminalProcessFocusCoordinator.swift */; };
 		3F3FB20E2754912015145FEB /* CommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D1F38FAABB0E0D5EEAE481B /* CommandPalette.swift */; };
-		40C4825446312394F5EDFCEC /* DebugBackendConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28ACA7CDEF06888B3996D521 /* DebugBackendConfiguration.swift */; };
 		4461DBD40D6C5DBBFC82888F /* SidebarRail.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCA5BB4B558CC7648D2100BB /* SidebarRail.swift */; };
 		481547B47FE0EABC8B009CDB /* TerminalFirstContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 241A1B008B6F58A5F3EB3B1F /* TerminalFirstContractTests.swift */; };
 		4BA595F8DA740A0A349693FF /* StartCommandsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA938DB9302471D5B24F23B /* StartCommandsView.swift */; };
@@ -163,7 +162,6 @@
 		25B2A152F6D43DAA05D387A6 /* KodosiDesktop.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KodosiDesktop.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		26624DB9E39C3FA133E5B614 /* SessionNameGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionNameGenerator.swift; sourceTree = "<group>"; };
 		278EE6663EDB1F4726DF976F /* RuntimeStorageBootstrapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeStorageBootstrapTests.swift; sourceTree = "<group>"; };
-		28ACA7CDEF06888B3996D521 /* DebugBackendConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugBackendConfiguration.swift; sourceTree = "<group>"; };
 		2CEC9C7E0B5C72607E741289 /* TerminalConnectionTokenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalConnectionTokenTests.swift; sourceTree = "<group>"; };
 		2DE6D7710BC2E7C662E3D05F /* FilePickers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePickers.swift; sourceTree = "<group>"; };
 		2F7038F3B9119903EB97C4F4 /* SessionDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionDetailsView.swift; sourceTree = "<group>"; };
@@ -515,7 +513,6 @@
 				6A38F2AF380D997C447474A0 /* AppDependencies+People.swift */,
 				A41C2CD87F79C57A562859D4 /* AppDependencies+Rooms.swift */,
 				B80E6328CCFA69EC486C40CD /* AppDependencies+SignIn.swift */,
-				28ACA7CDEF06888B3996D521 /* DebugBackendConfiguration.swift */,
 				BADC653CCAC8BA840939779C /* DeepLinkRouter.swift */,
 				FF88E3F8ACF53DFF48487B1A /* KodosiDesktopApp.swift */,
 				7859C1F8907CA2B31325BF2E /* main.swift */,
@@ -751,7 +748,6 @@
 				3F3FB20E2754912015145FEB /* CommandPalette.swift in Sources */,
 				7FF161F61ABEA66F4204E1A8 /* ConversationBrowser.swift in Sources */,
 				C3D76AB82F348D658079422F /* Counted.swift in Sources */,
-				40C4825446312394F5EDFCEC /* DebugBackendConfiguration.swift in Sources */,
 				67D172965413FC4CA12FA19C /* DeepLinkRouter.swift in Sources */,
 				206ED7624F5DACA5A7A772FB /* DesktopNotificationDelivery.swift in Sources */,
 				1248674812AE977C5EB589DB /* DesktopSettings.swift in Sources */,

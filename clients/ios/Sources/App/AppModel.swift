@@ -40,7 +40,12 @@ final class AppModel {
 
     func start() {
         guard eventTask == nil else { return }
-        RuntimeEnvironment.install()
+        do {
+            try RuntimeEnvironment.install()
+        } catch {
+            phase = .failed(error.localizedDescription)
+            return
+        }
         let inbox = inbox
         let runtime = runtime
         eventTask = Task { [weak self] in

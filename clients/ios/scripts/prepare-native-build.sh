@@ -21,5 +21,6 @@ case "${CONFIGURATION:-}" in
         ;;
 esac
 
+export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 cd "$REPOSITORY"
 just ios-ffi-build "$platform" "$profile"
