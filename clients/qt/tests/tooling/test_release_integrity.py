@@ -44,6 +44,9 @@ class ReleaseIntegrityTests(unittest.TestCase):
             {
                 ".gitignore": "**/build/\n",
                 "Ghostty.lock": "".join(f"{key}={value}\n" for key, value in lock.items()),
+                "protocol/desktop-runtime.json": (
+                    ROOT.parents[1] / "protocol/desktop-runtime.json"
+                ).read_text(encoding="utf-8"),
                 "clients/qt/CMakeLists.txt": "project(KodosiQT VERSION 0.1.0 LANGUAGES CXX)\n",
                 "clients/qt/tracked.txt": "one\n",
                 "runtime/runtime.txt": "runtime-one\n",
