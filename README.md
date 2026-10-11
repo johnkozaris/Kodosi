@@ -173,7 +173,8 @@ Bug reports, ideas, and pull requests are welcome.
 
 ## License
 
-Kodosi is [MIT licensed](LICENSE). Built with [Ghostty](https://ghostty.org), Rust,
+Kodosi is [MIT licensed](LICENSE). The license does not cover the name Kodosi or its
+logo: see [Trademarks](TRADEMARKS.md). Built with [Ghostty](https://ghostty.org), Rust,
 Swift, Qt, and ASP.NET Core. Native components retain their
 [third-party notices](terminal/ghostty/THIRD_PARTY_NOTICES.md) and required source
 and relinking materials. [About the pictures and their credits](docs/media/README.md).
