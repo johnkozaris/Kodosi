@@ -192,6 +192,7 @@ final class AppModel {
     private func receiveError(_ event: RuntimeEvent) {
         guard !event.type.hasPrefix("provider."), !event.type.hasPrefix("room.") else { return }
         let message = event.string("message") ?? String(localized: "That did not work.")
+        people.absorb(error: event)
         guard !account.absorb(error: event, message: message) else { return }
         notices.show(message)
     }

@@ -30,8 +30,15 @@ final class AccountStore {
         case failed(String)
     }
 
-    struct Deletion: Equatable {
-        let page: URL?
+    enum Deletion: Equatable {
+        case requested
+        case confirming(URL?)
+    }
+
+    enum Approval: Equatable {
+        case approving
+        case approved(String)
+        case failed(String)
     }
 
     private(set) var userId: String?
@@ -42,9 +49,13 @@ final class AccountStore {
     private(set) var identityMessage: String?
     private(set) var stage: SignInStage = .idle
     private(set) var devices: [MyDeviceEntry] = []
+    private(set) var devicesRevision = 0
     private(set) var deviceRequests: [DeviceLinkRequest] = []
+    private(set) var approval: Approval?
+    private(set) var creatingRecoveryKey = false
     var newRecoveryKey: String?
     private(set) var deletion: Deletion?
+    private(set) var deletionPage: URL?
     private(set) var signInPage: URL?
 
     @ObservationIgnored private let commands: CommandSink
@@ -72,6 +83,20 @@ final class AccountStore {
         devices.first { $0.deviceId == selfDeviceId }
     }
 
+    var orderedDevices: [MyDeviceEntry] {
+        devices.filter { $0.deviceId == selfDeviceId }
+            + devices.filter { $0.deviceId != selfDeviceId && !$0.recoveryKey }
+            + devices.filter(\.recoveryKey)
+    }
+
+    var hasRecoveryKey: Bool {
+        devices.contains(where: \.recoveryKey)
+    }
+
+    func canRemove(_ device: MyDeviceEntry) -> Bool {
+        localDeviceEnrolled && device.deviceId != selfDeviceId
+    }
+
     func reset(userId: String?) {
         self.userId = userId
         displayName = nil
@@ -81,8 +106,11 @@ final class AccountStore {
         identityMessage = nil
         devices = []
         deviceRequests = []
+        approval = nil
+        creatingRecoveryKey = false
         newRecoveryKey = nil
         deletion = nil
+        deletionPage = nil
         signInPage = nil
         if !stage.isPending {
             stage = .idle
@@ -102,7 +130,8 @@ final class AccountStore {
             signInPage = nil
         case "auth.deletion_pending":
             let page = event.string("confirmationUri").flatMap(ExternalAuthURL.parse)
-            deletion = Deletion(page: page)
+            deletion = .confirming(page)
+            deletionPage = page
         default:
             break
         }
@@ -115,6 +144,7 @@ final class AccountStore {
             localDeviceEnrolled = try event.value("localDeviceEnrolled")
             identityMessage = localDeviceEnrolled ? nil : event.string("notice")
             devices = try event.value("devices")
+            devicesRevision += 1
             if localDeviceEnrolled, case .trustingDevice = stage {
                 stage = .signedIn
             }
@@ -128,20 +158,35 @@ final class AccountStore {
             }
             commands.perform("devices.refresh")
         case "devices.link.resolved":
+            if approval == .approving, event.string("outcome") == "approved" {
+                approval = .approved(event.string("deviceLabel") ?? "")
+            }
             commands.perform("devices.refresh")
         case "devices.recovery.created":
             newRecoveryKey = event.string("key")
+            creatingRecoveryKey = false
         default:
             break
         }
     }
 
     func absorb(error event: RuntimeEvent, message: String) -> Bool {
-        if event.string("operation") == "auth.deleteAccount" {
+        switch event.string("operation") {
+        case "auth.deleteAccount":
             deletion = nil
+            deletionPage = nil
             return false
+        case "devices.link.approve" where approval == .approving:
+            approval = .failed(message)
+            return true
+        case "devices.recovery.create":
+            creatingRecoveryKey = false
+            return false
+        default:
+            break
         }
         if event.type.hasPrefix("auth.") {
+            guard stage.isPending || !isReady else { return false }
             stage = .failed(message)
             signInPage = nil
             return needsOnboarding || userId == nil
@@ -175,6 +220,7 @@ final class AccountStore {
     private func receiveRequired(_ event: RuntimeEvent) {
         authResolved = true
         deletion = nil
+        deletionPage = nil
         signInPage = nil
         if case .failed = stage {} else {
             stage = .idle
@@ -255,10 +301,21 @@ final class AccountStore {
         commands.perform("auth.logout")
     }
 
+    func refreshDevices() async {
+        let revision = devicesRevision
+        commands.perform("devices.refresh")
+        await RefreshWait.until { devicesRevision != revision }
+    }
+
     func approveDevice(code: String) {
         let code = code.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !code.isEmpty else { return }
+        guard !code.isEmpty, approval != .approving else { return }
+        approval = .approving
         commands.perform("devices.link.approve", ["code": .string(code)])
+    }
+
+    func finishApproval() {
+        approval = nil
     }
 
     func revokeDevice(_ device: MyDeviceEntry) {
@@ -266,15 +323,34 @@ final class AccountStore {
     }
 
     func createRecoveryKey() {
+        guard !creatingRecoveryKey else { return }
+        creatingRecoveryKey = true
         commands.perform("devices.recovery.create")
     }
 
+    func dismissRecoveryKey() {
+        newRecoveryKey = nil
+    }
+
     func deleteAccount() {
+        guard deletion == nil else { return }
+        deletion = .requested
         commands.perform("auth.deleteAccount")
     }
 
     func cancelAccountDeletion() {
         deletion = nil
+        deletionPage = nil
         commands.perform("auth.deleteAccount.cancel")
+    }
+
+    func closeDeletionPage() {
+        deletionPage = nil
+    }
+
+    func reopenDeletionPage() {
+        if case let .confirming(page) = deletion {
+            deletionPage = page
+        }
     }
 }
