@@ -30,13 +30,6 @@ async fn a_listener_serves_its_user_and_refuses_a_second_owner() {
         Some(io::ErrorKind::NotFound)
     );
     let mut listener = Listener::bind(&endpoint).await.unwrap();
-    assert_eq!(
-        Listener::bind(&endpoint)
-            .await
-            .err()
-            .map(|error| error.kind()),
-        Some(io::ErrorKind::AddrInUse)
-    );
     let server = tokio::spawn(async move {
         for _ in 0..2 {
             let stream = listener.accept().await.unwrap();
@@ -56,7 +49,17 @@ async fn a_listener_serves_its_user_and_refuses_a_second_owner() {
         client.read_exact(&mut reply).await.unwrap();
         assert_eq!(reply[0], value + 1);
     }
-    drop(server.await.unwrap());
+    let listener = server.await.unwrap();
+    // A Unix bind probes the live listener with a connection, so the probe
+    // runs after the listener has served its clients.
+    assert_eq!(
+        Listener::bind(&endpoint)
+            .await
+            .err()
+            .map(|error| error.kind()),
+        Some(io::ErrorKind::AddrInUse)
+    );
+    drop(listener);
     assert!(connect(&endpoint).await.is_err());
     drop(Listener::bind(&endpoint).await.unwrap());
 }
