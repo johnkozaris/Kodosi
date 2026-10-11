@@ -89,10 +89,10 @@ qt_add_library(kodosi-desktop-integration STATIC
     platform/DesktopNotificationDriver.hpp
     platform/DesktopFileIntegration.cpp
     platform/DesktopFileIntegration.hpp
-    platform/FreedesktopNotificationDriver.cpp
-    platform/FreedesktopNotificationDriver.hpp
     platform/NotificationText.cpp
     platform/NotificationText.hpp
+    platform/SystemNotificationDriver.hpp
+    ${KODOSI_PLATFORM_SOURCES}
 )
 
 target_include_directories(kodosi-desktop-integration
@@ -103,7 +103,7 @@ target_include_directories(kodosi-desktop-integration
 target_link_libraries(kodosi-desktop-integration
     PUBLIC
         Qt6::Core
-        Qt6::DBus
+        ${KODOSI_PLATFORM_LIBRARIES}
         kodosi-application
     PRIVATE
         Qt6::Gui
@@ -316,48 +316,8 @@ target_compile_definitions(kodosi-terminal-kernel
 )
 target_compile_definitions(kodosi-qt PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
 foreach(target kodosi-runtime kodosi-application kodosi-desktop-integration kodosi-terminal-kernel kodosi-qt)
-    target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    target_compile_options(${target} PRIVATE ${KODOSI_COMPILE_OPTIONS})
 endforeach()
 
-install(TARGETS kodosi-qt
-    BUNDLE DESTINATION .
-    RUNTIME DESTINATION lib/kodosi/bin
-)
+kodosi_install(kodosi-qt)
 
-qt_generate_deploy_qml_app_script(
-    TARGET kodosi-qt
-    OUTPUT_SCRIPT kodosi_qt_deploy_script
-    NO_TRANSLATIONS
-    NO_UNSUPPORTED_PLATFORM_ERROR
-)
-set(kodosi_qt_private_deploy_script
-    "${CMAKE_CURRENT_BINARY_DIR}/deploy-kodosi-private-runtime.cmake"
-)
-file(GENERATE
-    OUTPUT "${kodosi_qt_private_deploy_script}"
-    CONTENT
-        "set(QT_DEPLOY_PLUGINS_DIR \"lib/kodosi/plugins\")\nset(QT_DEPLOY_QML_DIR \"lib/kodosi/qml\")\ninclude(\"${kodosi_qt_deploy_script}\")\n"
-)
-install(SCRIPT "${kodosi_qt_private_deploy_script}")
-install(
-    FILES
-        "$<TARGET_FILE:Qt6::QOffscreenIntegrationPlugin>"
-        "$<TARGET_FILE:Qt6::QWaylandIntegrationPlugin>"
-    DESTINATION lib/kodosi/plugins/platforms
-)
-install(
-    FILES
-        "$<TARGET_FILE:Qt6::QGtk3ThemePlugin>"
-        "$<TARGET_FILE:Qt6::QXdgDesktopPortalThemePlugin>"
-    DESTINATION lib/kodosi/plugins/platformthemes
-)
-install(
-    FILES "$<TARGET_FILE:Qt6::QWaylandEglClientBufferPlugin>"
-    DESTINATION lib/kodosi/plugins/wayland-graphics-integration-client
-)
-install(
-    FILES
-        "$<TARGET_FILE:Qt6::QWaylandWlShellIntegrationPlugin>"
-        "$<TARGET_FILE:Qt6::QWaylandXdgShellIntegrationPlugin>"
-    DESTINATION lib/kodosi/plugins/wayland-shell-integration
-)

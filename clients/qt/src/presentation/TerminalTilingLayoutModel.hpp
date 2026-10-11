@@ -39,7 +39,7 @@ class TerminalTilingLayoutModel final : public QAbstractListModel {
         NOTIFY layoutModeChanged)
     Q_PROPERTY(qreal contentHeight READ contentHeight NOTIFY geometryChanged)
     Q_PROPERTY(int layoutRowCount READ layoutRowCount NOTIFY geometryChanged)
-    Q_PROPERTY(int columnCount READ columnCount NOTIFY geometryChanged)
+    Q_PROPERTY(int layoutColumnCount READ layoutColumnCount NOTIFY geometryChanged)
     Q_PROPERTY(
         qreal accessibilityTextScale
         READ accessibilityTextScale
@@ -88,7 +88,7 @@ public:
     [[nodiscard]] DesktopStateModel::StageLayoutMode layoutMode() const noexcept;
     [[nodiscard]] qreal contentHeight() const noexcept;
     [[nodiscard]] int layoutRowCount() const noexcept;
-    [[nodiscard]] int columnCount() const noexcept;
+    [[nodiscard]] int layoutColumnCount() const noexcept;
     [[nodiscard]] qreal accessibilityTextScale() const noexcept;
     [[nodiscard]] qreal minimumTileWidth() const noexcept;
     [[nodiscard]] qreal minimumTileHeight() const noexcept;
@@ -165,7 +165,7 @@ private:
     qreal m_contentHeight = 0;
     qreal m_accessibilityTextScale = 1;
     int m_layoutRowCount = 0;
-    int m_columnCount = 0;
+    int m_layoutColumnCount = 0;
     DesktopStateModel::StageLayoutMode m_layoutMode =
         DesktopStateModel::StageLayoutMode::Grid;
 

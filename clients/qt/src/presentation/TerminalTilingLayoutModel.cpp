@@ -145,9 +145,9 @@ int TerminalTilingLayoutModel::layoutRowCount() const noexcept
     return m_layoutRowCount;
 }
 
-int TerminalTilingLayoutModel::columnCount() const noexcept
+int TerminalTilingLayoutModel::layoutColumnCount() const noexcept
 {
-    return m_columnCount;
+    return m_layoutColumnCount;
 }
 
 qreal TerminalTilingLayoutModel::accessibilityTextScale() const noexcept
@@ -420,10 +420,10 @@ void TerminalTilingLayoutModel::rebuild()
     const auto geometrySummaryChanged =
         m_contentHeight != nextContentHeight
         || m_layoutRowCount != rows.size()
-        || m_columnCount != columns;
+        || m_layoutColumnCount != columns;
     m_contentHeight = nextContentHeight;
     m_layoutRowCount = rows.size();
-    m_columnCount = columns;
+    m_layoutColumnCount = columns;
 
     synchronizeEntries(nextEntries);
     if (geometrySummaryChanged || !nextEntries.isEmpty()) {

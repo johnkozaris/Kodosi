@@ -1,4 +1,4 @@
-#include "platform/FreedesktopNotificationDriver.hpp"
+#include "platform/linux/FreedesktopNotificationDriver.hpp"
 
 #include <QDBusConnection>
 #include <QDBusPendingCallWatcher>

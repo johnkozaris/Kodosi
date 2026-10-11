@@ -578,12 +578,11 @@ void TerminalKernelTest::terminalViewPrefersInstalledNerdFontFallback()
             && rawFont.supportsCharacter(char32_t {0xF31B});
     };
 
-    const QFontDatabase database;
-    const auto installed = database.families();
+    const auto installed = QFontDatabase::families();
     const auto available = std::ranges::any_of(
         installed,
         [&](const QString& family) {
-            return database.isFixedPitch(family)
+            return QFontDatabase::isFixedPitch(family)
                 && supportsTerminalSymbols(family);
         });
     if (!available) {

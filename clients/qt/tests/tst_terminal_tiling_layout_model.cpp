@@ -103,7 +103,7 @@ void TerminalTilingLayoutModelTest::laysOutOneThroughSixSessions()
         static_cast<int>(
             std::ceil(
                 static_cast<qreal>(sessionCount)
-                / model.columnCount())));
+                / model.layoutColumnCount())));
     for (const auto row : tiles) {
         QVERIFY(roleReal(
                     model,
@@ -124,7 +124,7 @@ void TerminalTilingLayoutModelTest::choosesAdaptiveColumnsAndIncompleteRows()
     model.setViewportWidth(1'008);
     model.setViewportHeight(708);
     model.setStagedSessionIds(sessionIds(5));
-    QCOMPARE(model.columnCount(), 3);
+    QCOMPARE(model.layoutColumnCount(), 3);
     QCOMPARE(model.layoutRowCount(), 2);
 
     const auto lastTile = rowForStableId(
@@ -138,7 +138,7 @@ void TerminalTilingLayoutModelTest::choosesAdaptiveColumnsAndIncompleteRows()
         > 300);
 
     model.setViewportWidth(589);
-    QCOMPARE(model.columnCount(), 1);
+    QCOMPARE(model.layoutColumnCount(), 1);
     QCOMPARE(model.layoutRowCount(), 5);
 }
 
@@ -243,7 +243,7 @@ void TerminalTilingLayoutModelTest::preservesProportionsAcrossViewportResize()
         kodosi::TerminalTilingLayoutModel::PercentageRole);
 
     model.setViewportWidth(1'108);
-    QCOMPARE(model.columnCount(), 2);
+    QCOMPARE(model.layoutColumnCount(), 2);
     const auto resized = roleReal(
         model,
         dividerRow,
@@ -372,7 +372,7 @@ void TerminalTilingLayoutModelTest::
         QStringLiteral("tile:session-2"));
 
     model.setViewportWidth(568);
-    QCOMPARE(model.columnCount(), 1);
+    QCOMPARE(model.layoutColumnCount(), 1);
     QVERIFY(first.isValid());
     QVERIFY(third.isValid());
 
@@ -392,11 +392,11 @@ void TerminalTilingLayoutModelTest::
     model.setViewportHeight(400);
     model.setStagedSessionIds(sessionIds(3));
     QCOMPARE(model.minimumTileWidth(), 280.0);
-    QCOMPARE(model.columnCount(), 3);
+    QCOMPARE(model.layoutColumnCount(), 3);
 
     model.setAccessibilityTextScale(1.5);
     QCOMPARE(model.minimumTileWidth(), 280.0);
-    QCOMPARE(model.columnCount(), 3);
+    QCOMPARE(model.layoutColumnCount(), 3);
     for (const auto row : rowsForType(
              model,
              kodosi::TerminalTilingLayoutModel::EntryType::Tile)) {

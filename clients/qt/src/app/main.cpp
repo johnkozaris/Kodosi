@@ -14,7 +14,7 @@
 #include "presentation/TerminalTilingLayoutModel.hpp"
 #include "presentation/Workspace.hpp"
 #include "platform/DesktopFileIntegration.hpp"
-#include "platform/FreedesktopNotificationDriver.hpp"
+#include "platform/SystemNotificationDriver.hpp"
 #include "terminal/TerminalAccessibility.hpp"
 #include "terminal/TerminalSessionRegistry.hpp"
 #include "terminal/TerminalSurfaceController.hpp"
@@ -49,8 +49,16 @@ QString startFailure()
 
 int main(int argc, char* argv[])
 {
+#ifdef Q_OS_LINUX
     if (!qEnvironmentVariableIsSet("QT_QPA_PLATFORMTHEME"))
         qputenv("QT_QPA_PLATFORMTHEME", "xdgdesktopportal");
+#endif
+#ifdef Q_OS_WIN
+    // AltGr arrives as its own key, so layouts that type characters with it
+    // reach the terminal as text rather than as Ctrl+Alt shortcuts.
+    if (!qEnvironmentVariableIsSet("QT_QPA_PLATFORM"))
+        qputenv("QT_QPA_PLATFORM", "windows:altgr");
+#endif
     QQuickStyle::setStyle(QStringLiteral("Basic"));
     QApplication app(argc, argv);
     app.setQuitOnLastWindowClosed(false);
@@ -114,7 +122,7 @@ int main(int argc, char* argv[])
     kodosi::AppearanceModel appearance(settings());
     kodosi::DesktopFileIntegration files;
     kodosi::TerminalTilingLayoutModel tiling;
-    kodosi::FreedesktopNotificationDriver notifications;
+    kodosi::SystemNotificationDriver notifications;
     kodosi::TerminalNotifications terminalNotifications(sessions, notifications);
     kodosi::TerminalSurfaceController surfaces(terminalSessions, runtime, sessions);
     kodosi::installTerminalAccessibility();

@@ -1,4 +1,4 @@
-#include "platform/FreedesktopNotificationDriver.hpp"
+#include "platform/linux/FreedesktopNotificationDriver.hpp"
 #include "app/AppActivation.hpp"
 
 #include <QDBusError>
@@ -88,9 +88,7 @@ FreedesktopNotificationDriver::FreedesktopNotificationDriver(QObject* parent)
 void FreedesktopNotificationDriver::post(
     const DesktopNotification& notification)
 {
-    if (notification.key.isEmpty() || notification.key.size() > 256
-        || notification.title.isEmpty() || notification.title.size() > 320
-        || notification.body.size() > 480) {
+    if (!notification.valid()) {
         emit deliveryError(
             notification.key,
             tr("Desktop notification data was invalid and was not sent."));

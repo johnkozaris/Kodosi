@@ -46,13 +46,12 @@ bool supportsTerminalSymbols(const QString& family)
 QString terminalSymbolFamily()
 {
     static const auto family = [] {
-        const QFontDatabase database;
         const QStringList preferred {
             QStringLiteral("Symbols Nerd Font Mono"),
             QStringLiteral("JetBrainsMono Nerd Font Mono"),
             QStringLiteral("MesloLGLDZ Nerd Font Mono"),
         };
-        const auto installed = database.families();
+        const auto installed = QFontDatabase::families();
         for (const auto& candidate : preferred) {
             if (installed.contains(candidate)
                 && supportsTerminalSymbols(candidate)) {
@@ -60,7 +59,7 @@ QString terminalSymbolFamily()
             }
         }
         for (const auto& candidate : installed) {
-            if (database.isFixedPitch(candidate)
+            if (QFontDatabase::isFixedPitch(candidate)
                 && supportsTerminalSymbols(candidate)) {
                 return candidate;
             }
@@ -70,11 +69,22 @@ QString terminalSymbolFamily()
     return family;
 }
 
+QStringList terminalFamilies(const QString& requestedFamily)
+{
+#ifdef Q_OS_WIN
+    // Windows has no generic monospace family.
+    if (requestedFamily == u"monospace") {
+        return {QStringLiteral("Cascadia Mono"), QStringLiteral("Consolas")};
+    }
+#endif
+    return {requestedFamily};
+}
+
 void configureTerminalFont(QFont& font, const QString& requestedFamily)
 {
-    QStringList families {requestedFamily};
+    auto families = terminalFamilies(requestedFamily);
     const auto symbolFamily = terminalSymbolFamily();
-    if (!symbolFamily.isEmpty() && symbolFamily != requestedFamily) {
+    if (!symbolFamily.isEmpty() && !families.contains(symbolFamily)) {
         families.push_back(symbolFamily);
     }
     font.setFamilies(families);

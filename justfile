@@ -4,8 +4,11 @@ cargo_tools_root := justfile_directory() + "/.tools/rust"
 cargo_tools_bin := cargo_tools_root + "/bin"
 ghostty_dir := env('KODOSI_GHOSTTY_DIR', justfile_directory() + "/terminal/ghostty")
 
-export PATH := justfile_directory() + "/backend/.tools/dotnet-10.0.401:" + cargo_tools_bin + ":" + env('PATH')
+path_separator := if os_family() == "windows" { ";" } else { ":" }
+
+export PATH := justfile_directory() + "/backend/.tools/dotnet-10.0.401" + path_separator + cargo_tools_bin + path_separator + env('PATH')
 export KODOSI_GHOSTTY_DIR := ghostty_dir
+export KODOSI_CONPTY_DIR := env('KODOSI_CONPTY_DIR', justfile_directory() + "/runtime/target/conpty")
 
 default:
     @just --list
@@ -68,7 +71,15 @@ rust-dependency-hygiene: rust-deny rust-machete
 ffi-publication-test:
     PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-ffi-artifact.py
 
-rust-test: ffi-publication-test
+# Windows terminals need the pinned ConPTY host beside their tests.
+[windows]
+conpty:
+    python3 terminal/conpty/fetch.py --arch "$(source clients/qt/scripts/build/windows-env.sh && kodosi_windows_arch)" --output "$KODOSI_CONPTY_DIR"
+
+[unix]
+conpty:
+
+rust-test: ffi-publication-test conpty
     CARGO_INCREMENTAL=0 cargo test --manifest-path runtime/Cargo.toml --locked --workspace --all-targets
     CARGO_INCREMENTAL=0 cargo test --manifest-path runtime/Cargo.toml --locked --workspace --doc
 
@@ -141,3 +152,6 @@ linux-build:
 
 linux-check:
     just --justfile clients/qt/justfile check
+
+windows-check:
+    just --justfile clients/qt/justfile windows-check

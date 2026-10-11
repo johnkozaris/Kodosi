@@ -39,6 +39,15 @@ native-license-test: bootstrap
 
 check: release-integrity-test rust-license-test native-license-test lint test
 
+# Windows 11 x64 or ARM64, from Git Bash with Visual Studio's C++ and Clang tools.
+windows-check: bootstrap
+    source scripts/build/windows-env.sh && kodosi_msvc_env && \
+        architecture=$(kodosi_windows_arch) && \
+        export KODOSI_QT_ARCH="msvc2022_${architecture/x64/64}" && \
+        "{{ tools_dir }}/cmake-4.4.3/bin/cmake.exe" --preset windows-dev && \
+        "{{ tools_dir }}/cmake-4.4.3/bin/cmake.exe" --build --preset windows-dev && \
+        "{{ tools_dir }}/cmake-4.4.3/bin/ctest.exe" --preset windows-dev
+
 package: bootstrap
     mkdir -p build/release
     find build/release -maxdepth 1 -type f \

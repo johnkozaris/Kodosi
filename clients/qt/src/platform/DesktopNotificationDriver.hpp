@@ -10,6 +10,12 @@ struct DesktopNotification {
     QString key;
     QString title;
     QString body;
+
+    [[nodiscard]] bool valid() const noexcept
+    {
+        return !key.isEmpty() && key.size() <= 256 && !title.isEmpty() && title.size() <= 320
+            && body.size() <= 480;
+    }
 };
 
 class DesktopNotificationDriver : public QObject {
