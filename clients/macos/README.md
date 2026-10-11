@@ -31,7 +31,7 @@ terminal package tests. Open the generated project in Xcode, select the
 `KodosiDesktop` scheme, and run it.
 
 Debug builds target the local backend at `127.0.0.1:5180`; follow
-[backend setup](../../docs/DEVELOPMENT.md#run-the-backend) to run it. To try the hosted
+[backend setup](../../docs/DEVELOPMENT.md#run-the-backend) to run it. For your own
 service, build the Release configuration:
 
 ```sh
@@ -39,7 +39,8 @@ just --justfile clients/macos/Justfile build-release
 ```
 
 Run the Release app from Xcode's Products group. Release uses the public service
-defaults unless you supply the [self-hosting environment](../../docs/SELF-HOSTING.md).
+addresses, and that service is not open yet, so supply the
+[self-hosting environment](../../docs/SELF-HOSTING.md).
 For a custom server in Debug, clear the two `KODOSI_DEBUG_BACKEND_*` build settings
 so its local override does not replace your environment.
 
