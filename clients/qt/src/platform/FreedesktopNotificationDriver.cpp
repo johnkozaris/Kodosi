@@ -1,5 +1,5 @@
 #include "platform/FreedesktopNotificationDriver.hpp"
-#include "app/SingleInstanceGuard.hpp"
+#include "app/AppActivation.hpp"
 
 #include <QDBusError>
 #include <QDBusMessage>
@@ -209,7 +209,7 @@ void FreedesktopNotificationDriver::onActivationToken(
     const uint id,
     const QString& token)
 {
-    if (m_keysById.contains(id) && !token.isEmpty() && SingleInstanceGuard::isSafeActivationToken(token)) {
+    if (m_keysById.contains(id) && !token.isEmpty() && isSafeActivationToken(token)) {
         m_activationTokens.insert(id, token);
     }
 }

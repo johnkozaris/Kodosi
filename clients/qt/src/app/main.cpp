@@ -1,11 +1,10 @@
+#include "app/AppActivation.hpp"
 #include "app/ApplicationLifecycleModel.hpp"
 #include "app/DeepLinkRouter.hpp"
 #include "app/QmlModelTypes.hpp"
-#include "app/SingleInstanceGuard.hpp"
-#include "app/RuntimeStorageBootstrap.hpp"
+#include "logging/QtLogForwarder.hpp"
 #include "platform/TerminalNotifications.hpp"
 #include "runtime/RuntimeBridge.hpp"
-#include "logging/ApplicationLogStore.hpp"
 #include "presentation/AppearanceModel.hpp"
 #include "presentation/ConversationHistoryModel.hpp"
 #include "presentation/DesktopSettings.hpp"
@@ -19,12 +18,34 @@
 #include "terminal/TerminalAccessibility.hpp"
 #include "terminal/TerminalSessionRegistry.hpp"
 #include "terminal/TerminalSurfaceController.hpp"
+#include <kodosi_runtime.h>
 #include <QApplication>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 #include <QRegularExpression>
+#include <QSettings>
 #include <QWindow>
+#include <memory>
 #include <optional>
+
+namespace {
+
+class AppClaim final {
+public:
+    AppClaim() = default;
+    AppClaim(const AppClaim&) = delete;
+    AppClaim& operator=(const AppClaim&) = delete;
+    ~AppClaim() { kodosi_close_app(); }
+};
+
+QString startFailure()
+{
+    kodosi_start_failure_t failure {};
+    return kodosi_last_start_failure(&failure) == 1 ? QString::fromUtf8(failure.message)
+                                                    : QStringLiteral("Kodosi could not start.");
+}
+
+}
 
 int main(int argc, char* argv[])
 {
@@ -38,7 +59,7 @@ int main(int argc, char* argv[])
     QCoreApplication::setApplicationName(QStringLiteral("Kodosi"));
     QCoreApplication::setApplicationVersion(QStringLiteral("0.1.0"));
     std::optional<QSize> windowSize;
-    std::optional<kodosi::DeepLinkParseResult> route;
+    kodosi::AppActivation launch { .route = {}, .token = kodosi::takeActivationToken() };
     const auto arguments = app.arguments();
     for (int i = 1; i < arguments.size(); ++i) {
         if (arguments[i] == QStringLiteral("--window-size")) {
@@ -50,50 +71,47 @@ int main(int argc, char* argv[])
                 return EXIT_FAILURE;
             windowSize = QSize(match.captured(1).toInt(), match.captured(2).toInt());
         } else if (!arguments[i].startsWith(QLatin1Char('-'))) {
-            if (route)
+            if (launch.route)
                 return EXIT_FAILURE;
-            route = kodosi::DeepLinkRouter::parse(arguments[i]);
+            launch.route = kodosi::DeepLinkRouter::parse(arguments[i]);
         }
     }
-    auto activation = kodosi::SingleInstanceGuard::activation(route);
-    qunsetenv("XDG_ACTIVATION_TOKEN");
-    const auto storage = kodosi::RuntimeStorageBootstrap::resolve();
-    if (!storage) {
-        qCritical().noquote() << storage.error();
-        return EXIT_FAILURE;
-    }
-    const auto name = kodosi::SingleInstanceGuard::endpointNamespace();
-    if (!name.valid()) {
-        qCritical().noquote() << name.error;
-        return EXIT_FAILURE;
-    }
-    kodosi::SingleInstanceGuard single;
-    const auto singleResult
-        = single.start(kodosi::SingleInstanceGuard::standardRuntimeDirectory(), name.value, activation);
-    if (singleResult.state == kodosi::SingleInstanceGuard::StartState::Forwarded)
-        return EXIT_SUCCESS;
-    if (singleResult.state != kodosi::SingleInstanceGuard::StartState::Owner) {
-        qCritical().noquote() << singleResult.error;
-        return EXIT_FAILURE;
-    }
 
-    if (auto prepared = storage->prepare(); !prepared) {
-        qCritical().noquote() << prepared.error();
+    kodosi::AppActivations activations;
+    const AppClaim claim;
+    const char* preferences = nullptr;
+    auto role = kodosi_prepare(&kodosi::AppActivations::receive, &activations, &preferences);
+    if (role == KODOSI_APP_SECONDARY) {
+        const auto json = launch.toJson();
+        role = kodosi_forward_activation(
+            reinterpret_cast<const uint8_t*>(json.constData()), static_cast<uintptr_t>(json.size()));
+        if (role == KODOSI_APP_FORWARDED)
+            return EXIT_SUCCESS;
+    }
+    if (role != KODOSI_APP_OWNER) {
+        qCritical().noquote() << startFailure();
         return EXIT_FAILURE;
     }
-    kodosi::ApplicationLogStore logs({ .directory = storage->logDirectory });
-    if (!logs.healthy()) qWarning().noquote() << logs.lastError();
+    const kodosi::QtLogForwarder logs;
+    const auto preferencesPath = preferences ? QString::fromUtf8(preferences) : QString();
+    const auto settings = [&preferencesPath] {
+        if (preferencesPath.isEmpty())
+            return std::make_unique<QSettings>();
+        auto isolated = std::make_unique<QSettings>(preferencesPath, QSettings::IniFormat);
+        isolated->setFallbacksEnabled(false);
+        return isolated;
+    };
     kodosi::TerminalSessionRegistry terminalSessions;
     kodosi::RuntimeBridge runtime(terminalSessions);
     kodosi::ApplicationLifecycleModel lifecycle(runtime);
     kodosi::SessionCatalogModel sessions;
-    kodosi::DesktopStateModel desktop(storage->settings(), true);
+    kodosi::DesktopStateModel desktop(settings(), true);
     desktop.attachSessionCatalog(&sessions);
-    kodosi::DesktopSettings settings(storage->settings());
-    kodosi::Workspace workspace(runtime, sessions, desktop, settings);
+    kodosi::DesktopSettings desktopSettings(settings());
+    kodosi::Workspace workspace(runtime, sessions, desktop, desktopSettings);
     kodosi::ConversationHistoryModel history(runtime);
     kodosi::ProviderFilesModel providerFiles(runtime);
-    kodosi::AppearanceModel appearance(storage->settings());
+    kodosi::AppearanceModel appearance(settings());
     kodosi::DesktopFileIntegration files;
     kodosi::TerminalTilingLayoutModel tiling;
     kodosi::FreedesktopNotificationDriver notifications;
@@ -115,9 +133,9 @@ int main(int argc, char* argv[])
         }
     });
     QObject::connect(&runtime, &kodosi::RuntimeBridge::eventError, &workspace, &kodosi::Workspace::setError);
-    QObject::connect(&sessions, &kodosi::SessionCatalogModel::authoritativeSnapshotApplied, &settings, [&] {
+    QObject::connect(&sessions, &kodosi::SessionCatalogModel::authoritativeSnapshotApplied, &desktopSettings, [&] {
         for (const auto& program : sessions.localPrograms())
-            settings.learn(program);
+            desktopSettings.learn(program);
     });
     QObject::connect(&runtime, &kodosi::RuntimeBridge::runningChanged, &app, [&](bool running) {
         if (!running) {
@@ -129,7 +147,7 @@ int main(int argc, char* argv[])
     QObject::connect(&lifecycle, &kodosi::ApplicationLifecycleModel::runtimeGenerationReady, &workspace,
         [&](quint64) { workspace.sessionActions().refresh(); });
     kodosi::qml::configureModelInstances(
-        workspace, history, providerFiles, appearance, settings, desktop, sessions, tiling, files,
+        workspace, history, providerFiles, appearance, desktopSettings, desktop, sessions, tiling, files,
         lifecycle, surfaces);
     QQmlApplicationEngine engine;
     QObject::connect(
@@ -145,36 +163,27 @@ int main(int argc, char* argv[])
     desktop.attachWindow(window, windowSize);
     auto raise = [window](const QString& token) {
         window->setVisible(true);
-        kodosi::SingleInstanceGuard::withActivationToken(token, [window] {
+        kodosi::withActivationToken(token, [window] {
             window->raise();
             window->requestActivate();
         });
     };
-    QObject::connect(&single, &kodosi::SingleInstanceGuard::activationReceived, &app, raise);
-    QObject::connect(&single, &kodosi::SingleInstanceGuard::routeReceived, &app,
-        [&](kodosi::DeepLinkDestination link, const QString& token) {
-            raise(token);
-            workspace.route(link);
-        });
-    QObject::connect(&single, &kodosi::SingleInstanceGuard::invalidRouteReceived, &app,
-        [&](kodosi::DeepLinkParseError error, const QString& token) {
-            raise(token);
-            workspace.setError(kodosi::DeepLinkRouter::userMessage(error));
-        });
+    const auto open = [&](const kodosi::AppActivation& activation) {
+        raise(activation.token);
+        if (!activation.route)
+            return;
+        if (activation.route->destination)
+            workspace.route(*activation.route->destination);
+        else
+            workspace.setError(kodosi::DeepLinkRouter::userMessage(activation.route->error));
+    };
     QObject::connect(&terminalNotifications, &kodosi::TerminalNotifications::sessionRequested, &app,
         [&](const QString& id, const QString& token) {
             if (workspace.sessionActions().activate(id))
                 raise(token);
         });
-    raise(activation.activationToken);
-    if (route) {
-        if (route->destination)
-            workspace.route(*route->destination);
-        else
-            workspace.setError(kodosi::DeepLinkRouter::userMessage(route->error));
-    }
-    if (single.publishEndpoint().state != kodosi::SingleInstanceGuard::StartState::Owner)
-        return EXIT_FAILURE;
+    open(launch);
+    activations.setHandler(open);
     QObject::connect(&app, &QCoreApplication::aboutToQuit, &lifecycle, [&] { lifecycle.stop(); });
     lifecycle.scheduleInitialStart();
     return app.exec();

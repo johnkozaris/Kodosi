@@ -1,18 +1,12 @@
 #pragma once
 
-#include <QDBusConnection>
 #include <QObject>
 #include <QSettings>
 #include <QString>
-#include <QVariant>
 
 #include <functional>
 #include <memory>
 #include <optional>
-
-class QDBusPendingCallWatcher;
-class QDBusServiceWatcher;
-class QDBusVariant;
 
 namespace kodosi {
 
@@ -47,13 +41,11 @@ public:
         std::function<void()> unsetColorScheme;
     };
 
-    explicit AppearanceModel(QObject* parent = nullptr);
-    AppearanceModel(std::unique_ptr<QSettings> settings, QObject* parent = nullptr);
+    /// Follows the application's color scheme and the system's motion preference.
+    explicit AppearanceModel(std::unique_ptr<QSettings> settings, QObject* parent = nullptr);
     AppearanceModel(
         std::unique_ptr<QSettings> settings,
-        QDBusConnection bus,
         StyleHooks styleHooks,
-        bool monitorPortal,
         QObject* parent = nullptr);
     ~AppearanceModel() override;
 
@@ -77,24 +69,14 @@ signals:
     void reduceMotionChanged();
     void settingsErrorChanged();
 
-private slots:
-    void onPortalSettingChanged(
-        const QString& settingsNamespace,
-        const QString& key,
-        const QDBusVariant& value);
-
 private:
     std::unique_ptr<QSettings> m_settings;
-    QDBusConnection m_bus;
     StyleHooks m_styleHooks;
-    std::unique_ptr<QDBusServiceWatcher> m_serviceWatcher;
     Preference m_preference = Preference::System;
     EffectiveScheme m_effectiveScheme = EffectiveScheme::LightScheme;
     bool m_reduceMotion = false;
     QString m_settingsError;
     std::optional<bool> m_reducedMotionTestOverride;
-    quint64 m_portalGeneration = 0;
-    bool m_monitorPortal = false;
 
     void load();
     [[nodiscard]] bool persist(Preference preference);
@@ -102,9 +84,6 @@ private:
     void updateEffectiveScheme(Qt::ColorScheme scheme);
     void setReducedMotion(bool enabled);
     void setError(QString error);
-    void startPortalMonitoring();
-    void requestReducedMotion();
-    void handleReducedMotionValue(const QVariant& value);
 };
 
 }

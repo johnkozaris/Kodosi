@@ -14,7 +14,7 @@
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": true,
         "CMAKE_MAKE_PROGRAM": "${sourceDir}/.tools/ninja-1.13.2/ninja",
-        "CMAKE_PREFIX_PATH": "${sourceDir}/.tools/Qt/6.11.2/gcc_64",
+        "CMAKE_PREFIX_PATH": "${sourceDir}/.tools/Qt/6.12.0/gcc_64",
         "CMAKE_TEST_BUILD_DEPENDS": true
       },
       "warnings": {

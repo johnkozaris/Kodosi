@@ -18,12 +18,13 @@ set(QT_DEPLOY_LIB_DIR "lib/kodosi/lib" CACHE STRING "" FORCE)
 set(QT_DEPLOY_PLUGINS_DIR "lib/kodosi/plugins" CACHE STRING "" FORCE)
 set(QT_DEPLOY_QML_DIR "lib/kodosi/qml" CACHE STRING "" FORCE)
 set(CMAKE_DISABLE_FIND_PACKAGE_WrapVulkanHeaders TRUE)
+set(KODOSI_QT_VERSION 6.12.0)
 
 find_package(
-    Qt6 6.11.2
+    Qt6 ${KODOSI_QT_VERSION}
     EXACT
     REQUIRED
-    COMPONENTS Core DBus Gui Network Qml Quick QuickControls2 Test Widgets
+    COMPONENTS Core DBus Gui Qml Quick QuickControls2 Test Widgets
 )
 find_package(Threads REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
@@ -138,7 +139,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
             --license-root "${CMAKE_CURRENT_SOURCE_DIR}/packaging/licenses"
             --qt-root "${CMAKE_PREFIX_PATH}"
             --dependencies "${CMAKE_CURRENT_SOURCE_DIR}/dependencies.lock.json"
-        COMMENT "Verifying Qt 6.11.2 and ICU 73.2 license/SBOM evidence"
+        COMMENT "Verifying Qt ${KODOSI_QT_VERSION} and ICU 73.2 license/SBOM evidence"
         VERBATIM
     )
 
@@ -201,7 +202,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
 endif()
 
 qt_standard_project_setup(
-    REQUIRES 6.11.2
+    REQUIRES ${KODOSI_QT_VERSION}
     I18N_TRANSLATED_LANGUAGES
 )
 
@@ -254,7 +255,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
         DESTINATION share/doc/kodosi/rust
     )
     install(
-        DIRECTORY packaging/licenses/qt/6.11.2/
+        DIRECTORY packaging/licenses/qt/${KODOSI_QT_VERSION}/
         DESTINATION share/doc/kodosi/qt
     )
     install(
@@ -265,22 +266,13 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
         FILES "${KODOSI_NATIVE_LICENSE_MANIFEST}"
         DESTINATION share/doc/kodosi/provenance
     )
-    install(
-        FILES
-            "${KODOSI_QT_SBOM_DIR}/qtbase-6.11.2.spdx"
-            "${KODOSI_QT_SBOM_DIR}/qtbase-6.11.2.spdx.json"
-            "${KODOSI_QT_SBOM_DIR}/qtbase-6.11.2.cdx.json"
-            "${KODOSI_QT_SBOM_DIR}/qtdeclarative-6.11.2.spdx"
-            "${KODOSI_QT_SBOM_DIR}/qtdeclarative-6.11.2.spdx.json"
-            "${KODOSI_QT_SBOM_DIR}/qtdeclarative-6.11.2.cdx.json"
-            "${KODOSI_QT_SBOM_DIR}/qtsvg-6.11.2.spdx"
-            "${KODOSI_QT_SBOM_DIR}/qtsvg-6.11.2.spdx.json"
-            "${KODOSI_QT_SBOM_DIR}/qtsvg-6.11.2.cdx.json"
-            "${KODOSI_QT_SBOM_DIR}/qtwayland-6.11.2.spdx"
-            "${KODOSI_QT_SBOM_DIR}/qtwayland-6.11.2.spdx.json"
-            "${KODOSI_QT_SBOM_DIR}/qtwayland-6.11.2.cdx.json"
-        DESTINATION share/doc/kodosi/qt/sbom
-    )
+    set(KODOSI_QT_SBOMS "")
+    foreach(module qtbase qtdeclarative qtsvg qtwayland)
+        foreach(format spdx spdx.json cdx.json)
+            list(APPEND KODOSI_QT_SBOMS "${KODOSI_QT_SBOM_DIR}/${module}-${KODOSI_QT_VERSION}.${format}")
+        endforeach()
+    endforeach()
+    install(FILES ${KODOSI_QT_SBOMS} DESTINATION share/doc/kodosi/qt/sbom)
 endif()
 install(
     FILES

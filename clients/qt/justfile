@@ -3,7 +3,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 tools_dir := justfile_directory() + "/.tools"
 cmake := tools_dir + "/cmake-4.4.3/bin/cmake"
 ctest := tools_dir + "/cmake-4.4.3/bin/ctest"
-qt_dir := tools_dir + "/Qt/6.11.2/gcc_64"
+qt_dir := tools_dir + "/Qt/6.12.0/gcc_64"
 
 bootstrap:
     ./scripts/build/bootstrap-tools.sh

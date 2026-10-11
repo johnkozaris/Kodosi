@@ -1,4 +1,4 @@
-Kodosi redistributes ICU 73.2 libraries from the pinned Qt 6.11.2
+Kodosi redistributes ICU 73.2 libraries from the pinned Qt 6.12.0
 linux_gcc_64 binary distribution. This directory contains the ICU 73.2
 LICENSE and license.html copyright evidence from the official ICU source
 archive.

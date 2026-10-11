@@ -12,6 +12,7 @@ mkdir -p "$stage"
 trap 'rm -rf "$stage"' EXIT
 
 dpkg-deb -x "$package" "$stage"
+qt_version=$(python3 -c 'import json; print(json.load(open("dependencies.lock.json"))["frameworks"]["qt"]["version"])')
 dependencies=$(dpkg-deb -f "$package" Depends)
 if ! grep -Eq '(^|, )libopengl0(,|$)' <<<"$dependencies"; then
     echo "DEB does not declare the host OpenGL loader dependency" >&2
@@ -33,9 +34,9 @@ test -x "$stage/usr/lib/kodosi/bin/kodosi-qt"
 test -f "$stage/usr/lib/kodosi/bin/qt.conf"
 test -f "$stage/usr/share/metainfo/com.kodosi.Kodosi.metainfo.xml"
 test -f "$stage/usr/share/icons/hicolor/scalable/apps/com.kodosi.Kodosi.svg"
-test -f "$stage/usr/lib/kodosi/lib/libQt6Core.so.6.11.2"
-test -f "$stage/usr/lib/kodosi/lib/libQt6DBus.so.6.11.2"
-test -f "$stage/usr/lib/kodosi/lib/libQt6Widgets.so.6.11.2"
+test -f "$stage/usr/lib/kodosi/lib/libQt6Core.so.$qt_version"
+test -f "$stage/usr/lib/kodosi/lib/libQt6DBus.so.$qt_version"
+test -f "$stage/usr/lib/kodosi/lib/libQt6Widgets.so.$qt_version"
 test -f "$stage/usr/lib/kodosi/plugins/platforms/libqxcb.so"
 test -f "$stage/usr/lib/kodosi/plugins/platforms/libqwayland.so"
 test -f "$stage/usr/lib/kodosi/plugins/platforms/libqoffscreen.so"

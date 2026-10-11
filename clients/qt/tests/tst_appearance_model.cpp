@@ -1,7 +1,5 @@
 #include "presentation/AppearanceModel.hpp"
 
-#include <QDBusConnection>
-#include <QDBusVariant>
 #include <QDir>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -15,8 +13,6 @@
 namespace {
 
 constexpr auto structuredKey = "appearance/settings.v1";
-const auto portalService = QStringLiteral("org.freedesktop.portal.Desktop");
-const auto portalPath = QStringLiteral("/org/freedesktop/portal/desktop");
 
 std::unique_ptr<QSettings> settingsFor(const QTemporaryDir& directory)
 {
@@ -51,61 +47,16 @@ public:
     }
 };
 
-class FakePortalSettings final : public QObject {
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.freedesktop.portal.Settings")
-
-public:
-    QVariant reducedMotion = QVariant::fromValue<quint32>(0U);
-    int readCount = 0;
-
-public slots:
-    QDBusVariant ReadOne(const QString& settingsNamespace, const QString& key)
-    {
-        if (settingsNamespace
-                == QStringLiteral("org.freedesktop.appearance")
-            && key == QStringLiteral("reduced-motion")) {
-            ++readCount;
-            return QDBusVariant(reducedMotion);
-        }
-        return QDBusVariant(QVariant {});
-    }
-
-signals:
-    void SettingChanged(
-        QString settingsNamespace,
-        QString key,
-        QDBusVariant value);
-};
-
 }
 
 class AppearanceModelTest final : public QObject {
     Q_OBJECT
 
 private slots:
-    void cleanup();
     void persistsPreferenceAndAppliesStyleOverride();
     void invalidStoredDataFallsBackSilently();
     void followsLiveSystemSchemeAfterUnsettingOverride();
-    void portalAbsenceDefaultsToNormalMotion();
-    void portalChangesAreStrictlyValidated();
-    void portalServiceRestartRefreshesPreference();
-
-private:
-    QDBusConnection m_bus = QDBusConnection::sessionBus();
-    FakePortalSettings m_portal;
-
-    void registerPortal();
-    void unregisterPortal();
 };
-
-void AppearanceModelTest::cleanup()
-{
-    unregisterPortal();
-    m_portal.reducedMotion = QVariant::fromValue<quint32>(0U);
-    m_portal.readCount = 0;
-}
 
 void AppearanceModelTest::persistsPreferenceAndAppliesStyleOverride()
 {
@@ -118,9 +69,7 @@ void AppearanceModelTest::persistsPreferenceAndAppliesStyleOverride()
     {
         kodosi::AppearanceModel model(
             settingsFor(directory),
-            QDBusConnection(QStringLiteral("appearance-no-bus")),
-            style.hooks(),
-            false);
+            style.hooks());
         QCOMPARE(
             model.preference(),
             kodosi::AppearanceModel::Preference::System);
@@ -145,9 +94,7 @@ void AppearanceModelTest::persistsPreferenceAndAppliesStyleOverride()
     reloadedStyle.systemScheme = Qt::ColorScheme::Dark;
     kodosi::AppearanceModel reloaded(
         settingsFor(directory),
-        QDBusConnection(QStringLiteral("appearance-no-bus-reload")),
-        reloadedStyle.hooks(),
-        false);
+        reloadedStyle.hooks());
     QCOMPARE(
         reloaded.preference(),
         kodosi::AppearanceModel::Preference::Light);
@@ -178,9 +125,7 @@ void AppearanceModelTest::invalidStoredDataFallsBackSilently()
     FakeStyle style;
     kodosi::AppearanceModel invalidType(
         settingsFor(directory),
-        QDBusConnection(QStringLiteral("appearance-invalid-type")),
-        style.hooks(),
-        false);
+        style.hooks());
     QCOMPARE(
         invalidType.preference(),
         kodosi::AppearanceModel::Preference::System);
@@ -199,9 +144,7 @@ void AppearanceModelTest::invalidStoredDataFallsBackSilently()
     FakeStyle malformedStyle;
     kodosi::AppearanceModel malformed(
         settingsFor(directory),
-        QDBusConnection(QStringLiteral("appearance-malformed")),
-        malformedStyle.hooks(),
-        false);
+        malformedStyle.hooks());
     QCOMPARE(
         malformed.preference(),
         kodosi::AppearanceModel::Preference::System);
@@ -215,9 +158,7 @@ void AppearanceModelTest::invalidStoredDataFallsBackSilently()
     FakeStyle repairedStyle;
     kodosi::AppearanceModel repaired(
         settingsFor(directory),
-        QDBusConnection(QStringLiteral("appearance-repaired")),
-        repairedStyle.hooks(),
-        false);
+        repairedStyle.hooks());
     QCOMPARE(
         repaired.preference(),
         kodosi::AppearanceModel::Preference::System);
@@ -233,9 +174,7 @@ void AppearanceModelTest::followsLiveSystemSchemeAfterUnsettingOverride()
     style.systemScheme = Qt::ColorScheme::Light;
     kodosi::AppearanceModel model(
         settingsFor(directory),
-        QDBusConnection(QStringLiteral("appearance-system")),
-        style.hooks(),
-        false);
+        style.hooks());
 
     QCOMPARE(
         model.effectiveScheme(),
@@ -259,130 +198,6 @@ void AppearanceModelTest::followsLiveSystemSchemeAfterUnsettingOverride()
     QCOMPARE(
         model.effectiveScheme(),
         kodosi::AppearanceModel::EffectiveScheme::DarkScheme);
-}
-
-void AppearanceModelTest::portalAbsenceDefaultsToNormalMotion()
-{
-    QVERIFY(m_bus.isConnected());
-    QTemporaryDir directory(
-        QDir::current().filePath(QStringLiteral("appearance-absent-XXXXXX")));
-    QVERIFY(directory.isValid());
-    FakeStyle style;
-    kodosi::AppearanceModel model(
-        settingsFor(directory),
-        m_bus,
-        style.hooks(),
-        true);
-    QTest::qWait(30);
-    QVERIFY(!model.reduceMotion());
-
-    m_portal.reducedMotion = QVariant::fromValue<quint32>(1U);
-    registerPortal();
-    QTRY_VERIFY(model.reduceMotion());
-}
-
-void AppearanceModelTest::portalChangesAreStrictlyValidated()
-{
-    registerPortal();
-    m_portal.reducedMotion = QVariant::fromValue<quint32>(0U);
-    QTemporaryDir directory(
-        QDir::current().filePath(QStringLiteral("appearance-portal-XXXXXX")));
-    QVERIFY(directory.isValid());
-    FakeStyle style;
-    kodosi::AppearanceModel model(
-        settingsFor(directory),
-        m_bus,
-        style.hooks(),
-        true);
-    QTRY_VERIFY(m_portal.readCount >= 1);
-    QVERIFY(!model.reduceMotion());
-
-    emit m_portal.SettingChanged(
-        QStringLiteral("org.example.unrelated"),
-        QStringLiteral("reduced-motion"),
-        QDBusVariant(QVariant::fromValue<quint32>(1U)));
-    QTest::qWait(20);
-    QVERIFY(!model.reduceMotion());
-
-    emit m_portal.SettingChanged(
-        QStringLiteral("org.freedesktop.appearance"),
-        QStringLiteral("contrast"),
-        QDBusVariant(QVariant::fromValue<quint32>(1U)));
-    QTest::qWait(20);
-    QVERIFY(!model.reduceMotion());
-
-    emit m_portal.SettingChanged(
-        QStringLiteral("org.freedesktop.appearance"),
-        QStringLiteral("reduced-motion"),
-        QDBusVariant(true));
-    QTest::qWait(20);
-    QVERIFY(!model.reduceMotion());
-
-    emit m_portal.SettingChanged(
-        QStringLiteral("org.freedesktop.appearance"),
-        QStringLiteral("reduced-motion"),
-        QDBusVariant(1));
-    QTest::qWait(20);
-    QVERIFY(!model.reduceMotion());
-
-    emit m_portal.SettingChanged(
-        QStringLiteral("org.freedesktop.appearance"),
-        QStringLiteral("reduced-motion"),
-        QDBusVariant(QVariant::fromValue<quint32>(1U)));
-    QTRY_VERIFY(model.reduceMotion());
-
-    emit m_portal.SettingChanged(
-        QStringLiteral("org.freedesktop.appearance"),
-        QStringLiteral("reduced-motion"),
-        QDBusVariant(QVariant::fromValue<quint32>(2U)));
-    QTRY_VERIFY(!model.reduceMotion());
-}
-
-void AppearanceModelTest::portalServiceRestartRefreshesPreference()
-{
-    registerPortal();
-    m_portal.reducedMotion = QVariant::fromValue<quint32>(1U);
-    QTemporaryDir directory(
-        QDir::current().filePath(QStringLiteral("appearance-restart-XXXXXX")));
-    QVERIFY(directory.isValid());
-    FakeStyle style;
-    kodosi::AppearanceModel model(
-        settingsFor(directory),
-        m_bus,
-        style.hooks(),
-        true);
-    QTRY_VERIFY(model.reduceMotion());
-    const auto initialReads = m_portal.readCount;
-
-    unregisterPortal();
-    QTRY_VERIFY(!model.reduceMotion());
-
-    m_portal.reducedMotion = QVariant::fromValue<quint32>(1U);
-    registerPortal();
-    QTRY_VERIFY(m_portal.readCount > initialReads);
-    QTRY_VERIFY(model.reduceMotion());
-
-    emit m_portal.SettingChanged(
-        QStringLiteral("org.freedesktop.appearance"),
-        QStringLiteral("reduced-motion"),
-        QDBusVariant(QVariant::fromValue<quint32>(0U)));
-    QTRY_VERIFY(!model.reduceMotion());
-}
-
-void AppearanceModelTest::registerPortal()
-{
-    QVERIFY(m_bus.registerService(portalService));
-    QVERIFY(m_bus.registerObject(
-        portalPath,
-        &m_portal,
-        QDBusConnection::ExportAllSlots
-            | QDBusConnection::ExportAllSignals));
-}
-
-void AppearanceModelTest::unregisterPortal()
-{
-    m_bus.unregisterObject(portalPath);
-    m_bus.unregisterService(portalService);
 }
 
 QTEST_GUILESS_MAIN(AppearanceModelTest)

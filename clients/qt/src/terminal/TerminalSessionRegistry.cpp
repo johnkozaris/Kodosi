@@ -1,6 +1,6 @@
 #include "terminal/TerminalSessionRegistry.hpp"
 #include "runtime/JsonEnvelope.hpp"
-#include "logging/ApplicationLogStore.hpp"
+#include "logging/PerformanceSpan.hpp"
 
 #include <QJsonDocument>
 #include <QJsonObject>

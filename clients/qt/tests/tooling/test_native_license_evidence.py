@@ -11,6 +11,9 @@ from tempfile import TemporaryDirectory
 ROOT = Path(__file__).resolve().parents[2]
 VERIFIER = ROOT / "scripts/release/verify-native-license-evidence.py"
 MANIFEST = ROOT / "packaging/licenses/native-license-evidence.json"
+QT_VERSION = json.loads((ROOT / "dependencies.lock.json").read_text(encoding="utf-8"))[
+    "frameworks"
+]["qt"]["version"]
 
 
 class NativeLicenseEvidenceTests(unittest.TestCase):
@@ -28,7 +31,7 @@ class NativeLicenseEvidenceTests(unittest.TestCase):
         manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
         for row in manifest["qt"]["sboms"]:
             shutil.copyfile(
-                ROOT / ".tools/Qt/6.11.2/gcc_64/sbom" / row["filename"],
+                ROOT / f".tools/Qt/{QT_VERSION}/gcc_64/sbom" / row["filename"],
                 self.qt_root / "sbom" / row["filename"],
             )
 
@@ -67,13 +70,13 @@ class NativeLicenseEvidenceTests(unittest.TestCase):
         self.assertEqual(first, second)
 
     def test_license_sbom_and_source_metadata_tamper_are_rejected(self) -> None:
-        license_path = self.licenses / "qt/6.11.2/LICENSES/LGPL-3.0-only.txt"
+        license_path = self.licenses / f"qt/{QT_VERSION}/LICENSES/LGPL-3.0-only.txt"
         original = license_path.read_bytes()
         license_path.write_bytes(original + b"\n")
         self.verify(expect_success=False)
         license_path.write_bytes(original)
 
-        sbom = self.qt_root / "sbom/qtbase-6.11.2.spdx"
+        sbom = self.qt_root / f"sbom/qtbase-{QT_VERSION}.spdx"
         original = sbom.read_bytes()
         sbom.write_bytes(original + b"\n")
         self.verify(expect_success=False)

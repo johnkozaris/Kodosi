@@ -100,7 +100,8 @@ edit, or delete real provider settings, memory, conversations, credentials, or w
 files. Select PostgreSQL volumes explicitly; unknown schemas must fail without a reset.
 
 Each process writes its own redacted log in the data root and keeps one older copy:
-the app writes `app.log` and a CLI host writes `host.log`. Inspect logs locally and
-check for private data before attaching them to an issue.
+the app writes `app.log` and a CLI host writes `host.log`. The Linux app adds its Qt
+messages, except debug output, to `app.log`. Inspect logs locally and check for private
+data before attaching them to an issue.
 
 [All documentation](README.md) · [Contributing](../CONTRIBUTING.md)

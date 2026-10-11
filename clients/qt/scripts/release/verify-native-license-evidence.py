@@ -18,6 +18,12 @@ SBOM_FORMATS = {
     "spdx.json": "spdx-json",
     "cdx.json": "cyclonedx-json",
 }
+QT_ARCHIVE_SHA256 = {
+    "qtbase": "a951bd163c7b80fc6b8c88d7668fb56abf91c152373e13c10666763238131307",
+    "qtdeclarative": "311f3a2603e1973bb59baef9dfa740a376de713157d4782ee043681e889c9260",
+    "qtsvg": "e4ab39534ec97987b1b9b60ef7f4d3253d5912a69f8c713a01753174a4029331",
+    "qtwayland": "ae14d9bcf1bb3c300a3ab2e6a53f50284e5c6c966a4ac4cc5aedcb1bc74e4d02",
+}
 REQUIRED_QT_LICENSES = {
     "GPL-2.0-only.txt",
     "GPL-3.0-only.txt",
@@ -71,7 +77,7 @@ def read_soname(path: Path) -> str:
     return match.group(1)
 
 
-def verify_committed_files(license_root: Path, manifest: dict) -> None:
+def verify_committed_files(license_root: Path, manifest: dict, qt_version: str) -> None:
     rows = manifest.get("committedFiles")
     if not isinstance(rows, list) or not rows:
         fail("committed evidence file list is malformed")
@@ -95,7 +101,7 @@ def verify_committed_files(license_root: Path, manifest: dict) -> None:
     actual = {
         path.relative_to(license_root).as_posix()
         for base in (
-            license_root / "qt" / "6.11.2",
+            license_root / "qt" / qt_version,
             license_root / "icu" / "73.2",
         )
         for path in base.rglob("*")
@@ -106,7 +112,7 @@ def verify_committed_files(license_root: Path, manifest: dict) -> None:
     qt_licenses = {
         Path(path).name
         for path in expected
-        if path.startswith("qt/6.11.2/LICENSES/")
+        if path.startswith(f"qt/{qt_version}/LICENSES/")
     }
     if not REQUIRED_QT_LICENSES.issubset(qt_licenses):
         fail("required Qt LGPL/GPL license texts are missing")
@@ -119,32 +125,16 @@ def verify_committed_files(license_root: Path, manifest: dict) -> None:
         fail("ICU license and copyright evidence is incomplete")
 
 
-def verify_source_archives(manifest: dict) -> None:
+def verify_source_archives(manifest: dict, qt_version: str) -> None:
+    release = f"https://download.qt.io/official_releases/qt/{qt_version.rsplit('.', 1)[0]}/{qt_version}"
     expected = {
-        "qtbase": (
-            "https://download.qt.io/official_releases/qt/6.11/6.11.2/"
-            "submodules/qtbase-everywhere-src-6.11.2.tar.xz",
-            "v6.11.2",
-            "5b2e00eccaf5a4d8c14134ffa0ea8dfd0a35ae1ffc7f8d87fa4305a1ed23cf22",
-        ),
-        "qtdeclarative": (
-            "https://download.qt.io/official_releases/qt/6.11/6.11.2/"
-            "submodules/qtdeclarative-everywhere-src-6.11.2.tar.xz",
-            "v6.11.2",
-            "215b7b70517e380123eabc6b92243f3c47b6f016a91d126057dbe53551c6b430",
-        ),
-        "qtsvg": (
-            "https://download.qt.io/official_releases/qt/6.11/6.11.2/"
-            "submodules/qtsvg-everywhere-src-6.11.2.tar.xz",
-            "v6.11.2",
-            "d594337feca84c26fb67fe87b85e6a5c12fda404b611d905f9d138210c311876",
-        ),
-        "qtwayland": (
-            "https://download.qt.io/official_releases/qt/6.11/6.11.2/"
-            "submodules/qtwayland-everywhere-src-6.11.2.tar.xz",
-            "v6.11.2",
-            "8eb7615e39332a10f506e8dd70f02d5954bb5949ff54f6dcbf8bd6168222f9df",
-        ),
+        module: (
+            f"{release}/submodules/{module}-everywhere-src-{qt_version}.tar.xz",
+            f"v{qt_version}",
+            QT_ARCHIVE_SHA256[module],
+        )
+        for module in QT_MODULES
+    } | {
         "icu": (
             "https://github.com/unicode-org/icu/releases/download/"
             "release-73-2/icu4c-73_2-src.tgz",
@@ -172,7 +162,9 @@ def verify_source_archives(manifest: dict) -> None:
         fail("native license source archive metadata changed")
 
 
-def verify_sboms(qt_root: Path, manifest: dict, installed_root: Path | None) -> None:
+def verify_sboms(
+    qt_root: Path, manifest: dict, installed_root: Path | None, qt_version: str
+) -> None:
     qt = manifest.get("qt")
     if (
         not isinstance(qt, dict)
@@ -182,14 +174,14 @@ def verify_sboms(qt_root: Path, manifest: dict, installed_root: Path | None) -> 
             "modules",
             "sboms",
         }
-        or qt["version"] != "6.11.2"
+        or qt["version"] != qt_version
         or qt["binaryDistribution"] != "linux_gcc_64"
         or qt["modules"] != list(QT_MODULES)
         or not isinstance(qt["sboms"], list)
     ):
         fail("Qt evidence identity is malformed")
     expected_names = {
-        f"{module}-6.11.2.{suffix}"
+        f"{module}-{qt_version}.{suffix}"
         for module in QT_MODULES
         for suffix in SBOM_FORMATS
     }
@@ -204,7 +196,7 @@ def verify_sboms(qt_root: Path, manifest: dict, installed_root: Path | None) -> 
             or not re.fullmatch(r"[0-9a-f]{64}", row["sha256"])
         ):
             fail("Qt SBOM evidence row is malformed")
-        suffix = row["filename"].removeprefix(f"{row['module']}-6.11.2.")
+        suffix = row["filename"].removeprefix(f"{row['module']}-{qt_version}.")
         if SBOM_FORMATS.get(suffix) != row["format"]:
             fail(f"Qt SBOM format is inconsistent: {row['filename']}")
         actual_names.add(row["filename"])
@@ -227,6 +219,7 @@ def verify_packaged_evidence(
     manifest_path: Path,
     manifest: dict,
     installed_root: Path,
+    qt_version: str,
 ) -> None:
     packaged_manifest = require_relative_file(
         installed_root,
@@ -237,7 +230,7 @@ def verify_packaged_evidence(
     for row in manifest["committedFiles"]:
         source = license_root / row["path"]
         relative = Path(row["path"])
-        if relative.parts[:2] == ("qt", "6.11.2"):
+        if relative.parts[:2] == ("qt", qt_version):
             destination = Path("usr/share/doc/kodosi/qt").joinpath(
                 *relative.parts[2:]
             )
@@ -252,7 +245,7 @@ def verify_packaged_evidence(
             fail(f"packaged native evidence differs: {row['path']}")
 
 
-def verify_runtime(installed_root: Path, manifest: dict) -> None:
+def verify_runtime(installed_root: Path, manifest: dict, qt_version: str) -> None:
     runtime = manifest.get("deployedRuntime")
     if (
         not isinstance(runtime, dict)
@@ -278,7 +271,7 @@ def verify_runtime(installed_root: Path, manifest: dict) -> None:
         if actual != expected:
             fail(f"deployed {key} set differs from native evidence")
     for key, prefix, version in (
-        ("qtLibraries", "libQt6", "6.11.2"),
+        ("qtLibraries", "libQt6", qt_version),
         ("icuLibraries", "libicu", "73.2"),
     ):
         rows = runtime[key]
@@ -324,11 +317,7 @@ def main() -> None:
         type=Path,
         default=ROOT / "packaging/licenses",
     )
-    parser.add_argument(
-        "--qt-root",
-        type=Path,
-        default=ROOT / ".tools/Qt/6.11.2/gcc_64",
-    )
+    parser.add_argument("--qt-root", type=Path)
     parser.add_argument("--dependencies", type=Path, default=ROOT / "dependencies.lock.json")
     parser.add_argument("--installed-root", type=Path)
     arguments = parser.parse_args()
@@ -353,23 +342,25 @@ def main() -> None:
     if qt_version != manifest["qt"]["version"]:
         fail("native evidence Qt version differs from dependencies.lock.json")
 
-    verify_source_archives(manifest)
-    verify_committed_files(arguments.license_root.resolve(strict=True), manifest)
+    verify_source_archives(manifest, qt_version)
+    verify_committed_files(arguments.license_root.resolve(strict=True), manifest, qt_version)
     installed_root = (
         arguments.installed_root.resolve(strict=True)
         if arguments.installed_root is not None
         else None
     )
-    verify_sboms(arguments.qt_root.resolve(strict=True), manifest, installed_root)
+    qt_root = arguments.qt_root or ROOT / f".tools/Qt/{qt_version}/gcc_64"
+    verify_sboms(qt_root.resolve(strict=True), manifest, installed_root, qt_version)
     if installed_root is not None:
         verify_packaged_evidence(
             arguments.license_root.resolve(strict=True),
             arguments.manifest.resolve(strict=True),
             manifest,
             installed_root,
+            qt_version,
         )
-        verify_runtime(installed_root, manifest)
-    print("Qt 6.11.2 and ICU 73.2 native license/SBOM evidence verified")
+        verify_runtime(installed_root, manifest, qt_version)
+    print(f"Qt {qt_version} and ICU 73.2 native license/SBOM evidence verified")
 
 
 if __name__ == "__main__":

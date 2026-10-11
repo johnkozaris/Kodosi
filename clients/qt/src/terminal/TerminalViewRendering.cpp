@@ -1,5 +1,5 @@
 #include "terminal/TerminalView.hpp"
-#include "logging/ApplicationLogStore.hpp"
+#include "logging/PerformanceSpan.hpp"
 
 #include <QQuickWindow>
 #include <QSGSimpleTextureNode>

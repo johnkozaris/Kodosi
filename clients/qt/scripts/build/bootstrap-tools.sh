@@ -97,13 +97,14 @@ if ! ninja_ready; then
     mv "$stage" "$NINJA_ROOT"
 fi
 
-QT_ROOT="$PWD/.tools/Qt/6.11.2/gcc_64"
+QT_VERSION=6.12.0
+QT_ROOT="$PWD/.tools/Qt/$QT_VERSION/gcc_64"
 qt_ready() {
     [ -f "$QT_ROOT/lib/cmake/Qt6/Qt6Config.cmake" ] &&
         [ -x "$QT_ROOT/bin/qmllint" ] &&
-        [ -f "$QT_ROOT/lib/libQt6Core.so.6.11.2" ] &&
-        [ -f "$QT_ROOT/lib/libQt6Quick.so.6.11.2" ] &&
-        [ "$("$QT_ROOT/bin/qtpaths6" --qt-version)" = "6.11.2" ]
+        [ -f "$QT_ROOT/lib/libQt6Core.so.$QT_VERSION" ] &&
+        [ -f "$QT_ROOT/lib/libQt6Quick.so.$QT_VERSION" ] &&
+        [ "$("$QT_ROOT/bin/qtpaths6" --qt-version)" = "$QT_VERSION" ]
 }
 
 if ! qt_ready; then
@@ -119,14 +120,14 @@ if ! qt_ready; then
 
     stage="$PWD/.tools/Qt.stage.$$"
     rm -rf "$stage"
-    "$PWD/.tools/aqt-3.3.0/bin/aqt" install-qt linux desktop 6.11.2 linux_gcc_64 \
+    "$PWD/.tools/aqt-3.3.0/bin/aqt" install-qt linux desktop "$QT_VERSION" linux_gcc_64 \
         --outputdir "$stage"
-    staged_qt="$stage/6.11.2/gcc_64"
+    staged_qt="$stage/$QT_VERSION/gcc_64"
     if [ ! -f "$staged_qt/lib/cmake/Qt6/Qt6Config.cmake" ] ||
         [ ! -x "$staged_qt/bin/qmllint" ] ||
-        [ ! -f "$staged_qt/lib/libQt6Core.so.6.11.2" ] ||
-        [ ! -f "$staged_qt/lib/libQt6Quick.so.6.11.2" ] ||
-        [ "$("$staged_qt/bin/qtpaths6" --qt-version)" != "6.11.2" ]; then
+        [ ! -f "$staged_qt/lib/libQt6Core.so.$QT_VERSION" ] ||
+        [ ! -f "$staged_qt/lib/libQt6Quick.so.$QT_VERSION" ] ||
+        [ "$("$staged_qt/bin/qtpaths6" --qt-version)" != "$QT_VERSION" ]; then
         echo "Qt bootstrap verification failed" >&2
         exit 1
     fi
@@ -136,4 +137,4 @@ if ! qt_ready; then
     rm -rf "$stage"
 fi
 
-echo "CMake $CMAKE_VERSION, Ninja $NINJA_VERSION, and Qt 6.11.2 are ready"
+echo "CMake $CMAKE_VERSION, Ninja $NINJA_VERSION, and Qt $QT_VERSION are ready"

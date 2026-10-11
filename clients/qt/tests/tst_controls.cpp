@@ -61,8 +61,7 @@ void ControlsTest::keyboardFocusTracksButtonState()
     QTemporaryDir directory;
     kodosi::AppearanceModel appearance(
         std::make_unique<QSettings>(directory.filePath(QStringLiteral("appearance.ini")), QSettings::IniFormat),
-        QDBusConnection(QStringLiteral("control-test-no-bus")),
-        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} }, false);
+        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
     kodosi::qml::AppearanceModelForeign::instance = &appearance;
     QQmlEngine engine;
     QQmlComponent component(&engine);
@@ -103,8 +102,7 @@ void ControlsTest::modalControlsSuppressNativeTerminalAccessibility()
     QTemporaryDir directory;
     kodosi::AppearanceModel appearance(
         std::make_unique<QSettings>(directory.filePath(QStringLiteral("appearance.ini")), QSettings::IniFormat),
-        QDBusConnection(QStringLiteral("modal-test-no-bus")),
-        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} }, false);
+        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
     kodosi::DesktopStateModel desktop(
         std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat), false);
     kodosi::qml::AppearanceModelForeign::instance = &appearance;
@@ -167,8 +165,7 @@ void ControlsTest::terminalCloseConfirmsAndMinimizeOnlyHidesView()
     QTemporaryDir directory;
     kodosi::AppearanceModel appearance(
         std::make_unique<QSettings>(directory.filePath(QStringLiteral("appearance.ini")), QSettings::IniFormat),
-        QDBusConnection(QStringLiteral("close-test-no-bus")),
-        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} }, false);
+        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
     kodosi::DesktopStateModel desktop(
         std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat), false);
     kodosi::DesktopSettings settings(
@@ -270,8 +267,7 @@ void ControlsTest::missionCreationHasOneNameField()
     QTemporaryDir directory;
     kodosi::AppearanceModel appearance(
         std::make_unique<QSettings>(directory.filePath(QStringLiteral("appearance.ini")), QSettings::IniFormat),
-        QDBusConnection(QStringLiteral("mission-test-no-bus")),
-        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} }, false);
+        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
     kodosi::DesktopStateModel desktop(
         std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat), false);
     kodosi::DesktopSettings settings(

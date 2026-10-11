@@ -1,6 +1,5 @@
 #include "terminal/TerminalView.hpp"
 #include "runtime/JsonEnvelope.hpp"
-#include "logging/ApplicationLogStore.hpp"
 
 #include <kodosi_runtime.h>
 

@@ -33,14 +33,14 @@ target_link_libraries(kodosi-runtime
 qt_add_library(kodosi-application STATIC
     app/ApplicationLifecycleModel.cpp
     app/ApplicationLifecycleModel.hpp
+    app/AppActivation.cpp
+    app/AppActivation.hpp
     app/DeepLinkRouter.cpp
     app/DeepLinkRouter.hpp
-    app/SingleInstanceGuard.cpp
-    app/SingleInstanceGuard.hpp
-    app/RuntimeStorageBootstrap.cpp
-    app/RuntimeStorageBootstrap.hpp
-    logging/ApplicationLogStore.cpp
-    logging/ApplicationLogStore.hpp
+    logging/PerformanceSpan.cpp
+    logging/PerformanceSpan.hpp
+    logging/QtLogForwarder.cpp
+    logging/QtLogForwarder.hpp
     presentation/AccountModel.cpp
     presentation/AccountModel.hpp
     presentation/ConversationHistoryModel.cpp
@@ -79,9 +79,8 @@ target_link_libraries(kodosi-application
         Qt6::Core
         kodosi-runtime
     PRIVATE
-        Qt6::DBus
+        Kodosi::RustRuntime
         Qt6::Gui
-        Qt6::Network
 )
 
 qt_add_library(kodosi-desktop-integration STATIC

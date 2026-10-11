@@ -1,10 +1,6 @@
 #include "presentation/AppearanceModel.hpp"
 
-#include <QDBusMessage>
-#include <QDBusPendingCallWatcher>
-#include <QDBusPendingReply>
-#include <QDBusServiceWatcher>
-#include <QDBusVariant>
+#include <QAccessibilityHints>
 #include <QGuiApplication>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -19,11 +15,6 @@ namespace {
 
 constexpr auto settingsKey = "appearance/settings.v1";
 constexpr auto currentVersion = 1;
-const auto portalService = QStringLiteral("org.freedesktop.portal.Desktop");
-const auto portalPath = QStringLiteral("/org/freedesktop/portal/desktop");
-const auto portalInterface = QStringLiteral("org.freedesktop.portal.Settings");
-const auto appearanceNamespace = QStringLiteral("org.freedesktop.appearance");
-const auto reducedMotionKey = QStringLiteral("reduced-motion");
 
 QString preferenceName(const AppearanceModel::Preference preference)
 {
@@ -94,18 +85,8 @@ AppearanceModel::StyleHooks applicationStyleHooks()
 
 }
 
-AppearanceModel::AppearanceModel(QObject* parent)
-    : AppearanceModel(std::make_unique<QSettings>(), parent)
-{
-}
-
 AppearanceModel::AppearanceModel(std::unique_ptr<QSettings> settings, QObject* parent)
-    : AppearanceModel(
-          std::move(settings),
-          QDBusConnection::sessionBus(),
-          applicationStyleHooks(),
-          true,
-          parent)
+    : AppearanceModel(std::move(settings), applicationStyleHooks(), parent)
 {
     auto* hints = QGuiApplication::styleHints();
     connect(
@@ -115,19 +96,24 @@ AppearanceModel::AppearanceModel(std::unique_ptr<QSettings> settings, QObject* p
         [this](const Qt::ColorScheme scheme) {
             updateEffectiveScheme(scheme);
         });
+    const auto* accessibility = hints->accessibility();
+    connect(
+        accessibility,
+        &QAccessibilityHints::motionPreferenceChanged,
+        this,
+        [this](const Qt::MotionPreference motion) {
+            setReducedMotion(motion == Qt::MotionPreference::ReducedMotion);
+        });
+    setReducedMotion(accessibility->motionPreference() == Qt::MotionPreference::ReducedMotion);
 }
 
 AppearanceModel::AppearanceModel(
     std::unique_ptr<QSettings> settings,
-    QDBusConnection bus,
     StyleHooks styleHooks,
-    const bool monitorPortal,
     QObject* parent)
     : QObject(parent)
     , m_settings(std::move(settings))
-    , m_bus(std::move(bus))
     , m_styleHooks(std::move(styleHooks))
-    , m_monitorPortal(monitorPortal)
 {
     Q_ASSERT(m_settings != nullptr);
     Q_ASSERT(m_styleHooks.colorScheme);
@@ -135,9 +121,6 @@ AppearanceModel::AppearanceModel(
     Q_ASSERT(m_styleHooks.unsetColorScheme);
     load();
     applyPreference();
-    if (m_monitorPortal) {
-        startPortalMonitoring();
-    }
 }
 
 AppearanceModel::~AppearanceModel() = default;
@@ -233,17 +216,6 @@ void AppearanceModel::injectReducedMotionForTesting(const bool enabled)
     setReducedMotion(enabled);
 }
 
-void AppearanceModel::onPortalSettingChanged(
-    const QString& settingsNamespace,
-    const QString& key,
-    const QDBusVariant& value)
-{
-    if (settingsNamespace != appearanceNamespace || key != reducedMotionKey) {
-        return;
-    }
-    handleReducedMotionValue(value.variant());
-}
-
 void AppearanceModel::load()
 {
     m_preference = Preference::System;
@@ -333,83 +305,6 @@ void AppearanceModel::setError(QString error)
     }
     m_settingsError = std::move(error);
     emit settingsErrorChanged();
-}
-
-void AppearanceModel::startPortalMonitoring()
-{
-    if (!m_bus.isConnected()) {
-        setReducedMotion(false);
-        return;
-    }
-    m_serviceWatcher = std::make_unique<QDBusServiceWatcher>(
-        portalService,
-        m_bus,
-        QDBusServiceWatcher::WatchForOwnerChange,
-        this);
-    connect(
-        m_serviceWatcher.get(),
-        &QDBusServiceWatcher::serviceOwnerChanged,
-        this,
-        [this](
-            const QString&,
-            const QString& oldOwner,
-            const QString& newOwner) {
-            if (oldOwner == newOwner) {
-                return;
-            }
-            ++m_portalGeneration;
-            if (newOwner.isEmpty()) {
-                setReducedMotion(false);
-                return;
-            }
-            requestReducedMotion();
-        });
-    (void)m_bus.connect(
-        portalService,
-        portalPath,
-        portalInterface,
-        QStringLiteral("SettingChanged"),
-        this,
-        SLOT(onPortalSettingChanged(QString,QString,QDBusVariant)));
-    requestReducedMotion();
-}
-
-void AppearanceModel::requestReducedMotion()
-{
-    const auto generation = ++m_portalGeneration;
-    auto request = QDBusMessage::createMethodCall(
-        portalService,
-        portalPath,
-        portalInterface,
-        QStringLiteral("ReadOne"));
-    request.setArguments({appearanceNamespace, reducedMotionKey});
-    auto* watcher =
-        new QDBusPendingCallWatcher(m_bus.asyncCall(request), this);
-    connect(
-        watcher,
-        &QDBusPendingCallWatcher::finished,
-        this,
-        [this, generation](QDBusPendingCallWatcher* call) {
-            const QDBusPendingReply<QDBusVariant> reply = *call;
-            call->deleteLater();
-            if (generation != m_portalGeneration) {
-                return;
-            }
-            if (reply.isError()) {
-                setReducedMotion(false);
-                return;
-            }
-            handleReducedMotionValue(reply.value().variant());
-        });
-}
-
-void AppearanceModel::handleReducedMotionValue(const QVariant& value)
-{
-    if (value.metaType() != QMetaType::fromType<quint32>()) {
-        setReducedMotion(false);
-        return;
-    }
-    setReducedMotion(value.value<quint32>() == 1U);
 }
 
 }
