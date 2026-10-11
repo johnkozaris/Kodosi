@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 import struct
 import subprocess
 import sys
@@ -30,21 +32,18 @@ NAMESPACES = {
     "desktop": "http://schemas.microsoft.com/appx/manifest/desktop/windows10",
     "rescap": "http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities",
 }
+# Files nothing imports. The import check covers every DLL a packaged binary links.
 REQUIRED_FILES = (
     "kodosi-qt.exe",
     "kodosi.exe",
     "conpty.dll",
     "OpenConsole.exe",
     "qt.conf",
-    "Qt6Core.dll",
-    "Qt6Gui.dll",
-    "Qt6Qml.dll",
-    "Qt6Quick.dll",
     "plugins/platforms/qwindows.dll",
-    "vcruntime140.dll",
-    "msvcp140.dll",
     "resources.pri",
 )
+# Windows may hold an older copy of the C runtime, so the package carries its own.
+C_RUNTIME = re.compile(r"(vcruntime|msvcp|concrt|vccorlib)\d")
 QT_SBOM_MODULES = ("qtbase", "qtdeclarative", "qtsvg")
 QT_SBOM_FORMATS = ("spdx", "spdx.json", "cdx.json")
 
@@ -62,6 +61,60 @@ def pe_machine(data: bytes) -> int | None:
     if data[offset : offset + 4] != b"PE\0\0" or len(data) < offset + 6:
         return None
     return struct.unpack_from("<H", data, offset + 4)[0]
+
+
+def pe_imports(data: bytes) -> set[str]:
+    """The lowercased names of the DLLs a PE image imports or delay-loads."""
+    try:
+        coff = struct.unpack_from("<I", data, 0x3C)[0] + 4
+        section_count, optional_size = struct.unpack_from("<H", data, coff + 2)[0], struct.unpack_from("<H", data, coff + 16)[0]
+        optional = coff + 20
+        directories = optional + (112 if struct.unpack_from("<H", data, optional)[0] == 0x20B else 96)
+        directory_count = 0
+        if optional_size >= directories - optional:
+            directory_count = min(struct.unpack_from("<I", data, directories - 4)[0], (optional + optional_size - directories) // 8)
+        sections = [struct.unpack_from("<IIII", data, optional + optional_size + 40 * index + 8) for index in range(section_count)]
+
+        def offset(rva: int) -> int:
+            for virtual_size, address, raw_size, raw in sections:
+                if address <= rva < address + max(virtual_size, raw_size):
+                    return raw + rva - address
+            raise ValueError(f"address {rva:#x} is outside every section")
+
+        names = set()
+        for index, size, name_field in ((1, 20, 12), (13, 32, 4)):
+            if index >= directory_count or not (address := struct.unpack_from("<I", data, directories + 8 * index)[0]):
+                continue
+            position = offset(address)
+            while any(descriptor := data[position : position + size]):
+                if len(descriptor) < size:
+                    raise ValueError("an import table is truncated")
+                start = offset(struct.unpack_from("<I", descriptor, name_field)[0])
+                names.add(data[start : data.index(b"\0", start)].decode("ascii").lower())
+                position += size
+        return names
+    except (struct.error, ValueError, UnicodeDecodeError) as error:
+        fail(f"cannot read the imports of a packaged binary: {error}")
+
+
+def windows_library(name: str) -> bool:
+    root = os.environ.get("SystemRoot")
+    if root is None:
+        fail("verify the package on Windows, which supplies its system libraries")
+    return (Path(root) / "System32" / name).is_file()
+
+
+def verify_imports(files: dict[str, zipfile.ZipInfo], read: Reader, system: Callable[[str], bool]) -> None:
+    """Every imported DLL must sit beside the app or come with Windows."""
+    packaged = {name.lower() for name in files if "/" not in name}
+    for name in files:
+        if not name.lower().endswith((".exe", ".dll")):
+            continue
+        for library in pe_imports(read(name)):
+            if library in packaged or library.startswith(("api-ms-", "ext-ms-")):
+                continue
+            if C_RUNTIME.match(library) or not system(library):
+                fail(f"{name} imports {library}, which the package does not provide")
 
 
 def package_files(package: zipfile.ZipFile) -> dict[str, zipfile.ZipInfo]:
@@ -216,6 +269,7 @@ def main() -> None:
             fail("missing AppxManifest.xml")
         logos = verify_manifest(read("AppxManifest.xml"), (arguments.build_dir / "AppxManifest.xml").read_bytes(), arch)
         verify_payload(files, read, logos, arch)
+        verify_imports(files, read, windows_library)
         verify_evidence(files, read, arguments.build_dir, arguments.qt_root, arguments.target)
     print(f"Windows package verified: {arguments.package.name}")
 
