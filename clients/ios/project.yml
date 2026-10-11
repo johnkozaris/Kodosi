@@ -14,8 +14,6 @@ configs:
 packages:
   KodosiApple:
     path: ../apple
-  KodosiGhostty:
-    path: ../../terminal/ghostty
 
 aggregateTargets:
   PrepareNativeBuild:
@@ -79,6 +77,11 @@ targets:
     sources:
       - path: Sources
       - path: Resources
+    postBuildScripts:
+      - name: Install Notices
+        basedOnDependencyAnalysis: false
+        script: |
+          "$PROJECT_DIR/scripts/install-notices.sh" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
     dependencies:
       - target: PrepareNativeBuild
         link: false
@@ -89,8 +92,10 @@ targets:
         product: KodosiBridge
       - package: KodosiApple
         product: KodosiDesign
-      - package: KodosiGhostty
-        product: GhosttyTerminal
+      - package: KodosiApple
+        product: KodosiTerminal
+      - package: KodosiApple
+        product: KodosiTerminalSessions
 
   KodosiMobileTests:
     type: bundle.unit-test

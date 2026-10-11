@@ -23,7 +23,7 @@ struct MainTabView: View {
             Tab("Rooms", systemImage: "square.grid.2x2", value: AppTab.rooms) {
                 NavigationStack { RoomsHome() }
             }
-            .badge(model.rooms.invitations.count)
+            .badge(model.rooms.invitations.count + model.rooms.unread.values.reduce(0, +))
             .accessibilityIdentifier("tab.rooms")
 
             Tab("People", systemImage: "person.2", value: AppTab.people) {

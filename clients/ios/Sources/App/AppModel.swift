@@ -30,9 +30,10 @@ final class AppModel {
         let inbox = RuntimeEventInbox()
         self.commands = commands
         self.inbox = inbox
-        runtime = RuntimeHandle(inbox: inbox)
+        let runtime = RuntimeHandle(inbox: inbox)
+        self.runtime = runtime
         account = AccountStore(commands: commands, notices: notices)
-        terminals = TerminalStore(commands: commands, notices: notices)
+        terminals = TerminalStore(commands: commands, notices: notices, runtime: runtime)
         rooms = RoomStore(commands: commands, notices: notices)
         people = PeopleStore(commands: commands, notices: notices)
         commands.onFailure = { [notices] message in notices.show(message) }

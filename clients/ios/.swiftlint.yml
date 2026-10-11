@@ -36,6 +36,5 @@ custom_rules:
   ghostty_import_boundary:
     name: "Ghostty import boundary"
     regex: '^[ \t]*(?:(?:@testable|@_exported|@_implementationOnly|@preconcurrency|public|internal|package|private|fileprivate)[ \t]+)*import[ \t]+GhosttyTerminal\b'
-    message: "Ghostty types stay behind the terminal surface: import GhosttyTerminal only inside Sources/Terminals/Surface."
+    message: "Ghostty types stay behind KodosiTerminal: import KodosiTerminal, not GhosttyTerminal."
     severity: error
-    excluded: ".*/Sources/Terminals/Surface/.*"
