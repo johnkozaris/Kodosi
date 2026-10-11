@@ -4,6 +4,7 @@ pub mod keys;
 pub(crate) mod link_code;
 pub mod oidc;
 pub mod pins;
+pub(crate) mod recovery;
 pub mod signed_device_list;
 pub mod storage;
 mod wire_codec;

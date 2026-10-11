@@ -18,6 +18,7 @@ final class AppDependencies {
     var outgoingRequests: [FriendRequestEntry] = []
     var devices: [MyDeviceEntry] = []
     var deviceRequests: [DeviceLinkRequest] = []
+    var newRecoveryKey: String?
     var missions: [MissionEntry] = []
     var invitations: [MissionInvitationEntry] = []
     var missionListTruncated = false
@@ -43,6 +44,7 @@ final class AppDependencies {
     var openedLoginCode: String?
     var identityMessage: String?
     var errorMessage: String?
+    var accountDeletion: AccountDeletion?
     var appState: AppState = .launching
     var pendingDeepLink: DeepLinkDestination? {
         didSet { consumeDeepLink() }

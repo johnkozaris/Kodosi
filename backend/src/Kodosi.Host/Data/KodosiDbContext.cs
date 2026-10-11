@@ -5,6 +5,7 @@ namespace Kodosi.Data;
 public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) : DbContext(options)
 {
     public DbSet<User> Users => Set<User>();
+    public DbSet<DeletedAccount> DeletedAccounts => Set<DeletedAccount>();
     public DbSet<Device> Devices => Set<Device>();
     public DbSet<DeviceList> DeviceLists => Set<DeviceList>();
     public DbSet<DeviceLink> DeviceLinks => Set<DeviceLink>();
@@ -34,6 +35,13 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
             e.Property(x => x.AvatarUrl).HasMaxLength(2048);
             e.HasIndex(x => new { x.Issuer, x.Subject }).IsUnique();
             e.HasIndex(x => x.Handle).IsUnique();
+        });
+        model.Entity<DeletedAccount>(e =>
+        {
+            e.ToTable("deleted_accounts"); e.HasKey(x => new { x.Issuer, x.Subject });
+            e.Property(x => x.Issuer).HasMaxLength(512);
+            e.Property(x => x.Subject).HasMaxLength(512);
+            e.HasIndex(x => x.DeletedAt);
         });
         model.Entity<Device>(e =>
         {
@@ -97,7 +105,6 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
         {
             e.ToTable("missions"); e.HasKey(x => x.Id);
             e.Property(x => x.Name).HasMaxLength(128);
-            e.Property<string?>("Slug").HasMaxLength(64);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.OwnerUserId).OnDelete(DeleteBehavior.Restrict);
         });
         model.Entity<MissionMember>(e =>

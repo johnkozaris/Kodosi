@@ -24,6 +24,7 @@ xcodebuild -project KodosiDesktop.xcodeproj \
            MARKETING_VERSION="$KODOSI_MARKETING_VERSION" \
            CODE_SIGN_STYLE=Manual \
            CODE_SIGN_IDENTITY="${KODOSI_SIGNING_IDENTITY:-Developer ID Application}" \
+           KODOSI_PROVISIONING_PROFILE="${KODOSI_PROVISIONING_PROFILE:-Kodosi Developer ID}" \
            DEVELOPMENT_TEAM="$KODOSI_TEAM_ID" \
            archive
 "$ROOT/scripts/build/verify-native-notices.sh" \

@@ -74,9 +74,16 @@ Account and device records, room membership, room and terminal metadata, content
 routing fields, timing, and the sizes of encrypted data. It cannot read terminal or
 room plaintext.
 
+**What if I lose my computer?**
+On a computer that you still use, remove it in Settings, then Devices. If it was
+stolen, also make a new recovery key there. If you lose all your computers, sign in on
+a new one and select "Use my recovery key": you keep your friends and rooms. Without a
+recovery key you start fresh with a new identity, and your friends trust it again. See
+[Use your other computers](GETTING_STARTED.md#use-your-other-computers).
+
 **Was the security design audited?**
-No. The [security page](SECURITY.md) describes the implementation; it is not a claim
-of an independent audit.
+Not yet. The [encryption design](CRYPTOGRAPHY.md) specifies the keys, the rules, and
+the known limits, so that an independent reviewer can examine it.
 
 **Can I use my own server?**
 Yes. Run the backend with PostgreSQL and your own OIDC provider, and start the apps

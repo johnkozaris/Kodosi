@@ -118,7 +118,7 @@ content. [Security](docs/SECURITY.md)
 | --- | --- |
 | A computer | A Mac with Apple silicon and macOS 26.4 or later, or a Linux x86-64 computer. Ubuntu 24.04 is the recommended start. |
 | Build tools | App releases are not published yet, so you build Kodosi. The [Mac](clients/macos/README.md#requirements) build needs Xcode; the [Linux](clients/qt/README.md#requirements) build needs a C++23 compiler. Both need the pinned Rust toolchain, `just`, and Python 3. |
-| A Kodosi service | The apps connect to the hosted service by default. A Mac Debug build connects to a [local backend](docs/DEVELOPMENT.md#run-the-backend). You can also [run your own](docs/SELF-HOSTING.md). |
+| A Kodosi service | Kodosi needs a backend and an OIDC sign-in service. A public hosted service is not open yet, so you run them: a [local backend](docs/DEVELOPMENT.md#run-the-backend) for development, or [your own service](docs/SELF-HOSTING.md) for more people. |
 | Your agents | Optional. Install and sign in to Claude Code, Codex, Copilot CLI, or another terminal agent as usual. Kodosi uses their own installation and sign-in. |
 | Git | Optional. Git for a terminal on a new branch; `gh` or a Git credential helper for GitHub and Gitea issues. |
 
@@ -154,6 +154,7 @@ terminal, start an agent, and make a room.
 | Understand the processes and connections | [Architecture and protocol](docs/PROTOCOL.md) |
 | Run my own backend | [Self-hosting](docs/SELF-HOSTING.md) |
 | Understand encryption or report a vulnerability | [Security](docs/SECURITY.md) |
+| Review the encryption design and its limits | [Encryption design and threat model](docs/CRYPTOGRAPHY.md) |
 
 ## Project status
 
@@ -172,7 +173,8 @@ Bug reports, ideas, and pull requests are welcome.
 
 ## License
 
-Kodosi is [MIT licensed](LICENSE). Built with [Ghostty](https://ghostty.org), Rust,
+Kodosi is [MIT licensed](LICENSE). The license does not cover the name Kodosi or its
+logo: see [Trademarks](TRADEMARKS.md). Built with [Ghostty](https://ghostty.org), Rust,
 Swift, Qt, and ASP.NET Core. Native components retain their
 [third-party notices](terminal/ghostty/THIRD_PARTY_NOTICES.md) and required source
 and relinking materials. [About the pictures and their credits](docs/media/README.md).

@@ -13,6 +13,13 @@ public sealed class User
     public long IdentityRevision { get; set; }
 }
 
+public sealed class DeletedAccount
+{
+    public string Issuer { get; set; } = "";
+    public string Subject { get; set; } = "";
+    public DateTimeOffset DeletedAt { get; set; }
+}
+
 public sealed class Device
 {
     public string Id { get; set; } = "";
@@ -22,6 +29,7 @@ public sealed class Device
     public byte[] Certificate { get; set; } = [];
     public byte[] CertificateSignature { get; set; } = [];
     public byte[] SigningPublicKey { get; set; } = [];
+    public byte[]? RecoveryBox { get; set; }
     public long IssuedAtMs { get; set; }
     public long? ExpiresAtMs { get; set; }
     public bool Revoked { get; set; }

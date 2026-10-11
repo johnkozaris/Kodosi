@@ -156,3 +156,6 @@ linux-check:
 
 windows-check:
     just --justfile clients/qt/justfile windows-check
+
+sign-in-check:
+    cd sign-in && bun install --frozen-lockfile && bun run tsc && bun run lint && bun run format:check && bun run build

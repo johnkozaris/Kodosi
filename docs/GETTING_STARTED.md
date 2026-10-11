@@ -21,9 +21,11 @@ pictures show the Mac app; the Linux app has the same parts.
   computer. Ubuntu 24.04 is the recommended start.
 - **The app.** Public app releases are not available yet. Build the
   [Mac app](../clients/macos/README.md) or the [Linux app](../clients/qt/README.md).
-- **A Kodosi service.** The apps connect to the hosted service by default. A Mac Debug
-  build connects to a [local backend](DEVELOPMENT.md#run-the-backend). You can also
-  [run your own](SELF-HOSTING.md). Everyone in a room uses the same service.
+- **A Kodosi service.** Kodosi needs a backend and an OIDC sign-in service. A public
+  hosted service is not open yet, so you run them: a
+  [local backend](DEVELOPMENT.md#run-the-backend) for development, or
+  [your own service](SELF-HOSTING.md) for more people. Everyone in a room uses the
+  same service.
 - **A browser** for the sign-in.
 - **Your agents (optional).** Claude Code, Codex, Copilot CLI, or another terminal
   agent, installed and signed in as usual.
@@ -92,6 +94,11 @@ enter the code.
 
 Approved devices on the same account can open your terminals. The hosting computer
 must remain online with Kodosi running.
+
+Make a recovery key in Settings, then Devices, and keep it in a safe place. If you lose
+all your computers, sign in on a new one and select "Use my recovery key". You keep
+your friends and rooms. If you lose one computer, remove it there from a computer that
+you still use; if it was stolen, also make a new recovery key.
 
 <p align="center">
   <img src="media/overview.webp" width="760" alt="The overview of all terminals, grouped by computer.">

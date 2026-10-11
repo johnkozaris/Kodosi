@@ -22,6 +22,38 @@ identified by issuer and subject. `preferred_username` and `name` supply display
 Configure a dedicated issuer/client for your deployment. Use the same issuer URL in
 the backend and client settings below.
 
+### Sign-in pages
+
+With Keycloak, you can use the Kodosi sign-in pages, account page and e-mails. Build
+the theme in `sign-in/` and set the realm as
+[Put the theme on a Keycloak](../sign-in/README.md#put-the-theme-on-a-keycloak) tells.
+The pages show the Kodosi name and logo. You can use them for your own team or
+organization. For a service that is open to other people, change the name and the
+logo, or ask for permission. See [Trademarks](../TRADEMARKS.md).
+
+### Account deletion
+
+With Keycloak, a person deletes their account on its account page, and the backend
+follows Keycloak's events. In the realm:
+
+- enable the required action Delete Account, and add the `account` client role
+  `delete-account` to the default roles;
+- keep user and admin events on, with an expiry of at least 30 days (Keycloak saves
+  `DELETE_ACCOUNT` events by default; admin events need an expiry);
+- make a confidential client with only a service account, and give it the
+  `realm-management` role `view-events` and no other role.
+
+Then give the backend that client:
+
+| Variable | Value |
+| --- | --- |
+| `Auth__AccountDeletion__ClientId` | The client ID |
+| `Auth__AccountDeletion__ClientSecret` | Its secret |
+| `Auth__AccountDeletion__AdminUrl` | Optional: the Keycloak address for the admin API, when the public address refuses `/admin`. HTTPS, or loopback HTTP |
+
+The backend reads the events every 15 seconds. Without these settings, the apps delete
+the Kodosi account directly, and the person deletes the sign-in account at the provider.
+
 ## Start the backend
 
 Build from the repository root with the pinned .NET SDK, or use

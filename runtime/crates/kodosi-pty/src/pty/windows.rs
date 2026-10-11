@@ -209,16 +209,6 @@ impl KodosiPty {
         working_dir: Option<&str>,
         rows: u16,
         cols: u16,
-    ) -> Result<(Self, PtyReader)> {
-        Self::spawn_program_with_env(program, arguments, working_dir, rows, cols, &[])
-    }
-
-    pub fn spawn_program_with_env(
-        program: &Path,
-        arguments: &[String],
-        working_dir: Option<&str>,
-        rows: u16,
-        cols: u16,
         environment: &[(&str, &str)],
     ) -> Result<(Self, PtyReader)> {
         let api = conpty()?;

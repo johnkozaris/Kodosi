@@ -72,10 +72,13 @@ release-graph-verifier:
 signature-verifier:
     Tests/Tooling/signature-verifier-test.sh
 
+provisioning-profile-verifier:
+    Tests/Tooling/provisioning-profile-verifier-test.sh
+
 native-notice-verifier:
     Tests/Tooling/native-notice-verifier-test.sh
 
-ci: lint release-graph-verifier signature-verifier native-notice-verifier package-test
+ci: lint release-graph-verifier signature-verifier provisioning-profile-verifier native-notice-verifier package-test
     xcodebuild -project KodosiDesktop.xcodeproj \
         -scheme KodosiDesktop \
         -configuration Debug \

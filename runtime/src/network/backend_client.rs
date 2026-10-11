@@ -72,6 +72,7 @@ pub(crate) struct State {
     blocked_devices: BTreeSet<(String, String)>,
     account_cancel: CancellationToken,
     link: Option<enrollment::PendingLink>,
+    deletion: Option<tokio::time::Instant>,
     friend_lists: FriendLists,
     changed_friends: BTreeSet<String>,
 }
@@ -119,6 +120,7 @@ impl BackendClient {
                     link: None,
                     friend_lists,
                     changed_friends: BTreeSet::new(),
+                    deletion: None,
                 }),
                 operations: Mutex::new(()),
                 events,
@@ -233,23 +235,41 @@ impl BackendClient {
     }
 
     async fn sign_in_kept(&self, result: Result<()>) -> Result<()> {
-        if !matches!(result, Err(Error::SignedOut)) {
-            return result;
+        let reason = match result {
+            Err(Error::AccountDeleted) => "accountDeleted",
+            Err(Error::SignedOut) if self.deletion_confirmed().await => "accountDeleted",
+            Err(Error::SignedOut) => "expired",
+            result => return result,
+        };
+        if reason == "accountDeleted" {
+            self.forget_deleted_account().await?;
+        } else {
+            self.logout().await?;
         }
-        self.logout().await?;
         self.emit_for(
             self.generation(),
             None,
-            json!({"type":"auth.required","reason":"expired"}),
+            json!({"type":"auth.required","reason":reason}),
         );
         Ok(())
+    }
+
+    pub async fn execute(&self, operation: &str, args: Value) -> Result<BackendReply> {
+        match self.dispatch(operation, args).await {
+            Err(Error::AccountDeleted) => {
+                let _operation = self.inner.operations.lock().await;
+                self.sign_in_kept(Err(Error::AccountDeleted)).await?;
+                Err(Error::Stale)
+            }
+            result => result,
+        }
     }
 
     #[expect(
         clippy::too_many_lines,
         reason = "closed command dispatch keeps retained surface mapping in one place"
     )]
-    pub async fn execute(&self, operation: &str, args: Value) -> Result<BackendReply> {
+    async fn dispatch(&self, operation: &str, args: Value) -> Result<BackendReply> {
         if matches!(
             operation,
             "auth.logout" | "auth.login.start" | "auth.login.cancel"
@@ -281,7 +301,7 @@ impl BackendClient {
                 self.logout().await?;
                 let cancel = self.new_login_interrupt()?;
                 let generation = self.generation();
-                events.push(json!({"type":"auth.device_code","userCode":login.user_code,"verificationUri":login.verification_uri_complete.as_ref().unwrap_or(&login.verification_uri)}));
+                events.push(json!({"type":"auth.device_code","userCode":login.user_code,"verificationUri":login.code_page()}));
                 let this = self.clone();
                 tokio::spawn(async move {
                     let result = async {
@@ -316,14 +336,28 @@ impl BackendClient {
             }
             "auth.deleteAccount" => {
                 let credentials = self.credentials()?;
-                let _response: Value = self
+                let profile: Value = self
                     .inner
                     .http
-                    .bearer(Method::DELETE, "api/me", &credentials.token, None)
+                    .bearer(Method::GET, "api/me", &credentials.token, None)
                     .await?;
-                credentials.cancel.cancel();
-                self.logout().await?;
-                events.push(json!({"type":"auth.required","reason":"signedOut"}));
+                if let Some(page) = profile.get("deletionUri").and_then(Value::as_str) {
+                    let page = self.deletion_page(page)?;
+                    events.push(json!({"type":"auth.deletion_pending","confirmationUri":page}));
+                    self.watch_deletion(credentials).await;
+                } else {
+                    let _response: Value = self
+                        .inner
+                        .http
+                        .bearer(Method::DELETE, "api/me", &credentials.token, None)
+                        .await?;
+                    credentials.cancel.cancel();
+                    self.forget_deleted_account().await?;
+                    events.push(json!({"type":"auth.required","reason":"accountDeleted"}));
+                }
+            }
+            "auth.deleteAccount.cancel" => {
+                self.inner.state.lock().await.deletion = None;
             }
             "auth.refresh" => {
                 let refreshed = self.refresh().await;
@@ -356,6 +390,12 @@ impl BackendClient {
             "devices.revoke" => {
                 self.revoke_device(wire::text(&args, "deviceId")?).await?;
                 events.extend(self.device_events().await?);
+            }
+            "devices.recovery.create" => {
+                events.extend(self.create_recovery_key().await?);
+            }
+            "devices.recovery.use" => {
+                events.extend(self.use_recovery_key(wire::text(&args, "key")?).await?);
             }
             "room.command" => events.extend(self.room_command(&args).await?),
             "friends.refresh" => events.push(self.friend_event().await?),
@@ -1022,6 +1062,7 @@ mod device_identity;
 mod enrollment;
 mod friends;
 mod notifications;
+mod recovery;
 mod rooms;
 #[cfg(test)]
 mod tests;

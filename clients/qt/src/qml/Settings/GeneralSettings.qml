@@ -9,8 +9,20 @@ ColumnLayout {
     id: root
 
     readonly property bool hasCode: Models.Account.userCode.length > 0
+    readonly property var ownedRooms: Models.Missions.missions
+        .filter(room => room.ownerUserId === Models.Account.userId)
+        .map(room => room.name)
 
     spacing: 18
+
+    Connections {
+        function onDeletionChanged() {
+            if (Models.Account.deleting)
+                Models.DesktopFiles.openWebUrl(Models.Account.deletionUri)
+        }
+
+        target: Models.Account
+    }
 
     ColumnLayout {
         Layout.fillWidth: true
@@ -118,17 +130,40 @@ ColumnLayout {
             visible: Models.Account.signedIn
             iconName: "close"
             tint: "#b23a32"
-            title: qsTr("Delete your account")
-            subtitle: qsTr("Removes your account, devices and friends from the server.")
+            title: Models.Account.deleting ? qsTr("Confirm the deletion in your browser") : qsTr("Delete your account")
+            subtitle: Models.Account.deleting
+                ? qsTr("Kodosi waits for your confirmation on the page.")
+                : qsTr("Removes your account, devices and friends.")
 
             KButton {
                 Accessible.id: objectName
                 compact: true
+                visible: !Models.Account.deleting
                 variant: KButton.Danger
                 objectName: "panel.settingsView.delete-account"
                 text: qsTr("Delete…")
 
                 onClicked: deleteConfirmation.open()
+            }
+            KButton {
+                Accessible.id: objectName
+                compact: true
+                visible: Models.Account.deleting
+                variant: KButton.Secondary
+                objectName: "panel.settingsView.deletion-page"
+                text: qsTr("Open the page")
+
+                onClicked: Models.DesktopFiles.openWebUrl(Models.Account.deletionUri)
+            }
+            KButton {
+                Accessible.id: objectName
+                compact: true
+                visible: Models.Account.deleting
+                variant: KButton.Ghost
+                objectName: "panel.settingsView.deletion-cancel"
+                text: qsTr("Cancel")
+
+                onClicked: Models.Account.cancelDeletion()
             }
         }
         ListRow {
@@ -170,13 +205,18 @@ ColumnLayout {
         destructive: true
         standardButtons: Dialog.Ok | Dialog.Cancel
         title: qsTr("Delete your Kodosi account?")
-        onOpened: standardButton(Dialog.Ok).text = qsTr("Delete")
+        onOpened: standardButton(Dialog.Ok).text = qsTr("Delete Account")
 
         onAccepted: Models.Account.deleteAccount()
 
         PlainLabel {
             color: KodosiTheme.inkMuted
-            text: qsTr("Your account, devices, friends, rooms and shared terminals go away from the server. The terminals on this computer keep running. If Kodosi refuses, sign out, sign in again, and try again.")
+            text: [qsTr("Your devices, friends and sharing go away. What you wrote in other rooms stays there.")]
+                .concat(root.ownedRooms.length > 0
+                    ? [qsTr("These rooms close for everyone in them: %1.").arg(root.ownedRooms.join(", "))]
+                    : [])
+                .concat([qsTr("The terminals on this computer keep running. This cannot be undone.")])
+                .join("\n\n")
             width: 380
             wrapMode: Text.WordWrap
         }

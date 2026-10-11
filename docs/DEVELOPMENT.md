@@ -92,6 +92,16 @@ selects the upstream revisions and artifact digests under `terminal/ghostty/`.
 Follow [Ghostty provenance](../terminal/ghostty/PROVENANCE.md) for native updates;
 commit measured build evidence, notices, pins, and affected consumers together.
 
+## Data formats
+
+Kodosi has no release yet, so it keeps no code for earlier protocol versions or saved
+formats. After a format change, rooms and records in an existing development database
+may not open: use a new database volume and data root. A device identity saved in an
+earlier format stops sign-in with "Stored device identity is invalid". Delete it, then
+approve the computer again as a new one. It is the item `kodosi.<user id>.device`
+of the service `com.kodosi.local`. On macOS, delete it in Keychain Access. On Linux, run
+`secret-tool clear service com.kodosi.local username kodosi.<user id>.device`.
+
 ## Isolated validation
 
 Validate a workflow by running the app or calling the real boundary and inspecting

@@ -16,7 +16,7 @@ private func signedOutApp(prefix: String) throws -> (AppDependencies, SignInReco
         return 0
     }
     app.openExternalURL = { opened.value.append($0) }
-    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(53)]))
+    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(55)]))
     try app.receive(runtimeEvent("auth.required", epoch: 0, userId: nil, fields: ["reason": .string("signedOut")]))
     return (app, SignInRecord(sentCommands: sent, openedPages: opened))
 }
@@ -41,7 +41,7 @@ private final class Box<T>: @unchecked Sendable {
 }
 
 private let deviceCode: [String: JSONValue] = [
-    "userCode": .string("ABCD-EFGH"), "verificationUri": .string("https://auth.example/device?user_code=ABCD-EFGH"),
+    "userCode": .string("ABCD-EFGH"), "verificationUri": .string("https://auth.example/device#ABCD-EFGH"),
 ]
 
 @Test @MainActor func signInWalksThroughTheStepsAndOnlyOpensTheBrowserOnce() throws {
@@ -52,7 +52,7 @@ private let deviceCode: [String: JSONValue] = [
     #expect(app.signInStage == .starting)
     #expect(record.sent.last == "auth.login.start")
     try app.receive(runtimeEvent("auth.device_code", epoch: 0, userId: nil, fields: deviceCode))
-    #expect(app.signInStage == .awaitingApproval(code: "ABCD-EFGH", url: URL(string: "https://auth.example/device?user_code=ABCD-EFGH")))
+    #expect(app.signInStage == .awaitingApproval(code: "ABCD-EFGH", url: URL(string: "https://auth.example/device#ABCD-EFGH")))
     #expect(record.opened.count == 1)
     app.dismissSignIn()
     #expect(app.signInPrompt == "Continue signing in")
@@ -167,5 +167,30 @@ private let deviceCode: [String: JSONValue] = [
     #expect(app.userId == nil)
     #expect(app.signInPrompt == "Sign in")
     #expect(app.errorMessage == "Your sign-in has ended. Sign in again.")
+    app.shutdownProcess()
+}
+
+@Test @MainActor func deletingTheAccountWaitsForTheBrowserAndEndsSignedOutWithANote() throws {
+    let (app, record) = try signedOutApp(prefix: "AccountDeletion")
+    try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner"), "enrolled": .bool(true)]))
+    let page = "https://auth.example/realms/kodosi/protocol/openid-connect/auth?kc_action=delete_account"
+    try app.receive(runtimeEvent("auth.deletion_pending", fields: ["confirmationUri": .string(page)]))
+    #expect(app.accountDeletion == AccountDeletion(page: URL(string: page)))
+    #expect(record.opened == [URL(string: page)])
+    app.cancelAccountDeletion()
+    #expect(app.accountDeletion == nil)
+    #expect(record.sent.last == "auth.deleteAccount.cancel")
+    try app.receive(runtimeEvent("auth.deletion_pending", fields: ["confirmationUri": .string(page)]))
+    try app.receive(runtimeEvent("auth.error", fields: [
+        "operation": .string("auth.deleteAccount"), "message": .string("Kodosi stopped waiting for the confirmation."),
+    ]))
+    #expect(app.accountDeletion == nil)
+    #expect(app.signInStage == .signedIn)
+    #expect(app.errorMessage == "Kodosi stopped waiting for the confirmation.")
+    try app.receive(runtimeEvent("auth.deletion_pending", fields: ["confirmationUri": .string(page)]))
+    try app.receive(runtimeEvent("auth.required", epoch: 2, userId: nil, fields: ["reason": .string("accountDeleted")]))
+    #expect(app.accountDeletion == nil)
+    #expect(app.userId == nil)
+    #expect(app.errorMessage == "Your Kodosi account is deleted.")
     app.shutdownProcess()
 }

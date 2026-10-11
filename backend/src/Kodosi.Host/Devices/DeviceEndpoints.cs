@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Kodosi.Accounts;
+using Kodosi.Missions;
 using Kodosi.TerminalConnections;
 
 namespace Kodosi.Devices;
@@ -46,11 +47,23 @@ internal static class DeviceEndpoints
         api.MapPost("/me/identity/reset", async (HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
         {
             var user = await users.GetAsync(context, ct);
-            await service.ResetIdentityAsync(user.Id, AuthenticatedAt(context.User), ct);
+            await service.ResetIdentityAsync(user.Id, CurrentUser.SignedInAt(context.User), ct);
             return Results.NoContent();
         }).RequireRateLimiting("enrollment");
         api.MapPost("/devices/link/init", async (DeviceService.LinkInit body, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
             Results.Ok(await service.StartLinkAsync((await users.GetAsync(context, ct)).Id, body, ct))).RequireRateLimiting("enrollment");
+        api.MapPost("/me/recovery-key", async (DeviceService.RecoveryKeyWrite body, HttpContext context, CurrentUser users, DeviceService service, MissionService missions, CancellationToken ct) =>
+        {
+            var user = await users.GetAsync(context, ct); var device = await service.RequireProofAsync(context, user.Id, ct);
+            await service.AddRecoveryKeyAsync(user.Id, device, body, ct); await missions.NotifyRoomsOfAsync(user.Id, ct); return Results.Ok();
+        }).RequireRateLimiting("enrollment");
+        api.MapGet("/me/recovery-key", async (HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
+            Results.Ok(await service.RecoveryBoxAsync((await users.GetAsync(context, ct)).Id, ct))).RequireRateLimiting("enrollment");
+        api.MapPost("/me/devices/recover", async (DeviceService.RegisterDevice body, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
+        {
+            await service.RecoverAsync((await users.GetAsync(context, ct)).Id, body, ct);
+            return Results.Created($"/api/me/devices/{body.DeviceId}", (object?)null);
+        }).RequireRateLimiting("enrollment");
         api.MapGet("/devices/link/requests", async (HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
         {
             var user = await users.GetAsync(context, ct); await service.RequireProofAsync(context, user.Id, ct);
@@ -79,9 +92,4 @@ internal static class DeviceEndpoints
         return identity.Bundle is null ? Results.StatusCode(StatusCodes.Status304NotModified) : Results.Ok(identity.Bundle);
     }
 
-    private static DateTimeOffset? AuthenticatedAt(ClaimsPrincipal principal)
-    {
-        var value = principal.FindFirstValue("auth_time") ?? principal.FindFirstValue("iat");
-        return long.TryParse(value, out var seconds) ? DateTimeOffset.FromUnixTimeSeconds(seconds) : null;
-    }
 }

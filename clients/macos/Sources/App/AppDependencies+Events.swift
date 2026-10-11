@@ -24,7 +24,7 @@ extension AppDependencies {
             missionListTruncated = false
             missionDetail = nil
             rooms.removeAll(); roomIssues.removeAll(); roomViews.removeAll(); roomCreations.removeAll()
-            selfDeviceId = nil; localDeviceEnrolled = false; identityMessage = nil
+            selfDeviceId = nil; localDeviceEnrolled = false; identityMessage = nil; accountDeletion = nil
             displayName = nil; attention.removeAll(); freshTerminals.removeAll()
             activationTasks.values.forEach { $0.cancel() }; activationTasks.removeAll()
             pendingCreations.removeAll()
@@ -69,6 +69,11 @@ extension AppDependencies {
     private func receiveError(_ event: RuntimeEvent) {
         guard !event.type.hasPrefix("provider."), !event.type.hasPrefix("room.") else { return }
         let message = event.string("message") ?? String(localized: "That did not work.")
+        if event.string("operation") == "auth.deleteAccount" {
+            accountDeletion = nil
+            errorMessage = message
+            return
+        }
         if event.type.hasPrefix("auth.") {
             signInStage = .failed(message: message, completed: signInStage.completedSteps)
             if signInPresented {
@@ -120,7 +125,7 @@ extension AppDependencies {
     private func receiveSystem(_ event: RuntimeEvent) throws {
         guard event.type == "system.ready" else { return }
         let version: UInt32 = try event.value("protocolVersion")
-        guard RuntimeHandle.isSupportedProtocolVersion(version) else {
+        guard version == RuntimeHandle.expectedProtocolVersion else {
             throw RuntimeError.invalidResponse(String(localized: "This copy of Kodosi is damaged. Install it again."))
         }
         appState = .ready
@@ -156,14 +161,13 @@ extension AppDependencies {
     private func receiveAuth(_ event: RuntimeEvent) throws {
         switch event.type {
         case "auth.ready": try receiveReady(event)
-        case "auth.required":
-            if case .failed = signInStage {} else {
-                signInStage = .idle
+        case "auth.required": receiveRequired(event)
+        case "auth.deletion_pending":
+            let page = event.string("confirmationUri").flatMap(ExternalAuthURL.parse)
+            accountDeletion = AccountDeletion(page: page)
+            if let page {
+                openExternalURL(page)
             }
-            if event.string("reason") == "expired" {
-                errorMessage = String(localized: "Your sign-in has ended. Sign in again.")
-            }
-            commandSink.perform("session.list")
         case "auth.device_code":
             let code = event.string("userCode") ?? ""
             let url = event.string("verificationUri").flatMap(ExternalAuthURL.parse)
@@ -176,6 +180,19 @@ extension AppDependencies {
             signInStage = .finalizing
         default: break
         }
+    }
+
+    private func receiveRequired(_ event: RuntimeEvent) {
+        accountDeletion = nil
+        if case .failed = signInStage {} else {
+            signInStage = .idle
+        }
+        switch event.string("reason") {
+        case "expired": errorMessage = String(localized: "Your sign-in has ended. Sign in again.")
+        case "accountDeleted": errorMessage = String(localized: "Your Kodosi account is deleted.")
+        default: break
+        }
+        commandSink.perform("session.list")
     }
 
     private func receiveSessions(_ event: RuntimeEvent) throws {
@@ -242,6 +259,7 @@ extension AppDependencies {
             }
             commandSink.perform("devices.refresh")
         case "devices.link.resolved": commandSink.perform("devices.refresh")
+        case "devices.recovery.created": newRecoveryKey = event.string("key")
         default: break
         }
     }

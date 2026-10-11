@@ -353,6 +353,9 @@ async fn admit(
     if !allowed(publication, credentials, user).await {
         return Err(refuse("access", "This terminal is not shared with you."));
     }
+    if crate::identity::recovery::is_recovery_device(device) {
+        return Err(refuse("access", "This device is not approved."));
+    }
     if viewers.lock().is_ok_and(|viewers| viewers.len() >= VIEWERS) {
         return Err(refuse(
             "busy",

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.Accounts;
 
-public sealed class CurrentUser(KodosiDbContext db)
+public sealed class CurrentUser(KodosiDbContext db, TimeProvider clock)
 {
     private User? loaded;
     public async Task<User> GetAsync(HttpContext context, CancellationToken ct)
@@ -18,6 +18,14 @@ public sealed class CurrentUser(KodosiDbContext db)
             throw new ApiException(401, "Sign in to continue.");
         loaded = await db.Users.SingleOrDefaultAsync(x => x.Issuer == issuer && x.Subject == subject, ct);
         if (loaded is not null) return loaded;
+        var deleted = await db.DeletedAccounts.SingleOrDefaultAsync(x => x.Issuer == issuer && x.Subject == subject, ct);
+        if (deleted is not null)
+        {
+            var remembered = clock.GetUtcNow() - deleted.DeletedAt <= AccountService.DeletionMemory;
+            var signedIn = long.TryParse(context.User.FindFirstValue("auth_time"), out var seconds) ? DateTimeOffset.FromUnixTimeSeconds(seconds) : (DateTimeOffset?)null;
+            if (remembered && !(signedIn > deleted.DeletedAt)) throw ApiException.Gone();
+            db.DeletedAccounts.Remove(deleted);
+        }
         var rawName = context.User.FindFirstValue("preferred_username") ?? context.User.FindFirstValue("name") ?? "user";
         var name = new string(rawName.Where(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-').Take(40).ToArray()).ToLowerInvariant();
         if (name.Length < 3) name = "user";
@@ -55,6 +63,12 @@ public sealed class CurrentUser(KodosiDbContext db)
         }
         throw ApiException.Conflict("The account could not be created; retry sign-in.");
     }
+    public static DateTimeOffset? SignedInAt(ClaimsPrincipal principal)
+    {
+        var value = principal.FindFirstValue("auth_time") ?? principal.FindFirstValue("iat");
+        return long.TryParse(value, out var seconds) ? DateTimeOffset.FromUnixTimeSeconds(seconds) : null;
+    }
+
     private static string Truncate(string? value, int maximum)
     {
         var result = new StringBuilder();
@@ -73,16 +87,16 @@ internal static class AccountEndpoints
 {
     public static void MapAccounts(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/me", async (HttpContext context, CurrentUser users, CancellationToken ct) =>
+        app.MapGet("/api/me", async (HttpContext context, CurrentUser users, AccountDeletionSettings deletion, CancellationToken ct) =>
         {
             var user = await users.GetAsync(context, ct);
-            return Results.Ok(new { user.Id, user.Handle, user.DisplayName });
+            return Results.Ok(new { user.Id, user.Handle, user.DisplayName, deletionUri = deletion.ConfirmationUri() });
         }).RequireAuthorization();
-        app.MapDelete("/api/me", async (HttpContext context, CurrentUser users, AccountService accounts, CancellationToken ct) =>
+        app.MapDelete("/api/me", async (HttpContext context, CurrentUser users, AccountService accounts, AccountDeletionSettings deletion, CancellationToken ct) =>
         {
+            if (deletion.ReadsSignInService) throw ApiException.Conflict("Delete your account on the account page of the sign-in service.");
             var user = await users.GetAsync(context, ct);
-            var signedIn = context.User.FindFirstValue("auth_time") ?? context.User.FindFirstValue("iat");
-            await accounts.DeleteAsync(user.Id, long.TryParse(signedIn, out var seconds) ? DateTimeOffset.FromUnixTimeSeconds(seconds) : null, ct);
+            await accounts.DeleteSignedInAsync(user, CurrentUser.SignedInAt(context.User), ct);
             return Results.NoContent();
         }).RequireAuthorization().RequireRateLimiting("enrollment");
     }

@@ -20,9 +20,10 @@ using Xunit;
 
 namespace Kodosi.HostTests;
 
-internal sealed class BackendApplication(string connection, Action<IServiceCollection>? configure = null) : WebApplicationFactory<Program>
+internal sealed class BackendApplication(string connection, Action<IServiceCollection>? configure = null, IReadOnlyDictionary<string, string?>? settings = null)
+    : WebApplicationFactory<Program>
 {
-    private const string Issuer = "https://auth.kodosi.com/realms/kodosi";
+    public const string Issuer = "https://auth.kodosi.com/realms/kodosi";
     private readonly RSA key = RSA.Create(2048);
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -30,7 +31,7 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
         {
             ["ConnectionStrings:Kodosi"] = connection,
             ["Logging:LogLevel:Default"] = "Warning",
-        }));
+        }.Concat(settings ?? new Dictionary<string, string?>())));
         builder.ConfigureTestServices(services => services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
         {
             var config = new OpenIdConnectConfiguration { Issuer = Issuer };

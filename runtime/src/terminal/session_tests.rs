@@ -347,6 +347,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         directory.to_str(),
         32,
         120,
+        &[],
     )
     .expect("pty");
     let (_commands, command_rx) = mpsc::channel(1);

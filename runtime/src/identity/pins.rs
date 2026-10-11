@@ -23,14 +23,14 @@ pub struct CertificateEnvelope {
     pub certificate_signature: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DeviceListEnvelope {
     pub body: String,
     pub signature: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct IdentityBundle {
     pub user_id: String,
@@ -38,7 +38,6 @@ pub struct IdentityBundle {
     pub identity_incarnation_id: Uuid,
     pub device_list: DeviceListEnvelope,
     pub devices: Vec<CertificateEnvelope>,
-    #[serde(default)]
     pub certificate_chain: Vec<CertificateEnvelope>,
 }
 
@@ -89,8 +88,7 @@ struct Pin {
     list_signature: String,
     certificates: BTreeMap<String, CertificateEnvelope>,
     revoked: BTreeSet<String>,
-    #[serde(default)]
-    root: Option<Root>,
+    root: Root,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -134,7 +132,7 @@ impl Pins {
     }
 
     pub(crate) fn root(&self, user_id: &str) -> Option<Root> {
-        self.pins.get(user_id)?.root
+        self.pins.get(user_id).map(|pin| pin.root)
     }
 
     pub(crate) fn incarnation(&self, user_id: &str) -> Option<Uuid> {
@@ -192,9 +190,18 @@ impl Pins {
             pins: BTreeMap::new(),
         };
         if let Some((older, at)) = previous {
-            history.verify_current(older, Anchor::Root(root), at, false, false)?;
+            history.verify_current(older, Anchor::Root(root), at, true, false)?;
         }
         history.verify_current(bundle, Anchor::Root(root), at_ms, false, false)
+    }
+
+    pub(crate) fn without_time(bundle: &IdentityBundle, root: &Root) -> Result<VerifiedIdentity> {
+        let mut history = Self {
+            path: PathBuf::new(),
+            pins: BTreeMap::new(),
+        };
+        let now = super::now_ms();
+        history.verify_current(bundle, Anchor::Root(root), now, true, false)
     }
 
     #[expect(
@@ -225,10 +232,7 @@ impl Pins {
         let root = bundle.root()?;
         let existing = self.pins.get(&bundle.user_id).filter(|pin| match anchor {
             Anchor::Pinned => true,
-            Anchor::Root(approved) => pin.root.map_or(
-                pin.identity_incarnation_id == bundle.identity_incarnation_id,
-                |pinned| pinned == *approved,
-            ),
+            Anchor::Root(approved) => pin.root == *approved,
         });
         match anchor {
             Anchor::Pinned if existing.is_none() => {
@@ -245,7 +249,7 @@ impl Pins {
         }
         if let Some(pin) = existing {
             if pin.identity_incarnation_id != bundle.identity_incarnation_id
-                || pin.root.is_some_and(|pinned| pinned != root)
+                || pin.root != root
                 || bundle.identity_revision < pin.identity_revision
                 || list.generation < pin.generation
             {
@@ -428,7 +432,7 @@ impl Pins {
             list_signature: bundle.device_list.signature.clone(),
             certificates: incoming,
             revoked,
-            root: Some(root),
+            root,
         };
         if self.pins.get(&bundle.user_id) != Some(&pin) {
             let mut next = self.pins.clone();

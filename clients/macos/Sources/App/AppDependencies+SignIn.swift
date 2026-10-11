@@ -33,6 +33,7 @@ extension AppDependencies {
         case choose
         case requesting
         case pendingApproval(code: String)
+        case recovering
         case resetting
         case failed(String)
     }
@@ -47,6 +48,11 @@ extension AppDependencies {
 
     var accountReady: Bool {
         userId != nil && localDeviceEnrolled
+    }
+
+    func cancelAccountDeletion() {
+        accountDeletion = nil
+        perform("auth.deleteAccount.cancel")
     }
 
     var signInPrompt: String? {
@@ -107,6 +113,11 @@ extension AppDependencies {
         signInStage = .trustingDevice(.choose)
     }
 
+    func useRecoveryKey(_ key: String) {
+        signInStage = .trustingDevice(.recovering)
+        perform("devices.recovery.use", ["key": .string(key)])
+    }
+
     func resetTrustedDevices() {
         signInStage = .trustingDevice(.resetting)
         perform("devices.reset")
@@ -122,4 +133,8 @@ extension AppDependencies {
             signInStage = .idle
         }
     }
+}
+
+struct AccountDeletion: Equatable {
+    let page: URL?
 }

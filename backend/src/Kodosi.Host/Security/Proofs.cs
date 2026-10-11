@@ -10,6 +10,9 @@ internal static class DomainTags
     public static ReadOnlySpan<byte> DeviceSessionV1 => "kodosi-device-session-v1"u8;
     public static ReadOnlySpan<byte> DeviceCertV3 => "kodosi-device-cert-v3"u8;
     public static ReadOnlySpan<byte> DeviceListV1 => "kodosi-device-list-v1"u8;
+    public static ReadOnlySpan<byte> RoomStateV1 => "kodosi-room-state-v1"u8;
+    public static ReadOnlySpan<byte> RoomContentV1 => "kodosi-room-content-v1"u8;
+    public static ReadOnlySpan<byte> RoomRecipientV1 => "kodosi-room-recipient-v1"u8;
 }
 
 internal static class DeviceIdRules

@@ -16,6 +16,7 @@ public sealed partial class DeviceService
         var deviceId = DeviceIdRules.Require(request.DeviceId);
         var label = Limits.Text(request.DeviceLabel, "Device label", 128);
         var signing = Limits.Base64(request.SigningPublicKey, "Signing key", IdentityWireFormat.MlDsa65PublicKeyLength);
+        if (IsRecoveryId(deviceId)) throw ApiException.Invalid("This device identifier is for a recovery key.");
         var nonce = Limits.Base64(request.Nonce, "Nonce", LinkNonceLength);
         var proof = Limits.Base64(request.Proof, "Proof", LinkProofLength);
         if (signing.Length != IdentityWireFormat.MlDsa65PublicKeyLength || nonce.Length != LinkNonceLength || proof.Length != LinkProofLength)
@@ -79,10 +80,7 @@ public sealed partial class DeviceService
     {
         var link = await db.DeviceLinks.SingleOrDefaultAsync(x => x.UserId == userId && x.Id == request.RequestId, ct)
             ?? throw ApiException.Missing();
-        var certBytes = Limits.Base64(request.DeviceCertificate, "Device certificate", IdentityWireFormat.MaxDeviceCertificateBodyLength);
-        var certSig = Limits.Base64(request.DeviceCertificateSignature, "Certificate signature", IdentityWireFormat.MlDsa65SignatureLength);
-        var listBytes = Limits.Base64(request.SignedDeviceList, "Signed device list", IdentityWireFormat.MaxSignedDeviceListBodyLength);
-        var listSig = Limits.Base64(request.SignedDeviceListSignature, "List signature", IdentityWireFormat.MlDsa65SignatureLength);
+        var (certBytes, certSig, listBytes, listSig) = SignedParts(request.DeviceCertificate, request.DeviceCertificateSignature, request.SignedDeviceList, request.SignedDeviceListSignature);
         var approval = Limits.Base64(request.ApprovalProof, "Approval proof", LinkProofLength);
         if (approval.Length != LinkProofLength) throw ApiException.Invalid("The approval proof has an invalid length.");
         if (link.State == "approved")
@@ -93,29 +91,10 @@ public sealed partial class DeviceService
             throw ApiException.Conflict("The approval has already changed.");
         }
         if (link.State != "pending" || link.ExpiresAt <= clock.GetUtcNow()) throw ApiException.Missing();
-        var current = await db.DeviceLists.SingleAsync(x => x.UserId == userId, ct);
-        var previous = lists.Parse(current.Body);
-        var next = lists.Parse(listBytes);
-        var cert = certificates.Parse(certBytes);
-        ValidateCertificate(userId, link.DeviceId, cert, link.SigningPublicKey);
-        ValidateTime(cert.IssuedAtMs, cert.ExpiresAtMs);
-        ValidateSuccessor(userId, previous, next);
         approvingDevice = await RequireDeviceAsync(userId, approvingDevice.Id, ct);
-        if (cert.SignerDeviceId != approvingDevice.Id || next.SignerDeviceId != approvingDevice.Id || cert.IsSelfSigned)
-            throw ApiException.Forbidden("The approving device must sign the new device and list.");
-        if (cert.IssuedAtMs < approvingDevice.IssuedAtMs || approvingDevice.ExpiresAtMs <= cert.IssuedAtMs)
-            throw ApiException.Invalid("The device certificate was issued outside its signer's validity.");
-        var expected = previous.Entries.ToDictionary(x => x.DeviceId, x => x.SignerDeviceId, StringComparer.Ordinal);
-        if (!expected.TryAdd(cert.DeviceId, cert.SignerDeviceId) || next.Entries.Count != expected.Count
-            || next.Entries.Any(x => !expected.TryGetValue(x.DeviceId, out var signer) || signer != x.SignerDeviceId))
-            throw ApiException.Invalid("Device approval must preserve the current devices and add only the requested device.");
-        if (await db.Devices.AnyAsync(x => x.Id == cert.DeviceId, ct)) throw ApiException.Conflict("This device ID cannot be reused.");
-        VerifySignature(approvingDevice.SigningPublicKey, DomainTags.DeviceCertV3, certBytes, certSig);
-        VerifySignature(approvingDevice.SigningPublicKey, DomainTags.DeviceListV1, listBytes, listSig);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        db.Devices.Add(ToDevice(userId, cert, certBytes, certSig));
-        UpdateList(current, next, listBytes, listSig);
-        link.State = "approved"; link.ApprovedGeneration = next.Generation; link.ApprovalProof = approval;
+        var (_, generation) = await StageDeviceAsync(userId, approvingDevice, link.DeviceId, link.SigningPublicKey, certBytes, certSig, listBytes, listSig, ct);
+        link.State = "approved"; link.ApprovedGeneration = generation; link.ApprovalProof = approval;
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
         connections.Notify(userId, "devices");
     }
