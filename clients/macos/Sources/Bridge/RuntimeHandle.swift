@@ -37,12 +37,7 @@ final class RuntimeHandle: @unchecked Sendable {
 
     static let expectedFFIABIVersion: Int32 = 7
 
-    static let minimumSupportedProtocolVersion: UInt32 = 55
-    static let maximumSupportedProtocolVersion: UInt32 = 55
-
-    static func isSupportedProtocolVersion(_ version: UInt32) -> Bool {
-        (minimumSupportedProtocolVersion ... maximumSupportedProtocolVersion).contains(version)
-    }
+    static let expectedProtocolVersion: UInt32 = 55
 
     enum StartOutcome: Equatable {
         case started
@@ -54,7 +49,7 @@ final class RuntimeHandle: @unchecked Sendable {
     func start(commandSink: CommandSink, completion: @escaping @MainActor (StartOutcome) -> Void) {
         guard Int32(KODOSI_FFI_ABI_VERSION) == Self.expectedFFIABIVersion,
               kodosi_abi_version() == UInt32(Self.expectedFFIABIVersion),
-              Self.isSupportedProtocolVersion(kodosi_protocol_version())
+              kodosi_protocol_version() == Self.expectedProtocolVersion
         else {
             Logger.runtime.error("The embedded runtime does not match this app's ABI and protocol.")
             completion(.incompatibleRuntime)

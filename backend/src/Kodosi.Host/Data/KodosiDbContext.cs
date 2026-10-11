@@ -105,7 +105,6 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
         {
             e.ToTable("missions"); e.HasKey(x => x.Id);
             e.Property(x => x.Name).HasMaxLength(128);
-            e.Property<string?>("Slug").HasMaxLength(64);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.OwnerUserId).OnDelete(DeleteBehavior.Restrict);
         });
         model.Entity<MissionMember>(e =>

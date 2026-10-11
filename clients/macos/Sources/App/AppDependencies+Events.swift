@@ -125,7 +125,7 @@ extension AppDependencies {
     private func receiveSystem(_ event: RuntimeEvent) throws {
         guard event.type == "system.ready" else { return }
         let version: UInt32 = try event.value("protocolVersion")
-        guard RuntimeHandle.isSupportedProtocolVersion(version) else {
+        guard version == RuntimeHandle.expectedProtocolVersion else {
             throw RuntimeError.invalidResponse(String(localized: "This copy of Kodosi is damaged. Install it again."))
         }
         appState = .ready

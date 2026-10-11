@@ -252,10 +252,6 @@ namespace Kodosi.Data.Migrations
                     b.Property<Guid>("OwnerUserId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Slug")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("OwnerUserId");
