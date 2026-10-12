@@ -6,6 +6,10 @@ use tokio::time::{Instant, timeout};
 const SHELL: &str = "/bin/sh";
 #[cfg(windows)]
 const SHELL: &str = "cmd.exe";
+#[cfg(all(unix, feature = "host"))]
+const ROOT: &str = "/";
+#[cfg(all(windows, feature = "host"))]
+const ROOT: &str = r"C:\";
 
 struct TestRuntime {
     handle: RuntimeHandle,
@@ -813,7 +817,7 @@ async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_
         .send(Command::CreateSession {
             request_id: request_id.clone(),
             name: "ordered".to_owned(),
-            working_dir: Some("/".to_owned()),
+            working_dir: Some(ROOT.to_owned()),
             mission_id: Some(room_id.clone()),
             resume: None,
             branch: None,

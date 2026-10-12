@@ -1245,6 +1245,10 @@ mod tests {
     use serde_json::json;
 
     const ID: &str = "11111111-1111-4111-8111-111111111111";
+    #[cfg(unix)]
+    const DIRECTORY: &str = "/tmp/project";
+    #[cfg(windows)]
+    const DIRECTORY: &str = r"C:\project";
 
     fn envelope(mut value: Value) -> Value {
         value["accountUserId"] = Value::Null;
@@ -1280,7 +1284,7 @@ mod tests {
             json!({"type":"devices.recovery.use","key":"ABCD-EFGH-JKMN-PQRS-TVWX-YZ01-2345-6789"}),
             json!({"type":"friends.request.send","username":"example","requestId":ID}),
             json!({"type":"session.create","requestId":ID,"name":"Terminal"}),
-            json!({"type":"session.create","requestId":ID,"name":"Resume","workingDir":"/tmp/project","resume":{"provider":"claude","nativeConversationId":ID}}),
+            json!({"type":"session.create","requestId":ID,"name":"Resume","workingDir":DIRECTORY,"resume":{"provider":"claude","nativeConversationId":ID}}),
             json!({"type":"session.rename","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"name":"Renamed"}),
             json!({"type":"session.openRemote","requestId":ID,"sessionId":ID}),
             json!({"type":"session.disconnect","sessionId":ID}),
@@ -1288,8 +1292,8 @@ mod tests {
             json!({"type":"session.attachMission","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"missionId":null}),
             json!({"type":"mission.create","requestId":ID,"name":"Release"}),
             json!({"type":"mission.rename","requestId":ID,"missionId":ID,"name":"Renamed"}),
-            json!({"type":"provider.discoverConversations","requestId":ID,"provider":"claude","workingDirectory":"/tmp/project"}),
-            json!({"type":"provider.readConversation","requestId":ID,"provider":"copilot","workingDirectory":"/tmp/project","nativeConversationId":ID,"beforeByte":123,"limit":2,"maxBytes":4096}),
+            json!({"type":"provider.discoverConversations","requestId":ID,"provider":"claude","workingDirectory":DIRECTORY}),
+            json!({"type":"provider.readConversation","requestId":ID,"provider":"copilot","workingDirectory":DIRECTORY,"nativeConversationId":ID,"beforeByte":123,"limit":2,"maxBytes":4096}),
             json!({"type":"provider.inspect","requestId":ID,"provider":"claude"}),
             json!({"type":"system.setTheme","dark":true}),
             resize(),
@@ -1433,7 +1437,7 @@ mod tests {
             );
         }
         for (limit, max_bytes) in [(0, 4096), (501, 4096), (10, 1024 * 1024 + 1)] {
-            assert!(serde_json::from_value::<CommandEnvelope>(envelope(json!({"type":"provider.readConversation","requestId":ID,"provider":"claude","nativeConversationId":ID,"workingDirectory":"/tmp","limit":limit,"maxBytes":max_bytes}))).is_err());
+            assert!(serde_json::from_value::<CommandEnvelope>(envelope(json!({"type":"provider.readConversation","requestId":ID,"provider":"claude","nativeConversationId":ID,"workingDirectory":DIRECTORY,"limit":limit,"maxBytes":max_bytes}))).is_err());
         }
     }
 
@@ -1453,7 +1457,7 @@ mod tests {
         let base = json!({"type":"session.create","requestId":ID,"name":"Resume","resume":{"provider":"claude","nativeConversationId":ID}});
         assert!(serde_json::from_value::<CommandEnvelope>(envelope(base.clone())).is_err());
         let mut value = base;
-        value["workingDir"] = json!("/tmp");
+        value["workingDir"] = json!(DIRECTORY);
         value["resume"]["permissionBypass"] = json!(true);
         assert!(serde_json::from_value::<CommandEnvelope>(envelope(value)).is_err());
     }
