@@ -78,7 +78,8 @@ The tools are [Bun](https://bun.sh) 1.4 and Docker. `bun install` installs the p
   moves it). `?scene=<name>` selects a page, and `?sheet=0,12` shows twelve pages side by side in
   the size of a phone. The scenes `account`, `account-new` and `account-down` are the account page
   with a sample account service.
-- `./build-theme.sh` builds the theme in `dist_keycloak/`.
+- `bun run theme` builds the theme in `dist_keycloak/`. It needs Node.js, because Keycloakify runs
+  Vite through `npx`, and Maven with a JDK, which packs the JAR.
 - `./keycloak.sh` runs a disposable Keycloak in Docker with the theme, a realm with the settings
   of the hosted realm, and a mailbox that takes its e-mails. It prints their addresses.
   - `./keycloak.sh code` starts a sign-in as the app does, and prints the address with the code.

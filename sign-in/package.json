@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "theme": "./build-theme.sh",
+    "theme": "bun run build && keycloakify build",
     "lint": "oxlint src --max-warnings 0",
     "format": "biome check --write .",
     "format:check": "biome check .",
