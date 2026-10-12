@@ -2,8 +2,8 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-source "$ROOT/scripts/build/deployment-target.sh"
-kodosi_load_macos_deployment_target "$ROOT"
+source "$ROOT/../apple/scripts/apple-platform.sh"
+kodosi_apple_platform macosx
 cd "$ROOT"
 : "${KODOSI_DOWNLOAD_URL:?Set KODOSI_DOWNLOAD_URL to the public HTTPS DMG URL}"
 dmg="build/export/KodosiDesktop.dmg"
@@ -35,7 +35,7 @@ cask "kodosi-desktop" do
   homepage "https://github.com/johnkozaris/Kodosi"
 
   depends_on arch: :arm64
-  depends_on macos: ">= $KODOSI_MACOS_DEPLOYMENT_TARGET"
+  depends_on macos: ">= $KODOSI_DEPLOYMENT_TARGET"
 
   app "KodosiDesktop.app"
   binary "KodosiDesktop.app/Contents/MacOS/KodosiDesktop", target: "kodosi"

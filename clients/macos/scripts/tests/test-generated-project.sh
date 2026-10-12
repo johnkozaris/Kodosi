@@ -17,7 +17,7 @@ for relative_path in project.yml Config Sources Tests Resources KodosiDesktop.xc
 done
 cp -R "$ROOT/../apple" "$SCRATCH/clients/apple"
 mkdir -p "$COPY_ROOT/scripts/build"
-for task in generate-xcode-project.sh generate-xcode-project.py deployment-target.sh; do
+for task in generate-xcode-project.sh generate-xcode-project.py; do
     cp "$ROOT/scripts/build/$task" "$COPY_ROOT/scripts/build/$task"
 done
 printf '\n' >>"$COPY_ROOT/project.yml"

@@ -2,8 +2,8 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-source "$ROOT/scripts/build/deployment-target.sh"
-kodosi_load_macos_deployment_target "$ROOT"
+source "$ROOT/../apple/scripts/apple-platform.sh"
+kodosi_apple_platform macosx
 
 source "$ROOT/scripts/build/kodosi-paths.sh"
 RUST_DIR=$(kodosi_runtime_root "$ROOT")
