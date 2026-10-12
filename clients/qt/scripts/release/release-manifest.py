@@ -15,7 +15,8 @@ import os
 import re
 from pathlib import Path
 
-from release_common import canonical_json, product_version, repository_root, source_identity
+from canonical_json import canonical_json
+from release_source import product_version, repository_root, source_identity
 
 
 ROOT = Path(__file__).resolve().parents[2]

@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from release_common import commit_epoch
+from release_source import commit_epoch
 
 
 def main() -> None:

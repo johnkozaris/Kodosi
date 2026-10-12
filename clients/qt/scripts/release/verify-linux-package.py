@@ -21,7 +21,7 @@ import zlib
 from pathlib import Path, PurePosixPath
 
 from package_evidence import verify_rust_licenses, verify_source_identity
-from release_common import product_version, source_identity
+from release_source import product_version, source_identity
 
 ROOT = Path(__file__).resolve().parents[2]
 GHOSTTY = ROOT.parents[1] / "terminal/ghostty"

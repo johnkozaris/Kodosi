@@ -16,7 +16,7 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import unquote
 
 from package_evidence import verify_rust_licenses, verify_source_identity
-from release_common import source_identity
+from release_source import source_identity
 
 
 ROOT = Path(__file__).resolve().parents[2]

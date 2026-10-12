@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from release_common import canonical_json
+from canonical_json import canonical_json
 
 
 def verify_source_identity(packaged: bytes, checkout: dict[str, object]) -> None:

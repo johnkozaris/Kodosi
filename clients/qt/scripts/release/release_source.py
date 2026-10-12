@@ -1,6 +1,8 @@
+"""The values that a release reads from the Kodosi checkout: the source
+identity of the build and the product version."""
+
 from __future__ import annotations
 
-import json
 import hashlib
 import os
 import re
@@ -27,26 +29,6 @@ def run(
         detail = result.stderr.decode("utf-8", errors="replace").strip()
         raise ValueError(detail or f"{arguments[0]} failed")
     return result.stdout
-
-
-def canonical_json(value: object) -> bytes:
-    return (
-        json.dumps(
-            value,
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-        )
-        + "\n"
-    ).encode("utf-8")
-
-
-def file_sha256(path: Path) -> str:
-    value = hashlib.sha256()
-    with path.open("rb") as source:
-        for chunk in iter(lambda: source.read(1024 * 1024), b""):
-            value.update(chunk)
-    return value.hexdigest()
 
 
 def repository_from_remote(source_root: Path) -> str:

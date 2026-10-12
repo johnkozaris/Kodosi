@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from release_common import product_version
+from release_source import product_version
 
 
 def main() -> None:

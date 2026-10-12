@@ -11,7 +11,7 @@ from pathlib import Path
 RELEASE = Path(__file__).resolve().parents[1] / "release"
 sys.path.insert(0, str(RELEASE))
 
-from release_common import canonical_json  # noqa: E402
+from canonical_json import canonical_json  # noqa: E402
 
 SOURCE = {
     "schemaVersion": 4,

@@ -10,7 +10,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from release_common import canonical_json
+from canonical_json import canonical_json
 
 
 ROOT = Path(__file__).resolve().parents[2]

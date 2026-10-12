@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
 from pathlib import Path
 
-from release_common import canonical_json, file_sha256
+from canonical_json import canonical_json
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -34,6 +35,14 @@ REQUIRED_QT_LICENSES = {
 
 def fail(message: str) -> None:
     raise SystemExit(f"native license evidence error: {message}")
+
+
+def file_sha256(path: Path) -> str:
+    value = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            value.update(chunk)
+    return value.hexdigest()
 
 
 def load_json(path: Path) -> tuple[dict, bytes]:
