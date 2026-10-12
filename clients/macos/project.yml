@@ -13,8 +13,8 @@ configs:
   WorkingTreeValidation: release
 
 packages:
-  KodosiTerminal:
-    path: Packages/KodosiTerminal
+  KodosiApple:
+    path: ../apple
 
 aggregateTargets:
   PrepareNativeBuild:
@@ -69,8 +69,6 @@ targets:
         CODE_SIGN_ENTITLEMENTS: Config/KodosiDesktop.entitlements
         KODOSI_PROVISIONING_PROFILE: ""
         PROVISIONING_PROFILE_SPECIFIER: $(KODOSI_PROVISIONING_PROFILE)
-        HEADER_SEARCH_PATHS:
-          - $(PROJECT_DIR)/Frameworks/KodosiKit.xcframework/Headers
         OTHER_LDFLAGS:
           - -lkodosi_runtime
           - -framework Security
@@ -82,25 +80,32 @@ targets:
         CLANG_ENABLE_MODULES: YES
     sources:
       - path: Sources
-      - path: Frameworks/KodosiKit.xcframework/Headers
-        buildPhase: headers
-        type: folder
       - path: Resources/Assets.xcassets
-        buildPhase: resources
-      - path: Resources/Notices
         buildPhase: resources
     dependencies:
       - target: PrepareNativeBuild
         link: false
         embed: false
-      - package: KodosiTerminal
+      - package: KodosiApple
+        product: KodosiKit
+      - package: KodosiApple
+        product: KodosiBridge
+      - package: KodosiApple
+        product: KodosiDesign
+      - package: KodosiApple
         product: KodosiTerminal
+      - package: KodosiApple
+        product: KodosiTerminalSessions
     preBuildScripts:
       - name: Enforce Build Variant
         basedOnDependencyAnalysis: false
         script: |
           "$PROJECT_DIR/scripts/build/enforce-build-variant.sh"
     postBuildScripts:
+      - name: Install Artwork Notices
+        basedOnDependencyAnalysis: false
+        script: |
+          cp "$PROJECT_DIR/../apple/Notices/"*.txt "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/"
       - name: Install Native Notices
         basedOnDependencyAnalysis: false
         script: |
@@ -125,7 +130,6 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.kodosi.desktop.tests
         PRODUCT_NAME: KodosiDesktopTests
         GENERATE_INFOPLIST_FILE: YES
-        HEADER_SEARCH_PATHS: "$(SRCROOT)/Frameworks/KodosiKit.xcframework/Headers"
         LIBRARY_SEARCH_PATHS: "$(SRCROOT)/Frameworks/KodosiKit.xcframework/macos-host-debug"
     sources:
       - path: Tests

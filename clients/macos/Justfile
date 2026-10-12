@@ -15,13 +15,13 @@ xcode-gen:
 
 package-test: ghostty
     swift test \
-        --package-path Packages/KodosiTerminal
+        --package-path ../apple
 
 lint:
     scripts/build/lint.sh
 
 format:
-    swiftformat Sources Tests Packages/KodosiTerminal/Sources Packages/KodosiTerminal/Tests --swiftversion 6.0
+    swiftformat Sources Tests ../apple/Sources ../apple/Tests ../apple/Plugins ../apple/Package.swift --swiftversion 6.0
 
 test: xcode-gen package-test
     xcodebuild -project KodosiDesktop.xcodeproj \
@@ -47,7 +47,7 @@ build-release: ghostty xcode-gen package-test
 archive-working-tree: xcode-gen
     KODOSI_WORKING_TREE_VALIDATION=1 scripts/build/verify-ghostty-checkout.sh
     KODOSI_WORKING_TREE_VALIDATION=1 swift test \
-        --package-path Packages/KodosiTerminal
+        --package-path ../apple
     KODOSI_WORKING_TREE_VALIDATION=1 xcodebuild -project KodosiDesktop.xcodeproj \
         -scheme WorkingTreeValidation \
         -configuration WorkingTreeValidation \

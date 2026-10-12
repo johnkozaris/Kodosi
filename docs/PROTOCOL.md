@@ -79,7 +79,7 @@ Use the generated files for current versions and message definitions:
 | Native desktop commands and events | [desktop-runtime.json](../protocol/desktop-runtime.json) |
 | Backend HTTP and device control | [backend-api.json](../protocol/backend-api.json) |
 | Terminal connections and framing | [terminal-connections.json](../protocol/terminal-connections.json) |
-| C ABI | [Native header](../clients/macos/Frameworks/KodosiKit.xcframework/Headers/kodosi_runtime.h) |
+| C ABI | [Native header](../clients/apple/Sources/KodosiKit/kodosi_runtime.h) |
 | Upstream terminal revisions and artifacts | [Ghostty.lock](../Ghostty.lock) |
 
 Rust generates shared contracts. Use `just protocol-gen` for an intentional change and

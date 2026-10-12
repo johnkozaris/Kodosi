@@ -10,6 +10,7 @@ use crate::terminal::TerminalMetadata;
 
 pub(crate) const FRAME_LIMIT: usize = 1024 * 1024;
 pub(crate) const KEYFRAME_PART: usize = 32 * 1024;
+#[cfg(feature = "host")]
 pub(crate) const OUTPUT_FRAME: usize = 32 * 1024;
 const HEADER: usize = 7;
 const PACK_FROM: usize = 256;

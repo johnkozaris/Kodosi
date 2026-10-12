@@ -30,11 +30,7 @@ pub struct Config {
 
 impl Config {
     pub fn load() -> Result<Self> {
-        let home = kodosi_os::fs::home_dir()?;
-        let production = match std::env::var_os("KODOSI_PRODUCTION_DATA_ROOT") {
-            Some(root) => PathBuf::from(root),
-            None => kodosi_os::fs::default_data_root()?,
-        };
+        let (home, production) = platform_roots()?;
         let (data_root, preferences, isolated) = match std::env::var_os("KODOSI_DATA_ROOT") {
             Some(value) => {
                 if std::env::var_os("KODOSI_PRODUCTION_DATA_ROOT").is_none() {
@@ -109,6 +105,37 @@ impl Config {
             host: HostKind::App,
         })
     }
+}
+
+#[cfg(not(target_os = "ios"))]
+fn platform_roots() -> Result<(PathBuf, PathBuf)> {
+    let home = kodosi_os::fs::home_dir()?;
+    let production = match std::env::var_os("KODOSI_PRODUCTION_DATA_ROOT") {
+        Some(root) => PathBuf::from(root),
+        None => kodosi_os::fs::default_data_root()?,
+    };
+    Ok((home, production))
+}
+
+#[cfg(target_os = "ios")]
+fn platform_roots() -> Result<(PathBuf, PathBuf)> {
+    if crate::network::device_label().is_none() {
+        return Err(Error::Invalid(
+            "KODOSI_DEVICE_LABEL must name this device.".to_owned(),
+        ));
+    }
+    let production = std::env::var_os("KODOSI_PRODUCTION_DATA_ROOT")
+        .map(PathBuf::from)
+        .filter(|root| root.is_absolute())
+        .ok_or_else(|| {
+            Error::Invalid(
+                "KODOSI_PRODUCTION_DATA_ROOT must be the absolute path of the app's data folder."
+                    .to_owned(),
+            )
+        })?;
+    let production = resolve_existing(&production)?;
+    let home = std::env::var_os("HOME").map_or_else(|| production.clone(), PathBuf::from);
+    Ok((home, production))
 }
 
 pub(crate) fn secure_directory(path: &Path) -> Result<()> {

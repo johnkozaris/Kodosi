@@ -4,19 +4,26 @@
 #[cfg(not(any(
     all(target_os = "macos", target_arch = "aarch64"),
     all(target_os = "linux", target_arch = "x86_64", target_env = "gnu"),
+    all(target_os = "ios", target_arch = "aarch64"),
     all(
         target_os = "windows",
         target_env = "msvc",
         any(target_arch = "x86_64", target_arch = "aarch64")
     )
 )))]
-compile_error!("Kodosi supports arm64 macOS, x86_64 Linux GNU and x86_64 or arm64 Windows MSVC");
+compile_error!(
+    "Kodosi supports arm64 macOS, x86_64 Linux GNU, x86_64 or arm64 Windows MSVC and arm64 iOS"
+);
+
+#[cfg(all(target_os = "ios", feature = "host"))]
+compile_error!("iOS views terminals hosted elsewhere; build it with --no-default-features");
 
 #[cfg(feature = "cli")]
 pub mod cli;
 mod config;
 pub mod diagnostics;
 pub mod identity;
+#[cfg(feature = "host")]
 pub mod local_host;
 pub mod network;
 pub mod protocol;
@@ -52,6 +59,7 @@ pub enum Error {
     Other(String),
 }
 
+#[cfg(feature = "host")]
 impl From<kodosi_pty::KodosiError> for Error {
     fn from(error: kodosi_pty::KodosiError) -> Self {
         match error {

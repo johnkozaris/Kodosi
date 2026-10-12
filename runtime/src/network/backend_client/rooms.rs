@@ -871,7 +871,7 @@ impl BackendClient {
             _ => None,
         };
         let mut snapshot = self.room_snapshot(&credentials, room, before).await?;
-        if matches!(action, Action::Read { .. }) {
+        if cfg!(feature = "host") && matches!(action, Action::Read { .. }) {
             self.sync_linked_issues(&credentials, room, &mut snapshot)
                 .await?;
         }

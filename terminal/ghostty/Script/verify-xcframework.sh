@@ -41,9 +41,19 @@ for root, dirs, _ in os.walk(xcframework):
 with open(info_path, "rb") as handle:
     info = plistlib.load(handle)
 
+expected_slices = {
+    "macos-arm64": ("macos", None),
+    "ios-arm64": ("ios", None),
+    "ios-arm64-simulator": ("ios", "simulator"),
+}
+
 libraries = info.get("AvailableLibraries")
-if not isinstance(libraries, list) or len(libraries) != 1:
-    raise SystemExit("[!] Expected exactly one macOS arm64 library")
+if not isinstance(libraries, list) or len(libraries) != len(expected_slices):
+    raise SystemExit("[!] Expected exactly the macOS, iOS, and iOS Simulator arm64 libraries")
+
+identifiers = [library.get("LibraryIdentifier") for library in libraries]
+if sorted(map(str, identifiers)) != sorted(expected_slices):
+    raise SystemExit(f"[!] unexpected xcframework slices: {identifiers}")
 
 for library in libraries:
     identifier = library.get("LibraryIdentifier")
@@ -51,11 +61,10 @@ for library in libraries:
     binary_path = library.get("BinaryPath")
     headers_path = library.get("HeadersPath")
     platform = library.get("SupportedPlatform")
+    variant = library.get("SupportedPlatformVariant")
 
-    if not identifier:
-        raise SystemExit("[!] library entry missing LibraryIdentifier")
-    if platform != "macos" or library.get("SupportedArchitectures") != ["arm64"]:
-        raise SystemExit(f"[!] unsupported platform in {identifier}: {platform}")
+    if (platform, variant) != expected_slices[identifier] or library.get("SupportedArchitectures") != ["arm64"]:
+        raise SystemExit(f"[!] unsupported platform in {identifier}: {platform} {variant}")
     if library_path != "libghostty.a" or binary_path != "libghostty.a":
         raise SystemExit(f"[!] {identifier} must reference libghostty.a, got LibraryPath={library_path!r} BinaryPath={binary_path!r}")
     if headers_path != "Headers":

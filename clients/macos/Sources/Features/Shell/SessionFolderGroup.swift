@@ -1,4 +1,5 @@
 import Foundation
+import KodosiBridge
 
 struct SessionFolderGroup: Identifiable {
     let id: String

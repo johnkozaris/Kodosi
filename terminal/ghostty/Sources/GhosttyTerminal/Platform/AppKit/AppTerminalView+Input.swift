@@ -1,3 +1,4 @@
+#if os(macOS)
 import AppKit
 import GhosttyKit
 
@@ -257,3 +258,4 @@ extension AppTerminalView {
         }
     }
 }
+#endif

@@ -82,8 +82,10 @@ The runtime and backend implement room terminal sharing, encrypted conversation 
 task history, multiple repository links, and GitHub/Gitea issue actions. Native Mac
 and Linux clients expose these capabilities alongside terminals. The Qt client also
 builds for Windows 11 on x64 and ARM64, with ConPTY terminals and an MSIX package; it
-has not yet been validated on Windows hardware. The `kodosi room` CLI and its bundled
-skill let existing agents participate through the running host.
+has not yet been validated on Windows hardware. The iPhone and iPad client follows,
+answers, and controls the terminals of the person's computers and friends, and takes
+part in rooms; it starts no terminals. The `kodosi room` CLI and its bundled skill let
+existing agents participate through the running host.
 
 Terminals show the state that their programs report through the Program Status
 Protocol (OSC 7501) or a progress bar: working, waiting for a person, done, or failed.

@@ -1,0 +1,23 @@
+diff --git a/src/build/SharedDeps.zig b/src/build/SharedDeps.zig
+index ff49e220e..c23041e01 100644
+--- a/src/build/SharedDeps.zig
++++ b/src/build/SharedDeps.zig
+@@ -592,7 +592,8 @@ pub fn add(
+         // This is LGPL but since our source code is open source we are
+         // in compliance with the LGPL since end users can modify this
+         // build script to replace the bundled libintl with their own.
+-        if (b.lazyDependency("libintl", .{
++        // Only gettext-based internationalization uses it.
++        if (self.config.i18n) if (b.lazyDependency("libintl", .{
+             .target = target,
+             .optimize = optimize,
+         })) |libintl_dep| {
+@@ -601,7 +602,7 @@ pub fn add(
+                 b.allocator,
+                 libintl_dep.artifact("intl").getEmittedBin(),
+             );
+-        }
++        };
+     }
+ 
+     // cimgui — only needed for inspector

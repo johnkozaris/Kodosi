@@ -18,7 +18,7 @@
 mod bindings {
     #[cfg(target_os = "linux")]
     include!("bindings_linux.rs");
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     include!("bindings_macos.rs");
     #[cfg(windows)]
     include!("bindings_windows.rs");
@@ -37,7 +37,7 @@ mod tests {
     fn checked_bindings_exclude_upstream_snapshot_api() {
         #[cfg(target_os = "linux")]
         let bindings = include_str!("bindings_linux.rs");
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         let bindings = include_str!("bindings_macos.rs");
         #[cfg(windows)]
         let bindings = include_str!("bindings_windows.rs");

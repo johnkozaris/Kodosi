@@ -1,4 +1,22 @@
 {
+  "appleSlices": {
+    "ios-arm64": {
+      "absentComponents": [
+        "gettext-libintl",
+        "vaxis",
+        "zf"
+      ],
+      "archive": "Vendor/GhosttyKit.xcframework/ios-arm64/libghostty.a"
+    },
+    "ios-arm64-simulator": {
+      "absentComponents": [
+        "gettext-libintl",
+        "vaxis",
+        "zf"
+      ],
+      "archive": "Vendor/GhosttyKit.xcframework/ios-arm64-simulator/libghostty.a"
+    }
+  },
   "archiveEvidence": [
     {
       "component": "libxev",
@@ -1157,7 +1175,7 @@
   "components": [
     {
       "id": "ghostty",
-      "identity": "ghostty:c770410dbb57909ff4f6921a6497688a957f85db;patch_set:3d8bc75ea5686906f0f7f98dd24efaddf71fb22f3541314e4214dae1878d02c0;patch_application:47fe118bf927e51cde6830b4827a69b13c247edbe96abc6a30340b0114c42f9f",
+      "identity": "ghostty:c770410dbb57909ff4f6921a6497688a957f85db;patch_set:f92f3eec8424e6a6035c7d7e6ba61cf0789bcbdca988411203385c41bc585fe6;patch_application:26f8346d2c28bcd22708223cb609e85ff8306c70912cfcd0406a2b7a9af3b4fa",
       "name": "Ghostty",
       "notices": [
         "LICENSE-GHOSTTY"
@@ -1804,7 +1822,7 @@
       "sha256": "845efc77857d485d91fb3e0b884aaa929368c717ae8186b66fe1ed2495753243"
     }
   },
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "sourceAcquisitions": {
     "z2d": {
       "acquiredOn": "2026-08-10",

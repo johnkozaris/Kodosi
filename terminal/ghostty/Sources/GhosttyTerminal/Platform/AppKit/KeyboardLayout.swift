@@ -1,3 +1,4 @@
+#if os(macOS)
 import Carbon.HIToolbox
 
     enum KeyboardLayout {
@@ -18,3 +19,4 @@ import Carbon.HIToolbox
             return property as String
         }
     }
+#endif

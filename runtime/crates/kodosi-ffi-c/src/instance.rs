@@ -5,9 +5,11 @@ use super::{
     KODOSI_FFI_STALE_SUBSCRIPTION, KODOSI_MAX_FRAME_BYTES, KODOSI_START_ALREADY_ACTIVE,
     KODOSI_START_FAILED, KODOSI_START_HOST_BUSY, KODOSI_START_INVALID_CALLBACKS,
     KODOSI_START_REJECTED, KodosiCallbacks, KodosiStartFailure, Mutex, NEXT_HANDLE, Ordering,
-    RuntimeHandle, STOP_BUDGET, State, Subscriptions, UserData, c_char, c_void, local_host, lock,
+    RuntimeHandle, STOP_BUDGET, State, Subscriptions, UserData, c_char, c_void, lock,
     record_start_failure, start_failure,
 };
+#[cfg(feature = "host")]
+use super::{host_busy, local_host};
 
 struct ActiveRuntime;
 impl ActiveRuntime {
@@ -123,7 +125,6 @@ pub unsafe extern "C" fn kodosi_start(
                 return Err(start_failure(
                     KODOSI_START_INVALID_CALLBACKS,
                     "The runtime callbacks are missing or sized for another ABI.",
-                    None,
                 ));
             }
             let callbacks = unsafe { callbacks.read() };
@@ -136,14 +137,12 @@ pub unsafe extern "C" fn kodosi_start(
                 return Err(start_failure(
                     KODOSI_START_INVALID_CALLBACKS,
                     "A required runtime callback is missing.",
-                    None,
                 ));
             }
             let Some(active) = ActiveRuntime::acquire() else {
                 return Err(start_failure(
                     KODOSI_START_ALREADY_ACTIVE,
                     "This process already runs the Kodosi runtime.",
-                    None,
                 ));
             };
             let key = NEXT_HANDLE
@@ -152,7 +151,6 @@ pub unsafe extern "C" fn kodosi_start(
                     start_failure(
                         KODOSI_START_FAILED,
                         "The runtime handle space is exhausted.",
-                        None,
                     )
                 })?;
             let (ready, receive) = std::sync::mpsc::sync_channel(1);
@@ -160,12 +158,11 @@ pub unsafe extern "C" fn kodosi_start(
             std::thread::Builder::new()
                 .name("kodosi-runtime".into())
                 .spawn(move || run_executor(key, callbacks, userdata, ready, active))
-                .map_err(|error| start_failure(KODOSI_START_FAILED, &error.to_string(), None))?;
+                .map_err(|error| start_failure(KODOSI_START_FAILED, &error.to_string()))?;
             let (instance, initial, events) = receive.recv().map_err(|_| {
                 start_failure(
                     KODOSI_START_FAILED,
                     "The runtime thread ended before reporting.",
-                    None,
                 )
             })??;
             instance.spawn(pump_events(
@@ -190,7 +187,6 @@ pub unsafe extern "C" fn kodosi_start(
             record_start_failure(Some(&start_failure(
                 KODOSI_START_FAILED,
                 "The runtime panicked during startup.",
-                None,
             )));
             std::ptr::null_mut()
         }
@@ -219,7 +215,7 @@ fn run_executor(
     let setup = std::panic::catch_unwind(AssertUnwindSafe(
         || -> std::result::Result<Setup, Box<KodosiStartFailure>> {
             let executor = Executor::new()
-                .map_err(|error| start_failure(KODOSI_START_FAILED, &error.to_string(), None))?;
+                .map_err(|error| start_failure(KODOSI_START_FAILED, &error.to_string()))?;
             let config = crate::app::start_config()?;
             let root = config.data_root.clone();
             kodosi_runtime::diagnostics::install(&root, kodosi_runtime::diagnostics::Role::App);
@@ -232,10 +228,12 @@ fn run_executor(
                         Error::Invalid(_) => KODOSI_START_REJECTED,
                         _ => KODOSI_START_FAILED,
                     };
-                    let status = (code == KODOSI_START_HOST_BUSY)
-                        .then(|| executor.block_on(local_host::host_status(&root)).ok())
-                        .flatten();
-                    start_failure(code, &error.to_string(), status)
+                    #[cfg(feature = "host")]
+                    if code == KODOSI_START_HOST_BUSY {
+                        let status = executor.block_on(local_host::host_status(&root)).ok();
+                        return host_busy(&error.to_string(), status);
+                    }
+                    start_failure(code, &error.to_string())
                 })?;
             let instance = Arc::new(Instance {
                 runtime,
@@ -256,7 +254,7 @@ fn run_executor(
                     .block_on(instance.runtime.observe())
                     .map_err(|error| {
                         tracing::error!(%error, "could not observe embedded runtime");
-                        start_failure(KODOSI_START_FAILED, &error.to_string(), None)
+                        start_failure(KODOSI_START_FAILED, &error.to_string())
                     })?;
             Ok((executor, instance, initial, events))
         },
@@ -273,7 +271,6 @@ fn run_executor(
             let _ = ready.send(Err(start_failure(
                 KODOSI_START_FAILED,
                 "The embedded runtime panicked during startup.",
-                None,
             )));
             return;
         }

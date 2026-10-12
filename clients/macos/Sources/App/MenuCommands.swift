@@ -1,3 +1,4 @@
+import KodosiDesign
 import SwiftUI
 
 struct KodosiCommands: Commands {

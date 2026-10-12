@@ -24,8 +24,6 @@ fn main() {
     println!("cargo:rerun-if-changed=../../../Ghostty.lock");
     let target = env::var("TARGET").expect("Cargo target triple");
     let artifact = target_artifact(&target);
-    let locked_ghostty_commit = lock_value(artifact.upstream_lock_key);
-    let locked_archive_digest = lock_value(artifact.archive_lock_key);
 
     let root = env::var_os("KODOSI_GHOSTTY_DIR")
         .filter(|path| !path.is_empty())
@@ -40,12 +38,12 @@ fn main() {
     let expected_ghostty_commit = if working_tree {
         metadata_value(&metadata, "ghostty_commit", &provenance)
     } else {
-        locked_ghostty_commit
+        lock_value(artifact.upstream_lock_key)
     };
     let expected_archive_digest = if working_tree {
         metadata_value(&metadata, artifact.metadata_digest_key, &provenance)
     } else {
-        locked_archive_digest
+        lock_value(artifact.archive_lock_key)
     };
     if working_tree {
         println!(
@@ -133,6 +131,30 @@ fn target_artifact(target: &str) -> TargetArtifact {
             archive: "libghostty-vt.a",
             link_name: "ghostty-vt",
             system_libraries: &[],
+        },
+        "aarch64-apple-ios" => TargetArtifact {
+            platform_ref: "MacOSGhostty.ref",
+            provenance: "Vendor/libghostty-ios-arm64.version",
+            library_dir: "Vendor/GhosttyKit.xcframework/ios-arm64",
+            zig_target: "aarch64-ios.26.0",
+            upstream_lock_key: "upstream_commit",
+            archive_lock_key: "ios_combined_archive_sha256",
+            metadata_digest_key: "combined_archive_sha256",
+            archive: "libghostty.a",
+            link_name: "ghostty",
+            system_libraries: &["c++"],
+        },
+        "aarch64-apple-ios-sim" => TargetArtifact {
+            platform_ref: "MacOSGhostty.ref",
+            provenance: "Vendor/libghostty-ios-arm64-simulator.version",
+            library_dir: "Vendor/GhosttyKit.xcframework/ios-arm64-simulator",
+            zig_target: "aarch64-ios.26.0-simulator",
+            upstream_lock_key: "upstream_commit",
+            archive_lock_key: "ios_simulator_combined_archive_sha256",
+            metadata_digest_key: "combined_archive_sha256",
+            archive: "libghostty.a",
+            link_name: "ghostty",
+            system_libraries: &["c++"],
         },
         "x86_64-pc-windows-msvc" => windows_artifact("x86_64", "windows-x86_64"),
         "aarch64-pc-windows-msvc" => windows_artifact("aarch64", "windows-arm64"),

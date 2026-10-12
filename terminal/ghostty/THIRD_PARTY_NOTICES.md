@@ -1,12 +1,18 @@
-# Third-party notices for the combined Ghostty archive
+# Third-party notices for the combined Ghostty archives
 
-The static archive shipped at both `Vendor/GhosttyKit.xcframework/macos-arm64/libghostty.a`
+The macOS static archive shipped at both `Vendor/GhosttyKit.xcframework/macos-arm64/libghostty.a`
 and `Vendor/GhosttyVt/macos-arm64/lib/libghostty-vt.a` includes the components below.
-The two paths contain the same native image. Versions and source identities are pinned in
-`ThirdPartyNotices/inventory.json`; the full license texts copied from those
-exact source trees are under `ThirdPartyNotices/licenses/`.
+The two paths contain the same native image. The iOS and iOS Simulator archives at
+`Vendor/GhosttyKit.xcframework/ios-arm64/libghostty.a` and
+`Vendor/GhosttyKit.xcframework/ios-arm64-simulator/libghostty.a` are built from the same
+patched source and include the same components, except vaxis, zf and GNU libintl. Ghostty
+compiles its terminal-UI CLI commands, the only users of vaxis and zf, out of iOS builds.
+iOS builds also turn off Ghostty's gettext translations (`i18n=false`), the only user of
+libintl. Versions and source identities are pinned in `ThirdPartyNotices/inventory.json`;
+the full license texts copied from those exact source trees are under
+`ThirdPartyNotices/licenses/`.
 
-This notice set must accompany redistribution of binaries that incorporate this archive.
+This notice set must accompany redistribution of binaries that incorporate these archives.
 It supplements, and does not replace, the package license in `LICENSE` and Ghostty's license
 in `LICENSE-GHOSTTY`.
 
@@ -27,15 +33,15 @@ or application/runtime dependencies.
   and a separately traced Fuchsia-derived validation routine under BSD-3-Clause.
 - Highway 1.2.0 / commit `66486a10623fa0d72fe91260f96c892e41aceb06` —
   Apache-2.0 and BSD-3-Clause portions.
-- GNU gettext/libintl 0.24 — LGPL-2.1-or-later.
+- GNU gettext/libintl 0.24 — LGPL-2.1-or-later (macOS archive only).
 - stb_image 2.28 and stb_image_resize 0.97 — MIT.
 - Wuffs `0.4.0-alpha.10+3966.20260623` — MIT (also offered under Apache-2.0).
 - libxev commit `9ce8e8e6ff89e583258a7f8e7adeeeaeae8611bf` — MIT.
-- vaxis 0.6.0 / commit `1dbbe575dff4586fe51e3217aa5c3fecdcbb6089` — MIT.
+- vaxis 0.6.0 / commit `1dbbe575dff4586fe51e3217aa5c3fecdcbb6089` — MIT (macOS archive only).
 - z2d 0.12.1 / commit `7dbae85c81784dba9988320bf9543ed9a81350c8` — MPL-2.0,
   including the additional upstream notices preserved in
   `ThirdPartyNotices/licenses/z2d-NOTICE.txt`.
-- zf 0.11.0 / commit `c35c421f84895193246db06c40683c1a30e616ef` — MIT.
+- zf 0.11.0 / commit `c35c421f84895193246db06c40683c1a30e616ef` — MIT (macOS archive only).
 - uucode 0.2.0 / commit `9d55524551411b493cca41ca06363625d90aff1e` — MIT,
   including Bjoern Hoehrmann's MIT-licensed UTF-8 decoder and Unicode data under the
   Unicode License v3.
@@ -55,8 +61,9 @@ Ghostty itself and the local Wuffs Zig adapter are covered by `LICENSE-GHOSTTY`.
 
 ## GNU libintl static-linking notice
 
-This archive contains a statically linked copy of GNU libintl from gettext 0.24 under the
-GNU Lesser General Public License, version 2.1 or (at your option) any later version. The
+The macOS archive contains a statically linked copy of GNU libintl from gettext 0.24 under
+the GNU Lesser General Public License, version 2.1 or (at your option) any later version. The
+iOS and iOS Simulator archives do not contain libintl. The
 full license is in
 `ThirdPartyNotices/licenses/gettext-libintl-LGPL-2.1-or-later.txt`.
 

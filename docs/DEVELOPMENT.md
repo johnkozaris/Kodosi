@@ -1,6 +1,6 @@
 # Development
 
-One checkout contains the runtime, backend, both native clients, generated contracts,
+One checkout contains the runtime, backend, the native clients, generated contracts,
 and Ghostty integration. No sibling repositories or submodules are needed.
 
 ## Repository layout
@@ -11,6 +11,8 @@ and Ghostty integration. No sibling repositories or submodules are needed.
 | `backend/` | ASP.NET Core metadata service and encrypted traffic relay |
 | `clients/macos/` | Swift native Mac app |
 | `clients/qt/` | Qt native Linux and Windows app |
+| `clients/ios/` | Swift native iPhone and iPad app |
+| `clients/apple/` | Swift package shared by the Mac and iOS apps |
 | `protocol/` | Generated contracts shared across the stack |
 | `terminal/ghostty/` | Native terminal integration, patches, artifacts, and notices |
 | `terminal/conpty/` | Pinned Windows console host for terminals on Windows |
@@ -29,9 +31,10 @@ The root recipes also recognize a local .NET SDK at `backend/.tools/dotnet-10.0.
 Keep dependencies and downloaded build tools inside the project.
 
 For native prerequisites and signing, follow the
-[Mac build guide](../clients/macos/README.md) or the
-[Linux and Windows build guide](../clients/qt/README.md). Build each app on its own
-platform. On Windows, run the recipes in Git Bash.
+[Mac build guide](../clients/macos/README.md), the
+[Linux and Windows build guide](../clients/qt/README.md), or the
+[iOS build guide](../clients/ios/README.md). Build each app on its own platform; the
+iOS app builds on a Mac. On Windows, run the recipes in Git Bash.
 
 ## Build and check
 
@@ -47,6 +50,8 @@ Run these from the repository root. `just --list` is the complete command refere
 | `just linux-build` / `just linux-check` | Build / check the Linux app |
 | `just windows-check` | Build and check the Windows app on Windows |
 | `just windows-cross-check` | Lint the runtime for both Windows targets in Docker, from any host |
+| `just ios-build` / `just ios-check` | Build / check the iPhone and iPad app |
+| `just ios-rust-targets` / `just ios-rust-check` | Install / lint the iOS Rust targets |
 
 Platform directories retain their own `just` recipes, including release packaging.
 Artifacts stay in the component's output directories. Release packages record the

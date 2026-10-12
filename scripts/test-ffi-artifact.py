@@ -181,6 +181,30 @@ class FfiArtifactTests(unittest.TestCase):
                 self.assertEqual((current / "libkodosi_ffi_c.a").read_bytes(), b"target-one dev archive")
                 self.assertEqual((current / "include/kodosi_runtime.h").read_bytes(), b"target-one dev header")
 
+    def test_viewer_build_disables_default_features(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            manifest = root / "runtime/Cargo.toml"
+            crate = root / "runtime/crates/kodosi-ffi-c/Cargo.toml"
+            crate.parent.mkdir(parents=True)
+            crate.touch()
+            manifest.touch()
+            commands = []
+
+            def cargo_build(command, **_):
+                commands.append(command)
+                return mock.Mock(stdout=io.StringIO('{"reason":"build-finished","success":false}\n'),
+                    wait=mock.Mock(return_value=1))
+
+            with mock.patch.object(MODULE.subprocess, "check_output", return_value="ffi\n"), \
+                    mock.patch.object(MODULE.subprocess, "Popen", side_effect=cargo_build):
+                for default_features in (True, False):
+                    with self.assertRaises(ValueError):
+                        MODULE.build(manifest, root / "output", "dev", "target", True,
+                            default_features=default_features)
+            self.assertNotIn("--no-default-features", commands[0])
+            self.assertIn("--no-default-features", commands[1])
+
     def test_concurrent_publication_never_mixes_pairs(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

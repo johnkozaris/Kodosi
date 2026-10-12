@@ -6,16 +6,16 @@ use zeroize::Zeroizing;
 mod linux;
 #[cfg(target_os = "linux")]
 use linux as imp;
-#[cfg(target_os = "macos")]
-mod macos;
-#[cfg(target_os = "macos")]
-use macos as imp;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+mod apple;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use apple as imp;
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]
 use windows as imp;
 
-/// The system credential store: Keychain on macOS, Secret Service on Linux,
+/// The system credential store: Keychain on macOS and iOS, Secret Service on Linux,
 /// and files sealed with Windows data protection on Windows.
 pub struct SecretStore(imp::Store);
 

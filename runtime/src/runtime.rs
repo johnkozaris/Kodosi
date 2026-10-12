@@ -1,6 +1,7 @@
+#[cfg(feature = "host")]
+use std::path::{Path, PathBuf};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
-    path::{Path, PathBuf},
     pin::Pin,
     sync::Arc,
     time::Duration,
@@ -19,24 +20,25 @@ use uuid::Uuid;
 use crate::{
     Command, CommandEnvelope, Config, Error, Event, Result,
     network::{
-        BackendClient, BackendConfig, BackendEvent, BackendReply, INPUT_NOT_SENT, LocalPublication,
-        RemoteConnection, RemoteSession, TerminalControl,
+        BackendClient, BackendConfig, BackendEvent, BackendReply, INPUT_NOT_SENT, RemoteConnection,
+        RemoteSession, TerminalControl,
     },
     protocol::{ConnectionState, SessionEntry, SessionKind, SessionStatus},
-    terminal::{
-        LocalSession, RemoteTerminal, SessionChange, Subscription, TerminalPixelGeometry,
-        TerminalSize,
-    },
+    terminal::{RemoteTerminal, SessionChange, Subscription, TerminalPixelGeometry, TerminalSize},
 };
+#[cfg(feature = "host")]
+use crate::{network::LocalPublication, terminal::LocalSession};
 
 mod commands;
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "host")]
 pub(crate) const NOT_PUBLISHED: &str =
     "Remote access is still connecting. Try again when this device is online and approved.";
 const MAX_SESSIONS: usize = 64;
 const MAX_JOBS: usize = 64;
+#[cfg(feature = "host")]
 const MAX_PUBLICATIONS_IN_FLIGHT: usize = 8;
 const COMMAND_CAPACITY: usize = 128;
 const MAX_QUEUED_INPUT_BYTES: usize = 4 * 1024 * 1024;
@@ -141,6 +143,7 @@ impl RuntimeHandle {
         })
     }
 
+    #[cfg(feature = "host")]
     pub(crate) fn command_client(&self) -> Self {
         Self {
             consumer: Arc::new(Consumer::default()),
@@ -328,6 +331,7 @@ struct Scope {
     network_generation: u64,
 }
 
+#[cfg(feature = "host")]
 struct Local {
     terminal: LocalSession,
     entry: SessionEntry,
@@ -336,6 +340,7 @@ struct Local {
     worktree: Option<crate::worktree::Worktree>,
 }
 
+#[cfg(feature = "host")]
 impl Local {
     fn stop(&self) -> impl Future<Output = ()> + use<> {
         let terminal = self.terminal.clone();
@@ -376,6 +381,7 @@ impl Local {
     }
 }
 
+#[cfg(feature = "host")]
 struct StartedSession {
     terminal: Option<LocalSession>,
     directory: PathBuf,
@@ -383,6 +389,7 @@ struct StartedSession {
     worktree: Option<crate::worktree::Worktree>,
 }
 
+#[cfg(feature = "host")]
 impl Drop for StartedSession {
     fn drop(&mut self) {
         if let Some(terminal) = &self.terminal {
@@ -412,6 +419,7 @@ enum Completion {
         result: Result<()>,
     },
     Initialized(Result<()>),
+    #[cfg(feature = "host")]
     Created {
         id: Uuid,
         result: Result<StartedSession>,
@@ -426,6 +434,7 @@ enum Completion {
         attempt: Uuid,
         result: Result<RemoteConnection>,
     },
+    #[cfg(feature = "host")]
     Published {
         id: Uuid,
         incarnation: Uuid,
@@ -439,6 +448,7 @@ enum Completion {
         command: Command,
         result: Result<()>,
     },
+    #[cfg(feature = "host")]
     Provider {
         command: Command,
         result: Result<Value>,
@@ -460,6 +470,7 @@ enum Completion {
 
 #[derive(Clone)]
 enum TerminalTarget {
+    #[cfg(feature = "host")]
     Local(LocalSession),
     Remote(RemoteTerminal),
 }
@@ -467,6 +478,7 @@ enum TerminalTarget {
 impl TerminalTarget {
     fn unsubscribe(&self, connection: Uuid) {
         match self {
+            #[cfg(feature = "host")]
             Self::Local(terminal) => terminal.unsubscribe(connection),
             Self::Remote(terminal) => terminal.unsubscribe(connection),
         }
@@ -474,6 +486,7 @@ impl TerminalTarget {
 
     fn subscribe(&self) -> Pin<Box<dyn Future<Output = Result<Subscription>> + Send>> {
         match self {
+            #[cfg(feature = "host")]
             Self::Local(terminal) => Box::pin(terminal.subscribe()),
             Self::Remote(terminal) => Box::pin(terminal.subscribe()),
         }
@@ -484,6 +497,7 @@ impl TerminalTarget {
         connection: Uuid,
     ) -> Pin<Box<dyn Future<Output = Result<crate::network::CheckpointCut>> + Send>> {
         match self {
+            #[cfg(feature = "host")]
             Self::Local(terminal) => Box::pin(terminal.checkpoint(connection)),
             Self::Remote(terminal) => Box::pin(terminal.checkpoint(connection)),
         }
@@ -495,6 +509,7 @@ impl TerminalTarget {
         focused: bool,
     ) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
         match self {
+            #[cfg(feature = "host")]
             Self::Local(terminal) => Box::pin(terminal.focus(connection, focused)),
             Self::Remote(terminal) => {
                 let result = terminal.control(Some(connection), TerminalControl::Focus { focused });
@@ -505,7 +520,9 @@ impl TerminalTarget {
 
     fn end(&self, closing: bool) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
         match self {
+            #[cfg(feature = "host")]
             Self::Local(terminal) if closing => Box::pin(terminal.close()),
+            #[cfg(feature = "host")]
             Self::Local(terminal) => Box::pin(terminal.interrupt()),
             Self::Remote(terminal) => {
                 let result = terminal.control(
@@ -529,6 +546,7 @@ impl TerminalTarget {
         claim: bool,
     ) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
         match self {
+            #[cfg(feature = "host")]
             Self::Local(terminal) => Box::pin(terminal.resize(connection, size, geometry, claim)),
             Self::Remote(terminal) => {
                 let result = terminal.control(
@@ -566,23 +584,29 @@ impl Reconnect {
 }
 
 struct Runtime {
+    #[cfg(feature = "host")]
     config: Config,
     network: BackendClient,
     events: broadcast::Sender<Event>,
     scope: Scope,
+    #[cfg(feature = "host")]
     local: HashMap<Uuid, Local>,
+    #[cfg(feature = "host")]
     creating: HashMap<Uuid, Command>,
     remotes: HashMap<Uuid, SessionEntry>,
     connections: HashMap<Uuid, RemoteTerminal>,
     opening: HashMap<Uuid, Opening>,
     views: HashMap<Uuid, HashMap<Uuid, CancellationToken>>,
     reconnect: HashMap<Uuid, Reconnect>,
+    #[cfg(feature = "host")]
     publishing: BTreeSet<Uuid>,
+    #[cfg(feature = "host")]
     retiring: BTreeSet<Uuid>,
     unpublishing: BTreeSet<Uuid>,
     administering: BTreeSet<Uuid>,
     jobs: JoinSet<Job>,
     changes: mpsc::Sender<SessionChange>,
+    #[cfg(feature = "host")]
     dark: bool,
     initializing: bool,
     auth_pending: bool,
@@ -619,6 +643,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         input_budget: Arc::new(Semaphore::new(MAX_QUEUED_INPUT_BYTES)),
         consumer: Arc::new(Consumer::default()),
     };
+    #[cfg(feature = "host")]
     let server = crate::local_host::serve(
         handle.clone(),
         config.data_root.clone(),
@@ -629,24 +654,32 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         client_count,
     )
     .await?;
+    #[cfg(not(feature = "host"))]
+    drop(client_count);
     let runtime = Runtime {
+        #[cfg(feature = "host")]
         config,
         network,
         events,
         scope,
+        #[cfg(feature = "host")]
         local: HashMap::new(),
+        #[cfg(feature = "host")]
         creating: HashMap::new(),
         remotes: HashMap::new(),
         connections: HashMap::new(),
         opening: HashMap::new(),
         views: HashMap::new(),
         reconnect: HashMap::new(),
+        #[cfg(feature = "host")]
         publishing: BTreeSet::new(),
+        #[cfg(feature = "host")]
         retiring: BTreeSet::new(),
         unpublishing: BTreeSet::new(),
         administering: BTreeSet::new(),
         jobs: JoinSet::new(),
         changes,
+        #[cfg(feature = "host")]
         dark: true,
         initializing: true,
         auth_pending: false,
@@ -654,9 +687,9 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         cached_events: BTreeMap::new(),
     };
     tokio::spawn(async move {
-        runtime
-            .run(receiver, change_rx, network_events, server)
-            .await;
+        runtime.run(receiver, change_rx, network_events).await;
+        #[cfg(feature = "host")]
+        server.shutdown().await;
         let _ = stopped.send(true);
     });
     Ok(handle)
@@ -677,12 +710,9 @@ impl Runtime {
     }
 
     fn entries(&self) -> Vec<SessionEntry> {
-        let mut entries = self
-            .local
-            .values()
-            .map(|local| local.entry.clone())
-            .chain(self.remotes.values().cloned())
-            .collect::<Vec<_>>();
+        let mut entries = self.remotes.values().cloned().collect::<Vec<_>>();
+        #[cfg(feature = "host")]
+        entries.extend(self.local.values().map(|local| local.entry.clone()));
         entries.sort_by(|left, right| left.id.cmp(&right.id));
         entries
     }
@@ -745,7 +775,6 @@ impl Runtime {
         mut requests: mpsc::Receiver<Request>,
         mut changes: mpsc::Receiver<SessionChange>,
         mut network_events: broadcast::Receiver<BackendEvent>,
-        server: crate::local_host::LocalServer,
     ) {
         self.emit(json!({"type":"system.ready", "protocolVersion":crate::protocol::VERSION}));
         let network = self.network.clone();
@@ -808,12 +837,13 @@ impl Runtime {
                     }
                 }
                 _ = demand.tick() => { self.prune_views(); self.reconnect_views(); }
-                _ = retry.tick() => { self.publish_locals(); self.retire_publications(); self.reconnect_views(); }
+                _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); } self.reconnect_views(); }
             }
         }
         requests.close();
         self.jobs.abort_all();
         while let Some(job) = self.jobs.join_next().await {
+            #[cfg(feature = "host")]
             if let Ok(Job {
                 completion:
                     Completion::Created {
@@ -825,6 +855,8 @@ impl Runtime {
             {
                 drop(started);
             }
+            #[cfg(not(feature = "host"))]
+            drop(job);
         }
         for opening in self.opening.values() {
             opening.cancellation.cancel();
@@ -833,13 +865,18 @@ impl Runtime {
             terminal.disconnect();
         }
         self.connections.clear();
+        #[cfg(feature = "host")]
+        self.stop_locals().await;
+        self.network.shutdown().await;
+    }
+
+    #[cfg(feature = "host")]
+    async fn stop_locals(&self) {
         let mut stopping = JoinSet::new();
         for local in self.local.values() {
             stopping.spawn(local.stop());
         }
         while stopping.join_next().await.is_some() {}
-        self.network.shutdown().await;
-        server.shutdown().await;
     }
 
     fn clear_input_notice(&mut self, session: Uuid) {
@@ -867,6 +904,7 @@ impl Runtime {
         match target {
             Ok(target) => {
                 let admission = match target {
+                    #[cfg(feature = "host")]
                     TerminalTarget::Local(terminal) => {
                         terminal.write_input(connection, bytes).boxed()
                     }
@@ -902,6 +940,7 @@ impl Runtime {
         match result {
             Ok(target) => {
                 let admission = match target {
+                    #[cfg(feature = "host")]
                     TerminalTarget::Local(terminal) => {
                         terminal.write_input(connection, bytes).boxed()
                     }
@@ -1022,31 +1061,41 @@ impl Runtime {
     }
 
     fn target(&self, id: Uuid) -> Result<TerminalTarget> {
-        self.local.get(&id).map_or_else(
-            || {
-                self.connections
-                    .get(&id)
-                    .filter(|terminal| !terminal.is_closed())
-                    .cloned()
-                    .map(TerminalTarget::Remote)
-                    .ok_or(Error::NotFound)
-            },
-            |local| Ok(TerminalTarget::Local(local.terminal.clone())),
-        )
+        #[cfg(feature = "host")]
+        if let Some(local) = self.local.get(&id) {
+            return Ok(TerminalTarget::Local(local.terminal.clone()));
+        }
+        self.connections
+            .get(&id)
+            .filter(|terminal| !terminal.is_closed())
+            .cloned()
+            .map(TerminalTarget::Remote)
+            .ok_or(Error::NotFound)
+    }
+
+    #[cfg(feature = "host")]
+    fn hosts(&self, id: &Uuid) -> bool {
+        self.local.contains_key(id)
+    }
+
+    #[cfg(not(feature = "host"))]
+    #[expect(clippy::unused_self, reason = "a viewer hosts no terminals")]
+    const fn hosts(&self, _id: &Uuid) -> bool {
+        false
     }
 
     fn check_incarnation(&self, id: Uuid, incarnation: Uuid) -> Result<()> {
         let expected = self
+            .remotes
+            .get(&id)
+            .and_then(|entry| Uuid::parse_str(&entry.incarnation_id).ok());
+        #[cfg(feature = "host")]
+        let expected = self
             .local
             .get(&id)
             .map(|local| local.terminal.incarnation_id)
-            .or_else(|| {
-                self.remotes
-                    .get(&id)
-                    .and_then(|entry| Uuid::parse_str(&entry.incarnation_id).ok())
-            })
-            .ok_or(Error::NotFound)?;
-        if expected == incarnation {
+            .or(expected);
+        if expected.ok_or(Error::NotFound)? == incarnation {
             Ok(())
         } else {
             Err(Error::Stale)
@@ -1104,7 +1153,7 @@ impl Runtime {
             return Ok(());
         }
         self.scope = Scope {
-            user: user.clone(),
+            user,
             network_generation: generation,
             epoch: self.scope.epoch.checked_add(1).ok_or(Error::Stopped)?,
         };
@@ -1122,15 +1171,18 @@ impl Runtime {
         self.cached_events.clear();
         self.latest_auth = None;
         self.administering.clear();
+        #[cfg(feature = "host")]
         self.publishing.clear();
+        #[cfg(feature = "host")]
         self.retiring.clear();
         self.unpublishing.clear();
+        #[cfg(feature = "host")]
         for local in self.local.values_mut() {
             local.published = false;
             local.entry.shared_with.clear();
             local.entry.mission_id = None;
             local.entry.mission_name = None;
-            local.entry.owner_user_id.clone_from(&user);
+            local.entry.owner_user_id.clone_from(&self.scope.user);
             local.entry.host_device_id = None;
         }
         self.emit(self.auth_event());
@@ -1153,30 +1205,8 @@ impl Runtime {
             .and_then(Value::as_str)
             .unwrap_or_default();
         if kind == "network.sharing" {
-            let id = event
-                .event
-                .get("sessionId")
-                .and_then(Value::as_str)
-                .and_then(|id| Uuid::parse_str(id).ok());
-            let incarnation = event
-                .event
-                .get("incarnationId")
-                .and_then(Value::as_str)
-                .and_then(|id| Uuid::parse_str(id).ok());
-            let users = event
-                .event
-                .get("sharedWith")
-                .cloned()
-                .and_then(|users| serde_json::from_value::<Vec<String>>(users).ok());
-            if let (Some(id), Some(incarnation), Some(users)) = (id, incarnation, users)
-                && let Some(local) = self
-                    .local
-                    .get_mut(&id)
-                    .filter(|local| local.terminal.incarnation_id == incarnation)
-            {
-                local.entry.shared_with = users;
-                self.publish_catalog();
-            }
+            #[cfg(feature = "host")]
+            self.sharing_changed(&event.event);
         } else if kind == "network.sessions" {
             let result = event
                 .event
@@ -1208,6 +1238,31 @@ impl Runtime {
         }
     }
 
+    #[cfg(feature = "host")]
+    fn sharing_changed(&mut self, event: &Value) {
+        let id = event
+            .get("sessionId")
+            .and_then(Value::as_str)
+            .and_then(|id| Uuid::parse_str(id).ok());
+        let incarnation = event
+            .get("incarnationId")
+            .and_then(Value::as_str)
+            .and_then(|id| Uuid::parse_str(id).ok());
+        let users = event
+            .get("sharedWith")
+            .cloned()
+            .and_then(|users| serde_json::from_value::<Vec<String>>(users).ok());
+        if let (Some(id), Some(incarnation), Some(users)) = (id, incarnation, users)
+            && let Some(local) = self
+                .local
+                .get_mut(&id)
+                .filter(|local| local.terminal.incarnation_id == incarnation)
+        {
+            local.entry.shared_with = users;
+            self.publish_catalog();
+        }
+    }
+
     fn network_reply(&mut self, reply: BackendReply) {
         for event in reply.events {
             self.network_event(BackendEvent {
@@ -1220,6 +1275,7 @@ impl Runtime {
 
     fn replace_remotes(&mut self, remotes: Vec<RemoteSession>) {
         let remotes = self.end_orphaned_publications(remotes);
+        #[cfg(feature = "host")]
         for remote in &remotes {
             if let Some(local) = self
                 .local
@@ -1270,7 +1326,7 @@ impl Runtime {
         });
         self.remotes = remotes
             .into_iter()
-            .filter(|entry| !self.local.contains_key(&entry.id))
+            .filter(|entry| !self.hosts(&entry.id))
             .map(|entry| (entry.id, self.remote_entry(entry)))
             .collect();
         self.publish_catalog();
@@ -1281,7 +1337,7 @@ impl Runtime {
             return remotes;
         };
         let (orphaned, remotes): (Vec<_>, Vec<_>) = remotes.into_iter().partition(|remote| {
-            remote.host_device_id == identity.device_id && !self.local.contains_key(&remote.id)
+            remote.host_device_id == identity.device_id && !self.hosts(&remote.id)
         });
         for remote in orphaned {
             if remote.owner_user_id != identity.user_id
@@ -1374,6 +1430,7 @@ impl Runtime {
         }
     }
 
+    #[cfg(feature = "host")]
     fn ended(&mut self, id: Uuid) {
         let (published, worktree) = self
             .local
@@ -1404,6 +1461,10 @@ impl Runtime {
         self.retire_publications();
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one match routes every terminal change"
+    )]
     fn change(&mut self, change: SessionChange) {
         match change {
             SessionChange::RemoteEnded { id, instance_id } => {
@@ -1419,12 +1480,14 @@ impl Runtime {
                     self.publish_catalog();
                 }
             }
+            #[cfg(feature = "host")]
             SessionChange::Presence { id, users } => {
                 if let Some(local) = self.local.get_mut(&id) {
                     local.entry.connected_users = users;
                     self.publish_catalog();
                 }
             }
+            #[cfg(feature = "host")]
             SessionChange::Cwd {
                 id,
                 path,
@@ -1436,18 +1499,21 @@ impl Runtime {
                     self.publish_catalog();
                 }
             }
+            #[cfg(feature = "host")]
             SessionChange::Program { id, program } => {
                 if let Some(local) = self.local.get_mut(&id) {
                     local.entry.program = program;
                     self.publish_catalog();
                 }
             }
+            #[cfg(feature = "host")]
             SessionChange::Prompt { id, prompt } => {
                 if let Some(local) = self.local.get_mut(&id) {
                     local.entry.prompt = prompt;
                     self.publish_catalog();
                 }
             }
+            #[cfg(feature = "host")]
             SessionChange::Title { id, title } => {
                 if let Some(local) = self.local.get_mut(&id) {
                     local.entry.title = Some(title.clone());
@@ -1455,19 +1521,23 @@ impl Runtime {
                 }
                 self.emit(json!({"type":"term.title", "sessionId":id, "title":title}));
             }
+            #[cfg(feature = "host")]
             SessionChange::Bell { id } => self.emit(json!({"type":"term.bell", "sessionId":id})),
+            #[cfg(feature = "host")]
             SessionChange::Status { id, status } => {
                 if let Some(local) = self.local.get_mut(&id) {
                     local.entry.program_status = status;
                     self.publish_catalog();
                 }
             }
+            #[cfg(feature = "host")]
             SessionChange::Notification { id, title, body } => {
                 if let Some(local) = self.local.get(&id) {
                     self.emit(json!({"type":"term.notification", "sessionId":id,
                         "runtimeIncarnationId":local.terminal.incarnation_id, "title":title, "body":body}));
                 }
             }
+            #[cfg(feature = "host")]
             SessionChange::Ended { id, reason } => {
                 self.ended(id);
                 tracing::info!(%id, %reason, "session ended");
@@ -1593,6 +1663,7 @@ impl Runtime {
         }
     }
 
+    #[cfg(feature = "host")]
     fn publish_locals(&mut self) {
         let Some(identity) = self.network.identity() else {
             return;
@@ -1641,6 +1712,7 @@ impl Runtime {
         }
     }
 
+    #[cfg(feature = "host")]
     fn retire_publications(&mut self) {
         let available = MAX_JOBS.saturating_sub(self.jobs.len());
         let ids = self

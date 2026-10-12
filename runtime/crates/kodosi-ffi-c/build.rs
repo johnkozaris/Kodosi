@@ -30,6 +30,6 @@ fn main() {
     let temporary = out_dir.join(format!(".kodosi_runtime.h.{}", std::process::id()));
     std::fs::write(&temporary, header).expect("write generated C header");
     std::fs::rename(&temporary, &out_path).expect("publish generated C header");
-    println!("cargo:rerun-if-changed=src/lib.rs");
+    println!("cargo:rerun-if-changed=src");
     println!("cargo:rerun-if-changed=cbindgen.toml");
 }

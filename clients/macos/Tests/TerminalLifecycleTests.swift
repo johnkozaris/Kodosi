@@ -1,6 +1,8 @@
 import CoreGraphics
 import Foundation
+import KodosiBridge
 @testable import KodosiDesktop
+import KodosiTerminalSessions
 import Observation
 import Testing
 

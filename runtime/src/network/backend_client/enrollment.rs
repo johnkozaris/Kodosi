@@ -458,6 +458,7 @@ impl BackendClient {
             )
             .await?;
         self.fetch_identity(&credentials.user_id).await?;
+        #[cfg(feature = "host")]
         self.review_access().await?;
         Ok(pending.label)
     }
@@ -519,9 +520,12 @@ impl BackendClient {
             Some(issued + device_identity::DEVICE_LIST_LIFE_MS),
         )?;
         self.block_device(&credentials.user_id, id).await?;
+        #[cfg(feature = "host")]
         self.review_access().await?;
         let _response:Value=self.inner.http.device(Method::POST,"api/me/identity/device-list",&credentials,Some(json!({"signedDeviceList":BASE64.encode(list.body_bytes),"signedDeviceListSignature":BASE64.encode(list.signature)}))).await?;
         self.fetch_identity(&credentials.user_id).await?;
-        self.review_access().await
+        #[cfg(feature = "host")]
+        self.review_access().await?;
+        Ok(())
     }
 }

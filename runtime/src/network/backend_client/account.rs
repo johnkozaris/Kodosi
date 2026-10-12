@@ -198,11 +198,13 @@ impl BackendClient {
         }
         self.check_credentials(&credentials)?;
         self.reconcile_device_removals().await?;
+        #[cfg(feature = "host")]
         self.reconcile_shares().await?;
         Ok(())
     }
 
     pub(super) async fn suspend_transports(&self) {
+        #[cfg(feature = "host")]
         for publication in self.inner.publications.lock().await.values() {
             publication.invalidate();
         }
@@ -211,25 +213,28 @@ impl BackendClient {
         }
     }
 
-    pub(super) async fn cancel_transports(
-        &self,
-    ) -> BTreeMap<Uuid, Arc<terminal_connections::Publication>> {
-        let notification = self.inner.notifications.lock().await.take();
-        if let Some(cancel) = notification {
-            cancel.cancel();
-        }
+    #[cfg(feature = "host")]
+    async fn end_publications(&self) -> BTreeMap<Uuid, Arc<terminal_connections::Publication>> {
         let publications = std::mem::take(&mut *self.inner.publications.lock().await);
         for publication in publications.values() {
             publication.cancel.cancel();
             publication.invalidate();
         }
-        for cancel in self.inner.connections.lock().await.drain(..) {
-            cancel.cancel();
-        }
         publications
     }
 
+    pub(super) async fn cancel_transports(&self) {
+        let notification = self.inner.notifications.lock().await.take();
+        if let Some(cancel) = notification {
+            cancel.cancel();
+        }
+        for cancel in self.inner.connections.lock().await.drain(..) {
+            cancel.cancel();
+        }
+    }
+
     pub(super) async fn retire_account(&self, erase_tokens: bool) -> Result<()> {
+        #[cfg(feature = "host")]
         let cleanup = self
             .inner
             .credentials
@@ -268,7 +273,10 @@ impl BackendClient {
         } else {
             Ok(())
         };
-        let publications = self.cancel_transports().await;
+        #[cfg(feature = "host")]
+        let publications = self.end_publications().await;
+        self.cancel_transports().await;
+        #[cfg(feature = "host")]
         if let Some(mut credentials) = cleanup {
             credentials.cancel = CancellationToken::new();
             self.delete_publications(&credentials, publications).await;
@@ -278,6 +286,7 @@ impl BackendClient {
         result
     }
 
+    #[cfg(feature = "host")]
     pub(super) async fn delete_publications(
         &self,
         credentials: &Credentials,

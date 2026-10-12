@@ -8,6 +8,16 @@ fn opaque_unknown_and_stopped_handles_are_not_dereferenced() {
         kodosi_stop(usize::MAX as *mut c_void);
     }
 }
+#[cfg(not(feature = "host"))]
+#[test]
+fn a_viewer_has_no_local_host_or_command_line() {
+    assert_eq!(kodosi_host_stop(1), KODOSI_HOST_STOP_UNREACHABLE);
+    let arguments = [c"kodosi".as_ptr(), c"host".as_ptr()];
+    assert_eq!(
+        unsafe { kodosi_cli_main(2, arguments.as_ptr()) },
+        KODOSI_CLI_NOT_INVOKED
+    );
+}
 #[test]
 fn closed_gate_rejects_future_callbacks() {
     let gate = Gate::default();

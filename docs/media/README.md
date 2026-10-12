@@ -39,7 +39,7 @@ JetBrains Mono, by the JetBrains Mono Project Authors, under the
 [SIL Open Font License](../../terminal/ghostty/ThirdPartyNotices/licenses/jetbrains-mono-OFL-1.1.txt).
 
 Claude and Codex glyphs use LobeHub artwork under the
-[MIT license](../../clients/macos/Resources/Notices/LobeHub-Icons-MIT.txt).
-[Provider mark attribution](../../clients/macos/Resources/Notices/Provider-Icons.txt)
+[MIT license](../../clients/apple/Notices/LobeHub-Icons-MIT.txt).
+[Provider mark attribution](../../clients/apple/Notices/Provider-Icons.txt)
 is retained with the native app. Product names and marks belong to their respective
 owners and do not imply endorsement.

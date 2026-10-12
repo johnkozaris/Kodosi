@@ -1,38 +1,44 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
+    collections::BTreeMap,
+    sync::{Arc, atomic::Ordering},
     time::Duration,
 };
+#[cfg(feature = "host")]
+use std::{collections::BTreeSet, sync::atomic::AtomicBool};
 
+#[cfg(any(feature = "host", test))]
 use bytes::Bytes;
 use futures_util::{SinkExt as _, StreamExt as _};
 use reqwest::Method;
 use serde_json::{Value, json};
+#[cfg(feature = "host")]
+use tokio::sync::{Mutex, RwLock, broadcast};
 use tokio::{
     net::TcpStream,
-    sync::{Mutex, Notify, RwLock, broadcast, mpsc, oneshot},
+    sync::{Notify, mpsc, oneshot},
 };
 use tokio_tungstenite::{
     Connector, MaybeTlsStream, WebSocketStream,
     tungstenite::{Message, client::IntoClientRequest as _, protocol::WebSocketConfig},
 };
+#[cfg(feature = "host")]
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use super::{
-    BackendClient, Error, HostRequest, LocalPublication, PublicationOutput, PublishedFrame,
-    RemoteConnection, RemoteUpdate, Result, TerminalControl,
+    BackendClient, Error, RemoteConnection, RemoteUpdate, Result, TerminalControl,
     http::Credentials,
     invalid,
     wire::{self, SessionDto},
 };
+#[cfg(feature = "host")]
+use super::{HostRequest, LocalPublication, PublicationOutput, PublishedFrame};
 
 mod channel;
+#[cfg(feature = "host")]
 mod host;
 mod link;
+#[cfg(feature = "host")]
 mod pacer;
 mod participant;
 
@@ -46,6 +52,7 @@ pub(crate) const INPUT_NOT_SENT: &str = "Some of your last input was not sent.";
 const MESSAGE_LIMIT: usize = 256 * 1024 + 4096;
 const TRUST_CHECK: Duration = Duration::from_mins(5);
 
+#[cfg(feature = "host")]
 pub(crate) struct Publication {
     pub(super) drained: CancellationToken,
     pub info: RwLock<LocalPublication>,
@@ -57,6 +64,7 @@ pub(crate) struct Publication {
     requests: mpsc::Sender<HostRequest>,
     output: Mutex<Option<PublicationOutput>>,
 }
+#[cfg(feature = "host")]
 impl Publication {
     pub(crate) fn new(
         info: LocalPublication,
@@ -97,6 +105,7 @@ pub(crate) enum RemoteRequest {
     Checkpoint,
 }
 
+#[cfg(feature = "host")]
 pub(crate) fn spawn_host(
     network: BackendClient,
     publication: Arc<Publication>,

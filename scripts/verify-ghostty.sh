@@ -22,6 +22,8 @@ fi
 
 upstream_commit=
 combined_archive_sha256=
+ios_combined_archive_sha256=
+ios_simulator_combined_archive_sha256=
 linux_upstream_commit=
 linux_vt_archive_sha256=
 windows_upstream_commit=
@@ -33,6 +35,8 @@ source "$LOCK_FILE"
 for value in \
     "$upstream_commit" \
     "$combined_archive_sha256" \
+    "$ios_combined_archive_sha256" \
+    "$ios_simulator_combined_archive_sha256" \
     "$linux_upstream_commit" \
     "$linux_vt_archive_sha256" \
     "$windows_upstream_commit"; do
@@ -47,6 +51,8 @@ done
 if [[ "${KODOSI_WORKING_TREE_VALIDATION:-0}" == 1 ]]; then
     source "$GHOSTTY_DIR/Vendor/libghostty.version"
     upstream_commit=$ghostty_commit
+    ios_combined_archive_sha256=$(sed -n 's/^combined_archive_sha256=//p' "$GHOSTTY_DIR/Vendor/libghostty-ios-arm64.version")
+    ios_simulator_combined_archive_sha256=$(sed -n 's/^combined_archive_sha256=//p' "$GHOSTTY_DIR/Vendor/libghostty-ios-arm64-simulator.version")
     source "$GHOSTTY_DIR/Vendor/GhosttyVt/linux-x86_64.version"
     linux_upstream_commit=$ghostty_commit
     linux_vt_archive_sha256=$vt_archive_sha256
@@ -110,10 +116,22 @@ if ! cmp -s "$renderer_archive" "$vt_archive"; then
     echo "Ghostty renderer and VT archive payloads are not byte-identical arm64 artifacts." >&2
     exit 1
 fi
+for slice in ios-arm64 ios-arm64-simulator; do
+    if [[ "$slice" == ios-arm64 ]]; then
+        expected_ios_sha=$ios_combined_archive_sha256
+    else
+        expected_ios_sha=$ios_simulator_combined_archive_sha256
+    fi
+    actual_ios_sha=$(sha256 "$GHOSTTY_DIR/Vendor/GhosttyKit.xcframework/$slice/libghostty.a")
+    if [[ "$actual_ios_sha" != "$expected_ios_sha" ]]; then
+        echo "Ghostty $slice archive mismatch: expected $expected_ios_sha, found $actual_ios_sha" >&2
+        exit 1
+    fi
+done
 actual_linux_archive_sha=$(sha256 "$linux_vt_archive")
 if [[ "$actual_linux_archive_sha" != "$linux_vt_archive_sha256" ]]; then
     echo "Linux Ghostty VT archive mismatch: expected $linux_vt_archive_sha256, found $actual_linux_archive_sha" >&2
     exit 1
 fi
 
-echo "Verified Ghostty at macOS upstream $upstream_commit, Linux upstream $linux_upstream_commit and Windows upstream $windows_upstream_commit."
+echo "Verified Ghostty at macOS and iOS upstream $upstream_commit, Linux upstream $linux_upstream_commit and Windows upstream $windows_upstream_commit."

@@ -1,5 +1,8 @@
 import AppKit
+import KodosiBridge
+import KodosiDesign
 import KodosiTerminal
+import KodosiTerminalSessions
 import SwiftUI
 
 extension EnvironmentValues {

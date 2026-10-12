@@ -19,6 +19,7 @@ MAC_ARCHIVE = Path(
     "Vendor/GhosttyKit.xcframework/macos-arm64/libghostty.a"
 )
 MAC_VT_ARCHIVE = Path("Vendor/GhosttyVt/macos-arm64/lib/libghostty-vt.a")
+IOS_SLICES = ("ios-arm64", "ios-arm64-simulator")
 LINUX_ARCHIVE = Path(
     "Vendor/GhosttyVt/linux-x86_64/lib/libghostty-vt.a"
 )
@@ -106,6 +107,24 @@ def verify(root: Path) -> None:
     if file_sha256(root, MAC_VT_ARCHIVE) != mac_digest:
         fail("macOS VT archive differs from the combined archive digest")
 
+    for slice_name in IOS_SLICES:
+        metadata_path = Path(f"Vendor/libghostty-{slice_name}.version")
+        archive_path = Path(f"Vendor/GhosttyKit.xcframework/{slice_name}/libghostty.a")
+        slice_metadata = read_metadata(root, metadata_path)
+        if slice_metadata.get("ghostty_commit") != mac_ref:
+            fail(f"{slice_name} artifact metadata differs from MacOSGhostty.ref")
+        if slice_metadata.get("library_identifier") != slice_name:
+            fail(f"{slice_name} artifact metadata names another slice")
+        slice_digest = require_digest(
+            slice_metadata,
+            "combined_archive_sha256",
+            metadata_path,
+        )
+        if file_sha256(root, archive_path) != slice_digest:
+            fail(f"{slice_name} combined archive differs from its recorded digest")
+        if slice_digest == mac_digest:
+            fail(f"{slice_name} combined archive is the macOS image")
+
     if linux_metadata.get("ghostty_commit") != linux_ref:
         fail("Linux artifact metadata differs from LinuxGhostty.ref")
     if linux_inventory.get("ghosttyCommit") != linux_ref:
@@ -133,7 +152,7 @@ def verify(root: Path) -> None:
 
     print(
         "Verified platform Ghostty pins and artifact digests: "
-        f"macOS={mac_ref} Linux={linux_ref} Windows={windows_ref}"
+        f"macOS/iOS={mac_ref} Linux={linux_ref} Windows={windows_ref}"
     )
 
 

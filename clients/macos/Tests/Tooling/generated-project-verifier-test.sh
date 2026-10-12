@@ -13,9 +13,10 @@ cleanup() {
 trap cleanup EXIT
 cleanup
 mkdir -p "$COPY_ROOT"
-for relative_path in project.yml Config Sources Tests Resources Frameworks Packages KodosiDesktop.xcodeproj; do
+for relative_path in project.yml Config Sources Tests Resources KodosiDesktop.xcodeproj; do
     cp -R "$ROOT/$relative_path" "$COPY_ROOT/$relative_path"
 done
+cp -R "$ROOT/../apple" "$SCRATCH/apple"
 mkdir -p "$COPY_ROOT/scripts/build"
 for task in xcode-gen.sh generate-xcode-project.py deployment-target.sh; do
     cp "$ROOT/scripts/build/$task" "$COPY_ROOT/scripts/build/$task"

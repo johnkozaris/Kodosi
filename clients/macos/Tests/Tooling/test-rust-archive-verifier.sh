@@ -14,7 +14,7 @@ verifier="$project_directory/scripts/build/verify-rust-archive.sh"
 source "$project_directory/scripts/build/kodosi-paths.sh"
 contract="$(kodosi_repository_root "$project_directory")/protocol/desktop-runtime.json"
 read -r protocol_version abi_version < <(python3 -c 'import json, sys; contract = json.load(open(sys.argv[1])); print(contract["protocolVersion"], contract["ffiAbiVersion"])' "$contract")
-header="$project_directory/Frameworks/KodosiKit.xcframework/Headers/kodosi_runtime.h"
+header="$project_directory/../apple/Sources/KodosiKit/kodosi_runtime.h"
 
 python3 - "$header" "$scratch_directory" "$protocol_version" "$abi_version" <<'PY'
 import pathlib

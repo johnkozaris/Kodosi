@@ -10,18 +10,21 @@ use std::{
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use reqwest::Method;
 use serde_json::{Value, json};
-use tokio::sync::{Mutex, broadcast, mpsc};
+#[cfg(feature = "host")]
+use tokio::sync::mpsc;
+use tokio::sync::{Mutex, broadcast};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 use zeroize::Zeroizing;
 
 use super::{
-    BackendConfig, BackendEvent, BackendReply, Error, HostRequest, Identity, LocalPublication,
-    PublicationOutput, RemoteConnection, Result, crypto,
+    BackendConfig, BackendEvent, BackendReply, Error, Identity, RemoteConnection, Result, crypto,
     http::{Credentials, Http},
     invalid, terminal_connections,
     wire::{self, SessionDto},
 };
+#[cfg(feature = "host")]
+use super::{HostRequest, LocalPublication, PublicationOutput};
 use crate::identity::{
     self,
     device_cert::{build_cert_for, build_self_cert},
@@ -49,6 +52,7 @@ pub(crate) struct Inner {
     pub(crate) events: broadcast::Sender<BackendEvent>,
     pub(crate) shutdown: CancellationToken,
     initialized: AtomicBool,
+    #[cfg(feature = "host")]
     pub(crate) publications: Mutex<BTreeMap<Uuid, Arc<terminal_connections::Publication>>>,
     pub(crate) connections: Mutex<Vec<CancellationToken>>,
     pub(crate) link: Arc<terminal_connections::Link>,
@@ -126,6 +130,7 @@ impl BackendClient {
                 events,
                 shutdown: CancellationToken::new(),
                 initialized: AtomicBool::new(false),
+                #[cfg(feature = "host")]
                 publications: Mutex::new(BTreeMap::new()),
                 connections: Mutex::new(Vec::new()),
                 link: Arc::default(),
@@ -403,6 +408,7 @@ impl BackendClient {
                 events.extend(self.friend_command(operation, &args).await?);
             }
             "session.list" => events.push(self.session_event().await?),
+            #[cfg(feature = "host")]
             "session.share" => {
                 let id = wire::id(&args, "sessionId")?;
                 let expected = wire::id(&args, "expectedRuntimeIncarnationId")?;
@@ -583,6 +589,7 @@ impl BackendClient {
         if let Ok(mut kept) = self.inner.sessions.lock() {
             *kept = sessions.iter().map(|dto| (dto.id, dto.clone())).collect();
         }
+        #[cfg(feature = "host")]
         {
             let publications = self.inner.publications.lock().await;
             for dto in &sessions {
@@ -625,6 +632,7 @@ impl BackendClient {
         )
     }
 
+    #[cfg(feature = "host")]
     async fn exclude_friend(&self, credentials: &Credentials, username: &str) -> Result<()> {
         let friends: Vec<Value> = self
             .inner
@@ -759,6 +767,7 @@ impl BackendClient {
         Ok(())
     }
 
+    #[cfg(feature = "host")]
     pub async fn publish(
         &self,
         info: LocalPublication,
@@ -799,6 +808,7 @@ impl BackendClient {
         Ok(())
     }
 
+    #[cfg(feature = "host")]
     pub async fn unpublish(&self, id: Uuid) -> Result<()> {
         let generation = self.generation();
         let draining = self.inner.publications.lock().await.get(&id).cloned();
@@ -856,6 +866,7 @@ impl BackendClient {
         self.inner.identity_settled.store(true, Ordering::Release);
     }
 
+    #[cfg(feature = "host")]
     async fn set_shares(&self, id: Uuid, incarnation: Uuid, users: BTreeSet<String>) -> Result<()> {
         let publication = self
             .inner
@@ -923,6 +934,7 @@ impl BackendClient {
         result.map(|_| ())
     }
 
+    #[cfg(feature = "host")]
     async fn reconcile_shares(&self) -> Result<()> {
         let publications = self
             .inner
@@ -946,6 +958,7 @@ impl BackendClient {
         Ok(())
     }
 
+    #[cfg(feature = "host")]
     async fn review_access(&self) -> Result<()> {
         for publication in self.inner.publications.lock().await.values() {
             publication.invalidate();
@@ -1036,14 +1049,22 @@ fn path_segment(value: &str) -> Result<String> {
     Ok(url.path().trim_start_matches('/').to_owned())
 }
 pub(crate) fn host_label() -> String {
-    [
-        std::env::var("HOSTNAME").ok(),
-        kodosi_os::process::computer_name(),
-    ]
-    .into_iter()
-    .flatten()
-    .find_map(|value| normalize_host_label(&value))
-    .unwrap_or_else(|| "Unnamed computer".to_owned())
+    let label = device_label().or_else(|| {
+        std::env::var("HOSTNAME")
+            .ok()
+            .and_then(|value| normalize_host_label(&value))
+    });
+    #[cfg(feature = "host")]
+    let label = label.or_else(|| {
+        kodosi_os::process::computer_name().and_then(|value| normalize_host_label(&value))
+    });
+    label.unwrap_or_else(|| "Unnamed computer".to_owned())
+}
+
+pub(crate) fn device_label() -> Option<String> {
+    std::env::var("KODOSI_DEVICE_LABEL")
+        .ok()
+        .and_then(|value| normalize_host_label(&value))
 }
 
 fn normalize_host_label(value: &str) -> Option<String> {

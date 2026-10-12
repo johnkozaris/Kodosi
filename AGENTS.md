@@ -9,7 +9,8 @@ exclusions or add permission tiers, sandboxing, or agent workflow machinery by d
 - `backend/` stores shared metadata and routes encrypted terminal traffic. Run one serving
   backend process.
 - `clients/macos/` is the native macOS client. `clients/qt/` is the native Qt client for
-  Linux and Windows.
+  Linux and Windows. `clients/ios/` is the iPhone and iPad client; it views terminals and
+  hosts none. `clients/apple/` holds the Swift code that the Mac and iOS clients share.
 - `protocol/` contains the current cross-stack contracts generated from Rust. Keep the
   native Ghostty pins and provenance checks aligned with `terminal/ghostty/`.
 

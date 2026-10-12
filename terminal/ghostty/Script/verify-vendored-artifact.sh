@@ -8,6 +8,7 @@ VENDOR_ROOT=${KODOSI_GHOSTTY_VENDOR_ROOT:-Vendor}
 METADATA="$VENDOR_ROOT/libghostty.version"
 RENDERER="$VENDOR_ROOT/GhosttyKit.xcframework"
 VT="$VENDOR_ROOT/GhosttyVt/macos-arm64"
+IOS_SLICES=(ios-arm64 ios-arm64-simulator)
 
 if [ ! -f "$METADATA" ]; then
     echo "[!] metadata not found: $METADATA"
@@ -111,18 +112,108 @@ for value in "$renderer_optimize" "$vt_optimize"; do
     fi
 done
 
+metadata_value() {
+    local file=$1
+    local key=$2
+    if [ "$(grep -c "^$key=" "$file" || true)" != 1 ]; then
+        echo "[!] $file must contain exactly one $key" >&2
+        return 1
+    fi
+    sed -n "s/^$key=//p" "$file"
+}
+
+for slice in "${IOS_SLICES[@]}"; do
+    slice_metadata="$VENDOR_ROOT/libghostty-$slice.version"
+    slice_dir="$RENDERER/$slice"
+    if [ ! -f "$slice_metadata" ]; then
+        echo "[!] metadata not found: $slice_metadata"
+        exit 1
+    fi
+    slice_target=$(./Script/native-build-options.sh target "$slice")
+    expected_slice_options=$(metadata_value "$slice_metadata" ghostty_build_options)
+    if [ "${KODOSI_GHOSTTY_REQUIRE_BUILD_PROVENANCE:-0}" = 1 ]; then
+        expected_slice_options=$(./Script/native-build-options.sh vector "$slice")
+    fi
+    expected_keys=
+    for expectation in \
+        "package_version=$EXPECTED_PACKAGE_VERSION" \
+        "ghostty_commit=$EXPECTED_GHOSTTY_COMMIT" \
+        "patches_sha256=$ACTUAL_PATCHES_DIGEST" \
+        "patch_application_sha256=$ACTUAL_PATCH_APPLICATION_DIGEST" \
+        "zig_version=$ZIG_VERSION" \
+        "zig_target=aarch64-macos" \
+        "zig_sha256=$ZIG_AARCH64_MACOS_SHA256" \
+        "zig_store_sha256=$ACTUAL_ZIG_STORE_DIGEST" \
+        "metal_toolchain_build=$METAL_TOOLCHAIN_BUILD" \
+        "metal_toolchain_dmg_sha256=$METAL_TOOLCHAIN_DMG_SHA256" \
+        "ghostty_build_options=$expected_slice_options" \
+        "library_identifier=$slice" \
+        "renderer_target=$slice_target" \
+        "renderer_cpu=$GHOSTTY_BUILD_CPU" \
+        "renderer_optimize=$GHOSTTY_BUILD_OPTIMIZE" \
+        "vt_target=$slice_target" \
+        "vt_cpu=$GHOSTTY_BUILD_CPU" \
+        "vt_optimize=$GHOSTTY_BUILD_OPTIMIZE" \
+        "combined_archive_sha256=$(shasum -a 256 "$slice_dir/libghostty.a" | awk '{print $1}')" \
+        "slice_artifact_sha256=$(./Script/artifact-digest.sh "$slice_dir")" \
+        "symbol_manifest_sha256=$(shasum -a 256 "$VENDOR_ROOT/symbols/$slice-strong.txt" | awk '{print $1}')"; do
+        key=${expectation%%=*}
+        expected_keys+="$key"$'\n'
+        if [ "$(metadata_value "$slice_metadata" "$key")" != "${expectation#*=}" ]; then
+            echo "[!] $slice Ghostty artifact provenance mismatch: $key"
+            exit 1
+        fi
+    done
+    if [ "$(cut -d= -f1 "$slice_metadata" | LC_ALL=C sort)" != "$(printf '%s' "$expected_keys" | LC_ALL=C sort)" ]; then
+        echo "[!] $slice metadata keys differ from the provenance contract"
+        exit 1
+    fi
+done
+
+require_build_version() {
+    local archive=$1
+    local platform=$2
+    local minimum=$3
+    local members
+    local versions
+    members=$(ar -t "$archive" | grep -vc '^__\.SYMDEF' || true)
+    versions=$(otool -l "$archive" | awk '
+        /cmd LC_BUILD_VERSION/ { build = 1; next }
+        /cmd LC_VERSION_MIN/ { print "legacy"; next }
+        build && $1 == "platform" { platform = $2 }
+        build && $1 == "minos" { print platform, $2; build = 0 }
+    ')
+    if [ "$(printf '%s\n' "$versions" | grep -c . || true)" != "$members" ] ||
+        printf '%s\n' "$versions" | grep -vxqF "$platform $minimum"; then
+        echo "[!] Ghostty archive objects do not all target platform $platform minimum $minimum: $archive"
+        exit 1
+    fi
+}
+
 ./Script/verify-xcframework.sh "$RENDERER"
-RENDERER_ARCHIVE=$(find "$RENDERER" -name libghostty.a -type f -print -quit)
+RENDERER_ARCHIVE="$RENDERER/macos-arm64/libghostty.a"
 VT_ARCHIVE="$VT/lib/libghostty-vt.a"
-for archive in "$RENDERER_ARCHIVE" "$VT_ARCHIVE"; do
+for archive in \
+    "$RENDERER_ARCHIVE" \
+    "$VT_ARCHIVE" \
+    "$RENDERER/ios-arm64/libghostty.a" \
+    "$RENDERER/ios-arm64-simulator/libghostty.a"; do
     if [ "$(lipo -archs "$archive")" != arm64 ]; then
         echo "[!] Ghostty archive is not arm64-only: $archive"
         exit 1
     fi
-    if ! otool -l "$archive" | grep -A4 LC_BUILD_VERSION | grep -Eq 'minos +13\.0'; then
-        echo "[!] Ghostty archive does not target macOS 13: $archive"
-        exit 1
-    fi
+done
+require_build_version "$RENDERER_ARCHIVE" 1 13.0
+require_build_version "$VT_ARCHIVE" 1 13.0
+require_build_version "$RENDERER/ios-arm64/libghostty.a" 2 26.0
+require_build_version "$RENDERER/ios-arm64-simulator/libghostty.a" 7 26.0
+for slice in "${IOS_SLICES[@]}"; do
+    for header in ghostty.h module.modulemap; do
+        if ! cmp -s "$RENDERER/macos-arm64/Headers/$header" "$RENDERER/$slice/Headers/$header"; then
+            echo "[!] $slice renderer header differs from macOS: $header"
+            exit 1
+        fi
+    done
 done
 
 if ! cmp -s "$RENDERER_ARCHIVE" "$VT_ARCHIVE"; then
@@ -144,11 +235,13 @@ fi
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/kodosi-ghostty-verify.XXXXXX")
 trap 'rm -rf "$TMP_DIR"' EXIT
 
+for slice in macos-arm64 "${IOS_SLICES[@]}"; do
 python3 - \
-    "$RENDERER/macos-arm64/Headers/ghostty.h" \
+    "$RENDERER/$slice/Headers/ghostty.h" \
     "$VT/include/ghostty" \
-    "$RENDERER_ARCHIVE" \
-    "$TMP_DIR" <<'PY'
+    "$RENDERER/$slice/libghostty.a" \
+    "$TMP_DIR" \
+    "$slice" <<'PY'
 import re
 import subprocess
 import sys
@@ -158,6 +251,7 @@ renderer_header = Path(sys.argv[1])
 vt_headers = Path(sys.argv[2])
 archive = Path(sys.argv[3])
 out_dir = Path(sys.argv[4])
+slice_name = sys.argv[5]
 
 def declared(paths):
     text = "\n".join(path.read_text() for path in paths)
@@ -186,7 +280,7 @@ for line in output.splitlines():
         strong.append(match.group(1))
 duplicates = sorted(name for name in set(strong) if strong.count(name) > 1)
 if duplicates:
-    print("[!] combined archive defines duplicate strong symbols:")
+    print(f"[!] {slice_name} combined archive defines duplicate strong symbols:")
     print("\n".join(duplicates))
     raise SystemExit(1)
 exported = {name for name in strong if name.startswith("ghostty_")}
@@ -203,19 +297,20 @@ internal_exports = {
 undeclared = sorted(exported - renderer - vt - internal_exports)
 if missing_renderer or missing_vt or undeclared:
     if missing_renderer:
-        print("[!] combined archive is missing renderer C APIs:")
+        print(f"[!] {slice_name} combined archive is missing renderer C APIs:")
         print("\n".join(missing_renderer))
     if missing_vt:
-        print("[!] combined archive is missing VT C APIs:")
+        print(f"[!] {slice_name} combined archive is missing VT C APIs:")
         print("\n".join(missing_vt))
     if undeclared:
-        print("[!] combined archive exports undeclared Ghostty APIs:")
+        print(f"[!] {slice_name} combined archive exports undeclared Ghostty APIs:")
         print("\n".join(undeclared))
     raise SystemExit(1)
 
-(out_dir / "renderer-api.txt").write_text("\n".join(sorted(renderer)) + "\n")
-(out_dir / "vt-api.txt").write_text("\n".join(sorted(vt)) + "\n")
+(out_dir / f"{slice_name}-renderer-api.txt").write_text("\n".join(sorted(renderer)) + "\n")
+(out_dir / f"{slice_name}-vt-api.txt").write_text("\n".join(sorted(vt)) + "\n")
 PY
+done
 
 cat > "$TMP_DIR/renderer.c" <<'C'
 #include "ghostty.h"
@@ -304,13 +399,54 @@ xcrun clang \
     -o "$TMP_DIR/combined-link-probe"
 "$TMP_DIR/combined-link-probe"
 
-if nm -u "$RENDERER_ARCHIVE" | grep -q '__libcpp_verbose_abort'; then
-    echo "[!] obsolete libc++ verbose-abort dependency remains"
-    exit 1
-fi
-if strings "$RENDERER_ARCHIVE" | grep -q 'CAIOSurfaceLayer'; then
-    echo "[!] private CAIOSurfaceLayer remains in renderer artifact"
-    exit 1
-fi
+ios_link_probe() {
+    local slice=$1
+    local sdk=$2
+    local target=$3
+    local probe_dir="$TMP_DIR/$slice"
+    mkdir -p "$probe_dir"
+    xcrun --sdk "$sdk" clang \
+        -target "$target" \
+        -I"$RENDERER/$slice/Headers" \
+        -c "$TMP_DIR/renderer.c" \
+        -o "$probe_dir/renderer.o"
+    xcrun --sdk "$sdk" clang \
+        -target "$target" \
+        -I"$VT/include" \
+        -c "$TMP_DIR/vt.c" \
+        -o "$probe_dir/vt.o"
+    xcrun --sdk "$sdk" clang \
+        -target "$target" \
+        -c "$TMP_DIR/main.c" \
+        -o "$probe_dir/main.o"
+    xcrun --sdk "$sdk" clang \
+        -target "$target" \
+        "$probe_dir/renderer.o" \
+        "$probe_dir/vt.o" \
+        "$probe_dir/main.o" \
+        "$RENDERER/$slice/libghostty.a" \
+        -lc++ \
+        -framework CoreFoundation \
+        -framework CoreGraphics \
+        -framework CoreText \
+        -framework QuartzCore \
+        -framework IOSurface \
+        -framework Metal \
+        -o "$probe_dir/combined-link-probe"
+}
+ios_link_probe ios-arm64 iphoneos arm64-apple-ios26.0
+ios_link_probe ios-arm64-simulator iphonesimulator arm64-apple-ios26.0-simulator
 
-echo "[*] vendored renderer and VT paths contain one verified native image"
+for slice in macos-arm64 "${IOS_SLICES[@]}"; do
+    archive="$RENDERER/$slice/libghostty.a"
+    if nm -u "$archive" | grep -q '__libcpp_verbose_abort'; then
+        echo "[!] obsolete libc++ verbose-abort dependency remains in $slice"
+        exit 1
+    fi
+    if strings "$archive" | grep -q 'CAIOSurfaceLayer'; then
+        echo "[!] private CAIOSurfaceLayer remains in $slice renderer artifact"
+        exit 1
+    fi
+done
+
+echo "[*] vendored renderer and VT paths contain one verified native image per Apple slice"

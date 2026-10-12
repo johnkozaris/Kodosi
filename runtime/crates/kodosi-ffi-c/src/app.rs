@@ -1,29 +1,36 @@
-use kodosi_runtime::{
-    diagnostics,
-    local_host::{self, AppClaim, Forwarded},
-};
+use kodosi_runtime::diagnostics;
+#[cfg(feature = "host")]
+use kodosi_runtime::local_host::{self, AppClaim, Forwarded};
+#[cfg(feature = "host")]
 use tokio_util::sync::CancellationToken;
 
+#[cfg(feature = "host")]
 use super::{
-    Arc, AssertUnwindSafe, Config, Duration, KODOSI_ACTIVATION_MAX_BYTES, KODOSI_APP_FAILED,
-    KODOSI_APP_FORWARDED, KODOSI_APP_OWNER, KODOSI_APP_SECONDARY, KODOSI_FFI_DESER_FAILED,
-    KODOSI_FFI_OK, KODOSI_LOG_ERROR, KODOSI_LOG_INFO, KODOSI_LOG_WARNING,
-    KODOSI_START_ALREADY_ACTIVE, KODOSI_START_FAILED, KODOSI_START_INVALID_CALLBACKS,
-    KODOSI_START_REJECTED, KodosiStartFailure, Mutex, c_char, c_void,
+    Arc, Duration, KODOSI_ACTIVATION_MAX_BYTES, KODOSI_APP_FORWARDED, KODOSI_APP_OWNER,
+    KODOSI_APP_SECONDARY, KODOSI_START_ALREADY_ACTIVE, KODOSI_START_INVALID_CALLBACKS, Mutex,
     callbacks::{CallbackScope, Gate, UserData, lock},
-    caught, payload, record_start_failure, start_failure,
+    payload,
+};
+use super::{
+    AssertUnwindSafe, Config, KODOSI_APP_FAILED, KODOSI_FFI_DESER_FAILED, KODOSI_FFI_OK,
+    KODOSI_LOG_ERROR, KODOSI_LOG_INFO, KODOSI_LOG_WARNING, KODOSI_START_FAILED,
+    KODOSI_START_REJECTED, KodosiStartFailure, c_char, c_void, caught, record_start_failure,
+    start_failure,
 };
 
+#[cfg(feature = "host")]
 const FORWARD_WAIT: Duration = Duration::from_secs(10);
 
 type ActivationCb = Option<unsafe extern "C" fn(*const u8, usize, *mut c_void)>;
 
+#[cfg(feature = "host")]
 #[derive(Clone, Copy)]
 struct Activation {
     callback: unsafe extern "C" fn(*const u8, usize, *mut c_void),
     userdata: UserData,
 }
 
+#[cfg(feature = "host")]
 struct App {
     config: Config,
     preferences: Option<std::ffi::CString>,
@@ -31,18 +38,20 @@ struct App {
     owner: Option<Owner>,
 }
 
+#[cfg(feature = "host")]
 struct Owner {
     gate: Arc<Gate>,
     stop: CancellationToken,
     thread: Option<std::thread::JoinHandle<()>>,
 }
 
+#[cfg(feature = "host")]
 static APP: Mutex<Option<App>> = Mutex::new(None);
 
 type Outcome = std::result::Result<i32, Box<KodosiStartFailure>>;
 
 fn failed(code: i32, message: &str) -> Box<KodosiStartFailure> {
-    start_failure(code, message, None)
+    start_failure(code, message)
 }
 
 fn settle(action: impl FnOnce() -> Outcome) -> i32 {
@@ -77,23 +86,31 @@ pub unsafe extern "C" fn kodosi_prepare(
     userdata: *mut c_void,
     preferences: *mut *const c_char,
 ) -> i32 {
-    settle(|| {
-        let (Some(callback), false) = (on_activation, preferences.is_null()) else {
-            return Err(failed(
-                KODOSI_START_INVALID_CALLBACKS,
-                "The activation callback or the preferences output is missing.",
-            ));
-        };
-        let activation = Activation {
-            callback,
-            userdata: UserData(userdata),
-        };
-        let config =
-            Config::load().map_err(|error| failed(KODOSI_START_REJECTED, &error.to_string()))?;
-        unsafe { prepare(config, activation, preferences) }
-    })
+    settle(|| unsafe { claim_app(on_activation, userdata, preferences) })
 }
 
+#[cfg(feature = "host")]
+unsafe fn claim_app(
+    on_activation: ActivationCb,
+    userdata: *mut c_void,
+    preferences: *mut *const c_char,
+) -> Outcome {
+    let (Some(callback), false) = (on_activation, preferences.is_null()) else {
+        return Err(failed(
+            KODOSI_START_INVALID_CALLBACKS,
+            "The activation callback or the preferences output is missing.",
+        ));
+    };
+    let activation = Activation {
+        callback,
+        userdata: UserData(userdata),
+    };
+    let config =
+        Config::load().map_err(|error| failed(KODOSI_START_REJECTED, &error.to_string()))?;
+    unsafe { prepare(config, activation, preferences) }
+}
+
+#[cfg(feature = "host")]
 unsafe fn prepare(
     config: Config,
     activation: Activation,
@@ -149,52 +166,55 @@ unsafe fn prepare(
 /// first and this process took over its data folder.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn kodosi_forward_activation(json: *const u8, length: usize) -> i32 {
-    settle(|| {
-        let activation = (length <= KODOSI_ACTIVATION_MAX_BYTES)
-            .then(|| unsafe { payload(json, length) }.ok())
-            .flatten()
-            .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(bytes).ok())
-            .filter(serde_json::Value::is_object)
-            .ok_or_else(|| {
-                failed(
-                    KODOSI_START_REJECTED,
-                    "An activation must be a JSON object within its bound.",
-                )
-            })?;
-        let root = match lock(&APP).as_ref() {
-            None => {
-                return Err(failed(
-                    KODOSI_START_FAILED,
-                    "Prepare the Kodosi app before forwarding an activation.",
-                ));
-            }
-            Some(app) if app.owner.is_some() => return Ok(KODOSI_APP_OWNER),
-            Some(app) => app.config.data_root.clone(),
-        };
-        let forwarded = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|error| failed(KODOSI_START_FAILED, &error.to_string()))?
-            .block_on(local_host::forward_activation(
-                &root,
-                &activation,
-                FORWARD_WAIT,
-            ))
-            .map_err(|error| failed(KODOSI_START_FAILED, &error.to_string()))?;
-        let Forwarded::Claimed(claim) = forwarded else {
-            return Ok(KODOSI_APP_FORWARDED);
-        };
-        let mut prepared = lock(&APP);
-        let Some(app) = prepared.as_mut() else {
+    settle(|| unsafe { forward(json, length) })
+}
+
+#[cfg(feature = "host")]
+unsafe fn forward(json: *const u8, length: usize) -> Outcome {
+    let activation = (length <= KODOSI_ACTIVATION_MAX_BYTES)
+        .then(|| unsafe { payload(json, length) }.ok())
+        .flatten()
+        .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(bytes).ok())
+        .filter(serde_json::Value::is_object)
+        .ok_or_else(|| {
+            failed(
+                KODOSI_START_REJECTED,
+                "An activation must be a JSON object within its bound.",
+            )
+        })?;
+    let root = match lock(&APP).as_ref() {
+        None => {
             return Err(failed(
                 KODOSI_START_FAILED,
-                "The Kodosi app closed while it forwarded an activation.",
+                "Prepare the Kodosi app before forwarding an activation.",
             ));
-        };
-        app.owner = Some(own(&app.config, claim, app.activation)?);
-        drop(prepared);
-        Ok(KODOSI_APP_OWNER)
-    })
+        }
+        Some(app) if app.owner.is_some() => return Ok(KODOSI_APP_OWNER),
+        Some(app) => app.config.data_root.clone(),
+    };
+    let forwarded = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|error| failed(KODOSI_START_FAILED, &error.to_string()))?
+        .block_on(local_host::forward_activation(
+            &root,
+            &activation,
+            FORWARD_WAIT,
+        ))
+        .map_err(|error| failed(KODOSI_START_FAILED, &error.to_string()))?;
+    let Forwarded::Claimed(claim) = forwarded else {
+        return Ok(KODOSI_APP_FORWARDED);
+    };
+    let mut prepared = lock(&APP);
+    let Some(app) = prepared.as_mut() else {
+        return Err(failed(
+            KODOSI_START_FAILED,
+            "The Kodosi app closed while it forwarded an activation.",
+        ));
+    };
+    app.owner = Some(own(&app.config, claim, app.activation)?);
+    drop(prepared);
+    Ok(KODOSI_APP_OWNER)
 }
 
 /// Writes one line from the native client to the app's log. Without an app
@@ -222,6 +242,11 @@ pub unsafe extern "C" fn kodosi_log(level: i32, utf8: *const u8, length: usize) 
 /// called from one, and releases the app claim and prepared storage.
 #[unsafe(no_mangle)]
 pub extern "C" fn kodosi_close_app() {
+    close_app();
+}
+
+#[cfg(feature = "host")]
+fn close_app() {
     let app = lock(&APP).take();
     let Some(mut owner) = app.and_then(|app| app.owner) else {
         return;
@@ -238,6 +263,7 @@ pub extern "C" fn kodosi_close_app() {
 
 /// The configuration `kodosi_start` runs with: the prepared one when this
 /// process owns the app, or a fresh one when it prepared nothing.
+#[cfg(feature = "host")]
 pub(super) fn start_config() -> std::result::Result<Config, Box<KodosiStartFailure>> {
     match lock(&APP).as_ref() {
         None => Config::load().map_err(|error| failed(KODOSI_START_REJECTED, &error.to_string())),
@@ -250,12 +276,14 @@ pub(super) fn start_config() -> std::result::Result<Config, Box<KodosiStartFailu
 }
 
 /// The prepared configuration, or a freshly loaded one.
+#[cfg(feature = "host")]
 pub(super) fn config() -> kodosi_runtime::Result<Config> {
     lock(&APP)
         .as_ref()
         .map_or_else(Config::load, |app| Ok(app.config.clone()))
 }
 
+#[cfg(feature = "host")]
 fn own(
     config: &Config,
     claim: AppClaim,
@@ -288,6 +316,7 @@ fn own(
     Err(failed(KODOSI_START_FAILED, &message))
 }
 
+#[cfg(feature = "host")]
 fn serve(
     claim: AppClaim,
     activation: Activation,
@@ -327,7 +356,39 @@ fn serve(
     });
 }
 
-#[cfg(test)]
+// A viewer runs as one app process and receives its activations from the system,
+// so it has no app instance to claim.
+#[cfg(not(feature = "host"))]
+unsafe fn claim_app(
+    _on_activation: ActivationCb,
+    _userdata: *mut c_void,
+    _preferences: *mut *const c_char,
+) -> Outcome {
+    Err(no_app_claim())
+}
+
+#[cfg(not(feature = "host"))]
+unsafe fn forward(_json: *const u8, _length: usize) -> Outcome {
+    Err(no_app_claim())
+}
+
+#[cfg(not(feature = "host"))]
+const fn close_app() {}
+
+#[cfg(not(feature = "host"))]
+fn no_app_claim() -> Box<KodosiStartFailure> {
+    failed(
+        KODOSI_START_REJECTED,
+        "A viewer runtime has no app instance to claim.",
+    )
+}
+
+#[cfg(not(feature = "host"))]
+pub(super) fn start_config() -> std::result::Result<Config, Box<KodosiStartFailure>> {
+    Config::load().map_err(|error| failed(KODOSI_START_REJECTED, &error.to_string()))
+}
+
+#[cfg(all(test, feature = "host"))]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
 

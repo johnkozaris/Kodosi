@@ -15,13 +15,15 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-c98566?style=flat-square&labelColor=2a211d" alt="MIT license"></a>
   <a href="clients/macos/README.md"><img src="https://img.shields.io/badge/macOS-26.4%2B%20%C2%B7%20Apple%20silicon-c98566?style=flat-square&labelColor=2a211d" alt="macOS 26.4 or later on Apple silicon"></a>
   <a href="clients/qt/README.md"><img src="https://img.shields.io/badge/Linux-x86--64-c98566?style=flat-square&labelColor=2a211d" alt="Linux x86-64"></a>
+  <a href="clients/ios/README.md"><img src="https://img.shields.io/badge/iOS-26%2B%20%C2%B7%20iPhone%20and%20iPad-c98566?style=flat-square&labelColor=2a211d" alt="iOS 26 or later on iPhone and iPad"></a>
   <a href="#project-status"><img src="https://img.shields.io/badge/status-in%20development-8a7a70?style=flat-square&labelColor=2a211d" alt="In development"></a>
 </p>
 
 Kodosi is a native app for Mac and Linux where people and their coding agents work
 together. Your terminals, your other computers, your friends' terminals, and the
 agents that run in them are in one place. Terminal traffic and room content are
-end-to-end encrypted.
+end-to-end encrypted. The iPhone and iPad app follows the same terminals and rooms
+when you are away from your computer.
 
 <p align="center">
   <picture>
@@ -129,9 +131,10 @@ git clone https://github.com/johnkozaris/Kodosi.git
 cd Kodosi
 just mac-build      # on a Mac
 just linux-build    # on Linux
+just ios-build      # the iPhone and iPad app, on a Mac
 ```
 
-One checkout contains the runtime, backend, both native clients, and the Ghostty
+One checkout contains the runtime, backend, the native clients, and the Ghostty
 integration. No sibling repositories or submodules are needed. A Mac build needs your
 own Apple development signing team.
 
@@ -139,6 +142,7 @@ own Apple development signing team.
 | --- | --- | --- |
 | macOS | [Kodosi for macOS](clients/macos/README.md) | Run the `KodosiDesktop` scheme from Xcode |
 | Linux | [Kodosi for Linux](clients/qt/README.md) | Run `./clients/qt/build/dev/src/kodosi-qt` |
+| iPhone and iPad | [Kodosi for iPhone and iPad](clients/ios/README.md) | Run the `KodosiMobile` scheme from Xcode |
 
 When the app runs, follow the [guide](docs/GETTING_STARTED.md): sign in, open a
 terminal, start an agent, and make a room.

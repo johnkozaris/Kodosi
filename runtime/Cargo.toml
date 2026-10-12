@@ -61,13 +61,14 @@ rust-version = "1.99.0"
 version = "0.1.0"
 
 [features]
-default = ["cli"]
-cli = ["dep:clap"]
+default = ["cli", "host"]
+cli = ["host", "dep:clap", "tokio/signal"]
+host = ["dep:kodosi-pty", "tokio/process"]
 
 [dependencies]
 ghostty-vt = { path = "crates/ghostty-vt" }
 kodosi-os = { path = "crates/kodosi-os" }
-kodosi-pty = { path = "crates/kodosi-pty" }
+kodosi-pty = { path = "crates/kodosi-pty", optional = true }
 sha2 = "0.11.0"
 aws-lc-rs = { workspace = true }
 base64 = { workspace = true }
@@ -85,7 +86,7 @@ specta-macros = { version = "=2.0.0-rc.25", features = ["serde"] }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 time = { workspace = true, features = ["formatting"] }
-tokio = { workspace = true, features = ["fs", "io-util", "macros", "net", "process", "rt", "rt-multi-thread", "signal", "sync", "time"] }
+tokio = { workspace = true, features = ["fs", "io-util", "macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
 tokio-tungstenite = { workspace = true }
 tokio-util = { workspace = true, features = ["rt"] }
 tracing = { workspace = true }

@@ -1,3 +1,4 @@
+#if os(macOS)
 import AppKit
 
     extension AppTerminalView: @preconcurrency NSTextInputClient {
@@ -71,3 +72,4 @@ import AppKit
             NSNotFound
         }
     }
+#endif

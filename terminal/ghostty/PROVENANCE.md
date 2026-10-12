@@ -1,18 +1,21 @@
 # Provenance and updates
 
 Kodosi's integration began from `Lakr233/libghostty-spm` tag `1.3.1`, commit
-`b0930320739324886590e865d571eb5dd7073912`. Preserve the imported MIT attribution
-and Ghostty's license. This is not an official Ghostty distribution.
+`b0930320739324886590e865d571eb5dd7073912`; the UIKit view adapts that commit's
+iOS implementation. Preserve the imported MIT attribution and Ghostty's license.
+This is not an official Ghostty distribution.
 
 ## Source and artifacts
 
 `MacOSGhostty.ref`, `LinuxGhostty.ref`, and `WindowsGhostty.ref` select independent
-upstream commits. The macOS renderer and terminal engine are one native image; Linux
-and each Windows architecture have their own terminal-engine artifact.
-`Vendor/*.version` records the inputs and measured output for each build. `VERSION`
-names the package, not the upstream Ghostty version.
+upstream commits. On Apple platforms the renderer and terminal engine are one native
+image, built from `MacOSGhostty.ref` as `macos-arm64`, `ios-arm64` and
+`ios-arm64-simulator` slices of `Vendor/GhosttyKit.xcframework`; Linux and each Windows
+architecture have their own terminal-engine artifact. `Vendor/*.version` records the
+inputs and measured output for each build. `VERSION` names the package, not the
+upstream Ghostty version.
 
-Root `../../Ghostty.lock` selects the platform artifacts. The integration, runtime
+Root `../../Ghostty.lock` selects every platform artifact. The integration, runtime
 and clients share the Kodosi repository revision. Preserve platform-specific
 provenance even when refs choose the same upstream commit. Native artifact
 metadata records measured build inputs and outputs, independent of repository layout.
@@ -29,7 +32,8 @@ verifies the artifacts, and records their actual digests. `--source` selects a
 source cache, not a prepatched tree. Never hand-edit build evidence.
 
 Patches support host-managed terminal I/O, checkpoint restore, native policy,
-and the combined image. Remove patches when upstream supplies the same behavior.
+and the combined image, including the iOS slices that upstream otherwise limits
+to `libghostty-vt`. Remove patches when upstream supplies the same behavior.
 Do not introduce another process backend or terminal parser.
 
 ## Updates

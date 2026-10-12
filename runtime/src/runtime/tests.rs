@@ -41,6 +41,7 @@ impl TestRuntime {
             .unwrap();
     }
 
+    #[cfg(feature = "host")]
     async fn create(&self) -> (Uuid, Uuid) {
         let (_, mut events) = self.handle.observe().await.unwrap();
         let request = Uuid::now_v7().to_string();
@@ -84,7 +85,7 @@ impl Drop for TestRuntime {
     }
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, feature = "host"))]
 async fn receive_text(subscription: &mut Subscription, wanted: &[u8]) -> Vec<u8> {
     timeout(Duration::from_secs(10), async {
         let mut received = Vec::new();
@@ -102,6 +103,7 @@ async fn receive_text(subscription: &mut Subscription, wanted: &[u8]) -> Vec<u8>
     .expect("terminal output timeout")
 }
 
+#[cfg(feature = "host")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_terminal_on_a_new_branch_starts_in_its_own_folder_and_takes_it_away_unchanged() {
     async fn start(runtime: &TestRuntime, folder: &Path, branch: &str) -> Value {
@@ -196,7 +198,7 @@ async fn a_terminal_on_a_new_branch_starts_in_its_own_folder_and_takes_it_away_u
     drop(runtime);
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, feature = "host"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn local_terminal_keeps_running_after_view_closes_then_stop_removes_it() {
     let runtime = TestRuntime::new().await;
@@ -260,7 +262,7 @@ async fn local_terminal_keeps_running_after_view_closes_then_stop_removes_it() {
     drop(runtime);
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, feature = "host"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn terminal_notifications_do_not_require_a_mounted_view() {
     let runtime = TestRuntime::new().await;
@@ -304,7 +306,7 @@ async fn terminal_notifications_do_not_require_a_mounted_view() {
     drop(runtime);
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, feature = "host"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn slow_login_does_not_block_local_terminal_or_runtime_observation() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -414,6 +416,63 @@ async fn stale_epoch_cannot_create_or_shutdown_current_runtime() {
     drop(runtime);
 }
 
+#[cfg(feature = "host")]
+#[cfg(not(feature = "host"))]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_viewer_says_that_terminals_and_conversations_stay_on_a_computer() {
+    let runtime = TestRuntime::new().await;
+    let (_, mut events) = runtime.handle.observe().await.unwrap();
+    let create = Uuid::now_v7().to_string();
+    let discover = Uuid::now_v7().to_string();
+    runtime
+        .send(Command::CreateSession {
+            request_id: create.clone(),
+            name: "Viewer".to_owned(),
+            working_dir: None,
+            mission_id: None,
+            resume: None,
+            branch: None,
+            worktrees: None,
+        })
+        .await;
+    runtime
+        .send(Command::DiscoverConversations {
+            request_id: discover.clone(),
+            provider: crate::provider::Provider::Claude,
+            working_directory: None,
+            cursor: None,
+            limit: None,
+            max_bytes: None,
+        })
+        .await;
+    let mut refused = BTreeMap::new();
+    timeout(Duration::from_secs(5), async {
+        while refused.len() < 2 {
+            let event = serde_json::to_value(events.recv().await.unwrap()).unwrap();
+            if matches!(
+                event["type"].as_str(),
+                Some("session.error" | "provider.error")
+            ) {
+                refused.insert(event["requestId"].as_str().unwrap().to_owned(), event);
+            }
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(refused[&create]["operation"], "session.create");
+    assert_eq!(
+        refused[&create]["message"],
+        "This device cannot start terminals."
+    );
+    assert_eq!(
+        refused[&discover]["message"],
+        "Open agent conversations on the computer that runs the agent."
+    );
+    runtime.shutdown().await;
+    drop(runtime);
+}
+
+#[cfg(feature = "host")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn concurrent_shutdown_waits_for_the_same_completion() {
     let runtime = TestRuntime::new().await;
@@ -436,6 +495,7 @@ async fn concurrent_shutdown_waits_for_the_same_completion() {
     drop(runtime);
 }
 
+#[cfg(feature = "host")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn create_retry_is_exact_and_does_not_launch_a_second_process() {
     let runtime = TestRuntime::new().await;
@@ -493,6 +553,7 @@ async fn create_retry_is_exact_and_does_not_launch_a_second_process() {
     drop(runtime);
 }
 
+#[cfg(feature = "host")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn generic_terminal_command_cannot_bypass_subscription_admission() {
     let runtime = TestRuntime::new().await;
@@ -527,7 +588,7 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
         scopes: config.oidc_scopes.clone(),
         data_root: config.data_root.clone(),
         secret_service: config.secret_service.clone(),
-        isolated: true,
+        isolated: config.isolated,
     })
     .unwrap();
     let scope = Scope {
@@ -539,23 +600,29 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
     let (changes, _) = mpsc::channel(128);
     (
         Runtime {
+            #[cfg(feature = "host")]
             config,
             network,
             events,
             scope,
+            #[cfg(feature = "host")]
             local: HashMap::new(),
+            #[cfg(feature = "host")]
             creating: HashMap::new(),
             remotes: HashMap::new(),
             connections: HashMap::new(),
             opening: HashMap::new(),
             views: HashMap::new(),
             reconnect: HashMap::new(),
+            #[cfg(feature = "host")]
             publishing: BTreeSet::new(),
+            #[cfg(feature = "host")]
             retiring: BTreeSet::new(),
             unpublishing: BTreeSet::new(),
             administering: BTreeSet::new(),
             jobs: JoinSet::new(),
             changes,
+            #[cfg(feature = "host")]
             dark: true,
             initializing: false,
             auth_pending: false,
@@ -708,6 +775,7 @@ async fn observation_retains_pending_sign_in_and_discards_stale_auth_events() {
     assert_eq!(runtime.auth_event()["type"], "auth.required");
 }
 
+#[cfg(feature = "host")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_directory() {
     let runtime = TestRuntime::new().await;

@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import KodosiBridge
 
 extension AppDependencies {
     enum SignInStage: Equatable {

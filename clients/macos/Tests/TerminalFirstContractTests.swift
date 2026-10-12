@@ -1,4 +1,6 @@
 import Foundation
+import KodosiBridge
+import KodosiDesign
 @testable import KodosiDesktop
 import Testing
 

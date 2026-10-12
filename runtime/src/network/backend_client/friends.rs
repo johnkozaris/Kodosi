@@ -1,8 +1,10 @@
 use serde::Deserialize;
 
+#[cfg(feature = "host")]
+use super::BTreeSet;
 use super::{
-    BTreeSet, BackendClient, Credentials, Error, IdentityBundle, Method, Result, Value,
-    VerifiedIdentity, invalid, json, path_segment, wire,
+    BackendClient, Credentials, Error, IdentityBundle, Method, Result, Value, VerifiedIdentity,
+    invalid, json, path_segment, wire,
 };
 use crate::identity::{
     friends::{Friend, FriendList, SignedFriendList, invite, parse_invite, root_hex},
@@ -303,6 +305,7 @@ impl BackendClient {
         Ok(root)
     }
 
+    #[cfg(feature = "host")]
     pub(super) async fn require_trusted_friends(
         &self,
         credentials: &Credentials,
@@ -533,6 +536,7 @@ impl BackendClient {
             }
             "friends.request.reject" => self.friend_request(&credentials, "reject", typed).await?,
             "friends.request.cancel" | "friends.remove" => {
+                #[cfg(feature = "host")]
                 if operation == "friends.remove" {
                     self.exclude_friend(&credentials, typed).await?;
                 }
@@ -590,6 +594,7 @@ impl BackendClient {
             _ => return Err(invalid("Unsupported friend command.")),
         }
         let event = self.friend_event().await?;
+        #[cfg(feature = "host")]
         if matches!(
             operation,
             "friends.remove" | "friends.identity.trust" | "friends.verify"

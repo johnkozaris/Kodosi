@@ -3,8 +3,8 @@ use std::{path::PathBuf, str, thread, time::Duration};
 use super::{
     status::{BlockedKind, ProgramState, ProgramStatusReport},
     types::{
-        Checkpoint, TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES, TerminalPixelGeometry, TerminalScreen,
-        TerminalSize,
+        Checkpoint, TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES, TerminalHistoryPolicy,
+        TerminalPixelGeometry, TerminalScreen, TerminalSize,
     },
 };
 use ghostty_vt::{
@@ -20,25 +20,6 @@ use tokio::{
 
 const TERMINAL_COMMAND_CAPACITY: usize = 64;
 const TERMINAL_COMMAND_SEND_TIMEOUT: Duration = Duration::from_millis(50);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TerminalHistoryPolicy {
-    pub max_bytes: usize,
-    pub max_lines: usize,
-    pub continuation_max_bytes: usize,
-    pub compression_idle: Duration,
-}
-
-impl Default for TerminalHistoryPolicy {
-    fn default() -> Self {
-        Self {
-            max_bytes: 64 * 1024 * 1024,
-            max_lines: 1_024,
-            continuation_max_bytes: 1024 * 1024,
-            compression_idle: Duration::from_secs(2),
-        }
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum TerminalEffect {

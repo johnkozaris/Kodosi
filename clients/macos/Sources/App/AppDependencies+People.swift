@@ -1,4 +1,6 @@
 import Foundation
+import KodosiBridge
+import KodosiDesign
 
 extension AppDependencies {
     var selfName: String {

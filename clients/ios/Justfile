@@ -1,0 +1,39 @@
+simulator := env('KODOSI_IOS_SIMULATOR', 'Kodosi iPhone 17 Pro')
+
+default: build
+
+xcode-gen:
+    xcodegen generate --quiet
+
+lint:
+    swiftformat Sources Tests --lint --swiftversion 6.0
+    swiftlint lint --quiet Sources Tests
+
+format:
+    swiftformat Sources Tests --swiftversion 6.0
+
+build: xcode-gen
+    xcodebuild -project KodosiMobile.xcodeproj \
+        -scheme KodosiMobile \
+        -configuration Debug \
+        -destination 'generic/platform=iOS Simulator' \
+        build
+
+test: xcode-gen
+    #!/usr/bin/env bash
+    set -euo pipefail
+    id=$(scripts/simulator.sh "{{ simulator }}")
+    xcodebuild -project KodosiMobile.xcodeproj \
+        -scheme KodosiMobile \
+        -configuration Debug \
+        -destination "id=$id" \
+        test
+
+build-device: xcode-gen
+    xcodebuild -project KodosiMobile.xcodeproj \
+        -scheme KodosiMobile \
+        -configuration Release \
+        -destination 'generic/platform=iOS' \
+        build
+
+ci: lint test build-device

@@ -1,0 +1,78 @@
+import Foundation
+
+public struct FriendEntry: Decodable, Equatable, Identifiable, Sendable {
+    public let userId: String
+    public let handle: String
+    public let displayName: String
+    public let verified: Bool
+    public let identityState: String
+    public var id: String {
+        userId
+    }
+
+    public var identityChanged: Bool {
+        identityState == "changed"
+    }
+}
+
+public struct FriendRequestEntry: Decodable, Equatable, Identifiable, Sendable {
+    public let userId: String
+    public let handle: String
+    public let displayName: String
+    public let createdAt: String
+    public var id: String {
+        userId
+    }
+}
+
+public struct MyDeviceEntry: Decodable, Equatable, Identifiable, Sendable {
+    public let deviceId: String
+    public let label: String
+    public let certIssuedAtMs: UInt64
+    public let recoveryKey: Bool
+    public var id: String {
+        deviceId
+    }
+}
+
+public struct DeviceLinkRequest: Decodable, Equatable, Identifiable, Sendable {
+    public let requestId: String
+    public let deviceLabel: String
+    public var id: String {
+        requestId
+    }
+}
+
+public struct MissionEntry: Decodable, Equatable, Identifiable, Sendable {
+    public let id: String
+    public let name: String
+    public let ownerUserId: String
+}
+
+public struct MissionMemberEntry: Decodable, Equatable, Identifiable, Sendable {
+    public let userId: String
+    public let handle: String
+    public let displayName: String
+    public let isOwner: Bool
+    public var id: String {
+        userId
+    }
+}
+
+public struct MissionInvitationEntry: Decodable, Equatable, Identifiable, Sendable {
+    public let id: String
+    public let missionId: String
+    public let missionName: String
+    public let inviterName: String
+    public let createdAt: String
+}
+
+public struct MissionDetail: Equatable {
+    public let mission: MissionEntry
+    public let members: [MissionMemberEntry]
+
+    public init(mission: MissionEntry, members: [MissionMemberEntry]) {
+        self.mission = mission
+        self.members = members
+    }
+}

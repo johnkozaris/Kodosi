@@ -1,8 +1,8 @@
-use super::types::{Checkpoint, TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES, TerminalScreen};
+use super::types::{
+    Checkpoint, TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES, TerminalHistoryPolicy, TerminalScreen,
+};
+use crate::{Error, Result};
 use ghostty_vt::{CheckpointLimits, Screen, SemanticCheckpoint, Terminal, TerminalPolicy};
-use kodosi_pty::{KodosiError, Result};
-
-use super::emulator::TerminalHistoryPolicy;
 
 pub fn validate_terminal_checkpoint(
     checkpoint: &Checkpoint,
@@ -43,7 +43,7 @@ fn validate_restored_metadata(terminal: &mut Terminal, checkpoint: &Checkpoint) 
         || state.cursor_y != checkpoint.cursor_y()
         || cursor_hidden != checkpoint.cursor_hidden()
     {
-        return Err(KodosiError::Unsupported(format!(
+        return Err(Error::Other(format!(
             "terminal checkpoint metadata disagrees with restored semantic checkpoint: metadata={}x{} {:?} cursor={},{},hidden={}; restored={}x{} {:?} cursor={},{},hidden={}",
             checkpoint.cols(),
             checkpoint.rows(),
@@ -69,8 +69,8 @@ fn terminal_screen(screen: Screen) -> TerminalScreen {
     }
 }
 
-fn checkpoint_error(error: ghostty_vt::Error) -> KodosiError {
-    KodosiError::Unsupported(format!(
+fn checkpoint_error(error: ghostty_vt::Error) -> Error {
+    Error::Other(format!(
         "Ghostty terminal checkpoint validation failed: {error}"
     ))
 }
