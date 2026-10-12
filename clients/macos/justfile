@@ -85,6 +85,6 @@ check: lint deployment-targets-check release-graph-test apple-test
         -destination 'generic/platform=macOS' \
         build
 
-# Check the signatures, the profile, the entitlements and the deployment target of the app in the release archive.
+# Check the signatures, the profile and the entitlements of the app in the release archive.
 signature-check:
     scripts/release/verify-signed.sh

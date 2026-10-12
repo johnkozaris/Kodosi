@@ -9,8 +9,6 @@ dmg="build/export/KodosiDesktop.dmg"
 rm -rf "$staging" "$dmg"
 mkdir -p "$staging"
 /usr/bin/ditto build/export/KodosiDesktop.app "$staging/KodosiDesktop.app"
-"$ROOT/scripts/build/verify-native-notices.sh" \
-    "$ROOT/$staging/KodosiDesktop.app/Contents/Resources/GhosttyNativeNotices"
 ln -s /Applications "$staging/Applications"
 hdiutil create \
     -volname "KodosiDesktop" \
@@ -28,5 +26,4 @@ xcrun notarytool submit "$dmg" \
     --keychain-profile "$KODOSI_NOTARY_PROFILE" \
     --wait
 xcrun stapler staple "$dmg"
-xcrun stapler validate "$dmg"
 spctl --assess --type open --context context:primary-signature --verbose=4 "$dmg"

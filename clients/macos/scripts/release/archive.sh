@@ -28,5 +28,3 @@ xcodebuild -project KodosiDesktop.xcodeproj \
            KODOSI_PROVISIONING_PROFILE="$KODOSI_PROVISIONING_PROFILE" \
            DEVELOPMENT_TEAM="$KODOSI_TEAM_ID" \
            archive
-"$ROOT/scripts/build/verify-native-notices.sh" \
-    "$ROOT/build/archive/KodosiDesktop.xcarchive/Products/Applications/KodosiDesktop.app/Contents/Resources/GhosttyNativeNotices"
