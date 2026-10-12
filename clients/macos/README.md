@@ -1,7 +1,6 @@
 # Kodosi for macOS
 
 The native Swift app embeds the shared Rust runtime and Ghostty terminal integration.
-Everything builds from this checkout.
 
 ## Requirements
 
@@ -46,9 +45,8 @@ The app executable also implements the CLI:
 ```
 
 For `kodosi` in your shells and agent terminals, put a symlink named `kodosi` on your
-PATH pointing to that executable. Use the absolute path to your built app. It must
-remain the signed app executable so the CLI uses the same Keychain identity; a
-separate unsigned Rust binary is not a substitute for this app's CLI.
+PATH pointing to that executable. Use the absolute path to your built app. The CLI
+must be the signed app executable to use the app's Keychain identity.
 
 Keep the app running when using room commands for its terminals. See
 [Agents and tasks](../../docs/AGENTS_AND_TASKS.md).
@@ -61,11 +59,7 @@ just mac-check
 
 From this client directory, `just lint` and `just test` do parts of this check. To
 format the Swift sources, run `just format`.
-`just working-tree-build` builds an archive of the working tree for validation. You
-cannot publish it.
-
-Official releases have a Developer ID signature and Apple notarization, and the signing
-credentials and release values stay with the maintainers, outside Git.
+`just working-tree-build` builds an archive of the working tree for validation.
 
 Read [Ghostty integration](docs/GHOSTTY_INTEGRATION.md) before changing the renderer.
 See [product behavior](PRODUCT.md), [design reference](DESIGN.md), and

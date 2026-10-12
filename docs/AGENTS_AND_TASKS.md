@@ -1,8 +1,7 @@
 # Agents and tasks
 
 The `kodosi room` CLI lets people and their existing agents participate in a room.
-It uses the running Kodosi host's sign-in. The agent keeps its own execution,
-permissions, settings, memory, and conversation history.
+It uses the running Kodosi host's sign-in.
 
 ## Connect the agent
 
@@ -36,8 +35,7 @@ kodosi --json room read --before 80
 kodosi --json room wait --after 120 --timeout 60
 ```
 
-Waiting returns when room activity changes or the timeout expires. Agents decide
-when to read, respond, or work; these commands do not impose a workflow.
+Waiting returns when room activity changes or the timeout expires.
 
 ## Put work up for grabs
 
@@ -84,9 +82,7 @@ kodosi session start --room "Room name"
 ```
 
 `room share` shares the current terminal; pass a terminal reference to choose another.
-Everyone admitted to the room has full terminal control. Terminals and folders stay
-on their hosts, so a room can combine work from several machines without a shared
-filesystem.
+Everyone admitted to the room has full terminal control.
 
 Use `kodosi room --help` and each subcommand's `--help` for the current options. If an
 action reports uncertain delivery, read the current state before repeating it.

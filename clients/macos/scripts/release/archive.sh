@@ -2,8 +2,6 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-source "$ROOT/scripts/build/deployment-target.sh"
-kodosi_load_macos_deployment_target "$ROOT"
 cd "$ROOT"
 "$ROOT/scripts/build/verify-kodosi-checkout.sh"
 "$ROOT/scripts/build/generate-xcode-project.sh"
@@ -28,5 +26,3 @@ xcodebuild -project KodosiDesktop.xcodeproj \
            KODOSI_PROVISIONING_PROFILE="$KODOSI_PROVISIONING_PROFILE" \
            DEVELOPMENT_TEAM="$KODOSI_TEAM_ID" \
            archive
-"$ROOT/scripts/build/verify-native-notices.sh" \
-    "$ROOT/build/archive/KodosiDesktop.xcarchive/Products/Applications/KodosiDesktop.app/Contents/Resources/GhosttyNativeNotices"

@@ -1,15 +1,14 @@
 # Contributing to Kodosi
 
-Kodosi brings people and their coding agents together through shared terminals,
-conversation, and tasks. Read [PRODUCT.md](PRODUCT.md) for product intent and
-[development setup](docs/DEVELOPMENT.md) to build it.
+Read [PRODUCT.md](PRODUCT.md) for product intent and
+[development setup](docs/DEVELOPMENT.md) to build Kodosi.
 
 ## Start with the problem
 
 Use [GitHub issues](https://github.com/johnkozaris/Kodosi/issues) for bugs and feature
-proposals; the issue forms ask for what a reviewer needs. For a bug, include the
-platform, source revision, what you did, what you expected, and what happened. Redact
-private terminal content and credentials from logs and screenshots.
+proposals. For a bug, include the platform, source revision, what you did, what you
+expected, and what happened. Redact private terminal content and credentials from logs
+and screenshots.
 
 For a larger change, describe the user problem and proposed behavior in an issue
 before adding a new subsystem. Small fixes can go straight to a pull request.
@@ -19,11 +18,10 @@ Report vulnerabilities [privately](docs/SECURITY.md#report-a-vulnerability).
 
 Keep dependencies project-local and follow the nearest `AGENTS.md` or `CLAUDE.md`.
 The runtime owns terminal behavior; native clients present it; the backend stores
-shared metadata and routes encrypted traffic. There is one repository for all of it.
+shared metadata and routes encrypted traffic.
 
-Full control of shared terminals is intentional. Give people and agents useful
-capabilities without adding permission tiers, a second agent harness, or a required
-shared checkout.
+Give people and agents full control of shared terminals. Add no permission tiers, no
+second agent harness, and no required shared checkout.
 
 Keep generated contracts and native pins aligned. Preserve license notices and
 required corresponding source. Update the relevant user guide when behavior changes;
@@ -44,8 +42,7 @@ memory, settings, or working files for a test. See
 ## Open the pull request
 
 Explain the problem, the resulting behavior, and how you verified it. Call out any
-remaining limitation. Keep unrelated changes separate so a reviewer can assess the
-whole change.
+remaining limitation. Keep unrelated changes in separate pull requests.
 
 Real credentials, signing keys, local sessions, and personal configuration stay
 outside Git. Use visibly dummy examples; generate credential-shaped test data at

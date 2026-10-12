@@ -73,8 +73,8 @@ functions. Use one word for one meaning.
 - Put the tests for the scripts of a component in the `scripts/tests/` folder of that
   component.
 - Name a Python test `test_<subject>.py` and a shell test `test-<subject>.sh`. The
-  subject is the item that the test examines. For example, `test-rust-archive.sh`
-  tests `verify-rust-archive.sh`.
+  subject is the item that the test examines. For example, `test-generated-project.sh`
+  tests the generated Xcode project.
 - To find all the tests of the scripts, run `git ls-files '*scripts/tests/test[-_]*'`.
 - Name a Dockerfile after the image that it makes, for example
   `windows-cross.Dockerfile` for the image `kodosi-windows-cross`.

@@ -21,13 +21,12 @@ flowchart LR
 The Mac app embeds the Rust runtime through its native API. The Qt app does the same.
 The runtime starts a local shell on a PTY (ConPTY on Windows); that shell can start an
 existing agent CLI.
-Ghostty is a linked library for terminal state/rendering, not a separate process host.
+Ghostty is a linked library for terminal state and rendering.
 Native views handle presentation, focus, input, and accessibility.
 
 The `kodosi` CLI connects to the running local host. If none is running, it can
 start its own background runtime host; `kodosi host` runs one in the foreground.
-It exposes terminal, account, and room actions without starting an ASP.NET backend
-or taking over provider execution.
+It exposes terminal, account, and room actions.
 On macOS, the signed app executable also serves the CLI so it uses the same Keychain
 identity. Linux packages include the native app and runtime CLI integration. The
 Windows package carries the CLI as `kodosi.exe`, reached through an app execution
@@ -37,12 +36,11 @@ alias.
 
 The hosting runtime owns each live process, terminal state, and output order. Each
 remote viewer receives a current checkpoint followed by ordered updates. Viewers have
-independent encrypted channels and flow control; a slow or disconnected viewer does
-not become an unbounded output archive.
+independent encrypted channels and flow control, with bounded output for a slow or
+disconnected viewer.
 
 Several admitted participants can use one terminal. Their input reaches the host's
-single terminal process. Kodosi does not arbitrate file edits between people or agents;
-each tool continues to operate on its host's files. Terminal sharing follows room
+single terminal process, and each tool works on its host's files. Terminal sharing follows room
 membership, while sharing one terminal leaves other local terminals alone.
 
 The host also keeps the status that programs report to the terminal (OSC 7501, or a
@@ -58,7 +56,7 @@ Close ends its process; quitting a host ends its local terminals.
 ASP.NET Core serves HTTP metadata APIs and WebSocket connections. One serving process
 holds live device sessions and relay routing, backed by a PostgreSQL lease. A backend
 restart causes clients to renew sessions and reconnect. Durable records live in
-PostgreSQL; the relay is not a durable terminal input queue.
+PostgreSQL; the relay holds no terminal input.
 
 Room conversation, tasks, and repository links are encrypted and signed at endpoints.
 The backend assigns sequence/version metadata and stores ciphertext. Signed room key
@@ -67,8 +65,7 @@ joiners. See [Security](SECURITY.md) for visible metadata and
 [Encryption design](CRYPTOGRAPHY.md) for the keys and their rules.
 
 Repository issue actions run from the participant's runtime using local provider
-credentials. The Git provider remains authoritative for a linked issue. Room tools
-give agents context and actions; providers retain agent execution and native history.
+credentials. The Git provider remains authoritative for a linked issue.
 
 ## Contract authorities
 

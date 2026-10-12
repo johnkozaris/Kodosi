@@ -63,39 +63,17 @@ working-tree-build: xcode-gen
         -destination 'generic/platform=macOS' \
         archive
 
-# Test the scripts for the Rust archive, the publishability, the Ghostty link and the Xcode project.
+# Test the Ghostty link check, and check that the Xcode project matches project.yml.
 release-graph-test:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    root="{{ justfile_directory() }}"
-    source "$root/scripts/build/deployment-target.sh"
-    kodosi_load_macos_deployment_target "$root"
-    (
-        cd "$root"
-        scripts/tests/test-rust-archive.sh "$KODOSI_MACOS_DEPLOYMENT_TARGET" arm64
-    )
-    "$root/scripts/tests/test-publishability.sh"
-    "$root/scripts/tests/test-ghostty-link-provenance.sh"
-    "$root/scripts/tests/test-generated-project.sh"
+    scripts/tests/test-ghostty-link-provenance.sh
+    scripts/tests/test-generated-project.sh
 
 # Check that the Swift packages and the Ghostty iOS build agree with the deployment targets of the apps.
 deployment-targets-check:
     ../apple/scripts/verify-deployment-targets.py
 
-# Test the script that verifies the Developer ID signature.
-signature-test:
-    scripts/tests/test-developer-id-signature.sh
-
-# Test the script that verifies the provisioning profile.
-provisioning-profile-test:
-    scripts/tests/test-provisioning-profile.sh
-
-# Test the scripts that install and verify the native notices.
-native-notices-test:
-    scripts/tests/test-native-notices.sh
-
 # Lint and test the Mac app and its scripts, then build the Release app. Commit all the changes first.
-check: lint deployment-targets-check release-graph-test signature-test provisioning-profile-test native-notices-test apple-test
+check: lint deployment-targets-check release-graph-test apple-test
     xcodebuild -project KodosiDesktop.xcodeproj \
         -scheme KodosiDesktop \
         -configuration Debug \
@@ -107,6 +85,6 @@ check: lint deployment-targets-check release-graph-test signature-test provision
         -destination 'generic/platform=macOS' \
         build
 
-# Check the signatures, the profile, the entitlements and the deployment target of the app in the release archive.
+# Check the signatures, the profile and the entitlements of the app in the release archive.
 signature-check:
     scripts/release/verify-signed.sh

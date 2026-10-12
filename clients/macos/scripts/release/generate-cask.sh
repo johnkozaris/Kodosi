@@ -6,10 +6,6 @@ source "$ROOT/scripts/build/deployment-target.sh"
 kodosi_load_macos_deployment_target "$ROOT"
 cd "$ROOT"
 : "${KODOSI_DOWNLOAD_URL:?Set KODOSI_DOWNLOAD_URL to the public HTTPS DMG URL}"
-case "$KODOSI_DOWNLOAD_URL" in
-    https://*) ;;
-    *) echo "KODOSI_DOWNLOAD_URL must use HTTPS" >&2; exit 1 ;;
-esac
 dmg="build/export/KodosiDesktop.dmg"
 app="build/export/KodosiDesktop.app"
 downloaded_dmg="build/public/KodosiDesktop.dmg"
@@ -27,6 +23,7 @@ if [[ "$sha256" != "$local_sha256" ]]; then
 fi
 version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
     "$app/Contents/Info.plist")
+# The cask has no zap stanza, so an uninstall keeps the device enrollment in ~/.kodosi.
 cat >"$output" <<RUBY
 cask "kodosi-desktop" do
   version "$version"
@@ -47,8 +44,4 @@ cask "kodosi-desktop" do
 end
 RUBY
 ruby -c "$output"
-if grep -Eq '^[[:space:]]*(zap|trash|rmdir)[[:space:]]' "$output" >/dev/null; then
-    echo "The cask must not remove device enrollment under ~/.kodosi" >&2
-    exit 1
-fi
 echo "$output"

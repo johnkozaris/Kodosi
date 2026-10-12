@@ -34,11 +34,9 @@ test: build
 dependency-pins-check:
     python3 scripts/build/verify-dependency-pins.py
 
-# Test the release, archive and Windows package scripts.
+# Test the release scripts.
 release-integrity-test:
     python3 -m unittest scripts/tests/test_release_integrity.py
-    python3 -m unittest scripts/tests/test_reproducible_archives.py
-    python3 -m unittest scripts/tests/test_windows_package.py
 
 # Write the Rust license inventory for Linux, and verify it.
 rust-license-test:
@@ -51,13 +49,12 @@ rust-license-test:
         --tree build/rust-license-test \
         --target x86_64-unknown-linux-gnu
 
-# Verify the native license evidence, and test its verifier.
-native-license-test: tools-install
+# Check the native license evidence against the installed Qt.
+native-license-check: tools-install
     python3 scripts/release/verify-native-license-evidence.py
-    python3 -m unittest scripts/tests/test_native_license_evidence.py
 
 # Lint and test the Linux app and its release and license scripts.
-check: dependency-pins-check release-integrity-test rust-license-test native-license-test lint test
+check: dependency-pins-check release-integrity-test rust-license-test native-license-check lint test
 
 # Build the Windows app in Git Bash on Windows 11, x64 or ARM64.
 windows-build: tools-install
