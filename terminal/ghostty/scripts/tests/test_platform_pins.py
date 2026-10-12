@@ -50,12 +50,12 @@ class PlatformPinTests(unittest.TestCase):
                 f"Vendor/libghostty-{slice_name}.version",
                 f"ghostty_commit={MAC_REF}\n"
                 f"library_identifier={slice_name}\n"
-                f"combined_archive_sha256={self.digest(archive)}\n",
+                f"combined_archive_sha256={self.file_sha256(archive)}\n",
             )
-        mac_digest = self.digest(
+        mac_digest = self.file_sha256(
             "Vendor/GhosttyKit.xcframework/macos-arm64/libghostty.a"
         )
-        linux_digest = self.digest(
+        linux_digest = self.file_sha256(
             "Vendor/GhosttyVt/linux-x86_64/lib/libghostty-vt.a"
         )
         self.write(
@@ -72,7 +72,7 @@ class PlatformPinTests(unittest.TestCase):
         self.write(
             "Vendor/GhosttyVt/windows-x86_64.version",
             f"ghostty_commit={WINDOWS_REF}\n"
-            f"vt_archive_sha256={self.digest(WINDOWS_ARCHIVE)}\n",
+            f"vt_archive_sha256={self.file_sha256(WINDOWS_ARCHIVE)}\n",
         )
         self.write_json(
             "ThirdPartyNotices/inventory.json",
@@ -97,7 +97,7 @@ class PlatformPinTests(unittest.TestCase):
             json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n",
         )
 
-    def digest(self, relative: str) -> str:
+    def file_sha256(self, relative: str) -> str:
         return hashlib.sha256((self.fixture / relative).read_bytes()).hexdigest()
 
     def verify(self, expect_success: bool = True) -> subprocess.CompletedProcess[str]:
@@ -188,7 +188,7 @@ class PlatformPinTests(unittest.TestCase):
             "Vendor/libghostty-ios-arm64.version",
             f"ghostty_commit={MAC_REF}\n"
             "library_identifier=ios-arm64\n"
-            f"combined_archive_sha256={self.digest(archive)}\n",
+            f"combined_archive_sha256={self.file_sha256(archive)}\n",
         )
         self.verify(expect_success=False)
 

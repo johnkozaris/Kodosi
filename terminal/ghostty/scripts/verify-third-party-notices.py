@@ -303,7 +303,7 @@ def verify_components(manifest: dict) -> set[str]:
     return ids
 
 
-def load_artifact_metadata(relative: str = "Vendor/libghostty.version") -> dict[str, str]:
+def load_metadata(relative: str = "Vendor/libghostty.version") -> dict[str, str]:
     metadata: dict[str, str] = {}
     for line in safe_file(relative).read_text().splitlines():
         if not line or "=" not in line:
@@ -330,7 +330,7 @@ def verify_archive(manifest: dict, component_ids: set[str]) -> Path:
     first = archives[0].read_bytes()
     if any(path.read_bytes() != first for path in archives[1:]):
         fail("renderer and VT archive copies differ")
-    metadata = load_artifact_metadata()
+    metadata = load_metadata()
     archive_digest = hashlib.sha256(first).hexdigest()
     if archive_digest != metadata.get("combined_archive_sha256"):
         fail("combined archive hash differs from sealed artifact provenance")
@@ -466,7 +466,7 @@ def verify_apple_slices(manifest: dict) -> None:
             if not member["owners"] or not set(member["owners"]) <= set(absent)
         ]
         archive = safe_file(record["archive"])
-        metadata = load_artifact_metadata(f"Vendor/libghostty-{slice_name}.version")
+        metadata = load_metadata(f"Vendor/libghostty-{slice_name}.version")
         if hashlib.sha256(archive.read_bytes()).hexdigest() != metadata.get("combined_archive_sha256"):
             fail(f"{slice_name} archive hash differs from sealed artifact provenance")
         if run("lipo", "-archs", str(archive)).split() != ["arm64"]:
@@ -477,7 +477,7 @@ def verify_apple_slices(manifest: dict) -> None:
 
 
 def verify_pins(manifest: dict) -> None:
-    metadata = load_artifact_metadata()
+    metadata = load_metadata()
     platform_ref = safe_file("MacOSGhostty.ref").read_text()
     if platform_ref != f"{manifest['ghosttyCommit']}\n":
         fail("MacOSGhostty.ref differs from the notice inventory")
@@ -518,7 +518,7 @@ def verify_pins(manifest: dict) -> None:
         if required not in native_options.splitlines():
             fail(f"native build policy is missing: {required}")
     for slice_name in IOS_SLICES:
-        slice_metadata = load_artifact_metadata(f"Vendor/libghostty-{slice_name}.version")
+        slice_metadata = load_metadata(f"Vendor/libghostty-{slice_name}.version")
         target = APPLE_SLICES[slice_name][2]
         if (
             slice_metadata.get("ghostty_commit") != manifest["ghosttyCommit"]

@@ -7,7 +7,7 @@ GHOSTTY_DIR="${KODOSI_GHOSTTY_DIR:-"$ROOT/terminal/ghostty"}"
 
 # Git Bash may lack shasum, and SwiftPM's build-tool sandbox on macOS runs
 # without the PATH entry for sha256sum.
-sha256() {
+file_sha256() {
     if command -v sha256sum >/dev/null 2>&1; then
         sha256sum "$1"
     else
@@ -92,7 +92,7 @@ for layout in windows-x86_64 windows-arm64; do
         windows-x86_64) expected=$windows_x86_64_vt_archive_sha256 ;;
         windows-arm64) expected=$windows_arm64_vt_archive_sha256 ;;
     esac
-    actual=$(sha256 "$windows_archive")
+    actual=$(file_sha256 "$windows_archive")
     if [[ -z "$expected" || "$actual" != "$expected" ]]; then
         echo "$layout Ghostty VT archive mismatch: expected ${expected:-a pin in Ghostty.lock}, found $actual" >&2
         exit 1
@@ -102,7 +102,7 @@ done
 renderer_archive="$GHOSTTY_DIR/Vendor/GhosttyKit.xcframework/macos-arm64/libghostty.a"
 vt_archive="$GHOSTTY_DIR/Vendor/GhosttyVt/macos-arm64/lib/libghostty-vt.a"
 linux_vt_archive="$GHOSTTY_DIR/Vendor/GhosttyVt/linux-x86_64/lib/libghostty-vt.a"
-actual_archive_sha=$(sha256 "$renderer_archive")
+actual_archive_sha=$(file_sha256 "$renderer_archive")
 if [[ "$actual_archive_sha" != "$combined_archive_sha256" ]]; then
     echo "Combined Ghostty archive mismatch: expected $combined_archive_sha256, found $actual_archive_sha" >&2
     exit 1
@@ -122,13 +122,13 @@ for slice in ios-arm64 ios-arm64-simulator; do
     else
         expected_ios_sha=$ios_simulator_combined_archive_sha256
     fi
-    actual_ios_sha=$(sha256 "$GHOSTTY_DIR/Vendor/GhosttyKit.xcframework/$slice/libghostty.a")
+    actual_ios_sha=$(file_sha256 "$GHOSTTY_DIR/Vendor/GhosttyKit.xcframework/$slice/libghostty.a")
     if [[ "$actual_ios_sha" != "$expected_ios_sha" ]]; then
         echo "Ghostty $slice archive mismatch: expected $expected_ios_sha, found $actual_ios_sha" >&2
         exit 1
     fi
 done
-actual_linux_archive_sha=$(sha256 "$linux_vt_archive")
+actual_linux_archive_sha=$(file_sha256 "$linux_vt_archive")
 if [[ "$actual_linux_archive_sha" != "$linux_vt_archive_sha256" ]]; then
     echo "Linux Ghostty VT archive mismatch: expected $linux_vt_archive_sha256, found $actual_linux_archive_sha" >&2
     exit 1

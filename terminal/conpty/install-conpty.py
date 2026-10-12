@@ -32,7 +32,7 @@ def read_lock() -> dict[str, str]:
     return values
 
 
-def sha256(path: Path) -> str:
+def file_sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as file:
         for block in iter(lambda: file.read(1 << 20), b""):
@@ -42,13 +42,13 @@ def sha256(path: Path) -> str:
 
 def package(lock: dict[str, str]) -> Path:
     cache = ROOT / ".cache" / f"{lock['package']}.{lock['version']}.nupkg"
-    if cache.is_file() and sha256(cache) == lock["sha256"]:
+    if cache.is_file() and file_sha256(cache) == lock["sha256"]:
         return cache
     cache.parent.mkdir(parents=True, exist_ok=True)
     partial = cache.with_suffix(".partial")
     with urllib.request.urlopen(lock["url"], timeout=120) as response, partial.open("wb") as file:
         shutil.copyfileobj(response, file)
-    actual = sha256(partial)
+    actual = file_sha256(partial)
     if actual != lock["sha256"]:
         partial.unlink()
         raise SystemExit(f"ConPTY package digest mismatch: expected {lock['sha256']}, found {actual}")

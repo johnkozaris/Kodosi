@@ -42,7 +42,7 @@ def read_ref(root: Path, relative: Path) -> str:
     return payload[:-1].decode("ascii")
 
 
-def read_metadata(root: Path, relative: Path) -> dict[str, str]:
+def load_metadata(root: Path, relative: Path) -> dict[str, str]:
     path = root / relative
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
@@ -57,7 +57,7 @@ def read_metadata(root: Path, relative: Path) -> dict[str, str]:
     return values
 
 
-def read_inventory(root: Path, relative: Path) -> dict:
+def load_json(root: Path, relative: Path) -> dict:
     try:
         value = json.loads((root / relative).read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
@@ -88,10 +88,10 @@ def require_digest(metadata: dict[str, str], key: str, relative: Path) -> str:
 def verify(root: Path) -> None:
     mac_ref = read_ref(root, MAC_REF)
     linux_ref = read_ref(root, LINUX_REF)
-    mac_metadata = read_metadata(root, MAC_METADATA)
-    linux_metadata = read_metadata(root, LINUX_METADATA)
-    mac_inventory = read_inventory(root, MAC_INVENTORY)
-    linux_inventory = read_inventory(root, LINUX_INVENTORY)
+    mac_metadata = load_metadata(root, MAC_METADATA)
+    linux_metadata = load_metadata(root, LINUX_METADATA)
+    mac_inventory = load_json(root, MAC_INVENTORY)
+    linux_inventory = load_json(root, LINUX_INVENTORY)
 
     if mac_metadata.get("ghostty_commit") != mac_ref:
         fail("macOS artifact metadata differs from MacOSGhostty.ref")
@@ -110,7 +110,7 @@ def verify(root: Path) -> None:
     for slice_name in IOS_SLICES:
         metadata_path = Path(f"Vendor/libghostty-{slice_name}.version")
         archive_path = Path(f"Vendor/GhosttyKit.xcframework/{slice_name}/libghostty.a")
-        slice_metadata = read_metadata(root, metadata_path)
+        slice_metadata = load_metadata(root, metadata_path)
         if slice_metadata.get("ghostty_commit") != mac_ref:
             fail(f"{slice_name} artifact metadata differs from MacOSGhostty.ref")
         if slice_metadata.get("library_identifier") != slice_name:
@@ -142,7 +142,7 @@ def verify(root: Path) -> None:
         metadata_path = Path(f"Vendor/GhosttyVt/{layout}.version")
         if not (root / metadata_path).exists():
             continue
-        metadata = read_metadata(root, metadata_path)
+        metadata = load_metadata(root, metadata_path)
         if metadata.get("ghostty_commit") != windows_ref:
             fail(f"{layout} artifact metadata differs from WindowsGhostty.ref")
         digest = require_digest(metadata, "vt_archive_sha256", metadata_path)

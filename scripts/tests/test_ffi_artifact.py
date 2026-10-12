@@ -223,8 +223,8 @@ class FfiArtifactTests(unittest.TestCase):
             self.assertEqual(len(list((root / "bundles").iterdir())), 1)
             for bundle in (root / "bundles").iterdir():
                 record = json.loads((bundle / "artifact.json").read_bytes())
-                self.assertEqual(record["archiveSha256"], MODULE.digest(bundle / "libkodosi_ffi_c.a"))
-                self.assertEqual(record["headerSha256"], MODULE.digest(bundle / "include/kodosi_runtime.h"))
+                self.assertEqual(record["archiveSha256"], MODULE.file_sha256(bundle / "libkodosi_ffi_c.a"))
+                self.assertEqual(record["headerSha256"], MODULE.file_sha256(bundle / "include/kodosi_runtime.h"))
                 self.assertEqual((bundle / "libkodosi_ffi_c.a").read_text().split()[0], (bundle / "include/kodosi_runtime.h").read_text().split()[0])
 
 

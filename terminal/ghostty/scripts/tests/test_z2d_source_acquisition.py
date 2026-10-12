@@ -31,7 +31,7 @@ def verifier_result(root: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
-def require_rejection(root: Path, expected: str) -> None:
+def assert_rejected(root: Path, expected: str) -> None:
     result = verifier_result(root)
     if result.returncode == 0 or expected not in result.stderr:
         raise SystemExit(
@@ -72,7 +72,7 @@ def main() -> None:
                 "primaryUrl", "https://example.invalid/z2d.tar.gz"
             ),
         )
-        require_rejection(wrong_url, "z2d acquisition metadata differs")
+        assert_rejected(wrong_url, "z2d acquisition metadata differs")
 
         wrong_commit = base / "wrong-commit"
         copy_tree(wrong_commit)
@@ -82,18 +82,18 @@ def main() -> None:
                 "commit", "0" * 40
             ),
         )
-        require_rejection(wrong_commit, "z2d acquisition metadata differs")
+        assert_rejected(wrong_commit, "z2d acquisition metadata differs")
 
         missing = base / "missing"
         copy_tree(missing)
         (missing / ARCHIVE).unlink()
-        require_rejection(missing, "missing or unsafe tracked file")
+        assert_rejected(missing, "missing or unsafe tracked file")
 
         changed = base / "changed"
         copy_tree(changed)
         archive = changed / ARCHIVE
         archive.write_bytes(archive.read_bytes() + b"changed")
-        require_rejection(changed, "compliance artifact changed")
+        assert_rejected(changed, "compliance artifact changed")
 
         wrong_digest = base / "wrong-digest"
         copy_tree(wrong_digest)
@@ -103,7 +103,7 @@ def main() -> None:
                 "sha256", "0" * 64
             ),
         )
-        require_rejection(wrong_digest, "compliance artifact changed")
+        assert_rejected(wrong_digest, "compliance artifact changed")
 
     print("[*] z2d source-acquisition verifier mutation tests passed")
 

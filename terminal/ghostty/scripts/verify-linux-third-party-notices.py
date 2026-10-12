@@ -53,7 +53,7 @@ def load_metadata() -> dict[str, str]:
     return values
 
 
-def sha256(path: Path) -> str:
+def file_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
@@ -105,7 +105,7 @@ def main() -> None:
             if record is None:
                 fail(f"component {component_id} references unknown notice {notice}")
             path = ROOT / record["path"]
-            if not path.is_file() or sha256(path) != record["sha256"]:
+            if not path.is_file() or file_sha256(path) != record["sha256"]:
                 fail(f"notice changed or is missing: {notice}")
 
     member_rows = inventory.get("archiveMembers")

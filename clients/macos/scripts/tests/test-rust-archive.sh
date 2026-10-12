@@ -74,7 +74,7 @@ PYBUNDLE
 
 "$verifier" "$scratch_directory/current" "$maximum_deployment_target" "$architecture"
 
-reject() {
+assert_rejected() {
     local fixture=$1
     local expected=$2
     if "$verifier" "$scratch_directory/$fixture" "$maximum_deployment_target" "$architecture" \
@@ -89,12 +89,12 @@ reject() {
     fi
 }
 
-reject stale-protocol "does not return exact desktop/runtime protocol v$protocol_version"
-reject stale-abi "does not return exact C ABI v$abi_version"
-reject no-vt "lacks required libghostty-vt authority import"
-reject bundled-ghostty "bundles Ghostty definitions"
-reject partial "public kodosi_* exports differ"
-reject extra "public kodosi_* exports differ"
+assert_rejected stale-protocol "does not return exact desktop/runtime protocol v$protocol_version"
+assert_rejected stale-abi "does not return exact C ABI v$abi_version"
+assert_rejected no-vt "lacks required libghostty-vt authority import"
+assert_rejected bundled-ghostty "bundles Ghostty definitions"
+assert_rejected partial "public kodosi_* exports differ"
+assert_rejected extra "public kodosi_* exports differ"
 
 conflicting_runtime="$scratch_directory/conflicting-runtime"
 mkdir -p "$conflicting_runtime/target/include"

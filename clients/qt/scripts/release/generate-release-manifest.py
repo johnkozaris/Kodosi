@@ -28,7 +28,7 @@ def fail(message: str) -> None:
     raise SystemExit(f"release manifest error: {message}")
 
 
-def load_object(path: Path) -> dict:
+def load_json(path: Path) -> dict:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
@@ -71,7 +71,7 @@ def main() -> None:
     )
     arguments = parser.parse_args()
 
-    dependencies = load_object(arguments.dependencies)
+    dependencies = load_json(arguments.dependencies)
     try:
         measured_source, measured_ghostty = verify_release_sources(
             arguments.source_root,
