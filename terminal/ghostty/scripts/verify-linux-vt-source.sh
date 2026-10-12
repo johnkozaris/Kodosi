@@ -43,7 +43,7 @@ if ! python_ready; then
     if [ "$("$STAGE/bin/python" -c \
         'import importlib.metadata; print(importlib.metadata.version("jsonschema"))')" != \
         "$JSONSCHEMA_VERSION" ]; then
-        echo "[!] jsonschema verifier bootstrap failed" >&2
+        echo "[!] jsonschema verifier install failed" >&2
         exit 1
     fi
     rm -rf "$PYTHON_ROOT"

@@ -16,7 +16,7 @@ Options:
 
 The macOS build produces one arm64 native image containing renderer and VT APIs
 for each Apple slice: macOS, iOS, and iOS Simulator. The Linux build produces an
-x86_64 VT library for the Rust authority and Qt renderer. Bootstrap may fetch
+x86_64 VT library for the Rust authority and Qt renderer. The install steps may fetch
 pinned source/tool dependencies; native builds then run against the prepared
 local Zig package store with network disabled.
 EOF
