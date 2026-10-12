@@ -1,8 +1,7 @@
 # Development
 
-Clone Kodosi under `~/Repos`. One checkout contains the runtime, backend, both
-native clients, generated contracts, and Ghostty integration. No sibling repositories
-or submodules are needed.
+One checkout contains the runtime, backend, both native clients, generated contracts,
+and Ghostty integration. No sibling repositories or submodules are needed.
 
 ## Repository layout
 

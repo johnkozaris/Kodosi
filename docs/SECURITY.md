@@ -74,9 +74,9 @@ not a claim of an independent security audit.
 
 ## Report a vulnerability
 
-Use [GitHub's private vulnerability reporting](https://github.com/johnkozaris/Kodosi/security/advisories/new).
-Include the affected revision, reproduction steps, impact, and any useful redacted
-logs. Keep exploitable details and private data out of public issues.
+Use [GitHub's private vulnerability reporting](https://github.com/johnkozaris/Kodosi/security/advisories/new),
+or write to [security@kodosi.com](mailto:security@kodosi.com). Include the affected
+revision, reproduction steps, impact, and any useful redacted logs. Keep exploitable details and private data out of public issues.
 
 For ordinary bugs or feature requests, use
 [GitHub issues](https://github.com/johnkozaris/Kodosi/issues).

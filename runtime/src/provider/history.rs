@@ -22,7 +22,6 @@ fn empty() -> ConversationListPage {
         items: vec![],
         next_cursor: None,
         has_more: false,
-        response_bytes: 0,
     }
 }
 
@@ -93,6 +92,7 @@ fn copilot(
         )
         .map_err(|error| error.to_string())?;
     let mut page = empty();
+    let mut response_bytes = 0_usize;
     let mut last_id = None;
     for (consumed, row) in rows.enumerate() {
         if consumed == limit {
@@ -103,7 +103,7 @@ fn copilot(
         let bytes = serde_json::to_vec(&item)
             .map_err(|error| error.to_string())?
             .len();
-        if page.response_bytes + bytes > budget {
+        if response_bytes + bytes > budget {
             if consumed == 0 {
                 return Err("Conversation metadata exceeds maxBytes".into());
             }
@@ -121,7 +121,7 @@ fn copilot(
             continue;
         }
         last_id = Some(item.native_conversation_id.clone());
-        page.response_bytes += bytes;
+        response_bytes += bytes;
         page.items.push(item);
     }
     if page.has_more {
@@ -201,19 +201,20 @@ fn claude(
             .ok_or("History changed; reload the list")?,
     };
     let mut page = empty();
+    let mut response_bytes = 0_usize;
     let mut consumed = start;
     for (modified, project, id, len, created) in files.iter().skip(start).take(128) {
         if let Some(item) = claude_item(&root, project, id, *len, *created, *modified)? {
             let bytes = serde_json::to_vec(&item)
                 .map_err(|error| error.to_string())?
                 .len();
-            if page.response_bytes + bytes > budget {
+            if response_bytes + bytes > budget {
                 if consumed == start {
                     return Err("Conversation metadata exceeds maxBytes".into());
                 }
                 break;
             }
-            page.response_bytes += bytes;
+            response_bytes += bytes;
             page.items.push(item);
         }
         consumed += 1;
