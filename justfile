@@ -198,6 +198,11 @@ backend-docker-run:
 backend-docker-stop:
     docker compose down
 
+# Build the backend release image for a platform, for example linux/arm64, and give it a tag. Push nothing.
+[group('backend')]
+backend-package platform tag="kodosi-backend":
+    docker buildx build --platform "{{ platform }}" --file backend/Dockerfile --tag "{{ tag }}" --load .
+
 [private]
 backend-sdk-check:
     python3 backend/scripts/verify-sdk-pin.py
