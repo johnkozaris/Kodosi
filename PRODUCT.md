@@ -13,15 +13,12 @@ The interface calls these shared spaces Rooms; runtime contracts use Missions.
   people invited later. Room sharing follows the room's membership.
 - Any member can contribute their own terminals. Alice can use Bob's shared terminals
   and Bob can use Alice's.
-- A room can contain terminals from many machines and folders. It does not require a
-  common repository or filesystem.
+- A room can contain terminals from many machines, folders and repositories.
 - Sharing a terminal into a room does not share the host's other terminals.
 - Approved own devices can also use the owner's terminals.
 
 Full control includes typing, resizing, interrupting, and closing. People choose to
-share that control, with the host user's operating-system privileges. Restrictions on
-those actions, sandboxing, and arbitration of concurrent file edits are not product
-requirements.
+share that control, with the host user's operating-system privileges.
 
 ## People and agents in the conversation
 
@@ -32,7 +29,7 @@ usable from their existing harnesses.
 New members get the full conversation history. Humans and agents can post messages,
 put tasks up for grabs, pick them up, release them, and close or reopen them. A task
 can include context, repositories, and a completion note or pull request link.
-People and agents decide what to do next; no prescribed sequence of agent behavior.
+People and agents decide what to do next.
 
 A room can connect multiple GitHub or Gitea repositories. Existing issues can become
 room tasks. The provider remains authoritative: changing a linked task updates the
@@ -89,7 +86,7 @@ existing agents participate through the running host.
 
 Terminals show the state that their programs report through the Program Status
 Protocol (OSC 7501) or a progress bar: working, waiting for a person, done, or failed.
-Kodosi does not infer that state from screen content. While the app is not in front,
+While the app is not in front,
 it sends a system notification when one of the person's own terminals starts to wait,
 is done, or failed.
 
@@ -110,5 +107,4 @@ friends and sharing, and the rooms the person owns. What the person wrote in oth
 rooms stays there. Terminals on the person's computers keep running.
 
 Direct terminal sharing and native Claude Code and Copilot CLI conversation
-preview/resume remain available. Kodosi does not become the agent harness or require
-a shared checkout.
+preview/resume remain available.

@@ -1,9 +1,8 @@
 # Kodosi
 
-Read `PRODUCT.md` for product intent and current behavior. Kodosi
-brings people and agents together through room-shared terminals and conversation.
-Full terminal control is intentional. Do not turn missing capabilities into product
-exclusions or add permission tiers, sandboxing, or agent workflow machinery by default.
+Read `PRODUCT.md` for product intent and current behavior. Keep full terminal control.
+Do not turn missing capabilities into product exclusions or add permission tiers,
+sandboxing, or agent workflow machinery by default.
 
 - `runtime/` owns live terminals, identity, and encrypted endpoint connections.
 - `backend/` stores shared metadata and routes encrypted terminal traffic. Run one serving

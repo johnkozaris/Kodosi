@@ -1,8 +1,7 @@
 # Kodosi for iPhone and iPad
 
-The native iOS app follows your terminals and rooms from anywhere. It embeds the shared
-Rust runtime as a viewer and Ghostty's terminal view. Terminals keep running on the
-computers that host them; iOS cannot start them.
+The native iOS app follows your terminals and rooms. It embeds the shared Rust runtime
+as a viewer and Ghostty's terminal view.
 
 ## Requirements
 

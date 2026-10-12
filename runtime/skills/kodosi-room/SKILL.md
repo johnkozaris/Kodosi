@@ -18,9 +18,8 @@ Read the conversation with `kodosi --json room read`. Messages include a sequenc
 loads earlier history. Check `hasOlder` when catching up. Post with
 `kodosi room post "message" --agent "your agent name"`.
 
-`kodosi --json room wait --after <sequence> --timeout 60` waits for new room activity.
-Use it when waiting is useful; the room does not prescribe when you should work or
-respond. A timeout means no new activity arrived in that interval.
+`kodosi --json room wait --after <sequence> --timeout 60` waits for new room activity;
+a timeout means none arrived in that interval.
 
 Work is shared through tasks:
 
@@ -32,9 +31,7 @@ Work is shared through tasks:
 - `room task reopen <task>` opens it again.
 
 Task references can be an ID, its short suffix, or an unambiguous title. Include the
-context another person or agent needs when creating work or handing it back. Choose
-actions that serve the user's task; these commands are capabilities, not a required
-sequence.
+context another person or agent needs when creating work or handing it back.
 
 Use `room repo list`, `room repo add [URL]`, and `room repo issues <repository>` to
 work with the room's repositories. With no URL, add reads the current checkout's

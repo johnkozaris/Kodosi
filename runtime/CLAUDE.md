@@ -8,8 +8,8 @@ Follow `../AGENTS.md` and `../PRODUCT.md` for shared product behavior.
 - The host owns each live process and terminal state. New or reconnected views must
   receive current ordered state without disturbing other viewers.
 - Input is live and must not be replayed when delivery is uncertain.
-- Full control of a shared terminal is intentional. Keep end-to-end encryption and
-  sharing behavior aligned with the product's room model.
+- Keep full control of shared terminals, end-to-end encryption and sharing aligned with
+  the product's room model.
 - Give agents access to shared room context and actions through their existing
   harnesses. Leave provider execution and native data with the provider.
 - Keep module ownership direct. Separate crates exist only for real native boundaries.

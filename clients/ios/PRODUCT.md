@@ -1,16 +1,14 @@
 # Kodosi for iPhone and iPad
 
-Shared product intent and current behavior live in
-[Kodosi's PRODUCT.md](../../PRODUCT.md). This file describes the iPhone and iPad
-experience. [DESIGN.md](DESIGN.md) describes its visual system.
+Shared product intent and current behavior: [Kodosi's PRODUCT.md](../../PRODUCT.md).
+Visual system: [DESIGN.md](DESIGN.md).
 
-## A viewer, not a host
+## What the app does
 
-iOS cannot run processes, so terminals never start here. The app follows, answers,
-and controls the terminals that run on your computers and on the computers of the
-people who share with you. Starting a terminal, starting a program, changing who a
-terminal is shared with, and reading provider conversations stay on the computer.
-The app does not imitate these features.
+The app follows, answers, and controls the terminals that run on your computers and on
+the computers of the people who share with you. Starting a terminal or a program,
+changing who a terminal is shared with, and reading provider conversations stay on the
+computer.
 
 ## Words
 

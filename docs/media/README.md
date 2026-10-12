@@ -1,13 +1,8 @@
 # Pictures
 
-The pictures in the README and the guide are captures of the Kodosi Mac app, built
-from this repository. The interface is real. The data is sample data:
-
-- The people (Maya Chen, Leo Park, Ana Ruiz), their devices, rooms, messages, and
-  tasks are invented. They ran on a local backend with a disposable database.
-- The terminal text comes from scripts that print sample agent output and report their
-  state through the Program Status Protocol (OSC 7501), as a real agent does. No
-  provider account, conversation, or repository was used.
+The pictures are captures of the Kodosi Mac app with invented sample data: the people,
+devices, rooms, messages and tasks ran on a local backend with a disposable database,
+and the terminal text comes from scripts that print sample agent output.
 
 | File | Shows |
 | --- | --- |

@@ -59,8 +59,8 @@ When Kodosi is not the front app, a system notification tells you.
   </picture>
 </p>
 
-Kodosi takes this state from what the program reports to its terminal. It does not
-read the screen to guess. [How state works](docs/GETTING_STARTED.md#see-what-a-terminal-needs)
+Kodosi takes this state from what the program reports to its terminal.
+[How state works](docs/GETTING_STARTED.md#see-what-a-terminal-needs)
 
 ### Bring your agents
 
@@ -119,8 +119,8 @@ content. [Security](docs/SECURITY.md)
 | You need | Details |
 | --- | --- |
 | A computer | A Mac with Apple silicon and macOS 26.4 or later, or a Linux x86-64 computer. Ubuntu 24.04 is the recommended start. |
-| Build tools | App releases are not published yet, so you build Kodosi. The [Mac](clients/macos/README.md#requirements) build needs Xcode; the [Linux](clients/qt/README.md#requirements) build needs a C++23 compiler. Both need the pinned Rust toolchain, `just`, and Python 3. |
-| A Kodosi service | Kodosi needs a backend and an OIDC sign-in service. A public hosted service is not open yet, so you run them: a [local backend](docs/DEVELOPMENT.md#run-the-backend) for development. |
+| Build tools | Build Kodosi from source. The [Mac](clients/macos/README.md#requirements) build needs Xcode; the [Linux](clients/qt/README.md#requirements) build needs a C++23 compiler. Both need the pinned Rust toolchain, `just`, and Python 3. |
+| A Kodosi service | Kodosi needs a backend and an OIDC sign-in service. For development, run a [local backend](docs/DEVELOPMENT.md#run-the-backend). |
 | Your agents | Optional. Install and sign in to Claude Code, Codex, Copilot CLI, or another terminal agent as usual. Kodosi uses their own installation and sign-in. |
 | Git | Optional. Git for a terminal on a new branch; `gh` or a Git credential helper for GitHub and Gitea issues. |
 
@@ -133,9 +133,6 @@ just mac-build      # on a Mac
 just linux-build    # on Linux
 just ios-build      # the iPhone and iPad app, on a Mac
 ```
-
-One checkout contains the runtime, backend, the native clients, and the Ghostty
-integration. No sibling repositories or submodules are needed.
 
 | Platform | Build guide | Then |
 | --- | --- | --- |
@@ -161,13 +158,9 @@ terminal, start an agent, and make a room.
 
 ## Project status
 
-Kodosi is in active development. There are no published app releases yet; build it
-from this repository to try it. [PRODUCT.md](PRODUCT.md) records the product intent
-and what is implemented now.
+Kodosi is in active development. Build it from this repository to try it.
 
 ## Contribute
-
-Bug reports, ideas, and pull requests are welcome.
 
 - Read [Contributing](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
 - Use [GitHub issues](https://github.com/johnkozaris/Kodosi/issues) for bugs and
