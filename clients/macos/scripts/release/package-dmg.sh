@@ -2,6 +2,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
+: "${KODOSI_NOTARY_PROFILE:?Set KODOSI_NOTARY_PROFILE to the name of the notarytool keychain profile}"
 "$ROOT/scripts/release/notarize.sh"
 staging="build/dmg-root"
 dmg="build/export/KodosiDesktop.dmg"
@@ -24,7 +25,7 @@ codesign \
     "$dmg"
 codesign --verify --strict --verbose=4 "$dmg"
 xcrun notarytool submit "$dmg" \
-    --keychain-profile kodosi-notary \
+    --keychain-profile "$KODOSI_NOTARY_PROFILE" \
     --wait
 xcrun stapler staple "$dmg"
 xcrun stapler validate "$dmg"

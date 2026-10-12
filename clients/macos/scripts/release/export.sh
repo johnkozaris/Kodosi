@@ -9,13 +9,14 @@ cd "$ROOT"
 "$ROOT/scripts/release/verify-signed.sh"
 "$ROOT/scripts/release/verify-publishable.sh" "$ROOT/build/archive/KodosiDesktop.xcarchive"
 : "${KODOSI_TEAM_ID:?Set KODOSI_TEAM_ID to the Apple Developer team identifier}"
+: "${KODOSI_PROVISIONING_PROFILE:?Set KODOSI_PROVISIONING_PROFILE to the name of the Developer ID provisioning profile}"
 rm -rf build/export
 export_options="build/ExportOptions.plist"
 cp Config/ExportOptions.plist "$export_options"
 /usr/libexec/PlistBuddy -c "Add :teamID string $KODOSI_TEAM_ID" "$export_options"
 /usr/libexec/PlistBuddy \
     -c "Add :provisioningProfiles dict" \
-    -c "Add :provisioningProfiles:com.kodosi.desktop string ${KODOSI_PROVISIONING_PROFILE:-Kodosi Developer ID}" \
+    -c "Add :provisioningProfiles:com.kodosi.desktop string $KODOSI_PROVISIONING_PROFILE" \
     "$export_options"
 if [[ $(/usr/libexec/PlistBuddy -c 'Print :signingStyle' "$export_options") != manual ]] ||
    [[ $(/usr/libexec/PlistBuddy -c 'Print :signingCertificate' "$export_options") != 'Developer ID Application' ]]; then

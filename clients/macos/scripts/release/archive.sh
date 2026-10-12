@@ -14,6 +14,7 @@ fi
 : "${KODOSI_TEAM_ID:?Set KODOSI_TEAM_ID to the Apple Developer team identifier}"
 : "${KODOSI_MARKETING_VERSION:?Set KODOSI_MARKETING_VERSION to the public semantic version}"
 : "${KODOSI_BUILD_NUMBER:?Set KODOSI_BUILD_NUMBER to a monotonically increasing integer}"
+: "${KODOSI_PROVISIONING_PROFILE:?Set KODOSI_PROVISIONING_PROFILE to the name of the Developer ID provisioning profile}"
 rm -rf build/archive
 xcodebuild -project KodosiDesktop.xcodeproj \
            -scheme KodosiDesktop \
@@ -24,7 +25,7 @@ xcodebuild -project KodosiDesktop.xcodeproj \
            MARKETING_VERSION="$KODOSI_MARKETING_VERSION" \
            CODE_SIGN_STYLE=Manual \
            CODE_SIGN_IDENTITY="${KODOSI_SIGNING_IDENTITY:-Developer ID Application}" \
-           KODOSI_PROVISIONING_PROFILE="${KODOSI_PROVISIONING_PROFILE:-Kodosi Developer ID}" \
+           KODOSI_PROVISIONING_PROFILE="$KODOSI_PROVISIONING_PROFILE" \
            DEVELOPMENT_TEAM="$KODOSI_TEAM_ID" \
            archive
 "$ROOT/scripts/build/verify-native-notices.sh" \

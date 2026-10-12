@@ -7,18 +7,13 @@ source "$ROOT/scripts/build/deployment-target.sh"
 kodosi_load_macos_deployment_target "$ROOT"
 cd "$ROOT"
 
-EXPECTED_TEAM_ID=C5886CWK32
 : "${KODOSI_TEAM_ID:?Set KODOSI_TEAM_ID to the Apple Developer team identifier}"
-if [[ "$KODOSI_TEAM_ID" != "$EXPECTED_TEAM_ID" ]]; then
-    echo "KODOSI_TEAM_ID must match the Kodosi product team $EXPECTED_TEAM_ID." >&2
-    exit 1
-fi
 
 app=${1:-build/archive/KodosiDesktop.xcarchive/Products/Applications/KodosiDesktop.app}
 "$ROOT/scripts/release/verify-publishable.sh" "$app"
 
 verify_developer_id_signature() {
-    "$ROOT/scripts/release/verify-developer-id-signature.sh" "$1" "$EXPECTED_TEAM_ID"
+    "$ROOT/scripts/release/verify-developer-id-signature.sh" "$1" "$KODOSI_TEAM_ID"
 }
 
 for executable in KodosiDesktop; do
@@ -42,5 +37,5 @@ for executable in KodosiDesktop; do
 done
 /usr/bin/codesign --verify --deep --strict --verbose=4 "$app"
 verify_developer_id_signature "$app"
-"$ROOT/scripts/release/verify-provisioning-profile.sh" "$app" "$EXPECTED_TEAM_ID"
+"$ROOT/scripts/release/verify-provisioning-profile.sh" "$app" "$KODOSI_TEAM_ID"
 /usr/bin/codesign --display --verbose=4 "$app" 2>&1

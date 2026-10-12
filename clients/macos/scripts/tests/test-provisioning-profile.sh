@@ -7,7 +7,7 @@ SCRATCH="$ROOT/build/test-provisioning-profile"
 FAKE_SECURITY="$SCRATCH/security"
 FAKE_CODESIGN="$SCRATCH/codesign"
 APP="$SCRATCH/KodosiDesktop.app"
-TEAM_ID=C5886CWK32
+TEAM_ID=ABCDE12345
 
 cleanup() {
     rm -rf "$SCRATCH"
@@ -50,14 +50,14 @@ good_profile="<?xml version=\"1.0\" encoding=\"UTF-8\"?>
     <array><data>$other</data><data>$leaf</data></array>
     <key>Entitlements</key>
     <dict>
-        <key>com.apple.application-identifier</key><string>C5886CWK32.com.kodosi.desktop</string>
-        <key>com.apple.developer.team-identifier</key><string>C5886CWK32</string>
-        <key>keychain-access-groups</key><array><string>C5886CWK32.*</string></array>
+        <key>com.apple.application-identifier</key><string>ABCDE12345.com.kodosi.desktop</string>
+        <key>com.apple.developer.team-identifier</key><string>ABCDE12345</string>
+        <key>keychain-access-groups</key><array><string>ABCDE12345.*</string></array>
     </dict>
     <key>ExpirationDate</key><date>2044-10-11T12:00:00Z</date>
     <key>Platform</key><array><string>OSX</string></array>
     <key>ProvisionsAllDevices</key><true/>
-    <key>TeamIdentifier</key><array><string>C5886CWK32</string></array>
+    <key>TeamIdentifier</key><array><string>ABCDE12345</string></array>
 </dict>
 </plist>"
 
@@ -65,9 +65,9 @@ good_entitlements='<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>com.apple.application-identifier</key><string>C5886CWK32.com.kodosi.desktop</string>
-    <key>com.apple.developer.team-identifier</key><string>C5886CWK32</string>
-    <key>keychain-access-groups</key><array><string>C5886CWK32.com.kodosi.desktop</string></array>
+    <key>com.apple.application-identifier</key><string>ABCDE12345.com.kodosi.desktop</string>
+    <key>com.apple.developer.team-identifier</key><string>ABCDE12345</string>
+    <key>keychain-access-groups</key><array><string>ABCDE12345.com.kodosi.desktop</string></array>
 </dict>
 </plist>'
 
@@ -90,26 +90,26 @@ assert_rejected() {
 }
 
 verify "$good_profile" "$good_entitlements"
-verify "${good_profile/C5886CWK32.\*/C5886CWK32.com.kodosi.desktop}" "$good_entitlements" >/dev/null
+verify "${good_profile/ABCDE12345.\*/ABCDE12345.com.kodosi.desktop}" "$good_entitlements" >/dev/null
 
 assert_rejected development-profile "not a Developer ID profile" \
     "${good_profile/<key>ProvisionsAllDevices<\/key><true\/>/<key>ProvisionedDevices</key><array/>}" "$good_entitlements"
 assert_rejected ios-profile "not for macOS" \
     "${good_profile/<string>OSX<\/string>/<string>iOS</string>}" "$good_entitlements"
 assert_rejected wrong-team "not for team" \
-    "${good_profile//<string>C5886CWK32<\/string>/<string>AAAAAAAAAA</string>}" "$good_entitlements"
-assert_rejected wildcard-app "not for C5886CWK32.com.kodosi.desktop" \
-    "${good_profile/C5886CWK32.com.kodosi.desktop/C5886CWK32.*}" "$good_entitlements"
+    "${good_profile//<string>ABCDE12345<\/string>/<string>AAAAAAAAAA</string>}" "$good_entitlements"
+assert_rejected wildcard-app "not for ABCDE12345.com.kodosi.desktop" \
+    "${good_profile/ABCDE12345.com.kodosi.desktop/ABCDE12345.*}" "$good_entitlements"
 assert_rejected expired "has expired" \
     "${good_profile/2044-10-11T12:00:00Z/2020-10-11T12:00:00Z}" "$good_entitlements"
 assert_rejected no-keychain-group "does not grant the Keychain access group" \
-    "${good_profile/C5886CWK32.\*/C5886CWK32.com.kodosi.other}" "$good_entitlements"
+    "${good_profile/ABCDE12345.\*/ABCDE12345.com.kodosi.other}" "$good_entitlements"
 assert_rejected unlisted-certificate "does not list the signing certificate" \
     "${good_profile/<data>$leaf<\/data>/}" "$good_entitlements"
 assert_rejected extra-group "exactly the Keychain access group" \
-    "$good_profile" "${good_entitlements/<\/string><\/array>/</string><string>C5886CWK32.shared</string></array>}"
+    "$good_profile" "${good_entitlements/<\/string><\/array>/</string><string>ABCDE12345.shared</string></array>}"
 assert_rejected other-group "exactly the Keychain access group" \
-    "$good_profile" "${good_entitlements/<array><string>C5886CWK32.com.kodosi.desktop/<array><string>C5886CWK32.com.kodosi.other}"
+    "$good_profile" "${good_entitlements/<array><string>ABCDE12345.com.kodosi.desktop/<array><string>ABCDE12345.com.kodosi.other}"
 assert_rejected no-application-identifier "does not name the application identifier" \
     "$good_profile" "${good_entitlements/com.apple.application-identifier/com.example.other}"
 assert_rejected no-team-identifier "does not name team" \

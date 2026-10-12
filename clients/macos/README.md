@@ -11,14 +11,15 @@ Everything builds from this checkout.
 - The Rust toolchain pinned at the repository root.
 - `just`, Python 3, `xcodegen`, `swiftformat`, and `swiftlint` on your build PATH.
 
-Keep downloaded build tools and dependencies project-local. Building and signing the
-app requires your own Apple development signing setup. The checked-in team identifier
-is public configuration for the official app, not a signing credential.
+Keep downloaded build tools and dependencies project-local. To build and sign the app,
+you need your own Apple development signing setup.
 
 ## Build and run
 
-For your own signing setup, set `DEVELOPMENT_TEAM` in the `appBase` settings of
-[project.yml](project.yml). Keep personal signing changes out of unrelated pull requests.
+Put your Apple development team in `clients/apple/Config/Signing.local.xcconfig`, for
+example `DEVELOPMENT_TEAM = ABCDE12345`. Git ignores this file.
+[Apps.xcconfig](../apple/Config/Apps.xcconfig) includes it for the Mac app and the iOS
+app.
 
 From the repository root:
 
