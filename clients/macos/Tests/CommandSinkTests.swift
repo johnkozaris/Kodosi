@@ -97,7 +97,7 @@ import Testing
     ])
     try commands.receive(runtimeEvent("provider.reply", epoch: 0, userId: nil, fields: [
         "requestId": #require(discovery["requestId"]), "operation": .string("provider.discoverConversations"),
-        "result": .object(["items": .array([conversation]), "hasMore": .bool(false), "responseBytes": .int(120)]),
+        "result": .object(["items": .array([conversation]), "hasMore": .bool(false)]),
     ]))
     await settle { browser.conversations.isEmpty }
     try browser.select(#require(browser.conversations.first))

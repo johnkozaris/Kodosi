@@ -4,7 +4,7 @@ import KodosiDesign
 import Testing
 
 private let people = [
-    MentionTarget(id: "u1", name: "John Kozaris", kind: .person(isSelf: true)),
+    MentionTarget(id: "u1", name: "Leo Park", kind: .person(isSelf: true)),
     MentionTarget(id: "u2", name: "Maya Chen", kind: .person(isSelf: false)),
     MentionTarget(id: "u3", name: "Maya", kind: .person(isSelf: false)),
     MentionTarget(id: "t1", name: "Amber Wren", kind: .terminal(.claude)),
@@ -16,7 +16,7 @@ private let people = [
         .text("Hi "), .mention(people[1]), .text(" and "), .mention(people[3]), .text(", mail a@Maya.com @Mayan"),
     ])
     #expect(RoomMentions.segments("No mention here", targets: people) == [.text("No mention here")])
-    #expect(RoomMentions.mentionsSelf("ping @John Kozaris", targets: people))
+    #expect(RoomMentions.mentionsSelf("ping @Leo Park", targets: people))
     #expect(!RoomMentions.mentionsSelf("ping @Maya", targets: people))
     #expect(people[3].link?.absoluteString == "kodosi-mention://terminal/t1")
     #expect(people[1].link == nil)

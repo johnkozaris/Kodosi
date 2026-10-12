@@ -125,7 +125,6 @@ pub struct Snapshot {
     pub repositories: Vec<Repository>,
     pub sequence: u64,
     pub has_older: bool,
-    pub more_tasks: bool,
 }
 
 #[derive(Serialize, Deserialize)]

@@ -42,7 +42,6 @@ struct ProviderConversationPage: Decodable, Sendable {
     let items: [ProviderConversation]
     let nextCursor: String?
     let hasMore: Bool
-    let responseBytes: Int
 }
 
 struct ConversationEntry: Decodable, Equatable, Sendable {
@@ -56,8 +55,6 @@ struct ConversationPage: Decodable, Sendable {
     let entries: [ConversationEntry]
     let nextBeforeByte: UInt64?
     let sourceFileBytes: UInt64
-    let readBytes: UInt64
-    let sourceRecords: Int
     let degradedReason: String?
 }
 

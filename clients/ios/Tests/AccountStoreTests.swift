@@ -179,7 +179,7 @@ struct AccountStoreTests {
     }
 
     private func device(_ id: String, label: String, recoveryKey: Bool = false) -> [String: Any] {
-        ["deviceId": id, "label": label, "certSignerDeviceId": "mac", "certIssuedAtMs": 1_790_000_000_000, "recoveryKey": recoveryKey]
+        ["deviceId": id, "label": label, "certIssuedAtMs": 1_790_000_000_000, "recoveryKey": recoveryKey]
     }
 }
 

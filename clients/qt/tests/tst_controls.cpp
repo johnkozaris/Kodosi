@@ -37,13 +37,13 @@ void ControlsTest::messageTextKeepsSpacesEscapesMarkupAndSkipsYourself()
         import Kodosi 1.0
         QtObject {
             readonly property var targets: [
-                { id: "u1", name: "John Kozaris", kind: "person" },
+                { id: "u1", name: "Leo Park", kind: "person" },
                 { id: "u2", name: "Maya Chen", kind: "person" },
                 { id: "t\"1", name: "Amber Wren", kind: "terminal" }
             ]
             readonly property string html: Mentions.html("a  <b> @maya chen\n  @Amber Wren a@Maya.com", targets, "#112233", "#445566")
             readonly property string offered: Mentions.suggestions("@", targets, "u1").map(target => target.id).join(",")
-            readonly property bool mine: Mentions.mentionsUser("ping @John Kozaris", targets, "u1")
+            readonly property bool mine: Mentions.mentionsUser("ping @Leo Park", targets, "u1")
         }
     )", {});
     std::unique_ptr<QObject> object(component.create());

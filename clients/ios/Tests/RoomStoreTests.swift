@@ -353,7 +353,7 @@ struct RoomStoreTests {
     private func room(_ id: String, messages: [[String: Any]] = [], tasks: [[String: Any]] = [], hasOlder: Bool = false) -> [String: Any] {
         [
             "roomId": id, "messages": messages, "tasks": tasks, "repositories": [], "sequence": messages.count,
-            "hasOlder": hasOlder, "moreTasks": false,
+            "hasOlder": hasOlder,
         ]
     }
 

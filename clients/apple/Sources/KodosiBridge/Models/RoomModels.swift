@@ -7,7 +7,6 @@ public struct RoomSnapshot: Decodable {
     public let repositories: [RoomRepository]
     public let sequence: UInt64
     public var hasOlder: Bool
-    public let moreTasks: Bool
 }
 
 public struct RoomMessage: Decodable, Identifiable {

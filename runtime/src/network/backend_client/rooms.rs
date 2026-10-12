@@ -816,7 +816,6 @@ impl BackendClient {
             repositories,
             sequence,
             has_older,
-            more_tasks: false,
         })
     }
 

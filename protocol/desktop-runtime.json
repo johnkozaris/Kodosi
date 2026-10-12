@@ -3676,9 +3676,6 @@
                 },
                 "type": "array"
               },
-              "moreTasks": {
-                "type": "boolean"
-              },
               "repositories": {
                 "items": {
                   "additionalProperties": false,
@@ -3863,8 +3860,7 @@
               "tasks",
               "repositories",
               "sequence",
-              "hasOlder",
-              "moreTasks"
+              "hasOlder"
             ],
             "type": "object"
           },
@@ -4451,17 +4447,12 @@
                         "type": "null"
                       }
                     ]
-                  },
-                  "responseBytes": {
-                    "format": "usize",
-                    "type": "integer"
                   }
                 },
                 "required": [
                   "items",
                   "nextCursor",
-                  "hasMore",
-                  "responseBytes"
+                  "hasMore"
                 ],
                 "type": "object"
               },
@@ -5183,7 +5174,7 @@
     ]
   },
   "ffiAbiVersion": 8,
-  "protocolVersion": 55,
+  "protocolVersion": 56,
   "terminal": {
     "checkpointMaxBytes": 8388608,
     "checkpointSchema": 2,
