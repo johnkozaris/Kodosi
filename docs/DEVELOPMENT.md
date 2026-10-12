@@ -30,7 +30,9 @@ does not roll forward automatically.
 `just bacon-install` installs these tools and Bacon. To run the jobs in
 [bacon.toml](../bacon.toml) again after each change to a file, run
 `.tools/rust/bin/bacon` from the repository root.
-The root recipes also recognize a local .NET SDK at `backend/.tools/dotnet-10.0.401/`.
+The root recipes also find a local .NET SDK in `backend/.tools/dotnet/`. Install the
+SDK version that `backend/global.json` names in that folder. `backend/Dockerfile` uses
+the same SDK version, and `just backend-check` makes sure that the two agree.
 Keep dependencies and downloaded build tools inside the project.
 
 For native prerequisites and signing, follow the
