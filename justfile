@@ -210,7 +210,7 @@ check-all: rust-check backend-check
 mac-build:
     just --justfile clients/macos/justfile build
 
-# Lint and test the Mac app and its scripts, then build the Release app.
+# Lint and test the Mac app and its scripts, then build the Release app. Commit all the changes first.
 [group('mac')]
 mac-check:
     just --justfile clients/macos/justfile check

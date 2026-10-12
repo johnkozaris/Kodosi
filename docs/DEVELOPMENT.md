@@ -48,7 +48,7 @@ Run these from the repository root. `just --list` is the complete command refere
 | `just rust-cli-build` | Build the standalone development CLI |
 | `just rust-check` | Ghostty pins and notices, Rust format, compilation, docs, lint, dependencies, contracts, tests, coverage |
 | `just backend-test` | Build and test the backend; database tests need a container runtime |
-| `just check-all` | Run the Rust and backend gates |
+| `just check-all` | Run the Rust and backend checks |
 | `just mac-build` / `just mac-check` | Build / check the Mac app |
 | `just linux-build` / `just linux-check` | Build / check the Linux app |
 | `just windows-check` | Build and check the Windows app on Windows |
@@ -59,6 +59,87 @@ Run these from the repository root. `just --list` is the complete command refere
 Platform directories retain their own `just` recipes, including release packaging.
 Artifacts stay in the component's output directories. Release packages record the
 single Kodosi source revision.
+
+## Names and folders
+
+Use these rules for the names of files, folders, recipes, scripts and helper
+functions. Use one word for one meaning.
+
+### Folders and files
+
+- Write `justfile` and `scripts/` in lowercase.
+- Put the tests for the scripts of a component in the `scripts/tests/` folder of that
+  component.
+- Name a Python test `test_<subject>.py` and a shell test `test-<subject>.sh`. The
+  subject is the item that the test examines. For example, `test-rust-archive.sh`
+  tests `verify-rust-archive.sh`.
+- To find all the tests of the scripts, run `git ls-files '*scripts/tests/test[-_]*'`.
+- Name a Dockerfile after the image that it makes, for example
+  `windows-cross.Dockerfile` for the image `kodosi-windows-cross`.
+
+### Recipes
+
+A recipe name ends with one of these verbs:
+
+| Verb | Meaning |
+| --- | --- |
+| `build` | Make a program, a library or the documentation from the source. |
+| `test` | Run tests. |
+| `lint` | Examine the source with a linter. Change no file. |
+| `format` | Change the source to the standard format. |
+| `check` | Examine the source or the output for errors. Change no source file. |
+| `package` | Make a package of built files, for example a Debian package or a disk image. |
+| `install` | Put a pinned tool, a package or a built file where the next step uses it. |
+| `gen` | Write generated files, for example the contracts or a coverage report. |
+| `run` | Start a program. |
+
+Four verbs have only one subject: `configure` (the CMake build), `migrate` (the
+backend database), `sign` (a release file) and `stop` (the Docker Compose services).
+
+- In the root `justfile`, start a recipe name with the component or the tool that it
+  is for, for example `mac-build`, `rust-format-check` or `bacon-install`.
+- In the `justfile` of a component, use the verb alone, or a subject and then the verb,
+  for example `check` or `release-build`.
+- `<component>-check` in the root, and `check` in the `justfile` of a component, run all
+  the checks of that component.
+- `check-all` is the only recipe that runs the checks of more than one component. It
+  is also the only name that starts with its verb.
+- Mark a recipe that only other recipes use with `[private]`.
+
+### Scripts
+
+- Start the name of a script that does one task with its verb, for example
+  `build-ghostty.sh` or `install-tools.sh`. Use the verbs of the recipe table with the
+  same meaning. A script name uses `generate-`, and a recipe name uses its short form
+  `gen`.
+- Start the name of a script that examines an artifact, a pin or a set of notices with
+  `verify-`. The script compares the item with its record. It stops with an error
+  when they are different. Do not use `verify` in a recipe name. Use `check`.
+- Use another verb only when no verb in the table has its meaning, for example
+  `apply-patches.sh` or `notarize.sh`.
+- Give a noun name to a script that only writes a value, for example
+  `artifact-digest.sh`. Also give a noun name to a script with subcommands, for
+  example `metal-toolchain.sh mount`.
+- Give a noun name to a shell file that other scripts source, for example
+  `kodosi-paths.sh`. Start the names of its functions with `kodosi_`.
+- Use hyphens in the names of scripts. Use underscores in the names of Python tests
+  and of Python files that other files import, for example `release_common.py`.
+  Python cannot import a name with a hyphen.
+
+### Helper functions
+
+Give the same helper the same name in each script:
+
+| Helper | Job |
+| --- | --- |
+| `file_sha256` | Give the SHA-256 of a file. |
+| `bytes_sha256` | Give the SHA-256 of bytes. |
+| `load_json` | Read a JSON object from a file. |
+| `load_metadata` | Read the `key=value` record of an artifact. |
+| `kodosi_repository_root` (shell), `repository_root` (Python) | Give the root folder of the repository. |
+| `assert_rejected` | Make a test fail when a check accepts bad input. |
+| `fail` | Write an error message and stop. |
+| `usage` | Write the usage text. |
 
 ## Run the backend
 
