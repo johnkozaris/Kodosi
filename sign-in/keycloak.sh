@@ -148,9 +148,8 @@ done
 echo
 signin
 
-# The realm, with the settings that the hosted realm has (ops/provision.py of its service). Its
-# e-mails go to the mailbox, and the notes about an account are among them. The frames of the
-# person check come from Cloudflare.
+# The realm, with the settings that the hosted realm has. Its e-mails go to the mailbox, and the
+# notes about an account are among them. The frames of the person check come from Cloudflare.
 calm kc create realms -s realm=$realm -s enabled=true -s displayName=Kodosi \
   -s loginTheme=kodosi -s accountTheme=kodosi -s emailTheme=kodosi \
   -s registrationAllowed=true -s registrationEmailAsUsername=false \
