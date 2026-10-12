@@ -9,12 +9,6 @@ import subprocess
 from pathlib import Path
 
 
-LINUX_GHOSTTY_REF_PATH = Path("LinuxGhostty.ref")
-GHOSTTY_ARCHIVE_PATH = Path(
-    "Vendor/GhosttyVt/linux-x86_64/lib/libghostty-vt.a"
-)
-
-
 def run(
     arguments: list[str],
     *,
@@ -301,54 +295,6 @@ def source_identity(source_root: Path) -> dict[str, object]:
         "sourceDateEpoch": commit_epoch(root),
         **checkout_identity(root),
     }
-
-
-def ghostty_measurements(ghostty_package_root: Path) -> dict[str, str]:
-    root = ghostty_package_root.resolve(strict=True)
-    ref_path = root / LINUX_GHOSTTY_REF_PATH
-    archive_path = root / GHOSTTY_ARCHIVE_PATH
-    try:
-        ref_payload = ref_path.read_bytes()
-    except OSError as error:
-        raise ValueError(f"cannot read {ref_path}: {error}") from error
-    if ref_payload.endswith(b"\n"):
-        ref_payload = ref_payload[:-1]
-    if not re.fullmatch(rb"[0-9a-f]{40}", ref_payload):
-        raise ValueError(
-            "LinuxGhostty.ref must contain one lowercase commit and newline"
-        )
-    if ref_path.read_bytes() != ref_payload + b"\n":
-        raise ValueError(
-            "LinuxGhostty.ref must contain one lowercase commit and newline"
-        )
-    if archive_path.is_symlink() or not archive_path.is_file():
-        raise ValueError("pinned Linux libghostty-vt archive is not a regular file")
-    return {
-        "linuxUpstreamCommit": ref_payload.decode("ascii"),
-        "linuxVtArchiveSha256": file_sha256(archive_path),
-    }
-
-
-def verify_release_sources(
-    source_root: Path,
-    *,
-    require_clean: bool,
-) -> tuple[dict[str, object], dict[str, str]]:
-    root = repository_root(source_root)
-    measured = source_identity(root)
-    if require_clean and measured["dirty"]:
-        raise ValueError("Kodosi checkout is dirty")
-    lock = dict(
-        line.split("=", 1)
-        for line in (root / "Ghostty.lock").read_text(encoding="utf-8").splitlines()
-        if line
-    )
-    measurements = ghostty_measurements(root / "terminal/ghostty")
-    if measurements["linuxUpstreamCommit"] != lock.get("linux_ghostty_commit"):
-        raise ValueError("LinuxGhostty.ref differs from Ghostty.lock")
-    if measurements["linuxVtArchiveSha256"] != lock.get("linux_x86_64_archive_sha256"):
-        raise ValueError("Linux libghostty-vt archive differs from Ghostty.lock")
-    return measured, measurements
 
 
 def product_version(source_root: Path) -> str:
