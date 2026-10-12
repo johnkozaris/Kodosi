@@ -26,8 +26,8 @@ The repository pins Rust in [rust-toolchain.toml](../rust-toolchain.toml) and .N
 [backend/global.json](../backend/global.json). Respect those versions; the .NET SDK
 does not roll forward automatically.
 
-`just rust-tools-install` installs the Rust checking tools under `.tools/rust/`.
-`just dev-tools-install` installs these tools and Bacon. To run the jobs in
+`just rust-tools-install` installs the Rust check tools under `.tools/rust/`.
+`just bacon-install` installs these tools and Bacon. To run the jobs in
 [bacon.toml](../bacon.toml) again after each change to a file, run
 `.tools/rust/bin/bacon` from the repository root.
 The root recipes also recognize a local .NET SDK at `backend/.tools/dotnet-10.0.401/`.
@@ -46,15 +46,15 @@ Run these from the repository root. `just --list` is the complete command refere
 | Command | Purpose |
 | --- | --- |
 | `just rust-cli-build` | Build the standalone development CLI |
-| `just rust-all` | Ghostty pins and notices, Rust format, compilation, docs, lint, dependencies, contracts, tests, coverage |
+| `just rust-check` | Ghostty pins and notices, Rust format, compilation, docs, lint, dependencies, contracts, tests, coverage |
 | `just backend-test` | Build and test the backend; database tests need a container runtime |
 | `just check-all` | Run the Rust and backend gates |
 | `just mac-build` / `just mac-check` | Build / check the Mac app |
 | `just linux-build` / `just linux-check` | Build / check the Linux app |
 | `just windows-check` | Build and check the Windows app on Windows |
-| `just windows-cross-check` | Lint the runtime for both Windows targets in Docker, from any host |
+| `just windows-rust-lint` | Lint the runtime for both Windows targets in Docker, from any host |
 | `just ios-build` / `just ios-check` | Build / check the iPhone and iPad app |
-| `just ios-rust-targets` / `just ios-rust-check` | Install / lint the iOS Rust targets |
+| `just ios-rust-targets-install` / `just ios-rust-lint` | Install / lint the iOS Rust targets |
 
 Platform directories retain their own `just` recipes, including release packaging.
 Artifacts stay in the component's output directories. Release packages record the
@@ -81,17 +81,17 @@ database, choose a volume name that is not in use:
 ```sh
 docker volume create kodosi-docs-dev-postgres
 export KODOSI_POSTGRES_VOLUME=kodosi-docs-dev-postgres
-just backend-docker-up
+just backend-docker-run
 ```
 
-`just backend-docker-down` stops the services without removing database storage.
+`just backend-docker-stop` stops the services without removing database storage.
 For your own identity provider, add `Auth__Authority` and `Auth__Audience` to the
 backend service's environment through a local Compose override.
 
 ## Contracts and native artifacts
 
 Rust owns the desktop contract and C header. Use `just protocol-gen` when a contract
-intentionally changes, and `just protocol-check` to verify the committed output.
+intentionally changes, and `just protocol-check` to check the committed output.
 Keep one current contract set under [protocol/](../protocol/).
 
 The clients compile the runtime from this checkout. Root [Ghostty.lock](../Ghostty.lock)

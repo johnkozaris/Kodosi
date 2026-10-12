@@ -35,7 +35,7 @@ for the iPhone and iPad experience, and `DESIGN.md` for its visual system.
 ```sh
 just lint
 just test
-just ci
+just check
 ```
 
 Do not add automated smoke drivers.

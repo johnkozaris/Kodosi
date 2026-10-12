@@ -47,7 +47,7 @@ Do these steps to update Ghostty:
    [Rust bindings](#rust-bindings).
 5. Run the package tests, the artifact verifiers and the native sanitizer checks.
 6. Update root `Ghostty.lock` from the measured artifacts.
-7. Run `just ghostty-verify` from the repository root.
+7. Run `just ghostty-check` from the repository root.
 8. Do a test of the real Rust, Swift and Qt integration and of the terminal lifecycle.
 9. Commit the integration, the artifacts, the notices, the bindings and the affected
    consumers together.
@@ -80,5 +80,5 @@ runtime/crates/ghostty-vt-sys/generate-bindings.sh
 The script finds the platform of the host. To select a platform, give `macos-arm64`,
 `linux-x86_64`, `windows-x86_64` or `windows-arm64` as the argument. The script
 installs the pinned `bindgen-cli` in a temporary folder. It needs network access,
-libclang and rustfmt. Then run `just rust-all`. Commit the changed bindings with
+libclang and rustfmt. Then run `just rust-check`. Commit the changed bindings with
 the artifacts.

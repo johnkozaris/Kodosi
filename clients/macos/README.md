@@ -35,7 +35,7 @@ Debug builds target the local backend at `127.0.0.1:5180`; follow
 service, build the Release configuration:
 
 ```sh
-just --justfile clients/macos/justfile build-release
+just --justfile clients/macos/justfile release-build
 ```
 
 Run the Release app from Xcode's Products group. Release uses the public service
@@ -71,7 +71,8 @@ just mac-check
 
 From this client directory, `just lint` and `just test` do parts of this check. To
 format the Swift sources, run `just format`.
-`just archive-working-tree` builds a non-publishable validation archive.
+`just working-tree-build` builds an archive of the working tree for validation. You
+cannot publish it.
 
 Official releases are signed with Developer ID, embed a provisioning profile for the
 Keychain access group, and are notarized by Apple. The signing credentials stay with
@@ -88,7 +89,7 @@ To make a release, set `KODOSI_TEAM_ID`, `KODOSI_MARKETING_VERSION` and
 | `scripts/release/generate-cask.sh` | A Homebrew cask in `build/KodosiDesktop.rb`, if the disk image at `KODOSI_DOWNLOAD_URL` is the same as the local one |
 
 The scripts examine the signatures, the embedded profile, the entitlements, the native
-artifacts and the source revision. `just verify-signed` examines the app in the archive.
+artifacts and the source revision. `just signature-check` examines the app in the archive.
 
 Read [Ghostty integration](docs/GHOSTTY_INTEGRATION.md) before changing the renderer.
 See [product behavior](PRODUCT.md), [design reference](DESIGN.md), and

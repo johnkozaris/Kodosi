@@ -232,7 +232,7 @@ if [ ! -f "$VT/include/ghostty/vt.h" ] ||
     exit 1
 fi
 
-TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/kodosi-ghostty-verify.XXXXXX")
+TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/kodosi-verify-vendored-artifact.XXXXXX")
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 for slice in macos-arm64 "${IOS_SLICES[@]}"; do
