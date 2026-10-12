@@ -6,13 +6,14 @@ LOCK_FILE="$ROOT/Ghostty.lock"
 GHOSTTY_DIR="${KODOSI_GHOSTTY_DIR:-"$ROOT/terminal/ghostty"}"
 
 # Git Bash may lack shasum, and SwiftPM's build-tool sandbox on macOS runs
-# without the PATH entry for sha256sum.
+# without the PATH entry for sha256sum. Hashing stdin keeps sha256sum from
+# escaping the digest of a Windows path.
 sha256() {
     if command -v sha256sum >/dev/null 2>&1; then
-        sha256sum "$1"
+        sha256sum
     else
-        shasum -a 256 "$1"
-    fi | awk '{print $1}'
+        shasum -a 256
+    fi <"$1" | awk '{print $1}'
 }
 
 if [[ ! -f "$LOCK_FILE" ]]; then
