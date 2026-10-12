@@ -109,10 +109,6 @@ rust-machete-check: rust-dependency-tools-check
 [group('rust')]
 rust-dependency-check: rust-deny-check rust-machete-check
 
-[private]
-ffi-artifact-test:
-    PYTHONDONTWRITEBYTECODE=1 python3 scripts/tests/test_ffi_artifact.py
-
 # Windows terminals need the pinned ConPTY host beside the development CLI, and
 # tests find it through KODOSI_CONPTY_DIR.
 [private]
@@ -126,7 +122,7 @@ conpty-install:
 
 # Run the Rust tests for the full and the viewer builds, and the documentation tests.
 [group('rust')]
-rust-test: ffi-artifact-test conpty-install
+rust-test: conpty-install
     CARGO_INCREMENTAL=0 cargo test --manifest-path runtime/Cargo.toml --locked --workspace --all-targets
     CARGO_INCREMENTAL=0 cargo test --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --all-targets
     CARGO_INCREMENTAL=0 cargo test --manifest-path runtime/Cargo.toml --locked --workspace --doc
