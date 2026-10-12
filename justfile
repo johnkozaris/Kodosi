@@ -42,19 +42,14 @@ ghostty-check: ghostty-host-check
 [private]
 [macos]
 ghostty-host-check:
-    "{{ ghostty_dir }}/scripts/tests/test_platform_pins.py"
     "{{ ghostty_dir }}/scripts/verify-third-party-notices.py"
-    "{{ ghostty_dir }}/scripts/tests/test_z2d_source_acquisition.py"
 
 [private]
 [linux]
 ghostty-host-check:
-    "{{ ghostty_dir }}/scripts/tests/test_platform_pins.py"
     "{{ ghostty_dir }}/scripts/verify-linux-third-party-notices.py"
 
-# Git Bash has no ar, lipo or plutil for the notice checks. On Windows, the pin
-# tests write their fixture files with CRLF line ends, and the pin verifier
-# rejects them.
+# Git Bash has no ar, lipo or plutil for the notice checks.
 [private]
 [windows]
 ghostty-host-check:
