@@ -133,6 +133,10 @@ qt_add_library(kodosi-terminal-kernel STATIC
     terminal/TerminalViewInput.cpp
     terminal/TerminalViewRendering.cpp
     terminal/TerminalView.hpp
+    ui/Grain.cpp
+    ui/Grain.hpp
+    ui/SoftShadow.cpp
+    ui/SoftShadow.hpp
 )
 
 qt_add_library(kodosi-qml-models STATIC)

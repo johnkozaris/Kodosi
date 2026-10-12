@@ -50,6 +50,7 @@ Rectangle {
             color: root.ink
             font.pixelSize: KodosiTheme.fontCaption
             font.weight: Font.Medium
+            transform: Translate { y: -KodosiTheme.lift(KodosiTheme.fontCaption) }
         }
     }
 }

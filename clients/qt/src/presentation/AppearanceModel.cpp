@@ -1,6 +1,7 @@
 #include "presentation/AppearanceModel.hpp"
 
 #include <QAccessibilityHints>
+#include <QFontMetricsF>
 #include <QGuiApplication>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -155,6 +156,16 @@ int AppearanceModel::stableIndex(const QString& key, const int count)
 int AppearanceModel::stableBits(const QString& key)
 {
     return static_cast<int>(stableHash(key) & 0xFFFFULL);
+}
+
+qreal AppearanceModel::capLift(const qreal pixelSize)
+{
+    if (pixelSize <= 0)
+        return 0;
+    auto font = QGuiApplication::font();
+    font.setPixelSize(qRound(pixelSize));
+    const QFontMetricsF metrics(font);
+    return (metrics.ascent() - metrics.descent() - metrics.capHeight()) / 2;
 }
 
 bool AppearanceModel::dark() const noexcept

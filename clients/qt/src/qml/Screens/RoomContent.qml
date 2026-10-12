@@ -73,8 +73,8 @@ Item {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 24
                         visible: root.renaming
-                        topPadding: 2
-                        bottomPadding: 2
+                        topPadding: 2 - KodosiTheme.lift(font.pixelSize)
+                        bottomPadding: 2 + KodosiTheme.lift(font.pixelSize)
                         leftPadding: 8
                         font.weight: Font.DemiBold
                         objectName: "room.rename"

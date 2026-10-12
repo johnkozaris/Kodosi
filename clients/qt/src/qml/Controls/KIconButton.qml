@@ -12,14 +12,16 @@ AbstractButton {
     property bool onTerminal: false
     property color glyphColor: onTerminal ? KodosiTheme.terminalInkMuted : KodosiTheme.inkMuted
     readonly property color ink: onTerminal ? KodosiTheme.terminalInk : KodosiTheme.ink
+    readonly property color accent: onTerminal ? KodosiTheme.terminalAccent : KodosiTheme.accentStrong
 
     activeFocusOnTab: true
     hoverEnabled: true
     implicitWidth: size
     implicitHeight: size
-    scale: pressed && enabled ? 0.9 : 1
+    scale: pressed && enabled ? 0.94 : 1
+    opacity: enabled ? 1 : 0.35
 
-    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
+    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
 
     contentItem: Item {
         KIcon {
@@ -28,17 +30,19 @@ AbstractButton {
             height: width
             name: root.glyph
             strokeWidth: 1.9
-            color: !root.enabled ? KodosiTheme.alpha(root.glyphColor, 0.4)
-                : root.active ? (root.onTerminal ? KodosiTheme.terminalAccent : KodosiTheme.accentStrong)
-                : root.hovered && root.destructive ? KodosiTheme.danger
+            color: root.hovered && root.destructive ? KodosiTheme.danger
+                : root.active ? root.accent
                 : root.hovered ? root.ink
                 : root.glyphColor
+
+            Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
         }
     }
     background: Rectangle {
-        radius: Math.min(width, height) * 0.32
-        color: root.active ? KodosiTheme.alpha(root.onTerminal ? KodosiTheme.terminalAccent : KodosiTheme.accent, 0.18)
-            : KodosiTheme.alpha(root.ink, root.hovered && root.enabled ? 0.09 : 0)
+        radius: Math.min(width, height) / 2
+        color: root.hovered && root.destructive ? KodosiTheme.alpha(KodosiTheme.danger, 0.14)
+            : root.active ? (root.onTerminal ? KodosiTheme.alpha(KodosiTheme.terminalAccent, 0.18) : KodosiTheme.accentSoft)
+            : KodosiTheme.alpha(root.ink, root.hovered ? 0.09 : 0)
         border.width: root.visualFocus ? 1.5 : 0
         border.color: KodosiTheme.accentStrong
 

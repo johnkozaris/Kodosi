@@ -26,7 +26,26 @@ private slots:
     void terminalCloseConfirmsAndMinimizeOnlyHidesView();
     void missionCreationHasOneNameField();
     void messageTextKeepsSpacesEscapesMarkupAndSkipsYourself();
+    void shadowFallsOffLikeAGaussian();
 };
+
+void ControlsTest::shadowFallsOffLikeAGaussian()
+{
+    const auto blur = 4.0;
+    const auto reach = kodosi::SoftShadow::reach(blur);
+    QCOMPARE(reach, 12.0);
+    const auto image = kodosi::SoftShadow::render(QSizeF(100, 40), 0, blur, 1, QColor(0, 0, 0, 255));
+    QCOMPARE(image.size(), QSize(124, 64));
+    const auto alpha = [&image](int x, int y) { return qAlpha(image.pixel(x, y)); };
+    const auto middle = static_cast<int>(reach) + 20;
+    QVERIFY(alpha(static_cast<int>(reach) + 50, middle) >= 250);
+    // Half the shadow at the shape's edge, none three sigma past it.
+    QVERIFY(qAbs(alpha(static_cast<int>(reach) + 50, static_cast<int>(reach)) - 128) <= 16);
+    QVERIFY(alpha(static_cast<int>(reach) + 50, 0) <= 2);
+    QVERIFY(alpha(0, middle) <= 2);
+    const auto tinted = kodosi::SoftShadow::render(QSizeF(100, 40), 0, blur, 1, QColor(46, 31, 15, 255));
+    QCOMPARE(qRed(tinted.pixel(static_cast<int>(reach) + 50, middle)), 46);
+}
 
 void ControlsTest::messageTextKeepsSpacesEscapesMarkupAndSkipsYourself()
 {

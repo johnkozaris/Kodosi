@@ -20,11 +20,10 @@ Button {
     property bool compact: false
     property bool large: false
     property bool working: false
-    readonly property bool solid: variant === KButton.Primary || variant === KButton.Secondary
-    readonly property color foreground: !enabled ? KodosiTheme.inkFaint
-        : variant === KButton.Primary ? KodosiTheme.accentInk
+    readonly property bool solid: variant === KButton.Primary || variant === KButton.Secondary || variant === KButton.Danger
+    readonly property color foreground: variant === KButton.Primary ? KodosiTheme.accentInk
         : variant === KButton.Tinted ? KodosiTheme.accentStrong
-        : variant === KButton.Danger ? KodosiTheme.danger
+        : variant === KButton.Danger ? KodosiTheme.dangerInk
         : variant === KButton.Ghost && !hovered ? KodosiTheme.inkMuted
         : KodosiTheme.ink
 
@@ -32,14 +31,14 @@ Button {
     hoverEnabled: true
     implicitHeight: compact ? 26 : large ? 40 : KodosiTheme.controlHeight
     implicitWidth: Math.max(implicitHeight, contentRow.implicitWidth + leftPadding + rightPadding)
-    leftPadding: compact ? 11 : large ? 20 : 14
+    leftPadding: compact ? 11 : large ? 18 : 14
     rightPadding: leftPadding
     topPadding: 0
     bottomPadding: 0
     scale: pressed && enabled ? 0.97 : 1
-    opacity: enabled || variant !== KButton.Primary ? 1 : 0.55
+    opacity: enabled ? 1 : 0.45
 
-    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
+    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
 
     contentItem: RowLayout {
         id: contentRow
@@ -59,8 +58,9 @@ Button {
             visible: root.text.length > 0
             active: root.working
             color: root.foreground
-            font.pixelSize: root.compact ? KodosiTheme.fontFootnote : root.large ? KodosiTheme.fontCallout : KodosiTheme.fontBody
+            font.pixelSize: root.compact ? KodosiTheme.fontFootnote : root.large ? KodosiTheme.fontHeadline : KodosiTheme.fontBody
             font.weight: Font.DemiBold
+            font.letterSpacing: root.compact ? 0 : root.large ? -0.2 : -0.08
         }
         KIcon {
             visible: root.iconName.length > 0 && root.iconTrailing
@@ -78,18 +78,18 @@ Button {
             anchors.fill: parent
             visible: root.solid
             radius: height / 2
-            elevation: root.enabled ? 1 : 0
-            fill: root.variant === KButton.Primary
-                ? (!root.enabled ? KodosiTheme.mix(KodosiTheme.accent, KodosiTheme.surface, 0.45) : root.hovered ? KodosiTheme.accentHover : KodosiTheme.accent)
-                : (root.hovered && root.enabled ? KodosiTheme.lifted : KodosiTheme.raised)
+            elevation: root.pressed ? 0 : 1
+            fill: root.variant === KButton.Primary ? (root.hovered ? KodosiTheme.accentHover : KodosiTheme.accent)
+                : root.variant === KButton.Danger ? KodosiTheme.alpha(KodosiTheme.danger, root.hovered ? 0.9 : 1)
+                : root.hovered ? KodosiTheme.lifted : KodosiTheme.raised
         }
         Rectangle {
             anchors.fill: parent
             visible: !root.solid
             radius: height / 2
-            color: root.variant === KButton.Tinted ? KodosiTheme.accentSoft
-                : root.variant === KButton.Danger ? KodosiTheme.dangerSoft
-                : KodosiTheme.alpha(KodosiTheme.ink, root.hovered && root.enabled ? 0.08 : 0)
+            color: root.variant === KButton.Tinted
+                ? (root.hovered ? KodosiTheme.alpha(KodosiTheme.accent, 0.28) : KodosiTheme.accentSoft)
+                : KodosiTheme.alpha(KodosiTheme.ink, root.hovered ? 0.08 : 0)
 
             Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
         }
@@ -99,6 +99,8 @@ Button {
         objectName: "control.keyboardFocus"
         Accessible.id: objectName
         active: root.visualFocus && root.enabled
-        color: root.variant === KButton.Primary ? KodosiTheme.accentInk : KodosiTheme.accentStrong
+        color: root.variant === KButton.Primary ? KodosiTheme.accentInk
+            : root.variant === KButton.Danger ? KodosiTheme.dangerInk
+            : KodosiTheme.accentStrong
     }
 }

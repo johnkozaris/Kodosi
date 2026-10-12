@@ -800,8 +800,8 @@ Item {
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 26
                                         visible: row.renaming
-                                        topPadding: 3
-                                        bottomPadding: 3
+                                        topPadding: 3 - KodosiTheme.lift(font.pixelSize)
+                                        bottomPadding: 3 + KodosiTheme.lift(font.pixelSize)
                                         leftPadding: 8
                                         objectName: row.objectName + ".name"
                                         Accessible.id: objectName

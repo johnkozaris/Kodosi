@@ -17,6 +17,8 @@
 #include "platform/DesktopFileIntegration.hpp"
 #include "terminal/TerminalSurfaceController.hpp"
 #include "terminal/TerminalView.hpp"
+#include "ui/Grain.hpp"
+#include "ui/SoftShadow.hpp"
 #include <QJSEngine>
 #include <QQmlEngine>
 #include <QtQml/qqmlregistration.h>
@@ -197,6 +199,18 @@ struct AccessibilityScopeForeign {
     Q_GADGET
     QML_FOREIGN(kodosi::AccessibilityScope)
     QML_NAMED_ELEMENT(AccessibilityScope)
+};
+
+struct SoftShadowForeign {
+    Q_GADGET
+    QML_FOREIGN(kodosi::SoftShadow)
+    QML_NAMED_ELEMENT(SoftShadow)
+};
+
+struct GrainForeign {
+    Q_GADGET
+    QML_FOREIGN(kodosi::Grain)
+    QML_NAMED_ELEMENT(Grain)
 };
 void configureModelInstances(Workspace&, ConversationHistoryModel&, ProviderFilesModel&,
     AppearanceModel&, DesktopSettings&,

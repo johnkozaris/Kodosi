@@ -16,7 +16,7 @@ Item {
     implicitWidth: base.implicitWidth
     implicitHeight: base.implicitHeight
     Accessible.ignored: true
-    transform: Translate { y: (1 - root.arrival) * 4 }
+    transform: Translate { y: (1 - root.arrival) * 4 - KodosiTheme.lift(base.font.pixelSize) }
 
     Component.onCompleted: ready = true
     onTextChanged: {

@@ -37,11 +37,13 @@ Row {
         border.color: root.ring
 
         Text {
+            id: more
             anchors.centerIn: parent
             text: "+" + (root.userIds.length - root.limit)
             color: KodosiTheme.inkMuted
             font.pixelSize: Math.round(root.size * 0.38)
             font.weight: Font.DemiBold
+            transform: Translate { y: -KodosiTheme.lift(more.font.pixelSize) }
         }
     }
 }
