@@ -119,12 +119,12 @@ package: tools-install
             build/release/tracked-status.after || true; \
         exit 1; \
     fi
-    ./scripts/release/verify-linux-package.sh build/release/kodosi_{{ version }}_amd64.deb
-    ./scripts/release/verify-packaged-content.sh build/release/kodosi-{{ version }}-linux-x86_64.tar.gz
+    python3 scripts/release/verify-linux-package.py --build-dir build/release build/release/kodosi_{{ version }}_amd64.deb
+    python3 scripts/release/verify-linux-package.py --build-dir build/release build/release/kodosi-{{ version }}-linux-x86_64.tar.gz
 
 # Check the Arch package that package makes.
 arch-package: package
-    ./scripts/release/verify-packaged-content.sh build/release/kodosi-bin-{{ version }}-1-x86_64.pkg.tar.zst
+    python3 scripts/release/verify-linux-package.py --build-dir build/release build/release/kodosi-bin-{{ version }}-1-x86_64.pkg.tar.zst
 
 # Make the Linux packages, then check that a second build makes the same packages.
 reproducible-package: package reproducibility-check

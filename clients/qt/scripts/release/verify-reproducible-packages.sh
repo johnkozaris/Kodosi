@@ -27,14 +27,6 @@ cmp "$scratch/first/$deb" "$scratch/second/$deb"
 cmp "$scratch/first/$tgz" "$scratch/second/$tgz"
 cmp "$scratch/first/$arch" "$scratch/second/$arch"
 
-for pass in first second; do
-    for artifact in "$deb" "$tgz" "$arch"; do
-        python3 scripts/release/verify-reproducible-archive.py \
-            --artifact "$scratch/$pass/$artifact" \
-            --source-date-epoch "$epoch"
-    done
-done
-
 cp "$scratch/second/$deb" "$release/$deb"
 cp "$scratch/second/$tgz" "$release/$tgz"
 cp "$scratch/second/$arch" "$release/$arch"

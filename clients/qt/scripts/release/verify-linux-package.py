@@ -1,43 +1,85 @@
 #!/usr/bin/env python3
+"""Check a Linux package of Kodosi: the Debian package, the portable archive or
+the Arch package. The check examines the source identity, the archive metadata,
+the notices, the installed files, the links of the programs and the desktop
+files."""
 
 from __future__ import annotations
 
 import argparse
 import io
 import json
+import os
 import posixpath
 import re
 import subprocess
+import sys
 import tarfile
+import tempfile
 import unicodedata
+import zlib
 from pathlib import Path, PurePosixPath
 
-from release_common import (
-    normalize_archive_path,
-    source_identity_member_path,
+from package_evidence import verify_rust_licenses, verify_source_identity
+from release_common import product_version, source_identity
+
+ROOT = Path(__file__).resolve().parents[2]
+GHOSTTY = ROOT.parents[1] / "terminal/ghostty"
+KINDS = {".deb": "deb", ".tar.gz": "tgz", ".pkg.tar.zst": "arch"}
+DOC = "usr/share/doc/kodosi"
+PRIVATE = "usr/lib/kodosi"
+DESKTOP = "usr/share/applications/com.kodosi.Kodosi.desktop"
+METAINFO = "usr/share/metainfo/com.kodosi.Kodosi.metainfo.xml"
+PLUGINS = (
+    "plugins/platforms/libqxcb.so",
+    "plugins/platforms/libqwayland.so",
+    "plugins/platforms/libqoffscreen.so",
+    "plugins/platformthemes/libqgtk3.so",
+    "plugins/platformthemes/libqxdgdesktopportal.so",
+    "qml/QtQuick/Controls/libqtquickcontrols2plugin.so",
 )
+# The app loads or starts these at run time, so no library link shows them.
+DEBIAN_DEPENDENCIES = ("libopengl0", "desktop-file-utils", "xdg-desktop-portal", "xdg-utils")
+
+
+class PackageError(Exception):
+    pass
 
 
 def fail(message: str) -> None:
-    raise SystemExit(f"reproducible archive error: {message}")
+    raise PackageError(message)
 
 
-def member_path(member: tarfile.TarInfo) -> str:
-    try:
-        return normalize_archive_path(member.name, allow_root=member.isdir())
-    except ValueError as error:
-        fail(str(error))
-
-
-def validate_link_text(value: str, description: str) -> None:
+def check_text(value: str, description: str) -> None:
     if "\\" in value or any(
         unicodedata.category(character) in {"Cc", "Cs"} for character in value
     ):
         fail(f"unsafe {description}: {value!r}")
 
 
+def archive_path(name: str, *, allow_root: bool = False) -> str:
+    check_text(name, "archive path")
+    candidate = name[2:] if name.startswith("./") else name
+    if candidate in {"", "."}:
+        if allow_root:
+            return "."
+        fail(f"unsafe archive path: {name!r}")
+    if posixpath.isabs(candidate) or any(
+        part in {".", ".."} for part in candidate.split("/")
+    ):
+        fail(f"unsafe archive path: {name!r}")
+    normalized = posixpath.normpath(candidate)
+    if normalized in {"", ".", ".."}:
+        fail(f"unsafe archive path: {name!r}")
+    return normalized
+
+
+def member_path(member: tarfile.TarInfo) -> str:
+    return archive_path(member.name, allow_root=member.isdir())
+
+
 def symlink_target(member_path: str, target: str) -> str:
-    validate_link_text(target, "symlink target")
+    check_text(target, "symlink target")
     if not target or posixpath.isabs(target):
         fail(f"unsafe symlink target: {target!r}")
     parent = posixpath.dirname(member_path)
@@ -53,11 +95,8 @@ def symlink_target(member_path: str, target: str) -> str:
 
 
 def hardlink_target(target: str) -> str:
-    validate_link_text(target, "hardlink target")
-    try:
-        return normalize_archive_path(target)
-    except ValueError:
-        fail(f"unsafe hardlink target: {target!r}")
+    check_text(target, "hardlink target")
+    return archive_path(target)
 
 
 def validate_member(member: tarfile.TarInfo, epoch: int) -> str:
@@ -286,94 +325,220 @@ def validate_arch(path: Path, epoch: int) -> None:
         fail(f"cannot decompress Arch package: {stderr.decode().strip()}")
 
 
-def source_identity_payload(
-    archive: tarfile.TarFile,
-    *,
-    allow_package_root: bool,
-) -> bytes:
-    payloads: list[bytes] = []
-    for member in archive:
-        normalized = member_path(member)
-        if not source_identity_member_path(
-            normalized,
-            allow_package_root=allow_package_root,
-        ):
-            continue
-        if not member.isfile():
-            fail("archive source identity is not a regular file")
-        source = archive.extractfile(member)
-        if source is None:
-            fail("archive source identity is unreadable")
-        payloads.append(source.read())
-    if len(payloads) != 1:
-        fail("archive source identity is missing or duplicated")
-    return payloads[0]
-
-
-def verify_source_identity(path: Path, epoch: int) -> None:
-    if path.name.endswith(".deb"):
-        members = parse_ar(path.read_bytes(), epoch)
-        data_name = next(name for name in members if name.startswith("data.tar."))
-        with tarfile.open(
-            fileobj=io.BytesIO(members[data_name]),
-            mode="r:*",
-        ) as archive:
-            payload = source_identity_payload(
-                archive,
-                allow_package_root=False,
-            )
-    elif path.name.endswith(".tar.gz"):
-        with tarfile.open(path, mode="r:gz") as archive:
-            payload = source_identity_payload(
-                archive,
-                allow_package_root=True,
-            )
-    else:
-        producer = subprocess.Popen(
-            ["zstd", "--quiet", "--decompress", "--stdout", str(path)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        assert producer.stdout is not None
-        try:
-            with tarfile.open(fileobj=producer.stdout, mode="r|") as archive:
-                payload = source_identity_payload(
-                    archive,
-                    allow_package_root=False,
-                )
-        finally:
-            producer.stdout.close()
-        stderr = producer.communicate()[1]
-        if producer.returncode != 0:
-            fail(f"cannot decompress Arch package: {stderr.decode().strip()}")
+def check_metadata(package: Path, kind: str, epoch: int) -> None:
     try:
-        identity = json.loads(payload)
-    except json.JSONDecodeError as error:
-        fail(f"source identity is invalid JSON: {error}")
-    if identity.get("sourceDateEpoch") != epoch:
-        fail("embedded source identity epoch differs from SOURCE_DATE_EPOCH")
+        if kind == "deb":
+            validate_deb(package, epoch)
+        elif kind == "tgz":
+            with tarfile.open(package, mode="r:gz") as archive:
+                validate_tar(archive, epoch, require_pkginfo=False)
+        else:
+            validate_arch(package, epoch)
+    except (EOFError, OSError, tarfile.TarError, zlib.error) as error:
+        fail(f"the archive is damaged: {error}")
+
+
+def run(*command: str) -> str:
+    environment = {key: value for key, value in os.environ.items() if key != "LD_LIBRARY_PATH"}
+    result = subprocess.run(
+        command,
+        env=environment,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if result.returncode != 0:
+        fail(f"{' '.join(command)} failed: {(result.stderr or result.stdout).strip()}")
+    return result.stdout
+
+
+def extract(package: Path, kind: str, stage: Path, version: str) -> Path:
+    if kind == "deb":
+        run("dpkg-deb", "-x", str(package), str(stage))
+        return stage
+    if kind == "arch":
+        run("tar", "--zstd", "-xf", str(package), "-C", str(stage))
+        return stage
+    run("tar", "-xzf", str(package), "-C", str(stage))
+    root = stage / f"kodosi-{version}-Linux"
+    if not root.is_dir():
+        fail(f"the archive has no folder kodosi-{version}-Linux")
+    return root
+
+
+def same(root: Path, name: str, source: Path) -> None:
+    path = root / name
+    if not path.is_file():
+        fail(f"{name} is missing")
+    if path.read_bytes() != source.read_bytes():
+        fail(f"{name} differs from {source}")
+
+
+def check_source_identity(root: Path, checkout: dict[str, object]) -> None:
+    identity = root / DOC / "provenance/source-identity.json"
+    if not identity.is_file():
+        fail(f"{DOC}/provenance/source-identity.json is missing")
+    try:
+        verify_source_identity(identity.read_bytes(), checkout)
+    except ValueError as error:
+        fail(str(error))
+
+
+def check_evidence(root: Path, build_dir: Path) -> None:
+    rust = root / DOC / "rust"
+    try:
+        verify_rust_licenses(
+            {
+                path.relative_to(rust).as_posix(): path.read_bytes()
+                for path in rust.rglob("*")
+                if path.is_file()
+            },
+            build_dir / "generated/rust-dependency-licenses",
+        )
+    except ValueError as error:
+        fail(str(error))
+    same(root, f"{DOC}/provenance/dependencies.lock.json", ROOT / "dependencies.lock.json")
+
+    for name in ("LICENSE", "LICENSE-GHOSTTY", "LinuxGhostty.ref", "THIRD_PARTY_NOTICES.md"):
+        same(root, f"{DOC}/ghostty/{name}", GHOSTTY / name)
+    inventory = GHOSTTY / "ThirdPartyNotices/linux-vt-inventory.json"
+    same(root, f"{DOC}/ghostty/linux-vt-inventory.json", inventory)
+    texts = {
+        notice
+        for component in json.loads(inventory.read_text(encoding="utf-8"))["components"]
+        for notice in component["notices"]
+    } - {"LICENSE-GHOSTTY"}
+    folder = root / DOC / "ghostty/ThirdPartyNotices/licenses"
+    packaged = {path.name for path in folder.iterdir()} if folder.is_dir() else set()
+    if packaged != texts:
+        fail(
+            "the Ghostty license texts differ from linux-vt-inventory.json: "
+            f"missing {sorted(texts - packaged)}, extra {sorted(packaged - texts)}"
+        )
+    for name in sorted(texts):
+        same(
+            root,
+            f"{DOC}/ghostty/ThirdPartyNotices/licenses/{name}",
+            GHOSTTY / "ThirdPartyNotices/licenses" / name,
+        )
+
+    for source in sorted((ROOT / "packaging/licenses/provider-icons").iterdir()):
+        same(root, f"usr/share/licenses/kodosi-qt/provider-icons/{source.name}", source)
+    same(
+        root,
+        f"{DOC}/NATIVE-DESKTOP-INTEGRATION-NOTICE.txt",
+        ROOT / "packaging/linux/NATIVE-DESKTOP-INTEGRATION-NOTICE.txt",
+    )
+    run(
+        sys.executable,
+        str(ROOT / "scripts/release/verify-native-license-evidence.py"),
+        "--installed-root",
+        str(root),
+    )
+
+
+def check_debian_dependencies(package: Path) -> None:
+    depends = run("dpkg-deb", "-f", str(package), "Depends").strip().split(", ")
+    names = {item.split(" ", 1)[0] for item in depends}
+    missing = [name for name in DEBIAN_DEPENDENCIES if name not in names]
+    if missing:
+        fail(f"the package does not depend on {', '.join(missing)}")
+    floors = [item for item in depends if item.startswith(("libxcb-icccm4 (", "libxcb-keysyms1 ("))]
+    if floors:
+        fail(f"the package has version floors from the build host: {', '.join(floors)}")
+
+
+def check_files(root: Path, qt_version: str) -> None:
+    for name in ("usr/bin/kodosi", "usr/bin/kodosi-qt", f"{PRIVATE}/bin/kodosi", f"{PRIVATE}/bin/kodosi-qt"):
+        path = root / name
+        if not path.is_file() or not os.access(path, os.X_OK):
+            fail(f"{name} is missing or is not executable")
+    for name in (
+        f"{PRIVATE}/bin/qt.conf",
+        DESKTOP,
+        METAINFO,
+        "usr/share/icons/hicolor/scalable/apps/com.kodosi.Kodosi.svg",
+        *(f"{PRIVATE}/lib/libQt6{module}.so.{qt_version}" for module in ("Core", "DBus", "Widgets")),
+        *(f"{PRIVATE}/{plugin}" for plugin in PLUGINS),
+    ):
+        if not (root / name).is_file():
+            fail(f"{name} is missing")
+    escaped = sorted(
+        path.name
+        for path in (root / "usr/lib").iterdir()
+        if path.name.startswith(("libQt6", "libicu"))
+    )
+    if escaped:
+        fail(f"the Qt or ICU runtime is outside {PRIVATE}: {', '.join(escaped)}")
+
+
+def check_links(root: Path) -> None:
+    cli = root / PRIVATE / "bin/kodosi"
+    if not re.search(r"^\s*Class:\s+ELF64$", run("readelf", "-h", str(cli)), re.MULTILINE):
+        fail(f"{PRIVATE}/bin/kodosi is not a 64-bit ELF program")
+    private = os.path.normpath(root / PRIVATE) + os.sep
+    for name in (f"{PRIVATE}/bin/kodosi", f"{PRIVATE}/bin/kodosi-qt", *(f"{PRIVATE}/{plugin}" for plugin in PLUGINS)):
+        output = run("ldd", str(root / name))
+        if "not found" in output:
+            fail(f"{name} needs a library that the system and the package do not have:\n{output}")
+        for line in output.splitlines():
+            if "libQt6" not in line and "libicu" not in line:
+                continue
+            fields = line.split()
+            target = fields[2] if len(fields) > 2 and fields[1] == "=>" else ""
+            if not os.path.normpath(target).startswith(private):
+                fail(f"{name} links {line.strip()}, which is outside {PRIVATE}")
+
+
+def check_desktop(root: Path) -> None:
+    lines = (root / DESKTOP).read_text(encoding="utf-8").splitlines()
+    for line in ("Exec=kodosi-qt %u", "MimeType=x-scheme-handler/kodosi;"):
+        if line not in lines:
+            fail(f"{DESKTOP} has no line {line!r}")
+    run("desktop-file-validate", str(root / DESKTOP))
+    run("update-desktop-database", str(root / "usr/share/applications"))
+    cache = (root / "usr/share/applications/mimeinfo.cache").read_text(encoding="utf-8")
+    if not re.search(r"^x-scheme-handler/kodosi=.*com\.kodosi\.Kodosi\.desktop", cache, re.MULTILINE):
+        fail("the desktop file does not open kodosi:// links")
+    run("appstreamcli", "validate", "--no-net", str(root / METAINFO))
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--artifact", required=True, type=Path)
-    parser.add_argument("--source-date-epoch", required=True, type=int)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("package", type=Path, help="a .deb, .tar.gz or .pkg.tar.zst file")
+    parser.add_argument(
+        "--build-dir",
+        required=True,
+        type=Path,
+        help="the release build folder that has the generated Rust license inventory",
+    )
     arguments = parser.parse_args()
-    path = arguments.artifact.resolve(strict=True)
-    epoch = arguments.source_date_epoch
-    if epoch <= 0:
-        fail("SOURCE_DATE_EPOCH must be positive")
-    if path.name.endswith(".deb"):
-        validate_deb(path, epoch)
-    elif path.name.endswith(".tar.gz"):
-        with tarfile.open(path, mode="r:gz") as archive:
-            validate_tar(archive, epoch, require_pkginfo=False)
-    elif path.name.endswith(".pkg.tar.zst"):
-        validate_arch(path, epoch)
-    else:
-        fail(f"unsupported artifact: {path.name}")
-    verify_source_identity(path, epoch)
-    print(f"reproducible archive metadata verified: {path.name}")
+    package = arguments.package.resolve()
+    kind = next((kind for suffix, kind in KINDS.items() if package.name.endswith(suffix)), None)
+    try:
+        if kind is None or not package.is_file():
+            fail("the package must be an existing .deb, .tar.gz or .pkg.tar.zst file")
+        try:
+            checkout = source_identity(ROOT)
+            version = product_version(ROOT)
+            qt_version = json.loads((ROOT / "dependencies.lock.json").read_bytes())["frameworks"]["qt"]["version"]
+        except (OSError, ValueError, KeyError) as error:
+            fail(f"cannot read the checkout: {error}")
+        (ROOT / "build").mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="package-check-", dir=ROOT / "build") as stage:
+            root = extract(package, kind, Path(stage), version)
+            check_source_identity(root, checkout)
+            check_metadata(package, kind, checkout["sourceDateEpoch"])
+            check_evidence(root, arguments.build_dir.resolve())
+            if kind == "deb":
+                check_debian_dependencies(package)
+            check_files(root, qt_version)
+            check_links(root)
+            check_desktop(root)
+    except PackageError as error:
+        raise SystemExit(f"Linux package error: {package.name}: {error}") from None
+    print(f"Linux package checked: {package.name}")
 
 
 if __name__ == "__main__":

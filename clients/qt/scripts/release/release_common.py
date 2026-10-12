@@ -7,7 +7,6 @@ import posixpath
 import re
 import stat
 import subprocess
-import sys
 import unicodedata
 from pathlib import Path, PurePosixPath
 
@@ -409,19 +408,6 @@ def verify_release_sources(
     if measurements["linuxVtArchiveSha256"] != lock.get("linux_x86_64_archive_sha256"):
         raise ValueError("Linux libghostty-vt archive differs from Ghostty.lock")
     return measured, measurements
-
-
-def verify_reproducible_artifact(artifact: Path, source_date_epoch: int) -> None:
-    run(
-        [
-            sys.executable,
-            str(Path(__file__).with_name("verify-reproducible-archive.py")),
-            "--artifact",
-            str(artifact),
-            "--source-date-epoch",
-            str(source_date_epoch),
-        ]
-    )
 
 
 def product_version(source_root: Path) -> str:

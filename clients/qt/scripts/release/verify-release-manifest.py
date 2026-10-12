@@ -16,7 +16,6 @@ from release_common import (
     product_version,
     runtime_versions,
     validate_source_identity,
-    verify_reproducible_artifact,
     verify_release_sources,
 )
 
@@ -259,13 +258,6 @@ def main() -> None:
             fail(f"artifact size mismatch: {name}")
         if row["sha256"] != file_sha256(resolved):
             fail(f"artifact digest mismatch: {name}")
-        try:
-            verify_reproducible_artifact(
-                resolved,
-                measured_source["sourceDateEpoch"],
-            )
-        except ValueError as error:
-            fail(str(error))
         try:
             embedded = extract_source_identity(resolved)
         except (OSError, ValueError, json.JSONDecodeError) as error:

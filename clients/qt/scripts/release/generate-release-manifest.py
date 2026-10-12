@@ -15,7 +15,6 @@ from release_common import (
     file_sha256,
     product_version,
     runtime_versions,
-    verify_reproducible_artifact,
     verify_release_sources,
 )
 
@@ -103,13 +102,6 @@ def main() -> None:
 
     artifact_identities: dict[str, dict[str, object]] = {}
     for artifact in artifacts:
-        try:
-            verify_reproducible_artifact(
-                artifact,
-                measured_source["sourceDateEpoch"],
-            )
-        except ValueError as error:
-            fail(str(error))
         try:
             identity = extract_source_identity(artifact)
         except (OSError, ValueError, json.JSONDecodeError) as error:
