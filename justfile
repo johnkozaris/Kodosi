@@ -6,7 +6,7 @@ ghostty_dir := env('KODOSI_GHOSTTY_DIR', justfile_directory() + "/terminal/ghost
 
 path_separator := if os_family() == "windows" { ";" } else { ":" }
 
-export PATH := justfile_directory() + "/backend/.tools/dotnet-10.0.401" + path_separator + cargo_tools_bin + path_separator + env('PATH')
+export PATH := justfile_directory() + "/backend/.tools/dotnet" + path_separator + cargo_tools_bin + path_separator + env('PATH')
 export KODOSI_GHOSTTY_DIR := ghostty_dir
 export KODOSI_CONPTY_DIR := env('KODOSI_CONPTY_DIR', justfile_directory() + "/runtime/target/debug")
 
@@ -198,9 +198,18 @@ backend-docker-run:
 backend-docker-stop:
     docker compose down
 
+# Build the backend release image for a platform, for example linux/arm64, and give it a tag. Push nothing.
+[group('backend')]
+backend-package platform tag="kodosi-backend":
+    docker buildx build --platform "{{ platform }}" --file backend/Dockerfile --tag "{{ tag }}" --load .
+
+[private]
+backend-sdk-check:
+    python3 backend/scripts/verify-sdk-pin.py
+
 # Run all the backend checks.
 [group('backend')]
-backend-check: backend-test
+backend-check: backend-sdk-check backend-test
 
 # Run the Rust and backend checks.
 check-all: rust-check backend-check

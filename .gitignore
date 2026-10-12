@@ -35,6 +35,7 @@ __pycache__/
 *.p12
 *.pfx
 *.mobileprovision
+clients/apple/Config/Signing.local.xcconfig
 *.log
 .mcp.json
 .claude/worktrees/

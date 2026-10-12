@@ -78,6 +78,10 @@ release-graph-test:
     "$root/scripts/tests/test-ghostty-link-provenance.sh"
     "$root/scripts/tests/test-generated-project.sh"
 
+# Check that the Swift packages and the Ghostty iOS build agree with the deployment targets of the apps.
+deployment-targets-check:
+    ../apple/scripts/verify-deployment-targets.py
+
 # Test the script that verifies the Developer ID signature.
 signature-test:
     scripts/tests/test-developer-id-signature.sh
@@ -91,7 +95,7 @@ native-notices-test:
     scripts/tests/test-native-notices.sh
 
 # Lint and test the Mac app and its scripts, then build the Release app. Commit all the changes first.
-check: lint release-graph-test signature-test provisioning-profile-test native-notices-test apple-test
+check: lint deployment-targets-check release-graph-test signature-test provisioning-profile-test native-notices-test apple-test
     xcodebuild -project KodosiDesktop.xcodeproj \
         -scheme KodosiDesktop \
         -configuration Debug \

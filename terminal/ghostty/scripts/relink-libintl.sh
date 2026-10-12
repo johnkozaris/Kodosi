@@ -24,18 +24,24 @@ TMP="$(mktemp -d "${TMPDIR:-/tmp}/kodosi-libintl-relink.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 cp "$ARCHIVE" "$TMP/non-libintl.a"
 
-python3 - "$INVENTORY" > "$TMP/libintl-members.txt" <<'PY'
+python3 - "$ROOT" "$INVENTORY" > "$TMP/libintl-members.txt" <<'PY'
 import json
 import sys
+from pathlib import Path, PurePosixPath
 
-manifest = json.load(open(sys.argv[1]))
+root = Path(sys.argv[1])
+manifest = json.load(open(sys.argv[2]))
 members = [
     record["name"]
     for record in manifest["archiveMembers"]
     if "gettext-libintl" in record.get("owners", [])
 ]
-if len(members) != 30 or len(members) != len(set(members)):
-    raise SystemExit(f"expected 30 unique libintl members, found {len(members)}")
+libintl = next(component for component in manifest["components"] if component["id"] == "gettext-libintl")
+source_manifest = next(path for path in libintl["sourcePaths"] if path.endswith("/MANIFEST.json"))
+compiled_sources = json.load(open(root / source_manifest))["compiledSources"]
+expected = [PurePosixPath(source).with_suffix(".o").name for source in compiled_sources]
+if not members or sorted(members) != sorted(expected) or len(members) != len(set(members)):
+    raise SystemExit(f"libintl members differ from the compiled sources in {source_manifest}")
 print("\n".join(members))
 PY
 

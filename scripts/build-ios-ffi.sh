@@ -15,7 +15,8 @@ case "$profile" in
     *) echo "$usage" >&2; exit 64 ;;
 esac
 
-export IPHONEOS_DEPLOYMENT_TARGET=${IPHONEOS_DEPLOYMENT_TARGET:-26.0}
+IPHONEOS_DEPLOYMENT_TARGET=${IPHONEOS_DEPLOYMENT_TARGET:-$(cat "$root/clients/apple/Config/iOSDeploymentTarget")}
+export IPHONEOS_DEPLOYMENT_TARGET
 unset SDKROOT
 
 bundle=$(python3 "$root/scripts/build-ffi-artifact.py" \

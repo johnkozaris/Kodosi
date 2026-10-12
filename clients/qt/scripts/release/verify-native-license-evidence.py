@@ -349,7 +349,7 @@ def main() -> None:
         if arguments.installed_root is not None
         else None
     )
-    qt_root = arguments.qt_root or ROOT / f".tools/Qt/{qt_version}/gcc_64"
+    qt_root = arguments.qt_root or ROOT / ".tools/Qt/gcc_64"
     verify_sboms(qt_root.resolve(strict=True), manifest, installed_root, qt_version)
     if installed_root is not None:
         verify_packaged_evidence(

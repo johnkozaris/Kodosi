@@ -7,11 +7,12 @@ cd "$(dirname "$0")/../.."
 output_dir=${1:?Usage: normalize-cpack-packages.sh <output-dir>}
 epoch=${SOURCE_DATE_EPOCH:-$(python3 scripts/release/source-date-epoch.py --source-root .)}
 output_dir=$(realpath "$output_dir")
-archive="$output_dir/kodosi-0.1.0-linux-x86_64.tar.gz"
+version=$(python3 scripts/release/product-version.py)
+archive="$output_dir/kodosi-${version}-linux-x86_64.tar.gz"
 test -f "$archive"
 
 stage="$PWD/build/cpack-normalize.$$"
-temporary="$output_dir/.kodosi-0.1.0-linux-x86_64.tar.gz.part.$$"
+temporary="$output_dir/.kodosi-${version}-linux-x86_64.tar.gz.part.$$"
 rm -rf "$stage"
 rm -f "$temporary"
 mkdir -p "$stage"
@@ -37,6 +38,6 @@ tar \
     --group=0 \
     --numeric-owner \
     -cf - \
-    -C "$stage" kodosi-0.1.0-Linux |
+    -C "$stage" "kodosi-${version}-Linux" |
     gzip -n -9 >"$temporary"
 mv -f "$temporary" "$archive"

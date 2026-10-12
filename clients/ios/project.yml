@@ -5,11 +5,15 @@ options:
   defaultConfig: Debug
   groupSortPosition: top
   deploymentTarget:
-    iOS: "26.0"
+    iOS: "${KODOSI_IOS_DEPLOYMENT_TARGET}"
 
 configs:
   Debug: debug
   Release: release
+
+configFiles:
+  Debug: ../apple/Config/Apps.xcconfig
+  Release: ../apple/Config/Apps.xcconfig
 
 packages:
   KodosiApple:
@@ -31,16 +35,13 @@ settingGroups:
     SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
     SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY: YES
     CODE_SIGN_STYLE: Automatic
-    DEVELOPMENT_TEAM: C5886CWK32
-    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "${KODOSI_IOS_DEPLOYMENT_TARGET}"
     TARGETED_DEVICE_FAMILY: "1,2"
     SUPPORTED_PLATFORMS: iphoneos iphonesimulator
     SUPPORTS_MACCATALYST: NO
     SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
     SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
     ARCHS: arm64
-    CURRENT_PROJECT_VERSION: 1
-    MARKETING_VERSION: 0.1.0
     DEVELOPMENT_LANGUAGE: en
     LOCALIZATION_PREFERS_STRING_CATALOGS: YES
     SWIFT_EMIT_LOC_STRINGS: YES

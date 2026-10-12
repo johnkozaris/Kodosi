@@ -1,11 +1,13 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
+set lazy
 
 tools_dir := justfile_directory() + "/.tools"
-cmake := tools_dir + "/cmake-4.4.3/bin/cmake"
-ctest := tools_dir + "/cmake-4.4.3/bin/ctest"
-qt_dir := tools_dir + "/Qt/6.12.0/gcc_64"
-windows_cmake := tools_dir + "/cmake-4.4.3/bin/cmake.exe"
-windows_ctest := tools_dir + "/cmake-4.4.3/bin/ctest.exe"
+cmake := tools_dir + "/cmake/bin/cmake"
+ctest := tools_dir + "/cmake/bin/ctest"
+qt_dir := tools_dir + "/Qt/gcc_64"
+windows_cmake := tools_dir + "/cmake/bin/cmake.exe"
+windows_ctest := tools_dir + "/cmake/bin/ctest.exe"
+version := trim(`python3 scripts/release/product-version.py`)
 
 # Install the pinned CMake, Ninja, Qt and Python tools in .tools.
 tools-install:
@@ -27,6 +29,10 @@ lint: configure
 test: build
     "{{ cmake }}" --build build/dev --target test_prep/all
     "{{ ctest }}" --preset dev
+
+# Check that the copies of the CMake and Qt versions agree with dependencies.lock.json.
+dependency-pins-check:
+    python3 scripts/build/verify-dependency-pins.py
 
 # Test the release, archive and Windows package scripts.
 release-integrity-test:
@@ -51,7 +57,7 @@ native-license-test: tools-install
     python3 -m unittest scripts/tests/test_native_license_evidence.py
 
 # Lint and test the Linux app and its release and license scripts.
-check: release-integrity-test rust-license-test native-license-test lint test
+check: dependency-pins-check release-integrity-test rust-license-test native-license-test lint test
 
 # Build the Windows app in Git Bash on Windows 11, x64 or ARM64.
 windows-build: tools-install
@@ -67,11 +73,11 @@ windows-check: windows-build
 # Run the Windows app with the installed Qt libraries.
 windows-run *arguments: windows-build
     source ../../scripts/windows-env.sh && kodosi_windows_target && \
-        PATH="$PWD/.tools/Qt/6.12.0/$KODOSI_QT_ARCH/bin:$PATH" build/windows-dev/kodosi-qt.exe {{ arguments }}
+        PATH="$PWD/.tools/Qt/$KODOSI_QT_ARCH/bin:$PATH" build/windows-dev/kodosi-qt.exe {{ arguments }}
 
 # For a release, set KODOSI_MSIX_PUBLISHER to the subject of the signing certificate.
 # The default publisher makes an unsigned development package.
-# Build, test, package and verify build/release/kodosi-0.1.0-windows-<arch>.msix.
+# Build, test, package and verify build/release/kodosi-<version>-windows-<arch>.msix.
 windows-package: tools-install
     source ../../scripts/windows-env.sh && kodosi_windows_env && \
         export SOURCE_DATE_EPOCH="$(python3 scripts/release/source-date-epoch.py --source-root .)" && \
@@ -82,12 +88,12 @@ windows-package: tools-install
         rm -rf build/windows-release/layout && \
         "{{ windows_cmake }}" --install build/windows-release --prefix build/windows-release/layout && \
         mkdir -p build/release && \
-        package="build/release/kodosi-0.1.0-windows-$KODOSI_WINDOWS_ARCH.msix" && \
+        package="build/release/kodosi-{{ version }}-windows-$KODOSI_WINDOWS_ARCH.msix" && \
         ./scripts/release/package-msix.sh build/windows-release/layout "$package" && \
         python3 scripts/release/verify-windows-package.py "$package" \
             --target "$KODOSI_RUST_TARGET" \
             --build-dir build/windows-release \
-            --qt-root ".tools/Qt/6.12.0/$KODOSI_QT_ARCH"
+            --qt-root ".tools/Qt/$KODOSI_QT_ARCH"
 
 # Sign a package from windows-package with Azure Artifact Signing.
 windows-sign package:
@@ -129,13 +135,13 @@ package: tools-install
             build/release/tracked-status.after || true; \
         exit 1; \
     fi
-    ./scripts/release/verify-linux-package.sh build/release/kodosi_0.1.0_amd64.deb
-    ./scripts/release/verify-packaged-content.sh build/release/kodosi-0.1.0-linux-x86_64.tar.gz
+    ./scripts/release/verify-linux-package.sh build/release/kodosi_{{ version }}_amd64.deb
+    ./scripts/release/verify-packaged-content.sh build/release/kodosi-{{ version }}-linux-x86_64.tar.gz
 
 # Make and verify the Arch package from the portable archive.
 arch-package: package
     package="$(./scripts/release/package-arch.sh \
-        build/release/kodosi-0.1.0-linux-x86_64.tar.gz build/release)" && \
+        build/release/kodosi-{{ version }}-linux-x86_64.tar.gz build/release)" && \
         ./scripts/release/verify-packaged-content.sh "$package" && \
         printf 'Arch-compatible package built: %s\n' "$package"
 
@@ -154,9 +160,9 @@ release-manifest-gen:
     python3 scripts/release/generate-release-manifest.py \
         --source-root . \
         --output-dir build/release \
-        --artifact kodosi_0.1.0_amd64.deb \
-        --artifact kodosi-0.1.0-linux-x86_64.tar.gz \
-        --artifact kodosi-bin-0.1.0-1-x86_64.pkg.tar.zst
+        --artifact kodosi_{{ version }}_amd64.deb \
+        --artifact kodosi-{{ version }}-linux-x86_64.tar.gz \
+        --artifact kodosi-bin-{{ version }}-1-x86_64.pkg.tar.zst
     python3 scripts/release/verify-release-manifest.py \
         --source-root . \
         --manifest build/release/release-manifest.json \

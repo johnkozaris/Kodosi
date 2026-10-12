@@ -33,8 +33,8 @@
         "rhs": "Linux"
       },
       "cacheVariables": {
-        "CMAKE_MAKE_PROGRAM": "${sourceDir}/.tools/ninja-1.13.2/ninja",
-        "CMAKE_PREFIX_PATH": "${sourceDir}/.tools/Qt/6.12.0/gcc_64"
+        "CMAKE_MAKE_PROGRAM": "${sourceDir}/.tools/ninja/ninja",
+        "CMAKE_PREFIX_PATH": "${sourceDir}/.tools/Qt/gcc_64"
       }
     },
     {
@@ -47,8 +47,8 @@
         "rhs": "Windows"
       },
       "cacheVariables": {
-        "CMAKE_MAKE_PROGRAM": "${sourceDir}/.tools/ninja-1.13.2/ninja.exe",
-        "CMAKE_PREFIX_PATH": "${sourceDir}/.tools/Qt/6.12.0/$env{KODOSI_QT_ARCH}",
+        "CMAKE_MAKE_PROGRAM": "${sourceDir}/.tools/ninja/ninja.exe",
+        "CMAKE_PREFIX_PATH": "${sourceDir}/.tools/Qt/$env{KODOSI_QT_ARCH}",
         "CMAKE_CXX_COMPILER": "clang-cl"
       }
     },

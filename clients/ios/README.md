@@ -12,9 +12,10 @@ computers that host them; iOS cannot start them.
 - `just`, Python 3, `xcodegen`, `swiftformat`, and `swiftlint` on your build PATH.
 
 The app shares the runtime bridge, the design system, and the terminal view and
-pipeline with the Mac app through the [shared Swift package](../apple/Package.swift). Building and signing for a device
-requires your own Apple development signing setup; set `DEVELOPMENT_TEAM` in the
-`appBase` settings of [project.yml](project.yml).
+pipeline with the Mac app through the [shared Swift package](../apple/Package.swift). To build and sign for a device,
+you need your own Apple development signing setup. Put your team in
+`clients/apple/Config/Signing.local.xcconfig`, as the
+[Mac build guide](../macos/README.md#build-and-run) tells.
 
 ## Build and run
 
@@ -37,6 +38,9 @@ service addresses. For a custom server in Debug, clear the two
 `KODOSI_DEBUG_BACKEND_*` settings in [Config/Debug.xcconfig](Config/Debug.xcconfig).
 
 Generate the project from `project.yml`; do not edit generated project files.
+[iOSDeploymentTarget](../apple/Config/iOSDeploymentTarget) is the record of the iOS
+deployment target. [Apps.xcconfig](../apple/Config/Apps.xcconfig) gives the version and
+the build number of the iOS app and of the Mac app.
 
 ## Privacy manifest
 

@@ -150,6 +150,7 @@
 		278EE6663EDB1F4726DF976F /* RuntimeStorageBootstrapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeStorageBootstrapTests.swift; sourceTree = "<group>"; };
 		2CEC9C7E0B5C72607E741289 /* TerminalConnectionTokenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalConnectionTokenTests.swift; sourceTree = "<group>"; };
 		2DE6D7710BC2E7C662E3D05F /* FilePickers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePickers.swift; sourceTree = "<group>"; };
+		2E540505169EADA46F2CA73B /* Apps.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Apps.xcconfig; sourceTree = "<group>"; };
 		2F7038F3B9119903EB97C4F4 /* SessionDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionDetailsView.swift; sourceTree = "<group>"; };
 		33562311E97EA520593A0BCB /* SignInFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInFlowTests.swift; sourceTree = "<group>"; };
 		3775E05C19F862BE33B3490B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -240,6 +241,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		1B70BD961066D6FC769D9BC7 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				2E540505169EADA46F2CA73B /* Apps.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
 		200826353F4D095B3BCBEF71 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
@@ -375,6 +384,7 @@
 		9E52CCEBD942466782BF698A = {
 			isa = PBXGroup;
 			children = (
+				E8B681D68B6461DA9A679AFD /* clients */,
 				8EE4E681B7727C6211EAEECD /* Config */,
 				200826353F4D095B3BCBEF71 /* Packages */,
 				73B0B52980B955AC25A34D67 /* Resources */,
@@ -396,6 +406,14 @@
 				383C9E989F55EBD15B2935C9 /* Terminal */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		DB0C298D899632C97906C3C7 /* apple */ = {
+			isa = PBXGroup;
+			children = (
+				1B70BD961066D6FC769D9BC7 /* Config */,
+			);
+			path = apple;
 			sourceTree = "<group>";
 		};
 		E004823DB640C11BC62B8FB8 /* Sources */ = {
@@ -423,6 +441,15 @@
 				3F8377D3B300B8D942F65590 /* WorkbenchState.swift */,
 			);
 			path = Shell;
+			sourceTree = "<group>";
+		};
+		E8B681D68B6461DA9A679AFD /* clients */ = {
+			isa = PBXGroup;
+			children = (
+				DB0C298D899632C97906C3C7 /* apple */,
+			);
+			name = clients;
+			path = ..;
 			sourceTree = "<group>";
 		};
 		ED22416CCA8016B8A8FD2DFB /* Providers */ = {
@@ -540,11 +567,9 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					416B71138E314911454D2550 = {
-						DevelopmentTeam = C5886CWK32;
 						ProvisioningStyle = Automatic;
 					};
 					55ED74F411C4477482DC9FA2 = {
-						DevelopmentTeam = C5886CWK32;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -808,9 +833,7 @@
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_LANGUAGE = en;
-				DEVELOPMENT_TEAM = C5886CWK32;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -822,7 +845,6 @@
 				LIBRARY_SEARCH_PATHS = "$(SRCROOT)/Frameworks/KodosiKit.xcframework/macos-host-debug";
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.4;
-				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.kodosi.desktop.tests;
 				PRODUCT_NAME = KodosiDesktopTests;
 				SDKROOT = macosx;
@@ -854,9 +876,7 @@
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_LANGUAGE = en;
-				DEVELOPMENT_TEAM = C5886CWK32;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -868,7 +888,6 @@
 				LIBRARY_SEARCH_PATHS = "$(SRCROOT)/Frameworks/KodosiKit.xcframework/macos-host-debug";
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.4;
-				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.kodosi.desktop.tests;
 				PRODUCT_NAME = KodosiDesktopTests;
 				SDKROOT = macosx;
@@ -884,6 +903,7 @@
 		};
 		3276B53F7FCD38778104AF42 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2E540505169EADA46F2CA73B /* Apps.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -959,9 +979,7 @@
 				CODE_SIGN_ENTITLEMENTS = Config/KodosiDesktop.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_LANGUAGE = en;
-				DEVELOPMENT_TEAM = C5886CWK32;
 				ENABLE_DEBUG_DYLIB = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
@@ -976,7 +994,6 @@
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.4;
-				MARKETING_VERSION = 0.1.0;
 				OTHER_LDFLAGS = (
 					"-lkodosi_runtime",
 					"-framework Security",
@@ -1008,9 +1025,7 @@
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_LANGUAGE = en;
-				DEVELOPMENT_TEAM = C5886CWK32;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1022,7 +1037,6 @@
 				LIBRARY_SEARCH_PATHS = "$(SRCROOT)/Frameworks/KodosiKit.xcframework/macos-host-debug";
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.4;
-				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.kodosi.desktop.tests;
 				PRODUCT_NAME = KodosiDesktopTests;
 				SDKROOT = macosx;
@@ -1044,6 +1058,7 @@
 		};
 		B45DB2D8A982E0262B22943B /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2E540505169EADA46F2CA73B /* Apps.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1112,9 +1127,7 @@
 				CODE_SIGN_ENTITLEMENTS = Config/KodosiDesktop.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_LANGUAGE = en;
-				DEVELOPMENT_TEAM = C5886CWK32;
 				ENABLE_DEBUG_DYLIB = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
@@ -1129,7 +1142,6 @@
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.4;
-				MARKETING_VERSION = 0.1.0;
 				OTHER_LDFLAGS = (
 					"-lkodosi_runtime",
 					"-framework Security",
@@ -1163,9 +1175,7 @@
 				CODE_SIGN_ENTITLEMENTS = Config/KodosiDesktop.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_LANGUAGE = en;
-				DEVELOPMENT_TEAM = C5886CWK32;
 				ENABLE_DEBUG_DYLIB = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
@@ -1180,7 +1190,6 @@
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.4;
-				MARKETING_VERSION = 0.1.0;
 				OTHER_LDFLAGS = (
 					"-lkodosi_runtime",
 					"-framework Security",
@@ -1208,6 +1217,7 @@
 		};
 		F4D64881E8D8A361245F218A /* WorkingTreeValidation */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2E540505169EADA46F2CA73B /* Apps.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;

@@ -22,8 +22,6 @@ fi
 
 upstream_commit=
 combined_archive_sha256=
-ios_combined_archive_sha256=
-ios_simulator_combined_archive_sha256=
 linux_upstream_commit=
 linux_vt_archive_sha256=
 windows_upstream_commit=
@@ -35,8 +33,6 @@ source "$LOCK_FILE"
 for value in \
     "$upstream_commit" \
     "$combined_archive_sha256" \
-    "$ios_combined_archive_sha256" \
-    "$ios_simulator_combined_archive_sha256" \
     "$linux_upstream_commit" \
     "$linux_vt_archive_sha256" \
     "$windows_upstream_commit"; do
@@ -47,12 +43,11 @@ for value in \
 done
 
 "$GHOSTTY_DIR/scripts/verify-platform-pins.py" >/dev/null
+apple_slices=$("$GHOSTTY_DIR/scripts/native-build-options.sh" slices)
 
 if [[ "${KODOSI_WORKING_TREE_VALIDATION:-0}" == 1 ]]; then
     source "$GHOSTTY_DIR/Vendor/libghostty.version"
     upstream_commit=$ghostty_commit
-    ios_combined_archive_sha256=$(sed -n 's/^combined_archive_sha256=//p' "$GHOSTTY_DIR/Vendor/libghostty-ios-arm64.version")
-    ios_simulator_combined_archive_sha256=$(sed -n 's/^combined_archive_sha256=//p' "$GHOSTTY_DIR/Vendor/libghostty-ios-arm64-simulator.version")
     source "$GHOSTTY_DIR/Vendor/GhosttyVt/linux-x86_64.version"
     linux_upstream_commit=$ghostty_commit
     linux_vt_archive_sha256=$vt_archive_sha256
@@ -116,18 +111,25 @@ if ! cmp -s "$renderer_archive" "$vt_archive"; then
     echo "Ghostty renderer and VT archive payloads are not byte-identical arm64 artifacts." >&2
     exit 1
 fi
-for slice in ios-arm64 ios-arm64-simulator; do
-    if [[ "$slice" == ios-arm64 ]]; then
-        expected_ios_sha=$ios_combined_archive_sha256
+while IFS= read -r slice; do
+    [[ "$slice" != macos-arm64 ]] || continue
+    lock_key=${slice/-arm64/}
+    lock_key="${lock_key//-/_}_combined_archive_sha256"
+    if [[ "${KODOSI_WORKING_TREE_VALIDATION:-0}" == 1 ]]; then
+        expected_slice_sha=$(sed -n 's/^combined_archive_sha256=//p' "$GHOSTTY_DIR/Vendor/libghostty-$slice.version")
     else
-        expected_ios_sha=$ios_simulator_combined_archive_sha256
+        expected_slice_sha=$(sed -n "s/^$lock_key=//p" "$LOCK_FILE")
     fi
-    actual_ios_sha=$(file_sha256 "$GHOSTTY_DIR/Vendor/GhosttyKit.xcframework/$slice/libghostty.a")
-    if [[ "$actual_ios_sha" != "$expected_ios_sha" ]]; then
-        echo "Ghostty $slice archive mismatch: expected $expected_ios_sha, found $actual_ios_sha" >&2
+    if [[ -z "$expected_slice_sha" ]]; then
+        echo "Ghostty lock is incomplete: $LOCK_FILE has no $lock_key" >&2
         exit 1
     fi
-done
+    actual_slice_sha=$(file_sha256 "$GHOSTTY_DIR/Vendor/GhosttyKit.xcframework/$slice/libghostty.a")
+    if [[ "$actual_slice_sha" != "$expected_slice_sha" ]]; then
+        echo "Ghostty $slice archive mismatch: expected $expected_slice_sha, found $actual_slice_sha" >&2
+        exit 1
+    fi
+done <<<"$apple_slices"
 actual_linux_archive_sha=$(file_sha256 "$linux_vt_archive")
 if [[ "$actual_linux_archive_sha" != "$linux_vt_archive_sha256" ]]; then
     echo "Linux Ghostty VT archive mismatch: expected $linux_vt_archive_sha256, found $actual_linux_archive_sha" >&2

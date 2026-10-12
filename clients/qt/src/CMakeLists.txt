@@ -314,7 +314,13 @@ target_compile_definitions(kodosi-terminal-kernel
         QT_NO_CAST_TO_ASCII
         QT_NO_URL_CAST_FROM_STRING
 )
-target_compile_definitions(kodosi-qt PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+target_compile_definitions(
+    kodosi-qt
+    PRIVATE
+        QT_NO_CAST_FROM_ASCII
+        QT_NO_CAST_TO_ASCII
+        KODOSI_VERSION="${PROJECT_VERSION}"
+)
 foreach(target kodosi-runtime kodosi-application kodosi-desktop-integration kodosi-terminal-kernel kodosi-qt)
     target_compile_options(${target} PRIVATE ${KODOSI_COMPILE_OPTIONS})
 endforeach()

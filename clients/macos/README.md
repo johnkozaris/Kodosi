@@ -11,14 +11,15 @@ Everything builds from this checkout.
 - The Rust toolchain pinned at the repository root.
 - `just`, Python 3, `xcodegen`, `swiftformat`, and `swiftlint` on your build PATH.
 
-Keep downloaded build tools and dependencies project-local. Building and signing the
-app requires your own Apple development signing setup. The checked-in team identifier
-is public configuration for the official app, not a signing credential.
+Keep downloaded build tools and dependencies project-local. To build and sign the app,
+you need your own Apple development signing setup.
 
 ## Build and run
 
-For your own signing setup, set `DEVELOPMENT_TEAM` in the `appBase` settings of
-[project.yml](project.yml). Keep personal signing changes out of unrelated pull requests.
+Put your Apple development team in `clients/apple/Config/Signing.local.xcconfig`, for
+example `DEVELOPMENT_TEAM = ABCDE12345`. Git ignores this file.
+[Apps.xcconfig](../apple/Config/Apps.xcconfig) includes it for the Mac app and the iOS
+app.
 
 From the repository root:
 
@@ -45,7 +46,8 @@ For a custom server in Debug, clear the two `KODOSI_DEBUG_BACKEND_*` build setti
 so its local override does not replace your environment.
 
 Generate the project from `project.yml`; do not edit generated project files or the
-runtime header directly.
+runtime header directly. [Apps.xcconfig](../apple/Config/Apps.xcconfig) gives the
+version and the build number of the Mac app and of the iOS app.
 
 ## Command-line access
 
@@ -74,22 +76,8 @@ format the Swift sources, run `just format`.
 `just working-tree-build` builds an archive of the working tree for validation. You
 cannot publish it.
 
-Official releases are signed with Developer ID, embed a provisioning profile for the
-Keychain access group, and are notarized by Apple. The signing credentials stay with
-the maintainers, outside Git.
-
-To make a release, set `KODOSI_TEAM_ID`, `KODOSI_MARKETING_VERSION` and
-`KODOSI_BUILD_NUMBER`. Then run one of these scripts from this client directory:
-
-| Script | Result |
-| --- | --- |
-| `scripts/release/export.sh` | The signed app from a clean checkout, in `build/export/` |
-| `scripts/release/notarize.sh` | The result of `export.sh`, after Apple notarizes it |
-| `scripts/release/package-dmg.sh` | The result of `notarize.sh`, and a signed and notarized `build/export/KodosiDesktop.dmg` |
-| `scripts/release/generate-cask.sh` | A Homebrew cask in `build/KodosiDesktop.rb`, if the disk image at `KODOSI_DOWNLOAD_URL` is the same as the local one |
-
-The scripts examine the signatures, the embedded profile, the entitlements, the native
-artifacts and the source revision. `just signature-check` examines the app in the archive.
+Official releases have a Developer ID signature and Apple notarization, and the signing
+credentials and release values stay with the maintainers, outside Git.
 
 Read [Ghostty integration](docs/GHOSTTY_INTEGRATION.md) before changing the renderer.
 See [product behavior](PRODUCT.md), [design reference](DESIGN.md), and

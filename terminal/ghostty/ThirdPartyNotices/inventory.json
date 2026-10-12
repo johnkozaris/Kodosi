@@ -1169,7 +1169,7 @@
       "sha256": "e55c9d0b156edaddfea32fb1c0e3597e1b6306b9a4ec1888e2f8008c598bced8"
     },
     "scripts/relink-libintl.sh": {
-      "sha256": "c669696a1be9a05f67a95b275bc0d8c18d140bfd073d39f1f12e1ad9e6bfeeda"
+      "sha256": "b581144466d07a310d4c5c5321575ddaff98a602ac2ed2bbf44d91042b1ded13"
     }
   },
   "components": [

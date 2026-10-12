@@ -7,23 +7,34 @@ cd "$(dirname "$0")/.."
 # shellcheck disable=SC1091
 source NativeBuild.env
 
-SLICES=(macos-arm64 ios-arm64 ios-arm64-simulator)
+IFS=, read -r -a SLICES <<<"$GHOSTTY_BUILD_APPLE_SLICES"
 SLICE=${2:-macos-arm64}
-case "$SLICE" in
-    macos-arm64)
-        SLICE_TARGET=$GHOSTTY_BUILD_TARGET
-        SLICE_I18N=$GHOSTTY_BUILD_I18N
+case ",$GHOSTTY_BUILD_APPLE_SLICES," in
+    *,"$SLICE",*) ;;
+    *)
+        echo "[!] unsupported Apple slice: $SLICE" >&2
+        exit 1
         ;;
-    ios-arm64)
+esac
+case "$SLICE" in
+    macos-arm64*)
+        SLICE_TARGET=$GHOSTTY_BUILD_MACOS_TARGET
+        SLICE_I18N=$GHOSTTY_BUILD_MACOS_I18N
+        ;;
+    ios-arm64*)
         SLICE_TARGET=$GHOSTTY_BUILD_IOS_TARGET
         SLICE_I18N=$GHOSTTY_BUILD_IOS_I18N
         ;;
-    ios-arm64-simulator)
-        SLICE_TARGET=$GHOSTTY_BUILD_IOS_SIMULATOR_TARGET
-        SLICE_I18N=$GHOSTTY_BUILD_IOS_I18N
-        ;;
     *)
-        echo "[!] unsupported Apple slice: $SLICE" >&2
+        echo "[!] Apple slice has no platform build values: $SLICE" >&2
+        exit 1
+        ;;
+esac
+case "$SLICE" in
+    *-arm64) ;;
+    *-arm64-simulator) SLICE_TARGET+=-simulator ;;
+    *)
+        echo "[!] unsupported Apple slice variant: $SLICE" >&2
         exit 1
         ;;
 esac

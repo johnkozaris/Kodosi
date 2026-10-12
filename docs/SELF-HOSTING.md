@@ -58,7 +58,8 @@ the Kodosi account directly, and the person deletes the sign-in account at the p
 
 Build from the repository root with the pinned .NET SDK, or use
 [backend/Dockerfile](../backend/Dockerfile) with the repository root as its build
-context. Set these environment variables through your deployment's configuration:
+context, as [Build the backend image](#build-the-backend-image) tells. Set these
+environment variables through your deployment's configuration:
 
 | Variable | Value |
 | --- | --- |
@@ -90,6 +91,26 @@ The repository's [Compose setup](../compose.yaml) is for local development: it b
 only to loopback and includes a development database password. See
 [Development](DEVELOPMENT.md#run-the-backend) for its volume selection and startup.
 Supply deployment credentials through your own environment configuration.
+
+### Build the backend image
+
+To build the release image of the backend, run this command from the repository root:
+
+```sh
+just backend-package linux/amd64 registry.example.com/kodosi/backend:1
+```
+
+The first argument is the platform of the image, for example `linux/amd64` or
+`linux/arm64`. The second argument is the tag of the image. If you do not give a tag,
+the recipe uses `kodosi-backend`. The recipe builds the image from
+`backend/Dockerfile` with Docker Buildx, and puts it in your local Docker images. It
+does not push the image to a registry, and it does not deploy the image. To push the
+image, use `docker push`.
+
+The SDK stage of the Dockerfile runs on the platform of your computer. The publish step
+makes output that does not depend on the processor architecture. When the platform of
+the image is different from the platform of your computer, Docker emulates only the
+runtime stage.
 
 ## Point the apps at your service
 
