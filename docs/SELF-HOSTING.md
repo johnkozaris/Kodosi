@@ -1,8 +1,6 @@
 # Self-hosting
 
-Run the Kodosi backend with PostgreSQL and an OIDC sign-in service. You need
-PostgreSQL, one serving Kodosi backend process, an OIDC provider with device
-authorization, and HTTPS endpoints.
+Run the Kodosi backend with PostgreSQL and an OIDC sign-in service, behind HTTPS.
 
 ## Configure sign-in
 
@@ -36,22 +34,14 @@ just backend-run
 ```
 
 This recipe applies migrations before serving. For a published backend deployment,
-run the host once with the `migrate` argument, then start it normally. A serving
-start refuses an outdated or unknown schema without changing it.
+run the host once with the `migrate` argument, then start it normally.
 
-Run one serving instance: live device sessions and relay routing are held in memory,
-and the backend takes a database lease. PostgreSQL stores durable shared records.
-Back up the database before upgrades and retain ASP.NET Data Protection keys across
-backend replacements.
+Run one serving instance. Back up the database before upgrades and keep the ASP.NET
+Data Protection keys across backend replacements.
 
 Terminate HTTPS at a reverse proxy with WebSocket support. Configure trusted proxy
 addresses through `Proxy__Addresses__0` (and successive indices as needed) when using
 forwarded headers. `/health/live` checks the process; `/health/ready` reports readiness.
-
-The repository's [Compose setup](../compose.yaml) is for local development: it binds
-only to loopback and includes a development database password. See
-[Development](DEVELOPMENT.md#run-the-backend) for its volume selection and startup.
-Supply deployment credentials through your own environment configuration.
 
 ### Account deletion
 
@@ -76,15 +66,7 @@ just backend-package linux/amd64 registry.example.com/kodosi/backend:1
 ```
 
 The first argument is the platform of the image, for example `linux/amd64` or
-`linux/arm64`. The second argument is the tag of the image. If you do not give a tag,
-the recipe uses `kodosi-backend`. The recipe builds the image from
-`backend/Dockerfile` with Docker Buildx, and puts it in your local Docker images. It
-does not push the image to a registry, and it does not deploy the image. To push the
-image, use `docker push`.
-
-The SDK stage of the Dockerfile runs on the platform of your computer. The publish step
-makes output that does not depend on the processor architecture. When the platform of
-the image is different from the platform of your computer, Docker emulates only the
-runtime stage.
+`linux/arm64`; the second is its tag (default `kodosi-backend`). The image goes to your
+local Docker images.
 
 [All documentation](README.md) · [Security](SECURITY.md)
