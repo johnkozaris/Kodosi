@@ -1,4 +1,5 @@
 #include "platform/DesktopFileIntegration.hpp"
+#include <QDir>
 #include <QFile>
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -20,6 +21,8 @@ private slots:
             return true;
         });
         QVERIFY(files.openPath(path));
+        QCOMPARE(opened.last(), QUrl::fromLocalFile(path));
+        QVERIFY(files.openPath(QDir::toNativeSeparators(path)));
         QCOMPARE(opened.last(), QUrl::fromLocalFile(path));
         QVERIFY(file.open(QIODevice::ReadOnly));
         QCOMPARE(file.readAll(), QByteArrayLiteral("{\"untouched\":true}"));

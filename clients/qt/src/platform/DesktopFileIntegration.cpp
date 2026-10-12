@@ -30,8 +30,9 @@ void DesktopFileIntegration::setTransientParent(QWindow* window)
 }
 QString DesktopFileIntegration::canonicalLocalPath(const QString& path, bool directoryOnly)
 {
+    // A Windows drive letter reads as a one-letter URL scheme.
     if (path.isEmpty() || path.size() > 4096 || path.contains(QChar::Null) || !QDir::isAbsolutePath(path)
-        || !QUrl(path).scheme().isEmpty())
+        || QUrl(path).scheme().size() > 1)
         return {};
     const QFileInfo info(path);
     if (!info.exists() || !info.isReadable() || (directoryOnly && !info.isDir())
