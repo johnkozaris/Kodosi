@@ -85,11 +85,6 @@ recovery key you start fresh with a new identity, and your friends trust it agai
 Not yet. The [encryption design](CRYPTOGRAPHY.md) specifies the keys, the rules, and
 the known limits, so that an independent reviewer can examine it.
 
-**Can I use my own server?**
-Yes. Run the backend with PostgreSQL and your own OIDC provider, and start the apps
-with two environment settings. There is no server selector in the apps yet. See
-[Self-hosting](SELF-HOSTING.md).
-
 **Where do my GitHub or Gitea credentials go?**
 Nowhere. They stay on your computer; the Kodosi backend does not receive them.
 

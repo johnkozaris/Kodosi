@@ -11,15 +11,9 @@ Everything builds from this checkout.
 - The Rust toolchain pinned at the repository root.
 - `just`, Python 3, `xcodegen`, `swiftformat`, and `swiftlint` on your build PATH.
 
-Keep downloaded build tools and dependencies project-local. To build and sign the app,
-you need your own Apple development signing setup.
+Keep downloaded build tools and dependencies project-local.
 
 ## Build and run
-
-Put your Apple development team in `clients/apple/Config/Signing.local.xcconfig`, for
-example `DEVELOPMENT_TEAM = ABCDE12345`. Git ignores this file.
-[Apps.xcconfig](../apple/Config/Apps.xcconfig) includes it for the Mac app and the iOS
-app.
 
 From the repository root:
 
@@ -32,18 +26,12 @@ terminal package tests. Open the generated project in Xcode, select the
 `KodosiDesktop` scheme, and run it.
 
 Debug builds target the local backend at `127.0.0.1:5180`; follow
-[backend setup](../../docs/DEVELOPMENT.md#run-the-backend) to run it. For your own
-service, build the Release configuration:
+[backend setup](../../docs/DEVELOPMENT.md#run-the-backend) to run it. Release builds use
+the public service addresses:
 
 ```sh
 just --justfile clients/macos/justfile release-build
 ```
-
-Run the Release app from Xcode's Products group. Release uses the public service
-addresses, and that service is not open yet, so supply the
-[self-hosting environment](../../docs/SELF-HOSTING.md).
-For a custom server in Debug, clear the two `KODOSI_DEBUG_BACKEND_*` build settings
-so its local override does not replace your environment.
 
 Generate the project from `project.yml`; do not edit generated project files or the
 runtime header directly. [Apps.xcconfig](../apple/Config/Apps.xcconfig) gives the

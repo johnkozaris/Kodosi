@@ -91,31 +91,10 @@ The tools are [Bun](https://bun.sh) 1.4 and Docker. `bun install` installs the p
   - `./keycloak.sh down` removes the containers.
 - `just sign-in-check` (in the root of the repository) checks the types, the lint and the format,
   and builds the pages.
+- After an update of Keycloak, set its version in `keycloak.sh` and go through the pages there.
 
 Each form keeps the field names and the ids of Keycloak's own page, because Keycloak's scripts and
 password managers find the fields by them. In the words of the e-mails (`src/email/messages/`),
 Keycloak reads each line as a message format, so an apostrophe is written two times. Keycloakify builds a one-page account theme only when the
 package of Keycloak's own account console is installed, and it reads only its version:
 `tools/keycloak-account-ui` stands in for it.
-
-## Put the theme on a Keycloak
-
-`dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar` holds the theme for Keycloak 26. Put
-it in Keycloak's `providers/` folder and start Keycloak again. Then set the realm:
-
-- Login theme, account theme and email theme: `kodosi`.
-- The client of the app: public, with the device grant, as `kodosi-app`.
-- A new account: registration on, the e-mail confirmed (`verifyEmail`), and the step "Terms and
-  conditions" in the registration form. The realm's localization key `termsText` holds the words
-  or the links of its terms; the pages show them under the switch.
-- A username that friends see: the realm's rule in its user profile (a `length` and a `pattern`
-  with an `error-message`). The page shows the rule while the person types.
-- A first sign-in with a service: "Review Profile" on (`update.profile.on.first.login`), so the
-  person picks the username.
-- The deletion of an account: the required action `delete_account` on, and the client role
-  `account/delete-account` in the realm's default roles.
-- A check against programs: its step on the registration form and on the reset form only, and the
-  address of its frames in `frame-src` of the realm's Content-Security-Policy.
-
-The theme replaces Keycloak's own pages. After an update of Keycloak, set its version in
-`keycloak.sh` and go through the pages there.
