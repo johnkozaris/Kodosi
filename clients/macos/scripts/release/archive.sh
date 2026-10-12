@@ -2,8 +2,6 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-source "$ROOT/scripts/build/deployment-target.sh"
-kodosi_load_macos_deployment_target "$ROOT"
 cd "$ROOT"
 "$ROOT/scripts/build/verify-kodosi-checkout.sh"
 "$ROOT/scripts/build/generate-xcode-project.sh"
