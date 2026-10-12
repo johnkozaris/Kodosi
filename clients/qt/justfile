@@ -132,18 +132,13 @@ reproducibility-check: tools-install
 # Make all the Linux release packages, then write and verify the release manifest.
 release-package: reproducible-package arch-package release-manifest-gen
 
-# Write and verify the release manifest for the packages in build/release.
+# Write and check the release manifest for the packages in build/release.
 release-manifest-gen:
-    python3 scripts/release/generate-release-manifest.py \
-        --source-root . \
-        --output-dir build/release \
-        --artifact kodosi_{{ version }}_amd64.deb \
-        --artifact kodosi-{{ version }}-linux-x86_64.tar.gz \
-        --artifact kodosi-bin-{{ version }}-1-x86_64.pkg.tar.zst
-    python3 scripts/release/verify-release-manifest.py \
-        --source-root . \
-        --manifest build/release/release-manifest.json \
-        --output-dir build/release
+    python3 scripts/release/release-manifest.py generate \
+        build/release/kodosi_{{ version }}_amd64.deb \
+        build/release/kodosi-{{ version }}-linux-x86_64.tar.gz \
+        build/release/kodosi-bin-{{ version }}-1-x86_64.pkg.tar.zst
+    python3 scripts/release/release-manifest.py verify build/release/release-manifest.json
 
 # Sign the release manifest from release-package with the OpenPGP key of this fingerprint or of KODOSI_GPG_FINGERPRINT.
 release-manifest-sign fingerprint="":

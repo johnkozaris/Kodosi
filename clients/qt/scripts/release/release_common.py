@@ -3,16 +3,12 @@ from __future__ import annotations
 import json
 import hashlib
 import os
-import posixpath
 import re
 import stat
 import subprocess
-import unicodedata
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 
-SOURCE_IDENTITY_PATH = "usr/share/doc/kodosi/provenance/source-identity.json"
-ARTIFACT_SUFFIXES = (".deb", ".tar.gz", ".pkg.tar.zst")
 LINUX_GHOSTTY_REF_PATH = Path("LinuxGhostty.ref")
 GHOSTTY_ARCHIVE_PATH = Path(
     "Vendor/GhosttyVt/linux-x86_64/lib/libghostty-vt.a"
@@ -263,20 +259,6 @@ def _checkout_dirty(source_root: Path) -> bool:
     return dirty
 
 
-def runtime_versions(source_root: Path) -> dict[str, int]:
-    """The C ABI and desktop protocol versions from the generated contract."""
-    contract = json.loads(
-        (repository_root(source_root) / "protocol/desktop-runtime.json").read_bytes()
-    )
-    versions = {
-        "ffiAbiVersion": contract["ffiAbiVersion"],
-        "desktopProtocolVersion": contract["protocolVersion"],
-    }
-    if not all(isinstance(value, int) and value > 0 for value in versions.values()):
-        raise ValueError("the desktop contract versions are malformed")
-    return versions
-
-
 def repository_root(source_root: Path) -> Path:
     return Path(run(
         ["git", "rev-parse", "--show-toplevel"],
@@ -312,28 +294,6 @@ def commit_epoch(source_root: Path) -> int:
     return epoch
 
 
-def validate_checkout_identity(value: object) -> dict[str, object]:
-    if not isinstance(value, dict) or set(value) != {
-        "repository",
-        "commit",
-        "dirty",
-    }:
-        raise ValueError("checkout identity fields are malformed")
-    if not isinstance(value["repository"], str) or not re.fullmatch(
-        r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+",
-        value["repository"],
-    ):
-        raise ValueError("checkout identity repository is malformed")
-    if not isinstance(value["commit"], str) or not re.fullmatch(
-        r"(?:[0-9a-f]{40}|[0-9a-f]{64})",
-        value["commit"],
-    ):
-        raise ValueError("checkout identity commit is malformed")
-    if not isinstance(value["dirty"], bool):
-        raise ValueError("checkout identity dirty flag is malformed")
-    return value
-
-
 def source_identity(source_root: Path) -> dict[str, object]:
     root = repository_root(source_root)
     return {
@@ -341,25 +301,6 @@ def source_identity(source_root: Path) -> dict[str, object]:
         "sourceDateEpoch": commit_epoch(root),
         **checkout_identity(root),
     }
-
-
-def validate_source_identity(value: object) -> dict[str, object]:
-    if not isinstance(value, dict) or set(value) != {
-        "schemaVersion", "sourceDateEpoch", "repository", "commit", "dirty",
-    }:
-        raise ValueError("source identity fields are malformed")
-    if value["schemaVersion"] != 4:
-        raise ValueError("unsupported source identity schema")
-    if (
-        not isinstance(value["sourceDateEpoch"], int)
-        or isinstance(value["sourceDateEpoch"], bool)
-        or value["sourceDateEpoch"] <= 0
-    ):
-        raise ValueError("source identity epoch is malformed")
-    validate_checkout_identity({
-        key: value[key] for key in ("repository", "commit", "dirty")
-    })
-    return value
 
 
 def ghostty_measurements(ghostty_package_root: Path) -> dict[str, str]:
@@ -420,133 +361,3 @@ def product_version(source_root: Path) -> str:
     if not match:
         raise ValueError("KodosiQT product version was not found")
     return match.group(1)
-
-
-def artifact_kind(name: str) -> str:
-    if name.endswith(".deb"):
-        return "deb"
-    if name.endswith(".tar.gz"):
-        return "tgz"
-    if name.endswith(".pkg.tar.zst"):
-        return "arch"
-    raise ValueError(f"unsupported artifact type: {name}")
-
-
-def _reject_archive_text(value: str, description: str) -> None:
-    if "\\" in value or any(
-        unicodedata.category(character) in {"Cc", "Cs"} for character in value
-    ):
-        raise ValueError(f"unsafe {description}: {value!r}")
-
-
-def normalize_archive_path(name: str, *, allow_root: bool = False) -> str:
-    _reject_archive_text(name, "archive path")
-    candidate = name[2:] if name.startswith("./") else name
-    if candidate in {"", "."}:
-        if allow_root:
-            return "."
-        raise ValueError(f"unsafe archive path: {name!r}")
-    if posixpath.isabs(candidate) or PurePosixPath(candidate).is_absolute():
-        raise ValueError(f"unsafe archive path: {name!r}")
-    raw_parts = candidate.split("/")
-    if any(part in {".", ".."} for part in raw_parts):
-        raise ValueError(f"unsafe archive path: {name!r}")
-    normalized = posixpath.normpath(candidate)
-    path = PurePosixPath(normalized)
-    if (
-        normalized in {"", ".", ".."}
-        or path.is_absolute()
-        or any(part in {".", ".."} for part in path.parts)
-    ):
-        raise ValueError(f"unsafe archive path: {name!r}")
-    return path.as_posix()
-
-
-def source_identity_member_path(
-    normalized: str,
-    *,
-    allow_package_root: bool,
-) -> bool:
-    if normalized == SOURCE_IDENTITY_PATH:
-        return True
-    expected = PurePosixPath(SOURCE_IDENTITY_PATH).parts
-    parts = PurePosixPath(normalized).parts
-    return allow_package_root and len(parts) == len(expected) + 1 and (
-        parts[1:] == expected
-    )
-
-
-def _deb_tar(arguments: list[str], artifact: Path) -> bytes:
-    producer = subprocess.Popen(
-        ["dpkg-deb", "--fsys-tarfile", str(artifact)],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    assert producer.stdout is not None
-    consumer = subprocess.run(
-        ["tar", *arguments],
-        stdin=producer.stdout,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    producer.stdout.close()
-    producer_stderr = producer.communicate()[1]
-    if producer.returncode != 0 or consumer.returncode != 0:
-        detail = (
-            producer_stderr + consumer.stderr
-        ).decode("utf-8", errors="replace").strip()
-        raise ValueError(detail or "could not read DEB data archive")
-    return consumer.stdout
-
-
-def extract_source_identity(artifact: Path) -> dict[str, object]:
-    if artifact.name.endswith(".deb"):
-        listing = _deb_tar(["-tf", "-"], artifact).decode("utf-8").splitlines()
-        matches = []
-        for name in listing:
-            normalized = normalize_archive_path(name, allow_root=True)
-            if source_identity_member_path(
-                normalized,
-                allow_package_root=False,
-            ):
-                matches.append(name)
-        if len(matches) != 1:
-            raise ValueError(
-                f"{artifact.name} must contain exactly one source identity"
-            )
-        payload = _deb_tar(["-xOf", "-", matches[0]], artifact)
-    else:
-        compression = ["--zstd"] if artifact.name.endswith(".pkg.tar.zst") else ["-z"]
-        listing = run(
-            ["tar", *compression, "-tf", str(artifact)]
-        ).decode("utf-8").splitlines()
-        matches = []
-        for name in listing:
-            try:
-                normalized = normalize_archive_path(name, allow_root=True)
-            except ValueError as error:
-                raise ValueError(
-                    f"{artifact.name} contains {error}"
-                ) from error
-            if source_identity_member_path(
-                normalized,
-                allow_package_root=artifact.name.endswith(".tar.gz"),
-            ):
-                matches.append(name)
-        if len(matches) != 1:
-            raise ValueError(
-                f"{artifact.name} must contain exactly one source identity"
-            )
-        payload = run(
-            ["tar", *compression, "-xOf", str(artifact), matches[0]]
-        )
-    try:
-        value = json.loads(payload.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise ValueError(
-            f"{artifact.name} source identity is invalid JSON: {error}"
-        ) from error
-    if payload != canonical_json(value):
-        raise ValueError(f"{artifact.name} source identity is not canonical")
-    return validate_source_identity(value)
