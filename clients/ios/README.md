@@ -21,11 +21,9 @@ From the repository root:
 just ios-build
 ```
 
-This generates `KodosiMobile.xcodeproj`, builds the viewer runtime for the simulator,
-and builds the app. Open the generated project in Xcode, select the `KodosiMobile`
-scheme and an iPhone or iPad simulator, and run it. The prepare phase runs
-`just ios-ffi-build`, which builds and installs the runtime library for the selected
-SDK under `Frameworks/Runtime/`.
+This generates `KodosiMobile.xcodeproj`, builds the viewer runtime library for the
+simulator, and builds the app. Open the generated project in Xcode, select the
+`KodosiMobile` scheme and an iPhone or iPad simulator, and run it.
 
 Debug builds target the local backend at `127.0.0.1:5180`, like the Mac app; follow
 [backend setup](../../docs/DEVELOPMENT.md#run-the-backend) to run it. A simulator

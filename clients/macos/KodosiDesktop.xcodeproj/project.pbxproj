@@ -7,18 +7,18 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
-		9F8BE583BF9AD776447858A4 /* PrepareNativeBuild */ = {
+		6A2245C4A09016EC633335C2 /* RuntimeLibrary */ = {
 			isa = PBXAggregateTarget;
-			buildConfigurationList = 089790989FB7427F8C3D563A /* Build configuration list for PBXAggregateTarget "PrepareNativeBuild" */;
+			buildConfigurationList = A296D646017DEC692DC6CAAD /* Build configuration list for PBXAggregateTarget "RuntimeLibrary" */;
 			buildPhases = (
-				B4DF568273109B89619F0CD7 /* Prepare Native Build */,
+				14F08A09634DF58878B1EDCA /* Build Runtime Library */,
 			);
 			dependencies = (
 			);
-			name = PrepareNativeBuild;
+			name = RuntimeLibrary;
 			packageProductDependencies = (
 			);
-			productName = PrepareNativeBuild;
+			productName = RuntimeLibrary;
 		};
 /* End PBXAggregateTarget section */
 
@@ -122,12 +122,12 @@
 			remoteGlobalIDString = 55ED74F411C4477482DC9FA2;
 			remoteInfo = KodosiDesktop;
 		};
-		C2AC04A8574E837CD8C6A345 /* PBXContainerItemProxy */ = {
+		6187FD95B607E7AA73F9C9E9 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 4BECFACDE98639952E5DF53B /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 9F8BE583BF9AD776447858A4;
-			remoteInfo = PrepareNativeBuild;
+			remoteGlobalIDString = 6A2245C4A09016EC633335C2;
+			remoteInfo = RuntimeLibrary;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -536,14 +536,13 @@
 				7E367D8900386387453E1AB1 /* Sources */,
 				E3E3B432464E2D95103B9C1A /* Resources */,
 				A9C301B2924C2E2E94EDFDC1 /* Frameworks */,
-				FA00C0E2C08024EB96C8F50C /* Install Artwork Notices */,
-				A31464073E54CEB2B9BEB9D9 /* Install Native Notices */,
-				16E5D268C03350B431A7CEFB /* Verify final Ghostty image */,
+				C320C62EFFCD834401EA4652 /* Install Notices */,
+				ECB6036540B17B686DC9FAD6 /* Verify Final Ghostty Image */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				BEDE3FC992CB559241DFED6B /* PBXTargetDependency */,
+				B8F617F209841A8666A6CFCE /* PBXTargetDependency */,
 			);
 			name = KodosiDesktop;
 			packageProductDependencies = (
@@ -595,7 +594,7 @@
 			targets = (
 				55ED74F411C4477482DC9FA2 /* KodosiDesktop */,
 				416B71138E314911454D2550 /* KodosiDesktopTests */,
-				9F8BE583BF9AD776447858A4 /* PrepareNativeBuild */,
+				6A2245C4A09016EC633335C2 /* RuntimeLibrary */,
 			);
 		};
 /* End PBXProject section */
@@ -612,7 +611,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		16E5D268C03350B431A7CEFB /* Verify final Ghostty image */ = {
+		14F08A09634DF58878B1EDCA /* Build Runtime Library */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -622,14 +621,14 @@
 			);
 			inputPaths = (
 			);
-			name = "Verify final Ghostty image";
+			name = "Build Runtime Library";
 			outputFileListPaths = (
 			);
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"$PROJECT_DIR/scripts/build/verify-final-ghostty-image.sh\" \\\n  \"$TARGET_BUILD_DIR/$EXECUTABLE_PATH\" \\\n  \"$DERIVED_FILE_DIR/KodosiDesktop-$CONFIGURATION.linkmap\" \\\n  \"$MACOSX_DEPLOYMENT_TARGET\"\n";
+			shellScript = "\"$PROJECT_DIR/../apple/scripts/build-runtime-library.sh\" \"$PLATFORM_NAME\" \"$CONFIGURATION\" \"$BUILT_PRODUCTS_DIR\"\n";
 		};
 		49E37880D2E2E16A05DC23AC /* Enforce Build Variant */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -650,7 +649,7 @@
 			shellPath = /bin/sh;
 			shellScript = "\"$PROJECT_DIR/scripts/build/enforce-build-variant.sh\"\n";
 		};
-		A31464073E54CEB2B9BEB9D9 /* Install Native Notices */ = {
+		C320C62EFFCD834401EA4652 /* Install Notices */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -660,16 +659,16 @@
 			);
 			inputPaths = (
 			);
-			name = "Install Native Notices";
+			name = "Install Notices";
 			outputFileListPaths = (
 			);
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"$PROJECT_DIR/scripts/build/install-native-notices.sh\" \\\n  \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/GhosttyNativeNotices\"\n";
+			shellScript = "python3 \"$PROJECT_DIR/../apple/scripts/install-notices.py\" \"$PLATFORM_NAME\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n";
 		};
-		B4DF568273109B89619F0CD7 /* Prepare Native Build */ = {
+		ECB6036540B17B686DC9FAD6 /* Verify Final Ghostty Image */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -679,33 +678,14 @@
 			);
 			inputPaths = (
 			);
-			name = "Prepare Native Build";
+			name = "Verify Final Ghostty Image";
 			outputFileListPaths = (
 			);
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"$PROJECT_DIR/scripts/build/prepare-native-build.sh\"\n";
-		};
-		FA00C0E2C08024EB96C8F50C /* Install Artwork Notices */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Install Artwork Notices";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "cp \"$PROJECT_DIR/../apple/Notices/\"*.txt \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/\"\n";
+			shellScript = "\"$PROJECT_DIR/../apple/scripts/verify-final-ghostty-image.sh\" \"$PLATFORM_NAME\" \"$TARGET_BUILD_DIR/$EXECUTABLE_PATH\" \"$LD_MAP_FILE_PATH\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -815,10 +795,10 @@
 			target = 55ED74F411C4477482DC9FA2 /* KodosiDesktop */;
 			targetProxy = 249CADE6081EF0FFEDB5ECC3 /* PBXContainerItemProxy */;
 		};
-		BEDE3FC992CB559241DFED6B /* PBXTargetDependency */ = {
+		B8F617F209841A8666A6CFCE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 9F8BE583BF9AD776447858A4 /* PrepareNativeBuild */;
-			targetProxy = C2AC04A8574E837CD8C6A345 /* PBXContainerItemProxy */;
+			target = 6A2245C4A09016EC633335C2 /* RuntimeLibrary */;
+			targetProxy = 6187FD95B607E7AA73F9C9E9 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -845,7 +825,6 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = "$(SRCROOT)/Frameworks/KodosiKit.xcframework/macos-host-debug";
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.kodosi.desktop.tests;
@@ -860,12 +839,6 @@
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/KodosiDesktop.app/Contents/MacOS/KodosiDesktop";
 			};
 			name = Release;
-		};
-		0BA514C2DB573EC1829C4226 /* WorkingTreeValidation */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-			};
-			name = WorkingTreeValidation;
 		};
 		1AFBAFE62329915C0F3F2232 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -889,7 +862,6 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = "$(SRCROOT)/Frameworks/KodosiKit.xcframework/macos-host-debug";
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.kodosi.desktop.tests;
@@ -969,6 +941,12 @@
 			};
 			name = Debug;
 		};
+		493D77C9B54626E9B526B7BD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Debug;
+		};
 		5CCB3B29BEDFEBE87C26FAF5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 84D1E2BDE70E98B4650798E3 /* Release.xcconfig */;
@@ -1018,6 +996,18 @@
 			};
 			name = Release;
 		};
+		78212A8D409CCACF35314CC4 /* WorkingTreeValidation */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = WorkingTreeValidation;
+		};
+		8BFDADEFBBF40AF9882DA76F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
 		9B6582B556ED690D98BFA39C /* WorkingTreeValidation */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1040,7 +1030,6 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = "$(SRCROOT)/Frameworks/KodosiKit.xcframework/macos-host-debug";
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.kodosi.desktop.tests;
@@ -1055,12 +1044,6 @@
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/KodosiDesktop.app/Contents/MacOS/KodosiDesktop";
 			};
 			name = WorkingTreeValidation;
-		};
-		9E10B714F2A3C13F5D369E0D /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-			};
-			name = Debug;
 		};
 		B45DB2D8A982E0262B22943B /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -1217,12 +1200,6 @@
 			};
 			name = WorkingTreeValidation;
 		};
-		F339F2992C55A7D9B4AC36AD /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-			};
-			name = Release;
-		};
 		F4D64881E8D8A361245F218A /* WorkingTreeValidation */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 2E540505169EADA46F2CA73B /* Apps.xcconfig */;
@@ -1283,16 +1260,6 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		089790989FB7427F8C3D563A /* Build configuration list for PBXAggregateTarget "PrepareNativeBuild" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				9E10B714F2A3C13F5D369E0D /* Debug */,
-				F339F2992C55A7D9B4AC36AD /* Release */,
-				0BA514C2DB573EC1829C4226 /* WorkingTreeValidation */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
-		};
 		61DCD37995D45BB82F03D1CE /* Build configuration list for PBXNativeTarget "KodosiDesktopTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -1309,6 +1276,16 @@
 				BCAFBFF1984538F9228A2071 /* Debug */,
 				5CCB3B29BEDFEBE87C26FAF5 /* Release */,
 				D8E0A9E60F6AF08987408128 /* WorkingTreeValidation */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A296D646017DEC692DC6CAAD /* Build configuration list for PBXAggregateTarget "RuntimeLibrary" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				493D77C9B54626E9B526B7BD /* Debug */,
+				8BFDADEFBBF40AF9882DA76F /* Release */,
+				78212A8D409CCACF35314CC4 /* WorkingTreeValidation */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

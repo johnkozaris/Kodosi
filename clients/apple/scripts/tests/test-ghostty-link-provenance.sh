@@ -1,18 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-CHECKER="$ROOT/scripts/build/verify-ghostty-link-provenance.py"
-WRAPPER="$ROOT/scripts/build/verify-final-ghostty-image.sh"
-SCRATCH="$ROOT/build/test-ghostty-link-provenance"
+SCRIPTS="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CHECKER="$SCRIPTS/verify-ghostty-link-provenance.py"
+WRAPPER="$SCRIPTS/verify-final-ghostty-image.sh"
+SCRATCH=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/kodosi-ghostty-link-test.XXXXXX")" && pwd -P)
 MANIFEST="$SCRATCH/combined-strong.txt"
 EXPECTED="$SCRATCH/libghostty.a"
 RENAMED="$SCRATCH/renamed-native.a"
 BINARY="$SCRATCH/KodosiDesktop"
 
 trap 'rm -rf "$SCRATCH"' EXIT
-rm -rf "$SCRATCH"
-mkdir -p "$SCRATCH"
 : >"$EXPECTED"
 : >"$RENAMED"
 : >"$BINARY"
@@ -120,22 +118,23 @@ if cmp -s "$map_binary" "$PUBLIC_BINARY"; then
     exit 1
 fi
 
-WRAPPER_ROOT="$SCRATCH/wrapper-repository/clients/macos"
+WRAPPER_ROOT="$SCRATCH/wrapper-repository"
 WRAPPER_GHOSTTY="$SCRATCH/wrapper-ghostty"
-WRAPPER_APP="$WRAPPER_ROOT/build/KodosiDesktop.app"
+WRAPPER_APP="$WRAPPER_ROOT/clients/macos/build/KodosiDesktop.app"
 WRAPPER_BINARY="$WRAPPER_APP/Contents/MacOS/KodosiDesktop"
 WRAPPER_ARCHIVE="$WRAPPER_GHOSTTY/Vendor/GhosttyKit.xcframework/macos-arm64/libghostty.a"
 WRAPPER_MANIFEST="$WRAPPER_GHOSTTY/Vendor/symbols/combined-strong.txt"
 WRAPPER_MAP="$SCRATCH/wrapper-link.map"
 WRAPPER_BIN="$SCRATCH/wrapper-bin"
 mkdir -p \
-    "$WRAPPER_ROOT/scripts/build" \
+    "$WRAPPER_ROOT/clients/apple/scripts" \
+    "$WRAPPER_ROOT/clients/macos/Config" \
     "$(dirname "$WRAPPER_BINARY")" \
     "$(dirname "$WRAPPER_ARCHIVE")" \
     "$(dirname "$WRAPPER_MANIFEST")" \
     "$WRAPPER_BIN"
-cp "$WRAPPER" "$WRAPPER_ROOT/scripts/build/verify-final-ghostty-image.sh"
-cp "$CHECKER" "$WRAPPER_ROOT/scripts/build/verify-ghostty-link-provenance.py"
+cp "$WRAPPER" "$CHECKER" "$SCRIPTS/apple-platform.sh" "$WRAPPER_ROOT/clients/apple/scripts/"
+printf '26.4\n' >"$WRAPPER_ROOT/clients/macos/Config/macOSDeploymentTarget"
 printf 'locked archive\n' >"$WRAPPER_ARCHIVE"
 printf 'Mach-O fixture\n' >"$WRAPPER_BINARY"
 chmod +x "$WRAPPER_BINARY"
@@ -146,7 +145,7 @@ printf '%s\n' \
     _ghostty_terminal_new \
     _ghostty_terminal_vt_write >"$WRAPPER_MANIFEST"
 wrapper_sha=$(shasum -a 256 "$WRAPPER_ARCHIVE" | awk '{print $1}')
-printf 'macos_arm64_archive_sha256=%s\n' "$wrapper_sha" >"$WRAPPER_ROOT/../../Ghostty.lock"
+printf 'macos_arm64_archive_sha256=%s\n' "$wrapper_sha" >"$WRAPPER_ROOT/Ghostty.lock"
 cat >"$WRAPPER_MAP" <<EOF
 # Path: $WRAPPER_BINARY
 # Object files:
@@ -178,25 +177,19 @@ Load command 0
 OUTPUT
 EOF
 chmod +x "$WRAPPER_BIN/lipo" "$WRAPPER_BIN/nm" "$WRAPPER_BIN/otool"
-KODOSI_GHOSTTY_DIR="$WRAPPER_GHOSTTY" \
-KODOSI_LIPO="$WRAPPER_BIN/lipo" \
-KODOSI_NM="$WRAPPER_BIN/nm" \
-KODOSI_OTOOL="$WRAPPER_BIN/otool" \
-    "$WRAPPER_ROOT/scripts/build/verify-final-ghostty-image.sh" \
-    "$WRAPPER_BINARY" "$WRAPPER_MAP" 26.4 >/dev/null
+KODOSI_GHOSTTY_DIR="$WRAPPER_GHOSTTY" PATH="$WRAPPER_BIN:$PATH" \
+    "$WRAPPER_ROOT/clients/apple/scripts/verify-final-ghostty-image.sh" \
+    macosx "$WRAPPER_BINARY" "$WRAPPER_MAP" >/dev/null
 
 grep -v '_ghostty_surface_set_display_id' "$WRAPPER_MAP" >"$WRAPPER_MAP.missing-display-id"
-if KODOSI_GHOSTTY_DIR="$WRAPPER_GHOSTTY" \
-    KODOSI_LIPO="$WRAPPER_BIN/lipo" \
-    KODOSI_NM="$WRAPPER_BIN/nm" \
-    KODOSI_OTOOL="$WRAPPER_BIN/otool" \
-    "$WRAPPER_ROOT/scripts/build/verify-final-ghostty-image.sh" \
-    "$WRAPPER_BINARY" "$WRAPPER_MAP.missing-display-id" 26.4 \
+if KODOSI_GHOSTTY_DIR="$WRAPPER_GHOSTTY" PATH="$WRAPPER_BIN:$PATH" \
+    "$WRAPPER_ROOT/clients/apple/scripts/verify-final-ghostty-image.sh" \
+    macosx "$WRAPPER_BINARY" "$WRAPPER_MAP.missing-display-id" \
     >"$SCRATCH/missing-display-id.log" 2>&1; then
     echo "Final Ghostty verifier accepted a binary without display-ID routing." >&2
     exit 1
 fi
-grep -F 'missing required Ghostty symbol _ghostty_surface_set_display_id' \
+grep -F 'does not link the Ghostty symbol _ghostty_surface_set_display_id' \
     "$SCRATCH/missing-display-id.log" >/dev/null
 
 printf 'Verified complete Ghostty link contributor provenance.\n'

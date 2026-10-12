@@ -5,6 +5,5 @@ DerivedData/
 .build/
 .swiftpm/
 Package.resolved
-Frameworks/
 .DS_Store
 KodosiMobile.xcodeproj/
