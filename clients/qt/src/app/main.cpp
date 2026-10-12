@@ -15,6 +15,9 @@
 #include "presentation/Workspace.hpp"
 #include "platform/DesktopFileIntegration.hpp"
 #include "platform/SystemNotificationDriver.hpp"
+#ifdef Q_OS_WIN
+#include "platform/windows/WindowFrame.hpp"
+#endif
 #include "terminal/TerminalAccessibility.hpp"
 #include "terminal/TerminalSessionRegistry.hpp"
 #include "terminal/TerminalSurfaceController.hpp"
@@ -22,6 +25,7 @@
 #include <QApplication>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
+#include <QQuickWindow>
 #include <QRegularExpression>
 #include <QSettings>
 #include <QWindow>
@@ -167,6 +171,13 @@ int main(int argc, char* argv[])
     auto* window = qobject_cast<QWindow*>(engine.rootObjects().first());
     if (!window)
         return EXIT_FAILURE;
+#ifdef Q_OS_WIN
+    if (auto* quick = qobject_cast<QQuickWindow*>(window)) {
+        auto* frame = new kodosi::WindowFrame(*quick);
+        frame->setColor(quick->color());
+        QObject::connect(quick, &QQuickWindow::colorChanged, frame, &kodosi::WindowFrame::setColor);
+    }
+#endif
     files.setTransientParent(window);
     desktop.attachWindow(window, windowSize);
     auto raise = [window](const QString& token) {

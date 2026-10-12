@@ -23,6 +23,8 @@ Item {
         }
     }
     readonly property var waiting: Models.Sessions.sessions.filter(session => ["hand", "question", "key"].indexOf(session.sign) >= 0 && Models.Sessions.attention.indexOf(session.id) >= 0)
+    // The window has no native title bar; the sidebar's top holds the title zone, as on the Mac.
+    property bool titleBar: false
     property string renamingId: ""
     property Item pillTarget: null
     property var collapsedFolders: ({})
@@ -200,7 +202,7 @@ Item {
 
         Column {
             id: railColumn
-            y: 10
+            y: root.titleBar ? (KodosiTheme.titleBarHeight - 28) / 2 : 10
             width: parent.width
             spacing: 8
 
@@ -328,9 +330,10 @@ Item {
 
         RowLayout {
             Layout.fillWidth: true
+            Layout.preferredHeight: root.titleBar ? KodosiTheme.titleBarHeight : -1
             Layout.leftMargin: 16
             Layout.rightMargin: 8
-            Layout.topMargin: 14
+            Layout.topMargin: root.titleBar ? 0 : 14
             spacing: 2
 
             Wordmark {
@@ -360,7 +363,7 @@ Item {
             Layout.fillWidth: true
             Layout.leftMargin: 12
             Layout.rightMargin: 12
-            Layout.topMargin: 14
+            Layout.topMargin: root.titleBar ? 10 : 14
             Layout.bottomMargin: 10
             implicitHeight: 34
 

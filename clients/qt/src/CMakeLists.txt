@@ -175,6 +175,11 @@ foreach(module Core Gui Qml Quick)
             endif()
             target_include_directories(kodosi-terminal-kernel PRIVATE
                 "${private_root}" "${private_root}/Qt${module}")
+            # The Windows window frame corrects Qt's frame margins.
+            if(WIN32 AND module MATCHES "^(Core|Gui)$")
+                target_include_directories(kodosi-desktop-integration PRIVATE
+                    "${private_root}" "${private_root}/Qt${module}")
+            endif()
         endif()
     endforeach()
 endforeach()
@@ -259,6 +264,7 @@ qt_add_qml_module(kodosi-ui
         qml/Shell/CommandPalette.qml
         qml/Shell/Sidebar.qml
         qml/Shell/StartupOverlay.qml
+        qml/Shell/WindowControls.qml
         qml/Theme/Identity.qml
         qml/Theme/KodosiTheme.qml
         qml/Theme/Mentions.qml

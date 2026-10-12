@@ -35,8 +35,10 @@ set(KODOSI_COMPILE_OPTIONS /W4 -Wpedantic /WX)
 set(KODOSI_PLATFORM_SOURCES
     platform/windows/ToastNotificationDriver.cpp
     platform/windows/ToastNotificationDriver.hpp
+    platform/windows/WindowFrame.cpp
+    platform/windows/WindowFrame.hpp
 )
-set(KODOSI_PLATFORM_LIBRARIES windowsapp)
+set(KODOSI_PLATFORM_LIBRARIES windowsapp user32 dwmapi)
 set(KODOSI_TEST_LAUNCHER "")
 set(KODOSI_TEST_ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 # Tests run from the build tree, so they find Qt's DLLs where Qt keeps them.
