@@ -113,7 +113,7 @@ docker network rm "$network" >/dev/null 2>&1 || true
 [ "${1:-}" = down ] && exit
 
 # The theme is built again when a source file is newer than the built file.
-[ -f "$jar" ] && [ -z "$(find src index.html -newer "$jar" -print -quit)" ] || ./build-theme.sh
+[ -f "$jar" ] && [ -z "$(find src index.html -newer "$jar" -print -quit)" ] || bun run theme
 
 # The stand-in of the person check, compiled against the libraries of this Keycloak.
 if [ ! -f "$check_jar" ] || [ dev/turnstile/StandIn.java -nt "$check_jar" ]; then
