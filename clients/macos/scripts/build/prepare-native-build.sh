@@ -5,13 +5,13 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 case "${CONFIGURATION:-}" in
     Release)
-        "$ROOT/scripts/build/rust-lib-release.sh"
+        "$ROOT/scripts/build/build-rust-library-release.sh"
         ;;
     WorkingTreeValidation)
-        "$ROOT/scripts/build/rust-lib-release.sh" working-tree-validation
+        "$ROOT/scripts/build/build-rust-library-release.sh" working-tree-validation
         ;;
     Debug)
-        "$ROOT/scripts/build/rust-lib-debug.sh"
+        "$ROOT/scripts/build/build-rust-library-debug.sh"
         ;;
     *)
         echo "Unsupported Xcode configuration for native preparation: ${CONFIGURATION:-<unset>}" >&2

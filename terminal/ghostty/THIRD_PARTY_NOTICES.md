@@ -73,7 +73,7 @@ build configuration, headers, and LGPL text in
 hashes are in
 `ThirdPartyNotices/corresponding-source/libintl-0.24/MANIFEST.json`. The
 combined archive retains its individual object members;
-`Script/relink-libintl.sh` removes the exact 30 libintl members and recombines
+`scripts/relink-libintl.sh` removes the exact 30 libintl members and recombines
 the remaining objects with a caller-supplied compatible replacement
 `libintl.a`. Distributors of final executables remain responsible for supplying
 these materials and the required relinking means with their distribution.

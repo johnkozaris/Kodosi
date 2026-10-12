@@ -7,9 +7,9 @@ DESTINATION="${1:?Pass the GhosttyNativeNotices directory to verify}"
 
 "$ROOT/../../scripts/verify-ghostty.sh" >/dev/null
 if [[ "$(uname -s)" == Darwin ]]; then
-    "$GHOSTTY_DIR/Script/verify-third-party-notices.py" >/dev/null
+    "$GHOSTTY_DIR/scripts/verify-third-party-notices.py" >/dev/null
 else
-    "$GHOSTTY_DIR/Script/verify-linux-third-party-notices.py" >/dev/null
+    "$GHOSTTY_DIR/scripts/verify-linux-third-party-notices.py" >/dev/null
 fi
 
 if [[ ! -d "$DESTINATION" ]] || [[ -L "$DESTINATION" ]]; then
@@ -23,7 +23,7 @@ trap 'rm -f "$expected" "$actual"' EXIT
 
 {
     printf '%s\n' LICENSE LICENSE-GHOSTTY THIRD_PARTY_NOTICES.md
-    printf '%s\n' Script/relink-libintl.sh
+    printf '%s\n' scripts/relink-libintl.sh
     printf '%s\n' Vendor/GhosttyKit.xcframework/macos-arm64/libghostty.a
     find "$GHOSTTY_DIR/ThirdPartyNotices" -type f -print | while IFS= read -r path; do
         printf 'ThirdPartyNotices/%s\n' "${path#"$GHOSTTY_DIR/ThirdPartyNotices/"}"
@@ -55,7 +55,7 @@ while IFS= read -r relative; do
     fi
 done <"$expected"
 
-if [[ ! -x "$DESTINATION/Script/relink-libintl.sh" ]]; then
+if [[ ! -x "$DESTINATION/scripts/relink-libintl.sh" ]]; then
     echo "Bundled libintl relink helper is not executable." >&2
     exit 1
 fi

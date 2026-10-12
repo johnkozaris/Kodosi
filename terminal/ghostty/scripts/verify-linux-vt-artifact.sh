@@ -36,13 +36,13 @@ source "$METADATA"
 source Toolchain.env
 
 EXPECTED_VERSION=$(tr -d '[:space:]' < VERSION)
-ACTUAL_ARTIFACT=$("$ROOT_DIR/Script/linux-artifact-digest.sh" "$ARTIFACT_ROOT")
+ACTUAL_ARTIFACT=$("$ROOT_DIR/scripts/linux-artifact-digest.sh" "$ARTIFACT_ROOT")
 EXPECTED_COMMIT=$(tr -d '[:space:]' < LinuxGhostty.ref)
 EXPECTED_PATCHES=$patches_sha256
 EXPECTED_OPTIONS=$ghostty_build_options
 if [ "${KODOSI_GHOSTTY_REQUIRE_BUILD_PROVENANCE:-0}" = 1 ]; then
-    EXPECTED_PATCHES=$("$ROOT_DIR/Script/artifact-digest.sh" Patches/ghostty)
-    EXPECTED_OPTIONS=$("$ROOT_DIR/Script/linux-vt-build-options.sh" vector)
+    EXPECTED_PATCHES=$("$ROOT_DIR/scripts/artifact-digest.sh" Patches/ghostty)
+    EXPECTED_OPTIONS=$("$ROOT_DIR/scripts/linux-vt-build-options.sh" vector)
 fi
 
 if [ "$package_version" != "$EXPECTED_VERSION" ] ||
@@ -67,9 +67,9 @@ if [ "${KODOSI_GHOSTTY_REQUIRE_BUILD_PROVENANCE:-0}" = 1 ]; then
         exit 1
     fi
     actual_patch_application=$(
-        "$ROOT_DIR/Script/patch-application-digest.sh" "$SOURCE_DIR" "$EXPECTED_COMMIT"
+        "$ROOT_DIR/scripts/patch-application-digest.sh" "$SOURCE_DIR" "$EXPECTED_COMMIT"
     )
-    actual_store=$("$ROOT_DIR/Script/tree-digest.sh" "$SOURCE_DIR/zig-pkg")
+    actual_store=$("$ROOT_DIR/scripts/tree-digest.sh" "$SOURCE_DIR/zig-pkg")
     if [ "$patch_application_sha256" != "$actual_patch_application" ] ||
         [ "$zig_store_sha256" != "$actual_store" ]; then
         echo "[!] Linux Ghostty VT build-input provenance mismatch" >&2

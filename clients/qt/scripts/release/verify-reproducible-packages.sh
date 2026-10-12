@@ -38,10 +38,10 @@ cmp "$scratch/first/$deb" "$scratch/second/$deb"
 cmp "$scratch/first/$tgz" "$scratch/second/$tgz"
 
 SOURCE_DATE_EPOCH="$epoch" \
-    ./scripts/release/write-arch-package.sh \
+    ./scripts/release/package-arch.sh \
     "$scratch/first/$tgz" "$scratch/first" >/dev/null
 SOURCE_DATE_EPOCH="$epoch" \
-    ./scripts/release/write-arch-package.sh \
+    ./scripts/release/package-arch.sh \
     "$scratch/second/$tgz" "$scratch/second" >/dev/null
 cmp "$scratch/first/$arch" "$scratch/second/$arch"
 

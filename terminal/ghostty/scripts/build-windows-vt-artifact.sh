@@ -64,7 +64,7 @@ ARCHIVE_DIGEST=$(sha256sum "$STAGE/lib/ghostty-vt-static.lib" | awk '{print $1}'
 cat > "$METADATA" <<METADATA
 package_version=$(tr -d '[:space:]' < VERSION)
 ghostty_commit=$(tr -d '[:space:]' < WindowsGhostty.ref)
-patches_sha256=$("$ROOT_DIR/Script/artifact-digest.sh" Patches/ghostty)
+patches_sha256=$("$ROOT_DIR/scripts/artifact-digest.sh" Patches/ghostty)
 patch_application_sha256=$PATCH_APPLICATION_DIGEST
 zig_version=$ZIG_VERSION
 zig_target=$ZIG_TARGET

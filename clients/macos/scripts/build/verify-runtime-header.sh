@@ -2,7 +2,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-bundle=${1:?Usage: header-parity.sh <ffi-artifact-bundle>}
+bundle=${1:?Usage: verify-runtime-header.sh <ffi-artifact-bundle>}
 generated="$bundle/include/kodosi_runtime.h"
 committed="$ROOT/../apple/Sources/KodosiKit/kodosi_runtime.h"
 if ! cmp -s "$generated" "$committed"; then

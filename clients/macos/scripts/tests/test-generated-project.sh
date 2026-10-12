@@ -2,9 +2,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-python3 "$ROOT/Tests/Tooling/generate-xcode-project-test.py"
+python3 "$ROOT/scripts/tests/test_generate_xcode_project.py"
 PROJECT="$ROOT/KodosiDesktop.xcodeproj/project.pbxproj"
-SCRATCH="$ROOT/build/generated-project-verifier-test"
+SCRATCH="$ROOT/build/test-generated-project"
 COPY_ROOT="$SCRATCH/repository"
 
 cleanup() {
@@ -18,13 +18,13 @@ for relative_path in project.yml Config Sources Tests Resources KodosiDesktop.xc
 done
 cp -R "$ROOT/../apple" "$SCRATCH/apple"
 mkdir -p "$COPY_ROOT/scripts/build"
-for task in xcode-gen.sh generate-xcode-project.py deployment-target.sh; do
+for task in generate-xcode-project.sh generate-xcode-project.py deployment-target.sh; do
     cp "$ROOT/scripts/build/$task" "$COPY_ROOT/scripts/build/$task"
 done
 printf '\n' >>"$COPY_ROOT/project.yml"
 
-bash "$ROOT/Tests/Tooling/deployment-target-verifier-test.sh"
-bash "$COPY_ROOT/scripts/build/xcode-gen.sh"
+bash "$ROOT/scripts/tests/test-deployment-target.sh"
+bash "$COPY_ROOT/scripts/build/generate-xcode-project.sh"
 GENERATED="$COPY_ROOT/KodosiDesktop.xcodeproj"
 if ! cmp -s "$PROJECT" "$GENERATED/project.pbxproj"; then
     echo "Semantically unchanged generation rewrote the tracked Xcode project" >&2

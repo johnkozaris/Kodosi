@@ -35,7 +35,7 @@ mkdir -p "$OUTPUT_DIR/lib" "$OUTPUT_DIR/include" "$GLOBAL_CACHE_DIR" "$LOCAL_CAC
 COMMAND=(zig build)
 while IFS= read -r option; do
     COMMAND+=("$option")
-done < <("$ROOT_DIR/Script/linux-vt-build-options.sh" arguments)
+done < <("$ROOT_DIR/scripts/linux-vt-build-options.sh" arguments)
 COMMAND+=(
     --system "$SOURCE_DIR/zig-pkg"
     --prefix "$PREFIX"

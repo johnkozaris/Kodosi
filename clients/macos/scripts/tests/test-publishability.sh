@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 VERIFIER="$ROOT/scripts/release/verify-publishable.sh"
-SCRATCH="$ROOT/build/publishability-verifier-test"
+SCRATCH="$ROOT/build/test-publishability"
 APP="$SCRATCH/KodosiDesktop.app"
 INFO="$APP/Contents/Info.plist"
 RESOURCES="$APP/Contents/Resources"

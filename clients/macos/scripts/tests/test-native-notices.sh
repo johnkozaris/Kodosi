@@ -18,7 +18,7 @@ expect_failure() {
 
 fresh_payload() {
     rm -rf "$TMP/payload"
-    "$ROOT/scripts/build/sync-native-notices.sh" "$TMP/payload"
+    "$ROOT/scripts/build/install-native-notices.sh" "$TMP/payload"
 }
 
 fresh_payload
@@ -41,7 +41,7 @@ ln -s "$GHOSTTY_DIR/LICENSE" "$TMP/payload/LICENSE"
 expect_failure symlink-substitution "$ROOT/scripts/build/verify-native-notices.sh" "$TMP/payload"
 
 fresh_payload
-chmod -x "$TMP/payload/Script/relink-libintl.sh"
+chmod -x "$TMP/payload/scripts/relink-libintl.sh"
 expect_failure nonexecutable-relink-helper "$ROOT/scripts/build/verify-native-notices.sh" "$TMP/payload"
 
 echo "Native notice verifier mutation tests passed."

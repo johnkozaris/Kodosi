@@ -191,7 +191,7 @@ class ReleaseIntegrityTests(unittest.TestCase):
         self.run_command(
             [
                 "bash",
-                str(ROOT / "scripts/release/write-arch-package.sh"),
+                str(ROOT / "scripts/release/package-arch.sh"),
                 str(self.artifacts[1]),
                 str(self.output),
             ],

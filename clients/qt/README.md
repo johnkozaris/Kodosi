@@ -98,7 +98,7 @@ If `terminal/ghostty/Vendor/GhosttyVt/windows-<arch>` is not in the checkout, bu
 from the repository root:
 
 ```sh
-terminal/ghostty/Script/build.sh
+terminal/ghostty/scripts/build.sh
 ```
 
 The script prints the digest to record in [Ghostty.lock](../../Ghostty.lock). Commit

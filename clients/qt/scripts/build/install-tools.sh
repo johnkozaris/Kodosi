@@ -50,7 +50,7 @@ case "$(uname -s)-$(uname -m)" in
         esac
         ;;
     *)
-        echo "unsupported bootstrap host: $(uname -s)-$(uname -m)" >&2
+        echo "unsupported install host: $(uname -s)-$(uname -m)" >&2
         exit 1
         ;;
 esac
@@ -121,7 +121,7 @@ if ! cmake_ready; then
     if [ ! -x "$stage/bin/cmake$EXE" ] ||
         [ ! -x "$stage/bin/ctest$EXE" ] ||
         [ "$("$stage/bin/cmake$EXE" --version | awk 'NR == 1 { print $3 }' | tr -d '\r')" != "$CMAKE_VERSION" ]; then
-        echo "CMake bootstrap verification failed" >&2
+        echo "CMake install verification failed" >&2
         exit 1
     fi
     rm -rf "$CMAKE_ROOT"
@@ -141,7 +141,7 @@ if ! ninja_ready; then
     unpack "$archive" "$stage" 0
     chmod +x "$stage/ninja$EXE"
     if [ "$("$stage/ninja$EXE" --version | tr -d '\r')" != "$NINJA_VERSION" ]; then
-        echo "Ninja bootstrap verification failed" >&2
+        echo "Ninja install verification failed" >&2
         exit 1
     fi
     rm -rf "$NINJA_ROOT"
@@ -184,7 +184,7 @@ if ! qt_ready "$QT_ROOT"; then
     "$aqt" install-qt "$QT_HOST" desktop "$QT_VERSION" "$QT_ARCH" --outputdir "$stage"
     staged_qt="$stage/$QT_VERSION/$QT_DIR"
     if ! qt_ready "$staged_qt"; then
-        echo "Qt bootstrap verification failed" >&2
+        echo "Qt install verification failed" >&2
         exit 1
     fi
     mkdir -p "$(dirname "$QT_ROOT")"

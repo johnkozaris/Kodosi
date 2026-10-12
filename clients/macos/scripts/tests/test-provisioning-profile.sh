@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 VERIFIER="$ROOT/scripts/release/verify-provisioning-profile.sh"
-SCRATCH="$ROOT/build/provisioning-profile-verifier-test"
+SCRATCH="$ROOT/build/test-provisioning-profile"
 FAKE_SECURITY="$SCRATCH/security"
 FAKE_CODESIGN="$SCRATCH/codesign"
 APP="$SCRATCH/KodosiDesktop.app"

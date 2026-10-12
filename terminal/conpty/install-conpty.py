@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetches the pinned ConPTY package and copies one architecture's console host.
+"""Installs the console host of one architecture from the pinned ConPTY package.
 
 Kodosi ships conpty.dll and OpenConsole.exe beside its executables and loads
 them by absolute path, so every Windows build gets the same console host.

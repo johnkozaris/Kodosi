@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-name=${1:?Usage: simulator.sh <simulator name>}
+name=${1:?Usage: prepare-simulator.sh <simulator name>}
 
 id=$(xcrun simctl list devices available -j | python3 -c '
 import json

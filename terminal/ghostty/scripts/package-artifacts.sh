@@ -17,7 +17,7 @@ fi
 SLICES=()
 while IFS= read -r slice; do
     SLICES+=("$slice")
-done < <(./Script/native-build-options.sh slices)
+done < <(./scripts/native-build-options.sh slices)
 
 XCFRAMEWORK_ARGUMENTS=()
 for slice in "${SLICES[@]}"; do
@@ -55,7 +55,7 @@ xcodebuild -create-xcframework \
 cp "$STAGED_DIR/macos-arm64/lib/libghostty.a" "$VT_OUTPUT/lib/libghostty-vt.a"
 cp -R "$STAGED_DIR/macos-arm64/include/vt/." "$VT_OUTPUT/include/"
 
-./Script/verify-xcframework.sh "$RENDERER_OUTPUT"
+./scripts/verify-xcframework.sh "$RENDERER_OUTPUT"
 
 if ! grep -Fq 'module GhosttyVt' "$VT_OUTPUT/include/module.modulemap"; then
     echo "[!] VT module map does not declare GhosttyVt"

@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CHECKER="$ROOT/scripts/build/verify-ghostty-link-provenance.py"
 WRAPPER="$ROOT/scripts/build/verify-final-ghostty-image.sh"
-SCRATCH="$ROOT/build/ghostty-link-provenance-test"
+SCRATCH="$ROOT/build/test-ghostty-link-provenance"
 MANIFEST="$SCRATCH/combined-strong.txt"
 EXPECTED="$SCRATCH/libghostty.a"
 RENAMED="$SCRATCH/renamed-native.a"

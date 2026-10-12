@@ -21,7 +21,7 @@ fi
 
 # shellcheck disable=SC1091
 source NativeBuild.env
-ZIG_TARGET=$("$ROOT_DIR/Script/native-build-options.sh" target "$SLICE")
+ZIG_TARGET=$("$ROOT_DIR/scripts/native-build-options.sh" target "$SLICE")
 
 if ! command -v zig >/dev/null 2>&1; then
     echo "[!] zig not found"
@@ -46,7 +46,7 @@ mkdir -p \
 COMMAND=(zig build)
 while IFS= read -r option; do
     COMMAND+=("$option")
-done < <("$ROOT_DIR/Script/native-build-options.sh" arguments "$SLICE")
+done < <("$ROOT_DIR/scripts/native-build-options.sh" arguments "$SLICE")
 COMMAND+=(
     --system "$SOURCE_DIR/zig-pkg"
     --prefix "$PREFIX"

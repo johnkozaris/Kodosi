@@ -8,7 +8,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-SPEC = importlib.util.spec_from_file_location("ffi_artifact", Path(__file__).with_name("build-ffi-artifact.py"))
+SPEC = importlib.util.spec_from_file_location(
+    "ffi_artifact", Path(__file__).resolve().parents[1] / "build-ffi-artifact.py"
+)
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 

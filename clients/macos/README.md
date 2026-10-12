@@ -35,7 +35,7 @@ Debug builds target the local backend at `127.0.0.1:5180`; follow
 service, build the Release configuration:
 
 ```sh
-just --justfile clients/macos/Justfile build-release
+just --justfile clients/macos/justfile build-release
 ```
 
 Run the Release app from Xcode's Products group. Release uses the public service
@@ -84,8 +84,8 @@ To make a release, set `KODOSI_TEAM_ID`, `KODOSI_MARKETING_VERSION` and
 | --- | --- |
 | `scripts/release/export.sh` | The signed app from a clean checkout, in `build/export/` |
 | `scripts/release/notarize.sh` | The result of `export.sh`, after Apple notarizes it |
-| `scripts/release/dmg.sh` | The result of `notarize.sh`, and a signed and notarized `build/export/KodosiDesktop.dmg` |
-| `scripts/release/local-cask.sh` | A Homebrew cask in `build/KodosiDesktop.rb`, if the disk image at `KODOSI_DOWNLOAD_URL` is the same as the local one |
+| `scripts/release/package-dmg.sh` | The result of `notarize.sh`, and a signed and notarized `build/export/KodosiDesktop.dmg` |
+| `scripts/release/generate-cask.sh` | A Homebrew cask in `build/KodosiDesktop.rb`, if the disk image at `KODOSI_DOWNLOAD_URL` is the same as the local one |
 
 The scripts examine the signatures, the embedded profile, the entitlements, the native
 artifacts and the source revision. `just verify-signed` examines the app in the archive.

@@ -22,7 +22,7 @@ build: xcode-gen
 test: xcode-gen
     #!/usr/bin/env bash
     set -euo pipefail
-    id=$(scripts/simulator.sh "{{ simulator }}")
+    id=$(scripts/prepare-simulator.sh "{{ simulator }}")
     xcodebuild -project KodosiMobile.xcodeproj \
         -scheme KodosiMobile \
         -configuration Debug \

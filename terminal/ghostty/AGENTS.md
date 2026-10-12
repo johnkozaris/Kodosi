@@ -14,8 +14,8 @@ the only consumer that imports `GhosttyTerminal`. Read
 Keep the AppKit and UIKit views' host-managed APIs aligned. Preserve native
 input, selection, accessibility, checkpoint, and clipboard behavior.
 
-Build native artifacts only through `./Script/build.sh`, then run the package
-tests and relevant artifact, notice, and sanitizer checks in `Script/`.
+Build native artifacts only through `./scripts/build.sh`, then run the package
+tests and relevant artifact, notice, and sanitizer checks in `scripts/`.
 Never edit artifact metadata to hide a failed check or publish uncommitted pins.
 Keep the Ghostty, Lakr, and other required licenses and corresponding source.
 

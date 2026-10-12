@@ -8,7 +8,7 @@ windows_cmake := tools_dir + "/cmake-4.4.3/bin/cmake.exe"
 windows_ctest := tools_dir + "/cmake-4.4.3/bin/ctest.exe"
 
 bootstrap:
-    ./scripts/build/bootstrap-tools.sh
+    ./scripts/build/install-tools.sh
 
 configure: bootstrap
     CMAKE_PREFIX_PATH="{{ qt_dir }}" "{{ cmake }}" --preset dev
@@ -24,9 +24,9 @@ test: build
     "{{ ctest }}" --preset dev
 
 release-integrity-test:
-    python3 -m unittest tests/tooling/test_release_integrity.py
-    python3 -m unittest tests/tooling/test_reproducible_archives.py
-    python3 -m unittest tests/tooling/test_windows_package.py
+    python3 -m unittest scripts/tests/test_release_integrity.py
+    python3 -m unittest scripts/tests/test_reproducible_archives.py
+    python3 -m unittest scripts/tests/test_windows_package.py
 
 rust-license-test:
     rm -rf build/rust-license-test
@@ -40,7 +40,7 @@ rust-license-test:
 
 native-license-test: bootstrap
     python3 scripts/release/verify-native-license-evidence.py
-    python3 -m unittest tests/tooling/test_native_license_evidence.py
+    python3 -m unittest scripts/tests/test_native_license_evidence.py
 
 check: release-integrity-test rust-license-test native-license-test lint test
 
@@ -123,7 +123,7 @@ package: bootstrap
     ./scripts/release/verify-packaged-content.sh build/release/kodosi-0.1.0-linux-x86_64.tar.gz
 
 package-arch: package
-    package="$(./scripts/release/write-arch-package.sh \
+    package="$(./scripts/release/package-arch.sh \
         build/release/kodosi-0.1.0-linux-x86_64.tar.gz build/release)" && \
         ./scripts/release/verify-packaged-content.sh "$package" && \
         printf 'Arch-compatible package built: %s\n' "$package"

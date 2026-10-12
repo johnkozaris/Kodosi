@@ -10,8 +10,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 
-ROOT = Path(__file__).resolve().parents[1]
-VERIFIER = ROOT / "Script" / "verify-platform-pins.py"
+ROOT = Path(__file__).resolve().parents[2]
+VERIFIER = ROOT / "scripts" / "verify-platform-pins.py"
 MAC_REF = "a" * 40
 LINUX_REF = "b" * 40
 IOS_SLICES = ("ios-arm64", "ios-arm64-simulator")

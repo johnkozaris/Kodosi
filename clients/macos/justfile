@@ -8,7 +8,7 @@ ghostty:
     ../../scripts/verify-ghostty.sh
 
 xcode-gen:
-    scripts/build/xcode-gen.sh
+    scripts/build/generate-xcode-project.sh
 
 package-test: ghostty
     swift test \
@@ -61,20 +61,20 @@ release-graph-verifier:
     kodosi_load_macos_deployment_target "$root"
     (
         cd "$root"
-        Tests/Tooling/test-rust-archive-verifier.sh "$KODOSI_MACOS_DEPLOYMENT_TARGET" arm64
+        scripts/tests/test-rust-archive.sh "$KODOSI_MACOS_DEPLOYMENT_TARGET" arm64
     )
-    "$root/Tests/Tooling/publishability-verifier-test.sh"
-    "$root/Tests/Tooling/ghostty-link-provenance-verifier-test.sh"
-    "$root/Tests/Tooling/generated-project-verifier-test.sh"
+    "$root/scripts/tests/test-publishability.sh"
+    "$root/scripts/tests/test-ghostty-link-provenance.sh"
+    "$root/scripts/tests/test-generated-project.sh"
 
 signature-verifier:
-    Tests/Tooling/signature-verifier-test.sh
+    scripts/tests/test-developer-id-signature.sh
 
 provisioning-profile-verifier:
-    Tests/Tooling/provisioning-profile-verifier-test.sh
+    scripts/tests/test-provisioning-profile.sh
 
 native-notice-verifier:
-    Tests/Tooling/native-notice-verifier-test.sh
+    scripts/tests/test-native-notices.sh
 
 ci: lint release-graph-verifier signature-verifier provisioning-profile-verifier native-notice-verifier package-test
     xcodebuild -project KodosiDesktop.xcodeproj \

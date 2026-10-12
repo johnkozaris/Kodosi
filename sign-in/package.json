@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "theme": "./theme.sh",
+    "theme": "./build-theme.sh",
     "lint": "oxlint src --max-warnings 0",
     "format": "biome check --write .",
     "format:check": "biome check .",

@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 VERIFIER="$ROOT/scripts/release/verify-developer-id-signature.sh"
-SCRATCH="$ROOT/build/signature-verifier-test"
+SCRATCH="$ROOT/build/test-developer-id-signature"
 FAKE_CODESIGN="$SCRATCH/codesign"
 TEAM_ID=C5886CWK32
 

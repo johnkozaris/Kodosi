@@ -19,7 +19,7 @@ class GenerationTests(unittest.TestCase):
         self.root = Path(self.temporary.name) / "checkout"
         tasks = self.root / "scripts/build"
         tasks.mkdir(parents=True)
-        for name in ("xcode-gen.sh", "generate-xcode-project.py", "deployment-target.sh"):
+        for name in ("generate-xcode-project.sh", "generate-xcode-project.py", "deployment-target.sh"):
             shutil.copy2(TASKS / name, tasks / name)
         (self.root / "Config").mkdir()
         (self.root / "Config/macOSDeploymentTarget").write_text("26.4\n")
@@ -77,7 +77,7 @@ print(json.dumps(json.loads(Path(sys.argv[5]).read_text())))
         path.chmod(0o755)
 
     def run_generator(self, mode="", success=True):
-        result = subprocess.run(["bash", str(self.root / "scripts/build/xcode-gen.sh")],
+        result = subprocess.run(["bash", str(self.root / "scripts/build/generate-xcode-project.sh")],
             env={**self.env, "GENERATOR_TEST_MODE": mode}, capture_output=True, text=True)
         if success:
             self.assertEqual(result.returncode, 0, result.stderr)

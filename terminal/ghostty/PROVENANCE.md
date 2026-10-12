@@ -26,7 +26,7 @@ corresponding source and relinking materials are retained.
 
 ## Rebuild
 
-`./Script/build.sh` is the only native build entry point. It uses pinned local
+`./scripts/build.sh` is the only native build entry point. It uses pinned local
 tools and a clean upstream checkout, applies `Patches/ghostty`, builds and
 verifies the artifacts, and records their actual digests. `--source` selects a
 source cache, not a prepatched tree. Never hand-edit build evidence.
@@ -41,7 +41,7 @@ Do not introduce another process backend or terminal parser.
 Do these steps to update Ghostty:
 
 1. Examine the upstream changes. Rebase the patches in `Patches/ghostty`.
-2. Rebuild each platform with `./Script/build.sh` on a host of that platform.
+2. Rebuild each platform with `./scripts/build.sh` on a host of that platform.
 3. Update the notices from the real source and artifact evidence.
 4. If a rebuild changes a VT header, generate the Rust bindings again. See
    [Rust bindings](#rust-bindings).

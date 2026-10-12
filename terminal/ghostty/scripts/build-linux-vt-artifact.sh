@@ -29,15 +29,15 @@ rm -rf "$STAGE_ROOT"
 mkdir -p "$STAGE_ROOT"
 
 if [ "$SKIP_TESTS" -eq 0 ]; then
-    "$ROOT_DIR/Script/verify-linux-vt-source.sh" "$SOURCE_DIR"
+    "$ROOT_DIR/scripts/verify-linux-vt-source.sh" "$SOURCE_DIR"
 fi
 
-"$ROOT_DIR/Script/build-ghostty-vt.sh" "$SOURCE_DIR" "$ARTIFACT_STAGE"
+"$ROOT_DIR/scripts/build-ghostty-vt.sh" "$SOURCE_DIR" "$ARTIFACT_STAGE"
 
-PATCHES_DIGEST=$("$ROOT_DIR/Script/artifact-digest.sh" Patches/ghostty)
-ARTIFACT_DIGEST=$("$ROOT_DIR/Script/linux-artifact-digest.sh" "$ARTIFACT_STAGE")
+PATCHES_DIGEST=$("$ROOT_DIR/scripts/artifact-digest.sh" Patches/ghostty)
+ARTIFACT_DIGEST=$("$ROOT_DIR/scripts/linux-artifact-digest.sh" "$ARTIFACT_STAGE")
 ARCHIVE_DIGEST=$(sha256sum "$ARTIFACT_STAGE/lib/libghostty-vt.a" | awk '{print $1}')
-BUILD_OPTIONS=$("$ROOT_DIR/Script/linux-vt-build-options.sh" vector)
+BUILD_OPTIONS=$("$ROOT_DIR/scripts/linux-vt-build-options.sh" vector)
 
 cat > "$METADATA_STAGE" <<EOF
 package_version=$(tr -d '[:space:]' < VERSION)
@@ -61,10 +61,10 @@ if [ "$SKIP_TESTS" -eq 0 ]; then
         KODOSI_GHOSTTY_PATCHED_SOURCE="$SOURCE_DIR" \
         KODOSI_GHOSTTY_LINUX_ARTIFACT_ROOT="$ARTIFACT_STAGE" \
         KODOSI_GHOSTTY_LINUX_METADATA="$METADATA_STAGE" \
-        "$ROOT_DIR/Script/verify-linux-vt-artifact.sh"
+        "$ROOT_DIR/scripts/verify-linux-vt-artifact.sh"
     KODOSI_GHOSTTY_LINUX_ARTIFACT_ROOT="$ARTIFACT_STAGE" \
         KODOSI_GHOSTTY_LINUX_METADATA="$METADATA_STAGE" \
-        "$ROOT_DIR/Script/verify-linux-third-party-notices.py"
+        "$ROOT_DIR/scripts/verify-linux-third-party-notices.py"
 fi
 
 DESTINATION="$ROOT_DIR/Vendor/GhosttyVt/$GHOSTTY_LINUX_VT_LAYOUT"
@@ -105,11 +105,11 @@ if ! mv "$METADATA_STAGE" "$DESTINATION_METADATA"; then
     exit 1
 fi
 
-if ! "$ROOT_DIR/Script/verify-linux-vt-artifact.sh"; then
+if ! "$ROOT_DIR/scripts/verify-linux-vt-artifact.sh"; then
     rollback_promotion
     exit 1
 fi
-if ! "$ROOT_DIR/Script/verify-linux-third-party-notices.py"; then
+if ! "$ROOT_DIR/scripts/verify-linux-third-party-notices.py"; then
     rollback_promotion
     exit 1
 fi

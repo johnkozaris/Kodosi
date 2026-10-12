@@ -40,15 +40,15 @@ ghostty-verify: ghostty-host-verify
 [private]
 [macos]
 ghostty-host-verify:
-    "{{ ghostty_dir }}/Script/test-platform-pins.py"
-    "{{ ghostty_dir }}/Script/verify-third-party-notices.py"
-    "{{ ghostty_dir }}/Script/test-z2d-source-acquisition.py"
+    "{{ ghostty_dir }}/scripts/tests/test_platform_pins.py"
+    "{{ ghostty_dir }}/scripts/verify-third-party-notices.py"
+    "{{ ghostty_dir }}/scripts/tests/test_z2d_source_acquisition.py"
 
 [private]
 [linux]
 ghostty-host-verify:
-    "{{ ghostty_dir }}/Script/test-platform-pins.py"
-    "{{ ghostty_dir }}/Script/verify-linux-third-party-notices.py"
+    "{{ ghostty_dir }}/scripts/tests/test_platform_pins.py"
+    "{{ ghostty_dir }}/scripts/verify-linux-third-party-notices.py"
 
 # Git Bash has no ar, lipo or plutil for the notice checks. On Windows, the pin
 # tests write their fixture files with CRLF line ends, and the pin verifier
@@ -109,14 +109,14 @@ rust-dependency-hygiene: rust-deny rust-machete
 
 [private]
 ffi-publication-test:
-    PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-ffi-artifact.py
+    PYTHONDONTWRITEBYTECODE=1 python3 scripts/tests/test_ffi_artifact.py
 
 # Windows terminals need the pinned ConPTY host beside the development CLI, and
 # tests find it through KODOSI_CONPTY_DIR.
 [private]
 [windows]
 conpty:
-    python3 terminal/conpty/fetch.py --arch "$(source scripts/windows-env.sh && kodosi_windows_arch)" --output "$KODOSI_CONPTY_DIR"
+    python3 terminal/conpty/install-conpty.py --arch "$(source scripts/windows-env.sh && kodosi_windows_arch)" --output "$KODOSI_CONPTY_DIR"
 
 [private]
 [unix]
@@ -206,22 +206,22 @@ check-all: rust-all backend-all
 # Make the Xcode project, run the package tests and build the Debug Mac app.
 [group('mac')]
 mac-build:
-    just --justfile clients/macos/Justfile build-debug
+    just --justfile clients/macos/justfile build-debug
 
 # Lint and test the Mac app and its build tools, then build the Release app.
 [group('mac')]
 mac-check:
-    just --justfile clients/macos/Justfile ci
+    just --justfile clients/macos/justfile ci
 
 # Build the iPhone and iPad app for the iOS simulator.
 [group('ios')]
 ios-build:
-    just --justfile clients/ios/Justfile build
+    just --justfile clients/ios/justfile build
 
 # Lint and test the iPhone and iPad app, then build it for devices.
 [group('ios')]
 ios-check:
-    just --justfile clients/ios/Justfile ci
+    just --justfile clients/ios/justfile ci
 
 # Install the Rust targets for iOS devices and the iOS simulator.
 [group('ios')]
@@ -256,7 +256,7 @@ windows-check:
 # Lint the runtime for the two Windows targets in Docker on any host.
 [group('windows')]
 windows-cross-check packages="--workspace":
-    docker build --quiet --tag kodosi-windows-cross --file scripts/windows-cross-check.Dockerfile scripts >/dev/null
+    docker build --quiet --tag kodosi-windows-cross --file scripts/windows-cross.Dockerfile scripts >/dev/null
     for target in x86_64-pc-windows-msvc aarch64-pc-windows-msvc; do \
         docker run --rm --volume "$PWD:/src" --volume kodosi-cargo-registry:/usr/local/cargo/registry --volume kodosi-xwin-cache:/cache/xwin --workdir /src --env CARGO_BUILD_WARNINGS=deny --env CARGO_INCREMENTAL=0 --env KODOSI_GHOSTTY_CHECK_ONLY=1 kodosi-windows-cross bash -euo pipefail -c "\
             cargo xwin clippy --manifest-path runtime/Cargo.toml --locked --target $target {{ packages }} --lib --bins --examples -- -D warnings && \

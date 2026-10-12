@@ -100,7 +100,7 @@ for name, key in (("libkodosi_ffi_c.a", "archiveSha256"), ("include/kodosi_runti
     if path.is_symlink() or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != metadata[key]:
         raise SystemExit(f"FFI artifact bundle association mismatch: {name}")
 PYVERIFY
-"$script_directory/header-parity.sh" "$bundle"
+"$script_directory/verify-runtime-header.sh" "$bundle"
 expected_c_symbols=$(
     perl -0777 -ne 'while (/\b(kodosi_[A-Za-z0-9_]+)\s*\(/g) { print "_$1\n" }' "$header" |
         sort -u

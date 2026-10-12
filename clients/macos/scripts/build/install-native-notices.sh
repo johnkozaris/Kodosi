@@ -13,8 +13,8 @@ trap 'rm -rf "$staging"' EXIT
 cp "$GHOSTTY_DIR/LICENSE" "$staging/LICENSE"
 cp "$GHOSTTY_DIR/LICENSE-GHOSTTY" "$staging/LICENSE-GHOSTTY"
 cp "$GHOSTTY_DIR/THIRD_PARTY_NOTICES.md" "$staging/THIRD_PARTY_NOTICES.md"
-mkdir -p "$staging/Script" "$staging/Vendor/GhosttyKit.xcframework/macos-arm64"
-cp "$GHOSTTY_DIR/Script/relink-libintl.sh" "$staging/Script/relink-libintl.sh"
+mkdir -p "$staging/scripts" "$staging/Vendor/GhosttyKit.xcframework/macos-arm64"
+cp "$GHOSTTY_DIR/scripts/relink-libintl.sh" "$staging/scripts/relink-libintl.sh"
 cp "$GHOSTTY_DIR/Vendor/GhosttyKit.xcframework/macos-arm64/libghostty.a" \
     "$staging/Vendor/GhosttyKit.xcframework/macos-arm64/libghostty.a"
 cp -R "$GHOSTTY_DIR/ThirdPartyNotices" "$staging/ThirdPartyNotices"

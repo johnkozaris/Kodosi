@@ -50,9 +50,9 @@ source Toolchain.env
 source NativeBuild.env
 
 EXPECTED_PACKAGE_VERSION=$(tr -d '[:space:]' < VERSION)
-ACTUAL_RENDERER_DIGEST=$(./Script/artifact-digest.sh "$RENDERER")
-ACTUAL_VT_DIGEST=$(./Script/artifact-digest.sh "$VT")
-ACTUAL_SYMBOL_DIGEST=$(./Script/artifact-digest.sh "$VENDOR_ROOT/symbols")
+ACTUAL_RENDERER_DIGEST=$(./scripts/artifact-digest.sh "$RENDERER")
+ACTUAL_VT_DIGEST=$(./scripts/artifact-digest.sh "$VT")
+ACTUAL_SYMBOL_DIGEST=$(./scripts/artifact-digest.sh "$VENDOR_ROOT/symbols")
 
 SOURCE_DIR=${KODOSI_GHOSTTY_PATCHED_SOURCE:-build/ghostty-source}
 EXPECTED_GHOSTTY_COMMIT=$(tr -d '[:space:]' < MacOSGhostty.ref)
@@ -61,16 +61,16 @@ ACTUAL_PATCH_APPLICATION_DIGEST=$patch_application_sha256
 ACTUAL_ZIG_STORE_DIGEST=$zig_store_sha256
 EXPECTED_BUILD_OPTIONS=$ghostty_build_options
 if [ "${KODOSI_GHOSTTY_REQUIRE_BUILD_PROVENANCE:-0}" = 1 ]; then
-    ACTUAL_PATCHES_DIGEST=$(./Script/artifact-digest.sh Patches/ghostty)
-    EXPECTED_BUILD_OPTIONS=$(./Script/native-build-options.sh vector)
+    ACTUAL_PATCHES_DIGEST=$(./scripts/artifact-digest.sh Patches/ghostty)
+    EXPECTED_BUILD_OPTIONS=$(./scripts/native-build-options.sh vector)
     if [ ! -d "$SOURCE_DIR/.git" ] || [ ! -d "$SOURCE_DIR/zig-pkg" ]; then
         echo "[!] patched Ghostty source and Zig store are required for strict provenance verification"
         exit 1
     fi
     ACTUAL_PATCH_APPLICATION_DIGEST=$(
-        ./Script/patch-application-digest.sh "$SOURCE_DIR" "$EXPECTED_GHOSTTY_COMMIT"
+        ./scripts/patch-application-digest.sh "$SOURCE_DIR" "$EXPECTED_GHOSTTY_COMMIT"
     )
-    ACTUAL_ZIG_STORE_DIGEST=$(./Script/tree-digest.sh "$SOURCE_DIR/zig-pkg")
+    ACTUAL_ZIG_STORE_DIGEST=$(./scripts/tree-digest.sh "$SOURCE_DIR/zig-pkg")
 fi
 
 if [ "$ghostty_commit" != "$EXPECTED_GHOSTTY_COMMIT" ] ||
@@ -129,10 +129,10 @@ for slice in "${IOS_SLICES[@]}"; do
         echo "[!] metadata not found: $slice_metadata"
         exit 1
     fi
-    slice_target=$(./Script/native-build-options.sh target "$slice")
+    slice_target=$(./scripts/native-build-options.sh target "$slice")
     expected_slice_options=$(metadata_value "$slice_metadata" ghostty_build_options)
     if [ "${KODOSI_GHOSTTY_REQUIRE_BUILD_PROVENANCE:-0}" = 1 ]; then
-        expected_slice_options=$(./Script/native-build-options.sh vector "$slice")
+        expected_slice_options=$(./scripts/native-build-options.sh vector "$slice")
     fi
     expected_keys=
     for expectation in \
@@ -155,7 +155,7 @@ for slice in "${IOS_SLICES[@]}"; do
         "vt_cpu=$GHOSTTY_BUILD_CPU" \
         "vt_optimize=$GHOSTTY_BUILD_OPTIMIZE" \
         "combined_archive_sha256=$(shasum -a 256 "$slice_dir/libghostty.a" | awk '{print $1}')" \
-        "slice_artifact_sha256=$(./Script/artifact-digest.sh "$slice_dir")" \
+        "slice_artifact_sha256=$(./scripts/artifact-digest.sh "$slice_dir")" \
         "symbol_manifest_sha256=$(shasum -a 256 "$VENDOR_ROOT/symbols/$slice-strong.txt" | awk '{print $1}')"; do
         key=${expectation%%=*}
         expected_keys+="$key"$'\n'
@@ -190,7 +190,7 @@ require_build_version() {
     fi
 }
 
-./Script/verify-xcframework.sh "$RENDERER"
+./scripts/verify-xcframework.sh "$RENDERER"
 RENDERER_ARCHIVE="$RENDERER/macos-arm64/libghostty.a"
 VT_ARCHIVE="$VT/lib/libghostty-vt.a"
 for archive in \

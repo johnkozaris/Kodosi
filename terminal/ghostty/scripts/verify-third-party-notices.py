@@ -89,7 +89,7 @@ def verify_compliance_artifacts(manifest: dict) -> None:
         "ThirdPartyNotices/corresponding-source/libintl-0.24.tar",
         "ThirdPartyNotices/corresponding-source/libintl-0.24/MANIFEST.json",
         Z2D_ARCHIVE,
-        "Script/relink-libintl.sh",
+        "scripts/relink-libintl.sh",
     }
     if not isinstance(artifacts, dict) or set(artifacts) != required:
         fail("compliance artifact set differs from the exact contract")
@@ -101,7 +101,7 @@ def verify_compliance_artifacts(manifest: dict) -> None:
             require_git_owned(relative)
         if hashlib.sha256(path.read_bytes()).hexdigest() != record["sha256"]:
             fail(f"compliance artifact changed without inventory update: {relative}")
-    if not os.access(safe_file("Script/relink-libintl.sh"), os.X_OK):
+    if not os.access(safe_file("scripts/relink-libintl.sh"), os.X_OK):
         fail("libintl relink helper must be executable")
 
     source_manifest = json.loads(

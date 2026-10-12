@@ -26,4 +26,4 @@ if [ ! -d "$SOURCE_DIR/zig-pkg" ]; then
     exit 1
 fi
 
-"$PWD/Script/tree-digest.sh" "$SOURCE_DIR/zig-pkg"
+"$PWD/scripts/tree-digest.sh" "$SOURCE_DIR/zig-pkg"

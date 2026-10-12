@@ -9,8 +9,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-VERIFIER = Path("Script/verify-third-party-notices.py")
+ROOT = Path(__file__).resolve().parents[2]
+VERIFIER = Path("scripts/verify-third-party-notices.py")
 INVENTORY = Path("ThirdPartyNotices/inventory.json")
 ARCHIVE = Path(
     "ThirdPartyNotices/corresponding-source/"

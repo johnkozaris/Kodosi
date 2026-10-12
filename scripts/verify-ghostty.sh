@@ -46,7 +46,7 @@ for value in \
     fi
 done
 
-"$GHOSTTY_DIR/Script/verify-platform-pins.py" >/dev/null
+"$GHOSTTY_DIR/scripts/verify-platform-pins.py" >/dev/null
 
 if [[ "${KODOSI_WORKING_TREE_VALIDATION:-0}" == 1 ]]; then
     source "$GHOSTTY_DIR/Vendor/libghostty.version"
