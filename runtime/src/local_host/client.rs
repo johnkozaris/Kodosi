@@ -1,8 +1,8 @@
 use super::*;
 
 pub struct Client {
-    reader: FrameReader<tokio::net::unix::OwnedReadHalf>,
-    writer: tokio::net::unix::OwnedWriteHalf,
+    reader: FrameReader<kodosi_os::ipc::ReadHalf>,
+    writer: kodosi_os::ipc::WriteHalf,
     pub initial_events: Vec<Value>,
     pub host: Option<HostDescription>,
 }
@@ -69,7 +69,7 @@ pub async fn stop_other_host(root: &Path, force: bool) -> Result<()> {
     let mut client = Client::connect(root).await?;
     client.stop_host(force).await?;
     drop(client);
-    let root = root.canonicalize()?;
+    let root = kodosi_os::fs::canonicalize(root)?;
     let deadline = tokio::time::Instant::now() + STOP_WAIT;
     while lock_root(&root).is_err() {
         if tokio::time::Instant::now() >= deadline {
@@ -83,8 +83,8 @@ pub async fn stop_other_host(root: &Path, force: bool) -> Result<()> {
 }
 
 pub struct TerminalClient {
-    pub reader: FrameReader<tokio::net::unix::OwnedReadHalf>,
-    pub writer: tokio::net::unix::OwnedWriteHalf,
+    pub reader: FrameReader<kodosi_os::ipc::ReadHalf>,
+    pub writer: kodosi_os::ipc::WriteHalf,
     pub incarnation_id: Uuid,
 }
 impl TerminalClient {
@@ -101,22 +101,26 @@ impl TerminalClient {
         })
     }
 }
-async fn connect(root: &Path, session_id: Option<Uuid>) -> Result<(UnixStream, Welcome)> {
-    let root = root.canonicalize()?;
-    let path = socket_dir(&root)?.join("host.sock");
-    if !existing_owned_file(&path, true)? {
-        return Err(io::Error::new(
-            io::ErrorKind::NotFound,
-            "Kodosi is not running. Start the app or `kodosi host`.",
-        )
-        .into());
-    }
-    let mut stream = tokio::time::timeout(HELLO_TIMEOUT, UnixStream::connect(path))
-        .await
-        .map_err(|_| Error::Other("local connection timed out".into()))??;
-    if stream.peer_cred()?.uid() != rustix::process::geteuid().as_raw() {
-        return Err(Error::Invalid("local host belongs to another user".into()));
-    }
+async fn connect(
+    root: &Path,
+    session_id: Option<Uuid>,
+) -> Result<(kodosi_os::ipc::Stream, Welcome)> {
+    let root = kodosi_os::fs::canonicalize(root)?;
+    let mut stream =
+        tokio::time::timeout(HELLO_TIMEOUT, kodosi_os::ipc::connect(&endpoint(&root)?))
+            .await
+            .map_err(|_| Error::Other("local connection timed out".into()))?
+            .map_err(|error| {
+                if error.kind() == io::ErrorKind::NotFound {
+                    io::Error::new(
+                        io::ErrorKind::NotFound,
+                        "Kodosi is not running. Start the app or `kodosi host`.",
+                    )
+                    .into()
+                } else {
+                    local_error(error)
+                }
+            })?;
     write_json(
         &mut stream,
         &Hello {

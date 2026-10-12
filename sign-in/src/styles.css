@@ -3,7 +3,7 @@
 
 /*
  * Kodosi's own material, from the tokens of the apps (clients/macos/Sources/DesignSystem/AppTheme.swift,
- * clients/linux/src/qml/Theme): a warm workbench, lit from the top left. Raised objects rest on the
+ * clients/qt/src/qml/Theme): a warm workbench, lit from the top left. Raised objects rest on the
  * ground, and inputs sink into wells. The pages follow the device's light or dark.
  */
 @theme inline {

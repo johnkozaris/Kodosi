@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define KODOSI_FFI_ABI_VERSION 7
+#define KODOSI_FFI_ABI_VERSION 8
 
 #define KODOSI_MAX_FRAME_BYTES 8388608
 
@@ -68,6 +68,22 @@
 
 #define KODOSI_CLI_FAILED 70
 
+#define KODOSI_APP_OWNER 0
+
+#define KODOSI_APP_SECONDARY 1
+
+#define KODOSI_APP_FORWARDED 2
+
+#define KODOSI_APP_FAILED 3
+
+#define KODOSI_ACTIVATION_MAX_BYTES 16384
+
+#define KODOSI_LOG_INFO 0
+
+#define KODOSI_LOG_WARNING 1
+
+#define KODOSI_LOG_ERROR 2
+
 typedef struct kodosi_start_failure_t {
   int32_t code;
   int32_t host_kind;
@@ -75,6 +91,8 @@ typedef struct kodosi_start_failure_t {
   uint32_t host_local_sessions;
   char message[KODOSI_START_FAILURE_MESSAGE_BYTES];
 } kodosi_start_failure_t;
+
+typedef void (*kodosi_activation_cb_t)(const uint8_t*, uintptr_t, void*);
 
 typedef void (*kodosi_event_cb_t)(const uint8_t*, uintptr_t, void*);
 
@@ -134,6 +152,18 @@ extern "C" {
  int32_t kodosi_cli_main(int32_t length, const char *const *values) ;
 
  int32_t kodosi_send_command(void *handle, const uint8_t *bytes, uintptr_t len) ;
+
+
+int32_t kodosi_prepare(kodosi_activation_cb_t on_activation,
+                       void *userdata,
+                       const char **preferences)
+;
+
+ int32_t kodosi_forward_activation(const uint8_t *json, uintptr_t length) ;
+
+ int32_t kodosi_log(int32_t level, const uint8_t *utf8, uintptr_t length) ;
+
+ void kodosi_close_app(void) ;
 
 
 void *kodosi_start(const struct kodosi_callbacks_t *callbacks,

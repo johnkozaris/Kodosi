@@ -3,9 +3,14 @@
 
 #[cfg(not(any(
     all(target_os = "macos", target_arch = "aarch64"),
-    all(target_os = "linux", target_arch = "x86_64", target_env = "gnu")
+    all(target_os = "linux", target_arch = "x86_64", target_env = "gnu"),
+    all(
+        target_os = "windows",
+        target_env = "msvc",
+        any(target_arch = "x86_64", target_arch = "aarch64")
+    )
 )))]
-compile_error!("Kodosi supports arm64 macOS and x86_64 Linux GNU");
+compile_error!("Kodosi supports arm64 macOS, x86_64 Linux GNU and x86_64 or arm64 Windows MSVC");
 
 #[cfg(feature = "cli")]
 pub mod cli;

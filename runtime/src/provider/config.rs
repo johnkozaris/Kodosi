@@ -1,21 +1,9 @@
 use std::path::{Path, PathBuf};
 
-use rustix::fs::{Access, AtFlags, CWD, accessat};
-
 use super::{ConfigFile, Provider, ProviderInfo};
 
 pub(super) fn resolve_executable(provider: Provider) -> Option<PathBuf> {
-    std::env::var_os("PATH").and_then(|paths| {
-        std::env::split_paths(&paths)
-            .find_map(|directory| executable(&directory.join(provider.executable())))
-    })
-}
-
-pub(super) fn executable(path: &Path) -> Option<PathBuf> {
-    if !path.is_file() || accessat(CWD, path, Access::EXEC_OK, AtFlags::EACCESS).is_err() {
-        return None;
-    }
-    path.canonicalize().ok()
+    kodosi_os::process::find_executable(provider.executable())
 }
 
 pub(super) fn inspect(
@@ -66,8 +54,7 @@ pub(super) fn inspect(
         .map(|(label, path, allow_edit)| {
             let metadata = std::fs::metadata(&path);
             let exists = metadata.as_ref().is_ok_and(std::fs::Metadata::is_file);
-            let readable =
-                exists && accessat(CWD, &path, Access::READ_OK, AtFlags::EACCESS).is_ok();
+            let readable = exists && kodosi_os::fs::can_read(&path);
             if metadata
                 .as_ref()
                 .is_err_and(|error| error.kind() != std::io::ErrorKind::NotFound)
@@ -75,11 +62,9 @@ pub(super) fn inspect(
             {
                 unavailable = true;
             }
-            let editable = readable
-                && allow_edit
-                && accessat(CWD, &path, Access::WRITE_OK, AtFlags::EACCESS).is_ok();
+            let editable = readable && allow_edit && kodosi_os::fs::can_write(&path);
             let path = if readable {
-                path.canonicalize().unwrap_or(path)
+                kodosi_os::fs::canonicalize(&path).unwrap_or(path)
             } else {
                 path
             };

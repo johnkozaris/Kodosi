@@ -19,7 +19,8 @@ flowchart LR
 ```
 
 The Mac app embeds the Rust runtime through its native API. The Qt app does the same.
-The runtime starts a local shell on a PTY; that shell can start an existing agent CLI.
+The runtime starts a local shell on a PTY (ConPTY on Windows); that shell can start an
+existing agent CLI.
 Ghostty is a linked library for terminal state/rendering, not a separate process host.
 Native views handle presentation, focus, input, and accessibility.
 
@@ -28,7 +29,9 @@ start its own background runtime host; `kodosi host` runs one in the foreground.
 It exposes terminal, account, and room actions without starting an ASP.NET backend
 or taking over provider execution.
 On macOS, the signed app executable also serves the CLI so it uses the same Keychain
-identity. Linux packages include the native app and runtime CLI integration.
+identity. Linux packages include the native app and runtime CLI integration. The
+Windows package carries the CLI as `kodosi.exe`, reached through an app execution
+alias.
 
 ## Terminal state and concurrency
 
@@ -88,7 +91,7 @@ aligned in the same change; do not maintain parallel historical protocol documen
 - [runtime/src](../runtime/src/): sessions, identity, transport, rooms, providers, and CLI.
 - [backend/src/Kodosi.Host](../backend/src/Kodosi.Host/): accounts, devices, friends,
   missions, sessions, and terminal connections. Internal APIs call rooms “missions.”
-- [clients/macos](../clients/macos/) and [clients/linux](../clients/linux/): native UI.
+- [clients/macos](../clients/macos/) and [clients/qt](../clients/qt/): native UI.
 - [terminal/ghostty](../terminal/ghostty/): terminal integration and native artifacts.
 
 [All documentation](README.md) · [Development](DEVELOPMENT.md)

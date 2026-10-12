@@ -16,7 +16,7 @@ use tokio::{
     sync::{Mutex, Notify, RwLock, broadcast, mpsc, oneshot},
 };
 use tokio_tungstenite::{
-    MaybeTlsStream, WebSocketStream,
+    Connector, MaybeTlsStream, WebSocketStream,
     tungstenite::{Message, client::IntoClientRequest as _, protocol::WebSocketConfig},
 };
 use tokio_util::sync::CancellationToken;
@@ -200,7 +200,14 @@ async fn admitted(
         .max_frame_size(Some(MESSAGE_LIMIT));
     let (mut socket, _) = tokio::time::timeout(
         Duration::from_secs(10),
-        tokio_tungstenite::connect_async_with_config(request, Some(settings), true),
+        tokio_tungstenite::connect_async_tls_with_config(
+            request,
+            Some(settings),
+            true,
+            Some(Connector::Rustls(Arc::clone(
+                &network.inner.http.websocket_tls,
+            ))),
+        ),
     )
     .await
     .map_err(|_| invalid("Terminal connection timed out."))?

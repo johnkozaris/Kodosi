@@ -12,20 +12,18 @@ use uuid::Uuid;
 
 const INPUT_WINDOW: usize = 16;
 
-struct ScreenGuard;
+struct ScreenGuard {
+    _raw: kodosi_os::console::RawMode,
+}
 impl ScreenGuard {
     fn enter() -> Result<Self> {
-        crossterm::terminal::enable_raw_mode()?;
-        if let Err(error) = io::stdout().write_all(b"\x1b[?1049h") {
-            drop(crossterm::terminal::disable_raw_mode());
-            return Err(error.into());
-        }
-        Ok(Self)
+        let raw = kodosi_os::console::RawMode::enter()?;
+        io::stdout().write_all(b"\x1b[?1049h")?;
+        Ok(Self { _raw: raw })
     }
 }
 impl Drop for ScreenGuard {
     fn drop(&mut self) {
-        drop(crossterm::terminal::disable_raw_mode());
         drop(io::stdout().write_all(b"\x1b[?1049l"));
         drop(io::stdout().flush());
     }
@@ -63,7 +61,7 @@ pub(super) async fn attach(root: &Path, session: Uuid) -> Result<()> {
     let mut next = next_sequence;
     let _screen = ScreenGuard::enter()?;
     render(&mut mirror)?;
-    if let Ok((cols, rows)) = crossterm::terminal::size() {
+    if let Ok((cols, rows)) = kodosi_os::console::size() {
         local_host::write_resize(&mut client.writer, cols, rows).await?;
     }
     let (keys, mut typed) = tokio::sync::mpsc::channel::<Vec<u8>>(64);
@@ -78,7 +76,7 @@ pub(super) async fn attach(root: &Path, session: Uuid) -> Result<()> {
     });
     let mut escaped = false;
     let mut unacknowledged = 0usize;
-    let mut resize = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::window_change())?;
+    let mut resizes = kodosi_os::console::Resizes::new()?;
     let mut paint = tokio::time::interval(Duration::from_millis(16));
     paint.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut dirty = false;
@@ -114,7 +112,7 @@ pub(super) async fn attach(root: &Path, session: Uuid) -> Result<()> {
                     if dirty{render(&mut mirror)?;}return Ok(());
                 }
             },
-            _=resize.recv()=>{if let Ok((cols,rows))=crossterm::terminal::size(){local_host::write_resize(&mut client.writer,cols,rows).await?;}},
+            size=resizes.changed()=>{if let Ok((cols,rows))=size{local_host::write_resize(&mut client.writer,cols,rows).await?;}},
             _=paint.tick(),if dirty=>{render(&mut mirror)?;dirty=false;}
         }
     }

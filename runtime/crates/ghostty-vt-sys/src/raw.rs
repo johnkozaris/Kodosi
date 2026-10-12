@@ -369,6 +369,28 @@ impl Terminal {
         self.drain_effects()
     }
 
+    /// Matches a console host that measures grapheme clusters and keeps no
+    /// scrollback: grapheme widths (mode 2027) survive resets, and a taller
+    /// screen gains blank rows instead of pulling history back. Checkpoints
+    /// carry both, so replicas follow.
+    pub fn use_console_profile(&mut self) -> Result<(), Error> {
+        self.ensure_healthy()?;
+        let graphemes = GhosttyTerminalModeConfig {
+            mode: 2027,
+            value: true,
+        };
+        self.set_value(
+            GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_MODE_DEFAULT,
+            &graphemes,
+        )?;
+        self.set_value(GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_MODE, &graphemes)?;
+        let pull_scrollback = false;
+        self.set_value(
+            GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_RESIZE_PULL_SCROLLBACK,
+            &pull_scrollback,
+        )
+    }
+
     pub fn set_dark(&mut self, dark: bool) -> Result<(), Error> {
         self.ensure_healthy()?;
         self.callbacks.dark = dark;
@@ -1395,11 +1417,9 @@ mod tests {
     #[test]
     fn focus_encoding_follows_terminal_mode() {
         let mut terminal = terminal();
-        assert!(
-            terminal
-                .encode_focus(true)
-                .expect("unreported focus")
-                .is_empty()
+        assert_eq!(
+            terminal.encode_focus(true).expect("unreported focus"),
+            [] as [u8; 0]
         );
         terminal.write(b"\x1b[?1004h").expect("focus reporting");
         assert_eq!(terminal.encode_focus(true).expect("focus"), b"\x1b[I");
@@ -1448,7 +1468,7 @@ mod tests {
             .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
             .expect("encode checkpoint");
 
-        assert!(!bytes.is_empty());
+        assert_ne!(bytes, [] as [u8; 0]);
         assert_eq!(info.schema_version, GHOSTTY_CHECKPOINT_SCHEMA_VERSION);
         assert_eq!(info.json_bytes, bytes.len());
         assert_eq!(info.continuation_bytes, 4);

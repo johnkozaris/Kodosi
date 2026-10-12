@@ -14,6 +14,11 @@ const GHOSTTY_LOCK: &str = include_str!(concat!(
 const EXPECTED_OPTIMIZE: &str = "ReleaseFast";
 
 fn main() {
+    println!("cargo:rerun-if-env-changed=KODOSI_GHOSTTY_CHECK_ONLY");
+    // Type-checking never links, so a cross-check needs no vendored library.
+    if env::var_os("KODOSI_GHOSTTY_CHECK_ONLY").is_some() {
+        return;
+    }
     println!("cargo:rerun-if-env-changed=KODOSI_GHOSTTY_DIR");
     println!("cargo:rerun-if-env-changed=KODOSI_WORKING_TREE_VALIDATION");
     println!("cargo:rerun-if-changed=../../../Ghostty.lock");
@@ -28,7 +33,7 @@ fn main() {
     let platform_ref = root.join(artifact.platform_ref);
     let provenance = root.join(artifact.provenance);
     let artifact_dir = root.join(artifact.library_dir);
-    let archive = artifact_dir.join("libghostty-vt.a");
+    let archive = artifact_dir.join(artifact.archive);
     let metadata = fs::read_to_string(&provenance)
         .unwrap_or_else(|error| panic!("failed to read {}: {error}", provenance.display()));
     let working_tree = env::var("KODOSI_WORKING_TREE_VALIDATION").as_deref() == Ok("1");
@@ -84,9 +89,9 @@ fn main() {
 
     println!("cargo:rustc-link-search=native={}", artifact_dir.display());
 
-    println!("cargo:rustc-link-lib=static:-bundle=ghostty-vt");
-    if artifact.link_cxx {
-        println!("cargo:rustc-link-lib=c++");
+    println!("cargo:rustc-link-lib=static:-bundle={}", artifact.link_name);
+    for library in artifact.system_libraries {
+        println!("cargo:rustc-link-lib={library}");
     }
 }
 
@@ -98,7 +103,9 @@ struct TargetArtifact {
     upstream_lock_key: &'static str,
     archive_lock_key: &'static str,
     metadata_digest_key: &'static str,
-    link_cxx: bool,
+    archive: &'static str,
+    link_name: &'static str,
+    system_libraries: &'static [&'static str],
 }
 
 fn target_artifact(target: &str) -> TargetArtifact {
@@ -111,7 +118,9 @@ fn target_artifact(target: &str) -> TargetArtifact {
             upstream_lock_key: "upstream_commit",
             archive_lock_key: "combined_archive_sha256",
             metadata_digest_key: "combined_archive_sha256",
-            link_cxx: true,
+            archive: "libghostty-vt.a",
+            link_name: "ghostty-vt",
+            system_libraries: &["c++"],
         },
         "x86_64-unknown-linux-gnu" => TargetArtifact {
             platform_ref: "LinuxGhostty.ref",
@@ -121,9 +130,43 @@ fn target_artifact(target: &str) -> TargetArtifact {
             upstream_lock_key: "linux_upstream_commit",
             archive_lock_key: "linux_vt_archive_sha256",
             metadata_digest_key: "vt_archive_sha256",
-            link_cxx: false,
+            archive: "libghostty-vt.a",
+            link_name: "ghostty-vt",
+            system_libraries: &[],
         },
+        "x86_64-pc-windows-msvc" => windows_artifact("x86_64", "windows-x86_64"),
+        "aarch64-pc-windows-msvc" => windows_artifact("aarch64", "windows-arm64"),
         _ => panic!("Kodosi's vendored libghostty-vt artifact does not support {target}"),
+    }
+}
+
+fn windows_artifact(arch: &'static str, layout: &'static str) -> TargetArtifact {
+    let (provenance, library_dir, zig_target, archive_lock_key) = match layout {
+        "windows-x86_64" => (
+            "Vendor/GhosttyVt/windows-x86_64.version",
+            "Vendor/GhosttyVt/windows-x86_64/lib",
+            "x86_64-windows-msvc",
+            "windows_x86_64_vt_archive_sha256",
+        ),
+        _ => (
+            "Vendor/GhosttyVt/windows-arm64.version",
+            "Vendor/GhosttyVt/windows-arm64/lib",
+            "aarch64-windows-msvc",
+            "windows_arm64_vt_archive_sha256",
+        ),
+    };
+    debug_assert!(zig_target.starts_with(arch));
+    TargetArtifact {
+        platform_ref: "WindowsGhostty.ref",
+        provenance,
+        library_dir,
+        zig_target,
+        upstream_lock_key: "windows_upstream_commit",
+        archive_lock_key,
+        metadata_digest_key: "vt_archive_sha256",
+        archive: "ghostty-vt-static.lib",
+        link_name: "ghostty-vt-static",
+        system_libraries: &["ntdll"],
     }
 }
 

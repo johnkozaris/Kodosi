@@ -82,7 +82,9 @@ pub(crate) async fn create(
         .ok_or_else(|| Error::Invalid("The branch folder is not UTF-8.".to_owned()))?;
     git(&folder, &["worktree", "add", "-b", branch, target]).await?;
     Ok(Worktree {
-        path: tokio::fs::canonicalize(&path).await?,
+        path: tokio::task::spawn_blocking(move || kodosi_os::fs::canonicalize(&path))
+            .await
+            .map_err(std::io::Error::from)??,
         repository,
         branch: branch.to_owned(),
         base,

@@ -21,8 +21,12 @@ fn exported_contract_contains_only_current_entrypoints() {
         [
             "kodosi_abi_version",
             "kodosi_cli_main",
+            "kodosi_close_app",
+            "kodosi_forward_activation",
             "kodosi_host_stop",
             "kodosi_last_start_failure",
+            "kodosi_log",
+            "kodosi_prepare",
             "kodosi_protocol_version",
             "kodosi_send_command",
             "kodosi_start",
@@ -34,7 +38,26 @@ fn exported_contract_contains_only_current_entrypoints() {
         ]
     );
     assert!(text.contains("kodosi_start_failure_t"));
-    assert!(text.contains("#define KODOSI_FFI_ABI_VERSION 7"));
+    assert!(text.contains("#define KODOSI_FFI_ABI_VERSION 8"));
+    assert!(
+        text.contains("typedef void (*kodosi_activation_cb_t)(const uint8_t*, uintptr_t, void*);")
+    );
+    assert!(text.contains("#define KODOSI_ACTIVATION_MAX_BYTES 16384"));
+}
+
+#[test]
+fn desktop_contract_states_the_header_abi() {
+    let abi: u64 = header()
+        .lines()
+        .find_map(|line| line.strip_prefix("#define KODOSI_FFI_ABI_VERSION "))
+        .and_then(|value| value.trim().parse().ok())
+        .expect("ABI version define");
+    let contract: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../protocol/desktop-runtime.json"
+    )))
+    .expect("desktop contract");
+    assert_eq!(contract["ffiAbiVersion"], abi);
 }
 
 #[test]

@@ -33,7 +33,7 @@ for case in ['current', 'stale-protocol', 'stale-abi', 'no-vt', 'bundled-ghostty
         if symbol == 'kodosi_protocol_version':
             lines.append(f'unsigned int {symbol}(void) {{ return {54 if case == "stale-protocol" else 55}; }}')
         elif symbol == 'kodosi_abi_version':
-            lines.append(f'unsigned int {symbol}(void) {{ return {6 if case == "stale-abi" else 7}; }}')
+            lines.append(f'unsigned int {symbol}(void) {{ return {7 if case == "stale-abi" else 8}; }}')
         else:
             lines.append(f'void {symbol}(void) {{}}')
     if case != 'no-vt':
@@ -88,7 +88,7 @@ reject() {
 }
 
 reject stale-protocol "does not return exact desktop/runtime protocol v55"
-reject stale-abi "does not return exact C ABI v7"
+reject stale-abi "does not return exact C ABI v8"
 reject no-vt "lacks required libghostty-vt authority import"
 reject bundled-ghostty "bundles Ghostty definitions"
 reject partial "public kodosi_* exports differ"
@@ -111,4 +111,4 @@ if "$verifier" "$scratch_directory/current" "$maximum_deployment_target" "$archi
     exit 1
 fi
 grep -Fq "FFI artifact bundle association mismatch" "$scratch_directory/mismatch.log"
-echo "Verified exact ABI7/protocol50 exports, version values, VT imports, and artifact-bound header selection."
+echo "Verified exact ABI8/protocol55 exports, version values, VT imports, and artifact-bound header selection."

@@ -940,7 +940,9 @@ async fn create_session(
     let directory = working_dir
         .as_ref()
         .map_or_else(|| config.home.clone(), PathBuf::from);
-    let directory = tokio::fs::canonicalize(directory).await?;
+    let directory = tokio::task::spawn_blocking(move || kodosi_os::fs::canonicalize(&directory))
+        .await
+        .map_err(std::io::Error::from)??;
     if !tokio::fs::metadata(&directory).await?.is_dir() {
         return Err(Error::Invalid(
             "working directory is not a directory".to_owned(),
@@ -979,9 +981,7 @@ async fn create_session(
             config
                 .initial_shell
                 .as_ref()
-                .map(PathBuf::from)
-                .or_else(|| std::env::var_os("SHELL").map(PathBuf::from))
-                .unwrap_or_else(|| PathBuf::from("/bin/sh")),
+                .map_or_else(kodosi_os::process::default_shell, PathBuf::from),
             vec![],
         )
     };

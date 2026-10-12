@@ -2,17 +2,31 @@
 name = "kodosi-pty"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.97.1"
+rust-version = "1.99.0"
 publish = false
 
 [dependencies]
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["io-util", "net", "process", "rt", "time"] }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "process", "rt", "sync", "time"] }
 
 [target.'cfg(unix)'.dependencies]
 close_fds = "0.3.2"
 libc = "0.2.189"
 nix = { version = "0.31.3", features = ["fs", "process", "signal", "term"] }
+
+[target.'cfg(windows)'.dependencies]
+kodosi-os = { path = "../kodosi-os" }
+windows-sys = { version = "0.61.2", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Console",
+    "Win32_System_IO",
+    "Win32_System_JobObjects",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Pipes",
+    "Win32_System_Threading",
+] }
 
 [dev-dependencies]
 tempfile = { workspace = true }

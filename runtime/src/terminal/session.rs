@@ -1,13 +1,13 @@
 use std::{
     collections::{HashMap, VecDeque},
     future::Future,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
 };
 
 use bytes::Bytes;
-use kodosi_pty::{KodosiPty, RawFdAsyncReader, ShutdownStage, Transfer, WaitOutcome};
+use kodosi_pty::{KodosiPty, PtyReader, ShutdownStage, Transfer, WaitOutcome};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore, broadcast, mpsc, oneshot, watch};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
@@ -27,7 +27,6 @@ const MAX_PENDING_BYTES: usize = 4 * 1024 * 1024;
 const READ_BYTES: usize = 64 * 1024;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 const STOP_TIMEOUT: Duration = Duration::from_secs(10);
-const CLEAR_LINE: &str = "\x05\x15";
 
 type Completion = Option<std::result::Result<(), String>>;
 
@@ -146,6 +145,8 @@ impl LocalSession {
         changes: mpsc::Sender<SessionChange>,
     ) -> Result<Self> {
         let size = TerminalSize::default();
+        let clear_line = clear_line_keys(&program);
+        let launch_directory = directory.clone();
         let (emulator, pty, reader) = tokio::task::spawn_blocking(move || -> Result<_> {
             let cwd = directory
                 .to_str()
@@ -199,9 +200,11 @@ impl LocalSession {
             sequence: 0,
             host_stop_reply: None,
             program: None,
+            clear_line,
             prompt: false,
             viewers: HashMap::new(),
-            working_directory: None,
+            working_directory: launch_directory,
+            observed_directory: None,
             title: None,
             published_title: None,
             status: ProgramStatusRecords::default(),
@@ -243,7 +246,7 @@ impl LocalSession {
         drop(self.send(Request::Unsubscribe(connection)));
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, unix))]
     pub(crate) fn input(&self, connection: Uuid, bytes: Bytes) -> Result<()> {
         let write = PendingWrite::new(bytes, &self.input_budget, None)?;
         self.send(Request::Input { connection, write })
@@ -475,11 +478,28 @@ fn validated_pixels(
     Ok((Some(width), Some(height)))
 }
 
+/// The keys that clear a half-typed line before a start command. `PowerShell`
+/// and `cmd` cancel the line with Ctrl+C; Unix line editors use Ctrl+E, Ctrl+U.
+fn clear_line_keys(shell: &Path) -> &'static str {
+    let stem = shell
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or_default();
+    if ["pwsh", "powershell", "cmd"]
+        .iter()
+        .any(|windows| windows.eq_ignore_ascii_case(stem))
+    {
+        "\x03"
+    } else {
+        "\x05\x15"
+    }
+}
+
 struct LocalActor {
     id: Uuid,
     incarnation: Uuid,
     pty: KodosiPty,
-    reader: RawFdAsyncReader,
+    reader: PtyReader,
     emulator: SessionTerminalHandle,
     commands: mpsc::Receiver<Request>,
     host: mpsc::Receiver<HostRequest>,
@@ -495,9 +515,13 @@ struct LocalActor {
     sequence: u64,
     host_stop_reply: Option<oneshot::Sender<std::result::Result<serde_json::Value, String>>>,
     program: Option<String>,
+    clear_line: &'static str,
     prompt: bool,
     viewers: HashMap<Uuid, String>,
-    working_directory: Option<PathBuf>,
+    /// The session's folder: launch folder, then the latest OSC 7 or 9;9
+    /// report or PTY observation, whichever changed last.
+    working_directory: PathBuf,
+    observed_directory: Option<PathBuf>,
     title: Option<String>,
     published_title: Option<String>,
     status: ProgramStatusRecords,
@@ -529,15 +553,12 @@ impl LocalActor {
     fn metadata(&self) -> super::TerminalMetadata {
         super::TerminalMetadata {
             connected_users: self.connected_users(),
-            directory: self
-                .pty
-                .working_directory()
-                .map(|path| path.to_string_lossy().into_owned()),
+            directory: Some(self.working_directory.to_string_lossy().into_owned()),
             title: self
                 .title
                 .as_ref()
                 .map(|title| title.chars().take(1024).collect()),
-            program: self.pty.foreground_program(),
+            program: self.live_program(),
             status: self.status.summary(),
         }
     }
@@ -569,7 +590,21 @@ impl LocalActor {
         Ok(())
     }
 
+    /// Drops cancelled input, except a front write the PTY has not yet confirmed.
+    fn drop_cancelled_input(&mut self) {
+        let in_flight = self.reader.write_in_flight();
+        let mut index = 0;
+        self.queue.retain(|write| {
+            let keep = (in_flight && index == 0) || !write.is_cancelled();
+            index += 1;
+            keep
+        });
+    }
+
     fn flush(&mut self) -> Result<()> {
+        if self.reader.write_in_flight() {
+            return Ok(());
+        }
         while let Some(write) = self.queue.front_mut() {
             if write.is_cancelled() {
                 self.queue.pop_front();
@@ -593,8 +628,14 @@ impl LocalActor {
         Ok(())
     }
 
+    /// The front write's unsent bytes. A write the PTY has taken but not yet
+    /// confirmed stays at the front, cancelled or not, until `wrote` settles it.
     fn pending_input(&mut self) -> Option<Bytes> {
+        let in_flight = self.reader.write_in_flight();
         while let Some(write) = self.queue.front_mut() {
+            if in_flight {
+                return Some(write.bytes.slice(write.offset..));
+            }
             if write.is_cancelled() {
                 self.queue.pop_front();
             } else if write.offset == write.bytes.len() {
@@ -737,20 +778,12 @@ impl LocalActor {
         if tokio::time::Instant::now() >= self.next_program_check {
             self.next_program_check = tokio::time::Instant::now() + Duration::from_secs(1);
             if let Some(path) = self.pty.working_directory()
-                && self.working_directory.as_ref() != Some(&path)
-                && self
-                    .changes
-                    .try_send(SessionChange::Cwd {
-                        id: self.id,
-                        repository: crate::worktree::is_repository(&path),
-                        path: path.clone(),
-                    })
-                    .is_ok()
+                && self.observed_directory.as_ref() != Some(&path)
+                && self.set_working_directory(path.clone())
             {
-                self.working_directory = Some(path);
-                self.metadata_dirty = true;
+                self.observed_directory = Some(path);
             }
-            let program = self.pty.foreground_program();
+            let program = self.live_program();
             let prompt = self.at_prompt(program.as_deref());
             if program != self.program
                 && self
@@ -815,7 +848,7 @@ impl LocalActor {
         {
             self.resize_owner = None;
         }
-        self.queue.retain(|write| !write.is_cancelled());
+        self.drop_cancelled_input();
         self.flush()
     }
 
@@ -845,11 +878,7 @@ impl LocalActor {
                     }
                 }
                 TerminalEffect::Cwd(path) => {
-                    drop(self.changes.try_send(SessionChange::Cwd {
-                        id: self.id,
-                        repository: crate::worktree::is_repository(&path),
-                        path,
-                    }));
+                    self.set_working_directory(path);
                 }
                 TerminalEffect::Title(title) => {
                     self.metadata_dirty |= self.title.as_ref() != Some(&title);
@@ -882,6 +911,37 @@ impl LocalActor {
             }
         }
         Ok(())
+    }
+
+    /// What runs in the terminal: the app a running program reports, else what
+    /// its process shows.
+    fn live_program(&self) -> Option<String> {
+        self.status
+            .live_program()
+            .map(str::to_owned)
+            .or_else(|| self.pty.foreground_program())
+    }
+
+    /// Makes `path` the session's folder. False when the change cannot be
+    /// published yet, so the caller tries again.
+    fn set_working_directory(&mut self, path: PathBuf) -> bool {
+        if path == self.working_directory {
+            return true;
+        }
+        if self
+            .changes
+            .try_send(SessionChange::Cwd {
+                id: self.id,
+                repository: crate::worktree::is_repository(&path),
+                path: path.clone(),
+            })
+            .is_err()
+        {
+            return false;
+        }
+        self.working_directory = path;
+        self.metadata_dirty = true;
+        true
     }
 
     fn at_prompt(&self, program: Option<&str>) -> bool {
@@ -970,8 +1030,8 @@ impl LocalActor {
                 }
             }
             Request::Run { command, reply } => {
-                let result = if self.at_prompt(self.pty.foreground_program().as_deref()) {
-                    self.enqueue(Bytes::from(format!("{CLEAR_LINE}{command}\r")), None)
+                let result = if self.at_prompt(self.live_program().as_deref()) {
+                    self.enqueue(Bytes::from(format!("{}{command}\r", self.clear_line)), None)
                         .and_then(|()| self.flush())
                 } else {
                     Err(Error::Invalid("This terminal runs a program.".to_owned()))
@@ -1322,6 +1382,6 @@ fn host_geometry(
         .map_err(|error| Error::Invalid(error.to_string()))
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 #[path = "session_tests.rs"]
 mod tests;

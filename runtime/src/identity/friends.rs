@@ -7,10 +7,10 @@ use serde::{Deserialize, Serialize};
 use super::{
     device_cert::DeviceCertificate,
     pins::{Root, decode},
-    storage::private_write,
     wire_codec::ML_DSA_65_SIGNATURE_LEN,
 };
 use crate::network::{Error, Result, crypto, invalid};
+use kodosi_os::fs::write_private;
 
 const FRIEND_LIST_V1: &[u8] = b"kodosi-friend-list-v1";
 const MAX_BODY_LEN: usize = 256 * 1024;
@@ -144,7 +144,7 @@ impl FriendLists {
     pub(crate) fn put(&mut self, user_id: &str, signed_list: SignedFriendList) -> Result<()> {
         let mut next = self.lists.clone();
         next.insert(user_id.to_owned(), signed_list);
-        private_write(&self.path, &serde_json::to_vec(&next)?)?;
+        write_private(&self.path, &serde_json::to_vec(&next)?)?;
         self.lists = next;
         Ok(())
     }
@@ -164,7 +164,7 @@ fn root_from_hex(text: &str) -> Option<Root> {
         return None;
     }
     let mut root = [0; 32];
-    for (byte, pair) in root.iter_mut().zip(text.as_bytes().chunks_exact(2)) {
+    for (byte, pair) in root.iter_mut().zip(text.as_bytes().as_chunks::<2>().0) {
         *byte = u8::from_str_radix(std::str::from_utf8(pair).ok()?, 16).ok()?;
     }
     Some(root)
