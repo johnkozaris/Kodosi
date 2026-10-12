@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Builds the kodosi-ffi-c static library and copies it, with its generated C header,
-to <output-dir>/<target>/<profile>. Prints that folder, or gives it to the consume
-command as its last argument."""
+"""Builds the runtime library, which is the static library of the crate kodosi-ffi-c,
+and copies it, with its generated C header, to <output-dir>/<target>/<profile>. Prints
+that folder, or gives it to the consume command as its last argument."""
 
 from __future__ import annotations
 
@@ -44,9 +44,9 @@ def build(manifest: Path, output: Path, profile: str, target: str, default_featu
         elif message.get("reason") == "build-script-executed":
             out_dirs[message["package_id"]] = Path(message["out_dir"])
     if process.wait() != 0:
-        raise SystemExit("Cargo could not build the FFI library")
+        raise SystemExit("Cargo could not build the runtime library")
     if len(archives) != 1:
-        raise SystemExit("Cargo did not report one FFI library")
+        raise SystemExit("Cargo did not report one runtime library")
     [(package, archive)] = archives.items()
     header = out_dirs[package] / "kodosi_runtime.h"
     for source, destination in ((archive, bundle / archive_name(target)),

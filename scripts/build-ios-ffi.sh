@@ -19,7 +19,7 @@ IPHONEOS_DEPLOYMENT_TARGET=${IPHONEOS_DEPLOYMENT_TARGET:-$(cat "$root/clients/ap
 export IPHONEOS_DEPLOYMENT_TARGET
 unset SDKROOT
 
-bundle=$(python3 "$root/scripts/build-ffi-artifact.py" \
+bundle=$(python3 "$root/scripts/build-runtime-library.py" \
     --manifest "$root/runtime/Cargo.toml" --output-dir "$root/runtime/target/ffi-artifacts" \
     --profile "$profile" --target "$target" --no-default-features)
 

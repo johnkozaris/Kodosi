@@ -14,7 +14,7 @@ if [[ "${KODOSI_WORKING_TREE_VALIDATION:-0}" == 1 ]]; then
 fi
 python3 "$RUST_DIR/../terminal/ghostty/scripts/verify-ghostty-pins.py" ${working_tree:+"$working_tree"}
 target=$(cd "$RUST_DIR" && rustc -vV | grep '^host:' | cut -d' ' -f2)
-python3 "$RUST_DIR/../scripts/build-ffi-artifact.py" \
+python3 "$RUST_DIR/../scripts/build-runtime-library.py" \
     --manifest "$RUST_DIR/Cargo.toml" --output-dir "$ROOT/build/rust-ffi" \
     --profile dev --target "$target" \
     --consume-command bash "$ROOT/scripts/build/install-rust-artifact.sh" macos-host-debug "$(uname -m)"
