@@ -59,11 +59,8 @@ EOF
 if [ "$SKIP_TESTS" -eq 0 ]; then
     python3 "$ROOT_DIR/scripts/verify-ghostty-pins.py" \
         --working-tree --vendor "$STAGE_ROOT" --platform linux --patched-source "$SOURCE_DIR"
-    KODOSI_GHOSTTY_LINUX_ARTIFACT_ROOT="$ARTIFACT_STAGE" \
-        "$ROOT_DIR/scripts/verify-linux-vt-artifact.sh"
-    KODOSI_GHOSTTY_LINUX_ARTIFACT_ROOT="$ARTIFACT_STAGE" \
-        KODOSI_GHOSTTY_LINUX_METADATA="$METADATA_STAGE" \
-        "$ROOT_DIR/scripts/verify-linux-third-party-notices.py"
+    "$ROOT_DIR/scripts/verify-linux-vt-artifact.sh" --vendor "$STAGE_ROOT"
+    python3 "$ROOT_DIR/scripts/verify-linux-third-party-notices.py" --vendor "$STAGE_ROOT"
 fi
 
 DESTINATION="$ROOT_DIR/Vendor/GhosttyVt/$GHOSTTY_LINUX_VT_LAYOUT"

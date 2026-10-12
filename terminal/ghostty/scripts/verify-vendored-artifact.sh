@@ -2,9 +2,31 @@
 
 set -euo pipefail
 
+usage() {
+    echo "Usage: $0 [--vendor <folder>]" >&2
+}
+
+VENDOR_ROOT=
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --vendor)
+            if [ $# -lt 2 ]; then
+                usage
+                exit 1
+            fi
+            VENDOR_ROOT=$(cd "$2" && pwd)
+            shift 2
+            ;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
+done
+
 cd "$(dirname "$0")/.."
 
-VENDOR_ROOT=${KODOSI_GHOSTTY_VENDOR_ROOT:-Vendor}
+VENDOR_ROOT=${VENDOR_ROOT:-Vendor}
 RENDERER="$VENDOR_ROOT/GhosttyKit.xcframework"
 VT="$VENDOR_ROOT/GhosttyVt/macos-arm64"
 MACOS_MINIMUM=13.0

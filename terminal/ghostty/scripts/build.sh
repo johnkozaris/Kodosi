@@ -295,10 +295,8 @@ done
 if [ "$SKIP_TESTS" -eq 0 ]; then
     python3 "$ROOT_DIR/scripts/verify-ghostty-pins.py" \
         --working-tree --vendor "$VENDOR_STAGE" --platform macos --patched-source "$SOURCE_DIR"
-    KODOSI_GHOSTTY_VENDOR_ROOT="$VENDOR_STAGE" \
-        "$ROOT_DIR/scripts/verify-vendored-artifact.sh"
-    KODOSI_GHOSTTY_VENDOR_ROOT="$VENDOR_STAGE" \
-        "$ROOT_DIR/scripts/sanitize-native-boundary.sh"
+    "$ROOT_DIR/scripts/verify-vendored-artifact.sh" --vendor "$VENDOR_STAGE"
+    "$ROOT_DIR/scripts/sanitize-native-boundary.sh" --vendor "$VENDOR_STAGE"
 fi
 
 if [ ! -e "$ROOT_DIR/Vendor" ]; then

@@ -2,10 +2,34 @@
 
 set -euo pipefail
 
+usage() {
+    echo "Usage: $0 [--vendor <folder>]" >&2
+}
+
+VENDOR_ROOT=
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --vendor)
+            if [ $# -lt 2 ]; then
+                usage
+                exit 1
+            fi
+            VENDOR_ROOT=$(cd "$2" && pwd)
+            shift 2
+            ;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
+done
+
 cd "$(dirname "$0")/.."
 
 ROOT_DIR=$(pwd)
-ARTIFACT_ROOT=${KODOSI_GHOSTTY_LINUX_ARTIFACT_ROOT:-Vendor/GhosttyVt/linux-x86_64}
+# shellcheck disable=SC1091
+source LinuxVtBuild.env
+ARTIFACT_ROOT="${VENDOR_ROOT:-Vendor}/GhosttyVt/$GHOSTTY_LINUX_VT_LAYOUT"
 
 if [ ! -d "$ARTIFACT_ROOT" ]; then
     echo "[!] Linux Ghostty VT artifact is missing: $ARTIFACT_ROOT" >&2

@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import os
 import re
 import subprocess
-import sys
 import tarfile
 from datetime import date
 from pathlib import Path, PurePosixPath
@@ -33,7 +33,6 @@ Z2D_RECORD_KEYS = {
     "byteSize",
     "sha256",
 }
-ALLOW_WORKING_TREE_COMPLIANCE = os.environ.get("KODOSI_WORKING_TREE_VALIDATION") == "1"
 
 
 def fail(message: str) -> None:
@@ -117,7 +116,7 @@ def verify_principal_licenses() -> None:
         fail("LICENSE-GHOSTTY must preserve Ghostty's notice")
 
 
-def verify_compliance_artifacts(manifest: dict) -> None:
+def verify_compliance_artifacts(manifest: dict, working_tree: bool) -> None:
     artifacts = manifest.get("complianceArtifacts")
     required = {
         LIBINTL_ARCHIVE,
@@ -131,7 +130,7 @@ def verify_compliance_artifacts(manifest: dict) -> None:
         if set(record) != {"sha256"}:
             fail(f"invalid compliance artifact record: {relative}")
         path = safe_file(relative)
-        if not ALLOW_WORKING_TREE_COMPLIANCE:
+        if not working_tree:
             require_git_owned(relative)
         if hashlib.sha256(path.read_bytes()).hexdigest() != record["sha256"]:
             fail(f"compliance artifact changed without inventory update: {relative}")
@@ -576,12 +575,17 @@ def verify_pins(manifest: dict, slices: dict[str, dict]) -> None:
 
 
 def main() -> None:
-    if len(sys.argv) != 1:
-        fail("this verifier accepts no arguments")
+    parser = argparse.ArgumentParser(description="Verify the Ghostty notices of the Apple artifacts.")
+    parser.add_argument(
+        "--working-tree",
+        action="store_true",
+        help="accept compliance files that Git does not track yet. Use this for a build that you do not publish.",
+    )
+    arguments = parser.parse_args()
     manifest = load_manifest()
     slices = apple_slices()
     verify_principal_licenses()
-    verify_compliance_artifacts(manifest)
+    verify_compliance_artifacts(manifest, arguments.working_tree)
     verify_notices(manifest)
     component_ids = verify_components(manifest)
     archive = verify_archive(manifest, component_ids, slices)
