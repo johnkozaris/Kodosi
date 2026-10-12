@@ -96,7 +96,7 @@ Item {
         signal addClicked
 
         width: parent ? parent.width : 0
-        height: 28
+        height: 26
 
         AbstractButton {
             id: titleButton
@@ -111,7 +111,7 @@ Item {
             contentItem: PlainLabel {
                 leftPadding: 10
                 text: header.title
-                color: header.selected ? KodosiTheme.accentStrong : titleButton.hovered ? KodosiTheme.inkMuted : KodosiTheme.inkFaint
+                color: header.selected || titleButton.hovered ? KodosiTheme.ink : KodosiTheme.inkFaint
                 font.pixelSize: KodosiTheme.fontCaption
                 font.weight: Font.DemiBold
                 verticalAlignment: Text.AlignVCenter
@@ -144,7 +144,7 @@ Item {
         property bool selected: false
 
         width: parent ? parent.width : 0
-        height: 34
+        height: 32
         hoverEnabled: true
         activeFocusOnTab: true
         Accessible.name: title
@@ -152,7 +152,7 @@ Item {
         Accessible.selected: selected
 
         contentItem: RowLayout {
-            spacing: 9
+            spacing: 10
 
             Item {
                 Layout.preferredWidth: 22
@@ -163,14 +163,13 @@ Item {
                     width: 15
                     height: 15
                     name: nav.iconName
-                    color: nav.selected ? KodosiTheme.accentStrong : nav.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
+                    color: nav.selected ? KodosiTheme.accentStrong : KodosiTheme.inkMuted
                 }
             }
             PlainLabel {
                 Layout.fillWidth: true
                 text: nav.title
-                color: nav.selected || nav.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
-                font.weight: nav.selected ? Font.DemiBold : Font.Medium
+                font.weight: nav.selected ? Font.DemiBold : Font.Normal
                 elide: Text.ElideRight
             }
             CountBadge {
@@ -389,16 +388,18 @@ Item {
                     ToolTip.visible: hovered
                     ToolTip.text: qsTr("New terminal (Ctrl+Shift+N)")
                     ToolTip.delay: 600
-                    scale: pressed ? 0.98 : 1
+                    scale: pressed ? 0.97 : 1
+                    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
                     contentItem: RowLayout {
                         spacing: 8
-                        KIcon { Layout.leftMargin: 14; Layout.preferredWidth: 13; Layout.preferredHeight: 13; name: "plus"; color: KodosiTheme.accentInk; strokeWidth: 2.6 }
-                        PlainLabel { Layout.fillWidth: true; text: qsTr("New terminal"); color: KodosiTheme.accentInk; font.weight: Font.DemiBold }
+                        KIcon { Layout.leftMargin: 12; Layout.preferredWidth: 17; Layout.preferredHeight: 17; name: "plus"; color: KodosiTheme.accentInk; strokeWidth: 2.6 }
+                        PlainLabel { Layout.fillWidth: true; text: qsTr("New terminal"); color: KodosiTheme.accentInk; font.weight: Font.DemiBold; font.letterSpacing: -0.08 }
                     }
                     onClicked: root.newTerminalRequested("")
                 }
-                Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 18; color: KodosiTheme.alpha(KodosiTheme.accentInk, 0.2) }
+                Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 18; color: KodosiTheme.alpha(KodosiTheme.accentInk, 0.18) }
                 AbstractButton {
+                    id: newInFolder
                     Layout.preferredWidth: 38
                     Layout.fillHeight: true
                     objectName: "sidebar.sessions.folder"
@@ -409,8 +410,10 @@ Item {
                     ToolTip.visible: hovered
                     ToolTip.text: qsTr("New terminal in a folder…")
                     ToolTip.delay: 600
+                    scale: pressed ? 0.97 : 1
+                    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
                     contentItem: Item {
-                        KIcon { anchors.centerIn: parent; width: 14; height: 14; name: "folder"; color: KodosiTheme.accentInk; strokeWidth: 2 }
+                        KIcon { anchors.centerIn: parent; width: 16; height: 16; name: "folder"; color: KodosiTheme.accentInk; strokeWidth: 2 }
                     }
                     onClicked: Models.DesktopFiles.requestDirectory("new", Models.DesktopSettings.effectiveWorkingDirectory)
                 }
@@ -450,7 +453,7 @@ Item {
             }
             background: Rectangle {
                 radius: height / 2
-                color: KodosiTheme.alpha(KodosiTheme.accentSoft, 0.8)
+                color: KodosiTheme.alpha(KodosiTheme.accentSoft, 0.7)
             }
             onClicked: root.openTerminal(root.waiting[0].id)
         }
@@ -471,7 +474,15 @@ Item {
                 Behavior on y { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: 0.9 } }
                 Behavior on height { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
 
+                Models.SoftShadow {
+                    anchors.fill: caret
+                    radius: 1.5
+                    blur: 4
+                    color: KodosiTheme.accent
+                    opacity: 0.6
+                }
                 Rectangle {
+                    id: caret
                     x: -1.5
                     anchors.verticalCenter: parent.verticalCenter
                     width: 3
@@ -608,6 +619,10 @@ Item {
                         Accessible.id: objectName
                         Accessible.name: entry.name || ""
                         Accessible.selected: selected
+                        property real arrival: KodosiTheme.reduceMotion ? 1 : 0
+
+                        NumberAnimation on arrival { running: !KodosiTheme.reduceMotion; to: 1; duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic }
+                        Translate { id: roomRise; y: (1 - room.arrival) * 8 }
 
                         onSelectedChanged: root.claimPill(room, selected)
                         Component.onCompleted: root.claimPill(room, selected)
@@ -615,6 +630,8 @@ Item {
 
                         contentItem: RowLayout {
                             spacing: 9
+                            opacity: room.arrival
+                            transform: roomRise
 
                             RoomSigil {
                                 Layout.leftMargin: 8
@@ -624,8 +641,7 @@ Item {
                             PlainLabel {
                                 Layout.fillWidth: true
                                 text: room.entry.name || ""
-                                color: room.selected || room.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
-                                font.weight: room.selected ? Font.DemiBold : Font.Medium
+                                font.weight: room.selected ? Font.DemiBold : Font.Normal
                                 elide: Text.ElideRight
                             }
                         }
@@ -753,13 +769,17 @@ Item {
                                 readonly property string detail: session.activity || (session.kind === "remote" && session.connectionState !== "connected" ? (session.message || qsTr("Not connected")) : "")
 
                                 width: parent ? parent.width : 0
-                                height: caption.shown ? 40 : 34
+                                height: 38
                                 hoverEnabled: true
                                 activeFocusOnTab: true
                                 objectName: "sidebar.session." + sessionId
                                 Accessible.id: objectName
                                 Accessible.name: session.name || ""
                                 Accessible.selected: selected
+                                property real arrival: KodosiTheme.reduceMotion ? 1 : 0
+
+                                NumberAnimation on arrival { running: !KodosiTheme.reduceMotion; to: 1; duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic }
+                                Translate { id: rowRise; y: (1 - row.arrival) * 8 }
 
                                 onSelectedChanged: root.claimPill(row, selected)
                                 Component.onCompleted: root.claimPill(row, selected)
@@ -768,6 +788,8 @@ Item {
 
                                 contentItem: RowLayout {
                                     spacing: 9
+                                    opacity: row.arrival
+                                    transform: rowRise
 
                                     AgentMark {
                                         Layout.leftMargin: 8
@@ -784,8 +806,8 @@ Item {
                                         PlainLabel {
                                             Layout.fillWidth: true
                                             text: row.session.name || ""
-                                            color: row.selected || rowHover.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
-                                            font.weight: row.selected ? Font.DemiBold : Font.Medium
+                                            color: row.staged || row.selected ? KodosiTheme.ink : KodosiTheme.inkMuted
+                                            font.weight: row.selected || row.needsYou ? Font.DemiBold : Font.Normal
                                             elide: Text.ElideRight
                                         }
                                         ActivityLine {

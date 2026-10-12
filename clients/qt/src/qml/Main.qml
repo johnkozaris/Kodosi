@@ -110,6 +110,7 @@ ApplicationWindow {
                             interactionEnabled: !window.modalOpen
                             onInspectSessionRequested: (id, name) => details.openSession(id)
                             onNewSessionRequested: window.openCreate("")
+                            onResumeRequested: history.openModal()
                             onShareSessionRequested: (id, name) => share.openSession(id)
                         }
                     }

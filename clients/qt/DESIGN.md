@@ -63,7 +63,7 @@ components:
 # Design System: Kodosi for Linux and Windows
 
 ## Overview
-Kodosi is a warm workbench, lit from above. A source list rests on the ground. One framed surface holds the work. Raised objects rest on that surface, and inputs sink into wells. The copper cursor is the sign of life: it is in the wordmark, it is the empty slot for a new terminal, and a new terminal opens from it.
+Kodosi is a warm workbench, lit from above. A source list rests on the ground, which carries a faint copper glow from the top left and a fine grain. One framed surface holds the work. Raised objects rest on that surface, and inputs sink into wells. The copper cursor is the sign of life: it is in the wordmark, it is the empty slot for a new terminal, and a new terminal opens from it.
 
 Each screen starts with the objects of its job: terminals, rooms, people, tasks. Text is short. One word has one meaning: terminal, room, friend, agent, device. The Mac client uses the same system.
 
@@ -71,18 +71,18 @@ Each screen starts with the objects of its job: terminals, rooms, people, tasks.
 Copper `accent` means "act here" or "this is selected". The glow colors show only while something works or just changed. Green `ready` means done or verified, and people never use green. Unqualified tokens are dark, and `-light` tokens are the light pair. Use `KodosiTheme` roles, not literals. A terminal is a dark object in the two themes: its tile and header use the `terminal*` roles.
 
 ## Typography
-Inherit the Qt application font. `large` is for page titles, `title` for sheets, `headline` for object names, `body` for conversation and rows, `footnote` and `caption` for facts. Monospace is for code, paths and the wordmark. Labels use sentence case.
+Inherit the Qt application font. `large` is for page titles, `title` for sheets, `headline` for object names, `body` for conversation and rows, `footnote` and `caption` for facts. Monospace is for code, paths and the wordmark. Labels use sentence case. Labels rise by `KodosiTheme.lift()` so that capitals, not the font's line box, sit centred, as they do on the Mac.
 
 ## Layout
-The desktop draws the window frame. The source list is (252 px), or a rail of marks (78 px). The main frame is inset (8 px) with a (18 px) radius. Pages have (36 px) margins. A room has a (54 px) header, a canvas, and the conversation on a raised sheet (300–540 px) that slides in from the right. Below (720 px) the room shows one of the two.
+On Linux the desktop draws the window frame. On Windows Kodosi draws a (36 px) title zone: the wordmark, Go to and the sidebar button share the line of the window controls at the right, and the main frame starts below it. The source list is (252 px), or a rail of marks (78 px). The main frame is inset (8 px) with a (18 px) radius. Pages have (36 px) margins. A room has a (54 px) header, a canvas, and the conversation on a raised sheet (300–540 px) that slides in from the right. Below (720 px) the room shows one of the two.
 
 When chrome moves, the terminal gets its final size at once. The chrome animates, the terminal does not.
 
 ## Elevation & Depth
-Three levels: resting, lifted (hover, focused composer, menus) and floating (sheets, notices, the Go to palette). `Raised` draws a light rim, a dark rim and soft shadows that fall down and to the right. It uses plain shapes, so it renders the same with and without a GPU. Do not add shader effects.
+Three levels: resting, lifted (hover, focused composer, menus) and floating (sheets, notices, the Go to palette). `Raised` matches the Mac: a tight contact shadow and a wide ambient shadow that fall down and to the right, a rim that is light at the top left and dark at the bottom right, and a hairline. The shadows are Gaussian images drawn by `SoftShadow`, so they render the same with and without a GPU. Do not add shader effects.
 
 ## Shapes
-Actions, tags and pills are capsules. Rounded squares are agents, rooms and kinds of things. Circles are people. A thin outline is a slot that you can fill.
+Actions, tags and pills are capsules. Rounded squares are agents, rooms and kinds of things. Circles are people and icon buttons. A dashed outline is a slot that you can fill.
 
 ## Components
 - **Agent mark:** a rounded square in the color of the program, with its glyph. A shell shows a prompt and the copper cursor. The mark is pale when the terminal is minimized. The mark shows the state of its program: a warm rim turns round it while the program works, the rim is an arc when the program reports a percent, and a still copper ring with a gap shows while the program waits for you. The mark squashes a little at each change of state.
@@ -98,7 +98,7 @@ Actions, tags and pills are capsules. Rounded squares are agents, rooms and kind
 - **Tasks:** cards in "Up for grabs", "In progress" and "Done".
 - **Go to (Ctrl+K):** one field finds terminals, rooms, people and actions.
 
-Working text shimmers. New words of a program rise into place. A terminal that rang its bell, or where an agent stopped work while you looked elsewhere, shows a breathing copper dot until you look at it. With reduced motion, all changes are instant and nothing loops. QML remains authoritative.
+Working text shimmers. New words of a program rise into place, and so do new rows and the groups of a page as it appears. A terminal that rang its bell, or where an agent stopped work while you looked elsewhere, shows a breathing copper dot until you look at it. With reduced motion, all changes are instant and nothing loops. On Windows, reduced motion follows Settings › Accessibility › Visual effects › Animation effects. QML remains authoritative.
 
 ## Do's and Don'ts
 - **Do** animate only for an action or a real change of state.

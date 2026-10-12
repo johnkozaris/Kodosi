@@ -4,6 +4,7 @@ import Kodosi 1.0
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Shapes
 import Kodosi.Models 1.0 as Models
 
 Item {
@@ -29,6 +30,41 @@ Item {
     }
 
     signal newTerminalRequested
+    signal resumeRequested
+
+    component Prompt: Row {
+        id: prompt
+
+        property real size: 15
+
+        spacing: size * 0.4
+
+        Shape {
+            id: chevron
+            anchors.verticalCenter: parent.verticalCenter
+            width: prompt.size * 0.42
+            height: prompt.size * 0.72
+            preferredRendererType: Shape.CurveRenderer
+
+            ShapePath {
+                strokeColor: KodosiTheme.inkFaint
+                strokeWidth: Math.max(1.8, prompt.size * 0.13)
+                fillColor: "transparent"
+                capStyle: ShapePath.RoundCap
+                joinStyle: ShapePath.RoundJoin
+                startX: chevron.width * 0.2
+                startY: chevron.height * 0.12
+                PathLine { x: chevron.width * 0.82; y: chevron.height / 2 }
+                PathLine { x: chevron.width * 0.2; y: chevron.height * 0.88 }
+            }
+        }
+        CursorBlock {
+            anchors.verticalCenter: parent.verticalCenter
+            width: prompt.size * 0.55
+            height: prompt.size
+            blinks: true
+        }
+    }
 
     objectName: "stage.overview"
     Accessible.id: objectName
@@ -75,55 +111,96 @@ Item {
         visible: !root.loading && !root.failed && root.sessions.length === 0
         spacing: 26
 
-        Item {
+        Arrival {
             Layout.alignment: Qt.AlignHCenter
-            implicitWidth: 300
-            implicitHeight: 150
 
-            Raised {
-                anchors.fill: parent
-                radius: KodosiTheme.radiusTile
-                fill: KodosiTheme.terminal
-                rim: false
-                elevation: 2
-            }
-            Rectangle {
-                width: parent.width
-                height: 30
-                topLeftRadius: KodosiTheme.radiusTile
-                topRightRadius: KodosiTheme.radiusTile
-                color: KodosiTheme.terminalBand
-
-                Row {
-                    x: 10
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 8
-                    AgentMark { size: 16 }
-                    Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 70; height: 6; radius: 3; color: KodosiTheme.alpha(KodosiTheme.terminalInk, 0.2) }
-                }
-            }
-            Row {
-                x: 16
-                y: 48
-                spacing: 8
-
-                Text { text: "~ ❯"; color: KodosiTheme.terminalInkFaint; font.family: "monospace"; font.pixelSize: 13 }
-                CursorBlock { anchors.verticalCenter: parent.verticalCenter; width: 8; height: 15; blinks: true; color: KodosiTheme.terminalAccent }
-            }
-        }
-        EmptyState {
-            Layout.fillWidth: true
-            title: qsTr("Start with a terminal")
-            message: qsTr("Run a shell or an agent. Share it with a room when you want company.")
-
-            KButton {
+            AbstractButton {
+                id: firstSlot
+                implicitWidth: 400
+                implicitHeight: 220
+                hoverEnabled: true
+                activeFocusOnTab: true
                 objectName: "stage.empty.new"
                 Accessible.id: objectName
-                variant: KButton.Primary
-                large: true
-                iconName: "plus"
-                text: qsTr("New terminal")
+                Accessible.name: qsTr("New terminal")
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("New terminal (Ctrl+Shift+N)")
+                ToolTip.delay: 600
+                scale: pressed ? 0.98 : 1
+
+                Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
+
+                background: DashedSlot {
+                    radius: KodosiTheme.radiusXl
+                    hovered: firstSlot.hovered
+                }
+                contentItem: Item {
+                    Row {
+                        x: 18
+                        y: 18
+                        spacing: 6
+
+                        Repeater {
+                            model: 3
+
+                            Rectangle { width: 7; height: 7; radius: 3.5; color: KodosiTheme.alpha(KodosiTheme.inkFaint, 0.35) }
+                        }
+                    }
+                    Prompt {
+                        x: 18
+                        anchors.verticalCenter: parent.verticalCenter
+                        size: 26
+                    }
+                }
                 onClicked: root.newTerminalRequested()
+            }
+        }
+        Arrival {
+            Layout.fillWidth: true
+            delay: 60
+            spacing: 6
+
+            PlainLabel {
+                Layout.fillWidth: true
+                text: qsTr("Start with a terminal")
+                font.pixelSize: KodosiTheme.fontTitle
+                font.weight: Font.DemiBold
+                font.letterSpacing: -0.4
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+            }
+            PlainLabel {
+                Layout.fillWidth: true
+                text: qsTr("It runs on this computer. Share it when you want company.")
+                color: KodosiTheme.inkMuted
+                font.pixelSize: KodosiTheme.fontFootnote
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+            }
+        }
+        Arrival {
+            Layout.alignment: Qt.AlignHCenter
+            delay: 120
+
+            RowLayout {
+                spacing: 8
+
+                KButton {
+                    objectName: "stage.empty.folder"
+                    Accessible.id: objectName
+                    variant: KButton.Ghost
+                    iconName: "folder"
+                    text: qsTr("Open a folder…")
+                    onClicked: Models.DesktopFiles.requestDirectory("new", Models.DesktopSettings.effectiveWorkingDirectory)
+                }
+                KButton {
+                    objectName: "stage.empty.resume"
+                    Accessible.id: objectName
+                    variant: KButton.Ghost
+                    iconName: "history"
+                    text: qsTr("Resume a conversation")
+                    onClicked: root.resumeRequested()
+                }
             }
         }
     }
@@ -134,12 +211,12 @@ Item {
         contentWidth: availableWidth
 
         ColumnLayout {
-            x: 30
-            width: Math.min(1040, scroll.availableWidth - 60)
-            spacing: 22
+            x: (scroll.availableWidth - Math.min(1040, scroll.availableWidth)) / 2 + 36
+            width: Math.min(1040, scroll.availableWidth) - 72
+            spacing: 30
 
-            ColumnLayout {
-                Layout.topMargin: 44
+            Arrival {
+                Layout.topMargin: 54
                 spacing: 4
 
                 PlainLabel { text: qsTr("Your terminals"); font.pixelSize: KodosiTheme.fontLarge; font.weight: Font.DemiBold; font.letterSpacing: -0.6 }
@@ -152,22 +229,26 @@ Item {
             Repeater {
                 model: root.places
 
-                ColumnLayout {
+                Arrival {
                     id: place
 
                     required property var modelData
+                    required property int index
 
                     Layout.fillWidth: true
-                    spacing: 10
+                    delay: 40 * (index + 1)
+                    spacing: 12
 
                     RowLayout {
                         spacing: 7
-                        KIcon { Layout.preferredWidth: 14; Layout.preferredHeight: 14; name: "laptop"; color: KodosiTheme.inkFaint }
-                        PlainLabel { text: place.modelData.label; color: KodosiTheme.inkMuted; font.pixelSize: KodosiTheme.fontFootnote; font.weight: Font.Medium }
+                        KIcon { Layout.preferredWidth: 14; Layout.preferredHeight: 14; name: "laptop"; color: KodosiTheme.inkMuted }
+                        PlainLabel { text: place.modelData.label; color: KodosiTheme.inkMuted; font.weight: Font.DemiBold; font.letterSpacing: -0.08 }
                     }
                     CardGrid {
                         id: grid
                         Layout.fillWidth: true
+                        minimum: 230
+                        maximum: 320
 
                         Repeater {
                             model: place.modelData.sessions
@@ -179,15 +260,16 @@ Item {
                                 readonly property bool needsYou: Models.Sessions.attention.indexOf(modelData.id) >= 0
 
                                 width: grid.cardWidth
-                                height: 62
+                                height: 68
                                 hoverEnabled: true
                                 activeFocusOnTab: true
                                 objectName: "overview.session." + modelData.id
                                 Accessible.id: objectName
                                 Accessible.name: modelData.name
                                 scale: pressed ? 0.98 : 1
+                                transform: Translate { y: card.hovered ? -1 : 0; Behavior on y { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic } } }
 
-                                Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover } }
+                                Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
 
                                 background: Raised {
                                     radius: KodosiTheme.radiusLg
@@ -197,18 +279,18 @@ Item {
                                 contentItem: RowLayout {
                                     spacing: 12
 
-                                    AgentMark { Layout.leftMargin: 12; program: card.modelData.program || ""; size: 32; session: card.modelData }
+                                    AgentMark { Layout.leftMargin: 14; program: card.modelData.program || ""; size: 34; session: card.modelData }
                                     ColumnLayout {
                                         Layout.fillWidth: true
-                                        spacing: 2
-                                        PlainLabel { Layout.fillWidth: true; text: card.modelData.name; font.weight: Font.DemiBold; elide: Text.ElideRight }
+                                        spacing: 3
+                                        PlainLabel { Layout.fillWidth: true; text: card.modelData.name; font.weight: Font.DemiBold; font.letterSpacing: -0.08; elide: Text.ElideRight }
                                         ActivityLine {
                                             Layout.fillWidth: true
                                             session: card.modelData
                                             words: card.modelData.activity || card.modelData.folderName || Identity.kindLabel(Identity.kind(card.modelData.program || ""))
                                         }
                                     }
-                                    StatusSign { Layout.rightMargin: 12; session: card.modelData; unseen: card.needsYou; size: 16 }
+                                    StatusSign { Layout.rightMargin: 14; session: card.modelData; unseen: card.needsYou; size: 13 }
                                 }
                                 onClicked: {
                                     Models.Sessions.clearAttention(modelData.id)
@@ -220,32 +302,31 @@ Item {
                             id: slot
                             visible: place.modelData.key === ""
                             width: grid.cardWidth
-                            height: 62
+                            height: 68
                             hoverEnabled: true
                             activeFocusOnTab: true
                             objectName: "overview.new"
                             Accessible.id: objectName
                             Accessible.name: qsTr("New terminal")
-                            background: Rectangle {
+                            scale: pressed ? 0.98 : 1
+
+                            Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
+
+                            background: DashedSlot {
                                 radius: KodosiTheme.radiusLg
-                                color: KodosiTheme.alpha(KodosiTheme.ink, slot.hovered ? 0.05 : 0)
-                                border.width: 1
-                                border.color: KodosiTheme.alpha(KodosiTheme.inkFaint, slot.hovered ? 0.8 : 0.45)
+                                hovered: slot.hovered
                             }
                             contentItem: RowLayout {
-                                spacing: 8
-                                Item { Layout.fillWidth: true }
-                                KIcon { Layout.preferredWidth: 12; Layout.preferredHeight: 12; name: "prompt"; strokeWidth: 2.6; color: KodosiTheme.inkFaint }
-                                CursorBlock { Layout.preferredWidth: 7; Layout.preferredHeight: 14; blinks: slot.hovered }
-                                PlainLabel { text: qsTr("New terminal"); color: KodosiTheme.inkMuted; font.weight: Font.DemiBold }
-                                Item { Layout.fillWidth: true }
+                                spacing: 10
+                                Prompt { Layout.leftMargin: 16; size: 15 }
+                                PlainLabel { Layout.fillWidth: true; text: qsTr("New terminal"); color: KodosiTheme.inkMuted; font.weight: Font.DemiBold; font.letterSpacing: -0.08 }
                             }
                             onClicked: root.newTerminalRequested()
                         }
                     }
                 }
             }
-            Item { Layout.preferredHeight: 30 }
+            Item { Layout.preferredHeight: 36 }
         }
     }
 }

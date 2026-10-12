@@ -223,11 +223,13 @@ qt_add_qml_module(kodosi-ui
         qml/Settings/ProviderSettings.qml
         qml/Controls/ActivityLine.qml
         qml/Controls/AgentMark.qml
+        qml/Controls/Arrival.qml
         qml/Controls/AvatarStack.qml
         qml/Controls/BreathingDot.qml
         qml/Controls/CardGrid.qml
         qml/Controls/CountBadge.qml
         qml/Controls/CursorBlock.qml
+        qml/Controls/DashedSlot.qml
         qml/Controls/EmptyState.qml
         qml/Controls/IconTile.qml
         qml/Controls/KButton.qml
