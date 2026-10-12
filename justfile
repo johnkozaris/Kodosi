@@ -42,11 +42,13 @@ ghostty-check: ghostty-host-check
 [private]
 [macos]
 ghostty-host-check:
+    python3 "{{ ghostty_dir }}/scripts/tests/test_digest.py"
     "{{ ghostty_dir }}/scripts/verify-third-party-notices.py"
 
 [private]
 [linux]
 ghostty-host-check:
+    python3 "{{ ghostty_dir }}/scripts/tests/test_digest.py"
     "{{ ghostty_dir }}/scripts/verify-linux-third-party-notices.py"
 
 # Git Bash has no ar, lipo or plutil for the notice checks.

@@ -8,6 +8,7 @@ export CLANG_MODULE_CACHE_PATH="${CLANG_MODULE_CACHE_PATH:-/tmp/clang-module-cac
 export SWIFTPM_MODULECACHE_OVERRIDE="${SWIFTPM_MODULECACHE_OVERRIDE:-/tmp/swiftpm-module-cache}"
 
 python3 scripts/verify-ghostty-pins.py --working-tree
+python3 scripts/tests/test_digest.py
 ./scripts/verify-third-party-notices.py
 
 echo "[*] build target=GhosttyTerminal platform=macOS"
