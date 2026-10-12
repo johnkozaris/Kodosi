@@ -46,7 +46,7 @@ Run these from the repository root. `just --list` is the complete command refere
 | Command | Purpose |
 | --- | --- |
 | `just rust-cli-build` | Build the standalone development CLI |
-| `just rust-all` | Rust format, compilation, docs, lint, dependencies, contracts, tests, coverage |
+| `just rust-all` | Ghostty pins and notices, Rust format, compilation, docs, lint, dependencies, contracts, tests, coverage |
 | `just backend-test` | Build and test the backend; database tests need a container runtime |
 | `just check-all` | Run the Rust and backend gates |
 | `just mac-build` / `just mac-check` | Build / check the Mac app |

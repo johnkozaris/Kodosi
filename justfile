@@ -32,10 +32,30 @@ _dependency-tools:
 _coverage-tool:
     @test -x "{{ cargo_tools_bin }}/cargo-llvm-cov" || { printf '%s\n' 'Run just rust-tools-install first.' >&2; exit 1; }
 
-# Do the Ghostty pin and artifact checks without a build.
+# Do the Ghostty pin, artifact and notice checks without a build.
 [group('ghostty')]
-ghostty-verify:
+ghostty-verify: ghostty-host-verify
     scripts/verify-ghostty.sh
+
+[private]
+[macos]
+ghostty-host-verify:
+    "{{ ghostty_dir }}/Script/test-platform-pins.py"
+    "{{ ghostty_dir }}/Script/verify-third-party-notices.py"
+    "{{ ghostty_dir }}/Script/test-z2d-source-acquisition.py"
+
+[private]
+[linux]
+ghostty-host-verify:
+    "{{ ghostty_dir }}/Script/test-platform-pins.py"
+    "{{ ghostty_dir }}/Script/verify-linux-third-party-notices.py"
+
+# Git Bash has no ar, lipo or plutil for the notice checks. On Windows, the pin
+# tests write their fixture files with CRLF line ends, and the pin verifier
+# rejects them.
+[private]
+[windows]
+ghostty-host-verify:
 
 # Build the development CLI in runtime/target/debug.
 [group('rust')]
