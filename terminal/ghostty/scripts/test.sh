@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 export CLANG_MODULE_CACHE_PATH="${CLANG_MODULE_CACHE_PATH:-/tmp/clang-module-cache}"
 export SWIFTPM_MODULECACHE_OVERRIDE="${SWIFTPM_MODULECACHE_OVERRIDE:-/tmp/swiftpm-module-cache}"
 
-./scripts/verify-platform-pins.py
+python3 scripts/verify-ghostty-pins.py --working-tree
 ./scripts/verify-third-party-notices.py
 
 echo "[*] build target=GhosttyTerminal platform=macOS"

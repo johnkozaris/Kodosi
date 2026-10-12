@@ -37,7 +37,7 @@ rust-coverage-tools-check:
 # Do the Ghostty pin, artifact and notice checks without a build.
 [group('ghostty')]
 ghostty-check: ghostty-host-check
-    scripts/verify-ghostty.sh
+    python3 terminal/ghostty/scripts/verify-ghostty-pins.py
 
 [private]
 [macos]

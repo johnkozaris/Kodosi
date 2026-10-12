@@ -16,7 +16,11 @@ cd "$ROOT"
 if [[ "$VALIDATION_MODE" == release ]]; then
     "$ROOT/scripts/build/verify-kodosi-checkout.sh"
 fi
-"$RUST_DIR/../scripts/verify-ghostty.sh"
+working_tree=
+if [[ "${KODOSI_WORKING_TREE_VALIDATION:-0}" == 1 ]]; then
+    working_tree=--working-tree
+fi
+python3 "$RUST_DIR/../terminal/ghostty/scripts/verify-ghostty-pins.py" ${working_tree:+"$working_tree"}
 python3 "$RUST_DIR/../scripts/build-ffi-artifact.py" \
     --manifest "$RUST_DIR/Cargo.toml" --output-dir "$ROOT/build/rust-ffi" \
     --profile release --target aarch64-apple-darwin \

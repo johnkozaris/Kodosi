@@ -7,7 +7,7 @@ default: check
 
 [private]
 ghostty-pins-check:
-    ../../scripts/verify-ghostty.sh
+    python3 ../../terminal/ghostty/scripts/verify-ghostty-pins.py
 
 # Generate the Xcode project from project.yml.
 xcode-gen:
@@ -53,7 +53,7 @@ release-build: ghostty-pins-check xcode-gen apple-test
 
 # Build an archive of the working tree for validation. You cannot publish it.
 working-tree-build: xcode-gen
-    KODOSI_WORKING_TREE_VALIDATION=1 ../../scripts/verify-ghostty.sh
+    python3 ../../terminal/ghostty/scripts/verify-ghostty-pins.py --working-tree
     KODOSI_WORKING_TREE_VALIDATION=1 swift test \
         --package-path ../apple
     KODOSI_WORKING_TREE_VALIDATION=1 xcodebuild -project KodosiDesktop.xcodeproj \

@@ -8,7 +8,11 @@ kodosi_load_macos_deployment_target "$ROOT"
 source "$ROOT/scripts/build/kodosi-paths.sh"
 RUST_DIR=$(kodosi_runtime_root "$ROOT")
 cd "$ROOT"
-"$RUST_DIR/../scripts/verify-ghostty.sh"
+working_tree=
+if [[ "${KODOSI_WORKING_TREE_VALIDATION:-0}" == 1 ]]; then
+    working_tree=--working-tree
+fi
+python3 "$RUST_DIR/../terminal/ghostty/scripts/verify-ghostty-pins.py" ${working_tree:+"$working_tree"}
 target=$(cd "$RUST_DIR" && rustc -vV | grep '^host:' | cut -d' ' -f2)
 python3 "$RUST_DIR/../scripts/build-ffi-artifact.py" \
     --manifest "$RUST_DIR/Cargo.toml" --output-dir "$ROOT/build/rust-ffi" \
