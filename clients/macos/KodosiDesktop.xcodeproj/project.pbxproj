@@ -537,7 +537,7 @@
 				E3E3B432464E2D95103B9C1A /* Resources */,
 				A9C301B2924C2E2E94EDFDC1 /* Frameworks */,
 				C320C62EFFCD834401EA4652 /* Install Notices */,
-				16E5D268C03350B431A7CEFB /* Verify final Ghostty image */,
+				ECB6036540B17B686DC9FAD6 /* Verify Final Ghostty Image */,
 			);
 			buildRules = (
 			);
@@ -630,25 +630,6 @@
 			shellPath = /bin/sh;
 			shellScript = "\"$PROJECT_DIR/../apple/scripts/build-runtime-library.sh\" \"$PLATFORM_NAME\" \"$CONFIGURATION\" \"$BUILT_PRODUCTS_DIR\"\n";
 		};
-		16E5D268C03350B431A7CEFB /* Verify final Ghostty image */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Verify final Ghostty image";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"$PROJECT_DIR/scripts/build/verify-final-ghostty-image.sh\" \\\n  \"$TARGET_BUILD_DIR/$EXECUTABLE_PATH\" \\\n  \"$DERIVED_FILE_DIR/KodosiDesktop-$CONFIGURATION.linkmap\" \\\n  \"$MACOSX_DEPLOYMENT_TARGET\"\n";
-		};
 		49E37880D2E2E16A05DC23AC /* Enforce Build Variant */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -686,6 +667,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "python3 \"$PROJECT_DIR/../apple/scripts/install-notices.py\" \"$PLATFORM_NAME\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n";
+		};
+		ECB6036540B17B686DC9FAD6 /* Verify Final Ghostty Image */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Verify Final Ghostty Image";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"$PROJECT_DIR/../apple/scripts/verify-final-ghostty-image.sh\" \"$PLATFORM_NAME\" \"$TARGET_BUILD_DIR/$EXECUTABLE_PATH\" \"$LD_MAP_FILE_PATH\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

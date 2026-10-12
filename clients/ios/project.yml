@@ -73,6 +73,8 @@ targets:
           - -framework CoreFoundation
           - -liconv
           - -lc++
+        LD_GENERATE_MAP_FILE: YES
+        LD_MAP_FILE_PATH: $(DERIVED_FILE_DIR)/Kodosi-$(CONFIGURATION).linkmap
         ENABLE_DEBUG_DYLIB: NO
     sources:
       - path: Sources
@@ -82,6 +84,10 @@ targets:
         basedOnDependencyAnalysis: false
         script: |
           python3 "$PROJECT_DIR/../apple/scripts/install-notices.py" "$PLATFORM_NAME" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+      - name: Verify Final Ghostty Image
+        basedOnDependencyAnalysis: false
+        script: |
+          "$PROJECT_DIR/../apple/scripts/verify-final-ghostty-image.sh" "$PLATFORM_NAME" "$TARGET_BUILD_DIR/$EXECUTABLE_PATH" "$LD_MAP_FILE_PATH"
     dependencies:
       - target: RuntimeLibrary
         link: false

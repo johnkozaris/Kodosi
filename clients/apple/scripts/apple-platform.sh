@@ -9,14 +9,17 @@ kodosi_apple_platform() {
     case "${1:-}" in
         macosx)
             KODOSI_RUST_TARGET=aarch64-apple-darwin
+            KODOSI_GHOSTTY_SLICE=macos-arm64
             record=clients/macos/Config/macOSDeploymentTarget
             ;;
         iphoneos)
             KODOSI_RUST_TARGET=aarch64-apple-ios
+            KODOSI_GHOSTTY_SLICE=ios-arm64
             record=clients/apple/Config/iOSDeploymentTarget
             ;;
         iphonesimulator)
             KODOSI_RUST_TARGET=aarch64-apple-ios-sim
+            KODOSI_GHOSTTY_SLICE=ios-arm64-simulator
             record=clients/apple/Config/iOSDeploymentTarget
             ;;
         *)
@@ -25,7 +28,7 @@ kodosi_apple_platform() {
             ;;
     esac
     KODOSI_DEPLOYMENT_TARGET=$(<"$(kodosi_repository_root)/$record")
-    export KODOSI_RUST_TARGET KODOSI_DEPLOYMENT_TARGET
+    export KODOSI_RUST_TARGET KODOSI_GHOSTTY_SLICE KODOSI_DEPLOYMENT_TARGET
     if [[ $1 == macosx ]]; then
         export MACOSX_DEPLOYMENT_TARGET=$KODOSI_DEPLOYMENT_TARGET
     else
