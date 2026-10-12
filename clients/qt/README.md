@@ -61,18 +61,19 @@ just linux-check
 ```
 
 From this client directory, `just configure`, `just test`, and `just lint` are
-also available. `just package` builds and verifies a Debian package and portable
-archive under `build/release/`; packaging additionally needs tools such as
-`patchelf`, `dpkg-deb`, and `binutils`.
+also available. `just release-package` makes a Debian package, a portable archive
+and an Arch package in `build/release/`. Commit all the changes first. The recipe
+needs `patchelf`, `dpkg-deb`, `binutils`, `zstd`, `desktop-file-utils` and
+`appstream`.
 
 The Debian package targets glibc 2.39 or later and the Ubuntu 24.04 library names.
 Do not assume it installs on older distributions just because a source build works
 there. The portable archive still requires a compatible Linux system and desktop
 libraries.
 
-Release recipes record the monorepo revision, verify package contents and license
-materials, and can create a signed release manifest. Public app releases are not
-published yet.
+Each package records the Kodosi commit. The release recipe checks the content and
+the license files of each package, and writes a release manifest that a person can
+sign. Kodosi has no public release of the app yet.
 
 ## Windows
 

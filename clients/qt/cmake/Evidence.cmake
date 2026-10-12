@@ -67,22 +67,6 @@ function(kodosi_install_evidence doc_dir)
     )
     add_dependencies(kodosi-rust-license-inventory kodosi-rust-cli-build)
 
-    install(CODE "
-        execute_process(
-            COMMAND
-                \"${Python3_EXECUTABLE}\"
-                \"${PROJECT_SOURCE_DIR}/scripts/release/verify-release-sources.py\"
-                --source-root
-                \"${PROJECT_SOURCE_DIR}\"
-            RESULT_VARIABLE KODOSI_INSTALL_SOURCE_RESULT
-            ERROR_VARIABLE KODOSI_INSTALL_SOURCE_ERROR
-        )
-        if(NOT KODOSI_INSTALL_SOURCE_RESULT EQUAL 0)
-            message(FATAL_ERROR
-                \"Source verification immediately before install failed: \${KODOSI_INSTALL_SOURCE_ERROR}\"
-            )
-        endif()
-    ")
     install(
         FILES "${KODOSI_SOURCE_IDENTITY}"
         DESTINATION "${doc_dir}/provenance"

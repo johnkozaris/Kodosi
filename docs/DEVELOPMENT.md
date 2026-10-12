@@ -125,7 +125,7 @@ backend database), `sign` (a release file) and `stop` (the Docker Compose servic
 - Give a noun name to a shell file that other scripts source, for example
   `apple-platform.sh`. Start the names of its functions with `kodosi_`.
 - Use hyphens in the names of scripts. Use underscores in the names of Python tests
-  and of Python files that other files import, for example `release_common.py`.
+  and of Python files that other files import, for example `release_source.py`.
   Python cannot import a name with a hyphen.
 
 ### Helper functions

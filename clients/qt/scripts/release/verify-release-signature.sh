@@ -25,9 +25,7 @@ if [[ ! "$fingerprint" =~ ^[0-9A-Fa-f]{40}$ ]]; then
 fi
 fingerprint=${fingerprint^^}
 script_dir=$(cd "$(dirname "$0")" && pwd)
-python3 "$script_dir/verify-release-manifest.py" \
-    --manifest "$manifest" \
-    --structure-only >/dev/null
+python3 "$script_dir/release-manifest.py" verify --structure-only "$manifest" >/dev/null
 
 if ! status=$(
     gpg --batch --no-tty --no-auto-key-retrieve --status-fd=1 \

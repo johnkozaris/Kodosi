@@ -22,33 +22,12 @@ if [[ ! "$fingerprint" =~ ^[0-9A-Fa-f]{40}$ ]]; then
     exit 2
 fi
 fingerprint=${fingerprint^^}
-script_dir=$(cd "$(dirname "$0")" && pwd)
-python3 "$script_dir/verify-release-manifest.py" \
-    --source-root "${KODOSI_SOURCE_ROOT:-$script_dir/../..}" \
-    --manifest "$manifest" \
-    --output-dir "$(dirname "$manifest")" \
-    --dependencies \
-        "${KODOSI_DEPENDENCIES:-$script_dir/../../dependencies.lock.json}" \
-    >/dev/null
-
-secret_fingerprints=$(
-    gpg --batch --no-tty --no-auto-key-retrieve \
-        --with-colons --list-secret-keys "$fingerprint" 2>/dev/null |
-        awk -F: '$1 == "fpr" { print toupper($10) }'
-)
-if ! grep -Fxq "$fingerprint" <<<"$secret_fingerprints"; then
-    echo "The exact trusted secret-key fingerprint is unavailable." >&2
-    exit 1
-fi
 
 signature="$manifest.asc"
-rm -f -- "$signature"
+trap 'rm -f -- "$signature.part"' EXIT
 gpg --batch --no-tty --no-auto-key-retrieve --yes --pinentry-mode error \
     --local-user "$fingerprint!" \
-    --output "$signature" \
+    --output "$signature.part" \
     --armor --detach-sign "$manifest"
-test -s "$signature"
-grep -Fxq -- '-----BEGIN PGP SIGNATURE-----' <(head -n 1 "$signature")
-"$script_dir/verify-release-signature.sh" \
-    "$manifest" "$signature" "$fingerprint"
+mv -f -- "$signature.part" "$signature"
 echo "Release manifest signed by $fingerprint"

@@ -8,6 +8,8 @@ qt_dir := tools_dir + "/Qt/gcc_64"
 windows_cmake := tools_dir + "/cmake/bin/cmake.exe"
 windows_ctest := tools_dir + "/cmake/bin/ctest.exe"
 version := trim(`python3 scripts/release/product-version.py`)
+source_date_epoch := trim(`python3 scripts/release/source-date-epoch.py --source-root .`)
+linux_packages := "kodosi_" + version + "_amd64.deb kodosi-" + version + "-linux-x86_64.tar.gz kodosi-bin-" + version + "-1-x86_64.pkg.tar.zst"
 
 # Install the pinned CMake, Ninja, Qt and Python tools in .tools.
 tools-install:
@@ -34,27 +36,23 @@ test: build
 dependency-pins-check:
     python3 scripts/build/verify-dependency-pins.py
 
-# Test the release scripts.
-release-integrity-test:
-    python3 -m unittest scripts/tests/test_release_integrity.py
+# Test that the release signature check refuses a changed manifest and the signature of another key.
+release-signature-test:
+    python3 -m unittest scripts/tests/test_release_signature.py
 
-# Write the Rust license inventory for Linux, and verify it.
-rust-license-test:
-    rm -rf build/rust-license-test
+# Check that each Rust dependency of the Linux runtime has license text.
+rust-license-check:
     python3 scripts/release/generate-rust-license-inventory.py \
         --manifest ../../runtime/Cargo.toml \
         --target x86_64-unknown-linux-gnu \
-        --output-dir build/rust-license-test
-    python3 scripts/release/verify-rust-license-inventory.py \
-        --tree build/rust-license-test \
-        --target x86_64-unknown-linux-gnu
+        --output-dir build/rust-license-check
 
 # Check the native license evidence against the installed Qt.
 native-license-check: tools-install
     python3 scripts/release/verify-native-license-evidence.py
 
 # Lint and test the Linux app and its release and license scripts.
-check: dependency-pins-check release-integrity-test rust-license-test native-license-check lint test
+check: dependency-pins-check release-signature-test rust-license-check native-license-check lint test
 
 # Build the Windows app in Git Bash on Windows 11, x64 or ARM64.
 windows-build: tools-install
@@ -97,75 +95,27 @@ windows-sign package:
     source ../../scripts/windows-env.sh && kodosi_windows_env && \
         ./scripts/release/sign-msix.sh "{{ package }}"
 
-# Make and verify the Debian package and the portable archive in build/release.
-package: tools-install
-    mkdir -p build/release
-    find build/release -maxdepth 1 -type f \
-        \( -name 'kodosi_*.deb' \
-        -o -name 'kodosi-*-linux-x86_64.tar.gz' \
-        -o -name 'kodosi-bin-*.pkg.tar.zst' \
-        -o -name 'release-manifest.json' \
-        -o -name 'release-manifest.json.asc' \) \
-        -delete
-    git status --porcelain=v1 --untracked-files=no \
-        > build/release/tracked-status.before
-    SOURCE_DATE_EPOCH="$(python3 scripts/release/source-date-epoch.py --source-root .)" \
-        CMAKE_PREFIX_PATH="{{ qt_dir }}" "{{ cmake }}" --preset release
-    SOURCE_DATE_EPOCH="$(python3 scripts/release/source-date-epoch.py --source-root .)" \
-        "{{ cmake }}" --build --preset release
+# Build and test the Linux release. Make the Debian package, the portable archive and the Arch package two times, and compare them. Check each package, then write and check the release manifest in build/release. Commit all the changes first.
+release-package: tools-install
+    SOURCE_DATE_EPOCH={{ source_date_epoch }} CMAKE_PREFIX_PATH="{{ qt_dir }}" \
+        "{{ cmake }}" --preset release
+    SOURCE_DATE_EPOCH={{ source_date_epoch }} "{{ cmake }}" --build --preset release
     "{{ cmake }}" --build build/release --target test_prep/all
-    QT_QPA_PLATFORM=offscreen QSG_RHI_BACKEND=software \
-        "{{ ctest }}" --preset release
-    cd build/release && \
-        umask 022 && \
-        SOURCE_DATE_EPOCH="$(python3 ../../scripts/release/source-date-epoch.py \
-            --source-root ../..)" \
-        "{{ cmake }}" --build . --target package
-    SOURCE_DATE_EPOCH="$(python3 scripts/release/source-date-epoch.py --source-root .)" \
-        ./scripts/release/normalize-cpack-packages.sh build/release
-    git status --porcelain=v1 --untracked-files=no \
-        > build/release/tracked-status.after
-    if ! cmp -s build/release/tracked-status.before \
-        build/release/tracked-status.after; then \
-        echo "Package build modified tracked source files" >&2; \
-        diff build/release/tracked-status.before \
-            build/release/tracked-status.after || true; \
-        exit 1; \
-    fi
-    ./scripts/release/verify-linux-package.sh build/release/kodosi_{{ version }}_amd64.deb
-    ./scripts/release/verify-packaged-content.sh build/release/kodosi-{{ version }}-linux-x86_64.tar.gz
+    QT_QPA_PLATFORM=offscreen QSG_RHI_BACKEND=software "{{ ctest }}" --preset release
+    ./scripts/release/package-linux.sh build/release build/release
+    ./scripts/release/package-linux.sh build/release build/second-packages
+    for package in {{ linux_packages }}; do \
+        cmp "build/release/$package" "build/second-packages/$package" || \
+            { echo "The second build made another $package." >&2; exit 1; }; \
+    done
+    rm -rf build/second-packages
+    for package in {{ linux_packages }}; do \
+        python3 scripts/release/verify-linux-package.py --build-dir build/release "build/release/$package"; \
+    done
+    python3 scripts/release/release-manifest.py generate {{ prepend("build/release/", linux_packages) }}
+    python3 scripts/release/release-manifest.py verify build/release/release-manifest.json
 
-# Make and verify the Arch package from the portable archive.
-arch-package: package
-    package="$(./scripts/release/package-arch.sh \
-        build/release/kodosi-{{ version }}-linux-x86_64.tar.gz build/release)" && \
-        ./scripts/release/verify-packaged-content.sh "$package" && \
-        printf 'Arch-compatible package built: %s\n' "$package"
-
-# Make the Linux packages, then check that a second build makes the same packages.
-reproducible-package: package reproducibility-check
-
-# Make the packages two more times from build/release, and check that they are the same. Commit all the changes first.
-reproducibility-check: tools-install
-    ./scripts/release/verify-reproducible-packages.sh
-
-# Make all the Linux release packages, then write and verify the release manifest.
-release-package: reproducible-package arch-package release-manifest-gen
-
-# Write and verify the release manifest for the packages in build/release.
-release-manifest-gen:
-    python3 scripts/release/generate-release-manifest.py \
-        --source-root . \
-        --output-dir build/release \
-        --artifact kodosi_{{ version }}_amd64.deb \
-        --artifact kodosi-{{ version }}-linux-x86_64.tar.gz \
-        --artifact kodosi-bin-{{ version }}-1-x86_64.pkg.tar.zst
-    python3 scripts/release/verify-release-manifest.py \
-        --source-root . \
-        --manifest build/release/release-manifest.json \
-        --output-dir build/release
-
-# Sign the release manifest with the OpenPGP key of this fingerprint or of KODOSI_GPG_FINGERPRINT.
+# Sign the release manifest from release-package with the OpenPGP key of this fingerprint or of KODOSI_GPG_FINGERPRINT.
 release-manifest-sign fingerprint="":
     ./scripts/release/sign-release-manifest.sh \
         build/release/release-manifest.json \

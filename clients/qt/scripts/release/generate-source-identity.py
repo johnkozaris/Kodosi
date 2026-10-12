@@ -6,7 +6,8 @@ import argparse
 import os
 from pathlib import Path
 
-from release_common import canonical_json, source_identity
+from canonical_json import canonical_json
+from release_source import source_identity
 
 
 def main() -> None:

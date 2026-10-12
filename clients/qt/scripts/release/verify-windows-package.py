@@ -9,14 +9,14 @@ import json
 import os
 import re
 import struct
-import subprocess
-import sys
-import tempfile
 import xml.etree.ElementTree as ElementTree
 import zipfile
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote
+
+from package_evidence import verify_rust_licenses, verify_source_identity
+from release_source import source_identity
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -186,9 +186,7 @@ def same(files: dict[str, zipfile.ZipInfo], read: Reader, name: str, source: Pat
         fail(f"{name} differs from {source}")
 
 
-def verify_evidence(
-    files: dict[str, zipfile.ZipInfo], read: Reader, build_dir: Path, qt_root: Path, target: str
-) -> None:
+def verify_evidence(files: dict[str, zipfile.ZipInfo], read: Reader, build_dir: Path, qt_root: Path) -> None:
     same(files, read, "doc/provenance/dependencies.lock.json", ROOT / "dependencies.lock.json")
     ghostty = REPOSITORY / "terminal/ghostty"
     for name in ("LICENSE", "LICENSE-GHOSTTY", "WindowsGhostty.ref", "THIRD_PARTY_NOTICES.md"):
@@ -221,34 +219,16 @@ def verify_evidence(
     for name, source in expected.items():
         same(files, read, name, source)
 
-    with tempfile.TemporaryDirectory() as temporary:
-        unpacked = Path(temporary)
-        for name in files:
-            if name.startswith(("doc/provenance/", "doc/rust/")):
-                path = unpacked / name
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_bytes(read(name))
-        for command in (
-            [
-                "verify-source-identity.py",
-                "--identity",
-                str(unpacked / "doc/provenance/source-identity.json"),
-                "--expected",
-                str(build_dir / "generated/source-identity.json"),
-            ],
-            [
-                "verify-rust-license-inventory.py",
-                "--tree",
-                str(unpacked / "doc/rust"),
-                "--target",
-                target,
-                "--expected-tree",
-                str(build_dir / "generated/rust-dependency-licenses"),
-            ],
-        ):
-            command[0] = str(ROOT / "scripts/release" / command[0])
-            if subprocess.run([sys.executable, *command], check=False).returncode != 0:
-                fail(f"{PurePosixPath(command[0]).name} rejected the package")
+    if "doc/provenance/source-identity.json" not in files:
+        fail("missing doc/provenance/source-identity.json")
+    try:
+        verify_source_identity(read("doc/provenance/source-identity.json"), source_identity(ROOT))
+        verify_rust_licenses(
+            {name.removeprefix("doc/rust/"): read(name) for name in files if name.startswith("doc/rust/")},
+            build_dir / "generated/rust-dependency-licenses",
+        )
+    except (OSError, ValueError) as error:
+        fail(str(error))
 
 
 def main() -> None:
@@ -270,7 +250,7 @@ def main() -> None:
         logos = verify_manifest(read("AppxManifest.xml"), (arguments.build_dir / "AppxManifest.xml").read_bytes(), arch)
         verify_payload(files, read, logos, arch)
         verify_imports(files, read, windows_library)
-        verify_evidence(files, read, arguments.build_dir, arguments.qt_root, arguments.target)
+        verify_evidence(files, read, arguments.build_dir, arguments.qt_root)
     print(f"Windows package verified: {arguments.package.name}")
 
 
