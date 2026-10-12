@@ -12,10 +12,7 @@ computers that host them; iOS cannot start them.
 - `just`, Python 3, `xcodegen`, `swiftformat`, and `swiftlint` on your build PATH.
 
 The app shares the runtime bridge, the design system, and the terminal view and
-pipeline with the Mac app through the [shared Swift package](../apple/Package.swift). To build and sign for a device,
-you need your own Apple development signing setup. Put your team in
-`clients/apple/Config/Signing.local.xcconfig`, as the
-[Mac build guide](../macos/README.md#build-and-run) tells.
+pipeline with the Mac app through the [shared Swift package](../apple/Package.swift).
 
 ## Build and run
 
@@ -34,8 +31,7 @@ SDK under `Frameworks/Runtime/`.
 Debug builds target the local backend at `127.0.0.1:5180`, like the Mac app; follow
 [backend setup](../../docs/DEVELOPMENT.md#run-the-backend) to run it. A simulator
 reaches that address on your Mac; a device does not. Release builds use the public
-service addresses. For a custom server in Debug, clear the two
-`KODOSI_DEBUG_BACKEND_*` settings in [Config/Debug.xcconfig](Config/Debug.xcconfig).
+service addresses.
 
 Generate the project from `project.yml`; do not edit generated project files.
 [iOSDeploymentTarget](../apple/Config/iOSDeploymentTarget) is the record of the iOS

@@ -49,8 +49,7 @@ whole change.
 
 Real credentials, signing keys, local sessions, and personal configuration stay
 outside Git. Use visibly dummy examples; generate credential-shaped test data at
-runtime when possible. Public API addresses and the OAuth public-client ID are
-intentional public configuration.
+runtime when possible.
 
 By contributing, you agree that your contribution is available under Kodosi's
 [MIT license](LICENSE), and you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).

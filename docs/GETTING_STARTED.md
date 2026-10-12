@@ -23,9 +23,7 @@ pictures show the Mac app; the Linux app has the same parts.
   [Mac app](../clients/macos/README.md) or the [Linux app](../clients/qt/README.md).
 - **A Kodosi service.** Kodosi needs a backend and an OIDC sign-in service. A public
   hosted service is not open yet, so you run them: a
-  [local backend](DEVELOPMENT.md#run-the-backend) for development, or
-  [your own service](SELF-HOSTING.md) for more people. Everyone in a room uses the
-  same service.
+  [local backend](DEVELOPMENT.md#run-the-backend) for development.
 - **A browser** for the sign-in.
 - **Your agents (optional).** Claude Code, Codex, Copilot CLI, or another terminal
   agent, installed and signed in as usual.
@@ -211,8 +209,7 @@ command. It does not replay input that might already have run.
 
 Check that the host is online, Kodosi is running there, and the terminal is still
 shared with the room. A new device may need approval; a friend's changed identity
-may need verification in People. For your own server, check the
-[self-hosting guide](SELF-HOSTING.md).
+may need verification in People.
 
 [All documentation](README.md) · [Agents and tasks](AGENTS_AND_TASKS.md) ·
 [Questions and answers](FAQ.md)
