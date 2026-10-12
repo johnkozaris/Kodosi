@@ -37,27 +37,25 @@ rust-coverage-tools-check:
 # Do the Ghostty pin, artifact and notice checks without a build.
 [group('ghostty')]
 ghostty-check: ghostty-host-check
-    scripts/verify-ghostty.sh
+    python3 terminal/ghostty/scripts/verify-ghostty-pins.py
 
 [private]
 [macos]
 ghostty-host-check:
-    "{{ ghostty_dir }}/scripts/tests/test_platform_pins.py"
+    python3 "{{ ghostty_dir }}/scripts/tests/test_digest.py"
     "{{ ghostty_dir }}/scripts/verify-third-party-notices.py"
-    "{{ ghostty_dir }}/scripts/tests/test_z2d_source_acquisition.py"
 
 [private]
 [linux]
 ghostty-host-check:
-    "{{ ghostty_dir }}/scripts/tests/test_platform_pins.py"
+    python3 "{{ ghostty_dir }}/scripts/tests/test_digest.py"
     "{{ ghostty_dir }}/scripts/verify-linux-third-party-notices.py"
 
-# Git Bash has no ar, lipo or plutil for the notice checks. On Windows, the pin
-# tests write their fixture files with CRLF line ends, and the pin verifier
-# rejects them.
+# Git Bash has no ar, lipo or plutil for the notice checks.
 [private]
 [windows]
 ghostty-host-check:
+    python3 "{{ ghostty_dir }}/scripts/tests/test_digest.py"
 
 # Build the development CLI in runtime/target/debug.
 [group('rust')]

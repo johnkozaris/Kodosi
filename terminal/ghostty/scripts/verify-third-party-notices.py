@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import os
 import re
 import subprocess
-import sys
 import tarfile
 from datetime import date
 from pathlib import Path, PurePosixPath
@@ -33,7 +33,6 @@ Z2D_RECORD_KEYS = {
     "byteSize",
     "sha256",
 }
-ALLOW_WORKING_TREE_COMPLIANCE = os.environ.get("KODOSI_WORKING_TREE_VALIDATION") == "1"
 
 
 def fail(message: str) -> None:
@@ -78,19 +77,12 @@ def apple_slices() -> dict[str, dict]:
     for name in names:
         platform, _, rest = name.partition("-")
         architecture, _, variant = rest.partition("-")
-        target = options.get(f"GHOSTTY_BUILD_{platform.upper()}_TARGET", "")
         i18n = options.get(f"GHOSTTY_BUILD_{platform.upper()}_I18N")
-        if (
-            architecture != "arm64"
-            or variant not in {"", "simulator"}
-            or not target
-            or i18n not in {"true", "false"}
-        ):
+        if architecture != "arm64" or variant not in {"", "simulator"} or i18n not in {"true", "false"}:
             fail(f"{NATIVE_BUILD} has no complete build values for the Apple slice {name}")
         slices[name] = {
             "platform": platform,
             "variant": variant or None,
-            "target": f"{target}-{variant}" if variant else target,
             "i18n": i18n == "true",
         }
     return slices
@@ -124,7 +116,7 @@ def verify_principal_licenses() -> None:
         fail("LICENSE-GHOSTTY must preserve Ghostty's notice")
 
 
-def verify_compliance_artifacts(manifest: dict) -> None:
+def verify_compliance_artifacts(manifest: dict, working_tree: bool) -> None:
     artifacts = manifest.get("complianceArtifacts")
     required = {
         LIBINTL_ARCHIVE,
@@ -138,7 +130,7 @@ def verify_compliance_artifacts(manifest: dict) -> None:
         if set(record) != {"sha256"}:
             fail(f"invalid compliance artifact record: {relative}")
         path = safe_file(relative)
-        if not ALLOW_WORKING_TREE_COMPLIANCE:
+        if not working_tree:
             require_git_owned(relative)
         if hashlib.sha256(path.read_bytes()).hexdigest() != record["sha256"]:
             fail(f"compliance artifact changed without inventory update: {relative}")
@@ -381,13 +373,6 @@ def verify_archive(manifest: dict, component_ids: set[str], slices: dict[str, di
     ]:
         fail("shipping archive path set changed")
     archives = [safe_file(path) for path in archive_paths]
-    first = archives[0].read_bytes()
-    if any(path.read_bytes() != first for path in archives[1:]):
-        fail("renderer and VT archive copies differ")
-    metadata = load_metadata()
-    archive_digest = hashlib.sha256(first).hexdigest()
-    if archive_digest != metadata.get("combined_archive_sha256"):
-        fail("combined archive hash differs from sealed artifact provenance")
     all_vendored_archives = sorted(
         path
         for path in (ROOT / "Vendor").rglob("*.a")
@@ -528,9 +513,6 @@ def verify_apple_slices(manifest: dict, slices: dict[str, dict]) -> None:
             if not member["owners"] or not set(member["owners"]) <= set(absent)
         ]
         archive = safe_file(record["archive"])
-        metadata = load_metadata(f"Vendor/libghostty-{slice_name}.version")
-        if hashlib.sha256(archive.read_bytes()).hexdigest() != metadata.get("combined_archive_sha256"):
-            fail(f"{slice_name} archive hash differs from sealed artifact provenance")
         if run("lipo", "-archs", str(archive)).split() != ["arm64"]:
             fail(f"{slice_name} archive architectures differ")
         if run("ar", "-t", str(archive)).splitlines() != expected_members:
@@ -540,10 +522,6 @@ def verify_apple_slices(manifest: dict, slices: dict[str, dict]) -> None:
 
 def verify_pins(manifest: dict, slices: dict[str, dict]) -> None:
     metadata = load_metadata()
-    options = load_metadata(NATIVE_BUILD)
-    cpu = options.get("GHOSTTY_BUILD_CPU")
-    optimize = options.get("GHOSTTY_BUILD_OPTIMIZE")
-    mac_target = slices[MAC_SLICE]["target"]
     platform_ref = safe_file("MacOSGhostty.ref").read_text()
     if platform_ref != f"{manifest['ghosttyCommit']}\n":
         fail("MacOSGhostty.ref differs from the notice inventory")
@@ -559,45 +537,6 @@ def verify_pins(manifest: dict, slices: dict[str, dict]) -> None:
         fail("Ghostty composite source and patch identity differs from artifact provenance")
     if metadata.get("zig_store_sha256") != manifest.get("zigStoreSha256"):
         fail("artifact Zig store identity differs from inventory")
-    if (
-        metadata.get("zig_target") != "aarch64-macos"
-        or metadata.get("renderer_target") != mac_target
-        or metadata.get("vt_target") != mac_target
-        or metadata.get("renderer_cpu") != cpu
-        or metadata.get("vt_cpu") != cpu
-        or metadata.get("renderer_optimize") != optimize
-        or metadata.get("vt_optimize") != optimize
-    ):
-        fail(f"artifact target, CPU, or optimization differs from {NATIVE_BUILD}")
-    native_options = safe_file(NATIVE_BUILD).read_text()
-    for required in (
-        "GHOSTTY_BUILD_CPU=baseline",
-        "GHOSTTY_BUILD_OPTIMIZE=ReleaseFast",
-        "GHOSTTY_BUILD_EMIT_COMBINED_LIB=true",
-        "GHOSTTY_BUILD_APP_RUNTIME=none",
-    ):
-        if required not in native_options.splitlines():
-            fail(f"native build policy is missing: {required}")
-    for slice_name, values in slices.items():
-        if slice_name == MAC_SLICE:
-            continue
-        slice_metadata = load_metadata(f"Vendor/libghostty-{slice_name}.version")
-        target = values["target"]
-        if (
-            slice_metadata.get("ghostty_commit") != manifest["ghosttyCommit"]
-            or slice_metadata.get("patches_sha256") != metadata.get("patches_sha256")
-            or slice_metadata.get("patch_application_sha256") != metadata.get("patch_application_sha256")
-            or slice_metadata.get("zig_store_sha256") != manifest.get("zigStoreSha256")
-            or slice_metadata.get("zig_target") != "aarch64-macos"
-            or slice_metadata.get("library_identifier") != slice_name
-            or slice_metadata.get("renderer_target") != target
-            or slice_metadata.get("vt_target") != target
-            or slice_metadata.get("renderer_cpu") != cpu
-            or slice_metadata.get("vt_cpu") != cpu
-            or slice_metadata.get("renderer_optimize") != optimize
-            or slice_metadata.get("vt_optimize") != optimize
-        ):
-            fail(f"{slice_name} artifact source, target, CPU, or optimization differs from {NATIVE_BUILD}")
 
     info = run(
         "plutil",
@@ -636,12 +575,17 @@ def verify_pins(manifest: dict, slices: dict[str, dict]) -> None:
 
 
 def main() -> None:
-    if len(sys.argv) != 1:
-        fail("this verifier accepts no arguments")
+    parser = argparse.ArgumentParser(description="Verify the Ghostty notices of the Apple artifacts.")
+    parser.add_argument(
+        "--working-tree",
+        action="store_true",
+        help="accept compliance files that Git does not track yet. Use this for a build that you do not publish.",
+    )
+    arguments = parser.parse_args()
     manifest = load_manifest()
     slices = apple_slices()
     verify_principal_licenses()
-    verify_compliance_artifacts(manifest)
+    verify_compliance_artifacts(manifest, arguments.working_tree)
     verify_notices(manifest)
     component_ids = verify_components(manifest)
     archive = verify_archive(manifest, component_ids, slices)

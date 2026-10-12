@@ -404,9 +404,9 @@ def verify_release_sources(
         if line
     )
     measurements = ghostty_measurements(root / "terminal/ghostty")
-    if measurements["linuxUpstreamCommit"] != lock.get("linux_upstream_commit"):
+    if measurements["linuxUpstreamCommit"] != lock.get("linux_ghostty_commit"):
         raise ValueError("LinuxGhostty.ref differs from Ghostty.lock")
-    if measurements["linuxVtArchiveSha256"] != lock.get("linux_vt_archive_sha256"):
+    if measurements["linuxVtArchiveSha256"] != lock.get("linux_x86_64_archive_sha256"):
         raise ValueError("Linux libghostty-vt archive differs from Ghostty.lock")
     return measured, measurements
 

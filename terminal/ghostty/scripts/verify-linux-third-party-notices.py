@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
-import os
 import subprocess
 from pathlib import Path
 
@@ -12,18 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 INVENTORY_PATH = ROOT / "ThirdPartyNotices" / "linux-vt-inventory.json"
 NOTICE_INVENTORY_PATH = ROOT / "ThirdPartyNotices" / "inventory.json"
-ARTIFACT_ROOT = Path(
-    os.environ.get(
-        "KODOSI_GHOSTTY_LINUX_ARTIFACT_ROOT",
-        ROOT / "Vendor" / "GhosttyVt" / "linux-x86_64",
-    )
-)
-METADATA_PATH = Path(
-    os.environ.get(
-        "KODOSI_GHOSTTY_LINUX_METADATA",
-        ROOT / "Vendor" / "GhosttyVt" / "linux-x86_64.version",
-    )
-)
+LAYOUT = "linux-x86_64"
 
 
 def fail(message: str) -> None:
@@ -37,12 +26,12 @@ def load_json(path: Path) -> dict:
         fail(f"cannot read {path}: {error}")
 
 
-def load_metadata() -> dict[str, str]:
+def load_metadata(path: Path) -> dict[str, str]:
     values: dict[str, str] = {}
     try:
-        lines = METADATA_PATH.read_text(encoding="utf-8").splitlines()
+        lines = path.read_text(encoding="utf-8").splitlines()
     except OSError as error:
-        fail(f"cannot read {METADATA_PATH}: {error}")
+        fail(f"cannot read {path}: {error}")
     for line in lines:
         if "=" not in line:
             fail("malformed Linux artifact metadata")
@@ -58,9 +47,18 @@ def file_sha256(path: Path) -> str:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Verify the notices of the Linux Ghostty VT artifact.")
+    parser.add_argument(
+        "--vendor",
+        type=Path,
+        default=ROOT / "Vendor",
+        help="the folder of the vendored artifacts. The default is Vendor in the Ghostty folder.",
+    )
+    vendor = parser.parse_args().vendor
+    artifact_root = vendor / "GhosttyVt" / LAYOUT
     inventory = load_json(INVENTORY_PATH)
     notice_inventory = load_json(NOTICE_INVENTORY_PATH)
-    metadata = load_metadata()
+    metadata = load_metadata(vendor / "GhosttyVt" / f"{LAYOUT}.version")
     if inventory.get("schemaVersion") != 1:
         fail("unsupported inventory schema")
     try:
@@ -79,8 +77,8 @@ def main() -> None:
     ):
         fail("Zig toolchain identity differs from artifact metadata")
 
-    static_archive = ARTIFACT_ROOT / "lib" / "libghostty-vt.a"
-    shared_library = ARTIFACT_ROOT / "lib" / "libghostty-vt.so.0.1.0"
+    static_archive = artifact_root / "lib" / "libghostty-vt.a"
+    shared_library = artifact_root / "lib" / "libghostty-vt.so.0.1.0"
     if not static_archive.is_file() or not shared_library.is_file():
         fail("Linux VT static or shared artifact is missing")
 

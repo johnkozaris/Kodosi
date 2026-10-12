@@ -23,10 +23,10 @@ source Toolchain.env
 source LinuxVtBuild.env
 
 STAGE_ROOT="$ROOT_DIR/build/linux-vt-stage"
-ARTIFACT_STAGE="$STAGE_ROOT/$GHOSTTY_LINUX_VT_LAYOUT"
-METADATA_STAGE="$STAGE_ROOT/$GHOSTTY_LINUX_VT_LAYOUT.version"
+ARTIFACT_STAGE="$STAGE_ROOT/GhosttyVt/$GHOSTTY_LINUX_VT_LAYOUT"
+METADATA_STAGE="$STAGE_ROOT/GhosttyVt/$GHOSTTY_LINUX_VT_LAYOUT.version"
 rm -rf "$STAGE_ROOT"
-mkdir -p "$STAGE_ROOT"
+mkdir -p "$STAGE_ROOT/GhosttyVt"
 
 if [ "$SKIP_TESTS" -eq 0 ]; then
     "$ROOT_DIR/scripts/verify-linux-vt-source.sh" "$SOURCE_DIR"
@@ -34,9 +34,9 @@ fi
 
 "$ROOT_DIR/scripts/build-ghostty-vt.sh" "$SOURCE_DIR" "$ARTIFACT_STAGE"
 
-PATCHES_DIGEST=$("$ROOT_DIR/scripts/artifact-digest.sh" Patches/ghostty)
-ARTIFACT_DIGEST=$("$ROOT_DIR/scripts/linux-artifact-digest.sh" "$ARTIFACT_STAGE")
-ARCHIVE_DIGEST=$(sha256sum "$ARTIFACT_STAGE/lib/libghostty-vt.a" | awk '{print $1}')
+PATCHES_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" artifact Patches/ghostty)
+ARTIFACT_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" artifact "$ARTIFACT_STAGE")
+ARCHIVE_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" file "$ARTIFACT_STAGE/lib/libghostty-vt.a")
 BUILD_OPTIONS=$("$ROOT_DIR/scripts/linux-vt-build-options.sh" vector)
 
 cat > "$METADATA_STAGE" <<EOF
@@ -57,14 +57,10 @@ vt_artifact_sha256=$ARTIFACT_DIGEST
 EOF
 
 if [ "$SKIP_TESTS" -eq 0 ]; then
-    KODOSI_GHOSTTY_REQUIRE_BUILD_PROVENANCE=1 \
-        KODOSI_GHOSTTY_PATCHED_SOURCE="$SOURCE_DIR" \
-        KODOSI_GHOSTTY_LINUX_ARTIFACT_ROOT="$ARTIFACT_STAGE" \
-        KODOSI_GHOSTTY_LINUX_METADATA="$METADATA_STAGE" \
-        "$ROOT_DIR/scripts/verify-linux-vt-artifact.sh"
-    KODOSI_GHOSTTY_LINUX_ARTIFACT_ROOT="$ARTIFACT_STAGE" \
-        KODOSI_GHOSTTY_LINUX_METADATA="$METADATA_STAGE" \
-        "$ROOT_DIR/scripts/verify-linux-third-party-notices.py"
+    python3 "$ROOT_DIR/scripts/verify-ghostty-pins.py" \
+        --working-tree --vendor "$STAGE_ROOT" --platform linux --patched-source "$SOURCE_DIR"
+    "$ROOT_DIR/scripts/verify-linux-vt-artifact.sh" --vendor "$STAGE_ROOT"
+    python3 "$ROOT_DIR/scripts/verify-linux-third-party-notices.py" --vendor "$STAGE_ROOT"
 fi
 
 DESTINATION="$ROOT_DIR/Vendor/GhosttyVt/$GHOSTTY_LINUX_VT_LAYOUT"
@@ -105,7 +101,8 @@ if ! mv "$METADATA_STAGE" "$DESTINATION_METADATA"; then
     exit 1
 fi
 
-if ! "$ROOT_DIR/scripts/verify-linux-vt-artifact.sh"; then
+if ! python3 "$ROOT_DIR/scripts/verify-ghostty-pins.py" --working-tree --platform linux ||
+    ! "$ROOT_DIR/scripts/verify-linux-vt-artifact.sh"; then
     rollback_promotion
     exit 1
 fi

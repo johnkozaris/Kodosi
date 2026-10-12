@@ -14,11 +14,15 @@ NM=${KODOSI_NM:-nm}
 OTOOL=${KODOSI_OTOOL:-otool}
 FIND=${KODOSI_FIND:-find}
 
+macos_arm64_archive_sha256=
 combined_archive_sha256=
 
+# shellcheck disable=SC1090
 source "$LOCK_FILE"
+expected_archive_sha256=$macos_arm64_archive_sha256
 if [[ "${KODOSI_WORKING_TREE_VALIDATION:-0}" == 1 ]]; then
     source "$GHOSTTY_DIR/Vendor/libghostty.version"
+    expected_archive_sha256=$combined_archive_sha256
 fi
 archive="$GHOSTTY_DIR/Vendor/GhosttyKit.xcframework/macos-arm64/libghostty.a"
 symbol_manifest="$GHOSTTY_DIR/Vendor/symbols/combined-strong.txt"
@@ -27,7 +31,7 @@ symbol_manifest="$GHOSTTY_DIR/Vendor/symbols/combined-strong.txt"
 [[ -f "$LINK_MAP" ]]
 [[ -f "$symbol_manifest" ]]
 [[ "$($LIPO -archs "$BINARY")" == "$(uname -m)" || "$($LIPO -archs "$BINARY")" == arm64 ]]
-[[ "$($SHASUM -a 256 "$archive" | awk '{print $1}')" == "$combined_archive_sha256" ]]
+[[ "$($SHASUM -a 256 "$archive" | awk '{print $1}')" == "$expected_archive_sha256" ]]
 
 archive_paths=$(LC_ALL=C awk '
     /^\[[[:space:]]*[0-9]+\][[:space:]]+\/.*libghostty\.a\(/ {
@@ -44,7 +48,7 @@ if [[ "$archive_count" -ne 1 ]]; then
     exit 1
 fi
 linked_archive=$(printf '%s\n' "$archive_paths")
-if [[ "$($SHASUM -a 256 "$linked_archive" | awk '{print $1}')" != "$combined_archive_sha256" ]]; then
+if [[ "$($SHASUM -a 256 "$linked_archive" | awk '{print $1}')" != "$expected_archive_sha256" ]]; then
     echo "Final link used a Ghostty archive that does not match the lock." >&2
     exit 1
 fi

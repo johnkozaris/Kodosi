@@ -72,7 +72,7 @@ if(NOT EXISTS "${KODOSI_GHOSTTY_ROOT}/${KODOSI_GHOSTTY_REF}")
 endif()
 
 set(KODOSI_VERIFY_GHOSTTY_COMMAND
-    bash "${KODOSI_RUNTIME_ROOT}/scripts/verify-ghostty.sh"
+    "${Python3_EXECUTABLE}" "${KODOSI_GHOSTTY_ROOT}/scripts/verify-ghostty-pins.py"
 )
 execute_process(
     COMMAND ${KODOSI_VERIFY_GHOSTTY_COMMAND}

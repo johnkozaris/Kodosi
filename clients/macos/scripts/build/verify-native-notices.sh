@@ -5,9 +5,13 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 GHOSTTY_DIR="${KODOSI_GHOSTTY_DIR:-"$ROOT/../../terminal/ghostty"}"
 DESTINATION="${1:?Pass the GhosttyNativeNotices directory to verify}"
 
-"$ROOT/../../scripts/verify-ghostty.sh" >/dev/null
+working_tree=
+if [[ "${KODOSI_WORKING_TREE_VALIDATION:-0}" == 1 ]]; then
+    working_tree=--working-tree
+fi
+python3 "$ROOT/../../terminal/ghostty/scripts/verify-ghostty-pins.py" ${working_tree:+"$working_tree"} >/dev/null
 if [[ "$(uname -s)" == Darwin ]]; then
-    "$GHOSTTY_DIR/scripts/verify-third-party-notices.py" >/dev/null
+    python3 "$GHOSTTY_DIR/scripts/verify-third-party-notices.py" ${working_tree:+"$working_tree"} >/dev/null
 else
     "$GHOSTTY_DIR/scripts/verify-linux-third-party-notices.py" >/dev/null
 fi

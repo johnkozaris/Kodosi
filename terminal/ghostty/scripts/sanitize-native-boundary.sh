@@ -1,8 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+usage() {
+    echo "Usage: $0 [--vendor <folder>]" >&2
+}
+
+VENDOR_ROOT=
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --vendor)
+            if [ $# -lt 2 ]; then
+                usage
+                exit 1
+            fi
+            VENDOR_ROOT=$(cd "$2" && pwd)
+            shift 2
+            ;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
+done
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VENDOR_ROOT=${KODOSI_GHOSTTY_VENDOR_ROOT:-"$ROOT/Vendor"}
+VENDOR_ROOT=${VENDOR_ROOT:-"$ROOT/Vendor"}
 RENDERER="$VENDOR_ROOT/GhosttyKit.xcframework"
 VT="$VENDOR_ROOT/GhosttyVt/macos-arm64"
 ARCHIVE="$RENDERER/macos-arm64/libghostty.a"

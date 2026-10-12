@@ -7,19 +7,18 @@ struct VerifyGhosttyPlugin: BuildToolPlugin {
         let repository = context.package.directoryURL
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-        let verifier = repository.appending(path: "scripts/verify-ghostty.sh")
+        let verifier = repository.appending(path: "terminal/ghostty/scripts/verify-ghostty-pins.py")
         let output = context.pluginWorkDirectoryURL.appending(path: "verified")
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
-        var environment: [String: String] = [:]
+        var arguments = ["python3", verifier.path]
         if ProcessInfo.processInfo.environment["KODOSI_WORKING_TREE_VALIDATION"] == "1" {
-            environment["KODOSI_WORKING_TREE_VALIDATION"] = "1"
+            arguments.append("--working-tree")
         }
         return [
             .prebuildCommand(
-                displayName: "Verify locked Ghostty checkout",
-                executable: URL(filePath: "/bin/bash"),
-                arguments: [verifier.path],
-                environment: environment,
+                displayName: "Verify the Ghostty pins",
+                executable: URL(filePath: "/usr/bin/env"),
+                arguments: arguments,
                 outputFilesDirectory: output
             ),
         ]

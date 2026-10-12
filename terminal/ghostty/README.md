@@ -13,5 +13,5 @@ swift test
 
 Build on Apple silicon macOS for the macOS, iOS and iOS Simulator slices, on x86-64
 Linux, or on Windows 11 x64 or ARM64 (in Git Bash) for that platform's artifact. See
-[provenance](PROVENANCE.md) for updates and
+[provenance](PROVENANCE.md) for updates and checks, and
 [third-party notices](THIRD_PARTY_NOTICES.md) for redistribution obligations.

@@ -104,9 +104,9 @@ from the repository root:
 terminal/ghostty/scripts/build.sh
 ```
 
-The script prints the digest to record in [Ghostty.lock](../../Ghostty.lock). Commit
-the library and the digest together, as the
-[provenance guide](../../terminal/ghostty/PROVENANCE.md) describes.
+The script prints the line to add to [Ghostty.lock](../../Ghostty.lock), for example
+`windows_x86_64_archive_sha256=<digest>`. Commit the library and the digest
+together, as the [provenance guide](../../terminal/ghostty/PROVENANCE.md) describes.
 
 ### Build and check on Windows
 

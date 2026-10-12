@@ -169,7 +169,7 @@ fi
 
 "$ROOT_DIR/scripts/apply-patches.sh" "$SOURCE_DIR"
 PATCH_APPLICATION_DIGEST=$(
-    "$ROOT_DIR/scripts/patch-application-digest.sh" "$SOURCE_DIR" "$GHOSTTY_REF"
+    python3 "$ROOT_DIR/scripts/digest.py" patch-application "$SOURCE_DIR" "$GHOSTTY_REF"
 )
 ZIG_STORE_DIGEST=$("$ROOT_DIR/scripts/prepare-zig-store.sh" "$SOURCE_DIR")
 
@@ -221,22 +221,19 @@ if [ -e "$LINUX_ARTIFACT" ] || [ -e "$LINUX_METADATA" ]; then
     fi
     cp -R "$LINUX_ARTIFACT" "$VENDOR_STAGE/GhosttyVt/linux-x86_64"
     cp "$LINUX_METADATA" "$VENDOR_STAGE/GhosttyVt/linux-x86_64.version"
-    KODOSI_GHOSTTY_SKIP_NATIVE_PROBES=1 \
-        KODOSI_GHOSTTY_LINUX_ARTIFACT_ROOT="$VENDOR_STAGE/GhosttyVt/linux-x86_64" \
-        KODOSI_GHOSTTY_LINUX_METADATA="$VENDOR_STAGE/GhosttyVt/linux-x86_64.version" \
-        "$ROOT_DIR/scripts/verify-linux-vt-artifact.sh"
+    python3 "$ROOT_DIR/scripts/verify-ghostty-pins.py" --working-tree --vendor "$VENDOR_STAGE" --platform linux
 fi
 
 # shellcheck disable=SC1091
 source Toolchain.env
 # shellcheck disable=SC1091
 source NativeBuild.env
-RENDERER_DIGEST=$("$ROOT_DIR/scripts/artifact-digest.sh" "$VENDOR_STAGE/GhosttyKit.xcframework")
-VT_DIGEST=$("$ROOT_DIR/scripts/artifact-digest.sh" "$VENDOR_STAGE/GhosttyVt/macos-arm64")
+RENDERER_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" artifact "$VENDOR_STAGE/GhosttyKit.xcframework")
+VT_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" artifact "$VENDOR_STAGE/GhosttyVt/macos-arm64")
 COMBINED_ARCHIVE="$VENDOR_STAGE/GhosttyKit.xcframework/macos-arm64/libghostty.a"
-COMBINED_ARCHIVE_DIGEST=$(sha256sum "$COMBINED_ARCHIVE" | awk '{print $1}')
-PATCHES_DIGEST=$("$ROOT_DIR/scripts/artifact-digest.sh" Patches/ghostty)
-SYMBOLS_DIGEST=$("$ROOT_DIR/scripts/artifact-digest.sh" "$VENDOR_STAGE/symbols")
+COMBINED_ARCHIVE_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" file "$COMBINED_ARCHIVE")
+PATCHES_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" artifact Patches/ghostty)
+SYMBOLS_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" artifact "$VENDOR_STAGE/symbols")
 GHOSTTY_BUILD_OPTION_VECTOR=$("$ROOT_DIR/scripts/native-build-options.sh" vector)
 cat > "$VENDOR_STAGE/libghostty.version" <<EOF
 package_version=$(tr -d '[:space:]' < VERSION)
@@ -266,9 +263,9 @@ for slice in "${APPLE_SLICES[@]}"; do
     [ "$slice" != macos-arm64 ] || continue
     SLICE_DIR="$VENDOR_STAGE/GhosttyKit.xcframework/$slice"
     SLICE_TARGET=$("$ROOT_DIR/scripts/native-build-options.sh" target "$slice")
-    SLICE_ARCHIVE_DIGEST=$(sha256sum "$SLICE_DIR/libghostty.a" | awk '{print $1}')
-    SLICE_ARTIFACT_DIGEST=$("$ROOT_DIR/scripts/artifact-digest.sh" "$SLICE_DIR")
-    SLICE_SYMBOLS_DIGEST=$(sha256sum "$VENDOR_STAGE/symbols/$slice-strong.txt" | awk '{print $1}')
+    SLICE_ARCHIVE_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" file "$SLICE_DIR/libghostty.a")
+    SLICE_ARTIFACT_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" artifact "$SLICE_DIR")
+    SLICE_SYMBOLS_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" file "$VENDOR_STAGE/symbols/$slice-strong.txt")
     SLICE_BUILD_OPTION_VECTOR=$("$ROOT_DIR/scripts/native-build-options.sh" vector "$slice")
     cat > "$VENDOR_STAGE/libghostty-$slice.version" <<EOF
 package_version=$(tr -d '[:space:]' < VERSION)
@@ -296,11 +293,10 @@ EOF
 done
 
 if [ "$SKIP_TESTS" -eq 0 ]; then
-    KODOSI_GHOSTTY_REQUIRE_BUILD_PROVENANCE=1 \
-        KODOSI_GHOSTTY_VENDOR_ROOT="$VENDOR_STAGE" \
-        "$ROOT_DIR/scripts/verify-vendored-artifact.sh"
-    KODOSI_GHOSTTY_VENDOR_ROOT="$VENDOR_STAGE" \
-        "$ROOT_DIR/scripts/sanitize-native-boundary.sh"
+    python3 "$ROOT_DIR/scripts/verify-ghostty-pins.py" \
+        --working-tree --vendor "$VENDOR_STAGE" --platform macos --patched-source "$SOURCE_DIR"
+    "$ROOT_DIR/scripts/verify-vendored-artifact.sh" --vendor "$VENDOR_STAGE"
+    "$ROOT_DIR/scripts/sanitize-native-boundary.sh" --vendor "$VENDOR_STAGE"
 fi
 
 if [ ! -e "$ROOT_DIR/Vendor" ]; then
@@ -325,11 +321,6 @@ fi
 if [ "$SKIP_TESTS" -eq 0 ]; then
     "$ROOT_DIR/scripts/test.sh"
     swift test
-fi
-
-if [ -d "$ROOT_DIR/Vendor/GhosttyVt/linux-x86_64" ]; then
-    KODOSI_GHOSTTY_SKIP_NATIVE_PROBES=1 \
-        "$ROOT_DIR/scripts/verify-linux-vt-artifact.sh"
 fi
 
 echo "[*] renderer: Vendor/GhosttyKit.xcframework (${APPLE_SLICES[*]})"

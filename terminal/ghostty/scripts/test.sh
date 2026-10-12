@@ -7,10 +7,9 @@ cd "$(dirname "$0")/.."
 export CLANG_MODULE_CACHE_PATH="${CLANG_MODULE_CACHE_PATH:-/tmp/clang-module-cache}"
 export SWIFTPM_MODULECACHE_OVERRIDE="${SWIFTPM_MODULECACHE_OVERRIDE:-/tmp/swiftpm-module-cache}"
 
-./scripts/verify-platform-pins.py
-./scripts/tests/test_platform_pins.py
+python3 scripts/verify-ghostty-pins.py --working-tree
+python3 scripts/tests/test_digest.py
 ./scripts/verify-third-party-notices.py
-./scripts/tests/test_z2d_source_acquisition.py
 
 echo "[*] build target=GhosttyTerminal platform=macOS"
 swift build --target GhosttyTerminal --disable-automatic-resolution
