@@ -34,8 +34,6 @@ Packages/*
 Packages/KodosiTerminal/.build/
 Packages/KodosiTerminal/.swiftpm/
 
-Frameworks/**/*.a
-
 .DS_Store
 
 # Impeccable critique snapshots

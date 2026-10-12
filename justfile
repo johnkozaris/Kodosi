@@ -238,11 +238,6 @@ ios-rust-targets-install:
 ios-rust-lint:
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --lib --target aarch64-apple-ios --target aarch64-apple-ios-sim -- -D warnings
 
-# Build the iOS runtime library for an SDK and a profile, and install it for Xcode.
-[group('ios')]
-ios-ffi-build sdk profile:
-    scripts/build-ios-ffi.sh {{ sdk }} {{ profile }}
-
 # Build the Linux app.
 [group('linux')]
 linux-build:

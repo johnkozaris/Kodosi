@@ -20,8 +20,8 @@ From the repository root:
 just mac-build
 ```
 
-This generates `KodosiDesktop.xcodeproj`, builds the runtime and app, and runs the
-terminal package tests. Open the generated project in Xcode, select the
+This generates `KodosiDesktop.xcodeproj`, builds the runtime library and the app, and
+runs the terminal package tests. Open the generated project in Xcode, select the
 `KodosiDesktop` scheme, and run it.
 
 Debug builds target the local backend at `127.0.0.1:5180`; follow

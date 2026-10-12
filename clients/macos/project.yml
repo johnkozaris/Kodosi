@@ -22,12 +22,12 @@ packages:
     path: ../apple
 
 aggregateTargets:
-  PrepareNativeBuild:
+  RuntimeLibrary:
     buildScripts:
-      - name: Prepare Native Build
+      - name: Build Runtime Library
         basedOnDependencyAnalysis: false
         script: |
-          "$PROJECT_DIR/scripts/build/prepare-native-build.sh"
+          "$PROJECT_DIR/../apple/scripts/build-runtime-library.sh" "$PLATFORM_NAME" "$CONFIGURATION" "$BUILT_PRODUCTS_DIR"
 
 settingGroups:
   appBase:
@@ -86,7 +86,7 @@ targets:
       - path: Resources/Assets.xcassets
         buildPhase: resources
     dependencies:
-      - target: PrepareNativeBuild
+      - target: RuntimeLibrary
         link: false
         embed: false
       - package: KodosiApple
@@ -133,7 +133,6 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.kodosi.desktop.tests
         PRODUCT_NAME: KodosiDesktopTests
         GENERATE_INFOPLIST_FILE: YES
-        LIBRARY_SEARCH_PATHS: "$(SRCROOT)/Frameworks/KodosiKit.xcframework/macos-host-debug"
     sources:
       - path: Tests
     dependencies:

@@ -3,7 +3,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 cd "$ROOT"
-"$ROOT/scripts/build/verify-kodosi-checkout.sh"
+"$ROOT/../apple/scripts/verify-kodosi-checkout.sh"
 "$ROOT/scripts/build/generate-xcode-project.sh"
 if [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
     echo "Project generation changed the release checkout: $ROOT" >&2

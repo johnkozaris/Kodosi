@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Builds the runtime library, which is the static library of the crate kodosi-ffi-c,
 and copies it, with its generated C header, to <output-dir>/<target>/<profile>. Prints
-that folder, or gives it to the consume command as its last argument."""
+that folder."""
 
 from __future__ import annotations
 
@@ -65,13 +65,9 @@ def main() -> None:
     parser.add_argument("--profile", required=True)
     parser.add_argument("--target", required=True)
     parser.add_argument("--no-default-features", action="store_true")
-    parser.add_argument("--consume-command", nargs=argparse.REMAINDER)
     arguments = parser.parse_args()
-    bundle = build(arguments.manifest.resolve(), arguments.output_dir, arguments.profile,
-        arguments.target, not arguments.no_default_features)
-    if arguments.consume_command:
-        raise SystemExit(subprocess.run([*arguments.consume_command, str(bundle)]).returncode)
-    print(bundle)
+    print(build(arguments.manifest.resolve(), arguments.output_dir, arguments.profile,
+        arguments.target, not arguments.no_default_features))
 
 
 if __name__ == "__main__":
