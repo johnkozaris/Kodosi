@@ -111,4 +111,4 @@ if "$verifier" "$scratch_directory/current" "$maximum_deployment_target" "$archi
     exit 1
 fi
 grep -Fq "FFI artifact bundle association mismatch" "$scratch_directory/mismatch.log"
-echo "Verified exact ABI8/protocol53 exports, version values, VT imports, and artifact-bound header selection."
+echo "Verified exact ABI8/protocol55 exports, version values, VT imports, and artifact-bound header selection."
