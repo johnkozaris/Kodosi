@@ -21,6 +21,8 @@ sudo apt-get install build-essential git curl unzip zstd pkg-config \
 Install Rust, `uv`, and `just` if they are not already available. The recipe
 `tools-install` installs the pinned Qt, CMake, Ninja and Python tools under `.tools/`
 in this client directory. It does not require a separate system Qt installation.
+[dependencies.lock.json](dependencies.lock.json) is the record of the versions and the
+SHA-256 values of these tools. The recipe reads them from that file.
 
 ## Build and run
 
@@ -122,13 +124,15 @@ package; a development build does not show them.
 ### Package and sign
 
 From this client directory, `just windows-package` builds, tests, and verifies
-`build/release/kodosi-0.1.0-windows-<arch>.msix`. The package holds the app, the
+`build/release/kodosi-<version>-windows-<arch>.msix`. The `project` command in
+[CMakeLists.txt](CMakeLists.txt) gives the version. The recipes and the release
+scripts read the version from that file. The package holds the app, the
 `kodosi` command, ConPTY, the C runtime, Qt, and the notices. Without
 `KODOSI_MSIX_PUBLISHER`, the package is unsigned; install it from an administrator
 PowerShell:
 
 ```powershell
-Add-AppxPackage -Path build\release\kodosi-0.1.0-windows-x64.msix -AllowUnsigned
+Add-AppxPackage -Path build\release\kodosi-<version>-windows-x64.msix -AllowUnsigned
 ```
 
 For a release, set `KODOSI_MSIX_PUBLISHER` to the subject of the Azure Artifact
@@ -139,7 +143,7 @@ Azure, and run:
 ```sh
 KODOSI_SIGNING_DLIB=<path>/Azure.CodeSigning.Dlib.dll \
 KODOSI_SIGNING_METADATA=<path>/metadata.json \
-just windows-sign build/release/kodosi-0.1.0-windows-x64.msix
+just windows-sign build/release/kodosi-<version>-windows-x64.msix
 ```
 
 Publish the signed x64 and ARM64 packages to winget with `wingetcreate`.

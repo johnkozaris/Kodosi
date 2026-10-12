@@ -12,12 +12,13 @@ fi
 epoch=$(python3 scripts/release/source-date-epoch.py --source-root . --require-clean)
 python3 scripts/release/verify-release-sources.py --source-root . >/dev/null
 
-cmake="$PWD/.tools/cmake-4.4.3/bin/cmake"
+cmake="$PWD/.tools/cmake/bin/cmake"
 release="$PWD/build/release"
 scratch="$PWD/build/reproducibility-check"
-deb=kodosi_0.1.0_amd64.deb
-tgz=kodosi-0.1.0-linux-x86_64.tar.gz
-arch=kodosi-bin-0.1.0-1-x86_64.pkg.tar.zst
+version=$(python3 scripts/release/product-version.py)
+deb="kodosi_${version}_amd64.deb"
+tgz="kodosi-${version}-linux-x86_64.tar.gz"
+arch="kodosi-bin-${version}-1-x86_64.pkg.tar.zst"
 rm -rf "$scratch"
 mkdir -p "$scratch/first" "$scratch/second"
 

@@ -4,7 +4,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
-version=0.1.0
+version=$(python3 scripts/release/product-version.py)
 archive=${1:?Usage: package-arch.sh <release.tar.gz> [output-dir]}
 output_dir=${2:-build/release}
 archive=$(realpath "$archive")

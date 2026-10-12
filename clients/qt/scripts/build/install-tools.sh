@@ -4,20 +4,36 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
-CMAKE_VERSION=4.4.3
-NINJA_VERSION=1.13.2
-QT_VERSION=6.12.0
-# aqtinstall's release cannot read Qt 6.12's Windows repository; this commit can.
-AQTINSTALL_COMMIT=076e1659807d0b362a3ed684d54c2e9c775eb9c7
+lock_value() {
+    python3 -c '
+import json
+import sys
+
+value = json.load(open("dependencies.lock.json", encoding="utf-8"))
+try:
+    for key in sys.argv[1:]:
+        value = value[key]
+except (KeyError, TypeError):
+    value = None
+if not isinstance(value, str) or not value:
+    raise SystemExit("dependencies.lock.json has no value at " + "/".join(sys.argv[1:]))
+sys.stdout.write(value)
+' "$@"
+}
+
+CMAKE_VERSION=$(lock_value tools cmake version)
+NINJA_VERSION=$(lock_value tools ninja version)
+QT_VERSION=$(lock_value frameworks qt version)
+# The aqtinstall release cannot read the Windows repository of the pinned Qt. This commit can.
+AQTINSTALL_COMMIT=$(lock_value tools aqtinstall commit)
 
 case "$(uname -s)-$(uname -m)" in
     Linux-x86_64)
         HOST=linux
         EXE=
+        TOOL_HOST=linux-x86_64
         CMAKE_ARCHIVE="cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz"
-        CMAKE_SHA256=d6c83076c575bc00b823522ac974bda66d0af05d6ddc30e739c12385cf32c6cc
         NINJA_ARCHIVE="ninja-linux.zip"
-        NINJA_SHA256=5749cbc4e668273514150a80e387a957f933c6ed3f5f11e03fb30955e2bbead6
         QT_HOST=linux
         QT_ARCH=linux_gcc_64
         QT_DIR=gcc_64
@@ -29,19 +45,17 @@ case "$(uname -s)-$(uname -m)" in
         source ../../scripts/windows-env.sh
         case "$(kodosi_windows_arch)" in
             x64)
+                TOOL_HOST=windows-x86_64
                 CMAKE_ARCHIVE="cmake-${CMAKE_VERSION}-windows-x86_64.zip"
-                CMAKE_SHA256=4d52ebab7193a698651639ed80d8d04fd903358843572cf44c7fd234cb7c26ab
                 NINJA_ARCHIVE="ninja-win.zip"
-                NINJA_SHA256=07fc8261b42b20e71d1720b39068c2e14ffcee6396b76fb7a795fb460b78dc65
                 QT_HOST=windows
                 QT_ARCH=win64_msvc2022_64
                 QT_DIR=msvc2022_64
                 ;;
             arm64)
+                TOOL_HOST=windows-arm64
                 CMAKE_ARCHIVE="cmake-${CMAKE_VERSION}-windows-arm64.zip"
-                CMAKE_SHA256=7b410ddd00e24c7250eec7452da2348a4a70437aa87e9cda0a20d6a85662fcff
                 NINJA_ARCHIVE="ninja-winarm64.zip"
-                NINJA_SHA256=e52f0bdef9dfb1003229dbd6508a508c4073fd017247002adc66e5e806cb0391
                 QT_HOST=windows_arm64
                 QT_ARCH=win64_msvc2022_arm64
                 QT_DIR=msvc2022_arm64
@@ -55,11 +69,13 @@ case "$(uname -s)-$(uname -m)" in
         ;;
 esac
 
+CMAKE_SHA256=$(lock_value tools cmake sha256 "$TOOL_HOST")
+NINJA_SHA256=$(lock_value tools ninja sha256 "$TOOL_HOST")
 CMAKE_URL="https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/${CMAKE_ARCHIVE}"
-CMAKE_ROOT="$PWD/.tools/cmake-${CMAKE_VERSION}"
+CMAKE_ROOT="$PWD/.tools/cmake"
 NINJA_URL="https://github.com/ninja-build/ninja/releases/download/v${NINJA_VERSION}/${NINJA_ARCHIVE}"
-NINJA_ROOT="$PWD/.tools/ninja-${NINJA_VERSION}"
-QT_ROOT="$PWD/.tools/Qt/$QT_VERSION/$QT_DIR"
+NINJA_ROOT="$PWD/.tools/ninja"
+QT_ROOT="$PWD/.tools/Qt/$QT_DIR"
 AQT_ROOT="$PWD/.tools/aqt-${AQTINSTALL_COMMIT:0:12}"
 DOWNLOAD_ROOT="$PWD/.tools/downloads"
 
@@ -114,7 +130,7 @@ cmake_ready() {
 
 if ! cmake_ready; then
     archive=$(download "$CMAKE_ARCHIVE" "$CMAKE_URL" "$CMAKE_SHA256")
-    stage="$PWD/.tools/cmake-${CMAKE_VERSION}.stage.$$"
+    stage="$PWD/.tools/cmake.stage.$$"
     rm -rf "$stage"
     mkdir -p "$stage"
     unpack "$archive" "$stage" 1
@@ -135,7 +151,7 @@ ninja_ready() {
 
 if ! ninja_ready; then
     archive=$(download "ninja-${NINJA_VERSION}-${NINJA_ARCHIVE#ninja-}" "$NINJA_URL" "$NINJA_SHA256")
-    stage="$PWD/.tools/ninja-${NINJA_VERSION}.stage.$$"
+    stage="$PWD/.tools/ninja.stage.$$"
     rm -rf "$stage"
     mkdir -p "$stage"
     unpack "$archive" "$stage" 0

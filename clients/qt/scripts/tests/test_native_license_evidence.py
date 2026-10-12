@@ -31,7 +31,7 @@ class NativeLicenseEvidenceTests(unittest.TestCase):
         manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
         for row in manifest["qt"]["sboms"]:
             shutil.copyfile(
-                ROOT / f".tools/Qt/{QT_VERSION}/gcc_64/sbom" / row["filename"],
+                ROOT / ".tools/Qt/gcc_64/sbom" / row["filename"],
                 self.qt_root / "sbom" / row["filename"],
             )
 
