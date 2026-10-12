@@ -38,12 +38,47 @@ Do not introduce another process backend or terminal parser.
 
 ## Updates
 
-Review the upstream changes, rebase patches, rebuild each platform, and update
-notices from real source and artifact evidence. Run package tests, artifact
-verifiers, and native sanitizer checks. Update root `Ghostty.lock` from the measured artifacts and commit the integration,
-artifacts, notices and affected consumers together. Validate the actual
-Rust, Swift, and Qt integration and terminal lifecycle.
+Do these steps to update Ghostty:
+
+1. Examine the upstream changes. Rebase the patches in `Patches/ghostty`.
+2. Rebuild each platform with `./Script/build.sh` on a host of that platform.
+3. Update the notices from the real source and artifact evidence.
+4. If a rebuild changes a VT header, generate the Rust bindings again. See
+   [Rust bindings](#rust-bindings).
+5. Run the package tests, the artifact verifiers and the native sanitizer checks.
+6. Update root `Ghostty.lock` from the measured artifacts.
+7. Run `just ghostty-verify` from the repository root.
+8. Do a test of the real Rust, Swift and Qt integration and of the terminal lifecycle.
+9. Commit the integration, the artifacts, the notices, the bindings and the affected
+   consumers together.
 
 Working-tree validation is non-publishable. Preserve licenses, corresponding
 source, and relinking materials required by the built artifacts. Native builds
 need not be byte-for-byte reproducible; record the inputs and committed output.
+
+### Rust bindings
+
+The crate `runtime/crates/ghostty-vt-sys` compiles Rust bindings that are in Git.
+There is one file for each platform: `src/bindings_macos.rs` for macOS and iOS,
+`src/bindings_linux.rs` and `src/bindings_windows.rs`. The script
+`generate-bindings.sh` in the crate writes these files from the VT headers in
+`Vendor/GhosttyVt`.
+
+Generate the bindings again when one of these conditions occurs:
+
+- A rebuild changes a VT header.
+- The runtime needs a Ghostty function, type or constant that the bindings do not
+  have. Add it to the allowlist in the script first.
+
+Run this command from the repository root, on a host of the platform, after the build
+of its artifact:
+
+```sh
+runtime/crates/ghostty-vt-sys/generate-bindings.sh
+```
+
+The script finds the platform of the host. To select a platform, give `macos-arm64`,
+`linux-x86_64`, `windows-x86_64` or `windows-arm64` as the argument. The script
+installs the pinned `bindgen-cli` in a temporary folder. It needs network access,
+libclang and rustfmt. Then run `just rust-all`. Commit the changed bindings with
+the artifacts.
