@@ -6,75 +6,10 @@ cd "$(dirname "$0")/.."
 
 ROOT_DIR=$(pwd)
 ARTIFACT_ROOT=${KODOSI_GHOSTTY_LINUX_ARTIFACT_ROOT:-Vendor/GhosttyVt/linux-x86_64}
-METADATA=${KODOSI_GHOSTTY_LINUX_METADATA:-Vendor/GhosttyVt/linux-x86_64.version}
 
-if [ ! -d "$ARTIFACT_ROOT" ] || [ ! -f "$METADATA" ]; then
-    echo "[!] Linux Ghostty VT artifact or metadata is missing" >&2
+if [ ! -d "$ARTIFACT_ROOT" ]; then
+    echo "[!] Linux Ghostty VT artifact is missing: $ARTIFACT_ROOT" >&2
     exit 1
-fi
-
-package_version=
-ghostty_commit=
-patches_sha256=
-patch_application_sha256=
-zig_version=
-zig_target=
-zig_sha256=
-zig_store_sha256=
-ghostty_build_options=
-vt_target=
-vt_cpu=
-vt_optimize=
-vt_archive_sha256=
-vt_artifact_sha256=
-
-# shellcheck disable=SC1091
-source LinuxVtBuild.env
-# shellcheck disable=SC1090
-source "$METADATA"
-# shellcheck disable=SC1091
-source Toolchain.env
-
-EXPECTED_VERSION=$(tr -d '[:space:]' < VERSION)
-ACTUAL_ARTIFACT=$(python3 "$ROOT_DIR/scripts/digest.py" artifact "$ARTIFACT_ROOT")
-EXPECTED_COMMIT=$(tr -d '[:space:]' < LinuxGhostty.ref)
-EXPECTED_PATCHES=$patches_sha256
-EXPECTED_OPTIONS=$ghostty_build_options
-if [ "${KODOSI_GHOSTTY_REQUIRE_BUILD_PROVENANCE:-0}" = 1 ]; then
-    EXPECTED_PATCHES=$(python3 "$ROOT_DIR/scripts/digest.py" artifact Patches/ghostty)
-    EXPECTED_OPTIONS=$("$ROOT_DIR/scripts/linux-vt-build-options.sh" vector)
-fi
-
-if [ "$package_version" != "$EXPECTED_VERSION" ] ||
-    [ "$ghostty_commit" != "$EXPECTED_COMMIT" ] ||
-    [ "$patches_sha256" != "$EXPECTED_PATCHES" ] ||
-    [ "$zig_version" != "$ZIG_VERSION" ] ||
-    [ "$zig_target" != "x86_64-linux" ] ||
-    [ "$zig_sha256" != "$ZIG_X86_64_LINUX_SHA256" ] ||
-    [ "$ghostty_build_options" != "$EXPECTED_OPTIONS" ] ||
-    [ "$vt_target" != "$GHOSTTY_LINUX_VT_TARGET" ] ||
-    [ "$vt_cpu" != "$GHOSTTY_LINUX_VT_CPU" ] ||
-    [ "$vt_optimize" != "$GHOSTTY_LINUX_VT_OPTIMIZE" ] ||
-    [ "$vt_artifact_sha256" != "$ACTUAL_ARTIFACT" ]; then
-    echo "[!] Linux Ghostty VT provenance mismatch" >&2
-    exit 1
-fi
-
-SOURCE_DIR=${KODOSI_GHOSTTY_PATCHED_SOURCE:-build/ghostty-source}
-if [ "${KODOSI_GHOSTTY_REQUIRE_BUILD_PROVENANCE:-0}" = 1 ]; then
-    if [ ! -d "$SOURCE_DIR/.git" ] || [ ! -d "$SOURCE_DIR/zig-pkg" ]; then
-        echo "[!] strict Linux verification requires the patched source and Zig store" >&2
-        exit 1
-    fi
-    actual_patch_application=$(
-        python3 "$ROOT_DIR/scripts/digest.py" patch-application "$SOURCE_DIR" "$EXPECTED_COMMIT"
-    )
-    actual_store=$(python3 "$ROOT_DIR/scripts/digest.py" tree "$SOURCE_DIR/zig-pkg")
-    if [ "$patch_application_sha256" != "$actual_patch_application" ] ||
-        [ "$zig_store_sha256" != "$actual_store" ]; then
-        echo "[!] Linux Ghostty VT build-input provenance mismatch" >&2
-        exit 1
-    fi
 fi
 
 ARCHIVE="$ARTIFACT_ROOT/lib/libghostty-vt.a"
@@ -93,19 +28,10 @@ for path in \
         exit 1
     fi
 done
-ACTUAL_ARCHIVE_SHA256=$(python3 "$ROOT_DIR/scripts/digest.py" file "$ARCHIVE")
-if [ "$vt_archive_sha256" != "$ACTUAL_ARCHIVE_SHA256" ]; then
-    echo "[!] Linux Ghostty VT archive digest differs from provenance" >&2
-    exit 1
-fi
 if [ "$(readlink "$SHARED_SONAME")" != "libghostty-vt.so.0.1.0" ] ||
     [ "$(readlink "$SHARED_LINK")" != "libghostty-vt.so.0" ]; then
     echo "[!] Linux Ghostty VT shared-library link chain is invalid" >&2
     exit 1
-fi
-if [ "${KODOSI_GHOSTTY_SKIP_NATIVE_PROBES:-0}" = 1 ]; then
-    echo "[*] verified preserved Linux Ghostty VT artifact digest and layout"
-    exit 0
 fi
 if ! readelf -d "$SHARED_REAL" | grep -Fq 'Library soname: [libghostty-vt.so.0]'; then
     echo "[!] Linux Ghostty VT shared library has an unexpected SONAME" >&2

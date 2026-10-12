@@ -23,10 +23,10 @@ source Toolchain.env
 source LinuxVtBuild.env
 
 STAGE_ROOT="$ROOT_DIR/build/linux-vt-stage"
-ARTIFACT_STAGE="$STAGE_ROOT/$GHOSTTY_LINUX_VT_LAYOUT"
-METADATA_STAGE="$STAGE_ROOT/$GHOSTTY_LINUX_VT_LAYOUT.version"
+ARTIFACT_STAGE="$STAGE_ROOT/GhosttyVt/$GHOSTTY_LINUX_VT_LAYOUT"
+METADATA_STAGE="$STAGE_ROOT/GhosttyVt/$GHOSTTY_LINUX_VT_LAYOUT.version"
 rm -rf "$STAGE_ROOT"
-mkdir -p "$STAGE_ROOT"
+mkdir -p "$STAGE_ROOT/GhosttyVt"
 
 if [ "$SKIP_TESTS" -eq 0 ]; then
     "$ROOT_DIR/scripts/verify-linux-vt-source.sh" "$SOURCE_DIR"
@@ -57,10 +57,9 @@ vt_artifact_sha256=$ARTIFACT_DIGEST
 EOF
 
 if [ "$SKIP_TESTS" -eq 0 ]; then
-    KODOSI_GHOSTTY_REQUIRE_BUILD_PROVENANCE=1 \
-        KODOSI_GHOSTTY_PATCHED_SOURCE="$SOURCE_DIR" \
-        KODOSI_GHOSTTY_LINUX_ARTIFACT_ROOT="$ARTIFACT_STAGE" \
-        KODOSI_GHOSTTY_LINUX_METADATA="$METADATA_STAGE" \
+    python3 "$ROOT_DIR/scripts/verify-ghostty-pins.py" \
+        --working-tree --vendor "$STAGE_ROOT" --platform linux --patched-source "$SOURCE_DIR"
+    KODOSI_GHOSTTY_LINUX_ARTIFACT_ROOT="$ARTIFACT_STAGE" \
         "$ROOT_DIR/scripts/verify-linux-vt-artifact.sh"
     KODOSI_GHOSTTY_LINUX_ARTIFACT_ROOT="$ARTIFACT_STAGE" \
         KODOSI_GHOSTTY_LINUX_METADATA="$METADATA_STAGE" \
@@ -105,7 +104,8 @@ if ! mv "$METADATA_STAGE" "$DESTINATION_METADATA"; then
     exit 1
 fi
 
-if ! "$ROOT_DIR/scripts/verify-linux-vt-artifact.sh"; then
+if ! python3 "$ROOT_DIR/scripts/verify-ghostty-pins.py" --working-tree --platform linux ||
+    ! "$ROOT_DIR/scripts/verify-linux-vt-artifact.sh"; then
     rollback_promotion
     exit 1
 fi

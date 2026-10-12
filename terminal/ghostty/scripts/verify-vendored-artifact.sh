@@ -5,7 +5,6 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 VENDOR_ROOT=${KODOSI_GHOSTTY_VENDOR_ROOT:-Vendor}
-METADATA="$VENDOR_ROOT/libghostty.version"
 RENDERER="$VENDOR_ROOT/GhosttyKit.xcframework"
 VT="$VENDOR_ROOT/GhosttyVt/macos-arm64"
 MACOS_MINIMUM=13.0
@@ -16,166 +15,6 @@ while IFS= read -r slice; do
     SLICES+=("$slice")
     [ "$slice" = macos-arm64 ] || IOS_SLICES+=("$slice")
 done <<<"$APPLE_SLICES"
-
-if [ ! -f "$METADATA" ]; then
-    echo "[!] metadata not found: $METADATA"
-    exit 1
-fi
-
-ghostty_commit=
-package_version=
-patches_sha256=
-patch_application_sha256=
-zig_version=
-zig_target=
-zig_sha256=
-zig_store_sha256=
-metal_toolchain_build=
-metal_toolchain_dmg_sha256=
-combined_archive_sha256=
-ghostty_build_options=
-renderer_target=
-renderer_cpu=
-renderer_optimize=
-renderer_artifact_sha256=
-vt_target=
-vt_cpu=
-vt_optimize=
-vt_artifact_sha256=
-symbol_manifest_sha256=
-ZIG_VERSION=
-ZIG_TARGET=
-ZIG_SHA256=
-METAL_TOOLCHAIN_BUILD=
-METAL_TOOLCHAIN_DMG_SHA256=
-
-# shellcheck disable=SC1090
-source "$METADATA"
-# shellcheck disable=SC1091
-source Toolchain.env
-# shellcheck disable=SC1091
-source NativeBuild.env
-
-EXPECTED_PACKAGE_VERSION=$(tr -d '[:space:]' < VERSION)
-ACTUAL_RENDERER_DIGEST=$(python3 scripts/digest.py artifact "$RENDERER")
-ACTUAL_VT_DIGEST=$(python3 scripts/digest.py artifact "$VT")
-ACTUAL_SYMBOL_DIGEST=$(python3 scripts/digest.py artifact "$VENDOR_ROOT/symbols")
-
-SOURCE_DIR=${KODOSI_GHOSTTY_PATCHED_SOURCE:-build/ghostty-source}
-EXPECTED_GHOSTTY_COMMIT=$(tr -d '[:space:]' < MacOSGhostty.ref)
-ACTUAL_PATCHES_DIGEST=$patches_sha256
-ACTUAL_PATCH_APPLICATION_DIGEST=$patch_application_sha256
-ACTUAL_ZIG_STORE_DIGEST=$zig_store_sha256
-EXPECTED_BUILD_OPTIONS=$ghostty_build_options
-if [ "${KODOSI_GHOSTTY_REQUIRE_BUILD_PROVENANCE:-0}" = 1 ]; then
-    ACTUAL_PATCHES_DIGEST=$(python3 scripts/digest.py artifact Patches/ghostty)
-    EXPECTED_BUILD_OPTIONS=$(./scripts/native-build-options.sh vector)
-    if [ ! -d "$SOURCE_DIR/.git" ] || [ ! -d "$SOURCE_DIR/zig-pkg" ]; then
-        echo "[!] patched Ghostty source and Zig store are required for strict provenance verification"
-        exit 1
-    fi
-    ACTUAL_PATCH_APPLICATION_DIGEST=$(
-        python3 scripts/digest.py patch-application "$SOURCE_DIR" "$EXPECTED_GHOSTTY_COMMIT"
-    )
-    ACTUAL_ZIG_STORE_DIGEST=$(python3 scripts/digest.py tree "$SOURCE_DIR/zig-pkg")
-fi
-
-if [ "$ghostty_commit" != "$EXPECTED_GHOSTTY_COMMIT" ] ||
-    [ "$package_version" != "$EXPECTED_PACKAGE_VERSION" ] ||
-    [ "$patches_sha256" != "$ACTUAL_PATCHES_DIGEST" ] ||
-    [ "$patch_application_sha256" != "$ACTUAL_PATCH_APPLICATION_DIGEST" ] ||
-    [ "$zig_version" != "$ZIG_VERSION" ] ||
-    [ "$zig_target" != "aarch64-macos" ] ||
-    [ "$zig_sha256" != "$ZIG_AARCH64_MACOS_SHA256" ] ||
-    [ "$zig_store_sha256" != "$ACTUAL_ZIG_STORE_DIGEST" ] ||
-    [ "$metal_toolchain_build" != "$METAL_TOOLCHAIN_BUILD" ] ||
-    [ "$metal_toolchain_dmg_sha256" != "$METAL_TOOLCHAIN_DMG_SHA256" ] ||
-    [ "$ghostty_build_options" != "$EXPECTED_BUILD_OPTIONS" ] ||
-    [ "$renderer_artifact_sha256" != "$ACTUAL_RENDERER_DIGEST" ] ||
-    [ "$vt_artifact_sha256" != "$ACTUAL_VT_DIGEST" ] ||
-    [ "$symbol_manifest_sha256" != "$ACTUAL_SYMBOL_DIGEST" ]; then
-    echo "[!] Ghostty artifact provenance mismatch"
-    exit 1
-fi
-
-for value in \
-    "$renderer_target" \
-    "$vt_target"; do
-    if [ "$value" != "$GHOSTTY_BUILD_MACOS_TARGET" ]; then
-        echo "[!] unexpected Ghostty target: $value"
-        exit 1
-    fi
-done
-for value in "$renderer_cpu" "$vt_cpu"; do
-    if [ "$value" != "$GHOSTTY_BUILD_CPU" ]; then
-        echo "[!] unexpected Ghostty CPU policy: $value"
-        exit 1
-    fi
-done
-for value in "$renderer_optimize" "$vt_optimize"; do
-    if [ "$value" != "$GHOSTTY_BUILD_OPTIMIZE" ]; then
-        echo "[!] unexpected Ghostty optimization: $value"
-        exit 1
-    fi
-done
-
-metadata_value() {
-    local file=$1
-    local key=$2
-    if [ "$(grep -c "^$key=" "$file" || true)" != 1 ]; then
-        echo "[!] $file must contain exactly one $key" >&2
-        return 1
-    fi
-    sed -n "s/^$key=//p" "$file"
-}
-
-for slice in "${IOS_SLICES[@]}"; do
-    slice_metadata="$VENDOR_ROOT/libghostty-$slice.version"
-    slice_dir="$RENDERER/$slice"
-    if [ ! -f "$slice_metadata" ]; then
-        echo "[!] metadata not found: $slice_metadata"
-        exit 1
-    fi
-    slice_target=$(./scripts/native-build-options.sh target "$slice")
-    expected_slice_options=$(metadata_value "$slice_metadata" ghostty_build_options)
-    if [ "${KODOSI_GHOSTTY_REQUIRE_BUILD_PROVENANCE:-0}" = 1 ]; then
-        expected_slice_options=$(./scripts/native-build-options.sh vector "$slice")
-    fi
-    expected_keys=
-    for expectation in \
-        "package_version=$EXPECTED_PACKAGE_VERSION" \
-        "ghostty_commit=$EXPECTED_GHOSTTY_COMMIT" \
-        "patches_sha256=$ACTUAL_PATCHES_DIGEST" \
-        "patch_application_sha256=$ACTUAL_PATCH_APPLICATION_DIGEST" \
-        "zig_version=$ZIG_VERSION" \
-        "zig_target=aarch64-macos" \
-        "zig_sha256=$ZIG_AARCH64_MACOS_SHA256" \
-        "zig_store_sha256=$ACTUAL_ZIG_STORE_DIGEST" \
-        "metal_toolchain_build=$METAL_TOOLCHAIN_BUILD" \
-        "metal_toolchain_dmg_sha256=$METAL_TOOLCHAIN_DMG_SHA256" \
-        "ghostty_build_options=$expected_slice_options" \
-        "library_identifier=$slice" \
-        "renderer_target=$slice_target" \
-        "renderer_cpu=$GHOSTTY_BUILD_CPU" \
-        "renderer_optimize=$GHOSTTY_BUILD_OPTIMIZE" \
-        "vt_target=$slice_target" \
-        "vt_cpu=$GHOSTTY_BUILD_CPU" \
-        "vt_optimize=$GHOSTTY_BUILD_OPTIMIZE" \
-        "combined_archive_sha256=$(python3 scripts/digest.py file "$slice_dir/libghostty.a")" \
-        "slice_artifact_sha256=$(python3 scripts/digest.py artifact "$slice_dir")" \
-        "symbol_manifest_sha256=$(python3 scripts/digest.py file "$VENDOR_ROOT/symbols/$slice-strong.txt")"; do
-        key=${expectation%%=*}
-        expected_keys+="$key"$'\n'
-        if [ "$(metadata_value "$slice_metadata" "$key")" != "${expectation#*=}" ]; then
-            echo "[!] $slice Ghostty artifact provenance mismatch: $key"
-            exit 1
-        fi
-    done
-    if [ "$(cut -d= -f1 "$slice_metadata" | LC_ALL=C sort)" != "$(printf '%s' "$expected_keys" | LC_ALL=C sort)" ]; then
-        echo "[!] $slice metadata keys differ from the provenance contract"
-        exit 1
-    fi
-done
 
 ios_slice_values() {
     local target
@@ -247,15 +86,6 @@ for slice in "${IOS_SLICES[@]}"; do
         fi
     done
 done
-
-if ! cmp -s "$RENDERER_ARCHIVE" "$VT_ARCHIVE"; then
-    echo "[!] renderer and VT artifact paths do not contain the same native image"
-    exit 1
-fi
-if [ "$(python3 scripts/digest.py file "$RENDERER_ARCHIVE")" != "$combined_archive_sha256" ]; then
-    echo "[!] combined Ghostty archive digest does not match provenance"
-    exit 1
-fi
 
 if [ ! -f "$VT/include/ghostty/vt.h" ] ||
     [ ! -f "$VT/include/module.modulemap" ] ||

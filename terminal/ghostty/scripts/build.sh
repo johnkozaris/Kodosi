@@ -221,10 +221,7 @@ if [ -e "$LINUX_ARTIFACT" ] || [ -e "$LINUX_METADATA" ]; then
     fi
     cp -R "$LINUX_ARTIFACT" "$VENDOR_STAGE/GhosttyVt/linux-x86_64"
     cp "$LINUX_METADATA" "$VENDOR_STAGE/GhosttyVt/linux-x86_64.version"
-    KODOSI_GHOSTTY_SKIP_NATIVE_PROBES=1 \
-        KODOSI_GHOSTTY_LINUX_ARTIFACT_ROOT="$VENDOR_STAGE/GhosttyVt/linux-x86_64" \
-        KODOSI_GHOSTTY_LINUX_METADATA="$VENDOR_STAGE/GhosttyVt/linux-x86_64.version" \
-        "$ROOT_DIR/scripts/verify-linux-vt-artifact.sh"
+    python3 "$ROOT_DIR/scripts/verify-ghostty-pins.py" --working-tree --vendor "$VENDOR_STAGE" --platform linux
 fi
 
 # shellcheck disable=SC1091
@@ -296,8 +293,9 @@ EOF
 done
 
 if [ "$SKIP_TESTS" -eq 0 ]; then
-    KODOSI_GHOSTTY_REQUIRE_BUILD_PROVENANCE=1 \
-        KODOSI_GHOSTTY_VENDOR_ROOT="$VENDOR_STAGE" \
+    python3 "$ROOT_DIR/scripts/verify-ghostty-pins.py" \
+        --working-tree --vendor "$VENDOR_STAGE" --platform macos --patched-source "$SOURCE_DIR"
+    KODOSI_GHOSTTY_VENDOR_ROOT="$VENDOR_STAGE" \
         "$ROOT_DIR/scripts/verify-vendored-artifact.sh"
     KODOSI_GHOSTTY_VENDOR_ROOT="$VENDOR_STAGE" \
         "$ROOT_DIR/scripts/sanitize-native-boundary.sh"
@@ -325,11 +323,6 @@ fi
 if [ "$SKIP_TESTS" -eq 0 ]; then
     "$ROOT_DIR/scripts/test.sh"
     swift test
-fi
-
-if [ -d "$ROOT_DIR/Vendor/GhosttyVt/linux-x86_64" ]; then
-    KODOSI_GHOSTTY_SKIP_NATIVE_PROBES=1 \
-        "$ROOT_DIR/scripts/verify-linux-vt-artifact.sh"
 fi
 
 echo "[*] renderer: Vendor/GhosttyKit.xcframework (${APPLE_SLICES[*]})"
