@@ -165,7 +165,7 @@ release-manifest-gen:
         --manifest build/release/release-manifest.json \
         --output-dir build/release
 
-# Sign the release manifest with the OpenPGP key of this fingerprint or of KODOSI_GPG_FINGERPRINT.
+# Sign the release manifest from release-package with the OpenPGP key of this fingerprint or of KODOSI_GPG_FINGERPRINT.
 release-manifest-sign fingerprint="":
     ./scripts/release/sign-release-manifest.sh \
         build/release/release-manifest.json \
