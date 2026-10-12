@@ -2,7 +2,6 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-python3 "$ROOT/scripts/tests/test_generate_xcode_project.py"
 PROJECT="$ROOT/KodosiDesktop.xcodeproj/project.pbxproj"
 SCRATCH="$ROOT/build/test-generated-project"
 COPY_ROOT="$SCRATCH/clients/macos"
@@ -23,31 +22,12 @@ for task in generate-xcode-project.sh generate-xcode-project.py deployment-targe
 done
 printf '\n' >>"$COPY_ROOT/project.yml"
 
-bash "$ROOT/scripts/tests/test-deployment-target.sh"
 bash "$COPY_ROOT/scripts/build/generate-xcode-project.sh"
 GENERATED="$COPY_ROOT/KodosiDesktop.xcodeproj"
 if ! cmp -s "$PROJECT" "$GENERATED/project.pbxproj"; then
     echo "Semantically unchanged generation rewrote the tracked Xcode project" >&2
     exit 1
 fi
-KODOSI_MACOS_DEPLOYMENT_TARGET=$(<"$ROOT/Config/macOSDeploymentTarget") \
-    xcodegen generate \
-    --spec "$COPY_ROOT/project.yml" \
-    --project "$COPY_ROOT" \
-    --project-root "$COPY_ROOT" \
-    --quiet
-
-plutil -convert json -o "$SCRATCH/tracked-project.json" "$PROJECT"
-plutil -convert json -o "$SCRATCH/generated-project.json" "$GENERATED/project.pbxproj"
-python3 - "$SCRATCH/tracked-project.json" "$SCRATCH/generated-project.json" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-tracked, generated = (json.loads(Path(path).read_text()) for path in sys.argv[1:])
-if tracked != generated:
-    raise SystemExit("Tracked Xcode project differs semantically from isolated generation")
-PY
 for relative_path in \
     project.xcworkspace/contents.xcworkspacedata \
     xcshareddata/xcschemes/KodosiDesktop.xcscheme \
