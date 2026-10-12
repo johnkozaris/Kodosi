@@ -640,7 +640,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"$PROJECT_DIR/scripts/build/sync-native-notices.sh\" \\\n  \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/GhosttyNativeNotices\"\n";
+			shellScript = "\"$PROJECT_DIR/scripts/build/install-native-notices.sh\" \\\n  \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/GhosttyNativeNotices\"\n";
 		};
 		B4DF568273109B89619F0CD7 /* Prepare Native Build */ = {
 			isa = PBXShellScriptBuildPhase;

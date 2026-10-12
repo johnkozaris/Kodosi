@@ -22,7 +22,9 @@ exclusions or add permission tiers, sandboxing, or agent workflow machinery by d
   use, and ordered terminal state.
 - Never reset live databases or alter real provider data, credentials, conversations,
   memory, or working files during development.
-- Keep dependencies project-local and use the root `justfile` for repository gates.
+- Keep dependencies project-local and use the root `justfile` for repository checks.
+- Name new files, folders, recipes, scripts and helpers by the rules in
+  `docs/DEVELOPMENT.md`.
 - Keep current product intent in `PRODUCT.md` and setup in `docs/DEVELOPMENT.md`.
 - Prefer clear code and focused tests over explanatory source comments or architecture
   prose. Preserve required directives and license notices.

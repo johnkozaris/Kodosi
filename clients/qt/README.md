@@ -18,8 +18,8 @@ sudo apt-get install build-essential git curl unzip zstd pkg-config \
   libglib2.0-dev libdbus-1-3 dbus-x11 libxcb-cursor0 libxkbcommon-x11-0
 ```
 
-Install Rust, `uv`, and `just` if they are not already available. The repository's
-bootstrap installs its pinned Qt, CMake, Ninja, and Python tooling under `.tools/`
+Install Rust, `uv`, and `just` if they are not already available. The recipe
+`tools-install` installs the pinned Qt, CMake, Ninja and Python tools under `.tools/`
 in this client directory. It does not require a separate system Qt installation.
 
 ## Build and run
@@ -89,7 +89,8 @@ Run the recipes in Git Bash from [Git for Windows](https://gitforwindows.org), w
   that `python3` exists.
 - On x64, [NASM](https://www.nasm.us) on `PATH`; the runtime's TLS library needs it.
 
-The bootstrap installs the pinned Qt, CMake, and Ninja under `.tools/`, as on Linux.
+The recipe `tools-install` installs the pinned Qt, CMake and Ninja under `.tools/`, as
+on Linux.
 
 ### Terminal engine
 
@@ -98,7 +99,7 @@ If `terminal/ghostty/Vendor/GhosttyVt/windows-<arch>` is not in the checkout, bu
 from the repository root:
 
 ```sh
-terminal/ghostty/Script/build.sh
+terminal/ghostty/scripts/build.sh
 ```
 
 The script prints the digest to record in [Ghostty.lock](../../Ghostty.lock). Commit
@@ -114,8 +115,8 @@ just windows-check
 ```
 
 From this client directory, `just windows-run` builds the app and starts it with the
-bootstrapped Qt libraries. On any host with Docker, `just windows-cross-check` lints
-the runtime for both Windows targets. Desktop notifications need the installed
+installed Qt libraries. On any host with Docker, `just windows-rust-lint` from the
+repository root lints the runtime for both Windows targets. Desktop notifications need the installed
 package; a development build does not show them.
 
 ### Package and sign

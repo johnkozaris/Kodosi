@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 
 
-def digest(path: Path) -> str:
+def file_sha256(path: Path) -> str:
     value = hashlib.sha256()
     with path.open("rb") as source:
         for block in iter(lambda: source.read(1024 * 1024), b""):
@@ -94,8 +94,8 @@ def publish(slot: Path, archive: Path, header: Path, target: str, profile: str) 
         "schemaVersion": 1,
         "target": target,
         "profile": profile,
-        "archiveSha256": digest(archive),
-        "headerSha256": digest(header),
+        "archiveSha256": file_sha256(archive),
+        "headerSha256": file_sha256(header),
     }
     identity = hashlib.sha256(canonical_json(record)).hexdigest()
     bundles = slot / "bundles"
@@ -107,7 +107,7 @@ def publish(slot: Path, archive: Path, header: Path, target: str, profile: str) 
             (stage / "include").mkdir(parents=True)
             shutil.copyfile(archive, stage / name)
             shutil.copyfile(header, stage / "include/kodosi_runtime.h")
-            if digest(stage / name) != record["archiveSha256"] or digest(stage / "include/kodosi_runtime.h") != record["headerSha256"]:
+            if file_sha256(stage / name) != record["archiveSha256"] or file_sha256(stage / "include/kodosi_runtime.h") != record["headerSha256"]:
                 raise ValueError("FFI artifacts changed while publication was being prepared")
             (stage / "artifact.json").write_bytes(canonical_json(record))
             for path in stage.rglob("*"):
@@ -116,7 +116,7 @@ def publish(slot: Path, archive: Path, header: Path, target: str, profile: str) 
                     with path.open("r+b") as file:
                         os.fsync(file.fileno())
             stage.rename(bundle)
-    if (bundle / "artifact.json").read_bytes() != canonical_json(record) or digest(bundle / name) != record["archiveSha256"] or digest(bundle / "include/kodosi_runtime.h") != record["headerSha256"]:
+    if (bundle / "artifact.json").read_bytes() != canonical_json(record) or file_sha256(bundle / name) != record["archiveSha256"] or file_sha256(bundle / "include/kodosi_runtime.h") != record["headerSha256"]:
         raise ValueError("An existing FFI artifact bundle does not match its content identity")
     current = slot / "current"
     if current.is_dir() and not current.is_symlink() and not (os.name == "nt" and current.is_junction()):

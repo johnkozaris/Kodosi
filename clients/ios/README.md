@@ -8,7 +8,7 @@ computers that host them; iOS cannot start them.
 
 - Xcode with the iOS 26 SDK and an iOS 26 simulator runtime.
 - The Rust toolchain pinned at the repository root, with the iOS targets:
-  `just ios-rust-targets`.
+  `just ios-rust-targets-install`.
 - `just`, Python 3, `xcodegen`, `swiftformat`, and `swiftlint` on your build PATH.
 
 The app shares the runtime bridge, the design system, and the terminal view and

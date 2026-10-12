@@ -1,0 +1,47 @@
+simulator := env('KODOSI_IOS_SIMULATOR', 'Kodosi iPhone 17 Pro')
+
+[private]
+default: build
+
+# Generate the Xcode project from project.yml.
+xcode-gen:
+    xcodegen generate --quiet
+
+# Lint the Swift sources of the iPhone and iPad app.
+lint:
+    swiftformat Sources Tests --lint --swiftversion 6.0
+    swiftlint lint --quiet Sources Tests
+
+# Format the Swift sources of the iPhone and iPad app.
+format:
+    swiftformat Sources Tests --swiftversion 6.0
+
+# Build the Debug app for the iOS simulator.
+build: xcode-gen
+    xcodebuild -project KodosiMobile.xcodeproj \
+        -scheme KodosiMobile \
+        -configuration Debug \
+        -destination 'generic/platform=iOS Simulator' \
+        build
+
+# Run the unit tests on the simulator that KODOSI_IOS_SIMULATOR names. Make the simulator if it is missing.
+test: xcode-gen
+    #!/usr/bin/env bash
+    set -euo pipefail
+    id=$(scripts/prepare-simulator.sh "{{ simulator }}")
+    xcodebuild -project KodosiMobile.xcodeproj \
+        -scheme KodosiMobile \
+        -configuration Debug \
+        -destination "id=$id" \
+        test
+
+# Build the Release app for iOS devices.
+device-build: xcode-gen
+    xcodebuild -project KodosiMobile.xcodeproj \
+        -scheme KodosiMobile \
+        -configuration Release \
+        -destination 'generic/platform=iOS' \
+        build
+
+# Lint and test the iPhone and iPad app, then build it for devices.
+check: lint test device-build

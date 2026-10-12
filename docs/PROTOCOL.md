@@ -83,7 +83,7 @@ Use the generated files for current versions and message definitions:
 | Upstream terminal revisions and artifacts | [Ghostty.lock](../Ghostty.lock) |
 
 Rust generates shared contracts. Use `just protocol-gen` for an intentional change and
-`just protocol-check` to verify committed output. Keep clients, backend, and runtime
+`just protocol-check` to check the committed output. Keep clients, backend, and runtime
 aligned in the same change; do not maintain parallel historical protocol documents.
 
 ## Source map

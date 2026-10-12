@@ -22,7 +22,7 @@ def fail(message: str) -> None:
     raise SystemExit(f"Rust license inventory error: {message}")
 
 
-def digest_bytes(value: bytes) -> str:
+def bytes_sha256(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
@@ -74,7 +74,7 @@ def load_overrides(path: Path) -> tuple[dict[tuple[str, str, str], dict], bytes]
         if (
             not evidence_payload
             or len(evidence_payload) > MAX_EVIDENCE_BYTES
-            or digest_bytes(evidence_payload) != row["sha256"]
+            or bytes_sha256(evidence_payload) != row["sha256"]
             or not EVIDENCE_NAME.match(source.name)
         ):
             fail(f"override evidence is invalid: {relative}")
@@ -182,7 +182,7 @@ def main() -> None:
             ),
             key=lambda path: str(path.relative_to(crate_root)).casefold(),
         )
-        package_digest = digest_bytes(package["id"].encode("utf-8"))[:16]
+        package_digest = bytes_sha256(package["id"].encode("utf-8"))[:16]
         safe_name = re.sub(r"[^A-Za-z0-9_.-]", "_", package["name"])
         relative_root = Path(f"{safe_name}-{package['version']}-{package_digest}")
         evidence_rows: list[dict[str, object]] = []
@@ -197,7 +197,7 @@ def main() -> None:
             evidence_rows.append(
                 {
                     "path": str(Path("licenses") / relative_root / source_relative),
-                    "sha256": digest_bytes(payload),
+                    "sha256": bytes_sha256(payload),
                     "origin": {
                         "kind": "crate",
                         "cratePath": str(source_relative),
@@ -225,7 +225,7 @@ def main() -> None:
             evidence_rows.append(
                 {
                     "path": str(Path("licenses") / relative_root / source.name),
-                    "sha256": digest_bytes(payload),
+                    "sha256": bytes_sha256(payload),
                     "origin": {
                         "kind": "override",
                         "sourceUrl": override["sourceUrl"],
@@ -254,7 +254,7 @@ def main() -> None:
         "roots": ["kodosi-ffi-c", "kodosi-runtime"],
         "overrideManifest": {
             "path": "rust-license-overrides.json",
-            "sha256": digest_bytes(override_payload),
+            "sha256": bytes_sha256(override_payload),
         },
         "dependencies": inventory,
     }

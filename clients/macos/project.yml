@@ -109,7 +109,7 @@ targets:
       - name: Install Native Notices
         basedOnDependencyAnalysis: false
         script: |
-          "$PROJECT_DIR/scripts/build/sync-native-notices.sh" \
+          "$PROJECT_DIR/scripts/build/install-native-notices.sh" \
             "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/GhosttyNativeNotices"
       - name: Verify final Ghostty image
         basedOnDependencyAnalysis: false
@@ -133,8 +133,6 @@ targets:
         LIBRARY_SEARCH_PATHS: "$(SRCROOT)/Frameworks/KodosiKit.xcframework/macos-host-debug"
     sources:
       - path: Tests
-        excludes:
-          - Tooling
     dependencies:
       - target: KodosiDesktop
 
