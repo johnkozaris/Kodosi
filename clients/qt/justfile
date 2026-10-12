@@ -34,9 +34,9 @@ test: build
 dependency-pins-check:
     python3 scripts/build/verify-dependency-pins.py
 
-# Test the release scripts.
-release-integrity-test:
-    python3 -m unittest scripts/tests/test_release_integrity.py
+# Test that the release signature check refuses a changed manifest and the signature of another key.
+release-signature-test:
+    python3 -m unittest scripts/tests/test_release_signature.py
 
 # Write the Rust license inventory for Linux, and verify it.
 rust-license-test:
@@ -54,7 +54,7 @@ native-license-check: tools-install
     python3 scripts/release/verify-native-license-evidence.py
 
 # Lint and test the Linux app and its release and license scripts.
-check: dependency-pins-check release-integrity-test rust-license-test native-license-check lint test
+check: dependency-pins-check release-signature-test rust-license-test native-license-check lint test
 
 # Build the Windows app in Git Bash on Windows 11, x64 or ARM64.
 windows-build: tools-install
