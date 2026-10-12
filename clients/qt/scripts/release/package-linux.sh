@@ -1,46 +1,77 @@
 #!/usr/bin/env bash
+# Makes the Debian package, the portable archive and the Arch package from a
+# built release tree. CPack makes the first two. Then the script writes the
+# archive again with sorted names and fixed modes, owners and times, and makes
+# the Arch package from it.
 
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
+if [[ $# -ne 2 ]]; then
+    echo "Usage: package-linux.sh <build-dir> <output-dir>" >&2
+    exit 2
+fi
+build_dir=$(realpath "$1")
+mkdir -p "$2"
+output_dir=$(realpath "$2")
 version=$(python3 scripts/release/product-version.py)
-archive=${1:?Usage: package-arch.sh <release.tar.gz> [output-dir]}
-output_dir=${2:-build/release}
-archive=$(realpath "$archive")
-mkdir -p "$output_dir"
-output_dir=$(realpath "$output_dir")
 epoch=${SOURCE_DATE_EPOCH:-$(python3 scripts/release/source-date-epoch.py --source-root .)}
 if [[ ! "$epoch" =~ ^[0-9]+$ ]] || (( epoch <= 0 )); then
     echo "SOURCE_DATE_EPOCH must be a positive integer" >&2
     exit 2
 fi
+export SOURCE_DATE_EPOCH=$epoch
 
-stage="$PWD/build/arch-package-writer.$$"
+tree="kodosi-${version}-Linux"
+archive="$output_dir/kodosi-${version}-linux-x86_64.tar.gz"
 package="$output_dir/kodosi-bin-${version}-1-x86_64.pkg.tar.zst"
-temporary="$output_dir/.kodosi-bin-${version}-1-x86_64.pkg.tar.zst.part.$$"
-rm -rf "$stage"
-rm -f "$temporary"
-mkdir -p "$stage/extracted" "$stage/root"
-trap 'rm -rf "$stage"; rm -f "$temporary"' EXIT
+mkdir -p build
+stage=$(mktemp -d "$PWD/build/package-linux.XXXXXX")
+trap 'rm -rf "$stage" "$output_dir/_CPack_Packages"' EXIT
 
-tar -xzf "$archive" -C "$stage/extracted"
-source_root="$stage/extracted/kodosi-${version}-Linux"
-test -d "$source_root/usr"
-cp -a "$source_root/usr" "$stage/root/"
+rm -f "$output_dir"/kodosi_*.deb \
+    "$output_dir"/kodosi-*-linux-x86_64.tar.gz \
+    "$output_dir"/kodosi-bin-*.pkg.tar.zst \
+    "$output_dir/release-manifest.json" \
+    "$output_dir/release-manifest.json.asc"
+umask 022
+.tools/cmake/bin/cpack --config "$build_dir/CPackConfig.cmake" -B "$output_dir"
 
-chmod 0755 "$stage/root"
-find "$stage/root" -type d -exec chmod 0755 {} +
-while IFS= read -r -d '' path; do
-    if [[ -x "$path" ]]; then
-        chmod 0755 "$path"
-    else
-        chmod 0644 "$path"
-    fi
-done < <(find "$stage/root" -type f -print0)
+normalize_modes() {
+    find "$1" -type d -exec chmod 0755 {} +
+    while IFS= read -r -d '' path; do
+        if [[ -x "$path" ]]; then
+            chmod 0755 "$path"
+        else
+            chmod 0644 "$path"
+        fi
+    done < <(find "$1" -type f -print0)
+}
 
-installed_size=$(du -sb "$stage/root/usr" | awk '{ print $1 }')
-cat >"$stage/root/.PKGINFO" <<EOF
+tar -xzf "$archive" -C "$stage"
+test -d "$stage/$tree/usr"
+normalize_modes "$stage/$tree"
+find "$stage/$tree" -print0 |
+    xargs -0 touch -h --date="@$epoch"
+tar \
+    --sort=name \
+    --format=gnu \
+    --mtime="@$epoch" \
+    --owner=0 \
+    --group=0 \
+    --numeric-owner \
+    -cf - \
+    -C "$stage" "$tree" |
+    gzip -n -9 >"$stage/archive.tar.gz"
+mv -f "$stage/archive.tar.gz" "$archive"
+
+mkdir "$stage/arch" "$stage/normalized"
+tar -xzf "$archive" -C "$stage/normalized"
+cp -a "$stage/normalized/$tree/usr" "$stage/arch/"
+normalize_modes "$stage/arch"
+installed_size=$(du -sb "$stage/arch/usr" | awk '{ print $1 }')
+cat >"$stage/arch/.PKGINFO" <<EOF
 pkgname = kodosi-bin
 pkgbase = kodosi-bin
 pkgver = ${version}-1
@@ -82,10 +113,9 @@ depend = zlib
 provides = kodosi
 conflict = kodosi
 EOF
-chmod 0644 "$stage/root/.PKGINFO"
-find "$stage/root" -print0 |
+chmod 0644 "$stage/arch/.PKGINFO"
+find "$stage/arch" -print0 |
     xargs -0 touch -h --date="@$epoch"
-
 tar \
     --sort=name \
     --format=posix \
@@ -95,7 +125,7 @@ tar \
     --group=0 \
     --numeric-owner \
     -cf - \
-    -C "$stage/root" .PKGINFO usr |
-    zstd --quiet --threads=1 -19 -o "$temporary"
-mv -f "$temporary" "$package"
-echo "$package"
+    -C "$stage/arch" .PKGINFO usr |
+    zstd --quiet --threads=1 -19 -o "$stage/package.pkg.tar.zst"
+mv -f "$stage/package.pkg.tar.zst" "$package"
+echo "Linux packages written to $output_dir"
