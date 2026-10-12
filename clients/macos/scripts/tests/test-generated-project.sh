@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 python3 "$ROOT/scripts/tests/test_generate_xcode_project.py"
 PROJECT="$ROOT/KodosiDesktop.xcodeproj/project.pbxproj"
 SCRATCH="$ROOT/build/test-generated-project"
-COPY_ROOT="$SCRATCH/repository"
+COPY_ROOT="$SCRATCH/clients/macos"
 
 cleanup() {
     rm -rf "$SCRATCH"
@@ -16,7 +16,7 @@ mkdir -p "$COPY_ROOT"
 for relative_path in project.yml Config Sources Tests Resources KodosiDesktop.xcodeproj; do
     cp -R "$ROOT/$relative_path" "$COPY_ROOT/$relative_path"
 done
-cp -R "$ROOT/../apple" "$SCRATCH/apple"
+cp -R "$ROOT/../apple" "$SCRATCH/clients/apple"
 mkdir -p "$COPY_ROOT/scripts/build"
 for task in generate-xcode-project.sh generate-xcode-project.py deployment-target.sh; do
     cp "$ROOT/scripts/build/$task" "$COPY_ROOT/scripts/build/$task"

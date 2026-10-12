@@ -37,6 +37,9 @@ service addresses. For a custom server in Debug, clear the two
 `KODOSI_DEBUG_BACKEND_*` settings in [Config/Debug.xcconfig](Config/Debug.xcconfig).
 
 Generate the project from `project.yml`; do not edit generated project files.
+[iOSDeploymentTarget](../apple/Config/iOSDeploymentTarget) is the record of the iOS
+deployment target. [Apps.xcconfig](../apple/Config/Apps.xcconfig) gives the version and
+the build number of the iOS app and of the Mac app.
 
 ## Privacy manifest
 

@@ -37,6 +37,11 @@ corresponding source and relinking materials are retained.
 The build scripts, the verifiers and the Rust build script read these values from
 `NativeBuild.env`. Do not copy the slice list or a target into a script.
 
+The iOS version in `GHOSTTY_BUILD_IOS_TARGET` must not be higher than the iOS
+deployment target of the app in `../../clients/apple/Config/iOSDeploymentTarget`.
+`Package.swift` must give the same iOS version as `GHOSTTY_BUILD_IOS_TARGET`.
+`just mac-check` and `just ios-check` make sure of these two conditions.
+
 The notice verifier reads the z2d source identity from
 `ThirdPartyNotices/inventory.json`. It gets the list of libintl objects from the
 compiled sources in the libintl corresponding-source manifest. The libintl relink

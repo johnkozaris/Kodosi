@@ -12,6 +12,11 @@ configs:
   Release: release
   WorkingTreeValidation: release
 
+configFiles:
+  Debug: ../apple/Config/Apps.xcconfig
+  Release: ../apple/Config/Apps.xcconfig
+  WorkingTreeValidation: ../apple/Config/Apps.xcconfig
+
 packages:
   KodosiApple:
     path: ../apple
@@ -40,8 +45,6 @@ settingGroups:
     ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
     ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
-    CURRENT_PROJECT_VERSION: 1
-    MARKETING_VERSION: 0.1.0
     CLANG_WARN_DOCUMENTATION_COMMENTS: YES
     CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED: YES
 

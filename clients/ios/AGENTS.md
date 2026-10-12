@@ -18,7 +18,8 @@ for the iPhone and iPad experience, and `DESIGN.md` for its visual system.
   runtime events that `AppModel` routes to it. Views read stores and call actions;
   they do not send protocol commands themselves.
 - Generate the Xcode project from `project.yml`. The Rust header is generated and
-  shared; never edit it by hand.
+  shared; never edit it by hand. `../apple/Config/iOSDeploymentTarget` is the record
+  of the deployment target.
 
 ## Rules
 

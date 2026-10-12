@@ -45,7 +45,8 @@ For a custom server in Debug, clear the two `KODOSI_DEBUG_BACKEND_*` build setti
 so its local override does not replace your environment.
 
 Generate the project from `project.yml`; do not edit generated project files or the
-runtime header directly.
+runtime header directly. [Apps.xcconfig](../apple/Config/Apps.xcconfig) gives the
+version and the build number of the Mac app and of the iOS app.
 
 ## Command-line access
 
