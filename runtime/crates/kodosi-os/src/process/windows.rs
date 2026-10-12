@@ -10,8 +10,12 @@ use std::{
 };
 
 use windows_sys::Win32::{
-    Foundation::{ERROR_INVALID_PARAMETER, WAIT_TIMEOUT},
+    Foundation::{
+        ERROR_INVALID_PARAMETER, HANDLE_FLAG_INHERIT, INVALID_HANDLE_VALUE, SetHandleInformation,
+        WAIT_TIMEOUT,
+    },
     System::{
+        Console::{GetStdHandle, STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE},
         SystemInformation::{ComputerNameDnsHostname, GetComputerNameExW},
         Threading::{
             CREATE_NEW_PROCESS_GROUP, DETACHED_PROCESS, OpenProcess,
@@ -75,6 +79,16 @@ pub(super) fn default_shell() -> PathBuf {
 
 pub(super) fn detach(command: &mut std::process::Command) {
     command.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
+    // A child inherits every inheritable handle of its parent, so it would
+    // otherwise hold open the pipes of a caller reading this process's output.
+    for kind in [STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE] {
+        // SAFETY: `GetStdHandle` has no pointer arguments.
+        let handle = unsafe { GetStdHandle(kind) };
+        if !handle.is_null() && handle != INVALID_HANDLE_VALUE {
+            // SAFETY: the handle is this process's own; failure leaves it inheritable.
+            unsafe { SetHandleInformation(handle, HANDLE_FLAG_INHERIT, 0) };
+        }
+    }
 }
 
 pub(super) fn is_running(pid: u32) -> bool {
