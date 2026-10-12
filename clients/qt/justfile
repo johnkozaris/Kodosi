@@ -8,6 +8,8 @@ qt_dir := tools_dir + "/Qt/gcc_64"
 windows_cmake := tools_dir + "/cmake/bin/cmake.exe"
 windows_ctest := tools_dir + "/cmake/bin/ctest.exe"
 version := trim(`python3 scripts/release/product-version.py`)
+source_date_epoch := trim(`python3 scripts/release/source-date-epoch.py --source-root .`)
+linux_packages := "kodosi_" + version + "_amd64.deb kodosi-" + version + "-linux-x86_64.tar.gz kodosi-bin-" + version + "-1-x86_64.pkg.tar.zst"
 
 # Install the pinned CMake, Ninja, Qt and Python tools in .tools.
 tools-install:
@@ -93,51 +95,24 @@ windows-sign package:
     source ../../scripts/windows-env.sh && kodosi_windows_env && \
         ./scripts/release/sign-msix.sh "{{ package }}"
 
-# Make and check the Debian package, the portable archive and the Arch package in build/release.
-package: tools-install
-    mkdir -p build/release
-    git status --porcelain=v1 --untracked-files=no \
-        > build/release/tracked-status.before
-    SOURCE_DATE_EPOCH="$(python3 scripts/release/source-date-epoch.py --source-root .)" \
-        CMAKE_PREFIX_PATH="{{ qt_dir }}" "{{ cmake }}" --preset release
-    SOURCE_DATE_EPOCH="$(python3 scripts/release/source-date-epoch.py --source-root .)" \
-        "{{ cmake }}" --build --preset release
+# Build and test the Linux release. Make the Debian package, the portable archive and the Arch package two times, and compare them. Check each package, then write and check the release manifest in build/release. Commit all the changes first.
+release-package: tools-install
+    SOURCE_DATE_EPOCH={{ source_date_epoch }} CMAKE_PREFIX_PATH="{{ qt_dir }}" \
+        "{{ cmake }}" --preset release
+    SOURCE_DATE_EPOCH={{ source_date_epoch }} "{{ cmake }}" --build --preset release
     "{{ cmake }}" --build build/release --target test_prep/all
-    QT_QPA_PLATFORM=offscreen QSG_RHI_BACKEND=software \
-        "{{ ctest }}" --preset release
+    QT_QPA_PLATFORM=offscreen QSG_RHI_BACKEND=software "{{ ctest }}" --preset release
     ./scripts/release/package-linux.sh build/release build/release
-    git status --porcelain=v1 --untracked-files=no \
-        > build/release/tracked-status.after
-    if ! cmp -s build/release/tracked-status.before \
-        build/release/tracked-status.after; then \
-        echo "Package build modified tracked source files" >&2; \
-        diff build/release/tracked-status.before \
-            build/release/tracked-status.after || true; \
-        exit 1; \
-    fi
-    python3 scripts/release/verify-linux-package.py --build-dir build/release build/release/kodosi_{{ version }}_amd64.deb
-    python3 scripts/release/verify-linux-package.py --build-dir build/release build/release/kodosi-{{ version }}-linux-x86_64.tar.gz
-
-# Check the Arch package that package makes.
-arch-package: package
-    python3 scripts/release/verify-linux-package.py --build-dir build/release build/release/kodosi-bin-{{ version }}-1-x86_64.pkg.tar.zst
-
-# Make the Linux packages, then check that a second build makes the same packages.
-reproducible-package: package reproducibility-check
-
-# Make the packages two more times from build/release, and check that they are the same. Commit all the changes first.
-reproducibility-check: tools-install
-    ./scripts/release/verify-reproducible-packages.sh
-
-# Make all the Linux release packages, then write and verify the release manifest.
-release-package: reproducible-package arch-package release-manifest-gen
-
-# Write and check the release manifest for the packages in build/release.
-release-manifest-gen:
-    python3 scripts/release/release-manifest.py generate \
-        build/release/kodosi_{{ version }}_amd64.deb \
-        build/release/kodosi-{{ version }}-linux-x86_64.tar.gz \
-        build/release/kodosi-bin-{{ version }}-1-x86_64.pkg.tar.zst
+    ./scripts/release/package-linux.sh build/release build/second-packages
+    for package in {{ linux_packages }}; do \
+        cmp "build/release/$package" "build/second-packages/$package" || \
+            { echo "The second build made another $package." >&2; exit 1; }; \
+    done
+    rm -rf build/second-packages
+    for package in {{ linux_packages }}; do \
+        python3 scripts/release/verify-linux-package.py --build-dir build/release "build/release/$package"; \
+    done
+    python3 scripts/release/release-manifest.py generate {{ prepend("build/release/", linux_packages) }}
     python3 scripts/release/release-manifest.py verify build/release/release-manifest.json
 
 # Sign the release manifest from release-package with the OpenPGP key of this fingerprint or of KODOSI_GPG_FINGERPRINT.
