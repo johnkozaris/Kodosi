@@ -536,8 +536,7 @@
 				7E367D8900386387453E1AB1 /* Sources */,
 				E3E3B432464E2D95103B9C1A /* Resources */,
 				A9C301B2924C2E2E94EDFDC1 /* Frameworks */,
-				FA00C0E2C08024EB96C8F50C /* Install Artwork Notices */,
-				A31464073E54CEB2B9BEB9D9 /* Install Native Notices */,
+				C320C62EFFCD834401EA4652 /* Install Notices */,
 				16E5D268C03350B431A7CEFB /* Verify final Ghostty image */,
 			);
 			buildRules = (
@@ -669,7 +668,7 @@
 			shellPath = /bin/sh;
 			shellScript = "\"$PROJECT_DIR/scripts/build/enforce-build-variant.sh\"\n";
 		};
-		A31464073E54CEB2B9BEB9D9 /* Install Native Notices */ = {
+		C320C62EFFCD834401EA4652 /* Install Notices */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -679,33 +678,14 @@
 			);
 			inputPaths = (
 			);
-			name = "Install Native Notices";
+			name = "Install Notices";
 			outputFileListPaths = (
 			);
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"$PROJECT_DIR/scripts/build/install-native-notices.sh\" \\\n  \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/GhosttyNativeNotices\"\n";
-		};
-		FA00C0E2C08024EB96C8F50C /* Install Artwork Notices */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Install Artwork Notices";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "cp \"$PROJECT_DIR/../apple/Notices/\"*.txt \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/\"\n";
+			shellScript = "python3 \"$PROJECT_DIR/../apple/scripts/install-notices.py\" \"$PLATFORM_NAME\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

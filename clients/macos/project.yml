@@ -105,15 +105,10 @@ targets:
         script: |
           "$PROJECT_DIR/scripts/build/enforce-build-variant.sh"
     postBuildScripts:
-      - name: Install Artwork Notices
+      - name: Install Notices
         basedOnDependencyAnalysis: false
         script: |
-          cp "$PROJECT_DIR/../apple/Notices/"*.txt "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/"
-      - name: Install Native Notices
-        basedOnDependencyAnalysis: false
-        script: |
-          "$PROJECT_DIR/scripts/build/install-native-notices.sh" \
-            "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/GhosttyNativeNotices"
+          python3 "$PROJECT_DIR/../apple/scripts/install-notices.py" "$PLATFORM_NAME" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
       - name: Verify final Ghostty image
         basedOnDependencyAnalysis: false
         script: |
