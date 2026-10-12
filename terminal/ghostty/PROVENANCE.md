@@ -69,17 +69,61 @@ and the combined image, including the iOS slices that upstream otherwise limits
 to `libghostty-vt`. Remove patches when upstream supplies the same behavior.
 Do not introduce another process backend or terminal parser.
 
+## Checks
+
+`scripts/verify-ghostty-pins.py` is the only check of the pins. It compares
+`../../Ghostty.lock`, the ref files, `VERSION`, `NativeBuild.env`,
+`LinuxVtBuild.env`, `WindowsVtBuild.env`, `Toolchain.env` and the `.version`
+metadata in `Vendor` with the vendored files. A record must use LF line ends and
+must have exactly the expected keys. `scripts/digest.py` is the only code for the
+digests. The build uses it to write a digest, and the verifier uses it to check the
+digest.
+
+The verifier has these options:
+
+- `--working-tree` does not read `Ghostty.lock`. Use it for artifacts that are not
+  in the lock yet. Do not publish such a build.
+- `--vendor <folder>` checks the artifacts in a folder other than `Vendor`, for
+  example a build stage.
+- `--platform <macos|linux|windows>` checks the artifacts of one platform only.
+  `macos` includes the iOS slices.
+- `--patched-source <folder>` also compares the build inputs with the patched
+  Ghostty source of a build: the patch set, the patch application, the Zig package
+  store and the build options. The build scripts use this option.
+
+`KODOSI_GHOSTTY_DIR` selects another Ghostty folder, as for the Rust build script.
+`just ghostty-check` runs the verifier, the digest tests and the notice
+checks of the host.
+
+The other checks do not read the pins:
+
+- `verify-vendored-artifact.sh` and `verify-linux-vt-artifact.sh` do the native
+  probes of the Apple and Linux artifacts.
+- `verify-third-party-notices.py` and `verify-linux-third-party-notices.py` compare
+  the notices with the artifacts.
+- `sanitize-native-boundary.sh` runs the C boundary of the Apple image with
+  sanitizers.
+- The crate `runtime/crates/ghostty-vt-sys` compares the artifact of its target
+  with the lock, because Cargo cannot run Python.
+
+On Windows, Git writes the symbolic links of the Linux artifact as plain files.
+Thus the verifier does not compare the folder digest of the Linux artifact there.
+
 ## Updates
 
 Do these steps to update Ghostty:
 
 1. Examine the upstream changes. Rebase the patches in `Patches/ghostty`.
 2. Rebuild each platform with `./scripts/build.sh` on a host of that platform.
+   The build also checks its artifacts. `--skip-tests` skips most of these checks.
 3. Update the notices from the real source and artifact evidence.
 4. If a rebuild changes a VT header, generate the Rust bindings again. See
    [Rust bindings](#rust-bindings).
-5. Run the package tests, the artifact verifiers and the native sanitizer checks.
-6. Update root `Ghostty.lock` from the measured artifacts.
+5. Run the package tests with `./scripts/test.sh`.
+6. Update root `Ghostty.lock` from the measured artifacts. Copy each
+   `<platform>_ghostty_commit` from `ghostty_commit`, and each
+   `<artifact>_archive_sha256` from the archive digest in the `.version` file of
+   the artifact.
 7. Run `just ghostty-check` from the repository root.
 8. Do a test of the real Rust, Swift and Qt integration and of the terminal lifecycle.
 9. Commit the integration, the artifacts, the notices, the bindings and the affected

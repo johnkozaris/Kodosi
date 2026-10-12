@@ -179,6 +179,8 @@ Keep one current contract set under [protocol/](../protocol/).
 
 The clients compile the runtime from this checkout. Root [Ghostty.lock](../Ghostty.lock)
 selects the upstream revisions and artifact digests under `terminal/ghostty/`.
+`just ghostty-check` runs `terminal/ghostty/scripts/verify-ghostty-pins.py`, which
+compares the lock, the ref files and the vendored metadata with the artifacts.
 Follow [Ghostty provenance](../terminal/ghostty/PROVENANCE.md) for native updates;
 commit measured build evidence, notices, pins, and affected consumers together.
 
