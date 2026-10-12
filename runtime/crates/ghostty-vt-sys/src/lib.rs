@@ -20,6 +20,8 @@ mod bindings {
     include!("bindings_linux.rs");
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     include!("bindings_macos.rs");
+    #[cfg(windows)]
+    include!("bindings_windows.rs");
 }
 
 #[allow(clippy::wildcard_imports)]
@@ -37,6 +39,8 @@ mod tests {
         let bindings = include_str!("bindings_linux.rs");
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         let bindings = include_str!("bindings_macos.rs");
+        #[cfg(windows)]
+        let bindings = include_str!("bindings_windows.rs");
         assert!(!bindings.contains("GhosttySnapshot"));
         assert!(!bindings.contains("ghostty_snapshot_"));
     }

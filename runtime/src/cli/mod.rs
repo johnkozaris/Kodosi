@@ -674,7 +674,7 @@ impl IdleWatch {
 
 async fn run_host(config: Config, json_output: bool) -> Result<()> {
     let mut idle = IdleWatch::new(config.host == HostKind::Background);
-    crate::diagnostics::install(&config.data_root);
+    crate::diagnostics::install(&config.data_root, crate::diagnostics::Role::Host);
     let runtime = crate::start(config).await?;
     let result = async {
         let mut events = runtime.subscribe_events();
@@ -941,7 +941,7 @@ fn start_defaults(
 fn path(value: Option<PathBuf>) -> Result<Option<String>> {
     value
         .map(|path| {
-            path.canonicalize().and_then(|p| {
+            kodosi_os::fs::canonicalize(&path).and_then(|p| {
                 p.into_os_string()
                     .into_string()
                     .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "path is not UTF-8"))
@@ -1214,11 +1214,7 @@ async fn connect_or_start(config: &Config) -> Result<local_host::Client> {
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        command.process_group(0);
-    }
+    kodosi_os::process::detach(&mut command);
     let mut child = command.spawn()?;
     for _ in 0..100 {
         tokio::time::sleep(Duration::from_millis(50)).await;
@@ -1314,11 +1310,11 @@ mod tests {
         assert!(
             context.observe(&json!({"type":"auth.required","accountUserId":null,"accountEpoch":2}))
         );
-        assert!(context.sessions.is_empty());
+        assert_eq!(context.sessions, [] as [Value; 0]);
         assert!(!context.observe(&json!({"type":"sessions.snapshot","accountUserId":"old","accountEpoch":1,"sessions":[{"id":"old-session"}]})));
         assert_eq!(context.epoch, 2);
         assert!(context.user.is_none());
-        assert!(context.sessions.is_empty());
+        assert_eq!(context.sessions, [] as [Value; 0]);
     }
     #[test]
     fn a_terminal_and_a_friend_are_found_by_name_or_identifier() {

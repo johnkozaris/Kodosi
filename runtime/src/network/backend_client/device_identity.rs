@@ -377,7 +377,7 @@ impl BackendClient {
                     .any(|entry| &entry.device_id == device)
         });
         if pending != state.blocked_devices {
-            identity::storage::private_write(
+            kodosi_os::fs::write_private(
                 &self
                     .inner
                     .config
@@ -403,7 +403,7 @@ impl BackendClient {
             return Err(Error::Busy);
         }
         pending.insert((user_id.to_owned(), device_id.to_owned()));
-        identity::storage::private_write(
+        kodosi_os::fs::write_private(
             &self
                 .inner
                 .config

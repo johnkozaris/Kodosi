@@ -9,7 +9,7 @@ async fn shell(
     tempfile::TempDir,
 ) {
     let root = tempfile::tempdir().expect("temporary cwd");
-    let directory = root.path().canonicalize().expect("canonical cwd");
+    let directory = kodosi_os::fs::canonicalize(root.path()).expect("canonical cwd");
     let (changes, receiver) = mpsc::channel(128);
     let session = LocalSession::spawn(
         Uuid::now_v7(),
@@ -91,7 +91,9 @@ exec /bin/cat"#,
         std::fs::read_to_string(root.path().join("cwd")).expect("working directory"),
         format!(
             "{}\n",
-            root.path().canonicalize().expect("canonical cwd").display()
+            kodosi_os::fs::canonicalize(root.path())
+                .expect("canonical cwd")
+                .display()
         )
     );
     assert_eq!(
@@ -334,7 +336,7 @@ fn byte_budget_covers_admitted_input_before_the_actor_polls() {
 )]
 async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
     let root = tempfile::tempdir().expect("cwd");
-    let directory = root.path().canonicalize().expect("canonical");
+    let directory = kodosi_os::fs::canonicalize(root.path()).expect("canonical");
     let emulator = SessionTerminalHandle::spawn(
         TerminalSize::default(),
         TerminalHistoryPolicy::default(),
@@ -342,7 +344,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
     )
     .expect("emulator");
     let (pty, reader) = KodosiPty::spawn_program(
-        std::path::Path::new("/bin/sh"),
+        Path::new("/bin/sh"),
         &["-c".to_owned(), "stty raw -echo; exec /bin/cat".to_owned()],
         directory.to_str(),
         32,
@@ -376,9 +378,11 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         sequence: 0,
         host_stop_reply: None,
         program: None,
+        clear_line: "\x05\x15",
         prompt: false,
         viewers: HashMap::new(),
-        working_directory: None,
+        working_directory: directory.clone(),
+        observed_directory: None,
         title: None,
         published_title: None,
         status: ProgramStatusRecords::default(),
@@ -518,7 +522,7 @@ async fn a_command_runs_only_while_the_shell_is_at_its_prompt() {
         Uuid::now_v7(),
         PathBuf::from("/bin/sh"),
         vec!["-i".to_owned()],
-        root.path().canonicalize().expect("canonical cwd"),
+        kodosi_os::fs::canonicalize(root.path()).expect("canonical cwd"),
         true,
         changes,
     )
@@ -576,7 +580,9 @@ async fn a_result_stays_after_its_program_ends() {
 #[tokio::test]
 async fn directory_tracking_follows_cd_without_shell_integration() {
     let (session, mut changes, root) = shell("mkdir nested; cd nested; exec /bin/cat").await;
-    let expected = root.path().canonicalize().unwrap().join("nested");
+    let expected = kodosi_os::fs::canonicalize(root.path())
+        .unwrap()
+        .join("nested");
     tokio::time::timeout(Duration::from_secs(3), async {
         loop {
             if let Some(SessionChange::Cwd { path, .. }) = changes.recv().await
@@ -785,4 +791,19 @@ async fn title_delivery_retries_after_the_change_channel_is_full() {
     .unwrap();
     local.close().await.unwrap();
     drop(local);
+}
+
+#[test]
+fn start_commands_clear_the_line_the_way_the_shell_edits() {
+    for shell in [
+        "/opt/PowerShell/7/pwsh",
+        "powershell.exe",
+        "cmd.exe",
+        "PWSH.EXE",
+    ] {
+        assert_eq!(clear_line_keys(Path::new(shell)), "\x03", "{shell}");
+    }
+    for shell in ["/bin/zsh", "/bin/bash", "bash.exe", "fish"] {
+        assert_eq!(clear_line_keys(Path::new(shell)), "\x05\x15", "{shell}");
+    }
 }

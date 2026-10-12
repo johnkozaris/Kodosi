@@ -1,5 +1,5 @@
 {
-  "terminalConnectionProtocolVersion": 19,
+  "terminalConnectionProtocolVersion": 20,
   "compatibilityPolicy": "exactMatch",
   "routes": {
     "device": "/ws/device"

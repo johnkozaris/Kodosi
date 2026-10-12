@@ -315,6 +315,7 @@ impl RemoteControl {
 
     #[expect(
         clippy::unused_async,
+        clippy::unused_async_trait_impl,
         reason = "shares the remote command handle's async API without waiting on transport capacity"
     )]
     pub async fn request_checkpoint(&self) -> Result<()> {

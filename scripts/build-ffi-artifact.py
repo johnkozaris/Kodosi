@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import fcntl
 import hashlib
 import json
 import os
@@ -12,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 
@@ -27,6 +27,46 @@ def canonical_json(value: object) -> bytes:
     return (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
 
 
+def archive_name(target: str) -> str:
+    return "kodosi_ffi_c.lib" if target.endswith("-windows-msvc") else "libkodosi_ffi_c.a"
+
+
+def lock_exclusive(file) -> None:
+    if os.name != "nt":
+        import fcntl
+
+        fcntl.flock(file, fcntl.LOCK_EX)
+        return
+    import msvcrt
+
+    file.seek(0)
+    while True:
+        try:
+            msvcrt.locking(file.fileno(), msvcrt.LK_NBLCK, 1)
+            return
+        except OSError:
+            time.sleep(0.1)
+
+
+def point_current(slot: Path, identity: str) -> None:
+    """Points slot/current at the published bundle. Windows gets a junction,
+    which needs no symlink privilege; it is replaced under the build lock."""
+    current = slot / "current"
+    if os.name == "nt":
+        import _winapi
+
+        if current.is_junction():
+            os.rmdir(current)
+        _winapi.CreateJunction(str((slot / "bundles" / identity).resolve()), str(current))
+        return
+    link = slot / f".current-{os.getpid()}"
+    try:
+        link.symlink_to(Path("bundles") / identity, target_is_directory=True)
+        os.replace(link, current)
+    finally:
+        link.unlink(missing_ok=True)
+
+
 def resolve_outputs(messages: list[dict], crate_manifest: Path, target_dir: Path) -> tuple[Path, Path]:
     candidates = [message for message in messages
         if message.get("reason") == "compiler-artifact"
@@ -35,7 +75,7 @@ def resolve_outputs(messages: list[dict], crate_manifest: Path, target_dir: Path
     if len(candidates) != 1:
         raise ValueError("Cargo did not report exactly one requested FFI static library")
     artifact = candidates[0]
-    archives = [Path(name) for name in artifact.get("filenames", []) if name.endswith(".a")]
+    archives = [Path(name) for name in artifact.get("filenames", []) if name.endswith((".a", ".lib"))]
     outputs = [Path(message["out_dir"]) for message in messages
         if message.get("reason") == "build-script-executed"
         and message.get("package_id") == artifact.get("package_id")]
@@ -49,6 +89,7 @@ def resolve_outputs(messages: list[dict], crate_manifest: Path, target_dir: Path
 
 
 def publish(slot: Path, archive: Path, header: Path, target: str, profile: str) -> Path:
+    name = archive_name(target)
     record = {
         "schemaVersion": 1,
         "target": target,
@@ -64,30 +105,26 @@ def publish(slot: Path, archive: Path, header: Path, target: str, profile: str) 
         with tempfile.TemporaryDirectory(prefix=".publish-", dir=slot) as temporary:
             stage = Path(temporary) / "artifact"
             (stage / "include").mkdir(parents=True)
-            shutil.copyfile(archive, stage / "libkodosi_ffi_c.a")
+            shutil.copyfile(archive, stage / name)
             shutil.copyfile(header, stage / "include/kodosi_runtime.h")
-            if digest(stage / "libkodosi_ffi_c.a") != record["archiveSha256"] or digest(stage / "include/kodosi_runtime.h") != record["headerSha256"]:
+            if digest(stage / name) != record["archiveSha256"] or digest(stage / "include/kodosi_runtime.h") != record["headerSha256"]:
                 raise ValueError("FFI artifacts changed while publication was being prepared")
             (stage / "artifact.json").write_bytes(canonical_json(record))
             for path in stage.rglob("*"):
                 if path.is_file():
-                    with path.open("rb") as file:
+                    # Windows flushes only handles opened for writing.
+                    with path.open("r+b") as file:
                         os.fsync(file.fileno())
             stage.rename(bundle)
-    if (bundle / "artifact.json").read_bytes() != canonical_json(record) or digest(bundle / "libkodosi_ffi_c.a") != record["archiveSha256"] or digest(bundle / "include/kodosi_runtime.h") != record["headerSha256"]:
+    if (bundle / "artifact.json").read_bytes() != canonical_json(record) or digest(bundle / name) != record["archiveSha256"] or digest(bundle / "include/kodosi_runtime.h") != record["headerSha256"]:
         raise ValueError("An existing FFI artifact bundle does not match its content identity")
     current = slot / "current"
-    if current.is_dir() and not current.is_symlink():
+    if current.is_dir() and not current.is_symlink() and not (os.name == "nt" and current.is_junction()):
         if any(files for _, _, files in os.walk(current)):
             raise ValueError(f"{current} holds files and cannot be replaced by the published bundle")
         for directory, _, _ in os.walk(current, topdown=False):
             os.rmdir(directory)
-    link = slot / f".current-{os.getpid()}"
-    try:
-        link.symlink_to(Path("bundles") / identity, target_is_directory=True)
-        os.replace(link, current)
-    finally:
-        link.unlink(missing_ok=True)
+    point_current(slot, identity)
     return bundle
 
 
@@ -110,7 +147,7 @@ def build(manifest: Path, output: Path, profile: str, target: str, offline: bool
     slot = output.resolve() / target / profile
     slot.mkdir(parents=True, exist_ok=True)
     with (slot / ".build.lock").open("a+b") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+        lock_exclusive(lock)
         owner = slot / "source-manifest"
         identity = str(manifest) + "\n"
         if owner.exists() and owner.read_text() != identity:

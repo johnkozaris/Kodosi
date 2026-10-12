@@ -490,7 +490,7 @@ impl BackendClient {
                     .and_then(|owner| owner.root().ok()),
             },
         );
-        identity::storage::private_write(&path, &serde_json::to_vec(&heads)?)?;
+        kodosi_os::fs::write_private(&path, &serde_json::to_vec(&heads)?)?;
         for state in cached.states.values().rev() {
             if state.state.epoch > 1
                 && let Some(current) = cached.keys.get(&state.state.epoch)

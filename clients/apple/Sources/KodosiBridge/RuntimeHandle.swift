@@ -35,7 +35,7 @@ public final class RuntimeHandle: @unchecked Sendable {
         return body(snapshot.pointer)
     }
 
-    public static let expectedFFIABIVersion: Int32 = 7
+    public static let expectedFFIABIVersion: Int32 = 8
 
     public static let expectedProtocolVersion: UInt32 = 55
 

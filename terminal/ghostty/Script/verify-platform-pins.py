@@ -11,6 +11,8 @@ from pathlib import Path
 
 MAC_REF = Path("MacOSGhostty.ref")
 LINUX_REF = Path("LinuxGhostty.ref")
+WINDOWS_REF = Path("WindowsGhostty.ref")
+WINDOWS_LAYOUTS = ("windows-x86_64", "windows-arm64")
 MAC_METADATA = Path("Vendor/libghostty.version")
 LINUX_METADATA = Path("Vendor/GhosttyVt/linux-x86_64.version")
 MAC_ARCHIVE = Path(
@@ -135,9 +137,22 @@ def verify(root: Path) -> None:
     if file_sha256(root, LINUX_ARCHIVE) != linux_digest:
         fail("Linux VT archive differs from its recorded digest")
 
+    windows_ref = read_ref(root, WINDOWS_REF)
+    for layout in WINDOWS_LAYOUTS:
+        metadata_path = Path(f"Vendor/GhosttyVt/{layout}.version")
+        if not (root / metadata_path).exists():
+            continue
+        metadata = read_metadata(root, metadata_path)
+        if metadata.get("ghostty_commit") != windows_ref:
+            fail(f"{layout} artifact metadata differs from WindowsGhostty.ref")
+        digest = require_digest(metadata, "vt_archive_sha256", metadata_path)
+        archive = Path(f"Vendor/GhosttyVt/{layout}/lib/ghostty-vt-static.lib")
+        if file_sha256(root, archive) != digest:
+            fail(f"{layout} VT archive differs from its recorded digest")
+
     print(
         "Verified platform Ghostty pins and artifact digests: "
-        f"macOS/iOS={mac_ref} Linux={linux_ref}"
+        f"macOS/iOS={mac_ref} Linux={linux_ref} Windows={windows_ref}"
     )
 
 

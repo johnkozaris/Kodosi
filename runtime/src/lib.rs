@@ -4,9 +4,16 @@
 #[cfg(not(any(
     all(target_os = "macos", target_arch = "aarch64"),
     all(target_os = "linux", target_arch = "x86_64", target_env = "gnu"),
-    all(target_os = "ios", target_arch = "aarch64")
+    all(target_os = "ios", target_arch = "aarch64"),
+    all(
+        target_os = "windows",
+        target_env = "msvc",
+        any(target_arch = "x86_64", target_arch = "aarch64")
+    )
 )))]
-compile_error!("Kodosi supports arm64 macOS, x86_64 Linux GNU and arm64 iOS");
+compile_error!(
+    "Kodosi supports arm64 macOS, x86_64 Linux GNU, x86_64 or arm64 Windows MSVC and arm64 iOS"
+);
 
 #[cfg(all(target_os = "ios", feature = "host"))]
 compile_error!("iOS views terminals hosted elsewhere; build it with --no-default-features");

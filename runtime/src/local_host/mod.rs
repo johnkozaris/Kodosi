@@ -1,8 +1,7 @@
 use futures_util::StreamExt as _;
 use std::{
-    fs::{File, OpenOptions},
+    fs::File,
     io,
-    os::unix::fs::{FileTypeExt, MetadataExt, OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -12,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
-    net::UnixStream,
     sync::{Semaphore, broadcast, watch},
     task::JoinSet,
 };
@@ -24,7 +22,7 @@ use crate::{
     protocol::SessionKind, terminal,
 };
 
-const VERSION: u32 = 18;
+const VERSION: u32 = 19;
 const STOP_WAIT: Duration = Duration::from_secs(5);
 const MAX_FRAME: usize = 8 * 1024 * 1024 + 64 * 1024;
 const MAX_CONNECTIONS: usize = 64;
@@ -120,18 +118,22 @@ fn stop_permission(
     Ok(())
 }
 
+mod app;
 mod client;
 mod framing;
 mod server;
 
+pub use app::{
+    AppClaim, Forwarded, MAX_ACTIVATION_BYTES, claim_app, forward_activation, serve_activations,
+};
 pub use client::{Client, TerminalClient, host_status, stop_other_host};
 use framing::{
     DATA, INPUT, INPUT_ACK, RESIZE, checkpoint_frame, control_frame, read_frame, read_json,
     write_frame, write_json,
 };
 pub use framing::{FrameReader, TerminalFrame, read_terminal, write_input, write_resize};
-pub use server::{HostServer, serve};
-use server::{existing_owned_file, lock_root, root_identity, socket_dir};
+pub use server::{LocalServer, serve};
+use server::{endpoint, local_error, lock_root, role_endpoint, root_identity};
 
 #[cfg(test)]
 mod tests;

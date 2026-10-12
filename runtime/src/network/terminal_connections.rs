@@ -18,7 +18,7 @@ use tokio::{
     sync::{Notify, mpsc, oneshot},
 };
 use tokio_tungstenite::{
-    MaybeTlsStream, WebSocketStream,
+    Connector, MaybeTlsStream, WebSocketStream,
     tungstenite::{Message, client::IntoClientRequest as _, protocol::WebSocketConfig},
 };
 #[cfg(feature = "host")]
@@ -207,13 +207,16 @@ async fn admitted(
     let settings = WebSocketConfig::default()
         .max_message_size(Some(MESSAGE_LIMIT))
         .max_frame_size(Some(MESSAGE_LIMIT));
-    #[cfg(not(target_os = "ios"))]
-    let tls = None;
-    #[cfg(target_os = "ios")]
-    let tls = Some(system_trust()?);
     let (mut socket, _) = tokio::time::timeout(
         Duration::from_secs(10),
-        tokio_tungstenite::connect_async_tls_with_config(request, Some(settings), true, tls),
+        tokio_tungstenite::connect_async_tls_with_config(
+            request,
+            Some(settings),
+            true,
+            Some(Connector::Rustls(Arc::clone(
+                &network.inner.http.websocket_tls,
+            ))),
+        ),
     )
     .await
     .map_err(|_| invalid("Terminal connection timed out."))?
@@ -228,22 +231,6 @@ async fn admitted(
         "refused" => Ok(None),
         _ => Err(invalid("The connection service did not admit this device.")),
     }
-}
-
-#[cfg(target_os = "ios")]
-fn system_trust() -> Result<tokio_tungstenite::Connector> {
-    use rustls_platform_verifier::BuilderVerifierExt;
-    let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
-    let config = rustls::ClientConfig::builder_with_provider(provider)
-        .with_safe_default_protocol_versions()
-        .and_then(BuilderVerifierExt::with_platform_verifier)
-        .map_err(|error| {
-            invalid(format!(
-                "The system cannot check server certificates: {error}"
-            ))
-        })?
-        .with_no_client_auth();
-    Ok(tokio_tungstenite::Connector::Rustls(Arc::new(config)))
 }
 
 async fn send_json(socket: &mut Socket, value: Value) -> Result<()> {

@@ -38,7 +38,7 @@ fn claude_inactive(state_root: &Path, directory: &Path, id: &str) -> Result<(), 
             ));
         }
     };
-    let root = File::open(root).map_err(|error| error.to_string())?;
+    let root = kodosi_os::fs::open_dir(&root).map_err(|error| error.to_string())?;
     for (index, entry) in entries.enumerate() {
         if index >= storage::MAX_DIRECTORY_ENTRIES {
             return Err("Claude session activity exceeds its entry limit".to_owned());
@@ -81,16 +81,13 @@ fn claude_inactive(state_root: &Path, directory: &Path, id: &str) -> Result<(), 
         let pid = value
             .get("pid")
             .and_then(serde_json::Value::as_u64)
-            .and_then(|pid| i32::try_from(pid).ok())
-            .and_then(rustix::process::Pid::from_raw)
+            .and_then(|pid| u32::try_from(pid).ok())
+            .filter(|pid| *pid != 0)
             .ok_or_else(|| "Claude conversation activity is unknown".to_owned())?;
-        match rustix::process::test_kill_process(pid) {
-            Err(rustix::io::Errno::SRCH) => {}
-            Ok(()) | Err(_) => {
-                return Err(
-                    "Claude conversation may already be open; close it before resuming".to_owned(),
-                );
-            }
+        if kodosi_os::process::is_running(pid) {
+            return Err(
+                "Claude conversation may already be open; close it before resuming".to_owned(),
+            );
         }
     }
     Ok(())

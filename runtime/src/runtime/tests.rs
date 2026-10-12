@@ -2,6 +2,11 @@ use super::*;
 use std::sync::Arc;
 use tokio::time::{Instant, timeout};
 
+#[cfg(unix)]
+const SHELL: &str = "/bin/sh";
+#[cfg(windows)]
+const SHELL: &str = "cmd.exe";
+
 struct TestRuntime {
     handle: RuntimeHandle,
     _storage: tempfile::TempDir,
@@ -10,8 +15,9 @@ struct TestRuntime {
 impl TestRuntime {
     async fn new() -> Self {
         let storage = tempfile::tempdir().unwrap();
-        let mut config = Config::isolated(&storage.path().canonicalize().unwrap()).unwrap();
-        config.initial_shell = Some("/bin/sh".to_owned());
+        let mut config =
+            Config::isolated(&kodosi_os::fs::canonicalize(storage.path()).unwrap()).unwrap();
+        config.initial_shell = Some(SHELL.to_owned());
         let handle = start(config).await.unwrap();
         Self {
             handle,
@@ -79,7 +85,7 @@ impl Drop for TestRuntime {
     }
 }
 
-#[cfg(feature = "host")]
+#[cfg(all(unix, feature = "host"))]
 async fn receive_text(subscription: &mut Subscription, wanted: &[u8]) -> Vec<u8> {
     timeout(Duration::from_secs(10), async {
         let mut received = Vec::new();
@@ -133,7 +139,9 @@ async fn a_terminal_on_a_new_branch_starts_in_its_own_folder_and_takes_it_away_u
         .unwrap()
     }
     let root = tempfile::tempdir().unwrap();
-    let folder = root.path().canonicalize().unwrap().join("Project");
+    let folder = kodosi_os::fs::canonicalize(root.path())
+        .unwrap()
+        .join("Project");
     std::fs::create_dir(&folder).unwrap();
     for arguments in [
         vec!["init", "--quiet"],
@@ -190,7 +198,7 @@ async fn a_terminal_on_a_new_branch_starts_in_its_own_folder_and_takes_it_away_u
     drop(runtime);
 }
 
-#[cfg(feature = "host")]
+#[cfg(all(unix, feature = "host"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn local_terminal_keeps_running_after_view_closes_then_stop_removes_it() {
     let runtime = TestRuntime::new().await;
@@ -254,7 +262,7 @@ async fn local_terminal_keeps_running_after_view_closes_then_stop_removes_it() {
     drop(runtime);
 }
 
-#[cfg(feature = "host")]
+#[cfg(all(unix, feature = "host"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn terminal_notifications_do_not_require_a_mounted_view() {
     let runtime = TestRuntime::new().await;
@@ -298,7 +306,7 @@ async fn terminal_notifications_do_not_require_a_mounted_view() {
     drop(runtime);
 }
 
-#[cfg(feature = "host")]
+#[cfg(all(unix, feature = "host"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn slow_login_does_not_block_local_terminal_or_runtime_observation() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -312,7 +320,8 @@ async fn slow_login_does_not_block_local_terminal_or_runtime_observation() {
         drop(socket);
     });
     let storage = tempfile::tempdir().unwrap();
-    let mut config = Config::isolated(&storage.path().canonicalize().unwrap()).unwrap();
+    let mut config =
+        Config::isolated(&kodosi_os::fs::canonicalize(storage.path()).unwrap()).unwrap();
     config.initial_shell = Some("/bin/sh".to_owned());
     config.oidc_issuer = format!("http://{address}");
     let runtime = TestRuntime {
@@ -399,11 +408,9 @@ async fn stale_epoch_cannot_create_or_shutdown_current_runtime() {
         .iter()
         .find(|event| event.kind() == "sessions.snapshot")
         .unwrap();
-    assert!(
-        serde_json::to_value(sessions).unwrap()["sessions"]
-            .as_array()
-            .unwrap()
-            .is_empty()
+    assert_eq!(
+        serde_json::to_value(sessions).unwrap()["sessions"],
+        serde_json::json!([])
     );
     runtime.shutdown().await;
     drop(runtime);
@@ -573,7 +580,7 @@ async fn generic_terminal_command_cannot_bypass_subscription_admission() {
 
 fn registry_fixture() -> (Runtime, tempfile::TempDir) {
     let root = tempfile::tempdir().unwrap();
-    let config = Config::isolated(&root.path().canonicalize().unwrap()).unwrap();
+    let config = Config::isolated(&kodosi_os::fs::canonicalize(root.path()).unwrap()).unwrap();
     let network = BackendClient::new(BackendConfig {
         api_url: config.backend_url.clone(),
         issuer: config.oidc_issuer.clone(),
@@ -1150,7 +1157,7 @@ async fn remote_recovery_preserves_only_open_current_incarnations() {
         },
     );
     runtime.reconnect_views();
-    assert!(runtime.opening[&id].commands.is_empty());
+    assert_eq!(runtime.opening[&id].commands, [] as [Command; 0]);
     runtime.views.insert(id, HashMap::new());
     runtime.prune_views();
     assert!(!runtime.reconnect.contains_key(&id));

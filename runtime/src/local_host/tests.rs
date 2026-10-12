@@ -9,7 +9,7 @@ async fn command_reader_rejects_large_prefix_before_allocating() {
         .await
         .unwrap();
     assert!(read_frame(&mut reader).await.is_err());
-    assert!(reader.body.is_empty());
+    assert_eq!(reader.body, [] as [u8; 0]);
 }
 
 #[tokio::test]
@@ -43,17 +43,6 @@ async fn interrupted_frame_read_keeps_consumed_prefix_and_body() {
     assert_eq!(read_frame(&mut reader).await.unwrap(), b"hello");
 }
 #[test]
-fn endpoint_rejects_foreign_file_and_symlink_shapes() {
-    let directory = tempfile::tempdir().unwrap();
-    let path = directory.path().join("host.sock");
-    std::fs::write(&path, b"not a socket").unwrap();
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
-    assert!(existing_owned_file(&path, true).is_err());
-    let link = directory.path().join("link");
-    std::os::unix::fs::symlink(&path, &link).unwrap();
-    assert!(existing_owned_file(&link, false).is_err());
-}
-#[test]
 fn host_lock_prevents_competing_local_owners() {
     let directory = tempfile::tempdir().unwrap();
     let first = lock_root(directory.path()).unwrap();
@@ -74,9 +63,9 @@ fn root_identity_and_socket_namespace_are_stable_and_separate() {
 }
 #[test]
 fn local_protocol_requires_exact_version_and_root() {
-    assert!(serde_json::from_str::<Hello>(r#"{"version":18,"root":"a","sessionId":null}"#).is_ok());
-    assert!(serde_json::from_str::<Hello>(r#"{"version":18}"#).is_err());
-    assert!(serde_json::from_str::<Hello>(r#"{"version":18,"root":"a","legacy":true}"#).is_err());
+    assert!(serde_json::from_str::<Hello>(r#"{"version":19,"root":"a","sessionId":null}"#).is_ok());
+    assert!(serde_json::from_str::<Hello>(r#"{"version":19}"#).is_err());
+    assert!(serde_json::from_str::<Hello>(r#"{"version":19,"root":"a","legacy":true}"#).is_err());
 }
 #[test]
 fn stop_permission_protects_the_app_and_open_terminals() {
@@ -98,7 +87,8 @@ fn local_session_counts_ignore_remote_entries() {
 }
 async fn hosted(kind: HostKind) -> (tempfile::TempDir, PathBuf, RuntimeHandle) {
     let storage = tempfile::tempdir().unwrap();
-    let mut config = crate::Config::isolated(&storage.path().canonicalize().unwrap()).unwrap();
+    let mut config =
+        crate::Config::isolated(&kodosi_os::fs::canonicalize(storage.path()).unwrap()).unwrap();
     config.host = kind;
     let root = config.data_root.clone();
     let handle = crate::start(config).await.unwrap();
@@ -132,4 +122,114 @@ async fn foreground_hosts_only_stop_when_forced() {
     tokio::time::timeout(Duration::from_secs(10), handle.stopped())
         .await
         .unwrap();
+}
+
+async fn serve_into(
+    claim: AppClaim,
+    accept: bool,
+) -> (LocalServer, tokio::sync::mpsc::UnboundedReceiver<Value>) {
+    let (sender, received) = tokio::sync::mpsc::unbounded_channel();
+    let server = serve_activations(claim, move |bytes| {
+        sender
+            .send(serde_json::from_slice(&bytes).unwrap())
+            .unwrap();
+        accept
+    })
+    .await
+    .unwrap();
+    (server, received)
+}
+
+#[tokio::test]
+async fn one_app_claims_a_folder_and_later_launches_hand_it_their_request() {
+    let root = tempfile::tempdir().unwrap();
+    let claim = claim_app(root.path()).unwrap().unwrap();
+    assert!(claim_app(root.path()).unwrap().is_none());
+    let (server, mut received) = serve_into(claim, true).await;
+    let activation = json!({ "route": "kodosi://room/abc", "token": "xdg-token" });
+    for _ in 0..2 {
+        let forwarded = forward_activation(root.path(), &activation, Duration::from_secs(5))
+            .await
+            .unwrap();
+        assert!(matches!(forwarded, Forwarded::Delivered));
+        assert_eq!(received.recv().await.unwrap(), activation);
+    }
+    server.shutdown().await;
+    assert!(claim_released(root.path()).await);
+}
+
+#[tokio::test]
+async fn a_waiting_launch_claims_the_folder_when_the_owner_exits() {
+    let root = tempfile::tempdir().unwrap();
+    let starting = claim_app(root.path()).unwrap().unwrap();
+    let exit = tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        drop(starting);
+    });
+    let forwarded = forward_activation(root.path(), &json!({}), Duration::from_secs(5))
+        .await
+        .unwrap();
+    assert!(matches!(forwarded, Forwarded::Claimed(_)));
+    exit.await.unwrap();
+    assert!(claim_app(root.path()).unwrap().is_none());
+    drop(forwarded);
+    assert!(claim_released(root.path()).await);
+}
+
+/// A process that another test starts shares this process's open files
+/// between its fork and exec, so a released claim may stay taken briefly.
+async fn claim_released(root: &Path) -> bool {
+    for _ in 0..100 {
+        if claim_app(root).unwrap().is_some() {
+            return true;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    false
+}
+
+#[tokio::test]
+async fn a_closing_owner_leaves_requests_unanswered_until_its_claim_passes_on() {
+    let root = tempfile::tempdir().unwrap();
+    let (server, mut received) = serve_into(claim_app(root.path()).unwrap().unwrap(), false).await;
+    let launch = {
+        let root = root.path().to_owned();
+        tokio::spawn(async move {
+            forward_activation(&root, &json!({ "route": null }), Duration::from_secs(5)).await
+        })
+    };
+    assert_eq!(received.recv().await.unwrap(), json!({ "route": null }));
+    server.shutdown().await;
+    assert!(matches!(
+        launch.await.unwrap().unwrap(),
+        Forwarded::Claimed(_)
+    ));
+}
+
+#[tokio::test]
+async fn activations_from_another_version_or_of_another_shape_are_refused() {
+    let root = tempfile::tempdir().unwrap();
+    let (server, mut received) = serve_into(claim_app(root.path()).unwrap().unwrap(), true).await;
+    let endpoint =
+        role_endpoint(&kodosi_os::fs::canonicalize(root.path()).unwrap(), "app").unwrap();
+    for request in [
+        json!({ "version": 2, "activation": {} }),
+        json!({ "version": 1, "activation": "kodosi://room/abc" }),
+    ] {
+        let mut stream = kodosi_os::ipc::connect(&endpoint).await.unwrap();
+        write_json(&mut stream, &request).await.unwrap();
+        let reply: Value = read_json(&mut FrameReader::new(stream)).await.unwrap();
+        assert_eq!(reply, json!({ "version": 1, "accepted": false }));
+    }
+    for activation in [
+        json!("kodosi://room/abc"),
+        json!({ "pad": "x".repeat(MAX_ACTIVATION_BYTES) }),
+    ] {
+        assert!(matches!(
+            forward_activation(root.path(), &activation, Duration::from_secs(1)).await,
+            Err(Error::Invalid(_))
+        ));
+    }
+    server.shutdown().await;
+    assert!(received.try_recv().is_err());
 }

@@ -1,2 +1,7 @@
 too-many-arguments-threshold = 8
 type-complexity-threshold = 350
+disallowed-methods = [
+    { path = "std::fs::canonicalize", reason = "use kodosi_os::fs::canonicalize, which keeps Windows paths in their usual form" },
+    { path = "std::path::Path::canonicalize", reason = "use kodosi_os::fs::canonicalize, which keeps Windows paths in their usual form" },
+    { path = "tokio::fs::canonicalize", allow-invalid = true, reason = "use kodosi_os::fs::canonicalize, which keeps Windows paths in their usual form" },
+]

@@ -1,0 +1,4 @@
+package=Microsoft.Windows.Console.ConPTY
+version=1.25.260930003
+url=https://api.nuget.org/v3-flatcontainer/microsoft.windows.console.conpty/1.25.260930003/microsoft.windows.console.conpty.1.25.260930003.nupkg
+sha256=02b07b349af66d801159bdf9e440d4a1ce78bb951f37fc8609731665afdae7ee

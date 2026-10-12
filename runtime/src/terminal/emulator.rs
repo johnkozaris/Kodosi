@@ -228,6 +228,7 @@ impl SessionTerminal {
                 scrollback_max_bytes: history.max_bytes,
                 scrollback_max_lines: history.max_lines,
                 dark: initial_theme_dark,
+                console: kodosi_pty::CONSOLE_HOST,
             },
         )
         .map_err(terminal_error)?;
@@ -385,10 +386,8 @@ fn parse_cwd(raw: &[u8]) -> Option<PathBuf> {
         return (!text.is_empty()).then(|| PathBuf::from(text));
     };
     let slash = rest.find('/')?;
-    let encoded = &rest.as_bytes()[slash..];
-    let output = percent_decode(encoded)?;
-
-    String::from_utf8(output).ok().map(PathBuf::from)
+    let decoded = String::from_utf8(percent_decode(&rest.as_bytes()[slash..])?).ok()?;
+    Some(kodosi_os::fs::path_from_file_url(&rest[..slash], &decoded))
 }
 
 fn percent_decode(encoded: &[u8]) -> Option<Vec<u8>> {

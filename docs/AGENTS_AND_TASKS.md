@@ -16,7 +16,7 @@ when there is exactly one. Add `--json` for structured output.
 
 First make the CLI available on your shell's PATH using the
 [Mac](../clients/macos/README.md#command-line-access) or
-[Linux](../clients/linux/README.md#command-line-access) guide.
+[Linux](../clients/qt/README.md#command-line-access) guide.
 
 ## Read and contribute
 

@@ -7,16 +7,17 @@ This is not an official Ghostty distribution.
 
 ## Source and artifacts
 
-`MacOSGhostty.ref` and `LinuxGhostty.ref` select independent upstream commits.
-On Apple platforms the renderer and terminal engine are one native image,
-built from `MacOSGhostty.ref` as `macos-arm64`, `ios-arm64` and
-`ios-arm64-simulator` slices of `Vendor/GhosttyKit.xcframework`; Linux has its
-own artifact. `Vendor/*.version` records the inputs and measured output for
-each build. `VERSION` names the package, not the upstream Ghostty version.
+`MacOSGhostty.ref`, `LinuxGhostty.ref`, and `WindowsGhostty.ref` select independent
+upstream commits. On Apple platforms the renderer and terminal engine are one native
+image, built from `MacOSGhostty.ref` as `macos-arm64`, `ios-arm64` and
+`ios-arm64-simulator` slices of `Vendor/GhosttyKit.xcframework`; Linux and each Windows
+architecture have their own terminal-engine artifact. `Vendor/*.version` records the
+inputs and measured output for each build. `VERSION` names the package, not the
+upstream Ghostty version.
 
 Root `../../Ghostty.lock` selects every platform artifact. The integration, runtime
 and clients share the Kodosi repository revision. Preserve platform-specific
-provenance even when both refs choose the same upstream commit. Native artifact
+provenance even when refs choose the same upstream commit. Native artifact
 metadata records measured build inputs and outputs, independent of repository layout.
 
 The integration was imported from `johnkozaris/kodosi-ghostty` at commit

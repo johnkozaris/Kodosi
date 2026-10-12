@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/ghostty-vt", "crates/ghostty-vt-sys", "crates/kodosi-ffi-c", "crates/kodosi-pty"]
+members = ["crates/ghostty-vt", "crates/ghostty-vt-sys", "crates/kodosi-ffi-c", "crates/kodosi-os", "crates/kodosi-pty"]
 resolver = "3"
 
 [workspace.lints.rust]
@@ -45,7 +45,7 @@ specta = "=2.0.0-rc.25"
 tempfile = "3.27.0"
 thiserror = "2.0.20"
 time = "0.3.55"
-tokio = "1.53.1"
+tokio = "1.53.2"
 tokio-tungstenite = { version = "0.30.0", features = ["rustls-tls-native-roots"] }
 tokio-util = "0.7.19"
 tracing = "0.1.44"
@@ -57,16 +57,17 @@ autobins = false
 edition = "2024"
 name = "kodosi-runtime"
 publish = false
-rust-version = "1.97.1"
+rust-version = "1.99.0"
 version = "0.1.0"
 
 [features]
 default = ["cli", "host"]
-cli = ["host", "dep:clap", "dep:crossterm", "tokio/signal"]
+cli = ["host", "dep:clap", "tokio/signal"]
 host = ["dep:kodosi-pty", "tokio/process"]
 
 [dependencies]
 ghostty-vt = { path = "crates/ghostty-vt" }
+kodosi-os = { path = "crates/kodosi-os" }
 kodosi-pty = { path = "crates/kodosi-pty", optional = true }
 sha2 = "0.11.0"
 aws-lc-rs = { workspace = true }
@@ -75,9 +76,9 @@ bytes = { workspace = true }
 flate2 = { version = "1.1.10", default-features = false, features = ["rust_backend"] }
 futures-util = { workspace = true }
 reqwest = { workspace = true }
-rustix = { workspace = true, features = ["fs", "process"] }
 rusqlite = { version = "0.40.2", default-features = false, features = ["bundled"] }
 rustls = { version = "0.23.45", default-features = false, features = ["aws-lc-rs", "std"] }
+rustls-platform-verifier = "0.7.1"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 specta = { workspace = true, features = ["derive", "serde_json"] }
@@ -92,19 +93,6 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 zeroize = { workspace = true }
 clap = { version = "4.6.6", features = ["derive"], optional = true }
-crossterm = { version = "0.29.0", optional = true }
-
-[target.'cfg(not(target_os = "ios"))'.dependencies]
-directories = { version = "6.0.0", default-features = false }
-
-[target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
-security-framework = { version = "3.7", features = ["OSX_10_15"] }
-
-[target.'cfg(target_os = "ios")'.dependencies]
-rustls-platform-verifier = "0.7.0"
-
-[target.'cfg(target_os = "linux")'.dependencies]
-keyring = { version = "4.2.0", default-features = false, features = ["v1"] }
 
 [build-dependencies]
 serde_json = { workspace = true }

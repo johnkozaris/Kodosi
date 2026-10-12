@@ -14,10 +14,9 @@ SPEC.loader.exec_module(MODULE)
 
 
 def concurrent_publish(output, identity):
-    import fcntl
     root = Path(output)
     with (root / ".build.lock").open("a+b") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+        MODULE.lock_exclusive(lock)
         bundle = MODULE.publish(root, root / f"{identity}.a", root / f"{identity}.h", "test-target", "dev")
         MODULE.consume_and_prune(root, bundle, [sys.executable, "-c",
             "import sys,time;from pathlib import Path;p=Path(sys.argv[1]);"
@@ -53,7 +52,11 @@ class FfiArtifactTests(unittest.TestCase):
                 with self.subTest(symlink=path.name):
                     original = path.with_suffix(".real")
                     path.rename(original)
-                    path.symlink_to(original)
+                    try:
+                        path.symlink_to(original)
+                    except OSError:
+                        original.rename(path)
+                        self.skipTest("this account cannot create symbolic links")
                     with self.assertRaises(ValueError):
                         MODULE.resolve_outputs(messages, manifest, target)
                     path.unlink()
@@ -104,7 +107,7 @@ class FfiArtifactTests(unittest.TestCase):
             header.write_bytes(b"header")
             (root / "current/include").mkdir(parents=True)
             bundle = MODULE.publish(root, archive, header, "target", "dev")
-            self.assertTrue((root / "current").is_symlink())
+            self.assertTrue((root / "current").is_symlink() or (root / "current").is_junction())
             self.assertEqual((root / "current").resolve(), bundle.resolve())
             (root / "current").unlink()
             (root / "current/include").mkdir(parents=True)
@@ -208,7 +211,7 @@ class FfiArtifactTests(unittest.TestCase):
             for identity in ("one", "two"):
                 (root / f"{identity}.a").write_text(f"{identity} archive")
                 (root / f"{identity}.h").write_text(f"{identity} header")
-            context = multiprocessing.get_context("fork")
+            context = multiprocessing.get_context("spawn")
             workers = [context.Process(target=concurrent_publish, args=(temporary, identity)) for identity in ("one", "two")]
             for worker in workers:
                 worker.start()

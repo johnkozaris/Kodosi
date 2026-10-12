@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "frameworks": {
+    "qt": {
+      "version": "6.12.0",
+      "released": "2026-09-30",
+      "source": "https://download.qt.io/official_releases/qt/6.12/6.12.0/"
+    }
+  },
+  "tools": {
+    "uv": {
+      "version": "0.12.7",
+      "source": "https://github.com/astral-sh/uv/releases/tag/0.12.7"
+    },
+    "just": {
+      "version": "1.58.0",
+      "sha256": {
+        "linux-x86_64-musl": "4a5cc2f53e6f0f8c59092a6cc38291eb729d46a7dd95d3ae582008881b84931d"
+      },
+      "source": "https://github.com/casey/just/releases/tag/1.58.0"
+    },
+    "cmake": {
+      "version": "4.4.3",
+      "sha256": {
+        "linux-x86_64": "d6c83076c575bc00b823522ac974bda66d0af05d6ddc30e739c12385cf32c6cc",
+        "windows-x86_64": "4d52ebab7193a698651639ed80d8d04fd903358843572cf44c7fd234cb7c26ab",
+        "windows-arm64": "7b410ddd00e24c7250eec7452da2348a4a70437aa87e9cda0a20d6a85662fcff"
+      },
+      "source": "https://github.com/Kitware/CMake/releases/tag/v4.4.3"
+    },
+    "aqtinstall": {
+      "version": "3.3.1.dev166",
+      "commit": "076e1659807d0b362a3ed684d54c2e9c775eb9c7",
+      "source": "https://github.com/miurahr/aqtinstall/tree/076e1659807d0b362a3ed684d54c2e9c775eb9c7"
+    },
+    "ninja": {
+      "version": "1.13.2",
+      "sha256": {
+        "linux-x86_64": "5749cbc4e668273514150a80e387a957f933c6ed3f5f11e03fb30955e2bbead6",
+        "windows-x86_64": "07fc8261b42b20e71d1720b39068c2e14ffcee6396b76fb7a795fb460b78dc65",
+        "windows-arm64": "e52f0bdef9dfb1003229dbd6508a508c4073fd017247002adc66e5e806cb0391"
+      },
+      "source": "https://github.com/ninja-build/ninja/releases/tag/v1.13.2"
+    }
+  },
+  "ghostty": {
+    "repository": "ghostty-org/ghostty",
+    "versioning": "unversioned-libghostty-tip"
+  }
+}

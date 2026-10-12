@@ -1,7 +1,8 @@
 # runtime
 
-Shared terminal runtime, CLI, and native API for macOS and Linux. iOS uses the viewer
-build (without the `host` feature): it opens terminals hosted elsewhere and hosts none.
+Shared terminal runtime, CLI, and native API for macOS, Linux, and Windows. iOS uses the
+viewer build (without the `host` feature): it opens terminals hosted elsewhere and hosts
+none.
 Follow `../AGENTS.md` and `../PRODUCT.md` for shared product behavior.
 
 - The host owns each live process and terminal state. New or reconnected views must

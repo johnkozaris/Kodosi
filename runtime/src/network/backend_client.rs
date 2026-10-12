@@ -104,7 +104,7 @@ impl BackendClient {
         };
         let secrets = Secrets::new(
             config.data_root.join("secrets"),
-            config.secret_service.clone(),
+            &config.secret_service,
             config.isolated,
         );
         let (events, _) = broadcast::channel(128);
@@ -1055,8 +1055,9 @@ pub(crate) fn host_label() -> String {
             .and_then(|value| normalize_host_label(&value))
     });
     #[cfg(feature = "host")]
-    let label =
-        label.or_else(|| system_computer_name().and_then(|value| normalize_host_label(&value)));
+    let label = label.or_else(|| {
+        kodosi_os::process::computer_name().and_then(|value| normalize_host_label(&value))
+    });
     label.unwrap_or_else(|| "Unnamed computer".to_owned())
 }
 
@@ -1064,23 +1065,6 @@ pub(crate) fn device_label() -> Option<String> {
     std::env::var("KODOSI_DEVICE_LABEL")
         .ok()
         .and_then(|value| normalize_host_label(&value))
-}
-
-#[cfg(feature = "host")]
-fn system_computer_name() -> Option<String> {
-    let (program, arguments): (&str, &[&str]) = if cfg!(target_os = "macos") {
-        ("/usr/sbin/scutil", &["--get", "ComputerName"])
-    } else {
-        ("hostname", &[])
-    };
-    let output = std::process::Command::new(program)
-        .args(arguments)
-        .output()
-        .ok()
-        .filter(|output| output.status.success())?;
-    let name = String::from_utf8(output.stdout).ok()?;
-    let name = name.trim().trim_end_matches(".local");
-    (!name.is_empty()).then(|| name.to_owned())
 }
 
 fn normalize_host_label(value: &str) -> Option<String> {

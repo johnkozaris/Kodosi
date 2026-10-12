@@ -10,7 +10,7 @@ Usage: ./Script/build.sh [options]
 
 Options:
   --source <path>       Use an existing clean Ghostty checkout as the source cache.
-  --platform <name>     Build macos or linux (defaults to the current host).
+  --platform <name>     Build macos, linux or windows (defaults to the current host).
   --skip-tests          Skip package verification after native artifacts build.
   -h, --help            Show this help.
 
@@ -49,6 +49,7 @@ SKIP_TESTS=0
 case "$(uname -s)" in
     Darwin) PLATFORM_GROUP=macos ;;
     Linux) PLATFORM_GROUP=linux ;;
+    MINGW64_NT* | MSYS_NT* | CLANGARM64_NT*) PLATFORM_GROUP=windows ;;
     *)
         echo "[!] unsupported build host: $(uname -s)" >&2
         exit 1
@@ -97,6 +98,16 @@ case "$PLATFORM_GROUP" in
             echo "[!] Linux artifacts require an x86_64 Linux build host" >&2
             exit 1
         fi
+        ;;
+    windows)
+        GHOSTTY_REF_FILE="$ROOT_DIR/WindowsGhostty.ref"
+        case "$(uname -s)" in
+            MINGW64_NT* | MSYS_NT* | CLANGARM64_NT*) ;;
+            *)
+                echo "[!] Windows artifacts require a Windows build host of their architecture" >&2
+                exit 1
+                ;;
+        esac
         ;;
     *)
         echo "[!] unsupported platform: $PLATFORM_GROUP" >&2
@@ -162,6 +173,14 @@ PATCH_APPLICATION_DIGEST=$(
 )
 ZIG_STORE_DIGEST=$("$ROOT_DIR/Script/prepare-zig-store.sh" "$SOURCE_DIR")
 
+if [ "$PLATFORM_GROUP" = windows ]; then
+    "$ROOT_DIR/Script/build-windows-vt-artifact.sh" \
+        "$SOURCE_DIR" \
+        "$PATCH_APPLICATION_DIGEST" \
+        "$ZIG_STORE_DIGEST"
+    exit 0
+fi
+
 if [ "$PLATFORM_GROUP" = linux ]; then
     "$ROOT_DIR/Script/build-linux-vt-artifact.sh" \
         "$SOURCE_DIR" \
@@ -215,7 +234,7 @@ source NativeBuild.env
 RENDERER_DIGEST=$("$ROOT_DIR/Script/artifact-digest.sh" "$VENDOR_STAGE/GhosttyKit.xcframework")
 VT_DIGEST=$("$ROOT_DIR/Script/artifact-digest.sh" "$VENDOR_STAGE/GhosttyVt/macos-arm64")
 COMBINED_ARCHIVE="$VENDOR_STAGE/GhosttyKit.xcframework/macos-arm64/libghostty.a"
-COMBINED_ARCHIVE_DIGEST=$(shasum -a 256 "$COMBINED_ARCHIVE" | awk '{print $1}')
+COMBINED_ARCHIVE_DIGEST=$(sha256sum "$COMBINED_ARCHIVE" | awk '{print $1}')
 PATCHES_DIGEST=$("$ROOT_DIR/Script/artifact-digest.sh" Patches/ghostty)
 SYMBOLS_DIGEST=$("$ROOT_DIR/Script/artifact-digest.sh" "$VENDOR_STAGE/symbols")
 GHOSTTY_BUILD_OPTION_VECTOR=$("$ROOT_DIR/Script/native-build-options.sh" vector)
@@ -247,9 +266,9 @@ for slice in "${APPLE_SLICES[@]}"; do
     [ "$slice" != macos-arm64 ] || continue
     SLICE_DIR="$VENDOR_STAGE/GhosttyKit.xcframework/$slice"
     SLICE_TARGET=$("$ROOT_DIR/Script/native-build-options.sh" target "$slice")
-    SLICE_ARCHIVE_DIGEST=$(shasum -a 256 "$SLICE_DIR/libghostty.a" | awk '{print $1}')
+    SLICE_ARCHIVE_DIGEST=$(sha256sum "$SLICE_DIR/libghostty.a" | awk '{print $1}')
     SLICE_ARTIFACT_DIGEST=$("$ROOT_DIR/Script/artifact-digest.sh" "$SLICE_DIR")
-    SLICE_SYMBOLS_DIGEST=$(shasum -a 256 "$VENDOR_STAGE/symbols/$slice-strong.txt" | awk '{print $1}')
+    SLICE_SYMBOLS_DIGEST=$(sha256sum "$VENDOR_STAGE/symbols/$slice-strong.txt" | awk '{print $1}')
     SLICE_BUILD_OPTION_VECTOR=$("$ROOT_DIR/Script/native-build-options.sh" vector "$slice")
     cat > "$VENDOR_STAGE/libghostty-$slice.version" <<EOF
 package_version=$(tr -d '[:space:]' < VERSION)
