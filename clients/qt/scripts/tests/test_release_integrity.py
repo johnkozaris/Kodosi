@@ -37,7 +37,7 @@ class ReleaseIntegrityTests(unittest.TestCase):
             line.split("=", 1)
             for line in (ROOT.parents[1] / "Ghostty.lock").read_text().splitlines()
         )
-        lock["linux_vt_archive_sha256"] = hashlib.sha256(b"archive\n").hexdigest()
+        lock["linux_x86_64_archive_sha256"] = hashlib.sha256(b"archive\n").hexdigest()
         self.checkout = self.create_repo(
             temporary / "Kodosi",
             "johnkozaris/Kodosi",
@@ -50,7 +50,7 @@ class ReleaseIntegrityTests(unittest.TestCase):
                 "clients/qt/CMakeLists.txt": "project(KodosiQT VERSION 0.1.0 LANGUAGES CXX)\n",
                 "clients/qt/tracked.txt": "one\n",
                 "runtime/runtime.txt": "runtime-one\n",
-                "terminal/ghostty/LinuxGhostty.ref": lock["linux_upstream_commit"] + "\n",
+                "terminal/ghostty/LinuxGhostty.ref": lock["linux_ghostty_commit"] + "\n",
                 "terminal/ghostty/Vendor/GhosttyVt/linux-x86_64/lib/libghostty-vt.a": "archive\n",
                 "terminal/ghostty/LICENSES/Ghostty.txt": "Ghostty license fixture\n",
             },
@@ -454,7 +454,7 @@ class ReleaseIntegrityTests(unittest.TestCase):
         original_archive = archive.read_bytes()
 
         lock_path.write_text(re.sub(
-            r"linux_upstream_commit=.*", "linux_upstream_commit=" + "f" * 40, original_lock,
+            r"linux_ghostty_commit=.*", "linux_ghostty_commit=" + "f" * 40, original_lock,
         ))
         self.run_command(["git", "add", "Ghostty.lock"], cwd=self.checkout)
         self.run_command(["git", "commit", "-m", "change upstream pin"], cwd=self.checkout)

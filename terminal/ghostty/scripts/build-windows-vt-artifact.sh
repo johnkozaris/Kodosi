@@ -83,6 +83,6 @@ mv "$STAGE" "$DESTINATION"
 mv "$METADATA" "$DESTINATION.version"
 rm -rf "$STAGE_ROOT"
 
-LOCK_KEY="${GHOSTTY_WINDOWS_VT_LAYOUT/windows-/windows_}_vt_archive_sha256"
+LOCK_KEY="${GHOSTTY_WINDOWS_VT_LAYOUT//-/_}_archive_sha256"
 echo "[*] Windows VT: Vendor/GhosttyVt/$GHOSTTY_WINDOWS_VT_LAYOUT"
 echo "[*] record in Ghostty.lock: $LOCK_KEY=$ARCHIVE_DIGEST"

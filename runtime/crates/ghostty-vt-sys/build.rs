@@ -39,7 +39,7 @@ fn main() {
     let expected_ghostty_commit = if working_tree {
         metadata_value(&metadata, "ghostty_commit", &provenance)
     } else {
-        lock_value(artifact.upstream_lock_key)
+        lock_value(artifact.commit_lock_key)
     };
     let expected_archive_digest = if working_tree {
         metadata_value(&metadata, artifact.metadata_digest_key, &provenance)
@@ -54,7 +54,7 @@ fn main() {
     require_platform_ref(
         &platform_ref,
         expected_ghostty_commit,
-        artifact.upstream_lock_key,
+        artifact.commit_lock_key,
     );
 
     println!("cargo:rerun-if-changed={}", platform_ref.display());
@@ -118,7 +118,7 @@ struct TargetArtifact {
     provenance: &'static str,
     library_dir: &'static str,
     zig_target: ZigTarget,
-    upstream_lock_key: &'static str,
+    commit_lock_key: &'static str,
     archive_lock_key: &'static str,
     metadata_digest_key: &'static str,
     archive: &'static str,
@@ -136,8 +136,8 @@ fn target_artifact(target: &str) -> TargetArtifact {
                 key: "GHOSTTY_BUILD_MACOS_TARGET",
                 suffix: "",
             },
-            upstream_lock_key: "upstream_commit",
-            archive_lock_key: "combined_archive_sha256",
+            commit_lock_key: "macos_ghostty_commit",
+            archive_lock_key: "macos_arm64_archive_sha256",
             metadata_digest_key: "combined_archive_sha256",
             archive: "libghostty-vt.a",
             link_name: "ghostty-vt",
@@ -148,8 +148,8 @@ fn target_artifact(target: &str) -> TargetArtifact {
             provenance: "Vendor/GhosttyVt/linux-x86_64.version",
             library_dir: "Vendor/GhosttyVt/linux-x86_64/lib",
             zig_target: ZigTarget::Fixed("x86_64-linux-gnu"),
-            upstream_lock_key: "linux_upstream_commit",
-            archive_lock_key: "linux_vt_archive_sha256",
+            commit_lock_key: "linux_ghostty_commit",
+            archive_lock_key: "linux_x86_64_archive_sha256",
             metadata_digest_key: "vt_archive_sha256",
             archive: "libghostty-vt.a",
             link_name: "ghostty-vt",
@@ -163,8 +163,8 @@ fn target_artifact(target: &str) -> TargetArtifact {
                 key: "GHOSTTY_BUILD_IOS_TARGET",
                 suffix: "",
             },
-            upstream_lock_key: "upstream_commit",
-            archive_lock_key: "ios_combined_archive_sha256",
+            commit_lock_key: "macos_ghostty_commit",
+            archive_lock_key: "ios_arm64_archive_sha256",
             metadata_digest_key: "combined_archive_sha256",
             archive: "libghostty.a",
             link_name: "ghostty",
@@ -178,8 +178,8 @@ fn target_artifact(target: &str) -> TargetArtifact {
                 key: "GHOSTTY_BUILD_IOS_TARGET",
                 suffix: "-simulator",
             },
-            upstream_lock_key: "upstream_commit",
-            archive_lock_key: "ios_simulator_combined_archive_sha256",
+            commit_lock_key: "macos_ghostty_commit",
+            archive_lock_key: "ios_arm64_simulator_archive_sha256",
             metadata_digest_key: "combined_archive_sha256",
             archive: "libghostty.a",
             link_name: "ghostty",
@@ -197,13 +197,13 @@ fn windows_artifact(arch: &'static str, layout: &'static str) -> TargetArtifact 
             "Vendor/GhosttyVt/windows-x86_64.version",
             "Vendor/GhosttyVt/windows-x86_64/lib",
             "x86_64-windows-msvc",
-            "windows_x86_64_vt_archive_sha256",
+            "windows_x86_64_archive_sha256",
         ),
         _ => (
             "Vendor/GhosttyVt/windows-arm64.version",
             "Vendor/GhosttyVt/windows-arm64/lib",
             "aarch64-windows-msvc",
-            "windows_arm64_vt_archive_sha256",
+            "windows_arm64_archive_sha256",
         ),
     };
     debug_assert!(zig_target.starts_with(arch));
@@ -212,7 +212,7 @@ fn windows_artifact(arch: &'static str, layout: &'static str) -> TargetArtifact 
         provenance,
         library_dir,
         zig_target: ZigTarget::Fixed(zig_target),
-        upstream_lock_key: "windows_upstream_commit",
+        commit_lock_key: "windows_ghostty_commit",
         archive_lock_key,
         metadata_digest_key: "vt_archive_sha256",
         archive: "ghostty-vt-static.lib",

@@ -20,6 +20,16 @@ and clients share the Kodosi repository revision. Preserve platform-specific
 provenance even when refs choose the same upstream commit. Native artifact
 metadata records measured build inputs and outputs, independent of repository layout.
 
+`Ghostty.lock` has two kinds of keys:
+
+- `<platform>_ghostty_commit` is the commit in the ref file of a platform, for
+  example `macos_ghostty_commit` for `MacOSGhostty.ref`. The iOS slices use the
+  macOS ref.
+- `<artifact>_archive_sha256` is the SHA-256 of the archive of one artifact. The
+  artifact is an Apple slice in `NativeBuild.env` or a VT layout, for example
+  `ios_arm64_simulator_archive_sha256` for `ios-arm64-simulator`. Write underscores
+  in place of the hyphens of the name.
+
 The integration was imported from `johnkozaris/kodosi-ghostty` at commit
 `086ea213b7d1f890c5e7f2569b1848c3cd75d3d3`; its upstream attributions, licenses,
 corresponding source and relinking materials are retained.

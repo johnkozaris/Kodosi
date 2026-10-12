@@ -20,22 +20,22 @@ if [[ ! -f "$LOCK_FILE" ]]; then
     exit 1
 fi
 
-upstream_commit=
-combined_archive_sha256=
-linux_upstream_commit=
-linux_vt_archive_sha256=
-windows_upstream_commit=
-windows_x86_64_vt_archive_sha256=
-windows_arm64_vt_archive_sha256=
+macos_ghostty_commit=
+macos_arm64_archive_sha256=
+linux_ghostty_commit=
+linux_x86_64_archive_sha256=
+windows_ghostty_commit=
+windows_x86_64_archive_sha256=
+windows_arm64_archive_sha256=
 
 source "$LOCK_FILE"
 
 for value in \
-    "$upstream_commit" \
-    "$combined_archive_sha256" \
-    "$linux_upstream_commit" \
-    "$linux_vt_archive_sha256" \
-    "$windows_upstream_commit"; do
+    "$macos_ghostty_commit" \
+    "$macos_arm64_archive_sha256" \
+    "$linux_ghostty_commit" \
+    "$linux_x86_64_archive_sha256" \
+    "$windows_ghostty_commit"; do
     if [[ -z "$value" ]]; then
         echo "Ghostty lock is incomplete: $LOCK_FILE" >&2
         exit 1
@@ -47,36 +47,36 @@ apple_slices=$("$GHOSTTY_DIR/scripts/native-build-options.sh" slices)
 
 if [[ "${KODOSI_WORKING_TREE_VALIDATION:-0}" == 1 ]]; then
     source "$GHOSTTY_DIR/Vendor/libghostty.version"
-    upstream_commit=$ghostty_commit
+    macos_ghostty_commit=$ghostty_commit
     source "$GHOSTTY_DIR/Vendor/GhosttyVt/linux-x86_64.version"
-    linux_upstream_commit=$ghostty_commit
-    linux_vt_archive_sha256=$vt_archive_sha256
+    linux_ghostty_commit=$ghostty_commit
+    linux_x86_64_archive_sha256=$vt_archive_sha256
     for layout in windows-x86_64 windows-arm64; do
         [[ -f "$GHOSTTY_DIR/Vendor/GhosttyVt/$layout.version" ]] || continue
         source "$GHOSTTY_DIR/Vendor/GhosttyVt/$layout.version"
-        windows_upstream_commit=$ghostty_commit
+        windows_ghostty_commit=$ghostty_commit
         case "$layout" in
-            windows-x86_64) windows_x86_64_vt_archive_sha256=$vt_archive_sha256 ;;
-            windows-arm64) windows_arm64_vt_archive_sha256=$vt_archive_sha256 ;;
+            windows-x86_64) windows_x86_64_archive_sha256=$vt_archive_sha256 ;;
+            windows-arm64) windows_arm64_archive_sha256=$vt_archive_sha256 ;;
         esac
     done
     printf "%s\n" "Validating non-publishable Ghostty working-tree artifacts." >&2
 fi
 
 actual_upstream=$(tr -d '[:space:]' <"$GHOSTTY_DIR/MacOSGhostty.ref")
-if [[ "$actual_upstream" != "$upstream_commit" ]]; then
-    echo "macOS Ghostty upstream revision mismatch: expected $upstream_commit, found $actual_upstream" >&2
+if [[ "$actual_upstream" != "$macos_ghostty_commit" ]]; then
+    echo "macOS Ghostty upstream revision mismatch: expected $macos_ghostty_commit, found $actual_upstream" >&2
     exit 1
 fi
 actual_linux_upstream=$(tr -d '[:space:]' <"$GHOSTTY_DIR/LinuxGhostty.ref")
-if [[ "$actual_linux_upstream" != "$linux_upstream_commit" ]]; then
-    echo "Linux Ghostty upstream revision mismatch: expected $linux_upstream_commit, found $actual_linux_upstream" >&2
+if [[ "$actual_linux_upstream" != "$linux_ghostty_commit" ]]; then
+    echo "Linux Ghostty upstream revision mismatch: expected $linux_ghostty_commit, found $actual_linux_upstream" >&2
     exit 1
 fi
 
 actual_windows_upstream=$(tr -d '[:space:]' <"$GHOSTTY_DIR/WindowsGhostty.ref")
-if [[ "$actual_windows_upstream" != "$windows_upstream_commit" ]]; then
-    echo "Windows Ghostty upstream revision mismatch: expected $windows_upstream_commit, found $actual_windows_upstream" >&2
+if [[ "$actual_windows_upstream" != "$windows_ghostty_commit" ]]; then
+    echo "Windows Ghostty upstream revision mismatch: expected $windows_ghostty_commit, found $actual_windows_upstream" >&2
     exit 1
 fi
 # Windows libraries are built on Windows hosts; each one vendored must match its pin.
@@ -84,8 +84,8 @@ for layout in windows-x86_64 windows-arm64; do
     windows_archive="$GHOSTTY_DIR/Vendor/GhosttyVt/$layout/lib/ghostty-vt-static.lib"
     [[ -e "$windows_archive" ]] || continue
     case "$layout" in
-        windows-x86_64) expected=$windows_x86_64_vt_archive_sha256 ;;
-        windows-arm64) expected=$windows_arm64_vt_archive_sha256 ;;
+        windows-x86_64) expected=$windows_x86_64_archive_sha256 ;;
+        windows-arm64) expected=$windows_arm64_archive_sha256 ;;
     esac
     actual=$(file_sha256 "$windows_archive")
     if [[ -z "$expected" || "$actual" != "$expected" ]]; then
@@ -98,8 +98,8 @@ renderer_archive="$GHOSTTY_DIR/Vendor/GhosttyKit.xcframework/macos-arm64/libghos
 vt_archive="$GHOSTTY_DIR/Vendor/GhosttyVt/macos-arm64/lib/libghostty-vt.a"
 linux_vt_archive="$GHOSTTY_DIR/Vendor/GhosttyVt/linux-x86_64/lib/libghostty-vt.a"
 actual_archive_sha=$(file_sha256 "$renderer_archive")
-if [[ "$actual_archive_sha" != "$combined_archive_sha256" ]]; then
-    echo "Combined Ghostty archive mismatch: expected $combined_archive_sha256, found $actual_archive_sha" >&2
+if [[ "$actual_archive_sha" != "$macos_arm64_archive_sha256" ]]; then
+    echo "Combined Ghostty archive mismatch: expected $macos_arm64_archive_sha256, found $actual_archive_sha" >&2
     exit 1
 fi
 if [[ "$(uname -s)" == Darwin ]] &&
@@ -113,8 +113,7 @@ if ! cmp -s "$renderer_archive" "$vt_archive"; then
 fi
 while IFS= read -r slice; do
     [[ "$slice" != macos-arm64 ]] || continue
-    lock_key=${slice/-arm64/}
-    lock_key="${lock_key//-/_}_combined_archive_sha256"
+    lock_key="${slice//-/_}_archive_sha256"
     if [[ "${KODOSI_WORKING_TREE_VALIDATION:-0}" == 1 ]]; then
         expected_slice_sha=$(sed -n 's/^combined_archive_sha256=//p' "$GHOSTTY_DIR/Vendor/libghostty-$slice.version")
     else
@@ -131,9 +130,9 @@ while IFS= read -r slice; do
     fi
 done <<<"$apple_slices"
 actual_linux_archive_sha=$(file_sha256 "$linux_vt_archive")
-if [[ "$actual_linux_archive_sha" != "$linux_vt_archive_sha256" ]]; then
-    echo "Linux Ghostty VT archive mismatch: expected $linux_vt_archive_sha256, found $actual_linux_archive_sha" >&2
+if [[ "$actual_linux_archive_sha" != "$linux_x86_64_archive_sha256" ]]; then
+    echo "Linux Ghostty VT archive mismatch: expected $linux_x86_64_archive_sha256, found $actual_linux_archive_sha" >&2
     exit 1
 fi
 
-echo "Verified Ghostty at macOS and iOS upstream $upstream_commit, Linux upstream $linux_upstream_commit and Windows upstream $windows_upstream_commit."
+echo "Verified Ghostty at macOS and iOS upstream $macos_ghostty_commit, Linux upstream $linux_ghostty_commit and Windows upstream $windows_ghostty_commit."

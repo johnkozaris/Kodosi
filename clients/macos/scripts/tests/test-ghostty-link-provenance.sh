@@ -146,7 +146,7 @@ printf '%s\n' \
     _ghostty_terminal_new \
     _ghostty_terminal_vt_write >"$WRAPPER_MANIFEST"
 wrapper_sha=$(shasum -a 256 "$WRAPPER_ARCHIVE" | awk '{print $1}')
-printf 'combined_archive_sha256=%s\n' "$wrapper_sha" >"$WRAPPER_ROOT/../../Ghostty.lock"
+printf 'macos_arm64_archive_sha256=%s\n' "$wrapper_sha" >"$WRAPPER_ROOT/../../Ghostty.lock"
 cat >"$WRAPPER_MAP" <<EOF
 # Path: $WRAPPER_BINARY
 # Object files:
