@@ -16,7 +16,7 @@ cd "$ROOT"
 if [[ "$VALIDATION_MODE" == release ]]; then
     "$ROOT/scripts/build/verify-kodosi-checkout.sh"
 fi
-"$ROOT/scripts/build/verify-ghostty-checkout.sh"
+"$RUST_DIR/../scripts/verify-ghostty.sh"
 python3 "$RUST_DIR/../scripts/build-ffi-artifact.py" \
     --manifest "$RUST_DIR/Cargo.toml" --output-dir "$ROOT/build/rust-ffi" \
     --profile release --target aarch64-apple-darwin \

@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 GHOSTTY_DIR="${KODOSI_GHOSTTY_DIR:-"$ROOT/../../terminal/ghostty"}"
 DESTINATION="${1:?Pass the GhosttyNativeNotices directory to verify}"
 
-"$ROOT/scripts/build/verify-ghostty-checkout.sh" >/dev/null
+"$ROOT/../../scripts/verify-ghostty.sh" >/dev/null
 if [[ "$(uname -s)" == Darwin ]]; then
     "$GHOSTTY_DIR/Script/verify-third-party-notices.py" >/dev/null
 else

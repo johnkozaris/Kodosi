@@ -5,10 +5,7 @@ export KODOSI_GHOSTTY_DIR := ghostty_dir
 default: all
 
 ghostty:
-    scripts/build/verify-ghostty-checkout.sh
-
-rust-debug: ghostty
-    scripts/build/rust-lib-debug.sh
+    ../../scripts/verify-ghostty.sh
 
 xcode-gen:
     scripts/build/xcode-gen.sh
@@ -18,7 +15,8 @@ package-test: ghostty
         --package-path ../apple
 
 lint:
-    scripts/build/lint.sh
+    swiftformat Sources Tests ../apple/Sources ../apple/Tests ../apple/Plugins ../apple/Package.swift --lint --swiftversion 6.0
+    swiftlint lint --quiet Sources Tests ../apple/Sources ../apple/Tests ../apple/Plugins
 
 format:
     swiftformat Sources Tests ../apple/Sources ../apple/Tests ../apple/Plugins ../apple/Package.swift --swiftversion 6.0
@@ -45,7 +43,7 @@ build-release: ghostty xcode-gen package-test
         build
 
 archive-working-tree: xcode-gen
-    KODOSI_WORKING_TREE_VALIDATION=1 scripts/build/verify-ghostty-checkout.sh
+    KODOSI_WORKING_TREE_VALIDATION=1 ../../scripts/verify-ghostty.sh
     KODOSI_WORKING_TREE_VALIDATION=1 swift test \
         --package-path ../apple
     KODOSI_WORKING_TREE_VALIDATION=1 xcodebuild -project KodosiDesktop.xcodeproj \
@@ -94,15 +92,3 @@ all: lint test build-release
 
 verify-signed:
     scripts/release/verify-signed.sh
-
-export-signed:
-    scripts/release/export.sh
-
-notarize:
-    scripts/release/notarize.sh
-
-dmg:
-    scripts/release/dmg.sh
-
-local-cask:
-    scripts/release/local-cask.sh

@@ -30,17 +30,8 @@ _coverage-tool:
 ghostty-verify:
     scripts/verify-ghostty.sh
 
-rust-build:
-    cargo build --manifest-path runtime/Cargo.toml --locked --workspace
-
 rust-cli-build: conpty
     cargo build --manifest-path runtime/Cargo.toml --locked --bin kodosi
-
-rust-ffi-build:
-    if [[ "$(uname -s)" == Darwin ]]; then export MACOSX_DEPLOYMENT_TARGET=26.4; fi; python3 scripts/build-ffi-artifact.py --manifest runtime/Cargo.toml --output-dir runtime/target/ffi-artifacts --profile release --target "$(rustc -vV | grep '^host:' | cut -d' ' -f2)"
-
-rust-ffi-debug-build:
-    if [[ "$(uname -s)" == Darwin ]]; then export MACOSX_DEPLOYMENT_TARGET=26.4; fi; python3 scripts/build-ffi-artifact.py --manifest runtime/Cargo.toml --output-dir runtime/target/ffi-artifacts --profile ffi-debug --target "$(rustc -vV | grep '^host:' | cut -d' ' -f2)"
 
 rust-check: rust-feature-gates
     CARGO_BUILD_WARNINGS=deny cargo check --manifest-path runtime/Cargo.toml --locked --workspace
@@ -117,9 +108,6 @@ windows-cross-check packages="--workspace":
             cargo xwin clippy --manifest-path runtime/Cargo.toml --locked --target $target {{ packages }} --tests -- -D warnings -A clippy::unwrap_used -A clippy::expect_used"; \
     done
 
-rust-clean:
-    cargo clean --manifest-path runtime/Cargo.toml
-
 backend-restore:
     cd backend && dotnet restore Kodosi.slnx --locked-mode
 
@@ -140,9 +128,6 @@ backend-docker-up:
 
 backend-docker-down:
     docker compose down
-
-backend-docker-logs:
-    docker compose logs --follow backend
 
 backend-all: backend-test
 

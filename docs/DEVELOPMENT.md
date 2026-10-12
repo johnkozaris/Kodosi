@@ -27,6 +27,9 @@ The repository pins Rust in [rust-toolchain.toml](../rust-toolchain.toml) and .N
 does not roll forward automatically.
 
 `just rust-tools-install` installs the Rust checking tools under `.tools/rust/`.
+`just dev-tools-install` installs these tools and Bacon. To run the jobs in
+[bacon.toml](../bacon.toml) again after each change to a file, run
+`.tools/rust/bin/bacon` from the repository root.
 The root recipes also recognize a local .NET SDK at `backend/.tools/dotnet-10.0.401/`.
 Keep dependencies and downloaded build tools inside the project.
 
