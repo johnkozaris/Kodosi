@@ -3,279 +3,69 @@ identity of the build and the product version."""
 
 from __future__ import annotations
 
-import hashlib
-import os
 import re
-import stat
 import subprocess
 from pathlib import Path
 
 
-def run(
-    arguments: list[str],
-    *,
-    cwd: Path | None = None,
-    input_bytes: bytes | None = None,
-) -> bytes:
+def git(root: Path, *arguments: str) -> str:
     result = subprocess.run(
-        arguments,
-        cwd=cwd,
-        input=input_bytes,
+        ["git", *arguments],
+        cwd=root,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,
     )
     if result.returncode != 0:
         detail = result.stderr.decode("utf-8", errors="replace").strip()
-        raise ValueError(detail or f"{arguments[0]} failed")
-    return result.stdout
+        raise ValueError(detail or f"git {arguments[0]} failed")
+    return result.stdout.decode("utf-8")
 
 
-def repository_from_remote(source_root: Path) -> str:
-    remote = run(
-        ["git", "remote", "get-url", "origin"],
-        cwd=source_root,
-    ).decode("utf-8").strip()
-    patterns = (
-        r"^(?:https?://|ssh://git@)github\.com/(?P<repo>[^/]+/[^/]+?)(?:\.git)?$",
-        r"^git@github\.com:(?P<repo>[^/]+/[^/]+?)(?:\.git)?$",
+def repository_root(path: Path) -> Path:
+    root = git(path.resolve(strict=True), "rev-parse", "--show-toplevel").strip()
+    return Path(root).resolve(strict=True)
+
+
+def repository_name(root: Path) -> str:
+    remote = git(root, "remote", "get-url", "origin").strip()
+    match = re.fullmatch(
+        r"(?:(?:https?://|ssh://git@)github\.com/|git@github\.com:)([^/]+/[^/]+?)(?:\.git)?",
+        remote,
     )
-    for pattern in patterns:
-        match = re.fullmatch(pattern, remote)
-        if match:
-            return match.group("repo")
-    raise ValueError("origin must identify a GitHub owner/name repository")
+    if match is None:
+        raise ValueError("the remote origin must be a GitHub repository")
+    return match.group(1)
 
 
-def _object_format(source_root: Path) -> tuple[str, int]:
-    name = run(
-        ["git", "rev-parse", "--show-object-format"],
-        cwd=source_root,
-    ).decode("ascii").strip()
-    if name == "sha1":
-        return name, 40
-    if name == "sha256":
-        return name, 64
-    raise ValueError(f"unsupported Git object format: {name}")
+def checkout_dirty(root: Path) -> bool:
+    # git status does not show a change to a file with the assume-unchanged or
+    # the skip-worktree flag. git ls-files -v gives these files a lowercase tag
+    # or the tag S.
+    tags = (entry[:1] for entry in git(root, "ls-files", "-v", "-z").split("\0") if entry)
+    if any(tag == "S" or tag.islower() for tag in tags):
+        return True
+    return git(root, "status", "--porcelain", "-z", "--untracked-files=all") != ""
 
 
-def _blob_hash(
-    algorithm: str,
-    size: int,
-    chunks,
-) -> str:
-    digest = hashlib.new(algorithm)
-    digest.update(f"blob {size}\0".encode("ascii"))
-    for chunk in chunks:
-        digest.update(chunk)
-    return digest.hexdigest()
+def commit_epoch(path: Path) -> int:
+    value = git(path.resolve(strict=True), "show", "-s", "--format=%ct", "HEAD").strip()
+    if not re.fullmatch(r"[0-9]+", value) or int(value) <= 0:
+        raise ValueError("the commit time of HEAD is malformed")
+    return int(value)
 
 
-def _worktree_blob(
-    root: bytes,
-    relative: bytes,
-    expected_mode: bytes,
-    algorithm: str,
-) -> tuple[str, bool]:
-    path = os.path.join(root, relative)
-    try:
-        before = os.lstat(path)
-    except OSError:
-        return "", True
-    if expected_mode == b"120000":
-        if not stat.S_ISLNK(before.st_mode):
-            return "", True
-        try:
-            target = os.readlink(path)
-            after = os.lstat(path)
-        except OSError:
-            return "", True
-        if not isinstance(target, bytes):
-            target = os.fsencode(target)
-        changed = (
-            (after.st_dev, after.st_ino) != (before.st_dev, before.st_ino)
-            or after.st_mtime_ns != before.st_mtime_ns
-            or after.st_ctime_ns != before.st_ctime_ns
-        )
-        return _blob_hash(algorithm, len(target), (target,)), changed
-    if expected_mode not in {b"100644", b"100755"}:
-        raise ValueError(
-            f"unsupported tracked entry mode {expected_mode.decode('ascii')}"
-        )
-    if not stat.S_ISREG(before.st_mode):
-        return "", True
-    executable = bool(before.st_mode & stat.S_IXUSR)
-    if executable != (expected_mode == b"100755"):
-        return "", True
-    flags = os.O_RDONLY
-    flags |= getattr(os, "O_CLOEXEC", 0)
-    flags |= getattr(os, "O_NOFOLLOW", 0)
-    try:
-        descriptor = os.open(path, flags)
-    except OSError:
-        return "", True
-    try:
-        opened = os.fstat(descriptor)
-        if (
-            not stat.S_ISREG(opened.st_mode)
-            or (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino)
-        ):
-            return "", True
-
-        read_size = 0
-
-        def chunks():
-            nonlocal read_size
-            while True:
-                chunk = os.read(descriptor, 1024 * 1024)
-                if not chunk:
-                    return
-                read_size += len(chunk)
-                yield chunk
-
-        digest = _blob_hash(algorithm, opened.st_size, chunks())
-        after = os.fstat(descriptor)
-        changed = (
-            read_size != opened.st_size
-            or after.st_size != opened.st_size
-            or after.st_mtime_ns != opened.st_mtime_ns
-            or after.st_ctime_ns != opened.st_ctime_ns
-            or after.st_mode != opened.st_mode
-        )
-        return digest, changed
-    finally:
-        os.close(descriptor)
-
-
-def _checkout_dirty(source_root: Path) -> bool:
-    algorithm, object_length = _object_format(source_root)
-    tree: dict[bytes, tuple[bytes, bytes]] = {}
-    for record in run(
-        ["git", "ls-tree", "-rz", "--full-tree", "HEAD"],
-        cwd=source_root,
-    ).split(b"\0"):
-        if not record:
-            continue
-        try:
-            metadata, relative = record.split(b"\t", 1)
-            mode, object_type, object_id = metadata.split(b" ", 2)
-        except ValueError as error:
-            raise ValueError("Git HEAD tree listing is malformed") from error
-        if (
-            not relative
-            or relative.startswith(b"/")
-            or any(part in {b"", b".", b".."} for part in relative.split(b"/"))
-        ):
-            raise ValueError("Git HEAD contains an unsafe tracked path")
-        if object_type == b"commit" or mode == b"160000":
-            raise ValueError(
-                "Git submodules are not supported in release source checkouts"
-            )
-        if object_type != b"blob" or mode not in {b"100644", b"100755", b"120000"}:
-            raise ValueError("Git HEAD contains an unsupported tracked entry")
-        if (
-            len(object_id) != object_length
-            or not re.fullmatch(rb"[0-9a-f]+", object_id)
-        ):
-            raise ValueError("Git HEAD contains a malformed object identifier")
-        if relative in tree:
-            raise ValueError("Git HEAD contains duplicate tracked paths")
-        tree[relative] = (mode, object_id)
-
-    dirty = False
-    index: dict[bytes, tuple[bytes, bytes]] = {}
-    for record in run(
-        ["git", "ls-files", "--stage", "-z"],
-        cwd=source_root,
-    ).split(b"\0"):
-        if not record:
-            continue
-        try:
-            metadata, relative = record.split(b"\t", 1)
-            mode, object_id, stage = metadata.split(b" ", 2)
-        except ValueError as error:
-            raise ValueError("Git index listing is malformed") from error
-        if stage != b"0":
-            dirty = True
-            continue
-        if relative in index:
-            dirty = True
-        index[relative] = (mode, object_id)
-    if index != tree:
-        dirty = True
-
-    for record in run(
-        ["git", "ls-files", "-v", "-z"],
-        cwd=source_root,
-    ).split(b"\0"):
-        if not record:
-            continue
-        if len(record) < 3 or record[1:2] != b" ":
-            raise ValueError("Git index flag listing is malformed")
-        tag = record[:1]
-        if tag == b"S" or tag.islower():
-            dirty = True
-
-    if run(
-        ["git", "ls-files", "--others", "--exclude-standard", "-z"],
-        cwd=source_root,
-    ):
-        dirty = True
-
-    root = os.fsencode(source_root)
-    for relative, (mode, expected_object) in tree.items():
-        measured_object, changed = _worktree_blob(
-            root,
-            relative,
-            mode,
-            algorithm,
-        )
-        if changed or measured_object.encode("ascii") != expected_object:
-            dirty = True
-    return dirty
-
-
-def repository_root(source_root: Path) -> Path:
-    return Path(run(
-        ["git", "rev-parse", "--show-toplevel"],
-        cwd=source_root.resolve(strict=True),
-    ).decode("utf-8").strip()).resolve(strict=True)
-
-
-def checkout_identity(source_root: Path) -> dict[str, object]:
-    root = repository_root(source_root)
-    _, object_length = _object_format(root)
-    commit = run(["git", "rev-parse", "--verify", "HEAD"], cwd=root).decode(
-        "ascii"
-    ).strip()
-    if not re.fullmatch(rf"[0-9a-f]{{{object_length}}}", commit):
-        raise ValueError("source HEAD is not a full lowercase Git commit")
-    return {
-        "repository": repository_from_remote(root),
-        "commit": commit,
-        "dirty": _checkout_dirty(root),
-    }
-
-
-def commit_epoch(source_root: Path) -> int:
-    value = run(
-        ["git", "show", "-s", "--format=%ct", "HEAD"],
-        cwd=source_root.resolve(strict=True),
-    ).decode("ascii").strip()
-    if not re.fullmatch(r"[0-9]+", value):
-        raise ValueError("source commit timestamp is malformed")
-    epoch = int(value)
-    if epoch <= 0:
-        raise ValueError("source commit timestamp is invalid")
-    return epoch
-
-
-def source_identity(source_root: Path) -> dict[str, object]:
-    root = repository_root(source_root)
+def source_identity(path: Path) -> dict[str, object]:
+    root = repository_root(path)
+    commit = git(root, "rev-parse", "--verify", "HEAD").strip()
+    if not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", commit):
+        raise ValueError("HEAD is not a full lowercase Git commit")
     return {
         "schemaVersion": 4,
         "sourceDateEpoch": commit_epoch(root),
-        **checkout_identity(root),
+        "repository": repository_name(root),
+        "commit": commit,
+        "dirty": checkout_dirty(root),
     }
 
 
