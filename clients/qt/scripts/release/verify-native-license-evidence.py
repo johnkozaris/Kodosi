@@ -171,9 +171,7 @@ def verify_source_archives(manifest: dict, qt_version: str) -> None:
         fail("native license source archive metadata changed")
 
 
-def verify_sboms(
-    qt_root: Path, manifest: dict, installed_root: Path | None, qt_version: str
-) -> None:
+def verify_sboms(root: Path, folder: str, manifest: dict, qt_version: str) -> None:
     qt = manifest.get("qt")
     if (
         not isinstance(qt, dict)
@@ -209,16 +207,9 @@ def verify_sboms(
         if SBOM_FORMATS.get(suffix) != row["format"]:
             fail(f"Qt SBOM format is inconsistent: {row['filename']}")
         actual_names.add(row["filename"])
-        source = require_relative_file(qt_root, f"sbom/{row['filename']}")
-        if file_sha256(source) != row["sha256"]:
-            fail(f"pinned Qt binary SBOM digest changed: {row['filename']}")
-        if installed_root is not None:
-            packaged = require_relative_file(
-                installed_root,
-                f"usr/share/doc/kodosi/qt/sbom/{row['filename']}",
-            )
-            if file_sha256(packaged) != row["sha256"]:
-                fail(f"packaged Qt SBOM digest changed: {row['filename']}")
+        sbom = require_relative_file(root, f"{folder}/{row['filename']}")
+        if file_sha256(sbom) != row["sha256"]:
+            fail(f"Qt SBOM digest changed: {folder}/{row['filename']}")
     if actual_names != expected_names:
         fail("Qt SBOM file set is incomplete")
 
@@ -351,25 +342,26 @@ def main() -> None:
     if qt_version != manifest["qt"]["version"]:
         fail("native evidence Qt version differs from dependencies.lock.json")
 
-    verify_source_archives(manifest, qt_version)
-    verify_committed_files(arguments.license_root.resolve(strict=True), manifest, qt_version)
-    installed_root = (
-        arguments.installed_root.resolve(strict=True)
-        if arguments.installed_root is not None
-        else None
+    if arguments.installed_root is None:
+        verify_source_archives(manifest, qt_version)
+        verify_committed_files(arguments.license_root.resolve(strict=True), manifest, qt_version)
+        qt_root = arguments.qt_root or ROOT / ".tools/Qt/gcc_64"
+        verify_sboms(qt_root.resolve(strict=True), "sbom", manifest, qt_version)
+        print(f"Qt {qt_version} and ICU 73.2 native license/SBOM evidence verified")
+        return
+    # The release build checks the committed evidence. A package check only
+    # compares the package with it.
+    installed_root = arguments.installed_root.resolve(strict=True)
+    verify_sboms(installed_root, "usr/share/doc/kodosi/qt/sbom", manifest, qt_version)
+    verify_packaged_evidence(
+        arguments.license_root.resolve(strict=True),
+        arguments.manifest.resolve(strict=True),
+        manifest,
+        installed_root,
+        qt_version,
     )
-    qt_root = arguments.qt_root or ROOT / ".tools/Qt/gcc_64"
-    verify_sboms(qt_root.resolve(strict=True), manifest, installed_root, qt_version)
-    if installed_root is not None:
-        verify_packaged_evidence(
-            arguments.license_root.resolve(strict=True),
-            arguments.manifest.resolve(strict=True),
-            manifest,
-            installed_root,
-            qt_version,
-        )
-        verify_runtime(installed_root, manifest, qt_version)
-    print(f"Qt {qt_version} and ICU 73.2 native license/SBOM evidence verified")
+    verify_runtime(installed_root, manifest, qt_version)
+    print(f"Qt {qt_version} and ICU 73.2 native license/SBOM evidence of the package verified")
 
 
 if __name__ == "__main__":
