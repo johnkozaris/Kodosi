@@ -55,7 +55,8 @@ just ios-check
 
 This lints the sources, runs the unit tests on a `Kodosi iPhone 17 Pro` simulator
 (made when it is missing; set `KODOSI_IOS_SIMULATOR` to choose another), and builds
-the Release configuration for devices.
+the Release configuration for devices. To format the Swift sources, run `just format`
+from this client directory.
 
 See [product behavior](PRODUCT.md), [design reference](DESIGN.md), and
 [contributor setup](../../docs/DEVELOPMENT.md).

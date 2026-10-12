@@ -27,6 +27,9 @@ The repository pins Rust in [rust-toolchain.toml](../rust-toolchain.toml) and .N
 does not roll forward automatically.
 
 `just rust-tools-install` installs the Rust checking tools under `.tools/rust/`.
+`just dev-tools-install` installs these tools and Bacon. To run the jobs in
+[bacon.toml](../bacon.toml) again after each change to a file, run
+`.tools/rust/bin/bacon` from the repository root.
 The root recipes also recognize a local .NET SDK at `backend/.tools/dotnet-10.0.401/`.
 Keep dependencies and downloaded build tools inside the project.
 
@@ -43,7 +46,7 @@ Run these from the repository root. `just --list` is the complete command refere
 | Command | Purpose |
 | --- | --- |
 | `just rust-cli-build` | Build the standalone development CLI |
-| `just rust-all` | Rust format, compilation, docs, lint, dependencies, contracts, tests, coverage |
+| `just rust-all` | Ghostty pins and notices, Rust format, compilation, docs, lint, dependencies, contracts, tests, coverage |
 | `just backend-test` | Build and test the backend; database tests need a container runtime |
 | `just check-all` | Run the Rust and backend gates |
 | `just mac-build` / `just mac-check` | Build / check the Mac app |

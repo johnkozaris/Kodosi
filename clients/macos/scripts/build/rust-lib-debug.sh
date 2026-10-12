@@ -8,7 +8,7 @@ kodosi_load_macos_deployment_target "$ROOT"
 source "$ROOT/scripts/build/kodosi-paths.sh"
 RUST_DIR=$(kodosi_runtime_root "$ROOT")
 cd "$ROOT"
-"$ROOT/scripts/build/verify-ghostty-checkout.sh"
+"$RUST_DIR/../scripts/verify-ghostty.sh"
 target=$(cd "$RUST_DIR" && rustc -vV | grep '^host:' | cut -d' ' -f2)
 python3 "$RUST_DIR/../scripts/build-ffi-artifact.py" \
     --manifest "$RUST_DIR/Cargo.toml" --output-dir "$ROOT/build/rust-ffi" \

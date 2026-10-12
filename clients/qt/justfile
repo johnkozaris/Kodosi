@@ -123,7 +123,10 @@ package: bootstrap
     ./scripts/release/verify-packaged-content.sh build/release/kodosi-0.1.0-linux-x86_64.tar.gz
 
 package-arch: package
-    ./scripts/release/build-arch-package.sh
+    package="$(./scripts/release/write-arch-package.sh \
+        build/release/kodosi-0.1.0-linux-x86_64.tar.gz build/release)" && \
+        ./scripts/release/verify-packaged-content.sh "$package" && \
+        printf 'Arch-compatible package built: %s\n' "$package"
 
 package-repeatability: package package-repeatability-existing
 
