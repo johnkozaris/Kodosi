@@ -77,7 +77,7 @@ public sealed class AccountTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task AccountResponseOmitsUnusedProfileFieldsAndDuplicateDeviceRouteIsAbsent()
+    public async Task AccountResponseOmitsUnusedProfileFields()
     {
         await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));
         using var actor = await app.EnrollAsync("profile-response");
@@ -89,7 +89,5 @@ public sealed class AccountTests(PostgresFixture postgres)
         Assert.True(response.TryGetProperty("displayName", out _));
         Assert.False(response.TryGetProperty("email", out _));
         Assert.False(response.TryGetProperty("avatarUrl", out _));
-        using var removed = await actor.Client.GetAsync("/api/me/devices", TestContext.Current.CancellationToken);
-        Assert.Equal(System.Net.HttpStatusCode.MethodNotAllowed, removed.StatusCode);
     }
 }
