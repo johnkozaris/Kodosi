@@ -76,22 +76,8 @@ format the Swift sources, run `just format`.
 `just working-tree-build` builds an archive of the working tree for validation. You
 cannot publish it.
 
-Official releases are signed with Developer ID, embed a provisioning profile for the
-Keychain access group, and are notarized by Apple. The signing credentials stay with
-the maintainers, outside Git.
-
-To make a release, set `KODOSI_TEAM_ID`, `KODOSI_MARKETING_VERSION` and
-`KODOSI_BUILD_NUMBER`. Then run one of these scripts from this client directory:
-
-| Script | Result |
-| --- | --- |
-| `scripts/release/export.sh` | The signed app from a clean checkout, in `build/export/` |
-| `scripts/release/notarize.sh` | The result of `export.sh`, after Apple notarizes it |
-| `scripts/release/package-dmg.sh` | The result of `notarize.sh`, and a signed and notarized `build/export/KodosiDesktop.dmg` |
-| `scripts/release/generate-cask.sh` | A Homebrew cask in `build/KodosiDesktop.rb`, if the disk image at `KODOSI_DOWNLOAD_URL` is the same as the local one |
-
-The scripts examine the signatures, the embedded profile, the entitlements, the native
-artifacts and the source revision. `just signature-check` examines the app in the archive.
+Official releases have a Developer ID signature and Apple notarization, and the signing
+credentials and release values stay with the maintainers, outside Git.
 
 Read [Ghostty integration](docs/GHOSTTY_INTEGRATION.md) before changing the renderer.
 See [product behavior](PRODUCT.md), [design reference](DESIGN.md), and
