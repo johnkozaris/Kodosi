@@ -2,11 +2,15 @@
 
 #include <QFontMetricsF>
 #include <QPainter>
+#include <QPainterPath>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <utility>
 
 namespace kodosi {
 namespace {
@@ -20,16 +24,189 @@ struct CellMetrics {
     qreal ascent;
 };
 
-CellMetrics metrics(const QFont& font, const qreal lineHeight)
+CellMetrics metrics(const QFont& font, const qreal lineHeight, const qreal devicePixelRatio)
 {
-    const QFontMetricsF fontMetrics(font);
-    const auto baseHeight = std::ceil(fontMetrics.height());
-    const auto height = std::ceil(baseHeight * std::clamp(lineHeight, 0.8, 2.0));
-    return {
-        std::ceil(fontMetrics.horizontalAdvance(QLatin1Char('M'))),
-        height,
-        fontMetrics.ascent() + ((height - baseHeight) / 2.0),
+    // Whole device pixels keep every cell on one grid at fractional display scales.
+    const auto ratio = devicePixelRatio > 0.0 && std::isfinite(devicePixelRatio)
+        ? devicePixelRatio
+        : 1.0;
+    const auto devicePixels = [ratio](const qreal value) {
+        return std::ceil(value * ratio) / ratio;
     };
+    const QFontMetricsF fontMetrics(font);
+    const auto baseHeight = devicePixels(fontMetrics.height());
+    const auto height = devicePixels(baseHeight * std::clamp(lineHeight, 0.8, 2.0));
+    return {
+        devicePixels(fontMetrics.horizontalAdvance(QLatin1Char('M'))),
+        height,
+        std::round((fontMetrics.ascent() + ((height - baseHeight) / 2.0)) * ratio) / ratio,
+    };
+}
+
+void fillBlock(
+    QPainter& painter,
+    const QRectF& bounds,
+    const QColor& color,
+    const QRectF& part,
+    const qreal opacity = 1.0)
+{
+    auto shade = color;
+    shade.setAlphaF(color.alphaF() * opacity);
+    painter.fillRect(
+        QRectF(
+            bounds.left() + (bounds.width() * part.left()),
+            bounds.top() + (bounds.height() * part.top()),
+            bounds.width() * part.width(),
+            bounds.height() * part.height()),
+        shade);
+}
+
+void drawBlockElement(
+    QPainter& painter,
+    const QRectF& bounds,
+    const char16_t codepoint,
+    const QColor& color)
+{
+    static constexpr std::array<std::uint8_t, 10> quadrants {4, 8, 1, 13, 9, 7, 11, 2, 6, 14};
+    if (codepoint == 0x2580) {
+        fillBlock(painter, bounds, color, {0.0, 0.0, 1.0, 0.5});
+    } else if (codepoint <= 0x2588) {
+        const auto eighths = codepoint - 0x2580;
+        fillBlock(painter, bounds, color, {0.0, 1.0 - (eighths / 8.0), 1.0, eighths / 8.0});
+    } else if (codepoint <= 0x258F) {
+        fillBlock(painter, bounds, color, {0.0, 0.0, (0x2590 - codepoint) / 8.0, 1.0});
+    } else if (codepoint == 0x2590) {
+        fillBlock(painter, bounds, color, {0.5, 0.0, 0.5, 1.0});
+    } else if (codepoint <= 0x2593) {
+        fillBlock(painter, bounds, color, {0.0, 0.0, 1.0, 1.0}, (codepoint - 0x2590) / 4.0);
+    } else if (codepoint == 0x2594) {
+        fillBlock(painter, bounds, color, {0.0, 0.0, 1.0, 0.125});
+    } else if (codepoint == 0x2595) {
+        fillBlock(painter, bounds, color, {0.875, 0.0, 0.125, 1.0});
+    } else {
+        const auto mask = quadrants.at(static_cast<std::size_t>(codepoint - 0x2596));
+        for (const auto [bit, part] : {
+                 std::pair {1, QRectF {0.0, 0.0, 0.5, 0.5}},
+                 std::pair {2, QRectF {0.5, 0.0, 0.5, 0.5}},
+                 std::pair {4, QRectF {0.0, 0.5, 0.5, 0.5}},
+                 std::pair {8, QRectF {0.5, 0.5, 0.5, 0.5}},
+             }) {
+            if ((mask & bit) != 0) {
+                fillBlock(painter, bounds, color, part);
+            }
+        }
+    }
+}
+
+void drawPowerlineSeparator(
+    QPainter& painter,
+    const QRectF& bounds,
+    const char16_t codepoint,
+    const QColor& color)
+{
+    const auto left = bounds.left();
+    const auto top = bounds.top();
+    const auto right = bounds.right();
+    const auto bottom = bounds.bottom();
+    const auto middle = bounds.center().y();
+    const QRectF rightBulge(left - bounds.width(), top, bounds.width() * 2.0, bounds.height());
+    const QRectF leftBulge(right - bounds.width(), top, bounds.width() * 2.0, bounds.height());
+    const auto polygon = [](const std::initializer_list<QPointF> points, const bool closed) {
+        QPainterPath path(*points.begin());
+        for (auto point = points.begin() + 1; point != points.end(); ++point) {
+            path.lineTo(*point);
+        }
+        if (closed) {
+            path.closeSubpath();
+        }
+        return path;
+    };
+    QPainterPath path;
+    auto outline = false;
+    switch (codepoint) {
+    case 0xE0B0:
+    case 0xE0B1:
+        outline = codepoint == 0xE0B1;
+        path = polygon({{left, top}, {right, middle}, {left, bottom}}, !outline);
+        break;
+    case 0xE0B2:
+    case 0xE0B3:
+        outline = codepoint == 0xE0B3;
+        path = polygon({{right, top}, {left, middle}, {right, bottom}}, !outline);
+        break;
+    case 0xE0B4:
+    case 0xE0B5:
+        outline = codepoint == 0xE0B5;
+        path.arcMoveTo(rightBulge, 90.0);
+        path.arcTo(rightBulge, 90.0, -180.0);
+        break;
+    case 0xE0B6:
+    case 0xE0B7:
+        outline = codepoint == 0xE0B7;
+        path.arcMoveTo(leftBulge, 90.0);
+        path.arcTo(leftBulge, 90.0, 180.0);
+        break;
+    case 0xE0B8:
+        path = polygon({{left, top}, {right, bottom}, {left, bottom}}, true);
+        break;
+    case 0xE0BA:
+        path = polygon({{right, top}, {right, bottom}, {left, bottom}}, true);
+        break;
+    case 0xE0BC:
+        path = polygon({{left, top}, {right, top}, {left, bottom}}, true);
+        break;
+    case 0xE0BE:
+        path = polygon({{left, top}, {right, top}, {right, bottom}}, true);
+        break;
+    case 0xE0B9:
+    case 0xE0BF:
+        outline = true;
+        path = polygon({{left, top}, {right, bottom}}, false);
+        break;
+    default:
+        outline = true;
+        path = polygon({{left, bottom}, {right, top}}, false);
+        break;
+    }
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    if (outline) {
+        painter.setPen(QPen(
+            color,
+            std::max(1.0, bounds.height() / 16.0),
+            Qt::SolidLine,
+            Qt::FlatCap,
+            Qt::MiterJoin));
+        painter.setBrush(Qt::NoBrush);
+    } else {
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(color);
+    }
+    painter.drawPath(path);
+    painter.restore();
+}
+
+// Block elements and Powerline separators fill their cell exactly, whatever font
+// would draw them, so neighbouring cells join without gaps or overhang.
+bool drawCellShape(
+    QPainter& painter,
+    const QRectF& bounds,
+    const QString& grapheme,
+    const QColor& color)
+{
+    if (grapheme.size() != 1) {
+        return false;
+    }
+    const auto codepoint = grapheme.front().unicode();
+    if (codepoint >= 0x2580 && codepoint <= 0x259F) {
+        drawBlockElement(painter, bounds, codepoint, color);
+        return true;
+    }
+    if (codepoint >= 0xE0B0 && codepoint <= 0xE0BF) {
+        drawPowerlineSeparator(painter, bounds, codepoint, color);
+        return true;
+    }
+    return false;
 }
 
 QFont styledFont(const QFont& base, const TerminalCell& cell)
@@ -76,9 +253,10 @@ QSizeF TerminalRasterizer::logicalSize(const TerminalFrame& frame, const QFont& 
 QSizeF TerminalRasterizer::logicalSize(
     const TerminalFrame& frame,
     const QFont& font,
-    const qreal lineHeight)
+    const qreal lineHeight,
+    const qreal devicePixelRatio)
 {
-    const auto cell = metrics(font, lineHeight);
+    const auto cell = metrics(font, lineHeight, devicePixelRatio);
     return {
         cell.width * frame.columns,
         cell.height * frame.rows,
@@ -90,9 +268,12 @@ QSizeF TerminalRasterizer::cellSize(const QFont& font)
     return cellSize(font, 1.0);
 }
 
-QSizeF TerminalRasterizer::cellSize(const QFont& font, const qreal lineHeight)
+QSizeF TerminalRasterizer::cellSize(
+    const QFont& font,
+    const qreal lineHeight,
+    const qreal devicePixelRatio)
 {
-    const auto cell = metrics(font, lineHeight);
+    const auto cell = metrics(font, lineHeight, devicePixelRatio);
     return {cell.width, cell.height};
 }
 
@@ -139,11 +320,11 @@ QImage TerminalRasterizer::render(
         return {};
     }
 
-    const auto cell = metrics(font, options.lineHeight);
+    const auto cell = metrics(font, options.lineHeight, devicePixelRatio);
     const auto logicalWidth = cell.width * frame.columns;
     const auto logicalHeight = cell.height * frame.rows;
-    const auto physicalWidth = std::ceil(logicalWidth * devicePixelRatio);
-    const auto physicalHeight = std::ceil(logicalHeight * devicePixelRatio);
+    const auto physicalWidth = std::round(logicalWidth * devicePixelRatio);
+    const auto physicalHeight = std::round(logicalHeight * devicePixelRatio);
     if (physicalWidth <= 0.0 || physicalHeight <= 0.0
         || physicalWidth > maximumTextureDimension
         || physicalHeight > maximumTextureDimension) {
@@ -206,9 +387,11 @@ QImage TerminalRasterizer::render(
                 : terminalCell->foreground;
             painter.setFont(styledFont(font, *terminalCell));
             painter.setPen(foreground);
-            painter.drawText(
-                QPointF(bounds.left(), bounds.top() + cell.ascent),
-                terminalCell->grapheme);
+            if (!drawCellShape(painter, bounds, terminalCell->grapheme, foreground)) {
+                painter.drawText(
+                    QPointF(bounds.left(), bounds.top() + cell.ascent),
+                    terminalCell->grapheme);
+            }
             drawDecoration(painter, bounds, *terminalCell, foreground);
         }
     }

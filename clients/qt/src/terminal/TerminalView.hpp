@@ -188,6 +188,8 @@ private:
 
     [[nodiscard]] QPointF viewportOffset() const;
     [[nodiscard]] QPointF gridPoint(const QPointF& point) const;
+    [[nodiscard]] qreal devicePixelRatio() const;
+    [[nodiscard]] QSizeF terminalCellSize() const;
     void updateViewport();
     QFont m_font;
     qreal m_lineHeight = 1.1;
