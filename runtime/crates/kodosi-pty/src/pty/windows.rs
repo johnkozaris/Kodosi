@@ -17,7 +17,7 @@ use windows_sys::Win32::{
     Foundation::{ERROR_BROKEN_PIPE, ERROR_MORE_DATA, HANDLE, WAIT_OBJECT_0},
     Storage::FileSystem::{ReadFile, WriteFile},
     System::{
-        Console::{COORD, HPCON},
+        Console::{COORD, HPCON, SetConsoleCtrlHandler},
         JobObjects::{
             CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JOBOBJECT_BASIC_PROCESS_ID_LIST,
             JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectBasicProcessIdList,
@@ -674,6 +674,10 @@ fn start(
     let mut information: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
     let application = wide(application.as_os_str());
     let directory = directory.map(|directory| wide(directory.as_os_str()));
+    // A program inherits its parent's choice to ignore Ctrl+C, which a host
+    // started in a new process group makes, so Ctrl+C is restored first.
+    // SAFETY: a null handler only changes this process's Ctrl+C attribute.
+    unsafe { SetConsoleCtrlHandler(None, 0) };
     // SAFETY: every string is NUL-terminated, the command line is writable, and
     // the environment block is double-NUL-terminated UTF-16.
     if unsafe {
