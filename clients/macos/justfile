@@ -85,6 +85,17 @@ check: lint deployment-targets-check release-graph-test apple-test
         -destination 'generic/platform=macOS' \
         build
 
+# Archive, export, notarize and package the Mac app in build/export/KodosiDesktop.dmg. Commit all the changes first.
+release-package:
+    scripts/release/archive.sh build/archive/KodosiDesktop.xcarchive
+    scripts/release/export.sh build/archive/KodosiDesktop.xcarchive build/export
+    scripts/release/notarize.sh build/export/KodosiDesktop.app
+    scripts/release/package-dmg.sh build/export/KodosiDesktop.app build/export/KodosiDesktop.dmg
+
+# Write the Homebrew cask build/KodosiDesktop.rb for the disk image at KODOSI_DOWNLOAD_URL.
+cask-gen:
+    scripts/release/generate-cask.sh build/export/KodosiDesktop.dmg build/KodosiDesktop.rb
+
 # Check the signatures, the profile and the entitlements of the app in the release archive.
 signature-check:
     scripts/release/verify-signed.sh
