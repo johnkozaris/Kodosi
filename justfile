@@ -4,25 +4,28 @@ cargo_tools_root := justfile_directory() + "/.tools/rust"
 cargo_tools_bin := cargo_tools_root + "/bin"
 ghostty_dir := env('KODOSI_GHOSTTY_DIR', justfile_directory() + "/terminal/ghostty")
 
-export PATH := justfile_directory() + "/backend/.tools/dotnet-10.0.401:" + cargo_tools_bin + ":" + env('PATH')
+path_separator := if os_family() == "windows" { ";" } else { ":" }
+
+export PATH := justfile_directory() + "/backend/.tools/dotnet-10.0.401" + path_separator + cargo_tools_bin + path_separator + env('PATH')
 export KODOSI_GHOSTTY_DIR := ghostty_dir
+export KODOSI_CONPTY_DIR := env('KODOSI_CONPTY_DIR', justfile_directory() + "/runtime/target/debug")
 
 default:
     @just --list
 
 rust-tools-install:
-    cargo install --locked --root {{ cargo_tools_root }} cargo-deny --version 0.19.0
-    cargo install --locked --root {{ cargo_tools_root }} cargo-machete --version 0.9.1
-    cargo install --locked --root {{ cargo_tools_root }} cargo-llvm-cov --version 0.8.5
+    cargo install --locked --root "{{ cargo_tools_root }}" cargo-deny --version 0.19.0
+    cargo install --locked --root "{{ cargo_tools_root }}" cargo-machete --version 0.9.1
+    cargo install --locked --root "{{ cargo_tools_root }}" cargo-llvm-cov --version 0.8.5
 
 dev-tools-install: rust-tools-install
-    cargo install --locked --root {{ cargo_tools_root }} bacon --version 3.22.0
+    cargo install --locked --root "{{ cargo_tools_root }}" bacon --version 3.22.0
 
 _dependency-tools:
-    @test -x {{ cargo_tools_bin }}/cargo-deny -a -x {{ cargo_tools_bin }}/cargo-machete || { printf '%s\n' 'Run just rust-tools-install first.' >&2; exit 1; }
+    @test -x "{{ cargo_tools_bin }}/cargo-deny" -a -x "{{ cargo_tools_bin }}/cargo-machete" || { printf '%s\n' 'Run just rust-tools-install first.' >&2; exit 1; }
 
 _coverage-tool:
-    @test -x {{ cargo_tools_bin }}/cargo-llvm-cov || { printf '%s\n' 'Run just rust-tools-install first.' >&2; exit 1; }
+    @test -x "{{ cargo_tools_bin }}/cargo-llvm-cov" || { printf '%s\n' 'Run just rust-tools-install first.' >&2; exit 1; }
 
 ghostty-verify:
     scripts/verify-ghostty.sh
@@ -30,7 +33,7 @@ ghostty-verify:
 rust-build:
     cargo build --manifest-path runtime/Cargo.toml --locked --workspace
 
-rust-cli-build:
+rust-cli-build: conpty
     cargo build --manifest-path runtime/Cargo.toml --locked --bin kodosi
 
 rust-ffi-build:
@@ -68,7 +71,16 @@ rust-dependency-hygiene: rust-deny rust-machete
 ffi-publication-test:
     PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-ffi-artifact.py
 
-rust-test: ffi-publication-test
+# Windows terminals need the pinned ConPTY host beside the development CLI, and
+# tests find it through KODOSI_CONPTY_DIR.
+[windows]
+conpty:
+    python3 terminal/conpty/fetch.py --arch "$(source scripts/windows-env.sh && kodosi_windows_arch)" --output "$KODOSI_CONPTY_DIR"
+
+[unix]
+conpty:
+
+rust-test: ffi-publication-test conpty
     CARGO_INCREMENTAL=0 cargo test --manifest-path runtime/Cargo.toml --locked --workspace --all-targets
     CARGO_INCREMENTAL=0 cargo test --manifest-path runtime/Cargo.toml --locked --workspace --doc
 
@@ -90,6 +102,14 @@ protocol-check:
     cargo run --manifest-path runtime/Cargo.toml --locked --bin protocol-gen -- check
 
 rust-all: ghostty-verify rust-fmt rust-check rust-doc rust-clippy rust-dependency-hygiene protocol-check rust-test rust-coverage-check
+
+windows-cross-check packages="--workspace":
+    docker build --quiet --tag kodosi-windows-cross --file scripts/windows-cross-check.Dockerfile scripts >/dev/null
+    for target in x86_64-pc-windows-msvc aarch64-pc-windows-msvc; do \
+        docker run --rm --volume "$PWD:/src" --volume kodosi-cargo-registry:/usr/local/cargo/registry --volume kodosi-xwin-cache:/cache/xwin --workdir /src --env CARGO_BUILD_WARNINGS=deny --env CARGO_INCREMENTAL=0 --env KODOSI_GHOSTTY_CHECK_ONLY=1 kodosi-windows-cross bash -euo pipefail -c "\
+            cargo xwin clippy --manifest-path runtime/Cargo.toml --locked --target $target {{ packages }} --lib --bins --examples -- -D warnings && \
+            cargo xwin clippy --manifest-path runtime/Cargo.toml --locked --target $target {{ packages }} --tests -- -D warnings -A clippy::unwrap_used -A clippy::expect_used"; \
+    done
 
 rust-clean:
     cargo clean --manifest-path runtime/Cargo.toml
@@ -129,10 +149,13 @@ mac-check:
     just --justfile clients/macos/Justfile ci
 
 linux-build:
-    just --justfile clients/linux/justfile build
+    just --justfile clients/qt/justfile build
 
 linux-check:
-    just --justfile clients/linux/justfile check
+    just --justfile clients/qt/justfile check
+
+windows-check:
+    just --justfile clients/qt/justfile windows-check
 
 sign-in-check:
     cd sign-in && bun install --frozen-lockfile && bun run tsc && bun run lint && bun run format:check && bun run build

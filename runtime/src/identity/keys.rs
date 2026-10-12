@@ -297,7 +297,7 @@ mod tests {
     #[test]
     fn explicit_replacement_keeps_nothing_of_the_removed_identity() {
         let root = tempfile::tempdir().unwrap();
-        let store = Secrets::new(root.path().to_owned(), "test".into(), true);
+        let store = Secrets::new(root.path().to_owned(), "test", true);
         let user = Uuid::now_v7().to_string();
         let old = DeviceKeys::load_or_create(&store, &user).unwrap();
         assert!(DeviceKeys::replace_revoked(&store, &user, "unrelated-device").is_err());
@@ -343,7 +343,7 @@ mod tests {
     #[test]
     fn the_device_keeps_the_room_key_of_a_recovery_key_until_it_deletes_it() {
         let folder = tempfile::tempdir().unwrap();
-        let store = Secrets::new(folder.path().to_owned(), "test".into(), true);
+        let store = Secrets::new(folder.path().to_owned(), "test", true);
         let user = Uuid::now_v7().to_string();
         let keys = DeviceKeys::load_or_create(&store, &user).unwrap();
         let kept = RoomKeyPair::generate().unwrap();

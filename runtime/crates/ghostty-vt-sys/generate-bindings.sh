@@ -8,6 +8,8 @@ if [ -z "$target" ]; then
   case "$(uname -s)-$(uname -m)" in
     Darwin-arm64) target=macos-arm64 ;;
     Linux-x86_64) target=linux-x86_64 ;;
+    MINGW64_NT*-x86_64 | MSYS_NT*-x86_64) target=windows-x86_64 ;;
+    MINGW64_NT*-aarch64 | MSYS_NT*-aarch64 | CLANGARM64_NT*-aarch64) target=windows-arm64 ;;
     *)
       printf 'unsupported binding host: %s-%s\n' "$(uname -s)" "$(uname -m)" >&2
       exit 1
@@ -25,6 +27,11 @@ case "$target" in
     layout=linux-x86_64
     clang_target=
     output="$crate_dir/src/bindings_linux.rs"
+    ;;
+  windows-x86_64 | windows-arm64)
+    layout=$target
+    clang_target=x86_64-pc-windows-msvc
+    output="$crate_dir/src/bindings_windows.rs"
     ;;
   *)
     printf 'unsupported binding target: %s\n' "$target" >&2

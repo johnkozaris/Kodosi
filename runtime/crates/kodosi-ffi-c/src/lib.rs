@@ -1,8 +1,7 @@
 use std::{
     cell::Cell,
     collections::{HashMap, HashSet},
-    ffi::{CStr, CString, OsStr, OsString, c_char, c_void},
-    os::unix::ffi::OsStrExt as _,
+    ffi::{CStr, CString, OsString, c_char, c_void},
     panic::AssertUnwindSafe,
     sync::{
         Arc, Condvar, Mutex, MutexGuard, OnceLock,
@@ -19,11 +18,13 @@ use tokio::{runtime::Runtime as Executor, task::JoinSet};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
+mod app;
 mod callbacks;
 mod instance;
 mod subscriptions;
 mod terminal_bridge;
 
+pub use app::{kodosi_close_app, kodosi_forward_activation, kodosi_log, kodosi_prepare};
 pub use instance::kodosi_start;
 
 use callbacks::{CallbackScope, Gate, State, UserData, lock};
@@ -34,7 +35,7 @@ pub use terminal_bridge::*;
 #[cfg(test)]
 use instance::Completion;
 
-pub const KODOSI_FFI_ABI_VERSION: u32 = 7;
+pub const KODOSI_FFI_ABI_VERSION: u32 = 8;
 pub const KODOSI_MAX_FRAME_BYTES: usize = 8_388_608;
 pub const KODOSI_TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES: usize = 8_388_608;
 pub const KODOSI_TERMINAL_CONTROL_MAX_BYTES: usize = 65_536;
@@ -64,6 +65,16 @@ pub const KODOSI_HOST_STOP_UNREACHABLE: i32 = 2;
 pub const KODOSI_HOST_STOP_FAILED: i32 = 3;
 pub const KODOSI_CLI_NOT_INVOKED: i32 = -1;
 pub const KODOSI_CLI_FAILED: i32 = 70;
+pub const KODOSI_APP_OWNER: i32 = 0;
+pub const KODOSI_APP_SECONDARY: i32 = 1;
+pub const KODOSI_APP_FORWARDED: i32 = 2;
+pub const KODOSI_APP_FAILED: i32 = 3;
+pub const KODOSI_ACTIVATION_MAX_BYTES: usize = 16_384;
+pub const KODOSI_LOG_INFO: i32 = 0;
+pub const KODOSI_LOG_WARNING: i32 = 1;
+pub const KODOSI_LOG_ERROR: i32 = 2;
+
+const _: () = assert!(KODOSI_ACTIVATION_MAX_BYTES == local_host::MAX_ACTIVATION_BYTES);
 
 const MAX_SUBSCRIPTIONS: usize = 4_096;
 const STOP_BUDGET: Duration = Duration::from_secs(10);
@@ -192,7 +203,7 @@ pub unsafe extern "C" fn kodosi_last_start_failure(out: *mut KodosiStartFailure)
 #[unsafe(no_mangle)]
 pub extern "C" fn kodosi_host_stop(force: i32) -> i32 {
     caught(|| {
-        let Ok(config) = Config::load() else {
+        let Ok(config) = app::config() else {
             return KODOSI_HOST_STOP_FAILED;
         };
         let Ok(executor) = Executor::new() else {
@@ -214,6 +225,22 @@ pub extern "C" fn kodosi_host_stop(force: i32) -> i32 {
     })
 }
 
+/// Unix arguments are bytes; Windows callers pass UTF-8.
+#[cfg(unix)]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "Windows arguments can fail UTF-8 validation"
+)]
+fn os_argument(bytes: &[u8]) -> Option<OsString> {
+    use std::os::unix::ffi::OsStrExt as _;
+    Some(std::ffi::OsStr::from_bytes(bytes).to_owned())
+}
+
+#[cfg(windows)]
+fn os_argument(bytes: &[u8]) -> Option<OsString> {
+    std::str::from_utf8(bytes).ok().map(OsString::from)
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn kodosi_cli_main(length: i32, values: *const *const c_char) -> i32 {
     let Ok(count) = usize::try_from(length) else {
@@ -222,14 +249,15 @@ pub unsafe extern "C" fn kodosi_cli_main(length: i32, values: *const *const c_ch
     if count > 0 && values.is_null() {
         return KODOSI_CLI_NOT_INVOKED;
     }
-    let invocation = (0..count)
+    let Some(invocation) = (0..count)
         .filter_map(|index| {
             let pointer = unsafe { *values.add(index) };
-            (!pointer.is_null()).then(|| {
-                OsStr::from_bytes(unsafe { CStr::from_ptr(pointer) }.to_bytes()).to_owned()
-            })
+            (!pointer.is_null()).then(|| os_argument(unsafe { CStr::from_ptr(pointer) }.to_bytes()))
         })
-        .collect::<Vec<OsString>>();
+        .collect::<Option<Vec<OsString>>>()
+    else {
+        return KODOSI_CLI_FAILED;
+    };
     if !kodosi_runtime::cli::is_invocation(&invocation) {
         return KODOSI_CLI_NOT_INVOKED;
     }

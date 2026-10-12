@@ -14,7 +14,7 @@ fn main() {
         .unwrap_or_else(|e| panic!("cbindgen: failed to load cbindgen.toml: {e}"));
 
     let bindings = cbindgen::Builder::new()
-        .with_crate(&crate_dir)
+        .with_src(PathBuf::from(&crate_dir).join("src/lib.rs"))
         .with_config(config)
         .generate()
         .unwrap_or_else(|e| panic!("cbindgen: generation failed: {e}"));

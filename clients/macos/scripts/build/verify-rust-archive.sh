@@ -83,8 +83,9 @@ swift_root=$(cd "$script_directory/../.." && pwd)
 source "$script_directory/kodosi-paths.sh"
 runtime_directory=$(kodosi_runtime_root "$swift_root")
 contract="$(kodosi_repository_root "$swift_root")/protocol/desktop-runtime.json"
-protocol_version=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["protocolVersion"])' "$contract")
+read -r protocol_version abi_version < <(python3 -c 'import json, sys; contract = json.load(open(sys.argv[1])); print(contract["protocolVersion"], contract["ffiAbiVersion"])' "$contract")
 protocol_hex=$(printf '0x%x' "$protocol_version")
+abi_hex=$(printf '0x%x' "$abi_version")
 python3 - "$bundle" <<'PYVERIFY'
 import hashlib
 import json
@@ -183,11 +184,11 @@ for architecture in "$@"; do
         --disassemble-symbols=_kodosi_abi_version \
         "$inspection_archive" 2>/dev/null)
     case "$architecture" in
-        arm64) abi_constant_pattern='mov[[:space:]]+w0,[[:space:]]+#(0x7|7)([[:space:];]|$)' ;;
-        x86_64) abi_constant_pattern='movl?[[:space:]]+\$(0x7|7),[[:space:]]+%eax([[:space:];]|$)' ;;
+        arm64) abi_constant_pattern="mov[[:space:]]+w0,[[:space:]]+#(${abi_hex}|${abi_version})([[:space:];]|\$)" ;;
+        x86_64) abi_constant_pattern="movl?[[:space:]]+\\\$(${abi_hex}|${abi_version}),[[:space:]]+%eax([[:space:];]|\$)" ;;
     esac
     if ! grep -Eq "$abi_constant_pattern" <<<"$abi_disassembly"; then
-        echo "Rust archive $archive does not return exact C ABI v7 in its $architecture slice" >&2
+        echo "Rust archive $archive does not return exact C ABI v${abi_version} in its $architecture slice" >&2
         exit 1
     fi
     if [[ -n "$thin_archive" ]]; then

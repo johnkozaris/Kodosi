@@ -14,7 +14,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-c98566?style=flat-square&labelColor=2a211d" alt="MIT license"></a>
   <a href="clients/macos/README.md"><img src="https://img.shields.io/badge/macOS-26.4%2B%20%C2%B7%20Apple%20silicon-c98566?style=flat-square&labelColor=2a211d" alt="macOS 26.4 or later on Apple silicon"></a>
-  <a href="clients/linux/README.md"><img src="https://img.shields.io/badge/Linux-x86--64-c98566?style=flat-square&labelColor=2a211d" alt="Linux x86-64"></a>
+  <a href="clients/qt/README.md"><img src="https://img.shields.io/badge/Linux-x86--64-c98566?style=flat-square&labelColor=2a211d" alt="Linux x86-64"></a>
   <a href="#project-status"><img src="https://img.shields.io/badge/status-in%20development-8a7a70?style=flat-square&labelColor=2a211d" alt="In development"></a>
 </p>
 
@@ -117,7 +117,7 @@ content. [Security](docs/SECURITY.md)
 | You need | Details |
 | --- | --- |
 | A computer | A Mac with Apple silicon and macOS 26.4 or later, or a Linux x86-64 computer. Ubuntu 24.04 is the recommended start. |
-| Build tools | App releases are not published yet, so you build Kodosi. The [Mac](clients/macos/README.md#requirements) build needs Xcode; the [Linux](clients/linux/README.md#requirements) build needs a C++23 compiler. Both need the pinned Rust toolchain, `just`, and Python 3. |
+| Build tools | App releases are not published yet, so you build Kodosi. The [Mac](clients/macos/README.md#requirements) build needs Xcode; the [Linux](clients/qt/README.md#requirements) build needs a C++23 compiler. Both need the pinned Rust toolchain, `just`, and Python 3. |
 | A Kodosi service | Kodosi needs a backend and an OIDC sign-in service. A public hosted service is not open yet, so you run them: a [local backend](docs/DEVELOPMENT.md#run-the-backend) for development, or [your own service](docs/SELF-HOSTING.md) for more people. |
 | Your agents | Optional. Install and sign in to Claude Code, Codex, Copilot CLI, or another terminal agent as usual. Kodosi uses their own installation and sign-in. |
 | Git | Optional. Git for a terminal on a new branch; `gh` or a Git credential helper for GitHub and Gitea issues. |
@@ -138,7 +138,7 @@ own Apple development signing team.
 | Platform | Build guide | Then |
 | --- | --- | --- |
 | macOS | [Kodosi for macOS](clients/macos/README.md) | Run the `KodosiDesktop` scheme from Xcode |
-| Linux | [Kodosi for Linux](clients/linux/README.md) | Run `./clients/linux/build/dev/src/kodosi-qt` |
+| Linux | [Kodosi for Linux](clients/qt/README.md) | Run `./clients/qt/build/dev/src/kodosi-qt` |
 
 When the app runs, follow the [guide](docs/GETTING_STARTED.md): sign in, open a
 terminal, start an agent, and make a room.

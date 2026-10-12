@@ -24,6 +24,8 @@ pub struct TerminalPolicy {
     pub scrollback_max_bytes: usize,
     pub scrollback_max_lines: usize,
     pub dark: bool,
+    /// The terminal runs behind a console host such as Windows `ConPTY`.
+    pub console: bool,
 }
 
 impl Default for TerminalPolicy {
@@ -33,6 +35,7 @@ impl Default for TerminalPolicy {
             scrollback_max_bytes: 64 * 1024 * 1024,
             scrollback_max_lines: 1_024,
             dark: true,
+            console: false,
         }
     }
 }
@@ -75,15 +78,19 @@ pub struct Terminal {
 
 impl Terminal {
     pub fn new(cols: u16, rows: u16, policy: TerminalPolicy) -> Result<Self, Error> {
+        let mut raw = RawTerminal::new(
+            cols,
+            rows,
+            policy.continuation_max_bytes,
+            policy.scrollback_max_bytes,
+            policy.scrollback_max_lines,
+            policy.dark,
+        )?;
+        if policy.console {
+            raw.use_console_profile()?;
+        }
         Ok(Self {
-            raw: RawTerminal::new(
-                cols,
-                rows,
-                policy.continuation_max_bytes,
-                policy.scrollback_max_bytes,
-                policy.scrollback_max_lines,
-                policy.dark,
-            )?,
+            raw,
             processing_failed: false,
         })
     }
@@ -199,6 +206,34 @@ impl Terminal {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn console_terminals_keep_grapheme_widths_and_replicas_resize_like_them() {
+        let limits = CheckpointLimits::default();
+        let console = TerminalPolicy {
+            console: true,
+            ..TerminalPolicy::default()
+        };
+        let mut host = Terminal::new(10, 4, console).expect("host");
+        host.write(b"\x1bc").expect("reset");
+        assert!(host.raw.mode(2027, false).expect("grapheme mode"));
+        for line in 0..12 {
+            host.write(format!("line {line}\r\n").as_bytes())
+                .expect("output");
+        }
+        let checkpoint = host.semantic_checkpoint(limits).expect("checkpoint");
+        let mut replica = Terminal::new(10, 4, TerminalPolicy::default()).expect("replica");
+        replica
+            .restore_semantic_checkpoint(&checkpoint, limits)
+            .expect("restore");
+        assert!(replica.raw.mode(2027, false).expect("grapheme mode"));
+        host.resize(10, 8, 0, 0).expect("host resize");
+        replica.resize(10, 8, 0, 0).expect("replica resize");
+        assert_eq!(
+            replica.semantic_checkpoint(limits).expect("replica"),
+            host.semantic_checkpoint(limits).expect("host")
+        );
+    }
 
     fn assert_checkpoint_suffix_parity(cols: u16, rows: u16, prefix: &[u8], suffix: &[u8]) {
         let mut source = Terminal::new(cols, rows, TerminalPolicy::default()).expect("source");

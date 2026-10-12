@@ -16,6 +16,7 @@ use crate::identity::{
 #[derive(Clone)]
 pub(crate) struct Http {
     pub(crate) client: Client,
+    pub(crate) websocket_tls: Arc<rustls::ClientConfig>,
     base: Url,
     compatibility: Arc<tokio::sync::Mutex<Option<tokio::time::Instant>>>,
     device_session: Arc<tokio::sync::Mutex<Option<DeviceSession>>>,
@@ -49,8 +50,16 @@ impl Http {
             .connect_timeout(Duration::from_secs(5))
             .redirect(reqwest::redirect::Policy::none())
             .build()?;
+        let websocket_tls = rustls::ClientConfig::builder_with_provider(Arc::new(
+            rustls::crypto::aws_lc_rs::default_provider(),
+        ))
+        .with_safe_default_protocol_versions()
+        .and_then(rustls_platform_verifier::BuilderVerifierExt::with_platform_verifier)
+        .map_err(|_| invalid("Kodosi could not load the system certificate verifier."))?
+        .with_no_client_auth();
         Ok(Self {
             client,
+            websocket_tls: Arc::new(websocket_tls),
             base,
             compatibility: Arc::new(tokio::sync::Mutex::new(None)),
             device_session: Arc::new(tokio::sync::Mutex::new(None)),

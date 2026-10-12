@@ -1,6 +1,6 @@
 # runtime
 
-Shared terminal runtime, CLI, and native API for macOS and Linux.
+Shared terminal runtime, CLI, and native API for macOS, Linux, and Windows.
 Follow `../AGENTS.md` and `../PRODUCT.md` for shared product behavior.
 
 - The host owns each live process and terminal state. New or reconnected views must

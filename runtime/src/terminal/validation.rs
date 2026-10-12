@@ -16,6 +16,7 @@ pub fn validate_terminal_checkpoint(
             scrollback_max_bytes: history.max_bytes,
             scrollback_max_lines: history.max_lines,
             dark: true,
+            console: false,
         },
     )
     .map_err(checkpoint_error)?;

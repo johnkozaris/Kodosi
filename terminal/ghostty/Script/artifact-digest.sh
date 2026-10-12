@@ -14,6 +14,6 @@ fi
     find . -type f -print |
         LC_ALL=C sort |
         while IFS= read -r file; do
-            shasum -a 256 "$file"
+            sha256sum "$file"
         done
-) | shasum -a 256 | awk '{print $1}'
+) | sha256sum | awk '{print $1}'

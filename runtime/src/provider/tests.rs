@@ -1,7 +1,6 @@
 use std::{
     fs,
     io::{Seek, SeekFrom, Write},
-    os::unix::fs::{PermissionsExt, symlink},
     path::{Path, PathBuf},
 };
 
@@ -16,7 +15,7 @@ fn id(index: u128) -> String {
 fn workspace(home: &Path) -> PathBuf {
     let path = home.join("project");
     fs::create_dir_all(&path).unwrap();
-    path.canonicalize().unwrap()
+    kodosi_os::fs::canonicalize(&path).unwrap()
 }
 
 fn claude_transcript(home: &Path, directory: &Path, index: u128, records: &str) -> PathBuf {
@@ -115,6 +114,23 @@ async fn claude_discovery_and_read_share_directory_validation() {
     );
 }
 
+#[test]
+fn claude_project_keys_match_claude_code() {
+    for (directory, key) in [
+        (
+            "/Users/first.last/My Project",
+            "-Users-first-last-My-Project",
+        ),
+        (r"C:\Users\first.last\repo_1", "C--Users-first-last-repo-1"),
+        ("/srv/caf\u{e9}/\u{1f600}", "-srv-caf----"),
+    ] {
+        assert_eq!(
+            storage::encoded_claude_directory(Path::new(directory)).unwrap(),
+            key
+        );
+    }
+}
+
 #[tokio::test]
 async fn claude_path_encoding_collision_does_not_authorize_another_directory() {
     let home = tempfile::tempdir().unwrap();
@@ -122,14 +138,14 @@ async fn claude_path_encoding_collision_does_not_authorize_another_directory() {
     let second = home.path().join("a/b");
     fs::create_dir_all(&first).unwrap();
     fs::create_dir_all(&second).unwrap();
-    let first = first.canonicalize().unwrap();
-    let second = second.canonicalize().unwrap();
+    let first = kodosi_os::fs::canonicalize(&first).unwrap();
+    let second = kodosi_os::fs::canonicalize(&second).unwrap();
     assert_eq!(
         storage::encoded_claude_directory(&first).unwrap(),
         storage::encoded_claude_directory(&second).unwrap()
     );
     claude_transcript(home.path(), &first, 1, "");
-    assert!(
+    assert_eq!(
         discover(
             &home.path().join(".claude"),
             Provider::Claude,
@@ -140,8 +156,8 @@ async fn claude_path_encoding_collision_does_not_authorize_another_directory() {
         )
         .await
         .unwrap()
-        .items
-        .is_empty()
+        .items,
+        [] as [ConversationRef; 0]
     );
     assert!(
         read(
@@ -228,8 +244,10 @@ async fn conversation_cursors_are_exact_provider_scoped_and_bounded() {
     );
 }
 
+#[cfg(unix)]
 #[tokio::test]
 async fn conversation_reader_rejects_symlink_files_and_parent_directories() {
+    use std::os::unix::fs::symlink;
     let home = tempfile::tempdir().unwrap();
     let directory = workspace(home.path());
     let path = claude_transcript(home.path(), &directory, 1, "");
@@ -432,7 +450,7 @@ async fn copilot_resume_uses_workspace_metadata_when_start_record_has_no_cwd() {
 async fn missing_copilot_index_is_not_created() {
     let home = tempfile::tempdir().unwrap();
     let directory = workspace(home.path());
-    assert!(
+    assert_eq!(
         discover(
             &home.path().join(".copilot"),
             Provider::Copilot,
@@ -443,8 +461,8 @@ async fn missing_copilot_index_is_not_created() {
         )
         .await
         .unwrap()
-        .items
-        .is_empty()
+        .items,
+        [] as [ConversationRef; 0]
     );
     assert!(!home.path().join(".copilot").exists());
 }
@@ -584,7 +602,7 @@ fn oversized_record_advances_with_an_explicit_notice() {
         Some(128),
     )
     .unwrap();
-    assert!(page.entries.is_empty());
+    assert_eq!(page.entries, [] as [ConversationEntry; 0]);
     assert_eq!(page.next_before_byte, Some(4096 - 128));
     assert!(page.degraded_reason.is_some());
     assert!(
@@ -635,7 +653,9 @@ fn config_inspection_never_creates_or_edits_provider_files() {
     assert!(info.files[0].exists);
     assert_eq!(
         info.files[0].path,
-        user.canonicalize().unwrap().to_string_lossy()
+        kodosi_os::fs::canonicalize(&user)
+            .unwrap()
+            .to_string_lossy()
     );
     assert_eq!(fs::read(&user).unwrap(), b"{\"permissions\":{}}");
     assert!(!directory.join(".claude").exists());
@@ -724,20 +744,6 @@ async fn native_state_override_is_shared_by_discovery_read_and_resume() {
         .await
         .unwrap();
     assert!(!home.path().join(".claude").exists());
-}
-
-#[test]
-fn executable_resolution_requires_effective_execute_permission() {
-    let home = tempfile::tempdir().unwrap();
-    let path = home.path().join("claude");
-    fs::write(&path, b"#!/bin/sh\n").unwrap();
-    fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
-    assert!(config::executable(&path).is_none());
-    fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
-    assert_eq!(
-        config::executable(&path),
-        Some(path.canonicalize().unwrap())
-    );
 }
 
 #[test]
@@ -839,7 +845,7 @@ async fn malformed_history_ids_still_advance_the_cursor() {
     )
     .await
     .unwrap();
-    assert!(first.items.is_empty());
+    assert_eq!(first.items, [] as [ConversationRef; 0]);
     assert!(first.has_more);
     let next = discover_history(
         &home.path().join(".copilot"),

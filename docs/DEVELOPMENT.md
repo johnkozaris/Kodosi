@@ -10,9 +10,10 @@ and Ghostty integration. No sibling repositories or submodules are needed.
 | `runtime/` | Rust runtime, CLI, terminal processes, identity, encryption, native API |
 | `backend/` | ASP.NET Core metadata service and encrypted traffic relay |
 | `clients/macos/` | Swift native Mac app |
-| `clients/linux/` | Qt native Linux app |
+| `clients/qt/` | Qt native Linux and Windows app |
 | `protocol/` | Generated contracts shared across the stack |
 | `terminal/ghostty/` | Native terminal integration, patches, artifacts, and notices |
+| `terminal/conpty/` | Pinned Windows console host for terminals on Windows |
 
 See [Architecture and protocol](PROTOCOL.md) for how the processes connect.
 
@@ -28,8 +29,9 @@ The root recipes also recognize a local .NET SDK at `backend/.tools/dotnet-10.0.
 Keep dependencies and downloaded build tools inside the project.
 
 For native prerequisites and signing, follow the
-[Mac build guide](../clients/macos/README.md) or
-[Linux build guide](../clients/linux/README.md). Build each app on its own platform.
+[Mac build guide](../clients/macos/README.md) or the
+[Linux and Windows build guide](../clients/qt/README.md). Build each app on its own
+platform. On Windows, run the recipes in Git Bash.
 
 ## Build and check
 
@@ -43,6 +45,8 @@ Run these from the repository root. `just --list` is the complete command refere
 | `just check-all` | Run the Rust and backend gates |
 | `just mac-build` / `just mac-check` | Build / check the Mac app |
 | `just linux-build` / `just linux-check` | Build / check the Linux app |
+| `just windows-check` | Build and check the Windows app on Windows |
+| `just windows-cross-check` | Lint the runtime for both Windows targets in Docker, from any host |
 
 Platform directories retain their own `just` recipes, including release packaging.
 Artifacts stay in the component's output directories. Release packages record the
@@ -108,7 +112,9 @@ Provider tests use fixtures or redirected native configuration roots. Never move
 edit, or delete real provider settings, memory, conversations, credentials, or working
 files. Select PostgreSQL volumes explicitly; unknown schemas must fail without a reset.
 
-The runtime writes `diagnostics.log` in its data root and keeps one older copy.
-Inspect logs locally and redact private data before attaching them to an issue.
+Each process writes its own redacted log in the data root and keeps one older copy:
+the app writes `app.log` and a CLI host writes `host.log`. The Qt app adds its Qt
+messages, except debug output, to `app.log`. Inspect logs locally and check for private
+data before attaching them to an issue.
 
 [All documentation](README.md) · [Contributing](../CONTRIBUTING.md)

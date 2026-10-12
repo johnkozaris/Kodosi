@@ -16,6 +16,7 @@ include = []
 "TerminalControlCb" = "kodosi_terminal_control_cb_t"
 "TerminalConnectResultCb" = "kodosi_terminal_connect_result_cb_t"
 "TerminalCheckpointCb" = "kodosi_terminal_checkpoint_cb_t"
+"ActivationCb" = "kodosi_activation_cb_t"
 
 [parse]
 parse_deps = false

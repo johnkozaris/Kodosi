@@ -5,7 +5,6 @@ use std::{
 };
 
 use rusqlite::{Connection, OpenFlags, OptionalExtension};
-use rustix::fs::{Mode, OFlags, openat};
 
 use super::Provider;
 
@@ -24,8 +23,7 @@ pub(super) fn canonical_directory(value: &str) -> Result<PathBuf, String> {
             "Working directory must be a bounded absolute path without parent traversal".to_owned(),
         );
     }
-    let canonical = path
-        .canonicalize()
+    let canonical = kodosi_os::fs::canonicalize(path)
         .map_err(|error| format!("Working directory unavailable: {error}"))?;
     if !canonical.is_dir() {
         return Err("Working directory is not a directory".to_owned());
@@ -46,7 +44,16 @@ pub(super) fn encoded_claude_directory(directory: &Path) -> Result<String, Strin
     let value = directory
         .to_str()
         .ok_or_else(|| "Working directory must be UTF-8".to_owned())?;
-    Ok(value.replace(['/', '\\', ':'], "-"))
+    let mut encoded = String::with_capacity(value.len());
+    for character in value.chars() {
+        if character.is_ascii_alphanumeric() {
+            encoded.push(character);
+        } else {
+            // Claude Code replaces every UTF-16 unit outside [A-Za-z0-9].
+            encoded.extend(std::iter::repeat_n('-', character.len_utf16()));
+        }
+    }
+    Ok(encoded)
 }
 
 pub(super) fn provider_root(home: &Path, provider: Provider) -> Result<PathBuf, String> {
@@ -92,41 +99,15 @@ pub(super) fn transcript_root(root: &Path, provider: Provider) -> PathBuf {
 }
 
 pub(super) fn open_directory(root: &Path, name: &str) -> Result<File, String> {
-    if name.is_empty() || name.contains(['/', '\\']) || matches!(name, "." | "..") {
-        return Err("Invalid provider directory component".to_owned());
-    }
-    let root =
-        File::open(root).map_err(|error| format!("Provider history unavailable: {error}"))?;
-    let fd = openat(
-        &root,
-        name,
-        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
-        Mode::empty(),
-    )
-    .map_err(|error| format!("Provider history directory unavailable: {error}"))?;
-    Ok(File::from(fd))
+    let root = kodosi_os::fs::open_dir(root)
+        .map_err(|error| format!("Provider history unavailable: {error}"))?;
+    kodosi_os::fs::open_dir_beneath(&root, name)
+        .map_err(|error| format!("Provider history directory unavailable: {error}"))
 }
 
 pub(super) fn open_file(directory: &File, name: &str) -> Result<File, String> {
-    if name.is_empty() || name.contains(['/', '\\']) || matches!(name, "." | "..") {
-        return Err("Invalid provider file component".to_owned());
-    }
-    let fd = openat(
-        directory,
-        name,
-        OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::CLOEXEC | OFlags::NONBLOCK,
-        Mode::empty(),
-    )
-    .map_err(|error| format!("Provider file unavailable: {error}"))?;
-    let file = File::from(fd);
-    if !file
-        .metadata()
-        .map_err(|error| error.to_string())?
-        .is_file()
-    {
-        return Err("Provider file must be a regular file".to_owned());
-    }
-    Ok(file)
+    kodosi_os::fs::open_file_beneath(directory, name)
+        .map_err(|error| format!("Provider file unavailable: {error}"))
 }
 
 pub(super) fn conversation_file(

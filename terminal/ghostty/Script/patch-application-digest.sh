@@ -38,5 +38,5 @@ GIT_INDEX_FILE="$TEMP_INDEX" git -C "$SOURCE_DIR" diff \
     --binary \
     --full-index \
     HEAD |
-    shasum -a 256 |
+    sha256sum |
     awk '{print $1}'

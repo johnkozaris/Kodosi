@@ -11,10 +11,10 @@ use uuid::Uuid;
 use super::{
     device_cert::{DeviceCertificate, verify_certificate},
     signed_device_list::{SignedDeviceList, verify_signed_device_list},
-    storage::private_write,
     wire_codec::MAX_DEVICE_CERTIFICATE_BODY_LEN,
 };
 use crate::network::{Error, Result, invalid};
+use kodosi_os::fs::write_private;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -151,7 +151,7 @@ impl Pins {
         }
         let mut next = self.pins.clone();
         next.remove(user_id);
-        private_write(
+        write_private(
             &self.path,
             &serde_json::to_vec(&StoredPins {
                 version: 1,
@@ -438,7 +438,7 @@ impl Pins {
             let mut next = self.pins.clone();
             next.insert(bundle.user_id.clone(), pin);
             if persist {
-                private_write(
+                write_private(
                     &self.path,
                     &serde_json::to_vec(&StoredPins {
                         version: 1,

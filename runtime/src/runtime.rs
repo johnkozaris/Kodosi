@@ -745,7 +745,7 @@ impl Runtime {
         mut requests: mpsc::Receiver<Request>,
         mut changes: mpsc::Receiver<SessionChange>,
         mut network_events: broadcast::Receiver<BackendEvent>,
-        server: crate::local_host::HostServer,
+        server: crate::local_host::LocalServer,
     ) {
         self.emit(json!({"type":"system.ready", "protocolVersion":crate::protocol::VERSION}));
         let network = self.network.clone();

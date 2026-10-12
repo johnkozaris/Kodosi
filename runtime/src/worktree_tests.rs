@@ -22,7 +22,7 @@ async fn repository() -> (tempfile::TempDir, PathBuf) {
     ] {
         git(&folder, &arguments).await.expect("git setup");
     }
-    let folder = tokio::fs::canonicalize(folder).await.expect("canonical");
+    let folder = kodosi_os::fs::canonicalize(&folder).expect("canonical");
     (root, folder)
 }
 
@@ -120,7 +120,7 @@ async fn an_unchanged_branch_goes_away_and_a_branch_with_work_stays() {
     assert!(
         unchanged
             .path
-            .starts_with(tokio::fs::canonicalize(&place).await.expect("place"))
+            .starts_with(kodosi_os::fs::canonicalize(&place).expect("place"))
     );
     remove_unchanged(unchanged.clone()).await;
     assert!(!unchanged.path.exists());
