@@ -8,7 +8,14 @@ VENDOR_ROOT=${KODOSI_GHOSTTY_VENDOR_ROOT:-Vendor}
 METADATA="$VENDOR_ROOT/libghostty.version"
 RENDERER="$VENDOR_ROOT/GhosttyKit.xcframework"
 VT="$VENDOR_ROOT/GhosttyVt/macos-arm64"
-IOS_SLICES=(ios-arm64 ios-arm64-simulator)
+MACOS_MINIMUM=13.0
+APPLE_SLICES=$(./scripts/native-build-options.sh slices)
+SLICES=()
+IOS_SLICES=()
+while IFS= read -r slice; do
+    SLICES+=("$slice")
+    [ "$slice" = macos-arm64 ] || IOS_SLICES+=("$slice")
+done <<<"$APPLE_SLICES"
 
 if [ ! -f "$METADATA" ]; then
     echo "[!] metadata not found: $METADATA"
@@ -94,7 +101,7 @@ fi
 for value in \
     "$renderer_target" \
     "$vt_target"; do
-    if [ "$value" != "$GHOSTTY_BUILD_TARGET" ]; then
+    if [ "$value" != "$GHOSTTY_BUILD_MACOS_TARGET" ]; then
         echo "[!] unexpected Ghostty target: $value"
         exit 1
     fi
@@ -170,6 +177,29 @@ for slice in "${IOS_SLICES[@]}"; do
     fi
 done
 
+ios_slice_values() {
+    local target
+    target=$(./scripts/native-build-options.sh target "$1")
+    if [[ "$target" != aarch64-ios.* ]]; then
+        echo "[!] unexpected iOS target for $1: $target"
+        exit 1
+    fi
+    SLICE_MINIMUM=${target#aarch64-ios.}
+    SLICE_MINIMUM=${SLICE_MINIMUM%-simulator}
+    case "$1" in
+        *-simulator)
+            SLICE_PLATFORM=7
+            SLICE_SDK=iphonesimulator
+            SLICE_CLANG_TARGET="arm64-apple-ios$SLICE_MINIMUM-simulator"
+            ;;
+        *)
+            SLICE_PLATFORM=2
+            SLICE_SDK=iphoneos
+            SLICE_CLANG_TARGET="arm64-apple-ios$SLICE_MINIMUM"
+            ;;
+    esac
+}
+
 require_build_version() {
     local archive=$1
     local platform=$2
@@ -193,20 +223,22 @@ require_build_version() {
 ./scripts/verify-xcframework.sh "$RENDERER"
 RENDERER_ARCHIVE="$RENDERER/macos-arm64/libghostty.a"
 VT_ARCHIVE="$VT/lib/libghostty-vt.a"
-for archive in \
-    "$RENDERER_ARCHIVE" \
-    "$VT_ARCHIVE" \
-    "$RENDERER/ios-arm64/libghostty.a" \
-    "$RENDERER/ios-arm64-simulator/libghostty.a"; do
+ARM64_ARCHIVES=("$VT_ARCHIVE")
+for slice in "${SLICES[@]}"; do
+    ARM64_ARCHIVES+=("$RENDERER/$slice/libghostty.a")
+done
+for archive in "${ARM64_ARCHIVES[@]}"; do
     if [ "$(lipo -archs "$archive")" != arm64 ]; then
         echo "[!] Ghostty archive is not arm64-only: $archive"
         exit 1
     fi
 done
-require_build_version "$RENDERER_ARCHIVE" 1 13.0
-require_build_version "$VT_ARCHIVE" 1 13.0
-require_build_version "$RENDERER/ios-arm64/libghostty.a" 2 26.0
-require_build_version "$RENDERER/ios-arm64-simulator/libghostty.a" 7 26.0
+require_build_version "$RENDERER_ARCHIVE" 1 "$MACOS_MINIMUM"
+require_build_version "$VT_ARCHIVE" 1 "$MACOS_MINIMUM"
+for slice in "${IOS_SLICES[@]}"; do
+    ios_slice_values "$slice"
+    require_build_version "$RENDERER/$slice/libghostty.a" "$SLICE_PLATFORM" "$SLICE_MINIMUM"
+done
 for slice in "${IOS_SLICES[@]}"; do
     for header in ghostty.h module.modulemap; do
         if ! cmp -s "$RENDERER/macos-arm64/Headers/$header" "$RENDERER/$slice/Headers/$header"; then
@@ -235,7 +267,7 @@ fi
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/kodosi-verify-vendored-artifact.XXXXXX")
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-for slice in macos-arm64 "${IOS_SLICES[@]}"; do
+for slice in "${SLICES[@]}"; do
 python3 - \
     "$RENDERER/$slice/Headers/ghostty.h" \
     "$VT/include/ghostty" \
@@ -365,19 +397,19 @@ C
 
 xcrun clang \
     -arch arm64 \
-    -mmacosx-version-min=13.0 \
+    -mmacosx-version-min="$MACOS_MINIMUM" \
     -I"$RENDERER/macos-arm64/Headers" \
     -c "$TMP_DIR/renderer.c" \
     -o "$TMP_DIR/renderer.o"
 xcrun clang \
     -arch arm64 \
-    -mmacosx-version-min=13.0 \
+    -mmacosx-version-min="$MACOS_MINIMUM" \
     -I"$VT/include" \
     -c "$TMP_DIR/vt.c" \
     -o "$TMP_DIR/vt.o"
 xcrun clang \
     -arch arm64 \
-    -mmacosx-version-min=13.0 \
+    -mmacosx-version-min="$MACOS_MINIMUM" \
     -c "$TMP_DIR/main.c" \
     -o "$TMP_DIR/main.o"
 xcrun clang \
@@ -434,10 +466,12 @@ ios_link_probe() {
         -framework Metal \
         -o "$probe_dir/combined-link-probe"
 }
-ios_link_probe ios-arm64 iphoneos arm64-apple-ios26.0
-ios_link_probe ios-arm64-simulator iphonesimulator arm64-apple-ios26.0-simulator
+for slice in "${IOS_SLICES[@]}"; do
+    ios_slice_values "$slice"
+    ios_link_probe "$slice" "$SLICE_SDK" "$SLICE_CLANG_TARGET"
+done
 
-for slice in macos-arm64 "${IOS_SLICES[@]}"; do
+for slice in "${SLICES[@]}"; do
     archive="$RENDERER/$slice/libghostty.a"
     if nm -u "$archive" | grep -q '__libcpp_verbose_abort'; then
         echo "[!] obsolete libc++ verbose-abort dependency remains in $slice"

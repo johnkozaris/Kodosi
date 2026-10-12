@@ -13,8 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 VERIFIER = Path("scripts/verify-third-party-notices.py")
 INVENTORY = Path("ThirdPartyNotices/inventory.json")
 ARCHIVE = Path(
-    "ThirdPartyNotices/corresponding-source/"
-    "z2d-7dbae85c81784dba9988320bf9543ed9a81350c8.tar.gz"
+    json.loads((ROOT / INVENTORY).read_text())["sourceAcquisitions"]["z2d"]["archivePath"]
 )
 
 
@@ -83,6 +82,46 @@ def main() -> None:
             ),
         )
         assert_rejected(wrong_commit, "z2d acquisition metadata differs")
+
+        wrong_version = base / "wrong-version"
+        copy_tree(wrong_version)
+        mutate_inventory(
+            wrong_version,
+            lambda data: data["sourceAcquisitions"]["z2d"].__setitem__(
+                "version", "0.0.1"
+            ),
+        )
+        assert_rejected(wrong_version, "z2d acquisition metadata differs")
+
+        wrong_date = base / "wrong-date"
+        copy_tree(wrong_date)
+        mutate_inventory(
+            wrong_date,
+            lambda data: data["sourceAcquisitions"]["z2d"].__setitem__(
+                "acquiredOn", "2026-02-30"
+            ),
+        )
+        assert_rejected(wrong_date, "z2d acquisition metadata differs")
+
+        wrong_size = base / "wrong-size"
+        copy_tree(wrong_size)
+        mutate_inventory(
+            wrong_size,
+            lambda data: data["sourceAcquisitions"]["z2d"].__setitem__(
+                "byteSize", data["sourceAcquisitions"]["z2d"]["byteSize"] + 1
+            ),
+        )
+        assert_rejected(wrong_size, "z2d source archive size differs")
+
+        wrong_source_digest = base / "wrong-source-digest"
+        copy_tree(wrong_source_digest)
+        mutate_inventory(
+            wrong_source_digest,
+            lambda data: data["sourceAcquisitions"]["z2d"].__setitem__(
+                "sha256", "0" * 64
+            ),
+        )
+        assert_rejected(wrong_source_digest, "z2d source archive digest differs")
 
         missing = base / "missing"
         copy_tree(missing)

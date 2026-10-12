@@ -9,8 +9,8 @@ This is not an official Ghostty distribution.
 
 `MacOSGhostty.ref`, `LinuxGhostty.ref`, and `WindowsGhostty.ref` select independent
 upstream commits. On Apple platforms the renderer and terminal engine are one native
-image, built from `MacOSGhostty.ref` as `macos-arm64`, `ios-arm64` and
-`ios-arm64-simulator` slices of `Vendor/GhosttyKit.xcframework`; Linux and each Windows
+image, built from `MacOSGhostty.ref` as one slice of `Vendor/GhosttyKit.xcframework`
+for each Apple slice in `NativeBuild.env`; Linux and each Windows
 architecture have their own terminal-engine artifact. `Vendor/*.version` records the
 inputs and measured output for each build. `VERSION` names the package, not the
 upstream Ghostty version.
@@ -23,6 +23,24 @@ metadata records measured build inputs and outputs, independent of repository la
 The integration was imported from `johnkozaris/kodosi-ghostty` at commit
 `086ea213b7d1f890c5e7f2569b1848c3cd75d3d3`; its upstream attributions, licenses,
 corresponding source and relinking materials are retained.
+
+### Build values
+
+`NativeBuild.env` is the only record of the Apple build values:
+
+- `GHOSTTY_BUILD_APPLE_SLICES` lists the Apple slices. A slice name is
+  `<platform>-arm64`, or `<platform>-arm64-simulator` for a simulator.
+- Each platform has a Zig target and an i18n option, for example
+  `GHOSTTY_BUILD_IOS_TARGET` and `GHOSTTY_BUILD_IOS_I18N`. A simulator slice adds
+  `-simulator` to the Zig target of its platform.
+
+The build scripts, the verifiers and the Rust build script read these values from
+`NativeBuild.env`. Do not copy the slice list or a target into a script.
+
+The notice verifier reads the z2d source identity from
+`ThirdPartyNotices/inventory.json`. It gets the list of libintl objects from the
+compiled sources in the libintl corresponding-source manifest. The libintl relink
+script uses the same list.
 
 ## Rebuild
 

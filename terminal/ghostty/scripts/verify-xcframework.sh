@@ -22,12 +22,23 @@ if [ -z "$XCFRAMEWORK_PATH" ] || [ ! -d "$XCFRAMEWORK_PATH" ]; then
     exit 1
 fi
 
-python3 - "$XCFRAMEWORK_PATH" <<'PY'
+APPLE_SLICES=$(./scripts/native-build-options.sh slices)
+SLICES=()
+while IFS= read -r slice; do
+    SLICES+=("$slice")
+done <<<"$APPLE_SLICES"
+
+python3 - "$XCFRAMEWORK_PATH" "${SLICES[@]}" <<'PY'
 import os
 import plistlib
 import sys
 
 xcframework = sys.argv[1]
+expected_slices = {}
+for identifier in sys.argv[2:]:
+    platform, _, rest = identifier.partition("-")
+    _, _, variant = rest.partition("-")
+    expected_slices[identifier] = (platform, variant or None)
 info_path = os.path.join(xcframework, "Info.plist")
 
 if not os.path.isfile(info_path):
@@ -41,15 +52,9 @@ for root, dirs, _ in os.walk(xcframework):
 with open(info_path, "rb") as handle:
     info = plistlib.load(handle)
 
-expected_slices = {
-    "macos-arm64": ("macos", None),
-    "ios-arm64": ("ios", None),
-    "ios-arm64-simulator": ("ios", "simulator"),
-}
-
 libraries = info.get("AvailableLibraries")
 if not isinstance(libraries, list) or len(libraries) != len(expected_slices):
-    raise SystemExit("[!] Expected exactly the macOS, iOS, and iOS Simulator arm64 libraries")
+    raise SystemExit("[!] Expected exactly one arm64 library for each Apple slice in NativeBuild.env")
 
 identifiers = [library.get("LibraryIdentifier") for library in libraries]
 if sorted(map(str, identifiers)) != sorted(expected_slices):

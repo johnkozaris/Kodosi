@@ -13,13 +13,13 @@ MAC_REF = Path("MacOSGhostty.ref")
 LINUX_REF = Path("LinuxGhostty.ref")
 WINDOWS_REF = Path("WindowsGhostty.ref")
 WINDOWS_LAYOUTS = ("windows-x86_64", "windows-arm64")
+NATIVE_BUILD = Path("NativeBuild.env")
+MAC_SLICE = "macos-arm64"
 MAC_METADATA = Path("Vendor/libghostty.version")
 LINUX_METADATA = Path("Vendor/GhosttyVt/linux-x86_64.version")
-MAC_ARCHIVE = Path(
-    "Vendor/GhosttyKit.xcframework/macos-arm64/libghostty.a"
-)
-MAC_VT_ARCHIVE = Path("Vendor/GhosttyVt/macos-arm64/lib/libghostty-vt.a")
-IOS_SLICES = ("ios-arm64", "ios-arm64-simulator")
+XCFRAMEWORK = Path("Vendor/GhosttyKit.xcframework")
+MAC_ARCHIVE = XCFRAMEWORK / MAC_SLICE / "libghostty.a"
+MAC_VT_ARCHIVE = Path(f"Vendor/GhosttyVt/{MAC_SLICE}/lib/libghostty-vt.a")
 LINUX_ARCHIVE = Path(
     "Vendor/GhosttyVt/linux-x86_64/lib/libghostty-vt.a"
 )
@@ -78,6 +78,19 @@ def file_sha256(root: Path, relative: Path) -> str:
     return digest.hexdigest()
 
 
+def apple_slices(root: Path) -> list[str]:
+    slices = load_metadata(root, NATIVE_BUILD).get("GHOSTTY_BUILD_APPLE_SLICES", "").split(",")
+    if MAC_SLICE not in slices or "" in slices or len(slices) != len(set(slices)):
+        fail(f"{NATIVE_BUILD} must list each Apple slice once, with {MAC_SLICE}")
+    try:
+        vendored = {path.name for path in (root / XCFRAMEWORK).iterdir() if path.is_dir()}
+    except OSError as error:
+        fail(f"cannot read {XCFRAMEWORK}: {error}")
+    if vendored != set(slices):
+        fail(f"the slices in {XCFRAMEWORK} differ from the Apple slices in {NATIVE_BUILD}")
+    return slices
+
+
 def require_digest(metadata: dict[str, str], key: str, relative: Path) -> str:
     value = metadata.get(key, "")
     if not re.fullmatch(r"[0-9a-f]{64}", value):
@@ -107,9 +120,11 @@ def verify(root: Path) -> None:
     if file_sha256(root, MAC_VT_ARCHIVE) != mac_digest:
         fail("macOS VT archive differs from the combined archive digest")
 
-    for slice_name in IOS_SLICES:
+    for slice_name in apple_slices(root):
+        if slice_name == MAC_SLICE:
+            continue
         metadata_path = Path(f"Vendor/libghostty-{slice_name}.version")
-        archive_path = Path(f"Vendor/GhosttyKit.xcframework/{slice_name}/libghostty.a")
+        archive_path = XCFRAMEWORK / slice_name / "libghostty.a"
         slice_metadata = load_metadata(root, metadata_path)
         if slice_metadata.get("ghostty_commit") != mac_ref:
             fail(f"{slice_name} artifact metadata differs from MacOSGhostty.ref")

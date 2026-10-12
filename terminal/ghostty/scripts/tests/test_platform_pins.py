@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import subprocess
 import unittest
 from pathlib import Path
@@ -12,11 +13,22 @@ from tempfile import TemporaryDirectory
 
 ROOT = Path(__file__).resolve().parents[2]
 VERIFIER = ROOT / "scripts" / "verify-platform-pins.py"
+NATIVE_BUILD = "NativeBuild.env"
 MAC_REF = "a" * 40
 LINUX_REF = "b" * 40
-IOS_SLICES = ("ios-arm64", "ios-arm64-simulator")
 WINDOWS_REF = "c" * 40
 WINDOWS_ARCHIVE = "Vendor/GhosttyVt/windows-x86_64/lib/ghostty-vt-static.lib"
+
+
+def ios_slices() -> list[str]:
+    for line in (ROOT / NATIVE_BUILD).read_text(encoding="utf-8").splitlines():
+        key, _, value = line.partition("=")
+        if key == "GHOSTTY_BUILD_APPLE_SLICES":
+            return [name for name in value.split(",") if name != "macos-arm64"]
+    raise SystemExit(f"{NATIVE_BUILD} lists no Apple slices")
+
+
+IOS_SLICES = ios_slices()
 
 
 class PlatformPinTests(unittest.TestCase):
@@ -28,6 +40,7 @@ class PlatformPinTests(unittest.TestCase):
             dir=build,
         )
         self.fixture = Path(self.temporary.name)
+        shutil.copyfile(ROOT / NATIVE_BUILD, self.fixture / NATIVE_BUILD)
         self.write("MacOSGhostty.ref", MAC_REF + "\n")
         self.write("LinuxGhostty.ref", LINUX_REF + "\n")
         self.write("WindowsGhostty.ref", WINDOWS_REF + "\n")
@@ -134,8 +147,7 @@ class PlatformPinTests(unittest.TestCase):
             "Vendor/GhosttyKit.xcframework/macos-arm64/libghostty.a",
             "Vendor/GhosttyVt/macos-arm64/lib/libghostty-vt.a",
             "Vendor/GhosttyVt/linux-x86_64/lib/libghostty-vt.a",
-            "Vendor/GhosttyKit.xcframework/ios-arm64/libghostty.a",
-            "Vendor/GhosttyKit.xcframework/ios-arm64-simulator/libghostty.a",
+            *(f"Vendor/GhosttyKit.xcframework/{name}/libghostty.a" for name in IOS_SLICES),
             WINDOWS_ARCHIVE,
         ):
             with self.subTest(relative=relative):
@@ -169,9 +181,57 @@ class PlatformPinTests(unittest.TestCase):
                     self.verify(expect_success=False)
                     self.write(relative, original)
 
+    def test_native_build_slice_list_is_required(self) -> None:
+        path = self.fixture / NATIVE_BUILD
+        original = path.read_text(encoding="utf-8")
+        for name, replacement in (
+            (
+                "missing",
+                "\n".join(
+                    line
+                    for line in original.splitlines()
+                    if not line.startswith("GHOSTTY_BUILD_APPLE_SLICES=")
+                )
+                + "\n",
+            ),
+            (
+                "without macOS",
+                original.replace("macos-arm64,", ""),
+            ),
+            (
+                "duplicate",
+                original.replace(
+                    "GHOSTTY_BUILD_APPLE_SLICES=",
+                    f"GHOSTTY_BUILD_APPLE_SLICES={IOS_SLICES[0]},",
+                ),
+            ),
+        ):
+            with self.subTest(slice_list=name):
+                self.assertNotEqual(replacement, original)
+                path.write_text(replacement, encoding="utf-8")
+                self.verify(expect_success=False)
+                path.write_text(original, encoding="utf-8")
+
+    def test_listed_ios_slice_requires_its_archive(self) -> None:
+        path = self.fixture / NATIVE_BUILD
+        path.write_text(
+            path.read_text(encoding="utf-8").replace(
+                "GHOSTTY_BUILD_APPLE_SLICES=",
+                "GHOSTTY_BUILD_APPLE_SLICES=ios-arm64-extra,",
+            ),
+            encoding="utf-8",
+        )
+        self.verify(expect_success=False)
+
+    def test_unlisted_vendored_slice_is_rejected(self) -> None:
+        self.write("Vendor/GhosttyKit.xcframework/ios-arm64-extra/libghostty.a", "extra\n")
+        self.verify(expect_success=False)
+
     def test_swapped_ios_slice_archives_are_rejected(self) -> None:
-        device = self.fixture / "Vendor/GhosttyKit.xcframework/ios-arm64/libghostty.a"
-        simulator = self.fixture / "Vendor/GhosttyKit.xcframework/ios-arm64-simulator/libghostty.a"
+        if len(IOS_SLICES) < 2:
+            self.skipTest(f"{NATIVE_BUILD} lists fewer than two iOS slices")
+        device = self.fixture / f"Vendor/GhosttyKit.xcframework/{IOS_SLICES[0]}/libghostty.a"
+        simulator = self.fixture / f"Vendor/GhosttyKit.xcframework/{IOS_SLICES[1]}/libghostty.a"
         device_bytes = device.read_bytes()
         simulator_bytes = simulator.read_bytes()
         device.write_bytes(simulator_bytes)
@@ -182,12 +242,13 @@ class PlatformPinTests(unittest.TestCase):
         mac_bytes = (
             self.fixture / "Vendor/GhosttyKit.xcframework/macos-arm64/libghostty.a"
         ).read_bytes()
-        archive = "Vendor/GhosttyKit.xcframework/ios-arm64/libghostty.a"
+        slice_name = IOS_SLICES[0]
+        archive = f"Vendor/GhosttyKit.xcframework/{slice_name}/libghostty.a"
         (self.fixture / archive).write_bytes(mac_bytes)
         self.write(
-            "Vendor/libghostty-ios-arm64.version",
+            f"Vendor/libghostty-{slice_name}.version",
             f"ghostty_commit={MAC_REF}\n"
-            "library_identifier=ios-arm64\n"
+            f"library_identifier={slice_name}\n"
             f"combined_archive_sha256={self.file_sha256(archive)}\n",
         )
         self.verify(expect_success=False)

@@ -15,7 +15,7 @@ Options:
   -h, --help            Show this help.
 
 The macOS build produces one arm64 native image containing renderer and VT APIs
-for each Apple slice: macOS, iOS, and iOS Simulator. The Linux build produces an
+for each Apple slice in NativeBuild.env. The Linux build produces an
 x86_64 VT library for the Rust authority and Qt renderer. The install steps may fetch
 pinned source/tool dependencies; native builds then run against the prepared
 local Zig package store with network disabled.
@@ -251,11 +251,11 @@ metal_toolchain_build=$METAL_TOOLCHAIN_BUILD
 metal_toolchain_dmg_sha256=$METAL_TOOLCHAIN_DMG_SHA256
 combined_archive_sha256=$COMBINED_ARCHIVE_DIGEST
 ghostty_build_options=$GHOSTTY_BUILD_OPTION_VECTOR
-renderer_target=$GHOSTTY_BUILD_TARGET
+renderer_target=$GHOSTTY_BUILD_MACOS_TARGET
 renderer_cpu=$GHOSTTY_BUILD_CPU
 renderer_optimize=$GHOSTTY_BUILD_OPTIMIZE
 renderer_artifact_sha256=$RENDERER_DIGEST
-vt_target=$GHOSTTY_BUILD_TARGET
+vt_target=$GHOSTTY_BUILD_MACOS_TARGET
 vt_cpu=$GHOSTTY_BUILD_CPU
 vt_optimize=$GHOSTTY_BUILD_OPTIMIZE
 vt_artifact_sha256=$VT_DIGEST

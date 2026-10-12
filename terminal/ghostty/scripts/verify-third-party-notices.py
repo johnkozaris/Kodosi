@@ -9,27 +9,31 @@ import re
 import subprocess
 import sys
 import tarfile
+from datetime import date
 from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST_PATH = ROOT / "ThirdPartyNotices/inventory.json"
 NOTICE_ROOT = ROOT / "ThirdPartyNotices/licenses"
 SUMMARY_PATH = ROOT / "THIRD_PARTY_NOTICES.md"
-Z2D_COMMIT = "7dbae85c81784dba9988320bf9543ed9a81350c8"
-Z2D_VERSION = "0.12.1"
-Z2D_IDENTITY = "z2d-0.12.1-j5P_Hsw8EQAKyZTQICCQnAH2xYkLDW8k9uefbsYdfPZ-"
-Z2D_ARCHIVE = (
-    "ThirdPartyNotices/corresponding-source/"
-    f"z2d-{Z2D_COMMIT}.tar.gz"
-)
-Z2D_ARCHIVE_SHA256 = "e55c9d0b156edaddfea32fb1c0e3597e1b6306b9a4ec1888e2f8008c598bced8"
-ALLOW_WORKING_TREE_COMPLIANCE = os.environ.get("KODOSI_WORKING_TREE_VALIDATION") == "1"
-APPLE_SLICES = {
-    "macos-arm64": ("macos", None, "aarch64-macos"),
-    "ios-arm64": ("ios", None, "aarch64-ios.26.0"),
-    "ios-arm64-simulator": ("ios", "simulator", "aarch64-ios.26.0-simulator"),
+NATIVE_BUILD = "NativeBuild.env"
+MAC_SLICE = "macos-arm64"
+LIBINTL_SOURCE = PurePosixPath("ThirdPartyNotices/corresponding-source/libintl-0.24")
+LIBINTL_ARCHIVE = f"{LIBINTL_SOURCE}.tar"
+LIBINTL_MANIFEST = f"{LIBINTL_SOURCE}/MANIFEST.json"
+Z2D_RECORD_KEYS = {
+    "version",
+    "commit",
+    "zigIdentity",
+    "primaryUrl",
+    "corroboratingUrl",
+    "method",
+    "acquiredOn",
+    "archivePath",
+    "byteSize",
+    "sha256",
 }
-IOS_SLICES = ("ios-arm64", "ios-arm64-simulator")
+ALLOW_WORKING_TREE_COMPLIANCE = os.environ.get("KODOSI_WORKING_TREE_VALIDATION") == "1"
 
 
 def fail(message: str) -> None:
@@ -53,6 +57,43 @@ def load_manifest() -> dict:
     if manifest.get("schemaVersion") != 2:
         fail("unsupported inventory schema")
     return manifest
+
+
+def load_json(relative: str) -> dict:
+    try:
+        value = json.loads(safe_file(relative).read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        fail(f"cannot read {relative}: {error}")
+    if not isinstance(value, dict):
+        fail(f"{relative} must contain a JSON object")
+    return value
+
+
+def apple_slices() -> dict[str, dict]:
+    options = load_metadata(NATIVE_BUILD)
+    names = options.get("GHOSTTY_BUILD_APPLE_SLICES", "").split(",")
+    if MAC_SLICE not in names or "" in names or len(names) != len(set(names)):
+        fail(f"{NATIVE_BUILD} must list each Apple slice once, with {MAC_SLICE}")
+    slices: dict[str, dict] = {}
+    for name in names:
+        platform, _, rest = name.partition("-")
+        architecture, _, variant = rest.partition("-")
+        target = options.get(f"GHOSTTY_BUILD_{platform.upper()}_TARGET", "")
+        i18n = options.get(f"GHOSTTY_BUILD_{platform.upper()}_I18N")
+        if (
+            architecture != "arm64"
+            or variant not in {"", "simulator"}
+            or not target
+            or i18n not in {"true", "false"}
+        ):
+            fail(f"{NATIVE_BUILD} has no complete build values for the Apple slice {name}")
+        slices[name] = {
+            "platform": platform,
+            "variant": variant or None,
+            "target": f"{target}-{variant}" if variant else target,
+            "i18n": i18n == "true",
+        }
+    return slices
 
 
 def safe_file(relative: str) -> Path:
@@ -86,9 +127,9 @@ def verify_principal_licenses() -> None:
 def verify_compliance_artifacts(manifest: dict) -> None:
     artifacts = manifest.get("complianceArtifacts")
     required = {
-        "ThirdPartyNotices/corresponding-source/libintl-0.24.tar",
-        "ThirdPartyNotices/corresponding-source/libintl-0.24/MANIFEST.json",
-        Z2D_ARCHIVE,
+        LIBINTL_ARCHIVE,
+        LIBINTL_MANIFEST,
+        z2d_acquisition(manifest)["archivePath"],
         "scripts/relink-libintl.sh",
     }
     if not isinstance(artifacts, dict) or set(artifacts) != required:
@@ -104,15 +145,13 @@ def verify_compliance_artifacts(manifest: dict) -> None:
     if not os.access(safe_file("scripts/relink-libintl.sh"), os.X_OK):
         fail("libintl relink helper must be executable")
 
-    source_manifest = json.loads(
-        safe_file("ThirdPartyNotices/corresponding-source/libintl-0.24/MANIFEST.json").read_text()
-    )
+    source_manifest = load_json(LIBINTL_MANIFEST)
     sources = source_manifest.get("compiledSources")
-    if not isinstance(sources, list) or len(sources) != 30 or len(sources) != len(set(sources)):
-        fail("libintl corresponding-source manifest must name 30 unique compiled sources")
-    if any(not source.endswith(".c") for source in sources):
+    if not isinstance(sources, list) or not sources or len(sources) != len(set(sources)):
+        fail("libintl corresponding-source manifest must name unique compiled sources")
+    if any(not isinstance(source, str) or not source.endswith(".c") for source in sources):
         fail("libintl compiled-source manifest contains a non-C entry")
-    source_root = ROOT / "ThirdPartyNotices/corresponding-source/libintl-0.24"
+    source_root = ROOT.joinpath(*LIBINTL_SOURCE.parts)
     file_records = source_manifest.get("files")
     if not isinstance(file_records, list) or not file_records:
         fail("libintl corresponding-source file manifest is empty")
@@ -128,9 +167,9 @@ def verify_compliance_artifacts(manifest: dict) -> None:
             fail(f"missing libintl corresponding source: {relative}")
         if hashlib.sha256(path.read_bytes()).hexdigest() != record["sha256"]:
             fail(f"libintl corresponding source changed: {relative}")
-        expected_tar_members.add(f"libintl-0.24/{relative.as_posix()}")
-    expected_tar_members.add("libintl-0.24/MANIFEST.json")
-    with tarfile.open(safe_file("ThirdPartyNotices/corresponding-source/libintl-0.24.tar")) as archive:
+        expected_tar_members.add(f"{LIBINTL_SOURCE.name}/{relative.as_posix()}")
+    expected_tar_members.add(f"{LIBINTL_SOURCE.name}/MANIFEST.json")
+    with tarfile.open(safe_file(LIBINTL_ARCHIVE)) as archive:
         actual_tar_members = {member.name for member in archive.getmembers() if member.isfile()}
     if actual_tar_members != expected_tar_members:
         fail("libintl corresponding-source tar does not match its tracked manifest tree")
@@ -138,65 +177,73 @@ def verify_compliance_artifacts(manifest: dict) -> None:
     verify_z2d_source_acquisition(manifest)
 
 
-def verify_z2d_source_acquisition(manifest: dict) -> None:
+def z2d_acquisition(manifest: dict) -> dict:
     acquisitions = manifest.get("sourceAcquisitions")
     if not isinstance(acquisitions, dict) or set(acquisitions) != {"z2d"}:
         fail("source acquisition set differs from the exact contract")
     record = acquisitions["z2d"]
-    required_keys = {
-        "version",
-        "commit",
-        "zigIdentity",
-        "primaryUrl",
-        "corroboratingUrl",
-        "method",
-        "acquiredOn",
-        "archivePath",
-        "byteSize",
-        "sha256",
-    }
-    if set(record) != required_keys:
+    if not isinstance(record, dict) or set(record) != Z2D_RECORD_KEYS:
         fail("z2d acquisition record has unexpected fields")
-    expected = {
-        "version": Z2D_VERSION,
-        "commit": Z2D_COMMIT,
-        "zigIdentity": Z2D_IDENTITY,
-        "primaryUrl": f"https://deps.files.ghostty.org/z2d-{Z2D_COMMIT}.tar.gz",
-        "corroboratingUrl": f"https://codeload.github.com/vancluever/z2d/tar.gz/{Z2D_COMMIT}",
-        "method": "HTTPS GET; both responses retained and compared byte-for-byte",
-        "acquiredOn": "2026-08-10",
-        "archivePath": Z2D_ARCHIVE,
-        "byteSize": 1_948_432,
-        "sha256": Z2D_ARCHIVE_SHA256,
-    }
-    if record != expected:
-        fail("z2d acquisition metadata differs from the sealed source identity")
+    return record
+
+
+def iso_date(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        return date.fromisoformat(value).isoformat() == value
+    except ValueError:
+        return False
+
+
+def verify_z2d_source_acquisition(manifest: dict) -> None:
+    record = z2d_acquisition(manifest)
+    commit = record["commit"]
+    version = record["version"]
+    if (
+        not isinstance(commit, str)
+        or not re.fullmatch(r"[0-9a-f]{40}", commit)
+        or not isinstance(version, str)
+        or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version)
+        or record["primaryUrl"] != f"https://deps.files.ghostty.org/z2d-{commit}.tar.gz"
+        or record["corroboratingUrl"] != f"https://codeload.github.com/vancluever/z2d/tar.gz/{commit}"
+        or record["archivePath"] != f"ThirdPartyNotices/corresponding-source/z2d-{commit}.tar.gz"
+        or not isinstance(record["zigIdentity"], str)
+        or not record["zigIdentity"].startswith(f"z2d-{version}-")
+        or not isinstance(record["method"], str)
+        or not record["method"]
+        or not iso_date(record["acquiredOn"])
+        or type(record["byteSize"]) is not int
+        or not isinstance(record["sha256"], str)
+        or not re.fullmatch(r"[0-9a-f]{64}", record["sha256"])
+    ):
+        fail("z2d acquisition metadata differs from its commit, version, date or digest format")
 
     z2d = next(
         (component for component in manifest.get("components", []) if component.get("id") == "z2d"),
         None,
     )
     expected_source_paths = [
-        Z2D_ARCHIVE,
-        f"pinned-source:{expected['primaryUrl']}",
-        f"pinned-source:{expected['corroboratingUrl']}",
+        record["archivePath"],
+        f"pinned-source:{record['primaryUrl']}",
+        f"pinned-source:{record['corroboratingUrl']}",
     ]
     if (
         z2d is None
-        or z2d.get("identity") != Z2D_IDENTITY
-        or z2d.get("version") != f"{Z2D_VERSION} / {Z2D_COMMIT}"
+        or z2d.get("identity") != record["zigIdentity"]
+        or z2d.get("version") != f"{version} / {commit}"
         or z2d.get("sourcePaths") != expected_source_paths
     ):
         fail("z2d component ownership differs from the sealed source acquisition")
 
-    archive_path = safe_file(Z2D_ARCHIVE)
+    archive_path = safe_file(record["archivePath"])
     archive_bytes = archive_path.read_bytes()
-    if len(archive_bytes) != expected["byteSize"]:
+    if len(archive_bytes) != record["byteSize"]:
         fail("z2d source archive size differs")
-    if hashlib.sha256(archive_bytes).hexdigest() != Z2D_ARCHIVE_SHA256:
+    if hashlib.sha256(archive_bytes).hexdigest() != record["sha256"]:
         fail("z2d source archive digest differs")
 
-    top_level = f"z2d-{Z2D_COMMIT}"
+    top_level = f"z2d-{commit}"
     required_members = {
         f"{top_level}/LICENSE",
         f"{top_level}/COPYING",
@@ -226,7 +273,7 @@ def verify_z2d_source_acquisition(manifest: dict) -> None:
         fail("z2d source archive lacks required identity or license files")
 
     build_zon = regular_members[f"{top_level}/build.zig.zon"].decode("utf-8")
-    if not re.search(rf'\.version\s*=\s*"{re.escape(Z2D_VERSION)}"', build_zon):
+    if not re.search(rf'\.version\s*=\s*"{re.escape(version)}"', build_zon):
         fail("z2d source archive declares a different version")
     for member, notice in (
         (f"{top_level}/LICENSE", "ThirdPartyNotices/licenses/z2d-NOTICE.txt"),
@@ -319,11 +366,18 @@ def slice_archive(slice_name: str) -> str:
     return f"Vendor/GhosttyKit.xcframework/{slice_name}/libghostty.a"
 
 
-def verify_archive(manifest: dict, component_ids: set[str]) -> Path:
+def libintl_object_members() -> list[str]:
+    return [
+        PurePosixPath(source).with_suffix(".o").name
+        for source in load_json(LIBINTL_MANIFEST)["compiledSources"]
+    ]
+
+
+def verify_archive(manifest: dict, component_ids: set[str], slices: dict[str, dict]) -> Path:
     archive_paths = manifest.get("archives")
     if archive_paths != [
-        "Vendor/GhosttyKit.xcframework/macos-arm64/libghostty.a",
-        "Vendor/GhosttyVt/macos-arm64/lib/libghostty-vt.a",
+        slice_archive(MAC_SLICE),
+        f"Vendor/GhosttyVt/{MAC_SLICE}/lib/libghostty-vt.a",
     ]:
         fail("shipping archive path set changed")
     archives = [safe_file(path) for path in archive_paths]
@@ -340,7 +394,7 @@ def verify_archive(manifest: dict, component_ids: set[str]) -> Path:
         if "linux-x86_64" not in path.parts
     )
     declared_archives = {path.resolve() for path in archives} | {
-        safe_file(slice_archive(slice_name)).resolve() for slice_name in IOS_SLICES
+        safe_file(slice_archive(slice_name)).resolve() for slice_name in slices
     }
     if {path.resolve() for path in all_vendored_archives} != declared_archives:
         fail("vendored static archive set differs from the declared Apple slice images")
@@ -388,7 +442,7 @@ def verify_evidence(
     manifest: dict,
     archive: Path,
     absent: frozenset[str] = frozenset(),
-    label: str = "macos-arm64",
+    label: str = MAC_SLICE,
 ) -> None:
     symbols = run("nm", "-pa", str(archive))
     printable_strings = run("strings", str(archive))
@@ -430,8 +484,11 @@ def verify_evidence(
         for record in manifest["archiveMembers"]
         if "gettext-libintl" in record.get("owners", [])
     ]
-    if len(libintl_members) != 30 or len(libintl_members) != len(set(libintl_members)):
-        fail(f"expected 30 unique libintl archive members in {label}, found {len(libintl_members)}")
+    if (
+        sorted(libintl_members) != sorted(libintl_object_members())
+        or len(libintl_members) != len(set(libintl_members))
+    ):
+        fail(f"libintl archive members in {label} differ from the compiled sources in {LIBINTL_MANIFEST}")
     if "gettext-libintl" in absent:
         if members & set(libintl_members) or "_libintl_version" in symbols:
             fail(f"{label} archive contains libintl, which its notices declare absent")
@@ -439,15 +496,18 @@ def verify_evidence(
         fail(f"libintl version symbol is missing from the {label} archive")
 
 
-def verify_apple_slices(manifest: dict) -> None:
-    slices = manifest.get("appleSlices")
-    if not isinstance(slices, dict) or set(slices) != set(IOS_SLICES):
-        fail("Apple slice inventory differs from the iOS and iOS Simulator contract")
+def verify_apple_slices(manifest: dict, slices: dict[str, dict]) -> None:
+    ios_slices = [slice_name for slice_name in slices if slice_name != MAC_SLICE]
+    records = manifest.get("appleSlices")
+    if not isinstance(records, dict) or set(records) != set(ios_slices):
+        fail(f"Apple slice inventory differs from the slices in {NATIVE_BUILD}")
+    if not slices[MAC_SLICE]["i18n"]:
+        fail(f"{MAC_SLICE} builds without i18n, but its notices include libintl")
     archive_component_ids = {
         component["id"] for component in manifest["components"] if component["scope"] == "archive"
     }
-    for slice_name in IOS_SLICES:
-        record = slices[slice_name]
+    for slice_name in ios_slices:
+        record = records[slice_name]
         if not isinstance(record, dict) or set(record) != {"archive", "absentComponents"}:
             fail(f"invalid Apple slice record: {slice_name}")
         if record["archive"] != slice_archive(slice_name):
@@ -460,6 +520,8 @@ def verify_apple_slices(manifest: dict) -> None:
             or "ghostty" in absent
         ):
             fail(f"{slice_name} absent component list is invalid")
+        if slices[slice_name]["i18n"] == ("gettext-libintl" in absent):
+            fail(f"{slice_name} i18n build option differs from its libintl notice")
         expected_members = [
             member["name"]
             for member in manifest["archiveMembers"]
@@ -476,8 +538,12 @@ def verify_apple_slices(manifest: dict) -> None:
         verify_evidence(manifest, archive, frozenset(absent), slice_name)
 
 
-def verify_pins(manifest: dict) -> None:
+def verify_pins(manifest: dict, slices: dict[str, dict]) -> None:
     metadata = load_metadata()
+    options = load_metadata(NATIVE_BUILD)
+    cpu = options.get("GHOSTTY_BUILD_CPU")
+    optimize = options.get("GHOSTTY_BUILD_OPTIMIZE")
+    mac_target = slices[MAC_SLICE]["target"]
     platform_ref = safe_file("MacOSGhostty.ref").read_text()
     if platform_ref != f"{manifest['ghosttyCommit']}\n":
         fail("MacOSGhostty.ref differs from the notice inventory")
@@ -495,31 +561,28 @@ def verify_pins(manifest: dict) -> None:
         fail("artifact Zig store identity differs from inventory")
     if (
         metadata.get("zig_target") != "aarch64-macos"
-        or metadata.get("renderer_target") != "aarch64-macos"
-        or metadata.get("vt_target") != "aarch64-macos"
-        or metadata.get("renderer_cpu") != "baseline"
-        or metadata.get("vt_cpu") != "baseline"
-        or metadata.get("renderer_optimize") != "ReleaseFast"
-        or metadata.get("vt_optimize") != "ReleaseFast"
+        or metadata.get("renderer_target") != mac_target
+        or metadata.get("vt_target") != mac_target
+        or metadata.get("renderer_cpu") != cpu
+        or metadata.get("vt_cpu") != cpu
+        or metadata.get("renderer_optimize") != optimize
+        or metadata.get("vt_optimize") != optimize
     ):
-        fail("artifact target, CPU, or optimization differs from the release contract")
-    native_options = safe_file("NativeBuild.env").read_text()
+        fail(f"artifact target, CPU, or optimization differs from {NATIVE_BUILD}")
+    native_options = safe_file(NATIVE_BUILD).read_text()
     for required in (
-        "GHOSTTY_BUILD_TARGET=aarch64-macos",
-        "GHOSTTY_BUILD_IOS_TARGET=aarch64-ios.26.0",
-        "GHOSTTY_BUILD_IOS_SIMULATOR_TARGET=aarch64-ios.26.0-simulator",
         "GHOSTTY_BUILD_CPU=baseline",
         "GHOSTTY_BUILD_OPTIMIZE=ReleaseFast",
         "GHOSTTY_BUILD_EMIT_COMBINED_LIB=true",
         "GHOSTTY_BUILD_APP_RUNTIME=none",
-        "GHOSTTY_BUILD_I18N=true",
-        "GHOSTTY_BUILD_IOS_I18N=false",
     ):
         if required not in native_options.splitlines():
             fail(f"native build policy is missing: {required}")
-    for slice_name in IOS_SLICES:
+    for slice_name, values in slices.items():
+        if slice_name == MAC_SLICE:
+            continue
         slice_metadata = load_metadata(f"Vendor/libghostty-{slice_name}.version")
-        target = APPLE_SLICES[slice_name][2]
+        target = values["target"]
         if (
             slice_metadata.get("ghostty_commit") != manifest["ghosttyCommit"]
             or slice_metadata.get("patches_sha256") != metadata.get("patches_sha256")
@@ -529,12 +592,12 @@ def verify_pins(manifest: dict) -> None:
             or slice_metadata.get("library_identifier") != slice_name
             or slice_metadata.get("renderer_target") != target
             or slice_metadata.get("vt_target") != target
-            or slice_metadata.get("renderer_cpu") != "baseline"
-            or slice_metadata.get("vt_cpu") != "baseline"
-            or slice_metadata.get("renderer_optimize") != "ReleaseFast"
-            or slice_metadata.get("vt_optimize") != "ReleaseFast"
+            or slice_metadata.get("renderer_cpu") != cpu
+            or slice_metadata.get("vt_cpu") != cpu
+            or slice_metadata.get("renderer_optimize") != optimize
+            or slice_metadata.get("vt_optimize") != optimize
         ):
-            fail(f"{slice_name} artifact source, target, CPU, or optimization differs from the release contract")
+            fail(f"{slice_name} artifact source, target, CPU, or optimization differs from {NATIVE_BUILD}")
 
     info = run(
         "plutil",
@@ -545,7 +608,7 @@ def verify_pins(manifest: dict) -> None:
         "Vendor/GhosttyKit.xcframework/Info.plist",
     )
     available = json.loads(info).get("AvailableLibraries", [])
-    slices = {
+    libraries = {
         library.get("LibraryIdentifier"): (
             library.get("SupportedPlatform"),
             library.get("SupportedPlatformVariant"),
@@ -553,12 +616,12 @@ def verify_pins(manifest: dict) -> None:
         )
         for library in available
     }
-    expected_slices = {
-        name: (platform, variant, ["arm64"])
-        for name, (platform, variant, _) in APPLE_SLICES.items()
+    expected_libraries = {
+        name: (values["platform"], values["variant"], ["arm64"])
+        for name, values in slices.items()
     }
-    if len(available) != len(expected_slices) or slices != expected_slices:
-        fail("XCFramework slice contract differs from the macOS, iOS, and iOS Simulator arm64 images")
+    if len(available) != len(expected_libraries) or libraries != expected_libraries:
+        fail(f"XCFramework slices differ from the arm64 Apple slices in {NATIVE_BUILD}")
 
     package_manifest = safe_file("Package.swift").read_text()
     if re.search(r"\.package\s*\(", package_manifest):
@@ -576,14 +639,15 @@ def main() -> None:
     if len(sys.argv) != 1:
         fail("this verifier accepts no arguments")
     manifest = load_manifest()
+    slices = apple_slices()
     verify_principal_licenses()
     verify_compliance_artifacts(manifest)
     verify_notices(manifest)
     component_ids = verify_components(manifest)
-    archive = verify_archive(manifest, component_ids)
+    archive = verify_archive(manifest, component_ids, slices)
     verify_evidence(manifest, archive)
-    verify_apple_slices(manifest)
-    verify_pins(manifest)
+    verify_apple_slices(manifest, slices)
+    verify_pins(manifest, slices)
     print(f"[*] verified notices for {len(component_ids)} bundled third-party/component identities")
 
 
