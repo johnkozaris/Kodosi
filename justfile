@@ -55,6 +55,7 @@ ghostty-host-check:
 [private]
 [windows]
 ghostty-host-check:
+    python3 "{{ ghostty_dir }}/scripts/tests/test_digest.py"
 
 # Build the development CLI in runtime/target/debug.
 [group('rust')]
