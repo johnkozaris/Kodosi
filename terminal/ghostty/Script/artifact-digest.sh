@@ -2,8 +2,12 @@
 
 set -euo pipefail
 
-ARTIFACT_PATH=${1:-Vendor/GhosttyKit.xcframework}
+ARTIFACT_PATH=${1:-}
 
+if [ -z "$ARTIFACT_PATH" ]; then
+    echo "Usage: $0 <artifact_directory>" >&2
+    exit 1
+fi
 if [ ! -d "$ARTIFACT_PATH" ]; then
     echo "[!] artifact not found: $ARTIFACT_PATH" >&2
     exit 1

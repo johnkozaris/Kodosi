@@ -74,10 +74,6 @@ if ! cmp -s "$RENDERER_OUTPUT/macos-arm64/libghostty.a" "$VT_OUTPUT/lib/libghost
 fi
 
 mkdir -p "$SYMBOL_DIR"
-rm -f \
-    "$SYMBOL_DIR/renderer-strong.txt" \
-    "$SYMBOL_DIR/vt-strong.txt" \
-    "$SYMBOL_DIR/strong-intersection.txt"
 for slice in "${SLICES[@]}"; do
     archive="$RENDERER_OUTPUT/$slice/libghostty.a"
     manifest="$SYMBOL_DIR/$slice-strong.txt"

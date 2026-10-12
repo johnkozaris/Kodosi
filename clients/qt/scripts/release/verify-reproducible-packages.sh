@@ -4,19 +4,12 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
-allow_dirty=false
-if [[ ${1:-} == "--allow-dirty-client" ]]; then
-    allow_dirty=true
-elif [[ $# -ne 0 ]]; then
-    echo "Usage: verify-reproducible-packages.sh [--allow-dirty-client]" >&2
+if [[ $# -ne 0 ]]; then
+    echo "Usage: verify-reproducible-packages.sh" >&2
     exit 2
 fi
 
-epoch_arguments=(--source-root .)
-if [[ "$allow_dirty" == false ]]; then
-    epoch_arguments+=(--require-clean)
-fi
-epoch=$(python3 scripts/release/source-date-epoch.py "${epoch_arguments[@]}")
+epoch=$(python3 scripts/release/source-date-epoch.py --source-root . --require-clean)
 python3 scripts/release/verify-release-sources.py --source-root . >/dev/null
 
 cmake="$PWD/.tools/cmake-4.4.3/bin/cmake"
