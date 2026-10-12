@@ -17,4 +17,4 @@ target=$(cd "$RUST_DIR" && rustc -vV | grep '^host:' | cut -d' ' -f2)
 python3 "$RUST_DIR/../scripts/build-runtime-library.py" \
     --manifest "$RUST_DIR/Cargo.toml" --output-dir "$ROOT/build/rust-ffi" \
     --profile dev --target "$target" \
-    --consume-command bash "$ROOT/scripts/build/install-rust-artifact.sh" macos-host-debug "$(uname -m)"
+    --consume-command bash "$ROOT/scripts/build/install-rust-artifact.sh" macos-host-debug

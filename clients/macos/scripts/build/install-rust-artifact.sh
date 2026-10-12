@@ -2,16 +2,13 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-variant=${1:?Usage: install-rust-artifact.sh <variant> <architecture> <bundle>}
-architecture=${2:?}
-bundle=${3:?}
+variant=${1:?Usage: install-rust-artifact.sh <variant> <bundle>}
+bundle=${2:?}
 case "$variant" in
     macos-host-debug|macos-arm64-release) ;;
     *) echo "Unsupported Rust artifact variant: $variant" >&2; exit 1 ;;
 esac
-source "$ROOT/../apple/scripts/apple-platform.sh"
-kodosi_apple_platform macosx
-"$ROOT/scripts/build/verify-rust-archive.sh" "$bundle" "$KODOSI_DEPLOYMENT_TARGET" "$architecture" >&2
+"$ROOT/../apple/scripts/verify-runtime-library.sh" macosx "$bundle" >&2
 destination="$ROOT/Frameworks/KodosiKit.xcframework/$variant"
 mkdir -p "$destination"
 temporary_archive="$destination/libkodosi_runtime.a.tmp.$$"

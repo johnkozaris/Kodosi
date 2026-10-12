@@ -24,4 +24,4 @@ python3 "$RUST_DIR/../terminal/ghostty/scripts/verify-ghostty-pins.py" ${working
 python3 "$RUST_DIR/../scripts/build-runtime-library.py" \
     --manifest "$RUST_DIR/Cargo.toml" --output-dir "$ROOT/build/rust-ffi" \
     --profile release --target aarch64-apple-darwin \
-    --consume-command bash "$ROOT/scripts/build/install-rust-artifact.sh" macos-arm64-release arm64
+    --consume-command bash "$ROOT/scripts/build/install-rust-artifact.sh" macos-arm64-release
