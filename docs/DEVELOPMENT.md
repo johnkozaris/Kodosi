@@ -120,7 +120,7 @@ backend database), `sign` (a release file) and `stop` (the Docker Compose servic
 - Use another verb only when no verb in the table has its meaning, for example
   `apply-patches.sh` or `notarize.sh`.
 - Give a noun name to a script that only writes a value, for example
-  `artifact-digest.sh`. Also give a noun name to a script with subcommands, for
+  `digest.py`. Also give a noun name to a script with subcommands, for
   example `metal-toolchain.sh mount`.
 - Give a noun name to a shell file that other scripts source, for example
   `kodosi-paths.sh`. Start the names of its functions with `kodosi_`.

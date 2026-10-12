@@ -60,11 +60,11 @@ if ! diff -r "$STAGE/include" "$ROOT_DIR/Vendor/GhosttyVt/linux-x86_64/include" 
     exit 1
 fi
 
-ARCHIVE_DIGEST=$(sha256sum "$STAGE/lib/ghostty-vt-static.lib" | awk '{print $1}')
+ARCHIVE_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" file "$STAGE/lib/ghostty-vt-static.lib")
 cat > "$METADATA" <<METADATA
 package_version=$(tr -d '[:space:]' < VERSION)
 ghostty_commit=$(tr -d '[:space:]' < WindowsGhostty.ref)
-patches_sha256=$("$ROOT_DIR/scripts/artifact-digest.sh" Patches/ghostty)
+patches_sha256=$(python3 "$ROOT_DIR/scripts/digest.py" artifact Patches/ghostty)
 patch_application_sha256=$PATCH_APPLICATION_DIGEST
 zig_version=$ZIG_VERSION
 zig_target=$ZIG_TARGET

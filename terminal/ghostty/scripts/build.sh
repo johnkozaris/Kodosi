@@ -169,7 +169,7 @@ fi
 
 "$ROOT_DIR/scripts/apply-patches.sh" "$SOURCE_DIR"
 PATCH_APPLICATION_DIGEST=$(
-    "$ROOT_DIR/scripts/patch-application-digest.sh" "$SOURCE_DIR" "$GHOSTTY_REF"
+    python3 "$ROOT_DIR/scripts/digest.py" patch-application "$SOURCE_DIR" "$GHOSTTY_REF"
 )
 ZIG_STORE_DIGEST=$("$ROOT_DIR/scripts/prepare-zig-store.sh" "$SOURCE_DIR")
 
@@ -231,12 +231,12 @@ fi
 source Toolchain.env
 # shellcheck disable=SC1091
 source NativeBuild.env
-RENDERER_DIGEST=$("$ROOT_DIR/scripts/artifact-digest.sh" "$VENDOR_STAGE/GhosttyKit.xcframework")
-VT_DIGEST=$("$ROOT_DIR/scripts/artifact-digest.sh" "$VENDOR_STAGE/GhosttyVt/macos-arm64")
+RENDERER_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" artifact "$VENDOR_STAGE/GhosttyKit.xcframework")
+VT_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" artifact "$VENDOR_STAGE/GhosttyVt/macos-arm64")
 COMBINED_ARCHIVE="$VENDOR_STAGE/GhosttyKit.xcframework/macos-arm64/libghostty.a"
-COMBINED_ARCHIVE_DIGEST=$(sha256sum "$COMBINED_ARCHIVE" | awk '{print $1}')
-PATCHES_DIGEST=$("$ROOT_DIR/scripts/artifact-digest.sh" Patches/ghostty)
-SYMBOLS_DIGEST=$("$ROOT_DIR/scripts/artifact-digest.sh" "$VENDOR_STAGE/symbols")
+COMBINED_ARCHIVE_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" file "$COMBINED_ARCHIVE")
+PATCHES_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" artifact Patches/ghostty)
+SYMBOLS_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" artifact "$VENDOR_STAGE/symbols")
 GHOSTTY_BUILD_OPTION_VECTOR=$("$ROOT_DIR/scripts/native-build-options.sh" vector)
 cat > "$VENDOR_STAGE/libghostty.version" <<EOF
 package_version=$(tr -d '[:space:]' < VERSION)
@@ -266,9 +266,9 @@ for slice in "${APPLE_SLICES[@]}"; do
     [ "$slice" != macos-arm64 ] || continue
     SLICE_DIR="$VENDOR_STAGE/GhosttyKit.xcframework/$slice"
     SLICE_TARGET=$("$ROOT_DIR/scripts/native-build-options.sh" target "$slice")
-    SLICE_ARCHIVE_DIGEST=$(sha256sum "$SLICE_DIR/libghostty.a" | awk '{print $1}')
-    SLICE_ARTIFACT_DIGEST=$("$ROOT_DIR/scripts/artifact-digest.sh" "$SLICE_DIR")
-    SLICE_SYMBOLS_DIGEST=$(sha256sum "$VENDOR_STAGE/symbols/$slice-strong.txt" | awk '{print $1}')
+    SLICE_ARCHIVE_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" file "$SLICE_DIR/libghostty.a")
+    SLICE_ARTIFACT_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" artifact "$SLICE_DIR")
+    SLICE_SYMBOLS_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" file "$VENDOR_STAGE/symbols/$slice-strong.txt")
     SLICE_BUILD_OPTION_VECTOR=$("$ROOT_DIR/scripts/native-build-options.sh" vector "$slice")
     cat > "$VENDOR_STAGE/libghostty-$slice.version" <<EOF
 package_version=$(tr -d '[:space:]' < VERSION)

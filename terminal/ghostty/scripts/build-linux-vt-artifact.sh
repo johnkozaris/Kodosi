@@ -34,9 +34,9 @@ fi
 
 "$ROOT_DIR/scripts/build-ghostty-vt.sh" "$SOURCE_DIR" "$ARTIFACT_STAGE"
 
-PATCHES_DIGEST=$("$ROOT_DIR/scripts/artifact-digest.sh" Patches/ghostty)
-ARTIFACT_DIGEST=$("$ROOT_DIR/scripts/linux-artifact-digest.sh" "$ARTIFACT_STAGE")
-ARCHIVE_DIGEST=$(sha256sum "$ARTIFACT_STAGE/lib/libghostty-vt.a" | awk '{print $1}')
+PATCHES_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" artifact Patches/ghostty)
+ARTIFACT_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" artifact "$ARTIFACT_STAGE")
+ARCHIVE_DIGEST=$(python3 "$ROOT_DIR/scripts/digest.py" file "$ARTIFACT_STAGE/lib/libghostty-vt.a")
 BUILD_OPTIONS=$("$ROOT_DIR/scripts/linux-vt-build-options.sh" vector)
 
 cat > "$METADATA_STAGE" <<EOF
