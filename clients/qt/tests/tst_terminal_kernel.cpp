@@ -344,6 +344,7 @@ private slots:
     void terminalViewExposesNativeAccessibleTextInterface();
     void qmlConstructionEnrollsTerminalInAccessibleTree();
     void terminalViewGatesDeniedCommandsAndRevocation();
+    void terminalViewJoinsSurrogateHalvesFromSeparateKeyEvents();
     void terminalViewPastesClipboardThroughBoundedAuthority();
     void terminalViewTracksShiftInsertPasteReleaseExactly();
     void terminalOriginatedClipboardCommandsCannotReachHostClipboard();
@@ -1664,6 +1665,43 @@ void TerminalKernelTest::terminalViewGatesDeniedCommandsAndRevocation()
     QCOMPARE(dispatcher.inputCommands.size(), inputAttempts);
     QVERIFY(!view.readOnly());
     QVERIFY(view.canSendInput());
+}
+
+void TerminalKernelTest::terminalViewJoinsSurrogateHalvesFromSeparateKeyEvents()
+{
+    kodosi::TerminalSessionRegistry registry;
+    FakeTerminalDispatcher dispatcher;
+    kodosi::TerminalView view(m_window.contentItem());
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("surrogates"),
+        QStringLiteral("subscription"),
+        8,
+    };
+    view.setWidth(800);
+    view.setHeight(400);
+    view.setTerminalInteraction(true, false);
+    QVERIFY(view.attach(
+        registry,
+        dispatcher,
+        subscription,
+        QStringLiteral("incarnation")));
+    makeTerminalReady(registry, subscription);
+
+    const auto emoji = QString::fromUcs4(U"\U0001F600");
+    const auto press = [&view](const QString& text) {
+        QKeyEvent event(QEvent::KeyPress, 0, Qt::NoModifier, text);
+        QCoreApplication::sendEvent(&view, &event);
+    };
+    press(emoji.left(1));
+    QCOMPARE(dispatcher.inputCommands.size(), 0);
+    press(emoji.right(1));
+    QCOMPARE(dispatcher.inputCommands.size(), 1);
+    QCOMPARE(dispatcher.inputCommands.constLast(), emoji.toUtf8());
+
+    press(emoji.left(1));
+    press(QStringLiteral("a"));
+    QCOMPARE(dispatcher.inputCommands.size(), 2);
+    QCOMPARE(dispatcher.inputCommands.constLast(), QByteArrayLiteral("a"));
 }
 
 void TerminalKernelTest::terminalViewPastesClipboardThroughBoundedAuthority()

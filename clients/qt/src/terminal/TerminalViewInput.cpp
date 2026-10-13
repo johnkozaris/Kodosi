@@ -301,7 +301,19 @@ void TerminalView::keyPressEvent(QKeyEvent* event)
         QQuickItem::keyPressEvent(event);
         return;
     }
-    const auto text = event->text();
+    auto text = event->text();
+    // A bare WM_CHAR delivers a character beyond U+FFFF as one key event per UTF-16 half.
+    if (text.size() == 1 && text.front().isHighSurrogate()) {
+        m_highSurrogate = text.front();
+        event->accept();
+        return;
+    }
+    if (!m_highSurrogate.isNull()) {
+        if (text.size() == 1 && text.front().isLowSurrogate()) {
+            text.prepend(m_highSurrogate);
+        }
+        m_highSurrogate = QChar {};
+    }
     const auto key = terminalKey(event);
     if (key && sendKey(
             event,
