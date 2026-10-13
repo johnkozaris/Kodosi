@@ -20,25 +20,27 @@ Row {
         sourceSize.width: width * 2
         sourceSize.height: height * 2
         fillMode: Image.PreserveAspectFit
-        source: "qrc:/qt/qml/Kodosi/qml/assets/kodosi-logo-dark.png"
+        source: KodosiTheme.isDark ? "qrc:/qt/qml/Kodosi/qml/assets/kodosi-logo-dark.png"
+                                   : "qrc:/qt/qml/Kodosi/qml/assets/kodosi-logo.png"
     }
     Row {
         anchors.verticalCenter: parent.verticalCenter
-        spacing: root.size * 0.14
+        spacing: root.size * 0.12
 
         Text {
             anchors.verticalCenter: parent.verticalCenter
             text: "kodosi"
             color: KodosiTheme.ink
             font.family: "monospace"
+            font.letterSpacing: -root.size * 0.02
             font.pixelSize: root.size
-            font.weight: Font.Black
+            font.weight: Font.ExtraBold
             textFormat: Text.PlainText
         }
         CursorBlock {
             anchors.verticalCenter: parent.verticalCenter
             width: root.size * 0.5
-            height: root.size * 0.95
+            height: root.size * 0.92
             blinks: root.blinks
         }
     }
