@@ -107,37 +107,33 @@ public struct BezelBackground<S: InsettableShape>: View {
         shape
             .fill(fill.mix(with: .black, by: pressed ? 0.08 : 0))
             .overlay {
-                if quiet {
-                    shape.inset(by: -0.5).strokeBorder(shadow.opacity(dark ? 0.7 : 0.26), lineWidth: 0.5)
-                } else {
-                    shape.strokeBorder(.black.opacity(0.22), lineWidth: 0.5)
+                if !dark {
+                    shape.inset(by: quiet ? -0.5 : 0)
+                        .strokeBorder(quiet ? shadow.opacity(0.22) : .black.opacity(0.18), lineWidth: 0.5)
                 }
             }
             .overlay {
-                if dark {
-                    EdgeLine(shape: shape, offset: quiet ? -1 : -1.5)
-                        .fill(.black.opacity(quiet ? 0.3 : 0.14), style: FillStyle(eoFill: true))
-                        .clipShape(shape)
-                }
+                OffsetEdge(shape: shape, offset: -1)
+                    .fill(.black.opacity(dark ? 0.2 : 0), style: FillStyle(eoFill: true))
+                    .clipShape(shape)
             }
             .overlay {
-                EdgeLine(shape: shape, offset: 1)
+                OffsetEdge(shape: shape, offset: 1)
                     .fill(.white.opacity(light), style: FillStyle(eoFill: true))
                     .clipShape(shape)
             }
-            .shadow(color: shadow.opacity((quiet ? 0.18 : 0.4) * (dark ? 2.2 : 1)), radius: 0.75, y: 1)
-            .shadow(color: shadow.opacity((quiet ? 0.12 : 0.3) * (dark ? 2.2 : 1)), radius: 0.25, y: 0.5)
+            .shadow(color: shadow.opacity(dark ? 0 : quiet ? 0.14 : 0.3), radius: 0.75, y: 1)
     }
 
     private var light: Double {
         if theme.isDark {
-            return bezel == .quiet ? 0.16 : 0.1
+            return bezel == .quiet ? 0.06 : 0.05
         }
-        return bezel == .quiet ? 0.95 : 0.3
+        return bezel == .quiet ? 0.35 : 0.22
     }
 }
 
-private struct EdgeLine<S: Shape>: Shape {
+private struct OffsetEdge<S: Shape>: Shape {
     let shape: S
     let offset: CGFloat
 
