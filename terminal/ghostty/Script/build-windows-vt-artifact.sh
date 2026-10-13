@@ -78,7 +78,9 @@ for name in objects:
     path = object_root / name
     if not path.is_file() or path.stat().st_size == 0:
         raise SystemExit(f"[!] Ghostty VT archive contains an empty object: {name}")
-    subprocess.run(["llvm-objcopy", "--strip-debug", path], check=True)
+    # Stripping renumbers the symbols; llvm-objcopy would leave each address-significance
+    # table pointing at the old numbers, so drop the tables and let the linker assume all.
+    subprocess.run(["llvm-objcopy", "--strip-debug", "--remove-section=.llvm_addrsig", path], check=True)
 subprocess.run(["llvm-lib", "/out:ghostty-vt-static.lib", *objects], cwd=object_root, check=True)
 (object_root / "ghostty-vt-static.lib").replace(destination)
 
