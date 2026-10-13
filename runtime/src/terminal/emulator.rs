@@ -4,7 +4,7 @@ use super::{
     status::{BlockedKind, ProgramState, ProgramStatusReport},
     types::{
         Checkpoint, TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES, TerminalHistoryPolicy,
-        TerminalPixelGeometry, TerminalScreen, TerminalSize,
+        TerminalPixelGeometry, TerminalScreen, TerminalSize, is_valid_folder,
     },
 };
 use ghostty_vt::{
@@ -380,14 +380,23 @@ fn program_status(status: ghostty_vt::ProgramStatus) -> Option<ProgramStatusRepo
     })
 }
 
+/// The folder an OSC 7 file URL or an OSC 9;9 path reports, when it is a folder
+/// of this computer that viewers accept.
 fn parse_cwd(raw: &[u8]) -> Option<PathBuf> {
     let text = str::from_utf8(raw).ok()?;
-    let Some(rest) = text.strip_prefix("file://") else {
-        return (!text.is_empty()).then(|| PathBuf::from(text));
+    let path = if let Some(rest) = text.strip_prefix("file://") {
+        let slash = rest.find('/')?;
+        let decoded = String::from_utf8(percent_decode(&rest.as_bytes()[slash..])?).ok()?;
+        kodosi_os::fs::path_from_file_url(&rest[..slash], &decoded)
+    } else {
+        // Windows Terminal and ConEmu shell integrations quote the OSC 9;9 path.
+        PathBuf::from(
+            text.strip_prefix('"')
+                .and_then(|path| path.strip_suffix('"'))
+                .unwrap_or(text),
+        )
     };
-    let slash = rest.find('/')?;
-    let decoded = String::from_utf8(percent_decode(&rest.as_bytes()[slash..])?).ok()?;
-    Some(kodosi_os::fs::path_from_file_url(&rest[..slash], &decoded))
+    (path.is_absolute() && path.to_str().is_some_and(is_valid_folder)).then_some(path)
 }
 
 fn percent_decode(encoded: &[u8]) -> Option<Vec<u8>> {
@@ -548,3 +557,7 @@ async fn terminal_actor_main(
         }
     }
 }
+
+#[cfg(test)]
+#[path = "emulator_tests.rs"]
+mod tests;
