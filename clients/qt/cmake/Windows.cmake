@@ -32,6 +32,11 @@ set(KODOSI_GHOSTTY_VT_ARCHIVE_NAME "ghostty-vt-static.lib")
 # one Qt uses.
 set(KODOSI_RUNTIME_SYSTEM_LIBRARIES kernel32 ntdll userenv ws2_32 dbghelp)
 set(KODOSI_COMPILE_OPTIONS /W4 -Wpedantic /WX)
+# Rust's compiler_builtins and Ghostty's Zig compiler_rt each define the compiler
+# builtins as weak symbols; lld-link keeps the first instead of failing the link.
+if(CMAKE_CXX_COMPILER_LINKER_ID STREQUAL "LLD")
+    add_link_options(-lld-allow-duplicate-weak)
+endif()
 set(KODOSI_PLATFORM_SOURCES
     platform/windows/ToastNotificationDriver.cpp
     platform/windows/ToastNotificationDriver.hpp
