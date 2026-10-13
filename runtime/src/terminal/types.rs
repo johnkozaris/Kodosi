@@ -198,7 +198,7 @@ impl TerminalMetadata {
                 .all(|id| uuid::Uuid::parse_str(id).is_ok())
             && self.directory.as_ref().is_none_or(|value| {
                 value.len() <= 4096
-                    && value.starts_with('/')
+                    && is_absolute_folder(value)
                     && !value.chars().any(char::is_control)
             })
             && self.title.as_ref().is_none_or(|value| value.len() <= 4096)
@@ -212,6 +212,18 @@ impl TerminalMetadata {
                 .is_none_or(super::ProgramStatus::is_valid)
     }
 }
+
+/// Hosts report folders in their own form: `/…` on macOS and Linux, and a drive
+/// (`C:\…`) or a share (`\\server\share`) on Windows. Viewers accept every form.
+fn is_absolute_folder(value: &str) -> bool {
+    value.starts_with('/')
+        || (value.len() > 2 && value.starts_with(r"\\"))
+        || matches!(value.as_bytes(), [drive, b':', b'\\' | b'/', ..] if drive.is_ascii_alphabetic())
+}
+
+#[cfg(test)]
+#[path = "types_tests.rs"]
+mod tests;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
