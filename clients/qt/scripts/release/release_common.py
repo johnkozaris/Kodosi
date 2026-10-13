@@ -111,7 +111,10 @@ def _worktree_blob(
         before = os.lstat(path)
     except OSError:
         return "", True
-    if expected_mode == b"120000":
+    # Git for Windows records no executable bit, and without symlink support it
+    # checks a symlink out as a file that holds the target.
+    windows_file = os.name == "nt" and stat.S_ISREG(before.st_mode)
+    if expected_mode == b"120000" and not windows_file:
         if not stat.S_ISLNK(before.st_mode):
             return "", True
         try:
@@ -127,16 +130,17 @@ def _worktree_blob(
             or after.st_ctime_ns != before.st_ctime_ns
         )
         return _blob_hash(algorithm, len(target), (target,)), changed
-    if expected_mode not in {b"100644", b"100755"}:
+    if expected_mode not in {b"100644", b"100755", b"120000"}:
         raise ValueError(
             f"unsupported tracked entry mode {expected_mode.decode('ascii')}"
         )
     if not stat.S_ISREG(before.st_mode):
         return "", True
     executable = bool(before.st_mode & stat.S_IXUSR)
-    if executable != (expected_mode == b"100755"):
+    if not windows_file and executable != (expected_mode == b"100755"):
         return "", True
     flags = os.O_RDONLY
+    flags |= getattr(os, "O_BINARY", 0)
     flags |= getattr(os, "O_CLOEXEC", 0)
     flags |= getattr(os, "O_NOFOLLOW", 0)
     try:
