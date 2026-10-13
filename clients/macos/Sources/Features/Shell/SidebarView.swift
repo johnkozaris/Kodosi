@@ -224,13 +224,37 @@ struct NewTerminalButton: View {
             .help("New terminal in a folder…").accessibilityLabel(Text("New terminal in a folder"))
             .accessibilityIdentifier("sidebar.newInFolder")
         }
-        .buttonStyle(PressScaleStyle(scale: 0.97))
+        .buttonStyle(SplitPartStyle())
         .foregroundStyle(theme.colors.onAccent)
-        .background {
-            RaisedBackground(shape: Capsule(), fill: hovered ? theme.colors.accentHover : theme.colors.accent, elevation: .resting)
+        .backgroundPreferenceValue(SplitPressed.self) { pressed in
+            BezelBackground(
+                shape: RoundedRectangle(cornerRadius: Radius.md, style: .continuous),
+                fill: hovered ? theme.colors.accentHover : theme.colors.accent
+            )
+            .environment(\.bezelPressed, pressed)
+            .animation(theme.motion.snappy, value: pressed)
         }
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
+    }
+}
+
+private struct SplitPressed: PreferenceKey {
+    static let defaultValue = false
+
+    static func reduce(value: inout Bool, nextValue: () -> Bool) {
+        value = value || nextValue()
+    }
+}
+
+private struct SplitPartStyle: ButtonStyle {
+    @Environment(\.theme) private var theme
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .preference(key: SplitPressed.self, value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(theme.motion.snappy, value: configuration.isPressed)
     }
 }
 

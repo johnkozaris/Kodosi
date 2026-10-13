@@ -9,7 +9,7 @@ The iOS app uses the Mac's visual system from the shared package
 - Text styles follow Dynamic Type. The shared `AppTextStyle` maps each style to a
   system text style on iOS and keeps fixed sizes on the Mac.
 - Touch targets are at least 44 points. The shared button sizes are 34, 44, and 52
-  points high on iOS.
+  points high on iOS, with corner radii of 10, 13, and 16 points.
 - Navigation is native: a tab bar on iPhone that becomes a sidebar on iPad, stacks
   with large titles, sheets with detents, swipe actions, and context menus.
 - The terminal sits in a dark tile with rounded corners, in light and dark appearance.

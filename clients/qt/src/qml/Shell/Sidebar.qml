@@ -221,9 +221,10 @@ Item {
                 objectName: "rail.newTerminal"
                 Accessible.id: objectName
                 Accessible.name: qsTr("New terminal")
-                background: Raised {
+                background: Bezel {
                     radius: 17
                     fill: railNew.hovered ? KodosiTheme.accentHover : KodosiTheme.accent
+                    pressed: railNew.pressed
                 }
                 contentItem: Item {
                     KIcon { anchors.centerIn: parent; width: 14; height: 14; name: "plus"; color: KodosiTheme.accentInk; strokeWidth: 2.6 }
@@ -364,10 +365,10 @@ Item {
             Layout.bottomMargin: 10
             implicitHeight: 34
 
-            Raised {
+            Bezel {
                 anchors.fill: parent
-                radius: 17
                 fill: newHover.hovered ? KodosiTheme.accentHover : KodosiTheme.accent
+                pressed: newTerminal.pressed || newFolder.pressed
             }
             HoverHandler { id: newHover }
             RowLayout {
@@ -396,6 +397,7 @@ Item {
                 }
                 Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 18; color: KodosiTheme.alpha(KodosiTheme.accentInk, 0.2) }
                 AbstractButton {
+                    id: newFolder
                     Layout.preferredWidth: 38
                     Layout.fillHeight: true
                     objectName: "sidebar.sessions.folder"

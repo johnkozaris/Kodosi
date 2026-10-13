@@ -20,7 +20,8 @@ Button {
     property bool compact: false
     property bool large: false
     property bool working: false
-    readonly property bool solid: variant === KButton.Primary || variant === KButton.Secondary
+    readonly property real radius: compact ? KodosiTheme.radiusSm : large ? KodosiTheme.radiusTile : KodosiTheme.radiusMd
+    readonly property bool lit: hovered && enabled
     readonly property color foreground: !enabled ? KodosiTheme.inkFaint
         : variant === KButton.Primary ? KodosiTheme.accentInk
         : variant === KButton.Tinted ? KodosiTheme.accentStrong
@@ -74,22 +75,24 @@ Button {
     }
 
     background: Item {
-        Raised {
+        Bezel {
             anchors.fill: parent
-            visible: root.solid
-            radius: height / 2
-            elevation: root.enabled ? 1 : 0
+            visible: root.variant !== KButton.Ghost
+            radius: root.radius
+            quiet: root.variant !== KButton.Primary
+            pressed: root.pressed && root.enabled
+            lifted: root.enabled
             fill: root.variant === KButton.Primary
-                ? (!root.enabled ? KodosiTheme.mix(KodosiTheme.accent, KodosiTheme.surface, 0.45) : root.hovered ? KodosiTheme.accentHover : KodosiTheme.accent)
-                : (root.hovered && root.enabled ? KodosiTheme.lifted : KodosiTheme.raised)
+                ? (!root.enabled ? KodosiTheme.mix(KodosiTheme.accent, KodosiTheme.surface, 0.45) : root.lit ? KodosiTheme.accentHover : KodosiTheme.accent)
+                : root.variant === KButton.Tinted ? KodosiTheme.mix(KodosiTheme.accentSoft, KodosiTheme.accent, root.lit ? 0.14 : 0)
+                : root.variant === KButton.Danger ? KodosiTheme.mix(KodosiTheme.dangerSoft, KodosiTheme.danger, root.lit ? 0.14 : 0)
+                : KodosiTheme.mix(KodosiTheme.lifted, KodosiTheme.ink, (KodosiTheme.isDark ? 0.07 : 0) + (root.lit ? 0.03 : 0))
         }
         Rectangle {
             anchors.fill: parent
-            visible: !root.solid
-            radius: height / 2
-            color: root.variant === KButton.Tinted ? KodosiTheme.accentSoft
-                : root.variant === KButton.Danger ? KodosiTheme.dangerSoft
-                : KodosiTheme.alpha(KodosiTheme.ink, root.hovered && root.enabled ? 0.08 : 0)
+            visible: root.variant === KButton.Ghost
+            radius: root.radius
+            color: KodosiTheme.alpha(KodosiTheme.ink, !root.enabled ? 0 : root.pressed ? 0.13 : root.hovered ? 0.08 : 0)
 
             Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
         }

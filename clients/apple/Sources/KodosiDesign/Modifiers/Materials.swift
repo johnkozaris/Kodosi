@@ -82,6 +82,72 @@ public struct RaisedBackground<S: InsettableShape>: View {
     }
 }
 
+public enum Bezel: Sendable {
+    case solid
+    case quiet
+}
+
+public struct BezelBackground<S: InsettableShape>: View {
+    @Environment(\.theme) private var theme
+    @Environment(\.bezelPressed) private var pressed
+    public let shape: S
+    public let fill: Color
+    public let bezel: Bezel
+
+    public init(shape: S, fill: Color, bezel: Bezel = .solid) {
+        self.shape = shape
+        self.fill = fill
+        self.bezel = bezel
+    }
+
+    public var body: some View {
+        let quiet = bezel == .quiet
+        let dark = theme.isDark
+        let shadow = theme.colors.shadow
+        shape
+            .fill(fill.mix(with: .black, by: pressed ? 0.08 : 0))
+            .overlay {
+                if quiet {
+                    shape.inset(by: -0.5).strokeBorder(shadow.opacity(dark ? 0.7 : 0.26), lineWidth: 0.5)
+                } else {
+                    shape.strokeBorder(.black.opacity(0.22), lineWidth: 0.5)
+                }
+            }
+            .overlay {
+                if dark {
+                    EdgeLine(shape: shape, offset: quiet ? -1 : -1.5)
+                        .fill(.black.opacity(quiet ? 0.3 : 0.14), style: FillStyle(eoFill: true))
+                        .clipShape(shape)
+                }
+            }
+            .overlay {
+                EdgeLine(shape: shape, offset: 1)
+                    .fill(.white.opacity(light), style: FillStyle(eoFill: true))
+                    .clipShape(shape)
+            }
+            .shadow(color: shadow.opacity((quiet ? 0.18 : 0.4) * (dark ? 2.2 : 1)), radius: 0.75, y: 1)
+            .shadow(color: shadow.opacity((quiet ? 0.12 : 0.3) * (dark ? 2.2 : 1)), radius: 0.25, y: 0.5)
+    }
+
+    private var light: Double {
+        if theme.isDark {
+            return bezel == .quiet ? 0.16 : 0.1
+        }
+        return bezel == .quiet ? 0.95 : 0.3
+    }
+}
+
+private struct EdgeLine<S: Shape>: Shape {
+    let shape: S
+    let offset: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var path = shape.path(in: rect)
+        path.addPath(shape.path(in: rect).offsetBy(dx: 0, dy: offset))
+        return path
+    }
+}
+
 public struct WellBackground<S: InsettableShape>: View {
     @Environment(\.theme) private var theme
     public let shape: S

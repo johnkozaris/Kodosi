@@ -17,7 +17,7 @@ struct SidebarRail: View {
             Button { deps.newSession() } label: {
                 Image(systemName: "plus").font(.system(size: 14, weight: .bold)).foregroundStyle(theme.colors.onAccent)
                     .frame(width: 34, height: 34)
-                    .background { RaisedBackground(shape: Circle(), fill: theme.colors.accent, elevation: .resting) }
+                    .background { BezelBackground(shape: Circle(), fill: theme.colors.accent) }
             }
             .buttonStyle(PressScaleStyle())
             .help("New terminal").accessibilityLabel(Text("New terminal")).accessibilityIdentifier("sidebar.newSession")
