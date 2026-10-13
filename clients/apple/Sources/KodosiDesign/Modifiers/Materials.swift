@@ -34,9 +34,9 @@ public enum Elevation: Sendable {
     fileprivate func ambient(dark: Bool) -> ShadowSpec {
         switch self {
         case .flat: .none
-        case .resting: ShadowSpec(opacity: dark ? 0.3 : 0.08, radius: 12, x: 4, y: 8)
-        case .lifted: ShadowSpec(opacity: dark ? 0.42 : 0.14, radius: 26, x: 8, y: 16)
-        case .floating: ShadowSpec(opacity: dark ? 0.5 : 0.18, radius: 44, x: 12, y: 26)
+        case .resting: ShadowSpec(opacity: dark ? 0.3 : 0.08, radius: 6, x: 2, y: 4)
+        case .lifted: ShadowSpec(opacity: dark ? 0.42 : 0.14, radius: 13, x: 4, y: 8)
+        case .floating: ShadowSpec(opacity: dark ? 0.5 : 0.18, radius: 22, x: 6, y: 13)
         }
     }
 }
@@ -116,13 +116,14 @@ public struct BezelBackground<S: InsettableShape>: View {
                 OffsetEdge(shape: shape, offset: -1)
                     .fill(.black.opacity(dark ? 0.2 : 0), style: FillStyle(eoFill: true))
                     .clipShape(shape)
-            }
-            .overlay {
                 OffsetEdge(shape: shape, offset: 1)
                     .fill(.white.opacity(light), style: FillStyle(eoFill: true))
                     .clipShape(shape)
             }
-            .shadow(color: shadow.opacity(dark ? 0 : quiet ? 0.14 : 0.3), radius: 0.75, y: 1)
+            .shadow(
+                color: dark ? .black.opacity(quiet ? 0.21 : 0.35) : shadow.opacity(quiet ? 0.14 : 0.3),
+                radius: dark ? 1.5 : 0.75, y: 1
+            )
     }
 
     private var light: Double {
@@ -133,13 +134,15 @@ public struct BezelBackground<S: InsettableShape>: View {
     }
 }
 
+/// The band along two edges of a shape: with a positive offset the top and the left edge,
+/// where the light from the top left falls; with a negative offset the bottom and the right.
 private struct OffsetEdge<S: Shape>: Shape {
     let shape: S
     let offset: CGFloat
 
     func path(in rect: CGRect) -> Path {
         var path = shape.path(in: rect)
-        path.addPath(shape.path(in: rect).offsetBy(dx: 0, dy: offset))
+        path.addPath(shape.path(in: rect).offsetBy(dx: offset, dy: offset))
         return path
     }
 }

@@ -13,8 +13,8 @@ Item {
 
     readonly property bool dark: KodosiTheme.isDark
     readonly property real hair: Screen.devicePixelRatio >= 2 ? 0.5 : 1
-    readonly property real strength: lifted && !dark ? 1 : 0
-    readonly property real line: 1 / Math.max(4, height)
+    // In the light appearance a solid face has its hairline inside the edge.
+    readonly property real ring: !dark && !quiet ? hair : 0
     readonly property color light: Qt.rgba(1, 1, 1, dark ? (quiet ? 0.06 : 0.05) : (quiet ? 0.35 : 0.22))
     readonly property color shade: Qt.rgba(0, 0, 0, dark ? 0.2 : 0)
 
@@ -27,7 +27,7 @@ Item {
         height: root.height
         radius: root.radius + 0.5
         color: KodosiTheme.shadow
-        opacity: Math.min(1, (root.quiet ? 0.05 : 0.12) * root.strength)
+        opacity: !root.lifted ? 0 : root.dark ? (root.quiet ? 0.1 : 0.17) : (root.quiet ? 0.05 : 0.12)
     }
     Rectangle {
         y: 1
@@ -35,7 +35,7 @@ Item {
         height: root.height
         radius: root.radius
         color: KodosiTheme.shadow
-        opacity: Math.min(1, (root.quiet ? 0.12 : 0.3) * root.strength)
+        opacity: !root.lifted ? 0 : root.dark ? (root.quiet ? 0.21 : 0.35) : (root.quiet ? 0.12 : 0.3)
     }
     Rectangle {
         x: root.quiet ? -root.hair : 0
@@ -48,22 +48,28 @@ Item {
             ? KodosiTheme.alpha(KodosiTheme.shadow, 0.22)
             : Qt.tint(root.face, Qt.rgba(0, 0, 0, 0.18))
     }
+    // The light comes from the top left: it falls on the top and the left edge, and the
+    // bottom and the right edge are in shade. Each layer leaves one point of the one below.
     Rectangle {
         anchors.fill: parent
-        anchors.margins: root.quiet || root.dark ? 0 : root.hair
-        radius: root.radius - anchors.margins
-        color: root.face
+        anchors.margins: root.ring
+        radius: root.radius - root.ring
+        color: Qt.tint(root.face, root.light)
     }
     Rectangle {
-        anchors.fill: parent
-        radius: root.radius
-        gradient: Gradient {
-            GradientStop { position: 0; color: root.light }
-            GradientStop { position: root.line; color: root.light }
-            GradientStop { position: root.line + 0.001; color: "transparent" }
-            GradientStop { position: 0.999 - root.line; color: "transparent" }
-            GradientStop { position: 1 - root.line; color: root.shade }
-            GradientStop { position: 1; color: root.shade }
-        }
+        x: root.ring + 1
+        y: root.ring + 1
+        width: root.width - root.ring * 2 - 1
+        height: root.height - root.ring * 2 - 1
+        radius: root.radius - root.ring
+        color: Qt.tint(root.face, root.shade)
+    }
+    Rectangle {
+        x: root.ring + 1
+        y: root.ring + 1
+        width: root.width - root.ring * 2 - 2
+        height: root.height - root.ring * 2 - 2
+        radius: root.radius - root.ring
+        color: root.face
     }
 }
