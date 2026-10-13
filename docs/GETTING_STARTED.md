@@ -91,6 +91,10 @@ enter the code.
 Approved devices on the same account can open your terminals. The hosting computer
 must remain online with Kodosi running.
 
+An iPhone or iPad signs in and gets approval in the same way. The app opens your
+terminals and the terminals that friends share with you, lists first the terminals
+that wait for you, and takes part in rooms. It starts no terminals.
+
 Make a recovery key in Settings, then Devices, and keep it in a safe place. If you lose
 all your computers, sign in on a new one and select "Use my recovery key". You keep
 your friends and rooms. If you lose one computer, remove it there from a computer that
