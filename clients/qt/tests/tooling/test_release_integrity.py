@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import gzip
+import importlib
 import io
 import json
 import os
 import re
 import shutil
 import subprocess
+import sys
 import tarfile
 import unittest
 from contextlib import contextmanager
@@ -22,6 +24,8 @@ IDENTITY_GENERATOR = ROOT / "scripts/release" / "generate-source-identity.py"
 SOURCE_VERIFIER = ROOT / "scripts/release" / "verify-release-sources.py"
 SIGNER = ROOT / "scripts/release" / "sign-release-manifest.sh"
 SIGNATURE_VERIFIER = ROOT / "scripts/release" / "verify-release-signature.sh"
+sys.path.insert(0, str(ROOT / "scripts/release"))
+release_common = importlib.import_module("release_common")
 
 
 class ReleaseIntegrityTests(unittest.TestCase):
@@ -688,6 +692,51 @@ class ReleaseIntegrityTests(unittest.TestCase):
             env={"GNUPGHOME": str(gnupg), "PATH": env["PATH"]},
         )
 
+
+class CheckoutIdentityTests(unittest.TestCase):
+    def test_this_platforms_checkout_is_clean_until_its_content_changes(self) -> None:
+        with TemporaryDirectory(prefix="checkout-identity-") as temporary:
+            repo = Path(temporary)
+
+            def git(*arguments: str, data: bytes | None = None) -> bytes:
+                return subprocess.run(
+                    ["git", *arguments],
+                    cwd=repo,
+                    input=data,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    check=True,
+                ).stdout
+
+            git("init", "-q", "-b", "main")
+            git("config", "user.name", "Release Test")
+            git("config", "user.email", "release@example.invalid")
+            git("remote", "add", "origin", "https://github.com/johnkozaris/Kodosi.git")
+            (repo / ".gitattributes").write_bytes(
+                (ROOT.parents[1] / ".gitattributes").read_bytes()
+            )
+            payload = repo / "payload.bin"
+            payload.write_bytes(b"\0\x1a\r\nafter the end-of-file byte\n")
+            (repo / "tool.sh").write_bytes(b"#!/bin/sh\nexit 0\n")
+            (repo / "tracked.txt").write_bytes(b"one\n")
+            git("add", ".")
+            git("update-index", "--chmod=+x", "tool.sh")
+            target = git("hash-object", "-w", "--stdin", data=b"tracked.txt")
+            git(
+                "update-index",
+                "--add",
+                "--cacheinfo",
+                f"120000,{target.decode('ascii').strip()},tracked-link",
+            )
+            git("commit", "-q", "-m", "fixtures")
+            (repo / "tool.sh").unlink()
+            git("checkout", "--", "tool.sh", "tracked-link")
+
+            self.assertFalse(release_common.checkout_identity(repo)["dirty"])
+            changed = bytearray(payload.read_bytes())
+            changed[-2] ^= 1
+            payload.write_bytes(changed)
+            self.assertTrue(release_common.checkout_identity(repo)["dirty"])
 
 
 if __name__ == "__main__":
