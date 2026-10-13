@@ -11,8 +11,8 @@ Item {
     property int elevation: 1
     property bool rim: true
 
-    readonly property int layers: elevation <= 0 ? 0 : elevation === 1 ? 3 : elevation === 2 ? 5 : 7
-    readonly property real step: elevation === 1 ? 1.5 : elevation === 2 ? 2.8 : 4.2
+    readonly property int layers: elevation === 1 ? 3 : elevation === 2 ? 5 : 7
+    readonly property real step: elevation === 1 ? 0.75 : elevation === 2 ? 1.4 : 2.1
     readonly property real drop: elevation === 1 ? 2 : elevation === 2 ? 5 : 9
 
     Repeater {

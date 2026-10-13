@@ -37,6 +37,22 @@ public struct KodosiButtonStyle: ButtonStyle {
             #endif
         }
 
+        public var radius: CGFloat {
+            #if os(iOS)
+                switch self {
+                case .small: 10
+                case .regular: 13
+                case .large: 16
+                }
+            #else
+                switch self {
+                case .small: Radius.sm
+                case .regular: Radius.md
+                case .large: 12
+                }
+            #endif
+        }
+
         public var style: AppTextStyle {
             switch self {
             case .small: .footnote
@@ -58,48 +74,55 @@ public struct KodosiButtonStyle: ButtonStyle {
     }
 
     public func makeBody(configuration: Configuration) -> some View {
+        let shape = RoundedRectangle(cornerRadius: size.radius, style: .continuous)
+        let pressed = configuration.isPressed
         configuration.label
             .appTextStyle(size.style)
             .fontWeight(.semibold)
             .lineLimit(1)
-            .foregroundStyle(foreground)
+            .foregroundStyle(foreground(pressed: pressed))
             .padding(.horizontal, size.padding)
             .frame(minHeight: size.height)
-            .background { background(pressed: configuration.isPressed) }
-            .contentShape(Capsule())
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .background { background(shape, pressed: pressed).environment(\.bezelPressed, pressed) }
+            .contentShape(shape)
+            .scaleEffect(pressed ? 0.97 : 1)
             .opacity(isEnabled ? 1 : 0.45)
             .onHover { hovered = $0 }
             .animation(theme.motion.hover, value: hovered)
-            .animation(theme.motion.snappy, value: configuration.isPressed)
+            .animation(theme.motion.snappy, value: pressed)
     }
 
-    private var foreground: Color {
+    private var lit: Bool {
+        hovered && isEnabled
+    }
+
+    private func foreground(pressed: Bool) -> Color {
         switch kind {
         case .primary: theme.colors.onAccent
         case .secondary: theme.colors.ink
-        case .ghost: hovered ? theme.colors.ink : theme.colors.inkMuted
+        case .ghost: lit || pressed ? theme.colors.ink : theme.colors.inkMuted
         case .tinted: theme.colors.accentStrong
         case .danger: theme.colors.onDanger
         }
     }
 
     @ViewBuilder
-    private func background(pressed: Bool) -> some View {
+    private func background(_ shape: RoundedRectangle, pressed: Bool) -> some View {
+        let colors = theme.colors
         switch kind {
         case .primary:
-            RaisedBackground(shape: Capsule(), fill: hovered ? theme.colors.accentHover : theme.colors.accent,
-                             elevation: pressed ? .flat : .resting)
+            BezelBackground(shape: shape, fill: lit ? colors.accentHover : colors.accent)
         case .secondary:
-            RaisedBackground(shape: Capsule(), fill: hovered ? theme.colors.lifted : theme.colors.raised,
-                             elevation: pressed ? .flat : .resting)
+            BezelBackground(
+                shape: shape, fill: colors.lifted.mix(with: colors.ink, by: (theme.isDark ? 0.07 : 0) + (lit ? 0.03 : 0)),
+                bezel: .quiet
+            )
         case .ghost:
-            Capsule().fill(theme.colors.ink.opacity(hovered ? 0.08 : 0))
+            shape.fill(colors.ink.opacity(pressed ? 0.13 : lit ? 0.08 : 0))
         case .tinted:
-            Capsule().fill(hovered ? theme.colors.accent.opacity(0.28) : theme.colors.accentSoft)
+            BezelBackground(shape: shape, fill: colors.accentSoft.mix(with: colors.accent, by: lit ? 0.14 : 0), bezel: .quiet)
         case .danger:
-            RaisedBackground(shape: Capsule(), fill: theme.colors.danger.opacity(hovered ? 0.9 : 1),
-                             elevation: pressed ? .flat : .resting)
+            BezelBackground(shape: shape, fill: colors.danger.mix(with: .white, by: lit ? 0.12 : 0))
         }
     }
 }
@@ -188,6 +211,7 @@ public struct PressScaleStyle: ButtonStyle {
 
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .environment(\.bezelPressed, configuration.isPressed)
             .scaleEffect(configuration.isPressed ? scale : 1)
             .animation(theme.motion.snappy, value: configuration.isPressed)
     }

@@ -59,7 +59,12 @@ struct NeedsYouCard: View {
                     .foregroundStyle(theme.colors.onAccent)
                     .padding(.horizontal, 18)
                     .frame(height: 36)
-                    .background { RaisedBackground(shape: Capsule(), fill: theme.colors.accent, elevation: .resting) }
+                    .background {
+                        BezelBackground(
+                            shape: RoundedRectangle(cornerRadius: KodosiButtonStyle.Size.small.radius, style: .continuous),
+                            fill: theme.colors.accent
+                        )
+                    }
                 Spacer(minLength: 8)
                 Text(session.agent.label)
                     .appTextStyle(.caption)

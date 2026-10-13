@@ -215,6 +215,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/ActivityLine.qml
         qml/Controls/AgentMark.qml
         qml/Controls/AvatarStack.qml
+        qml/Controls/Bezel.qml
         qml/Controls/BreathingDot.qml
         qml/Controls/CardGrid.qml
         qml/Controls/CountBadge.qml
