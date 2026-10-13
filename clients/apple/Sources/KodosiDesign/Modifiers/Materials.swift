@@ -113,15 +113,17 @@ public struct BezelBackground<S: InsettableShape>: View {
                 }
             }
             .overlay {
-                OffsetEdge(shape: shape, offset: -1)
-                    .fill(.black.opacity(dark ? 0.2 : 0), style: FillStyle(eoFill: true))
-                    .clipShape(shape)
+                if dark {
+                    OffsetEdge(shape: shape, offset: -1)
+                        .fill(.black.opacity(0.2), style: FillStyle(eoFill: true))
+                        .clipShape(shape)
+                }
                 OffsetEdge(shape: shape, offset: 1)
                     .fill(.white.opacity(light), style: FillStyle(eoFill: true))
                     .clipShape(shape)
             }
             .shadow(
-                color: dark ? .black.opacity(quiet ? 0.21 : 0.35) : shadow.opacity(quiet ? 0.14 : 0.3),
+                color: shadow.opacity(dark ? (quiet ? 0.21 : 0.35) : (quiet ? 0.14 : 0.3)),
                 radius: dark ? 1.5 : 0.75, y: 1
             )
     }
@@ -134,8 +136,6 @@ public struct BezelBackground<S: InsettableShape>: View {
     }
 }
 
-/// The band along two edges of a shape: with a positive offset the top and the left edge,
-/// where the light from the top left falls; with a negative offset the bottom and the right.
 private struct OffsetEdge<S: Shape>: Shape {
     let shape: S
     let offset: CGFloat

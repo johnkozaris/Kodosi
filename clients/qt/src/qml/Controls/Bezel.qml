@@ -13,7 +13,6 @@ Item {
 
     readonly property bool dark: KodosiTheme.isDark
     readonly property real hair: Screen.devicePixelRatio >= 2 ? 0.5 : 1
-    // In the light appearance a solid face has its hairline inside the edge.
     readonly property real ring: !dark && !quiet ? hair : 0
     readonly property color light: Qt.rgba(1, 1, 1, dark ? (quiet ? 0.06 : 0.05) : (quiet ? 0.35 : 0.22))
     readonly property color shade: Qt.rgba(0, 0, 0, dark ? 0.2 : 0)
@@ -48,8 +47,6 @@ Item {
             ? KodosiTheme.alpha(KodosiTheme.shadow, 0.22)
             : Qt.tint(root.face, Qt.rgba(0, 0, 0, 0.18))
     }
-    // The light comes from the top left: it falls on the top and the left edge, and the
-    // bottom and the right edge are in shade. Each layer leaves one point of the one below.
     Rectangle {
         anchors.fill: parent
         anchors.margins: root.ring
