@@ -631,7 +631,9 @@ impl RemoteActor {
     }
 
     fn next_control(&mut self) -> Result<()> {
-        if self.in_flight.is_some() {
+        // The connection refuses controls until its first snapshot proves the
+        // terminal, so controls wait for it rather than fail.
+        if self.in_flight.is_some() || self.next_sequence.is_none() {
             return Ok(());
         }
         self.focused.retain(|id| self.subscribers.contains(*id));
