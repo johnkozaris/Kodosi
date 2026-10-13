@@ -23,6 +23,7 @@
 #include "terminal/TerminalSurfaceController.hpp"
 #include <kodosi_runtime.h>
 #include <QApplication>
+#include <QFont>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 #include <QQuickWindow>
@@ -65,6 +66,13 @@ int main(int argc, char* argv[])
 #endif
     QQuickStyle::setStyle(QStringLiteral("Basic"));
     QApplication app(argc, argv);
+#ifdef Q_OS_WIN
+    // Windows has no generic monospace family, so text that asks for one
+    // gets the fonts the terminal uses.
+    QFont::insertSubstitutions(
+        QStringLiteral("monospace"),
+        {QStringLiteral("Cascadia Mono"), QStringLiteral("Consolas")});
+#endif
     app.setQuitOnLastWindowClosed(false);
     QCoreApplication::setOrganizationName(QStringLiteral("Kodosi"));
     QCoreApplication::setOrganizationDomain(QStringLiteral("kodosi.com"));
