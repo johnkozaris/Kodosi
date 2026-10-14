@@ -101,6 +101,10 @@ The other checks do not read the pins:
   sanitizers.
 - The crate `runtime/crates/ghostty-vt-sys` compares the artifact of its target
   with the lock, because Cargo cannot run Python.
+- The workflow `.github/workflows/ghostty-windows.yml` builds the Windows x64
+  artifact on a clean runner and keeps it. The committed artifact must have the
+  same `.version` record, apart from its digest, and the same headers. Zig does not
+  always lay out its code the same way, so two builds can differ by a few bytes.
 
 On Windows, Git writes the symbolic links of the Linux artifact as plain files.
 Thus the verifier does not compare the folder digest of the Linux artifact there.

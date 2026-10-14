@@ -59,8 +59,14 @@ jobs:
           fi
           chmod +x "$tools"/*
           PATH="$tools:$PATH" terminal/ghostty/scripts/build.sh --platform windows
-      - name: Check that the committed library is this build
-        run: git diff --exit-code --stat -- terminal/ghostty/Vendor/GhosttyVt
+      - name: Check that the committed library has the inputs of this build
+        run: |
+          # Zig does not always lay out its code the same way, so the library can
+          # differ by a few bytes. Its build inputs and its C interface cannot.
+          vendor=terminal/ghostty/Vendor/GhosttyVt
+          git diff --exit-code --stat -- "$vendor/windows-x86_64/include"
+          diff <(git show "HEAD:$vendor/windows-x86_64.version" | grep -v '^vt_archive_sha256=') \
+              <(grep -v '^vt_archive_sha256=' "$vendor/windows-x86_64.version")
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
