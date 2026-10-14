@@ -88,7 +88,6 @@ QtObject {
         return Qt.rgba(base.r, base.g, base.b, amount)
     }
 
-    // Raises text so its capitals centre where the Mac's do, whatever the font's line box.
     function lift(pixelSize: real): real {
         return Models.Appearance.capLift(pixelSize)
     }

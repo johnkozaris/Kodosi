@@ -23,7 +23,6 @@ Item {
         }
     }
     readonly property var waiting: Models.Sessions.sessions.filter(session => ["hand", "question", "key"].indexOf(session.sign) >= 0 && Models.Sessions.attention.indexOf(session.id) >= 0)
-    // The window has no native title bar; the sidebar's top holds the title zone, as on the Mac.
     property bool titleBar: false
     property string renamingId: ""
     property Item pillTarget: null

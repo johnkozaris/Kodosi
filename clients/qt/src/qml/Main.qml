@@ -11,7 +11,6 @@ ApplicationWindow {
 
     readonly property bool modalOpen: Models.DesktopState.modalOpen || Models.DesktopFiles.busy
     readonly property string notice: Models.AppState.error || Models.DesktopState.lastError || Models.DesktopFiles.errorMessage
-    // On Windows, Kodosi draws its title zone and window controls itself.
     readonly property bool drawsTitleBar: Qt.platform.os === "windows"
 
     function openCreate(folder) {

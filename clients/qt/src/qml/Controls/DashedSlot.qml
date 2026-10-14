@@ -2,7 +2,6 @@ import Kodosi 1.0
 import QtQuick
 import QtQuick.Shapes
 
-// A thin dashed outline: an empty place that you can fill.
 Item {
     id: root
 
