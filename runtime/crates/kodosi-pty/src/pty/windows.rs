@@ -1085,6 +1085,40 @@ mod tests {
         assert_eq!(code, Some(7));
     }
 
+    #[tokio::test]
+    async fn interrupt_reaches_a_program_of_a_host_that_ignores_ctrl_c() {
+        const NAME: &str =
+            "pty::windows::tests::interrupt_reaches_a_program_of_a_host_that_ignores_ctrl_c";
+        const HOST: &str = "KODOSI_TEST_HOST_IGNORES_CTRL_C";
+        // Ignoring Ctrl+C is an attribute of the whole process, so the host runs
+        // alone in another copy of this test program.
+        if std::env::var_os(HOST).is_none() {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", NAME, "--test-threads=1"])
+                .env(HOST, "1")
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stdout)
+            );
+            return;
+        }
+        // The CLI starts its host in a new process group, which ignores Ctrl+C.
+        // SAFETY: a null handler only changes this process's Ctrl+C attribute.
+        unsafe { SetConsoleCtrlHandler(None, 1) };
+        let system = std::env::var_os("SystemRoot").unwrap();
+        let ping = Path::new(&system).join(r"System32\PING.EXE");
+        let arguments = ["-t", "127.0.0.1"].map(str::to_owned);
+        let (mut program, _output) =
+            KodosiPty::spawn_program(&ping, &arguments, None, 24, 80, &[]).unwrap();
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        program.request_shutdown(ShutdownStage::Interrupt).unwrap();
+        let exited = tokio::time::timeout(Duration::from_secs(10), program.wait()).await;
+        assert!(exited.is_ok(), "the program ignored Ctrl+C");
+    }
+
     #[test]
     fn environment_drops_foreign_context_and_sets_the_terminal() {
         let block = environment_block(&[("KODOSI_SESSION_ID", "id")]);
