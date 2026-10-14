@@ -68,7 +68,8 @@ pages, where Keycloak asks for the person's proof; the person then comes back to
 Each e-mail is one card with the wordmark: what it is, one sentence, one action, and a small note,
 in HTML and in plain text. Keycloak sends the notes about an account only when the realm has the
 event listener `email`, and the notes about a locked account only when the server's option
-`spi-events-listener--email--include-events` names them (see `keycloak.sh`).
+`spi-events-listener--email--include-events` names them (see `keycloak.sh`). Keycloak lets
+caches keep the pictures of the e-mails for 30 days, so a changed picture needs a new file name.
 
 ## Work on the pages
 
