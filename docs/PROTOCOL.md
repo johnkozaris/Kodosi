@@ -48,6 +48,11 @@ membership, while sharing one terminal leaves other local terminals alone.
 The host also keeps the status that programs report to the terminal (OSC 7501, or a
 progress bar until a program reports its own). It sends one status for each terminal
 to viewers with the terminal metadata, and drops unfinished work when its program ends.
+For a terminal in a room, the host also sends the agent and its state, encrypted with
+the room key, through its device connection. The backend keeps the newest one while the
+host is connected and gives it to the devices of the room, so members see the state of
+a terminal that they have not opened. It also tells the devices of everyone who can open
+a terminal when its host connects or disconnects.
 
 Reconnecting restores current state. Input whose delivery is uncertain is not replayed,
 and a stale view cannot control a replacement terminal. Minimize dismisses a view;
@@ -61,9 +66,10 @@ restart causes clients to renew sessions and reconnect. Durable records live in
 PostgreSQL; the relay holds no terminal input.
 
 Room conversation, tasks, and repository links are encrypted and signed at endpoints.
-The backend assigns sequence/version metadata and stores ciphertext. Signed room key
-history distributes keys to member devices and preserves earlier history for later
-joiners. See [Security](SECURITY.md) for visible metadata and
+The backend assigns sequence/version metadata and stores ciphertext. After a change it
+tells the members' devices which room changed, and each device reads only the newer
+items. Signed room key history distributes keys to member devices and preserves earlier
+history for later joiners. See [Security](SECURITY.md) for visible metadata and
 [Encryption design](CRYPTOGRAPHY.md) for the keys and their rules.
 
 Repository issue actions run from the participant's runtime using local provider

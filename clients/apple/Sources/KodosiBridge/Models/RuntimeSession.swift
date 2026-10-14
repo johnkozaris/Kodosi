@@ -56,11 +56,11 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     }
 
     public var isWorking: Bool {
-        guard canControl else { return false }
+        guard status != .closing else { return false }
         if let programStatus {
             return programStatus.state == .working
         }
-        guard let first = title?.unicodeScalars.first else { return false }
+        guard canControl, let first = title?.unicodeScalars.first else { return false }
         return (0x2800 ... 0x28FF).contains(first.value)
     }
 
@@ -69,7 +69,7 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     }
 
     public var needsUser: Bool {
-        canControl && programStatus?.state == .blocked
+        status != .closing && programStatus?.state == .blocked
     }
 
     public var waitState: ProgramStatus.State? {

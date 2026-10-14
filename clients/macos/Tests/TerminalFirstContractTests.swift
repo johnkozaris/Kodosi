@@ -278,3 +278,23 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(done.sign(unseen: true) == .done)
     #expect(done.sign(unseen: false) == nil)
 }
+
+@Test func aRoomTerminalThatIsNotOpenHereShowsTheStatusOfItsHost() throws {
+    func session(title: String? = nil, status: [String: JSONValue]?) throws -> RuntimeSession {
+        var fields: [String: JSONValue] = [
+            "id": .string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
+            "kind": .string("remote"), "name": .string("Amber Wren"), "program": .string("claude"),
+            "isOwner": .bool(false), "status": .string("running"), "connectionState": .string("offline"), "sharedWith": .array([]),
+        ]
+        fields["title"] = title.map(JSONValue.string)
+        fields["programStatus"] = status.map(JSONValue.object)
+        return try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode(fields))
+    }
+    let asking = try session(status: ["state": .string("blocked"), "kind": .string("question")])
+    #expect(asking.needsUser)
+    #expect(asking.mark(rested: .asleep) == .asks)
+    #expect(asking.sign(unseen: false) == .question)
+    #expect(asking.alert == nil)
+    #expect(try session(status: ["state": .string("working")]).isWorking)
+    #expect(try !session(title: "\u{2810} Draft the release notes", status: nil).isWorking)
+}

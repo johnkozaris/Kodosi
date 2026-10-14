@@ -199,6 +199,7 @@ async fn failed_unpublish_retains_the_cleanup_obligation() {
             shared_with: vec![],
             authorization_revision: 1,
             host_online: true,
+            status: None,
         },
     ));
     network
@@ -252,6 +253,7 @@ async fn missing_publication_discards_pending_grants_before_reconciliation() {
             shared_with: vec![friend.clone()],
             authorization_revision: 4,
             host_online: false,
+            status: None,
         },
     ));
     *publication.pending_shares.lock().await = Some(BTreeSet::from([friend]));
