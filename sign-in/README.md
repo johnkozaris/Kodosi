@@ -63,6 +63,13 @@ not on the page. A change of a way of sign-in (a password, a passkey, an authent
 removal), a link to a sign-in service and the deletion of the account are steps of the sign-in
 pages, where Keycloak asks for the person's proof; the person then comes back to the page.
 
+## The terms and the privacy page
+
+The foot of each page links to the terms and to the privacy page of the service. The Keycloak server
+gives the two addresses in the environment variables `KODOSI_TERMS_URL` and `KODOSI_PRIVACY_URL`.
+A server without them shows no links. The terms that a new account accepts are a different thing:
+the realm's own words (`termsText`).
+
 ## The e-mails
 
 Each e-mail is one card with the wordmark: what it is, one sentence, one action, and a small note,

@@ -3,11 +3,11 @@ import { useEffect } from "react";
 
 import { Account } from "../account/account";
 import type { AccountService } from "../account/service";
-import { kcEnvDefaults, themeNames } from "../kc.gen";
+import { themeNames } from "../kc.gen";
 import { dropCode, keepCode } from "../login/device";
 import type { KcContext } from "../login/KcContext";
 import KcPage from "../login/KcPage";
-import { sampleAccount, sampleContext } from "./account-sample";
+import { sampleAccount, sampleContext, sampleProperties } from "./account-sample";
 
 /**
  * The development server has no Keycloak. This shows each page with sample data, and a send
@@ -16,7 +16,7 @@ import { sampleAccount, sampleContext } from "./account-sample";
  * the size of a phone.
  */
 const { getKcContextMock } = createGetKcContextMock({
-  kcContextExtension: { themeName: themeNames[0], properties: { ...kcEnvDefaults } },
+  kcContextExtension: { themeName: themeNames[0], properties: sampleProperties },
   kcContextExtensionPerPage: {
     "turnstile-form.ftl": { turnstileSiteKey: "1x00000000000000000000AA" },
     "turnstile-registration-form.ftl": { turnstileSiteKey: "1x00000000000000000000AA" },

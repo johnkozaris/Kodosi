@@ -22,6 +22,8 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsBackToSignIn: "Back to sign in",
       kdsBackTo: "Back to {0}",
       kdsLanguage: "Language",
+      kdsTerms: "Terms",
+      kdsPrivacy: "Privacy",
       kdsNotYou: "Sign in as a different person",
       kdsAnotherWay: "Try another way",
 
