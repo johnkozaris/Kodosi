@@ -38,6 +38,21 @@ rm -f "$output_dir"/kodosi_*.deb \
 umask 022
 .tools/cmake/bin/cpack --config "$build_dir/CPackConfig.cmake" -B "$output_dir"
 
+# With the archive key in the checkout, the Debian package also adds the Kodosi apt
+# repository, so the system's updates update Kodosi. The other packages stay without it.
+keyring=packaging/linux/kodosi-archive-keyring.pgp
+if [[ -f $keyring ]]; then
+    deb="$output_dir/kodosi_${version}_amd64.deb"
+    dpkg-deb -R "$deb" "$stage/deb"
+    install -D -m 0644 packaging/linux/kodosi.sources "$stage/deb/etc/apt/sources.list.d/kodosi.sources"
+    install -D -m 0644 "$keyring" "$stage/deb/usr/share/keyrings/kodosi-archive-keyring.pgp"
+    printf '/etc/apt/sources.list.d/kodosi.sources\n' >"$stage/deb/DEBIAN/conffiles"
+    (cd "$stage/deb" && md5sum etc/apt/sources.list.d/kodosi.sources usr/share/keyrings/kodosi-archive-keyring.pgp \
+        >>DEBIAN/md5sums)
+    find "$stage/deb" -print0 | xargs -0 touch -h --date="@$epoch"
+    dpkg-deb --root-owner-group -Zgzip --build "$stage/deb" "$deb" >/dev/null
+fi
+
 normalize_modes() {
     find "$1" -type d -exec chmod 0755 {} +
     while IFS= read -r -d '' path; do
