@@ -4,6 +4,7 @@ import { carried, dropDrawn, handOver } from "../frame/carry";
 import { useCursor } from "../frame/use-cursor";
 import { cn } from "../parts/cn";
 import { Languages } from "../parts/languages";
+import { Legal } from "../parts/legal";
 import { Avatar } from "../parts/person";
 import { Way as Button, Note, QuietLink, quietLink } from "../parts/text";
 import { Apps, Details, LinkedAccounts, SignedIn, SignIn } from "./groups";
@@ -289,7 +290,7 @@ export function Account({
           </>
         )}
       </main>
-      <footer className="mt-auto flex justify-center px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <footer className="mt-auto flex flex-col items-center gap-3 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <Languages
           label={say("language")}
           current={kcContext.locale}
@@ -302,6 +303,12 @@ export function Account({
               throw error;
             })
           }
+        />
+        <Legal
+          links={[
+            { label: say("terms"), href: kcContext.properties.KODOSI_TERMS_URL },
+            { label: say("privacy"), href: kcContext.properties.KODOSI_PRIVACY_URL },
+          ]}
         />
       </footer>
     </div>

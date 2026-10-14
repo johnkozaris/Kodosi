@@ -14,8 +14,11 @@ body:
       options:
         - Mac app
         - Linux app
+        - Windows app
+        - iPhone and iPad app
         - Command line (kodosi)
         - Backend or self-hosting
+        - Sign-in pages
         - Documentation
     validations:
       required: true

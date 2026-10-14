@@ -17,6 +17,7 @@ import { useCursor } from "../frame/use-cursor";
 import { isInjection } from "../parts/captcha";
 import { cn } from "../parts/cn";
 import { Languages } from "../parts/languages";
+import { Legal } from "../parts/legal";
 import { IdentityRow, Note, quietLink } from "../parts/text";
 import type { I18n } from "./i18n";
 import type { KcContext } from "./KcContext";
@@ -94,7 +95,7 @@ export function Stage({
   wide?: boolean;
   /** Under the capsule: quiet links and other ways. */
   below?: ReactNode;
-  /** At the foot of the page, in place of the languages. */
+  /** At the foot of the page, in place of the languages and the links to the terms. */
   foot?: ReactNode;
   children?: ReactNode;
 }) {
@@ -352,17 +353,25 @@ export function Stage({
           </div>
         )}
       </main>
-      <footer className="mt-auto flex justify-center px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <footer className="mt-auto flex flex-col items-center gap-3 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         {foot ?? (
-          <Languages
-            label={msgStr("kdsLanguage")}
-            current={i18n.currentLanguage.languageTag}
-            languages={i18n.enabledLanguages.map(({ languageTag, label, href }) => ({
-              tag: languageTag,
-              label,
-              href,
-            }))}
-          />
+          <>
+            <Languages
+              label={msgStr("kdsLanguage")}
+              current={i18n.currentLanguage.languageTag}
+              languages={i18n.enabledLanguages.map(({ languageTag, label, href }) => ({
+                tag: languageTag,
+                label,
+                href,
+              }))}
+            />
+            <Legal
+              links={[
+                { label: msgStr("kdsTerms"), href: kcContext.properties.KODOSI_TERMS_URL },
+                { label: msgStr("kdsPrivacy"), href: kcContext.properties.KODOSI_PRIVACY_URL },
+              ]}
+            />
+          </>
         )}
       </footer>
     </div>

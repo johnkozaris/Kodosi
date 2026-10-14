@@ -136,6 +136,7 @@ docker run -d --name "$mailbox" --network "$network" -p "127.0.0.1:$mailbox_port
   axllent/mailpit:v1.27 >/dev/null
 docker run -d --name "$name" --network "$network" -p "127.0.0.1:$port:8080" \
   -e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD="$admin" \
+  -e KODOSI_TERMS_URL=https://kodosi.com/terms -e KODOSI_PRIVACY_URL=https://kodosi.com/privacy \
   -v "$PWD/$jar:/opt/keycloak/providers/kodosi-sign-in.jar:ro" \
   -v "$PWD/$check_jar:/opt/keycloak/providers/kodosi-turnstile-stand-in.jar:ro" \
   "$image" start-dev "--spi-events-listener--email--include-events=$notes" >/dev/null

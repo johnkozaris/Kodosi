@@ -77,7 +77,7 @@ flate2 = { version = "1.1.10", default-features = false, features = ["rust_backe
 futures-util = { workspace = true }
 reqwest = { workspace = true }
 rusqlite = { version = "0.40.2", default-features = false, features = ["bundled"] }
-rustls = { version = "0.23.45", default-features = false, features = ["aws-lc-rs", "std"] }
+rustls = { version = "0.23.46", default-features = false, features = ["aws-lc-rs", "std"] }
 rustls-platform-verifier = "0.7.1"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
