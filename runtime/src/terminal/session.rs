@@ -1409,3 +1409,7 @@ fn host_geometry(
 #[cfg(all(test, unix))]
 #[path = "session_tests.rs"]
 mod tests;
+
+#[cfg(all(test, windows))]
+#[path = "session_windows_tests.rs"]
+mod windows_tests;
