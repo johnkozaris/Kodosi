@@ -9,6 +9,9 @@
 #include <windows.h>
 
 #include <dwmapi.h>
+#include <shellapi.h>
+
+#include <array>
 
 namespace kodosi {
 namespace {
@@ -16,6 +19,37 @@ namespace {
 COLORREF colorRef(const QColor& color)
 {
     return RGB(color.red(), color.green(), color.blue());
+}
+
+// Windows keeps an auto-hide taskbar hidden behind a window that covers its
+// monitor, so a maximized window leaves the taskbar's edge to the pointer.
+void leaveAutoHideTaskbars(HWND hwnd, RECT& client)
+{
+    APPBARDATA state {};
+    state.cbSize = sizeof(state);
+    if ((SHAppBarMessage(ABM_GETSTATE, &state) & ABS_AUTOHIDE) == 0)
+        return;
+    MONITORINFO monitor {};
+    monitor.cbSize = sizeof(monitor);
+    if (!GetMonitorInfoW(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), &monitor))
+        return;
+    constexpr LONG reveal = 2;
+    for (const UINT edge : std::array<UINT, 4> { ABE_LEFT, ABE_TOP, ABE_RIGHT, ABE_BOTTOM }) {
+        APPBARDATA bar {};
+        bar.cbSize = sizeof(bar);
+        bar.uEdge = edge;
+        bar.rc = monitor.rcMonitor;
+        if (SHAppBarMessage(ABM_GETAUTOHIDEBAREX, &bar) == 0)
+            continue;
+        if (edge == ABE_LEFT)
+            client.left += reveal;
+        else if (edge == ABE_TOP)
+            client.top += reveal;
+        else if (edge == ABE_RIGHT)
+            client.right -= reveal;
+        else
+            client.bottom -= reveal;
+    }
 }
 
 }
@@ -93,6 +127,7 @@ bool WindowFrame::fitClient(void* parameters) const
         const auto dpi = GetDpiForWindow(hwnd);
         const auto border = GetSystemMetricsForDpi(SM_CXSIZEFRAME, dpi) + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
         InflateRect(&client, -border, -border);
+        leaveAutoHideTaskbars(hwnd, client);
     }
     return true;
 }

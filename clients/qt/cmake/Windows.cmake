@@ -44,7 +44,7 @@ set(KODOSI_PLATFORM_SOURCES
     platform/windows/WindowFrame.cpp
     platform/windows/WindowFrame.hpp
 )
-set(KODOSI_PLATFORM_LIBRARIES windowsapp user32 dwmapi)
+set(KODOSI_PLATFORM_LIBRARIES windowsapp user32 dwmapi shell32)
 set(KODOSI_TEST_LAUNCHER "")
 set(KODOSI_TEST_ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 # Tests run from the build tree, so they find Qt's DLLs where Qt keeps them.
