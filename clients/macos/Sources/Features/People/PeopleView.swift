@@ -1,4 +1,3 @@
-import AppKit
 import KodosiBridge
 import KodosiDesign
 import SwiftUI
@@ -8,6 +7,7 @@ struct PeopleView: View {
     @Environment(\.theme) private var theme
     @State private var username = ""
     @State private var pendingRemoval: FriendEntry?
+    @State private var copied = false
     @FocusState private var adding: Bool
 
     private var facts: String {
@@ -23,12 +23,12 @@ struct PeopleView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
                     PageHeader(title: "People", facts: facts) {
-                        Button { deps.perform("friends.invite") } label: {
-                            Label(deps.ownInvite == nil ? String(localized: "Copy my invite") : String(localized: "Invite copied"),
-                                  systemImage: deps.ownInvite == nil ? "link" : "checkmark")
+                        Button { deps.copyInvite() } label: {
+                            Label(copied ? String(localized: "Invite copied") : String(localized: "Copy my invite"),
+                                  systemImage: copied ? "checkmark" : "link")
                                 .contentTransition(.symbolEffect(.replace))
                         }
-                        .buttonStyle(.kodosi(deps.ownInvite == nil ? .secondary : .tinted))
+                        .buttonStyle(.kodosi(copied ? .tinted : .secondary))
                         .accessibilityIdentifier("people.copyInvite")
                     }.arrive()
                     addCapsule.arrive(delay: 0.04)
@@ -44,7 +44,7 @@ struct PeopleView: View {
                         } actions: { EmptyView() }
                             .frame(height: 260)
                     } else {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 260, maximum: 360), spacing: 14)], alignment: .leading, spacing: 14) {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 260, maximum: 360), spacing: 14, alignment: .top)], alignment: .leading, spacing: 14) {
                             ForEach(Array(deps.friends.enumerated()), id: \.element.id) { index, friend in
                                 FriendCard(friend: friend) { pendingRemoval = friend }
                                     .arrive(delay: 0.04 * Double(min(index, 8) + 2))
@@ -58,7 +58,7 @@ struct PeopleView: View {
             .animation(theme.motion.spring, value: deps.friends.map(\.id))
             .animation(theme.motion.spring, value: deps.incomingRequests.map(\.id))
             .animation(theme.motion.spring, value: deps.outgoingRequests.map(\.id))
-            .animation(theme.motion.snappy, value: deps.ownInvite)
+            .animation(theme.motion.snappy, value: copied)
             .confirmationDialog(
                 "Remove \(pendingRemoval?.displayName ?? "")?",
                 isPresented: Binding(get: { pendingRemoval != nil }, set: {
@@ -74,12 +74,12 @@ struct PeopleView: View {
                     }
                 }
             } message: { Text("They lose the terminals you shared. Commands they already ran stay done.") }
-            .onChange(of: deps.ownInvite) { _, text in
-                guard let text else { return }
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(text, forType: .string)
+            .onChange(of: deps.inviteCopies) { _, _ in copied = true }
+            .task(id: copied) {
+                guard copied else { return }
+                try? await Task.sleep(for: .seconds(2))
+                copied = false
             }
-            .onDisappear { deps.ownInvite = nil }
         }
     }
 
@@ -186,35 +186,38 @@ private struct FriendCard: View {
                 .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
                 .accessibilityLabel(Text("Options for \(name)"))
             }
-            if friend.identityChanged {
-                HStack(spacing: 8) {
-                    Tag(text: String(localized: "New identity"), symbol: "exclamationmark", tone: .caution)
-                    Spacer()
-                    Button("Trust") { deps.perform("friends.identity.trust", ["username": .string(friend.handle)]) }
-                        .buttonStyle(.kodosi(.primary, size: .small))
-                        .accessibilityIdentifier("people.trust.\(friend.handle)")
-                }
-            } else if shared.isEmpty {
-                HStack {
-                    Text("Nothing shared with you yet").appTextStyle(.footnote).foregroundStyle(theme.colors.inkFaint)
-                    Spacer()
-                    if !friend.verified {
-                        Button("Verify") { verifying.toggle() }.buttonStyle(.kodosi(.ghost, size: .small))
-                            .accessibilityIdentifier("people.verify.\(friend.handle)")
+            Group {
+                if friend.identityChanged {
+                    HStack(spacing: 8) {
+                        Tag(text: String(localized: "New identity"), symbol: "exclamationmark", tone: .caution)
+                        Spacer()
+                        Button("Trust") { deps.perform("friends.identity.trust", ["username": .string(friend.handle)]) }
+                            .buttonStyle(.kodosi(.primary, size: .small))
+                            .accessibilityIdentifier("people.trust.\(friend.handle)")
                     }
-                }
-            } else {
-                HStack(spacing: 6) {
-                    ForEach(shared.prefix(4)) { session in
-                        Button { deps.activateSession(session.id) } label: {
-                            AgentMark(kind: session.agent, size: 24, activity: session.mark(rested: .awake))
+                } else if shared.isEmpty {
+                    HStack {
+                        Text("Nothing shared with you yet").appTextStyle(.footnote).foregroundStyle(theme.colors.inkFaint)
+                        Spacer()
+                        if !friend.verified {
+                            Button("Verify") { verifying.toggle() }.buttonStyle(.kodosi(.ghost, size: .small))
+                                .accessibilityIdentifier("people.verify.\(friend.handle)")
                         }
-                        .buttonStyle(PressScaleStyle()).help(session.name)
                     }
-                    Text("\(shared.count) shared with you").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
-                    Spacer()
+                } else {
+                    HStack(spacing: 6) {
+                        ForEach(shared.prefix(4)) { session in
+                            Button { deps.activateSession(session.id) } label: {
+                                AgentMark(kind: session.agent, size: 24, activity: session.mark(rested: .awake))
+                            }
+                            .buttonStyle(PressScaleStyle()).help(session.name)
+                        }
+                        Text("\(shared.count) shared with you").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                        Spacer()
+                    }
                 }
             }
+            .frame(minHeight: KodosiButtonStyle.Size.small.height)
             if verifying {
                 HStack(spacing: 6) {
                     TextField("Paste the invite \(name) sent you", text: $invite)
