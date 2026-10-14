@@ -122,32 +122,18 @@ installed Qt libraries. On any host with Docker, `just windows-rust-lint` from t
 repository root lints the runtime for both Windows targets. Desktop notifications need the installed
 package; a development build does not show them.
 
-### Package and sign
+### Package
 
 From this client directory, `just windows-package` builds, tests, and verifies
 `build/release/kodosi-<version>-windows-<arch>.msix`. The `project` command in
 [CMakeLists.txt](CMakeLists.txt) gives the version. The recipes and the release
 scripts read the version from that file. The package holds the app, the
-`kodosi` command, ConPTY, the C runtime, Qt, and the notices. Without
-`KODOSI_MSIX_PUBLISHER`, the package is unsigned; install it from an administrator
-PowerShell:
+`kodosi` command, ConPTY, the C runtime, Qt, and the notices. Install the unsigned
+package from an administrator PowerShell:
 
 ```powershell
 Add-AppxPackage -Path build\release\kodosi-<version>-windows-x64.msix -AllowUnsigned
 ```
-
-For a release, set `KODOSI_MSIX_PUBLISHER` to the subject of the Azure Artifact
-Signing certificate before packaging. Install the signing client with
-`winget install -e --id Microsoft.Azure.ArtifactSigningClientTools`, sign in to
-Azure, and run:
-
-```sh
-KODOSI_SIGNING_DLIB=<path>/Azure.CodeSigning.Dlib.dll \
-KODOSI_SIGNING_METADATA=<path>/metadata.json \
-just windows-sign build/release/kodosi-<version>-windows-x64.msix
-```
-
-Publish the signed x64 and ARM64 packages to winget with `wingetcreate`.
 
 The installed app adds the `kodosi` command to the user's PATH as an app execution
 alias and opens `kodosi://` links. The app and its command share their data in
