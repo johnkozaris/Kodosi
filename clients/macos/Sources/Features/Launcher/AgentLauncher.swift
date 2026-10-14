@@ -448,7 +448,7 @@ private struct FolderChoices: View {
         ChoicePanel(title: "Folder") {
             ForEach(recents, id: \.self) { path in
                 ChoiceRow(
-                    title: URL(fileURLWithPath: path).lastPathComponent, detail: CommandText.tilde(path),
+                    title: URL(fileURLWithPath: path).lastPathComponent, detail: tilde(path),
                     monoDetail: true, selected: path == selected,
                     identifier: "launcher.folder.\(AccessibilityIdentifier.token(path))"
                 ) { pick(path) }
@@ -456,4 +456,10 @@ private struct FolderChoices: View {
             ChoiceRow(title: String(localized: "Choose a folder…"), symbol: "folder", identifier: "launcher.folder.choose", action: choose)
         }
     }
+}
+
+/// `path` with `~` for the home folder.
+private func tilde(_ path: String) -> String {
+    let home = ProcessInfo.processInfo.environment["HOME"] ?? FileManager.default.homeDirectoryForCurrentUser.path
+    return path == home ? "~" : path.hasPrefix(home + "/") ? "~" + path.dropFirst(home.count) : path
 }

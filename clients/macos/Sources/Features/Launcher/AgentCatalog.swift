@@ -33,7 +33,6 @@ struct AgentAccount: Decodable, Equatable, Identifiable {
 }
 
 struct AgentModels: Decodable, Equatable {
-    var agent: String
     var models: [AgentModel]
     var efforts: [AgentOption]
 }
@@ -64,21 +63,4 @@ struct LaunchChoice: Codable, Equatable {
     var accounts: [String: String] = [:]
     var models: [String: String] = [:]
     var efforts: [String: String] = [:]
-}
-
-enum CommandText {
-    private static let home = ProcessInfo.processInfo.environment["HOME"] ?? FileManager.default.homeDirectoryForCurrentUser.path
-
-    /// `command` as a person reads it: no `env`, and `~` for the home folder.
-    static func readable(_ command: String) -> String {
-        var text = command
-        if text.hasPrefix("env ") {
-            text.removeFirst(4)
-        }
-        return text.replacingOccurrences(of: home + "/", with: "~/")
-    }
-
-    static func tilde(_ path: String) -> String {
-        path == home ? "~" : path.hasPrefix(home + "/") ? "~" + path.dropFirst(home.count) : path
-    }
 }
