@@ -35,13 +35,11 @@ Item {
         border.color: Qt.rgba(1, 1, 1, 0.16)
     }
     Text {
-        id: initials
         anchors.centerIn: parent
         text: Identity.initials(root.name)
         color: root.isSelf ? KodosiTheme.accentInk : "#ffffff"
         font.pixelSize: Math.round(root.size * 0.38)
         font.weight: Font.DemiBold
         textFormat: Text.PlainText
-        transform: Translate { y: -KodosiTheme.lift(initials.font.pixelSize) }
     }
 }

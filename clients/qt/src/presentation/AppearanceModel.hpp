@@ -58,12 +58,8 @@ public:
     Q_INVOKABLE void clearError();
     Q_INVOKABLE [[nodiscard]] static int stableIndex(const QString& key, int count);
     Q_INVOKABLE [[nodiscard]] static int stableBits(const QString& key);
-    /// How far text of `pixelSize` in the application font rises so that its
-    /// capitals, rather than its whole line box, sit centred.
-    Q_INVOKABLE [[nodiscard]] static qreal capLift(qreal pixelSize);
 
     void injectSystemColorSchemeForTesting(Qt::ColorScheme scheme);
-    void injectReducedMotionForTesting(bool enabled);
 
 signals:
     void preferenceChanged();

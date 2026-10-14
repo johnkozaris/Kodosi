@@ -3,10 +3,7 @@ import QtQuick
 import QtQuick.Controls
 
 Label {
-    id: root
-
     color: KodosiTheme.ink
     font.pixelSize: KodosiTheme.fontBody
     textFormat: Text.PlainText
-    transform: Translate { y: -KodosiTheme.lift(root.font.pixelSize) }
 }

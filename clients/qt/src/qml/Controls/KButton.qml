@@ -33,14 +33,14 @@ Button {
     hoverEnabled: true
     implicitHeight: compact ? 26 : large ? 40 : KodosiTheme.controlHeight
     implicitWidth: Math.max(implicitHeight, contentRow.implicitWidth + leftPadding + rightPadding)
-    leftPadding: compact ? 11 : large ? 18 : 14
+    leftPadding: compact ? 11 : large ? 20 : 14
     rightPadding: leftPadding
     topPadding: 0
     bottomPadding: 0
     scale: pressed && enabled ? 0.97 : 1
     opacity: enabled || variant !== KButton.Primary ? 1 : 0.55
 
-    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
+    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
 
     contentItem: RowLayout {
         id: contentRow
@@ -60,9 +60,8 @@ Button {
             visible: root.text.length > 0
             active: root.working
             color: root.foreground
-            font.pixelSize: root.compact ? KodosiTheme.fontFootnote : root.large ? KodosiTheme.fontHeadline : KodosiTheme.fontBody
+            font.pixelSize: root.compact ? KodosiTheme.fontFootnote : root.large ? KodosiTheme.fontCallout : KodosiTheme.fontBody
             font.weight: Font.DemiBold
-            font.letterSpacing: root.compact ? 0 : root.large ? -0.2 : -0.08
         }
         KIcon {
             visible: root.iconName.length > 0 && root.iconTrailing

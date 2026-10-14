@@ -60,7 +60,7 @@ components:
 # Design System: Kodosi for Linux and Windows
 
 ## Overview
-Kodosi is a warm workbench, lit from above. A source list rests on the ground, which carries a faint copper glow from the top left and a fine grain. One framed surface holds the work. Raised objects rest on that surface, and inputs sink into wells. The copper cursor is the sign of life: it stands at the end of the wordmark, it is the empty slot for a new terminal, and a new terminal opens from it.
+Kodosi is a warm workbench, lit from above. A source list rests on the ground. One framed surface holds the work. Raised objects rest on that surface, and inputs sink into wells. The copper cursor is the sign of life: it stands at the end of the wordmark, it is the empty slot for a new terminal, and a new terminal opens from it.
 
 Each screen starts with the objects of its job: terminals, rooms, people, tasks. Text is short. One word has one meaning: terminal, room, friend, agent, device. The Mac client uses the same system.
 
@@ -68,7 +68,7 @@ Each screen starts with the objects of its job: terminals, rooms, people, tasks.
 Copper `accent` means "act here" or "this is selected". Green `ready` means done or verified, and people never use green. Unqualified tokens are dark, and `-light` tokens are the light pair. Use `KodosiTheme` roles, not literals. A terminal is a dark object in the two themes: its tile and header use the `terminal*` roles.
 
 ## Typography
-Inherit the Qt application font. `large` is for page titles, `title` for sheets, `headline` for object names, `body` for conversation and rows, `footnote` and `caption` for facts. Monospace is for code and paths. The wordmark is a picture: the K with "odosi" in the same copper planks. Labels use sentence case. Labels rise by `KodosiTheme.lift()` so that capitals, not the font's line box, sit centred, as they do on the Mac.
+Inherit the Qt application font. `large` is for page titles, `title` for sheets, `headline` for object names, `body` for conversation and rows, `footnote` and `caption` for facts. Monospace is for code and paths. The wordmark is a picture: the K with "odosi" in the same copper planks. Labels use sentence case.
 
 ## Layout
 On Linux the desktop draws the window frame. On Windows Kodosi draws a (36 px) title zone: the wordmark, Go to and the sidebar button share the line of the window controls at the right, and the main frame starts below it. The source list is (252 px), or a rail of marks (78 px). The main frame is inset (8 px) with a (18 px) radius. Pages have (36 px) margins. A room has a (54 px) header, a canvas, and the conversation on a raised sheet (300–540 px) that slides in from the right. Below (720 px) the room shows one of the two.
@@ -76,10 +76,10 @@ On Linux the desktop draws the window frame. On Windows Kodosi draws a (36 px) t
 When chrome moves, the terminal gets its final size at once. The chrome animates, the terminal does not.
 
 ## Elevation & Depth
-Three levels: resting, lifted (hover, focused composer, menus) and floating (sheets, notices, the Go to palette). `Raised` matches the Mac: a tight contact shadow and a wide ambient shadow that fall down and to the right, a rim that is light at the top left and dark at the bottom right, and a hairline. The shadows are Gaussian images drawn by `SoftShadow`, so they render the same with and without a GPU. Do not add shader effects.
+Three levels: resting, lifted (hover, focused composer, menus) and floating (sheets, notices, the Go to palette). `Raised` draws a light rim, a dark rim and soft shadows that fall down and to the right. It uses plain shapes, so it renders the same with and without a GPU. Do not add shader effects.
 
 ## Shapes
-Tags and pills are capsules. Buttons are rounded rectangles, with a radius of (8 px), (10 px) or (12 px) for the three sizes. Rounded squares are agents, rooms and kinds of things. Circles are people and icon buttons. A thin outline is a slot that you can fill.
+Tags and pills are capsules. Buttons are rounded rectangles, with a radius of (8 px), (10 px) or (12 px) for the three sizes. Rounded squares are agents, rooms and kinds of things. Circles are people. A thin outline is a slot that you can fill.
 
 ## Components
 - **Button:** a rounded rectangle with a flat face in one color. The light comes from the top left, as on every raised shape: a fine light line on the top and the left edge, and a tight shadow below. In the light appearance a dark hairline goes round the edge. Primary buttons have a copper face. Secondary, tinted and danger buttons have a quiet face with the same lines. In the dark appearance there is no hairline: the bottom and the right edge have a darker line, the shadow is a little deeper, and the face is lighter than the surface behind it. With the pointer on it, the face changes a little. A press makes the face darker and the button a little smaller. A ghost button is words only, with a faint fill under the pointer. A button with only a symbol is round. `Bezel` draws the face with plain shapes.
@@ -97,7 +97,7 @@ Tags and pills are capsules. Buttons are rounded rectangles, with a radius of (8
 - **Tasks:** cards in "Up for grabs", "In progress" and "Done".
 - **Go to (Ctrl+K):** one field in a well finds terminals, rooms, people and actions. The chosen row is a raised pill with a copper notch and a return key, and each action has a colored tile.
 
-Working text shimmers. New words of a program rise into place, and so do new rows and the groups of a page as it appears. A terminal that rang its bell, or where an agent stopped work while you looked elsewhere, shows a breathing copper dot until you look at it. With reduced motion, all changes are instant and nothing loops. On Windows, reduced motion follows Settings › Accessibility › Visual effects › Animation effects. QML remains authoritative.
+Working text shimmers. New words of a program rise into place. A terminal that rang its bell, or where an agent stopped work while you looked elsewhere, shows a breathing copper dot until you look at it. With reduced motion, all changes are instant and nothing loops. QML remains authoritative.
 
 ## Do's and Don'ts
 - **Do** animate only for an action or a real change of state.

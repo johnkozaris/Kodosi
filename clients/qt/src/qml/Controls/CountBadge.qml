@@ -20,6 +20,5 @@ Rectangle {
         color: root.quiet ? KodosiTheme.inkMuted : KodosiTheme.accentInk
         font.pixelSize: KodosiTheme.fontCaption2
         font.weight: Font.Bold
-        transform: Translate { y: -KodosiTheme.lift(label.font.pixelSize) }
     }
 }

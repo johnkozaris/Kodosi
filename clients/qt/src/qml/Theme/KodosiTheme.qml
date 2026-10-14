@@ -29,8 +29,9 @@ QtObject {
     readonly property color dangerSoft: isDark ? "#3f211f" : "#f4d9d4"
     readonly property color dangerInk: isDark ? "#1a0c0b" : "#fffaf3"
     readonly property color shadow: isDark ? "#000000" : "#2e1f0f"
-    readonly property color highlight: isDark ? Qt.rgba(1, 0.945, 0.863, 0.09) : Qt.rgba(1, 1, 1, 0.95)
-    readonly property color lowlight: isDark ? Qt.rgba(0, 0, 0, 0.3) : Qt.rgba(0.31, 0.19, 0.09, 0.06)
+    readonly property real shadowStrength: isDark ? 1 : 0.36
+    readonly property color highlight: isDark ? Qt.rgba(1, 0.945, 0.863, 0.11) : Qt.rgba(1, 1, 1, 0.95)
+    readonly property color lowlight: isDark ? Qt.rgba(0, 0, 0, 0.34) : Qt.rgba(0.31, 0.19, 0.09, 0.12)
 
     readonly property color terminal: "#0d0b09"
     readonly property color terminalBand: "#1a1512"
@@ -84,9 +85,5 @@ QtObject {
 
     function alpha(base: color, amount: real): color {
         return Qt.rgba(base.r, base.g, base.b, amount)
-    }
-
-    function lift(pixelSize: real): real {
-        return Models.Appearance.capLift(pixelSize)
     }
 }

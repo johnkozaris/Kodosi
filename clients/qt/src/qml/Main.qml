@@ -53,21 +53,16 @@ ApplicationWindow {
                 strokeColor: "transparent"
                 strokeWidth: 0
                 fillGradient: RadialGradient {
-                    centerX: 0
-                    centerY: 0
+                    centerX: 70
+                    centerY: 10
                     focalX: centerX
                     focalY: centerY
-                    centerRadius: 620
-                    GradientStop { position: 0; color: KodosiTheme.alpha(KodosiTheme.accent, KodosiTheme.isDark ? 0.09 : 0.07) }
+                    centerRadius: 560
+                    GradientStop { position: 0; color: KodosiTheme.alpha(KodosiTheme.accent, KodosiTheme.isDark ? 0.11 : 0.14) }
                     GradientStop { position: 1; color: KodosiTheme.alpha(KodosiTheme.accent, 0) }
                 }
                 PathRectangle { width: glow.width; height: glow.height }
             }
-        }
-        Models.Grain {
-            anchors.fill: parent
-            dark: KodosiTheme.isDark
-            opacity: KodosiTheme.isDark ? 0.05 : 0.035
         }
         RowLayout {
             anchors.fill: parent

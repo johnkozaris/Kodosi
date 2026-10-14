@@ -92,7 +92,6 @@ Item {
                             color: KodosiTheme.ink
                             font.pixelSize: KodosiTheme.fontBody
                             font.weight: Font.DemiBold
-                            transform: Translate { y: -KodosiTheme.lift(KodosiTheme.fontBody) }
                         }
                         Text {
                             visible: !entry.selected && entry.modelData.count > 0
@@ -100,7 +99,6 @@ Item {
                             color: entry.tone
                             font.pixelSize: KodosiTheme.fontFootnote
                             font.weight: Font.Medium
-                            transform: Translate { y: -KodosiTheme.lift(KodosiTheme.fontFootnote) }
                         }
                         BreathingDot {
                             visible: !entry.selected && !!entry.modelData.fresh

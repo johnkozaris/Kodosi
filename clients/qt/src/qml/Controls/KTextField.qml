@@ -8,8 +8,8 @@ TextField {
     implicitHeight: KodosiTheme.fieldHeight
     leftPadding: 12
     rightPadding: 12
-    topPadding: 7 - KodosiTheme.lift(font.pixelSize)
-    bottomPadding: 7 + KodosiTheme.lift(font.pixelSize)
+    topPadding: 7
+    bottomPadding: 7
     color: enabled ? KodosiTheme.ink : KodosiTheme.inkFaint
     placeholderTextColor: KodosiTheme.inkFaint
     selectionColor: KodosiTheme.accent

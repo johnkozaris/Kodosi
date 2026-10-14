@@ -91,7 +91,6 @@ Item {
                             color: option.selected ? KodosiTheme.ink : option.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
                             font.pixelSize: root.compact ? KodosiTheme.fontFootnote : KodosiTheme.fontBody
                             font.weight: option.selected ? Font.DemiBold : Font.Medium
-                            transform: Translate { y: -KodosiTheme.lift(label.font.pixelSize) }
 
                             Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
                         }

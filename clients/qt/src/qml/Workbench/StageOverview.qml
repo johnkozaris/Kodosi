@@ -11,7 +11,6 @@ Item {
 
     property bool loading: false
     property bool failed: false
-    property var shownPlaces: ({})
     readonly property var sessions: Models.Sessions.sessions
     readonly property var places: {
         const groups = {}
@@ -86,8 +85,8 @@ Item {
         contentWidth: availableWidth
 
         ColumnLayout {
-            x: (scroll.availableWidth - Math.min(1040, scroll.availableWidth)) / 2 + 36
-            width: Math.min(1040, scroll.availableWidth) - 72
+            x: 30
+            width: Math.min(1040, scroll.availableWidth - 60)
             spacing: 22
 
             AgentLauncher {
@@ -107,52 +106,44 @@ Item {
                 }
             }
             Repeater {
-                model: root.places.length
+                model: root.places
 
-                Arrival {
+                ColumnLayout {
                     id: place
 
-                    required property int index
-                    readonly property var group: root.places[index] || ({ key: "", label: "", sessions: [] })
+                    required property var modelData
 
                     Layout.fillWidth: true
-                    seen: root.shownPlaces
-                    key: "place:" + group.key
-                    delay: 40 * (index + 1)
-                    spacing: 12
+                    spacing: 10
 
                     RowLayout {
                         spacing: 7
-                        KIcon { Layout.preferredWidth: 14; Layout.preferredHeight: 14; name: "laptop"; color: KodosiTheme.inkMuted }
-                        PlainLabel { text: place.group.label; color: KodosiTheme.inkMuted; font.weight: Font.DemiBold; font.letterSpacing: -0.08 }
+                        KIcon { Layout.preferredWidth: 14; Layout.preferredHeight: 14; name: "laptop"; color: KodosiTheme.inkFaint }
+                        PlainLabel { text: place.modelData.label; color: KodosiTheme.inkMuted; font.pixelSize: KodosiTheme.fontFootnote; font.weight: Font.Medium }
                     }
                     CardGrid {
                         id: grid
                         Layout.fillWidth: true
-                        minimum: 230
-                        maximum: 320
 
                         Repeater {
-                            model: place.group.sessions.length
+                            model: place.modelData.sessions
 
                             AbstractButton {
                                 id: card
 
-                                required property int index
-                                readonly property var session: place.group.sessions[index] || ({})
-                                readonly property bool needsYou: Models.Sessions.attention.indexOf(session.id) >= 0
+                                required property var modelData
+                                readonly property bool needsYou: Models.Sessions.attention.indexOf(modelData.id) >= 0
 
                                 width: grid.cardWidth
-                                height: 68
+                                height: 62
                                 hoverEnabled: true
                                 activeFocusOnTab: true
-                                objectName: "overview.session." + (session.id || "")
+                                objectName: "overview.session." + modelData.id
                                 Accessible.id: objectName
-                                Accessible.name: session.name || ""
+                                Accessible.name: modelData.name
                                 scale: pressed ? 0.98 : 1
-                                transform: Translate { y: card.hovered ? -1 : 0; Behavior on y { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic } } }
 
-                                Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
+                                Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover } }
 
                                 background: Raised {
                                     radius: KodosiTheme.radiusLg
@@ -162,29 +153,29 @@ Item {
                                 contentItem: RowLayout {
                                     spacing: 12
 
-                                    AgentMark { Layout.leftMargin: 14; program: card.session.program || ""; size: 34; session: card.session }
+                                    AgentMark { Layout.leftMargin: 12; program: card.modelData.program || ""; size: 32; session: card.modelData }
                                     ColumnLayout {
                                         Layout.fillWidth: true
-                                        spacing: 3
-                                        PlainLabel { Layout.fillWidth: true; text: card.session.name || ""; font.weight: Font.DemiBold; font.letterSpacing: -0.08; elide: Text.ElideRight }
+                                        spacing: 2
+                                        PlainLabel { Layout.fillWidth: true; text: card.modelData.name; font.weight: Font.DemiBold; elide: Text.ElideRight }
                                         ActivityLine {
                                             Layout.fillWidth: true
-                                            session: card.session
-                                            words: card.session.activity || card.session.folderName || Identity.kindLabel(Identity.kind(card.session.program || ""))
+                                            session: card.modelData
+                                            words: card.modelData.activity || card.modelData.folderName || Identity.kindLabel(Identity.kind(card.modelData.program || ""))
                                         }
                                     }
-                                    StatusSign { Layout.rightMargin: 14; session: card.session; unseen: card.needsYou; size: 13 }
+                                    StatusSign { Layout.rightMargin: 12; session: card.modelData; unseen: card.needsYou; size: 16 }
                                 }
                                 onClicked: {
-                                    Models.Sessions.clearAttention(session.id)
-                                    Models.SessionActions.activate(session.id)
+                                    Models.Sessions.clearAttention(modelData.id)
+                                    Models.SessionActions.activate(modelData.id)
                                 }
                             }
                         }
                     }
                 }
             }
-            Item { Layout.preferredHeight: 36 }
+            Item { Layout.preferredHeight: 30 }
         }
     }
 }
