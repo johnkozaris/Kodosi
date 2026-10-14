@@ -4,7 +4,7 @@ import SwiftUI
 
 struct CommandPalette: View {
     enum Icon {
-        case symbol(String)
+        case symbol(String, Color)
         case agent(AgentKind, AgentMark.Activity)
         case room(name: String, key: String)
         case person(name: String, key: String)
@@ -24,6 +24,7 @@ struct CommandPalette: View {
     @State private var query = ""
     @State private var index = 0
     @FocusState private var focused: Bool
+    @Namespace private var selection
 
     private var items: [Item] {
         let needle = query.trimmingCharacters(in: .whitespaces).lowercased()
@@ -39,27 +40,28 @@ struct CommandPalette: View {
                 .contentShape(Rectangle()).onTapGesture(perform: close)
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
-                    Image(systemName: "magnifyingglass").font(.system(size: 15, weight: .medium)).foregroundStyle(theme.colors.inkFaint)
+                    Image(systemName: "magnifyingglass").font(.system(size: 13, weight: .semibold)).foregroundStyle(theme.colors.inkMuted)
                     TextField("Go to a terminal, a room or a person", text: $query)
-                        .textFieldStyle(.plain).appTextStyle(.callout).focused($focused)
+                        .textFieldStyle(.plain).appTextStyle(.body).focused($focused)
                         .onSubmit { run(results) }
                         .onKeyPress(.downArrow) { move(1, in: results); return .handled }
                         .onKeyPress(.upArrow) { move(-1, in: results); return .handled }
                         .onKeyPress(.escape) { close(); return .handled }
                         .accessibilityIdentifier("palette.query")
-                    Text(verbatim: "esc").appTextStyle(.caption2).foregroundStyle(theme.colors.inkFaint)
-                        .padding(.horizontal, 6).frame(height: 18).well(Radius.xs)
+                    Keycap(text: "esc")
                 }
-                .padding(.horizontal, 18).frame(height: 54)
+                .padding(.horizontal, 12).frame(height: 38)
+                .well(Radius.md)
+                .padding(10)
                 if results.isEmpty {
                     Text("Nothing matches.").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
-                        .frame(maxWidth: .infinity).padding(.vertical, 26).hairline(.top)
+                        .frame(maxWidth: .infinity).padding(.top, 14).padding(.bottom, 24)
                 } else {
-                    list(results).hairline(.top)
+                    list(results)
                 }
             }
-            .frame(width: 580)
-            .raised(Radius.sheet, fill: theme.colors.raised, elevation: .floating)
+            .frame(width: 560)
+            .raised(Radius.sheet, fill: theme.colors.surface, elevation: .floating)
             .padding(.top, 96)
             .transition(.scale(scale: 0.97, anchor: .top).combined(with: .opacity))
         }
@@ -77,17 +79,18 @@ struct CommandPalette: View {
                     ForEach(Array(results.enumerated()), id: \.element.id) { position, item in
                         if position == 0 || results[position - 1].group != item.group {
                             Text(item.group).appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
-                                .padding(.horizontal, 12).padding(.top, position == 0 ? 4 : 12).padding(.bottom, 4)
+                                .padding(.horizontal, 12).padding(.top, position == 0 ? 0 : 12).padding(.bottom, 4)
                         }
                         Button { index = position; run(results) } label: { row(item, highlighted: position == index) }
                             .buttonStyle(.plain).id(item.id)
                             .accessibilityIdentifier("palette.item.\(AccessibilityIdentifier.token(item.id))")
                     }
                 }
-                .padding(8)
+                .padding(.horizontal, 10).padding(.bottom, 10)
             }
             .scrollIndicators(.never)
             .frame(maxHeight: 380)
+            .fixedSize(horizontal: false, vertical: true)
             .onChange(of: index) { _, value in
                 if results.indices.contains(value) {
                     proxy.scrollTo(results[value].id)
@@ -97,12 +100,10 @@ struct CommandPalette: View {
     }
 
     private func row(_ item: Item, highlighted: Bool) -> some View {
-        HStack(spacing: 11) {
+        HStack(spacing: 10) {
             Group {
                 switch item.icon {
-                case let .symbol(name):
-                    Image(systemName: name).font(.system(size: 12, weight: .semibold)).foregroundStyle(theme.colors.inkMuted)
-                        .frame(width: 24, height: 24).well(Radius.sm)
+                case let .symbol(name, tint): IconTile(symbol: name, tint: tint, size: 24)
                 case let .agent(kind, activity): AgentMark(kind: kind, size: 24, activity: activity)
                 case let .room(name, key): RoomSigil(name: name, key: key, size: 24)
                 case let .person(name, key): PersonAvatar(name: name, key: key, size: 24)
@@ -110,19 +111,21 @@ struct CommandPalette: View {
             }
             Text(item.title).appTextStyle(.body).fontWeight(.medium).foregroundStyle(theme.colors.ink).lineLimit(1)
             if let detail = item.detail {
-                Text(detail).appTextStyle(.footnote).foregroundStyle(theme.colors.inkFaint).lineLimit(1)
+                Text(detail).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
             }
             Spacer(minLength: 8)
             if highlighted {
-                Image(systemName: "return").font(.system(size: 10, weight: .bold)).foregroundStyle(theme.colors.inkFaint)
+                Keycap(symbol: "return").transition(.opacity.combined(with: .offset(x: -4)))
             }
         }
-        .padding(.horizontal, 10).frame(height: 38)
+        .padding(.horizontal, 8).frame(height: 36)
         .background {
-            RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                .fill(highlighted ? theme.colors.accentSoft : .clear)
+            if highlighted {
+                SelectionPill(namespace: selection)
+            }
         }
         .contentShape(Rectangle())
+        .animation(theme.motion.snappy, value: highlighted)
     }
 
     private func move(_ offset: Int, in results: [Item]) {
@@ -175,27 +178,54 @@ struct CommandPalette: View {
     private var actionItems: [Item] {
         let group = String(localized: "Actions")
         var actions = [
-            Item(id: "action.terminal", group: group, title: String(localized: "New terminal"), icon: .symbol("plus")) { deps.newSession() },
-            Item(id: "action.folder", group: group, title: String(localized: "New terminal in a folder…"), icon: .symbol("folder")) {
+            Item(id: "action.terminal", group: group, title: String(localized: "New terminal"), icon: .symbol("plus", TileTint.orange)) {
+                deps.newSession()
+            },
+            Item(id: "action.folder", group: group, title: String(localized: "New terminal in a folder…"), icon: .symbol("folder.fill", TileTint.teal)) {
                 if let directory = pickWorkingDirectory(initialDirectory: deps.selectedLocalDirectory) {
                     deps.newSession(directory: directory)
                 }
             },
-            Item(id: "action.resume", group: group, title: String(localized: "Resume a conversation"), icon: .symbol("clock.arrow.circlepath")) {
+            Item(
+                id: "action.resume", group: group, title: String(localized: "Resume a conversation"),
+                icon: .symbol("clock.arrow.circlepath", TileTint.amber)
+            ) {
                 deps.workbench.showsHistory = true
             },
         ]
         if deps.accountReady {
-            actions.append(Item(id: "action.room", group: group, title: String(localized: "New room"), icon: .symbol("square.grid.2x2")) {
+            actions.append(Item(id: "action.room", group: group, title: String(localized: "New room"), icon: .symbol("square.grid.2x2.fill", TileTint.purple)) {
                 deps.workbench.showsNewRoom = true
             })
         }
-        actions.append(Item(id: "action.people", group: group, title: String(localized: "People"), icon: .symbol("person.2")) {
+        actions.append(Item(id: "action.people", group: group, title: String(localized: "People"), icon: .symbol("person.2.fill", TileTint.blue)) {
             deps.workbench.section = .people
         })
-        actions.append(Item(id: "action.settings", group: group, title: String(localized: "Settings"), icon: .symbol("gearshape")) {
+        actions.append(Item(id: "action.settings", group: group, title: String(localized: "Settings"), icon: .symbol("gearshape.fill", TileTint.graphite)) {
             deps.workbench.section = .settings
         })
         return actions
+    }
+}
+
+/// A key of the keyboard, named in a small raised cap.
+private struct Keycap: View {
+    @Environment(\.theme) private var theme
+    var text: String?
+    var symbol: String?
+
+    var body: some View {
+        Group {
+            if let symbol {
+                Image(systemName: symbol).font(.system(size: 9, weight: .bold))
+            } else if let text {
+                Text(verbatim: text).appTextStyle(.caption2)
+            }
+        }
+        .foregroundStyle(theme.colors.inkMuted)
+        .padding(.horizontal, 6).frame(minWidth: 20, minHeight: 18)
+        .background {
+            BezelBackground(shape: RoundedRectangle(cornerRadius: Radius.xs, style: .continuous), fill: theme.colors.lifted, bezel: .quiet)
+        }
     }
 }

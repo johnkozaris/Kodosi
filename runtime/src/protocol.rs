@@ -4,6 +4,7 @@ use uuid::Uuid;
 
 use crate::{
     Error, Result,
+    agents::Agent,
     identity::friends::parse_invite,
     provider::{ConversationIdentity, Provider},
 };
@@ -21,7 +22,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 56;
+pub const VERSION: u32 = 57;
 include!(concat!(env!("OUT_DIR"), "/network_versions.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 
@@ -108,6 +109,12 @@ pub enum Command {
         branch: Option<String>,
         #[serde(default)]
         worktrees: Option<String>,
+        /// A line that the new shell runs once it waits at its prompt.
+        #[serde(default)]
+        command: Option<String>,
+        /// Text that ends the command line as one word, quoted for the shell.
+        #[serde(default)]
+        prompt: Option<String>,
     },
     #[serde(rename = "session.rename")]
     RenameSession {
@@ -310,6 +317,24 @@ pub enum Command {
         provider: Provider,
         #[serde(rename = "workingDirectory", default)]
         working_directory: Option<String>,
+    },
+    #[serde(rename = "provider.agents")]
+    InspectAgents {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    #[serde(rename = "provider.agentModels")]
+    InspectAgentModels {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        agent: Agent,
+    },
+    #[serde(rename = "provider.addAccount")]
+    AddAgentAccount {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        agent: Agent,
+        name: String,
     },
     #[serde(rename = "system.setTheme")]
     Theme { dark: bool },
@@ -635,6 +660,12 @@ pub enum ProviderReply {
     Conversation(crate::provider::ConversationPage),
     #[serde(rename = "provider.inspect")]
     Inspect(crate::provider::ProviderInfo),
+    #[serde(rename = "provider.agents")]
+    Agents(crate::agents::AgentCatalog),
+    #[serde(rename = "provider.agentModels")]
+    AgentModels(crate::agents::AgentModels),
+    #[serde(rename = "provider.addAccount")]
+    AddAccount(crate::agents::AgentAccount),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
@@ -878,6 +909,9 @@ impl Command {
             Self::DiscoverConversations { .. } => "provider.discoverConversations",
             Self::ReadConversation { .. } => "provider.readConversation",
             Self::InspectProvider { .. } => "provider.inspect",
+            Self::InspectAgents { .. } => "provider.agents",
+            Self::InspectAgentModels { .. } => "provider.agentModels",
+            Self::AddAgentAccount { .. } => "provider.addAccount",
             Self::Theme { .. } => "system.setTheme",
             Self::Shutdown {} => "shutdown",
             Self::Resize { .. } => "session.resize",
@@ -910,6 +944,9 @@ impl Command {
             | Self::DiscoverConversations { request_id, .. }
             | Self::ReadConversation { request_id, .. }
             | Self::InspectProvider { request_id, .. }
+            | Self::InspectAgents { request_id }
+            | Self::InspectAgentModels { request_id, .. }
+            | Self::AddAgentAccount { request_id, .. }
             | Self::Focus { request_id, .. } => Some(request_id),
             Self::Resize { identity, .. } => Some(&identity.request_id),
             _ => None,
@@ -1076,6 +1113,7 @@ impl Command {
                 text(command, "command", 1024)?;
                 text(command.trim(), "command", 1024)?;
             }
+            Self::AddAgentAccount { name, .. } => text(name, "name", 64)?,
             _ => {}
         }
         self.validate_resource_ids()?;
@@ -1113,10 +1151,23 @@ impl Command {
                 resume,
                 branch,
                 worktrees,
+                command,
+                prompt,
                 ..
             } => {
                 if let Some(id) = mission_id {
                     parse_id(id)?;
+                }
+                if let Some(command) = command {
+                    text(command, "command", 1024)?;
+                    text(command.trim(), "command", 1024)?;
+                }
+                if let Some(prompt) = prompt {
+                    if command.is_none() {
+                        return Err(Error::Invalid("A prompt needs a command.".to_owned()));
+                    }
+                    text(prompt, "prompt", 4096)?;
+                    text(prompt.trim(), "prompt", 4096)?;
                 }
                 if let Some(directory) = working_dir {
                     directory_input(directory)?;

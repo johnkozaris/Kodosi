@@ -4,7 +4,7 @@ import SwiftUI
 
 struct HistoryView: View {
     @Environment(AppDependencies.self) private var deps
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.closeSheet) private var dismiss
     @Environment(\.theme) private var theme
     @State private var browser: ConversationBrowser?
     @State private var resuming = false
@@ -17,8 +17,7 @@ struct HistoryView: View {
                 ProgressCaption(text: String(localized: "Loading"))
             }
         }
-        .frame(width: 940, height: 640)
-        .background(theme.colors.raised.mix(with: theme.colors.surface, by: 0.4))
+        .frame(idealWidth: 940, maxWidth: 940, idealHeight: 640, maxHeight: 640)
         .buttonStyle(.kodosi(.secondary))
         .textFieldStyle(WellTextFieldStyle())
         .onAppear {

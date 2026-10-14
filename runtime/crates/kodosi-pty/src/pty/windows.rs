@@ -303,11 +303,21 @@ impl KodosiPty {
         !self.opaque && self.observe().others.is_empty()
     }
 
+    /// The console host shows no line discipline, so a prompt is not known.
+    pub const fn reads_keys(&self) -> bool {
+        false
+    }
+
     pub fn foreground_program(&self) -> Option<String> {
         if self.opaque {
             return None;
         }
         self.observe().agent.map(|(_, name)| name.to_owned())
+    }
+
+    /// Another process's environment cannot be read here.
+    pub const fn foreground_environment(&self) -> Option<Vec<String>> {
+        None
     }
 
     /// All input travels through `PtyReader::transfer` on Windows.

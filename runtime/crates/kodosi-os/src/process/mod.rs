@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{ffi::OsStr, path::PathBuf};
 
 #[cfg(unix)]
 mod unix;
@@ -11,10 +11,15 @@ use windows as imp;
 
 /// Finds the program `name` on `PATH`, as a shell would.
 pub fn find_executable(name: &str) -> Option<PathBuf> {
+    find_executable_in(name, &std::env::var_os("PATH")?)
+}
+
+/// Finds the program `name` in the folders of `paths`, a value in the form of `PATH`.
+pub fn find_executable_in(name: &str, paths: &OsStr) -> Option<PathBuf> {
     if name.is_empty() || name.contains(['/', '\\']) {
         return None;
     }
-    imp::find_executable(name)
+    imp::find_executable(name, paths)
 }
 
 /// The shell a new terminal runs when the user configured none.
@@ -26,6 +31,13 @@ pub fn default_shell() -> PathBuf {
 /// outlives the terminal that launched it.
 pub fn detach(command: &mut std::process::Command) {
     imp::detach(command);
+}
+
+/// Starts `command` in a session of its own with no controlling terminal, so
+/// an interactive shell cannot take the caller's terminal.
+#[cfg(unix)]
+pub fn without_terminal(command: &mut std::process::Command) {
+    imp::without_terminal(command);
 }
 
 /// Whether process `pid` may still be running. Unknown counts as running.

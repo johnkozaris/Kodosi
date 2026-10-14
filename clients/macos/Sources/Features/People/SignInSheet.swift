@@ -18,9 +18,9 @@ struct SignInSheet: View {
             }
             HStack(spacing: 0) {
                 node("person.fill", label: "You", reached: steps >= 1, active: steps == 0 && deps.signInStage.isPending)
-                line(reached: steps >= 2)
+                line(0)
                 node("lock.shield.fill", label: "Kodosi", reached: steps >= 2, active: steps == 1)
-                line(reached: steps >= 3)
+                line(1)
                 node(deps.accountReady ? "checkmark" : "laptopcomputer", label: "This Mac", reached: steps >= 3, active: steps == 2)
             }
             .padding(.horizontal, 18)
@@ -69,7 +69,7 @@ struct SignInSheet: View {
                 }
             }
         }
-        .padding(24).frame(width: 460).background(theme.colors.raised.mix(with: theme.colors.surface, by: 0.4))
+        .padding(24).frame(width: 460)
         .animation(theme.motion.spring, value: deps.signInStage)
         .onChange(of: steps) { _, steps in
             AccessibilityNotification.Announcement(String(localized: "Sign-in step \(steps) complete")).post()
@@ -91,7 +91,7 @@ struct SignInSheet: View {
                 }
                 .overlay {
                     if active {
-                        WorkingRim(shape: Circle(), lineWidth: 2, glow: 5).padding(-2)
+                        CellRim(.working, lineWidth: 2.5).padding(-6).transition(.opacity)
                     }
                 }
             Text(label).appTextStyle(.caption).foregroundStyle(reached || active ? theme.colors.ink : theme.colors.inkFaint)
@@ -99,14 +99,9 @@ struct SignInSheet: View {
         .frame(width: 70)
     }
 
-    private func line(reached: Bool) -> some View {
-        Capsule().fill(theme.colors.ink.opacity(0.1))
-            .frame(height: 3)
-            .overlay(alignment: .leading) {
-                GeometryReader { geometry in
-                    Capsule().fill(theme.colors.accent).frame(width: reached ? geometry.size.width : 0)
-                }
-            }
-            .padding(.bottom, 24).padding(.horizontal, -8)
+    /// The line after step `index`: it runs while the next step works, and it is lit once that step is done.
+    private func line(_ index: Int) -> some View {
+        CellLine(steps >= index + 2 ? .done : steps == index + 1 ? .flowing : .waiting)
+            .padding(.bottom, 24).padding(.horizontal, -6)
     }
 }

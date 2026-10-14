@@ -190,13 +190,14 @@ pub async fn inspect(
     state_root: &Path,
     provider: Provider,
     working_directory: Option<&str>,
+    executable: Option<PathBuf>,
 ) -> Result<ProviderInfo, String> {
     let state_root = state_root.to_owned();
     let directory = working_directory
         .map(storage::canonical_directory)
         .transpose()?;
     tokio::task::spawn_blocking(move || {
-        config::inspect(&state_root, provider, directory.as_deref())
+        config::inspect(&state_root, provider, directory.as_deref(), executable)
     })
     .await
     .map_err(|error| format!("Provider configuration inspection failed: {error}"))
@@ -205,11 +206,6 @@ pub async fn inspect(
 #[cfg(feature = "host")]
 pub fn state_root(home: &Path, provider: Provider) -> Result<PathBuf, String> {
     storage::provider_root(home, provider)
-}
-
-#[cfg(feature = "host")]
-pub fn resolve_executable(provider: Provider) -> Option<PathBuf> {
-    config::resolve_executable(provider)
 }
 
 #[cfg(all(test, feature = "host"))]

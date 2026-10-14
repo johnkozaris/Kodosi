@@ -65,6 +65,7 @@ final class DesktopSettings {
     var lastWorkingDir: String?
     var branchFolder: String?
     var startCommands: [StartCommand] = []
+    var launchChoice = LaunchChoice()
     private var learnedAgents: Set<String> = []
 
     enum CursorStyle: String, CaseIterable, Codable, Identifiable {
@@ -124,6 +125,10 @@ final class DesktopSettings {
         saveStartCommands()
     }
 
+    func saveLaunchChoice() {
+        defaults.set(try? JSONEncoder().encode(launchChoice), forKey: "launcher.choice")
+    }
+
     func saveStartCommands() {
         defaults.set(try? JSONEncoder().encode(startCommands), forKey: "agents.startCommands")
         defaults.set(learnedAgents.sorted(), forKey: "agents.learned")
@@ -151,6 +156,7 @@ final class DesktopSettings {
         branchFolder = d.string(forKey: "session.branchFolder")
         startCommands = d.data(forKey: "agents.startCommands").flatMap { try? JSONDecoder().decode([StartCommand].self, from: $0) } ?? []
         learnedAgents = Set(d.stringArray(forKey: "agents.learned") ?? [])
+        launchChoice = d.data(forKey: "launcher.choice").flatMap { try? JSONDecoder().decode(LaunchChoice.self, from: $0) } ?? LaunchChoice()
         clampValues()
     }
 

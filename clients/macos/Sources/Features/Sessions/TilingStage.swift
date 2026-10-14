@@ -61,6 +61,7 @@ struct StageOverview: View {
         } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: 30) {
+                    AgentLauncher()
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Your terminals").appTextStyle(.large).foregroundStyle(theme.colors.ink)
                         Text(verbatim: "\(Counted.terminals(deps.sessions.count)) · \(Counted.computers(places.count))")
@@ -74,9 +75,6 @@ struct StageOverview: View {
                             }.foregroundStyle(theme.colors.inkMuted)
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: 230, maximum: 320), spacing: 12)], alignment: .leading, spacing: 12) {
                                 ForEach(place.sessions) { session in TerminalCard(session: session) }
-                                if place.id.isEmpty {
-                                    NewTerminalSlot(compact: true)
-                                }
                             }
                         }.arrive(delay: 0.04 * Double(index + 1))
                     }
@@ -87,63 +85,13 @@ struct StageOverview: View {
         }
     }
 
+    /// The launcher stands a little above the middle, and a list that it opens
+    /// grows down from there.
     private var first: some View {
-        VStack(spacing: 26) {
-            NewTerminalSlot(compact: false).arrive()
-            VStack(spacing: 6) {
-                Text("Start with a terminal").appTextStyle(.title).foregroundStyle(theme.colors.ink)
-                Text("It runs on this Mac. Share it when you want company.")
-                    .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
-            }.arrive(delay: 0.06)
-            HStack(spacing: 8) {
-                Button {
-                    if let directory = pickWorkingDirectory(initialDirectory: deps.selectedLocalDirectory) {
-                        deps.newSession(directory: directory)
-                    }
-                } label: { Label("Open a folder…", systemImage: "folder") }
-                Button { deps.workbench.showsHistory = true } label: { Label("Resume a conversation", systemImage: "clock.arrow.circlepath") }
-            }.buttonStyle(.kodosi(.ghost)).arrive(delay: 0.12)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-struct NewTerminalSlot: View {
-    @Environment(\.theme) private var theme
-    @Environment(AppDependencies.self) private var deps
-    let compact: Bool
-
-    var body: some View {
-        Button { deps.newSession() } label: {
-            DashedSlot(radius: compact ? Radius.lg : Radius.xl) {
-                if compact {
-                    HStack(spacing: 10) {
-                        prompt(size: 15)
-                        Text("New terminal").appTextStyle(.subhead).foregroundStyle(theme.colors.inkMuted)
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 16).frame(height: 68)
-                } else {
-                    VStack(alignment: .leading) {
-                        HStack(spacing: 6) {
-                            ForEach(0 ..< 3, id: \.self) { _ in Circle().fill(theme.colors.inkFaint.opacity(0.35)).frame(width: 7, height: 7) }
-                        }
-                        Spacer()
-                        prompt(size: 26)
-                        Spacer()
-                    }
-                    .padding(18).frame(width: 400, height: 220, alignment: .leading)
-                }
-            }
-        }
-        .buttonStyle(PressScaleStyle(scale: 0.98))
-        .accessibilityLabel(Text("New terminal")).accessibilityIdentifier("stage.newSession")
-    }
-
-    private func prompt(size: CGFloat) -> some View {
-        HStack(spacing: size * 0.4) {
-            Image(systemName: "chevron.right").font(.system(size: size * 0.8, weight: .heavy)).foregroundStyle(theme.colors.inkFaint)
-            CursorBlock(width: size * 0.55, height: size)
+        GeometryReader { proxy in
+            AgentLauncher(welcome: true)
+                .frame(maxWidth: .infinity)
+                .padding(.top, max(40, proxy.size.height / 2 - 150))
         }
     }
 }

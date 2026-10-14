@@ -46,7 +46,9 @@ QString DesktopSettings::agentOf(const QString& command)
         const auto program = QFileInfo(word).fileName();
         if (program == QStringLiteral("cursor-agent"))
             return QStringLiteral("cursor");
-        return QStringList { QStringLiteral("claude"), QStringLiteral("codex"), QStringLiteral("copilot") }.contains(program)
+        return QStringList { QStringLiteral("claude"), QStringLiteral("codex"), QStringLiteral("copilot"),
+                   QStringLiteral("gemini"), QStringLiteral("opencode") }
+                .contains(program)
             ? program
             : QStringLiteral("shell");
     }
@@ -78,14 +80,14 @@ QStringList DesktopSettings::startCommandIds() const
 void DesktopSettings::learn(const QString& program)
 {
     static const QStringList agents { QStringLiteral("claude"), QStringLiteral("codex"), QStringLiteral("copilot"),
-        QStringLiteral("cursor") };
+        QStringLiteral("cursor"), QStringLiteral("gemini"), QStringLiteral("opencode") };
     if (!agents.contains(program) || m_learned.contains(program))
         return;
     m_learned.append(program);
     const bool known = std::ranges::any_of(m_start, [&](const StartCommand& entry) { return agentOf(entry.command) == program; });
     if (!known) {
         static const QStringList labels { QStringLiteral("Claude Code"), QStringLiteral("Codex"), QStringLiteral("Copilot"),
-            QStringLiteral("Cursor") };
+            QStringLiteral("Cursor"), QStringLiteral("Gemini CLI"), QStringLiteral("OpenCode") };
         m_start.append({ QUuid::createUuid().toString(QUuid::WithoutBraces), labels.value(agents.indexOf(program)),
             program == QStringLiteral("cursor") ? QStringLiteral("cursor-agent") : program });
     }

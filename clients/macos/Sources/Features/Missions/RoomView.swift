@@ -120,7 +120,7 @@ struct RoomHeader: View {
             }
             .buttonStyle(PressScaleStyle()).help("People").accessibilityLabel(Text("Room members"))
             .accessibilityIdentifier("room.people")
-            .popover(isPresented: $state.peopleVisible, arrowEdge: .bottom) { RoomPeoplePopover(detail: detail, state: state) }
+            .kodosiPopover(isPresented: $state.peopleVisible, arrowEdge: .bottom) { RoomPeoplePopover(detail: detail, state: state) }
             IconButton(title: state.conversationVisible ? "Hide conversation" : "Show conversation",
                        symbol: state.conversationVisible ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right",
                        identifier: "room.conversation.toggle", size: 30, active: state.conversationVisible)
@@ -203,7 +203,7 @@ struct NoticeDot: View {
         }
         .buttonStyle(PressScaleStyle()).help("Something did not work").accessibilityLabel(Text("Room action failed"))
         .accessibilityIdentifier("room.failure")
-        .popover(isPresented: $expanded, arrowEdge: .bottom) {
+        .kodosiPopover(isPresented: $expanded, arrowEdge: .bottom) {
             VStack(alignment: .leading, spacing: 14) {
                 Text(message).appTextStyle(.body).foregroundStyle(theme.colors.ink).textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)

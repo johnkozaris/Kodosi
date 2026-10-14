@@ -43,6 +43,8 @@ qt_add_library(kodosi-application STATIC
     logging/QtLogForwarder.hpp
     presentation/AccountModel.cpp
     presentation/AccountModel.hpp
+    presentation/AgentLauncherModel.cpp
+    presentation/AgentLauncherModel.hpp
     presentation/ConversationHistoryModel.cpp
     presentation/ConversationHistoryModel.hpp
     presentation/DevicesModel.cpp
@@ -217,6 +219,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/AvatarStack.qml
         qml/Controls/Bezel.qml
         qml/Controls/BreathingDot.qml
+        qml/Controls/CellRim.qml
         qml/Controls/CardGrid.qml
         qml/Controls/CountBadge.qml
         qml/Controls/CursorBlock.qml
@@ -251,6 +254,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/StartMark.qml
         qml/Controls/StatusSign.qml
         qml/Controls/Tag.qml
+        qml/Controls/Typing.js
         qml/Controls/Well.qml
         qml/Controls/Wordmark.qml
         qml/Shell/CommandPalette.qml
@@ -259,11 +263,14 @@ qt_add_qml_module(kodosi-ui
         qml/Theme/Identity.qml
         qml/Theme/KodosiTheme.qml
         qml/Theme/Mentions.qml
+        qml/Workbench/AgentLauncher.qml
         qml/Workbench/HistoryView.qml
+        qml/Workbench/LauncherPrompt.qml
         qml/Workbench/SessionDetails.qml
         qml/Workbench/ShareSheet.qml
         qml/Workbench/StageOverview.qml
         qml/Workbench/TerminalDivider.qml
+        qml/Workbench/TerminalMenu.qml
         qml/Workbench/TerminalStage.qml
         qml/Workbench/TerminalTile.qml
     RESOURCES
@@ -272,6 +279,8 @@ qt_add_qml_module(kodosi-ui
         qml/assets/providers/copilot-dark.svg
         qml/assets/providers/codex-dark.svg
         qml/assets/providers/cursor-dark.svg
+        qml/assets/providers/gemini-dark.svg
+        qml/assets/providers/opencode-dark.svg
 )
 
 target_link_libraries(kodosi-ui PUBLIC Qt6::Quick Qt6::QuickControls2 kodosi-qml-modelsplugin)

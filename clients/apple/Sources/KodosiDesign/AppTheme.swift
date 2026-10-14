@@ -41,7 +41,6 @@ public extension AppTheme {
 
         public let glowAmber: Color
         public let glowOrange: Color
-        public let glowRose: Color
 
         public let ready: Color
         public let readySoft: Color
@@ -76,7 +75,6 @@ public extension AppTheme {
 
             glowAmber: hex(0xF2BC55),
             glowOrange: hex(0xF08A4B),
-            glowRose: hex(0xE8707A),
 
             ready: hex(0x7DBB99),
             readySoft: hex(0x1F3229),
@@ -112,7 +110,6 @@ public extension AppTheme {
 
             glowAmber: hex(0xF2C14E),
             glowOrange: hex(0xE8793A),
-            glowRose: hex(0xDD5F6D),
 
             ready: hex(0x2F7D54),
             readySoft: hex(0xDCEBDD),

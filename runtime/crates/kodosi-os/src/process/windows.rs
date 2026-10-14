@@ -1,6 +1,7 @@
 #![allow(unsafe_code)]
 
 use std::{
+    ffi::OsStr,
     fs,
     os::windows::{
         io::{AsRawHandle as _, FromRawHandle as _, OwnedHandle},
@@ -39,15 +40,14 @@ fn present(path: &Path) -> bool {
     fs::symlink_metadata(path).is_ok_and(|metadata| !metadata.is_dir())
 }
 
-pub(super) fn find_executable(name: &str) -> Option<PathBuf> {
-    let paths = std::env::var_os("PATH")?;
+pub(super) fn find_executable(name: &str, paths: &OsStr) -> Option<PathBuf> {
     let extensions = executable_extensions();
     let named = Path::new(name).extension().is_some_and(|extension| {
         extensions
             .iter()
             .any(|known| extension.eq_ignore_ascii_case(known))
     });
-    std::env::split_paths(&paths).find_map(|directory| {
+    std::env::split_paths(paths).find_map(|directory| {
         if named {
             let path = directory.join(name);
             return present(&path).then_some(path);
@@ -60,7 +60,7 @@ pub(super) fn find_executable(name: &str) -> Option<PathBuf> {
 }
 
 pub(super) fn default_shell() -> PathBuf {
-    if let Some(pwsh) = find_executable("pwsh") {
+    if let Some(pwsh) = super::find_executable("pwsh") {
         return pwsh;
     }
     if let Some(root) = std::env::var_os("SystemRoot") {

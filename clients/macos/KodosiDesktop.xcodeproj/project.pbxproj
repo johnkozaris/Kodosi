@@ -31,6 +31,7 @@
 		0F95818FB64BE06A0E0AE92C /* SessionActivityText.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB91FF8C7A604EC0DDC039BF /* SessionActivityText.swift */; };
 		1248674812AE977C5EB589DB /* DesktopSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B68033EC49C087C02F0B73DB /* DesktopSettings.swift */; };
 		1349BA567F51F8E81C791D61 /* DeviceTrustView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCE1B419C4C83353B2D2E129 /* DeviceTrustView.swift */; };
+		1579000FF2AEFE48652B6B40 /* AgentCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 397528F244C3180193FE4739 /* AgentCatalog.swift */; };
 		15B746888B879B47D312C413 /* KodosiDesign in Frameworks */ = {isa = PBXBuildFile; productRef = 6C02E18430BECC60ABF672F4 /* KodosiDesign */; };
 		16F91893182D305DED4A4591 /* RoomMentionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0449254858B0C3785326E5AD /* RoomMentionTests.swift */; };
 		16FF9018C64936D053C4A227 /* TerminalSurfaceWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99B914DCDEB693D3F229D719 /* TerminalSurfaceWrapper.swift */; };
@@ -38,6 +39,7 @@
 		1BBEBAD3BDB3EFDE3BAAEA2B /* SessionNameGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26624DB9E39C3FA133E5B614 /* SessionNameGenerator.swift */; };
 		1D94B653AB6FB590A837151A /* AppDependencies+People.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A38F2AF380D997C447474A0 /* AppDependencies+People.swift */; };
 		206ED7624F5DACA5A7A772FB /* DesktopNotificationDelivery.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC2B5C8A25397701170A8695 /* DesktopNotificationDelivery.swift */; };
+		20B4F44376E0764F5D244AA3 /* SheetLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63F9D19BC385D59F157D311B /* SheetLayer.swift */; };
 		20E7170B80F6B36019FE66A3 /* EphemeralUserDefaultsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 029562AF111A8DA313C46B44 /* EphemeralUserDefaultsTests.swift */; };
 		30C330876F1E276E0024C031 /* KodosiTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = 088C1D92DDA999150C959079 /* KodosiTerminal */; };
 		31C2E04BB0036B241D49C601 /* TerminalNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCE0C1F0716F9E021991E4D3 /* TerminalNotifications.swift */; };
@@ -53,6 +55,7 @@
 		4BA595F8DA740A0A349693FF /* StartCommandsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA938DB9302471D5B24F23B /* StartCommandsView.swift */; };
 		4BB914571077CDD0E83D8FDA /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7859C1F8907CA2B31325BF2E /* main.swift */; };
 		52225CD1DA12EE9CC70E053C /* StartCommandTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC5006D6175DA1156234C410 /* StartCommandTests.swift */; };
+		5460A10FCAD8614F326A302E /* LauncherMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BE79DDB5DCBCD381726D435 /* LauncherMenu.swift */; };
 		572419A3CB762154223CECCA /* KodosiTerminalStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F5F3CB67FEEA25B67A8581E /* KodosiTerminalStyle.swift */; };
 		59D30B68A9BA7D8EFFB65434 /* StartCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E130B2CE4C9FC40C754A0C8 /* StartCommand.swift */; };
 		5ACC91D34F0F5A4B80213CD5 /* KodosiTerminalSessions in Frameworks */ = {isa = PBXBuildFile; productRef = D41ECDA58AC9D89FC3D7895E /* KodosiTerminalSessions */; };
@@ -63,6 +66,7 @@
 		67D172965413FC4CA12FA19C /* DeepLinkRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BADC653CCAC8BA840939779C /* DeepLinkRouter.swift */; };
 		67E21526287F2CC589FFF931 /* AppDependencies+Events.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F6C6ECDD195A51E7F20F40A /* AppDependencies+Events.swift */; };
 		6BA0C74EB0A82E711E341E16 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1CAA80CAD87E1C2D1AB8D9 /* SidebarView.swift */; };
+		6C8CC36368D86EA88F3EBB7D /* LauncherState.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB293E831461E9FBEB9E6346 /* LauncherState.swift */; };
 		6CC69352EF450AFF4E8B5A5E /* SidebarRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03ACB43527DCD723AA6BD295 /* SidebarRows.swift */; };
 		6E9051F5B6126F633AB4A401 /* MenuCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64E93D1A85D4567DDB06AA67 /* MenuCommands.swift */; };
 		6F74D0953FEB770C7E0A754B /* KodosiDesktopApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF88E3F8ACF53DFF48487B1A /* KodosiDesktopApp.swift */; };
@@ -87,8 +91,10 @@
 		A5E176E8C7643B0652E532B7 /* SessionTileHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = B58F5BC4632AD92E653ECBB6 /* SessionTileHeader.swift */; };
 		A77DCD51BD05780CC172446D /* RoomComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B01B19BEE7105A7EDCBFA2D2 /* RoomComposer.swift */; };
 		AC780100E74D27B0AFC6B0E8 /* TerminalLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9FD03D08C581C04D1358AE /* TerminalLifecycleTests.swift */; };
+		B218E299BB74310D5D84D466 /* AgentLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C3E1FC76D51E02E285C24E9 /* AgentLauncher.swift */; };
 		B579FD47FE8AB87C2405E846 /* SessionDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F7038F3B9119903EB97C4F4 /* SessionDetailsView.swift */; };
 		B85DB9AD7EB1DA799CB51F52 /* TerminalNotificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE22717AAF163367882E8F1E /* TerminalNotificationTests.swift */; };
+		B9AFDEE4EF6CCADD9BA0592C /* PromptField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FD4877079FBB80DC2A3C5FE /* PromptField.swift */; };
 		BDC34F547AC1E47E1B673894 /* BranchTerminalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3F5B8B7F6705EB626DDA40F /* BranchTerminalTests.swift */; };
 		BEF3CFF9295FC8B6AF389628 /* AppShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2534033624941886A4FDC8D2 /* AppShell.swift */; };
 		C3D76AB82F348D658079422F /* Counted.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4858A4F8BB29C36004032A2A /* Counted.swift */; };
@@ -108,7 +114,9 @@
 		EEBE3B3724D58B74C5DA4E7E /* KodosiKit in Frameworks */ = {isa = PBXBuildFile; productRef = 37845F07302FD475D9A23B34 /* KodosiKit */; };
 		EEC1129BAD76C0751003B9AD /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83A123F3FEA131956438C57C /* AppDelegate.swift */; };
 		F217558DCBC47243C1075034 /* TerminalSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E369A4B3C72C476C2BF1B398 /* TerminalSettingsView.swift */; };
+		F9737724BFFF32433C5EB58F /* LauncherParts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43EFE7646C6D4FC781905775 /* LauncherParts.swift */; };
 		FA5B1FFFAFBCF934976FEDEC /* TerminalProcessFocusCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAFB44799D50F0D19372CC1E /* TerminalProcessFocusCoordinatorTests.swift */; };
+		FE0E31D6895FA401C8330E2A /* TerminalMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7270ADF297E41D94EFECB83B /* TerminalMenu.swift */; };
 		FE3EE76C0E85B8955EB9FE0D /* RuntimeStorageBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56C46F80F834C6B7CBA42102 /* RuntimeStorageBootstrap.swift */; };
 		FF7BCC64C4B6AFE4BFBDEE5B /* SessionFolderGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 488D4A1E14B51EF30B88C7B1 /* SessionFolderGroup.swift */; };
 		FFE5D829A21FCAF66F027485 /* TerminalTilesLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71D4C869E14F837B38B9F629 /* TerminalTilesLayout.swift */; };
@@ -141,6 +149,7 @@
 		0E130B2CE4C9FC40C754A0C8 /* StartCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartCommand.swift; sourceTree = "<group>"; };
 		15DFCEBAB429A9E528D77984 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		18A56A38A673DC91D6E92F76 /* CommandSinkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandSinkTests.swift; sourceTree = "<group>"; };
+		1BE79DDB5DCBCD381726D435 /* LauncherMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LauncherMenu.swift; sourceTree = "<group>"; };
 		20EF1F874DFCE650039B1C14 /* PeopleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeopleView.swift; sourceTree = "<group>"; };
 		231BD91C73297F782444A89E /* RoomViewState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomViewState.swift; sourceTree = "<group>"; };
 		241A1B008B6F58A5F3EB3B1F /* TerminalFirstContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalFirstContractTests.swift; sourceTree = "<group>"; };
@@ -148,16 +157,19 @@
 		25B2A152F6D43DAA05D387A6 /* KodosiDesktop.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KodosiDesktop.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		26624DB9E39C3FA133E5B614 /* SessionNameGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionNameGenerator.swift; sourceTree = "<group>"; };
 		278EE6663EDB1F4726DF976F /* RuntimeStorageBootstrapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeStorageBootstrapTests.swift; sourceTree = "<group>"; };
+		2C3E1FC76D51E02E285C24E9 /* AgentLauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentLauncher.swift; sourceTree = "<group>"; };
 		2CEC9C7E0B5C72607E741289 /* TerminalConnectionTokenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalConnectionTokenTests.swift; sourceTree = "<group>"; };
 		2DE6D7710BC2E7C662E3D05F /* FilePickers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePickers.swift; sourceTree = "<group>"; };
 		2E540505169EADA46F2CA73B /* Apps.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Apps.xcconfig; sourceTree = "<group>"; };
 		2F7038F3B9119903EB97C4F4 /* SessionDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionDetailsView.swift; sourceTree = "<group>"; };
 		33562311E97EA520593A0BCB /* SignInFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInFlowTests.swift; sourceTree = "<group>"; };
 		3775E05C19F862BE33B3490B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		397528F244C3180193FE4739 /* AgentCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentCatalog.swift; sourceTree = "<group>"; };
 		3AD51D52E6176250CDDF0C4D /* NewBranchPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewBranchPopover.swift; sourceTree = "<group>"; };
 		3C2BD5E1320E2E1D14D4AC57 /* DeviceSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSettingsView.swift; sourceTree = "<group>"; };
 		3F0AD9773DC98C9E50ED8EE9 /* TilingStage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TilingStage.swift; sourceTree = "<group>"; };
 		3F8377D3B300B8D942F65590 /* WorkbenchState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkbenchState.swift; sourceTree = "<group>"; };
+		43EFE7646C6D4FC781905775 /* LauncherParts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LauncherParts.swift; sourceTree = "<group>"; };
 		452789376CA824AD82525952 /* MissionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MissionsView.swift; sourceTree = "<group>"; };
 		4858A4F8BB29C36004032A2A /* Counted.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Counted.swift; sourceTree = "<group>"; };
 		488D4A1E14B51EF30B88C7B1 /* SessionFolderGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFolderGroup.swift; sourceTree = "<group>"; };
@@ -169,13 +181,16 @@
 		5CA938DB9302471D5B24F23B /* StartCommandsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartCommandsView.swift; sourceTree = "<group>"; };
 		5E65C1EB4BA13EFEAFE0A796 /* AppDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDependencies.swift; sourceTree = "<group>"; };
 		60FA170617CB1A2DDF4DF099 /* KodosiDesktopTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KodosiDesktopTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		63F9D19BC385D59F157D311B /* SheetLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetLayer.swift; sourceTree = "<group>"; };
 		64E93D1A85D4567DDB06AA67 /* MenuCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuCommands.swift; sourceTree = "<group>"; };
 		68F6199982D15F67641F3DCD /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
 		6A38F2AF380D997C447474A0 /* AppDependencies+People.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppDependencies+People.swift"; sourceTree = "<group>"; };
 		71D4C869E14F837B38B9F629 /* TerminalTilesLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalTilesLayout.swift; sourceTree = "<group>"; };
+		7270ADF297E41D94EFECB83B /* TerminalMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalMenu.swift; sourceTree = "<group>"; };
 		7738EC00659A4821119C3A6F /* HistoryMessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryMessageView.swift; sourceTree = "<group>"; };
 		7859C1F8907CA2B31325BF2E /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		7F6C6ECDD195A51E7F20F40A /* AppDependencies+Events.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppDependencies+Events.swift"; sourceTree = "<group>"; };
+		7FD4877079FBB80DC2A3C5FE /* PromptField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptField.swift; sourceTree = "<group>"; };
 		8069EA74C3DFFBE4A07163E1 /* apple */ = {isa = PBXFileReference; lastKnownFileType = folder; name = apple; path = ../apple; sourceTree = SOURCE_ROOT; };
 		83A123F3FEA131956438C57C /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		84D1E2BDE70E98B4650798E3 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
@@ -211,6 +226,7 @@
 		D6ADBA6BB2EF4F16F226DF37 /* Metrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Metrics.swift; sourceTree = "<group>"; };
 		DA1CAA80CAD87E1C2D1AB8D9 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		DAFB44799D50F0D19372CC1E /* TerminalProcessFocusCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalProcessFocusCoordinatorTests.swift; sourceTree = "<group>"; };
+		DB293E831461E9FBEB9E6346 /* LauncherState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LauncherState.swift; sourceTree = "<group>"; };
 		DC5006D6175DA1156234C410 /* StartCommandTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartCommandTests.swift; sourceTree = "<group>"; };
 		DCA5BB4B558CC7648D2100BB /* SidebarRail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarRail.swift; sourceTree = "<group>"; };
 		DCE0C1F0716F9E021991E4D3 /* TerminalNotifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalNotifications.swift; sourceTree = "<group>"; };
@@ -397,6 +413,7 @@
 		CA8B6F3D6896E2B59324657B /* Features */ = {
 			isa = PBXGroup;
 			children = (
+				F1DA4274AC7633B233AF18B5 /* Launcher */,
 				431CDF38188ECB493866855B /* Missions */,
 				8ECB13B43DE5AB08B07164EE /* People */,
 				ED22416CCA8016B8A8FD2DFB /* Providers */,
@@ -435,6 +452,7 @@
 				4D1F38FAABB0E0D5EEAE481B /* CommandPalette.swift */,
 				3AD51D52E6176250CDDF0C4D /* NewBranchPopover.swift */,
 				488D4A1E14B51EF30B88C7B1 /* SessionFolderGroup.swift */,
+				63F9D19BC385D59F157D311B /* SheetLayer.swift */,
 				DCA5BB4B558CC7648D2100BB /* SidebarRail.swift */,
 				03ACB43527DCD723AA6BD295 /* SidebarRows.swift */,
 				DA1CAA80CAD87E1C2D1AB8D9 /* SidebarView.swift */,
@@ -461,6 +479,20 @@
 				AB5D929795BF7579600AB8BE /* ProviderModels.swift */,
 			);
 			path = Providers;
+			sourceTree = "<group>";
+		};
+		F1DA4274AC7633B233AF18B5 /* Launcher */ = {
+			isa = PBXGroup;
+			children = (
+				397528F244C3180193FE4739 /* AgentCatalog.swift */,
+				2C3E1FC76D51E02E285C24E9 /* AgentLauncher.swift */,
+				1BE79DDB5DCBCD381726D435 /* LauncherMenu.swift */,
+				43EFE7646C6D4FC781905775 /* LauncherParts.swift */,
+				DB293E831461E9FBEB9E6346 /* LauncherState.swift */,
+				7FD4877079FBB80DC2A3C5FE /* PromptField.swift */,
+				7270ADF297E41D94EFECB83B /* TerminalMenu.swift */,
+			);
+			path = Launcher;
 			sourceTree = "<group>";
 		};
 		F8F2204DF467CE5CA1319D56 /* Tests */ = {
@@ -718,6 +750,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1579000FF2AEFE48652B6B40 /* AgentCatalog.swift in Sources */,
+				B218E299BB74310D5D84D466 /* AgentLauncher.swift in Sources */,
 				EEC1129BAD76C0751003B9AD /* AppDelegate.swift in Sources */,
 				67E21526287F2CC589FFF931 /* AppDependencies+Events.swift in Sources */,
 				1D94B653AB6FB590A837151A /* AppDependencies+People.swift in Sources */,
@@ -739,6 +773,9 @@
 				3F110AD20A953758DE1B647E /* HistoryView.swift in Sources */,
 				6F74D0953FEB770C7E0A754B /* KodosiDesktopApp.swift in Sources */,
 				572419A3CB762154223CECCA /* KodosiTerminalStyle.swift in Sources */,
+				5460A10FCAD8614F326A302E /* LauncherMenu.swift in Sources */,
+				F9737724BFFF32433C5EB58F /* LauncherParts.swift in Sources */,
+				6C8CC36368D86EA88F3EBB7D /* LauncherState.swift in Sources */,
 				3F088D3B16E15902691734D2 /* Logger.swift in Sources */,
 				E6835C229DFA3A7011962E30 /* MainWindowLocator.swift in Sources */,
 				6E9051F5B6126F633AB4A401 /* MenuCommands.swift in Sources */,
@@ -747,6 +784,7 @@
 				85065B5460F35AD1ACD5BFB3 /* NativeFiles.swift in Sources */,
 				85361C9AE2BE4954D200F5FA /* NewBranchPopover.swift in Sources */,
 				38A99D65086CF3AE2742BF55 /* PeopleView.swift in Sources */,
+				B9AFDEE4EF6CCADD9BA0592C /* PromptField.swift in Sources */,
 				742E9EF5E9361C0308DF8695 /* ProviderModels.swift in Sources */,
 				CAAC7340B889C553AC491E5B /* ProviderSettingsView.swift in Sources */,
 				71DA4DFFA9DC737D1181B2AB /* RecoveryKeySheet.swift in Sources */,
@@ -769,6 +807,7 @@
 				A5E176E8C7643B0652E532B7 /* SessionTileHeader.swift in Sources */,
 				062743A199B1DD2BD3316857 /* SessionTileView.swift in Sources */,
 				762CF1AED138B7DB7F0D4F20 /* SettingsView.swift in Sources */,
+				20B4F44376E0764F5D244AA3 /* SheetLayer.swift in Sources */,
 				4461DBD40D6C5DBBFC82888F /* SidebarRail.swift in Sources */,
 				6CC69352EF450AFF4E8B5A5E /* SidebarRows.swift in Sources */,
 				6BA0C74EB0A82E711E341E16 /* SidebarView.swift in Sources */,
@@ -776,6 +815,7 @@
 				7A445DD589F64D146FA75707 /* SignInView.swift in Sources */,
 				59D30B68A9BA7D8EFFB65434 /* StartCommand.swift in Sources */,
 				4BA595F8DA740A0A349693FF /* StartCommandsView.swift in Sources */,
+				FE0E31D6895FA401C8330E2A /* TerminalMenu.swift in Sources */,
 				31C2E04BB0036B241D49C601 /* TerminalNotifications.swift in Sources */,
 				465082A68E3B30252BA855AC /* TerminalSessionManager+Desktop.swift in Sources */,
 				F217558DCBC47243C1075034 /* TerminalSettingsView.swift in Sources */,

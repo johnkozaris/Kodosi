@@ -1,6 +1,5 @@
 import Kodosi 1.0
 import QtQuick
-import QtQuick.Shapes
 
 Item {
     id: root
@@ -17,7 +16,9 @@ Item {
     readonly property int form: working ? 1 : asks ? 2 : 0
     readonly property string kind: Identity.kind(program)
     readonly property color tint: Identity.kindTint(kind)
-    readonly property real rim: Math.max(1.5, size * 0.07)
+    readonly property real rim: Math.max(2, size * 0.075)
+    // How far the rim of cells stands out from the mark.
+    readonly property real space: rim * 1.75
     property real fraction: Math.max(0.02, Math.min(1, progress / 100))
     property real squash: 1
     property bool ready: false
@@ -39,71 +40,18 @@ Item {
         NumberAnimation { target: root; property: "squash"; to: 1; duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: 2.4 }
     }
 
-    Rectangle {
+    Loader {
         anchors.fill: parent
-        anchors.margins: -root.rim * 2
-        radius: root.size * 0.3 + root.rim * 2
-        color: "transparent"
-        border.width: root.rim
-        border.color: KodosiTheme.accent
-        opacity: root.asks && !root.working ? 1 : 0
-        scale: root.asks && !root.working ? 1 : 1.3
-        Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
-        Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSoft; easing.type: Easing.OutCubic } }
-    }
-    Shape {
-        id: arc
-        visible: root.measured
-        anchors.fill: parent
-        anchors.margins: -root.rim
-        preferredRendererType: Shape.CurveRenderer
+        anchors.margins: -root.space
+        active: root.working || root.asks
 
-        ShapePath {
-            strokeColor: "transparent"
-            strokeWidth: 0
-            fillGradient: ConicalGradient {
-                centerX: arc.width / 2
-                centerY: arc.height / 2
-                angle: 90
-                GradientStop { position: 0; color: KodosiTheme.alpha(KodosiTheme.glowOrange, 0.22) }
-                GradientStop { position: Math.max(0, 0.999 - root.fraction); color: KodosiTheme.alpha(KodosiTheme.glowOrange, 0.22) }
-                GradientStop { position: 1 - root.fraction; color: KodosiTheme.glowRose }
-                GradientStop { position: 1 - root.fraction / 2; color: KodosiTheme.glowOrange }
-                GradientStop { position: 1; color: KodosiTheme.glowAmber }
-            }
-            PathRectangle { width: arc.width; height: arc.height; radius: root.size * 0.3 + root.rim }
-        }
-    }
-    Shape {
-        id: glow
-        visible: root.working && !root.measured
-        anchors.fill: parent
-        anchors.margins: -root.rim
-        preferredRendererType: Shape.CurveRenderer
+        sourceComponent: CellRim {
+            radius: root.size * 0.3 + root.space
+            lineWidth: root.rim
+            mode: root.measured ? "progress" : root.working ? "working" : "waiting"
+            fraction: root.fraction
 
-        ShapePath {
-            strokeColor: "transparent"
-            strokeWidth: 0
-            fillGradient: ConicalGradient {
-                id: sweep
-                centerX: glow.width / 2
-                centerY: glow.height / 2
-                GradientStop { position: 0; color: KodosiTheme.glowAmber }
-                GradientStop { position: 0.3; color: KodosiTheme.glowOrange }
-                GradientStop { position: 0.55; color: KodosiTheme.glowRose }
-                GradientStop { position: 0.8; color: KodosiTheme.alpha(KodosiTheme.glowOrange, 0.15) }
-                GradientStop { position: 1; color: KodosiTheme.glowAmber }
-            }
-            PathRectangle { width: glow.width; height: glow.height; radius: root.size * 0.3 + root.rim }
-        }
-        NumberAnimation {
-            target: sweep
-            property: "angle"
-            from: 360
-            to: 0
-            duration: 3200
-            loops: Animation.Infinite
-            running: glow.visible && !KodosiTheme.reduceMotion
+            NumberAnimation on opacity { from: 0; to: 1; duration: KodosiTheme.motionFade }
         }
     }
     Rectangle {

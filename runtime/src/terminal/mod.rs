@@ -45,6 +45,15 @@ pub(crate) enum SessionChange {
         id: Uuid,
         program: Option<String>,
     },
+    /// An agent started from the person's own command in a terminal that
+    /// Kodosi started with that command, with the value of its sign-in
+    /// variable (none when it started without it).
+    #[cfg(feature = "host")]
+    Launched {
+        program: String,
+        command: String,
+        folder: Option<String>,
+    },
     #[cfg(feature = "host")]
     Title {
         id: Uuid,

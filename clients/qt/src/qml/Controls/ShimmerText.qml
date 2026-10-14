@@ -48,7 +48,7 @@ Item {
             text: base.text
             font: base.font
             elide: base.elide
-            color: KodosiTheme.glowAmber
+            color: Qt.lighter(root.color, 1.5)
             textFormat: Text.PlainText
             verticalAlignment: Text.AlignVCenter
         }

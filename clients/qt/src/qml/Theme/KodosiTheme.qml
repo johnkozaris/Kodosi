@@ -21,9 +21,6 @@ QtObject {
     readonly property color accentStrong: isDark ? "#eaa47e" : "#9a4516"
     readonly property color accentSoft: isDark ? "#3e281c" : "#f4dec8"
     readonly property color accentInk: isDark ? "#160e0a" : "#fffaf3"
-    readonly property color glowAmber: isDark ? "#f2bc55" : "#f2c14e"
-    readonly property color glowOrange: isDark ? "#f08a4b" : "#e8793a"
-    readonly property color glowRose: isDark ? "#e8707a" : "#dd5f6d"
     readonly property color ready: isDark ? "#7dbb99" : "#2f7d54"
     readonly property color readySoft: isDark ? "#1f3229" : "#dcebdd"
     readonly property color caution: isDark ? "#ddb866" : "#8a6a1c"
@@ -44,6 +41,7 @@ QtObject {
     readonly property color terminalInkFaint: "#8c7a6f"
     readonly property color terminalHairline: "#3b2f29"
     readonly property color terminalAccent: "#db8a62"
+    readonly property color terminalCaution: "#ddb866"
 
     readonly property int fontLarge: 28
     readonly property int fontTitle: 20
