@@ -1,5 +1,5 @@
 {
-  "apiContractVersion": 25,
+  "apiContractVersion": 26,
   "authContractVersion": 1,
   "authentication": "OIDC bearer identity and a device session",
   "deviceSession": {
@@ -53,7 +53,8 @@
     "inputReplayOnReconnect": false,
     "historicalMutationReceipts": false,
     "offlineExpiry": false,
-    "missingRecovery": "current hosting device may republish same still-live incarnation with owner-only access"
+    "missingRecovery": "current hosting device may republish same still-live incarnation with owner-only access",
+    "status": "GET /api/sessions and GET /api/sessions/{id} give the newest encrypted status of a room terminal while its host is connected, or null (terminalStatus in terminal-connections.json)"
   },
   "deviceLink": {
     "code": "12 random symbols of Crockford base 32 (60 bits) that the new device makes and shows; the server never gets it",

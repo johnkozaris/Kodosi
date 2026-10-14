@@ -13,6 +13,40 @@ fn session() -> RemoteSession {
         mission_name: None,
         shared_with: vec![],
         online: true,
+        status: None,
+    }
+}
+
+#[cfg(feature = "host")]
+#[test]
+fn a_room_hears_the_agent_and_its_state_but_not_its_text() {
+    use crate::terminal::{BlockedKind, ProgramState, ProgramStatus, TerminalMetadata};
+    let status = TerminalStatus::of(&TerminalMetadata {
+        connected_users: vec![],
+        directory: Some("/Users/someone/private".into()),
+        title: Some("A private title".into()),
+        program: Some("claude".into()),
+        status: Some(ProgramStatus {
+            state: ProgramState::Blocked,
+            kind: Some(BlockedKind::Permission),
+            progress: None,
+            app: Some("claude-code".into()),
+            title: Some("Bash".into()),
+            message: Some("rm -rf build".into()),
+        }),
+    });
+    let bytes = serde_json::to_vec(&status).unwrap();
+    assert_eq!(
+        bytes,
+        br#"{"program":"claude","state":"blocked","kind":"permission"}"#
+    );
+    assert_eq!(TerminalStatus::read(&bytes).unwrap(), status);
+    for invalid in [
+        br#"{"program":"other"}"#.as_slice(),
+        br#"{"state":"working","kind":"permission"}"#,
+        br#"{"state":"blocked","message":"Allow?"}"#,
+    ] {
+        assert!(TerminalStatus::read(invalid).is_err());
     }
 }
 

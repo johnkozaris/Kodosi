@@ -1,5 +1,5 @@
 {
-  "terminalConnectionProtocolVersion": 20,
+  "terminalConnectionProtocolVersion": 21,
   "compatibilityPolicy": "exactMatch",
   "routes": {
     "device": "/ws/device"
@@ -22,12 +22,14 @@
     "deviceMessages": {
       "host": "sessionId, incarnationId: this device is the host of the terminal; the answer is hosted or unhosted with status and message",
       "unhost": "sessionId",
+      "status": "sessionId, incarnationId, status: the newest status of a room terminal (terminalStatus), or null; only from the hosting device; the device sends it again after host on each new connection",
       "open": "pipe, sessionId, incarnationId: open a pipe to the host of a terminal; the device makes the pipe identity and sends channel data at once; a refusal is closed with status and message",
       "close": "pipe",
       "ping": "the answer is pong"
     },
     "serverMessages": {
       "changed": "surface (devices, friends, sessions, missions, rooms): the device reads that list again",
+      "terminal": "sessionId, incarnationId, online, status: to the devices of the people who can use the terminal, but not to the hosting device, after its host connects, disconnects or changes the status",
       "viewer": "pipe, sessionId, userId, deviceId: to the host, when the server admitted a viewer",
       "accessChanged": "sessionId: to the host, after a change of the people or devices that can use the terminal",
       "closed": "pipe, status, message: the pipe ended; status 0 when the other device closed it",
@@ -35,7 +37,14 @@
     },
     "authorization": "host: the hosting device of the publication; open: an approved device of the owner or of an explicit current member, checked before and after the pipe is registered",
     "silence": "the server ends a connection that sent no message for 90 seconds; the device ends a connection that received no message for 45 seconds",
-    "lost": "a lost connection closes all pipes of the device and ends its host registrations; the device connects again, sends host again for each terminal, and opens a new pipe for each view"
+    "lost": "a lost connection closes all pipes of the device and ends its host registrations and their status; the device connects again, sends host and status again for each terminal, and opens a new pipe for each view"
+  },
+  "terminalStatus": {
+    "plaintext": "JSON: program, state, kind; the agent and the state that its program reports, without its title, folder or text",
+    "encryption": "AES-256-GCM with the room key of keyVersion and epoch; the additional data is kodosi-terminal-status-aead-v1 and the length-prefixed room, terminal, incarnation, key version and epoch",
+    "wire": "keyVersion, epoch, nonce (12 bytes), ciphertext (at most 1024 bytes), in base64",
+    "spacing": "the host sends a status only when it changes, at most one each second for each terminal; the server takes at most 600 status messages each minute from one device connection",
+    "server": "holds the newest status in memory while the host is connected, gives it in the terminal records, and forgets it when the host disconnects or the terminal goes to another room"
   },
   "pipes": {
     "frame": "binary message: pipe identity (16 bytes, UUID in network byte order), then channel data",

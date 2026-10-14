@@ -1,7 +1,10 @@
 use super::*;
 use crate::{
     identity::keys::DeviceKeys,
-    network::{BackendConfig, wire::Change},
+    network::{
+        BackendConfig,
+        wire::{Change, Notice, TerminalNotice},
+    },
 };
 use serde_json::json;
 use std::sync::Arc;
@@ -56,6 +59,35 @@ fn notices_for_one_room_collapse_into_one_read_up_to_the_highest_sequence() {
         Some(Scope::Rooms(BTreeMap::from([(first, None)])))
     );
     assert!(waiting.add(&Change::of("unknown")).is_err());
+}
+
+#[test]
+fn a_list_refresh_replaces_the_terminal_notices_that_came_before_it() {
+    let notice = |session, online| {
+        Notice::Terminal(TerminalNotice {
+            session,
+            incarnation: Uuid::nil(),
+            online,
+            status: None,
+        })
+    };
+    let (first, second) = (Uuid::now_v7(), Uuid::now_v7());
+    let mut waiting = Waiting::default();
+    for each in [
+        notice(first, true),
+        notice(second, true),
+        notice(first, false),
+    ] {
+        waiting.take(each).unwrap();
+    }
+    assert_eq!(waiting.terminals.len(), 2);
+    assert!(!waiting.terminals[&first].online);
+    waiting
+        .take(Notice::Changed(Change::of("sessions")))
+        .unwrap();
+    waiting.take(notice(second, false)).unwrap();
+    assert!(waiting.terminals.is_empty());
+    assert!(!waiting.is_empty());
 }
 
 #[tokio::test]

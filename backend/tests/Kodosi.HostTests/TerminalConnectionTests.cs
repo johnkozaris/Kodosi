@@ -159,6 +159,29 @@ public sealed class TerminalConnectionTests
         Assert.True(slow.IsOpen); Assert.True(host.IsOpen);
     }
 
+    [Fact]
+    public async Task OnlyTheHostingConnectionSetsTheStatusAndTheStatusEndsWithIt()
+    {
+        var directory = new ConnectionDirectory(); var state = Terminal();
+        var changed = new List<Guid>(); directory.HostChanged += changed.Add;
+        var (host, _) = Device(device: "host"); var (other, _) = Device(device: "other");
+        await using var disposeHost = host; await using var disposeOther = other;
+        directory.Register(host); directory.Register(other); directory.Host(host, state);
+        var status = new TerminalStatus(1, 1, Convert.ToBase64String(new byte[12]), Convert.ToBase64String(new byte[32]));
+        directory.Share(other, state.Id, state.IncarnationId, status);
+        directory.Share(host, state.Id, Guid.CreateVersion7(), status);
+        Assert.Null(directory.Status(state.Id));
+        directory.Share(host, state.Id, state.IncarnationId, status);
+        Assert.Equal(status, directory.Status(state.Id));
+        directory.ForgetStatus(state.Id);
+        Assert.Null(directory.Status(state.Id));
+        directory.Share(host, state.Id, state.IncarnationId, status);
+        directory.Remove(host);
+        Assert.Null(directory.Status(state.Id));
+        Assert.False(directory.HostOnline(state.Id));
+        Assert.Equal(Enumerable.Repeat(state.Id, 5), changed);
+    }
+
     private sealed class CapturingSocket : FakeSocket
     {
         public System.Threading.Channels.Channel<(WebSocketMessageType Type, byte[] Bytes)> Frames { get; } =

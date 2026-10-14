@@ -86,6 +86,8 @@ existing agents participate through the running host.
 
 Terminals show the state that their programs report through the Program Status
 Protocol (OSC 7501) or a progress bar: working, waiting for a person, done, or failed.
+Room members see the state of a room terminal before they open it; the host encrypts
+it with the room key.
 While the app is not in front,
 it sends a system notification when one of the person's own terminals starts to wait,
 is done, or failed.

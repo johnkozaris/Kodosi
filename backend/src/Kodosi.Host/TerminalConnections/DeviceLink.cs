@@ -7,6 +7,7 @@ internal sealed class DeviceLink : IAsyncDisposable
 {
     private const long RelayQueueBytes = 16 * 1024 * 1024;
     private const long QueueBytes = 2 * RelayQueueBytes;
+    private const int StatusesEachMinute = 600;
     private readonly Channel<(byte[] Bytes, WebSocketMessageType Type)> queue =
         Channel.CreateUnbounded<(byte[], WebSocketMessageType)>(new UnboundedChannelOptions { SingleReader = true });
     private readonly CancellationTokenSource stopped = new();
@@ -15,6 +16,8 @@ internal sealed class DeviceLink : IAsyncDisposable
     private readonly Task writer;
     private DateTimeOffset expires;
     private long queued;
+    private long statusMinute;
+    private int statuses;
 
     public DeviceLink(WebSocket socket, Guid userId, string deviceId)
     {
@@ -28,6 +31,13 @@ internal sealed class DeviceLink : IAsyncDisposable
     public CancellationToken Stopped => stopped.Token;
     public CancellationToken Expired => expired.Token;
     public bool IsOpen => !stopped.IsCancellationRequested && Socket.State == WebSocketState.Open;
+
+    public bool TakeStatus()
+    {
+        var minute = Environment.TickCount64 / 60_000;
+        if (minute != statusMinute) { statusMinute = minute; statuses = 0; }
+        return ++statuses <= StatusesEachMinute;
+    }
 
     public void ExtendUntil(DateTimeOffset value)
     {

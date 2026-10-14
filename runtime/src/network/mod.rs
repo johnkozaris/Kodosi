@@ -156,6 +156,57 @@ pub struct RemoteSession {
     pub mission_name: Option<String>,
     pub shared_with: Vec<String>,
     pub online: bool,
+    #[serde(default)]
+    pub status: Option<TerminalStatus>,
+}
+
+/// What the host of a room terminal tells the room about it: the agent and the state
+/// that its program reports, without the program's text.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TerminalStatus {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub program: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<crate::terminal::ProgramState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<crate::terminal::BlockedKind>,
+}
+
+impl TerminalStatus {
+    #[cfg(feature = "host")]
+    pub(crate) fn of(metadata: &crate::terminal::TerminalMetadata) -> Self {
+        Self {
+            program: metadata.program.clone(),
+            state: metadata.status.as_ref().map(|status| status.state),
+            kind: metadata.status.as_ref().and_then(|status| status.kind),
+        }
+    }
+
+    pub(crate) fn read(bytes: &[u8]) -> Result<Self> {
+        let status: Self = serde_json::from_slice(bytes)?;
+        if status
+            .program
+            .as_deref()
+            .is_some_and(|program| !matches!(program, "claude" | "copilot" | "codex" | "cursor"))
+            || (status.kind.is_some()
+                && status.state != Some(crate::terminal::ProgramState::Blocked))
+        {
+            return Err(invalid("The terminal status is invalid."));
+        }
+        Ok(status)
+    }
+
+    pub(crate) fn program_status(&self) -> Option<crate::terminal::ProgramStatus> {
+        Some(crate::terminal::ProgramStatus {
+            state: self.state?,
+            kind: self.kind,
+            progress: None,
+            app: None,
+            title: None,
+            message: None,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

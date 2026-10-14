@@ -1,10 +1,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 use super::{
     BackendClient, CancellationToken, Credentials, Duration, Error, Result, invalid,
-    rooms::Lookups, terminal_connections, wire::Change,
+    rooms::Lookups,
+    terminal_connections,
+    wire::{Change, Notice, TerminalNotice},
 };
 
 const RETRY_LIMIT: Duration = Duration::from_mins(1);
@@ -21,14 +24,30 @@ pub(super) struct Waiting {
     surfaces: BTreeSet<&'static str>,
     missions: Option<Scope>,
     rooms: Option<Scope>,
+    terminals: BTreeMap<Uuid, TerminalNotice>,
 }
 
 impl Waiting {
+    fn take(&mut self, notice: Notice) -> Result<()> {
+        match notice {
+            Notice::Changed(change) => self.add(&change),
+            Notice::Terminal(terminal) => {
+                if !self.surfaces.contains("sessions") {
+                    self.terminals.insert(terminal.session, terminal);
+                }
+                Ok(())
+            }
+        }
+    }
+
     pub(super) fn add(&mut self, change: &Change) -> Result<()> {
         match change.surface.as_str() {
             "devices" => self.surfaces.insert("devices"),
             "friends" => self.surfaces.insert("friends"),
-            "sessions" => self.surfaces.insert("sessions"),
+            "sessions" => {
+                self.terminals.clear();
+                self.surfaces.insert("sessions")
+            }
             "missions" => {
                 widen(&mut self.missions, change.room, None);
                 true
@@ -43,7 +62,10 @@ impl Waiting {
     }
 
     fn is_empty(&self) -> bool {
-        self.surfaces.is_empty() && self.missions.is_none() && self.rooms.is_none()
+        self.surfaces.is_empty()
+            && self.missions.is_none()
+            && self.rooms.is_none()
+            && self.terminals.is_empty()
     }
 }
 
@@ -124,31 +146,31 @@ impl BackendClient {
     ) -> Result<()> {
         let credentials = self.credentials()?;
         self.check_credentials(admitted)?;
-        let (sender, mut changes) = tokio::sync::mpsc::unbounded_channel::<Change>();
+        let (sender, mut notices) = tokio::sync::mpsc::unbounded_channel::<Notice>();
         let refresh = async {
             let mut waiting = Waiting::default();
             let mut retry = None;
             let mut delay = Duration::from_secs(1);
             loop {
                 if waiting.is_empty() {
-                    let Some(change) = changes.recv().await else {
+                    let Some(notice) = notices.recv().await else {
                         return Ok(());
                     };
-                    waiting.add(&change)?;
+                    waiting.take(notice)?;
                 }
                 if let Some(at) = retry {
                     loop {
                         tokio::select! {
-                            change = changes.recv() => match change {
-                                Some(change) => waiting.add(&change)?,
+                            notice = notices.recv() => match notice {
+                                Some(notice) => waiting.take(notice)?,
                                 None => return Ok(()),
                             },
                             () = tokio::time::sleep_until(at) => break,
                         }
                     }
                 }
-                while let Ok(change) = changes.try_recv() {
-                    waiting.add(&change)?;
+                while let Ok(notice) = notices.try_recv() {
+                    waiting.take(notice)?;
                 }
                 match self.refresh_waiting(admitted, &mut waiting).await {
                     Ok(()) => {
@@ -204,6 +226,10 @@ impl BackendClient {
             };
             events.into_iter().for_each(emit);
             waiting.surfaces.remove(surface);
+        }
+        while let Some((&session, notice)) = waiting.terminals.first_key_value() {
+            emit(self.terminal_event(&credentials, notice).await?);
+            waiting.terminals.remove(&session);
         }
         if let Some(scope) = waiting.missions.take() {
             let catalog = match self.mission_list().await {
@@ -278,6 +304,41 @@ impl BackendClient {
         } else {
             Err(Error::EnrollmentRequired)
         }
+    }
+
+    async fn terminal_event(
+        &self,
+        credentials: &Credentials,
+        notice: &TerminalNotice,
+    ) -> Result<Value> {
+        let room = self.inner.sessions.lock().ok().and_then(|mut kept| {
+            let dto = kept
+                .get_mut(&notice.session)
+                .filter(|dto| dto.incarnation_id == notice.incarnation)?;
+            dto.host_online = notice.online;
+            dto.status.clone_from(&notice.status);
+            dto.mission_id
+        });
+        let status = match (room, &notice.status) {
+            (Some(room), Some(sealed)) => match self
+                .open_terminal_status(
+                    credentials,
+                    (room, notice.session, notice.incarnation),
+                    sealed,
+                )
+                .await
+            {
+                Ok(status) => Some(status),
+                Err(error) if retried(&error) => return Err(error),
+                Err(error) => {
+                    tracing::debug!(%error, "a terminal status could not be read");
+                    None
+                }
+            },
+            _ => None,
+        };
+        Ok(json!({"type":"network.terminal","sessionId":notice.session,
+            "incarnationId":notice.incarnation,"online":notice.online,"status":status}))
     }
 }
 
