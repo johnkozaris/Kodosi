@@ -1,12 +1,9 @@
 # Questions and answers
 
-Short answers, with a link to the page that has the details.
-
 ## The app
 
-**Can I download Kodosi?**
-Not yet. There are no published app releases. Build the
-[Mac app](../clients/macos/README.md) or the [Linux app](../clients/qt/README.md)
+**How do I get Kodosi?**
+Build the [Mac app](../clients/macos/README.md) or the [Linux app](../clients/qt/README.md)
 from this repository.
 
 **Which computers does it run on?**
@@ -50,8 +47,8 @@ changed file, no new file. A folder with work stays until you remove it with Git
 
 **What can someone do with a terminal that I share?**
 Everything you can do there: type, resize, interrupt, and close, with your user's
-privileges on that computer. This is intentional. Share a terminal only with people
-you trust with that control.
+privileges on that computer. Share a terminal only with people you trust with that
+control.
 
 **Does sharing one terminal share my computer?**
 No. It shares that terminal; your other terminals are not shared. The terminal is a
@@ -83,12 +80,7 @@ recovery key you start fresh with a new identity, and your friends trust it agai
 
 **Was the security design audited?**
 Not yet. The [encryption design](CRYPTOGRAPHY.md) specifies the keys, the rules, and
-the known limits, so that an independent reviewer can examine it.
-
-**Can I use my own server?**
-Yes. Run the backend with PostgreSQL and your own OIDC provider, and start the apps
-with two environment settings. There is no server selector in the apps yet. See
-[Self-hosting](SELF-HOSTING.md).
+the known limits.
 
 **Where do my GitHub or Gitea credentials go?**
 Nowhere. They stay on your computer; the Kodosi backend does not receive them.

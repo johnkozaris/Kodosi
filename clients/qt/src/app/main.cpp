@@ -77,7 +77,7 @@ int main(int argc, char* argv[])
     QCoreApplication::setOrganizationName(QStringLiteral("Kodosi"));
     QCoreApplication::setOrganizationDomain(QStringLiteral("kodosi.com"));
     QCoreApplication::setApplicationName(QStringLiteral("Kodosi"));
-    QCoreApplication::setApplicationVersion(QStringLiteral("0.1.0"));
+    QCoreApplication::setApplicationVersion(QStringLiteral(KODOSI_VERSION));
     std::optional<QSize> windowSize;
     kodosi::AppActivation launch { .route = {}, .token = kodosi::takeActivationToken() };
     const auto arguments = app.arguments();

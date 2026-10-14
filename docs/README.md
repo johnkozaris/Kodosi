@@ -1,12 +1,9 @@
 # Kodosi documentation
 
-Kodosi is a native workspace for people, coding agents, and shared terminals.
-Start with the guide for the job you want to do.
-
 ## Use Kodosi
 
 - [Getting started](GETTING_STARTED.md): what you need, then sign in, open a terminal,
-  start an agent, and work in a room. With pictures.
+  start an agent, and work in a room.
 - [Agents and tasks](AGENTS_AND_TASKS.md): room chat, the bundled skill, shared tasks,
   and GitHub or Gitea issues.
 - [Questions and answers](FAQ.md): short answers about the app, agents, sharing, and

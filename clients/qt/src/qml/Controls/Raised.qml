@@ -15,31 +15,30 @@ Item {
 
     readonly property real corner: Math.max(0, Math.min(radius, width / 2, height / 2))
     readonly property int level: Math.max(0, Math.min(elevation, 3))
-    // Blur, x, y, dark opacity, light opacity for resting, lifted and floating.
-    readonly property var contact: [[0, 0, 0, 0, 0], [3, 1, 2, 0.42, 0.13], [8, 2, 5, 0.5, 0.18], [12, 3, 8, 0.55, 0.22]][level]
-    readonly property var ambient: [[0, 0, 0, 0, 0], [12, 4, 8, 0.3, 0.08], [26, 8, 16, 0.42, 0.14], [44, 12, 26, 0.5, 0.18]][level]
+    readonly property var shadows: [
+        [{ blur: 0, x: 0, y: 0, dark: 0, light: 0 }, { blur: 0, x: 0, y: 0, dark: 0, light: 0 }],
+        [{ blur: 6, x: 2, y: 4, dark: 0.3, light: 0.08 }, { blur: 3, x: 1, y: 2, dark: 0.42, light: 0.13 }],
+        [{ blur: 13, x: 4, y: 8, dark: 0.42, light: 0.14 }, { blur: 8, x: 2, y: 5, dark: 0.5, light: 0.18 }],
+        [{ blur: 22, x: 6, y: 13, dark: 0.5, light: 0.18 }, { blur: 12, x: 3, y: 8, dark: 0.55, light: 0.22 }]
+    ][level]
 
-    Models.SoftShadow {
-        x: root.ambient[1]
-        y: root.ambient[2]
-        width: root.width
-        height: root.height
-        visible: root.level > 0
-        radius: root.corner
-        blur: root.ambient[0]
-        color: KodosiTheme.shadow
-        opacity: KodosiTheme.isDark ? root.ambient[3] : root.ambient[4]
-    }
-    Models.SoftShadow {
-        x: root.contact[1]
-        y: root.contact[2]
-        width: root.width
-        height: root.height
-        visible: root.level > 0
-        radius: root.corner
-        blur: root.contact[0]
-        color: KodosiTheme.shadow
-        opacity: KodosiTheme.isDark ? root.contact[3] : root.contact[4]
+    Repeater {
+        model: 2
+
+        Models.SoftShadow {
+            required property int index
+            readonly property var shadow: root.shadows[index]
+
+            x: shadow.x
+            y: shadow.y
+            width: root.width
+            height: root.height
+            visible: root.level > 0
+            radius: root.corner
+            blur: shadow.blur
+            color: KodosiTheme.shadow
+            opacity: KodosiTheme.isDark ? shadow.dark : shadow.light
+        }
     }
     Rectangle {
         anchors.fill: parent

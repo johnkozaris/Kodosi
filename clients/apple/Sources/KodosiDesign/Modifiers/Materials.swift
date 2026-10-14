@@ -12,19 +12,15 @@ public struct ShadowSpec: Sendable {
         self.x = x
         self.y = y
     }
-
-    public static let none = ShadowSpec(opacity: 0, radius: 0, x: 0, y: 0)
 }
 
 public enum Elevation: Sendable {
-    case flat
     case resting
     case lifted
     case floating
 
     fileprivate func contact(dark: Bool) -> ShadowSpec {
         switch self {
-        case .flat: .none
         case .resting: ShadowSpec(opacity: dark ? 0.42 : 0.13, radius: 3, x: 1, y: 2)
         case .lifted: ShadowSpec(opacity: dark ? 0.5 : 0.18, radius: 8, x: 2, y: 5)
         case .floating: ShadowSpec(opacity: dark ? 0.55 : 0.22, radius: 12, x: 3, y: 8)
@@ -33,10 +29,9 @@ public enum Elevation: Sendable {
 
     fileprivate func ambient(dark: Bool) -> ShadowSpec {
         switch self {
-        case .flat: .none
-        case .resting: ShadowSpec(opacity: dark ? 0.3 : 0.08, radius: 12, x: 4, y: 8)
-        case .lifted: ShadowSpec(opacity: dark ? 0.42 : 0.14, radius: 26, x: 8, y: 16)
-        case .floating: ShadowSpec(opacity: dark ? 0.5 : 0.18, radius: 44, x: 12, y: 26)
+        case .resting: ShadowSpec(opacity: dark ? 0.3 : 0.08, radius: 6, x: 2, y: 4)
+        case .lifted: ShadowSpec(opacity: dark ? 0.42 : 0.14, radius: 13, x: 4, y: 8)
+        case .floating: ShadowSpec(opacity: dark ? 0.5 : 0.18, radius: 22, x: 6, y: 13)
         }
     }
 }
@@ -46,13 +41,11 @@ public struct RaisedBackground<S: InsettableShape>: View {
     public let shape: S
     public let fill: Color?
     public let elevation: Elevation
-    public var rim = true
 
-    public init(shape: S, fill: Color?, elevation: Elevation, rim: Bool = true) {
+    public init(shape: S, fill: Color?, elevation: Elevation) {
         self.shape = shape
         self.fill = fill
         self.elevation = elevation
-        self.rim = rim
     }
 
     public var body: some View {
@@ -63,22 +56,85 @@ public struct RaisedBackground<S: InsettableShape>: View {
             .shadow(color: theme.colors.shadow.opacity(contact.opacity), radius: contact.radius, x: contact.x, y: contact.y)
             .shadow(color: theme.colors.shadow.opacity(ambient.opacity), radius: ambient.radius, x: ambient.x, y: ambient.y)
             .overlay {
-                if rim {
-                    shape.strokeBorder(
-                        LinearGradient(
-                            stops: [
-                                .init(color: theme.colors.highlight, location: 0),
-                                .init(color: theme.colors.highlight.opacity(0), location: 0.45),
-                                .init(color: theme.colors.lowlight.opacity(0), location: 0.6),
-                                .init(color: theme.colors.lowlight, location: 1),
-                            ],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-                }
+                shape.strokeBorder(
+                    LinearGradient(
+                        stops: [
+                            .init(color: theme.colors.highlight, location: 0),
+                            .init(color: theme.colors.highlight.opacity(0), location: 0.45),
+                            .init(color: theme.colors.lowlight.opacity(0), location: 0.6),
+                            .init(color: theme.colors.lowlight, location: 1),
+                        ],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
             }
             .overlay { shape.strokeBorder(theme.colors.hairline.opacity(theme.isDark ? 0.5 : 0.7), lineWidth: 0.5) }
+    }
+}
+
+public enum Bezel: Sendable {
+    case solid
+    case quiet
+}
+
+public struct BezelBackground<S: InsettableShape>: View {
+    @Environment(\.theme) private var theme
+    @Environment(\.bezelPressed) private var pressed
+    public let shape: S
+    public let fill: Color
+    public let bezel: Bezel
+
+    public init(shape: S, fill: Color, bezel: Bezel = .solid) {
+        self.shape = shape
+        self.fill = fill
+        self.bezel = bezel
+    }
+
+    public var body: some View {
+        let quiet = bezel == .quiet
+        let dark = theme.isDark
+        let shadow = theme.colors.shadow
+        shape
+            .fill(fill.mix(with: .black, by: pressed ? 0.08 : 0))
+            .overlay {
+                if !dark {
+                    shape.inset(by: quiet ? -0.5 : 0)
+                        .strokeBorder(quiet ? shadow.opacity(0.22) : .black.opacity(0.18), lineWidth: 0.5)
+                }
+            }
+            .overlay {
+                if dark {
+                    OffsetEdge(shape: shape, offset: -1)
+                        .fill(.black.opacity(0.2), style: FillStyle(eoFill: true))
+                        .clipShape(shape)
+                }
+                OffsetEdge(shape: shape, offset: 1)
+                    .fill(.white.opacity(light), style: FillStyle(eoFill: true))
+                    .clipShape(shape)
+            }
+            .shadow(
+                color: shadow.opacity(dark ? (quiet ? 0.21 : 0.35) : (quiet ? 0.14 : 0.3)),
+                radius: dark ? 1.5 : 0.75, y: 1
+            )
+    }
+
+    private var light: Double {
+        if theme.isDark {
+            return bezel == .quiet ? 0.06 : 0.05
+        }
+        return bezel == .quiet ? 0.35 : 0.22
+    }
+}
+
+private struct OffsetEdge<S: Shape>: Shape {
+    let shape: S
+    let offset: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var path = shape.path(in: rect)
+        path.addPath(shape.path(in: rect).offsetBy(dx: offset, dy: offset))
+        return path
     }
 }
 

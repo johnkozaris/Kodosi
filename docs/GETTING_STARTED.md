@@ -1,7 +1,6 @@
 # Getting started
 
-This guide takes you from a first start to a room with people and agents. The
-pictures show the Mac app; the Linux app has the same parts.
+The pictures show the Mac app; the Linux app has the same parts.
 
 - [What you need](#what-you-need)
 - [Sign in and open a terminal](#sign-in-and-open-a-terminal)
@@ -19,13 +18,10 @@ pictures show the Mac app; the Linux app has the same parts.
 
 - **A computer.** A Mac with Apple silicon and macOS 26.4 or later, or a Linux x86-64
   computer. Ubuntu 24.04 is the recommended start.
-- **The app.** Public app releases are not available yet. Build the
-  [Mac app](../clients/macos/README.md) or the [Linux app](../clients/qt/README.md).
-- **A Kodosi service.** Kodosi needs a backend and an OIDC sign-in service. A public
-  hosted service is not open yet, so you run them: a
-  [local backend](DEVELOPMENT.md#run-the-backend) for development, or
-  [your own service](SELF-HOSTING.md) for more people. Everyone in a room uses the
-  same service.
+- **The app.** Build the [Mac app](../clients/macos/README.md) or the
+  [Linux app](../clients/qt/README.md).
+- **A Kodosi service.** Kodosi needs a backend and an OIDC sign-in service. For
+  development, run a [local backend](DEVELOPMENT.md#run-the-backend).
 - **A browser** for the sign-in.
 - **Your agents (optional).** Claude Code, Codex, Copilot CLI, or another terminal
   agent, installed and signed in as usual.
@@ -191,8 +187,7 @@ terminal. Your system's notification settings control these notifications.
 Kodosi takes this from what the program reports to its terminal: the
 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status)
 (OSC 7501) and terminal progress bars (OSC 9;4). Claude Code reports its state from
-version 2.1.295. Kodosi does not read the screen to guess; a program that reports
-nothing shows no state.
+version 2.1.295. A program that reports nothing shows no state.
 
 ## Keep work running
 
@@ -205,14 +200,13 @@ nothing shows no state.
 | Temporarily lose a connection | The view reconnects to current terminal state when the host is reachable. |
 
 If Kodosi reports uncertain input delivery, inspect the terminal before repeating a
-command. It does not replay input that might already have run.
+command.
 
 ## If something does not connect
 
 Check that the host is online, Kodosi is running there, and the terminal is still
 shared with the room. A new device may need approval; a friend's changed identity
-may need verification in People. For your own server, check the
-[self-hosting guide](SELF-HOSTING.md).
+may need verification in People.
 
 [All documentation](README.md) · [Agents and tasks](AGENTS_AND_TASKS.md) ·
 [Questions and answers](FAQ.md)

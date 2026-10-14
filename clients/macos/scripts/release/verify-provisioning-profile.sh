@@ -1,20 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -lt 2 || $# -gt 4 ]]; then
-    echo "usage: $0 <app> <expected-team-id> [security-command] [codesign-command]" >&2
+if [[ $# -ne 2 ]]; then
+    echo "usage: $0 <app> <expected-team-id>" >&2
     exit 2
 fi
 
 app=$1
 expected_team_id=$2
-security_command=${3:-/usr/bin/security}
-codesign_command=${4:-/usr/bin/codesign}
-
-if [[ ! "$expected_team_id" =~ ^[A-Z0-9]{10}$ ]]; then
-    echo "Expected team ID must be a 10-character Apple team identifier." >&2
-    exit 1
-fi
 
 fail() {
     echo "$app: $1" >&2
@@ -30,11 +23,11 @@ scratch=$(mktemp -d)
 trap 'rm -rf "$scratch"' EXIT
 decoded="$scratch/profile.plist"
 signed="$scratch/entitlements.plist"
-"$security_command" cms -D -i "$profile" >"$decoded" ||
+/usr/bin/security cms -D -i "$profile" >"$decoded" ||
     fail "the embedded provisioning profile cannot be decoded."
-"$codesign_command" --display --entitlements - --xml "$app" >"$signed" 2>/dev/null ||
+/usr/bin/codesign --display --entitlements - --xml "$app" >"$signed" 2>/dev/null ||
     fail "codesign cannot read the signed entitlements."
-"$codesign_command" --display --extract-certificates="$scratch/certificate" "$app" 2>/dev/null ||
+/usr/bin/codesign --display --extract-certificates="$scratch/certificate" "$app" 2>/dev/null ||
     fail "codesign cannot read the signing certificates."
 
 extract() {

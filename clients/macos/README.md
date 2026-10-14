@@ -1,7 +1,6 @@
 # Kodosi for macOS
 
 The native Swift app embeds the shared Rust runtime and Ghostty terminal integration.
-Everything builds from this checkout.
 
 ## Requirements
 
@@ -11,14 +10,9 @@ Everything builds from this checkout.
 - The Rust toolchain pinned at the repository root.
 - `just`, Python 3, `xcodegen`, `swiftformat`, and `swiftlint` on your build PATH.
 
-Keep downloaded build tools and dependencies project-local. Building and signing the
-app requires your own Apple development signing setup. The checked-in team identifier
-is public configuration for the official app, not a signing credential.
+Keep downloaded build tools and dependencies project-local.
 
 ## Build and run
-
-For your own signing setup, set `DEVELOPMENT_TEAM` in the `appBase` settings of
-[project.yml](project.yml). Keep personal signing changes out of unrelated pull requests.
 
 From the repository root:
 
@@ -26,26 +20,21 @@ From the repository root:
 just mac-build
 ```
 
-This generates `KodosiDesktop.xcodeproj`, builds the runtime and app, and runs the
-terminal package tests. Open the generated project in Xcode, select the
+This generates `KodosiDesktop.xcodeproj`, builds the runtime library and the app, and
+runs the terminal package tests. Open the generated project in Xcode, select the
 `KodosiDesktop` scheme, and run it.
 
 Debug builds target the local backend at `127.0.0.1:5180`; follow
-[backend setup](../../docs/DEVELOPMENT.md#run-the-backend) to run it. For your own
-service, build the Release configuration:
+[backend setup](../../docs/DEVELOPMENT.md#run-the-backend) to run it. Release builds use
+the public service addresses:
 
 ```sh
-just --justfile clients/macos/Justfile build-release
+just --justfile clients/macos/justfile release-build
 ```
 
-Run the Release app from Xcode's Products group. Release uses the public service
-addresses, and that service is not open yet, so supply the
-[self-hosting environment](../../docs/SELF-HOSTING.md).
-For a custom server in Debug, clear the two `KODOSI_DEBUG_BACKEND_*` build settings
-so its local override does not replace your environment.
-
 Generate the project from `project.yml`; do not edit generated project files or the
-runtime header directly.
+runtime header directly. [Apps.xcconfig](../apple/Config/Apps.xcconfig) gives the
+version and the build number of the Mac app and of the iOS app.
 
 ## Command-line access
 
@@ -56,9 +45,8 @@ The app executable also implements the CLI:
 ```
 
 For `kodosi` in your shells and agent terminals, put a symlink named `kodosi` on your
-PATH pointing to that executable. Use the absolute path to your built app. It must
-remain the signed app executable so the CLI uses the same Keychain identity; a
-separate unsigned Rust binary is not a substitute for this app's CLI.
+PATH pointing to that executable. Use the absolute path to your built app. The CLI
+must be the signed app executable to use the app's Keychain identity.
 
 Keep the app running when using room commands for its terminals. See
 [Agents and tasks](../../docs/AGENTS_AND_TASKS.md).
@@ -69,13 +57,9 @@ Keep the app running when using room commands for its terminals. See
 just mac-check
 ```
 
-The client directory also provides `just lint`, `just test`, and release recipes.
-`just archive-working-tree` builds a non-publishable validation archive.
-
-Official releases are signed with Developer ID, embed a provisioning profile for the
-Keychain access group, and are notarized by Apple. The release recipes verify the
-signatures, the embedded profile, the entitlements, the native artifacts and the source
-revision. The signing credentials stay with the maintainers, outside Git.
+From this client directory, `just lint` and `just test` do parts of this check. To
+format the Swift sources, run `just format`.
+`just working-tree-build` builds an archive of the working tree for validation.
 
 Read [Ghostty integration](docs/GHOSTTY_INTEGRATION.md) before changing the renderer.
 See [product behavior](PRODUCT.md), [design reference](DESIGN.md), and

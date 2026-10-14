@@ -1,32 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-source "$ROOT/scripts/build/deployment-target.sh"
-kodosi_load_macos_deployment_target "$ROOT"
-cd "$ROOT"
-"$ROOT/scripts/release/archive.sh"
-"$ROOT/scripts/release/verify-signed.sh"
-"$ROOT/scripts/release/verify-publishable.sh" "$ROOT/build/archive/KodosiDesktop.xcarchive"
+if [[ $# -ne 2 ]]; then
+    echo "usage: $0 <archive.xcarchive> <export-folder>" >&2
+    exit 64
+fi
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+archive=$1
+folder=$2
 : "${KODOSI_TEAM_ID:?Set KODOSI_TEAM_ID to the Apple Developer team identifier}"
-rm -rf build/export
-export_options="build/ExportOptions.plist"
-cp Config/ExportOptions.plist "$export_options"
-/usr/libexec/PlistBuddy -c "Add :teamID string $KODOSI_TEAM_ID" "$export_options"
-/usr/libexec/PlistBuddy \
-    -c "Add :provisioningProfiles dict" \
-    -c "Add :provisioningProfiles:com.kodosi.desktop string ${KODOSI_PROVISIONING_PROFILE:-Kodosi Developer ID}" \
-    "$export_options"
-if [[ $(/usr/libexec/PlistBuddy -c 'Print :signingStyle' "$export_options") != manual ]] ||
-   [[ $(/usr/libexec/PlistBuddy -c 'Print :signingCertificate' "$export_options") != 'Developer ID Application' ]]; then
-    echo "Export must preserve manual Developer ID signing." >&2
+: "${KODOSI_PROVISIONING_PROFILE:?Set KODOSI_PROVISIONING_PROFILE to the name of the Developer ID provisioning profile}"
+if [[ ! -d "$archive/Products/Applications/KodosiDesktop.app" ]]; then
+    echo "$archive has no KodosiDesktop.app. Make the archive with archive.sh." >&2
     exit 1
 fi
+options=$(mktemp -d "${TMPDIR:-/tmp}/kodosi-export.XXXXXX")
+trap 'rm -rf "$options"' EXIT
+cp "$ROOT/Config/ExportOptions.plist" "$options/ExportOptions.plist"
+/usr/libexec/PlistBuddy -c "Add :teamID string $KODOSI_TEAM_ID" "$options/ExportOptions.plist"
+/usr/libexec/PlistBuddy \
+    -c "Add :provisioningProfiles dict" \
+    -c "Add :provisioningProfiles:com.kodosi.desktop string $KODOSI_PROVISIONING_PROFILE" \
+    "$options/ExportOptions.plist"
+rm -rf "$folder/KodosiDesktop.app"
 xcodebuild -exportArchive \
-           -archivePath build/archive/KodosiDesktop.xcarchive \
-           -exportOptionsPlist "$export_options" \
-           -exportPath build/export
-"$ROOT/scripts/release/verify-signed.sh" "$ROOT/build/export/KodosiDesktop.app"
-"$ROOT/scripts/build/verify-native-notices.sh" \
-    "$ROOT/build/export/KodosiDesktop.app/Contents/Resources/GhosttyNativeNotices"
-cd build/export && /usr/bin/ditto -c -k --keepParent KodosiDesktop.app KodosiDesktop.zip
+           -archivePath "$archive" \
+           -exportOptionsPlist "$options/ExportOptions.plist" \
+           -exportPath "$folder"

@@ -516,7 +516,7 @@ Item {
                     Accessible.id: objectName
                     Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover } }
                     background: Item {
-                        Raised { anchors.fill: parent; radius: 15; fill: KodosiTheme.accent; visible: root.canSend }
+                        Bezel { anchors.fill: parent; radius: 15; fill: KodosiTheme.accent; visible: root.canSend; pressed: sendButton.pressed }
                         Rectangle { anchors.fill: parent; radius: 15; color: KodosiTheme.alpha(KodosiTheme.ink, 0.08); visible: !root.canSend }
                     }
                     contentItem: Item {

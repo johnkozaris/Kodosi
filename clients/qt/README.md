@@ -18,9 +18,11 @@ sudo apt-get install build-essential git curl unzip zstd pkg-config \
   libglib2.0-dev libdbus-1-3 dbus-x11 libxcb-cursor0 libxkbcommon-x11-0
 ```
 
-Install Rust, `uv`, and `just` if they are not already available. The repository's
-bootstrap installs its pinned Qt, CMake, Ninja, and Python tooling under `.tools/`
+Install Rust, `uv`, and `just` if they are not already available. The recipe
+`tools-install` installs the pinned Qt, CMake, Ninja and Python tools under `.tools/`
 in this client directory. It does not require a separate system Qt installation.
+[dependencies.lock.json](dependencies.lock.json) is the record of the versions and the
+SHA-256 values of these tools. The recipe reads them from that file.
 
 ## Build and run
 
@@ -59,18 +61,19 @@ just linux-check
 ```
 
 From this client directory, `just configure`, `just test`, and `just lint` are
-also available. `just package` builds and verifies a Debian package and portable
-archive under `build/release/`; packaging additionally needs tools such as
-`patchelf`, `dpkg-deb`, and `binutils`.
+also available. `just release-package` makes a Debian package, a portable archive
+and an Arch package in `build/release/`. Commit all the changes first. The recipe
+needs `patchelf`, `dpkg-deb`, `binutils`, `zstd`, `desktop-file-utils` and
+`appstream`.
 
 The Debian package targets glibc 2.39 or later and the Ubuntu 24.04 library names.
 Do not assume it installs on older distributions just because a source build works
 there. The portable archive still requires a compatible Linux system and desktop
 libraries.
 
-Release recipes record the monorepo revision, verify package contents and license
-materials, and can create a signed release manifest. Public app releases are not
-published yet.
+Each package records the Kodosi commit. The release recipe checks the content and
+the license files of each package, and writes a release manifest that a person can
+sign. Kodosi has no public release of the app yet.
 
 ## Windows
 
@@ -93,7 +96,8 @@ Keep the checkout path to about 70 characters, such as `C:\src\Kodosi`. The rele
 build compiles the runtime's TLS library deep in the build tree, and the C compiler
 cannot write a path longer than 259 characters, even with Windows long paths enabled.
 
-The bootstrap installs the pinned Qt, CMake, and Ninja under `.tools/`, as on Linux.
+The recipe `tools-install` installs the pinned Qt, CMake and Ninja under `.tools/`, as
+on Linux.
 
 ### Terminal engine
 
@@ -102,12 +106,12 @@ If `terminal/ghostty/Vendor/GhosttyVt/windows-<arch>` is not in the checkout, bu
 from the repository root:
 
 ```sh
-terminal/ghostty/Script/build.sh
+terminal/ghostty/scripts/build.sh
 ```
 
-The script prints the digest to record in [Ghostty.lock](../../Ghostty.lock). Commit
-the library and the digest together, as the
-[provenance guide](../../terminal/ghostty/PROVENANCE.md) describes.
+The script prints the line to add to [Ghostty.lock](../../Ghostty.lock), for example
+`windows_x86_64_archive_sha256=<digest>`. Commit the library and the digest
+together, as the [provenance guide](../../terminal/ghostty/PROVENANCE.md) describes.
 
 ### Build and check on Windows
 
@@ -118,20 +122,22 @@ just windows-check
 ```
 
 From this client directory, `just windows-run` builds the app and starts it with the
-bootstrapped Qt libraries. On any host with Docker, `just windows-cross-check` lints
-the runtime for both Windows targets. Desktop notifications need the installed
+installed Qt libraries. On any host with Docker, `just windows-rust-lint` from the
+repository root lints the runtime for both Windows targets. Desktop notifications need the installed
 package; a development build does not show them.
 
 ### Package and sign
 
 From this client directory, `just windows-package` builds, tests, and verifies
-`build/release/kodosi-0.1.0-windows-<arch>.msix`. The package holds the app, the
+`build/release/kodosi-<version>-windows-<arch>.msix`. The `project` command in
+[CMakeLists.txt](CMakeLists.txt) gives the version. The recipes and the release
+scripts read the version from that file. The package holds the app, the
 `kodosi` command, ConPTY, the C runtime, Qt, and the notices. Without
 `KODOSI_MSIX_PUBLISHER`, the package is unsigned; install it from an administrator
 PowerShell:
 
 ```powershell
-Add-AppxPackage -Path build\release\kodosi-0.1.0-windows-x64.msix -AllowUnsigned
+Add-AppxPackage -Path build\release\kodosi-<version>-windows-x64.msix -AllowUnsigned
 ```
 
 For a release, set `KODOSI_MSIX_PUBLISHER` to the subject of the Azure Artifact
@@ -142,7 +148,7 @@ Azure, and run:
 ```sh
 KODOSI_SIGNING_DLIB=<path>/Azure.CodeSigning.Dlib.dll \
 KODOSI_SIGNING_METADATA=<path>/metadata.json \
-just windows-sign build/release/kodosi-0.1.0-windows-x64.msix
+just windows-sign build/release/kodosi-<version>-windows-x64.msix
 ```
 
 Publish the signed x64 and ARM64 packages to winget with `wingetcreate`.

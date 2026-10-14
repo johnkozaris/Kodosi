@@ -107,11 +107,6 @@ workspace = true
 debug = "line-tables-only"
 split-debuginfo = "off"
 
-[profile.ffi-debug]
-inherits = "dev"
-incremental = false
-split-debuginfo = "packed"
-
 [profile.release]
 codegen-units = 1
 lto = "fat"

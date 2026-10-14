@@ -6,8 +6,7 @@ it does not run terminal commands or receive their plaintext.
 
 Sharing a terminal grants full control with the host user's operating-system
 privileges, including typing, interrupting, and closing. Everyone admitted to its
-room can use that shared terminal, including members invited later. This is the
-product's collaboration model.
+room can use that shared terminal, including members invited later.
 
 ## Terminal connections
 
@@ -69,8 +68,7 @@ the external provider's visibility and access rules.
 
 [Encryption design and threat model](CRYPTOGRAPHY.md) specifies the keys, the rules,
 and the known limits. The current contracts and source map are in
-[Architecture and protocol](PROTOCOL.md). This describes the implementation; it is
-not a claim of an independent security audit.
+[Architecture and protocol](PROTOCOL.md).
 
 ## Report a vulnerability
 

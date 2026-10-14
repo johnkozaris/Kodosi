@@ -21,9 +21,9 @@ import { Stage } from "../stage";
 import type { Page } from "./props";
 
 /**
- * The end of the sign-in of the Kodosi app, and the end of the journey in the browser. The mark
- * is whole, as on the banner and in the last frame of the launch film, and the words are the
- * app's own: it says "You are in" at the same moment.
+ * The end of the sign-in of the Kodosi app, and the end of the journey in the browser. The
+ * wordmark has the size of the banner, and the words are the app's own: it says "You are in" at
+ * the same moment.
  */
 function Connected({ kcContext, i18n }: Page<"info.ftl">) {
   const { msgStr } = i18n;

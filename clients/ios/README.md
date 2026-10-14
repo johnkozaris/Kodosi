@@ -1,20 +1,17 @@
 # Kodosi for iPhone and iPad
 
-The native iOS app follows your terminals and rooms from anywhere. It embeds the shared
-Rust runtime as a viewer and Ghostty's terminal view. Terminals keep running on the
-computers that host them; iOS cannot start them.
+The native iOS app follows your terminals and rooms. It embeds the shared Rust runtime
+as a viewer and Ghostty's terminal view.
 
 ## Requirements
 
 - Xcode with the iOS 26 SDK and an iOS 26 simulator runtime.
 - The Rust toolchain pinned at the repository root, with the iOS targets:
-  `just ios-rust-targets`.
+  `just ios-rust-targets-install`.
 - `just`, Python 3, `xcodegen`, `swiftformat`, and `swiftlint` on your build PATH.
 
 The app shares the runtime bridge, the design system, and the terminal view and
-pipeline with the Mac app through the [shared Swift package](../apple/Package.swift). Building and signing for a device
-requires your own Apple development signing setup; set `DEVELOPMENT_TEAM` in the
-`appBase` settings of [project.yml](project.yml).
+pipeline with the Mac app through the [shared Swift package](../apple/Package.swift).
 
 ## Build and run
 
@@ -24,19 +21,19 @@ From the repository root:
 just ios-build
 ```
 
-This generates `KodosiMobile.xcodeproj`, builds the viewer runtime for the simulator,
-and builds the app. Open the generated project in Xcode, select the `KodosiMobile`
-scheme and an iPhone or iPad simulator, and run it. The prepare phase runs
-`just ios-ffi-build`, which builds and installs the runtime library for the selected
-SDK under `Frameworks/Runtime/`.
+This generates `KodosiMobile.xcodeproj`, builds the viewer runtime library for the
+simulator, and builds the app. Open the generated project in Xcode, select the
+`KodosiMobile` scheme and an iPhone or iPad simulator, and run it.
 
 Debug builds target the local backend at `127.0.0.1:5180`, like the Mac app; follow
 [backend setup](../../docs/DEVELOPMENT.md#run-the-backend) to run it. A simulator
 reaches that address on your Mac; a device does not. Release builds use the public
-service addresses. For a custom server in Debug, clear the two
-`KODOSI_DEBUG_BACKEND_*` settings in [Config/Debug.xcconfig](Config/Debug.xcconfig).
+service addresses.
 
 Generate the project from `project.yml`; do not edit generated project files.
+[iOSDeploymentTarget](../apple/Config/iOSDeploymentTarget) is the record of the iOS
+deployment target. [Apps.xcconfig](../apple/Config/Apps.xcconfig) gives the version and
+the build number of the iOS app and of the Mac app.
 
 ## Privacy manifest
 
@@ -55,7 +52,8 @@ just ios-check
 
 This lints the sources, runs the unit tests on a `Kodosi iPhone 17 Pro` simulator
 (made when it is missing; set `KODOSI_IOS_SIMULATOR` to choose another), and builds
-the Release configuration for devices.
+the Release configuration for devices. To format the Swift sources, run `just format`
+from this client directory.
 
 See [product behavior](PRODUCT.md), [design reference](DESIGN.md), and
 [contributor setup](../../docs/DEVELOPMENT.md).

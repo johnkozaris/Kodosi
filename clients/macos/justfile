@@ -1,0 +1,101 @@
+ghostty_dir := env('KODOSI_GHOSTTY_DIR', justfile_directory() + "/../../terminal/ghostty")
+
+export KODOSI_GHOSTTY_DIR := ghostty_dir
+
+[private]
+default: check
+
+[private]
+ghostty-pins-check:
+    python3 ../../terminal/ghostty/scripts/verify-ghostty-pins.py
+
+# Generate the Xcode project from project.yml.
+xcode-gen:
+    scripts/build/generate-xcode-project.sh
+
+# Test the shared Swift package in clients/apple.
+apple-test: ghostty-pins-check
+    swift test \
+        --package-path ../apple
+
+# Lint the Swift sources of the Mac app and of the shared Swift package.
+lint:
+    swiftformat Sources Tests ../apple/Sources ../apple/Tests ../apple/Plugins ../apple/Package.swift --lint --swiftversion 6.0
+    swiftlint lint --quiet Sources Tests ../apple/Sources ../apple/Tests ../apple/Plugins
+
+# Format the Swift sources of the Mac app and of the shared Swift package.
+format:
+    swiftformat Sources Tests ../apple/Sources ../apple/Tests ../apple/Plugins ../apple/Package.swift --swiftversion 6.0
+
+# Test the shared Swift package and the Mac app.
+test: xcode-gen apple-test
+    xcodebuild -project KodosiDesktop.xcodeproj \
+        -scheme KodosiDesktop \
+        -configuration Debug \
+        -destination 'platform=macOS' \
+        test
+
+# Test the shared Swift package, then build the Debug Mac app.
+build: xcode-gen apple-test
+    xcodebuild -project KodosiDesktop.xcodeproj \
+        -scheme KodosiDesktop \
+        -configuration Debug \
+        -destination 'platform=macOS' \
+        build
+
+# Build the Release Mac app. Commit all the changes first.
+release-build: ghostty-pins-check xcode-gen apple-test
+    xcodebuild -project KodosiDesktop.xcodeproj \
+        -scheme KodosiDesktop \
+        -configuration Release \
+        -destination 'generic/platform=macOS' \
+        build
+
+# Build an archive of the working tree for validation. You cannot publish it.
+working-tree-build: xcode-gen
+    python3 ../../terminal/ghostty/scripts/verify-ghostty-pins.py --working-tree
+    KODOSI_WORKING_TREE_VALIDATION=1 swift test \
+        --package-path ../apple
+    KODOSI_WORKING_TREE_VALIDATION=1 xcodebuild -project KodosiDesktop.xcodeproj \
+        -scheme WorkingTreeValidation \
+        -configuration WorkingTreeValidation \
+        -archivePath build/working-tree/KodosiDesktop.xcarchive \
+        -destination 'generic/platform=macOS' \
+        archive
+
+# Test the Ghostty link check, and check that the Xcode project matches project.yml.
+release-graph-test:
+    ../apple/scripts/tests/test-ghostty-link-provenance.sh
+    scripts/tests/test-generated-project.sh
+
+# Check that the Swift packages and the Ghostty iOS build agree with the deployment targets of the apps.
+deployment-targets-check:
+    ../apple/scripts/verify-deployment-targets.py
+
+# Lint and test the Mac app and its scripts, then build the Release app. Commit all the changes first.
+check: lint deployment-targets-check release-graph-test apple-test
+    xcodebuild -project KodosiDesktop.xcodeproj \
+        -scheme KodosiDesktop \
+        -configuration Debug \
+        -destination 'platform=macOS' \
+        test
+    xcodebuild -project KodosiDesktop.xcodeproj \
+        -scheme KodosiDesktop \
+        -configuration Release \
+        -destination 'generic/platform=macOS' \
+        build
+
+# Archive, export, notarize and package the Mac app in build/export/KodosiDesktop.dmg. Commit all the changes first.
+release-package:
+    scripts/release/archive.sh build/archive/KodosiDesktop.xcarchive
+    scripts/release/export.sh build/archive/KodosiDesktop.xcarchive build/export
+    scripts/release/notarize.sh build/export/KodosiDesktop.app
+    scripts/release/package-dmg.sh build/export/KodosiDesktop.app build/export/KodosiDesktop.dmg
+
+# Write the Homebrew cask build/KodosiDesktop.rb for the disk image at KODOSI_DOWNLOAD_URL.
+cask-gen:
+    scripts/release/generate-cask.sh build/export/KodosiDesktop.dmg build/KodosiDesktop.rb
+
+# Check the signatures, the profile and the entitlements of the app in the release archive.
+signature-check:
+    scripts/release/verify-signed.sh

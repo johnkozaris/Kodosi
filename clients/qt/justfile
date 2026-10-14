@@ -1,69 +1,79 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
+set lazy
 
 tools_dir := justfile_directory() + "/.tools"
-cmake := tools_dir + "/cmake-4.4.3/bin/cmake"
-ctest := tools_dir + "/cmake-4.4.3/bin/ctest"
-qt_dir := tools_dir + "/Qt/6.12.0/gcc_64"
-windows_cmake := tools_dir + "/cmake-4.4.3/bin/cmake.exe"
-windows_ctest := tools_dir + "/cmake-4.4.3/bin/ctest.exe"
+cmake := tools_dir + "/cmake/bin/cmake"
+ctest := tools_dir + "/cmake/bin/ctest"
+qt_dir := tools_dir + "/Qt/gcc_64"
+windows_cmake := tools_dir + "/cmake/bin/cmake.exe"
+windows_ctest := tools_dir + "/cmake/bin/ctest.exe"
+version := trim(`python3 scripts/release/product-version.py`)
+source_date_epoch := trim(`python3 scripts/release/source-date-epoch.py --source-root .`)
+linux_packages := "kodosi_" + version + "_amd64.deb kodosi-" + version + "-linux-x86_64.tar.gz kodosi-bin-" + version + "-1-x86_64.pkg.tar.zst"
 
-bootstrap:
-    ./scripts/build/bootstrap-tools.sh
+# Install the pinned CMake, Ninja, Qt and Python tools in .tools.
+tools-install:
+    ./scripts/build/install-tools.sh
 
-configure: bootstrap
+# Configure the CMake build in build/dev.
+configure: tools-install
     CMAKE_PREFIX_PATH="{{ qt_dir }}" "{{ cmake }}" --preset dev
 
+# Build the Linux app in build/dev.
 build: configure
     "{{ cmake }}" --build --preset dev
 
+# Lint the QML files.
 lint: configure
     "{{ cmake }}" --build build/dev --target all_qmllint
 
+# Build the Linux app and run its tests.
 test: build
     "{{ cmake }}" --build build/dev --target test_prep/all
     "{{ ctest }}" --preset dev
 
-release-integrity-test:
-    python3 -m unittest tests/tooling/test_release_integrity.py
-    python3 -m unittest tests/tooling/test_reproducible_archives.py
-    python3 -m unittest tests/tooling/test_windows_package.py
+# Check that the copies of the CMake and Qt versions agree with dependencies.lock.json.
+dependency-pins-check:
+    python3 scripts/build/verify-dependency-pins.py
 
-rust-license-test:
-    rm -rf build/rust-license-test
+# Test that the release signature check refuses a changed manifest and the signature of another key.
+release-signature-test:
+    python3 -m unittest scripts/tests/test_release_signature.py
+
+# Check that each Rust dependency of the Linux runtime has license text.
+rust-license-check:
     python3 scripts/release/generate-rust-license-inventory.py \
         --manifest ../../runtime/Cargo.toml \
         --target x86_64-unknown-linux-gnu \
-        --output-dir build/rust-license-test
-    python3 scripts/release/verify-rust-license-inventory.py \
-        --tree build/rust-license-test \
-        --target x86_64-unknown-linux-gnu
+        --output-dir build/rust-license-check
 
-native-license-test: bootstrap
+# Check the native license evidence against the installed Qt.
+native-license-check: tools-install
     python3 scripts/release/verify-native-license-evidence.py
-    python3 -m unittest tests/tooling/test_native_license_evidence.py
 
-check: release-integrity-test rust-license-test native-license-test lint test
+# Lint and test the Linux app and its release and license scripts.
+check: dependency-pins-check release-signature-test rust-license-check native-license-check lint test
 
-# Builds the Windows app in Git Bash on Windows 11 x64 or ARM64.
-windows-build: bootstrap
+# Build the Windows app in Git Bash on Windows 11, x64 or ARM64.
+windows-build: tools-install
     source ../../scripts/windows-env.sh && kodosi_windows_env && \
         "{{ windows_cmake }}" --preset windows-dev && \
         "{{ windows_cmake }}" --build --preset windows-dev
 
-# Builds and tests the Windows app.
+# Build and test the Windows app.
 windows-check: windows-build
     source ../../scripts/windows-env.sh && kodosi_windows_target && \
         "{{ windows_ctest }}" --preset windows-dev
 
-# Runs the Windows app with the bootstrapped Qt libraries.
+# Run the Windows app with the installed Qt libraries.
 windows-run *arguments: windows-build
     source ../../scripts/windows-env.sh && kodosi_windows_target && \
-        PATH="$(cygpath -u "$PWD")/.tools/Qt/6.12.0/$KODOSI_QT_ARCH/bin:$PATH" build/windows-dev/kodosi-qt.exe {{ arguments }}
+        PATH="$(cygpath -u "$PWD")/.tools/Qt/$KODOSI_QT_ARCH/bin:$PATH" build/windows-dev/kodosi-qt.exe {{ arguments }}
 
-# A release sets KODOSI_MSIX_PUBLISHER to the signing certificate's subject;
-# the default publisher makes an unsigned development package.
-# Builds, tests, packs and verifies build/release/kodosi-0.1.0-windows-<arch>.msix.
-windows-package: bootstrap
+# For a release, set KODOSI_MSIX_PUBLISHER to the subject of the signing certificate.
+# The default publisher makes an unsigned development package.
+# Build, test, package and verify build/release/kodosi-<version>-windows-<arch>.msix.
+windows-package: tools-install
     source ../../scripts/windows-env.sh && kodosi_windows_env && \
         export SOURCE_DATE_EPOCH="$(python3 scripts/release/source-date-epoch.py --source-root .)" && \
         "{{ windows_cmake }}" --preset windows-release \
@@ -73,83 +83,46 @@ windows-package: bootstrap
         rm -rf build/windows-release/layout && \
         "{{ windows_cmake }}" --install build/windows-release --prefix build/windows-release/layout && \
         mkdir -p build/release && \
-        package="build/release/kodosi-0.1.0-windows-$KODOSI_WINDOWS_ARCH.msix" && \
+        package="build/release/kodosi-{{ version }}-windows-$KODOSI_WINDOWS_ARCH.msix" && \
         ./scripts/release/package-msix.sh build/windows-release/layout "$package" && \
         python3 scripts/release/verify-windows-package.py "$package" \
             --target "$KODOSI_RUST_TARGET" \
             --build-dir build/windows-release \
-            --qt-root ".tools/Qt/6.12.0/$KODOSI_QT_ARCH"
+            --qt-root ".tools/Qt/$KODOSI_QT_ARCH"
 
-# Signs a package from windows-package with Azure Artifact Signing.
+# Sign a package from windows-package with Azure Artifact Signing.
 windows-sign package:
     source ../../scripts/windows-env.sh && kodosi_windows_env && \
         ./scripts/release/sign-msix.sh "{{ package }}"
 
-package: bootstrap
-    mkdir -p build/release
-    find build/release -maxdepth 1 -type f \
-        \( -name 'kodosi_*.deb' \
-        -o -name 'kodosi-*-linux-x86_64.tar.gz' \
-        -o -name 'kodosi-bin-*.pkg.tar.zst' \
-        -o -name 'release-manifest.json' \
-        -o -name 'release-manifest.json.asc' \) \
-        -delete
-    git status --porcelain=v1 --untracked-files=no \
-        > build/release/tracked-status.before
-    SOURCE_DATE_EPOCH="$(python3 scripts/release/source-date-epoch.py --source-root .)" \
-        CMAKE_PREFIX_PATH="{{ qt_dir }}" "{{ cmake }}" --preset release
-    SOURCE_DATE_EPOCH="$(python3 scripts/release/source-date-epoch.py --source-root .)" \
-        "{{ cmake }}" --build --preset release
+# Build and test the Linux release. Make the Debian package, the portable archive and the Arch package two times, and compare them. Check each package, then write and check the release manifest in build/release. Commit all the changes first.
+release-package: tools-install
+    SOURCE_DATE_EPOCH={{ source_date_epoch }} CMAKE_PREFIX_PATH="{{ qt_dir }}" \
+        "{{ cmake }}" --preset release
+    SOURCE_DATE_EPOCH={{ source_date_epoch }} "{{ cmake }}" --build --preset release
     "{{ cmake }}" --build build/release --target test_prep/all
-    QT_QPA_PLATFORM=offscreen QSG_RHI_BACKEND=software \
-        "{{ ctest }}" --preset release
-    cd build/release && \
-        umask 022 && \
-        SOURCE_DATE_EPOCH="$(python3 ../../scripts/release/source-date-epoch.py \
-            --source-root ../..)" \
-        "{{ cmake }}" --build . --target package
-    SOURCE_DATE_EPOCH="$(python3 scripts/release/source-date-epoch.py --source-root .)" \
-        ./scripts/release/normalize-cpack-packages.sh build/release
-    git status --porcelain=v1 --untracked-files=no \
-        > build/release/tracked-status.after
-    if ! cmp -s build/release/tracked-status.before \
-        build/release/tracked-status.after; then \
-        echo "Package build modified tracked source files" >&2; \
-        diff build/release/tracked-status.before \
-            build/release/tracked-status.after || true; \
-        exit 1; \
-    fi
-    ./scripts/release/verify-linux-package.sh build/release/kodosi_0.1.0_amd64.deb
-    ./scripts/release/verify-packaged-content.sh build/release/kodosi-0.1.0-linux-x86_64.tar.gz
+    QT_QPA_PLATFORM=offscreen QSG_RHI_BACKEND=software "{{ ctest }}" --preset release
+    ./scripts/release/package-linux.sh build/release build/release
+    ./scripts/release/package-linux.sh build/release build/second-packages
+    for package in {{ linux_packages }}; do \
+        cmp "build/release/$package" "build/second-packages/$package" || \
+            { echo "The second build made another $package." >&2; exit 1; }; \
+    done
+    rm -rf build/second-packages
+    for package in {{ linux_packages }}; do \
+        python3 scripts/release/verify-linux-package.py --build-dir build/release "build/release/$package"; \
+    done
+    python3 scripts/release/release-manifest.py generate {{ prepend("build/release/", linux_packages) }}
+    python3 scripts/release/release-manifest.py verify build/release/release-manifest.json
 
-package-arch: package
-    ./scripts/release/build-arch-package.sh
-
-package-repeatability: package package-repeatability-existing
-
-package-repeatability-existing: bootstrap
-    ./scripts/release/verify-reproducible-packages.sh
-
-release-manifest: package-repeatability package-arch release-manifest-existing
-
-release-manifest-existing:
-    python3 scripts/release/generate-release-manifest.py \
-        --source-root . \
-        --output-dir build/release \
-        --artifact kodosi_0.1.0_amd64.deb \
-        --artifact kodosi-0.1.0-linux-x86_64.tar.gz \
-        --artifact kodosi-bin-0.1.0-1-x86_64.pkg.tar.zst
-    python3 scripts/release/verify-release-manifest.py \
-        --source-root . \
-        --manifest build/release/release-manifest.json \
-        --output-dir build/release
-
-sign-release-manifest fingerprint="":
+# Sign the release manifest from release-package with the OpenPGP key of this fingerprint or of KODOSI_GPG_FINGERPRINT.
+release-manifest-sign fingerprint="":
     ./scripts/release/sign-release-manifest.sh \
         build/release/release-manifest.json \
         "{{ fingerprint }}"
 
-verify-release-signature fingerprint="":
+# Check the signature of the release manifest against the OpenPGP key of this fingerprint.
+release-signature-check fingerprint="":
     ./scripts/release/verify-release-signature.sh \
         build/release/release-manifest.json \
         build/release/release-manifest.json.asc \

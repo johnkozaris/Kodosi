@@ -1,8 +1,7 @@
 # Kodosi for macOS
 
-Shared product intent and current behavior live in
-[Kodosi's PRODUCT.md](../../PRODUCT.md). This file describes the Mac experience.
-[DESIGN.md](DESIGN.md) describes its visual system.
+Shared product intent and current behavior: [Kodosi's PRODUCT.md](../../PRODUCT.md).
+Visual system: [DESIGN.md](DESIGN.md).
 
 ## Words
 
@@ -45,7 +44,7 @@ One share sheet puts a terminal in a room or shares it with friends.
 Make it easy to join a room, contribute a terminal, open someone else's shared
 terminal, and participate in the room conversation. Sharing with the room gives its
 members full terminal control, including members invited later. Keep the hosting
-computer and working folder clear without requiring a common folder or repository.
+computer and working folder clear.
 
 Conversation stays beside the room's terminals, tasks, or connected repositories.
 Mention a person or a room terminal with "@"; a terminal mention opens that terminal.

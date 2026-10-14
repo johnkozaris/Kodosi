@@ -1,9 +1,7 @@
 # Encryption design and threat model
 
-This document specifies how Kodosi protects terminal traffic, room content, and
-identities, and which attacks it does and does not stop. It describes the code at this
-revision. No independent party has audited the design or the code; the last section
-says what a reviewer should examine.
+No independent party has audited the design or the code; [Review](#review) says what a
+reviewer should examine first.
 
 [Security](SECURITY.md) is the short summary for users. The contract files in
 [`protocol/`](../protocol/) give the wire formats.

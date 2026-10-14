@@ -113,7 +113,7 @@ docker network rm "$network" >/dev/null 2>&1 || true
 [ "${1:-}" = down ] && exit
 
 # The theme is built again when a source file is newer than the built file.
-[ -f "$jar" ] && [ -z "$(find src index.html -newer "$jar" -print -quit)" ] || ./theme.sh
+[ -f "$jar" ] && [ -z "$(find src index.html -newer "$jar" -print -quit)" ] || bun run theme
 
 # The stand-in of the person check, compiled against the libraries of this Keycloak.
 if [ ! -f "$check_jar" ] || [ dev/turnstile/StandIn.java -nt "$check_jar" ]; then
@@ -148,9 +148,8 @@ done
 echo
 signin
 
-# The realm, with the settings that the hosted realm has (ops/provision.py of its service). Its
-# e-mails go to the mailbox, and the notes about an account are among them. The frames of the
-# person check come from Cloudflare.
+# The realm, with the settings that the hosted realm has. Its e-mails go to the mailbox, and the
+# notes about an account are among them. The frames of the person check come from Cloudflare.
 calm kc create realms -s realm=$realm -s enabled=true -s displayName=Kodosi \
   -s loginTheme=kodosi -s accountTheme=kodosi -s emailTheme=kodosi \
   -s registrationAllowed=true -s registrationEmailAsUsername=false \

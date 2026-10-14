@@ -33,7 +33,7 @@ terminal dependencies, native APIs or pins.
 ```sh
 just lint
 just test
-just ci
+just check
 ```
 
 Use the existing native build scripts. Keep focused regressions for contracts,
@@ -41,6 +41,7 @@ security, and lifecycle. For UI checks, isolate storage, use exact Peekaboo PID/
 receipts, and inspect settled results before retrying. Do not add automated
 smoke drivers.
 
-Developer ID releases embed the `Kodosi Developer ID` provisioning profile for the
-Keychain access group, and `just verify-signed` checks the profile, the signing
-certificate, and the entitlements. Local builds use an automatic development profile.
+Developer ID releases embed a provisioning profile for the Keychain access group. The
+release scripts get the team, the profile and the notary profile as required inputs,
+and `just signature-check` checks the profile, the signing certificate and the
+entitlements. Local builds use an automatic development profile.

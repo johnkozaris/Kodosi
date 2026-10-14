@@ -179,4 +179,5 @@ public func hex(_ value: UInt32) -> Color {
 public extension EnvironmentValues {
     @Entry var theme: AppTheme = .dark
     @Entry var chromeTheme: AppTheme?
+    @Entry var bezelPressed = false
 }

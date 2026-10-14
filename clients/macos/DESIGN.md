@@ -54,9 +54,9 @@ motion:
   snappy: {stiffness: 620, damping: 40}
   fade: "200ms ease-out"
 components:
-  button-primary: {backgroundColor: "{colors.accent}", textColor: "{colors.onAccent}", rounded: "capsule", height: "32pt"}
-  button-secondary: {backgroundColor: "{colors.raised}", textColor: "{colors.ink}", rounded: "capsule", height: "32pt"}
-  button-tinted: {backgroundColor: "{colors.accentSoft}", textColor: "{colors.accent}", rounded: "capsule"}
+  button-primary: {backgroundColor: "{colors.accent}", textColor: "{colors.onAccent}", rounded: "{rounded.md}", height: "32pt"}
+  button-secondary: {backgroundColor: "{colors.lifted}", textColor: "{colors.ink}", rounded: "{rounded.md}", height: "32pt"}
+  button-tinted: {backgroundColor: "{colors.accentSoft}", textColor: "{colors.accent}", rounded: "{rounded.md}"}
   input: {backgroundColor: "{colors.well}", textColor: "{colors.ink}", rounded: "{rounded.md}", height: "34pt"}
   segmented-track: {backgroundColor: "{colors.well}", rounded: "capsule", padding: "3pt"}
   segmented-thumb: {backgroundColor: "{colors.raised}", rounded: "capsule"}
@@ -65,7 +65,7 @@ components:
 # Design System: Kodosi for macOS
 
 ## Overview
-Kodosi is a warm workbench, lit from the top left. A source list rests on the ground. One framed surface holds the work. Raised objects rest on that surface, and inputs sink into wells. The copper cursor is the sign of life: it is in the wordmark, it is the empty slot for a new terminal, and a new terminal opens from it.
+Kodosi is a warm workbench, lit from the top left. A source list rests on the ground. One framed surface holds the work. Raised objects rest on that surface, and inputs sink into wells. The copper cursor is the sign of life: it stands at the end of the wordmark, it is the empty slot for a new terminal, and a new terminal opens from it.
 
 Each screen starts with the objects of its job: terminals, rooms, people, tasks. Text is short. One word has one meaning: terminal, room, friend, agent, device.
 
@@ -73,7 +73,7 @@ Each screen starts with the objects of its job: terminals, rooms, people, tasks.
 Copper `accent` means "act here" or "this is selected". The glow colors (`glowAmber`, `glowOrange`, `glowRose`) show only while something works or just changed. Green `ready` means done or verified, and people never use green. Unqualified tokens are dark, and `-light` tokens are the light pair. Use `AppTheme` roles, not literals. A terminal is a dark object in the two themes: its tile, its header and the Settings preview use the dark roles (`terminalScope`).
 
 ## Typography
-Use `AppTextStyle`. `large` is for page titles, `title` for sheets, `headline` for object names, `body` for conversation and rows, `footnote` and `caption` for facts. Monospace is for code, paths and the wordmark. Labels use sentence case.
+Use `AppTextStyle`. `large` is for page titles, `title` for sheets, `headline` for object names, `body` for conversation and rows, `footnote` and `caption` for facts. Monospace is for code and paths. The wordmark is a picture: the K with "odosi" in the same copper planks. Labels use sentence case.
 
 ## Layout
 The window has no title bar. The source list is (252 pt), or a rail of marks (78 pt). The main frame is inset (8 pt) with a (18 pt) radius. Pages are one centered column with (36 pt) margins. A room has a (54 pt) header, a canvas, and the conversation on a raised sheet (300–540 pt) that slides in from the right. Below (720 pt) the room shows one of the two.
@@ -84,9 +84,10 @@ When chrome moves, the terminal gets its final size at once. The chrome animates
 Three levels: resting, lifted (hover, focused composer, popovers) and floating (notices, the Go to palette, the join card). Each raised shape has a light rim on the top left, a dark rim on the bottom right, and two shadows that fall down and to the right. Wells have an inner shadow.
 
 ## Shapes
-Actions, tags and pills are capsules. Squircles are agents, rooms and kinds of things. Circles are people. A dashed outline is a slot that you can fill.
+Tags and pills are capsules. Buttons are rounded rectangles, with a radius of (8 pt), (10 pt) or (12 pt) for the three sizes. Squircles are agents, rooms and kinds of things. Circles are people. A dashed outline is a slot that you can fill.
 
 ## Components
+- **Button:** a rounded rectangle with a flat face in one color. The light comes from the top left, as on every raised shape: a fine light line on the top and the left edge, and a tight shadow below. In the light appearance a dark hairline goes round the edge. Primary buttons have a copper face. Secondary and tinted buttons have a quiet face with the same lines. In the dark appearance there is no hairline: the bottom and the right edge have a darker line, the shadow is a little deeper, and the face is lighter than the surface behind it. With the pointer on it, the face changes a little. A press makes the face darker and the button a little smaller. A ghost button is words only, with a faint fill under the pointer. A button with only a symbol is round.
 - **Agent mark:** a squircle in the color of the program, with its glyph. A shell shows a prompt and the copper cursor. The mark is pale when the terminal is minimized. The mark shows the state of its program: a warm rim turns round it while the program works, the rim is an arc when the program reports a percent, and a still copper ring with a gap shows while the program waits for you. The mark squashes a little at each change of state.
 - **Status sign:** one small sign at the end of a terminal's row, card or tab, in the color of its state. A copper hand (approval), question or key (sign-in) stays while the program waits for you, and the hand waves one time. A green check that draws itself means done, and a `caution` triangle means failed; these two show until you open the terminal. A terminal that rang its bell, or an agent with no report that stopped work, keeps the breathing copper dot.
 - **Person avatar:** a circle in a color that comes from the person's identifier. Your own circle is copper.
@@ -108,6 +109,7 @@ Working text shimmers. Counts roll. Symbols replace in place. The words of a pro
 - **Do** keep hidden terminal surfaces inactive.
 - **Don't** clip or scale the terminal surface. Inset it in its tile.
 - **Don't** show glow colors at rest, or use copper as decoration.
+- **Don't** put a gradient, a gloss or a bright rim on a button.
 - **Don't** add explanatory text where an object, a state or one short line is sufficient.
 
 Sources: `../apple/Sources/KodosiDesign/`, `Sources/Features/Shell/`, `Sources/Features/Missions/`, and `Sources/Features/Sessions/`.

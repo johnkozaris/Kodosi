@@ -1,8 +1,8 @@
 <#--
-  The frame of each e-mail: the ground and one card, as the sign-in pages, with the Kodosi mark at
-  the head of the card. A mail program shows it with tables and with styles on each element. The
-  mark has the colour of the card behind it, so it stays whole in a mail program that turns an
-  e-mail dark. Outlook does not know a largest width or the padding of a link, so the card and
+  The frame of each e-mail: the ground and one card, as the sign-in pages, with the Kodosi wordmark
+  at the head of the card. A mail program shows it with tables and with styles on each element.
+  The picture has the colour of the card behind it, so it stays whole in a mail program that turns
+  an e-mail dark. Outlook does not know a largest width or the padding of a link, so the card and
   the action have a second form in comments that only Outlook reads.
 
   `emailLayout` takes what is between its tags: Keycloak's own e-mails use it that way, so an
@@ -32,9 +32,9 @@
   <tr>
   <td class="kds-card" align="center" style="padding:30px 32px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans',Helvetica,Arial,sans-serif;font-size:15px;line-height:23px;color:#5f4838;">
     <#if url?? && url.resourcesUrl??>
-    <img src="${url.resourcesUrl}/img/logo.png" width="168" height="48" alt="Kodosi" style="display:block;margin:0 auto 22px;border:0;outline:none;font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:24px;line-height:48px;font-weight:800;color:#25160e;">
+    <img src="${url.resourcesUrl}/img/logo.png" width="176" height="40" alt="Kodosi" style="display:block;margin:0 auto 24px;border:0;outline:none;font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:24px;line-height:40px;font-weight:800;color:#25160e;">
     <#else>
-    <p style="margin:0 0 22px;font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:24px;line-height:48px;font-weight:800;color:#25160e;">kodosi</p>
+    <p style="margin:0 0 24px;font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:24px;line-height:40px;font-weight:800;color:#25160e;">Kodosi</p>
     </#if>
     <#nested>
   </td>

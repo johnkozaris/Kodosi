@@ -1,9 +1,8 @@
 # Kodosi
 
-Read `PRODUCT.md` for product intent and current behavior. Kodosi
-brings people and agents together through room-shared terminals and conversation.
-Full terminal control is intentional. Do not turn missing capabilities into product
-exclusions or add permission tiers, sandboxing, or agent workflow machinery by default.
+Read `PRODUCT.md` for product intent and current behavior. Keep full terminal control.
+Do not turn missing capabilities into product exclusions or add permission tiers,
+sandboxing, or agent workflow machinery by default.
 
 - `runtime/` owns live terminals, identity, and encrypted endpoint connections.
 - `backend/` stores shared metadata and routes encrypted terminal traffic. Run one serving
@@ -22,7 +21,9 @@ exclusions or add permission tiers, sandboxing, or agent workflow machinery by d
   use, and ordered terminal state.
 - Never reset live databases or alter real provider data, credentials, conversations,
   memory, or working files during development.
-- Keep dependencies project-local and use the root `justfile` for repository gates.
+- Keep dependencies project-local and use the root `justfile` for repository checks.
+- Name new files, folders, recipes, scripts and helpers by the rules in
+  `docs/DEVELOPMENT.md`.
 - Keep current product intent in `PRODUCT.md` and setup in `docs/DEVELOPMENT.md`.
 - Prefer clear code and focused tests over explanatory source comments or architecture
   prose. Preserve required directives and license notices.

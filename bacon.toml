@@ -1,22 +1,22 @@
-default_job = "rust-check"
+default_job = "rust-compile-check"
 
-[jobs.rust-check]
-command = ["just", "rust-check"]
+[jobs.rust-compile-check]
+command = ["just", "rust-compile-check"]
 need_stdout = false
 
-[jobs.rust-clippy]
-command = ["just", "rust-clippy"]
+[jobs.rust-lint]
+command = ["just", "rust-lint"]
 need_stdout = false
 
 [jobs.rust-test]
 command = ["just", "rust-test"]
 need_stdout = true
 
-[jobs.rust-coverage]
-command = ["just", "rust-coverage-lcov"]
+[jobs.rust-lcov-gen]
+command = ["just", "rust-lcov-gen"]
 need_stdout = true
 
 [keybindings]
-c = "job:rust-check"
-l = "job:rust-clippy"
+c = "job:rust-compile-check"
+l = "job:rust-lint"
 t = "job:rust-test"

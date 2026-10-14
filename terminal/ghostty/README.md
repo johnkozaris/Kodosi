@@ -6,12 +6,12 @@ macOS and iOS terminal views and the Linux and Windows terminal engine. Rust own
 processes and terminal state; this integration renders host-managed sessions.
 
 ```sh
-./Script/build.sh
+./scripts/build.sh
 swift test
-./Script/test.sh
+./scripts/test.sh
 ```
 
 Build on Apple silicon macOS for the macOS, iOS and iOS Simulator slices, on x86-64
 Linux, or on Windows 11 x64 or ARM64 (in Git Bash) for that platform's artifact. See
-[provenance](PROVENANCE.md) for updates and
+[provenance](PROVENANCE.md) for updates and checks, and
 [third-party notices](THIRD_PARTY_NOTICES.md) for redistribution obligations.

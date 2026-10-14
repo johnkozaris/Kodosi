@@ -1159,9 +1159,6 @@
     "Vendor/GhosttyVt/macos-arm64/lib/libghostty-vt.a"
   ],
   "complianceArtifacts": {
-    "Script/relink-libintl.sh": {
-      "sha256": "c669696a1be9a05f67a95b275bc0d8c18d140bfd073d39f1f12e1ad9e6bfeeda"
-    },
     "ThirdPartyNotices/corresponding-source/libintl-0.24.tar": {
       "sha256": "2d72c0441c2fe43287dae95935df4e194d2f8b7abd421d7ef6bb923e51276c8d"
     },
@@ -1170,6 +1167,9 @@
     },
     "ThirdPartyNotices/corresponding-source/z2d-7dbae85c81784dba9988320bf9543ed9a81350c8.tar.gz": {
       "sha256": "e55c9d0b156edaddfea32fb1c0e3597e1b6306b9a4ec1888e2f8008c598bced8"
+    },
+    "scripts/relink-libintl.sh": {
+      "sha256": "b581144466d07a310d4c5c5321575ddaff98a602ac2ed2bbf44d91042b1ded13"
     }
   },
   "components": [
@@ -1307,7 +1307,7 @@
       "sourcePaths": [
         "ThirdPartyNotices/corresponding-source/libintl-0.24.tar",
         "ThirdPartyNotices/corresponding-source/libintl-0.24/MANIFEST.json",
-        "Script/relink-libintl.sh"
+        "scripts/relink-libintl.sh"
       ],
       "spdx": "LGPL-2.1-or-later",
       "version": "0.24"

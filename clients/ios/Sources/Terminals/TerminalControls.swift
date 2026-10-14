@@ -126,7 +126,10 @@ private struct TerminalKeyCap: View {
                 .frame(minWidth: 42, minHeight: 36)
                 .padding(.horizontal, 4)
                 .background {
-                    RaisedBackground(shape: shape, fill: highlighted ? theme.colors.accent : theme.colors.raised, elevation: .resting)
+                    BezelBackground(
+                        shape: shape, fill: highlighted ? theme.colors.accent : theme.colors.lifted,
+                        bezel: highlighted ? .solid : .quiet
+                    )
                 }
                 .contentShape(shape)
         }
@@ -187,7 +190,13 @@ struct TerminalComposer: View {
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(canSend ? theme.colors.onAccent : theme.colors.inkFaint)
                     .frame(width: 34, height: 34)
-                    .background(Circle().fill(canSend ? theme.colors.accent : theme.colors.ink.opacity(0.08)))
+                    .background {
+                        if canSend {
+                            BezelBackground(shape: Circle(), fill: theme.colors.accent)
+                        } else {
+                            Circle().fill(theme.colors.ink.opacity(0.08))
+                        }
+                    }
                     .contentShape(Circle())
             }
             .buttonStyle(PressScaleStyle(scale: 0.88))

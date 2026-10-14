@@ -12,6 +12,7 @@ const GHOSTTY_LOCK: &str = include_str!(concat!(
     "/../../../Ghostty.lock"
 ));
 const EXPECTED_OPTIMIZE: &str = "ReleaseFast";
+const NATIVE_BUILD: &str = "NativeBuild.env";
 
 fn main() {
     println!("cargo:rerun-if-env-changed=KODOSI_GHOSTTY_CHECK_ONLY");
@@ -38,7 +39,7 @@ fn main() {
     let expected_ghostty_commit = if working_tree {
         metadata_value(&metadata, "ghostty_commit", &provenance)
     } else {
-        lock_value(artifact.upstream_lock_key)
+        lock_value(artifact.commit_lock_key)
     };
     let expected_archive_digest = if working_tree {
         metadata_value(&metadata, artifact.metadata_digest_key, &provenance)
@@ -53,7 +54,7 @@ fn main() {
     require_platform_ref(
         &platform_ref,
         expected_ghostty_commit,
-        artifact.upstream_lock_key,
+        artifact.commit_lock_key,
     );
 
     println!("cargo:rerun-if-changed={}", platform_ref.display());
@@ -66,7 +67,18 @@ fn main() {
         expected_ghostty_commit,
         &provenance,
     );
-    require_metadata(&metadata, "vt_target", artifact.zig_target, &provenance);
+    let zig_target = match artifact.zig_target {
+        ZigTarget::Fixed(target) => target.to_owned(),
+        ZigTarget::NativeBuild { key, suffix } => {
+            let native_build = root.join(NATIVE_BUILD);
+            println!("cargo:rerun-if-changed={}", native_build.display());
+            let options = fs::read_to_string(&native_build).unwrap_or_else(|error| {
+                panic!("failed to read {}: {error}", native_build.display())
+            });
+            format!("{}{suffix}", metadata_value(&options, key, &native_build))
+        }
+    };
+    require_metadata(&metadata, "vt_target", &zig_target, &provenance);
     require_metadata(&metadata, "vt_cpu", "baseline", &provenance);
     require_metadata(&metadata, "vt_optimize", EXPECTED_OPTIMIZE, &provenance);
     assert!(
@@ -93,12 +105,20 @@ fn main() {
     }
 }
 
+enum ZigTarget {
+    Fixed(&'static str),
+    NativeBuild {
+        key: &'static str,
+        suffix: &'static str,
+    },
+}
+
 struct TargetArtifact {
     platform_ref: &'static str,
     provenance: &'static str,
     library_dir: &'static str,
-    zig_target: &'static str,
-    upstream_lock_key: &'static str,
+    zig_target: ZigTarget,
+    commit_lock_key: &'static str,
     archive_lock_key: &'static str,
     metadata_digest_key: &'static str,
     archive: &'static str,
@@ -112,9 +132,12 @@ fn target_artifact(target: &str) -> TargetArtifact {
             platform_ref: "MacOSGhostty.ref",
             provenance: "Vendor/libghostty.version",
             library_dir: "Vendor/GhosttyVt/macos-arm64/lib",
-            zig_target: "aarch64-macos",
-            upstream_lock_key: "upstream_commit",
-            archive_lock_key: "combined_archive_sha256",
+            zig_target: ZigTarget::NativeBuild {
+                key: "GHOSTTY_BUILD_MACOS_TARGET",
+                suffix: "",
+            },
+            commit_lock_key: "macos_ghostty_commit",
+            archive_lock_key: "macos_arm64_archive_sha256",
             metadata_digest_key: "combined_archive_sha256",
             archive: "libghostty-vt.a",
             link_name: "ghostty-vt",
@@ -124,9 +147,9 @@ fn target_artifact(target: &str) -> TargetArtifact {
             platform_ref: "LinuxGhostty.ref",
             provenance: "Vendor/GhosttyVt/linux-x86_64.version",
             library_dir: "Vendor/GhosttyVt/linux-x86_64/lib",
-            zig_target: "x86_64-linux-gnu",
-            upstream_lock_key: "linux_upstream_commit",
-            archive_lock_key: "linux_vt_archive_sha256",
+            zig_target: ZigTarget::Fixed("x86_64-linux-gnu"),
+            commit_lock_key: "linux_ghostty_commit",
+            archive_lock_key: "linux_x86_64_archive_sha256",
             metadata_digest_key: "vt_archive_sha256",
             archive: "libghostty-vt.a",
             link_name: "ghostty-vt",
@@ -136,9 +159,12 @@ fn target_artifact(target: &str) -> TargetArtifact {
             platform_ref: "MacOSGhostty.ref",
             provenance: "Vendor/libghostty-ios-arm64.version",
             library_dir: "Vendor/GhosttyKit.xcframework/ios-arm64",
-            zig_target: "aarch64-ios.26.0",
-            upstream_lock_key: "upstream_commit",
-            archive_lock_key: "ios_combined_archive_sha256",
+            zig_target: ZigTarget::NativeBuild {
+                key: "GHOSTTY_BUILD_IOS_TARGET",
+                suffix: "",
+            },
+            commit_lock_key: "macos_ghostty_commit",
+            archive_lock_key: "ios_arm64_archive_sha256",
             metadata_digest_key: "combined_archive_sha256",
             archive: "libghostty.a",
             link_name: "ghostty",
@@ -148,9 +174,12 @@ fn target_artifact(target: &str) -> TargetArtifact {
             platform_ref: "MacOSGhostty.ref",
             provenance: "Vendor/libghostty-ios-arm64-simulator.version",
             library_dir: "Vendor/GhosttyKit.xcframework/ios-arm64-simulator",
-            zig_target: "aarch64-ios.26.0-simulator",
-            upstream_lock_key: "upstream_commit",
-            archive_lock_key: "ios_simulator_combined_archive_sha256",
+            zig_target: ZigTarget::NativeBuild {
+                key: "GHOSTTY_BUILD_IOS_TARGET",
+                suffix: "-simulator",
+            },
+            commit_lock_key: "macos_ghostty_commit",
+            archive_lock_key: "ios_arm64_simulator_archive_sha256",
             metadata_digest_key: "combined_archive_sha256",
             archive: "libghostty.a",
             link_name: "ghostty",
@@ -168,13 +197,13 @@ fn windows_artifact(arch: &'static str, layout: &'static str) -> TargetArtifact 
             "Vendor/GhosttyVt/windows-x86_64.version",
             "Vendor/GhosttyVt/windows-x86_64/lib",
             "x86_64-windows-msvc",
-            "windows_x86_64_vt_archive_sha256",
+            "windows_x86_64_archive_sha256",
         ),
         _ => (
             "Vendor/GhosttyVt/windows-arm64.version",
             "Vendor/GhosttyVt/windows-arm64/lib",
             "aarch64-windows-msvc",
-            "windows_arm64_vt_archive_sha256",
+            "windows_arm64_archive_sha256",
         ),
     };
     debug_assert!(zig_target.starts_with(arch));
@@ -182,8 +211,8 @@ fn windows_artifact(arch: &'static str, layout: &'static str) -> TargetArtifact 
         platform_ref: "WindowsGhostty.ref",
         provenance,
         library_dir,
-        zig_target,
-        upstream_lock_key: "windows_upstream_commit",
+        zig_target: ZigTarget::Fixed(zig_target),
+        commit_lock_key: "windows_ghostty_commit",
         archive_lock_key,
         metadata_digest_key: "vt_archive_sha256",
         archive: "ghostty-vt-static.lib",

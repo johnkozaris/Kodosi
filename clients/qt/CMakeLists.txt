@@ -12,7 +12,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_DISABLE_FIND_PACKAGE_WrapVulkanHeaders TRUE)
-set(KODOSI_QT_VERSION 6.12.0)
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/dependencies.lock.json" KODOSI_DEPENDENCIES)
+string(JSON KODOSI_QT_VERSION GET "${KODOSI_DEPENDENCIES}" frameworks qt version)
+set_property(
+    DIRECTORY
+    APPEND
+    PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/dependencies.lock.json"
+)
 set(KODOSI_RUNTIME_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 set(KODOSI_GHOSTTY_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../terminal/ghostty")
 include(cmake/${CMAKE_SYSTEM_NAME}.cmake)
@@ -41,14 +47,14 @@ if(NOT KODOSI_SOURCE_DATE_EPOCH MATCHES "^[0-9]+$")
 endif()
 
 set(KODOSI_RUNTIME_MANIFEST "${KODOSI_RUNTIME_ROOT}/runtime/Cargo.toml")
-set(KODOSI_RUNTIME_BUNDLE_ROOT "${CMAKE_CURRENT_BINARY_DIR}/rust-ffi")
+set(KODOSI_RUNTIME_BUNDLE_ROOT "${CMAKE_CURRENT_BINARY_DIR}/runtime-library")
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     set(KODOSI_RUST_PROFILE "release")
 else()
     set(KODOSI_RUST_PROFILE "dev")
 endif()
 set(KODOSI_RUNTIME_BUNDLE
-    "${KODOSI_RUNTIME_BUNDLE_ROOT}/${KODOSI_RUST_TARGET}/${KODOSI_RUST_PROFILE}/current")
+    "${KODOSI_RUNTIME_BUNDLE_ROOT}/${KODOSI_RUST_TARGET}/${KODOSI_RUST_PROFILE}")
 set(KODOSI_RUNTIME_HEADER_DIR "${KODOSI_RUNTIME_BUNDLE}/include")
 set(KODOSI_RUNTIME_ARCHIVE "${KODOSI_RUNTIME_BUNDLE}/${KODOSI_RUNTIME_ARCHIVE_NAME}")
 set(
@@ -66,7 +72,7 @@ if(NOT EXISTS "${KODOSI_GHOSTTY_ROOT}/${KODOSI_GHOSTTY_REF}")
 endif()
 
 set(KODOSI_VERIFY_GHOSTTY_COMMAND
-    bash "${KODOSI_RUNTIME_ROOT}/scripts/verify-ghostty.sh"
+    "${Python3_EXECUTABLE}" "${KODOSI_GHOSTTY_ROOT}/scripts/verify-ghostty-pins.py"
 )
 execute_process(
     COMMAND ${KODOSI_VERIFY_GHOSTTY_COMMAND}
@@ -74,13 +80,13 @@ execute_process(
     COMMAND_ERROR_IS_FATAL ANY
 )
 
-add_custom_target(kodosi-rust-ffi-build
+add_custom_target(kodosi-runtime-library-build
     COMMAND ${KODOSI_VERIFY_GHOSTTY_COMMAND}
     COMMAND
         "${CMAKE_COMMAND}" -E env
         "KODOSI_GHOSTTY_DIR=${KODOSI_GHOSTTY_ROOT}"
         "SOURCE_DATE_EPOCH=${KODOSI_SOURCE_DATE_EPOCH}"
-        "${Python3_EXECUTABLE}" "${KODOSI_RUNTIME_ROOT}/scripts/build-ffi-artifact.py"
+        "${Python3_EXECUTABLE}" "${KODOSI_RUNTIME_ROOT}/scripts/build-runtime-library.py"
         --manifest "${KODOSI_RUNTIME_MANIFEST}"
         --output-dir "${KODOSI_RUNTIME_BUNDLE_ROOT}"
         --target "${KODOSI_RUST_TARGET}"
@@ -109,7 +115,7 @@ include_directories("${KODOSI_RUNTIME_HEADER_DIR}")
 set_property(TARGET kodosi-rust-runtime PROPERTY INTERFACE_LINK_LIBRARIES
     "kodosi-ghostty-vt;${KODOSI_RUNTIME_SYSTEM_LIBRARIES}"
 )
-add_dependencies(kodosi-rust-runtime kodosi-rust-ffi-build)
+add_dependencies(kodosi-rust-runtime kodosi-runtime-library-build)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     add_custom_target(kodosi-rust-cli-build ALL
@@ -130,7 +136,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
         WORKING_DIRECTORY "${KODOSI_RUNTIME_ROOT}"
         VERBATIM
     )
-    add_dependencies(kodosi-rust-cli-build kodosi-rust-ffi-build)
+    add_dependencies(kodosi-rust-cli-build kodosi-runtime-library-build)
 
     set(KODOSI_SOURCE_IDENTITY
         "${CMAKE_CURRENT_BINARY_DIR}/generated/source-identity.json"

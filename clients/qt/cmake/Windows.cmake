@@ -63,7 +63,7 @@ function(kodosi_install app)
     set_target_properties(${app} PROPERTIES WIN32_EXECUTABLE ON)
     execute_process(
         COMMAND
-            "${Python3_EXECUTABLE}" "${KODOSI_RUNTIME_ROOT}/terminal/conpty/fetch.py"
+            "${Python3_EXECUTABLE}" "${KODOSI_RUNTIME_ROOT}/terminal/conpty/install-conpty.py"
             --arch "${KODOSI_WINDOWS_ARCH}"
             --output "${KODOSI_CONPTY_DIR}"
         COMMAND_ERROR_IS_FATAL ANY

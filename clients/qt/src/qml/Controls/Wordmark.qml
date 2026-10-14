@@ -1,47 +1,31 @@
 import Kodosi 1.0
 import QtQuick
 
+// The Kodosi wordmark, 1.2 times `size` tall, and the copper cursor at the end of the word: it
+// stands on the line of the word, as tall as its small letters.
 Row {
     id: root
 
     property real size: 16
     property bool blinks: false
-    property bool showsMark: true
 
-    spacing: size * 0.5
+    spacing: size * 0.1
     Accessible.role: Accessible.StaticText
     Accessible.name: qsTr("Kodosi")
 
     Image {
-        anchors.verticalCenter: parent.verticalCenter
-        visible: root.showsMark
-        width: root.size * 1.5
-        height: width
-        sourceSize.width: width * 2
+        height: root.size * 1.2
+        width: height * 2705 / 617
         sourceSize.height: height * 2
         fillMode: Image.PreserveAspectFit
-        source: KodosiTheme.isDark ? "qrc:/qt/qml/Kodosi/qml/assets/kodosi-logo-dark.png"
-                                   : "qrc:/qt/qml/Kodosi/qml/assets/kodosi-logo.png"
+        smooth: true
+        mipmap: true
+        source: "qrc:/qt/qml/Kodosi/qml/assets/kodosi-wordmark.png"
     }
-    Row {
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: root.size * 0.12
-
-        Text {
-            anchors.verticalCenter: parent.verticalCenter
-            text: "kodosi"
-            color: KodosiTheme.ink
-            font.family: "monospace"
-            font.letterSpacing: -root.size * 0.02
-            font.pixelSize: root.size
-            font.weight: Font.ExtraBold
-            textFormat: Text.PlainText
-        }
-        CursorBlock {
-            anchors.verticalCenter: parent.verticalCenter
-            width: root.size * 0.5
-            height: root.size * 0.92
-            blinks: root.blinks
-        }
+    CursorBlock {
+        y: root.size * 0.32
+        width: root.size * 0.43
+        height: root.size * 0.86
+        blinks: root.blinks
     }
 }

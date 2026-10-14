@@ -92,7 +92,7 @@ struct RoomComposer: View {
                         .frame(width: 30, height: 30)
                         .background {
                             if canSend {
-                                RaisedBackground(shape: Circle(), fill: theme.colors.accent, elevation: .resting)
+                                BezelBackground(shape: Circle(), fill: theme.colors.accent)
                             } else {
                                 Circle().fill(theme.colors.ink.opacity(0.08))
                             }

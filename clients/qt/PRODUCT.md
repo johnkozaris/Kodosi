@@ -6,9 +6,7 @@ Linux and Windows desktop
 
 ## Purpose
 
-Kodosi brings people and coding agents together through room-shared terminals and
-conversation. Shared behavior and current implementation live in
-[Kodosi's PRODUCT.md](../../PRODUCT.md).
+Shared behavior and current implementation: [Kodosi's PRODUCT.md](../../PRODUCT.md).
 
 ## Principles
 
@@ -21,11 +19,6 @@ conversation. Shared behavior and current implementation live in
   people invited later.
 
 ## Scope
-
-Make joining a room, contributing terminals from different machines and folders,
-and participating in the conversation straightforward. Agents use simple room tools
-and skills from their existing harnesses. They choose how to act on messages, tasks,
-and handoffs.
 
 Conversation stays beside the room's terminals, tasks, or connected repositories.
 Mention a person or a room terminal with "@"; a terminal mention opens that terminal.
@@ -54,8 +47,8 @@ system notification for these changes.
 
 A terminal at its prompt offers the start commands of this computer as marks among its
 actions. Kodosi adds a command for an agent the first time that the agent runs here.
-Settings holds the list, so a second account is one more command. One share sheet puts a terminal in a room or shares it with
-friends.
+Settings holds the list, so a second account is one more command. One share sheet puts
+a terminal in a room or shares it with friends.
 
 The folder of a Git repository in the sidebar offers a terminal on a new branch. You
 give the branch a name; it gets its own folder and a terminal starts there. A folder
@@ -63,7 +56,7 @@ with no changes goes away when its terminal ends.
 
 ## Experience
 
-Kodosi should feel like a warm, living workbench, not an administration console.
+Kodosi should feel like a warm, living workbench.
 Show the objects of the job, with short text, before explanations. Motion follows an
 action or a real change of state, and never moves the terminal surface itself.
 Keyboard access, screen-reader support, visible focus, sufficient contrast, and

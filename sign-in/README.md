@@ -14,7 +14,8 @@ name `kodosi`. It has the three kinds of a Keycloak theme:
 
 The pages are React, packed as one Keycloak theme by [Keycloakify](https://www.keycloakify.dev).
 They have the look and the motion of the apps ([DESIGN.md](../clients/macos/DESIGN.md)): the warm
-ground, one capsule that holds the step, the copper cursor of the mark, and the springs of the apps.
+ground, the Kodosi wordmark, one capsule that holds the step, the copper cursor, and the springs of
+the apps.
 The words are English; in a different language, Keycloak's own words show.
 
 ## The journey
@@ -64,9 +65,9 @@ pages, where Keycloak asks for the person's proof; the person then comes back to
 
 ## The e-mails
 
-Each e-mail is one card with the mark: what it is, one sentence, one action, and a small note, in
-HTML and in plain text. Keycloak sends the notes about an account only when the realm has the event
-listener `email`, and the notes about a locked account only when the server's option
+Each e-mail is one card with the wordmark: what it is, one sentence, one action, and a small note,
+in HTML and in plain text. Keycloak sends the notes about an account only when the realm has the
+event listener `email`, and the notes about a locked account only when the server's option
 `spi-events-listener--email--include-events` names them (see `keycloak.sh`).
 
 ## Work on the pages
@@ -78,7 +79,8 @@ The tools are [Bun](https://bun.sh) 1.4 and Docker. `bun install` installs the p
   moves it). `?scene=<name>` selects a page, and `?sheet=0,12` shows twelve pages side by side in
   the size of a phone. The scenes `account`, `account-new` and `account-down` are the account page
   with a sample account service.
-- `./theme.sh` builds the theme in `dist_keycloak/`.
+- `bun run theme` builds the theme in `dist_keycloak/`. It needs Node.js, because Keycloakify runs
+  Vite through `npx`, and Maven with a JDK, which packs the JAR.
 - `./keycloak.sh` runs a disposable Keycloak in Docker with the theme, a realm with the settings
   of the hosted realm, and a mailbox that takes its e-mails. It prints their addresses.
   - `./keycloak.sh code` starts a sign-in as the app does, and prints the address with the code.
@@ -91,31 +93,10 @@ The tools are [Bun](https://bun.sh) 1.4 and Docker. `bun install` installs the p
   - `./keycloak.sh down` removes the containers.
 - `just sign-in-check` (in the root of the repository) checks the types, the lint and the format,
   and builds the pages.
+- After an update of Keycloak, set its version in `keycloak.sh` and go through the pages there.
 
 Each form keeps the field names and the ids of Keycloak's own page, because Keycloak's scripts and
 password managers find the fields by them. In the words of the e-mails (`src/email/messages/`),
 Keycloak reads each line as a message format, so an apostrophe is written two times. Keycloakify builds a one-page account theme only when the
 package of Keycloak's own account console is installed, and it reads only its version:
 `tools/keycloak-account-ui` stands in for it.
-
-## Put the theme on a Keycloak
-
-`dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar` holds the theme for Keycloak 26. Put
-it in Keycloak's `providers/` folder and start Keycloak again. Then set the realm:
-
-- Login theme, account theme and email theme: `kodosi`.
-- The client of the app: public, with the device grant, as `kodosi-app`.
-- A new account: registration on, the e-mail confirmed (`verifyEmail`), and the step "Terms and
-  conditions" in the registration form. The realm's localization key `termsText` holds the words
-  or the links of its terms; the pages show them under the switch.
-- A username that friends see: the realm's rule in its user profile (a `length` and a `pattern`
-  with an `error-message`). The page shows the rule while the person types.
-- A first sign-in with a service: "Review Profile" on (`update.profile.on.first.login`), so the
-  person picks the username.
-- The deletion of an account: the required action `delete_account` on, and the client role
-  `account/delete-account` in the realm's default roles.
-- A check against programs: its step on the registration form and on the reset form only, and the
-  address of its frames in `frame-src` of the realm's Content-Security-Policy.
-
-The theme replaces Keycloak's own pages. After an update of Keycloak, set its version in
-`keycloak.sh` and go through the pages there.
