@@ -25,7 +25,7 @@ use crate::{
 use crate::{
     Config,
     protocol::{SessionEntry, SessionKind},
-    provider,
+    provider::{self, ConversationIdentity},
     terminal::{LocalSession, SessionChange},
 };
 
@@ -122,12 +122,16 @@ impl Runtime {
             #[cfg(feature = "host")]
             Command::DiscoverConversations { .. }
             | Command::ReadConversation { .. }
-            | Command::InspectProvider { .. } => {
+            | Command::InspectProvider { .. }
+            | Command::InspectAgents { .. }
+            | Command::InspectAgentModels { .. }
+            | Command::AddAgentAccount { .. } => {
                 self.job_capacity()?;
                 let home = self.config.home.clone();
+                let shell = shell(&self.config);
                 let command = command.clone();
                 self.spawn(async move {
-                    let result = provider_reply(&home, &command).await;
+                    let result = provider_reply(&home, &shell, &command).await;
                     Completion::Provider { command, result }
                 });
             }
@@ -137,6 +141,14 @@ impl Runtime {
             | Command::InspectProvider { .. } => {
                 return Err(Error::Invalid(
                     "Open agent conversations on the computer that runs the agent.".to_owned(),
+                ));
+            }
+            #[cfg(not(feature = "host"))]
+            Command::InspectAgents { .. }
+            | Command::InspectAgentModels { .. }
+            | Command::AddAgentAccount { .. } => {
+                return Err(Error::Invalid(
+                    "This device cannot start terminals.".to_owned(),
                 ));
             }
             #[cfg(feature = "host")]
@@ -979,6 +991,50 @@ fn geometry(
 }
 
 #[cfg(feature = "host")]
+fn shell(config: &Config) -> PathBuf {
+    config
+        .initial_shell
+        .as_ref()
+        .map_or_else(kodosi_os::process::default_shell, PathBuf::from)
+}
+
+/// The program a new terminal runs: the shell, or the provider's CLI that
+/// resumes a conversation, found as the shell would find it.
+#[cfg(feature = "host")]
+async fn session_program(
+    config: &Config,
+    directory: &Path,
+    resume: Option<&ConversationIdentity>,
+) -> Result<(PathBuf, Vec<String>)> {
+    let Some(resume) = resume else {
+        return Ok((shell(config), Vec::new()));
+    };
+    let root = provider::state_root(&config.home, resume.provider).map_err(Error::Invalid)?;
+    provider::validate_resume(
+        &root,
+        resume.provider,
+        directory
+            .to_str()
+            .ok_or_else(|| Error::Invalid("working directory is not UTF-8".to_owned()))?,
+        &resume.native_conversation_id,
+    )
+    .await
+    .map_err(Error::Invalid)?;
+    let executable = crate::agents::executable(&shell(config), resume.provider.executable())
+        .await
+        .ok_or_else(|| Error::Invalid("The provider CLI is not installed.".to_owned()))?;
+    let arguments = match resume.provider {
+        provider::Provider::Claude => {
+            vec!["--resume".to_owned(), resume.native_conversation_id.clone()]
+        }
+        provider::Provider::Copilot => {
+            vec![format!("--resume={}", resume.native_conversation_id)]
+        }
+    };
+    Ok((executable, arguments))
+}
+
+#[cfg(feature = "host")]
 async fn create_session(
     id: Uuid,
     config: Config,
@@ -991,6 +1047,7 @@ async fn create_session(
         resume,
         branch,
         worktrees,
+        command: start,
         ..
     } = command
     else {
@@ -1012,38 +1069,12 @@ async fn create_session(
             "A conversation resumes in its own folder, not on a new branch.".to_owned(),
         ));
     }
-    let (program, arguments) = if let Some(resume) = resume {
-        let root = provider::state_root(&config.home, resume.provider).map_err(Error::Invalid)?;
-        provider::validate_resume(
-            &root,
-            resume.provider,
-            directory
-                .to_str()
-                .ok_or_else(|| Error::Invalid("working directory is not UTF-8".to_owned()))?,
-            &resume.native_conversation_id,
-        )
-        .await
-        .map_err(Error::Invalid)?;
-        let executable = provider::resolve_executable(resume.provider)
-            .ok_or_else(|| Error::Invalid("The provider CLI is not installed.".to_owned()))?;
-        let arguments = match resume.provider {
-            provider::Provider::Claude => {
-                vec!["--resume".to_owned(), resume.native_conversation_id.clone()]
-            }
-            provider::Provider::Copilot => {
-                vec![format!("--resume={}", resume.native_conversation_id)]
-            }
-        };
-        (executable, arguments)
-    } else {
-        (
-            config
-                .initial_shell
-                .as_ref()
-                .map_or_else(kodosi_os::process::default_shell, PathBuf::from),
-            vec![],
-        )
-    };
+    if start.is_some() && resume.is_some() {
+        return Err(Error::Invalid(
+            "A resumed conversation starts without a command.".to_owned(),
+        ));
+    }
+    let (program, arguments) = session_program(&config, &directory, resume.as_ref()).await?;
     let worktree = match branch {
         Some(branch) => Some(
             crate::worktree::create(&directory, branch, worktrees.as_deref().map(Path::new))
@@ -1073,6 +1104,9 @@ async fn create_session(
             return Err(error);
         }
     };
+    if let Some(line) = start {
+        terminal.start(line.clone())?;
+    }
     Ok(StartedSession {
         terminal: Some(terminal),
         repository: worktree.is_some() || crate::worktree::is_repository(&directory),
@@ -1082,7 +1116,29 @@ async fn create_session(
 }
 
 #[cfg(feature = "host")]
-async fn provider_reply(home: &Path, command: &Command) -> Result<Value> {
+async fn provider_reply(home: &Path, shell: &Path, command: &Command) -> Result<Value> {
+    match command {
+        Command::InspectAgents { .. } => {
+            return Ok(serde_json::to_value(
+                crate::agents::catalog(home, shell)
+                    .await
+                    .map_err(Error::Invalid)?,
+            )?);
+        }
+        Command::InspectAgentModels { agent, .. } => {
+            return Ok(serde_json::to_value(
+                crate::agents::models(shell, *agent).await,
+            )?);
+        }
+        Command::AddAgentAccount { agent, name, .. } => {
+            return Ok(serde_json::to_value(
+                crate::agents::add_account(home, *agent, name)
+                    .await
+                    .map_err(Error::Invalid)?,
+            )?);
+        }
+        _ => {}
+    }
     let provider = match command {
         Command::DiscoverConversations { provider, .. }
         | Command::ReadConversation { provider, .. }
@@ -1136,9 +1192,14 @@ async fn provider_reply(home: &Path, command: &Command) -> Result<Value> {
             working_directory,
             ..
         } => serde_json::to_value(
-            provider::inspect(&root, *provider, working_directory.as_deref())
-                .await
-                .map_err(Error::Invalid)?,
+            provider::inspect(
+                &root,
+                *provider,
+                working_directory.as_deref(),
+                crate::agents::executable(shell, provider.executable()).await,
+            )
+            .await
+            .map_err(Error::Invalid)?,
         )?,
         _ => return Err(Error::Invalid("expected provider request".to_owned())),
     };

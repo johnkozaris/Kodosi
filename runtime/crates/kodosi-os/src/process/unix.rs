@@ -1,8 +1,10 @@
-use std::path::{Path, PathBuf};
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
 
-pub(super) fn find_executable(name: &str) -> Option<PathBuf> {
-    let paths = std::env::var_os("PATH")?;
-    std::env::split_paths(&paths).find_map(|directory| {
+pub(super) fn find_executable(name: &str, paths: &OsStr) -> Option<PathBuf> {
+    std::env::split_paths(paths).find_map(|directory| {
         let path = directory.join(name);
         crate::fs::is_executable(&path)
             .then(|| crate::fs::canonicalize(&path).ok())
@@ -19,6 +21,14 @@ pub(super) fn default_shell() -> PathBuf {
 pub(super) fn detach(command: &mut std::process::Command) {
     use std::os::unix::process::CommandExt as _;
     command.process_group(0);
+}
+
+#[allow(unsafe_code)]
+pub(super) fn without_terminal(command: &mut std::process::Command) {
+    use std::os::unix::process::CommandExt as _;
+    unsafe {
+        command.pre_exec(|| rustix::process::setsid().map(drop).map_err(Into::into));
+    }
 }
 
 pub(super) fn is_running(pid: u32) -> bool {

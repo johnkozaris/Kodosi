@@ -303,6 +303,11 @@ impl KodosiPty {
         !self.opaque && self.observe().others.is_empty()
     }
 
+    /// The console host shows no line discipline, so a prompt is not known.
+    pub const fn reads_keys(&self) -> bool {
+        false
+    }
+
     pub fn foreground_program(&self) -> Option<String> {
         if self.opaque {
             return None;

@@ -53,6 +53,7 @@ impl TestRuntime {
             resume: None,
             branch: None,
             worktrees: None,
+            command: None,
         })
         .await;
         timeout(Duration::from_secs(10), async {
@@ -118,6 +119,7 @@ async fn a_terminal_on_a_new_branch_starts_in_its_own_folder_and_takes_it_away_u
                 resume: None,
                 branch: Some(branch.to_owned()),
                 worktrees: None,
+                command: None,
             })
             .await;
         timeout(Duration::from_secs(10), async {
@@ -369,6 +371,7 @@ async fn stale_epoch_cannot_create_or_shutdown_current_runtime() {
             resume: None,
             branch: None,
             worktrees: None,
+            command: None,
         },
         Command::Shutdown {},
     ] {
@@ -433,6 +436,7 @@ async fn a_viewer_says_that_terminals_and_conversations_stay_on_a_computer() {
             resume: None,
             branch: None,
             worktrees: None,
+            command: None,
         })
         .await;
     runtime
@@ -507,6 +511,7 @@ async fn create_retry_is_exact_and_does_not_launch_a_second_process() {
         resume: None,
         branch: None,
         worktrees: None,
+        command: None,
     };
     runtime.send(command.clone()).await;
     runtime.send(command.clone()).await;
@@ -790,6 +795,7 @@ async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_
         resume: None,
         branch: None,
         worktrees: None,
+        command: None,
     };
     runtime.send(command).await;
     timeout(Duration::from_secs(5), async {
@@ -818,6 +824,7 @@ async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_
             resume: None,
             branch: None,
             worktrees: None,
+            command: None,
         })
         .await;
     timeout(Duration::from_secs(2), async {

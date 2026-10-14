@@ -18,6 +18,7 @@ compile_error!(
 #[cfg(all(target_os = "ios", feature = "host"))]
 compile_error!("iOS views terminals hosted elsewhere; build it with --no-default-features");
 
+pub mod agents;
 #[cfg(feature = "cli")]
 pub mod cli;
 mod config;

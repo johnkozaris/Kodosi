@@ -379,6 +379,8 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         host_stop_reply: None,
         program: None,
         clear_line: "\x05\x15",
+        start: None,
+        output_at: None,
         prompt: false,
         viewers: HashMap::new(),
         working_directory: directory.clone(),
@@ -554,6 +556,35 @@ async fn a_command_runs_only_while_the_shell_is_at_its_prompt() {
         .expect("start a program");
     assert!(!next_prompt(&mut changes_receiver).await);
     assert!(session.run("printf no".to_owned()).await.is_err());
+    session.close().await.expect("close");
+    drop(session);
+}
+
+#[tokio::test]
+async fn a_start_line_runs_once_the_shell_waits_at_its_prompt() {
+    let (program, arguments) = if Path::new("/bin/zsh").exists() {
+        ("/bin/zsh", vec!["-f".to_owned(), "-i".to_owned()])
+    } else {
+        ("/bin/bash", vec!["--norc".to_owned(), "-i".to_owned()])
+    };
+    let root = tempfile::tempdir().expect("temp cwd");
+    let (changes, _changes) = mpsc::channel(128);
+    let session = LocalSession::spawn(
+        Uuid::now_v7(),
+        Uuid::now_v7(),
+        PathBuf::from(program),
+        arguments,
+        kodosi_os::fs::canonicalize(root.path()).expect("canonical cwd"),
+        true,
+        changes,
+    )
+    .await
+    .expect("interactive shell");
+    let mut subscription = session.subscribe().await.expect("subscribe");
+    session
+        .start("echo $((6 * 7))-started".to_owned())
+        .expect("start line");
+    wait_text(&mut subscription, b"42-started").await;
     session.close().await.expect("close");
     drop(session);
 }

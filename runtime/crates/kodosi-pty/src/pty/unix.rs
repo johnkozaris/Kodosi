@@ -221,6 +221,17 @@ impl KodosiPty {
         foreground_process_group(self.master_fd) == Some(self.child_pid)
     }
 
+    /// Whether the terminal passes each key on at once, as it does while a
+    /// line editor waits at a prompt.
+    pub fn reads_keys(&self) -> bool {
+        let borrowed = unsafe { BorrowedFd::borrow_raw(self.master_fd) };
+        nix::sys::termios::tcgetattr(borrowed).is_ok_and(|attributes| {
+            !attributes
+                .local_flags
+                .contains(nix::sys::termios::LocalFlags::ICANON)
+        })
+    }
+
     pub fn foreground_program(&self) -> Option<String> {
         let pid = foreground_process_group(self.master_fd)?;
         let arguments = process_arguments(pid)?;

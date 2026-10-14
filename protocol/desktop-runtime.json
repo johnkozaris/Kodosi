@@ -748,6 +748,16 @@
               }
             ]
           },
+          "command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "missionId": {
             "anyOf": [
               {
@@ -2047,6 +2057,152 @@
           "type",
           "requestId",
           "provider"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "provider.agents"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "agent": {
+            "oneOf": [
+              {
+                "const": "claude"
+              },
+              {
+                "const": "codex"
+              },
+              {
+                "const": "copilot"
+              },
+              {
+                "const": "cursor"
+              },
+              {
+                "const": "gemini"
+              },
+              {
+                "const": "opencode"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "provider.agentModels"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "agent"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "agent": {
+            "oneOf": [
+              {
+                "const": "claude"
+              },
+              {
+                "const": "codex"
+              },
+              {
+                "const": "copilot"
+              },
+              {
+                "const": "cursor"
+              },
+              {
+                "const": "gemini"
+              },
+              {
+                "const": "opencode"
+              }
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "provider.addAccount"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "agent",
+          "name"
         ],
         "type": "object"
       },
@@ -4700,6 +4856,312 @@
               "result"
             ],
             "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "accountEpoch": {
+                "format": "u64",
+                "type": "integer"
+              },
+              "accountUserId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "operation": {
+                "const": "provider.agents"
+              },
+              "requestId": {
+                "type": "string"
+              },
+              "result": {
+                "additionalProperties": false,
+                "properties": {
+                  "agents": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "accounts": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "command": {
+                                "type": "string"
+                              },
+                              "identity": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "command",
+                              "identity"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "addsAccounts": {
+                          "type": "boolean"
+                        },
+                        "agent": {
+                          "oneOf": [
+                            {
+                              "const": "claude"
+                            },
+                            {
+                              "const": "codex"
+                            },
+                            {
+                              "const": "copilot"
+                            },
+                            {
+                              "const": "cursor"
+                            },
+                            {
+                              "const": "gemini"
+                            },
+                            {
+                              "const": "opencode"
+                            }
+                          ]
+                        },
+                        "install": {
+                          "type": "string"
+                        },
+                        "installed": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "agent",
+                        "installed",
+                        "accounts",
+                        "install",
+                        "addsAccounts"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "agents"
+                ],
+                "type": "object"
+              },
+              "type": {
+                "const": "provider.reply"
+              }
+            },
+            "required": [
+              "accountUserId",
+              "accountEpoch",
+              "type",
+              "requestId",
+              "operation",
+              "result"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "accountEpoch": {
+                "format": "u64",
+                "type": "integer"
+              },
+              "accountUserId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "operation": {
+                "const": "provider.agentModels"
+              },
+              "requestId": {
+                "type": "string"
+              },
+              "result": {
+                "additionalProperties": false,
+                "properties": {
+                  "agent": {
+                    "oneOf": [
+                      {
+                        "const": "claude"
+                      },
+                      {
+                        "const": "codex"
+                      },
+                      {
+                        "const": "copilot"
+                      },
+                      {
+                        "const": "cursor"
+                      },
+                      {
+                        "const": "gemini"
+                      },
+                      {
+                        "const": "opencode"
+                      }
+                    ]
+                  },
+                  "efforts": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "argument": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "argument"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "models": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "argument": {
+                          "type": "string"
+                        },
+                        "efforts": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "label",
+                        "argument",
+                        "efforts"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "agent",
+                  "models",
+                  "efforts"
+                ],
+                "type": "object"
+              },
+              "type": {
+                "const": "provider.reply"
+              }
+            },
+            "required": [
+              "accountUserId",
+              "accountEpoch",
+              "type",
+              "requestId",
+              "operation",
+              "result"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "accountEpoch": {
+                "format": "u64",
+                "type": "integer"
+              },
+              "accountUserId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "operation": {
+                "const": "provider.addAccount"
+              },
+              "requestId": {
+                "type": "string"
+              },
+              "result": {
+                "additionalProperties": false,
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "identity": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "command",
+                  "identity"
+                ],
+                "type": "object"
+              },
+              "type": {
+                "const": "provider.reply"
+              }
+            },
+            "required": [
+              "accountUserId",
+              "accountEpoch",
+              "type",
+              "requestId",
+              "operation",
+              "result"
+            ],
+            "type": "object"
           }
         ]
       },
@@ -5174,7 +5636,7 @@
     ]
   },
   "ffiAbiVersion": 8,
-  "protocolVersion": 56,
+  "protocolVersion": 57,
   "terminal": {
     "checkpointMaxBytes": 8388608,
     "checkpointSchema": 2,
