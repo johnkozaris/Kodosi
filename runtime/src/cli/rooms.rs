@@ -119,6 +119,14 @@ pub(super) async fn run(
         }
         _ => {}
     }
+    if let RoomAction::Post { text, agent } = args.action {
+        let action = Action::Post {
+            text,
+            agent,
+            terminal_id: terminal(),
+        };
+        return done(&call(client, context, &room, action).await?, json_output);
+    }
     let before = match &args.action {
         RoomAction::Read { before, .. } => *before,
         _ => None,
@@ -154,27 +162,25 @@ pub(super) async fn run(
         ),
         command => {
             let action = match command {
-                RoomAction::Post { text, agent } => Action::Post {
-                    text,
-                    agent,
-                    terminal_id: terminal(),
-                },
                 RoomAction::Task(action) => task_action(action, &snapshot)?,
                 RoomAction::Repo(action) => repository_action(action, &snapshot)?,
                 _ => return Err(Error::Invalid("Unsupported room action.".into())),
             };
-            let result = call(client, context, &room, action).await?;
-            if !result["issues"].is_null() {
-                return print_json(&result["issues"]);
-            }
-            let suffix = result["result"]["itemId"]
-                .as_str()
-                .map_or_else(String::new, |id| {
-                    format!(" {}", &id[id.len().saturating_sub(6)..])
-                });
-            output(&result, json_output, &format!("Done.{suffix}"))
+            done(&call(client, context, &room, action).await?, json_output)
         }
     }
+}
+
+fn done(result: &Value, json_output: bool) -> Result<()> {
+    if !result["issues"].is_null() {
+        return print_json(&result["issues"]);
+    }
+    let suffix = result["result"]["itemId"]
+        .as_str()
+        .map_or_else(String::new, |id| {
+            format!(" {}", &id[id.len().saturating_sub(6)..])
+        });
+    output(result, json_output, &format!("Done.{suffix}"))
 }
 
 fn resolve_room(reference: Option<String>, catalog: &Value, context: &Context) -> Result<String> {
