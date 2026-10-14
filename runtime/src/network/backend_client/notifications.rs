@@ -1,7 +1,69 @@
+use std::collections::{BTreeMap, BTreeSet};
+
+use uuid::Uuid;
+
 use super::{
     BackendClient, CancellationToken, Credentials, Duration, Error, Result, invalid,
-    terminal_connections,
+    rooms::Lookups, terminal_connections, wire::Change,
 };
+
+const RETRY_LIMIT: Duration = Duration::from_mins(1);
+
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(super) enum Scope {
+    #[default]
+    All,
+    Rooms(BTreeMap<Uuid, Option<u64>>),
+}
+
+#[derive(Debug, Default)]
+pub(super) struct Waiting {
+    surfaces: BTreeSet<&'static str>,
+    missions: Option<Scope>,
+    rooms: Option<Scope>,
+}
+
+impl Waiting {
+    pub(super) fn add(&mut self, change: &Change) -> Result<()> {
+        match change.surface.as_str() {
+            "devices" => self.surfaces.insert("devices"),
+            "friends" => self.surfaces.insert("friends"),
+            "sessions" => self.surfaces.insert("sessions"),
+            "missions" => {
+                widen(&mut self.missions, change.room, None);
+                true
+            }
+            "rooms" => {
+                widen(&mut self.rooms, change.room, change.sequence);
+                true
+            }
+            _ => return Err(invalid("Unsupported notification surface.")),
+        };
+        Ok(())
+    }
+
+    fn is_empty(&self) -> bool {
+        self.surfaces.is_empty() && self.missions.is_none() && self.rooms.is_none()
+    }
+}
+
+fn retried(error: &Error) -> bool {
+    error.unanswered() || matches!(error, Error::Backend { status: 409, .. })
+}
+
+fn widen(scope: &mut Option<Scope>, room: Option<Uuid>, sequence: Option<u64>) {
+    let Some(room) = room else {
+        *scope = Some(Scope::All);
+        return;
+    };
+    match scope.get_or_insert_with(|| Scope::Rooms(BTreeMap::new())) {
+        Scope::All => {}
+        Scope::Rooms(rooms) => {
+            let wanted = rooms.entry(room).or_insert(sequence);
+            *wanted = wanted.zip(sequence).map(|(known, new)| known.max(new));
+        }
+    }
+}
 
 impl BackendClient {
     pub(super) async fn start_notifications(&self) -> Result<()> {
@@ -62,64 +124,154 @@ impl BackendClient {
     ) -> Result<()> {
         let credentials = self.credentials()?;
         self.check_credentials(admitted)?;
-        let (surfaces, mut changed) = tokio::sync::mpsc::unbounded_channel::<String>();
+        let (sender, mut changes) = tokio::sync::mpsc::unbounded_channel::<Change>();
         let refresh = async {
-            while let Some(surface) = changed.recv().await {
-                let mut waiting = std::collections::BTreeSet::from([surface]);
-                while let Ok(surface) = changed.try_recv() {
-                    waiting.insert(surface);
+            let mut waiting = Waiting::default();
+            let mut retry = None;
+            let mut delay = Duration::from_secs(1);
+            loop {
+                if waiting.is_empty() {
+                    let Some(change) = changes.recv().await else {
+                        return Ok(());
+                    };
+                    waiting.add(&change)?;
                 }
-                for surface in ["devices", "friends", "sessions", "missions", "rooms"] {
-                    if waiting.contains(surface) {
-                        self.refresh_surface(admitted, surface).await?;
+                if let Some(at) = retry {
+                    loop {
+                        tokio::select! {
+                            change = changes.recv() => match change {
+                                Some(change) => waiting.add(&change)?,
+                                None => return Ok(()),
+                            },
+                            () = tokio::time::sleep_until(at) => break,
+                        }
                     }
                 }
-                if waiting.iter().any(|surface| {
-                    !["devices", "friends", "sessions", "missions", "rooms"]
-                        .contains(&surface.as_str())
-                }) {
-                    return Err(invalid("Unsupported notification surface."));
+                while let Ok(change) = changes.try_recv() {
+                    waiting.add(&change)?;
+                }
+                match self.refresh_waiting(admitted, &mut waiting).await {
+                    Ok(()) => {
+                        retry = None;
+                        delay = Duration::from_secs(1);
+                    }
+                    Err(error) if retried(&error) => {
+                        tracing::debug!(%error, "the refresh will be tried again");
+                        retry = Some(tokio::time::Instant::now() + delay);
+                        delay = (delay * 2).min(RETRY_LIMIT);
+                    }
+                    Err(error) => return Err(error),
                 }
             }
-            Ok(())
         };
         let result = tokio::select! {
             biased;
             () = cancel.cancelled() => Ok(()),
             () = self.inner.shutdown.cancelled() => Ok(()),
-            result = terminal_connections::run_link(self, &credentials, &surfaces) => result,
+            result = terminal_connections::run_link(self, &credentials, &sender) => result,
             result = refresh => result,
         };
         if matches!(result, Err(Error::Backend { status: 403, .. })) {
-            self.refresh_surface(admitted, "devices").await?;
+            let mut waiting = Waiting::default();
+            waiting.add(&Change::of("devices"))?;
+            self.refresh_waiting(admitted, &mut waiting).await?;
         }
         result
     }
 
-    async fn refresh_surface(&self, admitted: &Credentials, surface: &str) -> Result<()> {
+    pub(super) async fn refresh_waiting(
+        &self,
+        admitted: &Credentials,
+        waiting: &mut Waiting,
+    ) -> Result<()> {
         let _operation = self.inner.operations.lock().await;
         self.check_credentials(admitted)?;
         let credentials = self.credentials()?;
-        let events = match surface {
-            "sessions" => vec![self.session_event().await?],
-            "friends" => vec![self.friend_event().await?],
-            "devices" => {
-                if self.settle_enrollment().await? {
-                    self.device_events().await?
-                } else {
-                    self.enrollment_events().await?
+        let emit =
+            |event| self.emit_for(admitted.generation, Some(admitted.user_id.clone()), event);
+        for surface in ["devices", "friends", "sessions"] {
+            if !waiting.surfaces.contains(surface) {
+                continue;
+            }
+            let events = if surface == "sessions" {
+                vec![self.session_event().await?]
+            } else if surface == "friends" {
+                vec![self.friend_event().await?]
+            } else if self.settle_enrollment().await? {
+                self.device_events().await?
+            } else {
+                self.enrollment_events().await?
+            };
+            events.into_iter().for_each(emit);
+            waiting.surfaces.remove(surface);
+        }
+        if let Some(scope) = waiting.missions.take() {
+            let catalog = match self.mission_list().await {
+                Ok(catalog) => catalog,
+                Err(error) => {
+                    waiting.missions = Some(scope);
+                    return Err(error);
+                }
+            };
+            let (listed, complete) = Self::listed_rooms(&catalog)?;
+            emit(catalog);
+            let whole = scope == Scope::All;
+            let scope = match scope {
+                Scope::All => None,
+                Scope::Rooms(rooms) => Some(rooms.into_keys().collect::<BTreeSet<_>>()),
+            };
+            let mut pending = self.rooms_to_refresh(listed, scope.as_ref()).await;
+            let mut lookups = Lookups::default();
+            for room in pending.clone() {
+                match self
+                    .refresh_room(&credentials, room, None, true, &mut lookups)
+                    .await
+                {
+                    Err(error) if retried(&error) => {
+                        waiting.missions = Some(Scope::Rooms(
+                            pending.into_iter().map(|room| (room, None)).collect(),
+                        ));
+                        return Err(error);
+                    }
+                    Err(error) => tracing::debug!(%error, "the room waits for its next change"),
+                    Ok(event) => event.into_iter().for_each(emit),
+                }
+                pending.remove(&room);
+                if let Some(Scope::Rooms(rooms)) = &mut waiting.rooms {
+                    rooms.remove(&room);
                 }
             }
-            "missions" => {
-                let mut events = vec![self.mission_list().await?];
-                events.extend(self.refresh_rooms(&credentials).await?);
-                events
+            if whole {
+                if complete {
+                    self.drop_recovery_room_key(&credentials).await;
+                }
+                waiting.rooms = None;
             }
-            "rooms" => self.refresh_rooms(&credentials).await?,
-            _ => return Err(invalid("Unsupported notification surface.")),
+        }
+        let rooms = match waiting.rooms.take() {
+            None => BTreeMap::new(),
+            Some(Scope::All) => self
+                .known_rooms(&credentials)
+                .await?
+                .into_iter()
+                .map(|room| (room, None))
+                .collect(),
+            Some(Scope::Rooms(rooms)) => rooms,
         };
-        for event in events {
-            self.emit_for(admitted.generation, Some(admitted.user_id.clone()), event);
+        let mut pending = rooms.clone();
+        for (room, wanted) in rooms {
+            match self
+                .refresh_room(&credentials, room, wanted, false, &mut Lookups::default())
+                .await
+            {
+                Err(error) if retried(&error) => {
+                    waiting.rooms = Some(Scope::Rooms(pending));
+                    return Err(error);
+                }
+                Err(error) => tracing::debug!(%error, "the room waits for its next change"),
+                Ok(event) => event.into_iter().for_each(emit),
+            }
+            pending.remove(&room);
         }
         if self.credentials()?.enrolled {
             Ok(())

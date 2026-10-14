@@ -61,9 +61,10 @@ restart causes clients to renew sessions and reconnect. Durable records live in
 PostgreSQL; the relay holds no terminal input.
 
 Room conversation, tasks, and repository links are encrypted and signed at endpoints.
-The backend assigns sequence/version metadata and stores ciphertext. Signed room key
-history distributes keys to member devices and preserves earlier history for later
-joiners. See [Security](SECURITY.md) for visible metadata and
+The backend assigns sequence/version metadata and stores ciphertext. After a change it
+tells the members' devices which room changed, and each device reads only the newer
+items. Signed room key history distributes keys to member devices and preserves earlier
+history for later joiners. See [Security](SECURITY.md) for visible metadata and
 [Encryption design](CRYPTOGRAPHY.md) for the keys and their rules.
 
 Repository issue actions run from the participant's runtime using local provider

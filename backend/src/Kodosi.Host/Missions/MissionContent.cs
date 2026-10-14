@@ -87,8 +87,7 @@ public sealed partial class MissionService
         var room = await RequireMemberForUpdateAsync(id, userId, ct);
         await AppendKeysAsync(room, userId, request, ct);
         await transaction.CommitAsync(ct);
-        await NotifyAsync(room, ct);
-        foreach (var user in await MemberIdsAsync(id, ct)) connections.Notify(user, "rooms");
+        foreach (var user in await MemberIdsAsync(id, ct)) connections.Notify(user, "rooms", id);
     }
 
     private async Task AppendKeysAsync(Mission room, Guid userId, RoomKeyWrite? request, CancellationToken ct)
@@ -200,7 +199,7 @@ public sealed partial class MissionService
         item.UserId = userId; item.DeviceId = device.Id; item.UpdatedAt = clock.GetUtcNow();
         if (existing is null) db.MissionItems.Add(item);
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
-        foreach (var member in await MemberIdsAsync(id, ct)) connections.Notify(member, "rooms");
+        foreach (var member in await MemberIdsAsync(id, ct)) connections.NotifyContent(member, id, item.Sequence);
         return ItemDto(item);
     }
 

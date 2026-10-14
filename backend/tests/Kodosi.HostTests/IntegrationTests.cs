@@ -44,6 +44,31 @@ public sealed class IntegrationTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task RoomMembersHearWhenAMemberStartsFresh()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var connection = await postgres.CreateDatabaseAsync(ct);
+        await using var app = new BackendApplication(connection);
+        using var owner = await app.EnrollAsync("owner");
+        using var member = await app.EnrollAsync("member");
+        var room = Guid.CreateVersion7();
+        await CallAsync(owner, HttpMethod.Post, "/api/missions", new { id = room, name = "Room" });
+        await using (var db = PostgresFixture.Context(connection))
+        {
+            db.MissionMembers.Add(new MissionMember { MissionId = room, UserId = member.Fixture.UserId });
+            await db.SaveChangesAsync(ct);
+        }
+        using var socket = await app.ConnectAsync(member);
+        using var recent = app.CreateClient();
+        recent.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("owner", authenticatedAt: DateTimeOffset.UtcNow));
+        using var reset = await recent.PostAsync("/api/me/identity/reset", null, ct);
+        Assert.Equal(HttpStatusCode.NoContent, reset.StatusCode);
+        var notice = await JsonAsync(socket);
+        while (notice.GetProperty("surface").GetString() != "missions") notice = await JsonAsync(socket);
+        Assert.Equal(room, notice.GetProperty("roomId").GetGuid());
+    }
+
+    [Fact]
     public async Task IssuerAndSubjectIdentifyTheAccount()
     {
         await using var store = await TestStore.CreateAsync(postgres);

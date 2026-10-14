@@ -20,9 +20,16 @@ public sealed class ConnectionDirectory
 
     internal DeviceLink[] Online() { lock (sync) return devices.Values.Where(link => link.IsOpen).ToArray(); }
 
-    public void Notify(Guid userId, string surface)
+    public void Notify(Guid userId, string surface) => Send(userId, new { type = "changed", surface });
+
+    public void Notify(Guid userId, string surface, Guid roomId) => Send(userId, new { type = "changed", surface, roomId });
+
+    public void NotifyContent(Guid userId, Guid roomId, long sequence) =>
+        Send(userId, new { type = "changed", surface = "rooms", roomId, sequence });
+
+    private void Send(Guid userId, object message)
     {
-        foreach (var link in Online().Where(link => link.UserId == userId)) link.Send(new { type = "changed", surface });
+        foreach (var link in Online().Where(link => link.UserId == userId)) link.Send(message);
     }
 
     internal void Register(DeviceLink link)

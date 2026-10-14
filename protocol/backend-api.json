@@ -155,6 +155,7 @@
     "encryption": "AES-256-GCM content keys; each recipient key is ML-KEM-768 and X25519 together, with HKDF-SHA256 over both shared secrets for the wrapping key; ML-DSA-65 signed state and content",
     "history": "new members receive current room keys and decrypt the backwards-wrapped key history",
     "membership": "signed room state commits member identities; removal rotates the content key; a member whose identity is not available keeps the last identity in the state; only the owner gives a member a new identity, with new keys; the relay holds no plaintext key",
-    "content": "immutable messages and versioned task/repository records; read by room sequence; compare expected version on updates"
+    "content": "immutable messages and versioned task/repository records; read by room sequence; compare expected version on updates",
+    "changes": "the device connection gets {type: changed, surface: rooms, roomId, sequence} after a content write and {type: changed, surface: rooms, roomId} after new room keys; it gets {type: changed, surface: missions, roomId} after a change of the room, its members, or the devices of a member; a device then reads only that room and only the items after the sequence that it has; it checks the identities and room keys of the members when it connects, when the members or their devices change, and when it uses a room whose last check is older than 5 minutes"
   }
 }
