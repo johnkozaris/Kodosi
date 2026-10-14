@@ -28,6 +28,8 @@ The iOS app uses the Mac's visual system from the shared package
 - **Don't** show controls for host-only actions.
 - **Don't** add explanatory text where an object, a state, or one short line is
   sufficient.
+- **Don't** copy a terminal into a second list because it waits. Its row shows the
+  sign.
 
 Sources: `Sources/`, `../apple/Sources/KodosiDesign/`, and
 `../apple/Sources/KodosiTerminal/`.

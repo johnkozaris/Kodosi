@@ -8,7 +8,7 @@ struct TerminalCatalogTests {
         try JSONDecoder().decode([RuntimeSession].self, from: JSONSerialization.data(withJSONObject: entries))
     }
 
-    @Test func terminalsThatWaitComeFirstAndLeaveTheirComputer() throws {
+    @Test func terminalsThatWaitStayWithTheirComputer() throws {
         let all = try sessions([
             terminalEntry("build", state: "working", host: "Studio"),
             terminalEntry("review", state: "blocked", host: "Studio"),
@@ -17,17 +17,16 @@ struct TerminalCatalogTests {
         #expect(TerminalCatalog.needsYou(all).map(\.id) == ["review"])
         let groups = TerminalCatalog.groups(all)
         #expect(groups.map(\.title) == ["Air", "Studio"])
-        #expect(groups.flatMap(\.sessions).map(\.id) == ["notes", "build"])
+        #expect(groups.flatMap(\.sessions).map(\.id) == ["notes", "build", "review"])
     }
 
-    @Test func aFriendsTerminalThatWaitsNeedsYouOnlyWhileYouHaveItOpen() throws {
+    @Test func aFriendsTerminalThatWaitsCountsOnlyWhileYouHaveItOpen() throws {
         let all = try sessions([
             terminalEntry("closed", state: "blocked", owner: false, host: "Lab", connection: "offline"),
             terminalEntry("open", state: "blocked", owner: false, host: "Lab"),
         ])
         #expect(TerminalCatalog.needsYou(all).map(\.id) == ["open"])
-        #expect(TerminalCatalog.groups(all).flatMap(\.sessions).map(\.id) == ["closed"])
-        #expect(all.allSatisfy(\.needsUser))
+        #expect(TerminalCatalog.groups(all).flatMap(\.sessions).map(\.id) == ["closed", "open"])
     }
 
     @Test func friendsTerminalsAreSharedWithYouAfterYourComputers() throws {
