@@ -12,6 +12,7 @@ struct AgentLauncher: View {
     @State private var folder: String?
     @State private var showsAll = false
     @State private var showsEffort = false
+    @State private var moreHovered = false
     @State private var starting = false
     @State private var error: String?
 
@@ -88,15 +89,7 @@ struct AgentLauncher: View {
             }
             .arrive()
             preview.arrive(delay: 0.05)
-            if welcome {
-                VStack(spacing: 6) {
-                    Text("Start with a terminal").appTextStyle(.title).foregroundStyle(theme.colors.ink)
-                    Text("It runs on this Mac. Share it when you want company.")
-                        .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
-                }
-                .arrive(delay: 0.1)
-            }
-            actions.arrive(delay: 0.14)
+            actions.arrive(delay: 0.1)
             if let error {
                 ErrorNote(message: error).frame(maxWidth: 520).transition(.opacity)
             }
@@ -115,65 +108,57 @@ struct AgentLauncher: View {
     }
 
     private var preview: some View {
-        DashedSlot(radius: Radius.xl) {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 6) {
-                    ForEach(0 ..< 3, id: \.self) { _ in
-                        Circle().fill(theme.colors.inkFaint.opacity(0.35)).frame(width: 7, height: 7)
-                    }
-                    Spacer(minLength: 12)
-                    folderToken
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 6) {
+                ForEach(0 ..< 3, id: \.self) { _ in
+                    Circle().fill(theme.colors.inkFaint.opacity(0.35)).frame(width: 7, height: 7)
                 }
-                Spacer(minLength: 18)
-                commandLine
-                if let note {
-                    Text(verbatim: "# \(note)")
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(theme.colors.inkFaint)
-                        .lineLimit(1).truncationMode(.middle)
-                        .padding(.top, 8).padding(.leading, 2)
-                        .contentTransition(.opacity)
-                }
-                Spacer(minLength: 18)
+                Spacer(minLength: 12)
+                folderToken
             }
-            .padding(.horizontal, 18).padding(.vertical, 14)
-            .frame(width: 540, alignment: .leading)
-            .frame(minHeight: welcome ? 196 : 150)
-            .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 18)
+            commandLine
+            if let identity = info?.installed == true ? account?.identity : nil {
+                Text(verbatim: "# \(identity)")
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(theme.colors.inkFaint)
+                    .lineLimit(1).truncationMode(.middle)
+                    .padding(.top, 10).padding(.leading, 2)
+                    .transition(.opacity.combined(with: .offset(y: -4)))
+            }
+            Spacer(minLength: 18)
         }
-        .onTapGesture(perform: start)
+        .padding(.horizontal, 18).padding(.vertical, 14)
+        .frame(width: 540, alignment: .leading)
+        .frame(minHeight: welcome ? 180 : 140)
+        .fixedSize(horizontal: false, vertical: true)
+        .raised(Radius.lg)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("launcher.preview")
     }
 
-    private var note: String? {
-        guard let info else { return nil }
-        guard info.installed else { return String(localized: "\(info.kind.label) is not on this Mac yet") }
-        guard let account else { return nil }
-        return account.identity ?? (account.command == account.name ? nil : String(localized: "signs in when it starts"))
-    }
-
     private var commandLine: some View {
-        FlowLayout(spacing: 4, lineSpacing: 4) {
+        FlowLayout(spacing: 6, lineSpacing: 6) {
             Image(systemName: "chevron.right")
                 .font(.system(size: 13, weight: .heavy))
                 .foregroundStyle(theme.colors.inkFaint)
-                .frame(height: 24)
+                .frame(height: 26)
             if let info {
                 if info.installed {
                     agentTokens(info)
                 } else {
                     TypedText(text: info.install)
                         .foregroundStyle(theme.colors.inkMuted)
-                        .frame(height: 24)
+                        .frame(height: 26)
                 }
             }
-            CursorBlock(width: 9, height: 18)
+            PromptCursor(line: line ?? "")
                 .padding(.leading, 2)
-                .frame(height: 24)
+                .frame(height: 26)
         }
         .font(.system(size: 14, weight: .medium, design: .monospaced))
         .frame(maxWidth: .infinity, alignment: .leading)
+        .animation(theme.motion.spring, value: line)
     }
 
     @ViewBuilder
@@ -222,13 +207,16 @@ struct AgentLauncher: View {
                     withAnimation(theme.motion.spring) { showsEffort = true }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(theme.colors.inkFaint)
-                        .frame(width: 24, height: 24)
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundStyle(theme.colors.inkMuted)
+                        .frame(width: 30, height: 26)
+                        .background { ChipFace(lit: moreHovered) }
+                        .offset(y: moreHovered ? -0.5 : 0)
                         .contentShape(Rectangle())
-                        .hoverRow(radius: Radius.xs)
                 }
-                .buttonStyle(PressScaleStyle())
+                .buttonStyle(PressScaleStyle(scale: 0.95))
+                .onHover { moreHovered = $0 }
+                .animation(theme.motion.hover, value: moreHovered)
                 .help("More choices")
                 .accessibilityIdentifier("launcher.moreChoices")
             }
@@ -324,7 +312,7 @@ private struct AccountChoices: View {
             ForEach(info.accounts) { account in
                 ChoiceRow(
                     title: account.name,
-                    detail: account.identity ?? (account.command == account.name ? nil : String(localized: "Signs in when it starts")),
+                    detail: account.identity,
                     selected: account.command == selected,
                     identifier: "launcher.account.\(AccessibilityIdentifier.token(account.name))"
                 ) { choose(account.command) }
@@ -340,8 +328,6 @@ private struct AccountChoices: View {
                                 .disabled(saving || name.trimmingCharacters(in: .whitespaces).isEmpty)
                                 .accessibilityIdentifier("launcher.account.add")
                         }
-                        Text("\(info.kind.label) asks you to sign in when it starts.")
-                            .appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint)
                         if let error {
                             ErrorNote(message: error)
                         }

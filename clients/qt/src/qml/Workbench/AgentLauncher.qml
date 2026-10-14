@@ -5,7 +5,6 @@ import QtCore
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Shapes
 import Kodosi.Models 1.0 as Models
 
 ColumnLayout {
@@ -49,9 +48,7 @@ ColumnLayout {
     readonly property string directory: folder || Models.DesktopSettings.effectiveWorkingDirectory
     readonly property string line: !info ? "" : !info.installed ? info.install
         : !account ? "" : [account.command, modelArgument, effortArgument].filter(word => word.length > 0).join(" ")
-    readonly property string note: !info ? ""
-        : !info.installed ? qsTr("%1 is not on this computer yet").arg(Identity.kindLabel(info.agent))
-        : !account ? "" : account.identity || (account.command === account.name ? "" : qsTr("signs in when it starts"))
+    readonly property string identity: info && info.installed && account ? account.identity || "" : ""
 
     signal resumeRequested
 
@@ -85,7 +82,7 @@ ColumnLayout {
         let rows = []
         if (kind === "account") {
             rows = info.accounts.map(entry => ({ title: entry.name, value: entry.command, selected: entry.command === account.command,
-                detail: entry.identity || (entry.command === entry.name ? "" : qsTr("Signs in when it starts")) }))
+                detail: entry.identity || "" }))
         } else if (kind === "model") {
             rows = [{ title: qsTr("Default"), detail: qsTr("The agent's own choice"), value: "", selected: modelArgument.length === 0 }]
                 .concat((modelSet ? modelSet.models : []).map(entry => ({ title: entry.label, value: entry.argument, mono: true,
@@ -181,6 +178,37 @@ ColumnLayout {
         }
     }
 
+    // A small key lit from the top left, as the buttons are, in the agent's
+    // color when it has one.
+    component Chip: Item {
+        id: chip
+
+        property color tint: "transparent"
+        property bool lit: false
+        property bool pressed: false
+        property bool focused: false
+        readonly property color base: KodosiTheme.mix(KodosiTheme.lifted, KodosiTheme.ink, (KodosiTheme.isDark ? 0.07 : 0) + (lit ? 0.04 : 0))
+
+        transform: Translate { y: chip.lit && !chip.pressed ? -0.5 : 0 }
+
+        Bezel {
+            anchors.fill: parent
+            radius: KodosiTheme.radiusXs
+            quiet: true
+            pressed: chip.pressed
+            fill: chip.tint.a === 0 ? chip.base : KodosiTheme.mix(chip.base, chip.tint, KodosiTheme.isDark ? 0.22 : 0.12)
+        }
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: -2
+            radius: KodosiTheme.radiusXs + 2
+            color: "transparent"
+            visible: chip.focused
+            border.width: 1.5
+            border.color: KodosiTheme.accentStrong
+        }
+    }
+
     component Token: AbstractButton {
         id: token
 
@@ -191,44 +219,29 @@ ColumnLayout {
         property color tint: KodosiTheme.ink
         property real maximumWidth: 480
 
+        readonly property bool open: menu.opened && menu.anchor === token
+
         hoverEnabled: true
         activeFocusOnTab: true
         implicitHeight: 26
-        implicitWidth: Math.min(maximumWidth, tokenRow.implicitWidth + 12)
-        scale: pressed ? 0.96 : 1
+        implicitWidth: Math.min(maximumWidth, tokenRow.implicitWidth + 16)
+        scale: pressed ? 0.95 : 1
         Accessible.role: Accessible.ButtonMenu
         Accessible.description: words + (badge.length > 0 ? " " + badge : "")
 
         Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover } }
 
-        background: Item {
-            Rectangle {
-                anchors.fill: parent
-                radius: KodosiTheme.radiusXs
-                color: KodosiTheme.alpha(KodosiTheme.ink, token.down || menu.opened && menu.anchor === token ? 0.1 : token.hovered ? 0.06 : 0)
-                border.width: token.visualFocus ? 1.5 : 0
-                border.color: KodosiTheme.accentStrong
-            }
-            Shape {
-                anchors.fill: parent
-                visible: token.slot
-                preferredRendererType: Shape.CurveRenderer
-
-                ShapePath {
-                    strokeColor: KodosiTheme.alpha(KodosiTheme.inkFaint, token.hovered ? 0.75 : 0.4)
-                    strokeWidth: 1
-                    strokeStyle: ShapePath.DashLine
-                    dashPattern: [3, 3]
-                    fillColor: "transparent"
-                    PathRectangle { x: 0.5; y: 0.5; width: token.width - 1; height: token.height - 1; radius: KodosiTheme.radiusXs }
-                }
-            }
+        background: Chip {
+            tint: token.slot ? "transparent" : token.tint
+            lit: token.hovered || token.open
+            pressed: token.down
+            focused: token.visualFocus
         }
         contentItem: Item {
             Row {
                 id: tokenRow
                 anchors.verticalCenter: parent.verticalCenter
-                x: 6
+                x: 8
                 spacing: 5
 
                 ShimmerText {
@@ -244,16 +257,16 @@ ColumnLayout {
                     visible: !token.loading
                     width: Math.min(implicitWidth, token.maximumWidth - 40)
                     target: token.words
-                    color: token.slot ? KodosiTheme.inkFaint : token.tint
+                    color: token.slot ? KodosiTheme.inkMuted : token.tint
                     font: root.commandFont
                 }
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     visible: token.badge.length > 0
                     width: badgeText.implicitWidth + 12
-                    height: 18
-                    radius: 9
-                    color: KodosiTheme.alpha(token.tint, 0.16)
+                    height: 17
+                    radius: 4
+                    color: KodosiTheme.alpha(token.tint, 0.2)
 
                     PlainLabel {
                         id: badgeText
@@ -269,8 +282,11 @@ ColumnLayout {
                     width: 8
                     height: 8
                     name: "chevron-down"
-                    strokeWidth: 2.6
-                    color: KodosiTheme.alpha(KodosiTheme.inkFaint, token.hovered ? 1 : 0.55)
+                    strokeWidth: 2.8
+                    color: token.slot ? KodosiTheme.inkFaint : KodosiTheme.inkMuted
+                    rotation: token.open ? 180 : 0
+
+                    Behavior on rotation { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
                 }
             }
         }
@@ -294,14 +310,16 @@ ColumnLayout {
 
         Well {
             anchors.fill: parent
-            radius: height / 2
+            radius: KodosiTheme.radiusSm + 3
         }
-        Raised {
+        Bezel {
             x: dock.current ? dockRow.x + dock.current.x : 3
             y: 3
             width: dock.current ? dock.current.width : 0
             height: dock.height - 6
-            radius: height / 2
+            radius: KodosiTheme.radiusSm
+            quiet: true
+            fill: KodosiTheme.mix(KodosiTheme.lifted, KodosiTheme.ink, KodosiTheme.isDark ? 0.07 : 0)
 
             Behavior on x { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
             Behavior on width { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
@@ -335,7 +353,8 @@ ColumnLayout {
                     activeFocusOnTab: true
                     hoverEnabled: true
                     height: dockRow.height
-                    width: markRow.implicitWidth + (selected ? 20 : 14)
+                    width: markRow.implicitWidth + (selected ? 18 : 12)
+                    scale: pressed ? 0.96 : 1
                     clip: true
 
                     Behavior on width { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
@@ -353,7 +372,7 @@ ColumnLayout {
                         Row {
                             id: markRow
                             anchors.verticalCenter: parent.verticalCenter
-                            x: 7
+                            x: 6
                             spacing: 7
 
                             AgentMark {
@@ -374,10 +393,12 @@ ColumnLayout {
                         }
                     }
                     background: Rectangle {
-                        radius: height / 2
-                        color: "transparent"
+                        radius: KodosiTheme.radiusSm
+                        color: KodosiTheme.alpha(KodosiTheme.ink, mark.hovered && !mark.selected ? 0.06 : 0)
                         border.width: mark.visualFocus ? 1.5 : 0
                         border.color: KodosiTheme.accentStrong
+
+                        Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
                     }
                     onClicked: Models.Launcher.chooseAgent(modelData.id)
                 }
@@ -410,7 +431,12 @@ ColumnLayout {
                         Behavior on rotation { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack } }
                     }
                 }
-                background: Item {}
+                background: Rectangle {
+                    radius: KodosiTheme.radiusSm
+                    color: KodosiTheme.alpha(KodosiTheme.ink, more.hovered ? 0.06 : 0)
+                    border.width: more.visualFocus ? 1.5 : 0
+                    border.color: KodosiTheme.accentStrong
+                }
             }
         }
     }
@@ -420,32 +446,13 @@ ColumnLayout {
 
         Layout.alignment: root.welcome ? Qt.AlignHCenter : Qt.AlignLeft
         Layout.preferredWidth: Math.min(540, root.width)
-        implicitHeight: Math.max(root.welcome ? 196 : 150, previewColumn.implicitHeight + 28)
+        implicitHeight: Math.max(root.welcome ? 180 : 140, previewColumn.implicitHeight + 28)
         objectName: "launcher.preview"
         Accessible.id: objectName
 
-        HoverHandler { id: previewHover }
-        TapHandler { onTapped: root.start() }
-
-        Rectangle {
+        Raised {
             anchors.fill: parent
-            radius: KodosiTheme.radiusXl
-            color: KodosiTheme.alpha(KodosiTheme.accent, previewHover.hovered ? 0.07 : 0)
-
-            Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
-        }
-        Shape {
-            anchors.fill: parent
-            preferredRendererType: Shape.CurveRenderer
-
-            ShapePath {
-                strokeColor: previewHover.hovered ? KodosiTheme.alpha(KodosiTheme.accent, 0.7) : KodosiTheme.alpha(KodosiTheme.inkFaint, 0.5)
-                strokeWidth: 1.2
-                strokeStyle: ShapePath.DashLine
-                dashPattern: [4, 4]
-                fillColor: "transparent"
-                PathRectangle { x: 0.6; y: 0.6; width: preview.width - 1.2; height: preview.height - 1.2; radius: KodosiTheme.radiusXl }
-            }
+            radius: KodosiTheme.radiusLg
         }
         RowLayout {
             x: 18
@@ -477,7 +484,7 @@ ColumnLayout {
 
             Flow {
                 Layout.fillWidth: true
-                spacing: 4
+                spacing: 6
 
                 Item {
                     width: 16
@@ -517,15 +524,29 @@ ColumnLayout {
                     Accessible.name: qsTr("Effort")
                     onClicked: root.openMenu("effort", effortToken)
                 }
-                KIconButton {
+                AbstractButton {
+                    id: moreChoices
+
                     visible: root.info !== null && root.info.installed && root.efforts.length > 0
                         && root.effortArgument.length === 0 && !root.showsEffort
-                    glyph: "more"
-                    size: 26
+                    implicitWidth: 30
+                    implicitHeight: 26
+                    hoverEnabled: true
+                    activeFocusOnTab: true
+                    scale: pressed ? 0.95 : 1
                     objectName: "launcher.moreChoices"
                     Accessible.id: objectName
                     Accessible.name: qsTr("More choices")
+                    ToolTip.visible: hovered
+                    ToolTip.text: Accessible.name
                     onClicked: root.showsEffort = true
+
+                    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover } }
+
+                    background: Chip { lit: moreChoices.hovered; pressed: moreChoices.down; focused: moreChoices.visualFocus }
+                    contentItem: Item {
+                        KIcon { anchors.centerIn: parent; width: 13; height: 13; name: "more"; strokeWidth: 2.4; color: KodosiTheme.inkMuted }
+                    }
                 }
                 TypedText {
                     visible: root.info !== null && !root.info.installed
@@ -538,37 +559,52 @@ ColumnLayout {
                 Item {
                     width: 12
                     height: 26
-                    CursorBlock { anchors.centerIn: parent; width: 9; height: 18; blinks: true }
+
+                    // Lit while the line changes, then it blinks as a terminal cursor does.
+                    CursorBlock {
+                        id: cursor
+
+                        property bool lit: true
+                        property bool holds: true
+
+                        anchors.centerIn: parent
+                        width: 9
+                        height: 18
+                        opacity: lit ? 1 : 0
+
+                        Behavior on opacity { NumberAnimation { duration: 80 } }
+                        Timer {
+                            id: blink
+                            interval: cursor.holds ? 1100 : cursor.lit ? 560 : 440
+                            repeat: true
+                            running: !KodosiTheme.reduceMotion && root.visible
+                            onTriggered: {
+                                cursor.holds = false
+                                cursor.lit = !cursor.lit
+                            }
+                        }
+                        Connections {
+                            target: root
+
+                            function onLineChanged() {
+                                cursor.holds = true
+                                cursor.lit = true
+                                blink.restart()
+                            }
+                        }
+                    }
                 }
             }
             PlainLabel {
                 Layout.fillWidth: true
-                visible: root.note.length > 0
-                text: "# " + root.note
+                Layout.topMargin: 2
+                visible: root.identity.length > 0
+                text: "# " + root.identity
                 color: KodosiTheme.inkFaint
                 font.family: "monospace"
                 font.pixelSize: KodosiTheme.fontFootnote
                 elide: Text.ElideMiddle
             }
-        }
-    }
-
-    ColumnLayout {
-        Layout.alignment: Qt.AlignHCenter
-        visible: root.welcome
-        spacing: 6
-
-        PlainLabel {
-            Layout.alignment: Qt.AlignHCenter
-            text: qsTr("Start with a terminal")
-            font.pixelSize: KodosiTheme.fontTitle
-            font.weight: Font.DemiBold
-        }
-        PlainLabel {
-            Layout.alignment: Qt.AlignHCenter
-            text: qsTr("It runs on this computer. Share it when you want company.")
-            color: KodosiTheme.inkMuted
-            font.pixelSize: KodosiTheme.fontFootnote
         }
     }
 
@@ -776,13 +812,6 @@ ColumnLayout {
                         enabled: accountName.text.trim().length > 0 && !Models.Launcher.addingAccount
                         onClicked: Models.Launcher.addAccount(root.info.agent, accountName.text)
                     }
-                }
-                PlainLabel {
-                    Layout.fillWidth: true
-                    text: root.info ? qsTr("%1 asks you to sign in when it starts.").arg(Identity.kindLabel(root.info.agent)) : ""
-                    color: KodosiTheme.inkFaint
-                    font.pixelSize: KodosiTheme.fontCaption
-                    wrapMode: Text.WordWrap
                 }
                 PlainLabel {
                     Layout.fillWidth: true

@@ -96,8 +96,26 @@ struct FlowLayout: Layout {
     }
 }
 
-/// One part of the command line. A filled part shows its words; an empty part
-/// is a dashed slot that names what it holds.
+/// The face of a choice on the command line: a small key lit from the top
+/// left, as the buttons are, in the agent's color when it has one.
+struct ChipFace: View {
+    @Environment(\.theme) private var theme
+    var tint: Color?
+    var lit = false
+
+    var body: some View {
+        let colors = theme.colors
+        let face = colors.lifted.mix(with: colors.ink, by: (theme.isDark ? 0.07 : 0) + (lit ? 0.04 : 0))
+        BezelBackground(
+            shape: RoundedRectangle(cornerRadius: Radius.xs, style: .continuous),
+            fill: tint.map { face.mix(with: $0, by: theme.isDark ? 0.22 : 0.12) } ?? face,
+            bezel: .quiet
+        )
+    }
+}
+
+/// One part of the command line, as a key that opens its choices. A part not
+/// chosen yet names what it holds in faint words.
 struct CommandToken<Choices: View>: View {
     @Environment(\.theme) private var theme
     @State private var hovered = false
@@ -113,7 +131,7 @@ struct CommandToken<Choices: View>: View {
 
     var body: some View {
         Button { presented.toggle() } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: 5) {
                 TypedText(text: text)
                     .lineLimit(1).truncationMode(.middle)
                     .foregroundStyle(foreground)
@@ -122,28 +140,24 @@ struct CommandToken<Choices: View>: View {
                     Text(verbatim: badge)
                         .font(.system(size: 11, weight: .semibold, design: .rounded))
                         .foregroundStyle(foreground)
-                        .padding(.horizontal, 6).frame(height: 17)
-                        .background((tint ?? theme.colors.ink).opacity(0.16), in: Capsule())
+                        .padding(.horizontal, 5).frame(height: 17)
+                        .background((tint ?? theme.colors.ink).opacity(0.2), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
                         .transition(AnyTransition.pop)
                 }
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 7, weight: .bold))
-                    .foregroundStyle(theme.colors.inkFaint.opacity(hovered || presented ? 1 : 0.55))
+                    .font(.system(size: 7, weight: .heavy))
+                    .foregroundStyle(slot ? theme.colors.inkFaint : theme.colors.inkMuted)
+                    .rotationEffect(.degrees(presented ? 180 : 0))
             }
-            .padding(.horizontal, 6).frame(height: 24)
-            .background {
-                let shape = RoundedRectangle(cornerRadius: Radius.xs, style: .continuous)
-                if slot {
-                    shape.strokeBorder(theme.colors.inkFaint.opacity(hovered || presented ? 0.75 : 0.4),
-                                       style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                }
-                shape.fill(theme.colors.ink.opacity(presented ? 0.1 : hovered ? 0.06 : 0))
-            }
+            .padding(.horizontal, 8).frame(height: 26)
+            .background { ChipFace(tint: slot ? nil : tint, lit: hovered || presented) }
+            .offset(y: hovered && !presented ? -0.5 : 0)
             .contentShape(Rectangle())
         }
-        .buttonStyle(PressScaleStyle(scale: 0.96))
+        .buttonStyle(PressScaleStyle(scale: 0.95))
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
+        .animation(theme.motion.snappy, value: presented)
         .popover(isPresented: $presented, arrowEdge: .bottom) {
             choices { presented = false }.chromeScope()
         }
@@ -155,9 +169,31 @@ struct CommandToken<Choices: View>: View {
 
     private var foreground: Color {
         if slot {
-            return theme.colors.inkFaint
+            return theme.colors.inkMuted
         }
         return tint.map { $0.mix(with: theme.colors.ink, by: theme.isDark ? 0.45 : 0.2) } ?? theme.colors.ink
+    }
+}
+
+/// The cursor at the end of the command line. It stays lit while the line
+/// changes, then blinks as a terminal cursor does.
+struct PromptCursor: View {
+    @Environment(\.theme) private var theme
+    let line: String
+    @State private var lit = true
+
+    var body: some View {
+        CursorBlock(width: 9, height: 18, blinks: false)
+            .opacity(lit ? 1 : 0)
+            .task(id: line) {
+                lit = true
+                guard !theme.motion.reduced else { return }
+                try? await Task.sleep(for: .milliseconds(1100))
+                while !Task.isCancelled {
+                    withAnimation(.easeInOut(duration: 0.08)) { lit.toggle() }
+                    try? await Task.sleep(for: .milliseconds(lit ? 560 : 440))
+                }
+            }
     }
 }
 
@@ -249,7 +285,7 @@ struct AgentDock: View {
                         .rotationEffect(.degrees(showsAll ? 45 : 0))
                         .foregroundStyle(theme.colors.inkMuted)
                         .frame(width: 30, height: 32)
-                        .contentShape(Rectangle())
+                        .hoverRow(radius: Radius.sm)
                 }
                 .buttonStyle(PressScaleStyle())
                 .help(showsAll ? String(localized: "Hide agents that are not on this Mac")
@@ -259,12 +295,13 @@ struct AgentDock: View {
             }
         }
         .padding(3)
-        .wellCapsule()
+        .well(Radius.sm + 3)
         .animation(theme.motion.spring, value: items.map(\.id))
     }
 
     private func mark(_ item: Item) -> some View {
         let selected = item.id == selection
+        let shape = RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
         return Button {
             withAnimation(theme.motion.snappy) { select(item.id) }
         } label: {
@@ -282,17 +319,21 @@ struct AgentDock: View {
                         .transition(.opacity.combined(with: .offset(x: -6)))
                 }
             }
-            .padding(.leading, 7).padding(.trailing, selected ? 12 : 7)
+            .padding(.leading, 6).padding(.trailing, selected ? 11 : 6)
             .frame(height: 32)
             .background {
                 if selected {
-                    RaisedBackground(shape: Capsule(), fill: theme.colors.raised, elevation: .resting)
-                        .matchedGeometryEffect(id: "thumb", in: thumb)
+                    BezelBackground(
+                        shape: shape,
+                        fill: theme.colors.lifted.mix(with: theme.colors.ink, by: theme.isDark ? 0.07 : 0),
+                        bezel: .quiet
+                    )
+                    .matchedGeometryEffect(id: "thumb", in: thumb)
                 }
             }
-            .contentShape(Capsule())
+            .hoverRow(radius: Radius.sm, selected: selected)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressScaleStyle(scale: 0.96))
         .help(item.installed ? item.title : String(localized: "\(item.title) is not on this Mac"))
         .accessibilityLabel(Text(item.title))
         .accessibilityAddTraits(selected ? .isSelected : [])
