@@ -40,10 +40,10 @@ function Sign({ form }: { form: "done" | "failed" }) {
 }
 
 /**
- * The frame of every page: the Kodosi mark, the step in one line, the capsule with the one thing
- * that the step needs, and the other ways under it. Keycloak's page loads are steps of one page
- * here: the mark stays in its place, the capsule and the cursor carry on from the page before,
- * and the title of that page leaves through the line that the new title comes through.
+ * The frame of every page: the Kodosi wordmark, the step in one line, the capsule with the one
+ * thing that the step needs, and the other ways under it. Keycloak's page loads are steps of one
+ * page here: the wordmark stays in its place, the capsule and the cursor carry on from the page
+ * before, and the title of that page leaves through the line that the new title comes through.
  */
 export function Stage({
   kcContext,
@@ -73,9 +73,9 @@ export function Stage({
   lead?: ReactNode;
   /** The state of the step, as a small sign before the title. */
   sign?: "done" | "failed";
-  /** The page is an end: the cursor stays still in the mark. */
+  /** The page is an end: the cursor stays still at the end of the word. */
   rest?: boolean;
-  /** The page is the end of a sign-in: the mark is whole, as on the banner. */
+  /** The page is the end of a sign-in: the wordmark has the size of the banner. */
   banner?: boolean;
   /** The account is gone: the cursor of the mark is an outline, as the cursor of a terminal that
       has nobody at it. */
@@ -170,7 +170,7 @@ export function Stage({
   }, [busy]);
 
   // The end of a sign-in, as the end of the launch film: what the page before held goes into the
-  // cursor, and the mark of the head grows into the whole mark of the banner.
+  // cursor, and the wordmark of the head grows to the size of the banner.
   useLayoutEffect(() => {
     const logo = document.getElementById("logo");
     if (!logo || !banner) return;
@@ -274,7 +274,10 @@ export function Stage({
         )}
       >
         {/* The room of the mark, which index.html draws. */}
-        <div aria-hidden className={banner ? "h-[150px]" : "h-[calc(var(--logo-size)*1.5)]"} />
+        <div
+          aria-hidden
+          className={banner ? "h-[calc(var(--banner-size)*1.5)]" : "h-[calc(var(--logo-size)*1.5)]"}
+        />
         <div className={cn("w-full text-center", banner ? "mt-9" : "mt-8")}>
           <h1 className="roll font-mono text-title font-medium text-ink">
             {roll.out && (

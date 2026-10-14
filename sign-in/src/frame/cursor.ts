@@ -3,7 +3,7 @@ import { MOVES, spring, still } from "./motion";
 
 /**
  * The copper cursor is the one living thing of a page, as it is the sign of life in the app. It
- * rests at the end of the word "kodosi". It goes to the field that takes the typing and stands
+ * rests at the end of the wordmark. It goes to the field that takes the typing and stands
  * there as the block cursor of a terminal: it is solid while the person types, and it blinks
  * when they stop. While Keycloak works, the glow colours pass through it. The next page takes it
  * from where it stood (carry.ts).

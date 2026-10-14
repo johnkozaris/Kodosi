@@ -14,7 +14,8 @@ name `kodosi`. It has the three kinds of a Keycloak theme:
 
 The pages are React, packed as one Keycloak theme by [Keycloakify](https://www.keycloakify.dev).
 They have the look and the motion of the apps ([DESIGN.md](../clients/macos/DESIGN.md)): the warm
-ground, one capsule that holds the step, the copper cursor of the mark, and the springs of the apps.
+ground, the Kodosi wordmark, one capsule that holds the step, the copper cursor, and the springs of
+the apps.
 The words are English; in a different language, Keycloak's own words show.
 
 ## The journey
@@ -64,9 +65,9 @@ pages, where Keycloak asks for the person's proof; the person then comes back to
 
 ## The e-mails
 
-Each e-mail is one card with the mark: what it is, one sentence, one action, and a small note, in
-HTML and in plain text. Keycloak sends the notes about an account only when the realm has the event
-listener `email`, and the notes about a locked account only when the server's option
+Each e-mail is one card with the wordmark: what it is, one sentence, one action, and a small note,
+in HTML and in plain text. Keycloak sends the notes about an account only when the realm has the
+event listener `email`, and the notes about a locked account only when the server's option
 `spi-events-listener--email--include-events` names them (see `keycloak.sh`).
 
 ## Work on the pages
