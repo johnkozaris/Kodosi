@@ -6,7 +6,7 @@ and the terminal text comes from scripts that print sample agent output.
 
 | File | Shows |
 | --- | --- |
-| [banner.webp](banner.webp) | The Kodosi mark and line. Opening frame of the launch film. |
+| [banner.webp](banner.webp) | The Kodosi wordmark and line. |
 | [app-dark.webp](app-dark.webp), [app-light.webp](app-light.webp) | The window with four terminals on three computers, in both appearances. Terminals stay dark. |
 | [overview.webp](overview.webp) | All terminals, grouped by computer. |
 | [status.gif](status.gif), [status.webp](status.webp) | One terminal that works, waits, works, and is done. The still is for readers who ask for reduced motion. |
