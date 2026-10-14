@@ -81,6 +81,12 @@ for name in objects:
     # Stripping renumbers the symbols; llvm-objcopy would leave each address-significance
     # table pointing at the old numbers, so drop the tables and let the linker assume all.
     subprocess.run(["llvm-objcopy", "--strip-debug", "--remove-section=.llvm_addrsig", path], check=True)
+    # Clang writes the build time into each COFF header; a zero time gives the
+    # same library from the same inputs. A big object header keeps it 8 bytes in.
+    data = bytearray(path.read_bytes())
+    stamp = 8 if data[:4] == b"\x00\x00\xff\xff" else 4
+    data[stamp:stamp + 4] = bytes(4)
+    path.write_bytes(data)
 subprocess.run(["llvm-lib", "/out:ghostty-vt-static.lib", *objects], cwd=object_root, check=True)
 (object_root / "ghostty-vt-static.lib").replace(destination)
 

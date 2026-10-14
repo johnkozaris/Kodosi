@@ -10,4 +10,4 @@ ghostty_build_options=emit-lib-vt=true,target=x86_64-windows-msvc,cpu=baseline,o
 vt_target=x86_64-windows-msvc
 vt_cpu=baseline
 vt_optimize=ReleaseFast
-vt_archive_sha256=d55a3c75d417307090b3e6656f69762d55b71dc7f51d228e258399ecd6aaab14
+vt_archive_sha256=c18668b23cdc2c162732fdf99e61ec4e2ecd6bfc925394239ea51b2620d1db92
