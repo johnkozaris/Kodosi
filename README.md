@@ -28,7 +28,7 @@ when you are away from your computer.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: light)" srcset="docs/media/app-light.webp">
-    <img src="docs/media/app-dark.webp" width="900" alt="The Kodosi Mac app with four terminals: Claude Code waits for an approval, Codex works on a branch, a friend's Claude Code runs on another laptop, and a benchmark is done on a second Mac.">
+    <img src="docs/media/app-dark.webp" width="900" alt="The Kodosi Mac app with four terminals: Claude Code waits for an approval, Codex works on a branch, a friend's Claude Code runs on another laptop, and a second Mac shows its system details.">
   </picture>
   <br>
   <sub>The Mac app. Four terminals on three computers: two on this Mac, one that a friend shares, and one on a second Mac.</sub>
@@ -43,7 +43,7 @@ approved devices, and open the terminals that friends share with you. One list s
 all of them, grouped by computer.
 
 <p align="center">
-  <img src="docs/media/overview.webp" width="760" alt="The overview: five terminals on three computers, grouped as This Mac, a friend's laptop, and a second Mac.">
+  <img src="docs/media/overview.webp" width="760" alt="The overview: six terminals on three computers, grouped as This Mac, a friend's laptop, and a second Mac.">
 </p>
 
 ### See which agent needs you
@@ -81,7 +81,7 @@ branch with its own folder (a Git worktree) and starts a terminal there, so two 
 do not change the same files. A folder with no changes goes away when its terminal ends.
 
 <p align="center">
-  <img src="docs/media/branch.webp" width="750" alt="The New branch panel beside a repository folder in the sidebar, with the branch name fix/search-filters.">
+  <img src="docs/media/branch.webp" width="750" alt="The New branch panel beside a repository folder in the sidebar, with the branch name fix/coupon-rounding.">
 </p>
 
 ### Work together in a room
@@ -91,14 +91,14 @@ room one time. Everyone in the room can type, resize, interrupt, and close it,
 including people who join later. People and agents write in the same conversation.
 
 <p align="center">
-  <img src="docs/media/room.webp" width="900" alt="A room with three shared terminals and a conversation in which three people, Claude Code, and Codex write.">
+  <img src="docs/media/room.webp" width="900" alt="A room with three shared terminals, one of them open, and a conversation in which three people, Claude Code, and Codex write.">
 </p>
 
 Agents join through the bundled [room skill](runtime/skills/kodosi-room/SKILL.md):
 they read the conversation, post an update, offer a task, or take one.
 
 <p align="center">
-  <img src="docs/media/tasks.webp" width="600" alt="Room tasks: one up for grabs, three in progress with the person who took each, and one done.">
+  <img src="docs/media/tasks.webp" width="600" alt="Room tasks: one up for grabs, four in progress with the person who took each, and one done.">
 </p>
 
 - Put tasks up for grabs, claim them, hand them back, or close them with a result.
@@ -112,7 +112,7 @@ The service relays encrypted traffic and cannot read your terminals or your room
 content. [Security](docs/SECURITY.md)
 
 <p align="center">
-  <img src="docs/media/share.webp" width="560" alt="The share panel of a terminal, marked Encrypted end to end, with two rooms and two friends to select.">
+  <img src="docs/media/share.webp" width="560" alt="The share panel of a terminal, marked Encrypted end to end, with two rooms and two friends, and Leo selected.">
 </p>
 
 ## What you need

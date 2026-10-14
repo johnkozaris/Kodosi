@@ -41,8 +41,7 @@ the build number of the iOS app and of the Mac app.
 data that the Kodosi service keeps and the reasons for the app's file-date and
 UserDefaults reads. Update it when the app or a library it links starts to use another
 [required reason API](https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api)
-or sends new data to the service. The App Privacy answers in App Store Connect must
-match it.
+or sends new data to the service.
 
 ## Check
 

@@ -19,6 +19,8 @@ flowchart LR
 ```
 
 The Mac app embeds the Rust runtime through its native API. The Qt app does the same.
+The iPhone and iPad app embeds the viewer build of the runtime: it opens terminals that
+other devices host and hosts none.
 The runtime starts a local shell on a PTY (ConPTY on Windows); that shell can start an
 existing agent CLI.
 Ghostty is a linked library for terminal state and rendering.
@@ -88,7 +90,9 @@ aligned in the same change; do not maintain parallel historical protocol documen
 - [runtime/src](../runtime/src/): sessions, identity, transport, rooms, providers, and CLI.
 - [backend/src/Kodosi.Host](../backend/src/Kodosi.Host/): accounts, devices, friends,
   missions, sessions, and terminal connections. Internal APIs call rooms “missions.”
-- [clients/macos](../clients/macos/) and [clients/qt](../clients/qt/): native UI.
+- [clients/macos](../clients/macos/), [clients/ios](../clients/ios/) and
+  [clients/qt](../clients/qt/): native UI. [clients/apple](../clients/apple/) holds the
+  Swift code that the Mac and iOS apps share.
 - [terminal/ghostty](../terminal/ghostty/): terminal integration and native artifacts.
 
 [All documentation](README.md) · [Development](DEVELOPMENT.md)
