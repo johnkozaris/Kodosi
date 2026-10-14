@@ -31,7 +31,7 @@ private slots:
             QVERIFY(!bridge.isRunning());
             QVERIFY(runtime_fixture::userdata == nullptr);
         }
-        runtime_fixture::protocolVersion = 57;
+        runtime_fixture::protocolVersion = 58;
         kodosi::RuntimeBridge bridge;
         QVERIFY(bridge.start());
         QVERIFY(bridge.isRunning());

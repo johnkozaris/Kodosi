@@ -100,14 +100,25 @@ impl Http {
             .send()
             .await?;
         let value: Value = decode(response).await?;
-        if value.get("apiContractVersion").and_then(Value::as_u64)
-            != Some(u64::from(crate::protocol::BACKEND_API_VERSION))
-            || value.get("authContractVersion").and_then(Value::as_u64)
-                != Some(u64::from(crate::protocol::AUTH_VERSION))
-        {
-            *checked = None;
-            return Err(invalid("This server requires a different Kodosi version."));
-        }
+        *checked = None;
+        let reported = |name: &str| {
+            value
+                .get(name)
+                .and_then(Value::as_u64)
+                .ok_or_else(|| invalid("The server did not report its Kodosi versions."))
+        };
+        supported(
+            crate::protocol::BACKEND_API_VERSION,
+            reported("oldestApiContractVersion")?,
+            reported("apiContractVersion")?,
+        )?;
+        let auth = reported("authContractVersion")?;
+        supported(crate::protocol::AUTH_VERSION, auth, auth)?;
+        supported(
+            crate::protocol::TERMINAL_CONNECTION_VERSION,
+            reported("oldestTerminalConnectionProtocolVersion")?,
+            reported("terminalConnectionProtocolVersion")?,
+        )?;
         *checked = Some(tokio::time::Instant::now());
         drop(checked);
         Ok(())
@@ -356,6 +367,16 @@ async fn decode<T: DeserializeOwned>(response: reqwest::Response) -> Result<T> {
     serde_json::from_slice(&bytes).map_err(Error::from)
 }
 
+pub(crate) fn supported(own: u32, oldest: u64, current: u64) -> Result<()> {
+    if u64::from(own) < oldest {
+        Err(Error::UpdateRequired)
+    } else if u64::from(own) > current {
+        Err(Error::ServerOutdated)
+    } else {
+        Ok(())
+    }
+}
+
 fn backend_message(status: u16, body: Option<String>) -> String {
     match status {
         401 => "Your sign-in has expired. Sign in again.".into(),
@@ -364,4 +385,15 @@ fn backend_message(status: u16, body: Option<String>) -> String {
         500..=599 => "The Kodosi server had a problem. Try again in a moment.".into(),
         _ => body.unwrap_or_else(|| "The Kodosi server could not complete the request.".into()),
     }
+}
+
+#[cfg(test)]
+pub(crate) fn current_versions() -> Value {
+    serde_json::json!({
+        "apiContractVersion": crate::protocol::BACKEND_API_VERSION,
+        "oldestApiContractVersion": crate::protocol::BACKEND_API_VERSION,
+        "authContractVersion": crate::protocol::AUTH_VERSION,
+        "terminalConnectionProtocolVersion": crate::protocol::TERMINAL_CONNECTION_VERSION,
+        "oldestTerminalConnectionProtocolVersion": crate::protocol::TERMINAL_CONNECTION_VERSION,
+    })
 }

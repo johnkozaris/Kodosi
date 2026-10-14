@@ -2544,6 +2544,34 @@
               }
             ]
           },
+          "type": {
+            "const": "system.updateRequired"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "deviceId": {
             "anyOf": [
               {
@@ -5705,7 +5733,7 @@
     ]
   },
   "ffiAbiVersion": 8,
-  "protocolVersion": 57,
+  "protocolVersion": 58,
   "terminal": {
     "checkpointMaxBytes": 8388608,
     "checkpointSchema": 2,

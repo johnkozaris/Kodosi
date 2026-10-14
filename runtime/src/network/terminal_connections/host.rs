@@ -350,7 +350,7 @@ async fn connect(
     let info = publication.info.read().await.clone();
     channel
         .send(&Frame::Accept(Accept {
-            protocol_version: crate::protocol::TERMINAL_CONNECTION_VERSION,
+            protocol_version: crate::protocol::CHANNEL_VERSION,
             session_id: info.session_id,
             incarnation_id: info.incarnation_id,
             host_device_id: credentials.keys.device_id.clone(),

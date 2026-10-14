@@ -1243,7 +1243,11 @@ impl Runtime {
             }
             if matches!(
                 kind,
-                "friends.snapshot" | "devices.list" | "devices.link.snapshot" | "missions.snapshot"
+                "friends.snapshot"
+                    | "devices.list"
+                    | "devices.link.snapshot"
+                    | "missions.snapshot"
+                    | "system.updateRequired"
             ) {
                 self.cached_events
                     .insert(kind.to_owned(), event.event.clone());

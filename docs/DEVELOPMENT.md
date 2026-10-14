@@ -16,8 +16,11 @@ and Ghostty integration. No sibling repositories or submodules are needed.
 | `protocol/` | Generated contracts shared across the stack |
 | `terminal/ghostty/` | Native terminal integration, patches, artifacts, and notices |
 | `terminal/conpty/` | Pinned Windows console host for terminals on Windows |
+| `VERSION` | The product version of all apps and the CLI |
 
 See [Architecture and protocol](PROTOCOL.md) for how the processes connect.
+Cargo, CMake and the Xcode projects read `VERSION`. After a change, generate the Mac
+project again (`just mac-build` does it).
 
 ## Toolchains
 

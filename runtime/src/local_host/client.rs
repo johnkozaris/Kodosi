@@ -134,9 +134,15 @@ async fn connect(
         tokio::time::timeout(HELLO_TIMEOUT, read_json(&mut FrameReader::new(&mut stream)))
             .await
             .map_err(|_| Error::Other("local handshake timed out".into()))??;
-    if welcome.version != VERSION {
+    if welcome.version < VERSION {
+        return Err(Error::Invalid(format!(
+            "Kodosi was updated to {}. Restart Kodosi to use it. This ends its terminals.",
+            env!("KODOSI_VERSION")
+        )));
+    }
+    if welcome.version > VERSION {
         return Err(Error::Invalid(
-            "local host protocol differs; restart Kodosi".into(),
+            "This kodosi command is older than the running Kodosi. Use the kodosi command of the installed app.".into(),
         ));
     }
     if let Some(error) = &welcome.error {

@@ -33,8 +33,8 @@ just --justfile clients/macos/justfile release-build
 ```
 
 Generate the project from `project.yml`; do not edit generated project files or the
-runtime header directly. [Apps.xcconfig](../apple/Config/Apps.xcconfig) gives the
-version and the build number of the Mac app and of the iOS app.
+runtime header directly. [VERSION](../../VERSION) gives the
+version of the Mac app, the iOS app, the Linux and Windows app and the CLI.
 
 ## Command-line access
 

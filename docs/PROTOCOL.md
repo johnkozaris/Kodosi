@@ -91,6 +91,19 @@ Rust generates shared contracts. Use `just protocol-gen` for an intentional chan
 `just protocol-check` to check the committed output. Keep clients, backend, and runtime
 aligned in the same change; do not maintain parallel historical protocol documents.
 
+## Compatible versions
+
+The backend accepts a range of app versions, so a change of the server does not stop
+the installed apps. `/health/live` and `/health/ready` give the current and the oldest
+API contract and device connection protocol. An app below a range says that Kodosi
+must be updated; an app above a range says that the server must be updated. The channel
+between two devices has its own version, and both devices must have the same one;
+otherwise the viewer says which computer must update Kodosi.
+
+A change raises the current version. A change that older apps cannot use also raises
+the oldest version. After the first public release, raise the oldest version only 60
+days after the release that brought the new one.
+
 ## Source map
 
 - [runtime/src](../runtime/src/): sessions, identity, transport, rooms, providers, and CLI.

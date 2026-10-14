@@ -198,6 +198,9 @@ impl BackendClient {
             waiting.add(&Change::of("devices"))?;
             self.refresh_waiting(admitted, &mut waiting).await?;
         }
+        if matches!(result, Err(Error::UpdateRequired)) {
+            self.update_required();
+        }
         result
     }
 

@@ -167,7 +167,9 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         using var anonymous = app.CreateClient();
         using var denied = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
         var health = await anonymous.GetFromJsonAsync<JsonElement>("/health/live", TestContext.Current.CancellationToken);
-        Assert.Equal(27, health.GetProperty("apiContractVersion").GetInt32());
+        Assert.Equal(ContractVersions.Api, health.GetProperty("apiContractVersion").GetInt32());
+        Assert.Equal(ContractVersions.OldestApi, health.GetProperty("oldestApiContractVersion").GetInt32());
+        Assert.Equal(ContractVersions.OldestTerminalConnection, health.GetProperty("oldestTerminalConnectionProtocolVersion").GetInt32());
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("bad", "wrong-audience"));
         using var audience = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, audience.StatusCode);
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("unenrolled"));

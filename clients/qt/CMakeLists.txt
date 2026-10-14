@@ -1,8 +1,11 @@
 cmake_minimum_required(VERSION 4.3...4.4)
 
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/../../VERSION" KODOSI_PRODUCT_VERSION LIMIT_COUNT 1)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/../../VERSION")
+
 project(
     KodosiQT
-    VERSION 0.1.0
+    VERSION ${KODOSI_PRODUCT_VERSION}
     DESCRIPTION "Cross-platform Qt Quick desktop client for Kodosi"
     LANGUAGES CXX
 )

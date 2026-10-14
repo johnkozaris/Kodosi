@@ -32,8 +32,8 @@ service addresses.
 
 Generate the project from `project.yml`; do not edit generated project files.
 [iOSDeploymentTarget](../apple/Config/iOSDeploymentTarget) is the record of the iOS
-deployment target. [Apps.xcconfig](../apple/Config/Apps.xcconfig) gives the version and
-the build number of the iOS app and of the Mac app.
+deployment target. [VERSION](../../VERSION) gives the version of
+the iOS app, the Mac app, the Linux and Windows app and the CLI.
 
 ## Privacy manifest
 

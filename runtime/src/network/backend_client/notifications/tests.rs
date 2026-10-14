@@ -97,8 +97,7 @@ async fn room_notifications_use_the_renewed_token_on_the_existing_connection() {
     let room = Uuid::now_v7();
     let server = tokio::spawn(async move {
         let replies = [
-            json!({"apiContractVersion": crate::protocol::BACKEND_API_VERSION,
-                "authContractVersion": crate::protocol::AUTH_VERSION}),
+            crate::network::http::current_versions(),
             json!({"challengeId": Uuid::now_v7(), "challengeBytes": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}),
             json!({"session": "fixture-session"}),
             json!({"missions": [{"id": room}], "invitations": []}),

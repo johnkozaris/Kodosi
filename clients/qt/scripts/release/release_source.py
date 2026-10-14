@@ -70,12 +70,7 @@ def source_identity(path: Path) -> dict[str, object]:
 
 
 def product_version(source_root: Path) -> str:
-    cmake = (source_root / "CMakeLists.txt").read_text(encoding="utf-8")
-    match = re.search(
-        r"\bproject\s*\(\s*KodosiQT\b[\s\S]*?\bVERSION\s+"
-        r"([0-9]+\.[0-9]+\.[0-9]+)\b",
-        cmake,
-    )
-    if not match:
-        raise ValueError("KodosiQT product version was not found")
-    return match.group(1)
+    version = (repository_root(source_root) / "VERSION").read_text(encoding="utf-8").strip()
+    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
+        raise ValueError("VERSION must be MAJOR.MINOR.PATCH")
+    return version

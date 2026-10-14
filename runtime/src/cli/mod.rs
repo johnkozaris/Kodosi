@@ -18,7 +18,7 @@ mod terminal;
 #[derive(Parser)]
 #[command(
     name = "kodosi",
-    version,
+    version = env!("KODOSI_VERSION"),
     about = "Real terminals on your machines, shared with trusted people."
 )]
 struct Arguments {

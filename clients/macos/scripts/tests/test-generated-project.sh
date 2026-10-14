@@ -16,6 +16,7 @@ for relative_path in project.yml Config Sources Tests Resources KodosiDesktop.xc
     cp -R "$ROOT/$relative_path" "$COPY_ROOT/$relative_path"
 done
 cp -R "$ROOT/../apple" "$SCRATCH/clients/apple"
+cp "$ROOT/../../VERSION" "$SCRATCH/VERSION"
 mkdir -p "$COPY_ROOT/scripts/build"
 for task in generate-xcode-project.sh generate-xcode-project.py; do
     cp "$ROOT/scripts/build/$task" "$COPY_ROOT/scripts/build/$task"
