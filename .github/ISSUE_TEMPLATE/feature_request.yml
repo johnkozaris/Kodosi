@@ -33,7 +33,10 @@ body:
       options:
         - Mac app
         - Linux app
+        - Windows app
+        - iPhone and iPad app
         - Command line (kodosi)
         - Rooms, conversation, and tasks
         - Backend or self-hosting
+        - Sign-in pages
         - Documentation

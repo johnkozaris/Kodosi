@@ -3,12 +3,14 @@
 ## The app
 
 **How do I get Kodosi?**
-Build the [Mac app](../clients/macos/README.md) or the [Linux app](../clients/qt/README.md)
-from this repository.
+Build the [Mac app](../clients/macos/README.md), the [Linux app](../clients/qt/README.md)
+or the [iPhone and iPad app](../clients/ios/README.md) from this repository.
 
 **Which computers does it run on?**
 A Mac with Apple silicon and macOS 26.4 or later, and Linux x86-64. Ubuntu 24.04 is
-the recommended start for Linux.
+the recommended start for Linux. The iPhone and iPad app needs iOS 26 or later; it
+opens the terminals of your computers and the terminals that friends share with you,
+and starts none.
 
 **Is a terminal in Kodosi a real terminal?**
 Yes. It is a real shell process on the computer that started it, drawn by

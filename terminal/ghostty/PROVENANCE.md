@@ -30,10 +30,6 @@ metadata records measured build inputs and outputs, independent of repository la
   `ios_arm64_simulator_archive_sha256` for `ios-arm64-simulator`. Write underscores
   in place of the hyphens of the name.
 
-The integration was imported from `johnkozaris/kodosi-ghostty` at commit
-`086ea213b7d1f890c5e7f2569b1848c3cd75d3d3`; its upstream attributions, licenses,
-corresponding source and relinking materials are retained.
-
 ### Build values
 
 `NativeBuild.env` is the only record of the Apple build values:

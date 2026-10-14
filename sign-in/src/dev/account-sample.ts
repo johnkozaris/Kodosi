@@ -9,6 +9,13 @@ import {
 } from "../account/service";
 import { kcEnvDefaults } from "../kc.gen";
 
+/** The addresses of the terms and the privacy page that the hosted service gives the theme. */
+export const sampleProperties = {
+  ...kcEnvDefaults,
+  KODOSI_TERMS_URL: "https://kodosi.com/terms",
+  KODOSI_PRIVACY_URL: "https://kodosi.com/privacy",
+};
+
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 
@@ -17,7 +24,7 @@ export function sampleContext(): KcContext {
   return {
     themeType: "account",
     themeName: "kodosi",
-    properties: { ...kcEnvDefaults },
+    properties: sampleProperties,
     authServerUrl: "/",
     clientId: "account-console",
     locale: "en",
