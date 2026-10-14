@@ -11,6 +11,8 @@ final class LauncherState {
     private(set) var catalog: AgentCatalog?
     private(set) var models: [String: AgentModels] = [:]
     private(set) var loadingModels: Set<String> = []
+    /// Agents that this Mac just got, while the launcher says so.
+    private(set) var fresh: Set<String> = []
     private var refreshing = false
     private var refreshesAgain = false
     private var refreshedAt: Date?
@@ -42,6 +44,9 @@ final class LauncherState {
                 if catalog != self.catalog {
                     let installed = Set(catalog.agents.filter(\.installed).map(\.agent))
                     models = models.filter { installed.contains($0.key) }
+                    if let known = self.catalog {
+                        announce(installed.subtracting(known.agents.filter(\.installed).map(\.agent)))
+                    }
                     self.catalog = catalog
                 }
                 refreshedAt = Date()
@@ -49,6 +54,16 @@ final class LauncherState {
                 Logger.app.warning("Agents of this Mac unknown: \(error.localizedDescription, privacy: .public)")
             }
         } while refreshesAgain
+    }
+
+    /// Marks `agents` as just arrived, for a few seconds.
+    private func announce(_ agents: Set<String>) {
+        guard !agents.isEmpty else { return }
+        fresh.formUnion(agents)
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(4))
+            fresh.subtract(agents)
+        }
     }
 
     func loadModels(_ agent: String) async {

@@ -117,26 +117,31 @@ struct FlowLayout: Layout {
     }
 }
 
-/// The face of a choice on the command line: a small key lit from the top
-/// left, as the buttons are, in the agent's color when it has one.
+/// The terminal's own colors, which stay dark in both looks: its body, its
+/// band and the face of a key.
+enum TerminalInk {
+    static let body = hex(0x0D0B09)
+    static let band = hex(0x1A1512)
+    static let key = hex(0x2A221E)
+    static let keyLit = hex(0x352B26)
+    static let path = hex(0x5DAFA6)
+}
+
+/// The face of a key on the command line: one solid color, lit from the top
+/// left as the buttons are.
 struct ChipFace: View {
-    @Environment(\.theme) private var theme
-    var tint: Color?
     var lit = false
 
     var body: some View {
-        let colors = theme.colors
-        let face = colors.lifted.mix(with: colors.ink, by: (theme.isDark ? 0.07 : 0) + (lit ? 0.04 : 0))
         BezelBackground(
             shape: RoundedRectangle(cornerRadius: Radius.xs, style: .continuous),
-            fill: tint.map { face.mix(with: $0, by: theme.isDark ? 0.22 : 0.12) } ?? face,
-            bezel: .quiet
+            fill: lit ? TerminalInk.keyLit : TerminalInk.key, bezel: .quiet
         )
     }
 }
 
 /// One part of the command line, as a key that opens its choices. A part not
-/// chosen yet names what it holds in faint words.
+/// chosen yet names what it holds in muted words.
 struct CommandToken<Choices: View>: View {
     @Environment(\.theme) private var theme
     @State private var hovered = false
@@ -157,7 +162,7 @@ struct CommandToken<Choices: View>: View {
                 if let symbol {
                     Image(systemName: symbol)
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(foreground)
+                        .foregroundStyle(tint ?? theme.colors.inkMuted)
                         .symbolEffect(.bounce, value: text)
                 }
                 TypedText(text: text)
@@ -165,20 +170,18 @@ struct CommandToken<Choices: View>: View {
                     .foregroundStyle(foreground)
                     .shimmer(loading)
                 if let badge {
-                    Text(verbatim: badge)
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        .foregroundStyle(foreground)
-                        .padding(.horizontal, 5).frame(height: 17)
-                        .background((tint ?? theme.colors.ink).opacity(0.2), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
-                        .transition(AnyTransition.pop)
+                    Text(verbatim: "· \(badge)")
+                        .foregroundStyle(theme.colors.inkMuted)
+                        .lineLimit(1)
+                        .transition(.opacity.combined(with: .offset(x: -4)))
                 }
                 Image(systemName: "chevron.down")
                     .font(.system(size: 7, weight: .heavy))
-                    .foregroundStyle(slot ? theme.colors.inkFaint : theme.colors.inkMuted)
+                    .foregroundStyle(theme.colors.inkMuted)
                     .rotationEffect(.degrees(presented ? 180 : 0))
             }
             .padding(.horizontal, 8).frame(height: 26)
-            .background { ChipFace(tint: slot ? nil : tint, lit: hovered || presented) }
+            .background { ChipFace(lit: hovered || presented) }
             .offset(y: hovered && !presented ? -0.5 : 0)
             .contentShape(Rectangle())
         }
@@ -199,7 +202,7 @@ struct CommandToken<Choices: View>: View {
         if slot {
             return theme.colors.inkMuted
         }
-        return tint.map { $0.mix(with: theme.colors.ink, by: theme.isDark ? 0.45 : 0.2) } ?? theme.colors.ink
+        return tint.map { $0.mix(with: .white, by: 0.35) } ?? theme.colors.ink
     }
 }
 
@@ -278,9 +281,11 @@ struct ChoicePanel<Content: View>: View {
     }
 }
 
-/// The agents of this Mac as a row of marks on a sliding thumb. The plain
-/// terminal comes first; agents that are not here show pale behind the plus.
-struct AgentDock: View {
+/// The band of the launcher's terminal: a tab for each kind of terminal it
+/// opens, the plain terminal first. The chosen tab opens into the terminal
+/// below it and says its name; the others are marks. Agents that are not here
+/// wait behind the plus, and an agent that arrives says so once.
+struct AgentTabs: View {
     struct Item: Identifiable, Equatable {
         let id: String
         let kind: AgentKind
@@ -292,15 +297,16 @@ struct AgentDock: View {
     }
 
     @Environment(\.theme) private var theme
-    @Namespace private var thumb
+    @Namespace private var tab
     let items: [Item]
     let selection: String
     let hidden: Int
+    let fresh: Set<String>
     @Binding var showsAll: Bool
     let select: (String) -> Void
 
     var body: some View {
-        HStack(spacing: 2) {
+        HStack(alignment: .bottom, spacing: 2) {
             ForEach(items) { item in
                 mark(item).transition(AnyTransition.pop)
             }
@@ -312,8 +318,9 @@ struct AgentDock: View {
                         .font(.system(size: 11, weight: .bold))
                         .rotationEffect(.degrees(showsAll ? 45 : 0))
                         .foregroundStyle(theme.colors.inkMuted)
-                        .frame(width: 30, height: 32)
+                        .frame(width: 30, height: 30)
                         .hoverRow(radius: Radius.sm)
+                        .padding(.bottom, 2)
                 }
                 .buttonStyle(PressScaleStyle())
                 .help(showsAll ? String(localized: "Hide agents that are not on this Mac")
@@ -322,49 +329,115 @@ struct AgentDock: View {
                 .accessibilityIdentifier("launcher.more")
             }
         }
-        .padding(3)
-        .well(Radius.sm + 3)
         .animation(theme.motion.spring, value: items.map(\.id))
+        .animation(theme.motion.spring, value: fresh)
     }
 
     private func mark(_ item: Item) -> some View {
         let selected = item.id == selection
-        let shape = RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
+        let arrived = fresh.contains(item.id) && !selected
         return Button {
             withAnimation(theme.motion.snappy) { select(item.id) }
         } label: {
             HStack(spacing: 7) {
-                AgentMark(kind: item.kind, size: 20, activity: item.installed ? .awake : .asleep)
+                AgentMark(kind: item.kind, size: 18, activity: item.installed ? .awake : .asleep)
                     .keyframeAnimator(initialValue: 1.0, trigger: selected) { mark, scale in
                         mark.scaleEffect(selected && !theme.motion.reduced ? scale : 1)
                     } keyframes: { _ in
-                        SpringKeyframe(0.84, duration: 0.09, spring: .snappy)
+                        SpringKeyframe(0.8, duration: 0.09, spring: .snappy)
                         SpringKeyframe(1.0, duration: 0.45, spring: .bouncy)
                     }
-                if selected {
+                if selected || arrived {
                     Text(item.title).appTextStyle(.footnote).fontWeight(.semibold).fixedSize()
-                        .foregroundStyle(item.installed ? theme.colors.ink : theme.colors.inkMuted)
+                        .foregroundStyle(arrived ? theme.colors.accentStrong : item.installed ? theme.colors.ink : theme.colors.inkMuted)
                         .transition(.opacity.combined(with: .offset(x: -6)))
                 }
             }
-            .padding(.leading, 6).padding(.trailing, selected ? 11 : 6)
-            .frame(height: 32)
+            .padding(.horizontal, selected || arrived ? 12 : 8)
+            .frame(height: selected ? 34 : 30)
             .background {
                 if selected {
-                    BezelBackground(
-                        shape: shape,
-                        fill: theme.colors.lifted.mix(with: theme.colors.ink, by: theme.isDark ? 0.07 : 0),
-                        bezel: .quiet
-                    )
-                    .matchedGeometryEffect(id: "thumb", in: thumb)
+                    TabShape(radius: 9, flare: 8)
+                        .fill(TerminalInk.body)
+                        .matchedGeometryEffect(id: "tab", in: tab)
+                } else if arrived {
+                    Ripple(color: theme.colors.accent)
                 }
             }
             .hoverRow(radius: Radius.sm, selected: selected)
+            .padding(.bottom, selected ? 0 : 2)
         }
         .buttonStyle(PressScaleStyle(scale: 0.96))
         .help(item.installed ? item.title : String(localized: "\(item.title) is not on this Mac"))
         .accessibilityLabel(Text(item.title))
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier("launcher.agent.\(item.id)")
+    }
+}
+
+/// A tab that opens into what is below it: round on top, and its bottom
+/// corners flare out into the edge it stands on.
+struct TabShape: Shape {
+    let radius: CGFloat
+    let flare: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX - flare, y: rect.maxY))
+        path.addQuadCurve(to: CGPoint(x: rect.minX, y: rect.maxY - flare), control: CGPoint(x: rect.minX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + radius))
+        path.addQuadCurve(to: CGPoint(x: rect.minX + radius, y: rect.minY), control: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - radius, y: rect.minY))
+        path.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.minY + radius), control: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - flare))
+        path.addQuadCurve(to: CGPoint(x: rect.maxX + flare, y: rect.maxY), control: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.closeSubpath()
+        return path
+    }
+}
+
+/// A ring that leaves its place once, for something that just arrived.
+struct Ripple: View {
+    @Environment(\.theme) private var theme
+    let color: Color
+    @State private var out = false
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
+            .strokeBorder(color, lineWidth: 1.5)
+            .scaleEffect(out ? 1.25 : 1)
+            .opacity(out ? 0 : 1)
+            .onAppear {
+                guard !theme.motion.reduced else { return }
+                withAnimation(.easeOut(duration: 1.1).repeatCount(2, autoreverses: false)) { out = true }
+            }
+    }
+}
+
+/// How the launcher's terminal first appears: the copper cursor alone, then a
+/// line that grows from it, then the window around the line.
+struct SeedMask: Shape {
+    /// From 0, the cursor, to 1, the whole window.
+    var progress: CGFloat
+    let cursor: CGRect
+    let radius: CGFloat
+
+    var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let wide = min(1, max(0, progress / 0.45))
+        let tall = min(1, max(0, (progress - 0.45) / 0.55))
+        let line = CGRect(
+            x: cursor.minX + (rect.minX - cursor.minX) * wide, y: cursor.minY,
+            width: cursor.width + (rect.width - cursor.width) * wide, height: cursor.height
+        )
+        let frame = CGRect(
+            x: line.minX, y: line.minY + (rect.minY - line.minY) * tall,
+            width: line.width, height: line.height + (rect.height - line.height) * tall
+        )
+        return Path(roundedRect: frame, cornerRadius: 2 + (radius - 2) * tall, style: .continuous)
     }
 }

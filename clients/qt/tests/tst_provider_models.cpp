@@ -192,6 +192,11 @@ private slots:
             launcher.apply(commands.reply({ { QStringLiteral("agents"), QJsonArray { claude } } }, older));
             QCOMPARE(commands.values.size(), older + 2);
             QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("provider.agents"));
+            QVERIFY(launcher.fresh().isEmpty());
+            auto codex = claude;
+            codex.insert(QStringLiteral("agent"), QStringLiteral("codex"));
+            launcher.apply(commands.reply({ { QStringLiteral("agents"), QJsonArray { claude, codex } } }));
+            QCOMPARE(launcher.fresh(), QStringList { QStringLiteral("codex") });
         }
         kodosi::AgentLauncherModel restored(commands, std::make_unique<QSettings>(path, QSettings::IniFormat));
         QCOMPARE(restored.choice().value(QStringLiteral("agent")).toString(), QStringLiteral("claude"));

@@ -106,12 +106,27 @@ void AgentLauncherModel::apply(const QJsonObject& event)
     case Request::Agents:
         if (!failed) {
             m_refreshedAt = QDateTime::currentMSecsSinceEpoch();
+            const bool known = !m_agents.isEmpty();
+            QStringList before;
+            for (const auto& value : std::as_const(m_agents)) {
+                const auto info = value.toMap();
+                if (info.value(QStringLiteral("installed")).toBool())
+                    before.append(info.value(QStringLiteral("agent")).toString());
+            }
             m_agents = result.value(QStringLiteral("agents")).toArray().toVariantList();
             QStringList installed;
             for (const auto& value : m_agents) {
                 const auto info = value.toMap();
                 if (info.value(QStringLiteral("installed")).toBool())
                     installed.append(info.value(QStringLiteral("agent")).toString());
+            }
+            if (known) {
+                QStringList arrived;
+                for (const auto& agent : std::as_const(installed)) {
+                    if (!before.contains(agent) && !m_fresh.contains(agent))
+                        arrived.append(agent);
+                }
+                announce(arrived);
             }
             for (const auto& agent : m_models.keys()) {
                 if (!installed.contains(agent))
@@ -150,6 +165,27 @@ void AgentLauncherModel::apply(const QJsonObject& event)
         emit accountErrorChanged();
         break;
     }
+}
+
+void AgentLauncherModel::setGrown(bool grown)
+{
+    if (m_grown == grown)
+        return;
+    m_grown = grown;
+    emit grownChanged();
+}
+
+void AgentLauncherModel::announce(const QStringList& agents)
+{
+    if (agents.isEmpty())
+        return;
+    m_fresh.append(agents);
+    emit freshChanged();
+    QTimer::singleShot(4000, this, [this, agents] {
+        for (const auto& agent : agents)
+            m_fresh.removeAll(agent);
+        emit freshChanged();
+    });
 }
 
 void AgentLauncherModel::reset()

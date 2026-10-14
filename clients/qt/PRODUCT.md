@@ -50,14 +50,14 @@ actions. Kodosi adds a command for an agent the first time that the agent runs h
 Settings holds the list, so a second account is one more command. One share sheet puts
 a terminal in a room or shares it with friends.
 
-The launcher shows the agents of this computer as marks, with the plain terminal first, and
-the terminal about to open: its name, then a prompt with the folder and the command.
-Each part of the command opens its choices: the account, the model and, behind the
-dots, the effort. After the command, the person types the agent's first prompt, or a
-command for a plain terminal; a faint suggestion types itself there until they do, and
-Tab takes it. Start or Return opens the terminal, which runs the line. An agent that is
-not here shows its install command, and a new account signs in when the agent first
-starts.
+The launcher is the terminal about to open. Its band has a tab for each agent of this
+computer, with the plain terminal first; an agent that this computer just got says so in its
+tab. Below the band is a prompt with the folder and the command. Each part of the
+command opens its choices: the account, the model and, behind the dots, the effort.
+After the command, the person types the agent's first prompt, or a command for a plain
+terminal; a faint suggestion types itself there until they do, and Tab takes it. Start
+or Return opens the terminal, which runs the line. An agent that is not here shows its
+install command, and a new account signs in when the agent first starts.
 
 The folder of a Git repository in the sidebar offers a terminal on a new branch. You
 give the branch a name; it gets its own folder and a terminal starts there. A folder

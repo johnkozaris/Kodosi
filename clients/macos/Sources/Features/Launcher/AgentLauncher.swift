@@ -16,11 +16,16 @@ struct AgentLauncher: View {
     @State private var moreHovered = false
     @State private var starting = false
     @State private var error: String?
-    @State private var name = generateSessionName()
     @State private var prompt = ""
     @State private var ghost = ""
     @State private var hint = 0
     @State private var focus = 0
+    @State private var seed: CGFloat = AgentLauncher.seeded ? 1 : 0
+    @State private var opened = AgentLauncher.seeded
+
+    /// Whether the terminal grew from its cursor in this run of the app.
+    private static var seeded = false
+    private static let bandHeight: CGFloat = 42
 
     private static let promptHints = [
         String(localized: "fix the failing test"),
@@ -105,26 +110,17 @@ struct AgentLauncher: View {
         return hints[hint % hints.count]
     }
 
-    private var dockItems: [AgentDock.Item] {
+    private var tabItems: [AgentTabs.Item] {
         let agents = launcher.catalog?.agents ?? []
         let shown = agents.filter { $0.installed || showsAll || $0.agent == choice.agent }
-        return [AgentDock.Item(id: "shell", kind: .shell, installed: true)]
-            + shown.map { AgentDock.Item(id: $0.agent, kind: $0.kind, installed: $0.installed) }
+        return [AgentTabs.Item(id: "shell", kind: .shell, installed: true)]
+            + shown.map { AgentTabs.Item(id: $0.agent, kind: $0.kind, installed: $0.installed) }
     }
 
     var body: some View {
-        VStack(alignment: welcome ? .center : .leading, spacing: welcome ? 24 : 16) {
-            AgentDock(
-                items: dockItems, selection: choice.agent ?? "shell",
-                hidden: (launcher.catalog?.agents ?? []).count { !$0.installed && $0.agent != choice.agent },
-                showsAll: $showsAll
-            ) { id in
-                update { $0.agent = id == "shell" ? nil : id }
-                showsEffort = false
-            }
-            .arrive()
-            terminal.arrive(delay: 0.05)
-            actions.arrive(delay: 0.1)
+        VStack(alignment: welcome ? .center : .leading, spacing: welcome ? 22 : 14) {
+            terminal
+            actions.arrive(delay: welcome && !opened ? 1.2 : 0.08)
             if let error {
                 ErrorNote(message: error).frame(maxWidth: 520).transition(.opacity)
             }
@@ -138,50 +134,97 @@ struct AgentLauncher: View {
             }
         }
         .task(id: "\(choice.agent ?? "")|\(prompt.isEmpty)|\(takesWords)") { await typeHints() }
-        .onAppear { focus += 1 }
+        .onAppear(perform: grow)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             Task { await launcher.refresh() }
         }
     }
 
-    /// The terminal about to open, as its tile will look: its mark and name in
-    /// the band, then the prompt with the folder, the command and the cursor.
+    /// The first time in a run of the app, the home's terminal grows from its
+    /// copper cursor, as in the film; after that it is simply there.
+    private func grow() {
+        focus += 1
+        guard !Self.seeded else { return }
+        Self.seeded = true
+        guard welcome, !theme.motion.reduced else {
+            seed = 1
+            opened = true
+            return
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(450))
+            withAnimation(.spring(duration: 0.95, bounce: 0.1)) { seed = 1 }
+            try? await Task.sleep(for: .milliseconds(620))
+            withAnimation(theme.motion.spring) { opened = true }
+            focus += 1
+        }
+    }
+
+    /// The terminal about to open, as its tile will look: a band with a tab for
+    /// each kind of terminal, then the prompt with the folder, the command and
+    /// the cursor.
     private var terminal: some View {
         let shape = RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+        let cursor = CGRect(x: 16, y: Self.bandHeight + 18, width: 9, height: 18)
         return VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 9) {
-                AgentMark(kind: info?.kind ?? .shell, size: 20, activity: .awake)
-                    .id(info?.agent ?? "shell")
-                    .transition(.scale(scale: 0.6).combined(with: .opacity))
-                TypedText(text: name)
-                    .appTextStyle(.subhead).foregroundStyle(ink.ink).lineLimit(1)
-                Spacer(minLength: 0)
+            HStack(alignment: .bottom, spacing: 8) {
+                if opened {
+                    AgentTabs(
+                        items: tabItems, selection: choice.agent ?? "shell",
+                        hidden: (launcher.catalog?.agents ?? []).count { !$0.installed && $0.agent != choice.agent },
+                        fresh: launcher.fresh, showsAll: $showsAll
+                    ) { id in
+                        update { $0.agent = id == "shell" ? nil : id }
+                        showsEffort = false
+                    }
+                    .transition(.opacity)
+                    Spacer(minLength: 8)
+                    HStack(spacing: 5) {
+                        DeviceGlyph(label: String(localized: "This Mac")).font(.system(size: 11, weight: .medium))
+                        Text("This Mac")
+                    }
+                    .appTextStyle(.caption).foregroundStyle(ink.inkMuted)
+                    .padding(.bottom, 11)
+                    .transition(.opacity)
+                }
             }
-            .padding(.horizontal, 11).frame(height: 38)
-            .background(ink.raised.opacity(0.45))
+            .padding(.horizontal, 10)
+            .frame(maxWidth: .infinity, minHeight: Self.bandHeight, maxHeight: Self.bandHeight, alignment: .bottomLeading)
+            .background(TerminalInk.band)
             VStack(alignment: .leading, spacing: 8) {
-                commandLine
-                if let identity = info?.installed == true ? account?.identity : nil {
-                    Text(verbatim: "# \(identity)")
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(ink.inkFaint)
-                        .lineLimit(1).truncationMode(.middle)
-                        .transition(.opacity.combined(with: .offset(y: -4)))
+                if opened {
+                    commandLine
+                    if let identity = info?.installed == true ? account?.identity : nil {
+                        Text(verbatim: "# \(identity)")
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(ink.inkFaint)
+                            .lineLimit(1).truncationMode(.middle)
+                            .transition(.opacity.combined(with: .offset(y: -4)))
+                    }
                 }
             }
             .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 18)
-            .frame(maxWidth: .infinity, minHeight: welcome ? 150 : 112, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: welcome ? 150 : 104, alignment: .topLeading)
+            .background(TerminalInk.body)
             .contentShape(Rectangle())
             .onTapGesture { focus += 1 }
+        }
+        .overlay(alignment: .topLeading) {
+            if seed == 0 {
+                CursorBlock(width: cursor.width, height: cursor.height)
+                    .offset(x: cursor.minX, y: cursor.minY)
+                    .transition(.opacity.animation(.easeOut(duration: 0.15)))
+            }
         }
         .terminalScope()
         .frame(width: 560)
         .clipShape(shape)
         .background {
-            shape.fill(theme.colors.terminal)
-                .shadow(color: theme.colors.shadow.opacity(theme.isDark ? 0.5 : 0.14), radius: 10, x: 3, y: 6)
+            shape.fill(TerminalInk.body)
+                .shadow(color: theme.colors.shadow.opacity(theme.isDark ? 0.5 : 0.16), radius: 12, x: 3, y: 7)
         }
-        .overlay { shape.strokeBorder(theme.colors.hairline.opacity(0.7), lineWidth: 0.5).allowsHitTesting(false) }
+        .overlay { shape.strokeBorder(theme.colors.hairline.opacity(theme.isDark ? 0.7 : 0.9), lineWidth: 0.5).allowsHitTesting(false) }
+        .mask { SeedMask(progress: seed, cursor: cursor, radius: Radius.lg) }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("launcher.preview")
     }
@@ -319,10 +362,9 @@ struct AgentLauncher: View {
             .keyboardShortcut(.defaultAction)
             .disabled(starting || !ready)
             .accessibilityIdentifier("launcher.start")
-            Button { deps.workbench.showsHistory = true } label: {
-                Label("Resume a conversation", systemImage: "clock.arrow.circlepath")
-            }
-            .buttonStyle(.kodosi(.ghost))
+            IconButton(
+                title: "Resume a conversation", symbol: "clock.arrow.circlepath", identifier: "launcher.resume", size: 36
+            ) { deps.workbench.showsHistory = true }
         }
     }
 
@@ -380,13 +422,11 @@ struct AgentLauncher: View {
         starting = true
         error = nil
         let directory = directory
-        let name = name
         Task { @MainActor in
             defer { starting = false }
             do {
-                try await deps.createSession(name: name, directory: directory, command: command, prompt: first)
+                try await deps.createSession(name: generateSessionName(), directory: directory, command: command, prompt: first)
                 prompt = ""
-                self.name = generateSessionName()
             } catch {
                 withAnimation(theme.motion.fade) { self.error = error.localizedDescription }
             }
