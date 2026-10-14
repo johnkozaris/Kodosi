@@ -4904,6 +4904,16 @@
                               "command": {
                                 "type": "string"
                               },
+                              "folder": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
                               "identity": {
                                 "anyOf": [
                                   {
@@ -4916,12 +4926,24 @@
                               },
                               "name": {
                                 "type": "string"
+                              },
+                              "options": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
                               "name",
                               "command",
-                              "identity"
+                              "identity",
+                              "folder",
+                              "options"
                             ],
                             "type": "object"
                           },
@@ -5153,6 +5175,16 @@
                   "command": {
                     "type": "string"
                   },
+                  "folder": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "identity": {
                     "anyOf": [
                       {
@@ -5165,12 +5197,24 @@
                   },
                   "name": {
                     "type": "string"
+                  },
+                  "options": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
                   "name",
                   "command",
-                  "identity"
+                  "identity",
+                  "folder",
+                  "options"
                 ],
                 "type": "object"
               },

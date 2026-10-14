@@ -380,6 +380,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         program: None,
         clear_line: "\x05\x15",
         start: None,
+        launcher: None,
         output_at: None,
         prompt: false,
         viewers: HashMap::new(),

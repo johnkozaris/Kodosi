@@ -1,6 +1,8 @@
 #[cfg(feature = "host")]
 mod accounts;
 #[cfg(feature = "host")]
+mod learned;
+#[cfg(feature = "host")]
 mod models;
 #[cfg(feature = "host")]
 mod shell;
@@ -97,6 +99,12 @@ pub struct AgentAccount {
     pub command: String,
     /// The e-mail address or user name that the account signed in with.
     pub identity: Option<String>,
+    /// The folder that keeps the sign-in, with `~` for the home folder; none
+    /// when the agent keeps no such folder or Kodosi cannot tell which one the
+    /// command uses. Commands with the same folder share one sign-in.
+    pub folder: Option<String>,
+    /// The options that the command adds, such as `--yolo`.
+    pub options: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -125,14 +133,73 @@ pub struct AgentOption {
     pub argument: String,
 }
 
-/// The agents of this computer, as a new terminal's shell finds them.
+/// The agents of this computer, as a new terminal's shell finds them, with
+/// what the runtime keeps in `store` about the commands that started them.
 #[cfg(feature = "host")]
-pub async fn catalog(home: &Path, shell: &Path) -> Result<AgentCatalog, String> {
+pub async fn catalog(home: &Path, shell: &Path, store: &Path) -> Result<AgentCatalog, String> {
     let facts = shell::facts(shell, true).await;
     let home = home.to_owned();
-    tokio::task::spawn_blocking(move || accounts::catalog(&home, &facts))
+    let store = store.to_owned();
+    tokio::task::spawn_blocking(move || accounts::catalog(&home, &facts, &learned::load(&store)))
         .await
         .map_err(|error| format!("Agent discovery failed: {error}"))
+}
+
+/// The variable that moves the sign-in folder of the agent that `program`
+/// starts, if that agent keeps one.
+#[cfg(feature = "host")]
+pub(crate) fn sign_in_variable(program: &str) -> Option<&'static str> {
+    Agent::ALL
+        .into_iter()
+        .find(|agent| agent.program() == program)
+        .and_then(Agent::home)
+        .map(|(_, variable)| variable)
+}
+
+/// Remembers the sign-in folder that the person's own `command` gave the agent
+/// that `program` starts: `folder`, the value of its variable, or the usual
+/// folder when the agent started without it.
+#[cfg(feature = "host")]
+pub(crate) fn remember(
+    store: &Path,
+    home: &Path,
+    program: &str,
+    command: &str,
+    folder: Option<String>,
+) {
+    let Some(agent) = Agent::ALL
+        .into_iter()
+        .find(|agent| agent.program() == program)
+    else {
+        return;
+    };
+    let Some((usual, _)) = agent.home() else {
+        return;
+    };
+    let folder = folder.map_or_else(|| home.join(usual), std::path::PathBuf::from);
+    // A word that only runs the next one, such as `env` before a sign-in folder, names no command.
+    if command == program
+        || [
+            "env",
+            "command",
+            "exec",
+            "builtin",
+            "noglob",
+            "nocorrect",
+            "nohup",
+            "time",
+        ]
+        .contains(&command)
+        || !folder.is_absolute()
+        || !command
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
+    {
+        return;
+    }
+    if let Err(error) = learned::remember(store, agent, command, folder) {
+        tracing::warn!(%error, "the sign-in folder of a command was not kept");
+    }
 }
 
 /// The models and efforts that the installed `agent` offers.

@@ -8,9 +8,9 @@ struct SignInTrack: View {
     var body: some View {
         HStack(spacing: 0) {
             node(symbol: "person.fill", label: Text("You"), index: 0)
-            line(reached: completed >= 2)
+            line(0)
             node(symbol: "lock.shield.fill", label: Text(verbatim: "Kodosi"), index: 1)
-            line(reached: completed >= 3)
+            line(1)
             node(symbol: completed >= 3 ? "checkmark" : ThisDevice.symbol, label: Text(ThisDevice.title), index: 2)
         }
         .frame(maxWidth: 360)
@@ -43,8 +43,8 @@ struct SignInTrack: View {
                 }
                 .overlay {
                     if active {
-                        WorkingRim(shape: Circle(), lineWidth: 2)
-                            .padding(-2)
+                        CellRim(.working, lineWidth: 2.5)
+                            .padding(-6)
                             .transition(.opacity)
                     }
                 }
@@ -57,19 +57,11 @@ struct SignInTrack: View {
         .frame(width: 86)
     }
 
-    private func line(reached: Bool) -> some View {
-        Capsule()
-            .fill(theme.colors.ink.opacity(0.1))
-            .frame(height: 3)
-            .overlay(alignment: .leading) {
-                GeometryReader { geometry in
-                    Capsule()
-                        .fill(theme.colors.accent)
-                        .frame(width: reached ? geometry.size.width : 0)
-                }
-            }
+    /// The line after step `index`: it runs while the next step works, and it is lit once that step is done.
+    private func line(_ index: Int) -> some View {
+        CellLine(completed >= index + 2 ? .done : completed == index + 1 ? .flowing : .waiting)
             .padding(.bottom, 26)
-            .padding(.horizontal, -14)
+            .padding(.horizontal, -10)
     }
 }
 

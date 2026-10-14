@@ -129,7 +129,12 @@ public struct AgentMark: View {
     }
 
     private var rimWidth: CGFloat {
-        max(1.5, size * 0.06)
+        max(2, size * 0.075)
+    }
+
+    /// How far the rim of cells stands out from the mark.
+    private var rimSpace: CGFloat {
+        rimWidth * 1.75
     }
 
     private var state: Int {
@@ -157,7 +162,7 @@ public struct AgentMark: View {
         }
         .frame(width: size, height: size)
         .shadow(color: theme.colors.shadow.opacity(asleep ? 0 : (theme.isDark ? 0.45 : 0.2)), radius: size * 0.1, x: size * 0.03, y: size * 0.07)
-        .overlay { rim.padding(-rimWidth) }
+        .overlay { rim.padding(-rimSpace) }
         .keyframeAnimator(initialValue: 1.0, trigger: theme.motion.reduced ? 0 : state) { mark, squash in
             mark.scaleEffect(x: 2 - squash, y: squash, anchor: .bottom)
         } keyframes: { _ in
@@ -170,16 +175,14 @@ public struct AgentMark: View {
 
     @ViewBuilder
     private var rim: some View {
+        let radius = size * 0.3 + rimSpace
         switch activity {
         case .working:
-            WorkingRim(shape: shape, lineWidth: rimWidth).transition(.opacity)
+            CellRim(.working, cornerRadius: radius, lineWidth: rimWidth).transition(.opacity)
         case let .progress(percent):
-            ProgressRim(fraction: Double(percent) / 100, radius: size * 0.3 + rimWidth, lineWidth: rimWidth)
-                .transition(.opacity)
+            CellRim(.progress(Double(percent) / 100), cornerRadius: radius, lineWidth: rimWidth).transition(.opacity)
         case .asks:
-            RoundedRectangle(cornerRadius: size * 0.3 + rimWidth * 2, style: .continuous)
-                .strokeBorder(theme.colors.accent, lineWidth: rimWidth)
-                .padding(-rimWidth)
+            CellRim(.waiting, cornerRadius: radius, lineWidth: rimWidth)
                 .transition(.scale(scale: 1.3).combined(with: .opacity).animation(theme.motion.soft))
         case .asleep, .awake:
             EmptyView()

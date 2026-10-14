@@ -219,6 +219,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/AvatarStack.qml
         qml/Controls/Bezel.qml
         qml/Controls/BreathingDot.qml
+        qml/Controls/CellRim.qml
         qml/Controls/CardGrid.qml
         qml/Controls/CountBadge.qml
         qml/Controls/CursorBlock.qml
@@ -253,6 +254,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/StartMark.qml
         qml/Controls/StatusSign.qml
         qml/Controls/Tag.qml
+        qml/Controls/Typing.js
         qml/Controls/Well.qml
         qml/Controls/Wordmark.qml
         qml/Shell/CommandPalette.qml
@@ -268,6 +270,7 @@ qt_add_qml_module(kodosi-ui
         qml/Workbench/ShareSheet.qml
         qml/Workbench/StageOverview.qml
         qml/Workbench/TerminalDivider.qml
+        qml/Workbench/TerminalMenu.qml
         qml/Workbench/TerminalStage.qml
         qml/Workbench/TerminalTile.qml
     RESOURCES

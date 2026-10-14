@@ -97,7 +97,7 @@ struct SessionTileHeader: View {
                 {
                     deps.workbench.sharingSessionId = session.id
                 }
-                .popover(isPresented: Binding(get: { deps.workbench.sharingSessionId == session.id }, set: {
+                .kodosiPopover(isPresented: Binding(get: { deps.workbench.sharingSessionId == session.id }, set: {
                     if !$0 {
                         deps.workbench.sharingSessionId = nil
                     }

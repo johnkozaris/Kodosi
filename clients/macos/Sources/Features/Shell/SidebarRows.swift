@@ -184,7 +184,7 @@ struct SidebarFolderHeader: View {
                         branching = true
                     }
                     .opacity(hovered || branching ? 1 : 0)
-                    .popover(isPresented: $branching, arrowEdge: .trailing) { NewBranchPopover(directory: directory) }
+                    .kodosiPopover(isPresented: $branching, arrowEdge: .trailing) { NewBranchPopover(directory: directory) }
                 }
                 IconButton(title: "New terminal here", symbol: "plus",
                            identifier: "sidebar.folder.\(AccessibilityIdentifier.token(group.id)).new", size: 20)

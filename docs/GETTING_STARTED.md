@@ -57,9 +57,10 @@ folder or the account. The dots show the model and the effort; without them the 
 uses its own default. Then type the agent's first prompt, or a command for a plain
 terminal; Tab takes the suggestion. Press Return, and the shell of the new terminal
 types the line. An agent that is not installed shows its install command, and Install
-runs it in a terminal. The account list shows each alias of your shell that runs the
-agent, and each function named after the agent. To add an account, open the account list
-and give the account a name. Kodosi makes an empty sign-in folder for it, such as
+runs it in a terminal. The account list shows each sign-in with its e-mail address, and
+under it the commands that use it: the agent itself, each alias of your shell that runs
+the agent, and each function named after the agent. To add an account, open the account
+list and give the account a name. Kodosi makes an empty sign-in folder for it, such as
 `~/.claude-work`, and the agent asks you to sign in when it starts there.
 
 After you run an agent on a computer one time, each terminal on that computer shows

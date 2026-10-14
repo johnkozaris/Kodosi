@@ -128,10 +128,11 @@ impl Runtime {
             | Command::AddAgentAccount { .. } => {
                 self.job_capacity()?;
                 let home = self.config.home.clone();
+                let store = self.config.data_root.clone();
                 let shell = shell(&self.config);
                 let command = command.clone();
                 self.spawn(async move {
-                    let result = provider_reply(&home, &shell, &command).await;
+                    let result = provider_reply(&home, &shell, &store, &command).await;
                     Completion::Provider { command, result }
                 });
             }
@@ -1121,11 +1122,16 @@ async fn create_session(
 }
 
 #[cfg(feature = "host")]
-async fn provider_reply(home: &Path, shell: &Path, command: &Command) -> Result<Value> {
+async fn provider_reply(
+    home: &Path,
+    shell: &Path,
+    store: &Path,
+    command: &Command,
+) -> Result<Value> {
     match command {
         Command::InspectAgents { .. } => {
             return Ok(serde_json::to_value(
-                crate::agents::catalog(home, shell)
+                crate::agents::catalog(home, shell, store)
                     .await
                     .map_err(Error::Invalid)?,
             )?);

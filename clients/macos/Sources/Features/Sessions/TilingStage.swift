@@ -85,9 +85,14 @@ struct StageOverview: View {
         }
     }
 
+    /// The launcher stands a little above the middle, and a list that it opens
+    /// grows down from there.
     private var first: some View {
-        AgentLauncher(welcome: true)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        GeometryReader { proxy in
+            AgentLauncher(welcome: true)
+                .frame(maxWidth: .infinity)
+                .padding(.top, max(40, proxy.size.height / 2 - 150))
+        }
     }
 }
 

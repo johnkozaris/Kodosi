@@ -4,6 +4,7 @@ use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 
 use super::{
     accounts::{self, referenced_home},
+    learned,
     models::{self, codex, copilot, cursor, listed_values, opencode},
     shell::{self, Definition, Facts},
     *,
@@ -141,6 +142,31 @@ fn claude_sign_in(email: &str) -> String {
     format!(r#"{{"oauthAccount":{{"emailAddress":"{email}"}}}}"#)
 }
 
+/// Each account of `agent`, as its name, identity, folder and options.
+fn rows(catalog: &AgentCatalog, agent: Agent) -> Vec<String> {
+    catalog
+        .agents
+        .iter()
+        .find(|info| info.agent == agent)
+        .expect("agent")
+        .accounts
+        .iter()
+        .map(|account| {
+            [
+                Some(&account.name),
+                account.identity.as_ref(),
+                account.folder.as_ref(),
+                account.options.as_ref(),
+            ]
+            .into_iter()
+            .flatten()
+            .map(String::as_str)
+            .collect::<Vec<_>>()
+            .join(" ")
+        })
+        .collect()
+}
+
 #[test]
 fn accounts_come_from_definitions_and_sign_in_folders() {
     let root = tempfile::tempdir().unwrap();
@@ -185,53 +211,42 @@ fn accounts_come_from_definitions_and_sign_in_folders() {
             ),
             definition("claude-acct", "_cc_acct claude-sw"),
             definition("claude_usage", r#"ccusage "$@""#),
+            definition("claude-dyn", r#"CLAUDE_CONFIG_DIR="$dir" claude "$@""#),
             definition("codex", "codex"),
             alias("cc", "claude --dangerously-skip-permissions"),
+            alias("cw", "claudesim --verbose"),
             alias("claude-config", "vim ~/.claude/settings.json"),
             alias("claudeGone", r#""$HOME/.local/bin/claudeGone""#),
             alias("claudeScript", r#""$HOME/bin/claude-script""#),
             alias("gs", "git status"),
         ],
     };
-    let catalog = accounts::catalog(home, &facts);
-    let accounts_of = |agent| {
-        catalog
-            .agents
-            .iter()
-            .find(|info| info.agent == agent)
-            .expect("agent")
-            .accounts
-            .iter()
-            .map(|account| {
-                (
-                    account.name.as_str(),
-                    account.command.as_str(),
-                    account.identity.as_deref(),
-                )
-            })
-            .collect::<Vec<_>>()
-    };
-    let [work, personal, started] = [".claude-work", ".claude_personal", ".claude-started"]
-        .map(|folder| format!("env CLAUDE_CONFIG_DIR={}/{folder} claude", home.display()));
+    let catalog = accounts::catalog(home, &facts, &learned::Learned::default());
     assert_eq!(
-        accounts_of(Agent::Claude),
-        vec![
-            ("claude", "claude", Some("ada@example.com")),
-            ("cc", "cc", None),
-            ("claudesim", "claudesim", Some("sim@example.com")),
-            ("claudeScript", "claudeScript", Some("script@example.com")),
-            ("personal", personal.as_str(), Some("me@example.com")),
-            ("started", started.as_str(), None),
-            ("work", work.as_str(), None),
+        rows(&catalog, Agent::Claude),
+        [
+            "claude ada@example.com ~/.claude",
+            "cc ada@example.com ~/.claude --dangerously-skip-permissions",
+            "claudesim sim@example.com ~/.claude-alt",
+            "claude-dyn",
+            "claudeScript script@example.com ~/.claude-script",
+            "cw sim@example.com ~/.claude-alt --verbose",
+            "personal me@example.com ~/.claude_personal",
+            "started ~/.claude-started",
+            "work ~/.claude-work",
         ]
     );
-    let sw = format!("env CODEX_HOME={}/.codex-sw codex", home.display());
     assert_eq!(
-        accounts_of(Agent::Codex),
-        vec![
-            ("codex", "codex", None),
-            ("sw", sw.as_str(), Some("sw@example.com")),
-        ]
+        rows(&catalog, Agent::Codex),
+        ["codex ~/.codex", "sw sw@example.com ~/.codex-sw"]
+    );
+    let work = &catalog.agents[0].accounts.last().expect("work").command;
+    assert_eq!(
+        *work,
+        format!(
+            "env CLAUDE_CONFIG_DIR={}/.claude-work claude",
+            home.display()
+        )
     );
     let copilot = catalog
         .agents
@@ -240,6 +255,39 @@ fn accounts_come_from_definitions_and_sign_in_folders() {
         .expect("copilot");
     assert!(!copilot.installed && copilot.accounts.is_empty());
     assert!(copilot.install.contains("copilot"));
+}
+
+#[test]
+fn a_command_keeps_the_sign_in_folder_that_its_agent_got() {
+    let root = tempfile::tempdir().unwrap();
+    let home = root.path();
+    put(
+        home,
+        ".profiles/x/.claude.json",
+        &claude_sign_in("x@example.com"),
+    );
+    let facts = Facts {
+        path: Some("/nowhere".into()),
+        definitions: vec![
+            definition("claude", r#"command claude "$@""#),
+            definition("claude-x", r#"_profile x "$@""#),
+        ],
+    };
+    let names = || {
+        accounts::catalog(home, &facts, &learned::load(home)).agents[0]
+            .accounts
+            .iter()
+            .map(|account| (account.name.clone(), account.identity.clone()))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(names().len(), 1);
+    let folder = home.join(".profiles/x").display().to_string();
+    remember(home, home, "claude", "env", Some(folder.clone()));
+    remember(home, home, "claude", "claude-x", Some(folder));
+    assert_eq!(
+        names()[1],
+        ("claude-x".to_owned(), Some("x@example.com".to_owned()))
+    );
 }
 
 #[test]

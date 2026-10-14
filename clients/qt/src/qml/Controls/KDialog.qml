@@ -33,7 +33,7 @@ Dialog {
     y: parent ? (parent.height - height) / 2 : 0
 
     Overlay.modal: Rectangle {
-        color: KodosiTheme.alpha("#000000", KodosiTheme.isDark ? 0.5 : 0.22)
+        color: KodosiTheme.alpha(KodosiTheme.shadow, KodosiTheme.isDark ? 0.55 : 0.22)
     }
     background: Raised {
         radius: KodosiTheme.radiusSheet

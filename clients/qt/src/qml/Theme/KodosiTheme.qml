@@ -41,6 +41,7 @@ QtObject {
     readonly property color terminalInkFaint: "#8c7a6f"
     readonly property color terminalHairline: "#3b2f29"
     readonly property color terminalAccent: "#db8a62"
+    readonly property color terminalCaution: "#ddb866"
 
     readonly property int fontLarge: 28
     readonly property int fontTitle: 20

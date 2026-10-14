@@ -24,36 +24,21 @@ struct AppShell: View {
                     .padding([.top, .trailing, .bottom], Metrics.frameInset)
             }
             .overlay(alignment: .top) { notice }
+            .disabled(sheet != nil)
             if workbench.showsPalette {
                 CommandPalette().transition(.opacity)
             }
+            if let sheet {
+                sheetLayer(sheet).transition(.opacity).zIndex(1)
+            }
         }
         .ignoresSafeArea()
+        .kodosiPopoverLayer()
         .buttonStyle(.kodosi(.secondary))
         .textFieldStyle(WellTextFieldStyle()).toggleStyle(SwitchToggleStyle())
         .animation(theme.motion.spring, value: deps.errorMessage)
         .animation(theme.motion.fade, value: workbench.showsPalette)
-        .sheet(isPresented: $workbench.showsHistory) { HistoryView() }
-        .sheet(isPresented: $workbench.showsNewRoom) { NewRoomSheet() }
-        .sheet(isPresented: Binding(get: { deps.signInPresented }, set: {
-            if !$0 {
-                deps.dismissSignIn()
-            }
-        })) {
-            SignInSheet().environment(deps)
-        }
-        .sheet(isPresented: Binding(
-            get: { workbench.detailsSessionId != nil },
-            set: {
-                if !$0 {
-                    workbench.detailsSessionId = nil
-                }
-            }
-        )) {
-            if let id = workbench.detailsSessionId, let session = deps.session(id) {
-                SessionDetailsView(session: session)
-            }
-        }
+        .animation(theme.motion.fade, value: sheet)
         .onChange(of: workbench.stagedSessionIds) { _, _ in deps.reconcileTerminals() }
         .onChange(of: workbench.focusedSessionId) { _, _ in deps.reconcileTerminals() }
         .onChange(of: workbench.selectedSessionId) { _, id in
@@ -77,9 +62,45 @@ struct AppShell: View {
     }
 
     private var terminalsInteractive: Bool {
+        sheet == nil && !deps.workbench.showsPalette && deps.workbench.sharingSessionId == nil
+    }
+
+    /// The sheet that shows over the window, if any; at most one shows at a time.
+    private enum Sheet: Equatable {
+        case signIn, details(String), newRoom, history
+    }
+
+    private var sheet: Sheet? {
         let workbench = deps.workbench
-        return !workbench.showsHistory && !workbench.showsPalette && !workbench.showsNewRoom
-            && workbench.detailsSessionId == nil && workbench.sharingSessionId == nil
+        if deps.signInPresented {
+            return .signIn
+        }
+        if let id = workbench.detailsSessionId, deps.session(id) != nil {
+            return .details(id)
+        }
+        if workbench.showsNewRoom {
+            return .newRoom
+        }
+        return workbench.showsHistory ? .history : nil
+    }
+
+    @ViewBuilder
+    private func sheetLayer(_ sheet: Sheet) -> some View {
+        let workbench = deps.workbench
+        switch sheet {
+        case .signIn:
+            SheetLayer(close: deps.dismissSignIn, cancel: deps.cancelSignIn) { SignInSheet() }
+        case let .details(id):
+            SheetLayer(close: { workbench.detailsSessionId = nil }, content: {
+                if let session = deps.session(id) {
+                    SessionDetailsView(session: session)
+                }
+            })
+        case .newRoom:
+            SheetLayer(close: { workbench.showsNewRoom = false }, content: { NewRoomSheet() })
+        case .history:
+            SheetLayer(close: { workbench.showsHistory = false }, content: { HistoryView() })
+        }
     }
 
     @ViewBuilder

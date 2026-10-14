@@ -27,6 +27,10 @@ struct AgentAccount: Decodable, Equatable, Identifiable {
     var name: String
     var command: String
     var identity: String?
+    /// The folder that keeps the sign-in; commands with the same folder share one.
+    var folder: String?
+    /// The options that the command adds, such as `--yolo`.
+    var options: String?
 
     var id: String {
         command
@@ -64,4 +68,60 @@ struct LaunchChoice: Codable, Equatable {
     var accounts: [String: String] = [:]
     var models: [String: String] = [:]
     var efforts: [String: String] = [:]
+}
+
+/// What the launcher would start now: the person's choice, held against what
+/// this computer offers. A choice that the agent no longer offers falls back
+/// to the agent's own default.
+@MainActor
+struct LaunchPlan {
+    let choice: LaunchChoice
+    let info: AgentInfo?
+    let models: AgentModels?
+
+    init(choice: LaunchChoice, launcher: LauncherState) {
+        self.choice = choice
+        info = launcher.agent(choice.agent)
+        models = choice.agent.flatMap { launcher.models[$0] }
+    }
+
+    var account: AgentAccount? {
+        guard let info else { return nil }
+        return info.accounts.first { $0.command == choice.accounts[info.agent] } ?? info.accounts.first
+    }
+
+    var modelArgument: String? {
+        guard let info, let saved = choice.models[info.agent] else { return nil }
+        guard let models else { return saved }
+        return models.models.contains { $0.argument == saved } ? saved : nil
+    }
+
+    var model: AgentModel? {
+        models?.models.first { $0.argument == modelArgument }
+    }
+
+    var efforts: [AgentOption] {
+        let all = models?.efforts ?? []
+        guard let model, !model.efforts.isEmpty else { return all }
+        return all.filter { model.efforts.contains($0.id) }
+    }
+
+    var effortArgument: String? {
+        guard let info, let saved = choice.efforts[info.agent] else { return nil }
+        guard models != nil else { return saved }
+        return efforts.contains { $0.argument == saved } ? saved : nil
+    }
+
+    /// Whether the agent lists models, or may still list them.
+    var listsModels: Bool {
+        models == nil || !(models?.models.isEmpty ?? true)
+    }
+
+    /// The command line that the new terminal types.
+    var line: String? {
+        guard let info else { return nil }
+        guard info.installed else { return info.install }
+        guard let account else { return nil }
+        return ([account.command] + [modelArgument, effortArgument].compactMap(\.self)).joined(separator: " ")
+    }
 }

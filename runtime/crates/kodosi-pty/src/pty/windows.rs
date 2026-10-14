@@ -315,6 +315,11 @@ impl KodosiPty {
         self.observe().agent.map(|(_, name)| name.to_owned())
     }
 
+    /// Another process's environment cannot be read here.
+    pub const fn foreground_environment(&self) -> Option<Vec<String>> {
+        None
+    }
+
     /// All input travels through `PtyReader::transfer` on Windows.
     pub fn write(&mut self, _buf: &[u8]) -> Result<usize> {
         Ok(0)

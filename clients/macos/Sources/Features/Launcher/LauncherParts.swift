@@ -140,24 +140,24 @@ struct ChipFace: View {
     }
 }
 
-/// One part of the command line, as a key that opens its choices. A part not
-/// chosen yet names what it holds in muted words.
-struct CommandToken<Choices: View>: View {
+/// One part of the command line, as a key that opens its list in the terminal.
+/// A part not chosen yet names what it holds in muted words.
+struct CommandToken: View {
     @Environment(\.theme) private var theme
     @State private var hovered = false
-    @State private var presented = false
     let text: String
     var symbol: String?
     var badge: String?
     var slot = false
     var tint: Color?
     var loading = false
+    var open = false
     let identifier: String
     let help: LocalizedStringKey
-    @ViewBuilder let choices: (_ close: @escaping () -> Void) -> Choices
+    let action: () -> Void
 
     var body: some View {
-        Button { presented.toggle() } label: {
+        Button(action: action) {
             HStack(spacing: 5) {
                 if let symbol {
                     Image(systemName: symbol)
@@ -177,22 +177,20 @@ struct CommandToken<Choices: View>: View {
                 }
                 Image(systemName: "chevron.down")
                     .font(.system(size: 7, weight: .heavy))
-                    .foregroundStyle(theme.colors.inkMuted)
-                    .rotationEffect(.degrees(presented ? 180 : 0))
+                    .foregroundStyle(open ? theme.colors.accent : theme.colors.inkMuted)
+                    .rotationEffect(.degrees(open ? 180 : 0))
             }
             .padding(.horizontal, 8).frame(height: 26)
-            .background { ChipFace(lit: hovered || presented) }
-            .offset(y: hovered && !presented ? -0.5 : 0)
+            .background { ChipFace(lit: hovered || open) }
+            .offset(y: hovered && !open ? -0.5 : 0)
             .contentShape(Rectangle())
         }
         .buttonStyle(PressScaleStyle(scale: 0.95))
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
-        .animation(theme.motion.snappy, value: presented)
-        .popover(isPresented: $presented, arrowEdge: .bottom) {
-            choices { presented = false }.chromeScope()
-        }
+        .animation(theme.motion.snappy, value: open)
         .help(help)
+        .accessibilityAddTraits(open ? .isSelected : [])
         .accessibilityLabel(Text(help))
         .accessibilityValue(Text(verbatim: [text, badge].compactMap(\.self).joined(separator: " ")))
         .accessibilityIdentifier(identifier)
@@ -203,6 +201,30 @@ struct CommandToken<Choices: View>: View {
             return theme.colors.inkMuted
         }
         return tint.map { $0.mix(with: .white, by: 0.35) } ?? theme.colors.ink
+    }
+}
+
+/// The dots that show the keys for the model and the effort.
+struct MoreKey: View {
+    @Environment(\.theme) private var theme
+    @State private var hovered = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 11, weight: .heavy))
+                .foregroundStyle(theme.colors.inkMuted)
+                .frame(width: 30, height: 26)
+                .background { ChipFace(lit: hovered) }
+                .offset(y: hovered ? -0.5 : 0)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PressScaleStyle(scale: 0.95))
+        .onHover { hovered = $0 }
+        .animation(theme.motion.hover, value: hovered)
+        .help("Model and effort")
+        .accessibilityIdentifier("launcher.moreChoices")
     }
 }
 
@@ -225,59 +247,6 @@ struct PromptCursor: View {
                     try? await Task.sleep(for: .milliseconds(lit ? 560 : 440))
                 }
             }
-    }
-}
-
-struct ChoiceRow: View {
-    @Environment(\.theme) private var theme
-    let title: String
-    var detail: String?
-    var monoDetail = false
-    var selected = false
-    var symbol: String?
-    let identifier: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: symbol ?? "checkmark")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(theme.colors.accentStrong)
-                    .opacity(symbol != nil || selected ? 1 : 0)
-                    .frame(width: 14)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(verbatim: title).appTextStyle(.body).foregroundStyle(symbol == nil ? theme.colors.ink : theme.colors.accentStrong)
-                        .lineLimit(1)
-                    if let detail {
-                        Text(verbatim: detail).appTextStyle(monoDetail ? .monoCaption : .caption).fontWeight(.regular)
-                            .foregroundStyle(theme.colors.inkMuted).lineLimit(1).truncationMode(.middle)
-                    }
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 8).padding(.vertical, 6)
-            .contentShape(Rectangle())
-            .hoverRow(radius: Radius.sm)
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityIdentifier(identifier)
-    }
-}
-
-struct ChoicePanel<Content: View>: View {
-    @Environment(\.theme) private var theme
-    let title: LocalizedStringKey
-    @ViewBuilder let content: () -> Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint).padding(.horizontal, 10)
-            content()
-        }
-        .padding(8)
-        .popoverSheet(width: 300)
     }
 }
 

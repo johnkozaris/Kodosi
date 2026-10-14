@@ -158,7 +158,7 @@ public struct MenuPicker<Value: Hashable>: View {
         }
         .buttonStyle(.kodosi(.secondary))
         .accessibilityLabel(Text(title)).accessibilityValue(label(selection)).accessibilityIdentifier(identifier)
-        .popover(isPresented: $expanded, arrowEdge: .bottom) {
+        .kodosiPopover(isPresented: $expanded, arrowEdge: .bottom) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 1) {
                     ForEach(Array(values.enumerated()), id: \.offset) { _, value in
