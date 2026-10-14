@@ -155,6 +155,35 @@ pub(crate) fn number(value: &Value, field: &str) -> Result<u64> {
 pub(crate) fn id(value: &Value, field: &str) -> Result<Uuid> {
     Uuid::parse_str(text(value, field)?).map_err(|_| invalid(format!("Invalid {field}.")))
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Change {
+    pub surface: String,
+    pub room: Option<Uuid>,
+    pub sequence: Option<u64>,
+}
+
+impl Change {
+    pub(crate) fn of(surface: &str) -> Self {
+        Self {
+            surface: surface.to_owned(),
+            room: None,
+            sequence: None,
+        }
+    }
+
+    pub(crate) fn read(value: &Value) -> Result<Self> {
+        let room = match value.get("roomId") {
+            None | Some(Value::Null) => None,
+            Some(_) => Some(id(value, "roomId")?),
+        };
+        Ok(Self {
+            surface: text(value, "surface")?.to_owned(),
+            room,
+            sequence: value.get("sequence").and_then(Value::as_u64),
+        })
+    }
+}
 pub(crate) fn decode_b64(value: &Value, field: &str, limit: usize) -> Result<Vec<u8>> {
     let encoded = text(value, field)?;
     if encoded.len() > limit.saturating_add(2) / 3 * 4 {

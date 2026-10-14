@@ -74,7 +74,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
             throw ApiException.Conflict("Too many Missions.");
         await RequireMissionCapacityAsync(userId, ct);
         var mission = new Mission { Id = body.Id, Name = name, OwnerUserId = userId };
-        db.Missions.Add(mission); await db.SaveChangesAsync(ct); connections.Notify(userId, "missions");
+        db.Missions.Add(mission); await db.SaveChangesAsync(ct); connections.Notify(userId, "missions", mission.Id);
         return new { mission.Id, mission.Name, mission.OwnerUserId };
     }
 
@@ -104,7 +104,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         }
         db.Missions.Remove(mission); await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
         foreach (var terminal in terminals) connections.Revoke(terminal, (viewer, _) => viewer == terminal.OwnerUserId);
-        foreach (var member in users.Concat(invitees).Distinct()) connections.Notify(member, "missions");
+        foreach (var member in users.Concat(invitees).Distinct()) connections.Notify(member, "missions", id);
         foreach (var viewer in viewers.Concat(users).Distinct()) connections.Notify(viewer, "sessions");
     }
 
@@ -125,7 +125,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         await db.SaveChangesAsync(ct);
         await AppendKeysAsync(mission, userId, body.Keys, ct);
         await transaction.CommitAsync(ct);
-        connections.Notify(body.UserId, "missions");
+        connections.Notify(body.UserId, "missions", id);
         await NotifyAsync(mission, ct);
     }
 
@@ -148,7 +148,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         if (!accept) await AppendKeysAsync(mission, userId, keys, ct);
         await RefreshTerminalAccessAsync(mission.Id, ct);
         await transaction.CommitAsync(ct);
-        await NotifyAsync(mission, ct); connections.Notify(userId, "missions");
+        await NotifyAsync(mission, ct); connections.Notify(userId, "missions", mission.Id);
         await NotifyTerminalUsersAsync(mission.Id, [userId], ct);
     }
 
@@ -173,7 +173,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         var members = (await MemberIdsAsync(id, ct)).ToHashSet();
         foreach (var terminal in terminals)
             connections.Revoke(terminal, (viewer, _) => viewer == terminal.OwnerUserId || (terminal.MissionId == id && members.Contains(viewer)));
-        await NotifyAsync(mission, ct); connections.Notify(userId, "missions");
+        await NotifyAsync(mission, ct); connections.Notify(userId, "missions", id);
         foreach (var viewer in viewers.Append(userId).Concat(members).Distinct()) connections.Notify(viewer, "sessions");
     }
 
@@ -213,7 +213,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
     }
     private async Task NotifyAsync(Mission mission, CancellationToken ct)
     {
-        foreach (var id in await MemberIdsAsync(mission, ct)) connections.Notify(id, "missions");
+        foreach (var id in await MemberIdsAsync(mission, ct)) connections.Notify(id, "missions", mission.Id);
     }
     public sealed record CreateMission(Guid Id, string Name);
     public sealed record RenameMission(string Name);

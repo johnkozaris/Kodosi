@@ -54,6 +54,41 @@ public sealed class RoomContentTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task MembersHearWhichRoomChangedAndItsNewContentSequence()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var alice = await store.UserAsync("alice");
+        var room = Guid.CreateVersion7(); var message = Guid.CreateVersion7();
+        await store.Missions.CreateAsync(alice.User.Id, new(room, "Workspace"), ct);
+        var socket = new EventSocket();
+        await using var link = new Kodosi.TerminalConnections.DeviceLink(socket, alice.User.Id, alice.Device.Id);
+        store.Connections.Register(link);
+        var state = JsonSerializer.SerializeToUtf8Bytes(new {
+            roomId=room,ownerUserId=alice.User.Id,authorId=alice.User.Id,deviceId=alice.Device.Id,
+            version=1,epoch=1,createdAtMs=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),previousHash="",
+            members=new Dictionary<Guid,object> { [alice.User.Id] = new {} },
+            recipients=new[] { new { userId=alice.User.Id,deviceId=alice.Device.Id,kemCiphertext="AA==",@sealed=new { nonce="AA==",ciphertext="AA==" } } },
+            previousKey=(object?)null
+        }, Wire.Json);
+        await store.Missions.StoreKeysAsync(room, alice.User.Id, new(alice.Device.Id,Convert.ToBase64String(state),
+            Convert.ToBase64String(alice.Fixture.Sign(Proofs.Tagged("kodosi-room-state-v1"u8,state)))),ct);
+        var keys = await socket.NextAsync();
+        Assert.Equal("rooms", keys.GetProperty("surface").GetString());
+        Assert.Equal(room, keys.GetProperty("roomId").GetGuid());
+        Assert.False(keys.TryGetProperty("sequence", out _));
+        var content = JsonSerializer.SerializeToUtf8Bytes(new { roomId=room,id=message,kind="message",version=1,
+            keyVersion=1,epoch=1,authorId=alice.User.Id,deviceId=alice.Device.Id,
+            nonce=Convert.ToBase64String(new byte[12]),ciphertext=Convert.ToBase64String(new byte[20]) },Wire.Json);
+        await store.Missions.PutContentAsync(room, message, alice.User.Id, new(0, alice.Device.Id, Convert.ToBase64String(content),
+            Convert.ToBase64String(alice.Fixture.Sign(Proofs.Tagged("kodosi-room-content-v1"u8,content)))), ct);
+        var posted = await socket.NextAsync();
+        Assert.Equal("rooms", posted.GetProperty("surface").GetString());
+        Assert.Equal(room, posted.GetProperty("roomId").GetGuid());
+        Assert.Equal(1, posted.GetProperty("sequence").GetInt64());
+    }
+
+    [Fact]
     public async Task AConcurrentTerminalShareCannotRejoinARoomAfterMemberRemoval()
     {
         var ct = TestContext.Current.CancellationToken;

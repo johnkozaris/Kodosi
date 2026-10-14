@@ -492,6 +492,8 @@ impl BackendClient {
                         self.refresh_room_keys(
                             &credentials,
                             Uuid::parse_str(room).map_err(|_| invalid("Invalid room identity."))?,
+                            false,
+                            &mut rooms::Lookups::default(),
                         )
                         .await?;
                     }
@@ -782,7 +784,8 @@ impl BackendClient {
             return Err(Error::EnrollmentRequired);
         }
         if let Some(room) = info.mission_id {
-            self.refresh_room_keys(&credentials, room).await?;
+            self.refresh_room_keys(&credentials, room, false, &mut rooms::Lookups::default())
+                .await?;
         }
         if let Some(publication) = self.inner.publications.lock().await.get(&info.session_id) {
             if publication.info.read().await.incarnation_id != info.incarnation_id {

@@ -288,13 +288,13 @@ impl Link {
         }
     }
 
-    fn message(self: &Arc<Self>, value: &Value) -> Result<Option<String>> {
+    fn message(self: &Arc<Self>, value: &Value) -> Result<Option<wire::Change>> {
         let mut shared = self.shared.lock().map_err(|_| Error::Closed)?;
         let outgoing = shared.outgoing.clone().ok_or(Error::Closed)?;
         match wire::text(value, "type")? {
             "ping" => drop(outgoing.control.send(text(&json!({"type":"pong"})))),
             "pong" | "hosted" => {}
-            "changed" => return Ok(Some(wire::text(value, "surface")?.to_owned())),
+            "changed" => return Ok(Some(wire::Change::read(value)?)),
             "unhosted" => {
                 if let Some(hosting) = shared.hosting.get_mut(&wire::id(value, "sessionId")?) {
                     hosting.announced = false;
@@ -368,7 +368,7 @@ impl Drop for Disconnect<'_> {
 pub(crate) async fn run(
     network: &BackendClient,
     credentials: &Credentials,
-    surfaces: &mpsc::UnboundedSender<String>,
+    changes: &mpsc::UnboundedSender<wire::Change>,
 ) -> Result<()> {
     let socket = socket(network, credentials).await?;
     let (mut sink, mut stream) = socket.split();
@@ -381,7 +381,7 @@ pub(crate) async fn run(
     });
     let _disconnect = Disconnect(&link);
     for surface in ["sessions", "friends", "devices", "missions"] {
-        drop(surfaces.send(surface.to_owned()));
+        drop(changes.send(wire::Change::of(surface)));
     }
     let writer = async {
         loop {
@@ -410,7 +410,7 @@ pub(crate) async fn run(
                     drop(control.send(text(&json!({"type":"ping"}))));
                 }
                 () = link.changed.notified() => link.announce(),
-                () = network.inner.friends_changed.notified() => drop(surfaces.send("friends".to_owned())),
+                () = network.inner.friends_changed.notified() => drop(changes.send(wire::Change::of("friends"))),
                 incoming = stream.next() => {
                     let message = incoming.ok_or(Error::Closed)?.map_err(|error| invalid(error.to_string()))?;
                     heard = tokio::time::Instant::now();
@@ -420,8 +420,8 @@ pub(crate) async fn run(
                             if message.len() > 16 * 1024 {
                                 return Err(invalid("Device connection message exceeds its size limit."));
                             }
-                            if let Some(surface) = link.message(&serde_json::from_str(&message)?)? {
-                                drop(surfaces.send(surface));
+                            if let Some(change) = link.message(&serde_json::from_str(&message)?)? {
+                                drop(changes.send(change));
                             }
                         }
                         Message::Ping(payload) => drop(control.send(Message::Pong(payload))),

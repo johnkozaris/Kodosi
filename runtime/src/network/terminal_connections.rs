@@ -165,9 +165,9 @@ pub(crate) async fn connect_remote(network: BackendClient, id: Uuid) -> Result<R
 pub(crate) async fn run_link(
     network: &BackendClient,
     credentials: &Credentials,
-    surfaces: &mpsc::UnboundedSender<String>,
+    changes: &mpsc::UnboundedSender<wire::Change>,
 ) -> Result<()> {
-    link::run(network, credentials, surfaces).await
+    link::run(network, credentials, changes).await
 }
 
 async fn socket(network: &BackendClient, credentials: &Credentials) -> Result<Socket> {
