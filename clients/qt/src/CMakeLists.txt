@@ -43,6 +43,8 @@ qt_add_library(kodosi-application STATIC
     logging/QtLogForwarder.hpp
     presentation/AccountModel.cpp
     presentation/AccountModel.hpp
+    presentation/AgentLauncherModel.cpp
+    presentation/AgentLauncherModel.hpp
     presentation/ConversationHistoryModel.cpp
     presentation/ConversationHistoryModel.hpp
     presentation/DevicesModel.cpp
@@ -259,6 +261,7 @@ qt_add_qml_module(kodosi-ui
         qml/Theme/Identity.qml
         qml/Theme/KodosiTheme.qml
         qml/Theme/Mentions.qml
+        qml/Workbench/AgentLauncher.qml
         qml/Workbench/HistoryView.qml
         qml/Workbench/SessionDetails.qml
         qml/Workbench/ShareSheet.qml
@@ -272,6 +275,8 @@ qt_add_qml_module(kodosi-ui
         qml/assets/providers/copilot-dark.svg
         qml/assets/providers/codex-dark.svg
         qml/assets/providers/cursor-dark.svg
+        qml/assets/providers/gemini-dark.svg
+        qml/assets/providers/opencode-dark.svg
 )
 
 target_link_libraries(kodosi-ui PUBLIC Qt6::Quick Qt6::QuickControls2 kodosi-qml-modelsplugin)

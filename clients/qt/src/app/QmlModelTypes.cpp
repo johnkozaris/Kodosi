@@ -1,7 +1,8 @@
 #include "app/QmlModelTypes.hpp"
 namespace kodosi::qml {
 void configureModelInstances(Workspace& workspace, ConversationHistoryModel& history,
-    ProviderFilesModel& providerFiles, AppearanceModel& appearance, DesktopSettings& settings,
+    ProviderFilesModel& providerFiles, AgentLauncherModel& launcher, AppearanceModel& appearance,
+    DesktopSettings& settings,
     DesktopStateModel& desktop, SessionCatalogModel& sessions, TerminalTilingLayoutModel& tiling,
     DesktopFileIntegration& files, ApplicationLifecycleModel& lifecycle,
     TerminalSurfaceController& surfaces)
@@ -14,6 +15,7 @@ void configureModelInstances(Workspace& workspace, ConversationHistoryModel& his
     SessionActionsModelForeign::instance = &workspace.sessionActions();
     ConversationHistoryModelForeign::instance = &history;
     ProviderFilesModelForeign::instance = &providerFiles;
+    AgentLauncherModelForeign::instance = &launcher;
     AppearanceModelForeign::instance = &appearance;
     DesktopSettingsForeign::instance = &settings;
     DesktopStateModelForeign::instance = &desktop;

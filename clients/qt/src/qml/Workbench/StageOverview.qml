@@ -28,7 +28,7 @@ Item {
         return order.map(key => groups[key])
     }
 
-    signal newTerminalRequested
+    signal resumeRequested
 
     objectName: "stage.overview"
     Accessible.id: objectName
@@ -69,63 +69,12 @@ Item {
             font.pixelSize: KodosiTheme.fontFootnote
         }
     }
-    ColumnLayout {
+    AgentLauncher {
         anchors.centerIn: parent
-        width: Math.min(460, parent.width - 48)
+        width: Math.min(560, parent.width - 48)
         visible: !root.loading && !root.failed && root.sessions.length === 0
-        spacing: 26
-
-        Item {
-            Layout.alignment: Qt.AlignHCenter
-            implicitWidth: 300
-            implicitHeight: 150
-
-            Raised {
-                anchors.fill: parent
-                radius: KodosiTheme.radiusTile
-                fill: KodosiTheme.terminal
-                rim: false
-                elevation: 2
-            }
-            Rectangle {
-                width: parent.width
-                height: 30
-                topLeftRadius: KodosiTheme.radiusTile
-                topRightRadius: KodosiTheme.radiusTile
-                color: KodosiTheme.terminalBand
-
-                Row {
-                    x: 10
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 8
-                    AgentMark { size: 16 }
-                    Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 70; height: 6; radius: 3; color: KodosiTheme.alpha(KodosiTheme.terminalInk, 0.2) }
-                }
-            }
-            Row {
-                x: 16
-                y: 48
-                spacing: 8
-
-                Text { text: "~ ❯"; color: KodosiTheme.terminalInkFaint; font.family: "monospace"; font.pixelSize: 13 }
-                CursorBlock { anchors.verticalCenter: parent.verticalCenter; width: 8; height: 15; blinks: true; color: KodosiTheme.terminalAccent }
-            }
-        }
-        EmptyState {
-            Layout.fillWidth: true
-            title: qsTr("Start with a terminal")
-            message: qsTr("Run a shell or an agent. Share it with a room when you want company.")
-
-            KButton {
-                objectName: "stage.empty.new"
-                Accessible.id: objectName
-                variant: KButton.Primary
-                large: true
-                iconName: "plus"
-                text: qsTr("New terminal")
-                onClicked: root.newTerminalRequested()
-            }
-        }
+        welcome: true
+        onResumeRequested: root.resumeRequested()
     }
     KScrollView {
         id: scroll
@@ -138,8 +87,13 @@ Item {
             width: Math.min(1040, scroll.availableWidth - 60)
             spacing: 22
 
-            ColumnLayout {
+            AgentLauncher {
                 Layout.topMargin: 44
+                Layout.fillWidth: true
+                onResumeRequested: root.resumeRequested()
+            }
+            ColumnLayout {
+                Layout.topMargin: 8
                 spacing: 4
 
                 PlainLabel { text: qsTr("Your terminals"); font.pixelSize: KodosiTheme.fontLarge; font.weight: Font.DemiBold; font.letterSpacing: -0.6 }
@@ -215,32 +169,6 @@ Item {
                                     Models.SessionActions.activate(modelData.id)
                                 }
                             }
-                        }
-                        AbstractButton {
-                            id: slot
-                            visible: place.modelData.key === ""
-                            width: grid.cardWidth
-                            height: 62
-                            hoverEnabled: true
-                            activeFocusOnTab: true
-                            objectName: "overview.new"
-                            Accessible.id: objectName
-                            Accessible.name: qsTr("New terminal")
-                            background: Rectangle {
-                                radius: KodosiTheme.radiusLg
-                                color: KodosiTheme.alpha(KodosiTheme.ink, slot.hovered ? 0.05 : 0)
-                                border.width: 1
-                                border.color: KodosiTheme.alpha(KodosiTheme.inkFaint, slot.hovered ? 0.8 : 0.45)
-                            }
-                            contentItem: RowLayout {
-                                spacing: 8
-                                Item { Layout.fillWidth: true }
-                                KIcon { Layout.preferredWidth: 12; Layout.preferredHeight: 12; name: "prompt"; strokeWidth: 2.6; color: KodosiTheme.inkFaint }
-                                CursorBlock { Layout.preferredWidth: 7; Layout.preferredHeight: 14; blinks: slot.hovered }
-                                PlainLabel { text: qsTr("New terminal"); color: KodosiTheme.inkMuted; font.weight: Font.DemiBold }
-                                Item { Layout.fillWidth: true }
-                            }
-                            onClicked: root.newTerminalRequested()
                         }
                     }
                 }

@@ -119,6 +119,7 @@ int main(int argc, char* argv[])
     kodosi::Workspace workspace(runtime, sessions, desktop, desktopSettings);
     kodosi::ConversationHistoryModel history(runtime);
     kodosi::ProviderFilesModel providerFiles(runtime);
+    kodosi::AgentLauncherModel launcher(runtime, settings());
     kodosi::AppearanceModel appearance(settings());
     kodosi::DesktopFileIntegration files;
     kodosi::TerminalTilingLayoutModel tiling;
@@ -134,6 +135,7 @@ int main(int argc, char* argv[])
         if (type == QStringLiteral("provider.reply") || type == QStringLiteral("provider.error")) {
             history.apply(event, payload);
             providerFiles.apply(event);
+            launcher.apply(event);
         }
         if (type == QStringLiteral("auth.ready") || type == QStringLiteral("auth.required")) {
             history.reset();
@@ -150,12 +152,16 @@ int main(int argc, char* argv[])
             workspace.reset();
             history.reset();
             providerFiles.reset();
+            launcher.reset();
         }
     });
     QObject::connect(&lifecycle, &kodosi::ApplicationLifecycleModel::runtimeGenerationReady, &workspace,
-        [&](quint64) { workspace.sessionActions().refresh(); });
+        [&](quint64) {
+            workspace.sessionActions().refresh();
+            launcher.refresh(true);
+        });
     kodosi::qml::configureModelInstances(
-        workspace, history, providerFiles, appearance, desktopSettings, desktop, sessions, tiling, files,
+        workspace, history, providerFiles, launcher, appearance, desktopSettings, desktop, sessions, tiling, files,
         lifecycle, surfaces);
     QQmlApplicationEngine engine;
     QObject::connect(

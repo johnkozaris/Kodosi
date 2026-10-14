@@ -191,9 +191,17 @@ bool SessionActionsModel::createOnBranch(const QString& directory, const QString
     return !directory.isEmpty() && !name.isEmpty() && createInternal(name, directory, {}, {}, {}, name);
 }
 
+bool SessionActionsModel::start(const QString& directory, const QString& command)
+{
+    if (!createInternal({}, directory, {}, {}, {}, {}, command))
+        return false;
+    m_settings.setWorkingDirectory(directory);
+    return true;
+}
+
 bool SessionActionsModel::createInternal(const QString& name, const QString& directory,
     const QString& provider, const QString& nativeConversationId, const QString& roomId,
-    const QString& branch)
+    const QString& branch, const QString& command)
 {
     QString title = name.trimmed();
     if (title.isEmpty())
@@ -211,6 +219,8 @@ bool SessionActionsModel::createInternal(const QString& name, const QString& dir
         if (!m_settings.branchFolder().isEmpty())
             values.insert(QStringLiteral("worktrees"), m_settings.branchFolder());
     }
+    if (!command.trimmed().isEmpty())
+        values.insert(QStringLiteral("command"), command.trimmed());
     if (!nativeConversationId.isEmpty()) {
         if (provider != QStringLiteral("claude") && provider != QStringLiteral("copilot")) {
             m_workspace.setError(tr("Choose a supported provider."));

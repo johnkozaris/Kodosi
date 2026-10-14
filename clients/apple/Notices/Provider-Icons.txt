@@ -1,6 +1,6 @@
 Provider marks identify installed integrations only; they do not imply endorsement.
 
-Claude, Cursor, and Codex vector artwork:
+Claude, Cursor, Codex, Gemini CLI, and OpenCode vector artwork:
 https://github.com/lobehub/lobe-icons/tree/a94750e3f5f8fc33757b839d85030e742284e43a/packages/static-svg/icons
 Copyright 2023 LobeHub. MIT license: LobeHub-Icons-MIT.txt.
 
