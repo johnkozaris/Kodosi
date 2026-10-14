@@ -1,7 +1,6 @@
 #include "presentation/SessionCatalogModel.hpp"
 #include <QJsonArray>
 #include <QSet>
-#include <QDir>
 #include <QUuid>
 #include <algorithm>
 
@@ -21,8 +20,8 @@ QVariantList SessionCatalogModel::folderGroups() const
         auto& group = groups[key];
         group.insert(QStringLiteral("key"), key);
         group.insert(QStringLiteral("directory"), local ? session.workingDirectory : QString {});
-        const auto folder = QDir(session.workingDirectory).dirName();
-        group.insert(QStringLiteral("name"), session.workingDirectory.isEmpty() ? tr("Terminals") : folder);
+        group.insert(QStringLiteral("name"),
+            session.workingDirectory.isEmpty() ? tr("Terminals") : folderName(session.workingDirectory));
         group.insert(QStringLiteral("host"), local ? QString {} : session.hostName);
         group.insert(QStringLiteral("owner"), local || session.isOwner ? QString {} : session.ownerName);
         if (local && session.repository)
@@ -82,6 +81,13 @@ bool isStatusGlyph(const char32_t scalar)
 {
     static constexpr char32_t glyphs[] { 0x2733, 0x2722, 0x2736, 0x273B, 0x273D, 0x00B7, 0x25CF, 0x25CB };
     return isSpinner(scalar) || std::ranges::find(glyphs, scalar) != std::end(glyphs);
+}
+
+bool isWindowsPath(const QString& path)
+{
+    const bool drive = path.size() > 2 && path.at(0).unicode() < 0x80 && path.at(0).isLetter()
+        && path.at(1) == u':' && (path.at(2) == u'\\' || path.at(2) == u'/');
+    return drive || path.startsWith(QStringLiteral("\\\\"));
 }
 }
 
@@ -152,6 +158,15 @@ QString SessionCatalogModel::activity(const Session& session)
     }
     const auto text = session.title.mid(units).simplified();
     return text == session.name ? QString {} : text;
+}
+
+QString SessionCatalogModel::folderName(const QString& path)
+{
+    auto separated = path;
+    if (isWindowsPath(path))
+        separated.replace(u'\\', u'/');
+    const auto parts = separated.split(u'/', Qt::SkipEmptyParts);
+    return parts.isEmpty() ? path : parts.last();
 }
 
 int SessionCatalogModel::rowCount(const QModelIndex& parent) const
@@ -237,8 +252,7 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
         { QStringLiteral("progress"), isWorking(session) ? session.programProgress : -1 },
         { QStringLiteral("sign"), sign(session) }, { QStringLiteral("signLabel"), signLabel(session) },
         { QStringLiteral("atPrompt"), local && p.canControl && session.prompt },
-        { QStringLiteral("folderName"),
-            s->workingDirectory.isEmpty() ? QString {} : QDir(s->workingDirectory).dirName() },
+        { QStringLiteral("folderName"), folderName(s->workingDirectory) },
         { QStringLiteral("hostLabel"), local ? tr("This computer") : !s->hostName.isEmpty() ? s->hostName : !s->ownerName.isEmpty() ? s->ownerName : tr("Remote computer") },
         { QStringLiteral("ownerUserId"), s->ownerUserId },
         { QStringLiteral("kind"), s->kind }, { QStringLiteral("workingDirectory"), s->kind == QStringLiteral("local") ? s->workingDirectory : QString {} },

@@ -90,7 +90,7 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     }
 
     public var folderName: String? {
-        workingDir.map { URL(fileURLWithPath: $0).lastPathComponent }
+        workingDir.map(HostPath.folderName)
     }
 
     private static func isStatusGlyph(_ scalar: Unicode.Scalar) -> Bool {

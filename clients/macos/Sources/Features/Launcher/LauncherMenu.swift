@@ -124,7 +124,7 @@ func recentFolders(_ deps: AppDependencies, chosen: String?) -> [String] {
 
 /// A folder as a person names it: its own name, or `~` for the home folder.
 func folderName(_ path: String) -> String {
-    tilde(path) == "~" ? "~" : URL(fileURLWithPath: path).lastPathComponent
+    tilde(path) == "~" ? "~" : HostPath.folderName(path)
 }
 
 /// `path` with `~` for the home folder.

@@ -44,7 +44,7 @@ struct SessionDetailsView: View {
                     ListRow(current.hostLabel, subtitle: current.isConnected ? nil : current.message ?? current.statusLabel,
                             symbol: DeviceGlyph.symbol(for: current.hostLabel), tint: TileTint.graphite)
                     if let path = current.workingDir {
-                        ListRow(URL(fileURLWithPath: path).lastPathComponent, subtitle: path, monoSubtitle: true,
+                        ListRow(HostPath.folderName(path), subtitle: path, monoSubtitle: true,
                                 symbol: "folder.fill", tint: TileTint.amber)
                         {
                             if let directory = current.localDirectory {

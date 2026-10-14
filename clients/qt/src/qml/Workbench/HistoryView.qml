@@ -17,10 +17,6 @@ KPopover {
         Models.ConversationHistory.open(Models.ConversationHistory.Claude, "");
         open();
     }
-    function folderName(path) {
-        const parts = (path || "").split("/").filter(part => part.length > 0);
-        return parts.length > 0 ? parts[parts.length - 1] : "";
-    }
 
     focus: true
     height: Math.min(640, parent ? parent.height - 32 : 640)
@@ -79,7 +75,7 @@ KPopover {
                 compact: true
                 iconName: "folder"
                 objectName: "panel.history.folder"
-                text: root.history.directory.length > 0 ? root.folderName(root.history.directory) : qsTr("All projects")
+                text: root.history.directory.length > 0 ? Models.Sessions.folderName(root.history.directory) : qsTr("All projects")
 
                 onClicked: Models.DesktopFiles.requestDirectory("history", root.history.directory)
             }
@@ -150,7 +146,7 @@ KPopover {
                                 PlainLabel {
                                     id: title
                                     Layout.fillWidth: true
-                                    text: conversation.modelData.title || root.folderName(conversation.modelData.workingDirectory) || conversation.modelData.nativeConversationId
+                                    text: conversation.modelData.title || Models.Sessions.folderName(conversation.modelData.workingDirectory) || conversation.modelData.nativeConversationId
                                     font.weight: Font.Medium
                                     wrapMode: Text.WordWrap
                                     maximumLineCount: 2
@@ -161,7 +157,7 @@ KPopover {
                                     KIcon { Layout.preferredWidth: 10; Layout.preferredHeight: 10; name: "folder"; color: KodosiTheme.inkFaint }
                                     PlainLabel {
                                         Layout.fillWidth: true
-                                        text: root.folderName(conversation.modelData.workingDirectory)
+                                        text: Models.Sessions.folderName(conversation.modelData.workingDirectory)
                                         color: KodosiTheme.inkFaint
                                         font.pixelSize: KodosiTheme.fontCaption
                                         elide: Text.ElideRight

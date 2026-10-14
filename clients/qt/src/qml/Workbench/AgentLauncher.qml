@@ -74,10 +74,6 @@ ColumnLayout {
     function tilde(path) {
         return path === home ? "~" : path.startsWith(home + "/") ? "~" + path.slice(home.length) : path
     }
-    function folderName(path) {
-        const parts = path.split("/").filter(part => part.length > 0)
-        return parts.length > 0 ? parts[parts.length - 1] : "/"
-    }
     function start() {
         if (!ready)
             return
@@ -809,7 +805,7 @@ ColumnLayout {
                                 maximumWidth: 240
                                 glyph: "folder"
                                 glyphColor: "#5dafa6"
-                                words: root.tilde(root.directory) === "~" ? "~" : root.folderName(root.directory)
+                                words: root.tilde(root.directory) === "~" ? "~" : Models.Sessions.folderName(root.directory)
                                 kind: "folder"
                                 objectName: "launcher.folder"
                                 Accessible.id: objectName
