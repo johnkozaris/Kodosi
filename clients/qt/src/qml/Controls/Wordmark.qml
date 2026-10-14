@@ -15,7 +15,7 @@ Row {
 
     Image {
         height: root.size * 1.2
-        width: height * 2705 / 617
+        width: height * 2813 / 617
         sourceSize.height: height * 2
         fillMode: Image.PreserveAspectFit
         smooth: true
