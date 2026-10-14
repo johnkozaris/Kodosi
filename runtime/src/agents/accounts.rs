@@ -30,6 +30,7 @@ pub(super) fn catalog(home: &Path, facts: &Facts) -> AgentCatalog {
                     },
                     install: install(agent).to_owned(),
                     adds_accounts: cfg!(unix) && agent.home().is_some(),
+                    prompt_flag: agent.prompt_flag().map(str::to_owned),
                 }
             })
             .collect(),

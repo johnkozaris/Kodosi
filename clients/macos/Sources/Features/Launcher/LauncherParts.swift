@@ -39,6 +39,12 @@ struct TypedText: View {
     }
 }
 
+/// The narrowest width at which a child of a `FlowLayout` takes the rest of
+/// its row; with less room it starts a row of its own.
+struct FillsRow: LayoutValueKey {
+    static let defaultValue: CGFloat? = nil
+}
+
 /// Lays its children out in rows, as words wrap on a line.
 struct FlowLayout: Layout {
     var spacing: CGFloat = 6
@@ -55,9 +61,10 @@ struct FlowLayout: Layout {
         var y = bounds.minY
         for row in rows(width: bounds.width, subviews: subviews) {
             var x = bounds.minX
-            for index in row.indices {
-                let size = size(of: subviews[index], width: bounds.width)
-                subviews[index].place(at: CGPoint(x: x, y: y + row.height / 2), anchor: .leading, proposal: ProposedViewSize(size))
+            for (index, size) in row.items {
+                // Words share the middle of the row's first line; a filling child starts at its top.
+                let top = subviews[index][FillsRow.self] == nil ? (row.line - size.height) / 2 : 0
+                subviews[index].place(at: CGPoint(x: x, y: y + top), anchor: .topLeading, proposal: ProposedViewSize(size))
                 x += size.width + spacing
             }
             y += row.height + lineSpacing
@@ -65,31 +72,45 @@ struct FlowLayout: Layout {
     }
 
     private struct Row {
-        var indices: [Int] = []
+        var items: [(index: Int, size: CGSize)] = []
         var width: CGFloat = 0
         var height: CGFloat = 0
-    }
-
-    private func size(of subview: LayoutSubview, width: CGFloat) -> CGSize {
-        let size = subview.sizeThatFits(.unspecified)
-        return size.width <= width ? size : subview.sizeThatFits(ProposedViewSize(width: width, height: nil))
+        /// The height of the row's words, without a filling child.
+        var line: CGFloat = 0
     }
 
     private func rows(width: CGFloat, subviews: Subviews) -> [Row] {
         var rows: [Row] = []
         var row = Row()
         for index in subviews.indices {
-            let size = size(of: subviews[index], width: width)
-            let needed = row.indices.isEmpty ? size.width : row.width + spacing + size.width
-            if needed > width, !row.indices.isEmpty {
-                rows.append(row)
-                row = Row()
+            let subview = subviews[index]
+            let used = row.items.isEmpty ? 0 : row.width + spacing
+            var size: CGSize
+            if let minimum = subview[FillsRow.self], width.isFinite {
+                if width - used < minimum, !row.items.isEmpty {
+                    rows.append(row)
+                    row = Row()
+                }
+                let start = row.items.isEmpty ? 0 : row.width + spacing
+                size = subview.sizeThatFits(ProposedViewSize(width: width - start, height: nil))
+            } else {
+                size = subview.sizeThatFits(.unspecified)
+                if size.width > width {
+                    size = subview.sizeThatFits(ProposedViewSize(width: width, height: nil))
+                }
+                if used + size.width > width, !row.items.isEmpty {
+                    rows.append(row)
+                    row = Row()
+                }
             }
-            row.width = row.indices.isEmpty ? size.width : row.width + spacing + size.width
+            row.width = row.items.isEmpty ? size.width : row.width + spacing + size.width
             row.height = max(row.height, size.height)
-            row.indices.append(index)
+            if subview[FillsRow.self] == nil {
+                row.line = max(row.line, size.height)
+            }
+            row.items.append((index, size))
         }
-        if !row.indices.isEmpty {
+        if !row.items.isEmpty {
             rows.append(row)
         }
         return rows
@@ -121,6 +142,7 @@ struct CommandToken<Choices: View>: View {
     @State private var hovered = false
     @State private var presented = false
     let text: String
+    var symbol: String?
     var badge: String?
     var slot = false
     var tint: Color?
@@ -132,6 +154,12 @@ struct CommandToken<Choices: View>: View {
     var body: some View {
         Button { presented.toggle() } label: {
             HStack(spacing: 5) {
+                if let symbol {
+                    Image(systemName: symbol)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(foreground)
+                        .symbolEffect(.bounce, value: text)
+                }
                 TypedText(text: text)
                     .lineLimit(1).truncationMode(.middle)
                     .foregroundStyle(foreground)

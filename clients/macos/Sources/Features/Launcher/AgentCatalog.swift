@@ -12,6 +12,7 @@ struct AgentInfo: Decodable, Equatable, Identifiable {
     var accounts: [AgentAccount]
     var install: String
     var addsAccounts: Bool
+    var promptFlag: String?
 
     var id: String {
         agent

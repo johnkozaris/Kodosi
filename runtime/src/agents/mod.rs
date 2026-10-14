@@ -43,6 +43,16 @@ impl Agent {
         }
     }
 
+    /// The option that gives the agent its first prompt in an interactive
+    /// session; none when the prompt is the last word alone.
+    const fn prompt_flag(self) -> Option<&'static str> {
+        match self {
+            Self::Copilot | Self::Gemini => Some("-i"),
+            Self::Opencode => Some("--prompt"),
+            Self::Claude | Self::Codex | Self::Cursor => None,
+        }
+    }
+
     /// The folder in the home folder that keeps the agent's sign-in, and the
     /// variable that moves it.
     #[cfg(feature = "host")]
@@ -75,6 +85,8 @@ pub struct AgentInfo {
     pub install: String,
     /// Whether Kodosi can give another account its own sign-in folder.
     pub adds_accounts: bool,
+    /// The option before a first prompt; none when the prompt comes last alone.
+    pub prompt_flag: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -144,6 +156,64 @@ pub async fn add_account(home: &Path, agent: Agent, name: &str) -> Result<AgentA
     tokio::task::spawn_blocking(move || accounts::add(&home, agent, &name))
         .await
         .map_err(|error| format!("The account was not made: {error}"))?
+}
+
+/// `text` as one word for `shell`, which a person can type at its prompt.
+#[cfg(feature = "host")]
+pub fn quote(shell: &Path, text: &str) -> String {
+    let name = shell
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    match name.as_str() {
+        "fish" => format!("'{}'", text.replace('\\', r"\\").replace('\'', r"\'")),
+        "pwsh" | "powershell" => {
+            let mut word = String::from("'");
+            for character in text.chars() {
+                // PowerShell also ends a quoted word at the typographic single quotes.
+                if matches!(
+                    character,
+                    '\'' | '\u{2018}' | '\u{2019}' | '\u{201a}' | '\u{201b}'
+                ) {
+                    word.push(character);
+                }
+                word.push(character);
+            }
+            word.push('\'');
+            word
+        }
+        "cmd" => {
+            let mut word = String::from("\"");
+            let mut slashes = 0;
+            for character in text.chars() {
+                match character {
+                    '\\' => slashes += 1,
+                    '"' => {
+                        word.push_str(&"\\".repeat(slashes * 2 + 1));
+                        slashes = 0;
+                    }
+                    _ => {
+                        word.push_str(&"\\".repeat(slashes));
+                        slashes = 0;
+                    }
+                }
+                if character != '\\' {
+                    word.push(character);
+                }
+            }
+            word.push_str(&"\\".repeat(slashes * 2));
+            word.push('"');
+            word
+        }
+        "nu" => {
+            // A raw string ends at a quote and as many hashes as it opened with.
+            let longest = text.split(|c| c != '#').map(str::len).max().unwrap_or(0);
+            let hashes = "#".repeat(longest + 1);
+            format!("r{hashes}'{text}'{hashes}")
+        }
+        _ => format!("'{}'", text.replace('\'', r"'\''")),
+    }
 }
 
 /// `value` as one word in sh, bash, zsh, fish and PowerShell.

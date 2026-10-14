@@ -263,6 +263,7 @@ qt_add_qml_module(kodosi-ui
         qml/Theme/Mentions.qml
         qml/Workbench/AgentLauncher.qml
         qml/Workbench/HistoryView.qml
+        qml/Workbench/LauncherPrompt.qml
         qml/Workbench/SessionDetails.qml
         qml/Workbench/ShareSheet.qml
         qml/Workbench/StageOverview.qml

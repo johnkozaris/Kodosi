@@ -112,6 +112,9 @@ pub enum Command {
         /// A line that the new shell runs once it waits at its prompt.
         #[serde(default)]
         command: Option<String>,
+        /// Text that ends the command line as one word, quoted for the shell.
+        #[serde(default)]
+        prompt: Option<String>,
     },
     #[serde(rename = "session.rename")]
     RenameSession {
@@ -1149,6 +1152,7 @@ impl Command {
                 branch,
                 worktrees,
                 command,
+                prompt,
                 ..
             } => {
                 if let Some(id) = mission_id {
@@ -1157,6 +1161,13 @@ impl Command {
                 if let Some(command) = command {
                     text(command, "command", 1024)?;
                     text(command.trim(), "command", 1024)?;
+                }
+                if let Some(prompt) = prompt {
+                    if command.is_none() {
+                        return Err(Error::Invalid("A prompt needs a command.".to_owned()));
+                    }
+                    text(prompt, "prompt", 4096)?;
+                    text(prompt.trim(), "prompt", 4096)?;
                 }
                 if let Some(directory) = working_dir {
                     directory_input(directory)?;

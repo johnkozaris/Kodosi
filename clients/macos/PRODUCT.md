@@ -28,10 +28,13 @@ actions. Kodosi adds a command for an agent the first time that the agent runs h
 Settings holds the list, so a second account is one more command.
 
 The launcher shows the agents of this Mac as marks, with the plain terminal first, and
-the command line of the new terminal. Each part of the line opens its choices: the
-account, the model and, behind the dots, the effort. The folder is in the title bar of
-the line. Start opens a terminal that runs the line. An agent that is not here shows
-its install command, and a new account signs in when the agent first starts.
+the terminal about to open: its name, then a prompt with the folder and the command.
+Each part of the command opens its choices: the account, the model and, behind the
+dots, the effort. After the command, the person types the agent's first prompt, or a
+command for a plain terminal; a faint suggestion types itself there until they do, and
+Tab takes it. Start or Return opens the terminal, which runs the line. An agent that is
+not here shows its install command, and a new account signs in when the agent first
+starts.
 
 The folder of a Git repository in the sidebar offers a terminal on a new branch. You
 give the branch a name; it gets its own folder and a terminal starts there. A folder

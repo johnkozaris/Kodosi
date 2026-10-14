@@ -66,8 +66,8 @@ Kodosi takes this state from what the program reports to its terminal.
 
 Run Claude Code, Codex, Copilot CLI, or another terminal agent in its own harness.
 It keeps its settings, sign-in, tools, and conversation history. The home shows the
-agents on your computer: pick one, its account, model, and folder, and a new terminal
-types the command. A terminal at its prompt shows a mark for each agent you use.
+agents on your computer: pick one, its account, model, and folder, type your first
+prompt, and a new terminal types the command. A terminal at its prompt shows a mark for each agent you use.
 Add your own start commands, for example the same agent with a second account.
 
 <p align="center">

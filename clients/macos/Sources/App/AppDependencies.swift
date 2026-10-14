@@ -311,7 +311,8 @@ final class AppDependencies {
     }
 
     func createSession(
-        name: String, directory: String?, resume: ProviderConversationIdentity? = nil, branch: String? = nil, command: String? = nil
+        name: String, directory: String?, resume: ProviderConversationIdentity? = nil, branch: String? = nil,
+        command: String? = nil, prompt: String? = nil
     ) async throws {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard ProductInput.validName(name) else {
@@ -334,6 +335,9 @@ final class AppDependencies {
         }
         if let command {
             fields["command"] = .string(command)
+        }
+        if let prompt {
+            fields["prompt"] = .string(prompt)
         }
         do {
             _ = try await commandSink.request("session.create", fields)

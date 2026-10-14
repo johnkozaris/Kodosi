@@ -98,11 +98,12 @@ The home of the app starts a new terminal with an agent. The host asks the shell
 new terminals run which agents it finds (Claude Code, Codex, Copilot CLI, Cursor,
 Gemini CLI and OpenCode), which accounts each has, and which models and efforts the
 agent's CLI lists. An account is the usual sign-in, an alias or function that moves the
-agent's sign-in folder, or a sibling folder such as `~/.claude-work`. The person picks;
-the shell of the new terminal types the command at its first prompt. An agent that is
-not installed offers its official install command, which runs in a new terminal. A new
-account is an empty sign-in folder, and the agent asks for a sign-in when it first
-starts there.
+agent's sign-in folder, or a sibling folder such as `~/.claude-work`. The person picks
+and can type the agent's first prompt after the command, or a command for a plain
+terminal; the shell of the new terminal types the line at its first prompt, with the
+first prompt quoted for that shell. An agent that is not installed offers its official
+install command, which runs in a new terminal. A new account is an empty sign-in
+folder, and the agent asks for a sign-in when it first starts there.
 
 A terminal can start on a new branch of a local Git repository. The host makes the
 branch from the current commit with its own folder (a Git worktree) beside the

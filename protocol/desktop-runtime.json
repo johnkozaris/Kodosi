@@ -771,6 +771,16 @@
           "name": {
             "type": "string"
           },
+          "prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -4950,6 +4960,16 @@
                         },
                         "program": {
                           "type": "string"
+                        },
+                        "promptFlag": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -4958,7 +4978,8 @@
                         "installed",
                         "accounts",
                         "install",
-                        "addsAccounts"
+                        "addsAccounts",
+                        "promptFlag"
                       ],
                       "type": "object"
                     },

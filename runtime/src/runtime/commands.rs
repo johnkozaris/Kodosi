@@ -1048,6 +1048,7 @@ async fn create_session(
         branch,
         worktrees,
         command: start,
+        prompt,
         ..
     } = command
     else {
@@ -1105,7 +1106,11 @@ async fn create_session(
         }
     };
     if let Some(line) = start {
-        terminal.start(line.clone())?;
+        let line = prompt.as_ref().map_or_else(
+            || line.clone(),
+            |prompt| format!("{line} {}", crate::agents::quote(&shell(&config), prompt)),
+        );
+        terminal.start(line)?;
     }
     Ok(StartedSession {
         terminal: Some(terminal),

@@ -349,3 +349,30 @@ fn shell_words_quote_what_a_shell_would_change() {
     assert_eq!(shell_word("it's"), None);
     assert_eq!(shell_word(""), None);
 }
+
+#[test]
+fn quoted_prompts_reach_the_program_as_one_word() {
+    let prompt = r#"fix "it's" $HOME `id` \ !! ‘ok’ ; exit"#;
+    for (shell, arguments) in [
+        ("/bin/zsh", &["-f", "-c"][..]),
+        ("/bin/bash", &["--norc", "--noprofile", "-c"][..]),
+        ("/bin/sh", &["-c"][..]),
+    ] {
+        if !Path::new(shell).exists() {
+            continue;
+        }
+        let output = std::process::Command::new(shell)
+            .args(arguments)
+            .arg(format!("printf %s {}", quote(Path::new(shell), prompt)))
+            .output()
+            .expect("shell runs");
+        assert_eq!(String::from_utf8_lossy(&output.stdout), prompt, "{shell}");
+    }
+    assert_eq!(quote(Path::new("/usr/bin/fish"), r"a'b\c"), r"'a\'b\\c'");
+    assert_eq!(quote(Path::new("pwsh.exe"), "it's ‘x’"), "'it''s ‘‘x’’'");
+    assert_eq!(
+        quote(Path::new("cmd.exe"), r#"say "hi" \"#),
+        r#""say \"hi\" \\""#
+    );
+    assert_eq!(quote(Path::new("nu"), "a'#b"), "r##'a'#b'##");
+}
