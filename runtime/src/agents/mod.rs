@@ -47,6 +47,7 @@ impl Agent {
 
     /// The option that gives the agent its first prompt in an interactive
     /// session; none when the prompt is the last word alone.
+    #[cfg(feature = "host")]
     const fn prompt_flag(self) -> Option<&'static str> {
         match self {
             Self::Copilot | Self::Gemini => Some("-i"),
