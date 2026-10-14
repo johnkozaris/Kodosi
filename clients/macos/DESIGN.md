@@ -64,7 +64,7 @@ components:
 # Design System: Kodosi for macOS
 
 ## Overview
-Kodosi is a warm workbench, lit from the top left. A source list rests on the ground. One framed surface holds the work. Raised objects rest on that surface, and inputs sink into wells. The copper cursor is the sign of life: it is in the wordmark, it is the empty slot for a new terminal, and a new terminal opens from it.
+Kodosi is a warm workbench, lit from the top left. A source list rests on the ground. One framed surface holds the work. Raised objects rest on that surface, and inputs sink into wells. The copper cursor is the sign of life: it stands at the end of the wordmark, it is the empty slot for a new terminal, and a new terminal opens from it.
 
 Each screen starts with the objects of its job: terminals, rooms, people, tasks. Text is short. One word has one meaning: terminal, room, friend, agent, device.
 
@@ -72,7 +72,7 @@ Each screen starts with the objects of its job: terminals, rooms, people, tasks.
 Copper `accent` means "act here" or "this is selected". `glowAmber` flashes behind a thing that just changed, and `glowOrange` is the dot of a terminal that waits for you. Green `ready` means done or verified, and people never use green. Unqualified tokens are dark, and `-light` tokens are the light pair. Use `AppTheme` roles, not literals. A terminal is a dark object in the two themes: its tile, its header and the Settings preview use the dark roles (`terminalScope`).
 
 ## Typography
-Use `AppTextStyle`. `large` is for page titles, `title` for sheets, `headline` for object names, `body` for conversation and rows, `footnote` and `caption` for facts. Monospace is for code, paths and the wordmark. Labels use sentence case.
+Use `AppTextStyle`. `large` is for page titles, `title` for sheets, `headline` for object names, `body` for conversation and rows, `footnote` and `caption` for facts. Monospace is for code and paths. The wordmark is a picture: the K with "odosi" in the same copper planks. Labels use sentence case.
 
 ## Layout
 The window has no title bar. The source list is (252 pt), or a rail of marks (78 pt). The main frame is inset (8 pt) with a (18 pt) radius. Pages are one centered column with (36 pt) margins. A room has a (54 pt) header, a canvas, and the conversation on a raised sheet (300–540 pt) that slides in from the right. Below (720 pt) the room shows one of the two.
