@@ -92,9 +92,9 @@ Run the recipes in Git Bash from [Git for Windows](https://gitforwindows.org), w
   that `python3` exists.
 - On x64, [NASM](https://www.nasm.us) on `PATH`; the runtime's TLS library needs it.
 
-Keep the checkout path to about 70 characters, such as `C:\src\Kodosi`. The release
-build compiles the runtime's TLS library deep in the build tree, and the C compiler
-cannot write a path longer than 259 characters, even with Windows long paths enabled.
+Keep the checkout path under about 90 characters. The build compiles the runtime's TLS
+library deep in the build tree, and the C compiler cannot write a path longer than 259
+characters, even with Windows long paths enabled.
 
 The recipe `tools-install` installs the pinned Qt, CMake and Ninja under `.tools/`, as
 on Linux.

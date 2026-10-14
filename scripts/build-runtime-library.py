@@ -20,8 +20,11 @@ def archive_name(target: str) -> str:
 
 def build(manifest: Path, output: Path, profile: str, target: str, default_features: bool) -> Path:
     bundle = output.resolve() / target / profile
+    # cl.exe cannot write a path longer than 259 characters, and Cargo repeats the target
+    # and the profile below its own folder. Windows builds share one Cargo folder.
+    cargo = output.resolve() / "cargo" if target.endswith("-windows-msvc") else bundle / "cargo"
     command = ["cargo", "build", "--locked", "--manifest-path", str(manifest),
-        "--target-dir", str(bundle / "cargo"), "--target", target, "--profile", profile,
+        "--target-dir", str(cargo), "--target", target, "--profile", profile,
         "-p", "kodosi-ffi-c", "--message-format=json-render-diagnostics"]
     if not default_features:
         command.append("--no-default-features")
