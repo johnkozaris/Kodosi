@@ -35,8 +35,8 @@ mission are internal words.
 
 New Terminal opens a shell right away. The source list groups terminals by working
 folder and shows which computer runs a remote terminal. With no terminal open, the
-main area shows every terminal by computer. Go to (Ctrl+K) finds a terminal, a room,
-a person, or an action. Rename a terminal in place.
+main area starts with the launcher, then shows every terminal by computer. Go to
+(Ctrl+K) finds a terminal, a room, a person, or an action. Rename a terminal in place.
 
 A terminal carries the mark of the program in it. While an agent works, its mark and
 title show it. A program that waits for you puts a copper ring on its mark and a sign
@@ -49,6 +49,13 @@ A terminal at its prompt offers the start commands of this computer as marks amo
 actions. Kodosi adds a command for an agent the first time that the agent runs here.
 Settings holds the list, so a second account is one more command. One share sheet puts
 a terminal in a room or shares it with friends.
+
+The launcher shows the agents of this computer as marks, with the plain terminal
+first, and the command line of the new terminal. Each part of the line opens its
+choices: the account, the model and, behind the dots, the effort. The folder is in the
+title bar of the line. Start opens a terminal that runs the line. An agent that is not
+here shows its install command, and a new account signs in when the agent first
+starts.
 
 The folder of a Git repository in the sidebar offers a terminal on a new branch. You
 give the branch a name; it gets its own folder and a terminal starts there. A folder

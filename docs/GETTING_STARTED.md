@@ -51,6 +51,15 @@ The stage shows the terminals that you opened, side by side.
 
 ## Start an agent
 
+The home of the app shows the agents that a new terminal finds on this computer, and
+the command line of that terminal. Select an agent. Select a part of the line to
+change it: the account, the model, or, behind the dots, the effort; the folder is
+above the line. Start opens the terminal, and its shell types the command. An agent
+that is not installed shows its install command, and Install runs it in a terminal.
+To add an account, open the account list and give the account a name. Kodosi makes an
+empty sign-in folder for it, such as `~/.claude-work`, and the agent asks you to sign
+in when it starts there.
+
 After you run an agent on a computer one time, each terminal on that computer shows
 the agent's mark among its actions while the terminal is at its prompt. Select the
 mark to start the agent there.

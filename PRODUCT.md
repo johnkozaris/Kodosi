@@ -94,6 +94,16 @@ A local terminal at its prompt offers the person's start commands, such as an ag
 or the same agent with a second account. Kodosi clears the input line, types the
 command into the shell and does no more; the program remains the provider's own CLI.
 
+The home of the app starts a new terminal with an agent. The host asks the shell that
+new terminals run which agents it finds (Claude Code, Codex, Copilot CLI, Cursor,
+Gemini CLI and OpenCode), which accounts each has, and which models and efforts the
+agent's CLI lists. An account is the usual sign-in, an alias or function that moves the
+agent's sign-in folder, or a sibling folder such as `~/.claude-work`. The person picks;
+the shell of the new terminal types the command at its first prompt. An agent that is
+not installed offers its official install command, which runs in a new terminal. A new
+account is an empty sign-in folder, and the agent asks for a sign-in when it first
+starts there.
+
 A terminal can start on a new branch of a local Git repository. The host makes the
 branch from the current commit with its own folder (a Git worktree) beside the
 repository, or in the place the person selected, and starts the shell there. When that
