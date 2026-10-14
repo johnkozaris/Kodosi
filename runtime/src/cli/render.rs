@@ -273,11 +273,12 @@ fn state(session: &Value) -> String {
         ) {
             ("connected", "reconnecting") => "reconnecting".to_owned(),
             ("connected", _) => "open".to_owned(),
+            ("offline", "reconnecting") => "host offline".to_owned(),
             ("offline", _) => "not open".to_owned(),
             (other, _) => other.to_owned(),
         }
     };
-    if matches!(state.as_str(), "running" | "open")
+    if matches!(state.as_str(), "running" | "open" | "not open")
         && let Some(activity) = activity(session)
     {
         return activity;
@@ -387,6 +388,7 @@ mod tests {
                 {"id":"01a10d06-92a7-7367-8536-000000000003","name":"agent","kind":"local","status":"running","isOwner":true,"sharedWith":[],"programStatus":{"state":"blocked","kind":"permission","title":"Review","message":"Allow the command?"}},
                 {"id":"01a10d06-92a7-7367-8536-000000000004","name":"deploy","kind":"remote","status":"running","connectionState":"connected","isOwner":true,"hostName":"Studio","sharedWith":[],"programStatus":{"state":"working","progress":40}},
                 {"id":"01a10d06-92a7-7367-8536-000000000005","name":"shell","kind":"local","status":"running","isOwner":true,"sharedWith":[],"programStatus":{"state":"idle"}},
+                {"id":"01a10d06-92a7-7367-8536-000000000006","name":"away","kind":"remote","status":"reconnecting","connectionState":"offline","isOwner":false,"ownerName":"carol","hostName":"Studio","sharedWith":[]},
             ]}),
         ]);
         assert_eq!(
@@ -394,10 +396,11 @@ mod tests {
             "Signed in as alice.\n\
              NAME    WHERE          STATE           SHARED WITH     ID\n\
              work    this computer  running         bob and 1 more  5d05ae\n\
-             build   carol, Studio  not open                        000002\n\
+             build   carol, Studio  working                         000002\n\
              agent   this computer  needs approval                  000003\n\
              deploy  Studio         working 40%                     000004\n\
-             shell   this computer  running                         000005"
+             shell   this computer  running                         000005\n\
+             away    carol, Studio  host offline                    000006"
         );
         assert!(
             session(&context.sessions[2], &context)

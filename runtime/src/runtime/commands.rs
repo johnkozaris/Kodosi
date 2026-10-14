@@ -509,6 +509,7 @@ impl Runtime {
             entry.connection_state = ConnectionState::Offline;
             entry.connected_users.clear();
         }
+        self.show_shared_status(id);
         self.publish_catalog();
     }
 
@@ -860,7 +861,7 @@ impl Runtime {
                     .get(&id)
                     .and_then(|entry| entry.message.clone())
                     .filter(|message| message == INPUT_NOT_SENT);
-                let mut entry = self.remote_entry(connection.session.clone());
+                let mut entry = self.remote_entry(self.listed_remote(&connection.session));
                 entry.connection_state = ConnectionState::Connected;
                 entry.status = SessionStatus::Running;
                 entry.message = notice;

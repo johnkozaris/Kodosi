@@ -4,6 +4,7 @@ use serde_json::{Value, json};
 use uuid::Uuid;
 
 use super::{Result, TerminalControl, invalid};
+use crate::rooms::crypto::SealedStatus;
 
 mod frame;
 mod packing;
@@ -36,6 +37,8 @@ pub(crate) struct SessionDto {
     pub shared_with: Vec<String>,
     pub authorization_revision: u64,
     pub host_online: bool,
+    #[serde(default)]
+    pub status: Option<SealedStatus>,
 }
 
 impl From<SessionDto> for super::RemoteSession {
@@ -52,6 +55,7 @@ impl From<SessionDto> for super::RemoteSession {
             mission_name: dto.mission_name,
             shared_with: dto.shared_with,
             online: dto.host_online,
+            status: None,
         }
     }
 }
@@ -183,6 +187,37 @@ impl Change {
             sequence: value.get("sequence").and_then(Value::as_u64),
         })
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TerminalNotice {
+    pub session: Uuid,
+    pub incarnation: Uuid,
+    pub online: bool,
+    pub status: Option<SealedStatus>,
+}
+
+impl TerminalNotice {
+    pub(crate) fn read(value: &Value) -> Result<Self> {
+        Ok(Self {
+            session: id(value, "sessionId")?,
+            incarnation: id(value, "incarnationId")?,
+            online: value
+                .get("online")
+                .and_then(Value::as_bool)
+                .ok_or_else(|| invalid("Invalid online."))?,
+            status: match value.get("status") {
+                None | Some(Value::Null) => None,
+                Some(status) => Some(serde_json::from_value(status.clone())?),
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Notice {
+    Changed(Change),
+    Terminal(TerminalNotice),
 }
 pub(crate) fn decode_b64(value: &Value, field: &str, limit: usize) -> Result<Vec<u8>> {
     let encoded = text(value, field)?;

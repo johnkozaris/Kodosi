@@ -1,6 +1,7 @@
 use std::sync::atomic::AtomicUsize;
 
 use super::{channel::Transport, *};
+use crate::rooms::crypto::SealedStatus;
 
 const SEND: Duration = Duration::from_secs(10);
 const WAITING_FRAMES: usize = 256;
@@ -47,6 +48,7 @@ struct Hosting {
     incarnation: Uuid,
     events: mpsc::Sender<HostEvent>,
     announced: bool,
+    status: Option<SealedStatus>,
 }
 
 #[derive(Clone)]
@@ -74,6 +76,31 @@ pub(crate) struct Hosted {
     session: Uuid,
     registration: Uuid,
     pub(super) events: mpsc::Receiver<HostEvent>,
+}
+
+#[cfg(feature = "host")]
+impl Hosted {
+    pub(super) fn share(&self, status: Option<SealedStatus>) {
+        let Ok(mut shared) = self.link.shared.lock() else {
+            return;
+        };
+        let outgoing = shared.outgoing.clone();
+        let Some(hosting) = shared
+            .hosting
+            .get_mut(&self.session)
+            .filter(|hosting| hosting.registration == self.registration)
+        else {
+            return;
+        };
+        if let Some(outgoing) = outgoing.filter(|_| hosting.announced) {
+            drop(outgoing.control.send(status_message(
+                self.session,
+                hosting.incarnation,
+                status.as_ref(),
+            )));
+        }
+        hosting.status = status;
+    }
 }
 
 #[cfg(feature = "host")]
@@ -160,6 +187,10 @@ fn text(value: &Value) -> Message {
     Message::Text(value.to_string().into())
 }
 
+fn status_message(session: Uuid, incarnation: Uuid, status: Option<&SealedStatus>) -> Message {
+    text(&json!({"type":"status","sessionId":session,"incarnationId":incarnation,"status":status}))
+}
+
 impl Link {
     #[cfg(feature = "host")]
     pub(crate) fn host(self: &Arc<Self>, session: Uuid, incarnation: Uuid) -> Hosted {
@@ -173,6 +204,7 @@ impl Link {
                     incarnation,
                     events,
                     announced: false,
+                    status: None,
                 },
             );
         }
@@ -253,6 +285,13 @@ impl Link {
                 drop(outgoing.control.send(text(
                     &json!({"type":"host","sessionId":session,"incarnationId":hosting.incarnation}),
                 )));
+                if let Some(status) = &hosting.status {
+                    drop(outgoing.control.send(status_message(
+                        *session,
+                        hosting.incarnation,
+                        Some(status),
+                    )));
+                }
             }
         }
     }
@@ -288,13 +327,18 @@ impl Link {
         }
     }
 
-    fn message(self: &Arc<Self>, value: &Value) -> Result<Option<wire::Change>> {
+    fn message(self: &Arc<Self>, value: &Value) -> Result<Option<wire::Notice>> {
         let mut shared = self.shared.lock().map_err(|_| Error::Closed)?;
         let outgoing = shared.outgoing.clone().ok_or(Error::Closed)?;
         match wire::text(value, "type")? {
             "ping" => drop(outgoing.control.send(text(&json!({"type":"pong"})))),
             "pong" | "hosted" => {}
-            "changed" => return Ok(Some(wire::Change::read(value)?)),
+            "changed" => return Ok(Some(wire::Notice::Changed(wire::Change::read(value)?))),
+            "terminal" => {
+                return Ok(Some(wire::Notice::Terminal(wire::TerminalNotice::read(
+                    value,
+                )?)));
+            }
             "unhosted" => {
                 if let Some(hosting) = shared.hosting.get_mut(&wire::id(value, "sessionId")?) {
                     hosting.announced = false;
@@ -368,7 +412,7 @@ impl Drop for Disconnect<'_> {
 pub(crate) async fn run(
     network: &BackendClient,
     credentials: &Credentials,
-    changes: &mpsc::UnboundedSender<wire::Change>,
+    notices: &mpsc::UnboundedSender<wire::Notice>,
 ) -> Result<()> {
     let socket = socket(network, credentials).await?;
     let (mut sink, mut stream) = socket.split();
@@ -381,7 +425,7 @@ pub(crate) async fn run(
     });
     let _disconnect = Disconnect(&link);
     for surface in ["sessions", "friends", "devices", "missions"] {
-        drop(changes.send(wire::Change::of(surface)));
+        drop(notices.send(wire::Notice::Changed(wire::Change::of(surface))));
     }
     let writer = async {
         loop {
@@ -410,7 +454,7 @@ pub(crate) async fn run(
                     drop(control.send(text(&json!({"type":"ping"}))));
                 }
                 () = link.changed.notified() => link.announce(),
-                () = network.inner.friends_changed.notified() => drop(changes.send(wire::Change::of("friends"))),
+                () = network.inner.friends_changed.notified() => drop(notices.send(wire::Notice::Changed(wire::Change::of("friends")))),
                 incoming = stream.next() => {
                     let message = incoming.ok_or(Error::Closed)?.map_err(|error| invalid(error.to_string()))?;
                     heard = tokio::time::Instant::now();
@@ -420,8 +464,8 @@ pub(crate) async fn run(
                             if message.len() > 16 * 1024 {
                                 return Err(invalid("Device connection message exceeds its size limit."));
                             }
-                            if let Some(change) = link.message(&serde_json::from_str(&message)?)? {
-                                drop(changes.send(change));
+                            if let Some(notice) = link.message(&serde_json::from_str(&message)?)? {
+                                drop(notices.send(notice));
                             }
                         }
                         Message::Ping(payload) => drop(control.send(Message::Pong(payload))),
@@ -436,5 +480,55 @@ pub(crate) async fn run(
     tokio::select! {
         result = writer => result,
         result = reader => result,
+    }
+}
+
+#[cfg(all(test, feature = "host"))]
+mod tests {
+    use super::*;
+
+    fn connect(link: &Arc<Link>) -> mpsc::UnboundedReceiver<Message> {
+        let (control, controls) = mpsc::unbounded_channel();
+        let (frames, _waiting) = mpsc::channel(1);
+        link.connected(Outgoing { control, frames });
+        controls
+    }
+
+    fn messages(controls: &mut mpsc::UnboundedReceiver<Message>) -> Vec<Value> {
+        let mut messages = Vec::new();
+        while let Ok(Message::Text(text)) = controls.try_recv() {
+            messages.push(serde_json::from_str(&text).unwrap());
+        }
+        messages
+    }
+
+    #[test]
+    fn each_new_device_connection_hears_the_terminal_and_then_its_status() {
+        let link = Arc::new(Link::default());
+        let hosted = link.host(Uuid::now_v7(), Uuid::now_v7());
+        let status = SealedStatus {
+            key_version: 2,
+            epoch: 1,
+            nonce: "bm9uY2U=".to_owned(),
+            ciphertext: "c2VhbGVk".to_owned(),
+        };
+        hosted.share(Some(status.clone()));
+        let mut first = connect(&link);
+        let sent = messages(&mut first);
+        assert_eq!(
+            sent.iter()
+                .map(|message| message["type"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            ["host", "status"]
+        );
+        assert_eq!(
+            serde_json::from_value::<SealedStatus>(sent[1]["status"].clone()).unwrap(),
+            status
+        );
+        hosted.share(None);
+        assert_eq!(messages(&mut first)[0]["status"], Value::Null);
+        link.disconnected();
+        let mut second = connect(&link);
+        assert_eq!(messages(&mut second).len(), 1);
     }
 }
