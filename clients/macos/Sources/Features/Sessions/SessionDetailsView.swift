@@ -4,7 +4,7 @@ import SwiftUI
 
 struct SessionDetailsView: View {
     @Environment(AppDependencies.self) private var deps
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.closeSheet) private var dismiss
     @Environment(\.theme) private var theme
     let session: RuntimeSession
     @State private var sharing = false
@@ -68,7 +68,7 @@ struct SessionDetailsView: View {
             }
         }
         .padding(24)
-        .frame(width: 480).background(theme.colors.raised.mix(with: theme.colors.surface, by: 0.4))
+        .frame(width: 480)
         .buttonStyle(.kodosi(.secondary))
         .onAppear { name = current?.name ?? session.name }
         .onChange(of: current?.name) { _, value in
@@ -102,7 +102,7 @@ struct SessionDetailsView: View {
                 if current.kind == .local {
                     Button("Share…") { sharing = true }
                         .buttonStyle(.kodosi(.tinted, size: .small))
-                        .popover(isPresented: $sharing) { SessionSharingPopover(session: current) }
+                        .kodosiPopover(isPresented: $sharing) { SessionSharingPopover(session: current) }
                 }
             }
         }

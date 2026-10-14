@@ -1,6 +1,5 @@
 import Kodosi 1.0
 import QtQuick
-import Kodosi.Models 1.0 as Models
 
 Item {
     id: root
@@ -19,13 +18,6 @@ Item {
             settle.restart()
     }
 
-    Models.SoftShadow {
-        anchors.fill: parent
-        radius: block.radius
-        blur: Math.max(1, root.width * 0.6)
-        color: root.color
-        opacity: 0.45 * (1 - root.dim)
-    }
     Rectangle {
         id: block
         anchors.fill: parent

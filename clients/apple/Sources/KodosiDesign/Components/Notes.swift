@@ -58,7 +58,7 @@ public struct NoticePill: View {
                 Text(message).appTextStyle(.footnote).lineLimit(1).truncationMode(.tail)
             }
             .buttonStyle(.plain)
-            .popover(isPresented: $expanded, arrowEdge: .bottom) {
+            .kodosiPopover(isPresented: $expanded, arrowEdge: .bottom) {
                 Text(message).appTextStyle(.body).textSelection(.enabled).padding(16).frame(maxWidth: 380)
                     .fixedSize(horizontal: false, vertical: true).popoverSheet()
             }

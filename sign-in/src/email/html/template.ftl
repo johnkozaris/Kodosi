@@ -32,7 +32,7 @@
   <tr>
   <td class="kds-card" align="center" style="padding:30px 32px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans',Helvetica,Arial,sans-serif;font-size:15px;line-height:23px;color:#5f4838;">
     <#if url?? && url.resourcesUrl??>
-    <img src="${url.resourcesUrl}/img/logo.png" width="176" height="40" alt="Kodosi" style="display:block;margin:0 auto 24px;border:0;outline:none;font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:24px;line-height:40px;font-weight:800;color:#25160e;">
+    <img src="${url.resourcesUrl}/img/wordmark.png" width="182" height="40" alt="Kodosi" style="display:block;margin:0 auto 24px;border:0;outline:none;font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:24px;line-height:40px;font-weight:800;color:#25160e;">
     <#else>
     <p style="margin:0 0 24px;font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:24px;line-height:40px;font-weight:800;color:#25160e;">Kodosi</p>
     </#if>

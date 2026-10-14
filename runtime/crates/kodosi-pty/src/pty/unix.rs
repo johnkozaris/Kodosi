@@ -221,10 +221,27 @@ impl KodosiPty {
         foreground_process_group(self.master_fd) == Some(self.child_pid)
     }
 
+    /// Whether the terminal passes each key on at once, as it does while a
+    /// line editor waits at a prompt.
+    pub fn reads_keys(&self) -> bool {
+        let borrowed = unsafe { BorrowedFd::borrow_raw(self.master_fd) };
+        nix::sys::termios::tcgetattr(borrowed).is_ok_and(|attributes| {
+            !attributes
+                .local_flags
+                .contains(nix::sys::termios::LocalFlags::ICANON)
+        })
+    }
+
     pub fn foreground_program(&self) -> Option<String> {
         let pid = foreground_process_group(self.master_fd)?;
         let arguments = process_arguments(pid)?;
         program_identity(&arguments).map(str::to_owned)
+    }
+
+    /// The environment that the foreground program started with, as
+    /// `NAME=value` entries.
+    pub fn foreground_environment(&self) -> Option<Vec<String>> {
+        process_environment(foreground_process_group(self.master_fd)?)
     }
 
     pub fn write(&mut self, buf: &[u8]) -> Result<usize> {
@@ -567,18 +584,40 @@ fn process_directory(pid: u32) -> Option<PathBuf> {
 
 #[cfg(target_os = "linux")]
 fn process_arguments(pid: u32) -> Option<Vec<String>> {
-    let bytes = std::fs::read(format!("/proc/{pid}/cmdline")).ok()?;
-    Some(
-        bytes
-            .split(|byte| *byte == 0)
-            .filter(|part| !part.is_empty())
-            .map(|part| String::from_utf8_lossy(part).into_owned())
-            .collect(),
-    )
+    Some(strings(
+        &std::fs::read(format!("/proc/{pid}/cmdline")).ok()?,
+    ))
+}
+
+#[cfg(target_os = "linux")]
+fn process_environment(pid: u32) -> Option<Vec<String>> {
+    Some(strings(
+        &std::fs::read(format!("/proc/{pid}/environ")).ok()?,
+    ))
+}
+
+#[cfg(target_os = "linux")]
+fn strings(bytes: &[u8]) -> Vec<String> {
+    bytes
+        .split(|byte| *byte == 0)
+        .filter(|part| !part.is_empty())
+        .map(|part| String::from_utf8_lossy(part).into_owned())
+        .collect()
 }
 
 #[cfg(target_os = "macos")]
 fn process_arguments(pid: u32) -> Option<Vec<String>> {
+    process_record(pid).map(|(arguments, _)| arguments)
+}
+
+#[cfg(target_os = "macos")]
+fn process_environment(pid: u32) -> Option<Vec<String>> {
+    process_record(pid).map(|(_, environment)| environment)
+}
+
+/// The arguments and the environment that process `pid` started with.
+#[cfg(target_os = "macos")]
+fn process_record(pid: u32) -> Option<(Vec<String>, Vec<String>)> {
     let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid as i32];
     let mut bytes = vec![0_u8; 256 * 1024];
     let mut length = bytes.len();
@@ -610,7 +649,16 @@ fn process_arguments(pid: u32) -> Option<Vec<String>> {
         arguments.push(String::from_utf8_lossy(&bytes[cursor..end]).into_owned());
         cursor = end + 1;
     }
-    Some(arguments)
+    let mut environment = Vec::new();
+    while let Some(end) = bytes
+        .get(cursor..)
+        .and_then(|rest| rest.iter().position(|byte| *byte == 0))
+        .filter(|end| *end > 0)
+    {
+        environment.push(String::from_utf8_lossy(&bytes[cursor..cursor + end]).into_owned());
+        cursor += end + 1;
+    }
+    Some((arguments, environment))
 }
 
 fn foreground_process_group(fd: RawFd) -> Option<u32> {
@@ -674,6 +722,57 @@ mod tests {
             .expect_err("TIOCSWINSZ on an invalid descriptor must fail");
 
         assert!(error.to_string().contains("I/O failure"));
+    }
+
+    /// What the environment test starts: a program of its own, because macOS
+    /// keeps the environment of its own programs, such as `/bin/sleep`, hidden.
+    #[test]
+    #[ignore = "the environment test starts it"]
+    fn waits_for_the_environment_test() {
+        std::thread::sleep(Duration::from_secs(5));
+    }
+
+    #[test]
+    fn the_foreground_program_shows_the_variables_it_started_with() {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                let (mut pty, _reader) = KodosiPty::spawn_program(
+                    &env::current_exe().unwrap(),
+                    &[
+                        "--ignored".to_owned(),
+                        "--exact".to_owned(),
+                        "pty::unix::tests::waits_for_the_environment_test".to_owned(),
+                    ],
+                    None,
+                    24,
+                    80,
+                    &[("CLAUDE_CONFIG_DIR", "/tmp/a sign-in")],
+                )
+                .unwrap();
+                // The child shows its own environment once it starts the program.
+                let entry = "CLAUDE_CONFIG_DIR=/tmp/a sign-in".to_owned();
+                let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+                while !pty
+                    .foreground_environment()
+                    .unwrap_or_default()
+                    .contains(&entry)
+                    && tokio::time::Instant::now() < deadline
+                {
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                }
+                let environment = pty.foreground_environment().unwrap();
+                assert!(environment.contains(&entry));
+                assert!(
+                    !environment
+                        .iter()
+                        .any(|entry| entry.starts_with("CODEX_HOME="))
+                );
+                pty.request_shutdown(ShutdownStage::Force).unwrap();
+                pty.wait().await.unwrap();
+            });
     }
 
     #[test]

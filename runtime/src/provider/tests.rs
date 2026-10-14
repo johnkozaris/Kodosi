@@ -649,6 +649,7 @@ fn config_inspection_never_creates_or_edits_provider_files() {
         &home.path().join(".claude"),
         Provider::Claude,
         Some(&directory),
+        None,
     );
     assert!(info.files[0].exists);
     assert_eq!(
@@ -682,7 +683,7 @@ fn effective_provider_roots_are_explicit_read_only_paths() {
         let root = storage::resolve_provider_root(home.path(), provider, Some(native.as_os_str()))
             .unwrap();
         assert_eq!(root, native);
-        let info = config::inspect(&root, provider, None);
+        let info = config::inspect(&root, provider, None, None);
         assert_eq!(Path::new(&info.files[0].path), root.join("settings.json"));
         assert!(!root.exists());
         for invalid in ["relative", "/tmp/../outside", "/tmp/bad\nroot"] {

@@ -6,6 +6,7 @@
 #include "presentation/ConversationHistoryModel.hpp"
 #include "presentation/DesktopSettings.hpp"
 #include "presentation/DesktopStateModel.hpp"
+#include "presentation/AgentLauncherModel.hpp"
 #include "presentation/DevicesModel.hpp"
 #include "presentation/MissionsModel.hpp"
 #include "presentation/PeopleModel.hpp"
@@ -107,6 +108,16 @@ struct ProviderFilesModelForeign {
 public:
     inline static kodosi::ProviderFilesModel* instance = nullptr;
     static kodosi::ProviderFilesModel* create(QQmlEngine* engine, QJSEngine*) { return singleton(instance, engine); }
+};
+
+struct AgentLauncherModelForeign {
+    Q_GADGET
+    QML_FOREIGN(kodosi::AgentLauncherModel)
+    QML_NAMED_ELEMENT(Launcher)
+    QML_SINGLETON
+public:
+    inline static kodosi::AgentLauncherModel* instance = nullptr;
+    static kodosi::AgentLauncherModel* create(QQmlEngine* engine, QJSEngine*) { return singleton(instance, engine); }
 };
 
 struct AppearanceModelForeign {
@@ -213,7 +224,7 @@ struct GrainForeign {
     QML_NAMED_ELEMENT(Grain)
 };
 void configureModelInstances(Workspace&, ConversationHistoryModel&, ProviderFilesModel&,
-    AppearanceModel&, DesktopSettings&,
+    AgentLauncherModel&, AppearanceModel&, DesktopSettings&,
     DesktopStateModel&, SessionCatalogModel&, TerminalTilingLayoutModel&, DesktopFileIntegration&,
     ApplicationLifecycleModel&, TerminalSurfaceController&);
 }

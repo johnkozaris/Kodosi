@@ -8,6 +8,7 @@ Popup {
 
     property real radius: KodosiTheme.radiusXl
     property int elevation: 2
+    property color fill: KodosiTheme.lifted
 
     Component.onCompleted: Models.DesktopState.setModalVisible(root, visible && modal)
     onVisibleChanged: Models.DesktopState.setModalVisible(root, visible && modal)
@@ -26,13 +27,13 @@ Popup {
     palette.placeholderText: KodosiTheme.inkFaint
 
     Overlay.modal: Rectangle {
-        color: KodosiTheme.alpha("#000000", KodosiTheme.isDark ? 0.5 : 0.22)
+        color: KodosiTheme.alpha(KodosiTheme.shadow, KodosiTheme.isDark ? 0.55 : 0.22)
 
         Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
     }
     background: Raised {
         radius: root.radius
-        fill: KodosiTheme.lifted
+        fill: root.fill
         elevation: root.elevation
     }
     enter: Transition {

@@ -30,6 +30,12 @@ const MAX_PENDING_BYTES: usize = 4 * 1024 * 1024;
 const READ_BYTES: usize = 64 * 1024;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 const STOP_TIMEOUT: Duration = Duration::from_secs(10);
+/// How long a start line waits for the shell's prompt, and when it gives up.
+const START_PATIENCE: Duration = Duration::from_secs(3);
+const START_LIMIT: Duration = Duration::from_secs(15);
+/// Without a line discipline to read, a shell that printed and then stayed
+/// quiet this long waits at its prompt.
+const PROMPT_QUIET: Duration = Duration::from_millis(300);
 
 type Completion = Option<std::result::Result<(), String>>;
 
@@ -61,6 +67,7 @@ enum Request {
         command: String,
         reply: oneshot::Sender<Result<()>>,
     },
+    Start(String),
     Theme(bool),
 }
 
@@ -142,6 +149,9 @@ impl LocalSession {
             host_stop_reply: None,
             program: None,
             clear_line,
+            start: None,
+            launcher: None,
+            output_at: None,
             prompt: false,
             viewers: HashMap::new(),
             working_directory: launch_directory,
@@ -250,6 +260,11 @@ impl LocalSession {
     pub(crate) fn run(&self, command: String) -> impl Future<Output = Result<()>> + Send + use<> {
         let (reply, response) = oneshot::channel();
         await_reply(self.send(Request::Run { command, reply }), response)
+    }
+
+    /// Types `command` into the new shell once it waits at its first prompt.
+    pub(crate) fn start(&self, command: String) -> Result<()> {
+        self.send(Request::Start(command))
     }
 
     pub(crate) fn theme(&self, dark: bool) {
@@ -457,6 +472,11 @@ struct LocalActor {
     host_stop_reply: Option<oneshot::Sender<std::result::Result<serde_json::Value, String>>>,
     program: Option<String>,
     clear_line: &'static str,
+    start: Option<(String, tokio::time::Instant)>,
+    /// The first word of the start line, until the agent that it starts shows
+    /// which sign-in folder it got.
+    launcher: Option<String>,
+    output_at: Option<tokio::time::Instant>,
     prompt: bool,
     viewers: HashMap<Uuid, String>,
     /// The session's folder: launch folder, then the latest OSC 7 or 9;9
@@ -703,8 +723,38 @@ impl LocalActor {
         Ok(())
     }
 
+    /// Types the start line when the shell waits at its prompt: its line
+    /// editor reads single keys, or, behind a console host, it printed and
+    /// went quiet. A slow shell gets the line after a while; a shell that
+    /// started another program does not.
+    fn type_start_line(&mut self) {
+        let Some((_, since)) = &self.start else {
+            return;
+        };
+        let waited = since.elapsed();
+        let quiet = self
+            .output_at
+            .is_some_and(|output| output.elapsed() >= PROMPT_QUIET);
+        let prompt = self.pty.foreground_is_child()
+            && (self.pty.reads_keys()
+                || (kodosi_pty::CONSOLE_HOST && quiet)
+                || waited >= START_PATIENCE);
+        if !prompt && waited < START_LIMIT {
+            return;
+        }
+        let Some((line, _)) = self.start.take() else {
+            return;
+        };
+        if !prompt {
+            tracing::info!(id = %self.id, "the start line was dropped because the shell runs another program");
+        } else if let Err(error) = self.enqueue(Bytes::from(format!("{line}\r")), None) {
+            tracing::warn!(id = %self.id, %error, "the start line was not typed");
+        }
+    }
+
     async fn maintain(&mut self) -> Result<()> {
         self.subscribers.prune();
+        self.type_start_line();
         if self.subscribers.caught_up() && tokio::time::Instant::now() >= self.next_refresh {
             match self.emulator.checkpoint_data(true).await {
                 Ok(cut) => self
@@ -738,6 +788,7 @@ impl LocalActor {
                 self.program = program;
                 self.metadata_dirty = true;
             }
+            self.learn_sign_in();
             if prompt != self.prompt
                 && self
                     .changes
@@ -794,6 +845,7 @@ impl LocalActor {
     }
 
     async fn apply_output(&mut self, bytes: Bytes, accepting_input: bool) -> Result<()> {
+        self.output_at = Some(tokio::time::Instant::now());
         let applied = self.emulator.process_output(bytes.clone()).await?;
         if applied.processing_failed
             || applied.applied_sequence != self.sequence.checked_add(1).ok_or(Error::Stopped)?
@@ -883,6 +935,33 @@ impl LocalActor {
         self.working_directory = path;
         self.metadata_dirty = true;
         true
+    }
+
+    /// When the agent that the start line started runs in front, reads which
+    /// sign-in folder it got, so the accounts know what the command does.
+    fn learn_sign_in(&mut self) {
+        let (Some(program), Some(command)) = (&self.program, &self.launcher) else {
+            return;
+        };
+        if self.start.is_some() {
+            return;
+        }
+        if let Some(variable) = crate::agents::sign_in_variable(program)
+            && self.pty.foreground_program().as_deref() == Some(program.as_str())
+            && let Some(environment) = self.pty.foreground_environment()
+        {
+            let prefix = format!("{variable}=");
+            drop(
+                self.changes.try_send(SessionChange::Launched {
+                    program: program.clone(),
+                    command: command.clone(),
+                    folder: environment
+                        .iter()
+                        .find_map(|entry| entry.strip_prefix(&prefix).map(str::to_owned)),
+                }),
+            );
+        }
+        self.launcher = None;
     }
 
     fn at_prompt(&self, program: Option<&str>) -> bool {
@@ -978,6 +1057,10 @@ impl LocalActor {
                     Err(Error::Invalid("This terminal runs a program.".to_owned()))
                 };
                 drop(reply.send(result));
+            }
+            Request::Start(line) => {
+                self.launcher = line.split_whitespace().next().map(str::to_owned);
+                self.start = Some((line, tokio::time::Instant::now()));
             }
             Request::Theme(dark) => {
                 if let Err(error) = self.emulator.notify_theme_changed(dark).await {

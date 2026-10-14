@@ -34,7 +34,7 @@ QtObject {
 
     function kind(program: string): string {
         const lower = program.toLowerCase()
-        for (const name of ["claude", "codex", "copilot", "cursor"]) {
+        for (const name of ["claude", "codex", "copilot", "cursor", "gemini", "opencode"]) {
             if (lower.indexOf(name) >= 0)
                 return name
         }
@@ -47,6 +47,8 @@ QtObject {
         case "codex": return "#5f6b7a"
         case "copilot": return "#8660d9"
         case "cursor": return "#4e7c8c"
+        case "gemini": return "#5579c9"
+        case "opencode": return "#6f6258"
         default: return "#54433a"
         }
     }
@@ -57,6 +59,8 @@ QtObject {
         case "codex": return "Codex"
         case "copilot": return "Copilot"
         case "cursor": return "Cursor"
+        case "gemini": return "Gemini CLI"
+        case "opencode": return "OpenCode"
         default: return qsTr("Shell")
         }
     }

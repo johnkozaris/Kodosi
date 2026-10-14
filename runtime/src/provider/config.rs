@@ -2,14 +2,11 @@ use std::path::{Path, PathBuf};
 
 use super::{ConfigFile, Provider, ProviderInfo};
 
-pub(super) fn resolve_executable(provider: Provider) -> Option<PathBuf> {
-    kodosi_os::process::find_executable(provider.executable())
-}
-
 pub(super) fn inspect(
     state_root: &Path,
     provider: Provider,
     directory: Option<&Path>,
+    executable: Option<PathBuf>,
 ) -> ProviderInfo {
     let mut paths = vec![("User settings", state_root.join("settings.json"), true)];
     if let Some(directory) = directory {
@@ -76,7 +73,7 @@ pub(super) fn inspect(
             }
         })
         .collect();
-    let executable = resolve_executable(provider).map(|path| path.to_string_lossy().into_owned());
+    let executable = executable.map(|path| path.to_string_lossy().into_owned());
     let message = if executable.is_none() {
         Some(format!(
             "{} is not available on PATH",

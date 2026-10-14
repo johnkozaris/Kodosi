@@ -33,7 +33,7 @@ struct RoomRecovery: View {
                 .frame(width: 52, height: 52).background(theme.colors.cautionSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         } actions: {
             Button("Details") { showsDetail.toggle() }.buttonStyle(.kodosi(.ghost))
-                .popover(isPresented: $showsDetail) {
+                .kodosiPopover(isPresented: $showsDetail) {
                     Text(message).appTextStyle(.body).textSelection(.enabled).padding(16)
                         .fixedSize(horizontal: false, vertical: true).popoverSheet(width: 340)
                 }

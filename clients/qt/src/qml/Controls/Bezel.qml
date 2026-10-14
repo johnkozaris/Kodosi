@@ -11,7 +11,7 @@ Item {
     property bool lifted: true
     property color face: pressed ? KodosiTheme.mix(fill, "#000000", 0.08) : fill
 
-    readonly property bool dark: KodosiTheme.isDark
+    property bool dark: KodosiTheme.isDark
     readonly property real hair: Screen.devicePixelRatio >= 2 ? 0.5 : 1
     readonly property real ring: !dark && !quiet ? hair : 0
     readonly property color light: Qt.rgba(1, 1, 1, dark ? (quiet ? 0.06 : 0.05) : (quiet ? 0.35 : 0.22))

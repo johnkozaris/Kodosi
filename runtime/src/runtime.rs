@@ -1507,6 +1507,18 @@ impl Runtime {
                 }
             }
             #[cfg(feature = "host")]
+            SessionChange::Launched {
+                program,
+                command,
+                folder,
+            } => {
+                let store = self.config.data_root.clone();
+                let home = self.config.home.clone();
+                drop(tokio::task::spawn_blocking(move || {
+                    crate::agents::remember(&store, &home, &program, &command, folder);
+                }));
+            }
+            #[cfg(feature = "host")]
             SessionChange::Prompt { id, prompt } => {
                 if let Some(local) = self.local.get_mut(&id) {
                     local.entry.prompt = prompt;

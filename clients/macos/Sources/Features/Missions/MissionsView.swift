@@ -180,7 +180,7 @@ struct NewRoomSheet: View {
                 .accessibilityIdentifier("missions.create.confirm")
             }
         }
-        .padding(28).frame(width: 400).background(theme.colors.raised.mix(with: theme.colors.surface, by: 0.4))
+        .padding(28).frame(width: 400)
         .onAppear { focused = true }
     }
 

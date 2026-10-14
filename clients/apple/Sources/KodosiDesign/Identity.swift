@@ -26,8 +26,8 @@ public enum PersonTint {
     }
 }
 
-public enum AgentKind: String, Sendable {
-    case claude, codex, copilot, cursor, shell
+public enum AgentKind: String, CaseIterable, Sendable {
+    case claude, codex, copilot, cursor, gemini, opencode, shell
 
     public init(program: String?) {
         self = program.flatMap { AgentKind(rawValue: $0) } ?? .shell
@@ -39,7 +39,7 @@ public enum AgentKind: String, Sendable {
             return
         }
         let name = agentName?.lowercased() ?? ""
-        self = [AgentKind.claude, .codex, .copilot, .cursor].first { name.contains($0.rawValue) } ?? .shell
+        self = AgentKind.allCases.first { $0.isAgent && name.contains($0.rawValue) } ?? .shell
     }
 
     public var asset: String? {
@@ -48,6 +48,8 @@ public enum AgentKind: String, Sendable {
         case .codex: "ProviderCodex"
         case .copilot: "ProviderCopilot"
         case .cursor: "ProviderCursor"
+        case .gemini: "ProviderGemini"
+        case .opencode: "ProviderOpencode"
         case .shell: nil
         }
     }
@@ -62,6 +64,8 @@ public enum AgentKind: String, Sendable {
         case .codex: hex(0x5F6B7A)
         case .copilot: hex(0x8660D9)
         case .cursor: hex(0x4E7C8C)
+        case .gemini: hex(0x5579C9)
+        case .opencode: hex(0x6F6258)
         case .shell: hex(0x54433A)
         }
     }
@@ -72,6 +76,8 @@ public enum AgentKind: String, Sendable {
         case .codex: "Codex"
         case .copilot: "Copilot"
         case .cursor: "Cursor"
+        case .gemini: "Gemini CLI"
+        case .opencode: "OpenCode"
         case .shell: String(localized: "Shell", bundle: .module)
         }
     }

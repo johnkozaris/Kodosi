@@ -16,7 +16,6 @@ Item {
 
     signal inspectSessionRequested(string sessionId, string sessionName)
     signal shareSessionRequested(string sessionId, string sessionName)
-    signal newSessionRequested()
     signal resumeRequested()
     property bool interactionEnabled: true
     property bool dividerDragging: false
@@ -367,7 +366,6 @@ Item {
                 visible: !stageFlick.visible
                 loading: root.catalogLoading
                 failed: root.catalogFailed
-                onNewTerminalRequested: root.newSessionRequested()
                 onResumeRequested: root.resumeRequested()
             }
         }
