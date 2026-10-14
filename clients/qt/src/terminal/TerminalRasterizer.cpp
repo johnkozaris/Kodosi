@@ -85,7 +85,7 @@ void drawBlockElement(
         fillBlock(painter, bounds, color, {0.875, 0.0, 0.125, 1.0});
     } else {
         const auto mask = quadrants.at(static_cast<std::size_t>(codepoint - 0x2596));
-        for (const auto [bit, part] : {
+        for (const auto& [bit, part] : {
                  std::pair {1, QRectF {0.0, 0.0, 0.5, 0.5}},
                  std::pair {2, QRectF {0.5, 0.0, 0.5, 0.5}},
                  std::pair {4, QRectF {0.0, 0.5, 0.5, 0.5}},
