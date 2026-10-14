@@ -39,12 +39,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     func applicationDidFinishLaunching(_: Notification) {
         UNUserNotificationCenter.current().delegate = self
         dependencies.start()
+        if dependencies.updater.configured, !storageBootstrap.isIsolated {
+            dependencies.updater.start()
+            offerUpdates()
+        }
         let isRunning = dependencies.runtimeHandle.isRunning
         Logger.app.info("App launched. Runtime running: \(isRunning)")
 
         configureMainWindow()
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.windowChromeSettle) {
             self.ensureWindowOnAvailableScreen()
+        }
+    }
+
+    /// Sparkle cannot replace an app that runs from the disk image, and terminals outside
+    /// Kodosi need the kodosi command once.
+    private func offerUpdates() {
+        let path = Bundle.main.bundlePath
+        if path.hasPrefix("/Volumes/") || path.contains("/AppTranslocation/") {
+            dependencies.errorMessage = String(localized: "Move Kodosi to Applications and open it again. Kodosi cannot update itself here.")
+            return
+        }
+        let offered = "kodosi.commandLineOffered"
+        if !dependencies.commandInstalled, !storageBootstrap.defaults.bool(forKey: offered) {
+            storageBootstrap.defaults.set(true, forKey: offered)
+            dependencies.offersCommand = true
         }
     }
 
@@ -74,14 +93,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         if terminating {
             return .terminateLater
         }
-        if !storageBootstrap.isIsolated, dependencies.sessions.contains(where: { $0.kind == .local }) {
+        let local = dependencies.sessions.count(where: { $0.kind == .local })
+        if !storageBootstrap.isIsolated, local > 0 {
+            let restarting = dependencies.updater.restarting
             let alert = NSAlert()
-            alert.messageText = String(localized: "Quit Kodosi?")
-            alert.informativeText = String(localized: "Terminals on this Mac will close.")
+            alert.messageText = restarting ? String(localized: "Restart Kodosi to update?") : String(localized: "Quit Kodosi?")
+            alert.informativeText = local == 1
+                ? String(localized: "1 terminal on this Mac will close.")
+                : String(localized: "\(local) terminals on this Mac will close.")
             alert.alertStyle = .warning
             alert.addButton(withTitle: String(localized: "Cancel"))
-            alert.addButton(withTitle: String(localized: "Quit"))
-            guard alert.runModal() == .alertSecondButtonReturn else { return .terminateCancel }
+            alert.addButton(withTitle: restarting ? String(localized: "Restart") : String(localized: "Quit"))
+            guard alert.runModal() == .alertSecondButtonReturn else {
+                dependencies.updater.restartCancelled()
+                return .terminateCancel
+            }
         }
         terminating = true
         dependencies.shutdownProcess { [weak self] in self?.finishTermination(application) }

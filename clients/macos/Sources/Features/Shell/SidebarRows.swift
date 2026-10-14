@@ -44,13 +44,14 @@ struct SidebarNavRow: View {
     let badge: Int
     let selected: Bool
     let pill: Namespace.ID
+    var tint: Color?
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: symbol).font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(selected ? theme.colors.accentStrong : theme.colors.inkMuted).frame(width: 22)
+                    .foregroundStyle(tint ?? (selected ? theme.colors.accentStrong : theme.colors.inkMuted)).frame(width: 22)
                 Text(title).appTextStyle(.body).fontWeight(selected ? .medium : .regular).foregroundStyle(theme.colors.ink)
                 Spacer(minLength: 0)
                 if badge > 0 {

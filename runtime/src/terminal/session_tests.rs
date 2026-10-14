@@ -885,3 +885,18 @@ async fn the_person_of_the_host_is_here_while_this_computer_shows_a_shared_termi
         assert!(!matches!(change, SessionChange::Presence { .. }));
     }
 }
+
+#[test]
+fn terminals_find_the_kodosi_command_of_the_running_app() {
+    let app = tempfile::tempdir().expect("app folder");
+    let folder = app.path().to_path_buf();
+    let path = std::ffi::OsString::from("/usr/bin:/bin");
+    assert_eq!(path_with_command(&path, folder.clone()), None);
+    std::fs::write(folder.join("kodosi"), b"").expect("command");
+    assert_eq!(
+        path_with_command(&path, folder.clone()),
+        Some(format!("/usr/bin:/bin:{}", folder.display()))
+    );
+    let present = std::env::join_paths([PathBuf::from("/usr/bin"), folder.clone()]).expect("path");
+    assert_eq!(path_with_command(&present, folder), None);
+}

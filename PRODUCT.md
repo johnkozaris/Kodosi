@@ -85,6 +85,12 @@ answers, and controls the terminals of the person's computers and friends, and t
 part in rooms; it starts no terminals. The `kodosi room` CLI and its bundled skill let
 existing agents participate through the running host.
 
+Each app contains the CLI and has one version. The Mac app updates itself; by default
+it downloads an update in the background and installs it when the person quits Kodosi,
+and a "Restart to Update" mark waits in the sidebar. A restart always asks first, because
+it ends the terminals of the host. The backend accepts a range of app versions, and an
+app that is too old for it asks the person to update Kodosi.
+
 Terminals show the state that their programs report through the Program Status
 Protocol (OSC 7501) or a progress bar: working, waiting for a person, done, or failed.
 Everyone who can open a terminal sees its state before they open it: the host sends the

@@ -30,7 +30,7 @@ final class WorkbenchState {
         }
     }
 
-    enum SettingsSection: String { case terminal, providers, devices }
+    enum SettingsSection: String { case terminal, providers, devices, general }
 
     static let maximumStagedSessions = 6
     var section: Section = .sessions

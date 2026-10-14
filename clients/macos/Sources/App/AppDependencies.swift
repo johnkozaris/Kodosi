@@ -47,6 +47,10 @@ final class AppDependencies {
     var openedLoginCode: String?
     var identityMessage: String?
     var errorMessage: String?
+    let updater = AppUpdater()
+    var updateRequired = false
+    var offersCommand = false
+    var commandInstalled = CommandLineTool.installed
     var accountDeletion: AccountDeletion?
     var appState: AppState = .launching
     var pendingDeepLink: DeepLinkDestination? {
@@ -92,6 +96,17 @@ final class AppDependencies {
             }
         )
         commandSink.onFailure = { [weak self] message in self?.errorMessage = message }
+    }
+
+    func installCommand() {
+        offersCommand = false
+        Task {
+            switch await CommandLineTool.install() {
+            case .installed: commandInstalled = CommandLineTool.installed
+            case .cancelled: break
+            case .failed: errorMessage = String(localized: "Kodosi could not install the kodosi command.")
+            }
+        }
     }
 
     func start() {

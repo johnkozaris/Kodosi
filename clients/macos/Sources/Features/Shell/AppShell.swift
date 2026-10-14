@@ -103,13 +103,22 @@ struct AppShell: View {
         }
     }
 
-    @ViewBuilder
     private var notice: some View {
-        if let error = deps.errorMessage {
-            NoticePill(message: error, identifier: "shell.error") { deps.errorMessage = nil }
-                .padding(.top, Metrics.frameInset + 10)
-                .padding(.leading, deps.workbench.sidebarCollapsed ? Metrics.sidebarRailWidth : Metrics.sidebarWidth)
-                .transition(.move(edge: .top).combined(with: .opacity))
+        Group {
+            if deps.updateRequired {
+                NoticePill(message: String(localized: "This version of Kodosi is too old for the server. Update Kodosi."),
+                           identifier: "shell.update", retry: deps.updater.configured ? { deps.updater.check() } : nil,
+                           actionTitle: "Check for Updates", dismiss: { deps.updateRequired = false })
+            } else if let error = deps.errorMessage {
+                NoticePill(message: error, identifier: "shell.error") { deps.errorMessage = nil }
+            } else if deps.offersCommand {
+                NoticePill(message: String(localized: "Use the kodosi command in all your terminals?"),
+                           identifier: "shell.command", retry: { deps.installCommand() },
+                           actionTitle: "Install", dismiss: { deps.offersCommand = false })
+            }
         }
+        .padding(.top, Metrics.frameInset + 10)
+        .padding(.leading, deps.workbench.sidebarCollapsed ? Metrics.sidebarRailWidth : Metrics.sidebarWidth)
+        .transition(.move(edge: .top).combined(with: .opacity))
     }
 }

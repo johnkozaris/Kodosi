@@ -41,15 +41,23 @@ version of the Mac app, the iOS app, the Linux and Windows app and the CLI.
 The app executable also implements the CLI:
 
 ```sh
-/absolute/path/KodosiDesktop.app/Contents/MacOS/KodosiDesktop --help
+/absolute/path/Kodosi.app/Contents/MacOS/Kodosi --help
 ```
 
-For `kodosi` in your shells and agent terminals, put a symlink named `kodosi` on your
-PATH pointing to that executable. Use the absolute path to your built app. The CLI
-must be the signed app executable to use the app's Keychain identity.
+Kodosi's own terminals find `kodosi` without a step. For other terminals, Settings →
+General installs the link `/usr/local/bin/kodosi` to the app executable; the Homebrew
+cask makes the same link. The CLI must be the signed app executable to use the app's
+Keychain identity.
 
 Keep the app running when using room commands for its terminals. See
 [Agents and tasks](../../docs/AGENTS_AND_TASKS.md).
+
+## Updates
+
+Release builds update with [Sparkle](https://sparkle-project.org) from
+`https://updates.kodosi.com/macos/appcast.xml`. Debug and working-tree builds do not
+update. `KODOSI_UPDATE_KEY` in `Config/Release.xcconfig` is the public EdDSA key of
+the feed; a publishable build needs it.
 
 ## Check and package
 

@@ -1,4 +1,5 @@
 ghostty_dir := env('KODOSI_GHOSTTY_DIR', justfile_directory() + "/../../terminal/ghostty")
+version := trim(`cat ../../VERSION`)
 
 export KODOSI_GHOSTTY_DIR := ghostty_dir
 
@@ -85,16 +86,16 @@ check: lint deployment-targets-check release-graph-test apple-test
         -destination 'generic/platform=macOS' \
         build
 
-# Archive, export, notarize and package the Mac app in build/export/KodosiDesktop.dmg. Commit all the changes first.
+# Archive, export, notarize and package the Mac app in build/export/Kodosi-<version>.dmg. Commit all the changes first.
 release-package:
     scripts/release/archive.sh build/archive/KodosiDesktop.xcarchive
     scripts/release/export.sh build/archive/KodosiDesktop.xcarchive build/export
-    scripts/release/notarize.sh build/export/KodosiDesktop.app
-    scripts/release/package-dmg.sh build/export/KodosiDesktop.app build/export/KodosiDesktop.dmg
+    scripts/release/notarize.sh build/export/Kodosi.app
+    scripts/release/package-dmg.sh build/export/Kodosi.app build/export/Kodosi-{{ version }}.dmg
 
-# Write the Homebrew cask build/KodosiDesktop.rb for the disk image at KODOSI_DOWNLOAD_URL.
+# Write the Homebrew cask build/kodosi.rb for the disk image at KODOSI_DOWNLOAD_URL.
 cask-gen:
-    scripts/release/generate-cask.sh build/export/KodosiDesktop.dmg build/KodosiDesktop.rb
+    scripts/release/generate-cask.sh build/export/Kodosi-{{ version }}.dmg build/kodosi.rb
 
 # Check the signatures, the profile and the entitlements of the app in the release archive.
 signature-check:

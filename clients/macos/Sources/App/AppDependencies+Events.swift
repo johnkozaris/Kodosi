@@ -127,7 +127,7 @@ extension AppDependencies {
 
     private func receiveSystem(_ event: RuntimeEvent) throws {
         if event.type == "system.updateRequired" {
-            errorMessage = String(localized: "This version of Kodosi is too old for the server. Update Kodosi.")
+            updateRequired = true
             return
         }
         guard event.type == "system.ready" else { return }
