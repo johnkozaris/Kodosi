@@ -87,18 +87,18 @@ bool isStatusGlyph(const char32_t scalar)
 
 bool SessionCatalogModel::isWorking(const Session& session)
 {
-    if (!presentation(session).canControl)
+    if (session.status == QStringLiteral("closing"))
         return false;
     if (!session.programState.isEmpty())
         return session.programState == QStringLiteral("working");
     const auto scalars = session.title.toUcs4();
-    return !scalars.isEmpty() && isSpinner(scalars.first());
+    return presentation(session).canControl && !scalars.isEmpty() && isSpinner(scalars.first());
 }
 
 QString SessionCatalogModel::waitState(const Session& session)
 {
     const bool result = session.programState == QStringLiteral("done") || session.programState == QStringLiteral("error");
-    const bool blocked = session.programState == QStringLiteral("blocked") && presentation(session).canControl;
+    const bool blocked = session.programState == QStringLiteral("blocked") && session.status != QStringLiteral("closing");
     return result || blocked ? session.programState : QString {};
 }
 

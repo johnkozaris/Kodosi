@@ -1,10 +1,94 @@
 use super::*;
-use crate::{identity::keys::DeviceKeys, network::BackendConfig};
+use crate::{
+    identity::keys::DeviceKeys,
+    network::{
+        BackendConfig,
+        wire::{Change, Notice, TerminalNotice},
+    },
+};
 use serde_json::json;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt as _, AsyncReadExt as _, AsyncWriteExt as _, BufReader};
 use uuid::Uuid;
 use zeroize::Zeroizing;
+
+#[test]
+fn notices_for_one_room_collapse_into_one_read_up_to_the_highest_sequence() {
+    let (first, second) = (Uuid::now_v7(), Uuid::now_v7());
+    let room = |room, sequence| Change {
+        surface: "rooms".into(),
+        room: Some(room),
+        sequence,
+    };
+    let mut waiting = Waiting::default();
+    for change in [
+        room(first, Some(4)),
+        room(first, Some(9)),
+        room(first, Some(7)),
+    ] {
+        waiting.add(&change).unwrap();
+    }
+    waiting.add(&room(second, Some(2))).unwrap();
+    assert_eq!(
+        waiting.rooms,
+        Some(Scope::Rooms(BTreeMap::from([
+            (first, Some(9)),
+            (second, Some(2))
+        ])))
+    );
+    waiting.add(&room(second, None)).unwrap();
+    assert_eq!(
+        waiting.rooms,
+        Some(Scope::Rooms(BTreeMap::from([
+            (first, Some(9)),
+            (second, None)
+        ])))
+    );
+    waiting.add(&Change::of("rooms")).unwrap();
+    waiting.add(&room(first, Some(12))).unwrap();
+    assert_eq!(waiting.rooms, Some(Scope::All));
+    waiting
+        .add(&Change {
+            surface: "missions".into(),
+            room: Some(first),
+            sequence: None,
+        })
+        .unwrap();
+    assert_eq!(
+        waiting.missions,
+        Some(Scope::Rooms(BTreeMap::from([(first, None)])))
+    );
+    assert!(waiting.add(&Change::of("unknown")).is_err());
+}
+
+#[test]
+fn a_list_refresh_replaces_the_terminal_notices_that_came_before_it() {
+    let notice = |session, online| {
+        Notice::Terminal(TerminalNotice {
+            session,
+            incarnation: Uuid::nil(),
+            online,
+            status: None,
+        })
+    };
+    let (first, second) = (Uuid::now_v7(), Uuid::now_v7());
+    let mut waiting = Waiting::default();
+    for each in [
+        notice(first, true),
+        notice(second, true),
+        notice(first, false),
+    ] {
+        waiting.take(each).unwrap();
+    }
+    assert_eq!(waiting.terminals.len(), 2);
+    assert!(!waiting.terminals[&first].online);
+    waiting
+        .take(Notice::Changed(Change::of("sessions")))
+        .unwrap();
+    waiting.take(notice(second, false)).unwrap();
+    assert!(waiting.terminals.is_empty());
+    assert!(!waiting.is_empty());
+}
 
 #[tokio::test]
 async fn room_notifications_use_the_renewed_token_on_the_existing_connection() {
@@ -92,9 +176,11 @@ async fn room_notifications_use_the_renewed_token_on_the_existing_connection() {
     let mut renewed = admitted.clone();
     renewed.token = Zeroizing::new("renewed-token".into());
     *network.inner.credentials.write().unwrap() = Some(renewed);
+    let mut waiting = Waiting::default();
+    waiting.add(&Change::of("missions")).unwrap();
     tokio::time::timeout(
         Duration::from_secs(5),
-        network.refresh_surface(&admitted, "rooms"),
+        network.refresh_waiting(&admitted, &mut waiting),
     )
     .await
     .unwrap()

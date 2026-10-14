@@ -492,6 +492,8 @@ impl BackendClient {
                         self.refresh_room_keys(
                             &credentials,
                             Uuid::parse_str(room).map_err(|_| invalid("Invalid room identity."))?,
+                            false,
+                            &mut rooms::Lookups::default(),
                         )
                         .await?;
                     }
@@ -627,9 +629,28 @@ impl BackendClient {
                 }
             }
         }
-        Ok(
-            json!({"type":"network.sessions","sessions":sessions.into_iter().map(super::RemoteSession::from).collect::<Vec<_>>()}),
-        )
+        let mut remotes = Vec::with_capacity(sessions.len());
+        for dto in sessions {
+            let status = match (dto.mission_id, &dto.status) {
+                (Some(room), Some(sealed)) => match self
+                    .open_terminal_status(&credentials, (room, dto.id, dto.incarnation_id), sealed)
+                    .await
+                {
+                    Ok(status) => Some(status),
+                    Err(error) if error.unanswered() => return Err(error),
+                    Err(error) => {
+                        tracing::debug!(%error, "a terminal status could not be read");
+                        None
+                    }
+                },
+                _ => None,
+            };
+            remotes.push(super::RemoteSession {
+                status,
+                ..dto.into()
+            });
+        }
+        Ok(json!({"type":"network.sessions","sessions":remotes}))
     }
 
     #[cfg(feature = "host")]
@@ -782,7 +803,8 @@ impl BackendClient {
             return Err(Error::EnrollmentRequired);
         }
         if let Some(room) = info.mission_id {
-            self.refresh_room_keys(&credentials, room).await?;
+            self.refresh_room_keys(&credentials, room, false, &mut rooms::Lookups::default())
+                .await?;
         }
         if let Some(publication) = self.inner.publications.lock().await.get(&info.session_id) {
             if publication.info.read().await.incarnation_id != info.incarnation_id {

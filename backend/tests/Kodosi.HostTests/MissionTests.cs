@@ -97,17 +97,18 @@ public sealed class MissionTests(PostgresFixture postgres)
         await store.Missions.InviteAsync(extra.Id, owner.User.Id, new(Guid.CreateVersion7(), invitee.User.Id), TestContext.Current.CancellationToken);
         Assert.Equal(Limits.MaxPendingMissionInvitations, await store.Db.MissionInvitations.CountAsync(TestContext.Current.CancellationToken));
     }
+}
 
-    private sealed class EventSocket : FakeSocket
+internal sealed class EventSocket : FakeSocket
+{
+    private readonly System.Threading.Channels.Channel<byte[]> frames = System.Threading.Channels.Channel.CreateUnbounded<byte[]>();
+    public override Task SendAsync(ArraySegment<byte> buffer, System.Net.WebSockets.WebSocketMessageType type, bool endOfMessage, CancellationToken ct)
+    { frames.Writer.TryWrite(buffer.ToArray()); return Task.CompletedTask; }
+    public async Task<JsonElement> NextAsync()
     {
-        private readonly System.Threading.Channels.Channel<byte[]> frames = System.Threading.Channels.Channel.CreateUnbounded<byte[]>();
-        public override Task SendAsync(ArraySegment<byte> buffer, System.Net.WebSockets.WebSocketMessageType type, bool endOfMessage, CancellationToken ct)
-        { frames.Writer.TryWrite(buffer.ToArray()); return Task.CompletedTask; }
-        public async Task<string?> NextSurfaceAsync()
-        {
-            var bytes = await frames.Reader.ReadAsync(TestContext.Current.CancellationToken).AsTask().WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
-            using var json = JsonDocument.Parse(bytes);
-            return json.RootElement.GetProperty("surface").GetString();
-        }
+        var bytes = await frames.Reader.ReadAsync(TestContext.Current.CancellationToken).AsTask().WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        using var json = JsonDocument.Parse(bytes);
+        return json.RootElement.Clone();
     }
+    public async Task<string?> NextSurfaceAsync() => (await NextAsync()).GetProperty("surface").GetString();
 }
