@@ -133,11 +133,17 @@ qt_add_library(kodosi-terminal-kernel STATIC
     terminal/TerminalViewInput.cpp
     terminal/TerminalViewRendering.cpp
     terminal/TerminalView.hpp
+)
+
+qt_add_library(kodosi-ui-items STATIC
     ui/Grain.cpp
     ui/Grain.hpp
     ui/SoftShadow.cpp
     ui/SoftShadow.hpp
 )
+
+target_include_directories(kodosi-ui-items PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(kodosi-ui-items PUBLIC Qt6::Quick)
 
 qt_add_library(kodosi-qml-models STATIC)
 qt_add_qml_module(kodosi-qml-models
@@ -162,6 +168,7 @@ target_link_libraries(kodosi-qml-models
         kodosi-desktop-integration
         kodosi-application
         kodosi-terminal-kernel
+        kodosi-ui-items
 )
 
 target_include_directories(kodosi-terminal-kernel PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -327,6 +334,12 @@ target_compile_definitions(kodosi-terminal-kernel
         QT_NO_CAST_TO_ASCII
         QT_NO_URL_CAST_FROM_STRING
 )
+target_compile_definitions(kodosi-ui-items
+    PUBLIC
+        QT_NO_CAST_FROM_ASCII
+        QT_NO_CAST_TO_ASCII
+        QT_NO_URL_CAST_FROM_STRING
+)
 target_compile_definitions(
     kodosi-qt
     PRIVATE
@@ -334,7 +347,7 @@ target_compile_definitions(
         QT_NO_CAST_TO_ASCII
         KODOSI_VERSION="${PROJECT_VERSION}"
 )
-foreach(target kodosi-runtime kodosi-application kodosi-desktop-integration kodosi-terminal-kernel kodosi-qt)
+foreach(target kodosi-runtime kodosi-application kodosi-desktop-integration kodosi-terminal-kernel kodosi-ui-items kodosi-qt)
     target_compile_options(${target} PRIVATE ${KODOSI_COMPILE_OPTIONS})
 endforeach()
 

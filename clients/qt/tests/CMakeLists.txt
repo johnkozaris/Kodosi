@@ -1,7 +1,7 @@
 function(kodosi_test name source)
     qt_add_executable(${name} ${source})
     target_link_libraries(${name} PRIVATE
-        kodosi-application kodosi-desktop-integration kodosi-terminal-kernel
+        kodosi-application kodosi-desktop-integration kodosi-terminal-kernel kodosi-ui-items
         kodosi-ghostty-vt Qt6::Test Qt6::Widgets Qt6::QuickControls2)
     target_compile_definitions(${name} PRIVATE KODOSI_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
     add_test(NAME ${name} COMMAND ${KODOSI_TEST_LAUNCHER} "$<TARGET_FILE:${name}>")
