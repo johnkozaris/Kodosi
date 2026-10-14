@@ -341,8 +341,7 @@
   height: calc(var(--logo-size) * 1.2);
   overflow: clip;
 }
-/* The K of the apps (clients/macos/Resources/Assets.xcassets/KodosiLogo) and the word in its
-   planks. */
+/* The wordmark (docs/brand/kodosi-wordmark.png): the K with "odosi" in the same planks. */
 .logo-word {
   display: block;
   height: 100%;

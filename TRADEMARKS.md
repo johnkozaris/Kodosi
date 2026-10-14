@@ -1,6 +1,9 @@
 # Trademarks
 
 The name Kodosi, the Kodosi logo and the app icons are trademarks of John Kozaris.
+The Kodosi logo is the copper K ([kodosi-mark.png](docs/brand/kodosi-mark.png)), and the
+wordmark is the K with "odosi" in the same planks
+([kodosi-wordmark.png](docs/brand/kodosi-wordmark.png)).
 
 The [MIT License](LICENSE) covers the code. It gives no right to use these trademarks.
 This page tells you how you can use them.

@@ -409,31 +409,23 @@ public struct DeviceGlyph: View {
     }
 }
 
+/// The Kodosi wordmark, 1.2 times `size` tall, and the copper cursor at the end of the word: it
+/// stands on the line of the word, as tall as its small letters.
 public struct KodosiWordmark: View {
-    @Environment(\.theme) private var theme
     public var size: CGFloat = 17
-    public var showsMark = true
     public var blinks = true
 
-    public init(size: CGFloat = 17, showsMark: Bool = true, blinks: Bool = true) {
+    public init(size: CGFloat = 17, blinks: Bool = true) {
         self.size = size
-        self.showsMark = showsMark
         self.blinks = blinks
     }
 
     public var body: some View {
-        HStack(spacing: size * 0.5) {
-            if showsMark {
-                Image(theme.isDark ? "KodosiLogoDark" : "KodosiLogo", bundle: .module)
-                    .resizable().scaledToFit().frame(width: size * 1.5, height: size * 1.5)
-            }
-            HStack(alignment: .center, spacing: size * 0.12) {
-                Text(verbatim: "kodosi")
-                    .font(.system(size: size, weight: .heavy, design: .monospaced))
-                    .tracking(-size * 0.02)
-                    .foregroundStyle(theme.colors.ink)
-                CursorBlock(width: size * 0.5, height: size * 0.92, blinks: blinks)
-            }
+        HStack(alignment: .top, spacing: size * 0.1) {
+            Image("KodosiWordmark", bundle: .module)
+                .resizable().interpolation(.high).scaledToFit().frame(height: size * 1.2)
+            CursorBlock(width: size * 0.43, height: size * 0.86, blinks: blinks)
+                .padding(.top, size * 0.32)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: "Kodosi"))
