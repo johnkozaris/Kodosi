@@ -345,7 +345,7 @@
 .logo-word {
   display: block;
   height: 100%;
-  aspect-ratio: 2705 / 617;
+  aspect-ratio: 2813 / 617;
   background: url("./assets/wordmark.webp") center / contain no-repeat;
 }
 /* The cursor stands on the line of the word, as tall as its small letters. */
