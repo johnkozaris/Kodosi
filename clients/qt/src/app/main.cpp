@@ -15,23 +15,23 @@
 #include "presentation/Workspace.hpp"
 #include "platform/DesktopFileIntegration.hpp"
 #include "platform/SystemNotificationDriver.hpp"
-#ifdef Q_OS_WIN
-#include "platform/windows/WindowFrame.hpp"
-#endif
 #include "terminal/TerminalAccessibility.hpp"
 #include "terminal/TerminalSessionRegistry.hpp"
 #include "terminal/TerminalSurfaceController.hpp"
 #include <kodosi_runtime.h>
 #include <QApplication>
-#include <QFont>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
-#include <QQuickWindow>
 #include <QRegularExpression>
 #include <QSettings>
 #include <QWindow>
 #include <memory>
 #include <optional>
+#ifdef Q_OS_WIN
+#include "platform/windows/WindowFrame.hpp"
+#include <QFont>
+#include <QQuickWindow>
+#endif
 
 namespace {
 
