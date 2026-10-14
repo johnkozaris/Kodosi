@@ -221,6 +221,11 @@ void AppearanceModel::injectSystemColorSchemeForTesting(
     updateEffectiveScheme(scheme);
 }
 
+void AppearanceModel::injectReducedMotionForTesting(const bool enabled)
+{
+    setReducedMotion(enabled);
+}
+
 void AppearanceModel::load()
 {
     m_preference = Preference::System;

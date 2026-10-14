@@ -27,6 +27,7 @@ private slots:
     void missionCreationHasOneNameField();
     void messageTextKeepsSpacesEscapesMarkupAndSkipsYourself();
     void shadowFallsOffLikeAGaussian();
+    void listsRaiseOnlyTheItemsTheyNeverShowed();
 };
 
 void ControlsTest::shadowFallsOffLikeAGaussian()
@@ -47,6 +48,51 @@ void ControlsTest::shadowFallsOffLikeAGaussian()
     QCOMPARE(qRed(tinted.pixel(static_cast<int>(reach) + 50, middle)), 46);
 }
 
+void ControlsTest::listsRaiseOnlyTheItemsTheyNeverShowed()
+{
+    QTemporaryDir directory;
+    kodosi::AppearanceModel appearance(
+        std::make_unique<QSettings>(directory.filePath(QStringLiteral("appearance.ini")), QSettings::IniFormat),
+        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
+    appearance.injectReducedMotionForTesting(false);
+    kodosi::qml::AppearanceModelForeign::instance = &appearance;
+    QQmlEngine engine;
+    QQmlComponent component(&engine);
+    component.setData(R"(
+        import QtQuick
+        import Kodosi 1.0
+        Item {
+            id: root
+            property var keys: ["a", "b"]
+            property var shown: ({})
+            Repeater {
+                model: root.keys.length
+                Arrival {
+                    required property int index
+                    objectName: "test.arrival." + root.keys[index]
+                    seen: root.shown
+                    key: root.keys[index]
+                }
+            }
+        }
+    )", {});
+    std::unique_ptr<QObject> root(component.create());
+    QVERIFY2(root, qPrintable(component.errorString()));
+    const auto arrival = [&root](const QString& key) {
+        for (auto* item : qobject_cast<QQuickItem*>(root.get())->childItems()) {
+            if (item->objectName() == QStringLiteral("test.arrival.") + key)
+                return item->property("arrival").toReal();
+        }
+        return -1.0;
+    };
+    QVERIFY(arrival(QStringLiteral("a")) < 1);
+    QVERIFY(arrival(QStringLiteral("b")) < 1);
+    // A longer list makes every item again.
+    root->setProperty("keys", QStringList { QStringLiteral("a"), QStringLiteral("b"), QStringLiteral("c") });
+    QCOMPARE(arrival(QStringLiteral("a")), 1.0);
+    QCOMPARE(arrival(QStringLiteral("b")), 1.0);
+    QVERIFY(arrival(QStringLiteral("c")) < 1);
+}
 void ControlsTest::messageTextKeepsSpacesEscapesMarkupAndSkipsYourself()
 {
     QQmlEngine engine;

@@ -27,6 +27,7 @@ Item {
     property string renamingId: ""
     property Item pillTarget: null
     property var collapsedFolders: ({})
+    property var shownRows: ({})
 
     signal newTerminalRequested(string folder)
     signal detailsRequested(string sessionId)
@@ -69,6 +70,12 @@ Item {
             pillTarget = item
         else if (pillTarget === item)
             pillTarget = null
+    }
+    // A list makes its rows again when its length changes. Only a row that it never showed rises in.
+    function showsFirstTime(key) {
+        const first = shownRows[key] !== true
+        shownRows[key] = true
+        return first
     }
 
     objectName: "sidebar"
@@ -619,13 +626,17 @@ Item {
                         Accessible.id: objectName
                         Accessible.name: entry.name || ""
                         Accessible.selected: selected
-                        property real arrival: KodosiTheme.reduceMotion ? 1 : 0
+                        property real arrival: 1
 
-                        NumberAnimation on arrival { running: !KodosiTheme.reduceMotion; to: 1; duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic }
+                        NumberAnimation { id: roomArrival; target: room; property: "arrival"; from: 0; to: 1; duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic }
                         Translate { id: roomRise; y: (1 - room.arrival) * 8 }
 
                         onSelectedChanged: root.claimPill(room, selected)
-                        Component.onCompleted: root.claimPill(room, selected)
+                        Component.onCompleted: {
+                            root.claimPill(room, selected)
+                            if (root.showsFirstTime("room:" + (entry.id || "")) && !KodosiTheme.reduceMotion)
+                                roomArrival.start()
+                        }
                         Component.onDestruction: root.claimPill(room, false)
 
                         contentItem: RowLayout {
@@ -747,6 +758,10 @@ Item {
                             }
                             HoverHandler { id: folderHover }
                             onClicked: {
+                                if (folder.folded) {
+                                    for (const session of folder.group.sessions || [])
+                                        delete root.shownRows["terminal:" + session.id]
+                                }
                                 const next = Object.assign({}, root.collapsedFolders)
                                 next[folder.group.key] = !folder.folded
                                 root.collapsedFolders = next
@@ -776,13 +791,17 @@ Item {
                                 Accessible.id: objectName
                                 Accessible.name: session.name || ""
                                 Accessible.selected: selected
-                                property real arrival: KodosiTheme.reduceMotion ? 1 : 0
+                                property real arrival: 1
 
-                                NumberAnimation on arrival { running: !KodosiTheme.reduceMotion; to: 1; duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic }
+                                NumberAnimation { id: rowArrival; target: row; property: "arrival"; from: 0; to: 1; duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic }
                                 Translate { id: rowRise; y: (1 - row.arrival) * 8 }
 
                                 onSelectedChanged: root.claimPill(row, selected)
-                                Component.onCompleted: root.claimPill(row, selected)
+                                Component.onCompleted: {
+                                    root.claimPill(row, selected)
+                                    if (root.showsFirstTime("terminal:" + sessionId) && !KodosiTheme.reduceMotion)
+                                        rowArrival.start()
+                                }
                                 Component.onDestruction: root.claimPill(row, false)
                                 onHeightChanged: Qt.callLater(root.syncPill)
 

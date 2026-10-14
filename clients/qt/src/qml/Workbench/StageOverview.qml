@@ -12,6 +12,7 @@ Item {
 
     property bool loading: false
     property bool failed: false
+    property var shownPlaces: ({})
     readonly property var sessions: Models.Sessions.sessions
     readonly property var places: {
         const groups = {}
@@ -227,22 +228,24 @@ Item {
                 }
             }
             Repeater {
-                model: root.places
+                model: root.places.length
 
                 Arrival {
                     id: place
 
-                    required property var modelData
                     required property int index
+                    readonly property var group: root.places[index] || ({ key: "", label: "", sessions: [] })
 
                     Layout.fillWidth: true
+                    seen: root.shownPlaces
+                    key: "place:" + group.key
                     delay: 40 * (index + 1)
                     spacing: 12
 
                     RowLayout {
                         spacing: 7
                         KIcon { Layout.preferredWidth: 14; Layout.preferredHeight: 14; name: "laptop"; color: KodosiTheme.inkMuted }
-                        PlainLabel { text: place.modelData.label; color: KodosiTheme.inkMuted; font.weight: Font.DemiBold; font.letterSpacing: -0.08 }
+                        PlainLabel { text: place.group.label; color: KodosiTheme.inkMuted; font.weight: Font.DemiBold; font.letterSpacing: -0.08 }
                     }
                     CardGrid {
                         id: grid
@@ -251,21 +254,22 @@ Item {
                         maximum: 320
 
                         Repeater {
-                            model: place.modelData.sessions
+                            model: place.group.sessions.length
 
                             AbstractButton {
                                 id: card
 
-                                required property var modelData
-                                readonly property bool needsYou: Models.Sessions.attention.indexOf(modelData.id) >= 0
+                                required property int index
+                                readonly property var session: place.group.sessions[index] || ({})
+                                readonly property bool needsYou: Models.Sessions.attention.indexOf(session.id) >= 0
 
                                 width: grid.cardWidth
                                 height: 68
                                 hoverEnabled: true
                                 activeFocusOnTab: true
-                                objectName: "overview.session." + modelData.id
+                                objectName: "overview.session." + (session.id || "")
                                 Accessible.id: objectName
-                                Accessible.name: modelData.name
+                                Accessible.name: session.name || ""
                                 scale: pressed ? 0.98 : 1
                                 transform: Translate { y: card.hovered ? -1 : 0; Behavior on y { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic } } }
 
@@ -279,28 +283,28 @@ Item {
                                 contentItem: RowLayout {
                                     spacing: 12
 
-                                    AgentMark { Layout.leftMargin: 14; program: card.modelData.program || ""; size: 34; session: card.modelData }
+                                    AgentMark { Layout.leftMargin: 14; program: card.session.program || ""; size: 34; session: card.session }
                                     ColumnLayout {
                                         Layout.fillWidth: true
                                         spacing: 3
-                                        PlainLabel { Layout.fillWidth: true; text: card.modelData.name; font.weight: Font.DemiBold; font.letterSpacing: -0.08; elide: Text.ElideRight }
+                                        PlainLabel { Layout.fillWidth: true; text: card.session.name || ""; font.weight: Font.DemiBold; font.letterSpacing: -0.08; elide: Text.ElideRight }
                                         ActivityLine {
                                             Layout.fillWidth: true
-                                            session: card.modelData
-                                            words: card.modelData.activity || card.modelData.folderName || Identity.kindLabel(Identity.kind(card.modelData.program || ""))
+                                            session: card.session
+                                            words: card.session.activity || card.session.folderName || Identity.kindLabel(Identity.kind(card.session.program || ""))
                                         }
                                     }
-                                    StatusSign { Layout.rightMargin: 14; session: card.modelData; unseen: card.needsYou; size: 13 }
+                                    StatusSign { Layout.rightMargin: 14; session: card.session; unseen: card.needsYou; size: 13 }
                                 }
                                 onClicked: {
-                                    Models.Sessions.clearAttention(modelData.id)
-                                    Models.SessionActions.activate(modelData.id)
+                                    Models.Sessions.clearAttention(session.id)
+                                    Models.SessionActions.activate(session.id)
                                 }
                             }
                         }
                         AbstractButton {
                             id: slot
-                            visible: place.modelData.key === ""
+                            visible: place.group.key === ""
                             width: grid.cardWidth
                             height: 68
                             hoverEnabled: true

@@ -63,6 +63,7 @@ public:
     Q_INVOKABLE [[nodiscard]] static qreal capLift(qreal pixelSize);
 
     void injectSystemColorSchemeForTesting(Qt::ColorScheme scheme);
+    void injectReducedMotionForTesting(bool enabled);
 
 signals:
     void preferenceChanged();
