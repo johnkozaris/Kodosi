@@ -21,6 +21,7 @@ pub(super) fn catalog(home: &Path, facts: &Facts) -> AgentCatalog {
                     facts.executable(agent.program()).is_some() || facts.defines(agent.program());
                 AgentInfo {
                     agent,
+                    program: agent.program().to_owned(),
                     installed,
                     accounts: if installed {
                         accounts(home, facts, agent)
@@ -36,8 +37,8 @@ pub(super) fn catalog(home: &Path, facts: &Facts) -> AgentCatalog {
 }
 
 /// The usual account, then an account for each alias or function that moves
-/// the agent's sign-in folder, then each other sign-in folder in the home
-/// folder that holds a sign-in or is still empty.
+/// the agent's sign-in folder, then each sibling of the usual folder that the
+/// agent has used or that is still empty.
 fn accounts(home: &Path, facts: &Facts, agent: Agent) -> Vec<AgentAccount> {
     let program = agent.program();
     let Some((folder, variable)) = agent.home() else {
@@ -68,13 +69,16 @@ fn accounts(home: &Path, facts: &Facts, agent: Agent) -> Vec<AgentAccount> {
         if homes.contains(&path) {
             continue;
         }
-        let identity = identity(agent, home, &path);
-        if identity.is_none() && !is_empty(&path) {
+        if !is_empty(&path)
+            && !records(agent)
+                .iter()
+                .any(|record| path.join(record).is_file())
+        {
             continue;
         }
         if let Some(command) = home_command(variable, &path, program) {
+            accounts.push(account(&name, &command, identity(agent, home, &path)));
             homes.insert(path);
-            accounts.push(account(&name, &command, identity));
         }
     }
     accounts
@@ -192,6 +196,15 @@ fn sibling_homes(home: &Path, folder: &str) -> Vec<(String, PathBuf)> {
         .collect::<Vec<_>>();
     homes.sort();
     homes
+}
+
+/// Files that the agent writes in its sign-in folder when it first starts.
+const fn records(agent: Agent) -> &'static [&'static str] {
+    match agent {
+        Agent::Claude => &[".claude.json"],
+        Agent::Codex => &["auth.json", "config.toml", "installation_id"],
+        Agent::Copilot | Agent::Cursor | Agent::Gemini | Agent::Opencode => &["config.json"],
+    }
 }
 
 fn is_empty(path: &Path) -> bool {

@@ -13,6 +13,7 @@ final class AppDependencies {
     let commandSink: CommandSink
     let settings: DesktopSettings
     let workbench: WorkbenchState
+    let launcher: LauncherState
     var sessions: [RuntimeSession] = []
     var friends: [FriendEntry] = []
     var ownInvite: String?
@@ -76,6 +77,7 @@ final class AppDependencies {
         workbench = WorkbenchState(defaults: defaults)
         let commands = CommandSink()
         commandSink = commands
+        launcher = LauncherState(commands: commands)
         let inbox = RuntimeEventInbox()
         self.inbox = inbox
         let runtime = RuntimeHandle(inbox: inbox)
@@ -308,7 +310,9 @@ final class AppDependencies {
         }
     }
 
-    func createSession(name: String, directory: String?, resume: ProviderConversationIdentity? = nil, branch: String? = nil) async throws {
+    func createSession(
+        name: String, directory: String?, resume: ProviderConversationIdentity? = nil, branch: String? = nil, command: String? = nil
+    ) async throws {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard ProductInput.validName(name) else {
             throw RuntimeError.operation(String(localized: "Use a shorter name."))
@@ -327,6 +331,9 @@ final class AppDependencies {
             if let folder = settings.branchFolder {
                 fields["worktrees"] = .string(folder)
             }
+        }
+        if let command {
+            fields["command"] = .string(command)
         }
         do {
             _ = try await commandSink.request("session.create", fields)

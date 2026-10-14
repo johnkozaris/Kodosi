@@ -66,6 +66,8 @@ pub struct AgentCatalog {
 #[serde(rename_all = "camelCase")]
 pub struct AgentInfo {
     pub agent: Agent,
+    /// The program that starts the agent.
+    pub program: String,
     pub installed: bool,
     /// The ways to start the agent, the usual one first.
     pub accounts: Vec<AgentAccount>,

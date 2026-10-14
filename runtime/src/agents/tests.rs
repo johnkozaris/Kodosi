@@ -132,6 +132,8 @@ fn accounts_come_from_definitions_and_sign_in_folders() {
     )
     .unwrap();
     fs::create_dir_all(home.join(".claude-work")).unwrap();
+    fs::create_dir_all(home.join(".claude-started")).unwrap();
+    fs::write(home.join(".claude-started/.claude.json"), "{}").unwrap();
     fs::create_dir_all(home.join(".claude-tool/cache")).unwrap();
     fs::create_dir_all(home.join(".codex-sw")).unwrap();
     fs::write(
@@ -178,12 +180,17 @@ fn accounts_come_from_definitions_and_sign_in_folders() {
         "env CLAUDE_CONFIG_DIR={}/.claude_personal claude",
         home.display()
     );
+    let started = format!(
+        "env CLAUDE_CONFIG_DIR={}/.claude-started claude",
+        home.display()
+    );
     assert_eq!(
         accounts_of(Agent::Claude),
         vec![
             ("claude", "claude", Some("ada@example.com")),
             ("claudesim", "claudesim", Some("sim@example.com")),
             ("personal", personal.as_str(), Some("me@example.com")),
+            ("started", started.as_str(), None),
             ("work", work.as_str(), None),
         ]
     );

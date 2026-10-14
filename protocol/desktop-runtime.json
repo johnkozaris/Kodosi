@@ -4947,10 +4947,14 @@
                         },
                         "installed": {
                           "type": "boolean"
+                        },
+                        "program": {
+                          "type": "string"
                         }
                       },
                       "required": [
                         "agent",
+                        "program",
                         "installed",
                         "accounts",
                         "install",
