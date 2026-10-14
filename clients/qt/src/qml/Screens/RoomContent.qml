@@ -460,6 +460,12 @@ Item {
                                                             }
                                                         }
                                                     }
+                                                    StatusSign {
+                                                        Layout.rightMargin: card.viewers.length > 0 ? 0 : 12
+                                                        session: card.session
+                                                        unseen: Models.Sessions.attention.indexOf(card.modelData) >= 0
+                                                        size: 13
+                                                    }
                                                     AvatarStack { Layout.rightMargin: 12; visible: card.viewers.length > 0; userIds: card.viewers; size: 20; limit: 2; ring: KodosiTheme.raised }
                                                 }
                                                 onClicked: Models.SessionActions.activateInRoom(modelData)

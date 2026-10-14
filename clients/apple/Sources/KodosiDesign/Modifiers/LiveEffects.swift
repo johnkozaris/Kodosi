@@ -38,14 +38,11 @@ public struct Shimmer: ViewModifier {
 /// While work goes on, the copper cursor types its way round the ring, in quick
 /// bursts with pauses as a person types: each cell lights as the cursor passes
 /// and cools after it, and in a pause the cursor blinks. A percent fills the
-/// ring from the top, with the cursor blinking at its end. While something waits
-/// for the person, the ring stays lit and the cursor blinks at the top, as a
-/// prompt waits for keys.
+/// ring from the top, with the cursor blinking at its end.
 public struct CellRim: View {
     public enum Mode: Equatable, Sendable {
         case working
         case progress(Double)
-        case waiting
     }
 
     @Environment(\.theme) private var theme
@@ -82,8 +79,6 @@ public struct CellRim: View {
         for index in 0 ..< count {
             let color: Color
             switch mode {
-            case .waiting:
-                color = theme.colors.accent
             case let .progress(fraction):
                 let reach = CGFloat(fraction) * CGFloat(count) - CGFloat(index)
                 color = cells.filling(reach)
@@ -99,8 +94,6 @@ public struct CellRim: View {
             cursor = (wrapped(head, count), reduced || still < 0.24 || Int((still - 0.24) / 0.42) % 2 == 1)
         case let .progress(fraction) where fraction < 1:
             cursor = (min(count - 1, Int(CGFloat(fraction) * CGFloat(count))), reduced || Int(time / 0.53) % 2 == 0)
-        case .waiting:
-            cursor = (0, reduced || Int(time / 0.53) % 2 == 0)
         case .progress:
             cursor = nil
         }

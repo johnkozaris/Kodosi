@@ -201,6 +201,8 @@ private struct WelcomeCard: View {
 }
 
 private struct FeatureStrip: View {
+    @Environment(\.theme) private var theme
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             FeatureRow(title: "Follow your agents", detail: "Live terminals from every computer you use.") {
@@ -208,7 +210,10 @@ private struct FeatureStrip: View {
             }
             .arrive(delay: 0.06)
             FeatureRow(title: "Answer when they ask", detail: "Approvals and questions come to you first.") {
-                AgentMark(kind: .codex, size: 34, activity: .asks)
+                AgentMark(kind: .codex, size: 34)
+                    .overlay(alignment: .topTrailing) {
+                        StatusSign(form: .hand, size: 11, backing: theme.colors.raised).offset(x: 6, y: -6)
+                    }
             }
             .arrive(delay: 0.1)
             FeatureRow(title: "Work in rooms", detail: "Talk, share terminals, and keep tasks with your team.") {

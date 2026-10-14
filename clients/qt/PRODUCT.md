@@ -39,11 +39,11 @@ main area starts with the launcher, then shows every terminal by computer. Go to
 (Ctrl+K) finds a terminal, a room, a person, or an action. Rename a terminal in place.
 
 A terminal carries the mark of the program in it. While an agent works, its mark and
-title show it. A program that waits for you puts a copper ring on its mark and a sign
-of what it needs beside it, and the source list offers the next terminal that waits
-for an answer. A terminal that is done, that failed, or that rang its bell keeps a
-sign until you look at it. While Kodosi is not in front, your own terminals send a
-system notification for these changes.
+title show it. A program that waits for you puts a sign of what it needs beside its
+mark, and a closed folder shows that sign too. A terminal that is done, that failed,
+or that rang its bell keeps a sign until you look at it. Faces show who else has a
+terminal open, the person at its computer included. While Kodosi is not in front,
+the terminals that you own or have open send a system notification for these changes.
 
 A terminal at its prompt offers the start commands of this computer as marks among its
 actions. Kodosi adds a command for an agent the first time that the agent runs here.

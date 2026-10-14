@@ -26,7 +26,7 @@ struct NeedsYouCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
-                AgentMark(kind: session.agent, size: 42, activity: .asks)
+                AgentMark(kind: session.agent, size: 42)
                     .padding(4)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(session.name)

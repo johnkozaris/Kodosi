@@ -368,7 +368,8 @@ void SessionCatalogModel::apply(const QJsonObject& event)
             attention.append(next.id);
         if (before && waitState(*before) != waitState(next)) {
             const auto words = report(next);
-            alerts.append({ next.id, !next.isOwner || waitState(next).isEmpty() ? QString {} : words.isEmpty() ? signLabel(next) : words });
+            const bool calls = next.isOwner || presentation(next).canControl;
+            alerts.append({ next.id, !calls || waitState(next).isEmpty() ? QString {} : words.isEmpty() ? signLabel(next) : words });
         }
     }
     attention.removeIf([&](const QString& id) { return !ids.contains(id); });

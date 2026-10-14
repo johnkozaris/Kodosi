@@ -14,9 +14,9 @@ The iOS app uses the Mac's visual system from the shared package
   with large titles, sheets with detents, swipe actions, and context menus.
 - The terminal sits in a dark tile with rounded corners, in light and dark appearance.
   Its font is JetBrains Mono at 12 points on iPhone and 14 points on iPad.
-- Attention uses the Mac's signs: a copper ring on the agent mark when it waits, the
-  question beside it, and a badge on the tab. Haptics mark a terminal that starts
-  waiting or finishes, and a sent message.
+- Attention uses the Mac's signs: a copper hand, question or key beside the agent mark
+  while it waits, the question under it, and a badge on the tab. Haptics mark a
+  terminal that starts waiting or finishes, and a sent message.
 
 ## Do's and Don'ts
 

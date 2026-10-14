@@ -243,7 +243,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(approval.waitState == .blocked)
     #expect(!approval.isWorking)
     #expect(approval.activity == "Allow the command?")
-    #expect(approval.mark(rested: .asleep) == .asks)
+    #expect(approval.mark(rested: .asleep) == .asleep)
     #expect(approval.sign(unseen: false) == .hand)
     let task = try session(status: ["state": .string("blocked"), "kind": .string("question"), "title": .string("Review the plan")])
     #expect(task.activity == "Review the plan")

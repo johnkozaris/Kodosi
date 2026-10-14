@@ -1,5 +1,6 @@
 import Foundation
 import KodosiBridge
+import KodosiDesign
 @testable import KodosiDesktop
 import Testing
 import UserNotifications
@@ -118,7 +119,7 @@ private func awaitNotification(_ condition: () -> Bool) async {
     #expect(!app.openTerminalNotification(identifier: request.identifier))
 }
 
-@Test @MainActor func aTerminalThatNeedsItsOwnerSendsOneAlertWhileTheAppIsNotInFront() async throws {
+@Test @MainActor func aWaitingTerminalAlertsItsOwnerAndThePeopleWhoHaveItOpenWhileTheAppIsNotInFront() async throws {
     let driver = NotificationDriver()
     let defaults = try #require(EphemeralUserDefaults(prefix: "TerminalAlert"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
@@ -146,30 +147,45 @@ private func awaitNotification(_ condition: () -> Bool) async {
     #expect(driver.posted.isEmpty)
     try receive(["state": .string("working")])
     try receive(waits)
-    await awaitNotification { driver.posted.count == 1 }
-    let first = try #require(driver.posted.first)
-    #expect(first.content.title == "Review")
-    #expect(first.content.body == "Allow the command?")
+    await awaitNotification { driver.posted.count == 2 }
+    #expect(Set(driver.posted.map(\.content.title)) == ["Review", "Shared"])
+    #expect(driver.posted.allSatisfy { $0.content.body == "Allow the command?" })
     for _ in 0 ..< 20 {
         await Task.yield()
     }
 
     try receive(["state": .string("working")])
-    #expect(driver.withdrawn == [first.identifier])
+    #expect(Set(driver.withdrawn) == Set(driver.posted.map(\.identifier)))
     try receive(["state": .string("done")])
-    await awaitNotification { driver.posted.count == 2 }
-    #expect(driver.posted.last?.content.body == "Done")
+    await awaitNotification { driver.posted.count == 4 }
+    #expect(driver.posted.suffix(2).allSatisfy { $0.content.body == "Done" })
     for _ in 0 ..< 20 {
         await Task.yield()
     }
     app.seen(own)
-    #expect(driver.withdrawn.count == 2)
+    app.seen(shared)
+    #expect(driver.withdrawn.count == 4)
 
     app.isFront = { true }
     try receive(["state": .string("working")])
     try receive(["state": .string("error")])
-    #expect(driver.posted.count == 2)
+    #expect(driver.posted.count == 4)
     #expect(app.attention == [own, shared])
+}
+
+@Test func onlyTheOwnerAndThePeopleWhoHaveATerminalOpenGetItsAlert() throws {
+    func session(owner: Bool, kind: String, connection: String) throws -> RuntimeSession {
+        try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode([
+            "id": JSONValue.string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
+            "kind": .string(kind), "name": .string("Review"), "isOwner": .bool(owner), "status": .string("running"),
+            "connectionState": .string(connection), "sharedWith": .array([]),
+            "programStatus": .object(["state": .string("done")]),
+        ]))
+    }
+    #expect(try session(owner: true, kind: "local", connection: "local").alert == "Done")
+    #expect(try session(owner: true, kind: "remote", connection: "offline").alert == "Done")
+    #expect(try session(owner: false, kind: "remote", connection: "connected").alert == "Done")
+    #expect(try session(owner: false, kind: "remote", connection: "offline").alert == nil)
 }
 
 @Test @MainActor func terminalNotificationLateDeliveryCannotOutliveItsSession() async throws {
