@@ -126,16 +126,29 @@ printf '\036end\n'"
     }
 }
 
+/// Asks the shell as an interactive login shell, as a terminal starts it. A
+/// shell whose start files never finish without a terminal (one that starts
+/// tmux, for example) is asked again as a login shell only, for its `PATH`.
 #[cfg(unix)]
 async fn probe(shell: &Path) -> Facts {
-    use tokio::io::AsyncReadExt as _;
-
     let Some(family) = family(shell) else {
         return Facts::default();
     };
+    if family != Family::Posix
+        && let Some(facts) = ask(shell, family, true).await
+    {
+        return facts;
+    }
+    ask(shell, family, false).await.unwrap_or_default()
+}
+
+#[cfg(unix)]
+async fn ask(shell: &Path, family: Family, interactive: bool) -> Option<Facts> {
+    use tokio::io::AsyncReadExt as _;
+
     let mut command = tokio::process::Command::new(shell);
     command.arg("-l");
-    if family != Family::Posix {
+    if interactive {
         command.arg("-i");
     }
     command
@@ -147,12 +160,8 @@ async fn probe(shell: &Path) -> Facts {
         .stderr(std::process::Stdio::null())
         .kill_on_drop(true);
     kodosi_os::process::without_terminal(command.as_std_mut());
-    let Ok(mut child) = command.spawn() else {
-        return Facts::default();
-    };
-    let Some(mut stdout) = child.stdout.take() else {
-        return Facts::default();
-    };
+    let mut child = command.spawn().ok()?;
+    let mut stdout = child.stdout.take()?;
     let mut output = Vec::new();
     let read = async {
         let mut chunk = [0_u8; 8192];
@@ -164,11 +173,11 @@ async fn probe(shell: &Path) -> Facts {
         }
     };
     if tokio::time::timeout(PROBE_TIME, read).await.is_err() {
-        tracing::debug!(shell = %shell.display(), "the shell did not report its agents in time");
+        tracing::debug!(shell = %shell.display(), interactive, "the shell did not report its agents in time");
     }
     drop(child.start_kill());
     drop(tokio::time::timeout(Duration::from_secs(1), child.wait()).await);
-    parse(&String::from_utf8_lossy(&output)).unwrap_or_default()
+    parse(&String::from_utf8_lossy(&output))
 }
 
 #[cfg(windows)]
