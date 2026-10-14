@@ -17,14 +17,16 @@ and the terminal text comes from scripts that print sample agent output.
 | [people.webp](people.webp) | Friends in People. |
 
 Window captures are 2640 × 1680 pixels, scaled to 2000 pixels wide. Detail pictures
-are crops of the same captures. The animation has eight frames, 1264 pixels wide,
+are crops of the same captures. The animation has five frames, 1264 pixels wide,
 with a 200-color palette.
 
 ## Replace a picture
 
 Use isolated sample data: a disposable database and a disposable `KODOSI_DATA_ROOT`,
 as [isolated validation](../DEVELOPMENT.md#isolated-validation) describes. Do not
-capture your own terminals, names, hosts, or paths. Keep the file name so the README
+capture your own terminals, names, hosts, or paths. The isolated Mac app starts its
+shells in `<KODOSI_DATA_ROOT>/harness-home`: give that folder a `.zshrc` with a neutral
+prompt, or the default prompt shows your user and computer name. Keep the file name so the README
 and the guide keep their links.
 
 ## Credits
