@@ -5,12 +5,17 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[cfg(any(unix, test))]
 use super::Agent;
 
+#[cfg(any(unix, test))]
 const START: &str = "\u{1e}kodosi-agents";
+#[cfg(any(unix, test))]
 const END: &str = "\u{1e}end";
+#[cfg(unix)]
 const PROBE_TIME: Duration = Duration::from_secs(6);
 const REUSE_TIME: Duration = Duration::from_secs(600);
+#[cfg(unix)]
 const MAX_OUTPUT: usize = 512 * 1024;
 
 /// What a new terminal's shell knows: its `PATH`, the functions whose names
@@ -75,6 +80,7 @@ pub(super) async fn facts(shell: &Path, fresh: bool) -> Facts {
     facts
 }
 
+#[cfg(any(unix, test))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Family {
     Zsh,
@@ -83,6 +89,7 @@ pub(super) enum Family {
     Posix,
 }
 
+#[cfg(any(unix, test))]
 pub(super) fn family(shell: &Path) -> Option<Family> {
     match shell.file_stem()?.to_str()? {
         "zsh" => Some(Family::Zsh),
@@ -93,6 +100,7 @@ pub(super) fn family(shell: &Path) -> Option<Family> {
     }
 }
 
+#[cfg(any(unix, test))]
 pub(super) fn script(family: Family) -> String {
     let programs = Agent::ALL.map(Agent::program);
     let pattern = programs.map(|program| format!("{program}*")).join("|");
@@ -185,16 +193,18 @@ async fn ask(shell: &Path, family: Family, interactive: bool) -> Option<Facts> {
 }
 
 #[cfg(windows)]
-async fn probe(_shell: &Path) -> Facts {
-    Facts::default()
+fn probe(_shell: &Path) -> std::future::Ready<Facts> {
+    std::future::ready(Facts::default())
 }
 
+#[cfg(unix)]
 fn contains(haystack: &[u8], needle: &[u8]) -> bool {
     haystack
         .windows(needle.len())
         .any(|window| window == needle)
 }
 
+#[cfg(any(unix, test))]
 pub(super) fn parse(output: &str) -> Option<Facts> {
     let body = &output[output.find(START)? + START.len()..];
     let body = &body[..body.find(END)?];
@@ -231,6 +241,7 @@ pub(super) fn parse(output: &str) -> Option<Facts> {
 
 /// The value of an alias. Bash prints it as `alias name='value'`, zsh as the
 /// value alone.
+#[cfg(any(unix, test))]
 fn alias_value(name: &str, text: &str) -> String {
     text.strip_prefix("alias ")
         .and_then(|text| text.strip_prefix(name))
