@@ -8,6 +8,7 @@ Popup {
 
     property real radius: KodosiTheme.radiusXl
     property int elevation: 2
+    property color fill: KodosiTheme.lifted
 
     Component.onCompleted: Models.DesktopState.setModalVisible(root, visible && modal)
     onVisibleChanged: Models.DesktopState.setModalVisible(root, visible && modal)
@@ -32,7 +33,7 @@ Popup {
     }
     background: Raised {
         radius: root.radius
-        fill: KodosiTheme.lifted
+        fill: root.fill
         elevation: root.elevation
     }
     enter: Transition {

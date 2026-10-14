@@ -65,17 +65,17 @@ Item {
                 centerX: arc.width / 2
                 centerY: arc.height / 2
                 angle: 90
-                GradientStop { position: 0; color: KodosiTheme.alpha(KodosiTheme.glowOrange, 0.22) }
-                GradientStop { position: Math.max(0, 0.999 - root.fraction); color: KodosiTheme.alpha(KodosiTheme.glowOrange, 0.22) }
-                GradientStop { position: 1 - root.fraction; color: KodosiTheme.glowRose }
-                GradientStop { position: 1 - root.fraction / 2; color: KodosiTheme.glowOrange }
-                GradientStop { position: 1; color: KodosiTheme.glowAmber }
+                // A solid copper arc for the part done, on a muted copper track.
+                GradientStop { position: 0; color: KodosiTheme.accentSoft }
+                GradientStop { position: Math.max(0, 0.999 - root.fraction); color: KodosiTheme.accentSoft }
+                GradientStop { position: 1 - root.fraction; color: KodosiTheme.accent }
+                GradientStop { position: 1; color: KodosiTheme.accent }
             }
             PathRectangle { width: arc.width; height: arc.height; radius: root.size * 0.3 + root.rim }
         }
     }
     Shape {
-        id: glow
+        id: turning
         visible: root.working && !root.measured
         anchors.fill: parent
         anchors.margins: -root.rim
@@ -84,26 +84,35 @@ Item {
         ShapePath {
             strokeColor: "transparent"
             strokeWidth: 0
+            // A solid copper arc that runs round a muted track, its length breathing.
             fillGradient: ConicalGradient {
                 id: sweep
-                centerX: glow.width / 2
-                centerY: glow.height / 2
-                GradientStop { position: 0; color: KodosiTheme.glowAmber }
-                GradientStop { position: 0.3; color: KodosiTheme.glowOrange }
-                GradientStop { position: 0.55; color: KodosiTheme.glowRose }
-                GradientStop { position: 0.8; color: KodosiTheme.alpha(KodosiTheme.glowOrange, 0.15) }
-                GradientStop { position: 1; color: KodosiTheme.glowAmber }
+
+                property real length: 0.24
+
+                centerX: turning.width / 2
+                centerY: turning.height / 2
+                GradientStop { position: 0; color: KodosiTheme.accent }
+                GradientStop { position: sweep.length; color: KodosiTheme.accent }
+                GradientStop { position: sweep.length + 0.001; color: KodosiTheme.accentSoft }
+                GradientStop { position: 1; color: KodosiTheme.accentSoft }
             }
-            PathRectangle { width: glow.width; height: glow.height; radius: root.size * 0.3 + root.rim }
+            PathRectangle { width: turning.width; height: turning.height; radius: root.size * 0.3 + root.rim }
         }
         NumberAnimation {
             target: sweep
             property: "angle"
             from: 360
             to: 0
-            duration: 3200
+            duration: 2400
             loops: Animation.Infinite
-            running: glow.visible && !KodosiTheme.reduceMotion
+            running: turning.visible && !KodosiTheme.reduceMotion
+        }
+        SequentialAnimation {
+            loops: Animation.Infinite
+            running: turning.visible && !KodosiTheme.reduceMotion
+            NumberAnimation { target: sweep; property: "length"; to: 0.32; duration: 1200; easing.type: Easing.InOutSine }
+            NumberAnimation { target: sweep; property: "length"; to: 0.16; duration: 1200; easing.type: Easing.InOutSine }
         }
     }
     Rectangle {

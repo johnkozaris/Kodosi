@@ -15,7 +15,7 @@ public struct Shimmer: ViewModifier {
                 GeometryReader { geometry in
                     let band = max(geometry.size.width * 0.5, 40)
                     LinearGradient(
-                        colors: [.clear, theme.colors.glowOrange, theme.colors.glowAmber, .clear],
+                        colors: [.clear, theme.colors.ink, .clear],
                         startPoint: .leading, endPoint: .trailing
                     )
                     .frame(width: band)
@@ -33,75 +33,75 @@ public struct Shimmer: ViewModifier {
     }
 }
 
+/// A copper arc that runs round `shape` while something works: solid, with a
+/// muted track under it, and a length that breathes as it turns.
 public struct WorkingRim<S: InsettableShape>: View {
     @Environment(\.theme) private var theme
-    @State private var turning = false
     public let shape: S
     public var lineWidth: CGFloat = 1.5
-    public var glow: CGFloat = 5
 
-    public init(shape: S, lineWidth: CGFloat = 1.5, glow: CGFloat = 5) {
+    public init(shape: S, lineWidth: CGFloat = 1.5) {
         self.shape = shape
         self.lineWidth = lineWidth
-        self.glow = glow
     }
 
     public var body: some View {
-        GeometryReader { geometry in
-            let side = hypot(geometry.size.width, geometry.size.height) + glow * 4
-            let gradient = AngularGradient(
-                colors: [
-                    theme.colors.glowAmber, theme.colors.glowOrange, theme.colors.glowRose,
-                    theme.colors.glowOrange.opacity(0.25), theme.colors.glowAmber,
-                ],
-                center: .center
-            )
-            .frame(width: side, height: side)
-            .rotationEffect(.degrees(turning ? 360 : 0))
-            .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+        let path = shape.inset(by: lineWidth / 2)
+        TimelineView(.animation(paused: theme.motion.reduced)) { context in
+            let turn = theme.motion.reduced ? 0 : context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2.4) / 2.4
+            let length = 0.24 + 0.08 * sin(turn * 2 * .pi)
             ZStack {
-                gradient.mask(shape.strokeBorder(lineWidth: lineWidth + glow)).blur(radius: glow).opacity(0.55)
-                gradient.mask(shape.strokeBorder(lineWidth: lineWidth))
+                path.stroke(theme.colors.accentSoft, lineWidth: lineWidth)
+                RimArc(shape: path, from: turn, length: length)
+                    .stroke(theme.colors.accent, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
             }
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
-        .onAppear {
-            guard !theme.motion.reduced else { return }
-            withAnimation(.linear(duration: 3.2).repeatForever(autoreverses: false)) { turning = true }
-        }
     }
 }
 
+/// How far a piece of work is, as a solid copper arc on a muted track.
 public struct ProgressRim: View {
     @Environment(\.theme) private var theme
     public let fraction: Double
     public let radius: CGFloat
     public var lineWidth: CGFloat = 1.5
-    public var glow: CGFloat = 5
 
-    public init(fraction: Double, radius: CGFloat, lineWidth: CGFloat = 1.5, glow: CGFloat = 5) {
+    public init(fraction: Double, radius: CGFloat, lineWidth: CGFloat = 1.5) {
         self.fraction = fraction
         self.radius = radius
         self.lineWidth = lineWidth
-        self.glow = glow
     }
 
     public var body: some View {
         let loop = RimLoop(radius: radius, inset: lineWidth / 2)
-        let done = loop.trim(from: 0, to: min(max(fraction, 0.02), 1))
-        let warm = AngularGradient(
-            colors: [theme.colors.glowAmber, theme.colors.glowOrange, theme.colors.glowRose],
-            center: .center, startAngle: .degrees(-90), endAngle: .degrees(270)
-        )
         ZStack {
-            loop.stroke(theme.colors.glowOrange.opacity(0.22), lineWidth: lineWidth)
-            done.stroke(warm, style: StrokeStyle(lineWidth: lineWidth + glow, lineCap: .round)).blur(radius: glow).opacity(0.5)
-            done.stroke(warm, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+            loop.stroke(theme.colors.accentSoft, lineWidth: lineWidth)
+            loop.trim(from: 0, to: min(max(fraction, 0.02), 1))
+                .stroke(theme.colors.accent, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
         }
         .animation(theme.motion.soft, value: fraction)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+}
+
+/// A piece of `shape`'s outline that starts at `from` and may run past its end
+/// back to the start.
+private struct RimArc<S: Shape>: Shape {
+    let shape: S
+    let from: CGFloat
+    let length: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let outline = shape.path(in: rect)
+        let end = from + length
+        var path = outline.trimmedPath(from: from, to: min(end, 1))
+        if end > 1 {
+            path.addPath(outline.trimmedPath(from: 0, to: end - 1))
+        }
+        return path
     }
 }
 
@@ -169,7 +169,6 @@ public struct CursorBlock: View {
         RoundedRectangle(cornerRadius: max(1, width * 0.14), style: .continuous)
             .fill(theme.colors.accent)
             .frame(width: width, height: height)
-            .shadow(color: theme.colors.accent.opacity(dim ? 0 : 0.45), radius: width * 0.6)
             .opacity(dim ? 0.25 : 1)
             .onChange(of: blinks && !theme.motion.reduced, initial: true) { _, active in
                 if active {

@@ -91,7 +91,7 @@ struct SignInSheet: View {
                 }
                 .overlay {
                     if active {
-                        WorkingRim(shape: Circle(), lineWidth: 2, glow: 5).padding(-2)
+                        WorkingRim(shape: Circle(), lineWidth: 2).padding(-2)
                     }
                 }
             Text(label).appTextStyle(.caption).foregroundStyle(reached || active ? theme.colors.ink : theme.colors.inkFaint)

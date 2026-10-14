@@ -27,9 +27,6 @@ colors:
   accentSoft-light: "#f4dec8"
   accentInk: "#160e0a"
   accentInk-light: "#fffaf3"
-  glowAmber: "#f2bc55"
-  glowOrange: "#f08a4b"
-  glowRose: "#e8707a"
   ready: "#7dbb99"
   ready-light: "#2f7d54"
   caution: "#ddb866"
@@ -68,7 +65,7 @@ Kodosi is a warm workbench, lit from above. A source list rests on the ground. O
 Each screen starts with the objects of its job: terminals, rooms, people, tasks. Text is short. One word has one meaning: terminal, room, friend, agent, device. The Mac client uses the same system.
 
 ## Colors
-Copper `accent` means "act here" or "this is selected". The glow colors show only while something works or just changed. Green `ready` means done or verified, and people never use green. Unqualified tokens are dark, and `-light` tokens are the light pair. Use `KodosiTheme` roles, not literals. A terminal is a dark object in the two themes: its tile and header use the `terminal*` roles.
+Copper `accent` means "act here" or "this is selected". Green `ready` means done or verified, and people never use green. Unqualified tokens are dark, and `-light` tokens are the light pair. Use `KodosiTheme` roles, not literals. A terminal is a dark object in the two themes: its tile and header use the `terminal*` roles.
 
 ## Typography
 Inherit the Qt application font. `large` is for page titles, `title` for sheets, `headline` for object names, `body` for conversation and rows, `footnote` and `caption` for facts. Monospace is for code, paths and the wordmark. Labels use sentence case.
@@ -86,19 +83,19 @@ Tags and pills are capsules. Buttons are rounded rectangles, with a radius of (8
 
 ## Components
 - **Button:** a rounded rectangle with a flat face in one color. The light comes from the top left, as on every raised shape: a fine light line on the top and the left edge, and a tight shadow below. In the light appearance a dark hairline goes round the edge. Primary buttons have a copper face. Secondary, tinted and danger buttons have a quiet face with the same lines. In the dark appearance there is no hairline: the bottom and the right edge have a darker line, the shadow is a little deeper, and the face is lighter than the surface behind it. With the pointer on it, the face changes a little. A press makes the face darker and the button a little smaller. A ghost button is words only, with a faint fill under the pointer. A button with only a symbol is round. `Bezel` draws the face with plain shapes.
-- **Agent mark:** a rounded square in the color of the program, with its glyph. A shell shows a prompt and the copper cursor. The mark is pale when the terminal is minimized. The mark shows the state of its program: a warm rim turns round it while the program works, the rim is an arc when the program reports a percent, and a still copper ring with a gap shows while the program waits for you. The mark squashes a little at each change of state.
+- **Agent mark:** a rounded square in the color of the program, with its glyph. A shell shows a prompt and the copper cursor. The mark is pale when the terminal is minimized. The mark shows the state of its program: a copper arc runs round a muted copper track while the program works, and its length breathes; the arc shows the percent when the program reports one; and a still copper ring with a gap shows while the program waits for you. The mark squashes a little at each change of state.
 - **Status sign:** one small sign at the end of a terminal's row, card or tab, in the color of its state. A copper hand (approval), question or key (sign-in) stays while the program waits for you, and the hand waves one time. A green check that draws itself means done, and a `caution` triangle means failed; these two show until you open the terminal. A terminal that rang its bell, or an agent with no report that stopped work, keeps the breathing copper dot.
 - **Person avatar:** a circle in a color that comes from the person's identifier. Your own circle is copper.
 - **Room sigil:** a rounded square with four small tiles. The color and the lit tiles come from the room's identifier.
 - **Selection pill:** one raised pill with a copper caret slides between rows of the source list.
 - **Sliding pills:** segmented controls use a raised thumb that slides. The room dock shows icons, and the selected section says its name.
 - **Terminal tile:** a rounded tile with a header. Actions are faint until the pointer is on the tile or the tile is selected. While the terminal is at its prompt, the marks of the start commands are the first actions, and a second command of the same program shows a letter. A new terminal opens from a copper veil. A person who joins shows as a card for a few seconds.
-- **Launcher:** the terminal about to open, drawn as a tile and dark in both looks. The first time in a run of the app, the home shows only the copper cursor; a line grows from it, then the window around the line, as in the launch film. The band holds a tab for each kind of terminal, the plain terminal first: the chosen tab is the body's color and flares into the body, with the agent's mark (it squashes and springs back when chosen) and name; the other tabs are marks, and agents that are not here wait behind a plus. An agent that the computer just got shows its name in its tab, in copper, with a ring that leaves the tab twice. The computer is named at the right end of the band. Below it, the prompt `[folder] ❯ [account] [model] [···]` and the first prompt. Each part of the command is a key of one solid color, lit from the top left as the buttons are, with no tinted or see-through fills; the folder key has a teal folder glyph that bounces when the folder changes, and the account words take the agent's color. The first prompt takes the rest of the row, or a row of its own; it has a block cursor that stays lit while the person types, then blinks, and shows the character under it in the terminal's color, hollow without focus. While it is empty, suggestions type themselves at an uneven pace and erase again; Tab or → takes one. A comment line under the prompt names the signed-in account. Under the terminal: Start, and Resume as an icon.
+- **Launcher:** the terminal about to open, drawn as a tile and dark in both looks. The first time in a run of the app, the home shows only the copper cursor; a line grows from it, then the window around the line, as in the launch film. The band holds a tab for each kind of terminal, the plain terminal first: the chosen tab is the body's color and flares into the body, with the agent's mark (it squashes and springs back when chosen) and name; the other tabs are marks, and agents that are not here wait behind a plus. An agent that the computer just got shows its name in its tab, in copper, with a ring that leaves the tab twice. The computer is named at the right end of the band. Below it, the prompt `[folder] ❯ [account] [···]` and the first prompt. Each part of the command is a key of one solid color, lit from the top left as the buttons are, with no tinted or see-through fills; the folder key shows the name of the folder and a teal folder glyph that bounces when the folder changes, and the account words take the agent's color. The dots open the model and the effort keys; a model or an effort that the person chose always shows. The first prompt takes the rest of the row, or a row of its own; it has a block cursor that stays lit while the person types, then blinks, and shows the character under it in the terminal's color, hollow without focus. While it is empty, a suggestion types itself once at an uneven pace and stays faint beside the cursor; Tab or → takes it. A comment line under the prompt names the signed-in account. Under the terminal: Start, and Resume as an icon.
 - **Folder header:** a faint label above the terminals of one folder. With the pointer on it, it shows a plus for a new terminal there and, for a Git repository, a branch button. The branch button opens a small panel with one name field, filled with a name you can replace, and one Start button.
 - **Conversation:** your messages are bubbles on the right. Other people have an avatar and a name. An agent shows its mark, its name, the person it works for, and the terminal it wrote from. Mentions of people and terminals are tinted, and a mention of a terminal opens it. A message that mentions you has a tinted row.
 - **Composer:** a lifted capsule with a copper halo when it has focus. "@" opens a list of people and terminals.
 - **Tasks:** cards in "Up for grabs", "In progress" and "Done".
-- **Go to (Ctrl+K):** one field finds terminals, rooms, people and actions.
+- **Go to (Ctrl+K):** one field in a well finds terminals, rooms, people and actions. The chosen row is a raised pill with a copper notch and a return key, and each action has a colored tile.
 
 Working text shimmers. New words of a program rise into place. A terminal that rang its bell, or where an agent stopped work while you looked elsewhere, shows a breathing copper dot until you look at it. With reduced motion, all changes are instant and nothing loops. QML remains authoritative.
 
@@ -107,7 +104,7 @@ Working text shimmers. New words of a program rise into place. A terminal that r
 - **Do** keep keyboard focus, accessible names, stable object names and selectable message text.
 - **Do** keep hidden terminal surfaces inactive.
 - **Don't** clip or scale the terminal surface. Inset it in its tile.
-- **Don't** show glow colors at rest, or use copper as decoration.
+- **Don't** put a glow, a blur or a colored shadow round a mark, a cursor or a rim, or use copper as decoration.
 - **Don't** put a gradient, a gloss or a bright rim on a button.
 - **Don't** add explanatory text where an object, a state or one short line is sufficient.
 

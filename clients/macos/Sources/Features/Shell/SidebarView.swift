@@ -189,7 +189,6 @@ struct SelectionPill: View {
         RaisedBackground(shape: RoundedRectangle(cornerRadius: radius, style: .continuous), fill: theme.colors.raised, elevation: .resting)
             .overlay(alignment: .leading) {
                 Capsule().fill(theme.colors.accent).frame(width: 3, height: 14).padding(.leading, -1.5)
-                    .shadow(color: theme.colors.accent.opacity(0.6), radius: 4)
             }
             .matchedGeometryEffect(id: "sidebar.selection", in: namespace)
     }

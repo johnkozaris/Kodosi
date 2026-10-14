@@ -32,7 +32,7 @@ TextEdit {
     selectionColor: KodosiTheme.alpha(KodosiTheme.terminalAccent, 0.35)
     selectedTextColor: KodosiTheme.terminalInk
     font.family: "monospace"
-    font.pixelSize: 14
+    font.pixelSize: KodosiTheme.fontBody
     font.weight: Font.Medium
     wrapMode: TextEdit.WrapAnywhere
     textFormat: TextEdit.PlainText
@@ -108,14 +108,6 @@ TextEdit {
         width: root.cell
         height: root.cursorRectangle.height
 
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: -3
-            radius: 4
-            color: KodosiTheme.terminalAccent
-            opacity: 0.22
-            visible: root.activeFocus && root.lit
-        }
         Rectangle {
             anchors.fill: parent
             anchors.topMargin: 1

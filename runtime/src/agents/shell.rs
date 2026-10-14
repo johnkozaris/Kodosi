@@ -13,8 +13,9 @@ const PROBE_TIME: Duration = Duration::from_secs(6);
 const REUSE_TIME: Duration = Duration::from_secs(600);
 const MAX_OUTPUT: usize = 512 * 1024;
 
-/// What a new terminal's shell knows: its `PATH`, and the aliases and
-/// functions whose names begin with the name of an agent.
+/// What a new terminal's shell knows: its `PATH`, the functions whose names
+/// begin with the name of an agent, and the aliases whose names or commands
+/// name one.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct Facts {
     pub path: Option<OsString>,
@@ -25,6 +26,8 @@ pub(super) struct Facts {
 pub(super) struct Definition {
     pub name: String,
     pub text: String,
+    /// An alias, rather than a function: the shell adds the words after it.
+    pub alias: bool,
 }
 
 impl Facts {
@@ -93,18 +96,19 @@ pub(super) fn family(shell: &Path) -> Option<Family> {
 pub(super) fn script(family: Family) -> String {
     let programs = Agent::ALL.map(Agent::program);
     let pattern = programs.map(|program| format!("{program}*")).join("|");
+    let mentions = programs.map(|program| format!("*{program}*")).join("|");
     match family {
         Family::Zsh => format!(
             r#"print -r -- $'\x1e'kodosi-agents
 print -r -- "path"$'\t'"$PATH"
-for n in ${{(k)aliases}}; do case $n in ({pattern}) print -r -- "alias"$'\t'"$n"$'\t'"${{aliases[$n]//$'\n'/ }}";; esac; done
+for n in ${{(k)aliases}}; do if [[ $n == ({pattern}) || ${{aliases[$n]}} == ({mentions}) ]]; then print -r -- "alias"$'\t'"$n"$'\t'"${{aliases[$n]//$'\n'/ }}"; fi; done
 for n in ${{(k)functions}}; do case $n in ({pattern}) print -r -- "function"$'\t'"$n"$'\t'"${{functions[$n]//$'\n'/ }}";; esac; done
 print -r -- $'\x1e'end"#
         ),
         Family::Bash => format!(
             r#"printf '\036kodosi-agents\n'
 printf 'path\t%s\n' "$PATH"
-for n in $(compgen -a); do case $n in {pattern}) v=$(alias "$n"); printf 'alias\t%s\t%s\n' "$n" "${{v//$'\n'/ }}";; esac; done
+for n in $(compgen -a); do v=$(alias "$n"); case "$n" in {pattern}) ;; *) case "$v" in {mentions}) ;; *) continue;; esac;; esac; printf 'alias\t%s\t%s\n' "$n" "${{v//$'\n'/ }}"; done
 for n in $(compgen -A function); do case $n in {pattern}) v=$(declare -f "$n"); printf 'function\t%s\t%s\n' "$n" "${{v//$'\n'/ }}";; esac; done
 printf '\036end\n'"#
         ),
@@ -216,6 +220,7 @@ pub(super) fn parse(output: &str) -> Option<Facts> {
                 facts.definitions.push(Definition {
                     name: name.to_owned(),
                     text: text.chars().take(16 * 1024).collect(),
+                    alias: kind == "alias",
                 });
             }
             _ => {}

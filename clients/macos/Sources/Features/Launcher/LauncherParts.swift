@@ -348,7 +348,7 @@ struct AgentTabs: View {
                         SpringKeyframe(1.0, duration: 0.45, spring: .bouncy)
                     }
                 if selected || arrived {
-                    Text(item.title).appTextStyle(.footnote).fontWeight(.semibold).fixedSize()
+                    Text(item.title).appTextStyle(.subhead).fixedSize()
                         .foregroundStyle(arrived ? theme.colors.accentStrong : item.installed ? theme.colors.ink : theme.colors.inkMuted)
                         .transition(.opacity.combined(with: .offset(x: -6)))
                 }

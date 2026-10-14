@@ -42,7 +42,6 @@ struct PromptField: NSViewRepresentable {
         view.insertionPointColor = .clear
         view.font = PromptTextView.font
         view.typingAttributes = [.font: PromptTextView.font]
-        view.clipsToBounds = false
         return view
     }
 
@@ -119,7 +118,7 @@ struct PromptField: NSViewRepresentable {
 /// A one-line text view that draws a block cursor, as a terminal does: lit
 /// while the person types, then blinking; hollow when the view has no focus.
 final class PromptTextView: NSTextView {
-    static let font = NSFont.monospacedSystemFont(ofSize: 14, weight: .medium)
+    static let font = NSFont.monospacedSystemFont(ofSize: 13, weight: .medium)
 
     var caretColor = NSColor.systemOrange
     var ghostColor = NSColor.secondaryLabelColor
@@ -218,14 +217,8 @@ final class PromptTextView: NSTextView {
             return
         }
         guard lit else { return }
-        NSGraphicsContext.saveGraphicsState()
-        let glow = NSShadow()
-        glow.shadowColor = caretColor.withAlphaComponent(0.45)
-        glow.shadowBlurRadius = 5
-        glow.set()
         caretColor.setFill()
         block.fill()
-        NSGraphicsContext.restoreGraphicsState()
         // The character under the cursor shows in the terminal's own color.
         let text = string as NSString
         let location = selectedRange().location

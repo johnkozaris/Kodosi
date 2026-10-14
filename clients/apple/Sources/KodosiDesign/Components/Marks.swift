@@ -172,9 +172,9 @@ public struct AgentMark: View {
     private var rim: some View {
         switch activity {
         case .working:
-            WorkingRim(shape: shape, lineWidth: rimWidth, glow: size * 0.16).transition(.opacity)
+            WorkingRim(shape: shape, lineWidth: rimWidth).transition(.opacity)
         case let .progress(percent):
-            ProgressRim(fraction: Double(percent) / 100, radius: size * 0.3 + rimWidth, lineWidth: rimWidth, glow: size * 0.16)
+            ProgressRim(fraction: Double(percent) / 100, radius: size * 0.3 + rimWidth, lineWidth: rimWidth)
                 .transition(.opacity)
         case .asks:
             RoundedRectangle(cornerRadius: size * 0.3 + rimWidth * 2, style: .continuous)

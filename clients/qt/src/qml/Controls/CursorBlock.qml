@@ -12,13 +12,6 @@ Item {
     Accessible.ignored: true
 
     Rectangle {
-        anchors.fill: parent
-        anchors.margins: -3
-        radius: 4
-        color: root.color
-        opacity: 0.22 * block.opacity
-    }
-    Rectangle {
         id: block
         anchors.fill: parent
         radius: Math.min(width, height) * 0.2

@@ -14,8 +14,8 @@ ColumnLayout {
     property bool welcome: false
     property string folder: ""
     property bool showsAll: false
-    property bool showsEffort: false
-    readonly property font commandFont: Qt.font({ family: "monospace", pixelSize: 14, weight: Font.Medium })
+    property bool showsMore: false
+    readonly property font commandFont: Qt.font({ family: "monospace", pixelSize: KodosiTheme.fontBody, weight: Font.Medium })
     readonly property string home: StandardPaths.writableLocation(StandardPaths.HomeLocation).toString().replace(/^file:\/\//, "")
     readonly property var choice: Models.Launcher.choice
     readonly property var agents: Models.Launcher.agents
@@ -52,6 +52,8 @@ ColumnLayout {
     readonly property string identity: info && info.installed && account ? account.identity || "" : ""
     // Whether the person can type after the command: not while the line installs an agent.
     readonly property bool takesWords: !info || info.installed
+    // Whether the agent lists models, or may still list them.
+    readonly property bool listsModels: !modelSet || modelSet.models.length > 0
     // Whether Start has a line to run: not while the chosen agent is still unknown.
     readonly property bool ready: !info ? agentId.length === 0 : line.length > 0
     readonly property var hints: !info ? ["git status", "npm run dev", "make test", "ls -la"]
@@ -61,7 +63,7 @@ ColumnLayout {
     // Whether the terminal stands open: after it grew from its cursor, or at once.
     property bool opened: false
     property string ghost: ""
-    property int hint: 0
+    property int hint: Math.floor(Math.random() * 20)
 
     signal resumeRequested
 
@@ -87,8 +89,8 @@ ColumnLayout {
         if (Models.SessionActions.start("", directory, command, first))
             promptInput.clear()
     }
-    // Types the suggestions into the empty line one after another, at a
-    // person's uneven pace, and takes each away again.
+    // Types a suggestion into the empty line once, at a person's uneven pace,
+    // and leaves it there with the cursor.
     function typeHints() {
         typist.stop()
         ghost = ""
@@ -98,25 +100,14 @@ ColumnLayout {
             ghost = suggestion
             return
         }
-        typist.phase = 0
         typist.interval = 1200
         typist.start()
     }
     function typeStep() {
-        if (typist.phase === 0 && ghost.length < suggestion.length) {
-            ghost = suggestion.slice(0, ghost.length + 1)
-            typist.interval = ghost.endsWith(" ") ? 120 : 38 + Math.floor(Math.random() * 52)
-        } else if (typist.phase === 0) {
-            typist.phase = 1
-            typist.interval = 2600
-        } else if (ghost.length > 0) {
-            ghost = ghost.slice(0, -1)
-            typist.interval = 14
-        } else {
-            typist.phase = 0
-            hint++
-            typist.interval = 450
-        }
+        if (ghost.length >= suggestion.length)
+            return
+        ghost = suggestion.slice(0, ghost.length + 1)
+        typist.interval = ghost.endsWith(" ") ? 120 : 38 + Math.floor(Math.random() * 52)
         typist.start()
     }
     function pick(kind, value) {
@@ -128,8 +119,6 @@ ColumnLayout {
             Models.Launcher.choose("models", info.agent, value)
         else if (kind === "effort") {
             Models.Launcher.choose("efforts", info.agent, value)
-            if (value.length === 0)
-                showsEffort = false
         }
         menu.close()
     }
@@ -214,7 +203,7 @@ ColumnLayout {
             promptInput.forceActiveFocus()
     }
     onAgentIdChanged: {
-        showsEffort = false
+        showsMore = false
         Models.Launcher.loadModels(agentId)
         typeHints()
         promptInput.forceActiveFocus()
@@ -224,8 +213,6 @@ ColumnLayout {
 
     Timer {
         id: typist
-
-        property int phase: 0
 
         onTriggered: root.typeStep()
     }
@@ -587,7 +574,7 @@ ColumnLayout {
                                             text: mark.title
                                             color: mark.arrived ? KodosiTheme.terminalAccent
                                                 : mark.modelData.installed ? KodosiTheme.terminalInk : KodosiTheme.terminalInkMuted
-                                            font.pixelSize: KodosiTheme.fontFootnote
+                                            font.pixelSize: KodosiTheme.fontBody
                                             font.weight: Font.DemiBold
                                         }
                                     }
@@ -685,7 +672,7 @@ ColumnLayout {
                             anchors.verticalCenter: parent.verticalCenter
                             text: qsTr("This computer")
                             color: KodosiTheme.terminalInkMuted
-                            font.pixelSize: KodosiTheme.fontCaption
+                            font.pixelSize: KodosiTheme.fontFootnote
                         }
                     }
                 }
@@ -741,7 +728,7 @@ ColumnLayout {
                                 maximumWidth: 240
                                 glyph: "folder"
                                 glyphColor: "#5dafa6"
-                                words: root.tilde(root.directory)
+                                words: root.tilde(root.directory) === "~" ? "~" : root.folderName(root.directory)
                                 objectName: "launcher.folder"
                                 Accessible.id: objectName
                                 Accessible.name: qsTr("Folder")
@@ -768,7 +755,8 @@ ColumnLayout {
                             }
                             Token {
                                 id: modelToken
-                                visible: root.info !== null && root.info.installed && (!root.modelSet || root.modelSet.models.length > 0)
+                                visible: root.info !== null && root.info.installed
+                                    && (root.modelArgument.length > 0 || (root.showsMore && root.listsModels))
                                 words: root.modelArgument || qsTr("model")
                                 slot: root.modelArgument.length === 0
                                 loading: root.loadingModels
@@ -779,8 +767,8 @@ ColumnLayout {
                             }
                             Token {
                                 id: effortToken
-                                visible: root.info !== null && root.info.installed && root.efforts.length > 0
-                                    && (root.effortArgument.length > 0 || root.showsEffort)
+                                visible: root.info !== null && root.info.installed
+                                    && (root.effortArgument.length > 0 || (root.showsMore && root.efforts.length > 0))
                                 words: root.effortArgument || qsTr("effort")
                                 slot: root.effortArgument.length === 0
                                 objectName: "launcher.effort"
@@ -791,8 +779,9 @@ ColumnLayout {
                             AbstractButton {
                                 id: moreChoices
 
-                                visible: root.info !== null && root.info.installed && root.efforts.length > 0
-                                    && root.effortArgument.length === 0 && !root.showsEffort
+                                visible: root.info !== null && root.info.installed && !root.showsMore
+                                    && ((root.modelArgument.length === 0 && root.listsModels)
+                                        || (root.effortArgument.length === 0 && root.efforts.length > 0))
                                 implicitWidth: 30
                                 implicitHeight: 26
                                 hoverEnabled: true
@@ -800,10 +789,10 @@ ColumnLayout {
                                 scale: pressed ? 0.95 : 1
                                 objectName: "launcher.moreChoices"
                                 Accessible.id: objectName
-                                Accessible.name: qsTr("More choices")
+                                Accessible.name: qsTr("Model and effort")
                                 ToolTip.visible: hovered
                                 ToolTip.text: Accessible.name
-                                onClicked: root.showsEffort = true
+                                onClicked: root.showsMore = true
 
                                 Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover } }
 
@@ -888,7 +877,6 @@ ColumnLayout {
             objectName: "launcher.start"
             Accessible.id: objectName
             variant: KButton.Primary
-            large: true
             iconName: "arrow-right"
             iconTrailing: true
             enabled: root.ready
@@ -899,7 +887,7 @@ ColumnLayout {
         }
         KIconButton {
             glyph: "history"
-            size: 36
+            size: 32
             objectName: "launcher.resume"
             Accessible.id: objectName
             Accessible.name: qsTr("Resume a conversation")

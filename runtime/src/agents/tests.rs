@@ -13,6 +13,14 @@ fn definition(name: &str, text: &str) -> Definition {
     Definition {
         name: name.to_owned(),
         text: text.to_owned(),
+        alias: false,
+    }
+}
+
+fn alias(name: &str, text: &str) -> Definition {
+    Definition {
+        alias: true,
+        ..definition(name, text)
     }
 }
 
@@ -30,6 +38,8 @@ fn run_script(shell: &str, arguments: &[&str], prelude: &str, family_script: &st
 fn shell_scripts_report_path_and_agent_definitions() {
     let prelude = r#"claudesim() { _claude_profile "$HOME/.claude-alt" "$@"; }
 alias codex-sw='CODEX_HOME=~/.codex-sw codex'
+alias cc='claude --dangerously-skip-permissions'
+alias gs='git status'
 gitlog() { git log; }"#;
     for (shell, arguments) in [
         ("/bin/zsh", &["-f", "-c"][..]),
@@ -52,7 +62,11 @@ gitlog() { git log; }"#;
             .collect::<Vec<_>>();
         assert!(names.contains(&"claudesim"), "{shell}: {names:?}");
         assert!(names.contains(&"codex-sw"), "{shell}: {names:?}");
-        assert!(!names.contains(&"gitlog"), "{shell}: {names:?}");
+        assert!(names.contains(&"cc"), "{shell}: {names:?}");
+        assert!(
+            !names.contains(&"gitlog") && !names.contains(&"gs"),
+            "{shell}: {names:?}"
+        );
         let claudesim = facts
             .definitions
             .iter()
@@ -116,37 +130,50 @@ fn jwt(email: &str) -> String {
     format!("e30.{claims}.signature")
 }
 
+/// Writes a file under `home`, with the folders it needs.
+fn put(home: &Path, path: &str, text: &str) {
+    let path = home.join(path);
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(path, text).unwrap();
+}
+
+fn claude_sign_in(email: &str) -> String {
+    format!(r#"{{"oauthAccount":{{"emailAddress":"{email}"}}}}"#)
+}
+
 #[test]
 fn accounts_come_from_definitions_and_sign_in_folders() {
     let root = tempfile::tempdir().unwrap();
     let home = root.path();
-    fs::write(
-        home.join(".claude.json"),
-        r#"{"oauthAccount":{"emailAddress":"ada@example.com"}}"#,
-    )
-    .unwrap();
-    fs::create_dir_all(home.join(".claude-alt")).unwrap();
-    fs::write(
-        home.join(".claude-alt/.claude.json"),
-        r#"{"oauthAccount":{"emailAddress":"sim@example.com"}}"#,
-    )
-    .unwrap();
-    fs::create_dir_all(home.join(".claude_personal")).unwrap();
-    fs::write(
-        home.join(".claude_personal/.claude.json"),
-        r#"{"oauthAccount":{"emailAddress":"me@example.com"}}"#,
-    )
-    .unwrap();
+    put(home, ".claude.json", &claude_sign_in("ada@example.com"));
+    put(
+        home,
+        ".claude-alt/.claude.json",
+        &claude_sign_in("sim@example.com"),
+    );
+    put(
+        home,
+        ".claude_personal/.claude.json",
+        &claude_sign_in("me@example.com"),
+    );
+    put(
+        home,
+        ".claude-script/.claude.json",
+        &claude_sign_in("script@example.com"),
+    );
+    put(home, ".claude-started/.claude.json", "{}");
     fs::create_dir_all(home.join(".claude-work")).unwrap();
-    fs::create_dir_all(home.join(".claude-started")).unwrap();
-    fs::write(home.join(".claude-started/.claude.json"), "{}").unwrap();
     fs::create_dir_all(home.join(".claude-tool/cache")).unwrap();
-    fs::create_dir_all(home.join(".codex-sw")).unwrap();
-    fs::write(
-        home.join(".codex-sw/auth.json"),
-        format!(r#"{{"tokens":{{"id_token":"{}"}}}}"#, jwt("sw@example.com")),
-    )
-    .unwrap();
+    put(
+        home,
+        ".codex-sw/auth.json",
+        &format!(r#"{{"tokens":{{"id_token":"{}"}}}}"#, jwt("sw@example.com")),
+    );
+    put(
+        home,
+        "bin/claude-script",
+        "#!/bin/sh\nexport CLAUDE_CONFIG_DIR=\"$HOME/.claude-script\"\nexec claude \"$@\"\n",
+    );
     let facts = Facts {
         path: Some("/nowhere".into()),
         definitions: vec![
@@ -157,7 +184,13 @@ fn accounts_come_from_definitions_and_sign_in_folders() {
                 r#"_claude_profile "$HOME/.claude-alt" --yolo"#,
             ),
             definition("claude-acct", "_cc_acct claude-sw"),
+            definition("claude_usage", r#"ccusage "$@""#),
             definition("codex", "codex"),
+            alias("cc", "claude --dangerously-skip-permissions"),
+            alias("claude-config", "vim ~/.claude/settings.json"),
+            alias("claudeGone", r#""$HOME/.local/bin/claudeGone""#),
+            alias("claudeScript", r#""$HOME/bin/claude-script""#),
+            alias("gs", "git status"),
         ],
     };
     let catalog = accounts::catalog(home, &facts);
@@ -178,23 +211,15 @@ fn accounts_come_from_definitions_and_sign_in_folders() {
             })
             .collect::<Vec<_>>()
     };
-    let work = format!(
-        "env CLAUDE_CONFIG_DIR={}/.claude-work claude",
-        home.display()
-    );
-    let personal = format!(
-        "env CLAUDE_CONFIG_DIR={}/.claude_personal claude",
-        home.display()
-    );
-    let started = format!(
-        "env CLAUDE_CONFIG_DIR={}/.claude-started claude",
-        home.display()
-    );
+    let [work, personal, started] = [".claude-work", ".claude_personal", ".claude-started"]
+        .map(|folder| format!("env CLAUDE_CONFIG_DIR={}/{folder} claude", home.display()));
     assert_eq!(
         accounts_of(Agent::Claude),
         vec![
             ("claude", "claude", Some("ada@example.com")),
+            ("cc", "cc", None),
             ("claudesim", "claudesim", Some("sim@example.com")),
+            ("claudeScript", "claudeScript", Some("script@example.com")),
             ("personal", personal.as_str(), Some("me@example.com")),
             ("started", started.as_str(), None),
             ("work", work.as_str(), None),

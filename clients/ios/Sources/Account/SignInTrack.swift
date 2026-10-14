@@ -43,7 +43,7 @@ struct SignInTrack: View {
                 }
                 .overlay {
                     if active {
-                        WorkingRim(shape: Circle(), lineWidth: 2, glow: 5)
+                        WorkingRim(shape: Circle(), lineWidth: 2)
                             .padding(-2)
                             .transition(.opacity)
                     }

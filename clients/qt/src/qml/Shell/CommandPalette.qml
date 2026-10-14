@@ -39,14 +39,14 @@ KPopover {
     function actions() {
         const group = qsTr("Actions")
         const list = [
-            { id: "action.terminal", group: group, title: qsTr("New terminal"), kind: "action", icon: "plus" },
-            { id: "action.folder", group: group, title: qsTr("New terminal in a folder…"), kind: "action", icon: "folder" },
-            { id: "action.resume", group: group, title: qsTr("Resume a conversation"), kind: "action", icon: "history" }
+            { id: "action.terminal", group: group, title: qsTr("New terminal"), kind: "action", icon: "plus", tint: "#d98a5f" },
+            { id: "action.folder", group: group, title: qsTr("New terminal in a folder…"), kind: "action", icon: "folder", tint: "#4f9bb0" },
+            { id: "action.resume", group: group, title: qsTr("Resume a conversation"), kind: "action", icon: "history", tint: "#d9a441" }
         ]
         if (Models.Account.signedIn && Models.Devices.localDeviceEnrolled)
-            list.push({ id: "action.room", group: group, title: qsTr("New room"), kind: "action", icon: "grid" })
-        list.push({ id: "action.people", group: group, title: qsTr("People"), kind: "action", icon: "people" })
-        list.push({ id: "action.settings", group: group, title: qsTr("Settings"), kind: "action", icon: "settings" })
+            list.push({ id: "action.room", group: group, title: qsTr("New room"), kind: "action", icon: "grid", tint: "#8c7bd1" })
+        list.push({ id: "action.people", group: group, title: qsTr("People"), kind: "action", icon: "people", tint: "#5b82c9" })
+        list.push({ id: "action.settings", group: group, title: qsTr("Settings"), kind: "action", icon: "settings", tint: "#6b6560" })
         return list
     }
     function run(item) {
@@ -90,6 +90,7 @@ KPopover {
     y: 96
     radius: KodosiTheme.radiusSheet
     elevation: 3
+    fill: KodosiTheme.surface
 
     onOpened: {
         query.clear()
@@ -100,52 +101,52 @@ KPopover {
     contentItem: ColumnLayout {
         spacing: 0
 
-        RowLayout {
+        Well {
             Layout.fillWidth: true
-            Layout.leftMargin: 18
-            Layout.rightMargin: 18
-            Layout.preferredHeight: 54
-            spacing: 10
+            Layout.margins: 10
+            Layout.preferredHeight: 38
+            radius: KodosiTheme.radiusMd
 
-            KIcon { Layout.preferredWidth: 17; Layout.preferredHeight: 17; name: "search"; color: KodosiTheme.inkFaint }
-            TextInput {
-                id: query
-                Layout.fillWidth: true
-                color: KodosiTheme.ink
-                font.pixelSize: KodosiTheme.fontCallout
-                selectionColor: KodosiTheme.accent
-                selectedTextColor: KodosiTheme.accentInk
-                clip: true
-                objectName: "palette.query"
-                Accessible.id: objectName
-                Accessible.name: placeholder.text
-                Accessible.role: Accessible.EditableText
-                onTextChanged: root.index = 0
-                Keys.onDownPressed: root.move(1)
-                Keys.onUpPressed: root.move(-1)
-                Keys.onReturnPressed: root.run(root.results[root.index])
-                Keys.onEnterPressed: root.run(root.results[root.index])
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 12
+                anchors.rightMargin: 10
+                spacing: 10
 
-                PlainLabel {
-                    id: placeholder
-                    visible: query.text.length === 0
-                    text: qsTr("Go to a terminal, a room or a person")
-                    color: KodosiTheme.inkFaint
-                    font.pixelSize: KodosiTheme.fontCallout
+                KIcon { Layout.preferredWidth: 15; Layout.preferredHeight: 15; name: "search"; color: KodosiTheme.inkMuted }
+                TextInput {
+                    id: query
+                    Layout.fillWidth: true
+                    color: KodosiTheme.ink
+                    font.pixelSize: KodosiTheme.fontBody
+                    selectionColor: KodosiTheme.accent
+                    selectedTextColor: KodosiTheme.accentInk
+                    clip: true
+                    objectName: "palette.query"
+                    Accessible.id: objectName
+                    Accessible.name: placeholder.text
+                    Accessible.role: Accessible.EditableText
+                    onTextChanged: root.index = 0
+                    Keys.onDownPressed: root.move(1)
+                    Keys.onUpPressed: root.move(-1)
+                    Keys.onReturnPressed: root.run(root.results[root.index])
+                    Keys.onEnterPressed: root.run(root.results[root.index])
+
+                    PlainLabel {
+                        id: placeholder
+                        visible: query.text.length === 0
+                        text: qsTr("Go to a terminal, a room or a person")
+                        color: KodosiTheme.inkFaint
+                        font.pixelSize: KodosiTheme.fontBody
+                    }
                 }
-            }
-            Well {
-                Layout.preferredWidth: 30
-                Layout.preferredHeight: 18
-                radius: KodosiTheme.radiusXs
-                PlainLabel { anchors.centerIn: parent; text: "esc"; color: KodosiTheme.inkFaint; font.pixelSize: KodosiTheme.fontCaption2 }
+                Keycap { text: "esc" }
             }
         }
-        Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: KodosiTheme.alpha(KodosiTheme.hairline, 0.7) }
         PlainLabel {
             Layout.fillWidth: true
-            Layout.topMargin: 26
-            Layout.bottomMargin: 26
+            Layout.topMargin: 14
+            Layout.bottomMargin: 24
             visible: root.results.length === 0
             text: qsTr("Nothing matches.")
             color: KodosiTheme.inkMuted
@@ -155,7 +156,9 @@ KPopover {
         ListView {
             id: list
             Layout.fillWidth: true
-            Layout.margins: 8
+            Layout.leftMargin: 10
+            Layout.rightMargin: 10
+            Layout.bottomMargin: 10
             Layout.preferredHeight: Math.min(contentHeight, 380)
             visible: root.results.length > 0
             clip: true
@@ -184,47 +187,88 @@ KPopover {
                 readonly property bool highlighted: root.index === index
 
                 width: ListView.view.width
-                height: 38
+                height: 36
                 hoverEnabled: true
                 objectName: "palette.item." + modelData.id
                 Accessible.id: objectName
                 Accessible.name: modelData.title
 
                 contentItem: RowLayout {
-                    spacing: 11
+                    spacing: 10
 
                     Item {
-                        Layout.leftMargin: 10
+                        Layout.leftMargin: 8
                         Layout.preferredWidth: 24
                         Layout.preferredHeight: 24
 
                         AgentMark { visible: entry.modelData.kind === "terminal"; program: entry.modelData.program || ""; size: 24; session: entry.modelData }
                         RoomSigil { visible: entry.modelData.kind === "room"; key: entry.modelData.key || ""; size: 24 }
                         PersonAvatar { visible: entry.modelData.kind === "person"; name: entry.modelData.title; key: entry.modelData.key || ""; size: 24 }
-                        Well {
+                        IconTile {
                             visible: entry.modelData.kind === "action"
-                            anchors.fill: parent
-                            radius: KodosiTheme.radiusSm
-                            KIcon { anchors.centerIn: parent; width: 13; height: 13; name: entry.modelData.icon || "command"; strokeWidth: 2 }
+                            iconName: entry.modelData.icon || "command"
+                            tint: entry.modelData.tint || KodosiTheme.accent
+                            size: 24
                         }
                     }
                     PlainLabel { text: entry.modelData.title; font.weight: Font.Medium; elide: Text.ElideRight; Layout.maximumWidth: 300 }
                     PlainLabel {
                         Layout.fillWidth: true
                         text: entry.modelData.detail || ""
-                        color: KodosiTheme.inkFaint
+                        color: KodosiTheme.inkMuted
                         font.pixelSize: KodosiTheme.fontFootnote
                         elide: Text.ElideRight
                     }
-                    KIcon { Layout.rightMargin: 12; Layout.preferredWidth: 12; Layout.preferredHeight: 12; visible: entry.highlighted; name: "arrow-right"; color: KodosiTheme.inkFaint; strokeWidth: 2.2 }
+                    Keycap { Layout.rightMargin: 8; visible: entry.highlighted; text: "⏎" }
                 }
-                background: Rectangle {
-                    radius: KodosiTheme.radiusMd
-                    color: entry.highlighted ? KodosiTheme.accentSoft : KodosiTheme.alpha(KodosiTheme.ink, entry.hovered ? 0.05 : 0)
+                background: Item {
+                    Raised {
+                        anchors.fill: parent
+                        radius: KodosiTheme.radiusMd
+                        visible: entry.highlighted
+                    }
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: KodosiTheme.radiusMd
+                        color: KodosiTheme.alpha(KodosiTheme.ink, !entry.highlighted && entry.hovered ? 0.05 : 0)
+                    }
+                    Rectangle {
+                        x: -1.5
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 3
+                        height: 14
+                        radius: 1.5
+                        visible: entry.highlighted
+                        color: KodosiTheme.accent
+                    }
                 }
 
                 onClicked: root.run(modelData)
             }
+        }
+    }
+
+    // A key of the keyboard, named in a small raised cap.
+    component Keycap: Item {
+        id: cap
+
+        property string text: ""
+
+        implicitWidth: Math.max(20, label.implicitWidth + 12)
+        implicitHeight: 18
+
+        Bezel {
+            anchors.fill: parent
+            radius: KodosiTheme.radiusXs
+            quiet: true
+            fill: KodosiTheme.lifted
+        }
+        PlainLabel {
+            id: label
+            anchors.centerIn: parent
+            text: cap.text
+            color: KodosiTheme.inkMuted
+            font.pixelSize: KodosiTheme.fontCaption2
         }
     }
 }

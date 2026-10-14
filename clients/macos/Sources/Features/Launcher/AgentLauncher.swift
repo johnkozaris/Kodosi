@@ -12,13 +12,13 @@ struct AgentLauncher: View {
     var welcome = false
     @State private var folder: String?
     @State private var showsAll = false
-    @State private var showsEffort = false
+    @State private var showsMore = false
     @State private var moreHovered = false
     @State private var starting = false
     @State private var error: String?
     @State private var prompt = ""
     @State private var ghost = ""
-    @State private var hint = 0
+    @State private var hint = Int.random(in: 0 ..< 20)
     @State private var focus = 0
     @State private var seed: CGFloat = AgentLauncher.seeded ? 1 : 0
     @State private var opened = AgentLauncher.seeded
@@ -175,15 +175,15 @@ struct AgentLauncher: View {
                         fresh: launcher.fresh, showsAll: $showsAll
                     ) { id in
                         update { $0.agent = id == "shell" ? nil : id }
-                        showsEffort = false
+                        showsMore = false
                     }
                     .transition(.opacity)
                     Spacer(minLength: 8)
                     HStack(spacing: 5) {
-                        DeviceGlyph(label: String(localized: "This Mac")).font(.system(size: 11, weight: .medium))
+                        DeviceGlyph(label: String(localized: "This Mac"))
                         Text("This Mac")
                     }
-                    .appTextStyle(.caption).foregroundStyle(ink.inkMuted)
+                    .appTextStyle(.footnote).foregroundStyle(ink.inkMuted)
                     .padding(.bottom, 11)
                     .transition(.opacity)
                 }
@@ -196,7 +196,7 @@ struct AgentLauncher: View {
                     commandLine
                     if let identity = info?.installed == true ? account?.identity : nil {
                         Text(verbatim: "# \(identity)")
-                            .font(.system(size: 12, design: .monospaced))
+                            .appTextStyle(.mono)
                             .foregroundStyle(ink.inkFaint)
                             .lineLimit(1).truncationMode(.middle)
                             .transition(.opacity.combined(with: .offset(y: -4)))
@@ -256,7 +256,7 @@ struct AgentLauncher: View {
                 .accessibilityIdentifier("launcher.prompt")
             }
         }
-        .font(.system(size: 14, weight: .medium, design: .monospaced))
+        .font(.system(size: 13, weight: .medium, design: .monospaced))
         .frame(maxWidth: .infinity, alignment: .leading)
         .animation(theme.motion.spring, value: line)
     }
@@ -275,7 +275,8 @@ struct AgentLauncher: View {
                 }
             }
         }
-        if models == nil || !(models?.models.isEmpty ?? true) {
+        let listsModels = models == nil || !(models?.models.isEmpty ?? true)
+        if modelArgument != nil || (showsMore && listsModels) {
             CommandToken(
                 text: modelArgument ?? String(localized: "model"), slot: modelArgument == nil,
                 loading: models == nil && launcher.loadingModels.contains(info.agent),
@@ -286,46 +287,43 @@ struct AgentLauncher: View {
                     close()
                 }
             }
+            .transition(AnyTransition.pop)
         }
-        if !efforts.isEmpty {
-            if effortArgument != nil || showsEffort {
-                CommandToken(
-                    text: effortArgument ?? String(localized: "effort"), slot: effortArgument == nil,
-                    identifier: "launcher.effort", help: "Effort"
-                ) { close in
-                    EffortChoices(efforts: efforts, selected: effortArgument) { argument in
-                        update { $0.efforts[info.agent] = argument }
-                        if argument == nil {
-                            showsEffort = false
-                        }
-                        close()
-                    }
+        if effortArgument != nil || (showsMore && !efforts.isEmpty) {
+            CommandToken(
+                text: effortArgument ?? String(localized: "effort"), slot: effortArgument == nil,
+                identifier: "launcher.effort", help: "Effort"
+            ) { close in
+                EffortChoices(efforts: efforts, selected: effortArgument) { argument in
+                    update { $0.efforts[info.agent] = argument }
+                    close()
                 }
-                .transition(AnyTransition.pop)
-            } else {
-                Button {
-                    withAnimation(theme.motion.spring) { showsEffort = true }
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 11, weight: .heavy))
-                        .foregroundStyle(ink.inkMuted)
-                        .frame(width: 30, height: 26)
-                        .background { ChipFace(lit: moreHovered) }
-                        .offset(y: moreHovered ? -0.5 : 0)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(PressScaleStyle(scale: 0.95))
-                .onHover { moreHovered = $0 }
-                .animation(theme.motion.hover, value: moreHovered)
-                .help("More choices")
-                .accessibilityIdentifier("launcher.moreChoices")
             }
+            .transition(AnyTransition.pop)
+        }
+        if !showsMore, (modelArgument == nil && listsModels) || (effortArgument == nil && !efforts.isEmpty) {
+            Button {
+                withAnimation(theme.motion.spring) { showsMore = true }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 11, weight: .heavy))
+                    .foregroundStyle(ink.inkMuted)
+                    .frame(width: 30, height: 26)
+                    .background { ChipFace(lit: moreHovered) }
+                    .offset(y: moreHovered ? -0.5 : 0)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(PressScaleStyle(scale: 0.95))
+            .onHover { moreHovered = $0 }
+            .animation(theme.motion.hover, value: moreHovered)
+            .help("Model and effort")
+            .accessibilityIdentifier("launcher.moreChoices")
         }
     }
 
     private var folderToken: some View {
         CommandToken(
-            text: directory.map(tilde) ?? "~", symbol: "folder.fill", tint: hex(0x5DAFA6),
+            text: directory.map(folderName) ?? "~", symbol: "folder.fill", tint: hex(0x5DAFA6),
             identifier: "launcher.folder", help: "Folder"
         ) { close in
             FolderChoices(recents: recentFolders, selected: directory) { path in
@@ -339,6 +337,11 @@ struct AgentLauncher: View {
             }
         }
         .frame(maxWidth: 240, alignment: .leading)
+    }
+
+    /// A folder as a person names it: its own name, or `~` for the home folder.
+    private func folderName(_ path: String) -> String {
+        tilde(path) == "~" ? "~" : URL(fileURLWithPath: path).lastPathComponent
     }
 
     private var recentFolders: [String] {
@@ -358,12 +361,12 @@ struct AgentLauncher: View {
                 }
                 .shimmer(starting)
             }
-            .buttonStyle(.kodosi(.primary, size: .large))
+            .buttonStyle(.kodosi(.primary))
             .keyboardShortcut(.defaultAction)
             .disabled(starting || !ready)
             .accessibilityIdentifier("launcher.start")
             IconButton(
-                title: "Resume a conversation", symbol: "clock.arrow.circlepath", identifier: "launcher.resume", size: 36
+                title: "Resume a conversation", symbol: "clock.arrow.circlepath", identifier: "launcher.resume", size: 32
             ) { deps.workbench.showsHistory = true }
         }
     }
@@ -379,8 +382,8 @@ struct AgentLauncher: View {
         focus += 1
     }
 
-    /// Types the suggestions into the empty line one after another, at a
-    /// person's uneven pace, and takes each away again.
+    /// Types a suggestion into the empty line once, at a person's uneven pace,
+    /// and leaves it there with the cursor.
     private func typeHints() async {
         ghost = ""
         guard prompt.isEmpty, takesWords else { return }
@@ -389,20 +392,10 @@ struct AgentLauncher: View {
             return
         }
         try? await Task.sleep(for: .milliseconds(1200))
-        while !Task.isCancelled {
-            for character in suggestion {
-                ghost.append(character)
-                try? await Task.sleep(for: .milliseconds(character == " " ? 120 : Int.random(in: 38 ... 90)))
-                guard !Task.isCancelled else { return }
-            }
-            try? await Task.sleep(for: .milliseconds(2600))
-            while !ghost.isEmpty, !Task.isCancelled {
-                ghost.removeLast()
-                try? await Task.sleep(for: .milliseconds(14))
-            }
-            try? await Task.sleep(for: .milliseconds(450))
+        for character in suggestion {
             guard !Task.isCancelled else { return }
-            hint += 1
+            ghost.append(character)
+            try? await Task.sleep(for: .milliseconds(character == " " ? 120 : Int.random(in: 38 ... 90)))
         }
     }
 
