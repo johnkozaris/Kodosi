@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import Kodosi 1.0
-import QtCore
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -20,7 +19,7 @@ ColumnLayout {
     property real menuX: 0
     property bool adding: false
     readonly property font commandFont: Qt.font({ family: "monospace", pixelSize: KodosiTheme.fontBody, weight: Font.Medium })
-    readonly property string home: StandardPaths.writableLocation(StandardPaths.HomeLocation).toString().replace(/^file:\/\//, "")
+    readonly property string home: Models.DesktopSettings.homeDirectory
     readonly property var choice: Models.Launcher.choice
     readonly property var agents: Models.Launcher.agents
     readonly property string agentId: choice.agent || ""

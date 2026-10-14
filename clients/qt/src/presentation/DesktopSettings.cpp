@@ -138,11 +138,15 @@ void DesktopSettings::persistStart()
     m_settings->endArray();
     m_settings->sync();
 }
+QString DesktopSettings::homeDirectory() const
+{
+    return QDir::homePath();
+}
 QString DesktopSettings::effectiveWorkingDirectory() const
 {
     const QFileInfo info(m_directory);
     return !m_directory.isEmpty() && info.isDir() && info.isReadable() ? info.canonicalFilePath()
-                                                                       : QDir::homePath();
+                                                                       : homeDirectory();
 }
 bool DesktopSettings::apply(
     const QString& family, int size, int cursor, double line, int scrollback, bool blink)

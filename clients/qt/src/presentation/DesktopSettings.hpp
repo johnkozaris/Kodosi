@@ -15,6 +15,7 @@ class DesktopSettings final : public QObject {
     Q_PROPERTY(double lineHeight READ lineHeight NOTIFY settingsChanged)
     Q_PROPERTY(int scrollbackLines READ scrollbackLines NOTIFY settingsChanged)
     Q_PROPERTY(bool cursorBlink READ cursorBlink NOTIFY settingsChanged)
+    Q_PROPERTY(QString homeDirectory READ homeDirectory CONSTANT)
     Q_PROPERTY(QString effectiveWorkingDirectory READ effectiveWorkingDirectory NOTIFY settingsChanged)
     Q_PROPERTY(QString branchFolder READ branchFolder NOTIFY settingsChanged)
     Q_PROPERTY(QString settingsError READ settingsError NOTIFY settingsErrorChanged)
@@ -31,6 +32,7 @@ public:
     double lineHeight() const { return m_lineHeight; }
     int scrollbackLines() const { return m_scrollback; }
     bool cursorBlink() const { return m_blink; }
+    QString homeDirectory() const;
     QString effectiveWorkingDirectory() const;
     QString branchFolder() const { return m_branchFolder; }
     QString settingsError() const { return m_error; }

@@ -5,6 +5,18 @@
 #include <algorithm>
 
 namespace kodosi {
+namespace {
+// A Windows host writes `C:\…` or `\\server\share\…`, and Qt writes the same folder with `/`.
+QString withSlashes(QString path)
+{
+    const bool drive = path.size() > 2 && path.at(0).unicode() < 0x80 && path.at(0).isLetter()
+        && path.at(1) == u':' && (path.at(2) == u'\\' || path.at(2) == u'/');
+    if (drive || path.startsWith(QStringLiteral("\\\\")))
+        path.replace(u'\\', u'/');
+    return path;
+}
+}
+
 SessionCatalogModel::SessionCatalogModel(QObject* parent)
     : QAbstractListModel(parent)
 {
@@ -19,7 +31,7 @@ QVariantList SessionCatalogModel::folderGroups() const
             + QLatin1Char(':') + session.workingDirectory;
         auto& group = groups[key];
         group.insert(QStringLiteral("key"), key);
-        group.insert(QStringLiteral("directory"), local ? session.workingDirectory : QString {});
+        group.insert(QStringLiteral("directory"), local ? withSlashes(session.workingDirectory) : QString {});
         group.insert(QStringLiteral("name"),
             session.workingDirectory.isEmpty() ? tr("Terminals") : folderName(session.workingDirectory));
         group.insert(QStringLiteral("host"), local ? QString {} : session.hostName);
@@ -81,13 +93,6 @@ bool isStatusGlyph(const char32_t scalar)
 {
     static constexpr char32_t glyphs[] { 0x2733, 0x2722, 0x2736, 0x273B, 0x273D, 0x00B7, 0x25CF, 0x25CB };
     return isSpinner(scalar) || std::ranges::find(glyphs, scalar) != std::end(glyphs);
-}
-
-bool isWindowsPath(const QString& path)
-{
-    const bool drive = path.size() > 2 && path.at(0).unicode() < 0x80 && path.at(0).isLetter()
-        && path.at(1) == u':' && (path.at(2) == u'\\' || path.at(2) == u'/');
-    return drive || path.startsWith(QStringLiteral("\\\\"));
 }
 }
 
@@ -162,10 +167,7 @@ QString SessionCatalogModel::activity(const Session& session)
 
 QString SessionCatalogModel::folderName(const QString& path)
 {
-    auto separated = path;
-    if (isWindowsPath(path))
-        separated.replace(u'\\', u'/');
-    const auto parts = separated.split(u'/', Qt::SkipEmptyParts);
+    const auto parts = withSlashes(path).split(u'/', Qt::SkipEmptyParts);
     return parts.isEmpty() ? path : parts.last();
 }
 
@@ -255,7 +257,7 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
         { QStringLiteral("folderName"), folderName(s->workingDirectory) },
         { QStringLiteral("hostLabel"), local ? tr("This computer") : !s->hostName.isEmpty() ? s->hostName : !s->ownerName.isEmpty() ? s->ownerName : tr("Remote computer") },
         { QStringLiteral("ownerUserId"), s->ownerUserId },
-        { QStringLiteral("kind"), s->kind }, { QStringLiteral("workingDirectory"), s->kind == QStringLiteral("local") ? s->workingDirectory : QString {} },
+        { QStringLiteral("kind"), s->kind }, { QStringLiteral("workingDirectory"), local ? withSlashes(s->workingDirectory) : QString {} },
         { QStringLiteral("displayDirectory"), s->workingDirectory },
         { QStringLiteral("headerTitle"), s->title.isEmpty() || s->title == s->name ? s->name : s->name + QStringLiteral(" · ") + s->title },
         { QStringLiteral("program"), s->program }, { QStringLiteral("connectedUsers"), s->connectedUsers },

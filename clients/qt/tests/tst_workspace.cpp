@@ -170,6 +170,25 @@ private slots:
         QCOMPARE(f.sessions.presentationForSession(test::id(1)).value(QStringLiteral("folderName")).toString(),
             QStringLiteral("project"));
     }
+    void aLocalWindowsFolderReachesQmlWithSlashes()
+    {
+        Fixture f;
+        auto windows = test::session(1);
+        windows.insert(QStringLiteral("workingDir"), QStringLiteral("C:\\Users\\ada\\project"));
+        auto posix = test::session(2);
+        posix.insert(QStringLiteral("workingDir"), QStringLiteral("/home/ada/one\\two"));
+        f.sessions.apply(test::snapshot({ windows, posix }));
+        const auto fields = f.sessions.presentationForSession(test::id(1));
+        QCOMPARE(fields.value(QStringLiteral("workingDirectory")).toString(), QStringLiteral("C:/Users/ada/project"));
+        QCOMPARE(fields.value(QStringLiteral("displayDirectory")).toString(), QStringLiteral("C:\\Users\\ada\\project"));
+        QCOMPARE(f.sessions.presentationForSession(test::id(2)).value(QStringLiteral("workingDirectory")).toString(),
+            QStringLiteral("/home/ada/one\\two"));
+        QStringList directories;
+        for (const auto& group : f.sessions.folderGroups())
+            directories.append(group.toMap().value(QStringLiteral("directory")).toString());
+        directories.sort();
+        QCOMPARE(directories, (QStringList { QStringLiteral("/home/ada/one\\two"), QStringLiteral("C:/Users/ada/project") }));
+    }
     void remoteActivationAndClose()
     {
         Fixture f;

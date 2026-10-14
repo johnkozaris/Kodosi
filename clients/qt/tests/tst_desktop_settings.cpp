@@ -1,4 +1,5 @@
 #include "presentation/DesktopSettings.hpp"
+#include <QDir>
 #include <QFileInfo>
 #include <QTemporaryDir>
 #include <QtTest/QTest>
@@ -42,6 +43,14 @@ private slots:
             restored.setBranchFolder({});
         }
         QVERIFY(kodosi::DesktopSettings(std::make_unique<QSettings>(path, QSettings::IniFormat)).branchFolder().isEmpty());
+    }
+    void withoutAChosenFolderTheLauncherStartsInTheHomeFolder()
+    {
+        QTemporaryDir directory;
+        kodosi::DesktopSettings settings(
+            std::make_unique<QSettings>(directory.filePath(QStringLiteral("settings.ini")), QSettings::IniFormat));
+        QCOMPARE(settings.homeDirectory(), QDir::homePath());
+        QCOMPARE(settings.effectiveWorkingDirectory(), settings.homeDirectory());
     }
     void anAgentThatRunsHereGetsOneStartCommand()
     {
