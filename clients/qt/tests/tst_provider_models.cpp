@@ -17,7 +17,7 @@ public:
         values.append(QJsonDocument::fromJson(bytes.toByteArray()).object());
         return {};
     }
-    QJsonObject reply(QJsonObject result, int index = -1) const
+    QJsonObject reply(QJsonObject result, qsizetype index = -1) const
     {
         const auto command = values.at(index < 0 ? values.size() - 1 : index);
         return { { QStringLiteral("type"), QStringLiteral("provider.reply") },
@@ -180,10 +180,17 @@ private slots:
             QCOMPARE(launcher.agents().size(), 1);
             launcher.chooseAgent(QStringLiteral("claude"));
             launcher.addAccount(QStringLiteral("claude"), QStringLiteral(" work "));
+            const auto adding = commands.values.size() - 1;
             QCOMPARE(commands.values.last().value(QStringLiteral("name")).toString(), QStringLiteral("work"));
+            launcher.refresh(true);
+            const auto older = commands.values.size() - 1;
             launcher.apply(commands.reply({ { QStringLiteral("name"), QStringLiteral("work") },
-                { QStringLiteral("command"), work } }));
+                { QStringLiteral("command"), work } }, adding));
             QCOMPARE(launcher.choice().value(QStringLiteral("accounts")).toMap().value(QStringLiteral("claude")).toString(), work);
+            QCOMPARE(launcher.agents().first().toMap().value(QStringLiteral("accounts")).toList().size(), 1);
+            QCOMPARE(commands.values.size(), older + 1);
+            launcher.apply(commands.reply({ { QStringLiteral("agents"), QJsonArray { claude } } }, older));
+            QCOMPARE(commands.values.size(), older + 2);
             QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("provider.agents"));
         }
         kodosi::AgentLauncherModel restored(commands, std::make_unique<QSettings>(path, QSettings::IniFormat));

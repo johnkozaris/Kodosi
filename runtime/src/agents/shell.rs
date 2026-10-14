@@ -201,13 +201,18 @@ pub(super) fn parse(output: &str) -> Option<Facts> {
             (Some("path"), Some(path), None) if !path.is_empty() => {
                 facts.path = Some(path.into());
             }
-            (Some("alias" | "function"), Some(name), Some(text))
+            (Some(kind @ ("alias" | "function")), Some(name), Some(text))
                 if !name.is_empty()
                     && name.len() <= 64
                     && name.bytes().all(|byte| {
                         byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.')
                     }) =>
             {
+                let text = if kind == "alias" {
+                    alias_value(name, text)
+                } else {
+                    text.to_owned()
+                };
                 facts.definitions.push(Definition {
                     name: name.to_owned(),
                     text: text.chars().take(16 * 1024).collect(),
@@ -217,4 +222,21 @@ pub(super) fn parse(output: &str) -> Option<Facts> {
         }
     }
     Some(facts)
+}
+
+/// The value of an alias. Bash prints it as `alias name='value'`, zsh as the
+/// value alone.
+fn alias_value(name: &str, text: &str) -> String {
+    text.strip_prefix("alias ")
+        .and_then(|text| text.strip_prefix(name))
+        .and_then(|text| text.strip_prefix('='))
+        .map_or_else(
+            || text.to_owned(),
+            |value| {
+                value
+                    .strip_prefix('\'')
+                    .and_then(|value| value.strip_suffix('\''))
+                    .map_or_else(|| value.to_owned(), |value| value.replace(r"'\''", "'"))
+            },
+        )
 }

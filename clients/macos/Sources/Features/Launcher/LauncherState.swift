@@ -11,7 +11,8 @@ final class LauncherState {
     private(set) var catalog: AgentCatalog?
     private(set) var models: [String: AgentModels] = [:]
     private(set) var loadingModels: Set<String> = []
-    private(set) var refreshing = false
+    private var refreshing = false
+    private var refreshesAgain = false
     private var refreshedAt: Date?
 
     init(commands: CommandSink) {
@@ -22,23 +23,32 @@ final class LauncherState {
         catalog?.agents.first { $0.agent == id }
     }
 
-    /// Asks the runtime again, unless it answered in the last few seconds.
+    /// Asks the runtime again, unless it answered in the last few seconds. A
+    /// forced refresh while one runs asks again when that one ends, as the
+    /// answer under way can be older than the change.
     func refresh(force: Bool = false) async {
-        guard !refreshing, force || refreshedAt.map({ Date().timeIntervalSince($0) > 8 }) ?? true else { return }
+        if refreshing {
+            refreshesAgain = refreshesAgain || force
+            return
+        }
+        guard force || refreshedAt.map({ Date().timeIntervalSince($0) > 8 }) ?? true else { return }
         refreshing = true
         defer { refreshing = false }
-        do {
-            let reply = try await commands.request("provider.agents")
-            let catalog: AgentCatalog = try reply.value("result")
-            if catalog != self.catalog {
-                let installed = Set(catalog.agents.filter(\.installed).map(\.agent))
-                models = models.filter { installed.contains($0.key) }
-                self.catalog = catalog
+        repeat {
+            refreshesAgain = false
+            do {
+                let reply = try await commands.request("provider.agents")
+                let catalog: AgentCatalog = try reply.value("result")
+                if catalog != self.catalog {
+                    let installed = Set(catalog.agents.filter(\.installed).map(\.agent))
+                    models = models.filter { installed.contains($0.key) }
+                    self.catalog = catalog
+                }
+                refreshedAt = Date()
+            } catch {
+                Logger.app.warning("Agents of this Mac unknown: \(error.localizedDescription, privacy: .public)")
             }
-            refreshedAt = Date()
-        } catch {
-            Logger.app.warning("Agents of this Mac unknown: \(error.localizedDescription, privacy: .public)")
-        }
+        } while refreshesAgain
     }
 
     func loadModels(_ agent: String) async {
@@ -56,6 +66,9 @@ final class LauncherState {
     func addAccount(_ agent: String, name: String) async throws -> AgentAccount {
         let reply = try await commands.request("provider.addAccount", ["agent": .string(agent), "name": .string(name)])
         let account: AgentAccount = try reply.value("result")
+        if let index = catalog?.agents.firstIndex(where: { $0.agent == agent }) {
+            catalog?.agents[index].accounts.append(account)
+        }
         await refresh(force: true)
         return account
     }

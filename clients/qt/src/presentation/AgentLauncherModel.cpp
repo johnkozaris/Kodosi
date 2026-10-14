@@ -1,6 +1,7 @@
 #include "presentation/AgentLauncherModel.hpp"
 
 #include <algorithm>
+#include <utility>
 
 #include <QDateTime>
 #include <QJsonArray>
@@ -33,6 +34,9 @@ void AgentLauncherModel::refresh(bool force)
 {
     const auto now = QDateTime::currentMSecsSinceEpoch();
     const bool asking = std::ranges::any_of(m_pending, [](const Pending& pending) { return pending.request == Request::Agents; });
+    // The answer under way can be older than the change that forces a refresh.
+    if (asking)
+        m_refreshesAgain = m_refreshesAgain || force;
     if (asking || (!force && now - m_refreshedAt < RefreshMilliseconds))
         return;
     send(Request::Agents, {}, { { QStringLiteral("type"), QStringLiteral("provider.agents") } });
@@ -116,6 +120,8 @@ void AgentLauncherModel::apply(const QJsonObject& event)
             emit agentsChanged();
             emit modelsChanged();
         }
+        if (std::exchange(m_refreshesAgain, false))
+            refresh(true);
         break;
     case Request::Models:
         m_loading.removeAll(pending.agent);
@@ -128,6 +134,15 @@ void AgentLauncherModel::apply(const QJsonObject& event)
             m_accountError = event.value(QStringLiteral("message")).toString();
         } else {
             const auto command = result.value(QStringLiteral("command")).toString();
+            for (auto& value : m_agents) {
+                auto info = value.toMap();
+                if (info.value(QStringLiteral("agent")).toString() != pending.agent)
+                    continue;
+                info.insert(QStringLiteral("accounts"),
+                    info.value(QStringLiteral("accounts")).toList() << result.toVariantMap());
+                value = info;
+                emit agentsChanged();
+            }
             choose(QStringLiteral("accounts"), pending.agent, command);
             emit accountAdded(pending.agent, command);
             refresh(true);
@@ -142,6 +157,7 @@ void AgentLauncherModel::reset()
     const bool adding = addingAccount();
     m_pending.clear();
     m_loading.clear();
+    m_refreshesAgain = false;
     emit modelsChanged();
     if (adding)
         emit accountErrorChanged();

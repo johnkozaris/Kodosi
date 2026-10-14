@@ -66,6 +66,7 @@ private:
     QVariantMap m_choice;
     QString m_accountError;
     qint64 m_refreshedAt = 0;
+    bool m_refreshesAgain = false;
 
     bool send(Request request, const QString& agent, QJsonObject values);
     void persist();

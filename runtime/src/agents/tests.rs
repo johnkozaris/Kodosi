@@ -63,6 +63,12 @@ gitlog() { git log; }"#;
             "{shell}: {claudesim:?}"
         );
         assert!(!claudesim.text.contains('\n'));
+        let codex_sw = facts
+            .definitions
+            .iter()
+            .find(|definition| definition.name == "codex-sw")
+            .expect("alias");
+        assert_eq!(codex_sw.text, "CODEX_HOME=~/.codex-sw codex", "{shell}");
     }
 }
 
