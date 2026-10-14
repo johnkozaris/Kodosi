@@ -23,7 +23,7 @@ final class TerminalNotifications {
             self.accountEpoch = accountEpoch
         }
         current = Dictionary(uniqueKeysWithValues: sessions.filter {
-            ($0.isOwner || $0.isConnected) && $0.status == .running
+            $0.canCall && $0.status == .running
         }.map { ($0.id, $0) })
         let live = Set(current.values.map(identifier))
         let obsolete = issued.subtracting(live)

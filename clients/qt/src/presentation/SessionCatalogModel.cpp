@@ -364,11 +364,11 @@ void SessionCatalogModel::apply(const QJsonObject& event)
         const auto before = this->session(next.id);
         const bool stopped = before && isWorking(*before) && !isWorking(next);
         const bool waits = !waitState(next).isEmpty() && !(before && waitState(*before) == waitState(next));
-        if ((stopped || waits) && !attention.contains(next.id))
+        const bool calls = next.isOwner || presentation(next).canControl;
+        if (calls && (stopped || waits) && !attention.contains(next.id))
             attention.append(next.id);
         if (before && waitState(*before) != waitState(next)) {
             const auto words = report(next);
-            const bool calls = next.isOwner || presentation(next).canControl;
             alerts.append({ next.id, !calls || waitState(next).isEmpty() ? QString {} : words.isEmpty() ? signLabel(next) : words });
         }
     }

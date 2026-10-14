@@ -20,6 +20,16 @@ struct TerminalCatalogTests {
         #expect(groups.flatMap(\.sessions).map(\.id) == ["notes", "build"])
     }
 
+    @Test func aFriendsTerminalThatWaitsNeedsYouOnlyWhileYouHaveItOpen() throws {
+        let all = try sessions([
+            terminalEntry("closed", state: "blocked", owner: false, host: "Lab", connection: "offline"),
+            terminalEntry("open", state: "blocked", owner: false, host: "Lab"),
+        ])
+        #expect(TerminalCatalog.needsYou(all).map(\.id) == ["open"])
+        #expect(TerminalCatalog.groups(all).flatMap(\.sessions).map(\.id) == ["closed"])
+        #expect(all.allSatisfy(\.needsUser))
+    }
+
     @Test func friendsTerminalsAreSharedWithYouAfterYourComputers() throws {
         let all = try sessions([
             terminalEntry("theirs", state: "idle", owner: false, host: "Maria's Mac"),

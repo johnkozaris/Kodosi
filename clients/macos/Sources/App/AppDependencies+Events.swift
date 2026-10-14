@@ -212,8 +212,9 @@ extension AppDependencies {
         attention.formIntersection(received.map(\.id))
         freshTerminals.formIntersection(received.map(\.id))
         for value in received
-            where wasWorking.contains(value.id) && !value.isWorking
-            || value.waitState != nil && value.waitState != (waitStates[value.id] ?? nil)
+            where value.canCall
+            && (wasWorking.contains(value.id) && !value.isWorking
+                || value.waitState != nil && value.waitState != (waitStates[value.id] ?? nil))
         {
             noteAttention(value.id)
         }

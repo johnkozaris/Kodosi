@@ -45,7 +45,7 @@ final class TerminalStore {
     }
 
     var needsYou: [RuntimeSession] {
-        sessions.filter(\.needsUser)
+        TerminalCatalog.needsYou(sessions)
     }
 
     func reset(userId: String?) {
@@ -121,7 +121,7 @@ final class TerminalStore {
             }
             let finished = old.isWorking && !value.isWorking
             let waits = value.waitState != nil && value.waitState != old.waitState
-            if finished || waits {
+            if value.canCall, finished || waits {
                 noteAttention(value.id)
             }
         }

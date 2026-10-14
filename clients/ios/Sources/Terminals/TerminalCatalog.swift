@@ -32,13 +32,13 @@ struct TerminalGroup: Identifiable, Equatable {
 
 enum TerminalCatalog {
     static func needsYou(_ sessions: [RuntimeSession]) -> [RuntimeSession] {
-        sessions.filter(\.needsUser)
+        sessions.filter(waitsForYou)
     }
 
     static func groups(_ sessions: [RuntimeSession]) -> [TerminalGroup] {
         var computers: [String: (name: String, sessions: [RuntimeSession])] = [:]
         var shared: [RuntimeSession] = []
-        for session in sessions where !session.needsUser {
+        for session in sessions where !waitsForYou(session) {
             guard session.isOwner else {
                 shared.append(session)
                 continue
@@ -56,6 +56,10 @@ enum TerminalCatalog {
             groups.append(TerminalGroup(place: .shared, sessions: shared))
         }
         return groups
+    }
+
+    private static func waitsForYou(_ session: RuntimeSession) -> Bool {
+        session.needsUser && session.canCall
     }
 
     static func matching(_ sessions: [RuntimeSession], query: String) -> [RuntimeSession] {

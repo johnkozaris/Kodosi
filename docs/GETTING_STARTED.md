@@ -194,7 +194,8 @@ state of each room terminal before they open it, and the message when they open 
 | A green check | The program is done. |
 | A yellow warning sign | The program failed. |
 
-The check and the warning sign go away when you open the terminal. A closed folder in
+The check and the warning sign go away when you open the terminal. A friend's terminal
+that you do not have open shows only that its program works or waits. A closed folder in
 the sidebar shows the sign of a terminal in it that waits. Small faces show who else
 has the terminal open, so that two people do not answer at the same time.
 

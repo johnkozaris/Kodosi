@@ -212,6 +212,7 @@ void TerminalNotificationsTest::alertsTheOwnerAndThePeopleWhoHaveAWaitingTermina
     }
     QCOMPARE(fixture.driver.posted.at(0).destination.sessionId, test::id(1));
     QCOMPARE(fixture.driver.posted.at(1).destination.sessionId, test::id(2));
+    QCOMPARE(fixture.sessionsModel.attention(), QStringList({test::id(1), test::id(2)}));
 
     apply(works);
     QVERIFY(fixture.driver.withdrawn.contains(fixture.driver.posted.at(0).key));

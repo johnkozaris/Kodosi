@@ -129,16 +129,21 @@ private func awaitNotification(_ condition: () -> Bool) async {
     app.isFront = { false }
     let own = UUIDv7.generate()
     let shared = UUIDv7.generate()
-    func entry(_ id: String, owner: Bool, _ status: [String: JSONValue]) -> JSONValue {
+    let closed = UUIDv7.generate()
+    func entry(_ id: String, _ name: String, connection: String, _ status: [String: JSONValue]) -> JSONValue {
         .object([
-            "id": .string(id), "incarnationId": .string(id), "kind": .string(owner ? "local" : "remote"),
-            "name": .string(owner ? "Review" : "Shared"), "isOwner": .bool(owner), "status": .string("running"),
-            "connectionState": .string(owner ? "local" : "connected"), "sharedWith": .array([]), "programStatus": .object(status),
+            "id": .string(id), "incarnationId": .string(id), "kind": .string(id == own ? "local" : "remote"),
+            "name": .string(name), "isOwner": .bool(id == own), "status": .string("running"),
+            "connectionState": .string(connection), "sharedWith": .array([]), "programStatus": .object(status),
         ])
     }
     func receive(_ status: [String: JSONValue]) throws {
         try app.receive(runtimeEvent("sessions.snapshot", fields: [
-            "sessions": .array([entry(own, owner: true, status), entry(shared, owner: false, status)]),
+            "sessions": .array([
+                entry(own, "Review", connection: "local", status),
+                entry(shared, "Shared", connection: "connected", status),
+                entry(closed, "Closed", connection: "offline", status),
+            ]),
         ]))
     }
     let waits: [String: JSONValue] = ["state": .string("blocked"), "kind": .string("permission"), "message": .string("Allow the command?")]
