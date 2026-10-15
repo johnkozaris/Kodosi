@@ -43,15 +43,9 @@ struct StageOverview: View {
     }
 
     private var places: [Place] {
-        let grouped = Dictionary(grouping: deps.sessions) { session in
-            session.kind == .local ? "" : session.hostDeviceId ?? session.ownerUserId ?? session.id
-        }
-        return grouped.map { key, sessions in
-            let first = sessions[0]
-            let label = first.kind == .local ? String(localized: "This Mac")
-                : first.isOwner ? first.hostLabel : "\(first.ownerName ?? String(localized: "Shared")) · \(first.hostLabel)"
-            return Place(id: key, label: label, sessions: sessions)
-        }.sorted { ($0.id.isEmpty ? "" : $0.label) < ($1.id.isEmpty ? "" : $1.label) }
+        Dictionary(grouping: deps.sessions, by: SessionFolderGroup.computer).map { key, sessions in
+            Place(id: key, label: SessionFolderGroup.host(of: sessions[0]) ?? String(localized: "This Mac"), sessions: sessions)
+        }.sorted { ($0.id == "local" ? "" : $0.label) < ($1.id == "local" ? "" : $1.label) }
     }
 
     var body: some View {

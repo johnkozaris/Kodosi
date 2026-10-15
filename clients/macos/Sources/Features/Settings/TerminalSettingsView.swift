@@ -24,9 +24,9 @@ struct TerminalSettingsView: View {
             ListGroup {
                 ListRow(String(localized: "Appearance"), symbol: "circle.lefthalf.filled", tint: TileTint.graphite) {
                     SegmentedPill(selection: $themePreference, options: [
-                        SegmentOption(value: "system", title: String(localized: "Auto")),
-                        SegmentOption(value: "light", title: String(localized: "Light"), symbol: "sun.max"),
-                        SegmentOption(value: "dark", title: String(localized: "Dark"), symbol: "moon"),
+                        SegmentOption(value: ThemePreference.system.rawValue, title: String(localized: "Auto")),
+                        SegmentOption(value: ThemePreference.light.rawValue, title: String(localized: "Light"), symbol: "sun.max"),
+                        SegmentOption(value: ThemePreference.dark.rawValue, title: String(localized: "Dark"), symbol: "moon"),
                     ], compact: true, identifier: "settings.appearance")
                 }
                 ListRow(String(localized: "Font"), symbol: "textformat", tint: TileTint.blue) {
