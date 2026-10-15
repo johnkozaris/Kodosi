@@ -1,7 +1,7 @@
 use std::sync::atomic::AtomicUsize;
 
 use super::{channel::Transport, *};
-use crate::rooms::crypto::SealedStatus;
+use crate::network::TerminalStatus;
 
 const SEND: Duration = Duration::from_secs(10);
 const WAITING_FRAMES: usize = 256;
@@ -48,7 +48,7 @@ struct Hosting {
     incarnation: Uuid,
     events: mpsc::Sender<HostEvent>,
     announced: bool,
-    status: Option<SealedStatus>,
+    status: Option<TerminalStatus>,
 }
 
 #[derive(Clone)]
@@ -80,7 +80,7 @@ pub(crate) struct Hosted {
 
 #[cfg(feature = "host")]
 impl Hosted {
-    pub(super) fn share(&self, status: Option<SealedStatus>) {
+    pub(super) fn share(&self, status: Option<TerminalStatus>) {
         let Ok(mut shared) = self.link.shared.lock() else {
             return;
         };
@@ -187,7 +187,7 @@ fn text(value: &Value) -> Message {
     Message::Text(value.to_string().into())
 }
 
-fn status_message(session: Uuid, incarnation: Uuid, status: Option<&SealedStatus>) -> Message {
+fn status_message(session: Uuid, incarnation: Uuid, status: Option<&TerminalStatus>) -> Message {
     text(&json!({"type":"status","sessionId":session,"incarnationId":incarnation,"status":status}))
 }
 
@@ -506,11 +506,10 @@ mod tests {
     fn each_new_device_connection_hears_the_terminal_and_then_its_status() {
         let link = Arc::new(Link::default());
         let hosted = link.host(Uuid::now_v7(), Uuid::now_v7());
-        let status = SealedStatus {
-            key_version: 2,
-            epoch: 1,
-            nonce: "bm9uY2U=".to_owned(),
-            ciphertext: "c2VhbGVk".to_owned(),
+        let status = TerminalStatus {
+            program: Some("claude".to_owned()),
+            state: Some(crate::terminal::ProgramState::Working),
+            kind: None,
         };
         hosted.share(Some(status.clone()));
         let mut first = connect(&link);
@@ -522,7 +521,7 @@ mod tests {
             ["host", "status"]
         );
         assert_eq!(
-            serde_json::from_value::<SealedStatus>(sent[1]["status"].clone()).unwrap(),
+            serde_json::from_value::<TerminalStatus>(sent[1]["status"].clone()).unwrap(),
             status
         );
         hosted.share(None);

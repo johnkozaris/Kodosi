@@ -23,7 +23,6 @@ const EXACT_AFTER_QUIET: Duration = Duration::from_secs(1);
 const UNCONFIRMED_INPUT: u64 = 256 * 1024;
 const CONTROL_TIMEOUT: Duration = Duration::from_secs(12);
 const STATUS_SPACING: Duration = Duration::from_secs(1);
-const STATUS_RETRY: Duration = Duration::from_secs(5);
 
 type Reply = oneshot::Receiver<std::result::Result<Value, String>>;
 type Inputs = FuturesOrdered<std::pin::Pin<Box<dyn Future<Output = (u64, bool)> + Send>>>;
@@ -39,51 +38,29 @@ struct Admitted {
 
 type Viewers = Arc<std::sync::Mutex<BTreeMap<Uuid, Admitted>>>;
 
-/// The status of a room terminal for its room: the newest one that the terminal
-/// reported, and the one that the device connection holds for the server.
+/// The status of a terminal for the people who can open it: the newest one that the
+/// terminal reported, and the one that the device connection holds for the server.
 struct Shared {
-    room: Option<Uuid>,
     reported: Option<TerminalStatus>,
-    held: Option<(Uuid, TerminalStatus)>,
+    held: Option<TerminalStatus>,
     due: tokio::time::Instant,
 }
 
 impl Shared {
-    fn wanted(&self) -> Option<(Uuid, &TerminalStatus)> {
-        self.room.zip(
-            self.reported
-                .as_ref()
-                .filter(|status| **status != TerminalStatus::default()),
-        )
+    fn wanted(&self) -> Option<&TerminalStatus> {
+        self.reported
+            .as_ref()
+            .filter(|status| **status != TerminalStatus::default())
     }
 
     fn waiting(&self) -> bool {
-        self.wanted() != self.held.as_ref().map(|(room, status)| (*room, status))
+        self.wanted() != self.held.as_ref()
     }
 
-    async fn send(&mut self, network: &BackendClient, hosted: &Hosted, terminal: (Uuid, Uuid)) {
-        let wanted = self.wanted().map(|(room, status)| (room, status.clone()));
-        let sealed = match &wanted {
-            None => Ok(None),
-            Some((room, status)) => match network.credentials() {
-                Ok(credentials) => network
-                    .seal_terminal_status(&credentials, (*room, terminal.0, terminal.1), status)
-                    .await
-                    .map(Some),
-                Err(error) => Err(error),
-            },
-        };
-        match sealed {
-            Ok(sealed) => {
-                hosted.share(sealed);
-                self.held = wanted;
-                self.due = tokio::time::Instant::now() + STATUS_SPACING;
-            }
-            Err(error) => {
-                tracing::debug!(%error, "the terminal status waits for the room keys");
-                self.due = tokio::time::Instant::now() + STATUS_RETRY;
-            }
-        }
+    fn send(&mut self, hosted: &Hosted) {
+        self.held = self.wanted().cloned();
+        hosted.share(self.held.clone());
+        self.due = tokio::time::Instant::now() + STATUS_SPACING;
     }
 }
 
@@ -114,7 +91,6 @@ pub(super) async fn run(
     trust.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     trust.tick().await;
     let mut shared = Shared {
-        room: None,
         reported: None,
         held: None,
         due: tokio::time::Instant::now(),
@@ -122,7 +98,6 @@ pub(super) async fn run(
     let result = async {
         loop {
             check_generation(network, generation)?;
-            shared.room = publication.info.read().await.mission_id;
             tokio::select! {
                 biased;
                 () = publication.cancel.cancelled() => return Ok(()),
@@ -130,9 +105,7 @@ pub(super) async fn run(
                 () = publication.refresh.notified() => review(network, publication, &network.credentials()?, &viewers).await?,
                 _ = trust.tick() => review(network, publication, &network.credentials()?, &viewers).await?,
                 Some(_) = tasks.join_next(), if !tasks.is_empty() => {}
-                () = tokio::time::sleep_until(shared.due), if shared.waiting() => {
-                    shared.send(network, &hosted, (current.id, current.incarnation_id)).await;
-                }
+                () = tokio::time::sleep_until(shared.due), if shared.waiting() => shared.send(&hosted),
                 event = hosted.events.recv() => match event.ok_or(Error::Closed)? {
                     HostEvent::Refused(error) => return Err(error),
                     HostEvent::AccessChanged => review(network, publication, &network.credentials()?, &viewers).await?,

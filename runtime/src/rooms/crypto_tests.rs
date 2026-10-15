@@ -407,35 +407,3 @@ fn a_room_key_wrap_opens_only_with_both_parts_and_for_its_device() {
     renamed.recipients[0].device_id.clone_from(&other.device_id);
     assert!(unwrap(&renamed, &user, &other).is_err());
 }
-
-#[test]
-fn a_terminal_status_opens_only_for_its_terminal_and_key() {
-    let key = secret().unwrap();
-    let (room, session, incarnation) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
-    let plain = br#"{"state":"blocked","kind":"permission"}"#;
-    let sealed = SealedStatus::seal((room, session, incarnation), (3, 2), &key, plain).unwrap();
-    assert_eq!(
-        sealed
-            .open((room, session, incarnation), &key)
-            .unwrap()
-            .as_slice(),
-        plain
-    );
-    for other in [
-        (Uuid::now_v7(), session, incarnation),
-        (room, Uuid::now_v7(), incarnation),
-        (room, session, Uuid::now_v7()),
-    ] {
-        assert!(sealed.open(other, &key).is_err());
-    }
-    let older = SealedStatus {
-        epoch: 1,
-        ..sealed.clone()
-    };
-    assert!(older.open((room, session, incarnation), &key).is_err());
-    assert!(
-        sealed
-            .open((room, session, incarnation), &secret().unwrap())
-            .is_err()
-    );
-}

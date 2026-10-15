@@ -200,19 +200,31 @@ public sealed class TerminalConnectionTests
         var (host, _) = Device(device: "host"); var (other, _) = Device(device: "other");
         await using var disposeHost = host; await using var disposeOther = other;
         directory.Register(host); directory.Register(other); directory.Host(host, state);
-        var status = new TerminalStatus(1, 1, Convert.ToBase64String(new byte[12]), Convert.ToBase64String(new byte[32]));
+        var status = new TerminalStatus("claude", "blocked", "permission");
         directory.Share(other, state.Id, state.IncarnationId, status);
         directory.Share(host, state.Id, Guid.CreateVersion7(), status);
         Assert.Null(directory.Status(state.Id));
         directory.Share(host, state.Id, state.IncarnationId, status);
+        directory.Share(host, state.Id, state.IncarnationId, new TerminalStatus("claude", "blocked", "permission"));
         Assert.Equal(status, directory.Status(state.Id));
-        directory.ForgetStatus(state.Id);
-        Assert.Null(directory.Status(state.Id));
-        directory.Share(host, state.Id, state.IncarnationId, status);
         directory.Remove(host);
         Assert.Null(directory.Status(state.Id));
         Assert.False(directory.HostOnline(state.Id));
-        Assert.Equal(Enumerable.Repeat(state.Id, 5), changed);
+        Assert.Equal(Enumerable.Repeat(state.Id, 3), changed);
+    }
+
+    [Fact]
+    public void ATerminalStatusCarriesOnlyTheAgentAndTheState()
+    {
+        static TerminalStatus? Read(string json) => TerminalStatus.Read(JsonDocument.Parse(json).RootElement);
+        Assert.Equal(new TerminalStatus("claude", "blocked", "question"), Read("""{"program":"claude","state":"blocked","kind":"question"}"""));
+        Assert.Null(Read("null"));
+        foreach (var invalid in new[]
+                 {
+                     """{"state":"blocked","message":"Allow the command?"}""", """{"state":"thinking"}""",
+                     """{"state":"working","kind":"permission"}""", """{"program":"Claude Code"}""",
+                 })
+            Assert.ThrowsAny<Exception>(() => Read(invalid));
     }
 
     private sealed class CapturingSocket : FakeSocket

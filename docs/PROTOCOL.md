@@ -48,11 +48,11 @@ membership, while sharing one terminal leaves other local terminals alone.
 The host also keeps the status that programs report to the terminal (OSC 7501, or a
 progress bar until a program reports its own). It sends one status for each terminal
 to viewers with the terminal metadata, and drops unfinished work when its program ends.
-For a terminal in a room, the host also sends the agent and its state, encrypted with
-the room key, through its device connection. The backend keeps the newest one while the
-host is connected and gives it to the devices of the room, so members see the state of
-a terminal that they have not opened. It also tells the devices of everyone who can open
-a terminal when its host connects or disconnects.
+For each terminal, the host also sends the agent and its state through its device
+connection, without the program's text and without encryption. The backend keeps the
+newest one while the host is connected and gives it to the devices of everyone who can
+open the terminal, so they see the state of a terminal that they have not opened. It
+also tells those devices when the host connects or disconnects.
 
 Reconnecting restores current state. Input whose delivery is uncertain is not replayed,
 and a stale view cannot control a replacement terminal. Minimize dismisses a view;

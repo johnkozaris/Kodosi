@@ -103,11 +103,11 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         Assert.True(online.GetProperty("online").GetBoolean());
         Assert.Equal(JsonValueKind.Null, online.GetProperty("status").ValueKind);
 
-        var status = new { keyVersion = 1, epoch = 1, nonce = Convert.ToBase64String(new byte[12]), ciphertext = Convert.ToBase64String(new byte[40]) };
+        var status = new { program = "claude", state = "blocked", kind = "permission" };
         await SendAsync(host, new { type = "status", sessionId = id, incarnationId = incarnation, status });
-        Assert.Equal(status.ciphertext, (await TerminalAsync(viewer)).GetProperty("status").GetProperty("ciphertext").GetString());
+        Assert.Equal("permission", (await TerminalAsync(viewer)).GetProperty("status").GetProperty("kind").GetString());
         var listed = (await CallAsync(member, HttpMethod.Get, "/api/sessions")).EnumerateArray().Single();
-        Assert.Equal(status.ciphertext, listed.GetProperty("status").GetProperty("ciphertext").GetString());
+        Assert.Equal("blocked", listed.GetProperty("status").GetProperty("state").GetString());
 
         await host.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, ct);
         var offline = await TerminalAsync(viewer);
@@ -167,7 +167,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         using var anonymous = app.CreateClient();
         using var denied = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
         var health = await anonymous.GetFromJsonAsync<JsonElement>("/health/live", TestContext.Current.CancellationToken);
-        Assert.Equal(26, health.GetProperty("apiContractVersion").GetInt32());
+        Assert.Equal(27, health.GetProperty("apiContractVersion").GetInt32());
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("bad", "wrong-audience"));
         using var audience = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, audience.StatusCode);
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("unenrolled"));

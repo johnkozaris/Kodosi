@@ -125,7 +125,6 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
         var audience = await AudienceAsync(session, ct);
         connections.Revoke(session, (user, _) => audience.Contains(user));
-        connections.ForgetStatus(id);
         foreach (var user in previous.Concat(audience).Distinct()) connections.Notify(user, "sessions");
         return await DescribeAsync(session, ct);
     }

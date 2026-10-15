@@ -121,16 +121,6 @@ public sealed class ConnectionDirectory
         HostChanged?.Invoke(sessionId);
     }
 
-    public void ForgetStatus(Guid sessionId)
-    {
-        lock (sync)
-        {
-            if (!hosted.TryGetValue(sessionId, out var live) || live.Status is null) return;
-            hosted[sessionId] = live with { Status = null };
-        }
-        HostChanged?.Invoke(sessionId);
-    }
-
     internal void Unhost(DeviceLink link, Guid sessionId)
     {
         lock (sync)

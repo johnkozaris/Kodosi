@@ -19,7 +19,7 @@ fn session() -> RemoteSession {
 
 #[cfg(feature = "host")]
 #[test]
-fn a_room_hears_the_agent_and_its_state_but_not_its_text() {
+fn the_server_hears_the_agent_and_its_state_but_not_its_text() {
     use crate::terminal::{BlockedKind, ProgramState, ProgramStatus, TerminalMetadata};
     let status = TerminalStatus::of(&TerminalMetadata {
         connected_users: vec![],
@@ -40,14 +40,23 @@ fn a_room_hears_the_agent_and_its_state_but_not_its_text() {
         bytes,
         br#"{"program":"claude","state":"blocked","kind":"permission"}"#
     );
-    assert_eq!(TerminalStatus::read(&bytes).unwrap(), status);
-    for invalid in [
-        br#"{"program":"other"}"#.as_slice(),
-        br#"{"state":"working","kind":"permission"}"#,
-        br#"{"state":"blocked","message":"Allow?"}"#,
+    let notice = |status: Value| {
+        wire::TerminalNotice::read(&serde_json::json!({"sessionId": Uuid::nil(),
+            "incarnationId": Uuid::nil(), "online": true, "status": status}))
+    };
+    assert_eq!(
+        notice(serde_json::from_slice(&bytes).unwrap())
+            .unwrap()
+            .status,
+        Some(status)
+    );
+    for ignored in [
+        serde_json::json!({"program":"other"}),
+        serde_json::json!({"state":"working","kind":"permission"}),
     ] {
-        assert!(TerminalStatus::read(invalid).is_err());
+        assert_eq!(notice(ignored).unwrap().status, None);
     }
+    assert!(notice(serde_json::json!({"state":"blocked","message":"Allow?"})).is_err());
 }
 
 #[test]
