@@ -26,7 +26,6 @@ services:
         condition: service_healthy
     environment:
       ConnectionStrings__Kodosi: Host=postgres;Port=5432;Database=kodosi;Username=kodosi;Password=kodosi-local
-    restart: "no"
 
   backend:
     build:

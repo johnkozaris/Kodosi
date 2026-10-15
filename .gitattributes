@@ -1,6 +1,4 @@
-# Every checkout, Windows included, keeps LF: scripts, patches and digested
-# files must match the repository bytes. The ConPTY license is Microsoft's file
-# as published.
+# Keep the repository bytes on every platform: digests and patches depend on them.
 * text=auto eol=lf
 terminal/conpty/LICENSE -text
 terminal/ghostty/Vendor/** -whitespace linguist-vendored
