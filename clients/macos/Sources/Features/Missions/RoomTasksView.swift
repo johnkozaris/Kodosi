@@ -250,7 +250,8 @@ private struct RoomTaskCard: View {
     private var detail: some View {
         VStack(alignment: .leading, spacing: 12) {
             if !task.description.isEmpty {
-                Text(.init(task.description)).appTextStyle(.body).lineSpacing(2.5).foregroundStyle(theme.colors.inkMuted)
+                Text(RoomMessageText.formatted(task.description)).appTextStyle(.body).lineSpacing(2.5)
+                    .foregroundStyle(theme.colors.inkMuted).tint(theme.colors.accentStrong)
                     .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
             }
             if let issue = task.issue, let url = URL(string: issue.url), ["https", "http"].contains(url.scheme ?? "") {
