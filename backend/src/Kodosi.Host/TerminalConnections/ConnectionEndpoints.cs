@@ -56,7 +56,7 @@ internal static class ConnectionEndpoints
                 throw new ApiException(428, "A device session is required.");
             }
             await RequireDeviceAsync(scopes, current.Id, deviceId, handshakeDeadline.Token);
-            link = new DeviceLink(socket, current.Id, deviceId);
+            link = new DeviceLink(socket, current.Id, deviceId, directory.Relays);
             link.ExtendUntil(expires);
             directory.Register(link);
             await RequireDeviceAsync(scopes, current.Id, deviceId, handshakeDeadline.Token);

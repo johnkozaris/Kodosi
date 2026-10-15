@@ -33,10 +33,10 @@
       "viewer": "pipe, sessionId, userId, deviceId: to the host, when the server admitted a viewer",
       "accessChanged": "sessionId: to the host, after a change of the people or devices that can use the terminal",
       "closed": "pipe, status, message: the pipe ended; status 0 when the other device closed it",
-      "ping": "each 5 seconds after a check that the device is approved; the answer is pong"
+      "pong": "the answer to ping"
     },
     "authorization": "host: the hosting device of the publication; open: an approved device of the owner or of an explicit current member, checked before and after the pipe is registered",
-    "silence": "the server ends a connection that sent no message for 90 seconds; the device ends a connection that received no message for 45 seconds",
+    "silence": "the device sends ping each 20 seconds and the WebSocket keep-alive runs each 30 seconds; the server ends a connection that sent no message for 90 seconds; the device ends a connection that received no message for 45 seconds; each 60 seconds the server checks that each connected device is still approved",
     "lost": "a lost connection closes all pipes of the device and ends its host registrations and their status; the device connects again, sends host and status again for each terminal, and opens a new pipe for each view"
   },
   "terminalStatus": {
@@ -49,7 +49,7 @@
     "messageMaxBytes": 262160,
     "relay": "the server copies each frame to the other device of the pipe and reads none of the channel data",
     "order": "frames of one pipe keep their order",
-    "backpressure": "the server holds at most 16777216 bytes for one device; when a frame does not fit, the server closes that pipe with status 503 and the device connection stays open",
+    "backpressure": "the server holds at most 16777216 bytes for one device and 268435456 bytes for all devices together; when a frame does not fit, the server closes that pipe with status 503 (\"The connection is too slow.\" for one device, \"The Kodosi server is busy.\" for all devices) and the device connection stays open",
     "viewersMax": 64,
     "deviceMax": 256
   },

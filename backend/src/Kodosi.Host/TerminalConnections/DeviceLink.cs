@@ -13,15 +13,17 @@ internal sealed class DeviceLink : IAsyncDisposable
     private readonly CancellationTokenSource stopped = new();
     private readonly CancellationTokenSource expired = new();
     private readonly object expirySync = new();
+    private readonly RelayBudget relays;
     private readonly Task writer;
     private DateTimeOffset expires;
     private long queued;
     private long statusMinute;
     private int statuses;
 
-    public DeviceLink(WebSocket socket, Guid userId, string deviceId)
+    public DeviceLink(WebSocket socket, Guid userId, string deviceId, RelayBudget? relays = null)
     {
         Socket = socket; UserId = userId; DeviceId = deviceId;
+        this.relays = relays ?? new RelayBudget(long.MaxValue);
         writer = WriteAsync();
     }
 
@@ -58,15 +60,22 @@ internal sealed class DeviceLink : IAsyncDisposable
         Abort(); return false;
     }
 
-    public bool Relay(byte[] frame)
+    public Relayed Relay(byte[] frame)
     {
-        if (!IsOpen) return false;
+        if (!IsOpen) return Relayed.Slow;
         if (Interlocked.Add(ref queued, frame.Length) > RelayQueueBytes)
         {
             Interlocked.Add(ref queued, -frame.Length);
-            return false;
+            return Relayed.Slow;
         }
-        return queue.Writer.TryWrite((frame, WebSocketMessageType.Binary));
+        if (!relays.TryTake(frame.Length))
+        {
+            Interlocked.Add(ref queued, -frame.Length);
+            return Relayed.Busy;
+        }
+        if (queue.Writer.TryWrite((frame, WebSocketMessageType.Binary))) return Relayed.Sent;
+        Release(frame, WebSocketMessageType.Binary);
+        return Relayed.Slow;
     }
 
     public void Abort()
@@ -75,20 +84,33 @@ internal sealed class DeviceLink : IAsyncDisposable
         queue.Writer.TryComplete(); stopped.Cancel(); Socket.Abort();
     }
 
+    private void Release(byte[] bytes, WebSocketMessageType type)
+    {
+        Interlocked.Add(ref queued, -bytes.Length);
+        if (type == WebSocketMessageType.Binary) relays.Give(bytes.Length);
+    }
+
     private async Task WriteAsync()
     {
         try
         {
             await foreach (var (bytes, type) in queue.Reader.ReadAllAsync(Stopped))
             {
-                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(Stopped);
-                deadline.CancelAfter(TimeSpan.FromSeconds(30));
-                await Socket.SendAsync(bytes, type, true, deadline.Token);
-                Interlocked.Add(ref queued, -bytes.Length);
+                try
+                {
+                    using var deadline = CancellationTokenSource.CreateLinkedTokenSource(Stopped);
+                    deadline.CancelAfter(TimeSpan.FromSeconds(30));
+                    await Socket.SendAsync(bytes, type, true, deadline.Token);
+                }
+                finally { Release(bytes, type); }
             }
         }
-        catch (Exception error) when (error is OperationCanceledException or WebSocketException or ObjectDisposedException)
-        { Abort(); }
+        catch (Exception error) when (error is OperationCanceledException or WebSocketException or ObjectDisposedException) { }
+        finally
+        {
+            Abort();
+            while (queue.Reader.TryRead(out var left)) Release(left.Bytes, left.Type);
+        }
     }
 
     public async ValueTask DisposeAsync()
@@ -125,4 +147,24 @@ internal static class Wire
     }
     public static System.Text.Json.JsonDocument Parse(byte[] bytes) => System.Text.Json.JsonDocument.Parse(bytes,
         new System.Text.Json.JsonDocumentOptions { MaxDepth = 32 });
+}
+
+internal enum Relayed { Sent, Slow, Busy }
+
+/// <summary>The bytes that wait in all relay queues of the server together.</summary>
+internal sealed class RelayBudget(long limit)
+{
+    public const long ServerBytes = 256L * 1024 * 1024;
+    private long used;
+
+    public long Used => Interlocked.Read(ref used);
+
+    public bool TryTake(long bytes)
+    {
+        if (Interlocked.Add(ref used, bytes) <= limit) return true;
+        Interlocked.Add(ref used, -bytes);
+        return false;
+    }
+
+    public void Give(long bytes) => Interlocked.Add(ref used, -bytes);
 }
