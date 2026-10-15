@@ -74,8 +74,11 @@ The desktop draws the window frame; the rest follows the Mac layout in pixels.
 ## Elevation & Depth
 `Raised` and `Bezel` draw rims, faces and shadows with plain shapes, so they render the same with and without a GPU. Do not add shader effects.
 
+## Shapes
+Agents, rooms and kinds of things are rounded squares rather than squircles, and a slot that you can fill has a thin outline.
+
 ## Components
-As on the Mac, with Go to on Ctrl+K; a closed folder shows the sign of a waiting terminal but no count. New words of a program rise into place. QML is authoritative.
+As on the Mac, except: Go to is on Ctrl+K; a closed folder shows the sign of a waiting terminal but no count; segmented controls and the room dock slide a raised thumb, with no breathing dot for a changed section; mentions are tinted text, not chips; a changed task card does not wash; and the words of a program rise into place, with no rolling counts or blur. QML is authoritative.
 
 ## Do's and Don'ts
 - **Do** keep keyboard focus, accessible names, stable object names and selectable message text.
