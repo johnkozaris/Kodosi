@@ -395,7 +395,7 @@ Item {
         Raised {
             anchors.fill: parent
             radius: KodosiTheme.radiusLg
-            fill: "#2e241f"
+            fill: KodosiTheme.terminalLifted
             elevation: 2
         }
         RowLayout {

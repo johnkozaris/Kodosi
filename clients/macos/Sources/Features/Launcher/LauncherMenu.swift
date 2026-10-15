@@ -13,15 +13,6 @@ enum LauncherMenu: String, Equatable {
     static let choose = "menu.choose"
     static let standard = "menu.default"
 
-    static let promptHints = [
-        String(localized: "fix the failing test"),
-        String(localized: "explain how this folder works"),
-        String(localized: "review my last commit"),
-        String(localized: "add a dark mode"),
-        String(localized: "write tests for the parser"),
-    ]
-    static let commandHints = ["git status", "npm run dev", "make test", "ls -la"]
-
     func pick(_ id: String) -> Pick {
         switch self {
         case .folder: id == Self.choose ? .anotherFolder : .folder(id)
