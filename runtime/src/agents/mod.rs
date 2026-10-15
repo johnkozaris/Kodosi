@@ -1,8 +1,6 @@
 #[cfg(feature = "host")]
 mod accounts;
 #[cfg(feature = "host")]
-mod learned;
-#[cfg(feature = "host")]
 mod models;
 #[cfg(feature = "host")]
 mod shell;
@@ -83,6 +81,7 @@ pub(crate) fn is_agent_name(name: &str) -> bool {
 #[serde(rename_all = "camelCase")]
 pub struct AgentCatalog {
     pub agents: Vec<AgentInfo>,
+    pub kodosi: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -104,7 +103,6 @@ pub struct AgentAccount {
     pub command: String,
     pub identity: Option<String>,
     pub folder: Option<String>,
-    pub options: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -131,64 +129,12 @@ pub struct AgentOption {
 }
 
 #[cfg(feature = "host")]
-pub async fn catalog(home: &Path, shell: &Path, store: &Path) -> Result<AgentCatalog, String> {
+pub async fn catalog(home: &Path, shell: &Path) -> Result<AgentCatalog, String> {
     let facts = shell::facts(shell, true).await;
     let home = home.to_owned();
-    let store = store.to_owned();
-    tokio::task::spawn_blocking(move || accounts::catalog(&home, &facts, &learned::load(&store)))
+    tokio::task::spawn_blocking(move || accounts::catalog(&home, &facts))
         .await
         .map_err(|error| format!("Agent discovery failed: {error}"))
-}
-
-#[cfg(feature = "host")]
-pub(crate) fn sign_in_variable(program: &str) -> Option<&'static str> {
-    Agent::ALL
-        .into_iter()
-        .find(|agent| agent.program() == program)
-        .and_then(Agent::home)
-        .map(|(_, variable)| variable)
-}
-
-#[cfg(feature = "host")]
-pub(crate) fn remember(
-    store: &Path,
-    home: &Path,
-    program: &str,
-    command: &str,
-    folder: Option<String>,
-) {
-    let Some(agent) = Agent::ALL
-        .into_iter()
-        .find(|agent| agent.program() == program)
-    else {
-        return;
-    };
-    let Some((usual, _)) = agent.home() else {
-        return;
-    };
-    let folder = folder.map_or_else(|| home.join(usual), std::path::PathBuf::from);
-    if command == program
-        || [
-            "env",
-            "command",
-            "exec",
-            "builtin",
-            "noglob",
-            "nocorrect",
-            "nohup",
-            "time",
-        ]
-        .contains(&command)
-        || !folder.is_absolute()
-        || !command
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
-    {
-        return;
-    }
-    if let Err(error) = learned::remember(store, agent, command, folder) {
-        tracing::warn!(%error, "the sign-in folder of a command was not kept");
-    }
 }
 
 #[cfg(feature = "host")]

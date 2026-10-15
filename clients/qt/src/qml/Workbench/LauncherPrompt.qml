@@ -6,8 +6,7 @@ import QtQuick
 TextEdit {
     id: root
 
-    property string ghost: ""
-    property string suggestion: ""
+    property string placeholder: ""
     property bool holds: true
     property bool lit: true
     readonly property real cell: metrics.advanceWidth("M")
@@ -18,10 +17,6 @@ TextEdit {
         lit = true
         holds = true
         blink.restart()
-    }
-    function take() {
-        insert(0, suggestion)
-        cursorPosition = length
     }
 
     color: KodosiTheme.terminalInk
@@ -39,7 +34,7 @@ TextEdit {
     rightPadding: cell
     activeFocusOnTab: true
     Accessible.role: Accessible.EditableText
-    Accessible.description: suggestion
+    Accessible.description: placeholder
 
     onTextChanged: {
         const line = text.replace(/[\r\n\t\u2028\u2029]+/g, " ")
@@ -55,19 +50,8 @@ TextEdit {
 
     Keys.onReturnPressed: root.submitted()
     Keys.onEnterPressed: root.submitted()
-    Keys.onTabPressed: {
-        if (length === 0 && suggestion.length > 0)
-            take()
-        else
-            nextItemInFocusChain(true).forceActiveFocus(Qt.TabFocusReason)
-    }
+    Keys.onTabPressed: nextItemInFocusChain(true).forceActiveFocus(Qt.TabFocusReason)
     Keys.onBacktabPressed: nextItemInFocusChain(false).forceActiveFocus(Qt.BacktabFocusReason)
-    Keys.onRightPressed: event => {
-        if (length === 0 && suggestion.length > 0)
-            take()
-        else
-            event.accepted = false
-    }
     Keys.onEscapePressed: event => {
         if (length > 0)
             clear()
@@ -90,10 +74,10 @@ TextEdit {
         }
     }
     Text {
-        x: root.leftPadding
+        x: root.leftPadding + root.cell + 4
         y: root.topPadding
         visible: root.length === 0
-        text: root.ghost
+        text: root.placeholder
         textFormat: Text.PlainText
         color: KodosiTheme.terminalInkFaint
         font: root.font
@@ -115,8 +99,7 @@ TextEdit {
         }
         Text {
             visible: root.activeFocus && root.lit
-            text: root.cursorPosition < root.length ? root.getText(root.cursorPosition, root.cursorPosition + 1)
-                : root.length === 0 ? root.ghost.charAt(0) : ""
+            text: root.cursorPosition < root.length ? root.getText(root.cursorPosition, root.cursorPosition + 1) : ""
             textFormat: Text.PlainText
             color: KodosiTheme.terminal
             font: root.font

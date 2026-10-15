@@ -95,14 +95,23 @@ progress where work happens and give each failure a clear recovery action.
   without the program's text. Each terminal shows who has it open, the person at its
   host computer included. While the app is not in front, a terminal that the person
   owns or has open sends a notification when it starts to wait, finishes or fails.
-- The home starts a new terminal with an agent. The host finds the installed agents
-  (Claude Code, Codex, Copilot CLI, Cursor, Gemini CLI and OpenCode), each agent's
-  accounts (sign-in folders such as `~/.claude-work`), models and efforts, and the
-  shell commands that start each account. The person picks them and can type a first
+- New terminal opens the launcher: on the home it is the launcher there, elsewhere a
+  sheet. A room's New terminal opens it for that room. The host finds the installed
+  agents (Claude Code, Codex, Copilot CLI, Cursor, Gemini CLI and OpenCode), each
+  agent's accounts, models and efforts. An account is a sign-in folder, such as
+  `~/.claude-work`, shown by its signed-in e-mail; the host finds the usual folder,
+  folders named after it and folders that an alias, a function or an exported variable
+  of the person's shell gives the agent. The person picks them and can type a first
   prompt; the new terminal's shell types the command. A missing agent offers its
   official install command. A new account is an empty sign-in folder.
-- A terminal at its prompt offers the person's start commands. Kodosi types the
+- A terminal at its prompt offers a mark for each installed agent. A mark starts that
+  agent with the person's last choice of account, model and effort. Kodosi types the
   command into the shell and does nothing more.
+- The Mac app links the `kodosi` command into `~/.local/bin` without a question; the
+  Linux and Windows packages install it. Agents in Kodosi terminals always find it.
+- A room shows a dot when someone else wrote in it after the person last looked; the
+  messages of the person's own agents count, the person's own messages do not. The
+  iPhone Rooms tab counts the rooms with a dot and the open invitations.
 - A terminal can start on a new branch in its own Git worktree. When it ends, the host
   removes the worktree and the branch only if nothing changed. Kodosi keeps no record
   of these folders.

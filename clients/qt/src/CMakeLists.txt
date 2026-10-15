@@ -250,6 +250,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/KTextField.qml
         qml/Controls/ListGroup.qml
         qml/Controls/ListRow.qml
+        qml/Controls/NewDot.qml
         qml/Controls/PersonAvatar.qml
         qml/Controls/PlainLabel.qml
         qml/Controls/ProgressRing.qml
@@ -274,11 +275,11 @@ qt_add_qml_module(kodosi-ui
         qml/Workbench/CloseTerminalDialog.qml
         qml/Workbench/HistoryView.qml
         qml/Workbench/LauncherPrompt.qml
+        qml/Workbench/LauncherSheet.qml
         qml/Workbench/SessionDetails.qml
         qml/Workbench/ShareSheet.qml
         qml/Workbench/StageOverview.qml
         qml/Workbench/TerminalDivider.qml
-        qml/Workbench/TerminalMenu.qml
         qml/Workbench/TerminalStage.qml
         qml/Workbench/TerminalTile.qml
     RESOURCES

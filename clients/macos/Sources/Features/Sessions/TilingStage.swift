@@ -54,7 +54,7 @@ struct StageOverview: View {
         } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: 30) {
-                    AgentLauncher()
+                    launcher(centered: false)
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Your terminals").appTextStyle(.large).foregroundStyle(theme.colors.ink)
                         Text(verbatim: "\(Counted.terminals(deps.sessions.count)) · \(Counted.computers(places.count))")
@@ -94,10 +94,15 @@ struct StageOverview: View {
 
     private var first: some View {
         GeometryReader { proxy in
-            AgentLauncher(welcome: true)
+            launcher(centered: true)
                 .frame(maxWidth: .infinity)
                 .padding(.top, max(40, proxy.size.height / 2 - 150))
         }
+    }
+
+    private func launcher(centered: Bool) -> some View {
+        @Bindable var workbench = deps.workbench
+        return AgentLauncher(folder: $workbench.homeFolder, centered: centered, focus: workbench.launcherFocus)
     }
 }
 

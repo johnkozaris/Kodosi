@@ -4835,24 +4835,13 @@
                               },
                               "name": {
                                 "type": "string"
-                              },
-                              "options": {
-                                "anyOf": [
-                                  {
-                                    "type": "string"
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
                               }
                             },
                             "required": [
                               "name",
                               "command",
                               "identity",
-                              "folder",
-                              "options"
+                              "folder"
                             ],
                             "type": "object"
                           },
@@ -4915,10 +4904,21 @@
                       "type": "object"
                     },
                     "type": "array"
+                  },
+                  "kodosi": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
-                  "agents"
+                  "agents",
+                  "kodosi"
                 ],
                 "type": "object"
               },
@@ -5083,24 +5083,13 @@
                   },
                   "name": {
                     "type": "string"
-                  },
-                  "options": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
                   }
                 },
                 "required": [
                   "name",
                   "command",
                   "identity",
-                  "folder",
-                  "options"
+                  "folder"
                 ],
                 "type": "object"
               },

@@ -106,10 +106,12 @@ private func awaitNotification(_ condition: () -> Bool) async {
     let request = try #require(driver.posted.first)
     #expect(app.workbench.stagedSessionIds.isEmpty)
     app.workbench.showsHistory = true
+    app.workbench.launcher = LauncherRequest()
     app.workbench.detailsSessionId = id
     app.workbench.sharingSessionId = id
     #expect(app.openTerminalNotification(identifier: request.identifier))
     #expect(!app.workbench.showsHistory)
+    #expect(app.workbench.launcher == nil)
     #expect(app.workbench.detailsSessionId == nil)
     #expect(app.workbench.sharingSessionId == nil)
     #expect(app.workbench.selectedSessionId == id)

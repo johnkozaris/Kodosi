@@ -9,7 +9,7 @@ struct KodosiCommands: Commands {
                 .disabled(!dependencies.updater.configured)
         }
         CommandGroup(replacing: .newItem) {
-            Button("New Terminal") { dependencies.newSession() }
+            Button("New Terminal") { dependencies.openLauncher() }
                 .keyboardShortcut("n")
             Button("Resume a Conversation…") { dependencies.workbench.showsHistory = true }
                 .keyboardShortcut("n", modifiers: [.command, .shift])

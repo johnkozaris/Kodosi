@@ -3,6 +3,7 @@ import KodosiDesign
 
 struct AgentCatalog: Decodable, Equatable {
     var agents: [AgentInfo]
+    var kodosi: String?
 }
 
 struct AgentInfo: Decodable, Equatable, Identifiable {
@@ -28,10 +29,17 @@ struct AgentAccount: Decodable, Equatable, Identifiable {
     var command: String
     var identity: String?
     var folder: String?
-    var options: String?
 
     var id: String {
         command
+    }
+
+    var title: String {
+        identity ?? folder ?? name
+    }
+
+    var detail: String {
+        identity == nil ? String(localized: "Not signed in") : folder ?? ""
     }
 }
 
@@ -72,10 +80,11 @@ struct LaunchPlan {
     let info: AgentInfo?
     let models: AgentModels?
 
-    init(choice: LaunchChoice, launcher: LauncherState) {
+    init(choice: LaunchChoice, launcher: LauncherState, agent: String? = nil) {
         self.choice = choice
-        info = launcher.agent(choice.agent)
-        models = choice.agent.flatMap { launcher.models[$0] }
+        let agent = agent ?? choice.agent
+        info = launcher.agent(agent)
+        models = agent.flatMap { launcher.models[$0] }
     }
 
     var account: AgentAccount? {
@@ -103,10 +112,6 @@ struct LaunchPlan {
         guard let info, let saved = choice.efforts[info.agent] else { return nil }
         guard models != nil else { return saved }
         return efforts.contains { $0.argument == saved } ? saved : nil
-    }
-
-    var listsModels: Bool {
-        models == nil || !(models?.models.isEmpty ?? true)
     }
 
     var line: String? {

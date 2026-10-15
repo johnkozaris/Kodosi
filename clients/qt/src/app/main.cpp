@@ -168,10 +168,6 @@ int main(int argc, char* argv[])
         }
     });
     QObject::connect(&runtime, &kodosi::RuntimeBridge::eventError, &workspace, &kodosi::Workspace::setError);
-    QObject::connect(&sessions, &kodosi::SessionCatalogModel::authoritativeSnapshotApplied, &desktopSettings, [&] {
-        for (const auto& program : sessions.localPrograms())
-            desktopSettings.learn(program);
-    });
     QObject::connect(&runtime, &kodosi::RuntimeBridge::runningChanged, &app, [&](bool running) {
         if (!running) {
             workspace.reset();

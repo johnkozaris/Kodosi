@@ -23,17 +23,17 @@ uncertain input delivery, look at the terminal before you repeat a command.
 
 ## Agents
 
-The home shows the agents that this computer has. Pick one, its folder and account,
-and with the dots a model and an effort. Type a first prompt and press Return: the new
-terminal's shell types the command. A missing agent offers its install command. A new
-account gets an empty sign-in folder, such as `~/.claude-work`, and the agent asks you
-to sign in.
+New terminal (⌘N on a Mac, Ctrl+Shift+N on Linux and Windows) opens the launcher: on
+the home it is the launcher there, and with terminals open it is a sheet. Pick an agent
+that this computer has and its folder; with two or more sign-ins, pick the account by
+its e-mail, and with the dots a model and an effort. Type a first prompt and press
+Return: the new terminal's shell types the command. A missing agent offers its install
+command. A new account gets an empty sign-in folder, such as `~/.claude-work`, and the
+agent asks you to sign in. Kodosi also finds the sign-in folders that your shell gives
+an agent, for example with `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
 
-A terminal at its prompt shows a mark for each agent you ran on this computer. Settings
-› Agents holds these start commands; add your own, for example
-`env CLAUDE_CONFIG_DIR=~/.claude-personal claude`.
-
-<p align="center"><img src="media/start-settings.webp" width="640" alt="Start commands in Settings."></p>
+A terminal at its prompt shows a mark for each installed agent. A mark starts the agent
+with your last choice of account, model and effort.
 
 To give an agent its own copy of a repository, hover the repository folder in the
 sidebar, select the branch button and name a branch. Kodosi starts a terminal in a new

@@ -46,12 +46,6 @@ pub(crate) enum SessionChange {
         program: Option<String>,
     },
     #[cfg(feature = "host")]
-    Launched {
-        program: String,
-        command: String,
-        folder: Option<String>,
-    },
-    #[cfg(feature = "host")]
     Title {
         id: Uuid,
         title: String,

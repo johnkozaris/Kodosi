@@ -55,8 +55,7 @@ final class AppDependencies {
     var errorMessage: String?
     let updater = AppUpdater()
     var updateRequired = false
-    var offersCommand = false
-    var commandInstalled = CommandLineTool.installed
+    var commandLink: String?
     var accountDeletion: AccountDeletion?
     var appState: AppState = .launching
     var pendingDeepLink: DeepLinkDestination? {
@@ -102,17 +101,6 @@ final class AppDependencies {
             }
         )
         commandSink.onFailure = { [weak self] message in self?.errorMessage = message }
-    }
-
-    func installCommand() {
-        offersCommand = false
-        Task {
-            switch await CommandLineTool.install() {
-            case .installed: commandInstalled = CommandLineTool.installed
-            case .cancelled: break
-            case .failed: errorMessage = String(localized: "Kodosi could not install the kodosi command.")
-            }
-        }
     }
 
     func start() {
@@ -249,6 +237,7 @@ final class AppDependencies {
     }
 
     func refresh() {
+        Task { await launcher.refresh(force: true) }
         commandSink.perform("session.list")
         if userId != nil {
             commandSink.perform("auth.refresh")
@@ -322,26 +311,33 @@ final class AppDependencies {
         workbench.selectedSessionId.flatMap(session)?.localDirectory
     }
 
-    func newSession(directory: String? = nil) {
-        let directory = directory ?? selectedLocalDirectory ?? settings.lastWorkingDir ?? storageBootstrap.defaultWorkingDirectory?.path
-        Task { @MainActor in
-            do {
-                try await createSession(name: generateSessionName(), directory: directory)
-            } catch { errorMessage = error.localizedDescription }
+    func openLauncher(folder: String? = nil, roomId: String? = nil) {
+        let onHome = workbench.section == .sessions && !workbench.stagedSessionIds.contains { session($0) != nil }
+        if onHome, roomId == nil {
+            workbench.homeFolder = folder ?? workbench.homeFolder
+            workbench.launcherFocus += 1
+        } else {
+            workbench.launcher = LauncherRequest(folder: folder ?? selectedLocalDirectory, roomId: roomId)
         }
     }
 
     func createSession(
-        name: String, directory: String?, resume: ProviderConversationIdentity? = nil, branch: String? = nil,
-        command: String? = nil, prompt: String? = nil
+        name: String, directory: String?, roomId: String? = nil, resume: ProviderConversationIdentity? = nil,
+        branch: String? = nil, command: String? = nil, prompt: String? = nil
     ) async throws {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard ProductInput.validName(name) else {
             throw RuntimeError.operation(String(localized: "Use a shorter name."))
         }
         let requestId = UUIDv7.generate()
-        pendingCreations.insert(requestId)
         var fields: [String: JSONValue] = ["requestId": .string(requestId), "name": .string(name)]
+        if let roomId {
+            roomCreations[requestId] = roomId
+            roomView(roomId).canvas = 0
+            fields["missionId"] = .string(roomId)
+        } else {
+            pendingCreations.insert(requestId)
+        }
         if let directory {
             fields["workingDir"] = .string(directory)
         }
@@ -366,6 +362,7 @@ final class AppDependencies {
             settings.save()
         } catch {
             pendingCreations.remove(requestId)
+            roomCreations.removeValue(forKey: requestId)
             throw error
         }
     }

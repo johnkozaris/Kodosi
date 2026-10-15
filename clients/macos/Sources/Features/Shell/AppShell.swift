@@ -66,7 +66,7 @@ struct AppShell: View {
     }
 
     private enum Sheet: Equatable {
-        case signIn, recoveryKey, details(String), newRoom, history
+        case signIn, recoveryKey, details(String), newRoom, history, launcher
     }
 
     private var sheet: Sheet? {
@@ -83,7 +83,10 @@ struct AppShell: View {
         if workbench.showsNewRoom {
             return .newRoom
         }
-        return workbench.showsHistory ? .history : nil
+        if workbench.showsHistory {
+            return .history
+        }
+        return workbench.launcher == nil ? nil : .launcher
     }
 
     @ViewBuilder
@@ -104,6 +107,14 @@ struct AppShell: View {
             SheetLayer(close: { workbench.showsNewRoom = false }, content: { NewRoomSheet() })
         case .history:
             SheetLayer(close: { workbench.showsHistory = false }, content: { HistoryView() })
+        case .launcher:
+            SheetLayer(close: { workbench.launcher = nil }, content: {
+                AgentLauncher(
+                    folder: Binding(get: { workbench.launcher?.folder }, set: { workbench.launcher?.folder = $0 }),
+                    roomId: workbench.launcher?.roomId, started: { workbench.launcher = nil }
+                )
+                .padding(24)
+            })
         }
     }
 
@@ -115,10 +126,6 @@ struct AppShell: View {
                            actionTitle: "Check for Updates", dismiss: { deps.updateRequired = false })
             } else if let error = deps.errorMessage {
                 NoticePill(message: error, identifier: "shell.error") { deps.errorMessage = nil }
-            } else if deps.offersCommand {
-                NoticePill(message: String(localized: "Use the kodosi command in all your terminals?"),
-                           identifier: "shell.command", retry: { deps.installCommand() },
-                           actionTitle: "Install", dismiss: { deps.offersCommand = false })
             }
         }
         .padding(.top, Metrics.frameInset + 10)

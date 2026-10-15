@@ -32,3 +32,32 @@ import Testing
     #expect(app.roomView(roomId) === state)
     #expect(app.roomView(UUIDv7.generate()).message.isEmpty)
 }
+
+@Test @MainActor func aRoomCountsOnlyNewMessagesThatSomeoneElseWrote() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "RoomUnread"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
+    defer { app.shutdownProcess() }
+    app.commandSink.transport = { _ in 0 }
+    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: "user-1", fields: ["protocolVersion": .int(58)]))
+    func message(_ id: String, _ sequence: UInt64, author: String, agent: String? = nil) -> JSONValue {
+        .object([
+            "id": .string(id), "sequence": .uint(sequence), "authorId": .string(author), "authorName": .string(author),
+            "agent": agent.map(JSONValue.string) ?? .null, "terminalId": .null, "text": .string("Hello"),
+            "createdAt": .string("2026-10-15T10:00:00Z"),
+        ])
+    }
+    func snapshot(_ messages: [JSONValue]) throws -> RuntimeEvent {
+        try runtimeEvent("room.snapshot", epoch: 0, userId: "user-1", fields: ["room": .object([
+            "roomId": .string("room-1"), "messages": .array(messages), "tasks": .array([]), "repositories": .array([]),
+            "sequence": .uint(UInt64(messages.count)), "hasOlder": .bool(true), "historyTrimmed": .bool(false),
+        ])])
+    }
+    try app.receive(snapshot([message("m5", 5, author: "user-2")]))
+    #expect(app.roomView("room-1").unread == 0)
+    try app.receive(snapshot([
+        message("m3", 3, author: "user-2"), message("m6", 6, author: "user-1"),
+        message("m7", 7, author: "user-1", agent: "Claude Code"), message("m8", 8, author: "user-2"),
+    ]))
+    #expect(app.roomView("room-1").unread == 2)
+}

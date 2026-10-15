@@ -1,5 +1,4 @@
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
     io::Read as _,
     path::{Component, Path, PathBuf},
 };
@@ -7,21 +6,14 @@ use std::{
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde_json::Value;
 
-use super::{
-    Agent, AgentAccount, AgentCatalog, AgentInfo,
-    learned::Learned,
-    shell::{Definition, Facts},
-    shell_word,
-};
+use super::{Agent, AgentAccount, AgentCatalog, AgentInfo, shell::Facts, shell_word};
 
 const MAX_ACCOUNT_FILE: u64 = 8 * 1024 * 1024;
 const MAX_HOME_ENTRIES: usize = 8_192;
-const MAX_SCRIPT: u64 = 64 * 1024;
-const MAX_OPTIONS: usize = 80;
-const PASSED_WORDS: [&str; 4] = ["$@", "${@}", "$*", "$argv"];
 
-pub(super) fn catalog(home: &Path, facts: &Facts, learned: &Learned) -> AgentCatalog {
+pub(super) fn catalog(home: &Path, facts: &Facts) -> AgentCatalog {
     AgentCatalog {
+        kodosi: facts.executable("kodosi").map(|path| tilde(&path, home)),
         agents: Agent::ALL
             .into_iter()
             .map(|agent| {
@@ -32,7 +24,7 @@ pub(super) fn catalog(home: &Path, facts: &Facts, learned: &Learned) -> AgentCat
                     program: agent.program().to_owned(),
                     installed,
                     accounts: if installed {
-                        accounts(home, facts, agent, learned.get(&agent))
+                        accounts(home, facts, agent)
                     } else {
                         Vec::new()
                     },
@@ -45,239 +37,51 @@ pub(super) fn catalog(home: &Path, facts: &Facts, learned: &Learned) -> AgentCat
     }
 }
 
-fn accounts(
-    home: &Path,
-    facts: &Facts,
-    agent: Agent,
-    learned: Option<&BTreeMap<String, PathBuf>>,
-) -> Vec<AgentAccount> {
+fn accounts(home: &Path, facts: &Facts, agent: Agent) -> Vec<AgentAccount> {
     let program = agent.program();
-    let usual = agent.home().map(|(folder, _)| home.join(folder));
-    let mut accounts = vec![account(
-        agent,
-        home,
-        program,
-        program,
-        usual.as_deref(),
-        None,
-    )];
-    let mut homes = usual.iter().cloned().collect::<HashSet<_>>();
-    let mut definitions = facts
-        .definitions
-        .iter()
-        .filter(|definition| {
-            definition.name != program
-                && !definition.name.starts_with('_')
-                && !gone(definition, home)
-        })
-        .collect::<Vec<_>>();
-    definitions
-        .sort_by(|left, right| (left.name.len(), &left.name).cmp(&(right.name.len(), &right.name)));
-    let mut found = HashMap::new();
-    for _ in 0..3 {
-        let before = found.len();
-        for definition in &definitions {
-            if found.contains_key(definition.name.as_str()) {
-                continue;
-            }
-            let seen = learned
-                .and_then(|learned| learned.get(&definition.name))
-                .filter(|path| path.is_dir());
-            let Some(Launch { folder: path }) =
-                launch(definition, agent, home, usual.as_deref(), &found, seen)
-            else {
-                continue;
-            };
-            homes.extend(path.clone());
-            accounts.push(account(
-                agent,
-                home,
-                &definition.name,
-                &definition.name,
-                path.as_deref(),
-                options(definition, program),
-            ));
-            found.insert(definition.name.as_str(), path);
-        }
-        if found.len() == before {
-            break;
-        }
-    }
-    let Some((folder, variable)) = agent.home() else {
-        return accounts;
+    let Some((usual, variable)) = agent.home() else {
+        return vec![AgentAccount {
+            name: program.to_owned(),
+            command: program.to_owned(),
+            identity: None,
+            folder: None,
+        }];
     };
-    for (name, path) in sibling_homes(home, folder) {
-        if homes.contains(&path) {
-            continue;
-        }
-        if !is_empty(&path)
-            && !records(agent)
-                .iter()
-                .any(|record| path.join(record).is_file())
-        {
+    let chosen = facts
+        .variable(variable)
+        .and_then(|value| expand(value, home))
+        .unwrap_or_else(|| home.join(usual));
+    let mut others = sibling_homes(home, agent, usual);
+    others.extend(
+        facts
+            .definitions
+            .iter()
+            .filter_map(|definition| referenced_home(&definition.text, home, variable))
+            .filter(|path| path.is_dir())
+            .map(|path| (folder_name(&path, usual), path)),
+    );
+    let mut folders = vec![chosen.clone()];
+    let mut accounts = Vec::new();
+    for (name, path) in others {
+        if folders.contains(&path) {
             continue;
         }
         if let Some(command) = home_command(variable, &path, program) {
-            accounts.push(account(agent, home, &name, &command, Some(&path), None));
-            homes.insert(path);
+            accounts.push(account(agent, home, &name, &command, &path));
+            folders.push(path);
         }
     }
+    accounts.sort_by(|left, right| left.name.cmp(&right.name));
+    accounts.insert(0, account(agent, home, "default", program, &chosen));
     accounts
 }
 
-struct Launch {
-    folder: Option<PathBuf>,
-}
-
-fn launch(
-    definition: &Definition,
-    agent: Agent,
-    home: &Path,
-    usual: Option<&Path>,
-    found: &HashMap<&str, Option<PathBuf>>,
-    seen: Option<&PathBuf>,
-) -> Option<Launch> {
-    let program = agent.program();
-    let script = script(definition, home);
-    let passes = |text: &str| PASSED_WORDS.iter().any(|words| text.contains(words));
-    if !(if definition.alias {
-        script.as_deref().is_none_or(passes)
-    } else {
-        passes(&definition.text)
-    }) {
-        return None;
-    }
-    if let Some(path) = seen {
-        return Some(Launch {
-            folder: Some(path.clone()),
-        });
-    }
-    let texts = [Some(definition.text.as_str()), script.as_deref()];
-    let texts = texts.iter().flatten();
-    let runs = runs(definition, script.as_deref(), program);
-    if let Some((folder, variable)) = agent.home()
-        && let Some(path) = texts
-            .clone()
-            .find_map(|text| referenced_home(text, home, folder, variable))
-    {
-        return (definition.name.starts_with(program) || runs)
-            .then_some(Launch { folder: Some(path) });
-    }
-    if definition.alias
-        && let Some(path) =
-            command_word(&definition.text).and_then(|command| found.get(command.as_str()))
-    {
-        return Some(Launch {
-            folder: path.clone(),
-        });
-    }
-    if !runs {
-        return None;
-    }
-    let moves = agent.home().is_some_and(|(_, variable)| {
-        texts
-            .clone()
-            .any(|text| text.contains(&format!("{variable}=")))
-    });
-    Some(Launch {
-        folder: usual.filter(|_| !moves).map(Path::to_path_buf),
-    })
-}
-
-fn runs(definition: &Definition, script: Option<&str>, program: &str) -> bool {
-    let is_program = |word: &str| word == program || word.ends_with(&format!("/{program}"));
-    if definition.alias {
-        return command_word(&definition.text).is_some_and(|word| is_program(&word))
-            || script.is_some_and(|text| {
-                text.lines()
-                    .filter_map(command_word)
-                    .any(|word| is_program(&word))
-            });
-    }
-    definition.name.starts_with(program)
-        && definition
-            .text
-            .split(|c: char| c.is_whitespace() || "\"';&|(){}".contains(c))
-            .any(is_program)
-}
-
-fn options(definition: &Definition, program: &str) -> Option<String> {
-    let mut words = definition
-        .text
-        .split_whitespace()
-        .map(|word| word.trim_matches(['"', '\'']));
-    let command = if definition.alias {
-        command_word(&definition.text)?
-    } else {
-        program.to_owned()
-    };
-    words.find(|word| *word == command || word.ends_with(&format!("/{command}")))?;
-    let options = words
-        .take_while(|word| {
-            !word.is_empty()
-                && !word.starts_with('$')
-                && !word.contains([';', '|', '&', '}', '<', '>'])
-        })
-        .collect::<Vec<_>>()
-        .join(" ");
-    (!options.is_empty() && options.len() <= MAX_OPTIONS).then_some(options)
-}
-
-fn gone(definition: &Definition, home: &Path) -> bool {
-    definition.alias
-        && command_word(&definition.text).is_some_and(|command| {
-            command.contains('/') && !expand(&command, home).is_some_and(|path| path.is_file())
-        })
-}
-
-fn command_word(text: &str) -> Option<String> {
-    let mut words = text
-        .split_whitespace()
-        .map(|word| word.trim_matches(['"', '\'']));
-    let mut env = false;
-    while let Some(word) = words.next() {
-        let assignment = word.split_once('=').is_some_and(|(name, _)| {
-            !name.is_empty()
-                && name
-                    .bytes()
-                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
-        });
-        match word {
-            _ if assignment => {}
-            "env" | "command" | "exec" | "noglob" | "nocorrect" | "builtin" => env = word == "env",
-            "-u" if env => drop(words.next()),
-            _ if env && word.starts_with('-') => {}
-            _ => return Some(word.to_owned()),
-        }
-    }
-    None
-}
-
-fn script(definition: &Definition, home: &Path) -> Option<String> {
-    if !definition.alias {
-        return None;
-    }
-    let path = expand(&command_word(&definition.text)?, home)?;
-    if std::fs::metadata(&path).ok()?.len() > MAX_SCRIPT {
-        return None;
-    }
-    read(&path).filter(|text| text.starts_with("#!"))
-}
-
-fn account(
-    agent: Agent,
-    home: &Path,
-    name: &str,
-    command: &str,
-    folder: Option<&Path>,
-    options: Option<String>,
-) -> AgentAccount {
+fn account(agent: Agent, home: &Path, name: &str, command: &str, folder: &Path) -> AgentAccount {
     AgentAccount {
         name: name.to_owned(),
         command: command.to_owned(),
-        identity: folder.and_then(|folder| identity(agent, home, folder)),
-        folder: folder.map(|folder| tilde(folder, home)),
-        options,
+        identity: identity(agent, home, folder),
+        folder: Some(tilde(folder, home)),
     }
 }
 
@@ -289,6 +93,18 @@ fn tilde(path: &Path, home: &Path) -> String {
     }
 }
 
+fn folder_name(path: &Path, usual: &str) -> String {
+    let name = path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    name.strip_prefix(usual)
+        .and_then(|rest| rest.strip_prefix(['-', '_']))
+        .filter(|rest| !rest.is_empty())
+        .unwrap_or_else(|| name.trim_start_matches('.'))
+        .to_owned()
+}
+
 fn home_command(variable: &str, path: &Path, program: &str) -> Option<String> {
     if cfg!(windows) {
         return None;
@@ -297,45 +113,16 @@ fn home_command(variable: &str, path: &Path, program: &str) -> Option<String> {
     Some(format!("env {assignment} {program}"))
 }
 
-pub(super) fn referenced_home(
-    text: &str,
-    home: &Path,
-    folder: &str,
-    variable: &str,
-) -> Option<PathBuf> {
+pub(super) fn referenced_home(text: &str, home: &Path, variable: &str) -> Option<PathBuf> {
     let key = format!("{variable}=");
-    text.match_indices(&key)
-        .find_map(|(index, _)| {
-            let value = &text[index + key.len()..];
-            let value = match text[..index].chars().next_back() {
-                Some(quote @ ('"' | '\'')) => value.split(quote).next(),
-                _ => word(value),
-            };
-            expand(value?, home)
-        })
-        .or_else(|| {
-            let prefixes = home
-                .to_str()
-                .map(|home| format!("{home}/"))
-                .into_iter()
-                .chain(["$HOME/", "${HOME}/", "~/"].map(str::to_owned))
-                .collect::<Vec<_>>();
-            text.match_indices(folder).find_map(|(index, _)| {
-                if !prefixes
-                    .iter()
-                    .any(|prefix| text[..index].ends_with(prefix.as_str()))
-                {
-                    return None;
-                }
-                let rest = &text[index + folder.len()..];
-                let separator = rest.chars().next().filter(|c| matches!(c, '-' | '_'))?;
-                let suffix = rest[1..]
-                    .split(|c: char| !(c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.')))
-                    .next()?
-                    .trim_end_matches('.');
-                (!suffix.is_empty()).then(|| home.join(format!("{folder}{separator}{suffix}")))
-            })
-        })
+    text.match_indices(&key).find_map(|(index, _)| {
+        let value = &text[index + key.len()..];
+        let value = match text[..index].chars().next_back() {
+            Some(quote @ ('"' | '\'')) => value.split(quote).next(),
+            _ => word(value),
+        };
+        expand(value?, home)
+    })
 }
 
 fn word(text: &str) -> Option<&str> {
@@ -366,11 +153,12 @@ fn expand(value: &str, home: &Path) -> Option<PathBuf> {
     .then_some(path)
 }
 
-fn sibling_homes(home: &Path, folder: &str) -> Vec<(String, PathBuf)> {
+/// Other tools keep their own folders beside the agent's, such as `~/.claude-squad`.
+fn sibling_homes(home: &Path, agent: Agent, folder: &str) -> Vec<(String, PathBuf)> {
     let Ok(entries) = std::fs::read_dir(home) else {
         return Vec::new();
     };
-    let mut homes = entries
+    entries
         .take(MAX_HOME_ENTRIES)
         .filter_map(Result::ok)
         .filter_map(|entry| {
@@ -385,11 +173,15 @@ fn sibling_homes(home: &Path, folder: &str) -> Vec<(String, PathBuf)> {
                         })
                 })?
                 .to_owned();
-            entry.path().is_dir().then(|| (suffix, home.join(&name)))
+            let path = home.join(&name);
+            (path.is_dir()
+                && (is_empty(&path)
+                    || records(agent)
+                        .iter()
+                        .any(|record| path.join(record).is_file())))
+            .then_some((suffix, path))
         })
-        .collect::<Vec<_>>();
-    homes.sort();
-    homes
+        .collect()
 }
 
 const fn records(agent: Agent) -> &'static [&'static str] {
@@ -507,7 +299,7 @@ pub(super) fn add(home: &Path, agent: Agent, name: &str) -> Result<AgentAccount,
     })?;
     let command = home_command(variable, &path, agent.program())
         .ok_or_else(|| "Kodosi cannot start an agent from this folder.".to_owned())?;
-    Ok(account(agent, home, &name, &command, Some(&path), None))
+    Ok(account(agent, home, &name, &command, &path))
 }
 
 #[cfg(unix)]

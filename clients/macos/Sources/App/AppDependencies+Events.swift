@@ -123,6 +123,7 @@ extension AppDependencies {
     func openTerminalNotification(identifier: String) -> Bool {
         guard let id = terminalNotifications.sessionToOpen(identifier: identifier) else { return false }
         workbench.showsHistory = false
+        workbench.launcher = nil
         workbench.detailsSessionId = nil
         workbench.sharingSessionId = nil
         activateSession(id)
@@ -228,9 +229,6 @@ extension AppDependencies {
         }
         terminalNotifications.reconcile(sessions: received, accountEpoch: accountEpoch)
         alert(received, after: waitStates)
-        for value in received where value.kind == .local {
-            settings.learn(value.agent)
-        }
         for value in received {
             if let old = previous[value.id], old != value.incarnationId {
                 terminalFocus.releaseSession(sessionId: value.id)

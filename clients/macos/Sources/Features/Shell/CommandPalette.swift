@@ -179,12 +179,7 @@ struct CommandPalette: View {
         let group = String(localized: "Actions")
         var actions = [
             Item(id: "action.terminal", group: group, title: String(localized: "New terminal"), icon: .symbol("plus", TileTint.orange)) {
-                deps.newSession()
-            },
-            Item(id: "action.folder", group: group, title: String(localized: "New terminal in a folder…"), icon: .symbol("folder.fill", TileTint.teal)) {
-                if let directory = pickWorkingDirectory(initialDirectory: deps.selectedLocalDirectory) {
-                    deps.newSession(directory: directory)
-                }
+                deps.openLauncher()
             },
             Item(
                 id: "action.resume", group: group, title: String(localized: "Resume a conversation"),

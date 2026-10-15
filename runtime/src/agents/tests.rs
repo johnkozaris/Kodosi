@@ -2,7 +2,6 @@ use std::{fs, path::Path};
 
 use super::{
     accounts::{self, referenced_home},
-    learned,
     models::{self, codex, copilot, cursor, listed_values, opencode},
     shell::{Definition, Facts},
     *,
@@ -37,8 +36,10 @@ fn run_script(shell: &str, arguments: &[&str], prelude: &str, family_script: &st
 
 #[cfg(unix)]
 #[test]
-fn shell_scripts_report_path_and_agent_definitions() {
-    let prelude = r#"claudesim() { _claude_profile "$HOME/.claude-alt" "$@"; }
+fn shell_scripts_report_path_sign_in_variables_and_agent_definitions() {
+    let prelude = r#"export CLAUDE_CONFIG_DIR=/srv/claude-main
+claude() { command claude "$@"; }
+claudesim() { CLAUDE_CONFIG_DIR="$HOME/.claude-alt" claude "$@"; }
 alias codex-sw='CODEX_HOME=~/.codex-sw codex'
 alias cc='claude --dangerously-skip-permissions'
 alias gs='git status'
@@ -57,18 +58,19 @@ gitlog() { git log; }"#;
             Some("/usr/bin:/bin".as_ref()),
             "{shell}"
         );
-        let names = facts
+        assert_eq!(
+            facts.variable("CLAUDE_CONFIG_DIR"),
+            Some("/srv/claude-main"),
+            "{shell}"
+        );
+        assert_eq!(facts.variable("CODEX_HOME"), None, "{shell}");
+        let mut names = facts
             .definitions
             .iter()
             .map(|definition| definition.name.as_str())
             .collect::<Vec<_>>();
-        assert!(names.contains(&"claudesim"), "{shell}: {names:?}");
-        assert!(names.contains(&"codex-sw"), "{shell}: {names:?}");
-        assert!(names.contains(&"cc"), "{shell}: {names:?}");
-        assert!(
-            !names.contains(&"gitlog") && !names.contains(&"gs"),
-            "{shell}: {names:?}"
-        );
+        names.sort_unstable();
+        assert_eq!(names, ["claude", "claudesim", "codex-sw"], "{shell}");
         let claudesim = facts
             .definitions
             .iter()
@@ -86,46 +88,58 @@ gitlog() { git log; }"#;
             .expect("alias");
         assert_eq!(codex_sw.text, "CODEX_HOME=~/.codex-sw codex", "{shell}");
     }
+    if Path::new("/bin/sh").exists() {
+        let family = shell::family(Path::new("/bin/sh")).expect("known shell");
+        let facts = run_script(
+            "/bin/sh",
+            &["-c"],
+            "export COPILOT_HOME=/srv/copilot",
+            &shell::script(family),
+        );
+        assert_eq!(facts.variable("COPILOT_HOME"), Some("/srv/copilot"));
+        assert_eq!(facts.definitions, Vec::new());
+    }
 }
 
 #[cfg(unix)]
 #[test]
 fn probe_output_is_read_between_the_markers_only() {
     let facts = shell::parse(
-        "motd line\n\u{1e}kodosi-agents\npath\t/opt/bin:/usr/bin\nfunction\tclaude-x\tbody\nfunction\tbad name\tbody\n\u{1e}end\nfunction\tlate\tbody\n",
+        "motd line\n\u{1e}kodosi-agents\npath\t/opt/bin:/usr/bin\nvariable\tCODEX_HOME\t/srv/codex\nvariable\tPATH\t/x\nvariable\tCLAUDE_CONFIG_DIR\t\nfunction\tclaude-x\tbody\nfunction\tbad name\tbody\n\u{1e}end\nfunction\tlate\tbody\n",
     )
     .expect("markers");
     assert_eq!(facts.path.as_deref(), Some("/opt/bin:/usr/bin".as_ref()));
+    assert_eq!(
+        facts.variables,
+        [("CODEX_HOME".to_owned(), "/srv/codex".to_owned())]
+    );
     assert_eq!(facts.definitions, vec![definition("claude-x", "body")]);
     assert!(shell::parse("no markers").is_none());
 }
 
 #[test]
-fn definitions_name_the_sign_in_folder_they_use() {
+fn definitions_name_the_sign_in_folder_they_give_the_agent() {
     let home = Path::new("/home/ada");
-    let claude = |text| referenced_home(text, home, ".claude", "CLAUDE_CONFIG_DIR");
-    assert_eq!(
-        claude(r#"_claude_profile "$HOME/.claude-alt" "$@""#),
-        Some(home.join(".claude-alt"))
-    );
+    let claude = |text| referenced_home(text, home, "CLAUDE_CONFIG_DIR");
     assert_eq!(
         claude("CLAUDE_CONFIG_DIR=~/.claude-work claude"),
         Some(home.join(".claude-work"))
     );
     assert_eq!(
+        claude(r#"export CLAUDE_CONFIG_DIR="$HOME/.claude-alt"; claude "$@""#),
+        Some(home.join(".claude-alt"))
+    );
+    assert_eq!(
         claude("env 'CLAUDE_CONFIG_DIR=/srv/claude two' claude"),
         Some("/srv/claude two".into())
     );
+    assert_eq!(claude(r#"_claude_profile "$HOME/.claude-alt" "$@""#), None);
     assert_eq!(
         claude(r#"CLAUDE_CONFIG_DIR="$config_dir" "$HOME/.local/bin/claude""#),
         None
     );
-    assert_eq!(
-        claude("printf 'claude-sw -> %s' \"$(_cc_acct claude-sw)\""),
-        None
-    );
-    assert_eq!(claude("/opt/other/.claude-x/bin"), None);
     assert_eq!(claude("CLAUDE_CONFIG_DIR=$HOME/../x claude"), None);
+    assert_eq!(claude("env -u CLAUDE_CONFIG_DIR claude"), None);
 }
 
 #[cfg(unix)]
@@ -159,7 +173,6 @@ fn rows(catalog: &AgentCatalog, agent: Agent) -> Vec<String> {
                 Some(&account.name),
                 account.identity.as_ref(),
                 account.folder.as_ref(),
-                account.options.as_ref(),
             ]
             .into_iter()
             .flatten()
@@ -172,7 +185,7 @@ fn rows(catalog: &AgentCatalog, agent: Agent) -> Vec<String> {
 
 #[cfg(unix)]
 #[test]
-fn accounts_come_from_definitions_and_sign_in_folders() {
+fn accounts_are_the_sign_in_folders_of_each_agent() {
     let root = tempfile::tempdir().unwrap();
     let home = root.path();
     put(home, ".claude.json", &claude_sign_in("ada@example.com"));
@@ -186,67 +199,52 @@ fn accounts_come_from_definitions_and_sign_in_folders() {
         ".claude_personal/.claude.json",
         &claude_sign_in("me@example.com"),
     );
+    put(home, ".claude-started/.claude.json", "{}");
     put(
         home,
-        ".claude-script/.claude.json",
-        &claude_sign_in("script@example.com"),
+        ".profiles/x/.claude.json",
+        &claude_sign_in("x@example.com"),
     );
-    put(home, ".claude-started/.claude.json", "{}");
     fs::create_dir_all(home.join(".claude-work")).unwrap();
-    fs::create_dir_all(home.join(".claude-tool/cache")).unwrap();
+    fs::create_dir_all(home.join(".claude-squad/cache")).unwrap();
     put(
         home,
         ".codex-sw/auth.json",
         &format!(r#"{{"tokens":{{"id_token":"{}"}}}}"#, jwt("sw@example.com")),
     );
-    put(
-        home,
-        "bin/claude-script",
-        "#!/bin/sh\nexport CLAUDE_CONFIG_DIR=\"$HOME/.claude-script\"\nexec claude \"$@\"\n",
-    );
     let facts = Facts {
         path: Some("/nowhere".into()),
+        variables: Vec::new(),
         definitions: vec![
-            definition("claude", "env -u CLAUDE_CONFIG_DIR claude"),
-            definition("claudesim", r#"_claude_profile "$HOME/.claude-alt" "$@""#),
-            definition(
-                "claudesim-yolo",
-                r#"_claude_profile "$HOME/.claude-alt" --yolo"#,
-            ),
-            definition("claude-acct", "_cc_acct claude-sw"),
-            definition("claude_usage", r#"ccusage "$@""#),
+            definition("claude", r#"command claude "$@""#),
             definition("claude-dyn", r#"CLAUDE_CONFIG_DIR="$dir" claude "$@""#),
             definition("codex", "codex"),
+            alias("claude-x", "CLAUDE_CONFIG_DIR=~/.profiles/x claude"),
+            alias("claude-alt", "CLAUDE_CONFIG_DIR=~/.claude-alt claude"),
+            alias("claude-gone", "CLAUDE_CONFIG_DIR=~/.claude-gone claude"),
             alias("cc", "claude --dangerously-skip-permissions"),
-            alias("cw", "claudesim --verbose"),
-            alias("claude-config", "vim ~/.claude/settings.json"),
-            alias("claudeGone", r#""$HOME/.local/bin/claudeGone""#),
-            alias("claudeScript", r#""$HOME/bin/claude-script""#),
-            alias("gs", "git status"),
         ],
     };
-    let catalog = accounts::catalog(home, &facts, &learned::Learned::default());
+    let catalog = accounts::catalog(home, &facts);
     assert_eq!(
         rows(&catalog, Agent::Claude),
         [
-            "claude ada@example.com ~/.claude",
-            "cc ada@example.com ~/.claude --dangerously-skip-permissions",
-            "claudesim sim@example.com ~/.claude-alt",
-            "claude-dyn",
-            "claudeScript script@example.com ~/.claude-script",
-            "cw sim@example.com ~/.claude-alt --verbose",
+            "default ada@example.com ~/.claude",
+            "alt sim@example.com ~/.claude-alt",
             "personal me@example.com ~/.claude_personal",
             "started ~/.claude-started",
             "work ~/.claude-work",
+            "x x@example.com ~/.profiles/x",
         ]
     );
     assert_eq!(
         rows(&catalog, Agent::Codex),
-        ["codex ~/.codex", "sw sw@example.com ~/.codex-sw"]
+        ["default ~/.codex", "sw sw@example.com ~/.codex-sw"]
     );
-    let work = &catalog.agents[0].accounts.last().expect("work").command;
+    let claude = &catalog.agents[0].accounts;
+    assert_eq!(claude[0].command, "claude");
     assert_eq!(
-        *work,
+        claude[4].command,
         format!(
             "env CLAUDE_CONFIG_DIR={}/.claude-work claude",
             home.display()
@@ -261,36 +259,51 @@ fn accounts_come_from_definitions_and_sign_in_folders() {
     assert!(copilot.install.contains("copilot"));
 }
 
+#[cfg(unix)]
 #[test]
-fn a_command_keeps_the_sign_in_folder_that_its_agent_got() {
+fn the_folder_that_the_shell_chooses_is_the_first_account() {
     let root = tempfile::tempdir().unwrap();
     let home = root.path();
+    put(home, ".claude.json", &claude_sign_in("old@example.com"));
     put(
         home,
-        ".profiles/x/.claude.json",
-        &claude_sign_in("x@example.com"),
+        ".claude-main/.claude.json",
+        &claude_sign_in("main@example.com"),
     );
     let facts = Facts {
         path: Some("/nowhere".into()),
-        definitions: vec![
-            definition("claude", r#"command claude "$@""#),
-            definition("claude-x", r#"_profile x "$@""#),
-        ],
+        variables: vec![("CLAUDE_CONFIG_DIR".to_owned(), "~/.claude-main".to_owned())],
+        definitions: vec![definition("claude", r#"command claude "$@""#)],
     };
-    let names = || {
-        accounts::catalog(home, &facts, &learned::load(home)).agents[0]
-            .accounts
-            .iter()
-            .map(|account| (account.name.clone(), account.identity.clone()))
-            .collect::<Vec<_>>()
-    };
-    assert_eq!(names().len(), 1);
-    let folder = home.join(".profiles/x").display().to_string();
-    remember(home, home, "claude", "env", Some(folder.clone()));
-    remember(home, home, "claude", "claude-x", Some(folder));
+    let catalog = accounts::catalog(home, &facts);
     assert_eq!(
-        names()[1],
-        ("claude-x".to_owned(), Some("x@example.com".to_owned()))
+        rows(&catalog, Agent::Claude),
+        ["default main@example.com ~/.claude-main"]
+    );
+    assert_eq!(catalog.agents[0].accounts[0].command, "claude");
+}
+
+#[cfg(unix)]
+#[test]
+fn the_catalog_says_where_the_shell_finds_the_kodosi_command() {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let root = tempfile::tempdir().unwrap();
+    let home = &kodosi_os::fs::canonicalize(root.path()).unwrap();
+    let facts = Facts {
+        path: Some(home.join(".local/bin").into_os_string()),
+        ..Facts::default()
+    };
+    assert_eq!(accounts::catalog(home, &facts).kodosi, None);
+    put(home, ".local/bin/kodosi", "#!/bin/sh\n");
+    fs::set_permissions(
+        home.join(".local/bin/kodosi"),
+        fs::Permissions::from_mode(0o755),
+    )
+    .unwrap();
+    assert_eq!(
+        accounts::catalog(home, &facts).kodosi.as_deref(),
+        Some("~/.local/bin/kodosi")
     );
 }
 
@@ -331,12 +344,12 @@ fn windows_lists_the_usual_account_and_adds_none() {
     put(home, "bin/claude.exe", "");
     let facts = Facts {
         path: Some(home.join("bin").into_os_string()),
-        definitions: Vec::new(),
+        ..Facts::default()
     };
-    let catalog = accounts::catalog(home, &facts, &learned::Learned::default());
+    let catalog = accounts::catalog(home, &facts);
     assert_eq!(
         rows(&catalog, Agent::Claude),
-        ["claude ada@example.com ~/.claude"]
+        ["default ada@example.com ~/.claude"]
     );
     assert!(!catalog.agents[0].adds_accounts);
     assert!(accounts::add(home, Agent::Claude, "night").is_err());

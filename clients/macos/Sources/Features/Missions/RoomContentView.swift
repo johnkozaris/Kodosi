@@ -74,7 +74,7 @@ private struct RoomTerminals: View {
                 EmptyState(title: "No terminals here yet", message: "Add one. Everyone in the room gets full control.") {
                     NewTerminalGhost()
                 } actions: {
-                    Button { deps.newRoomTerminal(roomId) } label: { Label("New terminal", systemImage: "plus") }
+                    Button { deps.openLauncher(roomId: roomId) } label: { Label("New terminal", systemImage: "plus") }
                         .buttonStyle(.kodosi(.primary)).accessibilityIdentifier("room.terminal.new")
                     if !mine.isEmpty {
                         Menu {
@@ -168,7 +168,7 @@ private struct RoomTerminals: View {
 
     private var addMenu: some View {
         Menu {
-            Button("New terminal") { deps.newRoomTerminal(roomId) }
+            Button("New terminal") { deps.openLauncher(roomId: roomId) }
             if !mine.isEmpty {
                 Section("Share one of mine") {
                     ForEach(mine) { session in Button(session.name) { share(session) } }

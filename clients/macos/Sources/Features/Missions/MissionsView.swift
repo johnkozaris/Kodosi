@@ -87,7 +87,7 @@ private struct RoomCard: View {
                     RoomSigil(key: mission.id, size: 44)
                     Spacer()
                     if unread > 0 {
-                        CountBadge(count: unread)
+                        NewDot().padding(4)
                     } else if mission.ownerUserId == deps.userId {
                         Tag(text: String(localized: "Yours"))
                     }
@@ -117,6 +117,7 @@ private struct RoomCard: View {
         .buttonStyle(PressScaleStyle(scale: 0.98))
         .onHover { hovered = $0 }
         .animation(theme.motion.spring, value: hovered)
+        .accessibilityValue(unread > 0 ? Text("New messages") : Text(verbatim: ""))
         .accessibilityIdentifier("missions.card.\(AccessibilityIdentifier.token(mission.id))")
     }
 }

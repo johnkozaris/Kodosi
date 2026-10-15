@@ -17,6 +17,16 @@ struct GeneralSettingsView: View {
             : "Kodosi asks before it downloads an update."
     }
 
+    private var commandFooter: LocalizedStringKey {
+        guard let link = deps.commandLink else {
+            return "Agents in Kodosi terminals always find the kodosi command."
+        }
+        if deps.launcher.catalog != nil, deps.launcher.catalog?.kodosi == nil {
+            return "Add \((link as NSString).deletingLastPathComponent) to PATH in your shell to use kodosi in other terminals."
+        }
+        return "Agents in Kodosi terminals and in other terminals find the kodosi command."
+    }
+
     var body: some View {
         @Bindable var updater = deps.updater
         VStack(alignment: .leading, spacing: 22) {
@@ -26,25 +36,16 @@ struct GeneralSettingsView: View {
                         .disabled(!updater.configured)
                         .accessibilityIdentifier("settings.updates.check")
                 }
-                Toggle(isOn: $updater.automatic) {
-                    HStack(spacing: 12) {
-                        IconTile(symbol: "arrow.down.circle", tint: TileTint.green, size: 28)
-                        Text("Update automatically")
-                    }
+                ListRow(String(localized: "Update automatically"), symbol: "arrow.down.circle", tint: TileTint.green) {
+                    Toggle("Update automatically", isOn: $updater.automatic).labelsHidden()
+                        .disabled(!updater.configured)
+                        .accessibilityIdentifier("settings.updates.automatic")
                 }
-                .padding(.horizontal, 14).frame(minHeight: 52)
-                .disabled(!updater.configured)
-                .accessibilityIdentifier("settings.updates.automatic")
             }
-            ListGroup(footer: "Agents in Kodosi terminals always find the kodosi command. Install it to use it in other terminals.") {
+            ListGroup(footer: commandFooter) {
                 ListRow(String(localized: "Command line"),
-                        subtitle: deps.commandInstalled ? CommandLineTool.link.path : String(localized: "Not installed"),
-                        monoSubtitle: deps.commandInstalled, symbol: "terminal", tint: TileTint.graphite)
-                {
-                    Button(deps.commandInstalled ? "Installed" : "Install") { deps.installCommand() }
-                        .disabled(deps.commandInstalled)
-                        .accessibilityIdentifier("settings.command.install")
-                }
+                        subtitle: deps.commandLink ?? String(localized: "Only in Kodosi terminals"),
+                        monoSubtitle: deps.commandLink != nil, symbol: "terminal", tint: TileTint.graphite)
             }
         }
     }

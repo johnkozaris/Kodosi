@@ -253,7 +253,18 @@ Item {
                         visible: root.selection === "room:" + railRoom.entry.id
                     }
                     contentItem: Item {
-                        RoomSigil { anchors.centerIn: parent; key: railRoom.entry.id || ""; size: 26 }
+                        RoomSigil {
+                            id: railSigil
+                            anchors.centerIn: parent
+                            key: railRoom.entry.id || ""
+                            size: 26
+                        }
+                        NewDot {
+                            x: railSigil.x + railSigil.width - width / 2 - 1
+                            y: railSigil.y - height / 2 + 1
+                            visible: Models.Missions.unreadRooms.indexOf(railRoom.entry.id) >= 0
+                            ring: KodosiTheme.ground
+                        }
                     }
                     onClicked: root.openRoom(entry.id)
                 }
@@ -368,52 +379,25 @@ Item {
 
             Bezel {
                 anchors.fill: parent
-                fill: newHover.hovered ? KodosiTheme.accentHover : KodosiTheme.accent
-                pressed: newTerminal.pressed || newFolder.pressed
+                fill: newTerminal.hovered ? KodosiTheme.accentHover : KodosiTheme.accent
+                pressed: newTerminal.pressed
             }
-            HoverHandler { id: newHover }
-            RowLayout {
+            AbstractButton {
+                id: newTerminal
                 anchors.fill: parent
-                spacing: 0
-
-                AbstractButton {
-                    id: newTerminal
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    objectName: "sidebar.sessions.new"
-                    Accessible.id: objectName
-                    Accessible.name: qsTr("New terminal")
-                    activeFocusOnTab: true
-                    hoverEnabled: true
-                    ToolTip.visible: hovered
-                    ToolTip.text: qsTr("New terminal (Ctrl+Shift+N)")
-                    ToolTip.delay: 600
-                    scale: pressed ? 0.98 : 1
-                    contentItem: RowLayout {
-                        spacing: 8
-                        KIcon { Layout.leftMargin: 14; Layout.preferredWidth: 13; Layout.preferredHeight: 13; name: "plus"; color: KodosiTheme.accentInk; strokeWidth: 2.6 }
-                        PlainLabel { Layout.fillWidth: true; text: qsTr("New terminal"); color: KodosiTheme.accentInk; font.weight: Font.DemiBold }
-                    }
-                    onClicked: root.newTerminalRequested("")
+                objectName: "sidebar.sessions.new"
+                Accessible.id: objectName
+                Accessible.name: qsTr("New terminal")
+                activeFocusOnTab: true
+                hoverEnabled: true
+                scale: pressed ? 0.98 : 1
+                contentItem: RowLayout {
+                    spacing: 8
+                    KIcon { Layout.leftMargin: 14; Layout.preferredWidth: 13; Layout.preferredHeight: 13; name: "plus"; color: KodosiTheme.accentInk; strokeWidth: 2.6 }
+                    PlainLabel { Layout.fillWidth: true; text: qsTr("New terminal"); color: KodosiTheme.accentInk; font.weight: Font.DemiBold }
+                    PlainLabel { Layout.rightMargin: 12; text: qsTr("Ctrl+Shift+N"); color: KodosiTheme.alpha(KodosiTheme.accentInk, 0.6); font.pixelSize: KodosiTheme.fontCaption }
                 }
-                Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 18; color: KodosiTheme.alpha(KodosiTheme.accentInk, 0.2) }
-                AbstractButton {
-                    id: newFolder
-                    Layout.preferredWidth: 38
-                    Layout.fillHeight: true
-                    objectName: "sidebar.sessions.folder"
-                    Accessible.id: objectName
-                    Accessible.name: qsTr("New terminal in a folder")
-                    activeFocusOnTab: true
-                    hoverEnabled: true
-                    ToolTip.visible: hovered
-                    ToolTip.text: qsTr("New terminal in a folder…")
-                    ToolTip.delay: 600
-                    contentItem: Item {
-                        KIcon { anchors.centerIn: parent; width: 14; height: 14; name: "folder"; color: KodosiTheme.accentInk; strokeWidth: 2 }
-                    }
-                    onClicked: Models.DesktopFiles.requestDirectory("new", Models.DesktopSettings.effectiveWorkingDirectory)
-                }
+                onClicked: root.newTerminalRequested("")
             }
         }
         Flickable {
@@ -561,6 +545,7 @@ Item {
                         required property int index
                         readonly property var entry: root.rooms[index] || ({})
                         readonly property bool selected: root.selection === "room:" + entry.id
+                        readonly property bool unread: Models.Missions.unreadRooms.indexOf(entry.id) >= 0
 
                         width: parent ? parent.width : 0
                         height: 34
@@ -569,6 +554,7 @@ Item {
                         objectName: "sidebar.room." + entry.id
                         Accessible.id: objectName
                         Accessible.name: entry.name || ""
+                        Accessible.description: unread ? qsTr("New messages") : ""
                         Accessible.selected: selected
 
                         onSelectedChanged: root.claimPill(room, selected)
@@ -586,9 +572,13 @@ Item {
                             PlainLabel {
                                 Layout.fillWidth: true
                                 text: room.entry.name || ""
-                                color: room.selected || room.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
-                                font.weight: room.selected ? Font.DemiBold : Font.Medium
+                                color: room.selected || room.hovered || room.unread ? KodosiTheme.ink : KodosiTheme.inkMuted
+                                font.weight: room.selected || room.unread ? Font.DemiBold : Font.Medium
                                 elide: Text.ElideRight
+                            }
+                            NewDot {
+                                Layout.rightMargin: 12
+                                visible: room.unread
                             }
                         }
                         background: Rectangle {
@@ -878,12 +868,6 @@ Item {
                 selected: root.selection === "people"
                 objectName: "sidebar.people"
                 onClicked: Models.DesktopState.activeView = Models.DesktopState.People
-            }
-            NavRow {
-                title: qsTr("Resume")
-                iconName: "history"
-                objectName: "sidebar.resume"
-                onClicked: root.resumeRequested()
             }
             Item { width: 1; height: 4 }
             RowLayout {

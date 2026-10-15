@@ -107,7 +107,7 @@ struct RoomConversationView: View {
                         RoomWelcome.Step(title: "Invite people", symbol: "person.badge.plus", tint: TileTint.blue,
                                          done: detail.members.count > 1) { state.peopleVisible = true },
                         RoomWelcome.Step(title: "Add a terminal", symbol: "apple.terminal", tint: TileTint.graphite,
-                                         done: deps.sessions.contains { $0.missionId == roomId }) { deps.newRoomTerminal(roomId) },
+                                         done: deps.sessions.contains { $0.missionId == roomId }) { deps.openLauncher(roomId: roomId) },
                         RoomWelcome.Step(title: copied ? "Copied. Paste it to your agent" : "Bring an agent in", symbol: "sparkles",
                                          tint: TileTint.orange, done: copied, action: copyInvite),
                     ])

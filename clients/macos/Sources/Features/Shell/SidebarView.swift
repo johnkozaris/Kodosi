@@ -116,7 +116,7 @@ struct SidebarView: View {
             {
                 deps.workbench.section = .sessions
             } add: {
-                deps.newSession()
+                deps.openLauncher()
             }
             ForEach(SessionFolderGroup.groups(deps.sessions)) { group in
                 let collapsed = collapsedFolders.contains(group.id)
@@ -145,11 +145,6 @@ struct SidebarView: View {
                           badge: deps.incomingRequests.count, selected: selection == .people, pill: pill)
             {
                 deps.workbench.section = .people
-            }
-            SidebarNavRow(title: "Resume", symbol: "clock.arrow.circlepath", identifier: "sidebar.resume",
-                          badge: 0, selected: false, pill: pill)
-            {
-                deps.workbench.showsHistory = true
             }
             if deps.updater.waiting {
                 SidebarNavRow(title: "Restart to Update", symbol: "arrow.down.circle", identifier: "sidebar.update",
@@ -181,64 +176,19 @@ struct SelectionPill: View {
 
 struct NewTerminalButton: View {
     @Environment(AppDependencies.self) private var deps
-    @Environment(\.theme) private var theme
-    @State private var hovered = false
 
     var body: some View {
-        HStack(spacing: 0) {
-            Button { deps.newSession() } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "plus").font(.system(size: 12, weight: .bold))
-                    Text("New terminal").appTextStyle(.subhead)
-                    Spacer(minLength: 0)
-                    Text(verbatim: "⌘N").appTextStyle(.caption).opacity(0.6)
-                }
-                .padding(.leading, 14).padding(.trailing, 10).frame(height: 34).contentShape(Rectangle())
+        Button { deps.openLauncher() } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "plus").font(.system(size: 12, weight: .bold))
+                Text("New terminal")
+                Spacer(minLength: 0)
+                Text(verbatim: "⌘N").appTextStyle(.caption).opacity(0.6)
             }
-            .accessibilityIdentifier("sidebar.newSession")
-            Rectangle().fill(theme.colors.onAccent.opacity(0.18)).frame(width: 1, height: 18)
-            Button {
-                if let directory = pickWorkingDirectory(initialDirectory: deps.selectedLocalDirectory) {
-                    deps.newSession(directory: directory)
-                }
-            } label: {
-                Image(systemName: "folder").font(.system(size: 12, weight: .semibold))
-                    .frame(width: 38, height: 34).contentShape(Rectangle())
-            }
-            .help("New terminal in a folder…").accessibilityLabel(Text("New terminal in a folder"))
-            .accessibilityIdentifier("sidebar.newInFolder")
+            .frame(height: 34).contentShape(Rectangle())
         }
-        .buttonStyle(SplitPartStyle())
-        .foregroundStyle(theme.colors.onAccent)
-        .backgroundPreferenceValue(SplitPressed.self) { pressed in
-            BezelBackground(
-                shape: RoundedRectangle(cornerRadius: Radius.md, style: .continuous),
-                fill: hovered ? theme.colors.accentHover : theme.colors.accent
-            )
-            .environment(\.bezelPressed, pressed)
-            .animation(theme.motion.snappy, value: pressed)
-        }
-        .onHover { hovered = $0 }
-        .animation(theme.motion.hover, value: hovered)
-    }
-}
-
-private struct SplitPressed: PreferenceKey {
-    static let defaultValue = false
-
-    static func reduce(value: inout Bool, nextValue: () -> Bool) {
-        value = value || nextValue()
-    }
-}
-
-private struct SplitPartStyle: ButtonStyle {
-    @Environment(\.theme) private var theme
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .preference(key: SplitPressed.self, value: configuration.isPressed)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(theme.motion.snappy, value: configuration.isPressed)
+        .buttonStyle(.kodosi(.primary))
+        .accessibilityIdentifier("sidebar.newSession")
     }
 }
 
