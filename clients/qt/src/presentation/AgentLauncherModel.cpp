@@ -23,6 +23,60 @@ AgentLauncherModel::AgentLauncherModel(
     , m_settings(std::move(settings))
 {
     m_choice = m_settings->value(QLatin1StringView(ChoiceKey)).toMap();
+    for (const auto signal : { &AgentLauncherModel::agentsChanged, &AgentLauncherModel::modelsChanged,
+             &AgentLauncherModel::choiceChanged })
+        connect(this, signal, this, &AgentLauncherModel::plansChanged);
+}
+
+QVariantMap AgentLauncherModel::plans() const
+{
+    QVariantMap plans;
+    for (const auto& value : m_agents) {
+        const auto info = value.toMap();
+        plans.insert(info.value(QStringLiteral("agent")).toString(), plan(info));
+    }
+    return plans;
+}
+
+QVariantMap AgentLauncherModel::plan(const QVariantMap& info) const
+{
+    const auto agent = info.value(QStringLiteral("agent")).toString();
+    const auto saved = [&](const QString& kind) { return m_choice.value(kind).toMap().value(agent).toString(); };
+    const auto argument = [](const QVariant& entry) { return entry.toMap().value(QStringLiteral("argument")).toString(); };
+    const auto accounts = info.value(QStringLiteral("accounts")).toList();
+    const auto chosen = std::ranges::find_if(accounts, [&](const QVariant& entry) {
+        return entry.toMap().value(QStringLiteral("command")).toString() == saved(QStringLiteral("accounts"));
+    });
+    const auto account = chosen == accounts.end() ? accounts.value(0) : *chosen;
+    // Saved choices stand until the agent lists its models; then only listed ones stay.
+    const bool listed = m_models.contains(agent);
+    const auto offer = m_models.value(agent).toMap();
+    auto modelArgument = saved(QStringLiteral("models"));
+    const auto models = offer.value(QStringLiteral("models")).toList();
+    const auto model = std::ranges::find(models, modelArgument, argument);
+    if (listed && model == models.end())
+        modelArgument.clear();
+    const auto allowed = model == models.end() ? QStringList() : model->toMap().value(QStringLiteral("efforts")).toStringList();
+    QVariantList efforts;
+    for (const auto& entry : offer.value(QStringLiteral("efforts")).toList()) {
+        if (allowed.isEmpty() || allowed.contains(entry.toMap().value(QStringLiteral("id")).toString()))
+            efforts.append(entry);
+    }
+    auto effortArgument = saved(QStringLiteral("efforts"));
+    if (listed && std::ranges::find(efforts, effortArgument, argument) == efforts.end())
+        effortArgument.clear();
+    QString line;
+    if (!info.value(QStringLiteral("installed")).toBool()) {
+        line = info.value(QStringLiteral("install")).toString();
+    } else if (account.isValid()) {
+        QStringList words { account.toMap().value(QStringLiteral("command")).toString(), modelArgument, effortArgument };
+        words.removeAll(QString());
+        line = words.join(QLatin1Char(' '));
+    }
+    return { { QStringLiteral("account"), account }, { QStringLiteral("modelArgument"), modelArgument },
+        { QStringLiteral("model"), model == models.end() ? QVariant() : *model },
+        { QStringLiteral("efforts"), efforts }, { QStringLiteral("effortArgument"), effortArgument },
+        { QStringLiteral("line"), line } };
 }
 
 bool AgentLauncherModel::addingAccount() const
@@ -106,34 +160,22 @@ void AgentLauncherModel::apply(const QJsonObject& event)
     case Request::Agents:
         if (!failed) {
             m_refreshedAt = QDateTime::currentMSecsSinceEpoch();
-            const bool known = !m_agents.isEmpty();
-            QStringList before;
-            for (const auto& value : std::as_const(m_agents)) {
-                const auto info = value.toMap();
-                if (info.value(QStringLiteral("installed")).toBool())
-                    before.append(info.value(QStringLiteral("agent")).toString());
-            }
-            m_agents = result.value(QStringLiteral("agents")).toArray().toVariantList();
-            QStringList installed;
-            for (const auto& value : m_agents) {
-                const auto info = value.toMap();
-                if (info.value(QStringLiteral("installed")).toBool())
-                    installed.append(info.value(QStringLiteral("agent")).toString());
-            }
-            if (known) {
-                QStringList arrived;
-                for (const auto& agent : std::as_const(installed)) {
-                    if (!before.contains(agent) && !m_fresh.contains(agent))
-                        arrived.append(agent);
+            auto agents = result.value(QStringLiteral("agents")).toArray().toVariantList();
+            if (agents != m_agents) {
+                m_agents = std::move(agents);
+                QStringList installed;
+                for (const auto& value : std::as_const(m_agents)) {
+                    const auto info = value.toMap();
+                    if (info.value(QStringLiteral("installed")).toBool())
+                        installed.append(info.value(QStringLiteral("agent")).toString());
                 }
-                announce(arrived);
+                for (const auto& agent : m_models.keys()) {
+                    if (!installed.contains(agent))
+                        m_models.remove(agent);
+                }
+                emit agentsChanged();
+                emit modelsChanged();
             }
-            for (const auto& agent : m_models.keys()) {
-                if (!installed.contains(agent))
-                    m_models.remove(agent);
-            }
-            emit agentsChanged();
-            emit modelsChanged();
         }
         if (std::exchange(m_refreshesAgain, false))
             refresh(true);
@@ -165,27 +207,6 @@ void AgentLauncherModel::apply(const QJsonObject& event)
         emit accountErrorChanged();
         break;
     }
-}
-
-void AgentLauncherModel::setGrown(bool grown)
-{
-    if (m_grown == grown)
-        return;
-    m_grown = grown;
-    emit grownChanged();
-}
-
-void AgentLauncherModel::announce(const QStringList& agents)
-{
-    if (agents.isEmpty())
-        return;
-    m_fresh.append(agents);
-    emit freshChanged();
-    QTimer::singleShot(4000, this, [this, agents] {
-        for (const auto& agent : agents)
-            m_fresh.removeAll(agent);
-        emit freshChanged();
-    });
 }
 
 void AgentLauncherModel::reset()

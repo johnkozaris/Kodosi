@@ -58,9 +58,7 @@ final class DesktopSettings {
     private(set) var terminalSettings = TerminalSettings.defaults
     var lastWorkingDir: String?
     var branchFolder: String?
-    var startCommands: [StartCommand] = []
     var launchChoice = LaunchChoice()
-    private var learnedAgents: Set<String> = []
 
     enum CursorStyle: String, CaseIterable, Codable {
         case block, bar, underline
@@ -81,21 +79,8 @@ final class DesktopSettings {
         return terminalSettings
     }
 
-    func learn(_ agent: AgentKind) {
-        guard agent.isAgent, learnedAgents.insert(agent.rawValue).inserted else { return }
-        if !startCommands.contains(where: { $0.agent == agent }) {
-            startCommands.append(StartCommand(name: agent.label, command: agent.executable))
-        }
-        saveStartCommands()
-    }
-
     func saveLaunchChoice() {
         defaults.set(try? JSONEncoder().encode(launchChoice), forKey: "launcher.choice")
-    }
-
-    func saveStartCommands() {
-        defaults.set(try? JSONEncoder().encode(startCommands), forKey: "agents.startCommands")
-        defaults.set(learnedAgents.sorted(), forKey: "agents.learned")
     }
 
     func save() {
@@ -118,8 +103,6 @@ final class DesktopSettings {
             .flatMap { try? JSONDecoder().decode(TerminalSettings.self, from: $0) } ?? .defaults).normalized()
         lastWorkingDir = d.string(forKey: "session.lastWorkingDir")
         branchFolder = d.string(forKey: "session.branchFolder")
-        startCommands = d.data(forKey: "agents.startCommands").flatMap { try? JSONDecoder().decode([StartCommand].self, from: $0) } ?? []
-        learnedAgents = Set(d.stringArray(forKey: "agents.learned") ?? [])
         launchChoice = d.data(forKey: "launcher.choice").flatMap { try? JSONDecoder().decode(LaunchChoice.self, from: $0) } ?? LaunchChoice()
     }
 }

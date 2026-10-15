@@ -30,6 +30,16 @@ Item {
 
     signal resumeRequested
 
+    function focusLauncher(folder) {
+        const launcher = root.sessions.length === 0 ? firstLauncher : listLauncher
+        if (!launcher.visible)
+            return false
+        if (launcher === listLauncher)
+            (scroll.contentItem as Flickable).contentY = 0
+        launcher.focusPrompt(folder)
+        return true
+    }
+
     objectName: "stage.overview"
     Accessible.id: objectName
 
@@ -70,11 +80,12 @@ Item {
         }
     }
     AgentLauncher {
+        id: firstLauncher
         anchors.horizontalCenter: parent.horizontalCenter
         y: Math.max(40, parent.height / 2 - 150)
         width: Math.min(560, parent.width - 48)
         visible: !root.loading && !root.failed && root.sessions.length === 0
-        welcome: true
+        centered: true
         onResumeRequested: root.resumeRequested()
     }
     KScrollView {
@@ -89,6 +100,7 @@ Item {
             spacing: 22
 
             AgentLauncher {
+                id: listLauncher
                 Layout.topMargin: 44
                 Layout.fillWidth: true
                 onResumeRequested: root.resumeRequested()

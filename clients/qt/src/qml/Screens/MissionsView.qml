@@ -15,6 +15,7 @@ Item {
 
     signal inspectSessionRequested(string sessionId)
     signal shareSessionRequested(string sessionId)
+    signal newTerminalRequested(string roomId)
 
     function openCreate() {
         create.open();
@@ -169,6 +170,11 @@ Item {
                         }
                         contentItem: Item {
                             RoomSigil { x: 16; y: 16; key: card.modelData.id; size: 40 }
+                            NewDot {
+                                x: parent.width - width - 18
+                                y: 20
+                                visible: !card.hovered && Models.Missions.unreadRooms.indexOf(card.modelData.id) >= 0
+                            }
                             ColumnLayout {
                                 anchors.left: parent.left
                                 anchors.right: parent.right
@@ -221,6 +227,7 @@ Item {
         visible: root.accountReady && root.selected
         onInspectSessionRequested: id => root.inspectSessionRequested(id)
         onShareSessionRequested: id => root.shareSessionRequested(id)
+        onNewTerminalRequested: roomId => root.newTerminalRequested(roomId)
     }
     KPopover {
         id: create

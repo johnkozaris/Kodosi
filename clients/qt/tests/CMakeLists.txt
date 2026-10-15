@@ -13,6 +13,7 @@ endfunction()
 
 qt_add_executable(kodosi-runtime-tests tst_runtime_bridge.cpp RuntimeApiFixture.cpp)
 target_link_libraries(kodosi-runtime-tests PRIVATE kodosi-runtime Kodosi::RustRuntime Qt6::Test)
+target_compile_definitions(kodosi-runtime-tests PRIVATE KODOSI_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 add_test(NAME kodosi-runtime-tests COMMAND kodosi-runtime-tests)
 set_tests_properties(kodosi-runtime-tests PROPERTIES
     ENVIRONMENT_MODIFICATION "${KODOSI_TEST_ENVIRONMENT_MODIFICATION}")

@@ -105,11 +105,6 @@ bool SessionActionsModel::activateInRoom(const QString& id)
     return opened;
 }
 
-bool SessionActionsModel::createInRoom(const QString& roomId, const QString& directory)
-{
-    return createInternal({}, directory, {}, {}, roomId);
-}
-
 bool SessionActionsModel::takeCreated(const QString& id)
 {
     return m_created.remove(id);
@@ -151,11 +146,6 @@ bool SessionActionsModel::minimize(const QString& id)
     return true;
 }
 
-bool SessionActionsModel::create(const QString& name, const QString& directory)
-{
-    return createInternal(name, directory, {}, {});
-}
-
 bool SessionActionsModel::resume(
     const QString& provider, const QString& nativeConversationId, const QString& workingDirectory)
 {
@@ -191,15 +181,15 @@ bool SessionActionsModel::createOnBranch(const QString& directory, const QString
     return !directory.isEmpty() && !name.isEmpty() && createInternal(name, directory, {}, {}, {}, name);
 }
 
-bool SessionActionsModel::start(
-    const QString& name, const QString& directory, const QString& command, const QString& prompt)
+bool SessionActionsModel::create(const QString& name, const QString& directory, const QString& command,
+    const QString& prompt, const QString& roomId)
 {
     QJsonObject line;
     if (!command.trimmed().isEmpty())
         line.insert(QStringLiteral("command"), command.trimmed());
     if (!prompt.trimmed().isEmpty())
         line.insert(QStringLiteral("prompt"), prompt.trimmed());
-    if (!createInternal(name, directory, {}, {}, {}, {}, line))
+    if (!createInternal(name, directory, {}, {}, roomId, {}, line))
         return false;
     m_settings.setWorkingDirectory(directory);
     return true;

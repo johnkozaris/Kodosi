@@ -84,13 +84,10 @@ struct SessionTileHeader: View {
     private var actions: some View {
         HStack(spacing: 0) {
             if session.atPrompt {
-                let commands = deps.settings.startCommands.filter { $0.line != nil }
-                ForEach(commands) { command in
-                    StartMark(command: command, repeated: commands.first { $0.agent == command.agent } != command) {
-                        deps.start(command, in: session)
-                    }
-                    .accessibilityIdentifier("\(stageId).start.\(AccessibilityIdentifier.token(command.id))")
-                    .transition(AnyTransition.pop)
+                ForEach(deps.launcher.installed) { info in
+                    StartMark(kind: info.kind) { deps.start(info.agent, in: session) }
+                        .accessibilityIdentifier("\(stageId).start.\(info.agent)")
+                        .transition(AnyTransition.pop)
                 }
             }
             if session.kind == .local, session.isOwner {
@@ -132,31 +129,20 @@ struct SessionTileHeader: View {
 struct StartMark: View {
     @Environment(\.theme) private var theme
     @State private var hovered = false
-    let command: StartCommand
-    let repeated: Bool
+    let kind: AgentKind
     var size: CGFloat = 16
     let action: () -> Void
 
-    private var initial: String {
-        command.name.split(separator: " ").last?.first.map { String($0).uppercased() } ?? ""
-    }
-
     var body: some View {
         Button(action: action) {
-            AgentMark(kind: command.agent, size: size)
-                .overlay {
-                    if repeated {
-                        RoundedRectangle(cornerRadius: size * 0.3, style: .continuous).fill(command.agent.tint)
-                        Text(initial).font(.system(size: size * 0.6, weight: .bold, design: .rounded)).foregroundStyle(.white)
-                    }
-                }
+            AgentMark(kind: kind, size: size)
                 .frame(width: size + 10, height: size + 10)
                 .background(theme.colors.ink.opacity(hovered ? 0.08 : 0), in: RoundedRectangle(cornerRadius: Radius.xs, style: .continuous))
                 .contentShape(Rectangle())
         }
         .buttonStyle(PressScaleStyle(scale: 0.9))
         .onHover { hovered = $0 }
-        .help(String(localized: "Start \(command.name)"))
-        .accessibilityLabel(Text("Start \(command.name)"))
+        .help(String(localized: "Start \(kind.label)"))
+        .accessibilityLabel(Text("Start \(kind.label)"))
     }
 }

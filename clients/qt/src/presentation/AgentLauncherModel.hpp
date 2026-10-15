@@ -19,10 +19,9 @@ class AgentLauncherModel final : public QObject {
     Q_PROPERTY(QVariantMap models READ models NOTIFY modelsChanged)
     Q_PROPERTY(QStringList loadingModels READ loadingModels NOTIFY modelsChanged)
     Q_PROPERTY(QVariantMap choice READ choice NOTIFY choiceChanged)
+    Q_PROPERTY(QVariantMap plans READ plans NOTIFY plansChanged)
     Q_PROPERTY(QString accountError READ accountError NOTIFY accountErrorChanged)
     Q_PROPERTY(bool addingAccount READ addingAccount NOTIFY accountErrorChanged)
-    Q_PROPERTY(QStringList fresh READ fresh NOTIFY freshChanged)
-    Q_PROPERTY(bool grown READ grown WRITE setGrown NOTIFY grownChanged)
 
 public:
     AgentLauncherModel(CommandDispatcher& commands, std::unique_ptr<QSettings> settings,
@@ -32,11 +31,9 @@ public:
     QVariantMap models() const { return m_models; }
     QStringList loadingModels() const { return m_loading; }
     QVariantMap choice() const { return m_choice; }
+    QVariantMap plans() const;
     QString accountError() const { return m_accountError; }
     bool addingAccount() const;
-    QStringList fresh() const { return m_fresh; }
-    bool grown() const { return m_grown; }
-    void setGrown(bool grown);
 
     Q_INVOKABLE void refresh(bool force = false);
     Q_INVOKABLE void loadModels(const QString& agent);
@@ -51,10 +48,9 @@ signals:
     void agentsChanged();
     void modelsChanged();
     void choiceChanged();
+    void plansChanged();
     void accountErrorChanged();
     void accountAdded(QString agent, QString command);
-    void freshChanged();
-    void grownChanged();
 
 private:
     enum class Request { Agents, Models, Account };
@@ -73,11 +69,9 @@ private:
     QString m_accountError;
     qint64 m_refreshedAt = 0;
     bool m_refreshesAgain = false;
-    QStringList m_fresh;
-    bool m_grown = false;
 
+    QVariantMap plan(const QVariantMap& info) const;
     bool send(Request request, const QString& agent, QJsonObject values);
-    void announce(const QStringList& agents);
     void persist();
 };
 }

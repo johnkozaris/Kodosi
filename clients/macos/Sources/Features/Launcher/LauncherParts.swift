@@ -48,7 +48,6 @@ struct LauncherCommandLine<Folder: View, Choices: View>: View {
     @Environment(\.theme) private var theme
     let info: AgentInfo?
     @Binding var prompt: String
-    let ghost: String
     let hint: String
     let focus: Int
     let submit: () -> Void
@@ -77,11 +76,11 @@ struct LauncherCommandLine<Folder: View, Choices: View>: View {
             }
             if info?.installed ?? true {
                 PromptField(
-                    text: $prompt, ghost: ghost, hint: hint,
+                    text: $prompt, hint: hint,
                     label: info == nil ? String(localized: "Command") : String(localized: "First prompt"),
                     focus: focus, submit: submit
                 )
-                .layoutValue(key: FillsRow.self, value: 120)
+                .layoutValue(key: FillsRow.self, value: max(120, PromptTextView.width(hint: hint)))
                 .accessibilityIdentifier("launcher.prompt")
             }
         }
@@ -126,7 +125,6 @@ struct AgentTabs: View {
     let items: [Item]
     let selection: String
     let hidden: Int
-    let fresh: Set<String>
     @Binding var showsAll: Bool
     let select: (String) -> Void
 
@@ -155,12 +153,10 @@ struct AgentTabs: View {
             }
         }
         .animation(theme.motion.spring, value: items.map(\.id))
-        .animation(theme.motion.spring, value: fresh)
     }
 
     private func mark(_ item: Item) -> some View {
         let selected = item.id == selection
-        let arrived = fresh.contains(item.id) && !selected
         return Button {
             withAnimation(theme.motion.snappy) { select(item.id) }
         } label: {
@@ -172,21 +168,19 @@ struct AgentTabs: View {
                         SpringKeyframe(0.8, duration: 0.09, spring: .snappy)
                         SpringKeyframe(1.0, duration: 0.45, spring: .bouncy)
                     }
-                if selected || arrived {
+                if selected {
                     Text(item.title).appTextStyle(.subhead).fixedSize()
-                        .foregroundStyle(arrived ? theme.colors.accentStrong : item.installed ? theme.colors.ink : theme.colors.inkMuted)
+                        .foregroundStyle(item.installed ? theme.colors.ink : theme.colors.inkMuted)
                         .transition(.opacity.combined(with: .offset(x: -6)))
                 }
             }
-            .padding(.horizontal, selected || arrived ? 12 : 8)
+            .padding(.horizontal, selected ? 12 : 8)
             .frame(height: selected ? 34 : 30)
             .background {
                 if selected {
                     TabShape(radius: 9, flare: 8)
                         .fill(TerminalInk.body)
                         .matchedGeometryEffect(id: "tab", in: tab)
-                } else if arrived {
-                    Ripple(color: theme.colors.accent)
                 }
             }
             .hoverRow(radius: Radius.sm, selected: selected)
@@ -216,47 +210,5 @@ struct TabShape: Shape {
         path.addQuadCurve(to: CGPoint(x: rect.maxX + flare, y: rect.maxY), control: CGPoint(x: rect.maxX, y: rect.maxY))
         path.closeSubpath()
         return path
-    }
-}
-
-struct Ripple: View {
-    @Environment(\.theme) private var theme
-    let color: Color
-    @State private var out = false
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
-            .strokeBorder(color, lineWidth: 1.5)
-            .scaleEffect(out ? 1.25 : 1)
-            .opacity(out ? 0 : 1)
-            .onAppear {
-                guard !theme.motion.reduced else { return }
-                withAnimation(.easeOut(duration: 1.1).repeatCount(2, autoreverses: false)) { out = true }
-            }
-    }
-}
-
-struct SeedMask: Shape {
-    var progress: CGFloat
-    let cursor: CGRect
-    let radius: CGFloat
-
-    var animatableData: CGFloat {
-        get { progress }
-        set { progress = newValue }
-    }
-
-    func path(in rect: CGRect) -> Path {
-        let wide = min(1, max(0, progress / 0.45))
-        let tall = min(1, max(0, (progress - 0.45) / 0.55))
-        let line = CGRect(
-            x: cursor.minX + (rect.minX - cursor.minX) * wide, y: cursor.minY,
-            width: cursor.width + (rect.width - cursor.width) * wide, height: cursor.height
-        )
-        let frame = CGRect(
-            x: line.minX, y: line.minY + (rect.minY - line.minY) * tall,
-            width: line.width, height: line.height + (rect.height - line.height) * tall
-        )
-        return Path(roundedRect: frame, cornerRadius: 2 + (radius - 2) * tall, style: .continuous)
     }
 }

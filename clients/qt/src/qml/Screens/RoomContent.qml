@@ -26,9 +26,10 @@ Item {
 
     signal inspectSessionRequested(string sessionId)
     signal shareSessionRequested(string sessionId)
+    signal newTerminalRequested(string roomId)
 
     function newTerminal() {
-        Models.SessionActions.createInRoom(Models.Missions.selectedMissionId, Models.DesktopSettings.effectiveWorkingDirectory);
+        root.newTerminalRequested(Models.Missions.selectedMissionId);
     }
 
     objectName: "room"

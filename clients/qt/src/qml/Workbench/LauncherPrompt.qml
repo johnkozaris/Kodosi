@@ -6,11 +6,11 @@ import QtQuick
 TextEdit {
     id: root
 
-    property string ghost: ""
     property string hint: ""
     property bool holds: true
     property bool lit: true
     readonly property real cell: metrics.advanceWidth("M")
+    readonly property real fitWidth: Math.ceil(leftPadding + metrics.advanceWidth(hint) + rightPadding)
 
     signal submitted
 
@@ -78,7 +78,7 @@ TextEdit {
         x: root.leftPadding
         y: root.topPadding
         visible: root.length === 0
-        text: root.ghost
+        text: root.hint
         textFormat: Text.PlainText
         color: KodosiTheme.terminalInkFaint
         font: root.font
@@ -101,7 +101,7 @@ TextEdit {
         Text {
             visible: root.activeFocus && root.lit
             text: root.cursorPosition < root.length ? root.getText(root.cursorPosition, root.cursorPosition + 1)
-                : root.length === 0 ? root.ghost.charAt(0) : ""
+                : root.length === 0 ? root.hint.charAt(0) : ""
             textFormat: Text.PlainText
             color: KodosiTheme.terminal
             font: root.font

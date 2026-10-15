@@ -1,7 +1,7 @@
 #include "presentation/DesktopSettings.hpp"
 #include <QDir>
 #include <QFileInfo>
-#include <QUuid>
+#include <QList>
 #include <algorithm>
 #include <cmath>
 namespace kodosi {
@@ -36,16 +36,6 @@ DesktopSettings::DesktopSettings(std::unique_ptr<QSettings> settings, QObject* p
     m_blink = m_settings->value(QStringLiteral("terminal/blink"), false).toBool();
     m_directory = m_settings->value(QStringLiteral("terminal/directory")).toString();
     m_branchFolder = m_settings->value(QStringLiteral("terminal/branchFolder")).toString();
-    m_learned = m_settings->value(QStringLiteral("agents/learned")).toStringList();
-    const int rows = std::min(m_settings->beginReadArray(QStringLiteral("agents/start")), 64);
-    for (int row = 0; row < rows; ++row) {
-        m_settings->setArrayIndex(row);
-        const StartCommand entry { m_settings->value(QStringLiteral("id")).toString(),
-            m_settings->value(QStringLiteral("name")).toString(), m_settings->value(QStringLiteral("command")).toString() };
-        if (!entry.id.isEmpty() && entry.name.size() <= 128 && entry.command.size() <= 1024)
-            m_start.append(entry);
-    }
-    m_settings->endArray();
 }
 QString DesktopSettings::agentOf(const QString& text)
 {
@@ -63,87 +53,6 @@ QString DesktopSettings::agentLabel(const QString& text)
 {
     const auto agent = std::ranges::find(knownAgents(), agentOf(text), &KnownAgent::id);
     return agent == knownAgents().end() ? tr("Shell") : agent->label;
-}
-QVariantList DesktopSettings::startCommands() const
-{
-    QVariantList result;
-    QStringList seen;
-    for (const auto& entry : m_start) {
-        const auto agent = agentOf(entry.command);
-        const auto last = entry.name.split(QChar::Space, Qt::SkipEmptyParts).value(
-            entry.name.split(QChar::Space, Qt::SkipEmptyParts).size() - 1);
-        result.append(QVariantMap { { QStringLiteral("id"), entry.id }, { QStringLiteral("name"), entry.name },
-            { QStringLiteral("command"), entry.command }, { QStringLiteral("agent"), agent },
-            { QStringLiteral("repeated"), seen.contains(agent) }, { QStringLiteral("initial"), last.left(1).toUpper() } });
-        if (!entry.command.trimmed().isEmpty())
-            seen.append(agent);
-    }
-    return result;
-}
-QStringList DesktopSettings::startCommandIds() const
-{
-    QStringList ids;
-    for (const auto& entry : m_start)
-        ids.append(entry.id);
-    return ids;
-}
-void DesktopSettings::learn(const QString& program)
-{
-    const auto agent = std::ranges::find(knownAgents(), program, &KnownAgent::id);
-    if (agent == knownAgents().end() || m_learned.contains(program))
-        return;
-    m_learned.append(program);
-    const bool known = std::ranges::any_of(m_start, [&](const StartCommand& entry) { return agentOf(entry.command) == program; });
-    if (!known) {
-        m_start.append({ QUuid::createUuid().toString(QUuid::WithoutBraces), agent->label,
-            program == QStringLiteral("cursor") ? QStringLiteral("cursor-agent") : program });
-    }
-    persistStart();
-    if (!known) {
-        emit startCommandIdsChanged();
-        emit startCommandsChanged();
-    }
-}
-void DesktopSettings::addStartCommand()
-{
-    if (m_start.size() >= 64)
-        return;
-    m_start.append({ QUuid::createUuid().toString(QUuid::WithoutBraces), {}, {} });
-    persistStart();
-    emit startCommandIdsChanged();
-    emit startCommandsChanged();
-}
-void DesktopSettings::setStartCommand(const QString& id, const QString& name, const QString& command)
-{
-    const auto entry = std::ranges::find_if(m_start, [&](const StartCommand& value) { return value.id == id; });
-    if (entry == m_start.end() || name.size() > 128 || command.size() > 1024
-        || (entry->name == name && entry->command == command))
-        return;
-    entry->name = name;
-    entry->command = command;
-    persistStart();
-    emit startCommandsChanged();
-}
-void DesktopSettings::removeStartCommand(const QString& id)
-{
-    if (m_start.removeIf([&](const StartCommand& value) { return value.id == id; }) == 0)
-        return;
-    persistStart();
-    emit startCommandIdsChanged();
-    emit startCommandsChanged();
-}
-void DesktopSettings::persistStart()
-{
-    m_settings->setValue(QStringLiteral("agents/learned"), m_learned);
-    m_settings->beginWriteArray(QStringLiteral("agents/start"), static_cast<int>(m_start.size()));
-    for (int row = 0; row < m_start.size(); ++row) {
-        m_settings->setArrayIndex(row);
-        m_settings->setValue(QStringLiteral("id"), m_start.at(row).id);
-        m_settings->setValue(QStringLiteral("name"), m_start.at(row).name);
-        m_settings->setValue(QStringLiteral("command"), m_start.at(row).command);
-    }
-    m_settings->endArray();
-    m_settings->sync();
 }
 QString DesktopSettings::homeDirectory() const
 {
