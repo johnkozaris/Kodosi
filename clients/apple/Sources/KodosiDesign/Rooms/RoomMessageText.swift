@@ -1,13 +1,17 @@
 import Foundation
-import KodosiDesign
 import SwiftUI
 
-struct RoomMessageText: View {
+public struct RoomMessageText: View {
     @Environment(\.theme) private var theme
     let text: String
     let targets: [RoomMention]
 
-    var body: some View {
+    public init(text: String, targets: [RoomMention]) {
+        self.text = text
+        self.targets = targets
+    }
+
+    public var body: some View {
         let segments = RoomMentions.segments(text, targets: targets)
         if segments.allSatisfy({
             if case .text = $0 {
@@ -24,11 +28,11 @@ struct RoomMessageText: View {
                 case let .mention(target): Text("\(result)\(chip(target))")
                 }
             }
-            .textRenderer(RoomMentionRenderer())
+            .textRenderer(MentionRenderer())
         }
     }
 
-    static func formatted(_ text: String) -> AttributedString {
+    public static func formatted(_ text: String) -> AttributedString {
         let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
         var value = (try? AttributedString(markdown: text, options: options)) ?? AttributedString(text)
         guard let detector = linkDetector else { return value }
@@ -48,11 +52,15 @@ struct RoomMessageText: View {
         let color = color(target)
         var label = AttributedString("@\(target.name)")
         label.swiftUI.foregroundColor = color
-        label.swiftUI.font = .system(.body, weight: .semibold)
+        #if os(iOS)
+            label.swiftUI.font = .system(.body, weight: .semibold)
+        #else
+            label.swiftUI.font = .system(size: 13, weight: .semibold)
+        #endif
         if let link = target.link {
             label.link = link
         }
-        return Text(label).customAttribute(RoomMentionChip(color: color))
+        return Text(label).customAttribute(MentionChip(color: color))
     }
 
     private func color(_ target: RoomMention) -> Color {
@@ -65,15 +73,15 @@ struct RoomMessageText: View {
     }
 }
 
-nonisolated struct RoomMentionChip: TextAttribute {
+private struct MentionChip: TextAttribute {
     let color: Color
 }
 
-nonisolated struct RoomMentionRenderer: TextRenderer {
+private struct MentionRenderer: TextRenderer {
     func draw(layout: Text.Layout, in context: inout GraphicsContext) {
         for line in layout {
             for run in line {
-                if let chip = run[RoomMentionChip.self] {
+                if let chip = run[MentionChip.self] {
                     let rect = run.typographicBounds.rect.insetBy(dx: -3, dy: 0)
                     context.fill(
                         RoundedRectangle(cornerRadius: 5, style: .continuous).path(in: rect),

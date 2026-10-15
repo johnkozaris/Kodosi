@@ -136,13 +136,6 @@ struct DeviceSettingsView: View {
         .confirmationDialog("Make a new recovery key?", isPresented: $replacingRecoveryKey, titleVisibility: .visible) {
             Button("Make a new key") { deps.perform("devices.recovery.create") }
         } message: { Text("The recovery key that you have now stops working.") }
-        .sheet(isPresented: Binding(get: { deps.newRecoveryKey != nil }, set: {
-            if !$0 {
-                deps.newRecoveryKey = nil
-            }
-        })) {
-            RecoveryKeySheet(key: deps.newRecoveryKey ?? "") { deps.newRecoveryKey = nil }
-        }
         .confirmationDialog("Sign out?", isPresented: $signingOut, titleVisibility: .visible) {
             Button("Sign out", role: .destructive) { deps.perform("auth.logout") }
         } message: { Text("Sharing ends. Terminals on this Mac keep running.") }

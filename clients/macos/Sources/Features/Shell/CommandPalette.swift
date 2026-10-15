@@ -166,7 +166,7 @@ struct CommandPalette: View {
 
     private var peopleItems: [Item] {
         deps.friends.map { friend in
-            let name = friend.displayName.isEmpty ? friend.handle : friend.displayName
+            let name = friend.personName
             return Item(id: "person.\(friend.userId)", group: String(localized: "People"), title: name, detail: "@\(friend.handle)",
                         icon: .person(name: name, key: friend.userId))
             {

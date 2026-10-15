@@ -135,7 +135,7 @@ struct AccountStoreTests {
         #expect(outbox.types == ["auth.login.start"])
         let failure = try event("auth.error", userId: nil, ["operation": "auth.login.start", "message": "The sign-in service is down."])
         #expect(store.absorb(error: failure, message: "The sign-in service is down."))
-        #expect(store.stage == .failed("The sign-in service is down."))
+        #expect(store.stage == .failed(message: "The sign-in service is down.", completed: 0))
     }
 
     @Test func signOutSendsLogout() {

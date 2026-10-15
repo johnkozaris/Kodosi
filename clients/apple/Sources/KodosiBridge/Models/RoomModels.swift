@@ -9,6 +9,22 @@ public struct RoomSnapshot: Decodable {
     public var hasOlder: Bool
 }
 
+public extension RoomSnapshot {
+    mutating func merge(_ previous: RoomSnapshot) {
+        hasOlder = previous.hasOlder && hasOlder
+        var messages = Dictionary(previous.messages.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
+        for message in self.messages {
+            messages[message.id] = message
+        }
+        self.messages = messages.values.sorted { $0.sequence < $1.sequence }
+        var tasks = Dictionary(previous.tasks.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
+        for task in self.tasks where tasks[task.id].map({ $0.version <= task.version }) ?? true {
+            tasks[task.id] = task
+        }
+        self.tasks = tasks.values.sorted { $0.id < $1.id }
+    }
+}
+
 public struct RoomMessage: Decodable, Identifiable {
     public let id: String
     public let sequence: UInt64

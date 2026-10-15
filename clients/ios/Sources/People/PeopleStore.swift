@@ -145,19 +145,3 @@ final class PeopleStore {
         fetchingInvite = false
     }
 }
-
-extension FriendEntry {
-    var personName: String {
-        displayName.isEmpty ? handle : displayName
-    }
-
-    var isVerified: Bool {
-        verified && !identityChanged
-    }
-}
-
-extension FriendRequestEntry {
-    var personName: String {
-        displayName.isEmpty ? handle : displayName
-    }
-}

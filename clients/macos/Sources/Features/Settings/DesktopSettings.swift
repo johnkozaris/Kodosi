@@ -120,7 +120,7 @@ final class DesktopSettings {
     func learn(_ agent: AgentKind) {
         guard agent.isAgent, learnedAgents.insert(agent.rawValue).inserted else { return }
         if !startCommands.contains(where: { $0.agent == agent }) {
-            startCommands.append(StartCommand(name: agent.label, command: agent == .cursor ? "cursor-agent" : agent.rawValue))
+            startCommands.append(StartCommand(name: agent.label, command: agent.executable))
         }
         saveStartCommands()
     }

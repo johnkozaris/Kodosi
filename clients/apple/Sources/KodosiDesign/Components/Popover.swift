@@ -7,6 +7,10 @@ import SwiftUI
 /// the view that opened it, on the raised surface of the app's panels, and a
 /// click beside it or Escape puts it away. Elsewhere it is the system popover.
 /// The window's root view shows it with `kodosiPopoverLayer()`.
+public extension EnvironmentValues {
+    @Entry var closePanel: () -> Void = {}
+}
+
 public extension View {
     func kodosiPopover(
         isPresented: Binding<Bool>, arrowEdge: Edge = .bottom, @ViewBuilder content: @escaping () -> some View
@@ -14,7 +18,9 @@ public extension View {
         #if os(macOS)
             modifier(KodosiPopoverSource(isPresented: isPresented, edge: arrowEdge, popover: content))
         #else
-            popover(isPresented: isPresented, arrowEdge: arrowEdge, content: content)
+            popover(isPresented: isPresented, arrowEdge: arrowEdge) {
+                content().environment(\.closePanel) { isPresented.wrappedValue = false }
+            }
         #endif
     }
 
@@ -44,9 +50,10 @@ public extension View {
         func body(content: Content) -> some View {
             content.anchorPreference(key: KodosiPopoverKey.self, value: .bounds) { anchor in
                 guard isPresented else { return [] }
-                return [KodosiPopoverItem(id: id, anchor: anchor, edge: edge, content: AnyView(popover())) {
-                    isPresented = false
-                }]
+                let close = { isPresented = false }
+                return [KodosiPopoverItem(
+                    id: id, anchor: anchor, edge: edge, content: AnyView(popover().environment(\.closePanel, close)), dismiss: close
+                )]
             }
         }
     }

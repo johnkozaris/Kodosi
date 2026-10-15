@@ -5,7 +5,7 @@ import SwiftUI
 struct SessionSharingPopover: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.closePanel) private var dismiss
     let session: RuntimeSession
     @State private var people: Set<String> = []
     @State private var originalPeople: Set<String> = []
@@ -93,7 +93,7 @@ struct SessionSharingPopover: View {
         if !deps.missions.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 Text("A room").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
-                FlowRow(spacing: 6) {
+                FlowLayout(spacing: 6) {
                     ForEach(deps.missions) { mission in
                         let selected = room == mission.id
                         Button {
@@ -128,7 +128,7 @@ struct SessionSharingPopover: View {
                         .buttonStyle(.kodosi(.tinted))
                 } else {
                     ScrollView {
-                        FlowRow(spacing: 10) {
+                        FlowLayout(spacing: 10) {
                             ForEach(deps.friends) { friend in friendChip(friend) }
                         }
                         .padding(3)
@@ -141,7 +141,7 @@ struct SessionSharingPopover: View {
     }
 
     private func friendChip(_ friend: FriendEntry) -> some View {
-        let name = friend.displayName.isEmpty ? friend.handle : friend.displayName
+        let name = friend.personName
         let selected = people.contains(friend.userId)
         let blocked = friend.identityChanged && !selected
         return Button {
@@ -193,41 +193,5 @@ struct SessionSharingPopover: View {
                 dismiss()
             } catch { self.error = error.localizedDescription }
         }
-    }
-}
-
-struct FlowRow: Layout {
-    var spacing: CGFloat = 8
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
-        arrange(width: proposal.width ?? .infinity, subviews: subviews).size
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal _: ProposedViewSize, subviews: Subviews, cache _: inout ()) {
-        let result = arrange(width: bounds.width, subviews: subviews)
-        for (index, origin) in result.origins.enumerated() {
-            subviews[index].place(at: CGPoint(x: bounds.minX + origin.x, y: bounds.minY + origin.y), anchor: .topLeading, proposal: .unspecified)
-        }
-    }
-
-    private func arrange(width: CGFloat, subviews: Subviews) -> (size: CGSize, origins: [CGPoint]) {
-        var origins: [CGPoint] = []
-        var x: CGFloat = 0
-        var y: CGFloat = 0
-        var rowHeight: CGFloat = 0
-        var widest: CGFloat = 0
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x > 0, x + size.width > width {
-                x = 0
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            origins.append(CGPoint(x: x, y: y))
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
-            widest = max(widest, x - spacing)
-        }
-        return (CGSize(width: widest, height: y + rowHeight), origins)
     }
 }

@@ -30,7 +30,7 @@ public enum AgentKind: String, CaseIterable, Sendable {
     case claude, codex, copilot, cursor, gemini, opencode, shell
 
     public init(program: String?) {
-        self = program.flatMap { AgentKind(rawValue: $0) } ?? .shell
+        self = program.flatMap { $0 == Self.cursor.executable ? .cursor : AgentKind(rawValue: $0) } ?? .shell
     }
 
     public init(agentName: String?, program: String? = nil) {
@@ -56,6 +56,10 @@ public enum AgentKind: String, CaseIterable, Sendable {
 
     public var isAgent: Bool {
         self != .shell
+    }
+
+    public var executable: String {
+        self == .cursor ? "cursor-agent" : rawValue
     }
 
     public var tint: Color {

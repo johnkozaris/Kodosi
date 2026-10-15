@@ -159,7 +159,7 @@ struct RoomScreen: View {
 
     private var members: [AvatarStack.Person] {
         (rooms.details[roomId]?.members ?? []).map { member in
-            AvatarStack.Person(id: member.userId, name: RoomWords.name(member), isSelf: member.userId == rooms.userId)
+            AvatarStack.Person(id: member.userId, name: member.personName, isSelf: member.userId == rooms.userId)
         }
     }
 
@@ -197,7 +197,7 @@ private struct RoomHeader: View {
                     .lineLimit(1)
                 HStack(spacing: 4) {
                     Image(systemName: "lock.fill").font(.system(size: 8, weight: .semibold))
-                    Text(verbatim: [people.map(RoomWords.people), RoomWords.terminals(terminals)].compactMap(\.self).joined(separator: " · "))
+                    Text(verbatim: [people.map(Counted.people), Counted.terminals(terminals)].compactMap(\.self).joined(separator: " · "))
                         .contentTransition(.numericText())
                 }
                 .appTextStyle(.caption2)

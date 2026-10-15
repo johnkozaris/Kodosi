@@ -204,7 +204,7 @@ struct AgentLauncher: View {
     }
 
     private var commandLine: some View {
-        FlowLayout(spacing: 6, lineSpacing: 6) {
+        FlowLayout(spacing: 6) {
             folderToken
             Text(verbatim: "❯")
                 .foregroundStyle(ink.accent)

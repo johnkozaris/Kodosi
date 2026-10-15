@@ -75,7 +75,7 @@ private struct RoomRowActivity: View {
                 if !members.isEmpty {
                     AvatarStack(
                         people: members.map { member in
-                            AvatarStack.Person(id: member.userId, name: RoomWords.name(member), isSelf: member.userId == model.rooms.userId)
+                            AvatarStack.Person(id: member.userId, name: member.personName, isSelf: member.userId == model.rooms.userId)
                         },
                         size: 20, limit: 4, ring: theme.colors.raised
                     )
@@ -90,7 +90,7 @@ private struct RoomRowActivity: View {
                     if asking {
                         StatusSign(form: .hand, size: 11)
                     }
-                    Text(working ? String(localized: "Working") : RoomWords.terminals(terminals.count))
+                    Text(working ? String(localized: "Working") : Counted.terminals(terminals.count))
                         .appTextStyle(.caption)
                         .foregroundStyle(theme.colors.inkMuted)
                         .shimmer(working)

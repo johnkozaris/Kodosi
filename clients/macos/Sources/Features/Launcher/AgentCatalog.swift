@@ -19,7 +19,7 @@ struct AgentInfo: Decodable, Equatable, Identifiable {
     }
 
     var kind: AgentKind {
-        AgentKind(rawValue: agent) ?? .shell
+        AgentKind(program: agent)
     }
 }
 

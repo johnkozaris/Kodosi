@@ -95,7 +95,7 @@ struct RoomCreateSheet: View {
 
     private func friendRow(_ friend: FriendEntry) -> some View {
         let selected = invited.contains(friend.userId)
-        let name = RoomWords.name(friend)
+        let name = friend.personName
         return Button {
             if selected {
                 invited.remove(friend.userId)
