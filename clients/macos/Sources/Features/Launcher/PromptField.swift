@@ -6,7 +6,7 @@ struct PromptField: NSViewRepresentable {
     @Environment(\.theme) private var theme
     @Binding var text: String
     let ghost: String
-    let suggestion: String
+    let hint: String
     let label: String
     var focus = 0
     let submit: () -> Void
@@ -53,7 +53,7 @@ struct PromptField: NSViewRepresentable {
         view.blinks = !theme.motion.reduced
         view.ghost = text.isEmpty ? ghost : ""
         view.setAccessibilityLabel(label)
-        view.setAccessibilityPlaceholderValue(suggestion)
+        view.setAccessibilityPlaceholderValue(hint)
         if context.coordinator.focus != focus {
             context.coordinator.focus = focus
             DispatchQueue.main.async { view.window?.makeFirstResponder(view) }
@@ -88,14 +88,8 @@ struct PromptField: NSViewRepresentable {
             switch selector {
             case #selector(NSResponder.insertNewline(_:)), #selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)):
                 parent.submit()
-            case #selector(NSResponder.insertTab(_:)), #selector(NSResponder.moveRight(_:)):
-                if view.string.isEmpty, !parent.suggestion.isEmpty {
-                    view.insertText(parent.suggestion, replacementRange: view.selectedRange())
-                } else if selector == #selector(NSResponder.insertTab(_:)) {
-                    view.window?.selectNextKeyView(nil)
-                } else {
-                    return false
-                }
+            case #selector(NSResponder.insertTab(_:)):
+                view.window?.selectNextKeyView(nil)
             case #selector(NSResponder.insertBacktab(_:)):
                 view.window?.selectPreviousKeyView(nil)
             case #selector(NSResponder.cancelOperation(_:)):
