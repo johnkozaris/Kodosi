@@ -6,7 +6,6 @@ using Kodosi.Devices;
 using Kodosi.Missions;
 using Kodosi.Plans;
 using Kodosi.Security;
-using Kodosi.TerminalConnections;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Xunit;
@@ -38,7 +37,7 @@ public sealed class PlanTests(PostgresFixture postgres)
         await store.Db.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
-    private static async Task<Guid> KeyedRoomAsync(TestStore store, (User User, DeviceFixture Fixture, Device Device) owner)
+    private static async Task<Guid> KeyedRoomAsync(TestStore store, TestUser owner)
     {
         var ct = TestContext.Current.CancellationToken;
         var room = Guid.CreateVersion7();
@@ -49,17 +48,17 @@ public sealed class PlanTests(PostgresFixture postgres)
             members = new Dictionary<Guid, object> { [owner.User.Id] = new { } },
             recipients = new[] { new { userId = owner.User.Id, deviceId = owner.Device.Id, kemCiphertext = "AA==", @sealed = new { nonce = "AA==", ciphertext = "AA==" } } },
             previousKey = (object?)null
-        }, Wire.Json);
+        }, TestJson.Options);
         await store.Missions.StoreKeysAsync(room, owner.User.Id, new(owner.Device.Id, Convert.ToBase64String(state),
             Convert.ToBase64String(owner.Fixture.Sign(Proofs.Tagged("kodosi-room-state-v1"u8, state)))), ct);
         return room;
     }
 
-    private static MissionService.ContentWrite Item((User User, DeviceFixture Fixture, Device Device) author, Guid room, Guid id, string kind)
+    private static MissionService.ContentWrite Item(TestUser author, Guid room, Guid id, string kind)
     {
         var bytes = JsonSerializer.SerializeToUtf8Bytes(new { roomId = room, id, kind, version = 1, keyVersion = 1, epoch = 1,
             authorId = author.User.Id, deviceId = author.Device.Id, nonce = Convert.ToBase64String(new byte[12]),
-            ciphertext = Convert.ToBase64String(new byte[40 * 1024]) }, Wire.Json);
+            ciphertext = Convert.ToBase64String(new byte[40 * 1024]) }, TestJson.Options);
         return new(0, author.Device.Id, Convert.ToBase64String(bytes),
             Convert.ToBase64String(author.Fixture.Sign(Proofs.Tagged("kodosi-room-content-v1"u8, bytes))));
     }
@@ -101,7 +100,7 @@ public sealed class PlanTests(PostgresFixture postgres)
         var people = await RefusedAsync("room-people", () => store.Missions.InviteAsync(room, alice.User.Id, new(Guid.CreateVersion7(), carol.User.Id), ct));
         Assert.Equal("This room can have at most 2 people, with its open invitations.", people.Message);
         var terminal = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7();
-        await store.Sessions.CreateAsync(alice.User.Id, alice.Device, new(terminal, incarnation, "Shell", alice.Device.Id, "Mac", null), ct);
+        await store.Sessions.CreateAsync(alice.User.Id, alice.Approved, new(terminal, incarnation, "Shell", alice.Device.Id, "Mac", null), ct);
         await RefusedAsync("share-people", () => store.Sessions.ShareAsync(terminal, alice.User.Id, alice.Device.Id, new(incarnation, 1, [bob.User.Id, carol.User.Id]), ct));
 
         alice.User.Plan = "unlimited"; await store.Db.SaveChangesAsync(ct);
@@ -144,10 +143,10 @@ public sealed class PlanTests(PostgresFixture postgres)
         Assert.Equal("This account has 1 device, the most that it can have. Remove a device in Settings on one of your devices, then try again.", refused.Message);
 
         owner.User.Plan = "unlimited"; await store.Db.SaveChangesAsync(ct);
-        var link = JsonSerializer.SerializeToElement(await store.Devices.StartLinkAsync(owner.User.Id, Init(second), ct), Wire.Json);
+        var link = JsonSerializer.SerializeToElement(await store.Devices.StartLinkAsync(owner.User.Id, Init(second), ct), TestJson.Options);
         owner.User.Plan = null; await store.Db.SaveChangesAsync(ct);
         var some = Convert.ToBase64String(new byte[32]);
-        await RefusedAsync("devices", () => store.Devices.ApproveLinkAsync(owner.User.Id, owner.Device,
+        await RefusedAsync("devices", () => store.Devices.ApproveLinkAsync(owner.User.Id, owner.Approved,
             new(link.GetProperty("requestId").GetGuid(), some, some, some, some, some), ct));
 
         owner.Device.Revoked = true; await store.Db.SaveChangesAsync(ct);
@@ -170,7 +169,7 @@ public sealed class PlanTests(PostgresFixture postgres)
         Assert.True(stored.HistoryTrimmed);
         Assert.Equal(await store.Db.MissionItems.Where(x => x.MissionId == room).SumAsync(x => (long)x.Body.Length + x.Signature.Length, ct), stored.ContentBytes);
         Assert.InRange(stored.ContentBytes, 1, PlanCatalog.LeastRoomBytes);
-        var page = JsonSerializer.SerializeToElement(await store.Missions.ContentAsync(room, alice.User.Id, null, 0, null, null, ct), Wire.Json);
+        var page = JsonSerializer.SerializeToElement(await store.Missions.ContentAsync(room, alice.User.Id, null, 0, null, null, ct), TestJson.Options);
         Assert.True(page.GetProperty("historyTrimmed").GetBoolean());
 
         var tasks = await KeyedRoomAsync(store, bob);

@@ -21,6 +21,7 @@ internal static class Limits
     public const int MaxVisibleMissions = 256;
     public const int MaxPendingMissionInvitations = 128;
     public const int MaxMissionMembers = 64;
+    public const int SessionCatalog = 4096;
 
     public static string Count(long count, string one, string many)
         => count == 1 ? $"1 {one}" : $"{count.ToString(System.Globalization.CultureInfo.InvariantCulture)} {many}";

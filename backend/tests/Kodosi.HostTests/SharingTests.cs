@@ -1,6 +1,6 @@
 using System.Text.Json;
 using Kodosi.Data;
-using Kodosi.TerminalConnections;
+using Kodosi.Sessions;
 using Kodosi.Security;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -47,13 +47,13 @@ public sealed class SharingTests(PostgresFixture postgres)
         Assert.Equal(409, stale.Status);
         await Assert.ThrowsAsync<ApiException>(() => store.Friends.ReplaceSignedListAsync(owner.User.Id, new(1, 1, Body(2), signature), ct));
         await store.Friends.ReplaceSignedListAsync(owner.User.Id, new(1, 3, Body(3), signature), ct);
-        var list = JsonSerializer.SerializeToElement(await store.Friends.SignedListAsync(owner.User.Id, ct), Wire.Json);
+        var list = JsonSerializer.SerializeToElement(await store.Friends.SignedListAsync(owner.User.Id, ct), TestJson.Options);
         Assert.Equal(3, list.GetProperty("revision").GetInt64());
         Assert.Equal(Body(3), list.GetProperty("body").GetString());
         await Assert.ThrowsAsync<ApiException>(() => store.Friends.SignedListAsync(friend.User.Id, ct));
         await store.Friends.MutateAsync(owner.User.Id, "friend", "send", ct);
         await store.Friends.MutateAsync(friend.User.Id, "owner", "accept", ct);
-        var listed = Assert.Single(JsonSerializer.SerializeToElement(await store.Friends.ListAsync(owner.User.Id, ct), Wire.Json).EnumerateArray());
+        var listed = Assert.Single(JsonSerializer.SerializeToElement(await store.Friends.ListAsync(owner.User.Id, ct), TestJson.Options).EnumerateArray());
         Assert.Equal(friend.User.IdentityIncarnationId, listed.GetProperty("identityIncarnationId").GetGuid());
     }
 
@@ -68,8 +68,8 @@ public sealed class SharingTests(PostgresFixture postgres)
         var (mine, theirs, mission) = (Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7());
         var (mineIncarnation, theirIncarnation) = (Guid.CreateVersion7(), Guid.CreateVersion7());
         await store.Missions.CreateAsync(owner.User.Id, new(mission, "Project"), ct);
-        await store.Sessions.CreateAsync(owner.User.Id, owner.Device, new(mine, mineIncarnation, "Mine", owner.Device.Id, "Host", null), ct);
-        await store.Sessions.CreateAsync(friend.User.Id, friend.Device, new(theirs, theirIncarnation, "Theirs", friend.Device.Id, "Host", null), ct);
+        await store.Sessions.CreateAsync(owner.User.Id, owner.Approved, new(mine, mineIncarnation, "Mine", owner.Device.Id, "Host", null), ct);
+        await store.Sessions.CreateAsync(friend.User.Id, friend.Approved, new(theirs, theirIncarnation, "Theirs", friend.Device.Id, "Host", null), ct);
         await store.Sessions.ShareAsync(mine, owner.User.Id, owner.Device.Id, new(mineIncarnation, 1, [friend.User.Id]), ct);
         await store.Sessions.ShareAsync(theirs, friend.User.Id, friend.Device.Id, new(theirIncarnation, 1, [owner.User.Id]), ct);
         var signature = Convert.ToBase64String(new byte[IdentityWireFormat.MlDsa65SignatureLength]);
@@ -91,6 +91,57 @@ public sealed class SharingTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task TheCatalogTheAccessCheckAndTheAudienceOfEachTerminalAgree()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var owner = await store.UserAsync("owner"); var friend = await store.UserAsync("friend"); var member = await store.UserAsync("member");
+        var invitee = await store.UserAsync("invitee"); var stranger = await store.UserAsync("stranger");
+        foreach (var other in new[] { friend, member, invitee })
+        {
+            await store.Friends.MutateAsync(owner.User.Id, other.User.Handle, "send", ct);
+            await store.Friends.MutateAsync(other.User.Id, owner.User.Handle, "accept", ct);
+        }
+        var room = new Mission { Id = Guid.CreateVersion7(), Name = "Project", OwnerUserId = owner.User.Id };
+        store.Db.Missions.Add(room);
+        store.Db.MissionMembers.Add(new MissionMember { MissionId = room.Id, UserId = member.User.Id });
+        store.Db.MissionInvitations.Add(new MissionInvitation { Id = Guid.CreateVersion7(), MissionId = room.Id, UserId = invitee.User.Id,
+            InviterUserId = owner.User.Id, CreatedAt = DateTimeOffset.UtcNow });
+        await store.Db.SaveChangesAsync(ct);
+        async Task<Guid> TerminalAsync(Guid? roomId)
+        {
+            var id = Guid.CreateVersion7();
+            await store.Sessions.CreateAsync(owner.User.Id, owner.Approved, new(id, Guid.CreateVersion7(), "Terminal", owner.Device.Id, "Host", roomId), ct);
+            return id;
+        }
+        var shared = await TerminalAsync(null); var inRoom = await TerminalAsync(room.Id); var alone = await TerminalAsync(null);
+        var incarnation = (await store.Db.Sessions.AsNoTracking().SingleAsync(x => x.Id == shared, ct)).IncarnationId;
+        await store.Sessions.ShareAsync(shared, owner.User.Id, owner.Device.Id, new(incarnation, 1, [friend.User.Id]), ct);
+        var expected = new Dictionary<Guid, Guid[]>
+        {
+            [shared] = [owner.User.Id, friend.User.Id], [inRoom] = [owner.User.Id, member.User.Id], [alone] = [owner.User.Id],
+        };
+        var audiences = await TerminalAccess.PeopleAsync(store.Db, expected.Keys.ToArray(), ct);
+        foreach (var (terminal, people) in expected)
+        {
+            Assert.Equal(people.Order(), (await TerminalAccess.PeopleAsync(store.Db, terminal, ct)).Order());
+            Assert.Equal(people.Order(), audiences[terminal].Order());
+        }
+        foreach (var person in new[] { owner, friend, member, invitee, stranger })
+        {
+            var mine = expected.Where(x => x.Value.Contains(person.User.Id)).Select(x => x.Key).Order().ToArray();
+            Assert.Equal(mine, (await store.Sessions.ListAsync(person.User.Id, ct)).Select(x => x.Id).Order().ToArray());
+            foreach (var terminal in expected.Keys)
+            {
+                var allowed = true;
+                try { await store.Sessions.AuthorizedAsync(terminal, person.User.Id, ct); }
+                catch (ApiException) { allowed = false; }
+                Assert.Equal(mine.Contains(terminal), allowed);
+            }
+        }
+    }
+
+    [Fact]
     public async Task RoomMembershipGrantsOnlyTerminalsSharedWithThatRoom()
     {
         await using var store = await TestStore.CreateAsync(postgres);
@@ -100,11 +151,11 @@ public sealed class SharingTests(PostgresFixture postgres)
         var mission = new Mission { Id = Guid.CreateVersion7(), Name = "Project", OwnerUserId = owner.User.Id };
         store.Db.Missions.Add(mission); store.Db.MissionMembers.Add(new MissionMember { MissionId = mission.Id, UserId = friend.User.Id }); await store.Db.SaveChangesAsync(TestContext.Current.CancellationToken);
         var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7();
-        await store.Sessions.CreateAsync(owner.User.Id, owner.Device, new(id, incarnation, "Terminal", owner.Device.Id, "Host", mission.Id), TestContext.Current.CancellationToken);
+        await store.Sessions.CreateAsync(owner.User.Id, owner.Approved, new(id, incarnation, "Terminal", owner.Device.Id, "Host", mission.Id), TestContext.Current.CancellationToken);
         Assert.Single(await store.Sessions.ListAsync(friend.User.Id, TestContext.Current.CancellationToken));
         Assert.Equal(id, (await store.Sessions.AuthorizedAsync(id, friend.User.Id, TestContext.Current.CancellationToken)).Id);
         var privateId = Guid.CreateVersion7();
-        await store.Sessions.CreateAsync(owner.User.Id, owner.Device, new(privateId, Guid.CreateVersion7(), "Private", owner.Device.Id, "Host", null), TestContext.Current.CancellationToken);
+        await store.Sessions.CreateAsync(owner.User.Id, owner.Approved, new(privateId, Guid.CreateVersion7(), "Private", owner.Device.Id, "Host", null), TestContext.Current.CancellationToken);
         await Assert.ThrowsAsync<ApiException>(() => store.Sessions.AuthorizedAsync(privateId, friend.User.Id, TestContext.Current.CancellationToken));
         await store.Missions.RemoveMemberAsync(mission.Id, owner.User.Id, friend.User.Id, TestContext.Current.CancellationToken);
         store.Db.ChangeTracker.Clear();
@@ -120,14 +171,14 @@ public sealed class SharingTests(PostgresFixture postgres)
         var owner = await store.UserAsync("owner"); var friend = await store.UserAsync("friend");
         await store.Friends.MutateAsync(owner.User.Id, "friend", "send", TestContext.Current.CancellationToken); await store.Friends.MutateAsync(friend.User.Id, "owner", "accept", TestContext.Current.CancellationToken);
         var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7();
-        await store.Sessions.CreateAsync(owner.User.Id, owner.Device, new(id, incarnation, "Terminal", owner.Device.Id, "Host", null), TestContext.Current.CancellationToken);
+        await store.Sessions.CreateAsync(owner.User.Id, owner.Approved, new(id, incarnation, "Terminal", owner.Device.Id, "Host", null), TestContext.Current.CancellationToken);
         var shared = await store.Sessions.ShareAsync(id, owner.User.Id, owner.Device.Id, new(incarnation, 1, [friend.User.Id]), TestContext.Current.CancellationToken);
         Assert.Equal(2, shared.AuthorizationRevision);
         await store.Sessions.ShareAsync(id, owner.User.Id, owner.Device.Id, new(incarnation, shared.AuthorizationRevision, []), TestContext.Current.CancellationToken);
         var error = await Assert.ThrowsAsync<ApiException>(() => store.Sessions.ShareAsync(id, owner.User.Id, owner.Device.Id, new(incarnation, 1, [friend.User.Id]), TestContext.Current.CancellationToken));
         Assert.Equal(409, error.Status); Assert.Empty(await store.Sessions.ListAsync(friend.User.Id, TestContext.Current.CancellationToken));
         await store.Sessions.EndAsync(id, owner.User.Id, owner.Device.Id, incarnation, TestContext.Current.CancellationToken);
-        await Assert.ThrowsAsync<ApiException>(() => store.Sessions.CreateAsync(owner.User.Id, owner.Device, new(id, Guid.CreateVersion7(), "Other", owner.Device.Id, "Host", null), TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ApiException>(() => store.Sessions.CreateAsync(owner.User.Id, owner.Approved, new(id, Guid.CreateVersion7(), "Other", owner.Device.Id, "Host", null), TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -137,28 +188,78 @@ public sealed class SharingTests(PostgresFixture postgres)
         var owner = await store.UserAsync("owner"); var friend = await store.UserAsync("friend");
         var second = new DeviceFixture(owner.User.Id, "second-device");
         var init = JsonSerializer.SerializeToElement(await store.Devices.StartLinkAsync(owner.User.Id,
-            new(second.DeviceId, "Second", Convert.ToBase64String(second.SigningKey), DeviceFixture.LinkNonce, DeviceFixture.LinkProof), TestContext.Current.CancellationToken), Wire.Json);
+            new(second.DeviceId, "Second", Convert.ToBase64String(second.SigningKey), DeviceFixture.LinkNonce, DeviceFixture.LinkProof), TestContext.Current.CancellationToken), TestJson.Options);
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var cert = second.CertificateBody(owner.Device.Id, now);
         var list = DeviceFixture.ListBody(owner.User.Id, 2, [(owner.Device.Id, owner.Device.Id), (second.DeviceId, owner.Device.Id)], owner.Device.Id, now);
-        await store.Devices.ApproveLinkAsync(owner.User.Id, owner.Device, new(init.GetProperty("requestId").GetGuid(), Convert.ToBase64String(cert),
+        await store.Devices.ApproveLinkAsync(owner.User.Id, owner.Approved, new(init.GetProperty("requestId").GetGuid(), Convert.ToBase64String(cert),
             owner.Fixture.SignedCertificate(cert), Convert.ToBase64String(list), owner.Fixture.SignedList(list), DeviceFixture.LinkProof), TestContext.Current.CancellationToken);
         await store.Friends.MutateAsync(owner.User.Id, "friend", "send", TestContext.Current.CancellationToken);
         await store.Friends.MutateAsync(friend.User.Id, "owner", "accept", TestContext.Current.CancellationToken);
         var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7(); var mission = Guid.CreateVersion7();
         await store.Missions.CreateAsync(owner.User.Id, new(mission, "Project"), TestContext.Current.CancellationToken);
-        await store.Sessions.CreateAsync(owner.User.Id, owner.Device, new(id, incarnation, "Original", owner.Device.Id, "Host", null), TestContext.Current.CancellationToken);
+        await store.Sessions.CreateAsync(owner.User.Id, owner.Approved, new(id, incarnation, "Original", owner.Device.Id, "Host", null), TestContext.Current.CancellationToken);
         var shared = await store.Sessions.ShareAsync(id, owner.User.Id, owner.Device.Id, new(incarnation, 1, [friend.User.Id]), TestContext.Current.CancellationToken);
-        var renamed = await store.Sessions.RenameAsync(id, owner.User.Id, second.DeviceId, new(incarnation, shared.AuthorizationRevision, "Renamed"), TestContext.Current.CancellationToken);
+        var renamed = await store.Sessions.RenameAsync(id, owner.User.Id, new(incarnation, shared.AuthorizationRevision, "Renamed"), TestContext.Current.CancellationToken);
         Assert.Equal("Renamed", renamed.Name);
-        Assert.Equal(mission, (await store.Sessions.AttachAsync(id, owner.User.Id, second.DeviceId, new(incarnation, mission), TestContext.Current.CancellationToken)).MissionId);
-        Assert.Null((await store.Sessions.AttachAsync(id, owner.User.Id, second.DeviceId, new(incarnation, null), TestContext.Current.CancellationToken)).MissionId);
+        Assert.Equal(mission, (await store.Sessions.AttachAsync(id, owner.User.Id, new(incarnation, mission), TestContext.Current.CancellationToken)).MissionId);
+        Assert.Null((await store.Sessions.AttachAsync(id, owner.User.Id, new(incarnation, null), TestContext.Current.CancellationToken)).MissionId);
         Assert.Equal(403, (await Assert.ThrowsAsync<ApiException>(() => store.Sessions.ShareAsync(id, owner.User.Id, second.DeviceId,
             new(incarnation, shared.AuthorizationRevision, []), TestContext.Current.CancellationToken))).Status);
-        Assert.Equal(404, (await Assert.ThrowsAsync<ApiException>(() => store.Sessions.RenameAsync(id, friend.User.Id, friend.Device.Id,
+        Assert.Equal(404, (await Assert.ThrowsAsync<ApiException>(() => store.Sessions.RenameAsync(id, friend.User.Id,
             new(incarnation, shared.AuthorizationRevision, "Not allowed"), TestContext.Current.CancellationToken))).Status);
-        Assert.Equal(404, (await Assert.ThrowsAsync<ApiException>(() => store.Sessions.AttachAsync(id, friend.User.Id, friend.Device.Id,
+        Assert.Equal(404, (await Assert.ThrowsAsync<ApiException>(() => store.Sessions.AttachAsync(id, friend.User.Id,
             new(incarnation, mission), TestContext.Current.CancellationToken))).Status);
+    }
+
+    [Fact]
+    public async Task AnUnfriendAtTheTimeOfAShareLeavesTheFormerFriendNoAccess()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var owner = await store.UserAsync("owner"); var friend = await store.UserAsync("friend");
+        var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7();
+        await store.Sessions.CreateAsync(owner.User.Id, owner.Approved, new(id, incarnation, "Terminal", owner.Device.Id, "Host", null), ct);
+        async Task<long> RevisionAsync() => (await store.Db.Sessions.AsNoTracking().SingleAsync(x => x.Id == id, ct)).AuthorizationRevision;
+        Task ShareAsync(TestStore actor, long revision) =>
+            actor.Sessions.ShareAsync(id, owner.User.Id, owner.Device.Id, new(incarnation, revision, [friend.User.Id]), ct);
+        async Task AssertNoAccessAsync()
+        {
+            Assert.Empty(await store.Db.SessionMembers.AsNoTracking().ToListAsync(ct));
+            Assert.Empty(await store.Sessions.ListAsync(friend.User.Id, ct));
+        }
+
+        await store.Friends.MutateAsync(owner.User.Id, "friend", "send", ct); await store.Friends.MutateAsync(friend.User.Id, "owner", "accept", ct);
+        var shareHolds = new PauseAfter("FOR SHARE");
+        await using (var sharing = store.Fork(shareHolds))
+        await using (var removing = store.Fork())
+        {
+            var share = ShareAsync(sharing, await RevisionAsync());
+            await shareHolds.Reached.Task.WaitAsync(TimeSpan.FromSeconds(10), ct);
+            var remove = removing.Friends.MutateAsync(friend.User.Id, "owner", "remove", ct);
+            await Task.Delay(300, ct);
+            Assert.False(remove.IsCompleted);
+            shareHolds.Release.TrySetResult();
+            await share; await remove;
+        }
+        await AssertNoAccessAsync();
+
+        store.Db.ChangeTracker.Clear();
+        await store.Friends.MutateAsync(owner.User.Id, "friend", "send", ct); await store.Friends.MutateAsync(friend.User.Id, "owner", "accept", ct);
+        var removeHolds = new PauseAfter("FOR UPDATE");
+        await using (var sharing = store.Fork())
+        await using (var removing = store.Fork(removeHolds))
+        {
+            var remove = removing.Friends.MutateAsync(friend.User.Id, "owner", "remove", ct);
+            await removeHolds.Reached.Task.WaitAsync(TimeSpan.FromSeconds(10), ct);
+            var share = ShareAsync(sharing, await RevisionAsync());
+            await Task.Delay(300, ct);
+            Assert.False(share.IsCompleted);
+            removeHolds.Release.TrySetResult();
+            await remove;
+            Assert.Equal(403, (await Assert.ThrowsAsync<ApiException>(() => share)).Status);
+        }
+        await AssertNoAccessAsync();
     }
 
     [Fact]
@@ -168,11 +269,24 @@ public sealed class SharingTests(PostgresFixture postgres)
         var owner = await store.UserAsync("owner"); var friend = await store.UserAsync("friend");
         await store.Friends.MutateAsync(owner.User.Id, "friend", "send", TestContext.Current.CancellationToken); await store.Friends.MutateAsync(friend.User.Id, "owner", "accept", TestContext.Current.CancellationToken);
         var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7();
-        await store.Sessions.CreateAsync(owner.User.Id, owner.Device, new(id, incarnation, "Terminal", owner.Device.Id, "Host", null), TestContext.Current.CancellationToken);
+        await store.Sessions.CreateAsync(owner.User.Id, owner.Approved, new(id, incarnation, "Terminal", owner.Device.Id, "Host", null), TestContext.Current.CancellationToken);
         await store.Sessions.ShareAsync(id, owner.User.Id, owner.Device.Id, new(incarnation, 1, [friend.User.Id]), TestContext.Current.CancellationToken);
         await store.Friends.MutateAsync(friend.User.Id, "owner", "remove", TestContext.Current.CancellationToken);
         Assert.Empty(await store.Sessions.ListAsync(friend.User.Id, TestContext.Current.CancellationToken));
         Assert.Single(await store.Sessions.ListAsync(owner.User.Id, TestContext.Current.CancellationToken));
         Assert.Equal(3, (await store.Db.Sessions.SingleAsync(TestContext.Current.CancellationToken)).AuthorizationRevision);
+    }
+}
+
+internal sealed class PauseAfter(string marker) : Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor
+{
+    public TaskCompletionSource Reached { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public override async ValueTask<System.Data.Common.DbDataReader> ReaderExecutedAsync(System.Data.Common.DbCommand command,
+        Microsoft.EntityFrameworkCore.Diagnostics.CommandExecutedEventData eventData, System.Data.Common.DbDataReader result, CancellationToken cancellationToken = default)
+    {
+        if (command.CommandText.Contains(marker, StringComparison.Ordinal) && Reached.TrySetResult()) await Release.Task.WaitAsync(cancellationToken);
+        return result;
     }
 }

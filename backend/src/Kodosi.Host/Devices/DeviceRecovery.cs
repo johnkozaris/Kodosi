@@ -9,7 +9,7 @@ public sealed partial class DeviceService
 {
     private const int RecoveryBoxLength = 4096;
 
-    private async Task<(Device Device, long Generation)> StageDeviceAsync(Guid userId, Device signer, string deviceId, byte[] signingKey,
+    private async Task<Device> StageDeviceAsync(Guid userId, ApprovedDevice signer, string deviceId, byte[] signingKey,
         byte[] certBytes, byte[] certSig, byte[] listBytes, byte[] listSig, CancellationToken ct)
     {
         var current = await db.DeviceLists.SingleAsync(x => x.UserId == userId, ct);
@@ -33,13 +33,13 @@ public sealed partial class DeviceService
         var device = ToDevice(userId, cert, certBytes, certSig);
         db.Devices.Add(device);
         UpdateList(current, next, listBytes, listSig);
-        return (device, next.Generation);
+        return device;
     }
 
     private Task<Device?> RecoveryDeviceAsync(Guid userId, CancellationToken ct) =>
         db.Devices.SingleOrDefaultAsync(x => x.UserId == userId && !x.Revoked && x.RecoveryBox != null, ct);
 
-    public async Task AddRecoveryKeyAsync(Guid userId, Device device, RecoveryKeyWrite request, CancellationToken ct)
+    public async Task AddRecoveryKeyAsync(Guid userId, ApprovedDevice device, RecoveryKeyWrite request, CancellationToken ct)
     {
         var (certBytes, certSig, listBytes, listSig) = SignedParts(request.DeviceCertificate, request.DeviceCertificateSignature, request.SignedDeviceList, request.SignedDeviceListSignature);
         var box = Limits.Base64(request.RoomKeyBox, "Recovery room key", RecoveryBoxLength);
@@ -48,12 +48,12 @@ public sealed partial class DeviceService
         if (!IsRecoveryId(cert.DeviceId)) throw ApiException.Invalid("This is not the device identifier of a recovery key.");
         var (roomKey, roomKeySignature) = MissionService.ValidRoomKey(userId, cert.DeviceId, cert.SigPublicKey, request.RoomKey);
         if (await RecoveryDeviceAsync(userId, ct) is not null) throw ApiException.Conflict("Remove the current recovery key first.");
-        var signer = await RequireDeviceAsync(userId, device.Id, ct);
-        var (added, _) = await StageDeviceAsync(userId, signer, cert.DeviceId, cert.SigPublicKey, certBytes, certSig, listBytes, listSig, ct);
+        var added = await StageDeviceAsync(userId, device, cert.DeviceId, cert.SigPublicKey, certBytes, certSig, listBytes, listSig, ct);
         added.RecoveryBox = box;
         db.RoomRecipientKeys.Add(new RoomRecipientKey { DeviceId = added.Id, UserId = userId, PublicKey = roomKey, Signature = roomKeySignature });
         await db.SaveChangesAsync(ct);
         connections.Notify(userId, "devices");
+        await RoomMembership.NotifyRoomsOfAsync(db, connections, userId, ct);
     }
 
     public async Task<object> RecoveryBoxAsync(Guid userId, CancellationToken ct)
@@ -67,7 +67,7 @@ public sealed partial class DeviceService
         var (certBytes, certSig, listBytes, listSig) = SignedParts(request.DeviceCertificate, request.DeviceCertificateSignature, request.SignedDeviceList, request.SignedDeviceListSignature);
         if (await NewDeviceKeyAsync(userId, request, certBytes, certSig, ct) is not { } signingKey) return;
         var recovery = await RecoveryDeviceAsync(userId, ct) ?? throw ApiException.Forbidden("This account has no recovery key.");
-        await StageDeviceAsync(userId, recovery, request.DeviceId, signingKey, certBytes, certSig, listBytes, listSig, ct);
+        await StageDeviceAsync(userId, ApprovedDevice.From(recovery), request.DeviceId, signingKey, certBytes, certSig, listBytes, listSig, ct);
         await db.SaveChangesAsync(ct);
         connections.Notify(userId, "devices");
     }

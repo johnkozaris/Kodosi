@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.Accounts;
 
@@ -54,36 +53,23 @@ public sealed class AccountDeletionSettings
     }
 }
 
-public sealed class AccountDeletionFeed(
-    IServiceScopeFactory scopes, IHttpClientFactory http, AccountDeletionSettings settings, TimeProvider clock, ILogger<AccountDeletionFeed> logger) : BackgroundService
+internal sealed class AccountDeletionFeed(
+    IServiceScopeFactory scopes, IHttpClientFactory http, AccountDeletionSettings settings, TimeProvider clock, ILogger<AccountDeletionFeed> logger)
+    : PeriodicWork(TimeSpan.FromSeconds(15), clock, logger, startNow: true)
 {
-    private static readonly TimeSpan Period = TimeSpan.FromSeconds(15);
     private const int Page = 200;
     private readonly Dictionary<string, DateTimeOffset> handled = [];
     private DateTimeOffset? lastPass;
     private (string Value, DateTimeOffset Until)? token;
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        if (!settings.ReadsSignInService) return;
-        using var timer = new PeriodicTimer(Period, clock);
-        try
-        {
-            do
-            {
-                try { await PassAsync(stoppingToken); }
-                catch (Exception error) when (error is HttpRequestException or JsonException or DbUpdateException or Npgsql.NpgsqlException
-                                              or TaskCanceledException { InnerException: TimeoutException })
-                { logger.LogWarning(error, "Account deletions from the sign-in service will be read again on the next pass."); }
-            }
-            while (await timer.WaitForNextTickAsync(stoppingToken));
-        }
-        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { }
-    }
+    protected override bool Enabled => settings.ReadsSignInService;
 
-    internal async Task PassAsync(CancellationToken ct)
+    protected override bool Waits(Exception error) =>
+        error is HttpRequestException or JsonException or TaskCanceledException { InnerException: TimeoutException } || base.Waits(error);
+
+    protected internal override async Task RunAsync(CancellationToken ct)
     {
-        var started = clock.GetUtcNow();
+        var started = Clock.GetUtcNow();
         var from = (lastPass ?? started - AccountService.DeletionMemory) - TimeSpan.FromDays(1);
         var day = from.UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         var client = http.CreateClient(nameof(AccountDeletionFeed));
@@ -123,7 +109,7 @@ public sealed class AccountDeletionFeed(
 
     private async Task<string> TokenAsync(HttpClient client, CancellationToken ct)
     {
-        if (token is { } held && held.Until > clock.GetUtcNow()) return held.Value;
+        if (token is { } held && held.Until > Clock.GetUtcNow()) return held.Value;
         using var body = new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
@@ -136,7 +122,7 @@ public sealed class AccountDeletionFeed(
         var value = answer.TryGetProperty("access_token", out var issued) && issued.ValueKind == JsonValueKind.String
             && issued.GetString() is { Length: > 0 } text ? text : throw new JsonException("The sign-in service gave no access token.");
         var lifetime = answer.TryGetProperty("expires_in", out var seconds) && seconds.TryGetInt32(out var s) ? s : 60;
-        token = (value, clock.GetUtcNow().AddSeconds(Math.Max(lifetime - 30, 5)));
+        token = (value, Clock.GetUtcNow().AddSeconds(Math.Max(lifetime - 30, 5)));
         return value;
     }
 

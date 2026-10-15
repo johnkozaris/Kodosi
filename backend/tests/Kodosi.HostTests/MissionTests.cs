@@ -3,7 +3,6 @@ using Kodosi.Data;
 using Kodosi.TerminalConnections;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
-using DeviceLink = Kodosi.TerminalConnections.DeviceLink;
 
 namespace Kodosi.HostTests;
 
@@ -24,9 +23,9 @@ public sealed class MissionTests(PostgresFixture postgres)
         await store.Missions.InviteAsync(missionId, owner.User.Id, new(invitation, invitee.User.Id), TestContext.Current.CancellationToken);
         await store.Missions.ResolveInvitationAsync(invitation, invitee.User.Id, true, TestContext.Current.CancellationToken);
         var sessionId = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7();
-        await store.Sessions.CreateAsync(owner.User.Id, owner.Device, new(sessionId, incarnation, "Terminal", owner.Device.Id, "Host", missionId), TestContext.Current.CancellationToken);
+        await store.Sessions.CreateAsync(owner.User.Id, owner.Approved, new(sessionId, incarnation, "Terminal", owner.Device.Id, "Host", missionId), TestContext.Current.CancellationToken);
         var socket = new EventSocket();
-        await using var events = new DeviceLink(socket, invitee.User.Id, invitee.Device.Id);
+        await using var events = new DeviceConnection(socket, invitee.User.Id, invitee.Device.Id, store.Connections.Relays, TimeProvider.System);
         store.Connections.Register(events);
         await store.Missions.RenameAsync(missionId, owner.User.Id, "After", TestContext.Current.CancellationToken);
         var renamedSurfaces = new[] { await socket.NextSurfaceAsync(), await socket.NextSurfaceAsync() };
@@ -35,7 +34,7 @@ public sealed class MissionTests(PostgresFixture postgres)
         await store.Missions.DeleteAsync(missionId, owner.User.Id, TestContext.Current.CancellationToken);
         var surfaces = new[] { await socket.NextSurfaceAsync(), await socket.NextSurfaceAsync() };
         Assert.Contains("missions", surfaces); Assert.Contains("sessions", surfaces);
-        var listed = JsonSerializer.SerializeToElement(await store.Missions.ListAsync(invitee.User.Id, TestContext.Current.CancellationToken), Wire.Json);
+        var listed = JsonSerializer.SerializeToElement(await store.Missions.ListAsync(invitee.User.Id, TestContext.Current.CancellationToken), TestJson.Options);
         Assert.Empty(listed.GetProperty("invitations").EnumerateArray());
         Assert.Empty(await store.Sessions.ListAsync(invitee.User.Id, TestContext.Current.CancellationToken));
         Assert.Null((await store.Sessions.ListAsync(owner.User.Id, TestContext.Current.CancellationToken)).Single().MissionId);
@@ -57,17 +56,17 @@ public sealed class MissionTests(PostgresFixture postgres)
         }
         await store.Db.SaveChangesAsync(TestContext.Current.CancellationToken);
         await Assert.ThrowsAsync<ApiException>(() => store.Missions.CreateAsync(viewer.User.Id, new(Guid.CreateVersion7(), "One more"), TestContext.Current.CancellationToken));
-        var result = JsonSerializer.SerializeToElement(await store.Missions.ListAsync(viewer.User.Id, TestContext.Current.CancellationToken), Wire.Json);
+        var result = JsonSerializer.SerializeToElement(await store.Missions.ListAsync(viewer.User.Id, TestContext.Current.CancellationToken), TestJson.Options);
         Assert.Equal(Limits.MaxVisibleMissions, result.GetProperty("missions").GetArrayLength());
         var extra = new Mission { Id = Guid.CreateVersion7(), OwnerUserId = owners[0], Name = "Over the limit" };
         store.Db.Missions.Add(extra); store.Db.MissionMembers.Add(new MissionMember { MissionId = extra.Id, UserId = viewer.User.Id });
         await store.Db.SaveChangesAsync(TestContext.Current.CancellationToken);
-        result = JsonSerializer.SerializeToElement(await store.Missions.ListAsync(viewer.User.Id, TestContext.Current.CancellationToken), Wire.Json);
+        result = JsonSerializer.SerializeToElement(await store.Missions.ListAsync(viewer.User.Id, TestContext.Current.CancellationToken), TestJson.Options);
         Assert.Equal(Limits.MaxVisibleMissions, result.GetProperty("missions").GetArrayLength());
         Assert.True(result.GetProperty("missionsTruncated").GetBoolean());
         var visibleId = result.GetProperty("missions")[0].GetProperty("id").GetGuid();
         await store.Missions.RemoveMemberAsync(visibleId, viewer.User.Id, viewer.User.Id, TestContext.Current.CancellationToken);
-        result = JsonSerializer.SerializeToElement(await store.Missions.ListAsync(viewer.User.Id, TestContext.Current.CancellationToken), Wire.Json);
+        result = JsonSerializer.SerializeToElement(await store.Missions.ListAsync(viewer.User.Id, TestContext.Current.CancellationToken), TestJson.Options);
         Assert.False(result.GetProperty("missionsTruncated").GetBoolean());
         Assert.Equal(Limits.MaxVisibleMissions, await store.Db.MissionMembers.CountAsync(x => x.UserId == viewer.User.Id, TestContext.Current.CancellationToken));
     }

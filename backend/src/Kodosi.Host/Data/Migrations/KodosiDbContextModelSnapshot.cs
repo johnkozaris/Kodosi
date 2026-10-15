@@ -62,11 +62,6 @@ namespace Kodosi.Data.Migrations
                     b.Property<long>("IssuedAtMs")
                         .HasColumnType("bigint");
 
-                    b.Property<string>("Label")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
                     b.Property<byte[]>("RecoveryBox")
                         .HasColumnType("bytea");
 
@@ -100,9 +95,6 @@ namespace Kodosi.Data.Migrations
 
                     b.Property<byte[]>("ApprovalProof")
                         .HasColumnType("bytea");
-
-                    b.Property<long?>("ApprovedGeneration")
-                        .HasColumnType("bigint");
 
                     b.Property<string>("DeviceCodeHash")
                         .IsRequired()
@@ -328,9 +320,6 @@ namespace Kodosi.Data.Migrations
                         .IsRequired()
                         .HasColumnType("bytea");
 
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
@@ -360,20 +349,12 @@ namespace Kodosi.Data.Migrations
                         .IsRequired()
                         .HasColumnType("bytea");
 
-                    b.Property<string>("DeviceId")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
                     b.Property<long>("Epoch")
                         .HasColumnType("bigint");
 
                     b.Property<byte[]>("Signature")
                         .IsRequired()
                         .HasColumnType("bytea");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
 
                     b.HasKey("MissionId", "Version");
 
@@ -499,18 +480,10 @@ namespace Kodosi.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("AvatarUrl")
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)");
-
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
-
-                    b.Property<string>("Email")
-                        .HasMaxLength(320)
-                        .HasColumnType("character varying(320)");
 
                     b.Property<string>("Handle")
                         .IsRequired()

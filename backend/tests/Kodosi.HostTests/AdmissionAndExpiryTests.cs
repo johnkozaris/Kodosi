@@ -2,7 +2,6 @@ using System.Net;
 using System.Text.Json;
 using Kodosi.Admission;
 using Kodosi.Data;
-using Kodosi.Sessions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -97,7 +96,7 @@ public sealed class AdmissionAndExpiryTests(PostgresFixture postgres)
         using var owner = await app.EnrollAsync("owner");
         using var friend = await app.EnrollAsync("friend");
         var scopes = app.Services.GetRequiredService<IServiceScopeFactory>();
-        using var cleanup = new PublicationCleanup(scopes, clock, NullLogger<PublicationCleanup>.Instance);
+        using var cleanup = new DataCleanup(scopes, clock, NullLogger<DataCleanup>.Instance);
         Session Terminal(string name, bool ended) => new()
         {
             Id = Guid.CreateVersion7(),
@@ -119,11 +118,11 @@ public sealed class AdmissionAndExpiryTests(PostgresFixture postgres)
             db.SessionMembers.Add(new SessionMember { SessionId = offline.Id, UserId = friend.Fixture.UserId });
             await db.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
-        await cleanup.SweepAsync(TestContext.Current.CancellationToken);
+        await cleanup.RunAsync(TestContext.Current.CancellationToken);
         await using (var scope = scopes.CreateAsyncScope())
             Assert.Equal(2, await scope.ServiceProvider.GetRequiredService<KodosiDbContext>().Sessions.CountAsync(TestContext.Current.CancellationToken));
         clock.Advance(TimeSpan.FromDays(30));
-        await cleanup.SweepAsync(TestContext.Current.CancellationToken);
+        await cleanup.RunAsync(TestContext.Current.CancellationToken);
         await using (var scope = scopes.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<KodosiDbContext>();
@@ -178,6 +177,37 @@ public sealed class AdmissionAndExpiryTests(PostgresFixture postgres)
         Assert.Equal("version", refused.GetProperty("reason").GetString());
         Assert.Equal(ContractVersions.OldestTerminalConnection, refused.GetProperty("oldest").GetInt32());
         Assert.Equal(ContractVersions.TerminalConnection, refused.GetProperty("current").GetInt32());
+    }
+
+    [Fact]
+    public async Task ADeviceConnectionThatSendsTooManyControlMessagesIsClosed()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(ct));
+        using var device = await app.EnrollAsync("chatty");
+        using var socket = await app.ConnectAsync(device);
+        var ping = JsonSerializer.SerializeToUtf8Bytes(new { type = "ping" });
+        var sent = 0;
+        try
+        {
+            for (; sent < 6000; sent++) await socket.SendAsync(ping, System.Net.WebSockets.WebSocketMessageType.Text, true, ct);
+        }
+        catch (Exception error) when (error is System.Net.WebSockets.WebSocketException or IOException or ObjectDisposedException)
+        {
+        }
+        var pongs = 0;
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        deadline.CancelAfter(TimeSpan.FromSeconds(20));
+        using var reader = new Kodosi.TerminalConnections.MessageReader(socket);
+        try
+        {
+            while (await reader.ReadAsync(Kodosi.TerminalConnections.ConnectionEndpoints.ControlBytes, deadline.Token) is not null) pongs++;
+        }
+        catch (Exception error) when (error is System.Net.WebSockets.WebSocketException or IOException or ObjectDisposedException)
+        {
+        }
+        Assert.True(pongs < sent, $"{pongs} answers for {sent} messages");
+        Assert.True(app.Services.GetRequiredService<ServerMetrics>().Read().Refused >= 1);
     }
 
     private sealed class ResponseStall : IStartupFilter

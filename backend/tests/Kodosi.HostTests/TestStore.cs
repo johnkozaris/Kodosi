@@ -23,7 +23,7 @@ internal sealed class TestStore : IAsyncDisposable
     public Kodosi.Admission.AccountGate Gate { get; } = new();
     public FriendService Friends => new(Db, Connections, TimeProvider.System, Plans);
     public MissionService Missions => new(Db, Connections, Friends, TimeProvider.System, Devices, Plans);
-    public SessionService Sessions => new(Db, Connections, Devices, Missions, TimeProvider.System, Plans);
+    public SessionService Sessions => new(Db, Connections, Missions, TimeProvider.System, Plans);
 
     public static async Task<TestStore> CreateAsync(PostgresFixture postgres)
     {
@@ -35,7 +35,7 @@ internal sealed class TestStore : IAsyncDisposable
     public TestStore Fork(params Microsoft.EntityFrameworkCore.Diagnostics.IInterceptor[] interceptors) =>
         new(new KodosiDbContext(new DbContextOptionsBuilder<KodosiDbContext>()
             .UseNpgsql(Db.Database.GetConnectionString()).AddInterceptors(interceptors).Options)) { Plans = Plans };
-    public async Task<(User User, DeviceFixture Fixture, Device Device)> UserAsync(string handle)
+    public async Task<TestUser> UserAsync(string handle)
     {
         var user = new User
         {
@@ -55,7 +55,6 @@ internal sealed class TestStore : IAsyncDisposable
         {
             Id = fixture.DeviceId,
             UserId = user.Id,
-            Label = "Test device",
             SignerDeviceId = fixture.DeviceId,
             SigningPublicKey = fixture.SigningKey,
             Certificate = cert,
@@ -71,12 +70,17 @@ internal sealed class TestStore : IAsyncDisposable
             Signature = fixture.Sign(Proofs.Tagged(DomainTags.DeviceListV1, list)),
             IssuedAtMs = issued
         });
-        await Db.SaveChangesAsync(TestContext.Current.CancellationToken); return (user, fixture, device);
+        await Db.SaveChangesAsync(TestContext.Current.CancellationToken); return new(user, fixture, device);
     }
     public async ValueTask DisposeAsync()
     {
         Connections.StopAll(); await Db.DisposeAsync();
     }
+}
+
+internal sealed record TestUser(User User, DeviceFixture Fixture, Device Device)
+{
+    public ApprovedDevice Approved => ApprovedDevice.From(Device);
 }
 
 internal sealed class ManualClock : TimeProvider

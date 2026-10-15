@@ -7,8 +7,6 @@ public sealed class User
     public string Subject { get; set; } = "";
     public string Handle { get; set; } = "";
     public string DisplayName { get; set; } = "";
-    public string? Email { get; set; }
-    public string? AvatarUrl { get; set; }
     public Guid? IdentityIncarnationId { get; set; }
     public long IdentityRevision { get; set; }
     public string? Plan { get; set; }
@@ -25,7 +23,6 @@ public sealed class Device
 {
     public string Id { get; set; } = "";
     public Guid UserId { get; set; }
-    public string Label { get; set; } = "";
     public string SignerDeviceId { get; set; } = "";
     public byte[] Certificate { get; set; } = [];
     public byte[] CertificateSignature { get; set; } = [];
@@ -60,7 +57,6 @@ public sealed class DeviceLink
     public byte[] SigningPublicKey { get; set; } = [];
     public DateTimeOffset ExpiresAt { get; set; }
     public string State { get; set; } = "pending";
-    public long? ApprovedGeneration { get; set; }
 }
 
 public sealed class FriendList
@@ -142,8 +138,6 @@ public sealed class MissionKeyState
     public long Epoch { get; set; }
     public byte[] Body { get; set; } = [];
     public byte[] Signature { get; set; } = [];
-    public string DeviceId { get; set; } = "";
-    public Guid UserId { get; set; }
 }
 
 public sealed class MissionItem
@@ -159,5 +153,4 @@ public sealed class MissionItem
     public Guid UserId { get; set; }
     public string DeviceId { get; set; } = "";
     public DateTimeOffset CreatedAt { get; set; }
-    public DateTimeOffset UpdatedAt { get; set; }
 }
