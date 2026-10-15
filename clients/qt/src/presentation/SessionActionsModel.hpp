@@ -30,12 +30,10 @@ public:
     Q_INVOKABLE void refresh();
     Q_INVOKABLE bool activate(const QString& sessionId);
     Q_INVOKABLE bool activateInRoom(const QString& sessionId);
-    Q_INVOKABLE bool createInRoom(const QString& roomId, const QString& directory);
     Q_INVOKABLE bool minimize(const QString& sessionId);
-    Q_INVOKABLE bool create(const QString& name, const QString& directory);
+    Q_INVOKABLE bool create(const QString& name, const QString& directory, const QString& command = {},
+        const QString& prompt = {}, const QString& roomId = {});
     Q_INVOKABLE bool createOnBranch(const QString& directory, const QString& branch);
-    Q_INVOKABLE bool start(const QString& name, const QString& directory, const QString& command,
-        const QString& prompt);
     Q_INVOKABLE QString suggestedBranch() const;
     Q_INVOKABLE bool resume(const QString& provider, const QString& nativeConversationId,
         const QString& workingDirectory);

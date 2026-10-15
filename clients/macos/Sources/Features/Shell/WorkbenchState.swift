@@ -2,6 +2,11 @@ import Foundation
 import KodosiBridge
 import Observation
 
+struct LauncherRequest: Equatable {
+    var folder: String?
+    var roomId: String?
+}
+
 @MainActor
 @Observable
 final class WorkbenchState {
@@ -22,6 +27,9 @@ final class WorkbenchState {
     var showsHistory = false
     var showsPalette = false
     var showsNewRoom = false
+    var launcher: LauncherRequest?
+    var homeFolder: String?
+    var launcherFocus = 0
     var selectedMissionId: String?
     var sidebarCollapsed = false {
         didSet { defaults.set(sidebarCollapsed, forKey: "sidebar.collapsed") }
@@ -101,6 +109,7 @@ final class WorkbenchState {
         showsHistory = false
         showsPalette = false
         showsNewRoom = false
+        launcher = nil
     }
 
     func reconcile(_ sessions: [RuntimeSession]) -> [String] {

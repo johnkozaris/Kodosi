@@ -148,7 +148,6 @@ impl LocalSession {
             program: None,
             clear_line,
             start: None,
-            launcher: None,
             output_at: None,
             prompt: false,
             viewers: HashMap::new(),
@@ -490,7 +489,6 @@ struct LocalActor {
     program: Option<String>,
     clear_line: &'static str,
     start: Option<(String, tokio::time::Instant)>,
-    launcher: Option<String>,
     output_at: Option<tokio::time::Instant>,
     prompt: bool,
     viewers: HashMap<Uuid, String>,
@@ -806,7 +804,6 @@ impl LocalActor {
                 self.program = program;
                 self.metadata_dirty = true;
             }
-            self.learn_sign_in();
             if prompt != self.prompt
                 && self
                     .changes
@@ -951,31 +948,6 @@ impl LocalActor {
         true
     }
 
-    fn learn_sign_in(&mut self) {
-        let (Some(program), Some(command)) = (&self.program, &self.launcher) else {
-            return;
-        };
-        if self.start.is_some() {
-            return;
-        }
-        if let Some(variable) = crate::agents::sign_in_variable(program)
-            && self.pty.foreground_program().as_deref() == Some(program.as_str())
-            && let Some(environment) = self.pty.foreground_environment()
-        {
-            let prefix = format!("{variable}=");
-            drop(
-                self.changes.try_send(SessionChange::Launched {
-                    program: program.clone(),
-                    command: command.clone(),
-                    folder: environment
-                        .iter()
-                        .find_map(|entry| entry.strip_prefix(&prefix).map(str::to_owned)),
-                }),
-            );
-        }
-        self.launcher = None;
-    }
-
     fn at_prompt(&self, program: Option<&str>) -> bool {
         program.is_none() && self.pty.foreground_is_child()
     }
@@ -1073,7 +1045,6 @@ impl LocalActor {
                 drop(reply.send(result));
             }
             Request::Start(line) => {
-                self.launcher = line.split_whitespace().next().map(str::to_owned);
                 self.start = Some((line, tokio::time::Instant::now()));
             }
         }

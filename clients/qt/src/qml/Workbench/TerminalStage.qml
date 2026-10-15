@@ -56,6 +56,10 @@ Item {
         }
     }
 
+    function focusLauncher(folder) {
+        return !hasStage && overview.focusLauncher(folder)
+    }
+
     function registerTerminalTile(tile) {
         if (!tile || terminalTiles.indexOf(tile) >= 0)
             return
@@ -314,6 +318,7 @@ Item {
             }
 
             StageOverview {
+                id: overview
                 anchors.fill: parent
                 visible: !stageFlick.visible
                 loading: root.catalogLoading

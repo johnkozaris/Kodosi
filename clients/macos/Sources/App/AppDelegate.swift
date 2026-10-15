@@ -52,18 +52,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
     }
 
-    /// Sparkle cannot replace an app that runs from the disk image, and terminals outside
-    /// Kodosi need the kodosi command once.
+    /// Sparkle cannot replace an app that runs from the disk image, and a link there would break.
     private func offerUpdates() {
         let path = Bundle.main.bundlePath
         if path.hasPrefix("/Volumes/") || path.contains("/AppTranslocation/") {
             dependencies.errorMessage = String(localized: "Move Kodosi to Applications and open it again. Kodosi cannot update itself here.")
             return
         }
-        let offered = "kodosi.commandLineOffered"
-        if !dependencies.commandInstalled, !storageBootstrap.defaults.bool(forKey: offered) {
-            storageBootstrap.defaults.set(true, forKey: offered)
-            dependencies.offersCommand = true
+        if CommandLineTool.installed {
+            dependencies.commandLink = CommandLineTool.keepLinked()
         }
     }
 
@@ -87,6 +84,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         guard corrected != window.frame else { return }
         window.setFrame(corrected, display: true, animate: false)
         window.makeKeyAndOrderFront(nil)
+    }
+
+    func applicationDidBecomeActive(_: Notification) {
+        Task { await dependencies.launcher.refresh() }
     }
 
     func applicationShouldTerminate(_ application: NSApplication) -> NSApplication.TerminateReply {

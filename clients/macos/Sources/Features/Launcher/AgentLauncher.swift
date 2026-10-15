@@ -1,12 +1,15 @@
-import AppKit
+import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
 struct AgentLauncher: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
-    var welcome = false
-    @State private var folder: String?
+    @Binding var folder: String?
+    var roomId: String?
+    var centered = false
+    var focus = 0
+    var started: () -> Void = {}
     @State private var showsAll = false
     @State private var menu: LauncherMenu?
     @State private var adding = false
@@ -15,12 +18,8 @@ struct AgentLauncher: View {
     @State private var starting = false
     @State private var error: String?
     @State private var prompt = ""
-    @State private var ghost = ""
-    @State private var focus = 0
-    @State private var seed: CGFloat = AgentLauncher.seeded ? 1 : 0
-    @State private var opened = AgentLauncher.seeded
+    @State private var focusRequest = 1
 
-    private static var seeded = false
     private static let bandHeight: CGFloat = 42
     private static let width: CGFloat = 560
 
@@ -48,16 +47,16 @@ struct AgentLauncher: View {
         folder ?? deps.settings.lastWorkingDir ?? deps.storageBootstrap.defaultWorkingDirectory?.path
     }
 
-    private var takesWords: Bool {
-        info?.installed ?? true
-    }
-
     private var ready: Bool {
         info == nil ? choice.agent == nil : plan.line != nil
     }
 
     private var hint: String {
         info == nil ? String(localized: "Type a command") : String(localized: "Type a task")
+    }
+
+    private var roomName: String? {
+        roomId.flatMap { id in deps.missions.first { $0.id == id }?.name }
     }
 
     private var tabItems: [AgentTabs.Item] {
@@ -68,9 +67,9 @@ struct AgentLauncher: View {
     }
 
     var body: some View {
-        VStack(alignment: welcome ? .center : .leading, spacing: welcome ? 22 : 14) {
+        VStack(alignment: centered ? .center : .leading, spacing: centered ? 22 : 14) {
             card
-            actions.arrive(delay: welcome && !opened ? 1.2 : 0.08)
+            actions
             if let error {
                 ErrorNote(message: error).frame(maxWidth: 520).transition(.opacity)
             }
@@ -78,48 +77,16 @@ struct AgentLauncher: View {
         .animation(theme.motion.spring, value: choice)
         .animation(theme.motion.spring, value: launcher.catalog)
         .task { await launcher.refresh() }
-        .task(id: choice.agent) {
+        .task(id: "\(choice.agent ?? "")|\(info?.installed == true)") {
             if let agent = choice.agent {
                 await launcher.loadModels(agent)
             }
-        }
-        .task(id: "\(choice.agent ?? "")|\(prompt.isEmpty)|\(takesWords)") { await typeHints() }
-        .onAppear(perform: grow)
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            Task { await launcher.refresh() }
-        }
-    }
-
-    private func grow() {
-        focus += 1
-        guard !Self.seeded else { return }
-        Self.seeded = true
-        guard welcome, !theme.motion.reduced else {
-            seed = 1
-            opened = true
-            return
-        }
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(450))
-            withAnimation(.spring(duration: 0.95, bounce: 0.1)) { seed = 1 }
-            try? await Task.sleep(for: .milliseconds(620))
-            withAnimation(theme.motion.spring) { opened = true }
-            focus += 1
         }
     }
 
     private var card: some View {
         let shape = RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-        let cursor = CGRect(x: 16, y: Self.bandHeight + 18, width: 9, height: 18)
         return terminal
-            .overlay(alignment: .topLeading) {
-                if seed == 0 {
-                    CursorBlock(width: cursor.width, height: cursor.height)
-                        .terminalScope()
-                        .offset(x: cursor.minX, y: cursor.minY)
-                        .transition(.opacity.animation(.easeOut(duration: 0.15)))
-                }
-            }
             .frame(width: Self.width)
             .clipShape(shape)
             .background {
@@ -127,7 +94,6 @@ struct AgentLauncher: View {
                     .shadow(color: theme.colors.shadow.opacity(theme.isDark ? 0.5 : 0.16), radius: 12, x: 3, y: 7)
             }
             .overlay { shape.strokeBorder(theme.colors.hairline.opacity(theme.isDark ? 0.7 : 0.9), lineWidth: 0.5).allowsHitTesting(false) }
-            .mask { SeedMask(progress: seed, cursor: cursor, radius: Radius.lg) }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("launcher.preview")
     }
@@ -135,50 +101,51 @@ struct AgentLauncher: View {
     private var terminal: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .bottom, spacing: 8) {
-                if opened {
-                    AgentTabs(
-                        items: tabItems, selection: choice.agent ?? "shell",
-                        hidden: (launcher.catalog?.agents ?? []).count { !$0.installed && $0.agent != choice.agent },
-                        fresh: launcher.fresh, showsAll: $showsAll
-                    ) { id in
-                        update { $0.agent = id == "shell" ? nil : id }
-                        closeMenu()
-                    }
-                    .transition(.opacity)
-                    Spacer(minLength: 8)
-                    HStack(spacing: 5) {
-                        DeviceGlyph(label: String(localized: "This Mac"))
-                        Text("This Mac")
-                    }
-                    .appTextStyle(.footnote).foregroundStyle(ink.inkMuted)
-                    .padding(.bottom, 11)
-                    .transition(.opacity)
+                AgentTabs(
+                    items: tabItems, selection: choice.agent ?? "shell",
+                    hidden: (launcher.catalog?.agents ?? []).count { !$0.installed && $0.agent != choice.agent },
+                    showsAll: $showsAll
+                ) { id in
+                    update { $0.agent = id == "shell" ? nil : id }
+                    closeMenu()
                 }
+                Spacer(minLength: 8)
+                place
             }
             .padding(.horizontal, 10)
             .frame(maxWidth: .infinity, minHeight: Self.bandHeight, maxHeight: Self.bandHeight, alignment: .bottomLeading)
             .background(TerminalInk.band)
-            VStack(alignment: .leading, spacing: 0) {
-                if opened {
-                    LauncherCommandLine(info: info, prompt: $prompt, ghost: ghost, hint: hint, focus: focus, submit: start) {
-                        folderKey
-                    } choices: {
-                        if let info, info.accounts.count > 1 || info.addsAccounts {
-                            accountKey(info).transition(AnyTransition.pop)
-                        }
-                        if let info, plan.listsModels || !plan.efforts.isEmpty {
-                            modelKey(info).transition(AnyTransition.pop)
-                        }
-                    }
+            LauncherCommandLine(info: info, prompt: $prompt, hint: hint, focus: focus + focusRequest, submit: start) {
+                folderKey
+            } choices: {
+                if let info, info.accounts.count > 1 || info.addsAccounts {
+                    accountKey(info).transition(AnyTransition.pop)
+                }
+                if let info, plan.listsModels || !plan.efforts.isEmpty {
+                    modelKey(info).transition(AnyTransition.pop)
                 }
             }
             .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 18)
-            .frame(maxWidth: .infinity, minHeight: welcome ? 124 : 92, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: centered ? 124 : 92, alignment: .topLeading)
             .background(TerminalInk.body)
             .contentShape(Rectangle())
-            .onTapGesture { focus += 1 }
+            .onTapGesture { focusRequest += 1 }
         }
         .terminalScope()
+    }
+
+    private var place: some View {
+        HStack(spacing: 5) {
+            DeviceGlyph(label: String(localized: "This Mac"))
+            Text("This Mac")
+            if let roomName {
+                Text(verbatim: "·")
+                RoomSigil(key: roomId ?? "", size: 13)
+                Text(roomName).lineLimit(1)
+            }
+        }
+        .appTextStyle(.footnote).foregroundStyle(ink.inkMuted)
+        .padding(.bottom, 11)
     }
 
     private var folderKey: some View {
@@ -284,7 +251,7 @@ struct AgentLauncher: View {
             adding = false
             addError = nil
         }
-        focus += 1
+        focusRequest += 1
     }
 
     private func pick(_ id: String) {
@@ -342,7 +309,10 @@ struct AgentLauncher: View {
             .accessibilityIdentifier("launcher.start")
             IconButton(
                 title: "Resume a conversation", symbol: "clock.arrow.circlepath", identifier: "launcher.resume", size: 32
-            ) { deps.workbench.showsHistory = true }
+            ) {
+                deps.workbench.launcher = nil
+                deps.workbench.showsHistory = true
+            }
         }
     }
 
@@ -354,22 +324,7 @@ struct AgentLauncher: View {
     private func update(_ change: (inout LaunchChoice) -> Void) {
         change(&deps.settings.launchChoice)
         deps.settings.saveLaunchChoice()
-        focus += 1
-    }
-
-    private func typeHints() async {
-        ghost = ""
-        guard prompt.isEmpty, takesWords else { return }
-        guard !theme.motion.reduced else {
-            ghost = hint
-            return
-        }
-        try? await Task.sleep(for: .milliseconds(1200))
-        for character in hint {
-            guard !Task.isCancelled else { return }
-            ghost.append(character)
-            try? await Task.sleep(for: .milliseconds(character == " " ? 120 : Int.random(in: 38 ... 90)))
-        }
+        focusRequest += 1
     }
 
     private func start() {
@@ -392,8 +347,11 @@ struct AgentLauncher: View {
         Task { @MainActor in
             defer { starting = false }
             do {
-                try await deps.createSession(name: generateSessionName(), directory: directory, command: command, prompt: first)
+                try await deps.createSession(
+                    name: generateSessionName(), directory: directory, roomId: roomId, command: command, prompt: first
+                )
                 prompt = ""
+                started()
             } catch {
                 withAnimation(theme.motion.fade) { self.error = error.localizedDescription }
             }

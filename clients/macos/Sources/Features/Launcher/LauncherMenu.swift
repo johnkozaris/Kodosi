@@ -38,9 +38,7 @@ enum LauncherMenu: String, Equatable {
             let title = account.title(program: info.program)
             return PickerRow(
                 id: account.command, title: title,
-                subtitle: account.identity ?? (account.folder == nil
-                    ? String(localized: "Your shell chooses the sign-in") : String(localized: "Signs in when it starts")),
-                detail: account.options,
+                subtitle: account.identity ?? String(localized: "Signs in when it starts"),
                 icon: .account(initial: String(title.prefix(1)), key: account.signIn, signedIn: account.identity != nil),
                 current: account.command == current
             )

@@ -40,7 +40,6 @@ KPopover {
         const group = qsTr("Actions")
         const list = [
             { id: "action.terminal", group: group, title: qsTr("New terminal"), kind: "action", icon: "plus", tint: "#d98a5f" },
-            { id: "action.folder", group: group, title: qsTr("New terminal in a folder…"), kind: "action", icon: "folder", tint: "#4f9bb0" },
             { id: "action.resume", group: group, title: qsTr("Resume a conversation"), kind: "action", icon: "history", tint: "#d9a441" }
         ]
         if (Models.Account.signedIn && Models.Devices.localDeviceEnrolled)
@@ -67,7 +66,6 @@ KPopover {
             break
         default:
             if (item.id === "action.terminal") root.newTerminalRequested("")
-            else if (item.id === "action.folder") Models.DesktopFiles.requestDirectory("new", Models.DesktopSettings.effectiveWorkingDirectory)
             else if (item.id === "action.resume") root.resumeRequested()
             else if (item.id === "action.room") root.newRoomRequested()
             else if (item.id === "action.people") Models.DesktopState.activeView = Models.DesktopState.People

@@ -10,8 +10,9 @@ import Kodosi.Models 1.0 as Models
 ColumnLayout {
     id: root
 
-    property bool welcome: false
+    property bool centered: false
     property string folder: ""
+    property string roomId: ""
     property bool showsAll: false
     property string menuKind: ""
     property bool adding: false
@@ -23,32 +24,14 @@ ColumnLayout {
     readonly property var info: agents.find(entry => entry.agent === agentId) || null
     readonly property var modelSet: info ? Models.Launcher.models[info.agent] : undefined
     readonly property bool loadingModels: info !== null && Models.Launcher.loadingModels.indexOf(info.agent) >= 0
-    readonly property var account: {
-        if (!info)
-            return null
-        const saved = (choice.accounts || {})[info.agent]
-        return info.accounts.find(entry => entry.command === saved) || info.accounts[0] || null
-    }
-    readonly property string modelArgument: {
-        const saved = info ? (choice.models || {})[info.agent] || "" : ""
-        if (!saved || !modelSet)
-            return saved
-        return modelSet.models.some(entry => entry.argument === saved) ? saved : ""
-    }
-    readonly property var model: modelSet ? modelSet.models.find(entry => entry.argument === modelArgument) || null : null
-    readonly property var efforts: {
-        const all = modelSet ? modelSet.efforts : []
-        return !model || model.efforts.length === 0 ? all : all.filter(entry => model.efforts.indexOf(entry.id) >= 0)
-    }
-    readonly property string effortArgument: {
-        const saved = info ? (choice.efforts || {})[info.agent] || "" : ""
-        if (!saved || !modelSet)
-            return saved
-        return efforts.some(entry => entry.argument === saved) ? saved : ""
-    }
+    readonly property var plan: info ? Models.Launcher.plans[info.agent] || null : null
+    readonly property var account: plan ? plan.account || null : null
+    readonly property string modelArgument: plan ? plan.modelArgument : ""
+    readonly property var model: plan ? plan.model || null : null
+    readonly property var efforts: plan ? plan.efforts : []
+    readonly property string effortArgument: plan ? plan.effortArgument : ""
     readonly property string directory: folder || Models.DesktopSettings.effectiveWorkingDirectory
-    readonly property string line: !info ? "" : !info.installed ? info.install
-        : !account ? "" : [account.command, modelArgument, effortArgument].filter(word => word.length > 0).join(" ")
+    readonly property string line: plan ? plan.line : ""
     readonly property string agentLabel: info ? Models.DesktopSettings.agentLabel(info.agent) : ""
     readonly property string folderTitle: tilde(directory) === "~" ? "~" : Models.Sessions.folderName(directory)
     readonly property string modelTitle: model ? model.label : modelArgument.length > 0 ? modelArgument.split(" ").pop() : ""
@@ -57,13 +40,18 @@ ColumnLayout {
     readonly property bool listsModels: !modelSet || modelSet.models.length > 0
     readonly property bool ready: !info ? agentId.length === 0 : line.length > 0
     readonly property string hint: !info ? qsTr("Type a command") : qsTr("Type a task")
-    property bool opened: false
-    property string ghost: ""
+    readonly property string roomName: (Models.Missions.missions.find(room => room.id === roomId) || {}).name || ""
 
     signal resumeRequested
+    signal started
 
     function tilde(path) {
         return path === home ? "~" : path.startsWith(home + "/") ? "~" + path.slice(home.length) : path
+    }
+    function focusPrompt(path) {
+        if (path)
+            folder = path
+        promptInput.forceActiveFocus()
     }
     function start() {
         if (!ready)
@@ -77,27 +65,10 @@ ColumnLayout {
             command = [line, info.promptFlag || ""].filter(word => word.length > 0).join(" ")
             first = words
         }
-        if (Models.SessionActions.start("", directory, command, first))
+        if (Models.SessionActions.create("", directory, command, first, roomId)) {
             promptInput.clear()
-    }
-    function typeHints() {
-        typist.stop()
-        ghost = ""
-        if (!takesWords || promptInput.length > 0)
-            return
-        if (KodosiTheme.reduceMotion) {
-            ghost = hint
-            return
+            root.started()
         }
-        typist.interval = 1200
-        typist.start()
-    }
-    function typeStep() {
-        if (ghost.length >= hint.length)
-            return
-        ghost = hint.slice(0, ghost.length + 1)
-        typist.interval = ghost.endsWith(" ") ? 120 : 38 + Math.floor(Math.random() * 52)
-        typist.start()
     }
     function accountTitle(entry) {
         if (!info || !entry)
@@ -118,8 +89,8 @@ ColumnLayout {
             return []
         const rows = info.accounts.map(entry => {
             const title = accountTitle(entry)
-            return { id: entry.command, kind: "choice", title: title, detail: entry.options || "",
-                subtitle: entry.identity || (entry.folder ? qsTr("Signs in when it starts") : qsTr("Your shell chooses the sign-in")),
+            return { id: entry.command, kind: "choice", title: title,
+                subtitle: entry.identity || qsTr("Signs in when it starts"),
                 icon: "account", initial: title.charAt(0), key: entry.folder || entry.command, signedIn: !!entry.identity,
                 current: account !== null && entry.command === account.command }
         })
@@ -198,65 +169,26 @@ ColumnLayout {
         closeMenu()
     }
 
-    spacing: welcome ? 24 : 16
+    spacing: centered ? 24 : 16
     objectName: "launcher"
     Accessible.id: objectName
 
-    function grow() {
-        if (opened || growth.running || activation.enabled || !visible)
-            return
-        if (!welcome || Models.Launcher.grown || KodosiTheme.reduceMotion) {
-            preview.seed = 1
-            opened = true
-            promptInput.forceActiveFocus()
-            return
-        }
-        Models.Launcher.grown = true
-        // A window that does not show yet keeps the cursor alone until it is active.
-        if (root.Window.active)
-            growth.start()
-        else
-            activation.enabled = true
-    }
-
-    Connections {
-        id: activation
-
-        target: root.Window.window
-        enabled: false
-
-        function onActiveChanged() {
-            if (!root.Window.active)
-                return
-            activation.enabled = false
-            growth.start()
-        }
-    }
-
     Component.onCompleted: {
         Models.Launcher.refresh(false)
-        typeHints()
-        grow()
+        Models.Launcher.loadModels(agentId)
     }
     onVisibleChanged: {
-        grow()
-        if (visible && opened)
+        if (visible) {
+            Models.Launcher.refresh(false)
             promptInput.forceActiveFocus()
+        }
     }
     onAgentIdChanged: {
         closeMenu()
         Models.Launcher.loadModels(agentId)
-        typeHints()
         promptInput.forceActiveFocus()
     }
-    onTakesWordsChanged: typeHints()
     onInfoChanged: Models.Launcher.loadModels(agentId)
-
-    Timer {
-        id: typist
-
-        onTriggered: root.typeStep()
-    }
 
     Connections {
         target: Models.Launcher
@@ -269,7 +201,7 @@ ColumnLayout {
         target: Models.DesktopFiles
 
         function onDirectoryPicked(purpose, path) {
-            if (purpose === "launcher")
+            if (purpose === "launcher" && root.visible)
                 root.folder = path
         }
     }
@@ -324,455 +256,390 @@ ColumnLayout {
     Item {
         id: preview
 
-        property real seed: 0
-        readonly property rect cursor: Qt.rect(16, band.height + 18, 9, 18)
-        readonly property real wide: Math.min(1, Math.max(0, seed / 0.45))
-        readonly property real tall: Math.min(1, Math.max(0, (seed - 0.45) / 0.55))
+        readonly property real bodyHeight: Math.max(root.centered ? 124 : 92, terminalBody.implicitHeight + 32)
 
-        Layout.alignment: root.welcome ? Qt.AlignHCenter : Qt.AlignLeft
-        readonly property real bodyHeight: Math.max(root.welcome ? 124 : 92, terminalBody.implicitHeight + 32)
-
+        Layout.alignment: root.centered ? Qt.AlignHCenter : Qt.AlignLeft
         Layout.preferredWidth: Math.min(560, root.width)
         implicitHeight: band.height + bodyHeight
         objectName: "launcher.preview"
         Accessible.id: objectName
 
-        SequentialAnimation {
-            id: growth
-            PauseAnimation { duration: 600 }
-            NumberAnimation { target: preview; property: "seed"; to: 1; duration: 950; easing.type: Easing.OutCubic }
-            ScriptAction {
-                script: {
-                    root.opened = true
-                    promptInput.forceActiveFocus()
+        Raised {
+            anchors.fill: parent
+            radius: KodosiTheme.radiusLg
+            fill: KodosiTheme.terminal
+            rim: false
+        }
+        Rectangle {
+            id: band
+
+            width: parent.width
+            height: 42
+            topLeftRadius: KodosiTheme.radiusLg
+            topRightRadius: KodosiTheme.radiusLg
+            color: KodosiTheme.terminalBand
+
+            Shape {
+                id: tab
+
+                readonly property Item current: tabs.count > 0
+                    ? tabs.itemAt(Math.max(0, tabsRow.items.findIndex(entry => entry.id === root.agentId))) : null
+
+                visible: current !== null
+                x: current ? tabsRow.x + current.x : 0
+                y: band.height - height
+                width: current ? current.width : 0
+                height: 34
+                preferredRendererType: Shape.CurveRenderer
+
+                Behavior on x { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
+                Behavior on width { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
+
+                ShapePath {
+                    fillColor: KodosiTheme.terminal
+                    strokeColor: "transparent"
+                    startX: -8
+                    startY: tab.height
+                    PathQuad { x: 0; y: tab.height - 8; controlX: 0; controlY: tab.height }
+                    PathLine { x: 0; y: 9 }
+                    PathQuad { x: 9; y: 0; controlX: 0; controlY: 0 }
+                    PathLine { x: tab.width - 9; y: 0 }
+                    PathQuad { x: tab.width; y: 9; controlX: tab.width; controlY: 0 }
+                    PathLine { x: tab.width; y: tab.height - 8 }
+                    PathQuad { x: tab.width + 8; y: tab.height; controlX: tab.width; controlY: tab.height }
                 }
             }
-        }
+            Row {
+                id: tabsRow
 
-        Item {
-            id: seedClip
+                readonly property var items: [{ id: "", kind: "shell", installed: true }]
+                    .concat(root.agents.filter(entry => entry.installed || root.showsAll || entry.agent === root.agentId)
+                        .map(entry => ({ id: entry.agent, kind: entry.agent, installed: entry.installed })))
+                readonly property int hidden: root.agents.filter(entry => !entry.installed && entry.agent !== root.agentId).length
 
-            readonly property real lineX: preview.cursor.x + (-24 - preview.cursor.x) * preview.wide
-            readonly property real lineWidth: preview.cursor.width + (preview.width + 48 - preview.cursor.width) * preview.wide
+                x: 10
+                y: band.height - height
+                height: 34
+                spacing: 2
+                objectName: "launcher.agents"
+                Accessible.role: Accessible.PageTabList
+                Accessible.name: qsTr("Agents")
 
-            x: lineX
-            y: preview.cursor.y + (-24 - preview.cursor.y) * preview.tall
-            width: lineWidth
-            height: preview.cursor.height + (preview.height + 48 - preview.cursor.height) * preview.tall
-            clip: preview.seed < 1
+                Repeater {
+                    id: tabs
+                    model: tabsRow.items
 
-            Item {
-                x: -seedClip.x
-                y: -seedClip.y
-                width: preview.width
-                height: preview.height
+                    AbstractButton {
+                        id: mark
 
-                Raised {
-                    anchors.fill: parent
-                    radius: KodosiTheme.radiusLg
-                    fill: KodosiTheme.terminal
-                    rim: false
-                }
-                Rectangle {
-                    id: band
+                        required property var modelData
+                        readonly property bool selected: modelData.id === root.agentId
+                        readonly property string title: modelData.kind === "shell" ? qsTr("Terminal") : Models.DesktopSettings.agentLabel(modelData.kind)
+                        property real bounce: 1
 
-                    width: parent.width
-                    height: 42
-                    topLeftRadius: KodosiTheme.radiusLg
-                    topRightRadius: KodosiTheme.radiusLg
-                    color: KodosiTheme.terminalBand
+                        objectName: "launcher.agent." + (modelData.id || "shell")
+                        Accessible.id: objectName
+                        Accessible.name: title
+                        Accessible.role: Accessible.PageTab
+                        Accessible.selected: selected
+                        ToolTip.visible: hovered && !selected
+                        ToolTip.text: modelData.installed ? title : qsTr("%1 is not on this computer").arg(title)
+                        activeFocusOnTab: true
+                        hoverEnabled: true
+                        height: tabsRow.height
+                        width: markRow.implicitWidth + (selected ? 24 : 16)
+                        scale: pressed ? 0.96 : 1
+                        clip: true
 
-                    Shape {
-                        id: tab
-
-                        readonly property Item current: tabs.count > 0
-                            ? tabs.itemAt(Math.max(0, tabsRow.items.findIndex(entry => entry.id === root.agentId))) : null
-
-                        visible: root.opened && current !== null
-                        x: current ? tabsRow.x + current.x : 0
-                        y: band.height - height
-                        width: current ? current.width : 0
-                        height: 34
-                        preferredRendererType: Shape.CurveRenderer
-
-                        Behavior on x { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
                         Behavior on width { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
-
-                        ShapePath {
-                            fillColor: KodosiTheme.terminal
-                            strokeColor: "transparent"
-                            startX: -8
-                            startY: tab.height
-                            PathQuad { x: 0; y: tab.height - 8; controlX: 0; controlY: tab.height }
-                            PathLine { x: 0; y: 9 }
-                            PathQuad { x: 9; y: 0; controlX: 0; controlY: 0 }
-                            PathLine { x: tab.width - 9; y: 0 }
-                            PathQuad { x: tab.width; y: 9; controlX: tab.width; controlY: 0 }
-                            PathLine { x: tab.width; y: tab.height - 8 }
-                            PathQuad { x: tab.width + 8; y: tab.height; controlX: tab.width; controlY: tab.height }
+                        onSelectedChanged: {
+                            if (selected && !KodosiTheme.reduceMotion)
+                                squash.restart()
                         }
-                    }
-                    Row {
-                        id: tabsRow
+                        SequentialAnimation {
+                            id: squash
+                            NumberAnimation { target: mark; property: "bounce"; to: 0.8; duration: 90; easing.type: Easing.OutQuad }
+                            NumberAnimation { target: mark; property: "bounce"; to: 1; duration: KodosiTheme.motionSoft; easing.type: Easing.OutBack; easing.overshoot: 2.2 }
+                        }
 
-                        readonly property var items: [{ id: "", kind: "shell", installed: true }]
-                            .concat(root.agents.filter(entry => entry.installed || root.showsAll || entry.agent === root.agentId)
-                                .map(entry => ({ id: entry.agent, kind: entry.agent, installed: entry.installed })))
-                        readonly property int hidden: root.agents.filter(entry => !entry.installed && entry.agent !== root.agentId).length
+                        contentItem: Item {
+                            Row {
+                                id: markRow
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.verticalCenterOffset: 1
+                                x: mark.selected ? 12 : 8
+                                spacing: 7
 
-                        x: 10
-                        y: band.height - height
-                        height: 34
-                        spacing: 2
-                        visible: root.opened
-                        objectName: "launcher.agents"
-                        Accessible.role: Accessible.PageTabList
-                        Accessible.name: qsTr("Agents")
-
-                        Repeater {
-                            id: tabs
-                            model: tabsRow.items
-
-                            AbstractButton {
-                                id: mark
-
-                                required property var modelData
-                                readonly property bool selected: modelData.id === root.agentId
-                                readonly property bool arrived: !selected && Models.Launcher.fresh.indexOf(modelData.id) >= 0
-                                readonly property string title: modelData.kind === "shell" ? qsTr("Terminal") : Models.DesktopSettings.agentLabel(modelData.kind)
-                                property real bounce: 1
-
-                                objectName: "launcher.agent." + (modelData.id || "shell")
-                                Accessible.id: objectName
-                                Accessible.name: title
-                                Accessible.role: Accessible.PageTab
-                                Accessible.selected: selected
-                                ToolTip.visible: hovered && !selected
-                                ToolTip.text: modelData.installed ? title : qsTr("%1 is not on this computer").arg(title)
-                                activeFocusOnTab: true
-                                hoverEnabled: true
-                                height: tabsRow.height
-                                width: markRow.implicitWidth + (selected || arrived ? 24 : 16)
-                                scale: pressed ? 0.96 : 1
-                                clip: true
-
-                                Behavior on width { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
-                                onSelectedChanged: {
-                                    if (selected && !KodosiTheme.reduceMotion)
-                                        squash.restart()
+                                AgentMark {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    program: mark.modelData.kind === "shell" ? "" : mark.modelData.kind
+                                    asleep: !mark.modelData.installed
+                                    size: 18
+                                    scale: mark.bounce
                                 }
-                                SequentialAnimation {
-                                    id: squash
-                                    NumberAnimation { target: mark; property: "bounce"; to: 0.8; duration: 90; easing.type: Easing.OutQuad }
-                                    NumberAnimation { target: mark; property: "bounce"; to: 1; duration: KodosiTheme.motionSoft; easing.type: Easing.OutBack; easing.overshoot: 2.2 }
-                                }
-
-                                contentItem: Item {
-                                    Row {
-                                        id: markRow
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        anchors.verticalCenterOffset: 1
-                                        x: mark.selected || mark.arrived ? 12 : 8
-                                        spacing: 7
-
-                                        AgentMark {
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            program: mark.modelData.kind === "shell" ? "" : mark.modelData.kind
-                                            asleep: !mark.modelData.installed
-                                            size: 18
-                                            scale: mark.bounce
-                                        }
-                                        PlainLabel {
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            visible: mark.selected || mark.arrived
-                                            text: mark.title
-                                            color: mark.arrived ? KodosiTheme.terminalAccent
-                                                : mark.modelData.installed ? KodosiTheme.terminalInk : KodosiTheme.terminalInkMuted
-                                            font.pixelSize: KodosiTheme.fontBody
-                                            font.weight: Font.DemiBold
-                                        }
-                                    }
-                                }
-                                background: Item {
-                                    Rectangle {
-                                        x: 0
-                                        y: 2
-                                        width: parent.width
-                                        height: parent.height - 4
-                                        radius: KodosiTheme.radiusSm
-                                        color: mark.hovered && !mark.selected ? "#2a221e" : "transparent"
-                                        border.width: mark.visualFocus ? 1.5 : 0
-                                        border.color: KodosiTheme.terminalAccent
-
-                                        Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
-                                    }
-                                    Rectangle {
-                                        id: ripple
-
-                                        y: 2
-                                        width: parent.width
-                                        height: parent.height - 4
-                                        radius: KodosiTheme.radiusSm
-                                        color: "transparent"
-                                        border.width: 1.5
-                                        border.color: KodosiTheme.terminalAccent
-                                        opacity: 0
-
-                                        SequentialAnimation {
-                                            running: mark.arrived && !KodosiTheme.reduceMotion
-                                            loops: 2
-                                            ParallelAnimation {
-                                                NumberAnimation { target: ripple; property: "opacity"; from: 1; to: 0; duration: 1100; easing.type: Easing.OutCubic }
-                                                NumberAnimation { target: ripple; property: "scale"; from: 1; to: 1.25; duration: 1100; easing.type: Easing.OutCubic }
-                                            }
-                                        }
-                                    }
-                                }
-                                onClicked: {
-                                    Models.Launcher.chooseAgent(modelData.id)
-                                    promptInput.forceActiveFocus()
+                                PlainLabel {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    visible: mark.selected
+                                    text: mark.title
+                                    color: mark.modelData.installed ? KodosiTheme.terminalInk : KodosiTheme.terminalInkMuted
+                                    font.pixelSize: KodosiTheme.fontBody
+                                    font.weight: Font.DemiBold
                                 }
                             }
                         }
-                        AbstractButton {
-                            id: more
-
-                            visible: tabsRow.hidden > 0
-                            objectName: "launcher.more"
-                            Accessible.id: objectName
-                            Accessible.name: qsTr("More agents")
-                            ToolTip.visible: hovered
-                            ToolTip.text: root.showsAll ? qsTr("Hide agents that are not on this computer") : qsTr("Show %1 more agents").arg(tabsRow.hidden)
-                            activeFocusOnTab: true
-                            hoverEnabled: true
-                            width: 30
-                            height: tabsRow.height
-                            onClicked: root.showsAll = !root.showsAll
-
-                            contentItem: Item {
-                                KIcon {
-                                    anchors.centerIn: parent
-                                    width: 13
-                                    height: 13
-                                    name: "plus"
-                                    strokeWidth: 2.2
-                                    color: more.hovered ? KodosiTheme.terminalInk : KodosiTheme.terminalInkMuted
-                                    rotation: root.showsAll ? 45 : 0
-
-                                    Behavior on rotation { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack } }
-                                }
-                            }
-                            background: Rectangle {
+                        background: Item {
+                            Rectangle {
+                                x: 0
                                 y: 2
+                                width: parent.width
                                 height: parent.height - 4
                                 radius: KodosiTheme.radiusSm
-                                color: more.hovered ? "#2a221e" : "transparent"
-                                border.width: more.visualFocus ? 1.5 : 0
+                                color: mark.hovered && !mark.selected ? "#2a221e" : "transparent"
+                                border.width: mark.visualFocus ? 1.5 : 0
                                 border.color: KodosiTheme.terminalAccent
+
+                                Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
                             }
                         }
-                    }
-                    Row {
-                        anchors.right: parent.right
-                        anchors.rightMargin: 12
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.verticalCenterOffset: 2
-                        spacing: 5
-                        visible: root.opened
-
-                        KIcon { anchors.verticalCenter: parent.verticalCenter; width: 13; height: 13; name: "laptop"; strokeWidth: 1.9; color: KodosiTheme.terminalInkMuted }
-                        PlainLabel {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: qsTr("This computer")
-                            color: KodosiTheme.terminalInkMuted
-                            font.pixelSize: KodosiTheme.fontFootnote
-                        }
-                    }
-                }
-                TapHandler {
-                    id: bodyTap
-
-                    onTapped: eventPoint => {
-                        if (!commandLine.contains(commandLine.mapFromItem(bodyTap.parent, eventPoint.position)))
+                        onClicked: {
+                            Models.Launcher.chooseAgent(modelData.id)
                             promptInput.forceActiveFocus()
+                        }
                     }
                 }
-                Column {
-                    id: terminalBody
+                AbstractButton {
+                    id: more
 
-                    x: 16
-                    y: band.height + 14
-                    width: preview.width - 32
-                    spacing: 8
-                    visible: root.opened
+                    visible: tabsRow.hidden > 0
+                    objectName: "launcher.more"
+                    Accessible.id: objectName
+                    Accessible.name: qsTr("More agents")
+                    ToolTip.visible: hovered
+                    ToolTip.text: root.showsAll ? qsTr("Hide agents that are not on this computer") : qsTr("Show %1 more agents").arg(tabsRow.hidden)
+                    activeFocusOnTab: true
+                    hoverEnabled: true
+                    width: 30
+                    height: tabsRow.height
+                    onClicked: root.showsAll = !root.showsAll
 
-                    Item {
-                        id: commandLine
+                    contentItem: Item {
+                        KIcon {
+                            anchors.centerIn: parent
+                            width: 13
+                            height: 13
+                            name: "plus"
+                            strokeWidth: 2.2
+                            color: more.hovered ? KodosiTheme.terminalInk : KodosiTheme.terminalInkMuted
+                            rotation: root.showsAll ? 45 : 0
 
-                        property real rowEnd: 0
-                        property real rowTop: 0
-                        readonly property bool inline: width - rowEnd >= 120
-
-                        width: parent.width
-                        implicitHeight: !promptInput.visible ? keys.height
-                            : inline ? Math.max(keys.height, rowTop + promptInput.height) : keys.height + 6 + promptInput.height
-
-                        Flow {
-                            id: keys
-
-                            width: parent.width
-                            spacing: 6
-                            onPositioningComplete: {
-                                let end = 0
-                                let top = 0
-                                for (const child of children) {
-                                    if (!child.visible || child.width <= 0)
-                                        continue
-                                    if (child.y > top) {
-                                        top = child.y
-                                        end = 0
-                                    }
-                                    if (child.y === top)
-                                        end = Math.max(end, child.x + child.width)
-                                }
-                                commandLine.rowEnd = end + spacing
-                                commandLine.rowTop = top
-                            }
-
-                            PickerKey {
-                                id: folderKey
-
-                                title: root.folderTitle
-                                open: root.menuKind === "folder"
-                                objectName: "launcher.folder"
-                                Accessible.id: objectName
-                                Accessible.name: qsTr("Folder")
-                                ToolTip.visible: hovered && !open
-                                ToolTip.text: root.tilde(root.directory)
-                                ToolTip.delay: 600
-                                glyph: KIcon { width: 13; height: 13; name: "folder"; filled: true; strokeWidth: 1.2; color: "#4f9bb0" }
-                                onClicked: root.toggleMenu("folder")
-                            }
-                            Text {
-                                height: 26
-                                verticalAlignment: Text.AlignVCenter
-                                text: "❯"
-                                color: KodosiTheme.terminalAccent
-                                font: root.commandFont
-                                Accessible.ignored: true
-                            }
-                            TypedText {
-                                visible: root.info !== null && root.info.installed
-                                height: 26
-                                verticalAlignment: Text.AlignVCenter
-                                target: root.info ? root.info.program : ""
-                                color: KodosiTheme.mix(Identity.kindTint(root.agentId), "#ffffff", 0.35)
-                                font: root.commandFont
-                            }
-                            PickerKey {
-                                id: accountKey
-
-                                visible: root.info !== null && root.info.installed && (root.info.accounts.length > 1 || root.info.addsAccounts)
-                                title: root.accountTitle(root.account)
-                                open: root.menuKind === "account"
-                                objectName: "launcher.account"
-                                Accessible.id: objectName
-                                Accessible.name: qsTr("Account")
-                                ToolTip.visible: hovered && !open && !!root.account && !!root.account.identity
-                                ToolTip.text: root.account ? root.account.identity || "" : ""
-                                ToolTip.delay: 600
-                                glyph: AccountMark {
-                                    size: 16
-                                    initial: accountKey.title.charAt(0)
-                                    key: root.account ? root.account.folder || root.account.command : ""
-                                    signedIn: !!root.account && !!root.account.identity
-                                }
-                                onClicked: root.toggleMenu("account")
-                            }
-                            PickerKey {
-                                id: modelKey
-
-                                visible: root.info !== null && root.info.installed && (root.listsModels || root.efforts.length > 0)
-                                title: root.modelTitle.length > 0 ? root.modelTitle : qsTr("Model")
-                                quiet: root.modelTitle.length === 0
-                                loading: !root.modelSet && root.loadingModels
-                                open: root.menuKind === "model"
-                                objectName: "launcher.model"
-                                Accessible.id: objectName
-                                Accessible.name: qsTr("Model and effort")
-                                glyph: KIcon { width: 11; height: 11; name: "sparkle"; filled: true; strokeWidth: 1; color: Identity.kindTint(root.agentId) }
-                                accessoryShown: root.effortLevel >= 0
-                                accessory: EffortBars {
-                                    level: root.effortLevel
-                                    count: root.efforts.length
-                                    barHeight: 10
-                                    lit: KodosiTheme.terminalAccent
-                                    unlit: KodosiTheme.alpha(KodosiTheme.terminalInk, 0.2)
-                                }
-                                onClicked: root.toggleMenu("model")
-                            }
-                            TypedText {
-                                visible: root.info !== null && !root.info.installed
-                                height: 26
-                                verticalAlignment: Text.AlignVCenter
-                                target: root.info ? root.info.install : ""
-                                color: KodosiTheme.terminalInkMuted
-                                font: root.commandFont
-                            }
-                            Item {
-                                visible: !root.takesWords
-                                width: 12
-                                height: 26
-
-                                CursorBlock {
-                                    anchors.centerIn: parent
-                                    width: 9
-                                    height: 18
-                                    blinks: true
-                                    color: KodosiTheme.terminalAccent
-                                }
-                            }
+                            Behavior on rotation { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack } }
                         }
-                        LauncherPrompt {
-                            id: promptInput
-
-                            visible: root.takesWords
-                            x: commandLine.inline ? commandLine.rowEnd : 0
-                            y: commandLine.inline ? commandLine.rowTop : keys.height + 6
-                            width: commandLine.inline ? commandLine.width - commandLine.rowEnd : commandLine.width
-                            ghost: root.ghost
-                            hint: root.hint
-                            objectName: "launcher.prompt"
-                            Accessible.id: objectName
-                            Accessible.name: root.info ? qsTr("First prompt") : qsTr("Command")
-                            onSubmitted: root.start()
-                            onLengthChanged: {
-                                if (length <= 1)
-                                    root.typeHints()
-                            }
-                        }
+                    }
+                    background: Rectangle {
+                        y: 2
+                        height: parent.height - 4
+                        radius: KodosiTheme.radiusSm
+                        color: more.hovered ? "#2a221e" : "transparent"
+                        border.width: more.visualFocus ? 1.5 : 0
+                        border.color: KodosiTheme.terminalAccent
                     }
                 }
             }
-        }
-        CursorBlock {
-            x: preview.cursor.x
-            y: preview.cursor.y
-            width: preview.cursor.width
-            height: preview.cursor.height
-            color: KodosiTheme.terminalAccent
-            opacity: preview.seed > 0 ? 0 : 1
+            Row {
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.verticalCenterOffset: 2
+                spacing: 5
+                objectName: "launcher.place"
 
-            Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionHover } }
+                KIcon { anchors.verticalCenter: parent.verticalCenter; width: 13; height: 13; name: "laptop"; strokeWidth: 1.9; color: KodosiTheme.terminalInkMuted }
+                PlainLabel {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: root.roomName.length > 0 ? qsTr("This computer") + "  ·" : qsTr("This computer")
+                    color: KodosiTheme.terminalInkMuted
+                    font.pixelSize: KodosiTheme.fontFootnote
+                }
+                RoomSigil {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: root.roomName.length > 0
+                    key: root.roomId
+                    size: 13
+                }
+                PlainLabel {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: root.roomName.length > 0
+                    width: Math.min(implicitWidth, 160)
+                    text: root.roomName
+                    elide: Text.ElideRight
+                    color: KodosiTheme.terminalInkMuted
+                    font.pixelSize: KodosiTheme.fontFootnote
+                }
+            }
+        }
+        TapHandler {
+            id: bodyTap
+
+            onTapped: eventPoint => {
+                if (!commandLine.contains(commandLine.mapFromItem(bodyTap.parent, eventPoint.position)))
+                    promptInput.forceActiveFocus()
+            }
+        }
+        Column {
+            id: terminalBody
+
+            x: 16
+            y: band.height + 14
+            width: preview.width - 32
+            spacing: 8
+
+            Item {
+                id: commandLine
+
+                property real rowEnd: 0
+                property real rowTop: 0
+                readonly property bool inline: width - rowEnd >= Math.max(120, promptInput.fitWidth)
+
+                width: parent.width
+                implicitHeight: !promptInput.visible ? keys.height
+                    : inline ? Math.max(keys.height, rowTop + promptInput.height) : keys.height + 6 + promptInput.height
+
+                Flow {
+                    id: keys
+
+                    width: parent.width
+                    spacing: 6
+                    onPositioningComplete: {
+                        let end = 0
+                        let top = 0
+                        for (const child of children) {
+                            if (!child.visible || child.width <= 0)
+                                continue
+                            if (child.y > top) {
+                                top = child.y
+                                end = 0
+                            }
+                            if (child.y === top)
+                                end = Math.max(end, child.x + child.width)
+                        }
+                        commandLine.rowEnd = end + spacing
+                        commandLine.rowTop = top
+                    }
+
+                    PickerKey {
+                        id: folderKey
+
+                        title: root.folderTitle
+                        open: root.menuKind === "folder"
+                        objectName: "launcher.folder"
+                        Accessible.id: objectName
+                        Accessible.name: qsTr("Folder")
+                        ToolTip.visible: hovered && !open
+                        ToolTip.text: root.tilde(root.directory)
+                        ToolTip.delay: 600
+                        glyph: KIcon { width: 13; height: 13; name: "folder"; filled: true; strokeWidth: 1.2; color: "#4f9bb0" }
+                        onClicked: root.toggleMenu("folder")
+                    }
+                    Text {
+                        height: 26
+                        verticalAlignment: Text.AlignVCenter
+                        text: "❯"
+                        color: KodosiTheme.terminalAccent
+                        font: root.commandFont
+                        Accessible.ignored: true
+                    }
+                    TypedText {
+                        visible: root.info !== null && root.info.installed
+                        height: 26
+                        verticalAlignment: Text.AlignVCenter
+                        target: root.info ? root.info.program : ""
+                        color: KodosiTheme.mix(Identity.kindTint(root.agentId), "#ffffff", 0.35)
+                        font: root.commandFont
+                    }
+                    PickerKey {
+                        id: accountKey
+
+                        visible: root.info !== null && root.info.installed && (root.info.accounts.length > 1 || root.info.addsAccounts)
+                        title: root.accountTitle(root.account)
+                        open: root.menuKind === "account"
+                        objectName: "launcher.account"
+                        Accessible.id: objectName
+                        Accessible.name: qsTr("Account")
+                        ToolTip.visible: hovered && !open && !!root.account && !!root.account.identity
+                        ToolTip.text: root.account ? root.account.identity || "" : ""
+                        ToolTip.delay: 600
+                        glyph: AccountMark {
+                            size: 16
+                            initial: accountKey.title.charAt(0)
+                            key: root.account ? root.account.folder || root.account.command : ""
+                            signedIn: !!root.account && !!root.account.identity
+                        }
+                        onClicked: root.toggleMenu("account")
+                    }
+                    PickerKey {
+                        id: modelKey
+
+                        visible: root.info !== null && root.info.installed && (root.listsModels || root.efforts.length > 0)
+                        title: root.modelTitle.length > 0 ? root.modelTitle : qsTr("Model")
+                        quiet: root.modelTitle.length === 0
+                        loading: !root.modelSet && root.loadingModels
+                        open: root.menuKind === "model"
+                        objectName: "launcher.model"
+                        Accessible.id: objectName
+                        Accessible.name: qsTr("Model and effort")
+                        glyph: KIcon { width: 11; height: 11; name: "sparkle"; filled: true; strokeWidth: 1; color: Identity.kindTint(root.agentId) }
+                        accessoryShown: root.effortLevel >= 0
+                        accessory: EffortBars {
+                            level: root.effortLevel
+                            count: root.efforts.length
+                            barHeight: 10
+                            lit: KodosiTheme.terminalAccent
+                            unlit: KodosiTheme.alpha(KodosiTheme.terminalInk, 0.2)
+                        }
+                        onClicked: root.toggleMenu("model")
+                    }
+                    TypedText {
+                        visible: root.info !== null && !root.info.installed
+                        height: 26
+                        verticalAlignment: Text.AlignVCenter
+                        target: root.info ? root.info.install : ""
+                        color: KodosiTheme.terminalInkMuted
+                        font: root.commandFont
+                    }
+                    Item {
+                        visible: !root.takesWords
+                        width: 12
+                        height: 26
+
+                        CursorBlock {
+                            anchors.centerIn: parent
+                            width: 9
+                            height: 18
+                            blinks: true
+                            color: KodosiTheme.terminalAccent
+                        }
+                    }
+                }
+                LauncherPrompt {
+                    id: promptInput
+
+                    visible: root.takesWords
+                    x: commandLine.inline ? commandLine.rowEnd : 0
+                    y: commandLine.inline ? commandLine.rowTop : keys.height + 6
+                    width: commandLine.inline ? commandLine.width - commandLine.rowEnd : commandLine.width
+                    hint: root.hint
+                    objectName: "launcher.prompt"
+                    Accessible.id: objectName
+                    Accessible.name: root.info ? qsTr("First prompt") : qsTr("Command")
+                    onSubmitted: root.start()
+                }
+            }
         }
     }
 
     RowLayout {
-        Layout.alignment: root.welcome ? Qt.AlignHCenter : Qt.AlignLeft
+        Layout.alignment: root.centered ? Qt.AlignHCenter : Qt.AlignLeft
         spacing: 10
-        opacity: root.opened ? 1 : 0
-
-        Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionSoft } }
 
         KButton {
             objectName: "launcher.start"
@@ -780,7 +647,8 @@ ColumnLayout {
             variant: KButton.Primary
             iconName: "return"
             iconTrailing: true
-            enabled: root.ready
+            enabled: root.ready && !Models.SessionActions.busy
+            working: Models.SessionActions.busy
             text: !root.info ? qsTr("Open a terminal")
                 : root.info.installed ? qsTr("Start %1").arg(Models.DesktopSettings.agentLabel(root.info.agent))
                 : qsTr("Install %1").arg(Models.DesktopSettings.agentLabel(root.info.agent))

@@ -1,7 +1,9 @@
 #include "presentation/MissionsModel.hpp"
+#include "presentation/DesktopStateModel.hpp"
 #include "presentation/SessionCatalogModel.hpp"
 #include "presentation/Workspace.hpp"
 
+#include <QJsonArray>
 #include <QJsonValue>
 #include <QGuiApplication>
 #include <QClipboard>
@@ -13,6 +15,19 @@ MissionsModel::MissionsModel(Workspace& workspace, SessionCatalogModel& sessions
     , m_sessions(sessions)
 {
     connect(&sessions, &SessionCatalogModel::authorityStateChanged, this, &MissionsModel::selectionChanged);
+    connect(&workspace.m_desktop, &DesktopStateModel::activeViewChanged, this, &MissionsModel::readWatched);
+}
+
+bool MissionsModel::watching(const QString& roomId) const
+{
+    return !roomId.isEmpty() && roomId == m_selectedId && m_workspace.m_desktop.activeView() == DesktopStateModel::Missions
+        && m_presentations.value(roomId).value(QStringLiteral("conversation"), true).toBool();
+}
+
+void MissionsModel::readWatched()
+{
+    if (watching(m_selectedId) && m_unread.removeAll(m_selectedId) > 0)
+        emit unreadChanged();
 }
 
 bool MissionsModel::busy() const
@@ -55,6 +70,7 @@ void MissionsModel::open(const QString& id)
     emit presentationChanged();
     if (changed) emit roomChanged();
     emit selectionChanged();
+    readWatched();
     for (auto it = m_workspace.m_pending.begin(); it != m_workspace.m_pending.end();) {
         if (it->operation == QStringLiteral("mission.open"))
             it = m_workspace.m_pending.erase(it);
@@ -146,6 +162,8 @@ void MissionsModel::setPresentation(const QString& key, const QVariant& value)
         : key == QStringLiteral("repositoryUrl") ? QStringLiteral("repositoryRevision") : QString {};
     if (!group.isEmpty()) state.insert(group, state.value(group).toULongLong() + 1);
     emit presentationChanged();
+    if (key == QStringLiteral("conversation"))
+        readWatched();
 }
 
 void MissionsModel::completeAction(const QString& room, const QString& action, const QVariantMap& submitted)
@@ -171,6 +189,24 @@ void MissionsModel::applyRoom(const QJsonObject& room)
     const auto roomId = room.value(QStringLiteral("roomId")).toString();
     const auto previous = m_rooms.value(roomId);
     auto next = room.toVariantMap();
+    if (!previous.isEmpty() && !watching(roomId) && !m_unread.contains(roomId)) {
+        quint64 latest = 0;
+        for (const auto& value : previous.value(QStringLiteral("messages")).toList())
+            latest = std::max(latest, value.toMap().value(QStringLiteral("sequence")).toULongLong());
+        const auto userId = m_workspace.account().userId();
+        const auto messages = room.value(QStringLiteral("messages")).toArray();
+        // Messages of your agents count as new; only what you wrote yourself does not.
+        const bool arrived = std::any_of(messages.cbegin(), messages.cend(), [&](const QJsonValue& value) {
+            const auto message = value.toObject();
+            const bool own = message.value(QStringLiteral("agent")).toString().isEmpty()
+                && message.value(QStringLiteral("authorId")).toString() == userId;
+            return message.value(QStringLiteral("sequence")).toInteger() > static_cast<qint64>(latest) && !own;
+        });
+        if (arrived) {
+            m_unread.append(roomId);
+            emit unreadChanged();
+        }
+    }
     if (previous.contains(QStringLiteral("hasOlder")))
         next.insert(QStringLiteral("hasOlder"), previous.value(QStringLiteral("hasOlder")).toBool() && next.value(QStringLiteral("hasOlder")).toBool());
     if (previous.value(QStringLiteral("historyTrimmed")).toBool())
@@ -201,6 +237,8 @@ void MissionsModel::reset()
     m_selected.clear();
     m_members.clear();
     m_selectedId.clear(); m_room.clear(); m_rooms.clear(); m_presentations.clear(); m_issueRepository.clear(); m_issues.clear(); emit roomChanged(); emit presentationChanged();
+    m_unread.clear();
+    emit unreadChanged();
     m_catalogTruncated = false;
     emit catalogChanged();
     emit selectionChanged();
