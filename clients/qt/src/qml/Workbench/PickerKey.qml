@@ -11,6 +11,7 @@ AbstractButton {
     property bool open: false
     property alias glyph: glyphSlot.data
     property alias accessory: accessorySlot.data
+    property bool showsAccessory: true
     property bool ready: false
 
     implicitHeight: KodosiTheme.controlHeight
@@ -69,7 +70,7 @@ AbstractButton {
             Item {
                 id: accessorySlot
                 anchors.verticalCenter: parent.verticalCenter
-                visible: children.length > 0 && children[0].visible
+                visible: children.length > 0 && root.showsAccessory
                 width: childrenRect.width
                 height: childrenRect.height
             }

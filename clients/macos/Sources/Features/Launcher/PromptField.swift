@@ -125,6 +125,12 @@ final class PromptTextView: NSTextView {
                height: layoutManager?.defaultLineHeight(for: Self.font) ?? 17)
     }
 
+    /// The width that shows the caret and the whole placeholder.
+    static func width(placeholder: String) -> CGFloat {
+        let cell = ("M" as NSString).size(withAttributes: [.font: font]).width
+        return ceil(cell + 4 + (placeholder as NSString).size(withAttributes: [.font: font]).width)
+    }
+
     private var focused: Bool {
         window?.firstResponder === self
     }

@@ -10,6 +10,7 @@ TextEdit {
     property bool holds: true
     property bool lit: true
     readonly property real cell: metrics.advanceWidth("M")
+    readonly property real fitWidth: Math.ceil(leftPadding + cell + 4 + metrics.advanceWidth(placeholder) + rightPadding)
 
     signal submitted
 

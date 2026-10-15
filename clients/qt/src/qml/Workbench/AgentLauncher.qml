@@ -498,7 +498,7 @@ ColumnLayout {
 
                 property real rowEnd: 0
                 property real rowTop: 0
-                readonly property bool inline: width - rowEnd >= 150
+                readonly property bool inline: width - rowEnd >= Math.max(150, promptInput.fitWidth)
 
                 width: parent.width
                 implicitHeight: !promptInput.visible ? keys.height
@@ -667,7 +667,8 @@ ColumnLayout {
                     Accessible.id: objectName
                     Accessible.name: qsTr("Model and effort")
                     glyph: KIcon { width: 12; height: 12; name: "sparkle"; filled: true; strokeWidth: 1; color: Identity.kindTint(root.agentId) }
-                    accessory: EffortBars { visible: root.effortLevel >= 0; level: root.effortLevel; count: root.efforts.length }
+                    accessory: EffortBars { level: root.effortLevel; count: root.efforts.length }
+                    showsAccessory: root.effortLevel >= 0
                     onClicked: root.toggleMenu("model")
                 }
             }

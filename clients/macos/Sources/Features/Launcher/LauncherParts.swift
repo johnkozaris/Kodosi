@@ -80,13 +80,14 @@ struct LauncherCommandLine: View {
                 }
             }
             if info?.installed ?? true {
+                let placeholder = info == nil ? String(localized: "command (optional)") : String(localized: "first prompt (optional)")
                 PromptField(
                     text: $prompt,
-                    placeholder: info == nil ? String(localized: "command (optional)") : String(localized: "first prompt (optional)"),
+                    placeholder: placeholder,
                     label: info == nil ? String(localized: "Command") : String(localized: "First prompt"),
                     focus: focus, submit: submit
                 )
-                .layoutValue(key: FillsRow.self, value: 150)
+                .layoutValue(key: FillsRow.self, value: max(150, PromptTextView.width(placeholder: placeholder)))
                 .accessibilityIdentifier("launcher.prompt")
             }
         }

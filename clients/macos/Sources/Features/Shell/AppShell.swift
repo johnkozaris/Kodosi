@@ -23,6 +23,7 @@ struct AppShell: View {
                     }
                     .padding([.top, .trailing, .bottom], Metrics.frameInset)
             }
+            .accessibilityHidden(sheet != nil)
             .overlay(alignment: .top) { notice }
             .disabled(sheet != nil)
             if workbench.showsPalette {
