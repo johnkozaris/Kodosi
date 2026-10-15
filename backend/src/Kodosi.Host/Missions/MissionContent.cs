@@ -142,7 +142,7 @@ public sealed partial class MissionService
         }
         var more = items.Count > selected.Count;
         return new { sequence = room.ContentSequence, keyVersion = room.KeyVersion, hasMore = more,
-            items = selected.OrderBy(x => x.Sequence).Select(ItemDto) };
+            historyTrimmed = room.HistoryTrimmed, items = selected.OrderBy(x => x.Sequence).Select(ItemDto) };
     }
 
     private static object ItemDto(MissionItem item) => new
@@ -178,6 +178,9 @@ public sealed partial class MissionService
             throw ApiException.Conflict("This room item changed; refresh before retrying.");
         if (existing is null && kind != "message" && await db.MissionItems.CountAsync(x => x.MissionId == id && x.Kind == kind, ct) >= 4096)
             throw ApiException.Conflict("The room has reached its item limit.");
+        room.ContentBytes += (long)body.Length + signature.Length - (existing is null ? 0 : (long)existing.Body.Length + existing.Signature.Length);
+        if ((await plans.LimitsAsync(db, room.OwnerUserId, ct)).RoomBytes is { } most && room.ContentBytes > most)
+            await TrimHistoryAsync(room, most, ct);
         var item = existing ?? new MissionItem { MissionId = id, Id = itemId, CreatedAt = clock.GetUtcNow() };
         item.Kind = kind; item.Version = version; item.KeyVersion = keyVersion;
         room.ContentSequence = checked(room.ContentSequence + 1);
@@ -187,6 +190,28 @@ public sealed partial class MissionService
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
         foreach (var member in await MemberIdsAsync(id, ct)) connections.NotifyContent(member, id, item.Sequence);
         return ItemDto(item);
+    }
+
+    private async Task TrimHistoryAsync(Mission room, long most, CancellationToken ct)
+    {
+        var excess = room.ContentBytes - most;
+        var removed = new List<Guid>();
+        long freed = 0, after = 0;
+        while (freed < excess)
+        {
+            var oldest = await db.MissionItems.AsNoTracking()
+                .Where(x => x.MissionId == room.Id && x.Kind == "message" && x.Sequence > after).OrderBy(x => x.Sequence).Take(64)
+                .Select(x => new { x.Id, x.Sequence, Size = (long)x.Body.Length + x.Signature.Length }).ToListAsync(ct);
+            if (oldest.Count == 0)
+                throw ApiException.Limited("room-data", "This room is full: its tasks and repositories use all of its space. Make a new room to continue.");
+            foreach (var message in oldest.TakeWhile(_ => freed < excess))
+            {
+                removed.Add(message.Id); freed += message.Size; after = message.Sequence;
+            }
+        }
+        await db.MissionItems.Where(x => x.MissionId == room.Id && removed.Contains(x.Id)).ExecuteDeleteAsync(ct);
+        room.ContentBytes -= freed;
+        room.HistoryTrimmed = true;
     }
 
     private static readonly JsonSerializerOptions BodyJson = new(Wire.Json)

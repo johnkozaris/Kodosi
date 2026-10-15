@@ -12,14 +12,12 @@ configs:
   Release: release
   WorkingTreeValidation: release
 
-configFiles:
-  Debug: ../apple/Config/Apps.xcconfig
-  Release: ../apple/Config/Apps.xcconfig
-  WorkingTreeValidation: ../apple/Config/Apps.xcconfig
-
 packages:
   KodosiApple:
     path: ../apple
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.10.0
 
 aggregateTargets:
   RuntimeLibrary:
@@ -31,6 +29,8 @@ aggregateTargets:
 
 settingGroups:
   appBase:
+    MARKETING_VERSION: "${KODOSI_VERSION}"
+    CURRENT_PROJECT_VERSION: "${KODOSI_VERSION}"
     SWIFT_VERSION: "6.0"
     SWIFT_STRICT_CONCURRENCY: complete
     SWIFT_APPROACHABLE_CONCURRENCY: YES
@@ -67,7 +67,8 @@ targets:
         - appBase
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.kodosi.desktop
-        PRODUCT_NAME: KodosiDesktop
+        PRODUCT_NAME: Kodosi
+        PRODUCT_MODULE_NAME: KodosiDesktop
         INFOPLIST_FILE: Config/Info.plist
         CODE_SIGN_ENTITLEMENTS: Config/KodosiDesktop.entitlements
         KODOSI_PROVISIONING_PROFILE: ""
@@ -99,6 +100,7 @@ targets:
         product: KodosiTerminal
       - package: KodosiApple
         product: KodosiTerminalSessions
+      - package: Sparkle
     preBuildScripts:
       - name: Enforce Build Variant
         basedOnDependencyAnalysis: false
@@ -124,6 +126,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.kodosi.desktop.tests
         PRODUCT_NAME: KodosiDesktopTests
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Kodosi.app/Contents/MacOS/Kodosi
+        BUNDLE_LOADER: $(TEST_HOST)
         GENERATE_INFOPLIST_FILE: YES
     sources:
       - path: Tests

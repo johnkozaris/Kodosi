@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AppInstaller
+    xmlns="http://schemas.microsoft.com/appx/appinstaller/2021"
+    Version="@KODOSI_MSIX_VERSION@"
+    Uri="https://updates.kodosi.com/windows/Kodosi.appinstaller">
+  <MainBundle
+      Name="com.kodosi.Kodosi"
+      Publisher="@KODOSI_MSIX_PUBLISHER_XML@"
+      Version="@KODOSI_MSIX_VERSION@"
+      Uri="https://github.com/johnkozaris/Kodosi/releases/download/v@PROJECT_VERSION@/Kodosi-@PROJECT_VERSION@.msixbundle" />
+  <UpdateSettings>
+    <OnLaunch HoursBetweenUpdateChecks="8" />
+    <AutomaticBackgroundTask />
+  </UpdateSettings>
+</AppInstaller>

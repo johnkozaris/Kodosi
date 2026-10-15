@@ -1,6 +1,11 @@
 {
   "terminalConnectionProtocolVersion": 22,
-  "compatibilityPolicy": "exactMatch",
+  "oldestTerminalConnectionProtocolVersion": 22,
+  "channelProtocolVersion": 1,
+  "compatibilityPolicy": {
+    "deviceConnection": "the server admits each device whose hello protocolVersion is from oldestTerminalConnectionProtocolVersion to terminalConnectionProtocolVersion; it refuses others with refused, reason version",
+    "channel": "the accept frame carries channelProtocolVersion; a viewer with another channel version closes the channel and shows which side must update Kodosi"
+  },
   "routes": {
     "device": "/ws/device"
   },
@@ -73,13 +78,13 @@
       "accept": {
         "type": 2,
         "direction": "host",
-        "body": "JSON: protocolVersion, sessionId, incarnationId, hostDeviceId; the viewer refuses a value that is not the terminal it asked for",
+        "body": "JSON: protocolVersion (the channel protocol version), sessionId, incarnationId, hostDeviceId; the viewer refuses a value that is not the terminal it asked for",
         "first": "the first frame of a channel is accept or refuse"
       },
       "refuse": {
         "type": 3,
         "direction": "host",
-        "body": "JSON: code (version, access, busy, gone), message"
+        "body": "JSON: code (access, busy, gone), message"
       },
       "keyframe": {
         "type": 4,

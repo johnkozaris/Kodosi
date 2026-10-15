@@ -34,6 +34,20 @@
     <string>NSApplication</string>
     <key>LSUIElement</key>
     <false/>
+    <key>SUFeedURL</key>
+    <string>$(KODOSI_UPDATE_FEED)</string>
+    <key>SUPublicEDKey</key>
+    <string>$(KODOSI_UPDATE_KEY)</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUAutomaticallyUpdate</key>
+    <true/>
+    <key>SUAllowsAutomaticUpdates</key>
+    <true/>
+    <key>SUVerifyUpdateBeforeExtraction</key>
+    <true/>
+    <key>SURequireSignedFeed</key>
+    <true/>
     <key>CFBundleURLTypes</key>
     <array>
         <dict>

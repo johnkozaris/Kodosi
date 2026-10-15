@@ -53,6 +53,13 @@ Apple build checks the committed copy against it. The other contracts are writte
 hand; the runtime build and tests read their versions and test vectors. Change a
 contract together with the runtime, clients and backend.
 
+The backend reports the oldest and the current version of the API contract and of the
+terminal connection protocol on `/health/live`. An app below a range tells the person to
+update Kodosi, and an app above it names the server. The channel between two devices has
+its own version, `channelProtocolVersion`, which must match. After the first public
+release, an older app keeps working for 60 days after a release that raises an oldest
+version.
+
 | Contract | File |
 | --- | --- |
 | Desktop commands and events | [desktop-runtime.json](../protocol/desktop-runtime.json) |

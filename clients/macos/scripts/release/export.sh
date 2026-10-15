@@ -10,8 +10,8 @@ archive=$1
 folder=$2
 : "${KODOSI_TEAM_ID:?Set KODOSI_TEAM_ID to the Apple Developer team identifier}"
 : "${KODOSI_PROVISIONING_PROFILE:?Set KODOSI_PROVISIONING_PROFILE to the name of the Developer ID provisioning profile}"
-if [[ ! -d "$archive/Products/Applications/KodosiDesktop.app" ]]; then
-    echo "$archive has no KodosiDesktop.app. Make the archive with archive.sh." >&2
+if [[ ! -d "$archive/Products/Applications/Kodosi.app" ]]; then
+    echo "$archive has no Kodosi.app. Make the archive with archive.sh." >&2
     exit 1
 fi
 options=$(mktemp -d "${TMPDIR:-/tmp}/kodosi-export.XXXXXX")
@@ -22,7 +22,7 @@ cp "$ROOT/Config/ExportOptions.plist" "$options/ExportOptions.plist"
     -c "Add :provisioningProfiles dict" \
     -c "Add :provisioningProfiles:com.kodosi.desktop string $KODOSI_PROVISIONING_PROFILE" \
     "$options/ExportOptions.plist"
-rm -rf "$folder/KodosiDesktop.app"
+rm -rf "$folder/Kodosi.app"
 xcodebuild -exportArchive \
            -archivePath "$archive" \
            -exportOptionsPlist "$options/ExportOptions.plist" \

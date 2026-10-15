@@ -93,13 +93,19 @@ impl LocalSession {
                 .to_str()
                 .ok_or_else(|| Error::Invalid("working directory must be UTF-8".to_owned()))?;
             let emulator = SessionTerminalHandle::spawn(size)?;
+            let session_id = id.to_string();
+            let command_path = command_path();
+            let mut environment = vec![("KODOSI_SESSION_ID", session_id.as_str())];
+            if let Some(path) = &command_path {
+                environment.push(("PATH", path.as_str()));
+            }
             let (pty, reader) = KodosiPty::spawn_program(
                 &program,
                 &arguments,
                 Some(cwd),
                 size.rows(),
                 size.cols(),
-                &[("KODOSI_SESSION_ID", &id.to_string())],
+                &environment,
             )?;
             Ok((emulator, pty, reader))
         })
@@ -421,6 +427,28 @@ fn validated_pixels(
     let height = u16::try_from(geometry.height_pixels())
         .map_err(|_| Error::Invalid("terminal pixel height exceeds the PTY limit".to_owned()))?;
     Ok((Some(width), Some(height)))
+}
+
+/// The `PATH` of a new terminal with the folder of the running app at its end, when that
+/// folder holds the `kodosi` command and the `PATH` lacks it.
+fn command_path() -> Option<String> {
+    if cfg!(windows) {
+        return None;
+    }
+    let folder = std::env::current_exe().ok()?.parent()?.to_path_buf();
+    path_with_command(&std::env::var_os("PATH").unwrap_or_default(), folder)
+}
+
+fn path_with_command(path: &std::ffi::OsStr, folder: PathBuf) -> Option<String> {
+    if !folder.join("kodosi").is_file() {
+        return None;
+    }
+    let mut folders: Vec<PathBuf> = std::env::split_paths(path).collect();
+    if folders.contains(&folder) {
+        return None;
+    }
+    folders.push(folder);
+    std::env::join_paths(folders).ok()?.into_string().ok()
 }
 
 /// `PowerShell` and `cmd` cancel a line with Ctrl+C; Unix line editors clear it

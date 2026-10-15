@@ -77,8 +77,14 @@ progress where work happens and give each failure a clear recovery action.
 - The runtime and backend implement room terminal sharing, encrypted conversation and
   task history, repository links, and GitHub and Gitea issue actions.
 - The Mac app and the Qt app host terminals and take part in rooms. The Qt app runs on
-  Linux and builds for Windows 11 on x64 and ARM64 with ConPTY and an MSIX package; it
-  is not yet validated on Windows hardware.
+  Linux and builds for Windows 11 24H2 on x64 and ARM64 with ConPTY and an MSIX package;
+  it is not yet validated on Windows hardware.
+- Each app contains the CLI and has one version. The Mac app downloads an update in the
+  background and installs it when the person quits Kodosi; "Restart to Update" waits in
+  the sidebar, and a restart always asks first because it ends the host's terminals.
+  The Debian package adds the Kodosi apt repository, and the Linux app asks the person
+  to open Kodosi again after an update. Windows installs an update when Kodosi is not in
+  use. An app that is too old for the backend asks the person to update Kodosi.
 - The iPhone and iPad app follows, answers and controls the terminals of the person's
   computers and friends, and takes part in rooms. It starts no terminals.
 - `kodosi room` and its bundled skill let existing agents take part through the
@@ -100,6 +106,10 @@ progress where work happens and give each failure a clear recovery action.
 - A terminal can start on a new branch in its own Git worktree. When it ends, the host
   removes the worktree and the branch only if nothing changed. Kodosi keeps no record
   of these folders.
+- A server can define plans. A plan limits an account's devices, owned rooms, people
+  and data in each owned room, people who see one of its terminals, friends and open
+  friend requests; an account without a plan gets the default plan. A full room loses
+  its oldest messages first, and the apps say so; tasks and repositories stay.
 - A person deletes their account through the sign-in service's account page. The
   service removes the account, devices, friends, sharing and owned rooms; what the
   person wrote in other rooms stays. Terminals keep running.

@@ -290,6 +290,7 @@ def validate_deb(path: Path, epoch: int) -> None:
                         ["./md5sums", "./control"],
                         ["./control", "./md5sums"],
                         [".", "./control"],
+                        ["./md5sums", "./control", "./conffiles"],
                     ]
                     if name == control_name
                     else None
@@ -473,6 +474,17 @@ def check_files(root: Path, qt_version: str) -> None:
         fail(f"the Qt or ICU runtime is outside {PRIVATE}: {', '.join(escaped)}")
 
 
+def check_repository(package: Path, root: Path) -> None:
+    keyring = ROOT / "packaging/linux/kodosi-archive-keyring.pgp"
+    if keyring.is_file():
+        same(root, "etc/apt/sources.list.d/kodosi.sources", ROOT / "packaging/linux/kodosi.sources")
+        same(root, "etc/apt/keyrings/kodosi-archive-keyring.pgp", keyring)
+        if run("dpkg-deb", "-I", str(package), "conffiles") != (ROOT / "packaging/linux/conffiles").read_text("utf-8"):
+            fail("the conffiles of the package differ from packaging/linux/conffiles")
+    elif (root / "etc").exists():
+        fail("the package adds files to /etc without the archive key")
+
+
 def check_links(root: Path) -> None:
     cli = root / PRIVATE / "bin/kodosi"
     if not re.search(r"^\s*Class:\s+ELF64$", run("readelf", "-h", str(cli)), re.MULTILINE):
@@ -533,6 +545,7 @@ def main() -> None:
             check_evidence(root, arguments.build_dir.resolve())
             if kind == "deb":
                 check_debian_dependencies(package)
+                check_repository(package, root)
             check_files(root, qt_version)
             check_links(root)
             check_desktop(root)

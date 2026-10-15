@@ -1,13 +1,15 @@
 namespace Kodosi;
 
-public sealed class ApiException(int status, string message) : Exception(message)
+public sealed class ApiException(int status, string message, string? limit = null) : Exception(message)
 {
     public int Status { get; } = status;
+    public string? Limit { get; } = limit;
     public static ApiException Invalid(string message) => new(400, message);
     public static ApiException Forbidden(string message = "This operation is not authorized.") => new(403, message);
     public static ApiException Missing() => new(404, "The requested resource is unavailable.");
     public static ApiException Conflict(string message) => new(409, message);
     public static ApiException Gone() => new(410, "This Kodosi account was deleted.");
+    public static ApiException Limited(string limit, string message) => new(403, message, limit);
 }
 
 internal static class Limits
@@ -19,6 +21,9 @@ internal static class Limits
     public const int MaxVisibleMissions = 256;
     public const int MaxPendingMissionInvitations = 128;
     public const int MaxMissionMembers = 64;
+
+    public static string Count(long count, string one, string many)
+        => count == 1 ? $"1 {one}" : $"{count.ToString(System.Globalization.CultureInfo.InvariantCulture)} {many}";
 
     public static string Text(string? value, string field, int max)
     {

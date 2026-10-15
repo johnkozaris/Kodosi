@@ -55,6 +55,10 @@ struct RoomConversation: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 if snapshot.hasOlder, let first = messages.first {
                     earlier(before: first, state: state)
+                } else if snapshot.historyTrimmed, !messages.isEmpty {
+                    Text("Kodosi removed the oldest messages to make space for new ones.")
+                        .appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
+                        .multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.bottom, 8)
                 }
                 ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
                     RoomMessageRow(

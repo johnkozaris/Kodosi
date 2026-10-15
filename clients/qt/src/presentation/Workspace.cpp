@@ -164,6 +164,10 @@ void Workspace::route(const DeepLinkDestination& destination)
 void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
 {
     const auto type = event.value(QStringLiteral("type")).toString();
+    if (type == QStringLiteral("system.updateRequired")) {
+        setError(tr("This version of Kodosi is too old for the server. Update Kodosi."));
+        return;
+    }
     if (type == QStringLiteral("auth.finalizing")) {
         m_account.m_finalizing = true;
         emit m_account.loginChanged();

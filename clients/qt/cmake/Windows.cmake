@@ -95,7 +95,14 @@ function(kodosi_install app)
         "${PROJECT_BINARY_DIR}/AppxManifest.xml"
         @ONLY
     )
-    install(FILES "${PROJECT_BINARY_DIR}/AppxManifest.xml" DESTINATION .)
+    # Windows reads the update source from this file, also for a package that
+    # was installed from the downloaded bundle.
+    configure_file(
+        "${PROJECT_SOURCE_DIR}/packaging/windows/Kodosi.appinstaller.in"
+        "${PROJECT_BINARY_DIR}/Kodosi.appinstaller"
+        @ONLY
+    )
+    install(FILES "${PROJECT_BINARY_DIR}/AppxManifest.xml" "${PROJECT_BINARY_DIR}/Kodosi.appinstaller" DESTINATION .)
     install(DIRECTORY "${PROJECT_SOURCE_DIR}/packaging/windows/Assets" DESTINATION .)
 
     kodosi_install_evidence(doc)

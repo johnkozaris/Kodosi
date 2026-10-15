@@ -42,12 +42,16 @@ public struct NoticePill: View {
     public let message: String
     public var identifier = "notice"
     public var retry: (() -> Void)?
+    public var actionTitle: LocalizedStringKey
     public let dismiss: () -> Void
 
-    public init(message: String, identifier: String = "notice", retry: (() -> Void)? = nil, dismiss: @escaping () -> Void) {
+    public init(message: String, identifier: String = "notice", retry: (() -> Void)? = nil,
+                actionTitle: LocalizedStringKey = "Try again", dismiss: @escaping () -> Void)
+    {
         self.message = message
         self.identifier = identifier
         self.retry = retry
+        self.actionTitle = actionTitle
         self.dismiss = dismiss
     }
 
@@ -63,7 +67,7 @@ public struct NoticePill: View {
                     .fixedSize(horizontal: false, vertical: true).popoverSheet()
             }
             if let retry {
-                Button("Try again", action: retry).buttonStyle(.kodosi(.tinted, size: .small))
+                Button(actionTitle, action: retry).buttonStyle(.kodosi(.tinted, size: .small))
             }
             IconButton(title: "Dismiss", symbol: "xmark", identifier: "\(identifier).dismiss", size: 22, action: dismiss)
         }

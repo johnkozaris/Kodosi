@@ -1,5 +1,6 @@
 using Kodosi.Accounts;
 using Kodosi.Data;
+using Kodosi.Plans;
 using Kodosi.TerminalConnections;
 using Kodosi.Security;
 using Kodosi.Sessions;
@@ -7,7 +8,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.Devices;
 
-public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirectory connections, DeviceSessions sessions, TimeProvider clock)
+public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirectory connections, DeviceSessions sessions, TimeProvider clock,
+    PlanCatalog plans)
 {
     public async Task<Device> RequireDeviceAsync(Guid userId, string deviceId, CancellationToken ct, bool allowExpiredList = false)
     {
