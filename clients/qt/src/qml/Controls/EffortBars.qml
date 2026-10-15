@@ -10,6 +10,8 @@ Row {
     property int count: 0
     property real barHeight: 11
     property real barWidth: 2.5
+    property color lit: KodosiTheme.accent
+    property color unlit: KodosiTheme.alpha(KodosiTheme.ink, 0.2)
 
     height: barHeight
     spacing: barWidth * 0.6
@@ -27,7 +29,7 @@ Row {
             width: root.barWidth
             height: root.barHeight * (0.35 + 0.65 * index / Math.max(root.count - 1, 1))
             radius: root.barWidth * 0.4
-            color: index <= root.level ? KodosiTheme.accent : KodosiTheme.alpha(KodosiTheme.ink, 0.2)
+            color: index <= root.level ? root.lit : root.unlit
 
             Behavior on color {
                 SequentialAnimation {

@@ -51,19 +51,14 @@ ColumnLayout {
         : !account ? "" : [account.command, modelArgument, effortArgument].filter(word => word.length > 0).join(" ")
     readonly property string agentLabel: info ? Models.DesktopSettings.agentLabel(info.agent) : ""
     readonly property string folderTitle: tilde(directory) === "~" ? "~" : Models.Sessions.folderName(directory)
-    readonly property string accountWord: !info || !account ? "" : account.command === account.name ? account.name : info.program
     readonly property string modelTitle: model ? model.label : modelArgument.length > 0 ? modelArgument.split(" ").pop() : ""
     readonly property int effortLevel: efforts.findIndex(entry => entry.argument === effortArgument)
     readonly property bool takesWords: !info || info.installed
     readonly property bool listsModels: !modelSet || modelSet.models.length > 0
     readonly property bool ready: !info ? agentId.length === 0 : line.length > 0
-    readonly property var hints: !info ? ["git status", "npm run dev", "make test", "ls -la"]
-        : [qsTr("fix the failing test"), qsTr("explain how this folder works"), qsTr("review my last commit"),
-            qsTr("add a dark mode"), qsTr("write tests for the parser")]
-    readonly property string suggestion: hints[hint % hints.length]
+    readonly property string hint: !info ? qsTr("Type a command") : qsTr("Type a task")
     property bool opened: false
     property string ghost: ""
-    property int hint: Math.floor(Math.random() * 20)
 
     signal resumeRequested
 
@@ -91,16 +86,16 @@ ColumnLayout {
         if (!takesWords || promptInput.length > 0)
             return
         if (KodosiTheme.reduceMotion) {
-            ghost = suggestion
+            ghost = hint
             return
         }
         typist.interval = 1200
         typist.start()
     }
     function typeStep() {
-        if (ghost.length >= suggestion.length)
+        if (ghost.length >= hint.length)
             return
-        ghost = suggestion.slice(0, ghost.length + 1)
+        ghost = hint.slice(0, ghost.length + 1)
         typist.interval = ghost.endsWith(" ") ? 120 : 38 + Math.floor(Math.random() * 52)
         typist.start()
     }
@@ -338,7 +333,7 @@ ColumnLayout {
         readonly property real bodyHeight: Math.max(root.welcome ? 124 : 92, terminalBody.implicitHeight + 32)
 
         Layout.preferredWidth: Math.min(560, root.width)
-        implicitHeight: band.height + bodyHeight + deck.height
+        implicitHeight: band.height + bodyHeight
         objectName: "launcher.preview"
         Accessible.id: objectName
 
@@ -598,7 +593,7 @@ ColumnLayout {
                     id: bodyTap
 
                     onTapped: eventPoint => {
-                        if (!deck.contains(deck.mapFromItem(bodyTap.parent, eventPoint.position)))
+                        if (!commandLine.contains(commandLine.mapFromItem(bodyTap.parent, eventPoint.position)))
                             promptInput.forceActiveFocus()
                     }
                 }
@@ -616,7 +611,7 @@ ColumnLayout {
 
                         property real rowEnd: 0
                         property real rowTop: 0
-                        readonly property bool inline: width - rowEnd >= 150
+                        readonly property bool inline: width - rowEnd >= 120
 
                         width: parent.width
                         implicitHeight: !promptInput.visible ? keys.height
@@ -644,12 +639,19 @@ ColumnLayout {
                                 commandLine.rowTop = top
                             }
 
-                            TypedText {
-                                height: 26
-                                verticalAlignment: Text.AlignVCenter
-                                target: root.folderTitle
-                                color: "#5dafa6"
-                                font: root.commandFont
+                            PickerKey {
+                                id: folderKey
+
+                                title: root.folderTitle
+                                open: root.menuKind === "folder"
+                                objectName: "launcher.folder"
+                                Accessible.id: objectName
+                                Accessible.name: qsTr("Folder")
+                                ToolTip.visible: hovered && !open
+                                ToolTip.text: root.tilde(root.directory)
+                                ToolTip.delay: 600
+                                glyph: KIcon { width: 13; height: 13; name: "folder"; filled: true; strokeWidth: 1.2; color: "#4f9bb0" }
+                                onClicked: root.toggleMenu("folder")
                             }
                             Text {
                                 height: 26
@@ -659,22 +661,55 @@ ColumnLayout {
                                 font: root.commandFont
                                 Accessible.ignored: true
                             }
-                            Row {
+                            TypedText {
                                 visible: root.info !== null && root.info.installed
                                 height: 26
+                                verticalAlignment: Text.AlignVCenter
+                                target: root.info ? root.info.program : ""
+                                color: KodosiTheme.mix(Identity.kindTint(root.agentId), "#ffffff", 0.35)
+                                font: root.commandFont
+                            }
+                            PickerKey {
+                                id: accountKey
 
-                                TypedText {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    target: root.accountWord
-                                    color: KodosiTheme.mix(Identity.kindTint(root.agentId), "#ffffff", 0.35)
-                                    font: root.commandFont
+                                visible: root.info !== null && root.info.installed && (root.info.accounts.length > 1 || root.info.addsAccounts)
+                                title: root.accountTitle(root.account)
+                                open: root.menuKind === "account"
+                                objectName: "launcher.account"
+                                Accessible.id: objectName
+                                Accessible.name: qsTr("Account")
+                                ToolTip.visible: hovered && !open && !!root.account && !!root.account.identity
+                                ToolTip.text: root.account ? root.account.identity || "" : ""
+                                ToolTip.delay: 600
+                                glyph: AccountMark {
+                                    size: 16
+                                    initial: accountKey.title.charAt(0)
+                                    key: root.account ? root.account.folder || root.account.command : ""
+                                    signedIn: !!root.account && !!root.account.identity
                                 }
-                                TypedText {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    target: [root.modelArgument, root.effortArgument].filter(word => word.length > 0).map(word => " " + word).join("")
-                                    color: KodosiTheme.terminalInkMuted
-                                    font: root.commandFont
+                                onClicked: root.toggleMenu("account")
+                            }
+                            PickerKey {
+                                id: modelKey
+
+                                visible: root.info !== null && root.info.installed && (root.listsModels || root.efforts.length > 0)
+                                title: root.modelTitle.length > 0 ? root.modelTitle : qsTr("Model")
+                                quiet: root.modelTitle.length === 0
+                                loading: !root.modelSet && root.loadingModels
+                                open: root.menuKind === "model"
+                                objectName: "launcher.model"
+                                Accessible.id: objectName
+                                Accessible.name: qsTr("Model and effort")
+                                glyph: KIcon { width: 11; height: 11; name: "sparkle"; filled: true; strokeWidth: 1; color: Identity.kindTint(root.agentId) }
+                                accessory: EffortBars {
+                                    visible: root.effortLevel >= 0
+                                    level: root.effortLevel
+                                    count: root.efforts.length
+                                    barHeight: 10
+                                    lit: KodosiTheme.terminalAccent
+                                    unlit: KodosiTheme.alpha(KodosiTheme.terminalInk, 0.2)
                                 }
+                                onClicked: root.toggleMenu("model")
                             }
                             TypedText {
                                 visible: root.info !== null && !root.info.installed
@@ -706,7 +741,7 @@ ColumnLayout {
                             y: commandLine.inline ? commandLine.rowTop : keys.height + 6
                             width: commandLine.inline ? commandLine.width - commandLine.rowEnd : commandLine.width
                             ghost: root.ghost
-                            suggestion: root.suggestion
+                            hint: root.hint
                             objectName: "launcher.prompt"
                             Accessible.id: objectName
                             Accessible.name: root.info ? qsTr("First prompt") : qsTr("Command")
@@ -715,87 +750,6 @@ ColumnLayout {
                                 if (length <= 1)
                                     root.typeHints()
                             }
-                        }
-                    }
-                }
-                Rectangle {
-                    id: deck
-
-                    y: band.height + preview.bodyHeight
-                    width: parent.width
-                    height: Math.max(54, deckKeys.implicitHeight + 20)
-                    color: KodosiTheme.raised
-                    bottomLeftRadius: KodosiTheme.radiusLg
-                    bottomRightRadius: KodosiTheme.radiusLg
-                    objectName: "launcher.deck"
-                    Accessible.role: Accessible.Grouping
-                    Accessible.id: objectName
-
-                    Rectangle {
-                        width: parent.width
-                        height: 1
-                        color: Qt.rgba(1, 1, 1, KodosiTheme.isDark ? 0.06 : 0.8)
-                    }
-                    Flow {
-                        id: deckKeys
-
-                        x: 12
-                        y: 10
-                        width: parent.width - 24
-                        spacing: 8
-                        opacity: root.opened ? 1 : 0
-                        visible: opacity > 0
-
-                        Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionSoft } }
-
-                        PickerKey {
-                            id: folderKey
-
-                            title: root.folderTitle
-                            open: root.menuKind === "folder"
-                            objectName: "launcher.folder"
-                            Accessible.id: objectName
-                            Accessible.name: qsTr("Folder")
-                            ToolTip.visible: hovered && !open
-                            ToolTip.text: root.tilde(root.directory)
-                            ToolTip.delay: 600
-                            glyph: KIcon { width: 14; height: 14; name: "folder"; filled: true; strokeWidth: 1.2; color: "#4f9bb0" }
-                            onClicked: root.toggleMenu("folder")
-                        }
-                        PickerKey {
-                            id: accountKey
-
-                            visible: root.info !== null && root.info.installed && (root.info.accounts.length > 1 || root.info.addsAccounts)
-                            title: root.accountTitle(root.account)
-                            open: root.menuKind === "account"
-                            objectName: "launcher.account"
-                            Accessible.id: objectName
-                            Accessible.name: qsTr("Account")
-                            ToolTip.visible: hovered && !open && !!root.account && !!root.account.identity
-                            ToolTip.text: root.account ? root.account.identity || "" : ""
-                            ToolTip.delay: 600
-                            glyph: AccountMark {
-                                size: 18
-                                initial: accountKey.title.charAt(0)
-                                key: root.account ? root.account.folder || root.account.command : ""
-                                signedIn: !!root.account && !!root.account.identity
-                            }
-                            onClicked: root.toggleMenu("account")
-                        }
-                        PickerKey {
-                            id: modelKey
-
-                            visible: root.info !== null && root.info.installed && (root.listsModels || root.efforts.length > 0)
-                            title: root.modelTitle.length > 0 ? root.modelTitle : qsTr("Model")
-                            quiet: root.modelTitle.length === 0
-                            loading: !root.modelSet && root.loadingModels
-                            open: root.menuKind === "model"
-                            objectName: "launcher.model"
-                            Accessible.id: objectName
-                            Accessible.name: qsTr("Model and effort")
-                            glyph: KIcon { width: 12; height: 12; name: "sparkle"; filled: true; strokeWidth: 1; color: Identity.kindTint(root.agentId) }
-                            accessory: EffortBars { visible: root.effortLevel >= 0; level: root.effortLevel; count: root.efforts.length }
-                            onClicked: root.toggleMenu("model")
                         }
                     }
                 }
