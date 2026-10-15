@@ -36,13 +36,6 @@ private func copyTerminalAction(_ action: ghostty_action_s) -> TerminalActionSna
         .render
     case GHOSTTY_ACTION_CONFIG_CHANGE:
         .configChange
-    case GHOSTTY_ACTION_COMMAND_FINISHED:
-        .commandFinished(
-            exitCode: action.action.command_finished.exit_code < 0
-                ? nil
-                : Int(action.action.command_finished.exit_code),
-            durationNanos: action.action.command_finished.duration
-        )
     case GHOSTTY_ACTION_OPEN_URL:
         .openURL(
             kind: TerminalOpenURLKind(action.action.open_url.kind),
@@ -56,8 +49,6 @@ private func copyTerminalAction(_ action: ghostty_action_s) -> TerminalActionSna
             action.action.mouse_over_link.url,
             length: action.action.mouse_over_link.len
         ))
-    case GHOSTTY_ACTION_PWD:
-        .pwd(action.action.pwd.pwd.map(String.init(cString:)) ?? "")
     case GHOSTTY_ACTION_SELECTION_CHANGED:
         .selectionChanged
     default:
@@ -104,19 +95,6 @@ private enum TerminalCallbacks {
         }
 
         return false
-    }
-
-    static func closeSurface(
-        userdata: UnsafeMutableRawPointer?,
-        processAlive: Bool
-    ) {
-        guard let userdata else { return }
-        let bridge = Unmanaged<TerminalCallbackBridge>
-            .fromOpaque(userdata)
-            .takeUnretainedValue()
-        terminalRunOnMain {
-            bridge.handleClose(processAlive: processAlive)
-        }
     }
 
     static func writeClipboard(
@@ -286,10 +264,10 @@ func terminalControllerActionCallback(
 }
 
 func terminalControllerCloseSurfaceCallback(
-    userdata: UnsafeMutableRawPointer?,
+    userdata _: UnsafeMutableRawPointer?,
     processAlive: Bool
 ) {
-    TerminalCallbacks.closeSurface(userdata: userdata, processAlive: processAlive)
+    TerminalDebugLog.log(.lifecycle, "callback close processAlive=\(processAlive)")
 }
 
 func terminalControllerWriteClipboardCallback(

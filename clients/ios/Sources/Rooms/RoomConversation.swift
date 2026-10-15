@@ -100,7 +100,7 @@ struct RoomConversation: View {
         }
         .overlay {
             if messages.isEmpty {
-                RoomWelcome(roomId: roomId)
+                welcome(state: state)
             }
         }
         .overlay(alignment: .bottom) {
@@ -110,6 +110,30 @@ struct RoomConversation: View {
         }
         .animation(theme.motion.spring, value: state.followsLatest)
         .animation(theme.motion.snappy, value: unread)
+    }
+
+    private func welcome(state: RoomViewState) -> some View {
+        var steps: [RoomWelcome.Step] = []
+        if rooms.isOwner(of: roomId) {
+            steps.append(RoomWelcome.Step(
+                title: "Invite people", symbol: "person.badge.plus", tint: TileTint.blue,
+                done: (rooms.details[roomId]?.members.count ?? 0) > 1
+            ) { state.showsInfo = true })
+        }
+        steps.append(RoomWelcome.Step(
+            title: "Add a terminal", symbol: "apple.terminal", tint: TileTint.graphite,
+            done: model.terminals.sessions.contains { $0.missionId == roomId }
+        ) { show(.terminals, in: state) })
+        steps.append(RoomWelcome.Step(
+            title: "Put up a task", symbol: "checklist", tint: TileTint.orange,
+            done: !(rooms.snapshots[roomId]?.tasks.isEmpty ?? true)
+        ) { show(.tasks, in: state) })
+        return RoomWelcome(name: rooms.mission(roomId)?.name ?? "", key: roomId, steps: steps)
+    }
+
+    private func show(_ section: RoomSection, in state: RoomViewState) {
+        state.section = section
+        state.canvas = section
     }
 
     private func earlier(before first: RoomMessage, state: RoomViewState) -> some View {
@@ -140,75 +164,5 @@ struct RoomConversation: View {
         .padding(.bottom, 10)
         .transition(.move(edge: .bottom).combined(with: .opacity))
         .accessibilityIdentifier("rooms.messages.latest")
-    }
-}
-
-private struct RoomWelcome: View {
-    @Environment(AppModel.self) private var model
-    @Environment(\.theme) private var theme
-    let roomId: String
-
-    var body: some View {
-        let rooms = model.rooms
-        let state = rooms.view(roomId)
-        let name = rooms.mission(roomId)?.name ?? ""
-        let people = rooms.details[roomId]?.members.count ?? 0
-        let terminals = model.terminals.sessions.contains { $0.missionId == roomId }
-        let tasks = !(rooms.snapshots[roomId]?.tasks.isEmpty ?? true)
-        VStack(spacing: 18) {
-            RoomSigil(name: name, key: roomId, size: 56).arrive()
-            VStack(spacing: 4) {
-                Text("This is \(name)")
-                    .appTextStyle(.headline)
-                    .foregroundStyle(theme.colors.ink)
-                    .multilineTextAlignment(.center)
-                Text("Say hello, or start with one of these.")
-                    .appTextStyle(.footnote)
-                    .foregroundStyle(theme.colors.inkMuted)
-                    .multilineTextAlignment(.center)
-            }
-            .arrive(delay: 0.04)
-            VStack(spacing: 8) {
-                if rooms.isOwner(of: roomId) {
-                    step("Invite people", symbol: "person.badge.plus", tint: TileTint.blue, done: people > 1) {
-                        state.showsInfo = true
-                    }
-                }
-                step("Add a terminal", symbol: "apple.terminal", tint: TileTint.graphite, done: terminals) {
-                    show(.terminals, in: state)
-                }
-                step("Put up a task", symbol: "checklist", tint: TileTint.orange, done: tasks) {
-                    show(.tasks, in: state)
-                }
-            }
-            .arrive(delay: 0.08)
-        }
-        .padding(20)
-        .frame(maxWidth: 340)
-    }
-
-    private func show(_ section: RoomSection, in state: RoomViewState) {
-        state.section = section
-        state.canvas = section
-    }
-
-    private func step(_ title: LocalizedStringKey, symbol: String, tint: Color, done: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                IconTile(symbol: symbol, tint: tint, size: 30)
-                Text(title)
-                    .appTextStyle(.body)
-                    .foregroundStyle(done ? theme.colors.inkMuted : theme.colors.ink)
-                Spacer(minLength: 4)
-                Image(systemName: done ? "checkmark.circle.fill" : "chevron.right")
-                    .font(.system(size: done ? 17 : 12, weight: .semibold))
-                    .foregroundStyle(done ? theme.colors.ready : theme.colors.inkFaint)
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .padding(.horizontal, 12)
-            .frame(minHeight: 50)
-            .raised(Radius.lg, fill: theme.colors.lifted)
-        }
-        .buttonStyle(PressScaleStyle(scale: 0.98))
     }
 }

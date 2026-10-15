@@ -1,22 +1,18 @@
 ## Problem
 
-<!-- What was wrong or missing, for a person or an agent that uses Kodosi. Link the issue if there is one. -->
+<!-- What was wrong or missing. Link the issue. -->
 
 ## Result
 
-<!-- The behavior after this change. For an interface change, add a picture or a recording with sample data. -->
+<!-- The behavior now. Add a picture or recording for interface changes. -->
 
 ## Verification
 
-<!-- The checks that you ran from the justfile, and the real workflow that you tried with isolated test data. -->
+<!-- The justfile checks you ran and the workflow you tried with isolated data. -->
 
 ## Limits
 
-<!-- What this change does not do, or what stays open. Write "None" if there is nothing. -->
+<!-- What stays open, or "None". -->
 
----
-
-- [ ] The change is focused; unrelated changes are in a different pull request.
-- [ ] The related guide or product page is updated if behavior changed.
-- [ ] Generated contracts and native pins are aligned, if I changed them.
-- [ ] No credentials, signing keys, private terminal content, or personal configuration are in the change.
+- [ ] Contracts and Ghostty pins are aligned, if changed.
+- [ ] No credentials, keys, private terminal content or personal configuration.

@@ -1,15 +1,11 @@
 **/.tools/
 **/target/
-/build/
 *.profraw
 *.profdata
-*.hangdump
-hang-dump-*.dmp
 
 backend/**/bin/
 backend/**/obj/
 backend/**/TestResults/
-backend/packages/
 *.user
 *.suo
 *.userosscache
@@ -25,11 +21,8 @@ Thumbs.db
 *~
 __pycache__/
 *.pyc
-/aqtinstall.log
 .env
 .env.*
-!.env.example
-!.env.*.example
 *.key
 *.pem
 *.p12
@@ -37,7 +30,7 @@ __pycache__/
 *.mobileprovision
 *.log
 .mcp.json
-.claude/worktrees/
-.claude/settings.local.json
+**/.claude/worktrees/
+**/.claude/settings.local.json
 .copilot-research*/
 .github/copilot/

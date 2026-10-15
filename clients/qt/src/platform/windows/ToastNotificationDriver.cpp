@@ -29,11 +29,6 @@ winrt::hstring tag(const QString& key)
     return wide(QString::fromLatin1(QCryptographicHash::hash(key.toUtf8(), QCryptographicHash::Sha256).toHex().left(32)));
 }
 
-QString message(const winrt::hresult_error& error)
-{
-    return QString::fromWCharArray(error.message().c_str());
-}
-
 XmlDocument content(const DesktopNotification& notification)
 {
     XmlDocument xml;
@@ -86,7 +81,6 @@ ToastNotificationDriver::~ToastNotificationDriver()
 void ToastNotificationDriver::post(const DesktopNotification& notification)
 {
     if (!notification.valid()) {
-        emit deliveryError(notification.key, tr("Desktop notification data was invalid and was not sent."));
         emit notificationClosed(notification.key);
         return;
     }
@@ -99,15 +93,11 @@ void ToastNotificationDriver::post(const DesktopNotification& notification)
             if (args.Reason() == notifications::ToastDismissalReason::UserCanceled)
                 relay->post([key](ToastNotificationDriver& driver) { emit driver.notificationClosed(key); });
         });
-        toast.Failed([relay = m_relay, key](const auto&, const notifications::ToastFailedEventArgs& args) {
-            relay->post([key, text = message(winrt::hresult_error(args.ErrorCode()))](ToastNotificationDriver& driver) {
-                emit driver.deliveryError(key, text);
-                emit driver.notificationClosed(key);
-            });
+        toast.Failed([relay = m_relay, key](const auto&, const auto&) {
+            relay->post([key](ToastNotificationDriver& driver) { emit driver.notificationClosed(key); });
         });
         notifications::ToastNotificationManager::CreateToastNotifier().Show(toast);
-    } catch (const winrt::hresult_error& error) {
-        emit deliveryError(key, tr("Desktop notification failed: %1").arg(message(error)));
+    } catch (const winrt::hresult_error&) {
         emit notificationClosed(key);
     }
 }

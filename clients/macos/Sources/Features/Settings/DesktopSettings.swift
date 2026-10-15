@@ -55,24 +55,15 @@ final class DesktopSettings {
         }
     }
 
-    var fontFamily: String = TerminalDefaults.fontFamily
-    var cursorStyle: CursorStyle = .block
-    var fontSize: Int = TerminalDefaults.fontSize
-    var lineHeight: Double = TerminalDefaults.lineHeight
-    var scrollbackLines: Int = TerminalDefaults.scrollbackLines
-    var cursorBlink: Bool = false
-
+    private(set) var terminalSettings = TerminalSettings.defaults
     var lastWorkingDir: String?
     var branchFolder: String?
     var startCommands: [StartCommand] = []
     var launchChoice = LaunchChoice()
     private var learnedAgents: Set<String> = []
 
-    enum CursorStyle: String, CaseIterable, Codable, Identifiable {
+    enum CursorStyle: String, CaseIterable, Codable {
         case block, bar, underline
-        var id: String {
-            rawValue
-        }
 
         var label: String {
             rawValue.capitalized
@@ -84,43 +75,16 @@ final class DesktopSettings {
         load()
     }
 
-    var terminalSettings: TerminalSettings {
-        TerminalSettings(
-            fontFamily: fontFamily,
-            cursorStyle: cursorStyle,
-            fontSize: fontSize,
-            lineHeight: lineHeight,
-            scrollbackLines: scrollbackLines,
-            cursorBlink: cursorBlink
-        )
-    }
-
-    private func applyTerminalSettingsInMemory(_ settings: TerminalSettings) {
-        fontFamily = settings.fontFamily
-        cursorStyle = settings.cursorStyle
-        fontSize = settings.fontSize
-        lineHeight = settings.lineHeight
-        scrollbackLines = settings.scrollbackLines
-        cursorBlink = settings.cursorBlink
-    }
-
-    @discardableResult
     func commitTerminalSettings(_ candidate: TerminalSettings) -> TerminalSettings {
-        let committed = candidate.normalized()
-        applyTerminalSettingsInMemory(committed)
-        persistTerminalSettings(committed)
-        return committed
-    }
-
-    private func persistTerminalSettings(_ settings: TerminalSettings) {
-        guard let data = try? JSONEncoder().encode(settings) else { return }
-        defaults.set(data, forKey: Self.terminalSettingsKey)
+        terminalSettings = candidate.normalized()
+        defaults.set(try? JSONEncoder().encode(terminalSettings), forKey: Self.terminalSettingsKey)
+        return terminalSettings
     }
 
     func learn(_ agent: AgentKind) {
         guard agent.isAgent, learnedAgents.insert(agent.rawValue).inserted else { return }
         if !startCommands.contains(where: { $0.agent == agent }) {
-            startCommands.append(StartCommand(name: agent.label, command: agent == .cursor ? "cursor-agent" : agent.rawValue))
+            startCommands.append(StartCommand(name: agent.label, command: agent.executable))
         }
         saveStartCommands()
     }
@@ -135,7 +99,6 @@ final class DesktopSettings {
     }
 
     func save() {
-        _ = commitTerminalSettings(terminalSettings)
         let d = defaults
         if let dir = lastWorkingDir {
             d.set(dir, forKey: "session.lastWorkingDir")
@@ -149,31 +112,14 @@ final class DesktopSettings {
         }
     }
 
-    func load() {
+    private func load() {
         let d = defaults
-        loadTerminalSettings(from: d)
+        terminalSettings = (d.data(forKey: Self.terminalSettingsKey)
+            .flatMap { try? JSONDecoder().decode(TerminalSettings.self, from: $0) } ?? .defaults).normalized()
         lastWorkingDir = d.string(forKey: "session.lastWorkingDir")
         branchFolder = d.string(forKey: "session.branchFolder")
         startCommands = d.data(forKey: "agents.startCommands").flatMap { try? JSONDecoder().decode([StartCommand].self, from: $0) } ?? []
         learnedAgents = Set(d.stringArray(forKey: "agents.learned") ?? [])
         launchChoice = d.data(forKey: "launcher.choice").flatMap { try? JSONDecoder().decode(LaunchChoice.self, from: $0) } ?? LaunchChoice()
-        clampValues()
-    }
-
-    private func loadTerminalSettings(from defaults: UserDefaults) {
-        let value = defaults.data(forKey: Self.terminalSettingsKey)
-            .flatMap { try? JSONDecoder().decode(TerminalSettings.self, from: $0) }
-            ?? .defaults
-        applyTerminalSettingsInMemory(value.normalized())
-    }
-
-    func clampValues() {
-        let normalized = terminalSettings.normalized()
-        fontFamily = normalized.fontFamily
-        cursorStyle = normalized.cursorStyle
-        fontSize = normalized.fontSize
-        lineHeight = normalized.lineHeight
-        scrollbackLines = normalized.scrollbackLines
-        cursorBlink = normalized.cursorBlink
     }
 }

@@ -26,7 +26,7 @@ version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
     "$scratch/volume/Kodosi.app/Contents/Info.plist")
 hdiutil detach -quiet "$scratch/volume"
 mkdir -p "$(dirname "$output")"
-# The cask has no zap stanza, so an uninstall keeps the device enrollment in ~/.kodosi.
+# No zap stanza: an uninstall keeps the Kodosi data and the device identity of this Mac.
 cat >"$output" <<RUBY
 cask "kodosi" do
   version "$version"

@@ -8,7 +8,7 @@ Item {
     property bool unseen: false
     property real size: 14
     property color backing: "transparent"
-    readonly property string form: session && session.sign ? (session.sign === "hand" || session.sign === "question" || session.sign === "key" || unseen ? session.sign : "")
+    readonly property string form: session && session.sign ? (session.asks || unseen ? session.sign : "")
         : unseen ? "changed" : ""
     readonly property color tint: form === "done" ? KodosiTheme.ready : form === "failed" ? KodosiTheme.caution : KodosiTheme.accent
     readonly property string label: form === "changed" ? qsTr("New activity") : form.length > 0 && session ? session.signLabel || "" : ""

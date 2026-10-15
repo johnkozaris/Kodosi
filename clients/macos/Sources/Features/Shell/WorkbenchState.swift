@@ -5,29 +5,8 @@ import Observation
 @MainActor
 @Observable
 final class WorkbenchState {
-    enum Section: String, CaseIterable, Identifiable {
+    enum Section {
         case sessions, missions, people, settings
-        var id: String {
-            rawValue
-        }
-
-        var label: String {
-            switch self {
-            case .sessions: String(localized: "Terminals")
-            case .missions: String(localized: "Rooms")
-            case .people: String(localized: "People")
-            case .settings: String(localized: "Settings")
-            }
-        }
-
-        var symbol: String {
-            switch self {
-            case .sessions: "terminal"
-            case .missions: "square.stack"
-            case .people: "person.2"
-            case .settings: "gearshape"
-            }
-        }
     }
 
     enum SettingsSection: String { case terminal, providers, devices, general }

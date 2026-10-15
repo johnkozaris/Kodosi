@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Packs an installed Windows layout into an MSIX. makepri indexes the scaled
-# and unplated logo variants; makeappx validates the manifest and packs.
-# Run after kodosi_windows_env, which puts the Windows SDK tools on PATH.
 
 set -euo pipefail
 

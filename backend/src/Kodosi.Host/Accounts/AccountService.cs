@@ -1,6 +1,5 @@
 using Kodosi.Admission;
 using Kodosi.Data;
-using Kodosi.Devices;
 using Kodosi.Security;
 using Kodosi.TerminalConnections;
 using Microsoft.EntityFrameworkCore;
@@ -14,8 +13,7 @@ public sealed class AccountService(KodosiDbContext db, ConnectionDirectory conne
     public async Task DeleteSignedInAsync(User user, DateTimeOffset? authenticatedAt, CancellationToken ct)
     {
         var now = clock.GetUtcNow();
-        if (authenticatedAt is null || authenticatedAt > now.AddMinutes(5) || now - authenticatedAt > DeviceService.ReauthenticationWindow)
-            throw ApiException.Forbidden("Sign in again to delete your account.");
+        CurrentUser.RequireRecentSignIn(authenticatedAt, now, "Sign in again to delete your account.");
         await DeleteAsync(user, now, ct);
     }
 

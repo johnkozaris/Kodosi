@@ -9,15 +9,12 @@ import { CodeTiles } from "../../parts/code";
 import { Go, PasswordRow, SwitchRow, TextRow } from "../../parts/rows";
 import { Note, QuietLink, Way } from "../../parts/text";
 import { heldCode } from "../device";
-import { type I18n, isMessage } from "../i18n";
+import { type I18n, isMessage, nameLabel } from "../i18n";
 import { Stage } from "../stage";
 import { keepWay, lastWay } from "../ways";
+import { PASSKEY_BUTTON, PasskeyForms } from "./passkey";
 import type { Page } from "./props";
 
-/** Keycloak's passkey script finds this button by its name. */
-const PASSKEY_BUTTON = "authenticateWebAuthnButton";
-/** Keycloak's sentences for a passkey that did not answer or did not fit: a person who closed the
-    passkey box of the browser gets the first. */
 const PASSKEY_PROBLEMS = [
   "webauthn-error-api-get",
   "webauthn-error-auth-verification",
@@ -25,7 +22,6 @@ const PASSKEY_PROBLEMS = [
   "webauthn-error-user-not-found",
 ];
 
-/** What Keycloak said about the passkey, when it said something about it. */
 function passkeyProblem(
   kcContext: { message?: { summary: string; type: string } | undefined },
   i18n: I18n,
@@ -37,20 +33,8 @@ function passkeyProblem(
     : undefined;
 }
 
-function nameLabel(
-  i18n: I18n,
-  realm: { loginWithEmailAllowed: boolean; registrationEmailAsUsername: boolean },
-) {
-  if (!realm.loginWithEmailAllowed) return i18n.msgStr("kdsUsername");
-  return i18n.msgStr(realm.registrationEmailAsUsername ? "kdsEmail" : "kdsUsernameOrEmail");
-}
-
 type Provider = { alias: string; loginUrl: string; displayName: string; providerId?: string };
 
-/**
- * Under the capsule: the forgotten password, a passkey, the sign-in services of other companies,
- * and the way to a new account. The service that this browser used the last time comes first.
- */
 function OtherWays({
   i18n,
   forgot,
@@ -63,7 +47,6 @@ function OtherWays({
   i18n: I18n;
   forgot?: string | undefined;
   passkey: boolean;
-  /** What went wrong with the passkey: it shows under the passkey's button. */
   problem?: string | undefined;
   providers?: Provider[] | undefined;
   register?: string | undefined;
@@ -120,29 +103,6 @@ function OtherWays({
   );
 }
 
-/** The forms that Keycloak's passkey script fills and sends. */
-function PasskeyForms({ action, known }: { action: string; known?: string[] | undefined }) {
-  return (
-    <>
-      <form id="webauth" action={action} method="post" hidden>
-        <input type="hidden" id="clientDataJSON" name="clientDataJSON" />
-        <input type="hidden" id="authenticatorData" name="authenticatorData" />
-        <input type="hidden" id="signature" name="signature" />
-        <input type="hidden" id="credentialId" name="credentialId" />
-        <input type="hidden" id="userHandle" name="userHandle" />
-        <input type="hidden" id="error" name="error" />
-      </form>
-      {!!known?.length && (
-        <form id="authn_select" hidden>
-          {known.map((id) => (
-            <input key={id} type="hidden" name="authn_use_chk" readOnly value={id} />
-          ))}
-        </form>
-      )}
-    </>
-  );
-}
-
 function Frame({
   kcContext,
   i18n,
@@ -157,9 +117,8 @@ function Frame({
   children: ReactNode;
 }) {
   const { msgStr } = i18n;
-  // The code shows on the sign-in of the app that has it: the same browser tab can sign in to
-  // the account page a moment later.
   const client = kcContext.client as typeof kcContext.client | undefined;
+  // Only the sign-in of the app shows its code: the same tab can sign in to the account page later.
   const app = client?.attributes["oauth2.device.authorization.grant.enabled"] === "true";
   const code = app ? heldCode() : null;
   return (
@@ -167,11 +126,9 @@ function Frame({
       kcContext={kcContext}
       i18n={i18n}
       title={msgStr("kdsSignIn")}
-      // The person came from the Kodosi app: the page shows the code that the app shows.
       lead={code && <CodeTiles small code={code} label={msgStr("kdsCodeFromApp")} />}
       wrong={wrong}
       problem={problem}
-      // A problem of the passkey is under the passkey's button, not under the capsule.
       quiet={wrong || !!passkeyProblem(kcContext, i18n)}
       below={below}
     >
@@ -180,7 +137,6 @@ function Frame({
   );
 }
 
-/** The name and the password in one capsule. */
 export function Login({ kcContext, i18n }: Page<"login.ftl">) {
   const { realm, url, login, usernameHidden, auth, messagesPerField, social } = kcContext;
   const { msgStr } = i18n;
@@ -271,7 +227,6 @@ export function Login({ kcContext, i18n }: Page<"login.ftl">) {
   );
 }
 
-/** The name first: Keycloak then knows which ways of sign-in the person has. */
 export function LoginUsername({ kcContext, i18n }: Page<"login-username.ftl">) {
   const { realm, url, login, usernameHidden, messagesPerField, social } = kcContext;
   const { msgStr } = i18n;
@@ -343,7 +298,6 @@ export function LoginUsername({ kcContext, i18n }: Page<"login-username.ftl">) {
   );
 }
 
-/** The password of the person whom the page names. */
 export function LoginPassword({ kcContext, i18n }: Page<"login-password.ftl">) {
   const { realm, url, messagesPerField } = kcContext;
   const { msgStr } = i18n;

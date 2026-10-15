@@ -86,7 +86,7 @@ struct RoomHeader: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            RoomSigil(name: detail.mission.name, key: roomId, size: 30)
+            RoomSigil(key: roomId, size: 30)
             VStack(alignment: .leading, spacing: 1) {
                 if state.renaming {
                     TextField("Room name", text: $name)
@@ -114,7 +114,7 @@ struct RoomHeader: View {
             }
             Button { state.peopleVisible.toggle() } label: {
                 AvatarStack(people: detail.members.map { member in
-                    AvatarStack.Person(id: member.userId, name: member.displayName.isEmpty ? member.handle : member.displayName,
+                    AvatarStack.Person(id: member.userId, name: member.personName,
                                        isSelf: member.userId == deps.userId)
                 }, size: 24, limit: 4, ring: theme.colors.surface)
             }
@@ -248,7 +248,7 @@ struct RoomPeoplePopover: View {
                         }.buttonStyle(.plain)
                     }
                     ForEach(candidates) { friend in
-                        let name = friend.displayName.isEmpty ? friend.handle : friend.displayName
+                        let name = friend.personName
                         let sent = invited.contains(friend.userId)
                         HStack(spacing: 10) {
                             PersonAvatar(name: name, key: friend.userId, size: 26)
@@ -269,7 +269,7 @@ struct RoomPeoplePopover: View {
     }
 
     private func memberRow(_ member: MissionMemberEntry) -> some View {
-        let name = member.displayName.isEmpty ? member.handle : member.displayName
+        let name = member.personName
         return HStack(spacing: 10) {
             PersonAvatar(name: name, key: member.userId, size: 26, isSelf: member.userId == deps.userId)
             VStack(alignment: .leading, spacing: 0) {

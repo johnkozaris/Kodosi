@@ -1,3 +1,4 @@
+import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
@@ -16,17 +17,10 @@ struct SignInSheet: View {
                 Spacer()
                 IconButton(title: "Close", symbol: "xmark", identifier: "signIn.close") { deps.dismissSignIn() }
             }
-            HStack(spacing: 0) {
-                node("person.fill", label: "You", reached: steps >= 1, active: steps == 0 && deps.signInStage.isPending)
-                line(0)
-                node("lock.shield.fill", label: "Kodosi", reached: steps >= 2, active: steps == 1)
-                line(1)
-                node(deps.accountReady ? "checkmark" : "laptopcomputer", label: "This Mac", reached: steps >= 3, active: steps == 2)
-            }
-            .padding(.horizontal, 18)
-            .animation(theme.motion.spring, value: steps)
-            .accessibilityElement(children: .ignore).accessibilityLabel(Text("Sign-in progress"))
-            .accessibilityValue(Text("\(steps) of 3 steps complete"))
+            SignInTrack(
+                completed: steps, working: deps.signInStage.isPending,
+                device: String(localized: "This Mac"), symbol: "laptopcomputer"
+            )
             Group {
                 switch deps.signInStage {
                 case let .awaitingApproval(code, url):
@@ -71,37 +65,5 @@ struct SignInSheet: View {
         }
         .padding(24).frame(width: 460)
         .animation(theme.motion.spring, value: deps.signInStage)
-        .onChange(of: steps) { _, steps in
-            AccessibilityNotification.Announcement(String(localized: "Sign-in step \(steps) complete")).post()
-        }
-    }
-
-    private func node(_ symbol: String, label: LocalizedStringKey, reached: Bool, active: Bool) -> some View {
-        VStack(spacing: 8) {
-            Image(systemName: symbol).font(.system(size: 18, weight: .semibold))
-                .contentTransition(.symbolEffect(.replace))
-                .foregroundStyle(reached ? theme.colors.onAccent : theme.colors.inkFaint)
-                .frame(width: 48, height: 48)
-                .background {
-                    if reached {
-                        RaisedBackground(shape: Circle(), fill: theme.colors.accent, elevation: .resting)
-                    } else {
-                        WellBackground(shape: Circle())
-                    }
-                }
-                .overlay {
-                    if active {
-                        CellRim(.working, lineWidth: 2.5).padding(-6).transition(.opacity)
-                    }
-                }
-            Text(label).appTextStyle(.caption).foregroundStyle(reached || active ? theme.colors.ink : theme.colors.inkFaint)
-        }
-        .frame(width: 70)
-    }
-
-    /// The line after step `index`: it runs while the next step works, and it is lit once that step is done.
-    private func line(_ index: Int) -> some View {
-        CellLine(steps >= index + 2 ? .done : steps == index + 1 ? .flowing : .waiting)
-            .padding(.bottom, 24).padding(.horizontal, -6)
     }
 }

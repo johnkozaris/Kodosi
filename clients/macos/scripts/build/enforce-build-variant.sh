@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MARKER_KEY=KodosiNonPublishableBuild
 MARKER_VALUE=working-tree-validation
 

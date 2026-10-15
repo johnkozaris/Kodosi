@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import re
 import subprocess
+import sys
 import tarfile
 from datetime import date
 from pathlib import Path, PurePosixPath
+
+sys.dont_write_bytecode = True
+
+import digest  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST_PATH = ROOT / "ThirdPartyNotices/inventory.json"
@@ -68,23 +72,17 @@ def load_json(relative: str) -> dict:
     return value
 
 
-def apple_slices() -> dict[str, dict]:
+def apple_slices() -> dict[str, bool]:
     options = load_metadata(NATIVE_BUILD)
     names = options.get("GHOSTTY_BUILD_APPLE_SLICES", "").split(",")
-    if MAC_SLICE not in names or "" in names or len(names) != len(set(names)):
-        fail(f"{NATIVE_BUILD} must list each Apple slice once, with {MAC_SLICE}")
-    slices: dict[str, dict] = {}
+    if MAC_SLICE not in names:
+        fail(f"{NATIVE_BUILD} has no {MAC_SLICE} slice")
+    slices: dict[str, bool] = {}
     for name in names:
-        platform, _, rest = name.partition("-")
-        architecture, _, variant = rest.partition("-")
-        i18n = options.get(f"GHOSTTY_BUILD_{platform.upper()}_I18N")
-        if architecture != "arm64" or variant not in {"", "simulator"} or i18n not in {"true", "false"}:
-            fail(f"{NATIVE_BUILD} has no complete build values for the Apple slice {name}")
-        slices[name] = {
-            "platform": platform,
-            "variant": variant or None,
-            "i18n": i18n == "true",
-        }
+        i18n = options.get(f"GHOSTTY_BUILD_{name.partition('-')[0].upper()}_I18N")
+        if i18n not in {"true", "false"}:
+            fail(f"{NATIVE_BUILD} has no i18n value for the Apple slice {name}")
+        slices[name] = i18n == "true"
     return slices
 
 
@@ -132,7 +130,7 @@ def verify_compliance_artifacts(manifest: dict, working_tree: bool) -> None:
         path = safe_file(relative)
         if not working_tree:
             require_git_owned(relative)
-        if hashlib.sha256(path.read_bytes()).hexdigest() != record["sha256"]:
+        if digest.file_sha256(path) != record["sha256"]:
             fail(f"compliance artifact changed without inventory update: {relative}")
     if not os.access(safe_file("scripts/relink-libintl.sh"), os.X_OK):
         fail("libintl relink helper must be executable")
@@ -157,7 +155,7 @@ def verify_compliance_artifacts(manifest: dict, working_tree: bool) -> None:
         path = source_root.joinpath(*relative.parts)
         if not path.is_file() or path.is_symlink():
             fail(f"missing libintl corresponding source: {relative}")
-        if hashlib.sha256(path.read_bytes()).hexdigest() != record["sha256"]:
+        if digest.file_sha256(path) != record["sha256"]:
             fail(f"libintl corresponding source changed: {relative}")
         expected_tar_members.add(f"{LIBINTL_SOURCE.name}/{relative.as_posix()}")
     expected_tar_members.add(f"{LIBINTL_SOURCE.name}/MANIFEST.json")
@@ -232,7 +230,7 @@ def verify_z2d_source_acquisition(manifest: dict) -> None:
     archive_bytes = archive_path.read_bytes()
     if len(archive_bytes) != record["byteSize"]:
         fail("z2d source archive size differs")
-    if hashlib.sha256(archive_bytes).hexdigest() != record["sha256"]:
+    if digest.bytes_sha256(archive_bytes) != record["sha256"]:
         fail("z2d source archive digest differs")
 
     top_level = f"z2d-{commit}"
@@ -271,9 +269,7 @@ def verify_z2d_source_acquisition(manifest: dict) -> None:
         (f"{top_level}/LICENSE", "ThirdPartyNotices/licenses/z2d-NOTICE.txt"),
         (f"{top_level}/COPYING", "ThirdPartyNotices/licenses/z2d-MPL-2.0.txt"),
     ):
-        if hashlib.sha256(regular_members[member]).hexdigest() != hashlib.sha256(
-            safe_file(notice).read_bytes()
-        ).hexdigest():
+        if regular_members[member] != safe_file(notice).read_bytes():
             fail(f"z2d archived license differs from tracked notice: {notice}")
 
 
@@ -299,8 +295,7 @@ def verify_notices(manifest: dict) -> None:
         expected_path = f"ThirdPartyNotices/licenses/{notice_id}"
         if record["path"] != expected_path:
             fail(f"notice path mismatch for {notice_id}")
-        digest = hashlib.sha256(safe_file(record["path"]).read_bytes()).hexdigest()
-        if digest != record["sha256"]:
+        if digest.file_sha256(safe_file(record["path"])) != record["sha256"]:
             fail(f"notice text changed without inventory update: {notice_id}")
 
 
@@ -365,7 +360,7 @@ def libintl_object_members() -> list[str]:
     ]
 
 
-def verify_archive(manifest: dict, component_ids: set[str], slices: dict[str, dict]) -> Path:
+def verify_archive(manifest: dict, component_ids: set[str], slices: dict[str, bool]) -> Path:
     archive_paths = manifest.get("archives")
     if archive_paths != [
         slice_archive(MAC_SLICE),
@@ -383,9 +378,6 @@ def verify_archive(manifest: dict, component_ids: set[str], slices: dict[str, di
     }
     if {path.resolve() for path in all_vendored_archives} != declared_archives:
         fail("vendored static archive set differs from the declared Apple slice images")
-    archs = run("lipo", "-archs", str(archives[0])).split()
-    if archs != ["arm64"]:
-        fail(f"combined archive architectures differ: {archs}")
 
     actual_members = run("ar", "-t", str(archives[0])).splitlines()
     member_records = manifest.get("archiveMembers")
@@ -481,12 +473,12 @@ def verify_evidence(
         fail(f"libintl version symbol is missing from the {label} archive")
 
 
-def verify_apple_slices(manifest: dict, slices: dict[str, dict]) -> None:
+def verify_apple_slices(manifest: dict, slices: dict[str, bool]) -> None:
     ios_slices = [slice_name for slice_name in slices if slice_name != MAC_SLICE]
     records = manifest.get("appleSlices")
     if not isinstance(records, dict) or set(records) != set(ios_slices):
         fail(f"Apple slice inventory differs from the slices in {NATIVE_BUILD}")
-    if not slices[MAC_SLICE]["i18n"]:
+    if not slices[MAC_SLICE]:
         fail(f"{MAC_SLICE} builds without i18n, but its notices include libintl")
     archive_component_ids = {
         component["id"] for component in manifest["components"] if component["scope"] == "archive"
@@ -505,7 +497,7 @@ def verify_apple_slices(manifest: dict, slices: dict[str, dict]) -> None:
             or "ghostty" in absent
         ):
             fail(f"{slice_name} absent component list is invalid")
-        if slices[slice_name]["i18n"] == ("gettext-libintl" in absent):
+        if slices[slice_name] == ("gettext-libintl" in absent):
             fail(f"{slice_name} i18n build option differs from its libintl notice")
         expected_members = [
             member["name"]
@@ -513,20 +505,16 @@ def verify_apple_slices(manifest: dict, slices: dict[str, dict]) -> None:
             if not member["owners"] or not set(member["owners"]) <= set(absent)
         ]
         archive = safe_file(record["archive"])
-        if run("lipo", "-archs", str(archive)).split() != ["arm64"]:
-            fail(f"{slice_name} archive architectures differ")
         if run("ar", "-t", str(archive)).splitlines() != expected_members:
             fail(f"{slice_name} archive member inventory differs from the declared members")
         verify_evidence(manifest, archive, frozenset(absent), slice_name)
 
 
-def verify_pins(manifest: dict, slices: dict[str, dict]) -> None:
+def verify_source_identity(manifest: dict) -> None:
     metadata = load_metadata()
     platform_ref = safe_file("MacOSGhostty.ref").read_text()
     if platform_ref != f"{manifest['ghosttyCommit']}\n":
         fail("MacOSGhostty.ref differs from the notice inventory")
-    if metadata.get("ghostty_commit") != manifest["ghosttyCommit"]:
-        fail("artifact Ghostty commit differs from inventory")
     ghostty = next(component for component in manifest["components"] if component["id"] == "ghostty")
     expected_ghostty_identity = (
         f"ghostty:{manifest['ghosttyCommit']};"
@@ -537,30 +525,6 @@ def verify_pins(manifest: dict, slices: dict[str, dict]) -> None:
         fail("Ghostty composite source and patch identity differs from artifact provenance")
     if metadata.get("zig_store_sha256") != manifest.get("zigStoreSha256"):
         fail("artifact Zig store identity differs from inventory")
-
-    info = run(
-        "plutil",
-        "-convert",
-        "json",
-        "-o",
-        "-",
-        "Vendor/GhosttyKit.xcframework/Info.plist",
-    )
-    available = json.loads(info).get("AvailableLibraries", [])
-    libraries = {
-        library.get("LibraryIdentifier"): (
-            library.get("SupportedPlatform"),
-            library.get("SupportedPlatformVariant"),
-            library.get("SupportedArchitectures"),
-        )
-        for library in available
-    }
-    expected_libraries = {
-        name: (values["platform"], values["variant"], ["arm64"])
-        for name, values in slices.items()
-    }
-    if len(available) != len(expected_libraries) or libraries != expected_libraries:
-        fail(f"XCFramework slices differ from the arm64 Apple slices in {NATIVE_BUILD}")
 
     package_manifest = safe_file("Package.swift").read_text()
     if re.search(r"\.package\s*\(", package_manifest):
@@ -591,7 +555,7 @@ def main() -> None:
     archive = verify_archive(manifest, component_ids, slices)
     verify_evidence(manifest, archive)
     verify_apple_slices(manifest, slices)
-    verify_pins(manifest, slices)
+    verify_source_identity(manifest)
     print(f"[*] verified notices for {len(component_ids)} bundled third-party/component identities")
 
 

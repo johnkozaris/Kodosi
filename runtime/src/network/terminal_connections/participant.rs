@@ -8,7 +8,6 @@ use super::{
 const ACKNOWLEDGE_BYTES: u64 = 4 * 1024;
 const ACKNOWLEDGE_DELAY: Duration = Duration::from_millis(100);
 const UNCONFIRMED_INPUT: u64 = 64 * 1024;
-const CONTROL_TIMEOUT: Duration = Duration::from_secs(12);
 const SILENCE: Duration = Duration::from_secs(45);
 
 struct Pending {
@@ -136,7 +135,6 @@ async fn open(
         }
         Some((Frame::Refuse(refuse), _)) => Err(match refuse.code.as_str() {
             "busy" => Error::Busy,
-            "gone" => Error::Stale,
             "access" => Error::Backend {
                 status: 403,
                 message: refuse.message,
@@ -424,7 +422,6 @@ impl<T: Transport> Viewer<T> {
                 self.update(RemoteUpdate::Checkpoint {
                     checkpoint,
                     next_sequence,
-                    fresh: true,
                 })
                 .await?;
             }
@@ -459,12 +456,9 @@ impl<T: Transport> Viewer<T> {
                     })
                     .await?;
             }
-            Frame::End(end) => {
+            Frame::End(_) => {
                 self.input_confirmed = self.input_sent;
-                self.update(RemoteUpdate::Ended {
-                    final_sequence: end.final_sequence,
-                })
-                .await?;
+                self.update(RemoteUpdate::Ended).await?;
                 return Err(Error::Closed);
             }
             Frame::InputAck { offset } => {

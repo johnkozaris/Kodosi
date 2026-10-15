@@ -1,32 +1,41 @@
-import KodosiDesign
 import SwiftUI
 
-struct SignInTrack: View {
+public struct SignInTrack: View {
     @Environment(\.theme) private var theme
     let completed: Int
+    let working: Bool
+    let device: String
+    let symbol: String
 
-    var body: some View {
+    public init(completed: Int, working: Bool, device: String, symbol: String) {
+        self.completed = completed
+        self.working = working
+        self.device = device
+        self.symbol = symbol
+    }
+
+    public var body: some View {
         HStack(spacing: 0) {
-            node(symbol: "person.fill", label: Text("You"), index: 0)
+            node(symbol: "person.fill", label: Text("You", bundle: .module), index: 0)
             line(0)
             node(symbol: "lock.shield.fill", label: Text(verbatim: "Kodosi"), index: 1)
             line(1)
-            node(symbol: completed >= 3 ? "checkmark" : ThisDevice.symbol, label: Text(ThisDevice.title), index: 2)
+            node(symbol: completed >= 3 ? "checkmark" : symbol, label: Text(verbatim: device), index: 2)
         }
         .frame(maxWidth: 360)
         .animation(theme.motion.spring, value: completed)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text("Sign-in progress"))
-        .accessibilityValue(Text("\(completed) of 3 steps complete"))
+        .accessibilityLabel(Text("Sign-in progress", bundle: .module))
+        .accessibilityValue(Text("\(completed) of 3 steps complete", bundle: .module))
         .accessibilityIdentifier("signIn.progress")
         .onChange(of: completed) { _, steps in
-            AccessibilityNotification.Announcement(String(localized: "Sign-in step \(steps) complete")).post()
+            AccessibilityNotification.Announcement(String(localized: "Sign-in step \(steps) complete", bundle: .module)).post()
         }
     }
 
     private func node(symbol: String, label: Text, index: Int) -> some View {
         let reached = completed > index
-        let active = completed == index
+        let active = working && completed == index
         return VStack(spacing: 8) {
             Image(systemName: symbol)
                 .font(.system(size: 18, weight: .semibold))
@@ -57,21 +66,9 @@ struct SignInTrack: View {
         .frame(width: 86)
     }
 
-    /// The line after step `index`: it runs while the next step works, and it is lit once that step is done.
     private func line(_ index: Int) -> some View {
         CellLine(completed >= index + 2 ? .done : completed == index + 1 ? .flowing : .waiting)
             .padding(.bottom, 26)
             .padding(.horizontal, -10)
-    }
-}
-
-extension AccountStore.SignInStage {
-    var completedSteps: Int {
-        switch self {
-        case .idle, .starting, .failed: 0
-        case .awaitingApproval: 1
-        case .finalizing, .trustingDevice: 2
-        case .signedIn: 3
-        }
     }
 }

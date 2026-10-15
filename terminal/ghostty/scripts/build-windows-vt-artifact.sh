@@ -23,7 +23,7 @@ STAGE_ROOT="$ROOT_DIR/build/windows-vt-stage"
 STAGE="$STAGE_ROOT/$GHOSTTY_WINDOWS_VT_LAYOUT"
 METADATA="$STAGE_ROOT/$GHOSTTY_WINDOWS_VT_LAYOUT.version"
 PREFIX="$STAGE_ROOT/prefix"
-CACHE_ROOT="${BUILD_CACHE_ROOT:-$ROOT_DIR/build/cache}"
+CACHE_ROOT="$ROOT_DIR/build/cache"
 rm -rf "$STAGE_ROOT"
 mkdir -p "$STAGE/lib" "$STAGE/include"
 
@@ -54,7 +54,6 @@ cp "$ARCHIVE" "$STAGE/lib/"
 cp -R "$PREFIX/include/." "$STAGE/include/"
 rm -rf "$PREFIX"
 
-# Every platform's library must expose the same C interface as the bindings.
 if ! diff -r "$STAGE/include" "$ROOT_DIR/Vendor/GhosttyVt/linux-x86_64/include" >/dev/null; then
     echo "[!] Windows Ghostty VT headers differ from the other platforms" >&2
     exit 1

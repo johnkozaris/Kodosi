@@ -1,22 +1,8 @@
 import Foundation
 
 public final class TerminalSubscriptionRegistry: @unchecked Sendable {
-    public struct SemanticCheckpoint: Sendable {
-        public let bytes: Data
-        public let nextSequence: UInt64
-        public let rows: UInt16
-        public let cols: UInt16
-
-        public init(bytes: Data, nextSequence: UInt64, rows: UInt16, cols: UInt16) {
-            self.bytes = bytes
-            self.nextSequence = nextSequence
-            self.rows = rows
-            self.cols = cols
-        }
-    }
-
     public typealias ConnectionResult = @Sendable (Bool, String?) -> Void
-    public typealias SemanticCheckpointHandler = @Sendable (SemanticCheckpoint) -> Int32
+    public typealias SemanticCheckpointHandler = @Sendable (Data) -> Int32
 
     public struct Connection: Sendable {
         public let subscriptionId: String

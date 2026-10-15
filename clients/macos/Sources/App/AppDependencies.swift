@@ -365,13 +365,7 @@ final class AppDependencies {
     }
 
     func mutateSession(_ operation: String, session target: RuntimeSession, fields: [String: JSONValue] = [:]) async throws {
-        guard let current = session(target.id), current.incarnationId == target.incarnationId else {
-            throw RuntimeError.operation(String(localized: "This terminal changed. Try again."))
-        }
-        var fields = fields
-        fields["sessionId"] = .string(current.id)
-        fields["expectedRuntimeIncarnationId"] = .string(current.incarnationId)
-        _ = try await commandSink.request(operation, fields)
+        try await commandSink.mutate(operation, session: target, current: session(target.id), fields: fields)
     }
 
     func openMission(_ mission: MissionEntry) {

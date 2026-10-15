@@ -1,43 +1,49 @@
 import Foundation
 import KodosiBridge
-import KodosiDesign
 
-struct RoomMention: Identifiable, Equatable {
-    enum Kind: Equatable {
+public struct RoomMention: Identifiable, Equatable, Sendable {
+    public enum Kind: Equatable, Sendable {
         case person(isSelf: Bool)
         case terminal(AgentKind)
     }
 
-    let id: String
-    let name: String
-    var detail: String?
-    let kind: Kind
+    public let id: String
+    public let name: String
+    public var detail: String?
+    public let kind: Kind
 
-    var isSelf: Bool {
+    public init(id: String, name: String, detail: String? = nil, kind: Kind) {
+        self.id = id
+        self.name = name
+        self.detail = detail
+        self.kind = kind
+    }
+
+    public var isSelf: Bool {
         kind == .person(isSelf: true)
     }
 
-    var isTerminal: Bool {
+    public var isTerminal: Bool {
         if case .terminal = kind {
             return true
         }
         return false
     }
 
-    var link: URL? {
+    public var link: URL? {
         isTerminal ? RoomMentions.terminalLink(id) : nil
     }
 }
 
-enum RoomMentionSegment: Equatable {
+public enum RoomMentionSegment: Equatable, Sendable {
     case text(String)
     case mention(RoomMention)
 }
 
-enum RoomMentions {
+public enum RoomMentions {
     static let scheme = "kodosi-room"
 
-    static func terminalLink(_ id: String) -> URL? {
+    public static func terminalLink(_ id: String) -> URL? {
         var components = URLComponents()
         components.scheme = scheme
         components.host = "terminal"
@@ -45,33 +51,26 @@ enum RoomMentions {
         return components.url
     }
 
-    static func terminalId(in url: URL) -> String? {
+    public static func terminalId(in url: URL) -> String? {
         guard url.scheme == scheme, url.host() == "terminal" else { return nil }
         let id = url.lastPathComponent
         return id.isEmpty || id == "/" ? nil : id
     }
 
-    static func targets(members: [MissionMemberEntry], sessions: [RuntimeSession], userId: String?) -> [RoomMention] {
+    public static func targets(members: [MissionMemberEntry], sessions: [RuntimeSession], userId: String?) -> [RoomMention] {
         let people = members.map { member in
-            RoomMention(
-                id: member.userId,
-                name: member.displayName.isEmpty ? member.handle : member.displayName,
-                detail: "@\(member.handle)",
-                kind: .person(isSelf: member.userId == userId)
-            )
+            RoomMention(id: member.userId, name: member.personName, detail: "@\(member.handle)", kind: .person(isSelf: member.userId == userId))
         }
         let terminals = sessions.map { session in
             RoomMention(
-                id: session.id,
-                name: session.name,
-                detail: session.agent.isAgent ? session.agent.label : session.hostLabel,
+                id: session.id, name: session.name, detail: session.agent.isAgent ? session.agent.label : session.hostLabel,
                 kind: .terminal(session.agent)
             )
         }
         return people + terminals
     }
 
-    static func segments(_ text: String, targets: [RoomMention]) -> [RoomMentionSegment] {
+    public static func segments(_ text: String, targets: [RoomMention]) -> [RoomMentionSegment] {
         guard text.contains("@"), !targets.isEmpty else { return [.text(text)] }
         let ordered = targets.filter { !$0.name.isEmpty }.sorted { $0.name.count > $1.name.count }
         var result: [RoomMentionSegment] = []
@@ -98,7 +97,7 @@ enum RoomMentions {
         return result
     }
 
-    static func mentionsSelf(_ text: String, targets: [RoomMention]) -> Bool {
+    public static func mentionsSelf(_ text: String, targets: [RoomMention]) -> Bool {
         segments(text, targets: targets).contains { segment in
             if case let .mention(target) = segment {
                 return target.isSelf
@@ -107,7 +106,7 @@ enum RoomMentions {
         }
     }
 
-    static func query(in draft: String) -> String? {
+    public static func query(in draft: String) -> String? {
         guard let at = draft.lastIndex(of: "@") else { return nil }
         if at != draft.startIndex, isWord(draft[draft.index(before: at)]) {
             return nil
@@ -119,17 +118,17 @@ enum RoomMentions {
         return String(tail)
     }
 
-    static func complete(_ draft: String, with target: RoomMention) -> String {
+    public static func complete(_ draft: String, with target: RoomMention) -> String {
         guard let at = draft.lastIndex(of: "@") else { return draft }
         return String(draft[..<at]) + "@\(target.name) "
     }
 
-    static func start(_ draft: String) -> String {
+    public static func start(_ draft: String) -> String {
         guard query(in: draft) == nil else { return draft }
         return draft + (draft.isEmpty || draft.hasSuffix(" ") || draft.hasSuffix("\n") ? "@" : " @")
     }
 
-    static func suggestions(for query: String, in targets: [RoomMention]) -> [RoomMention] {
+    public static func suggestions(for query: String, in targets: [RoomMention]) -> [RoomMention] {
         let needle = query.lowercased()
         let candidates = targets.filter { !$0.isSelf }
         guard !needle.isEmpty else { return Array(candidates.prefix(6)) }

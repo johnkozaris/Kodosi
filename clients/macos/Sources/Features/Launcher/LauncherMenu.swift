@@ -1,11 +1,9 @@
 import Foundation
 import KodosiBridge
 
-/// The lists that the launcher's keys open in its terminal.
 enum LauncherMenu: String, Equatable {
     case folder, account, model, effort
 
-    /// What taking a line of a list does.
     enum Pick: Equatable {
         case folder(String), anotherFolder, account(String), newAccount, model(String?), effort(String?)
     }
@@ -14,7 +12,6 @@ enum LauncherMenu: String, Equatable {
     static let choose = "menu.choose"
     static let standard = "menu.default"
 
-    /// What the empty line suggests: a first prompt for an agent, a command for a plain terminal.
     static let promptHints = [
         String(localized: "fix the failing test"),
         String(localized: "explain how this folder works"),
@@ -47,8 +44,6 @@ enum LauncherMenu: String, Equatable {
         }
     }
 
-    /// A comment for each sign-in, then the commands that use it. Commands that
-    /// share a folder share a sign-in, so they show together.
     static func accounts(_ info: AgentInfo, current: String) -> [TerminalMenu.Line] {
         var groups: [(folder: String?, accounts: [AgentAccount])] = []
         for account in info.accounts {
@@ -112,8 +107,6 @@ enum LauncherMenu: String, Equatable {
     }
 }
 
-/// The folders that the launcher offers: the one chosen, the last one used,
-/// those of this Mac's terminals, and the default one.
 @MainActor
 func recentFolders(_ deps: AppDependencies, chosen: String?) -> [String] {
     var seen = Set<String>()
@@ -122,12 +115,10 @@ func recentFolders(_ deps: AppDependencies, chosen: String?) -> [String] {
     return Array(candidates.compactMap(\.self).filter { seen.insert($0).inserted }.prefix(6))
 }
 
-/// A folder as a person names it: its own name, or `~` for the home folder.
 func folderName(_ path: String) -> String {
     tilde(path) == "~" ? "~" : URL(fileURLWithPath: path).lastPathComponent
 }
 
-/// `path` with `~` for the home folder.
 func tilde(_ path: String) -> String {
     let home = ProcessInfo.processInfo.environment["HOME"] ?? FileManager.default.homeDirectoryForCurrentUser.path
     return path == home ? "~" : path.hasPrefix(home + "/") ? "~" + path.dropFirst(home.count) : path

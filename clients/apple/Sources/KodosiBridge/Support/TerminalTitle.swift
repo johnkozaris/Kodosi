@@ -1,7 +1,7 @@
 import Foundation
 
-public enum TerminalTitle {
-    public static func sanitize(_ title: String?) -> String? {
+enum TerminalTitle {
+    static func sanitize(_ title: String?) -> String? {
         guard let title else { return nil }
         let sanitized = title.unicodeScalars
             .lazy

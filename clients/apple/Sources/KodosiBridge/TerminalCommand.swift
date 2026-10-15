@@ -38,7 +38,7 @@ public struct TerminalResizeIdentity: Equatable, Sendable {
     }
 }
 
-public enum TerminalCommand: Encodable {
+enum TerminalCommand: Encodable {
     case resize(sessionId: String, identity: TerminalResizeIdentity, claim: Bool)
     case focus(
         sessionId: String,
@@ -61,7 +61,7 @@ public enum TerminalCommand: Encodable {
         case subscriptionId, subscriptionGeneration, claim
     }
 
-    public func encode(to encoder: Encoder) throws {
+    func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         switch self {
         case let .resize(sessionId, identity, claim):

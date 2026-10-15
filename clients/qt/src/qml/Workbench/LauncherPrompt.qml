@@ -3,10 +3,6 @@ pragma ComponentBehavior: Bound
 import Kodosi 1.0
 import QtQuick
 
-// The words a person types after the command: the agent's first prompt, or the
-// command that a plain terminal runs. It draws a terminal's block cursor, lit
-// while the person types and then blinking, hollow without focus; while it is
-// empty, a faint suggestion shows that Tab or → takes.
 TextEdit {
     id: root
 
@@ -46,7 +42,6 @@ TextEdit {
     Accessible.description: suggestion
 
     onTextChanged: {
-        // One line: a pasted line break or tab becomes a space.
         const line = text.replace(/[\r\n\t\u2028\u2029]+/g, " ")
         if (line !== text) {
             const position = cursorPosition
@@ -118,7 +113,6 @@ TextEdit {
             border.width: root.activeFocus ? 0 : 1.5
             border.color: KodosiTheme.alpha(KodosiTheme.terminalAccent, 0.85)
         }
-        // The character under the cursor shows in the terminal's own color.
         Text {
             visible: root.activeFocus && root.lit
             text: root.cursorPosition < root.length ? root.getText(root.cursorPosition, root.cursorPosition + 1)

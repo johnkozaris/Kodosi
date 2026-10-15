@@ -434,7 +434,6 @@ FrameResult extractFrame(
     frame->cursor = {
         .visible = cursor.visible && cursor.viewport_has_value,
         .blinking = cursor.blinking,
-        .passwordInput = cursor.password_input,
         .wideTail = cursor.wide_tail,
         .column = cursor.viewport_has_value ? cursor.viewport_x : std::uint16_t {0},
         .row = cursor.viewport_has_value ? cursor.viewport_y : std::uint16_t {0},
@@ -570,8 +569,6 @@ FrameResult extractFrame(
                 .background = cellBackground,
                 .bold = style.bold,
                 .italic = style.italic,
-                .faint = style.faint,
-                .inverse = style.inverse,
                 .invisible = style.invisible,
                 .strikethrough = style.strikethrough,
                 .overline = style.overline,

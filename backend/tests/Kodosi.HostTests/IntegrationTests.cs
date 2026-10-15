@@ -5,9 +5,6 @@ using System.Net.WebSockets;
 using System.Text.Json;
 using Kodosi.Admission;
 using Kodosi.Data;
-using Kodosi.TerminalConnections;
-using Kodosi.Security;
-using Kodosi.Sessions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
@@ -146,8 +143,6 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         await using var db = PostgresFixture.Context(connection);
         await DatabaseSetup.MigrateAsync(db, TestContext.Current.CancellationToken);
         Assert.Equal(db.Database.GetMigrations(), await db.Database.GetAppliedMigrationsAsync(TestContext.Current.CancellationToken));
-        Assert.Contains(db.Model.GetEntityTypes(), x => x.ClrType == typeof(MissionItem));
-        Assert.Contains(db.Model.GetEntityTypes(), x => x.ClrType == typeof(MissionKeyState));
         await DatabaseSetup.MigrateAsync(db, TestContext.Current.CancellationToken);
         var oldConnection = await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken);
         await using var old = PostgresFixture.Context(oldConnection);
@@ -255,7 +250,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7(); var path = $"/api/sessions/{id}";
         await CallAsync(owner, HttpMethod.Post, "/api/sessions", new { id, incarnationId = incarnation, name = "Shell", hostDeviceId = owner.Fixture.DeviceId, hostName = "Host", missionId = (Guid?)null });
         Assert.Empty((await CallAsync(friend, HttpMethod.Get, "/api/sessions")).EnumerateArray());
-        Assert.False((await CallAsync(friend, HttpMethod.Get, $"/api/missions/{mission}")).TryGetProperty("sessionIds", out _));
+        Assert.Equal(mission, (await CallAsync(friend, HttpMethod.Get, $"/api/missions/{mission}")).GetProperty("mission").GetProperty("id").GetGuid());
         await Assert.ThrowsAnyAsync<Exception>(() => app.ConnectAsync(owner with { Session = friend.Session }));
         using var host = await app.ConnectAsync(owner);
         using var viewer = await app.ConnectAsync(friend);
@@ -276,7 +271,6 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         Assert.NotEqual(0, (await NextAsync(viewer, "unhosted")).GetProperty("status").GetInt32());
         var shared = await CallAsync(owner, HttpMethod.Put, path + "/members", new { incarnationId = incarnation, expectedRevision = 1, userIds = new[] { friend.Fixture.UserId } });
         var revision = shared.GetProperty("authorizationRevision").GetInt64();
-        Assert.False(shared.TryGetProperty("keyGeneration", out _));
         Assert.True((await CallAsync(friend, HttpMethod.Get, path)).GetProperty("hostOnline").GetBoolean());
         var pipe = Guid.CreateVersion7();
         await SendAsync(viewer, new { type = "open", pipe, sessionId = id, incarnationId = incarnation });

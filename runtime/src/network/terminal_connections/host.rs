@@ -21,7 +21,6 @@ const LATE_HEARTBEATS: u32 = 2;
 const KEYFRAME_SPACING: Duration = Duration::from_millis(500);
 const EXACT_AFTER_QUIET: Duration = Duration::from_secs(1);
 const UNCONFIRMED_INPUT: u64 = 256 * 1024;
-const CONTROL_TIMEOUT: Duration = Duration::from_secs(12);
 const STATUS_SPACING: Duration = Duration::from_secs(1);
 
 type Reply = oneshot::Receiver<std::result::Result<Value, String>>;
@@ -38,8 +37,6 @@ struct Admitted {
 
 type Viewers = Arc<std::sync::Mutex<BTreeMap<Uuid, Admitted>>>;
 
-/// The status of a terminal for the people who can open it: the newest one that the
-/// terminal reported, and the one that the device connection holds for the server.
 struct Shared {
     reported: Option<TerminalStatus>,
     held: Option<TerminalStatus>,
@@ -371,8 +368,6 @@ async fn connect(
         output,
         &publication.requests,
         Controller {
-            user,
-            device,
             connection: id,
             authorization,
         },
@@ -441,8 +436,6 @@ async fn admit(
 }
 
 struct Controller {
-    user: String,
-    device: String,
     connection: Uuid,
     authorization: CancellationToken,
 }
@@ -922,8 +915,6 @@ impl<'a, T: Transport> Stream<'a, T> {
         tokio::time::timeout(
             Duration::from_secs(5),
             self.requests.send(HostRequest::Control {
-                sender_user_id: self.controller.user.clone(),
-                sender_device_id: self.controller.device.clone(),
                 connection_id: self.controller.connection,
                 control,
                 authorization: self.controller.authorization.clone(),

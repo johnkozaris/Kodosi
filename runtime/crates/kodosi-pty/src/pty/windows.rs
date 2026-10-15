@@ -31,7 +31,7 @@ use windows_sys::Win32::{
         Pipes::CreatePipe,
         Threading::{
             CREATE_UNICODE_ENVIRONMENT, CreateProcessW, DeleteProcThreadAttributeList,
-            EXTENDED_STARTUPINFO_PRESENT, GetExitCodeProcess, InitializeProcThreadAttributeList,
+            EXTENDED_STARTUPINFO_PRESENT, InitializeProcThreadAttributeList,
             LPPROC_THREAD_ATTRIBUTE_LIST, OpenProcess, PROC_THREAD_ATTRIBUTE_JOB_LIST,
             PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, PROCESS_INFORMATION, PROCESS_NAME_WIN32,
             PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW, STARTF_USESTDHANDLES,
@@ -46,7 +46,6 @@ use super::{
 };
 use crate::{KodosiError, Result};
 
-/// `ConPTY` measures emoji and other grapheme clusters as `libghostty-vt` does.
 const PSEUDOCONSOLE_GLYPH_WIDTH_GRAPHEMES: u32 = 0x08;
 const READ_BYTES: usize = 64 * 1024;
 const THREAD_STACK: usize = 64 * 1024;
@@ -60,7 +59,6 @@ type ResizeFn = unsafe extern "system" fn(HPCON, COORD) -> i32;
 type ReleaseFn = unsafe extern "system" fn(HPCON) -> i32;
 type CloseFn = unsafe extern "system" fn(HPCON);
 
-/// The bundled `conpty.dll`, which runs its own `OpenConsole.exe`.
 #[derive(Debug)]
 struct Conpty {
     create: CreateFn,
@@ -108,7 +106,6 @@ fn load_conpty() -> std::result::Result<Conpty, String> {
         ));
     }
     let symbol = |name: &'static [u8]| {
-        // SAFETY: the module is loaded and the name is NUL-terminated.
         unsafe { GetProcAddress(module, name.as_ptr()) }.ok_or_else(|| {
             format!(
                 "conpty.dll has no {}",
@@ -158,7 +155,6 @@ fn size(rows: u16, cols: u16) -> COORD {
     }
 }
 
-/// An open pseudoconsole. Dropping it closes the console without waiting for clients.
 #[derive(Debug)]
 struct Console {
     api: &'static Conpty,
@@ -167,7 +163,6 @@ struct Console {
 
 impl Drop for Console {
     fn drop(&mut self) {
-        // SAFETY: the handle came from `ConptyCreatePseudoConsole` and is closed once.
         unsafe { (self.api.close)(self.handle) };
     }
 }
@@ -220,7 +215,6 @@ impl KodosiPty {
         let (input_read, input_write) = pipe()?;
         let (output_read, output_write) = pipe()?;
         let mut handle: HPCON = 0;
-        // SAFETY: the pipe handles are open and `handle` receives the new console.
         hresult(unsafe {
             (api.create)(
                 size(rows, cols),
@@ -240,9 +234,8 @@ impl KodosiPty {
             &environment,
             working_dir,
         )?;
-        // Without our reference, the console ends when its last client does,
-        // which closes the output pipe.
-        // SAFETY: the console is open; a failed release only delays the end of output.
+        // Without our reference the console ends with its last client and closes the
+        // output pipe. A failed release only delays that end.
         drop(hresult(unsafe { (api.release)(console.handle) }));
         let (input, requests) = std_mpsc::channel();
         spawn_writer(input_write, requests)?;
@@ -276,14 +269,11 @@ impl KodosiPty {
         ))
     }
 
-    /// Windows has no supported way to read another process's folder; the
-    /// session learns it from the shell's OSC 7 or OSC 9;9 reports.
+    /// Windows cannot read another process's folder; OSC 7 and OSC 9;9 report it.
     pub const fn working_directory(&self) -> Option<PathBuf> {
         None
     }
 
-    /// An identity for what runs in front: the shell when idle, a recognized
-    /// agent's process, or a number for the current run of other programs.
     pub fn foreground_process_group(&self) -> Option<u32> {
         if self.opaque {
             return Some(self.child_pid);
@@ -303,7 +293,6 @@ impl KodosiPty {
         !self.opaque && self.observe().others.is_empty()
     }
 
-    /// The console host shows no line discipline, so a prompt is not known.
     pub const fn reads_keys(&self) -> bool {
         false
     }
@@ -315,12 +304,11 @@ impl KodosiPty {
         self.observe().agent.map(|(_, name)| name.to_owned())
     }
 
-    /// Another process's environment cannot be read here.
     pub const fn foreground_environment(&self) -> Option<Vec<String>> {
         None
     }
 
-    /// All input travels through `PtyReader::transfer` on Windows.
+    /// Input goes through `PtyReader::transfer`.
     pub fn write(&mut self, _buf: &[u8]) -> Result<usize> {
         Ok(0)
     }
@@ -333,7 +321,6 @@ impl KodosiPty {
         _height_pixels: Option<u16>,
     ) -> Result<()> {
         self.console.as_ref().map_or(Ok(()), |console| {
-            // SAFETY: the console is open.
             Ok(hresult(unsafe {
                 (console.api.resize)(console.handle, size(rows, cols))
             })?)
@@ -350,7 +337,6 @@ impl KodosiPty {
             }
             ShutdownStage::Hangup => drop(self.console.take()),
             ShutdownStage::Terminate | ShutdownStage::Force => {
-                // SAFETY: the job handle is open.
                 if unsafe { TerminateJobObject(self.job.as_raw_handle(), 1) } == 0 {
                     return Err(io::Error::last_os_error().into());
                 }
@@ -359,40 +345,25 @@ impl KodosiPty {
         Ok(())
     }
 
-    pub async fn wait(&mut self) -> Result<Option<i32>> {
-        loop {
-            if let Some(code) = self.exit_code()? {
-                return Ok(Some(code));
-            }
+    async fn wait(&self) {
+        while !self.exited() {
             tokio::time::sleep(POLL).await;
         }
     }
 
     pub async fn wait_within(&mut self, grace: Duration) -> Result<WaitOutcome> {
-        tokio::time::timeout(grace, async {
-            let code = self.wait().await?;
+        Ok(tokio::time::timeout(grace, async {
+            self.wait().await;
             while !self.job_processes().is_empty() {
                 tokio::time::sleep(POLL).await;
             }
-            Ok(code)
         })
         .await
-        .map_or(Ok(WaitOutcome::TimedOut), |result| {
-            result.map(WaitOutcome::Reaped)
-        })
+        .map_or(WaitOutcome::TimedOut, |()| WaitOutcome::Reaped))
     }
 
-    fn exit_code(&self) -> Result<Option<i32>> {
-        // SAFETY: the process handle is open.
-        if unsafe { WaitForSingleObject(self.process.as_raw_handle(), 0) } != WAIT_OBJECT_0 {
-            return Ok(None);
-        }
-        let mut code = 0u32;
-        // SAFETY: the process handle is open and `code` is a valid output.
-        if unsafe { GetExitCodeProcess(self.process.as_raw_handle(), &raw mut code) } == 0 {
-            return Err(io::Error::last_os_error().into());
-        }
-        Ok(Some(code.cast_signed()))
+    fn exited(&self) -> bool {
+        unsafe { WaitForSingleObject(self.process.as_raw_handle(), 0) == WAIT_OBJECT_0 }
     }
 
     fn job_processes(&self) -> Vec<u32> {
@@ -417,7 +388,6 @@ impl KodosiPty {
             if !succeeded && !more {
                 return Vec::new();
             }
-            // SAFETY: the buffer starts with the list header.
             let list = unsafe { &*buffer.as_ptr().cast::<JOBOBJECT_BASIC_PROCESS_ID_LIST>() };
             let assigned = list.NumberOfAssignedProcesses as usize;
             let listed = (list.NumberOfProcessIdsInList as usize).min(capacity);
@@ -441,8 +411,6 @@ impl KodosiPty {
             .collect();
         let mut observed = self.observed.lock().unwrap_or_else(PoisonError::into_inner);
         observed.identities.retain(|pid, _| processes.contains(pid));
-        // A terminal started as an agent, as a resumed conversation is, runs
-        // that agent in front of whatever it starts, as on Unix.
         let root = processes
             .contains(&self.child_pid)
             .then_some(self.child_pid);
@@ -471,7 +439,6 @@ impl KodosiPty {
 
 impl Drop for KodosiPty {
     fn drop(&mut self) {
-        // SAFETY: the job handle is open. Closing it would also end the processes.
         unsafe { TerminateJobObject(self.job.as_raw_handle(), 1) };
     }
 }
@@ -491,8 +458,6 @@ enum Event {
 }
 
 impl PtyReader {
-    /// Whether input handed to the console has not yet been confirmed. The
-    /// session keeps that input queued until `transfer` reports it written.
     pub const fn write_in_flight(&self) -> bool {
         self.in_flight.is_some()
     }
@@ -505,9 +470,7 @@ impl PtyReader {
         self.receive(chunk, buf)
     }
 
-    /// Waits for output or, while `write` is given, for the console to take
-    /// input. Cancel-safe: a write handed over before cancellation is still
-    /// reported by a later call.
+    /// Cancel-safe: a later call reports a write handed over before cancellation.
     pub async fn transfer(
         &mut self,
         read: &mut [u8],
@@ -550,7 +513,6 @@ impl PtyReader {
                 self.in_flight = None;
                 match written {
                     Ok(Ok(count)) => Ok(Transfer::Wrote(count)),
-                    // The console closed its input, so the session is ending.
                     Ok(Err(_)) | Err(_) => Ok(Transfer::Read(0)),
                 }
             }
@@ -581,11 +543,9 @@ impl PtyReader {
 fn pipe() -> io::Result<(OwnedHandle, OwnedHandle)> {
     let mut read: HANDLE = ptr::null_mut();
     let mut write: HANDLE = ptr::null_mut();
-    // SAFETY: both outputs are valid; the handles are not inheritable.
     if unsafe { CreatePipe(&raw mut read, &raw mut write, ptr::null(), 0) } == 0 {
         return Err(io::Error::last_os_error());
     }
-    // SAFETY: `CreatePipe` succeeded, so both handles are owned.
     Ok(unsafe {
         (
             OwnedHandle::from_raw_handle(read),
@@ -595,17 +555,13 @@ fn pipe() -> io::Result<(OwnedHandle, OwnedHandle)> {
 }
 
 fn create_job() -> io::Result<OwnedHandle> {
-    // SAFETY: an unnamed job with default security.
     let job = unsafe { CreateJobObjectW(ptr::null(), ptr::null()) };
     if job.is_null() {
         return Err(io::Error::last_os_error());
     }
-    // SAFETY: `CreateJobObjectW` returned an owned handle.
     let job = unsafe { OwnedHandle::from_raw_handle(job) };
-    // SAFETY: all-zero limits are valid before the flag is set.
     let mut limits: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = unsafe { std::mem::zeroed() };
     limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-    // SAFETY: the job is open and `limits` matches the information class.
     if unsafe {
         SetInformationJobObject(
             job.as_raw_handle(),
@@ -624,7 +580,6 @@ struct AttributeList(LPPROC_THREAD_ATTRIBUTE_LIST);
 
 impl Drop for AttributeList {
     fn drop(&mut self) {
-        // SAFETY: the list was initialized and is deleted once.
         unsafe { DeleteProcThreadAttributeList(self.0) };
     }
 }
@@ -638,7 +593,6 @@ fn start(
     directory: Option<&Path>,
 ) -> Result<(OwnedHandle, u32)> {
     let mut bytes = 0;
-    // SAFETY: a null list asks for the required size.
     unsafe { InitializeProcThreadAttributeList(ptr::null_mut(), 2, 0, &raw mut bytes) };
     let mut storage = vec![0u64; bytes.div_ceil(8)];
     let list: LPPROC_THREAD_ATTRIBUTE_LIST = storage.as_mut_ptr().cast();
@@ -675,12 +629,10 @@ fn start(
     {
         return Err(io::Error::last_os_error().into());
     }
-    // SAFETY: all-zero startup information is valid before the fields below are set.
     let mut startup: STARTUPINFOEXW = unsafe { std::mem::zeroed() };
     startup.StartupInfo.cb = u32::try_from(size_of::<STARTUPINFOEXW>()).unwrap_or(u32::MAX);
     startup.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
     startup.lpAttributeList = list.0;
-    // SAFETY: all-zero process information is a valid output.
     let mut information: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
     let application = wide(application.as_os_str());
     let directory = directory.map(|directory| wide(directory.as_os_str()));
@@ -706,7 +658,6 @@ fn start(
             io::Error::last_os_error()
         )));
     }
-    // SAFETY: `CreateProcessW` succeeded, so both handles are owned.
     let (process, thread) = unsafe {
         (
             OwnedHandle::from_raw_handle(information.hProcess),
@@ -740,7 +691,6 @@ fn write_all(pipe: &OwnedHandle, mut bytes: &[u8]) -> io::Result<()> {
     while !bytes.is_empty() {
         let mut written = 0u32;
         let length = u32::try_from(bytes.len()).unwrap_or(u32::MAX);
-        // SAFETY: the pipe is open and the buffer holds `length` bytes.
         if unsafe {
             WriteFile(
                 pipe.as_raw_handle(),
@@ -767,7 +717,6 @@ fn spawn_reader(pipe: OwnedHandle) -> io::Result<mpsc::Receiver<io::Result<Vec<u
             let mut buffer = vec![0u8; READ_BYTES];
             loop {
                 let mut count = 0u32;
-                // SAFETY: the pipe is open and the buffer holds `READ_BYTES` bytes.
                 let succeeded = unsafe {
                     ReadFile(
                         pipe.as_raw_handle(),
@@ -841,8 +790,8 @@ fn is_batch(program: &Path) -> bool {
     })
 }
 
-/// The application to start and its command line. Batch files run through
-/// `cmd.exe /d /s /c`, which only admits arguments that `cmd` cannot reinterpret.
+/// Batch files run through `cmd.exe /d /s /c`, which admits only arguments that
+/// `cmd` cannot reinterpret.
 fn command_line(program: &Path, arguments: &[String]) -> Result<(PathBuf, Vec<u16>)> {
     let mut line = Vec::new();
     if !is_batch(program) {
@@ -928,8 +877,7 @@ fn push_argument(line: &mut Vec<u16>, argument: &OsStr) {
     line.push(quote);
 }
 
-/// The inherited environment without other terminals' and agents' context,
-/// plus the terminal's own variables, sorted as Windows expects.
+/// Windows expects the environment block sorted.
 fn environment_block(overrides: &[(&str, &str)]) -> Vec<u16> {
     let mut variables: BTreeMap<String, (OsString, OsString)> = BTreeMap::new();
     for (key, value) in std::env::vars_os() {
@@ -964,16 +912,13 @@ fn environment_block(overrides: &[(&str, &str)]) -> Vec<u16> {
 }
 
 fn image_identity(pid: u32) -> Option<&'static str> {
-    // SAFETY: `OpenProcess` has no pointer arguments.
     let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
     if handle.is_null() {
         return None;
     }
-    // SAFETY: `OpenProcess` returned an owned handle.
     let handle = unsafe { OwnedHandle::from_raw_handle(handle) };
     let mut buffer = [0u16; 1024];
     let mut length = u32::try_from(buffer.len()).unwrap_or(u32::MAX);
-    // SAFETY: the buffer holds `length` UTF-16 units.
     if unsafe {
         QueryFullProcessImageNameW(
             handle.as_raw_handle(),

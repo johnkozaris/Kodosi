@@ -1,9 +1,12 @@
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
 
 use super::{Result, TerminalControl, TerminalStatus, invalid};
+use crate::terminal::{
+    TERMINAL_CHECKPOINT_SCHEMA_VERSION, TERMINAL_INPUT_MAX_BYTES,
+    TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES,
+};
 
 mod frame;
 mod packing;
@@ -13,15 +16,14 @@ pub(crate) use frame::{ControlResult, Frame};
 #[cfg(any(feature = "host", test))]
 pub(crate) use frame::{End, KEYFRAME_PART};
 
-pub(crate) const INPUT_LIMIT: usize = 1024 * 1024;
 pub(crate) const RAW_CHUNK_LIMIT: usize = 64 * 1024;
 pub(crate) const RAW_BATCH_LIMIT: usize = 128;
 const METADATA_LIMIT: usize = 16_384;
-const SNAPSHOT_LIMIT: usize = 8 * 1024 * 1024 + 18 + METADATA_LIMIT;
+const SNAPSHOT_LIMIT: usize = TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES + 18 + METADATA_LIMIT;
 #[cfg(any(feature = "host", test))]
 const SNAPSHOT_LEVEL: u32 = 6;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct SessionDto {
     pub id: Uuid,
@@ -104,13 +106,12 @@ pub(crate) fn encode_control(control: &TerminalControl) -> Result<Vec<u8>> {
     serde_json::to_vec(&value).map_err(Into::into)
 }
 
-pub(crate) fn decode_control(value: &[u8], request_id: Uuid) -> Result<TerminalControl> {
+pub(crate) fn decode_control(value: &[u8]) -> Result<TerminalControl> {
     let value: Value = serde_json::from_slice(value)?;
     let kind = text(&value, "type")?;
     match kind {
         "resize" => {
             let control = TerminalControl::Resize {
-                request_id: request_id.to_string(),
                 rows: u16::try_from(number(&value, "rows")?)
                     .map_err(|_| invalid("Invalid rows."))?,
                 cols: u16::try_from(number(&value, "cols")?)
@@ -220,17 +221,7 @@ pub(crate) enum Notice {
     Terminal(TerminalNotice),
 }
 pub(crate) fn decode_b64(value: &Value, field: &str, limit: usize) -> Result<Vec<u8>> {
-    let encoded = text(value, field)?;
-    if encoded.len() > limit.saturating_add(2) / 3 * 4 {
-        return Err(invalid(format!("{field} exceeds its limit.")));
-    }
-    let bytes = BASE64
-        .decode(encoded)
-        .map_err(|_| invalid(format!("Invalid {field} encoding.")))?;
-    if bytes.len() > limit {
-        return Err(invalid(format!("{field} exceeds its limit.")));
-    }
-    Ok(bytes)
+    crate::identity::pins::decode(text(value, field)?, limit)
 }
 
 #[cfg(any(feature = "host", test))]
@@ -276,11 +267,11 @@ fn decode_metadata(encoded: &[u8]) -> Result<crate::terminal::TerminalMetadata> 
 #[cfg(any(feature = "host", test))]
 fn encode_checkpoint(checkpoint: &crate::terminal::Checkpoint) -> Result<Vec<u8>> {
     let bytes = &checkpoint.semantic_checkpoint;
-    if bytes.is_empty() || bytes.len() > 8 * 1024 * 1024 {
+    if bytes.is_empty() || bytes.len() > TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES {
         return Err(invalid("Terminal checkpoint exceeds its bound."));
     }
     let mut encoded = Vec::with_capacity(bytes.len() + 18);
-    encoded.extend_from_slice(&checkpoint.schema_version().to_be_bytes());
+    encoded.extend_from_slice(&TERMINAL_CHECKPOINT_SCHEMA_VERSION.to_be_bytes());
     encoded.extend_from_slice(&checkpoint.rows().to_be_bytes());
     encoded.extend_from_slice(&checkpoint.cols().to_be_bytes());
     encoded.push(match checkpoint.active_screen {
@@ -304,14 +295,14 @@ fn encode_checkpoint(checkpoint: &crate::terminal::Checkpoint) -> Result<Vec<u8>
 
 fn decode_checkpoint(encoded: &[u8]) -> Result<crate::terminal::Checkpoint> {
     use crate::terminal::{Checkpoint, TerminalScreen, TerminalSize};
-    if encoded.len() < 18 || encoded.len() > 8 * 1024 * 1024 + 18 + METADATA_LIMIT {
+    if encoded.len() < 18 || encoded.len() > SNAPSHOT_LIMIT {
         return Err(invalid("Checkpoint plaintext has invalid length."));
     }
     if u32::from_be_bytes(
         encoded[..4]
             .try_into()
             .map_err(|_| invalid("Invalid schema."))?,
-    ) != 2
+    ) != TERMINAL_CHECKPOINT_SCHEMA_VERSION
     {
         return Err(invalid("Unsupported terminal checkpoint schema."));
     }
@@ -334,7 +325,7 @@ fn decode_checkpoint(encoded: &[u8]) -> Result<crate::terminal::Checkpoint> {
             .map_err(|_| invalid("Invalid checkpoint length."))?,
     ) as usize;
     if len == 0
-        || len > 8 * 1024 * 1024
+        || len > TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES
         || encoded.len() < 18 + len
         || encoded.len() - 18 - len > METADATA_LIMIT
     {

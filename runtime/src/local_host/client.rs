@@ -25,9 +25,6 @@ impl Client {
         }
         write_frame(&mut self.writer, &bytes).await
     }
-    pub async fn snapshot(&mut self) -> Result<()> {
-        write_json(&mut self.writer, &ClientRequest::Snapshot).await
-    }
     pub async fn next(&mut self) -> Result<Value> {
         read_json(&mut self.reader).await
     }
@@ -59,9 +56,14 @@ pub async fn host_status(root: &Path) -> Result<HostStatus> {
     let host = client
         .host
         .ok_or_else(|| Error::Invalid("the running host did not identify itself".into()))?;
+    let events = client
+        .initial_events
+        .into_iter()
+        .map(serde_json::from_value)
+        .collect::<std::result::Result<Vec<Event>, _>>()?;
     Ok(HostStatus {
         host,
-        local_sessions: local_sessions_in(&client.initial_events),
+        local_sessions: local_sessions(&events),
     })
 }
 
@@ -85,19 +87,14 @@ pub async fn stop_other_host(root: &Path, force: bool) -> Result<()> {
 pub struct TerminalClient {
     pub reader: FrameReader<kodosi_os::ipc::ReadHalf>,
     pub writer: kodosi_os::ipc::WriteHalf,
-    pub incarnation_id: Uuid,
 }
 impl TerminalClient {
     pub async fn connect(root: &Path, session: Uuid) -> Result<Self> {
-        let (stream, welcome) = connect(root, Some(session)).await?;
-        let incarnation_id = welcome
-            .incarnation_id
-            .ok_or_else(|| Error::Invalid("terminal handshake omitted incarnation".into()))?;
+        let (stream, _) = connect(root, Some(session)).await?;
         let (reader, writer) = stream.into_split();
         Ok(Self {
             reader: FrameReader::new(reader),
             writer,
-            incarnation_id,
         })
     }
 }

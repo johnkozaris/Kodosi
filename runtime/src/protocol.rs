@@ -109,10 +109,8 @@ pub enum Command {
         branch: Option<String>,
         #[serde(default)]
         worktrees: Option<String>,
-        /// A line that the new shell runs once it waits at its prompt.
         #[serde(default)]
         command: Option<String>,
-        /// Text that ends the command line as one word, quoted for the shell.
         #[serde(default)]
         prompt: Option<String>,
     },
@@ -336,10 +334,6 @@ pub enum Command {
         agent: Agent,
         name: String,
     },
-    #[serde(rename = "system.setTheme")]
-    Theme { dark: bool },
-    #[serde(rename = "shutdown")]
-    Shutdown {},
     #[serde(rename = "session.resize")]
     Resize {
         #[serde(rename = "sessionId")]
@@ -478,8 +472,6 @@ pub enum EventBody {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         display_name: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        device_id: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         enrolled: Option<bool>,
     },
     #[serde(rename = "auth.required")]
@@ -533,7 +525,7 @@ pub enum EventBody {
         outcome: DeviceLinkOutcome,
     },
     #[serde(rename = "devices.link.selfPending")]
-    DeviceLinkSelfPending { code: String, expires_at: String },
+    DeviceLinkSelfPending { code: String },
     #[serde(rename = "devices.link.selfResolved")]
     DeviceLinkSelfResolved { outcome: DeviceLinkOutcome },
     #[serde(rename = "devices.recovery.created")]
@@ -544,8 +536,6 @@ pub enum EventBody {
         message: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         request_id: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        user_code: Option<String>,
     },
     #[serde(rename = "sessions.snapshot")]
     SessionsSnapshot { sessions: Vec<SessionEntry> },
@@ -718,7 +708,6 @@ pub struct FriendRequestEntry {
 pub struct DeviceEntry {
     pub device_id: String,
     pub label: String,
-    pub cert_signer_device_id: String,
     pub cert_issued_at_ms: i64,
     pub recovery_key: bool,
 }
@@ -728,7 +717,6 @@ pub struct DeviceEntry {
 pub struct DeviceLinkRequest {
     pub request_id: String,
     pub device_label: String,
-    pub expires_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
@@ -838,9 +826,6 @@ impl Event {
             event: EventBody::new(value)?,
         })
     }
-    pub const fn kind(&self) -> &'static str {
-        self.event.kind()
-    }
 }
 
 fn account_user<'de, D: Deserializer<'de>>(
@@ -915,8 +900,6 @@ impl Command {
             Self::InspectAgents { .. } => "provider.agents",
             Self::InspectAgentModels { .. } => "provider.agentModels",
             Self::AddAgentAccount { .. } => "provider.addAccount",
-            Self::Theme { .. } => "system.setTheme",
-            Self::Shutdown {} => "shutdown",
             Self::Resize { .. } => "session.resize",
             Self::Focus { .. } => "session.focus",
             Self::Blur { .. } => "session.blur",
@@ -1237,16 +1220,26 @@ impl ResizeIdentity {
                 "terminal generations must be nonzero".to_owned(),
             ));
         }
-        if !(1..=crate::terminal::MAX_TERMINAL_ROWS).contains(&self.rows)
-            || !(1..=crate::terminal::MAX_TERMINAL_COLS).contains(&self.cols)
-            || self.cell_width_pixels == 0
-            || self.cell_height_pixels == 0
-            || u32::from(self.cols).checked_mul(self.cell_width_pixels) != Some(self.width_pixels)
-            || u32::from(self.rows).checked_mul(self.cell_height_pixels) != Some(self.height_pixels)
-        {
-            return Err(Error::Invalid("invalid terminal geometry".to_owned()));
-        }
-        Ok(())
+        self.geometry().map(|_| ())
+    }
+
+    pub(crate) fn geometry(
+        &self,
+    ) -> Result<(
+        crate::terminal::TerminalSize,
+        crate::terminal::TerminalPixelGeometry,
+    )> {
+        let size = crate::terminal::TerminalSize::new(self.rows, self.cols)
+            .map_err(|error| Error::Invalid(error.to_string()))?;
+        let geometry = crate::terminal::TerminalPixelGeometry::new(
+            self.width_pixels,
+            self.height_pixels,
+            self.cell_width_pixels,
+            self.cell_height_pixels,
+        )
+        .and_then(|geometry| geometry.validate_for_size(size))
+        .map_err(|error| Error::Invalid(error.to_string()))?;
+        Ok((size, geometry))
     }
 }
 
@@ -1323,7 +1316,6 @@ mod tests {
             "friends.invite",
             "session.list",
             "mission.list",
-            "shutdown",
         ]
         .into_iter()
         .map(|kind| json!({"type":kind}))
@@ -1345,7 +1337,6 @@ mod tests {
             json!({"type":"provider.discoverConversations","requestId":ID,"provider":"claude","workingDirectory":"/tmp/project"}),
             json!({"type":"provider.readConversation","requestId":ID,"provider":"copilot","workingDirectory":"/tmp/project","nativeConversationId":ID,"beforeByte":123,"limit":2,"maxBytes":4096}),
             json!({"type":"provider.inspect","requestId":ID,"provider":"claude"}),
-            json!({"type":"system.setTheme","dark":true}),
             resize(),
             json!({"type":"session.focus","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"clientId":ID,"subscriptionGeneration":1}),
             json!({"type":"session.blur","sessionId":ID,"expectedRuntimeIncarnationId":ID,"clientId":ID,"subscriptionGeneration":1}),
@@ -1407,7 +1398,7 @@ mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 51);
+        assert_eq!(kinds.len(), 49);
     }
 
     #[test]
@@ -1519,7 +1510,7 @@ mod tests {
         resized["type"] = json!("term.resizeApplied");
         resized["runtimeIncarnationId"] = json!(ID);
         let result = Event::new(None, 0, resized).unwrap();
-        assert_eq!(result.kind(), "term.resizeApplied");
+        assert_eq!(result.event.kind(), "term.resizeApplied");
         let value = serde_json::to_value(result).unwrap();
         assert_eq!(value["cols"], 80);
         assert!(value.get("identity").is_none());

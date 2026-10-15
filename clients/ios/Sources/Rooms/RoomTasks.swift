@@ -310,7 +310,7 @@ struct RoomTaskChips: View {
         let terminal = task.terminalId.flatMap { model.terminals.session($0) }
         let note = task.closed ? task.note.flatMap { $0.isEmpty ? nil : $0 } : nil
         if !repositories.isEmpty || task.issue != nil || terminal != nil || note != nil {
-            RoomFlowLayout(spacing: 5) {
+            FlowLayout(spacing: 5) {
                 ForEach(repositories) { Tag(text: $0.name, symbol: "shippingbox") }
                 if let issue = task.issue {
                     Tag(text: "#\(issue.number)", symbol: "smallcircle.filled.circle")

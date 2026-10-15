@@ -2,43 +2,30 @@ import type { PasswordPolicies } from "keycloakify/login/KcContext";
 import { Check, Mail, SquareArrowOutUpRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { PersonCheckRow, REFUSALS, usePersonCheck } from "../../parts/captcha";
 import { ActionRow, Go, PasswordRow, SignOutOthers, TextRow } from "../../parts/rows";
-import { plain, QuietLink, quietLink } from "../../parts/text";
+import { QuietLink, quietLink } from "../../parts/text";
 import { IconTile } from "../../parts/tile";
-import { type I18n, isMessage } from "../i18n";
+import { PersonCheckRow, usePersonCheck } from "../captcha";
+import { nameLabel, valueIn } from "../i18n";
 import { Stage } from "../stage";
 import { meetsPolicy, PolicyTags } from "./policy";
 import type { Page } from "./props";
 
-/** The person forgot the password: one field for the name that the link goes to. */
 export function ResetPassword({ kcContext, i18n }: Page<"login-reset-password.ftl">) {
-  const { url, realm, auth, messagesPerField, message } = kcContext;
+  const { url, realm, auth, messagesPerField } = kcContext;
   const { msgStr } = i18n;
   const wrong = messagesPerField.existsError("username");
-  const label = !realm.loginWithEmailAllowed
-    ? msgStr("kdsUsername")
-    : msgStr(realm.registrationEmailAsUsername ? "kdsEmail" : "kdsUsernameOrEmail");
   const form = "kc-reset-password-form";
-  const check = usePersonCheck(kcContext, form);
-  const [answered, setAnswered] = useState(false);
-  // The check refused the form: the row of the check says it.
-  const checkRefused =
-    message?.type === "error" && REFUSALS.some((key) => isMessage(i18n, message.summary, key));
-  const checkProblem = check.failed
-    ? msgStr("kdsCheckFailed")
-    : checkRefused && !answered
-      ? message.summary
-      : undefined;
+  const check = usePersonCheck(kcContext, form, i18n);
   return (
     <Stage
       kcContext={kcContext}
       i18n={i18n}
       title={msgStr("kdsForgotTitle")}
       lead={msgStr("kdsForgotLead")}
-      wrong={wrong || (checkRefused && !answered)}
+      wrong={wrong || (check.refused && !check.retried)}
       problem={wrong ? messagesPerField.get("username") : undefined}
-      quiet={wrong || checkRefused}
+      quiet={wrong || check.refused}
       waits={check.held}
       below={<QuietLink href={url.loginUrl}>{msgStr("kdsBackToSignIn")}</QuietLink>}
     >
@@ -46,7 +33,7 @@ export function ResetPassword({ kcContext, i18n }: Page<"login-reset-password.ft
         <TextRow
           id="username"
           name="username"
-          label={label}
+          label={nameLabel(i18n, realm)}
           defaultValue={auth?.attemptedUsername ?? ""}
           autoFocus
           autoComplete="username"
@@ -56,26 +43,12 @@ export function ResetPassword({ kcContext, i18n }: Page<"login-reset-password.ft
           aria-invalid={wrong}
           end={<Go label={msgStr("kdsSendLink")} />}
         />
-        <PersonCheckRow
-          check={check.check}
-          label={msgStr("kdsNotRobot")}
-          problem={checkProblem}
-          againLabel={msgStr("kdsCheckAgain")}
-          onAgain={() => {
-            setAnswered(true);
-            check.again();
-          }}
-        />
+        <PersonCheckRow check={check} i18n={i18n} />
       </form>
     </Stage>
   );
 }
 
-/**
- * A password: the first one of a new account, or a new one. The person types it one time and can
- * look at it: the row has the control that shows it. Keycloak asks for the password two times,
- * so the form sends the same value in its second field.
- */
 export function UpdatePassword({ kcContext, i18n }: Page<"login-update-password.ftl">) {
   const { url, messagesPerField, isAppInitiatedAction } = kcContext;
   const { msgStr } = i18n;
@@ -83,8 +56,6 @@ export function UpdatePassword({ kcContext, i18n }: Page<"login-update-password.
   const again = useRef<HTMLInputElement>(null);
   const wrong = messagesPerField.existsError("password", "password-confirm");
   const form = "kc-passwd-update-form";
-  // Keycloakify adds the realm's rules to a page with a new password, and Keycloak the name of
-  // the person.
   const { passwordPolicies, username } = kcContext as {
     passwordPolicies?: PasswordPolicies;
     username?: string;
@@ -94,7 +65,7 @@ export function UpdatePassword({ kcContext, i18n }: Page<"login-update-password.
     <Stage
       kcContext={kcContext}
       i18n={i18n}
-      title={msgStr("kdsNewPasswordTitle")}
+      title={msgStr("kdsPasswordTitle")}
       wrong={wrong}
       problem={wrong ? messagesPerField.getFirstError("password", "password-confirm") : undefined}
       quiet={wrong || kcContext.message?.type === "warning"}
@@ -112,7 +83,7 @@ export function UpdatePassword({ kcContext, i18n }: Page<"login-update-password.
         method="post"
         noValidate
         onSubmit={(event) => {
-          // A password manager can fill the row with no word to the page.
+          // Keycloak asks for password-confirm, and a password manager can fill the row silently.
           const typed = event.currentTarget.elements.namedItem("password-new");
           if (again.current && typed instanceof HTMLInputElement) again.current.value = typed.value;
         }}
@@ -145,7 +116,6 @@ export function UpdatePassword({ kcContext, i18n }: Page<"login-update-password.
   );
 }
 
-/** The mail services whose inbox a link can open, by the end of the address. */
 const INBOXES = [
   { name: "Gmail", href: "https://mail.google.com/", ends: ["gmail.com", "googlemail.com"] },
   {
@@ -168,7 +138,6 @@ function inboxOf(address: string | undefined) {
   return domain ? INBOXES.find((one) => one.ends.includes(domain)) : undefined;
 }
 
-/** "Send it again" was pressed on the page before this one, a moment ago. */
 const SENT = "kodosi.sent";
 
 function sentJustNow(): boolean {
@@ -184,56 +153,25 @@ function sentJustNow(): boolean {
 function markSent() {
   try {
     sessionStorage.setItem(SENT, `${Date.now()}`);
-  } catch {
-    // The next page does not say "Sent again".
-  }
+  } catch {}
 }
 
-/**
- * The seconds that Keycloak asks the person to wait before it sends the link again, when the page
- * says so. Keycloak's sentence holds the number.
- */
-function cooldownOf(i18n: I18n, said: string | undefined): number {
-  if (!said) return 0;
-  const [before = "", after = ""] = i18n
-    .msgStr("emailVerifySendCooldown", "\u0000")
-    .split("\u0000");
-  const text = plain(said).trim();
-  if (!before || !text.startsWith(before) || !text.endsWith(after)) return 0;
-  return Number.parseInt(text.slice(before.length, text.length - after.length), 10) || 0;
-}
-
-/** The tile of the mail. While the page waits for the person to open the link, the copper dot of
-    the app breathes on it. */
-function MailTile({ waits }: { waits: boolean }) {
-  return (
-    <span className="relative">
-      <IconTile tint="teal" icon={<Mail />} />
-      {waits && (
-        <span className="breathe absolute -top-0.5 -right-0.5 size-2 rounded-full bg-accent text-accent ring-2 ring-raised" />
-      )}
-    </span>
-  );
-}
-
-/**
- * A link went to the person's inbox. The page waits for them: it opens their mail service when it
- * knows the service, and it can send the link again. When the person opens the link in a
- * different tab of this browser, Keycloak's own watch (stage.tsx) carries this tab on.
- */
 export function VerifyEmail({ kcContext, i18n }: Page<"login-verify-email.ftl">) {
   const { url, user, isAppInitiatedAction } = kcContext;
   const { msgStr } = i18n;
-  // The address that Keycloak sent the link to. An action that the account page asked for has
-  // sent no link yet when Keycloak names no address.
+  // Keycloak names verifyEmail only once it has sent a link.
   const sentTo = (kcContext as { verifyEmail?: string }).verifyEmail;
   const address = sentTo ?? user?.email;
   const asks = !!isAppInitiatedAction && !sentTo;
   const inbox = asks ? undefined : inboxOf(address);
   const form = "kc-verify-email-form";
-  // Keycloak sends the link again only after a short time. Until then, the row counts the
-  // seconds, and it is the row that sends when they are over.
-  const [wait, setWait] = useState(() => cooldownOf(i18n, kcContext.message?.summary));
+  const [wait, setWait] = useState(
+    () =>
+      Number.parseInt(
+        valueIn(i18n, kcContext.message?.summary, "emailVerifySendCooldown") ?? "",
+        10,
+      ) || 0,
+  );
   const [again, setAgain] = useState(() => sentJustNow() && wait === 0);
   useEffect(() => {
     if (!again) return;
@@ -250,7 +188,7 @@ export function VerifyEmail({ kcContext, i18n }: Page<"login-verify-email.ftl">)
       <ActionRow
         type="button"
         disabled
-        tile={<MailTile waits={false} />}
+        tile={<IconTile tint="teal" icon={<Mail />} />}
         title={msgStr("kdsSendAgain")}
         detail={<span className="tabular-nums">{msgStr("kdsSendAgainIn", `${wait}`)}</span>}
       />
@@ -264,15 +202,15 @@ export function VerifyEmail({ kcContext, i18n }: Page<"login-verify-email.ftl">)
     ) : isAppInitiatedAction ? (
       <form id={form} action={url.loginAction} method="post" onSubmit={markSent}>
         <ActionRow
-          tile={<MailTile waits={false} />}
-          title={msgStr(sentTo ? "kdsSendAgain" : "kdsSend")}
+          tile={<IconTile tint="teal" icon={<Mail />} />}
+          title={msgStr(sentTo ? "kdsSendAgain" : "kdsSendLink")}
         />
       </form>
     ) : (
       <ActionRow
         href={url.loginAction}
         onClick={markSent}
-        tile={<MailTile waits={!inbox} />}
+        tile={<IconTile tint="teal" icon={<Mail />} waits={!inbox} />}
         title={msgStr("kdsSendAgain")}
       />
     );
@@ -281,7 +219,6 @@ export function VerifyEmail({ kcContext, i18n }: Page<"login-verify-email.ftl">)
       kcContext={kcContext}
       i18n={i18n}
       title={msgStr(asks ? "kdsConfirmEmailTitle" : "kdsInboxTitle")}
-      // Keycloak's own line says what the lead or the row says.
       quiet={kcContext.message?.type !== "error" || wait > 0}
       lead={
         asks && address
@@ -310,7 +247,7 @@ export function VerifyEmail({ kcContext, i18n }: Page<"login-verify-email.ftl">)
           href={inbox.href}
           target="_blank"
           rel="noreferrer"
-          tile={<MailTile waits />}
+          tile={<IconTile tint="teal" icon={<Mail />} waits />}
           title={msgStr("kdsOpenMail", inbox.name)}
           end={<SquareArrowOutUpRight className="size-4 shrink-0 text-ink-faint" aria-hidden />}
         />

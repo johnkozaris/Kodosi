@@ -1,74 +1,46 @@
 # Kodosi for macOS
 
-The native Swift app embeds the shared Rust runtime and Ghostty terminal integration.
+The native Swift app. It embeds the Rust runtime and Ghostty.
 
 ## Requirements
 
-- Apple silicon and macOS 26.4 or later. [Config/macOSDeploymentTarget](Config/macOSDeploymentTarget)
-  is the deployment target authority.
-- Xcode with the matching macOS SDK and command-line tools selected.
-- The Rust toolchain pinned at the repository root.
-- `just`, Python 3, `xcodegen`, `swiftformat`, and `swiftlint` on your build PATH.
-
-Keep downloaded build tools and dependencies project-local.
+Apple silicon with macOS 26.4 or later ([Config/macOSDeploymentTarget](Config/macOSDeploymentTarget)),
+Xcode with the matching SDK, the pinned Rust toolchain, and `just`, Python 3, `xcodegen`,
+`swiftformat` and `swiftlint` on your PATH.
 
 ## Build and run
-
-From the repository root:
 
 ```sh
 just mac-build
 ```
 
-This generates `KodosiDesktop.xcodeproj`, builds the runtime library and the app, and
-runs the terminal package tests. Open the generated project in Xcode, select the
-`KodosiDesktop` scheme, and run it.
+This generates `KodosiDesktop.xcodeproj` from `project.yml`, builds the runtime library,
+tests the shared package and builds the app. Run the `KodosiDesktop` scheme in Xcode.
+Debug builds use a [local backend](../../docs/DEVELOPMENT.md#run-the-backend) at
+`127.0.0.1:5180`; `just release-build` here builds against the public service.
+[VERSION](../../VERSION) gives the version of all apps and the CLI.
 
-Debug builds target the local backend at `127.0.0.1:5180`; follow
-[backend setup](../../docs/DEVELOPMENT.md#run-the-backend) to run it. Release builds use
-the public service addresses:
+## Command line
 
-```sh
-just --justfile clients/macos/justfile release-build
-```
-
-Generate the project from `project.yml`; do not edit generated project files or the
-runtime header directly. [VERSION](../../VERSION) gives the
-version of the Mac app, the iOS app, the Linux and Windows app and the CLI.
-
-## Command-line access
-
-The app executable also implements the CLI:
+The app executable is also the `kodosi` CLI, using the app's Keychain identity. The
+app's own terminals find it. For other terminals, Settings > General links
+`/usr/local/bin/kodosi` to it, and the Homebrew cask makes the same link. For a build
+from source, link it yourself:
 
 ```sh
-/absolute/path/Kodosi.app/Contents/MacOS/Kodosi --help
+ln -s /absolute/path/Kodosi.app/Contents/MacOS/Kodosi ~/.local/bin/kodosi
 ```
 
-Kodosi's own terminals find `kodosi` without a step. For other terminals, Settings →
-General installs the link `/usr/local/bin/kodosi` to the app executable; the Homebrew
-cask makes the same link. The CLI must be the signed app executable to use the app's
-Keychain identity.
-
-Keep the app running when using room commands for its terminals. See
-[Agents and tasks](../../docs/AGENTS_AND_TASKS.md).
+Keep the app running while you use room commands for its terminals.
 
 ## Updates
 
 Release builds update with [Sparkle](https://sparkle-project.org) from
-`https://updates.kodosi.com/macos/appcast.xml`. Debug and working-tree builds do not
-update. `KODOSI_UPDATE_KEY` in `Config/Release.xcconfig` is the public EdDSA key of
-the feed; a publishable build needs it.
+`https://updates.kodosi.com/macos/appcast.xml`; Debug and working-tree builds do not.
+`KODOSI_UPDATE_KEY` in `Config/Release.xcconfig` is the public EdDSA key of the feed.
 
-## Check and package
+## Check
 
-```sh
-just mac-check
-```
-
-From this client directory, `just lint` and `just test` do parts of this check. To
-format the Swift sources, run `just format`.
-`just working-tree-build` builds an archive of the working tree for validation.
-
-Read [Ghostty integration](docs/GHOSTTY_INTEGRATION.md) before changing the renderer.
-See [product behavior](PRODUCT.md), [design reference](DESIGN.md), and
-[contributor setup](../../docs/DEVELOPMENT.md).
+`just mac-check` from the repository root lints, tests and builds the Release app. Here,
+`just lint`, `just test` and `just format` do parts of it, and `just working-tree-build`
+builds an unpublishable archive of the working tree.

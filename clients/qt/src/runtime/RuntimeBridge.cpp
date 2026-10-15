@@ -5,7 +5,6 @@
 #include <QJsonDocument>
 #include <QMetaObject>
 #include <QThread>
-#include <limits>
 #include <utility>
 #include <thread>
 
@@ -63,43 +62,18 @@ bool RuntimeBridge::isRunning() const noexcept
     return m_handle != nullptr;
 }
 
-RuntimeBridge::Result RuntimeBridge::start()
-{
-    Q_ASSERT(thread() == QThread::currentThread());
-    if (isRunning())
-        return {};
-    if (kodosi_protocol_version() != 58 || kodosi_abi_version() != KODOSI_FFI_ABI_VERSION) {
-        return std::unexpected(failure(RuntimeFailure::Code::ContractMismatch, KODOSI_FFI_DESER_FAILED,
-            tr("The linked runtime is incompatible with this version of Kodosi.")));
-    }
-    static const kodosi_callbacks_t callbacks {
-        .on_event = &RuntimeBridge::event,
-        .on_terminal_data = &RuntimeBridge::terminalData,
-        .on_terminal_control = &RuntimeBridge::terminalControl,
-        .on_terminal_connect_result = &RuntimeBridge::terminalConnectResult,
-        .on_terminal_checkpoint = &RuntimeBridge::terminalSemanticCheckpoint,
-    };
-    m_accountEpoch = 0;
-    m_queueFailed.store(false, std::memory_order_release);
-    m_accountUserId.clear();
-    m_activeGeneration.store(++m_nextGeneration, std::memory_order_release);
-    m_handle = kodosi_start(&callbacks, sizeof(callbacks), m_callbacks.get());
-    if (!m_handle) {
-        m_activeGeneration.store(0, std::memory_order_release);
-        return std::unexpected(failure(RuntimeFailure::Code::StartRejected, KODOSI_FFI_RUNTIME_STOPPED,
-            tr("Kodosi could not start its terminal runtime.")));
-    }
-    emit runningChanged(true);
-    return {};
-}
-
 void RuntimeBridge::startAsync(std::function<void(Result)> completion)
 {
     Q_ASSERT(thread() == QThread::currentThread());
     if (isRunning()) { completion({}); return; }
-    if (m_starting || kodosi_protocol_version() != 58 || kodosi_abi_version() != KODOSI_FFI_ABI_VERSION) {
+    if (kodosi_protocol_version() != 58 || kodosi_abi_version() != KODOSI_FFI_ABI_VERSION) {
+        completion(std::unexpected(failure(RuntimeFailure::Code::ContractMismatch, KODOSI_FFI_DESER_FAILED,
+            tr("The linked runtime is incompatible with this version of Kodosi."))));
+        return;
+    }
+    if (m_starting) {
         completion(std::unexpected(failure(RuntimeFailure::Code::StartRejected, KODOSI_FFI_RUNTIME_STOPPED,
-            tr("The runtime is unavailable or still starting."))));
+            tr("The runtime is still starting."))));
         return;
     }
     m_starting = true;

@@ -14,7 +14,7 @@ public sealed class DeviceSessions(TimeProvider clock)
     private readonly Dictionary<Guid, Challenge> challenges = [];
     private readonly Dictionary<string, Session> sessions = [];
 
-    public (Guid Id, byte[] Bytes, DateTimeOffset ExpiresAt) NewChallenge(Guid userId)
+    public (Guid Id, byte[] Bytes) NewChallenge(Guid userId)
     {
         var now = clock.GetUtcNow();
         var challenge = new Challenge(userId, RandomNumberGenerator.GetBytes(32), now + ChallengeLife);
@@ -26,7 +26,7 @@ public sealed class DeviceSessions(TimeProvider clock)
                 throw new ApiException(429, "Too many pending device challenges.");
             challenges.Add(id, challenge);
         }
-        return (id, challenge.Bytes, challenge.ExpiresAt);
+        return (id, challenge.Bytes);
     }
 
     public byte[] ConsumeChallenge(Guid userId, Guid id)
@@ -39,7 +39,7 @@ public sealed class DeviceSessions(TimeProvider clock)
         throw ApiException.Forbidden("The device challenge expired or was already used.");
     }
 
-    public (string Token, DateTimeOffset ExpiresAt) Open(Guid userId, string deviceId)
+    public string Open(Guid userId, string deviceId)
     {
         var now = clock.GetUtcNow();
         var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
@@ -52,7 +52,7 @@ public sealed class DeviceSessions(TimeProvider clock)
             if (sessions.Count >= MaximumSessions) throw new ApiException(503, "Too many device sessions.");
             sessions.Add(Key(token), session);
         }
-        return (token, session.ExpiresAt);
+        return token;
     }
 
     public bool Holds(Guid userId, string deviceId, string? token)

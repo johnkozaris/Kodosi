@@ -54,8 +54,6 @@ private struct TerminalsArt: View {
 }
 
 struct TerminalsLoading: View {
-    @Environment(\.theme) private var theme
-
     var body: some View {
         VStack(spacing: 18) {
             ForEach(0 ..< 4, id: \.self) { index in

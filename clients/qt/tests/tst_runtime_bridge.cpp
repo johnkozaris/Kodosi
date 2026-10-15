@@ -4,7 +4,17 @@
 #include <QJsonDocument>
 #include <QSignalSpy>
 #include <limits>
+#include <optional>
 #include <QtTest/QTest>
+
+namespace {
+bool started(kodosi::RuntimeBridge& bridge)
+{
+    bool running = false;
+    bridge.startAsync([&](auto result) { running = result.has_value(); });
+    return QTest::qWaitFor([&] { return running; });
+}
+}
 
 class RuntimeBridgeTest final : public QObject {
     Q_OBJECT
@@ -19,21 +29,16 @@ private slots:
         for (const auto version : { 57u, 59u }) {
             runtime_fixture::protocolVersion = version;
             kodosi::RuntimeBridge bridge;
-            const auto result = bridge.start();
-            QVERIFY(!result);
-            QCOMPARE(result.error().code, kodosi::RuntimeFailure::Code::ContractMismatch);
-            bool completed = false;
-            bridge.startAsync([&](auto asynchronousResult) {
-                completed = true;
-                QVERIFY(!asynchronousResult);
-            });
-            QVERIFY(completed);
+            std::optional<kodosi::RuntimeBridge::Result> result;
+            bridge.startAsync([&](auto value) { result = std::move(value); });
+            QVERIFY(result && !*result);
+            QCOMPARE(result->error().code, kodosi::RuntimeFailure::Code::ContractMismatch);
             QVERIFY(!bridge.isRunning());
             QVERIFY(runtime_fixture::userdata == nullptr);
         }
         runtime_fixture::protocolVersion = 58;
         kodosi::RuntimeBridge bridge;
-        QVERIFY(bridge.start());
+        QVERIFY(started(bridge));
         QVERIFY(bridge.isRunning());
     }
     void asynchronousStartupCanBeCancelledBeforeInstallation()
@@ -53,7 +58,7 @@ private slots:
     {
         kodosi::RuntimeBridge bridge;
         QSignalSpy events(&bridge, &kodosi::RuntimeBridge::eventReceived);
-        QVERIFY(bridge.start());
+        QVERIFY(started(bridge));
         auto event = [](const QString& type, int epoch, const QString& user) {
             return QJsonDocument(
                 QJsonObject { { QStringLiteral("type"), type }, { QStringLiteral("accountEpoch"), epoch },
@@ -78,7 +83,7 @@ private slots:
     {
         kodosi::RuntimeBridge bridge;
         QSignalSpy events(&bridge, &kodosi::RuntimeBridge::eventReceived);
-        QVERIFY(bridge.start());
+        QVERIFY(started(bridge));
         runtime_fixture::sendEvent(
             QByteArrayLiteral("{\"type\":\"system.ready\",\"accountEpoch\":0,\"accountUserId\":null}"));
         bridge.stop();
@@ -90,7 +95,7 @@ private slots:
     {
         kodosi::RuntimeBridge bridge;
         QSignalSpy errors(&bridge,&kodosi::RuntimeBridge::eventError);
-        QVERIFY(bridge.start());
+        QVERIFY(started(bridge));
         const auto event=QByteArrayLiteral("{\"type\":\"system.ready\",\"accountEpoch\":0,\"accountUserId\":null}");
         for(int i=0;i<10000;++i)runtime_fixture::sendEvent(event);
         QTRY_VERIFY(!bridge.isRunning());
@@ -100,7 +105,7 @@ private slots:
     {
         kodosi::RuntimeBridge bridge;
         QSignalSpy events(&bridge, &kodosi::RuntimeBridge::eventReceived);
-        QVERIFY(bridge.start());
+        QVERIFY(started(bridge));
         runtime_fixture::sendEvent(QByteArrayLiteral(
             R"({"type":"auth.ready","accountEpoch":18446744073709551615,"accountUserId":"owner"})"));
         QTRY_COMPARE(events.size(), 1);
@@ -134,7 +139,7 @@ private slots:
     void admissionErrorsAreNotCompletion()
     {
         kodosi::RuntimeBridge bridge;
-        QVERIFY(bridge.start());
+        QVERIFY(started(bridge));
         runtime_fixture::commandResult = KODOSI_FFI_BUSY;
         QVERIFY(!bridge.send(QByteArrayLiteral("{\"type\":\"session.list\"}")));
     }

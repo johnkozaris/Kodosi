@@ -66,7 +66,6 @@ pub struct ConversationEntry {
     pub role: String,
     pub content: String,
     pub tool_name: Option<String>,
-    pub timestamp: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -75,8 +74,6 @@ pub struct ConversationPage {
     pub entries: Vec<ConversationEntry>,
     pub next_before_byte: Option<u64>,
     pub source_file_bytes: u64,
-    pub read_bytes: u64,
-    pub source_records: usize,
     pub degraded_reason: Option<String>,
 }
 

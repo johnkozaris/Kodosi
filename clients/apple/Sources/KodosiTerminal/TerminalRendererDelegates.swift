@@ -9,9 +9,6 @@ import GhosttyTerminal
 @MainActor
 final class TerminalRendererDelegateProxy:
     TerminalSurfaceGridResizeDelegate,
-    TerminalSurfaceCloseDelegate,
-    TerminalSurfacePwdDelegate,
-    TerminalSurfaceCommandFinishedDelegate,
     TerminalSurfaceLifecycleDelegate,
     TerminalSurfaceOpenURLDelegate,
     TerminalSurfaceHoverLinkDelegate
@@ -47,18 +44,6 @@ final class TerminalRendererDelegateProxy:
             $0.terminalDidResize(size)
             self.viewportDidResize?()
         }
-    }
-
-    func terminalDidClose(processAlive: Bool) {
-        forward { $0.terminalDidClose(processAlive: processAlive) }
-    }
-
-    func terminalDidChangeWorkingDirectory(_ path: String) {
-        forward { $0.terminalDidChangeWorkingDirectory(path) }
-    }
-
-    func terminalDidFinishCommand(exitCode: Int?, durationNanos: UInt64) {
-        forward { $0.terminalDidFinishCommand(exitCode: exitCode, durationNanos: durationNanos) }
     }
 
     func terminalDidAttachSurface(_ surface: TerminalSurface) {

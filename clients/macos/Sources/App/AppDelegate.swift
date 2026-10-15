@@ -24,7 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                     info: Bundle.main.infoDictionary ?? [:]
                 )?.install()
             #endif
-            let bootstrap = try RuntimeStorageBootstrap.resolveForLaunch()
+            let bootstrap = try RuntimeStorageBootstrap.resolve()
             storageBootstrap = bootstrap
             dependencies = AppDependencies(
                 defaults: bootstrap.defaults,

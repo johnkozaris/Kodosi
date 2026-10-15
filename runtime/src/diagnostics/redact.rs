@@ -16,7 +16,6 @@ const NAMED_SECRETS: [&[&str]; 11] = [
     &["pem"],
 ];
 
-/// Removes credentials, key material and the user's home folder from `text`.
 pub(super) fn redact(text: &str, home: &[String]) -> String {
     let mut text = strip_url_secrets(text);
     text = strip_pem_blocks(&text);
@@ -29,7 +28,6 @@ pub(super) fn redact(text: &str, home: &[String]) -> String {
     strip_long_material(&text)
 }
 
-/// The forms of the home folder that messages may contain.
 pub(super) fn home_forms(home: Option<&std::path::Path>) -> Vec<String> {
     let Some(home) = home.and_then(std::path::Path::to_str) else {
         return Vec::new();
@@ -200,7 +198,6 @@ fn strip_named_secrets(text: &str) -> String {
     text
 }
 
-/// Where the value after the next `name: ` or `"name"=` begins, at or after `from`.
 fn next_named_value(text: &str, from: usize) -> Option<usize> {
     let lower = text.as_bytes();
     (from..lower.len()).find_map(|start| {

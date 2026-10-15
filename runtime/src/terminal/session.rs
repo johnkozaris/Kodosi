@@ -16,8 +16,7 @@ use super::emulator::{SessionTerminalHandle, TerminalEffect};
 use super::status::ProgramStatusRecords;
 use super::subscribers::Subscribers;
 use super::{
-    ControlFrame, DataFrame, SessionChange, Subscription, TerminalHistoryPolicy,
-    TerminalPixelGeometry, TerminalSize,
+    ControlFrame, DataFrame, SessionChange, Subscription, TerminalPixelGeometry, TerminalSize,
 };
 use crate::{
     Error, Result,
@@ -25,16 +24,12 @@ use crate::{
 };
 
 const COMMAND_CAPACITY: usize = 64;
-const MAX_INPUT_BYTES: usize = 1024 * 1024;
 const MAX_PENDING_BYTES: usize = 4 * 1024 * 1024;
 const READ_BYTES: usize = 64 * 1024;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 const STOP_TIMEOUT: Duration = Duration::from_secs(10);
-/// How long a start line waits for the shell's prompt, and when it gives up.
 const START_PATIENCE: Duration = Duration::from_secs(3);
 const START_LIMIT: Duration = Duration::from_secs(15);
-/// Without a line discipline to read, a shell that printed and then stayed
-/// quiet this long waits at its prompt.
 const PROMPT_QUIET: Duration = Duration::from_millis(300);
 
 type Completion = Option<std::result::Result<(), String>>;
@@ -68,7 +63,6 @@ enum Request {
         reply: oneshot::Sender<Result<()>>,
     },
     Start(String),
-    Theme(bool),
 }
 
 #[derive(Clone)]
@@ -89,7 +83,6 @@ impl LocalSession {
         program: PathBuf,
         arguments: Vec<String>,
         directory: PathBuf,
-        dark: bool,
         changes: mpsc::Sender<SessionChange>,
     ) -> Result<Self> {
         let size = TerminalSize::default();
@@ -99,8 +92,7 @@ impl LocalSession {
             let cwd = directory
                 .to_str()
                 .ok_or_else(|| Error::Invalid("working directory must be UTF-8".to_owned()))?;
-            let emulator =
-                SessionTerminalHandle::spawn(size, TerminalHistoryPolicy::default(), dark)?;
+            let emulator = SessionTerminalHandle::spawn(size)?;
             let session_id = id.to_string();
             let command_path = command_path();
             let mut environment = vec![("KODOSI_SESSION_ID", session_id.as_str())];
@@ -270,13 +262,8 @@ impl LocalSession {
         await_reply(self.send(Request::Run { command, reply }), response)
     }
 
-    /// Types `command` into the new shell once it waits at its first prompt.
     pub(crate) fn start(&self, command: String) -> Result<()> {
         self.send(Request::Start(command))
-    }
-
-    pub(crate) fn theme(&self, dark: bool) {
-        drop(self.send(Request::Theme(dark)));
     }
 
     pub(crate) fn close(&self) -> impl Future<Output = Result<()>> + Send + use<> {
@@ -371,7 +358,7 @@ impl PendingWrite {
         budget: &Arc<Semaphore>,
         authorization: Option<CancellationToken>,
     ) -> Result<Self> {
-        if bytes.len() > MAX_INPUT_BYTES {
+        if bytes.len() > super::TERMINAL_INPUT_MAX_BYTES {
             return Err(Error::Invalid("terminal input exceeds 1 MiB".to_owned()));
         }
         let count = u32::try_from(bytes.len()).map_err(|_| Error::Busy)?;
@@ -442,8 +429,6 @@ fn validated_pixels(
     Ok((Some(width), Some(height)))
 }
 
-/// The keys that clear a half-typed line before a start command. `PowerShell`
-/// and `cmd` cancel the line with Ctrl+C; Unix line editors use Ctrl+E, Ctrl+U.
 /// The `PATH` of a new terminal with the folder of the running app at its end, when that
 /// folder holds the `kodosi` command and the `PATH` lacks it.
 fn command_path() -> Option<String> {
@@ -466,6 +451,8 @@ fn path_with_command(path: &std::ffi::OsStr, folder: PathBuf) -> Option<String> 
     std::env::join_paths(folders).ok()?.into_string().ok()
 }
 
+/// `PowerShell` and `cmd` cancel a line with Ctrl+C; Unix line editors clear it
+/// with Ctrl+E, Ctrl+U.
 fn clear_line_keys(shell: &Path) -> &'static str {
     let stem = shell
         .file_stem()
@@ -503,18 +490,12 @@ struct LocalActor {
     program: Option<String>,
     clear_line: &'static str,
     start: Option<(String, tokio::time::Instant)>,
-    /// The first word of the start line, until the agent that it starts shows
-    /// which sign-in folder it got.
     launcher: Option<String>,
     output_at: Option<tokio::time::Instant>,
     prompt: bool,
     viewers: HashMap<Uuid, String>,
-    /// The account that publishes the terminal. Its person is here while this
-    /// computer shows the terminal.
     owner: Option<String>,
     local_view: bool,
-    /// The session's folder: launch folder, then the latest OSC 7 or 9;9
-    /// report or PTY observation, whichever changed last.
     working_directory: PathBuf,
     observed_directory: Option<PathBuf>,
     title: Option<String>,
@@ -596,7 +577,6 @@ impl LocalActor {
         Ok(())
     }
 
-    /// Drops cancelled input, except a front write the PTY has not yet confirmed.
     fn drop_cancelled_input(&mut self) {
         let in_flight = self.reader.write_in_flight();
         let mut index = 0;
@@ -634,8 +614,6 @@ impl LocalActor {
         Ok(())
     }
 
-    /// The front write's unsent bytes. A write the PTY has taken but not yet
-    /// confirmed stays at the front, cancelled or not, until `wrote` settles it.
     fn pending_input(&mut self) -> Option<Bytes> {
         let in_flight = self.reader.write_in_flight();
         while let Some(write) = self.queue.front_mut() {
@@ -692,7 +670,6 @@ impl LocalActor {
             .emulator
             .resize(size.rows(), size.cols(), geometry)
             .await
-            .map_err(Error::from)
             .map_err(ResizeError::Diverged)?;
         for bytes in effects {
             self.enqueue(Bytes::from(bytes), None)
@@ -768,10 +745,6 @@ impl LocalActor {
         Ok(())
     }
 
-    /// Types the start line when the shell waits at its prompt: its line
-    /// editor reads single keys, or, behind a console host, it printed and
-    /// went quiet. A slow shell gets the line after a while; a shell that
-    /// started another program does not.
     fn type_start_line(&mut self) {
         let Some((_, since)) = &self.start else {
             return;
@@ -951,8 +924,6 @@ impl LocalActor {
         Ok(())
     }
 
-    /// What runs in the terminal: the app a running program reports, else what
-    /// its process shows.
     fn live_program(&self) -> Option<String> {
         self.status
             .live_program()
@@ -960,8 +931,6 @@ impl LocalActor {
             .or_else(|| self.pty.foreground_program())
     }
 
-    /// Makes `path` the session's folder. False when the change cannot be
-    /// published yet, so the caller tries again.
     fn set_working_directory(&mut self, path: PathBuf) -> bool {
         if path == self.working_directory {
             return true;
@@ -982,8 +951,6 @@ impl LocalActor {
         true
     }
 
-    /// When the agent that the start line started runs in front, reads which
-    /// sign-in folder it got, so the accounts know what the command does.
     fn learn_sign_in(&mut self) {
         let (Some(program), Some(command)) = (&self.program, &self.launcher) else {
             return;
@@ -1037,7 +1004,7 @@ impl LocalActor {
                         cut.checkpoint,
                         cut.applied_sequence,
                     ),
-                    Err(error) => Err(error.into()),
+                    Err(error) => Err(error),
                 };
                 if let Err(Ok(subscription)) = reply.send(result) {
                     self.subscribers.remove(subscription.connection_id);
@@ -1108,11 +1075,6 @@ impl LocalActor {
             Request::Start(line) => {
                 self.launcher = line.split_whitespace().next().map(str::to_owned);
                 self.start = Some((line, tokio::time::Instant::now()));
-            }
-            Request::Theme(dark) => {
-                if let Err(error) = self.emulator.notify_theme_changed(dark).await {
-                    tracing::warn!(id = %self.id, %error, "terminal theme change failed");
-                }
             }
         }
         None
@@ -1339,7 +1301,7 @@ impl LocalActor {
             loop {
                 tokio::select! {
                     result = self.pty.wait_within(deadline.saturating_duration_since(tokio::time::Instant::now())) => match result {
-                        Ok(WaitOutcome::Reaped(_)) => return Ok(()),
+                        Ok(WaitOutcome::Reaped) => return Ok(()),
                         Ok(WaitOutcome::TimedOut) => break,
                         Err(error) => return Err(format!("Process termination was not confirmed: {error}")),
                     },

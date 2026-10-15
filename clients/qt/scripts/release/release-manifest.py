@@ -1,21 +1,15 @@
 #!/usr/bin/env python3
-"""Write or check the release manifest of the Linux packages.
-
-generate writes release-manifest.json beside the packages. verify compares the
-manifest with the clean checkout and with the packages beside it. verify
---structure-only examines only the fields of the manifest, for the signature
-check of a downloaded release."""
+"""Write or check the release manifest of the Linux packages."""
 
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
-import os
 import re
 from pathlib import Path
 
-from canonical_json import canonical_json
+from canonical_json import canonical_json, write_canonical_json
 from release_source import product_version, repository_root, source_identity
 
 
@@ -96,7 +90,6 @@ def generate(packages: list[Path]) -> None:
     for package in sorted(packages, key=lambda package: package.name):
         if package.is_symlink() or not package.is_file() or package_kind(package.name) is None:
             fail(f"{package} is not a Linux package file")
-        # Each package records this source identity. The package check compared them.
         rows.append(
             {
                 "filename": package.name,
@@ -106,15 +99,7 @@ def generate(packages: list[Path]) -> None:
             }
         )
     output = folder / NAME
-    temporary = folder / f".{NAME}.part"
-    try:
-        with temporary.open("wb") as destination:
-            destination.write(canonical_json({"schemaVersion": 6, **fields, "artifacts": rows}))
-            destination.flush()
-            os.fsync(destination.fileno())
-        os.replace(temporary, output)
-    finally:
-        temporary.unlink(missing_ok=True)
+    write_canonical_json(output, {"schemaVersion": 6, **fields, "artifacts": rows})
     print(output)
 
 

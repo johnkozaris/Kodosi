@@ -38,10 +38,6 @@ pub enum Error {
     Busy,
     #[error("The connection has closed.")]
     Closed,
-    #[error(
-        "The terminal view was refreshed before the host confirmed the operation. It was not retried."
-    )]
-    Refreshed,
     #[error("{0}")]
     Io(#[from] std::io::Error),
     #[error("{0}")]
@@ -119,8 +115,7 @@ pub struct BackendConfig {
     pub isolated: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone)]
 pub struct Identity {
     pub user_id: String,
     pub device_id: String,
@@ -142,8 +137,7 @@ pub struct BackendReply {
     pub events: Vec<Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone)]
 pub struct LocalPublication {
     pub session_id: Uuid,
     pub incarnation_id: Uuid,
@@ -170,9 +164,7 @@ pub struct RemoteSession {
     pub status: Option<TerminalStatus>,
 }
 
-/// What the host of a terminal tells the server and the people who can open it: the
-/// agent and the state that its program reports, without the program's text. The
-/// server can read it.
+/// The server reads it, so it never carries the program's text.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TerminalStatus {
@@ -197,7 +189,7 @@ impl TerminalStatus {
     pub(crate) fn is_valid(&self) -> bool {
         self.program
             .as_deref()
-            .is_none_or(|program| matches!(program, "claude" | "copilot" | "codex" | "cursor"))
+            .is_none_or(crate::agents::is_agent_name)
             && (self.kind.is_none() || self.state == Some(crate::terminal::ProgramState::Blocked))
     }
 
@@ -206,31 +198,23 @@ impl TerminalStatus {
             state: self.state?,
             kind: self.kind,
             progress: None,
-            app: None,
             title: None,
             message: None,
         })
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[derive(Debug, Clone)]
 pub enum TerminalControl {
     Input {
         bytes: Vec<u8>,
     },
     Resize {
-        #[serde(rename = "requestId")]
-        request_id: String,
         rows: u16,
         cols: u16,
-        #[serde(rename = "widthPixels")]
         width_pixels: u32,
-        #[serde(rename = "heightPixels")]
         height_pixels: u32,
-        #[serde(rename = "cellWidthPixels")]
         cell_width_pixels: u32,
-        #[serde(rename = "cellHeightPixels")]
         cell_height_pixels: u32,
         claim: bool,
     },
@@ -260,8 +244,6 @@ pub enum HostRequest {
         reply: oneshot::Sender<std::result::Result<CheckpointCut, String>>,
     },
     Control {
-        sender_user_id: String,
-        sender_device_id: String,
         connection_id: Uuid,
         control: TerminalControl,
         authorization: tokio_util::sync::CancellationToken,
@@ -294,13 +276,10 @@ pub enum PublishedFrame {
 }
 
 pub enum RemoteUpdate {
-    Ended {
-        final_sequence: u64,
-    },
+    Ended,
     Checkpoint {
         checkpoint: crate::terminal::Checkpoint,
         next_sequence: u64,
-        fresh: bool,
     },
     Raw {
         sequence: u64,
@@ -338,12 +317,7 @@ impl RemoteConnection {
             cancellation: self.cancellation.clone(),
         }
     }
-    pub async fn send_control(&self, control: TerminalControl) -> Result<Value> {
-        self.control_handle().send_control(control).await
-    }
-    pub async fn request_checkpoint(&self) -> Result<()> {
-        self.control_handle().request_checkpoint().await
-    }
+
     pub fn disconnect(&self) {
         self.cancellation.cancel();
     }
@@ -363,7 +337,7 @@ impl RemoteControl {
             })?;
         tokio::select! {
             biased;
-            result=tokio::time::timeout(std::time::Duration::from_secs(10), response)=>
+            result=tokio::time::timeout(CONTROL_TIMEOUT, response)=>
                 result.map_err(|_|invalid("The host did not confirm the operation; it was not retried."))?
                     .map_err(|_|invalid("The connection closed before confirming the operation; it was not retried."))?,
             ()=self.cancellation.cancelled()=>Err(invalid("The connection closed before confirming the operation; it was not retried.")),
@@ -386,10 +360,6 @@ impl RemoteControl {
                 mpsc::error::TrySendError::Closed(_) => Error::Closed,
             })
     }
-
-    pub fn disconnect(&self) {
-        self.cancellation.cancel();
-    }
 }
 
 impl Drop for RemoteConnection {
@@ -402,7 +372,7 @@ pub type PublicationOutput = broadcast::Receiver<PublishedFrame>;
 
 #[cfg(test)]
 pub(crate) use terminal_connections::RemoteRequest as TestRemoteRequest;
-pub(crate) use terminal_connections::{INPUT_NOT_SENT, STABLE_CONNECTION};
+pub(crate) use terminal_connections::{CONTROL_TIMEOUT, INPUT_NOT_SENT, STABLE_CONNECTION};
 
 #[cfg(test)]
 pub(crate) fn test_remote_connection(

@@ -364,8 +364,6 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         notifyBusy();
         if (type == QStringLiteral("room.result"))
             m_missions.completeAction(pending.missionId, event.value(QStringLiteral("action")).toString(), pending.draft);
-        if (type == QStringLiteral("room.result") && event.value(QStringLiteral("roomId")).toString() == m_missions.m_selectedId)
-            emit m_missions.roomActionFinished(event.value(QStringLiteral("action")).toString());
         if (pending.operation == QStringLiteral("session.create")
             && !event.value(QStringLiteral("sessionId")).toString().isEmpty()) {
             const auto sessionId = event.value(QStringLiteral("sessionId")).toString();
