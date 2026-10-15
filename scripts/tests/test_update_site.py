@@ -58,10 +58,9 @@ def generate(root: Path, package_version: str, windows_version: str | None = Non
     (release / f"kodosi-{VERSION}-linux-x86_64.tar.gz").write_bytes(b"archive")
     (release / f"kodosi-bin-{VERSION}-1-x86_64.pkg.tar.zst").write_bytes(b"arch package")
     (root / "appcast.xml").write_text("<rss/>", encoding="utf-8")
-    (root / "key.pgp").write_bytes(b"public key")
     return subprocess.run(
         [sys.executable, str(SCRIPT), str(release), str(root / "site"), "--version", VERSION,
-         "--appcast", str(root / "appcast.xml"), "--apt-key", str(root / "key.pgp")],
+         "--appcast", str(root / "appcast.xml")],
         capture_output=True,
     )
 

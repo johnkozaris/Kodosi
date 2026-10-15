@@ -21,7 +21,7 @@ if [[ $(basename "$dmg") != "Kodosi-$version.dmg" ]]; then
 fi
 packages="$ROOT/build/packages"
 xcodebuild -resolvePackageDependencies -project "$ROOT/KodosiDesktop.xcodeproj" -scheme KodosiDesktop \
-    -clonedSourcePackagesDirPath "$packages" >/dev/null
+    -clonedSourcePackagesDirPath "$packages" </dev/null >/dev/null
 mkdir -p "$archives"
 cp "$dmg" "$archives/"
 if [[ -f ${dmg%.dmg}.md ]]; then
@@ -35,5 +35,9 @@ arguments=(
 )
 if ((critical)); then
     arguments+=(--critical-update-version "")
+fi
+# The private EdDSA key comes on the standard input, or else from the keychain.
+if [[ ! -t 0 ]]; then
+    arguments+=(--ed-key-file -)
 fi
 "$packages/artifacts/sparkle/Sparkle/bin/generate_appcast" "${arguments[@]}" "$archives"

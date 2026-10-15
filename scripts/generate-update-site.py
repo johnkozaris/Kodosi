@@ -25,6 +25,8 @@ from xml.etree import ElementTree
 from pathlib import Path
 
 REPOSITORY = "johnkozaris/Kodosi"
+# The site gives the same key that the Debian package adds.
+APT_KEY = Path(__file__).resolve().parents[1] / "clients/qt/packaging/linux/kodosi-archive-keyring.pgp"
 
 
 def file_sha256(path: Path) -> str:
@@ -125,7 +127,6 @@ def main() -> None:
     parser.add_argument("site", type=Path, help="the folder of the update site to write")
     parser.add_argument("--version", required=True)
     parser.add_argument("--appcast", type=Path, required=True, help="appcast.xml from generate-appcast.sh")
-    parser.add_argument("--apt-key", type=Path, required=True, help="the public apt archive key")
     parser.add_argument("--sign", metavar="FINGERPRINT", help="sign the apt index with this OpenPGP key")
     arguments = parser.parse_args()
     version, release, site = arguments.version, arguments.release, arguments.site
@@ -156,7 +157,7 @@ def main() -> None:
     shutil.copyfile(arguments.appcast, site / "macos/appcast.xml")
     apt = site / "apt"
     apt_repository(files["linux"], version, apt)
-    shutil.copyfile(arguments.apt_key, apt / "kodosi-archive-keyring.pgp")
+    shutil.copyfile(APT_KEY, apt / "kodosi-archive-keyring.pgp")
     if arguments.sign:
         sign_release(apt, arguments.sign)
     downloads = ["macos", "linux"]
