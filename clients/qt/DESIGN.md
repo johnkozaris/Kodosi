@@ -64,6 +64,3 @@ The Linux and Windows app looks and behaves exactly like the [Mac app](../macos/
 
 ## Colors
 Use `KodosiTheme` roles, not literals. Terminals use the `terminal*` roles in both themes.
-
-## Elevation & Depth
-`Raised` and `Bezel` draw rims, faces and shadows with plain shapes, so they look the same with and without a GPU.
