@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::parse_cwd;
+use super::{SessionTerminal, TERMINAL_SNAPSHOT_MAX_BYTES, parse_cwd};
 
 fn reported(raw: &str) -> Option<PathBuf> {
     parse_cwd(raw.as_bytes())
@@ -61,4 +61,27 @@ fn a_report_that_is_no_folder_of_this_host_leaves_the_folder_alone() {
         assert_eq!(reported(raw), None, "{raw:?}");
     }
     assert_eq!(reported(&format!("/{}", "a".repeat(4096))), None);
+}
+
+#[test]
+fn a_history_too_large_for_one_snapshot_still_gives_the_screen() {
+    let mut terminal = SessionTerminal::new(100, 1024).expect("terminal");
+    let line = format!("{}\r\n", "\u{754c}".repeat(512));
+    for _ in 0..1200 {
+        terminal.process_output(line.as_bytes()).expect("output");
+    }
+    assert_eq!(
+        terminal.terminal.snapshot(TERMINAL_SNAPSHOT_MAX_BYTES),
+        Err(ghostty_vt::Error::LimitExceeded)
+    );
+
+    let cut = terminal.checkpoint_data(true).expect("checkpoint");
+
+    assert_eq!(
+        cut.checkpoint.snapshot,
+        terminal
+            .terminal
+            .visible_snapshot(TERMINAL_SNAPSHOT_MAX_BYTES)
+            .expect("visible")
+    );
 }

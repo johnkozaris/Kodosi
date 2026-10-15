@@ -1,23 +1,16 @@
-use super::types::{Checkpoint, TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES, TerminalScreen};
+use super::types::{Checkpoint, TerminalScreen};
 use crate::{Error, Result};
-use ghostty_vt::{CheckpointLimits, Screen, SemanticCheckpoint, Terminal, TerminalPolicy};
+use ghostty_vt::{Screen, Terminal, TerminalPolicy};
 
 pub fn validate_terminal_checkpoint(checkpoint: &Checkpoint) -> Result<()> {
-    let mut terminal = Terminal::new(
-        checkpoint.cols(),
-        checkpoint.rows(),
-        TerminalPolicy::default(),
+    let mut terminal = Terminal::from_snapshot(
+        &checkpoint.snapshot,
+        TerminalPolicy {
+            console: checkpoint.console,
+            ..TerminalPolicy::default()
+        },
     )
     .map_err(checkpoint_error)?;
-    terminal
-        .restore_semantic_checkpoint(
-            &SemanticCheckpoint::from(checkpoint.semantic_checkpoint.clone()),
-            CheckpointLimits {
-                max_json_bytes: TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES,
-                ..CheckpointLimits::default()
-            },
-        )
-        .map_err(checkpoint_error)?;
     validate_restored_metadata(&mut terminal, checkpoint)
 }
 
@@ -33,7 +26,7 @@ fn validate_restored_metadata(terminal: &mut Terminal, checkpoint: &Checkpoint) 
         || cursor_hidden != checkpoint.cursor_hidden()
     {
         return Err(Error::Other(format!(
-            "terminal checkpoint metadata disagrees with restored semantic checkpoint: metadata={}x{} {:?} cursor={},{},hidden={}; restored={}x{} {:?} cursor={},{},hidden={}",
+            "terminal checkpoint metadata disagrees with restored snapshot: metadata={}x{} {:?} cursor={},{},hidden={}; restored={}x{} {:?} cursor={},{},hidden={}",
             checkpoint.cols(),
             checkpoint.rows(),
             checkpoint.active_screen,
@@ -71,15 +64,12 @@ mod tests {
     type TestResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 
     fn checkpoint_fixture(terminal: &mut Terminal) -> TestResult<Checkpoint> {
-        let semantic = terminal.semantic_checkpoint(CheckpointLimits {
-            max_json_bytes: TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES,
-            ..CheckpointLimits::default()
-        })?;
+        let snapshot = terminal.snapshot(super::super::types::TERMINAL_SNAPSHOT_MAX_BYTES)?;
         let state = terminal.state()?;
         Ok(Checkpoint::new(
             super::super::types::TerminalSize::new(state.rows, state.cols)?,
             terminal_screen(state.active_screen),
-            semantic.into_bytes(),
+            snapshot,
             state.cursor_x,
             state.cursor_y,
             !state.cursor_visible,
@@ -91,7 +81,7 @@ mod tests {
         let malformed = Checkpoint::new(
             super::super::types::TerminalSize::new(4, 12)?,
             TerminalScreen::Primary,
-            br#"{"schemaVersion":2}"#.to_vec(),
+            b"GHOSTSNP\x01\x00".to_vec(),
             0,
             0,
             false,
@@ -106,7 +96,7 @@ mod tests {
         let contradictory = Checkpoint::new(
             super::super::types::TerminalSize::new(5, 12)?,
             captured.active_screen,
-            captured.semantic_checkpoint.clone(),
+            captured.snapshot.clone(),
             captured.cursor_x(),
             captured.cursor_y(),
             captured.cursor_hidden(),

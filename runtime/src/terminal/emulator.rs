@@ -3,14 +3,14 @@ use std::{path::PathBuf, str, thread, time::Duration};
 use super::{
     status::{BlockedKind, ProgramState, ProgramStatusReport},
     types::{
-        Checkpoint, TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES, TerminalPixelGeometry, TerminalScreen,
+        Checkpoint, TERMINAL_SNAPSHOT_MAX_BYTES, TerminalPixelGeometry, TerminalScreen,
         TerminalSize, is_valid_folder,
     },
 };
 use crate::{Error, Result};
 use ghostty_vt::{
-    CheckpointLimits, CompressionProgress, Effect, ProgramStatusKind, ProgramStatusState,
-    ProgressState, Screen, Terminal, TerminalPolicy,
+    CompressionProgress, Effect, ProgramStatusKind, ProgramStatusState, ProgressState, Screen,
+    Terminal, TerminalPolicy,
 };
 use tokio::{
     runtime::Builder as TokioRuntimeBuilder,
@@ -229,29 +229,29 @@ impl SessionTerminal {
             .map(|effects| effects.into_iter().filter_map(convert_effect).collect())
     }
 
+    /// A history too large for one snapshot gives the visible part, so a view
+    /// always gets the screen.
     fn checkpoint_data(&mut self, history: bool) -> Result<CheckpointWithSequence> {
-        let limits = CheckpointLimits {
-            max_json_bytes: TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES,
-            ..CheckpointLimits::default()
-        };
-        let checkpoint = if history {
-            self.terminal.semantic_checkpoint(limits)
-        } else {
-            self.terminal.visible_checkpoint(limits)
+        let snapshot = match history.then(|| self.terminal.snapshot(TERMINAL_SNAPSHOT_MAX_BYTES)) {
+            None | Some(Err(ghostty_vt::Error::LimitExceeded)) => {
+                self.terminal.visible_snapshot(TERMINAL_SNAPSHOT_MAX_BYTES)
+            }
+            Some(full) => full,
         }
         .map_err(terminal_error)?;
         let state = self.terminal.state().map_err(terminal_error)?;
-        let checkpoint = Checkpoint::new(
+        let mut checkpoint = Checkpoint::new(
             TerminalSize::new(state.rows, state.cols).map_err(|error| {
                 Error::Other(format!("terminal checkpoint size failed: {error}"))
             })?,
             terminal_screen(state.active_screen),
-            checkpoint.into_bytes(),
+            snapshot,
             state.cursor_x,
             state.cursor_y,
             !state.cursor_visible,
         )
         .map_err(|error| Error::Other(format!("terminal checkpoint validation failed: {error}")))?;
+        checkpoint.console = kodosi_pty::CONSOLE_HOST;
         Ok(CheckpointWithSequence {
             checkpoint,
             applied_sequence: self.applied,

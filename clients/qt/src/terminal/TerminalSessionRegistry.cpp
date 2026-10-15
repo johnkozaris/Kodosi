@@ -843,8 +843,8 @@ void TerminalSessionRegistry::receiveConnectResult(TerminalConnectResult result)
     }
 }
 
-bool TerminalSessionRegistry::installSemanticCheckpoint(
-    TerminalSemanticCheckpoint checkpoint) noexcept
+bool TerminalSessionRegistry::installCheckpoint(
+    TerminalCheckpoint checkpoint) noexcept
 {
     ScopedPerformanceSpan span(
         QStringLiteral("frame.checkpoint"),

@@ -10,7 +10,7 @@ import Testing
 struct TerminalCheckpointColorTests {
     @Test
     func `checkpoint restore keeps the default colors of the surface configuration`() async throws {
-        let fixtureURL = try #require(Bundle.module.url(forResource: "visual-checkpoint", withExtension: "json"))
+        let fixtureURL = try #require(Bundle.module.url(forResource: "visual-checkpoint", withExtension: "snapshot"))
         let checkpoint = try Data(contentsOf: fixtureURL)
         let view = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 160))
         view.wantsLayer = true
@@ -42,7 +42,7 @@ struct TerminalCheckpointColorTests {
             #expect(controller.updateSurface(surface, bridge: bridge, configuration: colors.options(for: session)))
             for restore in [false, true] {
                 if restore {
-                    #expect(session.restoreCheckpointSynchronously(checkpoint))
+                    #expect(session.restoreCheckpointSynchronously(checkpoint, console: false))
                 }
                 let rendered = try await renderedColors(of: surface, session: session, in: view, expecting: colors)
                 #expect(rendered == colors, "restore=\(restore) rendered=\(rendered) configured=\(colors)")

@@ -2,7 +2,7 @@ use crate::{
     Error, Result,
     local_host::{self, TerminalFrame},
 };
-use ghostty_vt::{CheckpointLimits, SemanticCheckpoint, Terminal, TerminalPolicy};
+use ghostty_vt::{Terminal, TerminalPolicy};
 use std::{
     io::{self, IsTerminal, Read, Write},
     path::Path,
@@ -50,6 +50,7 @@ pub(super) async fn attach(root: &Path, session: Uuid) -> Result<()> {
         bytes,
         rows,
         cols,
+        console,
         next_sequence,
     } = initial
     else {
@@ -57,7 +58,7 @@ pub(super) async fn attach(root: &Path, session: Uuid) -> Result<()> {
             "terminal stream did not start with a snapshot".into(),
         ));
     };
-    let mut mirror = restore(&bytes, rows, cols)?;
+    let mut mirror = restore(&bytes, rows, cols, console)?;
     let mut next = next_sequence;
     let _screen = ScreenGuard::enter()?;
     render(&mut mirror)?;
@@ -96,7 +97,7 @@ pub(super) async fn attach(root: &Path, session: Uuid) -> Result<()> {
                     unacknowledged=unacknowledged.saturating_sub(1);
                     if !accepted { return Err(Error::Other(message.unwrap_or_else(|| "Input was rejected".into()))); }
                 },
-                TerminalFrame::Checkpoint{bytes,rows,cols,next_sequence}=>{mirror=restore(&bytes,rows,cols)?;next=next_sequence;dirty=true;}
+                TerminalFrame::Checkpoint{bytes,rows,cols,console,next_sequence}=>{mirror=restore(&bytes,rows,cols,console)?;next=next_sequence;dirty=true;}
                 TerminalFrame::Data{bytes,sequence}=>{
                     if sequence<next{continue;}
                     if sequence!=next{return Err(Error::Invalid("terminal stream lost output; reconnect to restore it".into()));}
@@ -117,15 +118,15 @@ pub(super) async fn attach(root: &Path, session: Uuid) -> Result<()> {
         }
     }
 }
-fn restore(bytes: &[u8], rows: u16, cols: u16) -> Result<Terminal> {
-    let mut terminal = Terminal::new(cols, rows, TerminalPolicy::default())
-        .map_err(|e| Error::Other(e.to_string()))?;
-    terminal
-        .restore_semantic_checkpoint(
-            &SemanticCheckpoint::from(bytes.to_vec()),
-            CheckpointLimits::default(),
-        )
-        .map_err(|e| Error::Other(e.to_string()))?;
+fn restore(bytes: &[u8], rows: u16, cols: u16, console: bool) -> Result<Terminal> {
+    let mut terminal = Terminal::from_snapshot(
+        bytes,
+        TerminalPolicy {
+            console,
+            ..TerminalPolicy::default()
+        },
+    )
+    .map_err(|e| Error::Other(e.to_string()))?;
     let state = terminal.state().map_err(|e| Error::Other(e.to_string()))?;
     if state.rows != rows || state.cols != cols {
         return Err(Error::Invalid(

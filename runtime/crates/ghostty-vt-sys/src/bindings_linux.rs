@@ -1,8 +1,3 @@
-pub const GHOSTTY_CHECKPOINT_SCHEMA_VERSION: u32 = 2;
-pub const GHOSTTY_CHECKPOINT_DEFAULT_MAX_JSON_BYTES: u32 = 8388608;
-pub const GHOSTTY_CHECKPOINT_DEFAULT_MAX_STRING_BYTES: u32 = 8388608;
-pub const GHOSTTY_CHECKPOINT_DEFAULT_MAX_CONTINUATION_BYTES: u32 = 1048576;
-pub const GHOSTTY_CHECKPOINT_DEFAULT_MAX_CELLS: u32 = 16777216;
 pub const GHOSTTY_DA_CONFORMANCE_VT220: u32 = 62;
 pub const GHOSTTY_DA_FEATURE_SELECTIVE_ERASE: u32 = 6;
 pub const GHOSTTY_DA_FEATURE_ANSI_COLOR: u32 = 22;
@@ -24,6 +19,12 @@ pub struct GhosttyTerminalImpl {
     _unused: [u8; 0],
 }
 pub type GhosttyTerminal = *mut GhosttyTerminalImpl;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct GhosttySnapshotDecoderImpl {
+    _unused: [u8; 0],
+}
+pub type GhosttySnapshotDecoder = *mut GhosttySnapshotDecoderImpl;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct GhosttyFormatterImpl {
@@ -50,30 +51,6 @@ const _: () = {
     ["Offset of field: GhosttyString::len"][::std::mem::offset_of!(GhosttyString, len) - 8usize];
 };
 impl Default for GhosttyString {
-    fn default() -> Self {
-        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
-        unsafe {
-            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
-            s.assume_init()
-        }
-    }
-}
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct GhosttyBuffer {
-    pub ptr: *mut u8,
-    pub cap: usize,
-    pub len: usize,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of GhosttyBuffer"][::std::mem::size_of::<GhosttyBuffer>() - 24usize];
-    ["Alignment of GhosttyBuffer"][::std::mem::align_of::<GhosttyBuffer>() - 8usize];
-    ["Offset of field: GhosttyBuffer::ptr"][::std::mem::offset_of!(GhosttyBuffer, ptr) - 0usize];
-    ["Offset of field: GhosttyBuffer::cap"][::std::mem::offset_of!(GhosttyBuffer, cap) - 8usize];
-    ["Offset of field: GhosttyBuffer::len"][::std::mem::offset_of!(GhosttyBuffer, len) - 16usize];
-};
-impl Default for GhosttyBuffer {
     fn default() -> Self {
         let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
         unsafe {
@@ -160,110 +137,6 @@ impl Default for GhosttyAllocator {
             s.assume_init()
         }
     }
-}
-#[repr(C)]
-#[derive(Debug, Default, Copy, Clone)]
-pub struct GhosttyCheckpointLimits {
-    pub size: usize,
-    pub max_json_bytes: usize,
-    pub max_string_bytes: usize,
-    pub max_continuation_bytes: usize,
-    pub max_cells: usize,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of GhosttyCheckpointLimits"][::std::mem::size_of::<GhosttyCheckpointLimits>() - 40usize];
-    ["Alignment of GhosttyCheckpointLimits"]
-        [::std::mem::align_of::<GhosttyCheckpointLimits>() - 8usize];
-    ["Offset of field: GhosttyCheckpointLimits::size"]
-        [::std::mem::offset_of!(GhosttyCheckpointLimits, size) - 0usize];
-    ["Offset of field: GhosttyCheckpointLimits::max_json_bytes"]
-        [::std::mem::offset_of!(GhosttyCheckpointLimits, max_json_bytes) - 8usize];
-    ["Offset of field: GhosttyCheckpointLimits::max_string_bytes"]
-        [::std::mem::offset_of!(GhosttyCheckpointLimits, max_string_bytes) - 16usize];
-    ["Offset of field: GhosttyCheckpointLimits::max_continuation_bytes"]
-        [::std::mem::offset_of!(GhosttyCheckpointLimits, max_continuation_bytes) - 24usize];
-    ["Offset of field: GhosttyCheckpointLimits::max_cells"]
-        [::std::mem::offset_of!(GhosttyCheckpointLimits, max_cells) - 32usize];
-};
-#[repr(C)]
-#[derive(Debug, Default, Copy, Clone)]
-pub struct GhosttyCheckpointEncodeOptions {
-    pub size: usize,
-    pub limits: GhosttyCheckpointLimits,
-    pub max_history_rows: usize,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of GhosttyCheckpointEncodeOptions"]
-        [::std::mem::size_of::<GhosttyCheckpointEncodeOptions>() - 56usize];
-    ["Alignment of GhosttyCheckpointEncodeOptions"]
-        [::std::mem::align_of::<GhosttyCheckpointEncodeOptions>() - 8usize];
-    ["Offset of field: GhosttyCheckpointEncodeOptions::size"]
-        [::std::mem::offset_of!(GhosttyCheckpointEncodeOptions, size) - 0usize];
-    ["Offset of field: GhosttyCheckpointEncodeOptions::limits"]
-        [::std::mem::offset_of!(GhosttyCheckpointEncodeOptions, limits) - 8usize];
-    ["Offset of field: GhosttyCheckpointEncodeOptions::max_history_rows"]
-        [::std::mem::offset_of!(GhosttyCheckpointEncodeOptions, max_history_rows) - 48usize];
-};
-#[repr(C)]
-#[derive(Debug, Default, Copy, Clone)]
-pub struct GhosttyCheckpointRestoreOptions {
-    pub size: usize,
-    pub limits: GhosttyCheckpointLimits,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of GhosttyCheckpointRestoreOptions"]
-        [::std::mem::size_of::<GhosttyCheckpointRestoreOptions>() - 48usize];
-    ["Alignment of GhosttyCheckpointRestoreOptions"]
-        [::std::mem::align_of::<GhosttyCheckpointRestoreOptions>() - 8usize];
-    ["Offset of field: GhosttyCheckpointRestoreOptions::size"]
-        [::std::mem::offset_of!(GhosttyCheckpointRestoreOptions, size) - 0usize];
-    ["Offset of field: GhosttyCheckpointRestoreOptions::limits"]
-        [::std::mem::offset_of!(GhosttyCheckpointRestoreOptions, limits) - 8usize];
-};
-#[repr(C)]
-#[derive(Debug, Default, Copy, Clone)]
-pub struct GhosttyCheckpointInfo {
-    pub size: usize,
-    pub schema_version: u32,
-    pub json_bytes: usize,
-    pub continuation_bytes: usize,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of GhosttyCheckpointInfo"][::std::mem::size_of::<GhosttyCheckpointInfo>() - 32usize];
-    ["Alignment of GhosttyCheckpointInfo"]
-        [::std::mem::align_of::<GhosttyCheckpointInfo>() - 8usize];
-    ["Offset of field: GhosttyCheckpointInfo::size"]
-        [::std::mem::offset_of!(GhosttyCheckpointInfo, size) - 0usize];
-    ["Offset of field: GhosttyCheckpointInfo::schema_version"]
-        [::std::mem::offset_of!(GhosttyCheckpointInfo, schema_version) - 8usize];
-    ["Offset of field: GhosttyCheckpointInfo::json_bytes"]
-        [::std::mem::offset_of!(GhosttyCheckpointInfo, json_bytes) - 16usize];
-    ["Offset of field: GhosttyCheckpointInfo::continuation_bytes"]
-        [::std::mem::offset_of!(GhosttyCheckpointInfo, continuation_bytes) - 24usize];
-};
-unsafe extern "C" {
-    pub fn ghostty_checkpoint_schema() -> u32;
-}
-unsafe extern "C" {
-    pub fn ghostty_checkpoint_encode_buf(
-        terminal: GhosttyTerminal,
-        options: *const GhosttyCheckpointEncodeOptions,
-        buffer: *mut GhosttyBuffer,
-        info: *mut GhosttyCheckpointInfo,
-    ) -> GhosttyResult;
-}
-unsafe extern "C" {
-    pub fn ghostty_checkpoint_restore(
-        terminal: GhosttyTerminal,
-        json: *const u8,
-        json_len: usize,
-        options: *const GhosttyCheckpointRestoreOptions,
-        info: *mut GhosttyCheckpointInfo,
-    ) -> GhosttyResult;
 }
 pub const GhosttyColorScheme_GHOSTTY_COLOR_SCHEME_LIGHT: GhosttyColorScheme = 0;
 pub const GhosttyColorScheme_GHOSTTY_COLOR_SCHEME_DARK: GhosttyColorScheme = 1;
@@ -372,6 +245,37 @@ unsafe extern "C" {
         buf_len: usize,
         out_written: *mut usize,
     ) -> GhosttyResult;
+}
+pub type GhosttyWriterFn = ::std::option::Option<
+    unsafe extern "C" fn(
+        userdata: *mut ::std::os::raw::c_void,
+        data: *const u8,
+        len: usize,
+    ) -> bool,
+>;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct GhosttyWriter {
+    pub write: GhosttyWriterFn,
+    pub userdata: *mut ::std::os::raw::c_void,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of GhosttyWriter"][::std::mem::size_of::<GhosttyWriter>() - 16usize];
+    ["Alignment of GhosttyWriter"][::std::mem::align_of::<GhosttyWriter>() - 8usize];
+    ["Offset of field: GhosttyWriter::write"]
+        [::std::mem::offset_of!(GhosttyWriter, write) - 0usize];
+    ["Offset of field: GhosttyWriter::userdata"]
+        [::std::mem::offset_of!(GhosttyWriter, userdata) - 8usize];
+};
+impl Default for GhosttyWriter {
+    fn default() -> Self {
+        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -1059,4 +963,76 @@ unsafe extern "C" {
 }
 unsafe extern "C" {
     pub fn ghostty_formatter_free(formatter: GhosttyFormatter);
+}
+pub const GhosttySnapshotDecoderOption_GHOSTTY_SNAPSHOT_DECODER_OPT_MAX_CONTINUATION_BYTES:
+    GhosttySnapshotDecoderOption = 0;
+pub const GhosttySnapshotDecoderOption_GHOSTTY_SNAPSHOT_DECODER_OPT_RETAIN_CONTINUATION:
+    GhosttySnapshotDecoderOption = 1;
+pub const GhosttySnapshotDecoderOption_GHOSTTY_SNAPSHOT_DECODER_OPT_COMPRESS_HISTORY:
+    GhosttySnapshotDecoderOption = 2;
+pub const GhosttySnapshotDecoderOption_GHOSTTY_SNAPSHOT_DECODER_OPT_MAX_VALUE:
+    GhosttySnapshotDecoderOption = 2147483647;
+pub type GhosttySnapshotDecoderOption = ::std::os::raw::c_int;
+pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_INVALID:
+    GhosttySnapshotDecoderData = 0;
+pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_MAX_CONTINUATION_BYTES:
+    GhosttySnapshotDecoderData = 1;
+pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_SOURCE_OFFSET:
+    GhosttySnapshotDecoderData = 2;
+pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_HISTORY_ROWS_PRIMARY:
+    GhosttySnapshotDecoderData = 3;
+pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_HISTORY_ROWS_ALTERNATE:
+    GhosttySnapshotDecoderData = 4;
+pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_PROGRESS_SCREEN:
+    GhosttySnapshotDecoderData = 5;
+pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_PROGRESS_ROWS:
+    GhosttySnapshotDecoderData = 6;
+pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_PROGRESS_REMAINING:
+    GhosttySnapshotDecoderData = 7;
+pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_RETAIN_CONTINUATION:
+    GhosttySnapshotDecoderData = 8;
+pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_COMPRESS_HISTORY:
+    GhosttySnapshotDecoderData = 9;
+pub const GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_MAX_VALUE:
+    GhosttySnapshotDecoderData = 2147483647;
+pub type GhosttySnapshotDecoderData = ::std::os::raw::c_int;
+unsafe extern "C" {
+    pub fn ghostty_snapshot_encode(
+        terminal: GhosttyTerminal,
+        writer: GhosttyWriter,
+    ) -> GhosttyResult;
+}
+unsafe extern "C" {
+    pub fn ghostty_snapshot_decoder_new_buf(
+        allocator: *const GhosttyAllocator,
+        decoder: *mut GhosttySnapshotDecoder,
+        ptr: *const u8,
+        len: usize,
+    ) -> GhosttyResult;
+}
+unsafe extern "C" {
+    pub fn ghostty_snapshot_decoder_free(decoder: GhosttySnapshotDecoder);
+}
+unsafe extern "C" {
+    pub fn ghostty_snapshot_decoder_set(
+        decoder: GhosttySnapshotDecoder,
+        option: GhosttySnapshotDecoderOption,
+        value: *const ::std::os::raw::c_void,
+    ) -> GhosttyResult;
+}
+unsafe extern "C" {
+    pub fn ghostty_snapshot_decoder_ready(
+        decoder: GhosttySnapshotDecoder,
+        terminal: *mut GhosttyTerminal,
+    ) -> GhosttyResult;
+}
+unsafe extern "C" {
+    pub fn ghostty_snapshot_decoder_next(decoder: GhosttySnapshotDecoder) -> GhosttyResult;
+}
+unsafe extern "C" {
+    pub fn ghostty_snapshot_decoder_get(
+        decoder: GhosttySnapshotDecoder,
+        data: GhosttySnapshotDecoderData,
+        out: *mut ::std::os::raw::c_void,
+    ) -> GhosttyResult;
 }

@@ -1,7 +1,7 @@
 use super::{
     Arc, CALLBACK_DEPTH, CancellationToken, Condvar, KODOSI_FFI_OK, KODOSI_MAX_FRAME_BYTES,
-    KODOSI_TERMINAL_CONTROL_MAX_BYTES, KODOSI_TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES,
-    KodosiCallbacks, Mutex, MutexGuard, Uuid, c_void,
+    KODOSI_TERMINAL_CONTROL_MAX_BYTES, KODOSI_TERMINAL_SNAPSHOT_MAX_BYTES, KodosiCallbacks, Mutex,
+    MutexGuard, Uuid, c_void,
     subscriptions::{SubscriptionState, Subscriptions},
     terminal,
 };
@@ -234,8 +234,8 @@ impl State {
         checkpoint: &terminal::Checkpoint,
         next_sequence: u64,
     ) -> bool {
-        let bytes = &checkpoint.semantic_checkpoint;
-        if bytes.is_empty() || bytes.len() > KODOSI_TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES {
+        let bytes = &checkpoint.snapshot;
+        if bytes.is_empty() || bytes.len() > KODOSI_TERMINAL_SNAPSHOT_MAX_BYTES {
             return false;
         }
         self.callbacks.on_terminal_checkpoint.and_then(|callback| {
@@ -247,6 +247,7 @@ impl State {
                     next_sequence,
                     checkpoint.rows(),
                     checkpoint.cols(),
+                    checkpoint.console,
                     bytes.as_ptr(),
                     bytes.len(),
                     self.userdata.get(),

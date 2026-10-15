@@ -138,7 +138,7 @@ public:
 
 
 
-    [[nodiscard]] Result installCheckpoint(const TerminalSemanticCheckpoint& checkpoint);
+    [[nodiscard]] Result installCheckpoint(const TerminalCheckpoint& checkpoint);
     [[nodiscard]] Result applyData(const TerminalData& data);
     [[nodiscard]] Result applyResize(
         const TerminalSubscription& subscription,

@@ -125,7 +125,7 @@ async fn a_view_installs_each_whole_snapshot_and_acknowledges_what_it_received()
     else {
         panic!("snapshot");
     };
-    assert_eq!(checkpoint.semantic_checkpoint.len(), 100_000);
+    assert_eq!(checkpoint.snapshot.len(), 100_000);
     let mut acknowledged = 0;
     while let Ok(frame) =
         tokio::time::timeout(Duration::from_millis(300), view.host.receive()).await

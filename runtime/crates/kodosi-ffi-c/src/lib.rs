@@ -35,9 +35,9 @@ pub use terminal_bridge::*;
 #[cfg(test)]
 use instance::Completion;
 
-pub const KODOSI_FFI_ABI_VERSION: u32 = 8;
+pub const KODOSI_FFI_ABI_VERSION: u32 = 9;
 pub const KODOSI_MAX_FRAME_BYTES: usize = 8_388_608;
-pub const KODOSI_TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES: usize = 8_388_608;
+pub const KODOSI_TERMINAL_SNAPSHOT_MAX_BYTES: usize = 8_388_608;
 pub const KODOSI_TERMINAL_CONTROL_MAX_BYTES: usize = 65_536;
 pub const KODOSI_FFI_OK: i32 = 0;
 pub const KODOSI_FFI_NULL_HANDLE: i32 = 2;
@@ -103,6 +103,7 @@ type TerminalCheckpointCb = Option<
         u64,
         u16,
         u16,
+        bool,
         *const u8,
         usize,
         *mut c_void,

@@ -16,6 +16,10 @@ use std::{
 
 use crate::*;
 
+const SNAPSHOT_ENVELOPE: &[u8] = b"GHOSTSNP\x01\x00";
+const SNAPSHOT_RECORD_HEADER_BYTES: usize = 10;
+const SNAPSHOT_READY_TAG: u16 = 5;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
     Primary,
@@ -114,25 +118,6 @@ pub struct TerminalState {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CheckpointLimits {
-    pub max_json_bytes: usize,
-    pub max_string_bytes: usize,
-    pub max_continuation_bytes: usize,
-    pub max_cells: usize,
-}
-
-impl Default for CheckpointLimits {
-    fn default() -> Self {
-        Self {
-            max_json_bytes: GHOSTTY_CHECKPOINT_DEFAULT_MAX_JSON_BYTES as usize,
-            max_string_bytes: GHOSTTY_CHECKPOINT_DEFAULT_MAX_STRING_BYTES as usize,
-            max_continuation_bytes: GHOSTTY_CHECKPOINT_DEFAULT_MAX_CONTINUATION_BYTES as usize,
-            max_cells: GHOSTTY_CHECKPOINT_DEFAULT_MAX_CELLS as usize,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CompressionProgress {
     Unsupported,
     Pending,
@@ -185,32 +170,82 @@ impl Terminal {
         let mut raw = ptr::null_mut();
 
         result(unsafe { ghostty_terminal_new(ptr::null(), ptr::from_mut(&mut raw), cols, rows) })?;
-        if raw.is_null() {
-            return Err(Error::InvalidValue);
-        }
-        let callbacks = Box::new(CallbackState {
-            effects: Vec::new(),
-            size: GhosttySizeReportSize {
-                rows,
-                columns: cols,
-                cell_width: 0,
-                cell_height: 0,
-            },
-            poisoned: false,
-            #[cfg(test)]
-            panic_next: false,
-        });
-        let mut terminal = Self {
-            raw,
-            callbacks,
-            _thread_owned: PhantomData,
-        };
+        let mut terminal = Self::adopt(raw, cols, rows)?;
         terminal.configure(
             continuation_max_bytes,
             scrollback_max_bytes,
             scrollback_max_lines,
         )?;
         Ok(terminal)
+    }
+
+    /// Restores a terminal from a Ghostty snapshot. A snapshot that ends at READY
+    /// restores the screens without the history after them.
+    pub fn from_snapshot(
+        snapshot: &[u8],
+        continuation_max_bytes: usize,
+        scrollback_max_bytes: usize,
+        scrollback_max_lines: usize,
+    ) -> Result<Self, Error> {
+        let mut decoder = ptr::null_mut();
+
+        result(unsafe {
+            ghostty_snapshot_decoder_new_buf(
+                ptr::null(),
+                ptr::from_mut(&mut decoder),
+                snapshot.as_ptr(),
+                snapshot.len(),
+            )
+        })?;
+        if decoder.is_null() {
+            return Err(Error::InvalidValue);
+        }
+        let decoder = DecoderGuard(decoder);
+        decoder.set(
+            GhosttySnapshotDecoderOption_GHOSTTY_SNAPSHOT_DECODER_OPT_MAX_CONTINUATION_BYTES,
+            &continuation_max_bytes,
+        )?;
+        decoder.set(
+            GhosttySnapshotDecoderOption_GHOSTTY_SNAPSHOT_DECODER_OPT_RETAIN_CONTINUATION,
+            &true,
+        )?;
+        let mut raw = ptr::null_mut();
+        result(unsafe { ghostty_snapshot_decoder_ready(decoder.0, ptr::from_mut(&mut raw)) })?;
+        let mut terminal = Self::adopt(raw, 0, 0)?;
+        let history = decoder.restore_history(snapshot.len());
+        drop(decoder);
+        history?;
+        let state = terminal.state()?;
+        terminal.callbacks.size.rows = state.rows;
+        terminal.callbacks.size.columns = state.cols;
+        terminal.configure(
+            continuation_max_bytes,
+            scrollback_max_bytes,
+            scrollback_max_lines,
+        )?;
+        Ok(terminal)
+    }
+
+    fn adopt(raw: GhosttyTerminal, cols: u16, rows: u16) -> Result<Self, Error> {
+        if raw.is_null() {
+            return Err(Error::InvalidValue);
+        }
+        Ok(Self {
+            raw,
+            callbacks: Box::new(CallbackState {
+                effects: Vec::new(),
+                size: GhosttySizeReportSize {
+                    rows,
+                    columns: cols,
+                    cell_width: 0,
+                    cell_height: 0,
+                },
+                poisoned: false,
+                #[cfg(test)]
+                panic_next: false,
+            }),
+            _thread_owned: PhantomData,
+        })
     }
 
     fn configure(
@@ -371,6 +406,12 @@ impl Terminal {
             &graphemes,
         )?;
         self.set_value(GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_MODE, &graphemes)?;
+        self.keep_scrollback_on_resize()
+    }
+
+    /// A snapshot holds the console modes but not this resize rule.
+    pub fn keep_scrollback_on_resize(&mut self) -> Result<(), Error> {
+        self.ensure_healthy()?;
         let pull_scrollback = false;
         self.set_value(
             GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_RESIZE_PULL_SCROLLBACK,
@@ -540,92 +581,46 @@ impl Terminal {
         Ok(config.value)
     }
 
-    pub fn encode_checkpoint(
+    /// Encodes a Ghostty snapshot. Without history it ends at READY: the screens,
+    /// their cursors and modes, and the unfinished input.
+    pub fn encode_snapshot(
         &mut self,
-        limits: CheckpointLimits,
-        max_history_rows: usize,
+        history: bool,
+        maximum_bytes: usize,
     ) -> Result<Vec<u8>, Error> {
         self.ensure_healthy()?;
-        let raw_limits = checkpoint_limits(limits)?;
-        let options = GhosttyCheckpointEncodeOptions {
-            size: mem::size_of::<GhosttyCheckpointEncodeOptions>(),
-            limits: raw_limits,
-            max_history_rows,
+        let mut sink = SnapshotSink {
+            bytes: Vec::new(),
+            maximum_bytes,
+            history,
+            scanned: 0,
+            ready: None,
+            exceeded: false,
+            unknown_format: false,
         };
-        let mut buffer = GhosttyBuffer {
-            ptr: ptr::null_mut(),
-            cap: 0,
-            len: 0,
+        let writer = GhosttyWriter {
+            write: Some(write_snapshot),
+            userdata: ptr::from_mut(&mut sink).cast::<c_void>(),
         };
-        let mut info = checkpoint_info();
 
-        let query = unsafe {
-            ghostty_checkpoint_encode_buf(
-                self.raw,
-                ptr::from_ref(&options),
-                ptr::from_mut(&mut buffer),
-                ptr::from_mut(&mut info),
-            )
-        };
-        if query != GhosttyResult_GHOSTTY_OUT_OF_SPACE {
-            result(query)?;
-        }
-        let required = buffer.len;
-        if required > limits.max_json_bytes || required > isize::MAX as usize {
+        let encoded = unsafe { ghostty_snapshot_encode(self.raw, writer) };
+        if sink.exceeded {
             return Err(Error::LimitExceeded);
         }
-        let mut bytes = vec![0_u8; required];
-        buffer = GhosttyBuffer {
-            ptr: bytes.as_mut_ptr(),
-            cap: bytes.len(),
-            len: 0,
-        };
-        info = checkpoint_info();
-
-        result(unsafe {
-            ghostty_checkpoint_encode_buf(
-                self.raw,
-                ptr::from_ref(&options),
-                ptr::from_mut(&mut buffer),
-                ptr::from_mut(&mut info),
-            )
-        })?;
-        if buffer.len > bytes.len() {
-            return Err(Error::OutOfSpace);
+        if sink.unknown_format {
+            return Err(Error::InvalidValue);
         }
-        bytes.truncate(buffer.len);
-        self.ensure_healthy()?;
-        check_info(&info, bytes.len())?;
-        Ok(bytes)
-    }
-
-    pub fn restore_checkpoint(
-        &mut self,
-        bytes: &[u8],
-        limits: CheckpointLimits,
-    ) -> Result<(), Error> {
-        self.ensure_healthy()?;
-        if bytes.len() > limits.max_json_bytes || bytes.len() > isize::MAX as usize {
-            return Err(Error::LimitExceeded);
+        match sink.ready {
+            Some(end) if !history => sink.bytes.truncate(end),
+            _ => {
+                result(encoded)?;
+                if !history {
+                    return Err(Error::InvalidValue);
+                }
+            }
         }
-        let raw_limits = checkpoint_limits(limits)?;
-        let options = GhosttyCheckpointRestoreOptions {
-            size: mem::size_of::<GhosttyCheckpointRestoreOptions>(),
-            limits: raw_limits,
-        };
-        let mut info = checkpoint_info();
-
-        result(unsafe {
-            ghostty_checkpoint_restore(
-                self.raw,
-                bytes.as_ptr(),
-                bytes.len(),
-                ptr::from_ref(&options),
-                ptr::from_mut(&mut info),
-            )
-        })?;
         self.ensure_healthy()?;
-        check_info(&info, bytes.len())
+        Ok(sink.bytes)
     }
 
     pub fn compression_activity(&mut self) -> Result<u64, Error> {
@@ -698,40 +693,115 @@ impl Drop for FormatterGuard {
     }
 }
 
-const fn checkpoint_limits(limits: CheckpointLimits) -> Result<GhosttyCheckpointLimits, Error> {
-    if limits.max_json_bytes == 0
-        || limits.max_string_bytes == 0
-        || limits.max_continuation_bytes == 0
-        || limits.max_cells == 0
-    {
-        return Err(Error::InvalidValue);
+struct DecoderGuard(GhosttySnapshotDecoder);
+
+impl DecoderGuard {
+    fn set<T>(&self, option: GhosttySnapshotDecoderOption, value: &T) -> Result<(), Error> {
+        result(unsafe {
+            ghostty_snapshot_decoder_set(self.0, option, ptr::from_ref(value).cast::<c_void>())
+        })
     }
-    Ok(GhosttyCheckpointLimits {
-        size: mem::size_of::<GhosttyCheckpointLimits>(),
-        max_json_bytes: limits.max_json_bytes,
-        max_string_bytes: limits.max_string_bytes,
-        max_continuation_bytes: limits.max_continuation_bytes,
-        max_cells: limits.max_cells,
-    })
+
+    fn source_offset(&self) -> Result<usize, Error> {
+        let mut offset = 0_usize;
+
+        result(unsafe {
+            ghostty_snapshot_decoder_get(
+                self.0,
+                GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_SOURCE_OFFSET,
+                ptr::from_mut(&mut offset).cast::<c_void>(),
+            )
+        })?;
+        Ok(offset)
+    }
+
+    fn restore_history(&self, snapshot_len: usize) -> Result<(), Error> {
+        if self.source_offset()? == snapshot_len {
+            return Ok(());
+        }
+        loop {
+            let next = unsafe { ghostty_snapshot_decoder_next(self.0) };
+            if next == GhosttyResult_GHOSTTY_NO_VALUE {
+                break;
+            }
+            result(next)?;
+        }
+        if self.source_offset()? == snapshot_len {
+            Ok(())
+        } else {
+            Err(Error::InvalidValue)
+        }
+    }
 }
 
-const fn checkpoint_info() -> GhosttyCheckpointInfo {
-    GhosttyCheckpointInfo {
-        size: mem::size_of::<GhosttyCheckpointInfo>(),
-        schema_version: 0,
-        json_bytes: 0,
-        continuation_bytes: 0,
+impl Drop for DecoderGuard {
+    fn drop(&mut self) {
+        unsafe { ghostty_snapshot_decoder_free(self.0) };
     }
 }
 
-const fn check_info(info: &GhosttyCheckpointInfo, json_bytes: usize) -> Result<(), Error> {
-    if info.schema_version != GHOSTTY_CHECKPOINT_SCHEMA_VERSION {
-        return Err(Error::NoValue);
+struct SnapshotSink {
+    bytes: Vec<u8>,
+    maximum_bytes: usize,
+    history: bool,
+    scanned: usize,
+    ready: Option<usize>,
+    exceeded: bool,
+    unknown_format: bool,
+}
+
+impl SnapshotSink {
+    fn accept(&mut self, data: &[u8]) -> bool {
+        if data.len() > self.maximum_bytes - self.bytes.len() {
+            self.exceeded = true;
+            return false;
+        }
+        self.bytes.extend_from_slice(data);
+        if self.history {
+            return true;
+        }
+        self.find_ready();
+        self.ready.is_none() && !self.unknown_format
     }
-    if info.json_bytes != json_bytes {
-        return Err(Error::InvalidValue);
+
+    /// Follows the documented record framing of snapshot format version 1.
+    fn find_ready(&mut self) {
+        if self.scanned == 0 {
+            let Some(envelope) = self.bytes.get(..SNAPSHOT_ENVELOPE.len()) else {
+                return;
+            };
+            if envelope != SNAPSHOT_ENVELOPE {
+                self.unknown_format = true;
+                return;
+            }
+            self.scanned = SNAPSHOT_ENVELOPE.len();
+        }
+        while let Some(header) = self
+            .bytes
+            .get(self.scanned..self.scanned + SNAPSHOT_RECORD_HEADER_BYTES)
+        {
+            let tag = u16::from_le_bytes([header[0], header[1]]);
+            let payload = u32::from_le_bytes([header[2], header[3], header[4], header[5]]) as usize;
+            let end = self.scanned + SNAPSHOT_RECORD_HEADER_BYTES + payload;
+            if end > self.bytes.len() {
+                return;
+            }
+            self.scanned = end;
+            if tag == SNAPSHOT_READY_TAG {
+                self.ready = Some(end);
+                return;
+            }
+        }
     }
-    Ok(())
+}
+
+unsafe extern "C" fn write_snapshot(userdata: *mut c_void, data: *const u8, len: usize) -> bool {
+    if userdata.is_null() || data.is_null() || len > isize::MAX as usize {
+        return false;
+    }
+    let sink = unsafe { &mut *userdata.cast::<SnapshotSink>() };
+
+    sink.accept(unsafe { slice::from_raw_parts(data, len) })
 }
 
 fn encode_buffer(
@@ -1380,92 +1450,101 @@ mod tests {
         );
     }
 
-    #[test]
-    fn checkpoint_two_call_encode_keeps_a_pending_sequence() {
-        let mut terminal = terminal();
+    fn snapshot(terminal: &mut Terminal, history: bool) -> Vec<u8> {
         terminal
-            .write(b"12345678901234567890\x1b[31")
-            .expect("write checkpoint source");
+            .encode_snapshot(history, usize::MAX)
+            .expect("snapshot")
+    }
 
-        let bytes = terminal
-            .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
-            .expect("encode checkpoint");
+    fn restore(snapshot: &[u8]) -> Result<Terminal, Error> {
+        Terminal::from_snapshot(snapshot, 1024 * 1024, 8 * 1024 * 1024, 10_000)
+    }
 
-        assert_ne!(bytes, [] as [u8; 0]);
+    fn with_history() -> Terminal {
+        let mut terminal = terminal();
+        for line in 0..400 {
+            terminal
+                .write(format!("history line {line}\r\n").as_bytes())
+                .expect("history");
+        }
+        terminal
     }
 
     #[test]
-    fn checkpoint_caller_limit_is_checked_before_allocation() {
-        let mut terminal = terminal();
-        let checkpoint = terminal
-            .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
-            .expect("baseline checkpoint");
-        let limits = CheckpointLimits {
-            max_json_bytes: checkpoint.len() - 1,
-            ..CheckpointLimits::default()
-        };
+    fn a_snapshot_keeps_unfinished_input() {
+        let mut source = terminal();
+        source.write(b"before\x1b]2;half").expect("source");
+        let mut restored = restore(&snapshot(&mut source, true)).expect("restore");
+
+        let effects = restored.write(b" title\x07after").expect("finish title");
+        source.write(b" title\x07after").expect("source finish");
+
+        assert!(effects.contains(&Effect::Title(b"half title".to_vec())));
+        assert_eq!(snapshot(&mut restored, true), snapshot(&mut source, true));
+    }
+
+    #[test]
+    fn a_snapshot_over_the_limit_is_refused() {
+        let mut terminal = with_history();
+        let full = snapshot(&mut terminal, true);
 
         assert_eq!(
-            terminal.encode_checkpoint(limits, usize::MAX),
+            terminal.encode_snapshot(true, full.len() - 1),
+            Err(Error::LimitExceeded)
+        );
+        assert_eq!(terminal.encode_snapshot(true, full.len()), Ok(full));
+    }
+
+    #[test]
+    fn a_visible_snapshot_ends_at_ready_and_restores_alone() {
+        let mut source = with_history();
+        let full = snapshot(&mut source, true);
+        let visible = snapshot(&mut source, false);
+
+        assert!(visible.len() < full.len() && full.starts_with(&visible));
+        let mut restored = restore(&visible).expect("restore visible");
+        assert_eq!(snapshot(&mut restored, false), visible);
+        assert_eq!(restored.state(), source.state());
+        assert_eq!(
+            source.encode_snapshot(false, visible.len() - 1),
             Err(Error::LimitExceeded)
         );
     }
 
     #[test]
-    fn checkpoint_restore_failure_is_transactional_and_retryable() {
+    fn a_glyph_command_that_a_snapshot_cuts_stays_off() {
         let mut source = terminal();
-        source.write(b"source").expect("source write");
-        let checkpoint = source
-            .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
-            .expect("source checkpoint");
+        source
+            .write(b"\x1b_25a1;r;cp=e0a0;AAAA")
+            .expect("start glyph command");
+        let mut restored = restore(&snapshot(&mut source, true)).expect("restore");
 
-        let mut destination = terminal();
-        destination
-            .write(b"destination")
-            .expect("destination write");
-        let before = destination
-            .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
-            .expect("before checkpoint");
-        assert_eq!(
-            destination.restore_checkpoint(b"{", CheckpointLimits::default()),
-            Err(Error::InvalidValue)
-        );
-        let after = destination
-            .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
-            .expect("after failed restore");
-        assert_eq!(after, before);
+        let effects = restored
+            .write(b"AAAAAAAAAA==\x1b\\")
+            .expect("end glyph command");
 
-        destination
-            .restore_checkpoint(&checkpoint, CheckpointLimits::default())
-            .expect("retry valid restore");
-        let restored = destination
-            .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
-            .expect("restored checkpoint");
-        assert_eq!(restored, checkpoint);
+        assert_eq!(effects, Vec::new());
     }
 
     #[test]
-    fn checkpoint_unsupported_schema_maps_to_no_value_without_mutation() {
-        let mut terminal = terminal();
-        terminal.write(b"kept").expect("write");
-        let before = terminal
-            .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
-            .expect("before checkpoint");
-        let mut unsupported = before.clone();
-        let needle = b"\"schemaVersion\":2";
-        let position = unsupported
-            .windows(needle.len())
-            .position(|window| window == needle)
-            .expect("schema field");
-        unsupported[position + needle.len() - 1] = b'3';
+    fn a_damaged_cut_or_extended_snapshot_is_refused() {
+        let mut source = with_history();
+        let full = snapshot(&mut source, true);
+        let visible = snapshot(&mut source, false);
+        let mut damaged = full.clone();
+        damaged[visible.len() / 2] ^= 0x40;
+        let mut extended = full.clone();
+        extended.push(0);
 
-        assert_eq!(
-            terminal.restore_checkpoint(&unsupported, CheckpointLimits::default()),
-            Err(Error::NoValue)
-        );
-        let after = terminal
-            .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
-            .expect("after unsupported restore");
-        assert_eq!(after, before);
+        for input in [
+            &[][..],
+            &damaged[..],
+            &extended[..],
+            &full[..visible.len() - 1],
+            &full[..=visible.len()],
+            &full[..full.len() - 1],
+        ] {
+            assert_eq!(restore(input).err(), Some(Error::InvalidValue));
+        }
     }
 }

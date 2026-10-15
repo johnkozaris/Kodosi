@@ -8,7 +8,7 @@ import Testing
 @Suite(.serialized)
 struct TerminalLifecycleTests {
     @Test
-    func `semantic checkpoint restores a live host managed surface transactionally`() async {
+    func `a snapshot restores a live host managed surface transactionally`() async {
         let view = NSView(frame: NSRect(x: 0, y: 0, width: 640, height: 480))
         view.wantsLayer = true
         let session = InMemoryTerminalSession(write: { _ in }, resize: { _ in })
@@ -48,7 +48,7 @@ struct TerminalLifecycleTests {
 
         guard let fixtureURL = Bundle.module.url(
             forResource: "visual-checkpoint",
-            withExtension: "json"
+            withExtension: "snapshot"
         ), let checkpoint = try? Data(contentsOf: fixtureURL) else {
             Issue.record("missing visual checkpoint fixture")
             return
@@ -63,7 +63,7 @@ struct TerminalLifecycleTests {
         try? await Task.sleep(for: .milliseconds(20))
         selectionChanges = 0
         restoreInProgress.value = true
-        #expect(session.restoreCheckpointSynchronously(checkpoint))
+        #expect(session.restoreCheckpointSynchronously(checkpoint, console: false))
         restoreInProgress.value = false
         #expect(callbacksDuringRestore == 0)
         #expect(!ghostty_surface_has_selection(surface))
@@ -77,7 +77,7 @@ struct TerminalLifecycleTests {
         #expect(selectionChanges == 1)
 
         let beforeSize = ghostty_surface_size(surface)
-        #expect(!session.restoreCheckpointSynchronously(Data("{".utf8)))
+        #expect(!session.restoreCheckpointSynchronously(Data("{".utf8), console: false))
         controller.handleWakeup()
         try? await Task.sleep(for: .milliseconds(20))
         #expect(selectionChanges == 1)
@@ -85,13 +85,13 @@ struct TerminalLifecycleTests {
         #expect(afterSize.columns == beforeSize.columns)
         #expect(afterSize.rows == beforeSize.rows)
 
-        #expect(session.restoreCheckpointSynchronously(checkpoint))
+        #expect(session.restoreCheckpointSynchronously(checkpoint, console: false))
         #expect(callbacksDuringRestore == 0)
     }
 
     @Test
     func `surface initialization and checkpoint restore retain destination scrollback`() throws {
-        let fixtureURL = try #require(Bundle.module.url(forResource: "visual-checkpoint", withExtension: "json"))
+        let fixtureURL = try #require(Bundle.module.url(forResource: "visual-checkpoint", withExtension: "snapshot"))
         let checkpoint = try Data(contentsOf: fixtureURL)
         for budget in [0, 64 * 1024 * 1024] {
             let view = NSView(frame: NSRect(x: 0, y: 0, width: 160, height: 80))
@@ -118,7 +118,7 @@ struct TerminalLifecycleTests {
             }
             for restore in [false, true] {
                 if restore {
-                    #expect(session.restoreCheckpointSynchronously(checkpoint))
+                    #expect(session.restoreCheckpointSynchronously(checkpoint, console: false))
                 }
                 #expect(session.receive(Data("\u{1B}[?1049l\u{1B}[2J\u{1B}[3J\u{1B}[H".utf8)))
                 let lines = (0 ..< 12000).map { "\($0)\r\n" }.joined()
