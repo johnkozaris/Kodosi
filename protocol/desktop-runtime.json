@@ -3710,6 +3710,9 @@
               "hasOlder": {
                 "type": "boolean"
               },
+              "historyTrimmed": {
+                "type": "boolean"
+              },
               "messages": {
                 "items": {
                   "additionalProperties": false,
@@ -3952,7 +3955,8 @@
               "tasks",
               "repositories",
               "sequence",
-              "hasOlder"
+              "hasOlder",
+              "historyTrimmed"
             ],
             "type": "object"
           },

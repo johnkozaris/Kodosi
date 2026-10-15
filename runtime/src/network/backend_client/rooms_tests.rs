@@ -216,6 +216,7 @@ struct FakeRoom {
     user: String,
     items: std::sync::Mutex<Vec<Value>>,
     requests: std::sync::Mutex<Vec<String>>,
+    trimmed: AtomicBool,
 }
 
 impl FakeRoom {
@@ -278,7 +279,9 @@ impl FakeRoom {
         let has_more = selected.len() > limit;
         selected.truncate(limit);
         selected.sort_by_key(|item| item["sequence"].as_u64().unwrap());
-        json!({"roomId":self.room,"sequence":items.len(),"keyVersion":1,"hasMore":has_more,"items":selected})
+        let trimmed = self.trimmed.load(Ordering::Relaxed);
+        json!({"roomId":self.room,"sequence":items.len(),"keyVersion":1,"hasMore":has_more,
+            "historyTrimmed":trimmed,"items":selected})
     }
 
     fn answer(&self, line: &str, body: &[u8]) -> Value {
@@ -330,6 +333,7 @@ async fn fake_room() -> (tempfile::TempDir, BackendClient, Credentials, Arc<Fake
         user,
         items: std::sync::Mutex::default(),
         requests: std::sync::Mutex::default(),
+        trimmed: AtomicBool::default(),
     });
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
@@ -457,6 +461,32 @@ async fn a_room_reads_only_the_items_after_the_sequence_that_it_has() {
     let shown = network.show_room(&credentials, room).await.unwrap();
     assert_eq!(shown.sequence, 1);
     assert_eq!(shown.tasks, Vec::new());
+}
+
+#[tokio::test]
+async fn a_room_tells_when_the_server_removed_its_oldest_messages() {
+    let (_root, network, credentials, fake) = fake_room().await;
+    let room = fake.room;
+    fake.add(Uuid::now_v7(), 1, &message("one"));
+    network.sync_room(&credentials, room, None).await.unwrap();
+    assert!(
+        !network
+            .show_room(&credentials, room)
+            .await
+            .unwrap()
+            .history_trimmed
+    );
+
+    fake.trimmed.store(true, Ordering::Relaxed);
+    fake.add(Uuid::now_v7(), 1, &message("two"));
+    assert!(network.sync_room(&credentials, room, None).await.unwrap());
+    let shown = network.show_room(&credentials, room).await.unwrap();
+    assert!(shown.history_trimmed);
+    let older = network
+        .older_messages(&credentials, room, shown.messages[0].sequence)
+        .await
+        .unwrap();
+    assert!(older.history_trimmed && !older.has_older);
 }
 
 #[tokio::test]

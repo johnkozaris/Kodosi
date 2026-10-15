@@ -163,6 +163,13 @@
     "history": "new members receive current room keys and decrypt the backwards-wrapped key history",
     "membership": "signed room state commits member identities; removal rotates the content key; a member whose identity is not available keeps the last identity in the state; only the owner gives a member a new identity, with new keys; the relay holds no plaintext key",
     "content": "immutable messages and versioned task/repository records; read by room sequence; compare expected version on updates",
-    "changes": "the device connection gets {type: changed, surface: rooms, roomId, sequence} after a content write and {type: changed, surface: rooms, roomId} after new room keys; it gets {type: changed, surface: missions, roomId} after a change of the room, its members, or the devices of a member; a device then reads only that room and only the items after the sequence that it has; it checks the identities and room keys of the members when it connects, when the members or their devices change, and when it uses a room whose last check is older than 5 minutes"
+    "changes": "the device connection gets {type: changed, surface: rooms, roomId, sequence} after a content write and {type: changed, surface: rooms, roomId} after new room keys; it gets {type: changed, surface: missions, roomId} after a change of the room, its members, or the devices of a member; a device then reads only that room and only the items after the sequence that it has; it checks the identities and room keys of the members when it connects, when the members or their devices change, and when it uses a room whose last check is older than 5 minutes",
+    "space": "with a RoomBytes limit, the server counts the body and signature bytes of the items of each room; when a write goes past the limit, it deletes the oldest messages, and each content page then gives historyTrimmed: true; when only tasks and repositories are left, it refuses the write with the limit room-data"
+  },
+  "plans": {
+    "account": "GET /api/me gives plan: {name, limits}; name is null on a server without plans",
+    "owner": "the plan of the room owner sets the limits of the room; the plan of the terminal owner sets the people who can see it",
+    "refusal": "status 403 with {error, limit}; limit is devices, rooms, room-people, share-people, room-data, friends or friend-requests; the error text tells the person what to do",
+    "recovery": "a recovery never counts against the device limit"
   }
 }

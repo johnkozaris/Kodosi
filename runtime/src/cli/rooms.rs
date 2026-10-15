@@ -504,7 +504,7 @@ mod tests {
 
     fn snapshot() -> Snapshot {
         serde_json::from_value(json!({
-            "roomId":Uuid::now_v7(),"messages":[],"sequence":0,"hasOlder":false,
+            "roomId":Uuid::now_v7(),"messages":[],"sequence":0,"hasOlder":false,"historyTrimmed":false,
             "repositories":[
                 {"id":"019f0000-0000-7000-8000-000000000001","name":"team/api","url":"https://github.com/team/api","host":"github.com","owner":"team","repository":"api","provider":"github"},
                 {"id":"019f0000-0000-7000-8000-000000000002","name":"team/ui","url":"https://forge.example/team/ui","host":"forge.example","owner":"team","repository":"ui","provider":"gitea"}

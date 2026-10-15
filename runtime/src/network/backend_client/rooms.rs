@@ -35,6 +35,7 @@ struct Content {
     tasks: BTreeMap<String, rooms::Task>,
     repositories: BTreeMap<String, rooms::Repository>,
     has_older: bool,
+    history_trimmed: bool,
     shown: u64,
 }
 #[derive(Default)]
@@ -70,6 +71,8 @@ struct ContentPage {
     sequence: u64,
     key_version: u64,
     has_more: bool,
+    #[serde(default)]
+    history_trimmed: bool,
     items: Vec<Item>,
 }
 #[derive(Clone, Deserialize)]
@@ -131,6 +134,7 @@ impl RoomCache {
         room: Uuid,
         items: &[Item],
         sequence: u64,
+        trimmed: bool,
     ) -> Result<()> {
         self.current(credentials)?;
         let cached = self
@@ -142,6 +146,7 @@ impl RoomCache {
             content.take(cached, room, item)?;
         }
         content.sequence = content.sequence.max(sequence);
+        content.history_trimmed |= trimmed;
         content.trim();
         Ok(())
     }
@@ -249,6 +254,7 @@ impl Content {
             repositories: self.repositories.values().cloned().collect(),
             sequence: self.sequence,
             has_older,
+            history_trimmed: self.history_trimmed,
         }
     }
 
@@ -1041,6 +1047,7 @@ impl BackendClient {
                 };
                 let page = self.read_page(credentials, room, &query).await?;
                 first.get_or_insert(page.sequence);
+                content.history_trimmed |= page.history_trimmed;
                 self.inner.rooms.lock().await.decrypt(
                     credentials,
                     room,
@@ -1105,11 +1112,13 @@ impl BackendClient {
                 last.unwrap_or(after).max(page.sequence)
             };
             changed |= !page.items.is_empty();
-            self.inner
-                .rooms
-                .lock()
-                .await
-                .merge(credentials, room, &page.items, next)?;
+            self.inner.rooms.lock().await.merge(
+                credentials,
+                room,
+                &page.items,
+                next,
+                page.history_trimmed,
+            )?;
             if !page.has_more {
                 return Ok(changed);
             }
@@ -1147,6 +1156,7 @@ impl BackendClient {
         let mut view = self.room_view(credentials, room).await?;
         view.messages = older.messages.into_values().collect();
         view.has_older = page.has_more;
+        view.history_trimmed |= page.history_trimmed;
         Ok(view)
     }
 

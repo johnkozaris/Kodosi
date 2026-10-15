@@ -3,6 +3,7 @@ using Kodosi.Devices;
 using Kodosi.Friends;
 using Kodosi.TerminalConnections;
 using Kodosi.Missions;
+using Kodosi.Plans;
 using Kodosi.Security;
 using Kodosi.Sessions;
 using Microsoft.EntityFrameworkCore;
@@ -16,12 +17,13 @@ internal sealed class TestStore : IAsyncDisposable
     public KodosiDbContext Db { get; }
     public ConnectionDirectory Connections { get; } = new();
     public DeviceSessions DeviceSessions { get; } = new(TimeProvider.System);
-    public DeviceService Devices => new(Db, Connections, DeviceSessions, TimeProvider.System);
+    public PlanCatalog Plans { get; set; } = PlanCatalog.None;
+    public DeviceService Devices => new(Db, Connections, DeviceSessions, TimeProvider.System, Plans);
     public Kodosi.Accounts.AccountService Accounts => new(Db, Connections, DeviceSessions, Gate, TimeProvider.System);
     public Kodosi.Admission.AccountGate Gate { get; } = new();
-    public FriendService Friends => new(Db, Connections, TimeProvider.System);
-    public MissionService Missions => new(Db, Connections, Friends, TimeProvider.System, Devices);
-    public SessionService Sessions => new(Db, Connections, Devices, Missions, TimeProvider.System);
+    public FriendService Friends => new(Db, Connections, TimeProvider.System, Plans);
+    public MissionService Missions => new(Db, Connections, Friends, TimeProvider.System, Devices, Plans);
+    public SessionService Sessions => new(Db, Connections, Devices, Missions, TimeProvider.System, Plans);
 
     public static async Task<TestStore> CreateAsync(PostgresFixture postgres)
     {
@@ -32,7 +34,7 @@ internal sealed class TestStore : IAsyncDisposable
     }
     public TestStore Fork(params Microsoft.EntityFrameworkCore.Diagnostics.IInterceptor[] interceptors) =>
         new(new KodosiDbContext(new DbContextOptionsBuilder<KodosiDbContext>()
-            .UseNpgsql(Db.Database.GetConnectionString()).AddInterceptors(interceptors).Options));
+            .UseNpgsql(Db.Database.GetConnectionString()).AddInterceptors(interceptors).Options)) { Plans = Plans };
     public async Task<(User User, DeviceFixture Fixture, Device Device)> UserAsync(string handle)
     {
         var user = new User

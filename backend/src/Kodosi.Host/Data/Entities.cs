@@ -11,6 +11,7 @@ public sealed class User
     public string? AvatarUrl { get; set; }
     public Guid? IdentityIncarnationId { get; set; }
     public long IdentityRevision { get; set; }
+    public string? Plan { get; set; }
 }
 
 public sealed class DeletedAccount
@@ -107,6 +108,8 @@ public sealed class Mission
     public Guid OwnerUserId { get; set; }
     public long KeyVersion { get; set; }
     public long ContentSequence { get; set; }
+    public long ContentBytes { get; set; }
+    public bool HistoryTrimmed { get; set; }
 }
 
 public sealed class MissionMember
