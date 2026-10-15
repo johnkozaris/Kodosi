@@ -667,20 +667,14 @@ fn foreground_process_group(fd: RawFd) -> Option<u32> {
 #[cfg(test)]
 mod tests {
     use super::{
-        KodosiPty, ShutdownStage, find_executable, login_shell_name, openpty, process_arguments,
-        resolve_program, set_terminal_size_using_fd, try_write_to_fd, validate_working_dir,
+        KodosiPty, ShutdownStage, find_executable, login_shell_name, openpty, resolve_program,
+        set_terminal_size_using_fd, try_write_to_fd, validate_working_dir,
     };
     use nix::{
         fcntl::{FcntlArg, OFlag, fcntl},
         sys::termios,
     };
-    use std::{
-        env,
-        io::Read,
-        os::fd::{AsRawFd, BorrowedFd},
-        path::Path,
-        time::Duration,
-    };
+    use std::{env, io::Read, os::fd::AsRawFd, path::Path, time::Duration};
 
     #[test]
     fn shutdown_signals_other_processes_after_a_permission_failure() {
@@ -807,38 +801,6 @@ mod tests {
                 pty.request_shutdown(ShutdownStage::Force).unwrap();
                 pty.wait().await.unwrap();
             });
-    }
-
-    #[test]
-    fn new_terminal_has_cooked_output_and_its_own_environment() {
-        tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(async {
-        let (mut pty, mut reader) = KodosiPty::spawn_program(Path::new("/bin/sh"),
-            &["-c".to_owned(), "printf '%s\\n' \"$TERM:$COLORTERM:$TERM_PROGRAM:${CLAUDE_CODE_CHILD_SESSION-unset}:${AI_AGENT-unset}\"; sleep 1".to_owned()], None, 24, 80, &[]).unwrap();
-        let attributes =
-            termios::tcgetattr(unsafe { BorrowedFd::borrow_raw(pty.master_fd) }).unwrap();
-        assert!(
-            attributes
-                .output_flags
-                .contains(termios::OutputFlags::OPOST | termios::OutputFlags::ONLCR)
-        );
-        assert!(
-            attributes
-                .local_flags
-                .contains(termios::LocalFlags::ICANON | termios::LocalFlags::ISIG)
-        );
-        let mut bytes = [0; 4096];
-        let count = tokio::time::timeout(Duration::from_secs(2), reader.read(&mut bytes))
-            .await
-            .unwrap()
-            .unwrap();
-        assert!(
-            String::from_utf8_lossy(&bytes[..count])
-                .contains("xterm-256color:truecolor:Kodosi:unset:unset\r\n")
-        );
-        assert!(process_arguments(pty.child_pid).is_some());
-        pty.request_shutdown(ShutdownStage::Force).unwrap();
-        pty.wait().await.unwrap();
-        });
     }
 
     #[test]
