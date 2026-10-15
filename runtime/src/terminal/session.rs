@@ -16,8 +16,7 @@ use super::emulator::{SessionTerminalHandle, TerminalEffect};
 use super::status::ProgramStatusRecords;
 use super::subscribers::Subscribers;
 use super::{
-    ControlFrame, DataFrame, SessionChange, Subscription, TerminalHistoryPolicy,
-    TerminalPixelGeometry, TerminalSize,
+    ControlFrame, DataFrame, SessionChange, Subscription, TerminalPixelGeometry, TerminalSize,
 };
 use crate::{
     Error, Result,
@@ -25,7 +24,6 @@ use crate::{
 };
 
 const COMMAND_CAPACITY: usize = 64;
-const MAX_INPUT_BYTES: usize = 1024 * 1024;
 const MAX_PENDING_BYTES: usize = 4 * 1024 * 1024;
 const READ_BYTES: usize = 64 * 1024;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
@@ -68,7 +66,6 @@ enum Request {
         reply: oneshot::Sender<Result<()>>,
     },
     Start(String),
-    Theme(bool),
 }
 
 #[derive(Clone)]
@@ -89,7 +86,6 @@ impl LocalSession {
         program: PathBuf,
         arguments: Vec<String>,
         directory: PathBuf,
-        dark: bool,
         changes: mpsc::Sender<SessionChange>,
     ) -> Result<Self> {
         let size = TerminalSize::default();
@@ -99,8 +95,7 @@ impl LocalSession {
             let cwd = directory
                 .to_str()
                 .ok_or_else(|| Error::Invalid("working directory must be UTF-8".to_owned()))?;
-            let emulator =
-                SessionTerminalHandle::spawn(size, TerminalHistoryPolicy::default(), dark)?;
+            let emulator = SessionTerminalHandle::spawn(size)?;
             let (pty, reader) = KodosiPty::spawn_program(
                 &program,
                 &arguments,
@@ -267,10 +262,6 @@ impl LocalSession {
         self.send(Request::Start(command))
     }
 
-    pub(crate) fn theme(&self, dark: bool) {
-        drop(self.send(Request::Theme(dark)));
-    }
-
     pub(crate) fn close(&self) -> impl Future<Output = Result<()>> + Send + use<> {
         self.cancellation.cancel();
         let mut completion = self.completion.clone();
@@ -363,7 +354,7 @@ impl PendingWrite {
         budget: &Arc<Semaphore>,
         authorization: Option<CancellationToken>,
     ) -> Result<Self> {
-        if bytes.len() > MAX_INPUT_BYTES {
+        if bytes.len() > super::TERMINAL_INPUT_MAX_BYTES {
             return Err(Error::Invalid("terminal input exceeds 1 MiB".to_owned()));
         }
         let count = u32::try_from(bytes.len()).map_err(|_| Error::Busy)?;
@@ -647,7 +638,6 @@ impl LocalActor {
             .emulator
             .resize(size.rows(), size.cols(), geometry)
             .await
-            .map_err(Error::from)
             .map_err(ResizeError::Diverged)?;
         for bytes in effects {
             self.enqueue(Bytes::from(bytes), None)
@@ -992,7 +982,7 @@ impl LocalActor {
                         cut.checkpoint,
                         cut.applied_sequence,
                     ),
-                    Err(error) => Err(error.into()),
+                    Err(error) => Err(error),
                 };
                 if let Err(Ok(subscription)) = reply.send(result) {
                     self.subscribers.remove(subscription.connection_id);
@@ -1061,11 +1051,6 @@ impl LocalActor {
             Request::Start(line) => {
                 self.launcher = line.split_whitespace().next().map(str::to_owned);
                 self.start = Some((line, tokio::time::Instant::now()));
-            }
-            Request::Theme(dark) => {
-                if let Err(error) = self.emulator.notify_theme_changed(dark).await {
-                    tracing::warn!(id = %self.id, %error, "terminal theme change failed");
-                }
             }
         }
         None
@@ -1290,7 +1275,7 @@ impl LocalActor {
             loop {
                 tokio::select! {
                     result = self.pty.wait_within(deadline.saturating_duration_since(tokio::time::Instant::now())) => match result {
-                        Ok(WaitOutcome::Reaped(_)) => return Ok(()),
+                        Ok(WaitOutcome::Reaped) => return Ok(()),
                         Ok(WaitOutcome::TimedOut) => break,
                         Err(error) => return Err(format!("Process termination was not confirmed: {error}")),
                     },

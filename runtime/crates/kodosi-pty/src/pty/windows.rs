@@ -31,7 +31,7 @@ use windows_sys::Win32::{
         Pipes::CreatePipe,
         Threading::{
             CREATE_UNICODE_ENVIRONMENT, CreateProcessW, DeleteProcThreadAttributeList,
-            EXTENDED_STARTUPINFO_PRESENT, GetExitCodeProcess, InitializeProcThreadAttributeList,
+            EXTENDED_STARTUPINFO_PRESENT, InitializeProcThreadAttributeList,
             LPPROC_THREAD_ATTRIBUTE_LIST, OpenProcess, PROC_THREAD_ATTRIBUTE_JOB_LIST,
             PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, PROCESS_INFORMATION, PROCESS_NAME_WIN32,
             PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW, STARTF_USESTDHANDLES,
@@ -359,40 +359,26 @@ impl KodosiPty {
         Ok(())
     }
 
-    pub async fn wait(&mut self) -> Result<Option<i32>> {
-        loop {
-            if let Some(code) = self.exit_code()? {
-                return Ok(Some(code));
-            }
+    async fn wait(&self) {
+        while !self.exited() {
             tokio::time::sleep(POLL).await;
         }
     }
 
     pub async fn wait_within(&mut self, grace: Duration) -> Result<WaitOutcome> {
-        tokio::time::timeout(grace, async {
-            let code = self.wait().await?;
+        Ok(tokio::time::timeout(grace, async {
+            self.wait().await;
             while !self.job_processes().is_empty() {
                 tokio::time::sleep(POLL).await;
             }
-            Ok(code)
         })
         .await
-        .map_or(Ok(WaitOutcome::TimedOut), |result| {
-            result.map(WaitOutcome::Reaped)
-        })
+        .map_or(WaitOutcome::TimedOut, |()| WaitOutcome::Reaped))
     }
 
-    fn exit_code(&self) -> Result<Option<i32>> {
+    fn exited(&self) -> bool {
         // SAFETY: the process handle is open.
-        if unsafe { WaitForSingleObject(self.process.as_raw_handle(), 0) } != WAIT_OBJECT_0 {
-            return Ok(None);
-        }
-        let mut code = 0u32;
-        // SAFETY: the process handle is open and `code` is a valid output.
-        if unsafe { GetExitCodeProcess(self.process.as_raw_handle(), &raw mut code) } == 0 {
-            return Err(io::Error::last_os_error().into());
-        }
-        Ok(Some(code.cast_signed()))
+        unsafe { WaitForSingleObject(self.process.as_raw_handle(), 0) == WAIT_OBJECT_0 }
     }
 
     fn job_processes(&self) -> Vec<u32> {

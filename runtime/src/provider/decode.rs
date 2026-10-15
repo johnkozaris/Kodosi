@@ -27,27 +27,21 @@ pub(super) fn conversation(
         if !value.is_object() {
             return Err(format!("Transcript record {} is not an object", index + 1));
         }
-        let timestamp = value.get("timestamp").and_then(Value::as_str);
         let kind = value
             .get("type")
             .and_then(Value::as_str)
             .unwrap_or_default();
         match provider {
-            Provider::Claude => claude_record(&value, kind, timestamp, &mut preview)?,
+            Provider::Claude => claude_record(&value, kind, &mut preview)?,
             Provider::Copilot => {
-                copilot_record(&value, kind, timestamp, &mut preview, &mut tool_ids)?;
+                copilot_record(&value, kind, &mut preview, &mut tool_ids)?;
             }
         }
     }
     Ok(preview.entries)
 }
 
-fn claude_record(
-    value: &Value,
-    kind: &str,
-    timestamp: Option<&str>,
-    preview: &mut Preview,
-) -> Result<(), String> {
+fn claude_record(value: &Value, kind: &str, preview: &mut Preview) -> Result<(), String> {
     let content = value
         .get("message")
         .and_then(|message| message.get("content"));
@@ -55,25 +49,20 @@ fn claude_record(
         "user" => {
             let text = text_content(content);
             if !text.starts_with("<local-command") {
-                push(preview, "user", text, None, timestamp)?;
+                push(preview, "user", text, None)?;
             }
         }
         "assistant" => {
             if let Some(blocks) = content.and_then(Value::as_array) {
                 for block in blocks {
                     match block.get("type").and_then(Value::as_str) {
-                        Some("text") => push(
-                            preview,
-                            "assistant",
-                            text_content(block.get("text")),
-                            None,
-                            timestamp,
-                        )?,
+                        Some("text") => {
+                            push(preview, "assistant", text_content(block.get("text")), None)?;
+                        }
                         Some("tool_use") => tool(
                             preview,
                             block.get("name").and_then(Value::as_str),
                             block.get("input"),
-                            timestamp,
                         )?,
                         _ => {}
                     }
@@ -88,26 +77,18 @@ fn claude_record(
 fn copilot_record(
     value: &Value,
     kind: &str,
-    timestamp: Option<&str>,
     preview: &mut Preview,
     tool_ids: &mut HashSet<String>,
 ) -> Result<(), String> {
     let data = value.get("data").unwrap_or(&Value::Null);
     match kind {
-        "user.message" => push(
-            preview,
-            "user",
-            text_content(data.get("content")),
-            None,
-            timestamp,
-        )?,
+        "user.message" => push(preview, "user", text_content(data.get("content")), None)?,
         "assistant.message" => {
             push(
                 preview,
                 "assistant",
                 text_content(data.get("content")),
                 None,
-                timestamp,
             )?;
             if let Some(requests) = data.get("toolRequests").and_then(Value::as_array) {
                 for request in requests {
@@ -118,7 +99,6 @@ fn copilot_record(
                         preview,
                         request.get("name").and_then(Value::as_str),
                         request.get("arguments"),
-                        timestamp,
                     )?;
                 }
             }
@@ -130,7 +110,6 @@ fn copilot_record(
                     preview,
                     data.get("toolName").and_then(Value::as_str),
                     data.get("arguments"),
-                    timestamp,
                 )?;
             }
         }
@@ -157,7 +136,6 @@ fn push(
     role: &str,
     content: String,
     tool_name: Option<String>,
-    timestamp: Option<&str>,
 ) -> Result<(), String> {
     if content.is_empty() && tool_name.is_none() {
         return Ok(());
@@ -166,7 +144,6 @@ fn push(
         role: role.to_owned(),
         content,
         tool_name,
-        timestamp: timestamp.map(str::to_owned),
     };
     let bytes = serde_json::to_vec(&entry)
         .map_err(|error| error.to_string())?
@@ -186,7 +163,6 @@ fn tool(
     preview: &mut Preview,
     name: Option<&str>,
     arguments: Option<&Value>,
-    timestamp: Option<&str>,
 ) -> Result<(), String> {
     let summary = arguments
         .and_then(Value::as_object)
@@ -219,7 +195,6 @@ fn tool(
         "tool_use",
         summary,
         Some(name.unwrap_or("tool").to_owned()),
-        timestamp,
     )
 }
 

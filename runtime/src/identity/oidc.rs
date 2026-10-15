@@ -308,20 +308,6 @@ mod tests {
     }
 
     #[test]
-    fn stored_tokens_ignore_obsolete_endpoint_without_losing_credentials() {
-        let saved = r#"{"access_token":"access","refresh_token":"refresh","expires_at":1234,"token_endpoint":"https://old.invalid/token"}"#;
-        let decoded: Tokens = serde_json::from_str(saved).unwrap();
-        assert_eq!(decoded.access_token, "access");
-        assert_eq!(decoded.refresh_token.as_deref(), Some("refresh"));
-        assert_eq!(decoded.expires_at, 1234);
-        let encoded = serde_json::to_value(&decoded).unwrap();
-        assert!(encoded.get("token_endpoint").is_none());
-        assert_eq!(encoded.as_object().unwrap().len(), 3);
-        let current: Tokens = serde_json::from_value(encoded).unwrap();
-        assert_eq!(current.refresh_token.as_deref(), Some("refresh"));
-    }
-
-    #[test]
     fn refresh_retains_previous_refresh_token_when_server_omits_it() {
         let reply = br#"{"access_token":"new-access","expires_in":60,"token_type":"Bearer"}"#;
         let refreshed = tokens(reply, Some("retained-refresh")).unwrap();

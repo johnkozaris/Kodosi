@@ -121,7 +121,6 @@ async fn a_view_installs_each_whole_snapshot_and_acknowledges_what_it_received()
     let Some(RemoteUpdate::Checkpoint {
         checkpoint,
         next_sequence: 7,
-        fresh: true,
     }) = view.updates.recv().await
     else {
         panic!("snapshot");
@@ -260,7 +259,7 @@ async fn the_end_from_the_host_ends_the_view_with_all_input_confirmed() {
         .unwrap();
     assert!(matches!(
         view.updates.recv().await,
-        Some(RemoteUpdate::Ended { final_sequence: 3 })
+        Some(RemoteUpdate::Ended)
     ));
     let (_, reason) = view.ended.await.unwrap();
     assert_eq!(reason, "Lost.");

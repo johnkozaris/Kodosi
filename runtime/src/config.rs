@@ -71,9 +71,7 @@ impl Config {
             home,
             isolated,
             backend_url,
-            initial_shell: std::env::var("KODOSI__RUNTIME__INITIAL_SHELL")
-                .ok()
-                .filter(|value| !value.is_empty()),
+            initial_shell: None,
             oidc_issuer,
             oidc_client_id: "kodosi-app".to_owned(),
             oidc_scopes: ["openid", "profile", "offline_access"]

@@ -21,7 +21,6 @@ const LATE_HEARTBEATS: u32 = 2;
 const KEYFRAME_SPACING: Duration = Duration::from_millis(500);
 const EXACT_AFTER_QUIET: Duration = Duration::from_secs(1);
 const UNCONFIRMED_INPUT: u64 = 256 * 1024;
-const CONTROL_TIMEOUT: Duration = Duration::from_secs(12);
 const STATUS_SPACING: Duration = Duration::from_secs(1);
 const STATUS_RETRY: Duration = Duration::from_secs(5);
 
@@ -386,8 +385,6 @@ async fn connect(
         output,
         &publication.requests,
         Controller {
-            user,
-            device,
             connection: id,
             authorization,
         },
@@ -456,8 +453,6 @@ async fn admit(
 }
 
 struct Controller {
-    user: String,
-    device: String,
     connection: Uuid,
     authorization: CancellationToken,
 }
@@ -937,8 +932,6 @@ impl<'a, T: Transport> Stream<'a, T> {
         tokio::time::timeout(
             Duration::from_secs(5),
             self.requests.send(HostRequest::Control {
-                sender_user_id: self.controller.user.clone(),
-                sender_device_id: self.controller.device.clone(),
                 connection_id: self.controller.connection,
                 control,
                 authorization: self.controller.authorization.clone(),

@@ -25,7 +25,7 @@ pub enum ShutdownStage {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WaitOutcome {
-    Reaped(Option<i32>),
+    Reaped,
     TimedOut,
 }
 

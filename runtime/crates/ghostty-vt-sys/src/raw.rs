@@ -134,13 +134,6 @@ impl Default for CheckpointLimits {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CheckpointInfo {
-    pub schema_version: u32,
-    pub json_bytes: usize,
-    pub continuation_bytes: usize,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CompressionProgress {
     Unsupported,
     Pending,
@@ -170,7 +163,6 @@ impl std::error::Error for Error {}
 
 struct CallbackState {
     effects: Vec<Effect>,
-    dark: bool,
     size: GhosttySizeReportSize,
     poisoned: bool,
     #[cfg(test)]
@@ -190,7 +182,6 @@ impl Terminal {
         continuation_max_bytes: usize,
         scrollback_max_bytes: usize,
         scrollback_max_lines: usize,
-        dark: bool,
     ) -> Result<Self, Error> {
         let mut raw = ptr::null_mut();
 
@@ -200,7 +191,6 @@ impl Terminal {
         }
         let callbacks = Box::new(CallbackState {
             effects: Vec::new(),
-            dark,
             size: GhosttySizeReportSize {
                 rows,
                 columns: cols,
@@ -391,12 +381,6 @@ impl Terminal {
         )
     }
 
-    pub fn set_dark(&mut self, dark: bool) -> Result<(), Error> {
-        self.ensure_healthy()?;
-        self.callbacks.dark = dark;
-        Ok(())
-    }
-
     pub fn encode_focus(&mut self, focused: bool) -> Result<Vec<u8>, Error> {
         self.ensure_healthy()?;
         if !self.mode(1004, false)? {
@@ -565,7 +549,7 @@ impl Terminal {
         &mut self,
         limits: CheckpointLimits,
         max_history_rows: usize,
-    ) -> Result<(Vec<u8>, CheckpointInfo), Error> {
+    ) -> Result<Vec<u8>, Error> {
         self.ensure_healthy()?;
         let raw_limits = checkpoint_limits(limits)?;
         let options = GhosttyCheckpointEncodeOptions {
@@ -616,20 +600,15 @@ impl Terminal {
         }
         bytes.truncate(buffer.len);
         self.ensure_healthy()?;
-        let info = checkpoint_info_from_raw(info)?;
-        if info.schema_version != GHOSTTY_CHECKPOINT_SCHEMA_VERSION
-            || info.json_bytes != bytes.len()
-        {
-            return Err(Error::InvalidValue);
-        }
-        Ok((bytes, info))
+        check_info(&info, bytes.len())?;
+        Ok(bytes)
     }
 
     pub fn restore_checkpoint(
         &mut self,
         bytes: &[u8],
         limits: CheckpointLimits,
-    ) -> Result<CheckpointInfo, Error> {
+    ) -> Result<(), Error> {
         self.ensure_healthy()?;
         if bytes.len() > limits.max_json_bytes || bytes.len() > isize::MAX as usize {
             return Err(Error::LimitExceeded);
@@ -651,13 +630,7 @@ impl Terminal {
             )
         })?;
         self.ensure_healthy()?;
-        let info = checkpoint_info_from_raw(info)?;
-        if info.schema_version != GHOSTTY_CHECKPOINT_SCHEMA_VERSION
-            || info.json_bytes != bytes.len()
-        {
-            return Err(Error::InvalidValue);
-        }
-        Ok(info)
+        check_info(&info, bytes.len())
     }
 
     pub fn compression_activity(&mut self) -> Result<u64, Error> {
@@ -756,15 +729,14 @@ const fn checkpoint_info() -> GhosttyCheckpointInfo {
     }
 }
 
-const fn checkpoint_info_from_raw(info: GhosttyCheckpointInfo) -> Result<CheckpointInfo, Error> {
+const fn check_info(info: &GhosttyCheckpointInfo, json_bytes: usize) -> Result<(), Error> {
     if info.schema_version != GHOSTTY_CHECKPOINT_SCHEMA_VERSION {
         return Err(Error::NoValue);
     }
-    Ok(CheckpointInfo {
-        schema_version: info.schema_version,
-        json_bytes: info.json_bytes,
-        continuation_bytes: info.continuation_bytes,
-    })
+    if info.json_bytes != json_bytes {
+        return Err(Error::InvalidValue);
+    }
+    Ok(())
 }
 
 fn encode_buffer(
@@ -1106,13 +1078,7 @@ unsafe extern "C" fn color_scheme_callback(
             return false;
         }
 
-        unsafe {
-            *out_scheme = if state.dark {
-                GhosttyColorScheme_GHOSTTY_COLOR_SCHEME_DARK
-            } else {
-                GhosttyColorScheme_GHOSTTY_COLOR_SCHEME_LIGHT
-            };
-        }
+        unsafe { *out_scheme = GhosttyColorScheme_GHOSTTY_COLOR_SCHEME_DARK };
         true
     })
 }
@@ -1161,7 +1127,7 @@ mod tests {
     use super::*;
 
     fn terminal() -> Terminal {
-        Terminal::new(20, 4, 1024 * 1024, 8 * 1024 * 1024, 10_000, true).expect("terminal")
+        Terminal::new(20, 4, 1024 * 1024, 8 * 1024 * 1024, 10_000).expect("terminal")
     }
 
     #[test]
@@ -1458,26 +1424,23 @@ mod tests {
     }
 
     #[test]
-    fn checkpoint_two_call_encode_reports_metadata() {
+    fn checkpoint_two_call_encode_keeps_a_pending_sequence() {
         let mut terminal = terminal();
         terminal
             .write(b"12345678901234567890\x1b[31")
             .expect("write checkpoint source");
 
-        let (bytes, info) = terminal
+        let bytes = terminal
             .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
             .expect("encode checkpoint");
 
         assert_ne!(bytes, [] as [u8; 0]);
-        assert_eq!(info.schema_version, GHOSTTY_CHECKPOINT_SCHEMA_VERSION);
-        assert_eq!(info.json_bytes, bytes.len());
-        assert_eq!(info.continuation_bytes, 4);
     }
 
     #[test]
     fn checkpoint_caller_limit_is_checked_before_allocation() {
         let mut terminal = terminal();
-        let (checkpoint, _) = terminal
+        let checkpoint = terminal
             .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
             .expect("baseline checkpoint");
         let limits = CheckpointLimits {
@@ -1495,7 +1458,7 @@ mod tests {
     fn checkpoint_restore_failure_is_transactional_and_retryable() {
         let mut source = terminal();
         source.write(b"source").expect("source write");
-        let (checkpoint, _) = source
+        let checkpoint = source
             .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
             .expect("source checkpoint");
 
@@ -1503,14 +1466,14 @@ mod tests {
         destination
             .write(b"destination")
             .expect("destination write");
-        let (before, _) = destination
+        let before = destination
             .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
             .expect("before checkpoint");
         assert_eq!(
             destination.restore_checkpoint(b"{", CheckpointLimits::default()),
             Err(Error::InvalidValue)
         );
-        let (after, _) = destination
+        let after = destination
             .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
             .expect("after failed restore");
         assert_eq!(after, before);
@@ -1518,7 +1481,7 @@ mod tests {
         destination
             .restore_checkpoint(&checkpoint, CheckpointLimits::default())
             .expect("retry valid restore");
-        let (restored, _) = destination
+        let restored = destination
             .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
             .expect("restored checkpoint");
         assert_eq!(restored, checkpoint);
@@ -1528,7 +1491,7 @@ mod tests {
     fn checkpoint_unsupported_schema_maps_to_no_value_without_mutation() {
         let mut terminal = terminal();
         terminal.write(b"kept").expect("write");
-        let (before, _) = terminal
+        let before = terminal
             .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
             .expect("before checkpoint");
         let mut unsupported = before.clone();
@@ -1543,7 +1506,7 @@ mod tests {
             terminal.restore_checkpoint(&unsupported, CheckpointLimits::default()),
             Err(Error::NoValue)
         );
-        let (after, _) = terminal
+        let after = terminal
             .encode_checkpoint(CheckpointLimits::default(), usize::MAX)
             .expect("after unsupported restore");
         assert_eq!(after, before);

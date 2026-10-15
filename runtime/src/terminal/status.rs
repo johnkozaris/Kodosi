@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "host")]
 const MAX_RECORDS: usize = 64;
+#[cfg(feature = "host")]
 const MAX_APP_BYTES: usize = 32;
 const MAX_TITLE_CHARS: usize = 192;
 const MAX_MESSAGE_CHARS: usize = 512;
@@ -50,8 +51,6 @@ pub struct ProgramStatus {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub progress: Option<u8>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub app: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
@@ -64,7 +63,6 @@ impl ProgramStatus {
                 progress <= 100
                     && matches!(self.state, ProgramState::Working | ProgramState::Blocked)
             })
-            && self.app.as_deref().is_none_or(is_app_name)
             && self
                 .title
                 .as_deref()
@@ -196,7 +194,6 @@ impl ProgramStatusRecords {
             state: record.state,
             kind: record.kind,
             progress: record.progress,
-            app: self.app(record).map(str::to_owned),
             title: record.title.clone(),
             message: record.message.clone(),
         })
@@ -231,8 +228,9 @@ impl ProgramStatusRecords {
 fn program_from_app(app: &str) -> Option<&'static str> {
     let app = app.to_ascii_lowercase();
     let app = app.strip_prefix("github-").unwrap_or(&app);
-    ["claude", "copilot", "codex", "cursor"]
+    crate::agents::Agent::ALL
         .into_iter()
+        .map(crate::agents::Agent::name)
         .find(|program| {
             app.strip_prefix(program)
                 .is_some_and(|rest| rest.is_empty() || rest.starts_with('-'))
@@ -245,6 +243,7 @@ fn is_descendant(id: &str, ancestor: &str) -> bool {
         .is_some_and(|rest| rest.starts_with('/'))
 }
 
+#[cfg(feature = "host")]
 fn is_app_name(app: &str) -> bool {
     (1..=MAX_APP_BYTES).contains(&app.len())
         && app

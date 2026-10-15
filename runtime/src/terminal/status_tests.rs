@@ -41,7 +41,6 @@ fn a_report_replaces_its_record_completely() {
             state: ProgramState::Working,
             kind: None,
             progress: None,
-            app: None,
             title: None,
             message: None,
         })
@@ -134,25 +133,17 @@ fn a_record_takes_the_program_name_of_its_nearest_parent() {
         ..report("", ProgramState::Idle)
     });
     records.apply(report("tasks/review", ProgramState::Working));
-    assert_eq!(
-        records.summary().and_then(|status| status.app).as_deref(),
-        Some("claude-code")
-    );
+    assert_eq!(records.live_program(), Some("claude"));
 
     records.apply(ProgramStatusReport {
-        app: Some("cargo".to_owned()),
+        app: Some("codex".to_owned()),
         ..report("tasks", ProgramState::Idle)
     });
-    assert_eq!(
-        records.summary().and_then(|status| status.app).as_deref(),
-        Some("cargo")
-    );
+    records.apply(report("tasks/review", ProgramState::Working));
+    assert_eq!(records.live_program(), Some("codex"));
 
     records.apply(report("tasksuite", ProgramState::Blocked));
-    assert_eq!(
-        records.summary().and_then(|status| status.app).as_deref(),
-        Some("claude-code")
-    );
+    assert_eq!(records.live_program(), Some("claude"));
 }
 
 #[test]
@@ -178,10 +169,8 @@ fn values_that_do_not_belong_to_a_state_are_dropped() {
         ..report("", ProgramState::Done)
     });
     let status = records.summary().expect("status");
-    assert_eq!(
-        (status.kind, status.progress, status.app.as_deref()),
-        (None, None, None)
-    );
+    assert_eq!((status.kind, status.progress), (None, None));
+    assert_eq!(records.records[0].app, None);
     assert!(status.is_valid());
 
     records.apply(ProgramStatusReport {
@@ -213,7 +202,6 @@ fn a_status_from_another_computer_must_follow_the_same_rules() {
         state: ProgramState::Blocked,
         kind: Some(BlockedKind::Permission),
         progress: Some(100),
-        app: Some("claude-code".to_owned()),
         title: Some("Review".to_owned()),
         message: Some("Allow the command?".to_owned()),
     };
@@ -225,10 +213,6 @@ fn a_status_from_another_computer_must_follow_the_same_rules() {
         },
         ProgramStatus {
             progress: Some(101),
-            ..valid.clone()
-        },
-        ProgramStatus {
-            app: Some("a b".to_owned()),
             ..valid.clone()
         },
         ProgramStatus {
@@ -255,7 +239,6 @@ fn a_status_from_another_computer_must_follow_the_same_rules() {
         serde_json::to_string(&ProgramStatus {
             kind: None,
             progress: None,
-            app: None,
             title: None,
             message: None,
             ..valid

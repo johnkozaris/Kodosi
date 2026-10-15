@@ -456,12 +456,12 @@ impl BackendClient {
                 let Some(device) = identity.devices.get(&key.device_id) else {
                     continue;
                 };
-                let public = room_crypto::decode(&key.public_key, ROOM_PUBLIC_BYTES)?;
+                let public = identity::pins::decode(&key.public_key, ROOM_PUBLIC_BYTES)?;
                 if public.len() != ROOM_PUBLIC_BYTES {
                     continue;
                 }
                 let preimage = room_key_proof(user, &key.device_id, &public)?;
-                let signature = room_crypto::decode(&key.signature, 3309)?;
+                let signature = identity::pins::decode(&key.signature, 3309)?;
                 ML_DSA_65
                     .verify_sig(&device.sig_public_key, &preimage, &signature)
                     .map_err(|_| invalid("The room recipient key is not authentic."))?;
@@ -484,7 +484,7 @@ impl BackendClient {
                     state,
                     &recipient.user_id,
                     &recipient.device_id,
-                    &room_crypto::decode(&recipient.public_key, ROOM_PUBLIC_BYTES)?,
+                    &identity::pins::decode(&recipient.public_key, ROOM_PUBLIC_BYTES)?,
                     key,
                 )
             })
@@ -1035,7 +1035,7 @@ impl BackendClient {
     }
 
     fn room_payload(cached: &CachedRoom, room: Uuid, item: &Item) -> Result<Payload> {
-        let bytes = room_crypto::decode(&item.body, 64 * 1024)?;
+        let bytes = identity::pins::decode(&item.body, 64 * 1024)?;
         let content: room_crypto::Content = serde_json::from_slice(&bytes)?;
         if content.room_id != room
             || content.id != item.id
@@ -1221,12 +1221,6 @@ impl BackendClient {
             listed.insert(wire::id(room, "id")?);
         }
         Ok((listed, catalog["missionsTruncated"] != true))
-    }
-
-    pub(super) async fn known_rooms(&self, credentials: &Credentials) -> Result<Vec<Uuid>> {
-        let cache = self.inner.rooms.lock().await;
-        cache.current(credentials)?;
-        Ok(cache.contents.keys().copied().collect())
     }
 
     async fn forget_room(&self, room: Uuid) {

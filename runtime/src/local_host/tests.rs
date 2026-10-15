@@ -63,9 +63,9 @@ fn root_identity_and_socket_namespace_are_stable_and_separate() {
 }
 #[test]
 fn local_protocol_requires_exact_version_and_root() {
-    assert!(serde_json::from_str::<Hello>(r#"{"version":19,"root":"a","sessionId":null}"#).is_ok());
+    assert!(serde_json::from_str::<Hello>(r#"{"version":20,"root":"a","sessionId":null}"#).is_ok());
     assert!(serde_json::from_str::<Hello>(r#"{"version":19}"#).is_err());
-    assert!(serde_json::from_str::<Hello>(r#"{"version":19,"root":"a","legacy":true}"#).is_err());
+    assert!(serde_json::from_str::<Hello>(r#"{"version":20,"root":"a","legacy":true}"#).is_err());
 }
 #[test]
 fn stop_permission_protects_the_app_and_open_terminals() {
@@ -78,12 +78,17 @@ fn stop_permission_protects_the_app_and_open_terminals() {
 }
 #[test]
 fn local_session_counts_ignore_remote_entries() {
+    let session = |kind: &str| {
+        json!({"id":"11111111-1111-4111-8111-111111111111","incarnationId":"11111111-1111-4111-8111-111111111111",
+            "kind":kind,"name":"Terminal","prompt":false,"repository":false,"isOwner":true,"status":"running",
+            "connectionState":"local","sharedWith":[]})
+    };
     let events = [
-        json!({"type":"sessions.snapshot","sessions":[{"kind":"local"},{"kind":"remote"},{"kind":"local"}]}),
-        json!({"type":"auth.required"}),
+        Event::new(None, 0, json!({"type":"sessions.snapshot","sessions":[session("local"),session("remote"),session("local")]})).unwrap(),
+        Event::new(None, 0, json!({"type":"auth.required","reason":"signedOut"})).unwrap(),
     ];
-    assert_eq!(local_sessions_in(&events), 2);
-    assert_eq!(local_sessions_in(&[]), 0);
+    assert_eq!(local_sessions(&events), 2);
+    assert_eq!(local_sessions(&[]), 0);
 }
 async fn hosted(kind: HostKind) -> (tempfile::TempDir, PathBuf, RuntimeHandle) {
     let storage = tempfile::tempdir().unwrap();

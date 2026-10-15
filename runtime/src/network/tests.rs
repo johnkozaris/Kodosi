@@ -30,7 +30,6 @@ fn a_room_hears_the_agent_and_its_state_but_not_its_text() {
             state: ProgramState::Blocked,
             kind: Some(BlockedKind::Permission),
             progress: None,
-            app: Some("claude-code".into()),
             title: Some("Bash".into()),
             message: Some("rm -rf build".into()),
         }),
@@ -55,11 +54,11 @@ fn terminal_close_has_one_wire_action() {
     let encoded = wire::encode_control(&TerminalControl::Close).unwrap();
     assert_eq!(encoded, br#"{"type":"close"}"#);
     assert!(matches!(
-        wire::decode_control(&encoded, Uuid::now_v7()),
+        wire::decode_control(&encoded),
         Ok(TerminalControl::Close)
     ));
-    assert!(wire::decode_control(br#"{"type":"stop"}"#, Uuid::now_v7()).is_err());
-    assert!(wire::decode_control(br#"{"type":"input","bytes":"bHM="}"#, Uuid::now_v7()).is_err());
+    assert!(wire::decode_control(br#"{"type":"stop"}"#).is_err());
+    assert!(wire::decode_control(br#"{"type":"input","bytes":"bHM="}"#).is_err());
     assert!(
         wire::encode_control(&TerminalControl::Input {
             bytes: b"ls".to_vec()

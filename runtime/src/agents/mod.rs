@@ -34,6 +34,17 @@ impl Agent {
         Self::Opencode,
     ];
 
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Claude => "claude",
+            Self::Codex => "codex",
+            Self::Copilot => "copilot",
+            Self::Cursor => "cursor",
+            Self::Gemini => "gemini",
+            Self::Opencode => "opencode",
+        }
+    }
+
     pub const fn program(self) -> &'static str {
         match self {
             Self::Claude => "claude",
@@ -67,6 +78,10 @@ impl Agent {
             Self::Cursor | Self::Gemini | Self::Opencode => None,
         }
     }
+}
+
+pub(crate) fn is_agent_name(name: &str) -> bool {
+    Agent::ALL.iter().any(|agent| agent.name() == name)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -111,7 +126,6 @@ pub struct AgentAccount {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentModels {
-    pub agent: Agent,
     pub models: Vec<AgentModel>,
     pub efforts: Vec<AgentOption>,
 }

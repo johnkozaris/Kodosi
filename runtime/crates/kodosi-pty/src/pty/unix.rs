@@ -34,7 +34,7 @@ pub struct PtyReader {
 }
 
 impl PtyReader {
-    pub fn new(fd: OwnedFd) -> io::Result<Self> {
+    fn new(fd: OwnedFd) -> io::Result<Self> {
         let flags = fcntl(fd.as_fd(), FcntlArg::F_GETFL)
             .map_err(|error| io::Error::from_raw_os_error(error as i32))?;
         let mut oflags = OFlag::from_bits_truncate(flags);
@@ -279,22 +279,22 @@ impl KodosiPty {
         Ok(())
     }
 
-    pub async fn wait(&mut self) -> Result<Option<i32>> {
-        let status = self.child.wait().await?;
-        Ok(status.code())
+    async fn wait(&mut self) -> Result<()> {
+        self.child.wait().await?;
+        Ok(())
     }
 
     pub async fn wait_within(&mut self, grace: Duration) -> Result<WaitOutcome> {
         match tokio::time::timeout(grace, async {
-            let code = self.wait().await?;
+            self.wait().await?;
             while !session_processes(self.child_pid)?.is_empty() {
                 tokio::time::sleep(Duration::from_millis(20)).await;
             }
-            Ok(code)
+            Ok(())
         })
         .await
         {
-            Ok(result) => result.map(WaitOutcome::Reaped),
+            Ok(result) => result.map(|()| WaitOutcome::Reaped),
             Err(_) => Ok(WaitOutcome::TimedOut),
         }
     }
@@ -871,7 +871,7 @@ mod tests {
             assert_eq!(pty.wait_within(Duration::from_millis(100)).await.unwrap(), super::WaitOutcome::TimedOut);
             assert!(super::session_processes(pty.child_pid).unwrap().contains(&child));
             pty.request_shutdown(ShutdownStage::Force).unwrap();
-            assert!(matches!(pty.wait_within(Duration::from_secs(2)).await.unwrap(), super::WaitOutcome::Reaped(_)));
+            assert!(matches!(pty.wait_within(Duration::from_secs(2)).await.unwrap(), super::WaitOutcome::Reaped));
             assert_eq!(super::session_processes(pty.child_pid).unwrap(), Vec::<i32>::new());
         });
     }

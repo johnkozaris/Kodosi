@@ -58,11 +58,7 @@ pub(super) async fn models(facts: &Facts, agent: Agent) -> AgentModels {
             Vec::new(),
         ),
     };
-    AgentModels {
-        agent,
-        models,
-        efforts,
-    }
+    AgentModels { models, efforts }
 }
 
 async fn run(facts: &Facts, program: Option<&Path>, arguments: &[&str]) -> Option<String> {

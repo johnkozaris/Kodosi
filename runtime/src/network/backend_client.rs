@@ -152,7 +152,7 @@ impl BackendClient {
     pub fn generation(&self) -> u64 {
         self.inner.generation.load(Ordering::Acquire)
     }
-    pub(super) fn ready_event(&self, user_id: &str, enrolled: bool) -> Value {
+    pub(crate) fn ready_event(&self, user_id: &str, enrolled: bool) -> Value {
         let display_name = self.inner.identity.read().ok().and_then(|identity| {
             identity
                 .as_ref()
@@ -939,7 +939,7 @@ impl BackendClient {
         } else if matches!(
             &result,
             Err(Error::Backend {
-                status: 400 | 401 | 403 | 404 | 409 | 422,
+                status: 400 | 401 | 403 | 404 | 409,
                 ..
             })
         ) {
