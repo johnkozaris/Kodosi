@@ -2,12 +2,13 @@ using Kodosi.Data;
 using Kodosi.Devices;
 using Kodosi.TerminalConnections;
 using Kodosi.Missions;
+using Kodosi.Plans;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.Sessions;
 
 public sealed class SessionService(KodosiDbContext db, ConnectionDirectory connections,
-    DeviceService devices, MissionService missions, TimeProvider clock)
+    DeviceService devices, MissionService missions, TimeProvider clock, PlanCatalog plans)
 {
     public async Task<Session> AuthorizedAsync(Guid id, Guid userId, CancellationToken ct)
     {
@@ -125,7 +126,6 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
         var audience = await AudienceAsync(session, ct);
         connections.Revoke(session, (user, _) => audience.Contains(user));
-        connections.ForgetStatus(id);
         foreach (var user in previous.Concat(audience).Distinct()) connections.Notify(user, "sessions");
         return await DescribeAsync(session, ct);
     }
@@ -136,6 +136,8 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         if (body.UserIds is null || body.UserIds.Length > Limits.MaxSessionMembers || body.UserIds.Any(x => x == Guid.Empty || x == userId))
             throw ApiException.Invalid("Choose up to 64 friends, excluding yourself.");
         var selected = body.UserIds.Distinct().ToHashSet();
+        var most = (await plans.LimitsAsync(db, userId, ct)).SharePeople;
+        if (selected.Count > most) throw ApiException.Limited("share-people", $"You can share a terminal with at most {Limits.Count(most, "person", "people")}.");
         var accepted = await db.Friendships.AsNoTracking()
             .Where(x => x.Accepted && ((x.FirstUserId == userId && selected.Contains(x.SecondUserId))
                 || (x.SecondUserId == userId && selected.Contains(x.FirstUserId))))

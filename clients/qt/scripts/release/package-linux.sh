@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# Makes the Debian package, the portable archive and the Arch package from a
-# built release tree. CPack makes the first two. Then the script writes the
-# archive again with sorted names and fixed modes, owners and times, and makes
-# the Arch package from it.
 
 set -euo pipefail
 

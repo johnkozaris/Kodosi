@@ -1,10 +1,13 @@
-import KodosiDesign
 import SwiftUI
 
 struct KodosiCommands: Commands {
     let dependencies: AppDependencies
 
     var body: some Commands {
+        CommandGroup(after: .appInfo) {
+            Button("Check for Updates…") { dependencies.updater.check() }
+                .disabled(!dependencies.updater.configured)
+        }
         CommandGroup(replacing: .newItem) {
             Button("New Terminal") { dependencies.newSession() }
                 .keyboardShortcut("n")

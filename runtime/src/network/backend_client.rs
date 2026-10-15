@@ -64,6 +64,7 @@ pub(crate) struct Inner {
     enrollment_checked: AtomicU64,
     renew_connections: AtomicBool,
     identity_settled: AtomicBool,
+    update_required: AtomicBool,
     pub(crate) friends_changed: tokio::sync::Notify,
     login_interrupt: std::sync::Mutex<CancellationToken>,
     rooms: Mutex<rooms::RoomCache>,
@@ -142,6 +143,7 @@ impl BackendClient {
                 enrollment_checked: AtomicU64::new(0),
                 renew_connections: AtomicBool::new(false),
                 identity_settled: AtomicBool::new(false),
+                update_required: AtomicBool::new(false),
                 friends_changed: tokio::sync::Notify::new(),
                 login_interrupt: std::sync::Mutex::new(CancellationToken::new()),
                 rooms: Mutex::new(rooms::RoomCache::default()),
@@ -152,7 +154,7 @@ impl BackendClient {
     pub fn generation(&self) -> u64 {
         self.inner.generation.load(Ordering::Acquire)
     }
-    pub(super) fn ready_event(&self, user_id: &str, enrolled: bool) -> Value {
+    pub(crate) fn ready_event(&self, user_id: &str, enrolled: bool) -> Value {
         let display_name = self.inner.identity.read().ok().and_then(|identity| {
             identity
                 .as_ref()
@@ -266,7 +268,21 @@ impl BackendClient {
                 self.sign_in_kept(Err(Error::AccountDeleted)).await?;
                 Err(Error::Stale)
             }
+            Err(Error::UpdateRequired) => {
+                self.update_required();
+                Err(Error::UpdateRequired)
+            }
             result => result,
+        }
+    }
+
+    pub(crate) fn update_required(&self) {
+        if !self.inner.update_required.swap(true, Ordering::AcqRel) {
+            self.emit_for(
+                self.generation(),
+                self.identity().map(|identity| identity.user_id),
+                json!({"type":"system.updateRequired"}),
+            );
         }
     }
 
@@ -629,28 +645,9 @@ impl BackendClient {
                 }
             }
         }
-        let mut remotes = Vec::with_capacity(sessions.len());
-        for dto in sessions {
-            let status = match (dto.mission_id, &dto.status) {
-                (Some(room), Some(sealed)) => match self
-                    .open_terminal_status(&credentials, (room, dto.id, dto.incarnation_id), sealed)
-                    .await
-                {
-                    Ok(status) => Some(status),
-                    Err(error) if error.unanswered() => return Err(error),
-                    Err(error) => {
-                        tracing::debug!(%error, "a terminal status could not be read");
-                        None
-                    }
-                },
-                _ => None,
-            };
-            remotes.push(super::RemoteSession {
-                status,
-                ..dto.into()
-            });
-        }
-        Ok(json!({"type":"network.sessions","sessions":remotes}))
+        Ok(
+            json!({"type":"network.sessions","sessions":sessions.into_iter().map(super::RemoteSession::from).collect::<Vec<_>>()}),
+        )
     }
 
     #[cfg(feature = "host")]
@@ -939,7 +936,7 @@ impl BackendClient {
         } else if matches!(
             &result,
             Err(Error::Backend {
-                status: 400 | 401 | 403 | 404 | 409 | 422,
+                status: 400 | 401 | 403 | 404 | 409,
                 ..
             })
         ) {

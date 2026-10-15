@@ -70,8 +70,7 @@ extension TerminalController {
                 try? FileManager.default.removeItem(at: previousURL)
             }
             return true
-        case let .failure(issue):
-            lastConfigurationIssue = issue.description
+        case .failure:
             return false
         }
     }

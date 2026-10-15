@@ -69,7 +69,6 @@ Item {
             font.pixelSize: KodosiTheme.fontFootnote
         }
     }
-    // The launcher stands a little above the middle, and a list that it opens grows down from there.
     AgentLauncher {
         anchors.horizontalCenter: parent.horizontalCenter
         y: Math.max(40, parent.height / 2 - 150)
@@ -132,7 +131,7 @@ Item {
                                 id: card
 
                                 required property var modelData
-                                readonly property bool needsYou: Models.Sessions.attention.indexOf(modelData.id) >= 0
+                                readonly property bool unseen: Models.Sessions.attention.indexOf(modelData.id) >= 0
 
                                 width: grid.cardWidth
                                 height: 62
@@ -161,10 +160,10 @@ Item {
                                         ActivityLine {
                                             Layout.fillWidth: true
                                             session: card.modelData
-                                            words: card.modelData.activity || card.modelData.folderName || Identity.kindLabel(Identity.kind(card.modelData.program || ""))
+                                            words: card.modelData.activity || card.modelData.folderName || Models.DesktopSettings.agentLabel(card.modelData.program || "")
                                         }
                                     }
-                                    StatusSign { Layout.rightMargin: 12; session: card.modelData; unseen: card.needsYou; size: 16 }
+                                    StatusSign { Layout.rightMargin: 12; session: card.modelData; unseen: card.unseen; size: 16 }
                                 }
                                 onClicked: {
                                     Models.Sessions.clearAttention(modelData.id)

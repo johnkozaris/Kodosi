@@ -5,9 +5,6 @@ if [[ $# -ne 2 || $1 != *.dmg ]]; then
     echo "usage: $0 <disk-image.dmg> <cask.rb>" >&2
     exit 64
 fi
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "$ROOT/../apple/scripts/apple-platform.sh"
-kodosi_apple_platform macosx
 dmg=$1
 output=$2
 : "${KODOSI_DOWNLOAD_URL:?Set KODOSI_DOWNLOAD_URL to the public HTTPS DMG URL}"
@@ -26,25 +23,31 @@ if [[ "$(shasum -a 256 "$scratch/public.dmg" | cut -d' ' -f1)" != "$sha256" ]]; 
 fi
 hdiutil attach -quiet -readonly -nobrowse -noautoopen -mountpoint "$scratch/volume" "$dmg"
 version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
-    "$scratch/volume/KodosiDesktop.app/Contents/Info.plist")
+    "$scratch/volume/Kodosi.app/Contents/Info.plist")
 hdiutil detach -quiet "$scratch/volume"
 mkdir -p "$(dirname "$output")"
-# The cask has no zap stanza, so an uninstall keeps the device enrollment in ~/.kodosi.
+# No zap stanza: an uninstall keeps the Kodosi data and the device identity of this Mac.
 cat >"$output" <<RUBY
-cask "kodosi-desktop" do
+cask "kodosi" do
   version "$version"
   sha256 "$sha256"
 
   url "$KODOSI_DOWNLOAD_URL"
-  name "Kodosi Desktop"
-  desc "Local terminals with trusted device and friend access"
-  homepage "https://github.com/johnkozaris/Kodosi"
+  name "Kodosi"
+  desc "Real terminals on your machines, shared with trusted people"
+  homepage "https://kodosi.com"
 
+  livecheck do
+    url "https://updates.kodosi.com/macos/appcast.xml"
+    strategy :sparkle
+  end
+
+  auto_updates true
   depends_on arch: :arm64
-  depends_on macos: ">= $KODOSI_DEPLOYMENT_TARGET"
+  depends_on macos: ">= :tahoe"
 
-  app "KodosiDesktop.app"
-  binary "KodosiDesktop.app/Contents/MacOS/KodosiDesktop", target: "kodosi"
+  app "Kodosi.app"
+  binary "#{appdir}/Kodosi.app/Contents/MacOS/Kodosi", target: "kodosi"
 
   uninstall quit: "com.kodosi.desktop"
 end

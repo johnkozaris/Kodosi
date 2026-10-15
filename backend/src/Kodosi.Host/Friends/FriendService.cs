@@ -1,13 +1,14 @@
 using Kodosi.Accounts;
 using Kodosi.Data;
 using Kodosi.Devices;
+using Kodosi.Plans;
 using Kodosi.Security;
 using Kodosi.TerminalConnections;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.Friends;
 
-public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connections, TimeProvider clock)
+public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connections, TimeProvider clock, PlanCatalog plans)
 {
     public static (Guid First, Guid Second) Pair(Guid a, Guid b) => a.CompareTo(b) < 0 ? (a, b) : (b, a);
 
@@ -17,6 +18,17 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
         return await db.Friendships.AnyAsync(x => x.FirstUserId == first && x.SecondUserId == second && x.Accepted, ct);
     }
 
+    private async Task RequireFriendSpaceAsync(Guid userId, Guid otherId, CancellationToken ct)
+    {
+        if ((await plans.LimitsAsync(db, userId, ct)).Friends is { } most && await FriendCountAsync(userId, ct) is var count && count >= most)
+            throw ApiException.Limited("friends", $"You have {Limits.Count(count, "friend", "friends")}, the most that you can have. Remove a friend first.");
+        if ((await plans.LimitsAsync(db, otherId, ct)).Friends is { } theirs && await FriendCountAsync(otherId, ct) >= theirs)
+            throw ApiException.Limited("friends", "This person has the most friends that they can have.");
+    }
+
+    private Task<int> FriendCountAsync(Guid user, CancellationToken ct)
+        => db.Friendships.CountAsync(x => (x.FirstUserId == user || x.SecondUserId == user) && x.Accepted, ct);
+
     public async Task<object> ListAsync(Guid user, CancellationToken ct)
     {
         var links = await db.Friendships.AsNoTracking().Where(x => (x.FirstUserId == user || x.SecondUserId == user) && x.Accepted).ToListAsync(ct);
@@ -25,7 +37,7 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
             .OrderBy(x => x.Handle).Select(x => new { userId = x.Id, x.Handle, x.DisplayName, x.IdentityIncarnationId }).ToListAsync(ct);
     }
 
-    public const int MaxFriendListBodyLength = 256 * 1024;
+    private const int MaxFriendListBodyLength = 256 * 1024;
 
     public async Task<object> SignedListAsync(Guid user, CancellationToken ct)
     {
@@ -76,13 +88,20 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
         {
             case "send":
                 if (link is not null) return;
-                if (await db.Friendships.CountAsync(x => x.RequestedBy == userId && !x.Accepted, ct) >= 64)
-                    throw new ApiException(429, "Too many outstanding friend requests.");
+                var mine = await plans.LimitsAsync(db, userId, ct);
+                var sent = await db.Friendships.CountAsync(x => x.RequestedBy == userId && !x.Accepted, ct);
+                if (sent >= mine.SentFriendRequests)
+                    throw ApiException.Limited("friend-requests", $"You have {Limits.Count(sent, "open friend request", "open friend requests")}. Wait for an answer, or cancel a request.");
+                await RequireFriendSpaceAsync(userId, other.Id, ct);
+                if ((await plans.LimitsAsync(db, other.Id, ct)).ReceivedFriendRequests is { } received
+                    && await db.Friendships.CountAsync(x => (x.FirstUserId == other.Id || x.SecondUserId == other.Id) && !x.Accepted && x.RequestedBy != other.Id, ct) >= received)
+                    throw ApiException.Limited("friend-requests", "This person has too many open friend requests. Try again later.");
                 db.Friendships.Add(new Friendship { FirstUserId = first, SecondUserId = second, RequestedBy = userId, CreatedAt = clock.GetUtcNow() });
                 break;
             case "accept":
                 if (link is null || (link.RequestedBy == userId && !link.Accepted)) throw ApiException.Missing();
                 if (link.Accepted) return;
+                await RequireFriendSpaceAsync(userId, other.Id, ct);
                 link.Accepted = true;
                 break;
             case "reject":

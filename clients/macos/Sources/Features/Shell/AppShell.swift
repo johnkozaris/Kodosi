@@ -65,15 +65,17 @@ struct AppShell: View {
         sheet == nil && !deps.workbench.showsPalette && deps.workbench.sharingSessionId == nil
     }
 
-    /// The sheet that shows over the window, if any; at most one shows at a time.
     private enum Sheet: Equatable {
-        case signIn, details(String), newRoom, history
+        case signIn, recoveryKey, details(String), newRoom, history
     }
 
     private var sheet: Sheet? {
         let workbench = deps.workbench
         if deps.signInPresented {
             return .signIn
+        }
+        if deps.newRecoveryKey != nil {
+            return .recoveryKey
         }
         if let id = workbench.detailsSessionId, deps.session(id) != nil {
             return .details(id)
@@ -90,6 +92,8 @@ struct AppShell: View {
         switch sheet {
         case .signIn:
             SheetLayer(close: deps.dismissSignIn, cancel: deps.cancelSignIn) { SignInSheet() }
+        case .recoveryKey:
+            SheetLayer(close: {}, content: { RecoveryKeySheet(key: deps.newRecoveryKey ?? "") { deps.newRecoveryKey = nil } })
         case let .details(id):
             SheetLayer(close: { workbench.detailsSessionId = nil }, content: {
                 if let session = deps.session(id) {
@@ -103,13 +107,22 @@ struct AppShell: View {
         }
     }
 
-    @ViewBuilder
     private var notice: some View {
-        if let error = deps.errorMessage {
-            NoticePill(message: error, identifier: "shell.error") { deps.errorMessage = nil }
-                .padding(.top, Metrics.frameInset + 10)
-                .padding(.leading, deps.workbench.sidebarCollapsed ? Metrics.sidebarRailWidth : Metrics.sidebarWidth)
-                .transition(.move(edge: .top).combined(with: .opacity))
+        Group {
+            if deps.updateRequired {
+                NoticePill(message: String(localized: "This version of Kodosi is too old for the server. Update Kodosi."),
+                           identifier: "shell.update", retry: deps.updater.configured ? { deps.updater.check() } : nil,
+                           actionTitle: "Check for Updates", dismiss: { deps.updateRequired = false })
+            } else if let error = deps.errorMessage {
+                NoticePill(message: error, identifier: "shell.error") { deps.errorMessage = nil }
+            } else if deps.offersCommand {
+                NoticePill(message: String(localized: "Use the kodosi command in all your terminals?"),
+                           identifier: "shell.command", retry: { deps.installCommand() },
+                           actionTitle: "Install", dismiss: { deps.offersCommand = false })
+            }
         }
+        .padding(.top, Metrics.frameInset + 10)
+        .padding(.leading, deps.workbench.sidebarCollapsed ? Metrics.sidebarRailWidth : Metrics.sidebarWidth)
+        .transition(.move(edge: .top).combined(with: .opacity))
     }
 }

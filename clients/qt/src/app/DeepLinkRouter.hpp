@@ -25,11 +25,6 @@ enum class DeepLinkParseError {
 struct DeepLinkParseResult {
     std::optional<DeepLinkDestination> destination;
     DeepLinkParseError error = DeepLinkParseError::None;
-
-    [[nodiscard]] bool accepted() const noexcept
-    {
-        return destination.has_value();
-    }
 };
 
 class DeepLinkRouter final {

@@ -301,7 +301,19 @@ void TerminalView::keyPressEvent(QKeyEvent* event)
         QQuickItem::keyPressEvent(event);
         return;
     }
-    const auto text = event->text();
+    auto text = event->text();
+    // A bare WM_CHAR delivers a character beyond U+FFFF as one key event per UTF-16 half.
+    if (text.size() == 1 && text.front().isHighSurrogate()) {
+        m_highSurrogate = text.front();
+        event->accept();
+        return;
+    }
+    if (!m_highSurrogate.isNull()) {
+        if (text.size() == 1 && text.front().isLowSurrogate()) {
+            text.prepend(m_highSurrogate);
+        }
+        m_highSurrogate = QChar {};
+    }
     const auto key = terminalKey(event);
     if (key && sendKey(
             event,
@@ -382,7 +394,7 @@ QVariant TerminalView::inputMethodQuery(const Qt::InputMethodQuery query) const
         return m_font;
     case Qt::ImCursorRectangle:
         if (m_frame) {
-            const auto cell = TerminalRasterizer::cellSize(m_font, m_lineHeight);
+            const auto cell = terminalCellSize();
             const auto scale = viewportScale();
             return QRectF(viewportOffset() + QPointF(
                 cell.width() * m_frame->cursor.column,
@@ -589,8 +601,7 @@ bool TerminalView::sendMouseEvent(
         || !m_terminalReady) {
         return false;
     }
-    const auto cellSize =
-        TerminalRasterizer::cellSize(m_font, m_lineHeight);
+    const auto cellSize = terminalCellSize();
     if (cellSize.width() <= 0 || cellSize.height() <= 0
         || width() <= 0 || height() <= 0) {
         emit operationError(
@@ -806,7 +817,7 @@ std::optional<QPoint> TerminalView::terminalCellAt(
     if (!m_frame || m_frame->columns == 0 || m_frame->rows == 0) {
         return std::nullopt;
     }
-    const auto cell = TerminalRasterizer::cellSize(m_font, m_lineHeight);
+    const auto cell = terminalCellSize();
     if (cell.width() <= 0.0 || cell.height() <= 0.0) {
         return std::nullopt;
     }
@@ -870,7 +881,7 @@ void TerminalView::clearHoverLink()
 
 int TerminalView::wheelRows(QWheelEvent* event)
 {
-    const auto cell = TerminalRasterizer::cellSize(m_font, m_lineHeight);
+    const auto cell = terminalCellSize();
     if (event->pixelDelta().y() != 0 && cell.height() > 0.0) {
         const auto bounded = std::clamp(
             static_cast<qreal>(event->pixelDelta().y()),

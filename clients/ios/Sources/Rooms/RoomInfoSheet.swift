@@ -34,7 +34,7 @@ struct RoomInfoSheet: View {
             List {
                 Section {
                     VStack(spacing: 12) {
-                        RoomSigil(name: name, key: roomId, size: 64)
+                        RoomSigil(key: roomId, size: 64)
                         Text(name)
                             .appTextStyle(.title)
                             .foregroundStyle(theme.colors.ink)
@@ -112,7 +112,7 @@ struct RoomInfoSheet: View {
                 }
             }
             .confirmationDialog(
-                String(localized: "Remove \(removing.map(RoomWords.name) ?? "")?"),
+                String(localized: "Remove \(removing?.personName ?? "")?"),
                 isPresented: Binding(get: { removing != nil }, set: {
                     if !$0 {
                         removing = nil
@@ -153,7 +153,7 @@ struct RoomInfoSheet: View {
     }
 
     private func inviteRow(_ friend: FriendEntry) -> some View {
-        let name = RoomWords.name(friend)
+        let name = friend.personName
         let sent = invited.contains(friend.userId)
         return HStack(spacing: 12) {
             PersonAvatar(name: name, key: friend.userId, size: 34)

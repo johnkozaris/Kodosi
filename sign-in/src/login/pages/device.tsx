@@ -2,27 +2,21 @@ import { Check } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { buttonClass } from "../../parts/button";
+import { cn } from "../../parts/cn";
 import { CodeCells, CodeTiles } from "../../parts/code";
+import { rule } from "../../parts/rows";
 import { QuietLink } from "../../parts/text";
 import { codeFromApp, dropCode, heldCode, keepCode } from "../device";
 import { Stage } from "../stage";
 import type { Page } from "./props";
 
-/** The field of Keycloak's own page for the code. */
 const FIELD = "device_user_code";
 
-/**
- * The page that takes the code of the Kodosi app. A person can type the code. The app can also
- * put the code after the "#" of this page's address: the cells then show it letter by letter and
- * the page goes on by itself, and each later step shows the code that this page sent.
- */
 export function DeviceCode({ kcContext, i18n }: Page<"login-oauth2-device-verify-user-code.ftl">) {
   const { url, message } = kcContext;
   const { msgStr } = i18n;
   const wrong = message?.type === "error";
-  // A code that Keycloak refused does not go a second time by itself.
   const [fromApp] = useState(() => (wrong ? null : codeFromApp()));
-  // A code that Keycloak refused is not the code of this visit.
   useEffect(dropCode, []);
   return (
     <Stage
@@ -57,17 +51,10 @@ export function DeviceCode({ kcContext, i18n }: Page<"login-oauth2-device-verify
   );
 }
 
-/**
- * A program asks for the person's account. For the Kodosi app, this is the moment of the code:
- * the page shows the code large, and the person connects their computer when the app shows the
- * same one. With no code of this visit, the page asks to connect the app. A program that is not
- * an app with a code gets the plain question.
- */
 export function Grant({ kcContext, i18n }: Page<"login-oauth-grant.ftl">) {
   const { url, oauth, client } = kcContext;
   const { msgStr, advancedMsgStr } = i18n;
   const program = client.name ? advancedMsgStr(client.name) : client.clientId;
-  // Keycloak says in the client's own settings that it signs in with a code.
   const app = client.attributes["oauth2.device.authorization.grant.enabled"] === "true";
   const code = app ? heldCode() : null;
   const { tosUri, policyUri } = client.attributes;
@@ -129,7 +116,7 @@ export function Grant({ kcContext, i18n }: Page<"login-oauth-grant.ftl">) {
       <form
         action={url.oauthAction}
         method="post"
-        className="relative flex justify-end gap-2 p-3 before:absolute before:top-0 before:right-0 before:left-[18px] before:h-px before:bg-hairline/60"
+        className={cn(rule, "flex justify-end gap-2 p-3")}
       >
         <input type="hidden" name="code" value={oauth.code} />
         <button
@@ -141,8 +128,7 @@ export function Grant({ kcContext, i18n }: Page<"login-oauth-grant.ftl">) {
         >
           {msgStr(code ? "kdsNotSame" : "kdsCancel")}
         </button>{" "}
-        {/* No button has the focus from the start: a key that the person pressed for a different
-            reason must not connect a computer. */}
+        {/* No autofocus: a stray key must not connect a computer. */}
         <button
           type="submit"
           name="accept"

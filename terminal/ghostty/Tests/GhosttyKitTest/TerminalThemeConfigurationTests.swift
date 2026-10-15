@@ -28,14 +28,10 @@ struct TerminalThemeConfigurationTests {
         let configuration = TerminalConfiguration {
             $0.withFontSize(1234.5)
             $0.withMinimumContrast(1.1)
-            $0.withCursorOpacity(0.875)
-            $0.withBackgroundOpacity(0.5)
         }
         #expect(configuration.rendered == """
         font-size = 1234.5
         minimum-contrast = 1.1
-        cursor-opacity = 0.875
-        background-opacity = 0.5
         """)
     }
 

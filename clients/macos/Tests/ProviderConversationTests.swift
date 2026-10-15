@@ -12,7 +12,7 @@ import Testing
         for title in invalidTitles {
             let conversation = ProviderConversation(
                 provider: provider, nativeConversationId: "native-conversation", workingDirectory: "/project",
-                title: title, createdAt: nil, updatedAt: nil
+                title: title, updatedAt: nil
             )
             #expect(conversation.sessionName == provider.name)
             #expect(ProductInput.validName(conversation.sessionName))
@@ -26,7 +26,7 @@ import Testing
     for title in ["Saved work", String(repeating: "a", count: 128), String(repeating: "é", count: 64), "  Saved work  "] {
         let conversation = ProviderConversation(
             provider: .claude, nativeConversationId: "native-conversation", workingDirectory: "/project",
-            title: title, createdAt: nil, updatedAt: nil
+            title: title, updatedAt: nil
         )
         #expect(conversation.sessionName == title.trimmingCharacters(in: .whitespacesAndNewlines))
         #expect(ProductInput.validName(conversation.sessionName))

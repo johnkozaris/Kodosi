@@ -5,17 +5,19 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[cfg(unix)]
 use super::Agent;
 
+#[cfg(unix)]
 const START: &str = "\u{1e}kodosi-agents";
+#[cfg(unix)]
 const END: &str = "\u{1e}end";
+#[cfg(unix)]
 const PROBE_TIME: Duration = Duration::from_secs(6);
 const REUSE_TIME: Duration = Duration::from_secs(600);
+#[cfg(unix)]
 const MAX_OUTPUT: usize = 512 * 1024;
 
-/// What a new terminal's shell knows: its `PATH`, the functions whose names
-/// begin with the name of an agent, and the aliases whose names or commands
-/// name one.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct Facts {
     pub path: Option<OsString>,
@@ -26,13 +28,10 @@ pub(super) struct Facts {
 pub(super) struct Definition {
     pub name: String,
     pub text: String,
-    /// An alias, rather than a function: the shell adds the words after it.
     pub alias: bool,
 }
 
 impl Facts {
-    /// Finds `program` on the shell's `PATH`, or on the runtime's own when the
-    /// shell did not report one.
     pub(super) fn executable(&self, program: &str) -> Option<PathBuf> {
         self.path.as_ref().map_or_else(
             || kodosi_os::process::find_executable(program),
@@ -55,7 +54,6 @@ struct Remembered {
 
 static REMEMBERED: Mutex<Option<Remembered>> = Mutex::new(None);
 
-/// The facts of `shell`. Without `fresh`, facts from the last ten minutes do.
 pub(super) async fn facts(shell: &Path, fresh: bool) -> Facts {
     if !fresh
         && let Some(remembered) = REMEMBERED
@@ -75,6 +73,7 @@ pub(super) async fn facts(shell: &Path, fresh: bool) -> Facts {
     facts
 }
 
+#[cfg(unix)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Family {
     Zsh,
@@ -83,6 +82,7 @@ pub(super) enum Family {
     Posix,
 }
 
+#[cfg(unix)]
 pub(super) fn family(shell: &Path) -> Option<Family> {
     match shell.file_stem()?.to_str()? {
         "zsh" => Some(Family::Zsh),
@@ -93,6 +93,7 @@ pub(super) fn family(shell: &Path) -> Option<Family> {
     }
 }
 
+#[cfg(unix)]
 pub(super) fn script(family: Family) -> String {
     let programs = Agent::ALL.map(Agent::program);
     let pattern = programs.map(|program| format!("{program}*")).join("|");
@@ -130,9 +131,8 @@ printf '\036end\n'"
     }
 }
 
-/// Asks the shell as an interactive login shell, as a terminal starts it. A
-/// shell whose start files never finish without a terminal (one that starts
-/// tmux, for example) is asked again as a login shell only, for its `PATH`.
+/// Start files that need a terminal (ones that start tmux, for example) never
+/// finish, so such a shell is asked again as a login shell only.
 #[cfg(unix)]
 async fn probe(shell: &Path) -> Facts {
     let Some(family) = family(shell) else {
@@ -185,16 +185,22 @@ async fn ask(shell: &Path, family: Family, interactive: bool) -> Option<Facts> {
 }
 
 #[cfg(windows)]
+#[expect(
+    clippy::unused_async,
+    reason = "Unix asks the shell, which Windows terminals do not need"
+)]
 async fn probe(_shell: &Path) -> Facts {
     Facts::default()
 }
 
+#[cfg(unix)]
 fn contains(haystack: &[u8], needle: &[u8]) -> bool {
     haystack
         .windows(needle.len())
         .any(|window| window == needle)
 }
 
+#[cfg(unix)]
 pub(super) fn parse(output: &str) -> Option<Facts> {
     let body = &output[output.find(START)? + START.len()..];
     let body = &body[..body.find(END)?];
@@ -229,8 +235,8 @@ pub(super) fn parse(output: &str) -> Option<Facts> {
     Some(facts)
 }
 
-/// The value of an alias. Bash prints it as `alias name='value'`, zsh as the
-/// value alone.
+/// Bash prints `alias name='value'`, zsh the value alone.
+#[cfg(unix)]
 fn alias_value(name: &str, text: &str) -> String {
     text.strip_prefix("alias ")
         .and_then(|text| text.strip_prefix(name))

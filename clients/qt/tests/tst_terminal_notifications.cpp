@@ -47,7 +47,7 @@ private slots:
     void rejectsStaleSessionIncarnations();
     void routesOnlyTerminalNotificationKeys();
     void boundsTrackedNotifications();
-    void alertsWhenAnOwnTerminalStartsToWait();
+    void alertsTheOwnerAndThePeopleWhoHaveAWaitingTerminalOpen();
 };
 
 namespace {
@@ -185,7 +185,7 @@ void TerminalNotificationsTest::ignoresRemoteOrMissingIncarnationEvents()
     QCOMPARE(fixture.driver.posted.size(), 1);
 }
 
-void TerminalNotificationsTest::alertsWhenAnOwnTerminalStartsToWait()
+void TerminalNotificationsTest::alertsTheOwnerAndThePeopleWhoHaveAWaitingTerminalOpen()
 {
     Fixture fixture;
     fixture.notifications.isFront = [] { return false; };
@@ -193,26 +193,34 @@ void TerminalNotificationsTest::alertsWhenAnOwnTerminalStartsToWait()
         auto own = test::session(1);
         own.insert(QStringLiteral("incarnationId"), test::id(101));
         own.insert(QStringLiteral("programStatus"), status);
-        auto shared = test::session(2, true, false);
-        shared.insert(QStringLiteral("programStatus"), status);
-        fixture.sessionsModel.apply(test::snapshot({own, shared}));
+        auto open = test::session(2, true, false);
+        open.insert(QStringLiteral("programStatus"), status);
+        auto closed = test::session(3, true, false);
+        closed.insert(QStringLiteral("connectionState"), QStringLiteral("offline"));
+        closed.insert(QStringLiteral("programStatus"), status);
+        fixture.sessionsModel.apply(test::snapshot({own, open, closed}));
     };
     const QJsonObject works {{QStringLiteral("state"), QStringLiteral("working")}};
     apply(works);
     QVERIFY(fixture.driver.posted.isEmpty());
     apply({{QStringLiteral("state"), QStringLiteral("blocked")}, {QStringLiteral("kind"), QStringLiteral("permission")},
         {QStringLiteral("message"), QStringLiteral("Allow the command?")}});
-    QCOMPARE(fixture.driver.posted.size(), 1);
-    const auto alert = fixture.driver.posted.constFirst();
-    QCOMPARE(alert.title, QStringLiteral("Terminal"));
-    QCOMPARE(alert.body, QStringLiteral("Allow the command?"));
-    QCOMPARE(alert.destination.sessionId, test::id(1));
+    QCOMPARE(fixture.driver.posted.size(), 2);
+    for (const auto& alert : std::as_const(fixture.driver.posted)) {
+        QCOMPARE(alert.title, QStringLiteral("Terminal"));
+        QCOMPARE(alert.body, QStringLiteral("Allow the command?"));
+    }
+    QCOMPARE(fixture.driver.posted.at(0).destination.sessionId, test::id(1));
+    QCOMPARE(fixture.driver.posted.at(1).destination.sessionId, test::id(2));
+    QCOMPARE(fixture.sessionsModel.attention(), QStringList({test::id(1), test::id(2)}));
 
     apply(works);
-    QCOMPARE(fixture.driver.withdrawn.constLast(), alert.key);
+    QVERIFY(fixture.driver.withdrawn.contains(fixture.driver.posted.at(0).key));
+    QVERIFY(fixture.driver.withdrawn.contains(fixture.driver.posted.at(1).key));
     apply({{QStringLiteral("state"), QStringLiteral("done")}});
-    QCOMPARE(fixture.driver.posted.size(), 2);
-    QCOMPARE(fixture.driver.posted.constLast().body, QStringLiteral("Done"));
+    QCOMPARE(fixture.driver.posted.size(), 4);
+    QCOMPARE(fixture.driver.posted.at(2).body, QStringLiteral("Done"));
+    QCOMPARE(fixture.driver.posted.at(3).destination.sessionId, test::id(2));
     const auto withdrawn = fixture.driver.withdrawn.size();
     fixture.sessionsModel.clearAttention(test::id(1));
     QCOMPARE(fixture.driver.withdrawn.size(), withdrawn + 1);
@@ -220,7 +228,7 @@ void TerminalNotificationsTest::alertsWhenAnOwnTerminalStartsToWait()
     fixture.notifications.isFront = [] { return true; };
     apply(works);
     apply({{QStringLiteral("state"), QStringLiteral("error")}});
-    QCOMPARE(fixture.driver.posted.size(), 2);
+    QCOMPARE(fixture.driver.posted.size(), 4);
 }
 
 QTEST_GUILESS_MAIN(TerminalNotificationsTest)

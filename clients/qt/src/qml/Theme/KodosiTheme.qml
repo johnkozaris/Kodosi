@@ -27,7 +27,6 @@ QtObject {
     readonly property color cautionSoft: isDark ? "#3a2f17" : "#f3e6bf"
     readonly property color danger: isDark ? "#e77a75" : "#b23a32"
     readonly property color dangerSoft: isDark ? "#3f211f" : "#f4d9d4"
-    readonly property color dangerInk: isDark ? "#1a0c0b" : "#fffaf3"
     readonly property color shadow: isDark ? "#000000" : "#2e1f0f"
     readonly property real shadowStrength: isDark ? 1 : 0.36
     readonly property color highlight: isDark ? Qt.rgba(1, 0.945, 0.863, 0.11) : Qt.rgba(1, 1, 1, 0.95)
@@ -63,6 +62,7 @@ QtObject {
     readonly property real sidebarWidth: 252
     readonly property real railWidth: 78
     readonly property real frameInset: 8
+    readonly property real titleBarHeight: 36
     readonly property real headerHeight: 54
     readonly property real controlHeight: 32
     readonly property real fieldHeight: 34

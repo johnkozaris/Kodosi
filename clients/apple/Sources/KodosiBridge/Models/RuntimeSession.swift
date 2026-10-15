@@ -7,7 +7,6 @@ public struct ProgramStatus: Decodable, Equatable, Sendable {
     public let state: State
     public let kind: Kind?
     public let progress: Int?
-    public let app: String?
     public let title: String?
     public let message: String?
 
@@ -107,6 +106,11 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
 
     public var canOpen: Bool {
         status != .closing && connectionState != .blocked
+    }
+
+    /// Kodosi calls a person only for the terminals that they own or have open.
+    public var canCall: Bool {
+        isOwner || isConnected
     }
 
     public var localDirectory: String? {

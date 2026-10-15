@@ -1,17 +1,10 @@
 import SwiftUI
 
-public struct ShadowSpec: Sendable {
-    public let opacity: Double
-    public let radius: CGFloat
-    public let x: CGFloat
-    public let y: CGFloat
-
-    public init(opacity: Double, radius: CGFloat, x: CGFloat, y: CGFloat) {
-        self.opacity = opacity
-        self.radius = radius
-        self.x = x
-        self.y = y
-    }
+struct ShadowSpec {
+    let opacity: Double
+    let radius: CGFloat
+    let x: CGFloat
+    let y: CGFloat
 }
 
 public enum Elevation: Sendable {
@@ -189,10 +182,6 @@ public extension View {
     func popoverSheet(width: CGFloat? = nil) -> some View {
         modifier(PopoverSheet(width: width))
     }
-
-    func hairline(_ edge: Edge) -> some View {
-        modifier(Hairline(edge: edge))
-    }
 }
 
 private struct TerminalScope: ViewModifier {
@@ -235,28 +224,6 @@ private struct PopoverSheet: ViewModifier {
     }
 }
 
-private struct Hairline: ViewModifier {
-    @Environment(\.theme) private var theme
-    let edge: Edge
-
-    func body(content: Content) -> some View {
-        content.overlay(alignment: alignment) {
-            Rectangle().fill(theme.colors.hairline.opacity(0.6))
-                .frame(width: edge == .leading || edge == .trailing ? 0.5 : nil,
-                       height: edge == .top || edge == .bottom ? 0.5 : nil)
-        }
-    }
-
-    private var alignment: Alignment {
-        switch edge {
-        case .top: .top
-        case .bottom: .bottom
-        case .leading: .leading
-        case .trailing: .trailing
-        }
-    }
-}
-
 public struct GroundBackdrop: View {
     @Environment(\.theme) private var theme
 
@@ -282,8 +249,8 @@ public struct GroundBackdrop: View {
 }
 
 @MainActor
-public enum GrainTexture {
-    public static let shared: CGImage? = make()
+private enum GrainTexture {
+    static let shared: CGImage? = make()
 
     private static func make() -> CGImage? {
         let side = 128

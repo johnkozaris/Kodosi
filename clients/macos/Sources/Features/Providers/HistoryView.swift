@@ -4,7 +4,7 @@ import SwiftUI
 
 struct HistoryView: View {
     @Environment(AppDependencies.self) private var deps
-    @Environment(\.closeSheet) private var dismiss
+    @Environment(\.closePanel) private var dismiss
     @Environment(\.theme) private var theme
     @State private var browser: ConversationBrowser?
     @State private var resuming = false

@@ -12,18 +12,17 @@ use super::{
 
 const RETRY_LIMIT: Duration = Duration::from_mins(1);
 
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub(super) enum Scope {
-    #[default]
     All,
-    Rooms(BTreeMap<Uuid, Option<u64>>),
+    Rooms(BTreeSet<Uuid>),
 }
 
 #[derive(Debug, Default)]
 pub(super) struct Waiting {
     surfaces: BTreeSet<&'static str>,
     missions: Option<Scope>,
-    rooms: Option<Scope>,
+    rooms: BTreeMap<Uuid, Option<u64>>,
     terminals: BTreeMap<Uuid, TerminalNotice>,
 }
 
@@ -49,11 +48,26 @@ impl Waiting {
                 self.surfaces.insert("sessions")
             }
             "missions" => {
-                widen(&mut self.missions, change.room, None);
+                match (change.room, &mut self.missions) {
+                    (Some(room), Some(Scope::Rooms(rooms))) => {
+                        rooms.insert(room);
+                    }
+                    (Some(room), missions @ None) => {
+                        *missions = Some(Scope::Rooms(BTreeSet::from([room])));
+                    }
+                    (Some(_), Some(Scope::All)) => {}
+                    (None, missions) => *missions = Some(Scope::All),
+                }
                 true
             }
             "rooms" => {
-                widen(&mut self.rooms, change.room, change.sequence);
+                let room = change
+                    .room
+                    .ok_or_else(|| invalid("A room change names its room."))?;
+                let wanted = self.rooms.entry(room).or_insert(change.sequence);
+                *wanted = wanted
+                    .zip(change.sequence)
+                    .map(|(known, new)| known.max(new));
                 true
             }
             _ => return Err(invalid("Unsupported notification surface.")),
@@ -64,27 +78,13 @@ impl Waiting {
     fn is_empty(&self) -> bool {
         self.surfaces.is_empty()
             && self.missions.is_none()
-            && self.rooms.is_none()
+            && self.rooms.is_empty()
             && self.terminals.is_empty()
     }
 }
 
 fn retried(error: &Error) -> bool {
     error.unanswered() || matches!(error, Error::Backend { status: 409, .. })
-}
-
-fn widen(scope: &mut Option<Scope>, room: Option<Uuid>, sequence: Option<u64>) {
-    let Some(room) = room else {
-        *scope = Some(Scope::All);
-        return;
-    };
-    match scope.get_or_insert_with(|| Scope::Rooms(BTreeMap::new())) {
-        Scope::All => {}
-        Scope::Rooms(rooms) => {
-            let wanted = rooms.entry(room).or_insert(sequence);
-            *wanted = wanted.zip(sequence).map(|(known, new)| known.max(new));
-        }
-    }
 }
 
 impl BackendClient {
@@ -198,6 +198,9 @@ impl BackendClient {
             waiting.add(&Change::of("devices"))?;
             self.refresh_waiting(admitted, &mut waiting).await?;
         }
+        if matches!(result, Err(Error::UpdateRequired)) {
+            self.update_required();
+        }
         result
     }
 
@@ -227,9 +230,8 @@ impl BackendClient {
             events.into_iter().for_each(emit);
             waiting.surfaces.remove(surface);
         }
-        while let Some((&session, notice)) = waiting.terminals.first_key_value() {
-            emit(self.terminal_event(&credentials, notice).await?);
-            waiting.terminals.remove(&session);
+        for notice in std::mem::take(&mut waiting.terminals).into_values() {
+            emit(self.terminal_event(&notice));
         }
         if let Some(scope) = waiting.missions.take() {
             let catalog = match self.mission_list().await {
@@ -244,7 +246,7 @@ impl BackendClient {
             let whole = scope == Scope::All;
             let scope = match scope {
                 Scope::All => None,
-                Scope::Rooms(rooms) => Some(rooms.into_keys().collect::<BTreeSet<_>>()),
+                Scope::Rooms(rooms) => Some(rooms),
             };
             let mut pending = self.rooms_to_refresh(listed, scope.as_ref()).await;
             let mut lookups = Lookups::default();
@@ -254,36 +256,23 @@ impl BackendClient {
                     .await
                 {
                     Err(error) if retried(&error) => {
-                        waiting.missions = Some(Scope::Rooms(
-                            pending.into_iter().map(|room| (room, None)).collect(),
-                        ));
+                        waiting.missions = Some(Scope::Rooms(pending));
                         return Err(error);
                     }
                     Err(error) => tracing::debug!(%error, "the room waits for its next change"),
                     Ok(event) => event.into_iter().for_each(emit),
                 }
                 pending.remove(&room);
-                if let Some(Scope::Rooms(rooms)) = &mut waiting.rooms {
-                    rooms.remove(&room);
-                }
+                waiting.rooms.remove(&room);
             }
             if whole {
                 if complete {
                     self.drop_recovery_room_key(&credentials).await;
                 }
-                waiting.rooms = None;
+                waiting.rooms.clear();
             }
         }
-        let rooms = match waiting.rooms.take() {
-            None => BTreeMap::new(),
-            Some(Scope::All) => self
-                .known_rooms(&credentials)
-                .await?
-                .into_iter()
-                .map(|room| (room, None))
-                .collect(),
-            Some(Scope::Rooms(rooms)) => rooms,
-        };
+        let rooms = std::mem::take(&mut waiting.rooms);
         let mut pending = rooms.clone();
         for (room, wanted) in rooms {
             match self
@@ -291,7 +280,7 @@ impl BackendClient {
                 .await
             {
                 Err(error) if retried(&error) => {
-                    waiting.rooms = Some(Scope::Rooms(pending));
+                    waiting.rooms = pending;
                     return Err(error);
                 }
                 Err(error) => tracing::debug!(%error, "the room waits for its next change"),
@@ -306,39 +295,17 @@ impl BackendClient {
         }
     }
 
-    async fn terminal_event(
-        &self,
-        credentials: &Credentials,
-        notice: &TerminalNotice,
-    ) -> Result<Value> {
-        let room = self.inner.sessions.lock().ok().and_then(|mut kept| {
-            let dto = kept
+    fn terminal_event(&self, notice: &TerminalNotice) -> Value {
+        if let Ok(mut kept) = self.inner.sessions.lock()
+            && let Some(dto) = kept
                 .get_mut(&notice.session)
-                .filter(|dto| dto.incarnation_id == notice.incarnation)?;
+                .filter(|dto| dto.incarnation_id == notice.incarnation)
+        {
             dto.host_online = notice.online;
             dto.status.clone_from(&notice.status);
-            dto.mission_id
-        });
-        let status = match (room, &notice.status) {
-            (Some(room), Some(sealed)) => match self
-                .open_terminal_status(
-                    credentials,
-                    (room, notice.session, notice.incarnation),
-                    sealed,
-                )
-                .await
-            {
-                Ok(status) => Some(status),
-                Err(error) if retried(&error) => return Err(error),
-                Err(error) => {
-                    tracing::debug!(%error, "a terminal status could not be read");
-                    None
-                }
-            },
-            _ => None,
-        };
-        Ok(json!({"type":"network.terminal","sessionId":notice.session,
-            "incarnationId":notice.incarnation,"online":notice.online,"status":status}))
+        }
+        json!({"type":"network.terminal","sessionId":notice.session,
+            "incarnationId":notice.incarnation,"online":notice.online,"status":notice.status})
     }
 }
 

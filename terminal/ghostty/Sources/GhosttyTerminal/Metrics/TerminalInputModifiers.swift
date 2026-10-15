@@ -18,10 +18,6 @@ public struct TerminalInputModifiers: OptionSet, Sendable {
     public static let super_ = TerminalInputModifiers(rawValue: 1 << 3)
     public static let caps = TerminalInputModifiers(rawValue: 1 << 4)
     public static let num = TerminalInputModifiers(rawValue: 1 << 5)
-    public static let shiftRight = TerminalInputModifiers(rawValue: 1 << 6)
-    public static let ctrlRight = TerminalInputModifiers(rawValue: 1 << 7)
-    public static let altRight = TerminalInputModifiers(rawValue: 1 << 8)
-    public static let superRight = TerminalInputModifiers(rawValue: 1 << 9)
 
     public var ghosttyMods: ghostty_input_mods_e {
         ghostty_input_mods_e(rawValue)

@@ -57,14 +57,7 @@ public:
     };
     enum Role {
         SessionIdRole = Qt::UserRole + 1,
-        NameRole,
-        KindRole,
-        HostRole,
-        StatusRole,
         MissionIdRole,
-        MissionNameRole,
-        IsOwnerRole,
-        ConnectionRole
     };
     explicit SessionCatalogModel(QObject* parent = nullptr);
     [[nodiscard]] QVariantList folderGroups() const;
@@ -79,11 +72,10 @@ public:
     Q_INVOKABLE [[nodiscard]] static QString folderName(const QString& path);
     [[nodiscard]] int rowCount(const QModelIndex& parent = {}) const override;
     [[nodiscard]] QVariant data(const QModelIndex&, int role) const override;
-    [[nodiscard]] QHash<int, QByteArray> roleNames() const override;
     [[nodiscard]] AuthorityState authorityState() const { return m_state; }
     [[nodiscard]] QString authorityError() const { return m_error; }
     [[nodiscard]] bool hasAuthoritativeSnapshot() const { return m_state == Loaded; }
-    Q_INVOKABLE [[nodiscard]] bool containsSession(const QString& id) const;
+    [[nodiscard]] bool containsSession(const QString& id) const;
     Q_INVOKABLE [[nodiscard]] QVariantMap presentationForSession(const QString& id) const;
     [[nodiscard]] std::optional<Session> session(const QString& id) const;
     [[nodiscard]] std::optional<PresentationSession> presentationSession(const QString& id) const;

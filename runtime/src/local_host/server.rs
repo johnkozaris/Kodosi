@@ -13,7 +13,6 @@ impl Drop for ClientSlot {
     }
 }
 
-/// A local endpoint served until `shutdown` or drop.
 pub struct LocalServer {
     pub(super) cancel: CancellationToken,
     pub(super) task: Option<tokio::task::JoinHandle<()>>,
@@ -156,7 +155,6 @@ async fn serve_connection(
                 version: VERSION,
                 error: Some("local runtime protocol or data-root mismatch".into()),
                 events: vec![],
-                incarnation_id: None,
                 host: None,
             },
         )
@@ -178,7 +176,6 @@ async fn serve_connection(
                         version: VERSION,
                         error: Some(error.to_string()),
                         events: vec![],
-                        incarnation_id: None,
                         host: None,
                     },
                 )
@@ -187,7 +184,6 @@ async fn serve_connection(
             }
         };
         let connection = subscription.connection_id;
-        let incarnation = subscription.incarnation_id;
         let result = async {
             write_json(
                 &mut stream,
@@ -195,8 +191,7 @@ async fn serve_connection(
                     version: VERSION,
                     error: None,
                     events: vec![],
-                    incarnation_id: Some(incarnation),
-                    host: Some(host),
+                    host: None,
                 },
             )
             .await?;
@@ -227,7 +222,6 @@ async fn serve_commands(
             version: VERSION,
             error: None,
             events: initial,
-            incarnation_id: None,
             host: Some(host),
         },
     )
@@ -248,11 +242,6 @@ async fn serve_commands(
                         if let Err(error)=runtime.try_send(command) {
                             write_json(&mut writer,&json!({"kind":"rejected","requestId":request_id,"operation":operation,"message":error.to_string()})).await?;
                         }
-                    }
-                    ClientRequest::Snapshot=>{
-                        let (snapshot, receiver) = runtime.observe().await?;
-                        events = receiver;
-                        for event in snapshot { write_event(&mut writer,&event).await?; }
                     }
                     ClientRequest::Stop{force}=>{
                         let open = local_sessions(&runtime.snapshot().await?);

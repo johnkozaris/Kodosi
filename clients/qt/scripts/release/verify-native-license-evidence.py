@@ -349,8 +349,6 @@ def main() -> None:
         verify_sboms(qt_root.resolve(strict=True), "sbom", manifest, qt_version)
         print(f"Qt {qt_version} and ICU 73.2 native license/SBOM evidence verified")
         return
-    # The release build checks the committed evidence. A package check only
-    # compares the package with it.
     installed_root = arguments.installed_root.resolve(strict=True)
     verify_sboms(installed_root, "usr/share/doc/kodosi/qt/sbom", manifest, qt_version)
     verify_packaged_evidence(

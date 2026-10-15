@@ -1,7 +1,3 @@
-# Windows: clang-cl against Qt's MSVC build. The install tree is the MSIX
-# package layout: the app, the CLI, ConPTY, the C runtime and the Qt runtime
-# side by side, with the package manifest, its assets and the notices.
-
 if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"))
     message(FATAL_ERROR "Build the Windows client with clang-cl")
 endif()
@@ -22,6 +18,7 @@ endif()
 set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
 set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG RelWithDebInfo "")
 
+set(CMAKE_INSTALL_BINDIR "." CACHE PATH "" FORCE)
 set(QT_DEPLOY_BIN_DIR "." CACHE STRING "" FORCE)
 set(KODOSI_PLATFORM_QT_COMPONENTS "")
 set(KODOSI_RUNTIME_ARCHIVE_NAME "kodosi_ffi_c.lib")
@@ -32,14 +29,20 @@ set(KODOSI_GHOSTTY_VT_ARCHIVE_NAME "ghostty-vt-static.lib")
 # one Qt uses.
 set(KODOSI_RUNTIME_SYSTEM_LIBRARIES kernel32 ntdll userenv ws2_32 dbghelp)
 set(KODOSI_COMPILE_OPTIONS /W4 -Wpedantic /WX)
+# Rust's compiler_builtins and Ghostty's Zig compiler_rt each define the compiler
+# builtins as weak symbols; lld-link keeps the first instead of failing the link.
+if(CMAKE_CXX_COMPILER_LINKER_ID STREQUAL "LLD")
+    add_link_options(-lld-allow-duplicate-weak)
+endif()
 set(KODOSI_PLATFORM_SOURCES
     platform/windows/ToastNotificationDriver.cpp
     platform/windows/ToastNotificationDriver.hpp
+    platform/windows/WindowFrame.cpp
+    platform/windows/WindowFrame.hpp
 )
-set(KODOSI_PLATFORM_LIBRARIES windowsapp)
+set(KODOSI_PLATFORM_LIBRARIES windowsapp user32 dwmapi shell32)
 set(KODOSI_TEST_LAUNCHER "")
 set(KODOSI_TEST_ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
-# Tests run from the build tree, so they find Qt's DLLs where Qt keeps them.
 set(KODOSI_TEST_ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
 set(KODOSI_QT_SBOM_MODULES qtbase qtdeclarative qtsvg)
 set(KODOSI_PROVIDER_ICON_LICENSE_DIR doc/provider-icons)
@@ -49,8 +52,6 @@ set(KODOSI_CONPTY_DIR "${PROJECT_BINARY_DIR}/conpty")
 set(KODOSI_MSIX_PUBLISHER "CN=Kodosi Development, OID.2.25.311729368913984317654407730594956997722=1"
     CACHE STRING "MSIX publisher, equal to the signing certificate subject")
 
-# Places ConPTY beside the app so it runs from the build tree, and installs
-# the package layout. Called from the directory that defines the app target.
 function(kodosi_install app)
     set_target_properties(${app} PROPERTIES WIN32_EXECUTABLE ON)
     execute_process(
@@ -72,8 +73,6 @@ function(kodosi_install app)
         DESTINATION doc/conpty
     )
 
-    # The C runtime from the toolset that built the app, rather than an older
-    # system or framework copy.
     set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION .)
     include(InstallRequiredSystemLibraries)
 
@@ -96,7 +95,14 @@ function(kodosi_install app)
         "${PROJECT_BINARY_DIR}/AppxManifest.xml"
         @ONLY
     )
-    install(FILES "${PROJECT_BINARY_DIR}/AppxManifest.xml" DESTINATION .)
+    # Windows reads the update source from this file, also for a package that
+    # was installed from the downloaded bundle.
+    configure_file(
+        "${PROJECT_SOURCE_DIR}/packaging/windows/Kodosi.appinstaller.in"
+        "${PROJECT_BINARY_DIR}/Kodosi.appinstaller"
+        @ONLY
+    )
+    install(FILES "${PROJECT_BINARY_DIR}/AppxManifest.xml" "${PROJECT_BINARY_DIR}/Kodosi.appinstaller" DESTINATION .)
     install(DIRECTORY "${PROJECT_SOURCE_DIR}/packaging/windows/Assets" DESTINATION .)
 
     kodosi_install_evidence(doc)

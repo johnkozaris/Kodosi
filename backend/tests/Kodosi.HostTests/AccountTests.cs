@@ -18,8 +18,7 @@ public sealed class AccountTests(PostgresFixture postgres)
     private static DefaultHttpContext Context(string subject, string name) => new()
     {
         User = new ClaimsPrincipal(new ClaimsIdentity([
-            new Claim("iss", Issuer), new Claim("sub", subject), new Claim("preferred_username", name),
-            new Claim("email", "unused@example.invalid"), new Claim("picture", "https://example.invalid/avatar.png")
+            new Claim("iss", Issuer), new Claim("sub", subject), new Claim("preferred_username", name)
         ], "test"))
     };
 
@@ -60,34 +59,13 @@ public sealed class AccountTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task UnusedProfileClaimsAreNotCollectedAndExistingValuesArePreserved()
-    {
-        await using var store = await TestStore.CreateAsync(postgres);
-        var context = Context("profile", "profile");
-        var account = await new CurrentUser(store.Db, TimeProvider.System).GetAsync(context, TestContext.Current.CancellationToken);
-        Assert.Null(account.Email);
-        Assert.Null(account.AvatarUrl);
-        account.Email = "saved@example.invalid";
-        account.AvatarUrl = "https://saved.invalid/avatar.png";
-        await store.Db.SaveChangesAsync(TestContext.Current.CancellationToken);
-        store.Db.ChangeTracker.Clear();
-        var retained = await new CurrentUser(store.Db, TimeProvider.System).GetAsync(context, TestContext.Current.CancellationToken);
-        Assert.Equal("saved@example.invalid", retained.Email);
-        Assert.Equal("https://saved.invalid/avatar.png", retained.AvatarUrl);
-    }
-
-    [Fact]
-    public async Task AccountResponseOmitsUnusedProfileFields()
+    public async Task WithoutTheSignInServiceTheAccountHasNoDeletionPage()
     {
         await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));
         using var actor = await app.EnrollAsync("profile-response");
         var response = await actor.Client.GetFromJsonAsync<JsonElement>("/api/me", TestContext.Current.CancellationToken);
-        Assert.Equal(4, response.EnumerateObject().Count());
+        Assert.Equal(["id", "handle", "displayName", "deletionUri", "plan"], response.EnumerateObject().Select(x => x.Name));
         Assert.Equal(JsonValueKind.Null, response.GetProperty("deletionUri").ValueKind);
-        Assert.True(response.TryGetProperty("id", out _));
-        Assert.True(response.TryGetProperty("handle", out _));
-        Assert.True(response.TryGetProperty("displayName", out _));
-        Assert.False(response.TryGetProperty("email", out _));
-        Assert.False(response.TryGetProperty("avatarUrl", out _));
+        Assert.Equal(JsonValueKind.Object, response.GetProperty("plan").ValueKind);
     }
 }

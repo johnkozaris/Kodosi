@@ -1,23 +1,17 @@
-/** A spring of the apps (AppTheme.Motion, KodosiTheme): the pages move as the apps move. */
-export interface Spring {
+interface Spring {
   stiffness: number;
   damping: number;
   mass?: number;
 }
 
-/** The default spring: it settles quickly with a hint of follow-through. */
 export const spring: Spring = { stiffness: 420, damping: 34, mass: 0.9 };
-/** Large surfaces: the capsule, the mark. */
 export const springSoft: Spring = { stiffness: 260, damping: 30 };
-/** Small controls: thumbs, signs. */
 export const springSnappy: Spring = { stiffness: 620, damping: 40 };
 
-/** The person asked for less motion. */
 export function still(): boolean {
   return matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-/** A spring as a timing that the browser plays without a script for each frame. */
 function springTiming({ stiffness, damping, mass = 1 }: Spring): KeyframeAnimationOptions {
   const step = 1 / 120;
   const points = [0];
@@ -37,14 +31,8 @@ function springTiming({ stiffness, damping, mass = 1 }: Spring): KeyframeAnimati
   };
 }
 
-/** The name of the event that says: a thing on the page starts to move. The cursor hears it, and
-    it follows what it stands on (cursor.ts). */
 export const MOVES = "kodosi:moves";
 
-/**
- * Plays keyframes on a spring. A browser that knows no spring timing plays them eased, and a
- * person who asked for less motion gets the last keyframe at once.
- */
 export function play(
   node: Element,
   keyframes: Keyframe[] | PropertyIndexedKeyframes,
@@ -56,6 +44,7 @@ export function play(
   try {
     return node.animate(keyframes, { ...options, ...more });
   } catch {
+    // A browser without linear() easing throws.
     return node.animate(keyframes, { ...options, easing: "ease-out", ...more });
   }
 }

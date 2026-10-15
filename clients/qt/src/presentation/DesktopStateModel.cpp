@@ -7,14 +7,9 @@
 #include <algorithm>
 
 namespace kodosi {
-DesktopStateModel::DesktopStateModel(QObject* parent)
-    : DesktopStateModel(std::make_unique<QSettings>(), true, parent)
-{
-}
-DesktopStateModel::DesktopStateModel(std::unique_ptr<QSettings> settings, bool persistence, QObject* parent)
+DesktopStateModel::DesktopStateModel(std::unique_ptr<QSettings> settings, QObject* parent)
     : QObject(parent)
     , m_settings(std::move(settings))
-    , m_persistenceEnabled(persistence)
 {
     m_sidebarOpen = m_settings->value(QStringLiteral("window/sidebar"), true).toBool();
 }
@@ -34,8 +29,7 @@ void DesktopStateModel::setSidebarOpen(bool value)
     if (m_sidebarOpen == value)
         return;
     m_sidebarOpen = value;
-    if (m_persistenceEnabled)
-        m_settings->setValue(QStringLiteral("window/sidebar"), value);
+    m_settings->setValue(QStringLiteral("window/sidebar"), value);
     emit sidebarOpenChanged();
 }
 void DesktopStateModel::attachSessionCatalog(SessionCatalogModel* sessions)
@@ -88,15 +82,6 @@ bool DesktopStateModel::unstageSession(const QString& id)
         exitFocusMode();
     return true;
 }
-void DesktopStateModel::enterFocusMode(const QString& id)
-{
-    if (!id.isEmpty() && !stageSession(id))
-        return;
-    if (m_selected.isEmpty() || m_mode == Focus)
-        return;
-    m_mode = Focus;
-    emit stageLayoutModeChanged();
-}
 void DesktopStateModel::exitFocusMode()
 {
     if (m_mode != Grid) {
@@ -106,10 +91,12 @@ void DesktopStateModel::exitFocusMode()
 }
 void DesktopStateModel::toggleFocusForSelectedSession()
 {
-    if (m_mode == Focus)
+    if (m_mode == Focus) {
         exitFocusMode();
-    else
-        enterFocusMode();
+    } else if (!m_selected.isEmpty()) {
+        m_mode = Focus;
+        emit stageLayoutModeChanged();
+    }
 }
 void DesktopStateModel::setModalVisible(QObject* modal, bool visible)
 {
@@ -176,7 +163,7 @@ void DesktopStateModel::attachWindow(QWindow* window, std::optional<QSize> overr
 }
 void DesktopStateModel::saveWindow()
 {
-    if (!m_persistenceEnabled || !m_window)
+    if (!m_window)
         return;
     m_settings->setValue(QStringLiteral("window/maximized"), m_window->windowState() == Qt::WindowMaximized);
     if (m_window->windowState() == Qt::WindowNoState)

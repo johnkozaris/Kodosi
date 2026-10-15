@@ -6,6 +6,10 @@ use tokio::time::{Instant, timeout};
 const SHELL: &str = "/bin/sh";
 #[cfg(windows)]
 const SHELL: &str = "cmd.exe";
+#[cfg(all(unix, feature = "host"))]
+const ROOT: &str = "/";
+#[cfg(all(windows, feature = "host"))]
+const ROOT: &str = r"C:\";
 
 struct TestRuntime {
     handle: RuntimeHandle,
@@ -360,33 +364,28 @@ async fn slow_login_does_not_block_local_terminal_or_runtime_observation() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn stale_epoch_cannot_create_or_shutdown_current_runtime() {
+async fn stale_epoch_cannot_create_in_current_runtime() {
     let runtime = TestRuntime::new().await;
     let (snapshot, mut events) = runtime.handle.observe().await.unwrap();
     let scope = &snapshot[0];
-    for command in [
-        Command::CreateSession {
-            request_id: Uuid::now_v7().to_string(),
-            name: "stale".to_owned(),
-            working_dir: None,
-            mission_id: None,
-            resume: None,
-            branch: None,
-            worktrees: None,
-            command: None,
-            prompt: None,
-        },
-        Command::Shutdown {},
-    ] {
-        runtime
-            .handle
-            .try_send(CommandEnvelope {
-                account_user_id: scope.account_user_id.clone(),
-                account_epoch: scope.account_epoch + 1,
-                command,
-            })
-            .unwrap();
-    }
+    runtime
+        .handle
+        .try_send(CommandEnvelope {
+            account_user_id: scope.account_user_id.clone(),
+            account_epoch: scope.account_epoch + 1,
+            command: Command::CreateSession {
+                request_id: Uuid::now_v7().to_string(),
+                name: "stale".to_owned(),
+                working_dir: None,
+                mission_id: None,
+                resume: None,
+                branch: None,
+                worktrees: None,
+                command: None,
+                prompt: None,
+            },
+        })
+        .unwrap();
     runtime
         .handle
         .try_send(CommandEnvelope {
@@ -399,10 +398,10 @@ async fn stale_epoch_cannot_create_or_shutdown_current_runtime() {
         loop {
             let event = events.recv().await.unwrap();
             assert!(
-                !matches!(event.kind(), "session.error" | "system.error"),
+                !matches!(event.event.kind(), "session.error" | "system.error"),
                 "stale requests must stay silent"
             );
-            if event.kind() == "sessions.snapshot" {
+            if event.event.kind() == "sessions.snapshot" {
                 break;
             }
         }
@@ -412,7 +411,7 @@ async fn stale_epoch_cannot_create_or_shutdown_current_runtime() {
     let snapshot = runtime.handle.snapshot().await.unwrap();
     let sessions = snapshot
         .iter()
-        .find(|event| event.kind() == "sessions.snapshot")
+        .find(|event| event.event.kind() == "sessions.snapshot")
         .unwrap();
     assert_eq!(
         serde_json::to_value(sessions).unwrap()["sessions"],
@@ -422,7 +421,6 @@ async fn stale_epoch_cannot_create_or_shutdown_current_runtime() {
     drop(runtime);
 }
 
-#[cfg(feature = "host")]
 #[cfg(not(feature = "host"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_viewer_says_that_terminals_and_conversations_stay_on_a_computer() {
@@ -526,7 +524,7 @@ async fn create_retry_is_exact_and_does_not_launch_a_second_process() {
         let sessions = serde_json::to_value(
             events
                 .iter()
-                .find(|event| event.kind() == "sessions.snapshot")
+                .find(|event| event.event.kind() == "sessions.snapshot")
                 .unwrap(),
         )
         .unwrap();
@@ -540,7 +538,7 @@ async fn create_retry_is_exact_and_does_not_launch_a_second_process() {
     runtime.send(command).await;
     timeout(Duration::from_secs(2), async {
         loop {
-            if events.recv().await.unwrap().kind() == "session.result" {
+            if events.recv().await.unwrap().event.kind() == "session.result" {
                 break;
             }
         }
@@ -550,7 +548,7 @@ async fn create_retry_is_exact_and_does_not_launch_a_second_process() {
     let snapshot = runtime.handle.snapshot().await.unwrap();
     let sessions = snapshot
         .iter()
-        .find(|event| event.kind() == "sessions.snapshot")
+        .find(|event| event.event.kind() == "sessions.snapshot")
         .unwrap();
     assert_eq!(
         serde_json::to_value(sessions).unwrap()["sessions"]
@@ -633,8 +631,6 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             administering: BTreeSet::new(),
             jobs: JoinSet::new(),
             changes,
-            #[cfg(feature = "host")]
-            dark: true,
             initializing: false,
             auth_pending: false,
             latest_auth: None,
@@ -670,7 +666,7 @@ async fn login_failure_after_retiring_account_is_visible_and_retryable() {
         let error = timeout(Duration::from_secs(5), async {
             loop {
                 let event = events.recv().await.unwrap();
-                if event.kind() == "auth.error" {
+                if event.event.kind() == "auth.error" {
                     break event;
                 }
             }
@@ -827,7 +823,7 @@ async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_
         .send(Command::CreateSession {
             request_id: request_id.clone(),
             name: "ordered".to_owned(),
-            working_dir: Some("/".to_owned()),
+            working_dir: Some(ROOT.to_owned()),
             mission_id: Some(room_id.clone()),
             resume: None,
             branch: None,
@@ -956,7 +952,6 @@ fn first_snapshot() -> crate::network::RemoteUpdate {
         )
         .unwrap(),
         next_sequence: 0,
-        fresh: true,
     }
 }
 
@@ -1235,12 +1230,11 @@ async fn catalog_replacement_cancels_inflight_automatic_recovery() {
 }
 
 #[tokio::test]
-async fn a_room_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open() {
+async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open() {
     use crate::terminal::{BlockedKind, ProgramState, TerminalMetadata};
     let (mut runtime, _root) = registry_fixture();
     let (id, incarnation) = (Uuid::now_v7(), Uuid::now_v7());
     let remote = RemoteSession {
-        mission_id: Some(Uuid::now_v7()),
         status: Some(TerminalStatus {
             program: Some("claude".to_owned()),
             state: Some(ProgramState::Blocked),
@@ -1284,7 +1278,6 @@ async fn a_room_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_o
                 state: ProgramState::Working,
                 kind: None,
                 progress: Some(40),
-                app: None,
                 title: None,
                 message: Some("Building".to_owned()),
             }),

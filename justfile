@@ -3,6 +3,8 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 cargo_tools_root := justfile_directory() + "/.tools/rust"
 cargo_tools_bin := cargo_tools_root + "/bin"
 ghostty_dir := env('KODOSI_GHOSTTY_DIR', justfile_directory() + "/terminal/ghostty")
+test_lints := "-D warnings -A clippy::unwrap_used -A clippy::expect_used"
+llvm_cov := "cargo llvm-cov --manifest-path runtime/Cargo.toml --locked --workspace --all-targets --ignore-filename-regex '(^|/)(tests|benches|examples)/'"
 
 path_separator := if os_family() == "windows" { ";" } else { ":" }
 
@@ -21,7 +23,7 @@ rust-tools-install:
     cargo install --locked --root "{{ cargo_tools_root }}" cargo-machete --version 0.9.1
     cargo install --locked --root "{{ cargo_tools_root }}" cargo-llvm-cov --version 0.8.5
 
-# Install Bacon for the jobs in bacon.toml, and the Rust check tools that the jobs use.
+# Install Bacon and the Rust check tools that its jobs use.
 [group('tools')]
 bacon-install: rust-tools-install
     cargo install --locked --root "{{ cargo_tools_root }}" bacon --version 3.22.0
@@ -34,28 +36,26 @@ rust-dependency-tools-check:
 rust-coverage-tools-check:
     @test -x "{{ cargo_tools_bin }}/cargo-llvm-cov" || { printf '%s\n' 'Run just rust-tools-install first.' >&2; exit 1; }
 
-# Do the Ghostty pin, artifact and notice checks without a build.
+# Check the Ghostty pins, digests and notices without a build.
 [group('ghostty')]
-ghostty-check: ghostty-host-check
+ghostty-check: ghostty-notices-check
     python3 terminal/ghostty/scripts/verify-ghostty-pins.py
+    python3 "{{ ghostty_dir }}/scripts/tests/test_digest.py"
 
 [private]
 [macos]
-ghostty-host-check:
-    python3 "{{ ghostty_dir }}/scripts/tests/test_digest.py"
+ghostty-notices-check:
     "{{ ghostty_dir }}/scripts/verify-third-party-notices.py"
 
 [private]
 [linux]
-ghostty-host-check:
-    python3 "{{ ghostty_dir }}/scripts/tests/test_digest.py"
+ghostty-notices-check:
     "{{ ghostty_dir }}/scripts/verify-linux-third-party-notices.py"
 
-# Git Bash has no ar, lipo or plutil for the notice checks.
+# Git Bash has no ar or nm for the notice checks.
 [private]
 [windows]
-ghostty-host-check:
-    python3 "{{ ghostty_dir }}/scripts/tests/test_digest.py"
+ghostty-notices-check:
 
 # Build the development CLI in runtime/target/debug.
 [group('rust')]
@@ -75,9 +75,9 @@ rust-features-check:
     CARGO_BUILD_WARNINGS=deny cargo check --manifest-path runtime/Cargo.toml --locked -p kodosi-ffi-c
     CARGO_BUILD_WARNINGS=deny cargo check --manifest-path runtime/Cargo.toml --locked -p kodosi-ffi-c --no-default-features
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --lib --bins -- -D warnings
-    CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --tests -- -D warnings -A clippy::unwrap_used -A clippy::expect_used
+    CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --tests -- {{ test_lints }}
 
-# Make sure that the Rust code has the standard format. Change no file.
+# Check the Rust format. Change no file.
 [group('rust')]
 rust-format-check:
     cargo fmt --manifest-path runtime/Cargo.toml --all -- --check
@@ -91,14 +91,14 @@ rust-doc-build:
 [group('rust')]
 rust-lint:
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked --workspace --lib --bins --examples -- -D warnings
-    CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked --workspace --tests -- -D warnings -A clippy::unwrap_used -A clippy::expect_used
+    CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked --workspace --tests -- {{ test_lints }}
 
-# Examine the Rust dependencies for advisories, bans, licenses and sources with cargo-deny.
+# Check the Rust dependencies for advisories, bans, licenses and sources with cargo-deny.
 [group('rust')]
 rust-deny-check: rust-dependency-tools-check
     cargo deny --manifest-path runtime/Cargo.toml --workspace --locked check --config deny.toml --hide-inclusion-graph advisories bans licenses sources
 
-# Find the Rust dependencies that the code does not use, with cargo-machete.
+# Find unused Rust dependencies with cargo-machete.
 [group('rust')]
 rust-machete-check: rust-dependency-tools-check
     cargo machete --skip-target-dir runtime
@@ -107,8 +107,7 @@ rust-machete-check: rust-dependency-tools-check
 [group('rust')]
 rust-dependency-check: rust-deny-check rust-machete-check
 
-# Windows terminals need the pinned ConPTY host beside the development CLI, and
-# tests find it through KODOSI_CONPTY_DIR.
+# Windows terminals and tests find the pinned ConPTY host in KODOSI_CONPTY_DIR.
 [private]
 [windows]
 conpty-install:
@@ -128,26 +127,26 @@ rust-test: conpty-install
 # Write an HTML coverage report to runtime/target/llvm-cov.
 [group('rust')]
 rust-coverage-gen: rust-coverage-tools-check
-    cargo llvm-cov --manifest-path runtime/Cargo.toml --locked --workspace --all-targets --ignore-filename-regex '(^|/)(tests|benches|examples)/' --html --output-dir runtime/target/llvm-cov
+    {{ llvm_cov }} --html --output-dir runtime/target/llvm-cov
 
 # Write an LCOV coverage report to runtime/target/llvm-cov/lcov.info.
 [group('rust')]
 rust-lcov-gen: rust-coverage-tools-check
     mkdir -p runtime/target/llvm-cov
-    cargo llvm-cov --manifest-path runtime/Cargo.toml --locked --workspace --all-targets --ignore-filename-regex '(^|/)(tests|benches|examples)/' --lcov --output-path runtime/target/llvm-cov/lcov.info
+    {{ llvm_cov }} --lcov --output-path runtime/target/llvm-cov/lcov.info
 
 # Stop if the line coverage of the Rust tests is less than the minimum.
 [group('rust')]
 rust-coverage-check: rust-coverage-tools-check
     mkdir -p runtime/target/llvm-cov
-    cargo llvm-cov --manifest-path runtime/Cargo.toml --locked --workspace --all-targets --ignore-filename-regex '(^|/)(tests|benches|examples)/' --fail-under-lines 55 --json --summary-only --output-path runtime/target/llvm-cov/summary.json
+    {{ llvm_cov }} --fail-under-lines 55 --json --summary-only --output-path runtime/target/llvm-cov/summary.json
 
-# Write the generated contracts and the C header from the Rust definitions.
+# Write protocol/desktop-runtime.json from the Rust definitions.
 [group('protocol')]
 protocol-gen:
     cargo run --manifest-path runtime/Cargo.toml --locked --bin protocol-gen -- write
 
-# Make sure that the committed contracts agree with the Rust definitions.
+# Check protocol/desktop-runtime.json against the Rust definitions.
 [group('protocol')]
 protocol-check:
     cargo run --manifest-path runtime/Cargo.toml --locked --bin protocol-gen -- check
@@ -192,7 +191,7 @@ backend-docker-run:
 backend-docker-stop:
     docker compose down
 
-# Build the backend release image for a platform, for example linux/arm64, and give it a tag. Push nothing.
+# Build and tag the backend release image for a platform, for example linux/arm64. Push nothing.
 [group('backend')]
 backend-package platform tag="kodosi-backend":
     docker buildx build --platform "{{ platform }}" --file backend/Dockerfile --tag "{{ tag }}" --load .
@@ -255,15 +254,20 @@ windows-check:
 
 # Lint the runtime for the two Windows targets in Docker on any host.
 [group('windows')]
-windows-rust-lint packages="--workspace":
+windows-rust-lint:
     docker build --quiet --tag kodosi-windows-cross --file scripts/windows-cross.Dockerfile scripts >/dev/null
     for target in x86_64-pc-windows-msvc aarch64-pc-windows-msvc; do \
-        docker run --rm --volume "$PWD:/src" --volume kodosi-cargo-registry:/usr/local/cargo/registry --volume kodosi-xwin-cache:/cache/xwin --workdir /src --env CARGO_BUILD_WARNINGS=deny --env CARGO_INCREMENTAL=0 --env KODOSI_GHOSTTY_CHECK_ONLY=1 kodosi-windows-cross bash -euo pipefail -c "\
-            cargo xwin clippy --manifest-path runtime/Cargo.toml --locked --target $target {{ packages }} --lib --bins --examples -- -D warnings && \
-            cargo xwin clippy --manifest-path runtime/Cargo.toml --locked --target $target {{ packages }} --tests -- -D warnings -A clippy::unwrap_used -A clippy::expect_used"; \
+        MSYS_NO_PATHCONV=1 docker run --rm --volume "$PWD:/src" --volume kodosi-cargo-registry:/usr/local/cargo/registry --volume kodosi-xwin-cache:/cache/xwin --workdir /src --env CARGO_BUILD_WARNINGS=deny --env CARGO_INCREMENTAL=0 --env KODOSI_GHOSTTY_CHECK_ONLY=1 kodosi-windows-cross bash -euo pipefail -c "\
+            cargo xwin clippy --manifest-path runtime/Cargo.toml --locked --target $target --workspace --lib --bins --examples -- -D warnings && \
+            cargo xwin clippy --manifest-path runtime/Cargo.toml --locked --target $target --workspace --tests -- {{ test_lints }}"; \
     done
 
 # Build the Keycloak theme after the type, lint and format checks.
 [group('sign-in')]
 sign-in-check:
     cd sign-in && bun install --frozen-lockfile && bun run tsc && bun run lint && bun run format:check && bun run build
+
+# Test the script that writes the update site of a release.
+[group('release')]
+release-test:
+    python3 -m unittest scripts/tests/test_update_site.py

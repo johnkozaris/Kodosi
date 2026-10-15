@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Installs the console host of one architecture from the pinned ConPTY package.
-
-Kodosi ships conpty.dll and OpenConsole.exe beside its executables and loads
-them by absolute path, so every Windows build gets the same console host.
-"""
+"""Installs conpty.dll and OpenConsole.exe of one architecture from the pinned ConPTY package."""
 
 from __future__ import annotations
 
@@ -68,8 +64,7 @@ def main() -> None:
     files["ConPTY-LICENSE.txt"] = (ROOT / "LICENSE").read_bytes()
     for name, content in files.items():
         target = arguments.output / name
-        # Windows cannot replace a DLL that a running host has loaded, so an
-        # unchanged file stays untouched.
+        # Windows cannot replace a DLL that a running host has loaded.
         if not target.is_file() or target.read_bytes() != content:
             target.write_bytes(content)
     print(f"ConPTY {lock['version']} ({arguments.arch}) -> {arguments.output}")

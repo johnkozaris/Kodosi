@@ -11,10 +11,6 @@ configs:
   Debug: debug
   Release: release
 
-configFiles:
-  Debug: ../apple/Config/Apps.xcconfig
-  Release: ../apple/Config/Apps.xcconfig
-
 packages:
   KodosiApple:
     path: ../apple
@@ -29,6 +25,8 @@ aggregateTargets:
 
 settingGroups:
   appBase:
+    MARKETING_VERSION: "${KODOSI_VERSION}"
+    CURRENT_PROJECT_VERSION: "${KODOSI_VERSION}"
     SWIFT_VERSION: "6.0"
     SWIFT_STRICT_CONCURRENCY: complete
     SWIFT_APPROACHABLE_CONCURRENCY: YES

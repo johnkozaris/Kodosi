@@ -104,7 +104,7 @@ void ControlsTest::modalControlsSuppressNativeTerminalAccessibility()
         std::make_unique<QSettings>(directory.filePath(QStringLiteral("appearance.ini")), QSettings::IniFormat),
         { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
     kodosi::DesktopStateModel desktop(
-        std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat), false);
+        std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat));
     kodosi::qml::AppearanceModelForeign::instance = &appearance;
     kodosi::qml::DesktopStateModelForeign::instance = &desktop;
     kodosi::installTerminalAccessibility();
@@ -167,7 +167,7 @@ void ControlsTest::terminalCloseConfirmsAndMinimizeOnlyHidesView()
         std::make_unique<QSettings>(directory.filePath(QStringLiteral("appearance.ini")), QSettings::IniFormat),
         { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
     kodosi::DesktopStateModel desktop(
-        std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat), false);
+        std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat));
     kodosi::DesktopSettings settings(
         std::make_unique<QSettings>(directory.filePath(QStringLiteral("settings.ini")), QSettings::IniFormat));
     kodosi::SessionCatalogModel sessions;
@@ -223,16 +223,16 @@ void ControlsTest::terminalCloseConfirmsAndMinimizeOnlyHidesView()
     QCOMPARE(confirmation->property("title").toString(), QStringLiteral("Close Terminal?"));
     QVERIFY(desktop.modalOpen());
     QVERIFY(commands.values.isEmpty());
-    QQmlExpression actionText(QQmlEngine::contextForObject(confirmation), confirmation,
+    QQuickItem* explanation = nullptr;
+    for (auto* item : confirmation->findChildren<QQuickItem*>()) {
+        if (item->property("text").toString() == QStringLiteral("Its programs stop."))
+            explanation = item;
+    }
+    QVERIFY(explanation);
+    QQmlExpression actionText(QQmlEngine::contextForObject(explanation), confirmation,
         QStringLiteral("standardButton(Dialog.Ok).text"));
     QTRY_COMPARE(actionText.evaluate().toString(), QStringLiteral("Close"));
     QVERIFY(!actionText.hasError());
-    bool explainsProcessExit = false;
-    for (auto* item : confirmation->findChildren<QQuickItem*>()) {
-        if (item->property("text").toString() == QStringLiteral("Its programs stop."))
-            explainsProcessExit = true;
-    }
-    QVERIFY(explainsProcessExit);
     QVERIFY(QMetaObject::invokeMethod(confirmation, "reject"));
     QTRY_VERIFY(!desktop.modalOpen());
     QVERIFY(commands.values.isEmpty());
@@ -269,7 +269,7 @@ void ControlsTest::missionCreationHasOneNameField()
         std::make_unique<QSettings>(directory.filePath(QStringLiteral("appearance.ini")), QSettings::IniFormat),
         { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
     kodosi::DesktopStateModel desktop(
-        std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat), false);
+        std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat));
     kodosi::DesktopSettings settings(
         std::make_unique<QSettings>(directory.filePath(QStringLiteral("settings.ini")), QSettings::IniFormat));
     kodosi::SessionCatalogModel sessions;
@@ -277,6 +277,7 @@ void ControlsTest::missionCreationHasOneNameField()
     kodosi::Workspace workspace(commands, sessions, desktop, settings);
     kodosi::qml::AppearanceModelForeign::instance = &appearance;
     kodosi::qml::DesktopStateModelForeign::instance = &desktop;
+    kodosi::qml::DesktopSettingsForeign::instance = &settings;
     kodosi::qml::SessionCatalogModelForeign::instance = &sessions;
     kodosi::qml::AppStateForeign::instance = &workspace;
     kodosi::qml::AccountModelForeign::instance = &workspace.account();

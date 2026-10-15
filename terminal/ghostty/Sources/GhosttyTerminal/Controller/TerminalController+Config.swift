@@ -19,7 +19,6 @@ extension TerminalController {
             return true
 
         case let .failure(issue):
-            lastConfigurationIssue = issue.description
             Self.reportConfigurationIssue(issue.description)
             return false
         }
@@ -59,7 +58,6 @@ extension TerminalController {
             applyPreparedConfig(prepared, source: source)
 
         case let .failure(issue):
-            lastConfigurationIssue = issue.description
             Self.reportConfigurationIssue(issue.description)
 
             guard source != .none else { return }
@@ -181,6 +179,5 @@ extension TerminalController {
         managedConfigURL = prepared.managedConfigURL
         renderedConfigContents = prepared.renderedContents
         configSource = source
-        lastConfigurationIssue = nil
     }
 }

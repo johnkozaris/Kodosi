@@ -110,16 +110,17 @@ Item {
                     }
                 }
                 Item { Layout.fillWidth: true }
-                SectionDock {
+                SegmentedPill {
+                    dock: true
                     identifier: "room.canvas"
-                    currentIndex: root.canvas
-                    items: [
-                        { label: qsTr("Terminals"), icon: "terminal", count: root.sessionIds.length },
-                        { label: qsTr("Tasks"), icon: "tasks", count: root.tasks.length - root.doneTasks, progress: root.tasks.length > 0 ? root.doneTasks / root.tasks.length : 0 },
-                        { label: qsTr("Repositories"), icon: "repository", count: (root.room.repositories || []).length }
+                    currentValue: root.canvas
+                    options: [
+                        { value: 0, label: qsTr("Terminals"), icon: "terminal", count: root.sessionIds.length },
+                        { value: 1, label: qsTr("Tasks"), count: root.tasks.length - root.doneTasks, progress: root.tasks.length > 0 ? root.doneTasks / root.tasks.length : 0 },
+                        { value: 2, label: qsTr("Repositories"), icon: "repository", count: (root.room.repositories || []).length }
                     ]
-                    onActivated: index => {
-                        Models.Missions.setPresentation("canvas", index);
+                    onActivated: value => {
+                        Models.Missions.setPresentation("canvas", value);
                         if (root.narrow)
                             Models.Missions.setPresentation("conversation", false);
                     }
@@ -392,8 +393,8 @@ Item {
                                     sessionId: root.shownTerminal
                                     roomEmbedded: true
                                     interactionEnabled: root.visible && !Models.DesktopState.modalOpen
-                                    onInspectSessionRequested: (id, name) => root.inspectSessionRequested(id)
-                                    onShareSessionRequested: (id, name) => root.shareSessionRequested(id)
+                                    onInspectSessionRequested: id => root.inspectSessionRequested(id)
+                                    onShareSessionRequested: id => root.shareSessionRequested(id)
                                     Component.onCompleted: Qt.callLater(forceTerminalFocus)
                                 }
                             }
@@ -460,6 +461,12 @@ Item {
                                                             }
                                                         }
                                                     }
+                                                    StatusSign {
+                                                        Layout.rightMargin: card.viewers.length > 0 ? 0 : 12
+                                                        session: card.session
+                                                        unseen: Models.Sessions.attention.indexOf(card.modelData) >= 0
+                                                        size: 13
+                                                    }
                                                     AvatarStack { Layout.rightMargin: 12; visible: card.viewers.length > 0; userIds: card.viewers; size: 20; limit: 2; ring: KodosiTheme.raised }
                                                 }
                                                 onClicked: Models.SessionActions.activateInRoom(modelData)
@@ -490,7 +497,6 @@ Item {
                 }
             }
             Item {
-                id: sheet
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 6

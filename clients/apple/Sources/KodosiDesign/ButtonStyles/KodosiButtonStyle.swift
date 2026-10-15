@@ -217,18 +217,13 @@ public struct PressScaleStyle: ButtonStyle {
     }
 }
 
-public struct HoverRow: ViewModifier {
+private struct HoverRow: ViewModifier {
     @Environment(\.theme) private var theme
     @State private var hovered = false
-    public var radius: CGFloat = Radius.md
-    public var selected = false
+    let radius: CGFloat
+    let selected: Bool
 
-    public init(radius: CGFloat = Radius.md, selected: Bool = false) {
-        self.radius = radius
-        self.selected = selected
-    }
-
-    public func body(content: Content) -> some View {
+    func body(content: Content) -> some View {
         content
             .background {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)

@@ -5,7 +5,7 @@ default: build
 
 # Generate the Xcode project from project.yml.
 xcode-gen:
-    KODOSI_IOS_DEPLOYMENT_TARGET="$(cat ../apple/Config/iOSDeploymentTarget)" xcodegen generate --quiet
+    KODOSI_VERSION="$(cat ../../VERSION)" KODOSI_IOS_DEPLOYMENT_TARGET="$(cat ../apple/Config/iOSDeploymentTarget)" xcodegen generate --quiet
 
 # Lint the Swift sources of the iPhone and iPad app.
 lint:

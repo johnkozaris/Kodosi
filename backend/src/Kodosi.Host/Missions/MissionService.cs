@@ -2,35 +2,42 @@ using Kodosi.Accounts;
 using Kodosi.Data;
 using Kodosi.Devices;
 using Kodosi.Friends;
+using Kodosi.Plans;
 using Kodosi.TerminalConnections;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.Missions;
 
-public sealed partial class MissionService(KodosiDbContext db, ConnectionDirectory connections, FriendService friends, TimeProvider clock, DeviceService devices, Kodosi.Security.SignatureVerifier signatures)
+public sealed partial class MissionService(KodosiDbContext db, ConnectionDirectory connections, FriendService friends, TimeProvider clock, DeviceService devices, PlanCatalog plans)
 {
-    public async Task<Mission> RequireMemberAsync(Guid id, Guid userId, CancellationToken ct)
+    private async Task<Mission> RequireMemberAsync(Guid id, Guid userId, CancellationToken ct)
     {
         var mission = await db.Missions.SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw ApiException.Missing();
-        if (mission.OwnerUserId != userId && !await db.MissionMembers.AnyAsync(x => x.MissionId == id && x.UserId == userId, ct))
-            throw ApiException.Missing();
-        return mission;
+        return await IsMemberAsync(mission, userId, ct) ? mission : throw ApiException.Missing();
     }
 
     internal async Task<Mission> RequireMemberForUpdateAsync(Guid id, Guid userId, CancellationToken ct)
     {
-        if (db.Database.CurrentTransaction is null) throw new InvalidOperationException("A room change requires a transaction.");
-        _ = await db.Missions.FromSqlInterpolated($"SELECT * FROM missions WHERE \"Id\" = {id} FOR UPDATE").SingleOrDefaultAsync(ct)
-            ?? throw ApiException.Missing();
-        return await RequireMemberAsync(id, userId, ct);
+        var mission = await LockAsync(id, ct);
+        return await IsMemberAsync(mission, userId, ct) ? mission : throw ApiException.Missing();
     }
 
-    internal async Task<List<Guid>> MemberIdsAsync(Guid id, CancellationToken ct)
+    private async Task<bool> IsMemberAsync(Mission mission, Guid userId, CancellationToken ct) =>
+        mission.OwnerUserId == userId || await db.MissionMembers.AnyAsync(x => x.MissionId == mission.Id && x.UserId == userId, ct);
+
+    private async Task<Mission> LockAsync(Guid id, CancellationToken ct)
     {
-        var members = await db.MissionMembers.Where(x => x.MissionId == id).Select(x => x.UserId).ToListAsync(ct);
-        var owner = await db.Missions.Where(x => x.Id == id).Select(x => (Guid?)x.OwnerUserId).SingleOrDefaultAsync(ct);
-        if (owner is { } user) members.Add(user);
-        return members.Distinct().ToList();
+        if (db.Database.CurrentTransaction is null) throw new InvalidOperationException("A room change requires a transaction.");
+        return await db.Missions.FromSqlInterpolated($"SELECT * FROM missions WHERE \"Id\" = {id} FOR UPDATE").SingleOrDefaultAsync(ct)
+            ?? throw ApiException.Missing();
+    }
+
+    internal Task<List<Guid>> MemberIdsAsync(Guid id, CancellationToken ct, bool invited = false)
+    {
+        var people = db.MissionMembers.Where(x => x.MissionId == id).Select(x => x.UserId)
+            .Union(db.Missions.Where(x => x.Id == id).Select(x => x.OwnerUserId));
+        if (invited) people = people.Union(db.MissionInvitations.Where(x => x.MissionId == id).Select(x => x.UserId));
+        return people.ToListAsync(ct);
     }
 
     public async Task<object> ListAsync(Guid userId, CancellationToken ct)
@@ -60,7 +67,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         return new { mission = new { mission.Id, mission.Name, mission.OwnerUserId }, members };
     }
 
-    public async Task<object> CreateAsync(Guid userId, CreateMission body, CancellationToken ct)
+    public async Task CreateAsync(Guid userId, CreateMission body, CancellationToken ct)
     {
         Limits.Id(body.Id, "Mission ID");
         var name = Limits.Text(body.Name, "Mission name", 128);
@@ -68,23 +75,22 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         if (existing is not null)
         {
             if (existing.OwnerUserId != userId || existing.Name != name) throw ApiException.Conflict("Mission ID was reused.");
-            return new { existing.Id, existing.Name, existing.OwnerUserId };
+            return;
         }
-        if (await db.Missions.CountAsync(x => x.OwnerUserId == userId, ct) >= Limits.MaxMissionsPerUser)
-            throw ApiException.Conflict("Too many Missions.");
+        var owned = await db.Missions.CountAsync(x => x.OwnerUserId == userId, ct);
+        if (owned >= (await plans.LimitsAsync(db, userId, ct)).OwnedRooms)
+            throw ApiException.Limited("rooms", $"You own {Limits.Count(owned, "room", "rooms")}, the most that you can own. Delete a room to make a new one.");
         await RequireMissionCapacityAsync(userId, ct);
-        var mission = new Mission { Id = body.Id, Name = name, OwnerUserId = userId };
-        db.Missions.Add(mission); await db.SaveChangesAsync(ct); connections.Notify(userId, "missions", mission.Id);
-        return new { mission.Id, mission.Name, mission.OwnerUserId };
+        db.Missions.Add(new Mission { Id = body.Id, Name = name, OwnerUserId = userId });
+        await db.SaveChangesAsync(ct); connections.Notify(userId, "missions", body.Id);
     }
 
-    public async Task<object> RenameAsync(Guid id, Guid userId, string name, CancellationToken ct)
+    public async Task RenameAsync(Guid id, Guid userId, string name, CancellationToken ct)
     {
         var mission = await RequireMemberAsync(id, userId, ct);
         if (mission.OwnerUserId != userId) throw ApiException.Forbidden();
         mission.Name = Limits.Text(name, "Mission name", 128); await db.SaveChangesAsync(ct); await NotifyAsync(mission, ct);
         foreach (var viewer in await AffectedSessionUsers(id, null, ct)) connections.Notify(viewer, "sessions");
-        return new { mission.Id, mission.Name, mission.OwnerUserId };
     }
 
     public async Task DeleteAsync(Guid id, Guid userId, CancellationToken ct)
@@ -93,7 +99,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         if (!await db.Missions.AnyAsync(x => x.Id == id, ct)) return;
         var mission = await RequireMemberForUpdateAsync(id, userId, ct);
         if (mission.OwnerUserId != userId) throw ApiException.Forbidden();
-        var users = await MemberIdsAsync(mission, ct);
+        var users = await MemberIdsAsync(id, ct);
         var invitees = await db.MissionInvitations.Where(x => x.MissionId == id).Select(x => x.UserId).ToArrayAsync(ct);
         var viewers = await AffectedSessionUsers(id, null, ct);
         var terminals = await db.Sessions.Where(x => x.MissionId == id && !x.Ended).ToListAsync(ct);
@@ -119,8 +125,9 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         if (await db.MissionInvitations.CountAsync(x => x.UserId == body.UserId, ct) >= Limits.MaxPendingMissionInvitations)
             throw ApiException.Conflict("This person has too many pending Mission invitations.");
         await RequireMissionCapacityAsync(body.UserId, ct);
-        if (await db.MissionMembers.CountAsync(x => x.MissionId == id, ct) + await db.MissionInvitations.CountAsync(x => x.MissionId == id, ct) >= Limits.MaxMissionMembers)
-            throw ApiException.Conflict("This Mission has reached its member limit.");
+        var people = 1 + await db.MissionMembers.CountAsync(x => x.MissionId == id, ct) + await db.MissionInvitations.CountAsync(x => x.MissionId == id, ct);
+        var most = (await plans.LimitsAsync(db, mission.OwnerUserId, ct)).RoomPeople;
+        if (people >= most) throw ApiException.Limited("room-people", $"This room can have at most {Limits.Count(most, "person", "people")}, with its open invitations.");
         db.MissionInvitations.Add(new MissionInvitation { Id = Limits.Id(body.Id, "Invitation ID"), MissionId = id, UserId = body.UserId, InviterUserId = userId, CreatedAt = clock.GetUtcNow() });
         await db.SaveChangesAsync(ct);
         await AppendKeysAsync(mission, userId, body.Keys, ct);
@@ -133,7 +140,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
     {
         var roomId = await db.MissionInvitations.Where(x => x.Id == id && x.UserId == userId).Select(x => x.MissionId).SingleOrDefaultAsync(ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        var mission = await db.Missions.FromSqlInterpolated($"SELECT * FROM missions WHERE \"Id\" = {roomId} FOR UPDATE").SingleOrDefaultAsync(ct) ?? throw ApiException.Missing();
+        var mission = await LockAsync(roomId, ct);
         var invitation = await db.MissionInvitations.SingleOrDefaultAsync(x => x.Id == id && x.UserId == userId, ct) ?? throw ApiException.Missing();
         if (accept)
         {
@@ -206,14 +213,9 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
             .Union(db.Missions.Where(m => m.Id == missionId).Select(m => m.OwnerUserId)).ToListAsync(ct);
     }
 
-    private async Task<List<Guid>> MemberIdsAsync(Mission mission, CancellationToken ct)
-    {
-        var ids = await db.MissionMembers.Where(x => x.MissionId == mission.Id).Select(x => x.UserId).ToListAsync(ct);
-        ids.Add(mission.OwnerUserId); return ids;
-    }
     private async Task NotifyAsync(Mission mission, CancellationToken ct)
     {
-        foreach (var id in await MemberIdsAsync(mission, ct)) connections.Notify(id, "missions", mission.Id);
+        foreach (var id in await MemberIdsAsync(mission.Id, ct)) connections.Notify(id, "missions", mission.Id);
     }
     public sealed record CreateMission(Guid Id, string Name);
     public sealed record RenameMission(string Name);
@@ -243,11 +245,11 @@ internal static class MissionEndpoints
         group.MapGet("/", async (HttpContext ctx, CurrentUser users, DeviceService devices, MissionService missions, CancellationToken ct) =>
         { var id = await Actor(ctx, users, devices, ct); return Results.Ok(await missions.ListAsync(id, ct)); });
         group.MapPost("/", async (MissionService.CreateMission body, HttpContext ctx, CurrentUser users, DeviceService devices, MissionService missions, CancellationToken ct) =>
-        { var id = await Actor(ctx, users, devices, ct); return Results.Ok(await missions.CreateAsync(id, body, ct)); });
+        { var id = await Actor(ctx, users, devices, ct); await missions.CreateAsync(id, body, ct); return Results.NoContent(); });
         group.MapGet("/{id:guid}", async (Guid id, HttpContext ctx, CurrentUser users, DeviceService devices, MissionService missions, CancellationToken ct) =>
         { var actor = await Actor(ctx, users, devices, ct); return Results.Ok(await missions.OpenAsync(id, actor, ct)); });
         group.MapPatch("/{id:guid}", async (Guid id, MissionService.RenameMission body, HttpContext ctx, CurrentUser users, DeviceService devices, MissionService missions, CancellationToken ct) =>
-        { var actor = await Actor(ctx, users, devices, ct); return Results.Ok(await missions.RenameAsync(id, actor, body.Name, ct)); });
+        { var actor = await Actor(ctx, users, devices, ct); await missions.RenameAsync(id, actor, body.Name, ct); return Results.NoContent(); });
         group.MapDelete("/{id:guid}", async (Guid id, HttpContext ctx, CurrentUser users, DeviceService devices, MissionService missions, CancellationToken ct) =>
         { var actor = await Actor(ctx, users, devices, ct); await missions.DeleteAsync(id, actor, ct); return Results.NoContent(); });
         group.MapPost("/{id:guid}/invitations", async (Guid id, MissionService.Invite body, HttpContext ctx, CurrentUser users, DeviceService devices, MissionService missions, CancellationToken ct) =>

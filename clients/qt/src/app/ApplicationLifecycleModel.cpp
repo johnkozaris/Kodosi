@@ -72,11 +72,6 @@ QString ApplicationLifecycleModel::errorText() const
     return m_errorText;
 }
 
-quint64 ApplicationLifecycleModel::runtimeGeneration() const noexcept
-{
-    return m_runtimeGeneration;
-}
-
 void ApplicationLifecycleModel::scheduleInitialStart()
 {
     Q_ASSERT(thread() == QThread::currentThread());
@@ -168,10 +163,8 @@ void ApplicationLifecycleModel::completeAttempt(
 
     m_state = State::Ready;
     m_errorText.clear();
-    ++m_runtimeGeneration;
     emit stateChanged();
-    emit runtimeGenerationChanged();
-    emit runtimeGenerationReady(m_runtimeGeneration);
+    emit runtimeReady();
 }
 
 void ApplicationLifecycleModel::handleRuntimeRunningChanged(

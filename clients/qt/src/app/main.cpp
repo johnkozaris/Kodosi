@@ -27,6 +27,16 @@
 #include <QWindow>
 #include <memory>
 #include <optional>
+#ifdef Q_OS_LINUX
+#include <QFile>
+#include <QFileSystemWatcher>
+#include <sys/stat.h>
+#endif
+#ifdef Q_OS_WIN
+#include "platform/windows/WindowFrame.hpp"
+#include <QFont>
+#include <QQuickWindow>
+#endif
 
 namespace {
 
@@ -61,6 +71,13 @@ int main(int argc, char* argv[])
 #endif
     QQuickStyle::setStyle(QStringLiteral("Basic"));
     QApplication app(argc, argv);
+#ifdef Q_OS_WIN
+    // Windows has no generic monospace family, so text that asks for one
+    // gets the fonts the terminal uses.
+    QFont::insertSubstitutions(
+        QStringLiteral("monospace"),
+        {QStringLiteral("Cascadia Mono"), QStringLiteral("Consolas")});
+#endif
     app.setQuitOnLastWindowClosed(false);
     QCoreApplication::setOrganizationName(QStringLiteral("Kodosi"));
     QCoreApplication::setOrganizationDomain(QStringLiteral("kodosi.com"));
@@ -113,7 +130,7 @@ int main(int argc, char* argv[])
     kodosi::RuntimeBridge runtime(terminalSessions);
     kodosi::ApplicationLifecycleModel lifecycle(runtime);
     kodosi::SessionCatalogModel sessions;
-    kodosi::DesktopStateModel desktop(settings(), true);
+    kodosi::DesktopStateModel desktop(settings());
     desktop.attachSessionCatalog(&sessions);
     kodosi::DesktopSettings desktopSettings(settings());
     kodosi::Workspace workspace(runtime, sessions, desktop, desktopSettings);
@@ -123,6 +140,14 @@ int main(int argc, char* argv[])
     kodosi::AppearanceModel appearance(settings());
     kodosi::DesktopFileIntegration files;
     kodosi::TerminalTilingLayoutModel tiling;
+    const auto followStage = [&] {
+        tiling.setStagedSessionIds(desktop.stagedSessionIds());
+        tiling.setSelectedSessionId(desktop.selectedSessionId());
+        tiling.setLayoutMode(desktop.stageLayoutMode());
+    };
+    for (const auto signal : { &kodosi::DesktopStateModel::stagedSessionIdsChanged,
+             &kodosi::DesktopStateModel::selectedSessionIdChanged, &kodosi::DesktopStateModel::stageLayoutModeChanged })
+        QObject::connect(&desktop, signal, &tiling, followStage);
     kodosi::SystemNotificationDriver notifications;
     kodosi::TerminalNotifications terminalNotifications(sessions, notifications);
     kodosi::TerminalSurfaceController surfaces(terminalSessions, runtime, sessions);
@@ -155,11 +180,10 @@ int main(int argc, char* argv[])
             launcher.reset();
         }
     });
-    QObject::connect(&lifecycle, &kodosi::ApplicationLifecycleModel::runtimeGenerationReady, &workspace,
-        [&](quint64) {
-            workspace.sessionActions().refresh();
-            launcher.refresh(true);
-        });
+    QObject::connect(&lifecycle, &kodosi::ApplicationLifecycleModel::runtimeReady, &workspace, [&] {
+        workspace.sessionActions().refresh();
+        launcher.refresh(true);
+    });
     kodosi::qml::configureModelInstances(
         workspace, history, providerFiles, launcher, appearance, desktopSettings, desktop, sessions, tiling, files,
         lifecycle, surfaces);
@@ -173,6 +197,13 @@ int main(int argc, char* argv[])
     auto* window = qobject_cast<QWindow*>(engine.rootObjects().first());
     if (!window)
         return EXIT_FAILURE;
+#ifdef Q_OS_WIN
+    if (auto* quick = qobject_cast<QQuickWindow*>(window)) {
+        auto* frame = new kodosi::WindowFrame(*quick);
+        frame->setColor(quick->color());
+        QObject::connect(quick, &QQuickWindow::colorChanged, frame, &kodosi::WindowFrame::setColor);
+    }
+#endif
     files.setTransientParent(window);
     desktop.attachWindow(window, windowSize);
     auto raise = [window](const QString& token) {
@@ -196,6 +227,20 @@ int main(int argc, char* argv[])
             if (workspace.sessionActions().activate(id))
                 raise(token);
         });
+#ifdef Q_OS_LINUX
+    // apt, pacman and a new archive put a new file in place of the running program.
+    // The old version runs until the person opens Kodosi again.
+    const auto program = QFile::encodeName(QCoreApplication::applicationFilePath());
+    struct stat running {};
+    ::stat(program.constData(), &running);
+    QFileSystemWatcher update { QStringList { QCoreApplication::applicationFilePath() } };
+    QObject::connect(&update, &QFileSystemWatcher::fileChanged, &workspace, [&workspace, program, running] {
+        struct stat installed {};
+        if (::stat(program.constData(), &installed) != 0 || installed.st_ino != running.st_ino)
+            workspace.setError(kodosi::Workspace::tr(
+                "Kodosi was updated. Quit Kodosi and open it again to use the new version."));
+    });
+#endif
     open(launch);
     activations.setHandler(open);
     QObject::connect(&app, &QCoreApplication::aboutToQuit, &lifecycle, [&] { lifecycle.stop(); });

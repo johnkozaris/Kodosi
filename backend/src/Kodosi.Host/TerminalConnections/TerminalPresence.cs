@@ -6,15 +6,19 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.TerminalConnections;
 
-public sealed record TerminalStatus(long KeyVersion, long Epoch, string Nonce, string Ciphertext)
+// The agent of a terminal and the state that its program reports, never its title or text.
+public sealed record TerminalStatus(string? Program, string? State, string? Kind)
 {
+    private static readonly string[] States = ["idle", "working", "blocked", "done", "error"];
+    private static readonly string[] Kinds = ["permission", "question", "auth"];
+
     internal static TerminalStatus? Read(JsonElement value)
     {
         if (value.ValueKind == JsonValueKind.Null) return null;
         var status = value.Deserialize<TerminalStatus>(Wire.Json) ?? throw ApiException.Invalid("Invalid terminal status.");
-        if (status.KeyVersion < 1 || status.Epoch < 1
-            || Limits.Base64(status.Nonce, "Terminal status nonce", 12).Length != 12
-            || Limits.Base64(status.Ciphertext, "Terminal status", 1024).Length < 16)
+        if (status.Program is { } program && !(program.Length is > 0 and <= 32 && program.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '-'))
+            || status.State is { } state && !States.Contains(state)
+            || status.Kind is { } kind && (status.State != "blocked" || !Kinds.Contains(kind)))
             throw ApiException.Invalid("Invalid terminal status.");
         return status;
     }

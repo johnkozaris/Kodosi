@@ -30,7 +30,6 @@ pub(super) struct LinkRequest {
     signing_public_key: String,
     nonce: String,
     proof: String,
-    expires_at: String,
 }
 
 pub(super) struct LinkedDevice {
@@ -83,7 +82,7 @@ impl BackendClient {
                 .fetch_identity_with(&credentials, &credentials.user_id)
                 .await
             {
-                Ok(verified) => verified.devices.values().map(|cert|json!({"deviceId":cert.device_id,"label":cert.device_label,"certSignerDeviceId":cert.signer_device_id,"certIssuedAtMs":cert.issued_at_ms,"recoveryKey":identity::recovery::is_recovery_device(&cert.device_id)})).collect(),
+                Ok(verified) => verified.devices.values().map(|cert|json!({"deviceId":cert.device_id,"label":cert.device_label,"certIssuedAtMs":cert.issued_at_ms,"recoveryKey":identity::recovery::is_recovery_device(&cert.device_id)})).collect(),
                 Err(Error::Invalid { .. } | Error::Trust(_) | Error::Backend { status: 404, .. })
                     if !credentials.enrolled =>
                 {
@@ -102,7 +101,7 @@ impl BackendClient {
                 .link_requests(&credentials)
                 .await?
                 .into_iter()
-                .map(|request| json!({"requestId":request.request_id,"deviceLabel":request.device_label,"expiresAt":request.expires_at}))
+                .map(|request| json!({"requestId":request.request_id,"deviceLabel":request.device_label}))
                 .collect::<Vec<_>>();
             result.push(json!({"type":"devices.link.snapshot","requests":requests}));
         }
@@ -232,8 +231,7 @@ impl BackendClient {
         .await
         .map_err(|_| Error::Closed)??;
         let link:Value=self.inner.http.bearer(Method::POST,"api/devices/link/init",&credentials.token,Some(json!({"deviceId":credentials.keys.device_id,"deviceLabel":label,"signingPublicKey":BASE64.encode(credentials.keys.signing_public()),"nonce":BASE64.encode(nonce),"proof":BASE64.encode(proof)}))).await?;
-        let result =
-            json!({"type":"devices.link.selfPending","code":code,"expiresAt":link["expiresAt"]});
+        let result = json!({"type":"devices.link.selfPending","code":code});
         self.inner.state.lock().await.link = Some(PendingLink {
             device_code: wire::text(&link, "deviceCode")?.to_owned(),
             request_id: wire::text(&link, "requestId")?.to_owned(),

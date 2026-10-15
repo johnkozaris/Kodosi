@@ -31,22 +31,14 @@ fn notices_for_one_room_collapse_into_one_read_up_to_the_highest_sequence() {
     waiting.add(&room(second, Some(2))).unwrap();
     assert_eq!(
         waiting.rooms,
-        Some(Scope::Rooms(BTreeMap::from([
-            (first, Some(9)),
-            (second, Some(2))
-        ])))
+        BTreeMap::from([(first, Some(9)), (second, Some(2))])
     );
     waiting.add(&room(second, None)).unwrap();
     assert_eq!(
         waiting.rooms,
-        Some(Scope::Rooms(BTreeMap::from([
-            (first, Some(9)),
-            (second, None)
-        ])))
+        BTreeMap::from([(first, Some(9)), (second, None)])
     );
-    waiting.add(&Change::of("rooms")).unwrap();
-    waiting.add(&room(first, Some(12))).unwrap();
-    assert_eq!(waiting.rooms, Some(Scope::All));
+    assert!(waiting.add(&Change::of("rooms")).is_err());
     waiting
         .add(&Change {
             surface: "missions".into(),
@@ -56,8 +48,10 @@ fn notices_for_one_room_collapse_into_one_read_up_to_the_highest_sequence() {
         .unwrap();
     assert_eq!(
         waiting.missions,
-        Some(Scope::Rooms(BTreeMap::from([(first, None)])))
+        Some(Scope::Rooms(BTreeSet::from([first])))
     );
+    waiting.add(&Change::of("missions")).unwrap();
+    assert_eq!(waiting.missions, Some(Scope::All));
     assert!(waiting.add(&Change::of("unknown")).is_err());
 }
 
@@ -97,13 +91,12 @@ async fn room_notifications_use_the_renewed_token_on_the_existing_connection() {
     let room = Uuid::now_v7();
     let server = tokio::spawn(async move {
         let replies = [
-            json!({"apiContractVersion": crate::protocol::BACKEND_API_VERSION,
-                "authContractVersion": crate::protocol::AUTH_VERSION}),
+            crate::network::http::current_versions(),
             json!({"challengeId": Uuid::now_v7(), "challengeBytes": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}),
             json!({"session": "fixture-session"}),
             json!({"missions": [{"id": room}], "invitations": []}),
             json!({}),
-            json!({"message": "fixture room is no longer available"}),
+            json!({"error": "fixture room is no longer available"}),
         ];
         let mut room_request = String::new();
         for (index, body) in replies.into_iter().enumerate() {

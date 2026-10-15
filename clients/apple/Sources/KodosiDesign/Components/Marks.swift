@@ -101,18 +101,12 @@ public struct AvatarStack: View {
 }
 
 public struct AgentMark: View {
-    public enum Activity: Equatable, Sendable { case asleep, awake, working, progress(Int), asks }
+    public enum Activity: Equatable, Sendable { case asleep, awake, working, progress(Int) }
 
     @Environment(\.theme) private var theme
     public let kind: AgentKind
     public var size: CGFloat = 22
     public var activity: Activity = .awake
-
-    public init(program: String?, size: CGFloat = 22, activity: Activity = .awake) {
-        kind = AgentKind(program: program)
-        self.size = size
-        self.activity = activity
-    }
 
     public init(kind: AgentKind, size: CGFloat = 22, activity: Activity = .awake) {
         self.kind = kind
@@ -132,16 +126,14 @@ public struct AgentMark: View {
         max(2, size * 0.075)
     }
 
-    /// How far the rim of cells stands out from the mark.
     private var rimSpace: CGFloat {
         rimWidth * 1.75
     }
 
-    private var state: Int {
+    private var works: Bool {
         switch activity {
-        case .asleep, .awake: 0
-        case .working, .progress: 1
-        case .asks: 2
+        case .asleep, .awake: false
+        case .working, .progress: true
         }
     }
 
@@ -163,7 +155,7 @@ public struct AgentMark: View {
         .frame(width: size, height: size)
         .shadow(color: theme.colors.shadow.opacity(asleep ? 0 : (theme.isDark ? 0.45 : 0.2)), radius: size * 0.1, x: size * 0.03, y: size * 0.07)
         .overlay { rim.padding(-rimSpace) }
-        .keyframeAnimator(initialValue: 1.0, trigger: theme.motion.reduced ? 0 : state) { mark, squash in
+        .keyframeAnimator(initialValue: 1.0, trigger: theme.motion.reduced ? false : works) { mark, squash in
             mark.scaleEffect(x: 2 - squash, y: squash, anchor: .bottom)
         } keyframes: { _ in
             SpringKeyframe(0.9, duration: 0.1, spring: .snappy)
@@ -181,9 +173,6 @@ public struct AgentMark: View {
             CellRim(.working, cornerRadius: radius, lineWidth: rimWidth).transition(.opacity)
         case let .progress(percent):
             CellRim(.progress(Double(percent) / 100), cornerRadius: radius, lineWidth: rimWidth).transition(.opacity)
-        case .asks:
-            CellRim(.waiting, cornerRadius: radius, lineWidth: rimWidth)
-                .transition(.scale(scale: 1.3).combined(with: .opacity).animation(theme.motion.soft))
         case .asleep, .awake:
             EmptyView()
         }
@@ -335,12 +324,10 @@ public struct IconTile: View {
 
 public struct RoomSigil: View {
     @Environment(\.theme) private var theme
-    public let name: String
     public let key: String
     public var size: CGFloat = 28
 
-    public init(name: String, key: String, size: CGFloat = 28) {
-        self.name = name
+    public init(key: String, size: CGFloat = 28) {
         self.key = key
         self.size = size
     }
@@ -412,8 +399,6 @@ public struct DeviceGlyph: View {
     }
 }
 
-/// The Kodosi wordmark, 1.2 times `size` tall, and the copper cursor at the end of the word: it
-/// stands on the line of the word, as tall as its small letters.
 public struct KodosiWordmark: View {
     public var size: CGFloat = 17
     public var blinks = true

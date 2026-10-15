@@ -141,7 +141,7 @@ void MissionsModel::setPresentation(const QString& key, const QVariant& value)
     auto& state = m_presentations[m_selectedId];
     if (state.value(key) == value) return;
     state.insert(key, value);
-    const auto group = key.startsWith(QStringLiteral("task")) ? QStringLiteral("taskRevision")
+    const auto group = key == QStringLiteral("taskTitle") ? QStringLiteral("taskRevision")
         : key == QStringLiteral("message") ? QStringLiteral("messageRevision")
         : key == QStringLiteral("repositoryUrl") ? QStringLiteral("repositoryRevision") : QString {};
     if (!group.isEmpty()) state.insert(group, state.value(group).toULongLong() + 1);
@@ -156,7 +156,7 @@ void MissionsModel::completeAction(const QString& room, const QString& action, c
         for (const auto& key : keys) current.remove(key);
     };
     if (action == QStringLiteral("post")) clear(QStringLiteral("messageRevision"), {QStringLiteral("message")});
-    if (action == QStringLiteral("createTask")) clear(QStringLiteral("taskRevision"), {QStringLiteral("taskTitle"), QStringLiteral("taskDescription"), QStringLiteral("taskRepositories"), QStringLiteral("newTask")});
+    if (action == QStringLiteral("createTask")) clear(QStringLiteral("taskRevision"), {QStringLiteral("taskTitle")});
     if (action == QStringLiteral("addRepository")) clear(QStringLiteral("repositoryRevision"), {QStringLiteral("repositoryUrl"), QStringLiteral("newRepository")});
     if (room == m_selectedId) emit presentationChanged();
 }
@@ -173,6 +173,8 @@ void MissionsModel::applyRoom(const QJsonObject& room)
     auto next = room.toVariantMap();
     if (previous.contains(QStringLiteral("hasOlder")))
         next.insert(QStringLiteral("hasOlder"), previous.value(QStringLiteral("hasOlder")).toBool() && next.value(QStringLiteral("hasOlder")).toBool());
+    if (previous.value(QStringLiteral("historyTrimmed")).toBool())
+        next.insert(QStringLiteral("historyTrimmed"), true);
     QMap<QString, QVariant> messages;
     for (const auto& value : previous.value(QStringLiteral("messages")).toList())
         messages.insert(value.toMap().value(QStringLiteral("id")).toString(), value);

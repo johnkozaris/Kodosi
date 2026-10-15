@@ -183,31 +183,11 @@ QVariant SessionCatalogModel::data(const QModelIndex& index, int role) const
     switch (role) {
     case SessionIdRole:
         return s.id;
-    case NameRole:
-        return s.name;
-    case KindRole:
-        return s.kind;
-    case HostRole:
-        return s.kind == QStringLiteral("local") ? tr("This computer") : s.hostName;
-    case StatusRole:
-        return s.status;
     case MissionIdRole:
         return s.missionId;
-    case MissionNameRole:
-        return s.missionName;
-    case IsOwnerRole:
-        return s.isOwner;
-    case ConnectionRole:
-        return s.connectionState;
     default:
         return {};
     }
-}
-QHash<int, QByteArray> SessionCatalogModel::roleNames() const
-{
-    return { { SessionIdRole, "sessionId" }, { NameRole, "name" }, { KindRole, "kind" },
-        { HostRole, "hostName" }, { StatusRole, "status" }, { MissionIdRole, "missionId" },
-        { MissionNameRole, "missionName" }, { IsOwnerRole, "isOwner" }, { ConnectionRole, "connectionState" } };
 }
 std::optional<SessionCatalogModel::Session> SessionCatalogModel::session(const QString& id) const
 {
@@ -249,10 +229,11 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
     const auto* s = &session;
     const auto p = presentation(session);
     const bool local = s->kind == QStringLiteral("local");
-    return { { QStringLiteral("sessionId"), s->id }, { QStringLiteral("id"), s->id }, { QStringLiteral("name"), s->name },
+    return { { QStringLiteral("id"), s->id }, { QStringLiteral("name"), s->name },
         { QStringLiteral("activity"), activity(session) }, { QStringLiteral("working"), isWorking(session) },
         { QStringLiteral("progress"), isWorking(session) ? session.programProgress : -1 },
         { QStringLiteral("sign"), sign(session) }, { QStringLiteral("signLabel"), signLabel(session) },
+        { QStringLiteral("asks"), waitState(session) == QStringLiteral("blocked") },
         { QStringLiteral("atPrompt"), local && p.canControl && session.prompt },
         { QStringLiteral("folderName"), folderName(s->workingDirectory) },
         { QStringLiteral("hostLabel"), local ? tr("This computer") : !s->hostName.isEmpty() ? s->hostName : !s->ownerName.isEmpty() ? s->ownerName : tr("Remote computer") },
@@ -380,11 +361,12 @@ void SessionCatalogModel::apply(const QJsonObject& event)
         const auto before = this->session(next.id);
         const bool stopped = before && isWorking(*before) && !isWorking(next);
         const bool waits = !waitState(next).isEmpty() && !(before && waitState(*before) == waitState(next));
-        if ((stopped || waits) && !attention.contains(next.id))
+        const bool calls = next.isOwner || presentation(next).canControl;
+        if (calls && (stopped || waits) && !attention.contains(next.id))
             attention.append(next.id);
         if (before && waitState(*before) != waitState(next)) {
             const auto words = report(next);
-            alerts.append({ next.id, !next.isOwner || waitState(next).isEmpty() ? QString {} : words.isEmpty() ? signLabel(next) : words });
+            alerts.append({ next.id, !calls || waitState(next).isEmpty() ? QString {} : words.isEmpty() ? signLabel(next) : words });
         }
     }
     attention.removeIf([&](const QString& id) { return !ids.contains(id); });

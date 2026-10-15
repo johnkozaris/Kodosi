@@ -57,12 +57,7 @@ class TerminalView : public QQuickItem {
     Q_PROPERTY(QColor selectionForeground READ selectionForeground WRITE setSelectionForeground NOTIFY selectionForegroundChanged)
     Q_PROPERTY(QColor preeditBackground READ preeditBackground WRITE setPreeditBackground NOTIFY preeditBackgroundChanged)
     Q_PROPERTY(QColor preeditForeground READ preeditForeground WRITE setPreeditForeground NOTIFY preeditForegroundChanged)
-    Q_PROPERTY(qreal viewportScale READ viewportScale NOTIFY viewportChanged)
-    Q_PROPERTY(QSizeF gridSize READ gridSize NOTIFY viewportChanged)
     Q_PROPERTY(bool terminalReady READ terminalReady NOTIFY terminalReadyChanged)
-    Q_PROPERTY(bool canSendInput READ canSendInput NOTIFY capabilitiesChanged)
-    Q_PROPERTY(bool canResize READ canResize NOTIFY capabilitiesChanged)
-    Q_PROPERTY(bool readOnly READ readOnly NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool hasSelection READ hasSelection NOTIFY frameChanged)
     Q_PROPERTY(
         bool focusedSizeAuthority
@@ -116,7 +111,7 @@ public:
         TerminalSubscription subscription,
         QString expectedRuntimeIncarnationId,
         std::uint64_t surfaceGeneration = 1);
-    Q_INVOKABLE void detach();
+    void detach();
     Q_INVOKABLE [[nodiscard]] bool copySelectionToClipboard();
     Q_INVOKABLE void pasteFromClipboard();
 
@@ -131,9 +126,7 @@ signals:
     void selectionForegroundChanged();
     void preeditBackgroundChanged();
     void preeditForegroundChanged();
-    void viewportChanged();
     void terminalReadyChanged();
-    void capabilitiesChanged();
     void focusedSizeAuthorityChanged();
     void frameChanged();
     void terminalError(QString message);
@@ -188,7 +181,8 @@ private:
 
     [[nodiscard]] QPointF viewportOffset() const;
     [[nodiscard]] QPointF gridPoint(const QPointF& point) const;
-    void updateViewport();
+    [[nodiscard]] qreal devicePixelRatio() const;
+    [[nodiscard]] QSizeF terminalCellSize() const;
     QFont m_font;
     qreal m_lineHeight = 1.1;
     TerminalCursorStyle m_cursorStyle = TerminalCursorStyle::Block;
@@ -209,6 +203,7 @@ private:
     int m_renderedFontPixelSize = 0;
     QString m_preedit;
     QString m_renderedPreedit;
+    QChar m_highSurrogate;
     std::uint64_t m_surfaceGeneration = 0;
     bool m_resizeQueued = false;
     QByteArray m_lastResizeKey;

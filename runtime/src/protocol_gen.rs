@@ -311,7 +311,7 @@ fn rendered() -> Result<String> {
         "ffiAbiVersion":8,
         "commands":schema::<protocol::CommandEnvelope>(Direction::Input)?,
         "events":shape::<protocol::Event>()?,
-        "terminal":{"checkpointSchema":2,"checkpointMaxBytes":kodosi_runtime::terminal::TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES,"rawInputMaxBytes":1_048_576},
+        "terminal":{"checkpointSchema":kodosi_runtime::terminal::TERMINAL_CHECKPOINT_SCHEMA_VERSION,"checkpointMaxBytes":kodosi_runtime::terminal::TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES,"rawInputMaxBytes":kodosi_runtime::terminal::TERMINAL_INPUT_MAX_BYTES},
     });
     Ok(serde_json::to_string_pretty(&value)? + "\n")
 }
@@ -347,6 +347,14 @@ mod tests {
     use serde::Serialize;
 
     const ID: &str = "11111111-1111-4111-8111-111111111111";
+    #[cfg(unix)]
+    const DIRECTORY: &str = "/tmp/project";
+    #[cfg(windows)]
+    const DIRECTORY: &str = r"C:\project";
+    #[cfg(unix)]
+    const WORKTREES: &str = "/tmp/branches";
+    #[cfg(windows)]
+    const WORKTREES: &str = r"C:\branches";
 
     fn matches(schema: &Value, value: &Value) -> bool {
         if let Some(variants) = schema.get("oneOf").and_then(Value::as_array) {
@@ -448,7 +456,7 @@ mod tests {
             assert!(
                 matches(&schema, &encoded),
                 "event {} did not match generated schema",
-                event.kind()
+                event.event.kind()
             );
             assert_eq!(encoded["type"], value["type"]);
         }
@@ -606,9 +614,9 @@ mod tests {
                     "invite",
                     json!(format!("kodosi:example:{}", "ab".repeat(32))),
                 ),
-                ("workingDir", json!("/tmp/project")),
-                ("workingDirectory", json!("/tmp/project")),
-                ("worktrees", json!("/tmp/branches")),
+                ("workingDir", json!(DIRECTORY)),
+                ("workingDirectory", json!(DIRECTORY)),
+                ("worktrees", json!(WORKTREES)),
                 ("branch", json!("fix/login")),
                 ("rows", json!(24)),
                 ("cols", json!(80)),

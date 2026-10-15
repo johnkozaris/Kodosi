@@ -24,7 +24,10 @@ use crate::{
         RemoteSession, TerminalControl, TerminalStatus,
     },
     protocol::{ConnectionState, SessionEntry, SessionKind, SessionStatus},
-    terminal::{RemoteTerminal, SessionChange, Subscription, TerminalPixelGeometry, TerminalSize},
+    terminal::{
+        RemoteTerminal, SessionChange, Subscription, TERMINAL_INPUT_MAX_BYTES,
+        TerminalPixelGeometry, TerminalSize,
+    },
 };
 #[cfg(feature = "host")]
 use crate::{network::LocalPublication, terminal::LocalSession};
@@ -76,14 +79,6 @@ impl Drop for Consumer {
 }
 
 enum Request {
-    WriteInput {
-        session: Uuid,
-        incarnation: Uuid,
-        connection: Uuid,
-        bytes: Bytes,
-        reply: oneshot::Sender<Result<()>>,
-        permit: OwnedSemaphorePermit,
-    },
     Command {
         envelope: CommandEnvelope,
         consumer: Uuid,
@@ -114,6 +109,7 @@ enum Request {
         connection: Uuid,
         bytes: Bytes,
         permit: OwnedSemaphorePermit,
+        reply: Option<oneshot::Sender<Result<()>>>,
     },
     Resize {
         session: Uuid,
@@ -204,19 +200,14 @@ impl RuntimeHandle {
         connection_id: Uuid,
         bytes: Bytes,
     ) -> Result<()> {
-        if bytes.len() > 1024 * 1024 {
-            return Err(Error::Invalid("terminal input exceeds 1 MiB".to_owned()));
-        }
-        let permits = u32::try_from(bytes.len()).map_err(|_| Error::Busy)?;
-        let permit = Arc::clone(&self.input_budget)
-            .try_acquire_many_owned(permits)
-            .map_err(|_| Error::Busy)?;
+        let permit = self.input_permit(&bytes)?;
         self.send(Request::Input {
             session: session_id,
             incarnation: incarnation_id,
             connection: connection_id,
             bytes,
             permit,
+            reply: None,
         })
     }
 
@@ -227,21 +218,15 @@ impl RuntimeHandle {
         connection: Uuid,
         bytes: Bytes,
     ) -> Result<()> {
-        if bytes.len() > 1024 * 1024 {
-            return Err(Error::Invalid("terminal input exceeds 1 MiB".into()));
-        }
-        let permits = u32::try_from(bytes.len()).map_err(|_| Error::Busy)?;
-        let permit = Arc::clone(&self.input_budget)
-            .try_acquire_many_owned(permits)
-            .map_err(|_| Error::Busy)?;
+        let permit = self.input_permit(&bytes)?;
         let (reply, response) = oneshot::channel();
-        self.send(Request::WriteInput {
+        self.send(Request::Input {
             session,
             incarnation,
             connection,
             bytes,
-            reply,
             permit,
+            reply: Some(reply),
         })?;
         tokio::time::timeout(Duration::from_secs(5), response)
             .await
@@ -309,6 +294,16 @@ impl RuntimeHandle {
         }
         drop(self.commands.send(Request::Shutdown).await);
         drop(stopped.wait_for(|stopped| *stopped).await);
+    }
+
+    fn input_permit(&self, bytes: &Bytes) -> Result<OwnedSemaphorePermit> {
+        if bytes.len() > TERMINAL_INPUT_MAX_BYTES {
+            return Err(Error::Invalid("terminal input exceeds 1 MiB".to_owned()));
+        }
+        let permits = u32::try_from(bytes.len()).map_err(|_| Error::Busy)?;
+        Arc::clone(&self.input_budget)
+            .try_acquire_many_owned(permits)
+            .map_err(|_| Error::Busy)
     }
 
     fn send(&self, request: Request) -> Result<()> {
@@ -552,7 +547,6 @@ impl TerminalTarget {
                 let result = terminal.control(
                     Some(connection),
                     TerminalControl::Resize {
-                        request_id: Uuid::now_v7().to_string(),
                         rows: size.rows(),
                         cols: size.cols(),
                         width_pixels: geometry.map_or(0, TerminalPixelGeometry::width_pixels),
@@ -616,8 +610,6 @@ struct Runtime {
     administering: BTreeSet<Uuid>,
     jobs: JoinSet<Job>,
     changes: mpsc::Sender<SessionChange>,
-    #[cfg(feature = "host")]
-    dark: bool,
     initializing: bool,
     auth_pending: bool,
     latest_auth: Option<Value>,
@@ -690,8 +682,6 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         administering: BTreeSet::new(),
         jobs: JoinSet::new(),
         changes,
-        #[cfg(feature = "host")]
-        dark: true,
         initializing: true,
         auth_pending: false,
         latest_auth: None,
@@ -750,9 +740,9 @@ impl Runtime {
             return json!({"type":"auth.finalizing"});
         }
         match self.network.identity() {
-            Some(identity) => json!({"type":"auth.ready", "userId":identity.user_id,
-                "displayName":identity.display_name, "deviceId":identity.device_id,
-                "enrolled":identity.enrolled}),
+            Some(identity) => self
+                .network
+                .ready_event(&identity.user_id, identity.enrolled),
             None => json!({"type":"auth.required", "reason":"signedOut"}),
         }
     }
@@ -807,8 +797,6 @@ impl Runtime {
                         Some(Request::Command { envelope, consumer, lifetime }) => {
                             if envelope.account_epoch != self.scope.epoch || envelope.account_user_id != self.scope.user || lifetime.is_cancelled() {
                                 self.error(&envelope.command, &Error::Stale);
-                            } else if matches!(envelope.command, Command::Shutdown {}) {
-                                break;
                             } else if let Err(error) = self.apply_for_consumer(&envelope.command, consumer, lifetime) {
                                 self.error(&envelope.command, &error);
                             }
@@ -899,43 +887,6 @@ impl Runtime {
         }
     }
 
-    fn write_input(
-        &mut self,
-        session: Uuid,
-        incarnation: Uuid,
-        connection: Uuid,
-        bytes: Bytes,
-        reply: oneshot::Sender<Result<()>>,
-        permit: OwnedSemaphorePermit,
-    ) {
-        let target = self
-            .job_capacity()
-            .and_then(|()| self.check_incarnation(session, incarnation))
-            .and_then(|()| self.target(session));
-        match target {
-            Ok(target) => {
-                let admission = match target {
-                    #[cfg(feature = "host")]
-                    TerminalTarget::Local(terminal) => {
-                        terminal.write_input(connection, bytes).boxed()
-                    }
-                    TerminalTarget::Remote(terminal) => {
-                        self.clear_input_notice(session);
-                        terminal.write_input(connection, bytes).boxed()
-                    }
-                };
-                self.spawn(async move {
-                    let result = admission.await;
-                    drop(permit);
-                    Completion::HeadlessControl { reply, result }
-                });
-            }
-            Err(error) => {
-                drop(reply.send(Err(error)));
-            }
-        }
-    }
-
     fn input(
         &mut self,
         session: Uuid,
@@ -943,6 +894,7 @@ impl Runtime {
         connection: Uuid,
         bytes: Bytes,
         permit: OwnedSemaphorePermit,
+        reply: Option<oneshot::Sender<Result<()>>>,
     ) {
         let result = self
             .job_capacity()
@@ -963,10 +915,16 @@ impl Runtime {
                 self.spawn(async move {
                     let result = admission.await;
                     drop(permit);
-                    Completion::Input { result }
+                    match reply {
+                        Some(reply) => Completion::HeadlessControl { reply, result },
+                        None => Completion::Input { result },
+                    }
                 });
             }
-            Err(error) => self.emit(json!({"type":"system.error", "message":error.to_string()})),
+            Err(error) => match reply {
+                Some(reply) => drop(reply.send(Err(error))),
+                None => self.emit(json!({"type":"system.error", "message":error.to_string()})),
+            },
         }
     }
 
@@ -1024,23 +982,14 @@ impl Runtime {
                     target.unsubscribe(connection);
                 }
             }
-            Request::WriteInput {
-                session,
-                incarnation,
-                connection,
-                bytes,
-                reply,
-                permit,
-            } => {
-                self.write_input(session, incarnation, connection, bytes, reply, permit);
-            }
             Request::Input {
                 session,
                 incarnation,
                 connection,
                 bytes,
                 permit,
-            } => self.input(session, incarnation, connection, bytes, permit),
+                reply,
+            } => self.input(session, incarnation, connection, bytes, permit, reply),
             Request::Resize {
                 session,
                 incarnation,
@@ -1243,7 +1192,11 @@ impl Runtime {
             }
             if matches!(
                 kind,
-                "friends.snapshot" | "devices.list" | "devices.link.snapshot" | "missions.snapshot"
+                "friends.snapshot"
+                    | "devices.list"
+                    | "devices.link.snapshot"
+                    | "missions.snapshot"
+                    | "system.updateRequired"
             ) {
                 self.cached_events
                     .insert(kind.to_owned(), event.event.clone());

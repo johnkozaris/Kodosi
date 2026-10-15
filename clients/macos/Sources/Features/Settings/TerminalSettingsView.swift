@@ -24,9 +24,9 @@ struct TerminalSettingsView: View {
             ListGroup {
                 ListRow(String(localized: "Appearance"), symbol: "circle.lefthalf.filled", tint: TileTint.graphite) {
                     SegmentedPill(selection: $themePreference, options: [
-                        SegmentOption(value: "system", title: String(localized: "Auto")),
-                        SegmentOption(value: "light", title: String(localized: "Light"), symbol: "sun.max"),
-                        SegmentOption(value: "dark", title: String(localized: "Dark"), symbol: "moon"),
+                        SegmentOption(value: ThemePreference.system.rawValue, title: String(localized: "Auto")),
+                        SegmentOption(value: ThemePreference.light.rawValue, title: String(localized: "Light"), symbol: "sun.max"),
+                        SegmentOption(value: ThemePreference.dark.rawValue, title: String(localized: "Dark"), symbol: "moon"),
                     ], compact: true, identifier: "settings.appearance")
                 }
                 ListRow(String(localized: "Font"), symbol: "textformat", tint: TileTint.blue) {
@@ -120,13 +120,13 @@ private struct TerminalPreview: View {
         let ink = hex(0xE8E1D9)
         VStack(alignment: .leading, spacing: max(0, (settings.lineHeight - 1) * size)) {
             HStack(spacing: size * 0.5) {
-                Text(verbatim: "~/kodosi").foregroundStyle(hex(0x5DAFA6))
+                Text(verbatim: "~/kodosi").foregroundStyle(TerminalInk.path)
                 Text(verbatim: "❯").foregroundStyle(theme.colors.accent)
                 Text(verbatim: "claude").foregroundStyle(ink)
             }
             Text(verbatim: "✳ Welcome back. What are we building?").foregroundStyle(hex(0xD97757))
             HStack(spacing: size * 0.5) {
-                Text(verbatim: "~/kodosi").foregroundStyle(hex(0x5DAFA6))
+                Text(verbatim: "~/kodosi").foregroundStyle(TerminalInk.path)
                 Text(verbatim: "❯").foregroundStyle(theme.colors.accent)
                 cursor(size: size)
             }

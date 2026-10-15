@@ -25,6 +25,7 @@ public sealed partial class DeviceService
         await db.DeviceLinks.Where(x => x.ExpiresAt < now.AddDays(-1)).ExecuteDeleteAsync(ct);
         if (!await db.DeviceLists.AnyAsync(x => x.UserId == userId, ct))
             throw ApiException.Conflict("Register the first device directly.");
+        await RequireDeviceSpaceAsync(userId, ct);
         if (await db.Devices.AnyAsync(x => x.Id == deviceId, ct))
             throw ApiException.Conflict("This device identity has already been used.");
         var pending = await db.DeviceLinks.SingleOrDefaultAsync(x => x.UserId == userId && x.DeviceId == deviceId && x.State == "pending" && x.ExpiresAt > now, ct);
@@ -93,6 +94,7 @@ public sealed partial class DeviceService
         if (link.State != "pending" || link.ExpiresAt <= clock.GetUtcNow()) throw ApiException.Missing();
         approvingDevice = await RequireDeviceAsync(userId, approvingDevice.Id, ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await RequireDeviceSpaceAsync(userId, ct);
         var (_, generation) = await StageDeviceAsync(userId, approvingDevice, link.DeviceId, link.SigningPublicKey, certBytes, certSig, listBytes, listSig, ct);
         link.State = "approved"; link.ApprovedGeneration = generation; link.ApprovalProof = approval;
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
@@ -124,6 +126,14 @@ public sealed partial class DeviceService
             .ExecuteUpdateAsync(set => set.SetProperty(x => x.State, "cancelled"), ct);
         if (changed != 1) throw ApiException.Missing();
         connections.Notify(userId, "devices");
+    }
+
+    private async Task RequireDeviceSpaceAsync(Guid userId, CancellationToken ct)
+    {
+        var most = (await plans.LimitsAsync(db, userId, ct)).Devices;
+        var count = await db.Devices.CountAsync(x => x.UserId == userId && !x.Revoked && x.RecoveryBox == null, ct);
+        if (count >= most)
+            throw ApiException.Limited("devices", $"This account has {Limits.Count(count, "device", "devices")}, the most that it can have. Remove a device in Settings on one of your devices, then try again.");
     }
 
     private static string HashCode(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));

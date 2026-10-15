@@ -19,7 +19,7 @@ fn session() -> RemoteSession {
 
 #[cfg(feature = "host")]
 #[test]
-fn a_room_hears_the_agent_and_its_state_but_not_its_text() {
+fn the_server_hears_the_agent_and_its_state_but_not_its_text() {
     use crate::terminal::{BlockedKind, ProgramState, ProgramStatus, TerminalMetadata};
     let status = TerminalStatus::of(&TerminalMetadata {
         connected_users: vec![],
@@ -30,7 +30,6 @@ fn a_room_hears_the_agent_and_its_state_but_not_its_text() {
             state: ProgramState::Blocked,
             kind: Some(BlockedKind::Permission),
             progress: None,
-            app: Some("claude-code".into()),
             title: Some("Bash".into()),
             message: Some("rm -rf build".into()),
         }),
@@ -40,14 +39,23 @@ fn a_room_hears_the_agent_and_its_state_but_not_its_text() {
         bytes,
         br#"{"program":"claude","state":"blocked","kind":"permission"}"#
     );
-    assert_eq!(TerminalStatus::read(&bytes).unwrap(), status);
-    for invalid in [
-        br#"{"program":"other"}"#.as_slice(),
-        br#"{"state":"working","kind":"permission"}"#,
-        br#"{"state":"blocked","message":"Allow?"}"#,
+    let notice = |status: Value| {
+        wire::TerminalNotice::read(&serde_json::json!({"sessionId": Uuid::nil(),
+            "incarnationId": Uuid::nil(), "online": true, "status": status}))
+    };
+    assert_eq!(
+        notice(serde_json::from_slice(&bytes).unwrap())
+            .unwrap()
+            .status,
+        Some(status)
+    );
+    for ignored in [
+        serde_json::json!({"program":"other"}),
+        serde_json::json!({"state":"working","kind":"permission"}),
     ] {
-        assert!(TerminalStatus::read(invalid).is_err());
+        assert_eq!(notice(ignored).unwrap().status, None);
     }
+    assert!(notice(serde_json::json!({"state":"blocked","message":"Allow?"})).is_err());
 }
 
 #[test]
@@ -55,11 +63,11 @@ fn terminal_close_has_one_wire_action() {
     let encoded = wire::encode_control(&TerminalControl::Close).unwrap();
     assert_eq!(encoded, br#"{"type":"close"}"#);
     assert!(matches!(
-        wire::decode_control(&encoded, Uuid::now_v7()),
+        wire::decode_control(&encoded),
         Ok(TerminalControl::Close)
     ));
-    assert!(wire::decode_control(br#"{"type":"stop"}"#, Uuid::now_v7()).is_err());
-    assert!(wire::decode_control(br#"{"type":"input","bytes":"bHM="}"#, Uuid::now_v7()).is_err());
+    assert!(wire::decode_control(br#"{"type":"stop"}"#).is_err());
+    assert!(wire::decode_control(br#"{"type":"input","bytes":"bHM="}"#).is_err());
     assert!(
         wire::encode_control(&TerminalControl::Input {
             bytes: b"ls".to_vec()

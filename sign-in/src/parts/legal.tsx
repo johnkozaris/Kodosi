@@ -2,16 +2,10 @@ import { Fragment } from "react";
 
 import { QuietLink } from "./text";
 
-/** An address that the server gave, when a link can open it. */
 function web(address: string | undefined): string | undefined {
   return address && /^https?:\/\//i.test(address) ? address : undefined;
 }
 
-/**
- * The terms and the privacy page of the service, at the foot of each page. The Keycloak server
- * gives the addresses, so a server without them shows no links. They open in a new tab, so a form
- * that the person fills stays as it is.
- */
 export function Legal({ links }: { links: { label: string; href: string | undefined }[] }) {
   const shown = links.flatMap(({ label, href }) => {
     const to = web(href);

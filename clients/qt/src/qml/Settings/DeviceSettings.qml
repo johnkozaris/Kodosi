@@ -71,38 +71,13 @@ ColumnLayout {
             title: root.waiting ? qsTr("Type this code on a device that you use") : qsTr("Approve this computer")
             message: root.waiting ? qsTr("Open Settings, then Devices, on that device.") : qsTr("A device that you use must approve this computer one time.")
         }
-        Row {
+        CodeKeys {
             Layout.alignment: Qt.AlignHCenter
             visible: root.waiting
-            spacing: 6
-            Accessible.role: Accessible.StaticText
+            code: Models.Devices.approvalCode
             Accessible.name: qsTr("Device approval code") + " " + Models.Devices.approvalCode
             objectName: "panel.settings.enrollment.reason"
             Accessible.id: objectName
-
-            Repeater {
-                model: Models.Devices.approvalCode.split("")
-
-                Item {
-                    id: key
-
-                    required property string modelData
-                    readonly property bool separator: modelData === "-" || modelData === " "
-
-                    width: separator ? 12 : 40
-                    height: 52
-
-                    Raised { anchors.fill: parent; visible: !key.separator; radius: KodosiTheme.radiusMd }
-                    Text {
-                        anchors.centerIn: parent
-                        text: key.modelData
-                        color: key.separator ? KodosiTheme.inkFaint : KodosiTheme.ink
-                        font.family: "monospace"
-                        font.pixelSize: 24
-                        font.weight: Font.DemiBold
-                    }
-                }
-            }
         }
         RowLayout {
             Layout.alignment: Qt.AlignHCenter

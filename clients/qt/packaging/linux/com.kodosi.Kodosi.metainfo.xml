@@ -10,8 +10,8 @@
   </developer>
   <description>
     <p>
-      Run local terminals, reach them from approved devices, share selected
-      sessions with trusted friends, and organize project groups in Missions.
+      Run local terminals, reach them from approved devices, share terminals
+      with friends, and work with people and their agents in rooms.
     </p>
   </description>
   <launchable type="desktop-id">com.kodosi.Kodosi.desktop</launchable>

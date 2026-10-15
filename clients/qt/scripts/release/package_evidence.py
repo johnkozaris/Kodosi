@@ -1,7 +1,3 @@
-"""The checks of the evidence that each Kodosi package ships: the source
-identity and the Rust license inventory. The Linux and the Windows package
-checks use them."""
-
 from __future__ import annotations
 
 import json
@@ -11,7 +7,6 @@ from canonical_json import canonical_json
 
 
 def verify_source_identity(packaged: bytes, checkout: dict[str, object]) -> None:
-    """The package must record the clean checkout that this check runs in."""
     if checkout["dirty"]:
         raise ValueError(
             "the checkout has changes. Commit all the changes, then build the package again"
@@ -36,7 +31,6 @@ def verify_source_identity(packaged: bytes, checkout: dict[str, object]) -> None
 
 
 def verify_rust_licenses(packaged: dict[str, bytes], generated: Path) -> None:
-    """The package must hold the Rust license inventory that the build generated."""
     expected = {
         path.relative_to(generated).as_posix(): path
         for path in generated.rglob("*")

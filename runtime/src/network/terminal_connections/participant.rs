@@ -8,7 +8,6 @@ use super::{
 const ACKNOWLEDGE_BYTES: u64 = 4 * 1024;
 const ACKNOWLEDGE_DELAY: Duration = Duration::from_millis(100);
 const UNCONFIRMED_INPUT: u64 = 64 * 1024;
-const CONTROL_TIMEOUT: Duration = Duration::from_secs(12);
 const SILENCE: Duration = Duration::from_secs(45);
 
 struct Pending {
@@ -117,10 +116,16 @@ async fn open(
         .map_err(|_| Error::Closed)??
     {
         Some((Frame::Accept(accept), _)) => {
-            if accept.protocol_version != crate::protocol::TERMINAL_CONNECTION_VERSION
-                || accept.session_id != dto.id
-                || accept.incarnation_id != dto.incarnation_id
-                || accept.host_device_id != dto.host_device_id
+            if accept.protocol_version != crate::protocol::CHANNEL_VERSION {
+                return Err(Error::ChannelVersion {
+                    peer_newer: accept.protocol_version > crate::protocol::CHANNEL_VERSION,
+                });
+            }
+            if (
+                accept.session_id,
+                accept.incarnation_id,
+                accept.host_device_id.as_str(),
+            ) != (dto.id, dto.incarnation_id, dto.host_device_id.as_str())
             {
                 return Err(Error::Trust(
                     "The host answered for another terminal.".into(),
@@ -130,7 +135,6 @@ async fn open(
         }
         Some((Frame::Refuse(refuse), _)) => Err(match refuse.code.as_str() {
             "busy" => Error::Busy,
-            "gone" => Error::Stale,
             "access" => Error::Backend {
                 status: 403,
                 message: refuse.message,
@@ -418,7 +422,6 @@ impl<T: Transport> Viewer<T> {
                 self.update(RemoteUpdate::Checkpoint {
                     checkpoint,
                     next_sequence,
-                    fresh: true,
                 })
                 .await?;
             }
@@ -453,12 +456,9 @@ impl<T: Transport> Viewer<T> {
                     })
                     .await?;
             }
-            Frame::End(end) => {
+            Frame::End(_) => {
                 self.input_confirmed = self.input_sent;
-                self.update(RemoteUpdate::Ended {
-                    final_sequence: end.final_sequence,
-                })
-                .await?;
+                self.update(RemoteUpdate::Ended).await?;
                 return Err(Error::Closed);
             }
             Frame::InputAck { offset } => {

@@ -62,11 +62,9 @@ fn blob(bytes: &[u8]) -> io::Result<CRYPT_INTEGER_BLOB> {
     })
 }
 
-/// Takes ownership of a `LocalAlloc` output blob, copying it out and wiping it.
 fn take(output: &CRYPT_INTEGER_BLOB) -> Zeroizing<Vec<u8>> {
     let _owned = Local(output.pbData.cast());
     let length = output.cbData as usize;
-    // SAFETY: Windows returned `cbData` initialized bytes at `pbData`.
     let bytes =
         Zeroizing::new(unsafe { std::slice::from_raw_parts(output.pbData, length) }.to_vec());
     // SAFETY: the buffer is still allocated and writable until `_owned` drops.
@@ -81,7 +79,6 @@ fn protect(plain: &[u8], entropy: &[u8]) -> io::Result<Vec<u8>> {
         cbData: 0,
         pbData: ptr::null_mut(),
     };
-    // SAFETY: the input blobs borrow live slices and `output` receives a `LocalAlloc` buffer.
     if unsafe {
         CryptProtectData(
             &raw const input,
@@ -109,7 +106,6 @@ fn unprotect(sealed: &[u8], entropy: &[u8]) -> io::Result<Zeroizing<Vec<u8>>> {
         cbData: 0,
         pbData: ptr::null_mut(),
     };
-    // SAFETY: the input blobs borrow live slices and `output` receives a `LocalAlloc` buffer.
     if unsafe {
         CryptUnprotectData(
             &raw const input,

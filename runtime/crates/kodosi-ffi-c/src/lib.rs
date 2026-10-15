@@ -236,7 +236,6 @@ const fn stop_host(_force: bool) -> i32 {
     KODOSI_HOST_STOP_UNREACHABLE
 }
 
-/// Unix arguments are bytes; Windows callers pass UTF-8.
 #[cfg(unix)]
 #[expect(
     clippy::unnecessary_wraps,

@@ -33,6 +33,7 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
             e.Property(x => x.DisplayName).HasMaxLength(128);
             e.Property(x => x.Email).HasMaxLength(320);
             e.Property(x => x.AvatarUrl).HasMaxLength(2048);
+            e.Property(x => x.Plan).HasMaxLength(64);
             e.HasIndex(x => new { x.Issuer, x.Subject }).IsUnique();
             e.HasIndex(x => x.Handle).IsUnique();
         });

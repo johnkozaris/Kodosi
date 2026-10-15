@@ -125,6 +125,8 @@ pub struct Snapshot {
     pub repositories: Vec<Repository>,
     pub sequence: u64,
     pub has_older: bool,
+    /// The server removed the oldest messages of this room to keep it in its space.
+    pub history_trimmed: bool,
 }
 
 #[derive(Serialize, Deserialize)]

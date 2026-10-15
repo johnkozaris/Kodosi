@@ -10,27 +10,24 @@ import {
 } from "react";
 
 import { buttonClass } from "../../parts/button";
-import { askOnPress, PersonCheckRow, REFUSALS, usePersonCheck } from "../../parts/captcha";
 import { cn } from "../../parts/cn";
 import { Avatar } from "../../parts/person";
 import { Go, PasswordRow, rule, SignOutOthers, SwitchRow, TextRow } from "../../parts/rows";
 import { QuietLink, quietLink, safeHtml } from "../../parts/text";
-import { type I18n, isMessage } from "../i18n";
+import { askOnPress, PersonCheckRow, usePersonCheck } from "../captcha";
+import type { I18n } from "../i18n";
 import { Stage } from "../stage";
 import { meetsPolicy, PolicyTags } from "./policy";
 import type { Page } from "./props";
 
-// A profile with fields that a row cannot hold takes Keycloak's own form, which loads then.
 const Other = lazy(() => import("./other"));
 
 type Joins = Page<
   "register.ftl" | "login-update-profile.ftl" | "idp-review-user-profile.ftl" | "update-email.ftl"
 >;
 
-/** The fields that a row of the capsule can hold. */
 const PLAIN = new Set([undefined, "text", "html5-email", "html5-tel", "html5-url"]);
 
-/** Terms of this many letters or fewer show under their switch. Longer terms open on a press. */
 const SHORT_TERMS = 120;
 
 function plainProfile(kcContext: Joins["kcContext"]): boolean {
@@ -58,19 +55,15 @@ function labelOf(i18n: I18n, attribute: Attribute): string {
   }
 }
 
-/** Keycloak keeps a username in small letters, so the page shows it so while the person types. */
 function asHandle(typed: string): string {
   return typed.replace(/^@+/, "").replace(/\s+/g, "").toLowerCase();
 }
 
-/** The realm's own words for its pattern, or the page's. */
 function patternWords(i18n: I18n, attribute: Attribute): string {
   const words = attribute.validators.pattern?.["error-message"];
   return words ? i18n.advancedMsgStr(words) : i18n.msgStr("kdsBadCharacters");
 }
 
-/** The value does not have the form of the realm's pattern. A pattern that the browser cannot
-    read fits each value: Keycloak does the check. */
 function breaksPattern(attribute: Attribute, typed: string): boolean {
   const pattern = attribute.validators.pattern?.pattern;
   if (!pattern || !typed) return false;
@@ -81,7 +74,6 @@ function breaksPattern(attribute: Attribute, typed: string): boolean {
   }
 }
 
-/** What is wrong with a value, as far as the page can know before Keycloak checks it. */
 function problemOf(i18n: I18n, attribute: Attribute, value: string): string | null {
   const { msgStr } = i18n;
   const typed = value.trim();
@@ -100,8 +92,6 @@ function problemOf(i18n: I18n, attribute: Attribute, value: string): string | nu
 
 type StepId = "handle" | "details" | "password";
 
-/** The person as their friends see them from now on: their circle, their name, their username.
-    It is the way back to the step that made it. */
 function PersonChip({
   name,
   handle,
@@ -127,20 +117,30 @@ function PersonChip({
   );
 }
 
-/** The faint word at the end of a row that a person can leave empty. */
 function Optional({ label }: { label: string }) {
   return <span className="pr-2 text-caption text-ink-faint">{label}</span>;
 }
 
-/**
- * A new account, or the details of a first sign-in. It is one form of Keycloak, and the person
- * meets it one thing at a time: the username, then the details, then the password when the realm
- * asks for one here. The username is the first moment, because it is the name that friends find
- * a person by, and it does not change. The last step has the terms and the check that a person
- * sends the form. Each field of Keycloak's own page is in the form from the start, with its own
- * name, so a password manager and Keycloak see the form that they know.
- */
-function Joining({
+type JoiningProps = Joins & {
+  form: string;
+  action: string;
+  finish: string;
+  detailsTitle: string;
+  password?: { policies: PasswordPolicies | undefined };
+  extra?: ReactNode;
+  below?: ReactNode;
+};
+
+function Joining(props: JoiningProps) {
+  if (plainProfile(props.kcContext)) return <Steps {...props} />;
+  return (
+    <Suspense>
+      <Other kcContext={props.kcContext} i18n={props.i18n} />
+    </Suspense>
+  );
+}
+
+function Steps({
   kcContext,
   i18n,
   form,
@@ -150,19 +150,7 @@ function Joining({
   password,
   extra,
   below,
-}: Joins & {
-  /** The id of Keycloak's own form. */
-  form: string;
-  action: string;
-  /** The words of the last button. */
-  finish: string;
-  detailsTitle: string;
-  /** The form makes a password, with the rules of the realm. */
-  password?: { policies: PasswordPolicies | undefined };
-  /** More rows at the end of the details. */
-  extra?: ReactNode;
-  below?: ReactNode;
-}) {
+}: JoiningProps) {
   const { profile, messagesPerField, isAppInitiatedAction, message } = kcContext;
   const { msgStr } = i18n;
   const attributes = Object.values(profile.attributesByName);
@@ -184,28 +172,21 @@ function Joining({
   const [reads, setReads] = useState(false);
   const again = useRef<HTMLInputElement>(null);
   const handleField = useRef<HTMLInputElement>(null);
-  const check = usePersonCheck(kcContext, form);
+  const check = usePersonCheck(kcContext, form, i18n);
 
-  // Keycloak refused the form: the page opens at the step of the first field that it names.
   const refusedAt = attributes.find((one) => messagesPerField.existsError(one.name));
   const secretRefused = messagesPerField.existsError("password", "password-confirm");
   const termsRefused = messagesPerField.existsError("termsAccepted");
-  // The check refused the form: the row of the check says it, not the line under the capsule.
-  const checkRefused =
-    message?.type === "error" && REFUSALS.some((key) => isMessage(i18n, message.summary, key));
   const [step, setStep] = useState<StepId>(() => {
     if (refusedAt) return refusedAt === handleAttribute ? "handle" : "details";
     if (secretRefused || termsRefused || message?.type === "error") return last as StepId;
     return steps[0] as StepId;
   });
-  // What the page itself found wrong, at a press of "Next".
   const [found, setFound] = useState<{ field: string; text: string; attempt: number } | null>(null);
-  const [checkAnswered, setCheckAnswered] = useState(false);
   const moved = useRef(false);
   const body = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
-    // The step that the person goes to takes the typing. The first step has it from the page.
     if (!moved.current) return;
     const first = body.current?.querySelector<HTMLInputElement>(
       `[data-step="${step}"] input:not([type=hidden],[type=checkbox])`,
@@ -214,8 +195,6 @@ function Joining({
   }, [step]);
 
   const handle = values.username ?? "";
-  // A username with a character that the realm does not take says so at once, in the realm's own
-  // words. A length that is not right yet waits for "Next": a name is short while it is typed.
   const handleBreaks = !!handleAttribute && breaksPattern(handleAttribute, handle);
   useEffect(() => {
     handleField.current?.setCustomValidity(
@@ -233,7 +212,6 @@ function Joining({
     body.current?.querySelector<HTMLInputElement>(`[name="${CSS.escape(field)}"]`)?.focus();
     return false;
   };
-  /** Checks the fields of the step that the person leaves. */
   const sound = (): boolean => {
     const fields =
       step === "handle" ? [handleAttribute as Attribute] : step === "details" ? details : [];
@@ -249,7 +227,6 @@ function Joining({
   const next = () => {
     if (sound()) go(steps[steps.indexOf(step) + 1] as StepId);
   };
-  /** Enter in a field of a step goes to the next step. In the last step it sends the form. */
   const enter = (event: KeyboardEvent) => {
     if (event.key !== "Enter" || step === last || event.nativeEvent.isComposing) return;
     event.preventDefault();
@@ -274,13 +251,7 @@ function Joining({
         : msgStr("kdsPasswordTitle");
   const termsText = terms ? safeHtml(msgStr("termsText")) : "";
   const termsShort = !!termsText && termsText.replace(/<[^>]*>/g, "").length <= SHORT_TERMS;
-  const checkProblem = check.failed
-    ? msgStr("kdsCheckFailed")
-    : checkRefused && !checkAnswered
-      ? message.summary
-      : undefined;
 
-  /** The terms, the check and the button of the last step. */
   const finishing = (
     <>
       {terms && (
@@ -329,24 +300,15 @@ function Joining({
           )}
         </>
       )}
-      <PersonCheckRow
-        check={check.check}
-        label={msgStr("kdsNotRobot")}
-        problem={checkProblem}
-        againLabel={msgStr("kdsCheckAgain")}
-        onAgain={() => {
-          setCheckAnswered(true);
-          check.again();
-        }}
-      />
+      <PersonCheckRow check={check} i18n={i18n} />
       <div className={cn(rule, "p-3")}>
         <button
           type="submit"
-          {...askOnPress(check.check)}
+          {...askOnPress(check.config)}
           className={buttonClass({
             variant: "primary",
             size: "lg",
-            className: cn("w-full", check.check && !check.check.widget && "g-recaptcha"),
+            className: cn("w-full", check.config && !check.config.widget && "g-recaptcha"),
           })}
         >
           {finish}
@@ -372,10 +334,10 @@ function Joining({
               />
             )
       }
-      wrong={!!found || !!serverProblem || (checkRefused && !checkAnswered)}
+      wrong={!!found || !!serverProblem || (check.refused && !check.retried)}
       problem={found?.text ?? serverProblem}
       attempt={found?.attempt ?? 0}
-      quiet={!!serverProblem || checkRefused || message?.type === "warning"}
+      quiet={!!serverProblem || check.refused || message?.type === "warning"}
       waits={check.held}
       below={
         <>
@@ -404,8 +366,6 @@ function Joining({
         method="post"
         noValidate
         onSubmit={(event) => {
-          // A press of Enter in a step that is not the last is a "Next", and a form with a
-          // field that the page knows to be wrong does not go.
           if (step !== last || !sound()) {
             event.preventDefault();
             if (step !== last) next();
@@ -521,8 +481,7 @@ function Joining({
               hide={msgStr("kdsHidePassword")}
               capsLock={msgStr("kdsCapsLock")}
             />
-            {/* Keycloak asks for the password two times. The person types it one time and can
-                look at it, so the form sends the same value in the second field. */}
+            {/* Keycloak asks for the password two times: the form sends it again here. */}
             <input ref={again} type="hidden" id="password-confirm" name="password-confirm" />
             <PolicyTags
               i18n={i18n}
@@ -539,17 +498,9 @@ function Joining({
   );
 }
 
-/** A person makes their account. */
 export function Register(props: Page<"register.ftl">) {
   const { kcContext, i18n } = props;
   const { msgStr } = i18n;
-  if (!plainProfile(kcContext)) {
-    return (
-      <Suspense>
-        <Other {...props} />
-      </Suspense>
-    );
-  }
   return (
     <Joining
       {...props}
@@ -565,16 +516,8 @@ export function Register(props: Page<"register.ftl">) {
   );
 }
 
-/** The first sign-in, or a change that the app asked for: the person says who they are. */
 export function Welcome(props: Page<"login-update-profile.ftl">) {
   const { kcContext, i18n } = props;
-  if (!plainProfile(kcContext)) {
-    return (
-      <Suspense>
-        <Other {...props} />
-      </Suspense>
-    );
-  }
   return (
     <Joining
       {...props}
@@ -586,17 +529,8 @@ export function Welcome(props: Page<"login-update-profile.ftl">) {
   );
 }
 
-/** The first sign-in with Google, GitHub or Apple: the person picks their username, and checks
-    what that company said about them. */
 export function ReviewProfile(props: Page<"idp-review-user-profile.ftl">) {
   const { kcContext, i18n } = props;
-  if (!plainProfile(kcContext)) {
-    return (
-      <Suspense>
-        <Other {...props} />
-      </Suspense>
-    );
-  }
   return (
     <Joining
       {...props}
@@ -611,13 +545,6 @@ export function ReviewProfile(props: Page<"idp-review-user-profile.ftl">) {
 export function NewEmail(props: Page<"update-email.ftl">) {
   const { kcContext, i18n } = props;
   const { msgStr } = i18n;
-  if (!plainProfile(kcContext)) {
-    return (
-      <Suspense>
-        <Other {...props} />
-      </Suspense>
-    );
-  }
   return (
     <Joining
       {...props}

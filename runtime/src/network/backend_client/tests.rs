@@ -454,11 +454,51 @@ async fn signed_in_at(address: &str) -> (tempfile::TempDir, BackendClient, Strin
 }
 
 fn compatible_server() -> (u16, Value) {
-    (
-        200,
-        json!({"apiContractVersion": crate::protocol::BACKEND_API_VERSION,
-            "authContractVersion": crate::protocol::AUTH_VERSION}),
-    )
+    (200, crate::network::http::current_versions())
+}
+
+#[tokio::test]
+async fn an_app_below_the_server_range_asks_once_for_an_update() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = format!("http://{}", listener.local_addr().unwrap());
+    let mut newer = crate::network::http::current_versions();
+    newer["apiContractVersion"] = json!(crate::protocol::BACKEND_API_VERSION + 1);
+    newer["oldestApiContractVersion"] = json!(crate::protocol::BACKEND_API_VERSION + 1);
+    let server = scripted_backend(listener, vec![(200, newer.clone()), (200, newer)]);
+    let (_root, network, _user) = signed_in_at(&address).await;
+    let mut events = network.events();
+    for _ in 0..2 {
+        assert!(matches!(
+            network.execute("friends.refresh", Value::Null).await,
+            Err(Error::UpdateRequired)
+        ));
+    }
+    server.await.unwrap();
+    let mut updates = 0;
+    while let Ok(event) = events.try_recv() {
+        if event.event["type"] == "system.updateRequired" {
+            updates += 1;
+        }
+    }
+    assert_eq!(updates, 1);
+}
+
+#[tokio::test]
+async fn an_app_above_the_server_range_names_the_server() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = format!("http://{}", listener.local_addr().unwrap());
+    let mut older = crate::network::http::current_versions();
+    older["terminalConnectionProtocolVersion"] =
+        json!(crate::protocol::TERMINAL_CONNECTION_VERSION - 1);
+    older["oldestTerminalConnectionProtocolVersion"] =
+        json!(crate::protocol::TERMINAL_CONNECTION_VERSION - 1);
+    let server = scripted_backend(listener, vec![(200, older)]);
+    let (_root, network, _user) = signed_in_at(&address).await;
+    assert!(matches!(
+        network.execute("friends.refresh", Value::Null).await,
+        Err(Error::ServerOutdated)
+    ));
+    server.await.unwrap();
 }
 
 async fn device_key_kept(network: &BackendClient, user: &str) -> bool {

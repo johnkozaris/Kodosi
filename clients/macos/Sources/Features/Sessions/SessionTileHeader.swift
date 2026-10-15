@@ -8,7 +8,6 @@ struct SessionTileHeader: View {
     let session: RuntimeSession
     let isFocused: Bool
     let roomEmbedded: Bool
-    let isSelected: Bool
     let showsActions: Bool
     let viewers: [AvatarStack.Person]
     let isClosing: Bool
@@ -29,6 +28,9 @@ struct SessionTileHeader: View {
                 if session.activity != nil || session.progress != nil {
                     SessionActivityText(session: session).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
                         .help(session.activity ?? "")
+                }
+                if let sign = deps.sign(of: session) {
+                    StatusSign(form: sign).transition(AnyTransition.pop)
                 }
                 if session.kind == .remote {
                     HStack(spacing: 4) {

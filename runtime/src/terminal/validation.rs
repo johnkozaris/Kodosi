@@ -1,23 +1,12 @@
-use super::types::{
-    Checkpoint, TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES, TerminalHistoryPolicy, TerminalScreen,
-};
+use super::types::{Checkpoint, TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES, TerminalScreen};
 use crate::{Error, Result};
 use ghostty_vt::{CheckpointLimits, Screen, SemanticCheckpoint, Terminal, TerminalPolicy};
 
-pub fn validate_terminal_checkpoint(
-    checkpoint: &Checkpoint,
-    history: TerminalHistoryPolicy,
-) -> Result<()> {
+pub fn validate_terminal_checkpoint(checkpoint: &Checkpoint) -> Result<()> {
     let mut terminal = Terminal::new(
         checkpoint.cols(),
         checkpoint.rows(),
-        TerminalPolicy {
-            continuation_max_bytes: history.continuation_max_bytes,
-            scrollback_max_bytes: history.max_bytes,
-            scrollback_max_lines: history.max_lines,
-            dark: true,
-            console: false,
-        },
+        TerminalPolicy::default(),
     )
     .map_err(checkpoint_error)?;
     terminal
@@ -107,14 +96,12 @@ mod tests {
             0,
             false,
         )?;
-        assert!(
-            validate_terminal_checkpoint(&malformed, TerminalHistoryPolicy::default()).is_err()
-        );
+        assert!(validate_terminal_checkpoint(&malformed).is_err());
 
         let mut authority = Terminal::new(12, 4, TerminalPolicy::default())?;
         authority.write(b"checkpoint")?;
         let captured = checkpoint_fixture(&mut authority)?;
-        validate_terminal_checkpoint(&captured, TerminalHistoryPolicy::default())?;
+        validate_terminal_checkpoint(&captured)?;
 
         let contradictory = Checkpoint::new(
             super::super::types::TerminalSize::new(5, 12)?,
@@ -125,7 +112,7 @@ mod tests {
             captured.cursor_hidden(),
         )?;
         assert!(
-            validate_terminal_checkpoint(&contradictory, TerminalHistoryPolicy::default())
+            validate_terminal_checkpoint(&contradictory)
                 .is_err_and(|error| error.to_string().contains("metadata disagrees"))
         );
         Ok(())

@@ -10,7 +10,6 @@ KPopover {
 
     readonly property var history: Models.ConversationHistory
     readonly property bool hasList: history.busy || history.conversations.length > 0
-    readonly property string program: history.provider === Models.ConversationHistory.Claude ? "claude" : "copilot"
     readonly property string selectedId: history.selectedConversation.nativeConversationId || ""
 
     function openModal() {
@@ -206,7 +205,7 @@ KPopover {
                     visible: root.selectedId.length === 0
                     title: root.hasList ? qsTr("Pick a conversation") : qsTr("Nothing saved here")
                     message: root.hasList ? qsTr("You see it here before you resume it.") : qsTr("Choose another project, or switch the agent.")
-                    art: AgentMark { program: root.program; size: 52; asleep: true }
+                    art: AgentMark { program: root.history.providerId; size: 52; asleep: true }
                 }
                 KScrollView {
                     id: preview
@@ -231,12 +230,12 @@ KPopover {
                                 property bool expanded: false
                                 readonly property string content: modelData.content || ""
                                 readonly property bool own: modelData.role === "user"
-                                readonly property bool tool: modelData.role === "tool"
+                                readonly property bool tool: modelData.role === "tool_use"
 
                                 Layout.fillWidth: true
                                 spacing: 10
 
-                                AgentMark { Layout.alignment: Qt.AlignTop; visible: !entry.own; program: root.program; size: 22; asleep: entry.tool }
+                                AgentMark { Layout.alignment: Qt.AlignTop; visible: !entry.own; program: root.history.providerId; size: 22; asleep: entry.tool }
                                 Item { visible: entry.own; Layout.fillWidth: true; Layout.minimumWidth: 60 }
                                 Rectangle {
                                     Layout.fillWidth: !entry.own

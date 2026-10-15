@@ -14,18 +14,18 @@ public sealed partial class MissionService
 
     public const int RoomPublicKeyLength = 1184 + 32;
 
-    internal static (byte[] Key, byte[] Signature) ValidRoomKey(SignatureVerifier verifier, Guid userId, string deviceId, byte[] signingKey, RecipientKeyWrite request)
+    internal static (byte[] Key, byte[] Signature) ValidRoomKey(Guid userId, string deviceId, byte[] signingKey, RecipientKeyWrite request)
     {
         var key = Limits.Base64(request.PublicKey, "Room public key", RoomPublicKeyLength);
         var signature = Limits.Base64(request.Signature, "Room public key signature", IdentityWireFormat.MlDsa65SignatureLength);
-        if (key.Length != RoomPublicKeyLength || !verifier.Verify(signingKey, RoomKeyProof(userId, deviceId, key), signature))
+        if (key.Length != RoomPublicKeyLength || !SignatureVerifier.Verify(signingKey, Proofs.RoomRecipient(userId, deviceId, key), signature))
             throw ApiException.Invalid("Invalid room public key.");
         return (key, signature);
     }
 
     public async Task RegisterRoomKeyAsync(Guid userId, Device device, RecipientKeyWrite request, CancellationToken ct)
     {
-        var (key, signature) = ValidRoomKey(signatures, userId, device.Id, device.SigningPublicKey, request);
+        var (key, signature) = ValidRoomKey(userId, device.Id, device.SigningPublicKey, request);
         var existing = await db.RoomRecipientKeys.SingleOrDefaultAsync(x => x.DeviceId == device.Id, ct);
         if (existing is not null)
         {
@@ -53,29 +53,15 @@ public sealed partial class MissionService
         return keys.Select(key => new { key.UserId, key.DeviceId, publicKey = Convert.ToBase64String(key.PublicKey), signature = Convert.ToBase64String(key.Signature) });
     }
 
-    internal static byte[] RoomKeyProof(Guid user, string device, byte[] key)
-    {
-        using var stream = new MemoryStream();
-        stream.Write(DomainTags.RoomRecipientV1);
-        CanonicalLengthPrefixedUtf8.Write(stream, user.ToString("D"));
-        CanonicalLengthPrefixedUtf8.Write(stream, device);
-        Span<byte> length = stackalloc byte[4];
-        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(length, (uint)key.Length);
-        stream.Write(length); stream.Write(key);
-        return stream.ToArray();
-    }
-
     public async Task<object> KeyHistoryAsync(Guid id, Guid userId, long afterVersion, CancellationToken ct)
     {
         var room = await db.Missions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw ApiException.Missing();
-        if (room.OwnerUserId != userId && !await db.MissionMembers.AnyAsync(x => x.MissionId == id && x.UserId == userId, ct)
-            && !await db.MissionInvitations.AnyAsync(x => x.MissionId == id && x.UserId == userId, ct)) throw ApiException.Missing();
+        var members = await MemberIdsAsync(id, ct, invited: true);
+        if (!members.Contains(userId)) throw ApiException.Missing();
         if (afterVersion < 0) throw ApiException.Invalid("Invalid room key position.");
         var states = await db.MissionKeyStates.AsNoTracking().Where(x => x.MissionId == id && x.Version > afterVersion)
             .OrderBy(x => x.Version).Take(1).ToListAsync(ct);
-        var members = (await MemberIdsAsync(id, ct)).Concat(await db.MissionInvitations.Where(x => x.MissionId == id).Select(x => x.UserId).ToListAsync(ct)).Distinct().ToArray();
-        return new { roomId = id, ownerUserId = room.OwnerUserId, version = room.KeyVersion, members,
-            states = states.Select(StateDto) };
+        return new { ownerUserId = room.OwnerUserId, version = room.KeyVersion, members, states = states.Select(StateDto) };
     }
 
     private static object StateDto(MissionKeyState state) => new
@@ -99,8 +85,8 @@ public sealed partial class MissionService
         }
         var device = await devices.RequireDeviceAsync(userId, request.DeviceId, ct);
         var body = Limits.Base64(request.Body, "Room keys", MaximumKeyStateBytes);
-        var signature = Limits.Base64(request.Signature, "Room signature", 3309);
-        if (!signatures.Verify(device.SigningPublicKey, Proofs.Tagged(DomainTags.RoomStateV1, body), signature))
+        var signature = Limits.Base64(request.Signature, "Room signature", IdentityWireFormat.MlDsa65SignatureLength);
+        if (!SignatureVerifier.Verify(device.SigningPublicKey, Proofs.Tagged(DomainTags.RoomStateV1, body), signature))
             throw ApiException.Forbidden("Invalid room signature.");
         var state = ReadBody<KeyStateBody>(body);
         var version = state.Version;
@@ -109,7 +95,7 @@ public sealed partial class MissionService
             || state.AuthorId != userId || state.DeviceId != device.Id
             || version != room.KeyVersion + 1 || epoch < 1) throw ApiException.Conflict("Room keys changed; refresh before retrying.");
         var members = state.Members.Keys.ToHashSet();
-        var expected = (await MemberIdsAsync(room.Id, ct)).Concat(await db.MissionInvitations.Where(x => x.MissionId == room.Id).Select(x => x.UserId).ToListAsync(ct)).ToHashSet();
+        var expected = await MemberIdsAsync(room.Id, ct, invited: true);
         if (!members.SetEquals(expected)) throw ApiException.Conflict("Room membership changed; refresh before retrying.");
         var previous = room.KeyVersion == 0 ? null : await db.MissionKeyStates.AsNoTracking().SingleAsync(x => x.MissionId == room.Id && x.Version == room.KeyVersion, ct);
         if (previous is null)
@@ -155,20 +141,20 @@ public sealed partial class MissionService
             bytes += item.Body.Length + item.Signature.Length; selected.Add(item);
         }
         var more = items.Count > selected.Count;
-        return new { roomId = id, sequence = room.ContentSequence, keyVersion = room.KeyVersion, hasMore = more,
-            items = selected.OrderBy(x => x.Sequence).Select(ItemDto) };
+        return new { sequence = room.ContentSequence, keyVersion = room.KeyVersion, hasMore = more,
+            historyTrimmed = room.HistoryTrimmed, items = selected.OrderBy(x => x.Sequence).Select(ItemDto) };
     }
 
     private static object ItemDto(MissionItem item) => new
-    { item.Id, item.Kind, item.Version, item.Sequence, item.KeyVersion, item.UserId, item.DeviceId, item.CreatedAt, item.UpdatedAt,
+    { item.Id, item.Kind, item.Version, item.Sequence, item.KeyVersion, item.UserId, item.DeviceId, item.CreatedAt,
         body = Convert.ToBase64String(item.Body), signature = Convert.ToBase64String(item.Signature) };
 
     public async Task<object> PutContentAsync(Guid id, Guid itemId, Guid userId, ContentWrite request, CancellationToken ct)
     {
         var device = await devices.RequireDeviceAsync(userId, request.DeviceId, ct);
         var body = Limits.Base64(request.Body, "Room content", MaximumItemBytes);
-        var signature = Limits.Base64(request.Signature, "Content signature", 3309);
-        if (!signatures.Verify(device.SigningPublicKey, Proofs.Tagged(DomainTags.RoomContentV1, body), signature))
+        var signature = Limits.Base64(request.Signature, "Content signature", IdentityWireFormat.MlDsa65SignatureLength);
+        if (!SignatureVerifier.Verify(device.SigningPublicKey, Proofs.Tagged(DomainTags.RoomContentV1, body), signature))
             throw ApiException.Forbidden("Invalid room content signature.");
         var content = ReadBody<ContentBody>(body);
         var kind = content.Kind;
@@ -192,6 +178,9 @@ public sealed partial class MissionService
             throw ApiException.Conflict("This room item changed; refresh before retrying.");
         if (existing is null && kind != "message" && await db.MissionItems.CountAsync(x => x.MissionId == id && x.Kind == kind, ct) >= 4096)
             throw ApiException.Conflict("The room has reached its item limit.");
+        room.ContentBytes += (long)body.Length + signature.Length - (existing is null ? 0 : (long)existing.Body.Length + existing.Signature.Length);
+        if ((await plans.LimitsAsync(db, room.OwnerUserId, ct)).RoomBytes is { } most && room.ContentBytes > most)
+            await TrimHistoryAsync(room, most, ct);
         var item = existing ?? new MissionItem { MissionId = id, Id = itemId, CreatedAt = clock.GetUtcNow() };
         item.Kind = kind; item.Version = version; item.KeyVersion = keyVersion;
         room.ContentSequence = checked(room.ContentSequence + 1);
@@ -201,6 +190,28 @@ public sealed partial class MissionService
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
         foreach (var member in await MemberIdsAsync(id, ct)) connections.NotifyContent(member, id, item.Sequence);
         return ItemDto(item);
+    }
+
+    private async Task TrimHistoryAsync(Mission room, long most, CancellationToken ct)
+    {
+        var excess = room.ContentBytes - most;
+        var removed = new List<Guid>();
+        long freed = 0, after = 0;
+        while (freed < excess)
+        {
+            var oldest = await db.MissionItems.AsNoTracking()
+                .Where(x => x.MissionId == room.Id && x.Kind == "message" && x.Sequence > after).OrderBy(x => x.Sequence).Take(64)
+                .Select(x => new { x.Id, x.Sequence, Size = (long)x.Body.Length + x.Signature.Length }).ToListAsync(ct);
+            if (oldest.Count == 0)
+                throw ApiException.Limited("room-data", "This room is full: its tasks and repositories use all of its space. Make a new room to continue.");
+            foreach (var message in oldest.TakeWhile(_ => freed < excess))
+            {
+                removed.Add(message.Id); freed += message.Size; after = message.Sequence;
+            }
+        }
+        await db.MissionItems.Where(x => x.MissionId == room.Id && removed.Contains(x.Id)).ExecuteDeleteAsync(ct);
+        room.ContentBytes -= freed;
+        room.HistoryTrimmed = true;
     }
 
     private static readonly JsonSerializerOptions BodyJson = new(Wire.Json)

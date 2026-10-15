@@ -35,6 +35,7 @@ struct Content {
     tasks: BTreeMap<String, rooms::Task>,
     repositories: BTreeMap<String, rooms::Repository>,
     has_older: bool,
+    history_trimmed: bool,
     shown: u64,
 }
 #[derive(Default)]
@@ -70,6 +71,8 @@ struct ContentPage {
     sequence: u64,
     key_version: u64,
     has_more: bool,
+    #[serde(default)]
+    history_trimmed: bool,
     items: Vec<Item>,
 }
 #[derive(Clone, Deserialize)]
@@ -131,6 +134,7 @@ impl RoomCache {
         room: Uuid,
         items: &[Item],
         sequence: u64,
+        trimmed: bool,
     ) -> Result<()> {
         self.current(credentials)?;
         let cached = self
@@ -142,6 +146,7 @@ impl RoomCache {
             content.take(cached, room, item)?;
         }
         content.sequence = content.sequence.max(sequence);
+        content.history_trimmed |= trimmed;
         content.trim();
         Ok(())
     }
@@ -185,31 +190,6 @@ impl RoomCache {
                 Some((state.state.version, state.state.epoch, key))
             })
             .ok_or_else(|| invalid("Room keys are still arriving."))
-    }
-
-    fn reading_key(
-        &self,
-        credentials: &Credentials,
-        room: Uuid,
-        (version, epoch): (u64, u64),
-    ) -> Result<Secret> {
-        self.current(credentials)?;
-        let cached = self
-            .rooms
-            .get(&room)
-            .ok_or_else(|| invalid("Room keys are missing."))?;
-        if cached
-            .states
-            .get(&version)
-            .is_none_or(|state| state.state.epoch != epoch)
-        {
-            return Err(invalid("The data refers to another room key."));
-        }
-        cached
-            .keys
-            .get(&epoch)
-            .cloned()
-            .ok_or_else(|| invalid("Room history keys are still arriving."))
     }
 }
 
@@ -274,6 +254,7 @@ impl Content {
             repositories: self.repositories.values().cloned().collect(),
             sequence: self.sequence,
             has_older,
+            history_trimmed: self.history_trimmed,
         }
     }
 
@@ -456,12 +437,12 @@ impl BackendClient {
                 let Some(device) = identity.devices.get(&key.device_id) else {
                     continue;
                 };
-                let public = room_crypto::decode(&key.public_key, ROOM_PUBLIC_BYTES)?;
+                let public = identity::pins::decode(&key.public_key, ROOM_PUBLIC_BYTES)?;
                 if public.len() != ROOM_PUBLIC_BYTES {
                     continue;
                 }
                 let preimage = room_key_proof(user, &key.device_id, &public)?;
-                let signature = room_crypto::decode(&key.signature, 3309)?;
+                let signature = identity::pins::decode(&key.signature, 3309)?;
                 ML_DSA_65
                     .verify_sig(&device.sig_public_key, &preimage, &signature)
                     .map_err(|_| invalid("The room recipient key is not authentic."))?;
@@ -484,7 +465,7 @@ impl BackendClient {
                     state,
                     &recipient.user_id,
                     &recipient.device_id,
-                    &room_crypto::decode(&recipient.public_key, ROOM_PUBLIC_BYTES)?,
+                    &identity::pins::decode(&recipient.public_key, ROOM_PUBLIC_BYTES)?,
                     key,
                 )
             })
@@ -961,46 +942,6 @@ impl BackendClient {
         self.room_keys(credentials, room).await.map(|_| ())
     }
 
-    #[cfg(feature = "host")]
-    pub(crate) async fn seal_terminal_status(
-        &self,
-        credentials: &Credentials,
-        terminal: (Uuid, Uuid, Uuid),
-        status: &crate::network::TerminalStatus,
-    ) -> Result<room_crypto::SealedStatus> {
-        let (room, _, _) = terminal;
-        self.ensure_room_keys(credentials, room, None).await?;
-        let (version, epoch, key) = self
-            .inner
-            .rooms
-            .lock()
-            .await
-            .writing_key(credentials, room)?;
-        room_crypto::SealedStatus::seal(
-            terminal,
-            (version, epoch),
-            &key,
-            &serde_json::to_vec(status)?,
-        )
-    }
-
-    pub(super) async fn open_terminal_status(
-        &self,
-        credentials: &Credentials,
-        terminal: (Uuid, Uuid, Uuid),
-        sealed: &room_crypto::SealedStatus,
-    ) -> Result<crate::network::TerminalStatus> {
-        let (room, _, _) = terminal;
-        self.ensure_room_keys(credentials, room, Some(sealed.key_version))
-            .await?;
-        let key = self.inner.rooms.lock().await.reading_key(
-            credentials,
-            room,
-            (sealed.key_version, sealed.epoch),
-        )?;
-        crate::network::TerminalStatus::read(&sealed.open(terminal, &key)?)
-    }
-
     pub(crate) async fn room_identity(
         &self,
         credentials: &Credentials,
@@ -1035,7 +976,7 @@ impl BackendClient {
     }
 
     fn room_payload(cached: &CachedRoom, room: Uuid, item: &Item) -> Result<Payload> {
-        let bytes = room_crypto::decode(&item.body, 64 * 1024)?;
+        let bytes = identity::pins::decode(&item.body, 64 * 1024)?;
         let content: room_crypto::Content = serde_json::from_slice(&bytes)?;
         if content.room_id != room
             || content.id != item.id
@@ -1106,6 +1047,7 @@ impl BackendClient {
                 };
                 let page = self.read_page(credentials, room, &query).await?;
                 first.get_or_insert(page.sequence);
+                content.history_trimmed |= page.history_trimmed;
                 self.inner.rooms.lock().await.decrypt(
                     credentials,
                     room,
@@ -1170,11 +1112,13 @@ impl BackendClient {
                 last.unwrap_or(after).max(page.sequence)
             };
             changed |= !page.items.is_empty();
-            self.inner
-                .rooms
-                .lock()
-                .await
-                .merge(credentials, room, &page.items, next)?;
+            self.inner.rooms.lock().await.merge(
+                credentials,
+                room,
+                &page.items,
+                next,
+                page.history_trimmed,
+            )?;
             if !page.has_more {
                 return Ok(changed);
             }
@@ -1212,6 +1156,7 @@ impl BackendClient {
         let mut view = self.room_view(credentials, room).await?;
         view.messages = older.messages.into_values().collect();
         view.has_older = page.has_more;
+        view.history_trimmed |= page.history_trimmed;
         Ok(view)
     }
 
@@ -1221,12 +1166,6 @@ impl BackendClient {
             listed.insert(wire::id(room, "id")?);
         }
         Ok((listed, catalog["missionsTruncated"] != true))
-    }
-
-    pub(super) async fn known_rooms(&self, credentials: &Credentials) -> Result<Vec<Uuid>> {
-        let cache = self.inner.rooms.lock().await;
-        cache.current(credentials)?;
-        Ok(cache.contents.keys().copied().collect())
     }
 
     async fn forget_room(&self, room: Uuid) {

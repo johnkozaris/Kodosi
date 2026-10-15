@@ -74,12 +74,7 @@ fn settle(action: impl FnOnce() -> Outcome) -> i32 {
     }
 }
 
-/// Loads the configuration and claims the app instance for its data folder.
-///
-/// Returns `KODOSI_APP_OWNER` or `KODOSI_APP_SECONDARY`. `preferences`
-/// receives the isolated preferences file, or null; the runtime owns that
-/// string until `kodosi_close_app`. Failures are described by
-/// `kodosi_last_start_failure`.
+/// The runtime owns the `preferences` string until `kodosi_close_app`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn kodosi_prepare(
     on_activation: ActivationCb,
@@ -161,9 +156,6 @@ unsafe fn prepare(
     Ok(claim)
 }
 
-/// Hands a JSON-object activation to the running app. Returns
-/// `KODOSI_APP_FORWARDED`, or `KODOSI_APP_OWNER` when the running app exited
-/// first and this process took over its data folder.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn kodosi_forward_activation(json: *const u8, length: usize) -> i32 {
     settle(|| unsafe { forward(json, length) })
@@ -217,8 +209,6 @@ unsafe fn forward(json: *const u8, length: usize) -> Outcome {
     Ok(KODOSI_APP_OWNER)
 }
 
-/// Writes one line from the native client to the app's log. Without an app
-/// claim the line is dropped; the client keeps its own console output.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn kodosi_log(level: i32, utf8: *const u8, length: usize) -> i32 {
     caught(|| {
@@ -238,8 +228,6 @@ pub unsafe extern "C" fn kodosi_log(level: i32, utf8: *const u8, length: usize) 
     })
 }
 
-/// Stops serving activations, waits for a running activation callback unless
-/// called from one, and releases the app claim and prepared storage.
 #[unsafe(no_mangle)]
 pub extern "C" fn kodosi_close_app() {
     close_app();
@@ -261,8 +249,6 @@ fn close_app() {
     }
 }
 
-/// The configuration `kodosi_start` runs with: the prepared one when this
-/// process owns the app, or a fresh one when it prepared nothing.
 #[cfg(feature = "host")]
 pub(super) fn start_config() -> std::result::Result<Config, Box<KodosiStartFailure>> {
     match lock(&APP).as_ref() {
@@ -275,7 +261,6 @@ pub(super) fn start_config() -> std::result::Result<Config, Box<KodosiStartFailu
     }
 }
 
-/// The prepared configuration, or a freshly loaded one.
 #[cfg(feature = "host")]
 pub(super) fn config() -> kodosi_runtime::Result<Config> {
     lock(&APP)
@@ -356,8 +341,6 @@ fn serve(
     });
 }
 
-// A viewer runs as one app process and receives its activations from the system,
-// so it has no app instance to claim.
 #[cfg(not(feature = "host"))]
 unsafe fn claim_app(
     _on_activation: ActivationCb,
@@ -471,8 +454,7 @@ mod tests {
         assert!(second.join().unwrap());
 
         assert!(start_config().is_ok_and(|config| config.data_root != root));
-        // A process that another test starts shares this process's open files
-        // between its fork and exec, so the released claim may stay taken briefly.
+        // A process that another test forks holds our open files until it execs.
         assert!((0..100).any(|_| {
             let claimed = local_host::claim_app(&root).unwrap().is_some();
             if !claimed {

@@ -27,7 +27,6 @@ public:
 
 signals:
     void sessionRequested(QString sessionId, QString activationToken);
-    void deliveryError(QString message);
 
 private:
     struct Context {

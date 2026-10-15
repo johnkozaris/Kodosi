@@ -1,12 +1,10 @@
 use std::{fs, path::Path};
 
-use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
-
 use super::{
     accounts::{self, referenced_home},
     learned,
     models::{self, codex, copilot, cursor, listed_values, opencode},
-    shell::{self, Definition, Facts},
+    shell::{Definition, Facts},
     *,
 };
 
@@ -18,6 +16,7 @@ fn definition(name: &str, text: &str) -> Definition {
     }
 }
 
+#[cfg(unix)]
 fn alias(name: &str, text: &str) -> Definition {
     Definition {
         alias: true,
@@ -25,6 +24,7 @@ fn alias(name: &str, text: &str) -> Definition {
     }
 }
 
+#[cfg(unix)]
 fn run_script(shell: &str, arguments: &[&str], prelude: &str, family_script: &str) -> Facts {
     let output = std::process::Command::new(shell)
         .args(arguments)
@@ -35,6 +35,7 @@ fn run_script(shell: &str, arguments: &[&str], prelude: &str, family_script: &st
     shell::parse(&String::from_utf8_lossy(&output.stdout)).expect("both markers")
 }
 
+#[cfg(unix)]
 #[test]
 fn shell_scripts_report_path_and_agent_definitions() {
     let prelude = r#"claudesim() { _claude_profile "$HOME/.claude-alt" "$@"; }
@@ -87,6 +88,7 @@ gitlog() { git log; }"#;
     }
 }
 
+#[cfg(unix)]
 #[test]
 fn probe_output_is_read_between_the_markers_only() {
     let facts = shell::parse(
@@ -126,12 +128,14 @@ fn definitions_name_the_sign_in_folder_they_use() {
     assert_eq!(claude("CLAUDE_CONFIG_DIR=$HOME/../x claude"), None);
 }
 
+#[cfg(unix)]
 fn jwt(email: &str) -> String {
+    use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+
     let claims = URL_SAFE_NO_PAD.encode(format!(r#"{{"email":"{email}"}}"#));
     format!("e30.{claims}.signature")
 }
 
-/// Writes a file under `home`, with the folders it needs.
 fn put(home: &Path, path: &str, text: &str) {
     let path = home.join(path);
     fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -142,7 +146,6 @@ fn claude_sign_in(email: &str) -> String {
     format!(r#"{{"oauthAccount":{{"emailAddress":"{email}"}}}}"#)
 }
 
-/// Each account of `agent`, as its name, identity, folder and options.
 fn rows(catalog: &AgentCatalog, agent: Agent) -> Vec<String> {
     catalog
         .agents
@@ -167,6 +170,7 @@ fn rows(catalog: &AgentCatalog, agent: Agent) -> Vec<String> {
         .collect()
 }
 
+#[cfg(unix)]
 #[test]
 fn accounts_come_from_definitions_and_sign_in_folders() {
     let root = tempfile::tempdir().unwrap();
@@ -290,8 +294,11 @@ fn a_command_keeps_the_sign_in_folder_that_its_agent_got() {
     );
 }
 
+#[cfg(unix)]
 #[test]
 fn a_new_account_gets_a_private_empty_folder() {
+    use std::os::unix::fs::PermissionsExt as _;
+
     let root = tempfile::tempdir().unwrap();
     let home = root.path();
     let account = accounts::add(home, Agent::Codex, " Night Shift ").expect("added");
@@ -300,18 +307,40 @@ fn a_new_account_gets_a_private_empty_folder() {
         account.command,
         format!("env CODEX_HOME={}/.codex-night-shift codex", home.display())
     );
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt as _;
-        let mode = fs::metadata(home.join(".codex-night-shift"))
-            .unwrap()
-            .permissions()
-            .mode();
-        assert_eq!(mode & 0o777, 0o700);
-    }
+    let mode = fs::metadata(home.join(".codex-night-shift"))
+        .unwrap()
+        .permissions()
+        .mode();
+    assert_eq!(mode & 0o777, 0o700);
     assert!(accounts::add(home, Agent::Codex, "night shift").is_err());
     assert!(accounts::add(home, Agent::Codex, "../x").is_err());
     assert!(accounts::add(home, Agent::Gemini, "work").is_err());
+}
+
+#[cfg(windows)]
+#[test]
+fn windows_lists_the_usual_account_and_adds_none() {
+    let root = tempfile::tempdir().unwrap();
+    let home = root.path();
+    put(home, ".claude.json", &claude_sign_in("ada@example.com"));
+    put(
+        home,
+        ".claude-work/.claude.json",
+        &claude_sign_in("work@example.com"),
+    );
+    put(home, "bin/claude.exe", "");
+    let facts = Facts {
+        path: Some(home.join("bin").into_os_string()),
+        definitions: Vec::new(),
+    };
+    let catalog = accounts::catalog(home, &facts, &learned::Learned::default());
+    assert_eq!(
+        rows(&catalog, Agent::Claude),
+        ["claude ada@example.com ~/.claude"]
+    );
+    assert!(!catalog.agents[0].adds_accounts);
+    assert!(accounts::add(home, Agent::Claude, "night").is_err());
+    assert!(!home.join(".claude-night").exists());
 }
 
 #[test]

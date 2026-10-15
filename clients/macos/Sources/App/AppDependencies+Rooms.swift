@@ -75,17 +75,7 @@ extension AppDependencies {
                 {
                     state.unread += added
                 }
-                next.hasOlder = previous.hasOlder && next.hasOlder
-                var messages = Dictionary(uniqueKeysWithValues: previous.messages.map { ($0.id, $0) })
-                for message in next.messages {
-                    messages[message.id] = message
-                }
-                next.messages = messages.values.sorted { $0.sequence < $1.sequence }
-                var tasks = Dictionary(uniqueKeysWithValues: previous.tasks.map { ($0.id, $0) })
-                for task in next.tasks where tasks[task.id].map({ $0.version <= task.version }) ?? true {
-                    tasks[task.id] = task
-                }
-                next.tasks = tasks.values.sorted { $0.id < $1.id }
+                next.merge(previous)
                 let watching = workbench.section == .missions && workbench.selectedMissionId == next.roomId
                 if previous.tasks.map(\.version) != next.tasks.map(\.version), !(watching && state.canvas == 1) {
                     state.fresh.insert(1)

@@ -90,7 +90,22 @@ private struct RoomTerminals: View {
                         Text("Open a terminal").appTextStyle(.title).foregroundStyle(theme.colors.ink)
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 230, maximum: 320), spacing: 12)], alignment: .leading, spacing: 12) {
                             ForEach(sessions) { session in
-                                RoomTerminalCard(session: session) { open(session) }
+                                TerminalCard(session: session, rested: session.canOpen ? .awake : .asleep) {
+                                    open(session)
+                                } detail: {
+                                    HStack(spacing: 4) {
+                                        DeviceGlyph(label: session.hostLabel).font(.system(size: 9, weight: .medium))
+                                        SessionActivityText(session: session, fallback: session.hostLabel)
+                                    }
+                                } accessory: {
+                                    if let sign = deps.sign(of: session) {
+                                        StatusSign(form: sign, size: 13).transition(AnyTransition.pop)
+                                    }
+                                    if !session.isOwner, let owner = session.ownerName {
+                                        PersonAvatar(name: owner, key: session.ownerUserId, size: 20)
+                                    }
+                                }
+                                .accessibilityIdentifier("room.terminal.card.\(AccessibilityIdentifier.token(session.id))")
                             }
                         }
                     }
@@ -179,41 +194,6 @@ private struct RoomTerminals: View {
                 state.canvas = 0; deps.activateSession(session.id, inRoom: roomId)
             } catch { state.failure = error.localizedDescription }
         }
-    }
-}
-
-private struct RoomTerminalCard: View {
-    @Environment(AppDependencies.self) private var deps
-    @Environment(\.theme) private var theme
-    @State private var hovered = false
-    let session: RuntimeSession
-    let open: () -> Void
-
-    var body: some View {
-        Button(action: open) {
-            HStack(spacing: 12) {
-                AgentMark(kind: session.agent, size: 34, activity: session.mark(rested: session.canOpen ? .awake : .asleep))
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(session.name).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).lineLimit(1)
-                    HStack(spacing: 4) {
-                        DeviceGlyph(label: session.hostLabel).font(.system(size: 9, weight: .medium))
-                        SessionActivityText(session: session, fallback: session.hostLabel)
-                    }
-                    .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
-                }
-                Spacer(minLength: 0)
-                if !session.isOwner, let owner = session.ownerName {
-                    PersonAvatar(name: owner, key: session.ownerUserId, size: 20)
-                }
-            }
-            .padding(.horizontal, 14).frame(height: 68)
-            .raised(Radius.lg, fill: hovered ? theme.colors.lifted : theme.colors.raised, elevation: hovered ? .lifted : .resting)
-            .offset(y: hovered ? -1 : 0)
-        }
-        .buttonStyle(PressScaleStyle(scale: 0.98))
-        .onHover { hovered = $0 }
-        .animation(theme.motion.spring, value: hovered)
-        .accessibilityIdentifier("room.terminal.card.\(AccessibilityIdentifier.token(session.id))")
     }
 }
 

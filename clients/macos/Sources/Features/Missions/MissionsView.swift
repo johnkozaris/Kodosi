@@ -4,7 +4,6 @@ import SwiftUI
 
 struct MissionsView: View {
     @Environment(AppDependencies.self) private var deps
-    @Environment(\.theme) private var theme
 
     var body: some View {
         if !deps.accountReady {
@@ -85,7 +84,7 @@ private struct RoomCard: View {
         Button { deps.openMission(mission) } label: {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top) {
-                    RoomSigil(name: mission.name, key: mission.id, size: 44)
+                    RoomSigil(key: mission.id, size: 44)
                     Spacer()
                     if unread > 0 {
                         CountBadge(count: unread)
@@ -129,7 +128,7 @@ private struct InvitationCard: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            RoomSigil(name: invitation.missionName, key: invitation.missionId, size: 40)
+            RoomSigil(key: invitation.missionId, size: 40)
             VStack(alignment: .leading, spacing: 2) {
                 Text(invitation.missionName).appTextStyle(.headline).foregroundStyle(theme.colors.ink)
                 Text("\(invitation.inviterName) invited you").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
@@ -158,7 +157,7 @@ struct NewRoomSheet: View {
 
     var body: some View {
         VStack(spacing: 22) {
-            RoomSigil(name: name, key: name.isEmpty ? "new" : name, size: 64)
+            RoomSigil(key: name.isEmpty ? "new" : name, size: 64)
                 .animation(theme.motion.spring, value: name)
             VStack(spacing: 6) {
                 Text("Name your room").appTextStyle(.title).foregroundStyle(theme.colors.ink)

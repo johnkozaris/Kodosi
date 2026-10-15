@@ -1,5 +1,4 @@
 excluded:
-  - Frameworks
   - KodosiDesktop.xcodeproj
   - .build
 

@@ -24,8 +24,7 @@ class DesktopSettings final : public QObject {
 public:
     enum CursorStyle { Block, Bar, Underline };
     Q_ENUM(CursorStyle)
-    explicit DesktopSettings(QObject* parent = nullptr);
-    DesktopSettings(std::unique_ptr<QSettings> settings, QObject* parent = nullptr);
+    explicit DesktopSettings(std::unique_ptr<QSettings> settings, QObject* parent = nullptr);
     QString fontFamily() const { return m_fontFamily; }
     int fontSize() const { return m_fontSize; }
     CursorStyle cursorStyle() const { return m_cursor; }
@@ -41,14 +40,14 @@ public:
     Q_INVOKABLE void setWorkingDirectory(const QString& path);
     Q_INVOKABLE void setBranchFolder(const QString& path);
     Q_INVOKABLE void resetTerminal();
-    Q_INVOKABLE void clearError();
     QVariantList startCommands() const;
     QStringList startCommandIds() const;
-    Q_INVOKABLE void learn(const QString& program);
+    void learn(const QString& program);
     Q_INVOKABLE void addStartCommand();
     Q_INVOKABLE void setStartCommand(const QString& id, const QString& name, const QString& command);
     Q_INVOKABLE void removeStartCommand(const QString& id);
-    [[nodiscard]] static QString agentOf(const QString& command);
+    Q_INVOKABLE [[nodiscard]] static QString agentOf(const QString& text);
+    Q_INVOKABLE [[nodiscard]] static QString agentLabel(const QString& text);
 signals:
     void settingsChanged();
     void settingsErrorChanged();
@@ -69,5 +68,6 @@ private:
     QStringList m_learned;
     bool persist();
     void persistStart();
+    void clearError();
 };
 }

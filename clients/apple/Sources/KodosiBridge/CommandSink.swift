@@ -97,6 +97,18 @@ public final class CommandSink {
         }
     }
 
+    public func mutate(
+        _ operation: String, session target: RuntimeSession, current: RuntimeSession?, fields: [String: JSONValue] = [:]
+    ) async throws {
+        guard let current, current.incarnationId == target.incarnationId else {
+            throw RuntimeError.operation(String(localized: "This terminal changed. Try again.", bundle: .module))
+        }
+        var fields = fields
+        fields["sessionId"] = .string(current.id)
+        fields["expectedRuntimeIncarnationId"] = .string(current.incarnationId)
+        _ = try await request(operation, fields)
+    }
+
     public func receive(_ event: RuntimeEvent) {
         guard event.accountEpoch == accountEpoch, event.accountUserId == accountUserId,
               let requestId = event.string("requestId"), let pending = pending[requestId] else { return }
