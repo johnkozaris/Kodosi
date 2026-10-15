@@ -10,5 +10,9 @@
 
 <!-- The justfile checks you ran and the workflow you tried with isolated data. -->
 
+## Limits
+
+<!-- What stays open, or "None". -->
+
 - [ ] Contracts and Ghostty pins are aligned, if changed.
 - [ ] No credentials, keys, private terminal content or personal configuration.
