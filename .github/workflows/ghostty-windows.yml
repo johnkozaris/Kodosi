@@ -58,7 +58,7 @@ jobs:
           EOF
           fi
           chmod +x "$tools"/*
-          PATH="$tools:$PATH" terminal/ghostty/scripts/build.sh --platform windows
+          PATH="$tools:$PATH" terminal/ghostty/scripts/build.sh
       - name: Check that the committed library has the inputs of this build
         run: |
           # Zig does not always lay out its code the same way, so the library can
