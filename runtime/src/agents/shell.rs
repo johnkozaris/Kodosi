@@ -13,9 +13,6 @@ const PROBE_TIME: Duration = Duration::from_secs(6);
 const REUSE_TIME: Duration = Duration::from_secs(600);
 const MAX_OUTPUT: usize = 512 * 1024;
 
-/// What a new terminal's shell knows: its `PATH`, the functions whose names
-/// begin with the name of an agent, and the aliases whose names or commands
-/// name one.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct Facts {
     pub path: Option<OsString>,
@@ -26,13 +23,10 @@ pub(super) struct Facts {
 pub(super) struct Definition {
     pub name: String,
     pub text: String,
-    /// An alias, rather than a function: the shell adds the words after it.
     pub alias: bool,
 }
 
 impl Facts {
-    /// Finds `program` on the shell's `PATH`, or on the runtime's own when the
-    /// shell did not report one.
     pub(super) fn executable(&self, program: &str) -> Option<PathBuf> {
         self.path.as_ref().map_or_else(
             || kodosi_os::process::find_executable(program),
@@ -55,7 +49,6 @@ struct Remembered {
 
 static REMEMBERED: Mutex<Option<Remembered>> = Mutex::new(None);
 
-/// The facts of `shell`. Without `fresh`, facts from the last ten minutes do.
 pub(super) async fn facts(shell: &Path, fresh: bool) -> Facts {
     if !fresh
         && let Some(remembered) = REMEMBERED
@@ -130,9 +123,8 @@ printf '\036end\n'"
     }
 }
 
-/// Asks the shell as an interactive login shell, as a terminal starts it. A
-/// shell whose start files never finish without a terminal (one that starts
-/// tmux, for example) is asked again as a login shell only, for its `PATH`.
+/// Start files that need a terminal (ones that start tmux, for example) never
+/// finish, so such a shell is asked again as a login shell only.
 #[cfg(unix)]
 async fn probe(shell: &Path) -> Facts {
     let Some(family) = family(shell) else {
@@ -229,8 +221,7 @@ pub(super) fn parse(output: &str) -> Option<Facts> {
     Some(facts)
 }
 
-/// The value of an alias. Bash prints it as `alias name='value'`, zsh as the
-/// value alone.
+/// Bash prints `alias name='value'`, zsh the value alone.
 fn alias_value(name: &str, text: &str) -> String {
     text.strip_prefix("alias ")
         .and_then(|text| text.strip_prefix(name))

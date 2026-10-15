@@ -109,10 +109,8 @@ pub enum Command {
         branch: Option<String>,
         #[serde(default)]
         worktrees: Option<String>,
-        /// A line that the new shell runs once it waits at its prompt.
         #[serde(default)]
         command: Option<String>,
-        /// Text that ends the command line as one word, quoted for the shell.
         #[serde(default)]
         prompt: Option<String>,
     },

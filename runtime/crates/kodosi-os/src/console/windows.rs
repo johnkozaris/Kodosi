@@ -13,7 +13,6 @@ const POLL: Duration = Duration::from_millis(250);
 
 fn mode(handle: STD_HANDLE) -> io::Result<u32> {
     let mut mode = 0;
-    // SAFETY: `GetStdHandle` has no preconditions and `mode` is a valid output.
     if unsafe { GetConsoleMode(GetStdHandle(handle), &raw mut mode) } == 0 {
         return Err(io::Error::last_os_error());
     }
@@ -21,7 +20,6 @@ fn mode(handle: STD_HANDLE) -> io::Result<u32> {
 }
 
 fn set_mode(handle: STD_HANDLE, mode: u32) -> io::Result<()> {
-    // SAFETY: `GetStdHandle` has no preconditions.
     if unsafe { SetConsoleMode(GetStdHandle(handle), mode) } == 0 {
         return Err(io::Error::last_os_error());
     }
@@ -59,9 +57,7 @@ impl Drop for RawMode {
 }
 
 pub(super) fn size() -> io::Result<(u16, u16)> {
-    // SAFETY: an all-zero structure is a valid output buffer.
     let mut info: CONSOLE_SCREEN_BUFFER_INFO = unsafe { std::mem::zeroed() };
-    // SAFETY: `info` is a valid output for the console's screen buffer.
     if unsafe { GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &raw mut info) } == 0 {
         return Err(io::Error::last_os_error());
     }

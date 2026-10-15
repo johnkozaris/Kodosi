@@ -174,8 +174,6 @@ impl ProgramStatusRecords {
         self.reported = false;
     }
 
-    /// The agent that a running program says it is. Done and error records
-    /// may outlive their program, so they never name the live program.
     pub(super) fn live_program(&self) -> Option<&'static str> {
         self.records
             .iter()
@@ -223,7 +221,6 @@ impl ProgramStatusRecords {
     }
 }
 
-/// The known agent an OSC 7501 app name belongs to, such as `claude-code`.
 #[cfg(feature = "host")]
 fn program_from_app(app: &str) -> Option<&'static str> {
     let app = app.to_ascii_lowercase();

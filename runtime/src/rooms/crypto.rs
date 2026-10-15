@@ -127,8 +127,6 @@ impl Content {
     }
 }
 
-/// The status of a room terminal, encrypted with a room key. The room, the terminal and
-/// its incarnation are `(room, session, incarnation)`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct SealedStatus {

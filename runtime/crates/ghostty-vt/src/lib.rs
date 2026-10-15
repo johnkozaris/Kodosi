@@ -23,7 +23,6 @@ pub struct TerminalPolicy {
     pub continuation_max_bytes: usize,
     pub scrollback_max_bytes: usize,
     pub scrollback_max_lines: usize,
-    /// The terminal runs behind a console host such as Windows `ConPTY`.
     pub console: bool,
 }
 

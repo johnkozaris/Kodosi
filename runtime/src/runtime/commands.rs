@@ -973,8 +973,6 @@ fn shell(config: &Config) -> PathBuf {
         .map_or_else(kodosi_os::process::default_shell, PathBuf::from)
 }
 
-/// The program a new terminal runs: the shell, or the provider's CLI that
-/// resumes a conversation, found as the shell would find it.
 #[cfg(feature = "host")]
 async fn session_program(
     config: &Config,

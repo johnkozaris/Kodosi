@@ -117,7 +117,6 @@ fn option(id: &str, argument: String) -> Option<AgentOption> {
     })
 }
 
-/// The values that `--help` lists for `flag`, as `(a, b)` or `[possible values: a, b]`.
 pub(super) fn listed_values(help: &str, flag: &str) -> Vec<String> {
     let Some(start) = help
         .lines()
@@ -162,7 +161,6 @@ fn efforts(help: Option<&str>, flag: &str) -> Vec<AgentOption> {
         .collect()
 }
 
-/// The models of `codex debug models` that its picker lists, in its order.
 pub(super) fn codex(catalog: Option<&str>) -> (Vec<AgentModel>, Vec<AgentOption>) {
     let Some(catalog) = catalog.and_then(|text| serde_json::from_str::<Value>(text).ok()) else {
         return (Vec::new(), Vec::new());
@@ -223,7 +221,6 @@ pub(super) fn codex(catalog: Option<&str>) -> (Vec<AgentModel>, Vec<AgentOption>
     (models, efforts)
 }
 
-/// The values that `copilot help config` lists for its `model` setting.
 pub(super) fn copilot(config: Option<&str>) -> Vec<AgentModel> {
     let Some(config) = config else {
         return Vec::new();
@@ -240,7 +237,6 @@ pub(super) fn copilot(config: Option<&str>) -> Vec<AgentModel> {
         .collect()
 }
 
-/// Lines of `cursor-agent models` in the form `id - Label (current)`.
 pub(super) fn cursor(list: Option<&str>) -> Vec<AgentModel> {
     list.into_iter()
         .flat_map(str::lines)
@@ -260,7 +256,6 @@ pub(super) fn cursor(list: Option<&str>) -> Vec<AgentModel> {
         .collect()
 }
 
-/// Lines of `opencode models` in the form `provider/model`.
 pub(super) fn opencode(list: Option<&str>) -> Vec<AgentModel> {
     list.into_iter()
         .flat_map(str::lines)

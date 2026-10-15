@@ -154,8 +154,7 @@ pub struct RemoteSession {
     pub status: Option<TerminalStatus>,
 }
 
-/// What the host of a room terminal tells the room about it: the agent and the state
-/// that its program reports, without the program's text.
+/// Shared with the whole room, so it never carries the program's text.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TerminalStatus {

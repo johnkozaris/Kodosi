@@ -181,8 +181,7 @@ async fn a_waiting_launch_claims_the_folder_when_the_owner_exits() {
     assert!(claim_released(root.path()).await);
 }
 
-/// A process that another test starts shares this process's open files
-/// between its fork and exec, so a released claim may stay taken briefly.
+// A process that another test forks holds our open files until it execs.
 async fn claim_released(root: &Path) -> bool {
     for _ in 0..100 {
         if claim_app(root).unwrap().is_some() {

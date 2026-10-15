@@ -13,7 +13,6 @@ impl Drop for ClientSlot {
     }
 }
 
-/// A local endpoint served until `shutdown` or drop.
 pub struct LocalServer {
     pub(super) cancel: CancellationToken,
     pub(super) task: Option<tokio::task::JoinHandle<()>>,

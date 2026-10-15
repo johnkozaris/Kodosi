@@ -38,8 +38,6 @@ struct Admitted {
 
 type Viewers = Arc<std::sync::Mutex<BTreeMap<Uuid, Admitted>>>;
 
-/// The status of a room terminal for its room: the newest one that the terminal
-/// reported, and the one that the device connection holds for the server.
 struct Shared {
     room: Option<Uuid>,
     reported: Option<TerminalStatus>,

@@ -34,8 +34,7 @@ pub struct DeviceLogin {
 }
 
 impl DeviceLogin {
-    /// The code page with the code after "#": the browser keeps that part, and the Kodosi
-    /// sign-in page sends the code itself, so every later step can show it to compare.
+    /// The sign-in page reads the code from the fragment to show it at each step.
     pub fn code_page(&self) -> String {
         format!("{}#{}", self.verification_uri, self.user_code)
     }

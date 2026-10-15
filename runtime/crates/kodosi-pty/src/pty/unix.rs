@@ -62,7 +62,6 @@ impl PtyReader {
             .ok_or_else(|| io::Error::other("PTY async reader failed to initialize"))
     }
 
-    /// Unix writes complete inside `transfer`, so none is ever in flight.
     pub const fn write_in_flight(&self) -> bool {
         false
     }
@@ -221,8 +220,6 @@ impl KodosiPty {
         foreground_process_group(self.master_fd) == Some(self.child_pid)
     }
 
-    /// Whether the terminal passes each key on at once, as it does while a
-    /// line editor waits at a prompt.
     pub fn reads_keys(&self) -> bool {
         let borrowed = unsafe { BorrowedFd::borrow_raw(self.master_fd) };
         nix::sys::termios::tcgetattr(borrowed).is_ok_and(|attributes| {
@@ -238,8 +235,6 @@ impl KodosiPty {
         program_identity(&arguments).map(str::to_owned)
     }
 
-    /// The environment that the foreground program started with, as
-    /// `NAME=value` entries.
     pub fn foreground_environment(&self) -> Option<Vec<String>> {
         process_environment(foreground_process_group(self.master_fd)?)
     }
@@ -615,7 +610,6 @@ fn process_environment(pid: u32) -> Option<Vec<String>> {
     process_record(pid).map(|(_, environment)| environment)
 }
 
-/// The arguments and the environment that process `pid` started with.
 #[cfg(target_os = "macos")]
 fn process_record(pid: u32) -> Option<(Vec<String>, Vec<String>)> {
     let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid as i32];
@@ -724,8 +718,7 @@ mod tests {
         assert!(error.to_string().contains("I/O failure"));
     }
 
-    /// What the environment test starts: a program of its own, because macOS
-    /// keeps the environment of its own programs, such as `/bin/sleep`, hidden.
+    /// macOS hides the environment of its own programs, such as `/bin/sleep`.
     #[test]
     #[ignore = "the environment test starts it"]
     fn waits_for_the_environment_test() {
@@ -752,7 +745,6 @@ mod tests {
                     &[("CLAUDE_CONFIG_DIR", "/tmp/a sign-in")],
                 )
                 .unwrap();
-                // The child shows its own environment once it starts the program.
                 let entry = "CLAUDE_CONFIG_DIR=/tmp/a sign-in".to_owned();
                 let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
                 while !pty

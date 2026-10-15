@@ -28,11 +28,8 @@ const MAX_PENDING_BYTES: usize = 4 * 1024 * 1024;
 const READ_BYTES: usize = 64 * 1024;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 const STOP_TIMEOUT: Duration = Duration::from_secs(10);
-/// How long a start line waits for the shell's prompt, and when it gives up.
 const START_PATIENCE: Duration = Duration::from_secs(3);
 const START_LIMIT: Duration = Duration::from_secs(15);
-/// Without a line discipline to read, a shell that printed and then stayed
-/// quiet this long waits at its prompt.
 const PROMPT_QUIET: Duration = Duration::from_millis(300);
 
 type Completion = Option<std::result::Result<(), String>>;
@@ -257,7 +254,6 @@ impl LocalSession {
         await_reply(self.send(Request::Run { command, reply }), response)
     }
 
-    /// Types `command` into the new shell once it waits at its first prompt.
     pub(crate) fn start(&self, command: String) -> Result<()> {
         self.send(Request::Start(command))
     }
@@ -425,8 +421,8 @@ fn validated_pixels(
     Ok((Some(width), Some(height)))
 }
 
-/// The keys that clear a half-typed line before a start command. `PowerShell`
-/// and `cmd` cancel the line with Ctrl+C; Unix line editors use Ctrl+E, Ctrl+U.
+/// `PowerShell` and `cmd` cancel a line with Ctrl+C; Unix line editors clear it
+/// with Ctrl+E, Ctrl+U.
 fn clear_line_keys(shell: &Path) -> &'static str {
     let stem = shell
         .file_stem()
@@ -464,14 +460,10 @@ struct LocalActor {
     program: Option<String>,
     clear_line: &'static str,
     start: Option<(String, tokio::time::Instant)>,
-    /// The first word of the start line, until the agent that it starts shows
-    /// which sign-in folder it got.
     launcher: Option<String>,
     output_at: Option<tokio::time::Instant>,
     prompt: bool,
     viewers: HashMap<Uuid, String>,
-    /// The session's folder: launch folder, then the latest OSC 7 or 9;9
-    /// report or PTY observation, whichever changed last.
     working_directory: PathBuf,
     observed_directory: Option<PathBuf>,
     title: Option<String>,
@@ -542,7 +534,6 @@ impl LocalActor {
         Ok(())
     }
 
-    /// Drops cancelled input, except a front write the PTY has not yet confirmed.
     fn drop_cancelled_input(&mut self) {
         let in_flight = self.reader.write_in_flight();
         let mut index = 0;
@@ -580,8 +571,6 @@ impl LocalActor {
         Ok(())
     }
 
-    /// The front write's unsent bytes. A write the PTY has taken but not yet
-    /// confirmed stays at the front, cancelled or not, until `wrote` settles it.
     fn pending_input(&mut self) -> Option<Bytes> {
         let in_flight = self.reader.write_in_flight();
         while let Some(write) = self.queue.front_mut() {
@@ -713,10 +702,6 @@ impl LocalActor {
         Ok(())
     }
 
-    /// Types the start line when the shell waits at its prompt: its line
-    /// editor reads single keys, or, behind a console host, it printed and
-    /// went quiet. A slow shell gets the line after a while; a shell that
-    /// started another program does not.
     fn type_start_line(&mut self) {
         let Some((_, since)) = &self.start else {
             return;
@@ -896,8 +881,6 @@ impl LocalActor {
         Ok(())
     }
 
-    /// What runs in the terminal: the app a running program reports, else what
-    /// its process shows.
     fn live_program(&self) -> Option<String> {
         self.status
             .live_program()
@@ -905,8 +888,6 @@ impl LocalActor {
             .or_else(|| self.pty.foreground_program())
     }
 
-    /// Makes `path` the session's folder. False when the change cannot be
-    /// published yet, so the caller tries again.
     fn set_working_directory(&mut self, path: PathBuf) -> bool {
         if path == self.working_directory {
             return true;
@@ -927,8 +908,6 @@ impl LocalActor {
         true
     }
 
-    /// When the agent that the start line started runs in front, reads which
-    /// sign-in folder it got, so the accounts know what the command does.
     fn learn_sign_in(&mut self) {
         let (Some(program), Some(command)) = (&self.program, &self.launcher) else {
             return;

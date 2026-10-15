@@ -131,7 +131,6 @@ fn jwt(email: &str) -> String {
     format!("e30.{claims}.signature")
 }
 
-/// Writes a file under `home`, with the folders it needs.
 fn put(home: &Path, path: &str, text: &str) {
     let path = home.join(path);
     fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -142,7 +141,6 @@ fn claude_sign_in(email: &str) -> String {
     format!(r#"{{"oauthAccount":{{"emailAddress":"{email}"}}}}"#)
 }
 
-/// Each account of `agent`, as its name, identity, folder and options.
 fn rows(catalog: &AgentCatalog, agent: Agent) -> Vec<String> {
     catalog
         .agents

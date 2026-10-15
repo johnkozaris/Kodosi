@@ -22,7 +22,6 @@ use windows_sys::Win32::{
     UI::WindowsAndMessaging::AllowSetForegroundWindow,
 };
 
-/// The extensions, without dots, that make a file runnable by name.
 fn executable_extensions() -> Vec<String> {
     std::env::var("PATHEXT")
         .ok()
@@ -78,7 +77,6 @@ pub(super) fn detach(command: &mut std::process::Command) {
 }
 
 pub(super) fn is_running(pid: u32) -> bool {
-    // SAFETY: `OpenProcess` has no pointer arguments.
     let handle = unsafe {
         OpenProcess(
             PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SYNCHRONIZE,
@@ -90,15 +88,12 @@ pub(super) fn is_running(pid: u32) -> bool {
         return std::io::Error::last_os_error().raw_os_error()
             != Some(ERROR_INVALID_PARAMETER.cast_signed());
     }
-    // SAFETY: `OpenProcess` returned an owned handle.
     let handle = unsafe { OwnedHandle::from_raw_handle(handle) };
-    // SAFETY: the handle is open with `SYNCHRONIZE`.
     unsafe { WaitForSingleObject(handle.as_raw_handle(), 0) == WAIT_TIMEOUT }
 }
 
 pub(super) fn computer_name() -> Option<String> {
     let mut length = 0u32;
-    // SAFETY: a null buffer asks only for the required length.
     unsafe {
         GetComputerNameExW(
             ComputerNameDnsHostname,
@@ -107,7 +102,6 @@ pub(super) fn computer_name() -> Option<String> {
         )
     };
     let mut buffer = vec![0u16; usize::try_from(length).ok()?];
-    // SAFETY: the buffer holds `length` UTF-16 units.
     if unsafe {
         GetComputerNameExW(
             ComputerNameDnsHostname,
@@ -123,6 +117,5 @@ pub(super) fn computer_name() -> Option<String> {
 }
 
 pub(super) fn allow_foreground(pid: u32) {
-    // SAFETY: the call has no pointer arguments; failure only means no grant.
     unsafe { AllowSetForegroundWindow(pid) };
 }

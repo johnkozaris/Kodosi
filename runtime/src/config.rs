@@ -14,8 +14,6 @@ pub enum HostKind {
 #[derive(Debug, Clone)]
 pub struct Config {
     pub data_root: PathBuf,
-    /// The native client's preferences file in an isolated run. Other runs
-    /// keep client preferences where the platform keeps them.
     pub preferences: Option<PathBuf>,
     pub home: PathBuf,
     pub initial_shell: Option<String>,
