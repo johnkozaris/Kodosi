@@ -20,8 +20,6 @@
 #include "terminal/TerminalSurfaceController.hpp"
 #include <kodosi_runtime.h>
 #include <QApplication>
-#include <QFile>
-#include <QFileSystemWatcher>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 #include <QRegularExpression>
@@ -30,6 +28,8 @@
 #include <memory>
 #include <optional>
 #ifdef Q_OS_LINUX
+#include <QFile>
+#include <QFileSystemWatcher>
 #include <sys/stat.h>
 #endif
 

@@ -3,4 +3,4 @@ URIs: https://updates.kodosi.com/apt
 Suites: stable
 Components: main
 Architectures: amd64
-Signed-By: /usr/share/keyrings/kodosi-archive-keyring.pgp
+Signed-By: /etc/apt/keyrings/kodosi-archive-keyring.pgp
