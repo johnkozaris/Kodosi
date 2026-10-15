@@ -22,7 +22,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 57;
+pub const VERSION: u32 = 58;
 include!(concat!(env!("OUT_DIR"), "/network_versions.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 
@@ -464,6 +464,8 @@ pub enum EventBody {
     SystemReady { protocol_version: u32 },
     #[serde(rename = "system.error")]
     SystemError { message: String },
+    #[serde(rename = "system.updateRequired")]
+    SystemUpdateRequired {},
     #[serde(rename = "auth.ready")]
     AuthReady {
         user_id: String,
@@ -775,6 +777,7 @@ impl EventBody {
         match self {
             Self::SystemReady { .. } => "system.ready",
             Self::SystemError { .. } => "system.error",
+            Self::SystemUpdateRequired {} => "system.updateRequired",
             Self::AuthReady { .. } => "auth.ready",
             Self::AuthRequired { .. } => "auth.required",
             Self::AuthDeviceCode { .. } => "auth.device_code",

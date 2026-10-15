@@ -64,6 +64,7 @@ pub(crate) struct Inner {
     enrollment_checked: AtomicU64,
     renew_connections: AtomicBool,
     identity_settled: AtomicBool,
+    update_required: AtomicBool,
     pub(crate) friends_changed: tokio::sync::Notify,
     login_interrupt: std::sync::Mutex<CancellationToken>,
     rooms: Mutex<rooms::RoomCache>,
@@ -142,6 +143,7 @@ impl BackendClient {
                 enrollment_checked: AtomicU64::new(0),
                 renew_connections: AtomicBool::new(false),
                 identity_settled: AtomicBool::new(false),
+                update_required: AtomicBool::new(false),
                 friends_changed: tokio::sync::Notify::new(),
                 login_interrupt: std::sync::Mutex::new(CancellationToken::new()),
                 rooms: Mutex::new(rooms::RoomCache::default()),
@@ -266,7 +268,21 @@ impl BackendClient {
                 self.sign_in_kept(Err(Error::AccountDeleted)).await?;
                 Err(Error::Stale)
             }
+            Err(Error::UpdateRequired) => {
+                self.update_required();
+                Err(Error::UpdateRequired)
+            }
             result => result,
+        }
+    }
+
+    pub(crate) fn update_required(&self) {
+        if !self.inner.update_required.swap(true, Ordering::AcqRel) {
+            self.emit_for(
+                self.generation(),
+                self.identity().map(|identity| identity.user_id),
+                json!({"type":"system.updateRequired"}),
+            );
         }
     }
 

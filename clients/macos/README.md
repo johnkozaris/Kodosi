@@ -18,19 +18,26 @@ This generates `KodosiDesktop.xcodeproj` from `project.yml`, builds the runtime 
 tests the shared package and builds the app. Run the `KodosiDesktop` scheme in Xcode.
 Debug builds use a [local backend](../../docs/DEVELOPMENT.md#run-the-backend) at
 `127.0.0.1:5180`; `just release-build` here builds against the public service.
-[Apps.xcconfig](../apple/Config/Apps.xcconfig) sets the version and build number of the
-Mac and iOS apps.
+[VERSION](../../VERSION) gives the version of all apps and the CLI.
 
 ## Command line
 
-The app executable is also the `kodosi` CLI, using the app's Keychain identity. Put a
-symlink named `kodosi` on your PATH that points to it:
+The app executable is also the `kodosi` CLI, using the app's Keychain identity. The
+app's own terminals find it. For other terminals, Settings > General links
+`/usr/local/bin/kodosi` to it, and the Homebrew cask makes the same link. For a build
+from source, link it yourself:
 
 ```sh
-ln -s /absolute/path/KodosiDesktop.app/Contents/MacOS/KodosiDesktop ~/.local/bin/kodosi
+ln -s /absolute/path/Kodosi.app/Contents/MacOS/Kodosi ~/.local/bin/kodosi
 ```
 
 Keep the app running while you use room commands for its terminals.
+
+## Updates
+
+Release builds update with [Sparkle](https://sparkle-project.org) from
+`https://updates.kodosi.com/macos/appcast.xml`; Debug and working-tree builds do not.
+`KODOSI_UPDATE_KEY` in `Config/Release.xcconfig` is the public EdDSA key of the feed.
 
 ## Check
 

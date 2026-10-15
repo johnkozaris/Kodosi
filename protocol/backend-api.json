@@ -1,6 +1,13 @@
 {
   "apiContractVersion": 27,
+  "oldestApiContractVersion": 27,
   "authContractVersion": 1,
+  "compatibility": {
+    "range": "the server serves each client whose apiContractVersion is from oldestApiContractVersion to apiContractVersion, and whose authContractVersion is equal",
+    "report": "GET /health/live and GET /health/ready give apiContractVersion, oldestApiContractVersion, authContractVersion, terminalConnectionProtocolVersion and oldestTerminalConnectionProtocolVersion",
+    "client": "a client below a range shows that Kodosi must be updated; a client above a range shows that the server must be updated",
+    "change": "a change raises the current version; a change that older clients cannot use also raises the oldest version, and after the first public release only 60 days after the release with the new version"
+  },
   "authentication": "OIDC bearer identity and a device session",
   "deviceSession": {
     "open": "the device signs kodosi-device-session-v1, the length-prefixed account id, device id and challenge id, and the 32-byte challenge; the server answers with a session secret",

@@ -29,7 +29,7 @@ glibc 2.39 or later.
 
 ## Windows
 
-Kodosi for Windows runs on Windows 11, x64 or ARM64, with the pinned ConPTY host. Run the
+Kodosi for Windows runs on Windows 11 24H2 or later, x64 or ARM64, with the pinned ConPTY host. Run the
 recipes in Git Bash with Visual Studio 2022 or later (Desktop development with C++, C++
 Clang Compiler for Windows, and the ARM64 build tools on ARM64), Rust through `rustup`,
 `just`, `uv` (`uv python install 3.12 --default` for `python3`), and
@@ -41,7 +41,7 @@ just windows-check
 
 `just windows-run` here builds and starts the app; notifications need the installed
 package. `just windows-package` makes `build/release/kodosi-<version>-windows-<arch>.msix`,
-with the version from [CMakeLists.txt](CMakeLists.txt). Install it unsigned from an
+with the version from [VERSION](../../VERSION). Install it unsigned from an
 administrator PowerShell:
 
 ```powershell
@@ -49,7 +49,10 @@ Add-AppxPackage -Path build\release\kodosi-<version>-windows-x64.msix -AllowUnsi
 ```
 
 The package adds `kodosi` to the PATH, opens `kodosi://` links, and keeps data in
-`%USERPROFILE%\.kodosi`. If `terminal/ghostty/Vendor/GhosttyVt/windows-<arch>` is
+`%USERPROFILE%\.kodosi`. For a release, `just windows-bundle` puts both packages in
+`build/release/Kodosi-<version>.msixbundle`. The package embeds
+[Kodosi.appinstaller](packaging/windows/Kodosi.appinstaller.in): Windows checks for an
+update when Kodosi starts and every 8 hours, and installs it when Kodosi is not in use. If `terminal/ghostty/Vendor/GhosttyVt/windows-<arch>` is
 missing, build it with `terminal/ghostty/scripts/build.sh` and commit it with the digest
 line it prints for [Ghostty.lock](../../Ghostty.lock).
 

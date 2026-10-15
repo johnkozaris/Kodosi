@@ -18,7 +18,7 @@ mod terminal;
 #[derive(Parser)]
 #[command(
     name = "kodosi",
-    version,
+    version = env!("KODOSI_VERSION"),
     about = "Real terminals on your machines, shared with trusted people."
 )]
 struct Arguments {
@@ -1238,7 +1238,7 @@ mod tests {
     #[test]
     fn app_executables_recognise_cli_invocations() {
         let args = |list: &[&str]| list.iter().map(OsString::from).collect::<Vec<_>>();
-        let app = "/Applications/KodosiDesktop.app/Contents/MacOS/KodosiDesktop";
+        let app = "/Applications/Kodosi.app/Contents/MacOS/Kodosi";
         assert!(is_invocation(&args(&["/opt/homebrew/bin/kodosi"])));
         assert!(is_invocation(&args(&["kodosi", "statsu"])));
         assert!(is_invocation(&args(&[app, "status"])));

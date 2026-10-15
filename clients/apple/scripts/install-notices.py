@@ -46,7 +46,8 @@ def absent_files(ghostty: Path, slice_name: str) -> set[str]:
 def notice_files(platform: str, ghostty: Path) -> dict[str, Path]:
     artwork = sorted((repository_root() / "clients/apple/Notices").glob("*.txt"))
     if platform == "macosx":
-        files = {source.name: source for source in artwork}
+        mac = sorted((repository_root() / "clients/macos/Notices").glob("*.txt"))
+        files = {source.name: source for source in [*artwork, *mac]}
         files.update({f"GhosttyNativeNotices/{name}": ghostty / name for name in MAC_GHOSTTY_FILES})
         for source in sorted((ghostty / "ThirdPartyNotices").rglob("*")):
             if source.is_file():

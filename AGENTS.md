@@ -20,6 +20,8 @@ Read `PRODUCT.md` first. Before changing a client's interface, read that client'
   Keycloak's form field names and ids.
 - `protocol/`: contracts. `just protocol-gen` writes `desktop-runtime.json`, the
   `kodosi-ffi-c` build writes the C header, and the rest are written by hand.
+- `VERSION`: the one version of all apps and the CLI. Cargo, CMake and the Xcode
+  projects read it.
 - `terminal/ghostty/`: pinned, patched Ghostty, selected by root `Ghostty.lock`. Read
   its `PROVENANCE.md` first; every file in `Patches/ghostty/` is part of the pinned
   digest. Programs in a terminal may not read or write the clipboard.

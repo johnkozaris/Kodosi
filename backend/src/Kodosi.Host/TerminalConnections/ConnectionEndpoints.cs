@@ -12,7 +12,6 @@ namespace Kodosi.TerminalConnections;
 
 internal static class ConnectionEndpoints
 {
-    private const int ProtocolVersion = 22;
     private const int PipeIdBytes = 16;
     private const int MessageBytes = 256 * 1024 + PipeIdBytes;
     private static readonly TimeSpan Idle = TimeSpan.FromSeconds(90);
@@ -47,8 +46,13 @@ internal static class ConnectionEndpoints
             if (helloFrame is null || helloFrame.Value.Type != WebSocketMessageType.Text) throw ApiException.Invalid("Expected device connection hello.");
             using var hello = Wire.Parse(helloFrame.Value.Bytes);
             var root = hello.RootElement;
-            if (root.GetProperty("type").GetString() != "hello" || root.GetProperty("protocolVersion").GetInt32() != ProtocolVersion)
+            if (root.GetProperty("type").GetString() != "hello") throw ApiException.Invalid("Expected device connection hello.");
+            if (root.GetProperty("protocolVersion").GetInt32() is < ContractVersions.OldestTerminalConnection or > ContractVersions.TerminalConnection)
+            {
+                await socket.SendAsync(Wire.Encode(new { type = "refused", reason = "version", oldest = ContractVersions.OldestTerminalConnection, current = ContractVersions.TerminalConnection }),
+                    WebSocketMessageType.Text, true, handshakeDeadline.Token);
                 throw ApiException.Invalid("Unsupported terminal connection protocol.");
+            }
             deviceId = DeviceIdRules.Require(root.GetProperty("deviceId").GetString());
             if (!deviceSessions.Holds(current.Id, deviceId, root.GetProperty("deviceSession").GetString()))
             {

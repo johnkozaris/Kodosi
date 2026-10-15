@@ -26,7 +26,7 @@ private slots:
     }
     void requiresExactDesktopProtocol()
     {
-        for (const auto version : { 56u, 58u }) {
+        for (const auto version : { 57u, 59u }) {
             runtime_fixture::protocolVersion = version;
             kodosi::RuntimeBridge bridge;
             std::optional<kodosi::RuntimeBridge::Result> result;
@@ -36,7 +36,7 @@ private slots:
             QVERIFY(!bridge.isRunning());
             QVERIFY(runtime_fixture::userdata == nullptr);
         }
-        runtime_fixture::protocolVersion = 57;
+        runtime_fixture::protocolVersion = 58;
         kodosi::RuntimeBridge bridge;
         QVERIFY(started(bridge));
         QVERIFY(bridge.isRunning());

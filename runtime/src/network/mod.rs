@@ -52,6 +52,16 @@ pub enum Error {
     Json(#[from] serde_json::Error),
     #[error("{message}")]
     Backend { status: u16, message: String },
+    #[error("This version of Kodosi is too old for the server. Update Kodosi.")]
+    UpdateRequired,
+    #[error("The server uses an older version of Kodosi. Its operator must update it.")]
+    ServerOutdated,
+    #[error("{}", if *.peer_newer {
+        "The other computer has a newer version of Kodosi. Update Kodosi to open this terminal."
+    } else {
+        "The other computer has an older version of Kodosi. Kodosi must be updated there."
+    })]
+    ChannelVersion { peer_newer: bool },
 }
 
 impl From<reqwest::Error> for Error {

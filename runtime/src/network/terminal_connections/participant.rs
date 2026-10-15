@@ -116,10 +116,16 @@ async fn open(
         .map_err(|_| Error::Closed)??
     {
         Some((Frame::Accept(accept), _)) => {
-            if accept.protocol_version != crate::protocol::TERMINAL_CONNECTION_VERSION
-                || accept.session_id != dto.id
-                || accept.incarnation_id != dto.incarnation_id
-                || accept.host_device_id != dto.host_device_id
+            if accept.protocol_version != crate::protocol::CHANNEL_VERSION {
+                return Err(Error::ChannelVersion {
+                    peer_newer: accept.protocol_version > crate::protocol::CHANNEL_VERSION,
+                });
+            }
+            if (
+                accept.session_id,
+                accept.incarnation_id,
+                accept.host_device_id.as_str(),
+            ) != (dto.id, dto.incarnation_id, dto.host_device_id.as_str())
             {
                 return Err(Error::Trust(
                     "The host answered for another terminal.".into(),

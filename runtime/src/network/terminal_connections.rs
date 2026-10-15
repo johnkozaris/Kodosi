@@ -229,6 +229,15 @@ async fn admitted(
     let ready = read_json(&mut socket).await?;
     match wire::text(&ready, "type")? {
         "ready" => Ok(Some(socket)),
+        "refused" if ready.get("reason").and_then(Value::as_str) == Some("version") => {
+            let reported = |name: &str| ready.get(name).and_then(Value::as_u64).unwrap_or_default();
+            super::http::supported(
+                crate::protocol::TERMINAL_CONNECTION_VERSION,
+                reported("oldest"),
+                reported("current"),
+            )?;
+            Err(invalid("The connection service did not admit this device."))
+        }
         "refused" => Ok(None),
         _ => Err(invalid("The connection service did not admit this device.")),
     }

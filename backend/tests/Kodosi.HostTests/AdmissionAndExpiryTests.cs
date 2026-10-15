@@ -165,6 +165,21 @@ public sealed class AdmissionAndExpiryTests(PostgresFixture postgres)
         await Assert.ThrowsAnyAsync<Exception>(() => JsonAsync(ended));
     }
 
+    [Fact]
+    public async Task DeviceConnectionRefusesAProtocolOutsideItsRangeAndReportsTheRange()
+    {
+        await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));
+        using var device = await app.EnrollAsync("older");
+        var client = app.Server.CreateWebSocketClient(); client.ConfigureRequest = request => request.Headers.Authorization = "Bearer " + device.Token;
+        using var socket = await client.ConnectAsync(new Uri("ws://localhost/ws/device"), TestContext.Current.CancellationToken);
+        await SendAsync(socket, new { type = "hello", protocolVersion = ContractVersions.OldestTerminalConnection - 1, deviceId = device.Fixture.DeviceId, deviceSession = device.Session });
+        var refused = await JsonAsync(socket);
+        Assert.Equal("refused", refused.GetProperty("type").GetString());
+        Assert.Equal("version", refused.GetProperty("reason").GetString());
+        Assert.Equal(ContractVersions.OldestTerminalConnection, refused.GetProperty("oldest").GetInt32());
+        Assert.Equal(ContractVersions.TerminalConnection, refused.GetProperty("current").GetInt32());
+    }
+
     private sealed class ResponseStall : IStartupFilter
     {
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);

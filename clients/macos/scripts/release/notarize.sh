@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $# -ne 1 ]]; then
-    echo "usage: $0 <KodosiDesktop.app>" >&2
+    echo "usage: $0 <Kodosi.app>" >&2
     exit 64
 fi
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -15,8 +15,8 @@ app=$(cd "$1" && pwd)
 "$ROOT/scripts/release/verify-signed.sh" "$app"
 upload=$(mktemp -d "${TMPDIR:-/tmp}/kodosi-notarize.XXXXXX")
 trap 'rm -rf "$upload"' EXIT
-/usr/bin/ditto -c -k --keepParent "$app" "$upload/KodosiDesktop.zip"
-xcrun notarytool submit "$upload/KodosiDesktop.zip" \
+/usr/bin/ditto -c -k --keepParent "$app" "$upload/Kodosi.zip"
+xcrun notarytool submit "$upload/Kodosi.zip" \
     --keychain-profile "$KODOSI_NOTARY_PROFILE" \
     --wait
 xcrun stapler staple "$app"

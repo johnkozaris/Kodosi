@@ -27,6 +27,11 @@
 #include <QWindow>
 #include <memory>
 #include <optional>
+#ifdef Q_OS_LINUX
+#include <QFile>
+#include <QFileSystemWatcher>
+#include <sys/stat.h>
+#endif
 
 namespace {
 
@@ -203,6 +208,20 @@ int main(int argc, char* argv[])
             if (workspace.sessionActions().activate(id))
                 raise(token);
         });
+#ifdef Q_OS_LINUX
+    // apt, pacman and a new archive put a new file in place of the running program.
+    // The old version runs until the person opens Kodosi again.
+    const auto program = QFile::encodeName(QCoreApplication::applicationFilePath());
+    struct stat running {};
+    ::stat(program.constData(), &running);
+    QFileSystemWatcher update { QStringList { QCoreApplication::applicationFilePath() } };
+    QObject::connect(&update, &QFileSystemWatcher::fileChanged, &workspace, [&workspace, program, running] {
+        struct stat installed {};
+        if (::stat(program.constData(), &installed) != 0 || installed.st_ino != running.st_ino)
+            workspace.setError(kodosi::Workspace::tr(
+                "Kodosi was updated. Quit Kodosi and open it again to use the new version."));
+    });
+#endif
     open(launch);
     activations.setHandler(open);
     QObject::connect(&app, &QCoreApplication::aboutToQuit, &lifecycle, [&] { lifecycle.stop(); });

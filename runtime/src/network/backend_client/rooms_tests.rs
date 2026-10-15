@@ -288,10 +288,7 @@ impl FakeRoom {
         let (method, target) = line.split_once(' ').unwrap();
         let (path, query) = target.split_once('?').unwrap_or((target, ""));
         match path {
-            "/health/ready" => {
-                return json!({"apiContractVersion": crate::protocol::BACKEND_API_VERSION,
-                    "authContractVersion": crate::protocol::AUTH_VERSION});
-            }
+            "/health/ready" => return crate::network::http::current_versions(),
             "/api/me/devices/challenge" => {
                 return json!({"challengeId": Uuid::now_v7(), "challengeBytes": BASE64.encode([7; 32])});
             }
