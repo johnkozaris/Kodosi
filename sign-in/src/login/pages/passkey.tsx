@@ -10,7 +10,6 @@ import { IconTile } from "../../parts/tile";
 import { Stage } from "../stage";
 import type { Page } from "./props";
 
-/** Keycloak's passkey scripts find their button by this name. */
 const BUTTON = "authenticateWebAuthnButton";
 
 function Answer({ action, known }: { action: string; known?: string[] | undefined }) {
@@ -35,8 +34,6 @@ function Answer({ action, known }: { action: string; known?: string[] | undefine
   );
 }
 
-/** The tile of a passkey. While the computer asks the person, the copper dot of the app breathes
-    on it: the page waits for them. */
 function PasskeyTile({ asks }: { asks: boolean }) {
   return (
     <span className="relative">
@@ -48,7 +45,6 @@ function PasskeyTile({ asks }: { asks: boolean }) {
   );
 }
 
-/** The person signs in with the passkey of their computer. */
 export function Passkey({ kcContext, i18n }: Page<"webauthn-authenticate.ftl">) {
   const { url, authenticators } = kcContext;
   const { msgStr } = i18n;
@@ -77,7 +73,6 @@ export function Passkey({ kcContext, i18n }: Page<"webauthn-authenticate.ftl">) 
   );
 }
 
-/** The name first, with the passkey as the short way. */
 export function PasskeyAtName({
   kcContext,
   i18n,
@@ -125,7 +120,6 @@ export function PasskeyAtName({
   );
 }
 
-/** The computer that the person uses now: the first name of a new passkey. */
 function computerName(): string {
   const agent = navigator.userAgent;
   for (const name of ["iPhone", "iPad", "Android", "Mac", "Windows", "Linux"])
@@ -133,7 +127,6 @@ function computerName(): string {
   return "";
 }
 
-/** A new passkey for this computer. */
 export function NewPasskey({ kcContext, i18n }: Page<"webauthn-register.ftl">) {
   const { url, isSetRetry, isAppInitiatedAction } = kcContext;
   const { msgStr } = i18n;
@@ -141,9 +134,7 @@ export function NewPasskey({ kcContext, i18n }: Page<"webauthn-register.ftl">) {
   const name = useRef<HTMLInputElement>(null);
   useNewPasskey({ authButtonId: BUTTON, kcContext, i18n });
   useEffect(() => {
-    // Keycloak's script asks for the name of the passkey in a box of the browser
-    // (webauthnRegister.js calls window.prompt). The page has a row for the name, and the row
-    // answers in place of the box.
+    // Keycloak's webauthnRegister.js asks for the passkey name with window.prompt: the row answers.
     const box = window.prompt;
     window.prompt = (_question, first) => name.current?.value.trim() || first || "";
     return () => {
@@ -182,7 +173,6 @@ export function NewPasskey({ kcContext, i18n }: Page<"webauthn-register.ftl">) {
           defaultValue={computerName()}
           autoComplete="off"
           maxLength={64}
-          // Enter in the one field of a form sends the form. Here it starts the passkey.
           onKeyDown={(event) => {
             if (event.key !== "Enter") return;
             event.preventDefault();
@@ -210,7 +200,6 @@ export function NewPasskey({ kcContext, i18n }: Page<"webauthn-register.ftl">) {
   );
 }
 
-/** The computer did not give its passkey: the person tries again, or takes a different way. */
 export function PasskeyFailed({ kcContext, i18n }: Page<"webauthn-error.ftl">) {
   const { url, isAppInitiatedAction, execution } = kcContext;
   const { msgStr } = i18n;

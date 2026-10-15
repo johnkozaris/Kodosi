@@ -1,15 +1,4 @@
-<#--
-  The frame of each e-mail: the ground and one card, as the sign-in pages, with the Kodosi wordmark
-  at the head of the card. A mail program shows it with tables and with styles on each element.
-  The picture has the colour of the card behind it, so it stays whole in a mail program that turns
-  an e-mail dark. Outlook does not know a largest width or the padding of a link, so the card and
-  the action have a second form in comments that only Outlook reads.
-
-  `emailLayout` takes what is between its tags: Keycloak's own e-mails use it that way, so an
-  e-mail that has no file here still gets this frame. `message` is an e-mail of Kodosi: what it
-  is, one sentence, one action, and a small note. `when` is a time that the sentence holds: a
-  line does not break inside it.
--->
+<#-- Keycloak's own e-mails without a file here call emailLayout too. -->
 <#macro emailLayout>
 <!doctype html>
 <html lang="${locale.language}" dir="${(ltr)?then('ltr','rtl')}">

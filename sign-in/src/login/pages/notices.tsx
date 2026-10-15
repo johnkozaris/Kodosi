@@ -20,11 +20,6 @@ import { isMessage as says } from "../i18n";
 import { Stage } from "../stage";
 import type { Page } from "./props";
 
-/**
- * The end of the sign-in of the Kodosi app, and the end of the journey in the browser. The
- * wordmark has the size of the banner, and the words are the app's own: it says "You are in" at
- * the same moment.
- */
 function Connected({ kcContext, i18n }: Page<"info.ftl">) {
   const { msgStr } = i18n;
   useEffect(dropCode, []);
@@ -47,10 +42,6 @@ function Connected({ kcContext, i18n }: Page<"info.ftl">) {
   );
 }
 
-/**
- * The end of an account. Keycloak deleted it and ended the session, so no link of the page goes
- * anywhere now: the page says it calmly, and the cursor of the mark is an outline.
- */
 function Deleted({ kcContext, i18n }: Page<"info.ftl">) {
   const { msgStr } = i18n;
   useEffect(dropCode, []);
@@ -67,11 +58,6 @@ function Deleted({ kcContext, i18n }: Page<"info.ftl">) {
   );
 }
 
-/**
- * The person said that the code was not the same, so the app was not connected. Nothing is wrong:
- * the page is calm, and it says how to try again. Keycloak shows it as an info page or as an
- * error page, with no program to go back to.
- */
 function Denied({ kcContext, i18n }: Page<"info.ftl" | "error.ftl">) {
   const { msgStr } = i18n;
   useEffect(dropCode, []);
@@ -87,11 +73,9 @@ function Denied({ kcContext, i18n }: Page<"info.ftl" | "error.ftl">) {
   );
 }
 
-/** Keycloak tells the person something, and the capsule holds the way on. */
 export function Info({ kcContext, i18n }: Page<"info.ftl">) {
   const { messageHeader, message, requiredActions, skipLink, pageRedirectUri, actionUri } =
     kcContext;
-  // Keycloak names no program on a page whose sign-in has ended.
   const client = kcContext.client as typeof kcContext.client | undefined;
   const { msgStr, advancedMsgStr } = i18n;
   if (says(i18n, messageHeader, "oauth2DeviceVerificationCompleteHeader"))
@@ -114,7 +98,6 @@ export function Info({ kcContext, i18n }: Page<"info.ftl">) {
           ? { href: client.baseUrl, label: msgStr("kdsBackTo", program) }
           : undefined;
   const said = plain(messageHeader ? advancedMsgStr(messageHeader) : message.summary).trim();
-  // A short sentence is the line of the page. A long one goes under a line of few words.
   const short = said.length <= 34;
   const title = short ? said.replace(/\.$/, "") : msgStr(on ? "kdsOneMoreStep" : "kdsNoteTitle");
   const more = messageHeader ? plain(message.summary) : steps;
@@ -174,7 +157,6 @@ export function Failure({ kcContext, i18n }: Page<"error.ftl">) {
   );
 }
 
-/** The sign-in waited too long. The person starts again, or goes on where they were. */
 export function Expired({ kcContext, i18n }: Page<"login-page-expired.ftl">) {
   const { url } = kcContext;
   const { msgStr } = i18n;
@@ -198,7 +180,6 @@ export function Expired({ kcContext, i18n }: Page<"login-page-expired.ftl">) {
 
 export function SignOut({ kcContext, i18n }: Page<"logout-confirm.ftl">) {
   const { url, logoutConfirm } = kcContext;
-  // A sign-out that no program asked for has no program to go back to.
   const client = kcContext.client as typeof kcContext.client | undefined;
   const { msgStr, advancedMsgStr } = i18n;
   return (
@@ -229,7 +210,6 @@ export function SignOut({ kcContext, i18n }: Page<"logout-confirm.ftl">) {
   );
 }
 
-/** The person takes away one of their ways of sign-in. */
 export function RemoveWay({ kcContext, i18n }: Page<"delete-credential.ftl">) {
   const { url, credentialLabel } = kcContext;
   const { msgStr } = i18n;
@@ -259,12 +239,6 @@ export function RemoveWay({ kcContext, i18n }: Page<"delete-credential.ftl">) {
   );
 }
 
-/**
- * The person deletes their account. Four short lines say what goes and what stays, one line says
- * that it is for good, and one red button does it. The way back is the quiet one under the
- * capsule. No button has the focus from the start: a key that the person pressed for a
- * different reason must not delete an account.
- */
 export function DeleteAccount({ kcContext, i18n }: Page<"delete-account-confirm.ftl">) {
   const { url, triggered_from_aia } = kcContext;
   const { msgStr } = i18n;
@@ -306,6 +280,7 @@ export function DeleteAccount({ kcContext, i18n }: Page<"delete-account-confirm.
         ))}
       </ul>
       <form id={form} action={url.loginAction} method="post" className={cn(rule, "p-3")}>
+        {/* No autofocus: a stray key must not delete an account. */}
         <button
           type="submit"
           id="kc-delete"

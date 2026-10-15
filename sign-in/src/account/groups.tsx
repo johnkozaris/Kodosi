@@ -39,10 +39,8 @@ import {
 } from "./service";
 import type { WordKey, Words } from "./words";
 
-/** A change to a list of the page, from the list as it is at that moment. */
 type Change<T> = (change: (now: T[]) => T[]) => void;
 
-/** A group of the page: its name, and one capsule with its rows. */
 function Group({
   title,
   heading,
@@ -56,19 +54,13 @@ function Group({
   children,
 }: {
   title: string;
-  /** The name of the group takes the focus when the row that had it goes away. */
   heading?: Ref<HTMLHeadingElement>;
   shell?: Ref<HTMLDivElement> | undefined;
-  /** The capsule that carries on from the sign-in pages. */
   first?: boolean;
   busy?: boolean;
-  /** Its place among the groups that come after the first: each comes a moment later. */
   order?: number;
-  /** What went wrong with the last change, in one line. */
   note?: string | null | undefined;
-  /** The id of that line, when a field of the group names it. */
   noteId?: string;
-  /** Under the capsule: a quiet action for the whole group. */
   under?: ReactNode;
   children: ReactNode;
 }) {
@@ -91,7 +83,6 @@ function Group({
       <Shell ref={shell} carries={!!first} grows busy={!!busy}>
         {children}
       </Shell>
-      {/* The box is there from the start, so a screen reader says a line that comes into it. */}
       <div aria-live="polite">
         {note && <Note tone="danger" text={note} id={noteId ?? `${id}-note`} />}
       </div>
@@ -100,10 +91,6 @@ function Group({
   );
 }
 
-/**
- * One change of a group: the group is busy while Keycloak answers, and one line says a change
- * that did not work.
- */
 function useChange(words: Words) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -122,7 +109,6 @@ function useChange(words: Words) {
   return { busy, note, run };
 }
 
-/** The rows of a capsule before Keycloak answered: their places, with nothing in them. */
 function Waiting() {
   return (
     <div aria-hidden>
@@ -139,7 +125,6 @@ function Waiting() {
   );
 }
 
-/** How a way of sign-in shows: its tile, its name, and the words of the row that adds one. */
 const LOOKS: Record<
   string,
   {
@@ -148,7 +133,6 @@ const LOOKS: Record<
     name: WordKey;
     add?: WordKey;
     hint?: WordKey;
-    /** The words of the action that makes a new one in place of the one that the person has. */
     again?: WordKey;
     many: boolean;
   }
@@ -194,10 +178,6 @@ const LOOKS: Record<
 };
 const ORDER = Object.keys(LOOKS);
 
-/**
- * The ways of sign-in that the realm offers, with what the person has of each. Each change is a
- * step of the sign-in pages: Keycloak asks for the person's proof there.
- */
 export function SignIn({
   words,
   ways,
@@ -207,10 +187,8 @@ export function SignIn({
   note,
 }: {
   words: Words;
-  /** Null while Keycloak has not answered. */
   ways: Way[] | null;
   act: (action: string) => void;
-  /** The page goes to a step of the sign-in pages. */
   leaving: boolean;
   shell: Ref<HTMLDivElement>;
   note?: string | null;
@@ -234,9 +212,7 @@ export function SignIn({
           : one.created
             ? say(way.type === "password" ? "changed" : "added", day(one.created))
             : undefined;
-      // The words that add one are for a row that can add it.
       const title = !one && step && look.add ? say(look.add) : name;
-      // A thing that the person can remove has its actions at the end of the row.
       if (one && way.removable) {
         rows.push(
           <ItemRow
@@ -278,7 +254,6 @@ export function SignIn({
       continue;
     }
     for (const held of way.held) {
-      // A thing with its own name says its kind in the small line.
       const added = held.created ? say("added", day(held.created)) : "";
       rows.push(
         <ItemRow
@@ -305,7 +280,6 @@ export function SignIn({
         <ActionRow
           key={`${way.type}-add`}
           type="button"
-          // The tile of the kind is on what the person has. One more of it is a slot to fill.
           tile={
             way.held.length ? (
               <span
@@ -325,7 +299,6 @@ export function SignIn({
       );
     }
   }
-  // A realm with ways of sign-in that the page does not know has no such group.
   if (ways !== null && !rows.length) return null;
   return (
     <Group title={say("signIn")} shell={shell} first busy={ways === null || leaving} note={note}>
@@ -334,7 +307,6 @@ export function SignIn({
   );
 }
 
-/** The mark of a sign-in service, in a well: the mark keeps its own colours. */
 function BrandTile({ alias, providerId }: { alias: string; providerId?: string | undefined }) {
   return (
     <span
@@ -346,7 +318,6 @@ function BrandTile({ alias, providerId }: { alias: string; providerId?: string |
   );
 }
 
-/** The sign-in services of other companies that the realm lets a person join to the account. */
 export function LinkedAccounts({
   words,
   service,
@@ -358,7 +329,6 @@ export function LinkedAccounts({
   words: Words;
   service: AccountService;
   linked: Linked[];
-  /** A link is a step of the sign-in pages: the other service asks who the person is there. */
   act: (action: string) => void;
   onChange: Change<Linked>;
   order: number;
@@ -386,7 +356,6 @@ export function LinkedAccounts({
           key={one.alias}
           tile={<BrandTile alias={one.alias} providerId={one.providerId} />}
           title={one.name}
-          // The person's name at that service, on one line.
           detail={
             one.connected && one.as ? <span className="block truncate">{one.as}</span> : undefined
           }
@@ -406,18 +375,12 @@ export function LinkedAccounts({
 }
 
 function browserName({ say }: Words, session: Session): string {
-  // Keycloak has the names that the makers gave. A person knows a Mac as macOS, and the Safari
-  // of a phone as Safari.
   const os = session.os.replace(/^Mac OS X$/i, "macOS");
   const browser = session.browser.replace(/^Mobile | Mobile$/g, "");
   if (browser && os) return say("browserOn", browser, os);
   return browser || os || say("browserUnknown");
 }
 
-/**
- * Where the person is signed in: each browser, with the programs that they signed in to from it.
- * A browser that is not theirs gets a sign-out from here.
- */
 export function SignedIn({
   words,
   service,
@@ -440,7 +403,6 @@ export function SignedIn({
     run(async () => {
       await work();
       onChange((now) => now.filter(keep));
-      // The row that had the focus is gone.
       heading.current?.focus();
     });
 
@@ -510,11 +472,6 @@ export function SignedIn({
   );
 }
 
-/**
- * The programs that the person let use the account: the Kodosi app, for example, which stays
- * signed in on each computer. The person can take that back, and each computer then asks for a
- * new sign-in.
- */
 export function Apps({
   words,
   service,
@@ -527,14 +484,12 @@ export function Apps({
   service: AccountService;
   programs: Program[];
   onChange: Change<Program>;
-  /** What takes the focus when the last program goes, and the group with it. */
   home: RefObject<HTMLElement | null>;
   order: number;
 }) {
   const { say } = words;
   const heading = useRef<HTMLHeadingElement>(null);
   const { busy, note, run } = useChange(words);
-  // The Kodosi app stays signed in on each computer of the person: its sign-out asks once more.
   const [armed, setArmed] = useState<string | null>(null);
   if (!programs.length && !note) return null;
 
@@ -578,13 +533,11 @@ export function Apps({
   );
 }
 
-/** What Keycloak refused: the rows that it names, and its sentence. */
 interface Refusal {
   fields: string[];
   text: string;
 }
 
-/** One detail that the person can change. The row saves when the person leaves it. */
 function DetailRow({
   words,
   field,
@@ -599,15 +552,10 @@ function DetailRow({
 }: {
   words: Words;
   field: Field;
-  /** What the row shows: what the person typed, or what Keycloak has. */
   value: string;
-  /** Keycloak took the value a moment ago. */
   saved: boolean;
-  /** Keycloak refused the details because of this row. */
   refused: boolean;
-  /** The person typed a value here that Keycloak does not have, because it refused the details. */
   unsaved: boolean;
-  /** The id of the line that says what Keycloak refused. */
   noteId: string;
   onChange: (value: string) => void;
   onLeave: () => void;
@@ -653,19 +601,16 @@ function DetailRow({
           autoCapitalize={field.name === "username" || field.name === "email" ? "none" : undefined}
           spellCheck={false}
           onChange={(event) => onChange(event.target.value)}
-          // A window that loses the focus takes it from the field too. The person did not leave
-          // the row then, so half of a value is not saved.
           onBlur={() => {
+            // A window that loses focus blurs the field too; that is no leave of the row.
             if (document.hasFocus()) onLeave();
           }}
           onKeyDown={(event) => {
-            // A key that ends a word of an input method is not a key for the row. Safari tells it
-            // with the key code 229 only.
+            // Safari marks the key that ends an IME composition only with keyCode 229.
             if (event.nativeEvent.isComposing || event.keyCode === 229) return;
             if (event.key === "Enter") event.currentTarget.blur();
             if (event.key === "Escape") onCancel();
           }}
-          // The field that has the typing is a well with the copper line about it.
           className="h-9 w-full min-w-0 rounded-md bg-transparent px-2.5 text-right font-mono text-[14px] text-ink-muted outline-none transition-[background-color,box-shadow,color] duration-200 hover:bg-well/60 focus:bg-well focus:text-left focus:text-ink focus:shadow-[var(--e-well),0_0_0_2px_color-mix(in_srgb,var(--accent)_55%,transparent)] sm:max-w-[290px] pointer-coarse:h-11 pointer-coarse:text-[16px]"
         />
       </div>
@@ -673,7 +618,6 @@ function DetailRow({
   );
 }
 
-/** The details of the person that the realm lets them change. */
 export function Details({
   words,
   service,
@@ -687,16 +631,12 @@ export function Details({
   service: AccountService;
   person: Person;
   act: (action: string) => void;
-  /** Keycloak refused a change from a different part of the page because of a detail. */
   blocked: Refused | null;
   onSaved: (values: Record<string, string>) => void;
   order: number;
 }) {
-  // What the person typed in a row and Keycloak does not have yet.
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  // What Keycloak refused at the last save from here. One line under the capsule says it.
   const [refusal, setRefusal] = useState<Refusal | null>(null);
-  // The rows that say "Saved" for a moment.
   const [saved, setSaved] = useState<string[]>([]);
   const flash = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(flash.current), []);
@@ -706,7 +646,6 @@ export function Details({
   const email = person.emailStep && !open.some((field) => field.name === "email");
   if (!open.length && !email) return null;
 
-  /** The rows with a typed value that Keycloak does not have. */
   const changed = (typed: Record<string, string>) =>
     Object.fromEntries(
       open.flatMap((field) => {
@@ -715,7 +654,6 @@ export function Details({
       }),
     );
   const waiting = changed(drafts);
-  /** The rows of this group that Keycloak names. */
   const named = (error: Refused) =>
     error.fields.filter((name) => open.some((field) => field.name === name));
   const sentence = (error: Refused) =>
@@ -731,8 +669,7 @@ export function Details({
       return;
     }
     try {
-      // Keycloak checks all details at each save, so each row with a new value goes together:
-      // two rows that it needs can not go one after the other.
+      // Keycloak validates every detail at each save, so the changed rows go together.
       await service.save(waiting);
     } catch (error) {
       const refused = error instanceof Refused ? error : null;
@@ -744,7 +681,6 @@ export function Details({
       return;
     }
     onSaved(waiting);
-    // A row keeps what the person typed while the save was on its way.
     setDrafts((now) =>
       Object.fromEntries(
         Object.entries(now).filter(([name, typed]) => typed.trim() !== waiting[name]),
@@ -775,7 +711,6 @@ export function Details({
               const { [field.name]: _, ...others } = now;
               return others;
             });
-            // The line about this row goes with what the person typed in it.
             setRefusal((now) => (now?.fields.every((name) => name === field.name) ? null : now));
           }}
         />

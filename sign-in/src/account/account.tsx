@@ -28,10 +28,8 @@ interface Facts {
   programs: Program[];
 }
 
-/** Null while Keycloak has not answered. */
 type State = { service: AccountService; facts: Facts } | "unreachable" | null;
 
-/** Asks Keycloak for each fact of the page, and tells what came. */
 function ask(open: () => Promise<AccountService>, tell: (state: State) => void) {
   void gather(open).then(tell, () => tell("unreachable"));
 }
@@ -52,19 +50,11 @@ function detail(person: Person, name: string): string {
   return person.fields.find((field) => field.name === name)?.value.trim() ?? "";
 }
 
-/**
- * The account of a person: how they sign in, where they are signed in, and their details. It is
- * one page in place of Keycloak's account console. It has the frame of the sign-in pages, because
- * each change here is a step of those pages: the mark keeps its place, and the first capsule
- * carries on from the step and back to it. The head is the person as their friends see them:
- * their circle, their name and their username.
- */
 export function Account({
   kcContext,
   open,
 }: {
   kcContext: KcContext;
-  /** Gives Keycloak's account service, with the person signed in. */
   open: () => Promise<AccountService>;
 }) {
   const words = useMemo(() => wordsOf(kcContext), [kcContext]);
@@ -72,9 +62,7 @@ export function Account({
   const first = useRef<HTMLDivElement>(null);
   const title = useRef<HTMLHeadingElement>(null);
   const [state, setState] = useState<State>(null);
-  // The page goes to a step of the sign-in pages: the first capsule holds what it has.
   const [leaving, setLeaving] = useState(false);
-  // Keycloak refused a change of the language because of a detail: the details say which.
   const [blocked, setBlocked] = useState<Refused | null>(null);
   const cursor = useCursor({ busy: state === null || leaving });
 
@@ -94,7 +82,6 @@ export function Account({
 
   useLayoutEffect(() => {
     const leavePage = () => handOver(first.current, cursor.current?.box() ?? null, "");
-    // A page that the browser kept and shows again has old facts and an old session.
     const back = (event: PageTransitionEvent) => {
       if (event.persisted) location.reload();
     };
@@ -109,20 +96,16 @@ export function Account({
   const loaded = state !== null && state !== "unreachable" ? state : null;
   const came = loaded?.service.came ?? null;
 
-  // A page with no capsule takes away what index.html drew of the page before.
   useLayoutEffect(() => {
     if (state === "unreachable") dropDrawn();
   }, [state]);
 
   useEffect(() => {
     if (!leaving) return;
-    // A step that the browser never opens gives the page back, after the time that the sign-in
-    // pages wait.
     const timer = window.setTimeout(() => setLeaving(false), 20_000);
     return () => clearTimeout(timer);
   }, [leaving]);
 
-  /** Changes one fact of the page, from what the page has at that moment. */
   const change = <Name extends keyof Facts>(name: Name, to: (now: Facts[Name]) => Facts[Name]) =>
     setState((now) =>
       now && now !== "unreachable"
@@ -131,7 +114,6 @@ export function Account({
     );
 
   const act = (action: string) => {
-    // A key that the person holds presses a row many times: the page leaves one time.
     if (!loaded || leaving) return;
     setLeaving(true);
     loaded.service.act(action);
@@ -141,13 +123,11 @@ export function Account({
   const fullName = person
     ? [detail(person, "firstName"), detail(person, "lastName")].filter(Boolean).join(" ")
     : "";
-  // A realm where the email is the name of the sign-in has no username of its own.
   const handle =
     person && !kcContext.realm.registrationEmailAsUsername && person.username !== person.email
       ? person.username
       : "";
   const name = fullName || (handle ? `@${handle}` : (person?.email ?? ""));
-  // The chooser is there when the page can keep the language that a person chooses.
   const languages =
     loaded && kcContext.realm.isInternationalizationEnabled
       ? Object.keys(kcContext.supportedLocales ?? {})
@@ -161,7 +141,6 @@ export function Account({
           !carried() && "rise",
         )}
       >
-        {/* The room of the mark, which index.html draws. */}
         <div aria-hidden className="h-[calc(var(--logo-size)*1.5)]" />
         {state === "unreachable" ? (
           <>
@@ -184,7 +163,6 @@ export function Account({
           </>
         ) : (
           <>
-            {/* The head keeps its room while Keycloak answers, so nothing moves when it comes. */}
             <div
               className={cn(
                 "mt-8 flex w-full flex-col items-center text-center",
@@ -271,8 +249,6 @@ export function Account({
                       {say("signOut")}
                     </button>
                   </div>
-                  {/* The end of the page, apart from the rest: Keycloak's own step asks again and
-                      says what goes. */}
                   {kcContext.deleteAccountAllowed && (
                     <div className="rise mt-10 flex justify-center [animation-delay:280ms]">
                       <button
@@ -297,8 +273,6 @@ export function Account({
           languages={languages.map((tag) => ({ tag, label: words.languageName(tag) }))}
           onChoose={(tag) =>
             loaded?.service.setLanguage(tag).catch((error: unknown) => {
-              // Keycloak keeps the language with the details. When a detail stops it, the
-              // details say which one.
               if (error instanceof Refused) setBlocked(error);
               throw error;
             })

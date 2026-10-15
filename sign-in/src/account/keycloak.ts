@@ -15,7 +15,6 @@ import {
   type Way,
 } from "./service";
 
-/** What Keycloak's account service sends: only what the page reads. */
 interface RawPerson {
   username?: string;
   email?: string;
@@ -74,10 +73,8 @@ interface RawRefusal {
   errors?: RawRefusal[];
 }
 
-/** The details that Keycloak keeps beside the others, not among the person's attributes. */
 const OWN = new Set(["username", "email", "firstName", "lastName"]);
 
-/** Other systems read these names: "Other" and "Unknown" say that Keycloak found none. */
 function known(name: string | undefined): string {
   return !name || /^(other|unknown)$/i.test(name) ? "" : name;
 }
@@ -97,8 +94,7 @@ function refusal(data: RawRefusal | undefined): Refused | null {
   );
 }
 
-// keycloak-js makes a promise with a function that browsers have from 2024 (Safari 17.4). The
-// pages work in older browsers than that, so those get the function here.
+// keycloak-js calls Promise.withResolvers, which Safari has only from 17.4.
 Promise.withResolvers ??= <T>() => {
   let resolve!: PromiseWithResolvers<T>["resolve"];
   let reject!: PromiseWithResolvers<T>["reject"];
@@ -111,12 +107,7 @@ Promise.withResolvers ??= <T>() => {
 
 let opened: Promise<AccountService> | undefined;
 
-/**
- * Signs the page in to Keycloak's account service, with Keycloak's own client for the account
- * pages. A person with no session goes to the sign-in pages first, and comes back here.
- */
 export function openAccount(kcContext: KcContext): Promise<AccountService> {
-  // A sign-in that did not work is not kept: the next call tries again.
   opened ??= open(kcContext).catch((error: unknown) => {
     opened = undefined;
     throw error;
@@ -146,15 +137,12 @@ async function open(kcContext: KcContext): Promise<AccountService> {
   }
 
   const base = `${kcContext.authServerUrl.replace(/\/+$/, "")}/realms/${encodeURIComponent(kcContext.realm.name)}/account`;
-  /** The page leaves for the sign-in pages: nothing more happens on it. */
   const away = <T>() => new Promise<T>(() => {});
 
   async function call<T>(path: string, method = "GET", body?: unknown): Promise<T> {
     try {
       await keycloak.updateToken(5);
     } catch {
-      // With the token still here, the request for a new one did not get through: the page says
-      // so. With no token, Keycloak ended the session, and the person signs in again.
       if (keycloak.token) throw new Unreachable();
       void keycloak.login();
       return away();
@@ -192,15 +180,13 @@ async function open(kcContext: KcContext): Promise<AccountService> {
     return data as T;
   }
 
-  /** A list that the realm can keep from a person: the page then has no such group. */
   const optional = <T>(list: Promise<T[]>): Promise<T[]> =>
     list.catch((error: unknown) => {
       if (error instanceof Unreachable && error.denied) return [];
       throw error;
     });
 
-  // Keycloak takes the whole record. A save reads the record first, so it does not put an old
-  // value over a change from a different tab. It starts when the save before it has ended.
+  // Keycloak replaces the whole record, so each save reads it first and waits for the one before.
   let saved: Promise<unknown> = Promise.resolve();
   const save: AccountService["save"] = (values) => {
     const next = saved
@@ -232,11 +218,8 @@ async function open(kcContext: KcContext): Promise<AccountService> {
           ? String(record[one.name] ?? "")
           : (record.attributes?.[one.name]?.[0] ?? ""),
         required: !!one.required,
-        // A row holds one value, so a detail with more than one value has no row that changes it.
         readOnly: !!one.readOnly || !!one.multivalued,
       }));
-      // Keycloak marks the email when its change is a step that this person can take. It leaves
-      // the mark out where the email is the name of the sign-in and names do not change.
       const emailStep = !!record.userProfileMetadata?.attributes?.find(
         (one) => one.name === "email",
       )?.annotations?.["kc.required.action.supported"];
@@ -256,10 +239,8 @@ async function open(kcContext: KcContext): Promise<AccountService> {
           let codes: { remainingCodes?: unknown; totalCodes?: unknown } = {};
           try {
             codes = JSON.parse(credential.credentialData ?? "{}") ?? {};
-          } catch {
-            // The row shows no count.
-          }
-          // For a person that a different user store holds, Keycloak has no day: it sends -1.
+          } catch {}
+          // Keycloak sends -1 for a credential from a different user store.
           const created = credential.createdDate ?? 0;
           return {
             id: credential.id,
@@ -274,13 +255,11 @@ async function open(kcContext: KcContext): Promise<AccountService> {
 
     async sessions(): Promise<Session[]> {
       const raw = await call<RawDevice[]>("/sessions/devices");
-      // Keycloak can list one sign-in two times, as a session and as its offline twin. It is one
-      // row here, because a sign-out of the one ends the other.
+      // Keycloak can list one sign-in twice: as a session and as its offline twin.
       const sessions = new Map<string, Session>();
       for (const device of raw) {
         for (const session of device.sessions ?? []) {
           const twin = sessions.get(session.id);
-          // The account page itself is no program that a person signed in to.
           const programs = (session.clients ?? [])
             .filter((one) => one.clientId !== kcContext.clientId)
             .map((one) => one.clientName || one.clientId);
@@ -318,7 +297,6 @@ async function open(kcContext: KcContext): Promise<AccountService> {
     async programs(): Promise<Program[]> {
       if (kcContext.isViewApplicationsEnabled === false) return [];
       const raw = await optional(call<RawProgram[]>("/applications"));
-      // A program is here only when the person can take something back from it.
       return raw
         .filter((one) => one.consent || one.offlineAccess)
         .map((one) => ({

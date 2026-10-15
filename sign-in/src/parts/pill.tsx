@@ -3,7 +3,6 @@ import { type ReactNode, useLayoutEffect, useRef } from "react";
 import { play, springSnappy } from "../frame/motion";
 import { cn } from "./cn";
 
-/** The look of one option of a sliding pill. */
 export function option(on: boolean) {
   return cn(
     "relative z-10 inline-flex h-7 items-center justify-center rounded-full px-3 text-footnote font-medium whitespace-nowrap transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-accent pointer-coarse:h-9",
@@ -11,11 +10,6 @@ export function option(on: boolean) {
   );
 }
 
-/**
- * The chooser of the app: a well with a raised thumb that slides to the chosen option. The
- * chosen option has `data-on`. The thumb looks for it each time the options are drawn, and it
- * slides when that option has a different place or width.
- */
 export function Pill({ children, className }: { children: ReactNode; className?: string }) {
   const track = useRef<HTMLDivElement>(null);
   const thumb = useRef<HTMLSpanElement>(null);

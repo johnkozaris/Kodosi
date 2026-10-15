@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 
 import { cn } from "./cn";
 
-// The tints of the app's marks: the copper of an action, the tints of rooms and of programs.
 const TINT = {
   copper: "var(--accent)",
   amber: "#d9a441",
@@ -18,7 +17,6 @@ const TINT = {
 
 export type Tint = keyof typeof TINT;
 
-/** A tile names a kind of thing: a rounded square, lit from the top left. It is no button. */
 export function IconTile({
   tint,
   icon,

@@ -9,12 +9,6 @@ import type { KcContext } from "../login/KcContext";
 import KcPage from "../login/KcPage";
 import { sampleAccount, sampleContext, sampleProperties } from "./account-sample";
 
-/**
- * The development server has no Keycloak. This shows each page with sample data, and a send
- * loads the next scene as a real page, so the capsule and the cursor carry on as they do on
- * Keycloak. `?scene=<name>` selects a page, and `?sheet=0,12` shows twelve pages side by side in
- * the size of a phone.
- */
 const { getKcContextMock } = createGetKcContextMock({
   kcContextExtension: { themeName: themeNames[0], properties: sampleProperties },
   kcContextExtensionPerPage: {
@@ -29,15 +23,10 @@ type Overrides = Record<string, unknown>;
 interface Scene {
   page: KcContext["pageId"];
   with?: Overrides;
-  /** The scene that a send goes to. */
   next?: string;
-  /** The visit has the code of the Kodosi app: the page before this one sent it to Keycloak. */
   code?: boolean;
-  /** The end of the address: the code that the Kodosi app puts after the "#". */
   tail?: string;
-  /** The details that the realm asks of a person, in place of the ones of Keycloakify's sample. */
   attributes?: Record<string, unknown>;
-  /** The scene is the account page: what the sample person has (account-sample.ts). */
   account?: string;
 }
 
@@ -87,8 +76,6 @@ const attribute = (name: string, more: Overrides = {}) => ({
   annotations: {},
   ...more,
 });
-// The details of the realm of Kodosi, in its order: the username has the rule of the realm, and
-// the names are optional.
 const profile = (values: Record<string, string> = {}) => ({
   username: attribute("username", {
     value: values.username,
@@ -123,15 +110,11 @@ const maya = {
   lastName: "Chen",
   email: "maya@kodosi.example",
 };
-// The realm's words for its terms: the two addresses of the hosted service.
 const terms =
   '<a href="https://kodosi.com/terms">Terms</a> · <a href="https://kodosi.com/privacy">Privacy</a>';
-// Cloudflare's keys for a test of Turnstile: one passes, one blocks, one asks the person.
 const PASSES = "1x00000000000000000000AA";
 const BLOCKS = "2x00000000000000000000AB";
 const ASKS = "3x00000000000000000000FF";
-// The values of a Turnstile step on the registration form, and the scripts with which it puts its
-// widget on the reset form (github.com/zymlabs/keycloak-cloudflare-turnstile-provider).
 const turnstile = (key: string) => ({
   turnstileRequired: true,
   turnstileSiteKey: key,
@@ -147,7 +130,6 @@ const injected = (key: string) => ({
 const checkRefused = {
   message: { type: "error", summary: "The check did not pass. Try it again." },
 };
-// A person with one authenticator app has no choice of app on the page.
 const oneApp = { otpLogin: { userOtpCredentials: [] } };
 
 const SCENES: Record<string, Scene> = {
@@ -211,7 +193,6 @@ const SCENES: Record<string, Scene> = {
       client: kodosiApp,
     },
   },
-  // Keycloak 26 shows a denied code as an info page that names no program.
   "denied-info": {
     page: "info.ftl",
     with: {
@@ -236,7 +217,6 @@ const SCENES: Record<string, Scene> = {
     },
   },
 
-  // The realm of Kodosi: the person confirms the email first, and chooses a password after that.
   register: {
     page: "register.ftl",
     with: {
@@ -296,7 +276,6 @@ const SCENES: Record<string, Scene> = {
     attributes: profile(maya),
     next: "inbox",
   },
-  // A realm that asks for the password on the form itself.
   "register-password": {
     page: "register.ftl",
     attributes: profile(maya),
@@ -470,7 +449,6 @@ const SCENES: Record<string, Scene> = {
 
 let sample: Promise<AccountService> | undefined;
 
-/** The sample account of the scene in the address. One page has one of it. */
 function openSample(): Promise<AccountService> {
   const query = new URLSearchParams(location.search);
   const scene = SCENES[query.get("scene") ?? ""];
@@ -481,9 +459,7 @@ function openSample(): Promise<AccountService> {
   return sample;
 }
 
-/** Many scenes in one window, each a page of its own in the size of a phone. */
 function Sheet({ names }: { names: string[] }) {
-  // The frames share one storage: what a frame of the sheet before left is not for these.
   sessionStorage.removeItem("kodosi.carry");
   document.getElementById("carry")?.remove();
   document.getElementById("logo")?.remove();
@@ -512,14 +488,12 @@ export function Gallery() {
   const scene = SCENES[name] ?? (SCENES["sign-in"] as Scene);
   const to = (target: string) =>
     `?scene=${target}${bare ? "&bare=1" : ""}${SCENES[target]?.tail ?? ""}`;
-  // A scene with the code of the app has it as from the page before, and no other scene has it.
   if (scene.code) keepCode(CODE);
   else dropCode();
   const kcContext = getKcContextMock({
     pageId: scene.page,
     overrides: {
       realm: { displayName: "Kodosi" },
-      // The realm of Kodosi has one language, so its pages have no chooser at the foot.
       locale: query.has("languages") ? undefined : { supported: [], currentLanguageTag: "en" },
       ...scene.with,
     } as never,
@@ -529,7 +503,6 @@ export function Gallery() {
 
   useEffect(() => {
     const send = (event: SubmitEvent) => {
-      // A step inside a page keeps its send for itself.
       if (event.defaultPrevented) return;
       event.preventDefault();
       window.setTimeout(() => location.assign(to(scene.next ?? name)), 700);

@@ -12,9 +12,7 @@ import { NewPasskey, Passkey, PasskeyAtName, PasskeyFailed } from "./pages/passk
 import { ResetPassword, UpdatePassword, VerifyEmail } from "./pages/password";
 import { Login, LoginPassword, LoginUsername } from "./pages/sign-in";
 
-// The rare pages keep Keycloak's own form code. It loads when a person meets one of them.
 const Other = lazy(() => import("./pages/other"));
-// The terms are the realm's own text, with its markup: the page brings the code that cleans it.
 const Terms = lazy(() => import("./pages/terms"));
 
 export default function KcPage({ kcContext }: { kcContext: KcContext }) {

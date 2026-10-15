@@ -1,6 +1,5 @@
 import { cn } from "./cn";
 
-/** The letters of a person's circle: the first letters of two names, or the first of one. */
 export function initials(name: string): string {
   return name
     .trim()
@@ -12,10 +11,6 @@ export function initials(name: string): string {
     .toUpperCase();
 }
 
-/**
- * The circle of the person who signs in. A person is a circle in the app, and your own circle is
- * copper. A circle with no letter yet is a slot that the person fills: a dashed line.
- */
 export function Avatar({
   name,
   size = 28,
@@ -38,7 +33,6 @@ export function Avatar({
       )}
       style={{ width: size, height: size, fontSize: size * 0.38 }}
     >
-      {/* The letters come one time for each change, with the small squash of a mark of the app. */}
       {letters && (
         <span key={letters} className="pop leading-none">
           {letters}

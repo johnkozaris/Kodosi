@@ -4,7 +4,6 @@ import { safeHtml } from "../../parts/text";
 import { Stage } from "../stage";
 import type { Page } from "./props";
 
-/** The terms of a realm. The words are the realm's own. */
 export default function Terms({ kcContext, i18n }: Page<"terms.ftl">) {
   const { url } = kcContext;
   const { msgStr } = i18n;
@@ -17,7 +16,6 @@ export default function Terms({ kcContext, i18n }: Page<"terms.ftl">) {
       quiet={kcContext.message?.type === "warning"}
       wide
     >
-      {/* A realm that wrote no terms yet shows the two answers alone. */}
       {text.trim() && (
         <div
           className="prose-terms max-h-[42vh] overflow-y-auto px-5 py-5 text-[14.5px]"

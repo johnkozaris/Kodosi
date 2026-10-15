@@ -17,7 +17,6 @@ import type { I18n } from "../i18n";
 import { Stage } from "../stage";
 import type { Page } from "./props";
 
-/** A way of sign-in, from the name that Keycloak gives its step. */
 function wayOf(i18n: I18n, name: string): { title: string; icon: ReactNode; tint: Tint } {
   const { msgStr, advancedMsgStr } = i18n;
   if (/webauthn|passkey/.test(name))
@@ -31,7 +30,6 @@ function wayOf(i18n: I18n, name: string): { title: string; icon: ReactNode; tint
   return { title: advancedMsgStr(name), icon: <KeyRound />, tint: "graphite" };
 }
 
-/** The person has more than one way to sign in, and chooses. */
 export function Ways({ kcContext, i18n }: Page<"select-authenticator.ftl">) {
   const { url, auth } = kcContext;
   const { msgStr } = i18n;
@@ -55,10 +53,6 @@ export function Ways({ kcContext, i18n }: Page<"select-authenticator.ftl">) {
   );
 }
 
-/**
- * Keycloak's sentence of this page names the detail that an account has already, and its value:
- * the username or the email. The words of the page take them from it.
- */
 function duplicateOf(i18n: I18n, said: string | undefined): { detail: string; value: string } {
   const text = plain(said ?? "");
   for (const detail of ["username", "email"]) {
@@ -71,17 +65,9 @@ function duplicateOf(i18n: I18n, said: string | undefined): { detail: string; va
   return { detail: "email", value: "" };
 }
 
-/**
- * The first sign-in with Google, GitHub or Apple found an account that has the same email, or the
- * same username. With the same email, the person adds the service to that account. With the same
- * username, the name is most likely someone else's: the person picks a different one, or adds the
- * service to the account when it is theirs. Keycloak then asks them to prove it.
- */
 export function LinkAccount({ kcContext, i18n }: Page<"login-idp-link-confirm.ftl">) {
   const { url, idpAlias, message } = kcContext;
   const { msgStr } = i18n;
-  // Keycloak also gives the name that the realm chose for the service. Keycloakify's type of
-  // this page has only the short name.
   const service = (kcContext as { idpDisplayName?: string }).idpDisplayName || idpAlias;
   const { detail, value } = duplicateOf(i18n, message?.summary);
   const taken = detail === "username" && !!value;
@@ -135,10 +121,6 @@ export function LinkAccount({ kcContext, i18n }: Page<"login-idp-link-confirm.ft
   );
 }
 
-/**
- * Keycloak sent a link to the email of the account that the service joins. The page does not
- * know that address, and the person does.
- */
 export function LinkByEmail({ kcContext, i18n }: Page<"login-idp-link-email.ftl">) {
   const { url, idpAlias } = kcContext;
   const { msgStr } = i18n;

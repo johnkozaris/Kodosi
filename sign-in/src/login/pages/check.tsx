@@ -9,10 +9,6 @@ import { isMessage } from "../i18n";
 import { Stage } from "../stage";
 import type { Page } from "./props";
 
-/**
- * The check that a person, not a program, goes on, when the realm gives it a page of its own
- * before a form. For most people it passes by itself, and the page then goes on by itself.
- */
 export function CheckPage({
   kcContext,
   i18n,
