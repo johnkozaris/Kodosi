@@ -51,7 +51,9 @@ terminal. A lost connection does not change sharing.
 
 Terminal traffic and room content are end-to-end encrypted between participants.
 Private keys stay on devices. The backend connects participants and relays encrypted
-content; it does not run commands or read terminal or room plaintext.
+content; it does not run commands or read terminal or room plaintext. It sees
+only the agent of each terminal and the state that its program reports, such as
+working or waiting for an approval.
 
 A recovery key approves a new device when no other device can, and keeps friends and
 rooms. Without it, a person who lost all devices starts fresh with a new identity, and
@@ -82,10 +84,11 @@ progress where work happens and give each failure a clear recovery action.
 - `kodosi room` and its bundled skill let existing agents take part through the
   running host.
 - Terminals show the state their programs report through OSC 7501 or a progress bar:
-  working, waiting for a person, done or failed. Room members see it before they open
-  the terminal; the host encrypts it with the room key. While the app is in the
-  background, the person's own terminals send a notification when they start to wait,
-  finish or fail.
+  working, waiting for a person, done or failed. Everyone who can open a terminal sees
+  it before they open it: the host sends the agent and the state through the backend,
+  without the program's text. Each terminal shows who has it open, the person at its
+  host computer included. While the app is not in front, a terminal that the person
+  owns or has open sends a notification when it starts to wait, finishes or fails.
 - The home starts a new terminal with an agent. The host finds the installed agents
   (Claude Code, Codex, Copilot CLI, Cursor, Gemini CLI and OpenCode), each agent's
   accounts (sign-in folders such as `~/.claude-work`), models and efforts, and the

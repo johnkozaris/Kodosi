@@ -120,11 +120,11 @@ key. Additional data: (`kodosi-room-content-aead-v1`, room, item, kind, version,
 state version, epoch, author, device). The author's device signs the record
 (`kodosi-room-content-v1`).
 
-**Terminal status.** A room terminal's host encrypts the agent and its state, without the
-program's text, with its newest room key. Additional data:
-(`kodosi-terminal-status-aead-v1`, room, terminal, incarnation, key state version,
-epoch). It is unsigned, since any member could make one; the backend accepts it only from
-the host's device connection.
+**Terminal status.** The host sends each terminal's agent and its state (for example
+working, or waiting for an approval) without encryption, so that every device of the
+people who can open the terminal sees it. The program's title and text stay in the
+encrypted terminal connection. The backend accepts a status only from the host's
+device connection.
 
 **Unavailable members.** If the backend cannot give a member's current identity, the
 state keeps the last record. When a member's root changes, others stop wrapping new keys
@@ -140,8 +140,8 @@ for the old devices until the owner trusts the new identity.
 4. A friend added by username relies on the backend for the first identity.
 5. The link code is not a PAKE: the backend can guess it, at about 2^80 work within the
    code's 10 minutes.
-6. The backend can withhold or reorder room items (their order is unsigned) and can
-   withhold or replay an older terminal status.
+6. The backend can withhold or reorder room items (their order is unsigned). It reads
+   each terminal status and can withhold or change it.
 7. Change a room's epoch before 2^32 records under one key.
 8. A key state's time comes from its author; devices only refuse future times.
 9. Recovery key plus account sign-in can approve a device. A device removed before it

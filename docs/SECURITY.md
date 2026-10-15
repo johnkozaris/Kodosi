@@ -28,10 +28,12 @@ terminals, including members invited later. Sharing one terminal shares nothing 
 
 ## What the service sees
 
-Account and device records, room membership, room and terminal metadata, routing
-fields, timing and ciphertext sizes. Encryption does not hide this metadata or prevent
-an outage. A compromised device can read what it could already read; removing it stops
-future access. GitHub and Gitea credentials stay on your computer.
+Account and device records, room membership, room and terminal metadata, each
+terminal's agent and state (such as working or waiting for an approval, never its
+text), routing fields, timing and ciphertext sizes. Encryption does not hide this
+metadata or prevent an outage. A compromised device can read what it could already
+read; removing it stops future access. GitHub and Gitea credentials stay on your
+computer.
 
 Deleting an account removes its devices, recovery data, friends, sharing and owned
 rooms. Messages in other people's rooms stay without an account. For 30 days the service

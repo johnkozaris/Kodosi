@@ -67,7 +67,7 @@ components:
 A warm workbench lit from the top left. A source list rests on the ground, one framed surface holds the work, raised objects rest on it and inputs sink into wells. The copper cursor is the sign of life: it ends the wordmark, marks the slot for a new terminal, and new terminals open from it. Each screen starts with the objects of its job, and text is short.
 
 ## Colors
-Copper `accent` means "act here" or "selected". `glowAmber` flashes behind a fresh change and `glowOrange` is the dot of a terminal that waits for you. Green `ready` means done or verified and is never a person's color. Plain tokens are dark and `-light` tokens their light pair. Use `AppTheme` roles, not literals. Terminals stay dark in both themes (`terminalScope`).
+Copper `accent` means "act here" or "selected". `glowAmber` flashes behind a fresh change and `glowOrange` is a breathing dot for work or for a change out of view. Green `ready` means done or verified and is never a person's color. Plain tokens are dark and `-light` tokens their light pair. Use `AppTheme` roles, not literals. Terminals stay dark in both themes (`terminalScope`).
 
 ## Typography
 Use `AppTextStyle`: `large` for page titles, `title` for sheets, `headline` for object names, `body` for conversation and rows, `footnote` and `caption` for facts, monospace for code and paths. Labels use sentence case. The wordmark is a picture.
@@ -83,15 +83,15 @@ Capsules for tags and pills, rounded rectangles (8, 10 and 12 pt) for buttons, s
 
 ## Components
 - **Button:** a flat face lit from the top left, with a fine light top and left edge and a tight shadow; a dark hairline in the light appearance and a darker bottom-right edge in the dark one. Primary is copper; secondary and tinted are quiet. Hover shifts the face; a press darkens and shrinks it. Ghost buttons are words with a hover fill, and symbol-only buttons are round.
-- **Agent mark:** a squircle in the program's color with its glyph (a shell shows a prompt and the copper cursor), pale when minimized. A ring of cells shows the state: the cursor types round it while the program works, a percent fills it from the top, and every cell lights with a blinking cursor while it waits. Solid colors, no glow; the mark squashes a little at each change.
-- **Status sign:** one sign at the end of a row, card or tab: a copper hand, question or key while waiting (the hand waves once), a self-drawing green check for done and a `caution` triangle for failed until opened, and a breathing copper dot for a bell or an agent that stopped without a report.
+- **Agent mark:** a squircle in the program's color with its glyph (a shell shows a prompt and the copper cursor), pale when minimized. A ring of cells shows only work: the cursor types round it while the program works, and a percent fills it from the top. The status sign shows why the program stopped. Solid colors, no glow; the mark squashes a little at each change.
+- **Status sign:** one sign at the end of a row, card, tab or tile header, and the only sign that a program waits: a copper hand, question or key while waiting (the hand waves once), a self-drawing green check for done and a `caution` triangle for failed until opened, and a breathing copper dot for a bell or an agent that stopped without a report.
 - **Person avatar:** a circle colored from the person's identifier; your own is copper.
 - **Room sigil:** a squircle with four tiles, colored and lit from the room's identifier.
 - **Selection pill:** a raised pill with a copper caret that slides between source list rows.
 - **Sliding pills:** segmented controls and terminal tabs use a sliding raised thumb. The room dock shows icons and names the selected section; a section that changed out of view gets a breathing dot.
 - **Terminal tile:** a rounded tile with a header whose actions stay faint until hover or selection. At the prompt, the start-command marks come first. A new terminal opens from a copper veil, and a person who joins shows as a card for a few seconds.
 - **Launcher:** the terminal about to open, dark in both appearances. Its band has a tab for each kind of terminal (plain terminal first, missing agents behind a plus, a new agent named in copper) and names the computer at its right end. Below, the `[folder] ❯ [account] [···]` keys open shell-style completion lists inside the terminal, and the first prompt has a block cursor and a suggestion that types itself once; Tab or → takes it. Start and Resume sit under the terminal.
-- **Folder header:** a faint label above a folder's terminals; on hover, a plus for a new terminal and, for a Git repository, a branch button that opens a one-field panel.
+- **Folder header:** a faint label above a folder's terminals; closed, it shows the number of its terminals and the sign of a terminal in it that waits; on hover, a plus for a new terminal and, for a Git repository, a branch button that opens a one-field panel.
 - **Conversation:** your messages are bubbles on the right; others show an avatar and a name; agents show their mark, name, owner and terminal. Mentions are tinted chips, a terminal mention opens the terminal, and a message that mentions you has a tinted row.
 - **Composer:** a lifted capsule with a copper halo on focus; "@" lists people and terminals.
 - **Tasks:** cards in "Up for grabs", "In progress" and "Done"; a changed card washes warm once.

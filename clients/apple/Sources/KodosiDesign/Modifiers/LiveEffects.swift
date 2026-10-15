@@ -33,7 +33,6 @@ public struct CellRim: View {
     public enum Mode: Equatable, Sendable {
         case working
         case progress(Double)
-        case waiting
     }
 
     @Environment(\.theme) private var theme
@@ -70,8 +69,6 @@ public struct CellRim: View {
         for index in 0 ..< count {
             let color: Color
             switch mode {
-            case .waiting:
-                color = theme.colors.accent
             case let .progress(fraction):
                 let reach = CGFloat(fraction) * CGFloat(count) - CGFloat(index)
                 color = cells.filling(reach)
@@ -87,8 +84,6 @@ public struct CellRim: View {
             cursor = (wrapped(head, count), reduced || still < 0.24 || Int((still - 0.24) / 0.42) % 2 == 1)
         case let .progress(fraction) where fraction < 1:
             cursor = (min(count - 1, Int(CGFloat(fraction) * CGFloat(count))), reduced || Int(time / 0.53) % 2 == 0)
-        case .waiting:
-            cursor = (0, reduced || Int(time / 0.53) % 2 == 0)
         case .progress:
             cursor = nil
         }

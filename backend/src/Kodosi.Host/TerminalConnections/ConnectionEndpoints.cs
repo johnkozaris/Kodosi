@@ -12,7 +12,7 @@ namespace Kodosi.TerminalConnections;
 
 internal static class ConnectionEndpoints
 {
-    private const int ProtocolVersion = 21;
+    private const int ProtocolVersion = 22;
     private const int PipeIdBytes = 16;
     private const int MessageBytes = 256 * 1024 + PipeIdBytes;
     private static readonly TimeSpan Idle = TimeSpan.FromSeconds(90);
@@ -56,7 +56,7 @@ internal static class ConnectionEndpoints
                 throw new ApiException(428, "A device session is required.");
             }
             await RequireDeviceAsync(scopes, current.Id, deviceId, handshakeDeadline.Token);
-            link = new DeviceLink(socket, current.Id, deviceId);
+            link = new DeviceLink(socket, current.Id, deviceId, directory.Relays);
             link.ExtendUntil(expires);
             directory.Register(link);
             await RequireDeviceAsync(scopes, current.Id, deviceId, handshakeDeadline.Token);

@@ -9,8 +9,10 @@ Shared intent: [PRODUCT.md](../../PRODUCT.md). Visual system: [DESIGN.md](DESIGN
   and then every terminal by computer. Go to (⌘K) finds terminals, rooms, people and
   actions. A terminal is renamed in place.
 - A terminal carries its program's mark, which shows the program's state. A waiting
-  program gets a copper ring and a sign of what it needs, and the sidebar offers the
-  next waiting terminal. Done, failed and a bell keep a sign until you look.
+  program gets a sign of what it needs beside its mark, and a closed folder shows that
+  sign too. Done, failed and a bell keep a sign until you look. Faces show who else has
+  a terminal open, the person at its computer included. While Kodosi is not in front,
+  the terminals that you own or have open send a system notification.
 - The launcher is the terminal about to open: a tab for each agent after the plain
   terminal, then a prompt with the folder, account, model, effort and first prompt.
 - A repository folder in the sidebar offers a terminal on a new branch.

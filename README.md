@@ -60,7 +60,8 @@ can become tasks.
 <p align="center"><img src="docs/media/tasks.webp" width="600" alt="Room tasks up for grabs, in progress and done."></p>
 
 **End-to-end encrypted.** Private keys stay on your devices. The service relays
-encrypted traffic and cannot read your terminals or rooms. [Security](docs/SECURITY.md)
+encrypted traffic and cannot read what your terminals show or your rooms. It sees only
+whether each agent works, waits or is done. [Security](docs/SECURITY.md)
 
 <p align="center"><img src="docs/media/share.webp" width="560" alt="The share panel of a terminal."></p>
 

@@ -14,25 +14,15 @@ struct TerminalsHome: View {
 
     var body: some View {
         let sessions = TerminalCatalog.matching(store.sessions, query: query)
-        let needsYou = TerminalCatalog.needsYou(sessions)
         let groups = TerminalCatalog.groups(sessions)
         List {
-            if !needsYou.isEmpty {
-                Section {
-                    ForEach(needsYou) { session in
-                        needsYouCard(session)
-                    }
-                } header: {
-                    SectionTitle(title: String(localized: "Needs you"), symbol: "hand.raised.fill", count: needsYou.count, tint: theme.colors.accent)
-                }
-            }
             ForEach(groups) { group in
                 Section {
                     ForEach(group.sessions) { session in
                         row(session)
                     }
                 } header: {
-                    SectionTitle(title: group.title, symbol: group.symbol, count: group.sessions.count, tint: nil)
+                    SectionTitle(title: group.title, symbol: group.symbol, count: group.sessions.count)
                 }
             }
         }
@@ -40,7 +30,6 @@ struct TerminalsHome: View {
         .scrollContentBackground(.hidden)
         .background { GroundBackdrop() }
         .overlay { emptyContent(isEmpty: sessions.isEmpty) }
-        .animation(theme.motion.soft, value: needsYou.map(\.id))
         .animation(theme.motion.soft, value: groups.map(\.id))
         .navigationTitle("Terminals")
         .searchable(text: $query, prompt: Text("Search terminals"))
@@ -60,20 +49,6 @@ struct TerminalsHome: View {
 
     private var finished: [String] {
         store.sessions.filter { $0.waitState == .done && store.attention.contains($0.id) }.map(\.id)
-    }
-
-    private func needsYouCard(_ session: RuntimeSession) -> some View {
-        NeedsYouCard(session: session, sign: store.sign(of: session))
-            .background {
-                NavigationLink(value: TerminalRoute(sessionId: session.id)) { EmptyView() }
-                    .opacity(0)
-            }
-            .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
-            .contextMenu { actions(for: session) }
-            .transition(.asymmetric(insertion: .scale(scale: 0.96).combined(with: .opacity), removal: .opacity))
-            .accessibilityIdentifier("terminals.needsYou.\(AccessibilityIdentifier.token(session.id))")
     }
 
     private func row(_ session: RuntimeSession) -> some View {
@@ -136,13 +111,12 @@ private struct SectionTitle: View {
     let title: String
     let symbol: String
     let count: Int
-    let tint: Color?
 
     var body: some View {
         HStack(spacing: 7) {
             Image(systemName: symbol)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(tint ?? theme.colors.inkFaint)
+                .foregroundStyle(theme.colors.inkFaint)
             Text(title)
                 .appTextStyle(.subhead)
                 .foregroundStyle(theme.colors.inkMuted)

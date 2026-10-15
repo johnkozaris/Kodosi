@@ -2,13 +2,10 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-use super::{Result, TerminalControl, invalid};
-use crate::{
-    rooms::crypto::SealedStatus,
-    terminal::{
-        TERMINAL_CHECKPOINT_SCHEMA_VERSION, TERMINAL_INPUT_MAX_BYTES,
-        TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES,
-    },
+use super::{Result, TerminalControl, TerminalStatus, invalid};
+use crate::terminal::{
+    TERMINAL_CHECKPOINT_SCHEMA_VERSION, TERMINAL_INPUT_MAX_BYTES,
+    TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES,
 };
 
 mod frame;
@@ -42,7 +39,7 @@ pub(crate) struct SessionDto {
     pub authorization_revision: u64,
     pub host_online: bool,
     #[serde(default)]
-    pub status: Option<SealedStatus>,
+    pub status: Option<TerminalStatus>,
 }
 
 impl From<SessionDto> for super::RemoteSession {
@@ -59,7 +56,7 @@ impl From<SessionDto> for super::RemoteSession {
             mission_name: dto.mission_name,
             shared_with: dto.shared_with,
             online: dto.host_online,
-            status: None,
+            status: dto.status.filter(TerminalStatus::is_valid),
         }
     }
 }
@@ -197,7 +194,7 @@ pub(crate) struct TerminalNotice {
     pub session: Uuid,
     pub incarnation: Uuid,
     pub online: bool,
-    pub status: Option<SealedStatus>,
+    pub status: Option<TerminalStatus>,
 }
 
 impl TerminalNotice {
@@ -211,7 +208,8 @@ impl TerminalNotice {
                 .ok_or_else(|| invalid("Invalid online."))?,
             status: match value.get("status") {
                 None | Some(Value::Null) => None,
-                Some(status) => Some(serde_json::from_value(status.clone())?),
+                Some(status) => Some(serde_json::from_value::<TerminalStatus>(status.clone())?)
+                    .filter(TerminalStatus::is_valid),
             },
         })
     }

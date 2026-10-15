@@ -186,31 +186,6 @@ impl RoomCache {
             })
             .ok_or_else(|| invalid("Room keys are still arriving."))
     }
-
-    fn reading_key(
-        &self,
-        credentials: &Credentials,
-        room: Uuid,
-        (version, epoch): (u64, u64),
-    ) -> Result<Secret> {
-        self.current(credentials)?;
-        let cached = self
-            .rooms
-            .get(&room)
-            .ok_or_else(|| invalid("Room keys are missing."))?;
-        if cached
-            .states
-            .get(&version)
-            .is_none_or(|state| state.state.epoch != epoch)
-        {
-            return Err(invalid("The data refers to another room key."));
-        }
-        cached
-            .keys
-            .get(&epoch)
-            .cloned()
-            .ok_or_else(|| invalid("Room history keys are still arriving."))
-    }
 }
 
 impl Content {
@@ -959,46 +934,6 @@ impl BackendClient {
             }
         }
         self.room_keys(credentials, room).await.map(|_| ())
-    }
-
-    #[cfg(feature = "host")]
-    pub(crate) async fn seal_terminal_status(
-        &self,
-        credentials: &Credentials,
-        terminal: (Uuid, Uuid, Uuid),
-        status: &crate::network::TerminalStatus,
-    ) -> Result<room_crypto::SealedStatus> {
-        let (room, _, _) = terminal;
-        self.ensure_room_keys(credentials, room, None).await?;
-        let (version, epoch, key) = self
-            .inner
-            .rooms
-            .lock()
-            .await
-            .writing_key(credentials, room)?;
-        room_crypto::SealedStatus::seal(
-            terminal,
-            (version, epoch),
-            &key,
-            &serde_json::to_vec(status)?,
-        )
-    }
-
-    pub(super) async fn open_terminal_status(
-        &self,
-        credentials: &Credentials,
-        terminal: (Uuid, Uuid, Uuid),
-        sealed: &room_crypto::SealedStatus,
-    ) -> Result<crate::network::TerminalStatus> {
-        let (room, _, _) = terminal;
-        self.ensure_room_keys(credentials, room, Some(sealed.key_version))
-            .await?;
-        let key = self.inner.rooms.lock().await.reading_key(
-            credentials,
-            room,
-            (sealed.key_version, sealed.epoch),
-        )?;
-        crate::network::TerminalStatus::read(&sealed.open(terminal, &key)?)
     }
 
     pub(crate) async fn room_identity(

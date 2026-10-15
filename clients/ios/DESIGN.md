@@ -10,6 +10,8 @@ The app uses the Mac's visual system from `../apple/Sources/KodosiDesign`; the
   titles, sheets with detents, swipe actions and context menus.
 - The terminal sits in a dark rounded tile in both appearances, in JetBrains Mono at
   12 points on iPhone and 14 on iPad, never scaled.
-- A waiting terminal shows the copper ring, its question and a tab badge. Haptics mark a
-  terminal that starts waiting or finishes, and a sent message.
+- A waiting terminal shows a hand, question or key beside its mark in its own row; no
+  second list copies it. Only your own terminals that wait put a badge on the tab.
+  Haptics mark one of your terminals that starts waiting or finishes, and a sent
+  message.
 - Don't show controls for host-only actions.

@@ -43,19 +43,23 @@ Settings › Terminal chooses where these folders go. From a shell:
 
 ## Terminal state
 
-A terminal shows when its program works, waits for you, is done or failed. Room members
-see it before they open the terminal, and `kodosi session list` shows it too.
+A terminal shows when its program works, waits for you, is done or failed. Everyone who
+can open the terminal sees it before they open it, and `kodosi session list` shows it
+too.
 
 | You see | Meaning |
 | --- | --- |
 | A warm rim turning round the mark | Working. An arc shows the percent. |
-| A copper ring with a hand, question mark or key | Waiting for your approval, answer or sign-in. |
+| A hand, question mark or key | Waiting for your approval, answer or sign-in. |
 | A green check | Done. |
 | A yellow warning sign | Failed. |
 
-The check and the warning go away when you open the terminal. While Kodosi is in the
-background, your own terminals send a notification when they start to wait, finish or
-fail. The state comes from the
+The check and the warning go away when you open the terminal. A friend's terminal that
+you do not have open shows only that its program works or waits. A closed folder in the
+sidebar shows the sign of a terminal in it that waits. Small faces show who else has
+the terminal open, so that two people do not answer at the same time. While Kodosi is
+not in front, your own terminals and the ones that you have open send a notification
+when they start to wait, finish or fail. The state comes from the
 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status)
 (OSC 7501) and progress bars (OSC 9;4). Claude Code reports it from version 2.1.295; a
 program that reports nothing shows no state.

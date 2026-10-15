@@ -1,7 +1,9 @@
 # Backend
 
 One ASP.NET Core application stores shared metadata and relays encrypted traffic. It
-never runs terminals or agents, or sees terminal or room plaintext.
+never runs terminals or agents, or sees terminal or room plaintext. It reads only the
+agent and the state of each terminal (`TerminalStatus`), never the program's title or
+text.
 
 - Terminal connection state is bounded and temporary: no terminal archive and no
   durable input queue. An offline host keeps its terminal records and sharing. Only

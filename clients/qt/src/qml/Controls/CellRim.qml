@@ -29,8 +29,6 @@ Item {
         return age < 0.14 ? cooling[0] : age < 0.45 ? cooling[1] : age < 0.9 ? cooling[2] : age < 1.4 ? cooling[3] : KodosiTheme.accentSoft
     }
     function cellColor(index) {
-        if (mode === "waiting")
-            return KodosiTheme.accent
         if (mode === "progress") {
             const reach = fraction * count - index
             return reach >= 1 ? KodosiTheme.accent : reach <= 0 ? KodosiTheme.accentSoft
@@ -114,12 +112,12 @@ Item {
     }
     Rectangle {
         readonly property int index: root.mode === "working" ? Typing.wrapped(root.head, root.count)
-            : root.mode === "progress" ? Math.min(root.count - 1, Math.floor(root.fraction * root.count)) : 0
+            : Math.min(root.count - 1, Math.floor(root.fraction * root.count))
         readonly property var spot: root.place((index + 0.5) / root.count)
         readonly property real idle: root.seconds - Typing.time(root.head)
 
         visible: root.mode === "working" ? root.still || idle < 0.24 || Math.floor((idle - 0.24) / 0.42) % 2 === 1
-            : root.mode === "progress" ? root.fraction < 1 && root.blinkLit : root.blinkLit
+            : root.fraction < 1 && root.blinkLit
         width: Math.max(root.lineWidth * 1.5, root.cellLength)
         height: root.lineWidth * 2.6
         x: Math.round(spot.x - width / 2)

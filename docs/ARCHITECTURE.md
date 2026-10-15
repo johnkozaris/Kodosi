@@ -28,9 +28,10 @@ checkpoint and then ordered updates over its own encrypted channel with bounded
 buffering. Input whose delivery is uncertain is not replayed, and a stale view cannot
 control a replacement terminal.
 
-The host keeps the status that programs report (OSC 7501, or a progress bar). For a room
-terminal it sends the agent and state, encrypted with the room key, through its device
-connection; the backend keeps the newest one while the host is connected.
+The host keeps the status that programs report (OSC 7501, or a progress bar). For each
+terminal it sends the agent and state, without the program's text and without
+encryption, through its device connection; the backend keeps the newest one while the
+host is connected and gives it to everyone who can open the terminal.
 
 ## Backend and rooms
 

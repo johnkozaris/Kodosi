@@ -629,28 +629,9 @@ impl BackendClient {
                 }
             }
         }
-        let mut remotes = Vec::with_capacity(sessions.len());
-        for dto in sessions {
-            let status = match (dto.mission_id, &dto.status) {
-                (Some(room), Some(sealed)) => match self
-                    .open_terminal_status(&credentials, (room, dto.id, dto.incarnation_id), sealed)
-                    .await
-                {
-                    Ok(status) => Some(status),
-                    Err(error) if error.unanswered() => return Err(error),
-                    Err(error) => {
-                        tracing::debug!(%error, "a terminal status could not be read");
-                        None
-                    }
-                },
-                _ => None,
-            };
-            remotes.push(super::RemoteSession {
-                status,
-                ..dto.into()
-            });
-        }
-        Ok(json!({"type":"network.sessions","sessions":remotes}))
+        Ok(
+            json!({"type":"network.sessions","sessions":sessions.into_iter().map(super::RemoteSession::from).collect::<Vec<_>>()}),
+        )
     }
 
     #[cfg(feature = "host")]

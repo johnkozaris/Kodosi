@@ -169,6 +169,9 @@ struct SidebarFolderHeader: View {
                         .appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
                     if collapsed {
                         Text(group.sessions.count, format: .number).appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
+                        if let sign = group.sessions.first(where: \.needsUser)?.sign(unseen: false) {
+                            StatusSign(form: sign, size: 10).transition(AnyTransition.pop)
+                        }
                     }
                     Spacer(minLength: 0)
                 }
@@ -214,10 +217,6 @@ struct SidebarTerminalRow: View {
 
     private var staged: Bool {
         deps.workbench.stagedSessionIds.contains(session.id)
-    }
-
-    private var needsAttention: Bool {
-        deps.attention.contains(session.id)
     }
 
     private var troubled: Bool {
@@ -266,7 +265,7 @@ struct SidebarTerminalRow: View {
                         }
                         .accessibilityIdentifier("\(AccessibilityIdentifier.sidebarSession(session.id)).name")
                 } else {
-                    Text(session.name).appTextStyle(.body).fontWeight(selected || needsAttention ? .medium : .regular)
+                    Text(session.name).appTextStyle(.body).fontWeight(selected ? .medium : .regular)
                         .foregroundStyle(staged || selected ? theme.colors.ink : theme.colors.inkMuted).lineLimit(1)
                         .contentTransition(.interpolate)
                 }

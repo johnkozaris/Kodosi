@@ -95,7 +95,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
 app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(30) });
-var health = new { status = "ok", apiContractVersion = 26, authContractVersion = 1 };
+var health = new { status = "ok", apiContractVersion = 27, authContractVersion = 1 };
 app.MapGet("/health/live", () => Results.Ok(health)).DisableRateLimiting();
 app.MapGet("/health/ready", async (KodosiDbContext db, CancellationToken ct) =>
     await db.Database.CanConnectAsync(ct) ? Results.Ok(health) : Results.StatusCode(503)).DisableRateLimiting();

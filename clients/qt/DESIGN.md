@@ -75,7 +75,7 @@ The desktop draws the window frame; the rest follows the Mac layout in pixels.
 `Raised` and `Bezel` draw rims, faces and shadows with plain shapes, so they render the same with and without a GPU. Do not add shader effects.
 
 ## Components
-As on the Mac, with Go to on Ctrl+K. New words of a program rise into place. QML is authoritative.
+As on the Mac, with Go to on Ctrl+K; a closed folder shows the sign of a waiting terminal but no count. New words of a program rise into place. QML is authoritative.
 
 ## Do's and Don'ts
 - **Do** keep keyboard focus, accessible names, stable object names and selectable message text.

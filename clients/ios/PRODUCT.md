@@ -9,9 +9,10 @@ changing sharing and reading provider conversations stay on the computer.
 - Sign-in shows the device code and opens the sign-in page in the app. A new device is
   trusted like a computer: by a code entered on a trusted device, the recovery key, or
   starting fresh.
-- The Terminals tab lists first the terminals waiting for you, with the agent's question
-  and an Answer button, then the rest by computer, then friends' terminals. While the
-  app is in front it stays connected to your own terminals so their state is current.
+- The Terminals tab groups your terminals by computer, then friends' terminals. Each
+  row shows the sign of its state, which the host sends through the server; the
+  agent's question shows when you open the terminal. The tab shows the number of your
+  own terminals that wait for you.
 - In a terminal, the phone sets the size only while it has focus. A key row adds the
   keys a phone lacks; 1, 2 and 3 answer agent menus. The composer sends text as one
   paste and Return only when you tap send. A hardware keyboard types directly.

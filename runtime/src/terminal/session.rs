@@ -146,6 +146,8 @@ impl LocalSession {
             output_at: None,
             prompt: false,
             viewers: HashMap::new(),
+            owner: None,
+            local_view: false,
             working_directory: launch_directory,
             observed_directory: None,
             title: None,
@@ -464,6 +466,8 @@ struct LocalActor {
     output_at: Option<tokio::time::Instant>,
     prompt: bool,
     viewers: HashMap<Uuid, String>,
+    owner: Option<String>,
+    local_view: bool,
     working_directory: PathBuf,
     observed_directory: Option<PathBuf>,
     title: Option<String>,
@@ -480,10 +484,21 @@ impl LocalActor {
     fn connected_users(&self) -> Vec<String> {
         self.viewers
             .values()
+            .chain(self.owner.iter().filter(|_| self.local_view))
             .cloned()
             .collect::<std::collections::BTreeSet<_>>()
             .into_iter()
             .collect()
+    }
+
+    fn note_local_view(&mut self) {
+        let showing = self.subscribers.has_active();
+        if showing != self.local_view {
+            self.local_view = showing;
+            if self.owner.is_some() {
+                self.publish_presence();
+            }
+        }
     }
 
     fn publish_presence(&mut self) {
@@ -966,6 +981,7 @@ impl LocalActor {
                 if let Err(Ok(subscription)) = reply.send(result) {
                     self.subscribers.remove(subscription.connection_id);
                 }
+                self.note_local_view();
             }
             Request::Checkpoint { connection, reply } => {
                 if reply.is_closed() {
@@ -976,6 +992,7 @@ impl LocalActor {
             }
             Request::Unsubscribe(connection) => {
                 self.subscribers.remove(connection);
+                self.note_local_view();
                 self.release_logged(Controller::Local(connection)).await;
             }
             Request::Input { connection, write } => return self.accept_input(connection, write),
@@ -1107,8 +1124,10 @@ impl LocalActor {
                     drop(reply.send(result));
                 }
             }
-            HostRequest::ResetPresence => {
+            HostRequest::ResetPresence { owner } => {
                 self.viewers.clear();
+                self.owner = owner;
+                self.local_view = self.subscribers.has_active();
                 self.publish_presence();
             }
             HostRequest::Connected {

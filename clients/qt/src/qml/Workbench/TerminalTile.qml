@@ -145,6 +145,10 @@ Item {
                     session: root.session
                     color: KodosiTheme.terminalInkMuted
                 }
+                StatusSign {
+                    session: root.session
+                    size: 12
+                }
                 PlainLabel {
                     Accessible.id: objectName
                     color: KodosiTheme.terminalInkFaint

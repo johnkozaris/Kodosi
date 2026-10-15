@@ -227,9 +227,8 @@ impl BackendClient {
             events.into_iter().for_each(emit);
             waiting.surfaces.remove(surface);
         }
-        while let Some((&session, notice)) = waiting.terminals.first_key_value() {
-            emit(self.terminal_event(&credentials, notice).await?);
-            waiting.terminals.remove(&session);
+        for notice in std::mem::take(&mut waiting.terminals).into_values() {
+            emit(self.terminal_event(&notice));
         }
         if let Some(scope) = waiting.missions.take() {
             let catalog = match self.mission_list().await {
@@ -293,39 +292,17 @@ impl BackendClient {
         }
     }
 
-    async fn terminal_event(
-        &self,
-        credentials: &Credentials,
-        notice: &TerminalNotice,
-    ) -> Result<Value> {
-        let room = self.inner.sessions.lock().ok().and_then(|mut kept| {
-            let dto = kept
+    fn terminal_event(&self, notice: &TerminalNotice) -> Value {
+        if let Ok(mut kept) = self.inner.sessions.lock()
+            && let Some(dto) = kept
                 .get_mut(&notice.session)
-                .filter(|dto| dto.incarnation_id == notice.incarnation)?;
+                .filter(|dto| dto.incarnation_id == notice.incarnation)
+        {
             dto.host_online = notice.online;
             dto.status.clone_from(&notice.status);
-            dto.mission_id
-        });
-        let status = match (room, &notice.status) {
-            (Some(room), Some(sealed)) => match self
-                .open_terminal_status(
-                    credentials,
-                    (room, notice.session, notice.incarnation),
-                    sealed,
-                )
-                .await
-            {
-                Ok(status) => Some(status),
-                Err(error) if retried(&error) => return Err(error),
-                Err(error) => {
-                    tracing::debug!(%error, "a terminal status could not be read");
-                    None
-                }
-            },
-            _ => None,
-        };
-        Ok(json!({"type":"network.terminal","sessionId":notice.session,
-            "incarnationId":notice.incarnation,"online":notice.online,"status":status}))
+        }
+        json!({"type":"network.terminal","sessionId":notice.session,
+            "incarnationId":notice.incarnation,"online":notice.online,"status":notice.status})
     }
 }
 

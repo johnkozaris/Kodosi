@@ -98,6 +98,9 @@ private struct RoomTerminals: View {
                                         SessionActivityText(session: session, fallback: session.hostLabel)
                                     }
                                 } accessory: {
+                                    if let sign = deps.sign(of: session) {
+                                        StatusSign(form: sign, size: 13).transition(AnyTransition.pop)
+                                    }
                                     if !session.isOwner, let owner = session.ownerName {
                                         PersonAvatar(name: owner, key: session.ownerUserId, size: 20)
                                     }
