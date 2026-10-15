@@ -701,8 +701,8 @@ ColumnLayout {
                                 Accessible.id: objectName
                                 Accessible.name: qsTr("Model and effort")
                                 glyph: KIcon { width: 11; height: 11; name: "sparkle"; filled: true; strokeWidth: 1; color: Identity.kindTint(root.agentId) }
+                                accessoryShown: root.effortLevel >= 0
                                 accessory: EffortBars {
-                                    visible: root.effortLevel >= 0
                                     level: root.effortLevel
                                     count: root.efforts.length
                                     barHeight: 10

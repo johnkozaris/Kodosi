@@ -11,6 +11,7 @@ AbstractButton {
     property bool open: false
     property alias glyph: glyphSlot.data
     property alias accessory: accessorySlot.data
+    property bool accessoryShown: false
     property bool ready: false
 
     implicitHeight: 26
@@ -70,7 +71,7 @@ AbstractButton {
             Item {
                 id: accessorySlot
                 anchors.verticalCenter: parent.verticalCenter
-                visible: children.length > 0 && children[0].visible
+                visible: root.accessoryShown
                 width: childrenRect.width
                 height: childrenRect.height
             }
