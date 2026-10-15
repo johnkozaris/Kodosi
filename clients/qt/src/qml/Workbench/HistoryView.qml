@@ -234,7 +234,7 @@ KPopover {
                                 property bool expanded: false
                                 readonly property string content: modelData.content || ""
                                 readonly property bool own: modelData.role === "user"
-                                readonly property bool tool: modelData.role === "tool"
+                                readonly property bool tool: modelData.role === "tool_use"
 
                                 Layout.fillWidth: true
                                 spacing: 10
