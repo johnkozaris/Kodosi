@@ -75,6 +75,10 @@ struct RoomConversationView: View {
                         } label: { Label("Earlier messages", systemImage: "arrow.up") }
                             .buttonStyle(.kodosi(.ghost, size: .small)).frame(maxWidth: .infinity)
                             .accessibilityIdentifier("room.messages.earlier").disabled(state.loading).padding(.bottom, 10)
+                    } else if deps.rooms[roomId]?.historyTrimmed == true, !messages.isEmpty {
+                        Text("Kodosi removed the oldest messages to make space for new ones.")
+                            .appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
+                            .frame(maxWidth: .infinity).padding(.bottom, 10)
                     }
                     ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
                         let previous = index > 0 ? messages[index - 1] : nil

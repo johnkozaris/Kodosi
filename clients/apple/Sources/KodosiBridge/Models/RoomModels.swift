@@ -6,11 +6,13 @@ public struct RoomSnapshot: Decodable {
     public var tasks: [RoomTask]
     public let repositories: [RoomRepository]
     public var hasOlder: Bool
+    public var historyTrimmed: Bool
 }
 
 public extension RoomSnapshot {
     mutating func merge(_ previous: RoomSnapshot) {
         hasOlder = previous.hasOlder && hasOlder
+        historyTrimmed = previous.historyTrimmed || historyTrimmed
         var messages = Dictionary(previous.messages.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
         for message in self.messages {
             messages[message.id] = message

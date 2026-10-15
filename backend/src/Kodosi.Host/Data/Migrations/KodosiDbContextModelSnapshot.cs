@@ -238,8 +238,14 @@ namespace Kodosi.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<long>("ContentBytes")
+                        .HasColumnType("bigint");
+
                     b.Property<long>("ContentSequence")
                         .HasColumnType("bigint");
+
+                    b.Property<bool>("HistoryTrimmed")
+                        .HasColumnType("boolean");
 
                     b.Property<long>("KeyVersion")
                         .HasColumnType("bigint");
@@ -521,6 +527,10 @@ namespace Kodosi.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
+
+                    b.Property<string>("Plan")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<string>("Subject")
                         .IsRequired()

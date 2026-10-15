@@ -100,6 +100,10 @@ progress where work happens and give each failure a clear recovery action.
 - A terminal can start on a new branch in its own Git worktree. When it ends, the host
   removes the worktree and the branch only if nothing changed. Kodosi keeps no record
   of these folders.
+- A server can define plans. A plan limits an account's devices, owned rooms, people
+  and data in each owned room, people who see one of its terminals, friends and open
+  friend requests; an account without a plan gets the default plan. A full room loses
+  its oldest messages first, and the apps say so; tasks and repositories stay.
 - A person deletes their account through the sign-in service's account page. The
   service removes the account, devices, friends, sharing and owned rooms; what the
   person wrote in other rooms stays. Terminals keep running.
