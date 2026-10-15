@@ -112,24 +112,24 @@ struct AgentLauncher: View {
         let shape = RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
         let cursor = CGRect(x: 16, y: Self.bandHeight + 18, width: 9, height: 18)
         return terminal
-        .overlay(alignment: .topLeading) {
-            if seed == 0 {
-                CursorBlock(width: cursor.width, height: cursor.height)
-                    .terminalScope()
-                    .offset(x: cursor.minX, y: cursor.minY)
-                    .transition(.opacity.animation(.easeOut(duration: 0.15)))
+            .overlay(alignment: .topLeading) {
+                if seed == 0 {
+                    CursorBlock(width: cursor.width, height: cursor.height)
+                        .terminalScope()
+                        .offset(x: cursor.minX, y: cursor.minY)
+                        .transition(.opacity.animation(.easeOut(duration: 0.15)))
+                }
             }
-        }
-        .frame(width: Self.width)
-        .clipShape(shape)
-        .background {
-            shape.fill(TerminalInk.body)
-                .shadow(color: theme.colors.shadow.opacity(theme.isDark ? 0.5 : 0.16), radius: 12, x: 3, y: 7)
-        }
-        .overlay { shape.strokeBorder(theme.colors.hairline.opacity(theme.isDark ? 0.7 : 0.9), lineWidth: 0.5).allowsHitTesting(false) }
-        .mask { SeedMask(progress: seed, cursor: cursor, radius: Radius.lg) }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("launcher.preview")
+            .frame(width: Self.width)
+            .clipShape(shape)
+            .background {
+                shape.fill(TerminalInk.body)
+                    .shadow(color: theme.colors.shadow.opacity(theme.isDark ? 0.5 : 0.16), radius: 12, x: 3, y: 7)
+            }
+            .overlay { shape.strokeBorder(theme.colors.hairline.opacity(theme.isDark ? 0.7 : 0.9), lineWidth: 0.5).allowsHitTesting(false) }
+            .mask { SeedMask(progress: seed, cursor: cursor, radius: Radius.lg) }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("launcher.preview")
     }
 
     private var terminal: some View {
