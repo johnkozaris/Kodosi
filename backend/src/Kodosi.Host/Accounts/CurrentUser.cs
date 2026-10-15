@@ -87,10 +87,11 @@ internal static class AccountEndpoints
 {
     public static void MapAccounts(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/me", async (HttpContext context, CurrentUser users, AccountDeletionSettings deletion, CancellationToken ct) =>
+        app.MapGet("/api/me", async (HttpContext context, CurrentUser users, AccountDeletionSettings deletion, Kodosi.Plans.PlanCatalog plans, CancellationToken ct) =>
         {
             var user = await users.GetAsync(context, ct);
-            return Results.Ok(new { user.Id, user.Handle, user.DisplayName, deletionUri = deletion.ConfirmationUri() });
+            var (name, limits) = plans.For(user.Plan);
+            return Results.Ok(new { user.Id, user.Handle, user.DisplayName, deletionUri = deletion.ConfirmationUri(), plan = new { name, limits } });
         }).RequireAuthorization();
         app.MapDelete("/api/me", async (HttpContext context, CurrentUser users, AccountService accounts, AccountDeletionSettings deletion, CancellationToken ct) =>
         {

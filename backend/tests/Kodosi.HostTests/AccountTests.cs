@@ -82,8 +82,9 @@ public sealed class AccountTests(PostgresFixture postgres)
         await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));
         using var actor = await app.EnrollAsync("profile-response");
         var response = await actor.Client.GetFromJsonAsync<JsonElement>("/api/me", TestContext.Current.CancellationToken);
-        Assert.Equal(4, response.EnumerateObject().Count());
+        Assert.Equal(5, response.EnumerateObject().Count());
         Assert.Equal(JsonValueKind.Null, response.GetProperty("deletionUri").ValueKind);
+        Assert.Equal(JsonValueKind.Object, response.GetProperty("plan").ValueKind);
         Assert.True(response.TryGetProperty("id", out _));
         Assert.True(response.TryGetProperty("handle", out _));
         Assert.True(response.TryGetProperty("displayName", out _));

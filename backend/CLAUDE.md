@@ -11,6 +11,9 @@ Follow `../AGENTS.md` and `../PRODUCT.md` for product intent and current behavio
 - Terminal connection state is bounded and temporary. It is not a terminal archive or durable input
   queue. An offline host keeps its terminal record and sharing. Only ended records are removed, and
   removing them must never end the host's local process.
+- Plan limits (`PlanCatalog`) belong to the owner of the room, terminal or account.
+  Refuse past a limit with `ApiException.Limited`: status 403 and the limit name. Do not
+  use 429, which the runtime retries as a rate limit.
 - Feature services own short EF transactions directly. Do not add repository or port
   layers around them.
 - Run one serving backend process.

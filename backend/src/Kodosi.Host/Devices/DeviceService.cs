@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Kodosi.Accounts;
 using Kodosi.Data;
+using Kodosi.Plans;
 using Kodosi.TerminalConnections;
 using Kodosi.Security;
 using Kodosi.Sessions;
@@ -15,7 +16,8 @@ public sealed partial class DeviceService(
     SignedDeviceListParser lists,
     ConnectionDirectory connections,
     DeviceSessions sessions,
-    TimeProvider clock)
+    TimeProvider clock,
+    PlanCatalog plans)
 {
     public async Task<Device> RequireDeviceAsync(Guid userId, string deviceId, CancellationToken ct, bool allowExpiredList = false)
     {

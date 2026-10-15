@@ -76,6 +76,7 @@ extension AppDependencies {
                     state.unread += added
                 }
                 next.hasOlder = previous.hasOlder && next.hasOlder
+                next.historyTrimmed = previous.historyTrimmed || next.historyTrimmed
                 var messages = Dictionary(uniqueKeysWithValues: previous.messages.map { ($0.id, $0) })
                 for message in next.messages {
                     messages[message.id] = message

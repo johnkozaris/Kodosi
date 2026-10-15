@@ -222,6 +222,7 @@ final class RoomStore {
                 unread[roomId, default: 0] += arrived
             }
             next.hasOlder = previous.hasOlder && next.hasOlder
+            next.historyTrimmed = previous.historyTrimmed || next.historyTrimmed
             next.messages = Self.merge(previous.messages, next.messages)
             next.tasks = Self.merge(previous.tasks, next.tasks)
             if previous.tasks.map(\.version) != next.tasks.map(\.version), !(visible && state?.watchingTasks == true) {

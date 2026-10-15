@@ -2,12 +2,13 @@ using Kodosi.Accounts;
 using Kodosi.Data;
 using Kodosi.Devices;
 using Kodosi.Friends;
+using Kodosi.Plans;
 using Kodosi.TerminalConnections;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.Missions;
 
-public sealed partial class MissionService(KodosiDbContext db, ConnectionDirectory connections, FriendService friends, TimeProvider clock, DeviceService devices, Kodosi.Security.SignatureVerifier signatures)
+public sealed partial class MissionService(KodosiDbContext db, ConnectionDirectory connections, FriendService friends, TimeProvider clock, DeviceService devices, Kodosi.Security.SignatureVerifier signatures, PlanCatalog plans)
 {
     public async Task<Mission> RequireMemberAsync(Guid id, Guid userId, CancellationToken ct)
     {
@@ -70,8 +71,9 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
             if (existing.OwnerUserId != userId || existing.Name != name) throw ApiException.Conflict("Mission ID was reused.");
             return new { existing.Id, existing.Name, existing.OwnerUserId };
         }
-        if (await db.Missions.CountAsync(x => x.OwnerUserId == userId, ct) >= Limits.MaxMissionsPerUser)
-            throw ApiException.Conflict("Too many Missions.");
+        var owned = await db.Missions.CountAsync(x => x.OwnerUserId == userId, ct);
+        if (owned >= (await plans.LimitsAsync(db, userId, ct)).OwnedRooms)
+            throw ApiException.Limited("rooms", $"You own {Limits.Count(owned, "room", "rooms")}, the most that you can own. Delete a room to make a new one.");
         await RequireMissionCapacityAsync(userId, ct);
         var mission = new Mission { Id = body.Id, Name = name, OwnerUserId = userId };
         db.Missions.Add(mission); await db.SaveChangesAsync(ct); connections.Notify(userId, "missions", mission.Id);
@@ -119,8 +121,9 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         if (await db.MissionInvitations.CountAsync(x => x.UserId == body.UserId, ct) >= Limits.MaxPendingMissionInvitations)
             throw ApiException.Conflict("This person has too many pending Mission invitations.");
         await RequireMissionCapacityAsync(body.UserId, ct);
-        if (await db.MissionMembers.CountAsync(x => x.MissionId == id, ct) + await db.MissionInvitations.CountAsync(x => x.MissionId == id, ct) >= Limits.MaxMissionMembers)
-            throw ApiException.Conflict("This Mission has reached its member limit.");
+        var people = 1 + await db.MissionMembers.CountAsync(x => x.MissionId == id, ct) + await db.MissionInvitations.CountAsync(x => x.MissionId == id, ct);
+        var most = (await plans.LimitsAsync(db, mission.OwnerUserId, ct)).RoomPeople;
+        if (people >= most) throw ApiException.Limited("room-people", $"This room can have at most {Limits.Count(most, "person", "people")}, with its open invitations.");
         db.MissionInvitations.Add(new MissionInvitation { Id = Limits.Id(body.Id, "Invitation ID"), MissionId = id, UserId = body.UserId, InviterUserId = userId, CreatedAt = clock.GetUtcNow() });
         await db.SaveChangesAsync(ct);
         await AppendKeysAsync(mission, userId, body.Keys, ct);

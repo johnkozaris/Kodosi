@@ -123,6 +123,13 @@ terminal ends, the host removes the folder and the branch only if nothing change
 commit, no changed file, no new file. Kodosi keeps no record of these folders and does
 no other Git operation.
 
+A server can define plans. A plan limits the devices of an account, the rooms that
+it owns, the people in each of these rooms and the data in it, the people who see one of
+its terminals, and its friends and open friend requests. An account without a plan
+gets the default plan. When a room is full, the server removes its oldest messages to
+make space for new ones, and the apps say so at the top of the history. Tasks and
+repositories stay.
+
 A person deletes their account from Settings. The app opens the account page of the
 sign-in service for one confirmation; then the service removes the account, its devices,
 friends and sharing, and the rooms the person owns. What the person wrote in other

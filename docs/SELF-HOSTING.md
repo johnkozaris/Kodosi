@@ -57,6 +57,56 @@ role `view-events`:
 
 The backend reads the events every 15 seconds.
 
+### Plans and limits
+
+Without plans, each account can have 10 devices, own 64 rooms with 64 members each,
+share a terminal with 64 people, and send 64 friend requests that wait for an answer.
+Rooms have no data limit, and accounts have no friend limit.
+
+To set smaller limits, define plans in the setting `Plans`. The column `Plan` of the
+table `users` gives the plan of each account. An account without a plan, or with a
+plan that the setting does not define, gets the default plan:
+
+```json
+"Plans": {
+  "Default": "free",
+  "Definitions": {
+    "free": { "Devices": 4, "OwnedRooms": 3, "RoomPeople": 3, "SharePeople": 2,
+              "RoomBytes": 10485760, "Friends": 50, "SentFriendRequests": 20,
+              "ReceivedFriendRequests": 50 },
+    "team": { "OwnedRooms": 20, "RoomPeople": 20 }
+  }
+}
+```
+
+A limit that a plan does not set gets the value of a server without plans.
+
+| Limit | The most that an account can have | Values |
+| --- | --- | --- |
+| `Devices` | Approved devices | 1 to 16 |
+| `OwnedRooms` | Rooms that it owns | 1 to 64 |
+| `RoomPeople` | People in each room that it owns: the owner, the members and the open invitations | 1 to 65 |
+| `SharePeople` | People that can see one of its terminals | 1 to 64 |
+| `RoomBytes` | Encrypted bytes in each room that it owns | 131072 or more |
+| `Friends` | Friends | 1 or more |
+| `SentFriendRequests` | Friend requests that it sent and that wait for an answer | 1 to 64 |
+| `ReceivedFriendRequests` | Friend requests to it that wait for an answer | 1 or more |
+
+The plan of the owner sets the limits of a room or a terminal. When a new room item
+goes past `RoomBytes`, the backend deletes the oldest messages of the room, and the
+apps tell the members. Past another limit, the backend refuses the change with status
+403 and the name of the limit in the field `limit`. A smaller plan removes nothing that
+an account has. An account can always recover its devices with its recovery key.
+
+To give a plan to an account, change its row:
+
+```sql
+UPDATE users SET "Plan" = 'team' WHERE "Handle" = 'ana';
+```
+
+The change has an effect at once. The backend reads the setting when it starts, and does
+not start when the setting has an error.
+
 ### Build the backend image
 
 To build the release image of the backend, run this command from the repository root:

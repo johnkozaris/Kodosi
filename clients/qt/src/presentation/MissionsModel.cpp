@@ -173,6 +173,8 @@ void MissionsModel::applyRoom(const QJsonObject& room)
     auto next = room.toVariantMap();
     if (previous.contains(QStringLiteral("hasOlder")))
         next.insert(QStringLiteral("hasOlder"), previous.value(QStringLiteral("hasOlder")).toBool() && next.value(QStringLiteral("hasOlder")).toBool());
+    if (previous.value(QStringLiteral("historyTrimmed")).toBool())
+        next.insert(QStringLiteral("historyTrimmed"), true);
     QMap<QString, QVariant> messages;
     for (const auto& value : previous.value(QStringLiteral("messages")).toList())
         messages.insert(value.toMap().value(QStringLiteral("id")).toString(), value);
