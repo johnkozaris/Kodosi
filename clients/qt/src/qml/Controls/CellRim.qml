@@ -4,17 +4,9 @@ import Kodosi 1.0
 import QtQuick
 import "Typing.js" as Typing
 
-// The rim of something at work, drawn in the terminal's own marks: a ring of
-// cells round a rounded rectangle. While work goes on, the copper cursor types
-// its way round the ring, in quick bursts with pauses as a person types: each
-// cell lights as the cursor passes and cools after it, and in a pause the
-// cursor blinks. A fraction fills the ring from the top, with the cursor
-// blinking at its end. While something waits for the person, the ring stays
-// lit and the cursor blinks at the top, as a prompt waits for keys.
 Item {
     id: root
 
-    // "working", "progress" or "waiting".
     property string mode: "working"
     property real fraction: 0
     property real radius: 8
@@ -33,13 +25,10 @@ Item {
     readonly property var cooling: [KodosiTheme.accentStrong, KodosiTheme.accent,
         KodosiTheme.mix(KodosiTheme.accent, KodosiTheme.accentSoft, 0.45), KodosiTheme.mix(KodosiTheme.accent, KodosiTheme.accentSoft, 0.72)]
 
-    // A cell lit `age` seconds ago: it cools in steps, as a terminal's colors go.
     function coolingColor(age) {
         return age < 0.14 ? cooling[0] : age < 0.45 ? cooling[1] : age < 0.9 ? cooling[2] : age < 1.4 ? cooling[3] : KodosiTheme.accentSoft
     }
     function cellColor(index) {
-        if (mode === "waiting")
-            return KodosiTheme.accent
         if (mode === "progress") {
             const reach = fraction * count - index
             return reach >= 1 ? KodosiTheme.accent : reach <= 0 ? KodosiTheme.accentSoft
@@ -121,15 +110,14 @@ Item {
             color: root.cellColor(index)
         }
     }
-    // The copper cursor: a block that stands on the cell where it is.
     Rectangle {
         readonly property int index: root.mode === "working" ? Typing.wrapped(root.head, root.count)
-            : root.mode === "progress" ? Math.min(root.count - 1, Math.floor(root.fraction * root.count)) : 0
+            : Math.min(root.count - 1, Math.floor(root.fraction * root.count))
         readonly property var spot: root.place((index + 0.5) / root.count)
         readonly property real idle: root.seconds - Typing.time(root.head)
 
         visible: root.mode === "working" ? root.still || idle < 0.24 || Math.floor((idle - 0.24) / 0.42) % 2 === 1
-            : root.mode === "progress" ? root.fraction < 1 && root.blinkLit : root.blinkLit
+            : root.fraction < 1 && root.blinkLit
         width: Math.max(root.lineWidth * 1.5, root.cellLength)
         height: root.lineWidth * 2.6
         x: Math.round(spot.x - width / 2)

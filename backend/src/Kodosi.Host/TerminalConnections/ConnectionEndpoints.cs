@@ -12,7 +12,6 @@ namespace Kodosi.TerminalConnections;
 
 internal static class ConnectionEndpoints
 {
-    private const int ProtocolVersion = 20;
     private const int PipeIdBytes = 16;
     private const int MessageBytes = 256 * 1024 + PipeIdBytes;
     private static readonly TimeSpan Idle = TimeSpan.FromSeconds(90);
@@ -47,8 +46,13 @@ internal static class ConnectionEndpoints
             if (helloFrame is null || helloFrame.Value.Type != WebSocketMessageType.Text) throw ApiException.Invalid("Expected device connection hello.");
             using var hello = Wire.Parse(helloFrame.Value.Bytes);
             var root = hello.RootElement;
-            if (root.GetProperty("type").GetString() != "hello" || root.GetProperty("protocolVersion").GetInt32() != ProtocolVersion)
+            if (root.GetProperty("type").GetString() != "hello") throw ApiException.Invalid("Expected device connection hello.");
+            if (root.GetProperty("protocolVersion").GetInt32() is < ContractVersions.OldestTerminalConnection or > ContractVersions.TerminalConnection)
+            {
+                await socket.SendAsync(Wire.Encode(new { type = "refused", reason = "version", oldest = ContractVersions.OldestTerminalConnection, current = ContractVersions.TerminalConnection }),
+                    WebSocketMessageType.Text, true, handshakeDeadline.Token);
                 throw ApiException.Invalid("Unsupported terminal connection protocol.");
+            }
             deviceId = DeviceIdRules.Require(root.GetProperty("deviceId").GetString());
             if (!deviceSessions.Holds(current.Id, deviceId, root.GetProperty("deviceSession").GetString()))
             {
@@ -56,7 +60,7 @@ internal static class ConnectionEndpoints
                 throw new ApiException(428, "A device session is required.");
             }
             await RequireDeviceAsync(scopes, current.Id, deviceId, handshakeDeadline.Token);
-            link = new DeviceLink(socket, current.Id, deviceId);
+            link = new DeviceLink(socket, current.Id, deviceId, directory.Relays);
             link.ExtendUntil(expires);
             directory.Register(link);
             await RequireDeviceAsync(scopes, current.Id, deviceId, handshakeDeadline.Token);
@@ -120,6 +124,13 @@ internal static class ConnectionEndpoints
                     break;
                 }
                 case "unhost": directory.Unhost(link, root.GetProperty("sessionId").GetGuid()); break;
+                case "status":
+                {
+                    var status = TerminalStatus.Read(root.GetProperty("status"));
+                    if (link.TakeStatus())
+                        directory.Share(link, root.GetProperty("sessionId").GetGuid(), root.GetProperty("incarnationId").GetGuid(), status);
+                    break;
+                }
                 case "open":
                 {
                     var pipe = root.GetProperty("pipe").GetGuid();

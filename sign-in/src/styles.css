@@ -1,11 +1,6 @@
 @import "tailwindcss";
 @import "@fontsource-variable/jetbrains-mono/wght.css";
 
-/*
- * Kodosi's own material, from the tokens of the apps (clients/macos/Sources/DesignSystem/AppTheme.swift,
- * clients/qt/src/qml/Theme): a warm workbench, lit from the top left. Raised objects rest on the
- * ground, and inputs sink into wells. The pages follow the device's light or dark.
- */
 @theme inline {
   --font-sans:
     system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", sans-serif;
@@ -16,12 +11,8 @@
   --text-caption--line-height: 16px;
   --text-footnote: 13px;
   --text-footnote--line-height: 18px;
-  --text-body: 14.5px;
-  --text-body--line-height: 22px;
   --text-callout: 15.5px;
   --text-callout--line-height: 23px;
-  --text-headline: 17px;
-  --text-headline--line-height: 24px;
   --text-title: 23px;
   --text-title--line-height: 30px;
   --text-title--letter-spacing: -0.035em;
@@ -33,21 +24,15 @@
   --radius-xl: 18px;
   --radius-sheet: 22px;
 
-  --shadow-resting: var(--e-resting);
-  --shadow-lifted: var(--e-lifted);
   --shadow-well: var(--e-well);
   --shadow-press: var(--e-press);
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  /* The glide of the launch film: slow out of rest, long into rest. */
   --ease-glide: cubic-bezier(0.45, 0, 0.15, 1);
 
-  --color-ground: var(--ground);
-  --color-surface: var(--surface);
   --color-raised: var(--raised);
   --color-lifted: var(--lifted);
   --color-well: var(--well);
-  --color-terminal: var(--terminal);
   --color-hairline: var(--hairline);
   --color-ink: var(--ink);
   --color-ink-muted: var(--ink-muted);
@@ -56,7 +41,6 @@
   --color-accent-hover: var(--accent-hover);
   --color-accent-fill: var(--accent-fill);
   --color-accent-strong: var(--accent-strong);
-  --color-accent-soft: var(--accent-soft);
   --color-on-accent: var(--on-accent);
   --color-ready: var(--ready);
   --color-ready-soft: var(--ready-soft);
@@ -71,11 +55,9 @@
   color-scheme: light dark;
 
   --ground: #f0e9dc;
-  --surface: #f7f2e8;
   --raised: #fefbf5;
   --lifted: #fffdf9;
   --well: #e8e0d2;
-  --terminal: #0d0b09;
   --hairline: #d9ccba;
   --ink: #25160e;
   --ink-muted: #5f4838;
@@ -83,12 +65,8 @@
   --accent: #b85a26;
   --accent-hover: #c5672f;
   --accent-strong: #9a4516;
-  --accent-soft: #f4dec8;
   --on-accent: #fffaf3;
-  /* The ground of a button with words on it: in the light theme the copper is a shade deeper
-     there, so that small words on it have the contrast of text. */
   --accent-fill: color-mix(in srgb, var(--accent) 92%, black);
-  /* The glow colours show only while something works or just changed. */
   --glow-amber: #f2c14e;
   --glow-orange: #e8793a;
   --glow-rose: #dd5f6d;
@@ -109,8 +87,6 @@
   --grain-blend: multiply;
   --cursor-blend: darken;
 
-  /* A raised shape has a light rim on the top left, a dark rim on the bottom right, and two
-     shadows that fall down and to the right: one of contact, one of the room. */
   --e-resting:
     inset 1px 1px 0 var(--highlight), inset -1px -1px 0 var(--lowlight),
     1px 2px 6px rgb(46 31 15 / 0.13), 4px 8px 24px rgb(46 31 15 / 0.08);
@@ -128,7 +104,6 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --ground: #110e0c;
-    --surface: #181411;
     --raised: #251d19;
     --lifted: #2e241f;
     --well: #0c0a08;
@@ -139,7 +114,6 @@
     --accent: #db8a62;
     --accent-hover: #e69b74;
     --accent-strong: #eaa47e;
-    --accent-soft: #3e281c;
     --on-accent: #160e0a;
     --accent-fill: var(--accent);
     --glow-amber: #f2bc55;
@@ -192,7 +166,6 @@
     overscroll-behavior: none;
   }
 
-  /* The ground: the copper light from the top left, and a fine grain. */
   body {
     position: relative;
     min-height: 100dvh;
@@ -242,14 +215,12 @@
     caret-color: var(--accent);
   }
 
-  /* The keyboard's focus line is the copper of "act here". */
   :focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
 }
 
-/* A raised object at rest, and one that is lifted. */
 @utility sheet {
   background-color: var(--raised);
   border: 0.5px solid var(--rim);
@@ -260,18 +231,14 @@
   border: 0.5px solid var(--rim);
   box-shadow: var(--e-lifted);
 }
-/* A recessed field. */
 @utility well {
   background-color: var(--well);
   box-shadow: var(--e-well);
 }
-/* The shape of an agent, a room or a kind of thing. */
 @utility squircle {
   border-radius: 30%;
 }
 
-/* The warm rim that turns round an object while it works, as round the mark of a program in the
-   app (WorkingRim): the same colours, and one turn in 3.2 seconds. */
 @property --rim-angle {
   syntax: "<angle>";
   initial-value: 0deg;
@@ -318,11 +285,6 @@
   opacity: 0.4;
 }
 
-/*
- * The Kodosi wordmark at the head of each page, and the copper cursor at the end of the word.
- * index.html draws them, so they are there before the script loads, and they have the same place
- * on each step. The wordmark is 1.2 times --logo-size tall.
- */
 .logo {
   position: absolute;
   top: var(--stage-top);
@@ -341,14 +303,12 @@
   height: calc(var(--logo-size) * 1.2);
   overflow: clip;
 }
-/* The wordmark (docs/brand/kodosi-wordmark.png): the K with "odosi" in the same planks. */
 .logo-word {
   display: block;
   height: 100%;
   aspect-ratio: 2813 / 617;
   background: url("./assets/wordmark.webp") center / contain no-repeat;
 }
-/* The cursor stands on the line of the word, as tall as its small letters. */
 .logo-cursor {
   display: block;
   width: calc(var(--logo-size) * 0.43);
@@ -357,9 +317,6 @@
   border-radius: calc(var(--logo-size) * 0.05);
   background-color: var(--accent);
 }
-/* The live cursor takes the place of the drawn one (src/frame/cursor.ts). While it is in a field,
-   its place in the word keeps its outline, as the cursor of a terminal that does not have the
-   typing. */
 .cursor-live .logo-cursor {
   visibility: hidden;
   background-color: transparent;
@@ -369,21 +326,16 @@
 .cursor-away .logo-cursor {
   visibility: visible;
 }
-/* The account is gone: the cursor is an outline, as the cursor of a terminal that has nobody at
-   it. */
 :root[data-ended] #cursor {
   background-color: transparent;
   box-shadow: inset 0 0 0 2px var(--accent);
   mix-blend-mode: normal;
 }
 
-/* The end of a sign-in is the wordmark at the size of the banner. */
 .logo[data-banner] {
   --logo-size: var(--banner-size);
 }
 
-/* The one cursor of the page. It rests at the end of the word, goes to the field that takes the
-   typing, and comes back. Text shows through it, as through the cursor of a terminal. */
 #cursor {
   position: absolute;
   top: 0;
@@ -408,11 +360,9 @@
   }
 }
 @media (prefers-reduced-motion: no-preference) {
-  /* The page waits for the person: the cursor blinks, as in the app while a sign-in is open. */
   #cursor[data-blinks] {
     animation: cursor-blink 0.62s ease-in-out infinite alternate;
   }
-  /* Keycloak works: the glow colours pass through the cursor. */
   #cursor[data-works] {
     background-image: linear-gradient(
       100deg,
@@ -426,9 +376,6 @@
     animation: cursor-works 1.1s linear infinite;
   }
 
-  /* The first page of a visit: the wordmark rises through a line, as in the launch film, and
-     the cursor comes last. --arrived is the time that the page before this one showed already
-     (index.html), so the motion goes on from there. */
   .arrive .logo-word {
     animation: roll-in 0.62s var(--ease-glide) both;
     animation-delay: calc(0s - var(--arrived, 0s));
@@ -456,8 +403,6 @@
   }
 }
 
-/* A row of the capsule: the label rests in the row and rises when the row has a value. What a
-   person types is the input of a terminal: one width for each letter, and the block cursor. */
 .row-input {
   width: 100%;
   height: 100%;
@@ -477,7 +422,6 @@
   left: 18px;
   max-width: calc(100% - 72px);
   overflow: hidden;
-  /* The label is the name of the field, so it has the contrast of text, not of a hint. */
   color: var(--ink-muted);
   font-size: 15px;
   line-height: 24px;
@@ -498,12 +442,9 @@
 .row-input:focus ~ .row-label {
   color: var(--accent-strong);
 }
-/* The row that Keycloak refused, until the person types. */
-.shell[data-wrong] .row-input[aria-invalid="true"] ~ .row-label,
-.row-input[data-refused] ~ .row-label {
+.shell[data-wrong] .row-input[aria-invalid="true"] ~ .row-label {
   color: var(--danger);
 }
-/* The block cursor is the caret of the field that it stands in. */
 .row-input[data-block],
 .handle-input[data-block] {
   caret-color: transparent;
@@ -518,7 +459,7 @@
   }
 }
 
-/* A browser that fills a field paints it in its own colour. The field keeps the capsule's. */
+/* A browser paints a field that it filled in its own colour. */
 .row-input:autofill,
 .row-input:autofill:hover,
 .row-input:autofill:focus {
@@ -528,8 +469,6 @@
   transition: background-color 100000s;
 }
 
-/* The arrow is copper when each field that the step needs has a value that can be right. A form
-   that the person meets in steps (pages/join.tsx) looks at the fields of the step alone. */
 .go {
   background-color: var(--well);
   color: var(--ink-muted);
@@ -545,7 +484,6 @@ form:has(.row-input:autofill) .go {
   background-color: var(--accent-hover);
 }
 
-/* While the request goes, the capsule keeps what the person typed and takes no more. */
 .shell[data-busy] :is(input, button, a) {
   pointer-events: none;
 }
@@ -556,7 +494,6 @@ form:has(.row-input:autofill) .go {
   transition: opacity 0.2s var(--ease-out);
 }
 
-/* The username of a person: the "@" and the name, large, as friends see it. */
 .handle-input {
   min-width: 0;
   flex: 1;
@@ -575,7 +512,6 @@ form:has(.row-input:autofill) .go {
   opacity: 0.7;
 }
 
-/* One cell of a code that the person types. */
 .cell {
   transition:
     box-shadow 0.15s var(--ease-out),
@@ -589,8 +525,6 @@ form:has(.row-input:autofill) .go {
 .code-input {
   font-size: 16px;
 }
-/* The place of the cursor in a cell. Under a finger, where the page's cursor stays in the mark,
-   the cell draws its own. */
 .cell-slot {
   border-radius: 1.5px;
   background-color: var(--accent);
@@ -605,8 +539,6 @@ form:has(.row-input:autofill) .go {
   }
 }
 
-/* A page that opens rises into place. What a step changes on a page that carries on resolves in
-   place from a light blur, as the words of a program do in the app. */
 @keyframes rise {
   from {
     opacity: 0;
@@ -625,7 +557,6 @@ form:has(.row-input:autofill) .go {
 .resolve {
   animation: resolve 0.3s 0.06s var(--ease-out) both;
 }
-/* A small thing that comes: an avatar, a letter, a sign. */
 @keyframes pop {
   from {
     opacity: 0;
@@ -639,8 +570,6 @@ form:has(.row-input:autofill) .go {
   animation: pop 0.32s var(--ease-out) both;
 }
 
-/* The line of a page rises through a mask line, and the line of the page before leaves upward
-   through it: the roll of the launch film. */
 .roll {
   position: relative;
   display: block;
@@ -650,7 +579,6 @@ form:has(.row-input:autofill) .go {
 .roll > span {
   display: block;
 }
-/* The line that leaves is one line, also when it had two on its own page. */
 .roll > .roll-out {
   position: absolute;
   top: 0;
@@ -678,7 +606,6 @@ form:has(.row-input:autofill) .go {
   }
 }
 
-/* The green check that draws itself: done, or verified. */
 .check-draw {
   fill: none;
   stroke: var(--ready);
@@ -698,7 +625,6 @@ form:has(.row-input:autofill) .go {
   }
 }
 
-/* A sign that waits for the person breathes: the copper dot of the app. */
 @keyframes breathe {
   from {
     opacity: 0.55;
@@ -720,7 +646,6 @@ form:has(.row-input:autofill) .go {
   }
 }
 
-/* A place that waits for what Keycloak sends. */
 @keyframes sweep {
   from {
     background-position: 120% 0;
@@ -745,8 +670,6 @@ form:has(.row-input:autofill) .go {
   }
 }
 
-/* A person who asked for less motion gets each part at once: nothing waits for its turn, and
-   nothing loops. */
 @media (prefers-reduced-motion: reduce) {
   .rise,
   .resolve,
@@ -759,7 +682,6 @@ form:has(.row-input:autofill) .go {
   }
 }
 
-/* The terms of a realm: the realm's own text, with its markup. */
 .prose-terms {
   color: var(--ink);
   line-height: 23px;
@@ -781,8 +703,6 @@ form:has(.row-input:autofill) .go {
   text-underline-offset: 3px;
 }
 
-/* Keycloak's own fields, on the rare pages that keep them (pages/other.tsx): they take the
-   materials of the capsule. */
 .plain-page {
   color: var(--ink);
   font-size: 14.5px;

@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-"""Verifies a Windows MSIX before signing: its manifest, the architecture and
-completeness of its payload, and the notices and provenance it ships."""
 
 from __future__ import annotations
 
@@ -29,6 +27,8 @@ NAMESPACES = {
     "m": "http://schemas.microsoft.com/appx/manifest/foundation/windows10",
     "uap": "http://schemas.microsoft.com/appx/manifest/uap/windows10",
     "uap3": "http://schemas.microsoft.com/appx/manifest/uap/windows10/3",
+    "uap13": "http://schemas.microsoft.com/appx/manifest/uap/windows10/13",
+    "uap17": "http://schemas.microsoft.com/appx/manifest/uap/windows10/17",
     "desktop": "http://schemas.microsoft.com/appx/manifest/desktop/windows10",
     "rescap": "http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities",
 }
@@ -64,7 +64,6 @@ def pe_machine(data: bytes) -> int | None:
 
 
 def pe_imports(data: bytes) -> set[str]:
-    """The lowercased names of the DLLs a PE image imports or delay-loads."""
     try:
         coff = struct.unpack_from("<I", data, 0x3C)[0] + 4
         section_count, optional_size = struct.unpack_from("<H", data, coff + 2)[0], struct.unpack_from("<H", data, coff + 16)[0]
@@ -105,7 +104,6 @@ def windows_library(name: str) -> bool:
 
 
 def verify_imports(files: dict[str, zipfile.ZipInfo], read: Reader, system: Callable[[str], bool]) -> None:
-    """Every imported DLL must sit beside the app or come with Windows."""
     packaged = {name.lower() for name in files if "/" not in name}
     for name in files:
         if not name.lower().endswith((".exe", ".dll")):
@@ -131,7 +129,6 @@ def package_files(package: zipfile.ZipFile) -> dict[str, zipfile.ZipInfo]:
 
 
 def verify_manifest(manifest: bytes, configured: bytes, arch: str) -> list[str]:
-    """Checks the packaged manifest and returns the logo files it names."""
     if manifest != configured:
         fail("AppxManifest.xml differs from the configured manifest")
     root = ElementTree.fromstring(manifest)
@@ -139,8 +136,13 @@ def verify_manifest(manifest: bytes, configured: bytes, arch: str) -> list[str]:
     if identity is None or identity.get("ProcessorArchitecture") != arch:
         fail(f"the package identity is not {arch}")
     family = root.find("m:Dependencies/m:TargetDeviceFamily", NAMESPACES)
-    if family is None or family.get("Name") != "Windows.Desktop" or family.get("MinVersion") != "10.0.22000.0":
-        fail("the package must target Windows 11 desktops")
+    if family is None or family.get("Name") != "Windows.Desktop" or family.get("MinVersion") != "10.0.26100.0":
+        fail("the package must target Windows 11 24H2 desktops")
+    update = root.find("m:Properties/uap13:AutoUpdate/uap13:AppInstaller", NAMESPACES)
+    if update is None or update.get("File") != "Kodosi.appinstaller":
+        fail("the package must name Kodosi.appinstaller as its update source")
+    if root.findtext("m:Properties/uap17:UpdateWhileInUse", namespaces=NAMESPACES) != "defer":
+        fail("an update must wait until Kodosi is not in use")
     applications = root.findall("m:Applications/m:Application", NAMESPACES)
     if len(applications) != 1 or applications[0].get("Executable") != "kodosi-qt.exe":
         fail("the package must have one application, kodosi-qt.exe")
@@ -248,6 +250,10 @@ def main() -> None:
         if "AppxManifest.xml" not in files:
             fail("missing AppxManifest.xml")
         logos = verify_manifest(read("AppxManifest.xml"), (arguments.build_dir / "AppxManifest.xml").read_bytes(), arch)
+        if "Kodosi.appinstaller" not in files or read("Kodosi.appinstaller") != (
+            arguments.build_dir / "Kodosi.appinstaller"
+        ).read_bytes():
+            fail("Kodosi.appinstaller is missing or differs from the configured file")
         verify_payload(files, read, logos, arch)
         verify_imports(files, read, windows_library)
         verify_evidence(files, read, arguments.build_dir, arguments.qt_root)

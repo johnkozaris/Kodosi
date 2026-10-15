@@ -1,52 +1,19 @@
-# Contributing to Kodosi
+# Contributing
 
-Read [PRODUCT.md](PRODUCT.md) for product intent and
-[development setup](docs/DEVELOPMENT.md) to build Kodosi.
+Read [PRODUCT.md](PRODUCT.md), [AGENTS.md](AGENTS.md) and
+[Development](docs/DEVELOPMENT.md).
 
-## Start with the problem
+- Open an [issue](https://github.com/johnkozaris/Kodosi/issues) for a bug or a larger
+  change; describe the problem before proposing a new subsystem. Small fixes can go
+  straight to a pull request. Report vulnerabilities
+  [in private](docs/SECURITY.md#report-a-vulnerability).
+- Keep each pull request focused. Explain the problem, the result and how you verified
+  it, with a picture or recording for interface changes.
+- Run the relevant checks from the root `justfile` and try the changed workflow with
+  isolated data. Add regression tests where they protect real behavior.
+- Keep generated contracts and Ghostty pins aligned, and preserve license notices.
+- Keep credentials, signing keys, private terminal content and personal configuration
+  out of Git, issues and logs.
 
-Use [GitHub issues](https://github.com/johnkozaris/Kodosi/issues) for bugs and feature
-proposals. For a bug, include the platform, source revision, what you did, what you
-expected, and what happened. Redact private terminal content and credentials from logs
-and screenshots.
-
-For a larger change, describe the user problem and proposed behavior in an issue
-before adding a new subsystem. Small fixes can go straight to a pull request.
-Report vulnerabilities [privately](docs/SECURITY.md#report-a-vulnerability).
-
-## Make a focused change
-
-Keep dependencies project-local and follow the nearest `AGENTS.md` or `CLAUDE.md`.
-The runtime owns terminal behavior; native clients present it; the backend stores
-shared metadata and routes encrypted traffic.
-
-Give people and agents full control of shared terminals. Add no permission tiers, no
-second agent harness, and no required shared checkout.
-
-Keep generated contracts and native pins aligned. Preserve license notices and
-required corresponding source. Update the relevant user guide when behavior changes;
-keep setup commands in the development and platform guides.
-
-## Verify the result
-
-Run the checks appropriate to the change from the root `justfile`. Validate changed
-workflows by running the app or calling its real protocol with isolated test data.
-For UI changes, include a screenshot or recording of the result in the pull request.
-Add focused regression tests where they protect meaningful behavior; do not add
-automated smoke drivers.
-
-Never reset a live database or modify real provider credentials, conversations,
-memory, settings, or working files for a test. See
-[isolated validation](docs/DEVELOPMENT.md#isolated-validation).
-
-## Open the pull request
-
-Explain the problem, the resulting behavior, and how you verified it. Call out any
-remaining limitation. Keep unrelated changes in separate pull requests.
-
-Real credentials, signing keys, local sessions, and personal configuration stay
-outside Git. Use visibly dummy examples; generate credential-shaped test data at
-runtime when possible.
-
-By contributing, you agree that your contribution is available under Kodosi's
-[MIT license](LICENSE), and you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
+Contributions are under the [MIT license](LICENSE) and the
+[Code of Conduct](CODE_OF_CONDUCT.md).

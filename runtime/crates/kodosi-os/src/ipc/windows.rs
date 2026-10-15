@@ -80,7 +80,6 @@ fn create(name: &str, descriptor: &Descriptor, first: bool) -> io::Result<NamedP
         .first_pipe_instance(first)
         .reject_remote_clients(true)
         .pipe_mode(PipeMode::Byte);
-    // SAFETY: the attributes and the descriptor they point to outlive the call.
     unsafe {
         options.create_with_security_attributes_raw(name, (&raw mut attributes).cast::<c_void>())
     }
@@ -112,7 +111,6 @@ pub(super) enum Stream {
 
 pub(super) fn peer_pid(stream: &Stream) -> Option<u32> {
     let mut pid = 0;
-    // SAFETY: the pipe handle is open for the life of `stream`.
     let found = unsafe {
         match stream {
             Stream::Server(pipe) => GetNamedPipeClientProcessId(pipe.as_raw_handle(), &raw mut pid),

@@ -1,7 +1,91 @@
+use std::collections::{BTreeMap, BTreeSet};
+
+use serde_json::{Value, json};
+use uuid::Uuid;
+
 use super::{
     BackendClient, CancellationToken, Credentials, Duration, Error, Result, invalid,
+    rooms::Lookups,
     terminal_connections,
+    wire::{Change, Notice, TerminalNotice},
 };
+
+const RETRY_LIMIT: Duration = Duration::from_mins(1);
+
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum Scope {
+    All,
+    Rooms(BTreeSet<Uuid>),
+}
+
+#[derive(Debug, Default)]
+pub(super) struct Waiting {
+    surfaces: BTreeSet<&'static str>,
+    missions: Option<Scope>,
+    rooms: BTreeMap<Uuid, Option<u64>>,
+    terminals: BTreeMap<Uuid, TerminalNotice>,
+}
+
+impl Waiting {
+    fn take(&mut self, notice: Notice) -> Result<()> {
+        match notice {
+            Notice::Changed(change) => self.add(&change),
+            Notice::Terminal(terminal) => {
+                if !self.surfaces.contains("sessions") {
+                    self.terminals.insert(terminal.session, terminal);
+                }
+                Ok(())
+            }
+        }
+    }
+
+    pub(super) fn add(&mut self, change: &Change) -> Result<()> {
+        match change.surface.as_str() {
+            "devices" => self.surfaces.insert("devices"),
+            "friends" => self.surfaces.insert("friends"),
+            "sessions" => {
+                self.terminals.clear();
+                self.surfaces.insert("sessions")
+            }
+            "missions" => {
+                match (change.room, &mut self.missions) {
+                    (Some(room), Some(Scope::Rooms(rooms))) => {
+                        rooms.insert(room);
+                    }
+                    (Some(room), missions @ None) => {
+                        *missions = Some(Scope::Rooms(BTreeSet::from([room])));
+                    }
+                    (Some(_), Some(Scope::All)) => {}
+                    (None, missions) => *missions = Some(Scope::All),
+                }
+                true
+            }
+            "rooms" => {
+                let room = change
+                    .room
+                    .ok_or_else(|| invalid("A room change names its room."))?;
+                let wanted = self.rooms.entry(room).or_insert(change.sequence);
+                *wanted = wanted
+                    .zip(change.sequence)
+                    .map(|(known, new)| known.max(new));
+                true
+            }
+            _ => return Err(invalid("Unsupported notification surface.")),
+        };
+        Ok(())
+    }
+
+    fn is_empty(&self) -> bool {
+        self.surfaces.is_empty()
+            && self.missions.is_none()
+            && self.rooms.is_empty()
+            && self.terminals.is_empty()
+    }
+}
+
+fn retried(error: &Error) -> bool {
+    error.unanswered() || matches!(error, Error::Backend { status: 409, .. })
+}
 
 impl BackendClient {
     pub(super) async fn start_notifications(&self) -> Result<()> {
@@ -62,70 +146,166 @@ impl BackendClient {
     ) -> Result<()> {
         let credentials = self.credentials()?;
         self.check_credentials(admitted)?;
-        let (surfaces, mut changed) = tokio::sync::mpsc::unbounded_channel::<String>();
+        let (sender, mut notices) = tokio::sync::mpsc::unbounded_channel::<Notice>();
         let refresh = async {
-            while let Some(surface) = changed.recv().await {
-                let mut waiting = std::collections::BTreeSet::from([surface]);
-                while let Ok(surface) = changed.try_recv() {
-                    waiting.insert(surface);
+            let mut waiting = Waiting::default();
+            let mut retry = None;
+            let mut delay = Duration::from_secs(1);
+            loop {
+                if waiting.is_empty() {
+                    let Some(notice) = notices.recv().await else {
+                        return Ok(());
+                    };
+                    waiting.take(notice)?;
                 }
-                for surface in ["devices", "friends", "sessions", "missions", "rooms"] {
-                    if waiting.contains(surface) {
-                        self.refresh_surface(admitted, surface).await?;
+                if let Some(at) = retry {
+                    loop {
+                        tokio::select! {
+                            notice = notices.recv() => match notice {
+                                Some(notice) => waiting.take(notice)?,
+                                None => return Ok(()),
+                            },
+                            () = tokio::time::sleep_until(at) => break,
+                        }
                     }
                 }
-                if waiting.iter().any(|surface| {
-                    !["devices", "friends", "sessions", "missions", "rooms"]
-                        .contains(&surface.as_str())
-                }) {
-                    return Err(invalid("Unsupported notification surface."));
+                while let Ok(notice) = notices.try_recv() {
+                    waiting.take(notice)?;
+                }
+                match self.refresh_waiting(admitted, &mut waiting).await {
+                    Ok(()) => {
+                        retry = None;
+                        delay = Duration::from_secs(1);
+                    }
+                    Err(error) if retried(&error) => {
+                        tracing::debug!(%error, "the refresh will be tried again");
+                        retry = Some(tokio::time::Instant::now() + delay);
+                        delay = (delay * 2).min(RETRY_LIMIT);
+                    }
+                    Err(error) => return Err(error),
                 }
             }
-            Ok(())
         };
         let result = tokio::select! {
             biased;
             () = cancel.cancelled() => Ok(()),
             () = self.inner.shutdown.cancelled() => Ok(()),
-            result = terminal_connections::run_link(self, &credentials, &surfaces) => result,
+            result = terminal_connections::run_link(self, &credentials, &sender) => result,
             result = refresh => result,
         };
         if matches!(result, Err(Error::Backend { status: 403, .. })) {
-            self.refresh_surface(admitted, "devices").await?;
+            let mut waiting = Waiting::default();
+            waiting.add(&Change::of("devices"))?;
+            self.refresh_waiting(admitted, &mut waiting).await?;
+        }
+        if matches!(result, Err(Error::UpdateRequired)) {
+            self.update_required();
         }
         result
     }
 
-    async fn refresh_surface(&self, admitted: &Credentials, surface: &str) -> Result<()> {
+    pub(super) async fn refresh_waiting(
+        &self,
+        admitted: &Credentials,
+        waiting: &mut Waiting,
+    ) -> Result<()> {
         let _operation = self.inner.operations.lock().await;
         self.check_credentials(admitted)?;
         let credentials = self.credentials()?;
-        let events = match surface {
-            "sessions" => vec![self.session_event().await?],
-            "friends" => vec![self.friend_event().await?],
-            "devices" => {
-                if self.settle_enrollment().await? {
-                    self.device_events().await?
-                } else {
-                    self.enrollment_events().await?
+        let emit =
+            |event| self.emit_for(admitted.generation, Some(admitted.user_id.clone()), event);
+        for surface in ["devices", "friends", "sessions"] {
+            if !waiting.surfaces.contains(surface) {
+                continue;
+            }
+            let events = if surface == "sessions" {
+                vec![self.session_event().await?]
+            } else if surface == "friends" {
+                vec![self.friend_event().await?]
+            } else if self.settle_enrollment().await? {
+                self.device_events().await?
+            } else {
+                self.enrollment_events().await?
+            };
+            events.into_iter().for_each(emit);
+            waiting.surfaces.remove(surface);
+        }
+        for notice in std::mem::take(&mut waiting.terminals).into_values() {
+            emit(self.terminal_event(&notice));
+        }
+        if let Some(scope) = waiting.missions.take() {
+            let catalog = match self.mission_list().await {
+                Ok(catalog) => catalog,
+                Err(error) => {
+                    waiting.missions = Some(scope);
+                    return Err(error);
                 }
+            };
+            let (listed, complete) = Self::listed_rooms(&catalog)?;
+            emit(catalog);
+            let whole = scope == Scope::All;
+            let scope = match scope {
+                Scope::All => None,
+                Scope::Rooms(rooms) => Some(rooms),
+            };
+            let mut pending = self.rooms_to_refresh(listed, scope.as_ref()).await;
+            let mut lookups = Lookups::default();
+            for room in pending.clone() {
+                match self
+                    .refresh_room(&credentials, room, None, true, &mut lookups)
+                    .await
+                {
+                    Err(error) if retried(&error) => {
+                        waiting.missions = Some(Scope::Rooms(pending));
+                        return Err(error);
+                    }
+                    Err(error) => tracing::debug!(%error, "the room waits for its next change"),
+                    Ok(event) => event.into_iter().for_each(emit),
+                }
+                pending.remove(&room);
+                waiting.rooms.remove(&room);
             }
-            "missions" => {
-                let mut events = vec![self.mission_list().await?];
-                events.extend(self.refresh_rooms(&credentials).await?);
-                events
+            if whole {
+                if complete {
+                    self.drop_recovery_room_key(&credentials).await;
+                }
+                waiting.rooms.clear();
             }
-            "rooms" => self.refresh_rooms(&credentials).await?,
-            _ => return Err(invalid("Unsupported notification surface.")),
-        };
-        for event in events {
-            self.emit_for(admitted.generation, Some(admitted.user_id.clone()), event);
+        }
+        let rooms = std::mem::take(&mut waiting.rooms);
+        let mut pending = rooms.clone();
+        for (room, wanted) in rooms {
+            match self
+                .refresh_room(&credentials, room, wanted, false, &mut Lookups::default())
+                .await
+            {
+                Err(error) if retried(&error) => {
+                    waiting.rooms = pending;
+                    return Err(error);
+                }
+                Err(error) => tracing::debug!(%error, "the room waits for its next change"),
+                Ok(event) => event.into_iter().for_each(emit),
+            }
+            pending.remove(&room);
         }
         if self.credentials()?.enrolled {
             Ok(())
         } else {
             Err(Error::EnrollmentRequired)
         }
+    }
+
+    fn terminal_event(&self, notice: &TerminalNotice) -> Value {
+        if let Ok(mut kept) = self.inner.sessions.lock()
+            && let Some(dto) = kept
+                .get_mut(&notice.session)
+                .filter(|dto| dto.incarnation_id == notice.incarnation)
+        {
+            dto.host_online = notice.online;
+            dto.status.clone_from(&notice.status);
+        }
+        json!({"type":"network.terminal","sessionId":notice.session,
+            "incarnationId":notice.incarnation,"online":notice.online,"status":notice.status})
     }
 }
 

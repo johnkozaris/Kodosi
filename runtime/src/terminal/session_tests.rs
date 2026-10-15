@@ -17,7 +17,6 @@ async fn shell(
         PathBuf::from("/bin/sh"),
         vec!["-c".to_owned(), script.to_owned()],
         directory,
-        true,
         changes,
     )
     .await
@@ -197,7 +196,6 @@ async fn canceled_host_authorization_cannot_resize_focus_or_close() {
         TerminalControl::Close,
         TerminalControl::Focus { focused: true },
         TerminalControl::Resize {
-            request_id: Uuid::now_v7().to_string(),
             rows: 10,
             cols: 10,
             width_pixels: 0,
@@ -211,8 +209,6 @@ async fn canceled_host_authorization_cannot_resize_focus_or_close() {
         session
             .host_requests
             .send(HostRequest::Control {
-                sender_user_id: "friend".to_owned(),
-                sender_device_id: "device".to_owned(),
                 connection_id,
                 control,
                 authorization: authorization.clone(),
@@ -320,8 +316,12 @@ fn byte_budget_covers_admitted_input_before_the_actor_polls() {
     let budget = Arc::new(Semaphore::new(MAX_PENDING_BYTES));
     let writes = (0..4)
         .map(|_| {
-            PendingWrite::new(Bytes::from(vec![b'x'; MAX_INPUT_BYTES]), &budget, None)
-                .expect("budget")
+            PendingWrite::new(
+                Bytes::from(vec![b'x'; super::super::TERMINAL_INPUT_MAX_BYTES]),
+                &budget,
+                None,
+            )
+            .expect("budget")
         })
         .collect::<Vec<_>>();
     assert!(PendingWrite::new(Bytes::from_static(b"x"), &budget, None).is_err());
@@ -337,12 +337,7 @@ fn byte_budget_covers_admitted_input_before_the_actor_polls() {
 async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
     let root = tempfile::tempdir().expect("cwd");
     let directory = kodosi_os::fs::canonicalize(root.path()).expect("canonical");
-    let emulator = SessionTerminalHandle::spawn(
-        TerminalSize::default(),
-        TerminalHistoryPolicy::default(),
-        true,
-    )
-    .expect("emulator");
+    let emulator = SessionTerminalHandle::spawn(TerminalSize::default()).expect("emulator");
     let (pty, reader) = KodosiPty::spawn_program(
         Path::new("/bin/sh"),
         &["-c".to_owned(), "stty raw -echo; exec /bin/cat".to_owned()],
@@ -384,6 +379,8 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         output_at: None,
         prompt: false,
         viewers: HashMap::new(),
+        owner: None,
+        local_view: false,
         working_directory: directory.clone(),
         observed_directory: None,
         title: None,
@@ -448,7 +445,6 @@ async fn a_program_status_report_reaches_the_host_and_the_people_who_view_the_te
         state: ProgramState::Blocked,
         kind: Some(BlockedKind::Permission),
         progress: None,
-        app: Some("claude-code".to_owned()),
         title: None,
         message: Some("Allow?".to_owned()),
     };
@@ -495,7 +491,6 @@ async fn a_progress_bar_shows_as_work_and_ends_with_its_program() {
             state: ProgramState::Working,
             kind: None,
             progress: Some(40),
-            app: None,
             title: None,
             message: None,
         })
@@ -526,7 +521,6 @@ async fn a_command_runs_only_while_the_shell_is_at_its_prompt() {
         PathBuf::from("/bin/sh"),
         vec!["-i".to_owned()],
         kodosi_os::fs::canonicalize(root.path()).expect("canonical cwd"),
-        true,
         changes,
     )
     .await
@@ -576,7 +570,6 @@ async fn a_start_line_runs_once_the_shell_waits_at_its_prompt() {
         PathBuf::from(program),
         arguments,
         kodosi_os::fs::canonicalize(root.path()).expect("canonical cwd"),
-        true,
         changes,
     )
     .await
@@ -804,7 +797,6 @@ async fn title_delivery_retries_after_the_change_channel_is_full() {
             r"printf '\033]0;Final title\007'; exec /bin/cat".into(),
         ],
         root.path().to_owned(),
-        true,
         changes,
     )
     .await
@@ -838,4 +830,63 @@ fn start_commands_clear_the_line_the_way_the_shell_edits() {
     for shell in ["/bin/zsh", "/bin/bash", "bash.exe", "fish"] {
         assert_eq!(clear_line_keys(Path::new(shell)), "\x05\x15", "{shell}");
     }
+}
+
+async fn next_presence(changes: &mut mpsc::Receiver<SessionChange>) -> Vec<String> {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Some(SessionChange::Presence { users, .. }) = changes.recv().await {
+                break users;
+            }
+        }
+    })
+    .await
+    .expect("presence change")
+}
+
+#[tokio::test]
+async fn the_person_of_the_host_is_here_while_this_computer_shows_a_shared_terminal() {
+    let (session, mut changes, _root) = shell("exec /bin/cat").await;
+    let early = session.subscribe().await.expect("view before sharing");
+    session.unsubscribe(early.connection_id);
+    session
+        .host_requests
+        .send(HostRequest::ResetPresence {
+            owner: Some("owner".to_owned()),
+        })
+        .await
+        .expect("share");
+    assert_eq!(next_presence(&mut changes).await, Vec::<String>::new());
+    let view = session.subscribe().await.expect("view");
+    assert_eq!(next_presence(&mut changes).await, ["owner"]);
+    let second = session.subscribe().await.expect("second view");
+    session.unsubscribe(view.connection_id);
+    session.unsubscribe(second.connection_id);
+    assert_eq!(next_presence(&mut changes).await, Vec::<String>::new());
+    session
+        .host_requests
+        .send(HostRequest::ResetPresence { owner: None })
+        .await
+        .expect("stop sharing");
+    assert_eq!(next_presence(&mut changes).await, Vec::<String>::new());
+    let _later = session.subscribe().await.expect("view after sharing");
+    session.close().await.expect("close");
+    while let Ok(change) = changes.try_recv() {
+        assert!(!matches!(change, SessionChange::Presence { .. }));
+    }
+}
+
+#[test]
+fn terminals_find_the_kodosi_command_of_the_running_app() {
+    let app = tempfile::tempdir().expect("app folder");
+    let folder = app.path().to_path_buf();
+    let path = std::ffi::OsString::from("/usr/bin:/bin");
+    assert_eq!(path_with_command(&path, folder.clone()), None);
+    std::fs::write(folder.join("kodosi"), b"").expect("command");
+    assert_eq!(
+        path_with_command(&path, folder.clone()),
+        Some(format!("/usr/bin:/bin:{}", folder.display()))
+    );
+    let present = std::env::join_paths([PathBuf::from("/usr/bin"), folder.clone()]).expect("path");
+    assert_eq!(path_with_command(&present, folder), None);
 }

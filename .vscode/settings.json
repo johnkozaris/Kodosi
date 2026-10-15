@@ -1,21 +1,16 @@
 {
   "files.exclude": {
     "**/target": true,
-    "**/.git": true,
     "**/bin": true,
     "**/obj": true
   },
   "search.exclude": {
-    "**/target": true,
-    "**/bin": true,
-    "**/obj": true,
     "**/Cargo.lock": true,
     "**/Migrations": true
   },
   "editor.formatOnSave": true,
   "[rust]": {
-    "editor.defaultFormatter": "rust-lang.rust-analyzer",
-    "editor.formatOnSave": true
+    "editor.defaultFormatter": "rust-lang.rust-analyzer"
   },
   "[markdown]": {
     "editor.wordWrap": "on"

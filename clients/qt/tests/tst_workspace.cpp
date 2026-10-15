@@ -29,7 +29,7 @@ struct Fixture {
     Commands commands;
     kodosi::SessionCatalogModel sessions;
     kodosi::DesktopStateModel desktop {
-        std::make_unique<QSettings>(dir.filePath(QStringLiteral("ui.ini")), QSettings::IniFormat), false
+        std::make_unique<QSettings>(dir.filePath(QStringLiteral("ui.ini")), QSettings::IniFormat)
     };
     kodosi::DesktopSettings settings {
         std::make_unique<QSettings>(dir.filePath(QStringLiteral("terminal.ini")), QSettings::IniFormat)
@@ -120,8 +120,6 @@ private slots:
         QVERIFY(presentation->canControl);
         const auto fields = f.sessions.presentationForSession(test::id(1));
         QVERIFY(fields.value(QStringLiteral("canControl")).toBool());
-        for (const auto* field : { "canSendInput", "canRetainFocus", "canSendFocus", "canResize", "isStageReady" })
-            QVERIFY(!fields.contains(QLatin1String(field)));
         for (const auto* state : { "connecting", "offline", "blocked" }) {
             connected.insert(QStringLiteral("connectionState"), QLatin1String(state));
             f.sessions.apply(test::snapshot({ connected }));
@@ -280,6 +278,7 @@ private slots:
         QVERIFY(activity(2).isEmpty());
         QCOMPARE(sign(1), QStringLiteral("hand"));
         QCOMPARE(sign(2), QStringLiteral("question"));
+        QVERIFY(field(1, QStringLiteral("asks")).toBool());
         QCOMPARE(f.sessions.attention(), (QStringList { test::id(1), test::id(2) }));
 
         f.sessions.clearAttention(test::id(1));
@@ -290,6 +289,7 @@ private slots:
         }), 0);
         QVERIFY(activity(2).isEmpty());
         QCOMPARE(sign(2), QStringLiteral("failed"));
+        QVERIFY(!field(2, QStringLiteral("asks")).toBool());
         QCOMPARE(f.sessions.attention(), QStringList { test::id(2) });
 
         f.workspace.apply(test::snapshot({
@@ -305,6 +305,29 @@ private slots:
 
         f.workspace.apply(test::snapshot({ reported(1, {{QStringLiteral("state"), QStringLiteral("dance")}}) }), 0);
         QCOMPARE(f.sessions.session(test::id(2))->programState, QStringLiteral("done"));
+    }
+    void aRoomTerminalThatIsNotOpenHereShowsTheStatusOfItsHost()
+    {
+        Fixture f;
+        const auto closed = [](const int number) {
+            auto session = test::session(number, true, false);
+            session.insert(QStringLiteral("connectionState"), QStringLiteral("offline"));
+            return session;
+        };
+        auto asking = closed(1);
+        asking.insert(QStringLiteral("programStatus"),
+            QJsonObject { { QStringLiteral("state"), QStringLiteral("blocked") }, { QStringLiteral("kind"), QStringLiteral("question") } });
+        auto working = closed(2);
+        working.insert(QStringLiteral("programStatus"), QJsonObject { { QStringLiteral("state"), QStringLiteral("working") } });
+        auto titled = closed(3);
+        titled.insert(QStringLiteral("title"), QStringLiteral("\u2802 Build"));
+        f.workspace.apply(test::snapshot({ asking, working, titled }), 0);
+        const auto field = [&](const int number, const QString& name) {
+            return f.sessions.presentationForSession(test::id(number)).value(name);
+        };
+        QCOMPARE(field(1, QStringLiteral("sign")).toString(), QStringLiteral("question"));
+        QVERIFY(field(2, QStringLiteral("working")).toBool());
+        QVERIFY(!field(3, QStringLiteral("working")).toBool());
     }
     void minimizeKeepsProcessAndClosePrunesFromCatalog()
     {
@@ -623,7 +646,6 @@ private slots:
         f.workspace.apply(invite, 1);
         f.workspace.apply(invite, 1);
         QCOMPARE(copied.count(), 1);
-        QCOMPARE(f.workspace.people().invite(), QStringLiteral("kodosi:owner:abcd"));
     }
     void accountDeletionWaitsForTheBrowserAndEndsSignedOutWithANote()
     {

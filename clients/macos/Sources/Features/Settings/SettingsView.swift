@@ -1,4 +1,3 @@
-import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
@@ -15,6 +14,7 @@ struct SettingsView: View {
                         SegmentOption(value: .terminal, title: String(localized: "Terminal"), symbol: "apple.terminal"),
                         SegmentOption(value: .providers, title: String(localized: "Agents"), symbol: "sparkles"),
                         SegmentOption(value: .devices, title: String(localized: "Account"), symbol: "person.crop.circle"),
+                        SegmentOption(value: .general, title: String(localized: "General"), symbol: "gearshape"),
                     ], identifier: "settings")
                 }
                 Group {
@@ -22,6 +22,7 @@ struct SettingsView: View {
                     case .providers: ProviderSettingsView()
                     case .devices: DeviceSettingsView()
                     case .terminal: TerminalSettingsView()
+                    case .general: GeneralSettingsView()
                     }
                 }
                 .id(workbench.settingsSection)

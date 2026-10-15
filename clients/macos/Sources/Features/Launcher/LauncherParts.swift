@@ -1,7 +1,6 @@
 import KodosiDesign
 import SwiftUI
 
-/// Text that a terminal types: it erases back to what stays and types the rest.
 struct TypedText: View {
     @Environment(\.theme) private var theme
     let text: String
@@ -39,86 +38,6 @@ struct TypedText: View {
     }
 }
 
-/// The narrowest width at which a child of a `FlowLayout` takes the rest of
-/// its row; with less room it starts a row of its own.
-struct FillsRow: LayoutValueKey {
-    static let defaultValue: CGFloat? = nil
-}
-
-/// Lays its children out in rows, as words wrap on a line.
-struct FlowLayout: Layout {
-    var spacing: CGFloat = 6
-    var lineSpacing: CGFloat = 6
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
-        let rows = rows(width: proposal.width ?? .infinity, subviews: subviews)
-        let width = rows.map(\.width).max() ?? 0
-        let height = rows.map(\.height).reduce(0, +) + lineSpacing * CGFloat(max(rows.count - 1, 0))
-        return CGSize(width: width, height: height)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal _: ProposedViewSize, subviews: Subviews, cache _: inout ()) {
-        var y = bounds.minY
-        for row in rows(width: bounds.width, subviews: subviews) {
-            var x = bounds.minX
-            for (index, size) in row.items {
-                // Words share the middle of the row's first line; a filling child starts at its top.
-                let top = subviews[index][FillsRow.self] == nil ? (row.line - size.height) / 2 : 0
-                subviews[index].place(at: CGPoint(x: x, y: y + top), anchor: .topLeading, proposal: ProposedViewSize(size))
-                x += size.width + spacing
-            }
-            y += row.height + lineSpacing
-        }
-    }
-
-    private struct Row {
-        var items: [(index: Int, size: CGSize)] = []
-        var width: CGFloat = 0
-        var height: CGFloat = 0
-        /// The height of the row's words, without a filling child.
-        var line: CGFloat = 0
-    }
-
-    private func rows(width: CGFloat, subviews: Subviews) -> [Row] {
-        var rows: [Row] = []
-        var row = Row()
-        for index in subviews.indices {
-            let subview = subviews[index]
-            let used = row.items.isEmpty ? 0 : row.width + spacing
-            var size: CGSize
-            if let minimum = subview[FillsRow.self], width.isFinite {
-                if width - used < minimum, !row.items.isEmpty {
-                    rows.append(row)
-                    row = Row()
-                }
-                let start = row.items.isEmpty ? 0 : row.width + spacing
-                size = subview.sizeThatFits(ProposedViewSize(width: width - start, height: nil))
-            } else {
-                size = subview.sizeThatFits(.unspecified)
-                if size.width > width {
-                    size = subview.sizeThatFits(ProposedViewSize(width: width, height: nil))
-                }
-                if used + size.width > width, !row.items.isEmpty {
-                    rows.append(row)
-                    row = Row()
-                }
-            }
-            row.width = row.items.isEmpty ? size.width : row.width + spacing + size.width
-            row.height = max(row.height, size.height)
-            if subview[FillsRow.self] == nil {
-                row.line = max(row.line, size.height)
-            }
-            row.items.append((index, size))
-        }
-        if !row.items.isEmpty {
-            rows.append(row)
-        }
-        return rows
-    }
-}
-
-/// The terminal's own colors, which stay dark in both looks: its body, its
-/// band and the face of a key.
 enum TerminalInk {
     static let body = hex(0x0D0B09)
     static let band = hex(0x1A1512)
@@ -127,8 +46,6 @@ enum TerminalInk {
     static let path = hex(0x5DAFA6)
 }
 
-/// The face of a key on the command line: one solid color, lit from the top
-/// left as the buttons are.
 struct ChipFace: View {
     var lit = false
 
@@ -140,8 +57,6 @@ struct ChipFace: View {
     }
 }
 
-/// One part of the command line, as a key that opens its list in the terminal.
-/// A part not chosen yet names what it holds in muted words.
 struct CommandToken: View {
     @Environment(\.theme) private var theme
     @State private var hovered = false
@@ -204,7 +119,6 @@ struct CommandToken: View {
     }
 }
 
-/// The dots that show the keys for the model and the effort.
 struct MoreKey: View {
     @Environment(\.theme) private var theme
     @State private var hovered = false
@@ -228,8 +142,6 @@ struct MoreKey: View {
     }
 }
 
-/// The cursor at the end of the command line. It stays lit while the line
-/// changes, then blinks as a terminal cursor does.
 struct PromptCursor: View {
     @Environment(\.theme) private var theme
     let line: String
@@ -250,10 +162,6 @@ struct PromptCursor: View {
     }
 }
 
-/// The band of the launcher's terminal: a tab for each kind of terminal it
-/// opens, the plain terminal first. The chosen tab opens into the terminal
-/// below it and says its name; the others are marks. Agents that are not here
-/// wait behind the plus, and an agent that arrives says so once.
 struct AgentTabs: View {
     struct Item: Identifiable, Equatable {
         let id: String
@@ -344,8 +252,6 @@ struct AgentTabs: View {
     }
 }
 
-/// A tab that opens into what is below it: round on top, and its bottom
-/// corners flare out into the edge it stands on.
 struct TabShape: Shape {
     let radius: CGFloat
     let flare: CGFloat
@@ -365,7 +271,6 @@ struct TabShape: Shape {
     }
 }
 
-/// A ring that leaves its place once, for something that just arrived.
 struct Ripple: View {
     @Environment(\.theme) private var theme
     let color: Color
@@ -383,10 +288,7 @@ struct Ripple: View {
     }
 }
 
-/// How the launcher's terminal first appears: the copper cursor alone, then a
-/// line that grows from it, then the window around the line.
 struct SeedMask: Shape {
-    /// From 0, the cursor, to 1, the whole window.
     var progress: CGFloat
     let cursor: CGRect
     let radius: CGFloat

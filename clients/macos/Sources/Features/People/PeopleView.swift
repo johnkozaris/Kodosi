@@ -60,7 +60,7 @@ struct PeopleView: View {
             .animation(theme.motion.spring, value: deps.outgoingRequests.map(\.id))
             .animation(theme.motion.snappy, value: copied)
             .confirmationDialog(
-                "Remove \(pendingRemoval?.displayName ?? "")?",
+                "Remove \(pendingRemoval?.personName ?? "")?",
                 isPresented: Binding(get: { pendingRemoval != nil }, set: {
                     if !$0 {
                         pendingRemoval = nil
@@ -111,7 +111,7 @@ struct PeopleView: View {
     }
 
     private func incoming(_ person: FriendRequestEntry) -> some View {
-        let name = person.displayName.isEmpty ? person.handle : person.displayName
+        let name = person.personName
         return HStack(spacing: 14) {
             PersonAvatar(name: name, key: person.userId, size: 40)
             VStack(alignment: .leading, spacing: 2) {
@@ -128,7 +128,7 @@ struct PeopleView: View {
     }
 
     private func outgoing(_ person: FriendRequestEntry) -> some View {
-        let name = person.displayName.isEmpty ? person.handle : person.displayName
+        let name = person.personName
         return HStack(spacing: 12) {
             PersonAvatar(name: name, key: person.userId, size: 28)
             Text(name).appTextStyle(.body).foregroundStyle(theme.colors.ink)
@@ -152,7 +152,7 @@ private struct FriendCard: View {
     let remove: () -> Void
 
     private var name: String {
-        friend.displayName.isEmpty ? friend.handle : friend.displayName
+        friend.personName
     }
 
     private var shared: [RuntimeSession] {
@@ -166,7 +166,7 @@ private struct FriendCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 5) {
                         Text(name).appTextStyle(.headline).foregroundStyle(theme.colors.ink).lineLimit(1)
-                        if friend.verified, !friend.identityChanged {
+                        if friend.isVerified {
                             Image(systemName: "checkmark.seal.fill").font(.system(size: 12)).foregroundStyle(theme.colors.ready)
                                 .help("Verified").accessibilityLabel(Text("Verified"))
                         }
@@ -175,7 +175,7 @@ private struct FriendCard: View {
                 }
                 Spacer(minLength: 4)
                 Menu {
-                    if !friend.verified || friend.identityChanged {
+                    if !friend.isVerified {
                         Button("Verify with their invite…") { verifying = true }
                     }
                     Button("Remove…", role: .destructive, action: remove)

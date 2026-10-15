@@ -59,7 +59,6 @@ struct SidebarView: View {
             }
             .padding(.leading, 16).padding(.trailing, 8).padding(.top, 6)
             NewTerminalButton().padding(.horizontal, 12).padding(.top, 14).padding(.bottom, 10)
-            waiting
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     rooms
@@ -69,28 +68,6 @@ struct SidebarView: View {
             }
             .scrollIndicators(.never)
             footer
-        }
-    }
-
-    @ViewBuilder
-    private var waiting: some View {
-        let waiting = deps.sessions.filter { $0.needsUser && deps.attention.contains($0.id) }
-        if let next = waiting.first {
-            Button { deps.activateSession(next.id) } label: {
-                HStack(spacing: 9) {
-                    StatusSign(form: next.sign(unseen: true) ?? .hand).frame(width: 22)
-                    Text(waiting.count == 1 ? String(localized: "\(next.name) needs you") : String(localized: "\(waiting.count) terminals need you"))
-                        .appTextStyle(.footnote).fontWeight(.medium).foregroundStyle(theme.colors.accentStrong).lineLimit(1)
-                    Spacer(minLength: 0)
-                    Image(systemName: "arrow.right").font(.system(size: 9, weight: .bold)).foregroundStyle(theme.colors.accentStrong)
-                }
-                .padding(.horizontal, 8).frame(height: 30)
-                .background(theme.colors.accentSoft.opacity(0.7), in: Capsule())
-            }
-            .buttonStyle(PressScaleStyle(scale: 0.97))
-            .padding(.horizontal, 12).padding(.bottom, 6)
-            .transition(AnyTransition.rise)
-            .accessibilityIdentifier("sidebar.needsYou")
         }
     }
 
@@ -173,6 +150,14 @@ struct SidebarView: View {
                           badge: 0, selected: false, pill: pill)
             {
                 deps.workbench.showsHistory = true
+            }
+            if deps.updater.waiting {
+                SidebarNavRow(title: "Restart to Update", symbol: "arrow.down.circle", identifier: "sidebar.update",
+                              badge: 0, selected: false, pill: pill,
+                              tint: deps.updater.critical ? theme.colors.caution : theme.colors.accentStrong)
+                {
+                    deps.updater.restart()
+                }
             }
             AccountCapsule(selected: selection == .settings, pill: pill).padding(.top, 6)
         }

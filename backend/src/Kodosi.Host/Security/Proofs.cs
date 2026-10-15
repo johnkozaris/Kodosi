@@ -1,5 +1,4 @@
 using System.Buffers.Binary;
-using System.Security.Cryptography;
 using System.Text;
 
 namespace Kodosi.Security;
@@ -13,17 +12,6 @@ internal static class DomainTags
     public static ReadOnlySpan<byte> RoomStateV1 => "kodosi-room-state-v1"u8;
     public static ReadOnlySpan<byte> RoomContentV1 => "kodosi-room-content-v1"u8;
     public static ReadOnlySpan<byte> RoomRecipientV1 => "kodosi-room-recipient-v1"u8;
-}
-
-internal static class DeviceIdRules
-{
-    public const int MaximumLength = 256;
-    public static string Require(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value) || value.Length > MaximumLength || value != value.Trim() || value.Any(char.IsControl))
-            throw ApiException.Invalid("Device ID must be canonical.");
-        return value;
-    }
 }
 
 internal static class Proofs
@@ -40,9 +28,30 @@ internal static class Proofs
     {
         using var stream = new MemoryStream();
         stream.Write(DomainTags.DeviceSessionV1);
-        foreach (var value in new[] { user.ToString("D"), device, challengeId.ToString("D") })
-            CanonicalLengthPrefixedUtf8.Write(stream, value);
+        Write(stream, user.ToString("D"));
+        Write(stream, device);
+        Write(stream, challengeId.ToString("D"));
         stream.Write(challenge);
         return stream.ToArray();
+    }
+
+    public static byte[] RoomRecipient(Guid user, string device, byte[] key)
+    {
+        using var stream = new MemoryStream();
+        stream.Write(DomainTags.RoomRecipientV1);
+        Write(stream, user.ToString("D"));
+        Write(stream, device);
+        Write(stream, key);
+        return stream.ToArray();
+    }
+
+    private static void Write(Stream stream, string value) => Write(stream, Encoding.UTF8.GetBytes(value));
+
+    private static void Write(Stream stream, ReadOnlySpan<byte> value)
+    {
+        Span<byte> length = stackalloc byte[sizeof(uint)];
+        BinaryPrimitives.WriteUInt32BigEndian(length, checked((uint)value.Length));
+        stream.Write(length);
+        stream.Write(value);
     }
 }

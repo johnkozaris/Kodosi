@@ -7,7 +7,7 @@ cd "$ROOT"
 
 : "${KODOSI_TEAM_ID:?Set KODOSI_TEAM_ID to the Apple Developer team identifier}"
 
-app=${1:-build/archive/KodosiDesktop.xcarchive/Products/Applications/KodosiDesktop.app}
+app=${1:-build/archive/KodosiDesktop.xcarchive/Products/Applications/Kodosi.app}
 "$ROOT/scripts/release/verify-publishable.sh" "$app"
 
 /usr/bin/codesign --verify --deep --strict --verbose=4 "$app"

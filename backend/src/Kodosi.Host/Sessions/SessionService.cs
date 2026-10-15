@@ -2,12 +2,13 @@ using Kodosi.Data;
 using Kodosi.Devices;
 using Kodosi.TerminalConnections;
 using Kodosi.Missions;
+using Kodosi.Plans;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.Sessions;
 
 public sealed class SessionService(KodosiDbContext db, ConnectionDirectory connections,
-    DeviceService devices, MissionService missions, TimeProvider clock)
+    DeviceService devices, MissionService missions, TimeProvider clock, PlanCatalog plans)
 {
     public async Task<Session> AuthorizedAsync(Guid id, Guid userId, CancellationToken ct)
     {
@@ -36,7 +37,12 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         var mission = session.MissionId is { } missionId ? await db.Missions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == missionId, ct) : null;
         return new SessionDto(session.Id, session.IncarnationId, session.Name, session.OwnerUserId, owner.DisplayName,
             session.HostDeviceId, session.HostName, session.MissionId, mission?.Name, shared, session.AuthorizationRevision,
-            connections.HostOnline(session.Id));
+            connections.HostOnline(session.Id), connections.Status(session.Id));
+    }
+    public async Task AnnounceAsync(Guid id, CancellationToken ct)
+    {
+        var session = await db.Sessions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id && !x.Ended, ct);
+        if (session is not null) connections.NotifyTerminal(session, await AudienceAsync(session, ct));
     }
     public async Task<IReadOnlyList<SessionDto>> ListAsync(Guid userId, CancellationToken ct)
     {
@@ -67,7 +73,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
             x.Session.MissionId, x.MissionName,
             (x.Session.MissionId is { } room ? audiences[room] : shared[x.Session.Id])
                 .Where(user => user != x.Session.OwnerUserId).Distinct().ToArray(), x.Session.AuthorizationRevision,
-            connections.HostOnline(x.Session.Id))).ToArray();
+            connections.HostOnline(x.Session.Id), connections.Status(x.Session.Id))).ToArray();
     }
     public async Task<SessionDto> CreateAsync(Guid userId, Device device, CreateSession body, CancellationToken ct)
     {
@@ -130,6 +136,8 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         if (body.UserIds is null || body.UserIds.Length > Limits.MaxSessionMembers || body.UserIds.Any(x => x == Guid.Empty || x == userId))
             throw ApiException.Invalid("Choose up to 64 friends, excluding yourself.");
         var selected = body.UserIds.Distinct().ToHashSet();
+        var most = (await plans.LimitsAsync(db, userId, ct)).SharePeople;
+        if (selected.Count > most) throw ApiException.Limited("share-people", $"You can share a terminal with at most {Limits.Count(most, "person", "people")}.");
         var accepted = await db.Friendships.AsNoTracking()
             .Where(x => x.Accepted && ((x.FirstUserId == userId && selected.Contains(x.SecondUserId))
                 || (x.SecondUserId == userId && selected.Contains(x.FirstUserId))))
@@ -189,7 +197,8 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     { Incarnation(session, incarnation); if (session.AuthorizationRevision != revision) throw ApiException.Conflict("Session sharing changed; refresh before retrying."); }
 
     public sealed record SessionDto(Guid Id, Guid IncarnationId, string Name, Guid OwnerUserId, string OwnerName,
-        string HostDeviceId, string HostName, Guid? MissionId, string? MissionName, Guid[] SharedWith, long AuthorizationRevision, bool HostOnline);
+        string HostDeviceId, string HostName, Guid? MissionId, string? MissionName, Guid[] SharedWith, long AuthorizationRevision, bool HostOnline,
+        TerminalStatus? Status);
     public sealed record CreateSession(Guid Id, Guid IncarnationId, string Name, string HostDeviceId, string HostName, Guid? MissionId);
     public sealed record RenameSession(Guid IncarnationId, long ExpectedRevision, string Name);
     public sealed record AttachSession(Guid IncarnationId, Guid? MissionId);

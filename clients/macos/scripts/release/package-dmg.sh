@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $# -ne 2 || $2 != *.dmg ]]; then
-    echo "usage: $0 <KodosiDesktop.app> <disk-image.dmg>" >&2
+    echo "usage: $0 <Kodosi.app> <disk-image.dmg>" >&2
     exit 64
 fi
 app=$1
@@ -14,14 +14,15 @@ if ! xcrun stapler validate "$app"; then
 fi
 staging=$(mktemp -d "${TMPDIR:-/tmp}/kodosi-dmg.XXXXXX")
 trap 'rm -rf "$staging"' EXIT
-/usr/bin/ditto "$app" "$staging/KodosiDesktop.app"
+/usr/bin/ditto "$app" "$staging/Kodosi.app"
 ln -s /Applications "$staging/Applications"
 mkdir -p "$(dirname "$dmg")"
 hdiutil create \
-    -volname "KodosiDesktop" \
+    -volname "Kodosi" \
     -srcfolder "$staging" \
     -ov \
-    -format UDZO \
+    -fs APFS \
+    -format ULFO \
     "$dmg"
 codesign \
     --force \

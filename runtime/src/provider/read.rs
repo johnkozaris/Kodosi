@@ -27,8 +27,6 @@ pub(super) fn page(
         entries: Vec::new(),
         next_before_byte: None,
         source_file_bytes,
-        read_bytes,
-        source_records: 0,
         degraded_reason: None,
     };
     if before_byte == 0 {
@@ -103,7 +101,6 @@ pub(super) fn page(
     let raw = std::str::from_utf8(&complete[start..])
         .map_err(|error| format!("Transcript page is not UTF-8: {error}"))?;
     page.entries = decode::conversation(provider, raw)?;
-    page.source_records = record_starts.len() - selected;
     page.next_before_byte = (absolute_start > 0).then_some(absolute_start);
     Ok(page)
 }

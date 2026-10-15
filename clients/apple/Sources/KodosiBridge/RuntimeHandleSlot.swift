@@ -1,23 +1,19 @@
 import Foundation
 
-public struct RuntimeHandleSnapshot: @unchecked Sendable {
-    public let pointer: UnsafeMutableRawPointer
-
-    public init(pointer: UnsafeMutableRawPointer) {
-        self.pointer = pointer
-    }
+struct RuntimeHandleSnapshot: @unchecked Sendable {
+    let pointer: UnsafeMutableRawPointer
 }
 
-public final class RuntimeHandleSlot: @unchecked Sendable {
+final class RuntimeHandleSlot: @unchecked Sendable {
     private let lock = NSLock()
     private var pointer: UnsafeMutableRawPointer?
     private var generation: UInt64 = 0
 
-    public var isRunning: Bool {
+    var isRunning: Bool {
         lock.withLock { pointer != nil }
     }
 
-    public func currentGeneration() -> UInt64? {
+    func currentGeneration() -> UInt64? {
         lock.withLock {
             guard pointer != nil else { return nil }
             return generation
@@ -25,7 +21,7 @@ public final class RuntimeHandleSlot: @unchecked Sendable {
     }
 
     @discardableResult
-    public func install(_ pointer: UnsafeMutableRawPointer) -> UInt64 {
+    func install(_ pointer: UnsafeMutableRawPointer) -> UInt64 {
         lock.withLock {
             generation &+= 1
             self.pointer = pointer
@@ -33,14 +29,14 @@ public final class RuntimeHandleSlot: @unchecked Sendable {
         }
     }
 
-    public func snapshot(matching expectedGeneration: UInt64) -> RuntimeHandleSnapshot? {
+    func snapshot(matching expectedGeneration: UInt64) -> RuntimeHandleSnapshot? {
         lock.withLock {
             guard let pointer, generation == expectedGeneration else { return nil }
             return RuntimeHandleSnapshot(pointer: pointer)
         }
     }
 
-    public func tombstone() -> RuntimeHandleSnapshot? {
+    func tombstone() -> RuntimeHandleSnapshot? {
         lock.withLock {
             guard let pointer else { return nil }
             self.pointer = nil

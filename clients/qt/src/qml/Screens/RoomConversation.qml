@@ -161,8 +161,9 @@ Item {
                 }
                 onMovementEnded: root.rememberPosition()
                 header: Item {
+                    readonly property bool trimmed: !root.room.hasOlder && !!root.room.historyTrimmed && root.messages.length > 0
                     width: transcript.width - transcript.rightMargin
-                    height: root.room.hasOlder ? 40 : 8
+                    height: root.room.hasOlder || trimmed ? 40 : 8
                     KButton {
                         anchors.centerIn: parent
                         visible: !!root.room.hasOlder
@@ -177,6 +178,16 @@ Item {
                             Models.Missions.setPresentation("followLatest", false);
                             Models.Missions.roomAction({ type: "read", before: root.messages[0].sequence });
                         }
+                    }
+                    PlainLabel {
+                        anchors.centerIn: parent
+                        width: parent.width - 24
+                        visible: parent.trimmed
+                        horizontalAlignment: Text.AlignHCenter
+                        wrapMode: Text.WordWrap
+                        text: qsTr("Kodosi removed the oldest messages to make space for new ones.")
+                        color: KodosiTheme.inkFaint
+                        font.pixelSize: KodosiTheme.fontCaption
                     }
                 }
                 footer: Item { width: 1; height: 8 }

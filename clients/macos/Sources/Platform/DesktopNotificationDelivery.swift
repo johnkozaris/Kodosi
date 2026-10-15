@@ -1,5 +1,4 @@
 import Foundation
-import KodosiDesign
 import os
 @preconcurrency import UserNotifications
 
@@ -48,25 +47,10 @@ struct SystemNotificationDriver: DesktopNotificationDriving {
 enum DesktopNotificationDelivery {
     static func addWhenAuthorized(
         _ request: UNNotificationRequest,
-        remainsRelevant: @escaping @MainActor @Sendable () -> Bool = { true },
-        failureContext: String,
-        completion: @escaping @Sendable () -> Void = {}
-    ) {
-        addWhenAuthorized(
-            request,
-            driver: SystemNotificationDriver(),
-            remainsRelevant: remainsRelevant,
-            failureContext: failureContext,
-            completion: completion
-        )
-    }
-
-    static func addWhenAuthorized(
-        _ request: UNNotificationRequest,
         driver: any DesktopNotificationDriving,
-        remainsRelevant: @escaping @MainActor @Sendable () -> Bool = { true },
+        remainsRelevant: @escaping @MainActor @Sendable () -> Bool,
         failureContext: String,
-        completion: @escaping @Sendable () -> Void = {}
+        completion: @escaping @Sendable () -> Void
     ) {
         driver.getAuthorizationStatus { status in
             Task { @MainActor in

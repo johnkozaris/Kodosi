@@ -221,30 +221,12 @@ final class RoomStore {
             if arrived > 0, !(visible && state?.reading == true) {
                 unread[roomId, default: 0] += arrived
             }
-            next.hasOlder = previous.hasOlder && next.hasOlder
-            next.messages = Self.merge(previous.messages, next.messages)
-            next.tasks = Self.merge(previous.tasks, next.tasks)
+            next.merge(previous)
             if previous.tasks.map(\.version) != next.tasks.map(\.version), !(visible && state?.watchingTasks == true) {
                 view(roomId).freshTasks = true
             }
         }
         snapshots[roomId] = next
-    }
-
-    private static func merge(_ old: [RoomMessage], _ new: [RoomMessage]) -> [RoomMessage] {
-        var messages = Dictionary(old.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
-        for message in new {
-            messages[message.id] = message
-        }
-        return messages.values.sorted { $0.sequence < $1.sequence }
-    }
-
-    private static func merge(_ old: [RoomTask], _ new: [RoomTask]) -> [RoomTask] {
-        var tasks = Dictionary(old.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
-        for task in new where tasks[task.id].map({ $0.version <= task.version }) ?? true {
-            tasks[task.id] = task
-        }
-        return tasks.values.sorted { $0.id < $1.id }
     }
 
     private func finishListWaiter(_ id: UUID) {

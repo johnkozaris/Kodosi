@@ -173,6 +173,11 @@ foreach(module Core Gui Qml Quick)
             endif()
             target_include_directories(kodosi-terminal-kernel PRIVATE
                 "${private_root}" "${private_root}/Qt${module}")
+            # The Windows window frame corrects Qt's frame margins.
+            if(WIN32 AND module MATCHES "^(Core|Gui)$")
+                target_include_directories(kodosi-desktop-integration PRIVATE
+                    "${private_root}" "${private_root}/Qt${module}")
+            endif()
         endif()
     endforeach()
 endforeach()
@@ -192,6 +197,9 @@ qt_add_executable(kodosi-qt
     app/main.cpp
 )
 
+# CellRim imports Typing.js by its path. A qmldir entry for it makes Qt find the
+# Kodosi module twice, and no QML file that imports Kodosi then loads.
+set_source_files_properties(qml/Controls/Typing.js PROPERTIES QT_QML_SKIP_QMLDIR_ENTRY TRUE)
 qt_add_library(kodosi-ui STATIC)
 qt_add_qml_module(kodosi-ui
     URI Kodosi
@@ -221,14 +229,13 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/BreathingDot.qml
         qml/Controls/CellRim.qml
         qml/Controls/CardGrid.qml
+        qml/Controls/CodeKeys.qml
         qml/Controls/CountBadge.qml
         qml/Controls/CursorBlock.qml
         qml/Controls/EmptyState.qml
         qml/Controls/IconTile.qml
         qml/Controls/KButton.qml
         qml/Controls/KFocusIndicator.qml
-        qml/Controls/KBusyIndicator.qml
-        qml/Controls/KComboBox.qml
         qml/Controls/KDialog.qml
         qml/Controls/KIcon.qml
         qml/Controls/KIconButton.qml
@@ -248,7 +255,6 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/ProgressRing.qml
         qml/Controls/Raised.qml
         qml/Controls/RoomSigil.qml
-        qml/Controls/SectionDock.qml
         qml/Controls/SegmentedPill.qml
         qml/Controls/ShimmerText.qml
         qml/Controls/StartMark.qml
@@ -260,10 +266,12 @@ qt_add_qml_module(kodosi-ui
         qml/Shell/CommandPalette.qml
         qml/Shell/Sidebar.qml
         qml/Shell/StartupOverlay.qml
+        qml/Shell/WindowControls.qml
         qml/Theme/Identity.qml
         qml/Theme/KodosiTheme.qml
         qml/Theme/Mentions.qml
         qml/Workbench/AgentLauncher.qml
+        qml/Workbench/CloseTerminalDialog.qml
         qml/Workbench/HistoryView.qml
         qml/Workbench/LauncherPrompt.qml
         qml/Workbench/SessionDetails.qml

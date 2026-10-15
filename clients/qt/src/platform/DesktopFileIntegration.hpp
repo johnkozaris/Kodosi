@@ -29,7 +29,6 @@ signals:
     void busyChanged();
     void errorChanged();
     void directoryPicked(QString purpose, QString path);
-    void directoryPickCancelled(QString purpose);
 
 private:
     QPointer<QFileDialog> m_dialog;

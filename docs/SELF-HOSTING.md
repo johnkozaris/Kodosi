@@ -1,72 +1,88 @@
 # Self-hosting
 
-Run the Kodosi backend with PostgreSQL and an OIDC sign-in service, behind HTTPS.
+Run the backend with PostgreSQL and an OIDC sign-in service, behind HTTPS.
 
-## Configure sign-in
+## Sign-in
 
-Create a public OIDC client named `kodosi-app` in your provider. Enable the device
-authorization and refresh-token flows, with the scopes `openid profile offline_access`.
+Create a public OIDC client `kodosi-app` with the device authorization and refresh-token
+flows and the scopes `openid profile offline_access`. The issuer's discovery document
+must expose `device_authorization_endpoint` and `token_endpoint` on the issuer's origin,
+over HTTPS (loopback HTTP works for development). Access tokens use RS256 or ES256, name
+the issuer and audience, and include a non-empty `sub` and an expiry. Accounts are keyed
+by issuer and subject; `preferred_username` and `name` give display names.
 
-The issuer's discovery document exposes `device_authorization_endpoint` and
-`token_endpoint` on the issuer's own origin. Use HTTPS; loopback HTTP works for local
-development. Access tokens use RS256 or ES256, identify the issuer and the audience,
-and include a nonempty `sub` and an expiry. Accounts are identified by issuer and
-subject. `preferred_username` and `name` supply display names.
+## Backend
 
-## Start the backend
-
-Build from the repository root with the pinned .NET SDK, or use
-[backend/Dockerfile](../backend/Dockerfile) with the repository root as its build
-context, as [Build the backend image](#build-the-backend-image) tells. Set these
-environment variables through your deployment's configuration:
+Build with the pinned .NET SDK, or build the image (below). Configure:
 
 | Variable | Value |
 | --- | --- |
-| `ConnectionStrings__Kodosi` | Your PostgreSQL connection string |
-| `Auth__Authority` | Your OIDC issuer URL |
+| `ConnectionStrings__Kodosi` | PostgreSQL connection string |
+| `Auth__Authority` | OIDC issuer URL |
 | `Auth__Audience` | `kodosi-app` |
-| `ASPNETCORE_URLS` | The backend's listening address |
+| `ASPNETCORE_URLS` | Listening address |
+| `Proxy__Addresses__0`, `__1`, … | Trusted reverse proxies for forwarded headers |
 
-Run the development host after configuring those values:
+Run the host once with the `migrate` argument, then start it normally (`just backend-run`
+does both). Run one serving instance and back up the database before upgrades. Terminate
+HTTPS at a reverse proxy with WebSocket support. `/health/live` checks the process and `/health/ready` readiness.
 
-```sh
-just backend-run
+## Account deletion
+
+With Keycloak, the backend follows account deletions from Keycloak's events every 15
+seconds. Give it a confidential client with only a service account and the
+`realm-management` role `view-events`:
+
+| Variable | Value |
+| --- | --- |
+| `Auth__AccountDeletion__ClientId` | Client ID |
+| `Auth__AccountDeletion__ClientSecret` | Client secret |
+| `Auth__AccountDeletion__AdminUrl` | Optional Keycloak admin address (HTTPS or loopback HTTP) when the public one refuses `/admin` |
+
+## Plans
+
+Without plans, each account can have 10 devices, own 64 rooms of 64 members, share a
+terminal with 64 people and send 64 open friend requests; room data and friends have no
+limit. To set smaller limits, define plans in the setting `Plans`. The column
+`users.Plan` names the plan of an account; an account without a plan, or with an unknown
+one, gets the default plan:
+
+```json
+"Plans": {
+  "Default": "free",
+  "Definitions": {
+    "free": { "Devices": 4, "OwnedRooms": 3, "RoomPeople": 3, "SharePeople": 2,
+              "RoomBytes": 10485760, "Friends": 50, "SentFriendRequests": 20,
+              "ReceivedFriendRequests": 50 },
+    "team": { "OwnedRooms": 20, "RoomPeople": 20 }
+  }
+}
 ```
 
-This recipe applies migrations before serving. For a published backend deployment,
-run the host once with the `migrate` argument, then start it normally.
+| Limit | The most that an account can have | Values |
+| --- | --- | --- |
+| `Devices` | Approved devices | 1 to 16 |
+| `OwnedRooms` | Rooms that it owns | 1 to 64 |
+| `RoomPeople` | People in each room that it owns, with the owner and open invitations | 1 to 65 |
+| `SharePeople` | People who can see one of its terminals | 1 to 64 |
+| `RoomBytes` | Encrypted bytes in each room that it owns | 131072 or more |
+| `Friends` | Friends | 1 or more |
+| `SentFriendRequests` | Open friend requests that it sent | 1 to 64 |
+| `ReceivedFriendRequests` | Open friend requests to it | 1 or more |
 
-Run one serving instance. Back up the database before upgrades and keep the ASP.NET
-Data Protection keys across backend replacements.
+A limit that a plan does not set keeps its value without plans. The owner's plan sets
+the limits of a room or a terminal. A new room item past `RoomBytes` deletes the room's
+oldest messages, and the apps say so; past another limit the backend refuses with status
+403 and the limit's name in `limit`. A smaller plan removes nothing, and a recovery with
+the recovery key is never limited. A plan change in the database applies at once, for
+example `UPDATE users SET "Plan" = 'team' WHERE "Handle" = 'ana';`. An error in the
+setting stops the backend at start.
 
-Terminate HTTPS at a reverse proxy with WebSocket support. Configure trusted proxy
-addresses through `Proxy__Addresses__0` (and successive indices as needed) when using
-forwarded headers. `/health/live` checks the process; `/health/ready` reports readiness.
-
-### Account deletion
-
-With Keycloak, the backend follows the account deletions in Keycloak's events. Give it
-a confidential client that has only a service account, with the `realm-management`
-role `view-events`:
-
-| Variable | Value |
-| --- | --- |
-| `Auth__AccountDeletion__ClientId` | The client ID |
-| `Auth__AccountDeletion__ClientSecret` | Its secret |
-| `Auth__AccountDeletion__AdminUrl` | Optional: the Keycloak address for the admin API, when the public address refuses `/admin`. HTTPS, or loopback HTTP |
-
-The backend reads the events every 15 seconds.
-
-### Build the backend image
-
-To build the release image of the backend, run this command from the repository root:
+## Image
 
 ```sh
 just backend-package linux/amd64 registry.example.com/kodosi/backend:1
 ```
 
-The first argument is the platform of the image, for example `linux/amd64` or
-`linux/arm64`; the second is its tag (default `kodosi-backend`). The image goes to your
-local Docker images.
-
-[All documentation](README.md) · [Security](SECURITY.md)
+Builds the image for a platform with an optional tag (default `kodosi-backend`) into
+your local Docker images.

@@ -9,8 +9,7 @@ Rectangle {
         Neutral,
         Accent,
         Ready,
-        Caution,
-        Danger
+        Caution
     }
 
     property string text: ""
@@ -19,7 +18,6 @@ Rectangle {
     readonly property color ink: tone === Tag.Accent ? KodosiTheme.accentStrong
         : tone === Tag.Ready ? KodosiTheme.ready
         : tone === Tag.Caution ? KodosiTheme.caution
-        : tone === Tag.Danger ? KodosiTheme.danger
         : KodosiTheme.inkMuted
 
     implicitWidth: row.implicitWidth + 16
@@ -28,7 +26,6 @@ Rectangle {
     color: tone === Tag.Accent ? KodosiTheme.accentSoft
         : tone === Tag.Ready ? KodosiTheme.readySoft
         : tone === Tag.Caution ? KodosiTheme.cautionSoft
-        : tone === Tag.Danger ? KodosiTheme.dangerSoft
         : KodosiTheme.alpha(KodosiTheme.ink, 0.08)
 
     RowLayout {

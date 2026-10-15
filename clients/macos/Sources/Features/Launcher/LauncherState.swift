@@ -3,7 +3,6 @@ import KodosiBridge
 import Observation
 import os
 
-/// The agents of this Mac and the models of each, as the runtime finds them.
 @MainActor
 @Observable
 final class LauncherState {
@@ -11,7 +10,6 @@ final class LauncherState {
     private(set) var catalog: AgentCatalog?
     private(set) var models: [String: AgentModels] = [:]
     private(set) var loadingModels: Set<String> = []
-    /// Agents that this Mac just got, while the launcher says so.
     private(set) var fresh: Set<String> = []
     private var refreshing = false
     private var refreshesAgain = false
@@ -25,10 +23,8 @@ final class LauncherState {
         catalog?.agents.first { $0.agent == id }
     }
 
-    /// Asks the runtime again, unless it answered in the last few seconds. A
-    /// forced refresh while one runs asks again when that one ends, as the
-    /// answer under way can be older than the change.
     func refresh(force: Bool = false) async {
+        // A forced refresh during another asks again afterwards: the answer under way can predate the change.
         if refreshing {
             refreshesAgain = refreshesAgain || force
             return
@@ -56,7 +52,6 @@ final class LauncherState {
         } while refreshesAgain
     }
 
-    /// Marks `agents` as just arrived, for a few seconds.
     private func announce(_ agents: Set<String>) {
         guard !agents.isEmpty else { return }
         fresh.formUnion(agents)

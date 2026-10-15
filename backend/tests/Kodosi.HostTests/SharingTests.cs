@@ -1,9 +1,7 @@
 using System.Text.Json;
 using Kodosi.Data;
-using Kodosi.Devices;
 using Kodosi.TerminalConnections;
 using Kodosi.Security;
-using Kodosi.Sessions;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 

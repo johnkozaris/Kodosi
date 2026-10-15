@@ -8,7 +8,9 @@ namespace Kodosi.Accounts;
 
 public sealed class CurrentUser(KodosiDbContext db, TimeProvider clock)
 {
+    public static readonly TimeSpan ReauthenticationWindow = TimeSpan.FromMinutes(15);
     private User? loaded;
+
     public async Task<User> GetAsync(HttpContext context, CancellationToken ct)
     {
         if (loaded is not null) return loaded;
@@ -63,10 +65,17 @@ public sealed class CurrentUser(KodosiDbContext db, TimeProvider clock)
         }
         throw ApiException.Conflict("The account could not be created; retry sign-in.");
     }
+
     public static DateTimeOffset? SignedInAt(ClaimsPrincipal principal)
     {
         var value = principal.FindFirstValue("auth_time") ?? principal.FindFirstValue("iat");
         return long.TryParse(value, out var seconds) ? DateTimeOffset.FromUnixTimeSeconds(seconds) : null;
+    }
+
+    public static void RequireRecentSignIn(DateTimeOffset? signedInAt, DateTimeOffset now, string refusal)
+    {
+        if (signedInAt is null || signedInAt > now.AddMinutes(5) || now - signedInAt > ReauthenticationWindow)
+            throw ApiException.Forbidden(refusal);
     }
 
     private static string Truncate(string? value, int maximum)
@@ -87,10 +96,11 @@ internal static class AccountEndpoints
 {
     public static void MapAccounts(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/me", async (HttpContext context, CurrentUser users, AccountDeletionSettings deletion, CancellationToken ct) =>
+        app.MapGet("/api/me", async (HttpContext context, CurrentUser users, AccountDeletionSettings deletion, Kodosi.Plans.PlanCatalog plans, CancellationToken ct) =>
         {
             var user = await users.GetAsync(context, ct);
-            return Results.Ok(new { user.Id, user.Handle, user.DisplayName, deletionUri = deletion.ConfirmationUri() });
+            var (name, limits) = plans.For(user.Plan);
+            return Results.Ok(new { user.Id, user.Handle, user.DisplayName, deletionUri = deletion.ConfirmationUri(), plan = new { name, limits } });
         }).RequireAuthorization();
         app.MapDelete("/api/me", async (HttpContext context, CurrentUser users, AccountService accounts, AccountDeletionSettings deletion, CancellationToken ct) =>
         {

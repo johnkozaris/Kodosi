@@ -11,6 +11,7 @@ ApplicationWindow {
 
     readonly property bool modalOpen: Models.DesktopState.modalOpen || Models.DesktopFiles.busy
     readonly property string notice: Models.AppState.error || Models.DesktopState.lastError || Models.DesktopFiles.errorMessage
+    readonly property bool drawsTitleBar: Qt.platform.os === "windows"
 
     function openCreate(folder) {
         Models.SessionActions.create("", folder || Models.DesktopSettings.effectiveWorkingDirectory);
@@ -21,11 +22,15 @@ ApplicationWindow {
     }
 
     color: KodosiTheme.ground
+    flags: drawsTitleBar
+        ? Qt.Window | Qt.ExpandedClientAreaHint | Qt.NoTitleBarBackgroundHint | Qt.CustomizeWindowHint
+        : Qt.Window
     height: 820
     minimumHeight: 560
     minimumWidth: 860
     objectName: "window.main"
     title: qsTr("Kodosi")
+    topPadding: 0
     visible: true
     width: 1280
 
@@ -66,6 +71,7 @@ ApplicationWindow {
             Sidebar {
                 Layout.fillHeight: true
                 Layout.preferredWidth: implicitWidth
+                titleBar: window.drawsTitleBar
 
                 onDetailsRequested: sessionId => details.openSession(sessionId)
                 onShareRequested: sessionId => share.openSession(sessionId)
@@ -77,7 +83,7 @@ ApplicationWindow {
             Item {
                 Layout.fillHeight: true
                 Layout.fillWidth: true
-                Layout.topMargin: KodosiTheme.frameInset
+                Layout.topMargin: window.drawsTitleBar ? KodosiTheme.titleBarHeight : KodosiTheme.frameInset
                 Layout.bottomMargin: KodosiTheme.frameInset
                 Layout.rightMargin: KodosiTheme.frameInset
 
@@ -96,9 +102,9 @@ ApplicationWindow {
                         active: Models.DesktopState.activeView === Models.DesktopState.Sessions
                         sourceComponent: TerminalStage {
                             interactionEnabled: !window.modalOpen
-                            onInspectSessionRequested: (id, name) => details.openSession(id)
+                            onInspectSessionRequested: id => details.openSession(id)
                             onResumeRequested: history.openModal()
-                            onShareSessionRequested: (id, name) => share.openSession(id)
+                            onShareSessionRequested: id => share.openSession(id)
                         }
                     }
                     MissionsView {
@@ -107,11 +113,16 @@ ApplicationWindow {
                         onShareSessionRequested: id => share.openSession(id)
                     }
                     PeopleView {}
-                    SettingsView {
-                        id: settings
-                    }
+                    SettingsView {}
                 }
             }
+        }
+        WindowControls {
+            visible: window.drawsTitleBar
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.topMargin: (KodosiTheme.titleBarHeight - height) / 2
+            anchors.rightMargin: KodosiTheme.frameInset
         }
         Item {
             anchors.horizontalCenter: parent.horizontalCenter
@@ -221,9 +232,7 @@ ApplicationWindow {
         onNewRoomRequested: window.openNewRoom()
         onResumeRequested: history.openModal()
     }
-    StartupOverlay {
-        id: startup
-    }
+    StartupOverlay {}
     Shortcut {
         enabled: !window.modalOpen
         sequence: "Ctrl+Shift+N"

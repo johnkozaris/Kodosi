@@ -22,6 +22,6 @@ extension TerminalSessionManager {
     }
 
     func applySettings(_ terminalSettings: DesktopSettings.TerminalSettings) {
-        applyStyle(KodosiTerminalStyle.make(settings: terminalSettings, fontSize: Float(terminalSettings.fontSize)))
+        applyStyle(KodosiTerminalStyle.make(settings: terminalSettings))
     }
 }

@@ -225,7 +225,19 @@ TerminalView::~TerminalView()
 
 QSizeF TerminalView::gridSize() const
 {
-    return m_frame ? TerminalRasterizer::logicalSize(*m_frame, m_font, m_lineHeight) : QSizeF {};
+    return m_frame
+        ? TerminalRasterizer::logicalSize(*m_frame, m_font, m_lineHeight, devicePixelRatio())
+        : QSizeF {};
+}
+
+qreal TerminalView::devicePixelRatio() const
+{
+    return window() == nullptr ? 1.0 : window()->effectiveDevicePixelRatio();
+}
+
+QSizeF TerminalView::terminalCellSize() const
+{
+    return TerminalRasterizer::cellSize(m_font, m_lineHeight, devicePixelRatio());
 }
 
 qreal TerminalView::viewportScale() const
@@ -244,12 +256,6 @@ QPointF TerminalView::viewportOffset() const
 QPointF TerminalView::gridPoint(const QPointF& point) const
 {
     return (point - viewportOffset()) / viewportScale();
-}
-
-void TerminalView::updateViewport()
-{
-    emit viewportChanged();
-    update();
 }
 
 QString TerminalView::fontFamily() const
@@ -528,8 +534,6 @@ void TerminalView::setTerminalInteraction(
         m_resizeClaimPending = m_focusedSizeAuthority;
         scheduleResize();
     }
-    emit capabilitiesChanged();
-    updateViewport();
     if (wasReadOnly != readOnly()) {
         if (auto* accessible = qobject_cast<QQuickAccessibleAttached*>(
                 qmlAttachedPropertiesObject<QQuickAccessibleAttached>(
@@ -715,7 +719,7 @@ void TerminalView::detach()
     }
     m_frame.reset();
     m_renderedFrame.reset();
-    updateViewport();
+    update();
     if (wasReady) {
         emit terminalReadyChanged();
     }
@@ -735,7 +739,7 @@ void TerminalView::geometryChange(const QRectF& newGeometry, const QRectF& oldGe
 {
     QQuickItem::geometryChange(newGeometry, oldGeometry);
     if (newGeometry.size() != oldGeometry.size()) {
-        updateViewport();
+        update();
         scheduleResize();
     }
 }
@@ -762,8 +766,7 @@ void TerminalView::itemChange(const ItemChange change, const ItemChangeData& val
 {
     QQuickItem::itemChange(change, value);
     if (change == ItemDevicePixelRatioHasChanged) {
-        update();
-        scheduleResize();
+        invalidateMetrics();
     } else if (change == ItemVisibleHasChanged) {
         synchronizeInteraction();
         updateBlinkTimer();
@@ -930,12 +933,11 @@ void TerminalView::presentFrame(GhosttyTerminalKernel::Frame frame)
     const auto wasReady = m_terminalReady;
     m_terminalReady = m_frame != nullptr;
     if (m_frame) {
-        const auto sizeHint =
-            TerminalRasterizer::logicalSize(*m_frame, m_font, m_lineHeight);
+        const auto sizeHint = gridSize();
         setImplicitSize(sizeHint.width(), sizeHint.height());
     }
     emit frameChanged();
-    updateViewport();
+    update();
     if (wasReady != m_terminalReady) {
         emit terminalReadyChanged();
     }
@@ -1145,7 +1147,7 @@ void TerminalView::dispatchResize()
         || width() <= 0.0 || height() <= 0.0) {
         return;
     }
-    const auto cell = TerminalRasterizer::cellSize(m_font, m_lineHeight);
+    const auto cell = terminalCellSize();
     if (cell.width() <= 0.0 || cell.height() <= 0.0) {
         return;
     }
@@ -1157,7 +1159,7 @@ void TerminalView::dispatchResize()
         std::floor(height() / cell.height()),
         1.0,
         static_cast<double>(std::numeric_limits<std::uint16_t>::max())));
-    const auto dpr = window() == nullptr ? 1.0 : window()->effectiveDevicePixelRatio();
+    const auto dpr = devicePixelRatio();
     const auto cellWidthPixels = static_cast<std::uint32_t>(
         std::max(1LL, std::llround(cell.width() * dpr)));
     const auto cellHeightPixels = static_cast<std::uint32_t>(
@@ -1286,11 +1288,10 @@ void TerminalView::invalidateMetrics()
 {
     m_renderedFrame.reset();
     if (m_frame) {
-        const auto sizeHint =
-            TerminalRasterizer::logicalSize(*m_frame, m_font, m_lineHeight);
+        const auto sizeHint = gridSize();
         setImplicitSize(sizeHint.width(), sizeHint.height());
     }
-    updateViewport();
+    update();
     scheduleResize();
     if (auto* inputMethod = QGuiApplication::inputMethod()) {
         inputMethod->update(Qt::ImFont | Qt::ImCursorRectangle);

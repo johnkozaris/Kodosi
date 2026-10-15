@@ -9,18 +9,39 @@ use crate::rooms::{
 };
 use serde::{Deserialize, Serialize};
 
+const MEMBER_CHECK: Duration = Duration::from_mins(5);
+const PAGE_LIMIT: usize = 200;
+const SHOWN_MESSAGES: usize = 100;
+const KEPT_MESSAGES: usize = 1000;
+
 #[derive(Default)]
 pub(crate) struct RoomCache {
     generation: u64,
     rooms: BTreeMap<Uuid, CachedRoom>,
+    contents: BTreeMap<Uuid, Content>,
     registered: Option<String>,
 }
 #[derive(Clone, Default)]
 struct CachedRoom {
     states: BTreeMap<u64, VerifiedState>,
     keys: BTreeMap<u64, Secret>,
-    sequence: u64,
     issues_checked: Option<tokio::time::Instant>,
+    members_checked: Option<tokio::time::Instant>,
+}
+#[derive(Default)]
+struct Content {
+    sequence: u64,
+    messages: BTreeMap<u64, rooms::Message>,
+    tasks: BTreeMap<String, rooms::Task>,
+    repositories: BTreeMap<String, rooms::Repository>,
+    has_older: bool,
+    history_trimmed: bool,
+    shown: u64,
+}
+#[derive(Default)]
+pub(super) struct Lookups {
+    bundles: BTreeMap<String, IdentityBundle>,
+    keys: BTreeMap<String, Vec<RecipientKey>>,
 }
 #[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -48,10 +69,13 @@ struct KeyHistory {
 #[serde(rename_all = "camelCase")]
 struct ContentPage {
     sequence: u64,
+    key_version: u64,
     has_more: bool,
+    #[serde(default)]
+    history_trimmed: bool,
     items: Vec<Item>,
 }
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RecipientKey {
     user_id: String,
@@ -71,6 +95,193 @@ struct Standing {
     members: BTreeMap<String, IdentityBundle>,
     identities: BTreeMap<String, VerifiedIdentity>,
     replaced: BTreeSet<String>,
+}
+
+impl RoomCache {
+    fn current(&self, credentials: &Credentials) -> Result<()> {
+        if self.generation == credentials.generation {
+            Ok(())
+        } else {
+            Err(Error::Stale)
+        }
+    }
+
+    fn sequence(&self, credentials: &Credentials, room: Uuid) -> Result<Option<u64>> {
+        self.current(credentials)?;
+        Ok(self.contents.get(&room).map(|content| content.sequence))
+    }
+
+    fn decrypt(
+        &self,
+        credentials: &Credentials,
+        room: Uuid,
+        content: &mut Content,
+        items: &[Item],
+    ) -> Result<()> {
+        self.current(credentials)?;
+        let cached = self
+            .rooms
+            .get(&room)
+            .ok_or_else(|| invalid("Room keys are missing."))?;
+        items
+            .iter()
+            .try_for_each(|item| content.take(cached, room, item))
+    }
+
+    fn merge(
+        &mut self,
+        credentials: &Credentials,
+        room: Uuid,
+        items: &[Item],
+        sequence: u64,
+        trimmed: bool,
+    ) -> Result<()> {
+        self.current(credentials)?;
+        let cached = self
+            .rooms
+            .get(&room)
+            .ok_or_else(|| invalid("Room keys are missing."))?;
+        let content = self.contents.get_mut(&room).ok_or(Error::Stale)?;
+        for item in items {
+            content.take(cached, room, item)?;
+        }
+        content.sequence = content.sequence.max(sequence);
+        content.history_trimmed |= trimmed;
+        content.trim();
+        Ok(())
+    }
+
+    fn absorb(&mut self, credentials: &Credentials, room: Uuid, item: &Item) {
+        if self.generation == credentials.generation
+            && let (Some(cached), Some(content)) =
+                (self.rooms.get(&room), self.contents.get_mut(&room))
+            && item.sequence == content.sequence + 1
+            && content.take(cached, room, item).is_ok()
+        {
+            content.sequence = item.sequence;
+        }
+    }
+
+    fn show(&mut self, credentials: &Credentials, room: Uuid) -> Result<Snapshot> {
+        self.current(credentials)?;
+        Ok(self
+            .contents
+            .get_mut(&room)
+            .ok_or_else(|| invalid("The room is not loaded."))?
+            .show(room))
+    }
+
+    fn view(&self, credentials: &Credentials, room: Uuid) -> Result<Snapshot> {
+        self.current(credentials)?;
+        let content = self
+            .contents
+            .get(&room)
+            .ok_or_else(|| invalid("The room is not loaded."))?;
+        Ok(content.view(room, Vec::new(), content.has_older))
+    }
+
+    fn writing_key(&self, credentials: &Credentials, room: Uuid) -> Result<(u64, u64, Secret)> {
+        self.current(credentials)?;
+        self.rooms
+            .get(&room)
+            .and_then(|cached| {
+                let (_, state) = cached.states.last_key_value()?;
+                let key = cached.keys.get(&state.state.epoch)?.clone();
+                Some((state.state.version, state.state.epoch, key))
+            })
+            .ok_or_else(|| invalid("Room keys are still arriving."))
+    }
+}
+
+impl Content {
+    fn take(&mut self, cached: &CachedRoom, room: Uuid, item: &Item) -> Result<()> {
+        match BackendClient::room_payload(cached, room, item)? {
+            Payload::Message {
+                text,
+                author_name,
+                agent,
+                terminal_id,
+            } if item.kind == "message" => {
+                self.messages.insert(
+                    item.sequence,
+                    rooms::Message {
+                        id: item.id.to_string(),
+                        sequence: item.sequence,
+                        author_id: item.user_id.clone(),
+                        author_name,
+                        agent,
+                        terminal_id,
+                        text,
+                        created_at: item.created_at.clone(),
+                    },
+                );
+            }
+            Payload::Task { mut task } if item.kind == "task" => {
+                task.id = item.id.to_string();
+                task.version = item.version;
+                if self
+                    .tasks
+                    .get(&task.id)
+                    .is_none_or(|known| known.version <= task.version)
+                {
+                    self.tasks.insert(task.id.clone(), task);
+                }
+            }
+            Payload::Repository { mut repository } if item.kind == "repository" => {
+                repository.id = item.id.to_string();
+                self.repositories.insert(repository.id.clone(), repository);
+            }
+            _ => return Err(invalid("Room content has a different type.")),
+        }
+        Ok(())
+    }
+
+    fn trim(&mut self) {
+        while self.messages.len() > KEPT_MESSAGES
+            && let Some((&oldest, _)) = self.messages.first_key_value()
+            && oldest <= self.shown
+        {
+            self.messages.remove(&oldest);
+            self.has_older = true;
+        }
+    }
+
+    fn view(&self, room: Uuid, messages: Vec<rooms::Message>, has_older: bool) -> Snapshot {
+        Snapshot {
+            room_id: room.to_string(),
+            messages,
+            tasks: self.tasks.values().cloned().collect(),
+            repositories: self.repositories.values().cloned().collect(),
+            sequence: self.sequence,
+            has_older,
+            history_trimmed: self.history_trimmed,
+        }
+    }
+
+    fn show(&mut self, room: Uuid) -> Snapshot {
+        let newest = self
+            .messages
+            .keys()
+            .rev()
+            .nth(SHOWN_MESSAGES - 1)
+            .copied()
+            .unwrap_or_default();
+        let floor = if self.shown == 0 {
+            newest
+        } else {
+            newest.min(self.shown + 1)
+        };
+        let messages = self
+            .messages
+            .range(floor..)
+            .map(|(_, message)| message.clone())
+            .collect();
+        let has_older = self.has_older || self.messages.range(..floor).next().is_some();
+        if let Some((&last, _)) = self.messages.last_key_value() {
+            self.shown = self.shown.max(last);
+        }
+        self.view(room, messages, has_older)
+    }
 }
 
 #[cfg(test)]
@@ -143,6 +354,7 @@ impl BackendClient {
         credentials: &Credentials,
         previous: &VerifiedState,
         at_ms: u64,
+        lookups: &mut Lookups,
     ) -> Result<Standing> {
         let mut standing = Standing {
             members: previous.state.members.clone(),
@@ -150,8 +362,15 @@ impl BackendClient {
             replaced: BTreeSet::new(),
         };
         for (user, known) in &previous.state.members {
-            let current = match self.member_bundle(credentials, user).await {
-                Ok(current) => current,
+            let current = match lookups.bundles.get(user) {
+                Some(current) => Ok(current.clone()),
+                None => self.member_bundle(credentials, user).await,
+            };
+            let current = match current {
+                Ok(current) => {
+                    lookups.bundles.insert(user.clone(), current.clone());
+                    current
+                }
                 Err(Error::Backend { status: 400, .. }) => continue,
                 Err(Error::Backend {
                     status: 404 | 409, ..
@@ -188,22 +407,29 @@ impl BackendClient {
         &self,
         credentials: &Credentials,
         standing: &Standing,
+        lookups: &mut Lookups,
     ) -> Result<Vec<RecipientKey>> {
         let mut recipients = Vec::new();
         for (user, identity) in &standing.identities {
             if standing.replaced.contains(user) {
                 continue;
             }
-            let keys: Vec<RecipientKey> = self
-                .inner
-                .http
-                .device(
-                    Method::GET,
-                    &format!("api/users/{user}/room-keys"),
-                    credentials,
-                    None,
-                )
-                .await?;
+            let keys = if let Some(keys) = lookups.keys.get(user) {
+                keys.clone()
+            } else {
+                let keys: Vec<RecipientKey> = self
+                    .inner
+                    .http
+                    .device(
+                        Method::GET,
+                        &format!("api/users/{user}/room-keys"),
+                        credentials,
+                        None,
+                    )
+                    .await?;
+                lookups.keys.insert(user.clone(), keys.clone());
+                keys
+            };
             for key in keys {
                 if key.user_id != *user {
                     return Err(invalid("A room key belongs to another user."));
@@ -211,12 +437,12 @@ impl BackendClient {
                 let Some(device) = identity.devices.get(&key.device_id) else {
                     continue;
                 };
-                let public = room_crypto::decode(&key.public_key, ROOM_PUBLIC_BYTES)?;
+                let public = identity::pins::decode(&key.public_key, ROOM_PUBLIC_BYTES)?;
                 if public.len() != ROOM_PUBLIC_BYTES {
                     continue;
                 }
                 let preimage = room_key_proof(user, &key.device_id, &public)?;
-                let signature = room_crypto::decode(&key.signature, 3309)?;
+                let signature = identity::pins::decode(&key.signature, 3309)?;
                 ML_DSA_65
                     .verify_sig(&device.sig_public_key, &preimage, &signature)
                     .map_err(|_| invalid("The room recipient key is not authentic."))?;
@@ -239,7 +465,7 @@ impl BackendClient {
                     state,
                     &recipient.user_id,
                     &recipient.device_id,
-                    &room_crypto::decode(&recipient.public_key, ROOM_PUBLIC_BYTES)?,
+                    &identity::pins::decode(&recipient.public_key, ROOM_PUBLIC_BYTES)?,
                     key,
                 )
             })
@@ -291,7 +517,9 @@ impl BackendClient {
             standing.identities.insert(user.clone(), identity);
             standing.members.insert(user, bundle);
         }
-        let recipients = self.room_recipients(credentials, &standing).await?;
+        let recipients = self
+            .room_recipients(credentials, &standing, &mut Lookups::default())
+            .await?;
         let mut state = KeyState {
             room_id: room,
             owner_user_id: owner.to_owned(),
@@ -462,6 +690,9 @@ impl BackendClient {
         mut cached: CachedRoom,
     ) -> Result<CachedRoom> {
         let mut cache = self.inner.rooms.lock().await;
+        if cache.generation != credentials.generation {
+            return Err(Error::Stale);
+        }
         let current = cached
             .states
             .last_key_value()
@@ -499,6 +730,10 @@ impl BackendClient {
                 cached.keys.insert(state.state.epoch - 1, previous);
             }
         }
+        if let Some(existing) = cache.rooms.get(&room) {
+            cached.issues_checked = cached.issues_checked.max(existing.issues_checked);
+            cached.members_checked = cached.members_checked.max(existing.members_checked);
+        }
         cache.rooms.insert(room, cached.clone());
         drop(cache);
         Ok(cached)
@@ -512,9 +747,16 @@ impl BackendClient {
         remove: Option<&str>,
     ) -> Result<Value> {
         let cached = self.room_keys(credentials, room).await?;
-        self.next_room_state(credentials, room, &cached, add, remove)
-            .await?
-            .ok_or_else(|| invalid("The room membership did not change."))
+        self.next_room_state(
+            credentials,
+            room,
+            &cached,
+            add,
+            remove,
+            &mut Lookups::default(),
+        )
+        .await?
+        .ok_or_else(|| invalid("The room membership did not change."))
     }
 
     async fn next_room_state(
@@ -524,6 +766,7 @@ impl BackendClient {
         cached: &CachedRoom,
         add: Option<&str>,
         remove: Option<&str>,
+        lookups: &mut Lookups,
     ) -> Result<Option<Value>> {
         let previous = cached
             .states
@@ -535,7 +778,9 @@ impl BackendClient {
             .get(&previous.state.epoch)
             .ok_or_else(|| invalid("Room keys are still arriving on this device."))?;
         let created = identity::now_ms().max(previous.state.created_at_ms);
-        let mut standing = self.room_standing(credentials, previous, created).await?;
+        let mut standing = self
+            .room_standing(credentials, previous, created, lookups)
+            .await?;
         let mut returned = false;
         if previous.state.owner_user_id == credentials.user_id {
             for user in standing.replaced.clone() {
@@ -565,7 +810,9 @@ impl BackendClient {
             standing.identities.remove(user);
             standing.members.remove(user);
         }
-        let recipients = self.room_recipients(credentials, &standing).await?;
+        let recipients = self
+            .room_recipients(credentials, &standing, lookups)
+            .await?;
         let old = previous
             .state
             .recipients
@@ -606,7 +853,12 @@ impl BackendClient {
         &self,
         credentials: &Credentials,
         room: Uuid,
+        force: bool,
+        lookups: &mut Lookups,
     ) -> Result<()> {
+        if !force && self.members_checked(credentials, room).await {
+            return self.ensure_room_keys(credentials, room, None).await;
+        }
         let mut attempts = 0;
         loop {
             let cached = self.room_keys(credentials, room).await?;
@@ -622,9 +874,10 @@ impl BackendClient {
                 return Ok(());
             }
             let Some(body) = self
-                .next_room_state(credentials, room, &cached, None, None)
+                .next_room_state(credentials, room, &cached, None, None, lookups)
                 .await?
             else {
+                self.mark_members_checked(credentials, room).await;
                 return Ok(());
             };
             let stored = self
@@ -640,9 +893,53 @@ impl BackendClient {
             attempts += 1;
             match stored {
                 Err(Error::Backend { status: 409, .. }) if attempts < 3 => {}
-                stored => return stored.map(|_| ()),
+                Err(error) => return Err(error),
+                Ok(_) => {
+                    self.room_keys(credentials, room).await?;
+                    self.mark_members_checked(credentials, room).await;
+                    return Ok(());
+                }
             }
         }
+    }
+
+    async fn members_checked(&self, credentials: &Credentials, room: Uuid) -> bool {
+        let cache = self.inner.rooms.lock().await;
+        cache.generation == credentials.generation
+            && cache
+                .rooms
+                .get(&room)
+                .and_then(|cached| cached.members_checked)
+                .is_some_and(|checked| checked.elapsed() < MEMBER_CHECK)
+    }
+
+    async fn mark_members_checked(&self, credentials: &Credentials, room: Uuid) {
+        let mut cache = self.inner.rooms.lock().await;
+        if cache.generation == credentials.generation
+            && let Some(cached) = cache.rooms.get_mut(&room)
+        {
+            cached.members_checked = Some(tokio::time::Instant::now());
+        }
+    }
+
+    async fn ensure_room_keys(
+        &self,
+        credentials: &Credentials,
+        room: Uuid,
+        version: Option<u64>,
+    ) -> Result<()> {
+        {
+            let cache = self.inner.rooms.lock().await;
+            if cache.generation == credentials.generation
+                && cache.registered.as_ref() == Some(&credentials.keys.device_id)
+                && let Some(cached) = cache.rooms.get(&room)
+                && let Some((&latest, _)) = cached.states.last_key_value()
+                && version.is_none_or(|version| latest >= version)
+            {
+                return Ok(());
+            }
+        }
+        self.room_keys(credentials, room).await.map(|_| ())
     }
 
     pub(crate) async fn room_identity(
@@ -679,7 +976,7 @@ impl BackendClient {
     }
 
     fn room_payload(cached: &CachedRoom, room: Uuid, item: &Item) -> Result<Payload> {
-        let bytes = room_crypto::decode(&item.body, 64 * 1024)?;
+        let bytes = identity::pins::decode(&item.body, 64 * 1024)?;
         let content: room_crypto::Content = serde_json::from_slice(&bytes)?;
         if content.room_id != room
             || content.id != item.id
@@ -716,88 +1013,53 @@ impl BackendClient {
         Ok(serde_json::from_slice(&content.decrypt(key)?)?)
     }
 
-    async fn room_snapshot(
+    async fn read_page(
         &self,
         credentials: &Credentials,
         room: Uuid,
-        before: Option<u64>,
-    ) -> Result<Snapshot> {
-        let mut cached = self.room_keys(credentials, room).await?;
-        let mut messages = Vec::new();
-        let mut tasks = Vec::new();
-        let mut repositories = Vec::new();
-        let mut has_older = false;
-        let known_sequence = cached.sequence;
+        query: &str,
+    ) -> Result<ContentPage> {
+        let page: ContentPage = self
+            .inner
+            .http
+            .device(
+                Method::GET,
+                &format!("api/missions/{room}/content?{query}"),
+                credentials,
+                None,
+            )
+            .await?;
+        self.ensure_room_keys(credentials, room, Some(page.key_version))
+            .await?;
+        Ok(page)
+    }
+
+    async fn load_room(&self, credentials: &Credentials, room: Uuid) -> Result<()> {
+        let mut content = Content::default();
+        let mut first = None;
         for kind in ["message", "task", "repository"] {
             let mut after = 0;
-            let mut before_cursor = before.unwrap_or(i64::MAX as u64);
             loop {
-                let position = if kind == "message" {
-                    format!("&before={before_cursor}")
+                let query = if kind == "message" {
+                    format!("kind=message&limit={SHOWN_MESSAGES}&before={}", i64::MAX)
                 } else {
-                    format!("&after={after}")
+                    format!("kind={kind}&limit={PAGE_LIMIT}&after={after}")
                 };
-                let page: ContentPage = self
-                    .inner
-                    .http
-                    .device(
-                        Method::GET,
-                        &format!("api/missions/{room}/content?kind={kind}&limit=100{position}"),
-                        credentials,
-                        None,
-                    )
-                    .await?;
-                cached.sequence = cached.sequence.max(page.sequence);
+                let page = self.read_page(credentials, room, &query).await?;
+                first.get_or_insert(page.sequence);
+                content.history_trimmed |= page.history_trimmed;
+                self.inner.rooms.lock().await.decrypt(
+                    credentials,
+                    room,
+                    &mut content,
+                    &page.items,
+                )?;
                 if kind == "message" {
-                    has_older = page.has_more;
+                    content.has_older = page.has_more;
+                    break;
                 }
-                let has_more = page.has_more;
                 let next = page.items.last().map_or(after, |item| item.sequence);
-                let earliest = page.items.first().map_or(0, |item| item.sequence);
-                for item in page.items {
-                    match Self::room_payload(&cached, room, &item)? {
-                        Payload::Message {
-                            text,
-                            author_name,
-                            agent,
-                            terminal_id,
-                        } if item.kind == "message" => messages.push(rooms::Message {
-                            id: item.id.to_string(),
-                            sequence: item.sequence,
-                            author_id: item.user_id.clone(),
-                            author_name,
-                            agent,
-                            terminal_id,
-                            text,
-                            created_at: item.created_at.clone(),
-                        }),
-                        Payload::Task { mut task } if item.kind == "task" => {
-                            task.id = item.id.to_string();
-                            task.version = item.version;
-                            tasks.push(task);
-                        }
-                        Payload::Repository { mut repository } if item.kind == "repository" => {
-                            repository.id = item.id.to_string();
-                            repositories.push(repository);
-                        }
-                        _ => return Err(invalid("Room content has a different type.")),
-                    }
-                }
-                if kind == "message" {
-                    if before.is_some()
-                        || known_sequence == 0
-                        || !has_more
-                        || earliest <= known_sequence
-                    {
-                        break;
-                    }
-                    if earliest >= before_cursor {
-                        return Err(invalid("Room history did not advance."));
-                    }
-                    before_cursor = earliest;
-                    continue;
-                }
-                if !has_more {
+                if !page.has_more {
                     break;
                 }
                 if next <= after {
@@ -806,17 +1068,139 @@ impl BackendClient {
                 after = next;
             }
         }
-        messages.sort_by_key(|message| message.sequence);
-        let sequence = cached.sequence;
-        self.inner.rooms.lock().await.rooms.insert(room, cached);
-        Ok(Snapshot {
-            room_id: room.to_string(),
-            messages,
-            tasks,
-            repositories,
-            sequence,
-            has_older,
-        })
+        content.sequence = first.unwrap_or_default();
+        let mut cache = self.inner.rooms.lock().await;
+        cache.current(credentials)?;
+        cache.contents.insert(room, content);
+        drop(cache);
+        Ok(())
+    }
+
+    async fn sync_room(
+        &self,
+        credentials: &Credentials,
+        room: Uuid,
+        wanted: Option<u64>,
+    ) -> Result<bool> {
+        self.ensure_room_keys(credentials, room, None).await?;
+        let known = self.inner.rooms.lock().await.sequence(credentials, room)?;
+        let Some(mut after) = known else {
+            self.load_room(credentials, room).await?;
+            return Ok(true);
+        };
+        if wanted.is_some_and(|wanted| after >= wanted) {
+            return Ok(false);
+        }
+        let mut changed = false;
+        loop {
+            let page = self
+                .read_page(
+                    credentials,
+                    room,
+                    &format!("limit={PAGE_LIMIT}&after={after}"),
+                )
+                .await?;
+            if page.sequence < after {
+                self.load_room(credentials, room).await?;
+                return Ok(true);
+            }
+            let last = page.items.last().map(|item| item.sequence);
+            let next = if page.has_more {
+                last.filter(|last| *last > after)
+                    .ok_or_else(|| invalid("Room history did not advance."))?
+            } else {
+                last.unwrap_or(after).max(page.sequence)
+            };
+            changed |= !page.items.is_empty();
+            self.inner.rooms.lock().await.merge(
+                credentials,
+                room,
+                &page.items,
+                next,
+                page.history_trimmed,
+            )?;
+            if !page.has_more {
+                return Ok(changed);
+            }
+            after = next;
+        }
+    }
+
+    async fn show_room(&self, credentials: &Credentials, room: Uuid) -> Result<Snapshot> {
+        self.inner.rooms.lock().await.show(credentials, room)
+    }
+
+    async fn room_view(&self, credentials: &Credentials, room: Uuid) -> Result<Snapshot> {
+        self.inner.rooms.lock().await.view(credentials, room)
+    }
+
+    async fn older_messages(
+        &self,
+        credentials: &Credentials,
+        room: Uuid,
+        before: u64,
+    ) -> Result<Snapshot> {
+        let page = self
+            .read_page(
+                credentials,
+                room,
+                &format!("kind=message&limit={SHOWN_MESSAGES}&before={before}"),
+            )
+            .await?;
+        let mut older = Content::default();
+        self.inner
+            .rooms
+            .lock()
+            .await
+            .decrypt(credentials, room, &mut older, &page.items)?;
+        let mut view = self.room_view(credentials, room).await?;
+        view.messages = older.messages.into_values().collect();
+        view.has_older = page.has_more;
+        view.history_trimmed |= page.history_trimmed;
+        Ok(view)
+    }
+
+    pub(super) fn listed_rooms(catalog: &Value) -> Result<(BTreeSet<Uuid>, bool)> {
+        let mut listed = BTreeSet::new();
+        for room in catalog["missions"].as_array().into_iter().flatten() {
+            listed.insert(wire::id(room, "id")?);
+        }
+        Ok((listed, catalog["missionsTruncated"] != true))
+    }
+
+    async fn forget_room(&self, room: Uuid) {
+        let mut cache = self.inner.rooms.lock().await;
+        cache.rooms.remove(&room);
+        cache.contents.remove(&room);
+    }
+
+    pub(super) async fn refresh_room(
+        &self,
+        credentials: &Credentials,
+        room: Uuid,
+        wanted: Option<u64>,
+        force: bool,
+        lookups: &mut Lookups,
+    ) -> Result<Option<Value>> {
+        let refreshed = async {
+            self.refresh_room_keys(credentials, room, force, lookups)
+                .await?;
+            self.sync_room(credentials, room, wanted).await
+        }
+        .await;
+        match refreshed {
+            Ok(changed) if changed || force => Ok(Some(
+                json!({"type":"room.snapshot","room":self.show_room(credentials, room).await?}),
+            )),
+            Ok(_) => Ok(None),
+            Err(Error::Backend {
+                status: 403 | 404, ..
+            }) => {
+                self.forget_room(room).await;
+                Ok(None)
+            }
+            Err(error) => Err(error),
+        }
     }
 
     async fn room_write(
@@ -827,25 +1211,58 @@ impl BackendClient {
         kind: &str,
         expected: u64,
         payload: &Payload,
-    ) -> Result<()> {
-        let cached = self.room_keys(credentials, room).await?;
-        let state = &cached
-            .states
-            .last_key_value()
-            .ok_or_else(|| invalid("Room keys are missing."))?
-            .1
-            .state;
-        let key = cached
-            .keys
-            .get(&state.epoch)
-            .ok_or_else(|| invalid("Room keys are still arriving."))?;
+    ) -> Result<u64> {
+        self.ensure_room_keys(credentials, room, None).await?;
+        let mut key = self
+            .inner
+            .rooms
+            .lock()
+            .await
+            .writing_key(credentials, room)?;
+        let mut written = self
+            .put_room_item(credentials, room, id, kind, expected, payload, &key)
+            .await;
+        if matches!(written, Err(Error::Backend { status: 409, .. })) {
+            self.room_keys(credentials, room).await?;
+            let newer = self
+                .inner
+                .rooms
+                .lock()
+                .await
+                .writing_key(credentials, room)?;
+            if newer.0 > key.0 {
+                key = newer;
+                written = self
+                    .put_room_item(credentials, room, id, kind, expected, payload, &key)
+                    .await;
+            }
+        }
+        let item = written?;
+        self.inner
+            .rooms
+            .lock()
+            .await
+            .absorb(credentials, room, &item);
+        Ok(item.sequence)
+    }
+
+    async fn put_room_item(
+        &self,
+        credentials: &Credentials,
+        room: Uuid,
+        id: Uuid,
+        kind: &str,
+        expected: u64,
+        payload: &Payload,
+        (version, epoch, key): &(u64, u64, Secret),
+    ) -> Result<Item> {
         let mut content = room_crypto::Content {
             room_id: room,
             id,
             kind: kind.into(),
             version: expected + 1,
-            key_version: state.version,
-            epoch: state.epoch,
+            key_version: *version,
+            epoch: *epoch,
             author_id: credentials.user_id.clone(),
             device_id: credentials.keys.device_id.clone(),
             nonce: String::new(),
@@ -854,9 +1271,8 @@ impl BackendClient {
         content.encrypt(key, &serde_json::to_vec(payload)?)?;
         let (body, signature) =
             room_crypto::sign(room_crypto::CONTENT_DOMAIN, &credentials.keys, &content)?;
-        let _response: Item = self.inner.http.device(Method::PUT, &format!("api/missions/{room}/content/{id}"), credentials,
-            Some(json!({"expectedVersion":expected,"deviceId":credentials.keys.device_id,"body":body,"signature":signature}))).await?;
-        Ok(())
+        self.inner.http.device(Method::PUT, &format!("api/missions/{room}/content/{id}"), credentials,
+            Some(json!({"expectedVersion":expected,"deviceId":credentials.keys.device_id,"body":body,"signature":signature}))).await
     }
 
     #[expect(clippy::too_many_lines, reason = "one typed room action dispatch")]
@@ -865,16 +1281,30 @@ impl BackendClient {
         let room = wire::id(args, "roomId")?;
         let request = wire::text(args, "requestId")?;
         let action: Action = serde_json::from_value(args["action"].clone())?;
-        self.refresh_room_keys(&credentials, room).await?;
+        self.refresh_room_keys(&credentials, room, false, &mut Lookups::default())
+            .await?;
         let before = match action {
             Action::Read { before } => before,
             _ => None,
         };
-        let mut snapshot = self.room_snapshot(&credentials, room, before).await?;
-        if cfg!(feature = "host") && matches!(action, Action::Read { .. }) {
-            self.sync_linked_issues(&credentials, room, &mut snapshot)
-                .await?;
+        if !matches!(action, Action::Post { .. })
+            || self
+                .inner
+                .rooms
+                .lock()
+                .await
+                .sequence(&credentials, room)?
+                .is_none()
+        {
+            self.sync_room(&credentials, room, None).await?;
         }
+        let mut snapshot = self.room_view(&credentials, room).await?;
+        let mut written = if cfg!(feature = "host") && matches!(action, Action::Read { .. }) {
+            self.sync_linked_issues(&credentials, room, &mut snapshot)
+                .await?
+        } else {
+            None
+        };
         let name = self.identity().map_or_else(
             || credentials.user_id.clone(),
             |identity| identity.display_name,
@@ -889,20 +1319,22 @@ impl BackendClient {
             } => {
                 let id =
                     Uuid::parse_str(request).map_err(|_| invalid("Invalid message identity."))?;
-                self.room_write(
-                    &credentials,
-                    room,
-                    id,
-                    "message",
-                    0,
-                    &Payload::Message {
-                        text,
-                        terminal_id,
-                        agent,
-                        author_name: name,
-                    },
-                )
-                .await?;
+                written = Some(
+                    self.room_write(
+                        &credentials,
+                        room,
+                        id,
+                        "message",
+                        0,
+                        &Payload::Message {
+                            text,
+                            terminal_id,
+                            agent,
+                            author_name: name,
+                        },
+                    )
+                    .await?,
+                );
                 item_id = Some(id.to_string());
             }
             Action::CreateTask {
@@ -925,8 +1357,10 @@ impl BackendClient {
                     note: None,
                     issue: None,
                 };
-                self.room_write(&credentials, room, id, "task", 0, &Payload::Task { task })
-                    .await?;
+                written = Some(
+                    self.room_write(&credentials, room, id, "task", 0, &Payload::Task { task })
+                        .await?,
+                );
                 item_id = Some(id.to_string());
             }
             Action::UpdateTask {
@@ -962,15 +1396,17 @@ impl BackendClient {
                     .await?;
                 let id =
                     Uuid::parse_str(&task_id).map_err(|_| invalid("Invalid task identity."))?;
-                self.room_write(
-                    &credentials,
-                    room,
-                    id,
-                    "task",
-                    task.version,
-                    &Payload::Task { task },
-                )
-                .await?;
+                written = Some(
+                    self.room_write(
+                        &credentials,
+                        room,
+                        id,
+                        "task",
+                        task.version,
+                        &Payload::Task { task },
+                    )
+                    .await?,
+                );
                 item_id = Some(task_id);
             }
             Action::AddRepository { url, provider } => {
@@ -985,15 +1421,17 @@ impl BackendClient {
                     let id = Uuid::parse_str(request)
                         .map_err(|_| invalid("Invalid repository identity."))?;
                     repository.id = id.to_string();
-                    self.room_write(
-                        &credentials,
-                        room,
-                        id,
-                        "repository",
-                        0,
-                        &Payload::Repository { repository },
-                    )
-                    .await?;
+                    written = Some(
+                        self.room_write(
+                            &credentials,
+                            room,
+                            id,
+                            "repository",
+                            0,
+                            &Payload::Repository { repository },
+                        )
+                        .await?,
+                    );
                     item_id = Some(id.to_string());
                 }
             }
@@ -1046,13 +1484,21 @@ impl BackendClient {
                         issue: None,
                     };
                     Self::apply_linked_issue(&mut task, repository, issue);
-                    self.room_write(&credentials, room, id, "task", 0, &Payload::Task { task })
-                        .await?;
+                    written = Some(
+                        self.room_write(&credentials, room, id, "task", 0, &Payload::Task { task })
+                            .await?,
+                    );
                     item_id = Some(id.to_string());
                 }
             }
         }
-        let current = self.room_snapshot(&credentials, room, before).await?;
+        if let Some(sequence) = written {
+            self.sync_room(&credentials, room, Some(sequence)).await?;
+        }
+        let current = match before {
+            Some(before) => self.older_messages(&credentials, room, before).await?,
+            None => self.show_room(&credentials, room).await?,
+        };
         Ok(vec![
             json!({"type":"room.snapshot","room":current}),
             json!({"type":"room.result","requestId":request,"operation":"room.command","roomId":room,"itemId":item_id,"action":args["action"]["type"]}),
@@ -1064,21 +1510,22 @@ impl BackendClient {
         credentials: &Credentials,
         room: Uuid,
         snapshot: &mut Snapshot,
-    ) -> Result<()> {
+    ) -> Result<Option<u64>> {
         {
             let mut cache = self.inner.rooms.lock().await;
             let Some(cached) = cache.rooms.get_mut(&room) else {
-                return Ok(());
+                return Ok(None);
             };
             if cached
                 .issues_checked
                 .is_some_and(|checked| checked.elapsed() < Duration::from_secs(30))
             {
-                return Ok(());
+                return Ok(None);
             }
             cached.issues_checked = Some(tokio::time::Instant::now());
             drop(cache);
         }
+        let mut written = None;
         for task in &mut snapshot.tasks {
             let Some(linked) = &task.issue else {
                 continue;
@@ -1114,12 +1561,15 @@ impl BackendClient {
                 )
                 .await
             {
-                Ok(()) => task.version += 1,
+                Ok(sequence) => {
+                    task.version += 1;
+                    written = written.max(Some(sequence));
+                }
                 Err(Error::Backend { status: 409, .. }) => {}
                 Err(error) => return Err(error),
             }
         }
-        Ok(())
+        Ok(written)
     }
 
     fn apply_linked_issue(
@@ -1155,8 +1605,12 @@ impl BackendClient {
         Ok(())
     }
 
-    pub(super) async fn refresh_rooms(&self, credentials: &Credentials) -> Result<Vec<Value>> {
-        let mut ids = self
+    pub(super) async fn rooms_to_refresh(
+        &self,
+        listed: BTreeSet<Uuid>,
+        scope: Option<&BTreeSet<Uuid>>,
+    ) -> BTreeSet<Uuid> {
+        let mut rooms = self
             .inner
             .rooms
             .lock()
@@ -1165,42 +1619,19 @@ impl BackendClient {
             .keys()
             .copied()
             .collect::<BTreeSet<_>>();
-        let catalog = self.mission_list().await?;
-        for room in catalog["missions"].as_array().into_iter().flatten() {
-            ids.insert(wire::id(room, "id")?);
+        rooms.extend(listed);
+        if let Some(scope) = scope {
+            rooms.retain(|room| scope.contains(room));
         }
-        let mut complete = catalog["missionsTruncated"] != true;
-        let mut events = Vec::new();
-        for id in ids {
-            if let Err(error) = self.refresh_room_keys(credentials, id).await {
-                if matches!(
-                    error,
-                    Error::Backend {
-                        status: 403 | 404,
-                        ..
-                    }
-                ) {
-                    self.inner.rooms.lock().await.rooms.remove(&id);
-                    continue;
-                }
-                tracing::debug!(%error, "room key refresh will retry");
-                if error.unanswered() || matches!(error, Error::Backend { status: 409, .. }) {
-                    complete = false;
-                }
-                continue;
-            }
-            match self.room_snapshot(credentials, id, None).await {
-                Ok(room) => events.push(json!({"type":"room.snapshot","room":room})),
-                Err(error) => tracing::debug!(%error, "room refresh will retry"),
-            }
-        }
-        if complete
-            && credentials.enrolled
+        rooms
+    }
+
+    pub(super) async fn drop_recovery_room_key(&self, credentials: &Credentials) {
+        if credentials.enrolled
             && credentials.keys.recovery().is_some()
             && let Err(error) = self.keep_recovery_room_key(credentials, None).await
         {
             tracing::debug!(%error, "the recovery room key stays until the next room refresh");
         }
-        Ok(events)
     }
 }

@@ -25,9 +25,7 @@ public:
     Q_ENUM(ActiveView)
     enum StageLayoutMode { Grid, Focus };
     Q_ENUM(StageLayoutMode)
-    explicit DesktopStateModel(QObject* parent = nullptr);
-    DesktopStateModel(
-        std::unique_ptr<QSettings> settings, bool persistenceEnabled, QObject* parent = nullptr);
+    explicit DesktopStateModel(std::unique_ptr<QSettings> settings, QObject* parent = nullptr);
     ~DesktopStateModel() override;
     ActiveView activeView() const { return m_activeView; }
     bool sidebarOpen() const { return m_sidebarOpen; }
@@ -40,10 +38,8 @@ public:
     void attachSessionCatalog(SessionCatalogModel* sessions);
     void attachWindow(QWindow* window, std::optional<QSize> sizeOverride = std::nullopt);
     Q_INVOKABLE bool selectSession(const QString& id);
-    Q_INVOKABLE bool stageSession(const QString& id, bool revealStage = true);
-    Q_INVOKABLE bool unstageSession(const QString& id);
-    Q_INVOKABLE void enterFocusMode(const QString& id = {});
-    Q_INVOKABLE void exitFocusMode();
+    bool stageSession(const QString& id, bool revealStage = true);
+    bool unstageSession(const QString& id);
     Q_INVOKABLE void toggleFocusForSelectedSession();
     bool modalOpen() const { return !m_modals.isEmpty(); }
     Q_INVOKABLE void setModalVisible(QObject* modal, bool visible);
@@ -71,8 +67,8 @@ private:
     QString m_error;
     ActiveView m_activeView = Sessions;
     bool m_sidebarOpen = true;
-    bool m_persistenceEnabled = true;
     StageLayoutMode m_mode = Grid;
+    void exitFocusMode();
     void reconcile();
     void saveWindow();
 };

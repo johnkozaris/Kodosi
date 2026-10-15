@@ -53,6 +53,10 @@ final class AppDependencies {
     var openedLoginCode: String?
     var identityMessage: String?
     var errorMessage: String?
+    let updater = AppUpdater()
+    var updateRequired = false
+    var offersCommand = false
+    var commandInstalled = CommandLineTool.installed
     var accountDeletion: AccountDeletion?
     var appState: AppState = .launching
     var pendingDeepLink: DeepLinkDestination? {
@@ -98,6 +102,17 @@ final class AppDependencies {
             }
         )
         commandSink.onFailure = { [weak self] message in self?.errorMessage = message }
+    }
+
+    func installCommand() {
+        offersCommand = false
+        Task {
+            switch await CommandLineTool.install() {
+            case .installed: commandInstalled = CommandLineTool.installed
+            case .cancelled: break
+            case .failed: errorMessage = String(localized: "Kodosi could not install the kodosi command.")
+            }
+        }
     }
 
     func start() {
@@ -356,13 +371,7 @@ final class AppDependencies {
     }
 
     func mutateSession(_ operation: String, session target: RuntimeSession, fields: [String: JSONValue] = [:]) async throws {
-        guard let current = session(target.id), current.incarnationId == target.incarnationId else {
-            throw RuntimeError.operation(String(localized: "This terminal changed. Try again."))
-        }
-        var fields = fields
-        fields["sessionId"] = .string(current.id)
-        fields["expectedRuntimeIncarnationId"] = .string(current.incarnationId)
-        _ = try await commandSink.request(operation, fields)
+        try await commandSink.mutate(operation, session: target, current: session(target.id), fields: fields)
     }
 
     func openMission(_ mission: MissionEntry) {

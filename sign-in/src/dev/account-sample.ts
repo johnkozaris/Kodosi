@@ -9,15 +9,20 @@ import {
 } from "../account/service";
 import { kcEnvDefaults } from "../kc.gen";
 
+export const sampleProperties = {
+  ...kcEnvDefaults,
+  KODOSI_TERMS_URL: "https://kodosi.com/terms",
+  KODOSI_PRIVACY_URL: "https://kodosi.com/privacy",
+};
+
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 
-/** What Keycloak gives the account page, for the development server. */
 export function sampleContext(): KcContext {
   return {
     themeType: "account",
     themeName: "kodosi",
-    properties: { ...kcEnvDefaults },
+    properties: sampleProperties,
     authServerUrl: "/",
     clientId: "account-console",
     locale: "en",
@@ -32,7 +37,6 @@ export function sampleContext(): KcContext {
   };
 }
 
-/** The scenes of the sign-in pages that a step of the account page goes to. */
 const STEPS: Record<string, string> = {
   UPDATE_PASSWORD: "new-password",
   CONFIGURE_TOTP: "authenticator",
@@ -42,10 +46,6 @@ const STEPS: Record<string, string> = {
   delete_account: "delete",
 };
 
-/**
- * An account service with no Keycloak behind it. `kind` says what the person has: "full" is a
- * person with each way of sign-in, and "new" has a password only. With "down", the service fails.
- */
 export function sampleAccount(kind: string, to: (scene: string) => string): AccountService {
   const wait = (ms = 320) => new Promise<void>((done) => window.setTimeout(done, ms));
   const full = kind !== "new";

@@ -19,7 +19,7 @@ use crate::{
     Command, Error, Result,
     network::{BackendReply, INPUT_NOT_SENT, RemoteConnection},
     protocol::{ConnectionState, SessionStatus, parse_id},
-    terminal::{RemoteTerminal, TerminalPixelGeometry, TerminalSize},
+    terminal::RemoteTerminal,
 };
 #[cfg(feature = "host")]
 use crate::{
@@ -152,15 +152,6 @@ impl Runtime {
                     "This device cannot start terminals.".to_owned(),
                 ));
             }
-            #[cfg(feature = "host")]
-            Command::Theme { dark } => {
-                self.dark = *dark;
-                for local in self.local.values() {
-                    local.terminal.theme(*dark);
-                }
-            }
-            #[cfg(not(feature = "host"))]
-            Command::Theme { .. } => {}
             Command::Resize { .. } | Command::Focus { .. } | Command::Blur { .. } => {
                 return Err(Error::Invalid(
                     "terminal control requires a current subscription".to_owned(),
@@ -174,7 +165,6 @@ impl Runtime {
                 self.auth_pending = true;
                 self.network_command(command.clone());
             }
-            Command::Shutdown {} => {}
             _ => {
                 self.job_capacity()?;
                 self.network_command(command.clone());
@@ -412,10 +402,9 @@ impl Runtime {
         let id = Uuid::now_v7();
         let config = self.config.clone();
         let changes = self.changes.clone();
-        let dark = self.dark;
         self.creating.insert(id, command.clone());
         self.spawn(async move {
-            let result = create_session(id, config, &command, dark, changes).await;
+            let result = create_session(id, config, &command, changes).await;
             Completion::Created { id, result }
         });
         Ok(())
@@ -509,6 +498,7 @@ impl Runtime {
             entry.connection_state = ConnectionState::Offline;
             entry.connected_users.clear();
         }
+        self.show_shared_status(id);
         self.publish_catalog();
     }
 
@@ -575,7 +565,7 @@ impl Runtime {
             Command::Resize {
                 identity, claim, ..
             } => {
-                let (size, geometry) = geometry(identity)?;
+                let (size, geometry) = identity.geometry()?;
                 target.resize(connection, size, Some(geometry), *claim)
             }
             Command::Focus { .. } | Command::Blur { .. } => {
@@ -860,7 +850,7 @@ impl Runtime {
                     .get(&id)
                     .and_then(|entry| entry.message.clone())
                     .filter(|message| message == INPUT_NOT_SENT);
-                let mut entry = self.remote_entry(connection.session.clone());
+                let mut entry = self.remote_entry(self.listed_remote(&connection.session));
                 entry.connection_state = ConnectionState::Connected;
                 entry.status = SessionStatus::Running;
                 entry.message = notice;
@@ -975,22 +965,6 @@ impl Runtime {
     }
 }
 
-fn geometry(
-    identity: &crate::protocol::ResizeIdentity,
-) -> Result<(TerminalSize, TerminalPixelGeometry)> {
-    let size = TerminalSize::new(identity.rows, identity.cols)
-        .map_err(|error| Error::Invalid(error.to_string()))?;
-    let geometry = TerminalPixelGeometry::new(
-        identity.width_pixels,
-        identity.height_pixels,
-        identity.cell_width_pixels,
-        identity.cell_height_pixels,
-    )
-    .and_then(|geometry| geometry.validate_for_size(size))
-    .map_err(|error| Error::Invalid(error.to_string()))?;
-    Ok((size, geometry))
-}
-
 #[cfg(feature = "host")]
 fn shell(config: &Config) -> PathBuf {
     config
@@ -999,8 +973,6 @@ fn shell(config: &Config) -> PathBuf {
         .map_or_else(kodosi_os::process::default_shell, PathBuf::from)
 }
 
-/// The program a new terminal runs: the shell, or the provider's CLI that
-/// resumes a conversation, found as the shell would find it.
 #[cfg(feature = "host")]
 async fn session_program(
     config: &Config,
@@ -1040,7 +1012,6 @@ async fn create_session(
     id: Uuid,
     config: Config,
     command: &Command,
-    dark: bool,
     changes: mpsc::Sender<SessionChange>,
 ) -> Result<StartedSession> {
     let Command::CreateSession {
@@ -1093,7 +1064,6 @@ async fn create_session(
         program,
         arguments,
         directory.clone(),
-        dark,
         changes,
     )
     .await

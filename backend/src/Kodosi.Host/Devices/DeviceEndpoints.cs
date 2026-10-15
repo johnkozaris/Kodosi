@@ -30,11 +30,12 @@ internal static class DeviceEndpoints
             await service.RequireProofAsync(context, user.Id, ct);
             return Tagged(context, await service.IdentityAsync(user.Id, userId, context.Request.Headers.IfNoneMatch, ct));
         });
-        api.MapPost("/me/identity/device-list", async (DeviceService.ReplaceDeviceList body, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
+        api.MapPost("/me/identity/device-list", async (DeviceService.ReplaceDeviceList body, HttpContext context, CurrentUser users, DeviceService service, MissionService missions, CancellationToken ct) =>
         {
             var user = await users.GetAsync(context, ct);
             await service.RequireProofAsync(context, user.Id, ct, allowExpiredList: true);
             await service.ReplaceListAsync(user.Id, body, ct);
+            await missions.NotifyRoomsOfAsync(user.Id, ct);
             return Results.NoContent();
         });
         api.MapPost("/me/connections/renew", async (HttpContext context, CurrentUser users, DeviceService service, ConnectionDirectory connections, CancellationToken ct) =>
@@ -44,10 +45,11 @@ internal static class DeviceEndpoints
             connections.Renew(user.Id, device.Id, DateTimeOffset.FromUnixTimeSeconds(expires));
             return Results.NoContent();
         });
-        api.MapPost("/me/identity/reset", async (HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
+        api.MapPost("/me/identity/reset", async (HttpContext context, CurrentUser users, DeviceService service, MissionService missions, CancellationToken ct) =>
         {
             var user = await users.GetAsync(context, ct);
             await service.ResetIdentityAsync(user.Id, CurrentUser.SignedInAt(context.User), ct);
+            await missions.NotifyRoomsOfAsync(user.Id, ct);
             return Results.NoContent();
         }).RequireRateLimiting("enrollment");
         api.MapPost("/devices/link/init", async (DeviceService.LinkInit body, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
@@ -91,5 +93,4 @@ internal static class DeviceEndpoints
         context.Response.Headers.ETag = identity.Tag;
         return identity.Bundle is null ? Results.StatusCode(StatusCodes.Status304NotModified) : Results.Ok(identity.Bundle);
     }
-
 }

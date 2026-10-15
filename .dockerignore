@@ -1,9 +1,5 @@
-**/.git
-**/.DS_Store
 **/bin
 **/obj
 **/TestResults
 **/.tools
-.claude/worktrees
-runtime/target
-build
+**/.DS_Store

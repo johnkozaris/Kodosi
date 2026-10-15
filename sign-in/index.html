@@ -10,8 +10,6 @@
     <meta name="theme-color" content="#f0e9dc" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#110e0c" media="(prefers-color-scheme: dark)" />
     <title>Kodosi</title>
-    <!-- Before the stylesheet: the ground of the theme, and no mark at its first, unstyled size.
-         The stylesheet takes over from these at once. -->
     <style>
       html {
         background: #f0e9dc;
@@ -25,8 +23,6 @@
         display: none;
       }
     </style>
-    <!-- The Kodosi wordmark, and the letters of what a person types. The stylesheet names both.
-         The browser starts on the two files with the page, and does not wait for the stylesheet. -->
     <link rel="preload" as="image" type="image/webp" href="/src/assets/wordmark.webp" />
     <link
       rel="preload"
@@ -36,19 +32,12 @@
       href="/node_modules/@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2"
     />
     <script>
-      // The language of the page, for a screen reader. Keycloak gives it. With no Keycloak, the
-      // development server has it in the address.
       try {
         var given = window.kcContext;
-        var tag = given
-          ? given.locale && (given.locale.currentLanguageTag || given.locale)
-          : new URLSearchParams(location.search).get("lang");
+        var tag = given && given.locale && (given.locale.currentLanguageTag || given.locale);
         if (tag && typeof tag === "string") document.documentElement.lang = tag;
       } catch (e) {}
-      // The first page of a visit draws the mark. A step that carries on keeps it as it is
-      // (src/frame/carry.ts has the same numbers). A page that loads while the mark is still
-      // drawn goes on with the drawing from where it was: Keycloak can send a person through
-      // two pages in less than a second.
+      // The keys and the ages here are those of src/frame/carry.ts.
       try {
         var root = document.documentElement;
         var before = JSON.parse(sessionStorage.getItem("kodosi.carry") || "null");
@@ -64,18 +53,12 @@
     </script>
   </head>
   <body>
-    <!-- The Kodosi wordmark is part of the page itself: it is there before the script loads, and
-         it has the same place on each step. The rectangle is the copper cursor at rest, at the end
-         of the word; src/frame/cursor.ts gives it its life. -->
     <div id="logo" class="logo" role="img" aria-label="Kodosi">
       <span class="logo-mark"><span class="logo-word"></span></span>
       <span id="cursor-home" class="logo-cursor"></span>
     </div>
     <div id="root"></div>
     <script>
-      // What the page before this one handed over stays in place until this page draws its own
-      // (src/frame/carry.ts): its capsule, and the cursor where it stood. A step of the sign-in
-      // never shows an empty page, and the cursor never starts again from nothing.
       try {
         var c = JSON.parse(sessionStorage.getItem("kodosi.carry") || "null");
         if (

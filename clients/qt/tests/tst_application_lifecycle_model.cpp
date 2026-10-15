@@ -25,7 +25,7 @@ class ApplicationLifecycleModelTest final : public QObject {
     Q_OBJECT
 
 private slots:
-    void schedulesInitialStartAndPublishesOneGeneration();
+    void schedulesInitialStartAndReportsReadyOnce();
     void rejectsConcurrentRetryAndDoubleClick();
     void ignoresStaleCompletionAfterRuntimeReset();
     void boundsAndSanitizesSynchronousFailure();
@@ -34,7 +34,7 @@ private slots:
 };
 
 void ApplicationLifecycleModelTest::
-    schedulesInitialStartAndPublishesOneGeneration()
+    schedulesInitialStartAndReportsReadyOnce()
 {
     kodosi::RuntimeBridge runtime;
     auto startCalls = 0;
@@ -49,7 +49,7 @@ void ApplicationLifecycleModelTest::
         [&stopCalls] { ++stopCalls; });
     QSignalSpy ready(
         &model,
-        &kodosi::ApplicationLifecycleModel::runtimeGenerationReady);
+        &kodosi::ApplicationLifecycleModel::runtimeReady);
 
     model.scheduleInitialStart();
     model.scheduleInitialStart();
@@ -62,9 +62,7 @@ void ApplicationLifecycleModelTest::
         model.state(),
         kodosi::ApplicationLifecycleModel::State::Ready);
     QCOMPARE(startCalls, 1);
-    QCOMPARE(model.runtimeGeneration(), 1);
     QCOMPARE(ready.count(), 1);
-    QCOMPARE(ready.constFirst().constFirst().toULongLong(), 1ULL);
     QCOMPARE(stopCalls, 0);
 }
 
@@ -86,6 +84,7 @@ void ApplicationLifecycleModelTest::
             retryCompletion = std::move(completion);
         },
         [] {});
+    QSignalSpy ready(&model, &kodosi::ApplicationLifecycleModel::runtimeReady);
 
     model.scheduleInitialStart();
     QTRY_COMPARE(
@@ -108,7 +107,7 @@ void ApplicationLifecycleModelTest::
     QCOMPARE(
         model.state(),
         kodosi::ApplicationLifecycleModel::State::Ready);
-    QCOMPARE(model.runtimeGeneration(), 1);
+    QCOMPARE(ready.count(), 1);
 }
 
 void ApplicationLifecycleModelTest::
@@ -123,6 +122,7 @@ void ApplicationLifecycleModelTest::
             completions.push_back(std::move(completion));
         },
         [] {});
+    QSignalSpy ready(&model, &kodosi::ApplicationLifecycleModel::runtimeReady);
 
     model.scheduleInitialStart();
     QTRY_COMPARE(completions.size(), std::size_t {1});
@@ -141,13 +141,13 @@ void ApplicationLifecycleModelTest::
     QCOMPARE(
         model.state(),
         kodosi::ApplicationLifecycleModel::State::Starting);
-    QCOMPARE(model.runtimeGeneration(), 0);
+    QCOMPARE(ready.count(), 0);
 
     completions.back()(kodosi::RuntimeBridge::Result {});
     QCOMPARE(
         model.state(),
         kodosi::ApplicationLifecycleModel::State::Ready);
-    QCOMPARE(model.runtimeGeneration(), 1);
+    QCOMPARE(ready.count(), 1);
 }
 
 void ApplicationLifecycleModelTest::
@@ -186,6 +186,7 @@ void ApplicationLifecycleModelTest::
             completion(kodosi::RuntimeBridge::Result {});
         },
         [] {});
+    QSignalSpy ready(&model, &kodosi::ApplicationLifecycleModel::runtimeReady);
 
     model.scheduleInitialStart();
     QTRY_COMPARE(
@@ -205,7 +206,7 @@ void ApplicationLifecycleModelTest::
     QTRY_COMPARE(
         model.state(),
         kodosi::ApplicationLifecycleModel::State::Ready);
-    QCOMPARE(model.runtimeGeneration(), 2);
+    QCOMPARE(ready.count(), 2);
 }
 
 void ApplicationLifecycleModelTest::explicitStopInvalidatesCompletion()
@@ -220,6 +221,7 @@ void ApplicationLifecycleModelTest::explicitStopInvalidatesCompletion()
             completion = std::move(pending);
         },
         [&stopCalls] { ++stopCalls; });
+    QSignalSpy ready(&model, &kodosi::ApplicationLifecycleModel::runtimeReady);
 
     model.scheduleInitialStart();
     QTRY_VERIFY(completion);
@@ -231,7 +233,7 @@ void ApplicationLifecycleModelTest::explicitStopInvalidatesCompletion()
     QCOMPARE(
         model.state(),
         kodosi::ApplicationLifecycleModel::State::Starting);
-    QCOMPARE(model.runtimeGeneration(), 0);
+    QCOMPARE(ready.count(), 0);
 }
 
 QTEST_GUILESS_MAIN(ApplicationLifecycleModelTest)

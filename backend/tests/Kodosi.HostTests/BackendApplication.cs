@@ -4,7 +4,6 @@ using System.Net.Http.Json;
 using System.Net.WebSockets;
 using System.Security.Claims;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using Kodosi.TerminalConnections;
 using Kodosi.Security;
@@ -127,7 +126,7 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
     {
         var client = Server.CreateWebSocketClient(); client.ConfigureRequest = request => request.Headers.Authorization = "Bearer " + actor.Token;
         var socket = await client.ConnectAsync(new Uri("ws://localhost/ws/device"), TestContext.Current.CancellationToken);
-        await SendAsync(socket, new { type = "hello", protocolVersion = 20, deviceId = actor.Fixture.DeviceId, deviceSession = actor.Session });
+        await SendAsync(socket, new { type = "hello", protocolVersion = 22, deviceId = actor.Fixture.DeviceId, deviceSession = actor.Session });
         Assert.Equal("ready", (await JsonAsync(socket)).GetProperty("type").GetString());
         return socket;
     }

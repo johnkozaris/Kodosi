@@ -112,7 +112,7 @@ QRect TerminalView::accessibleCharacterRect(const int offset) const
     if (!found) {
         return {};
     }
-    const auto cellSize = TerminalRasterizer::cellSize(m_font, m_lineHeight);
+    const auto cellSize = terminalCellSize();
     const auto scale = viewportScale();
     const auto scenePoint = mapToScene(viewportOffset() +
         QPointF(cellSize.width() * targetColumn, cellSize.height() * targetRow) * scale);

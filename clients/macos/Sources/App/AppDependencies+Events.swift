@@ -130,6 +130,10 @@ extension AppDependencies {
     }
 
     private func receiveSystem(_ event: RuntimeEvent) throws {
+        if event.type == "system.updateRequired" {
+            updateRequired = true
+            return
+        }
         guard event.type == "system.ready" else { return }
         let version: UInt32 = try event.value("protocolVersion")
         guard version == RuntimeHandle.expectedProtocolVersion else {
@@ -216,8 +220,9 @@ extension AppDependencies {
         attention.formIntersection(received.map(\.id))
         freshTerminals.formIntersection(received.map(\.id))
         for value in received
-            where wasWorking.contains(value.id) && !value.isWorking
-            || value.waitState != nil && value.waitState != (waitStates[value.id] ?? nil)
+            where value.canCall
+            && (wasWorking.contains(value.id) && !value.isWorking
+                || value.waitState != nil && value.waitState != (waitStates[value.id] ?? nil))
         {
             noteAttention(value.id)
         }

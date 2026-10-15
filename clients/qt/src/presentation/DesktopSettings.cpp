@@ -5,9 +5,18 @@
 #include <algorithm>
 #include <cmath>
 namespace kodosi {
-DesktopSettings::DesktopSettings(QObject* parent)
-    : DesktopSettings(std::make_unique<QSettings>(), parent)
+namespace {
+struct KnownAgent {
+    QString id, label;
+};
+const QList<KnownAgent>& knownAgents()
 {
+    static const QList<KnownAgent> agents { { QStringLiteral("claude"), QStringLiteral("Claude Code") },
+        { QStringLiteral("codex"), QStringLiteral("Codex") }, { QStringLiteral("copilot"), QStringLiteral("Copilot") },
+        { QStringLiteral("cursor"), QStringLiteral("Cursor") }, { QStringLiteral("gemini"), QStringLiteral("Gemini CLI") },
+        { QStringLiteral("opencode"), QStringLiteral("OpenCode") } };
+    return agents;
+}
 }
 DesktopSettings::DesktopSettings(std::unique_ptr<QSettings> settings, QObject* parent)
     : QObject(parent)
@@ -38,21 +47,22 @@ DesktopSettings::DesktopSettings(std::unique_ptr<QSettings> settings, QObject* p
     }
     m_settings->endArray();
 }
-QString DesktopSettings::agentOf(const QString& command)
+QString DesktopSettings::agentOf(const QString& text)
 {
-    for (const auto& word : command.split(QChar::Space, Qt::SkipEmptyParts)) {
+    for (const auto& word : text.split(QChar::Space, Qt::SkipEmptyParts)) {
         if (word == QStringLiteral("env") || word.contains(QLatin1Char('=')))
             continue;
-        const auto program = QFileInfo(word).fileName();
-        if (program == QStringLiteral("cursor-agent"))
-            return QStringLiteral("cursor");
-        return QStringList { QStringLiteral("claude"), QStringLiteral("codex"), QStringLiteral("copilot"),
-                   QStringLiteral("gemini"), QStringLiteral("opencode") }
-                .contains(program)
-            ? program
-            : QStringLiteral("shell");
+        for (const auto& agent : knownAgents()) {
+            if (word.contains(agent.id, Qt::CaseInsensitive))
+                return agent.id;
+        }
     }
     return QStringLiteral("shell");
+}
+QString DesktopSettings::agentLabel(const QString& text)
+{
+    const auto agent = std::ranges::find(knownAgents(), agentOf(text), &KnownAgent::id);
+    return agent == knownAgents().end() ? tr("Shell") : agent->label;
 }
 QVariantList DesktopSettings::startCommands() const
 {
@@ -79,16 +89,13 @@ QStringList DesktopSettings::startCommandIds() const
 }
 void DesktopSettings::learn(const QString& program)
 {
-    static const QStringList agents { QStringLiteral("claude"), QStringLiteral("codex"), QStringLiteral("copilot"),
-        QStringLiteral("cursor"), QStringLiteral("gemini"), QStringLiteral("opencode") };
-    if (!agents.contains(program) || m_learned.contains(program))
+    const auto agent = std::ranges::find(knownAgents(), program, &KnownAgent::id);
+    if (agent == knownAgents().end() || m_learned.contains(program))
         return;
     m_learned.append(program);
     const bool known = std::ranges::any_of(m_start, [&](const StartCommand& entry) { return agentOf(entry.command) == program; });
     if (!known) {
-        static const QStringList labels { QStringLiteral("Claude Code"), QStringLiteral("Codex"), QStringLiteral("Copilot"),
-            QStringLiteral("Cursor"), QStringLiteral("Gemini CLI"), QStringLiteral("OpenCode") };
-        m_start.append({ QUuid::createUuid().toString(QUuid::WithoutBraces), labels.value(agents.indexOf(program)),
+        m_start.append({ QUuid::createUuid().toString(QUuid::WithoutBraces), agent->label,
             program == QStringLiteral("cursor") ? QStringLiteral("cursor-agent") : program });
     }
     persistStart();

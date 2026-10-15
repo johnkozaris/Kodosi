@@ -21,7 +21,6 @@ const sizes: Record<Size, string> = {
   lg: "h-11 px-5 text-[15px] [&_svg]:size-[18px]",
 };
 
-/** The look of an action: a capsule, as each action of the app. */
 export function buttonClass({
   variant = "secondary",
   size = "md",

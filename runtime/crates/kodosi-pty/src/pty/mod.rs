@@ -11,8 +11,6 @@ mod windows;
 #[cfg(windows)]
 pub use windows::{KodosiPty, PtyReader};
 
-/// Terminals run behind a console host (Windows `ConPTY`) that measures
-/// grapheme clusters and keeps no scrollback of its own.
 pub const CONSOLE_HOST: bool = cfg!(windows);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -25,7 +23,7 @@ pub enum ShutdownStage {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WaitOutcome {
-    Reaped(Option<i32>),
+    Reaped,
     TimedOut,
 }
 
@@ -57,8 +55,6 @@ const FOREIGN_CONTEXT_KEYS: [&str; 10] = [
     "WT_SESSION",
 ];
 
-/// Whether an inherited variable describes another terminal or agent, so a
-/// new session must not see it.
 fn inherits_foreign_context(key: &str) -> bool {
     FOREIGN_CONTEXT_KEYS
         .iter()
@@ -69,8 +65,6 @@ fn inherits_foreign_context(key: &str) -> bool {
         })
 }
 
-/// The agent a process runs, judged from its command line. The first argument
-/// may be a path or, on Windows, an image name without its extension.
 fn program_identity(arguments: &[String]) -> Option<&'static str> {
     let executable = Path::new(arguments.first()?).file_name()?.to_str()?;
     let candidate = if matches!(executable, "node" | "bun" | "deno") {

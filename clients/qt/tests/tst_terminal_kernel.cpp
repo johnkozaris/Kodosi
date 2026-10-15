@@ -30,6 +30,7 @@
 #include <QWheelEvent>
 #include <QtTest/QTest>
 
+#include <cmath>
 #include <functional>
 #include <optional>
 #include <utility>
@@ -318,6 +319,8 @@ private slots:
     void rasterizerUsesBrandedSelectionAndPreeditPalette();
     void rasterizerHandlesWideTailBackgroundAndCursorSpan();
     void rasterizerAppliesLineHeightAndOwnedCursorPolicy();
+    void rasterizerAlignsCellsToDevicePixels();
+    void rasterizerFillsBlockAndPowerlineCells();
     void kernelAppliesNativeCursorDefaultsAndScrollback();
     void scrollbackReconfigurationPublishesReplacementFrame();
     void terminalViewOwnsValidatedDisplaySettings();
@@ -341,6 +344,7 @@ private slots:
     void terminalViewExposesNativeAccessibleTextInterface();
     void qmlConstructionEnrollsTerminalInAccessibleTree();
     void terminalViewGatesDeniedCommandsAndRevocation();
+    void terminalViewJoinsSurrogateHalvesFromSeparateKeyEvents();
     void terminalViewPastesClipboardThroughBoundedAuthority();
     void terminalViewTracksShiftInsertPasteReleaseExactly();
     void terminalOriginatedClipboardCommandsCannotReachHostClipboard();
@@ -815,6 +819,66 @@ void TerminalKernelTest::rasterizerAppliesLineHeightAndOwnedCursorPolicy()
     QCOMPARE(
         withUnderline.pixelColor(QPoint(withUnderline.width() / 2, 0)),
         frame.background);
+}
+
+void TerminalKernelTest::rasterizerAlignsCellsToDevicePixels()
+{
+    kodosi::TerminalFrame frame;
+    frame.columns = 7;
+    frame.rows = 3;
+    frame.background = QColor(QStringLiteral("#101010"));
+    frame.foreground = QColor(QStringLiteral("#eeeeee"));
+    frame.cells.fill({.foreground = frame.foreground, .background = frame.background}, 21);
+    auto font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    font.setPixelSize(13);
+    for (const qreal ratio : {1.0, 1.25, 1.5, 1.75, 2.0}) {
+        const auto cell = kodosi::TerminalRasterizer::cellSize(font, 1.1, ratio);
+        QCOMPARE(std::round(cell.width() * ratio), cell.width() * ratio);
+        QCOMPARE(std::round(cell.height() * ratio), cell.height() * ratio);
+        const auto size = kodosi::TerminalRasterizer::logicalSize(frame, font, 1.1, ratio);
+        kodosi::TerminalRasterizer::Options options;
+        options.lineHeight = 1.1;
+        const auto image = kodosi::TerminalRasterizer::render(frame, font, ratio, options);
+        QCOMPARE(image.size(), (size * ratio).toSize());
+    }
+}
+
+void TerminalKernelTest::rasterizerFillsBlockAndPowerlineCells()
+{
+    const QColor segment(QStringLiteral("#f5b342"));
+    kodosi::TerminalFrame frame;
+    frame.columns = 3;
+    frame.rows = 3;
+    frame.background = QColor(QStringLiteral("#000000"));
+    frame.foreground = QColor(QStringLiteral("#ffffff"));
+    frame.cells.fill({.foreground = frame.foreground, .background = frame.background}, 9);
+    for (const auto [column, codepoint] : {std::pair {0, 0xE0B6}, std::pair {1, 0x2588}, std::pair {2, 0xE0B0}}) {
+        frame.cells[3 + column] = {
+            .grapheme = QString(QChar(codepoint)),
+            .foreground = segment,
+            .background = frame.background,
+        };
+    }
+    auto font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    font.setPixelSize(14);
+    for (const qreal ratio : {1.0, 1.5}) {
+        const auto image = kodosi::TerminalRasterizer::render(frame, font, ratio);
+        const auto cell = kodosi::TerminalRasterizer::cellSize(font, 1.0, ratio) * ratio;
+        const auto width = qRound(cell.width());
+        const auto height = qRound(cell.height());
+        const auto pixel = [&image](const int x, const int y) { return image.pixelColor(x, y); };
+
+        QCOMPARE(pixel(width, height), segment);
+        QCOMPARE(pixel((2 * width) - 1, (2 * height) - 1), segment);
+        QCOMPARE(pixel(2 * width, height + (height / 2)), segment);
+        QCOMPARE(pixel(width - 1, height + (height / 2)), segment);
+        QCOMPARE(pixel((3 * width) - 1, height), frame.background);
+        QCOMPARE(pixel(0, height), frame.background);
+        for (int x = 0; x < image.width(); ++x) {
+            QCOMPARE(pixel(x, height - 1), frame.background);
+            QCOMPARE(pixel(x, 2 * height), frame.background);
+        }
+    }
 }
 
 void TerminalKernelTest::kernelAppliesNativeCursorDefaultsAndScrollback()
@@ -1601,6 +1665,43 @@ void TerminalKernelTest::terminalViewGatesDeniedCommandsAndRevocation()
     QCOMPARE(dispatcher.inputCommands.size(), inputAttempts);
     QVERIFY(!view.readOnly());
     QVERIFY(view.canSendInput());
+}
+
+void TerminalKernelTest::terminalViewJoinsSurrogateHalvesFromSeparateKeyEvents()
+{
+    kodosi::TerminalSessionRegistry registry;
+    FakeTerminalDispatcher dispatcher;
+    kodosi::TerminalView view(m_window.contentItem());
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("surrogates"),
+        QStringLiteral("subscription"),
+        8,
+    };
+    view.setWidth(800);
+    view.setHeight(400);
+    view.setTerminalInteraction(true, false);
+    QVERIFY(view.attach(
+        registry,
+        dispatcher,
+        subscription,
+        QStringLiteral("incarnation")));
+    makeTerminalReady(registry, subscription);
+
+    const auto emoji = QString::fromUcs4(U"\U0001F600");
+    const auto press = [&view](const QString& text) {
+        QKeyEvent event(QEvent::KeyPress, 0, Qt::NoModifier, text);
+        QCoreApplication::sendEvent(&view, &event);
+    };
+    press(emoji.left(1));
+    QCOMPARE(dispatcher.inputCommands.size(), 0);
+    press(emoji.right(1));
+    QCOMPARE(dispatcher.inputCommands.size(), 1);
+    QCOMPARE(dispatcher.inputCommands.constLast(), emoji.toUtf8());
+
+    press(emoji.left(1));
+    press(QStringLiteral("a"));
+    QCOMPARE(dispatcher.inputCommands.size(), 2);
+    QCOMPARE(dispatcher.inputCommands.constLast(), QByteArrayLiteral("a"));
 }
 
 void TerminalKernelTest::terminalViewPastesClipboardThroughBoundedAuthority()

@@ -15,8 +15,6 @@ mod windows;
 #[cfg(windows)]
 use windows as imp;
 
-/// A local endpoint that only the current user can reach, named by a
-/// `namespace`, such as a hash of the data folder, and a `role`.
 pub struct Endpoint(imp::Endpoint);
 
 impl Endpoint {
@@ -35,23 +33,19 @@ impl Endpoint {
     }
 }
 
-/// Accepts connections from processes that the current user runs.
 pub struct Listener(imp::Listener);
 
 impl Listener {
-    /// Fails with `AddrInUse` while another live listener owns the endpoint.
     pub async fn bind(endpoint: &Endpoint) -> io::Result<Self> {
         imp::Listener::bind(&endpoint.0).await.map(Self)
     }
 
-    /// Waits for the next client. Cancel-safe.
+    /// Cancel-safe.
     pub async fn accept(&mut self) -> io::Result<Stream> {
         self.0.accept().await.map(Stream)
     }
 }
 
-/// Connects to the listener at `endpoint`. Fails with `NotFound` when nothing
-/// listens and with `PermissionDenied` when another user owns the endpoint.
 pub async fn connect(endpoint: &Endpoint) -> io::Result<Stream> {
     imp::connect(&endpoint.0).await.map(Stream)
 }
@@ -66,7 +60,6 @@ impl Stream {
         tokio::io::split(self)
     }
 
-    /// The process at the other end, as the operating system reports it.
     pub fn peer_pid(&self) -> Option<u32> {
         imp::peer_pid(&self.0)
     }

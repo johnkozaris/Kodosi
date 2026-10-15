@@ -38,7 +38,7 @@ void AppActivationTest::launchesForwardTheirRouteAndToken()
         .route = kodosi::DeepLinkRouter::parse(QStringLiteral("kodosi://session/0198aaaa-0000-7000-8000-000000000001")),
         .token = QStringLiteral("xdg-token"),
     };
-    QVERIFY(routed.route->accepted());
+    QVERIFY(routed.route->destination);
     const auto received = kodosi::AppActivation::fromJson(routed.toJson());
     QCOMPARE(received.token, routed.token);
     QCOMPARE(received.route->destination, routed.route->destination);
@@ -47,7 +47,7 @@ void AppActivationTest::launchesForwardTheirRouteAndToken()
         .route = kodosi::DeepLinkRouter::parse(QStringLiteral("kodosi://unknown/route")),
         .token = {},
     };
-    QVERIFY(!invalid.route->accepted());
+    QVERIFY(!invalid.route->destination);
     const auto rejected = kodosi::AppActivation::fromJson(invalid.toJson());
     QVERIFY(rejected.route && !rejected.route->destination);
     QCOMPARE(rejected.route->error, invalid.route->error);

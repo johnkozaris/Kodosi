@@ -5,12 +5,15 @@ use tokio::task::JoinSet;
 
 use super::{
     channel::{Channel, Transport},
-    link::{HostEvent, Pipe},
+    link::{HostEvent, Hosted, Pipe},
     pacer::Pacer,
     wire::{Accept, ControlResult, End, Frame, Refuse},
     *,
 };
-use crate::{network::CheckpointCut, terminal::TerminalMetadata};
+use crate::{
+    network::{CheckpointCut, TerminalStatus},
+    terminal::TerminalMetadata,
+};
 
 const VIEWERS: usize = 32;
 const HEARTBEAT: Duration = Duration::from_secs(15);
@@ -18,7 +21,7 @@ const LATE_HEARTBEATS: u32 = 2;
 const KEYFRAME_SPACING: Duration = Duration::from_millis(500);
 const EXACT_AFTER_QUIET: Duration = Duration::from_secs(1);
 const UNCONFIRMED_INPUT: u64 = 256 * 1024;
-const CONTROL_TIMEOUT: Duration = Duration::from_secs(12);
+const STATUS_SPACING: Duration = Duration::from_secs(1);
 
 type Reply = oneshot::Receiver<std::result::Result<Value, String>>;
 type Inputs = FuturesOrdered<std::pin::Pin<Box<dyn Future<Output = (u64, bool)> + Send>>>;
@@ -34,6 +37,30 @@ struct Admitted {
 
 type Viewers = Arc<std::sync::Mutex<BTreeMap<Uuid, Admitted>>>;
 
+struct Shared {
+    reported: Option<TerminalStatus>,
+    held: Option<TerminalStatus>,
+    due: tokio::time::Instant,
+}
+
+impl Shared {
+    fn wanted(&self) -> Option<&TerminalStatus> {
+        self.reported
+            .as_ref()
+            .filter(|status| **status != TerminalStatus::default())
+    }
+
+    fn waiting(&self) -> bool {
+        self.wanted() != self.held.as_ref()
+    }
+
+    fn send(&mut self, hosted: &Hosted) {
+        self.held = self.wanted().cloned();
+        hosted.share(self.held.clone());
+        self.due = tokio::time::Instant::now() + STATUS_SPACING;
+    }
+}
+
 pub(super) async fn run(
     network: &BackendClient,
     publication: &Arc<Publication>,
@@ -45,7 +72,14 @@ pub(super) async fn run(
     let current = current_publication(network, publication, &credentials).await?;
     let mut hosted = network.inner.link.host(current.id, current.incarnation_id);
     check_generation(network, generation)?;
-    drop(publication.requests.send(HostRequest::ResetPresence).await);
+    drop(
+        publication
+            .requests
+            .send(HostRequest::ResetPresence {
+                owner: Some(credentials.user_id.clone()),
+            })
+            .await,
+    );
     let viewers = Viewers::default();
     let stop = credentials.cancel.child_token();
     let _stop = stop.clone().drop_guard();
@@ -53,6 +87,11 @@ pub(super) async fn run(
     let mut trust = tokio::time::interval(TRUST_CHECK);
     trust.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     trust.tick().await;
+    let mut shared = Shared {
+        reported: None,
+        held: None,
+        due: tokio::time::Instant::now(),
+    };
     let result = async {
         loop {
             check_generation(network, generation)?;
@@ -63,6 +102,7 @@ pub(super) async fn run(
                 () = publication.refresh.notified() => review(network, publication, &network.credentials()?, &viewers).await?,
                 _ = trust.tick() => review(network, publication, &network.credentials()?, &viewers).await?,
                 Some(_) = tasks.join_next(), if !tasks.is_empty() => {}
+                () = tokio::time::sleep_until(shared.due), if shared.waiting() => shared.send(&hosted),
                 event = hosted.events.recv() => match event.ok_or(Error::Closed)? {
                     HostEvent::Refused(error) => return Err(error),
                     HostEvent::AccessChanged => review(network, publication, &network.credentials()?, &viewers).await?,
@@ -90,6 +130,7 @@ pub(super) async fn run(
                         publication.cancel.cancel();
                         return Ok(());
                     }
+                    Ok(PublishedFrame::Metadata(metadata)) => shared.reported = Some(TerminalStatus::of(&metadata)),
                     Ok(_) | Err(broadcast::error::RecvError::Lagged(_)) => {}
                 },
             }
@@ -101,7 +142,12 @@ pub(super) async fn run(
         while tasks.join_next().await.is_some() {}
     })
     .await;
-    drop(publication.requests.send(HostRequest::ResetPresence).await);
+    drop(
+        publication
+            .requests
+            .send(HostRequest::ResetPresence { owner: None })
+            .await,
+    );
     result
 }
 
@@ -301,7 +347,7 @@ async fn connect(
     let info = publication.info.read().await.clone();
     channel
         .send(&Frame::Accept(Accept {
-            protocol_version: crate::protocol::TERMINAL_CONNECTION_VERSION,
+            protocol_version: crate::protocol::CHANNEL_VERSION,
             session_id: info.session_id,
             incarnation_id: info.incarnation_id,
             host_device_id: credentials.keys.device_id.clone(),
@@ -322,8 +368,6 @@ async fn connect(
         output,
         &publication.requests,
         Controller {
-            user,
-            device,
             connection: id,
             authorization,
         },
@@ -392,8 +436,6 @@ async fn admit(
 }
 
 struct Controller {
-    user: String,
-    device: String,
     connection: Uuid,
     authorization: CancellationToken,
 }
@@ -873,8 +915,6 @@ impl<'a, T: Transport> Stream<'a, T> {
         tokio::time::timeout(
             Duration::from_secs(5),
             self.requests.send(HostRequest::Control {
-                sender_user_id: self.controller.user.clone(),
-                sender_device_id: self.controller.device.clone(),
                 connection_id: self.controller.connection,
                 control,
                 authorization: self.controller.authorization.clone(),

@@ -13,7 +13,6 @@
 #include <memory>
 
 namespace kodosi {
-/// The agents of this computer, their models, and the choices of the launcher.
 class AgentLauncherModel final : public QObject {
     Q_OBJECT
     Q_PROPERTY(QVariantList agents READ agents NOTIFY agentsChanged)
@@ -35,9 +34,7 @@ public:
     QVariantMap choice() const { return m_choice; }
     QString accountError() const { return m_accountError; }
     bool addingAccount() const;
-    /// Agents that this computer just got, while the launcher says so.
     QStringList fresh() const { return m_fresh; }
-    /// Whether the home's terminal grew from its cursor in this run of the app.
     bool grown() const { return m_grown; }
     void setGrown(bool grown);
 

@@ -6,19 +6,10 @@ cd "$(dirname "$0")/.."
 
 usage() {
     cat <<'EOF'
-Usage: ./scripts/build.sh [options]
+Usage: ./scripts/build.sh [--source <path>] [--skip-tests]
 
-Options:
-  --source <path>       Use an existing clean Ghostty checkout as the source cache.
-  --platform <name>     Build macos, linux or windows (defaults to the current host).
-  --skip-tests          Skip package verification after native artifacts build.
-  -h, --help            Show this help.
-
-The macOS build produces one arm64 native image containing renderer and VT APIs
-for each Apple slice in NativeBuild.env. The Linux build produces an
-x86_64 VT library for the Rust authority and Qt renderer. The install steps may fetch
-pinned source/tool dependencies; native builds then run against the prepared
-local Zig package store with network disabled.
+  --source <path>   Use an existing clean Ghostty checkout as the source cache.
+  --skip-tests      Skip the checks and tests of the built artifacts.
 EOF
 }
 
@@ -46,15 +37,6 @@ trap cleanup EXIT
 SOURCE_CACHE="$ROOT_DIR/References/ghostty-upstream"
 SOURCE_SUPPLIED=0
 SKIP_TESTS=0
-case "$(uname -s)" in
-    Darwin) PLATFORM_GROUP=macos ;;
-    Linux) PLATFORM_GROUP=linux ;;
-    MINGW64_NT* | MSYS_NT* | CLANGARM64_NT*) PLATFORM_GROUP=windows ;;
-    *)
-        echo "[!] unsupported build host: $(uname -s)" >&2
-        exit 1
-        ;;
-esac
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -62,10 +44,6 @@ while [ $# -gt 0 ]; do
             [ $# -ge 2 ] || { printf '%s\n' '--source requires a path' >&2; exit 1; }
             SOURCE_CACHE="$2"
             SOURCE_SUPPLIED=1
-            shift 2
-            ;;
-        --platform)
-            PLATFORM_GROUP="$2"
             shift 2
             ;;
         --skip-tests)
@@ -84,41 +62,24 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-case "$PLATFORM_GROUP" in
-    macos)
+case "$(uname -s)-$(uname -m)" in
+    Darwin-arm64)
+        PLATFORM_GROUP=macos
         GHOSTTY_REF_FILE="$ROOT_DIR/MacOSGhostty.ref"
-        if [ "$(uname -s)-$(uname -m)" != "Darwin-arm64" ]; then
-            echo "[!] macOS artifacts require an Apple silicon build host" >&2
-            exit 1
-        fi
         ;;
-    linux)
+    Linux-x86_64)
+        PLATFORM_GROUP=linux
         GHOSTTY_REF_FILE="$ROOT_DIR/LinuxGhostty.ref"
-        if [ "$(uname -s)-$(uname -m)" != "Linux-x86_64" ]; then
-            echo "[!] Linux artifacts require an x86_64 Linux build host" >&2
-            exit 1
-        fi
         ;;
-    windows)
+    MINGW64_NT* | MSYS_NT* | CLANGARM64_NT*)
+        PLATFORM_GROUP=windows
         GHOSTTY_REF_FILE="$ROOT_DIR/WindowsGhostty.ref"
-        case "$(uname -s)" in
-            MINGW64_NT* | MSYS_NT* | CLANGARM64_NT*) ;;
-            *)
-                echo "[!] Windows artifacts require a Windows build host of their architecture" >&2
-                exit 1
-                ;;
-        esac
         ;;
     *)
-        echo "[!] unsupported platform: $PLATFORM_GROUP" >&2
+        echo "[!] Ghostty builds on Apple silicon macOS, x86_64 Linux or Windows, not $(uname -s)-$(uname -m)" >&2
         exit 1
         ;;
 esac
-if [ "$(wc -c < "$GHOSTTY_REF_FILE" | tr -d '[:space:]')" != 41 ] ||
-    ! grep -Eq '^[0-9a-f]{40}$' "$GHOSTTY_REF_FILE"; then
-    echo "[!] platform Ghostty ref must contain one lowercase commit and newline: $GHOSTTY_REF_FILE" >&2
-    exit 1
-fi
 GHOSTTY_REF=$(tr -d '[:space:]' < "$GHOSTTY_REF_FILE")
 
 if [ -e "$SOURCE_CACHE" ] || [ -L "$SOURCE_CACHE" ]; then
@@ -131,7 +92,7 @@ elif [ "$SOURCE_SUPPLIED" -eq 1 ]; then
     exit 1
 else
     mkdir -p "$(dirname "$SOURCE_CACHE")"
-    git clone https://github.com/ghostty-org/ghostty "$SOURCE_CACHE"
+    git clone --config core.longpaths=true https://github.com/ghostty-org/ghostty "$SOURCE_CACHE"
 fi
 
 SOURCE_CACHE=$(cd "$SOURCE_CACHE" && pwd -P)
@@ -160,7 +121,7 @@ if [ "$(git -C "$SOURCE_CACHE" rev-parse "$GHOSTTY_REF^{commit}")" != "$GHOSTTY_
 fi
 
 rm -rf "$SOURCE_DIR"
-git clone --quiet --no-checkout "$SOURCE_CACHE" "$SOURCE_DIR"
+git clone --quiet --no-checkout --config core.longpaths=true "$SOURCE_CACHE" "$SOURCE_DIR"
 git -C "$SOURCE_DIR" checkout --quiet --detach "$GHOSTTY_REF"
 if [ -n "$(git -C "$SOURCE_DIR" status --porcelain)" ]; then
     echo "[!] isolated Ghostty source is dirty before patching"

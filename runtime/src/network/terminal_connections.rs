@@ -48,6 +48,7 @@ pub(crate) use link::Link;
 pub(crate) type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
 pub(crate) const STABLE_CONNECTION: Duration = Duration::from_mins(1);
+pub(crate) const CONTROL_TIMEOUT: Duration = Duration::from_secs(12);
 pub(crate) const INPUT_NOT_SENT: &str = "Some of your last input was not sent.";
 const MESSAGE_LIMIT: usize = 256 * 1024 + 4096;
 const TRUST_CHECK: Duration = Duration::from_mins(5);
@@ -165,9 +166,9 @@ pub(crate) async fn connect_remote(network: BackendClient, id: Uuid) -> Result<R
 pub(crate) async fn run_link(
     network: &BackendClient,
     credentials: &Credentials,
-    surfaces: &mpsc::UnboundedSender<String>,
+    notices: &mpsc::UnboundedSender<wire::Notice>,
 ) -> Result<()> {
-    link::run(network, credentials, surfaces).await
+    link::run(network, credentials, notices).await
 }
 
 async fn socket(network: &BackendClient, credentials: &Credentials) -> Result<Socket> {
@@ -228,6 +229,15 @@ async fn admitted(
     let ready = read_json(&mut socket).await?;
     match wire::text(&ready, "type")? {
         "ready" => Ok(Some(socket)),
+        "refused" if ready.get("reason").and_then(Value::as_str) == Some("version") => {
+            let reported = |name: &str| ready.get(name).and_then(Value::as_u64).unwrap_or_default();
+            super::http::supported(
+                crate::protocol::TERMINAL_CONNECTION_VERSION,
+                reported("oldest"),
+                reported("current"),
+            )?;
+            Err(invalid("The connection service did not admit this device."))
+        }
         "refused" => Ok(None),
         _ => Err(invalid("The connection service did not admit this device.")),
     }

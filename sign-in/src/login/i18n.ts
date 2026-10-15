@@ -5,12 +5,9 @@ import type { ThemeName } from "../kc.gen";
 import { plain } from "../parts/text";
 import type { KcContext } from "./KcContext";
 
-// The words of the pages. Keycloakify reads this call when it builds the theme and writes the
-// words into Keycloak's message files, so they are in the call itself. A key without the "kds"
-// start is one of Keycloak's own messages, in Kodosi's words. The apps have English only, so the
-// pages have English only: in a different language, Keycloak's own words show.
 const { getI18n, ofTypeI18n } = i18nBuilder
   .withThemeName<ThemeName>()
+  // Keycloakify reads these words from this call when it builds the theme: keep them inline.
   .withCustomTranslations({
     en: {
       kdsSignIn: "Sign in",
@@ -22,6 +19,8 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsBackToSignIn: "Back to sign in",
       kdsBackTo: "Back to {0}",
       kdsLanguage: "Language",
+      kdsTerms: "Terms",
+      kdsPrivacy: "Privacy",
       kdsNotYou: "Sign in as a different person",
       kdsAnotherWay: "Try another way",
 
@@ -40,15 +39,12 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsNewHere: "New here?",
       kdsMakeAccount: "Make an account",
 
-      // The code that the Kodosi app shows while it waits for the browser.
       kdsCodeFromApp: "The code from Kodosi",
       kdsDeviceTitle: "Enter the code from Kodosi",
       kdsDeviceLead: "Kodosi shows it on your computer.",
       kdsCheckTitle: "Check the code",
       kdsCheckLead: "{0} on your computer shows the same code.",
       kdsConnectTitle: "Connect {0}?",
-      // Without the code, the page cannot show which computer asks. A person who did not start a
-      // sign-in stops here.
       kdsConnectLead: "Only if you just started a sign-in in {0}.",
       kdsConnect: "Connect",
       kdsNotSame: "Not the same",
@@ -76,10 +72,8 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsAcceptTerms: "I accept the terms",
       kdsReadTerms: "Read them",
       kdsOptional: "Optional",
-      // The check that a person, not a program, sends the form (parts/captcha.tsx).
       kdsNotRobot: "Show that you are a person",
       kdsCheckFailed: "The check did not pass.",
-      kdsCheckAgain: "Try again",
       kdsPersonCheckLead: "A short check, then you go on.",
       kdsJoinTitle: "Make an account",
       kdsFill: "Fill in this row.",
@@ -100,7 +94,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsForgotLead: "We send you a link. With it, you choose a new password.",
       kdsSendLink: "Send the link",
 
-      kdsNewPasswordTitle: "Choose a password",
       kdsNewPassword: "New password",
       kdsSavePassword: "Save the password",
       kdsSignOutOthers: "Sign out everywhere else",
@@ -112,7 +105,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsSentAgain: "Sent again",
       kdsSendAgainIn: "In {0} seconds",
       kdsOpenMail: "Open {0}",
-      kdsSend: "Send the link",
       kdsConfirmEmailTitle: "Confirm your email",
       kdsConfirmEmailLead: "We send a link to {0}.",
 
@@ -140,8 +132,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsPasskeyCreate: "Make the passkey",
       kdsPasskeyName: "A name for this passkey",
       kdsPasskeyFailedTitle: "The passkey did not work",
-      // Keycloak's sentences about a passkey, in the words of Kodosi. A person who closes the
-      // passkey box of the browser gets the first.
       "webauthn-error-api-get": "The passkey did not answer. Try again, or use your password.",
       "webauthn-error-auth-verification": "The passkey did not work. Try again.",
       "webauthn-error-different-user": "That passkey is for a different account.",
@@ -186,8 +176,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsRemoveTitle: "Remove “{0}”?",
       kdsRemove: "Remove",
 
-      // The deletion of an account. The Kodosi server removes the person's data when Keycloak
-      // deletes the account; these words say what goes and what stays.
       kdsDeleteTitle: "Delete your Kodosi account?",
       kdsDeleteLead: "This cannot be undone.",
       kdsDeleteGoes: "Your sign-in, devices, friends and sharing are deleted.",
@@ -212,10 +200,12 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsLinkEmailLead: "We sent a link to the email of your account. Open it to add {0}.",
       kdsLinkVerified: "I opened the link",
 
-      // Keycloak's own messages, in the words of Kodosi. A wrong name and a wrong password get
-      // the same sentence, and so does each forgotten password.
+      // The words never say whether an account exists.
       invalidUserMessage: "That name or password is not right.",
       invalidPasswordMessage: "That name or password is not right.",
+      accountTemporarilyDisabledMessage: "That name or password is not right.",
+      accountTemporarilyDisabledMessageTotp:
+        "That code is not right. Type the code that the app shows now.",
       invalidUsernameMessage: "That name is not right.",
       invalidUsernameOrEmailMessage: "That name is not right.",
       invalidTotpMessage: "That code is not right. Type the code that the app shows now.",
@@ -224,19 +214,11 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       emailSentMessage: "If the account exists, a link is on its way to you.",
       notMatchPasswordMessage: "The two passwords are not the same.",
       usernameExistsMessage: "That username is taken. Pick a different one.",
-      // The first sign-in with a service found an account with the same username or email. The
-      // page reads the detail and its value from this sentence (pages/choices.tsx).
       federatedIdentityConfirmLinkMessage: "An account with the {0} {1} exists already.",
       "error-user-attribute-required": "Fill in each marked row.",
       termsAcceptanceRequired: "Accept the terms to go on.",
       successLogout: "You are signed out",
       userDeletedSuccessfully: "Your account is deleted.",
-      // Keycloak names a locked account on the sign-in. The words are the words of a wrong name or
-      // password, so they do not say that the account exists; the person gets the e-mail note.
-      accountTemporarilyDisabledMessage: "That name or password is not right.",
-      accountTemporarilyDisabledMessageTotp:
-        "That code is not right. Type the code that the app shows now.",
-      // What a check against programs says when it refuses a form. The row of the check shows it.
       recaptchaFailed: "The check did not pass.",
       recaptchaNotConfigured: "The check did not load. Try again in a moment.",
       turnstileVerificationFailed: "The check did not pass.",
@@ -256,7 +238,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       emailScopeConsentText: "Your email",
       offlineAccessScopeConsentText: "A sign-in that stays on your computer",
 
-      // What a person in trouble reads: what happened, and what to do next.
       accountUpdatedMessage: "Your account is up to date",
       accountPasswordUpdatedMessage: "Your password is new",
       emailVerifiedMessage: "Your email is confirmed",
@@ -289,7 +270,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       missingPasswordMessage: "Type your password.",
       missingEmailMessage: "Type your email.",
       invalidEmailMessage: "That email is not right.",
-      // Keycloak refuses an email that has an account. The words give the two ways on.
       emailExistsMessage: "Use a different email, or sign in.",
       "error-invalid-email": "That email is not right.",
       "error-invalid-length": "Use {1} to {2} characters.",
@@ -329,10 +309,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
 
 export type I18n = typeof ofTypeI18n;
 
-/**
- * The words of the page. The pages' own words are here from the start. Keycloak's words for a
- * different language (the name of a field that a realm added) come a moment later.
- */
 export function useI18n({ kcContext }: { kcContext: KcContext }): { i18n: I18n } {
   const { i18n, prI18n_currentLanguage: later } = getI18n({ kcContext });
   const [words, setWords] = useState(i18n);
@@ -348,10 +324,32 @@ export function useI18n({ kcContext }: { kcContext: KcContext }): { i18n: I18n }
   return { i18n: words };
 }
 
-/** Keycloak gives a sentence as its key, or as the words of that key. */
+export function nameLabel(
+  i18n: I18n,
+  realm: { loginWithEmailAllowed: boolean; registrationEmailAsUsername: boolean },
+): string {
+  if (!realm.loginWithEmailAllowed) return i18n.msgStr("kdsUsername");
+  return i18n.msgStr(realm.registrationEmailAsUsername ? "kdsEmail" : "kdsUsernameOrEmail");
+}
+
+type Key = Parameters<I18n["msgStr"]>[0];
+
 export function isMessage(i18n: I18n, text: string | undefined, key: string): boolean {
   if (!text) return false;
   if (text === key) return true;
-  const words = i18n.msgStr(key as Parameters<I18n["msgStr"]>[0]);
+  const words = i18n.msgStr(key as Key);
   return words !== key && plain(text) === plain(words);
+}
+
+// The value in the last place of the sentence `key`, when `text` is that sentence.
+export function valueIn(
+  i18n: I18n,
+  text: string | undefined,
+  key: string,
+  ...values: string[]
+): string | undefined {
+  const [before = "", after = ""] = i18n.msgStr(key as Key, ...values, "\u0000").split("\u0000");
+  const said = plain(text ?? "").trim();
+  if (!before || !said.startsWith(before) || !said.endsWith(after)) return undefined;
+  return said.slice(before.length, said.length - after.length);
 }

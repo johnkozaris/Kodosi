@@ -8,8 +8,7 @@ struct StartCommand: Codable, Equatable, Identifiable {
 
     var agent: AgentKind {
         let program = command.split(whereSeparator: \.isWhitespace).first { $0 != "env" && !$0.contains("=") }
-        let name = program.map { URL(fileURLWithPath: String($0)).lastPathComponent } ?? ""
-        return name == "cursor-agent" ? .cursor : AgentKind(rawValue: name) ?? .shell
+        return AgentKind(program: program.map { URL(fileURLWithPath: String($0)).lastPathComponent })
     }
 
     var line: String? {

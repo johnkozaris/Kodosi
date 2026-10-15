@@ -38,10 +38,6 @@ pub enum Error {
     Busy,
     #[error("The connection has closed.")]
     Closed,
-    #[error(
-        "The terminal view was refreshed before the host confirmed the operation. It was not retried."
-    )]
-    Refreshed,
     #[error("{0}")]
     Io(#[from] std::io::Error),
     #[error("{0}")]
@@ -56,6 +52,16 @@ pub enum Error {
     Json(#[from] serde_json::Error),
     #[error("{message}")]
     Backend { status: u16, message: String },
+    #[error("This version of Kodosi is too old for the server. Update Kodosi.")]
+    UpdateRequired,
+    #[error("The server uses an older version of Kodosi. Its operator must update it.")]
+    ServerOutdated,
+    #[error("{}", if *.peer_newer {
+        "The other computer has a newer version of Kodosi. Update Kodosi to open this terminal."
+    } else {
+        "The other computer has an older version of Kodosi. Kodosi must be updated there."
+    })]
+    ChannelVersion { peer_newer: bool },
 }
 
 impl From<reqwest::Error> for Error {
@@ -109,8 +115,7 @@ pub struct BackendConfig {
     pub isolated: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone)]
 pub struct Identity {
     pub user_id: String,
     pub device_id: String,
@@ -132,8 +137,7 @@ pub struct BackendReply {
     pub events: Vec<Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone)]
 pub struct LocalPublication {
     pub session_id: Uuid,
     pub incarnation_id: Uuid,
@@ -156,26 +160,61 @@ pub struct RemoteSession {
     pub mission_name: Option<String>,
     pub shared_with: Vec<String>,
     pub online: bool,
+    #[serde(default)]
+    pub status: Option<TerminalStatus>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+/// The server reads it, so it never carries the program's text.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TerminalStatus {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub program: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<crate::terminal::ProgramState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<crate::terminal::BlockedKind>,
+}
+
+impl TerminalStatus {
+    #[cfg(feature = "host")]
+    pub(crate) fn of(metadata: &crate::terminal::TerminalMetadata) -> Self {
+        Self {
+            program: metadata.program.clone(),
+            state: metadata.status.as_ref().map(|status| status.state),
+            kind: metadata.status.as_ref().and_then(|status| status.kind),
+        }
+    }
+
+    pub(crate) fn is_valid(&self) -> bool {
+        self.program
+            .as_deref()
+            .is_none_or(crate::agents::is_agent_name)
+            && (self.kind.is_none() || self.state == Some(crate::terminal::ProgramState::Blocked))
+    }
+
+    pub(crate) fn program_status(&self) -> Option<crate::terminal::ProgramStatus> {
+        Some(crate::terminal::ProgramStatus {
+            state: self.state?,
+            kind: self.kind,
+            progress: None,
+            title: None,
+            message: None,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum TerminalControl {
     Input {
         bytes: Vec<u8>,
     },
     Resize {
-        #[serde(rename = "requestId")]
-        request_id: String,
         rows: u16,
         cols: u16,
-        #[serde(rename = "widthPixels")]
         width_pixels: u32,
-        #[serde(rename = "heightPixels")]
         height_pixels: u32,
-        #[serde(rename = "cellWidthPixels")]
         cell_width_pixels: u32,
-        #[serde(rename = "cellHeightPixels")]
         cell_height_pixels: u32,
         claim: bool,
     },
@@ -192,7 +231,9 @@ pub struct CheckpointCut {
 }
 
 pub enum HostRequest {
-    ResetPresence,
+    ResetPresence {
+        owner: Option<String>,
+    },
     Connected {
         connection_id: Uuid,
         user_id: String,
@@ -203,8 +244,6 @@ pub enum HostRequest {
         reply: oneshot::Sender<std::result::Result<CheckpointCut, String>>,
     },
     Control {
-        sender_user_id: String,
-        sender_device_id: String,
         connection_id: Uuid,
         control: TerminalControl,
         authorization: tokio_util::sync::CancellationToken,
@@ -237,13 +276,10 @@ pub enum PublishedFrame {
 }
 
 pub enum RemoteUpdate {
-    Ended {
-        final_sequence: u64,
-    },
+    Ended,
     Checkpoint {
         checkpoint: crate::terminal::Checkpoint,
         next_sequence: u64,
-        fresh: bool,
     },
     Raw {
         sequence: u64,
@@ -281,12 +317,7 @@ impl RemoteConnection {
             cancellation: self.cancellation.clone(),
         }
     }
-    pub async fn send_control(&self, control: TerminalControl) -> Result<Value> {
-        self.control_handle().send_control(control).await
-    }
-    pub async fn request_checkpoint(&self) -> Result<()> {
-        self.control_handle().request_checkpoint().await
-    }
+
     pub fn disconnect(&self) {
         self.cancellation.cancel();
     }
@@ -306,7 +337,7 @@ impl RemoteControl {
             })?;
         tokio::select! {
             biased;
-            result=tokio::time::timeout(std::time::Duration::from_secs(10), response)=>
+            result=tokio::time::timeout(CONTROL_TIMEOUT, response)=>
                 result.map_err(|_|invalid("The host did not confirm the operation; it was not retried."))?
                     .map_err(|_|invalid("The connection closed before confirming the operation; it was not retried."))?,
             ()=self.cancellation.cancelled()=>Err(invalid("The connection closed before confirming the operation; it was not retried.")),
@@ -329,10 +360,6 @@ impl RemoteControl {
                 mpsc::error::TrySendError::Closed(_) => Error::Closed,
             })
     }
-
-    pub fn disconnect(&self) {
-        self.cancellation.cancel();
-    }
 }
 
 impl Drop for RemoteConnection {
@@ -345,7 +372,7 @@ pub type PublicationOutput = broadcast::Receiver<PublishedFrame>;
 
 #[cfg(test)]
 pub(crate) use terminal_connections::RemoteRequest as TestRemoteRequest;
-pub(crate) use terminal_connections::{INPUT_NOT_SENT, STABLE_CONNECTION};
+pub(crate) use terminal_connections::{CONTROL_TIMEOUT, INPUT_NOT_SENT, STABLE_CONNECTION};
 
 #[cfg(test)]
 pub(crate) fn test_remote_connection(

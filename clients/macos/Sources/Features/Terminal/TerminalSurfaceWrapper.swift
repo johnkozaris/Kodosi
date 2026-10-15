@@ -1,5 +1,4 @@
 import AppKit
-import KodosiBridge
 import KodosiDesign
 import KodosiTerminal
 import KodosiTerminalSessions
@@ -39,7 +38,6 @@ struct TerminalSurfaceWrapper: View {
     var body: some View {
         TerminalRendererView(
             session: renderer,
-            sessionId: sessionId,
             sessionName: sessionName,
             accessibilityIdentifier: "\(AccessibilityIdentifier.stageSession(sessionId)).terminal",
             shouldFocus: isFocused && interactionAllowed,

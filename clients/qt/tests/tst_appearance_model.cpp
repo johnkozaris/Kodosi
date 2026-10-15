@@ -1,8 +1,6 @@
 #include "presentation/AppearanceModel.hpp"
 
 #include <QDir>
-#include <QJsonDocument>
-#include <QJsonObject>
 #include <QSettings>
 #include <QTemporaryDir>
 #include <QtTest/QTest>
@@ -12,7 +10,7 @@
 
 namespace {
 
-constexpr auto structuredKey = "appearance/settings.v1";
+constexpr auto preferenceKey = "appearance/preference";
 
 std::unique_ptr<QSettings> settingsFor(const QTemporaryDir& directory)
 {
@@ -73,9 +71,7 @@ void AppearanceModelTest::persistsPreferenceAndAppliesStyleOverride()
         QCOMPARE(
             model.preference(),
             kodosi::AppearanceModel::Preference::System);
-        QCOMPARE(
-            model.effectiveScheme(),
-            kodosi::AppearanceModel::EffectiveScheme::DarkScheme);
+        QVERIFY(model.dark());
         QCOMPARE(style.unsetCalls, 1);
 
         QVERIFY(model.setPreference(
@@ -83,9 +79,7 @@ void AppearanceModelTest::persistsPreferenceAndAppliesStyleOverride()
         QCOMPARE(
             model.preference(),
             kodosi::AppearanceModel::Preference::Light);
-        QCOMPARE(
-            model.effectiveScheme(),
-            kodosi::AppearanceModel::EffectiveScheme::LightScheme);
+        QVERIFY(!model.dark());
         QCOMPARE(style.overrideScheme, Qt::ColorScheme::Light);
         QCOMPARE(style.setCalls, 1);
     }
@@ -98,9 +92,7 @@ void AppearanceModelTest::persistsPreferenceAndAppliesStyleOverride()
     QCOMPARE(
         reloaded.preference(),
         kodosi::AppearanceModel::Preference::Light);
-    QCOMPARE(
-        reloaded.effectiveScheme(),
-        kodosi::AppearanceModel::EffectiveScheme::LightScheme);
+    QVERIFY(!reloaded.dark());
     QCOMPARE(reloadedStyle.overrideScheme, Qt::ColorScheme::Light);
     QVERIFY(reloaded.settingsError().isEmpty());
 
@@ -118,27 +110,8 @@ void AppearanceModelTest::invalidStoredDataFallsBackSilently()
     {
         auto storage = settingsFor(directory);
         storage->setValue(
-            QString::fromLatin1(structuredKey),
-            QStringLiteral("system"));
-        storage->sync();
-    }
-    FakeStyle style;
-    kodosi::AppearanceModel invalidType(
-        settingsFor(directory),
-        style.hooks());
-    QCOMPARE(
-        invalidType.preference(),
-        kodosi::AppearanceModel::Preference::System);
-    QVERIFY(invalidType.settingsError().isEmpty());
-
-    {
-        auto storage = settingsFor(directory);
-        storage->setValue(
-            QString::fromLatin1(structuredKey),
-            QJsonDocument(QJsonObject {
-                {QStringLiteral("version"), 2},
-                {QStringLiteral("preference"), QStringLiteral("dark")},
-            }).toJson(QJsonDocument::Compact));
+            QString::fromLatin1(preferenceKey),
+            QStringLiteral("purple"));
         storage->sync();
     }
     FakeStyle malformedStyle;
@@ -176,28 +149,20 @@ void AppearanceModelTest::followsLiveSystemSchemeAfterUnsettingOverride()
         settingsFor(directory),
         style.hooks());
 
-    QCOMPARE(
-        model.effectiveScheme(),
-        kodosi::AppearanceModel::EffectiveScheme::LightScheme);
+    QVERIFY(!model.dark());
     style.systemScheme = Qt::ColorScheme::Dark;
     model.injectSystemColorSchemeForTesting(Qt::ColorScheme::Dark);
-    QCOMPARE(
-        model.effectiveScheme(),
-        kodosi::AppearanceModel::EffectiveScheme::DarkScheme);
+    QVERIFY(model.dark());
 
     QVERIFY(model.setPreference(
         static_cast<int>(kodosi::AppearanceModel::Preference::Light)));
     model.injectSystemColorSchemeForTesting(Qt::ColorScheme::Dark);
-    QCOMPARE(
-        model.effectiveScheme(),
-        kodosi::AppearanceModel::EffectiveScheme::LightScheme);
+    QVERIFY(!model.dark());
 
     QVERIFY(model.setPreference(
         static_cast<int>(kodosi::AppearanceModel::Preference::System)));
     QCOMPARE(style.unsetCalls, 2);
-    QCOMPARE(
-        model.effectiveScheme(),
-        kodosi::AppearanceModel::EffectiveScheme::DarkScheme);
+    QVERIFY(model.dark());
 }
 
 QTEST_GUILESS_MAIN(AppearanceModelTest)

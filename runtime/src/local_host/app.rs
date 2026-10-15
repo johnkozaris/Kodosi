@@ -4,21 +4,16 @@ use super::{
     read_json, role_endpoint, write_json,
 };
 
-/// The largest activation a launch may hand to the running app.
 pub const MAX_ACTIVATION_BYTES: usize = 16 * 1024;
 const ACTIVATION_VERSION: u32 = 1;
 const MAX_PENDING_ACTIVATIONS: usize = 16;
 const FORWARD_RETRY: Duration = Duration::from_millis(50);
 
-/// The app instance's claim on a data folder. Dropping it lets the next
-/// launch claim the folder.
 pub struct AppClaim {
     root: PathBuf,
     _lock: File,
 }
 
-/// Claims the data folder at `root` for this app instance. `None` means a
-/// running app already holds it.
 pub fn claim_app(root: &Path) -> Result<Option<AppClaim>> {
     let root = kodosi_os::fs::canonicalize(root)?;
     let lock = kodosi_os::fs::open_private(&root.join("app.lock")).map_err(local_error)?;
@@ -41,9 +36,6 @@ struct ActivationReply {
     accepted: bool,
 }
 
-/// Serves activations from later launches until shut down, then releases
-/// `claim`. `deliver` receives each activation as a JSON object; returning
-/// `false` leaves the request unanswered so its launch tries again.
 pub async fn serve_activations(
     claim: AppClaim,
     deliver: impl Fn(Vec<u8>) -> bool + Send + Sync + 'static,
@@ -122,17 +114,11 @@ async fn receive(
     .await
 }
 
-/// What became of an activation handed to the running app.
 pub enum Forwarded {
-    /// The running app accepted it.
     Delivered,
-    /// The running app exited first; this launch now owns the data folder.
     Claimed(AppClaim),
 }
 
-/// Hands `activation`, a JSON object, to the app that owns `root`. Waits up
-/// to `within` for an app that is still starting, and claims the folder if
-/// the owner exits meanwhile.
 pub async fn forward_activation(
     root: &Path,
     activation: &Value,

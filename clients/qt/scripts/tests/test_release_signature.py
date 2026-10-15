@@ -49,9 +49,6 @@ MANIFEST = {
 
 
 class ReleaseSignatureTests(unittest.TestCase):
-    """No release recipe runs the signature check, and it accepts every good
-    release. Only these tests show that it refuses a bad signature."""
-
     def setUp(self) -> None:
         folder = Path(tempfile.mkdtemp(prefix="kodosi-signature-"))
         self.addCleanup(shutil.rmtree, folder)

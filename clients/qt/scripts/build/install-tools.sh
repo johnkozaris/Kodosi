@@ -81,8 +81,6 @@ DOWNLOAD_ROOT="$PWD/.tools/downloads"
 
 mkdir -p "$DOWNLOAD_ROOT"
 
-# Downloads $2 to the cache unless the cached copy matches digest $3, and
-# prints its path.
 download() {
     local name=$1 url=$2 sha256=$3 archive temporary
     archive="$DOWNLOAD_ROOT/$name"
@@ -105,8 +103,6 @@ download() {
     printf '%s\n' "$archive"
 }
 
-# Unpacks an archive into an empty directory, dropping one leading folder
-# level when asked.
 unpack() {
     local archive=$1 destination=$2 strip=$3
     case "$archive" in

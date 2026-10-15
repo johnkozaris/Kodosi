@@ -34,7 +34,7 @@ pub enum TerminalFrame {
     },
 }
 pub(super) fn checkpoint_frame(checkpoint: &terminal::Checkpoint, next: u64) -> Result<Vec<u8>> {
-    if checkpoint.semantic_checkpoint.len() > 8 * 1024 * 1024 {
+    if checkpoint.semantic_checkpoint.len() > terminal::TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES {
         return Err(Error::Invalid("checkpoint exceeds bound".into()));
     }
     let mut bytes = Vec::with_capacity(13 + checkpoint.semantic_checkpoint.len());
@@ -116,7 +116,7 @@ pub(super) fn number<T: TryFrom<u64>>(value: &Value, key: &str) -> Result<T> {
         .ok_or_else(|| Error::Invalid(format!("invalid {key}")))
 }
 pub async fn write_input<W: AsyncWrite + Unpin>(writer: &mut W, bytes: &[u8]) -> Result<()> {
-    if bytes.len() > 1024 * 1024 {
+    if bytes.len() > terminal::TERMINAL_INPUT_MAX_BYTES {
         return Err(Error::Invalid("terminal input exceeds 1 MiB".into()));
     }
     let mut frame = vec![INPUT];

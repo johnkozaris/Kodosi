@@ -177,7 +177,6 @@ impl State {
             if let Some(entry) = entry {
                 let matches = value
                     .get("subscriptionId")
-                    .or_else(|| value.get("clientId"))
                     .and_then(serde_json::Value::as_str)
                     .is_none_or(|id| {
                         value

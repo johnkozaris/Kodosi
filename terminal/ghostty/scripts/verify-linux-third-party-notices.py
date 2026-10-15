@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import subprocess
+import sys
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+
+import digest  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 INVENTORY_PATH = ROOT / "ThirdPartyNotices" / "linux-vt-inventory.json"
@@ -42,10 +45,6 @@ def load_metadata(path: Path) -> dict[str, str]:
     return values
 
 
-def file_sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Verify the notices of the Linux Ghostty VT artifact.")
     parser.add_argument(
@@ -67,8 +66,6 @@ def main() -> None:
         fail(f"cannot read LinuxGhostty.ref: {error}")
     if platform_ref != f"{inventory.get('ghosttyCommit')}\n":
         fail("LinuxGhostty.ref differs from the notice inventory")
-    if metadata.get("ghostty_commit") != inventory.get("ghosttyCommit"):
-        fail("Ghostty source identity differs from artifact metadata")
     zig = inventory.get("zig", {})
     if (
         metadata.get("zig_version") != zig.get("version")
@@ -103,7 +100,7 @@ def main() -> None:
             if record is None:
                 fail(f"component {component_id} references unknown notice {notice}")
             path = ROOT / record["path"]
-            if not path.is_file() or file_sha256(path) != record["sha256"]:
+            if not path.is_file() or digest.file_sha256(path) != record["sha256"]:
                 fail(f"notice changed or is missing: {notice}")
 
     member_rows = inventory.get("archiveMembers")

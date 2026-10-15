@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use bytes::Bytes;
-use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
@@ -14,7 +13,7 @@ const CONTROL_CAPACITY: usize = 16;
 const MAX_SUBSCRIBERS: usize = 32;
 pub(super) const MAX_RAW_BYTES: usize = 64 * 1024;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct DataFrame {
     pub sequence: u64,
     pub bytes: Bytes,
@@ -154,6 +153,11 @@ impl Subscribers {
 
     pub(crate) fn is_empty(&self) -> bool {
         self.entries.is_empty()
+    }
+
+    #[cfg(feature = "host")]
+    pub(crate) fn has_active(&self) -> bool {
+        self.entries.values().any(Subscriber::is_active)
     }
 
     pub(crate) fn prune(&mut self) {

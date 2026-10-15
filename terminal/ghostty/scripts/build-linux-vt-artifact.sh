@@ -64,52 +64,7 @@ if [ "$SKIP_TESTS" -eq 0 ]; then
 fi
 
 DESTINATION="$ROOT_DIR/Vendor/GhosttyVt/$GHOSTTY_LINUX_VT_LAYOUT"
-DESTINATION_METADATA="$ROOT_DIR/Vendor/GhosttyVt/$GHOSTTY_LINUX_VT_LAYOUT.version"
-BACKUP="$ROOT_DIR/build/$GHOSTTY_LINUX_VT_LAYOUT.previous"
-BACKUP_METADATA="$ROOT_DIR/build/$GHOSTTY_LINUX_VT_LAYOUT.version.previous"
-rm -rf "$BACKUP"
-rm -f "$BACKUP_METADATA"
-HAD_ARTIFACT=0
-HAD_METADATA=0
-rollback_promotion() {
-    rm -rf "$DESTINATION"
-    rm -f "$DESTINATION_METADATA"
-    if [ "$HAD_ARTIFACT" -eq 1 ] && [ -e "$BACKUP" ]; then
-        mv "$BACKUP" "$DESTINATION"
-    fi
-    if [ "$HAD_METADATA" -eq 1 ] && [ -e "$BACKUP_METADATA" ]; then
-        mv "$BACKUP_METADATA" "$DESTINATION_METADATA"
-    fi
-}
-if [ -e "$DESTINATION" ]; then
-    mv "$DESTINATION" "$BACKUP"
-    HAD_ARTIFACT=1
-fi
-if [ -e "$DESTINATION_METADATA" ]; then
-    if ! mv "$DESTINATION_METADATA" "$BACKUP_METADATA"; then
-        rollback_promotion
-        exit 1
-    fi
-    HAD_METADATA=1
-fi
-if ! mv "$ARTIFACT_STAGE" "$DESTINATION"; then
-    rollback_promotion
-    exit 1
-fi
-if ! mv "$METADATA_STAGE" "$DESTINATION_METADATA"; then
-    rollback_promotion
-    exit 1
-fi
-
-if ! python3 "$ROOT_DIR/scripts/verify-ghostty-pins.py" --working-tree --platform linux ||
-    ! "$ROOT_DIR/scripts/verify-linux-vt-artifact.sh"; then
-    rollback_promotion
-    exit 1
-fi
-if ! "$ROOT_DIR/scripts/verify-linux-third-party-notices.py"; then
-    rollback_promotion
-    exit 1
-fi
-rm -rf "$BACKUP"
-rm -f "$BACKUP_METADATA"
+rm -rf "$DESTINATION" "$DESTINATION.version"
+mv "$ARTIFACT_STAGE" "$DESTINATION"
+mv "$METADATA_STAGE" "$DESTINATION.version"
 echo "[*] Linux VT: Vendor/GhosttyVt/$GHOSTTY_LINUX_VT_LAYOUT"

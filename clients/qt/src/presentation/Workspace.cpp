@@ -164,6 +164,10 @@ void Workspace::route(const DeepLinkDestination& destination)
 void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
 {
     const auto type = event.value(QStringLiteral("type")).toString();
+    if (type == QStringLiteral("system.updateRequired")) {
+        setError(tr("This version of Kodosi is too old for the server. Update Kodosi."));
+        return;
+    }
     if (type == QStringLiteral("auth.finalizing")) {
         m_account.m_finalizing = true;
         emit m_account.loginChanged();
@@ -360,8 +364,6 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         notifyBusy();
         if (type == QStringLiteral("room.result"))
             m_missions.completeAction(pending.missionId, event.value(QStringLiteral("action")).toString(), pending.draft);
-        if (type == QStringLiteral("room.result") && event.value(QStringLiteral("roomId")).toString() == m_missions.m_selectedId)
-            emit m_missions.roomActionFinished(event.value(QStringLiteral("action")).toString());
         if (pending.operation == QStringLiteral("session.create")
             && !event.value(QStringLiteral("sessionId")).toString().isEmpty()) {
             const auto sessionId = event.value(QStringLiteral("sessionId")).toString();

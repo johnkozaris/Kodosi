@@ -109,7 +109,7 @@ struct TerminalSharingSheet: View {
                     attach(session, to: room.id)
                 } label: {
                     HStack(spacing: 10) {
-                        RoomSigil(name: room.name, key: room.id, size: 26)
+                        RoomSigil(key: room.id, size: 26)
                         Text(room.name)
                             .appTextStyle(.body)
                             .foregroundStyle(theme.colors.ink)

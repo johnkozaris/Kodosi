@@ -26,7 +26,6 @@ services:
         condition: service_healthy
     environment:
       ConnectionStrings__Kodosi: Host=postgres;Port=5432;Database=kodosi;Username=kodosi;Password=kodosi-local
-    restart: "no"
 
   backend:
     build:
@@ -57,11 +56,8 @@ services:
     ports:
       - "127.0.0.1:5180:8080"
     restart: unless-stopped
-    volumes:
-      - kodosi-data-protection:/home/app/.aspnet/DataProtection-Keys
 
 volumes:
   kodosi-postgres:
     external: true
     name: ${KODOSI_POSTGRES_VOLUME:?Select an existing inspected PostgreSQL volume explicitly}
-  kodosi-data-protection:

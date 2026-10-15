@@ -1,6 +1,5 @@
 import Foundation
 import KodosiBridge
-@testable import KodosiDesktop
 import KodosiTerminalSessions
 import Testing
 

@@ -64,10 +64,8 @@ void PeopleModel::receiveInvite(const QString& text)
     if (!m_inviteRequested.isValid() || m_inviteRequested.hasExpired(15000))
         return;
     m_inviteRequested.invalidate();
-    m_invite = text;
     if (auto* application = qobject_cast<QGuiApplication*>(QCoreApplication::instance()))
         application->clipboard()->setText(text, QClipboard::Clipboard);
-    emit changed();
     emit inviteCopied();
 }
 
@@ -88,7 +86,6 @@ void PeopleModel::reset()
     m_friends.clear();
     m_incoming.clear();
     m_outgoing.clear();
-    m_invite.clear();
     m_inviteRequested.invalidate();
     emit changed();
 }

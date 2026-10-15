@@ -44,13 +44,14 @@ struct SidebarNavRow: View {
     let badge: Int
     let selected: Bool
     let pill: Namespace.ID
+    var tint: Color?
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: symbol).font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(selected ? theme.colors.accentStrong : theme.colors.inkMuted).frame(width: 22)
+                    .foregroundStyle(tint ?? (selected ? theme.colors.accentStrong : theme.colors.inkMuted)).frame(width: 22)
                 Text(title).appTextStyle(.body).fontWeight(selected ? .medium : .regular).foregroundStyle(theme.colors.ink)
                 Spacer(minLength: 0)
                 if badge > 0 {
@@ -89,7 +90,7 @@ struct SidebarRoomRow: View {
     var body: some View {
         Button { deps.workbench.section = .missions; deps.openMission(mission) } label: {
             HStack(spacing: 9) {
-                RoomSigil(name: mission.name, key: mission.id, size: 22)
+                RoomSigil(key: mission.id, size: 22)
                 Text(mission.name).appTextStyle(.body).fontWeight(selected || unread > 0 ? .medium : .regular)
                     .foregroundStyle(theme.colors.ink).lineLimit(1)
                 Spacer(minLength: 4)
@@ -124,7 +125,7 @@ struct SidebarInvitationRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 9) {
-                RoomSigil(name: invitation.missionName, key: invitation.missionId, size: 22)
+                RoomSigil(key: invitation.missionId, size: 22)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(invitation.missionName).appTextStyle(.body).fontWeight(.medium).foregroundStyle(theme.colors.ink).lineLimit(1)
                     Text("\(invitation.inviterName) invited you").appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
@@ -169,6 +170,9 @@ struct SidebarFolderHeader: View {
                         .appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
                     if collapsed {
                         Text(group.sessions.count, format: .number).appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
+                        if let sign = group.sessions.first(where: \.needsUser)?.sign(unseen: false) {
+                            StatusSign(form: sign, size: 10).transition(AnyTransition.pop)
+                        }
                     }
                     Spacer(minLength: 0)
                 }
@@ -214,10 +218,6 @@ struct SidebarTerminalRow: View {
 
     private var staged: Bool {
         deps.workbench.stagedSessionIds.contains(session.id)
-    }
-
-    private var needsAttention: Bool {
-        deps.attention.contains(session.id)
     }
 
     private var troubled: Bool {
@@ -266,7 +266,7 @@ struct SidebarTerminalRow: View {
                         }
                         .accessibilityIdentifier("\(AccessibilityIdentifier.sidebarSession(session.id)).name")
                 } else {
-                    Text(session.name).appTextStyle(.body).fontWeight(selected || needsAttention ? .medium : .regular)
+                    Text(session.name).appTextStyle(.body).fontWeight(selected ? .medium : .regular)
                         .foregroundStyle(staged || selected ? theme.colors.ink : theme.colors.inkMuted).lineLimit(1)
                         .contentTransition(.interpolate)
                 }
@@ -311,7 +311,7 @@ struct SidebarTerminalRow: View {
                 } else if !session.isOwner, let owner = session.ownerName {
                     PersonAvatar(name: owner, key: session.ownerUserId, size: 15).help(String(localized: "Shared by \(owner)"))
                 } else if let room = session.missionId {
-                    RoomSigil(name: session.missionName ?? "", key: room, size: 14)
+                    RoomSigil(key: room, size: 14)
                         .help(session.missionName.map { String(localized: "Shared with \($0)") } ?? "")
                 } else if !session.sharedWith.isEmpty {
                     Image(systemName: "person.2.fill").font(.system(size: 8)).foregroundStyle(theme.colors.inkFaint)

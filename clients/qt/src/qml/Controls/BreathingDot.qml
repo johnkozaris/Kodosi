@@ -4,7 +4,6 @@ import QtQuick
 Item {
     id: root
 
-    property color color: KodosiTheme.accent
     property real size: 7
 
     implicitWidth: size
@@ -17,7 +16,7 @@ Item {
         width: root.size
         height: root.size
         radius: width / 2
-        color: root.color
+        color: KodosiTheme.accent
         opacity: 0.35
 
         ParallelAnimation {
@@ -38,6 +37,6 @@ Item {
         width: root.size
         height: root.size
         radius: width / 2
-        color: root.color
+        color: KodosiTheme.accent
     }
 }

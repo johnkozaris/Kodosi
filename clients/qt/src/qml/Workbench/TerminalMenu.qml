@@ -3,16 +3,11 @@ pragma ComponentBehavior: Bound
 import Kodosi 1.0
 import QtQuick
 
-// A list inside the launcher's terminal, as a shell shows completions: comment
-// lines name the groups, the copper cursor marks the line that is in use, and
-// the line under the keys or the pointer shows in reverse. Typing narrows the
-// list, Return takes a line and Escape closes the list.
 FocusScope {
     id: root
 
     // Each line: { id, kind: "comment" | "choice" | "action", title, detail, current }.
     property var lines: []
-    // The width that the list may take.
     property real room: 400
     property string filter: ""
     property string highlighted: ""
@@ -110,7 +105,6 @@ FocusScope {
         font.family: "monospace"
         font.pixelSize: KodosiTheme.fontBody
     }
-    // The lines show one after another, as a terminal prints them.
     Timer {
         id: reveal
         interval: 14

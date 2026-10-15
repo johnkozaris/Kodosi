@@ -4,7 +4,8 @@ use std::{
     time::Duration,
 };
 
-use futures_util::{SinkExt, StreamExt as _};
+use super::wire::Frame;
+use crate::network::{Error, Result, invalid};
 use rustls::{
     ClientConfig, ClientConnection, Connection, DigitallySignedStruct, HandshakeKind,
     SignatureScheme,
@@ -31,13 +32,8 @@ use rustls::{
         danger::{ClientCertVerified, ClientCertVerifier},
     },
 };
-use tokio_tungstenite::tungstenite::Message;
-
-use super::{Socket, wire::Frame};
-use crate::network::{Error, Result, invalid};
 
 const HANDSHAKE: Duration = Duration::from_secs(10);
-const SEND: Duration = Duration::from_secs(10);
 const MESSAGE_BYTES: usize = 64 * 1024;
 const KEY_FRAMES: u64 = 1 << 24;
 const KEY_AGE: Duration = Duration::from_hours(1);
@@ -49,27 +45,6 @@ const RESUMABLE_VIEWS: usize = 1024;
 pub(super) trait Transport: Send {
     fn send(&mut self, bytes: Vec<u8>) -> impl Future<Output = Result<()>> + Send;
     fn receive(&mut self) -> impl Future<Output = Result<Option<Vec<u8>>>> + Send;
-}
-
-impl Transport for Socket {
-    async fn send(&mut self, bytes: Vec<u8>) -> Result<()> {
-        tokio::time::timeout(SEND, SinkExt::send(self, Message::Binary(bytes.into())))
-            .await
-            .map_err(|_| Error::Closed)?
-            .map_err(|_| Error::Closed)
-    }
-
-    async fn receive(&mut self) -> Result<Option<Vec<u8>>> {
-        loop {
-            match self.next().await {
-                Some(Ok(Message::Binary(bytes))) => return Ok(Some(bytes.into())),
-                Some(Ok(Message::Ping(_) | Message::Pong(_))) => {}
-                Some(Ok(Message::Close(_))) | None => return Ok(None),
-                Some(Ok(_)) => return Err(invalid("Unexpected terminal channel message.")),
-                Some(Err(_)) => return Err(Error::Closed),
-            }
-        }
-    }
 }
 
 pub(super) struct Channel<T> {

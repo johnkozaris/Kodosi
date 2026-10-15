@@ -1,6 +1,3 @@
-# Linux: a private runtime under lib/kodosi, and the Debian and portable
-# packages with their license evidence.
-
 set(CMAKE_INSTALL_BINDIR "lib/kodosi/bin" CACHE PATH "" FORCE)
 set(CMAKE_INSTALL_LIBDIR "lib/kodosi/lib" CACHE PATH "" FORCE)
 set(QT_DEPLOY_BIN_DIR "lib/kodosi/bin" CACHE STRING "" FORCE)
@@ -31,13 +28,8 @@ set(KODOSI_TEST_LAUNCHER "${DBUS_RUN_SESSION_EXECUTABLE}" --)
 set(KODOSI_TEST_ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 set(KODOSI_TEST_ENVIRONMENT_MODIFICATION "")
 
-# Installs the app, its private Qt runtime, and the package's notices and
-# evidence. Called from the directory that defines the app target.
 function(kodosi_install app)
-    install(TARGETS ${app}
-        BUNDLE DESTINATION .
-        RUNTIME DESTINATION lib/kodosi/bin
-    )
+    install(TARGETS ${app} RUNTIME DESTINATION lib/kodosi/bin)
     qt_generate_deploy_qml_app_script(
         TARGET ${app}
         OUTPUT_SCRIPT deploy_script
@@ -130,7 +122,6 @@ function(kodosi_install app)
     endif()
 endfunction()
 
-# The Debian package and the portable archive.
 set(CPACK_PACKAGE_NAME "kodosi")
 set(CPACK_PACKAGE_VENDOR "Kodosi")
 set(CPACK_PACKAGE_CONTACT "support@kodosi.com")
@@ -152,4 +143,13 @@ set(CPACK_ARCHIVE_FILE_NAME
     "kodosi-${PROJECT_VERSION}-linux-x86_64"
 )
 set(CPACK_THREADS 1)
+# With the archive key in the checkout, the Debian package also adds the Kodosi apt
+# repository, so the updates of the system update Kodosi. Both files are conffiles:
+# a removed package leaves them, and a purge removes them.
+if(EXISTS "${PROJECT_SOURCE_DIR}/packaging/linux/kodosi-archive-keyring.pgp")
+    set(CPACK_KODOSI_LINUX_PACKAGING "${PROJECT_SOURCE_DIR}/packaging/linux")
+    set(CPACK_PRE_BUILD_SCRIPTS "${PROJECT_SOURCE_DIR}/cmake/AptRepository.cmake")
+    set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${PROJECT_SOURCE_DIR}/packaging/linux/conffiles")
+    set(CPACK_DEBIAN_PACKAGE_CONTROL_STRICT_PERMISSION ON)
+endif()
 include(CPack)

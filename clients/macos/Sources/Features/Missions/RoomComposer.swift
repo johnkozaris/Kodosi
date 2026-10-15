@@ -6,7 +6,7 @@ struct RoomComposer: View {
     @Environment(\.theme) private var theme
     let roomId: String
     @Bindable var state: RoomViewState
-    let targets: [MentionTarget]
+    let targets: [RoomMention]
     @State private var highlighted = 0
     @State private var dismissedQuery: String?
     @FocusState private var focused: Bool
@@ -49,9 +49,7 @@ struct RoomComposer: View {
             HStack(alignment: .bottom, spacing: 4) {
                 IconButton(title: "Mention someone or a terminal", symbol: "at", identifier: "room.message.mention", size: 30) {
                     dismissedQuery = nil
-                    if RoomMentions.query(in: state.message) == nil {
-                        state.message += state.message.isEmpty || state.message.hasSuffix(" ") ? "@" : " @"
-                    }
+                    state.message = RoomMentions.start(state.message)
                     focused = true
                 }
                 TextField("Message the room", text: $state.message, axis: .vertical)
@@ -125,7 +123,7 @@ struct RoomComposer: View {
         .onChange(of: query) { _, _ in highlighted = 0 }
     }
 
-    private func suggestionRow(_ target: MentionTarget, highlighted: Bool) -> some View {
+    private func suggestionRow(_ target: RoomMention, highlighted: Bool) -> some View {
         HStack(spacing: 9) {
             switch target.kind {
             case .person: PersonAvatar(name: target.name, key: target.id, size: 22)
@@ -145,7 +143,7 @@ struct RoomComposer: View {
         .contentShape(Rectangle())
     }
 
-    private func current(in suggestions: [MentionTarget]) -> MentionTarget? {
+    private func current(in suggestions: [RoomMention]) -> RoomMention? {
         suggestions.isEmpty ? nil : suggestions[min(highlighted, suggestions.count - 1)]
     }
 
@@ -155,7 +153,7 @@ struct RoomComposer: View {
         return .handled
     }
 
-    private func pick(_ target: MentionTarget) {
+    private func pick(_ target: RoomMention) {
         state.message = RoomMentions.complete(state.message, with: target)
         highlighted = 0
     }

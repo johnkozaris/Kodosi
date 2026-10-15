@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -58,7 +57,7 @@ public sealed class AccountDeletionSettings
 public sealed class AccountDeletionFeed(
     IServiceScopeFactory scopes, IHttpClientFactory http, AccountDeletionSettings settings, TimeProvider clock, ILogger<AccountDeletionFeed> logger) : BackgroundService
 {
-    internal static readonly TimeSpan Period = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan Period = TimeSpan.FromSeconds(15);
     private const int Page = 200;
     private readonly Dictionary<string, DateTimeOffset> handled = [];
     private DateTimeOffset? lastPass;

@@ -2,11 +2,9 @@ using System.Net;
 using System.Text.Json;
 using Kodosi.Admission;
 using Kodosi.Data;
-using Kodosi.TerminalConnections;
 using Kodosi.Sessions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -80,12 +78,12 @@ public sealed class AdmissionAndExpiryTests(PostgresFixture postgres)
             pending = owner.Client.SendAsync(change, TestContext.Current.CancellationToken);
             using var made = await other.Client.SendAsync(separate, TestContext.Current.CancellationToken)
                 .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
-            Assert.Equal(HttpStatusCode.OK, made.StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, made.StatusCode);
             Assert.False(pending.IsCompleted);
         }
         finally { changing.Dispose(); }
         using var changed = await pending;
-        Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, changed.StatusCode);
     }
 
     [Fact]
@@ -165,6 +163,21 @@ public sealed class AdmissionAndExpiryTests(PostgresFixture postgres)
         await SendAsync(kept, new { type = "ping" });
         Assert.Equal("pong", (await JsonAsync(kept)).GetProperty("type").GetString());
         await Assert.ThrowsAnyAsync<Exception>(() => JsonAsync(ended));
+    }
+
+    [Fact]
+    public async Task DeviceConnectionRefusesAProtocolOutsideItsRangeAndReportsTheRange()
+    {
+        await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));
+        using var device = await app.EnrollAsync("older");
+        var client = app.Server.CreateWebSocketClient(); client.ConfigureRequest = request => request.Headers.Authorization = "Bearer " + device.Token;
+        using var socket = await client.ConnectAsync(new Uri("ws://localhost/ws/device"), TestContext.Current.CancellationToken);
+        await SendAsync(socket, new { type = "hello", protocolVersion = ContractVersions.OldestTerminalConnection - 1, deviceId = device.Fixture.DeviceId, deviceSession = device.Session });
+        var refused = await JsonAsync(socket);
+        Assert.Equal("refused", refused.GetProperty("type").GetString());
+        Assert.Equal("version", refused.GetProperty("reason").GetString());
+        Assert.Equal(ContractVersions.OldestTerminalConnection, refused.GetProperty("oldest").GetInt32());
+        Assert.Equal(ContractVersions.TerminalConnection, refused.GetProperty("current").GetInt32());
     }
 
     private sealed class ResponseStall : IStartupFilter

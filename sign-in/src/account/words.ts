@@ -1,8 +1,6 @@
 import type { KcContext } from "./KcContext";
 import type { Problem } from "./service";
 
-// The words of the account page. {0} and {1} are values. The apps have English only, so the page
-// has English only: for a sentence of Keycloak that has no words here, Keycloak's own words show.
 const en = {
   title: "Your account",
   signIn: "Sign-in",
@@ -53,7 +51,8 @@ const en = {
   backTo: "Back to {0}",
   signOut: "Sign out",
   language: "Language",
-  // The sentences of a deletion are on its own page (src/login/i18n.ts).
+  terms: "Terms",
+  privacy: "Privacy",
   deleteAccount: "Delete account",
 
   unreachable: "Your account did not open.",
@@ -70,7 +69,6 @@ const en = {
 
 export type WordKey = keyof typeof en;
 
-// Keycloak's keys for what it refuses, and the words of the page for them.
 const PROBLEMS: Record<string, WordKey> = {
   "error-user-attribute-required": "required",
   "error-invalid-blank": "required",
@@ -98,15 +96,10 @@ function fill(text: string, values: (string | number)[]): string {
 
 export interface Words {
   say(key: WordKey, ...values: (string | number)[]): string;
-  /** A day, as "12 March". */
   day(time: number): string;
-  /** How long ago, as "3 hours ago". */
   ago(time: number): string;
-  /** The name of a detail: the page's own word, or Keycloak's. */
   label(name: string, label: string): string;
-  /** What Keycloak said about a refused change, in the words of the page. */
   problem(problem: Problem): string;
-  /** Keycloak's name of a thing, when the name is a key of Keycloak's messages. */
   named(name: string): string;
   languageName(tag: string): string;
 }
@@ -115,16 +108,12 @@ export function wordsOf(kcContext: Pick<KcContext, "locale" | "msgJSON">): Words
   let keycloak: Record<string, string> = {};
   try {
     keycloak = JSON.parse(kcContext.msgJSON ?? "{}");
-  } catch {
-    // The page keeps its own words.
-  }
-  // The words are English, so the days and the times are English too.
+  } catch {}
   const date = new Intl.DateTimeFormat("en", { day: "numeric", month: "long" });
   const dateOfYear = new Intl.DateTimeFormat("en", { dateStyle: "long" });
   const relative = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
 
   const say: Words["say"] = (key, ...values) => fill(en[key], values);
-  /** `${firstName}` is the key `firstName`. */
   const named: Words["named"] = (name) => {
     const key = /^\$\{(.+)\}$/.exec(name)?.[1];
     return key ? (keycloak[key] ?? key) : name;
@@ -132,14 +121,12 @@ export function wordsOf(kcContext: Pick<KcContext, "locale" | "msgJSON">): Words
   return {
     say,
     named,
-    // A day of this year needs no year.
     day: (time) =>
       new Date(time).getFullYear() === new Date().getFullYear()
         ? date.format(time)
         : dateOfYear.format(time),
     ago(time) {
       const passed = Date.now() - time;
-      // Whole units that passed: 59 minutes and a half are 59 minutes, not 60.
       if (passed < 3_600_000)
         return relative.format(-Math.max(1, Math.floor(passed / 60_000)), "minute");
       if (passed < DAY) return relative.format(-Math.floor(passed / 3_600_000), "hour");
@@ -154,9 +141,8 @@ export function wordsOf(kcContext: Pick<KcContext, "locale" | "msgJSON">): Words
       const mine = PROBLEMS[key];
       if (mine) return en[mine];
       const theirs = keycloak[key];
-      // For some refusals Keycloak sends no key: it sends the sentence.
+      // Keycloak sends some refusals as a sentence in place of a key.
       if (!theirs) return /\s/.test(key) ? key : en.failed;
-      // Keycloak writes a value as {{param_0}} in these words.
       return theirs.replace(/\{\{param_(\d)\}\}/g, (_, i) => named(params[Number(i)] ?? ""));
     },
     languageName: (tag) => new Intl.DisplayNames([tag], { type: "language" }).of(tag) ?? tag,

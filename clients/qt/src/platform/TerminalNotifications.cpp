@@ -37,20 +37,8 @@ TerminalNotifications::TerminalNotifications(
                 remove(key, false);
             }
         });
-    connect(
-        &m_driver,
-        &DesktopNotificationDriver::deliveryError,
-        this,
-        [this](const QString& key, const QString& message) {
-            if (owns(key)) {
-                emit deliveryError(message);
-            }
-        });
-    const auto pruneContexts = [this] { prune(); };
-    connect(&m_sessions, &QAbstractItemModel::modelReset, this, pruneContexts);
-    connect(&m_sessions, &QAbstractItemModel::rowsRemoved, this, pruneContexts);
-    connect(&m_sessions, &QAbstractItemModel::dataChanged, this, pruneContexts);
-    connect(&m_sessions, &SessionCatalogModel::attentionChanged, this, pruneContexts);
+    connect(&m_sessions, &QAbstractItemModel::modelReset, this, [this] { prune(); });
+    connect(&m_sessions, &SessionCatalogModel::attentionChanged, this, [this] { prune(); });
     connect(&m_sessions, &SessionCatalogModel::alertChanged, this, &TerminalNotifications::alert);
 }
 
@@ -164,7 +152,9 @@ bool TerminalNotifications::current(const Context& context) const
     const auto session = m_sessions.session(context.sessionId);
     if (!m_sessions.hasAuthoritativeSnapshot() || !session || session->incarnationId != context.runtimeIncarnationId)
         return false;
-    return context.alert ? session->isOwner && m_sessions.attention().contains(context.sessionId)
+    const auto presentation = m_sessions.presentationSession(context.sessionId);
+    const bool calls = session->isOwner || (presentation && presentation->canControl);
+    return context.alert ? calls && m_sessions.attention().contains(context.sessionId)
                          : session->kind == QStringLiteral("local");
 }
 

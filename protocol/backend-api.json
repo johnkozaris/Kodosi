@@ -1,6 +1,13 @@
 {
-  "apiContractVersion": 25,
+  "apiContractVersion": 27,
+  "oldestApiContractVersion": 27,
   "authContractVersion": 1,
+  "compatibility": {
+    "range": "the server serves each client whose apiContractVersion is from oldestApiContractVersion to apiContractVersion, and whose authContractVersion is equal",
+    "report": "GET /health/live and GET /health/ready give apiContractVersion, oldestApiContractVersion, authContractVersion, terminalConnectionProtocolVersion and oldestTerminalConnectionProtocolVersion",
+    "client": "a client below a range shows that Kodosi must be updated; a client above a range shows that the server must be updated",
+    "change": "a change raises the current version; a change that older clients cannot use also raises the oldest version, and after the first public release only 60 days after the release with the new version"
+  },
   "authentication": "OIDC bearer identity and a device session",
   "deviceSession": {
     "open": "the device signs kodosi-device-session-v1, the length-prefixed account id, device id and challenge id, and the 32-byte challenge; the server answers with a session secret",
@@ -24,7 +31,7 @@
   "operation": {
     "migration": "the argument migrate applies the schema and exits; a serving start refuses a database that is not current",
     "refusedConnections": "one log line for each refused device connection with account, device and reason",
-    "meter": "Kodosi.Server: kodosi.device.connections, kodosi.relay.pipes, kodosi.relay.bytes, kodosi.connections.refused by reason, kodosi.database.fault in seconds"
+    "meter": "Kodosi.Server: kodosi.device.connections, kodosi.relay.pipes, kodosi.relay.bytes, kodosi.connections.refused by reason"
   },
   "sessionAuthorization": {
     "ownDevices": "current approved devices of the owner",
@@ -53,7 +60,8 @@
     "inputReplayOnReconnect": false,
     "historicalMutationReceipts": false,
     "offlineExpiry": false,
-    "missingRecovery": "current hosting device may republish same still-live incarnation with owner-only access"
+    "missingRecovery": "current hosting device may republish same still-live incarnation with owner-only access",
+    "status": "GET /api/sessions and GET /api/sessions/{id} give the newest status of a terminal while its host is connected, or null (terminalStatus in terminal-connections.json)"
   },
   "deviceLink": {
     "code": "12 random symbols of Crockford base 32 (60 bits) that the new device makes and shows; the server never gets it",
@@ -149,12 +157,19 @@
       "PUT /api/missions/{id}/content/{itemId}"
     ]
   },
-  "missionContent": "directory metadata only; no chat, tasks, or agent dispatch",
   "backendSecrets": "none; the server relays TLS records between a host device and a viewer device and holds no terminal key",
   "roomContent": {
     "encryption": "AES-256-GCM content keys; each recipient key is ML-KEM-768 and X25519 together, with HKDF-SHA256 over both shared secrets for the wrapping key; ML-DSA-65 signed state and content",
     "history": "new members receive current room keys and decrypt the backwards-wrapped key history",
     "membership": "signed room state commits member identities; removal rotates the content key; a member whose identity is not available keeps the last identity in the state; only the owner gives a member a new identity, with new keys; the relay holds no plaintext key",
-    "content": "immutable messages and versioned task/repository records; read by room sequence; compare expected version on updates"
+    "content": "immutable messages and versioned task/repository records; read by room sequence; compare expected version on updates",
+    "changes": "the device connection gets {type: changed, surface: rooms, roomId, sequence} after a content write and {type: changed, surface: rooms, roomId} after new room keys; it gets {type: changed, surface: missions, roomId} after a change of the room, its members, or the devices of a member; a device then reads only that room and only the items after the sequence that it has; it checks the identities and room keys of the members when it connects, when the members or their devices change, and when it uses a room whose last check is older than 5 minutes",
+    "space": "with a RoomBytes limit, the server counts the body and signature bytes of the items of each room; when a write goes past the limit, it deletes the oldest messages, and each content page then gives historyTrimmed: true; when only tasks and repositories are left, it refuses the write with the limit room-data"
+  },
+  "plans": {
+    "account": "GET /api/me gives plan: {name, limits}; name is null on a server without plans",
+    "owner": "the plan of the room owner sets the limits of the room; the plan of the terminal owner sets the people who can see it",
+    "refusal": "status 403 with {error, limit}; limit is devices, rooms, room-people, share-people, room-data, friends or friend-requests; the error text tells the person what to do",
+    "recovery": "a recovery never counts against the device limit"
   }
 }
