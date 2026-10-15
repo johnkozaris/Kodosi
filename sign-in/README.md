@@ -11,8 +11,11 @@ React in the look of the apps ([DESIGN.md](../clients/macos/DESIGN.md)):
   go through the sign-in pages.
 - **E-mails:** one card each, in HTML and plain text.
 
-The apps sign in with the OAuth 2.0 device authorization grant. A page shows the code
-only if it sent the code to Keycloak itself (`.../device#ABCD-EFGH`); with `?user_code=`
+The apps sign in with the authorization code flow and PKCE: the Mac, Linux and Windows
+apps through the system browser and `http://127.0.0.1/callback`, the iPhone and iPad app
+in its sign-in window and `com.kodosi:/auth`. The command line uses the OAuth 2.0 device
+authorization grant. A page shows the device code only if it sent the code to Keycloak
+itself (`.../device#ABCD-EFGH`); with `?user_code=`
 Keycloak takes the code and the page asks "Connect Kodosi?" without it. Wording never
 reveals whether an account exists.
 

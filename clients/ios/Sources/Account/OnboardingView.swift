@@ -1,3 +1,4 @@
+import AuthenticationServices
 import KodosiBridge
 import KodosiDesign
 import SwiftUI
@@ -6,6 +7,7 @@ struct OnboardingView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
 
     private var account: AccountStore {
         model.account
@@ -15,20 +17,9 @@ struct OnboardingView: View {
         verticalSizeClass == .compact
     }
 
-    private var safariPresented: Binding<Bool> {
-        Binding(
-            get: { account.signInPage != nil },
-            set: { presented in
-                if !presented {
-                    account.closeSignInPage()
-                }
-            }
-        )
-    }
-
     private var showsTrack: Bool {
         switch account.stage {
-        case .awaitingApproval, .finalizing, .trustingDevice: true
+        case .awaitingBrowser, .finalizing, .trustingDevice: true
         case .idle, .starting, .signedIn, .failed: false
         }
     }
@@ -75,9 +66,20 @@ struct OnboardingView: View {
         .animation(theme.motion.soft, value: showsTrack)
         .sensoryFeedback(.success, trigger: account.stage == .signedIn) { _, signedIn in signedIn }
         .sensoryFeedback(.error, trigger: failed) { _, failed in failed }
-        .sheet(isPresented: safariPresented) {
-            if let url = account.signInPage {
-                SafariView(url: url).ignoresSafeArea()
+        .task(id: account.signInPage) {
+            guard let page = account.signInPage else { return }
+            do {
+                let answer = try await webAuthenticationSession.authenticate(
+                    using: page, callbackURLScheme: "com.kodosi", preferredBrowserSession: .shared
+                )
+                account.finishSignIn(with: answer)
+            } catch {
+                guard !Task.isCancelled else { return }
+                if (error as? ASWebAuthenticationSessionError)?.code == .canceledLogin {
+                    account.cancelSignIn()
+                } else {
+                    account.failSignIn(String(localized: "Kodosi could not open the sign-in page."))
+                }
             }
         }
     }
@@ -85,7 +87,7 @@ struct OnboardingView: View {
     private var stageKey: String {
         switch account.stage {
         case .idle, .failed, .signedIn, .starting: "welcome"
-        case .awaitingApproval: "code"
+        case .awaitingBrowser: "browser"
         case .finalizing: "finalizing"
         case .trustingDevice: "trust"
         }
@@ -100,8 +102,8 @@ struct OnboardingView: View {
             WelcomeCard(failure: message, starting: false)
         case .starting:
             WelcomeCard(failure: nil, starting: true)
-        case let .awaitingApproval(code, url):
-            ApprovalCodeCard(code: code, hasPage: url != nil)
+        case .awaitingBrowser:
+            BrowserCard()
         case .finalizing:
             ProgressCaption(text: String(localized: "Signing in"))
                 .accessibilityIdentifier("signIn.finalizing")
@@ -251,43 +253,15 @@ private struct FeatureRow<Mark: View>: View {
     }
 }
 
-private struct ApprovalCodeCard: View {
+private struct BrowserCard: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.theme) private var theme
-    let code: String
-    let hasPage: Bool
 
     var body: some View {
-        StageColumns {
-            VStack(spacing: 10) {
-                Text("Confirm this code")
-                    .appTextStyle(.title)
-                    .foregroundStyle(theme.colors.ink)
-                Text("The sign-in page shows the same code. Confirm it there, then come back.")
-                    .appTextStyle(.callout)
-                    .foregroundStyle(theme.colors.inkMuted)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        } trail: {
-            VStack(spacing: 22) {
-                VerificationCode(code: code, identifier: "signIn.code")
-                ProgressCaption(text: String(localized: "Waiting for the sign-in page"))
-                VStack(spacing: 10) {
-                    if hasPage {
-                        Button {
-                            model.account.reopenSignInPage()
-                        } label: {
-                            Text("Open sign-in page").frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.kodosi(.primary, size: .large))
-                        .accessibilityIdentifier("signIn.openPage")
-                    }
-                    Button("Cancel") { model.account.cancelSignIn() }
-                        .buttonStyle(.kodosi(.ghost))
-                        .accessibilityIdentifier("signIn.cancel")
-                }
-            }
+        VStack(spacing: 22) {
+            ProgressCaption(text: String(localized: "Waiting for the sign-in page"))
+            Button("Cancel") { model.account.cancelSignIn() }
+                .buttonStyle(.kodosi(.ghost))
+                .accessibilityIdentifier("signIn.cancel")
         }
     }
 }

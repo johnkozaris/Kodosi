@@ -164,8 +164,9 @@ calm kc update users/profile -r $realm -b '{
 }'
 
 calm kc create clients -r $realm -s clientId=kodosi-app -s name=Kodosi -s publicClient=true \
-  -s standardFlowEnabled=false -s directAccessGrantsEnabled=false \
-  -s 'attributes={"oauth2.device.authorization.grant.enabled":"true","use.refresh.tokens":"true"}' \
+  -s standardFlowEnabled=true -s directAccessGrantsEnabled=false \
+  -s 'redirectUris=["http://127.0.0.1/callback","com.kodosi:/auth"]' \
+  -s 'attributes={"oauth2.device.authorization.grant.enabled":"true","use.refresh.tokens":"true","pkce.code.challenge.method":"S256"}' \
   -s 'defaultClientScopes=["basic","profile"]' -s 'optionalClientScopes=["offline_access"]'
 
 # A built-in flow takes no new step, so the realm uses copies. A copy loses the place of the terms

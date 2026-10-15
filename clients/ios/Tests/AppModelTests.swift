@@ -33,13 +33,19 @@ struct AppModelTests {
         #expect(sent.types == ["session.list", "auth.refresh", "friends.refresh", "devices.refresh", "mission.list"])
     }
 
-    @Test func deviceCodeOpensOnlySecurePages() throws {
+    @Test func signInOpensOnlySecurePagesAndGivesTheAnswerBack() throws {
         try deliver("auth.required", userId: nil)
-        try deliver("auth.device_code", userId: nil, ["userCode": "ABCD-1234", "verificationUri": "http://example.com"])
-        #expect(model.account.stage == .awaitingApproval(code: "ABCD-1234", url: nil))
+        model.account.signIn()
+        #expect(sent.types.last == "auth.login.start")
+        try deliver("auth.browser", userId: nil, ["url": "http://example.com"])
+        #expect(model.account.stage == .awaitingBrowser(nil))
         #expect(model.account.signInPage == nil)
-        try deliver("auth.device_code", userId: nil, ["userCode": "ABCD-1234", "verificationUri": "https://auth.kodosi.com/device"])
-        #expect(model.account.signInPage?.absoluteString == "https://auth.kodosi.com/device")
+        let page = "https://auth.kodosi.com/realms/kodosi/protocol/openid-connect/auth?state=s"
+        try deliver("auth.browser", userId: nil, ["url": page])
+        #expect(model.account.signInPage?.absoluteString == page)
+        try model.account.finishSignIn(with: #require(URL(string: "com.kodosi:/auth?state=s&code=c")))
+        #expect(sent.types.last == "auth.login.finish")
+        #expect(model.account.signInPage == nil)
     }
 
     @Test func untrustedDeviceAsksForTrustUntilEnrolled() throws {

@@ -9,7 +9,7 @@ AccountModel::AccountModel(Workspace& workspace)
 
 void AccountModel::login()
 {
-    m_workspace.sendUntracked(QStringLiteral("auth.login.start"));
+    m_workspace.sendUntracked(QStringLiteral("auth.login.start"), { { QStringLiteral("browser"), QStringLiteral("system") } });
 }
 
 void AccountModel::cancelLogin()
@@ -46,8 +46,7 @@ void AccountModel::reset()
 {
     m_userId.clear();
     m_displayName.clear();
-    m_userCode.clear();
-    m_verificationUri.clear();
+    m_signInPage.clear();
     m_epoch.reset();
     m_finalizing = true;
     endDeletion();
