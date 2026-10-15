@@ -133,7 +133,7 @@ public sealed class RoomContentTests(PostgresFixture postgres)
         await store.Db.SaveChangesAsync(ct);
         var key = new byte[MissionService.RoomPublicKeyLength];
         await store.Missions.RegisterRoomKeyAsync(bob.User.Id, bob.Device,
-            new(Convert.ToBase64String(key), Convert.ToBase64String(bob.Fixture.Sign(MissionService.RoomKeyProof(bob.User.Id, bob.Device.Id, key)))), ct);
+            new(Convert.ToBase64String(key), Convert.ToBase64String(bob.Fixture.Sign(Proofs.RoomRecipient(bob.User.Id, bob.Device.Id, key)))), ct);
         var list = await store.Db.DeviceLists.SingleAsync(x => x.UserId == bob.User.Id, ct);
         list.ExpiresAtMs = DateTimeOffset.UtcNow.AddMinutes(-1).ToUnixTimeMilliseconds();
         await store.Db.SaveChangesAsync(ct);
@@ -154,7 +154,7 @@ public sealed class RoomContentTests(PostgresFixture postgres)
         MissionService.RecipientKeyWrite Key(byte fill)
         {
             var key = Enumerable.Repeat(fill, MissionService.RoomPublicKeyLength).ToArray();
-            return new(Convert.ToBase64String(key), Convert.ToBase64String(bob.Fixture.Sign(MissionService.RoomKeyProof(bob.User.Id, bob.Device.Id, key))));
+            return new(Convert.ToBase64String(key), Convert.ToBase64String(bob.Fixture.Sign(Proofs.RoomRecipient(bob.User.Id, bob.Device.Id, key))));
         }
         await store.Missions.RegisterRoomKeyAsync(bob.User.Id, bob.Device, Key(1), ct);
         await store.Missions.RegisterRoomKeyAsync(bob.User.Id, bob.Device, Key(1), ct);

@@ -144,7 +144,8 @@ impl Http {
         } else {
             None
         };
-        for retry in [true, false] {
+        let mut retried = false;
+        loop {
             let mut request = self
                 .client
                 .get(self.url(path)?)
@@ -161,10 +162,11 @@ impl Http {
             if response.status() == reqwest::StatusCode::NOT_MODIFIED {
                 return Ok(None);
             }
-            if retry
+            if !retried
                 && response.status().as_u16() == 428
                 && let Some(refused) = session.take()
             {
+                retried = true;
                 self.forget_device_session(&refused).await;
                 session = Some(self.device_session(credentials).await?);
                 continue;
@@ -177,7 +179,6 @@ impl Http {
                 .to_owned();
             return Ok(Some((decode(response).await?, tag)));
         }
-        Err(Error::Closed)
     }
 
     pub(crate) async fn device<T: DeserializeOwned>(
@@ -337,10 +338,7 @@ async fn decode<T: DeserializeOwned>(response: reqwest::Response) -> Result<T> {
             .ok()
             .and_then(|value| {
                 value
-                    .get("detail")
-                    .or_else(|| value.get("message"))
-                    .or_else(|| value.get("title"))
-                    .or_else(|| value.get("error"))
+                    .get("error")
                     .and_then(Value::as_str)
                     .map(|s| s.chars().take(512).collect())
             })

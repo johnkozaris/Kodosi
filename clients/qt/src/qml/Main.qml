@@ -102,9 +102,9 @@ ApplicationWindow {
                         active: Models.DesktopState.activeView === Models.DesktopState.Sessions
                         sourceComponent: TerminalStage {
                             interactionEnabled: !window.modalOpen
-                            onInspectSessionRequested: (id, name) => details.openSession(id)
+                            onInspectSessionRequested: id => details.openSession(id)
                             onResumeRequested: history.openModal()
-                            onShareSessionRequested: (id, name) => share.openSession(id)
+                            onShareSessionRequested: id => share.openSession(id)
                         }
                     }
                     MissionsView {
@@ -113,9 +113,7 @@ ApplicationWindow {
                         onShareSessionRequested: id => share.openSession(id)
                     }
                     PeopleView {}
-                    SettingsView {
-                        id: settings
-                    }
+                    SettingsView {}
                 }
             }
         }
@@ -234,9 +232,7 @@ ApplicationWindow {
         onNewRoomRequested: window.openNewRoom()
         onResumeRequested: history.openModal()
     }
-    StartupOverlay {
-        id: startup
-    }
+    StartupOverlay {}
     Shortcut {
         enabled: !window.modalOpen
         sequence: "Ctrl+Shift+N"

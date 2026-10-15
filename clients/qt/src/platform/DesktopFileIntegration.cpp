@@ -74,8 +74,7 @@ bool DesktopFileIntegration::requestDirectory(const QString& purpose, const QStr
                 fail(tr("Choose a readable local folder."));
             else
                 emit directoryPicked(purpose, selected);
-        } else
-            emit directoryPickCancelled(purpose);
+        }
         dialog->deleteLater();
     });
     dialog->setAttribute(Qt::WA_NativeWindow);

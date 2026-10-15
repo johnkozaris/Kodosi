@@ -23,7 +23,7 @@ fail() {
 [[ -f "$archive" ]] || fail "does not exist."
 if ! cmp -s "$header" "$repository/$committed_header"; then
     diff -u "$repository/$committed_header" "$header" >&2 || true
-    fail "has another header than $committed_header. Run just protocol-gen, and do not edit the header by hand."
+    fail "has another header than $committed_header. After an intended change of the C API, copy $header there; do not edit it by hand."
 fi
 
 architectures=$(lipo -archs "$archive")

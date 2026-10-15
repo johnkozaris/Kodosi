@@ -100,9 +100,9 @@ void FreedesktopNotificationDriverTest::postsHandlesActionsAndWithdraws()
     QSignalSpy actions(
         &driver,
         &kodosi::DesktopNotificationDriver::actionInvoked);
-    QSignalSpy errors(
+    QSignalSpy closed(
         &driver,
-        &kodosi::DesktopNotificationDriver::deliveryError);
+        &kodosi::DesktopNotificationDriver::notificationClosed);
 
     driver.post({
         .key = QStringLiteral("request-identity"),
@@ -112,7 +112,7 @@ void FreedesktopNotificationDriverTest::postsHandlesActionsAndWithdraws()
     });
 
     QTRY_COMPARE(m_service.notifications.size(), 1);
-    QVERIFY(errors.isEmpty());
+    QVERIFY(closed.isEmpty());
     const auto& notification = m_service.notifications.constFirst();
     QCOMPARE(notification.appName, QStringLiteral("Kodosi"));
     QCOMPARE(notification.replacesId, uint {0});
@@ -161,13 +161,13 @@ void FreedesktopNotificationDriverTest::postsHandlesActionsAndWithdraws()
 void FreedesktopNotificationDriverTest::pendingPostsRemainBoundedAfterWithdrawal()
 {
     kodosi::FreedesktopNotificationDriver driver;
-    QSignalSpy errors(&driver, &kodosi::DesktopNotificationDriver::deliveryError);
+    QSignalSpy closed(&driver, &kodosi::DesktopNotificationDriver::notificationClosed);
     for (int i = 0; i < 1000; ++i) {
         const auto key = QString::number(i);
         driver.post({key, QStringLiteral("Terminal"), QStringLiteral("Complete"), {QStringLiteral("session")}});
         driver.withdraw(key);
     }
-    QCOMPARE(errors.count(), 968);
+    QCOMPARE(closed.count(), 968);
     QVERIFY(driver.findChildren<QDBusPendingCallWatcher*>().size() <= 32);
     QTRY_VERIFY(driver.findChildren<QDBusPendingCallWatcher*>().isEmpty());
 }

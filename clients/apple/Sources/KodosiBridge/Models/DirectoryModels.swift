@@ -13,15 +13,26 @@ public struct FriendEntry: Decodable, Equatable, Identifiable, Sendable {
     public var identityChanged: Bool {
         identityState == "changed"
     }
+
+    public var isVerified: Bool {
+        verified && !identityChanged
+    }
+
+    public var personName: String {
+        displayName.isEmpty ? handle : displayName
+    }
 }
 
 public struct FriendRequestEntry: Decodable, Equatable, Identifiable, Sendable {
     public let userId: String
     public let handle: String
     public let displayName: String
-    public let createdAt: String
     public var id: String {
         userId
+    }
+
+    public var personName: String {
+        displayName.isEmpty ? handle : displayName
     }
 }
 
@@ -57,6 +68,10 @@ public struct MissionMemberEntry: Decodable, Equatable, Identifiable, Sendable {
     public var id: String {
         userId
     }
+
+    public var personName: String {
+        displayName.isEmpty ? handle : displayName
+    }
 }
 
 public struct MissionInvitationEntry: Decodable, Equatable, Identifiable, Sendable {
@@ -64,7 +79,6 @@ public struct MissionInvitationEntry: Decodable, Equatable, Identifiable, Sendab
     public let missionId: String
     public let missionName: String
     public let inviterName: String
-    public let createdAt: String
 }
 
 public struct MissionDetail: Equatable {

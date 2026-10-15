@@ -23,7 +23,7 @@ KPopover {
     function terminals() {
         return Models.Sessions.sessions.map(session => ({
             id: "terminal." + session.id, group: qsTr("Terminals"), title: session.name, kind: "terminal", key: session.id,
-            program: session.program, working: session.working, sign: session.sign, progress: session.progress,
+            program: session.program, working: session.working, sign: session.sign, asks: session.asks, progress: session.progress,
             detail: [session.folderName, session.kind === "remote" ? session.hostLabel : ""].filter(part => !!part).join(" · ")
         }))
     }
@@ -248,7 +248,6 @@ KPopover {
         }
     }
 
-    // A key of the keyboard, named in a small raised cap.
     component Keycap: Item {
         id: cap
 

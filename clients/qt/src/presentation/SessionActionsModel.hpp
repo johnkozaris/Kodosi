@@ -36,7 +36,6 @@ public:
     Q_INVOKABLE bool createOnBranch(const QString& directory, const QString& branch);
     Q_INVOKABLE bool start(const QString& name, const QString& directory, const QString& command,
         const QString& prompt);
-    Q_INVOKABLE QString suggestedName() const;
     Q_INVOKABLE QString suggestedBranch() const;
     Q_INVOKABLE bool resume(const QString& provider, const QString& nativeConversationId,
         const QString& workingDirectory);

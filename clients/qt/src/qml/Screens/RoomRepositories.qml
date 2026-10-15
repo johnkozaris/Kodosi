@@ -238,7 +238,6 @@ Item {
         }
     }
     KPopover {
-        id: connectRepository
         modal: true
         focus: true
         parent: Overlay.overlay

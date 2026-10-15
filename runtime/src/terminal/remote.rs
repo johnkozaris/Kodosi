@@ -19,20 +19,21 @@ use uuid::Uuid;
 use super::subscribers::{DATA_CAPACITY, MAX_RAW_BYTES, Subscribers};
 use super::validation::validate_terminal_checkpoint;
 use super::{
-    Checkpoint, ControlFrame, DataFrame, SessionChange, Subscription, TerminalHistoryPolicy,
-    TerminalPixelGeometry, TerminalSize,
+    Checkpoint, ControlFrame, DataFrame, SessionChange, Subscription, TerminalPixelGeometry,
+    TerminalSize,
 };
 use crate::{
     Error, Result,
-    network::{CheckpointCut, RemoteConnection, RemoteControl, RemoteUpdate, TerminalControl},
+    network::{
+        CONTROL_TIMEOUT, CheckpointCut, RemoteConnection, RemoteControl, RemoteUpdate,
+        TerminalControl,
+    },
 };
 
 const CONTROL_CAPACITY: usize = 64;
-const MAX_INPUT_BYTES: usize = 1024 * 1024;
 const INPUT_BUDGET: usize = 4 * 1024 * 1024;
 const BOOTSTRAP_TIMEOUT: Duration = Duration::from_secs(5);
 const MERGED_INPUT_BYTES: usize = 64 * 1024;
-const CONTROL_TIMEOUT: Duration = Duration::from_secs(12);
 
 #[derive(Clone)]
 pub(crate) struct RemoteTerminal {
@@ -150,7 +151,7 @@ impl RemoteTerminal {
         bytes: Bytes,
         reply: Option<oneshot::Sender<Result<Value>>>,
     ) -> Result<()> {
-        if bytes.len() > MAX_INPUT_BYTES {
+        if bytes.len() > super::TERMINAL_INPUT_MAX_BYTES {
             return Err(Error::Invalid("terminal input exceeds 1 MiB".to_owned()));
         }
         let count = u32::try_from(bytes.len()).map_err(|_| Error::Busy)?;
@@ -555,12 +556,8 @@ impl RemoteActor {
             RemoteUpdate::Checkpoint {
                 checkpoint,
                 next_sequence: cut,
-                fresh,
             } => {
-                if !fresh {
-                    return Ok(());
-                }
-                validate_terminal_checkpoint(&checkpoint, TerminalHistoryPolicy::default())?;
+                validate_terminal_checkpoint(&checkpoint)?;
                 if let Some(metadata) = checkpoint.metadata.clone() {
                     self.metadata = Some(metadata);
                 }
@@ -610,8 +607,7 @@ impl RemoteActor {
                 self.geometry(size, at_sequence);
             }
             RemoteUpdate::Resync => self.reset(),
-            RemoteUpdate::Ended { .. } => return Err(Error::Stopped),
-            RemoteUpdate::Closed { reason } => return Err(Error::Other(reason)),
+            RemoteUpdate::Ended | RemoteUpdate::Closed { .. } => return Err(Error::Stopped),
         }
         Ok(())
     }
@@ -824,13 +820,12 @@ impl RemoteActor {
             if let Some(owner) = active.resize_owner {
                 self.resize_owner = Some(owner);
             }
-        } else if !matches!(result, Err(crate::network::Error::Refreshed))
-            && (active.input
-                || active.focus.is_some()
-                || matches!(
-                    result,
-                    Err(crate::network::Error::Closed | crate::network::Error::Stale)
-                ))
+        } else if active.input
+            || active.focus.is_some()
+            || matches!(
+                result,
+                Err(crate::network::Error::Closed | crate::network::Error::Stale)
+            )
         {
             fatal = result.as_ref().err().map(|error| {
                 format!("Remote control was not confirmed: {error}. It was not retried.")
@@ -889,7 +884,7 @@ impl RemoteActor {
     fn connection_update(&mut self, update: Option<RemoteUpdate>) -> Step {
         if matches!(
             &update,
-            None | Some(RemoteUpdate::Closed { .. } | RemoteUpdate::Ended { .. })
+            None | Some(RemoteUpdate::Closed { .. } | RemoteUpdate::Ended)
         ) && let Some(result) = self
             .in_flight
             .as_mut()
@@ -899,7 +894,7 @@ impl RemoteActor {
             return Step::Failed(error.to_string());
         }
         match update {
-            Some(RemoteUpdate::Ended { .. }) => Step::Ended,
+            Some(RemoteUpdate::Ended) => Step::Ended,
             Some(RemoteUpdate::Closed { reason }) => Step::Failed(reason),
             Some(update) => Step::from(self.update(update)),
             None => Step::Failed("The remote host disconnected.".to_owned()),

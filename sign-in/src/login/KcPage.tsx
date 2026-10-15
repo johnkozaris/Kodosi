@@ -11,11 +11,9 @@ import { DeleteAccount, Expired, Failure, Info, RemoveWay, SignOut } from "./pag
 import { NewPasskey, Passkey, PasskeyAtName, PasskeyFailed } from "./pages/passkey";
 import { ResetPassword, UpdatePassword, VerifyEmail } from "./pages/password";
 import { Login, LoginPassword, LoginUsername } from "./pages/sign-in";
+import { Terms } from "./pages/terms";
 
-// The rare pages keep Keycloak's own form code. It loads when a person meets one of them.
 const Other = lazy(() => import("./pages/other"));
-// The terms are the realm's own text, with its markup: the page brings the code that cleans it.
-const Terms = lazy(() => import("./pages/terms"));
 
 export default function KcPage({ kcContext }: { kcContext: KcContext }) {
   const { i18n } = useI18n({ kcContext });
@@ -82,11 +80,7 @@ export default function KcPage({ kcContext }: { kcContext: KcContext }) {
     case "turnstile-registration-form.ftl":
       return <CheckPage kcContext={kcContext} i18n={i18n} />;
     case "terms.ftl":
-      return (
-        <Suspense>
-          <Terms kcContext={kcContext} i18n={i18n} />
-        </Suspense>
-      );
+      return <Terms kcContext={kcContext} i18n={i18n} />;
     default:
       return (
         <Suspense>

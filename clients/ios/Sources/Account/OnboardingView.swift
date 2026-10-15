@@ -50,8 +50,11 @@ struct OnboardingView: View {
                             .transition(.opacity)
                     }
                     if showsTrack {
-                        SignInTrack(completed: account.stage.completedSteps)
-                            .transition(.opacity.combined(with: .offset(y: -10)))
+                        SignInTrack(
+                            completed: account.stage.completedSteps, working: account.stage.isPending,
+                            device: ThisDevice.title, symbol: ThisDevice.symbol
+                        )
+                        .transition(.opacity.combined(with: .offset(y: -10)))
                     }
                     stageContent
                         .frame(maxWidth: compactHeight ? 760 : 440)
@@ -93,7 +96,7 @@ struct OnboardingView: View {
         switch account.stage {
         case .idle, .signedIn:
             WelcomeCard(failure: nil, starting: false)
-        case let .failed(message):
+        case let .failed(message, _):
             WelcomeCard(failure: message, starting: false)
         case .starting:
             WelcomeCard(failure: nil, starting: true)
@@ -217,7 +220,7 @@ private struct FeatureStrip: View {
             }
             .arrive(delay: 0.1)
             FeatureRow(title: "Work in rooms", detail: "Talk, share terminals, and keep tasks with your team.") {
-                RoomSigil(name: "Room", key: "kodosi-room", size: 34)
+                RoomSigil(key: "kodosi-room", size: 34)
             }
             .arrive(delay: 0.14)
         }
@@ -268,7 +271,7 @@ private struct ApprovalCodeCard: View {
             }
         } trail: {
             VStack(spacing: 22) {
-                CodeTiles(code: code, identifier: "signIn.code")
+                VerificationCode(code: code, identifier: "signIn.code")
                 ProgressCaption(text: String(localized: "Waiting for the sign-in page"))
                 VStack(spacing: 10) {
                     if hasPage {

@@ -22,7 +22,7 @@ use crate::{
     protocol::SessionKind, terminal,
 };
 
-const VERSION: u32 = 19;
+const VERSION: u32 = 20;
 const STOP_WAIT: Duration = Duration::from_secs(5);
 const MAX_FRAME: usize = 8 * 1024 * 1024 + 64 * 1024;
 const MAX_CONNECTIONS: usize = 64;
@@ -42,14 +42,12 @@ struct Welcome {
     version: u32,
     error: Option<String>,
     events: Vec<Value>,
-    incarnation_id: Option<Uuid>,
     host: Option<HostDescription>,
 }
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 enum ClientRequest {
     Command { command: Value },
-    Snapshot,
     Stop { force: bool },
 }
 
@@ -80,20 +78,6 @@ pub(crate) fn local_sessions(events: &[Event]) -> usize {
             _ => None,
         })
         .unwrap_or(0)
-}
-
-fn local_sessions_in(events: &[Value]) -> usize {
-    events
-        .iter()
-        .rev()
-        .find(|event| event.get("type").and_then(Value::as_str) == Some("sessions.snapshot"))
-        .and_then(|event| event.get("sessions").and_then(Value::as_array))
-        .map_or(0, |sessions| {
-            sessions
-                .iter()
-                .filter(|session| session.get("kind").and_then(Value::as_str) == Some("local"))
-                .count()
-        })
 }
 
 fn stop_permission(

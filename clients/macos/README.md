@@ -1,66 +1,39 @@
 # Kodosi for macOS
 
-The native Swift app embeds the shared Rust runtime and Ghostty terminal integration.
+The native Swift app. It embeds the Rust runtime and Ghostty.
 
 ## Requirements
 
-- Apple silicon and macOS 26.4 or later. [Config/macOSDeploymentTarget](Config/macOSDeploymentTarget)
-  is the deployment target authority.
-- Xcode with the matching macOS SDK and command-line tools selected.
-- The Rust toolchain pinned at the repository root.
-- `just`, Python 3, `xcodegen`, `swiftformat`, and `swiftlint` on your build PATH.
-
-Keep downloaded build tools and dependencies project-local.
+Apple silicon with macOS 26.4 or later ([Config/macOSDeploymentTarget](Config/macOSDeploymentTarget)),
+Xcode with the matching SDK, the pinned Rust toolchain, and `just`, Python 3, `xcodegen`,
+`swiftformat` and `swiftlint` on your PATH.
 
 ## Build and run
-
-From the repository root:
 
 ```sh
 just mac-build
 ```
 
-This generates `KodosiDesktop.xcodeproj`, builds the runtime library and the app, and
-runs the terminal package tests. Open the generated project in Xcode, select the
-`KodosiDesktop` scheme, and run it.
+This generates `KodosiDesktop.xcodeproj` from `project.yml`, builds the runtime library,
+tests the shared package and builds the app. Run the `KodosiDesktop` scheme in Xcode.
+Debug builds use a [local backend](../../docs/DEVELOPMENT.md#run-the-backend) at
+`127.0.0.1:5180`; `just release-build` here builds against the public service.
+[Apps.xcconfig](../apple/Config/Apps.xcconfig) sets the version and build number of the
+Mac and iOS apps.
 
-Debug builds target the local backend at `127.0.0.1:5180`; follow
-[backend setup](../../docs/DEVELOPMENT.md#run-the-backend) to run it. Release builds use
-the public service addresses:
+## Command line
 
-```sh
-just --justfile clients/macos/justfile release-build
-```
-
-Generate the project from `project.yml`; do not edit generated project files or the
-runtime header directly. [Apps.xcconfig](../apple/Config/Apps.xcconfig) gives the
-version and the build number of the Mac app and of the iOS app.
-
-## Command-line access
-
-The app executable also implements the CLI:
+The app executable is also the `kodosi` CLI, using the app's Keychain identity. Put a
+symlink named `kodosi` on your PATH that points to it:
 
 ```sh
-/absolute/path/KodosiDesktop.app/Contents/MacOS/KodosiDesktop --help
+ln -s /absolute/path/KodosiDesktop.app/Contents/MacOS/KodosiDesktop ~/.local/bin/kodosi
 ```
 
-For `kodosi` in your shells and agent terminals, put a symlink named `kodosi` on your
-PATH pointing to that executable. Use the absolute path to your built app. The CLI
-must be the signed app executable to use the app's Keychain identity.
+Keep the app running while you use room commands for its terminals.
 
-Keep the app running when using room commands for its terminals. See
-[Agents and tasks](../../docs/AGENTS_AND_TASKS.md).
+## Check
 
-## Check and package
-
-```sh
-just mac-check
-```
-
-From this client directory, `just lint` and `just test` do parts of this check. To
-format the Swift sources, run `just format`.
-`just working-tree-build` builds an archive of the working tree for validation.
-
-Read [Ghostty integration](docs/GHOSTTY_INTEGRATION.md) before changing the renderer.
-See [product behavior](PRODUCT.md), [design reference](DESIGN.md), and
-[contributor setup](../../docs/DEVELOPMENT.md).
+`just mac-check` from the repository root lints, tests and builds the Release app. Here,
+`just lint`, `just test` and `just format` do parts of it, and `just working-tree-build`
+builds an unpublishable archive of the working tree.

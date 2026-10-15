@@ -1,4 +1,3 @@
-import KodosiDesign
 import SwiftUI
 
 struct TerminalTileVisibility: LayoutValueKey {

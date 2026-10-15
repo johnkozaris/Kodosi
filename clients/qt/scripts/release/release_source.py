@@ -1,6 +1,3 @@
-"""The values that a release reads from the Kodosi checkout: the source
-identity of the build and the product version."""
-
 from __future__ import annotations
 
 import re

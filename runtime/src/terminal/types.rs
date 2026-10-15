@@ -1,6 +1,4 @@
-use std::time::Duration;
-
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 
 pub const MAX_TERMINAL_ROWS: u16 = 512;
 pub const MAX_TERMINAL_COLS: u16 = 1024;
@@ -9,31 +7,13 @@ pub const TERMINAL_CHECKPOINT_SCHEMA_VERSION: u32 = 2;
 
 pub const TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES: usize = 8 * 1024 * 1024;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TerminalHistoryPolicy {
-    pub max_bytes: usize,
-    pub max_lines: usize,
-    pub continuation_max_bytes: usize,
-    pub compression_idle: Duration,
-}
-
-impl Default for TerminalHistoryPolicy {
-    fn default() -> Self {
-        Self {
-            max_bytes: 64 * 1024 * 1024,
-            max_lines: 1_024,
-            continuation_max_bytes: 1024 * 1024,
-            compression_idle: Duration::from_secs(2),
-        }
-    }
-}
+pub const TERMINAL_INPUT_MAX_BYTES: usize = 1024 * 1024;
 
 #[expect(
     clippy::struct_field_names,
     reason = "the pixel suffix is the cross-language wire vocabulary and distinguishes geometry from terminal cells"
 )]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TerminalPixelGeometry {
     width_pixels: u32,
     height_pixels: u32,
@@ -115,7 +95,7 @@ impl TerminalPixelGeometry {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TerminalSize {
     rows: u16,
     cols: u16,
@@ -145,22 +125,6 @@ impl TerminalSize {
     }
 }
 
-impl<'de> Deserialize<'de> for TerminalSize {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        struct Wire {
-            rows: u16,
-            cols: u16,
-        }
-
-        let wire = Wire::deserialize(deserializer)?;
-        Self::new(wire.rows, wire.cols).map_err(serde::de::Error::custom)
-    }
-}
-
 impl Default for TerminalSize {
     fn default() -> Self {
         Self {
@@ -170,8 +134,7 @@ impl Default for TerminalSize {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TerminalScreen {
     Primary,
     Alternate,
@@ -201,7 +164,7 @@ impl TerminalMetadata {
             && self
                 .program
                 .as_deref()
-                .is_none_or(|value| matches!(value, "claude" | "copilot" | "codex" | "cursor"))
+                .is_none_or(crate::agents::is_agent_name)
             && self
                 .status
                 .as_ref()
@@ -223,16 +186,12 @@ pub(super) fn is_valid_folder(value: &str) -> bool {
 #[path = "types_tests.rs"]
 mod tests;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Checkpoint {
-    #[serde(skip)]
     pub metadata: Option<TerminalMetadata>,
-    schema_version: u32,
     rows: u16,
     cols: u16,
     pub active_screen: TerminalScreen,
-    #[serde(with = "base64_bytes")]
     pub semantic_checkpoint: Vec<u8>,
     cursor_x: u16,
     cursor_y: u16,
@@ -241,8 +200,6 @@ pub struct Checkpoint {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum TerminalCheckpointError {
-    #[error("unsupported terminal checkpoint schema version {0}")]
-    UnsupportedSchema(u32),
     #[error(transparent)]
     InvalidSize(#[from] TerminalSizeError),
     #[error("terminal semantic checkpoint must not be empty")]
@@ -278,7 +235,6 @@ impl Checkpoint {
         }
         Ok(Self {
             metadata: None,
-            schema_version: TERMINAL_CHECKPOINT_SCHEMA_VERSION,
             rows: size.rows(),
             cols: size.cols(),
             active_screen,
@@ -287,10 +243,6 @@ impl Checkpoint {
             cursor_y,
             cursor_hidden,
         })
-    }
-
-    pub const fn schema_version(&self) -> u32 {
-        self.schema_version
     }
 
     pub fn size(&self) -> TerminalSize {
@@ -332,62 +284,4 @@ fn validate_semantic_checkpoint(bytes: &[u8]) -> Result<(), TerminalCheckpointEr
         });
     }
     Ok(())
-}
-
-impl<'de> Deserialize<'de> for Checkpoint {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase", deny_unknown_fields)]
-        struct Wire {
-            schema_version: u32,
-            rows: u16,
-            cols: u16,
-            active_screen: TerminalScreen,
-            #[serde(with = "base64_bytes")]
-            semantic_checkpoint: Vec<u8>,
-            cursor_x: u16,
-            cursor_y: u16,
-            cursor_hidden: bool,
-        }
-
-        let wire = Wire::deserialize(deserializer)?;
-        if wire.schema_version != TERMINAL_CHECKPOINT_SCHEMA_VERSION {
-            return Err(serde::de::Error::custom(
-                TerminalCheckpointError::UnsupportedSchema(wire.schema_version),
-            ));
-        }
-        let size = TerminalSize::new(wire.rows, wire.cols).map_err(serde::de::Error::custom)?;
-        Self::new(
-            size,
-            wire.active_screen,
-            wire.semantic_checkpoint,
-            wire.cursor_x,
-            wire.cursor_y,
-            wire.cursor_hidden,
-        )
-        .map_err(serde::de::Error::custom)
-    }
-}
-
-mod base64_bytes {
-    use base64::{Engine as _, engine::general_purpose::STANDARD};
-    use serde::{Deserialize, Deserializer, Serializer, de::Error as _};
-
-    pub(super) fn serialize<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&STANDARD.encode(bytes))
-    }
-
-    pub(super) fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let encoded = String::deserialize(deserializer)?;
-        STANDARD.decode(encoded).map_err(D::Error::custom)
-    }
 }

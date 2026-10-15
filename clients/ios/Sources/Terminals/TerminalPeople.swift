@@ -19,7 +19,7 @@ extension AppModel {
         if let room = session.missionId,
            let member = rooms.details[room]?.members.first(where: { $0.userId == id })
         {
-            return member.displayName.isEmpty ? member.handle : member.displayName
+            return member.personName
         }
         return String(localized: "Guest")
     }

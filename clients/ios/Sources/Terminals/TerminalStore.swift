@@ -128,10 +128,6 @@ final class TerminalStore {
         attention.insert(id)
     }
 
-    func seen(_ id: String) {
-        attention.remove(id)
-    }
-
     func refresh() async {
         let before = revision
         commands.perform("session.list")
@@ -147,13 +143,7 @@ final class TerminalStore {
     }
 
     func mutate(_ operation: String, session target: RuntimeSession, fields: [String: JSONValue] = [:]) async throws {
-        guard let current = session(target.id), current.incarnationId == target.incarnationId else {
-            throw RuntimeError.operation(String(localized: "This terminal changed. Try again."))
-        }
-        var fields = fields
-        fields["sessionId"] = .string(current.id)
-        fields["expectedRuntimeIncarnationId"] = .string(current.incarnationId)
-        _ = try await commands.request(operation, fields)
+        try await commands.mutate(operation, session: target, current: session(target.id), fields: fields)
     }
 
     func rename(_ session: RuntimeSession, to name: String) {

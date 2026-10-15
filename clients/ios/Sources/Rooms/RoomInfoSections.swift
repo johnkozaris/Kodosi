@@ -25,13 +25,13 @@ struct RoomMembersSection: View {
                 }
             }
         } header: {
-            Text(members.map { RoomWords.people($0.count) } ?? String(localized: "People"))
+            Text(members.map { Counted.people($0.count) } ?? String(localized: "People"))
         }
         .listRowBackground(theme.colors.raised)
     }
 
     private func row(_ member: MissionMemberEntry) -> some View {
-        let name = RoomWords.name(member)
+        let name = member.personName
         let me = member.userId == model.rooms.userId
         let removable = owner && !member.isOwner
         return HStack(spacing: 12) {

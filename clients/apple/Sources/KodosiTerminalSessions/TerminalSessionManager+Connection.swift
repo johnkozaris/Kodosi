@@ -124,7 +124,7 @@ private extension TerminalSessionManager {
         _ link: RuntimeLink, renderer: TerminalRendererSession
     ) -> TerminalSubscriptionRegistry.SemanticCheckpointHandler {
         { [weak self, weak renderer] checkpoint in
-            guard link.token.isActive, let renderer, renderer.restoreCheckpointSynchronously(checkpoint.bytes) else {
+            guard link.token.isActive, let renderer, renderer.restoreCheckpointSynchronously(checkpoint) else {
                 return Int32(KODOSI_FFI_TERMINAL_CHECKPOINT_REJECTED)
             }
             link.awaitingResizeCheckpoint.withLock { $0 = false }

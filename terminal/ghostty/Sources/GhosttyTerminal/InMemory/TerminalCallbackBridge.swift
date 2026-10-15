@@ -5,10 +5,8 @@ enum TerminalActionSnapshot: Sendable {
     case cellSize(width: UInt32, height: UInt32)
     case render
     case configChange
-    case commandFinished(exitCode: Int?, durationNanos: UInt64)
     case openURL(kind: TerminalOpenURLKind, url: String)
     case mouseOverLink(String?)
-    case pwd(String)
     case selectionChanged
     case unsupported(String)
 }
@@ -57,14 +55,6 @@ final class TerminalCallbackBridge {
             TerminalDebugLog.log(.actions, "callback action=config_change")
             onRenderRequest?()
 
-        case let .commandFinished(exit, duration):
-            TerminalDebugLog.log(
-                .actions,
-                "callback action=command_finished exit=\(exit.map { "\($0)" } ?? "nil") duration_ns=\(duration)"
-            )
-            (delegate as? any TerminalSurfaceCommandFinishedDelegate)?
-                .terminalDidFinishCommand(exitCode: exit, durationNanos: duration)
-
         case let .openURL(kind, url):
             TerminalDebugLog.log(
                 .actions,
@@ -81,14 +71,6 @@ final class TerminalCallbackBridge {
             (delegate as? any TerminalSurfaceHoverLinkDelegate)?
                 .terminalDidUpdateHoverLink(url)
 
-        case let .pwd(pwd):
-            TerminalDebugLog.log(
-                .actions,
-                "callback action=pwd pwd=\(TerminalDebugLog.describe(pwd))"
-            )
-            (delegate as? any TerminalSurfacePwdDelegate)?
-                .terminalDidChangeWorkingDirectory(pwd)
-
         case .selectionChanged:
             TerminalDebugLog.log(.actions, "callback action=selection_changed")
             onSelectionChanged?()
@@ -96,14 +78,5 @@ final class TerminalCallbackBridge {
         case let .unsupported(tag):
             TerminalDebugLog.log(.actions, "callback action=\(tag)")
         }
-    }
-
-    func handleClose(processAlive: Bool) {
-        TerminalDebugLog.log(
-            .lifecycle,
-            "callback close processAlive=\(processAlive)"
-        )
-        (delegate as? any TerminalSurfaceCloseDelegate)?
-            .terminalDidClose(processAlive: processAlive)
     }
 }

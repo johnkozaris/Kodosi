@@ -668,7 +668,7 @@ Item {
                                 StatusSign {
                                     size: 11
                                     session: folder.folded
-                                        ? (folder.group.sessions || []).find(entry => ["hand", "question", "key"].indexOf(entry.sign) >= 0) || null
+                                        ? (folder.group.sessions || []).find(entry => entry.asks) || null
                                         : null
                                 }
                                 KIconButton {
@@ -767,7 +767,6 @@ Item {
                                         }
                                     }
                                     KTextField {
-                                        id: editor
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 26
                                         visible: row.renaming
@@ -1018,29 +1017,7 @@ Item {
             }
         }
     }
-    KDialog {
+    CloseTerminalDialog {
         id: closeDialog
-
-        property string sessionId: ""
-        property string sessionName: ""
-
-        function ask(id, name) {
-            sessionId = id
-            sessionName = name
-            open()
-        }
-
-        destructive: true
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        title: qsTr("Close %1?").arg(sessionName)
-        onOpened: standardButton(Dialog.Ok).text = qsTr("Close")
-        onAccepted: Models.SessionActions.close(sessionId)
-
-        PlainLabel {
-            width: 340
-            text: qsTr("Its programs stop.")
-            color: KodosiTheme.inkMuted
-            wrapMode: Text.WordWrap
-        }
     }
 }

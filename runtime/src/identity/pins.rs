@@ -486,14 +486,14 @@ fn validate_bootstrap_chain(
 mod tests;
 
 pub(crate) fn decode(value: &str, limit: usize) -> Result<Vec<u8>> {
-    if value.len() > limit.saturating_add(2) / 3 * 4 {
-        return Err(invalid("Encoded identity field exceeds its limit."));
+    if value.len() > limit.div_ceil(3).saturating_mul(4) {
+        return Err(invalid("Encoded data exceeds its limit."));
     }
     let bytes = BASE64
         .decode(value)
-        .map_err(|_| invalid("Identity field is not base64."))?;
+        .map_err(|_| invalid("Data is not base64."))?;
     if bytes.len() > limit {
-        return Err(invalid("Decoded identity field exceeds its limit."));
+        return Err(invalid("Decoded data exceeds its limit."));
     }
     Ok(bytes)
 }

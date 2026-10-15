@@ -14,7 +14,6 @@ async fn runs_start_line(shell: PathBuf, arguments: Vec<String>, line: &str, out
         shell,
         arguments,
         kodosi_os::fs::canonicalize(root.path()).expect("canonical cwd"),
-        true,
         changes,
     )
     .await

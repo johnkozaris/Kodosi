@@ -29,7 +29,7 @@ struct Fixture {
     Commands commands;
     kodosi::SessionCatalogModel sessions;
     kodosi::DesktopStateModel desktop {
-        std::make_unique<QSettings>(dir.filePath(QStringLiteral("ui.ini")), QSettings::IniFormat), false
+        std::make_unique<QSettings>(dir.filePath(QStringLiteral("ui.ini")), QSettings::IniFormat)
     };
     kodosi::DesktopSettings settings {
         std::make_unique<QSettings>(dir.filePath(QStringLiteral("terminal.ini")), QSettings::IniFormat)
@@ -120,8 +120,6 @@ private slots:
         QVERIFY(presentation->canControl);
         const auto fields = f.sessions.presentationForSession(test::id(1));
         QVERIFY(fields.value(QStringLiteral("canControl")).toBool());
-        for (const auto* field : { "canSendInput", "canRetainFocus", "canSendFocus", "canResize", "isStageReady" })
-            QVERIFY(!fields.contains(QLatin1String(field)));
         for (const auto* state : { "connecting", "offline", "blocked" }) {
             connected.insert(QStringLiteral("connectionState"), QLatin1String(state));
             f.sessions.apply(test::snapshot({ connected }));
@@ -280,6 +278,7 @@ private slots:
         QVERIFY(activity(2).isEmpty());
         QCOMPARE(sign(1), QStringLiteral("hand"));
         QCOMPARE(sign(2), QStringLiteral("question"));
+        QVERIFY(field(1, QStringLiteral("asks")).toBool());
         QCOMPARE(f.sessions.attention(), (QStringList { test::id(1), test::id(2) }));
 
         f.sessions.clearAttention(test::id(1));
@@ -290,6 +289,7 @@ private slots:
         }), 0);
         QVERIFY(activity(2).isEmpty());
         QCOMPARE(sign(2), QStringLiteral("failed"));
+        QVERIFY(!field(2, QStringLiteral("asks")).toBool());
         QCOMPARE(f.sessions.attention(), QStringList { test::id(2) });
 
         f.workspace.apply(test::snapshot({
@@ -637,10 +637,6 @@ private slots:
         f.workspace.people().copyInvite();
         QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(),
             QStringLiteral("friends.invite"));
-        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("friends.invite") },
-            { QStringLiteral("text"), QStringLiteral("kodosi:owner:abcd") },
-            { QStringLiteral("accountUserId"), test::id(50) }, { QStringLiteral("accountEpoch"), 1 } }, 1);
-        QCOMPARE(f.workspace.people().invite(), QStringLiteral("kodosi:owner:abcd"));
     }
     void accountDeletionWaitsForTheBrowserAndEndsSignedOutWithANote()
     {

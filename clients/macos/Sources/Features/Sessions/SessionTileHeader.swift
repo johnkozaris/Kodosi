@@ -8,7 +8,6 @@ struct SessionTileHeader: View {
     let session: RuntimeSession
     let isFocused: Bool
     let roomEmbedded: Bool
-    let isSelected: Bool
     let showsActions: Bool
     let viewers: [AvatarStack.Person]
     let isClosing: Bool

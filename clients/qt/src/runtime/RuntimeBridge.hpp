@@ -87,7 +87,6 @@ public:
     RuntimeBridge& operator=(const RuntimeBridge&) = delete;
 
     [[nodiscard]] bool isRunning() const noexcept override;
-    [[nodiscard]] Result start();
     void startAsync(std::function<void(Result)> completion);
     void stop() noexcept;
     [[nodiscard]] Result send(QByteArrayView json) override;

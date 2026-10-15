@@ -10,10 +10,10 @@ import { IconTile } from "../../parts/tile";
 import { Stage } from "../stage";
 import type { Page } from "./props";
 
-/** Keycloak's passkey scripts find their button by this name. */
-const BUTTON = "authenticateWebAuthnButton";
+// Keycloak's passkey scripts find the button by this id.
+export const PASSKEY_BUTTON = "authenticateWebAuthnButton";
 
-function Answer({ action, known }: { action: string; known?: string[] | undefined }) {
+export function PasskeyForms({ action, known }: { action: string; known?: string[] | undefined }) {
   return (
     <>
       <form id="webauth" action={action} method="post" hidden>
@@ -35,25 +35,11 @@ function Answer({ action, known }: { action: string; known?: string[] | undefine
   );
 }
 
-/** The tile of a passkey. While the computer asks the person, the copper dot of the app breathes
-    on it: the page waits for them. */
-function PasskeyTile({ asks }: { asks: boolean }) {
-  return (
-    <span className="relative">
-      <IconTile tint="copper" icon={<Fingerprint />} />
-      {asks && (
-        <span className="breathe absolute -top-0.5 -right-0.5 size-2 rounded-full bg-accent text-accent ring-2 ring-raised" />
-      )}
-    </span>
-  );
-}
-
-/** The person signs in with the passkey of their computer. */
 export function Passkey({ kcContext, i18n }: Page<"webauthn-authenticate.ftl">) {
   const { url, authenticators } = kcContext;
   const { msgStr } = i18n;
   const [asks, setAsks] = useState(false);
-  usePasskey({ authButtonId: BUTTON, kcContext, i18n });
+  usePasskey({ authButtonId: PASSKEY_BUTTON, kcContext, i18n });
   return (
     <Stage
       kcContext={kcContext}
@@ -62,14 +48,14 @@ export function Passkey({ kcContext, i18n }: Page<"webauthn-authenticate.ftl">) 
       lead={msgStr("kdsPasskeyLead")}
     >
       <ActionRow
-        id={BUTTON}
+        id={PASSKEY_BUTTON}
         type="button"
         onClick={() => setAsks(true)}
-        tile={<PasskeyTile asks={asks} />}
+        tile={<IconTile tint="copper" icon={<Fingerprint />} waits={asks} />}
         title={msgStr("kdsPasskeyUse")}
         detail={asks ? msgStr("kdsPasskeyWaiting") : undefined}
       />
-      <Answer
+      <PasskeyForms
         action={url.loginAction}
         known={authenticators.authenticators.map((one) => one.credentialId)}
       />
@@ -77,14 +63,13 @@ export function Passkey({ kcContext, i18n }: Page<"webauthn-authenticate.ftl">) 
   );
 }
 
-/** The name first, with the passkey as the short way. */
 export function PasskeyAtName({
   kcContext,
   i18n,
 }: Page<"login-passkeys-conditional-authenticate.ftl">) {
   const { url, realm, login, usernameHidden, messagesPerField, authenticators } = kcContext;
   const { msgStr } = i18n;
-  usePasskeyAtName({ authButtonId: BUTTON, kcContext, i18n });
+  usePasskeyAtName({ authButtonId: PASSKEY_BUTTON, kcContext, i18n });
   const wrong = messagesPerField.existsError("username");
   return (
     <Stage
@@ -95,12 +80,12 @@ export function PasskeyAtName({
       problem={wrong ? messagesPerField.get("username") : undefined}
       quiet={wrong}
       below={
-        <Way id={BUTTON} icon={<Fingerprint aria-hidden />}>
+        <Way id={PASSKEY_BUTTON} icon={<Fingerprint aria-hidden />}>
           {msgStr("kdsPasskeySignIn")}
         </Way>
       }
     >
-      <Answer
+      <PasskeyForms
         action={url.loginAction}
         known={authenticators?.authenticators.map((one) => one.credentialId)}
       />
@@ -125,7 +110,6 @@ export function PasskeyAtName({
   );
 }
 
-/** The computer that the person uses now: the first name of a new passkey. */
 function computerName(): string {
   const agent = navigator.userAgent;
   for (const name of ["iPhone", "iPad", "Android", "Mac", "Windows", "Linux"])
@@ -133,17 +117,14 @@ function computerName(): string {
   return "";
 }
 
-/** A new passkey for this computer. */
 export function NewPasskey({ kcContext, i18n }: Page<"webauthn-register.ftl">) {
   const { url, isSetRetry, isAppInitiatedAction } = kcContext;
   const { msgStr } = i18n;
   const [asks, setAsks] = useState(false);
   const name = useRef<HTMLInputElement>(null);
-  useNewPasskey({ authButtonId: BUTTON, kcContext, i18n });
+  useNewPasskey({ authButtonId: PASSKEY_BUTTON, kcContext, i18n });
   useEffect(() => {
-    // Keycloak's script asks for the name of the passkey in a box of the browser
-    // (webauthnRegister.js calls window.prompt). The page has a row for the name, and the row
-    // answers in place of the box.
+    // Keycloak's webauthnRegister.js asks for the passkey name with window.prompt: the row answers.
     const box = window.prompt;
     window.prompt = (_question, first) => name.current?.value.trim() || first || "";
     return () => {
@@ -182,18 +163,17 @@ export function NewPasskey({ kcContext, i18n }: Page<"webauthn-register.ftl">) {
           defaultValue={computerName()}
           autoComplete="off"
           maxLength={64}
-          // Enter in the one field of a form sends the form. Here it starts the passkey.
           onKeyDown={(event) => {
             if (event.key !== "Enter") return;
             event.preventDefault();
-            document.getElementById(BUTTON)?.click();
+            document.getElementById(PASSKEY_BUTTON)?.click();
           }}
         />
         <ActionRow
-          id={BUTTON}
+          id={PASSKEY_BUTTON}
           type="button"
           onClick={() => setAsks(true)}
-          tile={<PasskeyTile asks={asks} />}
+          tile={<IconTile tint="copper" icon={<Fingerprint />} waits={asks} />}
           title={msgStr("kdsPasskeyCreate")}
           detail={asks ? msgStr("kdsPasskeyWaiting") : undefined}
         />
@@ -210,7 +190,6 @@ export function NewPasskey({ kcContext, i18n }: Page<"webauthn-register.ftl">) {
   );
 }
 
-/** The computer did not give its passkey: the person tries again, or takes a different way. */
 export function PasskeyFailed({ kcContext, i18n }: Page<"webauthn-error.ftl">) {
   const { url, isAppInitiatedAction, execution } = kcContext;
   const { msgStr } = i18n;

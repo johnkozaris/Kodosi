@@ -10,10 +10,6 @@ public struct TerminalTheme: Sendable, Hashable {
         self.dark = dark
     }
 
-    var isEmpty: Bool {
-        light.isEmpty && dark.isEmpty
-    }
-
     func configuration(for colorScheme: TerminalColorScheme) -> TerminalConfiguration {
         switch colorScheme {
         case .light:

@@ -28,10 +28,10 @@ if ! command -v zig >/dev/null 2>&1; then
     exit 1
 fi
 
-CACHE_ROOT="${BUILD_CACHE_ROOT:-$ROOT_DIR/build/cache}"
+CACHE_ROOT="$ROOT_DIR/build/cache"
 GLOBAL_CACHE_DIR="${ZIG_GLOBAL_CACHE_DIR:-$CACHE_ROOT/zig-global}"
 LOCAL_CACHE_DIR="$CACHE_ROOT/combined/$ZIG_TARGET/zig-local"
-MODULE_CACHE_DIR="${CLANG_MODULE_CACHE_ROOT:-$CACHE_ROOT/clang-module-cache}/combined/$ZIG_TARGET"
+MODULE_CACHE_DIR="$CACHE_ROOT/clang-module-cache/combined/$ZIG_TARGET"
 PREFIX="$OUTPUT_DIR/.prefix"
 
 rm -rf "$OUTPUT_DIR" "$LOCAL_CACHE_DIR" "$MODULE_CACHE_DIR"

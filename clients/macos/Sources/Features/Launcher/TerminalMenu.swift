@@ -2,10 +2,6 @@ import AppKit
 import KodosiDesign
 import SwiftUI
 
-/// A list inside the launcher's terminal, as a shell shows completions: comment
-/// lines name the groups, the copper cursor marks the line that is in use, and
-/// the line under the keys or the pointer shows in reverse. Typing narrows the
-/// list, Return takes a line and Escape closes the list.
 struct TerminalMenu: View {
     enum LineKind: Equatable {
         case comment, choice, action
@@ -21,7 +17,6 @@ struct TerminalMenu: View {
 
     @Environment(\.theme) private var theme
     let lines: [Line]
-    /// The space that the list may take, from its left edge to the terminal's right edge.
     let room: CGFloat
     let identifier: String
     let pick: (String) -> Void
@@ -36,7 +31,6 @@ struct TerminalMenu: View {
     private static let font = NSFont.monospacedSystemFont(ofSize: 13, weight: .medium)
     private static let cell = ("M" as NSString).size(withAttributes: [.font: font]).width
 
-    /// The lines that hold the filter, each after the comment of its group.
     private var matches: [Line] {
         let query = filter.trimmingCharacters(in: .whitespaces)
         guard !query.isEmpty else { return lines }
@@ -136,7 +130,6 @@ struct TerminalMenu: View {
             highlighted = self.matches.first { $0.kind != .comment }?.id
         }
         .onChange(of: focused) { _, focused in
-            // A click in the line or elsewhere takes the keys, and the list goes.
             if !focused {
                 close()
             }
@@ -204,13 +197,11 @@ struct TerminalMenu: View {
         .accessibilityIdentifier("\(identifier).\(AccessibilityIdentifier.token(line.id))")
     }
 
-    /// The width of the widest line, in the cells of the terminal's font.
     private func width(_ lines: [Line], column: Int) -> CGFloat {
         let cells = lines.map { line in
             let detail = line.detail.map { $0.count + 2 } ?? 0
             return line.kind == .comment ? line.title.count + 2 + detail : max(column, line.title.count) + detail
         }
-        // A long list scrolls, and its scroll bar takes a little of the width.
         let bar: CGFloat = lines.count > Self.visibleRows ? 16 : 0
         return 20 + CGFloat(max(cells.max() ?? 0, filter.count + 2)) * Self.cell + 16 + bar
     }
@@ -223,7 +214,6 @@ struct TerminalMenu: View {
         return .handled
     }
 
-    /// Shows the lines one after another, as a terminal prints them.
     private func reveal() async {
         guard !theme.motion.reduced else {
             shown = .max
@@ -239,8 +229,6 @@ struct TerminalMenu: View {
     }
 }
 
-/// The line where a new account gets its name: typed as a terminal reads a
-/// word, with the folder that it will make shown beside it.
 struct NewAccountLine: View {
     @Environment(\.theme) private var theme
     let folder: String

@@ -3,42 +3,6 @@ import Foundation
 import KodosiBridge
 
 extension AppDependencies {
-    enum SignInStage: Equatable {
-        case idle
-        case starting
-        case awaitingApproval(code: String, url: URL?)
-        case finalizing
-        case trustingDevice(DeviceTrust)
-        case signedIn
-        case failed(message: String, completed: Int)
-
-        var isPending: Bool {
-            switch self {
-            case .starting, .awaitingApproval, .finalizing, .trustingDevice: true
-            case .idle, .signedIn, .failed: false
-            }
-        }
-
-        var completedSteps: Int {
-            switch self {
-            case .idle, .starting: 0
-            case .awaitingApproval: 1
-            case .finalizing, .trustingDevice: 2
-            case .signedIn: 3
-            case let .failed(_, completed): completed
-            }
-        }
-    }
-
-    enum DeviceTrust: Equatable {
-        case choose
-        case requesting
-        case pendingApproval(code: String)
-        case recovering
-        case resetting
-        case failed(String)
-    }
-
     var deviceTrust: DeviceTrust {
         if case let .trustingDevice(trust) = signInStage {
             trust

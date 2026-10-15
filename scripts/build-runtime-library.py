@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-"""Builds the runtime library, which is the static library of the crate kodosi-ffi-c,
-and copies it, with its generated C header, to <output-dir>/<target>/<profile>. Prints
-that folder."""
+"""Builds the kodosi-ffi-c static library and copies it, with its C header, to
+<output-dir>/<target>/<profile>. Prints that folder."""
 
 from __future__ import annotations
 
@@ -28,8 +27,6 @@ def build(manifest: Path, output: Path, profile: str, target: str, default_featu
         "-p", "kodosi-ffi-c", "--message-format=json-render-diagnostics"]
     if not default_features:
         command.append("--no-default-features")
-    # Cargo prints the compiler messages itself. The JSON lines on stdout name the
-    # archive, and the build script folder that holds the header.
     process = subprocess.Popen(command, cwd=manifest.parent, stdout=subprocess.PIPE, text=True)
     assert process.stdout is not None
     archives: dict[str, Path] = {}

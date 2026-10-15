@@ -6,15 +6,10 @@ import { buttonClass } from "./button";
 import { cn } from "./cn";
 import { Avatar } from "./person";
 
-/** Keycloak's words can hold markup. A page shows the words alone, so no markup of a message runs. */
 export function plain(html: string): string {
   return new DOMParser().parseFromString(html, "text/html").body.textContent ?? "";
 }
 
-/**
- * The realm's own markup, as its terms, cleaned. Its links open in a new tab, so a form that the
- * person fills stays as it is.
- */
 export function safeHtml(html: string): string {
   const page = new DOMParser().parseFromString(kcSanitize(html), "text/html");
   for (const link of page.querySelectorAll("a[href]")) {
@@ -24,10 +19,8 @@ export function safeHtml(html: string): string {
   return page.body.innerHTML;
 }
 
-/** The id of the page's note. A field that Keycloak refused names it, so a screen reader says the note with the field. */
 export const NOTE_ID = "page-note";
 
-/** One line of what Keycloak says, under the capsule. The dot carries the tone, never an alarm. */
 export function Note({
   tone,
   text,
@@ -35,7 +28,6 @@ export function Note({
 }: {
   tone: "danger" | "caution" | "plain";
   text: string;
-  /** A page with more than one capsule gives each note its own id. */
   id?: string;
 }) {
   return (
@@ -58,10 +50,6 @@ export function Note({
   );
 }
 
-/**
- * Who signs in, when Keycloak knows it already: the first row of the capsule, and the step's own
- * rows come under it. A password manager reads the name from here.
- */
 export function IdentityRow({
   name,
   restart,
@@ -95,8 +83,6 @@ export function IdentityRow({
   );
 }
 
-/** A quiet way to a different step, as a link or as the button of a form. Under a finger it has
-    the height that a finger needs. */
 export const quietLink =
   "rounded-md text-footnote font-medium text-accent-strong underline-offset-3 hover:underline disabled:pointer-events-none disabled:opacity-45 pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center pointer-coarse:px-2";
 
@@ -110,7 +96,6 @@ export function QuietLink({ className, children, ...props }: ComponentProps<"a">
 
 const way = "h-11 w-full min-w-0 gap-2.5 px-3 text-[14.5px]";
 
-/** A different way in: a passkey, or the sign-in of a different company. */
 export function Way({
   icon,
   children,
@@ -121,7 +106,6 @@ export function Way({
   icon?: ReactNode;
   children: ReactNode;
   href?: string;
-  /** The way that this browser used the last time: the copper dot of the app says so. */
   mark?: string | undefined;
 } & Omit<ComponentProps<"button">, "children">) {
   const inside = (

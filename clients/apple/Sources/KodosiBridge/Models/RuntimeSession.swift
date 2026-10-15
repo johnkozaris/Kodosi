@@ -7,7 +7,6 @@ public struct ProgramStatus: Decodable, Equatable, Sendable {
     public let state: State
     public let kind: Kind?
     public let progress: Int?
-    public let app: String?
     public let title: String?
     public let message: String?
 
