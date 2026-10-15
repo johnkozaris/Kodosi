@@ -9,7 +9,7 @@ struct SessionFolderGroup: Identifiable {
 
     var name: String {
         guard let directory else { return String(localized: "Terminals") }
-        return URL(fileURLWithPath: directory).lastPathComponent
+        return HostPath.folderName(directory)
     }
 
     var label: String {

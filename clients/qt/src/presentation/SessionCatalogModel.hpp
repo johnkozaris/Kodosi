@@ -67,6 +67,9 @@ public:
     [[nodiscard]] bool working() const;
     Q_INVOKABLE void clearAttention(const QString& id);
     void noteAttention(const QString& id);
+    // The last part of a folder path between separators, or the path if it has none, for
+    // example `/`. Hosts report `/…` on Linux and macOS, and `C:\…` or `\\server\share\…` on Windows.
+    Q_INVOKABLE [[nodiscard]] static QString folderName(const QString& path);
     [[nodiscard]] int rowCount(const QModelIndex& parent = {}) const override;
     [[nodiscard]] QVariant data(const QModelIndex&, int role) const override;
     [[nodiscard]] AuthorityState authorityState() const { return m_state; }

@@ -46,7 +46,7 @@ struct HistoryView: View {
                         browser.load()
                     }
                 } label: {
-                    Label(browser.directory.isEmpty ? String(localized: "All projects") : URL(fileURLWithPath: browser.directory).lastPathComponent,
+                    Label(browser.directory.isEmpty ? String(localized: "All projects") : HostPath.folderName(browser.directory),
                           systemImage: "folder")
                 }
                 .buttonStyle(.kodosi(.secondary, size: .small)).help("Choose a project folder")
@@ -106,12 +106,12 @@ struct HistoryView: View {
                     let selected = browser.selected?.id == conversation.id
                     Button { browser.select(conversation) } label: {
                         VStack(alignment: .leading, spacing: 5) {
-                            Text(conversation.title ?? URL(fileURLWithPath: conversation.workingDirectory).lastPathComponent)
+                            Text(conversation.title ?? HostPath.folderName(conversation.workingDirectory))
                                 .appTextStyle(.body).fontWeight(.medium).foregroundStyle(theme.colors.ink).lineLimit(2)
                                 .multilineTextAlignment(.leading)
                             HStack(spacing: 6) {
                                 Image(systemName: "folder").font(.system(size: 9))
-                                Text(URL(fileURLWithPath: conversation.workingDirectory).lastPathComponent).lineLimit(1)
+                                Text(HostPath.folderName(conversation.workingDirectory)).lineLimit(1)
                                 if let updated = conversation.updatedAt {
                                     Text(verbatim: "·")
                                     Text(historyDate(updated)).lineLimit(1)

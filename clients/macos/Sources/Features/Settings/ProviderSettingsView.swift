@@ -35,7 +35,7 @@ struct ProviderSettingsView: View {
                 }, compact: true, identifier: "settings.providers")
             }
             ListGroup(footer: "Kodosi opens these files. It does not change them.") {
-                ListRow(directory.map { URL(fileURLWithPath: $0).lastPathComponent } ?? String(localized: "All projects"),
+                ListRow(directory.map(HostPath.folderName) ?? String(localized: "All projects"),
                         subtitle: directory, monoSubtitle: true, symbol: "folder.fill", tint: TileTint.amber)
                 {
                     if directory != nil {

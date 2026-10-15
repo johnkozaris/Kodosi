@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import Kodosi 1.0
-import QtCore
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -19,7 +18,7 @@ ColumnLayout {
     property real menuX: 0
     property bool adding: false
     readonly property font commandFont: Qt.font({ family: "monospace", pixelSize: KodosiTheme.fontBody, weight: Font.Medium })
-    readonly property string home: StandardPaths.writableLocation(StandardPaths.HomeLocation).toString().replace(/^file:\/\//, "")
+    readonly property string home: Models.DesktopSettings.homeDirectory
     readonly property var choice: Models.Launcher.choice
     readonly property var agents: Models.Launcher.agents
     readonly property string agentId: choice.agent || ""
@@ -68,10 +67,6 @@ ColumnLayout {
 
     function tilde(path) {
         return path === home ? "~" : path.startsWith(home + "/") ? "~" + path.slice(home.length) : path
-    }
-    function folderName(path) {
-        const parts = path.split("/").filter(part => part.length > 0)
-        return parts.length > 0 ? parts[parts.length - 1] : "/"
     }
     function start() {
         if (!ready)
@@ -785,7 +780,7 @@ ColumnLayout {
                                 maximumWidth: 240
                                 glyph: "folder"
                                 glyphColor: "#5dafa6"
-                                words: root.tilde(root.directory) === "~" ? "~" : root.folderName(root.directory)
+                                words: root.tilde(root.directory) === "~" ? "~" : Models.Sessions.folderName(root.directory)
                                 kind: "folder"
                                 objectName: "launcher.folder"
                                 Accessible.id: objectName

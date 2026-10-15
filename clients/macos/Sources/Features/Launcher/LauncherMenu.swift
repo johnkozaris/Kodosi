@@ -116,7 +116,7 @@ func recentFolders(_ deps: AppDependencies, chosen: String?) -> [String] {
 }
 
 func folderName(_ path: String) -> String {
-    tilde(path) == "~" ? "~" : URL(fileURLWithPath: path).lastPathComponent
+    tilde(path) == "~" ? "~" : HostPath.folderName(path)
 }
 
 func tilde(_ path: String) -> String {

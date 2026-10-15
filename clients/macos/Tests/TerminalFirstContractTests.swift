@@ -13,11 +13,12 @@ func runtimeEvent(_ type: String, epoch: UInt64 = 1, userId: String? = "owner", 
 }
 
 func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind: String = "remote",
-                    connection: String = "offline", status: String = "running", owner: Bool = true) throws -> RuntimeSession
+                    connection: String = "offline", status: String = "running", owner: Bool = true,
+                    directory: String = "/remote/project") throws -> RuntimeSession
 {
     try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode([
         "id": JSONValue.string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
-        "kind": .string(kind), "name": .string("Terminal"), "workingDir": .string("/remote/project"),
+        "kind": .string(kind), "name": .string("Terminal"), "workingDir": .string(directory),
         "isOwner": .bool(owner), "status": .string(status), "connectionState": .string(connection),
         "sharedWith": .array([]),
     ]))
@@ -173,6 +174,19 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(workbench.selectedSessionId == first.id)
     workbench.sidebarCollapsed = true
     #expect(workbench.stagedSessionIds == [first.id, second.id])
+}
+
+@Test func eachHostFolderShowsItsLastFolder() throws {
+    for (path, name) in [
+        ("/Users/ada/project", "project"), ("/home/ada/project/", "project"), (#"/home/ada/one\two"#, #"one\two"#), ("/", "/"),
+        (#"C:\Users\ada\project"#, "project"), (#"d:/Users/ada/project\"#, "project"), (#"C:\"#, "C:"),
+        (#"\\server\share\project"#, "project"), (#"\\server\share"#, "share"),
+    ] {
+        #expect(HostPath.folderName(path) == name)
+    }
+    let windows = try runtimeSession(directory: #"C:\Users\ada\project"#)
+    #expect(windows.folderName == "project")
+    #expect(SessionFolderGroup.groups([windows]).map(\.name) == ["project"])
 }
 
 @Test func providerTitleDoesNotReplaceTheSidebarName() throws {
