@@ -137,7 +137,7 @@ Item {
 
                             Behavior on color {
                                 SequentialAnimation {
-                                    PauseAnimation { duration: KodosiTheme.reduceMotion ? 0 : (segment.index - 1) * 35 }
+                                    PauseAnimation { duration: KodosiTheme.reduceMotion ? 0 : Math.max(0, segment.index - 1) * 35 }
                                     ColorAnimation { duration: KodosiTheme.motionSnappy }
                                 }
                             }
