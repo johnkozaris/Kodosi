@@ -6,7 +6,7 @@ use super::{
     accounts::{self, referenced_home},
     learned,
     models::{self, codex, copilot, cursor, listed_values, opencode},
-    shell::{self, Definition, Facts},
+    shell::{Definition, Facts},
     *,
 };
 
@@ -25,6 +25,7 @@ fn alias(name: &str, text: &str) -> Definition {
     }
 }
 
+#[cfg(unix)]
 fn run_script(shell: &str, arguments: &[&str], prelude: &str, family_script: &str) -> Facts {
     let output = std::process::Command::new(shell)
         .args(arguments)
@@ -35,6 +36,7 @@ fn run_script(shell: &str, arguments: &[&str], prelude: &str, family_script: &st
     shell::parse(&String::from_utf8_lossy(&output.stdout)).expect("both markers")
 }
 
+#[cfg(unix)]
 #[test]
 fn shell_scripts_report_path_and_agent_definitions() {
     let prelude = r#"claudesim() { _claude_profile "$HOME/.claude-alt" "$@"; }
@@ -87,6 +89,7 @@ gitlog() { git log; }"#;
     }
 }
 
+#[cfg(unix)]
 #[test]
 fn probe_output_is_read_between_the_markers_only() {
     let facts = shell::parse(

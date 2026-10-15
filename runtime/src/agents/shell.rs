@@ -5,12 +5,17 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[cfg(unix)]
 use super::Agent;
 
+#[cfg(unix)]
 const START: &str = "\u{1e}kodosi-agents";
+#[cfg(unix)]
 const END: &str = "\u{1e}end";
+#[cfg(unix)]
 const PROBE_TIME: Duration = Duration::from_secs(6);
 const REUSE_TIME: Duration = Duration::from_secs(600);
+#[cfg(unix)]
 const MAX_OUTPUT: usize = 512 * 1024;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -68,6 +73,7 @@ pub(super) async fn facts(shell: &Path, fresh: bool) -> Facts {
     facts
 }
 
+#[cfg(unix)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Family {
     Zsh,
@@ -76,6 +82,7 @@ pub(super) enum Family {
     Posix,
 }
 
+#[cfg(unix)]
 pub(super) fn family(shell: &Path) -> Option<Family> {
     match shell.file_stem()?.to_str()? {
         "zsh" => Some(Family::Zsh),
@@ -86,6 +93,7 @@ pub(super) fn family(shell: &Path) -> Option<Family> {
     }
 }
 
+#[cfg(unix)]
 pub(super) fn script(family: Family) -> String {
     let programs = Agent::ALL.map(Agent::program);
     let pattern = programs.map(|program| format!("{program}*")).join("|");
@@ -177,16 +185,22 @@ async fn ask(shell: &Path, family: Family, interactive: bool) -> Option<Facts> {
 }
 
 #[cfg(windows)]
+#[expect(
+    clippy::unused_async,
+    reason = "Unix asks the shell, which Windows terminals do not need"
+)]
 async fn probe(_shell: &Path) -> Facts {
     Facts::default()
 }
 
+#[cfg(unix)]
 fn contains(haystack: &[u8], needle: &[u8]) -> bool {
     haystack
         .windows(needle.len())
         .any(|window| window == needle)
 }
 
+#[cfg(unix)]
 pub(super) fn parse(output: &str) -> Option<Facts> {
     let body = &output[output.find(START)? + START.len()..];
     let body = &body[..body.find(END)?];
@@ -222,6 +236,7 @@ pub(super) fn parse(output: &str) -> Option<Facts> {
 }
 
 /// Bash prints `alias name='value'`, zsh the value alone.
+#[cfg(unix)]
 fn alias_value(name: &str, text: &str) -> String {
     text.strip_prefix("alias ")
         .and_then(|text| text.strip_prefix(name))
