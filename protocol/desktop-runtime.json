@@ -5594,7 +5594,7 @@
   "protocolVersion": 58,
   "terminal": {
     "checkpointMaxBytes": 8388608,
-    "checkpointSchema": 3,
+    "checkpointSchema": 4,
     "rawInputMaxBytes": 1048576
   }
 }

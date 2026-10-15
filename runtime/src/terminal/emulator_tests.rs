@@ -78,7 +78,7 @@ fn a_history_too_large_for_one_snapshot_still_gives_the_screen() {
     let cut = terminal.checkpoint_data(true).expect("checkpoint");
 
     assert_eq!(
-        cut.checkpoint.snapshot,
+        cut.checkpoint.snapshot(),
         terminal
             .terminal
             .visible_snapshot(TERMINAL_SNAPSHOT_MAX_BYTES)

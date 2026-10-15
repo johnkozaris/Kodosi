@@ -3,14 +3,14 @@ use std::{path::PathBuf, str, thread, time::Duration};
 use super::{
     status::{BlockedKind, ProgramState, ProgramStatusReport},
     types::{
-        Checkpoint, TERMINAL_SNAPSHOT_MAX_BYTES, TerminalPixelGeometry, TerminalScreen,
-        TerminalSize, is_valid_folder,
+        Checkpoint, TERMINAL_SNAPSHOT_MAX_BYTES, TerminalPixelGeometry, TerminalSize,
+        is_valid_folder,
     },
 };
 use crate::{Error, Result};
 use ghostty_vt::{
-    CompressionProgress, Effect, ProgramStatusKind, ProgramStatusState, ProgressState, Screen,
-    Terminal, TerminalPolicy,
+    CompressionProgress, Effect, ProgramStatusKind, ProgramStatusState, ProgressState, Terminal,
+    TerminalPolicy,
 };
 use tokio::{
     runtime::Builder as TokioRuntimeBuilder,
@@ -239,19 +239,8 @@ impl SessionTerminal {
             Some(full) => full,
         }
         .map_err(terminal_error)?;
-        let state = self.terminal.state().map_err(terminal_error)?;
-        let mut checkpoint = Checkpoint::new(
-            TerminalSize::new(state.rows, state.cols).map_err(|error| {
-                Error::Other(format!("terminal checkpoint size failed: {error}"))
-            })?,
-            terminal_screen(state.active_screen),
-            snapshot,
-            state.cursor_x,
-            state.cursor_y,
-            !state.cursor_visible,
-        )
-        .map_err(|error| Error::Other(format!("terminal checkpoint validation failed: {error}")))?;
-        checkpoint.console = kodosi_pty::CONSOLE_HOST;
+        let checkpoint = Checkpoint::new(snapshot, kodosi_pty::CONSOLE_HOST)
+            .map_err(|error| Error::Other(format!("terminal checkpoint failed: {error}")))?;
         Ok(CheckpointWithSequence {
             checkpoint,
             applied_sequence: self.applied,
@@ -264,13 +253,6 @@ impl SessionTerminal {
 
     fn compression_activity(&mut self) -> Result<u64> {
         self.terminal.compression_activity().map_err(terminal_error)
-    }
-}
-
-fn terminal_screen(screen: Screen) -> TerminalScreen {
-    match screen {
-        Screen::Primary => TerminalScreen::Primary,
-        Screen::Alternate => TerminalScreen::Alternate,
     }
 }
 

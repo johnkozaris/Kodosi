@@ -48,8 +48,6 @@ pub(super) async fn attach(root: &Path, session: Uuid) -> Result<()> {
     .map_err(|_| Error::Other("terminal snapshot timed out".into()))??;
     let TerminalFrame::Checkpoint {
         bytes,
-        rows,
-        cols,
         console,
         next_sequence,
     } = initial
@@ -58,7 +56,7 @@ pub(super) async fn attach(root: &Path, session: Uuid) -> Result<()> {
             "terminal stream did not start with a snapshot".into(),
         ));
     };
-    let mut mirror = restore(&bytes, rows, cols, console)?;
+    let mut mirror = restore(&bytes, console)?;
     let mut next = next_sequence;
     let _screen = ScreenGuard::enter()?;
     render(&mut mirror)?;
@@ -97,7 +95,7 @@ pub(super) async fn attach(root: &Path, session: Uuid) -> Result<()> {
                     unacknowledged=unacknowledged.saturating_sub(1);
                     if !accepted { return Err(Error::Other(message.unwrap_or_else(|| "Input was rejected".into()))); }
                 },
-                TerminalFrame::Checkpoint{bytes,rows,cols,console,next_sequence}=>{mirror=restore(&bytes,rows,cols,console)?;next=next_sequence;dirty=true;}
+                TerminalFrame::Checkpoint{bytes,console,next_sequence}=>{mirror=restore(&bytes,console)?;next=next_sequence;dirty=true;}
                 TerminalFrame::Data{bytes,sequence}=>{
                     if sequence<next{continue;}
                     if sequence!=next{return Err(Error::Invalid("terminal stream lost output; reconnect to restore it".into()));}
@@ -118,22 +116,15 @@ pub(super) async fn attach(root: &Path, session: Uuid) -> Result<()> {
         }
     }
 }
-fn restore(bytes: &[u8], rows: u16, cols: u16, console: bool) -> Result<Terminal> {
-    let mut terminal = Terminal::from_snapshot(
+fn restore(bytes: &[u8], console: bool) -> Result<Terminal> {
+    Terminal::from_snapshot(
         bytes,
         TerminalPolicy {
             console,
             ..TerminalPolicy::default()
         },
     )
-    .map_err(|e| Error::Other(e.to_string()))?;
-    let state = terminal.state().map_err(|e| Error::Other(e.to_string()))?;
-    if state.rows != rows || state.cols != cols {
-        return Err(Error::Invalid(
-            "terminal snapshot geometry does not match".into(),
-        ));
-    }
-    Ok(terminal)
+    .map_err(|e| Error::Other(e.to_string()))
 }
 fn render(terminal: &mut Terminal) -> Result<()> {
     let bytes = terminal

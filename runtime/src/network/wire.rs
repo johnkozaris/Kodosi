@@ -18,7 +18,7 @@ pub(crate) use frame::{End, KEYFRAME_PART};
 pub(crate) const RAW_CHUNK_LIMIT: usize = 64 * 1024;
 pub(crate) const RAW_BATCH_LIMIT: usize = 128;
 const METADATA_LIMIT: usize = 16_384;
-const CHECKPOINT_HEADER: usize = 19;
+const CHECKPOINT_HEADER: usize = 9;
 const SNAPSHOT_LIMIT: usize = TERMINAL_SNAPSHOT_MAX_BYTES + CHECKPOINT_HEADER + METADATA_LIMIT;
 #[cfg(any(feature = "host", test))]
 const SNAPSHOT_LEVEL: u32 = 6;
@@ -266,21 +266,9 @@ fn decode_metadata(encoded: &[u8]) -> Result<crate::terminal::TerminalMetadata> 
 
 #[cfg(any(feature = "host", test))]
 fn encode_checkpoint(checkpoint: &crate::terminal::Checkpoint) -> Result<Vec<u8>> {
-    let bytes = &checkpoint.snapshot;
-    if bytes.is_empty() || bytes.len() > TERMINAL_SNAPSHOT_MAX_BYTES {
-        return Err(invalid("Terminal checkpoint exceeds its bound."));
-    }
+    let bytes = checkpoint.snapshot();
     let mut encoded = Vec::with_capacity(bytes.len() + CHECKPOINT_HEADER);
     encoded.extend_from_slice(&TERMINAL_CHECKPOINT_SCHEMA_VERSION.to_be_bytes());
-    encoded.extend_from_slice(&checkpoint.rows().to_be_bytes());
-    encoded.extend_from_slice(&checkpoint.cols().to_be_bytes());
-    encoded.push(match checkpoint.active_screen {
-        crate::terminal::TerminalScreen::Primary => 0,
-        crate::terminal::TerminalScreen::Alternate => 1,
-    });
-    encoded.extend_from_slice(&checkpoint.cursor_x().to_be_bytes());
-    encoded.extend_from_slice(&checkpoint.cursor_y().to_be_bytes());
-    encoded.push(u8::from(checkpoint.cursor_hidden()));
     encoded.push(u8::from(checkpoint.console));
     encoded.extend_from_slice(
         &u32::try_from(bytes.len())
@@ -295,7 +283,7 @@ fn encode_checkpoint(checkpoint: &crate::terminal::Checkpoint) -> Result<Vec<u8>
 }
 
 fn decode_checkpoint(encoded: &[u8]) -> Result<crate::terminal::Checkpoint> {
-    use crate::terminal::{Checkpoint, TerminalScreen, TerminalSize};
+    use crate::terminal::Checkpoint;
     if encoded.len() < CHECKPOINT_HEADER || encoded.len() > SNAPSHOT_LIMIT {
         return Err(invalid("Checkpoint plaintext has invalid length."));
     }
@@ -307,26 +295,13 @@ fn decode_checkpoint(encoded: &[u8]) -> Result<crate::terminal::Checkpoint> {
     {
         return Err(invalid("Unsupported terminal checkpoint schema."));
     }
-    let read16 = |at: usize| u16::from_be_bytes([encoded[at], encoded[at + 1]]);
-    let size =
-        TerminalSize::new(read16(4), read16(6)).map_err(|error| invalid(error.to_string()))?;
-    let screen = match encoded[8] {
-        0 => TerminalScreen::Primary,
-        1 => TerminalScreen::Alternate,
-        _ => return Err(invalid("Invalid terminal screen.")),
-    };
-    let hidden = match encoded[13] {
-        0 => false,
-        1 => true,
-        _ => return Err(invalid("Invalid cursor state.")),
-    };
-    let console = match encoded[14] {
+    let console = match encoded[4] {
         0 => false,
         1 => true,
         _ => return Err(invalid("Invalid console state.")),
     };
     let len = u32::from_be_bytes(
-        encoded[15..CHECKPOINT_HEADER]
+        encoded[5..CHECKPOINT_HEADER]
             .try_into()
             .map_err(|_| invalid("Invalid checkpoint length."))?,
     ) as usize;
@@ -338,15 +313,10 @@ fn decode_checkpoint(encoded: &[u8]) -> Result<crate::terminal::Checkpoint> {
         return Err(invalid("Checkpoint length disagrees with envelope."));
     }
     let mut checkpoint = Checkpoint::new(
-        size,
-        screen,
         encoded[CHECKPOINT_HEADER..CHECKPOINT_HEADER + len].to_vec(),
-        read16(9),
-        read16(11),
-        hidden,
+        console,
     )
     .map_err(|error| invalid(error.to_string()))?;
-    checkpoint.console = console;
     if encoded.len() > CHECKPOINT_HEADER + len {
         checkpoint.metadata = Some(decode_metadata(&encoded[CHECKPOINT_HEADER + len..])?);
     }
@@ -358,20 +328,14 @@ mod tests {
     use super::*;
     #[test]
     fn a_large_snapshot_goes_in_parts_and_comes_back_whole() {
-        use crate::terminal::{Checkpoint, TerminalScreen, TerminalSize};
-        let body = (0..700_000u32)
-            .flat_map(|value| value.wrapping_mul(2_654_435_761).to_be_bytes())
-            .collect::<Vec<_>>();
-        let mut checkpoint = Checkpoint::new(
-            TerminalSize::new(30, 100).unwrap(),
-            TerminalScreen::Primary,
-            body,
-            3,
-            4,
-            false,
-        )
-        .unwrap();
-        checkpoint.console = true;
+        use crate::terminal::Checkpoint;
+        let mut body = ghostty_vt::Terminal::new(100, 30, ghostty_vt::TerminalPolicy::default())
+            .and_then(|mut terminal| terminal.visible_snapshot(usize::MAX))
+            .unwrap();
+        body.extend(
+            (0..700_000u32).flat_map(|value| value.wrapping_mul(2_654_435_761).to_be_bytes()),
+        );
+        let checkpoint = Checkpoint::new(body, true).unwrap();
         let parts = snapshot_parts(&checkpoint).unwrap();
         assert!(parts.len() > 1 && parts.iter().all(|part| part.len() <= KEYFRAME_PART));
         let restored = snapshot(&parts.concat()).unwrap();

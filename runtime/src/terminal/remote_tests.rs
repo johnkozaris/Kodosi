@@ -25,16 +25,7 @@ fn checkpoint(rows: u16, cols: u16, bytes: &[u8]) -> Checkpoint {
     let snapshot = terminal
         .snapshot(super::super::TERMINAL_SNAPSHOT_MAX_BYTES)
         .expect("snapshot");
-    let state = terminal.state().expect("state");
-    Checkpoint::new(
-        TerminalSize::new(rows, cols).expect("size"),
-        super::super::TerminalScreen::Primary,
-        snapshot,
-        state.cursor_x,
-        state.cursor_y,
-        !state.cursor_visible,
-    )
-    .expect("metadata")
+    Checkpoint::new(snapshot, false).expect("checkpoint")
 }
 
 async fn next_request(requests: &mut mpsc::Receiver<TestRemoteRequest>) -> TestRemoteRequest {

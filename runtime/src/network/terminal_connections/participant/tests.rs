@@ -1,11 +1,8 @@
 use super::{
-    super::channel::tests::{Pipe, noise, pair},
+    super::channel::tests::{Pipe, pair, stand_in_snapshot},
     *,
 };
-use crate::{
-    identity::keys::DeviceKeys,
-    terminal::{Checkpoint, TerminalScreen, TerminalSize},
-};
+use crate::{identity::keys::DeviceKeys, terminal::Checkpoint};
 
 struct View {
     host: Channel<Pipe>,
@@ -43,15 +40,7 @@ async fn view() -> View {
 
 impl View {
     async fn keyframe(&mut self, next_sequence: u64, bytes: usize) -> u64 {
-        let checkpoint = Checkpoint::new(
-            TerminalSize::new(24, 80).unwrap(),
-            TerminalScreen::Primary,
-            noise(bytes),
-            0,
-            0,
-            false,
-        )
-        .unwrap();
+        let checkpoint = Checkpoint::new(stand_in_snapshot(bytes), false).unwrap();
         let parts = wire::snapshot_parts(&checkpoint).unwrap();
         let last = parts.len() - 1;
         let mut sent = 0;
@@ -125,7 +114,7 @@ async fn a_view_installs_each_whole_snapshot_and_acknowledges_what_it_received()
     else {
         panic!("snapshot");
     };
-    assert_eq!(checkpoint.snapshot.len(), 100_000);
+    assert_eq!(checkpoint.snapshot().len(), 100_000);
     let mut acknowledged = 0;
     while let Ok(frame) =
         tokio::time::timeout(Duration::from_millis(300), view.host.receive()).await
@@ -156,7 +145,7 @@ async fn a_view_installs_each_whole_snapshot_and_acknowledges_what_it_received()
     ));
     assert!(matches!(view.sent_by_view().await, Frame::Ack { .. }));
 
-    view.keyframe(40, 100).await;
+    view.keyframe(40, 200).await;
     assert!(matches!(
         view.updates.recv().await,
         Some(RemoteUpdate::Resync)
@@ -174,7 +163,7 @@ async fn a_view_installs_each_whole_snapshot_and_acknowledges_what_it_received()
 async fn input_goes_at_once_in_order_and_waits_only_when_too_much_is_not_confirmed() {
     let mut view = view().await;
     assert!(view.input(b"early").await.is_err());
-    view.keyframe(0, 100).await;
+    view.keyframe(0, 200).await;
     view.updates.recv().await.unwrap();
     assert!(matches!(view.sent_by_view().await, Frame::Ack { .. }));
     view.host
@@ -230,7 +219,7 @@ async fn input_goes_at_once_in_order_and_waits_only_when_too_much_is_not_confirm
 #[tokio::test]
 async fn a_lost_connection_says_that_input_was_not_sent_when_the_host_did_not_confirm_all_of_it() {
     let mut view = view().await;
-    view.keyframe(0, 100).await;
+    view.keyframe(0, 200).await;
     view.updates.recv().await.unwrap();
     view.input(b"12345").await.unwrap();
     view.host
@@ -247,7 +236,7 @@ async fn a_lost_connection_says_that_input_was_not_sent_when_the_host_did_not_co
 #[tokio::test]
 async fn the_end_from_the_host_ends_the_view_with_all_input_confirmed() {
     let mut view = view().await;
-    view.keyframe(0, 100).await;
+    view.keyframe(0, 200).await;
     view.updates.recv().await.unwrap();
     view.input(b"exit\r").await.unwrap();
     view.host

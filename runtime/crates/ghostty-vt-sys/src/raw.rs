@@ -18,7 +18,9 @@ use crate::*;
 
 const SNAPSHOT_ENVELOPE: &[u8] = b"GHOSTSNP\x01\x00";
 const SNAPSHOT_RECORD_HEADER_BYTES: usize = 10;
+const SNAPSHOT_TERMINAL_TAG: u16 = 1;
 const SNAPSHOT_READY_TAG: u16 = 5;
+const SNAPSHOT_TERMINAL_HEADER_BYTES: usize = 103;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
@@ -124,6 +126,51 @@ pub enum CompressionProgress {
     Complete,
 }
 
+/// What a snapshot declares in its first record. The decoder allocates by
+/// these values before it checks the rest of the snapshot.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SnapshotHeader {
+    pub cols: u16,
+    pub rows: u16,
+    pub scrollback_max_bytes: Option<u64>,
+    pub scrollback_max_lines: Option<u64>,
+}
+
+impl SnapshotHeader {
+    /// Follows the documented TERMINAL record of snapshot format version 1.
+    pub fn read(snapshot: &[u8]) -> Result<Self, Error> {
+        let record = snapshot
+            .strip_prefix(SNAPSHOT_ENVELOPE)
+            .ok_or(Error::InvalidValue)?;
+        let (Some(header), Some(fields)) = (
+            record.get(..SNAPSHOT_RECORD_HEADER_BYTES),
+            record.get(
+                SNAPSHOT_RECORD_HEADER_BYTES
+                    ..SNAPSHOT_RECORD_HEADER_BYTES + SNAPSHOT_TERMINAL_HEADER_BYTES,
+            ),
+        ) else {
+            return Err(Error::InvalidValue);
+        };
+        let payload = u32::from_le_bytes([header[2], header[3], header[4], header[5]]) as usize;
+        if u16::from_le_bytes([header[0], header[1]]) != SNAPSHOT_TERMINAL_TAG
+            || payload < SNAPSHOT_TERMINAL_HEADER_BYTES
+        {
+            return Err(Error::InvalidValue);
+        }
+        let limit = |at: usize| {
+            let mut value = [0; 8];
+            value.copy_from_slice(&fields[at..at + 8]);
+            Some(u64::from_le_bytes(value)).filter(|&value| value != u64::MAX)
+        };
+        Ok(Self {
+            cols: u16::from_le_bytes([fields[0], fields[1]]),
+            rows: u16::from_le_bytes([fields[2], fields[3]]),
+            scrollback_max_bytes: limit(87),
+            scrollback_max_lines: limit(95),
+        })
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
     OutOfMemory,
@@ -180,13 +227,25 @@ impl Terminal {
     }
 
     /// Restores a terminal from a Ghostty snapshot. A snapshot that ends at READY
-    /// restores the screens without the history after them.
+    /// restores the screens without the history after them. The decoder keeps
+    /// history up to the limits the snapshot declares, so a snapshot that
+    /// declares more than these limits is refused before it is decoded.
     pub fn from_snapshot(
         snapshot: &[u8],
         continuation_max_bytes: usize,
         scrollback_max_bytes: usize,
         scrollback_max_lines: usize,
     ) -> Result<Self, Error> {
+        let header = SnapshotHeader::read(snapshot)?;
+        let within = |declared: Option<u64>, limit: usize| {
+            declared
+                .is_some_and(|declared| u64::try_from(limit).is_ok_and(|limit| declared <= limit))
+        };
+        if !within(header.scrollback_max_bytes, scrollback_max_bytes)
+            || !within(header.scrollback_max_lines, scrollback_max_lines)
+        {
+            return Err(Error::LimitExceeded);
+        }
         let mut decoder = ptr::null_mut();
 
         result(unsafe {
@@ -274,10 +333,6 @@ impl Terminal {
         self.set_callback(
             GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_PWD_CHANGED,
             pwd_callback as *const c_void,
-        )?;
-        self.set_callback(
-            GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_CLIPBOARD_WRITE,
-            clipboard_callback as *const c_void,
         )?;
         self.set_callback(
             GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_DESKTOP_NOTIFICATION,
@@ -933,33 +988,6 @@ unsafe extern "C" fn pwd_callback(terminal: GhosttyTerminal, userdata: *mut c_vo
     });
 }
 
-unsafe extern "C" fn clipboard_callback(
-    _terminal: GhosttyTerminal,
-    userdata: *mut c_void,
-    write: *const GhosttyClipboardWrite,
-) {
-    if write.is_null() {
-        callback(userdata, (), |state| state.poisoned = true);
-        return;
-    }
-
-    let write = unsafe { &*write };
-    if write.size < mem::size_of::<GhosttyClipboardWrite>() {
-        callback(userdata, (), |state| state.poisoned = true);
-        return;
-    }
-    let Some(reply) = write.reply else {
-        callback(userdata, (), |state| state.poisoned = true);
-        return;
-    };
-    let response = GhosttyClipboardWriteReply {
-        size: mem::size_of::<GhosttyClipboardWriteReply>(),
-        result: GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_DENIED,
-        remember: false,
-    };
-    unsafe { reply(write, &raw const response) };
-}
-
 unsafe extern "C" fn desktop_notification_callback(
     _terminal: GhosttyTerminal,
     userdata: *mut c_void,
@@ -1215,29 +1243,6 @@ mod tests {
     }
 
     #[test]
-    fn malformed_clipboard_callback_poisons_terminal_before_writing() {
-        for write in [
-            None,
-            Some(GhosttyClipboardWrite::default()),
-            Some(GhosttyClipboardWrite {
-                size: mem::size_of::<GhosttyClipboardWrite>(),
-                ..GhosttyClipboardWrite::default()
-            }),
-        ] {
-            let mut terminal = terminal();
-            let userdata = ptr::from_mut(terminal.callbacks.as_mut()).cast::<c_void>();
-            unsafe {
-                clipboard_callback(
-                    terminal.raw,
-                    userdata,
-                    write.as_ref().map_or(ptr::null(), ptr::from_ref),
-                );
-            }
-            assert_eq!(terminal.state(), Err(Error::CallbackRejected));
-        }
-    }
-
-    #[test]
     fn a_program_status_query_gets_its_answer_before_the_device_attributes() {
         let mut terminal = terminal();
         let effects = terminal.write(b"\x1b]7501;?\x1b\\\x1b[c").expect("write");
@@ -1378,26 +1383,23 @@ mod tests {
     }
 
     #[test]
-    fn kitty_clipboard_write_is_denied_without_a_writer_capability() {
+    fn a_kitty_clipboard_write_is_refused_before_it_keeps_data() {
         let mut terminal = terminal();
-        let mut effects = terminal
+        let begin = terminal
             .write(b"\x1b]5522;type=write:id=linux\x1b\\")
             .expect("begin clipboard write");
-        effects.extend(
-            terminal
-                .write(b"\x1b]5522;type=wdata:mime=dGV4dC9wbGFpbg==;S29kb3Np\x1b\\")
-                .expect("write clipboard data"),
+        assert_eq!(
+            begin,
+            vec![Effect::PtyWrite(
+                b"\x1b]5522;type=write:status=ENOSYS:id=linux\x1b\\".to_vec()
+            )]
         );
-        effects.extend(
-            terminal
-                .write(b"\x1b]5522;type=wdata\x1b\\")
-                .expect("commit clipboard write"),
-        );
-        assert!(effects.iter().any(|effect| matches!(
-            effect,
-            Effect::PtyWrite(response)
-                if response == b"\x1b]5522;type=write:status=EPERM:id=linux\x1b\\"
-        )));
+        for packet in [
+            &b"\x1b]5522;type=wdata:mime=dGV4dC9wbGFpbg==;S29kb3Np\x1b\\"[..],
+            b"\x1b]5522;type=wdata\x1b\\",
+        ] {
+            assert_eq!(terminal.write(packet).expect("later packet"), []);
+        }
     }
 
     #[test]
@@ -1493,6 +1495,47 @@ mod tests {
             Err(Error::LimitExceeded)
         );
         assert_eq!(terminal.encode_snapshot(true, full.len()), Ok(full));
+    }
+
+    #[test]
+    fn a_snapshot_tells_its_size_and_scrollback_before_it_is_decoded() {
+        let visible = snapshot(&mut with_history(), false);
+
+        assert_eq!(
+            SnapshotHeader::read(&visible),
+            Ok(SnapshotHeader {
+                cols: 20,
+                rows: 4,
+                scrollback_max_bytes: Some(8 * 1024 * 1024),
+                scrollback_max_lines: Some(10_000),
+            })
+        );
+        assert_eq!(
+            SnapshotHeader::read(&visible[..SNAPSHOT_ENVELOPE.len() + 50]),
+            Err(Error::InvalidValue)
+        );
+        assert_eq!(SnapshotHeader::read(b"GHOSTSNP"), Err(Error::InvalidValue));
+    }
+
+    #[test]
+    fn a_snapshot_that_keeps_more_history_than_allowed_is_refused_before_decoding() {
+        let full = snapshot(&mut with_history(), true);
+        let mut unbounded =
+            Terminal::new(20, 4, 1024 * 1024, usize::MAX, usize::MAX).expect("terminal");
+        unbounded.write(b"history").expect("history");
+        let unbounded = snapshot(&mut unbounded, true);
+
+        for (snapshot, bytes, lines) in [
+            (&full, 8 * 1024 * 1024 - 1, 10_000),
+            (&full, 8 * 1024 * 1024, 9_999),
+            (&unbounded, usize::MAX - 1, usize::MAX - 1),
+        ] {
+            assert_eq!(
+                Terminal::from_snapshot(snapshot, 1024 * 1024, bytes, lines).err(),
+                Some(Error::LimitExceeded)
+            );
+        }
+        assert!(restore(&full).is_ok());
     }
 
     #[test]

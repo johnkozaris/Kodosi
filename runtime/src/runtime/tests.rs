@@ -942,15 +942,7 @@ fn first_snapshot() -> crate::network::RemoteUpdate {
         .snapshot(crate::terminal::TERMINAL_SNAPSHOT_MAX_BYTES)
         .unwrap();
     crate::network::RemoteUpdate::Checkpoint {
-        checkpoint: crate::terminal::Checkpoint::new(
-            TerminalSize::new(4, 20).unwrap(),
-            crate::terminal::TerminalScreen::Primary,
-            snapshot,
-            0,
-            0,
-            false,
-        )
-        .unwrap(),
+        checkpoint: crate::terminal::Checkpoint::new(snapshot, false).unwrap(),
         next_sequence: 0,
     }
 }

@@ -234,7 +234,7 @@ impl State {
         checkpoint: &terminal::Checkpoint,
         next_sequence: u64,
     ) -> bool {
-        let bytes = &checkpoint.snapshot;
+        let bytes = checkpoint.snapshot();
         if bytes.is_empty() || bytes.len() > KODOSI_TERMINAL_SNAPSHOT_MAX_BYTES {
             return false;
         }

@@ -8,7 +8,7 @@
 
 pub use ghostty_vt_sys::raw::{
     CompressionProgress, Effect, Error, ProgramStatus, ProgramStatusKind, ProgramStatusState,
-    ProgressState, Screen, TerminalState,
+    ProgressState, Screen, SnapshotHeader, TerminalState,
 };
 
 use ghostty_vt_sys::raw::{Format, FormatOptions, Terminal as RawTerminal};
