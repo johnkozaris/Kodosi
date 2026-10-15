@@ -51,6 +51,10 @@ struct AgentLauncher: View {
         info == nil ? choice.agent == nil : plan.line != nil
     }
 
+    private var hint: String {
+        info == nil ? String(localized: "Type a command") : String(localized: "Type a task")
+    }
+
     private var roomName: String? {
         roomId.flatMap { id in deps.missions.first { $0.id == id }?.name }
     }
@@ -82,19 +86,16 @@ struct AgentLauncher: View {
 
     private var card: some View {
         let shape = RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-        return VStack(spacing: 0) {
-            terminal
-            deck
-        }
-        .frame(width: Self.width)
-        .clipShape(shape)
-        .background {
-            shape.fill(TerminalInk.body)
-                .shadow(color: theme.colors.shadow.opacity(theme.isDark ? 0.5 : 0.16), radius: 12, x: 3, y: 7)
-        }
-        .overlay { shape.strokeBorder(theme.colors.hairline.opacity(theme.isDark ? 0.7 : 0.9), lineWidth: 0.5).allowsHitTesting(false) }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("launcher.preview")
+        return terminal
+            .frame(width: Self.width)
+            .clipShape(shape)
+            .background {
+                shape.fill(TerminalInk.body)
+                    .shadow(color: theme.colors.shadow.opacity(theme.isDark ? 0.5 : 0.16), radius: 12, x: 3, y: 7)
+            }
+            .overlay { shape.strokeBorder(theme.colors.hairline.opacity(theme.isDark ? 0.7 : 0.9), lineWidth: 0.5).allowsHitTesting(false) }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("launcher.preview")
     }
 
     private var terminal: some View {
@@ -114,10 +115,16 @@ struct AgentLauncher: View {
             .padding(.horizontal, 10)
             .frame(maxWidth: .infinity, minHeight: Self.bandHeight, maxHeight: Self.bandHeight, alignment: .bottomLeading)
             .background(TerminalInk.band)
-            LauncherCommandLine(
-                folder: directory.map(folderName) ?? "~", info: info, plan: plan, prompt: $prompt,
-                focus: focus + focusRequest, submit: start
-            )
+            LauncherCommandLine(info: info, prompt: $prompt, hint: hint, focus: focus + focusRequest, submit: start) {
+                folderKey
+            } choices: {
+                if let info, info.accounts.count > 1 || info.addsAccounts {
+                    accountKey(info).transition(AnyTransition.pop)
+                }
+                if let info, plan.listsModels || !plan.efforts.isEmpty {
+                    modelKey(info).transition(AnyTransition.pop)
+                }
+            }
             .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 18)
             .frame(maxWidth: .infinity, minHeight: centered ? 124 : 92, alignment: .topLeading)
             .background(TerminalInk.body)
@@ -141,37 +148,12 @@ struct AgentLauncher: View {
         .padding(.bottom, 11)
     }
 
-    private var deck: some View {
-        HStack(spacing: 0) {
-            FlowLayout(spacing: 8) {
-                folderKey
-                if let info, info.installed {
-                    if info.accounts.count > 1 || info.addsAccounts {
-                        accountKey(info)
-                    }
-                    if plan.listsModels || !plan.efforts.isEmpty {
-                        modelKey(info)
-                    }
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 12).padding(.vertical, 10)
-        .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
-        .background(theme.colors.raised)
-        .overlay(alignment: .top) {
-            Rectangle().fill(.white.opacity(theme.isDark ? 0.06 : 0.8)).frame(height: 1)
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("launcher.deck")
-    }
-
     private var folderKey: some View {
         PickerKey(
             title: directory.map(folderName) ?? "~", open: menu == .folder, identifier: "launcher.folder",
             label: String(localized: "Folder"), help: directory.map(tilde)
         ) {
-            Image(systemName: "folder.fill").font(.system(size: 11, weight: .semibold)).foregroundStyle(TileTint.teal)
+            Image(systemName: "folder.fill").font(.system(size: 10, weight: .semibold)).foregroundStyle(TileTint.teal)
         } action: {
             toggle(.folder)
         }
@@ -190,7 +172,7 @@ struct AgentLauncher: View {
             title: title, open: menu == .account, identifier: "launcher.account",
             label: String(localized: "Account"), help: account?.identity
         ) {
-            AccountMark(initial: String(title.prefix(1)), key: account?.signIn ?? "", signedIn: account?.identity != nil, size: 18)
+            AccountMark(initial: String(title.prefix(1)), key: account?.signIn ?? "", signedIn: account?.identity != nil, size: 16)
         } action: {
             toggle(.account)
         }
@@ -216,10 +198,10 @@ struct AgentLauncher: View {
             loading: plan.models == nil && launcher.loadingModels.contains(info.agent),
             open: menu == .model, identifier: "launcher.model", label: String(localized: "Model and effort")
         ) {
-            Image(systemName: "sparkle").font(.system(size: 10, weight: .bold)).foregroundStyle(info.kind.tint)
+            Image(systemName: "sparkle").font(.system(size: 9, weight: .bold)).foregroundStyle(info.kind.tint)
         } accessory: {
             if let level {
-                EffortBars(level: level, count: plan.efforts.count)
+                EffortBars(level: level, count: plan.efforts.count, height: 10)
                     .transition(AnyTransition.pop)
             }
         } action: {

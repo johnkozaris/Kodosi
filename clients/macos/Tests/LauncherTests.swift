@@ -15,7 +15,7 @@ private func launcherApp(_ prefix: String) throws -> (AppDependencies, () -> [[S
         }
         return 0
     }
-    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(58)]))
+    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(Int64(RuntimeHandle.expectedProtocolVersion))]))
     return (app, { sent })
 }
 

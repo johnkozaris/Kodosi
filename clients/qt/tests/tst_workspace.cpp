@@ -791,16 +791,33 @@ private slots:
         Fixture f;
         f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.required") } }, 1);
         QVERIFY(!f.workspace.account().signingIn());
-        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.device_code") },
-            { QStringLiteral("userCode"), QStringLiteral("ABCD-EFGH") },
-            { QStringLiteral("verificationUri"), QStringLiteral("https://example.invalid/device") } }, 1);
+        f.workspace.account().login();
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("browser")).toString(), QStringLiteral("system"));
+        QSignalSpy opened(&f.workspace.account(), &kodosi::AccountModel::signInPageReady);
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.browser") },
+            { QStringLiteral("url"), QStringLiteral("https://example.invalid/auth?state=s") } }, 1);
         QVERIFY(f.workspace.account().signingIn());
+        QCOMPARE(opened.count(), 1);
         f.workspace.account().cancelLogin();
         QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(),
             QStringLiteral("auth.login.cancel"));
         f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.required") } }, 2);
         QVERIFY(!f.workspace.account().signingIn());
-        QVERIFY(f.workspace.account().userCode().isEmpty());
+        QVERIFY(f.workspace.account().signInPage().isEmpty());
+    }
+    void anAnswerInTheBrowserBringsTheWindowBackOnce()
+    {
+        Fixture f;
+        QSignalSpy answered(&f.workspace.account(), &kodosi::AccountModel::browserAnswered);
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.required") } }, 1);
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.browser") },
+            { QStringLiteral("url"), QStringLiteral("https://example.invalid/auth?state=s") } }, 1);
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.finalizing") } }, 1);
+        QCOMPARE(answered.count(), 1);
+        QVERIFY(f.workspace.account().signingIn());
+        QVERIFY(f.workspace.account().signInPage().isEmpty());
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.finalizing") } }, 1);
+        QCOMPARE(answered.count(), 1);
     }
     void endedSignInReturnsToSignedOutWithOneMessage()
     {

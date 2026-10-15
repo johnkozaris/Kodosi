@@ -97,7 +97,7 @@ private func awaitNotification(_ condition: () -> Bool) async {
         "name": .string("Quiet terminal"), "isOwner": .bool(true), "status": .string("running"),
         "connectionState": .string("local"), "sharedWith": .array([]),
     ])
-    try app.receive(runtimeEvent("system.ready", fields: ["protocolVersion": .int(58)]))
+    try app.receive(runtimeEvent("system.ready", fields: ["protocolVersion": .int(Int64(RuntimeHandle.expectedProtocolVersion))]))
     try app.receive(runtimeEvent("sessions.snapshot", fields: ["sessions": .array([entry])]))
     try app.receive(runtimeEvent("term.notification", fields: [
         "sessionId": .string(id), "runtimeIncarnationId": .string(incarnation), "body": .string("Ready"),
@@ -149,7 +149,7 @@ private func awaitNotification(_ condition: () -> Bool) async {
         ]))
     }
     let waits: [String: JSONValue] = ["state": .string("blocked"), "kind": .string("permission"), "message": .string("Allow the command?")]
-    try app.receive(runtimeEvent("system.ready", fields: ["protocolVersion": .int(58)]))
+    try app.receive(runtimeEvent("system.ready", fields: ["protocolVersion": .int(Int64(RuntimeHandle.expectedProtocolVersion))]))
     try receive(waits)
     #expect(driver.posted.isEmpty)
     try receive(["state": .string("working")])

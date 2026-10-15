@@ -35,11 +35,14 @@ QtObject {
     readonly property color terminal: "#0d0b09"
     readonly property color terminalBand: "#1a1512"
     readonly property color terminalBandSelected: "#221a16"
+    readonly property color terminalLifted: "#2e241f"
     readonly property color terminalInk: "#f1e9e3"
     readonly property color terminalInkMuted: "#b3a094"
     readonly property color terminalInkFaint: "#8c7a6f"
     readonly property color terminalHairline: "#3b2f29"
     readonly property color terminalAccent: "#db8a62"
+    readonly property color terminalAccentSoft: "#3e281c"
+    readonly property color terminalAccentStrong: "#eaa47e"
     readonly property color terminalCaution: "#ddb866"
 
     readonly property int fontLarge: 28

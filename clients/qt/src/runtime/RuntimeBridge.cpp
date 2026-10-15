@@ -66,7 +66,7 @@ void RuntimeBridge::startAsync(std::function<void(Result)> completion)
 {
     Q_ASSERT(thread() == QThread::currentThread());
     if (isRunning()) { completion({}); return; }
-    if (kodosi_protocol_version() != 58 || kodosi_abi_version() != KODOSI_FFI_ABI_VERSION) {
+    if (kodosi_protocol_version() != protocolVersion || kodosi_abi_version() != KODOSI_FFI_ABI_VERSION) {
         completion(std::unexpected(failure(RuntimeFailure::Code::ContractMismatch, KODOSI_FFI_DESER_FAILED,
             tr("The linked runtime is incompatible with this version of Kodosi."))));
         return;

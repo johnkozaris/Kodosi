@@ -5,7 +5,7 @@ import SwiftUI
 struct PromptField: NSViewRepresentable {
     @Environment(\.theme) private var theme
     @Binding var text: String
-    let placeholder: String
+    let hint: String
     let label: String
     var focus = 0
     let submit: () -> Void
@@ -47,12 +47,12 @@ struct PromptField: NSViewRepresentable {
         view.textColor = NSColor(theme.colors.ink)
         view.selectedTextAttributes = [.backgroundColor: NSColor(theme.colors.accent.opacity(0.32))]
         view.caretColor = NSColor(theme.colors.accent)
-        view.placeholderColor = NSColor(theme.colors.inkFaint)
+        view.hintColor = NSColor(theme.colors.inkFaint)
         view.inverseColor = NSColor(theme.colors.terminal)
         view.blinks = !theme.motion.reduced
-        view.placeholder = placeholder
+        view.hint = hint
         view.setAccessibilityLabel(label)
-        view.setAccessibilityPlaceholderValue(placeholder)
+        view.setAccessibilityPlaceholderValue(hint)
         if context.coordinator.focus != focus {
             context.coordinator.focus = focus
             DispatchQueue.main.async { view.window?.makeFirstResponder(view) }
@@ -106,12 +106,12 @@ final class PromptTextView: NSTextView {
     static let font = NSFont.monospacedSystemFont(ofSize: 13, weight: .medium)
 
     var caretColor = NSColor.systemOrange
-    var placeholderColor = NSColor.secondaryLabelColor
+    var hintColor = NSColor.secondaryLabelColor
     var inverseColor = NSColor.black
     var blinks = true
-    var placeholder = "" {
+    var hint = "" {
         didSet {
-            if placeholder != oldValue {
+            if hint != oldValue {
                 needsDisplay = true
             }
         }
@@ -125,10 +125,9 @@ final class PromptTextView: NSTextView {
                height: layoutManager?.defaultLineHeight(for: Self.font) ?? 17)
     }
 
-    /// The width that shows the caret and the whole placeholder.
-    static func width(placeholder: String) -> CGFloat {
-        let cell = ("M" as NSString).size(withAttributes: [.font: font]).width
-        return ceil(cell + 4 + (placeholder as NSString).size(withAttributes: [.font: font]).width)
+    /// The width that shows the whole hint.
+    static func width(hint: String) -> CGFloat {
+        ceil(((hint + "M") as NSString).size(withAttributes: [.font: font]).width)
     }
 
     private var focused: Bool {
@@ -191,9 +190,8 @@ final class PromptTextView: NSTextView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         let origin = textContainerOrigin
-        if string.isEmpty {
-            let start = CGPoint(x: origin.x + cell.width + 4, y: origin.y)
-            (placeholder as NSString).draw(at: start, withAttributes: [.font: Self.font, .foregroundColor: placeholderColor])
+        if string.isEmpty, !hint.isEmpty {
+            (hint as NSString).draw(at: origin, withAttributes: [.font: Self.font, .foregroundColor: hintColor])
         }
         guard selectedRange().length == 0 else { return }
         let caret = caretRect().offsetBy(dx: origin.x, dy: origin.y)
@@ -210,7 +208,8 @@ final class PromptTextView: NSTextView {
         block.fill()
         let text = string as NSString
         let location = selectedRange().location
-        let under = location < text.length ? text.substring(with: text.rangeOfComposedCharacterSequence(at: location)) : ""
+        let under = location < text.length ? text.substring(with: text.rangeOfComposedCharacterSequence(at: location))
+            : string.isEmpty ? hint.first.map(String.init) ?? "" : ""
         (under as NSString).draw(at: caret.origin, withAttributes: [.font: Self.font, .foregroundColor: inverseColor])
     }
 

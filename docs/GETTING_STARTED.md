@@ -4,7 +4,9 @@ Build the app for your [Mac](../clients/macos/README.md),
 [Linux or Windows](../clients/qt/README.md) computer, or your
 [iPhone or iPad](../clients/ios/README.md). It needs a Kodosi backend and an OIDC
 sign-in service; for development run a [local backend](DEVELOPMENT.md#run-the-backend).
-Sign in through your browser and check that it shows the same code as the app.
+Sign in through your browser; Kodosi comes back to the front when you finish. On the
+iPhone and iPad the sign-in page opens in the app. `kodosi auth login` shows a code to
+enter in any browser.
 
 ## Terminals
 

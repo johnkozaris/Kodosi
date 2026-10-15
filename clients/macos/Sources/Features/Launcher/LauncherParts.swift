@@ -44,33 +44,28 @@ enum TerminalInk {
     static let path = hex(0x5DAFA6)
 }
 
-struct LauncherCommandLine: View {
+struct LauncherCommandLine<Folder: View, Choices: View>: View {
     @Environment(\.theme) private var theme
-    let folder: String
     let info: AgentInfo?
-    let plan: LaunchPlan
     @Binding var prompt: String
+    let hint: String
     let focus: Int
     let submit: () -> Void
+    @ViewBuilder let folder: () -> Folder
+    @ViewBuilder let choices: () -> Choices
 
     var body: some View {
         FlowLayout(spacing: 6) {
-            TypedText(text: folder)
-                .foregroundStyle(TerminalInk.path)
-                .frame(height: 26)
+            folder()
             Text(verbatim: "❯")
                 .foregroundStyle(theme.colors.accent)
                 .frame(height: 26)
             if let info {
                 if info.installed {
-                    HStack(spacing: 0) {
-                        TypedText(text: plan.account.map { $0.command == $0.name ? $0.name : info.program } ?? info.program)
-                            .foregroundStyle(info.kind.tint.mix(with: .white, by: 0.35))
-                        TypedText(text: [plan.modelArgument, plan.effortArgument].compactMap(\.self).map { " \($0)" }.joined())
-                            .foregroundStyle(theme.colors.inkMuted)
-                    }
-                    .lineLimit(1)
-                    .frame(height: 26)
+                    TypedText(text: info.program)
+                        .foregroundStyle(info.kind.tint.mix(with: .white, by: 0.35))
+                        .frame(height: 26)
+                    choices()
                 } else {
                     TypedText(text: info.install)
                         .foregroundStyle(theme.colors.inkMuted)
@@ -80,20 +75,17 @@ struct LauncherCommandLine: View {
                 }
             }
             if info?.installed ?? true {
-                let placeholder = info == nil ? String(localized: "command (optional)") : String(localized: "first prompt (optional)")
                 PromptField(
-                    text: $prompt,
-                    placeholder: placeholder,
+                    text: $prompt, hint: hint,
                     label: info == nil ? String(localized: "Command") : String(localized: "First prompt"),
                     focus: focus, submit: submit
                 )
-                .layoutValue(key: FillsRow.self, value: max(150, PromptTextView.width(placeholder: placeholder)))
+                .layoutValue(key: FillsRow.self, value: max(120, PromptTextView.width(hint: hint)))
                 .accessibilityIdentifier("launcher.prompt")
             }
         }
         .font(.system(size: 13, weight: .medium, design: .monospaced))
         .frame(maxWidth: .infinity, alignment: .leading)
-        .animation(theme.motion.spring, value: plan.line)
     }
 }
 

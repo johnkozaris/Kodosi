@@ -39,7 +39,7 @@ import Testing
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
     defer { app.shutdownProcess() }
     app.commandSink.transport = { _ in 0 }
-    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: "user-1", fields: ["protocolVersion": .int(58)]))
+    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: "user-1", fields: ["protocolVersion": .int(Int64(RuntimeHandle.expectedProtocolVersion))]))
     func message(_ id: String, _ sequence: UInt64, author: String, agent: String? = nil) -> JSONValue {
         .object([
             "id": .string(id), "sequence": .uint(sequence), "authorId": .string(author), "authorName": .string(author),

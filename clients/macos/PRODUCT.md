@@ -15,10 +15,10 @@ Shared intent: [PRODUCT.md](../../PRODUCT.md). Visual system: [DESIGN.md](DESIGN
   a terminal open, the person at its computer included. While Kodosi is not in front,
   the terminals that you own or have open send a system notification.
 - The launcher is the terminal about to open: a tab for each agent after the plain
-  terminal, the line it will type and the first prompt. Pop-up buttons below it choose
-  the folder, the account and the model with its effort. An account is a sign-in folder
-  and shows its name and the e-mail that is signed in. A terminal at its prompt starts an
-  agent from its mark with the last choice.
+  terminal, then one line with pop-up buttons for the folder, the account and the model
+  with its effort, and the first prompt. An account is a sign-in folder and shows its
+  name and the e-mail that is signed in. A terminal at its prompt starts an agent from
+  its mark with the last choice.
 - Kodosi links the `kodosi` command into `~/.local/bin` without a question.
 - A repository folder in the sidebar offers a terminal on a new branch.
 - Hidden terminals keep their place and take no input. Sizing is automatic, and keys

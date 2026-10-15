@@ -106,7 +106,11 @@ bool DesktopFileIntegration::openPath(const QString& path)
 bool DesktopFileIntegration::openWebUrl(const QString& value)
 {
     const QUrl url(value, QUrl::StrictMode);
-    if (value.size() > 4096 || !url.isValid() || url.scheme() != QStringLiteral("https")
+    // Plain HTTP is only for a sign-in server on this computer, which only development uses.
+    const bool local = url.scheme() == QStringLiteral("http")
+        && (url.host() == QStringLiteral("127.0.0.1") || url.host() == QStringLiteral("localhost")
+            || url.host() == QStringLiteral("::1"));
+    if (value.size() > 4096 || !url.isValid() || (url.scheme() != QStringLiteral("https") && !local)
         || url.host().isEmpty() || !url.userInfo().isEmpty()) {
         fail(tr("The sign-in address is invalid."));
         return false;

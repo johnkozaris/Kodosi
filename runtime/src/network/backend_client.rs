@@ -30,7 +30,8 @@ use crate::identity::{
     device_cert::{build_cert_for, build_self_cert},
     friends::FriendLists,
     keys::DeviceKeys,
-    oidc::{Oidc, Tokens},
+    loopback::{self, Loopback},
+    oidc::{APP_REDIRECT, BrowserLogin, Oidc, Tokens},
     pins::{IdentityBundle, Pins, VerifiedIdentity},
     signed_device_list::{DeviceListEntry, build_bootstrap_list, build_replacement_list},
     storage::Secrets,
@@ -67,8 +68,20 @@ pub(crate) struct Inner {
     update_required: AtomicBool,
     pub(crate) friends_changed: tokio::sync::Notify,
     login_interrupt: std::sync::Mutex<CancellationToken>,
+    app_login: std::sync::Mutex<Option<AppLogin>>,
     rooms: Mutex<rooms::RoomCache>,
 }
+
+/// A sign-in in the app's own window, which waits for the answer that the app gives back.
+struct AppLogin {
+    login: BrowserLogin,
+    cancel: CancellationToken,
+    generation: u64,
+    until: tokio::time::Instant,
+}
+
+/// The time to sign in or to register in a browser, the same as a device code.
+const BROWSER_LOGIN_TIME: Duration = Duration::from_mins(15);
 
 pub(crate) struct State {
     tokens: Option<Tokens>,
@@ -146,6 +159,7 @@ impl BackendClient {
                 update_required: AtomicBool::new(false),
                 friends_changed: tokio::sync::Notify::new(),
                 login_interrupt: std::sync::Mutex::new(CancellationToken::new()),
+                app_login: std::sync::Mutex::new(None),
                 rooms: Mutex::new(rooms::RoomCache::default()),
             }),
         })
@@ -218,6 +232,39 @@ impl BackendClient {
                 Ok(())
             }
             result => result,
+        }
+    }
+
+    /// Finishes a sign-in once its tokens come, unless a newer sign-in or a sign-out began.
+    async fn complete_login(
+        &self,
+        tokens: impl Future<Output = Result<Tokens>>,
+        cancel: CancellationToken,
+        generation: u64,
+    ) {
+        let result = async {
+            let tokens = tokens.await?;
+            let _operation = self.inner.operations.lock().await;
+            if cancel.is_cancelled() || self.generation() != generation {
+                return Err(Error::Stale);
+            }
+            self.emit_for(generation, None, json!({"type":"auth.finalizing"}));
+            tokio::select! {
+                () = cancel.cancelled() => Err(Error::Stale),
+                () = self.inner.shutdown.cancelled() => Err(Error::Closed),
+                result = self.finish_login(tokens, generation) => result,
+            }
+        }
+        .await;
+        if let Err(error) = result
+            && !cancel.is_cancelled()
+            && error.user_facing()
+        {
+            self.emit_for(
+                generation,
+                None,
+                json!({"type":"auth.error","operation":"login.start","message":error.to_string()}),
+            );
         }
     }
 
@@ -310,6 +357,11 @@ impl BackendClient {
                 .lock()
                 .map_err(|_| Error::Closed)?
                 .cancel();
+            self.inner
+                .app_login
+                .lock()
+                .map_err(|_| Error::Closed)?
+                .take();
         }
         let before = self.generation();
         let _operation = self.inner.operations.lock().await;
@@ -317,34 +369,82 @@ impl BackendClient {
         let mut events = Vec::new();
         match operation {
             "auth.login.start" if self.saved_sign_in_returns(before).await? => {}
-            "auth.login.start" => {
-                let login = self.oidc()?.start().await?;
-                self.logout().await?;
-                let cancel = self.new_login_interrupt()?;
-                let generation = self.generation();
-                events.push(json!({"type":"auth.device_code","userCode":login.user_code,"verificationUri":login.code_page()}));
+            "auth.login.start" => match args.get("browser").and_then(Value::as_str) {
+                None => {
+                    let oidc = self.oidc()?;
+                    let login = oidc.start().await?;
+                    self.logout().await?;
+                    let cancel = self.new_login_interrupt()?;
+                    let generation = self.generation();
+                    events.push(json!({"type":"auth.device_code","userCode":login.user_code,"verificationUri":login.code_page()}));
+                    let this = self.clone();
+                    tokio::spawn(async move {
+                        let waiting = cancel.clone();
+                        let tokens = oidc.poll(login, &waiting);
+                        this.complete_login(tokens, cancel, generation).await;
+                    });
+                }
+                Some("system") => {
+                    let oidc = self.oidc()?;
+                    let loopback = Loopback::bind().await?;
+                    let login = oidc.browser(loopback.redirect_uri()).await?;
+                    self.logout().await?;
+                    let cancel = self.new_login_interrupt()?;
+                    let generation = self.generation();
+                    events.push(json!({"type":"auth.browser","url":login.page}));
+                    let this = self.clone();
+                    let waiting = cancel.clone();
+                    tokio::spawn(async move {
+                        let tokens = async {
+                            let (answer, stream) = tokio::select! {
+                                () = waiting.cancelled() => return Err(Error::Stale),
+                                () = this.inner.shutdown.cancelled() => return Err(Error::Closed),
+                                () = tokio::time::sleep(BROWSER_LOGIN_TIME) => {
+                                    return Err(invalid("The sign-in took too long. Try again."));
+                                }
+                                answer = loopback.answer(&login) => answer?,
+                            };
+                            let tokens = oidc.redeem(&login, &answer).await;
+                            let outcome = tokens.as_ref().map(|_| ()).map_err(ToString::to_string);
+                            loopback::finish(stream, outcome).await;
+                            tokens
+                        };
+                        this.complete_login(tokens, cancel, generation).await;
+                    });
+                }
+                Some("app") => {
+                    let login = self.oidc()?.browser(APP_REDIRECT).await?;
+                    self.logout().await?;
+                    let cancel = self.new_login_interrupt()?;
+                    events.push(json!({"type":"auth.browser","url":login.page}));
+                    *self.inner.app_login.lock().map_err(|_| Error::Closed)? = Some(AppLogin {
+                        login,
+                        cancel,
+                        generation: self.generation(),
+                        until: tokio::time::Instant::now() + BROWSER_LOGIN_TIME,
+                    });
+                }
+                Some(_) => return Err(invalid("Unknown sign-in browser.")),
+            },
+            "auth.login.finish" => {
+                let answer = reqwest::Url::parse(wire::text(&args, "url")?)
+                    .map_err(|_| invalid("The sign-in answer is not an address."))?;
+                let pending = {
+                    let mut pending = self.inner.app_login.lock().map_err(|_| Error::Closed)?;
+                    if !pending.as_ref().is_some_and(|app| app.login.owns(&answer)) {
+                        return Err(invalid("This answer does not belong to the sign-in."));
+                    }
+                    pending.take().ok_or(Error::Stale)?
+                };
+                if tokio::time::Instant::now() > pending.until {
+                    return Err(invalid("The sign-in took too long. Try again."));
+                }
+                let oidc = self.oidc()?;
                 let this = self.clone();
                 tokio::spawn(async move {
-                    let result = async {
-                        let tokens = this.oidc()?.poll(login, &cancel).await?;
-                        let _operation = this.inner.operations.lock().await;
-                        if cancel.is_cancelled() || this.generation() != generation {
-                            return Err(Error::Stale);
-                        }
-                        this.emit_for(generation, None, json!({"type":"auth.finalizing"}));
-                        tokio::select! {
-                            () = cancel.cancelled() => Err(Error::Stale),
-                            () = this.inner.shutdown.cancelled() => Err(Error::Closed),
-                            result = this.finish_login(tokens, generation) => result,
-                        }
-                    }
-                    .await;
-                    if let Err(error) = result
-                        && !cancel.is_cancelled()
-                        && error.user_facing()
-                    {
-                        this.emit_for(generation,None,json!({"type":"auth.error","operation":"login.start","message":error.to_string()}));
-                    }
+                    let tokens = oidc.redeem(&pending.login, &answer);
+                    this.complete_login(tokens, pending.cancel, pending.generation)
+                        .await;
                 });
             }
             "auth.logout" => {

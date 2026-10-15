@@ -18,6 +18,23 @@
               }
             ]
           },
+          "browser": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "const": "system"
+                  },
+                  {
+                    "const": "app"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "type": {
             "const": "auth.login.start"
           }
@@ -26,6 +43,38 @@
           "accountUserId",
           "accountEpoch",
           "type"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "const": "auth.login.finish"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "url"
         ],
         "type": "object"
       },
@@ -2625,6 +2674,38 @@
           "type",
           "userCode",
           "verificationUri"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "const": "auth.browser"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "url"
         ],
         "type": "object"
       },
@@ -5580,7 +5661,7 @@
     ]
   },
   "ffiAbiVersion": 8,
-  "protocolVersion": 58,
+  "protocolVersion": 60,
   "terminal": {
     "checkpointMaxBytes": 8388608,
     "checkpointSchema": 2,

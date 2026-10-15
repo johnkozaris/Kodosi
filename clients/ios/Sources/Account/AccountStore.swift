@@ -91,9 +91,9 @@ final class AccountStore {
         switch event.type {
         case "auth.ready": try receiveReady(event)
         case "auth.required": receiveRequired(event)
-        case "auth.device_code":
-            let url = event.string("verificationUri").flatMap(ExternalAuthURL.parse)
-            stage = .awaitingApproval(code: event.string("userCode") ?? "", url: url)
+        case "auth.browser":
+            let url = event.string("url").flatMap(ExternalAuthURL.parse)
+            stage = .awaitingBrowser(url)
             signInPage = url
         case "auth.finalizing":
             stage = .finalizing
@@ -204,7 +204,7 @@ final class AccountStore {
 
     func signIn() {
         switch stage {
-        case .starting, .awaitingApproval, .finalizing, .trustingDevice:
+        case .starting, .awaitingBrowser, .finalizing, .trustingDevice:
             return
         case .idle, .failed, .signedIn:
             if userId != nil, !localDeviceEnrolled {
@@ -217,12 +217,19 @@ final class AccountStore {
 
     func restartSignIn() {
         stage = .starting
-        commands.perform("auth.login.start")
+        commands.perform("auth.login.start", ["browser": .string("app")])
+    }
+
+    /// Gives the runtime the answer of the sign-in window, or of a page that sent it to the app.
+    func finishSignIn(with answer: URL) {
+        guard case .awaitingBrowser = stage else { return }
+        signInPage = nil
+        commands.perform("auth.login.finish", ["url": .string(answer.absoluteString)])
     }
 
     func cancelSignIn() {
         switch stage {
-        case .starting, .awaitingApproval, .finalizing:
+        case .starting, .awaitingBrowser, .finalizing:
             commands.perform("auth.login.cancel")
             stage = .idle
             signInPage = nil
@@ -231,14 +238,10 @@ final class AccountStore {
         }
     }
 
-    func closeSignInPage() {
+    func failSignIn(_ message: String) {
+        commands.perform("auth.login.cancel")
+        stage = .failed(message: message, completed: 0)
         signInPage = nil
-    }
-
-    func reopenSignInPage() {
-        if case let .awaitingApproval(_, url) = stage {
-            signInPage = url
-        }
     }
 
     func requestDeviceApproval() {

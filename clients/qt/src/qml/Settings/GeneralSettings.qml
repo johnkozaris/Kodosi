@@ -8,7 +8,7 @@ import Kodosi.Models 1.0 as Models
 ColumnLayout {
     id: root
 
-    readonly property bool hasCode: Models.Account.userCode.length > 0
+    readonly property bool inBrowser: Models.Account.signInPage.length > 0
     readonly property var ownedRooms: Models.Missions.missions
         .filter(room => room.ownerUserId === Models.Account.userId)
         .map(room => room.name)
@@ -27,20 +27,13 @@ ColumnLayout {
     ColumnLayout {
         Layout.fillWidth: true
         Layout.topMargin: 10
-        visible: root.hasCode
+        visible: root.inBrowser
         spacing: 16
 
         PlainLabel {
             Layout.alignment: Qt.AlignHCenter
-            text: qsTr("Enter this code in your browser")
+            text: qsTr("Continue in your browser")
             color: KodosiTheme.inkMuted
-        }
-        CodeKeys {
-            Layout.alignment: Qt.AlignHCenter
-            code: Models.Account.userCode
-            Accessible.name: Models.Account.userCode
-            objectName: "panel.settings.account.code"
-            Accessible.id: objectName
         }
         RowLayout {
             Layout.alignment: Qt.AlignHCenter
@@ -52,9 +45,9 @@ ColumnLayout {
                 iconName: "arrow-right"
                 iconTrailing: true
                 objectName: "panel.settingsView.open-sign-in-page"
-                text: qsTr("Open the sign-in page")
+                text: qsTr("Open the browser again")
 
-                onClicked: Models.DesktopFiles.openWebUrl(Models.Account.verificationUri)
+                onClicked: Models.DesktopFiles.openWebUrl(Models.Account.signInPage)
             }
             KButton {
                 variant: KButton.Ghost
@@ -73,7 +66,7 @@ ColumnLayout {
     }
     ListGroup {
         Layout.fillWidth: true
-        visible: !root.hasCode
+        visible: !root.inBrowser
 
         ListRow {
             title: Models.Account.signedIn ? Identity.selfName : qsTr("Not signed in")
@@ -99,7 +92,7 @@ ColumnLayout {
     }
     ListGroup {
         Layout.fillWidth: true
-        visible: !root.hasCode
+        visible: !root.inBrowser
 
         ListRow {
             visible: Models.Account.signedIn

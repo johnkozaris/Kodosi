@@ -1,4 +1,5 @@
 #pragma once
+#include "runtime/RuntimeBridge.hpp"
 #include <QByteArray>
 #include <kodosi_runtime.h>
 
@@ -7,7 +8,7 @@ inline kodosi_callbacks_t callbacks {};
 inline void* userdata = nullptr;
 inline QByteArray lastCommand;
 inline bool allowStart = false;
-inline uint32_t protocolVersion = 58;
+inline uint32_t protocolVersion = kodosi::RuntimeBridge::protocolVersion;
 inline int commandResult = KODOSI_FFI_OK;
 inline void sendEvent(const QByteArray& event)
 {
@@ -21,7 +22,7 @@ inline void reset()
     userdata = nullptr;
     lastCommand.clear();
     allowStart = false;
-    protocolVersion = 58;
+    protocolVersion = kodosi::RuntimeBridge::protocolVersion;
     commandResult = KODOSI_FFI_OK;
 }
 }
