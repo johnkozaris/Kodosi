@@ -3,9 +3,11 @@
     xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
     xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
     xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+    xmlns:uap13="http://schemas.microsoft.com/appx/manifest/uap/windows10/13"
+    xmlns:uap17="http://schemas.microsoft.com/appx/manifest/uap/windows10/17"
     xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
     xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-    IgnorableNamespaces="uap uap3 desktop rescap">
+    IgnorableNamespaces="uap uap3 uap13 uap17 desktop rescap">
   <Identity
       Name="com.kodosi.Kodosi"
       Publisher="@KODOSI_MSIX_PUBLISHER_XML@"
@@ -15,9 +17,13 @@
     <DisplayName>Kodosi</DisplayName>
     <PublisherDisplayName>Kodosi</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
+    <uap13:AutoUpdate>
+      <uap13:AppInstaller File="Kodosi.appinstaller" />
+    </uap13:AutoUpdate>
+    <uap17:UpdateWhileInUse>defer</uap17:UpdateWhileInUse>
   </Properties>
   <Dependencies>
-    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.22000.0" MaxVersionTested="10.0.26100.0" />
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.26100.0" MaxVersionTested="10.0.26100.0" />
   </Dependencies>
   <Resources>
     <Resource Language="en-us" />

@@ -77,7 +77,7 @@ sign. Kodosi has no public release of the app yet.
 
 ## Windows
 
-Kodosi for Windows runs on Windows 11, x64 or ARM64. Its terminals use the pinned
+Kodosi for Windows runs on Windows 11 24H2 or later, x64 or ARM64. Its terminals use the pinned
 ConPTY host, `conpty.dll` and `OpenConsole.exe`, which the build puts beside the app
 and the `kodosi` command.
 
@@ -125,15 +125,22 @@ package; a development build does not show them.
 ### Package
 
 From this client directory, `just windows-package` builds, tests, and verifies
-`build/release/kodosi-<version>-windows-<arch>.msix`. The `project` command in
-[CMakeLists.txt](CMakeLists.txt) gives the version. The recipes and the release
-scripts read the version from that file. The package holds the app, the
+`build/release/kodosi-<version>-windows-<arch>.msix`. The root [VERSION](../../VERSION)
+file gives the version. The package holds the app, the
 `kodosi` command, ConPTY, the C runtime, Qt, and the notices. Install the unsigned
 package from an administrator PowerShell:
 
 ```powershell
 Add-AppxPackage -Path build\release\kodosi-<version>-windows-x64.msix -AllowUnsigned
 ```
+
+For a release, `just windows-bundle` puts the x64 and ARM64 packages in
+`build/release/Kodosi-<version>.msixbundle`; sign the bundle with `just windows-sign`.
+
+The package embeds [Kodosi.appinstaller](packaging/windows/Kodosi.appinstaller.in).
+Windows reads `https://updates.kodosi.com/windows/Kodosi.appinstaller` when Kodosi
+starts and every 8 hours, and downloads a new version. Windows installs it when Kodosi
+is not in use: after the person quits Kodosi, or at the next sign-in.
 
 The installed app adds the `kodosi` command to the user's PATH as an app execution
 alias and opens `kodosi://` links. The app and its command share their data in

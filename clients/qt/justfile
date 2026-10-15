@@ -90,10 +90,16 @@ windows-package: tools-install
             --build-dir build/windows-release \
             --qt-root ".tools/Qt/$KODOSI_QT_ARCH"
 
-# Sign a package from windows-package with Azure Artifact Signing.
+# Sign a package or the bundle with Azure Artifact Signing.
 windows-sign package:
     source ../../scripts/windows-env.sh && kodosi_windows_env && \
         ./scripts/release/sign-msix.sh "{{ package }}"
+
+# Put the x64 and ARM64 packages from windows-package in build/release/Kodosi-<version>.msixbundle.
+windows-bundle:
+    source ../../scripts/windows-env.sh && kodosi_windows_env && \
+        ./scripts/release/bundle-msix.sh "build/release/Kodosi-{{ version }}.msixbundle" \
+            "build/release/kodosi-{{ version }}-windows-x64.msix" "build/release/kodosi-{{ version }}-windows-arm64.msix"
 
 # Build and test the Linux release. Make the Debian package, the portable archive and the Arch package two times, and compare them. Check each package, then write and check the release manifest in build/release. Commit all the changes first.
 release-package: tools-install

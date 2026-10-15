@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import hashlib
 import io
 import json
@@ -6,6 +8,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / "generate-update-site.py"
@@ -27,9 +30,29 @@ def debian_package(version: str) -> bytes:
     return b"!<arch>\n" + ar_member("debian-binary", b"2.0\n") + ar_member("control.tar.gz", buffer.getvalue())
 
 
-def generate(root: Path, package_version: str) -> subprocess.CompletedProcess[bytes]:
+def windows_bundle(version: str) -> bytes:
+    appinstaller = (
+        '<AppInstaller xmlns="http://schemas.microsoft.com/appx/appinstaller/2021" Version="1.0.0.0" '
+        'Uri="https://updates.kodosi.com/windows/Kodosi.appinstaller"><MainBundle Name="com.kodosi.Kodosi" '
+        f'Publisher="CN=Kodosi" Version="{version}.0" '
+        f'Uri="https://github.com/johnkozaris/Kodosi/releases/download/v{version}/Kodosi-{version}.msixbundle"/>'
+        "</AppInstaller>"
+    )
+    bundle = io.BytesIO()
+    with zipfile.ZipFile(bundle, "w") as outer:
+        for arch in ("x64", "arm64"):
+            package = io.BytesIO()
+            with zipfile.ZipFile(package, "w") as inner:
+                inner.writestr("Kodosi.appinstaller", appinstaller)
+            outer.writestr(f"kodosi-{VERSION}-windows-{arch}.msix", package.getvalue())
+    return bundle.getvalue()
+
+
+def generate(root: Path, package_version: str, windows_version: str | None = None) -> subprocess.CompletedProcess[bytes]:
     release = root / "release"
     release.mkdir()
+    if windows_version:
+        (release / f"Kodosi-{VERSION}.msixbundle").write_bytes(windows_bundle(windows_version))
     (release / f"Kodosi-{VERSION}.dmg").write_bytes(b"disk image")
     (release / f"kodosi_{VERSION}_amd64.deb").write_bytes(debian_package(package_version))
     (release / f"kodosi-{VERSION}-linux-x86_64.tar.gz").write_bytes(b"archive")
@@ -66,6 +89,24 @@ class UpdateSiteTest(unittest.TestCase):
     def test_a_package_of_another_version_is_refused(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             assert_rejected(self, generate(Path(temporary), "1.2.2"))
+
+    def test_a_windows_bundle_gives_the_update_file_that_its_packages_embed(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.assertEqual(generate(root, VERSION, VERSION).returncode, 0)
+            site = root / "site"
+            appinstaller = (site / "windows/Kodosi.appinstaller").read_text(encoding="utf-8")
+            self.assertIn(f'Version="{VERSION}.0"', appinstaller)
+            self.assertIn("Content-Type: application/appinstaller", (site / "_headers").read_text(encoding="utf-8"))
+            download = f"https://github.com/johnkozaris/Kodosi/releases/download/v{VERSION}"
+            redirects = (site / "_redirects").read_text(encoding="utf-8")
+            self.assertIn(f"/download/windows {download}/Kodosi-{VERSION}.msixbundle 302\n", redirects)
+            listing = json.loads((site / "release.json").read_text(encoding="utf-8"))
+            self.assertEqual(listing["files"]["windows"]["name"], f"Kodosi-{VERSION}.msixbundle")
+
+    def test_a_windows_bundle_of_another_version_is_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            assert_rejected(self, generate(Path(temporary), VERSION, "1.2.2"))
 
 
 def assert_rejected(test: unittest.TestCase, result: subprocess.CompletedProcess[bytes]) -> None:

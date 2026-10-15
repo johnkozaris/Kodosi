@@ -79,7 +79,7 @@ clear recovery action.
 The runtime and backend implement room terminal sharing, encrypted conversation and
 task history, multiple repository links, and GitHub/Gitea issue actions. Native Mac
 and Linux clients expose these capabilities alongside terminals. The Qt client also
-builds for Windows 11 on x64 and ARM64, with ConPTY terminals and an MSIX package; it
+builds for Windows 11 24H2 on x64 and ARM64, with ConPTY terminals and an MSIX package; it
 has not yet been validated on Windows hardware. The iPhone and iPad client follows,
 answers, and controls the terminals of the person's computers and friends, and takes
 part in rooms; it starts no terminals. The `kodosi room` CLI and its bundled skill let
@@ -88,8 +88,12 @@ existing agents participate through the running host.
 Each app contains the CLI and has one version. The Mac app updates itself; by default
 it downloads an update in the background and installs it when the person quits Kodosi,
 and a "Restart to Update" mark waits in the sidebar. A restart always asks first, because
-it ends the terminals of the host. The backend accepts a range of app versions, and an
-app that is too old for it asks the person to update Kodosi.
+it ends the terminals of the host. On Linux, the Debian package adds the Kodosi apt
+repository, so the updates of the system also update Kodosi; the app then asks the
+person to open Kodosi again. On Windows, the package downloads updates in the
+background, and Windows installs an update when Kodosi is not in use. The backend
+accepts a range of app versions, and an app that is too old for it asks the person to
+update Kodosi.
 
 Terminals show the state that their programs report through the Program Status
 Protocol (OSC 7501) or a progress bar: working, waiting for a person, done, or failed.

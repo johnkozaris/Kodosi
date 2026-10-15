@@ -2,9 +2,11 @@
 """Writes the static update site of one release, and SHA256SUMS of its files.
 
 The release folder holds the files of one version: Kodosi-X.Y.Z.dmg with its Sparkle
-deltas, kodosi_X.Y.Z_amd64.deb and the other Linux files. The site gets the Sparkle feed
-from generate-appcast.sh, the apt repository, release.json and _redirects. The packages
-stay on the GitHub release; _redirects sends the downloads there."""
+deltas, kodosi_X.Y.Z_amd64.deb and the other Linux files, and Kodosi-X.Y.Z.msixbundle
+when the release has a Windows app. The site gets the Sparkle feed from
+generate-appcast.sh, the apt repository, the App Installer file that the Windows
+packages embed, release.json and _redirects. The packages stay on the GitHub release;
+_redirects sends the downloads there."""
 
 from __future__ import annotations
 
@@ -17,7 +19,9 @@ import re
 import shutil
 import subprocess
 import tarfile
+import zipfile
 from email.utils import formatdate
+from xml.etree import ElementTree
 from pathlib import Path
 
 REPOSITORY = "johnkozaris/Kodosi"
@@ -88,6 +92,23 @@ def apt_repository(deb: Path, version: str, apt: Path) -> None:
     )
 
 
+def windows_appinstaller(bundle: Path, version: str) -> bytes:
+    """Returns the App Installer file that the packages in the bundle embed."""
+    with zipfile.ZipFile(bundle) as outer:
+        names = [name for name in outer.namelist() if name.endswith(".msix")]
+        embedded = set()
+        for name in names:
+            with outer.open(name) as stream, zipfile.ZipFile(stream) as package:
+                embedded.add(package.read("Kodosi.appinstaller"))
+    if len(embedded) != 1:
+        fail(f"the packages in {bundle.name} do not embed one App Installer file")
+    data = embedded.pop()
+    main = ElementTree.fromstring(data).find("{http://schemas.microsoft.com/appx/appinstaller/2021}MainBundle")
+    if main is None or main.get("Version") != f"{version}.0" or not main.get("Uri", "").endswith(f"/{bundle.name}"):
+        fail(f"the App Installer file in {bundle.name} is not for version {version}")
+    return data
+
+
 def sign_release(apt: Path, fingerprint: str) -> None:
     release = apt / "dists/stable/Release"
     subprocess.run(
@@ -119,6 +140,9 @@ def main() -> None:
     for path in files.values():
         if not path.is_file():
             fail(f"{path} is missing")
+    bundle = release / f"Kodosi-{version}.msixbundle"
+    if bundle.is_file():
+        files["windows"] = bundle
     if site.exists():
         fail(f"{site} exists; give a new folder")
     sums = release / "SHA256SUMS"
@@ -135,6 +159,14 @@ def main() -> None:
     shutil.copyfile(arguments.apt_key, apt / "kodosi-archive-keyring.pgp")
     if arguments.sign:
         sign_release(apt, arguments.sign)
+    downloads = ["macos", "linux"]
+    if "windows" in files:
+        (site / "windows").mkdir()
+        (site / "windows/Kodosi.appinstaller").write_bytes(windows_appinstaller(bundle, version))
+        (site / "_headers").write_text(
+            "/windows/Kodosi.appinstaller\n  Content-Type: application/appinstaller\n", encoding="utf-8"
+        )
+        downloads.append("windows")
     (site / "release.json").write_text(
         json.dumps(
             {
@@ -151,8 +183,7 @@ def main() -> None:
     )
     (site / "_redirects").write_text(
         f"/apt/pool/:version/:file https://github.com/{REPOSITORY}/releases/download/v:version/:file 302\n"
-        f"/download/macos {download}/{files['macos'].name} 302\n"
-        f"/download/linux {download}/{files['linux'].name} 302\n",
+        + "".join(f"/download/{platform} {download}/{files[platform].name} 302\n" for platform in downloads),
         encoding="utf-8",
     )
     print(f"[*] Wrote the update site of {version} in {site}")
