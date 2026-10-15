@@ -11,7 +11,7 @@ ghostty-pins-check:
 
 # Generate the Xcode project from project.yml.
 xcode-gen:
-    scripts/build/generate-xcode-project.sh
+    KODOSI_MACOS_DEPLOYMENT_TARGET="$(cat Config/macOSDeploymentTarget)" xcodegen generate --quiet
 
 # Test the shared Swift package in clients/apple.
 apple-test: ghostty-pins-check
@@ -63,17 +63,16 @@ working-tree-build: xcode-gen
         -destination 'generic/platform=macOS' \
         archive
 
-# Test the Ghostty link check, and check that the Xcode project matches project.yml.
-release-graph-test:
+# Test the Ghostty link check.
+ghostty-link-test:
     ../apple/scripts/tests/test-ghostty-link-provenance.sh
-    scripts/tests/test-generated-project.sh
 
 # Check that the Swift packages and the Ghostty iOS build agree with the deployment targets of the apps.
 deployment-targets-check:
     ../apple/scripts/verify-deployment-targets.py
 
 # Lint and test the Mac app and its scripts, then build the Release app. Commit all the changes first.
-check: lint deployment-targets-check release-graph-test apple-test
+check: lint deployment-targets-check ghostty-link-test xcode-gen apple-test
     xcodebuild -project KodosiDesktop.xcodeproj \
         -scheme KodosiDesktop \
         -configuration Debug \
@@ -86,7 +85,7 @@ check: lint deployment-targets-check release-graph-test apple-test
         build
 
 # Archive, export, notarize and package the Mac app in build/export/KodosiDesktop.dmg. Commit all the changes first.
-release-package:
+release-package: xcode-gen
     scripts/release/archive.sh build/archive/KodosiDesktop.xcarchive
     scripts/release/export.sh build/archive/KodosiDesktop.xcarchive build/export
     scripts/release/notarize.sh build/export/KodosiDesktop.app
