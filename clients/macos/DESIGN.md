@@ -76,7 +76,7 @@ Use `AppTextStyle`: `large` for page titles, `title` for sheets, `headline` for 
 No title bar. The source list is 252 pt, or a 78 pt rail of marks. The main frame is inset 8 pt with an 18 pt radius, and pages are one centered column with 36 pt margins. A room has a 54 pt header, a canvas, and the conversation on a 300–540 pt sheet from the right; below 720 pt it shows one of the two. When chrome moves, the terminal takes its final size at once and does not animate.
 
 ## Elevation & Depth
-Three levels: resting, lifted (hover, focused composer, popovers) and floating (sheets, notices, Go to, the join card). Raised shapes have a light top-left rim, a dark bottom-right rim and two shadows falling down and right; wells have an inner shadow. Sheets and popovers are the app's own surfaces: a sheet rises in the middle of the dimmed window, a popover rises from its source, and a click outside or Escape dismisses either.
+Three levels: resting, lifted (hover, focused composer, popovers) and floating (sheets, notices, Go to, the join card). Raised shapes have a light top-left rim, a dark bottom-right rim and two shadows falling down and right; wells have an inner shadow. Sheets and popovers are the app's own surfaces: a sheet rises in the middle of the dimmed window, a popover rises from its source, and a click outside or Escape dismisses either, unless the sheet waits for a decision.
 
 ## Shapes
 Capsules for tags and pills, rounded rectangles (8, 10 and 12 pt) for buttons, squircles for agents, rooms and kinds of things, circles for people, and a dashed outline for a slot you can fill.

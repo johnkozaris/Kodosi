@@ -38,8 +38,8 @@ verifier skips that folder digest there.
 
 ## Update Ghostty
 
-1. Review the upstream changes and rebase `Patches/ghostty`; drop patches that upstream
-   makes unnecessary.
+1. Review the upstream changes and rebase `Patches/ghostty`. A patch that upstream
+   already contains fails the build: remove it.
 2. Rebuild each platform with `./scripts/build.sh` on that platform; it applies the
    patches to a clean checkout, builds, verifies and records digests.
 3. Update the notices from the real source and artifacts.
