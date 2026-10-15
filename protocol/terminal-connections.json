@@ -23,7 +23,7 @@
     ],
     "proof": "the device session of the device; refused with reason deviceSession when the server does not hold it, and the device then opens a new session and connects again",
     "admission": "the server registers the connection and then checks the device again, so a removal that is made at the same time refuses the connection",
-    "text": "JSON control messages; maximum 16384 bytes",
+    "text": "JSON control messages; maximum 16384 bytes; the server takes 4096 control messages and then 128 each second from one device connection, where host and open count two, and closes a connection that sends more",
     "deviceMessages": {
       "host": "sessionId, incarnationId: this device is the host of the terminal; the answer is hosted or unhosted with status and message",
       "unhost": "sessionId",
@@ -41,13 +41,14 @@
       "pong": "the answer to ping"
     },
     "authorization": "host: the hosting device of the publication; open: an approved device of the owner or of an explicit current member, checked before and after the pipe is registered",
-    "silence": "the device sends ping each 20 seconds and the WebSocket keep-alive runs each 30 seconds; the server ends a connection that sent no message for 90 seconds; the device ends a connection that received no message for 45 seconds; each 60 seconds the server checks that each connected device is still approved",
-    "lost": "a lost connection closes all pipes of the device and ends its host registrations and their status; the device connects again, sends host and status again for each terminal, and opens a new pipe for each view"
+    "silence": "the device sends ping each 20 seconds and the WebSocket keep-alive runs each 30 seconds; the server ends a connection that sent no message for 90 seconds or that did not take one message in 30 seconds; the device ends a connection that received no message for 45 seconds; each 60 seconds the server checks that each connected device is still approved",
+    "lost": "a lost connection closes all pipes of the device and ends its host registrations and their status; the device connects again, sends host and status again for each terminal, and opens a new pipe for each view",
+    "restart": "when the server stops, it closes each device connection with WebSocket status 1012 (service restart) and drops the messages that wait; the device connects again"
   },
   "terminalStatus": {
     "wire": "JSON object, not encrypted: program (the agent: lowercase letters, digits and -, at most 32), state (idle, working, blocked, done, error), kind (permission, question or auth, only with blocked); each optional; never the title, folder or text of the program",
-    "spacing": "the host sends a status only when it changes, at most one each second for each terminal; the server takes at most 600 status messages each minute from one device connection",
-    "server": "reads and checks the status, holds the newest one in memory while the host is connected, gives it in the terminal records, and forgets it when the host disconnects"
+    "spacing": "the host sends a status only when it changes, at most one each second for each terminal; the server takes 600 status messages and then 10 each second from one device connection and ignores others",
+    "server": "reads and checks the status, holds the newest one in memory while the host is connected, gives it in the terminal records, and forgets it when the host disconnects; it tells the people of a terminal at most once each second, always with the newest status"
   },
   "pipes": {
     "frame": "binary message: pipe identity (16 bytes, UUID in network byte order), then channel data",

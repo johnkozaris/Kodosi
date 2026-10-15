@@ -1,19 +1,22 @@
 using System.Net.WebSockets;
+using System.Text;
 using System.Text.Json;
 using Kodosi.Data;
 using Kodosi.TerminalConnections;
 using Xunit;
-using DeviceLink = Kodosi.TerminalConnections.DeviceLink;
 
 namespace Kodosi.HostTests;
 
 public sealed class TerminalConnectionTests
 {
     private static Session Terminal() => new() { Id = Guid.CreateVersion7(), IncarnationId = Guid.CreateVersion7(), AuthorizationRevision = 1 };
-    private static (DeviceLink Link, CapturingSocket Socket) Device(Guid? user = null, string device = "viewer")
+    private static DeviceConnection Connection(WebSocket socket, Guid user, string device, RelayBudget relays) =>
+        new(socket, user, device, relays, TimeProvider.System);
+
+    private static (DeviceConnection Connection, CapturingSocket Socket) Device(ConnectionDirectory directory, Guid? user = null, string device = "viewer")
     {
         var socket = new CapturingSocket();
-        return (new DeviceLink(socket, user ?? Guid.CreateVersion7(), device), socket);
+        return (Connection(socket, user ?? Guid.CreateVersion7(), device, directory.Relays), socket);
     }
 
     private static async Task<JsonElement> MessageAsync(CapturingSocket socket, string type)
@@ -42,11 +45,11 @@ public sealed class TerminalConnectionTests
     public async Task TheHostIsToldWhoConnectsAndOnlyTheTwoEndsOfAPipeCanUseIt()
     {
         var directory = new ConnectionDirectory(); var state = Terminal();
-        var (host, hostSocket) = Device(device: "host"); var (viewer, viewerSocket) = Device(); var (other, otherSocket) = Device(device: "other");
+        var (host, hostSocket) = Device(directory, device: "host"); var (viewer, viewerSocket) = Device(directory); var (other, otherSocket) = Device(directory, device: "other");
         await using var disposeHost = host; await using var disposeViewer = viewer; await using var disposeOther = other;
         directory.Register(host); directory.Register(viewer); directory.Register(other);
         directory.Host(host, state);
-        Assert.True(directory.HostOnline(state.Id));
+        Assert.True(IsOnline(directory, state.Id));
         var pipe = Guid.CreateVersion7();
         directory.Open(viewer, pipe, state);
         var notice = await MessageAsync(hostSocket, "viewer");
@@ -76,32 +79,32 @@ public sealed class TerminalConnectionTests
     public async Task AnOfflineOrFullTerminalRefusesViewers()
     {
         var directory = new ConnectionDirectory(); var state = Terminal();
-        var (viewer, _) = Device(); await using var disposeViewer = viewer; directory.Register(viewer);
+        var (viewer, _) = Device(directory); await using var disposeViewer = viewer; directory.Register(viewer);
         Assert.Equal(409, Assert.Throws<ApiException>(() => directory.Open(viewer, Guid.CreateVersion7(), state)).Status);
-        var (host, _) = Device(device: "host"); await using var disposeHost = host; directory.Register(host);
+        var (host, _) = Device(directory, device: "host"); await using var disposeHost = host; directory.Register(host);
         directory.Host(host, state);
         var replaced = new Session { Id = state.Id, IncarnationId = Guid.CreateVersion7() };
         Assert.Equal(409, Assert.Throws<ApiException>(() => directory.Open(viewer, Guid.CreateVersion7(), replaced)).Status);
         for (var index = 0; index < 64; index++) directory.Open(viewer, Guid.CreateVersion7(), state);
         Assert.Equal(503, Assert.Throws<ApiException>(() => directory.Open(viewer, Guid.CreateVersion7(), state)).Status);
         directory.Unhost(viewer, state.Id);
-        Assert.True(directory.HostOnline(state.Id));
+        Assert.True(IsOnline(directory, state.Id));
         directory.Unhost(host, state.Id);
-        Assert.False(directory.HostOnline(state.Id));
-        Assert.Equal((2, 0), directory.Count());
+        Assert.False(IsOnline(directory, state.Id));
+        Assert.Equal((2, 0, 0), directory.Counts());
     }
 
     [Fact]
     public async Task RevocationClosesOnlyThePipesOfRemovedPeopleAndTellsTheHost()
     {
         var directory = new ConnectionDirectory(); var state = Terminal();
-        var (host, hostSocket) = Device(device: "host"); var (kept, keptSocket) = Device(); var (removed, removedSocket) = Device();
+        var (host, hostSocket) = Device(directory, device: "host"); var (kept, keptSocket) = Device(directory); var (removed, removedSocket) = Device(directory);
         await using var disposeHost = host; await using var disposeKept = kept; await using var disposeRemoved = removed;
         directory.Register(host); directory.Register(kept); directory.Register(removed); directory.Host(host, state);
         var keptPipe = Guid.CreateVersion7(); var removedPipe = Guid.CreateVersion7();
         directory.Open(kept, keptPipe, state); directory.Open(removed, removedPipe, state);
 
-        directory.Revoke(state, (user, _) => user != removed.UserId);
+        directory.Revoke(state.Id, (user, _) => user != removed.UserId);
         Assert.Equal(403, (await MessageAsync(removedSocket, "closed")).GetProperty("status").GetInt32());
         Assert.Equal(removedPipe, (await MessageAsync(hostSocket, "closed")).GetProperty("pipe").GetGuid());
         Assert.Equal(state.Id, (await MessageAsync(hostSocket, "accessChanged")).GetProperty("sessionId").GetGuid());
@@ -117,7 +120,7 @@ public sealed class TerminalConnectionTests
     {
         var directory = new ConnectionDirectory(); var hosted = Terminal(); var watched = Terminal();
         var user = Guid.CreateVersion7();
-        var (lost, _) = Device(user, "lost"); var (otherHost, otherSocket) = Device(device: "other"); var (guest, guestSocket) = Device(); var (keptViewer, _) = Device(user, "kept");
+        var (lost, _) = Device(directory, user, "lost"); var (otherHost, otherSocket) = Device(directory, device: "other"); var (guest, guestSocket) = Device(directory); var (keptViewer, _) = Device(directory, user, "kept");
         await using var disposeLost = lost; await using var disposeOther = otherHost; await using var disposeGuest = guest; await using var disposeKept = keptViewer;
         directory.Register(lost); directory.Register(otherHost); directory.Register(guest); directory.Register(keptViewer);
         directory.Host(lost, hosted); directory.Host(otherHost, watched);
@@ -126,28 +129,28 @@ public sealed class TerminalConnectionTests
 
         directory.RemoveDevice(user, "lost");
         Assert.False(lost.IsOpen); Assert.True(otherHost.IsOpen); Assert.True(keptViewer.IsOpen); Assert.True(guest.IsOpen);
-        Assert.False(directory.HostOnline(hosted.Id)); Assert.True(directory.HostOnline(watched.Id));
+        Assert.False(IsOnline(directory, hosted.Id)); Assert.True(IsOnline(directory, watched.Id));
         Assert.Equal(409, (await MessageAsync(guestSocket, "closed")).GetProperty("status").GetInt32());
         Assert.Equal(lostPipe, (await MessageAsync(otherSocket, "closed")).GetProperty("pipe").GetGuid());
-        Assert.Equal((3, 1), directory.Count());
+        Assert.Equal((3, 1, 1), directory.Counts());
 
-        var (again, _) = Device(otherHost.UserId, "other"); await using var disposeAgain = again;
+        var (again, _) = Device(directory, otherHost.UserId, "other"); await using var disposeAgain = again;
         directory.Register(again);
         Assert.False(otherHost.IsOpen); Assert.True(again.IsOpen);
-        Assert.False(directory.HostOnline(watched.Id));
-        Assert.Equal((3, 0), directory.Count());
+        Assert.False(IsOnline(directory, watched.Id));
+        Assert.Equal((3, 0, 0), directory.Counts());
         directory.Remove(otherHost);
         Assert.True(again.IsOpen);
         directory.Host(again, watched);
-        Assert.True(directory.HostOnline(watched.Id));
+        Assert.True(IsOnline(directory, watched.Id));
     }
 
     [Fact]
     public async Task APipeThatIsTooSlowIsClosedAndTheDeviceConnectionStaysOpen()
     {
         var directory = new ConnectionDirectory(); var state = Terminal();
-        var (host, hostSocket) = Device(device: "host"); await using var disposeHost = host;
-        await using var slow = new DeviceLink(new FakeSocket(blockWrites: true), Guid.CreateVersion7(), "slow");
+        var (host, hostSocket) = Device(directory, device: "host"); await using var disposeHost = host;
+        await using var slow = Connection(new FakeSocket(blockWrites: true), Guid.CreateVersion7(), "slow", directory.Relays);
         directory.Register(host); directory.Register(slow); directory.Host(host, state);
         var pipe = Guid.CreateVersion7();
         directory.Open(slow, pipe, state);
@@ -163,8 +166,8 @@ public sealed class TerminalConnectionTests
     public async Task AllRelayQueuesShareOneServerLimitThatAClosedConnectionFrees()
     {
         var budget = new RelayBudget(1024 * 1024);
-        var first = new DeviceLink(new FakeSocket(blockWrites: true), Guid.CreateVersion7(), "first", budget);
-        await using var second = new DeviceLink(new FakeSocket(blockWrites: true), Guid.CreateVersion7(), "second", budget);
+        var first = Connection(new FakeSocket(blockWrites: true), Guid.CreateVersion7(), "first", budget);
+        await using var second = Connection(new FakeSocket(blockWrites: true), Guid.CreateVersion7(), "second", budget);
         var frame = new byte[64 * 1024];
         var sent = 0;
         while (first.Relay(frame) == Relayed.Sent) sent++;
@@ -179,8 +182,8 @@ public sealed class TerminalConnectionTests
     public async Task APipeEndsWithABusyMessageWhenAllRelayQueuesAreFull()
     {
         var directory = new ConnectionDirectory(1024 * 1024); var state = Terminal();
-        var (host, hostSocket) = Device(device: "host"); await using var disposeHost = host;
-        await using var slow = new DeviceLink(new FakeSocket(blockWrites: true), Guid.CreateVersion7(), "slow", directory.Relays);
+        var (host, hostSocket) = Device(directory, device: "host"); await using var disposeHost = host;
+        await using var slow = Connection(new FakeSocket(blockWrites: true), Guid.CreateVersion7(), "slow", directory.Relays);
         directory.Register(host); directory.Register(slow); directory.Host(host, state);
         var pipe = Guid.CreateVersion7();
         directory.Open(slow, pipe, state);
@@ -197,27 +200,28 @@ public sealed class TerminalConnectionTests
     {
         var directory = new ConnectionDirectory(); var state = Terminal();
         var changed = new List<Guid>(); directory.HostChanged += changed.Add;
-        var (host, _) = Device(device: "host"); var (other, _) = Device(device: "other");
+        var (host, _) = Device(directory, device: "host"); var (other, _) = Device(directory, device: "other");
         await using var disposeHost = host; await using var disposeOther = other;
         directory.Register(host); directory.Register(other); directory.Host(host, state);
         var status = new TerminalStatus("claude", "blocked", "permission");
         directory.Share(other, state.Id, state.IncarnationId, status);
         directory.Share(host, state.Id, Guid.CreateVersion7(), status);
-        Assert.Null(directory.Status(state.Id));
+        Assert.Null(directory.Live(state.Id).Status);
         directory.Share(host, state.Id, state.IncarnationId, status);
         directory.Share(host, state.Id, state.IncarnationId, new TerminalStatus("claude", "blocked", "permission"));
-        Assert.Equal(status, directory.Status(state.Id));
+        Assert.Equal(status, directory.Live(state.Id).Status);
         directory.Remove(host);
-        Assert.Null(directory.Status(state.Id));
-        Assert.False(directory.HostOnline(state.Id));
+        Assert.Null(directory.Live(state.Id).Status);
+        Assert.False(IsOnline(directory, state.Id));
         Assert.Equal(Enumerable.Repeat(state.Id, 3), changed);
     }
 
     [Fact]
     public void ATerminalStatusCarriesOnlyTheAgentAndTheState()
     {
-        static TerminalStatus? Read(string json) => TerminalStatus.Read(JsonDocument.Parse(json).RootElement);
-        Assert.Equal(new TerminalStatus("claude", "blocked", "question"), Read("""{"program":"claude","state":"blocked","kind":"question"}"""));
+        static TerminalStatus? Read(string status) => TerminalStatus.Checked(((StatusMessage)Wire.Decode(Encoding.UTF8.GetBytes(
+            $$"""{"incarnationId":"{{Guid.Empty}}","sessionId":"{{Guid.Empty}}","status":{{status}},"type":"status"}"""))).Status);
+        Assert.Equal(new TerminalStatus("claude", "blocked", "question"), Read("""{"kind":"question","program":"claude","state":"blocked"}"""));
         Assert.Null(Read("null"));
         foreach (var invalid in new[]
                  {
@@ -225,6 +229,69 @@ public sealed class TerminalConnectionTests
                      """{"state":"working","kind":"permission"}""", """{"program":"Claude Code"}""",
                  })
             Assert.ThrowsAny<Exception>(() => Read(invalid));
+    }
+
+    [Fact]
+    public async Task TheWatchdogEndsASilentConnectionAndOneThatDoesNotTakeItsMessages()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var clock = new SteppedClock(); var directory = new ConnectionDirectory(); var stuck = new StuckSocket();
+        await using var quiet = new DeviceConnection(new FakeSocket(), Guid.CreateVersion7(), "quiet", directory.Relays, clock);
+        await using var talking = new DeviceConnection(new FakeSocket(), Guid.CreateVersion7(), "talking", directory.Relays, clock);
+        await using var slow = new DeviceConnection(stuck, Guid.CreateVersion7(), "slow", directory.Relays, clock);
+        directory.Register(quiet); directory.Register(talking); directory.Register(slow);
+        var watchdog = new ConnectionWatchdog(directory, clock, Microsoft.Extensions.Logging.Abstractions.NullLogger<ConnectionWatchdog>.Instance);
+        Assert.True(slow.Send([1]));
+        await stuck.Sending.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+
+        clock.Advance(ConnectionWatchdog.SendLimit + TimeSpan.FromSeconds(1)); talking.Heard(); slow.Heard();
+        await watchdog.RunAsync(ct);
+        Assert.True(quiet.IsOpen); Assert.True(talking.IsOpen); Assert.False(slow.IsOpen);
+
+        clock.Advance(ConnectionWatchdog.Silence - ConnectionWatchdog.SendLimit); talking.Heard();
+        await watchdog.RunAsync(ct);
+        Assert.False(quiet.IsOpen); Assert.True(talking.IsOpen);
+    }
+
+    [Fact]
+    public async Task AStoppingServerClosesEachConnectionAsARestartAndKeepsNoRoute()
+    {
+        var directory = new ConnectionDirectory(); var state = Terminal(); var socket = new ClosingSocket();
+        await using var host = Connection(socket, Guid.CreateVersion7(), "host", directory.Relays);
+        directory.Register(host); directory.Host(host, state);
+        directory.StopAll();
+        Assert.False(host.IsOpen);
+        Assert.False(host.Send([1]));
+        var (status, description) = await socket.Closed.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        Assert.Equal((WebSocketCloseStatus)1012, status);
+        Assert.Equal("The Kodosi server is restarting.", description);
+        Assert.Equal((0, 0, 0), directory.Counts());
+        Assert.False(IsOnline(directory, state.Id));
+    }
+
+    private static bool IsOnline(ConnectionDirectory directory, Guid sessionId) => directory.Live(sessionId).Online;
+
+    private sealed class SteppedClock : TimeProvider
+    {
+        private long ticks = DateTimeOffset.UtcNow.UtcTicks;
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+        public override long GetTimestamp() => Interlocked.Read(ref ticks);
+        public override DateTimeOffset GetUtcNow() => new(Interlocked.Read(ref ticks), TimeSpan.Zero);
+        public void Advance(TimeSpan duration) => Interlocked.Add(ref ticks, duration.Ticks);
+    }
+
+    private sealed class StuckSocket : FakeSocket
+    {
+        public TaskCompletionSource Sending { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public override Task SendAsync(ArraySegment<byte> buffer, WebSocketMessageType type, bool endOfMessage, CancellationToken ct)
+        { Sending.TrySetResult(); return Task.Delay(Timeout.Infinite, ct); }
+    }
+
+    private sealed class ClosingSocket : FakeSocket
+    {
+        public TaskCompletionSource<(WebSocketCloseStatus Status, string? Description)> Closed { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public override Task CloseOutputAsync(WebSocketCloseStatus closeStatus, string? statusDescription, CancellationToken cancellationToken)
+        { Closed.TrySetResult((closeStatus, statusDescription)); return base.CloseOutputAsync(closeStatus, statusDescription, cancellationToken); }
     }
 
     private sealed class CapturingSocket : FakeSocket

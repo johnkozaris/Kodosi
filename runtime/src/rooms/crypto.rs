@@ -174,11 +174,11 @@ pub(crate) fn verify_state(
         || state.version != signed.version
         || state.version != previous.map_or(1, |p| p.state.version + 1)
         || state.members.is_empty()
-        || state.members.len() > 129
+        || state.members.len() > crate::protocol::ROOM_PEOPLE_MOST
         || !state.members.contains_key(owner)
         || state.created_at_ms > crate::identity::now_ms().saturating_add(300_000)
         || state.recipients.is_empty()
-        || state.recipients.len() > 1024
+        || state.recipients.len() > crate::protocol::ROOM_RECIPIENTS_MOST
     {
         return Err(invalid("The room key history is invalid."));
     }

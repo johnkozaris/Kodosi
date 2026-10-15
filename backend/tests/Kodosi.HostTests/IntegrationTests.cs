@@ -212,6 +212,59 @@ public sealed class IntegrationTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task AFriendLeavesASharedTerminalWithItsCurrentIdentity()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(ct));
+        using var owner = await app.EnrollAsync("owner"); using var friend = await app.EnrollAsync("friend");
+        await CallAsync(owner, HttpMethod.Post, "/api/friends/requests", new { username = "friend" });
+        await CallAsync(friend, HttpMethod.Post, "/api/friends/requests/owner/accept");
+        var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7(); var path = $"/api/sessions/{id}";
+        await CallAsync(owner, HttpMethod.Post, "/api/sessions", new { id, incarnationId = incarnation, name = "Shell", hostDeviceId = owner.Fixture.DeviceId, hostName = "Host", missionId = (Guid?)null });
+        var shared = await CallAsync(owner, HttpMethod.Put, path + "/members", new { incarnationId = incarnation, expectedRevision = 1, userIds = new[] { friend.Fixture.UserId } });
+        var revision = shared.GetProperty("authorizationRevision").GetInt64();
+        using (var bare = await SignedAsync(friend, HttpMethod.Delete, path + "/members/me"))
+        using (var refused = await friend.Client.SendAsync(bare, ct))
+            Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        await CallAsync(friend, HttpMethod.Delete, path + "/members/me", new { incarnationId = incarnation, expectedRevision = revision });
+        Assert.Empty((await CallAsync(friend, HttpMethod.Get, "/api/sessions")).EnumerateArray());
+        Assert.Empty((await CallAsync(owner, HttpMethod.Get, path)).GetProperty("sharedWith").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task ViewersGetTheNewestStatusOfATerminalAtMostOnceEachSecond()
+    {
+        await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));
+        using var owner = await app.EnrollAsync("owner"); using var friend = await app.EnrollAsync("friend");
+        await CallAsync(owner, HttpMethod.Post, "/api/friends/requests", new { username = "friend" });
+        await CallAsync(friend, HttpMethod.Post, "/api/friends/requests/owner/accept");
+        var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7();
+        await CallAsync(owner, HttpMethod.Post, "/api/sessions", new { id, incarnationId = incarnation, name = "Shell", hostDeviceId = owner.Fixture.DeviceId, hostName = "Host", missionId = (Guid?)null });
+        await CallAsync(owner, HttpMethod.Put, $"/api/sessions/{id}/members", new { incarnationId = incarnation, expectedRevision = 1, userIds = new[] { friend.Fixture.UserId } });
+        using var viewer = await app.ConnectAsync(friend);
+        using var host = await app.ConnectAsync(owner);
+        async Task<JsonElement> TerminalAsync()
+        {
+            while (true)
+            {
+                var message = await JsonAsync(viewer);
+                if (message.GetProperty("type").GetString() == "terminal" && message.GetProperty("sessionId").GetGuid() == id) return message;
+            }
+        }
+        await SendAsync(host, new { type = "host", sessionId = id, incarnationId = incarnation });
+        var online = await TerminalAsync();
+        var announced = System.Diagnostics.Stopwatch.GetTimestamp();
+        Assert.True(online.GetProperty("online").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, online.GetProperty("status").ValueKind);
+        foreach (var state in new[] { "working", "blocked", "idle" })
+            await SendAsync(host, new { type = "status", sessionId = id, incarnationId = incarnation, status = new { program = "claude", state } });
+        var newest = await TerminalAsync();
+        Assert.True(System.Diagnostics.Stopwatch.GetElapsedTime(announced) >= TimeSpan.FromMilliseconds(800));
+        Assert.Equal("idle", newest.GetProperty("status").GetProperty("state").GetString());
+        Assert.Equal("claude", newest.GetProperty("status").GetProperty("program").GetString());
+    }
+
+    [Fact]
     public async Task RealSocketJourneySharesOnlyChosenSessionAndRevocationEndsControl()
     {
         long refused = 0, relayed = 0;
@@ -222,7 +275,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         meter.SetMeasurementEventCallback<long>((instrument, value, _, _) =>
         {
             if (instrument.Name == "kodosi.connections.refused") Interlocked.Add(ref refused, value);
-            if (instrument.Name == "kodosi.relay.bytes") Interlocked.Add(ref relayed, value);
+            if (instrument.Name == "kodosi.relay.bytes") Interlocked.Exchange(ref relayed, value);
         });
         meter.Start();
         await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));
@@ -305,6 +358,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         await SendAsync(host, new { type = "ping" });
         Assert.Equal("pong", (await NextAsync(host, "pong")).GetProperty("type").GetString());
         for (var wait = 0; wait < 100 && Interlocked.Read(ref refused) < 3; wait++) await Task.Delay(20, TestContext.Current.CancellationToken);
+        meter.RecordObservableInstruments();
         Assert.True(Interlocked.Read(ref relayed) >= toHost.Length + toViewer.Length);
         Assert.True(Interlocked.Read(ref refused) >= 3);
     }

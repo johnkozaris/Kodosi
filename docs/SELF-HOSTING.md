@@ -10,13 +10,16 @@ apps, and the device authorization flow for the command line. Allow the redirect
 addresses `http://127.0.0.1/callback` (any port: the Mac, Linux and Windows apps) and
 `com.kodosi:/auth` (the iPhone and iPad app). The issuer's discovery document must expose
 `authorization_endpoint`, `device_authorization_endpoint` and `token_endpoint` on the
-issuer's origin, over HTTPS (loopback HTTP works for development). Access tokens use RS256 or ES256, name
-the issuer and audience, and include a non-empty `sub` and an expiry. Accounts are keyed
-by issuer and subject; `preferred_username` and `name` give display names.
+issuer's origin, over HTTPS (loopback HTTP works for development). Access tokens use RS256
+or ES256, name the issuer and audience, and include a non-empty `sub`, an expiry and
+`auth_time`. Deleting an account and starting fresh on a device need a sign-in of at most
+15 minutes, which the backend reads from `auth_time`. Accounts are keyed by issuer and
+subject; `preferred_username` and `name` give display names.
 
 ## Backend
 
-Build with the pinned .NET SDK, or build the image (below). Configure:
+Build with the pinned .NET SDK, or build the image (below). Use PostgreSQL 14 or later.
+Configure:
 
 | Variable | Value |
 | --- | --- |
@@ -29,6 +32,14 @@ Build with the pinned .NET SDK, or build the image (below). Configure:
 Run the host once with the `migrate` argument, then start it normally (`just backend-run`
 does both). Run one serving instance and back up the database before upgrades. Terminate
 HTTPS at a reverse proxy with WebSocket support. `/health/live` checks the process and `/health/ready` readiness.
+
+The backend uses at most 32 database connections, and one more for its lease; set
+`Maximum Pool Size` in the connection string to change the 32. A stopping backend closes
+each device connection as a service restart, and the apps connect again. Each minute
+the backend logs one line with its connections, hosted terminals and device sessions,
+and with the data it relayed and the requests that it refused or that failed in that
+minute. The meter `Kodosi.Server` gives the same values, for example to
+`dotnet-counters monitor --counters Kodosi.Server`.
 
 ## Account deletion
 

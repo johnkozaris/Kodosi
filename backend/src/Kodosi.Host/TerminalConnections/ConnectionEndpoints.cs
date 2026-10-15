@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.WebSockets;
 using System.Security.Claims;
 using System.Text.Json;
@@ -6,158 +7,183 @@ using Kodosi.Data;
 using Kodosi.Devices;
 using Kodosi.Security;
 using Kodosi.Sessions;
-using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.TerminalConnections;
 
-internal static class ConnectionEndpoints
+internal static partial class ConnectionEndpoints
 {
-    private const int PipeIdBytes = 16;
-    private const int MessageBytes = 256 * 1024 + PipeIdBytes;
-    private static readonly TimeSpan Idle = TimeSpan.FromSeconds(90);
+    internal const int PipeIdBytes = 16;
+    internal const int MessageBytes = 256 * 1024 + PipeIdBytes;
+    internal const int ControlBytes = 16 * 1024;
+    private const int MessageBurst = 4096;
+    private const int MessagesEachSecond = 128;
+    private const int DatabaseCost = 2;
+    private const int StatusBurst = 600;
+    private const int StatusesEachSecond = 10;
+    private static readonly TimeSpan Handshake = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan Admission = TimeSpan.FromSeconds(5);
 
-    public static void MapTerminalConnections(this IEndpointRouteBuilder app)
-    {
-        app.MapGet("/ws/device", RunAsync).RequireAuthorization().RequireRateLimiting("socket");
-    }
+    public static void MapTerminalConnections(this IEndpointRouteBuilder app) =>
+        app.MapGet("/ws/device", RunAsync).RequireAuthorization().RequireRateLimiting(RateLimits.Socket);
 
-    private static async Task RunAsync(HttpContext context)
+    private static async Task RunAsync(HttpContext context, IServiceScopeFactory scopes, ConnectionDirectory directory, DeviceSessions deviceSessions,
+        ServerMetrics metrics, TimeProvider clock, ILoggerFactory loggers)
     {
-        if (!context.WebSockets.IsWebSocketRequest) { context.Response.StatusCode = 400; return; }
-        var providers = context.RequestServices;
-        var current = await providers.GetRequiredService<CurrentUser>().GetAsync(context, context.RequestAborted);
-        var deviceSessions = providers.GetRequiredService<DeviceSessions>();
-        var directory = providers.GetRequiredService<ConnectionDirectory>();
-        var metrics = providers.GetRequiredService<ServerMetrics>();
-        var scopes = providers.GetRequiredService<IServiceScopeFactory>();
-        var logger = providers.GetRequiredService<ILoggerFactory>().CreateLogger("TerminalConnections");
-        if (!long.TryParse(context.User.FindFirstValue("exp"), out var expiresSeconds)) { context.Response.StatusCode = 401; return; }
+        if (!context.WebSockets.IsWebSocketRequest) { context.Response.StatusCode = StatusCodes.Status400BadRequest; return; }
+        var logger = loggers.CreateLogger("TerminalConnections");
+        User user;
+        await using (var scope = scopes.CreateAsyncScope())
+            user = await scope.ServiceProvider.GetRequiredService<CurrentUser>().GetAsync(context, context.RequestAborted);
+        if (!long.TryParse(context.User.FindFirstValue("exp"), out var expiresSeconds)) { context.Response.StatusCode = StatusCodes.Status401Unauthorized; return; }
         var expires = DateTimeOffset.FromUnixTimeSeconds(expiresSeconds);
-        if (expires <= DateTimeOffset.UtcNow) { context.Response.StatusCode = 401; return; }
+        if (expires <= clock.GetUtcNow()) { context.Response.StatusCode = StatusCodes.Status401Unauthorized; return; }
         using var socket = await context.WebSockets.AcceptWebSocketAsync();
-        DeviceLink? link = null;
+        using var reader = new MessageReader(socket);
+        DeviceConnection? connection = null;
         string? deviceId = null;
         try
         {
-            using var handshakeDeadline = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
-            handshakeDeadline.CancelAfter(TimeSpan.FromSeconds(10));
-            var helloFrame = await Wire.ReadAsync(socket, 16 * 1024, handshakeDeadline.Token);
-            if (helloFrame is null || helloFrame.Value.Type != WebSocketMessageType.Text) throw ApiException.Invalid("Expected device connection hello.");
-            using var hello = Wire.Parse(helloFrame.Value.Bytes);
-            var root = hello.RootElement;
-            if (root.GetProperty("type").GetString() != "hello") throw ApiException.Invalid("Expected device connection hello.");
-            if (root.GetProperty("protocolVersion").GetInt32() is < ContractVersions.OldestTerminalConnection or > ContractVersions.TerminalConnection)
+            using (var handshake = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted))
             {
-                await socket.SendAsync(Wire.Encode(new { type = "refused", reason = "version", oldest = ContractVersions.OldestTerminalConnection, current = ContractVersions.TerminalConnection }),
-                    WebSocketMessageType.Text, true, handshakeDeadline.Token);
-                throw ApiException.Invalid("Unsupported terminal connection protocol.");
+                handshake.CancelAfter(Handshake);
+                (deviceId, var secret) = await HelloAsync(socket, reader, handshake.Token);
+                await RequireSessionAsync(socket, deviceSessions, user.Id, deviceId, secret, handshake.Token);
+                await RequireApprovedAsync(scopes, user.Id, deviceId, handshake.Token);
+                connection = new DeviceConnection(socket, user.Id, deviceId, directory.Relays, clock);
+                connection.ExtendUntil(expires);
+                directory.Register(connection);
+                await RequireApprovedAsync(scopes, user.Id, deviceId, handshake.Token);
             }
-            deviceId = DeviceIdRules.Require(root.GetProperty("deviceId").GetString());
-            if (!deviceSessions.Holds(current.Id, deviceId, root.GetProperty("deviceSession").GetString()))
-            {
-                await socket.SendAsync(Wire.Encode(new { type = "refused", reason = "deviceSession" }), WebSocketMessageType.Text, true, handshakeDeadline.Token);
-                throw new ApiException(428, "A device session is required.");
-            }
-            await RequireDeviceAsync(scopes, current.Id, deviceId, handshakeDeadline.Token);
-            link = new DeviceLink(socket, current.Id, deviceId, directory.Relays);
-            link.ExtendUntil(expires);
-            directory.Register(link);
-            await RequireDeviceAsync(scopes, current.Id, deviceId, handshakeDeadline.Token);
-            link.Send(new { type = "ready" });
-            using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, link.Stopped, link.Expired);
-            try { await ListenAsync(link, directory, scopes, metrics, lifetime.Token); }
-            finally { await lifetime.CancelAsync(); }
+            connection.Send(Wire.Ready);
+            using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, connection.Stopped, connection.Expired);
+            await ListenAsync(connection, reader, directory, scopes, metrics, clock, logger, lifetime.Token);
         }
-        catch (Exception error) when (error is ApiException or JsonException or InvalidOperationException or KeyNotFoundException
-                                      or FormatException or WebSocketException or OperationCanceledException or IOException or TimeoutException)
+        catch (Exception error) when (error is ApiException or JsonException or InvalidOperationException or KeyNotFoundException or FormatException
+                                      or WebSocketException or OperationCanceledException or IOException or TimeoutException)
         {
-            if (link is not null) logger.LogDebug("Device connection ended: {Failure}", error.GetType().Name);
+            if (connection is not null) Ended(logger, error.GetType().Name);
             else
             {
-                var reason = error is ApiException refusal ? refusal.Status.ToString(System.Globalization.CultureInfo.InvariantCulture) : error.GetType().Name;
+                var reason = error is ApiException refusal ? refusal.Status.ToString(CultureInfo.InvariantCulture) : error.GetType().Name;
                 metrics.Refused(reason);
-                logger.LogInformation("Connection refused: account {Account}, device {Device}, reason {Reason}: {Message}",
-                    current.Id, deviceId, reason, error is ApiException ? error.Message : "");
+                Refused(logger, user.Id, deviceId, reason, error is ApiException ? error.Message : "");
             }
         }
         finally
         {
-            if (link is not null) { directory.Remove(link); await link.DisposeAsync(); }
+            if (connection is not null)
+            {
+                directory.Remove(connection);
+                await connection.DisposeAsync();
+            }
             else socket.Abort();
         }
     }
 
-    private static async Task ListenAsync(DeviceLink link, ConnectionDirectory directory, IServiceScopeFactory scopes, ServerMetrics metrics, CancellationToken ct)
+    private static async Task<(string DeviceId, string? Session)> HelloAsync(WebSocket socket, MessageReader reader, CancellationToken ct)
     {
+        if (await reader.ReadAsync(ControlBytes, ct) != WebSocketMessageType.Text) throw ApiException.Invalid("Expected device connection hello.");
+        using var hello = JsonDocument.Parse(reader.Memory, new JsonDocumentOptions { MaxDepth = 32 });
+        var root = hello.RootElement;
+        if (root.GetProperty("type").GetString() != "hello") throw ApiException.Invalid("Expected device connection hello.");
+        if (root.GetProperty("protocolVersion").GetInt32() is < ContractVersions.OldestTerminalConnection or > ContractVersions.TerminalConnection)
+        {
+            await socket.SendAsync(Wire.Encode(new RefusedNotice("version", ContractVersions.OldestTerminalConnection, ContractVersions.TerminalConnection)),
+                WebSocketMessageType.Text, true, ct);
+            throw ApiException.Invalid("Unsupported terminal connection protocol.");
+        }
+        return (DeviceIdRules.Require(root.GetProperty("deviceId").GetString()), root.GetProperty("deviceSession").GetString());
+    }
+
+    private static async Task RequireSessionAsync(WebSocket socket, DeviceSessions deviceSessions, Guid userId, string deviceId, string? secret,
+        CancellationToken ct)
+    {
+        if (deviceSessions.Holds(userId, deviceId, secret)) return;
+        await socket.SendAsync(Wire.Encode(new RefusedNotice("deviceSession")), WebSocketMessageType.Text, true, ct);
+        throw new ApiException(428, "A device session is required.");
+    }
+
+    private static async Task ListenAsync(DeviceConnection connection, MessageReader reader, ConnectionDirectory directory, IServiceScopeFactory scopes,
+        ServerMetrics metrics, TimeProvider clock, ILogger logger, CancellationToken ct)
+    {
+        var messages = new TokenBucket(MessageBurst, MessagesEachSecond, clock);
+        var statuses = new TokenBucket(StatusBurst, StatusesEachSecond, clock);
         while (!ct.IsCancellationRequested)
         {
-            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            deadline.CancelAfter(Idle);
-            var frame = await Wire.ReadAsync(link.Socket, MessageBytes, deadline.Token);
-            if (frame is not { } received) return;
-            if (received.Type == WebSocketMessageType.Binary)
+            var type = await reader.ReadAsync(MessageBytes, ct);
+            if (type is null) return;
+            connection.Heard();
+            if (type == WebSocketMessageType.Binary)
             {
-                if (received.Bytes.Length <= PipeIdBytes) throw ApiException.Invalid("Terminal channel message is too short.");
-                var relayed = directory.Relay(link, new Guid(received.Bytes.AsSpan(0, PipeIdBytes), bigEndian: true), received.Bytes);
+                if (reader.Length <= PipeIdBytes) throw ApiException.Invalid("Terminal channel message is too short.");
+                var relayed = directory.Relay(connection, new Guid(reader.Message[..PipeIdBytes], bigEndian: true), reader.Message);
                 if (relayed > 0) metrics.Relayed(relayed - PipeIdBytes);
                 continue;
             }
-            if (received.Bytes.Length > 16 * 1024) throw ApiException.Invalid("Connection message is too large.");
-            using var message = Wire.Parse(received.Bytes);
-            var root = message.RootElement;
-            switch (root.GetProperty("type").GetString())
+            if (reader.Length > ControlBytes) throw ApiException.Invalid("Connection message is too large.");
+            var message = Wire.Decode(reader.Message);
+            if (!messages.TryTake(message is HostMessage or OpenMessage ? DatabaseCost : 1))
             {
-                case "ping": link.Send(new { type = "pong" }); break;
-                case "pong": break;
-                case "host":
+                metrics.Refused("messages");
+                Flooded(logger, connection.UserId, connection.DeviceId);
+                return;
+            }
+            switch (message)
+            {
+                case PingMessage:
+                    connection.Send(Wire.Pong);
+                    break;
+                case PongMessage:
+                    break;
+                case HostMessage host:
                 {
-                    var sessionId = root.GetProperty("sessionId").GetGuid(); var incarnationId = root.GetProperty("incarnationId").GetGuid();
                     var refusal = await AdmitAsync(scopes, ct, async (sessions, admission) =>
                     {
-                        var state = await sessions.HostAsync(sessionId, link.UserId, link.DeviceId, admission);
-                        SessionService.Incarnation(state, incarnationId);
-                        directory.Host(link, state);
+                        var session = await sessions.HostAsync(host.SessionId, connection.UserId, connection.DeviceId, admission);
+                        SessionService.Incarnation(session, host.IncarnationId);
+                        directory.Host(connection, session);
                     });
-                    if (refusal is null) link.Send(new { type = "hosted", sessionId });
-                    else link.Send(new { type = "unhosted", sessionId, status = refusal.Status, message = refusal.Message });
+                    connection.Send(Wire.Encode(refusal is null
+                        ? new HostedNotice(host.SessionId)
+                        : new UnhostedNotice(host.SessionId, refusal.Status, refusal.Message)));
                     break;
                 }
-                case "unhost": directory.Unhost(link, root.GetProperty("sessionId").GetGuid()); break;
-                case "status":
+                case UnhostMessage unhost:
+                    directory.Unhost(connection, unhost.SessionId);
+                    break;
+                case StatusMessage status:
                 {
-                    var status = TerminalStatus.Read(root.GetProperty("status"));
-                    if (link.TakeStatus())
-                        directory.Share(link, root.GetProperty("sessionId").GetGuid(), root.GetProperty("incarnationId").GetGuid(), status);
+                    var reported = TerminalStatus.Checked(status.Status);
+                    if (statuses.TryTake(1)) directory.Share(connection, status.SessionId, status.IncarnationId, reported);
                     break;
                 }
-                case "open":
+                case OpenMessage open:
                 {
-                    var pipe = root.GetProperty("pipe").GetGuid();
-                    var sessionId = root.GetProperty("sessionId").GetGuid(); var incarnationId = root.GetProperty("incarnationId").GetGuid();
-                    async Task<Session> AuthorizedAsync(SessionService sessions, CancellationToken admission)
+                    var refusal = open.Pipe == Guid.Empty ? ApiException.Invalid("A view identity is required.") : await AdmitAsync(scopes, ct, async (sessions, admission) =>
                     {
-                        var state = await sessions.AuthorizedAsync(sessionId, link.UserId, admission);
-                        SessionService.Incarnation(state, incarnationId);
-                        return state;
-                    }
-                    var refusal = pipe == Guid.Empty ? ApiException.Invalid("A view identity is required.") : await AdmitAsync(scopes, ct, async (sessions, admission) =>
-                    {
-                        directory.Open(link, pipe, await AuthorizedAsync(sessions, admission));
-                        try { await AuthorizedAsync(sessions, admission); }
-                        catch { directory.Close(link, pipe); throw; }
+                        directory.Open(connection, open.Pipe, await AuthorizedAsync(sessions, open, connection.UserId, admission));
+                        try { await AuthorizedAsync(sessions, open, connection.UserId, admission); }
+                        catch { directory.Close(connection, open.Pipe); throw; }
                     });
                     if (refusal is not null)
                     {
-                        metrics.Refused(refusal.Status.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                        link.Send(new { type = "closed", pipe, status = refusal.Status, message = refusal.Message });
+                        metrics.Refused(refusal.Status.ToString(CultureInfo.InvariantCulture));
+                        connection.Send(Wire.Encode(new ClosedNotice(open.Pipe, refusal.Status, refusal.Message)));
                     }
                     break;
                 }
-                case "close": directory.Close(link, root.GetProperty("pipe").GetGuid()); break;
-                default: throw ApiException.Invalid("Unknown connection message.");
+                case CloseMessage close:
+                    directory.Close(connection, close.Pipe);
+                    break;
             }
         }
+    }
+
+    private static async Task<Session> AuthorizedAsync(SessionService sessions, OpenMessage open, Guid userId, CancellationToken ct)
+    {
+        var session = await sessions.AuthorizedAsync(open.SessionId, userId, ct);
+        SessionService.Incarnation(session, open.IncarnationId);
+        return session;
     }
 
     private static async Task<ApiException?> AdmitAsync(IServiceScopeFactory scopes, CancellationToken ct, Func<SessionService, CancellationToken, Task> admit)
@@ -170,15 +196,51 @@ internal static class ConnectionEndpoints
             await admit(scope.ServiceProvider.GetRequiredService<SessionService>(), limit.Token);
             return null;
         }
-        catch (ApiException refusal) { return refusal; }
-        catch (Exception error) when (!ct.IsCancellationRequested && (error is OperationCanceledException or DbUpdateException or Npgsql.NpgsqlException or TimeoutException
-                                      or InvalidOperationException { InnerException: Npgsql.NpgsqlException or TimeoutException }))
-        { return new ApiException(503, "The server could not check this terminal; try again."); }
+        catch (ApiException refusal)
+        {
+            return refusal;
+        }
+        catch (Exception error) when (!ct.IsCancellationRequested && (error is OperationCanceledException || Failures.IsDatabaseUnavailable(error)))
+        {
+            return new ApiException(503, "The server could not check this terminal; try again.");
+        }
     }
 
-    private static async Task RequireDeviceAsync(IServiceScopeFactory scopes, Guid userId, string deviceId, CancellationToken ct)
+    private static async Task RequireApprovedAsync(IServiceScopeFactory scopes, Guid userId, string deviceId, CancellationToken ct)
     {
         await using var scope = scopes.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<DeviceService>().RequireDeviceAsync(userId, deviceId, ct);
+    }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Device connection ended: {Failure}")]
+    private static partial void Ended(ILogger logger, string failure);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Connection refused: account {Account}, device {Device}, reason {Reason}: {Detail}")]
+    private static partial void Refused(ILogger logger, Guid account, string? device, string reason, string detail);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Device connection closed for too many messages: account {Account}, device {Device}")]
+    private static partial void Flooded(ILogger logger, Guid account, string device);
+}
+
+/// <summary>
+/// The messages that one device connection can send: a burst, then a steady number each second. The control burst fits
+/// a reconnect with the most terminals and views; a message that reads the database costs more.
+/// </summary>
+internal struct TokenBucket(double burst, double eachSecond, TimeProvider clock)
+{
+    private readonly double burst = burst;
+    private readonly double eachSecond = eachSecond;
+    private readonly TimeProvider clock = clock;
+    private double tokens = burst;
+    private long last = clock.GetTimestamp();
+
+    public bool TryTake(int cost)
+    {
+        var now = clock.GetTimestamp();
+        tokens = Math.Min(burst, tokens + clock.GetElapsedTime(last, now).TotalSeconds * eachSecond);
+        last = now;
+        if (tokens < cost) return false;
+        tokens -= cost;
+        return true;
     }
 }

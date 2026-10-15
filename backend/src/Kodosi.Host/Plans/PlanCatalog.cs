@@ -1,6 +1,5 @@
 using System.Globalization;
 using Kodosi.Data;
-using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.Plans;
 
@@ -42,8 +41,9 @@ public sealed class PlanCatalog
         return (name, plans[name]);
     }
 
+    /// <summary>The limits of an account. An account that the request has already read costs no query.</summary>
     public async Task<PlanLimits> LimitsAsync(KodosiDbContext db, Guid userId, CancellationToken ct)
-        => For(await db.Users.Where(x => x.Id == userId).Select(x => x.Plan).SingleOrDefaultAsync(ct)).Limits;
+        => For((await db.Users.FindAsync([userId], ct))?.Plan).Limits;
 
     public static PlanCatalog Of(string fallback, IReadOnlyDictionary<string, PlanLimits> plans)
     {

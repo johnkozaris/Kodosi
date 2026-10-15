@@ -357,24 +357,33 @@ fn session_processes(session: u32) -> io::Result<Vec<i32>> {
         else {
             continue;
         };
-        if !process_belongs_to_session(pid, session) {
-            continue;
-        }
-        match std::fs::read_to_string(entry.path().join("stat")) {
-            Ok(stat) => {
-                let state = stat
-                    .rsplit_once(')')
-                    .and_then(|(_, fields)| fields.split_whitespace().next());
-                if !matches!(state, Some("Z" | "X")) {
-                    processes.push(pid);
-                }
-            }
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-            Err(error) if error.kind() == io::ErrorKind::PermissionDenied => processes.push(pid),
-            Err(error) => return Err(error),
+        if process_belongs_to_session(pid, session)
+            && process_is_live(std::fs::read_to_string(entry.path().join("stat")))?
+        {
+            processes.push(pid);
         }
     }
     Ok(processes)
+}
+
+#[cfg(target_os = "linux")]
+fn process_is_live(stat: io::Result<String>) -> io::Result<bool> {
+    match stat {
+        Ok(stat) => {
+            let state = stat
+                .rsplit_once(')')
+                .and_then(|(_, fields)| fields.split_whitespace().next());
+            Ok(!matches!(state, Some("Z" | "X")))
+        }
+        Err(error)
+            if error.kind() == io::ErrorKind::NotFound
+                || error.raw_os_error() == Some(libc::ESRCH) =>
+        {
+            Ok(false)
+        }
+        Err(error) if error.kind() == io::ErrorKind::PermissionDenied => Ok(true),
+        Err(error) => Err(error),
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -659,6 +668,19 @@ mod tests {
         });
         assert_eq!(visited, [10, 20, 30]);
         assert_eq!(result.unwrap_err().raw_os_error(), Some(libc::EPERM));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_process_reaped_during_the_scan_does_not_count() {
+        use std::io::{Error, ErrorKind};
+        let live = |stat: std::io::Result<String>| super::process_is_live(stat).unwrap();
+        assert!(!live(Err(Error::from_raw_os_error(libc::ESRCH))));
+        assert!(!live(Err(Error::from(ErrorKind::NotFound))));
+        assert!(!live(Ok("42 (sleep) Z 1 42 42".to_owned())));
+        assert!(live(Ok("42 (sleep) S 1 42 42".to_owned())));
+        assert!(live(Err(Error::from(ErrorKind::PermissionDenied))));
+        assert!(super::process_is_live(Err(Error::from_raw_os_error(libc::EIO))).is_err());
     }
 
     #[test]

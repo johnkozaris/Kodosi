@@ -22,7 +22,6 @@ public sealed partial class DeviceService
         if (signing.Length != IdentityWireFormat.MlDsa65PublicKeyLength || nonce.Length != LinkNonceLength || proof.Length != LinkProofLength)
             throw ApiException.Invalid("Device keys have invalid lengths.");
         var now = clock.GetUtcNow();
-        await db.DeviceLinks.Where(x => x.ExpiresAt < now.AddDays(-1)).ExecuteDeleteAsync(ct);
         if (!await db.DeviceLists.AnyAsync(x => x.UserId == userId, ct))
             throw ApiException.Conflict("Register the first device directly.");
         await RequireDeviceSpaceAsync(userId, ct);
@@ -77,7 +76,7 @@ public sealed partial class DeviceService
         });
     }
 
-    public async Task ApproveLinkAsync(Guid userId, Device approvingDevice, LinkApprove request, CancellationToken ct)
+    public async Task ApproveLinkAsync(Guid userId, ApprovedDevice approvingDevice, LinkApprove request, CancellationToken ct)
     {
         var link = await db.DeviceLinks.SingleOrDefaultAsync(x => x.UserId == userId && x.Id == request.RequestId, ct)
             ?? throw ApiException.Missing();
@@ -92,11 +91,10 @@ public sealed partial class DeviceService
             throw ApiException.Conflict("The approval has already changed.");
         }
         if (link.State != "pending" || link.ExpiresAt <= clock.GetUtcNow()) throw ApiException.Missing();
-        approvingDevice = await RequireDeviceAsync(userId, approvingDevice.Id, ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await RequireDeviceSpaceAsync(userId, ct);
-        var (_, generation) = await StageDeviceAsync(userId, approvingDevice, link.DeviceId, link.SigningPublicKey, certBytes, certSig, listBytes, listSig, ct);
-        link.State = "approved"; link.ApprovedGeneration = generation; link.ApprovalProof = approval;
+        await StageDeviceAsync(userId, approvingDevice, link.DeviceId, link.SigningPublicKey, certBytes, certSig, listBytes, listSig, ct);
+        link.State = "approved"; link.ApprovalProof = approval;
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
         connections.Notify(userId, "devices");
     }
