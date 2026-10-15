@@ -1,6 +1,7 @@
 #include "RuntimeApiFixture.hpp"
 #include "SessionFixture.hpp"
 #include "runtime/RuntimeBridge.hpp"
+#include <QFile>
 #include <QJsonDocument>
 #include <QSignalSpy>
 #include <limits>
@@ -41,6 +42,13 @@ private slots:
         kodosi::RuntimeBridge bridge;
         QVERIFY(started(bridge));
         QVERIFY(bridge.isRunning());
+    }
+    void expectsTheContractVersion()
+    {
+        QFile contract(QStringLiteral(KODOSI_SOURCE_DIR "/../../protocol/desktop-runtime.json"));
+        QVERIFY(contract.open(QIODevice::ReadOnly));
+        QCOMPARE(QJsonDocument::fromJson(contract.readAll())[QStringLiteral("protocolVersion")].toInteger(),
+            qint64 { kodosi::RuntimeBridge::protocolVersion });
     }
     void asynchronousStartupCanBeCancelledBeforeInstallation()
     {

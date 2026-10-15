@@ -1,4 +1,5 @@
 import Foundation
+import KodosiBridge
 import Testing
 
 enum RuntimeContract {
@@ -7,7 +8,22 @@ enum RuntimeContract {
         let allowed: Set<String>
     }
 
+    private static let schema: [String: Any] = {
+        let url = URL(filePath: #filePath)
+            .deletingLastPathComponent()
+            .appending(path: "../../../protocol/desktop-runtime.json")
+            .standardizedFileURL
+        guard let data = try? Data(contentsOf: url),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return [:] }
+        return root
+    }()
+
     private static let shapes: [String: Shape] = load()
+
+    static var version: Int? {
+        schema["protocolVersion"] as? Int
+    }
 
     static func verify(_ data: Data, sourceLocation: SourceLocation = #_sourceLocation) {
         if let violation = violation(in: data) {
@@ -28,13 +44,7 @@ enum RuntimeContract {
     }
 
     private static func load() -> [String: Shape] {
-        let schema = URL(filePath: #filePath)
-            .deletingLastPathComponent()
-            .appending(path: "../../../protocol/desktop-runtime.json")
-            .standardizedFileURL
-        guard let data = try? Data(contentsOf: schema),
-              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let commands = root["commands"] as? [String: Any],
+        guard let commands = schema["commands"] as? [String: Any],
               let variants = commands["oneOf"] as? [[String: Any]]
         else { return [:] }
         var shapes: [String: Shape] = [:]
@@ -57,5 +67,9 @@ struct RuntimeContractTests {
         #expect(RuntimeContract.violation(in: Data(open.utf8)) != nil)
         let complete = #"{"type":"session.openRemote","sessionId":"s","requestId":"r","accountUserId":null,"accountEpoch":0}"#
         #expect(RuntimeContract.violation(in: Data(complete.utf8)) == nil)
+    }
+
+    @Test func theAppExpectsTheSchemaVersion() {
+        #expect(RuntimeContract.version == Int(RuntimeHandle.expectedProtocolVersion))
     }
 }
