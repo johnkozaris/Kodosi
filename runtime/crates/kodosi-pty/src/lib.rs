@@ -52,10 +52,6 @@ pub enum KodosiError {
     Io(#[from] std::io::Error),
     #[error("failed to spawn child process: {0}")]
     Spawn(String),
-    #[error("unsupported terminal operation: {0}")]
-    Unsupported(String),
-    #[error("terminal backpressure: {0}")]
-    Backpressure(String),
 }
 
 pub use pty::{CONSOLE_HOST, KodosiPty, PtyReader, ShutdownStage, Transfer, WaitOutcome};

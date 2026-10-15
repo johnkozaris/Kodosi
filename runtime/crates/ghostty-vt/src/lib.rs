@@ -23,8 +23,6 @@ pub struct TerminalPolicy {
     pub continuation_max_bytes: usize,
     pub scrollback_max_bytes: usize,
     pub scrollback_max_lines: usize,
-    pub dark: bool,
-    /// The terminal runs behind a console host such as Windows `ConPTY`.
     pub console: bool,
 }
 
@@ -34,7 +32,6 @@ impl Default for TerminalPolicy {
             continuation_max_bytes: 1024 * 1024,
             scrollback_max_bytes: 64 * 1024 * 1024,
             scrollback_max_lines: 1_024,
-            dark: true,
             console: false,
         }
     }
@@ -44,7 +41,7 @@ impl Default for TerminalPolicy {
 pub struct SemanticCheckpoint(Vec<u8>);
 
 impl SemanticCheckpoint {
-    pub fn as_bytes(&self) -> &[u8] {
+    fn as_bytes(&self) -> &[u8] {
         &self.0
     }
 
@@ -56,12 +53,6 @@ impl SemanticCheckpoint {
 impl From<Vec<u8>> for SemanticCheckpoint {
     fn from(bytes: Vec<u8>) -> Self {
         Self(bytes)
-    }
-}
-
-impl AsRef<[u8]> for SemanticCheckpoint {
-    fn as_ref(&self) -> &[u8] {
-        self.as_bytes()
     }
 }
 
@@ -84,7 +75,6 @@ impl Terminal {
             policy.continuation_max_bytes,
             policy.scrollback_max_bytes,
             policy.scrollback_max_lines,
-            policy.dark,
         )?;
         if policy.console {
             raw.use_console_profile()?;
@@ -125,10 +115,6 @@ impl Terminal {
         self.raw.resize(cols, rows, cell_width_px, cell_height_px)
     }
 
-    pub fn set_dark(&mut self, dark: bool) -> Result<(), Error> {
-        self.raw.set_dark(dark)
-    }
-
     pub fn encode_focus(&mut self, focused: bool) -> Result<Vec<u8>, Error> {
         self.raw.encode_focus(focused)
     }
@@ -149,7 +135,7 @@ impl Terminal {
         &mut self,
         limits: CheckpointLimits,
     ) -> Result<SemanticCheckpoint, Error> {
-        let (bytes, _) = self.raw.encode_checkpoint(limits, usize::MAX)?;
+        let bytes = self.raw.encode_checkpoint(limits, usize::MAX)?;
         Ok(SemanticCheckpoint(bytes))
     }
 
@@ -157,7 +143,7 @@ impl Terminal {
         &mut self,
         limits: CheckpointLimits,
     ) -> Result<SemanticCheckpoint, Error> {
-        let (bytes, _) = self.raw.encode_checkpoint(limits, 0)?;
+        let bytes = self.raw.encode_checkpoint(limits, 0)?;
         Ok(SemanticCheckpoint(bytes))
     }
 
@@ -166,9 +152,7 @@ impl Terminal {
         checkpoint: &SemanticCheckpoint,
         limits: CheckpointLimits,
     ) -> Result<(), Error> {
-        self.raw
-            .restore_checkpoint(checkpoint.as_bytes(), limits)
-            .map(|_| ())
+        self.raw.restore_checkpoint(checkpoint.as_bytes(), limits)
     }
 
     pub fn format_finite_cli_replay(&mut self) -> Result<Vec<u8>, Error> {

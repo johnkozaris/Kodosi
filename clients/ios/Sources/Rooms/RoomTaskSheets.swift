@@ -206,7 +206,7 @@ struct RoomTaskComposer: View {
                 .listRowBackground(theme.colors.raised)
                 if !linkable.isEmpty {
                     Section("Repositories") {
-                        RoomFlowLayout(spacing: 6) {
+                        FlowLayout(spacing: 6) {
                             ForEach(linkable) { repository in
                                 repositoryToggle(repository)
                             }

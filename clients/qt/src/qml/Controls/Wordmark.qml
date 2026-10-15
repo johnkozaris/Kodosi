@@ -1,8 +1,6 @@
 import Kodosi 1.0
 import QtQuick
 
-// The Kodosi wordmark, 1.2 times `size` tall, and the copper cursor at the end of the word: it
-// stands on the line of the word, as tall as its small letters.
 Row {
     id: root
 

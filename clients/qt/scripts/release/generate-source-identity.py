@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import argparse
-import os
 from pathlib import Path
 
-from canonical_json import canonical_json
+from canonical_json import write_canonical_json
 from release_source import source_identity
 
 
@@ -22,15 +21,7 @@ def main() -> None:
         raise SystemExit(f"source identity error: {error}") from error
     output = arguments.output
     output.parent.mkdir(parents=True, exist_ok=True)
-    temporary = output.with_name(f".{output.name}.part")
-    try:
-        with temporary.open("wb") as destination:
-            destination.write(canonical_json(identity))
-            destination.flush()
-            os.fsync(destination.fileno())
-        os.replace(temporary, output)
-    finally:
-        temporary.unlink(missing_ok=True)
+    write_canonical_json(output, identity)
     print(output)
 
 

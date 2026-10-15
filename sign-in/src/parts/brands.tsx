@@ -3,8 +3,6 @@ import type { ReactNode } from "react";
 
 const size = "size-[18px] shrink-0";
 
-// The marks of the companies whose sign-in a realm can offer. Each company asks for its own mark
-// on the button of its sign-in. Google's keeps its four colours, as Google asks.
 const MARKS: Record<string, ReactNode> = {
   github: (
     <svg viewBox="0 0 24 24" className={size} fill="currentColor" aria-hidden>
@@ -38,7 +36,6 @@ const MARKS: Record<string, ReactNode> = {
   ),
 };
 
-/** The mark of a sign-in service, from the names that Keycloak gives it. */
 export function BrandMark({ alias, providerId }: { alias: string; providerId?: string }) {
   const known = Object.keys(MARKS).find(
     (name) => providerId?.toLowerCase() === name || alias.toLowerCase().includes(name),

@@ -2233,66 +2233,6 @@
               }
             ]
           },
-          "dark": {
-            "type": "boolean"
-          },
-          "type": {
-            "const": "system.setTheme"
-          }
-        },
-        "required": [
-          "accountUserId",
-          "accountEpoch",
-          "type",
-          "dark"
-        ],
-        "type": "object"
-      },
-      {
-        "additionalProperties": false,
-        "properties": {
-          "accountEpoch": {
-            "format": "u64",
-            "type": "integer"
-          },
-          "accountUserId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "type": {
-            "const": "shutdown"
-          }
-        },
-        "required": [
-          "accountUserId",
-          "accountEpoch",
-          "type"
-        ],
-        "type": "object"
-      },
-      {
-        "additionalProperties": false,
-        "properties": {
-          "accountEpoch": {
-            "format": "u64",
-            "type": "integer"
-          },
-          "accountUserId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "cellHeightPixels": {
             "format": "u32",
             "type": "integer"
@@ -2535,16 +2475,6 @@
             "type": "integer"
           },
           "accountUserId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "deviceId": {
             "anyOf": [
               {
                 "type": "string"
@@ -3012,9 +2942,6 @@
                   "format": "i64",
                   "type": "integer"
                 },
-                "certSignerDeviceId": {
-                  "type": "string"
-                },
                 "deviceId": {
                   "type": "string"
                 },
@@ -3028,7 +2955,6 @@
               "required": [
                 "deviceId",
                 "label",
-                "certSignerDeviceId",
                 "certIssuedAtMs",
                 "recoveryKey"
               ],
@@ -3090,17 +3016,13 @@
                 "deviceLabel": {
                   "type": "string"
                 },
-                "expiresAt": {
-                  "type": "string"
-                },
                 "requestId": {
                   "type": "string"
                 }
               },
               "required": [
                 "requestId",
-                "deviceLabel",
-                "expiresAt"
+                "deviceLabel"
               ],
               "type": "object"
             },
@@ -3184,9 +3106,6 @@
           "code": {
             "type": "string"
           },
-          "expiresAt": {
-            "type": "string"
-          },
           "type": {
             "const": "devices.link.selfPending"
           }
@@ -3195,8 +3114,7 @@
           "accountUserId",
           "accountEpoch",
           "type",
-          "code",
-          "expiresAt"
+          "code"
         ],
         "type": "object"
       },
@@ -3309,16 +3227,6 @@
           },
           "type": {
             "const": "devices.error"
-          },
-          "userCode": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         },
         "required": [
@@ -3493,16 +3401,6 @@
                     {
                       "additionalProperties": false,
                       "properties": {
-                        "app": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        },
                         "kind": {
                           "anyOf": [
                             {
@@ -4686,16 +4584,6 @@
                         "role": {
                           "type": "string"
                         },
-                        "timestamp": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        },
                         "toolName": {
                           "anyOf": [
                             {
@@ -4710,8 +4598,7 @@
                       "required": [
                         "role",
                         "content",
-                        "toolName",
-                        "timestamp"
+                        "toolName"
                       ],
                       "type": "object"
                     },
@@ -4728,16 +4615,8 @@
                       }
                     ]
                   },
-                  "readBytes": {
-                    "format": "u64",
-                    "type": "integer"
-                  },
                   "sourceFileBytes": {
                     "format": "u64",
-                    "type": "integer"
-                  },
-                  "sourceRecords": {
-                    "format": "usize",
                     "type": "integer"
                   }
                 },
@@ -4745,8 +4624,6 @@
                   "entries",
                   "nextBeforeByte",
                   "sourceFileBytes",
-                  "readBytes",
-                  "sourceRecords",
                   "degradedReason"
                 ],
                 "type": "object"
@@ -5057,28 +4934,6 @@
               "result": {
                 "additionalProperties": false,
                 "properties": {
-                  "agent": {
-                    "oneOf": [
-                      {
-                        "const": "claude"
-                      },
-                      {
-                        "const": "codex"
-                      },
-                      {
-                        "const": "copilot"
-                      },
-                      {
-                        "const": "cursor"
-                      },
-                      {
-                        "const": "gemini"
-                      },
-                      {
-                        "const": "opencode"
-                      }
-                    ]
-                  },
                   "efforts": {
                     "items": {
                       "additionalProperties": false,
@@ -5130,7 +4985,6 @@
                   }
                 },
                 "required": [
-                  "agent",
                   "models",
                   "efforts"
                 ],

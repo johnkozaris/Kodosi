@@ -1,9 +1,8 @@
-"""The canonical JSON encoding of the release records: sorted keys, no spaces,
-UTF-8 text and a final line feed. Equal records give equal bytes."""
-
 from __future__ import annotations
 
 import json
+import os
+from pathlib import Path
 
 
 def canonical_json(value: object) -> bytes:
@@ -16,3 +15,15 @@ def canonical_json(value: object) -> bytes:
         )
         + "\n"
     ).encode("utf-8")
+
+
+def write_canonical_json(output: Path, value: object) -> None:
+    temporary = output.with_name(f".{output.name}.part")
+    try:
+        with temporary.open("wb") as destination:
+            destination.write(canonical_json(value))
+            destination.flush()
+            os.fsync(destination.fileno())
+        os.replace(temporary, output)
+    finally:
+        temporary.unlink(missing_ok=True)

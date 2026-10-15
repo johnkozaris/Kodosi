@@ -1,11 +1,7 @@
 import AppKit
-import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-/// The place to start work: a small terminal that shows the one about to
-/// open. Pick an agent, and its command line writes itself; type the first
-/// prompt after it, or a command for a plain terminal.
 struct AgentLauncher: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
@@ -27,7 +23,6 @@ struct AgentLauncher: View {
     @State private var seed: CGFloat = AgentLauncher.seeded ? 1 : 0
     @State private var opened = AgentLauncher.seeded
 
-    /// Whether the terminal grew from its cursor in this run of the app.
     private static var seeded = false
     private static let bandHeight: CGFloat = 42
     private static let width: CGFloat = 560
@@ -38,7 +33,6 @@ struct AgentLauncher: View {
         deps.launcher
     }
 
-    /// The colors inside the terminal, which is dark in both looks.
     private var ink: AppTheme.Colors {
         theme.isDark ? theme.colors : AppTheme.dark.colors
     }
@@ -59,12 +53,10 @@ struct AgentLauncher: View {
         folder ?? deps.settings.lastWorkingDir ?? deps.storageBootstrap.defaultWorkingDirectory?.path
     }
 
-    /// Whether the person can type after the command: not while the line installs an agent.
     private var takesWords: Bool {
         info?.installed ?? true
     }
 
-    /// Whether Start has a line to run: not while the chosen agent is still unknown.
     private var ready: Bool {
         info == nil ? choice.agent == nil : plan.line != nil
     }
@@ -104,8 +96,6 @@ struct AgentLauncher: View {
         }
     }
 
-    /// The first time in a run of the app, the home's terminal grows from its
-    /// copper cursor, as in the film; after that it is simply there.
     private func grow() {
         focus += 1
         guard !Self.seeded else { return }
@@ -124,9 +114,6 @@ struct AgentLauncher: View {
         }
     }
 
-    /// The terminal about to open, as its tile will look: a band with a tab for
-    /// each kind of terminal, then the prompt with the folder, the command and
-    /// the cursor.
     private var terminal: some View {
         let shape = RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
         let cursor = CGRect(x: 16, y: Self.bandHeight + 18, width: 9, height: 18)
@@ -204,7 +191,7 @@ struct AgentLauncher: View {
     }
 
     private var commandLine: some View {
-        FlowLayout(spacing: 6, lineSpacing: 6) {
+        FlowLayout(spacing: 6) {
             folderToken
             Text(verbatim: "❯")
                 .foregroundStyle(ink.accent)
@@ -272,14 +259,13 @@ struct AgentLauncher: View {
 
     private var folderToken: some View {
         CommandToken(
-            text: directory.map(folderName) ?? "~", symbol: "folder.fill", tint: hex(0x5DAFA6),
+            text: directory.map(folderName) ?? "~", symbol: "folder.fill", tint: TerminalInk.path,
             open: menu == .folder, identifier: "launcher.folder", help: "Folder"
         ) { toggle(.folder) }
             .frame(maxWidth: 240, alignment: .leading)
             .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named(Self.bodySpace)).minX } action: { keys[.folder] = $0 }
     }
 
-    /// The list that a key opened, in the terminal under the line, starting under the key.
     private func menuView(_ menu: LauncherMenu) -> some View {
         let room = Self.width - Self.inset * 2
         let x = min(keys[menu] ?? 0, room - 400)
@@ -299,7 +285,6 @@ struct AgentLauncher: View {
                                       loading: info.map { launcher.loadingModels.contains($0.agent) } ?? false),
                     room: room - x, identifier: "launcher.list.\(menu.rawValue)", pick: pick
                 ) {
-                    // The list also goes when the line of a new account takes its place.
                     if !adding {
                         closeMenu()
                     }
@@ -400,8 +385,6 @@ struct AgentLauncher: View {
         focus += 1
     }
 
-    /// Types a suggestion into the empty line once, at a person's uneven pace,
-    /// and leaves it there with the cursor.
     private func typeHints() async {
         ghost = ""
         guard prompt.isEmpty, takesWords else { return }

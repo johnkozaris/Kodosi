@@ -146,7 +146,7 @@ impl Frame {
                 heartbeat,
                 bytes,
             } => {
-                if bytes.is_empty() || bytes.len() > super::INPUT_LIMIT {
+                if bytes.is_empty() || bytes.len() > super::TERMINAL_INPUT_MAX_BYTES {
                     return Err(invalid("Terminal input exceeds its chunk limit."));
                 }
                 let mut body = Vec::with_capacity(12 + bytes.len());
@@ -250,7 +250,7 @@ impl Frame {
                 }
             }
             11 => {
-                if body.len() <= 12 || body.len() > 12 + super::INPUT_LIMIT {
+                if body.len() <= 12 || body.len() > 12 + super::TERMINAL_INPUT_MAX_BYTES {
                     return Err(invalid("Terminal input frame is invalid."));
                 }
                 Self::Input {
@@ -265,7 +265,7 @@ impl Frame {
                 }
                 let request_id = Uuid::from_slice(&body[..16])
                     .map_err(|_| invalid("Terminal control frame is invalid."))?;
-                let control = decode_control(&body[16..], request_id)?;
+                let control = decode_control(&body[16..])?;
                 if matches!(control, TerminalControl::Input { .. }) {
                     return Err(invalid("Terminal input uses its own frame."));
                 }

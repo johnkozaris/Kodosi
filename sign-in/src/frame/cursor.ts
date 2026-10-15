@@ -1,34 +1,20 @@
 import { type Box, carried } from "./carry";
 import { MOVES, spring, still } from "./motion";
 
-/**
- * The copper cursor is the one living thing of a page, as it is the sign of life in the app. It
- * rests at the end of the wordmark. It goes to the field that takes the typing and stands
- * there as the block cursor of a terminal: it is solid while the person types, and it blinks
- * when they stop. While Keycloak works, the glow colours pass through it. The next page takes it
- * from where it stood (carry.ts).
- */
 export interface Cursor {
-  /** The page waits for the person: the cursor blinks at rest. An end keeps it still. */
   waits(on: boolean): void;
-  /** Keycloak works. */
   works(on: boolean): void;
-  /** Where the cursor is in the window, for the page after this one. */
   box(): Box | null;
   destroy(): void;
 }
 
-/** The fields whose typing the cursor shows. */
 const TYPED = ".row-input, .handle-input, .code-input";
-/** After this time with no key, the cursor in a field blinks. */
 const IDLE_MS = 600;
-/** On the first page of a visit, the cursor stays in the mark until the mark is drawn. */
 const INTRO_MS = 950;
 const SIDES = ["x", "y", "w", "h"] as const;
 
 const idle: Cursor = { waits() {}, works() {}, box: () => null, destroy() {} };
 
-/** What the cursor needs to know of a field, read one time for each field. */
 interface Metrics {
   type: string;
   font: string;
@@ -37,9 +23,7 @@ interface Metrics {
   right: number;
   top: number;
   height: number;
-  /** The width of one letter. */
   cell: number;
-  /** The width of one dot of a password. */
   dot: number;
 }
 
@@ -53,10 +37,7 @@ function widthOf(text: string, font: string, spacing: string): number {
   return ruler.measureText(text).width;
 }
 
-/**
- * The width of one dot of a password. Each browser draws its own dot, so the page asks the
- * browser: a password field that is one pixel wide says how wide ten dots are.
- */
+// Each browser draws its own password dot, so measure ten of them in a field one pixel wide.
 function dotWidth(font: string, spacing: string): number {
   const probe = document.createElement("input");
   probe.type = "password";
@@ -98,7 +79,6 @@ export function liveCursor(): Cursor {
   if (!home) return idle;
   const root = document.documentElement;
   const reduced = still();
-  // Under a finger, the browser's own caret and its handles do the work of the field.
   const fine = matchMedia("(pointer: fine)").matches;
   const { stiffness, damping, mass = 1 } = spring;
 
@@ -110,8 +90,8 @@ export function liveCursor(): Cursor {
   let node = document.getElementById("cursor");
   const from = carried();
   let at: Box = node && from ? { x: from.cx, y: from.cy, w: from.cw, h: from.ch } : homeBox();
+  // StrictMode mounts the page twice in development: go on from the cursor of the first mount.
   if (node?.dataset.x) {
-    // The cursor of this page, made a moment ago (React makes a page two times in development).
     at = {
       x: Number(node.dataset.x),
       y: Number(node.dataset.y),
@@ -125,7 +105,6 @@ export function liveCursor(): Cursor {
     node = document.createElement("div");
     node.id = "cursor";
     node.setAttribute("aria-hidden", "true");
-    // The cursor of the mark comes with the mark: it goes on with that motion.
     if (arrives) node.style.animationDelay = `${0.52 - arrived - performance.now() / 1000}s`;
     document.body.appendChild(node);
   }
@@ -145,10 +124,8 @@ export function liveCursor(): Cursor {
   let watchUntil = 0;
   let quietTimer = 0;
 
-  /** Where the cursor of the field is, on the page. Null when the browser's caret does the work. */
   const caretBox = (): Box | null => {
     if (!field || composing || !field.isConnected) return null;
-    // A field that shows its letters in cells says where its cursor stands (parts/code.tsx).
     const host = field.closest("[data-cursor-host]");
     if (host) {
       const slot = host.querySelector("[data-cursor-slot]")?.getBoundingClientRect();
@@ -181,7 +158,6 @@ export function liveCursor(): Cursor {
   const goal = (): Box => (held() ? null : caretBox()) ?? homeBox();
 
   const draw = () => {
-    // A cursor that moves fast is longer, as the cursor of a terminal that glides.
     const long = Math.min(Math.abs(speed.x) * 0.012, at.w * 2);
     const tall = Math.min(Math.abs(speed.y) * 0.012, at.h * 1.2);
     const x = speed.x > 0 ? at.x - long : at.x;
@@ -198,8 +174,6 @@ export function liveCursor(): Cursor {
   };
 
   const step = (now: number) => {
-    // The spring runs on the clock, in small steps: a browser that draws few frames (a tab in
-    // the background) still brings the cursor to its place in the same time.
     let time = reduced ? 0 : Math.min((now - last) / 1000, 0.6);
     last = now;
     const to = goal();
@@ -222,7 +196,6 @@ export function liveCursor(): Cursor {
     frame = moves || now < watchUntil ? requestAnimationFrame(step) : 0;
   };
 
-  /** Things on the page can move for a time: the cursor follows what it stands on. */
   const watch = (ms = 700) => {
     watchUntil = Math.max(watchUntil, performance.now() + ms);
     if (frame) return;
@@ -239,7 +212,6 @@ export function liveCursor(): Cursor {
     root.classList.toggle("cursor-away", inField);
   };
 
-  /** The person did something in the field: the cursor is solid, and it blinks when they stop. */
   const typed = () => {
     quiet = false;
     clearTimeout(quietTimer);
@@ -292,12 +264,10 @@ export function liveCursor(): Cursor {
   document.addEventListener("compositionend", compose);
   document.addEventListener("animationstart", moved);
   document.addEventListener("transitionstart", moved);
-  // A field that holds more than it shows moves its own text.
   document.addEventListener("scroll", moved, true);
   window.addEventListener("resize", resized);
   void document.fonts?.ready.then(resized);
 
-  // The page can have its field already: the browser gave it the focus before the script ran.
   const first = document.activeElement;
   if (first instanceof HTMLInputElement) enter({ target: first } as unknown as FocusEvent);
   const release = window.setTimeout(

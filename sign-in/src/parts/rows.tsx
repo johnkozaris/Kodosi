@@ -14,25 +14,16 @@ import {
 import { cn } from "./cn";
 import { NOTE_ID } from "./text";
 
-/** The rule between two rows of a capsule. It starts where the words start. */
 export const rule =
   "relative before:absolute before:top-0 before:right-0 before:left-[18px] before:h-px before:bg-hairline/60 first:before:hidden";
 
 type FieldProps = Omit<ComponentProps<"input">, "placeholder" | "className" | "ref"> & {
   label: ReactNode;
-  /** At the end of the row: the arrow of the step, or a control of the field. */
   end?: ReactNode;
   ref?: Ref<HTMLInputElement>;
-  /** The value has what the step asks, as far as the page can check it: the arrow of the step is
-      copper only then. */
   fits?: boolean;
 };
 
-/**
- * A field of the capsule. Its label rests in the row, and it rises when the row has a value.
- * An email is a field of text with the keyboard of an email: the cursor of the page reads the
- * place of the caret, and a browser gives it only for a field of text.
- */
 export function TextRow({ label, end, id, type, ref, fits = true, ...input }: FieldProps) {
   const own = useId();
   const field = id ?? own;
@@ -42,6 +33,7 @@ export function TextRow({ label, end, id, type, ref, fits = true, ...input }: Fi
     node.current?.setCustomValidity(fits ? "" : "not yet");
   }, [fits]);
   const refused = input["aria-invalid"] === true || input["aria-invalid"] === "true";
+  // Browsers give the caret position, which the cursor follows, only for a field of text.
   const email = type === "email";
   return (
     <div className={cn(rule, "flex h-14 items-center")}>
@@ -76,10 +68,8 @@ export function PasswordRow({
   onKeyUp,
   ...field
 }: FieldProps & {
-  /** The names of the control that shows and hides the password. */
   show: string;
   hide: string;
-  /** What the row says while Caps Lock is on. */
   capsLock: string;
 }) {
   const [shown, setShown] = useState(false);
@@ -114,7 +104,6 @@ export function PasswordRow({
             aria-pressed={shown}
             onClick={() => {
               setShown((now) => !now);
-              // The typing goes on in the field, in its new kind.
               requestAnimationFrame(() => input.current?.focus());
             }}
             className={rowButton}
@@ -132,7 +121,6 @@ export function PasswordRow({
   );
 }
 
-/** The arrow that sends a capsule of fields. It is copper when the capsule has what it needs. */
 export function Go({ label, ...props }: { label: string } & ComponentProps<"button">) {
   return (
     <button
@@ -147,7 +135,6 @@ export function Go({ label, ...props }: { label: string } & ComponentProps<"butt
   );
 }
 
-/** A choice that is on or off, as a row: the switch of the app, on a field that a form sends. */
 export function SwitchRow({
   label,
   ...input
@@ -183,11 +170,7 @@ export function SwitchRow({
   );
 }
 
-/**
- * Keycloak's choice to sign out the person's other sessions with this change, which its own page
- * has on. The person sees the switch when they started the change from their account. A step that
- * Keycloak asks for at a sign-in keeps Keycloak's choice and shows nothing.
- */
+// Keycloak's own pages send logout-sessions=on unless the person turns it off.
 export function SignOutOthers({ shown, label }: { shown: boolean; label: string }) {
   return shown ? (
     <SwitchRow
@@ -202,7 +185,6 @@ export function SignOutOthers({ shown, label }: { shown: boolean; label: string 
   );
 }
 
-/** A row of the capsule that does one thing: a way to go on, or one of some choices. */
 export function ActionRow({
   tile,
   title,
@@ -216,11 +198,9 @@ export function ActionRow({
   tile: ReactNode;
   title: ReactNode;
   detail?: ReactNode;
-  /** The row is a link. */
   href?: string;
   target?: string;
   rel?: string;
-  /** At the end of the row, in place of the arrow. */
   end?: ReactNode;
 } & Omit<ComponentProps<"button">, "title" | "className">) {
   const inside = (
@@ -244,8 +224,6 @@ export function ActionRow({
       )}
     </>
   );
-  // The rule starts where the words start, after the tile. The focus line stays inside the row,
-  // because the capsule cuts what is outside it.
   const look = cn(
     rule,
     "group flex min-h-14 w-full items-center gap-3 py-2 pr-4 pl-4 text-left transition-colors duration-200 before:left-[58px] hover:bg-lifted focus-visible:-outline-offset-2 focus-visible:first:rounded-t-[20px] focus-visible:last:rounded-b-[20px] disabled:pointer-events-none disabled:opacity-45",
@@ -268,7 +246,6 @@ export function ActionRow({
   );
 }
 
-/** A row of the capsule that shows one thing. What a person can do with it is at its end. */
 export function ItemRow({
   tile,
   title,
@@ -293,7 +270,6 @@ export function ItemRow({
           <span
             className={cn(
               "text-footnote text-ink-muted",
-              // Words stop at two lines. A detail that has a layout of its own keeps it.
               typeof detail === "string" ? "line-clamp-2 [overflow-wrap:anywhere]" : "block",
             )}
           >
@@ -306,7 +282,6 @@ export function ItemRow({
   );
 }
 
-/** A quiet action at the end of a row, in words. */
 export function RowAction(button: Omit<ComponentProps<"button">, "className">) {
   return (
     <button
@@ -317,7 +292,6 @@ export function RowAction(button: Omit<ComponentProps<"button">, "className">) {
   );
 }
 
-/** A quiet action at the end of a row, as an icon. `label` says what it does. */
 export function RowIcon({
   label,
   children,

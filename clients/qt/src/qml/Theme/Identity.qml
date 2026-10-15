@@ -32,15 +32,6 @@ QtObject {
         return name.length > 0 ? name : qsTr("Someone")
     }
 
-    function kind(program: string): string {
-        const lower = program.toLowerCase()
-        for (const name of ["claude", "codex", "copilot", "cursor", "gemini", "opencode"]) {
-            if (lower.indexOf(name) >= 0)
-                return name
-        }
-        return "shell"
-    }
-
     function kindTint(kind: string): color {
         switch (kind) {
         case "claude": return "#d97757"
@@ -50,18 +41,6 @@ QtObject {
         case "gemini": return "#5579c9"
         case "opencode": return "#6f6258"
         default: return "#54433a"
-        }
-    }
-
-    function kindLabel(kind: string): string {
-        switch (kind) {
-        case "claude": return "Claude Code"
-        case "codex": return "Codex"
-        case "copilot": return "Copilot"
-        case "cursor": return "Cursor"
-        case "gemini": return "Gemini CLI"
-        case "opencode": return "OpenCode"
-        default: return qsTr("Shell")
         }
     }
 

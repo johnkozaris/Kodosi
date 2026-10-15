@@ -19,11 +19,10 @@ struct AccountStoreTests {
     @Test func devicesListPutsThisDeviceFirstAndTheRecoveryKeyLast() throws {
         try deliverDevices()
         #expect(store.orderedDevices.map(\.deviceId) == ["phone", "mac", "key"])
-        #expect(store.thisDevice?.label == "iPhone")
         #expect(store.hasRecoveryKey)
         #expect(store.devicesRevision == 1)
         let mac = try #require(store.devices.first { $0.deviceId == "mac" })
-        let phone = try #require(store.thisDevice)
+        let phone = try #require(store.devices.first { $0.deviceId == "phone" })
         #expect(store.canRemove(mac))
         #expect(!store.canRemove(phone))
     }
@@ -135,7 +134,7 @@ struct AccountStoreTests {
         #expect(outbox.types == ["auth.login.start"])
         let failure = try event("auth.error", userId: nil, ["operation": "auth.login.start", "message": "The sign-in service is down."])
         #expect(store.absorb(error: failure, message: "The sign-in service is down."))
-        #expect(store.stage == .failed("The sign-in service is down."))
+        #expect(store.stage == .failed(message: "The sign-in service is down.", completed: 0))
     }
 
     @Test func signOutSendsLogout() {

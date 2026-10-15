@@ -34,7 +34,7 @@ struct SessionTileView: View {
         let viewers = deps.viewers(of: session)
         VStack(spacing: 0) {
             SessionTileHeader(
-                session: session, isFocused: isFocused, roomEmbedded: roomEmbedded, isSelected: isSelected,
+                session: session, isFocused: isFocused, roomEmbedded: roomEmbedded,
                 showsActions: hovered || isSelected, viewers: viewers, isClosing: isClosing
             ) { confirmingClose = true }
                 .background {

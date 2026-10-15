@@ -12,9 +12,7 @@ using Kodosi.Plans;
 using Kodosi.TerminalConnections;
 using Kodosi.Security;
 using Kodosi.Sessions;
-using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -23,10 +21,7 @@ builder.Services.AddSingleton(services => NpgsqlDataSource.Create(services.GetRe
     ?? throw new InvalidOperationException("ConnectionStrings:Kodosi is required.")));
 builder.Services.AddDbContext<KodosiDbContext>((services, options) => options.UseNpgsql(services.GetRequiredService<NpgsqlDataSource>()));
 builder.Services.AddSingleton(TimeProvider.System);
-builder.Services.AddSingleton<SignatureVerifier>();
 builder.Services.AddSingleton(services => PlanCatalog.From(services.GetRequiredService<IConfiguration>()));
-builder.Services.AddSingleton<DeviceCertificateParser>();
-builder.Services.AddSingleton<SignedDeviceListParser>();
 builder.Services.AddSingleton<AccountGate>();
 builder.Services.AddSingleton<DeviceSessions>();
 builder.Services.AddSingleton<ServerMetrics>();
@@ -95,7 +90,7 @@ app.Use(async (context, next) =>
         context.Response.StatusCode = error.Status;
         await context.Response.WriteAsJsonAsync(error.Limit is null ? new { error = error.Message } : (object)new { error = error.Message, limit = error.Limit });
     }
-    catch (Exception error) when (!context.Response.HasStarted && error is DeviceCertificateFormatException or SignedDeviceListFormatException or JsonException)
+    catch (Exception error) when (!context.Response.HasStarted && error is IdentityFormatException or JsonException)
     { context.Response.StatusCode = 400; await context.Response.WriteAsJsonAsync(new { error = "Invalid request encoding." }); }
     catch (DbUpdateConcurrencyException) when (!context.Response.HasStarted)
     { context.Response.StatusCode = 409; await context.Response.WriteAsJsonAsync(new { error = "The current state changed; refresh before retrying." }); }
@@ -105,13 +100,11 @@ app.Use(async (context, next) =>
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
-var websocket = new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(30) };
-foreach (var origin in builder.Configuration.GetSection("WebSockets:AllowedOrigins").Get<string[]>() ?? []) websocket.AllowedOrigins.Add(origin);
-app.UseWebSockets(websocket);
-app.MapGet("/health/live", () => Results.Ok(new { status = "ok", apiContractVersion = 27, authContractVersion = 1 })).DisableRateLimiting();
+app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(30) });
+var health = new { status = "ok", apiContractVersion = 27, authContractVersion = 1 };
+app.MapGet("/health/live", () => Results.Ok(health)).DisableRateLimiting();
 app.MapGet("/health/ready", async (KodosiDbContext db, CancellationToken ct) =>
-    await db.Database.CanConnectAsync(ct) ? Results.Ok(new { status = "ok", apiContractVersion = 27, authContractVersion = 1 }) : Results.StatusCode(503))
-    .DisableRateLimiting();
+    await db.Database.CanConnectAsync(ct) ? Results.Ok(health) : Results.StatusCode(503)).DisableRateLimiting();
 var api = app.MapGroup("").AddEndpointFilter<AdmissionFilter>();
 api.MapAccounts(); api.MapDevices(); api.MapFriends(); api.MapSessions(); api.MapMissions();
 app.MapTerminalConnections();

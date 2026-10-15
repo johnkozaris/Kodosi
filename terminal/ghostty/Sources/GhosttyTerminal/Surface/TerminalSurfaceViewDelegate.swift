@@ -8,16 +8,6 @@ public protocol TerminalSurfaceGridResizeDelegate: TerminalSurfaceViewDelegate {
     func terminalDidResize(_ size: TerminalGridMetrics)
 }
 
-@MainActor
-public protocol TerminalSurfaceCloseDelegate: TerminalSurfaceViewDelegate {
-    func terminalDidClose(processAlive: Bool)
-}
-
-@MainActor
-public protocol TerminalSurfaceCommandFinishedDelegate: TerminalSurfaceViewDelegate {
-    func terminalDidFinishCommand(exitCode: Int?, durationNanos: UInt64)
-}
-
 public enum TerminalOpenURLKind: Sendable {
     case unknown
     case text
@@ -40,11 +30,6 @@ public protocol TerminalSurfaceOpenURLDelegate: TerminalSurfaceViewDelegate {
 @MainActor
 public protocol TerminalSurfaceHoverLinkDelegate: TerminalSurfaceViewDelegate {
     func terminalDidUpdateHoverLink(_ url: String?)
-}
-
-@MainActor
-public protocol TerminalSurfacePwdDelegate: TerminalSurfaceViewDelegate {
-    func terminalDidChangeWorkingDirectory(_ path: String)
 }
 
 @MainActor

@@ -8,6 +8,7 @@ ColumnLayout {
     id: root
 
     property int provider: 0
+    readonly property string agent: provider === 0 ? "claude" : "copilot"
     readonly property var installation: Models.ProviderFiles.installation
     readonly property var files: installation.files || []
 
@@ -25,11 +26,11 @@ ColumnLayout {
         Layout.fillWidth: true
         spacing: 12
 
-        AgentMark { program: root.provider === 0 ? "claude" : "copilot"; size: 40 }
+        AgentMark { program: root.agent; size: 40 }
         ColumnLayout {
             Layout.fillWidth: true
             spacing: 2
-            PlainLabel { text: root.provider === 0 ? "Claude Code" : "Copilot"; font.pixelSize: KodosiTheme.fontHeadline; font.weight: Font.DemiBold }
+            PlainLabel { text: Models.DesktopSettings.agentLabel(root.agent); font.pixelSize: KodosiTheme.fontHeadline; font.weight: Font.DemiBold }
             ShimmerText {
                 Layout.fillWidth: true
                 text: Models.ProviderFiles.busy ? qsTr("Looking") : root.installation.executable || root.installation.message || qsTr("Kodosi opens these files. It does not change them.")

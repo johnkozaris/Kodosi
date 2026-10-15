@@ -1,21 +1,6 @@
 #!/usr/bin/env bash
-# Runs a disposable Keycloak in Docker with the built theme and a sample realm, to use the pages
-# on the real thing, and a mailbox that takes the e-mails that this Keycloak sends.
-#
-#   ./keycloak.sh              starts them and prints where to look
-#   ./keycloak.sh code         starts a sign-in as the Kodosi app does, and prints the addresses
-#                              that the app can open in the browser
-#   ./keycloak.sh check MODE   sets the person check of the register and reset forms:
-#                              pass, block, ask (a challenge for the person), refuse (the widget
-#                              passes, the server refuses) or off
-#   ./keycloak.sh down         removes them
-#
-# The realm has the settings of the hosted realm: people make their own account and confirm their
-# e-mail before they choose a password, they choose a new password by e-mail, they sign in with a
-# passkey, and they see the buttons of GitHub, Google and Apple. Google and Apple have sample keys:
-# their buttons show and their sign-in does not work. GitHub here is a stand-in: a second realm of
-# this Keycloak ("elsewhere"), so a first sign-in with a service goes on to the pages that follow
-# it. The person check is a stand-in too (dev/turnstile): it uses Cloudflare's test keys only.
+# A disposable Keycloak in Docker with the built theme, the settings of the hosted realm and a
+# mailbox. Usage: ./keycloak.sh [code | check pass|block|ask|refuse|off | down]
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -28,28 +13,20 @@ image=quay.io/keycloak/keycloak:26.7.5
 jar=dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar
 check_jar=dev/turnstile/build/kodosi-turnstile-stand-in.jar
 realm=kodosi
-# The flows of the realm that have the person check: Keycloak's own flows take no new step.
 form='registration%20with%20check%20registration%20form'
 reset='reset%20with%20check'
-# The sample people of dev/people.txt: only this machine reaches this Keycloak.
 people=dev/people.txt
-# The notes about an account that Keycloak sends by e-mail. It sends the two notes about a locked
-# account only when this option names them, and then it sends only what the option names. For a
-# new password or authenticator app, Keycloak has an older event and UPDATE_CREDENTIAL: with both
-# names here, one change gives two e-mails.
+# Keycloak e-mails the lockout notes only when this option names them, and then only what it
+# names. UPDATE_PASSWORD or UPDATE_TOTP too would send two e-mails for one change.
 notes=LOGIN_ERROR,UPDATE_CREDENTIAL,REMOVE_CREDENTIAL
 notes=$notes,USER_DISABLED_BY_TEMPORARY_LOCKOUT,USER_DISABLED_BY_PERMANENT_LOCKOUT
 
 kc() { docker exec "$name" /opt/keycloak/bin/kcadm.sh "$@"; }
-# kcadm says on its error stream where it signs in and what it made. This run shows only what
-# goes wrong.
 calm() { "$@" 2> >(grep -v -e '^Created new' -e '^Logging into' >&2) >/dev/null; }
 signin() {
-  # The admin password is in the environment of the container, and nowhere else.
   docker exec "$name" sh -c '/opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 \
     --realm master --user admin --password "$KC_BOOTSTRAP_ADMIN_PASSWORD"' 2>/dev/null
 }
-# The id of the step of a flow that a provider makes.
 step_of() {
   kc get "authentication/flows/$1/executions" -r $realm --format csv --noquotes \
     --fields id,providerId | sed -n "s/,$2\$//p"
@@ -88,9 +65,6 @@ check() {
 }
 
 if [ "${1:-}" = code ]; then
-  # What the Kodosi app does first: it asks Keycloak for a code and shows the code. With the code
-  # after the "#", the page shows it and sends it. With the code in the query, Keycloak takes it
-  # and no page can show it: the pages then ask "Connect Kodosi?".
   answer=$(curl -fsS "http://localhost:$port/realms/$realm/protocol/openid-connect/auth/device" \
     -d client_id=kodosi-app -d 'scope=openid profile offline_access')
   code=$(printf '%s' "$answer" | sed -E 's/.*"user_code":"([^"]+)".*/\1/')
@@ -112,10 +86,8 @@ docker rm -f "$name" "$mailbox" >/dev/null 2>&1 || true
 docker network rm "$network" >/dev/null 2>&1 || true
 [ "${1:-}" = down ] && exit
 
-# The theme is built again when a source file is newer than the built file.
 [ -f "$jar" ] && [ -z "$(find src index.html -newer "$jar" -print -quit)" ] || bun run theme
 
-# The stand-in of the person check, compiled against the libraries of this Keycloak.
 if [ ! -f "$check_jar" ] || [ dev/turnstile/StandIn.java -nt "$check_jar" ]; then
   libraries=$(mktemp -d)
   docker create --name kodosi-signin-libraries "$image" >/dev/null
@@ -149,8 +121,6 @@ done
 echo
 signin
 
-# The realm, with the settings that the hosted realm has. Its e-mails go to the mailbox, and the
-# notes about an account are among them. The frames of the person check come from Cloudflare.
 calm kc create realms -s realm=$realm -s enabled=true -s displayName=Kodosi \
   -s loginTheme=kodosi -s accountTheme=kodosi -s emailTheme=kodosi \
   -s registrationAllowed=true -s registrationEmailAsUsername=false \
@@ -171,8 +141,6 @@ calm kc create realms -s realm=$realm -s enabled=true -s displayName=Kodosi \
   -s "browserSecurityHeaders.contentSecurityPolicy=frame-src 'self' https://challenges.cloudflare.com; frame-ancestors 'self'; object-src 'none';" \
   -s "smtpServer={\"host\":\"$mailbox\",\"port\":\"1025\",\"from\":\"hello@kodosi.example\",\"fromDisplayName\":\"Kodosi\"}"
 
-# A username is public, friends find each other by it, and it does not change. A first and a last
-# name are optional.
 calm kc update users/profile -r $realm -b '{
   "attributes": [
     {"name": "username", "displayName": "${username}", "multivalued": false,
@@ -195,17 +163,13 @@ calm kc update users/profile -r $realm -b '{
     "displayDescription": "Attributes, which refer to user metadata"}]
 }'
 
-# The one client of Kodosi, as the hosted realm has it: the app asks for a code and a person
-# confirms it in the browser.
 calm kc create clients -r $realm -s clientId=kodosi-app -s name=Kodosi -s publicClient=true \
   -s standardFlowEnabled=false -s directAccessGrantsEnabled=false \
   -s 'attributes={"oauth2.device.authorization.grant.enabled":"true","use.refresh.tokens":"true"}' \
   -s 'defaultClientScopes=["basic","profile"]' -s 'optionalClientScopes=["offline_access"]'
 
-# The registration of the realm is a copy of Keycloak's own, so it can take the person check. It
-# asks the person to accept the terms. The terms step keeps its place after the step that makes
-# the account, which a copy loses. The realm writes the words of its terms: here, the two
-# addresses where the hosted service will have its own.
+# A built-in flow takes no new step, so the realm uses copies. A copy loses the place of the terms
+# step after the step that makes the account.
 calm kc create authentication/flows/registration/copy -r $realm -b '{"newName":"registration with check"}'
 calm kc update "realms/$realm" -s 'registrationFlow=registration with check'
 calm kc update "authentication/flows/$form/executions" -r $realm \
@@ -214,18 +178,14 @@ calm kc update authentication/required-actions/TERMS_AND_CONDITIONS -r $realm -s
 calm kc create localization/en -r $realm \
   -s 'termsText=<a href="https://kodosi.com/terms">Terms</a> · <a href="https://kodosi.com/privacy">Privacy</a>'
 
-# A person can delete their own account: the step is on, and each person has the role for it.
 calm kc update authentication/required-actions/delete_account -r $realm -s enabled=true
 calm kc add-roles -r $realm --rname "default-roles-$realm" --cclientid account --rolename delete-account
 
-# A first sign-in with a service shows the profile, so the person picks their username.
 review=$(kc get 'authentication/flows/first%20broker%20login/executions' -r $realm --format csv \
   --noquotes --fields providerId,authenticationConfig | sed -n 's/^idp-review-profile,//p')
 calm kc update "authentication/config/$review" -r $realm \
   -b '{"alias":"review profile config","config":{"update.profile.on.first.login":"on"}}'
 
-# The person check of the registration form, and of the form for a forgotten password: the stand-in
-# takes the place of Keycloak's step that finds the person.
 calm kc create "authentication/flows/$form/executions/execution" -r $realm \
   -s provider=kodosi-turnstile-registration
 calm kc create authentication/flows -r $realm -s 'alias=reset with check' -s providerId=basic-flow \
@@ -239,7 +199,6 @@ for provider in kodosi-turnstile-reset reset-credential-email reset-password; do
 done
 check "${KODOSI_SIGN_IN_CHECK:-pass}"
 
-# The buttons of the three services. Google and Apple have sample keys.
 keys='"clientId":"sample","clientSecret":"sample"'
 calm kc create identity-provider/instances -r $realm -s alias=google -s providerId=google \
   -s displayName=Google -s enabled=true -s "config={$keys}"
@@ -247,9 +206,8 @@ calm kc create identity-provider/instances -r $realm -s alias=apple -s providerI
   -s displayName=Apple -s enabled=true \
   -s "config={$keys,\"authorizationUrl\":\"https://appleid.apple.com/auth/authorize\",\"tokenUrl\":\"https://appleid.apple.com/auth/token\"}"
 
-# The stand-in of GitHub: the realm "elsewhere" of this Keycloak, with Keycloak's own pages. Its
-# sign-in is the sign-in of a service. The browser reaches it at localhost, and this Keycloak at its
-# name in the network of the two containers. Its tokens name localhost in both cases.
+# The GitHub stand-in is the realm "elsewhere". The browser reaches it at localhost and Keycloak at
+# its name in the Docker network; frontendUrl makes its tokens name localhost in both cases.
 calm kc create realms -s realm=elsewhere -s enabled=true -s 'displayName=Stand-in for GitHub' \
   -s "attributes={\"frontendUrl\":\"http://localhost:$port\"}"
 secret=$(openssl rand -hex 16)
@@ -266,9 +224,7 @@ calm kc create identity-provider/instances/github/mappers -r $realm \
   -s identityProviderMapper=oidc-username-idp-mapper \
   -s 'config={"syncMode":"IMPORT","template":"${CLAIM.preferred_username | lowercase}","target":"LOCAL"}'
 
-# Each line of the people file: realm, username, e-mail, first name, last name, password, and the
-# steps that Keycloak asks of the person at the next sign-in. The steps go on after the password,
-# because a new password takes the step "new password" away.
+# The required actions go on after the password, because a new password removes UPDATE_PASSWORD.
 while IFS='|' read -r where username email first last password steps; do
   case "$where" in '' | '#'*) continue ;; esac
   id=$(kc create users -r "$where" -s "username=$username" -s "email=$email" \

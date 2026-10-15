@@ -1,17 +1,14 @@
 # Kodosi Ghostty
 
 Kodosi's integration of [Ghostty](https://github.com/ghostty-org/ghostty), based on
-[Lakr233/libghostty-spm](https://github.com/Lakr233/libghostty-spm). It supplies the
-macOS and iOS terminal views and the Linux and Windows terminal engine. Rust owns
-processes and terminal state; this integration renders host-managed sessions.
+[Lakr233/libghostty-spm](https://github.com/Lakr233/libghostty-spm). It provides the
+macOS and iOS terminal views and the Linux and Windows terminal engine.
 
 ```sh
-./scripts/build.sh
+./scripts/build.sh   # on Apple silicon macOS, Linux x86-64, or Windows 11 in Git Bash
 swift test
 ./scripts/test.sh
 ```
 
-Build on Apple silicon macOS for the macOS, iOS and iOS Simulator slices, on x86-64
-Linux, or on Windows 11 x64 or ARM64 (in Git Bash) for that platform's artifact. See
-[provenance](PROVENANCE.md) for updates and checks, and
-[third-party notices](THIRD_PARTY_NOTICES.md) for redistribution obligations.
+See [provenance](PROVENANCE.md) for updates and checks, and the
+[third-party notices](THIRD_PARTY_NOTICES.md).

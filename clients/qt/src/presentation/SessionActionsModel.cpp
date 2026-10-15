@@ -180,11 +180,6 @@ QString generatedName()
 }
 }
 
-QString SessionActionsModel::suggestedName() const
-{
-    return generatedName();
-}
-
 QString SessionActionsModel::suggestedBranch() const
 {
     return generatedName().toLower().replace(QLatin1Char(' '), QLatin1Char('-'));

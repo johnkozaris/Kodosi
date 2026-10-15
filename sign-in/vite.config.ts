@@ -10,8 +10,6 @@ export default defineConfig({
     keycloakify({
       themeName: "kodosi",
       accountThemeImplementation: "Single-Page",
-      // The terms and the privacy page of the service, at the foot of each page. The Keycloak
-      // server sets them; without them, the foot has no links.
       environmentVariables: [
         { name: "KODOSI_TERMS_URL", default: "" },
         { name: "KODOSI_PRIVACY_URL", default: "" },

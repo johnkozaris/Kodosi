@@ -4,22 +4,14 @@ import { cn } from "./cn";
 import { NOTE_ID } from "./text";
 
 const KINDS = {
-  /** The code of an authenticator app. */
   digits: { strip: /\D/g, pattern: "[0-9]", mode: "numeric", complete: "one-time-code" },
-  /** The code that the Kodosi app shows: letters and digits. */
   letters: { strip: /[^A-Za-z0-9]/g, pattern: "[A-Za-z0-9]", mode: "text", complete: "off" },
 } as const;
 
-/** The small line between the two halves of a code. */
 function Dash() {
   return <span aria-hidden className="h-0.5 w-2 shrink-0 rounded-full bg-ink-faint/60" />;
 }
 
-/**
- * A code that the person types. One real field takes the typing, the paste and the code that a
- * phone offers, and the cells show it. The cell that takes the next letter holds the place of
- * the page's cursor. The last letter sends the form.
- */
 export function CodeCells({
   name,
   id,
@@ -36,15 +28,11 @@ export function CodeCells({
   id?: string;
   length: number;
   kind?: keyof typeof KINDS;
-  /** The code has two halves with a line between them, and the field sends it with that line. */
   half?: boolean;
   label: string;
   autoFocus?: boolean;
-  /** Keycloak refused the code. */
   invalid?: boolean;
-  /** The last letter sends the form. A step with more fields sends with its arrow. */
   send?: boolean;
-  /** The code came with the page: the cells show it letter by letter, and the form goes. */
   given?: string | null;
 }) {
   const { strip, pattern, mode, complete } = KINDS[kind];
@@ -58,13 +46,11 @@ export function CodeCells({
   useEffect(() => {
     if (!given || !send || value.length !== length || sent.current) return;
     sent.current = true;
-    // The person sees the code come into the cells before the page goes on.
     const timer = window.setTimeout(() => field.current?.form?.requestSubmit(), 760);
     return () => {
       clearTimeout(timer);
       sent.current = false;
     };
-    // The code that came with the page goes one time.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -125,7 +111,6 @@ export function CodeCells({
           if (send && next.length === length && !sent.current) {
             sent.current = true;
             const form = event.target.form;
-            // The cells show the last letter before the page goes.
             window.setTimeout(() => form?.requestSubmit(), 180);
           }
           if (next.length < length) sent.current = false;
@@ -136,31 +121,18 @@ export function CodeCells({
   );
 }
 
-/**
- * A code that the page shows: the tiles of the app's sign-in window, so the person sees the same
- * object in the app and in the browser. A screen reader says the code letter by letter.
- */
 export function CodeTiles({
   code,
   label,
   small,
-  className,
 }: {
   code: string;
-  /** What the code is, for a screen reader. */
   label: string;
   small?: boolean;
-  className?: string;
 }) {
   const letters = [...code];
   return (
-    <span
-      className={cn(
-        "inline-flex items-center",
-        small ? "gap-[3px]" : "gap-[5px] sm:gap-1.5",
-        className,
-      )}
-    >
+    <span className={cn("inline-flex items-center", small ? "gap-[3px]" : "gap-[5px] sm:gap-1.5")}>
       <span className="sr-only">
         {label}: {letters.filter((one) => one !== "-").join(" ")}
       </span>

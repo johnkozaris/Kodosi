@@ -93,5 +93,4 @@ internal static class DeviceEndpoints
         context.Response.Headers.ETag = identity.Tag;
         return identity.Bundle is null ? Results.StatusCode(StatusCodes.Status304NotModified) : Results.Ok(identity.Bundle);
     }
-
 }

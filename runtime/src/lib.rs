@@ -65,8 +65,7 @@ impl From<kodosi_pty::KodosiError> for Error {
     fn from(error: kodosi_pty::KodosiError) -> Self {
         match error {
             kodosi_pty::KodosiError::Io(error) => Self::Io(error),
-            kodosi_pty::KodosiError::Backpressure(_) => Self::Busy,
-            other => Self::Other(other.to_string()),
+            error @ kodosi_pty::KodosiError::Spawn(_) => Self::Other(error.to_string()),
         }
     }
 }

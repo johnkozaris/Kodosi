@@ -88,7 +88,6 @@ pub(super) fn create_private_dir(path: &Path) -> io::Result<()> {
             }
             Ok(_) => {}
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
-                // SAFETY: the path is NUL-terminated and the attributes outlive the call.
                 if unsafe { CreateDirectoryW(win::wide(prefix).as_ptr(), &raw const attributes) }
                     == 0
                 {
@@ -120,7 +119,6 @@ pub(super) fn create_private_dir(path: &Path) -> io::Result<()> {
             "runtime storage belongs to another user",
         ));
     }
-    // SAFETY: the handle is open with `WRITE_DAC` and the DACL outlives the call.
     let status = unsafe {
         SetSecurityInfo(
             directory.as_raw_handle(),
@@ -241,9 +239,7 @@ pub(super) fn open_beneath(parent: &File, name: &str, directory: bool) -> io::Re
         )
     };
     let mut handle: HANDLE = ptr::null_mut();
-    // SAFETY: an all-zero status block is a valid initial value.
     let mut status_block: IO_STATUS_BLOCK = unsafe { std::mem::zeroed() };
-    // SAFETY: every pointer refers to a live local for the duration of the call.
     let status = unsafe {
         NtCreateFile(
             &raw mut handle,
@@ -260,14 +256,11 @@ pub(super) fn open_beneath(parent: &File, name: &str, directory: bool) -> io::Re
         )
     };
     if status < 0 {
-        // SAFETY: the conversion has no preconditions.
         return Err(win::win32_error(unsafe { RtlNtStatusToDosError(status) }));
     }
-    // SAFETY: `NtCreateFile` succeeded, so `handle` is an owned file handle.
     Ok(File::from(unsafe { OwnedHandle::from_raw_handle(handle) }))
 }
 
-/// `file://pc/C:/x` names drive `C:`; `file://server/share/x` names a UNC share.
 pub(super) fn path_from_file_url(host: &str, path: &str) -> PathBuf {
     let bytes = path.as_bytes();
     let path = path.replace('/', "\\");

@@ -12,16 +12,9 @@ if [ -z "$SOURCE_DIR" ] || [ ! -d "$SOURCE_DIR/zig-pkg" ]; then
 fi
 
 # shellcheck disable=SC1091
-source Toolchain.env
-# shellcheck disable=SC1091
 source LinuxVtBuild.env
 # shellcheck disable=SC1091
 source PythonTools.env
-
-if [ "$ZIG_TARGET" != "x86_64-linux" ]; then
-    echo "[!] Linux source verification requires the Linux Zig toolchain" >&2
-    exit 1
-fi
 
 PYTHON_ROOT="$ROOT_DIR/.tools/python-jsonschema-$JSONSCHEMA_VERSION"
 python_ready() {
@@ -40,21 +33,15 @@ if ! python_ready; then
     uv venv --quiet --python python3 "$STAGE"
     uv pip install --quiet --python "$STAGE/bin/python" \
         "jsonschema==$JSONSCHEMA_VERSION"
-    if [ "$("$STAGE/bin/python" -c \
-        'import importlib.metadata; print(importlib.metadata.version("jsonschema"))')" != \
-        "$JSONSCHEMA_VERSION" ]; then
-        echo "[!] jsonschema verifier install failed" >&2
-        exit 1
-    fi
     rm -rf "$PYTHON_ROOT"
     mv "$STAGE" "$PYTHON_ROOT"
+    python_ready || {
+        echo "[!] jsonschema verifier install failed" >&2
+        exit 1
+    }
 fi
 
-ZIG_BIN="$ROOT_DIR/.tools/zig-$ZIG_VERSION-$ZIG_SHA256/zig"
-if [ ! -x "$ZIG_BIN" ] || [ "$("$ZIG_BIN" version)" != "$ZIG_VERSION" ]; then
-    echo "[!] pinned Zig toolchain is missing" >&2
-    exit 1
-fi
+ZIG_BIN=$("$ROOT_DIR/scripts/install-zig.sh")
 
 (
     cd "$SOURCE_DIR"

@@ -4,7 +4,6 @@ set lazy
 tools_dir := justfile_directory() + "/.tools"
 cmake := tools_dir + "/cmake/bin/cmake"
 ctest := tools_dir + "/cmake/bin/ctest"
-qt_dir := tools_dir + "/Qt/gcc_64"
 windows_cmake := tools_dir + "/cmake/bin/cmake.exe"
 windows_ctest := tools_dir + "/cmake/bin/ctest.exe"
 version := trim(`python3 scripts/release/product-version.py`)
@@ -17,7 +16,7 @@ tools-install:
 
 # Configure the CMake build in build/dev.
 configure: tools-install
-    CMAKE_PREFIX_PATH="{{ qt_dir }}" "{{ cmake }}" --preset dev
+    "{{ cmake }}" --preset dev
 
 # Build the Linux app in build/dev.
 build: configure
@@ -70,9 +69,7 @@ windows-run *arguments: windows-build
     source ../../scripts/windows-env.sh && kodosi_windows_target && \
         PATH="$PWD/.tools/Qt/$KODOSI_QT_ARCH/bin:$PATH" build/windows-dev/kodosi-qt.exe {{ arguments }}
 
-# For a release, set KODOSI_MSIX_PUBLISHER to the subject of the signing certificate.
-# The default publisher makes an unsigned development package.
-# Build, test, package and verify build/release/kodosi-<version>-windows-<arch>.msix.
+# Build, test, package and verify build/release/kodosi-<version>-windows-<arch>.msix; for a signed release, set KODOSI_MSIX_PUBLISHER to the certificate subject.
 windows-package: tools-install
     source ../../scripts/windows-env.sh && kodosi_windows_env && \
         export SOURCE_DATE_EPOCH="$(python3 scripts/release/source-date-epoch.py --source-root .)" && \
@@ -95,10 +92,9 @@ windows-sign package:
     source ../../scripts/windows-env.sh && kodosi_windows_env && \
         ./scripts/release/sign-msix.sh "{{ package }}"
 
-# Build and test the Linux release. Make the Debian package, the portable archive and the Arch package two times, and compare them. Check each package, then write and check the release manifest in build/release. Commit all the changes first.
+# Build, test and package the committed Linux release twice, compare and verify the packages, and write the release manifest in build/release.
 release-package: tools-install
-    SOURCE_DATE_EPOCH={{ source_date_epoch }} CMAKE_PREFIX_PATH="{{ qt_dir }}" \
-        "{{ cmake }}" --preset release
+    SOURCE_DATE_EPOCH={{ source_date_epoch }} "{{ cmake }}" --preset release
     SOURCE_DATE_EPOCH={{ source_date_epoch }} "{{ cmake }}" --build --preset release
     "{{ cmake }}" --build build/release --target test_prep/all
     QT_QPA_PLATFORM=offscreen QSG_RHI_BACKEND=software "{{ ctest }}" --preset release

@@ -32,13 +32,8 @@ import org.keycloak.models.UserModel;
 import org.keycloak.models.utils.FormMessage;
 import org.keycloak.provider.ProviderConfigProperty;
 
-/**
- * A stand-in for a Cloudflare Turnstile extension, for the disposable Keycloak of keycloak.sh only.
- * It gives the pages what github.com/zymlabs/keycloak-cloudflare-turnstile-provider gives them:
- * on the registration form the values turnstileRequired, turnstileSiteKey, turnstileMode and
- * turnstileTheme, on the reset form the two scripts of its injection, and on both the check of the
- * field cf-turnstile-response. Use it with Cloudflare's test keys only.
- */
+// Gives the pages what github.com/zymlabs/keycloak-cloudflare-turnstile-provider gives them, for the
+// Keycloak of keycloak.sh only. Use it with Cloudflare's test keys only.
 public final class StandIn {
     private static final String FIELD = "cf-turnstile-response";
     private static final String VERIFY = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
@@ -62,7 +57,6 @@ public final class StandIn {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
-    /** Asks Cloudflare whether the token of the widget is good. */
     private static boolean passes(AuthenticatorConfigModel config, MultivaluedMap<String, String> form, String address) {
         String token = form.getFirst(FIELD);
         if (token == null || token.isBlank()) return false;
@@ -81,7 +75,6 @@ public final class StandIn {
         }
     }
 
-    /** The registration form, with the values that a theme reads to draw the widget. */
     public static final class Registration implements FormAction, FormActionFactory {
         @Override
         public void buildPage(FormContext context, LoginFormsProvider form) {
@@ -124,7 +117,6 @@ public final class StandIn {
         @Override public void close() {}
     }
 
-    /** Keycloak's "choose user" step of the reset form, with the scripts of the injection on its page. */
     public static final class Reset extends ResetCredentialChooseUser {
         private static AuthenticationFlowContext withScripts(AuthenticationFlowContext context) {
             String key = key(context.getAuthenticatorConfig(), "site.key");

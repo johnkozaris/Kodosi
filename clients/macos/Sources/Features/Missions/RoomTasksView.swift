@@ -104,7 +104,7 @@ struct RoomTasksView: View {
                         .textFieldStyle(.plain).appTextStyle(.body).lineLimit(2 ... 6)
                         .accessibilityIdentifier("room.task.description")
                     if !repositories.isEmpty {
-                        FlowRow(spacing: 6) {
+                        FlowLayout(spacing: 6) {
                             ForEach(repositories) { repository in
                                 let on = state.taskRepositories.contains(repository.id)
                                 Button {
@@ -139,11 +139,9 @@ struct RoomTasksView: View {
         Task { @MainActor in
             defer { state.busy = false }
             do {
-                try await deps.roomAction(roomId, [
-                    "type": .string("createTask"), "title": .string(title),
-                    "description": .string(state.taskDescription),
-                    "repositoryIds": .array(state.taskRepositories.sorted().map(JSONValue.string)),
-                ])
+                try await deps.roomAction(
+                    roomId, RoomTaskAction.create(title: title, description: state.taskDescription, repositoryIds: state.taskRepositories)
+                )
                 if revision == state.taskRevision {
                     state.taskTitle = ""; state.taskDescription = ""; state.taskRepositories.removeAll()
                 }
@@ -221,7 +219,7 @@ private struct RoomTaskCard: View {
     private var chips: some View {
         let terminal = task.terminalId.flatMap(deps.session)
         if !repositories.isEmpty || task.issue != nil || terminal != nil || (task.closed && task.note?.isEmpty == false) {
-            FlowRow(spacing: 5) {
+            FlowLayout(spacing: 5) {
                 ForEach(repositories) { Tag(text: $0.name, symbol: "shippingbox") }
                 if let issue = task.issue {
                     Tag(text: "#\(issue.number)", symbol: "smallcircle.filled.circle")
@@ -252,7 +250,8 @@ private struct RoomTaskCard: View {
     private var detail: some View {
         VStack(alignment: .leading, spacing: 12) {
             if !task.description.isEmpty {
-                Text(.init(task.description)).appTextStyle(.body).lineSpacing(2.5).foregroundStyle(theme.colors.inkMuted)
+                Text(RoomMessageText.formatted(task.description)).appTextStyle(.body).lineSpacing(2.5)
+                    .foregroundStyle(theme.colors.inkMuted).tint(theme.colors.accentStrong)
                     .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
             }
             if let issue = task.issue, let url = URL(string: issue.url), ["https", "http"].contains(url.scheme ?? "") {

@@ -15,12 +15,9 @@ mod windows;
 #[cfg(windows)]
 use windows as imp;
 
-/// The system credential store: Keychain on macOS and iOS, Secret Service on Linux,
-/// and files sealed with Windows data protection on Windows.
 pub struct SecretStore(imp::Store);
 
 impl SecretStore {
-    /// `service` groups the entries. On Windows, `directory` holds the sealed files.
     pub fn new(service: &str, directory: &Path) -> Self {
         Self(imp::Store::new(service, directory))
     }

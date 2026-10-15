@@ -15,7 +15,7 @@ struct RoomConversationView: View {
         deps.rooms[roomId]?.messages ?? []
     }
 
-    private var targets: [MentionTarget] {
+    private var targets: [RoomMention] {
         RoomMentions.targets(members: detail.members, sessions: deps.sessions.filter { $0.missionId == roomId }, userId: deps.userId)
     }
 
@@ -54,8 +54,7 @@ struct RoomConversationView: View {
         .raised(Radius.xl, fill: theme.colors.raised.mix(with: theme.colors.surface, by: 0.45))
         .animation(theme.motion.snappy, value: copied)
         .environment(\.openURL, OpenURLAction { url in
-            guard url.scheme == "kodosi-mention" else { return .systemAction }
-            let id = url.lastPathComponent
+            guard let id = RoomMentions.terminalId(in: url) else { return .systemAction }
             if deps.session(id) != nil {
                 state.canvas = 0
                 state.selectedTerminal = id
@@ -65,7 +64,7 @@ struct RoomConversationView: View {
         })
     }
 
-    private func transcript(_ targets: [MentionTarget]) -> some View {
+    private func transcript(_ targets: [RoomMention]) -> some View {
         let messages = messages
         return ScrollViewReader { proxy in
             ScrollView {
@@ -104,7 +103,14 @@ struct RoomConversationView: View {
             }
             .overlay {
                 if messages.isEmpty {
-                    RoomWelcome(roomId: roomId, detail: detail, state: state, copyInvite: copyInvite, copied: copied)
+                    RoomWelcome(name: detail.mission.name, key: roomId, steps: [
+                        RoomWelcome.Step(title: "Invite people", symbol: "person.badge.plus", tint: TileTint.blue,
+                                         done: detail.members.count > 1) { state.peopleVisible = true },
+                        RoomWelcome.Step(title: "Add a terminal", symbol: "apple.terminal", tint: TileTint.graphite,
+                                         done: deps.sessions.contains { $0.missionId == roomId }) { deps.newRoomTerminal(roomId) },
+                        RoomWelcome.Step(title: copied ? "Copied. Paste it to your agent" : "Bring an agent in", symbol: "sparkles",
+                                         tint: TileTint.orange, done: copied, action: copyInvite),
+                    ])
                 }
             }
             .overlay(alignment: .bottom) {
@@ -140,55 +146,5 @@ struct RoomConversationView: View {
         """
         NSPasteboard.general.setString(instructions, forType: .string)
         copied = true
-    }
-}
-
-private struct RoomWelcome: View {
-    @Environment(AppDependencies.self) private var deps
-    @Environment(\.theme) private var theme
-    let roomId: String
-    let detail: MissionDetail
-    @Bindable var state: RoomViewState
-    let copyInvite: () -> Void
-    let copied: Bool
-
-    var body: some View {
-        let hasTerminal = deps.sessions.contains { $0.missionId == roomId }
-        VStack(spacing: 18) {
-            RoomSigil(name: detail.mission.name, key: roomId, size: 52).arrive()
-            VStack(spacing: 4) {
-                Text("This is \(detail.mission.name)").appTextStyle(.headline).foregroundStyle(theme.colors.ink)
-                    .multilineTextAlignment(.center)
-                Text("Three steps to get going").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
-            }.arrive(delay: 0.04)
-            VStack(spacing: 6) {
-                step("Invite people", symbol: "person.badge.plus", tint: TileTint.blue, done: detail.members.count > 1) {
-                    state.peopleVisible = true
-                }
-                step("Add a terminal", symbol: "apple.terminal", tint: TileTint.graphite, done: hasTerminal) {
-                    deps.newRoomTerminal(roomId)
-                }
-                step(copied ? "Copied. Paste it to your agent" : "Bring an agent in", symbol: "sparkles", tint: TileTint.orange, done: copied,
-                     action: copyInvite)
-            }.arrive(delay: 0.08)
-        }
-        .padding(18).frame(maxWidth: 300)
-    }
-
-    private func step(_ title: LocalizedStringKey, symbol: String, tint: Color, done: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 11) {
-                IconTile(symbol: symbol, tint: tint, size: 28)
-                Text(title).appTextStyle(.body).foregroundStyle(done ? theme.colors.inkMuted : theme.colors.ink)
-                Spacer(minLength: 4)
-                Image(systemName: done ? "checkmark.circle.fill" : "chevron.right")
-                    .font(.system(size: done ? 15 : 10, weight: .semibold))
-                    .foregroundStyle(done ? theme.colors.ready : theme.colors.inkFaint)
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .padding(.horizontal, 10).frame(height: 46)
-            .raised(Radius.lg, fill: theme.colors.lifted)
-        }
-        .buttonStyle(PressScaleStyle(scale: 0.98))
     }
 }

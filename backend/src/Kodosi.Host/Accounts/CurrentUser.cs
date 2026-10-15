@@ -8,7 +8,9 @@ namespace Kodosi.Accounts;
 
 public sealed class CurrentUser(KodosiDbContext db, TimeProvider clock)
 {
+    public static readonly TimeSpan ReauthenticationWindow = TimeSpan.FromMinutes(15);
     private User? loaded;
+
     public async Task<User> GetAsync(HttpContext context, CancellationToken ct)
     {
         if (loaded is not null) return loaded;
@@ -63,10 +65,17 @@ public sealed class CurrentUser(KodosiDbContext db, TimeProvider clock)
         }
         throw ApiException.Conflict("The account could not be created; retry sign-in.");
     }
+
     public static DateTimeOffset? SignedInAt(ClaimsPrincipal principal)
     {
         var value = principal.FindFirstValue("auth_time") ?? principal.FindFirstValue("iat");
         return long.TryParse(value, out var seconds) ? DateTimeOffset.FromUnixTimeSeconds(seconds) : null;
+    }
+
+    public static void RequireRecentSignIn(DateTimeOffset? signedInAt, DateTimeOffset now, string refusal)
+    {
+        if (signedInAt is null || signedInAt > now.AddMinutes(5) || now - signedInAt > ReauthenticationWindow)
+            throw ApiException.Forbidden(refusal);
     }
 
     private static string Truncate(string? value, int maximum)

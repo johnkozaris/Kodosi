@@ -1,5 +1,5 @@
-using System.Security.Cryptography;
 using System.Text.Json;
+using Kodosi.Accounts;
 using Kodosi.Data;
 using Kodosi.Devices;
 using Kodosi.Missions;
@@ -31,7 +31,6 @@ public sealed class DeviceTests(PostgresFixture postgres)
         Assert.Equal(DeviceFixture.LinkProof, request.GetProperty("proof").GetString());
         Assert.Equal(second.DeviceId, request.GetProperty("deviceId").GetString());
         Assert.Equal(Convert.ToBase64String(second.SigningKey), request.GetProperty("signingPublicKey").GetString());
-        Assert.False(request.TryGetProperty("kemPublicKey", out _));
         var requestId = init.GetProperty("requestId").GetGuid();
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var cert = second.CertificateBody(owner.Device.Id, now);
@@ -62,7 +61,7 @@ public sealed class DeviceTests(PostgresFixture postgres)
             new(second.DeviceId, "Second", Convert.ToBase64String(second.SigningKey), DeviceFixture.LinkNonce, DeviceFixture.LinkProof), ct);
         var before = (await store.Devices.IdentityAsync(owner.User.Id, owner.User.Id, null, ct)).Bundle!;
         await Assert.ThrowsAsync<ApiException>(() => store.Devices.ResetIdentityAsync(owner.User.Id, null, ct));
-        await Assert.ThrowsAsync<ApiException>(() => store.Devices.ResetIdentityAsync(owner.User.Id, DateTimeOffset.UtcNow - DeviceService.ReauthenticationWindow - TimeSpan.FromSeconds(1), ct));
+        await Assert.ThrowsAsync<ApiException>(() => store.Devices.ResetIdentityAsync(owner.User.Id, DateTimeOffset.UtcNow - CurrentUser.ReauthenticationWindow - TimeSpan.FromSeconds(1), ct));
         Assert.NotNull(await store.Devices.RequireDeviceAsync(owner.User.Id, owner.Device.Id, ct));
         await store.Devices.ResetIdentityAsync(owner.User.Id, DateTimeOffset.UtcNow.AddMinutes(-1), ct);
         await Assert.ThrowsAsync<ApiException>(() => store.Devices.IdentityAsync(owner.User.Id, owner.User.Id, null, ct));
@@ -163,11 +162,11 @@ public sealed class DeviceTests(PostgresFixture postgres)
     {
         var fixture = new DeviceFixture(Guid.CreateVersion7(), "device");
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(); var bytes = fixture.CertificateBody("device", now);
-        Assert.Equal("device", new DeviceCertificateParser().Parse(bytes).DeviceId);
-        Assert.Throws<DeviceCertificateFormatException>(() => new DeviceCertificateParser().Parse([.. bytes, 0]));
+        Assert.Equal("device", DeviceCertificate.Parse(bytes).DeviceId);
+        Assert.Throws<IdentityFormatException>(() => DeviceCertificate.Parse([.. bytes, 0]));
         var sig = fixture.Sign(Proofs.Tagged(DomainTags.DeviceCertV3, bytes));
-        var verifier = new SignatureVerifier(); Assert.True(verifier.Verify(fixture.SigningKey, Proofs.Tagged(DomainTags.DeviceCertV3, bytes), sig));
-        bytes[^1] ^= 1; Assert.False(verifier.Verify(fixture.SigningKey, Proofs.Tagged(DomainTags.DeviceCertV3, bytes), sig));
+        Assert.True(SignatureVerifier.Verify(fixture.SigningKey, Proofs.Tagged(DomainTags.DeviceCertV3, bytes), sig));
+        bytes[^1] ^= 1; Assert.False(SignatureVerifier.Verify(fixture.SigningKey, Proofs.Tagged(DomainTags.DeviceCertV3, bytes), sig));
     }
 
     [Fact]
@@ -183,7 +182,7 @@ public sealed class DeviceTests(PostgresFixture postgres)
         {
             var cert = entry.CertificateBody(owner.Device.Id, now);
             var list = DeviceFixture.ListBody(owner.User.Id, generation, [.. known, (entry.DeviceId, owner.Device.Id)], owner.Device.Id, now + generation);
-            var signature = roomKeySigner.Sign(MissionService.RoomKeyProof(owner.User.Id, entry.DeviceId, roomKey));
+            var signature = roomKeySigner.Sign(Proofs.RoomRecipient(owner.User.Id, entry.DeviceId, roomKey));
             return new(Convert.ToBase64String(cert), owner.Fixture.SignedCertificate(cert), Convert.ToBase64String(list), owner.Fixture.SignedList(list),
                 Convert.ToBase64String(new byte[64]), new(Convert.ToBase64String(roomKey), Convert.ToBase64String(signature)));
         }

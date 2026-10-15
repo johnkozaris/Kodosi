@@ -5,17 +5,13 @@ targets = [
     "x86_64-pc-windows-msvc",
     "aarch64-pc-windows-msvc",
 ]
-all-features = false
-no-default-features = false
 
 [advisories]
 yanked = "deny"
 unmaintained = "workspace"
 unsound = "workspace"
-ignore = []
 
 [licenses]
-confidence-threshold = 0.8
 allow = [
     "Apache-2.0",
     "Apache-2.0 WITH LLVM-exception",
@@ -36,10 +32,7 @@ ignore = true
 
 [bans]
 multiple-versions = "allow"
-wildcards = "allow"
 
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
-allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-allow-git = []

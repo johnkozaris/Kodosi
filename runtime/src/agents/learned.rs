@@ -1,7 +1,3 @@
-//! The sign-in folder that a person's own command gave an agent, as the agent
-//! started with it in one of Kodosi's terminals. It tells the accounts what a
-//! command does when its text does not say.
-
 use std::{
     collections::{BTreeMap, HashMap},
     path::{Path, PathBuf},
@@ -21,7 +17,6 @@ pub(super) fn load(store: &Path) -> Learned {
         .unwrap_or_default()
 }
 
-/// Remembers that `command` started `agent` with the sign-in folder `folder`.
 pub(super) fn remember(
     store: &Path,
     agent: Agent,

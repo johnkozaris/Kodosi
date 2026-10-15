@@ -63,7 +63,6 @@ async fn start() -> (
         .send(RemoteUpdate::Checkpoint {
             checkpoint: checkpoint(4, 20, b"initial"),
             next_sequence: 0,
-            fresh: true,
         })
         .await
         .expect("initial cut");
@@ -77,7 +76,7 @@ async fn start() -> (
 }
 
 #[tokio::test]
-async fn ordinary_checkpoint_cannot_seed_an_unproven_connection() {
+async fn raw_before_a_checkpoint_does_not_connect() {
     let (connection, mut requests, updates) = test_remote_connection(session());
     let (changes, _receiver) = mpsc::channel(16);
     let terminal = RemoteTerminal::spawn(connection, changes);
@@ -86,58 +85,13 @@ async fn ordinary_checkpoint_cannot_seed_an_unproven_connection() {
         next_request(&mut requests).await,
         TestRemoteRequest::Checkpoint
     ));
-    updates
-        .send(RemoteUpdate::Checkpoint {
-            checkpoint: checkpoint(4, 20, b"old"),
-            next_sequence: 0,
-            fresh: false,
-        })
-        .await
-        .expect("unproven cut");
-    tokio::pin!(pending);
-    assert!(
-        tokio::time::timeout(Duration::from_millis(50), &mut pending)
-            .await
-            .is_err()
-    );
-    assert!(requests.try_recv().is_err());
-    updates
-        .send(RemoteUpdate::Checkpoint {
-            checkpoint: checkpoint(4, 20, b"current"),
-            next_sequence: 4,
-            fresh: true,
-        })
-        .await
-        .expect("proven cut");
-    assert_eq!(pending.await.expect("fresh connection").next_sequence, 4);
-    terminal.disconnect();
-}
-
-#[tokio::test]
-async fn raw_after_an_unproven_checkpoint_does_not_connect() {
-    let (connection, mut requests, updates) = test_remote_connection(session());
-    let (changes, _receiver) = mpsc::channel(16);
-    let terminal = RemoteTerminal::spawn(connection, changes);
-    let pending = terminal.subscribe();
-    assert!(matches!(
-        next_request(&mut requests).await,
-        TestRemoteRequest::Checkpoint
-    ));
-    updates
-        .send(RemoteUpdate::Checkpoint {
-            checkpoint: checkpoint(4, 20, b"old"),
-            next_sequence: 0,
-            fresh: false,
-        })
-        .await
-        .expect("unproven cut");
     updates
         .send(RemoteUpdate::Raw {
             sequence: 0,
             bytes: Bytes::from_static(b"old continuation"),
         })
         .await
-        .expect("unproven continuation");
+        .expect("continuation");
     assert!(pending.await.is_err());
     assert!(terminal.is_closed());
     drop(terminal);
@@ -184,7 +138,6 @@ async fn live_resize_does_not_satisfy_pending_capture_or_late_subscription() {
         .send(RemoteUpdate::Checkpoint {
             checkpoint: checkpoint(6, 30, b"fresh capture"),
             next_sequence: 0,
-            fresh: true,
         })
         .await
         .expect("fresh checkpoint");
@@ -212,7 +165,6 @@ async fn resync_gives_an_open_view_a_new_snapshot_without_closing_it() {
         .send(RemoteUpdate::Checkpoint {
             checkpoint: checkpoint(4, 20, b"after the gap"),
             next_sequence: 40,
-            fresh: true,
         })
         .await
         .expect("new cut");
@@ -302,7 +254,6 @@ async fn a_new_connection_gives_an_open_view_a_snapshot_in_place() {
         .send(RemoteUpdate::Checkpoint {
             checkpoint: checkpoint(4, 20, b"after the gap"),
             next_sequence: 70,
-            fresh: true,
         })
         .await
         .expect("new cut");
@@ -459,7 +410,6 @@ async fn a_late_view_receives_fresh_checkpoint_and_contiguous_suffix_without_res
         .send(RemoteUpdate::Checkpoint {
             checkpoint: checkpoint(4, 20, b"x"),
             next_sequence: 1,
-            fresh: true,
         })
         .await
         .expect("fresh but lagging capture");
@@ -495,7 +445,6 @@ async fn a_future_capture_waits_for_the_original_stream_instead_of_skipping_outp
         .send(RemoteUpdate::Checkpoint {
             checkpoint: checkpoint(4, 20, b"xx"),
             next_sequence: 2,
-            fresh: true,
         })
         .await
         .expect("ahead capture");
@@ -555,7 +504,6 @@ async fn capture_refresh_preserves_existing_subscription_and_focus() {
         .send(RemoteUpdate::Checkpoint {
             checkpoint: checkpoint(4, 20, b"initial"),
             next_sequence: 0,
-            fresh: true,
         })
         .await
         .expect("capture");
@@ -660,10 +608,7 @@ async fn disconnect_does_not_wait_behind_an_in_flight_control_or_full_queue() {
 #[tokio::test]
 async fn the_end_from_the_host_ends_a_view_that_did_not_get_all_output() {
     let (terminal, mut view, _requests, updates, mut changes) = start().await;
-    updates
-        .send(RemoteUpdate::Ended { final_sequence: 9 })
-        .await
-        .expect("end");
+    updates.send(RemoteUpdate::Ended).await.expect("end");
     assert!(matches!(
         view.control.recv().await,
         Some(ControlFrame::Closed { .. })

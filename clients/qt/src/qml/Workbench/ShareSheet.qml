@@ -70,7 +70,7 @@ KPopover {
     Connections {
         function onModelReset() {
             root.session = Models.Sessions.presentationForSession(root.sessionId);
-            if (!root.session.sessionId)
+            if (!root.session.id)
                 root.close();
         }
 

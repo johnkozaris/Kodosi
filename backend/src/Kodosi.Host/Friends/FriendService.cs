@@ -37,7 +37,7 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
             .OrderBy(x => x.Handle).Select(x => new { userId = x.Id, x.Handle, x.DisplayName, x.IdentityIncarnationId }).ToListAsync(ct);
     }
 
-    public const int MaxFriendListBodyLength = 256 * 1024;
+    private const int MaxFriendListBodyLength = 256 * 1024;
 
     public async Task<object> SignedListAsync(Guid user, CancellationToken ct)
     {

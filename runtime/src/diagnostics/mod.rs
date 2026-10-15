@@ -20,8 +20,6 @@ const MAX_BYTES: u64 = 1024 * 1024;
 const MAX_RECORD_BYTES: usize = 32 * 1024;
 const CLIENT: &str = "kodosi_client";
 
-/// Which process writes the log. An app and a CLI host can share a data
-/// folder, so each keeps its own file.
 #[derive(Debug, Clone, Copy)]
 pub enum Role {
     App,
@@ -37,8 +35,6 @@ impl Role {
     }
 }
 
-/// Sends this process's runtime and client records to its log in `data_root`.
-/// Only the first call in a process takes effect.
 pub fn install(data_root: &Path, role: Role) {
     let home = kodosi_os::fs::home_dir().ok();
     drop(tracing::subscriber::set_global_default(Log::new(
@@ -48,7 +44,6 @@ pub fn install(data_root: &Path, role: Role) {
     )));
 }
 
-/// Records one line from the native client.
 pub fn client(level: Level, message: &[u8]) {
     let message = String::from_utf8_lossy(&message[..message.len().min(MAX_RECORD_BYTES + 1)]);
     match level {
@@ -73,7 +68,6 @@ impl Log {
         }
     }
 
-    /// One bounded, redacted record that cannot span lines.
     fn line(&self, level: Level, target: &str, body: &str) -> String {
         let time = time::OffsetDateTime::now_utc()
             .format(&Rfc3339)

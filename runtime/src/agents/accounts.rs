@@ -18,7 +18,6 @@ const MAX_ACCOUNT_FILE: u64 = 8 * 1024 * 1024;
 const MAX_HOME_ENTRIES: usize = 8_192;
 const MAX_SCRIPT: u64 = 64 * 1024;
 const MAX_OPTIONS: usize = 80;
-/// The words with which a function or a script hands on the words after it.
 const PASSED_WORDS: [&str; 4] = ["$@", "${@}", "$*", "$argv"];
 
 pub(super) fn catalog(home: &Path, facts: &Facts, learned: &Learned) -> AgentCatalog {
@@ -46,11 +45,6 @@ pub(super) fn catalog(home: &Path, facts: &Facts, learned: &Learned) -> AgentCat
     }
 }
 
-/// The usual account, then each alias or function that starts the agent, then
-/// each sibling of the usual folder that the agent has used or that is still
-/// empty. Each names its sign-in folder when Kodosi knows it, so the commands
-/// that share a sign-in show together. A command that started the agent in a
-/// terminal before has the folder that the agent got then, in `learned`.
 fn accounts(
     home: &Path,
     facts: &Facts,
@@ -79,8 +73,6 @@ fn accounts(
         .collect::<Vec<_>>();
     definitions
         .sort_by(|left, right| (left.name.len(), &left.name).cmp(&(right.name.len(), &right.name)));
-    // The commands found so far, with their sign-in folders. An alias of one of
-    // them starts the agent too, so it is found on a later pass.
     let mut found = HashMap::new();
     for _ in 0..3 {
         let before = found.len();
@@ -133,18 +125,10 @@ fn accounts(
     accounts
 }
 
-/// A definition that starts the agent, with the sign-in folder that it gives
-/// the agent; none when Kodosi cannot read the folder from the definition.
 struct Launch {
     folder: Option<PathBuf>,
 }
 
-/// Whether `definition` starts the agent, and with which sign-in folder: the
-/// one that it names, the usual one when it runs the program and leaves the
-/// folder alone, or that of a command in `found` that it runs. The folder that
-/// the agent got when the definition started it, `seen`, comes first. A
-/// definition that would drop the words after it does not count, because the
-/// launcher puts the model, the effort and the first prompt there.
 fn launch(
     definition: &Definition,
     agent: Agent,
@@ -200,9 +184,6 @@ fn launch(
     })
 }
 
-/// Whether `definition` runs `program` itself: an alias whose command is the
-/// program or a `script` that runs it, or a function named after the program
-/// that runs it.
 fn runs(definition: &Definition, script: Option<&str>, program: &str) -> bool {
     let is_program = |word: &str| word == program || word.ends_with(&format!("/{program}"));
     if definition.alias {
@@ -220,9 +201,6 @@ fn runs(definition: &Definition, script: Option<&str>, program: &str) -> bool {
             .any(is_program)
 }
 
-/// The options that `definition` puts before the words after it, such as
-/// `--yolo`: for an alias, the words after its command; for a function, the
-/// words after the program up to the words that it hands on.
 fn options(definition: &Definition, program: &str) -> Option<String> {
     let mut words = definition
         .text
@@ -245,7 +223,6 @@ fn options(definition: &Definition, program: &str) -> Option<String> {
     (!options.is_empty() && options.len() <= MAX_OPTIONS).then_some(options)
 }
 
-/// Whether `definition` is an alias of a file that is not there.
 fn gone(definition: &Definition, home: &Path) -> bool {
     definition.alias
         && command_word(&definition.text).is_some_and(|command| {
@@ -253,8 +230,6 @@ fn gone(definition: &Definition, home: &Path) -> bool {
         })
 }
 
-/// The program that an alias runs: its first word after the variables that
-/// it sets and after `env`, `command`, `exec` and `noglob`.
 fn command_word(text: &str) -> Option<String> {
     let mut words = text
         .split_whitespace()
@@ -278,8 +253,6 @@ fn command_word(text: &str) -> Option<String> {
     None
 }
 
-/// The text of the script that an alias runs, when the alias runs a short
-/// script of the person's own.
 fn script(definition: &Definition, home: &Path) -> Option<String> {
     if !definition.alias {
         return None;
@@ -308,7 +281,6 @@ fn account(
     }
 }
 
-/// `path` with `~` for the home folder.
 fn tilde(path: &Path, home: &Path) -> String {
     match path.strip_prefix(home) {
         Ok(rest) if rest.as_os_str().is_empty() => "~".to_owned(),
@@ -325,8 +297,6 @@ fn home_command(variable: &str, path: &Path, program: &str) -> Option<String> {
     Some(format!("env {assignment} {program}"))
 }
 
-/// The sign-in folder that a definition gives the agent: the value it sets
-/// for the agent's variable, or a sibling of the usual folder that it names.
 pub(super) fn referenced_home(
     text: &str,
     home: &Path,
@@ -396,7 +366,6 @@ fn expand(value: &str, home: &Path) -> Option<PathBuf> {
     .then_some(path)
 }
 
-/// Folders such as `~/.claude-work` or `~/.codex_personal`, by name.
 fn sibling_homes(home: &Path, folder: &str) -> Vec<(String, PathBuf)> {
     let Ok(entries) = std::fs::read_dir(home) else {
         return Vec::new();
@@ -423,7 +392,6 @@ fn sibling_homes(home: &Path, folder: &str) -> Vec<(String, PathBuf)> {
     homes
 }
 
-/// Files that the agent writes in its sign-in folder when it first starts.
 const fn records(agent: Agent) -> &'static [&'static str] {
     match agent {
         Agent::Claude => &[".claude.json"],
@@ -436,7 +404,6 @@ fn is_empty(path: &Path) -> bool {
     std::fs::read_dir(path).is_ok_and(|mut entries| entries.next().is_none())
 }
 
-/// Who signed in to the agent in sign-in folder `path`, as the agent records it.
 pub(super) fn identity(agent: Agent, home: &Path, path: &Path) -> Option<String> {
     let identity = match agent {
         Agent::Claude => {
@@ -510,8 +477,6 @@ const fn install(agent: Agent) -> &'static str {
     }
 }
 
-/// Makes `~/.claude-<name>` (or the folder of another agent) for an account
-/// that signs in on its first start.
 pub(super) fn add(home: &Path, agent: Agent, name: &str) -> Result<AgentAccount, String> {
     let (folder, variable) = agent
         .home()

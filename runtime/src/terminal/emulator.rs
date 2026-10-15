@@ -3,15 +3,15 @@ use std::{path::PathBuf, str, thread, time::Duration};
 use super::{
     status::{BlockedKind, ProgramState, ProgramStatusReport},
     types::{
-        Checkpoint, TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES, TerminalHistoryPolicy,
-        TerminalPixelGeometry, TerminalScreen, TerminalSize,
+        Checkpoint, TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES, TerminalPixelGeometry, TerminalScreen,
+        TerminalSize,
     },
 };
+use crate::{Error, Result};
 use ghostty_vt::{
     CheckpointLimits, CompressionProgress, Effect, ProgramStatusKind, ProgramStatusState,
     ProgressState, Screen, Terminal, TerminalPolicy,
 };
-use kodosi_pty::{KodosiError, Result};
 use tokio::{
     runtime::Builder as TokioRuntimeBuilder,
     sync::{mpsc as tokio_mpsc, oneshot},
@@ -20,6 +20,7 @@ use tokio::{
 
 const TERMINAL_COMMAND_CAPACITY: usize = 64;
 const TERMINAL_COMMAND_SEND_TIMEOUT: Duration = Duration::from_millis(50);
+const COMPRESSION_IDLE: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum TerminalEffect {
@@ -69,28 +70,13 @@ enum TerminalCommand {
         focused: bool,
         reply_tx: oneshot::Sender<Result<Vec<u8>>>,
     },
-    ThemeChanged {
-        dark: bool,
-        reply_tx: oneshot::Sender<Result<()>>,
-    },
     Shutdown {
         reply_tx: oneshot::Sender<Result<()>>,
     },
 }
 
-struct TerminalActorConfig {
-    rows: u16,
-    cols: u16,
-    history: TerminalHistoryPolicy,
-    initial_theme_dark: bool,
-}
-
 impl SessionTerminalHandle {
-    pub(super) fn spawn(
-        size: TerminalSize,
-        history: TerminalHistoryPolicy,
-        initial_theme_dark: bool,
-    ) -> Result<Self> {
+    pub(super) fn spawn(size: TerminalSize) -> Result<Self> {
         let rows = size.rows();
         let cols = size.cols();
         let (command_tx, command_rx) = tokio_mpsc::channel(TERMINAL_COMMAND_CAPACITY);
@@ -102,31 +88,20 @@ impl SessionTerminalHandle {
                     .enable_time()
                     .build();
                 let Ok(runtime) = runtime else {
-                    drop(init_tx.send(Err(KodosiError::Unsupported(
+                    drop(init_tx.send(Err(Error::Other(
                         "failed to initialize terminal authority runtime".to_owned(),
                     ))));
                     return;
                 };
-                runtime.block_on(terminal_actor_main(
-                    command_rx,
-                    TerminalActorConfig {
-                        rows,
-                        cols,
-                        history,
-                        initial_theme_dark,
-                    },
-                    init_tx,
-                ));
+                runtime.block_on(terminal_actor_main(command_rx, rows, cols, init_tx));
             })
             .map_err(|error| {
-                KodosiError::Unsupported(format!(
+                Error::Other(format!(
                     "failed to spawn terminal authority thread: {error}"
                 ))
             })?;
         init_rx.recv().map_err(|_| {
-            KodosiError::Unsupported(
-                "terminal authority thread exited before initialization".to_owned(),
-            )
+            Error::Other("terminal authority thread exited before initialization".to_owned())
         })??;
         Ok(Self { command_tx })
     }
@@ -157,7 +132,7 @@ impl SessionTerminalHandle {
             .into_iter()
             .map(|effect| match effect {
                 TerminalEffect::PtyWrite(bytes) => Ok(bytes),
-                other => Err(KodosiError::Unsupported(format!(
+                other => Err(Error::Other(format!(
                     "terminal resize emitted non-PTY effect: {other:?}"
                 ))),
             })
@@ -171,11 +146,6 @@ impl SessionTerminalHandle {
 
     pub(super) async fn set_focused(&self, focused: bool) -> Result<Vec<u8>> {
         self.request(|reply_tx| TerminalCommand::SetFocused { focused, reply_tx })
-            .await
-    }
-
-    pub(super) async fn notify_theme_changed(&self, dark: bool) -> Result<()> {
-        self.request(|reply_tx| TerminalCommand::ThemeChanged { dark, reply_tx })
             .await
     }
 
@@ -193,17 +163,13 @@ impl SessionTerminalHandle {
             .send_timeout(build_command(reply_tx), TERMINAL_COMMAND_SEND_TIMEOUT)
             .await
             .map_err(|error| match error {
-                tokio_mpsc::error::SendTimeoutError::Timeout(_) => KodosiError::Backpressure(
-                    "terminal authority command queue saturated".to_owned(),
-                ),
-                tokio_mpsc::error::SendTimeoutError::Closed(_) => KodosiError::Unsupported(
-                    "terminal authority thread is no longer available".to_owned(),
-                ),
+                tokio_mpsc::error::SendTimeoutError::Timeout(_) => Error::Busy,
+                tokio_mpsc::error::SendTimeoutError::Closed(_) => {
+                    Error::Other("terminal authority thread is no longer available".to_owned())
+                }
             })?;
         reply_rx.await.map_err(|_| {
-            KodosiError::Unsupported(
-                "terminal authority reply channel closed unexpectedly".to_owned(),
-            )
+            Error::Other("terminal authority reply channel closed unexpectedly".to_owned())
         })?
     }
 }
@@ -214,21 +180,13 @@ struct SessionTerminal {
 }
 
 impl SessionTerminal {
-    fn new(
-        rows: u16,
-        cols: u16,
-        history: TerminalHistoryPolicy,
-        initial_theme_dark: bool,
-    ) -> Result<Self> {
+    fn new(rows: u16, cols: u16) -> Result<Self> {
         let terminal = Terminal::new(
             cols,
             rows,
             TerminalPolicy {
-                continuation_max_bytes: history.continuation_max_bytes,
-                scrollback_max_bytes: history.max_bytes,
-                scrollback_max_lines: history.max_lines,
-                dark: initial_theme_dark,
                 console: kodosi_pty::CONSOLE_HOST,
+                ..TerminalPolicy::default()
             },
         )
         .map_err(terminal_error)?;
@@ -239,9 +197,10 @@ impl SessionTerminal {
     }
 
     fn process_output(&mut self, bytes: &[u8]) -> Result<ProcessedTerminalOutput> {
-        let next_sequence = self.applied.checked_add(1).ok_or_else(|| {
-            KodosiError::Unsupported("terminal sequence exhausted u64".to_owned())
-        })?;
+        let next_sequence = self
+            .applied
+            .checked_add(1)
+            .ok_or_else(|| Error::Other("terminal sequence exhausted u64".to_owned()))?;
         let outcome = self.terminal.write_outcome(bytes).map_err(terminal_error)?;
         self.applied = next_sequence;
         Ok(ProcessedTerminalOutput {
@@ -270,10 +229,6 @@ impl SessionTerminal {
             .map(|effects| effects.into_iter().filter_map(convert_effect).collect())
     }
 
-    fn theme_changed(&mut self, dark: bool) -> Result<()> {
-        self.terminal.set_dark(dark).map_err(terminal_error)
-    }
-
     fn checkpoint_data(&mut self, history: bool) -> Result<CheckpointWithSequence> {
         let limits = CheckpointLimits {
             max_json_bytes: TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES,
@@ -288,7 +243,7 @@ impl SessionTerminal {
         let state = self.terminal.state().map_err(terminal_error)?;
         let checkpoint = Checkpoint::new(
             TerminalSize::new(state.rows, state.cols).map_err(|error| {
-                KodosiError::Unsupported(format!("terminal checkpoint size failed: {error}"))
+                Error::Other(format!("terminal checkpoint size failed: {error}"))
             })?,
             terminal_screen(state.active_screen),
             checkpoint.into_bytes(),
@@ -296,9 +251,7 @@ impl SessionTerminal {
             state.cursor_y,
             !state.cursor_visible,
         )
-        .map_err(|error| {
-            KodosiError::Unsupported(format!("terminal checkpoint validation failed: {error}"))
-        })?;
+        .map_err(|error| Error::Other(format!("terminal checkpoint validation failed: {error}")))?;
         Ok(CheckpointWithSequence {
             checkpoint,
             applied_sequence: self.applied,
@@ -410,34 +363,32 @@ fn percent_decode(encoded: &[u8]) -> Option<Vec<u8>> {
     Some(output)
 }
 
-fn terminal_error(error: ghostty_vt::Error) -> KodosiError {
-    KodosiError::Unsupported(format!("terminal authority failed: {error}"))
+fn terminal_error(error: ghostty_vt::Error) -> Error {
+    Error::Other(format!("terminal authority failed: {error}"))
 }
 
 struct CompressionScheduler {
     activity: u64,
     deadline: Option<Instant>,
-    idle: Duration,
 }
 
 impl CompressionScheduler {
-    fn new(activity: u64, idle: Duration) -> Self {
+    const fn new(activity: u64) -> Self {
         Self {
             activity,
             deadline: None,
-            idle,
         }
     }
 
     fn observe(&mut self, activity: u64) {
         if activity != self.activity {
             self.activity = activity;
-            self.deadline = Some(Instant::now() + self.idle);
+            self.restart_idle();
         }
     }
 
     fn restart_idle(&mut self) {
-        self.deadline = Some(Instant::now() + self.idle);
+        self.deadline = Some(Instant::now() + COMPRESSION_IDLE);
     }
 
     const fn deadline(&self) -> Option<Instant> {
@@ -465,16 +416,11 @@ async fn wait_for_compression(deadline: Option<Instant>) {
 )]
 async fn terminal_actor_main(
     mut command_rx: tokio_mpsc::Receiver<TerminalCommand>,
-    config: TerminalActorConfig,
+    rows: u16,
+    cols: u16,
     init_tx: std::sync::mpsc::SyncSender<Result<()>>,
 ) {
-    let TerminalActorConfig {
-        rows,
-        cols,
-        history,
-        initial_theme_dark,
-    } = config;
-    let terminal = SessionTerminal::new(rows, cols, history, initial_theme_dark);
+    let terminal = SessionTerminal::new(rows, cols);
     let Ok(mut terminal) = terminal else {
         drop(init_tx.send(terminal.map(|_| ())));
         return;
@@ -487,7 +433,7 @@ async fn terminal_actor_main(
     if init_tx.send(Ok(())).is_err() {
         return;
     }
-    let mut compression = CompressionScheduler::new(activity, history.compression_idle);
+    let mut compression = CompressionScheduler::new(activity);
 
     loop {
         tokio::select! {
@@ -522,9 +468,6 @@ async fn terminal_actor_main(
                     }
                     TerminalCommand::SetFocused { focused, reply_tx } => {
                         drop(reply_tx.send(terminal.terminal.encode_focus(focused).map_err(terminal_error)));
-                    }
-                    TerminalCommand::ThemeChanged { dark, reply_tx } => {
-                        drop(reply_tx.send(terminal.theme_changed(dark)));
                     }
                     TerminalCommand::Shutdown { reply_tx } => {
                         drop(terminal);

@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import Kodosi 1.0
 import QtQuick
+import Kodosi.Models 1.0 as Models
 
 Item {
     id: root
@@ -13,10 +14,9 @@ Item {
     property bool working: session ? session.working === true : false
     property int progress: session && session.progress !== undefined ? session.progress : -1
     readonly property bool measured: working && progress >= 0
-    readonly property string kind: Identity.kind(program)
+    readonly property string kind: Models.DesktopSettings.agentOf(program)
     readonly property color tint: Identity.kindTint(kind)
     readonly property real rim: Math.max(2, size * 0.075)
-    // How far the rim of cells stands out from the mark.
     readonly property real space: rim * 1.75
     property real fraction: Math.max(0.02, Math.min(1, progress / 100))
     property real squash: 1

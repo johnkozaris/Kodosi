@@ -14,12 +14,11 @@ Item {
     Accessible.name: qsTr("Terminal stage, %1").arg(terminalCountText)
     Accessible.description: overflowAccessibilityDescription
 
-    signal inspectSessionRequested(string sessionId, string sessionName)
-    signal shareSessionRequested(string sessionId, string sessionName)
+    signal inspectSessionRequested(string sessionId)
+    signal shareSessionRequested(string sessionId)
     signal resumeRequested()
     property bool interactionEnabled: true
     property bool dividerDragging: false
-    property string selectedSessionName
     property bool terminalFocusPending: false
     property bool overflowUpdatePending: false
     property bool verticalOverflow: false
@@ -43,15 +42,6 @@ Item {
         : qsTr("%1 terminals").arg(terminalCount)
     readonly property string overflowAccessibilityDescription:
         verticalOverflow ? qsTr("Scroll for more terminals") : ""
-
-    function refreshSelectedSessionName() {
-        const presentation = Models.Sessions.presentationForSession(
-            Models.DesktopState.selectedSessionId)
-        selectedSessionName =
-            presentation.sessionId === Models.DesktopState.selectedSessionId
-            ? presentation.name
-            : ""
-    }
 
     function focusSelectedTerminal() {
         if (!interactionEnabled || !stageFlick.visible)
@@ -121,7 +111,6 @@ Item {
             scheduleTerminalFocus()
     }
     Component.onCompleted: {
-        refreshSelectedSessionName()
         scheduleTerminalFocus()
         scheduleVerticalOverflowUpdate()
     }
@@ -130,20 +119,7 @@ Item {
         target: Models.DesktopState
 
         function onSelectedSessionIdChanged() {
-            root.refreshSelectedSessionName()
             root.scheduleTerminalFocus()
-        }
-    }
-
-    Connections {
-        target: Models.Sessions
-
-        function onModelReset() {
-            root.refreshSelectedSessionName()
-        }
-
-        function onDataChanged() {
-            root.refreshSelectedSessionName()
         }
     }
 
@@ -166,21 +142,6 @@ Item {
                 target: Models.TerminalTiling
                 property: "viewportHeight"
                 value: stageViewport.height
-            }
-            Binding {
-                target: Models.TerminalTiling
-                property: "stagedSessionIds"
-                value: Models.DesktopState.stagedSessionIds
-            }
-            Binding {
-                target: Models.TerminalTiling
-                property: "selectedSessionId"
-                value: Models.DesktopState.selectedSessionId
-            }
-            Binding {
-                target: Models.TerminalTiling
-                property: "layoutMode"
-                value: Models.DesktopState.stageLayoutMode
             }
             Binding {
                 target: Models.TerminalTiling
@@ -236,7 +197,6 @@ Item {
                     height: stageFlick.contentHeight
 
                     Repeater {
-                        id: stageEntries
                         objectName: "stage.entries"
                         Accessible.id: objectName
                         model: Models.TerminalTiling
@@ -294,16 +254,8 @@ Item {
                                         && layoutEntry.sessionId
                                             === Models.DesktopState
                                                 .selectedSessionId
-                                    onInspectSessionRequested:
-                                        (sessionId, sessionName) =>
-                                            root.inspectSessionRequested(
-                                                sessionId,
-                                                sessionName)
-                                    onShareSessionRequested:
-                                        (sessionId, sessionName) =>
-                                            root.shareSessionRequested(
-                                                sessionId,
-                                                sessionName)
+                                    onInspectSessionRequested: sessionId => root.inspectSessionRequested(sessionId)
+                                    onShareSessionRequested: sessionId => root.shareSessionRequested(sessionId)
                                 }
                             }
 

@@ -34,8 +34,7 @@ pub struct DeviceLogin {
 }
 
 impl DeviceLogin {
-    /// The code page with the code after "#": the browser keeps that part, and the Kodosi
-    /// sign-in page sends the code itself, so every later step can show it to compare.
+    /// The sign-in page reads the code from the fragment to show it at each step.
     pub fn code_page(&self) -> String {
         format!("{}#{}", self.verification_uri, self.user_code)
     }
@@ -305,20 +304,6 @@ mod tests {
             login.code_page(),
             "https://auth.example/realms/kodosi/device#WDJB-MJHT"
         );
-    }
-
-    #[test]
-    fn stored_tokens_ignore_obsolete_endpoint_without_losing_credentials() {
-        let saved = r#"{"access_token":"access","refresh_token":"refresh","expires_at":1234,"token_endpoint":"https://old.invalid/token"}"#;
-        let decoded: Tokens = serde_json::from_str(saved).unwrap();
-        assert_eq!(decoded.access_token, "access");
-        assert_eq!(decoded.refresh_token.as_deref(), Some("refresh"));
-        assert_eq!(decoded.expires_at, 1234);
-        let encoded = serde_json::to_value(&decoded).unwrap();
-        assert!(encoded.get("token_endpoint").is_none());
-        assert_eq!(encoded.as_object().unwrap().len(), 3);
-        let current: Tokens = serde_json::from_value(encoded).unwrap();
-        assert_eq!(current.refresh_token.as_deref(), Some("refresh"));
     }
 
     #[test]

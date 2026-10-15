@@ -1,6 +1,6 @@
 import SwiftUI
 
-public struct KodosiThemeModifier: ViewModifier {
+private struct KodosiThemeModifier: ViewModifier {
     @Environment(\.colorScheme) private var systemColorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(ThemePreference.storageKey) private var preference: String = ThemePreference.system.rawValue
@@ -15,7 +15,7 @@ public struct KodosiThemeModifier: ViewModifier {
         return pref.preferredColorScheme
     }
 
-    public func body(content: Content) -> some View {
+    func body(content: Content) -> some View {
         content
             .environment(\.theme, resolved)
             .tint(resolved.colors.accent)

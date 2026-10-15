@@ -4,7 +4,7 @@ import SwiftUI
 struct NewBranchPopover: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.closePanel) private var dismiss
     let directory: String
     @State private var branch = generateSessionName().lowercased().replacingOccurrences(of: " ", with: "-")
     @State private var starting = false

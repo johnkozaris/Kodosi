@@ -246,12 +246,6 @@ QPointF TerminalView::gridPoint(const QPointF& point) const
     return (point - viewportOffset()) / viewportScale();
 }
 
-void TerminalView::updateViewport()
-{
-    emit viewportChanged();
-    update();
-}
-
 QString TerminalView::fontFamily() const
 {
     return m_font.family();
@@ -528,8 +522,6 @@ void TerminalView::setTerminalInteraction(
         m_resizeClaimPending = m_focusedSizeAuthority;
         scheduleResize();
     }
-    emit capabilitiesChanged();
-    updateViewport();
     if (wasReadOnly != readOnly()) {
         if (auto* accessible = qobject_cast<QQuickAccessibleAttached*>(
                 qmlAttachedPropertiesObject<QQuickAccessibleAttached>(
@@ -715,7 +707,7 @@ void TerminalView::detach()
     }
     m_frame.reset();
     m_renderedFrame.reset();
-    updateViewport();
+    update();
     if (wasReady) {
         emit terminalReadyChanged();
     }
@@ -735,7 +727,7 @@ void TerminalView::geometryChange(const QRectF& newGeometry, const QRectF& oldGe
 {
     QQuickItem::geometryChange(newGeometry, oldGeometry);
     if (newGeometry.size() != oldGeometry.size()) {
-        updateViewport();
+        update();
         scheduleResize();
     }
 }
@@ -935,7 +927,7 @@ void TerminalView::presentFrame(GhosttyTerminalKernel::Frame frame)
         setImplicitSize(sizeHint.width(), sizeHint.height());
     }
     emit frameChanged();
-    updateViewport();
+    update();
     if (wasReady != m_terminalReady) {
         emit terminalReadyChanged();
     }
@@ -1290,7 +1282,7 @@ void TerminalView::invalidateMetrics()
             TerminalRasterizer::logicalSize(*m_frame, m_font, m_lineHeight);
         setImplicitSize(sizeHint.width(), sizeHint.height());
     }
-    updateViewport();
+    update();
     scheduleResize();
     if (auto* inputMethod = QGuiApplication::inputMethod()) {
         inputMethod->update(Qt::ImFont | Qt::ImCursorRectangle);

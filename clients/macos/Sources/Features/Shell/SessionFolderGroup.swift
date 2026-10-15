@@ -17,15 +17,19 @@ struct SessionFolderGroup: Identifiable {
         return directory == nil ? host : "\(name) · \(host)"
     }
 
+    static func computer(of session: RuntimeSession) -> String {
+        session.kind == .local ? "local" : session.hostDeviceId ?? session.ownerUserId ?? session.id
+    }
+
+    static func host(of session: RuntimeSession) -> String? {
+        guard session.kind != .local else { return nil }
+        return session.isOwner ? session.hostLabel : "\(session.ownerName ?? String(localized: "Shared")) · \(session.hostLabel)"
+    }
+
     static func groups(_ sessions: [RuntimeSession]) -> [Self] {
-        let grouped = Dictionary(grouping: sessions) { session in
-            "\(session.kind == .local ? "local" : session.hostDeviceId ?? session.ownerUserId ?? session.id):\(session.workingDir ?? "")"
-        }
+        let grouped = Dictionary(grouping: sessions) { "\(computer(of: $0)):\($0.workingDir ?? "")" }
         return grouped.map { key, values in
-            let session = values[0]
-            let owner = session.ownerName ?? String(localized: "Shared")
-            let host = session.kind == .local ? nil : session.isOwner ? session.hostLabel : "\(owner) · \(session.hostLabel)"
-            return Self(id: key, directory: session.workingDir, host: host, sessions: values)
+            Self(id: key, directory: values[0].workingDir, host: host(of: values[0]), sessions: values)
         }.sorted {
             if ($0.host == nil) != ($1.host == nil) {
                 return $0.host == nil

@@ -4,7 +4,7 @@ import SwiftUI
 
 struct SessionDetailsView: View {
     @Environment(AppDependencies.self) private var deps
-    @Environment(\.closeSheet) private var dismiss
+    @Environment(\.closePanel) private var dismiss
     @Environment(\.theme) private var theme
     let session: RuntimeSession
     @State private var sharing = false

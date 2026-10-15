@@ -1,231 +1,124 @@
 # Getting started
 
-The pictures show the Mac app; the Linux app has the same parts.
+Build the app for your [Mac](../clients/macos/README.md),
+[Linux or Windows](../clients/qt/README.md) computer, or your
+[iPhone or iPad](../clients/ios/README.md). It needs a Kodosi backend and an OIDC
+sign-in service; for development run a [local backend](DEVELOPMENT.md#run-the-backend).
+Sign in through your browser and check that it shows the same code as the app.
 
-- [What you need](#what-you-need)
-- [Sign in and open a terminal](#sign-in-and-open-a-terminal)
-- [Start an agent](#start-an-agent)
-- [Give an agent its own branch](#give-an-agent-its-own-branch)
-- [Use your other computers](#use-your-other-computers)
-- [Share a terminal with a friend](#share-a-terminal-with-a-friend)
-- [Work together](#work-together)
-- [Bring an agent into the conversation](#bring-an-agent-into-the-conversation)
-- [See what a terminal needs](#see-what-a-terminal-needs)
-- [Keep work running](#keep-work-running)
-- [If something does not connect](#if-something-does-not-connect)
+## Terminals
 
-## What you need
+A terminal is a real shell on the computer that runs it. The sidebar lists your rooms
+and terminals by folder and computer.
 
-- **A computer.** A Mac with Apple silicon and macOS 26.4 or later, or a Linux x86-64
-  computer. Ubuntu 24.04 is the recommended start.
-- **The app.** Build the [Mac app](../clients/macos/README.md) or the
-  [Linux app](../clients/qt/README.md).
-- **A Kodosi service.** Kodosi needs a backend and an OIDC sign-in service. For
-  development, run a [local backend](DEVELOPMENT.md#run-the-backend).
-- **A browser** for the sign-in.
-- **Your agents (optional).** Claude Code, Codex, Copilot CLI, or another terminal
-  agent, installed and signed in as usual.
-- **Git (optional)** for a terminal on a new branch.
-- **The `kodosi` command (optional)** for agents in rooms. See the command-line
-  section of the [Mac](../clients/macos/README.md#command-line-access) or
-  [Linux](../clients/qt/README.md#command-line-access) build guide.
+| Action | Result |
+| --- | --- |
+| Minimize | Hides the view. The terminal keeps running. |
+| Close | Ends the terminal and its programs. |
+| Close the window | The app keeps hosting its terminals. |
+| Quit | Ends the terminals that this app hosts. Other computers keep theirs. |
 
-## Sign in and open a terminal
+After a lost connection the view returns to the current state. If Kodosi reports
+uncertain input delivery, look at the terminal before you repeat a command.
 
-Follow the app's sign-in flow in your browser, and check that the browser shows the
-same code as the app.
+## Agents
 
-Create a terminal and choose its working folder. It is a real shell on that computer:
-run your normal commands, editor, or coding agent there. Provider CLIs use their own
-installation, settings, and sign-in.
+The home shows the agents that this computer has. Pick one, its folder and account,
+and with the dots a model and an effort. Type a first prompt and press Return: the new
+terminal's shell types the command. A missing agent offers its install command. A new
+account gets an empty sign-in folder, such as `~/.claude-work`, and the agent asks you
+to sign in.
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: light)" srcset="media/app-light.webp">
-    <img src="media/app-dark.webp" width="860" alt="The Kodosi window: rooms and terminals in the sidebar, four terminals on the stage.">
-  </picture>
-</p>
+A terminal at its prompt shows a mark for each agent you ran on this computer. Settings
+› Agents holds these start commands; add your own, for example
+`env CLAUDE_CONFIG_DIR=~/.claude-personal claude`.
 
-The sidebar lists your rooms and your terminals, grouped by folder and by computer.
-The stage shows the terminals that you opened, side by side.
+<p align="center"><img src="media/start-settings.webp" width="640" alt="Start commands in Settings."></p>
 
-## Start an agent
-
-The home of the app shows the agents that a new terminal finds on this computer, and the
-terminal about to open. Select an agent. Select a part of the command to change it: the
-folder or the account. The dots show the model and the effort; without them the agent
-uses its own default. Then type the agent's first prompt, or a command for a plain
-terminal; Tab takes the suggestion. Press Return, and the shell of the new terminal
-types the line. An agent that is not installed shows its install command, and Install
-runs it in a terminal. The account list shows each sign-in with its e-mail address, and
-under it the commands that use it: the agent itself, each alias of your shell that runs
-the agent, and each function named after the agent. To add an account, open the account
-list and give the account a name. Kodosi makes an empty sign-in folder for it, such as
-`~/.claude-work`, and the agent asks you to sign in when it starts there.
-
-After you run an agent on a computer one time, each terminal on that computer shows
-the agent's mark among its actions while the terminal is at its prompt. Select the
-mark to start the agent there.
-
-<p align="center">
-  <img src="media/start.webp" width="550" alt="A terminal at its prompt with three start marks in its header.">
-</p>
-
-In Settings, under Agents, you can change these start commands and add your own, for
-example `env CLAUDE_CONFIG_DIR=~/.claude-personal claude` for a second account.
-
-<p align="center">
-  <img src="media/start-settings.webp" width="640" alt="The Start list in Settings with the commands for Claude Code, Codex, and a second Claude account.">
-</p>
-
-## Give an agent its own branch
-
-To give an agent its own copy of a repository, move the pointer to the folder of the
-repository in the sidebar and select the branch button. Give the branch a name. Kodosi
-makes the branch with its own folder beside the repository (a Git worktree) and starts
-a terminal there, so two agents do not change the same files.
-
-<p align="center">
-  <img src="media/branch.webp" width="700" alt="The New branch panel with a branch name and the Start button.">
-</p>
-
-A folder with no changes goes away when its terminal ends; a folder with work stays
-until you remove it with Git. In Settings, under Terminal, you can select a different
-place for these folders. From a shell, use
+To give an agent its own copy of a repository, hover the repository folder in the
+sidebar, select the branch button and name a branch. Kodosi starts a terminal in a new
+Git worktree. When the terminal ends, the worktree goes away only if nothing changed.
+Settings › Terminal chooses where these folders go. From a shell:
 `kodosi session start --directory <repository> --branch <name>`.
 
-## Use your other computers
+## Terminal state
 
-Start Kodosi on your second computer and sign in to the same account. The new device
-shows a code. On a computer that you already use, open Settings, then Devices, and
-enter the code.
+A terminal shows when its program works, waits for you, is done or failed. Everyone who
+can open the terminal sees it before they open it, and `kodosi session list` shows it
+too.
 
-Approved devices on the same account can open your terminals. The hosting computer
-must remain online with Kodosi running.
+| You see | Meaning |
+| --- | --- |
+| A warm rim turning round the mark | Working. An arc shows the percent. |
+| A hand, question mark or key | Waiting for your approval, answer or sign-in. |
+| A green check | Done. |
+| A yellow warning sign | Failed. |
 
-An iPhone or iPad signs in and gets approval in the same way. The app opens your
-terminals and the terminals that friends share with you, lists first the terminals
-that wait for you, and takes part in rooms. It starts no terminals.
+The check and the warning go away when you open the terminal. A friend's terminal that
+you do not have open shows only that its program works or waits. A closed folder in the
+sidebar shows the sign of a terminal in it that waits. Small faces show who else has
+the terminal open, so that two people do not answer at the same time. While Kodosi is
+not in front, your own terminals and the ones that you have open send a notification
+when they start to wait, finish or fail. The state comes from the
+[Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status)
+(OSC 7501) and progress bars (OSC 9;4). Claude Code reports it from version 2.1.295; a
+program that reports nothing shows no state.
 
-Make a recovery key in Settings, then Devices, and keep it in a safe place. If you lose
-all your computers, sign in on a new one and select "Use my recovery key". You keep
-your friends and rooms. If you lose one computer, remove it there from a computer that
-you still use; if it was stolen, also make a new recovery key.
+## Devices
 
-<p align="center">
-  <img src="media/overview.webp" width="760" alt="The overview of all terminals, grouped by computer.">
-</p>
+Sign in on the new device with the same account. It shows a code: enter it in Settings
+› Devices on a device you already use. An iPhone or iPad joins the same way; it opens
+terminals and rooms but starts no terminals. A terminal's host must be online with
+Kodosi running.
 
-## Share a terminal with a friend
+Make a recovery key in Settings › Devices and keep it safe. If you lose every device,
+sign in on a new one and choose "Use my recovery key" to keep your friends and rooms.
+Remove a lost device from another device, and make a new recovery key if it was stolen.
 
-Open People. Send your invite to a friend, or paste the invite or the username of your
-friend. An invite carries the identity of its owner, so Kodosi can verify the friend.
+## Friends and sharing
 
-<p align="center">
-  <img src="media/people.webp" width="760" alt="People, with two verified friends and the terminals that they share.">
-</p>
+In People, send your invite, or paste a friend's invite or username. An invite carries
+its owner's identity, so Kodosi can verify the friend.
 
-To share a terminal, select the share button in its header, then select a friend or a
-room. Everyone you share with gets full control of that terminal: typing, resizing,
-interrupting, and closing. Sharing one terminal does not share the host's other
-terminals.
+<p align="center"><img src="media/people.webp" width="760" alt="People with two verified friends."></p>
 
-<p align="center">
-  <img src="media/share.webp" width="520" alt="The share panel of a terminal with rooms and friends.">
-</p>
+The share button in a terminal's header shares it with friends or rooms. Everyone you
+share with gets full control (typing, resizing, interrupting and closing) with your
+privileges on that computer. Share only with people you trust that much. Your other
+terminals stay private.
 
-## Work together
+## Rooms
 
-1. Create a room from Rooms.
-2. Add the people you want to work with. Use People to connect with a friend first
-   if they are not already in your list.
-3. Start a terminal in the room, or share an existing terminal with it.
-4. Use the room conversation and tasks alongside the terminals.
+Create a room in Rooms, add friends, then start a terminal in the room or share one into
+it. Members can use every shared terminal and share their own. People who join later
+get the terminals and the whole conversation. Files stay on each terminal's host.
 
-<p align="center">
-  <img src="media/room.webp" width="860" alt="A room: its shared terminals on the left and the conversation of people and agents on the right.">
-</p>
+Put tasks up for grabs, claim them, hand them back, close them with a result, or reopen
+them. A room can link GitHub or Gitea repositories and turn issues into tasks; changing
+such a task updates its issue.
 
-Everyone in the room gets full control of a shared terminal: typing, resizing,
-interrupting, and closing. They can share their own terminals as well. People who
-join later get access to the room's shared terminals and earlier conversation.
+## Agents in rooms
 
-A room can span several computers, folders, and repositories. Files stay on each
-terminal's host.
-
-<p align="center">
-  <img src="media/tasks.webp" width="580" alt="The tasks of a room: up for grabs, in progress, and done.">
-</p>
-
-Put a task up for grabs, take one, hand it back, or close it with a result. A room can
-also link GitHub or Gitea repositories and turn their issues into tasks. See
-[Agents and tasks](AGENTS_AND_TASKS.md).
-
-## Bring an agent into the conversation
-
-Start your agent in a room terminal and give it the bundled room skill:
+Agents use the `kodosi` command; put it on your PATH as the
+[Mac](../clients/macos/README.md#command-line) or
+[Linux](../clients/qt/README.md#command-line) guide says. In a room terminal, give your
+agent the room skill through its usual way of loading skills:
 
 ```sh
 kodosi room skill
 ```
 
-The skill explains how to read and post messages, discover the room's terminals,
-and create or claim tasks. Use your harness's normal way of loading skills or
-instructions. See [Agents and tasks](AGENTS_AND_TASKS.md) for examples and CLI setup.
+The [skill](../runtime/skills/kodosi-room/SKILL.md) covers the conversation, terminals,
+tasks and repositories. In a Kodosi terminal the command finds the room itself;
+elsewhere pass `--room <name>`. `--json` gives structured output and `--help` lists
+options.
 
-## See what a terminal needs
-
-A terminal shows when its program is working, needs you, is done, or failed, with
-the program's own message, such as the approval it asks for. Everyone who can open a
-terminal sees its state before they open it, and the message when they open it.
-`kodosi session list` shows the state too.
-
-<p align="center">
-  <picture>
-    <source media="(prefers-reduced-motion: reduce)" srcset="media/status.webp">
-    <img src="media/status.gif" width="790" alt="A terminal works, waits for an approval, works again, and is done. Its mark in the sidebar and in its header changes each time.">
-  </picture>
-</p>
-
-| You see | Meaning |
-| --- | --- |
-| A warm rim that turns round the terminal's mark | The program works. An arc and a number show its percent. |
-| A hand, a question mark, or a key | The program waits for your approval, your answer, or your sign-in. |
-| A green check | The program is done. |
-| A yellow warning sign | The program failed. |
-
-The check and the warning sign go away when you open the terminal. A friend's terminal
-that you do not have open shows only that its program works or waits. A closed folder in
-the sidebar shows the sign of a terminal in it that waits. Small faces show who else
-has the terminal open, so that two people do not answer at the same time.
-
-While Kodosi is not the front app, your own terminals and the terminals that you have
-open also send a system notification when a program starts to wait, is done, or failed. Select the notification to open the
-terminal. Your system's notification settings control these notifications.
-
-Kodosi takes this from what the program reports to its terminal: the
-[Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status)
-(OSC 7501) and terminal progress bars (OSC 9;4). Claude Code reports its state from
-version 2.1.295. A program that reports nothing shows no state.
-
-## Keep work running
-
-| Action | Result |
-| --- | --- |
-| Minimize a terminal | Hides its view; the process keeps running. |
-| Close a terminal | Ends that terminal and its programs. |
-| Close the app window | Leaves the app hosting its terminals. |
-| Quit the app | Ends terminals hosted by that app. Other hosts keep running. |
-| Temporarily lose a connection | The view reconnects to current terminal state when the host is reachable. |
-
-If Kodosi reports uncertain input delivery, inspect the terminal before repeating a
-command.
+GitHub actions use your `gh` sign-in or Git credential helper. Gitea uses the credential
+helper, or `KODOSI_GITEA_TOKEN` for the origin in `KODOSI_GITEA_URL`. Credentials never
+leave your computer.
 
 ## If something does not connect
 
-Check that the host is online, Kodosi is running there, and the terminal is still
-shared with the room. A new device may need approval; a friend's changed identity
-may need verification in People.
-
-[All documentation](README.md) · [Agents and tasks](AGENTS_AND_TASKS.md) ·
-[Questions and answers](FAQ.md)
+Check that the host is online with Kodosi running and that the terminal is still shared.
+A new device may need approval, and a friend with a changed identity may need
+verification in People.
