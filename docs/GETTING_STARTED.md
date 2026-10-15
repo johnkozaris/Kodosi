@@ -176,8 +176,8 @@ instructions. See [Agents and tasks](AGENTS_AND_TASKS.md) for examples and CLI s
 ## See what a terminal needs
 
 A terminal shows when its program is working, needs you, is done, or failed, with
-the program's own message, such as the approval it asks for. Room members see the
-state of each room terminal before they open it, and the message when they open it.
+the program's own message, such as the approval it asks for. Everyone who can open a
+terminal sees its state before they open it, and the message when they open it.
 `kodosi session list` shows the state too.
 
 <p align="center">

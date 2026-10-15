@@ -148,11 +148,11 @@ its epoch. The additional data is (`kodosi-room-content-aead-v1`, room, item, ki
 version, key state version, epoch, author, device). The author's device signs the
 record (`kodosi-room-content-v1`).
 
-**Terminal status.** The host of a terminal in a room encrypts the agent and the state
-that its program reports, without the program's text, with the newest room key that it
-has. The additional data is (`kodosi-terminal-status-aead-v1`, room, terminal,
-incarnation, key state version, epoch). The status has no signature: any member could
-make one, and the backend takes it only from the device connection of the host.
+**Terminal status.** The host sends the agent of each terminal and the state that its
+program reports (for example working, or waiting for an approval) without encryption,
+so that every device of the people who can open the terminal sees it. The program's
+title and text stay in the encrypted terminal connection. The backend takes a status
+only from the device connection of the host.
 
 **Members who are not available.** A room continues when the backend cannot give the
 current identity of a member: the state keeps the last record. When a member has a
@@ -171,8 +171,8 @@ The owner puts the member in again after the owner trusts the new identity.
 5. The link code is not a password-authenticated key exchange. The backend can try to
    guess the code; the work is about 2^80 operations in the 10 minutes that a code is
    valid.
-6. The backend can hold back or reorder room items. Their order is not signed. It can
-   also hold back a terminal status or give an earlier one.
+6. The backend can hold back or reorder room items. Their order is not signed. It reads
+   each terminal status, and it can hold one back or change it.
 7. A room key encrypts many records with random nonces. Change the epoch before 2^32
    records.
 8. The time in a key state comes from its author. Devices refuse only a time in the

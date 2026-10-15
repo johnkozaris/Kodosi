@@ -25,7 +25,6 @@ pub(crate) const STATE_DOMAIN: &[u8] = b"kodosi-room-state-v1";
 pub(crate) const CONTENT_DOMAIN: &[u8] = b"kodosi-room-content-v1";
 pub(crate) const RECIPIENT_DOMAIN: &[u8] = b"kodosi-room-recipient-v1";
 const CONTENT_AEAD_DOMAIN: &[u8] = b"kodosi-room-content-aead-v1";
-const STATUS_AEAD_DOMAIN: &[u8] = b"kodosi-terminal-status-aead-v1";
 const HISTORY_DOMAIN: &[u8] = b"kodosi-room-history-v1";
 const KEM_CIPHERTEXT_BYTES: usize = 1088;
 const WRAP_DOMAIN: &[u8] = b"kodosi-room-key-wrap-v2";
@@ -119,68 +118,6 @@ impl Content {
         open(
             key.as_ref(),
             &self.context()?,
-            &Sealed {
-                nonce: self.nonce.clone(),
-                ciphertext: self.ciphertext.clone(),
-            },
-        )
-    }
-}
-
-/// The status of a room terminal, encrypted with a room key. The room, the terminal and
-/// its incarnation are `(room, session, incarnation)`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(crate) struct SealedStatus {
-    pub key_version: u64,
-    pub epoch: u64,
-    pub nonce: String,
-    pub ciphertext: String,
-}
-
-impl SealedStatus {
-    fn context(terminal: (Uuid, Uuid, Uuid), key_version: u64, epoch: u64) -> Result<Vec<u8>> {
-        let (room, session, incarnation) = terminal;
-        crypto::signed_fields(
-            STATUS_AEAD_DOMAIN,
-            &[
-                room.to_string().as_bytes(),
-                session.to_string().as_bytes(),
-                incarnation.to_string().as_bytes(),
-                &key_version.to_be_bytes(),
-                &epoch.to_be_bytes(),
-            ],
-        )
-    }
-
-    #[cfg(any(feature = "host", test))]
-    pub(crate) fn seal(
-        terminal: (Uuid, Uuid, Uuid),
-        (key_version, epoch): (u64, u64),
-        key: &Secret,
-        plain: &[u8],
-    ) -> Result<Self> {
-        let sealed = seal(
-            key.as_ref(),
-            &Self::context(terminal, key_version, epoch)?,
-            plain,
-        )?;
-        Ok(Self {
-            key_version,
-            epoch,
-            nonce: sealed.nonce,
-            ciphertext: sealed.ciphertext,
-        })
-    }
-
-    pub(crate) fn open(
-        &self,
-        terminal: (Uuid, Uuid, Uuid),
-        key: &Secret,
-    ) -> Result<Zeroizing<Vec<u8>>> {
-        open(
-            key.as_ref(),
-            &Self::context(terminal, self.key_version, self.epoch)?,
             &Sealed {
                 nonce: self.nonce.clone(),
                 ciphertext: self.ciphertext.clone(),

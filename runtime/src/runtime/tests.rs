@@ -1235,12 +1235,11 @@ async fn catalog_replacement_cancels_inflight_automatic_recovery() {
 }
 
 #[tokio::test]
-async fn a_room_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open() {
+async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open() {
     use crate::terminal::{BlockedKind, ProgramState, TerminalMetadata};
     let (mut runtime, _root) = registry_fixture();
     let (id, incarnation) = (Uuid::now_v7(), Uuid::now_v7());
     let remote = RemoteSession {
-        mission_id: Some(Uuid::now_v7()),
         status: Some(TerminalStatus {
             program: Some("claude".to_owned()),
             state: Some(ProgramState::Blocked),

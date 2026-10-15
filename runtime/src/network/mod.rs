@@ -160,8 +160,9 @@ pub struct RemoteSession {
     pub status: Option<TerminalStatus>,
 }
 
-/// What the host of a room terminal tells the room about it: the agent and the state
-/// that its program reports, without the program's text.
+/// What the host of a terminal tells the server and the people who can open it: the
+/// agent and the state that its program reports, without the program's text. The
+/// server can read it.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TerminalStatus {
@@ -183,18 +184,11 @@ impl TerminalStatus {
         }
     }
 
-    pub(crate) fn read(bytes: &[u8]) -> Result<Self> {
-        let status: Self = serde_json::from_slice(bytes)?;
-        if status
-            .program
+    pub(crate) fn is_valid(&self) -> bool {
+        self.program
             .as_deref()
-            .is_some_and(|program| !matches!(program, "claude" | "copilot" | "codex" | "cursor"))
-            || (status.kind.is_some()
-                && status.state != Some(crate::terminal::ProgramState::Blocked))
-        {
-            return Err(invalid("The terminal status is invalid."));
-        }
-        Ok(status)
+            .is_none_or(|program| matches!(program, "claude" | "copilot" | "codex" | "cursor"))
+            && (self.kind.is_none() || self.state == Some(crate::terminal::ProgramState::Blocked))
     }
 
     pub(crate) fn program_status(&self) -> Option<crate::terminal::ProgramStatus> {
