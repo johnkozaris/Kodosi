@@ -22,7 +22,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 58;
+pub const VERSION: u32 = 59;
 include!(concat!(env!("OUT_DIR"), "/network_versions.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 
@@ -40,7 +40,12 @@ pub struct CommandEnvelope {
 #[serde(tag = "type", rename_all = "camelCase", deny_unknown_fields)]
 pub enum Command {
     #[serde(rename = "auth.login.start")]
-    Login {},
+    Login {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        browser: Option<SignInBrowser>,
+    },
+    #[serde(rename = "auth.login.finish")]
+    FinishLogin { url: String },
     #[serde(rename = "auth.login.cancel")]
     CancelLogin {},
     #[serde(rename = "auth.logout")]
@@ -481,6 +486,8 @@ pub enum EventBody {
         user_code: String,
         verification_uri: String,
     },
+    #[serde(rename = "auth.browser")]
+    AuthBrowser { url: String },
     #[serde(rename = "auth.finalizing")]
     AuthFinalizing {},
     #[serde(rename = "auth.deletion_pending")]
@@ -660,6 +667,17 @@ pub enum ProviderReply {
     AddAccount(crate::agents::AgentAccount),
 }
 
+/// Where the sign-in page opens; without it, the sign-in uses a device code.
+///
+/// The runtime takes the answer of the system browser on a loopback address. The app's own
+/// sign-in window gives its answer back with `auth.login.finish`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, specta_macros::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum SignInBrowser {
+    System,
+    App,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum AuthRequiredReason {
@@ -781,6 +799,7 @@ impl EventBody {
             Self::AuthReady { .. } => "auth.ready",
             Self::AuthRequired { .. } => "auth.required",
             Self::AuthDeviceCode { .. } => "auth.device_code",
+            Self::AuthBrowser { .. } => "auth.browser",
             Self::AuthFinalizing {} => "auth.finalizing",
             Self::AuthDeletionPending { .. } => "auth.deletion_pending",
             Self::AuthError { .. } => "auth.error",
@@ -849,7 +868,8 @@ fn validated_command<'de, D: Deserializer<'de>>(
 impl Command {
     pub fn operation(&self) -> &'static str {
         match self {
-            Self::Login {} => "auth.login.start",
+            Self::Login { .. } => "auth.login.start",
+            Self::FinishLogin { .. } => "auth.login.finish",
             Self::CancelLogin {} => "auth.login.cancel",
             Self::Logout {} => "auth.logout",
             Self::DeleteAccount {} => "auth.deleteAccount",
@@ -1106,6 +1126,7 @@ impl Command {
         self.validate_provider()?;
         match self {
             Self::RevokeDevice { device_id } => text(device_id, "deviceId", 1024)?,
+            Self::FinishLogin { url } => text(url, "url", 8192)?,
             Self::ApproveDevice { code } => text(code, "code", 64)?,
             Self::RequestFriend { username, .. } if parse_invite(username).is_some() => {}
             Self::RequestFriend { username, .. }
@@ -1325,6 +1346,9 @@ mod tests {
         .map(|kind| json!({"type":kind}))
         .collect::<Vec<_>>();
         values.extend([
+            json!({"type":"auth.login.start","browser":"system"}),
+            json!({"type":"auth.login.start","browser":"app"}),
+            json!({"type":"auth.login.finish","url":"com.kodosi:/auth?code=c&state=s"}),
             json!({"type":"devices.revoke","deviceId":"native-device-name"}),
             json!({"type":"devices.link.approve","code":"ABCD-EFGH-JKMN"}),
             json!({"type":"devices.recovery.use","key":"ABCD-EFGH-JKMN-PQRS-TVWX-YZ01-2345-6789"}),
@@ -1402,7 +1426,7 @@ mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 49);
+        assert_eq!(kinds.len(), 50);
     }
 
     #[test]

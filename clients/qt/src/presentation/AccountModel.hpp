@@ -15,8 +15,7 @@ class AccountModel final : public QObject {
     Q_PROPERTY(bool signingIn READ signingIn NOTIFY loginChanged)
     Q_PROPERTY(QString userId READ userId NOTIFY accountChanged)
     Q_PROPERTY(QString displayName READ displayName NOTIFY accountChanged)
-    Q_PROPERTY(QString userCode READ userCode NOTIFY loginChanged)
-    Q_PROPERTY(QString verificationUri READ verificationUri NOTIFY loginChanged)
+    Q_PROPERTY(QString signInPage READ signInPage NOTIFY loginChanged)
     Q_PROPERTY(bool deleting READ deleting NOTIFY deletionChanged)
     Q_PROPERTY(QString deletionUri READ deletionUri NOTIFY deletionChanged)
 
@@ -24,12 +23,11 @@ public:
     explicit AccountModel(Workspace& workspace);
 
     bool signedIn() const { return !m_userId.isEmpty(); }
-    bool signingIn() const { return m_finalizing || !m_userCode.isEmpty(); }
+    bool signingIn() const { return m_finalizing || !m_signInPage.isEmpty(); }
     bool finalizing() const { return m_finalizing; }
     QString userId() const { return m_userId; }
     QString displayName() const { return m_displayName; }
-    QString userCode() const { return m_userCode; }
-    QString verificationUri() const { return m_verificationUri; }
+    QString signInPage() const { return m_signInPage; }
     bool deleting() const { return m_deleting; }
     QString deletionUri() const { return m_deletionUri; }
 
@@ -43,6 +41,8 @@ signals:
     void accountChanged();
     void loginChanged();
     void deletionChanged();
+    void signInPageReady(const QString& page);
+    void browserAnswered();
 
 private:
     friend class Workspace;
@@ -50,8 +50,7 @@ private:
     Workspace& m_workspace;
     QString m_userId;
     QString m_displayName;
-    QString m_userCode;
-    QString m_verificationUri;
+    QString m_signInPage;
     QString m_deletionUri;
     std::optional<std::uint64_t> m_epoch;
     bool m_finalizing = true;

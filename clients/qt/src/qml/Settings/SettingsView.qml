@@ -15,14 +15,14 @@ Item {
     onVisibleChanged: {
         if (!visible)
             return;
-        if (!Models.Account.signedIn && Models.Account.userCode.length > 0)
+        if (!Models.Account.signedIn && Models.Account.signInPage.length > 0)
             section = 2;
         else if (Models.Account.signedIn && !Models.Devices.localDeviceEnrolled)
             section = 3;
     }
     Connections {
         function onLoginChanged() {
-            if (Models.Account.userCode.length > 0 && !Models.Account.signedIn)
+            if (Models.Account.signInPage.length > 0 && !Models.Account.signedIn)
                 root.section = 2;
         }
 

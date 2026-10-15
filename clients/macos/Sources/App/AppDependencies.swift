@@ -45,12 +45,13 @@ final class AppDependencies {
     }
 
     var openExternalURL: (URL) -> Void = { NSWorkspace.shared.open($0) }
+    var bringToFront: () -> Void = { NSApp.activate() }
     var copyText: (String) -> Void = { text in
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
     }
 
-    var openedLoginCode: String?
+    var openedSignInPage: URL?
     var identityMessage: String?
     var errorMessage: String?
     let updater = AppUpdater()

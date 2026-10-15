@@ -169,8 +169,12 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         return;
     }
     if (type == QStringLiteral("auth.finalizing")) {
+        const bool fromBrowser = !m_account.m_signInPage.isEmpty();
         m_account.m_finalizing = true;
+        m_account.m_signInPage.clear();
         emit m_account.loginChanged();
+        if (fromBrowser)
+            emit m_account.browserAnswered();
         return;
     }
     if (type == QStringLiteral("auth.ready") || type == QStringLiteral("auth.required")) {
@@ -187,8 +191,7 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         }
         if (const auto name = event.value(QStringLiteral("displayName")).toString(); !name.isEmpty())
             m_account.m_displayName = name;
-        m_account.m_userCode.clear();
-        m_account.m_verificationUri.clear();
+        m_account.m_signInPage.clear();
         m_devices.m_enrolled = !user.isEmpty() && event.value(QStringLiteral("enrolled")).toBool(true);
         if (m_devices.m_enrolled)
             m_devices.m_notice.clear();
@@ -210,11 +213,11 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         emit m_account.deletionChanged();
         return;
     }
-    if (type == QStringLiteral("auth.device_code")) {
+    if (type == QStringLiteral("auth.browser")) {
         m_account.m_finalizing = false;
-        m_account.m_userCode = event.value(QStringLiteral("userCode")).toString();
-        m_account.m_verificationUri = event.value(QStringLiteral("verificationUri")).toString();
+        m_account.m_signInPage = event.value(QStringLiteral("url")).toString();
         emit m_account.loginChanged();
+        emit m_account.signInPageReady(m_account.m_signInPage);
         return;
     }
     if (type == QStringLiteral("term.bell")) {
@@ -412,7 +415,7 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     }
     if (type == QStringLiteral("auth.error")) {
         m_account.m_finalizing = false;
-        m_account.m_userCode.clear();
+        m_account.m_signInPage.clear();
         emit m_account.loginChanged();
         if (event.value(QStringLiteral("operation")).toString() == QStringLiteral("auth.deleteAccount"))
             m_account.endDeletion();

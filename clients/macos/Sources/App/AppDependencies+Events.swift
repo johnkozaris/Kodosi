@@ -179,15 +179,17 @@ extension AppDependencies {
             if let page {
                 openExternalURL(page)
             }
-        case "auth.device_code":
-            let code = event.string("userCode") ?? ""
-            let url = event.string("verificationUri").flatMap(ExternalAuthURL.parse)
-            signInStage = .awaitingApproval(code: code, url: url)
-            if signInPresented, let url, openedLoginCode != code {
-                openedLoginCode = code
+        case "auth.browser":
+            let url = event.string("url").flatMap(ExternalAuthURL.parse)
+            signInStage = .awaitingBrowser(url)
+            if signInPresented, let url, openedSignInPage != url {
+                openedSignInPage = url
                 openExternalURL(url)
             }
         case "auth.finalizing":
+            if case .awaitingBrowser = signInStage {
+                bringToFront()
+            }
             signInStage = .finalizing
         default: break
         }
