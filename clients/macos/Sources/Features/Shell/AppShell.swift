@@ -35,7 +35,7 @@ struct AppShell: View {
         .ignoresSafeArea()
         .kodosiPopoverLayer()
         .buttonStyle(.kodosi(.secondary))
-        .textFieldStyle(WellTextFieldStyle()).toggleStyle(SwitchToggleStyle())
+        .textFieldStyle(WellTextFieldStyle()).toggleStyle(KodosiSwitchStyle())
         .animation(theme.motion.spring, value: deps.errorMessage)
         .animation(theme.motion.fade, value: workbench.showsPalette)
         .animation(theme.motion.fade, value: sheet)

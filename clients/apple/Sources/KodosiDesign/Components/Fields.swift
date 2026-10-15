@@ -26,8 +26,10 @@ public struct WellTextFieldStyle: @preconcurrency TextFieldStyle {
     }
 }
 
-public struct SwitchToggleStyle: ToggleStyle {
+public struct KodosiSwitchStyle: ToggleStyle {
     @Environment(\.theme) private var theme
+
+    public init() {}
 
     public func makeBody(configuration: Configuration) -> some View {
         Button { configuration.isOn.toggle() } label: {
@@ -45,10 +47,12 @@ public struct SwitchToggleStyle: ToggleStyle {
                             .frame(width: 17, height: 17).padding(2)
                     }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             .animation(theme.motion.snappy, value: configuration.isOn)
         }
         .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
         .accessibilityValue(Text(configuration.isOn ? "On" : "Off"))
         .accessibilityAddTraits(configuration.isOn ? [.isSelected] : [])
     }

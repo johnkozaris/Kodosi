@@ -415,7 +415,7 @@ Item {
             id: join
             NumberAnimation { target: joinCard; property: "opacity"; to: 1; duration: KodosiTheme.motionFade }
             PauseAnimation { duration: 3200 }
-            NumberAnimation { target: joinCard; property: "opacity"; to: 0; duration: 500 }
+            NumberAnimation { target: joinCard; property: "opacity"; to: 0; duration: KodosiTheme.reduceMotion ? 0 : 500 }
         }
     }
     KPopover {

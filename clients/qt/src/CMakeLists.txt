@@ -222,6 +222,7 @@ qt_add_qml_module(kodosi-ui
         qml/Settings/DeviceSettings.qml
         qml/Settings/TerminalSettings.qml
         qml/Settings/ProviderSettings.qml
+        qml/Controls/AccountMark.qml
         qml/Controls/ActivityLine.qml
         qml/Controls/AgentMark.qml
         qml/Controls/AvatarStack.qml
@@ -232,6 +233,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/CodeKeys.qml
         qml/Controls/CountBadge.qml
         qml/Controls/CursorBlock.qml
+        qml/Controls/EffortBars.qml
         qml/Controls/EmptyState.qml
         qml/Controls/IconTile.qml
         qml/Controls/KButton.qml
@@ -257,6 +259,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/RoomSigil.qml
         qml/Controls/SegmentedPill.qml
         qml/Controls/ShimmerText.qml
+        qml/Controls/SlotMark.qml
         qml/Controls/StartMark.qml
         qml/Controls/StatusSign.qml
         qml/Controls/Tag.qml
@@ -272,13 +275,16 @@ qt_add_qml_module(kodosi-ui
         qml/Theme/Mentions.qml
         qml/Workbench/AgentLauncher.qml
         qml/Workbench/CloseTerminalDialog.qml
+        qml/Workbench/EffortMeter.qml
         qml/Workbench/HistoryView.qml
+        qml/Workbench/LauncherDropdown.qml
         qml/Workbench/LauncherPrompt.qml
+        qml/Workbench/PickerKey.qml
+        qml/Workbench/PickerList.qml
         qml/Workbench/SessionDetails.qml
         qml/Workbench/ShareSheet.qml
         qml/Workbench/StageOverview.qml
         qml/Workbench/TerminalDivider.qml
-        qml/Workbench/TerminalMenu.qml
         qml/Workbench/TerminalStage.qml
         qml/Workbench/TerminalTile.qml
     RESOURCES

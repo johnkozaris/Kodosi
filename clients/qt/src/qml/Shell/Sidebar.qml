@@ -200,7 +200,7 @@ Item {
 
         Column {
             id: railColumn
-            y: root.titleBar ? (KodosiTheme.titleBarHeight - 28) / 2 : 10
+            y: root.titleBar ? (KodosiTheme.titleBarHeight - 28) / 2 + 3 : 10
             width: parent.width
             spacing: 8
 
@@ -332,7 +332,7 @@ Item {
             Layout.preferredHeight: root.titleBar ? KodosiTheme.titleBarHeight : -1
             Layout.leftMargin: 16
             Layout.rightMargin: 8
-            Layout.topMargin: root.titleBar ? 0 : 14
+            Layout.topMargin: root.titleBar ? 3 : 14
             spacing: 2
 
             Wordmark {
@@ -890,25 +890,107 @@ Item {
                 width: parent.width
                 spacing: 6
 
-                KButton {
+                Item {
+                    id: signInSplit
+
+                    readonly property bool approving: Models.Account.signedIn
+
                     Layout.fillWidth: true
+                    implicitHeight: 34
                     visible: !root.accountReady
-                    variant: Models.Account.signedIn ? KButton.Tinted : KButton.Secondary
-                    text: Models.Account.signedIn ? qsTr("Approve this device") : Models.Account.signingIn ? qsTr("Signing in…") : qsTr("Sign in")
-                    working: Models.Account.signingIn
-                    objectName: "sidebar.signIn"
-                    Accessible.id: objectName
-                    onClicked: root.signIn()
-                }
-                KIconButton {
-                    visible: !root.accountReady
-                    size: 32
-                    glyph: "settings"
-                    active: root.selection === "settings"
-                    objectName: "sidebar.settings.icon"
-                    Accessible.id: objectName
-                    Accessible.name: qsTr("Settings")
-                    onClicked: Models.DesktopState.activeView = Models.DesktopState.Settings
+
+                    Bezel {
+                        anchors.fill: parent
+                        quiet: true
+                        pressed: signInButton.pressed || settingsButton.pressed
+                        fill: signInSplit.approving
+                            ? KodosiTheme.mix(KodosiTheme.accentSoft, KodosiTheme.accent, splitHover.hovered ? 0.14 : 0)
+                            : KodosiTheme.mix(KodosiTheme.lifted, KodosiTheme.ink, (KodosiTheme.isDark ? 0.07 : 0) + (splitHover.hovered ? 0.03 : 0))
+                    }
+                    HoverHandler { id: splitHover }
+                    RowLayout {
+                        anchors.fill: parent
+                        spacing: 0
+
+                        AbstractButton {
+                            id: signInButton
+
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            activeFocusOnTab: true
+                            hoverEnabled: true
+                            scale: pressed ? 0.98 : 1
+                            objectName: "sidebar.signIn"
+                            Accessible.id: objectName
+                            Accessible.name: signInLabel.text
+                            contentItem: RowLayout {
+                                spacing: 9
+
+                                SlotMark {
+                                    Layout.leftMargin: 8
+                                    visible: !signInSplit.approving
+                                    glyph: "person"
+                                    tint: KodosiTheme.inkMuted
+                                    size: 20
+                                }
+                                KIcon {
+                                    Layout.leftMargin: 10
+                                    Layout.preferredWidth: 16
+                                    Layout.preferredHeight: 16
+                                    visible: signInSplit.approving
+                                    name: "lock"
+                                    color: KodosiTheme.accentStrong
+                                    strokeWidth: 2
+                                }
+                                ShimmerText {
+                                    id: signInLabel
+
+                                    Layout.fillWidth: true
+                                    text: signInSplit.approving ? qsTr("Approve this device") : Models.Account.signingIn ? qsTr("Signing in…") : qsTr("Sign in")
+                                    active: Models.Account.signingIn
+                                    color: signInSplit.approving ? KodosiTheme.accentStrong : KodosiTheme.ink
+                                    font.pixelSize: KodosiTheme.fontBody
+                                    font.weight: Font.DemiBold
+                                    elide: Text.ElideRight
+                                }
+                            }
+                            onClicked: root.signIn()
+
+                            KFocusIndicator { active: signInButton.visualFocus }
+                        }
+                        Rectangle {
+                            Layout.preferredWidth: 1
+                            Layout.preferredHeight: 18
+                            color: KodosiTheme.alpha(KodosiTheme.ink, 0.12)
+                        }
+                        AbstractButton {
+                            id: settingsButton
+
+                            Layout.preferredWidth: 38
+                            Layout.fillHeight: true
+                            activeFocusOnTab: true
+                            hoverEnabled: true
+                            scale: pressed ? 0.94 : 1
+                            objectName: "sidebar.settings.icon"
+                            Accessible.id: objectName
+                            Accessible.name: qsTr("Settings")
+                            Accessible.selected: root.selection === "settings"
+                            contentItem: Item {
+                                KIcon {
+                                    anchors.centerIn: parent
+                                    width: 15
+                                    height: 15
+                                    name: "settings"
+                                    color: root.selection === "settings" ? KodosiTheme.accentStrong
+                                        : settingsButton.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
+                                    strokeWidth: 1.9
+                                }
+                            }
+                            onClicked: Models.DesktopState.activeView = Models.DesktopState.Settings
+
+                            KFocusIndicator { active: settingsButton.visualFocus }
+                        }
+                    }
                 }
                 AbstractButton {
                     id: account

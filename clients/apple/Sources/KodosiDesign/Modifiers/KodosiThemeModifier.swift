@@ -4,10 +4,11 @@ private struct KodosiThemeModifier: ViewModifier {
     @Environment(\.colorScheme) private var systemColorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(ThemePreference.storageKey) private var preference: String = ThemePreference.system.rawValue
+    @AppStorage(MotionPreference.storageKey) private var reducesMotion = false
 
     private var resolved: AppTheme {
         let pref = ThemePreference(rawValue: preference) ?? .system
-        return pref.resolve(systemColorScheme: systemColorScheme).reducingMotion(reduceMotion)
+        return pref.resolve(systemColorScheme: systemColorScheme).reducingMotion(reduceMotion || reducesMotion)
     }
 
     private var colorSchemeOverride: ColorScheme? {
@@ -16,10 +17,17 @@ private struct KodosiThemeModifier: ViewModifier {
     }
 
     func body(content: Content) -> some View {
+        let theme = resolved
         content
-            .environment(\.theme, resolved)
-            .tint(resolved.colors.accent)
-            .background(resolved.colors.ground.ignoresSafeArea())
+            .transaction { transaction in
+                if theme.motion.reduced {
+                    transaction.animation = nil
+                    transaction.disablesAnimations = true
+                }
+            }
+            .environment(\.theme, theme)
+            .tint(theme.colors.accent)
+            .background(theme.colors.ground.ignoresSafeArea())
             .preferredColorScheme(colorSchemeOverride)
     }
 }
