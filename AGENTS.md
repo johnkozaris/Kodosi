@@ -1,18 +1,29 @@
 # Kodosi
 
-Read `PRODUCT.md` first, and the `AGENTS.md` nearest to the files you change.
+Read `PRODUCT.md` first. Before changing a client's interface, read that client's
+`PRODUCT.md` and `DESIGN.md`.
 
-- `runtime/`: Rust runtime, CLI and C API. Owns terminals, identity, encryption and rooms.
-- `backend/`: ASP.NET Core service. Stores metadata, relays encrypted traffic. Run one
-  serving process.
-- `clients/macos/`, `clients/ios/`: Swift apps. `clients/apple/` is their shared package.
-  The iOS app views terminals and hosts none.
-- `clients/qt/`: Qt app for Linux and Windows.
-- `sign-in/`: Keycloak theme for the sign-in pages, account page and e-mails.
-- `protocol/`: cross-stack contracts; `desktop-runtime.json` is generated from Rust.
-- `terminal/ghostty/`: pinned Ghostty integration; root `Ghostty.lock` selects it.
+## Projects
 
-Rules:
+- `runtime/`: the Rust runtime, `kodosi` CLI and C API. It owns terminals, identity,
+  encryption and rooms; the host of a terminal owns its process and state. The iOS app
+  uses the viewer build (`--no-default-features`), which hosts nothing.
+- `backend/`: ASP.NET Core service that stores metadata and relays encrypted traffic
+  without seeing plaintext. Run one serving process: it holds live sessions behind a
+  PostgreSQL lease.
+- `clients/macos/`, `clients/ios/`: Swift apps that share `clients/apple/`. On macOS the
+  signed app executable is also the `kodosi` CLI, so both use the app's Keychain
+  identity. The iOS app views terminals and starts none.
+- `clients/qt/`: Qt app for Linux and Windows. QML only presents the runtime's state.
+- `sign-in/`: Keycloak theme for the sign-in pages, account page and e-mails. Keep
+  Keycloak's form field names and ids.
+- `protocol/`: contracts. `just protocol-gen` writes `desktop-runtime.json`, the
+  `kodosi-ffi-c` build writes the C header, and the rest are written by hand.
+- `terminal/ghostty/`: pinned, patched Ghostty, selected by root `Ghostty.lock`. Read
+  its `PROVENANCE.md` first; every file in `Patches/ghostty/` is part of the pinned
+  digest. Programs in a terminal may not read or write the clipboard.
+
+## Rules
 
 - Keep full terminal control. Don't add permission tiers, sandboxing or agent workflow
   machinery.
