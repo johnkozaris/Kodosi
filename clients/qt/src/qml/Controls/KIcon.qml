@@ -8,6 +8,7 @@ Item {
     property string name: ""
     property color color: KodosiTheme.inkMuted
     property real strokeWidth: 1.8
+    property bool filled: false
 
     readonly property string path1: {
         switch (name) {
@@ -18,6 +19,9 @@ Item {
         case "repository": return "M7 3 A2 2 0 1 0 7 7 A2 2 0 1 0 7 3 M7 7 V17 M7 17 A2 2 0 1 0 7 21 A2 2 0 1 0 7 17 M17 3 A2 2 0 1 0 17 7 A2 2 0 1 0 17 3 M17 7 V10 Q17 14 7 14"
         case "send": return "M12 20 V4 M5 11 L12 4 L19 11"
         case "agent": return "M12 3 L14.5 9.5 L21 12 L14.5 14.5 L12 21 L9.5 14.5 L3 12 L9.5 9.5 Z"
+        case "person": return "M12 11.5 A3.5 3.5 0 1 0 12 4.5 A3.5 3.5 0 1 0 12 11.5 M5.5 19.5 Q5.5 14 12 14 Q18.5 14 18.5 19.5"
+        case "wind": return "M3 9 H13 A3 3 0 1 0 10 6 M3 13 H18 A3 3 0 1 1 15 16 M3 17 H9"
+        case "sparkle": return "M12 3 Q13 11 21 12 Q13 13 12 21 Q11 13 3 12 Q11 11 12 3 Z"
         case "more": return "M5 12 H5.1 M12 12 H12.1 M19 12 H19.1"
         case "minus": return "M5 12 H19"
         case "window-minimize": return "M4.5 12 H19.5"
@@ -76,7 +80,7 @@ Item {
         ShapePath {
             strokeColor: root.color
             strokeWidth: root.strokeWidth
-            fillColor: "transparent"
+            fillColor: root.filled ? root.color : "transparent"
             capStyle: ShapePath.RoundCap
             joinStyle: ShapePath.RoundJoin
             PathSvg { path: root.path1 }

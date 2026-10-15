@@ -33,6 +33,19 @@ struct AgentAccount: Decodable, Equatable, Identifiable {
     var id: String {
         command
     }
+
+    var signIn: String {
+        folder ?? command
+    }
+
+    func title(program: String) -> String {
+        guard name != program else { return String(localized: "Default") }
+        var base = Substring(name)
+        if base.count > program.count + 1, base.hasPrefix(program), ["-", "_"].contains(base.dropFirst(program.count).first) {
+            base = base.dropFirst(program.count + 1)
+        }
+        return base.prefix(1).uppercased() + base.dropFirst()
+    }
 }
 
 struct AgentModels: Decodable, Equatable {

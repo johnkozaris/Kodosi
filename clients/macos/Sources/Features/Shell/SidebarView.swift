@@ -245,18 +245,14 @@ private struct SplitPartStyle: ButtonStyle {
 struct AccountCapsule: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
+    @State private var hovered = false
     let selected: Bool
     let pill: Namespace.ID
 
     var body: some View {
         HStack(spacing: 6) {
             if let prompt = deps.signInPrompt {
-                Button { deps.beginSignIn() } label: { Text(prompt).frame(maxWidth: .infinity) }
-                    .buttonStyle(.kodosi(deps.userId == nil ? .secondary : .tinted))
-                    .accessibilityIdentifier("header.signIn")
-                IconButton(title: "Settings", symbol: "gearshape", identifier: "header.settings", size: 32, active: selected) {
-                    deps.workbench.section = .settings
-                }
+                signIn(prompt)
             } else {
                 Button { deps.workbench.section = .settings } label: {
                     HStack(spacing: 9) {
@@ -277,5 +273,50 @@ struct AccountCapsule: View {
                 .accessibilityIdentifier("header.settings")
             }
         }
+    }
+
+    private func signIn(_ prompt: String) -> some View {
+        let approving = deps.userId != nil
+        return HStack(spacing: 0) {
+            Button { deps.beginSignIn() } label: {
+                HStack(spacing: 9) {
+                    Image(systemName: approving ? "checkmark.shield" : "person.fill")
+                        .font(.system(size: 9, weight: .bold))
+                        .frame(width: 20, height: 20)
+                        .overlay {
+                            Circle().strokeBorder(style: StrokeStyle(lineWidth: 1, dash: approving ? [] : [2.4, 2]))
+                                .opacity(approving ? 0 : 0.55)
+                        }
+                    Text(prompt).appTextStyle(.subhead)
+                    Spacer(minLength: 0)
+                }
+                .padding(.leading, 8).padding(.trailing, 6).frame(height: 34).contentShape(Rectangle())
+            }
+            .accessibilityIdentifier("header.signIn")
+            Rectangle().fill(theme.colors.ink.opacity(0.12)).frame(width: 1, height: 18)
+            Button { deps.workbench.section = .settings } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(selected ? theme.colors.accentStrong : theme.colors.inkMuted)
+                    .frame(width: 38, height: 34).contentShape(Rectangle())
+            }
+            .help("Settings").accessibilityLabel(Text("Settings"))
+            .accessibilityAddTraits(selected ? .isSelected : [])
+            .accessibilityIdentifier("header.settings")
+        }
+        .buttonStyle(SplitPartStyle())
+        .foregroundStyle(approving ? theme.colors.accentStrong : theme.colors.ink)
+        .backgroundPreferenceValue(SplitPressed.self) { pressed in
+            BezelBackground(
+                shape: RoundedRectangle(cornerRadius: Radius.md, style: .continuous),
+                fill: approving ? theme.colors.accentSoft.mix(with: theme.colors.accent, by: hovered ? 0.14 : 0)
+                    : theme.colors.lifted.mix(with: theme.colors.ink, by: (theme.isDark ? 0.07 : 0) + (hovered ? 0.03 : 0)),
+                bezel: .quiet
+            )
+            .environment(\.bezelPressed, pressed)
+            .animation(theme.motion.snappy, value: pressed)
+        }
+        .onHover { hovered = $0 }
+        .animation(theme.motion.hover, value: hovered)
     }
 }

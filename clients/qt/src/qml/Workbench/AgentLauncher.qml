@@ -13,9 +13,7 @@ ColumnLayout {
     property bool welcome: false
     property string folder: ""
     property bool showsAll: false
-    property bool showsMore: false
     property string menuKind: ""
-    property real menuX: 0
     property bool adding: false
     readonly property font commandFont: Qt.font({ family: "monospace", pixelSize: KodosiTheme.fontBody, weight: Font.Medium })
     readonly property string home: Models.DesktopSettings.homeDirectory
@@ -51,7 +49,11 @@ ColumnLayout {
     readonly property string directory: folder || Models.DesktopSettings.effectiveWorkingDirectory
     readonly property string line: !info ? "" : !info.installed ? info.install
         : !account ? "" : [account.command, modelArgument, effortArgument].filter(word => word.length > 0).join(" ")
-    readonly property string identity: info && info.installed && account ? account.identity || "" : ""
+    readonly property string agentLabel: info ? Models.DesktopSettings.agentLabel(info.agent) : ""
+    readonly property string folderTitle: tilde(directory) === "~" ? "~" : Models.Sessions.folderName(directory)
+    readonly property string accountWord: !info || !account ? "" : account.command === account.name ? account.name : info.program
+    readonly property string modelTitle: model ? model.label : modelArgument.length > 0 ? modelArgument.split(" ").pop() : ""
+    readonly property int effortLevel: efforts.findIndex(entry => entry.argument === effortArgument)
     readonly property bool takesWords: !info || info.installed
     readonly property bool listsModels: !modelSet || modelSet.models.length > 0
     readonly property bool ready: !info ? agentId.length === 0 : line.length > 0
@@ -102,86 +104,90 @@ ColumnLayout {
         typist.interval = ghost.endsWith(" ") ? 120 : 38 + Math.floor(Math.random() * 52)
         typist.start()
     }
-    function accountLines() {
+    function accountTitle(entry) {
+        if (!info || !entry)
+            return ""
+        if (entry.name === info.program)
+            return qsTr("Default")
+        let base = entry.name
+        for (const separator of ["-", "_"]) {
+            if (base.length > info.program.length + 1 && base.startsWith(info.program + separator)) {
+                base = base.slice(info.program.length + 1)
+                break
+            }
+        }
+        return base.charAt(0).toUpperCase() + base.slice(1)
+    }
+    function accountRows() {
         if (!info)
             return []
-        const groups = []
-        for (const entry of info.accounts) {
-            const key = entry.folder || ""
-            let group = groups.find(item => item.folder === key)
-            if (!group) {
-                group = { folder: key, accounts: [] }
-                groups.push(group)
-            }
-            group.accounts.push(entry)
-        }
-        const folders = info.accounts.some(entry => !!entry.folder)
-        const lines = []
-        for (const group of groups) {
-            if (folders) {
-                const signed = group.accounts.find(entry => !!entry.identity)
-                lines.push({ id: "sign-in." + group.folder, kind: "comment", detail: group.folder,
-                    title: group.folder.length === 0 ? qsTr("a sign-in that your shell chooses")
-                        : signed ? signed.identity : qsTr("not signed in yet") })
-            }
-            for (const entry of group.accounts)
-                lines.push({ id: entry.command, kind: "choice", title: entry.name, detail: entry.options || "",
-                    current: account !== null && entry.command === account.command })
-        }
+        const rows = info.accounts.map(entry => {
+            const title = accountTitle(entry)
+            return { id: entry.command, kind: "choice", title: title, detail: entry.options || "",
+                subtitle: entry.identity || (entry.folder ? qsTr("Signs in when it starts") : qsTr("Your shell chooses the sign-in")),
+                icon: "account", initial: title.charAt(0), key: entry.folder || entry.command, signedIn: !!entry.identity,
+                current: account !== null && entry.command === account.command }
+        })
         if (info.addsAccounts)
-            lines.push({ id: "menu.add", kind: "action", title: qsTr("+ new account") })
-        return lines
+            rows.push({ id: "menu.add", kind: "action", title: qsTr("Add an account"),
+                subtitle: qsTr("Another subscription with its own sign-in"), icon: "slot", glyph: "plus" })
+        return rows
     }
-    function modelLines() {
-        const lines = [{ id: "menu.default", kind: "choice", title: qsTr("default"), detail: qsTr("the agent's own choice"),
-            current: modelArgument.length === 0 }]
+    function modelRows() {
+        const rows = [{ id: "menu.default", kind: "choice", title: qsTr("Default"), current: modelArgument.length === 0 }]
         if (!modelSet)
-            lines.push({ id: "menu.models", kind: "comment",
-                title: loadingModels ? qsTr("asking the agent for its models") : qsTr("the agent did not list its models") })
+            rows.push({ id: "menu.models", kind: "note", working: loadingModels,
+                title: loadingModels ? qsTr("Asking %1 for its models").arg(agentLabel) : qsTr("%1 lists no models").arg(agentLabel) })
         for (const entry of modelSet ? modelSet.models : [])
-            lines.push({ id: entry.argument, kind: "choice", title: entry.label, current: entry.argument === modelArgument,
+            rows.push({ id: entry.argument, kind: "choice", title: entry.label, current: entry.argument === modelArgument,
                 detail: entry.label.toLowerCase() === entry.id.toLowerCase() ? "" : entry.id })
-        return lines
+        return rows
     }
-    function effortLines() {
-        return [{ id: "menu.default", kind: "choice", title: qsTr("default"), detail: qsTr("the model's own level"),
-            current: effortArgument.length === 0 }]
-            .concat(efforts.map(entry => ({ id: entry.argument, kind: "choice", current: entry.argument === effortArgument,
-                title: entry.id === "xhigh" ? qsTr("extra high") : entry.id })))
+    function effortLevels() {
+        return efforts.map(entry => ({ id: entry.id, argument: entry.argument,
+            label: entry.id === "xhigh" ? qsTr("Extra high") : entry.id.charAt(0).toUpperCase() + entry.id.slice(1) }))
     }
-    function folderLines() {
+    function folderRows() {
         const seen = []
         const local = Models.Sessions.sessions.filter(session => session.kind === "local").map(session => session.workingDirectory || "")
         for (const path of [folder, Models.DesktopSettings.effectiveWorkingDirectory].concat(local).concat([home])) {
             if (path && seen.indexOf(path) < 0 && seen.length < 6)
                 seen.push(path)
         }
-        return seen.map(path => ({ id: path, kind: "choice", title: tilde(path), current: path === directory }))
-            .concat([{ id: "menu.choose", kind: "action", title: qsTr("… another folder") }])
+        return seen.map(path => ({ id: path, kind: "choice", icon: "folder", subtitle: tilde(path), current: path === directory,
+            title: tilde(path) === "~" ? "~" : Models.Sessions.folderName(path) }))
+            .concat([{ id: "menu.choose", kind: "action", title: qsTr("Choose a folder…"), icon: "slot", glyph: "folder" }])
     }
-    function toggleMenu(kind, key) {
-        adding = false
+    function popover(kind) {
+        return kind === "folder" ? folderPopover : kind === "account" ? accountPopover : modelPopover
+    }
+    function toggleMenu(kind) {
         if (menuKind === kind) {
             closeMenu()
             return
         }
-        menuX = key.mapToItem(terminalBody, 0, 0).x
+        adding = false
         menuKind = kind
+        popover(kind).open()
     }
     function closeMenu() {
         menuKind = ""
         adding = false
+        for (const item of [folderPopover, accountPopover, modelPopover]) {
+            if (item.visible)
+                item.close()
+        }
         promptInput.forceActiveFocus()
     }
-    function pick(id) {
-        if (menuKind === "folder") {
+    function pick(kind, id) {
+        if (kind === "folder") {
             if (id === "menu.choose") {
                 closeMenu()
                 Models.DesktopFiles.requestDirectory("launcher", directory)
                 return
             }
             folder = id
-        } else if (menuKind === "account") {
+        } else if (kind === "account") {
             if (id === "menu.add") {
                 adding = true
                 accountName.text = ""
@@ -189,10 +195,10 @@ ColumnLayout {
                 return
             }
             Models.Launcher.choose("accounts", info.agent, id)
-        } else if (menuKind === "model") {
+        } else if (kind === "model") {
             Models.Launcher.choose("models", info.agent, id === "menu.default" ? "" : id)
-        } else if (menuKind === "effort") {
-            Models.Launcher.choose("efforts", info.agent, id === "menu.default" ? "" : id)
+        } else if (kind === "effort") {
+            Models.Launcher.choose("efforts", info.agent, id)
         }
         closeMenu()
     }
@@ -243,8 +249,7 @@ ColumnLayout {
             promptInput.forceActiveFocus()
     }
     onAgentIdChanged: {
-        showsMore = false
-        menuKind = ""
+        closeMenu()
         Models.Launcher.loadModels(agentId)
         typeHints()
         promptInput.forceActiveFocus()
@@ -321,136 +326,6 @@ ColumnLayout {
         }
     }
 
-    component Chip: Item {
-        id: chip
-
-        property bool lit: false
-        property bool pressed: false
-        property bool focused: false
-
-        transform: Translate { y: chip.lit && !chip.pressed ? -0.5 : 0 }
-
-        Bezel {
-            anchors.fill: parent
-            radius: KodosiTheme.radiusXs
-            quiet: true
-            dark: true
-            pressed: chip.pressed
-            fill: chip.lit ? "#352b26" : "#2a221e"
-        }
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: -2
-            radius: KodosiTheme.radiusXs + 2
-            color: "transparent"
-            visible: chip.focused
-            border.width: 1.5
-            border.color: KodosiTheme.terminalAccent
-        }
-    }
-
-    component Token: AbstractButton {
-        id: token
-
-        property string words: ""
-        property string glyph: ""
-        property string badge: ""
-        property bool slot: false
-        property bool loading: false
-        property color tint: KodosiTheme.terminalInk
-        property color glyphColor: KodosiTheme.terminalInkMuted
-        property real maximumWidth: 480
-        property string kind: ""
-
-        readonly property bool open: kind.length > 0 && root.menuKind === kind
-
-        hoverEnabled: true
-        activeFocusOnTab: true
-        focusPolicy: Qt.TabFocus
-        implicitHeight: 26
-        implicitWidth: Math.min(maximumWidth, tokenRow.implicitWidth + 16)
-        scale: pressed ? 0.95 : 1
-        Accessible.role: Accessible.ButtonMenu
-        Accessible.description: words + (badge.length > 0 ? " " + badge : "")
-
-        Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover } }
-
-        background: Chip {
-            lit: token.hovered || token.open
-            pressed: token.down
-            focused: token.visualFocus
-        }
-        contentItem: Item {
-            Row {
-                id: tokenRow
-                anchors.verticalCenter: parent.verticalCenter
-                x: 8
-                spacing: 5
-
-                KIcon {
-                    id: tokenIcon
-
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: token.glyph.length > 0
-                    width: 12
-                    height: 12
-                    name: token.glyph
-                    strokeWidth: 2.2
-                    color: token.glyphColor
-
-                    SequentialAnimation {
-                        id: tokenBounce
-                        NumberAnimation { target: tokenIcon; property: "scale"; to: 0.7; duration: 90; easing.type: Easing.OutQuad }
-                        NumberAnimation { target: tokenIcon; property: "scale"; to: 1; duration: KodosiTheme.motionSoft; easing.type: Easing.OutBack; easing.overshoot: 2.4 }
-                    }
-                    Connections {
-                        target: token
-
-                        function onWordsChanged() {
-                            if (tokenIcon.visible && !KodosiTheme.reduceMotion)
-                                tokenBounce.restart()
-                        }
-                    }
-                }
-                ShimmerText {
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: token.loading
-                    text: token.words
-                    active: true
-                    color: KodosiTheme.terminalInkFaint
-                    font: root.commandFont
-                }
-                TypedText {
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: !token.loading
-                    width: Math.min(implicitWidth, token.maximumWidth - (token.glyph.length > 0 ? 58 : 40))
-                    target: token.words
-                    color: token.slot ? KodosiTheme.terminalInkMuted : token.tint
-                    font: root.commandFont
-                }
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: token.badge.length > 0
-                    text: "· " + token.badge
-                    textFormat: Text.PlainText
-                    color: KodosiTheme.terminalInkMuted
-                    font: root.commandFont
-                }
-                KIcon {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 8
-                    height: 8
-                    name: "chevron-down"
-                    strokeWidth: 2.8
-                    color: KodosiTheme.terminalInkMuted
-                    rotation: token.open ? 180 : 0
-
-                    Behavior on rotation { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
-                }
-            }
-        }
-    }
-
     Item {
         id: preview
 
@@ -460,8 +335,10 @@ ColumnLayout {
         readonly property real tall: Math.min(1, Math.max(0, (seed - 0.45) / 0.55))
 
         Layout.alignment: root.welcome ? Qt.AlignHCenter : Qt.AlignLeft
+        readonly property real bodyHeight: Math.max(root.welcome ? 124 : 92, terminalBody.implicitHeight + 32)
+
         Layout.preferredWidth: Math.min(560, root.width)
-        implicitHeight: band.height + Math.max(root.welcome ? 150 : 104, terminalBody.implicitHeight + 32)
+        implicitHeight: band.height + bodyHeight + deck.height
         objectName: "launcher.preview"
         Accessible.id: objectName
 
@@ -497,7 +374,7 @@ ColumnLayout {
 
                 Raised {
                     anchors.fill: parent
-                    radius: KodosiTheme.radiusTile
+                    radius: KodosiTheme.radiusLg
                     fill: KodosiTheme.terminal
                     rim: false
                 }
@@ -506,8 +383,8 @@ ColumnLayout {
 
                     width: parent.width
                     height: 42
-                    topLeftRadius: KodosiTheme.radiusTile
-                    topRightRadius: KodosiTheme.radiusTile
+                    topLeftRadius: KodosiTheme.radiusLg
+                    topRightRadius: KodosiTheme.radiusLg
                     color: KodosiTheme.terminalBand
 
                     Shape {
@@ -721,15 +598,7 @@ ColumnLayout {
                     id: bodyTap
 
                     onTapped: eventPoint => {
-                        const inside = item => {
-                            const point = item.mapFromItem(bodyTap.parent, eventPoint.position)
-                            return item.visible && item.contains(point)
-                        }
-                        if (inside(commandLine) || inside(menuLoader) || inside(newAccount))
-                            return
-                        if (root.menuKind.length > 0)
-                            root.closeMenu()
-                        else
+                        if (!deck.contains(deck.mapFromItem(bodyTap.parent, eventPoint.position)))
                             promptInput.forceActiveFocus()
                     }
                 }
@@ -775,17 +644,12 @@ ColumnLayout {
                                 commandLine.rowTop = top
                             }
 
-                            Token {
-                                id: folderToken
-                                maximumWidth: 240
-                                glyph: "folder"
-                                glyphColor: "#5dafa6"
-                                words: root.tilde(root.directory) === "~" ? "~" : Models.Sessions.folderName(root.directory)
-                                kind: "folder"
-                                objectName: "launcher.folder"
-                                Accessible.id: objectName
-                                Accessible.name: qsTr("Folder")
-                                onClicked: root.toggleMenu("folder", folderToken)
+                            TypedText {
+                                height: 26
+                                verticalAlignment: Text.AlignVCenter
+                                target: root.folderTitle
+                                color: "#5dafa6"
+                                font: root.commandFont
                             }
                             Text {
                                 height: 26
@@ -795,66 +659,21 @@ ColumnLayout {
                                 font: root.commandFont
                                 Accessible.ignored: true
                             }
-                            Token {
-                                id: accountToken
-                                visible: root.info !== null && root.info.installed && root.account !== null
-                                words: !root.account ? "" : root.account.command === root.account.name ? root.account.name : root.info.program
-                                badge: !root.account || root.account.command === root.account.name ? "" : root.account.name
-                                tint: root.info ? KodosiTheme.mix(Identity.kindTint(root.info.agent), "#ffffff", 0.35) : KodosiTheme.terminalInk
-                                kind: "account"
-                                objectName: "launcher.account"
-                                Accessible.id: objectName
-                                Accessible.name: qsTr("Account")
-                                onClicked: root.toggleMenu("account", accountToken)
-                            }
-                            Token {
-                                id: modelToken
+                            Row {
                                 visible: root.info !== null && root.info.installed
-                                    && (root.modelArgument.length > 0 || (root.showsMore && root.listsModels))
-                                words: root.modelArgument || qsTr("model")
-                                slot: root.modelArgument.length === 0
-                                loading: root.loadingModels
-                                kind: "model"
-                                objectName: "launcher.model"
-                                Accessible.id: objectName
-                                Accessible.name: qsTr("Model")
-                                onClicked: root.toggleMenu("model", modelToken)
-                            }
-                            Token {
-                                id: effortToken
-                                visible: root.info !== null && root.info.installed
-                                    && (root.effortArgument.length > 0 || (root.showsMore && root.efforts.length > 0))
-                                words: root.effortArgument || qsTr("effort")
-                                slot: root.effortArgument.length === 0
-                                kind: "effort"
-                                objectName: "launcher.effort"
-                                Accessible.id: objectName
-                                Accessible.name: qsTr("Effort")
-                                onClicked: root.toggleMenu("effort", effortToken)
-                            }
-                            AbstractButton {
-                                id: moreChoices
+                                height: 26
 
-                                visible: root.info !== null && root.info.installed && !root.showsMore
-                                    && ((root.modelArgument.length === 0 && root.listsModels)
-                                        || (root.effortArgument.length === 0 && root.efforts.length > 0))
-                                implicitWidth: 30
-                                implicitHeight: 26
-                                hoverEnabled: true
-                                activeFocusOnTab: true
-                                scale: pressed ? 0.95 : 1
-                                objectName: "launcher.moreChoices"
-                                Accessible.id: objectName
-                                Accessible.name: qsTr("Model and effort")
-                                ToolTip.visible: hovered
-                                ToolTip.text: Accessible.name
-                                onClicked: root.showsMore = true
-
-                                Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover } }
-
-                                background: Chip { lit: moreChoices.hovered; pressed: moreChoices.down; focused: moreChoices.visualFocus }
-                                contentItem: Item {
-                                    KIcon { anchors.centerIn: parent; width: 13; height: 13; name: "more"; strokeWidth: 2.4; color: KodosiTheme.terminalInkMuted }
+                                TypedText {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    target: root.accountWord
+                                    color: KodosiTheme.mix(Identity.kindTint(root.agentId), "#ffffff", 0.35)
+                                    font: root.commandFont
+                                }
+                                TypedText {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    target: [root.modelArgument, root.effortArgument].filter(word => word.length > 0).map(word => " " + word).join("")
+                                    color: KodosiTheme.terminalInkMuted
+                                    font: root.commandFont
                                 }
                             }
                             TypedText {
@@ -896,109 +715,88 @@ ColumnLayout {
                                 if (length <= 1)
                                     root.typeHints()
                             }
-                            onActiveFocusChanged: {
-                                if (activeFocus && root.menuKind.length > 0)
-                                    root.closeMenu()
-                            }
                         }
                     }
-                    Loader {
-                        id: menuLoader
+                }
+                Rectangle {
+                    id: deck
 
-                        x: Math.max(0, Math.min(root.menuX, terminalBody.width - 400))
-                        active: root.menuKind.length > 0 && !root.adding
-                        visible: active
+                    y: band.height + preview.bodyHeight
+                    width: parent.width
+                    height: Math.max(54, deckKeys.implicitHeight + 20)
+                    color: KodosiTheme.raised
+                    bottomLeftRadius: KodosiTheme.radiusLg
+                    bottomRightRadius: KodosiTheme.radiusLg
+                    objectName: "launcher.deck"
+                    Accessible.role: Accessible.Grouping
+                    Accessible.id: objectName
 
-                        sourceComponent: TerminalMenu {
-                            room: terminalBody.width - menuLoader.x
-                            lines: root.menuKind === "account" ? root.accountLines() : root.menuKind === "model" ? root.modelLines()
-                                : root.menuKind === "effort" ? root.effortLines() : root.folderLines()
-                            objectName: "launcher.list." + root.menuKind
-                            Accessible.id: objectName
-                            onPicked: id => root.pick(id)
-                            onClosed: root.closeMenu()
-                        }
-                    }
-                    Column {
-                        id: newAccount
-
-                        readonly property string slug: accountName.text.trim().toLowerCase().split(/\s+/).filter(part => part.length > 0).join("-")
-
-                        x: menuLoader.x
-                        visible: root.menuKind === "account" && root.adding
-
-                        Row {
-                            height: 24
-
-                            Text {
-                                width: 20
-                                anchors.verticalCenter: parent.verticalCenter
-                                horizontalAlignment: Text.AlignRight
-                                text: "+ "
-                                color: KodosiTheme.terminalAccent
-                                font: root.commandFont
-                            }
-                            TextInput {
-                                id: accountName
-
-                                width: 200
-                                anchors.verticalCenter: parent.verticalCenter
-                                color: KodosiTheme.terminalInk
-                                selectionColor: KodosiTheme.alpha(KodosiTheme.terminalAccent, 0.35)
-                                font: root.commandFont
-                                clip: true
-                                objectName: "launcher.account.name"
-                                Accessible.id: objectName
-                                Accessible.name: qsTr("Account name")
-                                Keys.onEscapePressed: {
-                                    root.adding = false
-                                    Qt.callLater(() => { if (menuLoader.item) menuLoader.item.forceActiveFocus() })
-                                }
-                                onAccepted: {
-                                    if (newAccount.slug.length > 0 && !Models.Launcher.addingAccount)
-                                        Models.Launcher.addAccount(root.info.agent, text)
-                                }
-
-                                Text {
-                                    visible: accountName.length === 0
-                                    text: qsTr("name")
-                                    color: KodosiTheme.terminalInkFaint
-                                    font: root.commandFont
-                                }
-                            }
-                        }
-                        Text {
-                            x: 20
-                            height: 24
-                            verticalAlignment: Text.AlignVCenter
-                            text: "# " + (newAccount.slug.length === 0 ? qsTr("a sign-in of its own")
-                                : (root.info && root.info.accounts.length > 0 && root.info.accounts[0].folder
-                                    ? root.info.accounts[0].folder : "~/." + (root.info ? root.info.program : "")) + "-" + newAccount.slug)
-                            textFormat: Text.PlainText
-                            color: KodosiTheme.terminalInkFaint
-                            font.family: "monospace"
-                            font.pixelSize: KodosiTheme.fontBody
-                        }
-                        Text {
-                            x: 20
-                            width: terminalBody.width - newAccount.x - 20
-                            visible: Models.Launcher.accountError.length > 0
-                            text: "# " + Models.Launcher.accountError
-                            textFormat: Text.PlainText
-                            color: KodosiTheme.terminalCaution
-                            font.family: "monospace"
-                            font.pixelSize: KodosiTheme.fontBody
-                            wrapMode: Text.WordWrap
-                        }
-                    }
-                    PlainLabel {
+                    Rectangle {
                         width: parent.width
-                        visible: root.identity.length > 0 && root.menuKind.length === 0
-                        text: "# " + root.identity
-                        color: KodosiTheme.terminalInkFaint
-                        font.family: "monospace"
-                        font.pixelSize: KodosiTheme.fontFootnote
-                        elide: Text.ElideMiddle
+                        height: 1
+                        color: Qt.rgba(1, 1, 1, KodosiTheme.isDark ? 0.06 : 0.8)
+                    }
+                    Flow {
+                        id: deckKeys
+
+                        x: 12
+                        y: 10
+                        width: parent.width - 24
+                        spacing: 8
+                        opacity: root.opened ? 1 : 0
+                        visible: opacity > 0
+
+                        Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionSoft } }
+
+                        PickerKey {
+                            id: folderKey
+
+                            title: root.folderTitle
+                            open: root.menuKind === "folder"
+                            objectName: "launcher.folder"
+                            Accessible.id: objectName
+                            Accessible.name: qsTr("Folder")
+                            ToolTip.visible: hovered && !open
+                            ToolTip.text: root.tilde(root.directory)
+                            ToolTip.delay: 600
+                            glyph: KIcon { width: 14; height: 14; name: "folder"; filled: true; strokeWidth: 1.2; color: "#4f9bb0" }
+                            onClicked: root.toggleMenu("folder")
+                        }
+                        PickerKey {
+                            id: accountKey
+
+                            visible: root.info !== null && root.info.installed && (root.info.accounts.length > 1 || root.info.addsAccounts)
+                            title: root.accountTitle(root.account)
+                            open: root.menuKind === "account"
+                            objectName: "launcher.account"
+                            Accessible.id: objectName
+                            Accessible.name: qsTr("Account")
+                            ToolTip.visible: hovered && !open && !!root.account && !!root.account.identity
+                            ToolTip.text: root.account ? root.account.identity || "" : ""
+                            ToolTip.delay: 600
+                            glyph: AccountMark {
+                                size: 18
+                                initial: accountKey.title.charAt(0)
+                                key: root.account ? root.account.folder || root.account.command : ""
+                                signedIn: !!root.account && !!root.account.identity
+                            }
+                            onClicked: root.toggleMenu("account")
+                        }
+                        PickerKey {
+                            id: modelKey
+
+                            visible: root.info !== null && root.info.installed && (root.listsModels || root.efforts.length > 0)
+                            title: root.modelTitle.length > 0 ? root.modelTitle : qsTr("Model")
+                            quiet: root.modelTitle.length === 0
+                            loading: !root.modelSet && root.loadingModels
+                            open: root.menuKind === "model"
+                            objectName: "launcher.model"
+                            Accessible.id: objectName
+                            Accessible.name: qsTr("Model and effort")
+                            glyph: KIcon { width: 12; height: 12; name: "sparkle"; filled: true; strokeWidth: 1; color: Identity.kindTint(root.agentId) }
+                            accessory: EffortBars { visible: root.effortLevel >= 0; level: root.effortLevel; count: root.efforts.length }
+                            onClicked: root.toggleMenu("model")
+                        }
                     }
                 }
             }
@@ -1011,7 +809,7 @@ ColumnLayout {
             color: KodosiTheme.terminalAccent
             opacity: preview.seed > 0 ? 0 : 1
 
-            Behavior on opacity { NumberAnimation { duration: 150 } }
+            Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionHover } }
         }
     }
 
@@ -1043,6 +841,167 @@ ColumnLayout {
             ToolTip.visible: hovered
             ToolTip.text: Accessible.name
             onClicked: root.resumeRequested()
+        }
+    }
+
+    component Dropdown: KPopover {
+        y: parent ? parent.height + 6 : 0
+        margins: 10
+        radius: KodosiTheme.radiusLg
+        fill: KodosiTheme.raised
+        transformOrigin: Popup.TopLeft
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
+        focus: true
+    }
+    Dropdown {
+        id: folderPopover
+
+        parent: folderKey
+        onOpened: folderList.reset()
+        onClosed: {
+            if (root.menuKind === "folder")
+                root.closeMenu()
+        }
+        contentItem: PickerList {
+            id: folderList
+            rows: root.folderRows()
+            listWidth: 300
+            objectName: "launcher.list.folder"
+            Accessible.id: objectName
+            onPicked: id => root.pick("folder", id)
+            onClosed: root.closeMenu()
+        }
+    }
+    Dropdown {
+        id: accountPopover
+
+        parent: accountKey
+        onOpened: accountList.reset()
+        onClosed: {
+            if (root.menuKind === "account")
+                root.closeMenu()
+        }
+        contentItem: Item {
+            implicitWidth: root.adding ? 340 : accountList.implicitWidth
+            implicitHeight: root.adding ? newAccount.implicitHeight + 28 : accountList.implicitHeight
+
+            PickerList {
+                id: accountList
+                visible: !root.adding
+                width: parent.width
+                rows: root.accountRows()
+                listWidth: 330
+                objectName: "launcher.list.account"
+                Accessible.id: objectName
+                onPicked: id => root.pick("account", id)
+                onClosed: root.closeMenu()
+            }
+            ColumnLayout {
+                id: newAccount
+
+                readonly property string slug: accountName.text.trim().toLowerCase().split(/\s+/).filter(part => part.length > 0).join("-")
+                readonly property string base: root.info && root.info.accounts.length > 0 && root.info.accounts[0].folder
+                    ? root.info.accounts[0].folder : "~/." + (root.info ? root.info.program : "")
+
+                function submit() {
+                    if (slug.length > 0 && !Models.Launcher.addingAccount)
+                        Models.Launcher.addAccount(root.info.agent, accountName.text)
+                }
+
+                visible: root.adding
+                x: 14
+                y: 14
+                width: parent.width - 28
+                spacing: 8
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    AccountMark {
+                        initial: newAccount.slug.length > 0 ? newAccount.slug.charAt(0) : "+"
+                        key: newAccount.base + "-" + newAccount.slug
+                        size: 30
+                    }
+                    KTextField {
+                        id: accountName
+
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("work, personal…")
+                        objectName: "launcher.account.name"
+                        Accessible.id: objectName
+                        Accessible.name: qsTr("Account name")
+                        Keys.onEscapePressed: root.closeMenu()
+                        onAccepted: newAccount.submit()
+                    }
+                    KButton {
+                        variant: KButton.Primary
+                        text: qsTr("Add")
+                        working: Models.Launcher.addingAccount
+                        enabled: newAccount.slug.length > 0 && !Models.Launcher.addingAccount
+                        objectName: "launcher.account.add"
+                        Accessible.id: objectName
+                        onClicked: newAccount.submit()
+                    }
+                }
+                PlainLabel {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 40
+                    text: newAccount.slug.length === 0 ? qsTr("%1 asks you to sign in the first time.").arg(root.agentLabel)
+                        : newAccount.base + "-" + newAccount.slug
+                    color: KodosiTheme.inkFaint
+                    font.family: newAccount.slug.length === 0 ? Application.font.family : "monospace"
+                    font.pixelSize: KodosiTheme.fontFootnote
+                    elide: Text.ElideMiddle
+                }
+                PlainLabel {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 40
+                    visible: Models.Launcher.accountError.length > 0
+                    text: Models.Launcher.accountError
+                    color: KodosiTheme.caution
+                    font.pixelSize: KodosiTheme.fontFootnote
+                    wrapMode: Text.WordWrap
+                }
+            }
+        }
+    }
+    Dropdown {
+        id: modelPopover
+
+        parent: modelKey
+        onOpened: modelList.reset()
+        onClosed: {
+            if (root.menuKind === "model")
+                root.closeMenu()
+        }
+        contentItem: Column {
+            width: 290
+
+            PickerList {
+                id: modelList
+                rows: root.modelRows()
+                listWidth: 290
+                objectName: "launcher.list.model"
+                Accessible.id: objectName
+                onPicked: id => root.pick("model", id)
+                onClosed: root.closeMenu()
+            }
+            Rectangle {
+                visible: root.efforts.length > 0
+                width: parent.width
+                height: 1
+                color: KodosiTheme.alpha(KodosiTheme.hairline, 0.6)
+            }
+            EffortMeter {
+                visible: root.efforts.length > 0
+                width: parent.width
+                levels: root.effortLevels()
+                current: root.effortArgument
+                objectName: "launcher.effort"
+                Accessible.id: objectName
+                onPicked: argument => root.pick("effort", argument)
+            }
         }
     }
 }

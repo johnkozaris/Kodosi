@@ -41,104 +41,59 @@ struct TypedText: View {
 enum TerminalInk {
     static let body = hex(0x0D0B09)
     static let band = hex(0x1A1512)
-    static let key = hex(0x2A221E)
-    static let keyLit = hex(0x352B26)
     static let path = hex(0x5DAFA6)
 }
 
-struct ChipFace: View {
-    var lit = false
-
-    var body: some View {
-        BezelBackground(
-            shape: RoundedRectangle(cornerRadius: Radius.xs, style: .continuous),
-            fill: lit ? TerminalInk.keyLit : TerminalInk.key, bezel: .quiet
-        )
-    }
-}
-
-struct CommandToken: View {
+struct LauncherCommandLine: View {
     @Environment(\.theme) private var theme
-    @State private var hovered = false
-    let text: String
-    var symbol: String?
-    var badge: String?
-    var slot = false
-    var tint: Color?
-    var loading = false
-    var open = false
-    let identifier: String
-    let help: LocalizedStringKey
-    let action: () -> Void
+    let folder: String
+    let info: AgentInfo?
+    let plan: LaunchPlan
+    @Binding var prompt: String
+    let ghost: String
+    let suggestion: String
+    let focus: Int
+    let submit: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 5) {
-                if let symbol {
-                    Image(systemName: symbol)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(tint ?? theme.colors.inkMuted)
-                        .symbolEffect(.bounce, value: text)
-                }
-                TypedText(text: text)
-                    .lineLimit(1).truncationMode(.middle)
-                    .foregroundStyle(foreground)
-                    .shimmer(loading)
-                if let badge {
-                    Text(verbatim: "· \(badge)")
+        FlowLayout(spacing: 6) {
+            TypedText(text: folder)
+                .foregroundStyle(TerminalInk.path)
+                .frame(height: 26)
+            Text(verbatim: "❯")
+                .foregroundStyle(theme.colors.accent)
+                .frame(height: 26)
+            if let info {
+                if info.installed {
+                    HStack(spacing: 0) {
+                        TypedText(text: plan.account.map { $0.command == $0.name ? $0.name : info.program } ?? info.program)
+                            .foregroundStyle(info.kind.tint.mix(with: .white, by: 0.35))
+                        TypedText(text: [plan.modelArgument, plan.effortArgument].compactMap(\.self).map { " \($0)" }.joined())
+                            .foregroundStyle(theme.colors.inkMuted)
+                    }
+                    .lineLimit(1)
+                    .frame(height: 26)
+                } else {
+                    TypedText(text: info.install)
                         .foregroundStyle(theme.colors.inkMuted)
-                        .lineLimit(1)
-                        .transition(.opacity.combined(with: .offset(x: -4)))
+                        .frame(height: 26)
+                    PromptCursor(line: info.install)
+                        .frame(height: 26)
                 }
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 7, weight: .heavy))
-                    .foregroundStyle(open ? theme.colors.accent : theme.colors.inkMuted)
-                    .rotationEffect(.degrees(open ? 180 : 0))
             }
-            .padding(.horizontal, 8).frame(height: 26)
-            .background { ChipFace(lit: hovered || open) }
-            .offset(y: hovered && !open ? -0.5 : 0)
-            .contentShape(Rectangle())
+            if info?.installed ?? true {
+                PromptField(
+                    text: $prompt, ghost: ghost, suggestion: suggestion,
+                    label: info == nil ? String(localized: "Command") : String(localized: "First prompt"),
+                    focus: focus, submit: submit
+                )
+                .layoutValue(key: FillsRow.self, value: 150)
+                .accessibilityIdentifier("launcher.prompt")
+            }
         }
-        .buttonStyle(PressScaleStyle(scale: 0.95))
-        .onHover { hovered = $0 }
-        .animation(theme.motion.hover, value: hovered)
-        .animation(theme.motion.snappy, value: open)
-        .help(help)
-        .accessibilityAddTraits(open ? .isSelected : [])
-        .accessibilityLabel(Text(help))
-        .accessibilityValue(Text(verbatim: [text, badge].compactMap(\.self).joined(separator: " ")))
-        .accessibilityIdentifier(identifier)
-    }
-
-    private var foreground: Color {
-        if slot {
-            return theme.colors.inkMuted
-        }
-        return tint.map { $0.mix(with: .white, by: 0.35) } ?? theme.colors.ink
-    }
-}
-
-struct MoreKey: View {
-    @Environment(\.theme) private var theme
-    @State private var hovered = false
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 11, weight: .heavy))
-                .foregroundStyle(theme.colors.inkMuted)
-                .frame(width: 30, height: 26)
-                .background { ChipFace(lit: hovered) }
-                .offset(y: hovered ? -0.5 : 0)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(PressScaleStyle(scale: 0.95))
-        .onHover { hovered = $0 }
-        .animation(theme.motion.hover, value: hovered)
-        .help("Model and effort")
-        .accessibilityIdentifier("launcher.moreChoices")
+        .font(.system(size: 13, weight: .medium, design: .monospaced))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .animation(theme.motion.spring, value: plan.line)
     }
 }
 
@@ -150,7 +105,7 @@ struct PromptCursor: View {
     var body: some View {
         CursorBlock(width: 9, height: 18, blinks: false)
             .opacity(lit ? 1 : 0)
-            .task(id: line) {
+            .task(id: "\(line)|\(theme.motion.reduced)") {
                 lit = true
                 guard !theme.motion.reduced else { return }
                 try? await Task.sleep(for: .milliseconds(1100))
