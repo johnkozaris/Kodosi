@@ -1178,7 +1178,12 @@ mod tests {
                 _ => None,
             })
             .collect::<Vec<_>>();
-        assert_eq!(replies.first().copied(), Some(&b"\x1b]7501;?\x1b\\"[..]));
+        assert_eq!(
+            replies.first().copied(),
+            Some(
+                &b"\x1b]7501;?:states=idle,working,done,blocked,error:kinds=permission,question,auth\x1b\\"[..]
+            )
+        );
         assert!(
             replies
                 .get(1)
