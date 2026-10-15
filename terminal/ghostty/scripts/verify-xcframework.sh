@@ -3,22 +3,15 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-INPUT_PATH=${1:-}
+XCFRAMEWORK_PATH=${1:-}
 
-if [ -z "$INPUT_PATH" ]; then
+if [ -z "$XCFRAMEWORK_PATH" ]; then
     echo "Usage: $0 <xcframework>"
     exit 1
 fi
 
-if [ ! -e "$INPUT_PATH" ]; then
-    echo "[!] not found: $INPUT_PATH"
-    exit 1
-fi
-
-XCFRAMEWORK_PATH="$INPUT_PATH"
-
-if [ -z "$XCFRAMEWORK_PATH" ] || [ ! -d "$XCFRAMEWORK_PATH" ]; then
-    echo "[!] xcframework not found in input: $INPUT_PATH"
+if [ ! -d "$XCFRAMEWORK_PATH" ]; then
+    echo "[!] xcframework not found: $XCFRAMEWORK_PATH"
     exit 1
 fi
 

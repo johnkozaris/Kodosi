@@ -124,7 +124,6 @@ python3 - \
     "$RENDERER/$slice/Headers/ghostty.h" \
     "$VT/include/ghostty" \
     "$RENDERER/$slice/libghostty.a" \
-    "$TMP_DIR" \
     "$slice" <<'PY'
 import re
 import subprocess
@@ -134,8 +133,7 @@ from pathlib import Path
 renderer_header = Path(sys.argv[1])
 vt_headers = Path(sys.argv[2])
 archive = Path(sys.argv[3])
-out_dir = Path(sys.argv[4])
-slice_name = sys.argv[5]
+slice_name = sys.argv[4]
 
 def declared(paths):
     text = "\n".join(path.read_text() for path in paths)
@@ -190,9 +188,6 @@ if missing_renderer or missing_vt or undeclared:
         print(f"[!] {slice_name} combined archive exports undeclared Ghostty APIs:")
         print("\n".join(undeclared))
     raise SystemExit(1)
-
-(out_dir / f"{slice_name}-renderer-api.txt").write_text("\n".join(sorted(renderer)) + "\n")
-(out_dir / f"{slice_name}-vt-api.txt").write_text("\n".join(sorted(vt)) + "\n")
 PY
 done
 

@@ -24,7 +24,7 @@ fi
 # shellcheck disable=SC1091
 source LinuxVtBuild.env
 
-CACHE_ROOT="${BUILD_CACHE_ROOT:-$ROOT_DIR/build/cache}"
+CACHE_ROOT="$ROOT_DIR/build/cache"
 GLOBAL_CACHE_DIR="${ZIG_GLOBAL_CACHE_DIR:-$CACHE_ROOT/zig-global}"
 LOCAL_CACHE_DIR="$CACHE_ROOT/vt/$GHOSTTY_LINUX_VT_TARGET/zig-local"
 PREFIX="$OUTPUT_DIR/.prefix"
