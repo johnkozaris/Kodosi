@@ -1,6 +1,6 @@
 import { still } from "./motion";
 
-export interface Carry {
+interface Carry {
   t: number;
   x: number;
   y: number;

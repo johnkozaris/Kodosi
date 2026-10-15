@@ -125,22 +125,14 @@ export function CodeTiles({
   code,
   label,
   small,
-  className,
 }: {
   code: string;
   label: string;
   small?: boolean;
-  className?: string;
 }) {
   const letters = [...code];
   return (
-    <span
-      className={cn(
-        "inline-flex items-center",
-        small ? "gap-[3px]" : "gap-[5px] sm:gap-1.5",
-        className,
-      )}
-    >
+    <span className={cn("inline-flex items-center", small ? "gap-[3px]" : "gap-[5px] sm:gap-1.5")}>
       <span className="sr-only">
         {label}: {letters.filter((one) => one !== "-").join(" ")}
       </span>

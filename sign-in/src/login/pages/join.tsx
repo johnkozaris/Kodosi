@@ -10,12 +10,12 @@ import {
 } from "react";
 
 import { buttonClass } from "../../parts/button";
-import { askOnPress, PersonCheckRow, REFUSALS, usePersonCheck } from "../../parts/captcha";
 import { cn } from "../../parts/cn";
 import { Avatar } from "../../parts/person";
 import { Go, PasswordRow, rule, SignOutOthers, SwitchRow, TextRow } from "../../parts/rows";
 import { QuietLink, quietLink, safeHtml } from "../../parts/text";
-import { type I18n, isMessage } from "../i18n";
+import { askOnPress, PersonCheckRow, usePersonCheck } from "../captcha";
+import type { I18n } from "../i18n";
 import { Stage } from "../stage";
 import { meetsPolicy, PolicyTags } from "./policy";
 import type { Page } from "./props";
@@ -121,7 +121,26 @@ function Optional({ label }: { label: string }) {
   return <span className="pr-2 text-caption text-ink-faint">{label}</span>;
 }
 
-function Joining({
+type JoiningProps = Joins & {
+  form: string;
+  action: string;
+  finish: string;
+  detailsTitle: string;
+  password?: { policies: PasswordPolicies | undefined };
+  extra?: ReactNode;
+  below?: ReactNode;
+};
+
+function Joining(props: JoiningProps) {
+  if (plainProfile(props.kcContext)) return <Steps {...props} />;
+  return (
+    <Suspense>
+      <Other kcContext={props.kcContext} i18n={props.i18n} />
+    </Suspense>
+  );
+}
+
+function Steps({
   kcContext,
   i18n,
   form,
@@ -131,15 +150,7 @@ function Joining({
   password,
   extra,
   below,
-}: Joins & {
-  form: string;
-  action: string;
-  finish: string;
-  detailsTitle: string;
-  password?: { policies: PasswordPolicies | undefined };
-  extra?: ReactNode;
-  below?: ReactNode;
-}) {
+}: JoiningProps) {
   const { profile, messagesPerField, isAppInitiatedAction, message } = kcContext;
   const { msgStr } = i18n;
   const attributes = Object.values(profile.attributesByName);
@@ -161,20 +172,17 @@ function Joining({
   const [reads, setReads] = useState(false);
   const again = useRef<HTMLInputElement>(null);
   const handleField = useRef<HTMLInputElement>(null);
-  const check = usePersonCheck(kcContext, form);
+  const check = usePersonCheck(kcContext, form, i18n);
 
   const refusedAt = attributes.find((one) => messagesPerField.existsError(one.name));
   const secretRefused = messagesPerField.existsError("password", "password-confirm");
   const termsRefused = messagesPerField.existsError("termsAccepted");
-  const checkRefused =
-    message?.type === "error" && REFUSALS.some((key) => isMessage(i18n, message.summary, key));
   const [step, setStep] = useState<StepId>(() => {
     if (refusedAt) return refusedAt === handleAttribute ? "handle" : "details";
     if (secretRefused || termsRefused || message?.type === "error") return last as StepId;
     return steps[0] as StepId;
   });
   const [found, setFound] = useState<{ field: string; text: string; attempt: number } | null>(null);
-  const [checkAnswered, setCheckAnswered] = useState(false);
   const moved = useRef(false);
   const body = useRef<HTMLFormElement>(null);
 
@@ -243,11 +251,6 @@ function Joining({
         : msgStr("kdsPasswordTitle");
   const termsText = terms ? safeHtml(msgStr("termsText")) : "";
   const termsShort = !!termsText && termsText.replace(/<[^>]*>/g, "").length <= SHORT_TERMS;
-  const checkProblem = check.failed
-    ? msgStr("kdsCheckFailed")
-    : checkRefused && !checkAnswered
-      ? message.summary
-      : undefined;
 
   const finishing = (
     <>
@@ -297,24 +300,15 @@ function Joining({
           )}
         </>
       )}
-      <PersonCheckRow
-        check={check.check}
-        label={msgStr("kdsNotRobot")}
-        problem={checkProblem}
-        againLabel={msgStr("kdsCheckAgain")}
-        onAgain={() => {
-          setCheckAnswered(true);
-          check.again();
-        }}
-      />
+      <PersonCheckRow check={check} i18n={i18n} />
       <div className={cn(rule, "p-3")}>
         <button
           type="submit"
-          {...askOnPress(check.check)}
+          {...askOnPress(check.config)}
           className={buttonClass({
             variant: "primary",
             size: "lg",
-            className: cn("w-full", check.check && !check.check.widget && "g-recaptcha"),
+            className: cn("w-full", check.config && !check.config.widget && "g-recaptcha"),
           })}
         >
           {finish}
@@ -340,10 +334,10 @@ function Joining({
               />
             )
       }
-      wrong={!!found || !!serverProblem || (checkRefused && !checkAnswered)}
+      wrong={!!found || !!serverProblem || (check.refused && !check.retried)}
       problem={found?.text ?? serverProblem}
       attempt={found?.attempt ?? 0}
-      quiet={!!serverProblem || checkRefused || message?.type === "warning"}
+      quiet={!!serverProblem || check.refused || message?.type === "warning"}
       waits={check.held}
       below={
         <>
@@ -507,13 +501,6 @@ function Joining({
 export function Register(props: Page<"register.ftl">) {
   const { kcContext, i18n } = props;
   const { msgStr } = i18n;
-  if (!plainProfile(kcContext)) {
-    return (
-      <Suspense>
-        <Other {...props} />
-      </Suspense>
-    );
-  }
   return (
     <Joining
       {...props}
@@ -531,13 +518,6 @@ export function Register(props: Page<"register.ftl">) {
 
 export function Welcome(props: Page<"login-update-profile.ftl">) {
   const { kcContext, i18n } = props;
-  if (!plainProfile(kcContext)) {
-    return (
-      <Suspense>
-        <Other {...props} />
-      </Suspense>
-    );
-  }
   return (
     <Joining
       {...props}
@@ -551,13 +531,6 @@ export function Welcome(props: Page<"login-update-profile.ftl">) {
 
 export function ReviewProfile(props: Page<"idp-review-user-profile.ftl">) {
   const { kcContext, i18n } = props;
-  if (!plainProfile(kcContext)) {
-    return (
-      <Suspense>
-        <Other {...props} />
-      </Suspense>
-    );
-  }
   return (
     <Joining
       {...props}
@@ -572,13 +545,6 @@ export function ReviewProfile(props: Page<"idp-review-user-profile.ftl">) {
 export function NewEmail(props: Page<"update-email.ftl">) {
   const { kcContext, i18n } = props;
   const { msgStr } = i18n;
-  if (!plainProfile(kcContext)) {
-    return (
-      <Suspense>
-        <Other {...props} />
-      </Suspense>
-    );
-  }
   return (
     <Joining
       {...props}

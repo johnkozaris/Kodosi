@@ -1,10 +1,12 @@
 import { RotateCw, TriangleAlert } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
-import { cn } from "./cn";
-import { RowAction, rule } from "./rows";
+import { cn } from "../parts/cn";
+import { RowAction, rule } from "../parts/rows";
+import { type I18n, isMessage } from "./i18n";
+import type { KcContext } from "./KcContext";
 
-export interface PersonCheck {
+interface PersonCheck {
   service: "recaptcha" | "turnstile";
   siteKey: string;
   action?: string | undefined;
@@ -41,7 +43,7 @@ const FAILED = "kodosiPersonFailed";
 const LAPSED = "kodosiPersonLapsed";
 const PATIENCE_MS = 8000;
 
-export const REFUSALS = [
+const REFUSALS = [
   "recaptchaFailed",
   "recaptchaNotConfigured",
   "turnstileVerificationFailed",
@@ -65,9 +67,10 @@ function injectedKey(scripts: string[] | undefined): string | null {
   return null;
 }
 
-// recaptcha*: Keycloak's reCAPTCHA step. turnstile* and the injected scripts of the reset form:
-// github.com/zymlabs/keycloak-cloudflare-turnstile-provider. captcha*: github.com/panpaul/keycloak-turnstile.
-export function personCheckOf(kcContext: object): PersonCheck | null {
+// recaptcha*: Keycloak's reCAPTCHA step. captcha*: github.com/panpaul/keycloak-turnstile.
+// turnstile* and the injected scripts of the reset form:
+// github.com/zymlabs/keycloak-cloudflare-turnstile-provider.
+function personCheckOf(kcContext: object): PersonCheck | null {
   const given = kcContext as Given;
   if (given.recaptchaRequired && given.recaptchaSiteKey)
     return {
@@ -96,14 +99,15 @@ interface Widgets {
   grecaptcha?: { reset(id?: number): void };
 }
 
-export function usePersonCheck(kcContext: object, form: string) {
-  const check = personCheckOf(kcContext);
-  const [passed, setPassed] = useState(!check?.widget);
+export function usePersonCheck(kcContext: KcContext, form: string, i18n: I18n) {
+  const config = personCheckOf(kcContext);
+  const [passed, setPassed] = useState(!config?.widget);
   const [failed, setFailed] = useState(false);
   const [held, setHeld] = useState(false);
+  const [retried, setRetried] = useState(false);
   const free = useRef(false);
-  const service = check?.service;
-  const widget = !!check?.widget;
+  const service = config?.service;
+  const widget = !!config?.widget;
   const given = (kcContext as Given).scripts;
 
   useEffect(() => {
@@ -175,31 +179,39 @@ export function usePersonCheck(kcContext: object, form: string) {
     };
   }, [service, widget, form, given]);
 
-  return { check, passed, held, hold, failed, again };
+  const { message } = kcContext;
+  const refused =
+    message?.type === "error" && REFUSALS.some((key) => isMessage(i18n, message.summary, key));
+  const problem = failed
+    ? i18n.msgStr("kdsCheckFailed")
+    : refused && !retried
+      ? message.summary
+      : undefined;
+  const retry = () => {
+    setRetried(true);
+    again();
+  };
+
+  return { config, passed, held, hold, failed, refused, retried, problem, retry };
 }
 
-export function askOnPress(check: PersonCheck | null) {
-  if (!check || check.widget || check.service !== "recaptcha") return {};
+export function askOnPress(config: PersonCheck | null) {
+  if (!config || config.widget || config.service !== "recaptcha") return {};
   return {
-    "data-sitekey": check.siteKey,
+    "data-sitekey": config.siteKey,
     "data-callback": "onSubmitRecaptcha",
-    "data-action": check.action,
+    "data-action": config.action,
   };
 }
 
 export function PersonCheckRow({
   check,
-  label,
-  problem,
-  againLabel,
-  onAgain,
+  i18n,
 }: {
-  check: PersonCheck | null;
-  label: string;
-  problem?: string | undefined;
-  againLabel: string;
-  onAgain: () => void;
+  check: ReturnType<typeof usePersonCheck>;
+  i18n: I18n;
 }) {
+  const { config, problem } = check;
   const box = useRef<HTMLDivElement>(null);
   const [shown, setShown] = useState(false);
   const [look] = useState(() => ({
@@ -215,22 +227,25 @@ export function PersonCheckRow({
     return () => watch.disconnect();
   }, []);
 
-  if (!check?.widget) return null;
+  if (!config?.widget) return null;
   return (
-    <fieldset aria-label={label} className={cn("min-w-0", (shown || problem) && rule)}>
+    <fieldset
+      aria-label={i18n.msgStr("kdsNotRobot")}
+      className={cn("min-w-0", (shown || problem) && rule)}
+    >
       <div className={cn(shown && "flex justify-center px-3 py-3")}>
         <div
           ref={box}
           className={cn(
             "max-w-full overflow-hidden rounded-md",
-            check.service === "turnstile" && !look.small && "w-full",
+            config.service === "turnstile" && !look.small && "w-full",
           )}
         >
-          {check.service === "recaptcha" ? (
+          {config.service === "recaptcha" ? (
             <div
               className="g-recaptcha"
-              data-sitekey={check.siteKey}
-              data-action={check.action}
+              data-sitekey={config.siteKey}
+              data-action={config.action}
               data-theme={look.theme}
               data-size={look.small ? "compact" : "normal"}
               data-callback={PASSED}
@@ -240,9 +255,9 @@ export function PersonCheckRow({
           ) : (
             <div
               className="cf-turnstile"
-              data-sitekey={check.siteKey}
-              data-action={check.action}
-              data-language={check.language}
+              data-sitekey={config.siteKey}
+              data-action={config.action}
+              data-language={config.language}
               data-theme={look.theme}
               data-size={look.small ? "compact" : "flexible"}
               data-appearance="interaction-only"
@@ -260,10 +275,10 @@ export function PersonCheckRow({
         >
           <TriangleAlert className="size-4 shrink-0 text-caution" strokeWidth={2.2} aria-hidden />
           <span className="min-w-0 flex-1 text-footnote text-ink">{problem}</span>
-          <RowAction onClick={onAgain}>
+          <RowAction onClick={check.retry}>
             <span className="inline-flex items-center gap-1.5">
               <RotateCw className="size-3.5" strokeWidth={2.4} aria-hidden />
-              {againLabel}
+              {i18n.msgStr("kdsTryAgain")}
             </span>
           </RowAction>
         </div>

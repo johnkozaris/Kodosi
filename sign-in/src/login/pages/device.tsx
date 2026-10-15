@@ -2,7 +2,9 @@ import { Check } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { buttonClass } from "../../parts/button";
+import { cn } from "../../parts/cn";
 import { CodeCells, CodeTiles } from "../../parts/code";
+import { rule } from "../../parts/rows";
 import { QuietLink } from "../../parts/text";
 import { codeFromApp, dropCode, heldCode, keepCode } from "../device";
 import { Stage } from "../stage";
@@ -114,7 +116,7 @@ export function Grant({ kcContext, i18n }: Page<"login-oauth-grant.ftl">) {
       <form
         action={url.oauthAction}
         method="post"
-        className="relative flex justify-end gap-2 p-3 before:absolute before:top-0 before:right-0 before:left-[18px] before:h-px before:bg-hairline/60"
+        className={cn(rule, "flex justify-end gap-2 p-3")}
       >
         <input type="hidden" name="code" value={oauth.code} />
         <button

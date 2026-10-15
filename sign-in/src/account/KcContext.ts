@@ -11,7 +11,6 @@ export type KcContext = {
   realm: {
     name: string;
     registrationEmailAsUsername: boolean;
-    editUsernameAllowed?: boolean;
     isInternationalizationEnabled: boolean;
   };
   baseUrl: { path: string };

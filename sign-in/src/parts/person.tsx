@@ -1,6 +1,6 @@
 import { cn } from "./cn";
 
-export function initials(name: string): string {
+function initials(name: string): string {
   return name
     .trim()
     .split(/\s+/)
@@ -11,15 +11,7 @@ export function initials(name: string): string {
     .toUpperCase();
 }
 
-export function Avatar({
-  name,
-  size = 28,
-  className,
-}: {
-  name: string;
-  size?: number;
-  className?: string;
-}) {
+export function Avatar({ name, size }: { name: string; size: number }) {
   const letters = initials(name);
   return (
     <span
@@ -29,7 +21,6 @@ export function Avatar({
         letters
           ? "bg-[linear-gradient(135deg,color-mix(in_srgb,var(--accent)_82%,white),var(--accent)_52%,color-mix(in_srgb,var(--accent)_84%,black))] text-on-accent shadow-[inset_0_0_0_0.5px_rgb(255_255_255/0.22),1px_2px_4px_rgb(0_0_0/0.22)]"
           : "border border-dashed border-ink-faint text-ink-faint",
-        className,
       )}
       style={{ width: size, height: size, fontSize: size * 0.38 }}
     >

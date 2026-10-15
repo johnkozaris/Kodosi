@@ -80,7 +80,7 @@ function Group({
       >
         {title}
       </h2>
-      <Shell ref={shell} carries={!!first} grows busy={!!busy}>
+      <Shell ref={shell} carries={!!first} busy={!!busy}>
         {children}
       </Shell>
       <div aria-live="polite">

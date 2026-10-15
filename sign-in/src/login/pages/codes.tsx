@@ -5,7 +5,7 @@ import { buttonClass } from "../../parts/button";
 import { cn } from "../../parts/cn";
 import { CodeCells } from "../../parts/code";
 import { option, Pill } from "../../parts/pill";
-import { ActionRow, Go, SignOutOthers, SwitchRow, TextRow } from "../../parts/rows";
+import { ActionRow, Go, rule, SignOutOthers, SwitchRow, TextRow } from "../../parts/rows";
 import { QuietLink, quietLink } from "../../parts/text";
 import { IconTile } from "../../parts/tile";
 import { Stage } from "../stage";
@@ -145,20 +145,18 @@ export function ConfigTotp({ kcContext, i18n }: Page<"login-config-totp.ftl">) {
           </>
         )}
       </div>
-      <form id={form} action={url.loginAction} method="post" noValidate>
-        <div className="relative before:absolute before:top-0 before:right-0 before:left-[18px] before:h-px before:bg-hairline/60">
-          <p className="px-5 pt-4 text-center text-footnote text-ink-muted">
-            {msgStr("kdsThenCode")}
-          </p>
-          <CodeCells
-            id="totp"
-            name="totp"
-            length={totp.policy.digits}
-            label={msgStr("kdsCode")}
-            invalid={messagesPerField.existsError("totp")}
-            send={false}
-          />
-        </div>
+      <form id={form} action={url.loginAction} method="post" noValidate className={rule}>
+        <p className="px-5 pt-4 text-center text-footnote text-ink-muted">
+          {msgStr("kdsThenCode")}
+        </p>
+        <CodeCells
+          id="totp"
+          name="totp"
+          length={totp.policy.digits}
+          label={msgStr("kdsCode")}
+          invalid={messagesPerField.existsError("totp")}
+          send={false}
+        />
         <TextRow
           id="userLabel"
           name="userLabel"

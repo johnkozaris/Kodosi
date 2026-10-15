@@ -1,10 +1,11 @@
 import { buttonClass } from "../../parts/button";
 import { cn } from "../../parts/cn";
+import { rule } from "../../parts/rows";
 import { safeHtml } from "../../parts/text";
 import { Stage } from "../stage";
 import type { Page } from "./props";
 
-export default function Terms({ kcContext, i18n }: Page<"terms.ftl">) {
+export function Terms({ kcContext, i18n }: Page<"terms.ftl">) {
   const { url } = kcContext;
   const { msgStr } = i18n;
   const text = msgStr("termsText");
@@ -25,11 +26,7 @@ export default function Terms({ kcContext, i18n }: Page<"terms.ftl">) {
       <form
         action={url.loginAction}
         method="post"
-        className={cn(
-          "relative flex justify-end gap-2 p-3",
-          text.trim() &&
-            "before:absolute before:top-0 before:right-0 before:left-[18px] before:h-px before:bg-hairline/60",
-        )}
+        className={cn("flex justify-end gap-2 p-3", text.trim() && rule)}
       >
         <button
           type="submit"

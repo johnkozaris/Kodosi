@@ -34,9 +34,7 @@
     <script>
       try {
         var given = window.kcContext;
-        var tag = given
-          ? given.locale && (given.locale.currentLanguageTag || given.locale)
-          : new URLSearchParams(location.search).get("lang");
+        var tag = given && given.locale && (given.locale.currentLanguageTag || given.locale);
         if (tag && typeof tag === "string") document.documentElement.lang = tag;
       } catch (e) {}
       // The keys and the ages here are those of src/frame/carry.ts.

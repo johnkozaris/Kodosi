@@ -12,8 +12,6 @@ export function Shell({
   waits,
   wrong,
   carries = true,
-  grows,
-  className,
   children,
 }: {
   ref?: Ref<HTMLDivElement> | undefined;
@@ -21,8 +19,6 @@ export function Shell({
   waits?: boolean | undefined;
   wrong?: string | undefined;
   carries?: boolean;
-  grows?: boolean;
-  className?: string;
   children: ReactNode;
 }) {
   const node = useRef<HTMLDivElement>(null);
@@ -63,7 +59,7 @@ export function Shell({
   useLayoutEffect(() => {
     const el = node.current;
     const inside = body.current;
-    if (!el || !inside || !grows) return;
+    if (!el || !inside) return;
     let last: number | null = null;
     let change: Animation | undefined;
     const watch = new ResizeObserver(() => {
@@ -80,7 +76,7 @@ export function Shell({
       watch.disconnect();
       change?.cancel();
     };
-  }, [grows]);
+  }, []);
 
   useLayoutEffect(() => {
     const el = node.current;
@@ -111,7 +107,6 @@ export function Shell({
           ? "shadow-[var(--e-lifted),0_0_0_1.5px_var(--danger)]"
           : "has-[:is(input:not([type=checkbox],[type=radio]),select,textarea):focus]:shadow-[var(--e-lifted),0_0_0_3px_color-mix(in_srgb,var(--accent)_22%,transparent)]",
         (busy || waits) && "working-rim",
-        className,
       )}
     >
       <div className="h-full overflow-hidden rounded-[inherit] bg-raised">

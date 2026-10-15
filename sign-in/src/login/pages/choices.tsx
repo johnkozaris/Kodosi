@@ -11,9 +11,8 @@ import {
 import type { ReactNode } from "react";
 
 import { ActionRow } from "../../parts/rows";
-import { plain } from "../../parts/text";
 import { IconTile, type Tint } from "../../parts/tile";
-import type { I18n } from "../i18n";
+import { type I18n, valueIn } from "../i18n";
 import { Stage } from "../stage";
 import type { Page } from "./props";
 
@@ -54,13 +53,9 @@ export function Ways({ kcContext, i18n }: Page<"select-authenticator.ftl">) {
 }
 
 function duplicateOf(i18n: I18n, said: string | undefined): { detail: string; value: string } {
-  const text = plain(said ?? "");
   for (const detail of ["username", "email"]) {
-    const [before = "", after = ""] = i18n
-      .msgStr("federatedIdentityConfirmLinkMessage", detail, "\u0000")
-      .split("\u0000");
-    if (text.startsWith(before) && text.endsWith(after))
-      return { detail, value: text.slice(before.length, text.length - after.length) };
+    const value = valueIn(i18n, said, "federatedIdentityConfirmLinkMessage", detail);
+    if (value !== undefined) return { detail, value };
   }
   return { detail: "email", value: "" };
 }

@@ -1,10 +1,6 @@
-import { type ClassValue, clsx } from "clsx";
 import { extendTailwindMerge } from "tailwind-merge";
 
-const merge = extendTailwindMerge({
-  extend: { theme: { text: ["caption", "footnote", "body", "callout", "headline", "title"] } },
+// The text styles of styles.css are sizes: without this, a size and a colour cancel each other.
+export const cn = extendTailwindMerge({
+  extend: { theme: { text: ["caption", "footnote", "callout", "title"] } },
 });
-
-export function cn(...inputs: ClassValue[]) {
-  return merge(clsx(inputs));
-}

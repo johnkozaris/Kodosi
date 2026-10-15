@@ -12,13 +12,14 @@ import {
 
 import { carried, dropDrawn, handOver } from "../frame/carry";
 import { play, springSoft, still } from "../frame/motion";
+import { Page } from "../frame/page";
 import { Shell } from "../frame/shell";
 import { useCursor } from "../frame/use-cursor";
-import { isInjection } from "../parts/captcha";
 import { cn } from "../parts/cn";
 import { Languages } from "../parts/languages";
 import { Legal } from "../parts/legal";
 import { IdentityRow, Note, quietLink } from "../parts/text";
+import { isInjection } from "./captcha";
 import type { I18n } from "./i18n";
 import type { KcContext } from "./KcContext";
 
@@ -231,94 +232,13 @@ export function Stage({
   };
 
   return (
-    <div className="flex min-h-dvh flex-col" onInput={typed} onSubmit={submit}>
-      <main
-        className={cn(
-          "mx-auto flex w-full flex-col items-center px-4 pt-(--stage-top) pb-10",
-          wide ? "max-w-[520px]" : "max-w-[432px]",
-          !continues && "rise",
-        )}
-      >
-        <div
-          aria-hidden
-          className={banner ? "h-[calc(var(--banner-size)*1.5)]" : "h-[calc(var(--logo-size)*1.5)]"}
-        />
-        <div className={cn("w-full text-center", banner ? "mt-9" : "mt-8")}>
-          <h1 className="roll font-mono text-title font-medium text-ink">
-            {roll.out && (
-              <span key={`out-${roll.turn}`} aria-hidden className="roll-out">
-                {roll.out}
-              </span>
-            )}
-            <span
-              key={`in-${roll.turn}`}
-              className={roll.turn > 0 || (before && before !== name) ? "roll-in" : undefined}
-            >
-              {sign && <Sign form={sign} />}
-              {title}
-            </span>
-          </h1>
-          {lead && (
-            <div
-              key={`lead-${roll.turn}`}
-              className={cn(
-                "mx-auto mt-2.5 max-w-[40ch] text-callout text-balance text-ink-muted",
-                (continues || roll.turn > 0) && "resolve",
-              )}
-            >
-              {lead}
-            </div>
-          )}
-        </div>
-        {children && (
-          <div className="mt-7 w-full">
-            <Shell
-              ref={shell}
-              busy={busy}
-              waits={waits}
-              wrong={refused ? refusal : undefined}
-              grows
-            >
-              {auth?.showUsername && !auth.showResetCredentials && auth.attemptedUsername && (
-                <IdentityRow
-                  name={auth.attemptedUsername}
-                  restart={url.loginRestartFlowUrl}
-                  restartLabel={msgStr("kdsNotYou")}
-                />
-              )}
-              {children}
-            </Shell>
-          </div>
-        )}
-        <div aria-live="polite" className="w-full">
-          {refused && problem && <Note tone="danger" text={problem} />}
-          {said && !(refused && problem) && (
-            <Note
-              tone={
-                said.type === "error" ? "danger" : said.type === "warning" ? "caution" : "plain"
-              }
-              text={said.summary}
-            />
-          )}
-        </div>
-        {(below || auth?.showTryAnotherWayLink) && (
-          <div
-            className={cn("mt-5 flex w-full flex-col items-center gap-2.5", continues && "resolve")}
-          >
-            {below}
-            {auth?.showTryAnotherWayLink && (
-              <form action={url.loginAction} method="post">
-                <input type="hidden" name="tryAnotherWay" value="on" />
-                <button type="submit" className={quietLink}>
-                  {msgStr("kdsAnotherWay")}
-                </button>
-              </form>
-            )}
-          </div>
-        )}
-      </main>
-      <footer className="mt-auto flex flex-col items-center gap-3 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        {foot ?? (
+    <Page
+      wide={wide}
+      banner={banner}
+      onInput={typed}
+      onSubmit={submit}
+      foot={
+        foot ?? (
           <>
             <Languages
               label={msgStr("kdsLanguage")}
@@ -336,8 +256,74 @@ export function Stage({
               ]}
             />
           </>
+        )
+      }
+    >
+      <div className={cn("w-full text-center", banner ? "mt-9" : "mt-8")}>
+        <h1 className="roll font-mono text-title font-medium text-ink">
+          {roll.out && (
+            <span key={`out-${roll.turn}`} aria-hidden className="roll-out">
+              {roll.out}
+            </span>
+          )}
+          <span
+            key={`in-${roll.turn}`}
+            className={roll.turn > 0 || (before && before !== name) ? "roll-in" : undefined}
+          >
+            {sign && <Sign form={sign} />}
+            {title}
+          </span>
+        </h1>
+        {lead && (
+          <div
+            key={`lead-${roll.turn}`}
+            className={cn(
+              "mx-auto mt-2.5 max-w-[40ch] text-callout text-balance text-ink-muted",
+              (continues || roll.turn > 0) && "resolve",
+            )}
+          >
+            {lead}
+          </div>
         )}
-      </footer>
-    </div>
+      </div>
+      {children && (
+        <div className="mt-7 w-full">
+          <Shell ref={shell} busy={busy} waits={waits} wrong={refused ? refusal : undefined}>
+            {auth?.showUsername && !auth.showResetCredentials && auth.attemptedUsername && (
+              <IdentityRow
+                name={auth.attemptedUsername}
+                restart={url.loginRestartFlowUrl}
+                restartLabel={msgStr("kdsNotYou")}
+              />
+            )}
+            {children}
+          </Shell>
+        </div>
+      )}
+      <div aria-live="polite" className="w-full">
+        {refused && problem && <Note tone="danger" text={problem} />}
+        {said && !(refused && problem) && (
+          <Note
+            tone={said.type === "error" ? "danger" : said.type === "warning" ? "caution" : "plain"}
+            text={said.summary}
+          />
+        )}
+      </div>
+      {(below || auth?.showTryAnotherWayLink) && (
+        <div
+          className={cn("mt-5 flex w-full flex-col items-center gap-2.5", continues && "resolve")}
+        >
+          {below}
+          {auth?.showTryAnotherWayLink && (
+            <form action={url.loginAction} method="post">
+              <input type="hidden" name="tryAnotherWay" value="on" />
+              <button type="submit" className={quietLink}>
+                {msgStr("kdsAnotherWay")}
+              </button>
+            </form>
+          )}
+        </div>
+      )}
+    </Page>
   );
 }

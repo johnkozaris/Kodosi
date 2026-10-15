@@ -16,5 +16,3 @@ type KcContextExtensionPerPage = {
 };
 
 export type KcContext = ExtendKcContext<KcContextExtension, KcContextExtensionPerPage>;
-
-export type PageOf<Id extends KcContext["pageId"]> = Extract<KcContext, { pageId: Id }>;

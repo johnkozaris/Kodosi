@@ -47,13 +47,17 @@ function Frame({
   );
 }
 
-export default function Other({ kcContext, i18n }: { kcContext: KcContext; i18n: I18n }) {
+export default function Other({
+  kcContext,
+  i18n,
+}: {
+  kcContext: Exclude<
+    KcContext,
+    { pageId: "turnstile-form.ftl" | "turnstile-registration-form.ftl" }
+  >;
+  i18n: I18n;
+}) {
   const { i18n: own } = useOwnWords({ kcContext });
-  if (
-    kcContext.pageId === "turnstile-form.ftl" ||
-    kcContext.pageId === "turnstile-registration-form.ftl"
-  )
-    return null;
   return (
     <Words value={i18n}>
       <DefaultPage

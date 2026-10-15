@@ -16,7 +16,7 @@ import { ActionRow, rule } from "../../parts/rows";
 import { plain, QuietLink, quietLink } from "../../parts/text";
 import { IconTile } from "../../parts/tile";
 import { dropCode } from "../device";
-import { isMessage as says } from "../i18n";
+import { isMessage } from "../i18n";
 import { Stage } from "../stage";
 import type { Page } from "./props";
 
@@ -78,14 +78,14 @@ export function Info({ kcContext, i18n }: Page<"info.ftl">) {
     kcContext;
   const client = kcContext.client as typeof kcContext.client | undefined;
   const { msgStr, advancedMsgStr } = i18n;
-  if (says(i18n, messageHeader, "oauth2DeviceVerificationCompleteHeader"))
+  if (isMessage(i18n, messageHeader, "oauth2DeviceVerificationCompleteHeader"))
     return <Connected kcContext={kcContext} i18n={i18n} />;
-  if (says(i18n, message.summary, "userDeletedSuccessfully"))
+  if (isMessage(i18n, message.summary, "userDeletedSuccessfully"))
     return <Deleted kcContext={kcContext} i18n={i18n} />;
-  if (says(i18n, message.summary, "oauth2DeviceConsentDeniedMessage"))
+  if (isMessage(i18n, message.summary, "oauth2DeviceConsentDeniedMessage"))
     return <Denied kcContext={kcContext} i18n={i18n} />;
 
-  const failed = says(i18n, messageHeader, "oauth2DeviceVerificationFailedHeader");
+  const failed = isMessage(i18n, messageHeader, "oauth2DeviceVerificationFailedHeader");
   const program = client?.name ? advancedMsgStr(client.name) : "Kodosi";
   const steps = requiredActions?.map((step) => advancedMsgStr(`requiredAction.${step}`)).join(", ");
   const on = skipLink
@@ -107,7 +107,6 @@ export function Info({ kcContext, i18n }: Page<"info.ftl">) {
     <Stage
       kcContext={kcContext}
       i18n={i18n}
-      tab={title}
       title={title}
       lead={short ? more : [said, more].filter(Boolean).join(" ")}
       {...(failed
@@ -133,7 +132,7 @@ export function Failure({ kcContext, i18n }: Page<"error.ftl">) {
   const { message, client, skipLink } = kcContext;
   const { msgStr, advancedMsgStr } = i18n;
   useEffect(dropCode, []);
-  if (says(i18n, message.summary, "oauth2DeviceConsentDeniedMessage"))
+  if (isMessage(i18n, message.summary, "oauth2DeviceConsentDeniedMessage"))
     return <Denied kcContext={kcContext} i18n={i18n} />;
   return (
     <Stage

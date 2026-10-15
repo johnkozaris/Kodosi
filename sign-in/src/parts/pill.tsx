@@ -10,7 +10,7 @@ export function option(on: boolean) {
   );
 }
 
-export function Pill({ children, className }: { children: ReactNode; className?: string }) {
+export function Pill({ children }: { children: ReactNode }) {
   const track = useRef<HTMLDivElement>(null);
   const thumb = useRef<HTMLSpanElement>(null);
   const was = useRef<{ left: number; width: number } | null>(null);
@@ -39,10 +39,7 @@ export function Pill({ children, className }: { children: ReactNode; className?:
   return (
     <div
       ref={track}
-      className={cn(
-        "well relative inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full p-[3px]",
-        className,
-      )}
+      className="well relative inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full p-[3px]"
     >
       <span
         ref={thumb}

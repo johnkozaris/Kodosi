@@ -9,12 +9,12 @@ import { CodeTiles } from "../../parts/code";
 import { Go, PasswordRow, SwitchRow, TextRow } from "../../parts/rows";
 import { Note, QuietLink, Way } from "../../parts/text";
 import { heldCode } from "../device";
-import { type I18n, isMessage } from "../i18n";
+import { type I18n, isMessage, nameLabel } from "../i18n";
 import { Stage } from "../stage";
 import { keepWay, lastWay } from "../ways";
+import { PASSKEY_BUTTON, PasskeyForms } from "./passkey";
 import type { Page } from "./props";
 
-const PASSKEY_BUTTON = "authenticateWebAuthnButton";
 const PASSKEY_PROBLEMS = [
   "webauthn-error-api-get",
   "webauthn-error-auth-verification",
@@ -31,14 +31,6 @@ function passkeyProblem(
     PASSKEY_PROBLEMS.some((key) => isMessage(i18n, said.summary, key))
     ? said.summary
     : undefined;
-}
-
-function nameLabel(
-  i18n: I18n,
-  realm: { loginWithEmailAllowed: boolean; registrationEmailAsUsername: boolean },
-) {
-  if (!realm.loginWithEmailAllowed) return i18n.msgStr("kdsUsername");
-  return i18n.msgStr(realm.registrationEmailAsUsername ? "kdsEmail" : "kdsUsernameOrEmail");
 }
 
 type Provider = { alias: string; loginUrl: string; displayName: string; providerId?: string };
@@ -106,28 +98,6 @@ function OtherWays({
         <p className="mt-3 text-footnote text-ink-muted">
           {msgStr("kdsNewHere")} <QuietLink href={register}>{msgStr("kdsMakeAccount")}</QuietLink>
         </p>
-      )}
-    </>
-  );
-}
-
-function PasskeyForms({ action, known }: { action: string; known?: string[] | undefined }) {
-  return (
-    <>
-      <form id="webauth" action={action} method="post" hidden>
-        <input type="hidden" id="clientDataJSON" name="clientDataJSON" />
-        <input type="hidden" id="authenticatorData" name="authenticatorData" />
-        <input type="hidden" id="signature" name="signature" />
-        <input type="hidden" id="credentialId" name="credentialId" />
-        <input type="hidden" id="userHandle" name="userHandle" />
-        <input type="hidden" id="error" name="error" />
-      </form>
-      {!!known?.length && (
-        <form id="authn_select" hidden>
-          {known.map((id) => (
-            <input key={id} type="hidden" name="authn_use_chk" readOnly value={id} />
-          ))}
-        </form>
       )}
     </>
   );

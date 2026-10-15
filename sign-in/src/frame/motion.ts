@@ -1,4 +1,4 @@
-export interface Spring {
+interface Spring {
   stiffness: number;
   damping: number;
   mass?: number;

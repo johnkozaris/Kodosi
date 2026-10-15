@@ -2,41 +2,30 @@ import type { PasswordPolicies } from "keycloakify/login/KcContext";
 import { Check, Mail, SquareArrowOutUpRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { PersonCheckRow, REFUSALS, usePersonCheck } from "../../parts/captcha";
 import { ActionRow, Go, PasswordRow, SignOutOthers, TextRow } from "../../parts/rows";
-import { plain, QuietLink, quietLink } from "../../parts/text";
+import { QuietLink, quietLink } from "../../parts/text";
 import { IconTile } from "../../parts/tile";
-import { type I18n, isMessage } from "../i18n";
+import { PersonCheckRow, usePersonCheck } from "../captcha";
+import { nameLabel, valueIn } from "../i18n";
 import { Stage } from "../stage";
 import { meetsPolicy, PolicyTags } from "./policy";
 import type { Page } from "./props";
 
 export function ResetPassword({ kcContext, i18n }: Page<"login-reset-password.ftl">) {
-  const { url, realm, auth, messagesPerField, message } = kcContext;
+  const { url, realm, auth, messagesPerField } = kcContext;
   const { msgStr } = i18n;
   const wrong = messagesPerField.existsError("username");
-  const label = !realm.loginWithEmailAllowed
-    ? msgStr("kdsUsername")
-    : msgStr(realm.registrationEmailAsUsername ? "kdsEmail" : "kdsUsernameOrEmail");
   const form = "kc-reset-password-form";
-  const check = usePersonCheck(kcContext, form);
-  const [answered, setAnswered] = useState(false);
-  const checkRefused =
-    message?.type === "error" && REFUSALS.some((key) => isMessage(i18n, message.summary, key));
-  const checkProblem = check.failed
-    ? msgStr("kdsCheckFailed")
-    : checkRefused && !answered
-      ? message.summary
-      : undefined;
+  const check = usePersonCheck(kcContext, form, i18n);
   return (
     <Stage
       kcContext={kcContext}
       i18n={i18n}
       title={msgStr("kdsForgotTitle")}
       lead={msgStr("kdsForgotLead")}
-      wrong={wrong || (checkRefused && !answered)}
+      wrong={wrong || (check.refused && !check.retried)}
       problem={wrong ? messagesPerField.get("username") : undefined}
-      quiet={wrong || checkRefused}
+      quiet={wrong || check.refused}
       waits={check.held}
       below={<QuietLink href={url.loginUrl}>{msgStr("kdsBackToSignIn")}</QuietLink>}
     >
@@ -44,7 +33,7 @@ export function ResetPassword({ kcContext, i18n }: Page<"login-reset-password.ft
         <TextRow
           id="username"
           name="username"
-          label={label}
+          label={nameLabel(i18n, realm)}
           defaultValue={auth?.attemptedUsername ?? ""}
           autoFocus
           autoComplete="username"
@@ -54,16 +43,7 @@ export function ResetPassword({ kcContext, i18n }: Page<"login-reset-password.ft
           aria-invalid={wrong}
           end={<Go label={msgStr("kdsSendLink")} />}
         />
-        <PersonCheckRow
-          check={check.check}
-          label={msgStr("kdsNotRobot")}
-          problem={checkProblem}
-          againLabel={msgStr("kdsCheckAgain")}
-          onAgain={() => {
-            setAnswered(true);
-            check.again();
-          }}
-        />
+        <PersonCheckRow check={check} i18n={i18n} />
       </form>
     </Stage>
   );
@@ -85,7 +65,7 @@ export function UpdatePassword({ kcContext, i18n }: Page<"login-update-password.
     <Stage
       kcContext={kcContext}
       i18n={i18n}
-      title={msgStr("kdsNewPasswordTitle")}
+      title={msgStr("kdsPasswordTitle")}
       wrong={wrong}
       problem={wrong ? messagesPerField.getFirstError("password", "password-confirm") : undefined}
       quiet={wrong || kcContext.message?.type === "warning"}
@@ -176,27 +156,6 @@ function markSent() {
   } catch {}
 }
 
-function cooldownOf(i18n: I18n, said: string | undefined): number {
-  if (!said) return 0;
-  const [before = "", after = ""] = i18n
-    .msgStr("emailVerifySendCooldown", "\u0000")
-    .split("\u0000");
-  const text = plain(said).trim();
-  if (!before || !text.startsWith(before) || !text.endsWith(after)) return 0;
-  return Number.parseInt(text.slice(before.length, text.length - after.length), 10) || 0;
-}
-
-function MailTile({ waits }: { waits: boolean }) {
-  return (
-    <span className="relative">
-      <IconTile tint="teal" icon={<Mail />} />
-      {waits && (
-        <span className="breathe absolute -top-0.5 -right-0.5 size-2 rounded-full bg-accent text-accent ring-2 ring-raised" />
-      )}
-    </span>
-  );
-}
-
 export function VerifyEmail({ kcContext, i18n }: Page<"login-verify-email.ftl">) {
   const { url, user, isAppInitiatedAction } = kcContext;
   const { msgStr } = i18n;
@@ -206,7 +165,13 @@ export function VerifyEmail({ kcContext, i18n }: Page<"login-verify-email.ftl">)
   const asks = !!isAppInitiatedAction && !sentTo;
   const inbox = asks ? undefined : inboxOf(address);
   const form = "kc-verify-email-form";
-  const [wait, setWait] = useState(() => cooldownOf(i18n, kcContext.message?.summary));
+  const [wait, setWait] = useState(
+    () =>
+      Number.parseInt(
+        valueIn(i18n, kcContext.message?.summary, "emailVerifySendCooldown") ?? "",
+        10,
+      ) || 0,
+  );
   const [again, setAgain] = useState(() => sentJustNow() && wait === 0);
   useEffect(() => {
     if (!again) return;
@@ -223,7 +188,7 @@ export function VerifyEmail({ kcContext, i18n }: Page<"login-verify-email.ftl">)
       <ActionRow
         type="button"
         disabled
-        tile={<MailTile waits={false} />}
+        tile={<IconTile tint="teal" icon={<Mail />} />}
         title={msgStr("kdsSendAgain")}
         detail={<span className="tabular-nums">{msgStr("kdsSendAgainIn", `${wait}`)}</span>}
       />
@@ -237,15 +202,15 @@ export function VerifyEmail({ kcContext, i18n }: Page<"login-verify-email.ftl">)
     ) : isAppInitiatedAction ? (
       <form id={form} action={url.loginAction} method="post" onSubmit={markSent}>
         <ActionRow
-          tile={<MailTile waits={false} />}
-          title={msgStr(sentTo ? "kdsSendAgain" : "kdsSend")}
+          tile={<IconTile tint="teal" icon={<Mail />} />}
+          title={msgStr(sentTo ? "kdsSendAgain" : "kdsSendLink")}
         />
       </form>
     ) : (
       <ActionRow
         href={url.loginAction}
         onClick={markSent}
-        tile={<MailTile waits={!inbox} />}
+        tile={<IconTile tint="teal" icon={<Mail />} waits={!inbox} />}
         title={msgStr("kdsSendAgain")}
       />
     );
@@ -282,7 +247,7 @@ export function VerifyEmail({ kcContext, i18n }: Page<"login-verify-email.ftl">)
           href={inbox.href}
           target="_blank"
           rel="noreferrer"
-          tile={<MailTile waits />}
+          tile={<IconTile tint="teal" icon={<Mail />} waits />}
           title={msgStr("kdsOpenMail", inbox.name)}
           end={<SquareArrowOutUpRight className="size-4 shrink-0 text-ink-faint" aria-hidden />}
         />

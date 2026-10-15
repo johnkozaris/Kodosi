@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
-import { carried, dropDrawn, handOver } from "../frame/carry";
+import { dropDrawn, handOver } from "../frame/carry";
+import { Page } from "../frame/page";
 import { useCursor } from "../frame/use-cursor";
 import { cn } from "../parts/cn";
 import { Languages } from "../parts/languages";
@@ -134,157 +135,153 @@ export function Account({
       : [];
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <main
-        className={cn(
-          "mx-auto flex w-full max-w-[520px] flex-col items-center px-4 pt-(--stage-top) pb-10",
-          !carried() && "rise",
-        )}
-      >
-        <div aria-hidden className="h-[calc(var(--logo-size)*1.5)]" />
-        {state === "unreachable" ? (
-          <>
-            <h1 className="mt-8 text-center font-mono text-title font-medium text-ink">
-              {say("title")}
-            </h1>
-            <div role="alert" className="w-full">
-              <Note tone="danger" text={say("unreachable")} />
-            </div>
-            <div className="mt-5 w-full max-w-[260px]">
-              <Button
-                onClick={() => {
-                  setState(null);
-                  ask(open, setState);
-                }}
-              >
-                {say("tryAgain")}
-              </Button>
-            </div>
-          </>
-        ) : (
-          <>
-            <div
-              className={cn(
-                "mt-8 flex w-full flex-col items-center text-center",
-                loaded ? "resolve" : "invisible",
-              )}
+    <Page
+      wide
+      foot={
+        <>
+          <Languages
+            label={say("language")}
+            current={kcContext.locale}
+            languages={languages.map((tag) => ({ tag, label: words.languageName(tag) }))}
+            onChoose={(tag) =>
+              loaded?.service.setLanguage(tag).catch((error: unknown) => {
+                if (error instanceof Refused) setBlocked(error);
+                throw error;
+              })
+            }
+          />
+          <Legal
+            links={[
+              { label: say("terms"), href: kcContext.properties.KODOSI_TERMS_URL },
+              { label: say("privacy"), href: kcContext.properties.KODOSI_PRIVACY_URL },
+            ]}
+          />
+        </>
+      }
+    >
+      {state === "unreachable" ? (
+        <>
+          <h1 className="mt-8 text-center font-mono text-title font-medium text-ink">
+            {say("title")}
+          </h1>
+          <div role="alert" className="w-full">
+            <Note tone="danger" text={say("unreachable")} />
+          </div>
+          <div className="mt-5 w-full max-w-[260px]">
+            <Button
+              onClick={() => {
+                setState(null);
+                ask(open, setState);
+              }}
             >
-              <Avatar name={fullName || handle || name} size={56} />
-              <h1
-                ref={title}
-                tabIndex={-1}
-                className="mt-3.5 max-w-full font-mono text-title font-medium text-balance break-words text-ink outline-none"
-              >
-                {name || " "}
-              </h1>
-              <p className="mt-1 max-w-full truncate font-mono text-footnote text-ink-muted">
-                {fullName && handle ? `@${handle}` : " "}
-              </p>
-            </div>
-            <div className="mt-6 w-full">
-              <SignIn
-                words={words}
-                shell={first}
-                ways={loaded?.facts.ways ?? null}
-                act={act}
-                leaving={leaving}
-                note={came?.status === "error" ? say("failed") : null}
-              />
-              {loaded && (
-                <>
-                  <LinkedAccounts
-                    words={words}
-                    service={loaded.service}
-                    linked={loaded.facts.linked}
-                    act={act}
-                    onChange={(to) => change("linked", to)}
-                    order={0}
-                  />
-                  <SignedIn
-                    words={words}
-                    service={loaded.service}
-                    sessions={loaded.facts.sessions}
-                    onChange={(to) => change("sessions", to)}
-                    order={1}
-                  />
-                  <Apps
-                    words={words}
-                    service={loaded.service}
-                    programs={loaded.facts.programs}
-                    onChange={(to) => change("programs", to)}
-                    home={title}
-                    order={1}
-                  />
-                  <Details
-                    words={words}
-                    service={loaded.service}
-                    person={loaded.facts.person}
-                    act={act}
-                    blocked={blocked}
-                    onSaved={(values) => {
-                      setBlocked(null);
-                      change("person", (now) => ({
-                        ...now,
-                        ...(values.email === undefined ? {} : { email: values.email }),
-                        ...(values.username === undefined ? {} : { username: values.username }),
-                        fields: now.fields.map((one) => {
-                          const value = values[one.name];
-                          return value === undefined ? one : { ...one, value };
-                        }),
-                      }));
-                    }}
-                    order={2}
-                  />
-                  <div className="rise mt-9 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 [animation-delay:210ms]">
-                    {kcContext.referrer_uri && (
-                      <QuietLink href={kcContext.referrer_uri}>
-                        {say("backTo", words.named(kcContext.referrerName ?? "") || "Kodosi")}
-                      </QuietLink>
-                    )}
+              {say("tryAgain")}
+            </Button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div
+            className={cn(
+              "mt-8 flex w-full flex-col items-center text-center",
+              loaded ? "resolve" : "invisible",
+            )}
+          >
+            <Avatar name={fullName || handle || name} size={56} />
+            <h1
+              ref={title}
+              tabIndex={-1}
+              className="mt-3.5 max-w-full font-mono text-title font-medium text-balance break-words text-ink outline-none"
+            >
+              {name || " "}
+            </h1>
+            <p className="mt-1 max-w-full truncate font-mono text-footnote text-ink-muted">
+              {fullName && handle ? `@${handle}` : " "}
+            </p>
+          </div>
+          <div className="mt-6 w-full">
+            <SignIn
+              words={words}
+              shell={first}
+              ways={loaded?.facts.ways ?? null}
+              act={act}
+              leaving={leaving}
+              note={came?.status === "error" ? say("failed") : null}
+            />
+            {loaded && (
+              <>
+                <LinkedAccounts
+                  words={words}
+                  service={loaded.service}
+                  linked={loaded.facts.linked}
+                  act={act}
+                  onChange={(to) => change("linked", to)}
+                  order={0}
+                />
+                <SignedIn
+                  words={words}
+                  service={loaded.service}
+                  sessions={loaded.facts.sessions}
+                  onChange={(to) => change("sessions", to)}
+                  order={1}
+                />
+                <Apps
+                  words={words}
+                  service={loaded.service}
+                  programs={loaded.facts.programs}
+                  onChange={(to) => change("programs", to)}
+                  home={title}
+                  order={1}
+                />
+                <Details
+                  words={words}
+                  service={loaded.service}
+                  person={loaded.facts.person}
+                  act={act}
+                  blocked={blocked}
+                  onSaved={(values) => {
+                    setBlocked(null);
+                    change("person", (now) => ({
+                      ...now,
+                      ...(values.email === undefined ? {} : { email: values.email }),
+                      ...(values.username === undefined ? {} : { username: values.username }),
+                      fields: now.fields.map((one) => {
+                        const value = values[one.name];
+                        return value === undefined ? one : { ...one, value };
+                      }),
+                    }));
+                  }}
+                  order={2}
+                />
+                <div className="rise mt-9 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 [animation-delay:210ms]">
+                  {kcContext.referrer_uri && (
+                    <QuietLink href={kcContext.referrer_uri}>
+                      {say("backTo", words.named(kcContext.referrerName ?? "") || "Kodosi")}
+                    </QuietLink>
+                  )}
+                  <button
+                    type="button"
+                    className={quietLink}
+                    onClick={() => loaded.service.signOut()}
+                  >
+                    {say("signOut")}
+                  </button>
+                </div>
+                {kcContext.deleteAccountAllowed && (
+                  <div className="rise mt-10 flex justify-center [animation-delay:280ms]">
                     <button
                       type="button"
-                      className={quietLink}
-                      onClick={() => loaded.service.signOut()}
+                      className={cn(quietLink, "text-danger")}
+                      onClick={() => act("delete_account")}
                     >
-                      {say("signOut")}
+                      {say("deleteAccount")}
                     </button>
                   </div>
-                  {kcContext.deleteAccountAllowed && (
-                    <div className="rise mt-10 flex justify-center [animation-delay:280ms]">
-                      <button
-                        type="button"
-                        className={cn(quietLink, "text-danger")}
-                        onClick={() => act("delete_account")}
-                      >
-                        {say("deleteAccount")}
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </>
-        )}
-      </main>
-      <footer className="mt-auto flex flex-col items-center gap-3 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        <Languages
-          label={say("language")}
-          current={kcContext.locale}
-          languages={languages.map((tag) => ({ tag, label: words.languageName(tag) }))}
-          onChoose={(tag) =>
-            loaded?.service.setLanguage(tag).catch((error: unknown) => {
-              if (error instanceof Refused) setBlocked(error);
-              throw error;
-            })
-          }
-        />
-        <Legal
-          links={[
-            { label: say("terms"), href: kcContext.properties.KODOSI_TERMS_URL },
-            { label: say("privacy"), href: kcContext.properties.KODOSI_PRIVACY_URL },
-          ]}
-        />
-      </footer>
-    </div>
+                )}
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </Page>
   );
 }

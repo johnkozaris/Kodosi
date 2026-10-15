@@ -74,7 +74,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsOptional: "Optional",
       kdsNotRobot: "Show that you are a person",
       kdsCheckFailed: "The check did not pass.",
-      kdsCheckAgain: "Try again",
       kdsPersonCheckLead: "A short check, then you go on.",
       kdsJoinTitle: "Make an account",
       kdsFill: "Fill in this row.",
@@ -95,7 +94,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsForgotLead: "We send you a link. With it, you choose a new password.",
       kdsSendLink: "Send the link",
 
-      kdsNewPasswordTitle: "Choose a password",
       kdsNewPassword: "New password",
       kdsSavePassword: "Save the password",
       kdsSignOutOthers: "Sign out everywhere else",
@@ -107,7 +105,6 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsSentAgain: "Sent again",
       kdsSendAgainIn: "In {0} seconds",
       kdsOpenMail: "Open {0}",
-      kdsSend: "Send the link",
       kdsConfirmEmailTitle: "Confirm your email",
       kdsConfirmEmailLead: "We send a link to {0}.",
 
@@ -327,9 +324,32 @@ export function useI18n({ kcContext }: { kcContext: KcContext }): { i18n: I18n }
   return { i18n: words };
 }
 
+export function nameLabel(
+  i18n: I18n,
+  realm: { loginWithEmailAllowed: boolean; registrationEmailAsUsername: boolean },
+): string {
+  if (!realm.loginWithEmailAllowed) return i18n.msgStr("kdsUsername");
+  return i18n.msgStr(realm.registrationEmailAsUsername ? "kdsEmail" : "kdsUsernameOrEmail");
+}
+
+type Key = Parameters<I18n["msgStr"]>[0];
+
 export function isMessage(i18n: I18n, text: string | undefined, key: string): boolean {
   if (!text) return false;
   if (text === key) return true;
-  const words = i18n.msgStr(key as Parameters<I18n["msgStr"]>[0]);
+  const words = i18n.msgStr(key as Key);
   return words !== key && plain(text) === plain(words);
+}
+
+// The value in the last place of the sentence `key`, when `text` is that sentence.
+export function valueIn(
+  i18n: I18n,
+  text: string | undefined,
+  key: string,
+  ...values: string[]
+): string | undefined {
+  const [before = "", after = ""] = i18n.msgStr(key as Key, ...values, "\u0000").split("\u0000");
+  const said = plain(text ?? "").trim();
+  if (!before || !said.startsWith(before) || !said.endsWith(after)) return undefined;
+  return said.slice(before.length, said.length - after.length);
 }

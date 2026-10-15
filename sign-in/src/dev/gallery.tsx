@@ -9,14 +9,16 @@ import type { KcContext } from "../login/KcContext";
 import KcPage from "../login/KcPage";
 import { sampleAccount, sampleContext, sampleProperties } from "./account-sample";
 
+const PASSES = "1x00000000000000000000AA";
+const BLOCKS = "2x00000000000000000000AB";
+const ASKS = "3x00000000000000000000FF";
+
 const { getKcContextMock } = createGetKcContextMock({
   kcContextExtension: { themeName: themeNames[0], properties: sampleProperties },
   kcContextExtensionPerPage: {
-    "turnstile-form.ftl": { turnstileSiteKey: "1x00000000000000000000AA" },
-    "turnstile-registration-form.ftl": { turnstileSiteKey: "1x00000000000000000000AA" },
+    "turnstile-form.ftl": { turnstileSiteKey: PASSES },
+    "turnstile-registration-form.ftl": { turnstileSiteKey: PASSES },
   },
-  overrides: {},
-  overridesPerPage: {},
 });
 
 type Overrides = Record<string, unknown>;
@@ -112,9 +114,6 @@ const maya = {
 };
 const terms =
   '<a href="https://kodosi.com/terms">Terms</a> · <a href="https://kodosi.com/privacy">Privacy</a>';
-const PASSES = "1x00000000000000000000AA";
-const BLOCKS = "2x00000000000000000000AB";
-const ASKS = "3x00000000000000000000FF";
 const turnstile = (key: string) => ({
   turnstileRequired: true,
   turnstileSiteKey: key,
