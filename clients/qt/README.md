@@ -25,7 +25,9 @@ The first build installs the Qt, CMake, Ninja and Python tools pinned in
 builds, tests and lints. `just release-package` here makes Debian, Arch and portable
 packages in `build/release/` from committed changes; it needs `patchelf`, `dpkg-deb`,
 `binutils`, `zstd`, `desktop-file-utils` and `appstream`. The Debian package needs
-glibc 2.39 or later.
+glibc 2.39 or later. It adds the Kodosi apt repository with its key
+(`/etc/apt/sources.list.d/kodosi.sources` and `/etc/apt/keyrings/kodosi-archive-keyring.pgp`),
+so the updates of the system also update Kodosi. A purge removes both files.
 
 ## Windows
 

@@ -38,6 +38,8 @@ Keep the app running while you use room commands for its terminals.
 Release builds update with [Sparkle](https://sparkle-project.org) from
 `https://updates.kodosi.com/macos/appcast.xml`; Debug and working-tree builds do not.
 `KODOSI_UPDATE_KEY` in `Config/Release.xcconfig` is the public EdDSA key of the feed.
+`scripts/release/generate-appcast.sh` signs the feed with the private key, which it reads
+on its standard input, or else from the keychain.
 
 ## Check
 
