@@ -1316,10 +1316,6 @@ _ghostty_benchmark_cli
 _ghostty_build_info
 _ghostty_cell_get
 _ghostty_cell_get_multi
-_ghostty_checkpoint_encode_alloc
-_ghostty_checkpoint_encode_buf
-_ghostty_checkpoint_restore
-_ghostty_checkpoint_schema
 _ghostty_cli_try_action
 _ghostty_clipboard_request_type
 _ghostty_color_contrast
