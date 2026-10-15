@@ -1,32 +1,40 @@
 using Kodosi.Devices;
-using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.TerminalConnections;
 
-internal sealed class ConnectionMaintenance(IServiceScopeFactory scopes, ConnectionDirectory directory) : BackgroundService
+/// <summary>Each minute, checks that each connected device is still approved, in two queries for each thousand devices.</summary>
+internal sealed class ConnectionMaintenance(IServiceScopeFactory scopes, ConnectionDirectory directory, TimeProvider clock,
+    ILogger<ConnectionMaintenance> logger) : PeriodicWork(TimeSpan.FromSeconds(60), clock, logger)
 {
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    private const int Batch = 1000;
+
+    protected internal override async Task RunAsync(CancellationToken ct)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(60));
-        while (await timer.WaitForNextTickAsync(stoppingToken))
+        foreach (var batch in directory.Online().Chunk(Batch))
         {
-            await Parallel.ForEachAsync(directory.Online(), new ParallelOptions { MaxDegreeOfParallelism = 8, CancellationToken = stoppingToken },
-                async (link, ct) =>
-                {
-                    try
-                    {
-                        await using var scope = scopes.CreateAsyncScope();
-                        await scope.ServiceProvider.GetRequiredService<DeviceService>().RequireDeviceAsync(link.UserId, link.DeviceId, ct);
-                    }
-                    catch (ApiException)
-                    {
-                        directory.RemoveDevice(link.UserId, link.DeviceId);
-                    }
-                    catch (Exception error) when (error is DbUpdateException or Npgsql.NpgsqlException or TimeoutException
-                                                  or InvalidOperationException { InnerException: Npgsql.NpgsqlException or TimeoutException })
-                    {
-                    }
-                });
+            await using var scope = scopes.CreateAsyncScope();
+            var approved = await scope.ServiceProvider.GetRequiredService<DeviceService>()
+                .ApprovedAsync(batch.Select(x => (x.UserId, x.DeviceId)).ToArray(), ct);
+            foreach (var connection in batch.Where(x => !approved.Contains((x.UserId, x.DeviceId))))
+                directory.RemoveDevice(connection.UserId, connection.DeviceId);
         }
+    }
+}
+
+/// <summary>
+/// Ends a device connection that sent nothing for <see cref="Silence"/>, or whose current send waits for longer than
+/// <see cref="SendLimit"/>. One sweep replaces a timer for each message.
+/// </summary>
+internal sealed class ConnectionWatchdog(ConnectionDirectory directory, TimeProvider clock, ILogger<ConnectionWatchdog> logger)
+    : PeriodicWork(TimeSpan.FromSeconds(5), clock, logger)
+{
+    internal static readonly TimeSpan Silence = TimeSpan.FromSeconds(90);
+    internal static readonly TimeSpan SendLimit = TimeSpan.FromSeconds(30);
+
+    protected internal override Task RunAsync(CancellationToken ct)
+    {
+        foreach (var connection in directory.Online())
+            if (connection.Silence > Silence || connection.Sending > SendLimit) connection.Abort();
+        return Task.CompletedTask;
     }
 }

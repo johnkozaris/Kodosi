@@ -32,16 +32,16 @@ struct RoomRow: View {
                         .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if unread > 0 {
-                        CountBadge(count: unread).transition(AnyTransition.pop)
+                        NewDot().padding(.top, 4).transition(AnyTransition.pop)
                     }
                 }
                 RoomRowActivity(mission: mission)
             }
         }
         .padding(.vertical, 6)
-        .animation(theme.motion.snappy, value: unread)
+        .animation(theme.motion.snappy, value: unread > 0)
         .accessibilityElement(children: .combine)
-        .accessibilityValue(unread > 0 ? Text("\(unread) new messages") : Text(verbatim: ""))
+        .accessibilityValue(unread > 0 ? Text("New messages") : Text(verbatim: ""))
     }
 
     @ViewBuilder

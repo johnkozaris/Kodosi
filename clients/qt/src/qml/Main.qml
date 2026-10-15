@@ -13,8 +13,11 @@ ApplicationWindow {
     readonly property string notice: Models.AppState.error || Models.DesktopState.lastError || Models.DesktopFiles.errorMessage
     readonly property bool drawsTitleBar: Qt.platform.os === "windows"
 
-    function openCreate(folder) {
-        Models.SessionActions.create("", folder || Models.DesktopSettings.effectiveWorkingDirectory);
+    function openLauncher(folder, roomId) {
+        const stage = stageLoader.item as TerminalStage;
+        if (!roomId && stage && stage.focusLauncher(folder || ""))
+            return;
+        launcherSheet.openFor(folder || "", roomId || "");
     }
     function openNewRoom() {
         Models.DesktopState.activeView = Models.DesktopState.Missions;
@@ -75,7 +78,7 @@ ApplicationWindow {
 
                 onDetailsRequested: sessionId => details.openSession(sessionId)
                 onShareRequested: sessionId => share.openSession(sessionId)
-                onNewTerminalRequested: folder => window.openCreate(folder)
+                onNewTerminalRequested: folder => window.openLauncher(folder)
                 onResumeRequested: history.openModal()
                 onPaletteRequested: palette.open()
                 onNewRoomRequested: window.openNewRoom()
@@ -109,6 +112,7 @@ ApplicationWindow {
                     }
                     MissionsView {
                         id: missions
+                        onNewTerminalRequested: roomId => window.openLauncher("", roomId)
                         onInspectSessionRequested: id => details.openSession(id)
                         onShareSessionRequested: id => share.openSession(id)
                     }
@@ -197,14 +201,16 @@ ApplicationWindow {
         tip.contentItem = label;
     }
     Connections {
-        function onDirectoryPicked(purpose, path) {
-            if (purpose === "new") {
-                Models.DesktopSettings.setWorkingDirectory(path);
-                window.openCreate(path);
-            }
+        function onSignInPageReady(page) {
+            Models.DesktopFiles.openWebUrl(page);
+        }
+        function onBrowserAnswered() {
+            window.show();
+            window.raise();
+            window.requestActivate();
         }
 
-        target: Models.DesktopFiles
+        target: Models.Account
     }
     Connections {
         function onActivated(sessionId) {
@@ -226,9 +232,13 @@ ApplicationWindow {
     HistoryView {
         id: history
     }
+    LauncherSheet {
+        id: launcherSheet
+        onResumeRequested: history.openModal()
+    }
     CommandPalette {
         id: palette
-        onNewTerminalRequested: folder => window.openCreate(folder)
+        onNewTerminalRequested: folder => window.openLauncher(folder)
         onNewRoomRequested: window.openNewRoom()
         onResumeRequested: history.openModal()
     }
@@ -237,7 +247,7 @@ ApplicationWindow {
         enabled: !window.modalOpen
         sequence: "Ctrl+Shift+N"
 
-        onActivated: window.openCreate()
+        onActivated: window.openLauncher()
     }
     Shortcut {
         enabled: !window.modalOpen

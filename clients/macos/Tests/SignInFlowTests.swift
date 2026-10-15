@@ -10,21 +10,24 @@ private func signedOutApp(prefix: String) throws -> (AppDependencies, SignInReco
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
     let sent = Box<[String]>([])
     let opened = Box<[URL]>([])
+    let raised = Box<Int>(0)
     app.commandSink.transport = { data in
         if let command = try? JSONDecoder().decode([String: JSONValue].self, from: data), let type = command["type"]?.stringValue {
-            sent.value.append(type)
+            sent.value.append([type, command["browser"]?.stringValue].compactMap(\.self).joined(separator: " "))
         }
         return 0
     }
     app.openExternalURL = { opened.value.append($0) }
-    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(58)]))
+    app.bringToFront = { raised.value += 1 }
+    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(Int64(RuntimeHandle.expectedProtocolVersion))]))
     try app.receive(runtimeEvent("auth.required", epoch: 0, userId: nil, fields: ["reason": .string("signedOut")]))
-    return (app, SignInRecord(sentCommands: sent, openedPages: opened))
+    return (app, SignInRecord(sentCommands: sent, openedPages: opened, raises: raised))
 }
 
 private struct SignInRecord {
     let sentCommands: Box<[String]>
     let openedPages: Box<[URL]>
+    let raises: Box<Int>
     var sent: [String] {
         sentCommands.value
     }
@@ -41,9 +44,8 @@ private final class Box<T>: @unchecked Sendable {
     }
 }
 
-private let deviceCode: [String: JSONValue] = [
-    "userCode": .string("ABCD-EFGH"), "verificationUri": .string("https://auth.example/device#ABCD-EFGH"),
-]
+private let page = "https://auth.example/realms/kodosi/protocol/openid-connect/auth?client_id=kodosi-app&state=s"
+private let browserPage: [String: JSONValue] = ["url": .string(page)]
 
 @Test @MainActor func signInWalksThroughTheStepsAndOnlyOpensTheBrowserOnce() throws {
     let (app, record) = try signedOutApp(prefix: "SignInSteps")
@@ -51,19 +53,21 @@ private let deviceCode: [String: JSONValue] = [
     app.beginSignIn()
     #expect(app.signInPresented)
     #expect(app.signInStage == .starting)
-    #expect(record.sent.last == "auth.login.start")
-    try app.receive(runtimeEvent("auth.device_code", epoch: 0, userId: nil, fields: deviceCode))
-    #expect(app.signInStage == .awaitingApproval(code: "ABCD-EFGH", url: URL(string: "https://auth.example/device#ABCD-EFGH")))
-    #expect(record.opened.count == 1)
+    #expect(record.sent.last == "auth.login.start system")
+    try app.receive(runtimeEvent("auth.browser", epoch: 0, userId: nil, fields: browserPage))
+    #expect(app.signInStage == .awaitingBrowser(URL(string: page)))
+    #expect(record.opened == [URL(string: page)])
     app.dismissSignIn()
     #expect(app.signInPrompt == "Continue signing in")
     app.beginSignIn()
     #expect(record.opened.count == 1)
     app.openSignInPage()
     #expect(record.opened.count == 2)
-    #expect(record.sent.filter { $0 == "auth.login.start" }.count == 1)
+    #expect(record.sent.filter { $0 == "auth.login.start system" }.count == 1)
+    #expect(record.raises.value == 0)
     try app.receive(runtimeEvent("auth.finalizing", epoch: 0, userId: nil))
     #expect(app.signInStage == .finalizing)
+    #expect(record.raises.value == 1)
     try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner"), "enrolled": .bool(true)]))
     #expect(app.signInStage == .signedIn)
     #expect(app.localDeviceEnrolled)
@@ -77,7 +81,7 @@ private let deviceCode: [String: JSONValue] = [
 @Test @MainActor func cancelStopsThePendingSignInAndFailuresKeepProgress() throws {
     let (app, record) = try signedOutApp(prefix: "SignInCancel")
     app.beginSignIn()
-    try app.receive(runtimeEvent("auth.device_code", epoch: 0, userId: nil, fields: deviceCode))
+    try app.receive(runtimeEvent("auth.browser", epoch: 0, userId: nil, fields: browserPage))
     app.cancelSignIn()
     #expect(record.sent.last == "auth.login.cancel")
     #expect(app.signInStage == .idle)
@@ -85,12 +89,12 @@ private let deviceCode: [String: JSONValue] = [
     try app.receive(runtimeEvent("auth.required", epoch: 0, userId: nil, fields: ["reason": .string("cancelled")]))
     #expect(app.signInStage == .idle)
     app.beginSignIn()
-    try app.receive(runtimeEvent("auth.device_code", epoch: 0, userId: nil, fields: deviceCode))
-    try app.receive(runtimeEvent("auth.error", epoch: 0, userId: nil, fields: ["message": .string("Sign-in code expired.")]))
-    #expect(app.signInStage == .failed(message: "Sign-in code expired.", completed: 1))
+    try app.receive(runtimeEvent("auth.browser", epoch: 0, userId: nil, fields: browserPage))
+    try app.receive(runtimeEvent("auth.error", epoch: 0, userId: nil, fields: ["message": .string("The sign-in took too long. Try again.")]))
+    #expect(app.signInStage == .failed(message: "The sign-in took too long. Try again.", completed: 1))
     #expect(app.errorMessage == nil)
     try app.receive(runtimeEvent("auth.required", epoch: 0, userId: nil, fields: ["reason": .string("signedOut")]))
-    #expect(app.signInStage == .failed(message: "Sign-in code expired.", completed: 1))
+    #expect(app.signInStage == .failed(message: "The sign-in took too long. Try again.", completed: 1))
     app.dismissSignIn()
     #expect(app.signInStage == .idle)
     app.beginSignIn()
@@ -103,7 +107,7 @@ private let deviceCode: [String: JSONValue] = [
 @Test @MainActor func untrustedMacContinuesIntoTheTrustStepWithApprovalOrReset() throws {
     let (app, record) = try signedOutApp(prefix: "SignInTrust")
     app.beginSignIn()
-    try app.receive(runtimeEvent("auth.device_code", epoch: 0, userId: nil, fields: deviceCode))
+    try app.receive(runtimeEvent("auth.browser", epoch: 0, userId: nil, fields: browserPage))
     app.dismissSignIn()
     try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner"), "enrolled": .bool(false)]))
     #expect(app.signInStage == .trustingDevice(.choose))

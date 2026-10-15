@@ -109,6 +109,39 @@ private slots:
         QCOMPARE(tasks.first().toMap().value(QStringLiteral("version")).toInt(), 2);
     }
 
+    void aRoomIsNewWhenSomeoneElseWroteInIt()
+    {
+        Fixture f;
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.ready") },
+            { QStringLiteral("userId"), test::id(50) }, { QStringLiteral("accountEpoch"), 1 } }, 1);
+        const auto message = [](int sequence, const QString& author, const QString& agent = {}) {
+            return QJsonObject { { QStringLiteral("id"), test::id(100 + sequence) }, { QStringLiteral("sequence"), sequence },
+                { QStringLiteral("authorId"), author }, { QStringLiteral("agent"), agent.isEmpty() ? QJsonValue() : QJsonValue(agent) } };
+        };
+        const auto room = [&](const QJsonArray& messages) {
+            f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("room.snapshot") },
+                { QStringLiteral("room"), QJsonObject { { QStringLiteral("roomId"), test::id(10) },
+                    { QStringLiteral("tasks"), QJsonArray {} }, { QStringLiteral("messages"), messages } } } }, 1);
+        };
+        auto& missions = f.workspace.missions();
+        room({ message(5, test::id(51)) });
+        QVERIFY(missions.unreadRooms().isEmpty());
+        room({ message(3, test::id(51)), message(6, test::id(50)) });
+        QVERIFY(missions.unreadRooms().isEmpty());
+        room({ message(7, test::id(50), QStringLiteral("Claude Code")) });
+        QCOMPARE(missions.unreadRooms(), QStringList { test::id(10) });
+
+        f.desktop.setActiveView(kodosi::DesktopStateModel::Missions);
+        missions.open(test::id(10));
+        QVERIFY(missions.unreadRooms().isEmpty());
+        room({ message(8, test::id(51)) });
+        QVERIFY(missions.unreadRooms().isEmpty());
+        missions.setPresentation(QStringLiteral("conversation"), false);
+        room({ message(9, test::id(51)) });
+        QCOMPARE(missions.unreadRooms(), QStringList { test::id(10) });
+        missions.setPresentation(QStringLiteral("conversation"), true);
+        QVERIFY(missions.unreadRooms().isEmpty());
+    }
     void terminalControlFollowsOneConnectionState()
     {
         Fixture f;
@@ -262,15 +295,10 @@ private slots:
         QVERIFY(!atPrompt(3));
         QVERIFY(!atPrompt(4));
     }
-    void aStartCommandGoesToTheTerminalAsOnePrintableLine()
+    void aStartLineGoesToTheTerminalAsOnePrintableLine()
     {
         Fixture f;
-        auto local = test::session(1);
-        local.insert(QStringLiteral("program"), QStringLiteral("claude"));
-        auto remote = test::session(2, true);
-        remote.insert(QStringLiteral("program"), QStringLiteral("codex"));
-        f.workspace.apply(test::snapshot({ local, remote, test::session(3) }), 0);
-        QCOMPARE(f.sessions.localPrograms(), QStringList { QStringLiteral("claude") });
+        f.workspace.apply(test::snapshot({ test::session(1) }), 0);
 
         auto& actions = f.workspace.sessionActions();
         const auto sent = f.commands.values.size();
@@ -418,6 +446,19 @@ private slots:
         f.workspace.apply(test::snapshot({ created }), 0);
         QCOMPARE(f.desktop.selectedSessionId(), test::id(1));
         QVERIFY(!f.workspace.sessionActions().busy());
+    }
+    void aTerminalStartedForARoomJoinsThatRoom()
+    {
+        Fixture f;
+        f.workspace.apply(test::snapshot({}), 0);
+        QVERIFY(f.workspace.sessionActions().create(
+            {}, QStringLiteral("/repo"), QStringLiteral("claude"), QStringLiteral(" fix the test "), test::id(7)));
+        const auto sent = f.commands.values.last();
+        QCOMPARE(sent.value(QStringLiteral("type")).toString(), QStringLiteral("session.create"));
+        QCOMPARE(sent.value(QStringLiteral("missionId")).toString(), test::id(7));
+        QCOMPARE(sent.value(QStringLiteral("command")).toString(), QStringLiteral("claude"));
+        QCOMPARE(sent.value(QStringLiteral("prompt")).toString(), QStringLiteral("fix the test"));
+        QVERIFY(!sent.value(QStringLiteral("name")).toString().isEmpty());
     }
     void aTerminalOnANewBranchSendsTheBranchAndTheChosenFolder()
     {
@@ -750,16 +791,33 @@ private slots:
         Fixture f;
         f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.required") } }, 1);
         QVERIFY(!f.workspace.account().signingIn());
-        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.device_code") },
-            { QStringLiteral("userCode"), QStringLiteral("ABCD-EFGH") },
-            { QStringLiteral("verificationUri"), QStringLiteral("https://example.invalid/device") } }, 1);
+        f.workspace.account().login();
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("browser")).toString(), QStringLiteral("system"));
+        QSignalSpy opened(&f.workspace.account(), &kodosi::AccountModel::signInPageReady);
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.browser") },
+            { QStringLiteral("url"), QStringLiteral("https://example.invalid/auth?state=s") } }, 1);
         QVERIFY(f.workspace.account().signingIn());
+        QCOMPARE(opened.count(), 1);
         f.workspace.account().cancelLogin();
         QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(),
             QStringLiteral("auth.login.cancel"));
         f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.required") } }, 2);
         QVERIFY(!f.workspace.account().signingIn());
-        QVERIFY(f.workspace.account().userCode().isEmpty());
+        QVERIFY(f.workspace.account().signInPage().isEmpty());
+    }
+    void anAnswerInTheBrowserBringsTheWindowBackOnce()
+    {
+        Fixture f;
+        QSignalSpy answered(&f.workspace.account(), &kodosi::AccountModel::browserAnswered);
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.required") } }, 1);
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.browser") },
+            { QStringLiteral("url"), QStringLiteral("https://example.invalid/auth?state=s") } }, 1);
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.finalizing") } }, 1);
+        QCOMPARE(answered.count(), 1);
+        QVERIFY(f.workspace.account().signingIn());
+        QVERIFY(f.workspace.account().signInPage().isEmpty());
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.finalizing") } }, 1);
+        QCOMPARE(answered.count(), 1);
     }
     void endedSignInReturnsToSignedOutWithOneMessage()
     {

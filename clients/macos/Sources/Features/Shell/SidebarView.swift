@@ -116,7 +116,7 @@ struct SidebarView: View {
             {
                 deps.workbench.section = .sessions
             } add: {
-                deps.newSession()
+                deps.openLauncher()
             }
             ForEach(SessionFolderGroup.groups(deps.sessions)) { group in
                 let collapsed = collapsedFolders.contains(group.id)
@@ -145,11 +145,6 @@ struct SidebarView: View {
                           badge: deps.incomingRequests.count, selected: selection == .people, pill: pill)
             {
                 deps.workbench.section = .people
-            }
-            SidebarNavRow(title: "Resume", symbol: "clock.arrow.circlepath", identifier: "sidebar.resume",
-                          badge: 0, selected: false, pill: pill)
-            {
-                deps.workbench.showsHistory = true
             }
             if deps.updater.waiting {
                 SidebarNavRow(title: "Restart to Update", symbol: "arrow.down.circle", identifier: "sidebar.update",
@@ -181,39 +176,92 @@ struct SelectionPill: View {
 
 struct NewTerminalButton: View {
     @Environment(AppDependencies.self) private var deps
-    @Environment(\.theme) private var theme
-    @State private var hovered = false
 
     var body: some View {
-        HStack(spacing: 0) {
-            Button { deps.newSession() } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "plus").font(.system(size: 12, weight: .bold))
-                    Text("New terminal").appTextStyle(.subhead)
-                    Spacer(minLength: 0)
-                    Text(verbatim: "⌘N").appTextStyle(.caption).opacity(0.6)
-                }
-                .padding(.leading, 14).padding(.trailing, 10).frame(height: 34).contentShape(Rectangle())
+        Button { deps.openLauncher() } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "plus").font(.system(size: 12, weight: .bold))
+                Text("New terminal")
+                Spacer(minLength: 0)
+                Text(verbatim: "⌘N").appTextStyle(.caption).opacity(0.6)
             }
-            .accessibilityIdentifier("sidebar.newSession")
-            Rectangle().fill(theme.colors.onAccent.opacity(0.18)).frame(width: 1, height: 18)
-            Button {
-                if let directory = pickWorkingDirectory(initialDirectory: deps.selectedLocalDirectory) {
-                    deps.newSession(directory: directory)
+            .frame(height: 34).contentShape(Rectangle())
+        }
+        .buttonStyle(.kodosi(.primary))
+        .accessibilityIdentifier("sidebar.newSession")
+    }
+}
+
+struct AccountCapsule: View {
+    @Environment(AppDependencies.self) private var deps
+    @Environment(\.theme) private var theme
+    @State private var hovered = false
+    let selected: Bool
+    let pill: Namespace.ID
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if let prompt = deps.signInPrompt {
+                signIn(prompt)
+            } else {
+                Button { deps.workbench.section = .settings } label: {
+                    HStack(spacing: 9) {
+                        PersonAvatar(name: deps.selfName, size: 24, isSelf: true)
+                        Text(deps.selfName).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).lineLimit(1)
+                        Spacer(minLength: 0)
+                        Image(systemName: "gearshape").font(.system(size: 12, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
+                    }
+                    .padding(.horizontal, 8).frame(height: 38)
+                    .background {
+                        if selected {
+                            SelectionPill(namespace: pill, radius: Radius.lg)
+                        }
+                    }
+                    .hoverRow(radius: Radius.lg, selected: selected)
                 }
-            } label: {
-                Image(systemName: "folder").font(.system(size: 12, weight: .semibold))
+                .buttonStyle(.plain).help("Settings").accessibilityLabel(Text("Settings"))
+                .accessibilityIdentifier("header.settings")
+            }
+        }
+    }
+
+    private func signIn(_ prompt: String) -> some View {
+        let approving = deps.userId != nil
+        return HStack(spacing: 0) {
+            Button { deps.beginSignIn() } label: {
+                HStack(spacing: 9) {
+                    Image(systemName: approving ? "checkmark.shield" : "person.fill")
+                        .font(.system(size: 9, weight: .bold))
+                        .frame(width: 20, height: 20)
+                        .overlay {
+                            Circle().strokeBorder(style: StrokeStyle(lineWidth: 1, dash: approving ? [] : [2.4, 2]))
+                                .opacity(approving ? 0 : 0.55)
+                        }
+                    Text(prompt).appTextStyle(.subhead)
+                    Spacer(minLength: 0)
+                }
+                .padding(.leading, 8).padding(.trailing, 6).frame(height: 34).contentShape(Rectangle())
+            }
+            .accessibilityIdentifier("header.signIn")
+            Rectangle().fill(theme.colors.ink.opacity(0.12)).frame(width: 1, height: 18)
+            Button { deps.workbench.section = .settings } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(selected ? theme.colors.accentStrong : theme.colors.inkMuted)
                     .frame(width: 38, height: 34).contentShape(Rectangle())
             }
-            .help("New terminal in a folder…").accessibilityLabel(Text("New terminal in a folder"))
-            .accessibilityIdentifier("sidebar.newInFolder")
+            .help("Settings").accessibilityLabel(Text("Settings"))
+            .accessibilityAddTraits(selected ? .isSelected : [])
+            .accessibilityIdentifier("header.settings")
         }
         .buttonStyle(SplitPartStyle())
-        .foregroundStyle(theme.colors.onAccent)
+        .foregroundStyle(approving ? theme.colors.accentStrong : theme.colors.ink)
         .backgroundPreferenceValue(SplitPressed.self) { pressed in
             BezelBackground(
                 shape: RoundedRectangle(cornerRadius: Radius.md, style: .continuous),
-                fill: hovered ? theme.colors.accentHover : theme.colors.accent
+                fill: approving ? theme.colors.accentSoft.mix(with: theme.colors.accent, by: hovered ? 0.14 : 0)
+                    : theme.colors.lifted.mix(with: theme.colors.ink, by: (theme.isDark ? 0.07 : 0) + (hovered ? 0.03 : 0)),
+                bezel: .quiet
             )
             .environment(\.bezelPressed, pressed)
             .animation(theme.motion.snappy, value: pressed)
@@ -239,43 +287,5 @@ private struct SplitPartStyle: ButtonStyle {
             .preference(key: SplitPressed.self, value: configuration.isPressed)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(theme.motion.snappy, value: configuration.isPressed)
-    }
-}
-
-struct AccountCapsule: View {
-    @Environment(AppDependencies.self) private var deps
-    @Environment(\.theme) private var theme
-    let selected: Bool
-    let pill: Namespace.ID
-
-    var body: some View {
-        HStack(spacing: 6) {
-            if let prompt = deps.signInPrompt {
-                Button { deps.beginSignIn() } label: { Text(prompt).frame(maxWidth: .infinity) }
-                    .buttonStyle(.kodosi(deps.userId == nil ? .secondary : .tinted))
-                    .accessibilityIdentifier("header.signIn")
-                IconButton(title: "Settings", symbol: "gearshape", identifier: "header.settings", size: 32, active: selected) {
-                    deps.workbench.section = .settings
-                }
-            } else {
-                Button { deps.workbench.section = .settings } label: {
-                    HStack(spacing: 9) {
-                        PersonAvatar(name: deps.selfName, size: 24, isSelf: true)
-                        Text(deps.selfName).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).lineLimit(1)
-                        Spacer(minLength: 0)
-                        Image(systemName: "gearshape").font(.system(size: 12, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
-                    }
-                    .padding(.horizontal, 8).frame(height: 38)
-                    .background {
-                        if selected {
-                            SelectionPill(namespace: pill, radius: Radius.lg)
-                        }
-                    }
-                    .hoverRow(radius: Radius.lg, selected: selected)
-                }
-                .buttonStyle(.plain).help("Settings").accessibilityLabel(Text("Settings"))
-                .accessibilityIdentifier("header.settings")
-            }
-        }
     }
 }

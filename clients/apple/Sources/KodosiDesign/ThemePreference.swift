@@ -23,3 +23,7 @@ public enum ThemePreference: String, Sendable {
         }
     }
 }
+
+public enum MotionPreference {
+    public static let storageKey = "reducesMotion"
+}

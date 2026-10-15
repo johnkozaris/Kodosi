@@ -86,18 +86,18 @@ Capsules for tags and pills, rounded rectangles (8, 10 and 12 pt) for buttons, s
 - **Agent mark:** a squircle in the program's color with its glyph (a shell shows a prompt and the copper cursor), pale when minimized. A ring of cells shows only work: the cursor types round it while the program works, and a percent fills it from the top. The status sign shows why the program stopped. Solid colors, no glow; the mark squashes a little at each change.
 - **Status sign:** one sign at the end of a row, card, tab or tile header, and the only sign that a program waits: a copper hand, question or key while waiting (the hand waves once), a self-drawing green check for done and a `caution` triangle for failed until opened, and a breathing copper dot for a bell or an agent that stopped without a report.
 - **Person avatar:** a circle colored from the person's identifier; your own is copper.
-- **Room sigil:** a squircle with four tiles, colored and lit from the room's identifier.
+- **Room sigil:** a squircle with four tiles, colored and lit from the room's identifier. A copper dot beside a room says that someone else wrote in it since you last looked.
 - **Selection pill:** a raised pill with a copper caret that slides between source list rows.
 - **Sliding pills:** segmented controls and terminal tabs use a sliding raised thumb. The room dock shows icons and names the selected section; a section that changed out of view gets a breathing dot.
-- **Terminal tile:** a rounded tile with a header whose actions stay faint until hover or selection. At the prompt, the start-command marks come first. A new terminal opens from a copper veil, and a person who joins shows as a card for a few seconds.
-- **Launcher:** the terminal about to open, dark in both appearances. Its band has a tab for each kind of terminal (plain terminal first, missing agents behind a plus, a new agent named in copper) and names the computer at its right end. Below, the `[folder] ❯ [account] [···]` keys open shell-style completion lists inside the terminal, and the first prompt has a block cursor and a suggestion that types itself once; Tab or → takes it. Start and Resume sit under the terminal.
+- **Terminal tile:** a rounded tile with a header whose actions stay faint until hover or selection. At the prompt, a mark for each installed agent comes first. A new terminal opens from a copper veil, and a person who joins shows as a card for a few seconds.
+- **Launcher:** the terminal about to open, dark in both appearances. Its band has a tab for each kind of terminal (plain terminal first, missing agents behind a plus) and names the computer, and the room it opens for, at its right end. Its line reads `[folder] ❯ program [account] [model]` and then the first prompt: the folder, account and model are small pop-up buttons with an icon and a chevron, and each opens a popover aligned to its button. An account is a person mark in the color of its sign-in with its name and e-mail, dashed until someone signs in; effort is a row of rising bars in the model popover and on the model button. The first prompt has a block cursor on a fixed hint ("Type a task"). Start and Resume sit under the terminal. With terminals open, the same launcher opens as a sheet.
 - **Folder header:** a faint label above a folder's terminals; closed, it shows the number of its terminals and the sign of a terminal in it that waits; on hover, a plus for a new terminal and, for a Git repository, a branch button that opens a one-field panel.
 - **Conversation:** your messages are bubbles on the right; others show an avatar and a name; agents show their mark, name, owner and terminal. Mentions are tinted chips, a terminal mention opens the terminal, and a message that mentions you has a tinted row.
 - **Composer:** a lifted capsule with a copper halo on focus; "@" lists people and terminals.
 - **Tasks:** cards in "Up for grabs", "In progress" and "Done"; a changed card washes warm once.
 - **Go to (⌘K):** one field in a well finds terminals, rooms, people and actions; the chosen row is a raised pill with a copper notch.
 
-Working text shimmers, counts roll and symbols replace in place. With reduced motion every change is instant and nothing loops.
+Working text shimmers, counts roll and symbols replace in place. With reduced motion, from the system or from Settings, every change is instant and nothing loops.
 
 ## Do's and Don'ts
 - **Do** use the springs in `AppTheme.Motion`, and animate only for an action or a real change of state.

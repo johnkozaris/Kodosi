@@ -1,6 +1,4 @@
-using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.RateLimiting;
 using Kodosi;
 using Kodosi.Accounts;
 using Kodosi.Admission;
@@ -9,29 +7,31 @@ using Kodosi.Devices;
 using Kodosi.Friends;
 using Kodosi.Missions;
 using Kodosi.Plans;
-using Kodosi.TerminalConnections;
 using Kodosi.Security;
 using Kodosi.Sessions;
+using Kodosi.TerminalConnections;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddSingleton(services => NpgsqlDataSource.Create(services.GetRequiredService<IConfiguration>().GetConnectionString("Kodosi")
-    ?? throw new InvalidOperationException("ConnectionStrings:Kodosi is required.")));
-builder.Services.AddDbContext<KodosiDbContext>((services, options) => options.UseNpgsql(services.GetRequiredService<NpgsqlDataSource>()));
+builder.Services.AddSingleton(services => DatabaseConnection.From(services.GetRequiredService<IConfiguration>()));
+builder.Services.AddSingleton(services => NpgsqlDataSource.Create(services.GetRequiredService<DatabaseConnection>().ConnectionString));
+builder.Services.AddDbContextPool<KodosiDbContext>((services, options) => options.UseNpgsql(services.GetRequiredService<NpgsqlDataSource>()));
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(services => PlanCatalog.From(services.GetRequiredService<IConfiguration>()));
+builder.Services.AddSingleton(services => AccountDeletionSettings.From(services.GetRequiredService<IConfiguration>()));
 builder.Services.AddSingleton<AccountGate>();
 builder.Services.AddSingleton<DeviceSessions>();
-builder.Services.AddSingleton<ServerMetrics>();
 builder.Services.AddSingleton<ConnectionDirectory>();
+builder.Services.AddSingleton<ServerMetrics>();
 builder.Services.AddSingleton<ConnectionLease>();
 builder.Services.AddHostedService(services => services.GetRequiredService<ConnectionLease>());
+builder.Services.AddHostedService<ConnectionWatchdog>();
 builder.Services.AddHostedService<ConnectionMaintenance>();
-builder.Services.AddHostedService<PublicationCleanup>();
 builder.Services.AddHostedService<TerminalPresence>();
-builder.Services.AddSingleton(services => AccountDeletionSettings.From(services.GetRequiredService<IConfiguration>()));
+builder.Services.AddHostedService<DataCleanup>();
+builder.Services.AddHostedService<ServerReport>();
 builder.Services.AddHttpClient(nameof(AccountDeletionFeed), client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddHostedService<AccountDeletionFeed>();
 builder.Services.AddScoped<CurrentUser>();
@@ -48,21 +48,13 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow;
     options.SerializerOptions.MaxDepth = 32;
 });
-builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = Limits.HttpBodyBytes);
-builder.Services.AddIdentityAuthentication(builder.Configuration);
-builder.Services.AddRateLimiter(options =>
+builder.WebHost.ConfigureKestrel(options =>
 {
-    options.RejectionStatusCode = 429;
-    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context => RateLimitPartition.GetFixedWindowLimiter(
-        context.User.FindFirst("sub")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-        _ => new FixedWindowRateLimiterOptions { PermitLimit = 1200, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
-    options.AddPolicy("challenge", context => RateLimitPartition.GetFixedWindowLimiter(
-        context.User.FindFirst("sub")?.Value ?? "unknown", _ => new FixedWindowRateLimiterOptions { PermitLimit = 600, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
-    options.AddPolicy("enrollment", context => RateLimitPartition.GetFixedWindowLimiter(
-        context.User.FindFirst("sub")?.Value ?? "unknown", _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
-    options.AddPolicy("socket", context => RateLimitPartition.GetFixedWindowLimiter(
-        context.User.FindFirst("sub")?.Value ?? "unknown", _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    options.AddServerHeader = false;
+    options.Limits.MaxRequestBodySize = Limits.HttpBodyBytes;
 });
+builder.Services.AddIdentityAuthentication(builder.Configuration);
+builder.Services.AddApiRateLimits();
 var proxies = builder.Configuration.GetSection("Proxy:Addresses").Get<string[]>() ?? [];
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -81,33 +73,18 @@ if (proxies.Length > 0) app.UseForwardedHeaders();
 await app.Services.GetRequiredService<ConnectionLease>().AcquireAsync(app.Lifetime.ApplicationStopping);
 await using (var scope = app.Services.CreateAsyncScope())
     await DatabaseSetup.RequireCurrentAsync(scope.ServiceProvider.GetRequiredService<KodosiDbContext>(), app.Lifetime.ApplicationStopping);
-app.Services.GetRequiredService<ServerMetrics>().Observe(app.Services.GetRequiredService<ConnectionDirectory>().Count);
-app.Use(async (context, next) =>
-{
-    try { await next(context); }
-    catch (ApiException error) when (!context.Response.HasStarted)
-    {
-        context.Response.StatusCode = error.Status;
-        await context.Response.WriteAsJsonAsync(error.Limit is null ? new { error = error.Message } : (object)new { error = error.Message, limit = error.Limit });
-    }
-    catch (Exception error) when (!context.Response.HasStarted && error is IdentityFormatException or JsonException)
-    { context.Response.StatusCode = 400; await context.Response.WriteAsJsonAsync(new { error = "Invalid request encoding." }); }
-    catch (DbUpdateConcurrencyException) when (!context.Response.HasStarted)
-    { context.Response.StatusCode = 409; await context.Response.WriteAsJsonAsync(new { error = "The current state changed; refresh before retrying." }); }
-    catch (DbUpdateException) when (!context.Response.HasStarted)
-    { context.Response.StatusCode = 409; await context.Response.WriteAsJsonAsync(new { error = "The requested change conflicts with current state." }); }
-});
+app.UseMiddleware<ApiErrors>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
 app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(30) });
 app.MapGet("/health/live", () => Results.Ok(ContractVersions.Report())).DisableRateLimiting();
-app.MapGet("/health/ready", async (KodosiDbContext db, CancellationToken ct) =>
-    await db.Database.CanConnectAsync(ct) ? Results.Ok(ContractVersions.Report()) : Results.StatusCode(503)).DisableRateLimiting();
+app.MapGet("/health/ready", async (KodosiDbContext db, ConnectionLease lease, CancellationToken ct) =>
+    lease.Held && await db.Database.CanConnectAsync(ct) ? Results.Ok(ContractVersions.Report()) : Results.StatusCode(StatusCodes.Status503ServiceUnavailable))
+    .DisableRateLimiting();
 var api = app.MapGroup("").AddEndpointFilter<AdmissionFilter>();
 api.MapAccounts(); api.MapDevices(); api.MapFriends(); api.MapSessions(); api.MapMissions();
 app.MapTerminalConnections();
-app.Lifetime.ApplicationStopping.Register(() => app.Services.GetRequiredService<ConnectionDirectory>().StopAll());
 app.Run();
 
 public partial class Program;

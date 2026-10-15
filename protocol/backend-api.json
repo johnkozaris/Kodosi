@@ -14,12 +14,13 @@
     "use": "headers X-Kodosi-Device-Id and X-Kodosi-Device-Session on each device request and the deviceSession field of the device connection hello",
     "refusal": "status 428 when the server does not hold the session; the device opens a new session and sends the request again",
     "storage": "in the memory of the one serving process; 12 hours; removed with the device",
-    "changes": "one change at a time for each account; reads do not wait"
+    "changes": "one change at a time for each account, and a change checks its device in its turn; reads do not wait"
   },
   "accountDeletion": {
     "signInService": "with Auth:AccountDeletion set, GET /api/me gives deletionUri: the Keycloak action delete_account through the issuer's account-console client with a fresh PKCE challenge that nobody redeems; the person confirms there and Keycloak deletes the sign-in account",
     "feed": "every 15 seconds the server reads DELETE_ACCOUNT user events and DELETE USER admin events of the last day with a client that has only the realm-management role view-events, and deletes the Kodosi account of each subject; after a start it reads 30 days",
     "direct": "without Auth:AccountDeletion, deletionUri is null and DELETE /api/me deletes the account after a sign-in of at most 15 minutes; with it, DELETE /api/me answers 409",
+    "recentSignIn": "DELETE /api/me and POST /api/me/identity/reset need a sign-in of at most 15 minutes, which is the auth_time claim of the token; a refreshed token keeps the time of its sign-in, and the server refuses a token without auth_time with 403",
     "removed": "the account, its devices, device lists, links and recovery data, its friend list and friendships, its terminals and their sharing, the rooms it owns with their content, its room memberships and invitations",
     "kept": "the room items it wrote in rooms of other people stay without an account",
     "afterwards": "for 30 days the server keeps the issuer and subject and answers 410 to a token without auth_time or with an auth_time that is not after the deletion; a later sign-in starts a new account; the periodic cleanup removes older records"
@@ -31,7 +32,10 @@
   "operation": {
     "migration": "the argument migrate applies the schema and exits; a serving start refuses a database that is not current",
     "refusedConnections": "one log line for each refused device connection with account, device and reason",
-    "meter": "Kodosi.Server: kodosi.device.connections, kodosi.relay.pipes, kodosi.relay.bytes, kodosi.connections.refused by reason"
+    "meter": "Kodosi.Server: kodosi.device.connections, kodosi.device.sessions, kodosi.relay.pipes, kodosi.relay.queued, kodosi.terminals.hosted, kodosi.relay.bytes, kodosi.requests.limited, kodosi.requests.failed, kodosi.connections.refused by reason",
+    "report": "one log line each minute with the connections, pipes, hosted terminals and device sessions, and the bytes relayed, refusals, rate limits and failures of the last minute",
+    "rateLimits": "token buckets for each account, or for each address without a sign-in: 1200 requests and then 20 each second for all requests; 600 and then 10 each second for challenges, device sessions and link polls; 20 and then 1 each 3 seconds for enrollment, device links, recovery, identity resets and account deletion; 60 and then 1 each second for device connections; a refusal is status 429 with Retry-After",
+    "errors": "{error} with status 400 for a request that is not valid, 409 when the request lost a race with another change, 503 when the database is not available, and 500 for a fault of the server, which the log records"
   },
   "sessionAuthorization": {
     "ownDevices": "current approved devices of the owner",
@@ -161,10 +165,16 @@
   "roomContent": {
     "encryption": "AES-256-GCM content keys; each recipient key is ML-KEM-768 and X25519 together, with HKDF-SHA256 over both shared secrets for the wrapping key; ML-DSA-65 signed state and content",
     "history": "new members receive current room keys and decrypt the backwards-wrapped key history",
+    "keyHistory": "GET /api/missions/{id}/keys?afterVersion= gives the key states after that version in order, at most 4 MB and 256 states in one answer and always at least one, with the version of the room; the device asks again after its last state until it has that version",
     "membership": "signed room state commits member identities; removal rotates the content key; a member whose identity is not available keeps the last identity in the state; only the owner gives a member a new identity, with new keys; the relay holds no plaintext key",
     "content": "immutable messages and versioned task/repository records; read by room sequence; compare expected version on updates",
     "changes": "the device connection gets {type: changed, surface: rooms, roomId, sequence} after a content write and {type: changed, surface: rooms, roomId} after new room keys; it gets {type: changed, surface: missions, roomId} after a change of the room, its members, or the devices of a member; a device then reads only that room and only the items after the sequence that it has; it checks the identities and room keys of the members when it connects, when the members or their devices change, and when it uses a room whose last check is older than 5 minutes",
-    "space": "with a RoomBytes limit, the server counts the body and signature bytes of the items of each room; when a write goes past the limit, it deletes the oldest messages, and each content page then gives historyTrimmed: true; when only tasks and repositories are left, it refuses the write with the limit room-data"
+    "space": "with a RoomBytes limit, the server counts the body and signature bytes of the items of each room; when a write goes past the limit, it deletes the oldest messages, and each content page then gives historyTrimmed: true; when only tasks and repositories are left, it refuses the write with the limit room-data",
+    "limits": {
+      "people": 65,
+      "recipients": 1105,
+      "rule": "a room has at most people persons, which are its owner, its members and the people of its open invitations; the plan of the owner can make that fewer; a key state has at most recipients recipient keys, enough for each person with 16 devices and the recovery key"
+    }
   },
   "plans": {
     "account": "GET /api/me gives plan: {name, limits}; name is null on a server without plans",

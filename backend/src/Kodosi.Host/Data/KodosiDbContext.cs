@@ -31,8 +31,6 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
             e.Property(x => x.Subject).HasMaxLength(512);
             e.Property(x => x.Handle).HasMaxLength(64);
             e.Property(x => x.DisplayName).HasMaxLength(128);
-            e.Property(x => x.Email).HasMaxLength(320);
-            e.Property(x => x.AvatarUrl).HasMaxLength(2048);
             e.Property(x => x.Plan).HasMaxLength(64);
             e.HasIndex(x => new { x.Issuer, x.Subject }).IsUnique();
             e.HasIndex(x => x.Handle).IsUnique();
@@ -48,7 +46,6 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
         {
             e.ToTable("devices"); e.HasKey(x => x.Id);
             e.Property(x => x.Id).HasMaxLength(256);
-            e.Property(x => x.Label).HasMaxLength(128);
             e.Property(x => x.SignerDeviceId).HasMaxLength(256);
             e.HasIndex(x => x.UserId);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
@@ -124,7 +121,6 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
         model.Entity<MissionKeyState>(e =>
         {
             e.ToTable("mission_key_states"); e.HasKey(x => new { x.MissionId, x.Version });
-            e.Property(x => x.DeviceId).HasMaxLength(256);
             e.HasOne<Mission>().WithMany().HasForeignKey(x => x.MissionId).OnDelete(DeleteBehavior.Cascade);
         });
         model.Entity<MissionItem>(e =>

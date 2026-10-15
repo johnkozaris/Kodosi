@@ -11,6 +11,7 @@ namespace kodosi {
 namespace {
 
 const auto preferenceKey = QStringLiteral("appearance/preference");
+const auto motionKey = QStringLiteral("appearance/reduceMotion");
 
 QString preferenceName(const AppearanceModel::Preference preference)
 {
@@ -69,9 +70,9 @@ AppearanceModel::AppearanceModel(std::unique_ptr<QSettings> settings, QObject* p
         &QAccessibilityHints::motionPreferenceChanged,
         this,
         [this](const Qt::MotionPreference motion) {
-            setReducedMotion(motion == Qt::MotionPreference::ReducedMotion);
+            updateMotion(motion == Qt::MotionPreference::ReducedMotion, m_reducesMotion);
         });
-    setReducedMotion(accessibility->motionPreference() == Qt::MotionPreference::ReducedMotion);
+    updateMotion(accessibility->motionPreference() == Qt::MotionPreference::ReducedMotion, m_reducesMotion);
 }
 
 AppearanceModel::AppearanceModel(
@@ -87,6 +88,7 @@ AppearanceModel::AppearanceModel(
     Q_ASSERT(m_styleHooks.setColorScheme);
     Q_ASSERT(m_styleHooks.unsetColorScheme);
     m_preference = preferenceFromName(m_settings->value(preferenceKey).toString()).value_or(Preference::System);
+    m_reducesMotion = m_settings->value(motionKey).toString() == QStringLiteral("true");
     applyPreference();
 }
 
@@ -124,7 +126,12 @@ bool AppearanceModel::dark() const noexcept
 
 bool AppearanceModel::reduceMotion() const noexcept
 {
-    return m_reduceMotion;
+    return m_systemReducesMotion || m_reducesMotion;
+}
+
+bool AppearanceModel::systemReducesMotion() const noexcept
+{
+    return m_systemReducesMotion;
 }
 
 QString AppearanceModel::settingsError() const
@@ -159,27 +166,55 @@ bool AppearanceModel::setPreference(const int preference)
     return true;
 }
 
+bool AppearanceModel::setReducesMotion(const bool enabled)
+{
+    if (enabled == m_reducesMotion) {
+        return true;
+    }
+    if (!store(motionKey, enabled ? QStringLiteral("true") : QStringLiteral("false"))) {
+        setError(tr(
+            "Motion settings could not be written. The previous choice remains active."));
+        return false;
+    }
+    setError({});
+    updateMotion(m_systemReducesMotion, enabled);
+    return true;
+}
+
 void AppearanceModel::injectSystemColorSchemeForTesting(
     const Qt::ColorScheme scheme)
 {
     updateDark(scheme);
 }
 
-bool AppearanceModel::persist(const Preference preference)
+void AppearanceModel::injectSystemReducedMotionForTesting(const bool enabled)
 {
-    const auto existed = m_settings->contains(preferenceKey);
-    const auto previous = m_settings->value(preferenceKey);
-    m_settings->setValue(preferenceKey, preferenceName(preference));
+    updateMotion(enabled, m_reducesMotion);
+}
+
+bool AppearanceModel::store(const QString& key, const QVariant& value)
+{
+    const auto existed = m_settings->contains(key);
+    const auto previous = m_settings->value(key);
+    m_settings->setValue(key, value);
     m_settings->sync();
     if (m_settings->status() == QSettings::NoError) {
         return true;
     }
     if (existed) {
-        m_settings->setValue(preferenceKey, previous);
+        m_settings->setValue(key, previous);
     } else {
-        m_settings->remove(preferenceKey);
+        m_settings->remove(key);
     }
     m_settings->sync();
+    return false;
+}
+
+bool AppearanceModel::persist(const Preference preference)
+{
+    if (store(preferenceKey, preferenceName(preference))) {
+        return true;
+    }
     setError(tr(
         "Appearance settings could not be written. The previous preference remains active."));
     return false;
@@ -214,12 +249,13 @@ void AppearanceModel::updateDark(const Qt::ColorScheme scheme)
     emit darkChanged();
 }
 
-void AppearanceModel::setReducedMotion(const bool enabled)
+void AppearanceModel::updateMotion(const bool system, const bool chosen)
 {
-    if (m_reduceMotion == enabled) {
+    if (m_systemReducesMotion == system && m_reducesMotion == chosen) {
         return;
     }
-    m_reduceMotion = enabled;
+    m_systemReducesMotion = system;
+    m_reducesMotion = chosen;
     emit reduceMotionChanged();
 }
 

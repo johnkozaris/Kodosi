@@ -18,6 +18,23 @@
               }
             ]
           },
+          "browser": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "const": "system"
+                  },
+                  {
+                    "const": "app"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "type": {
             "const": "auth.login.start"
           }
@@ -26,6 +43,38 @@
           "accountUserId",
           "accountEpoch",
           "type"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "const": "auth.login.finish"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "url"
         ],
         "type": "object"
       },
@@ -2646,6 +2695,38 @@
             ]
           },
           "type": {
+            "const": "auth.browser"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "url"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
             "const": "auth.finalizing"
           }
         },
@@ -4835,24 +4916,13 @@
                               },
                               "name": {
                                 "type": "string"
-                              },
-                              "options": {
-                                "anyOf": [
-                                  {
-                                    "type": "string"
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
                               }
                             },
                             "required": [
                               "name",
                               "command",
                               "identity",
-                              "folder",
-                              "options"
+                              "folder"
                             ],
                             "type": "object"
                           },
@@ -4915,10 +4985,21 @@
                       "type": "object"
                     },
                     "type": "array"
+                  },
+                  "kodosi": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
-                  "agents"
+                  "agents",
+                  "kodosi"
                 ],
                 "type": "object"
               },
@@ -5083,24 +5164,13 @@
                   },
                   "name": {
                     "type": "string"
-                  },
-                  "options": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
                   }
                 },
                 "required": [
                   "name",
                   "command",
                   "identity",
-                  "folder",
-                  "options"
+                  "folder"
                 ],
                 "type": "object"
               },
@@ -5591,7 +5661,7 @@
     ]
   },
   "ffiAbiVersion": 9,
-  "protocolVersion": 58,
+  "protocolVersion": 60,
   "terminal": {
     "checkpointMaxBytes": 8388608,
     "checkpointSchema": 4,

@@ -123,6 +123,7 @@ extension AppDependencies {
     func openTerminalNotification(identifier: String) -> Bool {
         guard let id = terminalNotifications.sessionToOpen(identifier: identifier) else { return false }
         workbench.showsHistory = false
+        workbench.launcher = nil
         workbench.detailsSessionId = nil
         workbench.sharingSessionId = nil
         activateSession(id)
@@ -179,15 +180,17 @@ extension AppDependencies {
             if let page {
                 openExternalURL(page)
             }
-        case "auth.device_code":
-            let code = event.string("userCode") ?? ""
-            let url = event.string("verificationUri").flatMap(ExternalAuthURL.parse)
-            signInStage = .awaitingApproval(code: code, url: url)
-            if signInPresented, let url, openedLoginCode != code {
-                openedLoginCode = code
+        case "auth.browser":
+            let url = event.string("url").flatMap(ExternalAuthURL.parse)
+            signInStage = .awaitingBrowser(url)
+            if signInPresented, let url, openedSignInPage != url {
+                openedSignInPage = url
                 openExternalURL(url)
             }
         case "auth.finalizing":
+            if case .awaitingBrowser = signInStage {
+                bringToFront()
+            }
             signInStage = .finalizing
         default: break
         }
@@ -228,9 +231,6 @@ extension AppDependencies {
         }
         terminalNotifications.reconcile(sessions: received, accountEpoch: accountEpoch)
         alert(received, after: waitStates)
-        for value in received where value.kind == .local {
-            settings.learn(value.agent)
-        }
         for value in received {
             if let old = previous[value.id], old != value.incarnationId {
                 terminalFocus.releaseSession(sessionId: value.id)

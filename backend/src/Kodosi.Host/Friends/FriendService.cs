@@ -1,8 +1,8 @@
 using Kodosi.Accounts;
 using Kodosi.Data;
-using Kodosi.Devices;
 using Kodosi.Plans;
 using Kodosi.Security;
+using Kodosi.Sessions;
 using Kodosi.TerminalConnections;
 using Microsoft.EntityFrameworkCore;
 
@@ -80,21 +80,21 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
         var other = await db.Users.SingleOrDefaultAsync(x => x.Handle == handle, ct) ?? throw ApiException.Missing();
         if (other.Id == userId) throw ApiException.Invalid("Choose another person.");
         var (first, second) = Pair(userId, other.Id);
-        var link = await db.Friendships.SingleOrDefaultAsync(x => x.FirstUserId == first && x.SecondUserId == second, ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        var affected = new List<Session>();
-        Func<Guid, string, bool> Keep(Session session) => (user, _) => user != (session.OwnerUserId == userId ? other.Id : userId);
+        var link = await db.Friendships.FromSqlInterpolated(
+            $"SELECT * FROM friendships WHERE \"FirstUserId\" = {first} AND \"SecondUserId\" = {second} FOR UPDATE").SingleOrDefaultAsync(ct);
+        List<Session> shared = [];
         switch (action)
         {
             case "send":
                 if (link is not null) return;
                 var mine = await plans.LimitsAsync(db, userId, ct);
-                var sent = await db.Friendships.CountAsync(x => x.RequestedBy == userId && !x.Accepted, ct);
+                var sent = await OpenRequests(userId).CountAsync(x => x.RequestedBy == userId, ct);
                 if (sent >= mine.SentFriendRequests)
                     throw ApiException.Limited("friend-requests", $"You have {Limits.Count(sent, "open friend request", "open friend requests")}. Wait for an answer, or cancel a request.");
                 await RequireFriendSpaceAsync(userId, other.Id, ct);
                 if ((await plans.LimitsAsync(db, other.Id, ct)).ReceivedFriendRequests is { } received
-                    && await db.Friendships.CountAsync(x => (x.FirstUserId == other.Id || x.SecondUserId == other.Id) && !x.Accepted && x.RequestedBy != other.Id, ct) >= received)
+                    && await OpenRequests(other.Id).CountAsync(x => x.RequestedBy != other.Id, ct) >= received)
                     throw ApiException.Limited("friend-requests", "This person has too many open friend requests. Try again later.");
                 db.Friendships.Add(new Friendship { FirstUserId = first, SecondUserId = second, RequestedBy = userId, CreatedAt = clock.GetUtcNow() });
                 break;
@@ -118,16 +118,20 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
                     (m.UserId == userId && db.Sessions.Any(s => s.Id == m.SessionId && s.OwnerUserId == other.Id))).ToListAsync(ct);
                 db.SessionMembers.RemoveRange(grants);
                 var sessionIds = grants.Select(x => x.SessionId).Distinct().ToArray();
-                affected = await db.Sessions.Where(x => sessionIds.Contains(x.Id) && !x.Ended).ToListAsync(ct);
-                foreach (var session in affected) session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
+                shared = await db.Sessions.Where(x => sessionIds.Contains(x.Id) && !x.Ended).ToListAsync(ct);
+                foreach (var session in shared) session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
                 break;
             default: throw ApiException.Invalid("Unknown friend operation.");
         }
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
-        foreach (var session in affected) connections.Revoke(session, Keep(session));
-        connections.Notify(userId, "friends"); connections.Notify(other.Id, "friends");
-        connections.Notify(userId, "sessions"); connections.Notify(other.Id, "sessions");
+        connections.Notify([userId, other.Id], "friends");
+        if (shared.Count == 0) return;
+        await TerminalAccess.RevokeAsync(db, connections, shared, ct);
+        connections.Notify([userId, other.Id], "sessions");
     }
+
+    private IQueryable<Friendship> OpenRequests(Guid user) =>
+        db.Friendships.Where(x => (x.FirstUserId == user || x.SecondUserId == user) && !x.Accepted);
 }
 
 internal static class FriendEndpoints
@@ -135,43 +139,35 @@ internal static class FriendEndpoints
     public static void MapFriends(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/friends").RequireAuthorization();
-        group.MapGet("/", async (HttpContext ctx, CurrentUser users, DeviceService devices, FriendService friends, CancellationToken ct) =>
+        group.MapGet("/", async (DeviceCaller caller, FriendService friends, CancellationToken ct) =>
+            Results.Ok(await friends.ListAsync(caller.User.Id, ct)));
+        group.MapGet("/requests", async (DeviceCaller caller, FriendService friends, CancellationToken ct) =>
+            Results.Ok(await friends.RequestsAsync(caller.User.Id, ct)));
+        group.MapPost("/requests", async (FriendRequest body, DeviceCaller caller, FriendService friends, CancellationToken ct) =>
         {
-            var user = await users.GetAsync(ctx, ct); await devices.RequireProofAsync(ctx, user.Id, ct);
-            return Results.Ok(await friends.ListAsync(user.Id, ct));
-        });
-        group.MapGet("/requests", async (HttpContext ctx, CurrentUser users, DeviceService devices, FriendService friends, CancellationToken ct) =>
-        {
-            var user = await users.GetAsync(ctx, ct); await devices.RequireProofAsync(ctx, user.Id, ct);
-            return Results.Ok(await friends.RequestsAsync(user.Id, ct));
-        });
-        group.MapPost("/requests", async (FriendRequest body, HttpContext ctx, CurrentUser users, DeviceService devices, FriendService friends, CancellationToken ct) =>
-        {
-            var user = await users.GetAsync(ctx, ct); await devices.RequireProofAsync(ctx, user.Id, ct);
-            await friends.MutateAsync(user.Id, body.Username, "send", ct); return Results.NoContent();
+            await friends.MutateAsync(caller.User.Id, body.Username, "send", ct);
+            return Results.NoContent();
         });
         foreach (var action in new[] { "accept", "reject", "cancel" })
-            group.MapPost($"/requests/{{username}}/{action}", async (string username, HttpContext ctx, CurrentUser users, DeviceService devices, FriendService friends, CancellationToken ct) =>
+            group.MapPost($"/requests/{{username}}/{action}", async (string username, DeviceCaller caller, FriendService friends, CancellationToken ct) =>
             {
-                var user = await users.GetAsync(ctx, ct); await devices.RequireProofAsync(ctx, user.Id, ct);
-                await friends.MutateAsync(user.Id, username, action, ct); return Results.NoContent();
+                await friends.MutateAsync(caller.User.Id, username, action, ct);
+                return Results.NoContent();
             });
+        group.MapDelete("/{username}", async (string username, DeviceCaller caller, FriendService friends, CancellationToken ct) =>
+        {
+            await friends.MutateAsync(caller.User.Id, username, "remove", ct);
+            return Results.NoContent();
+        });
         var list = app.MapGroup("/api/me/friend-list").RequireAuthorization();
-        list.MapGet("/", async (HttpContext ctx, CurrentUser users, DeviceService devices, FriendService friends, CancellationToken ct) =>
+        list.MapGet("/", async (DeviceCaller caller, FriendService friends, CancellationToken ct) =>
+            Results.Ok(await friends.SignedListAsync(caller.User.Id, ct)));
+        list.MapPut("/", async (FriendService.SignedFriendList body, DeviceCaller caller, FriendService friends, CancellationToken ct) =>
         {
-            var user = await users.GetAsync(ctx, ct); await devices.RequireProofAsync(ctx, user.Id, ct);
-            return Results.Ok(await friends.SignedListAsync(user.Id, ct));
-        });
-        list.MapPut("/", async (FriendService.SignedFriendList body, HttpContext ctx, CurrentUser users, DeviceService devices, FriendService friends, CancellationToken ct) =>
-        {
-            var user = await users.GetAsync(ctx, ct); await devices.RequireProofAsync(ctx, user.Id, ct);
-            await friends.ReplaceSignedListAsync(user.Id, body, ct); return Results.NoContent();
-        });
-        group.MapDelete("/{username}", async (string username, HttpContext ctx, CurrentUser users, DeviceService devices, FriendService friends, CancellationToken ct) =>
-        {
-            var user = await users.GetAsync(ctx, ct); await devices.RequireProofAsync(ctx, user.Id, ct);
-            await friends.MutateAsync(user.Id, username, "remove", ct); return Results.NoContent();
+            await friends.ReplaceSignedListAsync(caller.User.Id, body, ct);
+            return Results.NoContent();
         });
     }
+
     private sealed record FriendRequest(string Username);
 }

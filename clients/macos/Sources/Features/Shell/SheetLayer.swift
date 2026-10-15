@@ -26,7 +26,6 @@ struct SheetLayer<Content: View>: View {
                 .scaleEffect(risen || theme.motion.reduced ? 1 : 0.95)
                 .offset(y: risen || theme.motion.reduced ? 0 : 18)
                 .opacity(risen ? 1 : 0)
-                .accessibilityAddTraits(.isModal)
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
         }

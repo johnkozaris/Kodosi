@@ -1,9 +1,10 @@
 using Kodosi.Accounts;
 using Kodosi.Data;
+using Kodosi.Missions;
 using Kodosi.Plans;
-using Kodosi.TerminalConnections;
 using Kodosi.Security;
 using Kodosi.Sessions;
+using Kodosi.TerminalConnections;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.Devices;
@@ -11,19 +12,42 @@ namespace Kodosi.Devices;
 public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirectory connections, DeviceSessions sessions, TimeProvider clock,
     PlanCatalog plans)
 {
-    public async Task<Device> RequireDeviceAsync(Guid userId, string deviceId, CancellationToken ct, bool allowExpiredList = false)
+    public async Task<ApprovedDevice> RequireDeviceAsync(Guid userId, string deviceId, CancellationToken ct, bool allowExpiredList = false)
     {
-        var device = await db.Devices.AsNoTracking().SingleOrDefaultAsync(x => x.Id == deviceId && x.UserId == userId, ct);
-        var list = await db.DeviceLists.AsNoTracking().SingleOrDefaultAsync(x => x.UserId == userId, ct);
-        var now = clock.GetUtcNow().ToUnixTimeMilliseconds();
-        if (device is null || list is null || device.Revoked || device.ExpiresAtMs <= now || (!allowExpiredList && list.ExpiresAtMs <= now))
+        var found = await (from device in db.Devices
+                           join list in db.DeviceLists on device.UserId equals list.UserId
+                           where device.Id == deviceId && device.UserId == userId
+                           select new { device.SigningPublicKey, device.IssuedAtMs, device.ExpiresAtMs, device.Revoked, ListBody = list.Body, ListExpiresAtMs = list.ExpiresAtMs })
+            .SingleOrDefaultAsync(ct);
+        if (found is null || !DeviceApproval.IsCurrent(found.Revoked, found.ExpiresAtMs, found.ListExpiresAtMs, clock.GetUtcNow().ToUnixTimeMilliseconds(), allowExpiredList))
             throw ApiException.Forbidden("Approve this device before using shared sessions.");
-        if (!SignedDeviceList.Parse(list.Body).Entries.Any(x => x.DeviceId == deviceId))
+        if (!DeviceApproval.Listed(found.ListBody).Contains(deviceId))
             throw ApiException.Forbidden("This device was removed.");
-        return device;
+        return new ApprovedDevice(deviceId, userId, found.SigningPublicKey, found.IssuedAtMs, found.ExpiresAtMs);
     }
 
-    public async Task<Device> RequireProofAsync(HttpContext context, Guid userId, CancellationToken ct, bool allowExpiredList = false)
+    /// <summary>The devices of the candidates that are approved now, in two queries for all of them.</summary>
+    public async Task<HashSet<(Guid UserId, string DeviceId)>> ApprovedAsync(IReadOnlyCollection<(Guid UserId, string DeviceId)> candidates, CancellationToken ct)
+    {
+        var ids = candidates.Select(x => x.DeviceId).Distinct().ToArray();
+        var users = candidates.Select(x => x.UserId).Distinct().ToArray();
+        var devices = await db.Devices.Where(x => ids.Contains(x.Id)).Select(x => new { x.Id, x.UserId, x.Revoked, x.ExpiresAtMs }).ToListAsync(ct);
+        var lists = await db.DeviceLists.Where(x => users.Contains(x.UserId)).Select(x => new { x.UserId, x.Body, x.ExpiresAtMs }).ToDictionaryAsync(x => x.UserId, ct);
+        var now = clock.GetUtcNow().ToUnixTimeMilliseconds();
+        var listed = new Dictionary<Guid, HashSet<string>>();
+        var approved = new HashSet<(Guid, string)>();
+        foreach (var device in devices)
+        {
+            if (!lists.TryGetValue(device.UserId, out var list)
+                || !DeviceApproval.IsCurrent(device.Revoked, device.ExpiresAtMs, list.ExpiresAtMs, now, allowExpiredList: false))
+                continue;
+            if (!listed.TryGetValue(device.UserId, out var entries)) listed[device.UserId] = entries = DeviceApproval.Listed(list.Body);
+            if (entries.Contains(device.Id)) approved.Add((device.UserId, device.Id));
+        }
+        return approved;
+    }
+
+    public async Task<ApprovedDevice> RequireProofAsync(HttpContext context, Guid userId, CancellationToken ct, bool allowExpiredList = false)
     {
         var deviceId = context.Request.Headers["X-Kodosi-Device-Id"].ToString();
         if (!sessions.Holds(userId, deviceId, context.Request.Headers["X-Kodosi-Device-Session"]))
@@ -129,6 +153,7 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
         foreach (var device in removed) { sessions.Remove(userId, device.Id); connections.RemoveDevice(userId, device.Id); }
         await PublishSessionChangesAsync(userId, affected, removed, ct);
         connections.Notify(userId, "devices");
+        await RoomMembership.NotifyRoomsOfAsync(db, connections, userId, ct);
     }
 
     public async Task ResetIdentityAsync(Guid userId, DateTimeOffset? authenticatedAt, CancellationToken ct)
@@ -151,26 +176,29 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
         foreach (var device in devices) connections.RemoveDevice(userId, device.Id);
         await PublishSessionChangesAsync(userId, affected, devices, ct);
         connections.Notify(userId, "devices");
+        await RoomMembership.NotifyRoomsOfAsync(db, connections, userId, ct);
     }
 
+    /// <summary>Allows the caller to read the identity of a person who is a friend, shares a terminal with the caller, or shares a room.</summary>
     public async Task RequireRelationAsync(Guid callerId, Guid userId, CancellationToken ct)
     {
         if (callerId == userId) return;
         var (first, second) = Friends.FriendService.Pair(callerId, userId);
-        var friend = await db.Friendships.AnyAsync(x => x.FirstUserId == first && x.SecondUserId == second && x.Accepted, ct);
-        var shared = await db.Sessions.AnyAsync(s => !s.Ended &&
-            ((s.OwnerUserId == userId && db.SessionMembers.Any(m => m.SessionId == s.Id && m.UserId == callerId)) ||
-             (s.OwnerUserId == callerId && db.SessionMembers.Any(m => m.SessionId == s.Id && m.UserId == userId))), ct);
-        var room = await db.Missions.AnyAsync(r =>
-            (r.OwnerUserId == callerId || db.MissionMembers.Any(m => m.MissionId == r.Id && m.UserId == callerId) || db.MissionInvitations.Any(i => i.MissionId == r.Id && i.UserId == callerId))
-            && (r.OwnerUserId == userId || db.MissionMembers.Any(m => m.MissionId == r.Id && m.UserId == userId) || db.MissionInvitations.Any(i => i.MissionId == r.Id && i.UserId == userId)), ct);
-        if (!friend && !shared && !room) throw ApiException.Missing();
+        if (await db.Friendships.AnyAsync(x => x.FirstUserId == first && x.SecondUserId == second && x.Accepted, ct)) return;
+        var people = TerminalAccess.People(db);
+        if (await db.Sessions.AnyAsync(s => !s.Ended
+                && ((s.OwnerUserId == userId && people.Any(p => p.SessionId == s.Id && p.UserId == callerId))
+                    || (s.OwnerUserId == callerId && people.Any(p => p.SessionId == s.Id && p.UserId == userId))), ct))
+            return;
+        if (await RoomMembership.RoomsOf(db, callerId, invited: true).Intersect(RoomMembership.RoomsOf(db, userId, invited: true)).AnyAsync(ct)) return;
+        throw ApiException.Missing();
     }
 
     public async Task<(IdentityBundle? Bundle, string Tag)> IdentityAsync(Guid callerId, Guid userId, string? known, CancellationToken ct)
     {
         await RequireRelationAsync(callerId, userId, ct);
-        var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Id == userId, ct)
+        var user = await db.Users.AsNoTracking().Where(x => x.Id == userId)
+            .Select(x => new { x.Id, x.IdentityRevision, x.IdentityIncarnationId }).SingleOrDefaultAsync(ct)
             ?? throw ApiException.Missing();
         var list = await db.DeviceLists.AsNoTracking().SingleOrDefaultAsync(x => x.UserId == userId, ct)
             ?? throw ApiException.Missing();
@@ -178,11 +206,12 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
         var incarnation = user.IdentityIncarnationId ?? throw ApiException.Conflict("Identity is not enrolled.");
         var tag = $"\"{incarnation:N}-{list.Generation}\"";
         if (known == tag) return (null, tag);
-        var devices = await db.Devices.AsNoTracking().Where(x => x.UserId == userId).ToListAsync(ct);
-        var ids = SignedDeviceList.Parse(list.Body).Entries.Select(x => x.DeviceId).ToHashSet(StringComparer.Ordinal);
+        var devices = await db.Devices.Where(x => x.UserId == userId)
+            .Select(x => new IdentityDevice(x.Id, x.SignerDeviceId, x.Revoked, x.Certificate, x.CertificateSignature)).ToListAsync(ct);
+        var ids = DeviceApproval.Listed(list.Body);
         var active = devices.Where(x => ids.Contains(x.Id) && !x.Revoked).ToArray();
         var all = devices.ToDictionary(x => x.Id, StringComparer.Ordinal);
-        var ancestors = new Dictionary<string, Device>(StringComparer.Ordinal);
+        var ancestors = new Dictionary<string, IdentityDevice>(StringComparer.Ordinal);
         foreach (var device in active)
         {
             var signer = device.SignerDeviceId;
@@ -202,34 +231,30 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
 
     private async Task<List<Session>> InvalidateUserSessionsAsync(Guid userId, IReadOnlyCollection<Device> removed, CancellationToken ct)
     {
-        var sessions = await db.Sessions.Where(s => !s.Ended && (s.OwnerUserId == userId || db.SessionMembers.Any(m => m.SessionId == s.Id && m.UserId == userId))).ToListAsync(ct);
-        foreach (var session in sessions)
+        var hosts = removed.Select(x => x.Id).ToHashSet(StringComparer.Ordinal);
+        var affected = await db.Sessions.UsableBy(db, userId).Where(x => !x.Ended).ToListAsync(ct);
+        foreach (var session in affected)
         {
             session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
-            if (removed.Any(device => device.Id == session.HostDeviceId))
+            if (hosts.Contains(session.HostDeviceId))
             {
                 session.Ended = true;
-                session.ExpiresAt = clock.GetUtcNow() + PublicationCleanup.GracePeriod;
+                session.ExpiresAt = clock.GetUtcNow() + SessionService.EndedRecordLife;
             }
         }
-        return sessions;
+        return affected;
     }
-
-    private static Func<Guid, string, bool> Keep(Guid userId, IReadOnlyCollection<Device> removed)
-        => (user, device) => user != userId || !removed.Any(x => x.Id == device);
 
     private async Task PublishSessionChangesAsync(Guid userId, List<Session> affected, IReadOnlyCollection<Device> removed, CancellationToken ct)
     {
-        foreach (var session in affected)
-            if (session.Ended) connections.RemoveSession(session.Id); else connections.Revoke(session, Keep(userId, removed));
-        var ended = affected.Where(session => session.Ended).Select(session => session.Id).ToArray();
+        var gone = removed.Select(x => x.Id).ToHashSet(StringComparer.Ordinal);
+        await TerminalAccess.RevokeAsync(db, connections, affected, ct, (user, device) => user != userId || !gone.Contains(device));
+        var ended = affected.Where(x => x.Ended).Select(x => x.Id).ToArray();
         if (ended.Length == 0) return;
-        connections.Notify(userId, "sessions");
-        foreach (var viewer in await db.SessionMembers.Where(m => ended.Contains(m.SessionId)).Select(m => m.UserId).Distinct().ToListAsync(ct))
-            connections.Notify(viewer, "sessions");
+        connections.Notify((await TerminalAccess.PeopleAsync(db, ended, ct)).SelectMany(x => x).Append(userId), "sessions");
     }
 
-    private static Certificate CertificateWire(Device device) => new(Convert.ToBase64String(device.Certificate), Convert.ToBase64String(device.CertificateSignature));
+    private static Certificate CertificateWire(IdentityDevice device) => new(Convert.ToBase64String(device.Certificate), Convert.ToBase64String(device.CertificateSignature));
     private void ValidateTime(long issuedAt, long? expiresAt)
     {
         var now = clock.GetUtcNow().ToUnixTimeMilliseconds();
@@ -256,7 +281,6 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
     {
         Id = cert.DeviceId,
         UserId = userId,
-        Label = cert.DeviceLabel,
         SignerDeviceId = cert.SignerDeviceId,
         Certificate = bytes,
         CertificateSignature = signature,
@@ -273,6 +297,8 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
         stored.Generation = list.Generation; stored.SignerDeviceId = list.SignerDeviceId;
         stored.Body = bytes; stored.Signature = signature; stored.IssuedAtMs = list.IssuedAtMs; stored.ExpiresAtMs = list.ExpiresAtMs;
     }
+
+    private sealed record IdentityDevice(string Id, string SignerDeviceId, bool Revoked, byte[] Certificate, byte[] CertificateSignature);
 
     public sealed record RegisterDevice(string DeviceId, string SigningPublicKey, Guid ChallengeId,
         string PopSignature, string DeviceCertificate, string DeviceCertificateSignature, string SignedDeviceList, string SignedDeviceListSignature);

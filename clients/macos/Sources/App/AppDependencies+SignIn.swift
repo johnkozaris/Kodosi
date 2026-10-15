@@ -24,7 +24,7 @@ extension AppDependencies {
         switch signInStage {
         case .trustingDevice: String(localized: "Trust this Mac")
         case .signedIn: nil
-        case .starting, .awaitingApproval, .finalizing: String(localized: "Continue signing in")
+        case .starting, .awaitingBrowser, .finalizing: String(localized: "Continue signing in")
         case .idle, .failed:
             if userId == nil {
                 String(localized: "Sign in")
@@ -37,7 +37,7 @@ extension AppDependencies {
     func beginSignIn() {
         signInPresented = true
         switch signInStage {
-        case .starting, .awaitingApproval, .finalizing, .trustingDevice:
+        case .starting, .awaitingBrowser, .finalizing, .trustingDevice:
             break
         case .idle, .failed, .signedIn:
             if userId != nil, !localDeviceEnrolled {
@@ -50,12 +50,12 @@ extension AppDependencies {
 
     func restartSignIn() {
         signInStage = .starting
-        openedLoginCode = nil
-        perform("auth.login.start")
+        openedSignInPage = nil
+        perform("auth.login.start", ["browser": .string("system")])
     }
 
     func openSignInPage() {
-        if case let .awaitingApproval(_, url) = signInStage, let url {
+        if case let .awaitingBrowser(url) = signInStage, let url {
             openExternalURL(url)
         }
     }

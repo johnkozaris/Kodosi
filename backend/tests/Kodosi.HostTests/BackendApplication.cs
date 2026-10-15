@@ -106,7 +106,7 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
         var request = new HttpRequestMessage(method, path);
         if (body is not null)
         {
-            request.Content = new ByteArrayContent(JsonSerializer.SerializeToUtf8Bytes(body, Wire.Json));
+            request.Content = new ByteArrayContent(JsonSerializer.SerializeToUtf8Bytes(body, TestJson.Options));
             request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
         }
         request.Headers.Add("X-Kodosi-Device-Id", actor.Fixture.DeviceId);
@@ -135,11 +135,13 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
 
     public static async Task SuccessAsync(HttpResponseMessage response) => Assert.True(response.IsSuccessStatusCode,
         $"{response.StatusCode}: {await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)}");
-    public static Task SendAsync(WebSocket socket, object body) => socket.SendAsync(new ArraySegment<byte>(Wire.Encode(body)), WebSocketMessageType.Text, true, TestContext.Current.CancellationToken);
+    public static Task SendAsync(WebSocket socket, object body) => socket.SendAsync(new ArraySegment<byte>(JsonSerializer.SerializeToUtf8Bytes(body, TestJson.Options)), WebSocketMessageType.Text, true, TestContext.Current.CancellationToken);
     public static async Task<(WebSocketMessageType Type, byte[] Bytes)> FrameAsync(WebSocket socket)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken); deadline.CancelAfter(TimeSpan.FromSeconds(10));
-        return await Wire.ReadAsync(socket, 512 * 1024, deadline.Token) ?? throw new InvalidOperationException("Socket closed before expected frame.");
+        using var reader = new MessageReader(socket);
+        var type = await reader.ReadAsync(512 * 1024, deadline.Token) ?? throw new InvalidOperationException("Socket closed before expected frame.");
+        return (type, reader.Message.ToArray());
     }
     public static async Task<JsonElement> JsonAsync(WebSocket socket)
     {
@@ -152,6 +154,11 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
         }
     }
     public override async ValueTask DisposeAsync() { await base.DisposeAsync(); key.Dispose(); }
+}
+
+internal static class TestJson
+{
+    public static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web);
 }
 
 internal sealed record ApiDevice(HttpClient Client, string Token, DeviceFixture Fixture, string Session) : IDisposable

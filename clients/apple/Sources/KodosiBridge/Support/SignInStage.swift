@@ -3,7 +3,7 @@ import Foundation
 public enum SignInStage: Equatable, Sendable {
     case idle
     case starting
-    case awaitingApproval(code: String, url: URL?)
+    case awaitingBrowser(URL?)
     case finalizing
     case trustingDevice(DeviceTrust)
     case signedIn
@@ -11,7 +11,7 @@ public enum SignInStage: Equatable, Sendable {
 
     public var isPending: Bool {
         switch self {
-        case .starting, .awaitingApproval, .finalizing, .trustingDevice: true
+        case .starting, .awaitingBrowser, .finalizing, .trustingDevice: true
         case .idle, .signedIn, .failed: false
         }
     }
@@ -19,7 +19,7 @@ public enum SignInStage: Equatable, Sendable {
     public var completedSteps: Int {
         switch self {
         case .idle, .starting: 0
-        case .awaitingApproval: 1
+        case .awaitingBrowser: 1
         case .finalizing, .trustingDevice: 2
         case .signedIn: 3
         case let .failed(_, completed): completed

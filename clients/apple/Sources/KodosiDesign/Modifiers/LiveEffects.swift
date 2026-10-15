@@ -298,9 +298,12 @@ public struct BreathingDot: View {
                 Circle().stroke(color.opacity(out ? 0 : 0.55), lineWidth: 1.5)
                     .scaleEffect(out ? 2.4 : 1)
             }
-            .onAppear {
-                guard !theme.motion.reduced else { return }
-                withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) { out = true }
+            .onChange(of: theme.motion.reduced, initial: true) { _, reduced in
+                if reduced {
+                    out = false
+                } else {
+                    withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) { out = true }
+                }
             }
             .accessibilityHidden(true)
     }
@@ -356,6 +359,19 @@ private struct Wash<Value: Equatable>: ViewModifier {
     }
 }
 
+private struct Bounce<Value: Equatable>: ViewModifier {
+    @Environment(\.theme) private var theme
+    let value: Value
+
+    func body(content: Content) -> some View {
+        if theme.motion.reduced {
+            content
+        } else {
+            content.symbolEffect(.bounce, value: value)
+        }
+    }
+}
+
 private struct Arrive: ViewModifier {
     @Environment(\.theme) private var theme
     @State private var shown = false
@@ -385,6 +401,10 @@ public extension View {
 
     func arrive(delay: Double = 0, rise: CGFloat = 8) -> some View {
         modifier(Arrive(delay: delay, rise: rise))
+    }
+
+    func bounce(on value: some Equatable) -> some View {
+        modifier(Bounce(value: value))
     }
 }
 

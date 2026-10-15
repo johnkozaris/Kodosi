@@ -95,7 +95,7 @@ struct SidebarRoomRow: View {
                     .foregroundStyle(theme.colors.ink).lineLimit(1)
                 Spacer(minLength: 4)
                 if unread > 0 {
-                    CountBadge(count: unread).transition(AnyTransition.pop)
+                    NewDot().padding(.trailing, 4).transition(AnyTransition.pop)
                 } else if live.contains(where: \.needsUser) {
                     StatusSign(form: .hand).transition(AnyTransition.pop)
                 } else if live.contains(where: \.isWorking) {
@@ -113,7 +113,8 @@ struct SidebarRoomRow: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier("missions.mission.\(AccessibilityIdentifier.token(mission.id))")
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .animation(theme.motion.snappy, value: unread)
+        .accessibilityValue(unread > 0 ? Text("New messages") : Text(verbatim: ""))
+        .animation(theme.motion.snappy, value: unread > 0)
     }
 }
 
@@ -193,7 +194,7 @@ struct SidebarFolderHeader: View {
                 IconButton(title: "New terminal here", symbol: "plus",
                            identifier: "sidebar.folder.\(AccessibilityIdentifier.token(group.id)).new", size: 20)
                 {
-                    deps.newSession(directory: directory)
+                    deps.openLauncher(folder: directory)
                 }
                 .opacity(hovered ? 1 : 0)
             }

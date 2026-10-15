@@ -5,8 +5,7 @@ import SwiftUI
 struct PromptField: NSViewRepresentable {
     @Environment(\.theme) private var theme
     @Binding var text: String
-    let ghost: String
-    let suggestion: String
+    let hint: String
     let label: String
     var focus = 0
     let submit: () -> Void
@@ -48,12 +47,12 @@ struct PromptField: NSViewRepresentable {
         view.textColor = NSColor(theme.colors.ink)
         view.selectedTextAttributes = [.backgroundColor: NSColor(theme.colors.accent.opacity(0.32))]
         view.caretColor = NSColor(theme.colors.accent)
-        view.ghostColor = NSColor(theme.colors.inkFaint)
+        view.hintColor = NSColor(theme.colors.inkFaint)
         view.inverseColor = NSColor(theme.colors.terminal)
         view.blinks = !theme.motion.reduced
-        view.ghost = text.isEmpty ? ghost : ""
+        view.hint = hint
         view.setAccessibilityLabel(label)
-        view.setAccessibilityPlaceholderValue(suggestion)
+        view.setAccessibilityPlaceholderValue(hint)
         if context.coordinator.focus != focus {
             context.coordinator.focus = focus
             DispatchQueue.main.async { view.window?.makeFirstResponder(view) }
@@ -88,14 +87,8 @@ struct PromptField: NSViewRepresentable {
             switch selector {
             case #selector(NSResponder.insertNewline(_:)), #selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)):
                 parent.submit()
-            case #selector(NSResponder.insertTab(_:)), #selector(NSResponder.moveRight(_:)):
-                if view.string.isEmpty, !parent.suggestion.isEmpty {
-                    view.insertText(parent.suggestion, replacementRange: view.selectedRange())
-                } else if selector == #selector(NSResponder.insertTab(_:)) {
-                    view.window?.selectNextKeyView(nil)
-                } else {
-                    return false
-                }
+            case #selector(NSResponder.insertTab(_:)):
+                view.window?.selectNextKeyView(nil)
             case #selector(NSResponder.insertBacktab(_:)):
                 view.window?.selectPreviousKeyView(nil)
             case #selector(NSResponder.cancelOperation(_:)):
@@ -113,12 +106,12 @@ final class PromptTextView: NSTextView {
     static let font = NSFont.monospacedSystemFont(ofSize: 13, weight: .medium)
 
     var caretColor = NSColor.systemOrange
-    var ghostColor = NSColor.secondaryLabelColor
+    var hintColor = NSColor.secondaryLabelColor
     var inverseColor = NSColor.black
     var blinks = true
-    var ghost = "" {
+    var hint = "" {
         didSet {
-            if ghost != oldValue {
+            if hint != oldValue {
                 needsDisplay = true
             }
         }
@@ -130,6 +123,11 @@ final class PromptTextView: NSTextView {
     private var cell: CGSize {
         CGSize(width: ("M" as NSString).size(withAttributes: [.font: Self.font]).width,
                height: layoutManager?.defaultLineHeight(for: Self.font) ?? 17)
+    }
+
+    /// The width that shows the whole hint.
+    static func width(hint: String) -> CGFloat {
+        ceil(((hint + "M") as NSString).size(withAttributes: [.font: font]).width)
     }
 
     private var focused: Bool {
@@ -192,8 +190,8 @@ final class PromptTextView: NSTextView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         let origin = textContainerOrigin
-        if string.isEmpty, !ghost.isEmpty {
-            (ghost as NSString).draw(at: origin, withAttributes: [.font: Self.font, .foregroundColor: ghostColor])
+        if string.isEmpty, !hint.isEmpty {
+            (hint as NSString).draw(at: origin, withAttributes: [.font: Self.font, .foregroundColor: hintColor])
         }
         guard selectedRange().length == 0 else { return }
         let caret = caretRect().offsetBy(dx: origin.x, dy: origin.y)
@@ -211,7 +209,7 @@ final class PromptTextView: NSTextView {
         let text = string as NSString
         let location = selectedRange().location
         let under = location < text.length ? text.substring(with: text.rangeOfComposedCharacterSequence(at: location))
-            : string.isEmpty ? ghost.first.map(String.init) ?? "" : ""
+            : string.isEmpty ? hint.first.map(String.init) ?? "" : ""
         (under as NSString).draw(at: caret.origin, withAttributes: [.font: Self.font, .foregroundColor: inverseColor])
     }
 

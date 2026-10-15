@@ -4,6 +4,7 @@
 #include "presentation/ProviderFilesModel.hpp"
 #include <QJsonDocument>
 #include <QSettings>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest/QTest>
 
@@ -192,15 +193,61 @@ private slots:
             launcher.apply(commands.reply({ { QStringLiteral("agents"), QJsonArray { claude } } }, older));
             QCOMPARE(commands.values.size(), older + 2);
             QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("provider.agents"));
-            QVERIFY(launcher.fresh().isEmpty());
-            auto codex = claude;
-            codex.insert(QStringLiteral("agent"), QStringLiteral("codex"));
-            launcher.apply(commands.reply({ { QStringLiteral("agents"), QJsonArray { claude, codex } } }));
-            QCOMPARE(launcher.fresh(), QStringList { QStringLiteral("codex") });
         }
         kodosi::AgentLauncherModel restored(commands, std::make_unique<QSettings>(path, QSettings::IniFormat));
         QCOMPARE(restored.choice().value(QStringLiteral("agent")).toString(), QStringLiteral("claude"));
         QCOMPARE(restored.choice().value(QStringLiteral("accounts")).toMap().value(QStringLiteral("claude")).toString(), work);
+    }
+    void aPlanStartsTheChosenAccountWithTheModelAndEffortTheAgentOffers()
+    {
+        ProviderCommands commands;
+        QTemporaryDir directory;
+        kodosi::AgentLauncherModel launcher(commands,
+            std::make_unique<QSettings>(directory.filePath(QStringLiteral("launcher.ini")), QSettings::IniFormat));
+        const auto work = QStringLiteral("env CLAUDE_CONFIG_DIR=/home/ada/.claude-work claude");
+        const QJsonObject claude { { QStringLiteral("agent"), QStringLiteral("claude") },
+            { QStringLiteral("program"), QStringLiteral("claude") }, { QStringLiteral("installed"), true },
+            { QStringLiteral("accounts"),
+                QJsonArray { QJsonObject { { QStringLiteral("name"), QStringLiteral("default") },
+                                 { QStringLiteral("command"), QStringLiteral("claude") },
+                                 { QStringLiteral("identity"), QStringLiteral("ada@example.com") } },
+                    QJsonObject { { QStringLiteral("name"), QStringLiteral("work") }, { QStringLiteral("command"), work } } } },
+            { QStringLiteral("install"), QStringLiteral("curl -fsSL https://claude.ai/install.sh | bash") },
+            { QStringLiteral("addsAccounts"), true } };
+        const QJsonObject codex { { QStringLiteral("agent"), QStringLiteral("codex") },
+            { QStringLiteral("program"), QStringLiteral("codex") }, { QStringLiteral("installed"), false },
+            { QStringLiteral("accounts"), QJsonArray {} }, { QStringLiteral("install"), QStringLiteral("npm install -g @openai/codex") },
+            { QStringLiteral("addsAccounts"), true } };
+        launcher.refresh(true);
+        launcher.apply(commands.reply({ { QStringLiteral("agents"), QJsonArray { claude, codex } } }));
+        const auto plan = [&](const QString& agent) { return launcher.plans().value(agent).toMap(); };
+        const auto line = [&](const QString& agent) { return plan(agent).value(QStringLiteral("line")).toString(); };
+        QCOMPARE(line(QStringLiteral("claude")), QStringLiteral("claude"));
+        QCOMPARE(line(QStringLiteral("codex")), QStringLiteral("npm install -g @openai/codex"));
+
+        QSignalSpy plans(&launcher, &kodosi::AgentLauncherModel::plansChanged);
+        launcher.choose(QStringLiteral("accounts"), QStringLiteral("claude"), work);
+        launcher.choose(QStringLiteral("models"), QStringLiteral("claude"), QStringLiteral("--model opus"));
+        launcher.choose(QStringLiteral("efforts"), QStringLiteral("claude"), QStringLiteral("--effort max"));
+        QCOMPARE(plans.size(), 3);
+        QCOMPARE(line(QStringLiteral("claude")), work + QStringLiteral(" --model opus --effort max"));
+
+        launcher.loadModels(QStringLiteral("claude"));
+        launcher.apply(commands.reply({ { QStringLiteral("models"),
+                                            QJsonArray { QJsonObject { { QStringLiteral("id"), QStringLiteral("opus") },
+                                                { QStringLiteral("label"), QStringLiteral("Opus") },
+                                                { QStringLiteral("argument"), QStringLiteral("--model opus") },
+                                                { QStringLiteral("efforts"), QJsonArray { QStringLiteral("low"), QStringLiteral("high") } } } } },
+            { QStringLiteral("efforts"),
+                QJsonArray { QJsonObject { { QStringLiteral("id"), QStringLiteral("low") }, { QStringLiteral("argument"), QStringLiteral("--effort low") } },
+                    QJsonObject { { QStringLiteral("id"), QStringLiteral("high") }, { QStringLiteral("argument"), QStringLiteral("--effort high") } },
+                    QJsonObject { { QStringLiteral("id"), QStringLiteral("max") }, { QStringLiteral("argument"), QStringLiteral("--effort max") } } } } }));
+        QCOMPARE(line(QStringLiteral("claude")), work + QStringLiteral(" --model opus"));
+        QCOMPARE(plan(QStringLiteral("claude")).value(QStringLiteral("model")).toMap().value(QStringLiteral("label")).toString(), QStringLiteral("Opus"));
+        QCOMPARE(plan(QStringLiteral("claude")).value(QStringLiteral("efforts")).toList().size(), 2);
+
+        launcher.choose(QStringLiteral("accounts"), QStringLiteral("claude"), QStringLiteral("cc"));
+        QCOMPARE(line(QStringLiteral("claude")), QStringLiteral("claude --model opus"));
     }
 };
 QTEST_GUILESS_MAIN(ProviderModelsTest)

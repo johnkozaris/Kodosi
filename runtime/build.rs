@@ -22,18 +22,25 @@ fn main() {
         (
             "backend-api.json",
             &[
-                ("apiContractVersion", "BACKEND_API_VERSION"),
-                ("authContractVersion", "AUTH_VERSION"),
+                ("/apiContractVersion", "BACKEND_API_VERSION", "u32"),
+                ("/authContractVersion", "AUTH_VERSION", "u32"),
+                ("/roomContent/limits/people", "ROOM_PEOPLE_MOST", "usize"),
+                (
+                    "/roomContent/limits/recipients",
+                    "ROOM_RECIPIENTS_MOST",
+                    "usize",
+                ),
             ][..],
         ),
         (
             "terminal-connections.json",
             &[
                 (
-                    "terminalConnectionProtocolVersion",
+                    "/terminalConnectionProtocolVersion",
                     "TERMINAL_CONNECTION_VERSION",
+                    "u32",
                 ),
-                ("channelProtocolVersion", "CHANNEL_VERSION"),
+                ("/channelProtocolVersion", "CHANNEL_VERSION", "u32"),
             ][..],
         ),
     ] {
@@ -42,15 +49,16 @@ fn main() {
         let value: serde_json::Value =
             serde_json::from_slice(&fs::read(path).expect("read protocol authority"))
                 .expect("parse protocol authority");
-        for (field, constant) in fields {
-            let version = value[field]
-                .as_u64()
+        for (field, constant, kind) in fields {
+            let number = value
+                .pointer(field)
+                .and_then(serde_json::Value::as_u64)
                 .and_then(|value| u32::try_from(value).ok())
-                .expect("protocol version must fit u32");
-            writeln!(output, "pub const {constant}: u32 = {version};")
+                .expect("protocol number must fit u32");
+            writeln!(output, "pub const {constant}: {kind} = {number};")
                 .expect("write protocol constant");
         }
     }
     let out = PathBuf::from(env::var_os("OUT_DIR").expect("output directory"));
-    fs::write(out.join("network_versions.rs"), output).expect("write current protocol versions");
+    fs::write(out.join("protocol_contract.rs"), output).expect("write protocol constants");
 }

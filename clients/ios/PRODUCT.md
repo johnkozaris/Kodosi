@@ -6,8 +6,8 @@ The app follows, answers and controls the terminals of your computers and of the
 friends who share with you, and takes part in rooms. Starting terminals or programs,
 changing sharing and reading provider conversations stay on the computer.
 
-- Sign-in shows the device code and opens the sign-in page in the app. A new device is
-  trusted like a computer: by a code entered on a trusted device, the recovery key, or
+- Sign-in opens the sign-in page in a sign-in window of the system and returns to the
+  app with no code. A new device is trusted like a computer: by a code entered on a trusted device, the recovery key, or
   starting fresh.
 - The Terminals tab groups your terminals by computer, then friends' terminals. Each
   row shows the sign of its state, which the host sends through the server; the

@@ -26,24 +26,6 @@ extension AppDependencies {
         return state
     }
 
-    func newRoomTerminal(_ roomId: String, directory: String? = nil) {
-        let request = UUIDv7.generate()
-        roomCreations[request] = roomId
-        roomView(roomId).canvas = 0
-        Task { @MainActor in
-            do {
-                var fields: [String: JSONValue] = ["requestId": .string(request), "name": .string(generateSessionName()), "missionId": .string(roomId)]
-                if let directory = directory ?? settings.lastWorkingDir ?? storageBootstrap.defaultWorkingDirectory?.path {
-                    fields["workingDir"] = .string(directory)
-                }
-                _ = try await commandSink.request("session.create", fields)
-            } catch {
-                roomCreations.removeValue(forKey: request)
-                roomView(roomId).failure = error.localizedDescription
-            }
-        }
-    }
-
     func readRoom(_ roomId: String, before: UInt64? = nil) async {
         let state = roomView(roomId)
         guard !state.loading else { return }
@@ -69,7 +51,8 @@ extension AppDependencies {
             var next: RoomSnapshot = try event.value("room")
             if let previous = rooms[next.roomId] {
                 let state = roomView(next.roomId)
-                let added = next.messages.filter { entry in !previous.messages.contains { $0.id == entry.id } }.count
+                let latest = previous.messages.map(\.sequence).max() ?? 0
+                let added = next.messages.count { $0.sequence > latest && !($0.agent == nil && $0.authorId == userId) }
                 if !state.followsLatest || !state.conversationVisible || workbench.section != .missions || workbench.selectedMissionId != next
                     .roomId
                 {

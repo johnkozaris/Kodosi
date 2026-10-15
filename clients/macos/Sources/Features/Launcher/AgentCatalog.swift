@@ -3,6 +3,7 @@ import KodosiDesign
 
 struct AgentCatalog: Decodable, Equatable {
     var agents: [AgentInfo]
+    var kodosi: String?
 }
 
 struct AgentInfo: Decodable, Equatable, Identifiable {
@@ -28,10 +29,22 @@ struct AgentAccount: Decodable, Equatable, Identifiable {
     var command: String
     var identity: String?
     var folder: String?
-    var options: String?
 
     var id: String {
         command
+    }
+
+    var signIn: String {
+        folder ?? command
+    }
+
+    func title(program: String) -> String {
+        guard name != program else { return String(localized: "Default") }
+        var base = Substring(name)
+        if base.count > program.count + 1, base.hasPrefix(program), ["-", "_"].contains(base.dropFirst(program.count).first) {
+            base = base.dropFirst(program.count + 1)
+        }
+        return base.prefix(1).uppercased() + base.dropFirst()
     }
 }
 
@@ -72,10 +85,11 @@ struct LaunchPlan {
     let info: AgentInfo?
     let models: AgentModels?
 
-    init(choice: LaunchChoice, launcher: LauncherState) {
+    init(choice: LaunchChoice, launcher: LauncherState, agent: String? = nil) {
         self.choice = choice
-        info = launcher.agent(choice.agent)
-        models = choice.agent.flatMap { launcher.models[$0] }
+        let agent = agent ?? choice.agent
+        info = launcher.agent(agent)
+        models = agent.flatMap { launcher.models[$0] }
     }
 
     var account: AgentAccount? {

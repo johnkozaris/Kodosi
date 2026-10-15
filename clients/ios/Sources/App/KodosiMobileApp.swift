@@ -13,6 +13,11 @@ struct KodosiMobileApp: App {
                 .environment(model.notices)
                 .kodosiTheme()
                 .task { model.start() }
+                .onOpenURL { url in
+                    if url.scheme == "com.kodosi" {
+                        model.account.finishSignIn(with: url)
+                    }
+                }
         }
         .onChange(of: scenePhase) { _, phase in
             model.sceneChanged(to: phase)

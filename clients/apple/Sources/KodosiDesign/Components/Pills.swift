@@ -214,6 +214,17 @@ public struct CountBadge: View {
     }
 }
 
+/// Marks a room with messages that you have not seen.
+public struct NewDot: View {
+    @Environment(\.theme) private var theme
+
+    public init() {}
+
+    public var body: some View {
+        Circle().fill(theme.colors.accent).frame(width: 8, height: 8)
+    }
+}
+
 public struct Tag: View {
     public enum Tone: Sendable { case neutral, accent, ready, caution, danger }
 

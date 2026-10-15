@@ -5,7 +5,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-#[cfg(unix)]
 use super::Agent;
 
 #[cfg(unix)]
@@ -21,6 +20,7 @@ const MAX_OUTPUT: usize = 512 * 1024;
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct Facts {
     pub path: Option<OsString>,
+    pub variables: Vec<(String, String)>,
     pub definitions: Vec<Definition>,
 }
 
@@ -43,6 +43,13 @@ impl Facts {
         self.definitions
             .iter()
             .any(|definition| definition.name == name)
+    }
+
+    pub(super) fn variable(&self, name: &str) -> Option<&str> {
+        self.variables
+            .iter()
+            .find(|(variable, _)| variable == name)
+            .map(|(_, value)| value.as_str())
     }
 }
 
@@ -94,40 +101,74 @@ pub(super) fn family(shell: &Path) -> Option<Family> {
 }
 
 #[cfg(unix)]
+fn variables() -> impl Iterator<Item = &'static str> {
+    Agent::ALL
+        .into_iter()
+        .filter_map(|agent| agent.home().map(|(_, variable)| variable))
+}
+
+#[cfg(unix)]
 pub(super) fn script(family: Family) -> String {
-    let programs = Agent::ALL.map(Agent::program);
-    let pattern = programs.map(|program| format!("{program}*")).join("|");
-    let mentions = programs.map(|program| format!("*{program}*")).join("|");
+    let names = Agent::ALL.map(Agent::program).join("|");
+    let assignments = variables()
+        .map(|variable| format!("*{variable}=*"))
+        .collect::<Vec<_>>()
+        .join("|");
+    let report =
+        |line: &dyn Fn(&str) -> String| variables().map(line).collect::<Vec<_>>().join("\n");
     match family {
         Family::Zsh => format!(
             r#"print -r -- $'\x1e'kodosi-agents
 print -r -- "path"$'\t'"$PATH"
-for n in ${{(k)aliases}}; do if [[ $n == ({pattern}) || ${{aliases[$n]}} == ({mentions}) ]]; then print -r -- "alias"$'\t'"$n"$'\t'"${{aliases[$n]//$'\n'/ }}"; fi; done
-for n in ${{(k)functions}}; do case $n in ({pattern}) print -r -- "function"$'\t'"$n"$'\t'"${{functions[$n]//$'\n'/ }}";; esac; done
-print -r -- $'\x1e'end"#
+{variables}
+for n in ${{(k)aliases}}; do if [[ $n == ({names}) || ${{aliases[$n]}} == ({assignments}) ]]; then print -r -- "alias"$'\t'"$n"$'\t'"${{aliases[$n]//$'\n'/ }}"; fi; done
+for n in ${{(k)functions}}; do if [[ $n == ({names}) || ${{functions[$n]}} == ({assignments}) ]]; then print -r -- "function"$'\t'"$n"$'\t'"${{functions[$n]//$'\n'/ }}"; fi; done
+print -r -- $'\x1e'end"#,
+            variables = report(&|variable| format!(
+                r#"v=$(printenv {variable}) && [[ -n $v ]] && print -r -- "variable"$'\t'"{variable}"$'\t'"$v""#
+            )),
         ),
         Family::Bash => format!(
             r#"printf '\036kodosi-agents\n'
 printf 'path\t%s\n' "$PATH"
-for n in $(compgen -a); do v=$(alias "$n"); case "$n" in {pattern}) ;; *) case "$v" in {mentions}) ;; *) continue;; esac;; esac; printf 'alias\t%s\t%s\n' "$n" "${{v//$'\n'/ }}"; done
-for n in $(compgen -A function); do case $n in {pattern}) v=$(declare -f "$n"); printf 'function\t%s\t%s\n' "$n" "${{v//$'\n'/ }}";; esac; done
-printf '\036end\n'"#
+{variables}
+for n in $(compgen -a); do v=$(alias "$n"); case "$n" in {names}) ;; *) case "$v" in {assignments}) ;; *) continue;; esac;; esac; printf 'alias\t%s\t%s\n' "$n" "${{v//$'\n'/ }}"; done
+for n in $(compgen -A function); do v=$(declare -f "$n"); case "$n" in {names}) ;; *) case "$v" in {assignments}) ;; *) continue;; esac;; esac; printf 'function\t%s\t%s\n' "$n" "${{v//$'\n'/ }}"; done
+printf '\036end\n'"#,
+            variables = report(&|variable| format!(
+                r#"v=$(printenv {variable}) && [ -n "$v" ] && printf 'variable\t%s\t%s\n' {variable} "$v""#
+            )),
         ),
         Family::Fish => {
-            let patterns = programs.map(|program| format!("'{program}*'")).join(" ");
+            let names = Agent::ALL.map(Agent::program).join(" ");
+            let assignments = variables()
+                .map(|variable| format!("{variable}="))
+                .collect::<Vec<_>>()
+                .join("|");
             format!(
                 r"printf '\036kodosi-agents\n'
 printf 'path\t%s\n' (string join : $PATH)
+{variables}
 for n in (functions --names)
-    switch $n
-        case {patterns}
-            printf 'function\t%s\t%s\n' $n (functions $n | string join ' ')
+    set -l body (functions $n | string join ' ')
+    if contains -- $n {names}; or string match -q -r -- '{assignments}' $body
+        printf 'function\t%s\t%s\n' $n $body
     end
 end
-printf '\036end\n'"
+printf '\036end\n'",
+                variables = report(&|variable| format!(
+                    r#"set -l v (printenv {variable}); and test -n "$v"; and printf 'variable\t%s\t%s\n' {variable} "$v""#
+                )),
             )
         }
-        Family::Posix => r#"printf '\036kodosi-agents\npath\t%s\n\036end\n' "$PATH""#.to_owned(),
+        Family::Posix => format!(
+            r#"printf '\036kodosi-agents\npath\t%s\n' "$PATH"
+{variables}
+printf '\036end\n'"#,
+            variables = report(&|variable| format!(
+                r#"v=$(printenv {variable}) && [ -n "$v" ] && printf 'variable\t%s\t%s\n' {variable} "$v""#
+            )),
+        ),
     }
 }
 
@@ -190,7 +231,15 @@ async fn ask(shell: &Path, family: Family, interactive: bool) -> Option<Facts> {
     reason = "Unix asks the shell, which Windows terminals do not need"
 )]
 async fn probe(_shell: &Path) -> Facts {
-    Facts::default()
+    Facts {
+        variables: Agent::ALL
+            .into_iter()
+            .filter_map(|agent| agent.home().map(|(_, variable)| variable))
+            .filter_map(|variable| Some((variable.to_owned(), std::env::var(variable).ok()?)))
+            .filter(|(_, value)| !value.is_empty())
+            .collect(),
+        ..Facts::default()
+    }
 }
 
 #[cfg(unix)]
@@ -210,6 +259,14 @@ pub(super) fn parse(output: &str) -> Option<Facts> {
         match (fields.next(), fields.next(), fields.next()) {
             (Some("path"), Some(path), None) if !path.is_empty() => {
                 facts.path = Some(path.into());
+            }
+            (Some("variable"), Some(name), Some(value))
+                if variables().any(|variable| variable == name)
+                    && !value.is_empty()
+                    && value.len() <= 4096
+                    && !value.chars().any(char::is_control) =>
+            {
+                facts.variables.push((name.to_owned(), value.to_owned()));
             }
             (Some(kind @ ("alias" | "function")), Some(name), Some(text))
                 if !name.is_empty()

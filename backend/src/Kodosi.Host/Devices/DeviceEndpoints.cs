@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using Kodosi.Accounts;
-using Kodosi.Missions;
 using Kodosi.TerminalConnections;
 
 namespace Kodosi.Devices;
@@ -10,81 +9,67 @@ internal static class DeviceEndpoints
     public static void MapDevices(this IEndpointRouteBuilder app)
     {
         var api = app.MapGroup("/api").RequireAuthorization();
-        api.MapPost("/me/devices/challenge", async (HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
-            Results.Ok(service.CreateChallenge((await users.GetAsync(context, ct)).Id))).RequireRateLimiting("challenge");
-        api.MapPost("/me/device-sessions", async (DeviceService.OpenDeviceSession body, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
-            Results.Ok(await service.OpenSessionAsync((await users.GetAsync(context, ct)).Id, body, ct))).RequireRateLimiting("challenge");
-        api.MapPost("/me/devices", async (DeviceService.RegisterDevice body, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
+        api.MapPost("/me/devices/challenge", (SignedIn me, DeviceService devices) => Results.Ok(devices.CreateChallenge(me.User.Id)))
+            .RequireRateLimiting(RateLimits.Challenge);
+        api.MapPost("/me/device-sessions", async (DeviceService.OpenDeviceSession body, SignedIn me, DeviceService devices, CancellationToken ct) =>
+            Results.Ok(await devices.OpenSessionAsync(me.User.Id, body, ct))).RequireRateLimiting(RateLimits.Challenge);
+        api.MapPost("/me/devices", async (DeviceService.RegisterDevice body, SignedIn me, DeviceService devices, CancellationToken ct) =>
         {
-            await service.EnrollAsync((await users.GetAsync(context, ct)).Id, body, ct);
+            await devices.EnrollAsync(me.User.Id, body, ct);
             return Results.Created($"/api/me/devices/{body.DeviceId}", (object?)null);
-        }).RequireRateLimiting("enrollment");
-        api.MapGet("/me/identity", async (HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
+        }).RequireRateLimiting(RateLimits.Enrollment);
+        api.MapGet("/me/identity", async (SignedIn me, HttpContext context, DeviceService devices, CancellationToken ct) =>
+            Tagged(context, await devices.IdentityAsync(me.User.Id, me.User.Id, context.Request.Headers.IfNoneMatch, ct)));
+        api.MapGet("/users/{userId:guid}/identity", async (Guid userId, DeviceCaller caller, HttpContext context, DeviceService devices, CancellationToken ct) =>
+            Tagged(context, await devices.IdentityAsync(caller.User.Id, userId, context.Request.Headers.IfNoneMatch, ct)));
+        api.MapPost("/me/identity/device-list", async (DeviceService.ReplaceDeviceList body, RenewingDevice caller, DeviceService devices, CancellationToken ct) =>
         {
-            var user = await users.GetAsync(context, ct);
-            return Tagged(context, await service.IdentityAsync(user.Id, user.Id, context.Request.Headers.IfNoneMatch, ct));
-        });
-        api.MapGet("/users/{userId:guid}/identity", async (Guid userId, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
-        {
-            var user = await users.GetAsync(context, ct);
-            await service.RequireProofAsync(context, user.Id, ct);
-            return Tagged(context, await service.IdentityAsync(user.Id, userId, context.Request.Headers.IfNoneMatch, ct));
-        });
-        api.MapPost("/me/identity/device-list", async (DeviceService.ReplaceDeviceList body, HttpContext context, CurrentUser users, DeviceService service, MissionService missions, CancellationToken ct) =>
-        {
-            var user = await users.GetAsync(context, ct);
-            await service.RequireProofAsync(context, user.Id, ct, allowExpiredList: true);
-            await service.ReplaceListAsync(user.Id, body, ct);
-            await missions.NotifyRoomsOfAsync(user.Id, ct);
+            await devices.ReplaceListAsync(caller.User.Id, body, ct);
             return Results.NoContent();
         });
-        api.MapPost("/me/connections/renew", async (HttpContext context, CurrentUser users, DeviceService service, ConnectionDirectory connections, CancellationToken ct) =>
+        api.MapPost("/me/connections/renew", (DeviceCaller caller, HttpContext context, ConnectionDirectory connections) =>
         {
-            var user = await users.GetAsync(context, ct); var device = await service.RequireProofAsync(context, user.Id, ct);
             if (!long.TryParse(context.User.FindFirstValue("exp"), out var expires)) return Results.Unauthorized();
-            connections.Renew(user.Id, device.Id, DateTimeOffset.FromUnixTimeSeconds(expires));
+            connections.Renew(caller.User.Id, caller.Device.Id, DateTimeOffset.FromUnixTimeSeconds(expires));
             return Results.NoContent();
         });
-        api.MapPost("/me/identity/reset", async (HttpContext context, CurrentUser users, DeviceService service, MissionService missions, CancellationToken ct) =>
+        api.MapPost("/me/identity/reset", async (SignedIn me, HttpContext context, DeviceService devices, CancellationToken ct) =>
         {
-            var user = await users.GetAsync(context, ct);
-            await service.ResetIdentityAsync(user.Id, CurrentUser.SignedInAt(context.User), ct);
-            await missions.NotifyRoomsOfAsync(user.Id, ct);
+            await devices.ResetIdentityAsync(me.User.Id, CurrentUser.SignedInAt(context.User), ct);
             return Results.NoContent();
-        }).RequireRateLimiting("enrollment");
-        api.MapPost("/devices/link/init", async (DeviceService.LinkInit body, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
-            Results.Ok(await service.StartLinkAsync((await users.GetAsync(context, ct)).Id, body, ct))).RequireRateLimiting("enrollment");
-        api.MapPost("/me/recovery-key", async (DeviceService.RecoveryKeyWrite body, HttpContext context, CurrentUser users, DeviceService service, MissionService missions, CancellationToken ct) =>
+        }).RequireRateLimiting(RateLimits.Enrollment);
+        api.MapPost("/devices/link/init", async (DeviceService.LinkInit body, SignedIn me, DeviceService devices, CancellationToken ct) =>
+            Results.Ok(await devices.StartLinkAsync(me.User.Id, body, ct))).RequireRateLimiting(RateLimits.Enrollment);
+        api.MapPost("/me/recovery-key", async (DeviceService.RecoveryKeyWrite body, DeviceCaller caller, DeviceService devices, CancellationToken ct) =>
         {
-            var user = await users.GetAsync(context, ct); var device = await service.RequireProofAsync(context, user.Id, ct);
-            await service.AddRecoveryKeyAsync(user.Id, device, body, ct); await missions.NotifyRoomsOfAsync(user.Id, ct); return Results.Ok();
-        }).RequireRateLimiting("enrollment");
-        api.MapGet("/me/recovery-key", async (HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
-            Results.Ok(await service.RecoveryBoxAsync((await users.GetAsync(context, ct)).Id, ct))).RequireRateLimiting("enrollment");
-        api.MapPost("/me/devices/recover", async (DeviceService.RegisterDevice body, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
+            await devices.AddRecoveryKeyAsync(caller.User.Id, caller.Device, body, ct);
+            return Results.Ok();
+        }).RequireRateLimiting(RateLimits.Enrollment);
+        api.MapGet("/me/recovery-key", async (SignedIn me, DeviceService devices, CancellationToken ct) =>
+            Results.Ok(await devices.RecoveryBoxAsync(me.User.Id, ct))).RequireRateLimiting(RateLimits.Enrollment);
+        api.MapPost("/me/devices/recover", async (DeviceService.RegisterDevice body, SignedIn me, DeviceService devices, CancellationToken ct) =>
         {
-            await service.RecoverAsync((await users.GetAsync(context, ct)).Id, body, ct);
+            await devices.RecoverAsync(me.User.Id, body, ct);
             return Results.Created($"/api/me/devices/{body.DeviceId}", (object?)null);
-        }).RequireRateLimiting("enrollment");
-        api.MapGet("/devices/link/requests", async (HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
+        }).RequireRateLimiting(RateLimits.Enrollment);
+        api.MapGet("/devices/link/requests", async (DeviceCaller caller, DeviceService devices, CancellationToken ct) =>
+            Results.Ok(await devices.PendingLinksAsync(caller.User.Id, ct)));
+        api.MapPost("/devices/link/approve", async (DeviceService.LinkApprove body, DeviceCaller caller, DeviceService devices, CancellationToken ct) =>
         {
-            var user = await users.GetAsync(context, ct); await service.RequireProofAsync(context, user.Id, ct);
-            return Results.Ok(await service.PendingLinksAsync(user.Id, ct));
+            await devices.ApproveLinkAsync(caller.User.Id, caller.Device, body, ct);
+            return Results.Ok();
+        }).RequireRateLimiting(RateLimits.Enrollment);
+        api.MapPost("/devices/link/poll", async (DeviceService.LinkPoll body, SignedIn me, DeviceService devices, CancellationToken ct) =>
+            Results.Ok(await devices.PollLinkAsync(me.User.Id, body.DeviceCode, ct))).RequireRateLimiting(RateLimits.Challenge);
+        api.MapPost("/devices/link/ack", async (DeviceService.LinkAcknowledge body, SignedIn me, DeviceService devices, CancellationToken ct) =>
+        {
+            await devices.AcknowledgeLinkAsync(me.User.Id, body, ct);
+            return Results.NoContent();
         });
-        api.MapPost("/devices/link/approve", async (DeviceService.LinkApprove body, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
+        api.MapDelete("/devices/link/requests/{requestId:guid}", async (Guid requestId, SignedIn me, DeviceService devices, CancellationToken ct) =>
         {
-            var user = await users.GetAsync(context, ct); var device = await service.RequireProofAsync(context, user.Id, ct);
-            await service.ApproveLinkAsync(user.Id, device, body, ct); return Results.Ok();
-        }).RequireRateLimiting("enrollment");
-        api.MapPost("/devices/link/poll", async (DeviceService.LinkPoll body, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
-            Results.Ok(await service.PollLinkAsync((await users.GetAsync(context, ct)).Id, body.DeviceCode, ct))).RequireRateLimiting("challenge");
-        api.MapPost("/devices/link/ack", async (DeviceService.LinkAcknowledge body, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
-        {
-            await service.AcknowledgeLinkAsync((await users.GetAsync(context, ct)).Id, body, ct); return Results.NoContent();
-        });
-        api.MapDelete("/devices/link/requests/{requestId:guid}", async (Guid requestId, HttpContext context, CurrentUser users, DeviceService service, CancellationToken ct) =>
-        {
-            await service.CancelLinkAsync((await users.GetAsync(context, ct)).Id, requestId, ct); return Results.NoContent();
+            await devices.CancelLinkAsync(me.User.Id, requestId, ct);
+            return Results.NoContent();
         });
     }
 

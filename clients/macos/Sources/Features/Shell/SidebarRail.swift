@@ -14,7 +14,7 @@ struct SidebarRail: View {
             IconButton(title: "Show sidebar", symbol: "sidebar.left", identifier: "sidebar.toggle") {
                 deps.workbench.sidebarCollapsed.toggle()
             }
-            Button { deps.newSession() } label: {
+            Button { deps.openLauncher() } label: {
                 Image(systemName: "plus").font(.system(size: 14, weight: .bold)).foregroundStyle(theme.colors.onAccent)
                     .frame(width: 34, height: 34)
                     .background { BezelBackground(shape: Circle(), fill: theme.colors.accent) }

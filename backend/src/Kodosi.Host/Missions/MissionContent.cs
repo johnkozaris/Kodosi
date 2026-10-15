@@ -1,8 +1,9 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using Kodosi.Data;
+using Kodosi.Devices;
+using Kodosi.Plans;
 using Kodosi.Security;
-using Kodosi.TerminalConnections;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.Missions;
@@ -11,8 +12,13 @@ public sealed partial class MissionService
 {
     private const int MaximumKeyStateBytes = 3 * 1024 * 1024;
     private const int MaximumItemBytes = 64 * 1024;
+    private const int KeyHistoryPageBytes = 4 * 1024 * 1024;
+    private const int KeyHistoryPageStates = 256;
 
     public const int RoomPublicKeyLength = 1184 + 32;
+
+    /// <summary>The most recipient keys in one key state: each person of a room, with each device and the recovery key.</summary>
+    internal const int MaxRoomRecipients = (PlanCatalog.MostDevices + 1) * (Limits.MaxMissionMembers + 1);
 
     internal static (byte[] Key, byte[] Signature) ValidRoomKey(Guid userId, string deviceId, byte[] signingKey, RecipientKeyWrite request)
     {
@@ -23,7 +29,7 @@ public sealed partial class MissionService
         return (key, signature);
     }
 
-    public async Task RegisterRoomKeyAsync(Guid userId, Device device, RecipientKeyWrite request, CancellationToken ct)
+    public async Task RegisterRoomKeyAsync(Guid userId, ApprovedDevice device, RecipientKeyWrite request, CancellationToken ct)
     {
         var (key, signature) = ValidRoomKey(userId, device.Id, device.SigningPublicKey, request);
         var existing = await db.RoomRecipientKeys.SingleOrDefaultAsync(x => x.DeviceId == device.Id, ct);
@@ -34,33 +40,37 @@ public sealed partial class MissionService
         }
         db.RoomRecipientKeys.Add(new RoomRecipientKey { DeviceId = device.Id, UserId = userId, PublicKey = key, Signature = signature });
         await db.SaveChangesAsync(ct);
-        await NotifyRoomsOfAsync(userId, ct);
-    }
-
-    public async Task NotifyRoomsOfAsync(Guid userId, CancellationToken ct)
-    {
-        foreach (var room in await db.Missions.Where(r => r.OwnerUserId == userId || db.MissionMembers.Any(m => m.MissionId == r.Id && m.UserId == userId)).ToListAsync(ct))
-            await NotifyAsync(room, ct);
+        await RoomMembership.NotifyRoomsOfAsync(db, connections, userId, ct);
     }
 
     public async Task<object> RecipientKeysAsync(Guid caller, Guid userId, CancellationToken ct)
     {
         await devices.RequireRelationAsync(caller, userId, ct);
         var keys = await (from key in db.RoomRecipientKeys.AsNoTracking()
-                          join device in db.Devices.AsNoTracking() on key.DeviceId equals device.Id
+                          join device in db.Devices on key.DeviceId equals device.Id
                           where key.UserId == userId && !device.Revoked
                           select key).ToListAsync(ct);
         return keys.Select(key => new { key.UserId, key.DeviceId, publicKey = Convert.ToBase64String(key.PublicKey), signature = Convert.ToBase64String(key.Signature) });
     }
 
+    /// <summary>The key states after a version, in order and up to a byte budget; the first one always comes.</summary>
     public async Task<object> KeyHistoryAsync(Guid id, Guid userId, long afterVersion, CancellationToken ct)
     {
         var room = await db.Missions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw ApiException.Missing();
         var members = await MemberIdsAsync(id, ct, invited: true);
         if (!members.Contains(userId)) throw ApiException.Missing();
         if (afterVersion < 0) throw ApiException.Invalid("Invalid room key position.");
-        var states = await db.MissionKeyStates.AsNoTracking().Where(x => x.MissionId == id && x.Version > afterVersion)
-            .OrderBy(x => x.Version).Take(1).ToListAsync(ct);
+        var sizes = await db.MissionKeyStates.Where(x => x.MissionId == id && x.Version > afterVersion).OrderBy(x => x.Version)
+            .Select(x => new { x.Version, Size = (long)x.Body.Length + x.Signature.Length }).Take(KeyHistoryPageStates).ToListAsync(ct);
+        long bytes = 0, last = afterVersion;
+        foreach (var state in sizes)
+        {
+            if (last != afterVersion && bytes + state.Size > KeyHistoryPageBytes) break;
+            bytes += state.Size;
+            last = state.Version;
+        }
+        var states = last == afterVersion ? [] : await db.MissionKeyStates.AsNoTracking()
+            .Where(x => x.MissionId == id && x.Version > afterVersion && x.Version <= last).OrderBy(x => x.Version).ToListAsync(ct);
         return new { ownerUserId = room.OwnerUserId, version = room.KeyVersion, members, states = states.Select(StateDto) };
     }
 
@@ -69,34 +79,45 @@ public sealed partial class MissionService
 
     public async Task StoreKeysAsync(Guid id, Guid userId, RoomKeyWrite request, CancellationToken ct)
     {
+        var keys = await PrepareKeysAsync(userId, request, ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         var room = await RequireMemberForUpdateAsync(id, userId, ct);
-        await AppendKeysAsync(room, userId, request, ct);
+        await AppendKeysAsync(room, keys, ct);
         await transaction.CommitAsync(ct);
-        foreach (var user in await MemberIdsAsync(id, ct)) connections.Notify(user, "rooms", id);
+        connections.Notify(await MemberIdsAsync(id, ct), "rooms", id);
     }
 
-    private async Task AppendKeysAsync(Mission room, Guid userId, RoomKeyWrite? request, CancellationToken ct)
+    /// <summary>Checks a new key state that needs no database state, before the room is locked.</summary>
+    private async Task<PreparedKeys?> PrepareKeysAsync(Guid userId, RoomKeyWrite? request, CancellationToken ct)
     {
-        if (request is null)
-        {
-            if (room.KeyVersion != 0) throw ApiException.Conflict("Refresh the room before changing its members.");
-            return;
-        }
+        if (request is null) return null;
         var device = await devices.RequireDeviceAsync(userId, request.DeviceId, ct);
         var body = Limits.Base64(request.Body, "Room keys", MaximumKeyStateBytes);
         var signature = Limits.Base64(request.Signature, "Room signature", IdentityWireFormat.MlDsa65SignatureLength);
         if (!SignatureVerifier.Verify(device.SigningPublicKey, Proofs.Tagged(DomainTags.RoomStateV1, body), signature))
             throw ApiException.Forbidden("Invalid room signature.");
         var state = ReadBody<KeyStateBody>(body);
-        var version = state.Version;
-        var epoch = state.Epoch;
-        if (state.RoomId != room.Id || state.OwnerUserId != room.OwnerUserId
-            || state.AuthorId != userId || state.DeviceId != device.Id
-            || version != room.KeyVersion + 1 || epoch < 1) throw ApiException.Conflict("Room keys changed; refresh before retrying.");
+        if (state.AuthorId != userId || state.DeviceId != device.Id || state.Epoch < 1)
+            throw ApiException.Conflict("Room keys changed; refresh before retrying.");
+        if (state.Recipients.Length == 0 || state.Recipients.Length > MaxRoomRecipients)
+            throw ApiException.Invalid("Invalid room recipients.");
+        return new PreparedKeys(device, body, signature, state);
+    }
+
+    private async Task AppendKeysAsync(Mission room, PreparedKeys? keys, CancellationToken ct)
+    {
+        if (keys is null)
+        {
+            if (room.KeyVersion != 0) throw ApiException.Conflict("Refresh the room before changing its members.");
+            return;
+        }
+        var state = keys.State;
+        var (version, epoch, userId) = (state.Version, state.Epoch, state.AuthorId);
+        if (state.RoomId != room.Id || state.OwnerUserId != room.OwnerUserId || version != room.KeyVersion + 1)
+            throw ApiException.Conflict("Room keys changed; refresh before retrying.");
         var members = state.Members.Keys.ToHashSet();
-        var expected = await MemberIdsAsync(room.Id, ct, invited: true);
-        if (!members.SetEquals(expected)) throw ApiException.Conflict("Room membership changed; refresh before retrying.");
+        if (!members.SetEquals(await MemberIdsAsync(room.Id, ct, invited: true)))
+            throw ApiException.Conflict("Room membership changed; refresh before retrying.");
         var previous = room.KeyVersion == 0 ? null : await db.MissionKeyStates.AsNoTracking().SingleAsync(x => x.MissionId == room.Id && x.Version == room.KeyVersion, ct);
         if (previous is null)
         {
@@ -107,18 +128,14 @@ public sealed partial class MissionService
         {
             if (state.PreviousHash != Convert.ToHexStringLower(SHA256.HashData(previous.Body))
                 || epoch < previous.Epoch || epoch > previous.Epoch + 1) throw ApiException.Conflict("Room key history changed.");
-            var old = ReadBody<KeyStateBody>(previous.Body);
-            var oldMembers = old.Members.Keys.ToHashSet();
+            var oldMembers = ReadBody<KeyStateBody>(previous.Body).Members.Keys.ToHashSet();
             var added = members.Except(oldMembers).ToArray();
             var removed = oldMembers.Except(members).ToArray();
             if (userId != room.OwnerUserId && (added.Length != 0 || removed.Any(x => x != userId))) throw ApiException.Forbidden();
             if (removed.Length != 0 && epoch != previous.Epoch + 1) throw ApiException.Invalid("Leaving members requires new room keys.");
         }
-        var wraps = state.Recipients;
-        if (wraps.Length == 0 || wraps.Length > 1024 || wraps.Any(w => !members.Contains(w.UserId)))
-            throw ApiException.Invalid("Invalid room recipients.");
-        db.MissionKeyStates.Add(new MissionKeyState { MissionId = room.Id, Version = version, Epoch = epoch, Body = body,
-            Signature = signature, UserId = userId, DeviceId = device.Id });
+        if (state.Recipients.Any(x => !members.Contains(x.UserId))) throw ApiException.Invalid("Invalid room recipients.");
+        db.MissionKeyStates.Add(new MissionKeyState { MissionId = room.Id, Version = version, Epoch = epoch, Body = keys.Body, Signature = keys.Signature });
         room.KeyVersion = version;
         await db.SaveChangesAsync(ct);
     }
@@ -149,9 +166,11 @@ public sealed partial class MissionService
     { item.Id, item.Kind, item.Version, item.Sequence, item.KeyVersion, item.UserId, item.DeviceId, item.CreatedAt,
         body = Convert.ToBase64String(item.Body), signature = Convert.ToBase64String(item.Signature) };
 
-    public async Task<object> PutContentAsync(Guid id, Guid itemId, Guid userId, ContentWrite request, CancellationToken ct)
+    public async Task<object> PutContentAsync(Guid id, Guid itemId, Guid userId, ContentWrite request, CancellationToken ct, ApprovedDevice? signer = null)
     {
-        var device = await devices.RequireDeviceAsync(userId, request.DeviceId, ct);
+        var device = signer is not null && signer.UserId == userId && signer.Id == request.DeviceId
+            ? signer
+            : await devices.RequireDeviceAsync(userId, request.DeviceId, ct);
         var body = Limits.Base64(request.Body, "Room content", MaximumItemBytes);
         var signature = Limits.Base64(request.Signature, "Content signature", IdentityWireFormat.MlDsa65SignatureLength);
         if (!SignatureVerifier.Verify(device.SigningPublicKey, Proofs.Tagged(DomainTags.RoomContentV1, body), signature))
@@ -185,10 +204,10 @@ public sealed partial class MissionService
         item.Kind = kind; item.Version = version; item.KeyVersion = keyVersion;
         room.ContentSequence = checked(room.ContentSequence + 1);
         item.Sequence = room.ContentSequence; item.Body = body; item.Signature = signature;
-        item.UserId = userId; item.DeviceId = device.Id; item.UpdatedAt = clock.GetUtcNow();
+        item.UserId = userId; item.DeviceId = device.Id;
         if (existing is null) db.MissionItems.Add(item);
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
-        foreach (var member in await MemberIdsAsync(id, ct)) connections.NotifyContent(member, id, item.Sequence);
+        connections.NotifyContent(await MemberIdsAsync(id, ct), id, item.Sequence);
         return ItemDto(item);
     }
 
@@ -214,13 +233,16 @@ public sealed partial class MissionService
         room.HistoryTrimmed = true;
     }
 
-    private static readonly JsonSerializerOptions BodyJson = new(Wire.Json)
+    private static readonly JsonSerializerOptions BodyJson = new(JsonSerializerDefaults.Web)
     {
         RespectRequiredConstructorParameters = true,
         RespectNullableAnnotations = true,
+        UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow,
+        MaxDepth = 32,
         Converters = { new CanonicalGuidConverter() }
     };
     private static T ReadBody<T>(byte[] body) where T : class => JsonSerializer.Deserialize<T>(body, BodyJson) ?? throw ApiException.Invalid("Invalid room data.");
+    private sealed record PreparedKeys(ApprovedDevice Device, byte[] Body, byte[] Signature, KeyStateBody State);
     private sealed record SealedBody(string Nonce, string Ciphertext);
     private sealed record RecipientBody(Guid UserId, string DeviceId, string KemCiphertext, SealedBody Sealed);
     private sealed record KeyStateBody(Guid RoomId, Guid OwnerUserId, Guid AuthorId, string DeviceId,
@@ -232,5 +254,5 @@ public sealed partial class MissionService
     public sealed record RecipientKeyWrite(string PublicKey, string Signature);
     public sealed record RoomKeyWrite(string DeviceId, string Body, string Signature);
     public sealed record ContentWrite(long ExpectedVersion, string DeviceId, string Body, string Signature);
-    public sealed record MembershipWrite(RoomKeyWrite? Keys);
+    public sealed record MembershipWrite(RoomKeyWrite? Keys = null);
 }

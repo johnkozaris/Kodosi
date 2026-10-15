@@ -338,7 +338,7 @@ async fn slow_login_does_not_block_local_terminal_or_runtime_observation() {
     };
     let (session, incarnation) = runtime.create().await;
     let mut terminal = runtime.handle.subscribe_terminal(session).await.unwrap();
-    runtime.send(Command::Login {}).await;
+    runtime.send(Command::Login { browser: None }).await;
     timeout(Duration::from_secs(3), received.notified())
         .await
         .unwrap();
@@ -662,7 +662,7 @@ async fn login_failure_after_retiring_account_is_visible_and_retryable() {
     let runtime = TestRuntime::new().await;
     for _ in 0..2 {
         let (_, mut events) = runtime.handle.observe().await.unwrap();
-        runtime.send(Command::Login {}).await;
+        runtime.send(Command::Login { browser: None }).await;
         let error = timeout(Duration::from_secs(5), async {
             loop {
                 let event = events.recv().await.unwrap();

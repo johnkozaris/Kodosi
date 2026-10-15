@@ -6,10 +6,7 @@ internal sealed class AdmissionFilter(AccountGate gate) : IEndpointFilter
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
-        var request = context.HttpContext;
-        if (HttpMethods.IsGet(request.Request.Method)) return await next(context);
-        var user = await request.RequestServices.GetRequiredService<CurrentUser>().GetAsync(request, request.RequestAborted);
-        using var held = await gate.EnterAsync(user.Id, request.RequestAborted);
+        using var turn = await gate.AdmitAsync(context.HttpContext);
         return await next(context);
     }
 }
@@ -19,7 +16,24 @@ public sealed class AccountGate
     private readonly Lock sync = new();
     private readonly Dictionary<Guid, Turn> turns = [];
 
-    public async ValueTask<IDisposable> EnterAsync(Guid account, CancellationToken cancellationToken)
+    public async ValueTask<IDisposable> EnterAsync(Guid account, CancellationToken cancellationToken) => await TakeAsync(account, cancellationToken);
+
+    /// <summary>
+    /// Gives a request that changes data the turn of its account, once for each request. The writes of one account happen
+    /// one after another, and a device check made in the turn stays true until the handler returns. A read gets no turn.
+    /// </summary>
+    internal async ValueTask<IDisposable?> AdmitAsync(HttpContext context)
+    {
+        if (HttpMethods.IsGet(context.Request.Method)) return null;
+        if (context.Features.Get<Lease>() is { } held) return held;
+        var user = await context.RequestServices.GetRequiredService<CurrentUser>().GetAsync(context, context.RequestAborted);
+        var lease = await TakeAsync(user.Id, context.RequestAborted);
+        context.Features.Set(lease);
+        context.Response.RegisterForDispose(lease);
+        return lease;
+    }
+
+    private async ValueTask<Lease> TakeAsync(Guid account, CancellationToken cancellationToken)
     {
         Turn? turn;
         lock (sync)

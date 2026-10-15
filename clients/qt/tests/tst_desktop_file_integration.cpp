@@ -29,6 +29,9 @@ private slots:
         QVERIFY(!files.openPath(directory.filePath(QStringLiteral("missing"))));
         QVERIFY(!files.openWebUrl(QStringLiteral("file:///tmp/example")));
         QVERIFY(!files.openWebUrl(QStringLiteral("https://user:password@example.com")));
+        QVERIFY(!files.openWebUrl(QStringLiteral("http://example.com/auth")));
+        QVERIFY(files.openWebUrl(QStringLiteral("http://127.0.0.1:18080/realms/kodosi/auth")));
+        QCOMPARE(opened.last(), QUrl(QStringLiteral("http://127.0.0.1:18080/realms/kodosi/auth")));
     }
     void pickerOpensOnceAndCancels()
     {

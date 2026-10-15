@@ -1,33 +1,27 @@
-import AppKit
+import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
 struct AgentLauncher: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
-    var welcome = false
-    @State private var folder: String?
+    @Binding var folder: String?
+    var roomId: String?
+    var centered = false
+    var focus = 0
+    var started: () -> Void = {}
     @State private var showsAll = false
-    @State private var showsMore = false
     @State private var menu: LauncherMenu?
-    @State private var keys: [LauncherMenu: CGFloat] = [:]
     @State private var adding = false
     @State private var saving = false
     @State private var addError: String?
     @State private var starting = false
     @State private var error: String?
     @State private var prompt = ""
-    @State private var ghost = ""
-    @State private var hint = Int.random(in: 0 ..< 20)
-    @State private var focus = 0
-    @State private var seed: CGFloat = AgentLauncher.seeded ? 1 : 0
-    @State private var opened = AgentLauncher.seeded
+    @State private var focusRequest = 1
 
-    private static var seeded = false
     private static let bandHeight: CGFloat = 42
     private static let width: CGFloat = 560
-    private static let inset: CGFloat = 16
-    private static let bodySpace = "launcher.body"
 
     private var launcher: LauncherState {
         deps.launcher
@@ -53,17 +47,16 @@ struct AgentLauncher: View {
         folder ?? deps.settings.lastWorkingDir ?? deps.storageBootstrap.defaultWorkingDirectory?.path
     }
 
-    private var takesWords: Bool {
-        info?.installed ?? true
-    }
-
     private var ready: Bool {
         info == nil ? choice.agent == nil : plan.line != nil
     }
 
-    private var suggestion: String {
-        let hints = info == nil ? LauncherMenu.commandHints : LauncherMenu.promptHints
-        return hints[hint % hints.count]
+    private var hint: String {
+        info == nil ? String(localized: "Type a command") : String(localized: "Type a task")
+    }
+
+    private var roomName: String? {
+        roomId.flatMap { id in deps.missions.first { $0.id == id }?.name }
     }
 
     private var tabItems: [AgentTabs.Item] {
@@ -74,9 +67,9 @@ struct AgentLauncher: View {
     }
 
     var body: some View {
-        VStack(alignment: welcome ? .center : .leading, spacing: welcome ? 22 : 14) {
-            terminal
-            actions.arrive(delay: welcome && !opened ? 1.2 : 0.08)
+        VStack(alignment: centered ? .center : .leading, spacing: centered ? 22 : 14) {
+            card
+            actions
             if let error {
                 ErrorNote(message: error).frame(maxWidth: 520).transition(.opacity)
             }
@@ -84,220 +77,167 @@ struct AgentLauncher: View {
         .animation(theme.motion.spring, value: choice)
         .animation(theme.motion.spring, value: launcher.catalog)
         .task { await launcher.refresh() }
-        .task(id: choice.agent) {
+        .task(id: "\(choice.agent ?? "")|\(info?.installed == true)") {
             if let agent = choice.agent {
                 await launcher.loadModels(agent)
             }
         }
-        .task(id: "\(choice.agent ?? "")|\(prompt.isEmpty)|\(takesWords)") { await typeHints() }
-        .onAppear(perform: grow)
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            Task { await launcher.refresh() }
-        }
     }
 
-    private func grow() {
-        focus += 1
-        guard !Self.seeded else { return }
-        Self.seeded = true
-        guard welcome, !theme.motion.reduced else {
-            seed = 1
-            opened = true
-            return
-        }
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(450))
-            withAnimation(.spring(duration: 0.95, bounce: 0.1)) { seed = 1 }
-            try? await Task.sleep(for: .milliseconds(620))
-            withAnimation(theme.motion.spring) { opened = true }
-            focus += 1
-        }
+    private var card: some View {
+        let shape = RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+        return terminal
+            .frame(width: Self.width)
+            .clipShape(shape)
+            .background {
+                shape.fill(TerminalInk.body)
+                    .shadow(color: theme.colors.shadow.opacity(theme.isDark ? 0.5 : 0.16), radius: 12, x: 3, y: 7)
+            }
+            .overlay { shape.strokeBorder(theme.colors.hairline.opacity(theme.isDark ? 0.7 : 0.9), lineWidth: 0.5).allowsHitTesting(false) }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("launcher.preview")
     }
 
     private var terminal: some View {
-        let shape = RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-        let cursor = CGRect(x: 16, y: Self.bandHeight + 18, width: 9, height: 18)
-        return VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .bottom, spacing: 8) {
-                if opened {
-                    AgentTabs(
-                        items: tabItems, selection: choice.agent ?? "shell",
-                        hidden: (launcher.catalog?.agents ?? []).count { !$0.installed && $0.agent != choice.agent },
-                        fresh: launcher.fresh, showsAll: $showsAll
-                    ) { id in
-                        update { $0.agent = id == "shell" ? nil : id }
-                        showsMore = false
-                        menu = nil
-                    }
-                    .transition(.opacity)
-                    Spacer(minLength: 8)
-                    HStack(spacing: 5) {
-                        DeviceGlyph(label: String(localized: "This Mac"))
-                        Text("This Mac")
-                    }
-                    .appTextStyle(.footnote).foregroundStyle(ink.inkMuted)
-                    .padding(.bottom, 11)
-                    .transition(.opacity)
+                AgentTabs(
+                    items: tabItems, selection: choice.agent ?? "shell",
+                    hidden: (launcher.catalog?.agents ?? []).count { !$0.installed && $0.agent != choice.agent },
+                    showsAll: $showsAll
+                ) { id in
+                    update { $0.agent = id == "shell" ? nil : id }
+                    closeMenu()
                 }
+                Spacer(minLength: 8)
+                place
             }
             .padding(.horizontal, 10)
             .frame(maxWidth: .infinity, minHeight: Self.bandHeight, maxHeight: Self.bandHeight, alignment: .bottomLeading)
             .background(TerminalInk.band)
-            VStack(alignment: .leading, spacing: 8) {
-                if opened {
-                    commandLine
-                    if let menu {
-                        menuView(menu)
-                    } else if let identity = info?.installed == true ? plan.account?.identity : nil {
-                        Text(verbatim: "# \(identity)")
-                            .appTextStyle(.mono)
-                            .foregroundStyle(ink.inkFaint)
-                            .lineLimit(1).truncationMode(.middle)
-                            .transition(.opacity.combined(with: .offset(y: -4)))
-                    }
+            LauncherCommandLine(info: info, prompt: $prompt, hint: hint, focus: focus + focusRequest, submit: start) {
+                folderKey
+            } choices: {
+                if let info, info.accounts.count > 1 || info.addsAccounts {
+                    accountKey(info).transition(AnyTransition.pop)
+                }
+                if let info, plan.listsModels || !plan.efforts.isEmpty {
+                    modelKey(info).transition(AnyTransition.pop)
                 }
             }
-            .coordinateSpace(.named(Self.bodySpace))
-            .padding(.horizontal, Self.inset).padding(.top, 14).padding(.bottom, 18)
-            .frame(maxWidth: .infinity, minHeight: welcome ? 150 : 104, alignment: .topLeading)
+            .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 18)
+            .frame(maxWidth: .infinity, minHeight: centered ? 124 : 92, alignment: .topLeading)
             .background(TerminalInk.body)
             .contentShape(Rectangle())
-            .onTapGesture {
-                if menu == nil {
-                    focus += 1
-                } else {
-                    closeMenu()
-                }
-            }
-        }
-        .overlay(alignment: .topLeading) {
-            if seed == 0 {
-                CursorBlock(width: cursor.width, height: cursor.height)
-                    .offset(x: cursor.minX, y: cursor.minY)
-                    .transition(.opacity.animation(.easeOut(duration: 0.15)))
-            }
+            .onTapGesture { focusRequest += 1 }
         }
         .terminalScope()
-        .frame(width: Self.width)
-        .clipShape(shape)
-        .background {
-            shape.fill(TerminalInk.body)
-                .shadow(color: theme.colors.shadow.opacity(theme.isDark ? 0.5 : 0.16), radius: 12, x: 3, y: 7)
-        }
-        .overlay { shape.strokeBorder(theme.colors.hairline.opacity(theme.isDark ? 0.7 : 0.9), lineWidth: 0.5).allowsHitTesting(false) }
-        .mask { SeedMask(progress: seed, cursor: cursor, radius: Radius.lg) }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("launcher.preview")
     }
 
-    private var commandLine: some View {
-        FlowLayout(spacing: 6) {
-            folderToken
-            Text(verbatim: "❯")
-                .foregroundStyle(ink.accent)
-                .frame(height: 26)
-            if let info {
-                if info.installed {
-                    agentTokens(info)
-                } else {
-                    TypedText(text: info.install)
-                        .foregroundStyle(ink.inkMuted)
-                        .frame(height: 26)
-                    PromptCursor(line: info.install)
-                        .frame(height: 26)
-                }
-            }
-            if takesWords {
-                PromptField(
-                    text: $prompt, ghost: ghost, suggestion: suggestion,
-                    label: info == nil ? String(localized: "Command") : String(localized: "First prompt"),
-                    focus: focus, submit: start
-                )
-                .layoutValue(key: FillsRow.self, value: 150)
-                .accessibilityIdentifier("launcher.prompt")
+    private var place: some View {
+        HStack(spacing: 5) {
+            DeviceGlyph(label: String(localized: "This Mac"))
+            Text("This Mac")
+            if let roomName {
+                Text(verbatim: "·")
+                RoomSigil(key: roomId ?? "", size: 13)
+                Text(roomName).lineLimit(1)
             }
         }
-        .font(.system(size: 13, weight: .medium, design: .monospaced))
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .animation(theme.motion.spring, value: plan.line)
+        .appTextStyle(.footnote).foregroundStyle(ink.inkMuted)
+        .padding(.bottom, 11)
     }
 
-    @ViewBuilder
-    private func agentTokens(_ info: AgentInfo) -> some View {
-        let plan = plan
-        if let account = plan.account {
-            let named = account.command == account.name
-            CommandToken(
-                text: named ? account.name : info.program, badge: named ? nil : account.name, tint: info.kind.tint,
-                open: menu == .account, identifier: "launcher.account", help: "Account"
-            ) { toggle(.account) }
-                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named(Self.bodySpace)).minX } action: { keys[.account] = $0 }
+    private var folderKey: some View {
+        PickerKey(
+            title: directory.map(folderName) ?? "~", open: menu == .folder, identifier: "launcher.folder",
+            label: String(localized: "Folder"), help: directory.map(tilde)
+        ) {
+            Image(systemName: "folder.fill").font(.system(size: 10, weight: .semibold)).foregroundStyle(TileTint.teal)
+        } action: {
+            toggle(.folder)
         }
-        if plan.modelArgument != nil || (showsMore && plan.listsModels) {
-            CommandToken(
-                text: plan.modelArgument ?? String(localized: "model"), slot: plan.modelArgument == nil,
-                loading: plan.models == nil && launcher.loadingModels.contains(info.agent),
-                open: menu == .model, identifier: "launcher.model", help: "Model"
-            ) { toggle(.model) }
-                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named(Self.bodySpace)).minX } action: { keys[.model] = $0 }
-                .transition(AnyTransition.pop)
-        }
-        if plan.effortArgument != nil || (showsMore && !plan.efforts.isEmpty) {
-            CommandToken(
-                text: plan.effortArgument ?? String(localized: "effort"), slot: plan.effortArgument == nil,
-                open: menu == .effort, identifier: "launcher.effort", help: "Effort"
-            ) { toggle(.effort) }
-                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named(Self.bodySpace)).minX } action: { keys[.effort] = $0 }
-                .transition(AnyTransition.pop)
-        }
-        if !showsMore, (plan.modelArgument == nil && plan.listsModels) || (plan.effortArgument == nil && !plan.efforts.isEmpty) {
-            MoreKey {
-                withAnimation(theme.motion.spring) { showsMore = true }
-            }
+        .kodosiPopover(isPresented: presented(.folder), alignment: .leading) {
+            PickerList(
+                rows: LauncherMenu.folder.rows(plan, recents: recentFolders(deps, chosen: folder), directory: directory, loading: false),
+                identifier: "launcher.list.folder", width: 300, pick: pick, close: closeMenu
+            )
         }
     }
 
-    private var folderToken: some View {
-        CommandToken(
-            text: directory.map(folderName) ?? "~", symbol: "folder.fill", tint: TerminalInk.path,
-            open: menu == .folder, identifier: "launcher.folder", help: "Folder"
-        ) { toggle(.folder) }
-            .frame(maxWidth: 240, alignment: .leading)
-            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named(Self.bodySpace)).minX } action: { keys[.folder] = $0 }
-    }
-
-    private func menuView(_ menu: LauncherMenu) -> some View {
-        let room = Self.width - Self.inset * 2
-        let x = min(keys[menu] ?? 0, room - 400)
-        return Group {
-            if adding, menu == .account, let info {
-                NewAccountLine(
-                    folder: info.accounts.first?.folder ?? "~/.\(info.program)", error: addError, saving: saving
-                ) { add($0, to: info) } cancel: {
-                    withAnimation(theme.motion.snappy) {
-                        adding = false
-                        addError = nil
-                    }
-                }
+    private func accountKey(_ info: AgentInfo) -> some View {
+        let account = plan.account
+        let title = account?.title(program: info.program) ?? ""
+        return PickerKey(
+            title: title, open: menu == .account, identifier: "launcher.account",
+            label: String(localized: "Account"), help: account?.identity
+        ) {
+            AccountMark(initial: String(title.prefix(1)), key: account?.signIn ?? "", signedIn: account?.identity != nil, size: 16)
+        } action: {
+            toggle(.account)
+        }
+        .kodosiPopover(isPresented: presented(.account), alignment: .leading) {
+            if adding {
+                NewAccountForm(
+                    agent: info.kind.label, folder: info.accounts.first?.folder ?? "~/.\(info.program)", error: addError, saving: saving
+                ) { add($0, to: info) }
             } else {
-                TerminalMenu(
-                    lines: menu.lines(plan, recents: recentFolders(deps, chosen: folder), directory: directory,
-                                      loading: info.map { launcher.loadingModels.contains($0.agent) } ?? false),
-                    room: room - x, identifier: "launcher.list.\(menu.rawValue)", pick: pick
-                ) {
-                    if !adding {
+                PickerList(
+                    rows: LauncherMenu.account.rows(plan, recents: [], directory: directory, loading: false),
+                    identifier: "launcher.list.account", width: 330, pick: pick, close: closeMenu
+                )
+            }
+        }
+    }
+
+    private func modelKey(_ info: AgentInfo) -> some View {
+        let named = plan.model?.label ?? plan.modelArgument.map { String($0.split(separator: " ").last ?? "") }
+        let level = plan.efforts.firstIndex { $0.argument == plan.effortArgument }
+        return PickerKey(
+            title: named ?? String(localized: "Model"), quiet: named == nil,
+            loading: plan.models == nil && launcher.loadingModels.contains(info.agent),
+            open: menu == .model, identifier: "launcher.model", label: String(localized: "Model and effort")
+        ) {
+            Image(systemName: "sparkle").font(.system(size: 9, weight: .bold)).foregroundStyle(info.kind.tint)
+        } accessory: {
+            if let level {
+                EffortBars(level: level, count: plan.efforts.count, height: 10)
+                    .transition(AnyTransition.pop)
+            }
+        } action: {
+            toggle(.model)
+        }
+        .kodosiPopover(isPresented: presented(.model), alignment: .leading) {
+            VStack(spacing: 0) {
+                PickerList(
+                    rows: LauncherMenu.model.rows(plan, recents: [], directory: directory, loading: launcher.loadingModels.contains(info.agent)),
+                    identifier: "launcher.list.model", width: 290, pick: pick, close: closeMenu
+                )
+                if !plan.efforts.isEmpty {
+                    Rectangle().fill(theme.colors.hairline.opacity(0.6)).frame(height: 0.5)
+                    EffortMeter(levels: plan.efforts, current: plan.effortArgument) { argument in
+                        update { $0.efforts[info.agent] = argument }
                         closeMenu()
                     }
                 }
             }
+            .frame(width: 290)
         }
-        .padding(.leading, max(0, x))
-        .transition(.opacity.combined(with: .offset(y: -6)))
+    }
+
+    private func presented(_ kind: LauncherMenu) -> Binding<Bool> {
+        Binding {
+            menu == kind
+        } set: { shown in
+            if !shown, menu == kind {
+                closeMenu()
+            }
+        }
     }
 
     private func toggle(_ kind: LauncherMenu) {
         guard menu != kind else { return closeMenu() }
-        withAnimation(theme.motion.spring) {
+        withAnimation(theme.motion.snappy) {
             menu = kind
             adding = false
             addError = nil
@@ -305,12 +245,13 @@ struct AgentLauncher: View {
     }
 
     private func closeMenu() {
-        withAnimation(theme.motion.spring) {
+        guard menu != nil else { return }
+        withAnimation(theme.motion.snappy) {
             menu = nil
             adding = false
             addError = nil
         }
-        focus += 1
+        focusRequest += 1
     }
 
     private func pick(_ id: String) {
@@ -332,8 +273,6 @@ struct AgentLauncher: View {
             update { $0.accounts[agent] = command }
         case let .model(argument):
             update { $0.models[agent] = argument }
-        case let .effort(argument):
-            update { $0.efforts[agent] = argument }
         }
         closeMenu()
     }
@@ -360,7 +299,7 @@ struct AgentLauncher: View {
                 HStack(spacing: 8) {
                     Text(startTitle)
                     Image(systemName: "return").font(.system(size: 11, weight: .bold)).opacity(0.6)
-                        .symbolEffect(.bounce, value: prompt.isEmpty)
+                        .bounce(on: prompt.isEmpty)
                 }
                 .shimmer(starting)
             }
@@ -370,7 +309,10 @@ struct AgentLauncher: View {
             .accessibilityIdentifier("launcher.start")
             IconButton(
                 title: "Resume a conversation", symbol: "clock.arrow.circlepath", identifier: "launcher.resume", size: 32
-            ) { deps.workbench.showsHistory = true }
+            ) {
+                deps.workbench.launcher = nil
+                deps.workbench.showsHistory = true
+            }
         }
     }
 
@@ -382,22 +324,7 @@ struct AgentLauncher: View {
     private func update(_ change: (inout LaunchChoice) -> Void) {
         change(&deps.settings.launchChoice)
         deps.settings.saveLaunchChoice()
-        focus += 1
-    }
-
-    private func typeHints() async {
-        ghost = ""
-        guard prompt.isEmpty, takesWords else { return }
-        guard !theme.motion.reduced else {
-            ghost = suggestion
-            return
-        }
-        try? await Task.sleep(for: .milliseconds(1200))
-        for character in suggestion {
-            guard !Task.isCancelled else { return }
-            ghost.append(character)
-            try? await Task.sleep(for: .milliseconds(character == " " ? 120 : Int.random(in: 38 ... 90)))
-        }
+        focusRequest += 1
     }
 
     private func start() {
@@ -420,8 +347,11 @@ struct AgentLauncher: View {
         Task { @MainActor in
             defer { starting = false }
             do {
-                try await deps.createSession(name: generateSessionName(), directory: directory, command: command, prompt: first)
+                try await deps.createSession(
+                    name: generateSessionName(), directory: directory, roomId: roomId, command: command, prompt: first
+                )
                 prompt = ""
+                started()
             } catch {
                 withAnimation(theme.motion.fade) { self.error = error.localizedDescription }
             }

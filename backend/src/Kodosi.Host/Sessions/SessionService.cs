@@ -1,85 +1,67 @@
 using Kodosi.Data;
 using Kodosi.Devices;
-using Kodosi.TerminalConnections;
 using Kodosi.Missions;
 using Kodosi.Plans;
+using Kodosi.TerminalConnections;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.Sessions;
 
-public sealed class SessionService(KodosiDbContext db, ConnectionDirectory connections,
-    DeviceService devices, MissionService missions, TimeProvider clock, PlanCatalog plans)
+public sealed class SessionService(KodosiDbContext db, ConnectionDirectory connections, MissionService missions, TimeProvider clock, PlanCatalog plans)
 {
-    public async Task<Session> AuthorizedAsync(Guid id, Guid userId, CancellationToken ct)
-    {
-        var session = await db.Sessions.SingleOrDefaultAsync(x => x.Id == id && !x.Ended, ct) ?? throw ApiException.Missing();
-        if (session.OwnerUserId != userId && !(await AudienceAsync(session, ct)).Contains(userId))
-            throw ApiException.Missing();
-        return session;
-    }
-    public async Task<Session> OwnerAsync(Guid id, Guid userId, string deviceId, CancellationToken ct)
+    /// <summary>How long the record of an ended terminal stays, so that a late request cannot use its identity again.</summary>
+    public static readonly TimeSpan EndedRecordLife = TimeSpan.FromMinutes(2);
+
+    public async Task<Session> AuthorizedAsync(Guid id, Guid userId, CancellationToken ct) =>
+        await db.Sessions.Where(x => x.Id == id && !x.Ended).UsableBy(db, userId).SingleOrDefaultAsync(ct) ?? throw ApiException.Missing();
+
+    public async Task<Session> OwnerAsync(Guid id, Guid userId, CancellationToken ct)
     {
         var session = await AuthorizedAsync(id, userId, ct);
-        if (session.OwnerUserId != userId) throw ApiException.Forbidden("Only the owner may change this publication.");
-        await devices.RequireDeviceAsync(userId, deviceId, ct);
-        return session;
+        return session.OwnerUserId == userId ? session : throw ApiException.Forbidden("Only the owner may change this publication.");
     }
+
     public async Task<Session> HostAsync(Guid id, Guid userId, string deviceId, CancellationToken ct)
     {
-        var session = await OwnerAsync(id, userId, deviceId, ct);
-        if (session.HostDeviceId != deviceId) throw ApiException.Forbidden("Only the hosting device may change this publication.");
-        return session;
+        var session = await OwnerAsync(id, userId, ct);
+        return session.HostDeviceId == deviceId ? session : throw ApiException.Forbidden("Only the hosting device may change this publication.");
     }
-    public async Task<SessionDto> DescribeAsync(Session session, CancellationToken ct)
-    {
-        var owner = await db.Users.AsNoTracking().SingleAsync(x => x.Id == session.OwnerUserId, ct);
-        var shared = (await AudienceAsync(session, ct)).Where(user => user != session.OwnerUserId).ToArray();
-        var mission = session.MissionId is { } missionId ? await db.Missions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == missionId, ct) : null;
-        return new SessionDto(session.Id, session.IncarnationId, session.Name, session.OwnerUserId, owner.DisplayName,
-            session.HostDeviceId, session.HostName, session.MissionId, mission?.Name, shared, session.AuthorizationRevision,
-            connections.HostOnline(session.Id), connections.Status(session.Id));
-    }
-    public async Task AnnounceAsync(Guid id, CancellationToken ct)
-    {
-        var session = await db.Sessions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id && !x.Ended, ct);
-        if (session is not null) connections.NotifyTerminal(session, await AudienceAsync(session, ct));
-    }
+
+    public async Task<SessionDto> DescribeAsync(Session session, CancellationToken ct) =>
+        (await DescribeAsync(db.Sessions.Where(x => x.Id == session.Id), 1, ct)).Single();
+
     public async Task<IReadOnlyList<SessionDto>> ListAsync(Guid userId, CancellationToken ct)
     {
-        var sessions = await (from session in db.Sessions.AsNoTracking()
-            where !session.Ended && (session.OwnerUserId == userId
-                || (session.MissionId == null && db.SessionMembers.Any(m => m.SessionId == session.Id && m.UserId == userId))
-                || db.Missions.Any(r => r.Id == session.MissionId && (r.OwnerUserId == userId
-                    || db.MissionMembers.Any(m => m.MissionId == r.Id && m.UserId == userId))))
-            join owner in db.Users on session.OwnerUserId equals owner.Id
-            join mission in db.Missions on session.MissionId equals mission.Id into missionsById
-            from mission in missionsById.DefaultIfEmpty()
-            orderby session.CreatedAt, session.Id
-            select new { Session = session, OwnerName = owner.DisplayName, MissionName = mission == null ? null : mission.Name })
-            .Take(4097).ToListAsync(ct);
-        if (sessions.Count > 4096) throw ApiException.Conflict("The session catalog exceeds its display limit.");
-        var ids = sessions.Select(x => x.Session.Id).ToArray();
-        var members = await db.SessionMembers.AsNoTracking().Where(x => ids.Contains(x.SessionId))
-            .Select(x => new { x.SessionId, x.UserId }).ToListAsync(ct);
-        var shared = members.ToLookup(x => x.SessionId, x => x.UserId);
-        var roomIds = sessions.Where(x => x.Session.MissionId != null).Select(x => x.Session.MissionId!.Value).Distinct().ToArray();
-        var roomMembers = await db.MissionMembers.AsNoTracking().Where(x => roomIds.Contains(x.MissionId))
-            .Select(x => new { x.MissionId, x.UserId }).ToListAsync(ct);
-        var roomOwners = await db.Missions.AsNoTracking().Where(x => roomIds.Contains(x.Id))
-            .Select(x => new { MissionId = x.Id, UserId = x.OwnerUserId }).ToListAsync(ct);
-        var audiences = roomMembers.Concat(roomOwners).ToLookup(x => x.MissionId, x => x.UserId);
-        return sessions.Select(x => new SessionDto(x.Session.Id, x.Session.IncarnationId, x.Session.Name,
-            x.Session.OwnerUserId, x.OwnerName, x.Session.HostDeviceId, x.Session.HostName,
-            x.Session.MissionId, x.MissionName,
-            (x.Session.MissionId is { } room ? audiences[room] : shared[x.Session.Id])
-                .Where(user => user != x.Session.OwnerUserId).Distinct().ToArray(), x.Session.AuthorizationRevision,
-            connections.HostOnline(x.Session.Id), connections.Status(x.Session.Id))).ToArray();
+        var usable = TerminalAccess.People(db).Where(x => x.UserId == userId).Select(x => x.SessionId);
+        var sessions = await DescribeAsync(db.Sessions.Where(x => !x.Ended && usable.Contains(x.Id)), Limits.SessionCatalog + 1, ct);
+        if (sessions.Count > Limits.SessionCatalog) throw ApiException.Conflict("The session catalog exceeds its display limit.");
+        return sessions;
     }
-    public async Task<SessionDto> CreateAsync(Guid userId, Device device, CreateSession body, CancellationToken ct)
+
+    private async Task<List<SessionDto>> DescribeAsync(IQueryable<Session> sessions, int most, CancellationToken ct)
+    {
+        var rows = await (from session in sessions.AsNoTracking()
+                          join owner in db.Users on session.OwnerUserId equals owner.Id
+                          join room in db.Missions on session.MissionId equals (Guid?)room.Id into rooms
+                          from room in rooms.DefaultIfEmpty()
+                          orderby session.CreatedAt, session.Id
+                          select new { Session = session, OwnerName = owner.DisplayName, MissionName = room == null ? null : room.Name })
+            .Take(most).ToListAsync(ct);
+        var people = await TerminalAccess.PeopleAsync(db, rows.Select(x => x.Session.Id).ToArray(), ct);
+        return rows.Select(row =>
+        {
+            var session = row.Session;
+            var (online, status) = connections.Live(session.Id);
+            return new SessionDto(session.Id, session.IncarnationId, session.Name, session.OwnerUserId, row.OwnerName, session.HostDeviceId,
+                session.HostName, session.MissionId, row.MissionName, people[session.Id].Where(user => user != session.OwnerUserId).ToArray(),
+                session.AuthorizationRevision, online, status);
+        }).ToList();
+    }
+
+    public async Task<SessionDto> CreateAsync(Guid userId, ApprovedDevice device, CreateSession body, CancellationToken ct)
     {
         Limits.Id(body.Id, "Session ID"); Limits.Id(body.IncarnationId, "Incarnation ID");
         if (body.HostDeviceId != device.Id) throw ApiException.Forbidden("The hosting device proof must match.");
-        await devices.RequireDeviceAsync(userId, device.Id, ct);
         var existing = await db.Sessions.SingleOrDefaultAsync(x => x.Id == body.Id, ct);
         if (existing is not null)
         {
@@ -91,6 +73,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
             throw ApiException.Conflict("Too many published sessions.");
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         if (body.MissionId is { } missionId) await missions.RequireMemberForUpdateAsync(missionId, userId, ct);
+        var now = clock.GetUtcNow();
         var session = new Session
         {
             Id = body.Id,
@@ -100,61 +83,61 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
             HostName = Limits.Text(body.HostName, "Host name", 128),
             Name = Limits.Text(body.Name, "Session name", 128),
             MissionId = body.MissionId,
-            ExpiresAt = clock.GetUtcNow() + PublicationCleanup.GracePeriod,
-            CreatedAt = clock.GetUtcNow()
+            ExpiresAt = now + EndedRecordLife,
+            CreatedAt = now
         };
         db.Sessions.Add(session); await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
-        await NotifyAsync(session, ct);
-        return await DescribeAsync(session, ct);
+        return await DescribeAndNotifyAsync(session, ct);
     }
-    public async Task<SessionDto> RenameAsync(Guid id, Guid userId, string deviceId, RenameSession body, CancellationToken ct)
+
+    public async Task<SessionDto> RenameAsync(Guid id, Guid userId, RenameSession body, CancellationToken ct)
     {
-        var session = await OwnerAsync(id, userId, deviceId, ct); Match(session, body.IncarnationId, body.ExpectedRevision);
-        session.Name = Limits.Text(body.Name, "Session name", 128); await db.SaveChangesAsync(ct); await NotifyAsync(session, ct);
-        return await DescribeAsync(session, ct);
+        var session = await OwnerAsync(id, userId, ct); Match(session, body.IncarnationId, body.ExpectedRevision);
+        session.Name = Limits.Text(body.Name, "Session name", 128);
+        await db.SaveChangesAsync(ct);
+        return await DescribeAndNotifyAsync(session, ct);
     }
-    public async Task<SessionDto> AttachAsync(Guid id, Guid userId, string deviceId, AttachSession body, CancellationToken ct)
+
+    public async Task<SessionDto> AttachAsync(Guid id, Guid userId, AttachSession body, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         if (body.MissionId is { } missionId) await missions.RequireMemberForUpdateAsync(missionId, userId, ct);
-        var session = await OwnerAsync(id, userId, deviceId, ct); Incarnation(session, body.IncarnationId);
-        var previous = await AudienceAsync(session, ct);
+        var session = await OwnerAsync(id, userId, ct); Incarnation(session, body.IncarnationId);
         if (session.MissionId == body.MissionId) return await DescribeAsync(session, ct);
+        var before = await TerminalAccess.PeopleAsync(db, id, ct);
         await db.SessionMembers.Where(x => x.SessionId == id).ExecuteDeleteAsync(ct);
         session.MissionId = body.MissionId;
         session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
-        var audience = await AudienceAsync(session, ct);
-        connections.Revoke(session, (user, _) => audience.Contains(user));
-        foreach (var user in previous.Concat(audience).Distinct()) connections.Notify(user, "sessions");
-        return await DescribeAsync(session, ct);
+        await TerminalAccess.RevokeAsync(db, connections, [session], ct);
+        var described = await DescribeAsync(session, ct);
+        connections.Notify(before.Concat(described.SharedWith).Append(userId), "sessions");
+        return described;
     }
+
     public async Task<SessionDto> ShareAsync(Guid id, Guid userId, string deviceId, ShareSession body, CancellationToken ct)
     {
         var session = await HostAsync(id, userId, deviceId, ct); Match(session, body.IncarnationId, body.ExpectedRevision);
         if (session.MissionId is not null) throw ApiException.Conflict("This terminal is shared with its room. Remove it from the room to share it individually.");
         if (body.UserIds is null || body.UserIds.Length > Limits.MaxSessionMembers || body.UserIds.Any(x => x == Guid.Empty || x == userId))
             throw ApiException.Invalid("Choose up to 64 friends, excluding yourself.");
-        var selected = body.UserIds.Distinct().ToHashSet();
+        var selected = body.UserIds.ToHashSet();
         var most = (await plans.LimitsAsync(db, userId, ct)).SharePeople;
         if (selected.Count > most) throw ApiException.Limited("share-people", $"You can share a terminal with at most {Limits.Count(most, "person", "people")}.");
-        var accepted = await db.Friendships.AsNoTracking()
-            .Where(x => x.Accepted && ((x.FirstUserId == userId && selected.Contains(x.SecondUserId))
-                || (x.SecondUserId == userId && selected.Contains(x.FirstUserId))))
-            .Select(x => x.FirstUserId == userId ? x.SecondUserId : x.FirstUserId).ToListAsync(ct);
-        if (!selected.SetEquals(accepted)) throw ApiException.Forbidden("Session recipients must be accepted friends.");
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        if (!selected.SetEquals(await LockFriendshipsAsync(userId, [.. selected], ct))) throw ApiException.Forbidden("Session recipients must be accepted friends.");
         var existing = await db.SessionMembers.Where(x => x.SessionId == id).ToListAsync(ct);
         if (selected.SetEquals(existing.Select(x => x.UserId))) return await DescribeAsync(session, ct);
         var affected = existing.Select(x => x.UserId).Union(selected).Append(userId).ToArray();
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
         db.SessionMembers.RemoveRange(existing.Where(x => !selected.Contains(x.UserId)));
         foreach (var recipient in selected.Except(existing.Select(x => x.UserId))) db.SessionMembers.Add(new SessionMember { SessionId = id, UserId = recipient });
-        bool Keep(Guid user, string device) => user == userId || selected.Contains(user);
         session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
-        connections.Revoke(session, Keep); foreach (var recipient in affected) connections.Notify(recipient, "sessions");
+        await TerminalAccess.RevokeAsync(db, connections, [session], ct);
+        connections.Notify(affected, "sessions");
         return await DescribeAsync(session, ct);
     }
+
     public async Task LeaveAsync(Guid id, Guid userId, LeaveSession body, CancellationToken ct)
     {
         var session = await AuthorizedAsync(id, userId, ct); Match(session, body.IncarnationId, body.ExpectedRevision);
@@ -162,11 +145,13 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         if (session.MissionId is not null) throw ApiException.Conflict("Leave the room to leave its shared terminals.");
         var member = await db.SessionMembers.SingleOrDefaultAsync(x => x.SessionId == id && x.UserId == userId, ct) ?? throw ApiException.Missing();
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        bool Keep(Guid user, string device) => user != userId;
-        db.SessionMembers.Remove(member); session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
-        await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct); connections.Revoke(session, Keep);
-        await NotifyAsync(session, ct); connections.Notify(userId, "sessions");
+        db.SessionMembers.Remove(member);
+        session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
+        await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
+        await TerminalAccess.RevokeAsync(db, connections, [session], ct);
+        connections.Notify((await TerminalAccess.PeopleAsync(db, id, ct)).Append(userId), "sessions");
     }
+
     public async Task EndAsync(Guid id, Guid userId, string deviceId, Guid incarnationId, CancellationToken ct)
     {
         var session = await db.Sessions.SingleOrDefaultAsync(x => x.Id == id, ct);
@@ -175,22 +160,30 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         Incarnation(session, incarnationId);
         if (session.Ended) return;
         session.Ended = true;
-        session.ExpiresAt = clock.GetUtcNow() + PublicationCleanup.GracePeriod;
-        await db.SaveChangesAsync(ct); connections.RemoveSession(id);
-        await NotifyAsync(session, ct);
+        session.ExpiresAt = clock.GetUtcNow() + EndedRecordLife;
+        await db.SaveChangesAsync(ct);
+        connections.RemoveSession(id);
+        connections.Notify(await TerminalAccess.PeopleAsync(db, id, ct), "sessions");
     }
-    private async Task<HashSet<Guid>> AudienceAsync(Session session, CancellationToken ct)
+
+    /// <summary>
+    /// The accepted friends among <paramref name="people"/>, with their friendships locked until the transaction ends,
+    /// so that an unfriend at the same time waits and then also removes this share.
+    /// </summary>
+    private async Task<List<Guid>> LockFriendshipsAsync(Guid userId, Guid[] people, CancellationToken ct) =>
+        (await db.Friendships.FromSqlInterpolated($"""
+            SELECT * FROM friendships WHERE "Accepted"
+              AND (("FirstUserId" = {userId} AND "SecondUserId" = ANY({people})) OR ("SecondUserId" = {userId} AND "FirstUserId" = ANY({people})))
+            FOR SHARE
+            """).AsNoTracking().ToListAsync(ct)).Select(x => x.FirstUserId == userId ? x.SecondUserId : x.FirstUserId).ToList();
+
+    private async Task<SessionDto> DescribeAndNotifyAsync(Session session, CancellationToken ct)
     {
-        var audience = session.MissionId is { } room
-            ? await missions.MemberIdsAsync(room, ct)
-            : await db.SessionMembers.Where(x => x.SessionId == session.Id).Select(x => x.UserId).ToListAsync(ct);
-        audience.Add(session.OwnerUserId);
-        return audience.ToHashSet();
+        var described = await DescribeAsync(session, ct);
+        connections.Notify(described.SharedWith.Append(described.OwnerUserId), "sessions");
+        return described;
     }
-    private async Task NotifyAsync(Session session, CancellationToken ct)
-    {
-        foreach (var user in await AudienceAsync(session, ct)) connections.Notify(user, "sessions");
-    }
+
     internal static void Incarnation(Session session, Guid expected)
     { if (expected == Guid.Empty || session.IncarnationId != expected) throw ApiException.Conflict("This session publication was replaced."); }
     internal static void Match(Session session, Guid incarnation, long revision)

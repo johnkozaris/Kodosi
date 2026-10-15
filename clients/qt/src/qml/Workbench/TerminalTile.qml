@@ -171,16 +171,16 @@ Item {
                     Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
 
                     Repeater {
-                        model: root.session.atPrompt === true ? Models.DesktopSettings.startCommands.filter(command => command.command.trim().length > 0) : []
+                        model: root.session.atPrompt === true ? Models.Launcher.agents.filter(agent => agent.installed) : []
 
                         delegate: StartMark {
                             required property var modelData
 
-                            command: modelData
+                            agent: modelData.agent
                             onTerminal: true
-                            objectName: root.objectName + ".start." + modelData.id
+                            objectName: root.objectName + ".start." + modelData.agent
                             Accessible.id: objectName
-                            onClicked: Models.SessionActions.run(root.sessionId, modelData.command)
+                            onClicked: Models.SessionActions.run(root.sessionId, (Models.Launcher.plans[modelData.agent] || {}).line || "")
                         }
                     }
                     KIconButton {
@@ -395,7 +395,7 @@ Item {
         Raised {
             anchors.fill: parent
             radius: KodosiTheme.radiusLg
-            fill: "#2e241f"
+            fill: KodosiTheme.terminalLifted
             elevation: 2
         }
         RowLayout {
@@ -415,7 +415,7 @@ Item {
             id: join
             NumberAnimation { target: joinCard; property: "opacity"; to: 1; duration: KodosiTheme.motionFade }
             PauseAnimation { duration: 3200 }
-            NumberAnimation { target: joinCard; property: "opacity"; to: 0; duration: 500 }
+            NumberAnimation { target: joinCard; property: "opacity"; to: 0; duration: KodosiTheme.reduceMotion ? 0 : 500 }
         }
     }
     KPopover {

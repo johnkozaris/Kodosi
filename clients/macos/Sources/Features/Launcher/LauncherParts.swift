@@ -41,104 +41,51 @@ struct TypedText: View {
 enum TerminalInk {
     static let body = hex(0x0D0B09)
     static let band = hex(0x1A1512)
-    static let key = hex(0x2A221E)
-    static let keyLit = hex(0x352B26)
     static let path = hex(0x5DAFA6)
 }
 
-struct ChipFace: View {
-    var lit = false
-
-    var body: some View {
-        BezelBackground(
-            shape: RoundedRectangle(cornerRadius: Radius.xs, style: .continuous),
-            fill: lit ? TerminalInk.keyLit : TerminalInk.key, bezel: .quiet
-        )
-    }
-}
-
-struct CommandToken: View {
+struct LauncherCommandLine<Folder: View, Choices: View>: View {
     @Environment(\.theme) private var theme
-    @State private var hovered = false
-    let text: String
-    var symbol: String?
-    var badge: String?
-    var slot = false
-    var tint: Color?
-    var loading = false
-    var open = false
-    let identifier: String
-    let help: LocalizedStringKey
-    let action: () -> Void
+    let info: AgentInfo?
+    @Binding var prompt: String
+    let hint: String
+    let focus: Int
+    let submit: () -> Void
+    @ViewBuilder let folder: () -> Folder
+    @ViewBuilder let choices: () -> Choices
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 5) {
-                if let symbol {
-                    Image(systemName: symbol)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(tint ?? theme.colors.inkMuted)
-                        .symbolEffect(.bounce, value: text)
-                }
-                TypedText(text: text)
-                    .lineLimit(1).truncationMode(.middle)
-                    .foregroundStyle(foreground)
-                    .shimmer(loading)
-                if let badge {
-                    Text(verbatim: "· \(badge)")
+        FlowLayout(spacing: 6) {
+            folder()
+            Text(verbatim: "❯")
+                .foregroundStyle(theme.colors.accent)
+                .frame(height: 26)
+            if let info {
+                if info.installed {
+                    TypedText(text: info.program)
+                        .foregroundStyle(info.kind.tint.mix(with: .white, by: 0.35))
+                        .frame(height: 26)
+                    choices()
+                } else {
+                    TypedText(text: info.install)
                         .foregroundStyle(theme.colors.inkMuted)
-                        .lineLimit(1)
-                        .transition(.opacity.combined(with: .offset(x: -4)))
+                        .frame(height: 26)
+                    PromptCursor(line: info.install)
+                        .frame(height: 26)
                 }
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 7, weight: .heavy))
-                    .foregroundStyle(open ? theme.colors.accent : theme.colors.inkMuted)
-                    .rotationEffect(.degrees(open ? 180 : 0))
             }
-            .padding(.horizontal, 8).frame(height: 26)
-            .background { ChipFace(lit: hovered || open) }
-            .offset(y: hovered && !open ? -0.5 : 0)
-            .contentShape(Rectangle())
+            if info?.installed ?? true {
+                PromptField(
+                    text: $prompt, hint: hint,
+                    label: info == nil ? String(localized: "Command") : String(localized: "First prompt"),
+                    focus: focus, submit: submit
+                )
+                .layoutValue(key: FillsRow.self, value: max(120, PromptTextView.width(hint: hint)))
+                .accessibilityIdentifier("launcher.prompt")
+            }
         }
-        .buttonStyle(PressScaleStyle(scale: 0.95))
-        .onHover { hovered = $0 }
-        .animation(theme.motion.hover, value: hovered)
-        .animation(theme.motion.snappy, value: open)
-        .help(help)
-        .accessibilityAddTraits(open ? .isSelected : [])
-        .accessibilityLabel(Text(help))
-        .accessibilityValue(Text(verbatim: [text, badge].compactMap(\.self).joined(separator: " ")))
-        .accessibilityIdentifier(identifier)
-    }
-
-    private var foreground: Color {
-        if slot {
-            return theme.colors.inkMuted
-        }
-        return tint.map { $0.mix(with: .white, by: 0.35) } ?? theme.colors.ink
-    }
-}
-
-struct MoreKey: View {
-    @Environment(\.theme) private var theme
-    @State private var hovered = false
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 11, weight: .heavy))
-                .foregroundStyle(theme.colors.inkMuted)
-                .frame(width: 30, height: 26)
-                .background { ChipFace(lit: hovered) }
-                .offset(y: hovered ? -0.5 : 0)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(PressScaleStyle(scale: 0.95))
-        .onHover { hovered = $0 }
-        .animation(theme.motion.hover, value: hovered)
-        .help("Model and effort")
-        .accessibilityIdentifier("launcher.moreChoices")
+        .font(.system(size: 13, weight: .medium, design: .monospaced))
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -150,7 +97,7 @@ struct PromptCursor: View {
     var body: some View {
         CursorBlock(width: 9, height: 18, blinks: false)
             .opacity(lit ? 1 : 0)
-            .task(id: line) {
+            .task(id: "\(line)|\(theme.motion.reduced)") {
                 lit = true
                 guard !theme.motion.reduced else { return }
                 try? await Task.sleep(for: .milliseconds(1100))
@@ -178,7 +125,6 @@ struct AgentTabs: View {
     let items: [Item]
     let selection: String
     let hidden: Int
-    let fresh: Set<String>
     @Binding var showsAll: Bool
     let select: (String) -> Void
 
@@ -207,12 +153,10 @@ struct AgentTabs: View {
             }
         }
         .animation(theme.motion.spring, value: items.map(\.id))
-        .animation(theme.motion.spring, value: fresh)
     }
 
     private func mark(_ item: Item) -> some View {
         let selected = item.id == selection
-        let arrived = fresh.contains(item.id) && !selected
         return Button {
             withAnimation(theme.motion.snappy) { select(item.id) }
         } label: {
@@ -224,21 +168,19 @@ struct AgentTabs: View {
                         SpringKeyframe(0.8, duration: 0.09, spring: .snappy)
                         SpringKeyframe(1.0, duration: 0.45, spring: .bouncy)
                     }
-                if selected || arrived {
+                if selected {
                     Text(item.title).appTextStyle(.subhead).fixedSize()
-                        .foregroundStyle(arrived ? theme.colors.accentStrong : item.installed ? theme.colors.ink : theme.colors.inkMuted)
+                        .foregroundStyle(item.installed ? theme.colors.ink : theme.colors.inkMuted)
                         .transition(.opacity.combined(with: .offset(x: -6)))
                 }
             }
-            .padding(.horizontal, selected || arrived ? 12 : 8)
+            .padding(.horizontal, selected ? 12 : 8)
             .frame(height: selected ? 34 : 30)
             .background {
                 if selected {
                     TabShape(radius: 9, flare: 8)
                         .fill(TerminalInk.body)
                         .matchedGeometryEffect(id: "tab", in: tab)
-                } else if arrived {
-                    Ripple(color: theme.colors.accent)
                 }
             }
             .hoverRow(radius: Radius.sm, selected: selected)
@@ -268,47 +210,5 @@ struct TabShape: Shape {
         path.addQuadCurve(to: CGPoint(x: rect.maxX + flare, y: rect.maxY), control: CGPoint(x: rect.maxX, y: rect.maxY))
         path.closeSubpath()
         return path
-    }
-}
-
-struct Ripple: View {
-    @Environment(\.theme) private var theme
-    let color: Color
-    @State private var out = false
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
-            .strokeBorder(color, lineWidth: 1.5)
-            .scaleEffect(out ? 1.25 : 1)
-            .opacity(out ? 0 : 1)
-            .onAppear {
-                guard !theme.motion.reduced else { return }
-                withAnimation(.easeOut(duration: 1.1).repeatCount(2, autoreverses: false)) { out = true }
-            }
-    }
-}
-
-struct SeedMask: Shape {
-    var progress: CGFloat
-    let cursor: CGRect
-    let radius: CGFloat
-
-    var animatableData: CGFloat {
-        get { progress }
-        set { progress = newValue }
-    }
-
-    func path(in rect: CGRect) -> Path {
-        let wide = min(1, max(0, progress / 0.45))
-        let tall = min(1, max(0, (progress - 0.45) / 0.55))
-        let line = CGRect(
-            x: cursor.minX + (rect.minX - cursor.minX) * wide, y: cursor.minY,
-            width: cursor.width + (rect.width - cursor.width) * wide, height: cursor.height
-        )
-        let frame = CGRect(
-            x: line.minX, y: line.minY + (rect.minY - line.minY) * tall,
-            width: line.width, height: line.height + (rect.height - line.height) * tall
-        )
-        return Path(roundedRect: frame, cornerRadius: 2 + (radius - 2) * tall, style: .continuous)
     }
 }

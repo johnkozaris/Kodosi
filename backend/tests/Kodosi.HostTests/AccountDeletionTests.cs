@@ -61,12 +61,12 @@ public sealed class AccountDeletionTests(PostgresFixture postgres)
         var scopes = app.Services.GetRequiredService<IServiceScopeFactory>();
         await using (var scope = scopes.CreateAsyncScope())
             await scope.ServiceProvider.GetRequiredService<AccountService>().ForgetAsync(BackendApplication.Issuer, "gone", clock.GetUtcNow(), ct);
-        using var cleanup = new Kodosi.Sessions.PublicationCleanup(scopes, clock, NullLogger<Kodosi.Sessions.PublicationCleanup>.Instance);
-        await cleanup.SweepAsync(ct);
+        using var cleanup = new Kodosi.Data.DataCleanup(scopes, clock, NullLogger<Kodosi.Data.DataCleanup>.Instance);
+        await cleanup.RunAsync(ct);
         await using (var scope = scopes.CreateAsyncScope())
             Assert.Single(await scope.ServiceProvider.GetRequiredService<Kodosi.Data.KodosiDbContext>().DeletedAccounts.ToListAsync(ct));
         clock.Advance(AccountService.DeletionMemory + TimeSpan.FromMinutes(1));
-        await cleanup.SweepAsync(ct);
+        await cleanup.RunAsync(ct);
         await using (var scope = scopes.CreateAsyncScope())
             Assert.Empty(await scope.ServiceProvider.GetRequiredService<Kodosi.Data.KodosiDbContext>().DeletedAccounts.ToListAsync(ct));
     }
@@ -112,8 +112,8 @@ public sealed class AccountDeletionTests(PostgresFixture postgres)
         var scopes = app.Services.GetRequiredService<IServiceScopeFactory>();
         using var feed = new AccountDeletionFeed(scopes, new Clients(keycloak), settings, TimeProvider.System, NullLogger<AccountDeletionFeed>.Instance);
 
-        await feed.PassAsync(ct);
-        await feed.PassAsync(ct);
+        await feed.RunAsync(ct);
+        await feed.RunAsync(ct);
 
         Assert.Equal(new[] { "Bearer " + FakeKeycloak.AccessToken }, keycloak.Authorizations.Distinct());
         Assert.Equal(1, keycloak.TokenRequests);

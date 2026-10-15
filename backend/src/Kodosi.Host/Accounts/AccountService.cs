@@ -1,6 +1,8 @@
 using Kodosi.Admission;
 using Kodosi.Data;
+using Kodosi.Missions;
 using Kodosi.Security;
+using Kodosi.Sessions;
 using Kodosi.TerminalConnections;
 using Microsoft.EntityFrameworkCore;
 
@@ -36,20 +38,16 @@ public sealed class AccountService(KodosiDbContext db, ConnectionDirectory conne
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         var friendships = await db.Friendships.Where(x => x.FirstUserId == userId || x.SecondUserId == userId).ToListAsync(ct);
         var owned = await db.Sessions.Where(x => x.OwnerUserId == userId).ToListAsync(ct);
-        var ownedIds = owned.Select(x => x.Id).ToArray();
-        var viewers = await db.SessionMembers.Where(x => ownedIds.Contains(x.SessionId)).Select(x => x.UserId).Distinct().ToListAsync(ct);
+        var others = await db.Sessions.UsableBy(db, userId).Where(x => x.OwnerUserId != userId && !x.Ended).ToListAsync(ct);
+        var viewers = (await TerminalAccess.PeopleAsync(db, owned.Select(x => x.Id).ToArray(), ct)).SelectMany(x => x).ToHashSet();
+        var rooms = RoomMembership.RoomsOf(db, userId, invited: true);
+        var roomPeople = await RoomMembership.People(db, invited: true).Where(x => rooms.Contains(x.MissionId)).Select(x => x.UserId).Distinct().ToListAsync(ct);
         var memberships = await db.SessionMembers.Where(x => x.UserId == userId).ToListAsync(ct);
-        var joinedIds = memberships.Select(x => x.SessionId).ToArray();
-        var joined = await db.Sessions.Where(x => joinedIds.Contains(x.Id)).ToListAsync(ct);
         var missions = await db.Missions.Where(x => x.OwnerUserId == userId).ToListAsync(ct);
-        var missionIds = missions.Select(x => x.Id).ToArray();
         var missionMemberships = await db.MissionMembers.Where(x => x.UserId == userId).ToListAsync(ct);
         var invitations = await db.MissionInvitations.Where(x => x.UserId == userId || x.InviterUserId == userId).ToListAsync(ct);
-        var touchedMissions = missionIds.Concat(missionMemberships.Select(x => x.MissionId)).Concat(invitations.Select(x => x.MissionId)).Distinct().ToArray();
-        var missionPeople = await db.MissionMembers.Where(x => touchedMissions.Contains(x.MissionId)).Select(x => x.UserId)
-            .Concat(db.MissionInvitations.Where(x => touchedMissions.Contains(x.MissionId)).Select(x => x.UserId)).Distinct().ToListAsync(ct);
         var devices = await db.Devices.Where(x => x.UserId == userId).ToListAsync(ct);
-        foreach (var session in joined) session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
+        foreach (var session in others) session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
         db.SessionMembers.RemoveRange(memberships);
         db.Sessions.RemoveRange(owned);
         db.MissionInvitations.RemoveRange(invitations);
@@ -66,12 +64,13 @@ public sealed class AccountService(KodosiDbContext db, ConnectionDirectory conne
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         deviceSessions.Remove(userId);
-        foreach (var session in owned) connections.RemoveSession(session.Id);
-        foreach (var session in joined) connections.Revoke(session, (member, _) => member != userId);
         foreach (var device in devices) connections.RemoveDevice(userId, device.Id);
-        foreach (var friend in friendships.Select(x => x.FirstUserId == userId ? x.SecondUserId : x.FirstUserId)) connections.Notify(friend, "friends");
-        foreach (var viewer in viewers) connections.Notify(viewer, "sessions");
-        foreach (var person in missionPeople.Where(x => x != userId)) { connections.Notify(person, "missions"); connections.Notify(person, "sessions"); }
+        foreach (var session in owned) connections.RemoveSession(session.Id);
+        await TerminalAccess.RevokeAsync(db, connections, others, ct);
+        var people = roomPeople.Where(x => x != userId).ToArray();
+        connections.Notify(friendships.Select(x => x.FirstUserId == userId ? x.SecondUserId : x.FirstUserId), "friends");
+        connections.Notify(people, "missions");
+        connections.Notify(viewers.Concat(people).Concat(others.Select(x => x.OwnerUserId)).Where(x => x != userId), "sessions");
     }
 
     private async Task RememberAsync(string issuer, string subject, DateTimeOffset deletedAt, CancellationToken ct)

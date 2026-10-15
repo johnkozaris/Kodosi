@@ -8,6 +8,8 @@ struct TerminalSettingsView: View {
     @State private var draft = DesktopSettings.TerminalSettings.defaults
     @State private var families: [String] = []
     @AppStorage(ThemePreference.storageKey) private var themePreference = ThemePreference.system.rawValue
+    @AppStorage(MotionPreference.storageKey) private var reducesMotion = false
+    @Environment(\.accessibilityReduceMotion) private var systemReducesMotion
 
     private var changed: Bool {
         draft.normalized() != deps.settings.terminalSettings
@@ -29,6 +31,20 @@ struct TerminalSettingsView: View {
                         SegmentOption(value: ThemePreference.dark.rawValue, title: String(localized: "Dark"), symbol: "moon"),
                     ], compact: true, identifier: "settings.appearance")
                 }
+                Toggle(isOn: systemReducesMotion ? .constant(true) : $reducesMotion) {
+                    HStack(spacing: 12) {
+                        IconTile(symbol: "wind", tint: TileTint.teal, size: 28).bounce(on: reducesMotion)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Reduce motion")
+                            if systemReducesMotion {
+                                Text("On in System Settings").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 14).frame(minHeight: 52)
+                .disabled(systemReducesMotion)
+                .accessibilityIdentifier("settings.reduceMotion")
                 ListRow(String(localized: "Font"), symbol: "textformat", tint: TileTint.blue) {
                     MenuPicker(title: "Font", selection: $draft.fontFamily, values: families, label: { $0 }, identifier: "settings.terminal.font")
                 }

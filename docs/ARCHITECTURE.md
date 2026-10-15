@@ -50,7 +50,8 @@ runtime with local credentials. See [Security](SECURITY.md) and the
 `just protocol-gen` writes the desktop contract from the Rust types and
 `just protocol-check` checks it. The `kodosi-ffi-c` build writes the C header, and the
 Apple build checks the committed copy against it. The other contracts are written by
-hand; the runtime build and tests read their versions and test vectors. Change a
+hand; the runtime build and tests read their versions, room limits and test vectors, and
+the backend tests check the server's versions, routes and limits against them. Change a
 contract together with the runtime, clients and backend.
 
 The backend reports the oldest and the current version of the API contract and of the
