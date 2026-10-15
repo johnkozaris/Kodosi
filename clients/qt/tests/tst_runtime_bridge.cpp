@@ -16,7 +16,7 @@ private slots:
     }
     void requiresExactDesktopProtocol()
     {
-        for (const auto version : { 56u, 58u }) {
+        for (const auto version : { 57u, 59u }) {
             runtime_fixture::protocolVersion = version;
             kodosi::RuntimeBridge bridge;
             const auto result = bridge.start();
