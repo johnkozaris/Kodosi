@@ -16,7 +16,8 @@ final class AppDependencies {
     let launcher: LauncherState
     var sessions: [RuntimeSession] = []
     var friends: [FriendEntry] = []
-    var ownInvite: String?
+    var inviteRequested: Date?
+    var inviteCopies = 0
     var incomingRequests: [FriendRequestEntry] = []
     var outgoingRequests: [FriendRequestEntry] = []
     var devices: [MyDeviceEntry] = []
@@ -44,6 +45,11 @@ final class AppDependencies {
     }
 
     var openExternalURL: (URL) -> Void = { NSWorkspace.shared.open($0) }
+    var copyText: (String) -> Void = { text in
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+
     var openedLoginCode: String?
     var identityMessage: String?
     var errorMessage: String?
@@ -393,5 +399,10 @@ final class AppDependencies {
 
     func perform(_ type: String, _ fields: [String: JSONValue] = [:]) {
         commandSink.perform(type, fields)
+    }
+
+    func copyInvite() {
+        inviteRequested = Date()
+        perform("friends.invite")
     }
 }

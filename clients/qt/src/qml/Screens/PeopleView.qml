@@ -117,9 +117,16 @@ Item {
                     iconName: root.copied ? "check" : "copy"
                     text: root.copied ? qsTr("Copied") : qsTr("Copy my invite")
 
-                    onClicked: { Models.People.copyInvite(); root.copied = true; copiedTimer.restart(); }
+                    onClicked: Models.People.copyInvite()
                 }
                 Timer { id: copiedTimer; interval: 2000; onTriggered: root.copied = false }
+                Connections {
+                    target: Models.People
+                    function onInviteCopied() {
+                        root.copied = true;
+                        copiedTimer.restart();
+                    }
+                }
                 Item { Layout.fillWidth: true }
             }
             Repeater {

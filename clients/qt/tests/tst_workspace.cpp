@@ -676,9 +676,18 @@ private slots:
         f.workspace.account().deleteAccount();
         QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(),
             QStringLiteral("auth.deleteAccount"));
+        const QJsonObject invite { { QStringLiteral("type"), QStringLiteral("friends.invite") },
+            { QStringLiteral("text"), QStringLiteral("kodosi:owner:abcd") },
+            { QStringLiteral("accountUserId"), test::id(50) }, { QStringLiteral("accountEpoch"), 1 } };
+        QSignalSpy copied(&f.workspace.people(), &kodosi::PeopleModel::inviteCopied);
+        f.workspace.apply(invite, 1);
+        QCOMPARE(copied.count(), 0);
         f.workspace.people().copyInvite();
         QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(),
             QStringLiteral("friends.invite"));
+        f.workspace.apply(invite, 1);
+        f.workspace.apply(invite, 1);
+        QCOMPARE(copied.count(), 1);
     }
     void accountDeletionWaitsForTheBrowserAndEndsSignedOutWithANote()
     {

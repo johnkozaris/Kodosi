@@ -22,7 +22,7 @@ extension AppDependencies {
             }
             sessions.removeAll()
             terminalNotifications.reconcile(sessions: [], accountEpoch: event.accountEpoch)
-            friends.removeAll(); incomingRequests.removeAll(); outgoingRequests.removeAll(); ownInvite = nil
+            friends.removeAll(); incomingRequests.removeAll(); outgoingRequests.removeAll(); inviteRequested = nil
             devices.removeAll(); deviceRequests.removeAll(); missions.removeAll(); invitations.removeAll()
             missionListTruncated = false
             missionDetail = nil
@@ -94,7 +94,11 @@ extension AppDependencies {
 
     private func receiveFriends(_ event: RuntimeEvent) throws {
         if event.type == "friends.invite" {
-            ownInvite = event.string("text")
+            guard let text = event.string("text"), let requested = inviteRequested,
+                  Date().timeIntervalSince(requested) < 15 else { return }
+            inviteRequested = nil
+            copyText(text)
+            inviteCopies += 1
         } else {
             friends = try event.value("friends")
             incomingRequests = try event.value("incoming")

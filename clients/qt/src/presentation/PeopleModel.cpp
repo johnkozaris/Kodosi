@@ -55,13 +55,18 @@ void PeopleModel::verify(const QString& username, const QString& invite)
 
 void PeopleModel::copyInvite()
 {
+    m_inviteRequested.start();
     m_workspace.sendUntracked(QStringLiteral("friends.invite"));
 }
 
 void PeopleModel::receiveInvite(const QString& text)
 {
+    if (!m_inviteRequested.isValid() || m_inviteRequested.hasExpired(15000))
+        return;
+    m_inviteRequested.invalidate();
     if (auto* application = qobject_cast<QGuiApplication*>(QCoreApplication::instance()))
         application->clipboard()->setText(text, QClipboard::Clipboard);
+    emit inviteCopied();
 }
 
 QString PeopleModel::displayName(const QString& userId) const
@@ -81,6 +86,7 @@ void PeopleModel::reset()
     m_friends.clear();
     m_incoming.clear();
     m_outgoing.clear();
+    m_inviteRequested.invalidate();
     emit changed();
 }
 }

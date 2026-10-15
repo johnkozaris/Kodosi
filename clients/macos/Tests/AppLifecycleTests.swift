@@ -106,12 +106,14 @@ import Testing
     app.shutdownProcess()
 }
 
-@Test @MainActor func friendSnapshotCarriesIdentityStateAndTheInviteTextIsKept() throws {
+@Test @MainActor func friendSnapshotCarriesIdentityStateAndOnlyARequestedInviteIsCopied() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "FriendIdentity"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
     defer { app.shutdownProcess() }
     app.commandSink.transport = { _ in 0 }
+    var copied: [String] = []
+    app.copyText = { copied.append($0) }
     try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner")]))
     try app.receive(runtimeEvent("friends.snapshot", fields: [
         "friends": .array([
@@ -129,6 +131,11 @@ import Testing
     #expect(app.friends.map(\.verified) == [true, false])
     #expect(app.friends.map(\.identityChanged) == [false, true])
     try app.receive(runtimeEvent("friends.invite", fields: ["text": .string("kodosi:owner:abcd")]))
-    #expect(app.ownInvite == "kodosi:owner:abcd")
+    #expect(copied.isEmpty)
+    app.copyInvite()
+    try app.receive(runtimeEvent("friends.invite", fields: ["text": .string("kodosi:owner:abcd")]))
+    try app.receive(runtimeEvent("friends.invite", fields: ["text": .string("kodosi:owner:abcd")]))
+    #expect(copied == ["kodosi:owner:abcd"])
+    #expect(app.inviteCopies == 1)
     #expect(app.friends.count == 2)
 }

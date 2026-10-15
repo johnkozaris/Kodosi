@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QElapsedTimer>
 #include <QObject>
 #include <QVariantList>
 
@@ -31,6 +32,7 @@ public:
 
 signals:
     void changed();
+    void inviteCopied();
 
 private:
     friend class Workspace;
@@ -39,6 +41,7 @@ private:
     QVariantList m_friends;
     QVariantList m_incoming;
     QVariantList m_outgoing;
+    QElapsedTimer m_inviteRequested;
 
     void reset();
     void receiveInvite(const QString& text);
