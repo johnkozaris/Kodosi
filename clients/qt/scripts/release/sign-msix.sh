@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Signs an MSIX with Azure Artifact Signing and checks that signing added only
-# the signature. KODOSI_SIGNING_DLIB is the client's Azure.CodeSigning.Dlib.dll
-# and KODOSI_SIGNING_METADATA its metadata.json. Run after kodosi_windows_env.
 
 set -euo pipefail
 

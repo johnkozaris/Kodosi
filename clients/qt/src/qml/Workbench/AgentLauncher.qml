@@ -15,7 +15,6 @@ ColumnLayout {
     property string folder: ""
     property bool showsAll: false
     property bool showsMore: false
-    // The list that a key opened in the terminal, and where that key stands.
     property string menuKind: ""
     property real menuX: 0
     property bool adding: false
@@ -54,17 +53,13 @@ ColumnLayout {
     readonly property string line: !info ? "" : !info.installed ? info.install
         : !account ? "" : [account.command, modelArgument, effortArgument].filter(word => word.length > 0).join(" ")
     readonly property string identity: info && info.installed && account ? account.identity || "" : ""
-    // Whether the person can type after the command: not while the line installs an agent.
     readonly property bool takesWords: !info || info.installed
-    // Whether the agent lists models, or may still list them.
     readonly property bool listsModels: !modelSet || modelSet.models.length > 0
-    // Whether Start has a line to run: not while the chosen agent is still unknown.
     readonly property bool ready: !info ? agentId.length === 0 : line.length > 0
     readonly property var hints: !info ? ["git status", "npm run dev", "make test", "ls -la"]
         : [qsTr("fix the failing test"), qsTr("explain how this folder works"), qsTr("review my last commit"),
             qsTr("add a dark mode"), qsTr("write tests for the parser")]
     readonly property string suggestion: hints[hint % hints.length]
-    // Whether the terminal stands open: after it grew from its cursor, or at once.
     property bool opened: false
     property string ghost: ""
     property int hint: Math.floor(Math.random() * 20)
@@ -93,8 +88,6 @@ ColumnLayout {
         if (Models.SessionActions.start("", directory, command, first))
             promptInput.clear()
     }
-    // Types a suggestion into the empty line once, at a person's uneven pace,
-    // and leaves it there with the cursor.
     function typeHints() {
         typist.stop()
         ghost = ""
@@ -114,8 +107,6 @@ ColumnLayout {
         typist.interval = ghost.endsWith(" ") ? 120 : 38 + Math.floor(Math.random() * 52)
         typist.start()
     }
-    // A comment for each sign-in, then the commands that use it. Commands that
-    // share a folder share a sign-in, so they show together.
     function accountLines() {
         if (!info)
             return []
@@ -215,8 +206,6 @@ ColumnLayout {
     objectName: "launcher"
     Accessible.id: objectName
 
-    // The first time in a run of the app, the home's terminal grows from its
-    // copper cursor, as in the film; after that it is simply there.
     function grow() {
         if (opened || growth.running || activation.enabled || !visible)
             return
@@ -337,8 +326,6 @@ ColumnLayout {
         }
     }
 
-    // The face of a key on the command line: one solid color, lit from the top
-    // left as the buttons are.
     component Chip: Item {
         id: chip
 
@@ -378,7 +365,6 @@ ColumnLayout {
         property color tint: KodosiTheme.terminalInk
         property color glyphColor: KodosiTheme.terminalInkMuted
         property real maximumWidth: 480
-        // The list that this key opens.
         property string kind: ""
 
         readonly property bool open: kind.length > 0 && root.menuKind === kind
@@ -470,13 +456,9 @@ ColumnLayout {
         }
     }
 
-    // The terminal about to open, as its tile will look: a band with a tab for
-    // each kind of terminal, then the prompt with the folder, the command and
-    // the cursor.
     Item {
         id: preview
 
-        // From 0, the copper cursor alone, through a line, to 1, the whole window.
         property real seed: 0
         readonly property rect cursor: Qt.rect(16, band.height + 18, 9, 18)
         readonly property real wide: Math.min(1, Math.max(0, seed / 0.45))
@@ -503,8 +485,6 @@ ColumnLayout {
         Item {
             id: seedClip
 
-            // The window shows through a frame that grows from the cursor; at the
-            // end it reaches past the window, so its shadow shows.
             readonly property real lineX: preview.cursor.x + (-24 - preview.cursor.x) * preview.wide
             readonly property real lineWidth: preview.cursor.width + (preview.width + 48 - preview.cursor.width) * preview.wide
 
@@ -659,7 +639,6 @@ ColumnLayout {
 
                                         Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
                                     }
-                                    // A ring that leaves its place, for an agent that just arrived.
                                     Rectangle {
                                         id: ripple
 
@@ -746,7 +725,6 @@ ColumnLayout {
                 TapHandler {
                     id: bodyTap
 
-                    // A tap beside an open list closes it; the keys and the list take their own taps.
                     onTapped: eventPoint => {
                         const inside = item => {
                             const point = item.mapFromItem(bodyTap.parent, eventPoint.position)
@@ -772,8 +750,6 @@ ColumnLayout {
                     Item {
                         id: commandLine
 
-                        // Where the last row of words ends; the prompt takes the rest of
-                        // that row when there is room, else a row of its own.
                         property real rowEnd: 0
                         property real rowTop: 0
                         readonly property bool inline: width - rowEnd >= 150
@@ -931,7 +907,6 @@ ColumnLayout {
                             }
                         }
                     }
-                    // The list that a key opened, under the line and starting under the key.
                     Loader {
                         id: menuLoader
 
@@ -949,7 +924,6 @@ ColumnLayout {
                             onClosed: root.closeMenu()
                         }
                     }
-                    // The line where a new account gets its name, with the folder that it will make.
                     Column {
                         id: newAccount
 

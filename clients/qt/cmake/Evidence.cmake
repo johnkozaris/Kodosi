@@ -1,8 +1,3 @@
-# Notices and provenance that every package ships, in its documentation
-# folder and, for the provider icons, its platform's license folder. Release
-# builds add the source identity, the Rust dependency licenses and the Qt
-# licenses with Qt's own SBOMs.
-
 set(KODOSI_GHOSTTY_LICENSE_TEXTS
     highway-Apache-2.0.txt
     highway-BSD-3-Clause.txt

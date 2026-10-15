@@ -104,7 +104,7 @@ void ControlsTest::modalControlsSuppressNativeTerminalAccessibility()
         std::make_unique<QSettings>(directory.filePath(QStringLiteral("appearance.ini")), QSettings::IniFormat),
         { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
     kodosi::DesktopStateModel desktop(
-        std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat), false);
+        std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat));
     kodosi::qml::AppearanceModelForeign::instance = &appearance;
     kodosi::qml::DesktopStateModelForeign::instance = &desktop;
     kodosi::installTerminalAccessibility();
@@ -167,7 +167,7 @@ void ControlsTest::terminalCloseConfirmsAndMinimizeOnlyHidesView()
         std::make_unique<QSettings>(directory.filePath(QStringLiteral("appearance.ini")), QSettings::IniFormat),
         { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
     kodosi::DesktopStateModel desktop(
-        std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat), false);
+        std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat));
     kodosi::DesktopSettings settings(
         std::make_unique<QSettings>(directory.filePath(QStringLiteral("settings.ini")), QSettings::IniFormat));
     kodosi::SessionCatalogModel sessions;
@@ -269,7 +269,7 @@ void ControlsTest::missionCreationHasOneNameField()
         std::make_unique<QSettings>(directory.filePath(QStringLiteral("appearance.ini")), QSettings::IniFormat),
         { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
     kodosi::DesktopStateModel desktop(
-        std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat), false);
+        std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat));
     kodosi::DesktopSettings settings(
         std::make_unique<QSettings>(directory.filePath(QStringLiteral("settings.ini")), QSettings::IniFormat));
     kodosi::SessionCatalogModel sessions;

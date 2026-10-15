@@ -14,10 +14,6 @@ class ApplicationLifecycleModel final : public QObject {
     Q_OBJECT
     Q_PROPERTY(State state READ state NOTIFY stateChanged)
     Q_PROPERTY(QString errorText READ errorText NOTIFY stateChanged)
-    Q_PROPERTY(
-        quint64 runtimeGeneration
-        READ runtimeGeneration
-        NOTIFY runtimeGenerationChanged)
 
 public:
     enum class State {
@@ -42,7 +38,6 @@ public:
 
     [[nodiscard]] State state() const noexcept;
     [[nodiscard]] QString errorText() const;
-    [[nodiscard]] quint64 runtimeGeneration() const noexcept;
 
     void scheduleInitialStart();
     void stop() noexcept;
@@ -51,8 +46,7 @@ public:
 
 signals:
     void stateChanged();
-    void runtimeGenerationChanged();
-    void runtimeGenerationReady(quint64 generation);
+    void runtimeReady();
 
 private:
     static constexpr qsizetype MaximumErrorTextLength = 320;
@@ -64,7 +58,6 @@ private:
     QString m_errorText;
     State m_state = State::Starting;
     std::uint64_t m_attemptToken = 0;
-    quint64 m_runtimeGeneration = 0;
     bool m_initialStartScheduled = false;
     bool m_attemptInFlight = false;
     bool m_stopping = false;

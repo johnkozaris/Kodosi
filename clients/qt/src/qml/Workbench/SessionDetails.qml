@@ -42,7 +42,7 @@ KPopover {
     Connections {
         function onModelReset() {
             root.refresh();
-            if (!root.session.sessionId)
+            if (!root.session.id)
                 root.close();
         }
 

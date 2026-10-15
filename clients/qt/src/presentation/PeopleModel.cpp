@@ -60,10 +60,8 @@ void PeopleModel::copyInvite()
 
 void PeopleModel::receiveInvite(const QString& text)
 {
-    m_invite = text;
     if (auto* application = qobject_cast<QGuiApplication*>(QCoreApplication::instance()))
         application->clipboard()->setText(text, QClipboard::Clipboard);
-    emit changed();
 }
 
 QString PeopleModel::displayName(const QString& userId) const
@@ -83,7 +81,6 @@ void PeopleModel::reset()
     m_friends.clear();
     m_incoming.clear();
     m_outgoing.clear();
-    m_invite.clear();
     emit changed();
 }
 }

@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 
 import Kodosi 1.0
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import Kodosi.Models 1.0 as Models
 
@@ -27,8 +26,8 @@ Item {
     property string terminalOperationError: ""
     property string joinedUser: ""
 
-    signal inspectSessionRequested(string sessionId, string sessionName)
-    signal shareSessionRequested(string sessionId, string sessionName)
+    signal inspectSessionRequested(string sessionId)
+    signal shareSessionRequested(string sessionId)
 
     function bindTerminal() {
         terminalError = "";
@@ -198,7 +197,7 @@ Item {
                         objectName: root.objectName + ".share"
                         visible: root.shareable
                         active: !!root.session.missionId || (root.session.sharedWith || []).length > 0
-                        onClicked: root.shareSessionRequested(root.sessionId, root.sessionName)
+                        onClicked: root.shareSessionRequested(root.sessionId)
                     }
                     KIconButton {
                         Accessible.id: objectName
@@ -207,7 +206,7 @@ Item {
                         size: 26
                         onTerminal: true
                         objectName: root.objectName + ".details"
-                        onClicked: root.inspectSessionRequested(root.sessionId, root.sessionName)
+                        onClicked: root.inspectSessionRequested(root.sessionId)
                     }
                     KIconButton {
                         Accessible.id: objectName
@@ -454,22 +453,10 @@ Item {
             onTriggered: terminal.pasteFromClipboard()
         }
     }
-    KDialog {
+    CloseTerminalDialog {
         id: closeConfirmation
-
-        destructive: true
         objectName: root.objectName + ".closeConfirmation"
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        title: qsTr("Close %1?").arg(root.sessionName)
-        onOpened: standardButton(Dialog.Ok).text = qsTr("Close")
-
-        onAccepted: Models.SessionActions.close(root.sessionId)
-
-        PlainLabel {
-            color: KodosiTheme.inkMuted
-            width: 340
-            wrapMode: Text.WordWrap
-            text: qsTr("Its programs stop.")
-        }
+        sessionId: root.sessionId
+        sessionName: root.sessionName
     }
 }

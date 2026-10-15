@@ -2,9 +2,6 @@
 
 #include <QAccessibilityHints>
 #include <QGuiApplication>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QMetaType>
 #include <QStyleHints>
 
 #include <optional>
@@ -13,8 +10,7 @@
 namespace kodosi {
 namespace {
 
-constexpr auto settingsKey = "appearance/settings.v1";
-constexpr auto currentVersion = 1;
+const auto preferenceKey = QStringLiteral("appearance/preference");
 
 QString preferenceName(const AppearanceModel::Preference preference)
 {
@@ -29,44 +25,15 @@ QString preferenceName(const AppearanceModel::Preference preference)
     return {};
 }
 
-std::optional<AppearanceModel::Preference> preferenceFromName(
-    const QString& name)
+std::optional<AppearanceModel::Preference> preferenceFromName(const QString& name)
 {
-    if (name == QStringLiteral("system")) {
+    if (name == QStringLiteral("system"))
         return AppearanceModel::Preference::System;
-    }
-    if (name == QStringLiteral("light")) {
+    if (name == QStringLiteral("light"))
         return AppearanceModel::Preference::Light;
-    }
-    if (name == QStringLiteral("dark")) {
+    if (name == QStringLiteral("dark"))
         return AppearanceModel::Preference::Dark;
-    }
     return std::nullopt;
-}
-
-QByteArray encode(const AppearanceModel::Preference preference)
-{
-    return QJsonDocument(QJsonObject {
-        {QStringLiteral("version"), currentVersion},
-        {QStringLiteral("preference"), preferenceName(preference)},
-    }).toJson(QJsonDocument::Compact);
-}
-
-std::optional<AppearanceModel::Preference> decode(const QByteArray& json)
-{
-    QJsonParseError error;
-    const auto document = QJsonDocument::fromJson(json, &error);
-    if (error.error != QJsonParseError::NoError || !document.isObject()) {
-        return std::nullopt;
-    }
-    const auto root = document.object();
-    const auto version = root.value(QStringLiteral("version"));
-    const auto preference = root.value(QStringLiteral("preference"));
-    if (root.size() != 2 || !version.isDouble()
-        || version.toDouble() != currentVersion || !preference.isString()) {
-        return std::nullopt;
-    }
-    return preferenceFromName(preference.toString());
 }
 
 AppearanceModel::StyleHooks applicationStyleHooks()
@@ -94,7 +61,7 @@ AppearanceModel::AppearanceModel(std::unique_ptr<QSettings> settings, QObject* p
         &QStyleHints::colorSchemeChanged,
         this,
         [this](const Qt::ColorScheme scheme) {
-            updateEffectiveScheme(scheme);
+            updateDark(scheme);
         });
     const auto* accessibility = hints->accessibility();
     connect(
@@ -119,20 +86,13 @@ AppearanceModel::AppearanceModel(
     Q_ASSERT(m_styleHooks.colorScheme);
     Q_ASSERT(m_styleHooks.setColorScheme);
     Q_ASSERT(m_styleHooks.unsetColorScheme);
-    load();
+    m_preference = preferenceFromName(m_settings->value(preferenceKey).toString()).value_or(Preference::System);
     applyPreference();
 }
-
-AppearanceModel::~AppearanceModel() = default;
 
 AppearanceModel::Preference AppearanceModel::preference() const noexcept
 {
     return m_preference;
-}
-
-AppearanceModel::EffectiveScheme AppearanceModel::effectiveScheme() const noexcept
-{
-    return m_effectiveScheme;
 }
 
 namespace {
@@ -159,7 +119,7 @@ int AppearanceModel::stableBits(const QString& key)
 
 bool AppearanceModel::dark() const noexcept
 {
-    return m_effectiveScheme == EffectiveScheme::DarkScheme;
+    return m_dark;
 }
 
 bool AppearanceModel::reduceMotion() const noexcept
@@ -199,49 +159,25 @@ bool AppearanceModel::setPreference(const int preference)
     return true;
 }
 
-void AppearanceModel::clearError()
-{
-    setError({});
-}
-
 void AppearanceModel::injectSystemColorSchemeForTesting(
     const Qt::ColorScheme scheme)
 {
-    updateEffectiveScheme(scheme);
-}
-
-void AppearanceModel::load()
-{
-    m_preference = Preference::System;
-    const auto stored =
-        m_settings->value(QString::fromLatin1(settingsKey));
-    if (!stored.isValid()) {
-        return;
-    }
-    if (stored.metaType() != QMetaType::fromType<QByteArray>()) {
-        return;
-    }
-    const auto decoded = decode(stored.toByteArray());
-    if (!decoded) {
-        return;
-    }
-    m_preference = *decoded;
+    updateDark(scheme);
 }
 
 bool AppearanceModel::persist(const Preference preference)
 {
-    const auto key = QString::fromLatin1(settingsKey);
-    const auto existed = m_settings->contains(key);
-    const auto previous = m_settings->value(key);
-    m_settings->setValue(key, encode(preference));
+    const auto existed = m_settings->contains(preferenceKey);
+    const auto previous = m_settings->value(preferenceKey);
+    m_settings->setValue(preferenceKey, preferenceName(preference));
     m_settings->sync();
     if (m_settings->status() == QSettings::NoError) {
         return true;
     }
     if (existed) {
-        m_settings->setValue(key, previous);
+        m_settings->setValue(preferenceKey, previous);
     } else {
-        m_settings->remove(key);
+        m_settings->remove(preferenceKey);
     }
     m_settings->sync();
     setError(tr(
@@ -254,31 +190,28 @@ void AppearanceModel::applyPreference()
     switch (m_preference) {
     case Preference::System:
         m_styleHooks.unsetColorScheme();
-        updateEffectiveScheme(m_styleHooks.colorScheme());
+        updateDark(m_styleHooks.colorScheme());
         break;
     case Preference::Light:
         m_styleHooks.setColorScheme(Qt::ColorScheme::Light);
-        updateEffectiveScheme(Qt::ColorScheme::Light);
+        updateDark(Qt::ColorScheme::Light);
         break;
     case Preference::Dark:
         m_styleHooks.setColorScheme(Qt::ColorScheme::Dark);
-        updateEffectiveScheme(Qt::ColorScheme::Dark);
+        updateDark(Qt::ColorScheme::Dark);
         break;
     }
 }
 
-void AppearanceModel::updateEffectiveScheme(const Qt::ColorScheme scheme)
+void AppearanceModel::updateDark(const Qt::ColorScheme scheme)
 {
-    const auto effective = m_preference == Preference::Dark
-        || (m_preference == Preference::System
-            && scheme == Qt::ColorScheme::Dark)
-        ? EffectiveScheme::DarkScheme
-        : EffectiveScheme::LightScheme;
-    if (m_effectiveScheme == effective) {
+    const bool dark = m_preference == Preference::Dark
+        || (m_preference == Preference::System && scheme == Qt::ColorScheme::Dark);
+    if (m_dark == dark) {
         return;
     }
-    m_effectiveScheme = effective;
-    emit effectiveSchemeChanged();
+    m_dark = dark;
+    emit darkChanged();
 }
 
 void AppearanceModel::setReducedMotion(const bool enabled)

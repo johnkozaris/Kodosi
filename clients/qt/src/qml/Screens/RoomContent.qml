@@ -392,8 +392,8 @@ Item {
                                     sessionId: root.shownTerminal
                                     roomEmbedded: true
                                     interactionEnabled: root.visible && !Models.DesktopState.modalOpen
-                                    onInspectSessionRequested: (id, name) => root.inspectSessionRequested(id)
-                                    onShareSessionRequested: (id, name) => root.shareSessionRequested(id)
+                                    onInspectSessionRequested: id => root.inspectSessionRequested(id)
+                                    onShareSessionRequested: id => root.shareSessionRequested(id)
                                     Component.onCompleted: Qt.callLater(forceTerminalFocus)
                                 }
                             }
@@ -490,7 +490,6 @@ Item {
                 }
             }
             Item {
-                id: sheet
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 6

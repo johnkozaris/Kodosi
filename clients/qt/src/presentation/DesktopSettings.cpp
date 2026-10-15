@@ -5,10 +5,6 @@
 #include <algorithm>
 #include <cmath>
 namespace kodosi {
-DesktopSettings::DesktopSettings(QObject* parent)
-    : DesktopSettings(std::make_unique<QSettings>(), parent)
-{
-}
 DesktopSettings::DesktopSettings(std::unique_ptr<QSettings> settings, QObject* parent)
     : QObject(parent)
     , m_settings(std::move(settings))

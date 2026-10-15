@@ -59,7 +59,6 @@ signals:
     void busyChanged();
     void roomChanged();
     void presentationChanged();
-    void roomActionFinished(const QString& action);
     void created(const QString& roomId);
     void catalogChanged();
     void selectionChanged();

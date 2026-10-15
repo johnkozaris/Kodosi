@@ -221,14 +221,13 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/BreathingDot.qml
         qml/Controls/CellRim.qml
         qml/Controls/CardGrid.qml
+        qml/Controls/CodeKeys.qml
         qml/Controls/CountBadge.qml
         qml/Controls/CursorBlock.qml
         qml/Controls/EmptyState.qml
         qml/Controls/IconTile.qml
         qml/Controls/KButton.qml
         qml/Controls/KFocusIndicator.qml
-        qml/Controls/KBusyIndicator.qml
-        qml/Controls/KComboBox.qml
         qml/Controls/KDialog.qml
         qml/Controls/KIcon.qml
         qml/Controls/KIconButton.qml
@@ -264,6 +263,7 @@ qt_add_qml_module(kodosi-ui
         qml/Theme/KodosiTheme.qml
         qml/Theme/Mentions.qml
         qml/Workbench/AgentLauncher.qml
+        qml/Workbench/CloseTerminalDialog.qml
         qml/Workbench/HistoryView.qml
         qml/Workbench/LauncherPrompt.qml
         qml/Workbench/SessionDetails.qml

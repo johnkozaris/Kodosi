@@ -69,7 +69,6 @@ Item {
             font.pixelSize: KodosiTheme.fontFootnote
         }
     }
-    // The launcher stands a little above the middle, and a list that it opens grows down from there.
     AgentLauncher {
         anchors.horizontalCenter: parent.horizontalCenter
         y: Math.max(40, parent.height / 2 - 150)

@@ -6,9 +6,7 @@ Item {
     id: root
 
     property real progress: 0
-    property color color: KodosiTheme.accent
     property color track: KodosiTheme.alpha(KodosiTheme.ink, 0.22)
-    property real lineWidth: 2
 
     implicitWidth: 14
     implicitHeight: 14
@@ -20,26 +18,26 @@ Item {
 
         ShapePath {
             strokeColor: root.track
-            strokeWidth: root.lineWidth
+            strokeWidth: 2
             fillColor: "transparent"
             PathAngleArc {
                 centerX: root.width / 2
                 centerY: root.height / 2
-                radiusX: root.width / 2 - root.lineWidth / 2
+                radiusX: root.width / 2 - 1
                 radiusY: radiusX
                 startAngle: 0
                 sweepAngle: 360
             }
         }
         ShapePath {
-            strokeColor: root.progress > 0 ? root.color : "transparent"
-            strokeWidth: root.lineWidth
+            strokeColor: root.progress > 0 ? KodosiTheme.accent : "transparent"
+            strokeWidth: 2
             fillColor: "transparent"
             capStyle: ShapePath.RoundCap
             PathAngleArc {
                 centerX: root.width / 2
                 centerY: root.height / 2
-                radiusX: root.width / 2 - root.lineWidth / 2
+                radiusX: root.width / 2 - 1
                 radiusY: radiusX
                 startAngle: -90
                 sweepAngle: 360 * Math.max(0, Math.min(1, root.arc))

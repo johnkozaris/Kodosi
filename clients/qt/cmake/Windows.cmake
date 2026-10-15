@@ -1,7 +1,3 @@
-# Windows: clang-cl against Qt's MSVC build. The install tree is the MSIX
-# package layout: the app, the CLI, ConPTY, the C runtime and the Qt runtime
-# side by side, with the package manifest, its assets and the notices.
-
 if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"))
     message(FATAL_ERROR "Build the Windows client with clang-cl")
 endif()
@@ -39,7 +35,6 @@ set(KODOSI_PLATFORM_SOURCES
 set(KODOSI_PLATFORM_LIBRARIES windowsapp)
 set(KODOSI_TEST_LAUNCHER "")
 set(KODOSI_TEST_ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
-# Tests run from the build tree, so they find Qt's DLLs where Qt keeps them.
 set(KODOSI_TEST_ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
 set(KODOSI_QT_SBOM_MODULES qtbase qtdeclarative qtsvg)
 set(KODOSI_PROVIDER_ICON_LICENSE_DIR doc/provider-icons)
@@ -49,8 +44,6 @@ set(KODOSI_CONPTY_DIR "${PROJECT_BINARY_DIR}/conpty")
 set(KODOSI_MSIX_PUBLISHER "CN=Kodosi Development, OID.2.25.311729368913984317654407730594956997722=1"
     CACHE STRING "MSIX publisher, equal to the signing certificate subject")
 
-# Places ConPTY beside the app so it runs from the build tree, and installs
-# the package layout. Called from the directory that defines the app target.
 function(kodosi_install app)
     set_target_properties(${app} PROPERTIES WIN32_EXECUTABLE ON)
     execute_process(
@@ -72,8 +65,6 @@ function(kodosi_install app)
         DESTINATION doc/conpty
     )
 
-    # The C runtime from the toolset that built the app, rather than an older
-    # system or framework copy.
     set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION .)
     include(InstallRequiredSystemLibraries)
 

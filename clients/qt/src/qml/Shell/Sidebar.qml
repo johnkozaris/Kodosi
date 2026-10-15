@@ -22,7 +22,7 @@ Item {
         default: return "settings"
         }
     }
-    readonly property var waiting: Models.Sessions.sessions.filter(session => ["hand", "question", "key"].indexOf(session.sign) >= 0 && Models.Sessions.attention.indexOf(session.id) >= 0)
+    readonly property var waiting: Models.Sessions.sessions.filter(session => session.asks && Models.Sessions.attention.indexOf(session.id) >= 0)
     property string renamingId: ""
     property Item pillTarget: null
     property var collapsedFolders: ({})
@@ -798,7 +798,6 @@ Item {
                                         }
                                     }
                                     KTextField {
-                                        id: editor
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 26
                                         visible: row.renaming
@@ -1049,29 +1048,7 @@ Item {
             }
         }
     }
-    KDialog {
+    CloseTerminalDialog {
         id: closeDialog
-
-        property string sessionId: ""
-        property string sessionName: ""
-
-        function ask(id, name) {
-            sessionId = id
-            sessionName = name
-            open()
-        }
-
-        destructive: true
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        title: qsTr("Close %1?").arg(sessionName)
-        onOpened: standardButton(Dialog.Ok).text = qsTr("Close")
-        onAccepted: Models.SessionActions.close(sessionId)
-
-        PlainLabel {
-            width: 340
-            text: qsTr("Its programs stop.")
-            color: KodosiTheme.inkMuted
-            wrapMode: Text.WordWrap
-        }
     }
 }

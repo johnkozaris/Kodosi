@@ -9,7 +9,7 @@ Item {
     property var session: null
     property bool asleep: false
     property bool working: session ? session.working === true : false
-    property bool asks: session ? ["hand", "question", "key"].indexOf(session.sign) >= 0 : false
+    property bool asks: session ? session.asks === true : false
     property int progress: session && session.progress !== undefined ? session.progress : -1
     readonly property bool measured: working && progress >= 0
     readonly property bool pale: asleep && !asks
@@ -17,7 +17,6 @@ Item {
     readonly property string kind: Identity.kind(program)
     readonly property color tint: Identity.kindTint(kind)
     readonly property real rim: Math.max(2, size * 0.075)
-    // How far the rim of cells stands out from the mark.
     readonly property real space: rim * 1.75
     property real fraction: Math.max(0.02, Math.min(1, progress / 100))
     property real squash: 1

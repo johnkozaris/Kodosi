@@ -4,17 +4,9 @@ import Kodosi 1.0
 import QtQuick
 import "Typing.js" as Typing
 
-// The rim of something at work, drawn in the terminal's own marks: a ring of
-// cells round a rounded rectangle. While work goes on, the copper cursor types
-// its way round the ring, in quick bursts with pauses as a person types: each
-// cell lights as the cursor passes and cools after it, and in a pause the
-// cursor blinks. A fraction fills the ring from the top, with the cursor
-// blinking at its end. While something waits for the person, the ring stays
-// lit and the cursor blinks at the top, as a prompt waits for keys.
 Item {
     id: root
 
-    // "working", "progress" or "waiting".
     property string mode: "working"
     property real fraction: 0
     property real radius: 8
@@ -33,7 +25,6 @@ Item {
     readonly property var cooling: [KodosiTheme.accentStrong, KodosiTheme.accent,
         KodosiTheme.mix(KodosiTheme.accent, KodosiTheme.accentSoft, 0.45), KodosiTheme.mix(KodosiTheme.accent, KodosiTheme.accentSoft, 0.72)]
 
-    // A cell lit `age` seconds ago: it cools in steps, as a terminal's colors go.
     function coolingColor(age) {
         return age < 0.14 ? cooling[0] : age < 0.45 ? cooling[1] : age < 0.9 ? cooling[2] : age < 1.4 ? cooling[3] : KodosiTheme.accentSoft
     }
@@ -121,7 +112,6 @@ Item {
             color: root.cellColor(index)
         }
     }
-    // The copper cursor: a block that stands on the cell where it is.
     Rectangle {
         readonly property int index: root.mode === "working" ? Typing.wrapped(root.head, root.count)
             : root.mode === "progress" ? Math.min(root.count - 1, Math.floor(root.fraction * root.count)) : 0

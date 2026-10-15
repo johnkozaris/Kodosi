@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-"""Verifies a Windows MSIX before signing: its manifest, the architecture and
-completeness of its payload, and the notices and provenance it ships."""
 
 from __future__ import annotations
 
@@ -64,7 +62,6 @@ def pe_machine(data: bytes) -> int | None:
 
 
 def pe_imports(data: bytes) -> set[str]:
-    """The lowercased names of the DLLs a PE image imports or delay-loads."""
     try:
         coff = struct.unpack_from("<I", data, 0x3C)[0] + 4
         section_count, optional_size = struct.unpack_from("<H", data, coff + 2)[0], struct.unpack_from("<H", data, coff + 16)[0]
@@ -105,7 +102,6 @@ def windows_library(name: str) -> bool:
 
 
 def verify_imports(files: dict[str, zipfile.ZipInfo], read: Reader, system: Callable[[str], bool]) -> None:
-    """Every imported DLL must sit beside the app or come with Windows."""
     packaged = {name.lower() for name in files if "/" not in name}
     for name in files:
         if not name.lower().endswith((".exe", ".dll")):
@@ -131,7 +127,6 @@ def package_files(package: zipfile.ZipFile) -> dict[str, zipfile.ZipInfo]:
 
 
 def verify_manifest(manifest: bytes, configured: bytes, arch: str) -> list[str]:
-    """Checks the packaged manifest and returns the logo files it names."""
     if manifest != configured:
         fail("AppxManifest.xml differs from the configured manifest")
     root = ElementTree.fromstring(manifest)

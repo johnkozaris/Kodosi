@@ -89,9 +89,6 @@ void FreedesktopNotificationDriver::post(
     const DesktopNotification& notification)
 {
     if (!notification.valid()) {
-        emit deliveryError(
-            notification.key,
-            tr("Desktop notification data was invalid and was not sent."));
         emit notificationClosed(notification.key);
         return;
     }
@@ -99,7 +96,6 @@ void FreedesktopNotificationDriver::post(
     withdraw(notification.key);
     if (m_pendingPosts >= 32 || m_idsByKey.size() >= 256
         || m_nextPostGeneration == std::numeric_limits<quint64>::max()) {
-        emit deliveryError(notification.key, tr("Desktop notification capacity is full."));
         emit notificationClosed(notification.key);
         return;
     }
@@ -145,10 +141,6 @@ void FreedesktopNotificationDriver::post(
                     return;
                 }
                 m_postGenerations.remove(key);
-                emit deliveryError(
-                    key,
-                    tr("Desktop notification failed: %1")
-                        .arg(reply.error().message()));
                 emit notificationClosed(key);
                 return;
             }
@@ -157,9 +149,6 @@ void FreedesktopNotificationDriver::post(
             if (id == 0 && m_postGenerations.value(key) == generation
                 && m_serviceGeneration == serviceGeneration) {
                 m_postGenerations.remove(key);
-                emit deliveryError(
-                    key,
-                    tr("The desktop notification server returned an invalid identifier."));
                 emit notificationClosed(key);
                 return;
             }
