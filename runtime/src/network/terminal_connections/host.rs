@@ -98,7 +98,14 @@ pub(super) async fn run(
     let current = current_publication(network, publication, &credentials).await?;
     let mut hosted = network.inner.link.host(current.id, current.incarnation_id);
     check_generation(network, generation)?;
-    drop(publication.requests.send(HostRequest::ResetPresence).await);
+    drop(
+        publication
+            .requests
+            .send(HostRequest::ResetPresence {
+                owner: Some(credentials.user_id.clone()),
+            })
+            .await,
+    );
     let viewers = Viewers::default();
     let stop = credentials.cancel.child_token();
     let _stop = stop.clone().drop_guard();
@@ -165,7 +172,12 @@ pub(super) async fn run(
         while tasks.join_next().await.is_some() {}
     })
     .await;
-    drop(publication.requests.send(HostRequest::ResetPresence).await);
+    drop(
+        publication
+            .requests
+            .send(HostRequest::ResetPresence { owner: None })
+            .await,
+    );
     result
 }
 

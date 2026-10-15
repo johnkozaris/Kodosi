@@ -190,15 +190,17 @@ state of each room terminal before they open it, and the message when they open 
 | You see | Meaning |
 | --- | --- |
 | A warm rim that turns round the terminal's mark | The program works. An arc and a number show its percent. |
-| A copper ring, with a hand, a question mark, or a key | The program waits for your approval, your answer, or your sign-in. |
+| A hand, a question mark, or a key | The program waits for your approval, your answer, or your sign-in. |
 | A green check | The program is done. |
 | A yellow warning sign | The program failed. |
 
-The check and the warning sign go away when you open the terminal. The sidebar also
-says how many terminals wait for an answer, and takes you to the next one.
+The check and the warning sign go away when you open the terminal. A friend's terminal
+that you do not have open shows only that its program works or waits. A closed folder in
+the sidebar shows the sign of a terminal in it that waits. Small faces show who else
+has the terminal open, so that two people do not answer at the same time.
 
-While Kodosi is not the front app, your own terminals also send a system notification
-when a program starts to wait, is done, or failed. Select the notification to open the
+While Kodosi is not the front app, your own terminals and the terminals that you have
+open also send a system notification when a program starts to wait, is done, or failed. Select the notification to open the
 terminal. Your system's notification settings control these notifications.
 
 Kodosi takes this from what the program reports to its terminal: the

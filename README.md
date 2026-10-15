@@ -49,8 +49,8 @@ all of them, grouped by computer.
 ### See which agent needs you
 
 Each terminal shows when its program works, waits for you, is done, or failed, with
-the program's own message. The sidebar takes you to the next terminal that waits.
-When Kodosi is not the front app, a system notification tells you.
+the program's own message. When Kodosi is not the front app, a system notification
+tells you.
 
 <p align="center">
   <picture>

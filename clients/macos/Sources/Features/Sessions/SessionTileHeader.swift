@@ -30,6 +30,9 @@ struct SessionTileHeader: View {
                     SessionActivityText(session: session).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
                         .help(session.activity ?? "")
                 }
+                if let sign = deps.sign(of: session) {
+                    StatusSign(form: sign).transition(AnyTransition.pop)
+                }
                 if session.kind == .remote {
                     HStack(spacing: 4) {
                         DeviceGlyph(label: session.hostLabel).font(.system(size: 9, weight: .semibold))

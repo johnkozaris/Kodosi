@@ -132,7 +132,7 @@ Item {
                                 id: card
 
                                 required property var modelData
-                                readonly property bool needsYou: Models.Sessions.attention.indexOf(modelData.id) >= 0
+                                readonly property bool unseen: Models.Sessions.attention.indexOf(modelData.id) >= 0
 
                                 width: grid.cardWidth
                                 height: 62
@@ -164,7 +164,7 @@ Item {
                                             words: card.modelData.activity || card.modelData.folderName || Identity.kindLabel(Identity.kind(card.modelData.program || ""))
                                         }
                                     }
-                                    StatusSign { Layout.rightMargin: 12; session: card.modelData; unseen: card.needsYou; size: 16 }
+                                    StatusSign { Layout.rightMargin: 12; session: card.modelData; unseen: card.unseen; size: 16 }
                                 }
                                 onClicked: {
                                     Models.Sessions.clearAttention(modelData.id)

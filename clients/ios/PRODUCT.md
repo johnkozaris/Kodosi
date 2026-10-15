@@ -23,9 +23,9 @@ or you use your recovery key, or you start fresh.
 
 ## Terminals
 
-The Terminals tab puts first the terminals that wait for you, with the agent's
-question and an Answer button. The other terminals follow, grouped by computer, then
-the terminals that friends share with you. While the app is in front, it keeps a link
+The Terminals tab groups your terminals by computer, then lists the terminals that
+friends share with you. Each row shows the sign of its state and the agent's question.
+The tab shows the number of your own terminals that wait for you. While the app is in front, it keeps a link
 to your own terminals so that their agent status stays current. The links end when
 the app goes to the background.
 

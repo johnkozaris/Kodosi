@@ -243,7 +243,9 @@ pub struct CheckpointCut {
 }
 
 pub enum HostRequest {
-    ResetPresence,
+    ResetPresence {
+        owner: Option<String>,
+    },
     Connected {
         connection_id: Uuid,
         user_id: String,
