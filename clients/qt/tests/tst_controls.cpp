@@ -223,16 +223,16 @@ void ControlsTest::terminalCloseConfirmsAndMinimizeOnlyHidesView()
     QCOMPARE(confirmation->property("title").toString(), QStringLiteral("Close Terminal?"));
     QVERIFY(desktop.modalOpen());
     QVERIFY(commands.values.isEmpty());
-    QQmlExpression actionText(QQmlEngine::contextForObject(confirmation), confirmation,
+    QQuickItem* explanation = nullptr;
+    for (auto* item : confirmation->findChildren<QQuickItem*>()) {
+        if (item->property("text").toString() == QStringLiteral("Its programs stop."))
+            explanation = item;
+    }
+    QVERIFY(explanation);
+    QQmlExpression actionText(QQmlEngine::contextForObject(explanation), confirmation,
         QStringLiteral("standardButton(Dialog.Ok).text"));
     QTRY_COMPARE(actionText.evaluate().toString(), QStringLiteral("Close"));
     QVERIFY(!actionText.hasError());
-    bool explainsProcessExit = false;
-    for (auto* item : confirmation->findChildren<QQuickItem*>()) {
-        if (item->property("text").toString() == QStringLiteral("Its programs stop."))
-            explainsProcessExit = true;
-    }
-    QVERIFY(explainsProcessExit);
     QVERIFY(QMetaObject::invokeMethod(confirmation, "reject"));
     QTRY_VERIFY(!desktop.modalOpen());
     QVERIFY(commands.values.isEmpty());
