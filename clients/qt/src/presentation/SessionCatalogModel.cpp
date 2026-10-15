@@ -87,18 +87,18 @@ bool isStatusGlyph(const char32_t scalar)
 
 bool SessionCatalogModel::isWorking(const Session& session)
 {
-    if (!presentation(session).canControl)
+    if (session.status == QStringLiteral("closing"))
         return false;
     if (!session.programState.isEmpty())
         return session.programState == QStringLiteral("working");
     const auto scalars = session.title.toUcs4();
-    return !scalars.isEmpty() && isSpinner(scalars.first());
+    return presentation(session).canControl && !scalars.isEmpty() && isSpinner(scalars.first());
 }
 
 QString SessionCatalogModel::waitState(const Session& session)
 {
     const bool result = session.programState == QStringLiteral("done") || session.programState == QStringLiteral("error");
-    const bool blocked = session.programState == QStringLiteral("blocked") && presentation(session).canControl;
+    const bool blocked = session.programState == QStringLiteral("blocked") && session.status != QStringLiteral("closing");
     return result || blocked ? session.programState : QString {};
 }
 
@@ -364,11 +364,12 @@ void SessionCatalogModel::apply(const QJsonObject& event)
         const auto before = this->session(next.id);
         const bool stopped = before && isWorking(*before) && !isWorking(next);
         const bool waits = !waitState(next).isEmpty() && !(before && waitState(*before) == waitState(next));
-        if ((stopped || waits) && !attention.contains(next.id))
+        const bool calls = next.isOwner || presentation(next).canControl;
+        if (calls && (stopped || waits) && !attention.contains(next.id))
             attention.append(next.id);
         if (before && waitState(*before) != waitState(next)) {
             const auto words = report(next);
-            alerts.append({ next.id, !next.isOwner || waitState(next).isEmpty() ? QString {} : words.isEmpty() ? signLabel(next) : words });
+            alerts.append({ next.id, !calls || waitState(next).isEmpty() ? QString {} : words.isEmpty() ? signLabel(next) : words });
         }
     }
     attention.removeIf([&](const QString& id) { return !ids.contains(id); });

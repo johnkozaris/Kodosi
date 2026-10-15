@@ -51,7 +51,9 @@ After you remove a lost or stolen device, make a new recovery key.
 Without a recovery key, a person who lost all devices starts fresh with a new identity.
 
 The service can see account and device records, room membership, room and terminal
-metadata, content routing fields, timing, and ciphertext sizes. Encryption does not
+metadata, the agent of each terminal and the state that its program reports (such as
+working or waiting for an approval, never its text), content routing fields, timing,
+and ciphertext sizes. Encryption does not
 hide that metadata or prevent service interruption. A compromised participant device
 can access what that device could access; removing it stops future authorized access.
 

@@ -156,6 +156,51 @@ pub struct RemoteSession {
     pub mission_name: Option<String>,
     pub shared_with: Vec<String>,
     pub online: bool,
+    #[serde(default)]
+    pub status: Option<TerminalStatus>,
+}
+
+/// What the host of a terminal tells the server and the people who can open it: the
+/// agent and the state that its program reports, without the program's text. The
+/// server can read it.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TerminalStatus {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub program: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<crate::terminal::ProgramState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<crate::terminal::BlockedKind>,
+}
+
+impl TerminalStatus {
+    #[cfg(feature = "host")]
+    pub(crate) fn of(metadata: &crate::terminal::TerminalMetadata) -> Self {
+        Self {
+            program: metadata.program.clone(),
+            state: metadata.status.as_ref().map(|status| status.state),
+            kind: metadata.status.as_ref().and_then(|status| status.kind),
+        }
+    }
+
+    pub(crate) fn is_valid(&self) -> bool {
+        self.program
+            .as_deref()
+            .is_none_or(|program| matches!(program, "claude" | "copilot" | "codex" | "cursor"))
+            && (self.kind.is_none() || self.state == Some(crate::terminal::ProgramState::Blocked))
+    }
+
+    pub(crate) fn program_status(&self) -> Option<crate::terminal::ProgramStatus> {
+        Some(crate::terminal::ProgramStatus {
+            state: self.state?,
+            kind: self.kind,
+            progress: None,
+            app: None,
+            title: None,
+            message: None,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -192,7 +237,9 @@ pub struct CheckpointCut {
 }
 
 pub enum HostRequest {
-    ResetPresence,
+    ResetPresence {
+        owner: Option<String>,
+    },
     Connected {
         connection_id: Uuid,
         user_id: String,

@@ -21,7 +21,7 @@ use crate::{
     Command, CommandEnvelope, Config, Error, Event, Result,
     network::{
         BackendClient, BackendConfig, BackendEvent, BackendReply, INPUT_NOT_SENT, RemoteConnection,
-        RemoteSession, TerminalControl,
+        RemoteSession, TerminalControl, TerminalStatus,
     },
     protocol::{ConnectionState, SessionEntry, SessionKind, SessionStatus},
     terminal::{RemoteTerminal, SessionChange, Subscription, TerminalPixelGeometry, TerminalSize},
@@ -583,6 +583,15 @@ impl Reconnect {
     }
 }
 
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TerminalNotice {
+    session_id: Uuid,
+    incarnation_id: Uuid,
+    online: bool,
+    status: Option<TerminalStatus>,
+}
+
 struct Runtime {
     #[cfg(feature = "host")]
     config: Config,
@@ -593,6 +602,7 @@ struct Runtime {
     local: HashMap<Uuid, Local>,
     #[cfg(feature = "host")]
     creating: HashMap<Uuid, Command>,
+    listed: HashMap<Uuid, RemoteSession>,
     remotes: HashMap<Uuid, SessionEntry>,
     connections: HashMap<Uuid, RemoteTerminal>,
     opening: HashMap<Uuid, Opening>,
@@ -666,6 +676,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         local: HashMap::new(),
         #[cfg(feature = "host")]
         creating: HashMap::new(),
+        listed: HashMap::new(),
         remotes: HashMap::new(),
         connections: HashMap::new(),
         opening: HashMap::new(),
@@ -1167,6 +1178,7 @@ impl Runtime {
         self.opening.clear();
         self.views.clear();
         self.reconnect.clear();
+        self.listed.clear();
         self.remotes.clear();
         self.cached_events.clear();
         self.latest_auth = None;
@@ -1207,6 +1219,8 @@ impl Runtime {
         if kind == "network.sharing" {
             #[cfg(feature = "host")]
             self.sharing_changed(&event.event);
+        } else if kind == "network.terminal" {
+            self.terminal_changed(&event.event);
         } else if kind == "network.sessions" {
             let result = event
                 .event
@@ -1324,12 +1338,80 @@ impl Runtime {
             }
             keep
         });
-        self.remotes = remotes
+        let remotes = remotes
             .into_iter()
             .filter(|entry| !self.hosts(&entry.id))
+            .collect::<Vec<_>>();
+        self.listed = remotes
+            .iter()
+            .map(|entry| (entry.id, entry.clone()))
+            .collect();
+        self.remotes = remotes
+            .into_iter()
             .map(|entry| (entry.id, self.remote_entry(entry)))
             .collect();
         self.publish_catalog();
+    }
+
+    fn terminal_changed(&mut self, event: &Value) {
+        let Ok(notice) = serde_json::from_value::<TerminalNotice>(event.clone()) else {
+            tracing::warn!("a terminal notice was unreadable");
+            return;
+        };
+        let id = notice.session_id;
+        let Some(listed) = self
+            .listed
+            .get_mut(&id)
+            .filter(|listed| listed.incarnation_id == notice.incarnation_id)
+        else {
+            return;
+        };
+        listed.online = notice.online;
+        listed.status = notice.status;
+        let recovering = self.recovering(id);
+        let Some(entry) = self
+            .remotes
+            .get_mut(&id)
+            .filter(|entry| entry.incarnation_id == notice.incarnation_id.to_string())
+        else {
+            return;
+        };
+        entry.status = if notice.online && !recovering {
+            SessionStatus::Running
+        } else {
+            SessionStatus::Reconnecting
+        };
+        if self
+            .connections
+            .get(&id)
+            .is_none_or(RemoteTerminal::is_closed)
+        {
+            self.show_shared_status(id);
+        }
+        self.publish_catalog();
+    }
+
+    fn listed_remote(&self, remote: &RemoteSession) -> RemoteSession {
+        self.listed
+            .get(&remote.id)
+            .filter(|listed| listed.incarnation_id == remote.incarnation_id)
+            .cloned()
+            .unwrap_or_else(|| remote.clone())
+    }
+
+    fn show_shared_status(&mut self, id: Uuid) {
+        let shared = self
+            .listed
+            .get(&id)
+            .filter(|listed| listed.online)
+            .map(|listed| (listed.incarnation_id.to_string(), listed.status.clone()));
+        if let Some(entry) = self.remotes.get_mut(&id) {
+            let status = shared
+                .filter(|(incarnation, _)| *incarnation == entry.incarnation_id)
+                .and_then(|(_, status)| status);
+            entry.program = status.as_ref().and_then(|status| status.program.clone());
+            entry.program_status = status.as_ref().and_then(TerminalStatus::program_status);
+        }
     }
 
     fn end_orphaned_publications(&mut self, remotes: Vec<RemoteSession>) -> Vec<RemoteSession> {
@@ -1392,17 +1474,27 @@ impl Runtime {
             .remotes
             .get(&remote.id)
             .filter(|entry| entry.incarnation_id == remote.incarnation_id.to_string());
+        let live = connection_state == ConnectionState::Connected;
+        let shared = remote.status.as_ref().filter(|_| remote.online);
         SessionEntry {
-            connected_users: if connection_state == ConnectionState::Connected {
+            connected_users: if live {
                 previous.map_or_else(Vec::new, |entry| entry.connected_users.clone())
             } else {
                 vec![]
             },
-            program: previous.and_then(|entry| entry.program.clone()),
+            program: if live {
+                previous.and_then(|entry| entry.program.clone())
+            } else {
+                shared.and_then(|status| status.program.clone())
+            },
             prompt: false,
             repository: false,
             title: previous.and_then(|entry| entry.title.clone()),
-            program_status: previous.and_then(|entry| entry.program_status.clone()),
+            program_status: if live {
+                previous.and_then(|entry| entry.program_status.clone())
+            } else {
+                shared.and_then(TerminalStatus::program_status)
+            },
             id: remote.id.to_string(),
             incarnation_id: remote.incarnation_id.to_string(),
             kind: SessionKind::Remote,
@@ -1636,6 +1728,9 @@ impl Runtime {
                 entry.connection_state = ConnectionState::Offline;
                 entry.message = Some(reason);
             }
+        }
+        if !recovering {
+            self.show_shared_status(id);
         }
         self.publish_catalog();
     }

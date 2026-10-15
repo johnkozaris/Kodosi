@@ -2,7 +2,7 @@ import KodosiBridge
 
 public extension RuntimeSession {
     var alert: String? {
-        guard isOwner, waitState != nil else { return nil }
+        guard canCall, waitState != nil else { return nil }
         return programStatus?.caption ?? sign(unseen: true)?.label
     }
 
@@ -10,10 +10,7 @@ public extension RuntimeSession {
         if let progress {
             return .progress(progress)
         }
-        if isWorking {
-            return .working
-        }
-        return needsUser ? .asks : rested
+        return isWorking ? .working : rested
     }
 
     func sign(unseen: Bool) -> StatusSign.Form? {

@@ -33,6 +33,7 @@ builder.Services.AddSingleton<ConnectionLease>();
 builder.Services.AddHostedService(services => services.GetRequiredService<ConnectionLease>());
 builder.Services.AddHostedService<ConnectionMaintenance>();
 builder.Services.AddHostedService<PublicationCleanup>();
+builder.Services.AddHostedService<TerminalPresence>();
 builder.Services.AddSingleton(services => AccountDeletionSettings.From(services.GetRequiredService<IConfiguration>()));
 builder.Services.AddHttpClient(nameof(AccountDeletionFeed), client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddHostedService<AccountDeletionFeed>();
@@ -101,9 +102,9 @@ app.UseRateLimiter();
 var websocket = new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(30) };
 foreach (var origin in builder.Configuration.GetSection("WebSockets:AllowedOrigins").Get<string[]>() ?? []) websocket.AllowedOrigins.Add(origin);
 app.UseWebSockets(websocket);
-app.MapGet("/health/live", () => Results.Ok(new { status = "ok", apiContractVersion = 25, authContractVersion = 1 })).DisableRateLimiting();
+app.MapGet("/health/live", () => Results.Ok(new { status = "ok", apiContractVersion = 27, authContractVersion = 1 })).DisableRateLimiting();
 app.MapGet("/health/ready", async (KodosiDbContext db, CancellationToken ct) =>
-    await db.Database.CanConnectAsync(ct) ? Results.Ok(new { status = "ok", apiContractVersion = 25, authContractVersion = 1 }) : Results.StatusCode(503))
+    await db.Database.CanConnectAsync(ct) ? Results.Ok(new { status = "ok", apiContractVersion = 27, authContractVersion = 1 }) : Results.StatusCode(503))
     .DisableRateLimiting();
 var api = app.MapGroup("").AddEndpointFilter<AdmissionFilter>();
 api.MapAccounts(); api.MapDevices(); api.MapFriends(); api.MapSessions(); api.MapMissions();

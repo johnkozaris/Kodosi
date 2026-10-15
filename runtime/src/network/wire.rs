@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-use super::{Result, TerminalControl, invalid};
+use super::{Result, TerminalControl, TerminalStatus, invalid};
 
 mod frame;
 mod packing;
@@ -36,6 +36,8 @@ pub(crate) struct SessionDto {
     pub shared_with: Vec<String>,
     pub authorization_revision: u64,
     pub host_online: bool,
+    #[serde(default)]
+    pub status: Option<TerminalStatus>,
 }
 
 impl From<SessionDto> for super::RemoteSession {
@@ -52,6 +54,7 @@ impl From<SessionDto> for super::RemoteSession {
             mission_name: dto.mission_name,
             shared_with: dto.shared_with,
             online: dto.host_online,
+            status: dto.status.filter(TerminalStatus::is_valid),
         }
     }
 }
@@ -154,6 +157,67 @@ pub(crate) fn number(value: &Value, field: &str) -> Result<u64> {
 }
 pub(crate) fn id(value: &Value, field: &str) -> Result<Uuid> {
     Uuid::parse_str(text(value, field)?).map_err(|_| invalid(format!("Invalid {field}.")))
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Change {
+    pub surface: String,
+    pub room: Option<Uuid>,
+    pub sequence: Option<u64>,
+}
+
+impl Change {
+    pub(crate) fn of(surface: &str) -> Self {
+        Self {
+            surface: surface.to_owned(),
+            room: None,
+            sequence: None,
+        }
+    }
+
+    pub(crate) fn read(value: &Value) -> Result<Self> {
+        let room = match value.get("roomId") {
+            None | Some(Value::Null) => None,
+            Some(_) => Some(id(value, "roomId")?),
+        };
+        Ok(Self {
+            surface: text(value, "surface")?.to_owned(),
+            room,
+            sequence: value.get("sequence").and_then(Value::as_u64),
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TerminalNotice {
+    pub session: Uuid,
+    pub incarnation: Uuid,
+    pub online: bool,
+    pub status: Option<TerminalStatus>,
+}
+
+impl TerminalNotice {
+    pub(crate) fn read(value: &Value) -> Result<Self> {
+        Ok(Self {
+            session: id(value, "sessionId")?,
+            incarnation: id(value, "incarnationId")?,
+            online: value
+                .get("online")
+                .and_then(Value::as_bool)
+                .ok_or_else(|| invalid("Invalid online."))?,
+            status: match value.get("status") {
+                None | Some(Value::Null) => None,
+                Some(status) => Some(serde_json::from_value::<TerminalStatus>(status.clone())?)
+                    .filter(TerminalStatus::is_valid),
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Notice {
+    Changed(Change),
+    Terminal(TerminalNotice),
 }
 pub(crate) fn decode_b64(value: &Value, field: &str, limit: usize) -> Result<Vec<u8>> {
     let encoded = text(value, field)?;

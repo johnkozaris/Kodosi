@@ -49,8 +49,8 @@ all of them, grouped by computer.
 ### See which agent needs you
 
 Each terminal shows when its program works, waits for you, is done, or failed, with
-the program's own message. The sidebar takes you to the next terminal that waits.
-When Kodosi is not the front app, a system notification tells you.
+the program's own message. When Kodosi is not the front app, a system notification
+tells you.
 
 <p align="center">
   <picture>
@@ -108,8 +108,9 @@ they read the conversation, post an update, offer a task, or take one.
 ### Share with end-to-end encryption
 
 Share one terminal with a friend or with a room. Private keys stay on your devices.
-The service relays encrypted traffic and cannot read your terminals or your room
-content. [Security](docs/SECURITY.md)
+The service relays encrypted traffic and cannot read what your terminals show or your
+room content. It sees only whether each agent works, waits or is done.
+[Security](docs/SECURITY.md)
 
 <p align="center">
   <img src="docs/media/share.webp" width="560" alt="The share panel of a terminal, marked Encrypted end to end, with two rooms and two friends, and Leo selected.">

@@ -202,6 +202,9 @@ private struct RoomTerminalCard: View {
                     .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
                 }
                 Spacer(minLength: 0)
+                if let sign = deps.sign(of: session) {
+                    StatusSign(form: sign, size: 13).transition(AnyTransition.pop)
+                }
                 if !session.isOwner, let owner = session.ownerName {
                     PersonAvatar(name: owner, key: session.ownerUserId, size: 20)
                 }

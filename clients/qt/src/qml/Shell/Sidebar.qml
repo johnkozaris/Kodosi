@@ -22,7 +22,6 @@ Item {
         default: return "settings"
         }
     }
-    readonly property var waiting: Models.Sessions.sessions.filter(session => ["hand", "question", "key"].indexOf(session.sign) >= 0 && Models.Sessions.attention.indexOf(session.id) >= 0)
     property bool titleBar: false
     property string renamingId: ""
     property Item pillTarget: null
@@ -417,44 +416,6 @@ Item {
                 }
             }
         }
-        AbstractButton {
-            id: needsYou
-            Layout.fillWidth: true
-            Layout.leftMargin: 12
-            Layout.rightMargin: 12
-            Layout.bottomMargin: 6
-            implicitHeight: 30
-            visible: root.waiting.length > 0
-            objectName: "sidebar.needsYou"
-            Accessible.id: objectName
-            Accessible.name: label.text
-            activeFocusOnTab: true
-            scale: pressed ? 0.97 : 1
-            contentItem: RowLayout {
-                spacing: 9
-                Item {
-                    Layout.leftMargin: 8
-                    Layout.preferredWidth: 22
-                    Layout.preferredHeight: 22
-                    StatusSign { anchors.centerIn: parent; session: root.waiting[0] || null; unseen: true }
-                }
-                PlainLabel {
-                    id: label
-                    Layout.fillWidth: true
-                    text: root.waiting.length === 1 ? qsTr("%1 needs you").arg(root.waiting[0].name) : root.waiting.length > 1 ? qsTr("%1 terminals need you").arg(root.waiting.length) : ""
-                    color: KodosiTheme.accentStrong
-                    font.pixelSize: KodosiTheme.fontFootnote
-                    font.weight: Font.Medium
-                    elide: Text.ElideRight
-                }
-                KIcon { Layout.rightMargin: 10; Layout.preferredWidth: 11; Layout.preferredHeight: 11; name: "arrow-right"; color: KodosiTheme.accentStrong; strokeWidth: 2.4 }
-            }
-            background: Rectangle {
-                radius: height / 2
-                color: KodosiTheme.alpha(KodosiTheme.accentSoft, 0.8)
-            }
-            onClicked: root.openTerminal(root.waiting[0].id)
-        }
         Flickable {
             id: flick
             Layout.fillWidth: true
@@ -704,6 +665,12 @@ Item {
                                     font.weight: Font.Medium
                                     elide: Text.ElideRight
                                 }
+                                StatusSign {
+                                    size: 11
+                                    session: folder.folded
+                                        ? (folder.group.sessions || []).find(entry => ["hand", "question", "key"].indexOf(entry.sign) >= 0) || null
+                                        : null
+                                }
                                 KIconButton {
                                     id: branchButton
                                     size: 20
@@ -748,7 +715,7 @@ Item {
                                 readonly property string sessionId: session.id || ""
                                 readonly property bool selected: root.selection === "terminal:" + sessionId
                                 readonly property bool staged: Models.DesktopState.stagedSessionIds.indexOf(sessionId) >= 0
-                                readonly property bool needsYou: Models.Sessions.attention.indexOf(sessionId) >= 0
+                                readonly property bool unseen: Models.Sessions.attention.indexOf(sessionId) >= 0
                                 readonly property bool renaming: root.renamingId === sessionId && sessionId.length > 0
                                 readonly property var viewers: (session.connectedUsers || []).filter(user => user !== Models.Account.userId)
                                 readonly property string detail: session.activity || (session.kind === "remote" && session.connectionState !== "connected" ? (session.message || qsTr("Not connected")) : "")
@@ -829,7 +796,7 @@ Item {
                                     }
                                     StatusSign {
                                         session: row.session
-                                        unseen: row.needsYou
+                                        unseen: row.unseen
                                         visible: form.length > 0 && !actions.visible
                                     }
                                     AvatarStack {

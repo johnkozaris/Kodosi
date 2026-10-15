@@ -23,11 +23,10 @@ or you use your recovery key, or you start fresh.
 
 ## Terminals
 
-The Terminals tab puts first the terminals that wait for you, with the agent's
-question and an Answer button. The other terminals follow, grouped by computer, then
-the terminals that friends share with you. While the app is in front, it keeps a link
-to your own terminals so that their agent status stays current. The links end when
-the app goes to the background.
+The Terminals tab groups your terminals by computer, then lists the terminals that
+friends share with you. Each row shows the sign of its state, which the host computer
+sends through the server. The agent's question shows when you open the terminal. The
+tab shows the number of your own terminals that wait for you.
 
 A terminal opens in the real terminal view. The phone controls the terminal size only
 while it holds focus; another view can take it back. A key row gives the keys a phone

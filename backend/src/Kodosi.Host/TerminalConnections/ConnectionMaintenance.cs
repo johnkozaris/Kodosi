@@ -7,7 +7,7 @@ internal sealed class ConnectionMaintenance(IServiceScopeFactory scopes, Connect
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(60));
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
             await Parallel.ForEachAsync(directory.Online(), new ParallelOptions { MaxDegreeOfParallelism = 8, CancellationToken = stoppingToken },
@@ -17,7 +17,6 @@ internal sealed class ConnectionMaintenance(IServiceScopeFactory scopes, Connect
                     {
                         await using var scope = scopes.CreateAsyncScope();
                         await scope.ServiceProvider.GetRequiredService<DeviceService>().RequireDeviceAsync(link.UserId, link.DeviceId, ct);
-                        link.Send(new { type = "ping" });
                     }
                     catch (ApiException)
                     {

@@ -14,15 +14,44 @@ public sealed class ConnectionDirectory
     private readonly Dictionary<Guid, Hosted> hosted = new();
     private readonly ConcurrentDictionary<Guid, Pipe> pipes = new();
 
+    internal event Action<Guid>? HostChanged;
+
+    public ConnectionDirectory() : this(RelayBudget.ServerBytes) { }
+
+    internal ConnectionDirectory(long relayBytes) => Relays = new RelayBudget(relayBytes);
+
+    internal RelayBudget Relays { get; }
+
     public bool HostOnline(Guid id) { lock (sync) return hosted.TryGetValue(id, out var live) && live.Host.IsOpen; }
+
+    public TerminalStatus? Status(Guid id) { lock (sync) return hosted.TryGetValue(id, out var live) && live.Host.IsOpen ? live.Status : null; }
 
     internal (int Devices, int Pipes) Count() { lock (sync) return (devices.Count, pipes.Count); }
 
     internal DeviceLink[] Online() { lock (sync) return devices.Values.Where(link => link.IsOpen).ToArray(); }
 
-    public void Notify(Guid userId, string surface)
+    public void Notify(Guid userId, string surface) => Send(userId, new { type = "changed", surface });
+
+    public void Notify(Guid userId, string surface, Guid roomId) => Send(userId, new { type = "changed", surface, roomId });
+
+    public void NotifyContent(Guid userId, Guid roomId, long sequence) =>
+        Send(userId, new { type = "changed", surface = "rooms", roomId, sequence });
+
+    public void NotifyTerminal(Session session, IReadOnlySet<Guid> audience)
     {
-        foreach (var link in Online().Where(link => link.UserId == userId)) link.Send(new { type = "changed", surface });
+        var message = new
+        {
+            type = "terminal", sessionId = session.Id, incarnationId = session.IncarnationId,
+            online = HostOnline(session.Id), status = Status(session.Id)
+        };
+        foreach (var link in Online().Where(link => audience.Contains(link.UserId)
+                     && !(link.UserId == session.OwnerUserId && link.DeviceId == session.HostDeviceId)))
+            link.Send(message);
+    }
+
+    private void Send(Guid userId, object message)
+    {
+        foreach (var link in Online().Where(link => link.UserId == userId)) link.Send(message);
     }
 
     internal void Register(DeviceLink link)
@@ -52,12 +81,15 @@ public sealed class ConnectionDirectory
     {
         link.Abort();
         Pipe[] ended;
+        Guid[] left;
         lock (sync)
         {
-            foreach (var id in hosted.Where(x => ReferenceEquals(x.Value.Host, link)).Select(x => x.Key).ToArray()) hosted.Remove(id);
+            left = hosted.Where(x => ReferenceEquals(x.Value.Host, link)).Select(x => x.Key).ToArray();
+            foreach (var id in left) hosted.Remove(id);
             ended = pipes.Values.Where(pipe => ReferenceEquals(pipe.Host, link) || ReferenceEquals(pipe.Viewer, link)).ToArray();
         }
         foreach (var pipe in ended) End(pipe, ReferenceEquals(pipe.Host, link) ? 409 : 0, ReferenceEquals(pipe.Host, link) ? "The host is offline." : "");
+        foreach (var id in left) HostChanged?.Invoke(id);
     }
 
     internal void Host(DeviceLink link, Session state)
@@ -75,6 +107,18 @@ public sealed class ConnectionDirectory
             hosted[state.Id] = new Hosted(state.IncarnationId, link);
         }
         foreach (var pipe in ended) End(pipe, 409, "Session publication changed.");
+        HostChanged?.Invoke(state.Id);
+    }
+
+    internal void Share(DeviceLink link, Guid sessionId, Guid incarnationId, TerminalStatus? status)
+    {
+        lock (sync)
+        {
+            if (!hosted.TryGetValue(sessionId, out var live) || !ReferenceEquals(live.Host, link) || live.IncarnationId != incarnationId
+                || live.Status == status) return;
+            hosted[sessionId] = live with { Status = status };
+        }
+        HostChanged?.Invoke(sessionId);
     }
 
     internal void Unhost(DeviceLink link, Guid sessionId)
@@ -109,9 +153,12 @@ public sealed class ConnectionDirectory
         if (!pipes.TryGetValue(pipeId, out var pipe)) return 0;
         var to = ReferenceEquals(pipe.Viewer, from) ? pipe.Host : ReferenceEquals(pipe.Host, from) ? pipe.Viewer : null;
         if (to is null) return 0;
-        if (to.Relay(frame)) return frame.Length;
-        End(pipe, 503, "The connection is too slow.");
-        return 0;
+        switch (to.Relay(frame))
+        {
+            case Relayed.Sent: return frame.Length;
+            case Relayed.Busy: End(pipe, 503, "The Kodosi server is busy. Open the terminal again in a moment."); return 0;
+            default: End(pipe, 503, "The connection is too slow."); return 0;
+        }
     }
 
     private void End(Pipe pipe, int status, string message, DeviceLink? silent = null)
@@ -151,6 +198,7 @@ public sealed class ConnectionDirectory
             ended = pipes.Values.Where(pipe => pipe.SessionId == id).ToArray();
         }
         foreach (var pipe in ended) End(pipe, 404, "This terminal is no longer available.");
+        HostChanged?.Invoke(id);
     }
 
     public void StopAll()
@@ -161,5 +209,5 @@ public sealed class ConnectionDirectory
         foreach (var link in all) link.Abort();
     }
 
-    private sealed record Hosted(Guid IncarnationId, DeviceLink Host);
+    private sealed record Hosted(Guid IncarnationId, DeviceLink Host, TerminalStatus? Status = null);
 }

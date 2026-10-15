@@ -623,6 +623,7 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             local: HashMap::new(),
             #[cfg(feature = "host")]
             creating: HashMap::new(),
+            listed: HashMap::new(),
             remotes: HashMap::new(),
             connections: HashMap::new(),
             opening: HashMap::new(),
@@ -660,6 +661,7 @@ fn remote_session(id: Uuid, incarnation_id: Uuid) -> RemoteSession {
         mission_name: None,
         shared_with: vec![],
         online: true,
+        status: None,
     }
 }
 
@@ -1234,4 +1236,89 @@ async fn catalog_replacement_cancels_inflight_automatic_recovery() {
     assert!(cancellation.is_cancelled());
     assert!(!runtime.opening.contains_key(&id));
     assert!(!runtime.reconnect.contains_key(&id));
+}
+
+#[tokio::test]
+async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open() {
+    use crate::terminal::{BlockedKind, ProgramState, TerminalMetadata};
+    let (mut runtime, _root) = registry_fixture();
+    let (id, incarnation) = (Uuid::now_v7(), Uuid::now_v7());
+    let remote = RemoteSession {
+        status: Some(TerminalStatus {
+            program: Some("claude".to_owned()),
+            state: Some(ProgramState::Blocked),
+            kind: Some(BlockedKind::Permission),
+        }),
+        ..remote_session(id, incarnation)
+    };
+    let shown = |runtime: &Runtime| {
+        let entry = &runtime.remotes[&id];
+        (
+            entry.program.clone(),
+            entry.program_status.as_ref().map(|status| status.state),
+            entry
+                .program_status
+                .as_ref()
+                .and_then(|status| status.message.clone()),
+        )
+    };
+    runtime.replace_remotes(vec![remote.clone()]);
+    assert_eq!(
+        shown(&runtime),
+        (Some("claude".to_owned()), Some(ProgramState::Blocked), None)
+    );
+
+    let (connection, _requests, _updates) = crate::network::test_remote_connection(remote);
+    runtime.connections.insert(
+        id,
+        RemoteTerminal::spawn(connection, runtime.changes.clone()),
+    );
+    let instance_id = runtime.connections[&id].instance_id;
+    runtime.change(SessionChange::Metadata {
+        id,
+        incarnation,
+        instance_id,
+        metadata: TerminalMetadata {
+            connected_users: vec![],
+            directory: None,
+            title: None,
+            program: Some("claude".to_owned()),
+            status: Some(crate::terminal::ProgramStatus {
+                state: ProgramState::Working,
+                kind: None,
+                progress: Some(40),
+                app: None,
+                title: None,
+                message: Some("Building".to_owned()),
+            }),
+        },
+    });
+    let generation = runtime.network.generation();
+    let notice = |online: bool, state: &str| BackendEvent {
+        generation,
+        user_id: None,
+        event: json!({"type":"network.terminal","sessionId":id,"incarnationId":incarnation,
+            "online":online,"status":{"program":"claude","state":state}}),
+    };
+    runtime.network_event(notice(true, "done"));
+    let open = (
+        Some("claude".to_owned()),
+        Some(ProgramState::Working),
+        Some("Building".to_owned()),
+    );
+    assert_eq!(shown(&runtime), open);
+
+    runtime.change(SessionChange::RemoteClosed {
+        id,
+        incarnation,
+        instance_id,
+        reason: "Closed here.".to_owned(),
+    });
+    assert_eq!(
+        shown(&runtime),
+        (Some("claude".to_owned()), Some(ProgramState::Done), None)
+    );
+    runtime.network_event(notice(false, "done"));
+    assert_eq!(shown(&runtime), (None, None, None));
+    assert_eq!(runtime.remotes[&id].status, SessionStatus::Reconnecting);
 }

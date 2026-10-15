@@ -159,6 +159,74 @@ public sealed class TerminalConnectionTests
         Assert.True(slow.IsOpen); Assert.True(host.IsOpen);
     }
 
+    [Fact]
+    public async Task AllRelayQueuesShareOneServerLimitThatAClosedConnectionFrees()
+    {
+        var budget = new RelayBudget(1024 * 1024);
+        var first = new DeviceLink(new FakeSocket(blockWrites: true), Guid.CreateVersion7(), "first", budget);
+        await using var second = new DeviceLink(new FakeSocket(blockWrites: true), Guid.CreateVersion7(), "second", budget);
+        var frame = new byte[64 * 1024];
+        var sent = 0;
+        while (first.Relay(frame) == Relayed.Sent) sent++;
+        Assert.Equal(16, sent);
+        Assert.Equal(Relayed.Busy, second.Relay(frame));
+        await first.DisposeAsync();
+        Assert.Equal(0, budget.Used);
+        Assert.Equal(Relayed.Sent, second.Relay(frame));
+    }
+
+    [Fact]
+    public async Task APipeEndsWithABusyMessageWhenAllRelayQueuesAreFull()
+    {
+        var directory = new ConnectionDirectory(1024 * 1024); var state = Terminal();
+        var (host, hostSocket) = Device(device: "host"); await using var disposeHost = host;
+        await using var slow = new DeviceLink(new FakeSocket(blockWrites: true), Guid.CreateVersion7(), "slow", directory.Relays);
+        directory.Register(host); directory.Register(slow); directory.Host(host, state);
+        var pipe = Guid.CreateVersion7();
+        directory.Open(slow, pipe, state);
+        var frame = BackendApplication.PipeFrame(pipe, new byte[64 * 1024]);
+        while (directory.Relay(host, pipe, frame) > 0) { }
+        var closed = await MessageAsync(hostSocket, "closed");
+        Assert.Equal(pipe, closed.GetProperty("pipe").GetGuid());
+        Assert.Equal("The Kodosi server is busy. Open the terminal again in a moment.", closed.GetProperty("message").GetString());
+        Assert.True(slow.IsOpen); Assert.True(host.IsOpen);
+    }
+
+    [Fact]
+    public async Task OnlyTheHostingConnectionSetsTheStatusAndTheStatusEndsWithIt()
+    {
+        var directory = new ConnectionDirectory(); var state = Terminal();
+        var changed = new List<Guid>(); directory.HostChanged += changed.Add;
+        var (host, _) = Device(device: "host"); var (other, _) = Device(device: "other");
+        await using var disposeHost = host; await using var disposeOther = other;
+        directory.Register(host); directory.Register(other); directory.Host(host, state);
+        var status = new TerminalStatus("claude", "blocked", "permission");
+        directory.Share(other, state.Id, state.IncarnationId, status);
+        directory.Share(host, state.Id, Guid.CreateVersion7(), status);
+        Assert.Null(directory.Status(state.Id));
+        directory.Share(host, state.Id, state.IncarnationId, status);
+        directory.Share(host, state.Id, state.IncarnationId, new TerminalStatus("claude", "blocked", "permission"));
+        Assert.Equal(status, directory.Status(state.Id));
+        directory.Remove(host);
+        Assert.Null(directory.Status(state.Id));
+        Assert.False(directory.HostOnline(state.Id));
+        Assert.Equal(Enumerable.Repeat(state.Id, 3), changed);
+    }
+
+    [Fact]
+    public void ATerminalStatusCarriesOnlyTheAgentAndTheState()
+    {
+        static TerminalStatus? Read(string json) => TerminalStatus.Read(JsonDocument.Parse(json).RootElement);
+        Assert.Equal(new TerminalStatus("claude", "blocked", "question"), Read("""{"program":"claude","state":"blocked","kind":"question"}"""));
+        Assert.Null(Read("null"));
+        foreach (var invalid in new[]
+                 {
+                     """{"state":"blocked","message":"Allow the command?"}""", """{"state":"thinking"}""",
+                     """{"state":"working","kind":"permission"}""", """{"program":"Claude Code"}""",
+                 })
+            Assert.ThrowsAny<Exception>(() => Read(invalid));
+    }
+
     private sealed class CapturingSocket : FakeSocket
     {
         public System.Threading.Channels.Channel<(WebSocketMessageType Type, byte[] Bytes)> Frames { get; } =

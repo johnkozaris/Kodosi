@@ -32,13 +32,13 @@ struct TerminalGroup: Identifiable, Equatable {
 
 enum TerminalCatalog {
     static func needsYou(_ sessions: [RuntimeSession]) -> [RuntimeSession] {
-        sessions.filter(\.needsUser)
+        sessions.filter { $0.needsUser && $0.canCall }
     }
 
     static func groups(_ sessions: [RuntimeSession]) -> [TerminalGroup] {
         var computers: [String: (name: String, sessions: [RuntimeSession])] = [:]
         var shared: [RuntimeSession] = []
-        for session in sessions where !session.needsUser {
+        for session in sessions {
             guard session.isOwner else {
                 shared.append(session)
                 continue

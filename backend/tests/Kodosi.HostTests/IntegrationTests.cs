@@ -44,6 +44,83 @@ public sealed class IntegrationTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task RoomMembersHearWhenAMemberStartsFresh()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var connection = await postgres.CreateDatabaseAsync(ct);
+        await using var app = new BackendApplication(connection);
+        using var owner = await app.EnrollAsync("owner");
+        using var member = await app.EnrollAsync("member");
+        var room = Guid.CreateVersion7();
+        await CallAsync(owner, HttpMethod.Post, "/api/missions", new { id = room, name = "Room" });
+        await using (var db = PostgresFixture.Context(connection))
+        {
+            db.MissionMembers.Add(new MissionMember { MissionId = room, UserId = member.Fixture.UserId });
+            await db.SaveChangesAsync(ct);
+        }
+        using var socket = await app.ConnectAsync(member);
+        using var recent = app.CreateClient();
+        recent.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("owner", authenticatedAt: DateTimeOffset.UtcNow));
+        using var reset = await recent.PostAsync("/api/me/identity/reset", null, ct);
+        Assert.Equal(HttpStatusCode.NoContent, reset.StatusCode);
+        var notice = await JsonAsync(socket);
+        while (notice.GetProperty("surface").GetString() != "missions") notice = await JsonAsync(socket);
+        Assert.Equal(room, notice.GetProperty("roomId").GetGuid());
+    }
+
+    [Fact]
+    public async Task RoomMembersHearTheStatusOfATerminalAndWhenItsHostGoesOffline()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var connection = await postgres.CreateDatabaseAsync(ct);
+        await using var app = new BackendApplication(connection);
+        using var owner = await app.EnrollAsync("owner");
+        using var member = await app.EnrollAsync("member");
+        using var outsider = await app.EnrollAsync("outsider");
+        var room = Guid.CreateVersion7();
+        await CallAsync(owner, HttpMethod.Post, "/api/missions", new { id = room, name = "Room" });
+        await using (var db = PostgresFixture.Context(connection))
+        {
+            db.MissionMembers.Add(new MissionMember { MissionId = room, UserId = member.Fixture.UserId });
+            await db.SaveChangesAsync(ct);
+        }
+        var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7();
+        await CallAsync(owner, HttpMethod.Post, "/api/sessions", new { id, incarnationId = incarnation, name = "Agent", hostDeviceId = owner.Fixture.DeviceId, hostName = "Host", missionId = room });
+        using var viewer = await app.ConnectAsync(member);
+        using var stranger = await app.ConnectAsync(outsider);
+        using var host = await app.ConnectAsync(owner);
+        static async Task<JsonElement> TerminalAsync(WebSocket socket)
+        {
+            while (true)
+            {
+                var message = await JsonAsync(socket);
+                if (message.GetProperty("type").GetString() == "terminal") return message;
+            }
+        }
+        await SendAsync(host, new { type = "host", sessionId = id, incarnationId = incarnation });
+        var online = await TerminalAsync(viewer);
+        Assert.Equal(incarnation, online.GetProperty("incarnationId").GetGuid());
+        Assert.True(online.GetProperty("online").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, online.GetProperty("status").ValueKind);
+
+        var status = new { program = "claude", state = "blocked", kind = "permission" };
+        await SendAsync(host, new { type = "status", sessionId = id, incarnationId = incarnation, status });
+        Assert.Equal("permission", (await TerminalAsync(viewer)).GetProperty("status").GetProperty("kind").GetString());
+        var listed = (await CallAsync(member, HttpMethod.Get, "/api/sessions")).EnumerateArray().Single();
+        Assert.Equal("blocked", listed.GetProperty("status").GetProperty("state").GetString());
+
+        await host.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, ct);
+        var offline = await TerminalAsync(viewer);
+        Assert.False(offline.GetProperty("online").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, offline.GetProperty("status").ValueKind);
+        Assert.Equal(JsonValueKind.Null, (await CallAsync(member, HttpMethod.Get, "/api/sessions")).EnumerateArray().Single().GetProperty("status").ValueKind);
+
+        await SendAsync(stranger, new { type = "ping" });
+        for (var message = await JsonAsync(stranger); message.GetProperty("type").GetString() != "pong"; message = await JsonAsync(stranger))
+            Assert.NotEqual("terminal", message.GetProperty("type").GetString());
+    }
+
+    [Fact]
     public async Task IssuerAndSubjectIdentifyTheAccount()
     {
         await using var store = await TestStore.CreateAsync(postgres);
@@ -90,7 +167,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         using var anonymous = app.CreateClient();
         using var denied = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
         var health = await anonymous.GetFromJsonAsync<JsonElement>("/health/live", TestContext.Current.CancellationToken);
-        Assert.Equal(25, health.GetProperty("apiContractVersion").GetInt32());
+        Assert.Equal(27, health.GetProperty("apiContractVersion").GetInt32());
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("bad", "wrong-audience"));
         using var audience = await anonymous.GetAsync("/api/me", TestContext.Current.CancellationToken); Assert.Equal(HttpStatusCode.Unauthorized, audience.StatusCode);
         anonymous.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("unenrolled"));

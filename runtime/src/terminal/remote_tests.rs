@@ -14,6 +14,7 @@ fn session() -> RemoteSession {
         mission_name: None,
         shared_with: vec![],
         online: true,
+        status: None,
     }
 }
 

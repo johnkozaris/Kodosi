@@ -156,6 +156,11 @@ impl Subscribers {
         self.entries.is_empty()
     }
 
+    #[cfg(feature = "host")]
+    pub(crate) fn has_active(&self) -> bool {
+        self.entries.values().any(Subscriber::is_active)
+    }
+
     pub(crate) fn prune(&mut self) {
         self.entries.retain(|_, entry| entry.is_active());
     }

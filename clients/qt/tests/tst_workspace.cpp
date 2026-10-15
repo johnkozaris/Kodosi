@@ -306,6 +306,29 @@ private slots:
         f.workspace.apply(test::snapshot({ reported(1, {{QStringLiteral("state"), QStringLiteral("dance")}}) }), 0);
         QCOMPARE(f.sessions.session(test::id(2))->programState, QStringLiteral("done"));
     }
+    void aRoomTerminalThatIsNotOpenHereShowsTheStatusOfItsHost()
+    {
+        Fixture f;
+        const auto closed = [](const int number) {
+            auto session = test::session(number, true, false);
+            session.insert(QStringLiteral("connectionState"), QStringLiteral("offline"));
+            return session;
+        };
+        auto asking = closed(1);
+        asking.insert(QStringLiteral("programStatus"),
+            QJsonObject { { QStringLiteral("state"), QStringLiteral("blocked") }, { QStringLiteral("kind"), QStringLiteral("question") } });
+        auto working = closed(2);
+        working.insert(QStringLiteral("programStatus"), QJsonObject { { QStringLiteral("state"), QStringLiteral("working") } });
+        auto titled = closed(3);
+        titled.insert(QStringLiteral("title"), QStringLiteral("\u2802 Build"));
+        f.workspace.apply(test::snapshot({ asking, working, titled }), 0);
+        const auto field = [&](const int number, const QString& name) {
+            return f.sessions.presentationForSession(test::id(number)).value(name);
+        };
+        QCOMPARE(field(1, QStringLiteral("sign")).toString(), QStringLiteral("question"));
+        QVERIFY(field(2, QStringLiteral("working")).toBool());
+        QVERIFY(!field(3, QStringLiteral("working")).toBool());
+    }
     void minimizeKeepsProcessAndClosePrunesFromCatalog()
     {
         Fixture f;

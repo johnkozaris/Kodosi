@@ -55,7 +55,8 @@ replacement terminal. A temporary loss of connection does not change chosen shar
 Terminal traffic and room content must be end-to-end encrypted between participants.
 Private keys stay on endpoint devices. The backend connects participants and relays
 encrypted content; it does not run their commands or read their terminal or room
-plaintext.
+plaintext. It sees only the agent of each terminal and the state that its program
+reports, such as working or waiting for an approval.
 
 A person can make a recovery key. It approves a new device when no other device can,
 and keeps friends and rooms. Without it, a person who lost all devices starts fresh
@@ -86,9 +87,11 @@ existing agents participate through the running host.
 
 Terminals show the state that their programs report through the Program Status
 Protocol (OSC 7501) or a progress bar: working, waiting for a person, done, or failed.
-While the app is not in front,
-it sends a system notification when one of the person's own terminals starts to wait,
-is done, or failed.
+Everyone who can open a terminal sees its state before they open it: the host sends the
+agent and the state through the backend, without the program's text.
+Each terminal also shows who has it open, the person at its host computer included.
+While the app is not in front, it sends a system notification when a terminal that the
+person owns or has open starts to wait, is done, or failed.
 
 A local terminal at its prompt offers the person's start commands, such as an agent
 or the same agent with a second account. Kodosi clears the input line, types the
