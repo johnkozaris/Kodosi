@@ -16,11 +16,7 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
     ) {
         writeHandler = write
         resizeHandler = resize
-        surfaceAccess = InMemoryTerminalSurfaceAccess(
-            write: Self.writeToSurface,
-            restore: Self.restoreSurfaceCheckpoint,
-            processExit: Self.reportProcessExit
-        )
+        surfaceAccess = InMemoryTerminalSurfaceAccess(write: Self.writeToSurface, restore: Self.restoreSurfaceCheckpoint)
     }
 
     init(
@@ -28,17 +24,11 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
         resize: @escaping @Sendable (InMemoryTerminalViewport) -> Void,
         surfaceWrite: @escaping InMemoryTerminalSurfaceAccess.Write,
         surfaceRestore: @escaping InMemoryTerminalSurfaceAccess.Restore =
-            InMemoryTerminalSession.restoreSurfaceCheckpoint,
-        processExit: @escaping InMemoryTerminalSurfaceAccess.ProcessExit =
-            InMemoryTerminalSession.reportProcessExit
+            InMemoryTerminalSession.restoreSurfaceCheckpoint
     ) {
         writeHandler = write
         resizeHandler = resize
-        surfaceAccess = InMemoryTerminalSurfaceAccess(
-            write: surfaceWrite,
-            restore: surfaceRestore,
-            processExit: processExit
-        )
+        surfaceAccess = InMemoryTerminalSurfaceAccess(write: surfaceWrite, restore: surfaceRestore)
     }
 
     func setSurface(_ surface: ghostty_surface_t?) {
@@ -159,24 +149,6 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
         writeHandler(data)
     }
 
-    public func finish(exitCode: UInt32, runtimeMilliseconds: UInt64) {
-        guard surfaceAccess.enqueueProcessExit(
-            exitCode: exitCode,
-            runtimeMilliseconds: runtimeMilliseconds
-        ) else {
-            TerminalDebugLog.log(
-                .lifecycle,
-                "process exit ignored: missing surface exitCode=\(exitCode) runtimeMs=\(runtimeMilliseconds)"
-            )
-            return
-        }
-
-        TerminalDebugLog.log(
-            .lifecycle,
-            "process exit exitCode=\(exitCode) runtimeMs=\(runtimeMilliseconds)"
-        )
-    }
-
     static let receiveBufferCallback: ghostty_surface_receive_buffer_cb = { userdata, ptr, len in
         guard let userdata, let ptr,
               len <= InMemoryTerminalSurfaceAccess.maximumPendingWriteBytes
@@ -285,13 +257,5 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
                 nil
             ) == GHOSTTY_RESULT_SUCCESS
         }
-    }
-
-    private static func reportProcessExit(
-        _ surface: ghostty_surface_t,
-        _ exitCode: UInt32,
-        _ runtimeMilliseconds: UInt64
-    ) {
-        ghostty_surface_process_exit(surface, exitCode, runtimeMilliseconds)
     }
 }

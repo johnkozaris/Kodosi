@@ -108,12 +108,6 @@ public struct AgentMark: View {
     public var size: CGFloat = 22
     public var activity: Activity = .awake
 
-    public init(program: String?, size: CGFloat = 22, activity: Activity = .awake) {
-        kind = AgentKind(program: program)
-        self.size = size
-        self.activity = activity
-    }
-
     public init(kind: AgentKind, size: CGFloat = 22, activity: Activity = .awake) {
         self.kind = kind
         self.size = size
@@ -132,7 +126,6 @@ public struct AgentMark: View {
         max(2, size * 0.075)
     }
 
-    /// How far the rim of cells stands out from the mark.
     private var rimSpace: CGFloat {
         rimWidth * 1.75
     }
@@ -335,12 +328,10 @@ public struct IconTile: View {
 
 public struct RoomSigil: View {
     @Environment(\.theme) private var theme
-    public let name: String
     public let key: String
     public var size: CGFloat = 28
 
-    public init(name: String, key: String, size: CGFloat = 28) {
-        self.name = name
+    public init(key: String, size: CGFloat = 28) {
         self.key = key
         self.size = size
     }
@@ -412,8 +403,6 @@ public struct DeviceGlyph: View {
     }
 }
 
-/// The Kodosi wordmark, 1.2 times `size` tall, and the copper cursor at the end of the word: it
-/// stands on the line of the word, as tall as its small letters.
 public struct KodosiWordmark: View {
     public var size: CGFloat = 17
     public var blinks = true

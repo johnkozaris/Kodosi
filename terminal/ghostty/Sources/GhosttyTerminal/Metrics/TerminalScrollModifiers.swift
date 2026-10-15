@@ -6,23 +6,11 @@ import AppKit
 public struct TerminalScrollModifiers: Sendable {
     public let rawValue: ghostty_input_scroll_mods_t
 
-    public init(rawValue: ghostty_input_scroll_mods_t = 0) {
-        self.rawValue = rawValue
-    }
-
     public init(precision: Bool, momentum: Momentum = .none) {
         var value: Int32 = 0
         if precision { value |= 1 }
         value |= momentum.rawValue << 1
         rawValue = value
-    }
-
-    public var precision: Bool {
-        (rawValue & 1) != 0
-    }
-
-    public var momentum: Momentum {
-        Momentum(rawValue: (rawValue >> 1) & 0x3) ?? .none
     }
 
     public enum Momentum: Int32, Sendable {

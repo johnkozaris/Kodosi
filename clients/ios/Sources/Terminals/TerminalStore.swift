@@ -138,10 +138,6 @@ final class TerminalStore {
         attention.insert(id)
     }
 
-    func seen(_ id: String) {
-        attention.remove(id)
-    }
-
     func refresh() async {
         let before = revision
         commands.perform("session.list")

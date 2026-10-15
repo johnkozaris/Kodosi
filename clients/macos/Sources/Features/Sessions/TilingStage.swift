@@ -3,7 +3,6 @@ import KodosiDesign
 import SwiftUI
 
 struct TilingStage: View {
-    @Environment(\.theme) private var theme
     @Environment(AppDependencies.self) private var deps
     @Bindable var workbench: WorkbenchState
 
@@ -85,8 +84,6 @@ struct StageOverview: View {
         }
     }
 
-    /// The launcher stands a little above the middle, and a list that it opens
-    /// grows down from there.
     private var first: some View {
         GeometryReader { proxy in
             AgentLauncher(welcome: true)

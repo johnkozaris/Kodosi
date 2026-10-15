@@ -1,7 +1,7 @@
 import SwiftUI
 
-public enum StableHash {
-    public static func value(_ text: String) -> UInt64 {
+enum StableHash {
+    static func value(_ text: String) -> UInt64 {
         var hash: UInt64 = 0xCBF2_9CE4_8422_2325
         for byte in text.utf8 {
             hash ^= UInt64(byte)
@@ -10,7 +10,7 @@ public enum StableHash {
         return hash
     }
 
-    public static func pick<Element>(_ text: String, from values: [Element]) -> Element {
+    static func pick<Element>(_ text: String, from values: [Element]) -> Element {
         values[Int(value(text) % UInt64(values.count))]
     }
 }
@@ -87,13 +87,13 @@ public enum AgentKind: String, CaseIterable, Sendable {
     }
 }
 
-public enum RoomTint {
+enum RoomTint {
     private static let palette: [Color] = [
         hex(0xD98A5F), hex(0xD9A441), hex(0xC96F7E), hex(0x8C7BD1),
         hex(0x4F9BB0), hex(0xB8743C), hex(0xA86AAE),
     ]
 
-    public static func color(for key: String) -> Color {
+    static func color(for key: String) -> Color {
         StableHash.pick(key, from: palette)
     }
 }

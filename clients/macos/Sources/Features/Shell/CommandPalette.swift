@@ -6,7 +6,7 @@ struct CommandPalette: View {
     enum Icon {
         case symbol(String, Color)
         case agent(AgentKind, AgentMark.Activity)
-        case room(name: String, key: String)
+        case room(String)
         case person(name: String, key: String)
     }
 
@@ -105,7 +105,7 @@ struct CommandPalette: View {
                 switch item.icon {
                 case let .symbol(name, tint): IconTile(symbol: name, tint: tint, size: 24)
                 case let .agent(kind, activity): AgentMark(kind: kind, size: 24, activity: activity)
-                case let .room(name, key): RoomSigil(name: name, key: key, size: 24)
+                case let .room(key): RoomSigil(key: key, size: 24)
                 case let .person(name, key): PersonAvatar(name: name, key: key, size: 24)
                 }
             }
@@ -157,7 +157,7 @@ struct CommandPalette: View {
     private var roomItems: [Item] {
         deps.missions.map { mission in
             Item(id: "room.\(mission.id)", group: String(localized: "Rooms"), title: mission.name,
-                 icon: .room(name: mission.name, key: mission.id))
+                 icon: .room(mission.id))
             {
                 deps.workbench.section = .missions; deps.openMission(mission)
             }
@@ -208,7 +208,6 @@ struct CommandPalette: View {
     }
 }
 
-/// A key of the keyboard, named in a small raised cap.
 private struct Keycap: View {
     @Environment(\.theme) private var theme
     var text: String?

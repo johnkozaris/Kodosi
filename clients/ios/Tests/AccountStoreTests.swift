@@ -19,11 +19,10 @@ struct AccountStoreTests {
     @Test func devicesListPutsThisDeviceFirstAndTheRecoveryKeyLast() throws {
         try deliverDevices()
         #expect(store.orderedDevices.map(\.deviceId) == ["phone", "mac", "key"])
-        #expect(store.thisDevice?.label == "iPhone")
         #expect(store.hasRecoveryKey)
         #expect(store.devicesRevision == 1)
         let mac = try #require(store.devices.first { $0.deviceId == "mac" })
-        let phone = try #require(store.thisDevice)
+        let phone = try #require(store.devices.first { $0.deviceId == "phone" })
         #expect(store.canRemove(mac))
         #expect(!store.canRemove(phone))
     }

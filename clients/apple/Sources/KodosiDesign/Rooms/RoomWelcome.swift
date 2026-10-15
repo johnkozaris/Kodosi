@@ -34,7 +34,7 @@ public struct RoomWelcome: View {
 
     public var body: some View {
         VStack(spacing: 18) {
-            RoomSigil(name: name, key: key, size: 56).arrive()
+            RoomSigil(key: key, size: 56).arrive()
             VStack(spacing: 4) {
                 Text("This is \(name)", bundle: .module)
                     .appTextStyle(.headline)

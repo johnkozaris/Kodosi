@@ -183,7 +183,6 @@ private struct RoomTerminals: View {
 }
 
 private struct RoomTerminalCard: View {
-    @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
     @State private var hovered = false
     let session: RuntimeSession

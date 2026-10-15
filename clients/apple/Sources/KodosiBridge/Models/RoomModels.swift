@@ -5,7 +5,6 @@ public struct RoomSnapshot: Decodable {
     public var messages: [RoomMessage]
     public var tasks: [RoomTask]
     public let repositories: [RoomRepository]
-    public let sequence: UInt64
     public var hasOlder: Bool
 }
 
@@ -57,7 +56,6 @@ public struct RoomRepository: Decodable, Identifiable {
     public let host: String
     public let owner: String
     public let repository: String
-    public let provider: String
 }
 
 public struct RoomIssue: Decodable, Identifiable {
@@ -68,7 +66,6 @@ public struct RoomIssue: Decodable, Identifiable {
     public let repositoryId: String
     public let number: UInt64
     public let title: String
-    public let body: String
     public let url: String
     public let closed: Bool
     public let assignees: [String]

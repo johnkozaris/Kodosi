@@ -65,7 +65,6 @@ struct AppShell: View {
         sheet == nil && !deps.workbench.showsPalette && deps.workbench.sharingSessionId == nil
     }
 
-    /// The sheet that shows over the window, if any; at most one shows at a time.
     private enum Sheet: Equatable {
         case signIn, recoveryKey, details(String), newRoom, history
     }

@@ -141,7 +141,7 @@ struct RoomsHome: View {
                 .listRowBackground(Color.clear)
         } else if query.isEmpty, rooms.missions.isEmpty, rooms.invitations.isEmpty {
             EmptyState(title: "Make your first room", message: "A room keeps people, agents and terminals in one place.") {
-                RoomSigil(name: "Kodosi", key: "kodosi", size: 64)
+                RoomSigil(key: "kodosi", size: 64)
             } actions: {
                 Button { showsNewRoom = true } label: { Label("New room", systemImage: "plus") }
                     .buttonStyle(.kodosi(.primary))

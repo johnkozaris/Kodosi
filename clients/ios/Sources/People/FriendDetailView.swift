@@ -110,7 +110,7 @@ private struct FriendDetailList: View {
                     ForEach(rooms) { room in
                         NavigationLink(value: RoomRoute(roomId: room.id)) {
                             HStack(spacing: 12) {
-                                RoomSigil(name: room.name, key: room.id, size: 30)
+                                RoomSigil(key: room.id, size: 30)
                                 Text(room.name)
                                     .appTextStyle(.body)
                                     .foregroundStyle(theme.colors.ink)

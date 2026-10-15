@@ -23,7 +23,7 @@ struct RoomCreateSheet: View {
             List {
                 Section {
                     VStack(spacing: 18) {
-                        RoomSigil(name: name, key: name.isEmpty ? "new" : name, size: 68)
+                        RoomSigil(key: name.isEmpty ? "new" : name, size: 68)
                             .animation(theme.motion.spring, value: name)
                         TextField("Launch week", text: $name)
                             .textFieldStyle(WellTextFieldStyle(radius: Radius.lg))

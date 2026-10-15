@@ -103,7 +103,7 @@ struct SessionSharingPopover: View {
                             }
                         } label: {
                             HStack(spacing: 7) {
-                                RoomSigil(name: mission.name, key: mission.id, size: 18)
+                                RoomSigil(key: mission.id, size: 18)
                                 Text(mission.name).appTextStyle(.footnote).fontWeight(.medium).lineLimit(1)
                                 if selected {
                                     Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).transition(AnyTransition.pop)

@@ -27,9 +27,7 @@ struct AgentAccount: Decodable, Equatable, Identifiable {
     var name: String
     var command: String
     var identity: String?
-    /// The folder that keeps the sign-in; commands with the same folder share one.
     var folder: String?
-    /// The options that the command adds, such as `--yolo`.
     var options: String?
 
     var id: String {
@@ -61,8 +59,6 @@ struct AgentOption: Decodable, Equatable, Identifiable {
     }
 }
 
-/// What the launcher starts: the agent (none for a plain terminal) and, for
-/// each agent, the words of the account, model and effort chosen last.
 struct LaunchChoice: Codable, Equatable {
     var agent: String?
     var accounts: [String: String] = [:]
@@ -70,9 +66,6 @@ struct LaunchChoice: Codable, Equatable {
     var efforts: [String: String] = [:]
 }
 
-/// What the launcher would start now: the person's choice, held against what
-/// this computer offers. A choice that the agent no longer offers falls back
-/// to the agent's own default.
 @MainActor
 struct LaunchPlan {
     let choice: LaunchChoice
@@ -112,12 +105,10 @@ struct LaunchPlan {
         return efforts.contains { $0.argument == saved } ? saved : nil
     }
 
-    /// Whether the agent lists models, or may still list them.
     var listsModels: Bool {
         models == nil || !(models?.models.isEmpty ?? true)
     }
 
-    /// The command line that the new terminal types.
     var line: String? {
         guard let info else { return nil }
         guard info.installed else { return info.install }

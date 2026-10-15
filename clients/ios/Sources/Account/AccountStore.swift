@@ -53,10 +53,6 @@ final class AccountStore {
         return name.isEmpty ? String(localized: "You") : name
     }
 
-    var thisDevice: MyDeviceEntry? {
-        devices.first { $0.deviceId == selfDeviceId }
-    }
-
     var orderedDevices: [MyDeviceEntry] {
         devices.filter { $0.deviceId == selfDeviceId }
             + devices.filter { $0.deviceId != selfDeviceId && !$0.recoveryKey }

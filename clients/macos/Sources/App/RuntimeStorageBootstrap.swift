@@ -5,19 +5,6 @@ struct RuntimeStorageBootstrap {
     static let productionDataRootEnvironmentKey = "KODOSI_PRODUCTION_DATA_ROOT"
     static let xctestEnvironmentKey = "XCTestConfigurationFilePath"
     static let xctestTemporaryRoot = "__KODOSI_XCTEST_TMPDIR__"
-    static func resolveForLaunch(
-        environment: [String: String] = ProcessInfo.processInfo.environment,
-        processIdentifier: Int32 = ProcessInfo.processInfo.processIdentifier,
-        fileManager: FileManager = .default,
-        installEnvironment: Bool = true
-    ) throws -> RuntimeStorageBootstrap {
-        try resolve(
-            environment: environment,
-            processIdentifier: processIdentifier,
-            fileManager: fileManager,
-            installEnvironment: installEnvironment
-        )
-    }
 
     let dataRoot: URL?
     let harnessHome: URL?

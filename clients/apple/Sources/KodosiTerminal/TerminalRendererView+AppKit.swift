@@ -6,7 +6,6 @@
     @MainActor
     public struct TerminalRendererView: View {
         @ObservedObject private var session: TerminalRendererSession
-        private let sessionId: String
         private let sessionName: String
         private let accessibilityIdentifier: String
         private let shouldFocus: Bool
@@ -20,7 +19,6 @@
 
         public init(
             session: TerminalRendererSession,
-            sessionId: String,
             sessionName: String,
             accessibilityIdentifier: String,
             shouldFocus: Bool,
@@ -33,7 +31,6 @@
             onShareShortcut: @escaping () -> Void
         ) {
             _session = ObservedObject(wrappedValue: session)
-            self.sessionId = sessionId
             self.sessionName = sessionName
             self.accessibilityIdentifier = accessibilityIdentifier
             self.shouldFocus = shouldFocus
@@ -49,7 +46,6 @@
         public var body: some View {
             TerminalRendererRepresentable(
                 session: session,
-                sessionId: sessionId,
                 sessionName: sessionName,
                 accessibilityIdentifier: accessibilityIdentifier,
                 shouldFocus: shouldFocus,
@@ -316,7 +312,6 @@
     @MainActor
     private struct TerminalRendererRepresentable: NSViewRepresentable {
         @ObservedObject var session: TerminalRendererSession
-        let sessionId: String
         let sessionName: String
         let accessibilityIdentifier: String
         let shouldFocus: Bool

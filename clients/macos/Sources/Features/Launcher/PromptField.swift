@@ -2,17 +2,12 @@ import AppKit
 import KodosiDesign
 import SwiftUI
 
-/// The words a person types after the command: the agent's first prompt, or
-/// the command that a plain terminal runs. It shows a terminal's block cursor
-/// and, while it is empty, a faint suggestion that Tab or → takes.
 struct PromptField: NSViewRepresentable {
     @Environment(\.theme) private var theme
     @Binding var text: String
-    /// The suggestion as far as it is typed now, and in full.
     let ghost: String
     let suggestion: String
     let label: String
-    /// Each new value puts the keyboard focus in the field.
     var focus = 0
     let submit: () -> Void
 
@@ -81,7 +76,6 @@ struct PromptField: NSViewRepresentable {
 
         func textDidChange(_ notification: Notification) {
             guard let view = notification.object as? PromptTextView else { return }
-            // One line: a pasted line break or tab becomes a space.
             let line = view.string.replacing(/[\r\n\t\u{2028}\u{2029}]+/, with: " ")
             if line != view.string {
                 view.string = line
@@ -115,8 +109,6 @@ struct PromptField: NSViewRepresentable {
     }
 }
 
-/// A one-line text view that draws a block cursor, as a terminal does: lit
-/// while the person types, then blinking; hollow when the view has no focus.
 final class PromptTextView: NSTextView {
     static let font = NSFont.monospacedSystemFont(ofSize: 13, weight: .medium)
 
@@ -144,8 +136,6 @@ final class PromptTextView: NSTextView {
         window?.firstResponder === self
     }
 
-    /// The height that the text needs at `width`, with room for the cursor
-    /// at the end of each line. The inset centers the first line on a key.
     func height(forWidth width: CGFloat) -> CGFloat {
         let inset = textContainerInset.height * 2
         guard let layoutManager, let textContainer else { return cell.height + inset }
@@ -159,7 +149,6 @@ final class PromptTextView: NSTextView {
         textContainer?.containerSize = NSSize(width: max(cell.width, size.width - cell.width), height: .greatestFiniteMagnitude)
     }
 
-    /// Lights the cursor and starts its blink again after a pause.
     func wake() {
         lit = true
         needsDisplay = true
@@ -219,7 +208,6 @@ final class PromptTextView: NSTextView {
         guard lit else { return }
         caretColor.setFill()
         block.fill()
-        // The character under the cursor shows in the terminal's own color.
         let text = string as NSString
         let location = selectedRange().location
         let under = location < text.length ? text.substring(with: text.rangeOfComposedCharacterSequence(at: location))
@@ -227,7 +215,6 @@ final class PromptTextView: NSTextView {
         (under as NSString).draw(at: caret.origin, withAttributes: [.font: Self.font, .foregroundColor: inverseColor])
     }
 
-    /// The cell of the insertion point, in text container coordinates.
     private func caretRect() -> NSRect {
         let cell = cell
         guard let layoutManager, let textContainer, layoutManager.numberOfGlyphs > 0 else {

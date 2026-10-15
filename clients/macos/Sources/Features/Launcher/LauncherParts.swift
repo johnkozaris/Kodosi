@@ -1,7 +1,6 @@
 import KodosiDesign
 import SwiftUI
 
-/// Text that a terminal types: it erases back to what stays and types the rest.
 struct TypedText: View {
     @Environment(\.theme) private var theme
     let text: String
@@ -39,8 +38,6 @@ struct TypedText: View {
     }
 }
 
-/// The terminal's own colors, which stay dark in both looks: its body, its
-/// band and the face of a key.
 enum TerminalInk {
     static let body = hex(0x0D0B09)
     static let band = hex(0x1A1512)
@@ -49,8 +46,6 @@ enum TerminalInk {
     static let path = hex(0x5DAFA6)
 }
 
-/// The face of a key on the command line: one solid color, lit from the top
-/// left as the buttons are.
 struct ChipFace: View {
     var lit = false
 
@@ -62,8 +57,6 @@ struct ChipFace: View {
     }
 }
 
-/// One part of the command line, as a key that opens its list in the terminal.
-/// A part not chosen yet names what it holds in muted words.
 struct CommandToken: View {
     @Environment(\.theme) private var theme
     @State private var hovered = false
@@ -126,7 +119,6 @@ struct CommandToken: View {
     }
 }
 
-/// The dots that show the keys for the model and the effort.
 struct MoreKey: View {
     @Environment(\.theme) private var theme
     @State private var hovered = false
@@ -150,8 +142,6 @@ struct MoreKey: View {
     }
 }
 
-/// The cursor at the end of the command line. It stays lit while the line
-/// changes, then blinks as a terminal cursor does.
 struct PromptCursor: View {
     @Environment(\.theme) private var theme
     let line: String
@@ -172,10 +162,6 @@ struct PromptCursor: View {
     }
 }
 
-/// The band of the launcher's terminal: a tab for each kind of terminal it
-/// opens, the plain terminal first. The chosen tab opens into the terminal
-/// below it and says its name; the others are marks. Agents that are not here
-/// wait behind the plus, and an agent that arrives says so once.
 struct AgentTabs: View {
     struct Item: Identifiable, Equatable {
         let id: String
@@ -266,8 +252,6 @@ struct AgentTabs: View {
     }
 }
 
-/// A tab that opens into what is below it: round on top, and its bottom
-/// corners flare out into the edge it stands on.
 struct TabShape: Shape {
     let radius: CGFloat
     let flare: CGFloat
@@ -287,7 +271,6 @@ struct TabShape: Shape {
     }
 }
 
-/// A ring that leaves its place once, for something that just arrived.
 struct Ripple: View {
     @Environment(\.theme) private var theme
     let color: Color
@@ -305,10 +288,7 @@ struct Ripple: View {
     }
 }
 
-/// How the launcher's terminal first appears: the copper cursor alone, then a
-/// line that grows from it, then the window around the line.
 struct SeedMask: Shape {
-    /// From 0, the cursor, to 1, the whole window.
     var progress: CGFloat
     let cursor: CGRect
     let radius: CGFloat

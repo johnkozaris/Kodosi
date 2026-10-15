@@ -27,7 +27,6 @@ public struct FriendRequestEntry: Decodable, Equatable, Identifiable, Sendable {
     public let userId: String
     public let handle: String
     public let displayName: String
-    public let createdAt: String
     public var id: String {
         userId
     }
@@ -80,7 +79,6 @@ public struct MissionInvitationEntry: Decodable, Equatable, Identifiable, Sendab
     public let missionId: String
     public let missionName: String
     public let inviterName: String
-    public let createdAt: String
 }
 
 public struct MissionDetail: Equatable {

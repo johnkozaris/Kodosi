@@ -34,7 +34,7 @@ struct RoomInfoSheet: View {
             List {
                 Section {
                     VStack(spacing: 12) {
-                        RoomSigil(name: name, key: roomId, size: 64)
+                        RoomSigil(key: roomId, size: 64)
                         Text(name)
                             .appTextStyle(.title)
                             .foregroundStyle(theme.colors.ink)

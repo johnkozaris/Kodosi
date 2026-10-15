@@ -1,15 +1,11 @@
 import SwiftUI
 
-public struct Shimmer: ViewModifier {
+private struct Shimmer: ViewModifier {
     @Environment(\.theme) private var theme
     @State private var passing = false
-    public let active: Bool
+    let active: Bool
 
-    public init(active: Bool) {
-        self.active = active
-    }
-
-    public func body(content: Content) -> some View {
+    func body(content: Content) -> some View {
         if active, !theme.motion.reduced {
             content.overlay {
                 GeometryReader { geometry in
@@ -33,14 +29,6 @@ public struct Shimmer: ViewModifier {
     }
 }
 
-/// The rim of something at work, drawn in the terminal's own marks: a ring of
-/// cells round a rounded rectangle, or a capsule when `cornerRadius` is nil.
-/// While work goes on, the copper cursor types its way round the ring, in quick
-/// bursts with pauses as a person types: each cell lights as the cursor passes
-/// and cools after it, and in a pause the cursor blinks. A percent fills the
-/// ring from the top, with the cursor blinking at its end. While something waits
-/// for the person, the ring stays lit and the cursor blinks at the top, as a
-/// prompt waits for keys.
 public struct CellRim: View {
     public enum Mode: Equatable, Sendable {
         case working
@@ -110,9 +98,6 @@ public struct CellRim: View {
     }
 }
 
-/// A line of cells between two steps: dim while the steps wait, lit when the
-/// step before it is done, and typed along by the copper cursor, again and
-/// again, while the step after it works.
 public struct CellLine: View {
     public enum Mode: Equatable, Sendable {
         case waiting, flowing, done
@@ -135,7 +120,6 @@ public struct CellLine: View {
                 let pitch = size.width / CGFloat(count)
                 let cells = CellInk(colors: theme.colors, scale: canvas.environment.displayScale, thickness: lineWidth,
                                     length: pitch * 0.6)
-                // The cursor types the line, rests at its end, and starts again.
                 let head = TypingCadence.step(at: time)
                 let lap = count + 6
                 let reached = wrapped(head, lap)
@@ -160,15 +144,12 @@ public struct CellLine: View {
     }
 }
 
-/// How the cells of a rim or a line are drawn: lit copper that cools to the dim
-/// track, and the cursor, each on the pixels of the display.
 private struct CellInk {
     let colors: AppTheme.Colors
     let scale: CGFloat
     let thickness: CGFloat
     let length: CGFloat
 
-    /// A cell lit `age` seconds ago: it cools in steps, as a terminal's colors go.
     func cooling(_ age: TimeInterval) -> Color {
         switch age {
         case ..<0.14: colors.accentStrong
@@ -179,8 +160,6 @@ private struct CellInk {
         }
     }
 
-    /// A cell that a fill reaches `reach` cells into: whole cells are lit, the
-    /// cell at the edge partly.
     func filling(_ reach: CGFloat) -> Color {
         reach >= 1 ? colors.accent : reach <= 0 ? colors.accentSoft : colors.accent.mix(with: colors.accentSoft, by: 1 - reach)
     }
@@ -195,7 +174,6 @@ private struct CellInk {
         canvas.fill(Path(roundedRect: snapped(point, size), cornerRadius: thickness * 0.3), with: .color(color))
     }
 
-    /// The copper cursor: a block that stands on the cell where it is.
     func cursor(_ canvas: GraphicsContext, at point: CGPoint) {
         let size = CGSize(width: max(thickness * 1.5, length), height: thickness * 2.6)
         canvas.fill(Path(roundedRect: snapped(point, size), cornerRadius: thickness * 0.35), with: .color(colors.accentStrong))
@@ -210,8 +188,6 @@ private struct CellInk {
     }
 }
 
-/// The rhythm of a person typing: keys in quick bursts, with a pause before
-/// each burst. The same 64 steps repeat; step `n` falls at `time(of: n)`.
 enum TypingCadence {
     private static let gaps: [TimeInterval] = {
         var state: UInt64 = 0x2545_F491_4F6C_DD1D
@@ -233,11 +209,9 @@ enum TypingCadence {
         return gaps
     }()
 
-    /// When each of the 64 steps falls in its round.
     private static let offsets: [TimeInterval] = gaps.reduce(into: []) { $0.append(($0.last ?? 0) + $1) }
     private static let period = offsets[offsets.count - 1]
 
-    /// The last step at or before `time`.
     static func step(at time: TimeInterval) -> Int {
         let round = (time / period).rounded(.down)
         let within = time - round * period
@@ -251,13 +225,10 @@ enum TypingCadence {
     }
 }
 
-/// The remainder of `value` by `count` that is never negative.
 private func wrapped(_ value: Int, _ count: Int) -> Int {
     ((value % count) + count) % count
 }
 
-/// The outline of a rounded rectangle, measured from the middle of its top
-/// edge and round clockwise.
 private struct RimTrack {
     private enum Piece {
         case line(CGPoint, CGPoint)
@@ -290,7 +261,6 @@ private struct RimTrack {
         length = max(0, 2 * (rect.width - 2 * radius) + 2 * (rect.height - 2 * radius) + 2 * .pi * radius)
     }
 
-    /// The point at `fraction` of the way round, and the direction of travel there.
     func point(at fraction: CGFloat) -> (CGPoint, CGFloat) {
         var rest = (fraction - fraction.rounded(.down)) * length
         for piece in pieces {

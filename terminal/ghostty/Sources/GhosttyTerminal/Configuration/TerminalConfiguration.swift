@@ -10,24 +10,17 @@ public enum TerminalConfigCommand: Sendable, Hashable {
     case fontFamily(String)
     case fontSize(Float)
     case fontThicken(Bool)
-    case fontThickenStrength(Int)
 
     case cursorStyle(TerminalCursorStyle)
     case cursorStyleBlink(Bool)
     case cursorColor(String)
-    case cursorText(String)
-    case cursorOpacity(Double)
 
     case background(String)
     case foreground(String)
     case selectionBackground(String)
     case selectionForeground(String)
-    case boldColor(String)
     case palette(index: Int, color: String)
     case minimumContrast(Double)
-
-    case backgroundOpacity(Double)
-    case backgroundBlur(Int)
 
     case windowPaddingX(Int)
     case windowPaddingY(Int)
@@ -45,9 +38,6 @@ public enum TerminalConfigCommand: Sendable, Hashable {
         case let .fontThicken(enabled):
             "font-thicken = \(enabled)"
 
-        case let .fontThickenStrength(value):
-            "font-thicken-strength = \(value)"
-
         case let .cursorStyle(style):
             "cursor-style = \(style.rawValue)"
 
@@ -56,12 +46,6 @@ public enum TerminalConfigCommand: Sendable, Hashable {
 
         case let .cursorColor(value):
             "cursor-color = \(value)"
-
-        case let .cursorText(value):
-            "cursor-text = \(value)"
-
-        case let .cursorOpacity(value):
-            "cursor-opacity = \(value.formatted(.number.locale(Locale(identifier: "en_US_POSIX")).grouping(.never).precision(.fractionLength(0 ... 3))))"
 
         case let .background(value):
             "background = \(value)"
@@ -75,20 +59,11 @@ public enum TerminalConfigCommand: Sendable, Hashable {
         case let .selectionForeground(value):
             "selection-foreground = \(value)"
 
-        case let .boldColor(value):
-            "bold-color = \(value)"
-
         case let .palette(index, color):
             "palette = \(index)=\(color)"
 
         case let .minimumContrast(value):
             "minimum-contrast = \(value.formatted(.number.locale(Locale(identifier: "en_US_POSIX")).grouping(.never).precision(.fractionLength(0 ... 2))))"
-
-        case let .backgroundOpacity(value):
-            "background-opacity = \(value.formatted(.number.locale(Locale(identifier: "en_US_POSIX")).grouping(.never).precision(.fractionLength(0 ... 3))))"
-
-        case let .backgroundBlur(value):
-            "background-blur = \(value)"
 
         case let .windowPaddingX(value):
             "window-padding-x = \(value)"
@@ -124,10 +99,6 @@ public struct TerminalConfiguration: Sendable, Hashable {
             commands.append(.fontThicken(enabled))
         }
 
-        public mutating func withFontThickenStrength(_ value: Int) {
-            commands.append(.fontThickenStrength(value))
-        }
-
         public mutating func withCursorStyle(_ style: TerminalCursorStyle) {
             commands.append(.cursorStyle(style))
         }
@@ -138,14 +109,6 @@ public struct TerminalConfiguration: Sendable, Hashable {
 
         public mutating func withCursorColor(_ value: String) {
             commands.append(.cursorColor(value))
-        }
-
-        public mutating func withCursorText(_ value: String) {
-            commands.append(.cursorText(value))
-        }
-
-        public mutating func withCursorOpacity(_ value: Double) {
-            commands.append(.cursorOpacity(value))
         }
 
         public mutating func withBackground(_ value: String) {
@@ -164,24 +127,12 @@ public struct TerminalConfiguration: Sendable, Hashable {
             commands.append(.selectionForeground(value))
         }
 
-        public mutating func withBoldColor(_ value: String) {
-            commands.append(.boldColor(value))
-        }
-
         public mutating func withPalette(_ index: Int, color: String) {
             commands.append(.palette(index: index, color: color))
         }
 
         public mutating func withMinimumContrast(_ value: Double) {
             commands.append(.minimumContrast(value))
-        }
-
-        public mutating func withBackgroundOpacity(_ value: Double) {
-            commands.append(.backgroundOpacity(value))
-        }
-
-        public mutating func withBackgroundBlur(_ value: Int) {
-            commands.append(.backgroundBlur(value))
         }
 
         public mutating func withWindowPaddingX(_ value: Int) {

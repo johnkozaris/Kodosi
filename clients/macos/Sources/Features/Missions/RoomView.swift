@@ -86,7 +86,7 @@ struct RoomHeader: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            RoomSigil(name: detail.mission.name, key: roomId, size: 30)
+            RoomSigil(key: roomId, size: 30)
             VStack(alignment: .leading, spacing: 1) {
                 if state.renaming {
                     TextField("Room name", text: $name)

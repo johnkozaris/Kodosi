@@ -12,7 +12,7 @@ struct RoomRow: View {
         let last = rooms.snapshots[mission.id]?.messages.last
         let unread = rooms.unread[mission.id] ?? 0
         HStack(alignment: .top, spacing: 12) {
-            RoomSigil(name: mission.name, key: mission.id, size: 46)
+            RoomSigil(key: mission.id, size: 46)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(mission.name)
@@ -113,7 +113,7 @@ struct RoomInvitationRow: View {
     var body: some View {
         let token = AccessibilityIdentifier.token(invitation.id)
         HStack(alignment: .top, spacing: 12) {
-            RoomSigil(name: invitation.missionName, key: invitation.missionId, size: 46)
+            RoomSigil(key: invitation.missionId, size: 46)
             VStack(alignment: .leading, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(invitation.missionName)

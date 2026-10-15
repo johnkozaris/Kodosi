@@ -215,7 +215,7 @@ private struct FeatureStrip: View {
             }
             .arrive(delay: 0.1)
             FeatureRow(title: "Work in rooms", detail: "Talk, share terminals, and keep tasks with your team.") {
-                RoomSigil(name: "Room", key: "kodosi-room", size: 34)
+                RoomSigil(key: "kodosi-room", size: 34)
             }
             .arrive(delay: 0.14)
         }

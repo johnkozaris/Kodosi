@@ -2,10 +2,6 @@ import AppKit
 import KodosiDesign
 import SwiftUI
 
-/// A sheet of the app's own: the window dims, and the sheet rises in the
-/// middle on the surface of the window's panels. A click beside it closes it;
-/// Escape does what the sheet's own Cancel does, which is to close it unless
-/// the sheet says otherwise.
 struct SheetLayer<Content: View>: View {
     @Environment(\.theme) private var theme
     let close: () -> Void
@@ -51,7 +47,6 @@ struct SheetLayer<Content: View>: View {
     }
 }
 
-/// Gives a sheet the size that it asks for, but no more than the window holds.
 private struct SheetFit: Layout {
     let margin: CGFloat
 

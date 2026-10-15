@@ -65,7 +65,7 @@ struct RoomScreen: View {
             Color.clear
         } else if rooms.departed.contains(roomId) {
             EmptyState(title: "You are no longer in this room", message: "It ended, or someone removed you.") {
-                RoomSigil(name: "", key: roomId, size: 56).opacity(0.55)
+                RoomSigil(key: roomId, size: 56).opacity(0.55)
             } actions: {
                 Button("Back to rooms") { dismiss() }
                     .buttonStyle(.kodosi(.primary))
@@ -189,7 +189,7 @@ private struct RoomHeader: View {
         let people = model.rooms.details[mission.id]?.members.count
         let terminals = model.terminals.sessions.filter { $0.missionId == mission.id }.count
         HStack(spacing: 9) {
-            RoomSigil(name: mission.name, key: mission.id, size: 28)
+            RoomSigil(key: mission.id, size: 28)
             VStack(alignment: .leading, spacing: 0) {
                 Text(mission.name)
                     .appTextStyle(.headline)
