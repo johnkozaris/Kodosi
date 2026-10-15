@@ -22,36 +22,11 @@ class TerminalTilingLayoutModel final : public QAbstractListModel {
         READ viewportHeight
         WRITE setViewportHeight
         NOTIFY viewportChanged)
-    Q_PROPERTY(
-        QStringList stagedSessionIds
-        READ stagedSessionIds
-        WRITE setStagedSessionIds
-        NOTIFY stagedSessionIdsChanged)
-    Q_PROPERTY(
-        QString selectedSessionId
-        READ selectedSessionId
-        WRITE setSelectedSessionId
-        NOTIFY selectedSessionIdChanged)
-    Q_PROPERTY(
-        DesktopStateModel::StageLayoutMode layoutMode
-        READ layoutMode
-        WRITE setLayoutMode
-        NOTIFY layoutModeChanged)
     Q_PROPERTY(qreal contentHeight READ contentHeight NOTIFY geometryChanged)
-    Q_PROPERTY(int layoutRowCount READ layoutRowCount NOTIFY geometryChanged)
-    Q_PROPERTY(int layoutColumnCount READ layoutColumnCount NOTIFY geometryChanged)
     Q_PROPERTY(
         qreal accessibilityTextScale
         READ accessibilityTextScale
         WRITE setAccessibilityTextScale
-        NOTIFY accessibilityTextScaleChanged)
-    Q_PROPERTY(
-        qreal minimumTileWidth
-        READ minimumTileWidth
-        NOTIFY accessibilityTextScaleChanged)
-    Q_PROPERTY(
-        qreal minimumTileHeight
-        READ minimumTileHeight
         NOTIFY accessibilityTextScaleChanged)
 
 public:
@@ -83,9 +58,6 @@ public:
 
     [[nodiscard]] qreal viewportWidth() const noexcept;
     [[nodiscard]] qreal viewportHeight() const noexcept;
-    [[nodiscard]] QStringList stagedSessionIds() const;
-    [[nodiscard]] QString selectedSessionId() const;
-    [[nodiscard]] DesktopStateModel::StageLayoutMode layoutMode() const noexcept;
     [[nodiscard]] qreal contentHeight() const noexcept;
     [[nodiscard]] int layoutRowCount() const noexcept;
     [[nodiscard]] int layoutColumnCount() const noexcept;
@@ -120,9 +92,6 @@ public:
 
 signals:
     void viewportChanged();
-    void stagedSessionIdsChanged();
-    void selectedSessionIdChanged();
-    void layoutModeChanged();
     void accessibilityTextScaleChanged();
     void geometryChanged();
 

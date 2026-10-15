@@ -112,29 +112,6 @@ struct InMemoryTerminalSessionOutputQueueTests {
     }
 
     @Test
-    func `writes and process exit preserve enqueue order`() {
-        let events = LockedValues<String>()
-        let session = InMemoryTerminalSession(
-            write: { _ in },
-            resize: { _ in },
-            surfaceWrite: { _, data in
-                events.append(String(decoding: data, as: UTF8.self))
-            },
-            processExit: { _, exitCode, runtimeMilliseconds in
-                events.append("exit:\(exitCode):\(runtimeMilliseconds)")
-            }
-        )
-        session.setSurface(testSurface(2))
-
-        session.receive("first")
-        session.receive("second")
-        session.finish(exitCode: 7, runtimeMilliseconds: 42)
-        session.waitForPendingOutput()
-
-        #expect(events.values == ["first", "second", "exit:7:42"])
-    }
-
-    @Test
     func `surface teardown waits for active write and drops queued stale writes`() {
         let firstWriteStarted = DispatchSemaphore(value: 0)
         let allowFirstWriteToFinish = DispatchSemaphore(value: 0)

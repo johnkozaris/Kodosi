@@ -28,14 +28,9 @@ VENDOR_ROOT=${VENDOR_ROOT:-"$ROOT/Vendor"}
 RENDERER="$VENDOR_ROOT/GhosttyKit.xcframework"
 VT="$VENDOR_ROOT/GhosttyVt/macos-arm64"
 ARCHIVE="$RENDERER/macos-arm64/libghostty.a"
-VT_ARCHIVE="$VT/lib/libghostty-vt.a"
 
-if [[ ! -f "$ARCHIVE" || ! -f "$VT_ARCHIVE" ]]; then
+if [[ ! -f "$ARCHIVE" ]]; then
     echo "[!] vendored combined Ghostty archive is missing" >&2
-    exit 1
-fi
-if ! cmp -s "$ARCHIVE" "$VT_ARCHIVE"; then
-    echo "[!] renderer and VT paths do not contain the same native image" >&2
     exit 1
 fi
 

@@ -34,8 +34,6 @@ public final class TerminalController {
     var managedConfigURL: URL?
     var renderedConfigContents: String = TerminalController.defaultRenderedConfig
 
-    var lastConfigurationIssue: String?
-
     private let baseConfigSource: ConfigSource
     private var baseConfigTemplate: String = ""
 
@@ -59,19 +57,6 @@ public final class TerminalController {
     ) {
         self.init(
             configSource: .generated(configuration.rendered),
-            theme: theme
-        )
-    }
-
-    public convenience init(
-        theme: TerminalTheme = .default,
-        configure: (inout TerminalConfiguration.Builder) -> Void
-    ) {
-        self.init(
-            configuration: TerminalConfiguration(
-                startingFrom: .default,
-                configure: configure
-            ),
             theme: theme
         )
     }

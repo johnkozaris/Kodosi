@@ -12,7 +12,7 @@ struct HistoryMessageView: View {
     }
 
     private var isTool: Bool {
-        entry.toolName != nil || entry.role == "tool"
+        entry.toolName != nil
     }
 
     private var isUser: Bool {

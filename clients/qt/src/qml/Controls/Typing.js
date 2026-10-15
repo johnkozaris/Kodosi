@@ -36,7 +36,6 @@ function wrapped(value, count) {
     return ((value % count) + count) % count
 }
 
-// The last step at or before `seconds`.
 function step(seconds) {
     const round = Math.floor(seconds / period)
     const within = seconds - round * period

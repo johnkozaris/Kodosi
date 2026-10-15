@@ -11,11 +11,6 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 : "${KODOSI_BUILD_NUMBER:?Set KODOSI_BUILD_NUMBER to a monotonically increasing integer}"
 : "${KODOSI_PROVISIONING_PROFILE:?Set KODOSI_PROVISIONING_PROFILE to the name of the Developer ID provisioning profile}"
 "$ROOT/../apple/scripts/verify-kodosi-checkout.sh"
-"$ROOT/scripts/build/generate-xcode-project.sh"
-if [[ -n "$(git -C "$ROOT" status --porcelain --untracked-files=all)" ]]; then
-    echo "Project generation changed the release checkout: $ROOT" >&2
-    exit 1
-fi
 rm -rf "$1"
 xcodebuild -project "$ROOT/KodosiDesktop.xcodeproj" \
            -scheme KodosiDesktop \

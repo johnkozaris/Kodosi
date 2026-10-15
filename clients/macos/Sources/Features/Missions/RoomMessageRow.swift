@@ -3,31 +3,13 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-enum RoomDates {
-    static func parse(_ value: String) -> Date? {
-        (try? Date(value, strategy: Date.ISO8601FormatStyle(includingFractionalSeconds: true)))
-            ?? (try? Date(value, strategy: .iso8601))
-    }
-
-    static func day(_ date: Date) -> String {
-        let calendar = Calendar.current
-        if calendar.isDateInToday(date) {
-            return String(localized: "Today")
-        }
-        if calendar.isDateInYesterday(date) {
-            return String(localized: "Yesterday")
-        }
-        return date.formatted(.dateTime.weekday(.wide).month().day())
-    }
-}
-
 struct RoomMessageRow: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
     let roomId: String
     let message: RoomMessage
     let previous: RoomMessage?
-    let targets: [MentionTarget]
+    let targets: [RoomMention]
     @Bindable var state: RoomViewState
     @State private var hovered = false
     @State private var madeTask = false
@@ -45,21 +27,13 @@ struct RoomMessageRow: View {
     }
 
     private var startsGroup: Bool {
-        guard let previous, previous.authorId == message.authorId, previous.agent == message.agent else { return true }
-        guard let date, let before = RoomDates.parse(previous.createdAt) else { return false }
-        return date.timeIntervalSince(before) > 300
-    }
-
-    private var startsDay: Bool {
-        guard let date else { return false }
-        guard let previous, let before = RoomDates.parse(previous.createdAt) else { return true }
-        return !Calendar.current.isDate(date, inSameDayAs: before)
+        RoomDates.startsGroup(message, after: previous)
     }
 
     var body: some View {
         let mentioned = !isMine && RoomMentions.mentionsSelf(message.text, targets: targets)
         VStack(spacing: 0) {
-            if startsDay, let date {
+            if RoomDates.startsDay(message, after: previous), let date {
                 Text(RoomDates.day(date)).appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
                     .padding(.horizontal, 10).frame(height: 20).background(theme.colors.ink.opacity(0.06), in: Capsule())
                     .frame(maxWidth: .infinity).padding(.top, 14).padding(.bottom, 4)
@@ -183,14 +157,9 @@ struct RoomMessageRow: View {
     }
 
     private func makeTask() {
-        let title = message.text.split(separator: "\n").first.map(String.init) ?? message.text
         Task { @MainActor in
             do {
-                try await deps.roomAction(roomId, [
-                    "type": .string("createTask"), "title": .string(String(title.prefix(120))),
-                    "description": .string(String(localized: "From \(message.agent ?? message.authorName): \(message.text)")),
-                    "repositoryIds": .array([]),
-                ])
+                try await deps.roomAction(roomId, RoomTaskAction.create(from: message))
                 madeTask = true
             } catch { state.failure = error.localizedDescription }
         }

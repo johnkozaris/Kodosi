@@ -6,127 +6,102 @@ and let people and agents decide how to use them.
 
 ## Rooms and terminals
 
-The interface calls these shared spaces Rooms; runtime contracts use Missions.
+The interface calls these shared spaces rooms; runtime contracts call them missions.
 
 - A terminal is a real process on its host computer.
-- Share a terminal with a room once. Every room member gets full control, including
-  people invited later. Room sharing follows the room's membership.
-- Any member can contribute their own terminals. Alice can use Bob's shared terminals
-  and Bob can use Alice's.
-- A room can contain terminals from many machines, folders and repositories.
-- Sharing a terminal into a room does not share the host's other terminals.
-- Approved own devices can also use the owner's terminals.
+- Share a terminal with a room once. Every member gets full control, including people
+  invited later. Room sharing follows the room's membership.
+- Any member can contribute their own terminals. A room can hold terminals from many
+  computers, folders and repositories.
+- Sharing a terminal does not share the host's other terminals.
+- A person's approved devices can use all of that person's terminals.
 
-Full control includes typing, resizing, interrupting, and closing. People choose to
-share that control, with the host user's operating-system privileges.
+Full control means typing, resizing, interrupting and closing, with the host user's
+operating-system privileges.
 
-## People and agents in the conversation
+## People and agents
 
-Humans and agents need to read and contribute to the same room conversation. Give
-agents access to room context and actions through simple runtime tools and skills
-usable from their existing harnesses.
+Humans and agents read and write the same room conversation. Agents get room context
+and actions through simple runtime tools and a skill that work from their existing
+harnesses.
 
-New members get the full conversation history. Humans and agents can post messages,
-put tasks up for grabs, pick them up, release them, and close or reopen them. A task
-can include context, repositories, and a completion note or pull request link.
-People and agents decide what to do next.
+New members get the full history. Anyone can post messages, put tasks up for grabs,
+claim, release, close and reopen them. A task can carry context, repositories, and a
+completion note or pull request link. People and agents decide what to do next.
 
-A room can connect multiple GitHub or Gitea repositories. Existing issues can become
-room tasks. The provider remains authoritative: changing a linked task updates the
-issue, and refreshing the room picks up provider changes. Provider credentials stay
-on the participant's machine. Native room tasks work without a Git provider.
+A room can link several GitHub or Gitea repositories and turn their issues into tasks.
+The provider stays authoritative: changing a linked task updates the issue, and
+refreshing the room picks up provider changes. Provider credentials stay on the
+participant's computer. Native tasks need no Git provider.
 
-Agents run through their normal provider CLIs. Provider execution, prompts,
-permissions, settings, memory, and native conversations remain with the provider.
-Kodosi supplies the shared space and capabilities to participate in it.
+Agents run through their own CLIs. Execution, prompts, permissions, settings, memory
+and conversations stay with the provider. Kodosi supplies the shared space.
 
 ## Terminal behavior
 
 Minimize hides a view and keeps its terminal running. Close ends the terminal and its
-programs. Closing a window leaves the host running. Quit ends terminals hosted by that
-app, not terminals on other computers.
+programs. Closing a window leaves the host running. Quit ends the terminals that app
+hosts, not terminals on other computers.
 
-Reconnecting restores current terminal state without disrupting other viewers or
-repeating input whose delivery is uncertain. A stale connection must not control a
-replacement terminal. A temporary loss of connection does not change chosen sharing.
+Reconnecting restores the current state without disturbing other viewers or repeating
+input whose delivery is uncertain. A stale connection never controls a replacement
+terminal. A lost connection does not change sharing.
 
 ## Encryption
 
-Terminal traffic and room content must be end-to-end encrypted between participants.
-Private keys stay on endpoint devices. The backend connects participants and relays
-encrypted content; it does not run their commands or read their terminal or room
-plaintext. It sees only the agent of each terminal and the state that its program
-reports, such as working or waiting for an approval.
+Terminal traffic and room content are end-to-end encrypted between participants.
+Private keys stay on devices. The backend connects participants and relays encrypted
+content; it does not run commands or read terminal or room plaintext. It sees
+only the agent of each terminal and the state that its program reports, such as
+working or waiting for an approval.
 
-A person can make a recovery key. It approves a new device when no other device can,
-and keeps friends and rooms. Without it, a person who lost all devices starts fresh
-with a new identity, and friends trust that identity again.
+A recovery key approves a new device when no other device can, and keeps friends and
+rooms. Without it, a person who lost all devices starts fresh with a new identity, and
+friends trust that identity again.
 
 ## Experience
 
 Keep terminals and the room conversation easy to reach. Starting work, inviting
-someone, sharing a terminal, and contributing to the conversation should take few
-steps. Use plain language and native interaction. Add controls and abstractions only
-when they help someone do the work.
+someone, sharing a terminal and writing in the conversation take few steps. Use plain
+language and native interaction. Add controls only when they help someone do the work.
 
-Opening or creating a terminal in a room keeps the conversation beside it. Tasks and
-repositories occupy the same workspace. Preserve drafts and reading position while
-people move between them. Show progress where work is happening and give failures a
-clear recovery action.
+Visible text uses one word for one thing: terminal, room, friend, agent, device.
+Session, host, runtime and mission are internal words.
+
+A terminal opened in a room keeps the conversation beside it. Tasks and repositories
+share that workspace. Drafts and reading position survive moving between them. Show
+progress where work happens and give each failure a clear recovery action.
 
 ## Current implementation
 
-The runtime and backend implement room terminal sharing, encrypted conversation and
-task history, multiple repository links, and GitHub/Gitea issue actions. Native Mac
-and Linux clients expose these capabilities alongside terminals. The Qt client also
-builds for Windows 11 on x64 and ARM64, with ConPTY terminals and an MSIX package; it
-has not yet been validated on Windows hardware. The iPhone and iPad client follows,
-answers, and controls the terminals of the person's computers and friends, and takes
-part in rooms; it starts no terminals. The `kodosi room` CLI and its bundled skill let
-existing agents participate through the running host.
-
-Terminals show the state that their programs report through the Program Status
-Protocol (OSC 7501) or a progress bar: working, waiting for a person, done, or failed.
-Everyone who can open a terminal sees its state before they open it: the host sends the
-agent and the state through the backend, without the program's text.
-Each terminal also shows who has it open, the person at its host computer included.
-While the app is not in front, it sends a system notification when a terminal that the
-person owns or has open starts to wait, is done, or failed.
-
-A local terminal at its prompt offers the person's start commands, such as an agent
-or the same agent with a second account. Kodosi clears the input line, types the
-command into the shell and does no more; the program remains the provider's own CLI.
-
-The home of the app starts a new terminal with an agent. The host asks the shell that
-new terminals run which agents it finds (Claude Code, Codex, Copilot CLI, Cursor, Gemini
-CLI and OpenCode), which accounts each has, and which models and efforts the agent's CLI
-lists. An account is one sign-in of an agent: a sign-in folder, such as `~/.claude` or
-`~/.claude-work`, and the e-mail address or user name that signed in there. For each
-sign-in the host lists the commands that start the agent with it: the agent's program,
-an alias that runs the agent (directly or through a script of the person's own), a
-function or alias named after the agent that moves its sign-in folder or runs it, and
-for a sibling folder without a command, `env` with the folder's variable. A command
-whose text does not name its folder gets the folder that the agent had when the command
-last started it in one of the host's terminals; the host reads it from the agent's
-environment. Until then the command shows as a sign-in that the shell chooses. The
-person picks the folder and the account, a model and an effort if they want them, and
-can type the agent's first prompt after the command, or a command for a plain terminal;
-the shell of the new terminal types the line at its first prompt, with the first prompt
-quoted for that shell. An agent that is not installed offers its official install
-command, which runs in a new terminal. A new account is an empty sign-in folder, and the
-agent asks for a sign-in when it first starts there.
-
-A terminal can start on a new branch of a local Git repository. The host makes the
-branch from the current commit with its own folder (a Git worktree) beside the
-repository, or in the place the person selected, and starts the shell there. When that
-terminal ends, the host removes the folder and the branch only if nothing changed: no
-commit, no changed file, no new file. Kodosi keeps no record of these folders and does
-no other Git operation.
-
-A person deletes their account from Settings. The app opens the account page of the
-sign-in service for one confirmation; then the service removes the account, its devices,
-friends and sharing, and the rooms the person owns. What the person wrote in other
-rooms stays there. Terminals on the person's computers keep running.
-
-Direct terminal sharing and native Claude Code and Copilot CLI conversation
-preview/resume remain available.
+- The runtime and backend implement room terminal sharing, encrypted conversation and
+  task history, repository links, and GitHub and Gitea issue actions.
+- The Mac app and the Qt app host terminals and take part in rooms. The Qt app runs on
+  Linux and builds for Windows 11 on x64 and ARM64 with ConPTY and an MSIX package; it
+  is not yet validated on Windows hardware.
+- The iPhone and iPad app follows, answers and controls the terminals of the person's
+  computers and friends, and takes part in rooms. It starts no terminals.
+- `kodosi room` and its bundled skill let existing agents take part through the
+  running host.
+- Terminals show the state their programs report through OSC 7501 or a progress bar:
+  working, waiting for a person, done or failed. Everyone who can open a terminal sees
+  it before they open it: the host sends the agent and the state through the backend,
+  without the program's text. Each terminal shows who has it open, the person at its
+  host computer included. While the app is not in front, a terminal that the person
+  owns or has open sends a notification when it starts to wait, finishes or fails.
+- The home starts a new terminal with an agent. The host finds the installed agents
+  (Claude Code, Codex, Copilot CLI, Cursor, Gemini CLI and OpenCode), each agent's
+  accounts (sign-in folders such as `~/.claude-work`), models and efforts, and the
+  shell commands that start each account. The person picks them and can type a first
+  prompt; the new terminal's shell types the command. A missing agent offers its
+  official install command. A new account is an empty sign-in folder.
+- A terminal at its prompt offers the person's start commands. Kodosi types the
+  command into the shell and does nothing more.
+- A terminal can start on a new branch in its own Git worktree. When it ends, the host
+  removes the worktree and the branch only if nothing changed. Kodosi keeps no record
+  of these folders.
+- A person deletes their account through the sign-in service's account page. The
+  service removes the account, devices, friends, sharing and owned rooms; what the
+  person wrote in other rooms stays. Terminals keep running.
+- Direct terminal sharing and Claude Code and Copilot CLI conversation preview and
+  resume remain available.

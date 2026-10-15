@@ -4,7 +4,6 @@ import GhosttyKit
 final class InMemoryTerminalSurfaceAccess: @unchecked Sendable {
     typealias Write = @Sendable (ghostty_surface_t, Data) -> Void
     typealias Restore = @Sendable (ghostty_surface_t, Data) -> Bool
-    typealias ProcessExit = @Sendable (ghostty_surface_t, UInt32, UInt64) -> Void
 
     static let maximumPendingWriteBytes = 8 * 1024 * 1024
     private static let maximumPendingWrites = 256
@@ -14,7 +13,6 @@ final class InMemoryTerminalSurfaceAccess: @unchecked Sendable {
     private let outputQueueKey = DispatchSpecificKey<UInt8>()
     private let write: Write
     private let restore: Restore
-    private let processExit: ProcessExit
 
     private var surface: ghostty_surface_t?
     private var generation: UInt64 = 0
@@ -25,11 +23,7 @@ final class InMemoryTerminalSurfaceAccess: @unchecked Sendable {
     private var queuedWrites = 0
     private var discardsWritesUntilReplacement = false
 
-    init(
-        write: @escaping Write,
-        restore: @escaping Restore,
-        processExit: @escaping ProcessExit
-    ) {
+    init(write: @escaping Write, restore: @escaping Restore) {
         outputQueue = DispatchQueue(
             label: "com.lakr233.libghostty-spm.in-memory-output",
             qos: .userInitiated
@@ -37,7 +31,6 @@ final class InMemoryTerminalSurfaceAccess: @unchecked Sendable {
         outputQueue.setSpecific(key: outputQueueKey, value: 1)
         self.write = write
         self.restore = restore
-        self.processExit = processExit
     }
 
     func setSurface(_ surface: ghostty_surface_t?) {
@@ -125,20 +118,6 @@ final class InMemoryTerminalSurfaceAccess: @unchecked Sendable {
         return true
     }
 
-    @discardableResult
-    func enqueueProcessExit(
-        exitCode: UInt32,
-        runtimeMilliseconds: UInt64
-    ) -> Bool {
-        guard let generation = currentGeneration else { return false }
-        outputQueue.async { [self] in
-            withSurface(generation: generation) { surface in
-                processExit(surface, exitCode, runtimeMilliseconds)
-            }
-        }
-        return true
-    }
-
     func withCurrentSurface<Result>(
         _ operation: (ghostty_surface_t) -> Result
     ) -> Result? {
@@ -160,12 +139,6 @@ final class InMemoryTerminalSurfaceAccess: @unchecked Sendable {
 
     func waitForPendingOutput() {
         outputQueue.sync {}
-    }
-
-    private var currentGeneration: UInt64? {
-        condition.lock()
-        defer { condition.unlock() }
-        return surface == nil ? nil : generation
     }
 
     private func enqueue(_ data: Data, generation: UInt64) {

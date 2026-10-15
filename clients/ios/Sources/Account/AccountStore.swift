@@ -4,32 +4,6 @@ import Observation
 
 @Observable
 final class AccountStore {
-    enum SignInStage: Equatable {
-        case idle
-        case starting
-        case awaitingApproval(code: String, url: URL?)
-        case finalizing
-        case trustingDevice(DeviceTrust)
-        case signedIn
-        case failed(String)
-
-        var isPending: Bool {
-            switch self {
-            case .starting, .awaitingApproval, .finalizing, .trustingDevice: true
-            case .idle, .signedIn, .failed: false
-            }
-        }
-    }
-
-    enum DeviceTrust: Equatable {
-        case choose
-        case requesting
-        case pendingApproval(code: String)
-        case recovering
-        case resetting
-        case failed(String)
-    }
-
     enum Deletion: Equatable {
         case requested
         case confirming(URL?)
@@ -77,10 +51,6 @@ final class AccountStore {
     var selfName: String {
         let name = displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return name.isEmpty ? String(localized: "You") : name
-    }
-
-    var thisDevice: MyDeviceEntry? {
-        devices.first { $0.deviceId == selfDeviceId }
     }
 
     var orderedDevices: [MyDeviceEntry] {
@@ -187,7 +157,7 @@ final class AccountStore {
         }
         if event.type.hasPrefix("auth.") {
             guard stage.isPending || !isReady else { return false }
-            stage = .failed(message)
+            stage = .failed(message: message, completed: stage.completedSteps)
             signInPage = nil
             return needsOnboarding || userId == nil
         }

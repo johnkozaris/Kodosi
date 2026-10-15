@@ -102,7 +102,7 @@ struct RoomTag: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            RoomSigil(name: name, key: key, size: 13)
+            RoomSigil(key: key, size: 13)
             Text(name)
                 .lineLimit(1)
         }

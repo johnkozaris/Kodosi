@@ -1,18 +1,15 @@
 import Foundation
 import KodosiBridge
 
-enum Provider: String, Codable, CaseIterable, Identifiable, Sendable {
+enum Provider: String, Decodable, CaseIterable, Sendable {
     case claude, copilot
-    var id: String {
-        rawValue
-    }
 
     var name: String {
         self == .claude ? "Claude" : "Copilot"
     }
 }
 
-struct ProviderConversationIdentity: Codable, Equatable, Hashable, Sendable {
+struct ProviderConversationIdentity: Equatable, Sendable {
     let provider: Provider
     let nativeConversationId: String
 }
@@ -22,7 +19,6 @@ struct ProviderConversation: Decodable, Equatable, Identifiable, Sendable {
     let nativeConversationId: String
     let workingDirectory: String
     let title: String?
-    let createdAt: String?
     let updatedAt: String?
     var id: String {
         "\(provider.rawValue):\(nativeConversationId)"
@@ -41,14 +37,12 @@ struct ProviderConversation: Decodable, Equatable, Identifiable, Sendable {
 struct ProviderConversationPage: Decodable, Sendable {
     let items: [ProviderConversation]
     let nextCursor: String?
-    let hasMore: Bool
 }
 
 struct ConversationEntry: Decodable, Equatable, Sendable {
     let role: String
     let content: String
     let toolName: String?
-    let timestamp: String?
 }
 
 struct ConversationPage: Decodable, Sendable {
@@ -69,7 +63,6 @@ struct ProviderConfiguration: Decodable, Sendable {
         }
     }
 
-    let provider: Provider
     let executable: String?
     let files: [File]
     let message: String?

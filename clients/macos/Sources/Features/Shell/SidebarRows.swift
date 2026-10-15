@@ -89,7 +89,7 @@ struct SidebarRoomRow: View {
     var body: some View {
         Button { deps.workbench.section = .missions; deps.openMission(mission) } label: {
             HStack(spacing: 9) {
-                RoomSigil(name: mission.name, key: mission.id, size: 22)
+                RoomSigil(key: mission.id, size: 22)
                 Text(mission.name).appTextStyle(.body).fontWeight(selected || unread > 0 ? .medium : .regular)
                     .foregroundStyle(theme.colors.ink).lineLimit(1)
                 Spacer(minLength: 4)
@@ -124,7 +124,7 @@ struct SidebarInvitationRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 9) {
-                RoomSigil(name: invitation.missionName, key: invitation.missionId, size: 22)
+                RoomSigil(key: invitation.missionId, size: 22)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(invitation.missionName).appTextStyle(.body).fontWeight(.medium).foregroundStyle(theme.colors.ink).lineLimit(1)
                     Text("\(invitation.inviterName) invited you").appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
@@ -310,7 +310,7 @@ struct SidebarTerminalRow: View {
                 } else if !session.isOwner, let owner = session.ownerName {
                     PersonAvatar(name: owner, key: session.ownerUserId, size: 15).help(String(localized: "Shared by \(owner)"))
                 } else if let room = session.missionId {
-                    RoomSigil(name: session.missionName ?? "", key: room, size: 14)
+                    RoomSigil(key: room, size: 14)
                         .help(session.missionName.map { String(localized: "Shared with \($0)") } ?? "")
                 } else if !session.sharedWith.isEmpty {
                     Image(systemName: "person.2.fill").font(.system(size: 8)).foregroundStyle(theme.colors.inkFaint)

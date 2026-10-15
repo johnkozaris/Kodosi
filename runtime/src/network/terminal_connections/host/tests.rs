@@ -140,8 +140,6 @@ async fn terminal(snapshot_bytes: usize) -> Terminal {
             output,
             &requests,
             Controller {
-                user: "user".into(),
-                device: "device".into(),
                 connection: Uuid::now_v7(),
                 authorization: CancellationToken::new(),
             },

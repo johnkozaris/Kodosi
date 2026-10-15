@@ -6,11 +6,9 @@ import type { I18n } from "../i18n";
 interface Rule {
   text: string;
   met: boolean;
-  /** A rule of what the password must not be. It shows only when the password breaks it. */
   not?: boolean;
 }
 
-/** What the realm asks of a password, as the page can check it while the person types. */
 function rules(
   i18n: I18n,
   policies: PasswordPolicies,
@@ -58,7 +56,6 @@ function rules(
   return found;
 }
 
-/** The password has what the realm asks, as far as the page can check it. */
 export function meetsPolicy(
   i18n: I18n,
   policies: PasswordPolicies | undefined,
@@ -68,11 +65,6 @@ export function meetsPolicy(
   return !policies || rules(i18n, policies, password, person).every((rule) => rule.met);
 }
 
-/**
- * What the realm asks of a password: one small tag for each rule. A tag turns green when the
- * password has it, so the person knows before they send. What the password must not be shows
- * only when it is so. Keycloak still does the real check.
- */
 export function PolicyTags({
   i18n,
   policies,

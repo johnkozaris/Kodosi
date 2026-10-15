@@ -1,5 +1,4 @@
 excluded:
-  - Frameworks
   - KodosiMobile.xcodeproj
   - .build
 

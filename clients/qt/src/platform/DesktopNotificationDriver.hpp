@@ -37,7 +37,6 @@ signals:
         QString action,
         QString activationToken);
     void notificationClosed(QString key);
-    void deliveryError(QString key, QString message);
 };
 
 }

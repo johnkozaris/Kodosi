@@ -37,20 +37,8 @@ TerminalNotifications::TerminalNotifications(
                 remove(key, false);
             }
         });
-    connect(
-        &m_driver,
-        &DesktopNotificationDriver::deliveryError,
-        this,
-        [this](const QString& key, const QString& message) {
-            if (owns(key)) {
-                emit deliveryError(message);
-            }
-        });
-    const auto pruneContexts = [this] { prune(); };
-    connect(&m_sessions, &QAbstractItemModel::modelReset, this, pruneContexts);
-    connect(&m_sessions, &QAbstractItemModel::rowsRemoved, this, pruneContexts);
-    connect(&m_sessions, &QAbstractItemModel::dataChanged, this, pruneContexts);
-    connect(&m_sessions, &SessionCatalogModel::attentionChanged, this, pruneContexts);
+    connect(&m_sessions, &QAbstractItemModel::modelReset, this, [this] { prune(); });
+    connect(&m_sessions, &SessionCatalogModel::attentionChanged, this, [this] { prune(); });
     connect(&m_sessions, &SessionCatalogModel::alertChanged, this, &TerminalNotifications::alert);
 }
 

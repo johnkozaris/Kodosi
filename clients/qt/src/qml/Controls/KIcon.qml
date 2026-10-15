@@ -8,11 +8,9 @@ Item {
     property string name: ""
     property color color: KodosiTheme.inkMuted
     property real strokeWidth: 1.8
-    property bool filled: false
 
     readonly property string path1: {
         switch (name) {
-        case "computer": return "M4 4 H20 V17 H4 Z M8 21 H16 M12 17 V21"
         case "plus": return "M12 5 V19 M5 12 H19"
         case "line-height": return "M11 6 H21 M11 12 H21 M11 18 H21 M5 5 V19 M3 7 L5 5 L7 7 M3 17 L5 19 L7 17"
         case "chat": return "M4 4 H20 V16 H10 L5 20 V16 H4 Z M8 8 H16 M8 12 H13"
@@ -27,13 +25,10 @@ Item {
         case "command": return "M9 7 A3 3 0 1 0 6 10 H18 A3 3 0 1 0 15 7 V17 A3 3 0 1 0 18 14 H6 A3 3 0 1 0 9 17 Z"
         case "people": return "M8.5 11 A3 3 0 1 0 8.5 5 A3 3 0 1 0 8.5 11 M15.5 10 A2.5 2.5 0 1 0 15.5 5 A2.5 2.5 0 1 0 15.5 10 M3.5 19 Q3.5 13.5 8.5 13.5 Q13.5 13.5 13.5 19 M13 13 Q20.5 12.5 20.5 18"
         case "settings": return "M4 7 H10 M14 7 H20 M12 5 A2 2 0 1 0 12 9 A2 2 0 1 0 12 5 M4 17 H7 M11 17 H20 M9 15 A2 2 0 1 0 9 19 A2 2 0 1 0 9 15"
-        case "chevron-right": return "M9 5 L16 12 L9 19"
-        case "chevron-left": return "M15 5 L8 12 L15 19"
         case "chevron-down": return "M5 9 L12 16 L19 9"
         case "chevron-up": return "M5 15 L12 8 L19 15"
         case "close": return "M6 6 L18 18 M18 6 L6 18"
         case "terminal": return "M4 5 H20 V19 H4 Z M7 9 L10 12 L7 15 M12 15 H17"
-        case "sessions": return "M6 5 H20 V17 H6 Z M3 8 V20 H17"
         case "refresh": return "M19 8 A8 8 0 1 0 20 14 M19 4 V8 H15"
         case "focus": return "M4 9 V4 H9 M15 4 H20 V9 M20 15 V20 H15 M9 20 H4 V15"
         case "grid": return "M4 4 H10 V10 H4 Z M14 4 H20 V10 H14 Z M4 14 H10 V20 H4 Z M14 14 H20 V20 H14 Z"
@@ -56,7 +51,6 @@ Item {
         case "play": return "M8 5 L19 12 L8 19 Z"
         case "link": return "M10 14 A4 4 0 0 0 15.7 14.3 L19 11 A4 4 0 0 0 13.3 5.3 L12 6.6 M14 10 A4 4 0 0 0 8.3 9.7 L5 13 A4 4 0 0 0 10.7 18.7 L12 17.4"
         case "laptop": return "M5 6 H19 V16 H5 Z M2.5 19 H21.5"
-        case "circle": return "M12 4 A8 8 0 1 0 12 20 A8 8 0 1 0 12 4"
         case "info": return "M12 4 A8 8 0 1 0 12 20 A8 8 0 1 0 12 4 M12 11 V16 M12 8 V8.1"
         case "prompt": return "M8 6 L14 12 L8 18"
         case "moon": return "M20 14.5 A8 8 0 1 1 9.5 4 A6.5 6.5 0 0 0 20 14.5 Z"
@@ -78,7 +72,7 @@ Item {
         ShapePath {
             strokeColor: root.color
             strokeWidth: root.strokeWidth
-            fillColor: root.filled ? root.color : "transparent"
+            fillColor: "transparent"
             capStyle: ShapePath.RoundCap
             joinStyle: ShapePath.RoundJoin
             PathSvg { path: root.path1 }

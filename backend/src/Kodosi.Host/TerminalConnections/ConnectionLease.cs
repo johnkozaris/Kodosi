@@ -3,7 +3,7 @@ using Npgsql;
 namespace Kodosi.TerminalConnections;
 
 public sealed class ConnectionLease(NpgsqlDataSource source, ConnectionDirectory connections, IHostApplicationLifetime lifetime,
-    ServerMetrics metrics, ILogger<ConnectionLease> logger) : IHostedService, IAsyncDisposable
+    ILogger<ConnectionLease> logger) : IHostedService, IAsyncDisposable
 {
     private const long Key = 0x4B4F444F5349;
     private enum Attempt { Held, Other, Unreachable }
@@ -65,7 +65,6 @@ public sealed class ConnectionLease(NpgsqlDataSource source, ConnectionDirectory
             {
                 if (await HeldAsync(ct)) continue;
                 connections.StopAll();
-                metrics.DatabaseFault(TimeSpan.Zero);
                 logger.LogCritical("Terminal connection lease was lost; stopping the backend.");
                 lifetime.StopApplication();
                 return;

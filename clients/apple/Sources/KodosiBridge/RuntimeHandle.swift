@@ -308,7 +308,7 @@ public final class RuntimeHandle: @unchecked Sendable {
         connection.onControl(Data(bytes: json, count: Int(len)))
     }
 
-    private static let onTerminalCheckpoint: kodosi_terminal_checkpoint_cb_t = { sid, subscriptionId, generation, nextSequence, rows, cols, bytes, len, ud in
+    private static let onTerminalCheckpoint: kodosi_terminal_checkpoint_cb_t = { sid, subscriptionId, generation, _, rows, cols, bytes, len, ud in
         guard rows > 0, cols > 0,
               len > 0, len <= KODOSI_TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES,
               let sid, let subscriptionId, let bytes, let self_ = resolve(ud)
@@ -320,12 +320,7 @@ public final class RuntimeHandle: @unchecked Sendable {
             subscriptionId: subscriptionIdValue,
             subscriptionGeneration: generation
         ) else { return Int32(KODOSI_FFI_STALE_SUBSCRIPTION) }
-        return connection.onSemanticCheckpoint(.init(
-            bytes: Data(bytes: bytes, count: Int(len)),
-            nextSequence: nextSequence,
-            rows: rows,
-            cols: cols
-        ))
+        return connection.onSemanticCheckpoint(Data(bytes: bytes, count: Int(len)))
     }
 
     private static let onTerminalConnectResult: kodosi_terminal_connect_result_cb_t = { sid, subscriptionId, subscriptionGeneration, result, ud in

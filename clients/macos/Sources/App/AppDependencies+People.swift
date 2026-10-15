@@ -13,10 +13,10 @@ extension AppDependencies {
             return selfName
         }
         if let friend = friends.first(where: { $0.userId == id }) {
-            return friend.displayName.isEmpty ? friend.handle : friend.displayName
+            return friend.personName
         }
         if let member = missionDetail?.members.first(where: { $0.userId == id }) {
-            return member.displayName.isEmpty ? member.handle : member.displayName
+            return member.personName
         }
         return String(localized: "Guest")
     }

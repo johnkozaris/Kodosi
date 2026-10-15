@@ -5,8 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thank you for the report. Remove private terminal content, names, hosts, paths, and credentials from text, logs, and pictures before you send it.
-        Do not report a vulnerability here. Use the [private report](https://github.com/johnkozaris/Kodosi/security/advisories/new).
+        Remove private terminal content, names, hosts, paths and credentials first. Report vulnerabilities [in private](https://github.com/johnkozaris/Kodosi/security/advisories/new).
   - type: dropdown
     id: part
     attributes:
@@ -25,52 +24,20 @@ body:
   - type: input
     id: system
     attributes:
-      label: System
-      description: Operating system and version, and the computer type.
-      placeholder: macOS 26.4, Apple silicon
-    validations:
-      required: true
-  - type: input
-    id: revision
-    attributes:
-      label: Source revision
-      description: The output of `git rev-parse --short HEAD` in the checkout that you built.
-      placeholder: abc1234
+      label: System and revision
+      placeholder: macOS 26.4, Apple silicon, abc1234
     validations:
       required: true
   - type: textarea
     id: steps
     attributes:
-      label: What you did
-      description: The steps, one on each line. Say which computer hosts the terminal if more than one is involved.
-      placeholder: |
-        1. Open a terminal in the folder of a Git repository.
-        2. ...
-    validations:
-      required: true
-  - type: textarea
-    id: expected
-    attributes:
-      label: What you expected
-    validations:
-      required: true
-  - type: textarea
-    id: actual
-    attributes:
-      label: What occurred
-      description: Add a picture or a recording if the problem is in the interface.
+      label: What happened
+      description: Steps, what you expected, and what happened instead.
     validations:
       required: true
   - type: textarea
     id: logs
     attributes:
       label: Logs
-      description: Related lines of `app.log` (the app) or `host.log` (a CLI host) from the data folder, with private data removed.
+      description: Related lines of `app.log` or `host.log`, with private data removed.
       render: text
-  - type: checkboxes
-    id: private
-    attributes:
-      label: Private data
-      options:
-        - label: I removed private terminal content and credentials from this report.
-          required: true

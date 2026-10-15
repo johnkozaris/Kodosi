@@ -34,7 +34,7 @@ pub struct PtyReader {
 }
 
 impl PtyReader {
-    pub fn new(fd: OwnedFd) -> io::Result<Self> {
+    fn new(fd: OwnedFd) -> io::Result<Self> {
         let flags = fcntl(fd.as_fd(), FcntlArg::F_GETFL)
             .map_err(|error| io::Error::from_raw_os_error(error as i32))?;
         let mut oflags = OFlag::from_bits_truncate(flags);
@@ -62,7 +62,6 @@ impl PtyReader {
             .ok_or_else(|| io::Error::other("PTY async reader failed to initialize"))
     }
 
-    /// Unix writes complete inside `transfer`, so none is ever in flight.
     pub const fn write_in_flight(&self) -> bool {
         false
     }
@@ -221,8 +220,6 @@ impl KodosiPty {
         foreground_process_group(self.master_fd) == Some(self.child_pid)
     }
 
-    /// Whether the terminal passes each key on at once, as it does while a
-    /// line editor waits at a prompt.
     pub fn reads_keys(&self) -> bool {
         let borrowed = unsafe { BorrowedFd::borrow_raw(self.master_fd) };
         nix::sys::termios::tcgetattr(borrowed).is_ok_and(|attributes| {
@@ -238,8 +235,6 @@ impl KodosiPty {
         program_identity(&arguments).map(str::to_owned)
     }
 
-    /// The environment that the foreground program started with, as
-    /// `NAME=value` entries.
     pub fn foreground_environment(&self) -> Option<Vec<String>> {
         process_environment(foreground_process_group(self.master_fd)?)
     }
@@ -279,22 +274,22 @@ impl KodosiPty {
         Ok(())
     }
 
-    pub async fn wait(&mut self) -> Result<Option<i32>> {
-        let status = self.child.wait().await?;
-        Ok(status.code())
+    async fn wait(&mut self) -> Result<()> {
+        self.child.wait().await?;
+        Ok(())
     }
 
     pub async fn wait_within(&mut self, grace: Duration) -> Result<WaitOutcome> {
         match tokio::time::timeout(grace, async {
-            let code = self.wait().await?;
+            self.wait().await?;
             while !session_processes(self.child_pid)?.is_empty() {
                 tokio::time::sleep(Duration::from_millis(20)).await;
             }
-            Ok(code)
+            Ok(())
         })
         .await
         {
-            Ok(result) => result.map(WaitOutcome::Reaped),
+            Ok(result) => result.map(|()| WaitOutcome::Reaped),
             Err(_) => Ok(WaitOutcome::TimedOut),
         }
     }
@@ -615,7 +610,6 @@ fn process_environment(pid: u32) -> Option<Vec<String>> {
     process_record(pid).map(|(_, environment)| environment)
 }
 
-/// The arguments and the environment that process `pid` started with.
 #[cfg(target_os = "macos")]
 fn process_record(pid: u32) -> Option<(Vec<String>, Vec<String>)> {
     let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid as i32];
@@ -724,8 +718,7 @@ mod tests {
         assert!(error.to_string().contains("I/O failure"));
     }
 
-    /// What the environment test starts: a program of its own, because macOS
-    /// keeps the environment of its own programs, such as `/bin/sleep`, hidden.
+    /// macOS hides the environment of its own programs, such as `/bin/sleep`.
     #[test]
     #[ignore = "the environment test starts it"]
     fn waits_for_the_environment_test() {
@@ -752,7 +745,6 @@ mod tests {
                     &[("CLAUDE_CONFIG_DIR", "/tmp/a sign-in")],
                 )
                 .unwrap();
-                // The child shows its own environment once it starts the program.
                 let entry = "CLAUDE_CONFIG_DIR=/tmp/a sign-in".to_owned();
                 let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
                 while !pty
@@ -871,7 +863,7 @@ mod tests {
             assert_eq!(pty.wait_within(Duration::from_millis(100)).await.unwrap(), super::WaitOutcome::TimedOut);
             assert!(super::session_processes(pty.child_pid).unwrap().contains(&child));
             pty.request_shutdown(ShutdownStage::Force).unwrap();
-            assert!(matches!(pty.wait_within(Duration::from_secs(2)).await.unwrap(), super::WaitOutcome::Reaped(_)));
+            assert!(matches!(pty.wait_within(Duration::from_secs(2)).await.unwrap(), super::WaitOutcome::Reaped));
             assert_eq!(super::session_processes(pty.child_pid).unwrap(), Vec::<i32>::new());
         });
     }

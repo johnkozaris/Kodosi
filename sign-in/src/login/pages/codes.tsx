@@ -5,16 +5,14 @@ import { buttonClass } from "../../parts/button";
 import { cn } from "../../parts/cn";
 import { CodeCells } from "../../parts/code";
 import { option, Pill } from "../../parts/pill";
-import { ActionRow, Go, SignOutOthers, SwitchRow, TextRow } from "../../parts/rows";
+import { ActionRow, Go, rule, SignOutOthers, SwitchRow, TextRow } from "../../parts/rows";
 import { QuietLink, quietLink } from "../../parts/text";
 import { IconTile } from "../../parts/tile";
 import { Stage } from "../stage";
 import type { Page } from "./props";
 
-/** The digits of a code from an authenticator app, when the page does not know the realm's choice. */
 const DIGITS = 6;
 
-/** The code of the authenticator app. A person with more than one app chooses which. */
 export function Otp({ kcContext, i18n }: Page<"login-otp.ftl">) {
   const { otpLogin, url, messagesPerField } = kcContext;
   const { msgStr } = i18n;
@@ -69,7 +67,6 @@ export function Otp({ kcContext, i18n }: Page<"login-otp.ftl">) {
   );
 }
 
-/** One code of the list that the person kept. */
 export function RecoveryInput({ kcContext, i18n }: Page<"login-recovery-authn-code-input.ftl">) {
   const { url, messagesPerField, recoveryAuthnCodesInputBean } = kcContext;
   const { msgStr } = i18n;
@@ -102,7 +99,6 @@ export function RecoveryInput({ kcContext, i18n }: Page<"login-recovery-authn-co
   );
 }
 
-/** A new authenticator app: the picture to scan, the first code, and a name for the phone. */
 export function ConfigTotp({ kcContext, i18n }: Page<"login-config-totp.ftl">) {
   const { url, totp, mode, messagesPerField, isAppInitiatedAction } = kcContext;
   const { msgStr } = i18n;
@@ -137,7 +133,6 @@ export function ConfigTotp({ kcContext, i18n }: Page<"login-config-totp.ftl">) {
           </>
         ) : (
           <>
-            {/* The picture stays dark on white in each theme: a phone reads it. */}
             <span className="rounded-lg bg-white p-2.5 shadow-well">
               <img
                 src={`data:image/png;base64, ${totp.totpSecretQrCode}`}
@@ -150,20 +145,18 @@ export function ConfigTotp({ kcContext, i18n }: Page<"login-config-totp.ftl">) {
           </>
         )}
       </div>
-      <form id={form} action={url.loginAction} method="post" noValidate>
-        <div className="relative before:absolute before:top-0 before:right-0 before:left-[18px] before:h-px before:bg-hairline/60">
-          <p className="px-5 pt-4 text-center text-footnote text-ink-muted">
-            {msgStr("kdsThenCode")}
-          </p>
-          <CodeCells
-            id="totp"
-            name="totp"
-            length={totp.policy.digits}
-            label={msgStr("kdsCode")}
-            invalid={messagesPerField.existsError("totp")}
-            send={false}
-          />
-        </div>
+      <form id={form} action={url.loginAction} method="post" noValidate className={rule}>
+        <p className="px-5 pt-4 text-center text-footnote text-ink-muted">
+          {msgStr("kdsThenCode")}
+        </p>
+        <CodeCells
+          id="totp"
+          name="totp"
+          length={totp.policy.digits}
+          label={msgStr("kdsCode")}
+          invalid={messagesPerField.existsError("totp")}
+          send={false}
+        />
         <TextRow
           id="userLabel"
           name="userLabel"
@@ -181,7 +174,6 @@ export function ConfigTotp({ kcContext, i18n }: Page<"login-config-totp.ftl">) {
   );
 }
 
-/** The codes for a day without the phone: the person keeps them before the step ends. */
 export function RecoveryConfig({ kcContext, i18n }: Page<"login-recovery-authn-code-config.ftl">) {
   const { url, recoveryAuthnCodesConfigBean: codes, isAppInitiatedAction } = kcContext;
   const { msgStr } = i18n;

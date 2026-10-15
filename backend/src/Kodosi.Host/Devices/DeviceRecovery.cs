@@ -13,9 +13,9 @@ public sealed partial class DeviceService
         byte[] certBytes, byte[] certSig, byte[] listBytes, byte[] listSig, CancellationToken ct)
     {
         var current = await db.DeviceLists.SingleAsync(x => x.UserId == userId, ct);
-        var previous = lists.Parse(current.Body);
-        var next = lists.Parse(listBytes);
-        var cert = certificates.Parse(certBytes);
+        var previous = SignedDeviceList.Parse(current.Body);
+        var next = SignedDeviceList.Parse(listBytes);
+        var cert = DeviceCertificate.Parse(certBytes);
         ValidateCertificate(userId, deviceId, cert, signingKey);
         ValidateTime(cert.IssuedAtMs, cert.ExpiresAtMs);
         ValidateSuccessor(userId, previous, next);
@@ -44,9 +44,9 @@ public sealed partial class DeviceService
         var (certBytes, certSig, listBytes, listSig) = SignedParts(request.DeviceCertificate, request.DeviceCertificateSignature, request.SignedDeviceList, request.SignedDeviceListSignature);
         var box = Limits.Base64(request.RoomKeyBox, "Recovery room key", RecoveryBoxLength);
         if (box.Length == 0) throw ApiException.Invalid("The recovery room key is missing.");
-        var cert = certificates.Parse(certBytes);
+        var cert = DeviceCertificate.Parse(certBytes);
         if (!IsRecoveryId(cert.DeviceId)) throw ApiException.Invalid("This is not the device identifier of a recovery key.");
-        var (roomKey, roomKeySignature) = MissionService.ValidRoomKey(signatures, userId, cert.DeviceId, cert.SigPublicKey, request.RoomKey);
+        var (roomKey, roomKeySignature) = MissionService.ValidRoomKey(userId, cert.DeviceId, cert.SigPublicKey, request.RoomKey);
         if (await RecoveryDeviceAsync(userId, ct) is not null) throw ApiException.Conflict("Remove the current recovery key first.");
         var signer = await RequireDeviceAsync(userId, device.Id, ct);
         var (added, _) = await StageDeviceAsync(userId, signer, cert.DeviceId, cert.SigPublicKey, certBytes, certSig, listBytes, listSig, ct);

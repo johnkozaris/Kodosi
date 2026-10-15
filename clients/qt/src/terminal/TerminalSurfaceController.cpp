@@ -30,7 +30,6 @@ TerminalSurfaceController::TerminalSurfaceController(
         &QTimer::timeout,
         this,
         &TerminalSurfaceController::retryPendingAttachments);
-    const auto reconcileBindings = [this] { reconcile(); };
     connect(
         &runtime,
         &RuntimeBridge::runningChanged,
@@ -41,10 +40,7 @@ TerminalSurfaceController::TerminalSurfaceController(
         &SessionCatalogModel::authoritativeSnapshotApplied,
         this,
         &TerminalSurfaceController::catalogSnapshotApplied);
-    connect(&sessions, &QAbstractItemModel::modelReset, this, reconcileBindings);
-    connect(&sessions, &QAbstractItemModel::rowsInserted, this, reconcileBindings);
-    connect(&sessions, &QAbstractItemModel::rowsRemoved, this, reconcileBindings);
-    connect(&sessions, &QAbstractItemModel::dataChanged, this, reconcileBindings);
+    connect(&sessions, &QAbstractItemModel::modelReset, this, [this] { reconcile(); });
 }
 
 bool TerminalSurfaceController::bind(
@@ -55,7 +51,7 @@ bool TerminalSurfaceController::bind(
         emit attachmentRejected(
             view,
             sessionId,
-            QStringLiteral("The selected terminal session is invalid."));
+            QStringLiteral("The selected terminal is invalid."));
         return false;
     }
     const auto currentIncarnation = m_sessions.incarnationForSession(sessionId);
@@ -65,14 +61,14 @@ bool TerminalSurfaceController::bind(
         emit attachmentRejected(
             view,
             sessionId,
-            QStringLiteral("The selected session is no longer available."));
+            QStringLiteral("This terminal is no longer available."));
         return false;
     }
     if (presentation && !presentation->canRetainPresentation) {
         emit attachmentRejected(
             view,
             sessionId,
-            QStringLiteral("The selected session can no longer present a terminal."));
+            QStringLiteral("This terminal can no longer be shown."));
         return false;
     }
     const auto found = std::ranges::find_if(m_bindings, [&](const Binding& binding) {
@@ -196,7 +192,7 @@ bool TerminalSurfaceController::retry(
         emit attachmentRejected(
             view,
             sessionId,
-            QStringLiteral("The selected session is no longer available."));
+            QStringLiteral("This terminal is no longer available."));
         return false;
     }
     const auto found = std::ranges::find_if(m_bindings, [&](const Binding& binding) {
@@ -298,7 +294,7 @@ void TerminalSurfaceController::reconcile()
             emit attachmentRejected(
                 binding->view.data(),
                 binding->sessionId,
-                QStringLiteral("The terminal session was replaced or removed."));
+                QStringLiteral("This terminal was replaced or closed."));
             disconnect(binding->readinessConnection);
             binding = m_bindings.erase(binding);
             continue;

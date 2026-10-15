@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-# Sourced by the Windows builds, which run in Git Bash.
 
-# The machine's native architecture: x64 or arm64. Git Bash may run emulated
-# and see AMD64 in its own environment, so read the system's value.
+# Git Bash may run emulated and see AMD64, so read the system's architecture.
 kodosi_windows_arch() {
     case "$(reg query 'HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' //v PROCESSOR_ARCHITECTURE |
         awk '$1 == "PROCESSOR_ARCHITECTURE" { print $3 }' | tr -d '\r')" in
@@ -12,7 +10,6 @@ kodosi_windows_arch() {
     esac
 }
 
-# Exports this machine's KODOSI_WINDOWS_ARCH with its Qt build and Rust target.
 kodosi_windows_target() {
     KODOSI_WINDOWS_ARCH=$(kodosi_windows_arch) || return 1
     case "$KODOSI_WINDOWS_ARCH" in
@@ -22,8 +19,6 @@ kodosi_windows_target() {
     export KODOSI_WINDOWS_ARCH KODOSI_QT_ARCH KODOSI_RUST_TARGET
 }
 
-# Imports the newest Visual Studio C++ environment for this machine, so
-# clang-cl, link and the Windows SDK tools work, after kodosi_windows_target.
 kodosi_windows_env() {
     local tools llvm vswhere install script environment name value
     kodosi_windows_target || return 1
@@ -65,8 +60,7 @@ kodosi_windows_env() {
                 ;;
         esac
     done <<< "$environment"
-    # The installation's own Clang, which matches its C++ library, ahead of any
-    # other LLVM on PATH.
+    # Use the Clang that matches the installation's C++ library, not another LLVM on PATH.
     llvm="$(cygpath -u "$install")/VC/Tools/Llvm/$llvm/bin"
     if [ -d "$llvm" ]; then
         PATH="$llvm:$PATH"

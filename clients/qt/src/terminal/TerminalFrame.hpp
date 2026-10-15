@@ -14,8 +14,6 @@ struct TerminalCell {
     QColor background;
     bool bold = false;
     bool italic = false;
-    bool faint = false;
-    bool inverse = false;
     bool invisible = false;
     bool strikethrough = false;
     bool overline = false;
@@ -27,7 +25,6 @@ struct TerminalCell {
 struct TerminalCursor {
     bool visible = false;
     bool blinking = false;
-    bool passwordInput = false;
     bool wideTail = false;
     std::uint16_t column = 0;
     std::uint16_t row = 0;

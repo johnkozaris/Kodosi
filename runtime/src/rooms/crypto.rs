@@ -15,7 +15,7 @@ use crate::{
         keys::{
             AGREEMENT_BYTES, DeviceKeys, ROOM_KEM_PUBLIC_BYTES, ROOM_PUBLIC_BYTES, RoomKeyPair,
         },
-        pins::{IdentityBundle, Pins, Root, VerifiedIdentity},
+        pins::{IdentityBundle, Pins, Root, VerifiedIdentity, decode},
     },
     network::{Result, crypto, invalid},
 };
@@ -62,7 +62,7 @@ pub(crate) struct State {
     pub previous_key: Option<Sealed>,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct SignedState {
     pub version: u64,
@@ -454,19 +454,6 @@ fn open(key: &[u8], context: &[u8], sealed: &Sealed) -> Result<Zeroizing<Vec<u8>
         decode(&sealed.ciphertext, 256 * 1024)?,
     )
     .ok_or_else(|| invalid("Room content could not be authenticated."))
-}
-
-pub(crate) fn decode(value: &str, maximum: usize) -> Result<Vec<u8>> {
-    if value.len() > maximum.div_ceil(3) * 4 {
-        return Err(invalid("Room data exceeds its limit."));
-    }
-    let bytes = BASE64
-        .decode(value)
-        .map_err(|_| invalid("Invalid room data encoding."))?;
-    if bytes.len() > maximum {
-        return Err(invalid("Room data exceeds its limit."));
-    }
-    Ok(bytes)
 }
 
 fn digest(bytes: &[u8]) -> String {

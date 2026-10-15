@@ -3,7 +3,6 @@ import KodosiDesign
 import SwiftUI
 
 struct TilingStage: View {
-    @Environment(\.theme) private var theme
     @Environment(AppDependencies.self) private var deps
     @Bindable var workbench: WorkbenchState
 
@@ -44,15 +43,9 @@ struct StageOverview: View {
     }
 
     private var places: [Place] {
-        let grouped = Dictionary(grouping: deps.sessions) { session in
-            session.kind == .local ? "" : session.hostDeviceId ?? session.ownerUserId ?? session.id
-        }
-        return grouped.map { key, sessions in
-            let first = sessions[0]
-            let label = first.kind == .local ? String(localized: "This Mac")
-                : first.isOwner ? first.hostLabel : "\(first.ownerName ?? String(localized: "Shared")) · \(first.hostLabel)"
-            return Place(id: key, label: label, sessions: sessions)
-        }.sorted { ($0.id.isEmpty ? "" : $0.label) < ($1.id.isEmpty ? "" : $1.label) }
+        Dictionary(grouping: deps.sessions, by: SessionFolderGroup.computer).map { key, sessions in
+            Place(id: key, label: SessionFolderGroup.host(of: sessions[0]) ?? String(localized: "This Mac"), sessions: sessions)
+        }.sorted { ($0.id == "local" ? "" : $0.label) < ($1.id == "local" ? "" : $1.label) }
     }
 
     var body: some View {
@@ -74,7 +67,21 @@ struct StageOverview: View {
                                 Text(place.label).appTextStyle(.subhead)
                             }.foregroundStyle(theme.colors.inkMuted)
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: 230, maximum: 320), spacing: 12)], alignment: .leading, spacing: 12) {
-                                ForEach(place.sessions) { session in TerminalCard(session: session) }
+                                ForEach(place.sessions) { session in
+                                    TerminalCard(session: session, rested: session.isConnected ? .awake : .asleep) {
+                                        deps.activateSession(session.id)
+                                    } detail: {
+                                        SessionActivityText(session: session, fallback: session.folderName ?? session.agent.label)
+                                    } accessory: {
+                                        if let sign = deps.sign(of: session) {
+                                            StatusSign(form: sign, size: 13).transition(AnyTransition.pop)
+                                        } else {
+                                            AvatarStack(people: deps.viewers(of: session), size: 18, limit: 2, ring: theme.colors.raised)
+                                        }
+                                    }
+                                    .animation(theme.motion.snappy, value: deps.sign(of: session))
+                                    .accessibilityIdentifier("overview.\(AccessibilityIdentifier.session(session.id))")
+                                }
                             }
                         }.arrive(delay: 0.04 * Double(index + 1))
                     }
@@ -85,8 +92,6 @@ struct StageOverview: View {
         }
     }
 
-    /// The launcher stands a little above the middle, and a list that it opens
-    /// grows down from there.
     private var first: some View {
         GeometryReader { proxy in
             AgentLauncher(welcome: true)
@@ -96,27 +101,25 @@ struct StageOverview: View {
     }
 }
 
-struct TerminalCard: View {
+struct TerminalCard<Detail: View, Accessory: View>: View {
     @Environment(\.theme) private var theme
-    @Environment(AppDependencies.self) private var deps
     @State private var hovered = false
     let session: RuntimeSession
+    let rested: AgentMark.Activity
+    let open: () -> Void
+    @ViewBuilder let detail: Detail
+    @ViewBuilder let accessory: Accessory
 
     var body: some View {
-        Button { deps.activateSession(session.id) } label: {
+        Button(action: open) {
             HStack(spacing: 12) {
-                AgentMark(kind: session.agent, size: 34, activity: session.mark(rested: session.isConnected ? .awake : .asleep))
+                AgentMark(kind: session.agent, size: 34, activity: session.mark(rested: rested))
                 VStack(alignment: .leading, spacing: 3) {
                     Text(session.name).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).lineLimit(1)
-                    SessionActivityText(session: session, fallback: session.folderName ?? session.agent.label)
-                        .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                    detail.appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
                 }
                 Spacer(minLength: 0)
-                if let sign = deps.sign(of: session) {
-                    StatusSign(form: sign, size: 13).transition(AnyTransition.pop)
-                } else {
-                    AvatarStack(people: deps.viewers(of: session), size: 18, limit: 2, ring: theme.colors.raised)
-                }
+                accessory
             }
             .padding(.horizontal, 14).frame(height: 68)
             .raised(Radius.lg, fill: hovered ? theme.colors.lifted : theme.colors.raised, elevation: hovered ? .lifted : .resting)
@@ -125,7 +128,5 @@ struct TerminalCard: View {
         .buttonStyle(PressScaleStyle(scale: 0.98))
         .onHover { hovered = $0 }
         .animation(theme.motion.spring, value: hovered)
-        .animation(theme.motion.snappy, value: deps.sign(of: session))
-        .accessibilityIdentifier("overview.\(AccessibilityIdentifier.session(session.id))")
     }
 }

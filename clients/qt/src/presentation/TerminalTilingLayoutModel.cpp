@@ -119,22 +119,6 @@ qreal TerminalTilingLayoutModel::viewportHeight() const noexcept
     return m_viewportHeight;
 }
 
-QStringList TerminalTilingLayoutModel::stagedSessionIds() const
-{
-    return m_stagedSessionIds;
-}
-
-QString TerminalTilingLayoutModel::selectedSessionId() const
-{
-    return m_selectedSessionId;
-}
-
-DesktopStateModel::StageLayoutMode
-TerminalTilingLayoutModel::layoutMode() const noexcept
-{
-    return m_layoutMode;
-}
-
 qreal TerminalTilingLayoutModel::contentHeight() const noexcept
 {
     return m_contentHeight;
@@ -198,7 +182,6 @@ void TerminalTilingLayoutModel::setStagedSessionIds(QStringList sessionIds)
     m_lastGridTileGeometry.removeIf([this](const auto& entry) {
         return !m_stagedSessionIds.contains(entry.key());
     });
-    emit stagedSessionIdsChanged();
     rebuild();
 }
 
@@ -208,7 +191,6 @@ void TerminalTilingLayoutModel::setSelectedSessionId(QString sessionId)
         return;
     }
     m_selectedSessionId = std::move(sessionId);
-    emit selectedSessionIdChanged();
     rebuild();
 }
 
@@ -219,7 +201,6 @@ void TerminalTilingLayoutModel::setLayoutMode(
         return;
     }
     m_layoutMode = mode;
-    emit layoutModeChanged();
     rebuild();
 }
 

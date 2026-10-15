@@ -14,7 +14,6 @@ Item {
         Repeater {
             model: 4
             delegate: RowLayout {
-                required property int index
                 Layout.fillWidth: true
                 spacing: 12
                 Rectangle { Layout.alignment: Qt.AlignTop; implicitWidth: 28; implicitHeight: 28; radius: 14; color: KodosiTheme.alpha(KodosiTheme.ink, 0.1) }

@@ -29,7 +29,7 @@ struct SidebarRail: View {
                         {
                             deps.workbench.section = .missions; deps.openMission(mission)
                         } content: {
-                            RoomSigil(name: mission.name, key: mission.id, size: 26)
+                            RoomSigil(key: mission.id, size: 26)
                                 .overlay(alignment: .topTrailing) {
                                     if (deps.roomViews[mission.id]?.unread ?? 0) > 0 {
                                         Circle().fill(theme.colors.accent).frame(width: 8, height: 8)

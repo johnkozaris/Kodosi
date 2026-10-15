@@ -6,6 +6,6 @@ Exec=kodosi-qt %u
 Icon=com.kodosi.Kodosi
 Terminal=false
 Categories=Development;
-Keywords=agents;terminal;development;mission;
+Keywords=agents;terminal;development;room;
 StartupNotify=true
 MimeType=x-scheme-handler/kodosi;

@@ -7,7 +7,6 @@ import Kodosi.Models 1.0 as Models
 KPopover {
     id: root
 
-    readonly property bool contentAvailable: root.visible
     readonly property bool failed: Models.ApplicationLifecycle.state === Models.ApplicationLifecycle.Failed
 
     function restorePrimaryFocus() {
@@ -50,15 +49,10 @@ KPopover {
         objectName: "startup.overlay"
 
         ColumnLayout {
-            id: startupContent
-
             Accessible.id: objectName
-            Accessible.ignored: !root.contentAvailable
             anchors.centerIn: parent
-            enabled: root.contentAvailable
             objectName: "startup.content"
             spacing: 12
-            visible: root.contentAvailable
             width: Math.min(460, Math.max(280, parent.width - 48))
 
             Item {
@@ -71,7 +65,7 @@ KPopover {
                     anchors.centerIn: parent
                     size: 24
                     blinks: true
-                    visible: root.contentAvailable && !root.failed
+                    visible: !root.failed
                     objectName: "startup.busy"
                     Accessible.id: objectName
                 }
@@ -79,7 +73,7 @@ KPopover {
                     anchors.centerIn: parent
                     width: 56
                     height: 56
-                    visible: root.contentAvailable && root.failed
+                    visible: root.failed
                 }
                 KIcon {
                     Accessible.id: objectName
@@ -90,32 +84,25 @@ KPopover {
                     name: "warning"
                     objectName: "startup.failure.icon"
                     strokeWidth: 1.9
-                    visible: root.contentAvailable && root.failed
+                    visible: root.failed
                     width: 28
                 }
             }
             PlainLabel {
-                id: titleLabel
-
                 Accessible.id: objectName
-                Accessible.ignored: !root.contentAvailable
                 Accessible.name: text
                 Accessible.role: Accessible.StaticText
                 Layout.fillWidth: true
-                color: root.failed ? KodosiTheme.ink : KodosiTheme.inkMuted
-                font.pixelSize: root.failed ? KodosiTheme.fontTitle : KodosiTheme.fontFootnote
-                font.weight: root.failed ? Font.DemiBold : Font.Medium
+                font.pixelSize: KodosiTheme.fontTitle
+                font.weight: Font.DemiBold
                 horizontalAlignment: Text.AlignHCenter
                 objectName: "startup.title"
-                text: root.failed ? qsTr("Kodosi could not start") : qsTr("Starting")
+                text: qsTr("Kodosi could not start")
                 visible: root.failed
                 wrapMode: Text.Wrap
             }
             PlainLabel {
-                id: detailLabel
-
                 Accessible.id: objectName
-                Accessible.ignored: !root.contentAvailable
                 Accessible.name: text
                 Accessible.role: Accessible.StaticText
                 Layout.fillWidth: true
@@ -126,20 +113,19 @@ KPopover {
                 maximumLineCount: 5
                 objectName: "startup.failure.detail"
                 text: Models.ApplicationLifecycle.errorText
-                visible: root.contentAvailable && root.failed
+                visible: root.failed
                 wrapMode: Text.Wrap
             }
             RowLayout {
                 Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: root.failed ? 8 : 0
+                Layout.topMargin: 8
                 spacing: 8
-                visible: root.contentAvailable && root.failed
+                visible: root.failed
 
                 KButton {
                     id: retryButton
 
                     Accessible.id: objectName
-                    Accessible.ignored: !root.contentAvailable
                     Accessible.name: text
                     iconName: "refresh"
                     objectName: "startup.retry"

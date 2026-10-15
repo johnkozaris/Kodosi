@@ -35,37 +35,12 @@ ColumnLayout {
             text: qsTr("Enter this code in your browser")
             color: KodosiTheme.inkMuted
         }
-        Row {
+        CodeKeys {
             Layout.alignment: Qt.AlignHCenter
-            spacing: 6
-            Accessible.role: Accessible.StaticText
+            code: Models.Account.userCode
             Accessible.name: Models.Account.userCode
             objectName: "panel.settings.account.code"
             Accessible.id: objectName
-
-            Repeater {
-                model: Models.Account.userCode.split("")
-
-                Item {
-                    id: key
-
-                    required property string modelData
-                    readonly property bool separator: modelData === "-" || modelData === " "
-
-                    width: separator ? 12 : 40
-                    height: 52
-
-                    Raised { anchors.fill: parent; visible: !key.separator; radius: KodosiTheme.radiusMd }
-                    Text {
-                        anchors.centerIn: parent
-                        text: key.modelData
-                        color: key.separator ? KodosiTheme.inkFaint : KodosiTheme.ink
-                        font.family: "monospace"
-                        font.pixelSize: 24
-                        font.weight: Font.DemiBold
-                    }
-                }
-            }
         }
         RowLayout {
             Layout.alignment: Qt.AlignHCenter
