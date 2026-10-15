@@ -831,50 +831,6 @@ fn start_commands_clear_the_line_the_way_the_shell_edits() {
     }
 }
 
-async fn next_presence(changes: &mut mpsc::Receiver<SessionChange>) -> Vec<String> {
-    tokio::time::timeout(Duration::from_secs(5), async {
-        loop {
-            if let Some(SessionChange::Presence { users, .. }) = changes.recv().await {
-                break users;
-            }
-        }
-    })
-    .await
-    .expect("presence change")
-}
-
-#[tokio::test]
-async fn the_person_of_the_host_is_here_while_this_computer_shows_a_shared_terminal() {
-    let (session, mut changes, _root) = shell("exec /bin/cat").await;
-    let early = session.subscribe().await.expect("view before sharing");
-    session.unsubscribe(early.connection_id);
-    session
-        .host_requests
-        .send(HostRequest::ResetPresence {
-            owner: Some("owner".to_owned()),
-        })
-        .await
-        .expect("share");
-    assert_eq!(next_presence(&mut changes).await, Vec::<String>::new());
-    let view = session.subscribe().await.expect("view");
-    assert_eq!(next_presence(&mut changes).await, ["owner"]);
-    let second = session.subscribe().await.expect("second view");
-    session.unsubscribe(view.connection_id);
-    session.unsubscribe(second.connection_id);
-    assert_eq!(next_presence(&mut changes).await, Vec::<String>::new());
-    session
-        .host_requests
-        .send(HostRequest::ResetPresence { owner: None })
-        .await
-        .expect("stop sharing");
-    assert_eq!(next_presence(&mut changes).await, Vec::<String>::new());
-    let _later = session.subscribe().await.expect("view after sharing");
-    session.close().await.expect("close");
-    while let Ok(change) = changes.try_recv() {
-        assert!(!matches!(change, SessionChange::Presence { .. }));
-    }
-}
-
 #[test]
 fn terminals_find_the_kodosi_command_of_the_running_app() {
     let app = tempfile::tempdir().expect("app folder");

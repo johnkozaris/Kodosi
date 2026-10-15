@@ -54,6 +54,7 @@ private slots:
     void persistsPreferenceAndAppliesStyleOverride();
     void invalidStoredDataFallsBackSilently();
     void followsLiveSystemSchemeAfterUnsettingOverride();
+    void reducedMotionIsKeptAndTheSystemChoiceWins();
 };
 
 void AppearanceModelTest::persistsPreferenceAndAppliesStyleOverride()
@@ -163,6 +164,36 @@ void AppearanceModelTest::followsLiveSystemSchemeAfterUnsettingOverride()
         static_cast<int>(kodosi::AppearanceModel::Preference::System)));
     QCOMPARE(style.unsetCalls, 2);
     QVERIFY(model.dark());
+}
+
+void AppearanceModelTest::reducedMotionIsKeptAndTheSystemChoiceWins()
+{
+    QTemporaryDir directory(
+        QDir::current().filePath(QStringLiteral("appearance-motion-XXXXXX")));
+    QVERIFY(directory.isValid());
+    FakeStyle style;
+    {
+        kodosi::AppearanceModel model(
+            settingsFor(directory),
+            style.hooks());
+        QVERIFY(!model.reduceMotion());
+        QVERIFY(model.setReducesMotion(true));
+        QVERIFY(model.reduceMotion());
+        QVERIFY(!model.systemReducesMotion());
+    }
+
+    kodosi::AppearanceModel reloaded(
+        settingsFor(directory),
+        style.hooks());
+    QVERIFY(reloaded.reduceMotion());
+    QVERIFY(reloaded.setReducesMotion(false));
+    QVERIFY(!reloaded.reduceMotion());
+
+    reloaded.injectSystemReducedMotionForTesting(true);
+    QVERIFY(reloaded.systemReducesMotion());
+    QVERIFY(reloaded.reduceMotion());
+    reloaded.injectSystemReducedMotionForTesting(false);
+    QVERIFY(!reloaded.reduceMotion());
 }
 
 QTEST_GUILESS_MAIN(AppearanceModelTest)

@@ -220,7 +220,7 @@ private struct PopoverSheet: ViewModifier {
             .environment(\.theme, theme)
             .buttonStyle(.kodosi(.secondary))
             .textFieldStyle(WellTextFieldStyle())
-            .toggleStyle(SwitchToggleStyle())
+            .toggleStyle(KodosiSwitchStyle())
     }
 }
 

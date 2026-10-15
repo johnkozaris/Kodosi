@@ -9,10 +9,11 @@ public extension EnvironmentValues {
 
 public extension View {
     func kodosiPopover(
-        isPresented: Binding<Bool>, arrowEdge: Edge = .bottom, @ViewBuilder content: @escaping () -> some View
+        isPresented: Binding<Bool>, arrowEdge: Edge = .bottom, alignment: HorizontalAlignment = .center,
+        @ViewBuilder content: @escaping () -> some View
     ) -> some View {
         #if os(macOS)
-            modifier(KodosiPopoverSource(isPresented: isPresented, edge: arrowEdge, popover: content))
+            modifier(KodosiPopoverSource(isPresented: isPresented, edge: arrowEdge, alignment: alignment, popover: content))
         #else
             popover(isPresented: isPresented, arrowEdge: arrowEdge) {
                 content().environment(\.closePanel) { isPresented.wrappedValue = false }
@@ -39,6 +40,7 @@ public extension View {
     private struct KodosiPopoverSource<Popover: View>: ViewModifier {
         @Binding var isPresented: Bool
         let edge: Edge
+        let alignment: HorizontalAlignment
         let popover: () -> Popover
         @State private var id = UUID()
 
@@ -47,7 +49,8 @@ public extension View {
                 guard isPresented else { return [] }
                 let close = { isPresented = false }
                 return [KodosiPopoverItem(
-                    id: id, anchor: anchor, edge: edge, content: AnyView(popover().environment(\.closePanel, close)), dismiss: close
+                    id: id, anchor: anchor, edge: edge, alignment: alignment,
+                    content: AnyView(popover().environment(\.closePanel, close)), dismiss: close
                 )]
             }
         }
@@ -57,6 +60,7 @@ public extension View {
         let id: UUID
         let anchor: Anchor<CGRect>
         let edge: Edge
+        let alignment: HorizontalAlignment
         let content: AnyView
         let dismiss: () -> Void
     }
@@ -145,9 +149,11 @@ public extension View {
             default:
                 break
             }
+            let leading = item.alignment == .leading
+            let x = leading ? anchor.minX : anchor.midX - size.width / 2
             let origin = switch edge {
-            case .bottom: CGPoint(x: anchor.midX - size.width / 2, y: anchor.maxY + gap)
-            case .top: CGPoint(x: anchor.midX - size.width / 2, y: anchor.minY - gap - size.height)
+            case .bottom: CGPoint(x: x, y: anchor.maxY + gap)
+            case .top: CGPoint(x: x, y: anchor.minY - gap - size.height)
             case .trailing: CGPoint(x: anchor.maxX + gap, y: anchor.midY - size.height / 2)
             case .leading: CGPoint(x: anchor.minX - gap - size.width, y: anchor.midY - size.height / 2)
             }
@@ -156,8 +162,8 @@ public extension View {
                 y: min(max(origin.y, Self.margin), max(Self.margin, bounds.height - size.height - Self.margin))
             )
             let unit = switch edge {
-            case .bottom: UnitPoint.top
-            case .top: UnitPoint.bottom
+            case .bottom: leading ? UnitPoint.topLeading : UnitPoint.top
+            case .top: leading ? UnitPoint.bottomLeading : UnitPoint.bottom
             case .trailing: UnitPoint.leading
             case .leading: UnitPoint.trailing
             }

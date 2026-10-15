@@ -81,6 +81,26 @@ ColumnLayout {
             }
         }
         ListRow {
+            iconName: "wind"
+            tint: "#4f9bb0"
+            title: qsTr("Reduce motion")
+            subtitle: Models.Appearance.systemReducesMotion ? qsTr("On in the system settings") : ""
+
+            KSwitch {
+                Accessible.id: objectName
+                Accessible.name: qsTr("Reduce motion")
+                checked: Models.Appearance.reduceMotion
+                enabled: !Models.Appearance.systemReducesMotion
+                objectName: "settings.reduceMotion"
+
+                onToggled: {
+                    const wanted = checked;
+                    checked = Qt.binding(() => Models.Appearance.reduceMotion);
+                    Models.Appearance.setReducesMotion(wanted);
+                }
+            }
+        }
+        ListRow {
             iconName: "document"
             tint: "#607fcc"
             title: qsTr("Font")

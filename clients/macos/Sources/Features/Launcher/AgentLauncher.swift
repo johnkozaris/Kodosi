@@ -11,16 +11,24 @@ struct AgentLauncher: View {
     var focus = 0
     var started: () -> Void = {}
     @State private var showsAll = false
-    @State private var naming = false
-    @State private var accountName = ""
+    @State private var menu: LauncherMenu?
+    @State private var adding = false
+    @State private var saving = false
+    @State private var addError: String?
     @State private var starting = false
     @State private var error: String?
     @State private var prompt = ""
+    @State private var focusRequest = 1
 
+    private static let bandHeight: CGFloat = 42
     private static let width: CGFloat = 560
 
     private var launcher: LauncherState {
         deps.launcher
+    }
+
+    private var ink: AppTheme.Colors {
+        theme.isDark ? theme.colors : AppTheme.dark.colors
     }
 
     private var choice: LaunchChoice {
@@ -37,10 +45,6 @@ struct AgentLauncher: View {
 
     private var directory: String? {
         folder ?? deps.settings.lastWorkingDir ?? deps.storageBootstrap.defaultWorkingDirectory?.path
-    }
-
-    private var takesWords: Bool {
-        info?.installed ?? true
     }
 
     private var ready: Bool {
@@ -60,7 +64,7 @@ struct AgentLauncher: View {
 
     var body: some View {
         VStack(alignment: centered ? .center : .leading, spacing: centered ? 22 : 14) {
-            terminal
+            card
             actions
             if let error {
                 ErrorNote(message: error).frame(maxWidth: 520).transition(.opacity)
@@ -74,38 +78,14 @@ struct AgentLauncher: View {
                 await launcher.loadModels(agent)
             }
         }
-        .alert(Text("New \(info?.kind.label ?? "") account"), isPresented: $naming) {
-            TextField("Name", text: $accountName)
-            Button("Add") { addAccount() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Kodosi makes a sign-in folder for it. \(info?.kind.label ?? "") asks you to sign in when it first starts.")
-        }
     }
 
-    private var terminal: some View {
+    private var card: some View {
         let shape = RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-        return VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .bottom, spacing: 8) {
-                AgentTabs(
-                    items: tabItems, selection: choice.agent ?? "shell",
-                    hidden: (launcher.catalog?.agents ?? []).count { !$0.installed && $0.agent != choice.agent },
-                    showsAll: $showsAll
-                ) { id in
-                    update { $0.agent = id == "shell" ? nil : id }
-                }
-                Spacer(minLength: 8)
-                place
-            }
-            .padding(.horizontal, 10)
-            .frame(maxWidth: .infinity, minHeight: 42, maxHeight: 42, alignment: .bottomLeading)
-            .background(TerminalInk.band)
-            commandLine
-                .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 18)
-                .frame(maxWidth: .infinity, minHeight: centered ? 130 : 104, alignment: .topLeading)
-                .background(TerminalInk.body)
+        return VStack(spacing: 0) {
+            terminal
+            deck
         }
-        .terminalScope()
         .frame(width: Self.width)
         .clipShape(shape)
         .background {
@@ -115,6 +95,36 @@ struct AgentLauncher: View {
         .overlay { shape.strokeBorder(theme.colors.hairline.opacity(theme.isDark ? 0.7 : 0.9), lineWidth: 0.5).allowsHitTesting(false) }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("launcher.preview")
+    }
+
+    private var terminal: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .bottom, spacing: 8) {
+                AgentTabs(
+                    items: tabItems, selection: choice.agent ?? "shell",
+                    hidden: (launcher.catalog?.agents ?? []).count { !$0.installed && $0.agent != choice.agent },
+                    showsAll: $showsAll
+                ) { id in
+                    update { $0.agent = id == "shell" ? nil : id }
+                    closeMenu()
+                }
+                Spacer(minLength: 8)
+                place
+            }
+            .padding(.horizontal, 10)
+            .frame(maxWidth: .infinity, minHeight: Self.bandHeight, maxHeight: Self.bandHeight, alignment: .bottomLeading)
+            .background(TerminalInk.band)
+            LauncherCommandLine(
+                folder: directory.map(folderName) ?? "~", info: info, plan: plan, prompt: $prompt,
+                focus: focus + focusRequest, submit: start
+            )
+            .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 18)
+            .frame(maxWidth: .infinity, minHeight: centered ? 124 : 92, alignment: .topLeading)
+            .background(TerminalInk.body)
+            .contentShape(Rectangle())
+            .onTapGesture { focusRequest += 1 }
+        }
+        .terminalScope()
     }
 
     private var place: some View {
@@ -127,144 +137,178 @@ struct AgentLauncher: View {
                 Text(roomName).lineLimit(1)
             }
         }
-        .appTextStyle(.footnote).foregroundStyle(TerminalInk.muted)
+        .appTextStyle(.footnote).foregroundStyle(ink.inkMuted)
         .padding(.bottom, 11)
     }
 
-    private var commandLine: some View {
-        FlowLayout(spacing: 6) {
-            folderKey
-            Text(verbatim: "❯")
-                .foregroundStyle(theme.colors.accent)
-                .frame(height: 26)
-            if let info {
-                if info.installed {
-                    agentKeys(info)
-                } else {
-                    Text(verbatim: info.install)
-                        .foregroundStyle(TerminalInk.muted)
-                        .textSelection(.enabled)
-                        .frame(minHeight: 26)
-                }
-            }
-            if takesWords {
-                PromptField(
-                    text: $prompt,
-                    placeholder: info == nil ? String(localized: "command (optional)") : String(localized: "first prompt (optional)"),
-                    label: info == nil ? String(localized: "Command") : String(localized: "First prompt"),
-                    focus: focus + 1, submit: start
-                )
-                .layoutValue(key: FillsRow.self, value: 150)
-                .accessibilityIdentifier("launcher.prompt")
-            }
-        }
-        .font(.system(size: 13, weight: .medium, design: .monospaced))
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    @ViewBuilder
-    private func agentKeys(_ info: AgentInfo) -> some View {
-        let plan = plan
-        if info.accounts.count > 1, let account = plan.account {
-            Menu {
-                ForEach(info.accounts) { item in
-                    Toggle(isOn: Binding(get: { item.command == account.command }, set: { _ in
-                        update { $0.accounts[info.agent] = item.command }
-                    })) {
-                        Text(item.title)
-                        Text(item.detail)
+    private var deck: some View {
+        HStack(spacing: 0) {
+            FlowLayout(spacing: 8) {
+                folderKey
+                if let info, info.installed {
+                    if info.accounts.count > 1 || info.addsAccounts {
+                        accountKey(info)
+                    }
+                    if plan.listsModels || !plan.efforts.isEmpty {
+                        modelKey(info)
                     }
                 }
-                if info.addsAccounts {
-                    Divider()
-                    Button("Add Account…") { askForAccount() }
-                }
-            } label: {
-                LauncherKey(text: account.title, tint: info.kind.tint)
             }
-            .launcherMenu(help: "Account", identifier: "launcher.account")
+            Spacer(minLength: 0)
         }
-        if let model = plan.modelArgument {
-            Menu { modelPicker(plan) } label: { LauncherKey(text: plan.model?.label ?? model) }
-                .launcherMenu(help: "Model", identifier: "launcher.model")
+        .padding(.horizontal, 12).padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
+        .background(theme.colors.raised)
+        .overlay(alignment: .top) {
+            Rectangle().fill(.white.opacity(theme.isDark ? 0.06 : 0.8)).frame(height: 1)
         }
-        if let effort = plan.effortArgument {
-            Menu { effortPicker(plan) } label: { LauncherKey(text: plan.efforts.first { $0.argument == effort }?.label ?? effort) }
-                .launcherMenu(help: "Effort", identifier: "launcher.effort")
-        }
-        if info.addsAccounts || plan.models?.models.isEmpty != true || !plan.efforts.isEmpty {
-            optionsMenu(info, plan)
-        }
-    }
-
-    private func optionsMenu(_ info: AgentInfo, _ plan: LaunchPlan) -> some View {
-        Menu {
-            if plan.models == nil {
-                Text(launcher.loadingModels.contains(info.agent) ? "Asking \(info.kind.label) for its models…" : "\(info.kind.label) did not list its models")
-            } else {
-                if plan.models?.models.isEmpty == false {
-                    Menu("Model") { modelPicker(plan) }
-                }
-                if !plan.efforts.isEmpty {
-                    Menu("Effort") { effortPicker(plan) }
-                }
-            }
-            if info.addsAccounts {
-                Divider()
-                Button("Add Account…") { askForAccount() }
-            }
-        } label: {
-            LauncherKey(symbol: "ellipsis")
-        }
-        .launcherMenu(help: "Model, effort and accounts", identifier: "launcher.options")
-    }
-
-    private func modelPicker(_ plan: LaunchPlan) -> some View {
-        Picker(selection: binding(\.models, plan.info?.agent ?? "")) {
-            Text("Default").tag(String?.none)
-            ForEach(plan.models?.models ?? []) { model in
-                Text(model.label).tag(Optional(model.argument))
-            }
-        } label: {
-            EmptyView()
-        }
-        .pickerStyle(.inline)
-    }
-
-    private func effortPicker(_ plan: LaunchPlan) -> some View {
-        Picker(selection: binding(\.efforts, plan.info?.agent ?? "")) {
-            Text("Default").tag(String?.none)
-            ForEach(plan.efforts) { effort in
-                Text(effort.label).tag(Optional(effort.argument))
-            }
-        } label: {
-            EmptyView()
-        }
-        .pickerStyle(.inline)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("launcher.deck")
     }
 
     private var folderKey: some View {
-        let recents = recentFolders(deps, chosen: folder)
-        return Menu {
-            Picker(selection: Binding(get: { directory }, set: { folder = $0 })) {
-                ForEach(recents, id: \.self) { path in
-                    Text(verbatim: tilde(path)).tag(Optional(path))
-                }
-            } label: {
-                EmptyView()
-            }
-            .pickerStyle(.inline)
-            Divider()
-            Button("Choose Another Folder…") {
-                if let selected = pickWorkingDirectory(initialDirectory: directory) {
-                    folder = selected
-                }
-            }
-        } label: {
-            LauncherKey(text: directory.map(folderName) ?? "~", symbol: "folder.fill", tint: TerminalInk.path)
-                .frame(maxWidth: 240, alignment: .leading)
+        PickerKey(
+            title: directory.map(folderName) ?? "~", open: menu == .folder, identifier: "launcher.folder",
+            label: String(localized: "Folder"), help: directory.map(tilde)
+        ) {
+            Image(systemName: "folder.fill").font(.system(size: 11, weight: .semibold)).foregroundStyle(TileTint.teal)
+        } action: {
+            toggle(.folder)
         }
-        .launcherMenu(help: "Folder", identifier: "launcher.folder")
+        .kodosiPopover(isPresented: presented(.folder), alignment: .leading) {
+            PickerList(
+                rows: LauncherMenu.folder.rows(plan, recents: recentFolders(deps, chosen: folder), directory: directory, loading: false),
+                identifier: "launcher.list.folder", width: 300, pick: pick, close: closeMenu
+            )
+        }
+    }
+
+    private func accountKey(_ info: AgentInfo) -> some View {
+        let account = plan.account
+        let title = account?.title(program: info.program) ?? ""
+        return PickerKey(
+            title: title, open: menu == .account, identifier: "launcher.account",
+            label: String(localized: "Account"), help: account?.identity
+        ) {
+            AccountMark(initial: String(title.prefix(1)), key: account?.signIn ?? "", signedIn: account?.identity != nil, size: 18)
+        } action: {
+            toggle(.account)
+        }
+        .kodosiPopover(isPresented: presented(.account), alignment: .leading) {
+            if adding {
+                NewAccountForm(
+                    agent: info.kind.label, folder: info.accounts.first?.folder ?? "~/.\(info.program)", error: addError, saving: saving
+                ) { add($0, to: info) }
+            } else {
+                PickerList(
+                    rows: LauncherMenu.account.rows(plan, recents: [], directory: directory, loading: false),
+                    identifier: "launcher.list.account", width: 330, pick: pick, close: closeMenu
+                )
+            }
+        }
+    }
+
+    private func modelKey(_ info: AgentInfo) -> some View {
+        let named = plan.model?.label ?? plan.modelArgument.map { String($0.split(separator: " ").last ?? "") }
+        let level = plan.efforts.firstIndex { $0.argument == plan.effortArgument }
+        return PickerKey(
+            title: named ?? String(localized: "Model"), quiet: named == nil,
+            loading: plan.models == nil && launcher.loadingModels.contains(info.agent),
+            open: menu == .model, identifier: "launcher.model", label: String(localized: "Model and effort")
+        ) {
+            Image(systemName: "sparkle").font(.system(size: 10, weight: .bold)).foregroundStyle(info.kind.tint)
+        } accessory: {
+            if let level {
+                EffortBars(level: level, count: plan.efforts.count)
+                    .transition(AnyTransition.pop)
+            }
+        } action: {
+            toggle(.model)
+        }
+        .kodosiPopover(isPresented: presented(.model), alignment: .leading) {
+            VStack(spacing: 0) {
+                PickerList(
+                    rows: LauncherMenu.model.rows(plan, recents: [], directory: directory, loading: launcher.loadingModels.contains(info.agent)),
+                    identifier: "launcher.list.model", width: 290, pick: pick, close: closeMenu
+                )
+                if !plan.efforts.isEmpty {
+                    Rectangle().fill(theme.colors.hairline.opacity(0.6)).frame(height: 0.5)
+                    EffortMeter(levels: plan.efforts, current: plan.effortArgument) { argument in
+                        update { $0.efforts[info.agent] = argument }
+                        closeMenu()
+                    }
+                }
+            }
+            .frame(width: 290)
+        }
+    }
+
+    private func presented(_ kind: LauncherMenu) -> Binding<Bool> {
+        Binding {
+            menu == kind
+        } set: { shown in
+            if !shown, menu == kind {
+                closeMenu()
+            }
+        }
+    }
+
+    private func toggle(_ kind: LauncherMenu) {
+        guard menu != kind else { return closeMenu() }
+        withAnimation(theme.motion.snappy) {
+            menu = kind
+            adding = false
+            addError = nil
+        }
+    }
+
+    private func closeMenu() {
+        guard menu != nil else { return }
+        withAnimation(theme.motion.snappy) {
+            menu = nil
+            adding = false
+            addError = nil
+        }
+        focusRequest += 1
+    }
+
+    private func pick(_ id: String) {
+        guard let menu else { return }
+        let agent = info?.agent ?? ""
+        switch menu.pick(id) {
+        case let .folder(path):
+            folder = path
+        case .anotherFolder:
+            closeMenu()
+            if let selected = pickWorkingDirectory(initialDirectory: directory) {
+                folder = selected
+            }
+            return
+        case .newAccount:
+            withAnimation(theme.motion.snappy) { adding = true }
+            return
+        case let .account(command):
+            update { $0.accounts[agent] = command }
+        case let .model(argument):
+            update { $0.models[agent] = argument }
+        }
+        closeMenu()
+    }
+
+    private func add(_ name: String, to info: AgentInfo) {
+        guard !saving else { return }
+        saving = true
+        addError = nil
+        Task { @MainActor in
+            defer { saving = false }
+            do {
+                let account = try await launcher.addAccount(info.agent, name: name)
+                update { $0.accounts[info.agent] = account.command }
+                closeMenu()
+            } catch {
+                withAnimation(theme.motion.fade) { addError = error.localizedDescription }
+            }
+        }
     }
 
     private var actions: some View {
@@ -273,6 +317,7 @@ struct AgentLauncher: View {
                 HStack(spacing: 8) {
                     Text(startTitle)
                     Image(systemName: "return").font(.system(size: 11, weight: .bold)).opacity(0.6)
+                        .bounce(on: prompt.isEmpty)
                 }
                 .shimmer(starting)
             }
@@ -280,13 +325,12 @@ struct AgentLauncher: View {
             .keyboardShortcut(.defaultAction)
             .disabled(starting || !ready)
             .accessibilityIdentifier("launcher.start")
-            Button("Resume…") {
+            IconButton(
+                title: "Resume a conversation", symbol: "clock.arrow.circlepath", identifier: "launcher.resume", size: 32
+            ) {
                 deps.workbench.launcher = nil
                 deps.workbench.showsHistory = true
             }
-            .buttonStyle(.kodosi(.secondary))
-            .help("Continue a saved Claude Code or Copilot CLI conversation")
-            .accessibilityIdentifier("launcher.resume")
         }
     }
 
@@ -295,31 +339,10 @@ struct AgentLauncher: View {
         return info.installed ? "Start \(info.kind.label)" : "Install \(info.kind.label)"
     }
 
-    private func binding(_ path: WritableKeyPath<LaunchChoice, [String: String]>, _ agent: String) -> Binding<String?> {
-        Binding(get: { choice[keyPath: path][agent] }, set: { value in update { $0[keyPath: path][agent] = value } })
-    }
-
     private func update(_ change: (inout LaunchChoice) -> Void) {
         change(&deps.settings.launchChoice)
         deps.settings.saveLaunchChoice()
-    }
-
-    private func askForAccount() {
-        accountName = ""
-        naming = true
-    }
-
-    private func addAccount() {
-        guard let info else { return }
-        let name = accountName
-        Task { @MainActor in
-            do {
-                let account = try await launcher.addAccount(info.agent, name: name)
-                update { $0.accounts[info.agent] = account.command }
-            } catch {
-                withAnimation(theme.motion.fade) { self.error = error.localizedDescription }
-            }
-        }
+        focusRequest += 1
     }
 
     private func start() {

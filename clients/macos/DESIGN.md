@@ -90,14 +90,14 @@ Capsules for tags and pills, rounded rectangles (8, 10 and 12 pt) for buttons, s
 - **Selection pill:** a raised pill with a copper caret that slides between source list rows.
 - **Sliding pills:** segmented controls and terminal tabs use a sliding raised thumb. The room dock shows icons and names the selected section; a section that changed out of view gets a breathing dot.
 - **Terminal tile:** a rounded tile with a header whose actions stay faint until hover or selection. At the prompt, a mark for each installed agent comes first. A new terminal opens from a copper veil, and a person who joins shows as a card for a few seconds.
-- **Launcher:** the terminal about to open, dark in both appearances. Its band has a tab for each kind of terminal (plain terminal first, missing agents behind a plus) and names the computer, and the room it opens for, at its right end. Below, the `[folder] ❯ [account] [model] [effort] [···]` keys open native menus: the account key shows only for two or more sign-ins, each named by its e-mail; the model and effort keys show only after a choice; `···` holds the model, the effort and Add Account. The first prompt has a block cursor and a fixed placeholder. Start and Resume sit under the terminal. With terminals open, the same launcher opens as a sheet.
+- **Launcher:** the terminal about to open, dark in both appearances, on a deck in the app's own theme. Its band has a tab for each kind of terminal (plain terminal first, missing agents behind a plus) and names the computer, and the room it opens for, at its right end. The terminal shows only `folder ❯ command`, which retypes itself when a choice changes, and the first prompt with a block cursor and a fixed placeholder. The deck holds pop-up buttons for the folder, the account and the model; each opens a popover aligned to its button. An account is a person mark in the color of its sign-in with its name and e-mail, dashed until someone signs in; effort is a row of rising bars. Start and Resume sit under the terminal. With terminals open, the same launcher opens as a sheet.
 - **Folder header:** a faint label above a folder's terminals; closed, it shows the number of its terminals and the sign of a terminal in it that waits; on hover, a plus for a new terminal and, for a Git repository, a branch button that opens a one-field panel.
 - **Conversation:** your messages are bubbles on the right; others show an avatar and a name; agents show their mark, name, owner and terminal. Mentions are tinted chips, a terminal mention opens the terminal, and a message that mentions you has a tinted row.
 - **Composer:** a lifted capsule with a copper halo on focus; "@" lists people and terminals.
 - **Tasks:** cards in "Up for grabs", "In progress" and "Done"; a changed card washes warm once.
 - **Go to (⌘K):** one field in a well finds terminals, rooms, people and actions; the chosen row is a raised pill with a copper notch.
 
-Working text shimmers, counts roll and symbols replace in place. With reduced motion every change is instant and nothing loops.
+Working text shimmers, counts roll and symbols replace in place. With reduced motion, from the system or from Settings, every change is instant and nothing loops.
 
 ## Do's and Don'ts
 - **Do** use the springs in `AppTheme.Motion`, and animate only for an action or a real change of state.

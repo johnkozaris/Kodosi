@@ -34,12 +34,17 @@ struct AgentAccount: Decodable, Equatable, Identifiable {
         command
     }
 
-    var title: String {
-        identity ?? folder ?? name
+    var signIn: String {
+        folder ?? command
     }
 
-    var detail: String {
-        identity == nil ? String(localized: "Not signed in") : folder ?? ""
+    func title(program: String) -> String {
+        guard name != program else { return String(localized: "Default") }
+        var base = Substring(name)
+        if base.count > program.count + 1, base.hasPrefix(program), ["-", "_"].contains(base.dropFirst(program.count).first) {
+            base = base.dropFirst(program.count + 1)
+        }
+        return base.prefix(1).uppercased() + base.dropFirst()
     }
 }
 
@@ -112,6 +117,10 @@ struct LaunchPlan {
         guard let info, let saved = choice.efforts[info.agent] else { return nil }
         guard models != nil else { return saved }
         return efforts.contains { $0.argument == saved } ? saved : nil
+    }
+
+    var listsModels: Bool {
+        models == nil || !(models?.models.isEmpty ?? true)
     }
 
     var line: String? {

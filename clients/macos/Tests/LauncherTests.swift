@@ -107,15 +107,6 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     #expect(LaunchPlan(choice: app.settings.launchChoice, launcher: app.launcher, agent: "claude").account?.command == "claude")
 }
 
-@Test func anAccountShowsItsEmailOrItsFolder() {
-    let signedIn = AgentAccount(name: "default", command: "claude", identity: "ada@example.com", folder: "~/.claude")
-    #expect(signedIn.title == "ada@example.com")
-    #expect(signedIn.detail == "~/.claude")
-    let fresh = AgentAccount(name: "work", command: "env CLAUDE_CONFIG_DIR=/x claude", identity: nil, folder: "~/.claude-work")
-    #expect(fresh.title == "~/.claude-work")
-    #expect(fresh.detail == "Not signed in")
-}
-
 @Test func onlyALocalTerminalAtItsPromptOffersToStartAProgram() throws {
     func session(kind: String, prompt: Bool?) throws -> RuntimeSession {
         var fields: [String: JSONValue] = [
