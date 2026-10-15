@@ -16,6 +16,12 @@ public sealed class ConnectionDirectory
 
     internal event Action<Guid>? HostChanged;
 
+    public ConnectionDirectory() : this(RelayBudget.ServerBytes) { }
+
+    internal ConnectionDirectory(long relayBytes) => Relays = new RelayBudget(relayBytes);
+
+    internal RelayBudget Relays { get; }
+
     public bool HostOnline(Guid id) { lock (sync) return hosted.TryGetValue(id, out var live) && live.Host.IsOpen; }
 
     public TerminalStatus? Status(Guid id) { lock (sync) return hosted.TryGetValue(id, out var live) && live.Host.IsOpen ? live.Status : null; }
@@ -157,9 +163,12 @@ public sealed class ConnectionDirectory
         if (!pipes.TryGetValue(pipeId, out var pipe)) return 0;
         var to = ReferenceEquals(pipe.Viewer, from) ? pipe.Host : ReferenceEquals(pipe.Host, from) ? pipe.Viewer : null;
         if (to is null) return 0;
-        if (to.Relay(frame)) return frame.Length;
-        End(pipe, 503, "The connection is too slow.");
-        return 0;
+        switch (to.Relay(frame))
+        {
+            case Relayed.Sent: return frame.Length;
+            case Relayed.Busy: End(pipe, 503, "The Kodosi server is busy. Open the terminal again in a moment."); return 0;
+            default: End(pipe, 503, "The connection is too slow."); return 0;
+        }
     }
 
     private void End(Pipe pipe, int status, string message, DeviceLink? silent = null)

@@ -160,6 +160,39 @@ public sealed class TerminalConnectionTests
     }
 
     [Fact]
+    public async Task AllRelayQueuesShareOneServerLimitThatAClosedConnectionFrees()
+    {
+        var budget = new RelayBudget(1024 * 1024);
+        var first = new DeviceLink(new FakeSocket(blockWrites: true), Guid.CreateVersion7(), "first", budget);
+        await using var second = new DeviceLink(new FakeSocket(blockWrites: true), Guid.CreateVersion7(), "second", budget);
+        var frame = new byte[64 * 1024];
+        var sent = 0;
+        while (first.Relay(frame) == Relayed.Sent) sent++;
+        Assert.Equal(16, sent);
+        Assert.Equal(Relayed.Busy, second.Relay(frame));
+        await first.DisposeAsync();
+        Assert.Equal(0, budget.Used);
+        Assert.Equal(Relayed.Sent, second.Relay(frame));
+    }
+
+    [Fact]
+    public async Task APipeEndsWithABusyMessageWhenAllRelayQueuesAreFull()
+    {
+        var directory = new ConnectionDirectory(1024 * 1024); var state = Terminal();
+        var (host, hostSocket) = Device(device: "host"); await using var disposeHost = host;
+        await using var slow = new DeviceLink(new FakeSocket(blockWrites: true), Guid.CreateVersion7(), "slow", directory.Relays);
+        directory.Register(host); directory.Register(slow); directory.Host(host, state);
+        var pipe = Guid.CreateVersion7();
+        directory.Open(slow, pipe, state);
+        var frame = BackendApplication.PipeFrame(pipe, new byte[64 * 1024]);
+        while (directory.Relay(host, pipe, frame) > 0) { }
+        var closed = await MessageAsync(hostSocket, "closed");
+        Assert.Equal(pipe, closed.GetProperty("pipe").GetGuid());
+        Assert.Equal("The Kodosi server is busy. Open the terminal again in a moment.", closed.GetProperty("message").GetString());
+        Assert.True(slow.IsOpen); Assert.True(host.IsOpen);
+    }
+
+    [Fact]
     public async Task OnlyTheHostingConnectionSetsTheStatusAndTheStatusEndsWithIt()
     {
         var directory = new ConnectionDirectory(); var state = Terminal();
