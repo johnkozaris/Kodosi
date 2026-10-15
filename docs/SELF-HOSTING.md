@@ -24,9 +24,8 @@ Build with the pinned .NET SDK, or build the image (below). Configure:
 | `Proxy__Addresses__0`, `__1`, … | Trusted reverse proxies for forwarded headers |
 
 Run the host once with the `migrate` argument, then start it normally (`just backend-run`
-does both). Run one serving instance, back up the database before upgrades, and keep the
-ASP.NET Data Protection keys across replacements. Terminate HTTPS at a reverse proxy
-with WebSocket support. `/health/live` checks the process and `/health/ready` readiness.
+does both). Run one serving instance and back up the database before upgrades. Terminate
+HTTPS at a reverse proxy with WebSocket support. `/health/live` checks the process and `/health/ready` readiness.
 
 ## Account deletion
 
