@@ -181,6 +181,8 @@ private:
 
     [[nodiscard]] QPointF viewportOffset() const;
     [[nodiscard]] QPointF gridPoint(const QPointF& point) const;
+    [[nodiscard]] qreal devicePixelRatio() const;
+    [[nodiscard]] QSizeF terminalCellSize() const;
     QFont m_font;
     qreal m_lineHeight = 1.1;
     TerminalCursorStyle m_cursorStyle = TerminalCursorStyle::Block;
@@ -201,6 +203,7 @@ private:
     int m_renderedFontPixelSize = 0;
     QString m_preedit;
     QString m_renderedPreedit;
+    QChar m_highSurrogate;
     std::uint64_t m_surfaceGeneration = 0;
     bool m_resizeQueued = false;
     QByteArray m_lastResizeKey;

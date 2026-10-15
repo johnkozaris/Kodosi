@@ -285,6 +285,38 @@ async fn a_new_connection_gives_an_open_view_a_snapshot_in_place() {
 }
 
 #[tokio::test]
+async fn a_control_before_the_first_snapshot_waits_for_it() {
+    let (connection, mut requests, updates) = test_remote_connection(session());
+    let (changes, _receiver) = mpsc::channel(16);
+    let terminal = RemoteTerminal::spawn(connection, changes);
+    let view = terminal.subscribe();
+    assert!(matches!(
+        next_request(&mut requests).await,
+        TestRemoteRequest::Checkpoint
+    ));
+    let close = tokio::spawn(terminal.control(None, TerminalControl::Close));
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert!(requests.try_recv().is_err());
+    updates
+        .send(RemoteUpdate::Checkpoint {
+            checkpoint: checkpoint(4, 20, b"current"),
+            next_sequence: 0,
+        })
+        .await
+        .expect("first cut");
+    match next_request(&mut requests).await {
+        TestRemoteRequest::Control {
+            control: TerminalControl::Close,
+            reply,
+        } => reply.send(Ok(Value::Null)).expect("close result"),
+        _ => panic!("close expected"),
+    }
+    close.await.expect("close task").expect("close confirmed");
+    view.await.expect("view");
+    terminal.disconnect();
+}
+
+#[tokio::test]
 async fn input_that_waits_for_the_host_goes_out_as_one_ordered_control() {
     let (terminal, subscriber, mut requests, _updates, _changes) = start().await;
     terminal

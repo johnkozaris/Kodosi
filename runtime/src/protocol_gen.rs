@@ -347,6 +347,14 @@ mod tests {
     use serde::Serialize;
 
     const ID: &str = "11111111-1111-4111-8111-111111111111";
+    #[cfg(unix)]
+    const DIRECTORY: &str = "/tmp/project";
+    #[cfg(windows)]
+    const DIRECTORY: &str = r"C:\project";
+    #[cfg(unix)]
+    const WORKTREES: &str = "/tmp/branches";
+    #[cfg(windows)]
+    const WORKTREES: &str = r"C:\branches";
 
     fn matches(schema: &Value, value: &Value) -> bool {
         if let Some(variants) = schema.get("oneOf").and_then(Value::as_array) {
@@ -606,9 +614,9 @@ mod tests {
                     "invite",
                     json!(format!("kodosi:example:{}", "ab".repeat(32))),
                 ),
-                ("workingDir", json!("/tmp/project")),
-                ("workingDirectory", json!("/tmp/project")),
-                ("worktrees", json!("/tmp/branches")),
+                ("workingDir", json!(DIRECTORY)),
+                ("workingDirectory", json!(DIRECTORY)),
+                ("worktrees", json!(WORKTREES)),
                 ("branch", json!("fix/login")),
                 ("rows", json!(24)),
                 ("cols", json!(80)),

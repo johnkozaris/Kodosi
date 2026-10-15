@@ -60,7 +60,7 @@ components:
 # Design System: Kodosi for Linux and Windows
 
 ## Overview
-The Linux and Windows app looks and behaves exactly like the [Mac app](../macos/DESIGN.md): its overview, colors, typography, layout, shapes, components and rules apply here. Shortcuts use Ctrl where the Mac uses ⌘.
+The Linux and Windows app looks and behaves exactly like the [Mac app](../macos/DESIGN.md): its overview, colors, typography, layout, shapes, components and rules apply here. Shortcuts use Ctrl where the Mac uses ⌘. On Linux the desktop draws the window frame; on Windows Kodosi draws a 36 px title zone with its own window buttons.
 
 ## Colors
 Use `KodosiTheme` roles, not literals. Terminals use the `terminal*` roles in both themes.

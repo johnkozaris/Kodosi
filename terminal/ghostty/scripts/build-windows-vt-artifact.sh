@@ -50,7 +50,54 @@ if [ ! -f "$ARCHIVE" ]; then
     find "$PREFIX" -maxdepth 4 -type f -print | sort >&2
     exit 1
 fi
-cp "$ARCHIVE" "$STAGE/lib/"
+
+kodosi_windows_env
+python3 - "$ARCHIVE" "$STAGE/lib/ghostty-vt-static.lib" "$STAGE_ROOT/objects" "$(cygpath -w "$ROOT_DIR")" <<'PY'
+import subprocess
+import sys
+from pathlib import Path, PureWindowsPath
+
+SYSTEM_IMPORT_LIBRARIES = ["kernel32.lib", "ntdll.lib"]
+
+source, destination, object_root = (Path(argument) for argument in sys.argv[1:4])
+build_root = sys.argv[4]
+object_root.mkdir(parents=True)
+
+members = [
+    PureWindowsPath(member).name
+    for member in subprocess.check_output(["llvm-ar", "t", source], text=True).splitlines()
+]
+if len(members) != len(set(members)):
+    raise SystemExit("[!] Ghostty VT archive contains duplicate member basenames")
+objects = sorted(member for member in members if member.endswith(".obj"))
+if sorted(set(members) - set(objects)) != SYSTEM_IMPORT_LIBRARIES:
+    raise SystemExit(f"[!] Ghostty VT archive contains unexpected members: {members}")
+
+subprocess.run(["llvm-ar", "x", source], cwd=object_root, check=True)
+for name in objects:
+    path = object_root / name
+    if not path.is_file() or path.stat().st_size == 0:
+        raise SystemExit(f"[!] Ghostty VT archive contains an empty object: {name}")
+    # Stripping renumbers the symbols; llvm-objcopy would leave each address-significance
+    # table pointing at the old numbers, so drop the tables and let the linker assume all.
+    subprocess.run(["llvm-objcopy", "--strip-debug", "--remove-section=.llvm_addrsig", path], check=True)
+    # Clang writes the build time into each COFF header; a zero time gives the
+    # same library from the same inputs. A big object header keeps it 8 bytes in.
+    data = bytearray(path.read_bytes())
+    stamp = 8 if data[:4] == b"\x00\x00\xff\xff" else 4
+    data[stamp:stamp + 4] = bytes(4)
+    path.write_bytes(data)
+subprocess.run(["llvm-lib", "/out:ghostty-vt-static.lib", *objects], cwd=object_root, check=True)
+(object_root / "ghostty-vt-static.lib").replace(destination)
+
+if sorted(subprocess.check_output(["llvm-ar", "t", destination], text=True).splitlines()) != objects:
+    raise SystemExit("[!] normalized Ghostty VT archive changed its object set")
+contents = destination.read_bytes().lower()
+for form in (build_root, build_root.replace("\\", "/")):
+    if form.lower().encode() in contents:
+        raise SystemExit("[!] Ghostty VT archive embeds the build repository path")
+PY
+rm -rf "$STAGE_ROOT/objects"
 cp -R "$PREFIX/include/." "$STAGE/include/"
 rm -rf "$PREFIX"
 

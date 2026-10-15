@@ -17,12 +17,12 @@ use windows_sys::Win32::{
     Foundation::{ERROR_BROKEN_PIPE, ERROR_MORE_DATA, HANDLE, WAIT_OBJECT_0},
     Storage::FileSystem::{ReadFile, WriteFile},
     System::{
-        Console::{COORD, HPCON},
+        Console::{COORD, HPCON, SetConsoleCtrlHandler},
         JobObjects::{
-            CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JOBOBJECT_BASIC_PROCESS_ID_LIST,
-            JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectBasicProcessIdList,
-            JobObjectExtendedLimitInformation, QueryInformationJobObject, SetInformationJobObject,
-            TerminateJobObject,
+            AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+            JOBOBJECT_BASIC_PROCESS_ID_LIST, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+            JobObjectBasicProcessIdList, JobObjectExtendedLimitInformation,
+            QueryInformationJobObject, SetInformationJobObject, TerminateJobObject,
         },
         LibraryLoader::{
             GetProcAddress, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR, LOAD_LIBRARY_SEARCH_SYSTEM32,
@@ -30,12 +30,13 @@ use windows_sys::Win32::{
         },
         Pipes::CreatePipe,
         Threading::{
-            CREATE_UNICODE_ENVIRONMENT, CreateProcessW, DeleteProcThreadAttributeList,
-            EXTENDED_STARTUPINFO_PRESENT, InitializeProcThreadAttributeList,
-            LPPROC_THREAD_ATTRIBUTE_LIST, OpenProcess, PROC_THREAD_ATTRIBUTE_JOB_LIST,
+            CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT, CreateProcessW,
+            DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT,
+            InitializeProcThreadAttributeList, LPPROC_THREAD_ATTRIBUTE_LIST, OpenProcess,
             PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, PROCESS_INFORMATION, PROCESS_NAME_WIN32,
-            PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW, STARTF_USESTDHANDLES,
-            STARTUPINFOEXW, UpdateProcThreadAttribute, WaitForSingleObject,
+            PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW, ResumeThread,
+            STARTF_USESTDHANDLES, STARTUPINFOEXW, TerminateProcess, UpdateProcThreadAttribute,
+            WaitForSingleObject,
         },
     },
 };
@@ -593,17 +594,15 @@ fn start(
     directory: Option<&Path>,
 ) -> Result<(OwnedHandle, u32)> {
     let mut bytes = 0;
-    unsafe { InitializeProcThreadAttributeList(ptr::null_mut(), 2, 0, &raw mut bytes) };
+    unsafe { InitializeProcThreadAttributeList(ptr::null_mut(), 1, 0, &raw mut bytes) };
     let mut storage = vec![0u64; bytes.div_ceil(8)];
     let list: LPPROC_THREAD_ATTRIBUTE_LIST = storage.as_mut_ptr().cast();
     // SAFETY: the storage holds `bytes` aligned bytes.
-    if unsafe { InitializeProcThreadAttributeList(list, 2, 0, &raw mut bytes) } == 0 {
+    if unsafe { InitializeProcThreadAttributeList(list, 1, 0, &raw mut bytes) } == 0 {
         return Err(io::Error::last_os_error().into());
     }
     let list = AttributeList(list);
-    let job_handle = job.as_raw_handle();
-    // SAFETY: the pseudoconsole attribute takes the handle value itself; the job
-    // list takes a pointer to one handle that outlives process creation.
+    // SAFETY: the pseudoconsole attribute takes the handle value itself.
     if unsafe {
         UpdateProcThreadAttribute(
             list.0,
@@ -615,17 +614,6 @@ fn start(
             ptr::null(),
         )
     } == 0
-        || unsafe {
-            UpdateProcThreadAttribute(
-                list.0,
-                0,
-                PROC_THREAD_ATTRIBUTE_JOB_LIST as usize,
-                (&raw const job_handle).cast(),
-                size_of::<HANDLE>(),
-                ptr::null_mut(),
-                ptr::null(),
-            )
-        } == 0
     {
         return Err(io::Error::last_os_error().into());
     }
@@ -636,6 +624,13 @@ fn start(
     let mut information: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
     let application = wide(application.as_os_str());
     let directory = directory.map(|directory| wide(directory.as_os_str()));
+    // A program inherits its parent's choice to ignore Ctrl+C, which a host
+    // started in a new process group makes, so Ctrl+C is restored first.
+    // SAFETY: a null handler only changes this process's Ctrl+C attribute.
+    unsafe { SetConsoleCtrlHandler(None, 0) };
+    // Windows refuses to create a packaged app, which an app execution alias
+    // starts, into a job while another copy of it runs. The program instead
+    // starts suspended and runs once it is in the job.
     // SAFETY: every string is NUL-terminated, the command line is writable, and
     // the environment block is double-NUL-terminated UTF-16.
     if unsafe {
@@ -645,7 +640,7 @@ fn start(
             ptr::null(),
             ptr::null(),
             0,
-            EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
+            EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT | CREATE_SUSPENDED,
             environment.as_ptr().cast(),
             directory.as_ref().map_or(ptr::null(), Vec::as_ptr),
             &raw const startup.StartupInfo,
@@ -664,6 +659,17 @@ fn start(
             OwnedHandle::from_raw_handle(information.hThread),
         )
     };
+    // SAFETY: the job, process and thread handles are open.
+    if unsafe { AssignProcessToJobObject(job.as_raw_handle(), process.as_raw_handle()) } == 0
+        || unsafe { ResumeThread(thread.as_raw_handle()) } == u32::MAX
+    {
+        let error = io::Error::last_os_error();
+        // SAFETY: the process handle is open.
+        unsafe { TerminateProcess(process.as_raw_handle(), 1) };
+        return Err(KodosiError::Spawn(format!(
+            "could not start the program: {error}"
+        )));
+    }
     drop(thread);
     Ok((process, information.dwProcessId))
 }
@@ -1015,6 +1021,55 @@ mod tests {
             KodosiPty::spawn_program(&agent, &["/d".into(), "/k".into()], None, 24, 80, &[])
                 .unwrap();
         assert_eq!(pty.foreground_program().as_deref(), Some("codex"));
+    }
+
+    #[tokio::test]
+    async fn a_program_runs_inside_its_terminals_job() {
+        let system = std::env::var_os("SystemRoot").unwrap();
+        let cmd = Path::new(&system).join(r"System32\cmd.exe");
+        let (shell, _output) =
+            KodosiPty::spawn_program(&cmd, &["/d".into(), "/k".into()], None, 24, 80, &[]).unwrap();
+        assert!(shell.job_processes().contains(&shell.child_pid));
+        let arguments = ["/d", "/c", "exit", "7"].map(str::to_owned);
+        let (program, _output) =
+            KodosiPty::spawn_program(&cmd, &arguments, None, 24, 80, &[]).unwrap();
+        tokio::time::timeout(Duration::from_secs(10), program.wait())
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn interrupt_reaches_a_program_of_a_host_that_ignores_ctrl_c() {
+        const NAME: &str =
+            "pty::windows::tests::interrupt_reaches_a_program_of_a_host_that_ignores_ctrl_c";
+        const HOST: &str = "KODOSI_TEST_HOST_IGNORES_CTRL_C";
+        // Ignoring Ctrl+C is an attribute of the whole process, so the host runs
+        // alone in another copy of this test program.
+        if std::env::var_os(HOST).is_none() {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", NAME, "--test-threads=1"])
+                .env(HOST, "1")
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stdout)
+            );
+            return;
+        }
+        // The CLI starts its host in a new process group, which ignores Ctrl+C.
+        // SAFETY: a null handler only changes this process's Ctrl+C attribute.
+        unsafe { SetConsoleCtrlHandler(None, 1) };
+        let system = std::env::var_os("SystemRoot").unwrap();
+        let ping = Path::new(&system).join(r"System32\PING.EXE");
+        let arguments = ["-t", "127.0.0.1"].map(str::to_owned);
+        let (mut program, _output) =
+            KodosiPty::spawn_program(&ping, &arguments, None, 24, 80, &[]).unwrap();
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        program.request_shutdown(ShutdownStage::Interrupt).unwrap();
+        let exited = tokio::time::timeout(Duration::from_secs(10), program.wait()).await;
+        assert!(exited.is_ok(), "the program ignored Ctrl+C");
     }
 
     #[test]

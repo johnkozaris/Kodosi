@@ -67,7 +67,7 @@ windows-check: windows-build
 # Run the Windows app with the installed Qt libraries.
 windows-run *arguments: windows-build
     source ../../scripts/windows-env.sh && kodosi_windows_target && \
-        PATH="$PWD/.tools/Qt/$KODOSI_QT_ARCH/bin:$PATH" build/windows-dev/kodosi-qt.exe {{ arguments }}
+        PATH="$(cygpath -u "$PWD")/.tools/Qt/$KODOSI_QT_ARCH/bin:$PATH" build/windows-dev/kodosi-qt.exe {{ arguments }}
 
 # Build, test, package and verify build/release/kodosi-<version>-windows-<arch>.msix; for a signed release, set KODOSI_MSIX_PUBLISHER to the certificate subject.
 windows-package: tools-install

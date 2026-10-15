@@ -770,8 +770,9 @@ async fn all_project_history_and_large_file_pages_are_bounded() {
     let second = home.path().join("second");
     fs::create_dir(&second).unwrap();
     let path = claude_transcript(home.path(), &first, 201, "");
-    let mut file = fs::OpenOptions::new().append(true).open(&path).unwrap();
+    let mut file = fs::OpenOptions::new().write(true).open(&path).unwrap();
     file.set_len(100 * 1024 * 1024).unwrap();
+    file.seek(SeekFrom::End(0)).unwrap();
     file.write_all(b"\n{\"type\":\"user\",\"message\":{\"content\":\"Recent message\"}}\n")
         .unwrap();
     claude_transcript(home.path(), &second, 202, "");

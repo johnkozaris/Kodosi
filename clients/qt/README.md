@@ -35,7 +35,8 @@ Kodosi for Windows runs on Windows 11 24H2 or later, x64 or ARM64, with the pinn
 recipes in Git Bash with Visual Studio 2022 or later (Desktop development with C++, C++
 Clang Compiler for Windows, and the ARM64 build tools on ARM64), Rust through `rustup`,
 `just`, `uv` (`uv python install 3.12 --default` for `python3`), and
-[NASM](https://www.nasm.us) on x64.
+[NASM](https://www.nasm.us) on x64. Keep the checkout path under about 90 characters:
+the C compiler cannot write a path longer than 259 characters.
 
 ```sh
 just windows-check
@@ -54,9 +55,10 @@ The package adds `kodosi` to the PATH, opens `kodosi://` links, and keeps data i
 `%USERPROFILE%\.kodosi`. For a release, `just windows-bundle` puts both packages in
 `build/release/Kodosi-<version>.msixbundle`. The package embeds
 [Kodosi.appinstaller](packaging/windows/Kodosi.appinstaller.in): Windows checks for an
-update when Kodosi starts and every 8 hours, and installs it when Kodosi is not in use. If `terminal/ghostty/Vendor/GhosttyVt/windows-<arch>` is
-missing, build it with `terminal/ghostty/scripts/build.sh` and commit it with the digest
-line it prints for [Ghostty.lock](../../Ghostty.lock).
+update when Kodosi starts and every 8 hours, and installs it when Kodosi is not in use.
+The x64 Ghostty library comes from the Windows Ghostty library workflow, as the
+[provenance guide](../../terminal/ghostty/PROVENANCE.md) says. The repository has no
+ARM64 library yet, so there is no ARM64 package and no bundle.
 
 ## Command line
 

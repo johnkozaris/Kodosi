@@ -36,12 +36,18 @@ them; `ghostty-vt-sys` checks its target's artifact against the lock because Car
 cannot run Python. On Windows, Git writes the Linux artifact's symlinks as files, so the
 verifier skips that folder digest there.
 
+The workflow `.github/workflows/ghostty-windows.yml` builds the Windows x64 artifact
+from a clean checkout. It fails when the committed artifact has another `.version`
+record, apart from its digest, or other headers; Zig does not always lay out its code
+the same way, so the bytes can differ.
+
 ## Update Ghostty
 
 1. Review the upstream changes and rebase `Patches/ghostty`. A patch that upstream
    already contains fails the build: remove it.
 2. Rebuild each platform with `./scripts/build.sh` on that platform; it applies the
-   patches to a clean checkout, builds, verifies and records digests.
+   patches to a clean checkout, builds, verifies and records digests. For Windows x64,
+   commit the artifact of the Windows Ghostty library workflow, not a local build.
 3. Update the notices from the real source and artifacts.
 4. If a VT header changed, or the runtime needs a new Ghostty symbol (add it to the
    allowlist first), run `runtime/crates/ghostty-vt-sys/generate-bindings.sh` on that

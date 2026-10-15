@@ -257,7 +257,7 @@ windows-check:
 windows-rust-lint:
     docker build --quiet --tag kodosi-windows-cross --file scripts/windows-cross.Dockerfile scripts >/dev/null
     for target in x86_64-pc-windows-msvc aarch64-pc-windows-msvc; do \
-        docker run --rm --volume "$PWD:/src" --volume kodosi-cargo-registry:/usr/local/cargo/registry --volume kodosi-xwin-cache:/cache/xwin --workdir /src --env CARGO_BUILD_WARNINGS=deny --env CARGO_INCREMENTAL=0 --env KODOSI_GHOSTTY_CHECK_ONLY=1 kodosi-windows-cross bash -euo pipefail -c "\
+        MSYS_NO_PATHCONV=1 docker run --rm --volume "$PWD:/src" --volume kodosi-cargo-registry:/usr/local/cargo/registry --volume kodosi-xwin-cache:/cache/xwin --workdir /src --env CARGO_BUILD_WARNINGS=deny --env CARGO_INCREMENTAL=0 --env KODOSI_GHOSTTY_CHECK_ONLY=1 kodosi-windows-cross bash -euo pipefail -c "\
             cargo xwin clippy --manifest-path runtime/Cargo.toml --locked --target $target --workspace --lib --bins --examples -- -D warnings && \
             cargo xwin clippy --manifest-path runtime/Cargo.toml --locked --target $target --workspace --tests -- {{ test_lints }}"; \
     done

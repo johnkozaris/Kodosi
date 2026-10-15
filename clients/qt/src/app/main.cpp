@@ -32,6 +32,11 @@
 #include <QFileSystemWatcher>
 #include <sys/stat.h>
 #endif
+#ifdef Q_OS_WIN
+#include "platform/windows/WindowFrame.hpp"
+#include <QFont>
+#include <QQuickWindow>
+#endif
 
 namespace {
 
@@ -66,6 +71,13 @@ int main(int argc, char* argv[])
 #endif
     QQuickStyle::setStyle(QStringLiteral("Basic"));
     QApplication app(argc, argv);
+#ifdef Q_OS_WIN
+    // Windows has no generic monospace family, so text that asks for one
+    // gets the fonts the terminal uses.
+    QFont::insertSubstitutions(
+        QStringLiteral("monospace"),
+        {QStringLiteral("Cascadia Mono"), QStringLiteral("Consolas")});
+#endif
     app.setQuitOnLastWindowClosed(false);
     QCoreApplication::setOrganizationName(QStringLiteral("Kodosi"));
     QCoreApplication::setOrganizationDomain(QStringLiteral("kodosi.com"));
@@ -185,6 +197,13 @@ int main(int argc, char* argv[])
     auto* window = qobject_cast<QWindow*>(engine.rootObjects().first());
     if (!window)
         return EXIT_FAILURE;
+#ifdef Q_OS_WIN
+    if (auto* quick = qobject_cast<QQuickWindow*>(window)) {
+        auto* frame = new kodosi::WindowFrame(*quick);
+        frame->setColor(quick->color());
+        QObject::connect(quick, &QQuickWindow::colorChanged, frame, &kodosi::WindowFrame::setColor);
+    }
+#endif
     files.setTransientParent(window);
     desktop.attachWindow(window, windowSize);
     auto raise = [window](const QString& token) {

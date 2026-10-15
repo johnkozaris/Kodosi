@@ -11,8 +11,12 @@ use std::{
 };
 
 use windows_sys::Win32::{
-    Foundation::{ERROR_INVALID_PARAMETER, WAIT_TIMEOUT},
+    Foundation::{
+        ERROR_INVALID_PARAMETER, HANDLE_FLAG_INHERIT, INVALID_HANDLE_VALUE, SetHandleInformation,
+        WAIT_TIMEOUT,
+    },
     System::{
+        Console::{GetStdHandle, STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE},
         SystemInformation::{ComputerNameDnsHostname, GetComputerNameExW},
         Threading::{
             CREATE_NEW_PROCESS_GROUP, DETACHED_PROCESS, OpenProcess,
@@ -74,6 +78,16 @@ pub(super) fn default_shell() -> PathBuf {
 
 pub(super) fn detach(command: &mut std::process::Command) {
     command.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
+    // A child inherits every inheritable handle of its parent, so it would
+    // otherwise hold open the pipes of a caller reading this process's output.
+    for kind in [STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE] {
+        // SAFETY: `GetStdHandle` has no pointer arguments.
+        let handle = unsafe { GetStdHandle(kind) };
+        if !handle.is_null() && handle != INVALID_HANDLE_VALUE {
+            // SAFETY: the handle is this process's own; failure leaves it inheritable.
+            unsafe { SetHandleInformation(handle, HANDLE_FLAG_INHERIT, 0) };
+        }
+    }
 }
 
 pub(super) fn is_running(pid: u32) -> bool {
@@ -118,4 +132,67 @@ pub(super) fn computer_name() -> Option<String> {
 
 pub(super) fn allow_foreground(pid: u32) {
     unsafe { AllowSetForegroundWindow(pid) };
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        io::{Read as _, Write as _},
+        path::Path,
+        process::{Command, Stdio},
+        time::{Duration, Instant},
+    };
+
+    #[test]
+    fn a_detached_program_leaves_the_callers_output_alone() {
+        const NAME: &str =
+            "process::windows::tests::a_detached_program_leaves_the_callers_output_alone";
+        const CALLER: &str = "KODOSI_TEST_DETACHING_CALLER";
+        if std::env::var_os(CALLER).is_some() {
+            let system = std::env::var_os("SystemRoot").unwrap();
+            let mut program = Command::new(Path::new(&system).join(r"System32\PING.EXE"));
+            program
+                .args(["-n", "60", "127.0.0.1"])
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null());
+            super::detach(&mut program);
+            let id = program.spawn().unwrap().id();
+            writeln!(std::io::stdout(), "\nprogram {id}").unwrap();
+            return;
+        }
+        let mut caller = Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", NAME, "--nocapture", "--test-threads=1"])
+            .env(CALLER, "1")
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let started = Instant::now();
+        let mut output = String::new();
+        caller
+            .stdout
+            .take()
+            .unwrap()
+            .read_to_string(&mut output)
+            .unwrap();
+        let open = started.elapsed();
+        assert!(caller.wait().unwrap().success());
+        let program = output
+            .lines()
+            .find_map(|line| line.strip_prefix("program ")?.trim().parse::<u32>().ok())
+            .unwrap();
+        let running = super::is_running(program);
+        drop(
+            Command::new("taskkill")
+                .args(["/F", "/PID", &program.to_string()])
+                .output(),
+        );
+        assert!(running);
+        assert!(
+            open < Duration::from_secs(30),
+            "the output stayed open for {open:?}"
+        );
+    }
 }

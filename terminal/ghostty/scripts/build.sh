@@ -92,7 +92,7 @@ elif [ "$SOURCE_SUPPLIED" -eq 1 ]; then
     exit 1
 else
     mkdir -p "$(dirname "$SOURCE_CACHE")"
-    git clone https://github.com/ghostty-org/ghostty "$SOURCE_CACHE"
+    git clone --config core.longpaths=true https://github.com/ghostty-org/ghostty "$SOURCE_CACHE"
 fi
 
 SOURCE_CACHE=$(cd "$SOURCE_CACHE" && pwd -P)
@@ -121,7 +121,7 @@ if [ "$(git -C "$SOURCE_CACHE" rev-parse "$GHOSTTY_REF^{commit}")" != "$GHOSTTY_
 fi
 
 rm -rf "$SOURCE_DIR"
-git clone --quiet --no-checkout "$SOURCE_CACHE" "$SOURCE_DIR"
+git clone --quiet --no-checkout --config core.longpaths=true "$SOURCE_CACHE" "$SOURCE_DIR"
 git -C "$SOURCE_DIR" checkout --quiet --detach "$GHOSTTY_REF"
 if [ -n "$(git -C "$SOURCE_DIR" status --porcelain)" ]; then
     echo "[!] isolated Ghostty source is dirty before patching"

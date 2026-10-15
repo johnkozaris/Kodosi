@@ -18,6 +18,7 @@ endif()
 set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
 set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG RelWithDebInfo "")
 
+set(CMAKE_INSTALL_BINDIR "." CACHE PATH "" FORCE)
 set(QT_DEPLOY_BIN_DIR "." CACHE STRING "" FORCE)
 set(KODOSI_PLATFORM_QT_COMPONENTS "")
 set(KODOSI_RUNTIME_ARCHIVE_NAME "kodosi_ffi_c.lib")
@@ -28,11 +29,18 @@ set(KODOSI_GHOSTTY_VT_ARCHIVE_NAME "ghostty-vt-static.lib")
 # one Qt uses.
 set(KODOSI_RUNTIME_SYSTEM_LIBRARIES kernel32 ntdll userenv ws2_32 dbghelp)
 set(KODOSI_COMPILE_OPTIONS /W4 -Wpedantic /WX)
+# Rust's compiler_builtins and Ghostty's Zig compiler_rt each define the compiler
+# builtins as weak symbols; lld-link keeps the first instead of failing the link.
+if(CMAKE_CXX_COMPILER_LINKER_ID STREQUAL "LLD")
+    add_link_options(-lld-allow-duplicate-weak)
+endif()
 set(KODOSI_PLATFORM_SOURCES
     platform/windows/ToastNotificationDriver.cpp
     platform/windows/ToastNotificationDriver.hpp
+    platform/windows/WindowFrame.cpp
+    platform/windows/WindowFrame.hpp
 )
-set(KODOSI_PLATFORM_LIBRARIES windowsapp)
+set(KODOSI_PLATFORM_LIBRARIES windowsapp user32 dwmapi shell32)
 set(KODOSI_TEST_LAUNCHER "")
 set(KODOSI_TEST_ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 set(KODOSI_TEST_ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")

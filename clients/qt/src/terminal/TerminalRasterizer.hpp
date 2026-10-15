@@ -40,9 +40,13 @@ public:
     [[nodiscard]] static QSizeF logicalSize(
         const TerminalFrame& frame,
         const QFont& font,
-        qreal lineHeight);
+        qreal lineHeight,
+        qreal devicePixelRatio = 1.0);
     [[nodiscard]] static QSizeF cellSize(const QFont& font);
-    [[nodiscard]] static QSizeF cellSize(const QFont& font, qreal lineHeight);
+    [[nodiscard]] static QSizeF cellSize(
+        const QFont& font,
+        qreal lineHeight,
+        qreal devicePixelRatio = 1.0);
     [[nodiscard]] static QImage render(
         const TerminalFrame& frame,
         const QFont& font,

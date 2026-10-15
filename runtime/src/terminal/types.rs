@@ -159,11 +159,7 @@ impl TerminalMetadata {
                 .connected_users
                 .iter()
                 .all(|id| uuid::Uuid::parse_str(id).is_ok())
-            && self.directory.as_ref().is_none_or(|value| {
-                value.len() <= 4096
-                    && value.starts_with('/')
-                    && !value.chars().any(char::is_control)
-            })
+            && self.directory.as_deref().is_none_or(is_valid_folder)
             && self.title.as_ref().is_none_or(|value| value.len() <= 4096)
             && self
                 .program
@@ -175,6 +171,20 @@ impl TerminalMetadata {
                 .is_none_or(super::ProgramStatus::is_valid)
     }
 }
+
+/// Hosts report folders in their own form: `/…` on macOS and Linux, and a drive
+/// (`C:\…`) or a share (`\\server\share`) on Windows. Viewers accept every form.
+pub(super) fn is_valid_folder(value: &str) -> bool {
+    value.len() <= 4096
+        && !value.chars().any(char::is_control)
+        && (value.starts_with('/')
+            || (value.len() > 2 && value.starts_with(r"\\"))
+            || matches!(value.as_bytes(), [drive, b':', b'\\' | b'/', ..] if drive.is_ascii_alphabetic()))
+}
+
+#[cfg(test)]
+#[path = "types_tests.rs"]
+mod tests;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Checkpoint {
