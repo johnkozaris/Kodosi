@@ -59,7 +59,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             dependencies.errorMessage = String(localized: "Move Kodosi to Applications and open it again. Kodosi cannot update itself here.")
             return
         }
-        dependencies.commandLink = CommandLineTool.keepLinked()
+        if CommandLineTool.installed {
+            dependencies.commandLink = CommandLineTool.keepLinked()
+        }
     }
 
     private func configureMainWindow() {

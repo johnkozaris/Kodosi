@@ -64,9 +64,13 @@ struct TerminalSettingsView: View {
                         SegmentOption(value: $0, title: $0.label)
                     }, compact: true, identifier: "settings.terminal.cursor")
                 }
-                ListRow(String(localized: "Blink the cursor"), symbol: "sparkle", tint: TileTint.amber) {
-                    Toggle("Blink the cursor", isOn: $draft.cursorBlink).labelsHidden()
+                Toggle(isOn: $draft.cursorBlink) {
+                    HStack(spacing: 12) {
+                        IconTile(symbol: "sparkle", tint: TileTint.amber, size: 28)
+                        Text("Blink the cursor")
+                    }
                 }
+                .padding(.horizontal, 14).frame(minHeight: 52)
                 ListRow(String(localized: "Scrollback"), subtitle: String(localized: "Lines kept for each terminal"),
                         symbol: "arrow.up.to.line", tint: TileTint.green)
                 {

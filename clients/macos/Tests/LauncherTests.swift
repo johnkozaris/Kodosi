@@ -136,7 +136,9 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     #expect(CommandLineTool.keepLinked(home: home) == "~/.local/bin/kodosi")
 
     try FileManager.default.removeItem(at: link)
-    try FileManager.default.createSymbolicLink(atPath: link.path, withDestinationPath: "/Applications/Old/Kodosi.app/Contents/MacOS/Kodosi")
+    try FileManager.default.createSymbolicLink(
+        atPath: link.path, withDestinationPath: "/Applications/KodosiDesktop.app/Contents/MacOS/KodosiDesktop"
+    )
     #expect(CommandLineTool.keepLinked(home: home) == "~/.local/bin/kodosi")
     #expect(link.resolvingSymlinksInPath() == own)
 

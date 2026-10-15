@@ -58,7 +58,7 @@ fn accounts(home: &Path, facts: &Facts, agent: Agent) -> Vec<AgentAccount> {
             .iter()
             .filter_map(|definition| referenced_home(&definition.text, home, variable))
             .filter(|path| path.is_dir())
-            .map(|path| (folder_name(&path, usual), path)),
+            .map(|path| (folder_name(&path, usual, program), path)),
     );
     let mut folders = vec![chosen.clone()];
     let mut accounts = Vec::new();
@@ -93,16 +93,29 @@ fn tilde(path: &Path, home: &Path) -> String {
     }
 }
 
-fn folder_name(path: &Path, usual: &str) -> String {
-    let name = path
-        .file_name()
-        .map(|name| name.to_string_lossy().into_owned())
-        .unwrap_or_default();
-    name.strip_prefix(usual)
-        .and_then(|rest| rest.strip_prefix(['-', '_']))
-        .filter(|rest| !rest.is_empty())
-        .unwrap_or_else(|| name.trim_start_matches('.'))
-        .to_owned()
+/// The name that sets a sign-in folder apart; a folder named like the agent, such as
+/// `~/work/.claude`, takes the name of the folder that holds it.
+fn folder_name(path: &Path, usual: &str, program: &str) -> String {
+    let short = |path: &Path| {
+        let name = path
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        name.strip_prefix(usual)
+            .and_then(|rest| rest.strip_prefix(['-', '_']))
+            .filter(|rest| !rest.is_empty())
+            .unwrap_or_else(|| name.trim_start_matches('.'))
+            .to_owned()
+    };
+    let name = short(path);
+    if name.is_empty() || name == program || name == "default" {
+        return path
+            .parent()
+            .map(short)
+            .filter(|parent| !parent.is_empty())
+            .unwrap_or(name);
+    }
+    name
 }
 
 fn home_command(variable: &str, path: &Path, program: &str) -> Option<String> {

@@ -7,18 +7,14 @@ MenuItem {
     id: root
 
     property string iconName: ""
-    property string detail: ""
     property bool destructive: false
     readonly property color tone: !enabled ? KodosiTheme.inkFaint : destructive ? KodosiTheme.danger : KodosiTheme.ink
 
-    implicitHeight: detail.length > 0 ? 44 : 32
+    implicitHeight: 32
     leftPadding: 10
     rightPadding: 12
 
-    Accessible.checkable: root.checkable || root.checked
-    Accessible.checked: root.checked
     indicator: Item {}
-    arrow: Item {}
     contentItem: RowLayout {
         spacing: 9
 
@@ -29,41 +25,20 @@ MenuItem {
             name: root.iconName
             color: root.destructive ? KodosiTheme.danger : root.highlighted ? KodosiTheme.ink : KodosiTheme.inkMuted
         }
-        ColumnLayout {
+        PlainLabel {
             Layout.fillWidth: true
-            spacing: 1
-
-            PlainLabel {
-                Layout.fillWidth: true
-                text: root.text
-                color: root.tone
-                verticalAlignment: Text.AlignVCenter
-                elide: Text.ElideRight
-            }
-            PlainLabel {
-                Layout.fillWidth: true
-                visible: root.detail.length > 0
-                text: root.detail
-                color: KodosiTheme.inkMuted
-                font.pixelSize: KodosiTheme.fontCaption
-                elide: Text.ElideMiddle
-            }
+            text: root.text
+            color: root.tone
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
         }
         KIcon {
-            visible: root.checked
+            visible: root.checkable && root.checked
             Layout.preferredWidth: 12
             Layout.preferredHeight: 12
             name: "check"
             strokeWidth: 2.4
             color: KodosiTheme.accentStrong
-        }
-        KIcon {
-            visible: root.subMenu !== null
-            Layout.preferredWidth: 10
-            Layout.preferredHeight: 10
-            name: "prompt"
-            strokeWidth: 2.4
-            color: KodosiTheme.inkMuted
         }
     }
     background: Rectangle {

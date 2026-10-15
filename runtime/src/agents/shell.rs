@@ -125,7 +125,7 @@ for n in ${{(k)aliases}}; do if [[ $n == ({names}) || ${{aliases[$n]}} == ({assi
 for n in ${{(k)functions}}; do if [[ $n == ({names}) || ${{functions[$n]}} == ({assignments}) ]]; then print -r -- "function"$'\t'"$n"$'\t'"${{functions[$n]//$'\n'/ }}"; fi; done
 print -r -- $'\x1e'end"#,
             variables = report(&|variable| format!(
-                r#"[[ -n ${{{variable}-}} ]] && print -r -- "variable"$'\t'"{variable}"$'\t'"${variable}""#
+                r#"v=$(printenv {variable}) && [[ -n $v ]] && print -r -- "variable"$'\t'"{variable}"$'\t'"$v""#
             )),
         ),
         Family::Bash => format!(
@@ -136,7 +136,7 @@ for n in $(compgen -a); do v=$(alias "$n"); case "$n" in {names}) ;; *) case "$v
 for n in $(compgen -A function); do v=$(declare -f "$n"); case "$n" in {names}) ;; *) case "$v" in {assignments}) ;; *) continue;; esac;; esac; printf 'function\t%s\t%s\n' "$n" "${{v//$'\n'/ }}"; done
 printf '\036end\n'"#,
             variables = report(&|variable| format!(
-                r#"[ -n "${{{variable}-}}" ] && printf 'variable\t%s\t%s\n' {variable} "${variable}""#
+                r#"v=$(printenv {variable}) && [ -n "$v" ] && printf 'variable\t%s\t%s\n' {variable} "$v""#
             )),
         ),
         Family::Fish => {
@@ -157,7 +157,7 @@ for n in (functions --names)
 end
 printf '\036end\n'",
                 variables = report(&|variable| format!(
-                    r#"set -q {variable}; and test -n "${variable}"; and printf 'variable\t%s\t%s\n' {variable} "${variable}""#
+                    r#"set -l v (printenv {variable}); and test -n "$v"; and printf 'variable\t%s\t%s\n' {variable} "$v""#
                 )),
             )
         }
@@ -166,7 +166,7 @@ printf '\036end\n'",
 {variables}
 printf '\036end\n'"#,
             variables = report(&|variable| format!(
-                r#"[ -n "${{{variable}:-}}" ] && printf 'variable\t%s\t%s\n' {variable} "${variable}""#
+                r#"v=$(printenv {variable}) && [ -n "$v" ] && printf 'variable\t%s\t%s\n' {variable} "$v""#
             )),
         ),
     }

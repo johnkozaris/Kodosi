@@ -93,10 +93,11 @@ gitlog() { git log; }"#;
         let facts = run_script(
             "/bin/sh",
             &["-c"],
-            "export COPILOT_HOME=/srv/copilot",
+            "export COPILOT_HOME=/srv/copilot; CODEX_HOME=/srv/codex",
             &shell::script(family),
         );
         assert_eq!(facts.variable("COPILOT_HOME"), Some("/srv/copilot"));
+        assert_eq!(facts.variable("CODEX_HOME"), None);
         assert_eq!(facts.definitions, Vec::new());
     }
 }
@@ -205,6 +206,11 @@ fn accounts_are_the_sign_in_folders_of_each_agent() {
         ".profiles/x/.claude.json",
         &claude_sign_in("x@example.com"),
     );
+    put(
+        home,
+        "team/.claude/.claude.json",
+        &claude_sign_in("team@example.com"),
+    );
     fs::create_dir_all(home.join(".claude-work")).unwrap();
     fs::create_dir_all(home.join(".claude-squad/cache")).unwrap();
     put(
@@ -220,6 +226,7 @@ fn accounts_are_the_sign_in_folders_of_each_agent() {
             definition("claude-dyn", r#"CLAUDE_CONFIG_DIR="$dir" claude "$@""#),
             definition("codex", "codex"),
             alias("claude-x", "CLAUDE_CONFIG_DIR=~/.profiles/x claude"),
+            alias("claude-team", "CLAUDE_CONFIG_DIR=~/team/.claude claude"),
             alias("claude-alt", "CLAUDE_CONFIG_DIR=~/.claude-alt claude"),
             alias("claude-gone", "CLAUDE_CONFIG_DIR=~/.claude-gone claude"),
             alias("cc", "claude --dangerously-skip-permissions"),
@@ -233,6 +240,7 @@ fn accounts_are_the_sign_in_folders_of_each_agent() {
             "alt sim@example.com ~/.claude-alt",
             "personal me@example.com ~/.claude_personal",
             "started ~/.claude-started",
+            "team team@example.com ~/team/.claude",
             "work ~/.claude-work",
             "x x@example.com ~/.profiles/x",
         ]
@@ -244,7 +252,7 @@ fn accounts_are_the_sign_in_folders_of_each_agent() {
     let claude = &catalog.agents[0].accounts;
     assert_eq!(claude[0].command, "claude");
     assert_eq!(
-        claude[4].command,
+        claude[5].command,
         format!(
             "env CLAUDE_CONFIG_DIR={}/.claude-work claude",
             home.display()

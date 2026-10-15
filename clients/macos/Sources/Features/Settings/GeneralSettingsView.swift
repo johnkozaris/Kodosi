@@ -36,11 +36,15 @@ struct GeneralSettingsView: View {
                         .disabled(!updater.configured)
                         .accessibilityIdentifier("settings.updates.check")
                 }
-                ListRow(String(localized: "Update automatically"), symbol: "arrow.down.circle", tint: TileTint.green) {
-                    Toggle("Update automatically", isOn: $updater.automatic).labelsHidden()
-                        .disabled(!updater.configured)
-                        .accessibilityIdentifier("settings.updates.automatic")
+                Toggle(isOn: $updater.automatic) {
+                    HStack(spacing: 12) {
+                        IconTile(symbol: "arrow.down.circle", tint: TileTint.green, size: 28)
+                        Text("Update automatically")
+                    }
                 }
+                .padding(.horizontal, 14).frame(minHeight: 52)
+                .disabled(!updater.configured)
+                .accessibilityIdentifier("settings.updates.automatic")
             }
             ListGroup(footer: commandFooter) {
                 ListRow(String(localized: "Command line"),
