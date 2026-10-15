@@ -60,26 +60,10 @@ components:
 # Design System: Kodosi for Linux and Windows
 
 ## Overview
-The same warm workbench as the [Mac app](../macos/DESIGN.md), lit from above. Its overview, colors, shapes, components and rules apply; this file holds the Qt tokens and the differences.
+The Linux and Windows app looks and behaves exactly like the [Mac app](../macos/DESIGN.md): its overview, colors, typography, layout, shapes, components and rules apply here. Shortcuts use Ctrl where the Mac uses ⌘.
 
 ## Colors
-Use `KodosiTheme` roles, not literals. Terminal tiles and headers use the `terminal*` roles in both themes.
-
-## Typography
-Inherit the Qt application font, with the scale above.
-
-## Layout
-The desktop draws the window frame; the rest follows the Mac layout in pixels.
+Use `KodosiTheme` roles, not literals. Terminals use the `terminal*` roles in both themes.
 
 ## Elevation & Depth
-`Raised` and `Bezel` draw rims, faces and shadows with plain shapes, so they render the same with and without a GPU. Do not add shader effects.
-
-## Shapes
-Agents, rooms and kinds of things are rounded squares rather than squircles, and a slot that you can fill has a thin outline.
-
-## Components
-As on the Mac, except: Go to is on Ctrl+K; a closed folder shows the sign of a waiting terminal but no count; segmented controls and the room dock slide a raised thumb, with no breathing dot for a changed section; mentions are tinted text, not chips; a changed task card does not wash; and the words of a program rise into place, with no rolling counts or blur. QML is authoritative.
-
-## Do's and Don'ts
-- **Do** keep keyboard focus, accessible names, stable object names and selectable message text.
-- **Don't** break the Mac rules: no glow, blur, gradient or gloss, no scaled terminal surface, no explanatory text where an object will do.
+`Raised` and `Bezel` draw rims, faces and shadows with plain shapes, so they look the same with and without a GPU.
