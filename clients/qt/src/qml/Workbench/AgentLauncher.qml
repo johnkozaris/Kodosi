@@ -844,16 +844,7 @@ ColumnLayout {
         }
     }
 
-    component Dropdown: KPopover {
-        y: parent ? parent.height + 6 : 0
-        margins: 10
-        radius: KodosiTheme.radiusLg
-        fill: KodosiTheme.raised
-        transformOrigin: Popup.TopLeft
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
-        focus: true
-    }
-    Dropdown {
+    LauncherDropdown {
         id: folderPopover
 
         parent: folderKey
@@ -872,7 +863,7 @@ ColumnLayout {
             onClosed: root.closeMenu()
         }
     }
-    Dropdown {
+    LauncherDropdown {
         id: accountPopover
 
         parent: accountKey
@@ -966,7 +957,7 @@ ColumnLayout {
             }
         }
     }
-    Dropdown {
+    LauncherDropdown {
         id: modelPopover
 
         parent: modelKey

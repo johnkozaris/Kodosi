@@ -19,6 +19,8 @@ Row {
         model: root.count
 
         Rectangle {
+            id: bar
+
             required property int index
 
             anchors.bottom: parent ? parent.bottom : undefined
@@ -29,7 +31,7 @@ Row {
 
             Behavior on color {
                 SequentialAnimation {
-                    PauseAnimation { duration: KodosiTheme.reduceMotion ? 0 : index * 35 }
+                    PauseAnimation { duration: KodosiTheme.reduceMotion ? 0 : bar.index * 35 }
                     ColorAnimation { duration: KodosiTheme.motionSnappy }
                 }
             }
