@@ -141,12 +141,12 @@ rust-coverage-check: rust-coverage-tools-check
     mkdir -p runtime/target/llvm-cov
     {{ llvm_cov }} --fail-under-lines 55 --json --summary-only --output-path runtime/target/llvm-cov/summary.json
 
-# Write the generated contracts and the C header from the Rust definitions.
+# Write protocol/desktop-runtime.json from the Rust definitions.
 [group('protocol')]
 protocol-gen:
     cargo run --manifest-path runtime/Cargo.toml --locked --bin protocol-gen -- write
 
-# Check that the committed contracts match the Rust definitions.
+# Check protocol/desktop-runtime.json against the Rust definitions.
 [group('protocol')]
 protocol-check:
     cargo run --manifest-path runtime/Cargo.toml --locked --bin protocol-gen -- check

@@ -8,7 +8,8 @@ hosts none.
   current ordered state without disturbing other viewers. Never replay input whose
   delivery is uncertain.
 - Keep module ownership direct; separate crates exist only for native boundaries.
-- Generate the desktop contracts and the C header from Rust with `just protocol-gen`.
+- `just protocol-gen` writes `protocol/desktop-runtime.json`. The `kodosi-ffi-c` build
+  writes the C header; keep `clients/apple/Sources/KodosiKit/kodosi_runtime.h` equal to it.
 - Test the embedded library, the CLI workspace and the viewer build: `just rust-check`
   and `just ios-rust-lint`.
 - Tests use isolated storage and never touch live data or real provider histories.

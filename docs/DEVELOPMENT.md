@@ -79,8 +79,10 @@ just backend-docker-run
 
 ## Contracts and Ghostty
 
-Rust owns the contracts and the C header: `just protocol-gen` writes them and
-`just protocol-check` checks them. The clients build the runtime from this checkout.
+`just protocol-gen` writes `protocol/desktop-runtime.json` from the Rust types and
+`just protocol-check` checks it. The `kodosi-ffi-c` build writes the C header; after a
+change of the C API, copy it to `clients/apple/Sources/KodosiKit/kodosi_runtime.h` (the
+Apple build shows the difference). The clients build the runtime from this checkout.
 [Ghostty.lock](../Ghostty.lock) pins the Ghostty revisions and artifacts, and
 `just ghostty-check` verifies them; follow
 [Ghostty provenance](../terminal/ghostty/PROVENANCE.md) to update them.

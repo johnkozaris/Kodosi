@@ -9,7 +9,7 @@ Read `PRODUCT.md` first, and the `AGENTS.md` nearest to the files you change.
   The iOS app views terminals and hosts none.
 - `clients/qt/`: Qt app for Linux and Windows.
 - `sign-in/`: Keycloak theme for the sign-in pages, account page and e-mails.
-- `protocol/`: contracts generated from Rust.
+- `protocol/`: cross-stack contracts; `desktop-runtime.json` is generated from Rust.
 - `terminal/ghostty/`: pinned Ghostty integration; root `Ghostty.lock` selects it.
 
 Rules:

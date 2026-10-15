@@ -24,7 +24,7 @@
   "operation": {
     "migration": "the argument migrate applies the schema and exits; a serving start refuses a database that is not current",
     "refusedConnections": "one log line for each refused device connection with account, device and reason",
-    "meter": "Kodosi.Server: kodosi.device.connections, kodosi.relay.pipes, kodosi.relay.bytes, kodosi.connections.refused by reason, kodosi.database.fault in seconds"
+    "meter": "Kodosi.Server: kodosi.device.connections, kodosi.relay.pipes, kodosi.relay.bytes, kodosi.connections.refused by reason"
   },
   "sessionAuthorization": {
     "ownDevices": "current approved devices of the owner",
@@ -150,7 +150,6 @@
       "PUT /api/missions/{id}/content/{itemId}"
     ]
   },
-  "missionContent": "directory metadata only; no chat, tasks, or agent dispatch",
   "backendSecrets": "none; the server relays TLS records between a host device and a viewer device and holds no terminal key",
   "roomContent": {
     "encryption": "AES-256-GCM content keys; each recipient key is ML-KEM-768 and X25519 together, with HKDF-SHA256 over both shared secrets for the wrapping key; ML-DSA-65 signed state and content",
