@@ -49,7 +49,7 @@ struct PickerKey<Glyph: View, Accessory: View>: View {
                     .fontWeight(.medium)
                     .foregroundStyle(quiet ? theme.colors.inkMuted : theme.colors.ink)
                     .lineLimit(1).truncationMode(.middle)
-                    .frame(maxWidth: 150, alignment: .leading)
+                    .frame(maxWidth: 130, alignment: .leading)
                     .fixedSize(horizontal: true, vertical: false)
                     .contentTransition(.interpolate)
                     .shimmer(loading)
@@ -61,7 +61,7 @@ struct PickerKey<Glyph: View, Accessory: View>: View {
             }
             .padding(.horizontal, -3)
         }
-        .buttonStyle(.kodosi(open ? .tinted : .secondary))
+        .buttonStyle(.kodosi(open ? .tinted : .secondary, size: .small))
         .animation(theme.motion.snappy, value: open)
         .animation(theme.motion.spring, value: title)
         .help(help ?? label)

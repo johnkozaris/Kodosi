@@ -23,10 +23,9 @@ struct SignInSheet: View {
             )
             Group {
                 switch deps.signInStage {
-                case let .awaitingApproval(code, url):
+                case let .awaitingBrowser(url):
                     VStack(spacing: 16) {
-                        Text("Check that your browser shows this code.").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
-                        VerificationCode(code: code, identifier: "signIn.code")
+                        ProgressCaption(text: String(localized: "Continue in your browser"))
                         if url != nil {
                             Button { deps.openSignInPage() } label: { Label("Open the browser again", systemImage: "arrow.up.right") }
                                 .buttonStyle(.kodosi(.ghost, size: .small)).accessibilityIdentifier("signIn.open")
@@ -57,7 +56,7 @@ struct SignInSheet: View {
                 case .trustingDevice:
                     Button("Not now") { deps.dismissSignIn() }.buttonStyle(.kodosi(.ghost)).keyboardShortcut(.cancelAction)
                         .accessibilityIdentifier("signIn.later")
-                case .idle, .starting, .awaitingApproval, .finalizing:
+                case .idle, .starting, .awaitingBrowser, .finalizing:
                     Button("Cancel") { deps.cancelSignIn() }.buttonStyle(.kodosi(.ghost)).keyboardShortcut(.cancelAction)
                         .accessibilityIdentifier("signIn.cancel")
                 }

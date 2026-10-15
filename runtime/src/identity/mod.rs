@@ -2,6 +2,7 @@ pub mod device_cert;
 pub(crate) mod friends;
 pub mod keys;
 pub(crate) mod link_code;
+pub(crate) mod loopback;
 pub mod oidc;
 pub mod pins;
 pub(crate) mod recovery;

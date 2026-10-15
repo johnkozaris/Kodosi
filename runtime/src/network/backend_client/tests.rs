@@ -613,3 +613,63 @@ async fn a_deletion_page_outside_the_sign_in_service_is_refused() {
     assert!(device_key_kept(&network, &user).await);
     assert_eq!(server.await.unwrap().len(), 2);
 }
+
+#[tokio::test]
+async fn an_app_sign_in_takes_only_the_answer_of_its_own_page() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = format!("http://{}", listener.local_addr().unwrap());
+    let discovery = json!({
+        "issuer": address,
+        "authorization_endpoint": format!("{address}/auth"),
+        "token_endpoint": format!("{address}/token"),
+        "device_authorization_endpoint": format!("{address}/device"),
+    });
+    let server = scripted_backend(listener, vec![(200, discovery)]);
+    let root = tempfile::tempdir().unwrap();
+    let network = BackendClient::new(BackendConfig {
+        api_url: format!("{address}/").parse().unwrap(),
+        issuer: address.clone(),
+        client_id: "kodosi-app".into(),
+        scopes: vec![],
+        data_root: root.path().to_owned(),
+        secret_service: "test".into(),
+        isolated: true,
+    })
+    .unwrap();
+    let reply = network
+        .execute(
+            "auth.login.start",
+            json!({"type":"auth.login.start","browser":"app"}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(reply.events[0]["type"], "auth.browser");
+    let page = reqwest::Url::parse(reply.events[0]["url"].as_str().unwrap()).unwrap();
+    assert!(page.as_str().starts_with(&format!("{address}/auth?")));
+    let value = |name: &str| {
+        page.query_pairs()
+            .find(|(key, _)| key == name)
+            .unwrap()
+            .1
+            .into_owned()
+    };
+    assert_eq!(value("redirect_uri"), APP_REDIRECT);
+    let finish = |answer: String| {
+        network.execute(
+            "auth.login.finish",
+            json!({"type":"auth.login.finish","url":answer}),
+        )
+    };
+    assert!(
+        finish(format!("{APP_REDIRECT}?state=other&code=c"))
+            .await
+            .is_err()
+    );
+    network
+        .execute("auth.login.cancel", Value::Null)
+        .await
+        .unwrap();
+    let right = format!("{APP_REDIRECT}?state={}&code=c", value("state"));
+    assert!(finish(right).await.is_err());
+    assert_eq!(server.await.unwrap().len(), 1);
+}

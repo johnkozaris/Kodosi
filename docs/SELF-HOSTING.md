@@ -4,14 +4,17 @@ Run the backend with PostgreSQL and an OIDC sign-in service, behind HTTPS.
 
 ## Sign-in
 
-Create a public OIDC client `kodosi-app` with the device authorization and refresh-token
-flows and the scopes `openid profile offline_access`. The issuer's discovery document
-must expose `device_authorization_endpoint` and `token_endpoint` on the issuer's origin,
-over HTTPS (loopback HTTP works for development). Access tokens use RS256 or ES256, name
-the issuer and audience, and include a non-empty `sub`, an expiry and `auth_time`.
-Deleting an account and starting fresh on a device need a sign-in of at most 15 minutes,
-which the backend reads from `auth_time`. Accounts are keyed by issuer and subject;
-`preferred_username` and `name` give display names.
+Create a public OIDC client `kodosi-app` with refresh tokens, the scopes `openid profile
+offline_access`, and two flows: the authorization code flow with PKCE (S256) for the
+apps, and the device authorization flow for the command line. Allow the redirect
+addresses `http://127.0.0.1/callback` (any port: the Mac, Linux and Windows apps) and
+`com.kodosi:/auth` (the iPhone and iPad app). The issuer's discovery document must expose
+`authorization_endpoint`, `device_authorization_endpoint` and `token_endpoint` on the
+issuer's origin, over HTTPS (loopback HTTP works for development). Access tokens use RS256
+or ES256, name the issuer and audience, and include a non-empty `sub`, an expiry and
+`auth_time`. Deleting an account and starting fresh on a device need a sign-in of at most
+15 minutes, which the backend reads from `auth_time`. Accounts are keyed by issuer and
+subject; `preferred_username` and `name` give display names.
 
 ## Backend
 

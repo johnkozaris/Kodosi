@@ -207,6 +207,18 @@ ApplicationWindow {
         target: Models.DesktopFiles
     }
     Connections {
+        function onSignInPageReady(page) {
+            Models.DesktopFiles.openWebUrl(page);
+        }
+        function onBrowserAnswered() {
+            window.show();
+            window.raise();
+            window.requestActivate();
+        }
+
+        target: Models.Account
+    }
+    Connections {
         function onActivated(sessionId) {
             window.show();
             window.raise();
