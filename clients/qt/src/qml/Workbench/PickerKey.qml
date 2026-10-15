@@ -41,8 +41,8 @@ AbstractButton {
         quiet: true
         dark: true
         pressed: root.down
-        fill: root.open ? KodosiTheme.mix("#3e281c", KodosiTheme.terminalAccent, root.hovered ? 0.14 : 0)
-            : KodosiTheme.mix("#2e241f", KodosiTheme.terminalInk, root.hovered ? 0.1 : 0.07)
+        fill: root.open ? KodosiTheme.mix(KodosiTheme.terminalAccentSoft, KodosiTheme.terminalAccent, root.hovered ? 0.14 : 0)
+            : KodosiTheme.mix(KodosiTheme.terminalLifted, KodosiTheme.terminalInk, root.hovered ? 0.1 : 0.07)
     }
     contentItem: Item {
         Row {
@@ -63,7 +63,7 @@ AbstractButton {
                 width: Math.min(implicitWidth, 130)
                 text: root.title
                 active: root.loading
-                color: root.open ? "#eaa47e" : root.quiet ? KodosiTheme.terminalInkMuted : KodosiTheme.terminalInk
+                color: root.open ? KodosiTheme.terminalAccentStrong : root.quiet ? KodosiTheme.terminalInkMuted : KodosiTheme.terminalInk
                 font.pixelSize: KodosiTheme.fontFootnote
                 font.weight: Font.DemiBold
                 elide: Text.ElideMiddle
@@ -81,7 +81,7 @@ AbstractButton {
                 height: 9
                 name: "chevron-down"
                 strokeWidth: 2.8
-                color: root.open ? "#eaa47e" : KodosiTheme.terminalInkFaint
+                color: root.open ? KodosiTheme.terminalAccentStrong : KodosiTheme.terminalInkFaint
                 rotation: root.open ? 180 : 0
 
                 Behavior on rotation { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
