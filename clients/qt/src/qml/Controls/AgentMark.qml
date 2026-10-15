@@ -1,5 +1,6 @@
 import Kodosi 1.0
 import QtQuick
+import Kodosi.Models 1.0 as Models
 
 Item {
     id: root
@@ -14,7 +15,7 @@ Item {
     readonly property bool measured: working && progress >= 0
     readonly property bool pale: asleep && !asks
     readonly property int form: working ? 1 : asks ? 2 : 0
-    readonly property string kind: Identity.kind(program)
+    readonly property string kind: Models.DesktopSettings.agentOf(program)
     readonly property color tint: Identity.kindTint(kind)
     readonly property real rim: Math.max(2, size * 0.075)
     readonly property real space: rim * 1.75

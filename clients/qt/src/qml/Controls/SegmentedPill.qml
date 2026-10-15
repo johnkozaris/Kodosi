@@ -11,6 +11,7 @@ Item {
     property var options: []
     property var currentValue
     property bool compact: false
+    property bool dock: false
     property string identifier: "segment"
     readonly property int currentIndex: {
         for (let index = 0; index < options.length; ++index) {
@@ -38,10 +39,9 @@ Item {
         width: root.currentItem ? root.currentItem.width : 0
         height: root.height - 6
         radius: height / 2
-        elevation: 1
 
         Behavior on x { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
-        Behavior on width { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
+        Behavior on width { enabled: !root.dock; NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
     }
     Row {
         id: row
@@ -68,16 +68,27 @@ Item {
                 activeFocusOnTab: true
                 hoverEnabled: true
                 height: row.height
-                implicitWidth: content.implicitWidth + (root.compact ? 22 : 28)
+                width: content.implicitWidth + (root.compact ? 22 : 28)
+                clip: true
+
+                Behavior on width { enabled: root.dock; NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
 
                 contentItem: Item {
                     RowLayout {
                         id: content
-                        anchors.centerIn: parent
+                        anchors.verticalCenter: parent.verticalCenter
+                        x: root.compact ? 11 : 14
                         spacing: 6
 
+                        ProgressRing {
+                            visible: option.modelData.progress !== undefined
+                            Layout.preferredWidth: 13
+                            Layout.preferredHeight: 13
+                            progress: option.modelData.progress || 0
+                            track: KodosiTheme.alpha(label.color, 0.35)
+                        }
                         KIcon {
-                            visible: !!option.modelData.icon
+                            visible: !!option.modelData.icon && option.modelData.progress === undefined
                             Layout.preferredWidth: 13
                             Layout.preferredHeight: 13
                             name: option.modelData.icon || ""
@@ -86,6 +97,7 @@ Item {
                         }
                         Text {
                             id: label
+                            visible: option.selected || !root.dock
                             text: option.modelData.label
                             textFormat: Text.PlainText
                             color: option.selected ? KodosiTheme.ink : option.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
@@ -93,6 +105,13 @@ Item {
                             font.weight: option.selected ? Font.DemiBold : Font.Medium
 
                             Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
+                        }
+                        Text {
+                            visible: root.dock && !option.selected && option.modelData.count > 0
+                            text: option.modelData.count ?? ""
+                            color: label.color
+                            font.pixelSize: KodosiTheme.fontFootnote
+                            font.weight: Font.Medium
                         }
                     }
                 }

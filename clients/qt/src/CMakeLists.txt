@@ -247,7 +247,6 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/ProgressRing.qml
         qml/Controls/Raised.qml
         qml/Controls/RoomSigil.qml
-        qml/Controls/SectionDock.qml
         qml/Controls/SegmentedPill.qml
         qml/Controls/ShimmerText.qml
         qml/Controls/StartMark.qml

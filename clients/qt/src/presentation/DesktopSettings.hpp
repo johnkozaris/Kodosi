@@ -44,7 +44,8 @@ public:
     Q_INVOKABLE void addStartCommand();
     Q_INVOKABLE void setStartCommand(const QString& id, const QString& name, const QString& command);
     Q_INVOKABLE void removeStartCommand(const QString& id);
-    [[nodiscard]] static QString agentOf(const QString& command);
+    Q_INVOKABLE [[nodiscard]] static QString agentOf(const QString& text);
+    Q_INVOKABLE [[nodiscard]] static QString agentLabel(const QString& text);
 signals:
     void settingsChanged();
     void settingsErrorChanged();

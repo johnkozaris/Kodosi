@@ -277,6 +277,7 @@ void ControlsTest::missionCreationHasOneNameField()
     kodosi::Workspace workspace(commands, sessions, desktop, settings);
     kodosi::qml::AppearanceModelForeign::instance = &appearance;
     kodosi::qml::DesktopStateModelForeign::instance = &desktop;
+    kodosi::qml::DesktopSettingsForeign::instance = &settings;
     kodosi::qml::SessionCatalogModelForeign::instance = &sessions;
     kodosi::qml::AppStateForeign::instance = &workspace;
     kodosi::qml::AccountModelForeign::instance = &workspace.account();

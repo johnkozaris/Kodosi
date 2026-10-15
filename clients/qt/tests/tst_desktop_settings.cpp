@@ -76,8 +76,17 @@ private slots:
         QCOMPARE(names(restored), (QStringList { QStringLiteral("Claude personal"), QStringLiteral("Cursor") }));
         QCOMPARE(restored.startCommands().constLast().toMap().value(QStringLiteral("command")).toString(),
             QStringLiteral("cursor-agent"));
-        QCOMPARE(kodosi::DesktopSettings::agentOf(QStringLiteral("FOO=1 /usr/local/bin/codex --full-auto")), QStringLiteral("codex"));
-        QCOMPARE(kodosi::DesktopSettings::agentOf(QStringLiteral("npm run dev")), QStringLiteral("shell"));
+    }
+    void oneRuleNamesTheAgentOfACommandOrAName()
+    {
+        using kodosi::DesktopSettings;
+        QCOMPARE(DesktopSettings::agentOf(QStringLiteral("FOO=1 /usr/local/bin/codex --full-auto")), QStringLiteral("codex"));
+        QCOMPARE(DesktopSettings::agentOf(QStringLiteral("env CLAUDE_CONFIG_DIR=~/.claude_work codex")), QStringLiteral("codex"));
+        QCOMPARE(DesktopSettings::agentOf(QStringLiteral("cursor-agent")), QStringLiteral("cursor"));
+        QCOMPARE(DesktopSettings::agentOf(QStringLiteral("GitHub Copilot")), QStringLiteral("copilot"));
+        QCOMPARE(DesktopSettings::agentOf(QStringLiteral("npm run dev")), QStringLiteral("shell"));
+        QCOMPARE(DesktopSettings::agentLabel(QStringLiteral("Claude")), QStringLiteral("Claude Code"));
+        QCOMPARE(DesktopSettings::agentLabel({}), QStringLiteral("Shell"));
     }
 };
 QTEST_GUILESS_MAIN(DesktopSettingsTest)

@@ -160,7 +160,7 @@ Item {
                                         ActivityLine {
                                             Layout.fillWidth: true
                                             session: card.modelData
-                                            words: card.modelData.activity || card.modelData.folderName || Identity.kindLabel(Identity.kind(card.modelData.program || ""))
+                                            words: card.modelData.activity || card.modelData.folderName || Models.DesktopSettings.agentLabel(card.modelData.program || "")
                                         }
                                     }
                                     StatusSign { Layout.rightMargin: 12; session: card.modelData; unseen: card.needsYou; size: 16 }

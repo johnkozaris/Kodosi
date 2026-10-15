@@ -572,7 +572,7 @@ ColumnLayout {
                                 required property var modelData
                                 readonly property bool selected: modelData.id === root.agentId
                                 readonly property bool arrived: !selected && Models.Launcher.fresh.indexOf(modelData.id) >= 0
-                                readonly property string title: modelData.kind === "shell" ? qsTr("Terminal") : Identity.kindLabel(modelData.kind)
+                                readonly property string title: modelData.kind === "shell" ? qsTr("Terminal") : Models.DesktopSettings.agentLabel(modelData.kind)
                                 property real bounce: 1
 
                                 objectName: "launcher.agent." + (modelData.id || "shell")
@@ -1035,8 +1035,8 @@ ColumnLayout {
             iconTrailing: true
             enabled: root.ready
             text: !root.info ? qsTr("Open a terminal")
-                : root.info.installed ? qsTr("Start %1").arg(Identity.kindLabel(root.info.agent))
-                : qsTr("Install %1").arg(Identity.kindLabel(root.info.agent))
+                : root.info.installed ? qsTr("Start %1").arg(Models.DesktopSettings.agentLabel(root.info.agent))
+                : qsTr("Install %1").arg(Models.DesktopSettings.agentLabel(root.info.agent))
             onClicked: root.start()
         }
         KIconButton {

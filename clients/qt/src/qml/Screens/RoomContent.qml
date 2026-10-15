@@ -110,16 +110,17 @@ Item {
                     }
                 }
                 Item { Layout.fillWidth: true }
-                SectionDock {
+                SegmentedPill {
+                    dock: true
                     identifier: "room.canvas"
-                    currentIndex: root.canvas
-                    items: [
-                        { label: qsTr("Terminals"), icon: "terminal", count: root.sessionIds.length },
-                        { label: qsTr("Tasks"), icon: "tasks", count: root.tasks.length - root.doneTasks, progress: root.tasks.length > 0 ? root.doneTasks / root.tasks.length : 0 },
-                        { label: qsTr("Repositories"), icon: "repository", count: (root.room.repositories || []).length }
+                    currentValue: root.canvas
+                    options: [
+                        { value: 0, label: qsTr("Terminals"), icon: "terminal", count: root.sessionIds.length },
+                        { value: 1, label: qsTr("Tasks"), count: root.tasks.length - root.doneTasks, progress: root.tasks.length > 0 ? root.doneTasks / root.tasks.length : 0 },
+                        { value: 2, label: qsTr("Repositories"), icon: "repository", count: (root.room.repositories || []).length }
                     ]
-                    onActivated: index => {
-                        Models.Missions.setPresentation("canvas", index);
+                    onActivated: value => {
+                        Models.Missions.setPresentation("canvas", value);
                         if (root.narrow)
                             Models.Missions.setPresentation("conversation", false);
                     }

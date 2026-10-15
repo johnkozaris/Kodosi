@@ -93,7 +93,7 @@ KPopover {
                     }
                 }
                 PlainLabel {
-                    text: Identity.kindLabel(Identity.kind(root.session.program || ""))
+                    text: Models.DesktopSettings.agentLabel(root.session.program || "")
                     color: KodosiTheme.inkMuted
                     font.pixelSize: KodosiTheme.fontFootnote
                 }
