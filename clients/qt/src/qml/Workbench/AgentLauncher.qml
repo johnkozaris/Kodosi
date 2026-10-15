@@ -824,7 +824,7 @@ ColumnLayout {
             objectName: "launcher.start"
             Accessible.id: objectName
             variant: KButton.Primary
-            iconName: "arrow-right"
+            iconName: "return"
             iconTrailing: true
             enabled: root.ready
             text: !root.info ? qsTr("Open a terminal")

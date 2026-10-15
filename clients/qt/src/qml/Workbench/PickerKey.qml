@@ -69,7 +69,7 @@ AbstractButton {
             Item {
                 id: accessorySlot
                 anchors.verticalCenter: parent.verticalCenter
-                visible: children.length > 0 && childrenRect.width > 0
+                visible: children.length > 0 && children[0].visible
                 width: childrenRect.width
                 height: childrenRect.height
             }

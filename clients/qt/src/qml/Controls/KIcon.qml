@@ -54,6 +54,7 @@ Item {
         case "history": return "M4 12 A8 8 0 1 0 6.5 6.2 M4 4 V8 H8 M12 8 V12 L15 14"
         case "copy": return "M9 9 H19 V20 H9 Z M5 15 V4 H15"
         case "share": return "M10 11 A3.5 3.5 0 1 0 10 4 A3.5 3.5 0 1 0 10 11 M3.5 20 Q3.5 14 10 14 Q13 14 14.6 15.4 M18 14 V20 M15 17 H21"
+        case "return": return "M19 6 V11 Q19 14 16 14 H5.5 M9.5 10 L5.5 14 L9.5 18"
         case "arrow-right": return "M5 12 H19 M13 6 L19 12 L13 18"
         case "pencil": return "M4 20 L5 15.5 L16 4.5 L19.5 8 L8.5 19 Z M14 6.5 L17.5 10"
         case "play": return "M8 5 L19 12 L8 19 Z"
