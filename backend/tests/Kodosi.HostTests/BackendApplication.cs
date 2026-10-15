@@ -4,7 +4,6 @@ using System.Net.Http.Json;
 using System.Net.WebSockets;
 using System.Security.Claims;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using Kodosi.TerminalConnections;
 using Kodosi.Security;

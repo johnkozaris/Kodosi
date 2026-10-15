@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using Kodosi.Accounts;
 using Kodosi.Data;
 using Kodosi.TerminalConnections;
@@ -8,14 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.Devices;
 
-public sealed partial class DeviceService(
-    KodosiDbContext db,
-    SignatureVerifier signatures,
-    DeviceCertificateParser certificates,
-    SignedDeviceListParser lists,
-    ConnectionDirectory connections,
-    DeviceSessions sessions,
-    TimeProvider clock)
+public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirectory connections, DeviceSessions sessions, TimeProvider clock)
 {
     public async Task<Device> RequireDeviceAsync(Guid userId, string deviceId, CancellationToken ct, bool allowExpiredList = false)
     {
@@ -24,7 +16,7 @@ public sealed partial class DeviceService(
         var now = clock.GetUtcNow().ToUnixTimeMilliseconds();
         if (device is null || list is null || device.Revoked || device.ExpiresAtMs <= now || (!allowExpiredList && list.ExpiresAtMs <= now))
             throw ApiException.Forbidden("Approve this device before using shared sessions.");
-        if (!lists.Parse(list.Body).Entries.Any(x => x.DeviceId == deviceId))
+        if (!SignedDeviceList.Parse(list.Body).Entries.Any(x => x.DeviceId == deviceId))
             throw ApiException.Forbidden("This device was removed.");
         return device;
     }
@@ -40,7 +32,7 @@ public sealed partial class DeviceService(
     public object CreateChallenge(Guid userId)
     {
         var challenge = sessions.NewChallenge(userId);
-        return new { challengeId = challenge.Id, challengeBytes = Convert.ToBase64String(challenge.Bytes), challenge.ExpiresAt };
+        return new { challengeId = challenge.Id, challengeBytes = Convert.ToBase64String(challenge.Bytes) };
     }
 
     public async Task<object> OpenSessionAsync(Guid userId, OpenDeviceSession request, CancellationToken ct)
@@ -50,10 +42,9 @@ public sealed partial class DeviceService(
         var device = await RequireDeviceAsync(userId, deviceId, ct, allowExpiredList: true);
         if (IsRecoveryId(deviceId)) throw ApiException.Forbidden("A recovery key cannot open a device session.");
         var signature = Limits.Base64(request.Signature, "Device signature", IdentityWireFormat.MlDsa65SignatureLength);
-        if (!signatures.Verify(device.SigningPublicKey, Proofs.DeviceSession(userId, deviceId, request.ChallengeId, challenge), signature))
+        if (!SignatureVerifier.Verify(device.SigningPublicKey, Proofs.DeviceSession(userId, deviceId, request.ChallengeId, challenge), signature))
             throw ApiException.Forbidden("Invalid device proof.");
-        var (token, expiresAt) = sessions.Open(userId, deviceId);
-        return new { session = token, expiresAt };
+        return new { session = sessions.Open(userId, deviceId) };
     }
 
     private static (byte[] Cert, byte[] CertSig, byte[] List, byte[] ListSig) SignedParts(string certificate, string certificateSignature, string list, string listSignature) =>
@@ -74,7 +65,7 @@ public sealed partial class DeviceService(
         var challenge = sessions.ConsumeChallenge(userId, request.ChallengeId);
         var signingKey = Limits.Base64(request.SigningPublicKey, "Signing key", IdentityWireFormat.MlDsa65PublicKeyLength);
         var pop = Limits.Base64(request.PopSignature, "Possession signature", IdentityWireFormat.MlDsa65SignatureLength);
-        if (!signatures.Verify(signingKey, Proofs.Tagged(DomainTags.DevicePopV1, challenge), pop))
+        if (!SignatureVerifier.Verify(signingKey, Proofs.Tagged(DomainTags.DevicePopV1, challenge), pop))
             throw ApiException.Forbidden("The device possession proof is invalid.");
         if (IsRecoveryId(request.DeviceId)) throw ApiException.Invalid("This device identifier is for a recovery key.");
         return signingKey;
@@ -89,8 +80,8 @@ public sealed partial class DeviceService(
         if (await db.DeviceLists.AnyAsync(x => x.UserId == userId, ct)
             || await db.Devices.AnyAsync(x => x.UserId == userId && !x.Revoked, ct))
             throw ApiException.Forbidden("An existing trusted device must approve this device.");
-        var cert = certificates.Parse(certBytes);
-        var list = lists.Parse(listBytes);
+        var cert = DeviceCertificate.Parse(certBytes);
+        var list = SignedDeviceList.Parse(listBytes);
         ValidateCertificate(userId, request.DeviceId, cert, signingKey);
         ValidateTime(cert.IssuedAtMs, cert.ExpiresAtMs);
         ValidateTime(list.IssuedAtMs, list.ExpiresAtMs);
@@ -117,8 +108,8 @@ public sealed partial class DeviceService(
         var bytes = Limits.Base64(request.SignedDeviceList, "Signed device list", IdentityWireFormat.MaxSignedDeviceListBodyLength);
         var signature = Limits.Base64(request.SignedDeviceListSignature, "List signature", IdentityWireFormat.MlDsa65SignatureLength);
         if (current.Body.AsSpan().SequenceEqual(bytes) && current.Signature.AsSpan().SequenceEqual(signature)) return;
-        var next = lists.Parse(bytes);
-        var previous = lists.Parse(current.Body);
+        var next = SignedDeviceList.Parse(bytes);
+        var previous = SignedDeviceList.Parse(current.Body);
         var signer = await RequireDeviceAsync(userId, next.SignerDeviceId, ct, allowExpiredList: true);
         ValidateSuccessor(userId, previous, next);
         var old = previous.Entries.ToDictionary(x => x.DeviceId);
@@ -128,7 +119,7 @@ public sealed partial class DeviceService(
         var retained = next.Entries.Select(x => x.DeviceId).ToHashSet(StringComparer.Ordinal);
         var removed = await db.Devices.Where(x => x.UserId == userId && !x.Revoked && !retained.Contains(x.Id)).ToListAsync(ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        foreach (var device in removed) { device.Revoked = true; connections.RemoveDevice(userId, device.Id); }
+        foreach (var device in removed) device.Revoked = true;
         UpdateList(current, next, bytes, signature);
         var affected = removed.Count == 0 ? [] : await InvalidateUserSessionsAsync(userId, removed, ct);
         await db.SaveChangesAsync(ct);
@@ -138,13 +129,9 @@ public sealed partial class DeviceService(
         connections.Notify(userId, "devices");
     }
 
-    public static readonly TimeSpan ReauthenticationWindow = TimeSpan.FromMinutes(15);
-
     public async Task ResetIdentityAsync(Guid userId, DateTimeOffset? authenticatedAt, CancellationToken ct)
     {
-        var now = clock.GetUtcNow();
-        if (authenticatedAt is null || authenticatedAt > now.AddMinutes(5) || now - authenticatedAt > ReauthenticationWindow)
-            throw ApiException.Forbidden("Sign in again to start fresh on this device.");
+        CurrentUser.RequireRecentSignIn(authenticatedAt, clock.GetUtcNow(), "Sign in again to start fresh on this device.");
         var devices = await db.Devices.Where(x => x.UserId == userId && !x.Revoked).ToListAsync(ct);
         var list = await db.DeviceLists.SingleOrDefaultAsync(x => x.UserId == userId, ct);
         if (list is null && devices.Count == 0) return;
@@ -190,7 +177,7 @@ public sealed partial class DeviceService(
         var tag = $"\"{incarnation:N}-{list.Generation}\"";
         if (known == tag) return (null, tag);
         var devices = await db.Devices.AsNoTracking().Where(x => x.UserId == userId).ToListAsync(ct);
-        var ids = lists.Parse(list.Body).Entries.Select(x => x.DeviceId).ToHashSet(StringComparer.Ordinal);
+        var ids = SignedDeviceList.Parse(list.Body).Entries.Select(x => x.DeviceId).ToHashSet(StringComparer.Ordinal);
         var active = devices.Where(x => ids.Contains(x.Id) && !x.Revoked).ToArray();
         var all = devices.ToDictionary(x => x.Id, StringComparer.Ordinal);
         var ancestors = new Dictionary<string, Device>(StringComparer.Ordinal);
@@ -247,23 +234,23 @@ public sealed partial class DeviceService(
         if (issuedAt > now + 300_000 || expiresAt <= now)
             throw ApiException.Invalid("The device proof is expired or dated in the future.");
     }
-    private static void ValidateCertificate(Guid userId, string deviceId, DeviceCertificateParser.ParsedDeviceCertificate cert, byte[] signing)
+    private static void ValidateCertificate(Guid userId, string deviceId, DeviceCertificate cert, byte[] signing)
     {
         if (cert.UserId != userId.ToString("D") || cert.DeviceId != deviceId || !cert.SigPublicKey.AsSpan().SequenceEqual(signing))
             throw ApiException.Invalid("Certificate identity and keys do not match the submitted device.");
     }
-    private void ValidateSuccessor(Guid userId, SignedDeviceListParser.ParsedSignedDeviceList previous, SignedDeviceListParser.ParsedSignedDeviceList next)
+    private void ValidateSuccessor(Guid userId, SignedDeviceList previous, SignedDeviceList next)
     {
         ValidateTime(next.IssuedAtMs, next.ExpiresAtMs);
         if (next.UserId != userId.ToString("D") || next.Generation != checked(previous.Generation + 1)
             || next.IssuedAtMs <= previous.IssuedAtMs)
             throw ApiException.Conflict("The signed device list does not extend the current generation.");
     }
-    private void VerifySignature(byte[] key, ReadOnlySpan<byte> domain, byte[] body, byte[] signature)
+    private static void VerifySignature(byte[] key, ReadOnlySpan<byte> domain, byte[] body, byte[] signature)
     {
-        if (!signatures.Verify(key, Proofs.Tagged(domain, body), signature)) throw ApiException.Forbidden("Invalid identity signature.");
+        if (!SignatureVerifier.Verify(key, Proofs.Tagged(domain, body), signature)) throw ApiException.Forbidden("Invalid identity signature.");
     }
-    private static Device ToDevice(Guid userId, DeviceCertificateParser.ParsedDeviceCertificate cert, byte[] bytes, byte[] signature) => new()
+    private static Device ToDevice(Guid userId, DeviceCertificate cert, byte[] bytes, byte[] signature) => new()
     {
         Id = cert.DeviceId,
         UserId = userId,
@@ -275,11 +262,11 @@ public sealed partial class DeviceService(
         IssuedAtMs = cert.IssuedAtMs,
         ExpiresAtMs = cert.ExpiresAtMs,
     };
-    private static DeviceList ToList(Guid userId, SignedDeviceListParser.ParsedSignedDeviceList list, byte[] bytes, byte[] signature)
+    private static DeviceList ToList(Guid userId, SignedDeviceList list, byte[] bytes, byte[] signature)
     {
         var stored = new DeviceList { UserId = userId }; UpdateList(stored, list, bytes, signature); return stored;
     }
-    private static void UpdateList(DeviceList stored, SignedDeviceListParser.ParsedSignedDeviceList list, byte[] bytes, byte[] signature)
+    private static void UpdateList(DeviceList stored, SignedDeviceList list, byte[] bytes, byte[] signature)
     {
         stored.Generation = list.Generation; stored.SignerDeviceId = list.SignerDeviceId;
         stored.Body = bytes; stored.Signature = signature; stored.IssuedAtMs = list.IssuedAtMs; stored.ExpiresAtMs = list.ExpiresAtMs;

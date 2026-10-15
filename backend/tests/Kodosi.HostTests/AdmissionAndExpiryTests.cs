@@ -2,11 +2,9 @@ using System.Net;
 using System.Text.Json;
 using Kodosi.Admission;
 using Kodosi.Data;
-using Kodosi.TerminalConnections;
 using Kodosi.Sessions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -80,12 +78,12 @@ public sealed class AdmissionAndExpiryTests(PostgresFixture postgres)
             pending = owner.Client.SendAsync(change, TestContext.Current.CancellationToken);
             using var made = await other.Client.SendAsync(separate, TestContext.Current.CancellationToken)
                 .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
-            Assert.Equal(HttpStatusCode.OK, made.StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, made.StatusCode);
             Assert.False(pending.IsCompleted);
         }
         finally { changing.Dispose(); }
         using var changed = await pending;
-        Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, changed.StatusCode);
     }
 
     [Fact]
