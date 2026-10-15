@@ -192,6 +192,9 @@ qt_add_executable(kodosi-qt
     app/main.cpp
 )
 
+# CellRim imports Typing.js by its path. A qmldir entry for it makes Qt find the
+# Kodosi module twice, and no QML file that imports Kodosi then loads.
+set_source_files_properties(qml/Controls/Typing.js PROPERTIES QT_QML_SKIP_QMLDIR_ENTRY TRUE)
 qt_add_library(kodosi-ui STATIC)
 qt_add_qml_module(kodosi-ui
     URI Kodosi
