@@ -156,13 +156,11 @@ impl Terminal {
     }
 
     pub fn format_finite_cli_replay(&mut self) -> Result<Vec<u8>, Error> {
-        let active_screen = self.raw.state()?.active_screen;
         let screen_vt = self.raw.format(
             FormatOptions {
                 format: Format::Vt,
                 unwrap: false,
                 trim: false,
-                screen: Some(active_screen),
                 palette: false,
                 modes: false,
                 scrolling_region: false,

@@ -1573,6 +1573,7 @@ _ghostty_surface_mouse_pressure
 _ghostty_surface_mouse_scroll
 _ghostty_surface_needs_confirm_quit
 _ghostty_surface_new
+_ghostty_surface_paste_text
 _ghostty_surface_preedit
 _ghostty_surface_process_exit
 _ghostty_surface_process_exited
