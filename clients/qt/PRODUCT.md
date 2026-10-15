@@ -6,70 +6,14 @@ Linux and Windows desktop
 
 ## Purpose
 
-Shared behavior and current implementation: [Kodosi's PRODUCT.md](../../PRODUCT.md).
+Shared intent: [PRODUCT.md](../../PRODUCT.md). The app behaves like the
+[Mac app](../macos/PRODUCT.md), with Ctrl+K for Go to and the desktop's own conventions.
+Visual system: [DESIGN.md](DESIGN.md).
 
 ## Principles
 
 - Keep terminals and the room conversation easy to reach.
-- Make common actions immediate; reveal secondary choices only when needed.
-- Use plain language and native desktop behavior.
-- Make access and control clear.
-- Preserve files, provider history, identity, and user consent.
-- Share a terminal with the room once; every member has full control, including
-  people invited later.
-
-## Scope
-
-Conversation stays beside the room's terminals, tasks, or connected repositories.
-Mention a person or a room terminal with "@"; a terminal mention opens that terminal.
-A message can become a task. Keep drafts and reading position when switching rooms or
-work. Agents use the shared runtime's room CLI and bundled skill.
-
-## Words
-
-Visible text uses one word for one thing: terminal, room, friend, agent, device.
-Resume is the word for saved provider conversations. Session, host, runtime, and
-mission are internal words.
-
-## Terminals
-
-New Terminal opens a shell right away. The source list groups terminals by working
-folder and shows which computer runs a remote terminal. With no terminal open, the
-main area starts with the launcher, then shows every terminal by computer. Go to
-(Ctrl+K) finds a terminal, a room, a person, or an action. Rename a terminal in place.
-
-A terminal carries the mark of the program in it. While an agent works, its mark and
-title show it. A program that waits for you puts a copper ring on its mark and a sign
-of what it needs beside it, and the source list offers the next terminal that waits
-for an answer. A terminal that is done, that failed, or that rang its bell keeps a
-sign until you look at it. While Kodosi is not in front, your own terminals send a
-system notification for these changes.
-
-A terminal at its prompt offers the start commands of this computer as marks among its
-actions. Kodosi adds a command for an agent the first time that the agent runs here.
-Settings holds the list, so a second account is one more command. One share sheet puts
-a terminal in a room or shares it with friends.
-
-The launcher is the terminal about to open. Its band has a tab for each agent of this
-computer, with the plain terminal first; an agent that this computer just got says so in
-its tab. Below the band is a prompt with the folder and the command. Each part of the
-command opens its list in the terminal, under the line. The folder shows only its name.
-The account list groups the commands by the sign-in that they use. The model and the
-effort are behind the dots; without them the agent uses its own. After the command, the
-person types the agent's first prompt, or a command for a plain terminal; a faint
-suggestion types itself there once, and Tab takes it. Start or Return opens the
-terminal, which runs the line. An agent that is not here shows its install command, and
-a new account signs in when the agent first starts.
-
-The folder of a Git repository in the sidebar offers a terminal on a new branch. You
-give the branch a name; it gets its own folder and a terminal starts there. A folder
-with no changes goes away when its terminal ends.
-
-## Experience
-
-Kodosi should feel like a warm, living workbench.
-Show the objects of the job, with short text, before explanations. Motion follows an
-action or a real change of state, and never moves the terminal surface itself.
-Keyboard access, screen-reader support, visible focus, sufficient contrast, and
-reduced motion are part of the experience. [DESIGN.md](DESIGN.md) describes the
-visual system, which the Mac client shares.
+- Make common actions immediate; show secondary choices only when needed.
+- Use plain language and native desktop behavior, with keyboard access, screen readers,
+  visible focus, enough contrast and reduced motion.
+- Preserve files, provider history, identity and consent.

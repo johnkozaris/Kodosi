@@ -1,26 +1,19 @@
-# Kodosi Ghostty agent guide
+# Ghostty integration
 
-Read `PROVENANCE.md` before changing upstream refs, patches, build tools,
-notices, or native artifacts.
+Read `PROVENANCE.md` before changing upstream refs, patches, build tools, notices or
+artifacts.
 
-This package supplies Kodosi's macOS AppKit and iOS UIKit Metal terminal views
-and Linux terminal engine. Rust owns processes, terminal state, output order,
-and access. The host-managed adapter displays that state; it must not become
-another process host, parser, or fallback terminal.
-
-`../../clients/apple/Sources/KodosiTerminal` owns the SwiftUI integration and is
-the only consumer that imports `GhosttyTerminal`. Read
-`../../clients/macos/docs/GHOSTTY_INTEGRATION.md` before changing public APIs.
-Keep the AppKit and UIKit views' host-managed APIs aligned. Preserve native
-input, selection, accessibility, checkpoint, and clipboard behavior.
-
-Build native artifacts only through `./scripts/build.sh`. Then run
-`./scripts/test.sh` and `just ghostty-check` from the repository root.
-`scripts/verify-ghostty-pins.py` is the only check of the pins and the digests, and
-`scripts/digest.py` is the only code for the digests. Do not add a second one.
-Never edit artifact metadata to hide a failed check or publish uncommitted pins.
-Keep the Ghostty, Lakr, and other required licenses and corresponding source.
-
-Keep source free of explanatory comments; retain directives and licenses.
-Test changed behavior at the native boundary. Validate user workflows manually,
-not with automated smoke drivers.
+- This package renders host-managed terminals for macOS (AppKit) and iOS (UIKit) and
+  provides the Linux and Windows terminal engine. Rust owns processes, terminal state,
+  output order and access; never add another process host, parser or fallback
+  terminal. Each executable links one Ghostty image.
+- `clients/apple/Sources/KodosiTerminal` is the only consumer of `GhosttyTerminal`, and
+  `KodosiTerminalSessions` connects it to the runtime. Keep the AppKit and UIKit APIs
+  aligned.
+- A returning view gets the current state before new output. A stale view never
+  controls a replacement terminal. A hidden view keeps its state and takes no input.
+  Paste goes straight to the terminal; terminal clipboard requests fail closed.
+- Build artifacts only with `./scripts/build.sh`, then run `./scripts/test.sh` and
+  `just ghostty-check`. `scripts/verify-ghostty-pins.py` is the only pin check and
+  `scripts/digest.py` the only digest code. Never edit artifact metadata to pass a check.
+- Keep the Ghostty, Lakr233 and other required licenses and corresponding source.

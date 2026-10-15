@@ -1,47 +1,19 @@
-# KodosiDesktop
+# Mac app
 
-Read `../../PRODUCT.md` for shared product intent and current behavior,
-`PRODUCT.md` for Mac behavior, and `docs/GHOSTTY_INTEGRATION.md` before changing
-terminal dependencies, native APIs or pins.
+Read `PRODUCT.md` and `DESIGN.md` here before changing the interface.
 
-## Boundaries
-
-- Presentation belongs in `Sources/Features`. Shared controls live in
-  `../apple/Sources/KodosiDesign` and the Rust seam in `../apple/Sources/KodosiBridge`;
-  the iOS app uses the same package. Rust owns processes, identity, sharing, and
-  terminal authority.
-- Only `../apple/Sources/KodosiTerminal` imports `GhosttyTerminal`.
+- Presentation lives in `Sources/Features`. Code shared with the iOS app lives in
+  `../apple`. Only `../apple/Sources/KodosiTerminal` imports `GhosttyTerminal`. Rust
+  owns processes, identity, sharing and terminal state.
 - Generate the Xcode project from `project.yml` and the C header from Rust.
-  `Config/macOSDeploymentTarget` is the deployment target authority.
-- The runtime is built from the same checkout. Root `Ghostty.lock` selects upstream
-  revisions and native artifacts. Working-tree archives are non-publishable.
-- The `kodosi` CLI runs from the signed app executable so it retains Keychain
-  access. Do not split it into a separately signed binary.
-
-## Rules
-
-- Keep source free of explanatory comments; preserve directives and licenses.
-  Use `Logger`, Swift Testing, and native UI checks for real workflows.
-- Localize visible strings and give interactive controls stable dotted
-  accessibility IDs and labels. Avoid production force-unwraps.
-- Preserve preferences, provider data, credentials, and real user files.
-  Never silently reset identity pins. Minimize keeps a terminal running;
-  Close ends it; Quit ends local terminals.
-
-## Checks
-
-```sh
-just lint
-just test
-just check
-```
-
-Use the existing native build scripts. Keep focused regressions for contracts,
-security, and lifecycle. For UI checks, isolate storage, use exact Peekaboo PID/window
-receipts, and inspect settled results before retrying. Do not add automated
-smoke drivers.
-
-Developer ID releases embed a provisioning profile for the Keychain access group. The
-release scripts get the team, the profile and the notary profile as required inputs,
-and `just signature-check` checks the profile, the signing certificate and the
-entitlements. Local builds use an automatic development profile.
+  `Config/macOSDeploymentTarget` sets the deployment target.
+- The `kodosi` CLI runs from the signed app executable to keep Keychain access; don't
+  split it into another binary.
+- Localize visible strings, give controls stable dotted accessibility IDs and labels,
+  and avoid force-unwraps in production code. Use `Logger` and Swift Testing.
+- Never silently reset identity pins or touch real preferences, provider data,
+  credentials or files.
+- Check with `just lint`, `just test` and `just check` here. For UI checks, isolate
+  storage and use exact Peekaboo PID and window receipts.
+- Developer ID releases embed a provisioning profile for the Keychain access group;
+  `just signature-check` checks the profile, certificate and entitlements.

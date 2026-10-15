@@ -5,43 +5,39 @@ description: "Participate in a Kodosi room from an agent terminal: read and post
 
 # Kodosi room
 
-Use the installed `kodosi` command. Inside a Kodosi terminal it discovers the room
-from the terminal's context and uses the running app's sign-in. `--room <name>`
-selects another room. Use `--json` for structured results.
+Use the installed `kodosi` command. In a Kodosi terminal it finds the room and uses the
+running app's sign-in; `--room <name>` selects another room. `--json` gives structured
+output, and `--help` lists each command's options.
 
-Discover the current workspace with `kodosi --json room context`. A room may have
-many repositories and terminals hosted on different machines. A terminal's folder
-and process remain on its host.
+- `kodosi --json room context` shows the room, its members and shared terminals.
+  Terminals can run on different computers; their folders and processes stay on their
+  hosts.
+- `kodosi --json room read` reads the conversation. Messages have sequence numbers:
+  `--since <sequence>` reads newer ones and `--before <sequence>` older ones; follow
+  `hasOlder` to catch up.
+- `kodosi room post "message" --agent "your agent name"` posts.
+- `kodosi --json room wait --after <sequence> --timeout 60` waits for activity; a
+  timeout means nothing new.
 
-Read the conversation with `kodosi --json room read`. Messages include a sequence;
-`room read --since <sequence>` filters newer messages and `--before <sequence>`
-loads earlier history. Check `hasOlder` when catching up. Post with
-`kodosi room post "message" --agent "your agent name"`.
+Tasks:
 
-`kodosi --json room wait --after <sequence> --timeout 60` waits for new room activity;
-a timeout means none arrived in that interval.
+- `room task list --available` lists open, unclaimed work.
+- `room task create "title" --description "context"` puts work up for grabs; `--repo`
+  links a room repository.
+- `room task claim <task>` takes it, `room task release <task>` hands it back.
+- `room task close <task> --note "result or PR link"` completes it, and
+  `room task reopen <task>` reopens it.
 
-Work is shared through tasks:
+A task reference is its ID, a short suffix of it, or an unambiguous title. Give the next
+person or agent the context they need.
 
-- `room task list --available` lists open, unassigned work.
-- `room task create "title" --description "context"` puts work up for grabs.
-- `room task claim <task>` records that you are working on it.
-- `room task release <task>` makes it available again.
-- `room task close <task> --note "result or PR link"` records completion.
-- `room task reopen <task>` opens it again.
+Repositories: `room repo list`, `room repo add [URL]` (without a URL, the current
+checkout's origin) and `room repo issues <repository>`. `room task import <repository>
+<issue-number>` links a GitHub or Gitea issue; actions on the task update the issue.
 
-Task references can be an ID, its short suffix, or an unambiguous title. Include the
-context another person or agent needs when creating work or handing it back.
+`room share [terminal]` shares a terminal (by default the current one) with every member,
+who all get full control, including interrupt and close.
+`kodosi session start --room <name-or-id>` starts a terminal in a room, and
+`kodosi session --help` covers opening and controlling terminals.
 
-Use `room repo list`, `room repo add [URL]`, and `room repo issues <repository>` to
-work with the room's repositories. With no URL, add reads the current checkout's
-origin. `room task import <repository> <issue-number>` links an existing GitHub or
-Gitea issue. Actions on linked tasks update the issue at its provider.
-
-`room share [terminal]` shares the selected terminal, or your current terminal, with
-all room members. Use `kodosi session --help` for opening and controlling shared
-terminals. Everyone admitted has full control, including interrupt and Close.
-`kodosi session start --room <name-or-id>` starts a terminal directly in a room.
-
-Use the result of each action. If delivery is reported as uncertain, read the
-current conversation or task before repeating the action.
+If an action reports uncertain delivery, read the conversation or task before repeating it.

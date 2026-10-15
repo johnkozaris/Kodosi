@@ -1,32 +1,30 @@
 # Kodosi
 
-Read `PRODUCT.md` for product intent and current behavior. Keep full terminal control.
-Do not turn missing capabilities into product exclusions or add permission tiers,
-sandboxing, or agent workflow machinery by default.
+Read `PRODUCT.md` first, and the `AGENTS.md` nearest to the files you change.
 
-- `runtime/` owns live terminals, identity, and encrypted endpoint connections.
-- `backend/` stores shared metadata and routes encrypted terminal traffic. Run one serving
-  backend process.
-- `clients/macos/` is the native macOS client. `clients/qt/` is the native Qt client for
-  Linux and Windows. `clients/ios/` is the iPhone and iPad client; it views terminals and
-  hosts none. `clients/apple/` holds the Swift code that the Mac and iOS clients share.
-- `protocol/` contains the current cross-stack contracts generated from Rust. Keep the
-  native Ghostty pins and provenance checks aligned with `terminal/ghostty/`.
+- `runtime/`: Rust runtime, CLI and C API. Owns terminals, identity, encryption and rooms.
+- `backend/`: ASP.NET Core service. Stores metadata, relays encrypted traffic. Run one
+  serving process.
+- `clients/macos/`, `clients/ios/`: Swift apps. `clients/apple/` is their shared package.
+  The iOS app views terminals and hosts none.
+- `clients/qt/`: Qt app for Linux and Windows.
+- `sign-in/`: Keycloak theme for the sign-in pages, account page and e-mails.
+- `protocol/`: contracts generated from Rust.
+- `terminal/ghostty/`: pinned Ghostty integration; root `Ghostty.lock` selects it.
 
-- Minimize dismisses a terminal view without ending its process; Close ends the
-  terminal; quitting its host ends local processes.
-- Give agents room context and actions through their existing harnesses. Leave provider
-  execution, permissions, settings, and native conversation storage with the provider.
+Rules:
+
+- Keep full terminal control. Don't add permission tiers, sandboxing or agent workflow
+  machinery.
+- Leave provider execution, permissions, settings and conversations with the provider.
 - Preserve end-to-end encryption, chosen sharing, identity continuity, bounded resource
-  use, and ordered terminal state.
-- Never reset live databases or alter real provider data, credentials, conversations,
-  memory, or working files during development.
-- Keep dependencies project-local and use the root `justfile` for repository checks.
-- Name new files, folders, recipes, scripts and helpers by the rules in
-  `docs/DEVELOPMENT.md`.
-- Keep current product intent in `PRODUCT.md` and setup in `docs/DEVELOPMENT.md`.
-- Prefer clear code and focused tests over explanatory source comments or architecture
-  prose. Preserve required directives and license notices.
-
-Validate real workflows with the appropriate native or boundary tools. Do not add
-automated smoke drivers.
+  use and ordered terminal state.
+- Kodosi has no release: keep no code for earlier protocol versions or saved formats.
+- Never reset live databases or touch real provider data, credentials, conversations,
+  memory or working files.
+- Keep dependencies project-local. Run checks through the root `justfile`; name files,
+  recipes and scripts by `docs/DEVELOPMENT.md`.
+- Write clear code and focused tests, not comments or architecture prose. Keep required
+  directives and license notices.
+- Validate real workflows with native or boundary tools. Don't add automated smoke
+  drivers.

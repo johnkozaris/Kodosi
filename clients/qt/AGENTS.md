@@ -1,26 +1,14 @@
-# Kodosi for Linux and Windows agent guide
+# Linux and Windows app
 
-Read `../../PRODUCT.md` for shared product intent and current behavior,
-`PRODUCT.md` for the client's behavior, and `DESIGN.md` before changing the interface.
+Read `PRODUCT.md` and `DESIGN.md` here before changing the interface.
 
-## Boundary
-
-Kodosi for Linux and Windows is one native Qt presentation client. The shared Rust
-runtime owns terminal and session behavior, identity, sharing, security, and shared
-data. Qt owns the native interface, presentation models, accessibility, and desktop
-integration.
-
-Keep that boundary deep and simple: QML presents typed state and user intent. It
-does not become another protocol, terminal, security, or data authority.
-
-## Development
-
-- Follow the pinned sources and current protocol.
-- Prefer Qt and the standard library; keep dependencies project-local.
-- Keep code self-explanatory. Comment only non-obvious constraints.
-- Give interactive QML objects stable accessibility identifiers and names.
-- Translate user-visible text with `qsTr`.
-- Keep platform code in `src/platform/linux` and `src/platform/windows`, and platform
-  build rules in `cmake/Linux.cmake` and `cmake/Windows.cmake`.
-- Run `just check` on Linux x86-64 and `just windows-check` on Windows 11, and
-  validate important workflows in the real desktop interface.
+- The Rust runtime owns terminals, identity, sharing, security and data. Qt owns the
+  interface, presentation models, accessibility and desktop integration. QML presents
+  typed state and user intent and never becomes another protocol, terminal, security
+  or data authority.
+- Prefer Qt and the standard library. Translate visible text with `qsTr` and give
+  interactive QML objects stable accessibility identifiers and names.
+- Platform code lives in `src/platform/linux` and `src/platform/windows`; platform build
+  rules in `cmake/Linux.cmake` and `cmake/Windows.cmake`.
+- Check with `just check` on Linux x86-64 and `just windows-check` on Windows 11, and try
+  important workflows in the real desktop.
