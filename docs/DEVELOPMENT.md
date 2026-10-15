@@ -98,7 +98,8 @@ and approve the computer again.
 
 Validate a workflow by running the app or calling the real boundary. Use a disposable
 database and a disposable `KODOSI_DATA_ROOT`, and set `KODOSI_PRODUCTION_DATA_ROOT` to
-the real root so that the runtime refuses an overlap. Provider tests use fixtures or
+the real root so that the runtime refuses an overlap. `KODOSI__RUNTIME__INITIAL_SHELL`
+chooses the shell of new terminals, for example `/bin/sh`. Provider tests use fixtures or
 redirected configuration roots; never touch real provider settings, memory,
 conversations, credentials or working files.
 
