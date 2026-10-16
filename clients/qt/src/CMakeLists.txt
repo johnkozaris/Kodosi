@@ -125,6 +125,10 @@ qt_add_library(kodosi-terminal-kernel STATIC
     terminal/TerminalLink.cpp
     terminal/TerminalLink.hpp
     terminal/TerminalFrame.hpp
+    terminal/TerminalImages.cpp
+    terminal/TerminalImages.hpp
+    terminal/TerminalPlaceholders.cpp
+    terminal/TerminalPlaceholders.hpp
     terminal/TerminalRasterizer.cpp
     terminal/TerminalRasterizer.hpp
     terminal/TerminalSessionRegistry.cpp
@@ -263,6 +267,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/RollingText.qml
         qml/Controls/RoomSigil.qml
         qml/Controls/SegmentedPill.qml
+        qml/Controls/SessionPlace.qml
         qml/Controls/ShimmerText.qml
         qml/Controls/SlotMark.qml
         qml/Controls/Squircle.qml
@@ -280,6 +285,7 @@ qt_add_qml_module(kodosi-ui
         qml/Theme/KodosiTheme.qml
         qml/Theme/Mentions.qml
         qml/Workbench/AgentLauncher.qml
+        qml/Workbench/ClipboardReadDialog.qml
         qml/Workbench/CloseTerminalDialog.qml
         qml/Workbench/EffortMeter.qml
         qml/Workbench/HistoryView.qml

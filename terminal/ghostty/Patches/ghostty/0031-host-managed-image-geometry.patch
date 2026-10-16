@@ -1,0 +1,219 @@
+diff --git a/src/renderer/image.zig b/src/renderer/image.zig
+index ef0367bd1..e0347cdd0 100644
+--- a/src/renderer/image.zig
++++ b/src/renderer/image.zig
+@@ -385,6 +385,7 @@ pub const State = struct {
+             self.prepKittyPlacement(
+                 alloc,
+                 t,
++                cell_size,
+                 top_y,
+                 bot_y,
+                 &image,
+@@ -478,6 +479,7 @@ pub const State = struct {
+                 self.appendKittyPlacement(
+                     alloc,
+                     t,
++                    cell_size,
+                     &image,
+                     &pr.p,
+                     std.math.cast(i32, x) orelse continue,
+@@ -547,6 +549,7 @@ pub const State = struct {
+         self: *State,
+         alloc: Allocator,
+         t: *const terminal.Terminal,
++        cell_size: CellSize,
+         top_y: u32,
+         bot_y: u32,
+         image: *const terminal.kitty.graphics.Image,
+@@ -588,7 +591,7 @@ pub const State = struct {
+         const y_pos = std.math.cast(i32, img_top_y - top_y) orelse return;
+         const x_pos = std.math.cast(i32, img_left_x) orelse return;
+ 
+-        try self.appendKittyPlacement(alloc, t, image, p, x_pos, y_pos);
++        try self.appendKittyPlacement(alloc, t, cell_size, image, p, x_pos, y_pos);
+     }
+ 
+     /// Compute the sizes for a native kitty placement positioned at the
+@@ -598,6 +601,7 @@ pub const State = struct {
+         self: *State,
+         alloc: Allocator,
+         t: *const terminal.Terminal,
++        cell_size: CellSize,
+         image: *const terminal.kitty.graphics.Image,
+         p: *const terminal.kitty.graphics.ImageStorage.Placement,
+         x: i32,
+@@ -609,9 +613,20 @@ pub const State = struct {
+         try self.prepKittyImage(alloc, image);
+ 
+         // Calculate the dimensions of our image, taking in to
+-        // account the rows / columns specified by the placement.
+-        const dest_size = p.pixelSize(image.*, t);
+-        const cell_offset = p.cellOffset(t);
++        // account the rows / columns specified by the placement. These are
++        // in the terminal's pixels; a terminal can take its cell size from
++        // another computer, so they are scaled to the cells drawn here.
++        const scale: TerminalScale = .init(t, cell_size);
++        const terminal_size = p.pixelSize(image.*, t);
++        const terminal_offset = p.cellOffset(t);
++        const dest_size: struct { width: u32, height: u32 } = .{
++            .width = scale.x(terminal_size.width),
++            .height = scale.y(terminal_size.height),
++        };
++        const cell_offset: struct { x: u32, y: u32 } = .{
++            .x = scale.x(terminal_offset.x),
++            .y = scale.y(terminal_offset.y),
++        };
+ 
+         const source = p.sourceRect(image.*);
+ 
+@@ -634,6 +649,38 @@ pub const State = struct {
+         }
+     }
+ 
++    /// Converts the pixels of a terminal's cells to the pixels of the cells
++    /// that the renderer draws.
++    const TerminalScale = struct {
++        terminal: CellSize,
++        renderer: CellSize,
++
++        fn init(t: *const terminal.Terminal, cell_size: CellSize) TerminalScale {
++            const width = if (t.cols > 0) t.width_px / t.cols else 0;
++            const height = if (t.rows > 0) t.height_px / t.rows else 0;
++            return .{
++                .terminal = if (width == 0 or height == 0)
++                    cell_size
++                else
++                    .{ .width = width, .height = height },
++                .renderer = cell_size,
++            };
++        }
++
++        fn x(self: TerminalScale, value: u32) u32 {
++            return convert(value, self.terminal.width, self.renderer.width);
++        }
++
++        fn y(self: TerminalScale, value: u32) u32 {
++            return convert(value, self.terminal.height, self.renderer.height);
++        }
++
++        fn convert(value: u32, from: u32, to: u32) u32 {
++            if (from == to or from == 0) return value;
++            return std.math.cast(u32, @as(u64, value) * to / from) orelse std.math.maxInt(u32);
++        }
++    };
++
+     fn prepKittyVirtualPlacement(
+         self: *State,
+         alloc: Allocator,
+@@ -1213,6 +1260,54 @@ test "kitty renderer ignores pending payloads and removes replaced placements" {
+     try testing.expect(state.images.get(.{ .kitty = 1 }).?.image.isUnloading());
+ }
+ 
++test "kitty renderer draws a placement in its own cell size" {
++    const testing = std.testing;
++    const alloc = testing.allocator;
++    const io = testing.io;
++
++    // The terminal has 10x20 pixel cells, as on the computer that sets its
++    // size; this renderer draws 5x10 pixel cells.
++    var t = try terminal.Terminal.init(io, alloc, .{ .rows = 3, .cols = 3 });
++    defer t.deinit(alloc);
++    t.width_px = 30;
++    t.height_px = 60;
++
++    var state: State = .empty;
++    defer state.deinit(alloc);
++
++    const storage = &t.screens.active.kitty_images;
++    try storage.addImage(io, alloc, t.screens.active, .{
++        .id = 1,
++        .width = 20,
++        .height = 20,
++        .format = .gray,
++        .data = .{ .complete = try alloc.alloc(u8, 400) },
++    });
++    const pin = try t.screens.active.pages.trackPin(
++        t.screens.active.cursor.page_pin.*,
++    );
++    try storage.addPlacement(io, alloc, t.screens.active, 1, 1, .{
++        .location = .{ .pin = pin },
++        .x_offset = 4,
++        .y_offset = 6,
++    });
++
++    // The image covers the same cells: three columns and two rows.
++    state.kittyUpdate(alloc, &t, .{ .width = 5, .height = 10 });
++    const placement = state.kitty_placements.items[0];
++    try testing.expectEqual(@as(u32, 10), placement.width);
++    try testing.expectEqual(@as(u32, 10), placement.height);
++    try testing.expectEqual(@as(u32, 2), placement.cell_offset_x);
++    try testing.expectEqual(@as(u32, 3), placement.cell_offset_y);
++    try testing.expectEqual(@as(u32, 20), placement.source_width);
++
++    // With the terminal's own cell size nothing changes.
++    storage.dirty = true;
++    state.kittyUpdate(alloc, &t, .{ .width = 10, .height = 20 });
++    try testing.expectEqual(@as(u32, 20), state.kitty_placements.items[0].width);
++    try testing.expectEqual(@as(u32, 4), state.kitty_placements.items[0].cell_offset_x);
++}
++
+ test "kitty renderer uses the intersected source rectangle" {
+     const testing = std.testing;
+     const alloc = testing.allocator;
+diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
+index e782bd143..5fce99a8d 100644
+--- a/src/termio/Termio.zig
++++ b/src/termio/Termio.zig
+@@ -540,15 +540,26 @@ pub fn resize(
+         // its redraw cannot be parsed against the old terminal dimensions.
+         try self.backend.resize(grid_size, size.terminal());
+ 
+-        // Update the size of our terminal state
++        // Update the size of our terminal state. A host-managed terminal
++        // takes its cell size from the computer that sets its size, so
++        // images are placed as on that computer; a local resize keeps it.
++        const cell_width, const cell_height = cell: {
++            const t = &self.terminal;
++            if (std.meta.activeTag(self.backend) == .host_managed and
++                t.width_px >= t.cols and t.height_px >= t.rows)
++            {
++                break :cell .{ t.width_px / t.cols, t.height_px / t.rows };
++            }
++            break :cell .{ self.size.cell.width, self.size.cell.height };
++        };
+         try self.terminal.resize(
+             self.alloc,
+             .{
+                 .cols = grid_size.columns,
+                 .rows = grid_size.rows,
+                 .cell_size_px = .{
+-                    .width = self.size.cell.width,
+-                    .height = self.size.cell.height,
++                    .width = cell_width,
++                    .height = cell_height,
+                 },
+             },
+         );
+@@ -756,7 +767,9 @@ pub fn restoreCheckpointLocked(
+                 screen,
+                 self.config.image_storage_limit,
+             );
+-            screen.kitty_images.image_limits = .allWithTempDir(global.tmpDirPath());
++            // The output reaches every view, so images come only in it, and
++            // never from this computer's files or shared memory.
++            screen.kitty_images.image_limits = .direct;
+         }
+     }
+ 
+@@ -795,8 +808,8 @@ pub fn restoreCheckpointLocked(
+         .cell = self.size.cell,
+         .padding = self.size.padding,
+     };
+-    new_terminal.width_px = terminal_width;
+-    new_terminal.height_px = terminal_height;
++    // The restored terminal keeps the host's pixel size from the snapshot,
++    // while this surface draws the same cells at its own cell size.
+ 
+     preCommit(pre_commit_context);
+     var old_terminal = self.terminal;

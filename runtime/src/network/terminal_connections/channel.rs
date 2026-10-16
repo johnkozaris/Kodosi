@@ -408,7 +408,9 @@ pub(super) mod tests {
     /// A checkpoint reads only that record, and these tests restore nothing.
     pub(in crate::network::terminal_connections) fn stand_in_snapshot(length: usize) -> Vec<u8> {
         let mut snapshot = ghostty_vt::Terminal::new(80, 24, ghostty_vt::TerminalPolicy::default())
-            .and_then(|mut terminal| terminal.visible_snapshot(usize::MAX))
+            .and_then(|mut terminal| {
+                terminal.visible_snapshot(crate::terminal::snapshot_limits(u64::MAX))
+            })
             .expect("snapshot");
         snapshot.truncate(length);
         snapshot.extend(noise(length - snapshot.len()));

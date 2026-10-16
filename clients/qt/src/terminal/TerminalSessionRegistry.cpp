@@ -195,8 +195,8 @@ public:
             if (entry->needsCheckpoint.load(std::memory_order_acquire)) {
                 return false;
             }
-            const auto frame = entry->kernel.frame();
-            return frame && frame->nextSequence != nextSequence;
+            const auto applied = entry->kernel.nextSequence();
+            return applied && *applied != nextSequence;
         };
         CheckpointTargets targets {
             .entries = {},
@@ -470,6 +470,28 @@ GhosttyTerminalKernel::Result TerminalSessionRegistry::scrollViewport(
     return result;
 }
 
+bool TerminalSessionRegistry::compressHistory(const TerminalSurfaceIdentity& identity)
+{
+    const auto entry = m_impl->exact(identity);
+    return entry && entry->kernel.compressHistory();
+}
+
+GhosttyTerminalKernel::Result TerminalSessionRegistry::jumpToPrompt(
+    const TerminalSurfaceIdentity& identity,
+    const int prompts)
+{
+    auto entry = m_impl->exact(identity);
+    if (!entry) {
+        return std::unexpected(GhosttyTerminalKernel::Failure {
+            GhosttyTerminalKernel::Failure::Code::StaleSubscription,
+            QStringLiteral("Terminal scrolling belongs to an unregistered surface."),
+        });
+    }
+    auto result = entry->kernel.jumpToPrompt(identity.subscription, prompts);
+    publishFrame(entry, result);
+    return result;
+}
+
 GhosttyTerminalKernel::Result TerminalSessionRegistry::scrollViewportToBottom(
     const TerminalSurfaceIdentity& identity)
 {
@@ -680,10 +702,14 @@ void TerminalSessionRegistry::receiveControl(TerminalControl control) noexcept
         const auto columns = unsignedField( QByteArrayLiteral("cols"));
         const auto atSequence =
             unsignedField( QByteArrayLiteral("atSequence"));
-        if (!rows || !columns || !atSequence || *rows == 0
+        const auto cellWidth = unsignedField(QByteArrayLiteral("cellWidthPixels"));
+        const auto cellHeight = unsignedField(QByteArrayLiteral("cellHeightPixels"));
+        if (!rows || !columns || !atSequence || !cellWidth || !cellHeight || *rows == 0
             || *rows > std::numeric_limits<std::uint16_t>::max()
             || *columns == 0
-            || *columns > std::numeric_limits<std::uint16_t>::max()) {
+            || *columns > std::numeric_limits<std::uint16_t>::max()
+            || *cellWidth > std::numeric_limits<std::uint32_t>::max()
+            || *cellHeight > std::numeric_limits<std::uint32_t>::max()) {
             publishFailureToAll({
                 GhosttyTerminalKernel::Failure::Code::ResourceLimit,
                 QStringLiteral("Terminal resize control fields are invalid."),
@@ -700,7 +726,9 @@ void TerminalSessionRegistry::receiveControl(TerminalControl control) noexcept
                 control.subscription,
                 *atSequence,
                 static_cast<std::uint16_t>(*rows),
-                static_cast<std::uint16_t>(*columns)));
+                static_cast<std::uint16_t>(*columns),
+                static_cast<std::uint32_t>(*cellWidth),
+                static_cast<std::uint32_t>(*cellHeight)));
         }
     } else if (type == QStringLiteral("term.closed")) {
         const auto finalSequence =

@@ -43,6 +43,21 @@ pub fn computer_name() -> Option<String> {
         .filter(|name| !name.is_empty())
 }
 
+/// The host name of this computer as `gethostname` gives it.
+pub fn host_name() -> Option<String> {
+    imp::host_name().filter(|name| !name.is_empty())
+}
+
+/// The machine ID of this computer (`/etc/machine-id`), where it has one.
+pub fn machine_id() -> Option<String> {
+    if !cfg!(target_os = "linux") {
+        return None;
+    }
+    let id = std::fs::read_to_string("/etc/machine-id").ok()?;
+    let id = id.trim();
+    (id.len() == 32 && id.bytes().all(|byte| byte.is_ascii_hexdigit())).then(|| id.to_owned())
+}
+
 pub fn allow_foreground(pid: u32) {
     imp::allow_foreground(pid);
 }

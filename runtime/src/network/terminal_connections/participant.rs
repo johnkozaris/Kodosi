@@ -436,11 +436,13 @@ impl<T: Transport> Viewer<T> {
             Frame::Resize {
                 rows,
                 cols,
+                cell,
                 at_sequence,
             } => {
                 self.update(RemoteUpdate::Resize {
                     rows,
                     cols,
+                    cell,
                     at_sequence,
                 })
                 .await?;

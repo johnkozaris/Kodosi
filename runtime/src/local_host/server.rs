@@ -289,13 +289,13 @@ async fn serve_terminal(
     )
     .await?;
     let mut next = subscription.next_sequence;
-    let mut controls = std::collections::VecDeque::new();
+    let mut controls = std::collections::VecDeque::<(u16, u16, terminal::CellPixels, u64)>::new();
     let mut closing: Option<(String, u64)> = None;
     let mut admissions = futures_util::stream::FuturesOrdered::<
         futures_util::future::BoxFuture<'static, Result<()>>,
     >::new();
     loop {
-        while let Some(&(rows, cols, at_sequence)) = controls.front() {
+        while let Some(&(rows, cols, cell, at_sequence)) = controls.front() {
             if at_sequence > next {
                 break;
             }
@@ -305,13 +305,7 @@ async fn serve_terminal(
                     "terminal resize crossed output boundary".into(),
                 ));
             }
-            write_frame(
-                &mut writer,
-                &control_frame(
-                    &json!({"type":"resize","rows":rows,"cols":cols,"atSequence":at_sequence}),
-                )?,
-            )
-            .await?;
+            write_frame(&mut writer, &resize_frame(rows, cols, cell, at_sequence)?).await?;
         }
         if let Some((reason, last)) = &closing {
             if *last == next {
@@ -356,9 +350,9 @@ async fn serve_terminal(
                 }
             }
             control=subscription.control.recv(),if closing.is_none()=>match control {
-                Some(terminal::ControlFrame::Resize{rows,cols,at_sequence})=>{
-                    if controls.len()>=32 || controls.back().is_some_and(|&(_,_,at)|at>at_sequence){return Err(Error::Invalid("too many terminal resize boundaries".into()));}
-                    controls.push_back((rows,cols,at_sequence));
+                Some(terminal::ControlFrame::Resize{rows,cols,cell,at_sequence})=>{
+                    if controls.len()>=32 || controls.back().is_some_and(|&(_,_,_,at)|at>at_sequence){return Err(Error::Invalid("too many terminal resize boundaries".into()));}
+                    controls.push_back((rows,cols,cell,at_sequence));
                 }
                 Some(terminal::ControlFrame::Snapshot{checkpoint,next_sequence})=>{
                     if next_sequence<next{return Err(Error::Invalid("terminal snapshot regressed".into()));}

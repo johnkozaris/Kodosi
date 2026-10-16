@@ -43,6 +43,7 @@ let package = Package(
         .target(
             name: "KodosiTerminal",
             dependencies: [
+                "KodosiKit",
                 .product(name: "GhosttyTerminal", package: "ghostty"),
             ],
             swiftSettings: swiftSettings,

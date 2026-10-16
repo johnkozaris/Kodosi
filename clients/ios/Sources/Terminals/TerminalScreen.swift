@@ -136,6 +136,7 @@ private struct TerminalScreenContent: View {
                     shouldFocus: hardwareKeyboard && !composing && controller.canType,
                     allowsFocus: controller.allowsKeyboard,
                     allowsInput: controller.canType,
+                    asksBeforeClipboardRead: !session.isOwner,
                     isSurfaceVisible: controller.presence.watching && controller.renderState == .rendered,
                     onFocusChange: { focused in
                         if focused {

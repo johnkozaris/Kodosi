@@ -37,7 +37,7 @@ struct TerminalSharingSheet: View {
         return List {
             Section {
                 HStack(spacing: 12) {
-                    AgentMark(kind: session.agent, size: 36, activity: session.mark(rested: .awake))
+                    AgentMark(session: session, size: 36, activity: session.mark(rested: .awake))
                         .padding(3)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(session.name)

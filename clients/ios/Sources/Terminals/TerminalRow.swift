@@ -10,7 +10,7 @@ struct TerminalRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AgentMark(kind: session.agent, size: 36, activity: session.mark(rested: session.isConnected ? .awake : .asleep))
+            AgentMark(session: session, size: 36, activity: session.mark(rested: session.isConnected ? .awake : .asleep))
                 .padding(3)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
@@ -79,11 +79,21 @@ struct TerminalCaption: View {
     private var activity: some View {
         let words = session.activity ?? place
         ZStack(alignment: .leading) {
-            Text(words)
-                .foregroundStyle(session.activity == nil ? theme.colors.inkFaint : theme.colors.inkMuted)
-                .shimmer(session.isWorking)
-                .id(words)
+            if session.activity == nil, let runsIn = session.place {
+                HStack(spacing: 4) {
+                    PlaceGlyph(kind: runsIn.kind)
+                    Text(runsIn.name)
+                }
+                .foregroundStyle(theme.colors.inkFaint)
+                .id(runsIn.name)
                 .transition(.blurReplace)
+            } else {
+                Text(words)
+                    .foregroundStyle(session.activity == nil ? theme.colors.inkFaint : theme.colors.inkMuted)
+                    .shimmer(session.isWorking)
+                    .id(words)
+                    .transition(.blurReplace)
+            }
         }
         if let progress = session.progress {
             Text(Double(progress) / 100, format: .percent)

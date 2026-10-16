@@ -1175,7 +1175,7 @@
   "components": [
     {
       "id": "ghostty",
-      "identity": "ghostty:22fa134a07f5749edd9e92c6bc17d8aaf61843be;patch_set:1bc4932bfb881668368c616f2b85778590d6b574c79db07241e360191b425446;patch_application:b3a7a9a4295edfe4765328ed7171d87d6e0f3487329e5c2ff371518d39d93eee",
+      "identity": "ghostty:22fa134a07f5749edd9e92c6bc17d8aaf61843be;patch_set:0fcdab78e07f1c0fe191e9f9f06ab62ac66aaad7b6fdffab40de128d365e5673;patch_application:63e0cc8d2726e42e43cda717b853ad0f87d05631b7f2817b5055a30444420ed7",
       "name": "Ghostty",
       "notices": [
         "LICENSE-GHOSTTY"

@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import GhosttyTerminal
+import KodosiKit
 #if os(iOS)
     import UIKit
 #endif
@@ -279,11 +280,11 @@ public final class TerminalRendererSession: ObservableObject {
         TerminalDebugLog.enable([.lifecycle, .metrics])
     }
 
+    /// The view replays the host's output, so it stores images as the host does.
     nonisolated static let hostManagedPolicyOverrides: [(key: String, value: String)] = [
         ("clipboard-read", "allow"),
         ("clipboard-write", "allow"),
-        ("image-storage-limit", "0"),
-        ("mouse-shift-capture", "never"),
+        ("image-storage-limit", String(KODOSI_TERMINAL_IMAGE_STORAGE_MAX_BYTES)),
     ]
 
     private static func makeConfiguration(style: TerminalStyle) -> TerminalConfiguration {

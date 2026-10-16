@@ -20,7 +20,10 @@ fn session() -> RemoteSession {
 #[cfg(feature = "host")]
 #[test]
 fn the_server_hears_the_agent_and_its_state_but_not_its_text() {
-    use crate::terminal::{BlockedKind, ProgramState, ProgramStatus, TerminalMetadata};
+    use crate::terminal::{
+        BlockedKind, ContextPlace, PlaceKind, ProgramState, ProgramStatus, TerminalContext,
+        TerminalMetadata,
+    };
     let status = TerminalStatus::of(&TerminalMetadata {
         connected_users: vec![],
         directory: Some("/Users/someone/private".into()),
@@ -32,6 +35,13 @@ fn the_server_hears_the_agent_and_its_state_but_not_its_text() {
             progress: None,
             title: Some("Bash".into()),
             message: Some("rm -rf build".into()),
+        }),
+        context: Some(TerminalContext {
+            place: Some(ContextPlace {
+                kind: PlaceKind::Remote,
+                name: "private-server".into(),
+            }),
+            root: true,
         }),
     });
     let bytes = serde_json::to_vec(&status).unwrap();

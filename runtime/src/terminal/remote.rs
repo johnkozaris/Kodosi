@@ -19,8 +19,8 @@ use uuid::Uuid;
 use super::subscribers::{DATA_CAPACITY, MAX_RAW_BYTES, Subscribers};
 use super::validation::validate_terminal_checkpoint;
 use super::{
-    Checkpoint, ControlFrame, DataFrame, SessionChange, Subscription, TerminalPixelGeometry,
-    TerminalSize,
+    CellPixels, Checkpoint, ControlFrame, DataFrame, SessionChange, Subscription,
+    TerminalPixelGeometry, TerminalSize,
 };
 use crate::{
     Error, Result,
@@ -293,7 +293,7 @@ struct RemoteActor {
     next_sequence: Option<u64>,
     delivered: u64,
     recent: VecDeque<DataFrame>,
-    size: Option<TerminalSize>,
+    grid: Option<(TerminalSize, CellPixels)>,
     last_resize: Option<u64>,
     future_checkpoint: Option<CheckpointCut>,
     resyncing: bool,
@@ -329,7 +329,7 @@ impl RemoteActor {
             next_sequence: None,
             delivered: 0,
             recent: VecDeque::new(),
-            size: None,
+            grid: None,
             last_resize: None,
             future_checkpoint: None,
             resyncing: false,
@@ -437,16 +437,17 @@ impl RemoteActor {
         self.request_capture().await
     }
 
-    fn geometry(&mut self, size: TerminalSize, cut: u64) {
-        if self.size.is_some_and(|previous| previous != size) {
+    fn geometry(&mut self, size: TerminalSize, cell: CellPixels, cut: u64) {
+        if self.grid.is_some_and(|previous| previous != (size, cell)) {
             self.subscribers.control(&ControlFrame::Resize {
                 rows: size.rows(),
                 cols: size.cols(),
+                cell,
                 at_sequence: cut,
             });
             self.last_resize = Some(cut);
         }
-        self.size = Some(size);
+        self.grid = Some((size, cell));
     }
 
     fn fulfill(&mut self, checkpoint: &Checkpoint, cut: u64) {
@@ -549,7 +550,7 @@ impl RemoteActor {
                     .is_some_and(|cut| cut.next_sequence == next)
                     && let Some(cut) = self.future_checkpoint.take()
                 {
-                    self.geometry(cut.checkpoint.size(), next);
+                    self.geometry(cut.checkpoint.size(), cut.checkpoint.cell(), next);
                     self.fulfill(&cut.checkpoint, next);
                 }
             }
@@ -559,7 +560,7 @@ impl RemoteActor {
             } => {
                 validate_terminal_checkpoint(&checkpoint)?;
                 if let Some(metadata) = checkpoint.metadata.clone() {
-                    self.metadata = Some(metadata);
+                    self.metadata = Some(*metadata);
                 }
                 self.capture_requested = false;
                 match self.next_sequence {
@@ -571,7 +572,7 @@ impl RemoteActor {
                                 next_sequence: cut,
                             });
                         }
-                        self.geometry(checkpoint.size(), cut);
+                        self.geometry(checkpoint.size(), checkpoint.cell(), cut);
                     }
                     Some(current) if cut > current => {
                         if self
@@ -586,7 +587,9 @@ impl RemoteActor {
                         }
                         return Ok(());
                     }
-                    Some(current) if cut == current => self.geometry(checkpoint.size(), cut),
+                    Some(current) if cut == current => {
+                        self.geometry(checkpoint.size(), checkpoint.cell(), cut);
+                    }
                     Some(_) => {}
                 }
                 self.fulfill(&checkpoint, cut);
@@ -595,6 +598,7 @@ impl RemoteActor {
             RemoteUpdate::Resize {
                 rows,
                 cols,
+                cell,
                 at_sequence,
             } => {
                 if self.next_sequence != Some(at_sequence) {
@@ -604,7 +608,7 @@ impl RemoteActor {
                 }
                 let size = TerminalSize::new(rows, cols)
                     .map_err(|error| Error::Invalid(error.to_string()))?;
-                self.geometry(size, at_sequence);
+                self.geometry(size, cell, at_sequence);
             }
             RemoteUpdate::Resync => self.reset(),
             RemoteUpdate::Ended | RemoteUpdate::Closed { .. } => return Err(Error::Stopped),

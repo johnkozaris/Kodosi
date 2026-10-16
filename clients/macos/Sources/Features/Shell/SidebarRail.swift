@@ -47,7 +47,7 @@ struct SidebarRail: View {
                         {
                             deps.activateSession(session.id)
                         } content: {
-                            AgentMark(kind: session.agent, size: 26, activity: deps.activity(of: session))
+                            AgentMark(session: session, size: 26, activity: deps.activity(of: session))
                                 .overlay(alignment: .topTrailing) {
                                     if let sign = deps.sign(of: session) {
                                         StatusSign(form: sign, size: 9, backing: theme.colors.ground).offset(x: 5, y: -5)

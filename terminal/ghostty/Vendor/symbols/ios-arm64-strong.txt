@@ -1505,6 +1505,7 @@ _ghostty_snapshot_decoder_set
 _ghostty_snapshot_encode
 _ghostty_snapshot_encode_alloc
 _ghostty_snapshot_encode_buf
+_ghostty_snapshot_encode_options
 _ghostty_string_free
 _ghostty_style_default
 _ghostty_style_is_default
