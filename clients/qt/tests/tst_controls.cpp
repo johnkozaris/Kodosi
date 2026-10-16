@@ -24,6 +24,7 @@ private slots:
     void keyboardFocusTracksButtonState();
     void modalControlsSuppressNativeTerminalAccessibility();
     void terminalCloseConfirmsAndMinimizeOnlyHidesView();
+    void clipboardReadAnswersOnceTheTerminalTakesInputAgain();
     void missionCreationHasOneNameField();
     void messageTextKeepsSpacesEscapesMarkupAndSkipsYourself();
 };
@@ -149,6 +150,60 @@ void ControlsTest::modalControlsSuppressNativeTerminalAccessibility()
     QTRY_VERIFY(!desktop.modalOpen());
     QVERIFY(terminal->isEnabled());
     QVERIFY(!accessible->text(QAccessible::Name).isEmpty());
+}
+
+void ControlsTest::clipboardReadAnswersOnceTheTerminalTakesInputAgain()
+{
+    QTemporaryDir directory;
+    kodosi::AppearanceModel appearance(
+        std::make_unique<QSettings>(directory.filePath(QStringLiteral("appearance.ini")), QSettings::IniFormat),
+        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
+    kodosi::DesktopStateModel desktop(
+        std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat));
+    kodosi::qml::AppearanceModelForeign::instance = &appearance;
+    kodosi::qml::DesktopStateModelForeign::instance = &desktop;
+    QQmlEngine engine;
+    QQmlComponent component(&engine);
+    component.setData(R"(
+        import QtQuick
+        import QtQuick.Controls
+        import Kodosi 1.0
+        import Kodosi.Models 1.0 as Models
+        ApplicationWindow {
+            id: window
+            property var answers: []
+            width: 640; height: 480; visible: true
+            Item {
+                id: stage
+                anchors.fill: parent
+                enabled: !Models.DesktopState.modalOpen
+            }
+            ClipboardReadDialog {
+                objectName: "test.clipboardRead"
+                sessionName: "Copper Otter"
+                onAnswered: allowed => window.answers = window.answers.concat([[allowed, stage.enabled]])
+            }
+        }
+    )", {});
+    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+    std::unique_ptr<QObject> root(component.create());
+    QVERIFY2(root, qPrintable(component.errorString()));
+    auto* dialog = root->findChild<QObject*>(QStringLiteral("test.clipboardRead"));
+    QVERIFY(dialog);
+    const auto answers = [&] { return root->property("answers").toList(); };
+
+    QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
+    QTRY_VERIFY(desktop.modalOpen());
+    QCOMPARE(dialog->property("title").toString(), QStringLiteral("Paste the clipboard into Copper Otter?"));
+    QVERIFY(QMetaObject::invokeMethod(dialog, "accept"));
+    QTRY_COMPARE(answers().size(), 1);
+    QCOMPARE(answers().at(0).toList(), (QVariantList {true, true}));
+
+    QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
+    QTRY_VERIFY(desktop.modalOpen());
+    QVERIFY(QMetaObject::invokeMethod(dialog, "reject"));
+    QTRY_COMPARE(answers().size(), 2);
+    QCOMPARE(answers().at(1).toList(), (QVariantList {false, true}));
 }
 
 void ControlsTest::terminalCloseConfirmsAndMinimizeOnlyHidesView()

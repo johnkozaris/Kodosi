@@ -47,6 +47,7 @@ public:
         std::function<void(TerminalFocusOutcome)> focusCompleted;
         std::function<void(TerminalResizeOutcome)> resizeCompleted;
         std::function<void(GhosttyTerminalKernel::ClipboardWrite)> clipboardWritten;
+        std::function<void(GhosttyTerminalKernel::ClipboardRead)> clipboardRead;
         std::function<void()> closed;
     };
 

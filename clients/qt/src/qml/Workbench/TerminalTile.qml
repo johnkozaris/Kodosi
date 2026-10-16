@@ -284,6 +284,7 @@ Item {
                     const point = terminal.mapToItem(root, x, y);
                     context.popup(point.x, point.y);
                 }
+                onClipboardReadRequested: clipboardRead.open()
                 onOperationError: message => root.terminalOperationError = message
                 onTerminalClosed: root.terminalError = qsTr("The terminal closed.")
                 onTerminalError: message => root.terminalError = message
@@ -456,6 +457,13 @@ Item {
 
             onTriggered: terminal.pasteFromClipboard()
         }
+    }
+    ClipboardReadDialog {
+        id: clipboardRead
+        objectName: root.objectName + ".clipboardRead"
+        sessionName: root.sessionName
+
+        onAnswered: allowed => terminal.answerClipboardRead(allowed)
     }
     CloseTerminalDialog {
         id: closeConfirmation

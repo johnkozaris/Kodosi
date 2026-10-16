@@ -132,6 +132,13 @@ public:
         std::vector<std::pair<QString, QByteArray>> contents;
     };
 
+    /// A program asks for the clipboard with OSC 52. The view that the person types in
+    /// answers it as input, so the program reads the clipboard of that person.
+    struct ClipboardRead {
+        /// The clipboard as OSC 52 names it: `c`, `s` or `p`.
+        char selector = 'c';
+    };
+
     struct HistoryMemory {
         bool compressionSupported = false;
         std::uint64_t residentBytes = 0;
@@ -154,11 +161,14 @@ public:
 
     [[nodiscard]] Result installCheckpoint(const TerminalCheckpoint& checkpoint);
     [[nodiscard]] Result applyData(const TerminalData& data);
+    /// The cell size is the host's, so images cover the same cells as on the host.
     [[nodiscard]] Result applyResize(
         const TerminalSubscription& subscription,
         std::uint64_t atSequence,
         std::uint16_t rows,
-        std::uint16_t columns);
+        std::uint16_t columns,
+        std::uint32_t cellWidth,
+        std::uint32_t cellHeight);
     [[nodiscard]] std::expected<QByteArray, Failure> encodeKey(
         const TerminalSubscription& subscription,
         TerminalKeyEvent event);
@@ -203,6 +213,7 @@ public:
     [[nodiscard]] bool compressHistory();
     [[nodiscard]] HistoryMemory historyMemory() const;
     [[nodiscard]] std::optional<ClipboardWrite> takeClipboardWrite();
+    [[nodiscard]] std::optional<ClipboardRead> takeClipboardRead();
 
 private:
     class Impl;

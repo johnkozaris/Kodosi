@@ -995,6 +995,36 @@ void TerminalView::writeClipboard(GhosttyTerminalKernel::ClipboardWrite write)
     clipboard->setMimeData(data, mode);
 }
 
+void TerminalView::requestClipboardRead(const GhosttyTerminalKernel::ClipboardRead read)
+{
+    // Only the view that the person types in asks, once at a time.
+    if (m_clipboardRead || !hasActiveFocus() || !interactionAvailable() || !m_canSendInput) {
+        return;
+    }
+    m_clipboardRead = read;
+    emit clipboardReadRequested();
+}
+
+void TerminalView::answerClipboardRead(const bool allowed)
+{
+    const auto read = std::exchange(m_clipboardRead, std::nullopt);
+    if (!read) {
+        return;
+    }
+    QByteArray text;
+    auto* clipboard = QGuiApplication::clipboard();
+    const bool standard = read->selector == 'c';
+    if (allowed && clipboard != nullptr && (standard || clipboard->supportsSelection())) {
+        text = clipboard->text(standard ? QClipboard::Clipboard : QClipboard::Selection).toUtf8();
+    }
+    QByteArray reply = QByteArrayLiteral("\x1b]52;");
+    reply += read->selector;
+    reply += ';';
+    reply += text.toBase64();
+    reply += QByteArrayLiteral("\x1b\\");
+    (void)enqueueInput(std::move(reply));
+}
+
 bool TerminalView::copySelection()
 {
     if (m_registry == nullptr) {

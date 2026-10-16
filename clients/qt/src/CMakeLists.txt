@@ -123,6 +123,8 @@ qt_add_library(kodosi-terminal-kernel STATIC
     terminal/TerminalLink.cpp
     terminal/TerminalLink.hpp
     terminal/TerminalFrame.hpp
+    terminal/TerminalImages.cpp
+    terminal/TerminalImages.hpp
     terminal/TerminalRasterizer.cpp
     terminal/TerminalRasterizer.hpp
     terminal/TerminalSessionRegistry.cpp
@@ -275,6 +277,7 @@ qt_add_qml_module(kodosi-ui
         qml/Theme/KodosiTheme.qml
         qml/Theme/Mentions.qml
         qml/Workbench/AgentLauncher.qml
+        qml/Workbench/ClipboardReadDialog.qml
         qml/Workbench/CloseTerminalDialog.qml
         qml/Workbench/EffortMeter.qml
         qml/Workbench/HistoryView.qml

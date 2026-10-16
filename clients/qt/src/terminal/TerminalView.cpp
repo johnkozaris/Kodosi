@@ -631,6 +631,7 @@ bool TerminalView::attach(
             .clipboardWritten = [this, epoch](auto write) {
                 enqueueGuiEvent(epoch, std::move(write));
             },
+            .clipboardRead = [this, epoch](auto read) { enqueueGuiEvent(epoch, read); },
             .closed = [this, epoch] { enqueueGuiEvent(epoch, Closed {}); },
         },
         kernelSettings());
@@ -690,6 +691,7 @@ void TerminalView::detach()
         m_guiDrainQueued = false;
         m_guiOverflow = false;
     }
+    m_clipboardRead.reset();
     auto* registry = std::exchange(m_registry, nullptr);
     auto* runtime = std::exchange(m_runtime, nullptr);
     bool disconnectSubscription = false;
@@ -854,9 +856,11 @@ void TerminalView::enqueueGuiEvent(const std::uint64_t epoch, GuiEvent event)
     std::scoped_lock lock(m_guiEventMutex);
     if (m_attachmentEpoch.load(std::memory_order_acquire) != epoch || m_guiOverflow)
         return;
-    if (std::holds_alternative<GhosttyTerminalKernel::ClipboardWrite>(event)) {
-        std::erase_if(m_guiEvents, [](const GuiEvent& queued) {
-            return std::holds_alternative<GhosttyTerminalKernel::ClipboardWrite>(queued);
+    // A newer clipboard request replaces one of its kind that waits.
+    if (std::holds_alternative<GhosttyTerminalKernel::ClipboardWrite>(event)
+        || std::holds_alternative<GhosttyTerminalKernel::ClipboardRead>(event)) {
+        std::erase_if(m_guiEvents, [&event](const GuiEvent& queued) {
+            return queued.index() == event.index();
         });
     }
     if (m_guiEvents.size() >= 64) {
@@ -905,6 +909,8 @@ void TerminalView::drainGuiEvents(const std::uint64_t epoch)
                 handleResizeOutcome(std::move(value));
             } else if constexpr (std::is_same_v<T, GhosttyTerminalKernel::ClipboardWrite>) {
                 writeClipboard(std::move(value));
+            } else if constexpr (std::is_same_v<T, GhosttyTerminalKernel::ClipboardRead>) {
+                requestClipboardRead(value);
             } else {
                 drainFrame(epoch);
                 if (m_attachmentEpoch.load(std::memory_order_acquire) != epoch) return;

@@ -648,6 +648,9 @@ void TerminalSessionRegistry::receiveData(TerminalData data) noexcept
         if (auto write = entry->kernel.takeClipboardWrite()) {
             publishValue(entry, &Listener::clipboardWritten, std::move(*write));
         }
+        if (auto read = entry->kernel.takeClipboardRead()) {
+            publishValue(entry, &Listener::clipboardRead, *read);
+        }
     }
     if (!current) {
         span.setOutcome(QStringLiteral("inactive"));
@@ -699,10 +702,14 @@ void TerminalSessionRegistry::receiveControl(TerminalControl control) noexcept
         const auto columns = unsignedField( QByteArrayLiteral("cols"));
         const auto atSequence =
             unsignedField( QByteArrayLiteral("atSequence"));
-        if (!rows || !columns || !atSequence || *rows == 0
+        const auto cellWidth = unsignedField(QByteArrayLiteral("cellWidthPixels"));
+        const auto cellHeight = unsignedField(QByteArrayLiteral("cellHeightPixels"));
+        if (!rows || !columns || !atSequence || !cellWidth || !cellHeight || *rows == 0
             || *rows > std::numeric_limits<std::uint16_t>::max()
             || *columns == 0
-            || *columns > std::numeric_limits<std::uint16_t>::max()) {
+            || *columns > std::numeric_limits<std::uint16_t>::max()
+            || *cellWidth > std::numeric_limits<std::uint32_t>::max()
+            || *cellHeight > std::numeric_limits<std::uint32_t>::max()) {
             publishFailureToAll({
                 GhosttyTerminalKernel::Failure::Code::ResourceLimit,
                 QStringLiteral("Terminal resize control fields are invalid."),
@@ -719,7 +726,9 @@ void TerminalSessionRegistry::receiveControl(TerminalControl control) noexcept
                 control.subscription,
                 *atSequence,
                 static_cast<std::uint16_t>(*rows),
-                static_cast<std::uint16_t>(*columns)));
+                static_cast<std::uint16_t>(*columns),
+                static_cast<std::uint32_t>(*cellWidth),
+                static_cast<std::uint32_t>(*cellHeight)));
         }
     } else if (type == QStringLiteral("term.closed")) {
         const auto finalSequence =

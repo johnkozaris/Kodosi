@@ -114,6 +114,9 @@ public:
     void detach();
     Q_INVOKABLE [[nodiscard]] bool copySelectionToClipboard();
     Q_INVOKABLE void pasteFromClipboard();
+    /// Answers the program that asked for the clipboard: with its text when allowed,
+    /// and empty when not.
+    Q_INVOKABLE void answerClipboardRead(bool allowed);
 
 signals:
     void fontFamilyChanged();
@@ -134,6 +137,7 @@ signals:
     void contextMenuRequested(qreal x, qreal y);
     void connectionCompleted(bool connected, std::int32_t result);
     void terminalClosed();
+    void clipboardReadRequested();
 
 protected:
     bool event(QEvent* event) override;
@@ -229,9 +233,10 @@ private:
     struct Closed {};
     using GuiEvent = std::variant<GhosttyTerminalKernel::Failure, std::int32_t,
         TerminalFocusOutcome, TerminalResizeOutcome, GhosttyTerminalKernel::ClipboardWrite,
-        Closed>;
+        GhosttyTerminalKernel::ClipboardRead, Closed>;
     std::mutex m_guiEventMutex;
     std::deque<GuiEvent> m_guiEvents;
+    std::optional<GhosttyTerminalKernel::ClipboardRead> m_clipboardRead;
     bool m_guiDrainQueued = false;
     bool m_guiOverflow = false;
     std::uint64_t m_inputGeneration = 0;
@@ -259,6 +264,7 @@ private:
     void sendText(const QString& text);
     void pasteClipboard();
     void writeClipboard(GhosttyTerminalKernel::ClipboardWrite write);
+    void requestClipboardRead(GhosttyTerminalKernel::ClipboardRead read);
     [[nodiscard]] bool sendKey(QKeyEvent* event, TerminalKeyAction action);
     [[nodiscard]] bool enqueueInput(QByteArray bytes);
     static constexpr int inputBackoffMilliseconds[] {4, 8, 16, 32, 64};
