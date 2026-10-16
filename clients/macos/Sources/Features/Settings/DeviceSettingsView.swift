@@ -39,7 +39,7 @@ struct DeviceSettingsView: View {
                 }
                 ListGroup(title: "Your devices") {
                     ForEach(deps.devices) { device in
-                        ListRow(title(device),
+                        ListRow(device.title,
                                 subtitle: subtitle(device),
                                 symbol: device.recoveryKey ? "key.fill" : DeviceGlyph.symbol(for: device.label),
                                 tint: device.deviceId == deps.selfDeviceId ? TileTint.orange : TileTint.graphite)
@@ -124,7 +124,7 @@ struct DeviceSettingsView: View {
         .animation(theme.motion.spring, value: deps.devices)
         .animation(theme.motion.spring, value: deps.accountDeletion)
         .animation(theme.motion.spring, value: deps.deviceRequests)
-        .confirmationDialog("Remove \(revoke.map(title) ?? "")?", isPresented: Binding(get: { revoke != nil }, set: {
+        .confirmationDialog("Remove \(revoke?.title ?? "")?", isPresented: Binding(get: { revoke != nil }, set: {
             if !$0 {
                 revoke = nil
             }
@@ -132,7 +132,7 @@ struct DeviceSettingsView: View {
             if let device = revoke {
                 Button("Remove", role: .destructive) { deps.perform("devices.revoke", ["deviceId": .string(device.deviceId)]); revoke = nil }
             }
-        } message: { Text(removalMessage) }
+        } message: { Text(revoke?.removalMessage(hasRecoveryKey: hasRecoveryKey) ?? "") }
         .confirmationDialog("Make a new recovery key?", isPresented: $replacingRecoveryKey, titleVisibility: .visible) {
             Button("Make a new key") { deps.perform("devices.recovery.create") }
         } message: { Text("The recovery key that you have now stops working.") }
@@ -163,18 +163,6 @@ struct DeviceSettingsView: View {
 
     private var hasRecoveryKey: Bool {
         deps.devices.contains(where: \.recoveryKey)
-    }
-
-    private var removalMessage: String {
-        if revoke?.recoveryKey == true {
-            return String(localized: "The recovery key stops working. You can make a new one.")
-        }
-        let removal = String(localized: "It disconnects. Approve it again to use it. Commands it already ran stay done.")
-        return hasRecoveryKey ? removal + " " + String(localized: "If it was lost or stolen, also make a new recovery key.") : removal
-    }
-
-    private func title(_ device: MyDeviceEntry) -> String {
-        device.recoveryKey ? String(localized: "Recovery key") : device.label
     }
 
     private func subtitle(_ device: MyDeviceEntry) -> String? {

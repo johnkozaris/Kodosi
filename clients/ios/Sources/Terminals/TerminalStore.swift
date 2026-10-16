@@ -111,9 +111,7 @@ final class TerminalStore {
             if old.incarnationId != value.incarnationId {
                 focus.releaseSession(sessionId: value.id)
             }
-            let finished = old.isWorking && !value.isWorking
-            let waits = value.waitState != nil && value.waitState != old.waitState
-            if value.canCall, finished || waits {
+            if value.drawsAttention(after: old) {
                 noteAttention(value.id)
             }
         }

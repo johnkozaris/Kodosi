@@ -90,7 +90,7 @@ struct DeviceRow: View {
     }
 
     private var title: String {
-        device.recoveryKey ? String(localized: "Recovery key") : device.label
+        device.title
     }
 
     private var addedAt: Date {
@@ -140,16 +140,7 @@ struct DeviceRow: View {
             Button("Remove", role: .destructive) { account.revokeDevice(device) }
                 .accessibilityIdentifier("settings.devices.confirmRemove")
         } message: {
-            Text(removalMessage)
+            Text(device.removalMessage(hasRecoveryKey: account.hasRecoveryKey))
         }
-    }
-
-    private var removalMessage: String {
-        if device.recoveryKey {
-            return String(localized: "The recovery key stops working. You can make a new one.")
-        }
-        let removal = String(localized: "It disconnects. Approve it again to use it. Commands it already ran stay done.")
-        guard account.hasRecoveryKey else { return removal }
-        return removal + " " + String(localized: "If it was lost or stolen, also make a new recovery key.")
     }
 }

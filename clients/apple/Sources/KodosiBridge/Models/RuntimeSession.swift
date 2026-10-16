@@ -108,9 +108,12 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
         status != .closing && connectionState != .blocked
     }
 
-    /// Kodosi calls a person only for the terminals that they own or have open.
     public var canCall: Bool {
         isOwner || isConnected
+    }
+
+    public func drawsAttention(after old: RuntimeSession) -> Bool {
+        canCall && (old.isWorking && !isWorking || waitState != nil && waitState != old.waitState)
     }
 
     public var localDirectory: String? {
