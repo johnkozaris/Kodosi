@@ -17,11 +17,11 @@ struct SessionFolderGroup: Identifiable {
         return directory == nil ? host : "\(name) · \(host)"
     }
 
-    static func computer(of session: RuntimeSession) -> String {
+    private static func computer(of session: RuntimeSession) -> String {
         session.kind == .local ? "local" : session.hostDeviceId ?? session.ownerUserId ?? session.id
     }
 
-    static func host(of session: RuntimeSession) -> String? {
+    private static func host(of session: RuntimeSession) -> String? {
         guard session.kind != .local else { return nil }
         return session.isOwner ? session.hostLabel : "\(session.ownerName ?? String(localized: "Shared")) · \(session.hostLabel)"
     }

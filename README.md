@@ -28,8 +28,6 @@ rooms when you are away.
 started it. Open it from your other devices, along with the terminals friends share
 with you.
 
-<p align="center"><img src="docs/media/overview.webp" width="760" alt="Six terminals on three computers, grouped by computer."></p>
-
 **See which agent needs you.** Each terminal shows when its program works, waits for
 you, is done or failed. A notification tells you when Kodosi is in the background.
 

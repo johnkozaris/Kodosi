@@ -16,8 +16,4 @@ public enum Counted {
     public static func rooms(_ count: Int) -> String {
         count == 1 ? String(localized: "1 room", bundle: .module) : String(localized: "\(count) rooms", bundle: .module)
     }
-
-    public static func computers(_ count: Int) -> String {
-        count == 1 ? String(localized: "1 computer", bundle: .module) : String(localized: "\(count) computers", bundle: .module)
-    }
 }
