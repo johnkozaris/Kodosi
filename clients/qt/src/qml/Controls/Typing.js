@@ -1,5 +1,8 @@
 .pragma library
 
+// The rhythm of a person typing: keys in quick bursts, with a pause before
+// each burst. The same 64 steps repeat; step n falls at time(n), in seconds.
+
 function generator(seed) {
     let state = seed
     return function () {
