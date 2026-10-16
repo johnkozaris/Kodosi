@@ -1,0 +1,172 @@
+diff --git a/include/ghostty/vt/terminal.h b/include/ghostty/vt/terminal.h
+index 4af99161e..e115c8428 100644
+--- a/include/ghostty/vt/terminal.h
++++ b/include/ghostty/vt/terminal.h
+@@ -699,6 +699,24 @@ typedef enum GHOSTTY_ENUM_TYPED {
+   GHOSTTY_CLIPBOARD_LOCATION_MAX_VALUE = GHOSTTY_ENUM_MAX_VALUE,
+ } GhosttyClipboardLocation;
+ 
++/**
++ * The protocol of a clipboard read request.
++ *
++ * An embedder that answers reads through another channel, such as a viewer
++ * that sends the reply to the program as input, writes the reply in the form
++ * of this protocol.
++ *
++ * @ingroup terminal
++ */
++typedef enum GHOSTTY_ENUM_TYPED {
++  /** OSC 52. */
++  GHOSTTY_CLIPBOARD_PROTOCOL_OSC_52 = 0,
++
++  /** The Kitty clipboard protocol (OSC 5522). */
++  GHOSTTY_CLIPBOARD_PROTOCOL_KITTY = 1,
++  GHOSTTY_CLIPBOARD_PROTOCOL_MAX_VALUE = GHOSTTY_ENUM_MAX_VALUE,
++} GhosttyClipboardProtocol;
++
+ /**
+  * One MIME representation in a clipboard write.
+  *
+@@ -1034,6 +1052,9 @@ struct GhosttyClipboardRead {
+ 
+   /** Answer the read; see the struct documentation. */
+   GhosttyClipboardReadReplyFn reply;
++
++  /** The protocol of the request. */
++  GhosttyClipboardProtocol protocol;
+ };
+ 
+ /**
+diff --git a/src/terminal/c/terminal.zig b/src/terminal/c/terminal.zig
+index 06cab9b24..f6bd34968 100644
+--- a/src/terminal/c/terminal.zig
++++ b/src/terminal/c/terminal.zig
+@@ -164,6 +164,7 @@ pub const ClipboardRead = extern struct {
+     /// Terminal-owned reply state; opaque to the embedder.
+     ctx: *const anyopaque,
+     reply: ClipboardReadReplyFn,
++    protocol: clipboard.Protocol,
+ };
+ 
+ /// C function pointer type for replying to a clipboard read.
+@@ -572,6 +573,7 @@ const Effects = struct {
+             .can_remember = read.can_remember,
+             .ctx = &ctx,
+             .reply = &clipboardReadReplyTrampoline,
++            .protocol = read.protocol,
+         };
+         func(@ptrCast(wrapper), wrapper.effects.userdata, &request);
+     }
+@@ -6010,6 +6012,7 @@ test "kitty clipboard write via C effects" {
+         var last_name_len: usize = 0;
+         var last_granted: bool = true;
+         var last_can_remember: bool = true;
++        var last_protocol: clipboard.Protocol = .osc_52;
+ 
+         fn clipboardRead(
+             _: Terminal,
+@@ -6017,6 +6020,7 @@ test "kitty clipboard write via C effects" {
+             request: *const ClipboardRead,
+         ) callconv(lib.calling_conv) void {
+             count += 1;
++            last_protocol = request.protocol;
+             last_mimes_len = request.mimes_len;
+             last_mime_is_text = request.mimes_len > 0 and std.mem.eql(
+                 u8,
+@@ -6052,6 +6056,7 @@ test "kitty clipboard write via C effects" {
+     const read2 = "\x1B]5522;type=read:id=r2:name=YXBw;dGV4dC9wbGFpbg==\x1B\\";
+     vt_write(t, read2, read2.len);
+     try testing.expectEqual(@as(usize, 1), R.count);
++    try testing.expectEqual(clipboard.Protocol.kitty, R.last_protocol);
+     try testing.expectEqual(@as(usize, 1), R.last_mimes_len);
+     try testing.expect(R.last_mime_is_text);
+     try testing.expect(!R.last_list);
+@@ -6172,6 +6177,7 @@ test "set clipboard_read callback" {
+         var last_name_len: usize = 1;
+         var last_granted: bool = true;
+         var last_can_remember: bool = true;
++        var last_protocol: clipboard.Protocol = .kitty;
+         var result: clipboard.Read.Status = .success;
+ 
+         fn deinit() void {
+@@ -6202,6 +6208,7 @@ test "set clipboard_read callback" {
+             last_name_len = request.name.len;
+             last_granted = request.granted;
+             last_can_remember = request.can_remember;
++            last_protocol = request.protocol;
+ 
+             const mime: []const u8 = "text/plain";
+             const data: []const u8 = "hello";
+@@ -6244,6 +6251,7 @@ test "set clipboard_read callback" {
+     try testing.expectEqual(0, S.last_name_len);
+     try testing.expect(!S.last_granted);
+     try testing.expect(!S.last_can_remember);
++    try testing.expectEqual(clipboard.Protocol.osc_52, S.last_protocol);
+     try testing.expectEqualStrings("\x1B]52;p;aGVsbG8=\x07", S.last_data.?);
+ 
+     // Denied replies with an empty clipboard.
+diff --git a/src/terminal/c/types.zig b/src/terminal/c/types.zig
+index bed63799a..09b476fc3 100644
+--- a/src/terminal/c/types.zig
++++ b/src/terminal/c/types.zig
+@@ -262,6 +262,7 @@ const type_decls = [_]TypeDecl{
+     .initEnum("GhosttyCellSemanticContent", cell.SemanticContent, "GHOSTTY_CELL_SEMANTIC_"),
+     .initEnum("GhosttyCellWide", cell.Wide, "GHOSTTY_CELL_WIDE_"),
+     .initEnum("GhosttyClipboardLocation", clipboard.Location, "GHOSTTY_CLIPBOARD_LOCATION_"),
++    .initEnum("GhosttyClipboardProtocol", clipboard.Protocol, "GHOSTTY_CLIPBOARD_PROTOCOL_"),
+     .initEnum("GhosttyClipboardReadResult", clipboard.Read.Status, "GHOSTTY_CLIPBOARD_READ_RESULT_"),
+     .initEnum("GhosttyClipboardWriteResult", clipboard.Write.Status, "GHOSTTY_CLIPBOARD_WRITE_RESULT_"),
+     .initEnum("GhosttyColorScheme", device_status.ColorScheme, "GHOSTTY_COLOR_SCHEME_"),
+diff --git a/src/terminal/clipboard.zig b/src/terminal/clipboard.zig
+index 0a1c5a7ae..2584e55c5 100644
+--- a/src/terminal/clipboard.zig
++++ b/src/terminal/clipboard.zig
+@@ -8,6 +8,18 @@ pub const Location = enum(c_int) {
+     _,
+ };
+ 
++/// The protocol of a clipboard read. A terminal that answers reads through
++/// another channel, such as a viewer that sends the reply as input, needs it
++/// to write the reply that the program expects.
++pub const Protocol = enum(c_int) {
++    /// OSC 52.
++    osc_52 = 0,
++
++    /// The Kitty clipboard protocol (OSC 5522).
++    kitty = 1,
++    _,
++};
++
+ /// MIME types that name plain text across the platforms terminals run
+ /// on. We accept the union everywhere since serving text under any of these
+ /// names is harmless.
+@@ -156,6 +168,9 @@ pub const Write = struct {
+ pub const Read = struct {
+     location: Location,
+ 
++    /// The protocol of the request.
++    protocol: Protocol,
++
+     /// The MIME types the program wants, in order of preference. The
+     /// reply should carry every requested representation the clipboard
+     /// has; unrequested ones are ignored. Protocols that only carry text
+diff --git a/src/terminal/stream_terminal.zig b/src/terminal/stream_terminal.zig
+index 8b5e5e502..34f2b65eb 100644
+--- a/src/terminal/stream_terminal.zig
++++ b/src/terminal/stream_terminal.zig
+@@ -1083,6 +1083,7 @@ pub const Handler = struct {
+         };
+         func(self, .{
+             .location = location,
++            .protocol = .osc_52,
+             .mimes = &.{"text/plain"},
+             .list = false,
+             .name = "",
+@@ -1266,6 +1267,7 @@ pub const Handler = struct {
+         };
+         func(self, .{
+             .location = meta.loc,
++            .protocol = .kitty,
+             .mimes = mimes,
+             .list = list,
+             .name = meta.name,
