@@ -1,7 +1,6 @@
 import CoreGraphics
 import Foundation
 
-/// The color of a cell: the strong copper of a fresh keystroke, or a mix from copper (0) to the soft track (1).
 enum CellInk: Hashable, Sendable {
     case strong
     case mix(Double)
@@ -26,13 +25,11 @@ struct CellKey<Value: Equatable & Sendable>: Equatable, Sendable {
     var value: Value
 }
 
-/// One period of a rim or line that types: the keys of each cell and of the cursor, which is nil while it is dark.
 struct CellTrackFrames: Equatable, Sendable {
     var period: TimeInterval
     var cells: [[CellKey<CellInk>]]
     var cursor: [CellKey<Int?>]
 
-    /// The cursor types round the rim, and each cell cools after the cursor leaves it.
     static func rim(count: Int) -> CellTrackFrames {
         let steps = TypingSteps(lap: count)
         let cells = (0 ..< count).map { cell in
@@ -54,7 +51,6 @@ struct CellTrackFrames: Equatable, Sendable {
         return CellTrackFrames(period: steps.period, cells: cells, cursor: merged(cursor))
     }
 
-    /// The cursor types along the line, waits six beats past its end and starts again on a clear line.
     static func line(count: Int) -> CellTrackFrames {
         let lap = count + 6
         let steps = TypingSteps(lap: lap)
@@ -69,7 +65,6 @@ struct CellTrackFrames: Equatable, Sendable {
         return CellTrackFrames(period: steps.period, cells: cells, cursor: merged(cursor))
     }
 
-    /// The still rim of reduced motion: the cursor rests on the first cell with a short trail behind it.
     static func stillRim(count: Int) -> [CellInk] {
         (0 ..< count).map { cell in
             let ago = (count - cell) % count
@@ -128,7 +123,6 @@ struct CellTrackFrames: Equatable, Sendable {
     }
 }
 
-/// The keystrokes of one period: a whole number of laps of at least 64 strokes, so that the period repeats seamlessly.
 private struct TypingSteps {
     let times: [TimeInterval]
     let heads: [Int]
@@ -156,7 +150,6 @@ private struct TypingSteps {
     }
 }
 
-/// The rhythm of a person typing: bursts of quick keys between short pauses, the same on every device.
 enum TypingCadence {
     static func gaps(_ count: Int) -> [TimeInterval] {
         var state: UInt64 = 0x2545_F491_4F6C_DD1D
@@ -179,7 +172,6 @@ enum TypingCadence {
     }
 }
 
-/// Where the cells and the cursor of a rim or a line sit, in points from the top left of the layer.
 struct CellTrackShape: Equatable, Sendable {
     var cells: [CGRect]
     var cellRadius: CGFloat

@@ -1,7 +1,6 @@
 import QuartzCore
 import SwiftUI
 
-/// A light that passes over the text of an action in progress, 30 times a second.
 private struct Shimmer: ViewModifier {
     @Environment(\.theme) private var theme
     let active: Bool
@@ -268,7 +267,6 @@ struct Breath: Hashable {
 }
 
 public struct CursorBlock: View {
-    /// How the cursor blinks: not at all, a slow fade, or as a terminal cursor that rests lit after each change.
     public enum Blink: Hashable, Sendable {
         case steady, fading, typing
     }

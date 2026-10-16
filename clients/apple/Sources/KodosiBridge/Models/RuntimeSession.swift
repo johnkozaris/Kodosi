@@ -16,7 +16,6 @@ public struct ProgramStatus: Decodable, Equatable, Sendable {
     }
 }
 
-/// A terminal's title without the status glyph that its program animates, so that a new frame of it is no change.
 public struct ProgramTitle: Decodable, Equatable, Sendable {
     public let words: String?
     public let spinning: Bool
@@ -33,14 +32,11 @@ public struct ProgramTitle: Decodable, Equatable, Sendable {
     }
 }
 
-/// Where the program of a terminal runs when it is not the terminal's own computer, and
-/// whether it runs as root, from the contexts that programs report (OSC 3008).
 public struct TerminalContext: Decodable, Equatable, Sendable {
     public let place: TerminalPlace?
     public let root: Bool
 }
 
-/// The other computer, container or virtual machine that a program runs in.
 public struct TerminalPlace: Decodable, Equatable, Sendable {
     public enum Kind: String, Decodable, Sendable { case remote, container, vm }
 
@@ -115,7 +111,6 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
         isWorking ? programStatus?.progress : nil
     }
 
-    /// The other computer, container or virtual machine that the program runs in.
     public var place: TerminalPlace? {
         context?.place
     }

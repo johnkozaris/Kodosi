@@ -39,7 +39,6 @@ public extension RuntimeSession {
         AgentKind(program: program)
     }
 
-    /// Where the program runs, as a line for a row or a tooltip.
     var placeLabel: String? {
         guard let place else { return nil }
         return switch place.kind {
@@ -51,7 +50,6 @@ public extension RuntimeSession {
 }
 
 public extension AgentMark {
-    /// The mark of a terminal's program, with a root prompt when it runs as root.
     init(session: RuntimeSession, size: CGFloat = 22, activity: Activity = .awake) {
         self.init(kind: session.agent, size: size, activity: activity, root: session.runsAsRoot)
     }

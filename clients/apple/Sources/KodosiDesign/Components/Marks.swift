@@ -108,7 +108,6 @@ public struct AgentMark: View {
     public let kind: AgentKind
     public var size: CGFloat = 22
     public var activity: Activity = .awake
-    /// A shell that runs as root shows a root prompt.
     public var root = false
 
     public init(kind: AgentKind, size: CGFloat = 22, activity: Activity = .awake, root: Bool = false) {
@@ -377,8 +376,6 @@ public struct RoomSigil: View {
     }
 }
 
-/// The glyph of the place a program runs in: another computer, a container or a virtual
-/// machine.
 public struct PlaceGlyph: View {
     public let kind: TerminalPlace.Kind
 

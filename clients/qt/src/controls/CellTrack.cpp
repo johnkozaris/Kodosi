@@ -92,8 +92,6 @@ public:
 
     [[nodiscard]] double length() const { return m_length; }
 
-    // The point at `at` of the way round, clockwise from the middle of the top edge, and
-    // the direction of travel there.
     [[nodiscard]] Spot place(double at) const
     {
         const double right = m_left + m_width;

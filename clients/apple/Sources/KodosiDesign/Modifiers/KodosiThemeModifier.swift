@@ -40,7 +40,6 @@ private struct KodosiThemeModifier: ViewModifier {
 }
 
 #if os(macOS)
-    /// Reports whether any part of the window shows on a screen, so that no animation runs in a hidden window.
     private struct WindowVisibility: NSViewRepresentable {
         @Binding var visible: Bool
 

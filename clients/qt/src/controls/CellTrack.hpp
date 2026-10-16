@@ -15,7 +15,6 @@ namespace kodosi {
 
 namespace cells {
 
-// The strong copper of a fresh keystroke, or a mix from copper (0) to the soft track (1).
 struct Ink {
     bool strong = false;
     double mix = 1;
@@ -25,7 +24,6 @@ struct Ink {
     friend bool operator==(const Ink&, const Ink&) = default;
 };
 
-// The cursor is -1 while it is dark.
 struct Frame {
     std::vector<Ink> inks;
     int cursor = -1;
@@ -40,8 +38,6 @@ struct Shape {
     double cursorRadius = 0;
 };
 
-// The rhythm of a person typing: the same 64 keystrokes repeat, in bursts of quick keys
-// with a pause before each burst.
 [[nodiscard]] std::int64_t strokeAt(double seconds);
 [[nodiscard]] double strokeTime(std::int64_t stroke);
 
