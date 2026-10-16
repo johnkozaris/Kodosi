@@ -64,11 +64,6 @@ QVariantList SessionCatalogModel::sessions() const
     return result;
 }
 
-bool SessionCatalogModel::working() const
-{
-    return std::any_of(m_sessions.cbegin(), m_sessions.cend(), isWorking);
-}
-
 void SessionCatalogModel::clearAttention(const QString& id)
 {
     if (m_attention.removeAll(id) > 0)

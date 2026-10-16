@@ -239,7 +239,6 @@ Item {
                                     ShimmerText {
                                         visible: card.sessions.length > 0
                                         text: card.working ? qsTr("Working") : Identity.count(card.sessions.length, qsTr("1 terminal"), qsTr("%1 terminals"))
-                                        active: card.working
                                         color: KodosiTheme.inkMuted
                                         font.pixelSize: KodosiTheme.fontFootnote
                                     }

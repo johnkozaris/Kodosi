@@ -395,7 +395,6 @@ Item {
 
             Wordmark {
                 size: 16
-                blinks: Models.Sessions.working
             }
             Item { Layout.fillWidth: true }
             KIconButton {

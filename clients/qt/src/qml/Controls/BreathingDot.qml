@@ -25,8 +25,8 @@ Item {
         ParallelAnimation {
             running: !KodosiTheme.reduceMotion && KodosiTheme.shown && root.visible
             loops: Animation.Infinite
-            NumberAnimation { target: ring; property: "scale"; from: 1; to: 2.4; duration: 1600; easing.type: Easing.OutQuad }
-            NumberAnimation { target: ring; property: "opacity"; from: 0.55; to: 0; duration: 1600; easing.type: Easing.OutQuad }
+            ScaleAnimator { target: ring; from: 1; to: 2.4; duration: 1600; easing.type: Easing.OutQuad }
+            OpacityAnimator { target: ring; from: 0.55; to: 0; duration: 1600; easing.type: Easing.OutQuad }
             onStopped: ring.opacity = 0
         }
     }

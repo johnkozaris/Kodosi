@@ -37,3 +37,5 @@ kodosi_test(kodosi-accessibility-scope-tests tst_accessibility_scope.cpp)
 
 kodosi_test(kodosi-control-tests tst_controls.cpp)
 target_link_libraries(kodosi-control-tests PRIVATE kodosi-uiplugin)
+kodosi_test(kodosi-cell-track-tests tst_cell_track.cpp)
+target_link_libraries(kodosi-cell-track-tests PRIVATE kodosi-ui)
