@@ -53,7 +53,6 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
         model.Entity<DeviceList>(e =>
         {
             e.ToTable("device_lists"); e.HasKey(x => x.UserId);
-            e.Property(x => x.SignerDeviceId).HasMaxLength(256);
             e.Property(x => x.Generation).IsConcurrencyToken();
             e.HasOne<User>().WithOne().HasForeignKey<DeviceList>(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
         });

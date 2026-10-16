@@ -288,7 +288,7 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
     }
     private static void UpdateList(DeviceList stored, SignedDeviceList list, byte[] bytes, byte[] signature)
     {
-        stored.Generation = list.Generation; stored.SignerDeviceId = list.SignerDeviceId;
+        stored.Generation = list.Generation;
         stored.Body = bytes; stored.Signature = signature; stored.IssuedAtMs = list.IssuedAtMs; stored.ExpiresAtMs = list.ExpiresAtMs;
     }
 
