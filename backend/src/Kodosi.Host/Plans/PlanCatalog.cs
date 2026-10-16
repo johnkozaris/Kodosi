@@ -3,20 +3,15 @@ using Kodosi.Data;
 
 namespace Kodosi.Plans;
 
-/// <summary>The most that one account can have. A null value has no limit.</summary>
+// A null limit is no limit.
 public sealed record PlanLimits(int Devices, int OwnedRooms, int RoomPeople, int SharePeople, long? RoomBytes,
     int? Friends, int SentFriendRequests, int? ReceivedFriendRequests)
 {
-    /// <summary>The limits of a server without plans, and the highest value that a plan can set.</summary>
     public static readonly PlanLimits Safety = new(Devices: 10, OwnedRooms: Limits.MaxMissionsPerUser,
         RoomPeople: Limits.MaxMissionMembers + 1, SharePeople: Limits.MaxSessionMembers, RoomBytes: null,
         Friends: null, SentFriendRequests: 64, ReceivedFriendRequests: null);
 }
 
-/// <summary>
-/// The plans of this server (setting <c>Plans</c>). Each account has the plan in <c>users.Plan</c>, or the
-/// default plan. A server without plans gives each account the safety limits.
-/// </summary>
 public sealed class PlanCatalog
 {
     public const int MostDevices = 16;
@@ -41,7 +36,6 @@ public sealed class PlanCatalog
         return (name, plans[name]);
     }
 
-    /// <summary>The limits of an account. An account that the request has already read costs no query.</summary>
     public async Task<PlanLimits> LimitsAsync(KodosiDbContext db, Guid userId, CancellationToken ct)
         => For((await db.Users.FindAsync([userId], ct))?.Plan).Limits;
 

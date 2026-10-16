@@ -9,7 +9,7 @@ namespace Kodosi.Sessions;
 
 public sealed class SessionService(KodosiDbContext db, ConnectionDirectory connections, MissionService missions, TimeProvider clock, PlanCatalog plans)
 {
-    /// <summary>How long the record of an ended terminal stays, so that a late request cannot use its identity again.</summary>
+    // The record of an ended terminal stays so that a late request cannot reuse its identity.
     public static readonly TimeSpan EndedRecordLife = TimeSpan.FromMinutes(2);
 
     public async Task<Session> AuthorizedAsync(Guid id, Guid userId, CancellationToken ct) =>
@@ -166,10 +166,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         connections.Notify(await TerminalAccess.PeopleAsync(db, id, ct), "sessions");
     }
 
-    /// <summary>
-    /// The accepted friends among <paramref name="people"/>, with their friendships locked until the transaction ends,
-    /// so that an unfriend at the same time waits and then also removes this share.
-    /// </summary>
+    // FOR SHARE: an unfriend at the same time waits, and then removes this share too.
     private async Task<List<Guid>> LockFriendshipsAsync(Guid userId, Guid[] people, CancellationToken ct) =>
         (await db.Friendships.FromSqlInterpolated($"""
             SELECT * FROM friendships WHERE "Accepted"

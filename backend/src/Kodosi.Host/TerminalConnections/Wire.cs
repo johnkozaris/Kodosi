@@ -74,7 +74,6 @@ internal sealed record ClosedNotice(Guid Pipe, int Status, string Message) : Ser
 [JsonSerializable(typeof(ServerMessage))]
 internal sealed partial class WireJson : JsonSerializerContext;
 
-/// <summary>The JSON messages of a device connection. A device writes the type in any position.</summary>
 internal static class Wire
 {
     public static readonly byte[] Ready = Encode(new ReadyNotice());
@@ -86,7 +85,6 @@ internal static class Wire
         JsonSerializer.Deserialize(message, WireJson.Default.DeviceMessage) ?? throw ApiException.Invalid("Unknown connection message.");
 }
 
-/// <summary>Reads whole WebSocket messages into one buffer, which the next read reuses.</summary>
 internal sealed class MessageReader(WebSocket socket) : IDisposable
 {
     private const int Usual = 16 * 1024;
@@ -98,7 +96,6 @@ internal sealed class MessageReader(WebSocket socket) : IDisposable
 
     public ReadOnlyMemory<byte> Memory => buffer.AsMemory(0, Length);
 
-    /// <summary>Reads the next message; null at a close.</summary>
     public async ValueTask<WebSocketMessageType?> ReadAsync(int maximum, CancellationToken ct)
     {
         if (buffer.Length > Usual) Replace(ArrayPool<byte>.Shared.Rent(Usual), 0);

@@ -4,17 +4,12 @@ using Kodosi.Devices;
 
 namespace Kodosi.Accounts;
 
-/// <summary>The account of a signed-in request.</summary>
 public sealed record SignedIn(User User)
 {
     public static async ValueTask<SignedIn?> BindAsync(HttpContext context) =>
         new(await context.RequestServices.GetRequiredService<CurrentUser>().GetAsync(context, context.RequestAborted));
 }
 
-/// <summary>
-/// The account and the approved device of a request that proves a device session. A request that changes data checks
-/// its device in the turn of its account, so that a device that an earlier write removed cannot write.
-/// </summary>
 public sealed record DeviceCaller(User User, ApprovedDevice Device)
 {
     public static async ValueTask<DeviceCaller?> BindAsync(HttpContext context)
@@ -32,7 +27,6 @@ public sealed record DeviceCaller(User User, ApprovedDevice Device)
     }
 }
 
-/// <summary>A device that renews the signed device list of its account. The list may have expired.</summary>
 public sealed record RenewingDevice(User User, ApprovedDevice Device)
 {
     public static async ValueTask<RenewingDevice?> BindAsync(HttpContext context)

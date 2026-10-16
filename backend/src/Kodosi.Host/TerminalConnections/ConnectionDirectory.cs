@@ -2,11 +2,6 @@ using System.Collections.Concurrent;
 
 namespace Kodosi.TerminalConnections;
 
-/// <summary>
-/// The live routes of the server: the device connections of each account, the hosted terminals and the pipes between
-/// a viewer and a host. One lock guards the routes; a relayed frame only reads the pipe table, which needs no lock.
-/// Messages and closes go out after the lock is released, in the order that the lock gave them.
-/// </summary>
 public sealed class ConnectionDirectory
 {
     internal const int MaximumDeviceConnections = 20_000;
@@ -54,7 +49,6 @@ public sealed class ConnectionDirectory
     public void NotifyContent(IEnumerable<Guid> users, Guid roomId, long sequence) =>
         Send(users, Wire.Encode(new ChangedNotice("rooms", roomId, sequence)));
 
-    /// <summary>Tells the people of a terminal whether its host is online and what its program reports, except the hosting device itself.</summary>
     public void NotifyTerminal(Guid sessionId, Guid incarnationId, Guid ownerId, string hostDeviceId, IEnumerable<Guid> people)
     {
         var (online, status) = Live(sessionId);
@@ -185,7 +179,6 @@ public sealed class ConnectionDirectory
         ending.Apply(this);
     }
 
-    /// <summary>Copies a frame to the other device of its pipe. Returns the copied bytes, or zero when the frame went nowhere.</summary>
     internal int Relay(DeviceConnection from, Guid pipeId, ReadOnlySpan<byte> frame)
     {
         if (!pipes.TryGetValue(pipeId, out var pipe)) return 0;
@@ -205,7 +198,6 @@ public sealed class ConnectionDirectory
         return 0;
     }
 
-    /// <summary>Closes the pipes of the viewers that <paramref name="keep"/> refuses, and tells the host to check its viewers again.</summary>
     public void Revoke(Guid sessionId, Func<Guid, string, bool> keep)
     {
         var ending = new Ending();
@@ -226,7 +218,6 @@ public sealed class ConnectionDirectory
         lock (sync) accounts.GetValueOrDefault(userId)?.GetValueOrDefault(deviceId)?.Connection.ExtendUntil(expires);
     }
 
-    /// <summary>Ends every route and closes each connection with "service restart", so that devices connect again.</summary>
     public void StopAll()
     {
         DeviceConnection[] all;
@@ -296,7 +287,7 @@ public sealed class ConnectionDirectory
         public HashSet<Guid> Pipes { get; } = [];
     }
 
-    /// <summary>The effects of one change, applied after the lock: closed pipes, aborted connections and changed terminals.</summary>
+    // Messages and closes go out after the lock is released, in the order that the lock gave them.
     private sealed class Ending
     {
         public List<(Pipe Pipe, int Status, string Message, DeviceConnection? Silent)> Pipes { get; } = [];

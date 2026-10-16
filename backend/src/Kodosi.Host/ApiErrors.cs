@@ -9,7 +9,6 @@ internal sealed record ErrorBody(string Error);
 
 internal sealed record LimitBody(string Error, string Limit);
 
-/// <summary>Gives each failed request the error answer of the contract, and logs what the server did not expect.</summary>
 internal sealed partial class ApiErrors(RequestDelegate next, ServerMetrics metrics, ILogger<ApiErrors> logger)
 {
     public async Task InvokeAsync(HttpContext context)
@@ -68,7 +67,6 @@ internal sealed partial class ApiErrors(RequestDelegate next, ServerMetrics metr
     private static partial void Unexpected(ILogger logger, Exception error);
 }
 
-/// <summary>How the server classifies a database failure.</summary>
 internal static class Failures
 {
     public static bool IsDatabaseUnavailable(Exception error) => error switch

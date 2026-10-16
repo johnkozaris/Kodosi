@@ -4,19 +4,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.Missions;
 
-/// <summary>One person in one room: the owner or a member, and an invitee when asked.</summary>
 internal sealed class RoomPerson
 {
     public Guid MissionId { get; init; }
     public Guid UserId { get; init; }
 }
 
-/// <summary>
-/// The people of each room. Each read of room membership uses this one query, and PostgreSQL applies its filter in
-/// each branch, so that each branch uses its index.
-/// </summary>
 internal static class RoomMembership
 {
+    // One UNION ALL query: PostgreSQL pushes each filter into every branch, so each branch uses its index.
     public static IQueryable<RoomPerson> People(KodosiDbContext db, bool invited = false)
     {
         var people = db.Missions.Select(x => new RoomPerson { MissionId = x.Id, UserId = x.OwnerUserId })
@@ -30,7 +26,6 @@ internal static class RoomMembership
     public static IQueryable<Guid> PeopleOf(KodosiDbContext db, Guid roomId, bool invited = false) =>
         People(db, invited).Where(x => x.MissionId == roomId).Select(x => x.UserId);
 
-    /// <summary>Tells the people of each room of the account that the room changed, for example after a change of its devices.</summary>
     public static async Task NotifyRoomsOfAsync(KodosiDbContext db, ConnectionDirectory connections, Guid userId, CancellationToken ct)
     {
         var rooms = RoomsOf(db, userId);

@@ -17,7 +17,6 @@ public sealed partial class MissionService
 
     public const int RoomPublicKeyLength = 1184 + 32;
 
-    /// <summary>The most recipient keys in one key state: each person of a room, with each device and the recovery key.</summary>
     internal const int MaxRoomRecipients = (PlanCatalog.MostDevices + 1) * (Limits.MaxMissionMembers + 1);
 
     internal static (byte[] Key, byte[] Signature) ValidRoomKey(Guid userId, string deviceId, byte[] signingKey, RecipientKeyWrite request)
@@ -53,7 +52,6 @@ public sealed partial class MissionService
         return keys.Select(key => new { key.UserId, key.DeviceId, publicKey = Convert.ToBase64String(key.PublicKey), signature = Convert.ToBase64String(key.Signature) });
     }
 
-    /// <summary>The key states after a version, in order and up to a byte budget; the first one always comes.</summary>
     public async Task<object> KeyHistoryAsync(Guid id, Guid userId, long afterVersion, CancellationToken ct)
     {
         var room = await db.Missions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw ApiException.Missing();
@@ -87,7 +85,6 @@ public sealed partial class MissionService
         connections.Notify(await MemberIdsAsync(id, ct), "rooms", id);
     }
 
-    /// <summary>Checks a new key state that needs no database state, before the room is locked.</summary>
     private async Task<PreparedKeys?> PrepareKeysAsync(Guid userId, RoomKeyWrite? request, CancellationToken ct)
     {
         if (request is null) return null;

@@ -3,10 +3,6 @@ using Npgsql;
 
 namespace Kodosi.Data;
 
-/// <summary>
-/// The connection strings of the Kodosi database. The pool has at most <see cref="DefaultMaxPoolSize"/> connections
-/// unless the connection string sets Maximum Pool Size. The lease uses its own connection outside the pool.
-/// </summary>
 public sealed class DatabaseConnection
 {
     public const int DefaultMaxPoolSize = 32;

@@ -5,10 +5,6 @@ using System.Text;
 
 namespace Kodosi.Security;
 
-/// <summary>
-/// The device sessions and challenges of the one serving process. A check of a session reads without a lock. The
-/// server keeps only a hash of each session secret, and removes expired entries once each minute.
-/// </summary>
 public sealed class DeviceSessions(TimeProvider clock)
 {
     private const int ChallengesForEachUser = 16;
@@ -133,7 +129,6 @@ public sealed class DeviceSessions(TimeProvider clock)
 
     private sealed record Session(Guid UserId, string DeviceId, DateTimeOffset ExpiresAt);
 
-    /// <summary>The SHA-256 of a session secret, so that the memory of the server never holds the secret itself.</summary>
     private readonly record struct SessionKey(UInt128 First, UInt128 Second)
     {
         public static SessionKey Of(string secret)

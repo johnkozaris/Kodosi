@@ -222,10 +222,6 @@ internal static partial class ConnectionEndpoints
     private static partial void Flooded(ILogger logger, Guid account, string device);
 }
 
-/// <summary>
-/// The messages that one device connection can send: a burst, then a steady number each second. The control burst fits
-/// a reconnect with the most terminals and views; a message that reads the database costs more.
-/// </summary>
 internal struct TokenBucket(double burst, double eachSecond, TimeProvider clock)
 {
     private readonly double burst = burst;

@@ -18,10 +18,7 @@ public sealed class AccountGate
 
     public async ValueTask<IDisposable> EnterAsync(Guid account, CancellationToken cancellationToken) => await TakeAsync(account, cancellationToken);
 
-    /// <summary>
-    /// Gives a request that changes data the turn of its account, once for each request. The writes of one account happen
-    /// one after another, and a device check made in the turn stays true until the handler returns. A read gets no turn.
-    /// </summary>
+    // The writes of one account run one at a time, so a device check made in the turn holds until the handler returns.
     internal async ValueTask<IDisposable?> AdmitAsync(HttpContext context)
     {
         if (HttpMethods.IsGet(context.Request.Method)) return null;

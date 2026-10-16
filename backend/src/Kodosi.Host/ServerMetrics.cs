@@ -4,7 +4,6 @@ using Kodosi.TerminalConnections;
 
 namespace Kodosi;
 
-/// <summary>The meter of the server. The totals also feed the report that the server logs each minute.</summary>
 public sealed class ServerMetrics
 {
     public const string MeterName = "Kodosi.Server";
@@ -45,7 +44,6 @@ public sealed class ServerMetrics
     internal readonly record struct Totals(long Relayed, long Refused, long Limited, long Failed);
 }
 
-/// <summary>Logs one line each minute with the load of the server, so that an operator sees it without a metrics system.</summary>
 internal sealed partial class ServerReport(ServerMetrics metrics, ConnectionDirectory connections, DeviceSessions sessions, TimeProvider clock,
     ILogger<ServerReport> logger) : PeriodicWork(TimeSpan.FromMinutes(1), clock, logger)
 {

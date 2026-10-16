@@ -26,7 +26,6 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
         return new ApprovedDevice(deviceId, userId, found.SigningPublicKey, found.IssuedAtMs, found.ExpiresAtMs);
     }
 
-    /// <summary>The devices of the candidates that are approved now, in two queries for all of them.</summary>
     public async Task<HashSet<(Guid UserId, string DeviceId)>> ApprovedAsync(IReadOnlyCollection<(Guid UserId, string DeviceId)> candidates, CancellationToken ct)
     {
         var ids = candidates.Select(x => x.DeviceId).Distinct().ToArray();
@@ -179,7 +178,6 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
         await RoomMembership.NotifyRoomsOfAsync(db, connections, userId, ct);
     }
 
-    /// <summary>Allows the caller to read the identity of a person who is a friend, shares a terminal with the caller, or shares a room.</summary>
     public async Task RequireRelationAsync(Guid callerId, Guid userId, CancellationToken ct)
     {
         if (callerId == userId) return;
