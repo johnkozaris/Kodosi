@@ -2,7 +2,7 @@
 <component type="desktop-application">
   <id>com.kodosi.Kodosi</id>
   <name>Kodosi</name>
-  <summary>Local terminals with trusted device and friend access</summary>
+  <summary>Shared terminals and rooms for people and their coding agents</summary>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
   <developer id="com.kodosi">

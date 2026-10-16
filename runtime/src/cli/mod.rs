@@ -19,7 +19,7 @@ mod terminal;
 #[command(
     name = "kodosi",
     version = env!("KODOSI_VERSION"),
-    about = "Real terminals on your machines, shared with trusted people."
+    about = "Shared terminals and rooms for people and their coding agents."
 )]
 struct Arguments {
     #[arg(long, global = true)]

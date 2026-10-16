@@ -126,7 +126,7 @@ set(CPACK_PACKAGE_NAME "kodosi")
 set(CPACK_PACKAGE_VENDOR "Kodosi")
 set(CPACK_PACKAGE_CONTACT "support@kodosi.com")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
-    "Local terminals with trusted device and friend access"
+    "Shared terminals and rooms for people and their coding agents"
 )
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
 set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")

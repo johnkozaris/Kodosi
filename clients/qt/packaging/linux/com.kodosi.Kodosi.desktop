@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Kodosi
-Comment=Local terminals with trusted device and friend access
+Comment=Shared terminals and rooms for people and their coding agents
 Exec=kodosi-qt %u
 Icon=com.kodosi.Kodosi
 Terminal=false
