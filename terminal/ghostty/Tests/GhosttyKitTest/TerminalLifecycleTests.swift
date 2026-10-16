@@ -241,14 +241,20 @@ struct TerminalLifecycleTests {
         coordinator.configuration = .init(session: session)
         coordinator.controller = controller
         let pasteboard = NSPasteboard.general
-        let previous = pasteboard.string(forType: .string)
+        let saved = (pasteboard.pasteboardItems ?? []).map { item in
+            let copy = NSPasteboardItem()
+            for type in item.types {
+                if let data = item.data(forType: type) {
+                    copy.setData(data, forType: type)
+                }
+            }
+            return copy
+        }
         defer {
             coordinator.freeSurface()
             window.contentView = nil
             pasteboard.clearContents()
-            if let previous {
-                pasteboard.setString(previous, forType: .string)
-            }
+            pasteboard.writeObjects(saved)
         }
         let output = { (bytes: String) in
             #expect(session.receive(Data(bytes.utf8)))
