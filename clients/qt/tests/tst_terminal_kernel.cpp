@@ -269,6 +269,17 @@ QString frameText(const kodosi::TerminalFrame& frame)
     return text;
 }
 
+QByteArray markedPrompts(const int count)
+{
+    QByteArray output;
+    for (int prompt = 0; prompt < count; ++prompt) {
+        const auto number = QByteArray::number(prompt);
+        output += "\x1b]133;A\x07$ \x1b]133;B\x07" "cmd-" + number + "\r\n\x1b]133;C\x07";
+        output += "out-" + number + "a\r\nout-" + number + "b\r\n\x1b]133;D;0\x07";
+    }
+    return output + "\x1b]133;A\x07$ \x1b]133;B\x07";
+}
+
 void makeTerminalReady(
     kodosi::TerminalSessionRegistry& registry,
     const kodosi::TerminalSubscription& subscription)
@@ -314,6 +325,8 @@ private slots:
     void consoleCheckpointKeepsHistoryOnResize();
     void synchronizedOutputShowsOnlyFinishedFrames();
     void synchronizedOutputThatNeverEndsShowsAfterOneSecond();
+    void promptJumpsMoveBetweenMarkedPrompts();
+    void promptJumpKeysMoveTheViewWithoutTerminalInput();
     void registryConsumesNormativeControlWireWithoutLosingU64Precision();
     void rasterizerPreservesTerminalCellBackgrounds();
     void rasterizerUsesBrandedSelectionAndPreeditPalette();
@@ -3685,6 +3698,92 @@ void TerminalKernelTest::synchronizedOutputThatNeverEndsShowsAfterOneSecond()
     const auto next = kernel.applyData({subscription, 3, QByteArrayLiteral("!")});
     QVERIFY(next);
     QVERIFY(frameText(**next).contains(QStringLiteral("stuck later!")));
+}
+
+void TerminalKernelTest::promptJumpsMoveBetweenMarkedPrompts()
+{
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("session"),
+        QStringLiteral("subscription"),
+        2,
+    };
+    kodosi::GhosttyTerminalKernel unmarked;
+    QVERIFY(unmarked.installCheckpoint({
+        subscription,
+        1,
+        4,
+        20,
+        checkpointFor(QByteArrayLiteral("start"), 20, 4),
+    }));
+    QByteArray plain;
+    for (int line = 0; line < 20; ++line) {
+        plain += "plain-" + QByteArray::number(line) + "\r\n";
+    }
+    const auto plainFrame = unmarked.applyData({subscription, 1, plain});
+    QVERIFY(plainFrame);
+    const auto unmoved = unmarked.jumpToPrompt(subscription, -1);
+    QVERIFY(unmoved);
+    QCOMPARE(*unmoved, *plainFrame);
+
+    kodosi::GhosttyTerminalKernel kernel;
+    QVERIFY(kernel.installCheckpoint({
+        subscription,
+        1,
+        4,
+        20,
+        checkpointFor(QByteArrayLiteral("start"), 20, 4),
+    }));
+    const auto bottom = kernel.applyData({subscription, 1, markedPrompts(6)});
+    QVERIFY(bottom);
+    QVERIFY(frameText(**bottom).startsWith(QStringLiteral("$ cmd-5")));
+
+    const auto previous = kernel.jumpToPrompt(subscription, -1);
+    QVERIFY(previous);
+    QVERIFY(frameText(**previous).startsWith(QStringLiteral("$ cmd-4")));
+    const auto earlier = kernel.jumpToPrompt(subscription, -2);
+    QVERIFY(earlier);
+    QVERIFY(frameText(**earlier).startsWith(QStringLiteral("$ cmd-2")));
+    const auto later = kernel.jumpToPrompt(subscription, 1);
+    QVERIFY(later);
+    QVERIFY(frameText(**later).startsWith(QStringLiteral("$ cmd-3")));
+}
+
+void TerminalKernelTest::promptJumpKeysMoveTheViewWithoutTerminalInput()
+{
+    kodosi::TerminalSessionRegistry registry;
+    FakeTerminalDispatcher dispatcher;
+    kodosi::TerminalView view(m_window.contentItem());
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("prompt-view"),
+        QStringLiteral("prompt-view-subscription"),
+        23,
+    };
+    view.setWidth(400);
+    view.setHeight(160);
+    view.setTerminalInteraction(true, false);
+    QVERIFY(view.attach(
+        registry,
+        dispatcher,
+        subscription,
+        QStringLiteral("prompt-view-incarnation")));
+    QVERIFY(registry.installCheckpoint({
+        subscription,
+        1,
+        4,
+        20,
+        checkpointFor(markedPrompts(6), 20, 4),
+    }));
+    registry.receiveConnectResult({subscription, ffiOk});
+    QCoreApplication::processEvents();
+    QVERIFY(view.accessibleText().startsWith(QStringLiteral("$ cmd-5")));
+
+    QKeyEvent up(QEvent::KeyPress, Qt::Key_Up, Qt::ControlModifier | Qt::ShiftModifier);
+    QCoreApplication::sendEvent(&view, &up);
+    QTRY_VERIFY_WITH_TIMEOUT(view.accessibleText().startsWith(QStringLiteral("$ cmd-4")), 250);
+    QKeyEvent down(QEvent::KeyPress, Qt::Key_Down, Qt::ControlModifier | Qt::ShiftModifier);
+    QCoreApplication::sendEvent(&view, &down);
+    QTRY_VERIFY_WITH_TIMEOUT(view.accessibleText().startsWith(QStringLiteral("$ cmd-5")), 250);
+    QCOMPARE(dispatcher.inputCommands.size(), 0);
 }
 
 void TerminalKernelTest::consoleCheckpointKeepsHistoryOnResize()

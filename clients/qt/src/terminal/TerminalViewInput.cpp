@@ -248,6 +248,21 @@ std::optional<TerminalKey> terminalKey(const QKeyEvent* event)
     }
 }
 
+int promptJump(const QKeyEvent* event)
+{
+    if (event->modifiers() != (Qt::ControlModifier | Qt::ShiftModifier)) {
+        return 0;
+    }
+    switch (event->key()) {
+    case Qt::Key_Up:
+        return -1;
+    case Qt::Key_Down:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
 bool isPasteShortcut(const QKeyEvent* event)
 {
     const auto modifiers = event->modifiers();
@@ -285,6 +300,13 @@ void TerminalView::keyPressEvent(QKeyEvent* event)
         && event->modifiers().testFlags(Qt::ControlModifier | Qt::ShiftModifier)) {
         m_copyShortcutActive = true;
         (void)copySelection();
+        event->accept();
+        return;
+    }
+    if (const auto prompts = promptJump(event); prompts != 0) {
+        if (auto jumped = m_registry->jumpToPrompt(surfaceIdentity(), prompts); !jumped) {
+            emit operationError(jumped.error().message);
+        }
         event->accept();
         return;
     }

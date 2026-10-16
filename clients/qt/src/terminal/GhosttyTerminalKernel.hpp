@@ -167,6 +167,9 @@ public:
         int rows);
     [[nodiscard]] Result scrollViewportToBottom(
         const TerminalSubscription& subscription);
+    [[nodiscard]] Result jumpToPrompt(
+        const TerminalSubscription& subscription,
+        int prompts);
     [[nodiscard]] std::expected<QString, Failure> linkAt(
         const TerminalSubscription& subscription,
         std::uint64_t viewportRevision,

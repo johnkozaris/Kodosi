@@ -807,6 +807,75 @@ public:
             displayRevision);
     }
 
+    std::optional<Failure> refuseViewportMove(const TerminalSubscription& candidate) const
+    {
+        if (!admitted || failed) {
+            return Failure {
+                Failure::Code::MissingCheckpoint,
+                QStringLiteral("Terminal scrolling requires an admitted checkpoint."),
+            };
+        }
+        if (!sameSubscription(candidate, subscription)) {
+            return Failure {
+                Failure::Code::StaleSubscription,
+                QStringLiteral("Terminal scrolling belongs to a stale subscription."),
+            };
+        }
+        if (viewportRevision == std::numeric_limits<std::uint64_t>::max()
+            || displayRevision == std::numeric_limits<std::uint64_t>::max()) {
+            return Failure {
+                Failure::Code::ResourceLimit,
+                QStringLiteral("Terminal display revision is exhausted."),
+            };
+        }
+        return std::nullopt;
+    }
+
+    Result moveViewport(const GhosttyTerminalScrollViewport& move)
+    {
+        GhosttyTerminalScrollbar before {};
+        auto result = ghostty_terminal_get(
+            terminal.value,
+            GHOSTTY_TERMINAL_DATA_SCROLLBAR,
+            &before);
+        if (result != GHOSTTY_SUCCESS) {
+            failed = true;
+            return std::unexpected(ghosttyFailure(QStringLiteral("terminal scrollbar"), result));
+        }
+        ghostty_terminal_scroll_viewport(terminal.value, move);
+        GhosttyTerminalScrollbar after {};
+        result = ghostty_terminal_get(
+            terminal.value,
+            GHOSTTY_TERMINAL_DATA_SCROLLBAR,
+            &after);
+        if (result != GHOSTTY_SUCCESS) {
+            failed = true;
+            return std::unexpected(ghosttyFailure(QStringLiteral("terminal scrollbar"), result));
+        }
+        if (after.offset == before.offset) {
+            return currentFrame;
+        }
+        result = refreshSelection();
+        if (result != GHOSTTY_SUCCESS) {
+            failed = true;
+            return std::unexpected(ghosttyFailure(QStringLiteral("selection refresh"), result));
+        }
+        ++viewportRevision;
+        ++displayRevision;
+        auto nextFrame = extractFrame(
+            terminal.value,
+            renderState.value,
+            nextSequence,
+            viewportRevision,
+            displayRevision);
+        if (!nextFrame) {
+            failed = true;
+            return nextFrame;
+        }
+        currentFrame = *nextFrame;
+        return currentFrame;
+    }
+
     GhosttyResult releaseExpiredRenderHold()
     {
         if (!renderHeldSince
@@ -1432,119 +1501,40 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::scrollViewport(
     const int rows)
 {
     std::scoped_lock lock(m_impl->mutex);
-    if (!m_impl->admitted || m_impl->failed) {
-        return std::unexpected(Failure {
-            Failure::Code::MissingCheckpoint,
-            QStringLiteral("Terminal scrolling requires an admitted checkpoint."),
-        });
+    if (auto refused = m_impl->refuseViewportMove(subscription)) {
+        return std::unexpected(std::move(*refused));
     }
-    if (!sameSubscription(subscription, m_impl->subscription)) {
-        return std::unexpected(Failure {
-            Failure::Code::StaleSubscription,
-            QStringLiteral("Terminal scrolling belongs to a stale subscription."),
-        });
-    }
-    if (rows == 0) {
-        return m_impl->currentFrame;
-    }
-    const auto* frame = m_impl->currentFrame.get();
-    if (frame != nullptr
-        && ((rows < 0 && frame->scroll.viewportOffset == 0)
-            || (rows > 0
-                && frame->scroll.viewportOffset + frame->scroll.viewportRows
-                    >= frame->scroll.totalRows))) {
-        return m_impl->currentFrame;
-    }
-    if (m_impl->viewportRevision == std::numeric_limits<std::uint64_t>::max()
-        || m_impl->displayRevision == std::numeric_limits<std::uint64_t>::max()) {
-        return std::unexpected(Failure {
-            Failure::Code::ResourceLimit,
-            QStringLiteral("Terminal display revision is exhausted."),
-        });
-    }
-
-    GhosttyTerminalScrollViewport scroll {
+    return m_impl->moveViewport({
         .tag = GHOSTTY_SCROLL_VIEWPORT_DELTA,
         .value = {.delta = static_cast<intptr_t>(rows)},
-    };
-    ghostty_terminal_scroll_viewport(m_impl->terminal.value, scroll);
-    const auto selectionResult = m_impl->refreshSelection();
-    if (selectionResult != GHOSTTY_SUCCESS) {
-        m_impl->failed = true;
-        return std::unexpected(
-            ghosttyFailure(QStringLiteral("selection refresh"), selectionResult));
-    }
-    ++m_impl->viewportRevision;
-    ++m_impl->displayRevision;
-    auto nextFrame = extractFrame(
-        m_impl->terminal.value,
-        m_impl->renderState.value,
-        m_impl->nextSequence,
-        m_impl->viewportRevision,
-        m_impl->displayRevision);
-    if (!nextFrame) {
-        m_impl->failed = true;
-        return nextFrame;
-    }
-    m_impl->currentFrame = *nextFrame;
-    return m_impl->currentFrame;
+    });
 }
 
 GhosttyTerminalKernel::Result GhosttyTerminalKernel::scrollViewportToBottom(
     const TerminalSubscription& subscription)
 {
     std::scoped_lock lock(m_impl->mutex);
-    if (!m_impl->admitted || m_impl->failed) {
-        return std::unexpected(Failure {
-            Failure::Code::MissingCheckpoint,
-            QStringLiteral("Terminal scrolling requires an admitted checkpoint."),
-        });
+    if (auto refused = m_impl->refuseViewportMove(subscription)) {
+        return std::unexpected(std::move(*refused));
     }
-    if (!sameSubscription(subscription, m_impl->subscription)) {
-        return std::unexpected(Failure {
-            Failure::Code::StaleSubscription,
-            QStringLiteral("Terminal scrolling belongs to a stale subscription."),
-        });
-    }
-    const auto* frame = m_impl->currentFrame.get();
-    if (frame != nullptr
-        && frame->scroll.viewportOffset + frame->scroll.viewportRows
-            >= frame->scroll.totalRows) {
-        return m_impl->currentFrame;
-    }
-    if (m_impl->viewportRevision == std::numeric_limits<std::uint64_t>::max()
-        || m_impl->displayRevision == std::numeric_limits<std::uint64_t>::max()) {
-        return std::unexpected(Failure {
-            Failure::Code::ResourceLimit,
-            QStringLiteral("Terminal display revision is exhausted."),
-        });
-    }
-
-    GhosttyTerminalScrollViewport scroll {
+    return m_impl->moveViewport({
         .tag = GHOSTTY_SCROLL_VIEWPORT_BOTTOM,
         .value = {},
-    };
-    ghostty_terminal_scroll_viewport(m_impl->terminal.value, scroll);
-    const auto selectionResult = m_impl->refreshSelection();
-    if (selectionResult != GHOSTTY_SUCCESS) {
-        m_impl->failed = true;
-        return std::unexpected(
-            ghosttyFailure(QStringLiteral("selection refresh"), selectionResult));
+    });
+}
+
+GhosttyTerminalKernel::Result GhosttyTerminalKernel::jumpToPrompt(
+    const TerminalSubscription& subscription,
+    const int prompts)
+{
+    std::scoped_lock lock(m_impl->mutex);
+    if (auto refused = m_impl->refuseViewportMove(subscription)) {
+        return std::unexpected(std::move(*refused));
     }
-    ++m_impl->viewportRevision;
-    ++m_impl->displayRevision;
-    auto nextFrame = extractFrame(
-        m_impl->terminal.value,
-        m_impl->renderState.value,
-        m_impl->nextSequence,
-        m_impl->viewportRevision,
-        m_impl->displayRevision);
-    if (!nextFrame) {
-        m_impl->failed = true;
-        return nextFrame;
-    }
-    m_impl->currentFrame = *nextFrame;
-    return m_impl->currentFrame;
+    return m_impl->moveViewport({
+        .tag = GHOSTTY_SCROLL_VIEWPORT_DELTA_PROMPT,
+        .value = {.delta_prompt = static_cast<intptr_t>(prompts)},
+    });
 }
 
 std::expected<QString, GhosttyTerminalKernel::Failure>

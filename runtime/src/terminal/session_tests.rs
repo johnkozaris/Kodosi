@@ -17,6 +17,7 @@ async fn shell(
         PathBuf::from("/bin/sh"),
         vec!["-c".to_owned(), script.to_owned()],
         directory,
+        None,
         changes,
     )
     .await
@@ -345,6 +346,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         32,
         120,
         &[],
+        None,
     )
     .expect("pty");
     let (_commands, command_rx) = mpsc::channel(1);
@@ -520,6 +522,7 @@ async fn a_command_runs_only_while_the_shell_is_at_its_prompt() {
         PathBuf::from("/bin/sh"),
         vec!["-i".to_owned()],
         kodosi_os::fs::canonicalize(root.path()).expect("canonical cwd"),
+        None,
         changes,
     )
     .await
@@ -569,6 +572,7 @@ async fn a_start_line_runs_once_the_shell_waits_at_its_prompt() {
         PathBuf::from(program),
         arguments,
         kodosi_os::fs::canonicalize(root.path()).expect("canonical cwd"),
+        None,
         changes,
     )
     .await
@@ -796,6 +800,7 @@ async fn title_delivery_retries_after_the_change_channel_is_full() {
             r"printf '\033]0;Final title\007'; exec /bin/cat".into(),
         ],
         root.path().to_owned(),
+        None,
         changes,
     )
     .await

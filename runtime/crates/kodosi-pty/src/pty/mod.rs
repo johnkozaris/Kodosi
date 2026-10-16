@@ -3,6 +3,8 @@ use std::path::Path;
 use crate::{KodosiError, Result};
 
 #[cfg(unix)]
+mod prompt_marks;
+#[cfg(unix)]
 mod unix;
 #[cfg(unix)]
 pub use unix::{KodosiPty, PtyReader};

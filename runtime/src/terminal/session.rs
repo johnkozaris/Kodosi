@@ -83,6 +83,7 @@ impl LocalSession {
         program: PathBuf,
         arguments: Vec<String>,
         directory: PathBuf,
+        prompt_marks: Option<PathBuf>,
         changes: mpsc::Sender<SessionChange>,
     ) -> Result<Self> {
         let size = TerminalSize::default();
@@ -106,6 +107,7 @@ impl LocalSession {
                 size.rows(),
                 size.cols(),
                 &environment,
+                prompt_marks.as_deref(),
             )?;
             Ok((emulator, pty, reader))
         })

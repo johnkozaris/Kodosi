@@ -1063,6 +1063,7 @@ async fn create_session(
         program,
         arguments,
         directory.clone(),
+        Some(config.data_root.join("shell")),
         changes,
     )
     .await

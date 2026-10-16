@@ -470,6 +470,22 @@ GhosttyTerminalKernel::Result TerminalSessionRegistry::scrollViewport(
     return result;
 }
 
+GhosttyTerminalKernel::Result TerminalSessionRegistry::jumpToPrompt(
+    const TerminalSurfaceIdentity& identity,
+    const int prompts)
+{
+    auto entry = m_impl->exact(identity);
+    if (!entry) {
+        return std::unexpected(GhosttyTerminalKernel::Failure {
+            GhosttyTerminalKernel::Failure::Code::StaleSubscription,
+            QStringLiteral("Terminal scrolling belongs to an unregistered surface."),
+        });
+    }
+    auto result = entry->kernel.jumpToPrompt(identity.subscription, prompts);
+    publishFrame(entry, result);
+    return result;
+}
+
 GhosttyTerminalKernel::Result TerminalSessionRegistry::scrollViewportToBottom(
     const TerminalSurfaceIdentity& identity)
 {
