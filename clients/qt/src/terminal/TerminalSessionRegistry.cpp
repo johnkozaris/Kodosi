@@ -470,6 +470,12 @@ GhosttyTerminalKernel::Result TerminalSessionRegistry::scrollViewport(
     return result;
 }
 
+bool TerminalSessionRegistry::compressHistory(const TerminalSurfaceIdentity& identity)
+{
+    const auto entry = m_impl->exact(identity);
+    return entry && entry->kernel.compressHistory();
+}
+
 GhosttyTerminalKernel::Result TerminalSessionRegistry::jumpToPrompt(
     const TerminalSurfaceIdentity& identity,
     const int prompts)

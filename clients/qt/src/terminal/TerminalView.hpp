@@ -190,6 +190,7 @@ private:
     int m_scrollbackLines = 10'000;
     TerminalRasterizer::Palette m_palette;
     QTimer m_cursorBlinkTimer;
+    QTimer m_historyCompressionTimer;
     QMetaObject::Connection m_windowVisibilityConnection;
     bool m_cursorPhaseVisible = true;
     GhosttyTerminalKernel::Frame m_frame;

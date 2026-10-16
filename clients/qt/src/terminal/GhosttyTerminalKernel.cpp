@@ -990,6 +990,15 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
         return std::unexpected(
             ghosttyFailure(QStringLiteral("snapshot decoder creation"), result));
     }
+    const bool compressHistory = true;
+    result = ghostty_snapshot_decoder_set(
+        decoder.value,
+        GHOSTTY_SNAPSHOT_DECODER_OPT_COMPRESS_HISTORY,
+        &compressHistory);
+    if (result != GHOSTTY_SUCCESS) {
+        return std::unexpected(
+            ghosttyFailure(QStringLiteral("snapshot history compression"), result));
+    }
     result = ghostty_snapshot_decoder_ready(decoder.value, &candidateTerminal.value);
     if (result != GHOSTTY_SUCCESS || candidateTerminal.value == nullptr) {
         return std::unexpected(ghosttyFailure(QStringLiteral("snapshot restore"), result));
@@ -1987,6 +1996,39 @@ std::optional<std::uint64_t> GhosttyTerminalKernel::nextSequence() const
 {
     std::scoped_lock lock(m_impl->mutex);
     return m_impl->admitted ? std::optional {m_impl->nextSequence} : std::nullopt;
+}
+
+bool GhosttyTerminalKernel::compressHistory()
+{
+    std::scoped_lock lock(m_impl->mutex);
+    if (!m_impl->admitted || m_impl->failed) {
+        return false;
+    }
+    auto progress = GHOSTTY_TERMINAL_COMPRESSION_RESULT_COMPLETE;
+    const auto result = ghostty_terminal_compress(
+        m_impl->terminal.value,
+        GHOSTTY_TERMINAL_COMPRESSION_MODE_INCREMENTAL,
+        &progress);
+    return result == GHOSTTY_SUCCESS && progress == GHOSTTY_TERMINAL_COMPRESSION_RESULT_PENDING;
+}
+
+GhosttyTerminalKernel::HistoryMemory GhosttyTerminalKernel::historyMemory() const
+{
+    std::scoped_lock lock(m_impl->mutex);
+    auto usage = GHOSTTY_INIT_SIZED(GhosttyTerminalMemoryUsage);
+    if (!m_impl->admitted
+        || ghostty_terminal_get(
+               m_impl->terminal.value,
+               GHOSTTY_TERMINAL_DATA_MEMORY_USAGE,
+               &usage)
+            != GHOSTTY_SUCCESS) {
+        return {};
+    }
+    return {
+        .compressionSupported = usage.compression_supported,
+        .residentBytes = usage.primary_resident_bytes + usage.alternate_resident_bytes,
+        .compressedPages = usage.primary_compressed_pages + usage.alternate_compressed_pages,
+    };
 }
 
 std::optional<GhosttyTerminalKernel::ClipboardWrite> GhosttyTerminalKernel::takeClipboardWrite()

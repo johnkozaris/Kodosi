@@ -327,6 +327,7 @@ private slots:
     void synchronizedOutputThatNeverEndsShowsAfterOneSecond();
     void promptJumpsMoveBetweenMarkedPrompts();
     void promptJumpKeysMoveTheViewWithoutTerminalInput();
+    void historyCompressesAndKeepsItsText();
     void registryConsumesNormativeControlWireWithoutLosingU64Precision();
     void rasterizerPreservesTerminalCellBackgrounds();
     void rasterizerUsesBrandedSelectionAndPreeditPalette();
@@ -3784,6 +3785,48 @@ void TerminalKernelTest::promptJumpKeysMoveTheViewWithoutTerminalInput()
     QCoreApplication::sendEvent(&view, &down);
     QTRY_VERIFY_WITH_TIMEOUT(view.accessibleText().startsWith(QStringLiteral("$ cmd-5")), 250);
     QCOMPARE(dispatcher.inputCommands.size(), 0);
+}
+
+void TerminalKernelTest::historyCompressesAndKeepsItsText()
+{
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("session"),
+        QStringLiteral("subscription"),
+        2,
+    };
+    QByteArray restored;
+    for (int line = 0; line < 3'000; ++line) {
+        restored += "restored-" + QByteArray::number(line).rightJustified(4, '0') + "\r\n";
+    }
+    kodosi::GhosttyTerminalKernel kernel;
+    QVERIFY(kernel.installCheckpoint({
+        subscription,
+        1,
+        4,
+        40,
+        checkpointFor(restored, 40, 4),
+    }));
+    const auto afterRestore = kernel.historyMemory();
+    if (!afterRestore.compressionSupported) {
+        QSKIP("This platform cannot compress terminal history.");
+    }
+    QVERIFY(afterRestore.compressedPages > 0);
+
+    QByteArray live;
+    for (int line = 0; line < 3'000; ++line) {
+        live += "live-" + QByteArray::number(line).rightJustified(4, '0') + "\r\n";
+    }
+    QVERIFY(kernel.applyData({subscription, 1, live}));
+    const auto beforeIdle = kernel.historyMemory();
+    while (kernel.compressHistory()) {
+    }
+    const auto afterIdle = kernel.historyMemory();
+    QVERIFY(afterIdle.compressedPages > beforeIdle.compressedPages);
+    QVERIFY(afterIdle.residentBytes < beforeIdle.residentBytes);
+
+    const auto top = kernel.scrollViewport(subscription, -100'000);
+    QVERIFY(top);
+    QVERIFY(frameText(**top).contains(QStringLiteral("restored-")));
 }
 
 void TerminalKernelTest::consoleCheckpointKeepsHistoryOnResize()

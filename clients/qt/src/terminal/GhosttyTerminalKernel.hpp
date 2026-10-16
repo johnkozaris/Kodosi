@@ -132,6 +132,12 @@ public:
         std::vector<std::pair<QString, QByteArray>> contents;
     };
 
+    struct HistoryMemory {
+        bool compressionSupported = false;
+        std::uint64_t residentBytes = 0;
+        std::uint64_t compressedPages = 0;
+    };
+
     using Frame = std::shared_ptr<const TerminalFrame>;
     using Result = std::expected<Frame, Failure>;
     using ConfigureResult = std::expected<std::optional<Frame>, Failure>;
@@ -194,6 +200,8 @@ public:
     [[nodiscard]] std::expected<std::size_t, Failure> scrollbackLimitBytes() const;
     [[nodiscard]] Frame frame() const;
     [[nodiscard]] std::optional<std::uint64_t> nextSequence() const;
+    [[nodiscard]] bool compressHistory();
+    [[nodiscard]] HistoryMemory historyMemory() const;
     [[nodiscard]] std::optional<ClipboardWrite> takeClipboardWrite();
 
 private:
