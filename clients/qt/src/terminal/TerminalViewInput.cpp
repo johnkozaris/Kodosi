@@ -723,9 +723,13 @@ void TerminalView::applyClipboard(const TerminalClipboardOperations& operations)
             }
         } else if (!m_clipboardRead && hasActiveFocus() && interactionAvailable()
                    && m_canSendInput && window()->isActive()) {
-            // Only the view that the person types in asks, once at a time.
+            // Only the view that the person types in answers, one read at a time.
             m_clipboardRead = operation;
-            emit clipboardReadRequested();
+            if (m_asksBeforeClipboardRead) {
+                emit clipboardReadRequested();
+            } else {
+                answerClipboardRead(true);
+            }
         }
     }
 }

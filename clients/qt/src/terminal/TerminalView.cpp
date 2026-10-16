@@ -369,6 +369,20 @@ bool TerminalView::focusedSizeAuthority() const noexcept
     return m_focusedSizeAuthority;
 }
 
+bool TerminalView::asksBeforeClipboardRead() const noexcept
+{
+    return m_asksBeforeClipboardRead;
+}
+
+void TerminalView::setAsksBeforeClipboardRead(const bool asks)
+{
+    if (m_asksBeforeClipboardRead == asks) {
+        return;
+    }
+    m_asksBeforeClipboardRead = asks;
+    emit asksBeforeClipboardReadChanged();
+}
+
 void TerminalView::setFontFamily(const QString& family)
 {
     Q_ASSERT(thread() == QThread::currentThread());

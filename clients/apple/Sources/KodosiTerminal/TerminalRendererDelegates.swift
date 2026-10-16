@@ -17,6 +17,7 @@ final class TerminalRendererDelegateProxy:
     weak var target: TerminalViewState?
     var viewportDidResize: (() -> Void)?
     var clipboardReadRequested: ((@escaping @MainActor (Bool) -> Void) -> Void)?
+    var asksBeforeClipboardRead = true
 
     private var updateGeneration: UInt64 = 0
     private var isDeferring = false
@@ -65,6 +66,7 @@ final class TerminalRendererDelegateProxy:
     }
 
     func terminalDidRequestClipboardRead(_ answer: @escaping @MainActor (Bool) -> Void) {
+        guard asksBeforeClipboardRead else { return answer(true) }
         clipboardReadRequested?(answer)
     }
 

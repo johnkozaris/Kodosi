@@ -411,7 +411,7 @@ private slots:
     void terminalViewJoinsSurrogateHalvesFromSeparateKeyEvents();
     void terminalViewPastesClipboardThroughBoundedAuthority();
     void terminalViewTracksShiftInsertPasteReleaseExactly();
-    void terminalProgramsWriteTheClipboardAndTheFocusedViewAsksBeforeAReadIsAnswered();
+    void terminalProgramsWriteTheClipboardAndTheFocusedViewOfTheirOwnTerminalAnswersReads();
     void terminalProgramsReadTheClipboardOnlyWhenAllowed();
     void terminalViewWheelUpdatesFrameWithoutPtyInput();
     void terminalViewAcceptedInputReturnsViewportToBottom();
@@ -1998,7 +1998,7 @@ void TerminalKernelTest::terminalViewTracksShiftInsertPasteReleaseExactly()
     QCOMPARE(dispatcher.inputCommands.size(), 1);
 }
 
-void TerminalKernelTest::terminalProgramsWriteTheClipboardAndTheFocusedViewAsksBeforeAReadIsAnswered()
+void TerminalKernelTest::terminalProgramsWriteTheClipboardAndTheFocusedViewOfTheirOwnTerminalAnswersReads()
 {
     kodosi::TerminalSessionRegistry registry;
     FakeTerminalDispatcher dispatcher;
@@ -2012,6 +2012,7 @@ void TerminalKernelTest::terminalProgramsWriteTheClipboardAndTheFocusedViewAsksB
         25,
     };
     view.setTerminalInteraction(true, false);
+    view.setAsksBeforeClipboardRead(false);
     QVERIFY(view.attach(
         registry,
         dispatcher,
@@ -2041,12 +2042,10 @@ void TerminalKernelTest::terminalProgramsWriteTheClipboardAndTheFocusedViewAsksB
     view.forceActiveFocus();
     QTRY_VERIFY(window.isActive() && view.hasActiveFocus());
     registry.receiveData({subscription, 3, QByteArrayLiteral("\x1b]52;c;?\x07")});
-    QTRY_COMPARE(requests.count(), 1);
-    QCOMPARE(dispatcher.inputCommands.size(), 0);
-    view.answerClipboardRead(true);
     QTRY_COMPARE(
         dispatcher.inputCommands,
         QVector<QByteArray> {QByteArrayLiteral("\x1b]52;c;a29kb3NpLWNsaXBib2FyZA==\x07")});
+    QCOMPARE(requests.count(), 0);
 
     QSignalSpy errors(&view, &kodosi::TerminalView::terminalError);
     for (std::uint64_t sequence = 4; sequence < 104; ++sequence) {
@@ -2069,6 +2068,7 @@ void TerminalKernelTest::terminalProgramsReadTheClipboardOnlyWhenAllowed()
     kodosi::TerminalView view(window.contentItem());
     view.setSize(QSizeF(400, 200));
     view.setTerminalInteraction(true, true);
+    QVERIFY(view.asksBeforeClipboardRead());
     const kodosi::TerminalSubscription subscription {
         QStringLiteral("osc-clipboard-read"),
         QStringLiteral("osc-clipboard-read-subscription"),

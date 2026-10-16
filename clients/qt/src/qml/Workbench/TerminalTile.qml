@@ -280,6 +280,7 @@ Item {
 
                 Accessible.id: objectName
                 anchors.fill: parent
+                asksBeforeClipboardRead: root.session.isOwner !== true
                 cursorBlink: Models.DesktopSettings.cursorBlink
                 cursorStyle: Models.DesktopSettings.cursorStyle
                 focusedSizeAuthority: root.focusedSizeAuthority

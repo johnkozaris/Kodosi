@@ -11,6 +11,7 @@
         private let shouldFocus: Bool
         private let allowsFocus: Bool
         private let allowsInput: Bool
+        private let asksBeforeClipboardRead: Bool
         private let isSurfaceVisible: Bool
         private let onFocus: () -> Void
         private let onFocusChange: (Bool) -> Void
@@ -24,6 +25,7 @@
             shouldFocus: Bool,
             allowsFocus: Bool,
             allowsInput: Bool,
+            asksBeforeClipboardRead: Bool = true,
             isSurfaceVisible: Bool,
             onFocus: @escaping () -> Void,
             onFocusChange: @escaping (Bool) -> Void,
@@ -36,6 +38,7 @@
             self.shouldFocus = shouldFocus
             self.allowsFocus = allowsFocus
             self.allowsInput = allowsInput
+            self.asksBeforeClipboardRead = asksBeforeClipboardRead
             self.isSurfaceVisible = isSurfaceVisible
             self.onFocus = onFocus
             self.onFocusChange = onFocusChange
@@ -51,6 +54,7 @@
                 shouldFocus: shouldFocus,
                 allowsFocus: allowsFocus,
                 allowsInput: allowsInput,
+                asksBeforeClipboardRead: asksBeforeClipboardRead,
                 isSurfaceVisible: isSurfaceVisible,
                 onFocus: onFocus,
                 onFocusChange: onFocusChange,
@@ -335,6 +339,7 @@
         let shouldFocus: Bool
         let allowsFocus: Bool
         let allowsInput: Bool
+        let asksBeforeClipboardRead: Bool
         let isSurfaceVisible: Bool
         let onFocus: () -> Void
         let onFocusChange: (Bool) -> Void
@@ -387,6 +392,7 @@
             view.delegateProxy.viewportDidResize = {
                 session.signalAccessibilityViewportChange()
             }
+            view.delegateProxy.asksBeforeClipboardRead = asksBeforeClipboardRead
             view.delegateProxy.clipboardReadRequested = { [weak view] answer in
                 view?.askToShareClipboard(sessionName: sessionName, answer)
             }
