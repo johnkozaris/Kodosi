@@ -117,6 +117,15 @@ KPopover {
                 subtitle: root.session.isOwner === false && root.session.ownerName ? root.session.ownerName : ""
             }
             ListRow {
+                visible: !!root.session.placeKind || root.session.root === true
+                iconName: root.session.placeKind === "container" ? "container"
+                    : root.session.placeKind === "vm" ? "cube"
+                    : root.session.placeKind ? "server" : "hash"
+                tint: root.session.placeKind ? "#7d8a96" : "#d9a441"
+                title: root.session.placeLabel || qsTr("Runs as root")
+                subtitle: root.session.placeKind && root.session.root === true ? qsTr("As root") : ""
+            }
+            ListRow {
                 visible: !!root.session.displayDirectory
                 iconName: "folder"
                 tint: "#d9a441"

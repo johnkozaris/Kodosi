@@ -261,6 +261,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/Raised.qml
         qml/Controls/RoomSigil.qml
         qml/Controls/SegmentedPill.qml
+        qml/Controls/SessionPlace.qml
         qml/Controls/ShimmerText.qml
         qml/Controls/SlotMark.qml
         qml/Controls/StartMark.qml

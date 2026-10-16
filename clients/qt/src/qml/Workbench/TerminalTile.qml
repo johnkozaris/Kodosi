@@ -140,6 +140,23 @@ Item {
                     font.weight: Font.DemiBold
                     elide: Text.ElideRight
                 }
+                Rectangle {
+                    Layout.maximumWidth: Math.max(60, root.width * 0.25)
+                    implicitWidth: placeTag.implicitWidth + 14
+                    implicitHeight: 18
+                    radius: height / 2
+                    color: KodosiTheme.alpha(KodosiTheme.terminalInk, 0.07)
+                    visible: placeTag.shown
+
+                    SessionPlace {
+                        id: placeTag
+                        anchors.fill: parent
+                        anchors.leftMargin: 7
+                        anchors.rightMargin: 7
+                        session: root.session
+                        color: KodosiTheme.terminalInkMuted
+                    }
+                }
                 ActivityLine {
                     Layout.fillWidth: true
                     session: root.session
