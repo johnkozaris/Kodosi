@@ -333,7 +333,7 @@ private struct SharedTerminalRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AgentMark(kind: session.agent, size: 32, activity: session.mark(rested: session.isConnected ? .awake : .asleep))
+            AgentMark(session: session, size: 32, activity: session.mark(rested: session.isConnected ? .awake : .asleep))
             VStack(alignment: .leading, spacing: 2) {
                 Text(session.name)
                     .appTextStyle(.headline)

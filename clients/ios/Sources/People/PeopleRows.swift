@@ -115,7 +115,7 @@ struct TerminalMarkStack: View {
     var body: some View {
         HStack(spacing: -size * 0.22) {
             ForEach(sessions.prefix(limit)) { session in
-                AgentMark(kind: session.agent, size: size, activity: session.mark(rested: session.isConnected ? .awake : .asleep))
+                AgentMark(session: session, size: size, activity: session.mark(rested: session.isConnected ? .awake : .asleep))
                     .padding(2)
                     .background(theme.colors.raised, in: RoundedRectangle(cornerRadius: size * 0.36, style: .continuous))
                     .transition(AnyTransition.pop)
