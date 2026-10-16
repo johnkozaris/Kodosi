@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import GhosttyTerminal
+import KodosiKit
 #if os(iOS)
     import UIKit
 #endif
@@ -261,6 +262,20 @@ public final class TerminalRendererSession: ObservableObject {
         return true
     }
 
+    /// Gives the terminal the host's grid and cell size at this place in its
+    /// output.
+    @discardableResult
+    public nonisolated func applyHostResize(_ viewport: TerminalViewport) -> Bool {
+        guard backend.applyHostResize(InMemoryTerminalViewport(
+            columns: viewport.columns,
+            rows: viewport.rows,
+            cellWidthPixels: viewport.cellWidthPixels,
+            cellHeightPixels: viewport.cellHeightPixels
+        )) else { return false }
+        accessibilityUpdateRelay.signal()
+        return true
+    }
+
     @discardableResult
     public nonisolated func restoreCheckpointSynchronously(_ snapshot: Data, console: Bool) -> Bool {
         guard backend.restoreCheckpointSynchronously(snapshot, console: console) else { return false }
@@ -279,11 +294,11 @@ public final class TerminalRendererSession: ObservableObject {
         TerminalDebugLog.enable([.lifecycle, .metrics])
     }
 
+    /// The view replays the host's output, so it stores images as the host does.
     nonisolated static let hostManagedPolicyOverrides: [(key: String, value: String)] = [
         ("clipboard-read", "allow"),
         ("clipboard-write", "allow"),
-        ("image-storage-limit", "0"),
-        ("mouse-shift-capture", "never"),
+        ("image-storage-limit", String(KODOSI_TERMINAL_IMAGE_STORAGE_MAX_BYTES)),
     ]
 
     private static func makeConfiguration(style: TerminalStyle) -> TerminalConfiguration {

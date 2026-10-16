@@ -98,9 +98,9 @@ pub(super) async fn attach(root: &Path, session: Uuid) -> Result<()> {
                     drop(mirror.write(&bytes).map_err(|e|Error::Other(e.to_string()))?);
                     next=next.checked_add(1).ok_or_else(||Error::Invalid("terminal sequence exhausted".into()))?;dirty=true;
                 }
-                TerminalFrame::Resize{rows,cols,at_sequence}=>{
+                TerminalFrame::Resize{rows,cols,cell,at_sequence}=>{
                     if at_sequence!=next{return Err(Error::Invalid("terminal resize crossed its output boundary".into()));}
-                    drop(mirror.resize(cols,rows,0,0).map_err(|e|Error::Other(e.to_string()))?);dirty=true;
+                    drop(mirror.resize(cols,rows,cell.width,cell.height).map_err(|e|Error::Other(e.to_string()))?);dirty=true;
                 }
                 TerminalFrame::Closed{reason,final_sequence}=>{
                     if next!=final_sequence{return Err(Error::Other(format!("terminal ended before final output: {reason}")));}

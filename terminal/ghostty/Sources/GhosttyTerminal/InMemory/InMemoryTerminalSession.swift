@@ -16,19 +16,29 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
     ) {
         writeHandler = write
         resizeHandler = resize
-        surfaceAccess = InMemoryTerminalSurfaceAccess(write: Self.writeToSurface, restore: Self.restoreSurfaceCheckpoint)
+        surfaceAccess = InMemoryTerminalSurfaceAccess(
+            write: Self.writeToSurface,
+            hostResize: Self.resizeSurfaceToHost,
+            restore: Self.restoreSurfaceCheckpoint
+        )
     }
 
     init(
         write: @escaping @Sendable (Data) -> Void,
         resize: @escaping @Sendable (InMemoryTerminalViewport) -> Void,
         surfaceWrite: @escaping InMemoryTerminalSurfaceAccess.Write,
+        surfaceHostResize: @escaping InMemoryTerminalSurfaceAccess.HostResize =
+            InMemoryTerminalSession.resizeSurfaceToHost,
         surfaceRestore: @escaping InMemoryTerminalSurfaceAccess.Restore =
             InMemoryTerminalSession.restoreSurfaceCheckpoint
     ) {
         writeHandler = write
         resizeHandler = resize
-        surfaceAccess = InMemoryTerminalSurfaceAccess(write: surfaceWrite, restore: surfaceRestore)
+        surfaceAccess = InMemoryTerminalSurfaceAccess(
+            write: surfaceWrite,
+            hostResize: surfaceHostResize,
+            restore: surfaceRestore
+        )
     }
 
     func setSurface(_ surface: ghostty_surface_t?) {
@@ -119,6 +129,25 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
         return true
     }
 
+    /// Gives the terminal the grid that the host gave its own, after the output
+    /// that came before the resize, with the host's cell size so that images
+    /// cover the same cells. The view's size never changes the grid.
+    @discardableResult
+    public func applyHostResize(_ viewport: InMemoryTerminalViewport) -> Bool {
+        guard surfaceAccess.enqueueHostResize(viewport) else {
+            TerminalDebugLog.log(
+                .metrics,
+                "host resize dropped cols=\(viewport.columns) rows=\(viewport.rows)"
+            )
+            return false
+        }
+        TerminalDebugLog.log(
+            .metrics,
+            "host resize queued cols=\(viewport.columns) rows=\(viewport.rows) cell=\(viewport.cellWidthPixels)x\(viewport.cellHeightPixels)"
+        )
+        return true
+    }
+
     /// Replaces the terminal with a Ghostty snapshot. A console host keeps its
     /// scrollback on resize, and the snapshot does not hold that rule.
     @discardableResult
@@ -173,7 +202,7 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
         guard userdata != nil else { return }
         TerminalDebugLog.log(
             .metrics,
-            "backend resize observed but platform viewport remains authoritative cols=\(cols) rows=\(rows) pixels=\(widthPx)x\(heightPx)"
+            "view resize observed, the host sets the grid cols=\(cols) rows=\(rows) pixels=\(widthPx)x\(heightPx)"
         )
     }
 
@@ -234,6 +263,19 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
                 "surface write slow bytes=\(data.count) duration=\(String(format: "%.3f", duration / .seconds(1)))s"
             )
         }
+    }
+
+    private static func resizeSurfaceToHost(
+        _ surface: ghostty_surface_t,
+        _ viewport: InMemoryTerminalViewport
+    ) -> Bool {
+        ghostty_surface_host_resize(
+            surface,
+            viewport.columns,
+            viewport.rows,
+            viewport.cellWidthPixels,
+            viewport.cellHeightPixels
+        ) == GHOSTTY_RESULT_SUCCESS
     }
 
     private static func restoreSurfaceCheckpoint(

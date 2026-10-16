@@ -3663,6 +3663,58 @@
                     }
                   ]
                 },
+                "context": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "place": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "oneOf": [
+                                    {
+                                      "const": "remote"
+                                    },
+                                    {
+                                      "const": "container"
+                                    },
+                                    {
+                                      "const": "vm"
+                                    }
+                                  ]
+                                },
+                                "name": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "name"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "root": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "root"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "createRequestId": {
                   "anyOf": [
                     {
@@ -5931,10 +5983,11 @@
     ]
   },
   "ffiAbiVersion": 9,
-  "protocolVersion": 61,
+  "protocolVersion": 62,
   "terminal": {
-    "checkpointMaxBytes": 8388608,
-    "checkpointSchema": 4,
+    "checkpointMaxBytes": 281018368,
+    "checkpointSchema": 5,
+    "imageStorageMaxBytes": 67108864,
     "rawInputMaxBytes": 1048576
   }
 }

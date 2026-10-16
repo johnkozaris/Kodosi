@@ -969,7 +969,7 @@ fn first_snapshot() -> crate::network::RemoteUpdate {
     let mut terminal =
         ghostty_vt::Terminal::new(20, 4, ghostty_vt::TerminalPolicy::default()).unwrap();
     let snapshot = terminal
-        .snapshot(crate::terminal::TERMINAL_SNAPSHOT_MAX_BYTES)
+        .snapshot(crate::terminal::snapshot_limits(u64::MAX))
         .unwrap();
     crate::network::RemoteUpdate::Checkpoint {
         checkpoint: crate::terminal::Checkpoint::new(snapshot, false).unwrap(),
@@ -1304,6 +1304,7 @@ async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open()
                 title: None,
                 message: Some("Building".to_owned()),
             }),
+            context: None,
         },
     });
     let generation = runtime.network.generation();

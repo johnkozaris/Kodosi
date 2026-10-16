@@ -243,6 +243,7 @@ pub enum HostRequest {
     Bootstrap {
         request_id: Uuid,
         history: bool,
+        image_data_bytes: u64,
         reply: oneshot::Sender<std::result::Result<CheckpointCut, String>>,
     },
     Control {
@@ -269,6 +270,7 @@ pub enum PublishedFrame {
     Resize {
         rows: u16,
         cols: u16,
+        cell: crate::terminal::CellPixels,
         at_sequence: u64,
     },
     Closed {
@@ -291,6 +293,7 @@ pub enum RemoteUpdate {
     Resize {
         rows: u16,
         cols: u16,
+        cell: crate::terminal::CellPixels,
         at_sequence: u64,
     },
     Resync,

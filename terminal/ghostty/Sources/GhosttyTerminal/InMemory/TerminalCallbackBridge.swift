@@ -40,6 +40,16 @@ final class TerminalCallbackBridge {
         }
     }
 
+    func askToShareClipboard() {
+        guard let delegate = delegate as? any TerminalSurfaceClipboardReadDelegate else { return }
+        delegate.terminalDidRequestClipboardRead { [weak self] allowed in
+            // A refused program gets an empty answer, so it does not wait for one.
+            self?.session?.sendInput(
+                terminalClipboardReport(allowed ? TerminalPasteboardContent.plainText() ?? "" : "")
+            )
+        }
+    }
+
     func handleAction(_ action: TerminalActionSnapshot) {
         switch action {
         case let .cellSize(width, height):

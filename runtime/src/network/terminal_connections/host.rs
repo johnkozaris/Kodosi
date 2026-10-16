@@ -448,6 +448,7 @@ enum Waiting {
     Resize {
         rows: u16,
         cols: u16,
+        cell: crate::terminal::CellPixels,
         at_sequence: u64,
     },
 }
@@ -655,10 +656,12 @@ impl<'a, T: Transport> Stream<'a, T> {
                 Some(Waiting::Resize {
                     rows,
                     cols,
+                    cell,
                     at_sequence,
                 }) => Frame::Resize {
                     rows,
                     cols,
+                    cell,
                     at_sequence,
                 },
                 Some(Waiting::Output { sequence, bytes }) => {
@@ -701,6 +704,7 @@ impl<'a, T: Transport> Stream<'a, T> {
         let request = HostRequest::Bootstrap {
             request_id: marker,
             history: full,
+            image_data_bytes: self.pacer.image_data_bytes(),
             reply,
         };
         if self.requests.try_send(request).is_err() {
@@ -802,12 +806,14 @@ impl<'a, T: Transport> Stream<'a, T> {
             Ok(PublishedFrame::Resize {
                 rows,
                 cols,
+                cell,
                 at_sequence,
             }) => {
                 if self.live && at_sequence >= self.next_waiting() {
                     self.waiting.push_back(Waiting::Resize {
                         rows,
                         cols,
+                        cell,
                         at_sequence,
                     });
                 }

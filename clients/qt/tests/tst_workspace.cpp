@@ -461,6 +461,45 @@ private slots:
         f.workspace.apply(test::snapshot({ reported(1, {{QStringLiteral("state"), QStringLiteral("dance")}}) }), 0);
         QCOMPARE(f.sessions.session(test::id(2))->programState, QStringLiteral("done"));
     }
+    void aTerminalNamesWhereItsProgramRunsAndWhetherAsRoot()
+    {
+        Fixture f;
+        const auto place = [](const QString& kind, const QString& name) {
+            return QJsonObject { { QStringLiteral("kind"), kind }, { QStringLiteral("name"), name } };
+        };
+        const auto placed = [&](const int number, const QJsonValue& where, const bool root) {
+            auto session = test::session(number);
+            QJsonObject context { { QStringLiteral("root"), root } };
+            if (!where.isUndefined())
+                context.insert(QStringLiteral("place"), where);
+            session.insert(QStringLiteral("context"), context);
+            return session;
+        };
+        const auto field = [&](const int number, const QString& name) {
+            return f.sessions.presentationForSession(test::id(number)).value(name);
+        };
+        f.workspace.apply(test::snapshot({
+            placed(1, place(QStringLiteral("remote"), QStringLiteral("build-box")), false),
+            placed(2, place(QStringLiteral("container"), QStringLiteral("web")), true),
+            placed(3, QJsonValue(QJsonValue::Undefined), true),
+            test::session(4),
+        }), 0);
+        QCOMPARE(field(1, QStringLiteral("placeKind")).toString(), QStringLiteral("remote"));
+        QCOMPARE(field(1, QStringLiteral("placeName")).toString(), QStringLiteral("build-box"));
+        QCOMPARE(field(1, QStringLiteral("placeLabel")).toString(), QStringLiteral("On build-box"));
+        QVERIFY(!field(1, QStringLiteral("root")).toBool());
+        QCOMPARE(field(2, QStringLiteral("placeLabel")).toString(), QStringLiteral("In the container web"));
+        QVERIFY(field(2, QStringLiteral("root")).toBool());
+        QVERIFY(field(3, QStringLiteral("placeKind")).toString().isEmpty());
+        QVERIFY(field(3, QStringLiteral("root")).toBool());
+        QVERIFY(field(4, QStringLiteral("placeLabel")).toString().isEmpty());
+        QVERIFY(!field(4, QStringLiteral("root")).toBool());
+
+        f.workspace.apply(test::snapshot({
+            placed(1, place(QStringLiteral("moon"), QStringLiteral("base")), false),
+        }), 0);
+        QCOMPARE(field(1, QStringLiteral("placeKind")).toString(), QStringLiteral("remote"));
+    }
     void aRoomTerminalThatIsNotOpenHereShowsTheStatusOfItsHost()
     {
         Fixture f;

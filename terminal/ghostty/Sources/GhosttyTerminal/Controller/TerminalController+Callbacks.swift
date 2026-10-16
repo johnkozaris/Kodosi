@@ -16,10 +16,6 @@ func terminalClipboardReport(_ text: String) -> Data {
     Data("\u{1B}]52;c;\(Data(text.utf8).base64EncodedString())\u{1B}\\".utf8)
 }
 
-private let terminalTextMimeTypes: Set<String> = [
-    "text/plain", "text/plain;charset=utf-8", "UTF8_STRING", "TEXT", "STRING",
-]
-
 private func copyTerminalAction(_ action: ghostty_action_s) -> TerminalActionSnapshot {
     switch action.tag {
     case GHOSTTY_ACTION_CELL_SIZE:
@@ -100,20 +96,17 @@ private enum TerminalCallbacks {
         confirm _: Bool
     ) {
         guard let contents, contentsLen > 0 else { return }
-        guard let content = (0..<contentsLen)
-            .map({ contents[$0] })
-            .first(where: { content in
-                content.mime.map { terminalTextMimeTypes.contains(String(cString: $0)) } ?? false
-            }),
-            let data = content.data
-        else { return }
-        let bytes = UnsafeRawBufferPointer(
-            start: data,
-            count: content.len
-        )
-        let string = String(decoding: bytes, as: UTF8.self)
-
-        TerminalPasteboardContent.write(string)
+        let representations = (0..<contentsLen).compactMap { index in
+            let content = contents[index]
+            return content.mime.map { mime in
+                TerminalPasteboardContent.Representation(
+                    mime: String(cString: mime),
+                    data: content.data.map { Data(bytes: $0, count: content.len) } ?? Data()
+                )
+            }
+        }
+        guard !representations.isEmpty else { return }
+        TerminalPasteboardContent.write(representations)
     }
 
     static func readClipboard(
@@ -137,9 +130,7 @@ private enum TerminalCallbacks {
         case GHOSTTY_CLIPBOARD_REQUEST_OSC_52_READ:
             TerminalDebugLog.log(.input, "clipboard read focused=\(bridge.hasFocus)")
             if bridge.hasFocus {
-                bridge.session?.sendInput(
-                    terminalClipboardReport(TerminalPasteboardContent.plainText() ?? "")
-                )
+                Task { @MainActor in bridge.askToShareClipboard() }
             }
             return GHOSTTY_CLIPBOARD_READ_UNAVAILABLE
         default:

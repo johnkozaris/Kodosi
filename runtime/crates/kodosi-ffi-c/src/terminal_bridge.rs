@@ -266,7 +266,7 @@ async fn stream_terminal(
     mut subscriber: terminal::Subscription,
 ) {
     let mut next = subscriber.next_sequence;
-    let mut pending = std::collections::VecDeque::new();
+    let mut pending = std::collections::VecDeque::<(u16, u16, terminal::CellPixels, u64)>::new();
     let mut seed: Option<kodosi_runtime::network::CheckpointCut> = None;
     let mut closed: Option<(String, u64)> = None;
     let mut retry: Option<tokio::time::Instant> = None;
@@ -282,7 +282,7 @@ async fn stream_terminal(
                 seed = None;
             }
         }
-        while let Some(&(rows, cols, at_sequence)) = pending.front() {
+        while let Some(&(rows, cols, cell, at_sequence)) = pending.front() {
             if at_sequence > next {
                 break;
             }
@@ -291,7 +291,8 @@ async fn stream_terminal(
                 closed = Some(("terminal resize arrived out of order".into(), next));
                 break;
             }
-            state.control(token, &serde_json::json!({"type":"term.resize","rows":rows,"cols":cols,"atSequence":at_sequence}));
+            state.control(token, &serde_json::json!({"type":"term.resize","rows":rows,"cols":cols,
+                "cellWidthPixels":cell.width,"cellHeightPixels":cell.height,"atSequence":at_sequence}));
         }
         if let Some((reason, final_sequence)) = &closed
             && *final_sequence <= next
@@ -324,10 +325,10 @@ async fn stream_terminal(
                 token.refresh.notify_one();
             }
             control = subscriber.control.recv(), if closed.is_none() => match control {
-                Some(terminal::ControlFrame::Resize { rows, cols, at_sequence }) => {
-                    if pending.len() >= 32 || pending.back().is_some_and(|&(_, _, last)| last > at_sequence) {
+                Some(terminal::ControlFrame::Resize { rows, cols, cell, at_sequence }) => {
+                    if pending.len() >= 32 || pending.back().is_some_and(|&(_, _, _, last)| last > at_sequence) {
                         closed = Some(("terminal resize queue exceeded its ordering bound".into(), next));
-                    } else { pending.push_back((rows, cols, at_sequence)); }
+                    } else { pending.push_back((rows, cols, cell, at_sequence)); }
                 }
                 Some(terminal::ControlFrame::Snapshot { checkpoint, next_sequence }) => {
                     if next_sequence >= next && state.checkpoint(token, &checkpoint, next_sequence) {

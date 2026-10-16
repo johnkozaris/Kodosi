@@ -10,6 +10,7 @@
 #include <expected>
 #include <memory>
 #include <optional>
+#include <utility>
 #include <vector>
 
 namespace kodosi {
@@ -138,6 +139,12 @@ public:
         }
     };
 
+    struct HistoryMemory {
+        bool compressionSupported = false;
+        std::uint64_t residentBytes = 0;
+        std::uint64_t compressedPages = 0;
+    };
+
     using Frame = std::shared_ptr<const TerminalFrame>;
     using Result = std::expected<Frame, Failure>;
     using ConfigureResult = std::expected<std::optional<Frame>, Failure>;
@@ -155,11 +162,14 @@ public:
     [[nodiscard]] Result installCheckpoint(const TerminalCheckpoint& checkpoint);
     [[nodiscard]] Result applyData(const TerminalData& data);
     [[nodiscard]] TerminalClipboardOperations takeClipboardOperations();
+    /// The cell size is the host's, so images cover the same cells as on the host.
     [[nodiscard]] Result applyResize(
         const TerminalSubscription& subscription,
         std::uint64_t atSequence,
         std::uint16_t rows,
-        std::uint16_t columns);
+        std::uint16_t columns,
+        std::uint32_t cellWidth,
+        std::uint32_t cellHeight);
     [[nodiscard]] std::expected<QByteArray, Failure> encodeKey(
         const TerminalSubscription& subscription,
         TerminalKeyEvent event);
@@ -174,6 +184,9 @@ public:
         int rows);
     [[nodiscard]] Result scrollViewportToBottom(
         const TerminalSubscription& subscription);
+    [[nodiscard]] Result jumpToPrompt(
+        const TerminalSubscription& subscription,
+        int prompts);
     [[nodiscard]] std::expected<QString, Failure> linkAt(
         const TerminalSubscription& subscription,
         std::uint64_t viewportRevision,
@@ -197,6 +210,9 @@ public:
     [[nodiscard]] std::expected<std::size_t, Failure> scrollbackLimitLines() const;
     [[nodiscard]] std::expected<std::size_t, Failure> scrollbackLimitBytes() const;
     [[nodiscard]] Frame frame() const;
+    [[nodiscard]] std::optional<std::uint64_t> nextSequence() const;
+    [[nodiscard]] bool compressHistory();
+    [[nodiscard]] HistoryMemory historyMemory() const;
 
 private:
     class Impl;

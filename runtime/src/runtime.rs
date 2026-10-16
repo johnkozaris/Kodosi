@@ -1449,6 +1449,11 @@ impl Runtime {
             } else {
                 shared.and_then(TerminalStatus::program_status)
             },
+            context: if live {
+                previous.and_then(|entry| entry.context.clone())
+            } else {
+                None
+            },
             id: remote.id.to_string(),
             incarnation_id: remote.incarnation_id.to_string(),
             kind: SessionKind::Remote,
@@ -1577,6 +1582,13 @@ impl Runtime {
                 }
             }
             #[cfg(feature = "host")]
+            SessionChange::Context { id, context } => {
+                if let Some(local) = self.local.get_mut(&id) {
+                    local.entry.context = context;
+                    self.publish_catalog();
+                }
+            }
+            #[cfg(feature = "host")]
             SessionChange::Notification { id, title, body } => {
                 if let Some(local) = self.local.get(&id) {
                     self.emit(json!({"type":"term.notification", "sessionId":id,
@@ -1604,6 +1616,7 @@ impl Runtime {
                     entry.title = metadata.title;
                     entry.program = metadata.program;
                     entry.program_status = metadata.status;
+                    entry.context = metadata.context;
                     self.publish_catalog();
                 }
             }

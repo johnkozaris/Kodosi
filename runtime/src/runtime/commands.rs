@@ -734,6 +734,7 @@ impl Runtime {
                     repository: started.repository,
                     title: None,
                     program_status: None,
+                    context: None,
                     id: id.to_string(),
                     incarnation_id: terminal.incarnation_id.to_string(),
                     kind: SessionKind::Local,
@@ -1074,6 +1075,7 @@ async fn create_session(
         program,
         arguments,
         directory.clone(),
+        Some(config.data_root.join("shell")),
         changes,
     )
     .await

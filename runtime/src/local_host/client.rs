@@ -92,10 +92,9 @@ impl TerminalClient {
     pub async fn connect(root: &Path, session: Uuid) -> Result<Self> {
         let (stream, _) = connect(root, Some(session)).await?;
         let (reader, writer) = stream.into_split();
-        Ok(Self {
-            reader: FrameReader::new(reader),
-            writer,
-        })
+        let mut reader = FrameReader::new(reader);
+        reader.maximum = TERMINAL_FRAME_MAX;
+        Ok(Self { reader, writer })
     }
 }
 async fn connect(

@@ -831,14 +831,41 @@ Item {
                                             font.weight: row.selected ? Font.DemiBold : Font.Medium
                                             elide: Text.ElideRight
                                         }
-                                        ActivityLine {
+                                        Item {
                                             id: caption
+
+                                            readonly property bool shown: place.shown || activity.shown
+
                                             Layout.fillWidth: true
+                                            implicitHeight: Math.max(place.implicitHeight, activity.implicitHeight)
                                             visible: shown
-                                            session: row.session
-                                            words: row.detail
-                                            color: KodosiTheme.inkFaint
-                                            pixelSize: KodosiTheme.fontCaption
+
+                                            SessionPlace {
+                                                id: place
+                                                width: Math.min(implicitWidth, activity.shown ? caption.width * 0.6 : caption.width)
+                                                height: caption.height
+                                                session: row.session
+                                                color: KodosiTheme.inkFaint
+                                            }
+                                            PlainLabel {
+                                                id: dot
+                                                x: place.width + 4
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                visible: place.shown && activity.shown
+                                                text: "\u00b7"
+                                                color: KodosiTheme.inkFaint
+                                                font.pixelSize: KodosiTheme.fontCaption
+                                            }
+                                            ActivityLine {
+                                                id: activity
+                                                x: place.shown ? dot.x + dot.implicitWidth + 4 : 0
+                                                width: Math.max(0, caption.width - x)
+                                                height: caption.height
+                                                session: row.session
+                                                words: row.detail
+                                                color: KodosiTheme.inkFaint
+                                                pixelSize: KodosiTheme.fontCaption
+                                            }
                                         }
                                     }
                                     KTextField {

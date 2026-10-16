@@ -1,7 +1,5 @@
 use std::{fs, path::Path};
 
-#[cfg(unix)]
-use super::shell::Definition;
 use super::{
     accounts::{self, referenced_home},
     models::{self, codex, copilot, cursor, listed_values, opencode},
@@ -10,8 +8,8 @@ use super::{
 };
 
 #[cfg(unix)]
-fn definition(name: &str, text: &str) -> Definition {
-    Definition {
+fn definition(name: &str, text: &str) -> shell::Definition {
+    shell::Definition {
         name: name.to_owned(),
         text: text.to_owned(),
         alias: false,
@@ -19,8 +17,8 @@ fn definition(name: &str, text: &str) -> Definition {
 }
 
 #[cfg(unix)]
-fn alias(name: &str, text: &str) -> Definition {
-    Definition {
+fn alias(name: &str, text: &str) -> shell::Definition {
+    shell::Definition {
         alias: true,
         ..definition(name, text)
     }

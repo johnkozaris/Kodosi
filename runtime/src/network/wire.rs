@@ -319,7 +319,9 @@ fn decode_checkpoint(encoded: &[u8]) -> Result<crate::terminal::Checkpoint> {
     )
     .map_err(|error| invalid(error.to_string()))?;
     if encoded.len() > CHECKPOINT_HEADER + len {
-        checkpoint.metadata = Some(decode_metadata(&encoded[CHECKPOINT_HEADER + len..])?);
+        checkpoint.metadata = Some(Box::new(decode_metadata(
+            &encoded[CHECKPOINT_HEADER + len..],
+        )?));
     }
     Ok(checkpoint)
 }
@@ -331,7 +333,9 @@ mod tests {
     fn a_large_snapshot_goes_in_parts_and_comes_back_whole() {
         use crate::terminal::Checkpoint;
         let mut body = ghostty_vt::Terminal::new(100, 30, ghostty_vt::TerminalPolicy::default())
-            .and_then(|mut terminal| terminal.visible_snapshot(usize::MAX))
+            .and_then(|mut terminal| {
+                terminal.visible_snapshot(crate::terminal::snapshot_limits(u64::MAX))
+            })
             .unwrap();
         body.extend(
             (0..700_000u32).flat_map(|value| value.wrapping_mul(2_654_435_761).to_be_bytes()),

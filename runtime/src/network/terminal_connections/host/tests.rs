@@ -4,12 +4,19 @@ use super::{
     super::channel::tests::{Pipe, noise, pair, stand_in_snapshot},
     *,
 };
-use crate::{identity::keys::DeviceKeys, network::CheckpointCut, terminal::Checkpoint};
+use crate::{
+    identity::keys::DeviceKeys,
+    network::CheckpointCut,
+    terminal::{
+        Checkpoint, TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES, TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES,
+    },
+};
 
 struct Terminal {
     frames: broadcast::Sender<PublishedFrame>,
     sequence: Arc<AtomicU64>,
     input: mpsc::UnboundedReceiver<Vec<u8>>,
+    image_budgets: mpsc::UnboundedReceiver<u64>,
     viewer: Channel<Pipe>,
     received: u64,
     heartbeat: u32,
@@ -90,6 +97,7 @@ async fn terminal(snapshot_bytes: usize) -> Terminal {
     let (requests, mut received) = mpsc::channel(64);
     let sequence = Arc::new(AtomicU64::new(0));
     let (typed, input) = mpsc::unbounded_channel();
+    let (image_budget, image_budgets) = mpsc::unbounded_channel();
     let (barrier, current) = (frames.clone(), Arc::clone(&sequence));
     tokio::spawn(async move {
         while let Some(request) = received.recv().await {
@@ -97,8 +105,10 @@ async fn terminal(snapshot_bytes: usize) -> Terminal {
                 HostRequest::Bootstrap {
                     request_id,
                     history,
+                    image_data_bytes,
                     reply,
                 } => {
+                    let _ = image_budget.send(image_data_bytes);
                     let body = stand_in_snapshot(if history { snapshot_bytes } else { VISIBLE });
                     let checkpoint = Checkpoint::new(body, false).unwrap();
                     drop(barrier.send(PublishedFrame::BootstrapBarrier { request_id }));
@@ -140,6 +150,7 @@ async fn terminal(snapshot_bytes: usize) -> Terminal {
         frames,
         sequence,
         input,
+        image_budgets,
         viewer,
         received: 0,
         heartbeat: 0,
@@ -255,6 +266,37 @@ async fn a_view_gets_the_visible_screen_first_and_the_history_when_output_is_qui
     let (next_sequence, exact) = terminal.keyframe().await;
     assert_eq!(next_sequence, screen + 1);
     assert!(exact > 300_000, "the exact snapshot had {exact} bytes");
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_snapshot_holds_the_image_pixels_that_the_link_of_the_view_carries() {
+    for (delay, image_data_bytes) in [
+        (
+            Duration::from_millis(1),
+            TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES,
+        ),
+        (Duration::from_secs(1), TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES),
+    ] {
+        let mut terminal = terminal(400_000).await;
+        terminal.delay = delay;
+        terminal.keyframe().await;
+        let (_, exact) = terminal.keyframe().await;
+        assert!(exact > 300_000, "the exact snapshot had {exact} bytes");
+        terminal.viewer.send(&Frame::Refresh).await.unwrap();
+        terminal.keyframe().await;
+        let mut budgets = Vec::new();
+        while let Ok(budget) = terminal.image_budgets.try_recv() {
+            budgets.push(budget);
+        }
+        assert_eq!(
+            budgets,
+            [
+                TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES,
+                TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES,
+                image_data_bytes
+            ]
+        );
+    }
 }
 
 #[tokio::test]

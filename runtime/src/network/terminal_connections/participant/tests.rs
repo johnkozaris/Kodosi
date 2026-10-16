@@ -1,5 +1,5 @@
 use super::{
-    super::channel::tests::{Pipe, noise, pair, stand_in_snapshot},
+    super::channel::tests::{Pipe, pair, stand_in_snapshot},
     *,
 };
 use crate::{identity::keys::DeviceKeys, terminal::Checkpoint};
@@ -161,26 +161,22 @@ async fn a_view_installs_each_whole_snapshot_and_acknowledges_what_it_received()
 
 #[tokio::test]
 async fn a_view_refuses_a_snapshot_that_does_not_end() {
-    let mut view = view().await;
+    let (host, viewer) = (
+        DeviceKeys::generate().unwrap(),
+        DeviceKeys::generate().unwrap(),
+    );
+    let (channel, _host) = pair(&host, &viewer).await;
+    let (_commands, requests) = mpsc::channel(1);
+    let (updates, _updates) = mpsc::channel(1);
+    let mut viewer = Viewer::new(channel, requests, updates);
+    viewer.snapshot_sequence = Some(1);
+    viewer.snapshot = vec![0; wire::PACKED_SNAPSHOT_LIMIT - wire::KEYFRAME_PART / 2];
     let part = Frame::Keyframe {
         next_sequence: 1,
         more: true,
-        part: Bytes::from(noise(wire::KEYFRAME_PART)),
+        part: Bytes::from(vec![0; wire::KEYFRAME_PART]),
     };
-    for _ in 0..=wire::PACKED_SNAPSHOT_LIMIT / wire::KEYFRAME_PART {
-        if view.host.send(&part).await.is_err() {
-            break;
-        }
-        match tokio::time::timeout(Duration::from_secs(5), view.host.receive()).await {
-            Ok(Ok(Some((Frame::Ack { .. }, _)))) => {}
-            _ => break,
-        }
-    }
-    let (ended, _) = tokio::time::timeout(Duration::from_secs(5), view.ended)
-        .await
-        .expect("the view kept growing the snapshot")
-        .unwrap();
-    assert!(ended.is_err());
+    assert!(viewer.frame(part, 0).await.is_err());
 }
 
 #[tokio::test]
