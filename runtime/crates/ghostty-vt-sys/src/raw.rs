@@ -195,6 +195,7 @@ impl std::error::Error for Error {}
 struct CallbackState {
     effects: Vec<Effect>,
     size: GhosttySizeReportSize,
+    version: &'static str,
     poisoned: bool,
     #[cfg(test)]
     panic_next: bool,
@@ -299,6 +300,7 @@ impl Terminal {
                     cell_width: 0,
                     cell_height: 0,
                 },
+                version: "",
                 poisoned: false,
                 #[cfg(test)]
                 panic_next: false,
@@ -465,6 +467,15 @@ impl Terminal {
     }
 
     /// A snapshot holds the console modes but not this resize rule.
+    pub fn report_version(&mut self, version: &'static str) -> Result<(), Error> {
+        self.ensure_healthy()?;
+        self.callbacks.version = version;
+        self.set_callback(
+            GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_XTVERSION,
+            xtversion_callback as *const c_void,
+        )
+    }
+
     pub fn keep_scrollback_on_resize(&mut self) -> Result<(), Error> {
         self.ensure_healthy()?;
         let pull_scrollback = false;
@@ -1133,6 +1144,23 @@ unsafe extern "C" fn progress_report_callback(
     });
 }
 
+unsafe extern "C" fn xtversion_callback(
+    _terminal: GhosttyTerminal,
+    userdata: *mut c_void,
+) -> GhosttyString {
+    callback(
+        userdata,
+        GhosttyString {
+            ptr: ptr::null(),
+            len: 0,
+        },
+        |state| GhosttyString {
+            ptr: state.version.as_ptr(),
+            len: state.version.len(),
+        },
+    )
+}
+
 unsafe extern "C" fn reset_callback(_terminal: GhosttyTerminal, userdata: *mut c_void) {
     callback(userdata, (), |state| state.effects.push(Effect::Reset));
 }
@@ -1192,12 +1220,16 @@ unsafe extern "C" fn device_attributes_callback(
             state.poisoned = true;
             return false;
         };
+        let Ok(clipboard) = u16::try_from(GHOSTTY_DA_FEATURE_CLIPBOARD) else {
+            state.poisoned = true;
+            return false;
+        };
         let Ok(device_type) = u16::try_from(GHOSTTY_DA_DEVICE_TYPE_VT220) else {
             state.poisoned = true;
             return false;
         };
         attributes.primary.conformance_level = conformance_level;
-        let features = [selective_erase, ansi_color];
+        let features = [selective_erase, ansi_color, clipboard];
         attributes.primary.features[..features.len()].copy_from_slice(&features);
         attributes.primary.num_features = features.len();
         attributes.secondary.device_type = device_type;
@@ -1435,7 +1467,24 @@ mod tests {
         assert!(effects.iter().any(
             |effect| matches!(effect, Effect::Pwd(value) if value == b"file://host/tmp/project")
         ));
-        assert!(effects.iter().any(|effect| matches!(effect, Effect::PtyWrite(value) if value.starts_with(b"\x1b[?") && !value.windows(3).any(|window| window == b";52"))));
+        assert!(effects.iter().any(
+            |effect| matches!(effect, Effect::PtyWrite(value) if value == b"\x1b[?62;6;22;52c")
+        ));
+    }
+
+    #[test]
+    fn a_version_query_gets_the_reported_version() {
+        let mut terminal = terminal();
+        assert_eq!(
+            terminal.write(b"\x1b[>q").expect("default version"),
+            vec![Effect::PtyWrite(b"\x1bP>|libghostty\x1b\\".to_vec())]
+        );
+
+        terminal.report_version("Kodosi 1.2.3").expect("version");
+        assert_eq!(
+            terminal.write(b"\x1b[>q").expect("reported version"),
+            vec![Effect::PtyWrite(b"\x1bP>|Kodosi 1.2.3\x1b\\".to_vec())]
+        );
     }
 
     #[test]

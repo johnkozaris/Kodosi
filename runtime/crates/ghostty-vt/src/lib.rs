@@ -84,6 +84,10 @@ impl Terminal {
         })
     }
 
+    pub fn report_version(&mut self, version: &'static str) -> Result<(), Error> {
+        self.raw.report_version(version)
+    }
+
     pub fn write(&mut self, bytes: &[u8]) -> Result<Vec<Effect>, Error> {
         let outcome = self.write_outcome(bytes)?;
         if outcome.processing_failed {

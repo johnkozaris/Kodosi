@@ -181,7 +181,7 @@ struct SessionTerminal {
 
 impl SessionTerminal {
     fn new(rows: u16, cols: u16) -> Result<Self> {
-        let terminal = Terminal::new(
+        let mut terminal = Terminal::new(
             cols,
             rows,
             TerminalPolicy {
@@ -190,6 +190,9 @@ impl SessionTerminal {
             },
         )
         .map_err(terminal_error)?;
+        terminal
+            .report_version(concat!("Kodosi ", env!("KODOSI_VERSION")))
+            .map_err(terminal_error)?;
         Ok(Self {
             terminal,
             applied: 0,
