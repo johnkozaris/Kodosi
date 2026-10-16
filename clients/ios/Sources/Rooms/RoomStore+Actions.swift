@@ -11,7 +11,7 @@ extension RoomStore {
         state.failure = nil
         defer { state.sending = false }
         do {
-            try await act(roomId, ["type": .string("post"), "text": .string(text)])
+            try await act(roomId, RoomAction.post(text))
             if state.messageRevision == revision {
                 state.message = ""
             }
@@ -25,29 +25,20 @@ extension RoomStore {
 
     func createTask(in roomId: String, title: String, description: String, repositoryIds: Set<String>) async throws {
         guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        try await act(roomId, RoomTaskAction.create(title: title, description: description, repositoryIds: repositoryIds))
+        try await act(roomId, RoomAction.createTask(title: title, description: description, repositoryIds: repositoryIds))
     }
 
     func makeTask(from message: RoomMessage, in roomId: String) async throws {
-        try await act(roomId, RoomTaskAction.create(from: message))
+        try await act(roomId, RoomAction.createTask(from: message))
     }
 
     func update(_ task: RoomTask, in roomId: String, change: RoomTaskChange, note: String? = nil) async throws {
-        var action: [String: JSONValue] = [
-            "type": .string("updateTask"),
-            "taskId": .string(task.id),
-            "change": .string(change.rawValue),
-        ]
-        if let note = note?.trimmingCharacters(in: .whitespacesAndNewlines), !note.isEmpty {
-            action["note"] = .string(note)
-        }
-        try await act(roomId, action)
+        try await act(roomId, RoomAction.updateTask(task.id, change: change, note: note))
     }
 
     func addRepository(_ address: String, to roomId: String) async throws {
-        let address = address.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !address.isEmpty else { return }
-        try await act(roomId, ["type": .string("addRepository"), "url": .string(address)])
+        guard !address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        try await act(roomId, RoomAction.addRepository(address))
     }
 
     func create(name: String, inviting friends: [String]) async throws -> String {

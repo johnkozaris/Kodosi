@@ -92,7 +92,7 @@ struct RoomTaskSheet: View {
 
     private func issueNote(_ issue: RoomIssue) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            if let url = RoomTaskChips.address(issue) {
+            if let url = issue.address {
                 Link(destination: url) {
                     Label("Open issue #\(issue.number)", systemImage: "arrow.up.right")
                 }

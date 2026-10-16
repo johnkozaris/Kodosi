@@ -140,7 +140,7 @@ struct RoomTasksView: View {
             defer { state.busy = false }
             do {
                 try await deps.roomAction(
-                    roomId, RoomTaskAction.create(title: title, description: state.taskDescription, repositoryIds: state.taskRepositories)
+                    roomId, RoomAction.createTask(title: title, description: state.taskDescription, repositoryIds: state.taskRepositories)
                 )
                 if revision == state.taskRevision {
                     state.taskTitle = ""; state.taskDescription = ""; state.taskRepositories.removeAll()
@@ -173,7 +173,7 @@ private struct RoomTaskCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 12) {
-                Button { update(task.closed ? "reopen" : "close") } label: {
+                Button { update(task.closed ? .reopen : .close) } label: {
                     Image(systemName: task.closed ? "checkmark.circle.fill" : "circle")
                         .font(.system(size: 19, weight: .regular))
                         .foregroundStyle(task.closed ? theme.colors.ready : hovered ? theme.colors.accent : theme.colors.inkFaint)
@@ -239,7 +239,7 @@ private struct RoomTaskCard: View {
         if let person = task.assignedName {
             PersonAvatar(name: person, key: task.assignedTo, size: 24, isSelf: mine).help(person)
         } else if !task.closed {
-            Button("Pick up") { update("claim") }
+            Button("Pick up") { update(.claim) }
                 .buttonStyle(.kodosi(.tinted, size: .small)).disabled(state.busy)
                 .opacity(hovered || expanded ? 1 : 0)
                 .accessibilityLabel(Text("Pick up \(task.title)"))
@@ -254,7 +254,7 @@ private struct RoomTaskCard: View {
                     .foregroundStyle(theme.colors.inkMuted).tint(theme.colors.accentStrong)
                     .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
             }
-            if let issue = task.issue, let url = URL(string: issue.url), ["https", "http"].contains(url.scheme ?? "") {
+            if let issue = task.issue, let url = issue.address {
                 Link(destination: url) { Label("Open issue #\(issue.number)", systemImage: "arrow.up.right") }
                     .appTextStyle(.footnote).foregroundStyle(theme.colors.accentStrong)
             }
@@ -265,26 +265,22 @@ private struct RoomTaskCard: View {
                 .lineLimit(1 ... 4).accessibilityIdentifier("room.task.note")
             HStack(spacing: 8) {
                 if !task.closed, task.assignedTo != nil {
-                    Button("Release") { update("release") }.buttonStyle(.kodosi(.ghost, size: .small))
+                    Button("Release") { update(.release) }.buttonStyle(.kodosi(.ghost, size: .small))
                 }
                 Spacer()
-                Button(task.closed ? "Save note" : "Complete") { update("close", note: state.completionNotes[task.id]) }
+                Button(task.closed ? "Save note" : "Complete") { update(.close, note: state.completionNotes[task.id]) }
                     .buttonStyle(.kodosi(.primary, size: .small))
             }
             .disabled(state.busy)
         }
     }
 
-    private func update(_ change: String, note: String? = nil) {
-        var action: [String: JSONValue] = ["type": .string("updateTask"), "taskId": .string(task.id), "change": .string(change)]
-        if let note, !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            action["note"] = .string(note)
-        }
+    private func update(_ change: RoomTaskChange, note: String? = nil) {
         state.busy = true; state.failure = nil
         Task { @MainActor in
             defer { state.busy = false }
             do {
-                try await deps.roomAction(roomId, action)
+                try await deps.roomAction(roomId, RoomAction.updateTask(task.id, change: change, note: note))
             } catch { state.failure = error.localizedDescription }
         }
     }

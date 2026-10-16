@@ -1,4 +1,3 @@
-import AppKit
 import KodosiBridge
 import KodosiDesign
 import SwiftUI
@@ -137,14 +136,12 @@ struct RoomConversationView: View {
 
     private func copyInvite() {
         let path = (Bundle.main.executablePath ?? "kodosi").replacingOccurrences(of: "'", with: "'\"'\"'")
-        NSPasteboard.general.clearContents()
-        let instructions = """
+        deps.copyText("""
         Read `'\(path)' room skill`, then use \
         `'\(path)' --json room --room \(roomId) context`.
         Use this executable for the skill's kodosi commands. You can read and post updates, \
         create and pick up tasks, and share results for this work.
-        """
-        NSPasteboard.general.setString(instructions, forType: .string)
+        """)
         copied = true
     }
 }

@@ -129,7 +129,7 @@ struct RoomRepositoriesView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         Button {
-                            perform(["type": .string("importIssue"), "repositoryId": .string(repository.id), "number": .uint(issue.number)])
+                            perform(RoomAction.importIssue(repositoryId: repository.id, number: issue.number))
                         } label: {
                             Label(imported ? String(localized: "In tasks") : String(localized: "Add to tasks"),
                                   systemImage: imported ? "checkmark" : "plus")
@@ -153,7 +153,7 @@ struct RoomRepositoriesView: View {
     private func connect() {
         guard !state.repositoryURL.isEmpty, !state.busy else { return }
         let revision = state.repositoryRevision
-        perform(["type": .string("addRepository"), "url": .string(state.repositoryURL)]) {
+        perform(RoomAction.addRepository(state.repositoryURL)) {
             if state.repositoryRevision == revision {
                 state.repositoryURL = ""; state.showsRepositoryForm = false
             }
@@ -165,7 +165,7 @@ struct RoomRepositoriesView: View {
         issueFailure = nil; loadingIssues = true
         Task { @MainActor in
             do {
-                try await deps.roomAction(roomId, ["type": .string("issues"), "repositoryId": .string(repository.id)])
+                try await deps.roomAction(roomId, RoomAction.issues(repository.id))
             } catch {
                 if state.selectedRepository == repository.id {
                     issueFailure = error.localizedDescription

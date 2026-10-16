@@ -67,7 +67,7 @@ final class RoomStore {
     }
 
     func isOwn(_ message: RoomMessage) -> Bool {
-        message.agent == nil && message.authorId == userId
+        message.isWritten(by: userId)
     }
 
     func markRead(_ roomId: String) {
@@ -154,12 +154,8 @@ final class RoomStore {
         state.loading = true
         state.readFailure = nil
         defer { state.loading = false }
-        var action: [String: JSONValue] = ["type": .string("read")]
-        if let before {
-            action["before"] = .uint(before)
-        }
         do {
-            try await act(roomId, action)
+            try await act(roomId, RoomAction.read(before: before))
         } catch {
             if !(error is CancellationError) {
                 state.readFailure = error.localizedDescription
@@ -213,9 +209,7 @@ final class RoomStore {
         var next = received
         let roomId = next.roomId
         if let previous = snapshots[roomId] {
-            let latest = previous.messages.last?.sequence ?? 0
-            let known = Set(previous.messages.map(\.id))
-            let arrived = next.messages.filter { $0.sequence > latest && !known.contains($0.id) && !isOwn($0) }.count
+            let arrived = next.newMessages(after: previous, userId: userId)
             let state = views[roomId]
             let visible = visibleRoomId == roomId
             if arrived > 0, !(visible && state?.reading == true) {
