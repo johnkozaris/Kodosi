@@ -241,6 +241,7 @@ pub enum HostRequest {
     Bootstrap {
         request_id: Uuid,
         history: bool,
+        image_data_bytes: u64,
         reply: oneshot::Sender<std::result::Result<CheckpointCut, String>>,
     },
     Control {
