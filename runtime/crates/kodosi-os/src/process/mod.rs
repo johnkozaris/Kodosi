@@ -33,6 +33,11 @@ pub fn without_terminal(command: &mut std::process::Command) {
     imp::without_terminal(command);
 }
 
+#[cfg(unix)]
+pub fn with_default_signals(command: &mut std::process::Command) {
+    imp::with_default_signals(command);
+}
+
 pub fn is_running(pid: u32) -> bool {
     pid != 0 && imp::is_running(pid)
 }

@@ -29,6 +29,25 @@ pub(super) fn without_terminal(command: &mut std::process::Command) {
     unsafe {
         command.pre_exec(|| rustix::process::setsid().map(drop).map_err(Into::into));
     }
+    with_default_signals(command);
+}
+
+#[allow(unsafe_code)]
+pub(super) fn with_default_signals(command: &mut std::process::Command) {
+    use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction};
+    use std::os::unix::process::CommandExt as _;
+    unsafe {
+        command.pre_exec(|| {
+            let default = SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty());
+            for signal in Signal::iterator()
+                .filter(|signal| !matches!(signal, Signal::SIGKILL | Signal::SIGSTOP))
+            {
+                sigaction(signal, &default)?;
+            }
+            SigSet::empty().thread_set_mask()?;
+            Ok(())
+        });
+    }
 }
 
 pub(super) fn is_running(pid: u32) -> bool {
@@ -64,3 +83,23 @@ pub(super) fn host_name() -> Option<String> {
 }
 
 pub(super) const fn allow_foreground(_pid: u32) {}
+
+#[cfg(test)]
+mod tests {
+    use nix::sys::signal::{SigSet, Signal};
+    use std::os::unix::process::ExitStatusExt as _;
+
+    #[test]
+    fn a_program_started_without_a_terminal_ends_on_a_signal_its_host_blocks() {
+        let status = std::thread::spawn(|| {
+            SigSet::from(Signal::SIGTERM).thread_block().unwrap();
+            let mut program = std::process::Command::new("/bin/sh");
+            program.args(["-c", "kill -TERM $$; exec sleep 5"]);
+            super::without_terminal(&mut program);
+            program.status().unwrap()
+        })
+        .join()
+        .unwrap();
+        assert_eq!(status.signal(), Some(Signal::SIGTERM as i32));
+    }
+}
