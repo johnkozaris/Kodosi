@@ -327,6 +327,64 @@ async fn resize_checkpoint_precedes_bootstrap_barrier_at_the_same_output_cut() {
 }
 
 #[tokio::test]
+async fn a_remote_bootstrap_leaves_out_image_pixels_beyond_its_budget() {
+    // 1100 by 1000 RGBA pixels are 4.4 MB, more than a remote bootstrap carries.
+    let (width, height) = (1100, 1000);
+    let mut compressed = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::fast());
+    std::io::Write::write_all(&mut compressed, &vec![0x7f; width * height * 4]).expect("compress");
+    let payload = base64::Engine::encode(
+        &base64::engine::general_purpose::STANDARD,
+        compressed.finish().expect("compressed image"),
+    );
+    let (session, _changes, root) =
+        shell("while [ ! -f image ]; do sleep 0.01; done; cat image; printf IMAGE-SHOWN; sleep 30")
+            .await;
+    let mut subscription = session.subscribe().await.expect("subscribe");
+    let geometry = TerminalPixelGeometry::new(640, 320, 8, 16).expect("geometry");
+    session
+        .resize(
+            subscription.connection_id,
+            TerminalSize::new(20, 80).expect("size"),
+            Some(geometry),
+            true,
+        )
+        .await
+        .expect("resize");
+    let staged = root.path().join("image.new");
+    std::fs::write(
+        &staged,
+        format!("\x1b_Ga=T,f=32,o=z,s={width},v={height},i=1,q=2;{payload}\x1b\\"),
+    )
+    .expect("image");
+    std::fs::rename(&staged, root.path().join("image")).expect("show image");
+    wait_text(&mut subscription, b"IMAGE-SHOWN").await;
+
+    let local = session
+        .checkpoint(subscription.connection_id)
+        .await
+        .expect("local checkpoint");
+    let _publication = session.output();
+    let (reply, result) = oneshot::channel();
+    session
+        .host_requests
+        .send(HostRequest::Bootstrap {
+            request_id: Uuid::now_v7(),
+            history: true,
+            reply,
+        })
+        .await
+        .expect("bootstrap");
+    let remote = result
+        .await
+        .expect("bootstrap reply")
+        .expect("remote checkpoint");
+
+    assert!(local.checkpoint.snapshot().len() > width * height * 4);
+    assert!(remote.checkpoint.snapshot().len() < 64 * 1024);
+    session.close().await.expect("close");
+}
+
+#[tokio::test]
 async fn simultaneous_close_waiters_confirm_reaping_even_with_full_admission_queue() {
     let (session, mut changes, root) = shell(
         "trap '' HUP TERM; while [ ! -f ready ]; do sleep 0.01; done; printf READY; sleep 30",
