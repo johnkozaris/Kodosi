@@ -8,6 +8,7 @@
 #include "presentation/DesktopStateModel.hpp"
 #include "presentation/AgentLauncherModel.hpp"
 #include "presentation/DevicesModel.hpp"
+#include "presentation/KeyedListModel.hpp"
 #include "presentation/MissionsModel.hpp"
 #include "presentation/PeopleModel.hpp"
 #include "presentation/ProviderFilesModel.hpp"
@@ -208,6 +209,12 @@ struct AccessibilityScopeForeign {
     Q_GADGET
     QML_FOREIGN(kodosi::AccessibilityScope)
     QML_NAMED_ELEMENT(AccessibilityScope)
+};
+
+struct KeyedListModelForeign {
+    Q_GADGET
+    QML_FOREIGN(kodosi::KeyedListModel)
+    QML_NAMED_ELEMENT(KeyedList)
 };
 void configureModelInstances(Workspace&, ConversationHistoryModel&, ProviderFilesModel&,
     AgentLauncherModel&, AppearanceModel&, DesktopSettings&,

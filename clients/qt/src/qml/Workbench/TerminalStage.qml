@@ -21,6 +21,7 @@ Item {
     property bool dividerDragging: false
     property bool terminalFocusPending: false
     property bool overflowUpdatePending: false
+    property bool leaving: false
     property bool verticalOverflow: false
     property var terminalTiles: []
     readonly property bool hasStage:
@@ -80,7 +81,7 @@ Item {
     }
 
     function scheduleTerminalFocus() {
-        if (!interactionEnabled || terminalFocusPending)
+        if (!interactionEnabled || terminalFocusPending || leaving)
             return
         terminalFocusPending = true
         Qt.callLater(function() {
@@ -90,7 +91,7 @@ Item {
     }
 
     function scheduleVerticalOverflowUpdate() {
-        if (overflowUpdatePending)
+        if (overflowUpdatePending || leaving)
             return
         overflowUpdatePending = true
         Qt.callLater(function() {
@@ -118,6 +119,7 @@ Item {
         scheduleTerminalFocus()
         scheduleVerticalOverflowUpdate()
     }
+    Component.onDestruction: leaving = true
 
     Connections {
         target: Models.DesktopState

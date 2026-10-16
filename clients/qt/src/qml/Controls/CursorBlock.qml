@@ -18,7 +18,7 @@ Item {
         color: root.color
 
         SequentialAnimation on opacity {
-            running: root.blinks && !KodosiTheme.reduceMotion && root.visible
+            running: root.blinks && !KodosiTheme.reduceMotion && KodosiTheme.shown && root.visible
             loops: Animation.Infinite
             alwaysRunToEnd: true
             PauseAnimation { duration: 520 }

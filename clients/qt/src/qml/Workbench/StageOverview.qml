@@ -116,8 +116,13 @@ Item {
                     font.pixelSize: KodosiTheme.fontFootnote
                 }
             }
+            Models.KeyedList {
+                id: placeList
+                key: "key"
+                values: root.places
+            }
             Repeater {
-                model: root.places
+                model: placeList
 
                 ColumnLayout {
                     id: place
@@ -126,6 +131,11 @@ Item {
 
                     Layout.fillWidth: true
                     spacing: 10
+
+                    Models.KeyedList {
+                        id: cards
+                        values: place.modelData.sessions
+                    }
 
                     RowLayout {
                         spacing: 7
@@ -137,7 +147,7 @@ Item {
                         Layout.fillWidth: true
 
                         Repeater {
-                            model: place.modelData.sessions
+                            model: cards
 
                             AbstractButton {
                                 id: card
