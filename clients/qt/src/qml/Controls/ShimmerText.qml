@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import Kodosi 1.0
 import QtQuick
 import QtQuick.Effects

@@ -481,6 +481,7 @@ Item {
                 spacing: 2
 
                 onImplicitHeightChanged: Qt.callLater(root.syncPill)
+                onWidthChanged: Qt.callLater(root.syncPill)
 
                 SectionHeader {
                     title: qsTr("Rooms")
@@ -532,30 +533,45 @@ Item {
                         readonly property var entry: root.invitations[index] || ({})
 
                         width: content.width
-                        height: 78
+                        height: invitationColumn.implicitHeight + 24
 
                         Rectangle {
                             anchors.fill: parent
-                            anchors.bottomMargin: 6
+                            anchors.topMargin: 2
+                            anchors.bottomMargin: 2
                             radius: KodosiTheme.radiusLg
                             color: KodosiTheme.alpha(KodosiTheme.accentSoft, 0.55)
                             border.width: 1
-                            border.color: KodosiTheme.alpha(KodosiTheme.accent, 0.5)
+                            border.color: KodosiTheme.alpha(KodosiTheme.accent, 0.45)
                         }
                         ColumnLayout {
-                            anchors.fill: parent
-                            anchors.margins: 9
-                            anchors.bottomMargin: 15
-                            spacing: 7
+                            id: invitationColumn
+                            x: 10
+                            y: 12
+                            width: parent.width - 20
+                            spacing: 8
 
                             RowLayout {
                                 spacing: 9
                                 RoomSigil { key: invitation.entry.missionId || ""; size: 22 }
-                                PlainLabel {
+                                ColumnLayout {
                                     Layout.fillWidth: true
-                                    text: invitation.entry.missionName || ""
-                                    font.weight: Font.DemiBold
-                                    elide: Text.ElideRight
+                                    spacing: 1
+
+                                    PlainLabel {
+                                        Layout.fillWidth: true
+                                        text: invitation.entry.missionName || ""
+                                        font.weight: Font.DemiBold
+                                        elide: Text.ElideRight
+                                    }
+                                    PlainLabel {
+                                        Layout.fillWidth: true
+                                        visible: !!invitation.entry.inviterName
+                                        text: qsTr("%1 invited you").arg(invitation.entry.inviterName || "")
+                                        color: KodosiTheme.inkMuted
+                                        font.pixelSize: KodosiTheme.fontCaption
+                                        elide: Text.ElideRight
+                                    }
                                 }
                             }
                             RowLayout {

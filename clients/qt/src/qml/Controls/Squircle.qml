@@ -17,26 +17,37 @@ Shape {
     property real shadowX: width * 0.03
     property real shadowY: height * 0.07
 
-    preferredRendererType: Shape.CurveRenderer
-
-    component Shade: ShapePath {
-        id: shade
-
-        required property real spread
-        required property real strength
-
-        strokeColor: "transparent"
-        fillColor: KodosiTheme.alpha(KodosiTheme.shadow, root.shadow * strength)
-
-        PathSvg {
-            path: KodosiTheme.squircle(root.shadowX - shade.spread, root.shadowY - shade.spread,
-                root.width + shade.spread * 2, root.height + shade.spread * 2, root.radius + shade.spread)
-        }
+    function shade(spread: real): string {
+        return KodosiTheme.squircle(shadowX - spread * 0.6, shadowY - spread * 0.3,
+            width + spread * 1.6, height + spread * 1.5, radius + spread)
     }
 
-    Shade { spread: root.shadowRadius; strength: 0.14 }
-    Shade { spread: root.shadowRadius * 0.5; strength: 0.26 }
-    Shade { spread: 0; strength: 0.42 }
+    preferredRendererType: Shape.CurveRenderer
+
+    ShapePath {
+        strokeColor: "transparent"
+        fillColor: KodosiTheme.alpha(KodosiTheme.shadow, root.shadow * 0.08)
+
+        PathSvg { path: root.shade(root.shadowRadius) }
+    }
+    ShapePath {
+        strokeColor: "transparent"
+        fillColor: KodosiTheme.alpha(KodosiTheme.shadow, root.shadow * 0.14)
+
+        PathSvg { path: root.shade(root.shadowRadius * 0.66) }
+    }
+    ShapePath {
+        strokeColor: "transparent"
+        fillColor: KodosiTheme.alpha(KodosiTheme.shadow, root.shadow * 0.2)
+
+        PathSvg { path: root.shade(root.shadowRadius * 0.33) }
+    }
+    ShapePath {
+        strokeColor: "transparent"
+        fillColor: KodosiTheme.alpha(KodosiTheme.shadow, root.shadow * 0.3)
+
+        PathSvg { path: root.shade(0) }
+    }
     ShapePath {
         strokeWidth: root.rim
         fillGradient: LinearGradient {

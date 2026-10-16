@@ -81,7 +81,7 @@ Item {
             width: root.size * 0.44
             height: width
             name: "prompt"
-            strokeWidth: 3.2
+            strokeWidth: 4.2
             color: root.asleep ? KodosiTheme.mix(root.tint, KodosiTheme.ink, 0.35) : "#ffffff"
         }
         Rectangle {

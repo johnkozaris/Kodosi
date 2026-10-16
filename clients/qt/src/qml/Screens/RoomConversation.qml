@@ -293,6 +293,7 @@ Item {
                                     implicitWidth: Math.min(body.implicitWidth + (entry.own ? 24 : 0), entry.width - 44)
                                     implicitHeight: body.implicitHeight + (entry.own ? 14 : 0)
                                     radius: 16
+                                    bottomRightRadius: entry.own ? 6 : 16
                                     color: entry.own ? KodosiTheme.accentSoft : "transparent"
 
                                     Repeater {
