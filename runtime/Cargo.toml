@@ -2,6 +2,12 @@
 members = ["crates/ghostty-vt", "crates/ghostty-vt-sys", "crates/kodosi-ffi-c", "crates/kodosi-os", "crates/kodosi-pty"]
 resolver = "3"
 
+[workspace.package]
+edition = "2024"
+publish = false
+rust-version = "1.99.0"
+version = "0.1.0"
+
 [workspace.lints.rust]
 dead_code = "warn"
 elided_lifetimes_in_paths = "warn"
@@ -54,11 +60,11 @@ zeroize = "1.9.0"
 
 [package]
 autobins = false
-edition = "2024"
+edition.workspace = true
 name = "kodosi-runtime"
-publish = false
-rust-version = "1.99.0"
-version = "0.1.0"
+publish.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 [features]
 default = ["cli", "host"]
