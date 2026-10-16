@@ -1,105 +1,55 @@
-import AppKit
 import Foundation
 import KodosiBridge
 
 extension AppDependencies {
     var deviceTrust: DeviceTrust {
-        if case let .trustingDevice(trust) = signInStage {
+        if case let .trustingDevice(trust) = account.stage {
             trust
         } else {
             .choose
         }
     }
 
-    var accountReady: Bool {
-        userId != nil && localDeviceEnrolled
-    }
-
-    func cancelAccountDeletion() {
-        accountDeletion = nil
-        perform("auth.deleteAccount.cancel")
-    }
-
     var signInPrompt: String? {
-        switch signInStage {
+        switch account.stage {
         case .trustingDevice: String(localized: "Trust this Mac")
         case .signedIn: nil
         case .starting, .awaitingBrowser, .finalizing: String(localized: "Continue signing in")
         case .idle, .failed:
-            if userId == nil {
+            if account.userId == nil {
                 String(localized: "Sign in")
             } else {
-                localDeviceEnrolled ? nil : String(localized: "Trust this Mac")
+                account.localDeviceEnrolled ? nil : String(localized: "Trust this Mac")
             }
         }
     }
 
     func beginSignIn() {
         signInPresented = true
-        switch signInStage {
-        case .starting, .awaitingBrowser, .finalizing, .trustingDevice:
-            break
-        case .idle, .failed, .signedIn:
-            if userId != nil, !localDeviceEnrolled {
-                signInStage = .trustingDevice(.choose)
-            } else {
-                restartSignIn()
-            }
+        if !account.stage.isPending {
+            openedSignInPage = nil
         }
+        account.signIn()
     }
 
     func restartSignIn() {
-        signInStage = .starting
         openedSignInPage = nil
-        perform("auth.login.start", ["browser": .string("system")])
+        account.restartSignIn()
     }
 
     func openSignInPage() {
-        if case let .awaitingBrowser(url) = signInStage, let url {
+        if case let .awaitingBrowser(url) = account.stage, let url {
             openExternalURL(url)
         }
     }
 
     func cancelSignIn() {
-        if case .trustingDevice = signInStage {} else if signInStage.isPending {
-            perform("auth.login.cancel")
-            signInStage = .idle
-        }
+        account.cancelSignIn()
         dismissSignIn()
-    }
-
-    func requestDeviceApproval() {
-        signInStage = .trustingDevice(.requesting)
-        perform("devices.link.startSelf")
-    }
-
-    func cancelDeviceApproval() {
-        perform("devices.link.cancelSelf")
-        signInStage = .trustingDevice(.choose)
-    }
-
-    func useRecoveryKey(_ key: String) {
-        signInStage = .trustingDevice(.recovering)
-        perform("devices.recovery.use", ["key": .string(key)])
-    }
-
-    func resetTrustedDevices() {
-        signInStage = .trustingDevice(.resetting)
-        perform("devices.reset")
-    }
-
-    func retryDeviceTrust() {
-        signInStage = .trustingDevice(.choose)
     }
 
     func dismissSignIn() {
         signInPresented = false
-        if !signInStage.isPending {
-            signInStage = .idle
-        }
+        account.closeSignIn()
     }
-}
-
-struct AccountDeletion: Equatable {
-    let page: URL?
 }

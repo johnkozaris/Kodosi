@@ -7,22 +7,22 @@ struct SignInSheet: View {
     @Environment(\.theme) private var theme
 
     private var steps: Int {
-        deps.signInStage.completedSteps
+        deps.account.stage.completedSteps
     }
 
     var body: some View {
         VStack(spacing: 26) {
             HStack {
-                KodosiWordmark(size: 15, blinks: deps.signInStage.isPending)
+                KodosiWordmark(size: 15, blinks: deps.account.stage.isPending)
                 Spacer()
                 IconButton(title: "Close", symbol: "xmark", identifier: "signIn.close") { deps.dismissSignIn() }
             }
             SignInTrack(
-                completed: steps, working: deps.signInStage.isPending,
+                completed: steps, working: deps.account.stage.isPending,
                 device: String(localized: "This Mac"), symbol: "laptopcomputer"
             )
             Group {
-                switch deps.signInStage {
+                switch deps.account.stage {
                 case let .awaitingBrowser(url):
                     VStack(spacing: 16) {
                         ProgressCaption(text: String(localized: "Continue in your browser"))
@@ -46,7 +46,7 @@ struct SignInSheet: View {
             .transition(.opacity)
             HStack(spacing: 8) {
                 Spacer()
-                switch deps.signInStage {
+                switch deps.account.stage {
                 case .failed:
                     Button("Close") { deps.dismissSignIn() }.buttonStyle(.kodosi(.ghost)).accessibilityIdentifier("signIn.cancel")
                     Button("Try again") { deps.restartSignIn() }.buttonStyle(.kodosi(.primary)).accessibilityIdentifier("signIn.retry")
@@ -63,6 +63,6 @@ struct SignInSheet: View {
             }
         }
         .padding(24).frame(width: 460)
-        .animation(theme.motion.spring, value: deps.signInStage)
+        .animation(theme.motion.spring, value: deps.account.stage)
     }
 }

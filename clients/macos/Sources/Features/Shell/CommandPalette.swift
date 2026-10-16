@@ -165,7 +165,7 @@ struct CommandPalette: View {
     }
 
     private var peopleItems: [Item] {
-        deps.friends.map { friend in
+        deps.people.friends.map { friend in
             let name = friend.personName
             return Item(id: "person.\(friend.userId)", group: String(localized: "People"), title: name, detail: "@\(friend.handle)",
                         icon: .person(name: name, key: friend.userId))
@@ -188,7 +188,7 @@ struct CommandPalette: View {
                 deps.workbench.showsHistory = true
             },
         ]
-        if deps.accountReady {
+        if deps.account.isReady {
             actions.append(Item(id: "action.room", group: group, title: String(localized: "New room"), icon: .symbol("square.grid.2x2.fill", TileTint.purple)) {
                 deps.workbench.showsNewRoom = true
             })

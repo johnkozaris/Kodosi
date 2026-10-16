@@ -47,14 +47,12 @@ extension AppDependencies {
             var next: RoomSnapshot = try event.value("room")
             if let previous = rooms[next.roomId] {
                 let state = roomView(next.roomId)
-                let added = next.newMessages(after: previous, userId: userId)
-                if !state.followsLatest || !state.conversationVisible || workbench.section != .missions || workbench.selectedMissionId != next
-                    .roomId
-                {
+                let added = next.newMessages(after: previous, userId: account.userId)
+                let watching = workbench.section == .missions && workbench.selectedMissionId == next.roomId
+                if !state.followsLatest || !state.conversationVisible || !watching {
                     state.unread += added
                 }
                 next.merge(previous)
-                let watching = workbench.section == .missions && workbench.selectedMissionId == next.roomId
                 if previous.tasks.map(\.version) != next.tasks.map(\.version), !(watching && state.canvas == 1) {
                     state.fresh.insert(1)
                 }

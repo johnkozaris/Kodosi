@@ -18,7 +18,7 @@ struct RoomMessageRow: View {
     }
 
     private var isMine: Bool {
-        message.isWritten(by: deps.userId)
+        message.isWritten(by: deps.account.userId)
     }
 
     private var terminal: RuntimeSession? {

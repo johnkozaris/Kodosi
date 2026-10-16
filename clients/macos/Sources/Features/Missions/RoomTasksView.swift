@@ -163,7 +163,7 @@ private struct RoomTaskCard: View {
     }
 
     private var mine: Bool {
-        task.assignedTo != nil && task.assignedTo == deps.userId
+        task.assignedTo != nil && task.assignedTo == deps.account.userId
     }
 
     private var repositories: [RoomRepository] {

@@ -86,9 +86,9 @@ struct SessionDetailsView: View {
 
     @ViewBuilder
     private func access(_ current: RuntimeSession) -> some View {
-        if deps.userId == nil {
+        if deps.account.userId == nil {
             ListRow(String(localized: "Only on this Mac"), subtitle: String(localized: "Sign in to share it"), symbol: "lock.fill", tint: TileTint.graphite)
-        } else if !deps.localDeviceEnrolled {
+        } else if !deps.account.localDeviceEnrolled {
             ListRow(String(localized: "Only on this Mac"), subtitle: String(localized: "Trust this Mac to share it"),
                     symbol: "lock.fill", tint: TileTint.graphite)
         } else if !current.isOwner {

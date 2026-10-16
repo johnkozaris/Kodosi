@@ -6,7 +6,7 @@ struct MissionsView: View {
     @Environment(AppDependencies.self) private var deps
 
     var body: some View {
-        if !deps.accountReady {
+        if !deps.account.isReady {
             SignInView(
                 title: "Rooms are for working together",
                 message: "Share terminals, talk, and hand off tasks with people and agents."
@@ -88,7 +88,7 @@ private struct RoomCard: View {
                     Spacer()
                     if unread > 0 {
                         NewDot().padding(4)
-                    } else if mission.ownerUserId == deps.userId {
+                    } else if mission.ownerUserId == deps.account.userId {
                         Tag(text: String(localized: "Yours"))
                     }
                 }

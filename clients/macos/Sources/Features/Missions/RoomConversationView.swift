@@ -15,7 +15,7 @@ struct RoomConversationView: View {
     }
 
     private var targets: [RoomMention] {
-        RoomMentions.targets(members: detail.members, sessions: deps.sessions.filter { $0.missionId == roomId }, userId: deps.userId)
+        RoomMentions.targets(members: detail.members, sessions: deps.sessions.filter { $0.missionId == roomId }, userId: deps.account.userId)
     }
 
     var body: some View {

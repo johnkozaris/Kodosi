@@ -76,13 +76,13 @@ struct SidebarView: View {
             SidebarSectionHeader(title: "Rooms", addTitle: "New room", identifier: "missions.create", selected: selection == .rooms, pill: pill) {
                 deps.showRooms()
             } add: {
-                if deps.accountReady {
+                if deps.account.isReady {
                     deps.workbench.showsNewRoom = true
                 } else {
                     deps.beginSignIn()
                 }
             }
-            if !deps.accountReady {
+            if !deps.account.isReady {
                 Button { deps.beginSignIn() } label: {
                     HStack(spacing: 9) {
                         Image(systemName: "person.2.wave.2").font(.system(size: 12, weight: .semibold)).frame(width: 22)
@@ -142,7 +142,7 @@ struct SidebarView: View {
     private var footer: some View {
         VStack(spacing: 2) {
             SidebarNavRow(title: "People", symbol: "person.2", identifier: "header.people",
-                          badge: deps.incomingRequests.count, selected: selection == .people, pill: pill)
+                          badge: deps.people.incoming.count, selected: selection == .people, pill: pill)
             {
                 deps.workbench.section = .people
             }
@@ -206,8 +206,8 @@ struct AccountCapsule: View {
             } else {
                 Button { deps.workbench.section = .settings } label: {
                     HStack(spacing: 9) {
-                        PersonAvatar(name: deps.selfName, size: 24, isSelf: true)
-                        Text(deps.selfName).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).lineLimit(1)
+                        PersonAvatar(name: deps.account.selfName, size: 24, isSelf: true)
+                        Text(deps.account.selfName).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).lineLimit(1)
                         Spacer(minLength: 0)
                         Image(systemName: "gearshape").font(.system(size: 12, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
                     }
@@ -226,7 +226,7 @@ struct AccountCapsule: View {
     }
 
     private func signIn(_ prompt: String) -> some View {
-        let approving = deps.userId != nil
+        let approving = deps.account.userId != nil
         return HStack(spacing: 0) {
             Button { deps.beginSignIn() } label: {
                 HStack(spacing: 9) {

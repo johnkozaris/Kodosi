@@ -1,3 +1,4 @@
+import KodosiBridge
 import SwiftUI
 
 struct MainTabView: View {

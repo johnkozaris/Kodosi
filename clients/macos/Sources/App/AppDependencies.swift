@@ -14,15 +14,11 @@ final class AppDependencies {
     let settings: DesktopSettings
     let workbench: WorkbenchState
     let launcher: LauncherState
+    let account: AccountStore
+    let people: PeopleStore
     var sessions: [RuntimeSession] = []
-    var friends: [FriendEntry] = []
     var inviteRequested: Date?
     var inviteCopies = 0
-    var incomingRequests: [FriendRequestEntry] = []
-    var outgoingRequests: [FriendRequestEntry] = []
-    var devices: [MyDeviceEntry] = []
-    var deviceRequests: [DeviceLinkRequest] = []
-    var newRecoveryKey: String?
     var missions: [MissionEntry] = []
     var invitations: [MissionInvitationEntry] = []
     var missionListTruncated = false
@@ -31,19 +27,10 @@ final class AppDependencies {
     var roomIssues: [String: [RoomIssue]] = [:]
     var roomViews: [String: RoomViewState] = [:]
     var roomCreations: [String: String] = [:]
-    var userId: String?
-    var displayName: String?
     var attention: Set<String> = []
     var isFront: () -> Bool = { NSApp?.isActive == true }
     var freshTerminals: Set<String> = []
-    var selfDeviceId: String?
-    var localDeviceEnrolled = false
     var signInPresented = false
-    var signInStage: SignInStage = .idle
-    var signingIn: Bool {
-        signInStage.isPending
-    }
-
     var openExternalURL: (URL) -> Void = { NSWorkspace.shared.open($0) }
     var bringToFront: () -> Void = { NSApp.activate() }
     var copyText: (String) -> Void = { text in
@@ -52,12 +39,10 @@ final class AppDependencies {
     }
 
     var openedSignInPage: URL?
-    var identityMessage: String?
     var errorMessage: String?
     let updater = AppUpdater()
     var updateRequired = false
     var commandLink: String?
-    var accountDeletion: AccountDeletion?
     var appState: AppState = .launching
     var pendingDeepLink: DeepLinkDestination? {
         didSet { consumeDeepLink() }
@@ -87,6 +72,8 @@ final class AppDependencies {
         workbench = WorkbenchState(defaults: defaults)
         let commands = CommandSink()
         commandSink = commands
+        account = AccountStore(commands: commands, browser: "system")
+        people = PeopleStore(commands: commands)
         launcher = LauncherState(commands: commands)
         let inbox = RuntimeEventInbox()
         self.inbox = inbox
@@ -102,6 +89,7 @@ final class AppDependencies {
             }
         )
         commandSink.onFailure = { [weak self] message in self?.errorMessage = message }
+        account.notify = { [weak self] message in self?.errorMessage = message }
     }
 
     func start() {
@@ -201,7 +189,7 @@ final class AppDependencies {
             inbox.reopen()
             accountKnown = false
             accountEpoch = 0
-            userId = nil
+            account.reset(userId: nil)
             commandSink.setAccount(userId: nil, epoch: 0)
             start()
         }
@@ -209,7 +197,7 @@ final class AppDependencies {
 
     func shutdownProcess(completion: @escaping @MainActor () -> Void = {}) {
         signInPresented = false
-        signInStage = .idle
+        account.endSignIn()
         terminalNotifications.clear()
         missionTask?.cancel(); missionTask = nil; missionRequestId = nil
         activationTasks.values.forEach { $0.cancel() }
@@ -240,7 +228,7 @@ final class AppDependencies {
     func refresh() {
         Task { await launcher.refresh(force: true) }
         commandSink.perform("session.list")
-        if userId != nil {
+        if account.userId != nil {
             commandSink.perform("auth.refresh")
             commandSink.perform("friends.refresh")
             commandSink.perform("devices.refresh")
@@ -265,7 +253,7 @@ final class AppDependencies {
             }
             guard current.kind == .remote else { return }
         } else {
-            guard userId != nil else { return }
+            guard account.userId != nil else { return }
         }
         guard activationTasks[id] == nil else { return }
         openRemote(id, inRoom: roomId)
@@ -401,6 +389,6 @@ final class AppDependencies {
 
     func copyInvite() {
         inviteRequested = Date()
-        perform("friends.invite")
+        people.requestInvite()
     }
 }

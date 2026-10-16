@@ -75,7 +75,7 @@ struct AppShell: View {
         if deps.signInPresented {
             return .signIn
         }
-        if deps.newRecoveryKey != nil {
+        if deps.account.newRecoveryKey != nil {
             return .recoveryKey
         }
         if let id = workbench.detailsSessionId, deps.session(id) != nil {
@@ -97,7 +97,7 @@ struct AppShell: View {
         case .signIn:
             SheetLayer(close: deps.dismissSignIn, cancel: deps.cancelSignIn) { SignInSheet() }
         case .recoveryKey:
-            SheetLayer(close: {}, content: { RecoveryKeySheet(key: deps.newRecoveryKey ?? "") { deps.newRecoveryKey = nil } })
+            SheetLayer(close: {}, content: { RecoveryKeySheet(key: deps.account.newRecoveryKey ?? "", done: deps.account.dismissRecoveryKey) })
         case let .details(id):
             SheetLayer(close: { workbench.detailsSessionId = nil }, content: {
                 if let session = deps.session(id) {

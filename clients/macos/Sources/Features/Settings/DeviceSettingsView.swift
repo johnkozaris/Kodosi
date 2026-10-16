@@ -13,20 +13,20 @@ struct DeviceSettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
-            if deps.userId == nil {
+            if deps.account.userId == nil {
                 SignInView().frame(height: 380)
             } else {
                 HStack(spacing: 14) {
-                    PersonAvatar(name: deps.selfName, size: 52, isSelf: true)
+                    PersonAvatar(name: deps.account.selfName, size: 52, isSelf: true)
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(deps.selfName).appTextStyle(.title).foregroundStyle(theme.colors.ink)
+                        Text(deps.account.selfName).appTextStyle(.title).foregroundStyle(theme.colors.ink)
                         Label("Encrypted end to end", systemImage: "lock.fill").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
                     }
                     Spacer()
                     Button("Sign out…") { signingOut = true }.accessibilityIdentifier("settings.account.signOut")
                 }
                 .padding(16).raised(Radius.xl)
-                if !deps.localDeviceEnrolled {
+                if !deps.account.localDeviceEnrolled {
                     VStack(spacing: 14) {
                         Text("Trust this Mac").appTextStyle(.headline).foregroundStyle(theme.colors.ink)
                         DeviceTrustView(trust: deps.deviceTrust)
@@ -38,23 +38,23 @@ struct DeviceSettingsView: View {
                     }
                 }
                 ListGroup(title: "Your devices") {
-                    ForEach(deps.devices) { device in
+                    ForEach(deps.account.orderedDevices) { device in
                         ListRow(device.title,
                                 subtitle: subtitle(device),
                                 symbol: device.recoveryKey ? "key.fill" : DeviceGlyph.symbol(for: device.label),
-                                tint: device.deviceId == deps.selfDeviceId ? TileTint.orange : TileTint.graphite)
+                                tint: device.deviceId == deps.account.selfDeviceId ? TileTint.orange : TileTint.graphite)
                         {
-                            if deps.localDeviceEnrolled, device.deviceId != deps.selfDeviceId {
+                            if deps.account.canRemove(device) {
                                 Button("Remove…") { revoke = device }.buttonStyle(.kodosi(.ghost, size: .small))
                                     .accessibilityIdentifier("settings.devices.remove.\(device.deviceId)")
                             }
                         }
                     }
                 }
-                if deps.localDeviceEnrolled {
+                if deps.account.localDeviceEnrolled {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Add a device").appTextStyle(.subhead).foregroundStyle(theme.colors.inkMuted).padding(.leading, 4)
-                        ForEach(deps.deviceRequests) { request in
+                        ForEach(deps.account.deviceRequests) { request in
                             HStack(spacing: 10) {
                                 BreathingDot(color: theme.colors.accent)
                                 Text("\(request.deviceLabel) is waiting. Enter its code.").appTextStyle(.body).foregroundStyle(theme.colors.ink)
@@ -78,18 +78,18 @@ struct DeviceSettingsView: View {
                         .raisedCapsule()
                     }
                 }
-                if deps.localDeviceEnrolled {
+                if deps.account.localDeviceEnrolled {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("If you lose all your devices").appTextStyle(.subhead).foregroundStyle(theme.colors.inkMuted).padding(.leading, 4)
                         HStack(spacing: 12) {
                             Text("A recovery key approves a new device when you have no other device.")
                                 .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
                             Spacer()
-                            Button(hasRecoveryKey ? String(localized: "Make a new key…") : String(localized: "Make a recovery key")) {
-                                if hasRecoveryKey {
+                            Button(deps.account.hasRecoveryKey ? String(localized: "Make a new key…") : String(localized: "Make a recovery key")) {
+                                if deps.account.hasRecoveryKey {
                                     replacingRecoveryKey = true
                                 } else {
-                                    deps.perform("devices.recovery.create")
+                                    deps.account.createRecoveryKey()
                                 }
                             }
                             .buttonStyle(.kodosi(.secondary))
@@ -98,17 +98,17 @@ struct DeviceSettingsView: View {
                         .padding(.horizontal, 16).padding(.vertical, 12).raised(Radius.lg)
                     }
                 }
-                if let deletion = deps.accountDeletion {
+                if let deletion = deps.account.deletion {
                     HStack(spacing: 10) {
                         BreathingDot(color: theme.colors.danger)
                         Text("Confirm the deletion in your browser.").appTextStyle(.body).foregroundStyle(theme.colors.ink)
                         Spacer()
-                        if let page = deletion.page {
+                        if case let .confirming(page?) = deletion {
                             Button("Open Page") { deps.openExternalURL(page) }
                                 .buttonStyle(.kodosi(.secondary, size: .small))
                                 .accessibilityIdentifier("settings.account.deletionPage")
                         }
-                        Button("Cancel") { deps.cancelAccountDeletion() }
+                        Button("Cancel") { deps.account.cancelAccountDeletion() }
                             .buttonStyle(.kodosi(.ghost, size: .small))
                             .accessibilityIdentifier("settings.account.deletionCancel")
                     }
@@ -121,54 +121,43 @@ struct DeviceSettingsView: View {
                 }
             }
         }
-        .animation(theme.motion.spring, value: deps.devices)
-        .animation(theme.motion.spring, value: deps.accountDeletion)
-        .animation(theme.motion.spring, value: deps.deviceRequests)
+        .animation(theme.motion.spring, value: deps.account.devices)
+        .animation(theme.motion.spring, value: deps.account.deletion)
+        .animation(theme.motion.spring, value: deps.account.deviceRequests)
         .confirmationDialog("Remove \(revoke?.title ?? "")?", isPresented: Binding(get: { revoke != nil }, set: {
             if !$0 {
                 revoke = nil
             }
         }), titleVisibility: .visible) {
             if let device = revoke {
-                Button("Remove", role: .destructive) { deps.perform("devices.revoke", ["deviceId": .string(device.deviceId)]); revoke = nil }
+                Button("Remove", role: .destructive) { deps.account.revokeDevice(device); revoke = nil }
             }
-        } message: { Text(revoke?.removalMessage(hasRecoveryKey: hasRecoveryKey) ?? "") }
+        } message: { Text(revoke?.removalMessage(hasRecoveryKey: deps.account.hasRecoveryKey) ?? "") }
         .confirmationDialog("Make a new recovery key?", isPresented: $replacingRecoveryKey, titleVisibility: .visible) {
-            Button("Make a new key") { deps.perform("devices.recovery.create") }
+            Button("Make a new key") { deps.account.createRecoveryKey() }
         } message: { Text("The recovery key that you have now stops working.") }
         .confirmationDialog("Sign out?", isPresented: $signingOut, titleVisibility: .visible) {
-            Button("Sign out", role: .destructive) { deps.perform("auth.logout") }
+            Button("Sign out", role: .destructive) { deps.account.signOut() }
         } message: { Text("Sharing ends. Terminals on this Mac keep running.") }
         .confirmationDialog("Delete your Kodosi account?", isPresented: $deletingAccount, titleVisibility: .visible) {
-            Button("Delete Account", role: .destructive) { deps.perform("auth.deleteAccount") }
+            Button("Delete Account", role: .destructive) { deps.account.deleteAccount() }
         } message: {
-            Text(deletionSummary)
+            Text(deps.account.deletionSummary(
+                rooms: deps.missions,
+                terminals: String(localized: "Terminals on this Mac keep running. This cannot be undone.")
+            ))
         }
         .onAppear {
-            if deps.userId != nil {
+            if deps.account.userId != nil {
                 deps.perform("devices.refresh")
             }
         }
     }
 
-    private var deletionSummary: String {
-        let owned = deps.missions.filter { $0.ownerUserId == deps.userId }.map(\.name)
-        var parts = [String(localized: "Your devices, friends and sharing go away. What you wrote in other rooms stays there.")]
-        if !owned.isEmpty {
-            parts.append(String(localized: "These rooms close for everyone in them: \(owned.formatted(.list(type: .and)))."))
-        }
-        parts.append(String(localized: "Terminals on this Mac keep running. This cannot be undone."))
-        return parts.joined(separator: "\n\n")
-    }
-
-    private var hasRecoveryKey: Bool {
-        deps.devices.contains(where: \.recoveryKey)
-    }
-
     private func subtitle(_ device: MyDeviceEntry) -> String? {
         if device.recoveryKey {
             String(localized: "Approves a new device when you have no other")
-        } else if device.deviceId == deps.selfDeviceId {
+        } else if device.deviceId == deps.account.selfDeviceId {
             String(localized: "This Mac")
         } else {
             nil

@@ -1,32 +1,32 @@
 import Foundation
-import KodosiBridge
 import Observation
 
+@MainActor
 @Observable
-final class PeopleStore {
-    private(set) var friends: [FriendEntry] = []
-    private(set) var incoming: [FriendRequestEntry] = []
-    private(set) var outgoing: [FriendRequestEntry] = []
-    private(set) var ownInvite: String?
-    private(set) var userId: String?
-    private(set) var loaded = false
-    private(set) var revision = 0
-    private(set) var inFlight: Set<String> = []
-    private(set) var sendingRequest = false
-    private(set) var fetchingInvite = false
+public final class PeopleStore {
+    public private(set) var friends: [FriendEntry] = []
+    public private(set) var incoming: [FriendRequestEntry] = []
+    public private(set) var outgoing: [FriendRequestEntry] = []
+    public private(set) var ownInvite: String?
+    public private(set) var userId: String?
+    public private(set) var loaded = false
+    public private(set) var revision = 0
+    public private(set) var inFlight: Set<String> = []
+    public private(set) var sendingRequest = false
+    public private(set) var fetchingInvite = false
 
     @ObservationIgnored private let commands: CommandSink
     @ObservationIgnored private var settleTask: Task<Void, Never>?
 
-    init(commands: CommandSink) {
+    public init(commands: CommandSink) {
         self.commands = commands
     }
 
-    var isEmpty: Bool {
+    public var isEmpty: Bool {
         friends.isEmpty && incoming.isEmpty && outgoing.isEmpty
     }
 
-    func reset(userId: String?) {
+    public func reset(userId: String?) {
         self.userId = userId
         friends = []
         incoming = []
@@ -36,7 +36,7 @@ final class PeopleStore {
         settle()
     }
 
-    func receive(_ event: RuntimeEvent) throws {
+    public func receive(_ event: RuntimeEvent) throws {
         switch event.type {
         case "friends.snapshot":
             friends = try event.value("friends")
@@ -53,30 +53,30 @@ final class PeopleStore {
         }
     }
 
-    func absorb(error event: RuntimeEvent) {
+    public func absorb(error event: RuntimeEvent) {
         guard event.type == "friends.error" else { return }
         settle()
     }
 
-    func name(of id: String) -> String? {
+    public func name(of id: String) -> String? {
         friend(id)?.personName
     }
 
-    func friend(_ id: String) -> FriendEntry? {
+    public func friend(_ id: String) -> FriendEntry? {
         friends.first { $0.userId == id }
     }
 
-    func isBusy(_ handle: String) -> Bool {
+    public func isBusy(_ handle: String) -> Bool {
         inFlight.contains(handle.lowercased())
     }
 
-    func refresh() async {
+    public func refresh() async {
         let before = revision
         commands.perform("friends.refresh")
         await RefreshWait.until { revision != before }
     }
 
-    func requestInvite() {
+    public func requestInvite() {
         guard !fetchingInvite else { return }
         fetchingInvite = true
         commands.perform("friends.invite")
@@ -84,7 +84,7 @@ final class PeopleStore {
     }
 
     @discardableResult
-    func add(_ text: String) -> Bool {
+    public func add(_ text: String) -> Bool {
         let username = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !username.isEmpty else { return false }
         sendingRequest = true
@@ -93,27 +93,27 @@ final class PeopleStore {
         return true
     }
 
-    func accept(_ request: FriendRequestEntry) {
+    public func accept(_ request: FriendRequestEntry) {
         act("friends.request.accept", on: request.handle)
     }
 
-    func decline(_ request: FriendRequestEntry) {
+    public func decline(_ request: FriendRequestEntry) {
         act("friends.request.reject", on: request.handle)
     }
 
-    func cancel(_ request: FriendRequestEntry) {
+    public func cancel(_ request: FriendRequestEntry) {
         act("friends.request.cancel", on: request.handle)
     }
 
-    func remove(_ friend: FriendEntry) {
+    public func remove(_ friend: FriendEntry) {
         act("friends.remove", on: friend.handle)
     }
 
-    func trust(_ friend: FriendEntry) {
+    public func trust(_ friend: FriendEntry) {
         act("friends.identity.trust", on: friend.handle)
     }
 
-    func verify(_ friend: FriendEntry, invite: String) {
+    public func verify(_ friend: FriendEntry, invite: String) {
         let invite = invite.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !invite.isEmpty else { return }
         act("friends.verify", on: friend.handle, ["invite": .string(invite)])

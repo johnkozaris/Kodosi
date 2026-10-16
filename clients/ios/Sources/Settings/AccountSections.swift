@@ -162,12 +162,9 @@ struct AccountActionsSection: View {
     }
 
     private var deletionSummary: String {
-        let owned = model.rooms.missions.filter { $0.ownerUserId == account.userId }.map(\.name)
-        var parts = [String(localized: "Your devices, friends and sharing go away. What you wrote in other rooms stays there.")]
-        if !owned.isEmpty {
-            parts.append(String(localized: "These rooms close for everyone in them: \(owned.formatted(.list(type: .and)))."))
-        }
-        parts.append(String(localized: "Terminals on your computers keep running. This cannot be undone."))
-        return parts.joined(separator: "\n\n")
+        account.deletionSummary(
+            rooms: model.rooms.missions,
+            terminals: String(localized: "Terminals on your computers keep running. This cannot be undone.")
+        )
     }
 }

@@ -32,11 +32,12 @@ final class AppModel {
         self.inbox = inbox
         let runtime = RuntimeHandle(inbox: inbox)
         self.runtime = runtime
-        account = AccountStore(commands: commands, notices: notices)
+        account = AccountStore(commands: commands, browser: "app")
         terminals = TerminalStore(commands: commands, notices: notices, runtime: runtime)
         rooms = RoomStore(commands: commands, notices: notices)
         people = PeopleStore(commands: commands)
         commands.onFailure = { [notices] message in notices.show(message) }
+        account.notify = { [notices] message in notices.show(message) }
     }
 
     func start() {
