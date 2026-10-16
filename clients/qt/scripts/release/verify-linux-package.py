@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""Check a Linux package of Kodosi: the Debian package, the portable archive or
-the Arch package. The check examines the source identity, the archive metadata,
-the notices, the installed files, the links of the programs and the desktop
-files."""
+"""Check a Debian, portable or Arch package of Kodosi."""
 
 from __future__ import annotations
 

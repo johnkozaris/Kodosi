@@ -30,7 +30,7 @@ void DesktopFileIntegration::setTransientParent(QWindow* window)
 }
 QString DesktopFileIntegration::canonicalLocalPath(const QString& path, bool directoryOnly)
 {
-    // A Windows drive letter reads as a one-letter URL scheme.
+    // A Windows drive letter parses as a one-letter URL scheme.
     if (path.isEmpty() || path.size() > 4096 || path.contains(QChar::Null) || !QDir::isAbsolutePath(path)
         || QUrl(path).scheme().size() > 1)
         return {};
@@ -106,7 +106,7 @@ bool DesktopFileIntegration::openPath(const QString& path)
 bool DesktopFileIntegration::openWebUrl(const QString& value)
 {
     const QUrl url(value, QUrl::StrictMode);
-    // Plain HTTP is only for a sign-in server on this computer, which only development uses.
+    // Plain HTTP is allowed only for a development sign-in server on this computer.
     const bool local = url.scheme() == QStringLiteral("http")
         && (url.host() == QStringLiteral("127.0.0.1") || url.host() == QStringLiteral("localhost")
             || url.host() == QStringLiteral("::1"));

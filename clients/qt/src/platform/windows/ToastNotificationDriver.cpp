@@ -23,7 +23,7 @@ winrt::hstring wide(const QString& text)
     return { reinterpret_cast<const wchar_t*>(text.utf16()), static_cast<winrt::hstring::size_type>(text.size()) };
 }
 
-// Windows limits a toast tag to 64 characters, so the tag is a digest of the key.
+// Windows limits a toast tag to 64 characters.
 winrt::hstring tag(const QString& key)
 {
     return wide(QString::fromLatin1(QCryptographicHash::hash(key.toUtf8(), QCryptographicHash::Sha256).toHex().left(32)));
@@ -43,8 +43,7 @@ XmlDocument content(const DesktopNotification& notification)
 
 }
 
-// Toast callbacks arrive on Windows threads and may outlive the driver, so
-// they reach it only through this relay while it exists.
+// Toast callbacks arrive on Windows threads and may outlive the driver.
 struct ToastNotificationDriver::Relay {
     std::mutex mutex;
     ToastNotificationDriver* driver = nullptr;

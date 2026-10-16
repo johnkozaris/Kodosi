@@ -8,11 +8,7 @@ class QWindow;
 
 namespace kodosi {
 
-/// The native frame of a window whose title zone Kodosi draws. Create it
-/// before the window's saved geometry is restored. It keeps the minimize,
-/// maximize, snap and system menu behaviour that Qt drops with its own
-/// buttons, lets the client area fill the visible window, and keeps Qt's
-/// client geometry equal to the native one.
+// Create before the window's saved geometry is restored.
 class WindowFrame final : public QObject, public QAbstractNativeEventFilter {
     Q_OBJECT
 

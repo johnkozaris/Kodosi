@@ -32,7 +32,6 @@ NAMESPACES = {
     "desktop": "http://schemas.microsoft.com/appx/manifest/desktop/windows10",
     "rescap": "http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities",
 }
-# Files nothing imports. The import check covers every DLL a packaged binary links.
 REQUIRED_FILES = (
     "kodosi-qt.exe",
     "kodosi.exe",
@@ -42,7 +41,7 @@ REQUIRED_FILES = (
     "plugins/platforms/qwindows.dll",
     "resources.pri",
 )
-# Windows may hold an older copy of the C runtime, so the package carries its own.
+# Windows may hold an older copy of the C runtime.
 C_RUNTIME = re.compile(r"(vcruntime|msvcp|concrt|vccorlib)\d")
 QT_SBOM_MODULES = ("qtbase", "qtdeclarative", "qtsvg")
 QT_SBOM_FORMATS = ("spdx", "spdx.json", "cdx.json")

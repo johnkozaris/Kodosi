@@ -6,8 +6,6 @@ import QtQuick
 FocusScope {
     id: root
 
-    // Each row: { id, kind: "choice" | "action" | "note", title, subtitle, detail, current, working,
-    //   icon: "" | "folder" | "account" | "slot", glyph, initial, key, signedIn }.
     property var rows: []
     property real listWidth: 300
     property string filter: ""

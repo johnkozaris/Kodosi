@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Puts the x64 and ARM64 packages of one version in one MSIX bundle. Sign the
-# bundle, not the packages. Run after kodosi_windows_env, which puts the Windows
-# SDK tools on PATH.
 
 set -euo pipefail
 
@@ -15,7 +12,6 @@ fi
 version=$(python3 "$(dirname "$0")/product-version.py")
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-# The SDK tools take /switches, which Git Bash would otherwise rewrite as paths.
 export MSYS_NO_PATHCONV=1
 
 cp "$@" "$work/"

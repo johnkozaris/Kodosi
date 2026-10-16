@@ -1,6 +1,4 @@
-# CPack runs this script before it makes each package. Only the Debian package gets
-# the Kodosi apt repository and its key. file(COPY), because file(INSTALL) would put
-# DESTDIR in front of the staging folder.
+# file(INSTALL) would put DESTDIR in front of the staging folder.
 if(CPACK_GENERATOR STREQUAL "DEB")
     file(
         COPY "${CPACK_KODOSI_LINUX_PACKAGING}/kodosi.sources"

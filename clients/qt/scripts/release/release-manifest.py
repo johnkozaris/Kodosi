@@ -44,7 +44,6 @@ def package_kind(name: str) -> str | None:
 
 
 def checkout_fields() -> dict[str, object]:
-    """The fields of the manifest that the clean checkout gives."""
     try:
         source = source_identity(ROOT)
         repository = repository_root(ROOT)

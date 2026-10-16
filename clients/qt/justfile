@@ -31,11 +31,11 @@ test: build
     "{{ cmake }}" --build build/dev --target test_prep/all
     "{{ ctest }}" --preset dev
 
-# Check that the copies of the CMake and Qt versions agree with dependencies.lock.json.
+# Check that the copied CMake and Qt versions match dependencies.lock.json.
 dependency-pins-check:
     python3 scripts/build/verify-dependency-pins.py
 
-# Test that the release signature check refuses a changed manifest and the signature of another key.
+# Test the release signature check.
 release-signature-test:
     python3 -m unittest scripts/tests/test_release_signature.py
 
@@ -69,7 +69,7 @@ windows-run *arguments: windows-build
     source ../../scripts/windows-env.sh && kodosi_windows_target && \
         PATH="$(cygpath -u "$PWD")/.tools/Qt/$KODOSI_QT_ARCH/bin:$PATH" build/windows-dev/kodosi-qt.exe {{ arguments }}
 
-# Build, test, package and verify build/release/kodosi-<version>-windows-<arch>.msix; for a signed release, set KODOSI_MSIX_PUBLISHER to the certificate subject.
+# Build, test, package and verify the MSIX; for a signed release, set KODOSI_MSIX_PUBLISHER to the certificate subject.
 windows-package: tools-install
     source ../../scripts/windows-env.sh && kodosi_windows_env && \
         export SOURCE_DATE_EPOCH="$(python3 scripts/release/source-date-epoch.py --source-root .)" && \
@@ -98,7 +98,7 @@ windows-bundle:
         ./scripts/release/bundle-msix.sh "build/release/Kodosi-{{ version }}.msixbundle" \
             "build/release/kodosi-{{ version }}-windows-x64.msix" "build/release/kodosi-{{ version }}-windows-arm64.msix"
 
-# Build, test and package the committed Linux release twice, compare and verify the packages, and write the release manifest in build/release.
+# Package the committed Linux release twice, compare and verify the packages, and write the release manifest.
 release-package: tools-install
     SOURCE_DATE_EPOCH={{ source_date_epoch }} "{{ cmake }}" --preset release
     SOURCE_DATE_EPOCH={{ source_date_epoch }} "{{ cmake }}" --build --preset release

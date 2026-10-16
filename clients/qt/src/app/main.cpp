@@ -64,16 +64,13 @@ int main(int argc, char* argv[])
         qputenv("QT_QPA_PLATFORMTHEME", "xdgdesktopportal");
 #endif
 #ifdef Q_OS_WIN
-    // AltGr arrives as its own key, so layouts that type characters with it
-    // reach the terminal as text rather than as Ctrl+Alt shortcuts.
+    // AltGr then types characters instead of sending Ctrl+Alt shortcuts.
     if (!qEnvironmentVariableIsSet("QT_QPA_PLATFORM"))
         qputenv("QT_QPA_PLATFORM", "windows:altgr");
 #endif
     QQuickStyle::setStyle(QStringLiteral("Basic"));
     QApplication app(argc, argv);
 #ifdef Q_OS_WIN
-    // Windows has no generic monospace family, so text that asks for one
-    // gets the fonts the terminal uses.
     QFont::insertSubstitutions(
         QStringLiteral("monospace"),
         {QStringLiteral("Cascadia Mono"), QStringLiteral("Consolas")});
@@ -224,8 +221,6 @@ int main(int argc, char* argv[])
                 raise(token);
         });
 #ifdef Q_OS_LINUX
-    // apt, pacman and a new archive put a new file in place of the running program.
-    // The old version runs until the person opens Kodosi again.
     const auto program = QFile::encodeName(QCoreApplication::applicationFilePath());
     struct stat running {};
     ::stat(program.constData(), &running);

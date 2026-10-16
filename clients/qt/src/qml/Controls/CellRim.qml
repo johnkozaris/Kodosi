@@ -37,8 +37,6 @@ Item {
         const ago = Typing.wrapped(head - index, count)
         return still ? coolingColor(ago < 4 ? ago * 0.25 : 9) : coolingColor(seconds - Typing.time(head - ago))
     }
-    // The point at `at` of the way round, clockwise from the middle of the top
-    // edge, and the direction of travel there.
     function place(at) {
         const left = lineWidth / 2
         const top = lineWidth / 2

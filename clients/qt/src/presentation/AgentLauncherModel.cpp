@@ -48,7 +48,6 @@ QVariantMap AgentLauncherModel::plan(const QVariantMap& info) const
         return entry.toMap().value(QStringLiteral("command")).toString() == saved(QStringLiteral("accounts"));
     });
     const auto account = chosen == accounts.end() ? accounts.value(0) : *chosen;
-    // Saved choices stand until the agent lists its models; then only listed ones stay.
     const bool listed = m_models.contains(agent);
     const auto offer = m_models.value(agent).toMap();
     auto modelArgument = saved(QStringLiteral("models"));
@@ -88,7 +87,6 @@ void AgentLauncherModel::refresh(bool force)
 {
     const auto now = QDateTime::currentMSecsSinceEpoch();
     const bool asking = std::ranges::any_of(m_pending, [](const Pending& pending) { return pending.request == Request::Agents; });
-    // The answer under way can be older than the change that forces a refresh.
     if (asking)
         m_refreshesAgain = m_refreshesAgain || force;
     if (asking || (!force && now - m_refreshedAt < RefreshMilliseconds))

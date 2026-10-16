@@ -21,8 +21,7 @@ COLORREF colorRef(const QColor& color)
     return RGB(color.red(), color.green(), color.blue());
 }
 
-// Windows keeps an auto-hide taskbar hidden behind a window that covers its
-// monitor, so a maximized window leaves the taskbar's edge to the pointer.
+// Windows keeps an auto-hide taskbar hidden behind a window that covers its monitor.
 void leaveAutoHideTaskbars(HWND hwnd, RECT& client)
 {
     APPBARDATA state {};
@@ -104,7 +103,7 @@ bool WindowFrame::nativeEventFilter(const QByteArray& eventType, void* message, 
         *result = 0;
         return true;
     case WM_NCACTIVATE:
-        // The default handler would repaint the frame in the system colours.
+        // The default handler repaints the frame in the system colours.
         *result = DefWindowProcW(msg->hwnd, WM_NCACTIVATE, msg->wParam, -1);
         return true;
     default:
@@ -112,10 +111,7 @@ bool WindowFrame::nativeEventFilter(const QByteArray& eventType, void* message, 
     }
 }
 
-// Qt 6.12 leaves a thin native strip between its expanded client area and the
-// invisible resize border, which Windows composes inconsistently. The client
-// covers the whole window instead, so no native frame shows, and Qt's resize
-// border sits just inside the window edge.
+// Qt 6.12 leaves a native strip around an expanded client area, so the client covers the whole window.
 bool WindowFrame::fitClient(void* parameters) const
 {
     const auto hwnd = static_cast<HWND>(m_handle);
@@ -123,7 +119,6 @@ bool WindowFrame::fitClient(void* parameters) const
     if (IsIconic(hwnd))
         return false;
     if (IsZoomed(hwnd)) {
-        // A maximized window hangs over the screen by its resize border.
         const auto dpi = GetDpiForWindow(hwnd);
         const auto border = GetSystemMetricsForDpi(SM_CXSIZEFRAME, dpi) + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
         InflateRect(&client, -border, -border);
@@ -132,10 +127,7 @@ bool WindowFrame::fitClient(void* parameters) const
     return true;
 }
 
-// Qt 6.12 derives the frame of an expanded client area from the window style,
-// not from the client area the frame really leaves. Its custom margins make up
-// the difference, so the scene fills the native client area and the saved
-// geometry restores to the same place.
+// Qt 6.12 derives an expanded client area's frame from the window style; custom margins correct it.
 void WindowFrame::alignClient()
 {
     auto* platform = m_window.handle();

@@ -12,9 +12,7 @@ else()
     set(KODOSI_WINDOWS_ARCH "x64")
 endif()
 
-# Rust links the release C runtime in every profile, so every configuration
-# does, with Qt's release libraries. The empty entry keeps the Rust runtime and
-# Ghostty imports, which have no configurations.
+# Rust links the release C runtime in every profile; the empty entry keeps the unconfigured imports.
 set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
 set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG RelWithDebInfo "")
 
@@ -25,12 +23,9 @@ set(KODOSI_RUNTIME_ARCHIVE_NAME "kodosi_ffi_c.lib")
 set(KODOSI_RUNTIME_CLI_NAME "kodosi.exe")
 set(KODOSI_GHOSTTY_REF "WindowsGhostty.ref")
 set(KODOSI_GHOSTTY_VT_ARCHIVE_NAME "ghostty-vt-static.lib")
-# rustc's native-static-libs for kodosi-ffi-c. The C runtime is the dynamic
-# one Qt uses.
 set(KODOSI_RUNTIME_SYSTEM_LIBRARIES kernel32 ntdll userenv ws2_32 dbghelp)
 set(KODOSI_COMPILE_OPTIONS /W4 -Wpedantic /WX)
-# Rust's compiler_builtins and Ghostty's Zig compiler_rt each define the compiler
-# builtins as weak symbols; lld-link keeps the first instead of failing the link.
+# Rust's compiler_builtins and Zig's compiler_rt both define the builtins as weak symbols.
 if(CMAKE_CXX_COMPILER_LINKER_ID STREQUAL "LLD")
     add_link_options(-lld-allow-duplicate-weak)
 endif()
@@ -47,8 +42,7 @@ set(KODOSI_TEST_ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_D
 set(KODOSI_QT_SBOM_MODULES qtbase qtdeclarative qtsvg)
 set(KODOSI_PROVIDER_ICON_LICENSE_DIR doc/provider-icons)
 set(KODOSI_CONPTY_DIR "${PROJECT_BINARY_DIR}/conpty")
-# Windows installs an unsigned package only when its publisher carries this
-# OID; release builds set the signing certificate's subject instead.
+# Windows installs an unsigned package only when its publisher carries this OID.
 set(KODOSI_MSIX_PUBLISHER "CN=Kodosi Development, OID.2.25.311729368913984317654407730594956997722=1"
     CACHE STRING "MSIX publisher, equal to the signing certificate subject")
 
@@ -76,7 +70,6 @@ function(kodosi_install app)
     set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION .)
     include(InstallRequiredSystemLibraries)
 
-    # Windows 11 provides the Direct3D compilers; Qt Quick renders with D3D11.
     qt_generate_deploy_qml_app_script(
         TARGET ${app}
         OUTPUT_SCRIPT deploy_script
@@ -95,8 +88,6 @@ function(kodosi_install app)
         "${PROJECT_BINARY_DIR}/AppxManifest.xml"
         @ONLY
     )
-    # Windows reads the update source from this file, also for a package that
-    # was installed from the downloaded bundle.
     configure_file(
         "${PROJECT_SOURCE_DIR}/packaging/windows/Kodosi.appinstaller.in"
         "${PROJECT_BINARY_DIR}/Kodosi.appinstaller"

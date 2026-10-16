@@ -24,7 +24,7 @@ sys.stdout.write(value)
 CMAKE_VERSION=$(lock_value tools cmake version)
 NINJA_VERSION=$(lock_value tools ninja version)
 QT_VERSION=$(lock_value frameworks qt version)
-# The aqtinstall release cannot read the Windows repository of the pinned Qt. This commit can.
+# The aqtinstall release cannot read the Windows repository of the pinned Qt.
 AQTINSTALL_COMMIT=$(lock_value tools aqtinstall commit)
 
 case "$(uname -s)-$(uname -m)" in

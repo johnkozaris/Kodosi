@@ -36,9 +36,7 @@ def repository_name(root: Path) -> str:
 
 
 def checkout_dirty(root: Path) -> bool:
-    # git status does not show a change to a file with the assume-unchanged or
-    # the skip-worktree flag. git ls-files -v gives these files a lowercase tag
-    # or the tag S.
+    # git status hides files with the assume-unchanged (lowercase tag) or skip-worktree (S) flag.
     tags = (entry[:1] for entry in git(root, "ls-files", "-v", "-z").split("\0") if entry)
     if any(tag == "S" or tag.islower() for tag in tags):
         return True

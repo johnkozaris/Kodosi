@@ -173,7 +173,6 @@ foreach(module Core Gui Qml Quick)
             endif()
             target_include_directories(kodosi-terminal-kernel PRIVATE
                 "${private_root}" "${private_root}/Qt${module}")
-            # The Windows window frame corrects Qt's frame margins.
             if(WIN32 AND module MATCHES "^(Core|Gui)$")
                 target_include_directories(kodosi-desktop-integration PRIVATE
                     "${private_root}" "${private_root}/Qt${module}")
@@ -197,8 +196,7 @@ qt_add_executable(kodosi-qt
     app/main.cpp
 )
 
-# CellRim imports Typing.js by its path. A qmldir entry for it makes Qt find the
-# Kodosi module twice, and no QML file that imports Kodosi then loads.
+# CellRim imports Typing.js by path; a qmldir entry would make Qt load the Kodosi module twice.
 set_source_files_properties(qml/Controls/Typing.js PROPERTIES QT_QML_SKIP_QMLDIR_ENTRY TRUE)
 qt_add_library(kodosi-ui STATIC)
 qt_add_qml_module(kodosi-ui

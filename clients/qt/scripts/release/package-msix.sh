@@ -6,7 +6,6 @@ layout=${1:?Usage: package-msix.sh <layout> <package.msix>}
 package=${2:?Usage: package-msix.sh <layout> <package.msix>}
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-# The SDK tools take /switches, which Git Bash would otherwise rewrite as paths.
 export MSYS_NO_PATHCONV=1
 
 mkdir -p "$work/resources"
