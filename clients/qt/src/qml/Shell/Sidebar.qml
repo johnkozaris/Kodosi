@@ -14,6 +14,17 @@ Item {
     readonly property var rooms: Models.Missions.missions
     readonly property var invitations: Models.Missions.invitations
     readonly property bool accountReady: Models.Account.signedIn && Models.Devices.localDeviceEnrolled
+    readonly property var roomWork: {
+        const work = {}
+        for (const session of Models.Sessions.sessions) {
+            if (!session.missionId)
+                continue
+            const room = work[session.missionId] || (work[session.missionId] = { asks: false, working: false })
+            room.asks = room.asks || session.asks === true
+            room.working = room.working || session.working === true
+        }
+        return work
+    }
     readonly property string selection: {
         switch (Models.DesktopState.activeView) {
         case Models.DesktopState.Sessions: return Models.DesktopState.selectedSessionId.length > 0 ? "terminal:" + Models.DesktopState.selectedSessionId : ""
@@ -190,19 +201,41 @@ Item {
         }
     }
 
-    Flickable {
+    component RailItem: AbstractButton {
+        id: item
+
+        property bool selected: false
+
+        anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
+        width: 40
+        height: 40
+        hoverEnabled: true
+        scale: pressed ? 0.94 : 1
+        Accessible.selected: selected
+        ToolTip.visible: hovered
+        ToolTip.text: Accessible.name
+        ToolTip.delay: 600
+
+        background: Item {
+            Raised { anchors.fill: parent; radius: KodosiTheme.radiusLg; visible: item.selected }
+            Rectangle {
+                anchors.fill: parent
+                radius: KodosiTheme.radiusLg
+                color: KodosiTheme.alpha(KodosiTheme.ink, !item.selected && (item.hovered || item.visualFocus) ? 0.06 : 0)
+            }
+        }
+    }
+
+    ColumnLayout {
         id: rail
         anchors.fill: parent
         visible: root.collapsed
-        contentHeight: railColumn.implicitHeight + 20
-        clip: true
-        boundsBehavior: Flickable.StopAtBounds
+        spacing: 10
 
         Column {
-            id: railColumn
-            y: root.titleBar ? (KodosiTheme.titleBarHeight - 28) / 2 + 3 : 10
-            width: parent.width
-            spacing: 8
+            Layout.alignment: Qt.AlignHCenter
+            Layout.topMargin: root.titleBar ? (KodosiTheme.titleBarHeight - 28) / 2 + 3 : 10
+            spacing: 10
 
             KIconButton {
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -218,9 +251,13 @@ Item {
                 width: 34
                 height: 34
                 hoverEnabled: true
+                scale: pressed ? 0.94 : 1
                 objectName: "rail.newTerminal"
                 Accessible.id: objectName
                 Accessible.name: qsTr("New terminal")
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("New terminal (Ctrl+Shift+N)")
+                ToolTip.delay: 600
                 background: Bezel {
                     radius: 17
                     fill: railNew.hovered ? KodosiTheme.accentHover : KodosiTheme.accent
@@ -231,101 +268,111 @@ Item {
                 }
                 onClicked: root.newTerminalRequested("")
             }
-            Item { width: 1; height: 2 }
-            Repeater {
-                model: root.rooms.length
+        }
+        Flickable {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            contentHeight: railColumn.implicitHeight + 12
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
 
-                AbstractButton {
-                    id: railRoom
+            Column {
+                id: railColumn
+                y: 6
+                width: parent.width
+                spacing: 6
 
-                    required property int index
-                    readonly property var entry: root.rooms[index] || ({})
+                Repeater {
+                    model: root.rooms.length
 
-                    anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
-                    width: 40
-                    height: 40
-                    Accessible.name: entry.name || ""
-                    ToolTip.visible: hovered
-                    ToolTip.text: entry.name || ""
-                    hoverEnabled: true
-                    background: Raised {
-                        radius: KodosiTheme.radiusMd
-                        visible: root.selection === "room:" + railRoom.entry.id
-                    }
-                    contentItem: Item {
-                        RoomSigil {
-                            id: railSigil
-                            anchors.centerIn: parent
-                            key: railRoom.entry.id || ""
-                            size: 26
+                    RailItem {
+                        id: railRoom
+
+                        required property int index
+                        readonly property var entry: root.rooms[index] || ({})
+
+                        selected: root.selection === "room:" + entry.id
+                        Accessible.name: entry.name || ""
+                        contentItem: Item {
+                            RoomSigil {
+                                id: railSigil
+                                anchors.centerIn: parent
+                                key: railRoom.entry.id || ""
+                                size: 26
+                            }
+                            NewDot {
+                                x: railSigil.x + railSigil.width - width / 2 - 1
+                                y: railSigil.y - height / 2 + 1
+                                visible: Models.Missions.unreadRooms.indexOf(railRoom.entry.id) >= 0
+                                ring: KodosiTheme.ground
+                            }
                         }
-                        NewDot {
-                            x: railSigil.x + railSigil.width - width / 2 - 1
-                            y: railSigil.y - height / 2 + 1
-                            visible: Models.Missions.unreadRooms.indexOf(railRoom.entry.id) >= 0
-                            ring: KodosiTheme.ground
-                        }
+                        onClicked: root.openRoom(entry.id)
                     }
-                    onClicked: root.openRoom(entry.id)
+                }
+                Rectangle {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: 18
+                    height: 1
+                    radius: 0.5
+                    color: KodosiTheme.alpha(KodosiTheme.hairline, 0.7)
+                    visible: root.rooms.length > 0 && Models.Sessions.count > 0
+                }
+                Repeater {
+                    model: Models.Sessions.count
+
+                    RailItem {
+                        id: mark
+
+                        required property int index
+                        readonly property var session: Models.Sessions.sessions[index] || ({})
+                        readonly property bool connected: session.connectionState === "local" || session.connectionState === "connected"
+
+                        selected: root.selection === "terminal:" + session.id
+                        Accessible.name: session.name || ""
+                        contentItem: Item {
+                            AgentMark {
+                                anchors.centerIn: parent
+                                program: mark.session.program || ""
+                                size: 26
+                                asleep: !mark.connected || Models.DesktopState.stagedSessionIds.indexOf(mark.session.id) < 0
+                                session: mark.session
+                            }
+                            StatusSign {
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                session: mark.session
+                                unseen: Models.Sessions.attention.indexOf(mark.session.id) >= 0
+                                size: 9
+                                backing: KodosiTheme.ground
+                            }
+                        }
+                        onClicked: root.openTerminal(session.id)
+                    }
                 }
             }
-            Repeater {
-                model: Models.Sessions.sessions.length
+        }
+        Column {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.bottomMargin: 12
+            spacing: 6
 
-                AbstractButton {
-                    id: mark
-
-                    required property int index
-                    readonly property var session: Models.Sessions.sessions[index] || ({})
-
-                    anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
-                    width: 40
-                    height: 40
-                    Accessible.name: session.name || ""
-                    ToolTip.visible: hovered
-                    ToolTip.text: session.name || ""
-                    hoverEnabled: true
-                    background: Raised {
-                        radius: KodosiTheme.radiusMd
-                        visible: root.selection === "terminal:" + mark.session.id
-                    }
-                    contentItem: Item {
-                        AgentMark {
-                            anchors.centerIn: parent
-                            program: mark.session.program || ""
-                            size: 26
-                            asleep: Models.DesktopState.stagedSessionIds.indexOf(mark.session.id) < 0
-                            session: mark.session
-                        }
-                        StatusSign {
-                            anchors.right: parent.right
-                            anchors.top: parent.top
-                            session: mark.session
-                            unseen: Models.Sessions.attention.indexOf(mark.session.id) >= 0
-                            size: 11
-                            backing: KodosiTheme.ground
-                        }
-                    }
-                    onClicked: root.openTerminal(session.id)
-                }
-            }
-            Item { width: 1; height: 6 }
             KIconButton {
-                anchors.horizontalCenter: parent.horizontalCenter
                 glyph: "people"
+                size: 32
                 active: root.selection === "people"
                 Accessible.name: qsTr("People")
                 onClicked: Models.DesktopState.activeView = Models.DesktopState.People
             }
             KIconButton {
-                anchors.horizontalCenter: parent.horizontalCenter
                 glyph: "history"
+                size: 32
                 Accessible.name: qsTr("Resume")
                 onClicked: root.resumeRequested()
             }
             KIconButton {
-                anchors.horizontalCenter: parent.horizontalCenter
                 glyph: "settings"
+                size: 32
                 active: root.selection === "settings"
                 Accessible.name: qsTr("Settings")
                 onClicked: Models.DesktopState.activeView = Models.DesktopState.Settings
@@ -357,7 +404,7 @@ Item {
                 Accessible.id: objectName
                 Accessible.name: qsTr("Go to…")
                 ToolTip.visible: hovered
-                ToolTip.text: qsTr("Go to… (Ctrl+K)")
+                ToolTip.text: qsTr("Go to… (Ctrl+Shift+K)")
                 ToolTip.delay: 600
                 onClicked: root.paletteRequested()
             }
@@ -434,6 +481,7 @@ Item {
                 spacing: 2
 
                 onImplicitHeightChanged: Qt.callLater(root.syncPill)
+                onWidthChanged: Qt.callLater(root.syncPill)
 
                 SectionHeader {
                     title: qsTr("Rooms")
@@ -485,30 +533,45 @@ Item {
                         readonly property var entry: root.invitations[index] || ({})
 
                         width: content.width
-                        height: 78
+                        height: invitationColumn.implicitHeight + 24
 
                         Rectangle {
                             anchors.fill: parent
-                            anchors.bottomMargin: 6
+                            anchors.topMargin: 2
+                            anchors.bottomMargin: 2
                             radius: KodosiTheme.radiusLg
                             color: KodosiTheme.alpha(KodosiTheme.accentSoft, 0.55)
                             border.width: 1
-                            border.color: KodosiTheme.alpha(KodosiTheme.accent, 0.5)
+                            border.color: KodosiTheme.alpha(KodosiTheme.accent, 0.45)
                         }
                         ColumnLayout {
-                            anchors.fill: parent
-                            anchors.margins: 9
-                            anchors.bottomMargin: 15
-                            spacing: 7
+                            id: invitationColumn
+                            x: 10
+                            y: 12
+                            width: parent.width - 20
+                            spacing: 8
 
                             RowLayout {
                                 spacing: 9
                                 RoomSigil { key: invitation.entry.missionId || ""; size: 22 }
-                                PlainLabel {
+                                ColumnLayout {
                                     Layout.fillWidth: true
-                                    text: invitation.entry.missionName || ""
-                                    font.weight: Font.DemiBold
-                                    elide: Text.ElideRight
+                                    spacing: 1
+
+                                    PlainLabel {
+                                        Layout.fillWidth: true
+                                        text: invitation.entry.missionName || ""
+                                        font.weight: Font.DemiBold
+                                        elide: Text.ElideRight
+                                    }
+                                    PlainLabel {
+                                        Layout.fillWidth: true
+                                        visible: !!invitation.entry.inviterName
+                                        text: qsTr("%1 invited you").arg(invitation.entry.inviterName || "")
+                                        color: KodosiTheme.inkMuted
+                                        font.pixelSize: KodosiTheme.fontCaption
+                                        elide: Text.ElideRight
+                                    }
                                 }
                             }
                             RowLayout {
@@ -546,6 +609,7 @@ Item {
                         readonly property var entry: root.rooms[index] || ({})
                         readonly property bool selected: root.selection === "room:" + entry.id
                         readonly property bool unread: Models.Missions.unreadRooms.indexOf(entry.id) >= 0
+                        readonly property var work: root.roomWork[entry.id] || ({ asks: false, working: false })
 
                         width: parent ? parent.width : 0
                         height: 34
@@ -579,6 +643,17 @@ Item {
                             NewDot {
                                 Layout.rightMargin: 12
                                 visible: room.unread
+                            }
+                            StatusSign {
+                                Layout.rightMargin: 8
+                                visible: !room.unread && room.work.asks
+                                session: ({ sign: "hand", asks: true, signLabel: qsTr("Needs your approval") })
+                            }
+                            BreathingDot {
+                                Layout.rightMargin: 13
+                                visible: !room.unread && !room.work.asks && room.work.working
+                                size: 6
+                                color: KodosiTheme.glowOrange
                             }
                         }
                         background: Rectangle {
@@ -655,6 +730,12 @@ Item {
                                     font.weight: Font.Medium
                                     elide: Text.ElideRight
                                 }
+                                RollingText {
+                                    visible: folder.folded
+                                    text: String((folder.group.sessions || []).length)
+                                    color: KodosiTheme.inkFaint
+                                    font.pixelSize: KodosiTheme.fontCaption
+                                }
                                 StatusSign {
                                     size: 11
                                     session: folder.folded
@@ -709,9 +790,13 @@ Item {
                                 readonly property bool renaming: root.renamingId === sessionId && sessionId.length > 0
                                 readonly property var viewers: (session.connectedUsers || []).filter(user => user !== Models.Account.userId)
                                 readonly property string detail: session.activity || (session.kind === "remote" && session.connectionState !== "connected" ? (session.message || qsTr("Not connected")) : "")
+                                readonly property bool connected: session.connectionState === "local" || session.connectionState === "connected"
+                                readonly property bool troubled: session.connectionState === "blocked"
+                                    || (session.connectionState === "offline" && (session.status === "reconnecting" || !!session.message))
+                                readonly property bool signed: sign.form.length > 0
 
                                 width: parent ? parent.width : 0
-                                height: caption.shown ? 40 : 34
+                                height: 38
                                 hoverEnabled: true
                                 activeFocusOnTab: true
                                 objectName: "sidebar.session." + sessionId
@@ -731,7 +816,7 @@ Item {
                                         Layout.leftMargin: 8
                                         program: row.session.program || ""
                                         size: 22
-                                        asleep: !row.staged
+                                        asleep: !row.staged || !row.connected
                                         session: row.session
                                     }
                                     ColumnLayout {
@@ -742,7 +827,7 @@ Item {
                                         PlainLabel {
                                             Layout.fillWidth: true
                                             text: row.session.name || ""
-                                            color: row.selected || rowHover.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
+                                            color: row.selected || row.staged ? KodosiTheme.ink : KodosiTheme.inkMuted
                                             font.weight: row.selected ? Font.DemiBold : Font.Medium
                                             elide: Text.ElideRight
                                         }
@@ -810,22 +895,48 @@ Item {
                                         }
                                         Keys.onEscapePressed: root.renamingId = ""
                                     }
+                                    AvatarStack {
+                                        visible: row.viewers.length > 0 && !actions.visible && !row.renaming
+                                        userIds: row.viewers
+                                        size: 15
+                                        limit: 2
+                                        ring: row.selected ? KodosiTheme.raised : KodosiTheme.ground
+                                    }
                                     StatusSign {
+                                        id: sign
                                         session: row.session
                                         unseen: row.unseen
                                         visible: form.length > 0 && !actions.visible
                                     }
-                                    AvatarStack {
-                                        visible: row.viewers.length > 0 && !actions.visible && !row.renaming
-                                        userIds: row.viewers
-                                        size: 18
-                                        limit: 2
-                                        ring: row.selected ? KodosiTheme.raised : KodosiTheme.ground
+                                    Rectangle {
+                                        Layout.rightMargin: 4
+                                        implicitWidth: 6
+                                        implicitHeight: 6
+                                        radius: 3
+                                        color: KodosiTheme.caution
+                                        visible: !row.signed && row.troubled && !actions.visible
+                                    }
+                                    PersonAvatar {
+                                        visible: !row.signed && !row.troubled && row.session.isOwner === false && !!row.session.ownerName
+                                            && !actions.visible && !row.renaming
+                                        name: row.session.ownerName || ""
+                                        key: row.session.ownerUserId || ""
+                                        size: 15
+                                        Accessible.name: qsTr("Shared by %1").arg(row.session.ownerName || "")
                                     }
                                     RoomSigil {
-                                        visible: !!row.session.missionId && !actions.visible && !row.renaming
+                                        visible: !row.signed && !row.troubled && (row.session.isOwner !== false || !row.session.ownerName)
+                                            && !!row.session.missionId && !actions.visible && !row.renaming
                                         key: row.session.missionId || ""
-                                        size: 16
+                                        size: 14
+                                    }
+                                    KIcon {
+                                        Layout.preferredWidth: 11
+                                        Layout.preferredHeight: 11
+                                        visible: !row.signed && !row.troubled && (row.session.isOwner !== false || !row.session.ownerName)
+                                            && !row.session.missionId && (row.session.sharedWith || []).length > 0 && !actions.visible && !row.renaming
+                                        name: "people"
+                                        color: KodosiTheme.inkFaint
                                     }
                                     Row {
                                         id: actions
@@ -845,6 +956,7 @@ Item {
                                             size: 24
                                             glyph: "close"
                                             destructive: true
+                                            enabled: row.session.canControl === true
                                             objectName: row.objectName + ".close"
                                             Accessible.id: objectName
                                             Accessible.name: qsTr("Close terminal")
@@ -1045,7 +1157,7 @@ Item {
         KMenuItem { text: qsTr("Details"); iconName: "info"; onTriggered: root.detailsRequested(menu.sessionId) }
         MenuSeparator { contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.alpha(KodosiTheme.hairline, 0.7) } }
         KMenuItem { text: qsTr("Minimize"); iconName: "minus"; enabled: Models.DesktopState.stagedSessionIds.indexOf(menu.sessionId) >= 0; onTriggered: Models.SessionActions.minimize(menu.sessionId) }
-        KMenuItem { text: qsTr("Close…"); iconName: "close"; destructive: true; onTriggered: closeDialog.ask(menu.sessionId, menu.session.name || "") }
+        KMenuItem { text: qsTr("Close…"); iconName: "close"; destructive: true; enabled: menu.session.canControl === true; onTriggered: closeDialog.ask(menu.sessionId, menu.session.name || "") }
     }
     KPopover {
         id: branchPopover

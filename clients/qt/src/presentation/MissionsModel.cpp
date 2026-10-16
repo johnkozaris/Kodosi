@@ -28,6 +28,7 @@ void MissionsModel::readWatched()
 {
     if (watching(m_selectedId) && m_unread.removeAll(m_selectedId) > 0)
         emit unreadChanged();
+    seeCanvas();
 }
 
 bool MissionsModel::busy() const
@@ -157,13 +158,18 @@ void MissionsModel::setPresentation(const QString& key, const QVariant& value)
     auto& state = m_presentations[m_selectedId];
     if (state.value(key) == value) return;
     state.insert(key, value);
-    const auto group = key == QStringLiteral("taskTitle") ? QStringLiteral("taskRevision")
+    const auto group = key == QStringLiteral("taskTitle") || key == QStringLiteral("taskDescription")
+            || key == QStringLiteral("taskRepositories") ? QStringLiteral("taskRevision")
         : key == QStringLiteral("message") ? QStringLiteral("messageRevision")
         : key == QStringLiteral("repositoryUrl") ? QStringLiteral("repositoryRevision") : QString {};
     if (!group.isEmpty()) state.insert(group, state.value(group).toULongLong() + 1);
+    if ((key == QStringLiteral("conversation") || key == QStringLiteral("followLatest")) && value.toBool())
+        state.remove(QStringLiteral("unread"));
     emit presentationChanged();
     if (key == QStringLiteral("conversation"))
         readWatched();
+    if (key == QStringLiteral("canvas"))
+        seeCanvas();
 }
 
 void MissionsModel::completeAction(const QString& room, const QString& action, const QVariantMap& submitted)
@@ -174,7 +180,8 @@ void MissionsModel::completeAction(const QString& room, const QString& action, c
         for (const auto& key : keys) current.remove(key);
     };
     if (action == QStringLiteral("post")) clear(QStringLiteral("messageRevision"), {QStringLiteral("message")});
-    if (action == QStringLiteral("createTask")) clear(QStringLiteral("taskRevision"), {QStringLiteral("taskTitle")});
+    if (action == QStringLiteral("createTask"))
+        clear(QStringLiteral("taskRevision"), {QStringLiteral("taskTitle"), QStringLiteral("taskDescription"), QStringLiteral("taskRepositories")});
     if (action == QStringLiteral("addRepository")) clear(QStringLiteral("repositoryRevision"), {QStringLiteral("repositoryUrl"), QStringLiteral("newRepository")});
     if (room == m_selectedId) emit presentationChanged();
 }
@@ -189,23 +196,30 @@ void MissionsModel::applyRoom(const QJsonObject& room)
     const auto roomId = room.value(QStringLiteral("roomId")).toString();
     const auto previous = m_rooms.value(roomId);
     auto next = room.toVariantMap();
-    if (!previous.isEmpty() && !watching(roomId) && !m_unread.contains(roomId)) {
+    auto& view = m_presentations[roomId];
+    const auto before = view;
+    const bool shown = roomId == m_selectedId && m_workspace.m_desktop.activeView() == DesktopStateModel::Missions;
+    if (!previous.isEmpty()) {
         quint64 latest = 0;
         for (const auto& value : previous.value(QStringLiteral("messages")).toList())
             latest = std::max(latest, value.toMap().value(QStringLiteral("sequence")).toULongLong());
         const auto userId = m_workspace.account().userId();
         const auto messages = room.value(QStringLiteral("messages")).toArray();
         // Messages of your agents count as new; only what you wrote yourself does not.
-        const bool arrived = std::any_of(messages.cbegin(), messages.cend(), [&](const QJsonValue& value) {
+        const auto added = std::count_if(messages.cbegin(), messages.cend(), [&](const QJsonValue& value) {
             const auto message = value.toObject();
             const bool own = message.value(QStringLiteral("agent")).toString().isEmpty()
                 && message.value(QStringLiteral("authorId")).toString() == userId;
             return message.value(QStringLiteral("sequence")).toInteger() > static_cast<qint64>(latest) && !own;
         });
-        if (arrived) {
+        if (added > 0 && !watching(roomId) && !m_unread.contains(roomId)) {
             m_unread.append(roomId);
             emit unreadChanged();
         }
+        const bool following = view.value(QStringLiteral("conversation"), true).toBool()
+            && view.value(QStringLiteral("followLatest"), true).toBool();
+        if (added > 0 && !(shown && following))
+            view.insert(QStringLiteral("unread"), view.value(QStringLiteral("unread")).toInt() + static_cast<int>(added));
     }
     if (previous.contains(QStringLiteral("hasOlder")))
         next.insert(QStringLiteral("hasOlder"), previous.value(QStringLiteral("hasOlder")).toBool() && next.value(QStringLiteral("hasOlder")).toBool());
@@ -226,8 +240,47 @@ void MissionsModel::applyRoom(const QJsonObject& room)
         return a.toMap().value(QStringLiteral("id")).toString() < b.toMap().value(QStringLiteral("id")).toString();
     });
     next.insert(QStringLiteral("tasks"), tasks);
+    if (!previous.isEmpty()) {
+        const auto keys = [](const QVariantMap& snapshot, const QString& list, const QString& field) {
+            QStringList result;
+            for (const auto& value : snapshot.value(list).toList()) {
+                const auto entry = value.toMap();
+                result.append(entry.value(QStringLiteral("id")).toString() + QLatin1Char(':') + entry.value(field).toString());
+            }
+            return result;
+        };
+        const auto canvas = view.value(QStringLiteral("canvas")).toInt();
+        auto fresh = view.value(QStringLiteral("fresh")).toList();
+        const auto mark = [&](int section) {
+            if (!(shown && canvas == section) && !fresh.contains(section))
+                fresh.append(section);
+        };
+        if (keys(previous, QStringLiteral("tasks"), QStringLiteral("version")) != keys(next, QStringLiteral("tasks"), QStringLiteral("version")))
+            mark(1);
+        if (keys(previous, QStringLiteral("repositories"), QStringLiteral("id")) != keys(next, QStringLiteral("repositories"), QStringLiteral("id")))
+            mark(2);
+        if (!fresh.isEmpty())
+            view.insert(QStringLiteral("fresh"), fresh);
+    }
     m_rooms.insert(roomId, next);
-    if (roomId == m_selectedId) { m_room = next; emit roomChanged(); }
+    if (roomId == m_selectedId) {
+        m_room = next;
+        emit roomChanged();
+        if (view != before)
+            emit presentationChanged();
+    }
+}
+
+void MissionsModel::seeCanvas()
+{
+    if (m_selectedId.isEmpty() || m_workspace.m_desktop.activeView() != DesktopStateModel::Missions)
+        return;
+    auto& view = m_presentations[m_selectedId];
+    auto fresh = view.value(QStringLiteral("fresh")).toList();
+    if (fresh.removeAll(view.value(QStringLiteral("canvas")).toInt()) == 0)
+        return;
+    view.insert(QStringLiteral("fresh"), fresh);
+    emit presentationChanged();
 }
 
 void MissionsModel::reset()

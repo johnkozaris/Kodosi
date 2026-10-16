@@ -696,6 +696,7 @@ impl<'a, T: Transport> Stream<'a, T> {
         let request = HostRequest::Bootstrap {
             request_id: marker,
             history: full,
+            image_data_bytes: self.pacer.image_data_bytes(),
             reply,
         };
         if self.requests.try_send(request).is_err() {

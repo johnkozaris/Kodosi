@@ -1,4 +1,7 @@
-use super::super::{BlockedKind, ContextPlace, PlaceKind, ProgramState, ProgramStatus};
+use super::super::{
+    BlockedKind, ContextPlace, PlaceKind, ProgramState, ProgramStatus,
+    TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES, TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES,
+};
 use super::*;
 
 async fn shell(
@@ -294,6 +297,7 @@ async fn resize_checkpoint_precedes_bootstrap_barrier_at_the_same_output_cut() {
         .send(HostRequest::Bootstrap {
             request_id,
             history: true,
+            image_data_bytes: TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES,
             reply,
         })
         .await
@@ -327,8 +331,8 @@ async fn resize_checkpoint_precedes_bootstrap_barrier_at_the_same_output_cut() {
 }
 
 #[tokio::test]
-async fn a_remote_bootstrap_leaves_out_image_pixels_beyond_its_budget() {
-    // 1100 by 1000 RGBA pixels are 4.4 MB, more than a remote bootstrap carries.
+async fn a_remote_bootstrap_holds_image_pixels_up_to_its_budget() {
+    // 1100 by 1000 RGBA pixels are 4.4 MB, more than a view on a link of unknown speed gets.
     let (width, height) = (1100, 1000);
     let mut compressed = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::fast());
     std::io::Write::write_all(&mut compressed, &vec![0x7f; width * height * 4]).expect("compress");
@@ -364,23 +368,32 @@ async fn a_remote_bootstrap_leaves_out_image_pixels_beyond_its_budget() {
         .await
         .expect("local checkpoint");
     let _publication = session.output();
-    let (reply, result) = oneshot::channel();
-    session
-        .host_requests
-        .send(HostRequest::Bootstrap {
-            request_id: Uuid::now_v7(),
-            history: true,
-            reply,
-        })
-        .await
-        .expect("bootstrap");
-    let remote = result
-        .await
-        .expect("bootstrap reply")
-        .expect("remote checkpoint");
+    let mut remote = Vec::new();
+    for image_data_bytes in [
+        TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES,
+        TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES,
+    ] {
+        let (reply, result) = oneshot::channel();
+        session
+            .host_requests
+            .send(HostRequest::Bootstrap {
+                request_id: Uuid::now_v7(),
+                history: true,
+                image_data_bytes,
+                reply,
+            })
+            .await
+            .expect("bootstrap");
+        let cut = result
+            .await
+            .expect("bootstrap reply")
+            .expect("remote checkpoint");
+        remote.push(cut.checkpoint.snapshot().len());
+    }
 
     assert!(local.checkpoint.snapshot().len() > width * height * 4);
-    assert!(remote.checkpoint.snapshot().len() < 64 * 1024);
+    assert!(remote[0] < 64 * 1024);
+    assert!(remote[1] > width * height * 4);
     session.close().await.expect("close");
 }
 

@@ -49,6 +49,8 @@ qt_add_library(kodosi-application STATIC
     presentation/ConversationHistoryModel.hpp
     presentation/DevicesModel.cpp
     presentation/DevicesModel.hpp
+    presentation/KeyedListModel.cpp
+    presentation/KeyedListModel.hpp
     presentation/MissionsModel.cpp
     presentation/MissionsModel.hpp
     presentation/PeopleModel.cpp
@@ -125,6 +127,8 @@ qt_add_library(kodosi-terminal-kernel STATIC
     terminal/TerminalFrame.hpp
     terminal/TerminalImages.cpp
     terminal/TerminalImages.hpp
+    terminal/TerminalPlaceholders.cpp
+    terminal/TerminalPlaceholders.hpp
     terminal/TerminalRasterizer.cpp
     terminal/TerminalRasterizer.hpp
     terminal/TerminalSessionRegistry.cpp
@@ -235,6 +239,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/CodeKeys.qml
         qml/Controls/CountBadge.qml
         qml/Controls/CursorBlock.qml
+        qml/Controls/DashedSlot.qml
         qml/Controls/EffortBars.qml
         qml/Controls/EmptyState.qml
         qml/Controls/IconTile.qml
@@ -259,11 +264,13 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/PlainLabel.qml
         qml/Controls/ProgressRing.qml
         qml/Controls/Raised.qml
+        qml/Controls/RollingText.qml
         qml/Controls/RoomSigil.qml
         qml/Controls/SegmentedPill.qml
         qml/Controls/SessionPlace.qml
         qml/Controls/ShimmerText.qml
         qml/Controls/SlotMark.qml
+        qml/Controls/Squircle.qml
         qml/Controls/StartMark.qml
         qml/Controls/StatusSign.qml
         qml/Controls/Tag.qml

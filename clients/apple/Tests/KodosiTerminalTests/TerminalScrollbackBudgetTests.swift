@@ -50,16 +50,17 @@
         #expect(TerminalScrollbackBudget(lines: .max).bytes == TerminalScrollbackBudget.maximumBytes)
     }
 
-    @Test func viewsStoreImagesAsTheHostDoes() {
-        #expect(TerminalRendererSession.hostManagedPolicyOverrides.contains {
-            $0.key == "image-storage-limit" && $0.value == "67108864"
-        })
-    }
-
-    @Test func programsGetGhosttysClipboardSettings() {
-        #expect(!TerminalRendererSession.hostManagedPolicyOverrides.contains {
-            $0.key.hasPrefix("clipboard")
-        })
+    @Test func hostManagedRendererAllowsTheClipboardAndStoresImagesAsTheHostDoes() {
+        #expect(TerminalRendererSession.hostManagedPolicyOverrides.map(\.key) == [
+            "clipboard-read",
+            "clipboard-write",
+            "image-storage-limit",
+        ])
+        #expect(TerminalRendererSession.hostManagedPolicyOverrides.map(\.value) == [
+            "allow",
+            "allow",
+            "67108864",
+        ])
     }
 
     @MainActor

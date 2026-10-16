@@ -45,6 +45,14 @@ QColor color(const GhosttyColorRgb value)
     return {value.r, value.g, value.b};
 }
 
+constexpr std::size_t maximumClipboardReads = 8;
+
+bool isTextMime(const QByteArrayView mime)
+{
+    return mime == "text/plain" || mime == "text/plain;charset=utf-8" || mime == "UTF8_STRING"
+        || mime == "TEXT" || mime == "STRING";
+}
+
 class TerminalHandle final {
 public:
     TerminalHandle() = default;
@@ -412,7 +420,7 @@ ViewCapture captureView(
     if (result != GHOSTTY_SUCCESS) {
         return std::unexpected(ghosttyFailure(QStringLiteral("terminal scrollbar"), result));
     }
-    return CapturedView {scrollbar, images.capture(terminal)};
+    return CapturedView {scrollbar, images.capture(terminal, renderState)};
 }
 
 FrameResult buildFrame(
@@ -737,14 +745,20 @@ public:
         if (result == GHOSTTY_SUCCESS) {
             result = ghostty_terminal_set(
                 candidate,
+                GHOSTTY_TERMINAL_OPT_WRITE_PTY,
+                reinterpret_cast<const void*>(&Impl::recordClipboardRead));
+        }
+        if (result == GHOSTTY_SUCCESS) {
+            result = ghostty_terminal_set(
+                candidate,
                 GHOSTTY_TERMINAL_OPT_CLIPBOARD_WRITE,
-                reinterpret_cast<const void*>(&Impl::receiveClipboardWrite));
+                reinterpret_cast<const void*>(&Impl::recordClipboardWrite));
         }
         if (result == GHOSTTY_SUCCESS) {
             result = ghostty_terminal_set(
                 candidate,
                 GHOSTTY_TERMINAL_OPT_CLIPBOARD_READ,
-                reinterpret_cast<const void*>(&Impl::receiveClipboardRead));
+                reinterpret_cast<const void*>(&Impl::deferClipboardRead));
         }
         if (result == GHOSTTY_SUCCESS) {
             result = ghostty_terminal_set(
@@ -755,57 +769,60 @@ public:
         return result;
     }
 
-    // This terminal only shows the host's output and sends nothing to the program, so
-    // it does not answer here. The view asks the person and sends the answer as input.
-    static void receiveClipboardRead(
-        const GhosttyTerminal,
-        void* const userdata,
-        const GhosttyClipboardRead* const read)
-    {
-        if (userdata == nullptr || read == nullptr
-            || read->size < offsetof(GhosttyClipboardRead, protocol) + sizeof(read->protocol)
-            || read->protocol != GHOSTTY_CLIPBOARD_PROTOCOL_OSC_52) {
-            return;
-        }
-        char selector = 's';
-        if (read->location == GHOSTTY_CLIPBOARD_LOCATION_STANDARD) {
-            selector = 'c';
-        } else if (read->location == GHOSTTY_CLIPBOARD_LOCATION_PRIMARY) {
-            selector = 'p';
-        }
-        static_cast<Impl*>(userdata)->clipboardRead = ClipboardRead {.selector = selector};
-    }
-
-    static void receiveClipboardWrite(
+    static void recordClipboardWrite(
         const GhosttyTerminal,
         void* const userdata,
         const GhosttyClipboardWrite* const write)
     {
-        if (userdata == nullptr || write == nullptr || write->size < sizeof(GhosttyClipboardWrite)
-            || write->reply == nullptr) {
+        if (userdata == nullptr || write == nullptr || write->size < sizeof(GhosttyClipboardWrite)) {
             return;
         }
-        ClipboardWrite received {
-            .selection = write->location != GHOSTTY_CLIPBOARD_LOCATION_STANDARD,
-            .contents = {},
-        };
-        for (std::size_t index = 0; index < write->contents_len; ++index) {
-            const auto& content = write->contents[index];
-            received.contents.emplace_back(
-                QString::fromUtf8(
-                    reinterpret_cast<const char*>(content.mime.ptr),
-                    static_cast<qsizetype>(content.mime.len)),
-                QByteArray(
-                    reinterpret_cast<const char*>(content.data.ptr),
-                    static_cast<qsizetype>(content.data.len)));
+        std::optional<QString> text;
+        if (write->contents_len == 0) {
+            text = QString {};
         }
-        static_cast<Impl*>(userdata)->clipboardWrite = std::move(received);
-        const GhosttyClipboardWriteReply reply {
-            sizeof(GhosttyClipboardWriteReply),
-            GHOSTTY_CLIPBOARD_WRITE_RESULT_SUCCESS,
-            false,
-        };
-        write->reply(write, &reply);
+        for (std::size_t index = 0; !text && index < write->contents_len; ++index) {
+            const auto& content = write->contents[index];
+            if (isTextMime(QByteArrayView(content.mime.ptr, static_cast<qsizetype>(content.mime.len)))) {
+                text = QString::fromUtf8(
+                    QByteArrayView(content.data.ptr, static_cast<qsizetype>(content.data.len)));
+            }
+        }
+        if (text) {
+            appendClipboardOperation(static_cast<Impl*>(userdata)->clipboard, {
+                .selection = write->location != GHOSTTY_CLIPBOARD_LOCATION_STANDARD,
+                .write = std::move(text),
+                .answerPrefix = {},
+                .answerTerminator = {},
+            });
+        }
+    }
+
+    // An unanswered read makes Ghostty write an empty OSC 52 answer, which the
+    // focused view fills with its clipboard.
+    static void deferClipboardRead(const GhosttyTerminal, void* const, const GhosttyClipboardRead* const) {}
+
+    static void recordClipboardRead(
+        const GhosttyTerminal,
+        void* const userdata,
+        const std::uint8_t* const data,
+        const std::size_t length)
+    {
+        const QByteArrayView answer(data, static_cast<qsizetype>(length));
+        if (userdata == nullptr || answer.size() < 8 || !answer.startsWith("\x1b]52;")
+            || answer.at(6) != ';') {
+            return;
+        }
+        auto terminator = answer.sliced(7).toByteArray();
+        if (terminator != "\x07" && terminator != "\x1b\\") {
+            return;
+        }
+        appendClipboardOperation(static_cast<Impl*>(userdata)->clipboard, {
+            .selection = answer.at(5) != 'c',
+            .write = std::nullopt,
+            .answerPrefix = answer.first(7).toByteArray(),
+            .answerTerminator = std::move(terminator),
+        });
     }
 
     static void receiveRenderHold(
@@ -980,11 +997,10 @@ public:
     std::uint64_t viewportRevision = 0;
     std::uint64_t displayRevision = 0;
     Frame currentFrame;
-    std::optional<ClipboardWrite> clipboardWrite;
-    std::optional<ClipboardRead> clipboardRead;
     std::optional<std::chrono::steady_clock::time_point> renderHeldSince;
     std::optional<ViewCapture> heldView;
     TerminalKernelSettings settings;
+    TerminalClipboardOperations clipboard;
     bool selectionRectangular = false;
     bool admitted = false;
     bool failed = false;
@@ -1068,7 +1084,6 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
         return std::unexpected(
             ghosttyFailure(QStringLiteral("disable Glyph Protocol"), result));
     }
-
     result = m_impl->installCallbacks(candidateTerminal.value);
     if (result != GHOSTTY_SUCCESS) {
         return std::unexpected(ghosttyFailure(QStringLiteral("terminal callbacks"), result));
@@ -1139,6 +1154,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
     m_impl->currentFrame = *candidateFrame;
     m_impl->renderHeldSince.reset();
     m_impl->heldView.reset();
+    m_impl->clipboard.clear();
     m_impl->selectionRectangular = false;
     m_impl->admitted = true;
     m_impl->failed = false;
@@ -1214,6 +1230,29 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::applyData(const TerminalDat
     }
     m_impl->currentFrame = *nextFrame;
     return m_impl->currentFrame;
+}
+
+TerminalClipboardOperations GhosttyTerminalKernel::takeClipboardOperations()
+{
+    std::scoped_lock lock(m_impl->mutex);
+    return std::exchange(m_impl->clipboard, {});
+}
+
+void appendClipboardOperation(
+    TerminalClipboardOperations& operations,
+    TerminalClipboardOperation operation)
+{
+    if (operation.write && !operations.empty() && operations.back().write
+        && operations.back().selection == operation.selection) {
+        operations.back() = std::move(operation);
+        return;
+    }
+    if (!operation.write
+        && std::ranges::count_if(operations, [](const auto& queued) { return !queued.write; })
+            >= static_cast<std::ptrdiff_t>(maximumClipboardReads)) {
+        return;
+    }
+    operations.push_back(std::move(operation));
 }
 
 GhosttyTerminalKernel::Result GhosttyTerminalKernel::applyResize(
@@ -1391,18 +1430,6 @@ GhosttyTerminalKernel::encodePaste(
     if (result != GHOSTTY_SUCCESS) {
         return std::unexpected(
             ghosttyFailure(QStringLiteral("bracketed paste mode"), result));
-    }
-    if (!bracketed.value
-        && std::any_of(text.cbegin(), text.cend(), [](const char value) {
-            const auto byte = static_cast<unsigned char>(value);
-            return byte < 0x20 || byte == 0x7f;
-        })) {
-        return std::unexpected(Failure {
-            Failure::Code::UnsafePaste,
-            QStringLiteral(
-                "Multiline or control-character paste requires bracketed paste mode; "
-                "no input was sent."),
-        });
     }
 
     std::size_t required = 0;
@@ -2052,18 +2079,6 @@ GhosttyTerminalKernel::HistoryMemory GhosttyTerminalKernel::historyMemory() cons
         .residentBytes = usage.primary_resident_bytes + usage.alternate_resident_bytes,
         .compressedPages = usage.primary_compressed_pages + usage.alternate_compressed_pages,
     };
-}
-
-std::optional<GhosttyTerminalKernel::ClipboardRead> GhosttyTerminalKernel::takeClipboardRead()
-{
-    std::scoped_lock lock(m_impl->mutex);
-    return std::exchange(m_impl->clipboardRead, std::nullopt);
-}
-
-std::optional<GhosttyTerminalKernel::ClipboardWrite> GhosttyTerminalKernel::takeClipboardWrite()
-{
-    std::scoped_lock lock(m_impl->mutex);
-    return std::exchange(m_impl->clipboardWrite, std::nullopt);
 }
 
 }

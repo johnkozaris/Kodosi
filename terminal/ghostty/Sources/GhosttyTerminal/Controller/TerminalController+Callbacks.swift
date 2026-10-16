@@ -1,12 +1,6 @@
 import Foundation
 import GhosttyKit
 
-func terminalClipboardRequestAllowed(
-    request: ghostty_clipboard_request_e
-) -> Bool {
-    request == GHOSTTY_CLIPBOARD_REQUEST_PASTE
-}
-
 func terminalClipboardRequestsPlainText(
     mimeTypes: UnsafePointer<UnsafePointer<CChar>?>?,
     count: Int
@@ -18,11 +12,8 @@ func terminalClipboardRequestsPlainText(
     }
 }
 
-func terminalClipboardWriteAllowed(
-    clipboard: ghostty_clipboard_e,
-    requiresConfirmation: Bool
-) -> Bool {
-    clipboard == GHOSTTY_CLIPBOARD_STANDARD && !requiresConfirmation
+func terminalClipboardReport(_ text: String) -> Data {
+    Data("\u{1B}]52;c;\(Data(text.utf8).base64EncodedString())\u{1B}\\".utf8)
 }
 
 private func copyTerminalAction(_ action: ghostty_action_s) -> TerminalActionSnapshot {
@@ -99,18 +90,11 @@ private enum TerminalCallbacks {
 
     static func writeClipboard(
         userdata _: UnsafeMutableRawPointer?,
-        clipboard: ghostty_clipboard_e,
+        clipboard _: ghostty_clipboard_e,
         contents: UnsafePointer<ghostty_clipboard_content_s>?,
         contentsLen: Int,
-        confirm: Bool
+        confirm _: Bool
     ) {
-        guard terminalClipboardWriteAllowed(
-            clipboard: clipboard,
-            requiresConfirmation: confirm
-        ) else {
-            TerminalDebugLog.log(.input, "host-managed clipboard write denied")
-            return
-        }
         guard let contents, contentsLen > 0 else { return }
         let representations = (0..<contentsLen).compactMap { index in
             let content = contents[index]
@@ -140,17 +124,20 @@ private enum TerminalCallbacks {
         let bridge = Unmanaged<TerminalCallbackBridge>
             .fromOpaque(userdata)
             .takeUnretainedValue()
+        switch ghostty_clipboard_request_type(opaquePtr) {
+        case GHOSTTY_CLIPBOARD_REQUEST_PASTE:
+            break
+        case GHOSTTY_CLIPBOARD_REQUEST_OSC_52_READ:
+            TerminalDebugLog.log(.input, "clipboard read focused=\(bridge.hasFocus)")
+            if bridge.hasFocus {
+                Task { @MainActor in bridge.askToShareClipboard() }
+            }
+            return GHOSTTY_CLIPBOARD_READ_UNAVAILABLE
+        default:
+            return GHOSTTY_CLIPBOARD_READ_UNSUPPORTED
+        }
         guard let surface = bridge.rawSurface else {
             return GHOSTTY_CLIPBOARD_READ_UNAVAILABLE
-        }
-        let request = ghostty_clipboard_request_type(opaquePtr)
-        if request == GHOSTTY_CLIPBOARD_REQUEST_OSC_52_READ {
-            Task { @MainActor in bridge.askToShareClipboard() }
-            return GHOSTTY_CLIPBOARD_READ_UNSUPPORTED
-        }
-        if !terminalClipboardRequestAllowed(request: request) {
-            TerminalDebugLog.log(.input, "host-managed clipboard read denied")
-            return GHOSTTY_CLIPBOARD_READ_UNSUPPORTED
         }
         let string = TerminalPasteboardContent.text()
         guard let string else {
@@ -158,12 +145,10 @@ private enum TerminalCallbacks {
             return GHOSTTY_CLIPBOARD_READ_UNAVAILABLE
         }
 
-        guard request == GHOSTTY_CLIPBOARD_REQUEST_PASTE,
-              terminalClipboardRequestsPlainText(
-                  mimeTypes: mimeTypes,
-                  count: mimeTypesLen
-              )
-        else {
+        guard terminalClipboardRequestsPlainText(
+            mimeTypes: mimeTypes,
+            count: mimeTypesLen
+        ) else {
             TerminalDebugLog.log(.input, "clipboard paste requested unsupported MIME type")
             return GHOSTTY_CLIPBOARD_READ_UNSUPPORTED
         }
@@ -212,7 +197,7 @@ private enum TerminalCallbacks {
             .fromOpaque(userdata)
             .takeUnretainedValue()
         guard let surface = bridge.rawSurface else { return }
-        guard terminalClipboardRequestAllowed(request: request),
+        guard request == GHOSTTY_CLIPBOARD_REQUEST_PASTE,
               let confirmation
         else {
             TerminalDebugLog.log(.input, "host-managed clipboard confirmation denied")

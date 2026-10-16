@@ -29,7 +29,7 @@ Item {
         Item { Layout.fillHeight: true }
     }
     SequentialAnimation on opacity {
-        running: root.visible && !KodosiTheme.reduceMotion
+        running: root.visible && !KodosiTheme.reduceMotion && KodosiTheme.shown
         loops: Animation.Infinite
         NumberAnimation { from: 0.4; to: 0.9; duration: 850; easing.type: Easing.InOutSine }
         NumberAnimation { from: 0.9; to: 0.4; duration: 850; easing.type: Easing.InOutSine }

@@ -13,6 +13,7 @@
 #include <QKeySequence>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <QQuickWindow>
 #include <QTimer>
 #include <QWheelEvent>
 
@@ -704,6 +705,35 @@ void TerminalView::pasteClipboard()
     (void)enqueueInput(std::move(*encoded));
 }
 
+void TerminalView::applyClipboard(const TerminalClipboardOperations& operations)
+{
+    auto* clipboard = QGuiApplication::clipboard();
+    if (clipboard == nullptr) {
+        return;
+    }
+    for (const auto& operation : operations) {
+        const auto mode = operation.selection && clipboard->supportsSelection()
+            ? QClipboard::Selection
+            : QClipboard::Clipboard;
+        if (operation.write) {
+            if (operation.write->isEmpty()) {
+                clipboard->clear(mode);
+            } else {
+                clipboard->setText(*operation.write, mode);
+            }
+        } else if (!m_clipboardRead && hasActiveFocus() && interactionAvailable()
+                   && m_canSendInput && window()->isActive()) {
+            // Only the view that the person types in answers, one read at a time.
+            m_clipboardRead = operation;
+            if (m_asksBeforeClipboardRead) {
+                emit clipboardReadRequested();
+            } else {
+                answerClipboardRead(true);
+            }
+        }
+    }
+}
+
 bool TerminalView::sendKey(QKeyEvent* event, const TerminalKeyAction action)
 {
     const auto key = terminalKey(event);
@@ -977,38 +1007,6 @@ void TerminalView::updateSelection(const QPoint& endpoint)
     }
 }
 
-void TerminalView::writeClipboard(GhosttyTerminalKernel::ClipboardWrite write)
-{
-    auto* clipboard = QGuiApplication::clipboard();
-    const auto mode = write.selection ? QClipboard::Selection : QClipboard::Clipboard;
-    if (write.selection && !clipboard->supportsSelection()) {
-        return;
-    }
-    if (write.contents.empty()) {
-        clipboard->clear(mode);
-        return;
-    }
-    auto* data = new QMimeData;
-    for (auto& [mime, bytes] : write.contents) {
-        if (mime.startsWith(QStringLiteral("text/plain"))) {
-            data->setText(QString::fromUtf8(bytes));
-        } else {
-            data->setData(mime, std::move(bytes));
-        }
-    }
-    clipboard->setMimeData(data, mode);
-}
-
-void TerminalView::requestClipboardRead(const GhosttyTerminalKernel::ClipboardRead read)
-{
-    // Only the view that the person types in asks, once at a time.
-    if (m_clipboardRead || !hasActiveFocus() || !interactionAvailable() || !m_canSendInput) {
-        return;
-    }
-    m_clipboardRead = read;
-    emit clipboardReadRequested();
-}
-
 void TerminalView::answerClipboardRead(const bool allowed)
 {
     const auto read = std::exchange(m_clipboardRead, std::nullopt);
@@ -1017,16 +1015,15 @@ void TerminalView::answerClipboardRead(const bool allowed)
     }
     QByteArray text;
     auto* clipboard = QGuiApplication::clipboard();
-    const bool standard = read->selector == 'c';
-    if (allowed && clipboard != nullptr && (standard || clipboard->supportsSelection())) {
-        text = clipboard->text(standard ? QClipboard::Clipboard : QClipboard::Selection).toUtf8();
+    if (allowed && clipboard != nullptr) {
+        const auto mode = read->selection && clipboard->supportsSelection()
+            ? QClipboard::Selection
+            : QClipboard::Clipboard;
+        text = clipboard->text(mode).toUtf8().toBase64();
     }
-    QByteArray reply = QByteArrayLiteral("\x1b]52;");
-    reply += read->selector;
-    reply += ';';
-    reply += text.toBase64();
-    reply += QByteArrayLiteral("\x1b\\");
-    (void)enqueueInput(std::move(reply));
+    if (!enqueueInput(read->answerPrefix + text + read->answerTerminator)) {
+        (void)enqueueInput(read->answerPrefix + read->answerTerminator);
+    }
 }
 
 bool TerminalView::copySelection()

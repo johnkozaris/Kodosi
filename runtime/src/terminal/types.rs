@@ -26,11 +26,15 @@ pub const TERMINAL_SNAPSHOT_MAX_BYTES: usize = TERMINAL_SNAPSHOT_TEXT_MAX_BYTES
     + 4 * TERMINAL_IMAGE_STORAGE_MAX_BYTES as usize
     + 4 * 1024 * 1024;
 
-/// The most bytes of image pixels in a snapshot for remote views.
+/// The bytes of image pixels in a snapshot for a remote view whose link speed
+/// is not known yet.
 ///
-/// An image beyond it stays blank in those views until the program sends it
-/// again.
-pub const TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES: u64 = 4 * 1024 * 1024;
+/// A faster link gets more, up to `TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES`. An
+/// image beyond the budget of a view stays blank in that view.
+pub const TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES: u64 = 4 * 1024 * 1024;
+
+/// The most bytes of image pixels in a snapshot for a remote view.
+pub const TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES: u64 = 16 * 1024 * 1024;
 
 /// The bounds of a checkpoint that holds at most `image_data_bytes` of pixels.
 #[cfg(any(feature = "host", test))]

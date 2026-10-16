@@ -17,6 +17,7 @@ struct TerminalSurfaceWrapper: View {
     let token: TerminalConnectionToken
     let isFocused: Bool
     let allowsInput: Bool
+    let asksBeforeClipboardRead: Bool
     let isSurfaceVisible: Bool
     let onFocus: () -> Void
     let onFocusChange: (Bool) -> Void
@@ -43,6 +44,7 @@ struct TerminalSurfaceWrapper: View {
             shouldFocus: isFocused && interactionAllowed,
             allowsFocus: interactionAllowed && isSurfaceVisible,
             allowsInput: inputAllowed,
+            asksBeforeClipboardRead: asksBeforeClipboardRead,
             isSurfaceVisible: isSurfaceVisible && stageVisible && tileVisible,
             onFocus: onFocus,
             onFocusChange: onFocusChange,

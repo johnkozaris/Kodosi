@@ -86,6 +86,7 @@ private:
     void applyRoom(const QJsonObject& room);
     bool watching(const QString& roomId) const;
     void readWatched();
+    void seeCanvas();
     bool m_catalogTruncated = false;
 
     void command(QString type, QJsonObject values = {});

@@ -23,6 +23,13 @@ ApplicationWindow {
         Models.DesktopState.activeView = Models.DesktopState.Missions;
         missions.openCreate();
     }
+    function openAdjacentTerminal(offset) {
+        const staged = Models.DesktopState.stagedSessionIds;
+        if (staged.length === 0)
+            return;
+        const index = Math.max(0, staged.indexOf(Models.DesktopState.selectedSessionId));
+        Models.SessionActions.activate(staged[(index + offset + staged.length) % staged.length]);
+    }
 
     color: KodosiTheme.ground
     flags: drawsTitleBar
@@ -30,7 +37,7 @@ ApplicationWindow {
         : Qt.Window
     height: 820
     minimumHeight: 560
-    minimumWidth: 860
+    minimumWidth: 820
     objectName: "window.main"
     title: qsTr("Kodosi")
     topPadding: 0
@@ -40,6 +47,12 @@ ApplicationWindow {
     onClosing: close => {
         close.accepted = false;
         window.hide();
+    }
+
+    Binding {
+        target: KodosiTheme
+        property: "shown"
+        value: window.visible && window.visibility !== Window.Minimized
     }
 
     Models.AccessibilityScope {
@@ -251,9 +264,40 @@ ApplicationWindow {
     }
     Shortcut {
         enabled: !window.modalOpen
-        sequence: "Ctrl+K"
+        sequences: ["Ctrl+Shift+K", "Ctrl+K"]
 
         onActivated: palette.open()
+    }
+    Shortcut {
+        enabled: !window.modalOpen
+        sequence: "Ctrl+Shift+R"
+
+        onActivated: history.openModal()
+    }
+    Shortcut {
+        enabled: !window.modalOpen
+        sequences: ["Ctrl+Shift+,", "Ctrl+,"]
+
+        onActivated: Models.DesktopState.activeView = Models.DesktopState.Settings
+    }
+    Shortcut {
+        enabled: !window.modalOpen && Models.DesktopState.activeView === Models.DesktopState.Sessions
+            && Models.DesktopState.selectedSessionId.length > 0
+        sequence: "Ctrl+Shift+I"
+
+        onActivated: details.openSession(Models.DesktopState.selectedSessionId)
+    }
+    Shortcut {
+        enabled: !window.modalOpen && Models.DesktopState.activeView === Models.DesktopState.Sessions
+        sequences: ["Ctrl+Shift+[", "Ctrl+{"]
+
+        onActivated: window.openAdjacentTerminal(-1)
+    }
+    Shortcut {
+        enabled: !window.modalOpen && Models.DesktopState.activeView === Models.DesktopState.Sessions
+        sequences: ["Ctrl+Shift+]", "Ctrl+}"]
+
+        onActivated: window.openAdjacentTerminal(1)
     }
     Shortcut {
         enabled: !window.modalOpen

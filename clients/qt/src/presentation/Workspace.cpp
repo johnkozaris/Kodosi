@@ -75,8 +75,13 @@ bool Workspace::validName(const QString& name)
 bool Workspace::sendUntracked(QString type, QJsonObject values, bool includeRequestId)
 {
     values.insert(QStringLiteral("type"), type);
-    if (includeRequestId)
-        values.insert(QStringLiteral("requestId"), requestId());
+    if (includeRequestId) {
+        const auto id = requestId();
+        values.insert(QStringLiteral("requestId"), id);
+        if (m_untrackedRequests.size() == 16)
+            m_untrackedRequests.removeFirst();
+        m_untrackedRequests.append(id);
+    }
     const auto result = m_commands.send(QJsonDocument(values).toJson(QJsonDocument::Compact));
     if (!result) {
         setError(result.error().message);
@@ -140,6 +145,7 @@ void Workspace::setError(QString error)
 void Workspace::clearAccountData(bool clearLinks)
 {
     m_pending.clear();
+    m_untrackedRequests.clear();
     m_timeout.stop();
     m_people.reset();
     m_devices.reset();
@@ -387,6 +393,9 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     if (type == QStringLiteral("provider.error"))
         return;
     if (!type.endsWith(QStringLiteral(".error")))
+        return;
+    // Another client, such as the kodosi command, sent the request that failed.
+    if (!id.isEmpty() && !m_pending.contains(id) && !m_untrackedRequests.removeOne(id))
         return;
 
     if (type == QStringLiteral("room.error")) {

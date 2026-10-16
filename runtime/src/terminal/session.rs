@@ -17,8 +17,8 @@ use super::emulator::{SessionTerminalHandle, TerminalEffect};
 use super::status::ProgramStatusRecords;
 use super::subscribers::Subscribers;
 use super::{
-    CellPixels, ControlFrame, DataFrame, SessionChange, Subscription,
-    TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES, TerminalPixelGeometry, TerminalSize,
+    CellPixels, ControlFrame, DataFrame, SessionChange, Subscription, TerminalPixelGeometry,
+    TerminalSize,
 };
 use crate::{
     Error, Result,
@@ -1144,12 +1144,13 @@ impl LocalActor {
             HostRequest::Bootstrap {
                 request_id,
                 history,
+                image_data_bytes,
                 reply,
             } => {
                 if !reply.is_closed() {
                     let result = self
                         .emulator
-                        .checkpoint_data(history, TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES)
+                        .checkpoint_data(history, image_data_bytes)
                         .await
                         .map_err(|error| error.to_string())
                         .and_then(|cut| {

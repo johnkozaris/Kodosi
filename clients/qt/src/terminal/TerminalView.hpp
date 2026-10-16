@@ -64,6 +64,11 @@ class TerminalView : public QQuickItem {
         READ focusedSizeAuthority
         WRITE setFocusedSizeAuthority
         NOTIFY focusedSizeAuthorityChanged)
+    Q_PROPERTY(
+        bool asksBeforeClipboardRead
+        READ asksBeforeClipboardRead
+        WRITE setAsksBeforeClipboardRead
+        NOTIFY asksBeforeClipboardReadChanged)
 
 public:
     explicit TerminalView(QQuickItem* parent = nullptr);
@@ -87,6 +92,7 @@ public:
     [[nodiscard]] bool readOnly() const noexcept;
     [[nodiscard]] bool hasSelection() const;
     [[nodiscard]] bool focusedSizeAuthority() const noexcept;
+    [[nodiscard]] bool asksBeforeClipboardRead() const noexcept;
     [[nodiscard]] QString accessibleText() const;
     [[nodiscard]] int accessibleCursorPosition() const;
     [[nodiscard]] QPair<int, int> accessibleSelection() const;
@@ -104,6 +110,7 @@ public:
     void setPreeditForeground(const QColor& color);
     void setTerminalInteraction(bool canSendInput, bool canResize);
     void setFocusedSizeAuthority(bool focused);
+    void setAsksBeforeClipboardRead(bool asks);
 
     [[nodiscard]] bool attach(
         TerminalSessionRegistry& registry,
@@ -131,6 +138,7 @@ signals:
     void preeditForegroundChanged();
     void terminalReadyChanged();
     void focusedSizeAuthorityChanged();
+    void asksBeforeClipboardReadChanged();
     void frameChanged();
     void terminalError(QString message);
     void operationError(QString message);
@@ -223,6 +231,7 @@ private:
     bool m_canSendInput = false;
     bool m_canResize = false;
     bool m_focusedSizeAuthority = false;
+    bool m_asksBeforeClipboardRead = true;
     bool m_resizeClaimPending = false;
     std::deque<QByteArray> m_inputQueue;
     qsizetype m_queuedInputBytes = 0;
@@ -232,11 +241,10 @@ private:
     detail::TerminalFrameMailbox m_frameMailbox;
     struct Closed {};
     using GuiEvent = std::variant<GhosttyTerminalKernel::Failure, std::int32_t,
-        TerminalFocusOutcome, TerminalResizeOutcome, GhosttyTerminalKernel::ClipboardWrite,
-        GhosttyTerminalKernel::ClipboardRead, Closed>;
+        TerminalFocusOutcome, TerminalResizeOutcome, TerminalClipboardOperations, Closed>;
     std::mutex m_guiEventMutex;
     std::deque<GuiEvent> m_guiEvents;
-    std::optional<GhosttyTerminalKernel::ClipboardRead> m_clipboardRead;
+    std::optional<TerminalClipboardOperation> m_clipboardRead;
     bool m_guiDrainQueued = false;
     bool m_guiOverflow = false;
     std::uint64_t m_inputGeneration = 0;
@@ -263,8 +271,7 @@ private:
     [[nodiscard]] TerminalSurfaceIdentity surfaceIdentity() const;
     void sendText(const QString& text);
     void pasteClipboard();
-    void writeClipboard(GhosttyTerminalKernel::ClipboardWrite write);
-    void requestClipboardRead(GhosttyTerminalKernel::ClipboardRead read);
+    void applyClipboard(const TerminalClipboardOperations& operations);
     [[nodiscard]] bool sendKey(QKeyEvent* event, TerminalKeyAction action);
     [[nodiscard]] bool enqueueInput(QByteArray bytes);
     static constexpr int inputBackoffMilliseconds[] {4, 8, 16, 32, 64};

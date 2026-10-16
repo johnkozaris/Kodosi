@@ -17,6 +17,7 @@ final class TerminalRendererDelegateProxy:
     weak var target: TerminalViewState?
     var viewportDidResize: (() -> Void)?
     var clipboardReadRequested: ((@escaping @MainActor (Bool) -> Void) -> Void)?
+    var asksBeforeClipboardRead = true
 
     private var updateGeneration: UInt64 = 0
     private var isDeferring = false
@@ -65,6 +66,7 @@ final class TerminalRendererDelegateProxy:
     }
 
     func terminalDidRequestClipboardRead(_ answer: @escaping @MainActor (Bool) -> Void) {
+        guard asksBeforeClipboardRead else { return answer(true) }
         clipboardReadRequested?(answer)
     }
 
@@ -86,10 +88,7 @@ extension TerminalViewState: @retroactive TerminalSurfaceOpenURLDelegate {
         _ url: String,
         kind _: TerminalOpenURLKind
     ) {
-        guard let parsed = URL(string: url),
-              let scheme = parsed.scheme?.lowercased(),
-              ["https", "http", "mailto"].contains(scheme)
-        else { return }
+        guard let parsed = URL(string: url), parsed.scheme != nil else { return }
         #if os(macOS)
             NSWorkspace.shared.open(parsed)
         #elseif os(iOS)
