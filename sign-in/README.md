@@ -29,9 +29,9 @@ Use [Bun](https://bun.sh) 1.4 and Docker.
   `?scene=<name>` picks a page and `?sheet=0,12` shows twelve side by side.
 - `bun run theme` builds the theme in `dist_keycloak/` (needs Node.js and Maven).
 - `./keycloak.sh` runs a disposable Keycloak with the theme and a mailbox;
-  `./keycloak.sh code` starts an app sign-in, `./keycloak.sh check
-  pass|block|ask|refuse|off` sets the stand-in captcha, and `./keycloak.sh down` removes
-  it. Sample people are in `dev/people.txt`.
+  `./keycloak.sh code` starts a device sign-in, as the command line does,
+  `./keycloak.sh check pass|block|ask|refuse|off` sets the stand-in captcha, and
+  `./keycloak.sh down` removes it. Sample people are in `dev/people.txt`.
 - `just sign-in-check` from the repository root checks and builds.
 
 Keep Keycloak's field names and ids: its scripts and password managers rely on them. In
