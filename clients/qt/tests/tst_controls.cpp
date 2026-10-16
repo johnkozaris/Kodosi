@@ -24,6 +24,7 @@ private slots:
     void keyboardFocusTracksButtonState();
     void modalControlsSuppressNativeTerminalAccessibility();
     void terminalCloseConfirmsAndMinimizeOnlyHidesView();
+    void leavingTerminalsLeavesNoDeferredWork();
     void missionCreationHasOneNameField();
     void messageTextKeepsSpacesEscapesMarkupAndSkipsYourself();
 };
@@ -278,6 +279,90 @@ void ControlsTest::terminalCloseConfirmsAndMinimizeOnlyHidesView()
     workspace.apply(test::snapshot({}), 0);
     QVERIFY(desktop.stagedSessionIds().isEmpty());
     QVERIFY(!sessions.containsSession(test::id(1)));
+}
+
+void ControlsTest::leavingTerminalsLeavesNoDeferredWork()
+{
+    class Commands final : public kodosi::CommandDispatcher {
+    public:
+        Result send(QByteArrayView) override { return {}; }
+    } commands;
+    QTemporaryDir directory;
+    const auto ini = [&directory](const char* name) {
+        return std::make_unique<QSettings>(directory.filePath(QLatin1String(name)), QSettings::IniFormat);
+    };
+    kodosi::AppearanceModel appearance(ini("appearance.ini"),
+        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
+    kodosi::DesktopStateModel desktop(ini("desktop.ini"));
+    kodosi::DesktopSettings settings(ini("settings.ini"));
+    kodosi::SessionCatalogModel sessions;
+    desktop.attachSessionCatalog(&sessions);
+    kodosi::Workspace workspace(commands, sessions, desktop, settings);
+    kodosi::AgentLauncherModel launcher(commands, ini("launcher.ini"));
+    kodosi::DesktopFileIntegration files;
+    kodosi::TerminalTilingLayoutModel tiling;
+    const auto followStage = [&] {
+        tiling.setStagedSessionIds(desktop.stagedSessionIds());
+        tiling.setSelectedSessionId(desktop.selectedSessionId());
+        tiling.setLayoutMode(desktop.stageLayoutMode());
+    };
+    for (const auto signal : { &kodosi::DesktopStateModel::stagedSessionIdsChanged,
+             &kodosi::DesktopStateModel::selectedSessionIdChanged, &kodosi::DesktopStateModel::stageLayoutModeChanged })
+        QObject::connect(&desktop, signal, &tiling, followStage);
+    kodosi::TerminalSessionRegistry registry;
+    kodosi::RuntimeBridge runtime;
+    kodosi::TerminalSurfaceController surfaces(registry, runtime, sessions);
+    kodosi::qml::AppearanceModelForeign::instance = &appearance;
+    kodosi::qml::DesktopStateModelForeign::instance = &desktop;
+    kodosi::qml::DesktopSettingsForeign::instance = &settings;
+    kodosi::qml::SessionCatalogModelForeign::instance = &sessions;
+    kodosi::qml::AppStateForeign::instance = &workspace;
+    kodosi::qml::AccountModelForeign::instance = &workspace.account();
+    kodosi::qml::PeopleModelForeign::instance = &workspace.people();
+    kodosi::qml::DevicesModelForeign::instance = &workspace.devices();
+    kodosi::qml::MissionsModelForeign::instance = &workspace.missions();
+    kodosi::qml::SessionActionsModelForeign::instance = &workspace.sessionActions();
+    kodosi::qml::AgentLauncherModelForeign::instance = &launcher;
+    kodosi::qml::DesktopFileIntegrationForeign::instance = &files;
+    kodosi::qml::TerminalTilingLayoutModelForeign::instance = &tiling;
+    kodosi::qml::TerminalSurfaceControllerForeign::instance = &surfaces;
+    workspace.apply(test::snapshot({test::session(1)}), 0);
+    QVERIFY(workspace.sessionActions().activate(test::id(1)));
+    QQmlEngine engine;
+    QQmlComponent component(&engine);
+    component.setData(R"(
+        import QtQuick
+        import QtQuick.Controls
+        import Kodosi 1.0
+        import Kodosi.Models 1.0 as Models
+        ApplicationWindow {
+            width: 720; height: 480; visible: true
+            Loader {
+                anchors.fill: parent
+                active: Models.DesktopState.activeView === Models.DesktopState.Sessions
+                sourceComponent: TerminalStage {}
+            }
+        }
+    )", {});
+    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+    std::unique_ptr<QObject> root(component.create());
+    QVERIFY2(root, qPrintable(component.errorString()));
+    const auto tile = [&root] {
+        QList<QQuickItem*> pending {qobject_cast<QQuickWindow*>(root.get())->contentItem()};
+        while (!pending.isEmpty()) {
+            auto* item = pending.takeLast();
+            if (item->objectName() == QStringLiteral("stage.tile.") + test::id(1))
+                return true;
+            pending.append(item->childItems());
+        }
+        return false;
+    };
+    QTRY_VERIFY(tile());
+    QTest::qWait(50);
+    QTest::failOnWarning(QRegularExpression(QStringLiteral(".")));
+    desktop.setActiveView(kodosi::DesktopStateModel::Settings);
+    QTRY_VERIFY(!tile());
+    QTest::qWait(50);
 }
 
 void ControlsTest::missionCreationHasOneNameField()
