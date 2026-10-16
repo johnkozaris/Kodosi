@@ -54,7 +54,7 @@ Platform justfiles hold the release recipes.
 
 Set `ConnectionStrings__Kodosi` and the OIDC settings of [Self-hosting](SELF-HOSTING.md),
 then `just backend-run`, which migrates first. Back up data before migrating. For a
-local backend on `127.0.0.1:5180` with no identity provider, give
+local backend on `127.0.0.1:5180` that signs in with `auth.kodosi.com`, give
 [compose.yaml](../compose.yaml) a new PostgreSQL volume:
 
 ```sh
@@ -64,7 +64,8 @@ just backend-docker-run
 ```
 
 `just backend-docker-stop` keeps the volume. Set `Auth__Authority` and `Auth__Audience`
-in a local Compose override to use an identity provider.
+in a local Compose override to use another identity provider, such as the disposable
+Keycloak of `sign-in/keycloak.sh`.
 
 ## Contracts and Ghostty
 

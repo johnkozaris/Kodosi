@@ -25,7 +25,7 @@
     "admission": "the server registers the connection and then checks the device again, so a removal that is made at the same time refuses the connection",
     "text": "JSON control messages; maximum 16384 bytes; the server takes 4096 control messages and then 128 each second from one device connection, where host and open count two, and closes a connection that sends more",
     "deviceMessages": {
-      "host": "sessionId, incarnationId: this device is the host of the terminal; the answer is hosted or unhosted with status and message",
+      "host": "sessionId, incarnationId: this device is the host of the terminal; a refusal answers unhosted with status and message",
       "unhost": "sessionId",
       "status": "sessionId, incarnationId, status: the newest status of the terminal (terminalStatus), or null; only from the hosting device; the device sends it again after host on each new connection",
       "open": "pipe, sessionId, incarnationId: open a pipe to the host of a terminal; the device makes the pipe identity and sends channel data at once; a refusal is closed with status and message",

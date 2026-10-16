@@ -78,8 +78,8 @@ and open invitations (1–65), `SharePeople` who can see one of its terminals (1
 `RoomBytes` of encrypted data per owned room (at least 131072), `Friends`,
 `SentFriendRequests` (1–64) and `ReceivedFriendRequests`. An unset limit keeps its
 default, and the owner's plan applies to a room or terminal. Past `RoomBytes` a room
-drops its oldest messages; past another limit the backend answers 403 with the limit's
-name in `limit`. A smaller plan removes nothing, recovery is never limited, a change in
+drops its oldest messages; past another limit the backend answers 403 with an error
+that says what to do. A smaller plan removes nothing, recovery is never limited, a change in
 the database applies at once, and an invalid setting stops the backend at start.
 
 ## Image
