@@ -57,7 +57,7 @@ impl Runtime {
                 }
                 Ok(())
             }
-            Command::DisconnectRemote { session_id } => {
+            Command::DisconnectRemote { session_id, .. } => {
                 self.release_view(parse_id(session_id)?, consumer);
                 Ok(())
             }
@@ -88,9 +88,9 @@ impl Runtime {
 
     pub(super) fn apply(&mut self, command: &Command) -> Result<()> {
         match command {
-            Command::ListSessions {} => {
+            Command::ListSessions { .. } => {
                 self.publish_catalog();
-                self.refresh_catalog();
+                self.refresh_catalog(command);
             }
             #[cfg(feature = "host")]
             Command::CreateSession { .. } => self.create(command.clone())?,
@@ -156,7 +156,7 @@ impl Runtime {
                     "terminal control requires a current subscription".to_owned(),
                 ));
             }
-            Command::Login { .. } | Command::Logout {} | Command::DeleteAccount {} => {
+            Command::Login { .. } | Command::Logout { .. } | Command::DeleteAccount { .. } => {
                 self.job_capacity()?;
                 if self.auth_pending {
                     return Err(Error::Busy);
@@ -515,6 +515,14 @@ impl Runtime {
     }
 
     pub(super) fn network_command(&mut self, command: Command) {
+        self.backend_command(command, true);
+    }
+
+    pub(super) fn refresh(&mut self, command: Command) {
+        self.backend_command(command, false);
+    }
+
+    fn backend_command(&mut self, command: Command, requested: bool) {
         let network = self.network.clone();
         let generation = self.scope.network_generation;
         self.spawn(async move {
@@ -531,6 +539,7 @@ impl Runtime {
             };
             Completion::BackendClient {
                 command,
+                requested,
                 generation: network.generation(),
                 result,
             }
@@ -637,13 +646,13 @@ impl Runtime {
             Completion::Initialized(result) => {
                 self.initializing = false;
                 self.emit(self.auth_event());
-                if job.scope.network_generation == self.network.generation() && let Err(error) = result && !matches!(error, Error::Stale) { self.error(&Command::RefreshAuth {}, &error); }
+                if job.scope.network_generation == self.network.generation() && let Err(error) = result && !matches!(error, Error::Stale) { self.error(&Command::RefreshAuth { request_id: None }, &error); }
                 #[cfg(feature = "host")]
                 self.publish_locals();
             }
             #[cfg(feature = "host")]
             Completion::Created { id, result } => self.created(id, result, current),
-            Completion::BackendClient { command, generation, result } => self.network_completed(&job.scope, &command, generation, result),
+            Completion::BackendClient { command, requested, generation, result } => self.network_completed(&job.scope, &command, requested, generation, result),
             Completion::Connected { id, attempt, result } => self.connected(id, attempt, result, current),
             #[cfg(feature = "host")]
             Completion::Published { id, incarnation, result } => self.published(id, incarnation, result, current),
@@ -762,16 +771,17 @@ impl Runtime {
         }
     }
 
-    fn network_completed(
+    pub(super) fn network_completed(
         &mut self,
         scope: &Scope,
         command: &Command,
+        requested: bool,
         generation: u64,
         result: Result<BackendReply>,
     ) {
         let changes_account = matches!(
             command,
-            Command::Login { .. } | Command::Logout {} | Command::DeleteAccount {}
+            Command::Login { .. } | Command::Logout { .. } | Command::DeleteAccount { .. }
         );
         if changes_account {
             self.auth_pending = false;
@@ -795,10 +805,11 @@ impl Runtime {
                 self.apply_metadata(command);
                 self.network_reply(reply);
             }
+            Err(error) if requested => self.error(command, &error),
+            Err(Error::Stale | Error::Stopped) | Ok(_) => {}
             Err(error) => {
-                self.error(command, &error);
+                tracing::warn!(operation = command.operation(), %error, "a refresh of the runtime failed");
             }
-            Ok(_) => {}
         }
     }
 

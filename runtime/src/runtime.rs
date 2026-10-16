@@ -421,6 +421,7 @@ enum Completion {
     },
     BackendClient {
         command: Command,
+        requested: bool,
         generation: u64,
         result: Result<BackendReply>,
     },
@@ -818,8 +819,8 @@ impl Runtime {
                     match event {
                         Ok(event) => self.network_event(event),
                         Err(broadcast::error::RecvError::Lagged(_)) => {
-                            for command in [Command::RefreshAuth {}, Command::RefreshDevices {}, Command::RefreshFriends {}, Command::ListMissions {}, Command::ListSessions {}] {
-                                self.network_command(command);
+                            for command in [Command::RefreshAuth { request_id: None }, Command::RefreshDevices { request_id: None }, Command::RefreshFriends { request_id: None }, Command::ListMissions { request_id: None }, Command::ListSessions { request_id: None }] {
+                                self.refresh(command);
                             }
                         },
                         Err(broadcast::error::RecvError::Closed) => break,
@@ -1705,9 +1706,9 @@ impl Runtime {
         }
     }
 
-    fn refresh_catalog(&mut self) {
+    fn refresh_catalog(&mut self, command: &Command) {
         if self.scope.user.is_some() && self.job_capacity().is_ok() {
-            self.network_command(Command::ListSessions {});
+            self.network_command(command.clone());
         }
     }
 
