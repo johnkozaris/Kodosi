@@ -3,12 +3,13 @@ use std::{fs, path::Path};
 use super::{
     accounts::{self, referenced_home},
     models::{self, codex, copilot, cursor, listed_values, opencode},
-    shell::{Definition, Facts},
+    shell::Facts,
     *,
 };
 
-fn definition(name: &str, text: &str) -> Definition {
-    Definition {
+#[cfg(unix)]
+fn definition(name: &str, text: &str) -> shell::Definition {
+    shell::Definition {
         name: name.to_owned(),
         text: text.to_owned(),
     }
