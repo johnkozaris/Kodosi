@@ -6,10 +6,11 @@ on:
     paths:
       - clients/qt/**
       - protocol/**
-      - runtime/crates/kodosi-ffi-c/**
-      - runtime/Cargo.lock
-      - terminal/ghostty/Vendor/GhosttyVt/linux-x86_64/**
+      - runtime/**
+      - terminal/ghostty/**
       - Ghostty.lock
+      - VERSION
+      - justfile
       - rust-toolchain.toml
       - scripts/build-runtime-library.py
       - .github/workflows/linux.yml

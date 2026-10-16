@@ -11,6 +11,7 @@ on:
       - rust-toolchain.toml
       - deny.toml
       - justfile
+      - VERSION
       - .github/workflows/rust.yml
   workflow_dispatch:
 
