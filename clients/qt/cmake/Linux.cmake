@@ -143,13 +143,8 @@ set(CPACK_ARCHIVE_FILE_NAME
     "kodosi-${PROJECT_VERSION}-linux-x86_64"
 )
 set(CPACK_THREADS 1)
-# With the archive key in the checkout, the Debian package also adds the Kodosi apt
-# repository, so the updates of the system update Kodosi. Both files are conffiles:
-# a removed package leaves them, and a purge removes them.
-if(EXISTS "${PROJECT_SOURCE_DIR}/packaging/linux/kodosi-archive-keyring.pgp")
-    set(CPACK_KODOSI_LINUX_PACKAGING "${PROJECT_SOURCE_DIR}/packaging/linux")
-    set(CPACK_PRE_BUILD_SCRIPTS "${PROJECT_SOURCE_DIR}/cmake/AptRepository.cmake")
-    set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${PROJECT_SOURCE_DIR}/packaging/linux/conffiles")
-    set(CPACK_DEBIAN_PACKAGE_CONTROL_STRICT_PERMISSION ON)
-endif()
+set(CPACK_KODOSI_LINUX_PACKAGING "${PROJECT_SOURCE_DIR}/packaging/linux")
+set(CPACK_PRE_BUILD_SCRIPTS "${PROJECT_SOURCE_DIR}/cmake/AptRepository.cmake")
+set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${PROJECT_SOURCE_DIR}/packaging/linux/conffiles")
+set(CPACK_DEBIAN_PACKAGE_CONTROL_STRICT_PERMISSION ON)
 include(CPack)

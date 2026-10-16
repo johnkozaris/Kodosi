@@ -119,20 +119,18 @@ unpack() {
 }
 
 cmake_ready() {
-    [ -x "$CMAKE_ROOT/bin/cmake$EXE" ] &&
-        [ -x "$CMAKE_ROOT/bin/ctest$EXE" ] &&
-        [ "$("$CMAKE_ROOT/bin/cmake$EXE" --version | awk 'NR == 1 { print $3 }' | tr -d '\r')" = "$CMAKE_VERSION" ]
+    [ -x "$1/bin/cmake$EXE" ] &&
+        [ -x "$1/bin/ctest$EXE" ] &&
+        [ "$("$1/bin/cmake$EXE" --version | awk 'NR == 1 { print $3 }' | tr -d '\r')" = "$CMAKE_VERSION" ]
 }
 
-if ! cmake_ready; then
+if ! cmake_ready "$CMAKE_ROOT"; then
     archive=$(download "$CMAKE_ARCHIVE" "$CMAKE_URL" "$CMAKE_SHA256")
     stage="$PWD/.tools/cmake.stage.$$"
     rm -rf "$stage"
     mkdir -p "$stage"
     unpack "$archive" "$stage" 1
-    if [ ! -x "$stage/bin/cmake$EXE" ] ||
-        [ ! -x "$stage/bin/ctest$EXE" ] ||
-        [ "$("$stage/bin/cmake$EXE" --version | awk 'NR == 1 { print $3 }' | tr -d '\r')" != "$CMAKE_VERSION" ]; then
+    if ! cmake_ready "$stage"; then
         echo "CMake install verification failed" >&2
         exit 1
     fi
@@ -141,18 +139,18 @@ if ! cmake_ready; then
 fi
 
 ninja_ready() {
-    [ -x "$NINJA_ROOT/ninja$EXE" ] &&
-        [ "$("$NINJA_ROOT/ninja$EXE" --version | tr -d '\r')" = "$NINJA_VERSION" ]
+    [ -x "$1/ninja$EXE" ] &&
+        [ "$("$1/ninja$EXE" --version | tr -d '\r')" = "$NINJA_VERSION" ]
 }
 
-if ! ninja_ready; then
+if ! ninja_ready "$NINJA_ROOT"; then
     archive=$(download "ninja-${NINJA_VERSION}-${NINJA_ARCHIVE#ninja-}" "$NINJA_URL" "$NINJA_SHA256")
     stage="$PWD/.tools/ninja.stage.$$"
     rm -rf "$stage"
     mkdir -p "$stage"
     unpack "$archive" "$stage" 0
     chmod +x "$stage/ninja$EXE"
-    if [ "$("$stage/ninja$EXE" --version | tr -d '\r')" != "$NINJA_VERSION" ]; then
+    if ! ninja_ready "$stage"; then
         echo "Ninja install verification failed" >&2
         exit 1
     fi

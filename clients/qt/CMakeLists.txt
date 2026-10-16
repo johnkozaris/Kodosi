@@ -156,10 +156,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
     )
 endif()
 
-qt_standard_project_setup(
-    REQUIRES ${KODOSI_QT_VERSION}
-    I18N_TRANSLATED_LANGUAGES
-)
+qt_standard_project_setup(REQUIRES ${KODOSI_QT_VERSION})
 
 include(CTest)
 add_subdirectory(src)
