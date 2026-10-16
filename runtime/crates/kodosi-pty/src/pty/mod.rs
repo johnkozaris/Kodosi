@@ -55,7 +55,15 @@ const FOREIGN_CONTEXT_KEYS: [&str; 10] = [
     "WT_SESSION",
 ];
 
+const AGENT_FOLDERS: [&str; 2] = ["CODEX_HOME", "COPILOT_HOME"];
+
 fn inherits_foreign_context(key: &str) -> bool {
+    if AGENT_FOLDERS
+        .iter()
+        .any(|folder| folder.eq_ignore_ascii_case(key))
+    {
+        return false;
+    }
     FOREIGN_CONTEXT_KEYS
         .iter()
         .any(|known| known.eq_ignore_ascii_case(key))
@@ -157,6 +165,7 @@ mod tests {
             "CLAUDE_CODE_MESSAGING_TOKEN",
             "CLAUDE_PID",
             "COPILOT_CLI",
+            "CODEX_SANDBOX",
             "TERMINFO",
             "TERM_PROGRAM_VERSION",
             "VSCODE_INJECTION",
@@ -167,6 +176,8 @@ mod tests {
         }
         for key in [
             "CLAUDE_CONFIG_DIR",
+            "CODEX_HOME",
+            "COPILOT_HOME",
             "HOME",
             "PATH",
             "SSH_AUTH_SOCK",

@@ -10,7 +10,7 @@ use std::{
 
 use crate::{KodosiError, Result};
 use nix::{
-    fcntl::{FcntlArg, OFlag, fcntl},
+    fcntl::{FcntlArg, FdFlag, OFlag, fcntl},
     pty::{Winsize, openpty},
     sys::signal::{Signal, killpg},
     unistd::{self, Pid},
@@ -150,6 +150,10 @@ impl KodosiPty {
 
         let reader_fd = unistd::dup(&openpty_result.master)
             .map_err(|error| io::Error::from_raw_os_error(error as i32))?;
+        for descriptor in [&openpty_result.master, &openpty_result.slave, &reader_fd] {
+            fcntl(descriptor.as_fd(), FcntlArg::F_SETFD(FdFlag::FD_CLOEXEC))
+                .map_err(|error| io::Error::from_raw_os_error(error as i32))?;
+        }
         let reader = PtyReader::new(reader_fd)?;
 
         let mut command = Command::new(&resolved_program);
@@ -650,10 +654,37 @@ mod tests {
         set_terminal_size_using_fd, try_write_to_fd, validate_working_dir,
     };
     use nix::{
-        fcntl::{FcntlArg, OFlag, fcntl},
+        fcntl::{FcntlArg, FdFlag, OFlag, fcntl},
         sys::termios,
     };
-    use std::{env, io::Read, os::fd::AsRawFd, path::Path, time::Duration};
+    use std::{
+        env,
+        io::Read,
+        os::fd::{AsRawFd, BorrowedFd},
+        path::Path,
+        time::Duration,
+    };
+
+    #[test]
+    fn other_programs_of_the_host_do_not_inherit_a_terminal() {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                let (mut pty, reader) =
+                    KodosiPty::spawn_program(Path::new("/bin/cat"), &[], None, 24, 80, &[])
+                        .unwrap();
+                let reader_fd = reader.pending.as_ref().unwrap().as_raw_fd();
+                for descriptor in [pty.master_fd, reader_fd] {
+                    let descriptor = unsafe { BorrowedFd::borrow_raw(descriptor) };
+                    let flags = fcntl(descriptor, FcntlArg::F_GETFD).unwrap();
+                    assert!(FdFlag::from_bits_truncate(flags).contains(FdFlag::FD_CLOEXEC));
+                }
+                pty.request_shutdown(ShutdownStage::Force).unwrap();
+                pty.wait().await.unwrap();
+            });
+    }
 
     #[test]
     fn shutdown_signals_other_processes_after_a_permission_failure() {

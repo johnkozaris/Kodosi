@@ -24,6 +24,22 @@ fn alias(name: &str, text: &str) -> Definition {
 }
 
 #[cfg(unix)]
+#[tokio::test]
+async fn a_program_that_prints_without_end_lists_no_models() {
+    let facts = Facts {
+        path: None,
+        variables: Vec::new(),
+        definitions: Vec::new(),
+    };
+    let started = std::time::Instant::now();
+    assert_eq!(
+        models::run(&facts, Some(Path::new("/usr/bin/yes")), &[]).await,
+        None
+    );
+    assert!(started.elapsed() < std::time::Duration::from_secs(5));
+}
+
+#[cfg(unix)]
 fn run_script(shell: &str, arguments: &[&str], prelude: &str, family_script: &str) -> Facts {
     let output = std::process::Command::new(shell)
         .args(arguments)
