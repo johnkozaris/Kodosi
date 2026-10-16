@@ -1,0 +1,36 @@
+diff --git a/src/terminal/stream_terminal.zig b/src/terminal/stream_terminal.zig
+index 1261b4a52..8b5e5e502 100644
+--- a/src/terminal/stream_terminal.zig
++++ b/src/terminal/stream_terminal.zig
+@@ -2281,6 +2281,9 @@ pub const Handler = struct {
+             },
+ 
+             .glyph => |*glyph_req| if (comptime build_options.glyph_protocol) {
++                // The protocol can be switched off while a command is open, for
++                // example after a snapshot replays its first part.
++                if (!self.apc_handler.enabled.contains(.glyph)) return;
+                 const resp = self.terminal.glyphProtocol(alloc, glyph_req);
+                 if (resp) |r| resp_block: {
+                     // Don't waste time encoding if we can't write responses
+@@ -3297,6 +3300,21 @@ test "glyph protocol APC with write_pty callback" {
+     try testing.expect(t.glyph_glossary.contains(0xE0A0));
+ }
+ 
++test "glyph protocol switched off during a command ignores the command" {
++    if (comptime !build_options.glyph_protocol) return error.SkipZigTest;
++
++    var t: Terminal = try .init(testing.io, testing.allocator, .{ .cols = 80, .rows = 24 });
++    defer t.deinit(testing.allocator);
++
++    var s: Stream = .init(.{ .allocator = testing.allocator, .handler = .init(&t) });
++    defer s.deinit();
++
++    s.nextSlice("\x1B_25a1;r;cp=e0a0;AAAA");
++    s.handler.apc_handler.enable(.glyph, false);
++    s.nextSlice("AAAAAAAAAA==\x1B\\");
++    try testing.expect(!t.glyph_glossary.contains(0xE0A0));
++}
++
+ test "ignores query actions" {
+     var t: Terminal = try .init(testing.io, testing.allocator, .{ .cols = 80, .rows = 24 });
+     defer t.deinit(testing.allocator);

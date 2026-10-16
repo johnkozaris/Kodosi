@@ -1,0 +1,1017 @@
+diff --git a/include/ghostty.h b/include/ghostty.h
+index 3629d7efb..5b2d56dc8 100644
+--- a/include/ghostty.h
++++ b/include/ghostty.h
+@@ -538,6 +538,16 @@ typedef struct {
+   ghostty_surface_context_e context;
+ } ghostty_surface_config_s;
+ 
++typedef enum {
++  GHOSTTY_RESULT_SUCCESS = 0,
++  GHOSTTY_RESULT_OUT_OF_MEMORY = -1,
++  GHOSTTY_RESULT_INVALID_VALUE = -2,
++  GHOSTTY_RESULT_OUT_OF_SPACE = -3,
++  GHOSTTY_RESULT_NO_VALUE = -4,
++  GHOSTTY_RESULT_IO_ERROR = -5,
++  GHOSTTY_RESULT_LIMIT_EXCEEDED = -6,
++} ghostty_result_e;
++
+ typedef struct {
+   uint16_t columns;
+   uint16_t rows;
+@@ -1202,9 +1212,17 @@ GHOSTTY_API ghostty_surface_config_s ghostty_surface_inherited_config(ghostty_su
+ GHOSTTY_API void ghostty_surface_update_config(ghostty_surface_t, ghostty_config_t);
+ GHOSTTY_API bool ghostty_surface_needs_confirm_quit(ghostty_surface_t);
+ GHOSTTY_API bool ghostty_surface_process_exited(ghostty_surface_t);
+-// Host-managed output and exit calls must be externally serialized. Output
+-// after exit and repeated exit notifications are ignored.
++// Host-managed output, checkpoint restore, and exit calls must be externally
++// serialized. A restore transactionally replaces the terminal with a Ghostty
++// snapshot (include/ghostty/vt/snapshot.h) before any subsequently serialized
++// output; a snapshot that ends at READY has no history. A snapshot does not
++// carry whether a resize pulls rows from scrollback, so the caller gives it.
++// Output after exit and repeated exit notifications are ignored.
+ GHOSTTY_API void ghostty_surface_write_buffer(ghostty_surface_t, const uint8_t*, uintptr_t);
++GHOSTTY_API ghostty_result_e ghostty_surface_checkpoint_restore(ghostty_surface_t,
++                                                                const uint8_t*,
++                                                                size_t,
++                                                                bool);
+ GHOSTTY_API void ghostty_surface_process_exit(ghostty_surface_t, uint32_t, uint64_t);
+ GHOSTTY_API void ghostty_surface_refresh(ghostty_surface_t);
+ GHOSTTY_API void ghostty_surface_draw(ghostty_surface_t);
+diff --git a/src/App.zig b/src/App.zig
+index 840dac6ec..03320b0a5 100644
+--- a/src/App.zig
++++ b/src/App.zig
+@@ -271,6 +271,15 @@ pub fn needsConfirmQuit(self: *const App) bool {
+ 
+ /// Drain the mailbox.
+ fn drainMailbox(self: *App, rt_app: *apprt.App) !void {
++    // A full queue can drop the marker but not its surface-owned payload.
++    // Flush after making room, including when another message returns an error.
++    var flush_checkpoints = true;
++    defer if (flush_checkpoints) {
++        for (self.surfaces.items) |surface| {
++            surface.core().flushCheckpointRestored();
++        }
++    };
++
+     while (self.mailbox.pop(global.io())) |message| {
+         if (comptime std.log.logEnabled(.debug, .app)) {
+             switch (message) {
+@@ -297,6 +306,7 @@ fn drainMailbox(self: *App, rt_app: *apprt.App) !void {
+             // mailbox processing to the next tick so that the apprt
+             // can try to quit as quickly as possible.
+             .quit => {
++                flush_checkpoints = false;
+                 log.info("quit message received, short circuiting mailbox drain", .{});
+                 try self.performAction(rt_app, .quit);
+                 return;
+@@ -525,6 +535,9 @@ fn surfaceMessage(self: *App, surface: *Surface, msg: apprt.surface.Message) !vo
+     // a simple linear search here.
+     if (self.hasSurface(surface)) {
+         try surface.handleMessage(msg);
++    } else {
++        var dropped = msg;
++        apprt.surface.deinitMessage(&dropped);
+     }
+ 
+     // Window was not found, it probably quit before we handled the message.
+diff --git a/src/Surface.zig b/src/Surface.zig
+index 957bd4670..d8afebce6 100644
+--- a/src/Surface.zig
++++ b/src/Surface.zig
+@@ -101,6 +101,9 @@ renderer_thread: rendererpkg.Thread,
+ /// The actual thread
+ renderer_thr: std.Thread,
+ 
++/// Latest checkpoint notification waiting for the app thread.
++checkpoint_restored: PendingCheckpointRestored = .{},
++
+ /// Mouse state.
+ mouse: Mouse,
+ 
+@@ -847,6 +850,7 @@ pub fn deinit(self: *Surface) void {
+     self.io_thread.deinit();
+     self.mouse.selection_gesture.deinit(&self.io.terminal);
+     self.io.deinit();
++    self.checkpoint_restored.deinit();
+ 
+     if (self.inspector) |v| {
+         v.deinit(self.alloc);
+@@ -1008,6 +1012,8 @@ pub fn needsConfirmQuit(self: *Surface) bool {
+ /// surface.
+ pub fn handleMessage(self: *Surface, msg: Message) !void {
+     switch (msg) {
++        // The app flushes the surface-owned payload after draining markers.
++        .checkpoint_restored => {},
+         .change_config => |config| try self.updateConfig(config),
+ 
+         .set_title => |*v| {
+@@ -2435,7 +2441,7 @@ fn copySelectionToClipboards(
+ /// also copy per `copy_on_select`, use `setSelectionAndCopy`.
+ ///
+ /// This must be called with the renderer mutex held.
+-fn setSelection(self: *Surface, sel_: ?terminal.Selection) !void {
++pub fn setSelection(self: *Surface, sel_: ?terminal.Selection) !void {
+     // Compute the transition before `select` below, which untracks (frees)
+     // the previous selection's tracked pins; reading them after would be a
+     // use-after-free.
+@@ -2459,6 +2465,10 @@ fn setSelection(self: *Surface, sel_: ?terminal.Selection) !void {
+     }
+ }
+ 
++pub fn setSelectionWithoutNotification(self: *Surface, sel_: ?terminal.Selection) void {
++    self.io.terminal.screens.active.select(sel_) catch unreachable;
++}
++
+ /// Set a selection and, per `copy_on_select`, copy it to the clipboard.
+ /// For committing selection gestures (mouse release, select-all binding).
+ ///
+@@ -2561,7 +2571,7 @@ pub fn setFontSize(self: *Surface, size: font.face.DesiredSize) !void {
+ /// This queues a render operation with the renderer thread. The render
+ /// isn't guaranteed to happen immediately but it will happen as soon as
+ /// practical.
+-fn queueRender(self: *Surface) !void {
++pub fn queueRender(self: *Surface) !void {
+     try self.renderer_thread.wakeup.notify();
+ }
+ 
+@@ -2635,6 +2645,183 @@ fn resize(self: *Surface, size: rendererpkg.ScreenSize) !void {
+     };
+ }
+ 
++pub fn checkpointSelectionChanged(self: *Surface) void {
++    _ = self.rt_app.performAction(
++        .{ .surface = self },
++        .selection_changed,
++        {},
++    ) catch {};
++}
++
++const PendingCheckpointRestored = struct {
++    mutex: std.Io.Mutex = .init,
++    value: ?apprt.surface.CheckpointRestored = null,
++    marker_pending: bool = false,
++
++    fn publish(
++        self: *PendingCheckpointRestored,
++        mailbox: anytype,
++        restored: apprt.surface.CheckpointRestored,
++    ) void {
++        self.mutex.lockUncancelable(global.io());
++        if (self.value) |previous| previous.deinit();
++        self.value = restored;
++        if (self.marker_pending) {
++            self.mutex.unlock(global.io());
++            return;
++        }
++        self.marker_pending = true;
++        self.mutex.unlock(global.io());
++
++        _ = mailbox.push(.{ .checkpoint_restored = {} }, .{ .instant = {} });
++    }
++
++    fn take(
++        self: *PendingCheckpointRestored,
++    ) ?apprt.surface.CheckpointRestored {
++        self.mutex.lockUncancelable(global.io());
++        defer self.mutex.unlock(global.io());
++
++        const result = self.value;
++        self.value = null;
++        self.marker_pending = false;
++        return result;
++    }
++
++    fn deinit(self: *PendingCheckpointRestored) void {
++        if (self.take()) |restored| restored.deinit();
++    }
++};
++
++pub fn checkpointRestoredMessage(
++    self: *Surface,
++) ?apprt.surface.CheckpointRestored {
++    return apprt.surface.CheckpointRestored.init(
++        self.alloc,
++        &self.io.terminal,
++    ) catch null;
++}
++
++pub fn deferCheckpointRestored(
++    self: *Surface,
++    restored: apprt.surface.CheckpointRestored,
++) void {
++    self.checkpoint_restored.publish(self.io.surface_mailbox, restored);
++}
++
++pub fn flushCheckpointRestored(self: *Surface) void {
++    const restored = self.checkpoint_restored.take() orelse return;
++    defer restored.deinit();
++
++    if (restored.selection_changed) self.checkpointSelectionChanged();
++    self.handleMessage(.{ .set_title = restored.title }) catch {};
++    self.handleMessage(.{ .set_mouse_shape = restored.mouse_shape }) catch {};
++    var stack = std.heap.stackFallback(256, self.alloc);
++    const pwd_value = stack.get().dupeZ(u8, restored.pwd.slice()) catch return;
++    defer stack.get().free(pwd_value);
++    _ = self.rt_app.performAction(
++        .{ .surface = self },
++        .pwd,
++        .{ .pwd = pwd_value },
++    ) catch {};
++}
++
++test "checkpoint notifications coalesce without producers when the app mailbox is full" {
++    const testing = std.testing;
++
++    var app_mailbox: App.Mailbox.Queue = .{};
++    for (0..64) |_| {
++        try testing.expect(app_mailbox.push(
++            testing.io,
++            .{ .quit = {} },
++            .{ .instant = {} },
++        ) > 0);
++    }
++
++    const FullMailbox = struct {
++        queue: *App.Mailbox.Queue,
++        pushes: *usize,
++
++        fn push(
++            self: @This(),
++            message: apprt.surface.Message,
++            timeout: App.Mailbox.Queue.Timeout,
++        ) App.Mailbox.Queue.Size {
++            self.pushes.* += 1;
++            return self.queue.push(global.io(), .{
++                .surface_message = .{
++                    .surface = undefined,
++                    .message = message,
++                },
++            }, timeout);
++        }
++    };
++
++    var pending: PendingCheckpointRestored = .{};
++    defer pending.deinit();
++    var pushes: usize = 0;
++
++    var first_title: [256]u8 = @splat(0);
++    @memcpy(first_title[0.."first".len], "first");
++    pending.publish(FullMailbox{
++        .queue = &app_mailbox,
++        .pushes = &pushes,
++    }, .{
++        .title = first_title,
++        .pwd = try apprt.surface.Message.WriteReq.init(
++            testing.allocator,
++            @as([]const u8, "first-" ** 64),
++        ),
++        .mouse_shape = .text,
++        .selection_changed = true,
++    });
++
++    var latest_title: [256]u8 = @splat(0);
++    @memcpy(latest_title[0.."latest".len], "latest");
++    pending.publish(FullMailbox{
++        .queue = &app_mailbox,
++        .pushes = &pushes,
++    }, .{
++        .title = latest_title,
++        .pwd = try apprt.surface.Message.WriteReq.init(
++            testing.allocator,
++            @as([]const u8, "latest-" ** 64),
++        ),
++        .mouse_shape = .pointer,
++        .selection_changed = true,
++    });
++
++    const latest = pending.take().?;
++    defer latest.deinit();
++    try testing.expectEqualStrings(
++        "latest",
++        std.mem.sliceTo(&latest.title, 0),
++    );
++    try testing.expectEqualStrings("latest-" ** 64, latest.pwd.slice());
++    try testing.expectEqual(terminal.MouseShape.pointer, latest.mouse_shape);
++    try testing.expectEqual(@as(usize, 1), pushes);
++
++    pending.publish(FullMailbox{
++        .queue = &app_mailbox,
++        .pushes = &pushes,
++    }, .{
++        .title = @splat(0),
++        .pwd = try apprt.surface.Message.WriteReq.init(
++            testing.allocator,
++            @as([]const u8, "cleanup-" ** 64),
++        ),
++        .mouse_shape = .text,
++        .selection_changed = true,
++    });
++    try testing.expectEqual(@as(usize, 2), pushes);
++
++    while (app_mailbox.pop(testing.io)) |_| {}
++}
++
++pub fn applyCheckpointGeometry(self: *Surface, size: rendererpkg.Size) void {
++    self.size = size;
++}
++
+ /// Recalculate the balanced padding if needed.
+ fn balancePaddingIfNeeded(self: *Surface) void {
+     if (self.config.window_padding_balance == .false) return;
+diff --git a/src/apprt/embedded.zig b/src/apprt/embedded.zig
+index 279ce2c5a..dffd0addb 100644
+--- a/src/apprt/embedded.zig
++++ b/src/apprt/embedded.zig
+@@ -17,6 +17,7 @@ const internal_os = @import("../os/main.zig");
+ const renderer = @import("../renderer.zig");
+ const terminal = @import("../terminal/main.zig");
+ const termio = @import("../termio.zig");
++const Result = @import("../terminal/c/result.zig").Result;
+ const CoreApp = @import("../App.zig");
+ const CoreInspector = if (@import("../build_config.zig").inspector) @import("../inspector/main.zig").Inspector else struct {};
+ const CoreSurface = @import("../Surface.zig");
+@@ -1966,6 +1967,55 @@ pub const CAPI = struct {
+         surface.core_surface.io.processOutput(data[0..len]);
+     }
+ 
++    /// Transactionally replace the terminal of a host-managed surface with a
++    /// Ghostty snapshot before any subsequently serialized live output.
++    export fn ghostty_surface_checkpoint_restore(
++        surface_: ?*Surface,
++        ptr: ?[*]const u8,
++        len: usize,
++        resize_pull_scrollback: bool,
++    ) Result {
++        const surface = surface_ orelse return .invalid_value;
++        if (surface.termio_backend != .host_managed or
++            surface.core_surface.io.backend.host_managed.isExited()) return .invalid_value;
++        const snapshot = if (ptr) |data|
++            data[0..len]
++        else if (len == 0)
++            &.{}
++        else
++            return .invalid_value;
++
++        const core = &surface.core_surface;
++        if (core.search != null) return .invalid_value;
++        core.renderer_state.mutex.lockUncancelable(global.io());
++        const result = core.io.restoreCheckpointLocked(
++            snapshot,
++            resize_pull_scrollback,
++            core,
++            struct {
++                fn call(ctx: *CoreSurface) void {
++                    ctx.mouse.selection_gesture.reset(&ctx.io.terminal);
++                    ctx.setSelectionWithoutNotification(null);
++                }
++            }.call,
++        );
++        if (result == .success) core.applyCheckpointGeometry(core.io.size);
++        const restored = if (result == .success)
++            core.checkpointRestoredMessage()
++        else
++            null;
++        core.renderer_state.mutex.unlock(global.io());
++        if (result == .success) {
++            if (restored) |notification| {
++                core.deferCheckpointRestored(notification);
++            } else {
++                log.warn("unable to allocate checkpoint metadata notification", .{});
++            }
++            core.queueRender() catch {};
++        }
++        return result;
++    }
++
+     /// Report host process exit once, after all output has been written. Calls
+     /// must be externally serialized with ghostty_surface_write_buffer.
+     export fn ghostty_surface_process_exit(
+diff --git a/src/apprt/surface.zig b/src/apprt/surface.zig
+index 3b1a04d8a..504212ad4 100644
+--- a/src/apprt/surface.zig
++++ b/src/apprt/surface.zig
+@@ -10,6 +10,38 @@ const terminal = @import("../terminal/main.zig");
+ const Config = @import("../config.zig").Config;
+ const MessageData = @import("../datastruct/main.zig").MessageData;
+ 
++/// Metadata published after a checkpoint restore is committed.
++pub const CheckpointRestored = struct {
++    title: [256]u8,
++    pwd: Message.WriteReq,
++    mouse_shape: terminal.MouseShape,
++    selection_changed: bool,
++
++    pub fn init(
++        alloc: Allocator,
++        restored: *const terminal.Terminal,
++    ) Allocator.Error!CheckpointRestored {
++        const terminal_title = restored.getTitle() orelse "";
++        var title: [256]u8 = @splat(0);
++        const title_len = @min(terminal_title.len, title.len - 1);
++        @memcpy(title[0..title_len], terminal_title[0..title_len]);
++
++        return .{
++            .title = title,
++            .pwd = try Message.WriteReq.init(
++                alloc,
++                restored.getPwd() orelse "",
++            ),
++            .mouse_shape = restored.mouse_shape,
++            .selection_changed = true,
++        };
++    }
++
++    pub fn deinit(self: CheckpointRestored) void {
++        self.pwd.deinit();
++    }
++};
++
+ /// The message types that can be sent to a single surface.
+ pub const Message = union(enum) {
+     /// Represents a write request. Magic number comes from the max size
+@@ -57,6 +89,9 @@ pub const Message = union(enum) {
+         }
+     };
+ 
++    /// Wake the app thread to flush the latest coalesced checkpoint metadata.
++    checkpoint_restored: void,
++
+     /// Set the title of the surface.
+     /// TODO: we should change this to a "WriteReq" style structure in
+     /// the termio message so that we can more efficiently send strings
+@@ -206,6 +241,46 @@ pub const Mailbox = struct {
+     }
+ };
+ 
++pub fn deinitMessage(message: *Message) void {
++    switch (message.*) {
++        .kitty_clipboard_read => |req| req.destroy(),
++        .kitty_clipboard_write => |req| req.destroy(),
++        .clipboard_write => |write| write.req.deinit(),
++        .pwd_change => |pwd| pwd.deinit(),
++        else => {},
++    }
++}
++
++test "checkpoint notification captures restored terminal metadata" {
++    const testing = std.testing;
++
++    var restored = try terminal.Terminal.init(testing.io, testing.allocator, .{
++        .cols = 80,
++        .rows = 24,
++    });
++    defer restored.deinit(testing.allocator);
++    try restored.setTitle("restored title");
++    try restored.setPwd("file:///restored");
++    restored.mouse_shape = .pointer;
++
++    const notification = try CheckpointRestored.init(
++        testing.allocator,
++        &restored,
++    );
++    defer notification.deinit();
++
++    try testing.expectEqualStrings(
++        "restored title",
++        std.mem.sliceTo(&notification.title, 0),
++    );
++    try testing.expectEqualStrings(
++        "file:///restored",
++        notification.pwd.slice(),
++    );
++    try testing.expectEqual(terminal.MouseShape.pointer, notification.mouse_shape);
++    try testing.expect(notification.selection_changed);
++}
++
+ /// Context for new surface creation to determine inheritance behavior
+ pub const NewSurfaceContext = enum(c_int) {
+     window = 0,
+diff --git a/src/renderer/Thread.zig b/src/renderer/Thread.zig
+index 95e708344..efe826c34 100644
+--- a/src/renderer/Thread.zig
++++ b/src/renderer/Thread.zig
+@@ -379,21 +379,17 @@ fn drainMailbox(self: *Thread) !void {
+                 }
+             },
+ 
+-            .reset_cursor_blink => {
+-                self.flags.cursor_blink_visible = true;
+-                if (self.cursor_c.state() == .active) {
+-                    self.cursor_h.reset(
+-                        &self.loop,
+-                        &self.cursor_c,
+-                        &self.cursor_c_cancel,
+-                        cursorBlinkInterval(),
+-                        Thread,
+-                        self,
+-                        cursorTimerCallback,
+-                    );
++            .terminal_replaced => |replacement| {
++                defer replacement.complete.post(global.io());
++                if (@hasDecl(rendererpkg.Renderer, "terminalReplaced")) {
++                    self.renderer.terminalReplaced();
+                 }
++                self.renderer.setScreenSize(replacement.size);
++                self.resetCursorBlink();
+             },
+ 
++            .reset_cursor_blink => self.resetCursorBlink(),
++
+             .font_grid => |grid| {
+                 self.renderer.setFontGrid(grid.grid);
+                 grid.set.deref(grid.old_key);
+@@ -443,6 +439,21 @@ fn drainMailbox(self: *Thread) !void {
+     }
+ }
+ 
++fn resetCursorBlink(self: *Thread) void {
++    self.flags.cursor_blink_visible = true;
++    if (self.cursor_c.state() == .active) {
++        self.cursor_h.reset(
++            &self.loop,
++            &self.cursor_c,
++            &self.cursor_c_cancel,
++            cursorBlinkInterval(),
++            Thread,
++            self,
++            cursorTimerCallback,
++        );
++    }
++}
++
+ fn changeConfig(self: *Thread, config: *const DerivedConfig) !void {
+     // A newly enabled scheduler must reconsider existing history even when no
+     // terminal activity occurred while compression was disabled.
+@@ -486,8 +497,11 @@ fn wakeupCallback(
+ 
+     // When we wake up, we check the mailbox. Mailbox producers should
+     // wake up our thread after publishing.
+-    t.drainMailbox() catch |err|
++    t.drainMailbox() catch |err| {
+         log.err("error draining mailbox err={}", .{err});
++        t.wakeup.notify() catch |notify_err|
++            log.err("error scheduling mailbox retry err={}", .{notify_err});
++    };
+ 
+     // Render immediately
+     _ = renderCallback(t, undefined, undefined, {});
+diff --git a/src/renderer/generic.zig b/src/renderer/generic.zig
+index 5a021b087..3d9729f63 100644
+--- a/src/renderer/generic.zig
++++ b/src/renderer/generic.zig
+@@ -1079,6 +1079,24 @@ pub fn Renderer(comptime GraphicsAPI: type) type {
+             };
+         }
+ 
++        /// Invalidate all state derived from terminal-owned pages and images.
++        pub fn terminalReplaced(self: *Self) void {
++            self.draw_mutex.lockUncancelable(global.io());
++            defer self.draw_mutex.unlock(global.io());
++
++            self.terminal_state.deinit(self.alloc);
++            self.terminal_state = .empty;
++            self.last_bottom_node = null;
++            self.images.deinit(self.alloc);
++            self.images = .empty;
++            if (self.search_selected_match) |*match| match.arena.deinit();
++            self.search_selected_match = null;
++            if (self.search_matches) |*matches| matches.arena.deinit();
++            self.search_matches = null;
++            self.search_matches_dirty = true;
++            self.markDirty();
++        }
++
+         /// Mark the full screen as dirty so that we redraw everything.
+         pub inline fn markDirty(self: *Self) void {
+             self.terminal_state.dirty = .full;
+diff --git a/src/renderer/message.zig b/src/renderer/message.zig
+index 16d3b32c6..b9d67560e 100644
+--- a/src/renderer/message.zig
++++ b/src/renderer/message.zig
+@@ -22,6 +22,14 @@ pub const Message = union(enum) {
+     /// and still have focus.
+     visible: bool,
+ 
++    /// Drop every cache and pin derived from the previous terminal ownership,
++    /// apply the replacement geometry, reset the cursor, and acknowledge that
++    /// terminal-owned memory can be released.
++    terminal_replaced: struct {
++        size: renderer.Size,
++        complete: *std.Io.Semaphore,
++    },
++
+     /// Reset the cursor blink by immediately showing the cursor then
+     /// restarting the timer.
+     reset_cursor_blink,
+diff --git a/src/terminal/ScreenSet.zig b/src/terminal/ScreenSet.zig
+index 28fced985..5058442ac 100644
+--- a/src/terminal/ScreenSet.zig
++++ b/src/terminal/ScreenSet.zig
+@@ -71,6 +71,14 @@ pub fn generation(self: *const ScreenSet, key: Key) usize {
+     return self.generations.get(key).?;
+ }
+ 
++/// Carry replacement generations forward so stale external pins can never
++/// validate against newly allocated screen storage at the same address.
++pub fn replaceGenerationsFrom(self: *ScreenSet, previous: *const ScreenSet) void {
++    for (std.enums.values(Key)) |key| {
++        self.generations.put(key, previous.generation(key) +% 1);
++    }
++}
++
+ /// Get the screen for the given key, initializing it if necessary.
+ pub fn getInit(
+     self: *ScreenSet,
+@@ -151,4 +159,10 @@ test "ScreenSet generations" {
+     _ = try set.getInit(io, alloc, .alternate, .default);
+     try testing.expectEqual(alternate_generation +% 1, set.generation(.alternate));
+     try testing.expectEqual(@as(usize, 0), set.generation(.primary));
++
++    var replacement: ScreenSet = try .init(io, alloc, .default);
++    defer replacement.deinit(alloc);
++    replacement.replaceGenerationsFrom(&set);
++    try testing.expectEqual(set.generation(.primary) +% 1, replacement.generation(.primary));
++    try testing.expectEqual(set.generation(.alternate) +% 1, replacement.generation(.alternate));
+ }
+diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
+index b0e4cfc0b..0804d0086 100644
+--- a/src/termio/Termio.zig
++++ b/src/termio/Termio.zig
+@@ -13,6 +13,7 @@ const posix = std.posix;
+ const termio = @import("../termio.zig");
+ const StreamHandler = @import("stream_handler.zig").StreamHandler;
+ const terminalpkg = @import("../terminal/main.zig");
++const Result = @import("../terminal/c/result.zig").Result;
+ const global = @import("../global.zig");
+ const xev = global.xev;
+ const renderer = @import("../renderer.zig");
+@@ -692,6 +693,161 @@ pub fn focusGained(self: *Termio, td: *ThreadData, focused: bool) !void {
+     try self.backend.focusGained(td, focused);
+ }
+ 
++/// The longest unfinished input that a restored terminal accepts, the same
++/// bound as the host's own terminals.
++const checkpoint_continuation_max_bytes = 1024 * 1024;
++
++/// Transactionally replace the terminal of a host-managed surface with a
++/// Ghostty snapshot. A snapshot that ends at READY carries the visible screen
++/// without history. The terminal address and every callback/config pointer
++/// remain stable.
++pub fn restoreCheckpointLocked(
++    self: *Termio,
++    bytes: []const u8,
++    resize_pull_scrollback: bool,
++    pre_commit_context: anytype,
++    comptime preCommit: fn (@TypeOf(pre_commit_context)) void,
++) Result {
++    var reader: std.Io.Reader = .fixed(bytes);
++    var decoder: terminalpkg.snapshot.Decoder = .init(&reader);
++    var decoded = decoder.ready(self.alloc, global.io(), .{
++        .max_continuation_bytes = checkpoint_continuation_max_bytes,
++    }) catch |err| return snapshotResult(err);
++    defer decoded.deinit(self.alloc);
++    var new_terminal = decoded.toOwned();
++    var new_terminal_owned = true;
++    defer if (new_terminal_owned) new_terminal.deinit(self.alloc);
++    if (reader.bufferedLen() > 0) {
++        while (decoder.next(self.alloc, &new_terminal) catch |err| return snapshotResult(err)) |_| {}
++        if (reader.bufferedLen() > 0) return .invalid_value;
++    }
++
++    // Preserve visual configuration and safety policy, never source policy.
++    new_terminal.colors.palette.changeDefault(
++        self.alloc,
++        self.config.palette,
++    ) catch return .out_of_memory;
++    new_terminal.colors.background.default = self.config.background.toTerminalRGB();
++    new_terminal.colors.foreground.default = self.config.foreground.toTerminalRGB();
++    new_terminal.colors.cursor.default = cursor: {
++        const color = self.config.cursor_color orelse break :cursor null;
++        break :cursor color.toTerminalRGB() orelse break :cursor null;
++    };
++    new_terminal.screens.replaceGenerationsFrom(&self.terminal.screens);
++    new_terminal.flags.focused = self.terminal.flags.focused;
++    new_terminal.flags.visible = self.terminal.flags.visible;
++    new_terminal.flags.resize_pull_scrollback = resize_pull_scrollback;
++    if (comptime @hasField(terminalpkg.Screen, "kitty_images")) {
++        var screens = new_terminal.screens.all.iterator();
++        while (screens.next()) |entry| {
++            const screen = entry.value.*;
++            screen.kitty_images.setLimit(
++                screen.io,
++                screen.alloc,
++                screen,
++                self.config.image_storage_limit,
++            );
++            screen.kitty_images.image_limits = .allWithTempDir(global.tmpDirPath());
++        }
++    }
++
++    var handler = freshStreamHandler(self);
++    handler.terminal = &new_terminal;
++    var new_stream: StreamHandler.Stream = .init(.{
++        .allocator = self.alloc,
++        .handler = handler,
++    });
++    var new_stream_owned = true;
++    defer if (new_stream_owned) new_stream.deinit();
++
++    const terminal_width = std.math.mul(
++        u32,
++        @as(u32, new_terminal.cols),
++        self.size.cell.width,
++    ) catch return .limit_exceeded;
++    const terminal_height = std.math.mul(
++        u32,
++        @as(u32, new_terminal.rows),
++        self.size.cell.height,
++    ) catch return .limit_exceeded;
++    const new_size: renderer.Size = .{
++        .screen = .{
++            .width = std.math.add(
++                u32,
++                terminal_width,
++                self.size.padding.left + self.size.padding.right,
++            ) catch return .limit_exceeded,
++            .height = std.math.add(
++                u32,
++                terminal_height,
++                self.size.padding.top + self.size.padding.bottom,
++            ) catch return .limit_exceeded,
++        },
++        .cell = self.size.cell,
++        .padding = self.size.padding,
++    };
++    new_terminal.width_px = terminal_width;
++    new_terminal.height_px = terminal_height;
++
++    preCommit(pre_commit_context);
++    var old_terminal = self.terminal;
++    var old_stream = self.terminal_stream;
++    self.terminal = new_terminal;
++    new_terminal_owned = false;
++    self.terminal_stream = new_stream;
++    self.size = new_size;
++    new_stream_owned = false;
++    self.terminal_stream.handler.terminal = &self.terminal;
++    self.renderer_state.terminal = &self.terminal;
++    switch (decoded.continuation) {
++        .ground => {},
++        .bytes => |continuation| self.terminal_stream.nextSlice(continuation),
++    }
++
++    self.terminal_stream.handler.seen_title = self.terminal.getTitle() != null;
++    self.queueMessage(.{
++        .checkpoint_synchronized_output = self.terminal.modes.get(.synchronized_output),
++    }, .locked);
++    self.terminal.flags.dirty = .{};
++    self.terminal_stream.handler.checkpointRendererReplaced(self.size);
++    old_stream.deinit();
++    old_terminal.deinit(self.alloc);
++    return .success;
++}
++
++fn snapshotResult(err: anyerror) Result {
++    return switch (err) {
++        error.OutOfMemory => .out_of_memory,
++        else => .invalid_value,
++    };
++}
++
++fn freshStreamHandler(self: *Termio) StreamHandler {
++    const current = &self.terminal_stream.handler;
++    return .{
++        .alloc = current.alloc,
++        .termio_mailbox = current.termio_mailbox,
++        .surface_mailbox = current.surface_mailbox,
++        .renderer_state = current.renderer_state,
++        .renderer_wakeup = current.renderer_wakeup,
++        .renderer_mailbox = current.renderer_mailbox,
++        .size = current.size,
++        .terminal = &self.terminal,
++        .osc_color_report_format = current.osc_color_report_format,
++        .clipboard_write = current.clipboard_write,
++        .image_protocols_enabled = current.image_protocols_enabled,
++        .clipboard_write_limit = current.clipboard_write_limit,
++        .enquiry_response = current.enquiry_response,
++        .xt_checksum_report = current.xt_checksum_report,
++        .apc = .{
++            .max_bytes = current.apc.max_bytes,
++            .enabled = current.apc.enabled,
++            .unknown_max_bytes = current.apc.unknown_max_bytes,
++        },
++        .dcs = .{ .max_bytes = current.dcs.max_bytes },
++    };
++}
++
+ /// Process output from the pty. This is the manual API that users can
+ /// call with pty data but it is also called by the read thread when using
+ /// an exec subprocess.
+diff --git a/src/termio/Thread.zig b/src/termio/Thread.zig
+index de268350b..0f4d99ba3 100644
+--- a/src/termio/Thread.zig
++++ b/src/termio/Thread.zig
+@@ -336,6 +336,19 @@ fn drainMailbox(
+                 }
+             },
+             .jump_to_prompt => |v| try io.jumpToPrompt(v),
++            .checkpoint_synchronized_output => |enabled| {
++                if (self.sync_reset_c.state() == .active) {
++                    self.sync_reset.reset(
++                        &self.loop,
++                        &self.sync_reset_c,
++                        &self.sync_reset_cancel_c,
++                        if (enabled) sync_reset_ms else 0,
++                        CallbackData,
++                        cb,
++                        syncResetCallback,
++                    );
++                } else if (enabled) self.startSynchronizedOutput(cb);
++            },
+             .kitty_clipboard_grant_read => |v| {
+                 defer v.alloc.free(v.pw);
+                 try io.kittyClipboardGrant(v.pw, .read);
+diff --git a/src/termio/message.zig b/src/termio/message.zig
+index 241687409..3cd602dff 100644
+--- a/src/termio/message.zig
++++ b/src/termio/message.zig
+@@ -71,6 +71,9 @@ pub const Message = union(enum) {
+     /// Jump forward/backward n prompts.
+     jump_to_prompt: isize,
+ 
++    /// Reconcile the synchronized-output watchdog after terminal replacement.
++    checkpoint_synchronized_output: bool,
++
+     /// Send this when a synchronized output mode is started. This will
+     /// start the timer so that the output mode is disabled after a
+     /// period of time so that a bad actor can't hang the terminal.
+diff --git a/src/termio/stream_handler.zig b/src/termio/stream_handler.zig
+index e4a09ca64..b34d552b6 100644
+--- a/src/termio/stream_handler.zig
++++ b/src/termio/stream_handler.zig
+@@ -166,7 +166,11 @@ pub const StreamHandler = struct {
+         // See termio.Mailbox.send for more details on how this works.
+ 
+         // Try instant first. If it works then we can return.
+-        if (self.renderer_mailbox.push(msg, .{ .instant = {} }) > 0) {
++        if (self.renderer_mailbox.push(
++            global.io(),
++            msg,
++            .{ .instant = {} },
++        ) > 0) {
+             return;
+         }
+ 
+@@ -184,7 +188,37 @@ pub const StreamHandler = struct {
+                 .{err},
+             );
+         };
+-        _ = self.renderer_mailbox.push(msg, .{ .forever = {} });
++        while (self.renderer_mailbox.push(
++            global.io(),
++            msg,
++            .{ .forever = {} },
++        ) == 0) {
++            self.renderer_wakeup.notify() catch |err| {
++                log.warn(
++                    "failed to retry renderer notification err={}",
++                    .{err},
++                );
++            };
++        }
++    }
++
++    /// Publish a terminal replacement and wait until the renderer has dropped
++    /// every cache and pin that can refer to the old terminal. The caller must
++    /// hold the renderer state mutex; it is released while the renderer works.
++    pub fn checkpointRendererReplaced(
++        self: *StreamHandler,
++        size: renderer.Size,
++    ) void {
++        var complete: std.Io.Semaphore = .{};
++        self.rendererMessageWriter(.{ .terminal_replaced = .{
++            .size = size,
++            .complete = &complete,
++        } });
++        self.renderer_wakeup.notify() catch unreachable;
++
++        self.renderer_state.mutex.unlock(global.io());
++        defer self.renderer_state.mutex.lockUncancelable(global.io());
++        complete.waitUncancelable(global.io());
+     }
+ 
+     pub fn vt(
+@@ -1979,6 +2013,110 @@ test "image storage enabled admits every image protocol" {
+     try testing.expect(imageProtocolAllowed(true, .glyph));
+ }
+ 
++test "checkpoint renderer replacement survives a full ordered mailbox" {
++    const testing = std.testing;
++
++    const mailbox = try renderer.Thread.Mailbox.create(testing.allocator);
++    defer mailbox.destroy(testing.allocator);
++    for (0..64) |_| {
++        try testing.expect(mailbox.push(
++            testing.io,
++            .{ .focus = false },
++            .{ .instant = {} },
++        ) > 0);
++    }
++
++    var wakeup = try xev.Async.init();
++    defer wakeup.deinit();
++
++    var mutex: std.Io.Mutex = .init;
++    var state: renderer.State = .{
++        .mutex = &mutex,
++        .terminal = undefined,
++    };
++    var handler: StreamHandler = undefined;
++    handler.renderer_state = &state;
++    handler.renderer_mailbox = mailbox;
++    handler.renderer_wakeup = wakeup;
++
++    const expected_size: renderer.Size = .{
++        .screen = .{ .width = 1200, .height = 800 },
++        .cell = .{ .width = 10, .height = 20 },
++        .padding = .{},
++    };
++    const Consumer = struct {
++        mailbox: *renderer.Thread.Mailbox,
++        mutex: *std.Io.Mutex,
++        expected_size: renderer.Size,
++        restore_returned: *std.atomic.Value(bool),
++        released_mutex: std.atomic.Value(bool) = .init(false),
++        ordered: std.atomic.Value(bool) = .init(false),
++        correct_size: std.atomic.Value(bool) = .init(false),
++        premature_return: std.atomic.Value(bool) = .init(false),
++
++        fn run(self: *@This()) void {
++            self.mutex.lockUncancelable(global.io());
++            self.released_mutex.store(true, .release);
++            self.mutex.unlock(global.io());
++
++            var count: usize = 0;
++            for (0..5_000) |_| {
++                const message = self.mailbox.pop(global.io()) orelse {
++                    std.Io.sleep(
++                        global.io(),
++                        .fromMilliseconds(1),
++                        .awake,
++                    ) catch return;
++                    continue;
++                };
++
++                switch (message) {
++                    .focus => count += 1,
++                    .terminal_replaced => |replacement| {
++                        self.ordered.store(count == 64, .release);
++                        self.correct_size.store(
++                            std.meta.eql(replacement.size, self.expected_size),
++                            .release,
++                        );
++                        std.Io.sleep(
++                            global.io(),
++                            .fromMilliseconds(10),
++                            .awake,
++                        ) catch {};
++                        self.premature_return.store(
++                            self.restore_returned.load(.acquire),
++                            .release,
++                        );
++                        replacement.complete.post(global.io());
++                        return;
++                    },
++                    else => {},
++                }
++            }
++        }
++    };
++
++    var restore_returned: std.atomic.Value(bool) = .init(false);
++    var consumer: Consumer = .{
++        .mailbox = mailbox,
++        .mutex = &mutex,
++        .expected_size = expected_size,
++        .restore_returned = &restore_returned,
++    };
++    mutex.lockUncancelable(global.io());
++    const thread = try std.Thread.spawn(.{}, Consumer.run, .{&consumer});
++    handler.checkpointRendererReplaced(expected_size);
++    restore_returned.store(true, .release);
++    mutex.unlock(global.io());
++    thread.join();
++
++    try testing.expect(consumer.released_mutex.load(.acquire));
++    try testing.expect(consumer.ordered.load(.acquire));
++    try testing.expect(consumer.correct_size.load(.acquire));
++    try testing.expect(!consumer.premature_return.load(.acquire));
++    try testing.expect(mailbox.pop(testing.io) == null);
++}
++
+ test "kitty clipboard read: targets-only never consumes a one-time grant" {
+     const testing = std.testing;
+ 

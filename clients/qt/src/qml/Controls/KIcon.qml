@@ -16,7 +16,7 @@ Item {
         case "line-height": return "M11 6 H21 M11 12 H21 M11 18 H21 M5 5 V19 M3 7 L5 5 L7 7 M3 17 L5 19 L7 17"
         case "chat": return "M4 4 H20 V16 H10 L5 20 V16 H4 Z M8 8 H16 M8 12 H13"
         case "tasks": return "M3 6 L5 8 L8 4 M11 6 H21 M3 13 L5 15 L8 11 M11 13 H21 M4 20 H7 M11 20 H21"
-        case "repository": return "M7 3 A2 2 0 1 0 7 7 A2 2 0 1 0 7 3 M7 7 V17 M7 17 A2 2 0 1 0 7 21 A2 2 0 1 0 7 17 M17 3 A2 2 0 1 0 17 7 A2 2 0 1 0 17 3 M17 7 V10 Q17 14 7 14"
+        case "repository": return "M12 3 L20 7.5 V16.5 L12 21 L4 16.5 V7.5 Z M4 7.5 L12 12 L20 7.5 M12 12 V21 M8 5.25 L16 9.75"
         case "send": return "M12 20 V4 M5 11 L12 4 L19 11"
         case "agent": return "M12 3 L14.5 9.5 L21 12 L14.5 14.5 L12 21 L9.5 14.5 L3 12 L9.5 9.5 Z"
         case "person": return "M12 11.5 A3.5 3.5 0 1 0 12 4.5 A3.5 3.5 0 1 0 12 11.5 M5.5 19.5 Q5.5 14 12 14 Q18.5 14 18.5 19.5"

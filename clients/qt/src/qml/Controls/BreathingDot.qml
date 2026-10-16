@@ -5,31 +5,29 @@ Item {
     id: root
 
     property real size: 7
+    property color color: KodosiTheme.accent
 
     implicitWidth: size
     implicitHeight: size
     Accessible.ignored: true
 
     Rectangle {
-        id: halo
+        id: ring
         anchors.centerIn: parent
         width: root.size
         height: root.size
         radius: width / 2
-        color: KodosiTheme.accent
-        opacity: 0.35
+        color: "transparent"
+        border.width: 1.5
+        border.color: root.color
+        opacity: 0
 
         ParallelAnimation {
-            running: !KodosiTheme.reduceMotion && root.visible
+            running: !KodosiTheme.reduceMotion && KodosiTheme.shown && root.visible
             loops: Animation.Infinite
-            SequentialAnimation {
-                NumberAnimation { target: halo; property: "scale"; from: 1; to: 2.4; duration: 1300; easing.type: Easing.OutCubic }
-                PauseAnimation { duration: 500 }
-            }
-            SequentialAnimation {
-                NumberAnimation { target: halo; property: "opacity"; from: 0.4; to: 0; duration: 1300; easing.type: Easing.OutCubic }
-                PauseAnimation { duration: 500 }
-            }
+            NumberAnimation { target: ring; property: "scale"; from: 1; to: 2.4; duration: 1600; easing.type: Easing.OutQuad }
+            NumberAnimation { target: ring; property: "opacity"; from: 0.55; to: 0; duration: 1600; easing.type: Easing.OutQuad }
+            onStopped: ring.opacity = 0
         }
     }
     Rectangle {
@@ -37,6 +35,6 @@ Item {
         width: root.size
         height: root.size
         radius: width / 2
-        color: KodosiTheme.accent
+        color: root.color
     }
 }

@@ -119,9 +119,11 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
         return true
     }
 
+    /// Replaces the terminal with a Ghostty snapshot. A console host keeps its
+    /// scrollback on resize, and the snapshot does not hold that rule.
     @discardableResult
-    public func restoreCheckpointSynchronously(_ data: Data) -> Bool {
-        guard surfaceAccess.restoreCheckpointSynchronously(data) else {
+    public func restoreCheckpointSynchronously(_ data: Data, console: Bool) -> Bool {
+        guard surfaceAccess.restoreCheckpointSynchronously(data, console: console) else {
             TerminalDebugLog.log(
                 .output,
                 "terminal checkpoint dropped \(TerminalDebugLog.describe(data))"
@@ -236,25 +238,15 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
 
     private static func restoreSurfaceCheckpoint(
         _ surface: ghostty_surface_t,
-        _ data: Data
+        _ data: Data,
+        _ console: Bool
     ) -> Bool {
-        var options = ghostty_checkpoint_restore_options_s(
-            size: MemoryLayout<ghostty_checkpoint_restore_options_s>.size,
-            limits: ghostty_checkpoint_limits_s(
-                size: MemoryLayout<ghostty_checkpoint_limits_s>.size,
-                max_json_bytes: 8 * 1024 * 1024,
-                max_string_bytes: 8 * 1024 * 1024,
-                max_continuation_bytes: 1024 * 1024,
-                max_cells: 4096 * 4096
-            )
-        )
-        return data.withUnsafeBytes { buffer in
+        data.withUnsafeBytes { buffer in
             ghostty_surface_checkpoint_restore(
                 surface,
                 buffer.baseAddress?.assumingMemoryBound(to: UInt8.self),
                 buffer.count,
-                &options,
-                nil
+                !console
             ) == GHOSTTY_RESULT_SUCCESS
         }
     }

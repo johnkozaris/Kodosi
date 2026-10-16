@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 const MAX_TERMINAL_ROWS: u16 = 512;
 const MAX_TERMINAL_COLS: u16 = 1024;
 
-pub const TERMINAL_CHECKPOINT_SCHEMA_VERSION: u32 = 2;
+pub const TERMINAL_CHECKPOINT_SCHEMA_VERSION: u32 = 4;
 
-pub const TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES: usize = 8 * 1024 * 1024;
+pub const TERMINAL_SNAPSHOT_MAX_BYTES: usize = 8 * 1024 * 1024;
 
 pub const TERMINAL_INPUT_MAX_BYTES: usize = 1024 * 1024;
 
@@ -134,12 +134,6 @@ impl Default for TerminalSize {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TerminalScreen {
-    Primary,
-    Alternate,
-}
-
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TerminalMetadata {
@@ -189,99 +183,57 @@ mod tests;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Checkpoint {
     pub metadata: Option<TerminalMetadata>,
-    rows: u16,
-    cols: u16,
-    pub active_screen: TerminalScreen,
-    pub semantic_checkpoint: Vec<u8>,
-    cursor_x: u16,
-    cursor_y: u16,
-    cursor_hidden: bool,
+    size: TerminalSize,
+    /// A Ghostty snapshot; one that ends at READY has no history.
+    snapshot: Vec<u8>,
+    /// The host terminal is a console: a resize does not pull rows from history.
+    /// The snapshot does not hold this rule.
+    pub console: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum TerminalCheckpointError {
     #[error(transparent)]
     InvalidSize(#[from] TerminalSizeError),
-    #[error("terminal semantic checkpoint must not be empty")]
-    EmptySemanticCheckpoint,
-    #[error("terminal semantic checkpoint is {actual} bytes; maximum is {maximum}")]
-    SemanticCheckpointTooLarge { actual: usize, maximum: usize },
-    #[error("terminal checkpoint cursor {x},{y} is outside {cols}x{rows}")]
-    InvalidCursor {
-        x: u16,
-        y: u16,
-        rows: u16,
-        cols: u16,
-    },
+    #[error("terminal snapshot is {actual} bytes; maximum is {maximum}")]
+    SnapshotTooLarge { actual: usize, maximum: usize },
+    #[error("terminal snapshot does not start with a terminal record")]
+    UnreadableSnapshot,
 }
 
 impl Checkpoint {
-    pub fn new(
-        size: TerminalSize,
-        active_screen: TerminalScreen,
-        semantic_checkpoint: Vec<u8>,
-        cursor_x: u16,
-        cursor_y: u16,
-        cursor_hidden: bool,
-    ) -> Result<Self, TerminalCheckpointError> {
-        validate_semantic_checkpoint(&semantic_checkpoint)?;
-        if cursor_x >= size.cols() || cursor_y >= size.rows() {
-            return Err(TerminalCheckpointError::InvalidCursor {
-                x: cursor_x,
-                y: cursor_y,
-                rows: size.rows(),
-                cols: size.cols(),
+    /// Takes the size from the snapshot, so a snapshot of a terminal over the
+    /// size limits is refused before anything decodes it.
+    pub fn new(snapshot: Vec<u8>, console: bool) -> Result<Self, TerminalCheckpointError> {
+        if snapshot.len() > TERMINAL_SNAPSHOT_MAX_BYTES {
+            return Err(TerminalCheckpointError::SnapshotTooLarge {
+                actual: snapshot.len(),
+                maximum: TERMINAL_SNAPSHOT_MAX_BYTES,
             });
         }
+        let header = ghostty_vt::SnapshotHeader::read(&snapshot)
+            .map_err(|_| TerminalCheckpointError::UnreadableSnapshot)?;
         Ok(Self {
             metadata: None,
-            rows: size.rows(),
-            cols: size.cols(),
-            active_screen,
-            semantic_checkpoint,
-            cursor_x,
-            cursor_y,
-            cursor_hidden,
+            size: TerminalSize::new(header.rows, header.cols)?,
+            snapshot,
+            console,
         })
     }
 
-    pub fn size(&self) -> TerminalSize {
-        TerminalSize {
-            rows: self.rows,
-            cols: self.cols,
-        }
+    pub const fn size(&self) -> TerminalSize {
+        self.size
     }
 
     pub const fn rows(&self) -> u16 {
-        self.rows
+        self.size.rows
     }
 
     pub const fn cols(&self) -> u16 {
-        self.cols
+        self.size.cols
     }
 
-    pub const fn cursor_x(&self) -> u16 {
-        self.cursor_x
+    pub fn snapshot(&self) -> &[u8] {
+        &self.snapshot
     }
-
-    pub const fn cursor_y(&self) -> u16 {
-        self.cursor_y
-    }
-
-    pub const fn cursor_hidden(&self) -> bool {
-        self.cursor_hidden
-    }
-}
-
-fn validate_semantic_checkpoint(bytes: &[u8]) -> Result<(), TerminalCheckpointError> {
-    if bytes.is_empty() {
-        return Err(TerminalCheckpointError::EmptySemanticCheckpoint);
-    }
-    if bytes.len() > TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES {
-        return Err(TerminalCheckpointError::SemanticCheckpointTooLarge {
-            actual: bytes.len(),
-            maximum: TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES,
-        });
-    }
-    Ok(())
 }

@@ -22,19 +22,18 @@ Item {
         visible: root.words.length > 0
         text: root.words
         active: root.session.working === true
+        blurs: true
         color: root.color
         font.pixelSize: root.pixelSize
         elide: Text.ElideRight
     }
-    PlainLabel {
+    RollingText {
         id: number
         x: line.visible ? line.width + root.gap : 0
         height: root.height
-        verticalAlignment: Text.AlignVCenter
         visible: root.percent.length > 0
         text: root.percent
         color: root.color
         font.pixelSize: root.pixelSize
-        font.features: { "tnum": 1 }
     }
 }

@@ -22,19 +22,10 @@ fn checkpoint(rows: u16, cols: u16, bytes: &[u8]) -> Checkpoint {
     let mut terminal = ghostty_vt::Terminal::new(cols, rows, ghostty_vt::TerminalPolicy::default())
         .expect("real terminal");
     terminal.write(bytes).expect("terminal output");
-    let semantic = terminal
-        .semantic_checkpoint(ghostty_vt::CheckpointLimits::default())
-        .expect("checkpoint");
-    let state = terminal.state().expect("state");
-    Checkpoint::new(
-        TerminalSize::new(rows, cols).expect("size"),
-        super::super::TerminalScreen::Primary,
-        semantic.into_bytes(),
-        state.cursor_x,
-        state.cursor_y,
-        !state.cursor_visible,
-    )
-    .expect("metadata")
+    let snapshot = terminal
+        .snapshot(super::super::TERMINAL_SNAPSHOT_MAX_BYTES)
+        .expect("snapshot");
+    Checkpoint::new(snapshot, false).expect("checkpoint")
 }
 
 async fn next_request(requests: &mut mpsc::Receiver<TestRemoteRequest>) -> TestRemoteRequest {

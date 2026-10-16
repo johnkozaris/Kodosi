@@ -116,14 +116,10 @@ typedef struct {
   /** Optional selection to restrict output to a range.
    *  If NULL, the entire screen is formatted. */
   const GhosttySelection *selection;
-
-  /** Optional screen to format. If NULL, the active screen is formatted.
-   *  The pointed-to value is read during formatter creation. */
-  const GhosttyTerminalScreen *screen;
 } GhosttyFormatterTerminalOptions;
 
 /**
- * Create a formatter for one of a terminal's screens.
+ * Create a formatter for a terminal's active screen.
  *
  * The terminal must outlive the formatter. The formatter stores a borrowed
  * reference to the terminal and reads its current state on each format call.

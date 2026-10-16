@@ -11,6 +11,7 @@
 #include <QHash>
 #include <QJsonObject>
 #include <QObject>
+#include <QStringList>
 #include <QTimer>
 
 namespace kodosi {
@@ -64,6 +65,7 @@ private:
     SessionCatalogModel& m_sessions;
     DesktopStateModel& m_desktop;
     QHash<QString, Pending> m_pending;
+    QStringList m_untrackedRequests;
     QTimer m_timeout;
     QString m_error;
     AccountModel m_account;

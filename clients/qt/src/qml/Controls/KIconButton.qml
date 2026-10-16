@@ -17,7 +17,11 @@ AbstractButton {
     hoverEnabled: true
     implicitWidth: size
     implicitHeight: size
+    opacity: enabled ? 1 : 0.35
     scale: pressed && enabled ? 0.9 : 1
+    ToolTip.text: Accessible.name
+    ToolTip.visible: hovered && ToolTip.text.length > 0
+    ToolTip.delay: 600
 
     Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
 
@@ -28,16 +32,16 @@ AbstractButton {
             height: width
             name: root.glyph
             strokeWidth: 1.9
-            color: !root.enabled ? KodosiTheme.alpha(root.glyphColor, 0.4)
+            color: root.hovered && root.enabled && root.destructive ? KodosiTheme.danger
                 : root.active ? (root.onTerminal ? KodosiTheme.terminalAccent : KodosiTheme.accentStrong)
-                : root.hovered && root.destructive ? KodosiTheme.danger
-                : root.hovered ? root.ink
+                : root.hovered && root.enabled ? root.ink
                 : root.glyphColor
         }
     }
     background: Rectangle {
-        radius: Math.min(width, height) * 0.32
-        color: root.active ? KodosiTheme.alpha(root.onTerminal ? KodosiTheme.terminalAccent : KodosiTheme.accent, 0.18)
+        radius: Math.min(width, height) / 2
+        color: root.hovered && root.enabled && root.destructive ? KodosiTheme.alpha(KodosiTheme.danger, 0.14)
+            : root.active ? (root.onTerminal ? KodosiTheme.terminalAccentSoft : KodosiTheme.accentSoft)
             : KodosiTheme.alpha(root.ink, root.hovered && root.enabled ? 0.09 : 0)
         border.width: root.visualFocus ? 1.5 : 0
         border.color: KodosiTheme.accentStrong

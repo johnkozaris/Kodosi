@@ -47,7 +47,7 @@ struct InMemoryTerminalSessionOutputQueueTests {
         release.signal()
         session.waitForPendingOutput()
         #expect(!session.receive(Data([0x43])))
-        #expect(session.restoreCheckpointSynchronously(Data([0x44])))
+        #expect(session.restoreCheckpointSynchronously(Data([0x44]), console: false))
         #expect(session.receive(Data([0x45])))
         session.waitForPendingOutput()
     }
@@ -66,7 +66,7 @@ struct InMemoryTerminalSessionOutputQueueTests {
                     allowWriteToFinish.wait()
                 }
             },
-            surfaceRestore: { _, data in
+            surfaceRestore: { _, data, _ in
                 writes.append("restore:\(String(decoding: data, as: UTF8.self))")
                 return true
             }
@@ -79,7 +79,7 @@ struct InMemoryTerminalSessionOutputQueueTests {
         }
 
         let start = ProcessInfo.processInfo.systemUptime
-        let accepted = session.restoreCheckpointSynchronously(Data("checkpoint".utf8))
+        let accepted = session.restoreCheckpointSynchronously(Data("checkpoint".utf8), console: false)
         let elapsed = ProcessInfo.processInfo.systemUptime - start
 
         #expect(accepted)
@@ -96,16 +96,16 @@ struct InMemoryTerminalSessionOutputQueueTests {
     func `synchronous checkpoint restore requires attached surface`() {
         let session = makeSession(
             surfaceWrite: { _, _ in },
-            surfaceRestore: { _, _ in true }
+            surfaceRestore: { _, _, _ in true }
         )
-        #expect(!session.restoreCheckpointSynchronously(Data("checkpoint".utf8)))
+        #expect(!session.restoreCheckpointSynchronously(Data("checkpoint".utf8), console: false))
     }
 
     @Test
     func `synchronous checkpoint restore rejects output queue reentry`() {
         let session = makeSession(
             surfaceWrite: { _, _ in },
-            surfaceRestore: { _, _ in true }
+            surfaceRestore: { _, _, _ in true }
         )
         session.setSurface(testSurface(19))
         #expect(!session.restoreFromOutputQueueForTesting(Data("checkpoint".utf8)))
@@ -225,7 +225,7 @@ struct InMemoryTerminalSessionOutputQueueTests {
 
         #expect(writes.values.isEmpty)
 
-        session.restoreCheckpointSynchronously(Data("checkpoint".utf8))
+        session.restoreCheckpointSynchronously(Data("checkpoint".utf8), console: false)
         session.receive("live-delta")
         session.waitForPendingOutput()
 
@@ -242,11 +242,11 @@ struct InMemoryTerminalSessionOutputQueueTests {
             surfaceWrite: { _, data in
                 events.append(String(decoding: data, as: UTF8.self))
             },
-            surfaceRestore: { _, _ in false }
+            surfaceRestore: { _, _, _ in false }
         )
         session.setSurface(testSurface(17))
 
-        #expect(!session.restoreCheckpointSynchronously(Data("checkpoint".utf8)))
+        #expect(!session.restoreCheckpointSynchronously(Data("checkpoint".utf8), console: false))
         session.receive("delta")
         session.waitForPendingOutput()
 
@@ -261,15 +261,15 @@ struct InMemoryTerminalSessionOutputQueueTests {
             surfaceWrite: { _, data in
                 events.append(String(decoding: data, as: UTF8.self))
             },
-            surfaceRestore: { _, data in
+            surfaceRestore: { _, data, _ in
                 attempts.append(1)
                 return String(decoding: data, as: UTF8.self) == "recovery"
             }
         )
         session.setSurface(testSurface(18))
 
-        #expect(!session.restoreCheckpointSynchronously(Data("failed".utf8)))
-        #expect(session.restoreCheckpointSynchronously(Data("recovery".utf8)))
+        #expect(!session.restoreCheckpointSynchronously(Data("failed".utf8), console: false))
+        #expect(session.restoreCheckpointSynchronously(Data("recovery".utf8), console: false))
         session.receive("fresh-delta")
         session.waitForPendingOutput()
 
@@ -285,7 +285,7 @@ struct InMemoryTerminalSessionOutputQueueTests {
             count: InMemoryTerminalSurfaceAccess.maximumPendingWriteBytes + 1
         )
 
-        #expect(!session.restoreCheckpointSynchronously(oversized))
+        #expect(!session.restoreCheckpointSynchronously(oversized, console: false))
     }
 
     @Test
@@ -346,7 +346,7 @@ private func makeSession(
         write: { _ in },
         resize: { _ in },
         surfaceWrite: surfaceWrite,
-        surfaceRestore: surfaceRestore ?? { surface, data in
+        surfaceRestore: surfaceRestore ?? { surface, data, _ in
             surfaceWrite(surface, data)
             return true
         }

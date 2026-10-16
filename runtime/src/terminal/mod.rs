@@ -17,8 +17,7 @@ pub use status::{BlockedKind, ProgramState, ProgramStatus};
 pub use subscribers::{ControlFrame, DataFrame, Frame, Subscription};
 pub use types::{
     Checkpoint, TERMINAL_CHECKPOINT_SCHEMA_VERSION, TERMINAL_INPUT_MAX_BYTES,
-    TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES, TerminalMetadata, TerminalPixelGeometry,
-    TerminalScreen, TerminalSize,
+    TERMINAL_SNAPSHOT_MAX_BYTES, TerminalMetadata, TerminalPixelGeometry, TerminalSize,
 };
 
 pub(crate) enum SessionChange {

@@ -285,7 +285,7 @@ async fn serve_terminal(
     let mut reader = FrameReader::new(reader);
     write_frame(
         &mut writer,
-        &checkpoint_frame(&subscription.checkpoint, subscription.next_sequence)?,
+        &checkpoint_frame(&subscription.checkpoint, subscription.next_sequence),
     )
     .await?;
     let mut admissions = futures_util::stream::FuturesOrdered::<
@@ -330,7 +330,7 @@ async fn serve_terminal(
                     write_frame(&mut writer,&control_frame(&json!({"type":"resize","rows":rows,"cols":cols,"atSequence":at_sequence}))?).await?;
                 }
                 Some(terminal::Frame::Control(terminal::ControlFrame::Snapshot{checkpoint,next_sequence}))=>{
-                    write_frame(&mut writer,&checkpoint_frame(&checkpoint,next_sequence)?).await?;
+                    write_frame(&mut writer,&checkpoint_frame(&checkpoint,next_sequence)).await?;
                 }
                 Some(terminal::Frame::Control(terminal::ControlFrame::Closed{reason,final_sequence}))=>{
                     write_frame(&mut writer,&control_frame(&json!({"type":"closed","reason":reason,"finalSequence":final_sequence}))?).await?;

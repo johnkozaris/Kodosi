@@ -107,8 +107,8 @@ public:
     void receiveData(TerminalData data) noexcept override;
     void receiveControl(TerminalControl control) noexcept override;
     void receiveConnectResult(TerminalConnectResult result) noexcept override;
-    [[nodiscard]] bool installSemanticCheckpoint(
-        TerminalSemanticCheckpoint checkpoint) noexcept override;
+    [[nodiscard]] bool installCheckpoint(
+        TerminalCheckpoint checkpoint) noexcept override;
 
 private:
     class Impl;

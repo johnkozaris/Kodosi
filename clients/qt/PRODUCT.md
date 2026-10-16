@@ -7,8 +7,7 @@ Linux and Windows desktop
 ## Purpose
 
 Shared intent: [PRODUCT.md](../../PRODUCT.md). The app looks and behaves like the
-[Mac app](../macos/PRODUCT.md); shortcuts use Ctrl where the Mac uses ⌘. Visual system:
-[DESIGN.md](DESIGN.md).
+[Mac app](../macos/PRODUCT.md). Visual system and shortcuts: [DESIGN.md](DESIGN.md).
 
 ## Principles
 

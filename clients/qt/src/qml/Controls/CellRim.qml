@@ -80,7 +80,7 @@ Item {
     FrameAnimation {
         property real gathered: 0
 
-        running: root.visible && !root.still
+        running: root.visible && !root.still && KodosiTheme.shown
         onTriggered: {
             gathered += frameTime
             if (gathered >= (root.mode === "working" ? 1 / 30 : 0.1)) {

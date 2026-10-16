@@ -45,12 +45,13 @@ struct TerminalConnectResult {
     TerminalSubscription subscription;
     std::int32_t result;
 };
-struct TerminalSemanticCheckpoint {
+struct TerminalCheckpoint {
     TerminalSubscription subscription;
     std::uint64_t nextSequence;
     std::uint16_t rows;
     std::uint16_t columns;
-    QByteArray semanticJson;
+    QByteArray snapshot;
+    bool console = false;
 };
 
 class TerminalCommandDispatcher : public CommandDispatcher {
@@ -71,7 +72,7 @@ public:
     virtual void receiveControl(TerminalControl control) noexcept = 0;
     virtual void receiveConnectResult(TerminalConnectResult result) noexcept = 0;
 
-    [[nodiscard]] virtual bool installSemanticCheckpoint(TerminalSemanticCheckpoint checkpoint) noexcept = 0;
+    [[nodiscard]] virtual bool installCheckpoint(TerminalCheckpoint checkpoint) noexcept = 0;
 };
 
 class RuntimeBridge : public QObject, public TerminalCommandDispatcher {
@@ -131,8 +132,8 @@ private:
     static void terminalControl(
         const char*, const char*, std::uint64_t, const std::uint8_t*, std::uintptr_t, void*) noexcept;
     static void terminalConnectResult(const char*, const char*, std::uint64_t, std::int32_t, void*) noexcept;
-    static std::int32_t terminalSemanticCheckpoint(const char*, const char*, std::uint64_t, std::uint64_t,
-        std::uint16_t, std::uint16_t, const std::uint8_t*, std::uintptr_t, void*) noexcept;
+    static std::int32_t terminalCheckpoint(const char*, const char*, std::uint64_t, std::uint64_t,
+        std::uint16_t, std::uint16_t, bool, const std::uint8_t*, std::uintptr_t, void*) noexcept;
 };
 
 }

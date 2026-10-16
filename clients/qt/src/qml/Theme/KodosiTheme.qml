@@ -6,6 +6,7 @@ import Kodosi.Models 1.0 as Models
 QtObject {
     readonly property bool isDark: Models.Appearance.dark
     readonly property bool reduceMotion: Models.Appearance.reduceMotion
+    property bool shown: true
 
     readonly property color ground: isDark ? "#110e0c" : "#f0e9dc"
     readonly property color surface: isDark ? "#181411" : "#f7f2e8"
@@ -27,6 +28,8 @@ QtObject {
     readonly property color cautionSoft: isDark ? "#3a2f17" : "#f3e6bf"
     readonly property color danger: isDark ? "#e77a75" : "#b23a32"
     readonly property color dangerSoft: isDark ? "#3f211f" : "#f4d9d4"
+    readonly property color glowAmber: isDark ? "#f2bc55" : "#f2c14e"
+    readonly property color glowOrange: isDark ? "#f08a4b" : "#e8793a"
     readonly property color shadow: isDark ? "#000000" : "#2e1f0f"
     readonly property real shadowStrength: isDark ? 1 : 0.36
     readonly property color highlight: isDark ? Qt.rgba(1, 0.945, 0.863, 0.11) : Qt.rgba(1, 1, 1, 0.95)
@@ -86,5 +89,30 @@ QtObject {
 
     function alpha(base: color, amount: real): color {
         return Qt.rgba(base.r, base.g, base.b, amount)
+    }
+
+    // The outline of a rounded rectangle with Apple's continuous corners, as SVG path data.
+    // Each corner bends from 1.53 radii along one edge to 1.53 radii along the next.
+    function squircle(x: real, y: real, width: real, height: real, radius: real): string {
+        const r = Math.max(0, Math.min(radius, Math.min(width, height) / 3.05732966))
+        const curve = [[1.52866483, 0], [1.08849323, 0], [0.86840689, 0.02189748], [0.66993427, 0.065496],
+            [0.63149399, 0.074911], [0.37282392, 0.16905899], [0.16905899, 0.37282392], [0.074911, 0.63149399],
+            [0.065496, 0.66993427], [0.02189748, 0.86840689], [0, 1.08849323], [0, 1.52866483]]
+        const right = x + width
+        const bottom = y + height
+        const corners = [
+            (u, v) => [right - u * r, y + v * r],
+            (u, v) => [right - v * r, bottom - u * r],
+            (u, v) => [x + u * r, bottom - v * r],
+            (u, v) => [x + v * r, y + u * r]
+        ]
+        const point = (corner, index) => corner(curve[index][0], curve[index][1]).map(value => value.toFixed(3)).join(" ")
+        let path = "M " + point(corners[3], 11)
+        for (const corner of corners) {
+            path += " L " + point(corner, 0) + " C " + point(corner, 1) + " " + point(corner, 2) + " " + point(corner, 3)
+                + " L " + point(corner, 4) + " C " + point(corner, 5) + " " + point(corner, 6) + " " + point(corner, 7)
+                + " L " + point(corner, 8) + " C " + point(corner, 9) + " " + point(corner, 10) + " " + point(corner, 11)
+        }
+        return path + " Z"
     }
 }
