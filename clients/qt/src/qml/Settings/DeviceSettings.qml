@@ -53,12 +53,12 @@ ColumnLayout {
                         color: KodosiTheme.accent
                         opacity: 0.3
 
-                        SequentialAnimation on opacity {
+                        SequentialAnimation {
                             running: root.waiting && !KodosiTheme.reduceMotion && KodosiTheme.shown
                             loops: Animation.Infinite
                             PauseAnimation { duration: dot.index * 180 }
-                            NumberAnimation { to: 1; duration: 260 }
-                            NumberAnimation { to: 0.3; duration: 260 }
+                            OpacityAnimator { target: dot; from: 0.3; to: 1; duration: 260 }
+                            OpacityAnimator { target: dot; from: 1; to: 0.3; duration: 260 }
                             PauseAnimation { duration: (2 - dot.index) * 180 + 300 }
                         }
                     }

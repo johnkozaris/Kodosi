@@ -166,6 +166,7 @@ public struct AgentMark: View {
             SpringKeyframe(1.0, duration: 0.5, spring: .bouncy)
         }
         .animation(theme.motion.fade, value: activity)
+        .accessibilityElement(children: .ignore)
         .accessibilityHidden(true)
     }
 
@@ -489,6 +490,7 @@ public struct TogetherArt: View {
                 .overlay { RoundedRectangle(cornerRadius: size * 0.3, style: .continuous).stroke(ring, lineWidth: 3).padding(-1.5) }
             PersonAvatar(name: "B", key: "art.d", size: size, ring: ring)
         }
+        .accessibilityElement(children: .ignore)
         .accessibilityHidden(true)
     }
 }

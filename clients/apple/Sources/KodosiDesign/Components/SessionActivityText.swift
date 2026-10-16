@@ -31,7 +31,7 @@ public struct SessionActivityText: View {
                 .id(place.name).transition(.blurReplace)
             } else if let words {
                 ZStack(alignment: .leading) {
-                    Text(words).lineLimit(1).shimmer(session.isWorking)
+                    Text(words).lineLimit(1)
                         .id(words).transition(.blurReplace)
                 }
             }

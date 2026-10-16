@@ -105,7 +105,9 @@ Each device remembers the newest accepted version and hash and the owner's root,
 detect an older or forked history.
 
 **Room key.** Each epoch has a random 32-byte key. A new epoch encrypts the previous key,
-so the current key opens the whole history.
+so the current key opens the whole history. A member who leaves makes the key of the
+epoch that removes them; the next member device that writes or checks the room then
+starts another epoch, and no device writes with a key whose maker left.
 
 **Wrapping.** For each recipient device the author encapsulates to its ML-KEM-768 key and
 agrees with its X25519 key from a new ephemeral key. The wrapping key is

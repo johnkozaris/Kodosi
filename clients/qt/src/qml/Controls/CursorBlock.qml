@@ -16,15 +16,14 @@ Item {
         anchors.fill: parent
         radius: Math.min(width, height) * 0.2
         color: root.color
-
-        SequentialAnimation on opacity {
-            running: root.blinks && !KodosiTheme.reduceMotion && KodosiTheme.shown && root.visible
-            loops: Animation.Infinite
-            alwaysRunToEnd: true
-            PauseAnimation { duration: 520 }
-            NumberAnimation { to: 0.2; duration: 90 }
-            PauseAnimation { duration: 420 }
-            NumberAnimation { to: 1; duration: 90 }
-        }
+    }
+    SequentialAnimation {
+        running: root.blinks && !KodosiTheme.reduceMotion && KodosiTheme.shown && root.visible
+        loops: Animation.Infinite
+        alwaysRunToEnd: true
+        PauseAnimation { duration: 520 }
+        OpacityAnimator { target: block; from: 1; to: 0.2; duration: 90 }
+        PauseAnimation { duration: 420 }
+        OpacityAnimator { target: block; from: 0.2; to: 1; duration: 90 }
     }
 }

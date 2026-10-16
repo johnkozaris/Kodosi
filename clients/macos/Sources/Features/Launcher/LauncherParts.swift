@@ -90,22 +90,10 @@ struct LauncherCommandLine<Folder: View, Choices: View>: View {
 }
 
 struct PromptCursor: View {
-    @Environment(\.theme) private var theme
     let line: String
-    @State private var lit = true
 
     var body: some View {
-        CursorBlock(width: 9, height: 18, blinks: false)
-            .opacity(lit ? 1 : 0)
-            .task(id: "\(line)|\(theme.motion.reduced)") {
-                lit = true
-                guard !theme.motion.reduced else { return }
-                try? await Task.sleep(for: .milliseconds(1100))
-                while !Task.isCancelled {
-                    withAnimation(.easeInOut(duration: 0.08)) { lit.toggle() }
-                    try? await Task.sleep(for: .milliseconds(lit ? 560 : 440))
-                }
-            }
+        CursorBlock(width: 9, height: 18, blink: .typing).id(line)
     }
 }
 

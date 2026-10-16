@@ -10,7 +10,7 @@ use std::{
 
 use crate::{KodosiError, Result};
 use nix::{
-    fcntl::{FcntlArg, OFlag, fcntl},
+    fcntl::{FcntlArg, FdFlag, OFlag, fcntl},
     pty::{Winsize, openpty},
     sys::signal::{Signal, killpg},
     unistd::{self, Pid},
@@ -151,6 +151,10 @@ impl KodosiPty {
 
         let reader_fd = unistd::dup(&openpty_result.master)
             .map_err(|error| io::Error::from_raw_os_error(error as i32))?;
+        for descriptor in [&openpty_result.master, &openpty_result.slave, &reader_fd] {
+            fcntl(descriptor.as_fd(), FcntlArg::F_SETFD(FdFlag::FD_CLOEXEC))
+                .map_err(|error| io::Error::from_raw_os_error(error as i32))?;
+        }
         let reader = PtyReader::new(reader_fd)?;
 
         let mut command = Command::new(&resolved_program);
@@ -631,7 +635,13 @@ mod tests {
         KodosiPty, PtyReader, ShutdownStage, Transfer, find_executable, login_shell_name,
         resolve_program, set_terminal_size_using_fd, validate_working_dir,
     };
-    use std::{env, path::Path, time::Duration};
+    use nix::fcntl::{FcntlArg, FdFlag, fcntl};
+    use std::{
+        env,
+        os::fd::{AsRawFd, BorrowedFd},
+        path::Path,
+        time::Duration,
+    };
 
     async fn type_line(reader: &mut PtyReader, mut line: &[u8]) {
         let mut buffer = [0; 4096];
@@ -641,6 +651,27 @@ mod tests {
                 Transfer::Read(count) => assert!(count > 0, "the shell ended before its input"),
             }
         }
+    }
+
+    #[test]
+    fn other_programs_of_the_host_do_not_inherit_a_terminal() {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                let (mut pty, reader) =
+                    KodosiPty::spawn_program(Path::new("/bin/cat"), &[], None, 24, 80, &[], None)
+                        .unwrap();
+                let reader_fd = reader.pending.as_ref().unwrap().as_raw_fd();
+                for descriptor in [pty.master_fd, reader_fd] {
+                    let descriptor = unsafe { BorrowedFd::borrow_raw(descriptor) };
+                    let flags = fcntl(descriptor, FcntlArg::F_GETFD).unwrap();
+                    assert!(FdFlag::from_bits_truncate(flags).contains(FdFlag::FD_CLOEXEC));
+                }
+                pty.request_shutdown(ShutdownStage::Force).unwrap();
+                pty.wait().await.unwrap();
+            });
     }
 
     #[test]

@@ -38,13 +38,18 @@ struct TerminalsHome: View {
             TerminalScreen(sessionId: route.sessionId)
         }
         .terminalPrompts($prompt)
-        .sensoryFeedback(.impact(weight: .medium), trigger: store.needsYou.map(\.id)) { old, new in
-            !Set(new).subtracting(old).isEmpty
+        .sensoryFeedback(.impact(weight: .medium), trigger: store.loaded ? store.needsYou.map(\.id) : nil) { old, new in
+            arrived(old, new)
         }
-        .sensoryFeedback(.success, trigger: finished) { old, new in
-            !Set(new).subtracting(old).isEmpty
+        .sensoryFeedback(.success, trigger: store.loaded ? finished : nil) { old, new in
+            arrived(old, new)
         }
         .accessibilityIdentifier("terminals.home")
+    }
+
+    private func arrived(_ old: [String]?, _ new: [String]?) -> Bool {
+        guard let old, let new else { return false }
+        return !Set(new).subtracting(old).isEmpty
     }
 
     private var finished: [String] {

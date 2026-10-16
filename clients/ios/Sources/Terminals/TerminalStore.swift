@@ -99,19 +99,20 @@ final class TerminalStore {
         guard Set(received.map(\.id)).count == received.count else {
             throw RuntimeError.invalidResponse(String(localized: "Kodosi got a terminal list it cannot read."))
         }
+        revision += 1
+        guard !loaded || received != sessions else { return }
         let before = Dictionary(uniqueKeysWithValues: sessions.map { ($0.id, $0) })
         let ids = Set(received.map(\.id))
         sessions = received
         loaded = true
-        revision += 1
         attention.formIntersection(ids)
         bells = bells.filter { ids.contains($0.key) }
         for value in received {
-            guard let old = before[value.id] else { continue }
-            if old.incarnationId != value.incarnationId {
+            let old = before[value.id]
+            if let old, old.incarnationId != value.incarnationId {
                 focus.releaseSession(sessionId: value.id)
             }
-            if value.drawsAttention(after: old) {
+            if value.needsAttention(after: old) {
                 noteAttention(value.id)
             }
         }

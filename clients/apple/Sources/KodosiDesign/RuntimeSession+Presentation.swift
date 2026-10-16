@@ -8,6 +8,12 @@ public extension RuntimeSession {
         return programStatus?.caption ?? sign(unseen: true)?.label
     }
 
+    func needsAttention(after previous: RuntimeSession?) -> Bool {
+        guard canCall else { return false }
+        let stopped = previous?.isWorking == true && !isWorking
+        return stopped || waitState != nil && waitState != previous?.waitState
+    }
+
     func mark(rested: AgentMark.Activity) -> AgentMark.Activity {
         if let progress {
             return .progress(progress)

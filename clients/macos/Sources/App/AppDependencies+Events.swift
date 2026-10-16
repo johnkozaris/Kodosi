@@ -42,9 +42,9 @@ extension AppDependencies {
 
     func receive(_ event: RuntimeEvent) throws {
         guard acceptAccount(event) else { return }
-        commandSink.receive(event)
+        let delivery = commandSink.receive(event)
         if event.type.hasSuffix(".error") {
-            receiveError(event)
+            receiveError(event, delivery: delivery)
             return
         }
         let family = event.type.prefix(while: { $0 != "." })
@@ -68,8 +68,8 @@ extension AppDependencies {
         }
     }
 
-    private func receiveError(_ event: RuntimeEvent) {
-        guard !event.type.hasPrefix("provider."), !event.type.hasPrefix("room.") else { return }
+    private func receiveError(_ event: RuntimeEvent, delivery: CommandSink.Delivery) {
+        guard delivery == .app, !event.type.hasPrefix("provider."), !event.type.hasPrefix("room.") else { return }
         people.absorb(error: event)
         let message = event.string("message") ?? String(localized: "That did not work.")
         let stage = account.stage
@@ -162,12 +162,13 @@ extension AppDependencies {
         guard Set(received.map(\.id)).count == received.count else {
             throw RuntimeError.invalidResponse(String(localized: "Kodosi got a terminal list it cannot read."))
         }
+        guard received != sessions else { return }
         let previous = Dictionary(uniqueKeysWithValues: sessions.map { ($0.id, $0) })
         var createdIds: [String] = []
         sessions = received
         attention.formIntersection(received.map(\.id))
         freshTerminals.formIntersection(received.map(\.id))
-        for value in received where previous[value.id].map(value.drawsAttention(after:)) ?? (value.canCall && value.waitState != nil) {
+        for value in received where value.needsAttention(after: previous[value.id]) {
             noteAttention(value.id)
         }
         terminalNotifications.reconcile(sessions: received, accountEpoch: accountEpoch)
@@ -223,7 +224,7 @@ extension AppDependencies {
 
     private func alert(_ received: [RuntimeSession], after before: [String: RuntimeSession]) {
         for value in received {
-            guard let old = before[value.id], value.waitState != old.waitState else { continue }
+            guard let was = before[value.id], value.waitState != was.waitState else { continue }
             if let alert = value.alert, !isFront() {
                 terminalNotifications.alert(alert, session: value)
             } else {

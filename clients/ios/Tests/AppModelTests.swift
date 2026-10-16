@@ -68,6 +68,41 @@ struct AppModelTests {
         #expect(model.account.userId == "user-2")
     }
 
+    @Test func anErrorShowsOnceAndOnlyForARequestOfTheApp() async throws {
+        try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
+        let creating = Task { try await model.commands.request("mission.create", ["requestId": .string("create"), "name": .string("Launch")]) }
+        for _ in 0 ..< 100 where !sent.types.contains("mission.create") {
+            await Task.yield()
+        }
+        try deliver("mission.error", ["requestId": "create", "operation": "mission.create", "message": "Use another name."])
+        await #expect(throws: RuntimeError.operation("Use another name.")) { try await creating.value }
+        #expect(model.notices.current == nil)
+        try deliver("session.error", ["requestId": "command-line", "operation": "session.close", "message": "Not found."])
+        #expect(model.notices.current == nil)
+        try deliver("friends.error", ["operation": "friends.remove", "message": "Try again."])
+        #expect(model.notices.current?.message == "Try again.")
+    }
+
+    @Test func aFailedFriendRequestOfThisAppShowsItsError() throws {
+        try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
+        #expect(model.people.add("kodosi:nobody:00ff"))
+        let requestId = try #require(sent.last("friends.request.send")?["requestId"] as? String)
+        try deliver("friends.error", ["requestId": requestId, "operation": "friends.request.send", "message": "No such person."])
+        #expect(model.notices.current?.message == "No such person.")
+        #expect(!model.people.sendingRequest)
+    }
+
+    @Test func aTerminalThatArrivesDoneKeepsItsSignUntilYouLook() throws {
+        try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
+        var shared = session(id: "s2", state: "done")
+        shared["isOwner"] = false
+        shared["connectionState"] = "offline"
+        try deliver("sessions.snapshot", ["sessions": [session(id: "s1", state: "done"), shared]])
+        #expect(model.terminals.attention == ["s1"])
+        model.terminals.watchingSessionId = "s1"
+        #expect(model.terminals.attention.isEmpty)
+    }
+
     @Test func blockedTerminalNeedsAttentionUnlessWatched() throws {
         try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
         try deliver("sessions.snapshot", ["sessions": [session(id: "s1", state: "working"), session(id: "s2", state: "working")]])
@@ -97,5 +132,9 @@ final class SentCommands: @unchecked Sendable {
 
     var types: [String] {
         lock.withLock { values.compactMap { $0["type"] as? String } }
+    }
+
+    func last(_ type: String) -> [String: Any]? {
+        lock.withLock { values.last { $0["type"] as? String == type } }
     }
 }

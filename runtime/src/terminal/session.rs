@@ -519,6 +519,7 @@ impl LocalActor {
             .cloned()
             .collect::<std::collections::BTreeSet<_>>()
             .into_iter()
+            .take(crate::protocol::TERMINAL_VIEWERS_MOST)
             .collect()
     }
 
@@ -1142,7 +1143,9 @@ impl LocalActor {
                 connection_id,
                 user_id,
             } => {
-                if self.viewers.len() < 64 || self.viewers.contains_key(&connection_id) {
+                if self.viewers.len() < crate::protocol::TERMINAL_VIEWERS_MOST
+                    || self.viewers.contains_key(&connection_id)
+                {
                     self.viewers.insert(connection_id, user_id);
                     self.publish_presence();
                 }

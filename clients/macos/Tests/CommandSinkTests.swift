@@ -72,6 +72,60 @@ import Testing
     } catch { #expect(error as? RuntimeError == .rejected(5)) }
 }
 
+@Test @MainActor func anErrorShowsOnceAndOnlyForARequestOfTheApp() async throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "CommandErrors"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
+    defer { app.shutdownProcess() }
+    var sent: [[String: JSONValue]] = []
+    app.commandSink.transport = { data in
+        if let fields = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
+            sent.append(fields)
+        }
+        return 0
+    }
+    try app.receive(runtimeEvent("auth.required", fields: ["reason": .string("signedOut")]))
+    let creating = Task { try await app.commandSink.request("mission.create", ["requestId": .string("create"), "name": .string("Launch")]) }
+    await settle { !sent.contains { $0["type"] == .string("mission.create") } }
+    try app.receive(runtimeEvent("mission.error", fields: [
+        "requestId": .string("create"), "operation": .string("mission.create"), "message": .string("Use another name."),
+    ]))
+    do {
+        _ = try await creating.value
+        Issue.record("The waiting caller must get the error")
+    } catch { #expect(error.localizedDescription == "Use another name.") }
+    #expect(app.errorMessage == nil)
+
+    try app.receive(runtimeEvent("session.error", fields: [
+        "requestId": .string("command-line"), "operation": .string("session.close"), "message": .string("Not found."),
+    ]))
+    #expect(app.errorMessage == nil)
+
+    try app.receive(runtimeEvent("friends.error", fields: ["operation": .string("friends.remove"), "message": .string("Try again.")]))
+    #expect(app.errorMessage == "Try again.")
+}
+
+@Test @MainActor func aFailedFriendRequestOfThisAppShowsItsError() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "FriendRequestError"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
+    defer { app.shutdownProcess() }
+    var sent: [[String: JSONValue]] = []
+    app.commandSink.transport = { data in
+        if let fields = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
+            sent.append(fields)
+        }
+        return 0
+    }
+    try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner"), "enrolled": .bool(true)]))
+    app.perform("friends.request.send", ["username": .string("nobody"), "requestId": .string(UUIDv7.generate())])
+    let request = try #require(sent.last { $0["type"] == .string("friends.request.send") }?["requestId"])
+    try app.receive(runtimeEvent("friends.error", fields: [
+        "requestId": request, "operation": .string("friends.request.send"), "message": .string("No such person."),
+    ]))
+    #expect(app.errorMessage == "No such person.")
+}
+
 @MainActor private func settle(_ pending: () -> Bool) async {
     for _ in 0 ..< 100 where pending() {
         await Task.yield()

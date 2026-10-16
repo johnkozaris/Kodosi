@@ -1,6 +1,7 @@
 use std::{path::Path, process::Stdio, time::Duration};
 
 use serde_json::Value;
+use tokio::io::AsyncReadExt as _;
 
 use super::{Agent, AgentModel, AgentModels, AgentOption, shell::Facts, shell_word};
 
@@ -61,7 +62,11 @@ pub(super) async fn models(facts: &Facts, agent: Agent) -> AgentModels {
     AgentModels { models, efforts }
 }
 
-async fn run(facts: &Facts, program: Option<&Path>, arguments: &[&str]) -> Option<String> {
+pub(super) async fn run(
+    facts: &Facts,
+    program: Option<&Path>,
+    arguments: &[&str],
+) -> Option<String> {
     let mut command = tokio::process::Command::new(program?);
     command
         .args(arguments)
@@ -77,12 +82,23 @@ async fn run(facts: &Facts, program: Option<&Path>, arguments: &[&str]) -> Optio
     }
     #[cfg(unix)]
     kodosi_os::process::without_terminal(command.as_std_mut());
-    let output = tokio::time::timeout(RUN_TIME, command.output())
-        .await
-        .ok()?
-        .ok()?;
-    (output.status.success() && output.stdout.len() <= MAX_OUTPUT)
-        .then(|| without_escapes(&String::from_utf8_lossy(&output.stdout)))
+    let mut child = command.spawn().ok()?;
+    let stdout = child.stdout.take()?;
+    let mut output = Vec::new();
+    let success = tokio::time::timeout(RUN_TIME, async {
+        stdout
+            .take(MAX_OUTPUT as u64 + 1)
+            .read_to_end(&mut output)
+            .await
+            .ok()?;
+        if output.len() > MAX_OUTPUT {
+            return None;
+        }
+        child.wait().await.ok().map(|status| status.success())
+    })
+    .await
+    .ok()??;
+    success.then(|| without_escapes(&String::from_utf8_lossy(&output)))
 }
 
 fn model(id: &str, label: &str, flag: &str, efforts: Vec<String>) -> Option<AgentModel> {

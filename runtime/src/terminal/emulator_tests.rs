@@ -33,10 +33,15 @@ fn a_unix_host_takes_its_folders_from_osc_7_and_quoted_or_bare_osc_9_9() {
     for (raw, folder) in [
         ("/home/ada/project", "/home/ada/project"),
         (r#""/home/ada/my project ✓""#, "/home/ada/my project ✓"),
-        ("file://pc/home/ada/my%20project", "/home/ada/my project"),
+        (
+            "file://localhost/home/ada/my%20project",
+            "/home/ada/my project",
+        ),
+        ("file:///home/ada", "/home/ada"),
     ] {
         assert_eq!(reported(raw), Some(PathBuf::from(folder)), "{raw}");
     }
+    assert_eq!(reported("file://another-computer.invalid/home/ada"), None);
 }
 
 #[test]

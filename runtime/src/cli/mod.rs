@@ -533,7 +533,7 @@ async fn link_device(
 async fn request(
     client: &mut local_host::Client,
     context: &mut Context,
-    command: Value,
+    mut command: Value,
     json_output: bool,
 ) -> Result<Value> {
     let operation = command["type"]
@@ -541,18 +541,15 @@ async fn request(
         .ok_or_else(|| Error::Invalid("command has no type".into()))?
         .to_owned();
     let request_id = command
-        .get("requestId")
-        .and_then(Value::as_str)
-        .map(str::to_owned);
+        .as_object_mut()
+        .ok_or_else(|| Error::Invalid("command must be object".into()))?
+        .entry("requestId")
+        .or_insert_with(|| json!(Uuid::now_v7().to_string()))
+        .as_str()
+        .ok_or_else(|| Error::Invalid("requestId must be text".into()))?
+        .to_owned();
     client.command(context.envelope(command)?).await?;
-    wait_result(
-        client,
-        context,
-        &operation,
-        request_id.as_deref(),
-        json_output,
-    )
-    .await
+    wait_result(client, context, &operation, &request_id, json_output).await
 }
 
 async fn friends(client: &mut local_host::Client, context: &mut Context) -> Result<Vec<Value>> {
@@ -1050,15 +1047,10 @@ async fn wait_result(
     client: &mut local_host::Client,
     context: &mut Context,
     operation: &str,
-    request_id: Option<&str>,
+    request_id: &str,
     json_output: bool,
 ) -> Result<Value> {
-    let budget = if operation == "auth.login.start" {
-        Duration::from_mins(10)
-    } else {
-        Duration::from_secs(30)
-    };
-    tokio::time::timeout(budget, async {
+    tokio::time::timeout(answer_time(operation), async {
         loop {
             let frame = client.next().await?;
             if frame.get("kind").and_then(Value::as_str) == Some("rejected") {
@@ -1079,10 +1071,7 @@ async fn wait_result(
                 .get("type")
                 .and_then(Value::as_str)
                 .unwrap_or_default();
-            let matching = request_id
-                .is_none_or(|id| event.get("requestId").and_then(Value::as_str) == Some(id));
-            let family_matches = kind.split('.').next() == operation.split('.').next();
-            if kind.rsplit('.').next() == Some("error") && matching && family_matches {
+            if is_own_error(event, kind, operation, request_id) {
                 return Err(Error::Other(
                     event
                         .get("message")
@@ -1125,16 +1114,20 @@ async fn wait_result(
                     kind,
                     "devices.link.selfPending" | "devices.link.selfResolved"
                 ),
-                "session.share" => kind == "session.result" && matching,
+                "session.share" => kind == "session.result" && answers(event, request_id),
                 "devices.link.cancelSelf" => kind == "devices.link.selfResolved",
                 "devices.link.approve" => kind == "devices.link.resolved",
                 "friends.invite" => kind == "friends.invite",
                 op if op.starts_with("friends.") => kind == "friends.snapshot",
                 "mission.list" => kind == "missions.snapshot",
-                "mission.open" => kind == "mission.snapshot" && matching,
-                op if op.starts_with("mission.") => kind == "mission.result" && matching,
-                op if op.starts_with("provider.") => kind == "provider.reply" && matching,
-                _ => kind == "session.result" && matching,
+                "mission.open" => kind == "mission.snapshot" && answers(event, request_id),
+                op if op.starts_with("mission.") => {
+                    kind == "mission.result" && answers(event, request_id)
+                }
+                op if op.starts_with("provider.") => {
+                    kind == "provider.reply" && answers(event, request_id)
+                }
+                _ => kind == "session.result" && answers(event, request_id),
             };
             if done {
                 return Ok(event.clone());
@@ -1146,6 +1139,26 @@ async fn wait_result(
         Error::Other("No authoritative result arrived. The command was not retried.".into())
     })?
 }
+fn answer_time(operation: &str) -> Duration {
+    match operation {
+        "auth.login.start" => Duration::from_mins(10),
+        "auth.deleteAccount" => crate::network::DELETION_LIFE + Duration::from_mins(1),
+        _ => Duration::from_secs(30),
+    }
+}
+
+fn answers(event: &Value, request_id: &str) -> bool {
+    event.get("requestId").and_then(Value::as_str) == Some(request_id)
+}
+
+fn is_own_error(event: &Value, kind: &str, operation: &str, request_id: &str) -> bool {
+    kind.rsplit('.').next() == Some("error")
+        && (answers(event, request_id)
+            || (kind == "auth.error"
+                && event.get("requestId").is_none()
+                && matches!(operation, "auth.login.start" | "auth.deleteAccount")))
+}
+
 async fn open_remote(
     client: &mut local_host::Client,
     context: &mut Context,
@@ -1205,6 +1218,40 @@ async fn connect_or_start(config: &Config) -> Result<local_host::Client> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn a_deletion_waits_for_the_person_as_long_as_the_runtime_does() {
+        assert!(answer_time("auth.deleteAccount") > crate::network::DELETION_LIFE);
+        assert_eq!(answer_time("friends.refresh"), Duration::from_secs(30));
+    }
+
+    #[test]
+    fn a_command_takes_only_the_errors_of_its_own_request() {
+        let mine = Uuid::now_v7().to_string();
+        let error = |kind: &str, request: Option<&str>| {
+            let mut event = json!({"type":kind,"message":"failed"});
+            if let Some(request) = request {
+                event["requestId"] = json!(request);
+            }
+            event
+        };
+        let own = |event: &Value, operation: &str| {
+            is_own_error(event, event["type"].as_str().unwrap(), operation, &mine)
+        };
+        assert!(own(&error("mission.error", Some(&mine)), "mission.list"));
+        assert!(!own(&error("mission.error", None), "mission.list"));
+        assert!(!own(
+            &error("mission.error", Some(&Uuid::now_v7().to_string())),
+            "mission.list"
+        ));
+        assert!(!own(&error("friends.error", None), "friends.refresh"));
+        assert!(own(&error("auth.error", None), "auth.login.start"));
+        assert!(!own(&error("auth.error", None), "auth.logout"));
+        assert!(!own(
+            &json!({"type":"mission.result","requestId":mine}),
+            "mission.create"
+        ));
+    }
+
     #[test]
     fn app_executables_recognise_cli_invocations() {
         let args = |list: &[&str]| list.iter().map(OsString::from).collect::<Vec<_>>();

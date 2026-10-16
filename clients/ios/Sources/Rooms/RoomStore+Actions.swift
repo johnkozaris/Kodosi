@@ -89,21 +89,18 @@ extension RoomStore {
         _ = try await commands.request("mission.removeMember", ["missionId": .string(roomId), "userId": .string(member.userId)])
     }
 
-    func run(announcedByRuntime: Bool = false, _ work: @escaping () async throws -> Void) {
+    func run(_ work: @escaping () async throws -> Void) {
         Task {
             do {
                 try await work()
             } catch {
-                report(error, announcedByRuntime: announcedByRuntime)
+                report(error)
             }
         }
     }
 
-    func report(_ error: any Error, announcedByRuntime: Bool = false) {
+    func report(_ error: any Error) {
         guard !(error is CancellationError) else { return }
-        if announcedByRuntime, let error = error as? RuntimeError, case .operation = error {
-            return
-        }
         notices.show(error)
     }
 }

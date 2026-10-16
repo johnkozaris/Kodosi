@@ -14,6 +14,7 @@ Item {
     property bool active: false
     property bool blurs: false
     readonly property real band: Math.max(base.paintedWidth * 0.45, 36)
+    readonly property real sweep: Math.max(width, 1)
     readonly property bool softens: blurs && arrival < 1 && GraphicsInfo.api !== GraphicsInfo.Software
     property string shown: ""
     property real arrival: 1
@@ -86,7 +87,7 @@ Item {
         clip: true
 
         Text {
-            x: -window.x
+            id: sheen
             width: base.width
             height: base.height
             text: base.text
@@ -96,11 +97,14 @@ Item {
             textFormat: Text.PlainText
             verticalAlignment: Text.AlignVCenter
         }
-        SequentialAnimation on x {
-            running: window.visible
-            loops: Animation.Infinite
-            NumberAnimation { from: -root.band; to: Math.max(root.width, 1); duration: 1700; easing.type: Easing.InOutSine }
-            PauseAnimation { duration: 250 }
+    }
+    SequentialAnimation {
+        running: window.visible
+        loops: Animation.Infinite
+        ParallelAnimation {
+            XAnimator { target: window; from: -root.band; to: root.sweep; duration: 1700; easing.type: Easing.InOutSine }
+            XAnimator { target: sheen; from: root.band; to: -root.sweep; duration: 1700; easing.type: Easing.InOutSine }
         }
+        XAnimator { target: window; from: root.sweep; to: root.sweep; duration: 250 }
     }
 }

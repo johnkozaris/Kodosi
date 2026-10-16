@@ -16,6 +16,22 @@ fn definition(name: &str, text: &str) -> shell::Definition {
 }
 
 #[cfg(unix)]
+#[tokio::test]
+async fn a_program_that_prints_without_end_lists_no_models() {
+    let facts = Facts {
+        path: None,
+        variables: Vec::new(),
+        definitions: Vec::new(),
+    };
+    let started = std::time::Instant::now();
+    assert_eq!(
+        models::run(&facts, Some(Path::new("/usr/bin/yes")), &[]).await,
+        None
+    );
+    assert!(started.elapsed() < std::time::Duration::from_secs(5));
+}
+
+#[cfg(unix)]
 fn run_script(shell: &str, arguments: &[&str], prelude: &str, family_script: &str) -> Facts {
     let output = std::process::Command::new(shell)
         .args(arguments)
@@ -133,6 +149,11 @@ fn definitions_name_the_sign_in_folder_they_give_the_agent() {
     );
     assert_eq!(claude("CLAUDE_CONFIG_DIR=$HOME/../x claude"), None);
     assert_eq!(claude("env -u CLAUDE_CONFIG_DIR claude"), None);
+    assert_eq!(claude("MY_CLAUDE_CONFIG_DIR=~/notes claude"), None);
+    assert_eq!(
+        claude("OLD_CLAUDE_CONFIG_DIR=~/notes CLAUDE_CONFIG_DIR=~/.claude-work claude"),
+        Some(home.join(".claude-work"))
+    );
 }
 
 #[cfg(unix)]

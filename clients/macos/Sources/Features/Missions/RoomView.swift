@@ -109,7 +109,7 @@ struct RoomHeader: View {
             Spacer(minLength: 8)
             SectionDock(items: dockItems, selection: state.canvas, identifier: "room.canvas") { state.canvas = $0 }
             Spacer(minLength: 8)
-            if let failure = state.failure {
+            if let failure = state.failure, !state.conversationVisible, deps.rooms[roomId] != nil || state.canvas == 0 {
                 NoticeDot(message: failure) { Task { await deps.readRoom(roomId) } } dismiss: { state.failure = nil }
             }
             Button { state.peopleVisible.toggle() } label: {

@@ -14,7 +14,9 @@ struct RoomContentView: View {
                 RoomTerminals(roomId: roomId, state: state)
             } else if deps.rooms[roomId] == nil {
                 if let failure = state.failure {
-                    RoomRecovery(message: failure) { Task { await deps.readRoom(roomId) } }
+                    if !state.conversationVisible {
+                        RoomRecovery(message: failure) { Task { await deps.readRoom(roomId) } }
+                    }
                 } else {
                     RoomSkeleton()
                 }

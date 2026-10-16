@@ -21,7 +21,6 @@ Item {
         height: root.height
         visible: root.words.length > 0
         text: root.words
-        active: root.session.working === true
         blurs: true
         color: root.color
         font.pixelSize: root.pixelSize

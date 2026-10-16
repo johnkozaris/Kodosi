@@ -251,15 +251,15 @@ public sealed class IntegrationTests(PostgresFixture postgres)
                 if (message.GetProperty("type").GetString() == "terminal" && message.GetProperty("sessionId").GetGuid() == id) return message;
             }
         }
+        var hosted = System.Diagnostics.Stopwatch.GetTimestamp();
         await SendAsync(host, new { type = "host", sessionId = id, incarnationId = incarnation });
         var online = await TerminalAsync();
-        var announced = System.Diagnostics.Stopwatch.GetTimestamp();
         Assert.True(online.GetProperty("online").GetBoolean());
         Assert.Equal(JsonValueKind.Null, online.GetProperty("status").ValueKind);
         foreach (var state in new[] { "working", "blocked", "idle" })
             await SendAsync(host, new { type = "status", sessionId = id, incarnationId = incarnation, status = new { program = "claude", state } });
         var newest = await TerminalAsync();
-        Assert.True(System.Diagnostics.Stopwatch.GetElapsedTime(announced) >= TimeSpan.FromMilliseconds(800));
+        Assert.True(System.Diagnostics.Stopwatch.GetElapsedTime(hosted) >= Kodosi.TerminalConnections.TerminalPresence.Spacing);
         Assert.Equal("idle", newest.GetProperty("status").GetProperty("state").GetString());
         Assert.Equal("claude", newest.GetProperty("status").GetProperty("program").GetString());
     }
