@@ -125,21 +125,6 @@ public struct AgentMark: View {
         activity == .asleep
     }
 
-    private var rimWidth: CGFloat {
-        max(2, size * 0.075)
-    }
-
-    private var rimSpace: CGFloat {
-        rimWidth * 1.75
-    }
-
-    private var works: Bool {
-        switch activity {
-        case .asleep, .awake: false
-        case .working, .progress: true
-        }
-    }
-
     public var body: some View {
         ZStack {
             shape.fill(LinearGradient(
@@ -153,30 +138,24 @@ public struct AgentMark: View {
                                startPoint: .topLeading, endPoint: .bottomTrailing),
                 lineWidth: max(0.5, size * 0.03)
             )
+            light
             glyph.foregroundStyle(asleep ? kind.tint.mix(with: theme.colors.ink, by: 0.35) : .white)
         }
         .frame(width: size, height: size)
         .shadow(color: theme.colors.shadow.opacity(asleep ? 0 : (theme.isDark ? 0.45 : 0.2)), radius: size * 0.1, x: size * 0.03, y: size * 0.07)
-        .overlay { rim.padding(-rimSpace) }
-        .keyframeAnimator(initialValue: 1.0, trigger: theme.motion.reduced ? false : works) { mark, squash in
-            mark.scaleEffect(x: 2 - squash, y: squash, anchor: .bottom)
-        } keyframes: { _ in
-            SpringKeyframe(0.9, duration: 0.1, spring: .snappy)
-            SpringKeyframe(1.0, duration: 0.5, spring: .bouncy)
-        }
         .animation(theme.motion.fade, value: activity)
         .accessibilityElement(children: .ignore)
         .accessibilityHidden(true)
     }
 
     @ViewBuilder
-    private var rim: some View {
-        let radius = size * 0.3 + rimSpace
+    private var light: some View {
+        let width = max(1.5, size * 0.07)
         switch activity {
         case .working:
-            CellRim(.working, cornerRadius: radius, lineWidth: rimWidth).transition(.opacity)
+            LightRim(onTile: .working, cornerRadius: size * 0.3, lineWidth: width).transition(.opacity)
         case let .progress(percent):
-            CellRim(.progress(Double(percent) / 100), cornerRadius: radius, lineWidth: rimWidth).transition(.opacity)
+            LightRim(onTile: .progress(Double(percent) / 100), cornerRadius: size * 0.3, lineWidth: width).transition(.opacity)
         case .asleep, .awake:
             EmptyView()
         }
