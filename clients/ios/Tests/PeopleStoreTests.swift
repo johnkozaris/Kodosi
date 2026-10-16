@@ -10,7 +10,7 @@ struct PeopleStoreTests {
     private let store: PeopleStore
 
     init() {
-        store = PeopleStore(commands: outbox.commands, notices: NoticeCenter())
+        store = PeopleStore(commands: outbox.commands)
         store.reset(userId: "user-1")
     }
 

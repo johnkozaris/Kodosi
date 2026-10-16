@@ -1,6 +1,7 @@
 import Foundation
 import KodosiBridge
-import UserNotifications
+import os
+@preconcurrency import UserNotifications
 
 @MainActor
 final class TerminalNotifications {
@@ -89,13 +90,11 @@ final class TerminalNotifications {
         content.sound = .default
         let epoch = accountEpoch
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
-        DesktopNotificationDelivery.addWhenAuthorized(
+        deliver(
             request,
-            driver: driver,
             remainsRelevant: { [weak self] in
                 self?.accountEpoch == epoch && self?.issued.contains(identifier) == true && self?.current[session.id]?.incarnationId == session.incarnationId
             },
-            failureContext: "Terminal notification",
             completion: { [weak self, driver] in
                 Task { @MainActor in
                     self?.pending.remove(identifier)
@@ -107,6 +106,42 @@ final class TerminalNotifications {
                 }
             }
         )
+    }
+
+    private func deliver(
+        _ request: UNNotificationRequest,
+        remainsRelevant: @escaping @MainActor @Sendable () -> Bool,
+        completion: @escaping @Sendable () -> Void
+    ) {
+        let driver = driver
+        driver.getAuthorizationStatus { status in
+            Task { @MainActor in
+                guard remainsRelevant() else { return completion() }
+                switch status {
+                case .authorized, .provisional, .ephemeral:
+                    break
+                case .notDetermined:
+                    do {
+                        guard try await driver.requestAuthorization(), remainsRelevant() else { return completion() }
+                    } catch {
+                        Logger.app.warning("notification authorization failed: \(error.localizedDescription)")
+                        return completion()
+                    }
+                case .denied:
+                    Logger.app.info("Terminal notification skipped because notifications are disabled")
+                    return completion()
+                @unknown default:
+                    Logger.app.warning("Terminal notification skipped for an unknown authorization status")
+                    return completion()
+                }
+                driver.add(request) { error in
+                    if let error {
+                        Logger.app.warning("Terminal notification failed: \(error.localizedDescription)")
+                    }
+                    completion()
+                }
+            }
+        }
     }
 
     func sessionToOpen(identifier: String) -> String? {

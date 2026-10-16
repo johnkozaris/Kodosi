@@ -1,38 +1,29 @@
-import KodosiDesign
 import SwiftUI
-
-enum AppTab: Hashable {
-    case terminals
-    case rooms
-    case people
-    case settings
-}
 
 struct MainTabView: View {
     @Environment(AppModel.self) private var model
-    @State private var selection: AppTab = .terminals
 
     var body: some View {
-        TabView(selection: $selection) {
-            Tab("Terminals", systemImage: "terminal", value: AppTab.terminals) {
+        TabView {
+            Tab("Terminals", systemImage: "terminal") {
                 NavigationStack { TerminalsHome() }
             }
             .badge(model.terminals.needsYou.count)
             .accessibilityIdentifier("tab.terminals")
 
-            Tab("Rooms", systemImage: "square.grid.2x2", value: AppTab.rooms) {
+            Tab("Rooms", systemImage: "square.grid.2x2") {
                 NavigationStack { RoomsHome() }
             }
             .badge(model.rooms.invitations.count + model.rooms.unread.count)
             .accessibilityIdentifier("tab.rooms")
 
-            Tab("People", systemImage: "person.2", value: AppTab.people) {
+            Tab("People", systemImage: "person.2") {
                 NavigationStack { PeopleHome() }
             }
             .badge(model.people.incoming.count)
             .accessibilityIdentifier("tab.people")
 
-            Tab("Settings", systemImage: "gearshape", value: AppTab.settings) {
+            Tab("Settings", systemImage: "gearshape") {
                 NavigationStack { SettingsHome() }
             }
             .badge(model.account.deviceRequests.count)

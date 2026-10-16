@@ -18,7 +18,7 @@ final class PeopleStore {
     @ObservationIgnored private let commands: CommandSink
     @ObservationIgnored private var settleTask: Task<Void, Never>?
 
-    init(commands: CommandSink, notices _: NoticeCenter) {
+    init(commands: CommandSink) {
         self.commands = commands
     }
 

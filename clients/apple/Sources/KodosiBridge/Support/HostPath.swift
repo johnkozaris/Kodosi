@@ -1,7 +1,4 @@
-/// A folder in the form of the computer that reports it: `/…` on macOS and Linux,
-/// and a drive (`C:\…`) or a share (`\\server\share\…`) on Windows.
 public enum HostPath {
-    /// The last part of `path` between separators, or `path` itself if it has none, for example `/`.
     public static func folderName(_ path: String) -> String {
         let separators: Set<Character> = isWindows(path) ? ["/", "\\"] : ["/"]
         return path.split(whereSeparator: separators.contains).last.map(String.init) ?? path

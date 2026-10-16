@@ -220,7 +220,6 @@ final class AccountStore {
         commands.perform("auth.login.start", ["browser": .string("app")])
     }
 
-    /// Gives the runtime the answer of the sign-in window, or of a page that sent it to the app.
     func finishSignIn(with answer: URL) {
         guard case .awaitingBrowser = stage else { return }
         signInPage = nil

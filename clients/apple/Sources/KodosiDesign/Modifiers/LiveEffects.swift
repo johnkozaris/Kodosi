@@ -93,21 +93,21 @@ public struct CellRim: View {
     }
 }
 
-public struct CellLine: View {
-    public enum Mode: Equatable, Sendable {
+struct CellLine: View {
+    enum Mode: Equatable, Sendable {
         case waiting, flowing, done
     }
 
     @Environment(\.theme) private var theme
-    public let mode: Mode
-    public var lineWidth: CGFloat
+    let mode: Mode
+    var lineWidth: CGFloat
 
-    public init(_ mode: Mode, lineWidth: CGFloat = 3) {
+    init(_ mode: Mode, lineWidth: CGFloat = 3) {
         self.mode = mode
         self.lineWidth = lineWidth
     }
 
-    public var body: some View {
+    var body: some View {
         TimelineView(.animation(minimumInterval: 1 / 30, paused: theme.motion.reduced || mode != .flowing)) { context in
             let time = theme.motion.reduced ? 0 : context.date.timeIntervalSinceReferenceDate
             Canvas { canvas, size in

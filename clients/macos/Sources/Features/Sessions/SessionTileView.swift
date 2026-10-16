@@ -205,12 +205,8 @@ struct SessionTileView: View {
     private func closeSession() {
         isClosing = true
         Task { @MainActor in
-            defer { isClosing = false }
-            do {
-                try await deps.mutateSession("session.close", session: session)
-            } catch {
-                deps.errorMessage = error.localizedDescription
-            }
+            await deps.close(session)
+            isClosing = false
         }
     }
 }

@@ -125,7 +125,6 @@ final class PromptTextView: NSTextView {
                height: layoutManager?.defaultLineHeight(for: Self.font) ?? 17)
     }
 
-    /// The width that shows the whole hint.
     static func width(hint: String) -> CGFloat {
         ceil(((hint + "M") as NSString).size(withAttributes: [.font: font]).width)
     }

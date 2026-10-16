@@ -52,12 +52,10 @@ extension AppDependencies {
         }
     }
 
-    func close(_ session: RuntimeSession) {
-        Task { @MainActor in
-            do {
-                try await mutateSession("session.close", session: session)
-            } catch { errorMessage = error.localizedDescription }
-        }
+    func close(_ session: RuntimeSession) async {
+        do {
+            try await mutateSession("session.close", session: session)
+        } catch { errorMessage = error.localizedDescription }
     }
 
     func showRooms() {

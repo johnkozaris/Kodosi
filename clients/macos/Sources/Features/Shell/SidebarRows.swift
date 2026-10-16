@@ -246,7 +246,7 @@ struct SidebarTerminalRow: View {
         .help(session.isConnected ? (staged ? String(localized: "Open") : String(localized: "Minimized")) : session.statusLabel)
         .contextMenu { menu }
         .confirmationDialog("Close \(session.name)?", isPresented: $confirmingClose, titleVisibility: .visible) {
-            Button("Close", role: .destructive) { deps.close(session) }
+            Button("Close", role: .destructive) { Task { await deps.close(session) } }
             Button("Cancel", role: .cancel) {}
         } message: { Text("Its programs stop.") }
     }
