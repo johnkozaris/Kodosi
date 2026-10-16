@@ -261,15 +261,10 @@ struct TerminalLifecycleTests {
         session.waitForPendingOutput()
 
         let pasteboard = NSPasteboard.general
-        let previous = pasteboard.string(forType: .string)
+        let saved = SavedPasteboard()
         pasteboard.clearContents()
         #expect(pasteboard.setString("paste-event-policy", forType: .string))
-        defer {
-            pasteboard.clearContents()
-            if let previous {
-                pasteboard.setString(previous, forType: .string)
-            }
-        }
+        defer { saved.restore() }
 
         let surface = TerminalSurface(rawSurface)
         #expect(surface.performBindingAction("paste_from_clipboard"))
@@ -279,7 +274,7 @@ struct TerminalLifecycleTests {
 
     @Test
     func `a program reads the clipboard through input after the user allows it`() async {
-        let delegate = AllowingClipboardReadDelegate()
+        let delegate = ClipboardReadDelegate(allows: true)
         await withHostManagedSurface(delegate: delegate, pasteboardText: "copied before") { session, writes in
             #expect(session.receive(Data("\u{1B}]52;c;?\u{1B}\\".utf8)))
             session.waitForPendingOutput()
@@ -287,6 +282,19 @@ struct TerminalLifecycleTests {
 
             #expect(delegate.requests == 1)
             #expect(writes.values == [Data("\u{1B}]52;c;Y29waWVkIGJlZm9yZQ==\u{1B}\\".utf8)])
+        }
+    }
+
+    @Test
+    func `a program gets an empty answer when the user refuses the clipboard`() async {
+        let delegate = ClipboardReadDelegate(allows: false)
+        await withHostManagedSurface(delegate: delegate, pasteboardText: "copied before") { session, writes in
+            #expect(session.receive(Data("\u{1B}]52;c;?\u{1B}\\".utf8)))
+            session.waitForPendingOutput()
+            await waitUntil { !writes.values.isEmpty }
+
+            #expect(delegate.requests == 1)
+            #expect(writes.values == [Data("\u{1B}]52;c;\u{1B}\\".utf8)])
         }
     }
 
@@ -821,12 +829,40 @@ private func testLifecycleSurface(_ address: Int) -> ghostty_surface_t {
 }
 
 @MainActor
-private final class AllowingClipboardReadDelegate: TerminalSurfaceClipboardReadDelegate {
+private final class ClipboardReadDelegate: TerminalSurfaceClipboardReadDelegate {
+    let allows: Bool
     private(set) var requests = 0
+
+    init(allows: Bool) {
+        self.allows = allows
+    }
 
     func terminalDidRequestClipboardRead(_ answer: @escaping @MainActor (Bool) -> Void) {
         requests += 1
-        answer(true)
+        answer(allows)
+    }
+}
+
+/// Every item on the general pasteboard, so a test can put back what the person copied.
+@MainActor
+private struct SavedPasteboard {
+    private let items: [NSPasteboardItem]
+
+    init() {
+        items = (NSPasteboard.general.pasteboardItems ?? []).map { item in
+            let copy = NSPasteboardItem()
+            for type in item.types {
+                if let data = item.data(forType: type) {
+                    copy.setData(data, forType: type)
+                }
+            }
+            return copy
+        }
+    }
+
+    func restore() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects(items)
     }
 }
 
@@ -864,16 +900,13 @@ private func withHostManagedSurface(
     bridge.rawSurface = rawSurface
     session.setSurface(rawSurface)
     let pasteboard = NSPasteboard.general
-    let previous = pasteboard.string(forType: .string)
+    let saved = SavedPasteboard()
     pasteboard.clearContents()
     pasteboard.setString(pasteboardText, forType: .string)
 
     await body(session, writes)
 
-    pasteboard.clearContents()
-    if let previous {
-        pasteboard.setString(previous, forType: .string)
-    }
+    saved.restore()
     session.clearSurface(ifMatches: rawSurface)
     ghostty_surface_free(rawSurface)
     controller.remove(bridge)

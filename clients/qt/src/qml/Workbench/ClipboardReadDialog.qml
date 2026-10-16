@@ -6,24 +6,24 @@ KDialog {
     id: root
 
     property string sessionName: ""
-    property bool paste: false
+    property bool allow: false
 
     signal answered(bool allowed)
 
     standardButtons: Dialog.Ok | Dialog.Cancel
-    title: qsTr("Paste the clipboard into %1?").arg(sessionName)
-    onAboutToShow: paste = false
+    title: qsTr("Let a program read your clipboard?")
+    onAboutToShow: allow = false
     onOpened: {
-        standardButton(Dialog.Ok).text = qsTr("Paste");
-        standardButton(Dialog.Cancel).text = qsTr("Don't Paste");
+        standardButton(Dialog.Ok).text = qsTr("Allow");
+        standardButton(Dialog.Cancel).text = qsTr("Don\u2019t Allow");
     }
-    onAccepted: paste = true
+    onAccepted: allow = true
     // The terminal takes input again only once the dialog has closed.
-    onClosed: answered(paste)
+    onClosed: answered(allow)
 
     PlainLabel {
         width: 340
-        text: qsTr("The program in this terminal asks for the text on your clipboard.")
+        text: qsTr("A program in %1 asks for the text that you copied.").arg(root.sessionName)
         color: KodosiTheme.inkMuted
         wrapMode: Text.WordWrap
     }

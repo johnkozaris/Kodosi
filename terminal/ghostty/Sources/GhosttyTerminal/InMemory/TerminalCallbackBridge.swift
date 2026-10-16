@@ -42,9 +42,9 @@ final class TerminalCallbackBridge {
     func askToShareClipboard() {
         guard let delegate = delegate as? any TerminalSurfaceClipboardReadDelegate else { return }
         delegate.terminalDidRequestClipboardRead { [weak self] allowed in
-            guard allowed, let session = self?.session else { return }
-            session.sendInput(
-                TerminalPasteboardContent.clipboardReadReply(TerminalPasteboardContent.plainText())
+            // A refused program gets an empty answer, so it does not wait for one.
+            self?.session?.sendInput(
+                TerminalPasteboardContent.clipboardReadReply(allowed ? TerminalPasteboardContent.plainText() : "")
             )
         }
     }

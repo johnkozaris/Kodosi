@@ -194,7 +194,7 @@ void ControlsTest::clipboardReadAnswersOnceTheTerminalTakesInputAgain()
 
     QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
     QTRY_VERIFY(desktop.modalOpen());
-    QCOMPARE(dialog->property("title").toString(), QStringLiteral("Paste the clipboard into Copper Otter?"));
+    QCOMPARE(dialog->property("title").toString(), QStringLiteral("Let a program read your clipboard?"));
     QVERIFY(QMetaObject::invokeMethod(dialog, "accept"));
     QTRY_COMPARE(answers().size(), 1);
     QCOMPARE(answers().at(0).toList(), (QVariantList {true, true}));
