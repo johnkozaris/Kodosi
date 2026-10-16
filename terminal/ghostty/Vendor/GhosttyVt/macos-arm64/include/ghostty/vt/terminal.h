@@ -106,6 +106,7 @@ extern "C" {
  * | `GHOSTTY_TERMINAL_OPT_SEMANTIC_PROMPT`  | `GhosttyTerminalSemanticPromptFn` | Shell reports a prompt or command step via OSC 133 |
  * | `GHOSTTY_TERMINAL_OPT_RESET`            | `GhosttyTerminalResetFn`          | Full reset (RIS, ESC c)                   |
  * | `GHOSTTY_TERMINAL_OPT_RESIZE_WINDOW`    | `GhosttyTerminalResizeWindowFn`   | Window resize request (CSI 8 t)           |
+ * | `GHOSTTY_TERMINAL_OPT_HIERARCHICAL_CONTEXT` | `GhosttyTerminalHierarchicalContextFn` | Context signal via OSC 3008     |
  *
  * ### Defining a write_pty callback
  * @snippet c-vt-effects/src/main.c effects-write-pty
@@ -700,6 +701,24 @@ typedef enum GHOSTTY_ENUM_TYPED {
 } GhosttyClipboardLocation;
 
 /**
+ * The protocol of a clipboard read request.
+ *
+ * An embedder that answers reads through another channel, such as a viewer
+ * that sends the reply to the program as input, writes the reply in the form
+ * of this protocol.
+ *
+ * @ingroup terminal
+ */
+typedef enum GHOSTTY_ENUM_TYPED {
+  /** OSC 52. */
+  GHOSTTY_CLIPBOARD_PROTOCOL_OSC_52 = 0,
+
+  /** The Kitty clipboard protocol (OSC 5522). */
+  GHOSTTY_CLIPBOARD_PROTOCOL_KITTY = 1,
+  GHOSTTY_CLIPBOARD_PROTOCOL_MAX_VALUE = GHOSTTY_ENUM_MAX_VALUE,
+} GhosttyClipboardProtocol;
+
+/**
  * One MIME representation in a clipboard write.
  *
  * Both strings are borrowed and valid only for the duration of the callback.
@@ -1034,6 +1053,9 @@ struct GhosttyClipboardRead {
 
   /** Answer the read; see the struct documentation. */
   GhosttyClipboardReadReplyFn reply;
+
+  /** The protocol of the request. */
+  GhosttyClipboardProtocol protocol;
 };
 
 /**
@@ -1645,6 +1667,74 @@ typedef void (*GhosttyTerminalResizeWindowFn)(
     GhosttyTerminal terminal,
     void* userdata,
     const GhosttyTerminalResizeWindow* request);
+
+/**
+ * Whether a context signal starts or ends a context.
+ *
+ * @ingroup terminal
+ */
+typedef enum GHOSTTY_ENUM_TYPED {
+  /**
+   * The context starts, changes, or becomes current again (`start=`).
+   */
+  GHOSTTY_HIERARCHICAL_CONTEXT_ACTION_START = 0,
+
+  /** The context ends (`end=`). */
+  GHOSTTY_HIERARCHICAL_CONTEXT_ACTION_END = 1,
+  GHOSTTY_HIERARCHICAL_CONTEXT_ACTION_MAX_VALUE = GHOSTTY_ENUM_MAX_VALUE,
+} GhosttyHierarchicalContextAction;
+
+/**
+ * A context signal (OSC 3008, Hierarchical Context Signalling).
+ *
+ * Programs such as `run0`, `systemd-nspawn` and the systemd shell
+ * integration use these signals to say that the user enters or leaves a
+ * context: a shell, a remote login, a container, a virtual machine, or a
+ * command that runs as another user. Contexts nest. A context that ends
+ * also ends the contexts that started inside it. The terminal keeps no
+ * context state; the embedder keeps the contexts that it needs.
+ *
+ * See https://uapi-group.org/specifications/specs/osc_context/.
+ *
+ * This is a sized struct. Read only the fields that `size` covers.
+ *
+ * @ingroup terminal
+ */
+typedef struct {
+  /** Size of this struct in bytes. */
+  size_t size;
+
+  /** Whether the context starts or ends. */
+  GhosttyHierarchicalContextAction action;
+
+  /** The context identifier: 1 to 64 bytes in the range 32 to 126. */
+  GhosttyString id;
+
+  /**
+   * The fields after the identifier, as the program sent them:
+   * semicolon-separated `key=value` pairs such as
+   * `type=remote;targethost=build`. A value writes `;` as `\x3b` and `\`
+   * as `\x5c`. Embedders must ignore fields that they don't know.
+   */
+  GhosttyString fields;
+} GhosttyTerminalHierarchicalContext;
+
+/**
+ * Callback function type for context signals (OSC 3008).
+ *
+ * Called synchronously for each start and end signal. The signal and its
+ * strings are borrowed for the duration of the call.
+ *
+ * @param terminal The terminal handle
+ * @param userdata The userdata pointer set via GHOSTTY_TERMINAL_OPT_USERDATA
+ * @param signal Borrowed context signal
+ *
+ * @ingroup terminal
+ */
+typedef void (*GhosttyTerminalHierarchicalContextFn)(
+    GhosttyTerminal terminal,
+    void* userdata,
+    const GhosttyTerminalHierarchicalContext* signal);
 
 /**
  * Callback function type for color scheme queries (CSI ? 996 n).
@@ -2535,6 +2625,14 @@ typedef enum GHOSTTY_ENUM_TYPED {
    * Input type: GhosttyTerminalResizeWindowFn
    */
   GHOSTTY_TERMINAL_OPT_RESIZE_WINDOW = 47,
+
+  /**
+   * Callback invoked for each context signal (OSC 3008). Set to NULL to
+   * ignore context signals.
+   *
+   * Input type: GhosttyTerminalHierarchicalContextFn
+   */
+  GHOSTTY_TERMINAL_OPT_HIERARCHICAL_CONTEXT = 48,
   GHOSTTY_TERMINAL_OPT_MAX_VALUE = GHOSTTY_ENUM_MAX_VALUE,
 } GhosttyTerminalOption;
 

@@ -84,7 +84,7 @@ private struct RoomRowActivity: View {
                 if !terminals.isEmpty {
                     HStack(spacing: -5) {
                         ForEach(terminals.prefix(4)) { session in
-                            AgentMark(kind: session.agent, size: 18, activity: session.mark(rested: .awake))
+                            AgentMark(session: session, size: 18, activity: session.mark(rested: .awake))
                         }
                     }
                     if asking {

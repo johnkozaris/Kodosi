@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::{SessionTerminal, TERMINAL_SNAPSHOT_MAX_BYTES, parse_cwd};
+use super::{SessionTerminal, TerminalEffect, parse_cwd};
 
 fn reported(raw: &str) -> Option<PathBuf> {
     parse_cwd(raw.as_bytes())
@@ -71,17 +71,34 @@ fn a_history_too_large_for_one_snapshot_still_gives_the_screen() {
         terminal.process_output(line.as_bytes()).expect("output");
     }
     assert_eq!(
-        terminal.terminal.snapshot(TERMINAL_SNAPSHOT_MAX_BYTES),
+        terminal
+            .terminal
+            .snapshot(crate::terminal::snapshot_limits(u64::MAX)),
         Err(ghostty_vt::Error::LimitExceeded)
     );
 
-    let cut = terminal.checkpoint_data(true).expect("checkpoint");
+    let cut = terminal
+        .checkpoint_data(true, u64::MAX)
+        .expect("checkpoint");
 
     assert_eq!(
         cut.checkpoint.snapshot(),
         terminal
             .terminal
-            .visible_snapshot(TERMINAL_SNAPSHOT_MAX_BYTES)
+            .visible_snapshot(crate::terminal::snapshot_limits(u64::MAX))
             .expect("visible")
     );
+}
+
+#[test]
+fn a_program_that_asks_for_the_terminal_version_is_told_kodosi() {
+    let mut terminal = SessionTerminal::new(24, 80).expect("terminal");
+
+    let output = terminal.process_output(b"\x1b[>q").expect("output");
+
+    assert!(matches!(
+        output.effects.as_slice(),
+        [TerminalEffect::PtyWrite(reply)]
+            if reply == format!("\x1bP>|Kodosi {}\x1b\\", env!("KODOSI_VERSION")).as_bytes()
+    ));
 }

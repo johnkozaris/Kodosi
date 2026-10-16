@@ -5,7 +5,7 @@ use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use super::Checkpoint;
+use super::{CellPixels, Checkpoint};
 use crate::{Error, Result};
 
 pub(super) const DATA_CAPACITY: usize = 512;
@@ -24,6 +24,7 @@ pub enum ControlFrame {
     Resize {
         rows: u16,
         cols: u16,
+        cell: CellPixels,
         at_sequence: u64,
     },
     Snapshot {

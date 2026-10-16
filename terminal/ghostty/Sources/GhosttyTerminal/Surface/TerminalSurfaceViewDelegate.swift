@@ -33,6 +33,11 @@ public protocol TerminalSurfaceHoverLinkDelegate: TerminalSurfaceViewDelegate {
 }
 
 @MainActor
+public protocol TerminalSurfaceClipboardReadDelegate: TerminalSurfaceViewDelegate {
+    func terminalDidRequestClipboardRead(_ answer: @escaping @MainActor (Bool) -> Void)
+}
+
+@MainActor
 public protocol TerminalSurfaceLifecycleDelegate: TerminalSurfaceViewDelegate {
     func terminalDidAttachSurface(_ surface: TerminalSurface)
     func terminalDidDetachSurface()

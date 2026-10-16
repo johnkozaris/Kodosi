@@ -1,3 +1,4 @@
+import KodosiBridge
 import SwiftUI
 
 public struct PersonAvatar: View {
@@ -107,11 +108,14 @@ public struct AgentMark: View {
     public let kind: AgentKind
     public var size: CGFloat = 22
     public var activity: Activity = .awake
+    /// A shell that runs as root shows a root prompt.
+    public var root = false
 
-    public init(kind: AgentKind, size: CGFloat = 22, activity: Activity = .awake) {
+    public init(kind: AgentKind, size: CGFloat = 22, activity: Activity = .awake, root: Bool = false) {
         self.kind = kind
         self.size = size
         self.activity = activity
+        self.root = root
     }
 
     private var shape: RoundedRectangle {
@@ -185,7 +189,12 @@ public struct AgentMark: View {
             Image(asset, bundle: .module).renderingMode(.template).resizable().scaledToFit().frame(width: size * 0.6, height: size * 0.6)
         } else {
             HStack(spacing: size * 0.05) {
-                Image(systemName: "chevron.right").font(.system(size: size * 0.38, weight: .heavy))
+                if root {
+                    Text(verbatim: "#").font(.system(size: size * 0.46, weight: .heavy, design: .rounded))
+                        .foregroundStyle(asleep ? AppTheme.dark.colors.caution.opacity(0.7) : AppTheme.dark.colors.caution)
+                } else {
+                    Image(systemName: "chevron.right").font(.system(size: size * 0.38, weight: .heavy))
+                }
                 RoundedRectangle(cornerRadius: size * 0.03)
                     .fill(asleep ? theme.colors.accent.opacity(0.6) : theme.colors.accent.mix(with: .white, by: 0.25))
                     .frame(width: size * 0.15, height: size * 0.36)
@@ -365,6 +374,28 @@ public struct RoomSigil: View {
         .frame(width: size, height: size)
         .shadow(color: theme.colors.shadow.opacity(theme.isDark ? 0.45 : 0.2), radius: size * 0.1, x: size * 0.03, y: size * 0.07)
         .accessibilityHidden(true)
+    }
+}
+
+/// The glyph of the place a program runs in: another computer, a container or a virtual
+/// machine.
+public struct PlaceGlyph: View {
+    public let kind: TerminalPlace.Kind
+
+    public init(kind: TerminalPlace.Kind) {
+        self.kind = kind
+    }
+
+    public static func symbol(for kind: TerminalPlace.Kind) -> String {
+        switch kind {
+        case .remote: "server.rack"
+        case .container: "shippingbox"
+        case .vm: "cube"
+        }
+    }
+
+    public var body: some View {
+        Image(systemName: Self.symbol(for: kind)).accessibilityHidden(true)
     }
 }
 

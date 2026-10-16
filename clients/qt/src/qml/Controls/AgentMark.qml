@@ -14,6 +14,7 @@ Item {
     property bool asleep: false
     property bool working: session ? session.working === true : false
     property int progress: session && session.progress !== undefined ? session.progress : -1
+    readonly property bool asRoot: session ? session.root === true : false
     readonly property bool measured: working && progress >= 0
     readonly property string kind: Models.DesktopSettings.agentOf(program)
     readonly property color tint: Identity.kindTint(kind)
@@ -78,11 +79,21 @@ Item {
         spacing: root.size * 0.03
 
         KIcon {
+            visible: !root.asRoot
             width: root.size * 0.44
             height: width
             name: "prompt"
             strokeWidth: 4.2
             color: root.asleep ? KodosiTheme.mix(root.tint, KodosiTheme.ink, 0.35) : "#ffffff"
+        }
+        Text {
+            visible: root.asRoot
+            anchors.verticalCenter: parent.verticalCenter
+            text: "#"
+            textFormat: Text.PlainText
+            color: root.asleep ? KodosiTheme.alpha(KodosiTheme.terminalCaution, 0.7) : KodosiTheme.terminalCaution
+            font.pixelSize: Math.max(1, Math.round(root.size * 0.46))
+            font.weight: Font.Black
         }
         Rectangle {
             anchors.verticalCenter: parent.verticalCenter

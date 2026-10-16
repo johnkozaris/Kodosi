@@ -6,7 +6,7 @@ use super::{
     METADATA_LIMIT, RAW_BATCH_LIMIT, RAW_CHUNK_LIMIT, Result, TerminalControl, decode_control,
     decode_metadata, encode_control, encode_metadata, invalid, packing,
 };
-use crate::terminal::TerminalMetadata;
+use crate::terminal::{CellPixels, TerminalMetadata};
 
 pub(crate) const FRAME_LIMIT: usize = 1024 * 1024;
 pub(crate) const KEYFRAME_PART: usize = 32 * 1024;
@@ -64,6 +64,7 @@ pub(crate) enum Frame {
     Resize {
         rows: u16,
         cols: u16,
+        cell: CellPixels,
         at_sequence: u64,
     },
     Metadata(TerminalMetadata),
@@ -121,11 +122,14 @@ impl Frame {
             Self::Resize {
                 rows,
                 cols,
+                cell,
                 at_sequence,
             } => {
-                let mut body = Vec::with_capacity(12);
+                let mut body = Vec::with_capacity(20);
                 body.extend_from_slice(&rows.to_be_bytes());
                 body.extend_from_slice(&cols.to_be_bytes());
+                body.extend_from_slice(&cell.width.to_be_bytes());
+                body.extend_from_slice(&cell.height.to_be_bytes());
                 body.extend_from_slice(&at_sequence.to_be_bytes());
                 (6, body)
             }
@@ -227,11 +231,15 @@ impl Frame {
             }
             5 => decode_output(body)?,
             6 => {
-                exact(body, 12)?;
+                exact(body, 20)?;
                 Self::Resize {
                     rows: u16::from_be_bytes([body[0], body[1]]),
                     cols: u16::from_be_bytes([body[2], body[3]]),
-                    at_sequence: read64(body, 4),
+                    cell: CellPixels {
+                        width: read32(body, 4),
+                        height: read32(body, 8),
+                    },
+                    at_sequence: read64(body, 12),
                 }
             }
             7 => Self::Metadata(decode_metadata(json(METADATA_LIMIT)?)?),

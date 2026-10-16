@@ -22,7 +22,7 @@ use crate::{
     protocol::SessionKind, terminal,
 };
 
-const VERSION: u32 = 20;
+const VERSION: u32 = 21;
 const STOP_WAIT: Duration = Duration::from_secs(5);
 const MAX_FRAME: usize = 8 * 1024 * 1024 + 64 * 1024;
 const MAX_CONNECTIONS: usize = 64;
@@ -112,8 +112,8 @@ pub use app::{
 };
 pub use client::{Client, TerminalClient, host_status, stop_other_host};
 use framing::{
-    DATA, INPUT, INPUT_ACK, RESIZE, checkpoint_frame, control_frame, read_frame, read_json,
-    write_frame, write_json,
+    DATA, INPUT, INPUT_ACK, RESIZE, TERMINAL_FRAME_MAX, checkpoint_frame, control_frame,
+    read_frame, read_json, resize_frame, write_frame, write_json,
 };
 pub use framing::{FrameReader, TerminalFrame, read_terminal, write_input, write_resize};
 pub use server::{LocalServer, serve};

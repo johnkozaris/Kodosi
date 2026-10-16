@@ -1,21 +1,25 @@
 #include "terminal/GhosttyTerminalKernel.hpp"
 #include "terminal/GhosttyC.hpp"
+#include "terminal/TerminalImages.hpp"
 
 #include <kodosi_runtime.h>
 
 #include <QByteArray>
 
 #include <algorithm>
-#include <bit>
+#include <cstddef>
+#include <chrono>
 #include <iterator>
 #include <limits>
 #include <mutex>
+#include <optional>
 #include <utility>
 
 namespace kodosi {
 namespace {
 
 constexpr qsizetype maximumVisibleCells = 1'048'576;
+constexpr std::chrono::seconds renderHoldLimit {1};
 constexpr std::size_t maximumGraphemeBytes = 4'096;
 constexpr std::size_t maximumHyperlinkBytes = 8'192;
 
@@ -47,66 +51,6 @@ bool isTextMime(const QByteArrayView mime)
 {
     return mime == "text/plain" || mime == "text/plain;charset=utf-8" || mime == "UTF8_STRING"
         || mime == "TEXT" || mime == "STRING";
-}
-
-TerminalClipboardOperations& clipboardOperations(void* userdata)
-{
-    return *static_cast<TerminalClipboardOperations*>(userdata);
-}
-
-void recordClipboardWrite(
-    GhosttyTerminal,
-    void* userdata,
-    const GhosttyClipboardWrite* write)
-{
-    if (write == nullptr || write->size < sizeof(GhosttyClipboardWrite)) {
-        return;
-    }
-    std::optional<QString> text;
-    if (write->contents_len == 0) {
-        text = QString {};
-    }
-    for (std::size_t index = 0; !text && index < write->contents_len; ++index) {
-        const auto& content = write->contents[index];
-        if (isTextMime(QByteArrayView(content.mime.ptr, static_cast<qsizetype>(content.mime.len)))) {
-            text = QString::fromUtf8(
-                QByteArrayView(content.data.ptr, static_cast<qsizetype>(content.data.len)));
-        }
-    }
-    if (text) {
-        appendClipboardOperation(clipboardOperations(userdata), {
-            .selection = write->location != GHOSTTY_CLIPBOARD_LOCATION_STANDARD,
-            .write = std::move(text),
-            .answerPrefix = {},
-            .answerTerminator = {},
-        });
-    }
-}
-
-// An unanswered read makes Ghostty write an empty OSC 52 answer, which the
-// focused view fills with its clipboard.
-void deferClipboardRead(GhosttyTerminal, void*, const GhosttyClipboardRead*) {}
-
-void recordClipboardRead(
-    GhosttyTerminal,
-    void* userdata,
-    const std::uint8_t* data,
-    const std::size_t length)
-{
-    const QByteArrayView answer(data, static_cast<qsizetype>(length));
-    if (answer.size() < 8 || !answer.startsWith("\x1b]52;") || answer.at(6) != ';') {
-        return;
-    }
-    auto terminator = answer.sliced(7).toByteArray();
-    if (terminator != "\x07" && terminator != "\x1b\\") {
-        return;
-    }
-    appendClipboardOperation(clipboardOperations(userdata), {
-        .selection = answer.at(5) != 'c',
-        .write = std::nullopt,
-        .answerPrefix = answer.first(7).toByteArray(),
-        .answerTerminator = std::move(terminator),
-    });
 }
 
 class TerminalHandle final {
@@ -452,23 +396,44 @@ std::expected<QString, GhosttyTerminalKernel::Failure> readGrapheme(
     return QString::fromUtf8(utf8);
 }
 
-FrameResult extractFrame(
+struct CapturedView {
+    GhosttyTerminalScrollbar scrollbar {};
+    QVector<TerminalImagePlacement> images;
+};
+
+using ViewCapture = std::expected<CapturedView, GhosttyTerminalKernel::Failure>;
+
+ViewCapture captureView(
     const GhosttyTerminal terminal,
     const GhosttyRenderState renderState,
-    const std::uint64_t nextSequence,
-    const std::uint64_t viewportRevision,
-    const std::uint64_t displayRevision)
+    TerminalImages& images)
 {
     const auto update = ghostty_render_state_update(renderState, terminal);
     if (update != GHOSTTY_SUCCESS) {
         return std::unexpected(ghosttyFailure(QStringLiteral("render-state update"), update));
     }
+    GhosttyTerminalScrollbar scrollbar {};
+    const auto result = ghostty_terminal_get(
+        terminal,
+        GHOSTTY_TERMINAL_DATA_SCROLLBAR,
+        &scrollbar);
+    if (result != GHOSTTY_SUCCESS) {
+        return std::unexpected(ghosttyFailure(QStringLiteral("terminal scrollbar"), result));
+    }
+    return CapturedView {scrollbar, images.capture(terminal, renderState)};
+}
 
+FrameResult buildFrame(
+    const GhosttyRenderState renderState,
+    const CapturedView& view,
+    const std::uint64_t nextSequence,
+    const std::uint64_t viewportRevision,
+    const std::uint64_t displayRevision)
+{
     std::uint16_t columns = 0;
     std::uint16_t rows = 0;
     GhosttyRenderStateColors colors = GHOSTTY_INIT_SIZED(GhosttyRenderStateColors);
     GhosttyRenderStateCursor cursor = GHOSTTY_INIT_SIZED(GhosttyRenderStateCursor);
-    GhosttyTerminalScrollbar scrollbar {};
     const GhosttyRenderStateData keys[] {
         GHOSTTY_RENDER_STATE_DATA_COLS,
         GHOSTTY_RENDER_STATE_DATA_ROWS,
@@ -486,14 +451,6 @@ FrameResult extractFrame(
     if (stateResult != GHOSTTY_SUCCESS || written != std::size(keys)) {
         return std::unexpected(
             ghosttyFailure(QStringLiteral("render-state metadata"), stateResult));
-    }
-    const auto scrollbarResult = ghostty_terminal_get(
-        terminal,
-        GHOSTTY_TERMINAL_DATA_SCROLLBAR,
-        &scrollbar);
-    if (scrollbarResult != GHOSTTY_SUCCESS) {
-        return std::unexpected(
-            ghosttyFailure(QStringLiteral("terminal scrollbar"), scrollbarResult));
     }
 
     const auto cellCount = static_cast<std::uint64_t>(columns) * rows;
@@ -523,10 +480,11 @@ FrameResult extractFrame(
         .visualStyle = cursor.visual_style,
     };
     frame->scroll = {
-        .totalRows = scrollbar.total,
-        .viewportOffset = scrollbar.offset,
-        .viewportRows = scrollbar.len,
+        .totalRows = view.scrollbar.total,
+        .viewportOffset = view.scrollbar.offset,
+        .viewportRows = view.scrollbar.len,
     };
+    frame->images = view.images;
     frame->cells.reserve(static_cast<qsizetype>(cellCount));
 
     RowIteratorHandle rowsIterator;
@@ -687,6 +645,21 @@ FrameResult extractFrame(
     return frame;
 }
 
+FrameResult extractFrame(
+    const GhosttyTerminal terminal,
+    const GhosttyRenderState renderState,
+    TerminalImages& images,
+    const std::uint64_t nextSequence,
+    const std::uint64_t viewportRevision,
+    const std::uint64_t displayRevision)
+{
+    const auto view = captureView(terminal, renderState, images);
+    if (!view) {
+        return std::unexpected(view.error());
+    }
+    return buildFrame(renderState, *view, nextSequence, viewportRevision, displayRevision);
+}
+
 // A snapshot that ends at READY holds the screens without history.
 GhosttyResult restoreSnapshotHistory(const GhosttySnapshotDecoder decoder, const std::size_t size)
 {
@@ -766,6 +739,217 @@ GhosttyTerminalKernel::ConfigureResult applySettings(
 
 class GhosttyTerminalKernel::Impl final {
 public:
+    GhosttyResult installCallbacks(const GhosttyTerminal candidate)
+    {
+        auto result = ghostty_terminal_set(candidate, GHOSTTY_TERMINAL_OPT_USERDATA, this);
+        if (result == GHOSTTY_SUCCESS) {
+            result = ghostty_terminal_set(
+                candidate,
+                GHOSTTY_TERMINAL_OPT_WRITE_PTY,
+                reinterpret_cast<const void*>(&Impl::recordClipboardRead));
+        }
+        if (result == GHOSTTY_SUCCESS) {
+            result = ghostty_terminal_set(
+                candidate,
+                GHOSTTY_TERMINAL_OPT_CLIPBOARD_WRITE,
+                reinterpret_cast<const void*>(&Impl::recordClipboardWrite));
+        }
+        if (result == GHOSTTY_SUCCESS) {
+            result = ghostty_terminal_set(
+                candidate,
+                GHOSTTY_TERMINAL_OPT_CLIPBOARD_READ,
+                reinterpret_cast<const void*>(&Impl::deferClipboardRead));
+        }
+        if (result == GHOSTTY_SUCCESS) {
+            result = ghostty_terminal_set(
+                candidate,
+                GHOSTTY_TERMINAL_OPT_RENDER_HOLD,
+                reinterpret_cast<const void*>(&Impl::receiveRenderHold));
+        }
+        return result;
+    }
+
+    static void recordClipboardWrite(
+        const GhosttyTerminal,
+        void* const userdata,
+        const GhosttyClipboardWrite* const write)
+    {
+        if (userdata == nullptr || write == nullptr || write->size < sizeof(GhosttyClipboardWrite)) {
+            return;
+        }
+        std::optional<QString> text;
+        if (write->contents_len == 0) {
+            text = QString {};
+        }
+        for (std::size_t index = 0; !text && index < write->contents_len; ++index) {
+            const auto& content = write->contents[index];
+            if (isTextMime(QByteArrayView(content.mime.ptr, static_cast<qsizetype>(content.mime.len)))) {
+                text = QString::fromUtf8(
+                    QByteArrayView(content.data.ptr, static_cast<qsizetype>(content.data.len)));
+            }
+        }
+        if (text) {
+            appendClipboardOperation(static_cast<Impl*>(userdata)->clipboard, {
+                .selection = write->location != GHOSTTY_CLIPBOARD_LOCATION_STANDARD,
+                .write = std::move(text),
+                .answerPrefix = {},
+                .answerTerminator = {},
+            });
+        }
+    }
+
+    // An unanswered read makes Ghostty write an empty OSC 52 answer, which the
+    // focused view fills with its clipboard.
+    static void deferClipboardRead(const GhosttyTerminal, void* const, const GhosttyClipboardRead* const) {}
+
+    static void recordClipboardRead(
+        const GhosttyTerminal,
+        void* const userdata,
+        const std::uint8_t* const data,
+        const std::size_t length)
+    {
+        const QByteArrayView answer(data, static_cast<qsizetype>(length));
+        if (userdata == nullptr || answer.size() < 8 || !answer.startsWith("\x1b]52;")
+            || answer.at(6) != ';') {
+            return;
+        }
+        auto terminator = answer.sliced(7).toByteArray();
+        if (terminator != "\x07" && terminator != "\x1b\\") {
+            return;
+        }
+        appendClipboardOperation(static_cast<Impl*>(userdata)->clipboard, {
+            .selection = answer.at(5) != 'c',
+            .write = std::nullopt,
+            .answerPrefix = answer.first(7).toByteArray(),
+            .answerTerminator = std::move(terminator),
+        });
+    }
+
+    static void receiveRenderHold(
+        const GhosttyTerminal terminal,
+        void* const userdata,
+        const bool held)
+    {
+        if (userdata == nullptr) {
+            return;
+        }
+        auto& impl = *static_cast<Impl*>(userdata);
+        if (!held) {
+            impl.renderHeldSince.reset();
+            return;
+        }
+        impl.renderHeldSince = std::chrono::steady_clock::now();
+        impl.heldView = captureView(terminal, impl.renderState.value, impl.images);
+    }
+
+    FrameResult captureFrame()
+    {
+        return extractFrame(
+            terminal.value,
+            renderState.value,
+            images,
+            nextSequence,
+            viewportRevision,
+            displayRevision);
+    }
+
+    FrameResult frameAfterWrite(const std::optional<ViewCapture>& held)
+    {
+        if (!renderHeldSince) {
+            return captureFrame();
+        }
+        if (!*held) {
+            return std::unexpected(held->error());
+        }
+        return buildFrame(
+            renderState.value,
+            **held,
+            nextSequence,
+            viewportRevision,
+            displayRevision);
+    }
+
+    std::optional<Failure> refuseViewportMove(const TerminalSubscription& candidate) const
+    {
+        if (!admitted || failed) {
+            return Failure {
+                Failure::Code::MissingCheckpoint,
+                QStringLiteral("Terminal scrolling requires an admitted checkpoint."),
+            };
+        }
+        if (!sameSubscription(candidate, subscription)) {
+            return Failure {
+                Failure::Code::StaleSubscription,
+                QStringLiteral("Terminal scrolling belongs to a stale subscription."),
+            };
+        }
+        if (viewportRevision == std::numeric_limits<std::uint64_t>::max()
+            || displayRevision == std::numeric_limits<std::uint64_t>::max()) {
+            return Failure {
+                Failure::Code::ResourceLimit,
+                QStringLiteral("Terminal display revision is exhausted."),
+            };
+        }
+        return std::nullopt;
+    }
+
+    Result moveViewport(const GhosttyTerminalScrollViewport& move)
+    {
+        GhosttyTerminalScrollbar before {};
+        auto result = ghostty_terminal_get(
+            terminal.value,
+            GHOSTTY_TERMINAL_DATA_SCROLLBAR,
+            &before);
+        if (result != GHOSTTY_SUCCESS) {
+            failed = true;
+            return std::unexpected(ghosttyFailure(QStringLiteral("terminal scrollbar"), result));
+        }
+        ghostty_terminal_scroll_viewport(terminal.value, move);
+        GhosttyTerminalScrollbar after {};
+        result = ghostty_terminal_get(
+            terminal.value,
+            GHOSTTY_TERMINAL_DATA_SCROLLBAR,
+            &after);
+        if (result != GHOSTTY_SUCCESS) {
+            failed = true;
+            return std::unexpected(ghosttyFailure(QStringLiteral("terminal scrollbar"), result));
+        }
+        if (after.offset == before.offset) {
+            return currentFrame;
+        }
+        result = refreshSelection();
+        if (result != GHOSTTY_SUCCESS) {
+            failed = true;
+            return std::unexpected(ghosttyFailure(QStringLiteral("selection refresh"), result));
+        }
+        ++viewportRevision;
+        ++displayRevision;
+        auto nextFrame = captureFrame();
+        if (!nextFrame) {
+            failed = true;
+            return nextFrame;
+        }
+        currentFrame = *nextFrame;
+        return currentFrame;
+    }
+
+    GhosttyResult releaseExpiredRenderHold()
+    {
+        if (!renderHeldSince
+            || std::chrono::steady_clock::now() - *renderHeldSince < renderHoldLimit) {
+            return GHOSTTY_SUCCESS;
+        }
+        renderHeldSince.reset();
+        const GhosttyTerminalModeConfig synchronizedOutput {
+            .mode = GHOSTTY_MODE_SYNC_OUTPUT,
+            .value = false,
+        };
+        return ghostty_terminal_set(
+            terminal.value,
+            GHOSTTY_TERMINAL_OPT_MODE,
+            &synchronizedOutput);
+    }
+
     GhosttyResult refreshSelection()
     {
         if (selectionAnchor.value == nullptr || selectionEndpoint.value == nullptr) {
@@ -803,6 +987,7 @@ public:
     mutable std::mutex mutex;
     TerminalHandle terminal;
     RenderStateHandle renderState;
+    TerminalImages images;
     KeyEncoderHandle keyEncoder;
     MouseEncoderHandle mouseEncoder;
     TrackedGridRefHandle selectionAnchor;
@@ -812,6 +997,8 @@ public:
     std::uint64_t viewportRevision = 0;
     std::uint64_t displayRevision = 0;
     Frame currentFrame;
+    std::optional<std::chrono::steady_clock::time_point> renderHeldSince;
+    std::optional<ViewCapture> heldView;
     TerminalKernelSettings settings;
     TerminalClipboardOperations clipboard;
     bool selectionRectangular = false;
@@ -861,6 +1048,15 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
         return std::unexpected(
             ghosttyFailure(QStringLiteral("snapshot decoder creation"), result));
     }
+    const bool compressHistory = true;
+    result = ghostty_snapshot_decoder_set(
+        decoder.value,
+        GHOSTTY_SNAPSHOT_DECODER_OPT_COMPRESS_HISTORY,
+        &compressHistory);
+    if (result != GHOSTTY_SUCCESS) {
+        return std::unexpected(
+            ghosttyFailure(QStringLiteral("snapshot history compression"), result));
+    }
     result = ghostty_snapshot_decoder_ready(decoder.value, &candidateTerminal.value);
     if (result != GHOSTTY_SUCCESS || candidateTerminal.value == nullptr) {
         return std::unexpected(ghosttyFailure(QStringLiteral("snapshot restore"), result));
@@ -869,14 +1065,15 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
     if (result != GHOSTTY_SUCCESS) {
         return std::unexpected(ghosttyFailure(QStringLiteral("snapshot history restore"), result));
     }
-    const std::uint64_t imageStorageLimit = 0;
+    // The view replays the host's output, so it stores images as the host does.
+    const std::uint64_t imageStorageLimit = KODOSI_TERMINAL_IMAGE_STORAGE_MAX_BYTES;
     result = ghostty_terminal_set(
         candidateTerminal.value,
         GHOSTTY_TERMINAL_OPT_KITTY_IMAGE_STORAGE_LIMIT,
         &imageStorageLimit);
     if (result != GHOSTTY_SUCCESS) {
         return std::unexpected(
-            ghosttyFailure(QStringLiteral("disable Kitty image storage"), result));
+            ghosttyFailure(QStringLiteral("Kitty image storage"), result));
     }
     const bool glyphProtocolEnabled = false;
     result = ghostty_terminal_set(
@@ -887,21 +1084,9 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
         return std::unexpected(
             ghosttyFailure(QStringLiteral("disable Glyph Protocol"), result));
     }
-    const GhosttyTerminalWritePtyFn writePty = recordClipboardRead;
-    const GhosttyTerminalClipboardWriteFn clipboardWrite = recordClipboardWrite;
-    const GhosttyTerminalClipboardReadFn clipboardRead = deferClipboardRead;
-    const std::pair<GhosttyTerminalOption, const void*> clipboardCallbacks[] {
-        {GHOSTTY_TERMINAL_OPT_USERDATA, &m_impl->clipboard},
-        {GHOSTTY_TERMINAL_OPT_WRITE_PTY, std::bit_cast<const void*>(writePty)},
-        {GHOSTTY_TERMINAL_OPT_CLIPBOARD_WRITE, std::bit_cast<const void*>(clipboardWrite)},
-        {GHOSTTY_TERMINAL_OPT_CLIPBOARD_READ, std::bit_cast<const void*>(clipboardRead)},
-    };
-    for (const auto& [option, value] : clipboardCallbacks) {
-        result = ghostty_terminal_set(candidateTerminal.value, option, value);
-        if (result != GHOSTTY_SUCCESS) {
-            return std::unexpected(
-                ghosttyFailure(QStringLiteral("clipboard callbacks"), result));
-        }
+    result = m_impl->installCallbacks(candidateTerminal.value);
+    if (result != GHOSTTY_SUCCESS) {
+        return std::unexpected(ghosttyFailure(QStringLiteral("terminal callbacks"), result));
     }
 
     const bool resizePullsScrollback = !checkpoint.console;
@@ -925,9 +1110,11 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
     }
     const auto viewportRevision = m_impl->viewportRevision + 1;
     const auto displayRevision = m_impl->displayRevision + 1;
+    TerminalImages candidateImages;
     auto candidateFrame = extractFrame(
         candidateTerminal.value,
         candidateRenderState.value,
+        candidateImages,
         checkpoint.nextSequence,
         viewportRevision,
         displayRevision);
@@ -955,6 +1142,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
 
     std::swap(m_impl->terminal.value, candidateTerminal.value);
     std::swap(m_impl->renderState.value, candidateRenderState.value);
+    std::swap(m_impl->images, candidateImages);
     std::swap(m_impl->keyEncoder.value, candidateKeyEncoder.value);
     std::swap(m_impl->mouseEncoder.value, candidateMouseEncoder.value);
     m_impl->selectionAnchor.reset();
@@ -964,6 +1152,8 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
     m_impl->viewportRevision = viewportRevision;
     m_impl->displayRevision = displayRevision;
     m_impl->currentFrame = *candidateFrame;
+    m_impl->renderHeldSince.reset();
+    m_impl->heldView.reset();
     m_impl->clipboard.clear();
     m_impl->selectionRectangular = false;
     m_impl->admitted = true;
@@ -1020,16 +1210,20 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::applyData(const TerminalDat
         return std::unexpected(
             ghosttyFailure(QStringLiteral("selection refresh"), selectionResult));
     }
+    const auto holdResult = m_impl->releaseExpiredRenderHold();
+    if (holdResult != GHOSTTY_SUCCESS) {
+        m_impl->failed = true;
+        return std::unexpected(ghosttyFailure(QStringLiteral("render hold release"), holdResult));
+    }
+    const auto heldView = std::exchange(m_impl->heldView, std::nullopt);
 
     ++m_impl->nextSequence;
+    if (m_impl->renderHeldSince && !heldView) {
+        return m_impl->currentFrame;
+    }
     ++m_impl->viewportRevision;
     ++m_impl->displayRevision;
-    auto nextFrame = extractFrame(
-        m_impl->terminal.value,
-        m_impl->renderState.value,
-        m_impl->nextSequence,
-        m_impl->viewportRevision,
-        m_impl->displayRevision);
+    auto nextFrame = m_impl->frameAfterWrite(heldView);
     if (!nextFrame) {
         m_impl->failed = true;
         return nextFrame;
@@ -1065,7 +1259,9 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::applyResize(
     const TerminalSubscription& subscription,
     const std::uint64_t atSequence,
     const std::uint16_t rows,
-    const std::uint16_t columns)
+    const std::uint16_t columns,
+    const std::uint32_t cellWidth,
+    const std::uint32_t cellHeight)
 {
     std::scoped_lock lock(m_impl->mutex);
     if (!m_impl->admitted || m_impl->failed) {
@@ -1098,8 +1294,8 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::applyResize(
         m_impl->terminal.value,
         columns,
         rows,
-        0,
-        0);
+        cellWidth,
+        cellHeight);
     if (result != GHOSTTY_SUCCESS) {
         return std::unexpected(ghosttyFailure(QStringLiteral("terminal resize"), result));
     }
@@ -1111,12 +1307,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::applyResize(
     }
     ++m_impl->viewportRevision;
     ++m_impl->displayRevision;
-    auto nextFrame = extractFrame(
-        m_impl->terminal.value,
-        m_impl->renderState.value,
-        m_impl->nextSequence,
-        m_impl->viewportRevision,
-        m_impl->displayRevision);
+    auto nextFrame = m_impl->captureFrame();
     if (!nextFrame) {
         m_impl->failed = true;
         return nextFrame;
@@ -1389,119 +1580,40 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::scrollViewport(
     const int rows)
 {
     std::scoped_lock lock(m_impl->mutex);
-    if (!m_impl->admitted || m_impl->failed) {
-        return std::unexpected(Failure {
-            Failure::Code::MissingCheckpoint,
-            QStringLiteral("Terminal scrolling requires an admitted checkpoint."),
-        });
+    if (auto refused = m_impl->refuseViewportMove(subscription)) {
+        return std::unexpected(std::move(*refused));
     }
-    if (!sameSubscription(subscription, m_impl->subscription)) {
-        return std::unexpected(Failure {
-            Failure::Code::StaleSubscription,
-            QStringLiteral("Terminal scrolling belongs to a stale subscription."),
-        });
-    }
-    if (rows == 0) {
-        return m_impl->currentFrame;
-    }
-    const auto* frame = m_impl->currentFrame.get();
-    if (frame != nullptr
-        && ((rows < 0 && frame->scroll.viewportOffset == 0)
-            || (rows > 0
-                && frame->scroll.viewportOffset + frame->scroll.viewportRows
-                    >= frame->scroll.totalRows))) {
-        return m_impl->currentFrame;
-    }
-    if (m_impl->viewportRevision == std::numeric_limits<std::uint64_t>::max()
-        || m_impl->displayRevision == std::numeric_limits<std::uint64_t>::max()) {
-        return std::unexpected(Failure {
-            Failure::Code::ResourceLimit,
-            QStringLiteral("Terminal display revision is exhausted."),
-        });
-    }
-
-    GhosttyTerminalScrollViewport scroll {
+    return m_impl->moveViewport({
         .tag = GHOSTTY_SCROLL_VIEWPORT_DELTA,
         .value = {.delta = static_cast<intptr_t>(rows)},
-    };
-    ghostty_terminal_scroll_viewport(m_impl->terminal.value, scroll);
-    const auto selectionResult = m_impl->refreshSelection();
-    if (selectionResult != GHOSTTY_SUCCESS) {
-        m_impl->failed = true;
-        return std::unexpected(
-            ghosttyFailure(QStringLiteral("selection refresh"), selectionResult));
-    }
-    ++m_impl->viewportRevision;
-    ++m_impl->displayRevision;
-    auto nextFrame = extractFrame(
-        m_impl->terminal.value,
-        m_impl->renderState.value,
-        m_impl->nextSequence,
-        m_impl->viewportRevision,
-        m_impl->displayRevision);
-    if (!nextFrame) {
-        m_impl->failed = true;
-        return nextFrame;
-    }
-    m_impl->currentFrame = *nextFrame;
-    return m_impl->currentFrame;
+    });
 }
 
 GhosttyTerminalKernel::Result GhosttyTerminalKernel::scrollViewportToBottom(
     const TerminalSubscription& subscription)
 {
     std::scoped_lock lock(m_impl->mutex);
-    if (!m_impl->admitted || m_impl->failed) {
-        return std::unexpected(Failure {
-            Failure::Code::MissingCheckpoint,
-            QStringLiteral("Terminal scrolling requires an admitted checkpoint."),
-        });
+    if (auto refused = m_impl->refuseViewportMove(subscription)) {
+        return std::unexpected(std::move(*refused));
     }
-    if (!sameSubscription(subscription, m_impl->subscription)) {
-        return std::unexpected(Failure {
-            Failure::Code::StaleSubscription,
-            QStringLiteral("Terminal scrolling belongs to a stale subscription."),
-        });
-    }
-    const auto* frame = m_impl->currentFrame.get();
-    if (frame != nullptr
-        && frame->scroll.viewportOffset + frame->scroll.viewportRows
-            >= frame->scroll.totalRows) {
-        return m_impl->currentFrame;
-    }
-    if (m_impl->viewportRevision == std::numeric_limits<std::uint64_t>::max()
-        || m_impl->displayRevision == std::numeric_limits<std::uint64_t>::max()) {
-        return std::unexpected(Failure {
-            Failure::Code::ResourceLimit,
-            QStringLiteral("Terminal display revision is exhausted."),
-        });
-    }
-
-    GhosttyTerminalScrollViewport scroll {
+    return m_impl->moveViewport({
         .tag = GHOSTTY_SCROLL_VIEWPORT_BOTTOM,
         .value = {},
-    };
-    ghostty_terminal_scroll_viewport(m_impl->terminal.value, scroll);
-    const auto selectionResult = m_impl->refreshSelection();
-    if (selectionResult != GHOSTTY_SUCCESS) {
-        m_impl->failed = true;
-        return std::unexpected(
-            ghosttyFailure(QStringLiteral("selection refresh"), selectionResult));
+    });
+}
+
+GhosttyTerminalKernel::Result GhosttyTerminalKernel::jumpToPrompt(
+    const TerminalSubscription& subscription,
+    const int prompts)
+{
+    std::scoped_lock lock(m_impl->mutex);
+    if (auto refused = m_impl->refuseViewportMove(subscription)) {
+        return std::unexpected(std::move(*refused));
     }
-    ++m_impl->viewportRevision;
-    ++m_impl->displayRevision;
-    auto nextFrame = extractFrame(
-        m_impl->terminal.value,
-        m_impl->renderState.value,
-        m_impl->nextSequence,
-        m_impl->viewportRevision,
-        m_impl->displayRevision);
-    if (!nextFrame) {
-        m_impl->failed = true;
-        return nextFrame;
-    }
-    m_impl->currentFrame = *nextFrame;
-    return m_impl->currentFrame;
+    return m_impl->moveViewport({
+        .tag = GHOSTTY_SCROLL_VIEWPORT_DELTA_PROMPT,
+        .value = {.delta_prompt = static_cast<intptr_t>(prompts)},
+    });
 }
 
 std::expected<QString, GhosttyTerminalKernel::Failure>
@@ -1658,12 +1770,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::beginSelection(
         return std::unexpected(ghosttyFailure(QStringLiteral("selection install"), result));
     }
     ++m_impl->displayRevision;
-    auto nextFrame = extractFrame(
-        m_impl->terminal.value,
-        m_impl->renderState.value,
-        m_impl->nextSequence,
-        m_impl->viewportRevision,
-        m_impl->displayRevision);
+    auto nextFrame = m_impl->captureFrame();
     if (!nextFrame) {
         m_impl->failed = true;
         return nextFrame;
@@ -1729,12 +1836,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::updateSelection(
         return std::unexpected(ghosttyFailure(QStringLiteral("selection install"), result));
     }
     ++m_impl->displayRevision;
-    auto nextFrame = extractFrame(
-        m_impl->terminal.value,
-        m_impl->renderState.value,
-        m_impl->nextSequence,
-        m_impl->viewportRevision,
-        m_impl->displayRevision);
+    auto nextFrame = m_impl->captureFrame();
     if (!nextFrame) {
         m_impl->failed = true;
         return nextFrame;
@@ -1776,12 +1878,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::clearSelection(
     m_impl->selectionEndpoint.reset();
     m_impl->selectionRectangular = false;
     ++m_impl->displayRevision;
-    auto nextFrame = extractFrame(
-        m_impl->terminal.value,
-        m_impl->renderState.value,
-        m_impl->nextSequence,
-        m_impl->viewportRevision,
-        m_impl->displayRevision);
+    auto nextFrame = m_impl->captureFrame();
     if (!nextFrame) {
         m_impl->failed = true;
         return nextFrame;
@@ -1881,12 +1978,7 @@ GhosttyTerminalKernel::ConfigureResult GhosttyTerminalKernel::configure(
             }
             ++m_impl->viewportRevision;
             ++m_impl->displayRevision;
-            auto nextFrame = extractFrame(
-                m_impl->terminal.value,
-                m_impl->renderState.value,
-                m_impl->nextSequence,
-                m_impl->viewportRevision,
-                m_impl->displayRevision);
+            auto nextFrame = m_impl->captureFrame();
             if (!nextFrame) {
                 m_impl->failed = true;
                 return std::unexpected(std::move(nextFrame.error()));
@@ -1948,6 +2040,45 @@ GhosttyTerminalKernel::Frame GhosttyTerminalKernel::frame() const
 {
     std::scoped_lock lock(m_impl->mutex);
     return m_impl->currentFrame;
+}
+
+std::optional<std::uint64_t> GhosttyTerminalKernel::nextSequence() const
+{
+    std::scoped_lock lock(m_impl->mutex);
+    return m_impl->admitted ? std::optional {m_impl->nextSequence} : std::nullopt;
+}
+
+bool GhosttyTerminalKernel::compressHistory()
+{
+    std::scoped_lock lock(m_impl->mutex);
+    if (!m_impl->admitted || m_impl->failed) {
+        return false;
+    }
+    auto progress = GHOSTTY_TERMINAL_COMPRESSION_RESULT_COMPLETE;
+    const auto result = ghostty_terminal_compress(
+        m_impl->terminal.value,
+        GHOSTTY_TERMINAL_COMPRESSION_MODE_INCREMENTAL,
+        &progress);
+    return result == GHOSTTY_SUCCESS && progress == GHOSTTY_TERMINAL_COMPRESSION_RESULT_PENDING;
+}
+
+GhosttyTerminalKernel::HistoryMemory GhosttyTerminalKernel::historyMemory() const
+{
+    std::scoped_lock lock(m_impl->mutex);
+    auto usage = GHOSTTY_INIT_SIZED(GhosttyTerminalMemoryUsage);
+    if (!m_impl->admitted
+        || ghostty_terminal_get(
+               m_impl->terminal.value,
+               GHOSTTY_TERMINAL_DATA_MEMORY_USAGE,
+               &usage)
+            != GHOSTTY_SUCCESS) {
+        return {};
+    }
+    return {
+        .compressionSupported = usage.compression_supported,
+        .residentBytes = usage.primary_resident_bytes + usage.alternate_resident_bytes,
+        .compressedPages = usage.primary_compressed_pages + usage.alternate_compressed_pages,
+    };
 }
 
 }

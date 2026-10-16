@@ -1,4 +1,6 @@
+import Foundation
 import KodosiBridge
+import SwiftUI
 
 public extension RuntimeSession {
     var alert: String? {
@@ -35,5 +37,22 @@ public extension RuntimeSession {
 
     var agent: AgentKind {
         AgentKind(program: program)
+    }
+
+    /// Where the program runs, as a line for a row or a tooltip.
+    var placeLabel: String? {
+        guard let place else { return nil }
+        return switch place.kind {
+        case .remote: String(localized: "On \(place.name)", bundle: .module)
+        case .container: String(localized: "In the container \(place.name)", bundle: .module)
+        case .vm: String(localized: "In the virtual machine \(place.name)", bundle: .module)
+        }
+    }
+}
+
+public extension AgentMark {
+    /// The mark of a terminal's program, with a root prompt when it runs as root.
+    init(session: RuntimeSession, size: CGFloat = 22, activity: Activity = .awake) {
+        self.init(kind: session.agent, size: size, activity: activity, root: session.runsAsRoot)
     }
 }

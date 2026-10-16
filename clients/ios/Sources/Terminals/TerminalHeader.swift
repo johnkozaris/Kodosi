@@ -8,7 +8,7 @@ struct TerminalTitle: View {
 
     var body: some View {
         HStack(spacing: 9) {
-            AgentMark(kind: session.agent, size: 26, activity: session.mark(rested: session.isConnected ? .awake : .asleep))
+            AgentMark(session: session, size: 26, activity: session.mark(rested: session.isConnected ? .awake : .asleep))
                 .padding(2)
             VStack(alignment: .leading, spacing: 0) {
                 Text(session.name)
@@ -40,6 +40,12 @@ struct TerminalTitle: View {
                 .foregroundStyle(session.isTroubled ? theme.colors.caution : theme.colors.inkFaint)
         } else if session.activity != nil || session.progress != nil {
             TerminalCaption(session: session)
+        } else if let runsIn = session.place {
+            HStack(spacing: 4) {
+                PlaceGlyph(kind: runsIn.kind)
+                Text(runsIn.name)
+            }
+            .foregroundStyle(theme.colors.inkMuted)
         } else {
             HStack(spacing: 4) {
                 DeviceGlyph(label: session.hostLabel)

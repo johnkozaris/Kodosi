@@ -30,6 +30,9 @@ public:
         QString programTitle;
         QString programMessage;
         int programProgress = -1;
+        QString placeKind;
+        QString placeName;
+        bool root = false;
         bool prompt = false;
         bool repository = false;
         QStringList connectedUsers;
@@ -103,6 +106,7 @@ private:
     [[nodiscard]] static QString signLabel(const Session& session);
     [[nodiscard]] static QString report(const Session& session);
     [[nodiscard]] static QString activity(const Session& session);
+    [[nodiscard]] static QString placeLabel(const Session& session);
     [[nodiscard]] QVariantMap fields(const Session& session) const;
     [[nodiscard]] bool samePresentation(const QVector<Session>& before, const QVector<Session>& after) const;
 };

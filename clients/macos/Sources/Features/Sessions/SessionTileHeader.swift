@@ -22,7 +22,7 @@ struct SessionTileHeader: View {
             if roomEmbedded {
                 place
             } else {
-                AgentMark(kind: session.agent, size: 20, activity: session.mark(rested: .awake))
+                AgentMark(session: session, size: 20, activity: session.mark(rested: .awake))
                 Text(session.name).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).lineLimit(1)
                     .contentTransition(.interpolate).layoutPriority(2)
                 if session.activity != nil || session.progress != nil {
@@ -33,13 +33,15 @@ struct SessionTileHeader: View {
                     StatusSign(form: sign).transition(AnyTransition.pop)
                 }
                 if session.kind == .remote {
-                    HStack(spacing: 4) {
-                        DeviceGlyph(label: session.hostLabel).font(.system(size: 9, weight: .semibold))
-                        Text(session.hostLabel).lineLimit(1)
+                    tag {
+                        HStack(spacing: 4) {
+                            DeviceGlyph(label: session.hostLabel).font(.system(size: 9, weight: .semibold))
+                            Text(session.hostLabel).lineLimit(1)
+                        }
                     }
-                    .appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted)
-                    .padding(.horizontal, 7).frame(height: 18).background(theme.colors.ink.opacity(0.07), in: Capsule())
-                    .layoutPriority(1)
+                }
+                if let place = session.place {
+                    tag { SessionPlace(place: place) }.help(session.placeLabel ?? "")
                 }
             }
             Spacer(minLength: 4)
@@ -49,6 +51,13 @@ struct SessionTileHeader: View {
             actions
         }
         .padding(.leading, 11).padding(.trailing, 6).frame(height: 38)
+    }
+
+    private func tag(@ViewBuilder _ content: () -> some View) -> some View {
+        content()
+            .appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted)
+            .padding(.horizontal, 7).frame(height: 18).background(theme.colors.ink.opacity(0.07), in: Capsule())
+            .layoutPriority(1)
     }
 
     private var place: some View {

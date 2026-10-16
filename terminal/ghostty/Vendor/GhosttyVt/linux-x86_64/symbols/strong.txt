@@ -904,6 +904,7 @@ ghostty_snapshot_decoder_set
 ghostty_snapshot_encode
 ghostty_snapshot_encode_alloc
 ghostty_snapshot_encode_buf
+ghostty_snapshot_encode_options
 ghostty_style_default
 ghostty_style_is_default
 ghostty_sys_log_stderr

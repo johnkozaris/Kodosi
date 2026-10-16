@@ -1,6 +1,7 @@
 import CoreFoundation
 import Foundation
 import KodosiBridge
+import KodosiTerminal
 import os
 
 struct TerminalControlHandlers {
@@ -37,6 +38,25 @@ enum TerminalControlFrames {
         default:
             Logger.terminal.debug("Terminal control '\(type)' for \(sessionId)")
         }
+    }
+
+    /// The grid and cell size that the host gave its terminal, from a
+    /// `term.resize` frame.
+    static func hostViewport(from json: [String: Any]) -> TerminalViewport? {
+        guard let cols = exactUInt16(json["cols"]),
+              let rows = exactUInt16(json["rows"]),
+              let cellWidthPixels = exactUInt32(json["cellWidthPixels"]),
+              let cellHeightPixels = exactUInt32(json["cellHeightPixels"]),
+              exactUInt64(json["atSequence"]) != nil,
+              cols > 0,
+              rows > 0
+        else { return nil }
+        return TerminalViewport(
+            columns: cols,
+            rows: rows,
+            cellWidthPixels: cellWidthPixels,
+            cellHeightPixels: cellHeightPixels
+        )
     }
 
     static func closeBoundary(from json: [String: Any]) -> UInt64? {

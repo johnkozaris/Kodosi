@@ -113,7 +113,7 @@ private struct RoomTerminalRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AgentMark(kind: session.agent, size: 36, activity: session.mark(rested: session.canOpen ? .awake : .asleep))
+            AgentMark(session: session, size: 36, activity: session.mark(rested: session.canOpen ? .awake : .asleep))
             VStack(alignment: .leading, spacing: 3) {
                 Text(session.name)
                     .appTextStyle(.headline)

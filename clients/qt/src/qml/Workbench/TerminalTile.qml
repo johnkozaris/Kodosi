@@ -140,6 +140,23 @@ Item {
                     font.weight: Font.DemiBold
                     elide: Text.ElideRight
                 }
+                Rectangle {
+                    Layout.maximumWidth: Math.max(60, root.width * 0.25)
+                    implicitWidth: placeTag.implicitWidth + 14
+                    implicitHeight: 18
+                    radius: height / 2
+                    color: KodosiTheme.alpha(KodosiTheme.terminalInk, 0.07)
+                    visible: placeTag.shown
+
+                    SessionPlace {
+                        id: placeTag
+                        anchors.fill: parent
+                        anchors.leftMargin: 7
+                        anchors.rightMargin: 7
+                        session: root.session
+                        color: KodosiTheme.terminalInkMuted
+                    }
+                }
                 ActivityLine {
                     Layout.fillWidth: true
                     session: root.session
@@ -263,6 +280,7 @@ Item {
 
                 Accessible.id: objectName
                 anchors.fill: parent
+                asksBeforeClipboardRead: root.session.isOwner !== true
                 cursorBlink: Models.DesktopSettings.cursorBlink
                 cursorStyle: Models.DesktopSettings.cursorStyle
                 focusedSizeAuthority: root.focusedSizeAuthority
@@ -284,6 +302,7 @@ Item {
                     const point = terminal.mapToItem(root, x, y);
                     context.popup(point.x, point.y);
                 }
+                onClipboardReadRequested: clipboardRead.open()
                 onOperationError: message => root.terminalOperationError = message
                 onTerminalClosed: root.terminalError = qsTr("The terminal closed.")
                 onTerminalError: message => root.terminalError = message
@@ -456,6 +475,13 @@ Item {
 
             onTriggered: terminal.pasteFromClipboard()
         }
+    }
+    ClipboardReadDialog {
+        id: clipboardRead
+        objectName: root.objectName + ".clipboardRead"
+        sessionName: root.sessionName
+
+        onAnswered: allowed => terminal.answerClipboardRead(allowed)
     }
     CloseTerminalDialog {
         id: closeConfirmation

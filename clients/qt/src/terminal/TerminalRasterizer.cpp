@@ -3,6 +3,7 @@
 #include <QFontMetricsF>
 #include <QPainter>
 #include <QPainterPath>
+#include <QStringView>
 
 #include <algorithm>
 #include <array>
@@ -17,6 +18,8 @@ namespace {
 
 constexpr int maximumTextureDimension = 16'384;
 constexpr std::uint64_t maximumImageBytes = 256ULL * 1024ULL * 1024ULL;
+// The cells of a Kitty image's virtual placement. Kodosi draws no virtual placements.
+constexpr QStringView kittyPlaceholder = u"\U0010EEEE";
 
 struct CellMetrics {
     qreal width;
@@ -209,6 +212,27 @@ bool drawCellShape(
     return false;
 }
 
+void drawImages(
+    QPainter& painter,
+    const TerminalFrame& frame,
+    const CellMetrics& cell,
+    const TerminalImagePlacement::Layer layer)
+{
+    for (const auto& image : frame.images) {
+        if (image.layer != layer) {
+            continue;
+        }
+        painter.drawImage(
+            QRectF(
+                image.bounds.x() * cell.width,
+                image.bounds.y() * cell.height,
+                image.bounds.width() * cell.width,
+                image.bounds.height() * cell.height),
+            image.pixels,
+            image.source);
+    }
+}
+
 QFont styledFont(const QFont& base, const TerminalCell& cell)
 {
     auto font = base;
@@ -347,6 +371,8 @@ QImage TerminalRasterizer::render(
 
     QPainter painter(&image);
     painter.setRenderHint(QPainter::TextAntialiasing, true);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
+    drawImages(painter, frame, cell, TerminalImagePlacement::Layer::BelowBackground);
     for (std::uint16_t row = 0; row < frame.rows; ++row) {
         for (std::uint16_t column = 0; column < frame.columns; ++column) {
             const auto* terminalCell = frame.cell(column, row);
@@ -366,6 +392,7 @@ QImage TerminalRasterizer::render(
             }
         }
     }
+    drawImages(painter, frame, cell, TerminalImagePlacement::Layer::BelowText);
 
     for (std::uint16_t row = 0; row < frame.rows; ++row) {
         for (std::uint16_t column = 0; column < frame.columns; ++column) {
@@ -373,7 +400,8 @@ QImage TerminalRasterizer::render(
             if (terminalCell == nullptr) {
                 continue;
             }
-            if (terminalCell->width == 0 || terminalCell->grapheme.isEmpty()) {
+            if (terminalCell->width == 0 || terminalCell->grapheme.isEmpty()
+                || terminalCell->grapheme.startsWith(kittyPlaceholder)) {
                 continue;
             }
             const auto span = std::max<std::uint8_t>(terminalCell->width, 1);
@@ -395,6 +423,7 @@ QImage TerminalRasterizer::render(
             drawDecoration(painter, bounds, *terminalCell, foreground);
         }
     }
+    drawImages(painter, frame, cell, TerminalImagePlacement::Layer::AboveText);
 
     if (!options.overlay.preedit.isEmpty()
         && options.overlay.column < frame.columns

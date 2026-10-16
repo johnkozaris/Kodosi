@@ -1,6 +1,8 @@
 #pragma once
 
 #include <QColor>
+#include <QImage>
+#include <QRectF>
 #include <QString>
 #include <QVector>
 
@@ -31,6 +33,17 @@ struct TerminalCursor {
     std::int32_t visualStyle = 0;
 };
 
+/// A Kitty image placement in the viewport, measured in its cells.
+struct TerminalImagePlacement {
+    enum class Layer : std::uint8_t { BelowBackground, BelowText, AboveText };
+
+    QImage pixels;
+    QRect source;
+    /// The top-left corner can lie above the first row or left of the first column.
+    QRectF bounds;
+    Layer layer = Layer::AboveText;
+};
+
 struct TerminalScrollState {
     std::uint64_t totalRows = 0;
     std::uint64_t viewportOffset = 0;
@@ -49,6 +62,8 @@ struct TerminalFrame {
     TerminalCursor cursor;
     TerminalScrollState scroll;
     QVector<TerminalCell> cells;
+    /// In paint order.
+    QVector<TerminalImagePlacement> images;
 
     [[nodiscard]] const TerminalCell* cell(
         const std::uint16_t column,

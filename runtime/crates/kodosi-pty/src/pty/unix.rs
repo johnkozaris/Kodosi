@@ -134,6 +134,7 @@ impl KodosiPty {
         rows: u16,
         cols: u16,
         environment: &[(&str, &str)],
+        prompt_marks: Option<&Path>,
     ) -> Result<(Self, PtyReader)> {
         let working_dir = validate_working_dir(working_dir)?;
         let resolved_program = resolve_program(program, working_dir).ok_or_else(|| {
@@ -154,9 +155,11 @@ impl KodosiPty {
 
         let mut command = Command::new(&resolved_program);
         command.args(arguments);
-        if arguments.is_empty()
-            && let Some(shell) = login_shell_name(&resolved_program)
-        {
+        let login_shell = arguments
+            .is_empty()
+            .then(|| login_shell_name(&resolved_program))
+            .flatten();
+        if let Some(shell) = login_shell {
             command.arg0(format!("-{shell}"));
             command.env("SHELL", &resolved_program);
         }
@@ -177,6 +180,9 @@ impl KodosiPty {
 
         for (key, value) in environment {
             command.env(key, value);
+        }
+        if let (Some(shell), Some(folder)) = (login_shell, prompt_marks) {
+            super::prompt_marks::add(shell, &resolved_program, folder, environment, &mut command);
         }
         command.kill_on_drop(true);
 
@@ -722,7 +728,7 @@ mod tests {
             .unwrap()
             .block_on(async {
                 let (mut pty, mut reader) =
-                    KodosiPty::spawn_program(Path::new("/bin/zsh"), &[], None, 24, 80, &[])
+                    KodosiPty::spawn_program(Path::new("/bin/zsh"), &[], None, 24, 80, &[], None)
                         .unwrap();
                 pty.write(b"print -r -- \"probe=${options[login]}:$0:$SHELL\"; exit\n")
                     .unwrap();
@@ -752,7 +758,7 @@ mod tests {
             let root = tempfile::tempdir().unwrap();
             let (mut pty, mut reader) = KodosiPty::spawn_program(
                 Path::new("/bin/sh"),
-                &["-i".to_owned()], root.path().to_str(), 24, 80, &[]
+                &["-i".to_owned()], root.path().to_str(), 24, 80, &[], None
             ).unwrap();
             let command = b"sh -c 'trap \"\" HUP TERM; printf \"%s\\n\" \"$$\" > child; exec sleep 30' &\n";
             assert_eq!(pty.write(command).unwrap(), command.len());

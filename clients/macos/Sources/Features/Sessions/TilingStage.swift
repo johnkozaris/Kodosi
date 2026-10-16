@@ -118,7 +118,7 @@ struct TerminalCard<Detail: View, Accessory: View>: View {
     var body: some View {
         Button(action: open) {
             HStack(spacing: 12) {
-                AgentMark(kind: session.agent, size: 34, activity: session.mark(rested: rested))
+                AgentMark(session: session, size: 34, activity: session.mark(rested: rested))
                 VStack(alignment: .leading, spacing: 3) {
                     Text(session.name).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).lineLimit(1)
                     detail.appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)

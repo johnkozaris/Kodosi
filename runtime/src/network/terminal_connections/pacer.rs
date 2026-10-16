@@ -3,11 +3,13 @@ use std::time::Duration;
 use tokio::time::Instant;
 
 use crate::network::{Result, invalid};
+use crate::terminal::{TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES, TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES};
 
 const INITIAL_WINDOW: u64 = 16 * 1024;
 const MINIMUM_WINDOW: u64 = 4 * 1024;
 const MAXIMUM_WINDOW: u64 = 8 * 1024 * 1024;
 const TRANSIT_SECONDS: f64 = 0.5;
+const IMAGE_SECONDS: f64 = 2.0;
 const SAMPLE: Duration = Duration::from_millis(200);
 
 #[derive(Default)]
@@ -47,6 +49,20 @@ impl Pacer {
         } else {
             ((self.rate * TRANSIT_SECONDS) as u64).clamp(MINIMUM_WINDOW, MAXIMUM_WINDOW)
         }
+    }
+
+    /// The image pixels of a snapshot for this viewer: what its link carries in
+    /// two seconds, within the bounds for remote views.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "the product is clamped to the image bounds"
+    )]
+    pub(super) fn image_data_bytes(&self) -> u64 {
+        ((self.rate * IMAGE_SECONDS) as u64).clamp(
+            TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES,
+            TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES,
+        )
     }
 
     pub(super) fn room(&mut self) -> bool {
@@ -193,6 +209,33 @@ mod tests {
         pacer.sent(60_000, at(start, 2000));
         pacer.acknowledge(63_100, at(start, 2100)).unwrap();
         assert_eq!(pacer.window(), 300_000);
+    }
+
+    #[test]
+    fn a_snapshot_holds_the_image_pixels_that_the_link_carries_in_two_seconds() {
+        let start = Instant::now();
+        let mut pacer = Pacer::default();
+        assert_eq!(
+            pacer.image_data_bytes(),
+            TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES
+        );
+        pacer.sent(300_000, start);
+        pacer.acknowledge(300_000, at(start, 100)).unwrap();
+        assert_eq!(pacer.image_data_bytes(), 6_000_000);
+        pacer.sent(8_000_000, at(start, 1000));
+        pacer.acknowledge(8_300_000, at(start, 1100)).unwrap();
+        assert_eq!(
+            pacer.image_data_bytes(),
+            TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES
+        );
+
+        let mut slow = Pacer::default();
+        slow.sent(3000, start);
+        slow.acknowledge(3000, at(start, 200)).unwrap();
+        assert_eq!(
+            slow.image_data_bytes(),
+            TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES
+        );
     }
 
     #[test]

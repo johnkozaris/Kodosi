@@ -19,6 +19,7 @@
 #include <QtQuick/private/qquickaccessibleattached_p.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <iterator>
 #include <limits>
@@ -28,6 +29,7 @@
 namespace kodosi {
 namespace {
 
+constexpr std::chrono::seconds historyCompressionIdle {2};
 constexpr char32_t powerlineRightSeparator = 0xE0B0;
 constexpr char32_t powerlineLeftCap = 0xE0B6;
 constexpr char32_t nerdFontLinux = 0xF31B;
@@ -184,6 +186,7 @@ TerminalView::TerminalView(QQuickItem* parent)
     : QQuickItem(parent)
     , m_font(QFontDatabase::systemFont(QFontDatabase::FixedFont))
     , m_cursorBlinkTimer(this)
+    , m_historyCompressionTimer(this)
 {
     setFlag(ItemHasContents, true);
     setClip(true);
@@ -202,6 +205,13 @@ TerminalView::TerminalView(QQuickItem* parent)
     accessible->set_selectableText(true);
     configureTerminalFont(m_font, QStringLiteral("JetBrains Mono"));
     m_font.setPixelSize(14);
+    m_historyCompressionTimer.setObjectName(QStringLiteral("terminal.historyCompressionTimer"));
+    m_historyCompressionTimer.setSingleShot(true);
+    connect(&m_historyCompressionTimer, &QTimer::timeout, this, [this] {
+        if (m_registry != nullptr && m_registry->compressHistory(surfaceIdentity())) {
+            m_historyCompressionTimer.start(0);
+        }
+    });
     m_cursorBlinkTimer.setObjectName(QStringLiteral("terminal.cursorBlinkTimer"));
     m_cursorBlinkTimer.setInterval(500);
     connect(&m_cursorBlinkTimer, &QTimer::timeout, this, [this] {
@@ -357,6 +367,20 @@ void TerminalView::pasteFromClipboard()
 bool TerminalView::focusedSizeAuthority() const noexcept
 {
     return m_focusedSizeAuthority;
+}
+
+bool TerminalView::asksBeforeClipboardRead() const noexcept
+{
+    return m_asksBeforeClipboardRead;
+}
+
+void TerminalView::setAsksBeforeClipboardRead(const bool asks)
+{
+    if (m_asksBeforeClipboardRead == asks) {
+        return;
+    }
+    m_asksBeforeClipboardRead = asks;
+    emit asksBeforeClipboardReadChanged();
 }
 
 void TerminalView::setFontFamily(const QString& family)
@@ -673,12 +697,14 @@ void TerminalView::detach()
     }
     const auto epoch = m_attachmentEpoch.fetch_add(1, std::memory_order_acq_rel) + 1;
     m_frameMailbox.reset(epoch);
+    m_historyCompressionTimer.stop();
     {
         std::scoped_lock lock(m_guiEventMutex);
         m_guiEvents.clear();
         m_guiDrainQueued = false;
         m_guiOverflow = false;
     }
+    m_clipboardRead.reset();
     auto* registry = std::exchange(m_registry, nullptr);
     auto* runtime = std::exchange(m_runtime, nullptr);
     bool disconnectSubscription = false;
@@ -940,6 +966,7 @@ void TerminalView::presentFrame(GhosttyTerminalKernel::Frame frame)
     Q_ASSERT(thread() == QThread::currentThread());
     const auto priorAccessibleText = QAccessible::isActive() ? accessibleText() : QString {};
     m_frame = std::move(frame);
+    m_historyCompressionTimer.start(historyCompressionIdle);
     m_pressedLink.reset();
     clearHoverLink();
     const auto wasReady = m_terminalReady;

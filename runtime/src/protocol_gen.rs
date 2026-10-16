@@ -311,7 +311,7 @@ fn rendered() -> Result<String> {
         "ffiAbiVersion":9,
         "commands":schema::<protocol::CommandEnvelope>(Direction::Input)?,
         "events":shape::<protocol::Event>()?,
-        "terminal":{"checkpointSchema":kodosi_runtime::terminal::TERMINAL_CHECKPOINT_SCHEMA_VERSION,"checkpointMaxBytes":kodosi_runtime::terminal::TERMINAL_SNAPSHOT_MAX_BYTES,"rawInputMaxBytes":kodosi_runtime::terminal::TERMINAL_INPUT_MAX_BYTES},
+        "terminal":{"checkpointSchema":kodosi_runtime::terminal::TERMINAL_CHECKPOINT_SCHEMA_VERSION,"checkpointMaxBytes":kodosi_runtime::terminal::TERMINAL_SNAPSHOT_MAX_BYTES,"imageStorageMaxBytes":kodosi_runtime::terminal::TERMINAL_IMAGE_STORAGE_MAX_BYTES,"rawInputMaxBytes":kodosi_runtime::terminal::TERMINAL_INPUT_MAX_BYTES},
     });
     Ok(serde_json::to_string_pretty(&value)? + "\n")
 }

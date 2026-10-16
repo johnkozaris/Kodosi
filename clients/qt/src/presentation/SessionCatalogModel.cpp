@@ -219,6 +219,14 @@ QVariantMap SessionCatalogModel::presentationForSession(const QString& id) const
     const auto s = session(id);
     return s ? fields(*s) : QVariantMap {};
 }
+QString SessionCatalogModel::placeLabel(const Session& session)
+{
+    if (session.placeKind == QStringLiteral("container"))
+        return tr("In the container %1").arg(session.placeName);
+    if (session.placeKind == QStringLiteral("vm"))
+        return tr("In the virtual machine %1").arg(session.placeName);
+    return session.placeKind.isEmpty() ? QString {} : tr("On %1").arg(session.placeName);
+}
 QVariantMap SessionCatalogModel::fields(const Session& session) const
 {
     const auto* s = &session;
@@ -236,6 +244,8 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
         { QStringLiteral("kind"), s->kind }, { QStringLiteral("workingDirectory"), local ? withSlashes(s->workingDirectory) : QString {} },
         { QStringLiteral("displayDirectory"), s->workingDirectory },
         { QStringLiteral("program"), s->program }, { QStringLiteral("connectedUsers"), s->connectedUsers },
+        { QStringLiteral("placeKind"), s->placeKind }, { QStringLiteral("placeName"), s->placeName },
+        { QStringLiteral("placeLabel"), placeLabel(session) }, { QStringLiteral("root"), s->root },
         { QStringLiteral("ownerName"), s->ownerName }, { QStringLiteral("missionId"), s->missionId },
         { QStringLiteral("missionName"), s->missionName }, { QStringLiteral("status"), s->status }, { QStringLiteral("message"), s->message },
         { QStringLiteral("connectionState"), s->connectionState }, { QStringLiteral("isOwner"), s->isOwner },
@@ -303,6 +313,23 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
             if (!progress.isDouble() || progress.toInt(-1) < 0 || progress.toInt(-1) > 100)
                 return std::nullopt;
             s.programProgress = progress.toInt();
+        }
+    }
+    const auto context = o.value(QStringLiteral("context"));
+    if (!context.isUndefined() && !context.isNull()) {
+        const auto reported = context.toObject();
+        const auto root = reported.value(QStringLiteral("root"));
+        const auto place = reported.value(QStringLiteral("place"));
+        if (!context.isObject() || !root.isBool() || (!place.isUndefined() && !place.isObject()))
+            return std::nullopt;
+        s.root = root.toBool();
+        if (place.isObject()) {
+            s.placeKind = place.toObject().value(QStringLiteral("kind")).toString();
+            s.placeName = place.toObject().value(QStringLiteral("name")).toString();
+            if (!QStringList { QStringLiteral("remote"), QStringLiteral("container"), QStringLiteral("vm") }
+                    .contains(s.placeKind)
+                || s.placeName.isEmpty() || s.placeName.size() > 4096)
+                return std::nullopt;
         }
     }
     const auto connected = o.value(QStringLiteral("connectedUsers"));

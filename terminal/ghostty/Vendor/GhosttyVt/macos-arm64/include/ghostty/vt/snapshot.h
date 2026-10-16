@@ -328,6 +328,52 @@ GHOSTTY_API GhosttyResult ghostty_snapshot_encode(GhosttyTerminal terminal,
                                                   GhosttyWriter writer);
 
 /**
+ * Options of ghostty_snapshot_encode_options().
+ *
+ * This is a sized struct. Initialize it with
+ * GHOSTTY_INIT_SIZED(GhosttySnapshotEncodeOptions); fields that `size` does
+ * not cover keep their defaults.
+ *
+ * @ingroup snapshot
+ */
+typedef struct {
+  /** Size of this struct in bytes. */
+  size_t size;
+
+  /**
+   * The most bytes of Kitty image pixels, including animation frames, to
+   * write. The images of the active screen come first, then images placed
+   * on screen, then images placed in history, newer before older. An image
+   * beyond the limit is written without pixels: a decoder restores it as a
+   * pending image of the same size, so its placements, the storage limit
+   * and later commands behave the same, and a renderer draws nothing for
+   * it. An unfinished transmission is always written in full. The default,
+   * UINT64_MAX, writes every image.
+   */
+  uint64_t kitty_image_data_limit;
+} GhosttySnapshotEncodeOptions;
+
+/**
+ * Encode a complete terminal snapshot to a writer, with options.
+ *
+ * This is ghostty_snapshot_encode() with the options of
+ * GhosttySnapshotEncodeOptions.
+ *
+ * @param terminal Terminal to encode (must not be NULL)
+ * @param writer Destination writer whose write callback must not be NULL
+ * @param options Encode options (must not be NULL)
+ * @return GHOSTTY_SUCCESS on success, GHOSTTY_IO_ERROR if the writer rejects
+ *         output, GHOSTTY_LIMIT_EXCEEDED if output accounting overflows, or
+ *         another error code on failure
+ *
+ * @ingroup snapshot
+ */
+GHOSTTY_API GhosttyResult ghostty_snapshot_encode_options(
+    GhosttyTerminal terminal,
+    GhosttyWriter writer,
+    const GhosttySnapshotEncodeOptions* options);
+
+/**
  * Encode a complete terminal snapshot to a caller-provided buffer.
  *
  * Pass NULL for buf with buf_len zero to query the required size. If the

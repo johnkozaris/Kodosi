@@ -11,10 +11,13 @@ final class TerminalRendererDelegateProxy:
     TerminalSurfaceGridResizeDelegate,
     TerminalSurfaceLifecycleDelegate,
     TerminalSurfaceOpenURLDelegate,
-    TerminalSurfaceHoverLinkDelegate
+    TerminalSurfaceHoverLinkDelegate,
+    TerminalSurfaceClipboardReadDelegate
 {
     weak var target: TerminalViewState?
     var viewportDidResize: (() -> Void)?
+    var clipboardReadRequested: ((@escaping @MainActor (Bool) -> Void) -> Void)?
+    var asksBeforeClipboardRead = true
 
     private var updateGeneration: UInt64 = 0
     private var isDeferring = false
@@ -60,6 +63,11 @@ final class TerminalRendererDelegateProxy:
 
     func terminalDidUpdateHoverLink(_ url: String?) {
         forward { $0.terminalDidUpdateHoverLink(url) }
+    }
+
+    func terminalDidRequestClipboardRead(_ answer: @escaping @MainActor (Bool) -> Void) {
+        guard asksBeforeClipboardRead else { return answer(true) }
+        clipboardReadRequested?(answer)
     }
 
     private func forward(_ callback: @escaping @MainActor (TerminalViewState) -> Void) {

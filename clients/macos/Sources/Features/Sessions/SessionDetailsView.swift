@@ -19,7 +19,7 @@ struct SessionDetailsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(spacing: 14) {
-                AgentMark(kind: (current ?? session).agent, size: 44, activity: (current ?? session).mark(rested: .awake))
+                AgentMark(session: current ?? session, size: 44, activity: (current ?? session).mark(rested: .awake))
                 VStack(alignment: .leading, spacing: 2) {
                     if current?.isOwner == true {
                         TextField("Name", text: $name)
@@ -43,6 +43,12 @@ struct SessionDetailsView: View {
                 ListGroup {
                     ListRow(current.hostLabel, subtitle: current.isConnected ? nil : current.message ?? current.statusLabel,
                             symbol: DeviceGlyph.symbol(for: current.hostLabel), tint: TileTint.graphite)
+                    if let place = current.place, let label = current.placeLabel {
+                        ListRow(label, subtitle: current.runsAsRoot ? String(localized: "As root") : nil,
+                                symbol: PlaceGlyph.symbol(for: place.kind), tint: TileTint.graphite)
+                    } else if current.runsAsRoot {
+                        ListRow(String(localized: "Runs as root"), symbol: "number", tint: TileTint.amber)
+                    }
                     if let path = current.workingDir {
                         ListRow(HostPath.folderName(path), subtitle: path, monoSubtitle: true,
                                 symbol: "folder.fill", tint: TileTint.amber)

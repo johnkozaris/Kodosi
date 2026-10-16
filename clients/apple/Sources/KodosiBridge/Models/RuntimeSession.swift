@@ -33,6 +33,21 @@ public struct ProgramTitle: Decodable, Equatable, Sendable {
     }
 }
 
+/// Where the program of a terminal runs when it is not the terminal's own computer, and
+/// whether it runs as root, from the contexts that programs report (OSC 3008).
+public struct TerminalContext: Decodable, Equatable, Sendable {
+    public let place: TerminalPlace?
+    public let root: Bool
+}
+
+/// The other computer, container or virtual machine that a program runs in.
+public struct TerminalPlace: Decodable, Equatable, Sendable {
+    public enum Kind: String, Decodable, Sendable { case remote, container, vm }
+
+    public let kind: Kind
+    public let name: String
+}
+
 public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public enum Kind: String, Decodable, Sendable { case local, remote }
     public enum Status: String, Decodable, Sendable { case running, reconnecting, closing }
@@ -46,6 +61,7 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public let repository: Bool?
     public let title: ProgramTitle?
     public let programStatus: ProgramStatus?
+    public let context: TerminalContext?
     public let name: String
     public let workingDir: String?
     public let ownerUserId: String?
@@ -97,6 +113,15 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
 
     public var progress: Int? {
         isWorking ? programStatus?.progress : nil
+    }
+
+    /// The other computer, container or virtual machine that the program runs in.
+    public var place: TerminalPlace? {
+        context?.place
+    }
+
+    public var runsAsRoot: Bool {
+        context?.root == true
     }
 
     public var isTroubled: Bool {
