@@ -195,8 +195,8 @@ public:
             if (entry->needsCheckpoint.load(std::memory_order_acquire)) {
                 return false;
             }
-            const auto frame = entry->kernel.frame();
-            return frame && frame->nextSequence != nextSequence;
+            const auto applied = entry->kernel.nextSequence();
+            return applied && *applied != nextSequence;
         };
         CheckpointTargets targets {
             .entries = {},

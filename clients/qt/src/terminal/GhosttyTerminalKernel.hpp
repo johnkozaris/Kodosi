@@ -190,6 +190,7 @@ public:
     [[nodiscard]] std::expected<std::size_t, Failure> scrollbackLimitLines() const;
     [[nodiscard]] std::expected<std::size_t, Failure> scrollbackLimitBytes() const;
     [[nodiscard]] Frame frame() const;
+    [[nodiscard]] std::optional<std::uint64_t> nextSequence() const;
     [[nodiscard]] std::optional<ClipboardWrite> takeClipboardWrite();
 
 private:

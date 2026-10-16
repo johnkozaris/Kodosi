@@ -25,6 +25,7 @@
 #include <QQuickWindow>
 #include <QRawFont>
 #include <QSignalSpy>
+#include <QThread>
 #include <QTimer>
 #include <QUrl>
 #include <QWheelEvent>
@@ -311,6 +312,8 @@ private slots:
     void failedCheckpointPreservesPriorFrame();
     void resizeRequiresExactSequenceBoundary();
     void consoleCheckpointKeepsHistoryOnResize();
+    void synchronizedOutputShowsOnlyFinishedFrames();
+    void synchronizedOutputThatNeverEndsShowsAfterOneSecond();
     void registryConsumesNormativeControlWireWithoutLosingU64Precision();
     void rasterizerPreservesTerminalCellBackgrounds();
     void rasterizerUsesBrandedSelectionAndPreeditPalette();
@@ -3607,6 +3610,81 @@ void TerminalKernelTest::resizeRequiresExactSequenceBoundary()
     QCOMPARE((*resized)->rows, 4);
     QCOMPARE((*resized)->columns, 24);
     QCOMPARE((*resized)->nextSequence, 5);
+}
+
+void TerminalKernelTest::synchronizedOutputShowsOnlyFinishedFrames()
+{
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("session"),
+        QStringLiteral("subscription"),
+        2,
+    };
+    kodosi::GhosttyTerminalKernel kernel;
+    QVERIFY(kernel.installCheckpoint({
+        subscription,
+        1,
+        2,
+        20,
+        checkpointFor(QByteArrayLiteral("finished"), 20, 2),
+    }));
+
+    const auto begun = kernel.applyData({
+        subscription,
+        1,
+        QByteArrayLiteral("\x1b[?2026h\x1b[2J\x1b[Hhalf"),
+    });
+    QVERIFY(begun);
+    QVERIFY(frameText(**begun).contains(QStringLiteral("finished")));
+    QVERIFY(!frameText(**begun).contains(QStringLiteral("half")));
+
+    const auto during = kernel.applyData({subscription, 2, QByteArrayLiteral(" drawn")});
+    QVERIFY(during);
+    QCOMPARE(*during, *begun);
+    QCOMPARE(kernel.nextSequence(), std::optional<std::uint64_t> {3});
+
+    const auto ended = kernel.applyData({subscription, 3, QByteArrayLiteral("\x1b[?2026l")});
+    QVERIFY(ended);
+    QVERIFY(frameText(**ended).contains(QStringLiteral("half drawn")));
+    QVERIFY(!frameText(**ended).contains(QStringLiteral("finished")));
+
+    const auto whole = kernel.applyData({
+        subscription,
+        4,
+        QByteArrayLiteral("\x1b[?2026h\x1b[2J\x1b[Hone write\x1b[?2026l"),
+    });
+    QVERIFY(whole);
+    QVERIFY(frameText(**whole).contains(QStringLiteral("one write")));
+}
+
+void TerminalKernelTest::synchronizedOutputThatNeverEndsShowsAfterOneSecond()
+{
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("session"),
+        QStringLiteral("subscription"),
+        2,
+    };
+    kodosi::GhosttyTerminalKernel kernel;
+    QVERIFY(kernel.installCheckpoint({
+        subscription,
+        1,
+        2,
+        20,
+        checkpointFor(QByteArrayLiteral("finished"), 20, 2),
+    }));
+    QVERIFY(kernel.applyData({
+        subscription,
+        1,
+        QByteArrayLiteral("\x1b[?2026h\x1b[2J\x1b[Hstuck"),
+    }));
+
+    QThread::msleep(1'050);
+    const auto later = kernel.applyData({subscription, 2, QByteArrayLiteral(" later")});
+    QVERIFY(later);
+    QVERIFY(frameText(**later).contains(QStringLiteral("stuck later")));
+
+    const auto next = kernel.applyData({subscription, 3, QByteArrayLiteral("!")});
+    QVERIFY(next);
+    QVERIFY(frameText(**next).contains(QStringLiteral("stuck later!")));
 }
 
 void TerminalKernelTest::consoleCheckpointKeepsHistoryOnResize()
