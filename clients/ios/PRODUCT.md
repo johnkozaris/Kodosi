@@ -9,7 +9,8 @@ changing sharing and reading provider conversations stay on the computer.
 - Sign-in opens in a system sign-in window. A new device is trusted like a computer: by
   a code entered on a trusted device, the recovery key, or starting fresh.
 - The Terminals tab groups your terminals by computer, then friends' terminals, each
-  with the sign of its state. The tab counts your own terminals that wait for you.
+  with the sign of its state. The tab counts the waiting terminals that you can answer:
+  your own, and others' while you have them open.
 - In a terminal, the phone sets the size only while it has focus. A key row adds the
   keys a phone lacks; 1, 2 and 3 answer agent menus. The composer sends text as one
   paste and Return only when you tap send. A hardware keyboard types directly.
