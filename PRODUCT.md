@@ -51,9 +51,8 @@ terminal. A lost connection does not change sharing.
 
 Terminal traffic and room content are end-to-end encrypted between participants.
 Private keys stay on devices. The backend connects participants and relays encrypted
-content; it does not run commands or read terminal or room plaintext. It sees
-only the agent of each terminal and the state that its program reports, such as
-working or waiting for an approval.
+content; it does not run commands or read terminal or room plaintext. It sees only each
+terminal's agent and reported state, such as working or waiting for an approval.
 
 A recovery key approves a new device when no other device can, and keeps friends and
 rooms. Without it, a person who lost all devices starts fresh with a new identity, and
@@ -77,50 +76,31 @@ progress where work happens and give each failure a clear recovery action.
 - The runtime and backend implement room terminal sharing, encrypted conversation and
   task history, repository links, and GitHub and Gitea issue actions.
 - The Mac app and the Qt app host terminals and take part in rooms. The Qt app runs on
-  Linux and builds for Windows 11 24H2 on x64 and ARM64 with ConPTY and an MSIX package;
-  it is not yet validated on Windows hardware.
-- Each app contains the CLI and has one version. The Mac app downloads an update in the
-  background and installs it when the person quits Kodosi; "Restart to Update" waits in
-  the sidebar, and a restart always asks first because it ends the host's terminals.
-  The Debian package adds the Kodosi apt repository, and the Linux app asks the person
-  to open Kodosi again after an update. Windows installs an update when Kodosi is not in
-  use. An app that is too old for the backend asks the person to update Kodosi.
-- The iPhone and iPad app follows, answers and controls the terminals of the person's
-  computers and friends, and takes part in rooms. It starts no terminals.
-- `kodosi room` and its bundled skill let existing agents take part through the
-  running host.
-- Terminals show the state their programs report through OSC 7501 or a progress bar:
-  working, waiting for a person, done or failed. Everyone who can open a terminal sees
-  it before they open it: the host sends the agent and the state through the backend,
-  without the program's text. Each terminal shows who has it open, the person at its
-  host computer included. While the app is not in front, a terminal that the person
-  owns or has open sends a notification when it starts to wait, finishes or fails.
-- New terminal opens the launcher: on the home it is the launcher there, elsewhere a
-  sheet. A room's New terminal opens it for that room. The host finds the installed
-  agents (Claude Code, Codex, Copilot CLI, Cursor, Gemini CLI and OpenCode), each
-  agent's accounts, models and efforts. An account is a sign-in folder, such as
-  `~/.claude-work`, shown by its signed-in e-mail; the host finds the usual folder,
-  folders named after it and folders that an alias, a function or an exported variable
-  of the person's shell gives the agent. The person picks them and can type a first
-  prompt; the new terminal's shell types the command. A missing agent offers its
-  official install command. A new account is an empty sign-in folder.
-- A terminal at its prompt offers a mark for each installed agent. A mark starts that
-  agent with the person's last choice of account, model and effort. Kodosi types the
-  command into the shell and does nothing more.
-- The Mac app links the `kodosi` command into `~/.local/bin` without a question; the
-  Linux and Windows packages install it. Agents in Kodosi terminals always find it.
-- A room shows a dot when someone else wrote in it after the person last looked; the
-  messages of the person's own agents count, the person's own messages do not. The
-  iPhone Rooms tab counts the rooms with a dot and the open invitations.
-- A terminal can start on a new branch in its own Git worktree. When it ends, the host
-  removes the worktree and the branch only if nothing changed. Kodosi keeps no record
-  of these folders.
-- A server can define plans. A plan limits an account's devices, owned rooms, people
-  and data in each owned room, people who see one of its terminals, friends and open
-  friend requests; an account without a plan gets the default plan. A full room loses
-  its oldest messages first, and the apps say so; tasks and repositories stay.
-- A person deletes their account through the sign-in service's account page. The
-  service removes the account, devices, friends, sharing and owned rooms; what the
-  person wrote in other rooms stays. Terminals keep running.
+  Linux and on Windows 11 24H2 (x64 and ARM64, ConPTY, MSIX); it is not yet validated on
+  Windows hardware. The iPhone and iPad app follows, answers and controls the terminals
+  of the person's computers and friends, takes part in rooms, and starts no terminals.
+- Each app contains the `kodosi` CLI. `kodosi room` and its bundled skill let existing
+  agents take part through the running host.
+- Apps update themselves in the background and never restart without asking, because a
+  restart ends the host's terminals. An app too old for the backend asks for an update.
+- Terminals show the state their programs report (OSC 7501 or a progress bar): working,
+  waiting for a person, done or failed. Everyone who can open a terminal sees its state
+  and who has it open. While the app is in the background, a terminal the person owns or
+  has open sends a notification when it starts to wait, finishes or fails.
+- New terminal opens the launcher. The host finds the installed agents (Claude Code,
+  Codex, Copilot CLI, Cursor, Gemini CLI and OpenCode), their accounts (sign-in folders
+  such as `~/.claude-work`, shown by e-mail, including those the person's shell gives an
+  agent), models and efforts. The person picks them and may type a first prompt; the new
+  terminal's shell types the command. A missing agent offers its install command.
+- A terminal at its prompt offers a mark for each installed agent, which starts it with
+  the person's last choice. Kodosi types the command into the shell and does no more.
+- A room shows a dot when someone else, or one of the person's agents, wrote in it since
+  the person last looked.
+- A terminal can start on a new branch in its own Git worktree, which the host removes
+  when the terminal ends if nothing changed.
+- A server can define plans that limit an account's devices, rooms, people, friends and
+  room data. A full room loses its oldest messages first; tasks and repositories stay.
+- A person deletes their account through the sign-in service's account page; what they
+  wrote in other rooms stays. Terminals keep running.
 - Direct terminal sharing and Claude Code and Copilot CLI conversation preview and
   resume remain available.

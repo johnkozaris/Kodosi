@@ -8,10 +8,9 @@ Read `PRODUCT.md` first. Before changing a client's interface, read that client'
 - `runtime/`: the Rust runtime, `kodosi` CLI and C API. It owns terminals, identity,
   encryption and rooms; the host of a terminal owns its process and state. The iOS app
   uses the viewer build (`--no-default-features`), which hosts nothing.
-- `backend/`: ASP.NET Core service that stores metadata and relays encrypted traffic
-  without seeing plaintext. It reads only the agent and the state of each terminal
-  (`TerminalStatus`), never the program's text. Run one serving process: it holds live
-  sessions behind a PostgreSQL lease.
+- `backend/`: ASP.NET Core service that stores metadata and relays encrypted traffic.
+  It reads only each terminal's agent and state (`TerminalStatus`), never its text. Run
+  one serving process: it holds live sessions behind a PostgreSQL lease.
 - `clients/macos/`, `clients/ios/`: Swift apps that share `clients/apple/`. On macOS the
   signed app executable is also the `kodosi` CLI, so both use the app's Keychain
   identity. The iOS app views terminals and starts none.
@@ -20,16 +19,19 @@ Read `PRODUCT.md` first. Before changing a client's interface, read that client'
   Keycloak's form field names and ids.
 - `protocol/`: contracts. `just protocol-gen` writes `desktop-runtime.json`, the
   `kodosi-ffi-c` build writes the C header, and the rest are written by hand.
-- `VERSION`: the one version of all apps and the CLI. Cargo, CMake and the Xcode
-  projects read it.
+- `VERSION`: the one version of all apps and the CLI.
 - `terminal/ghostty/`: pinned, patched Ghostty, selected by root `Ghostty.lock`. Read
   its `PROVENANCE.md` first; every file in `Patches/ghostty/` is part of the pinned
-  digest. Programs in a terminal may not read or write the clipboard.
+  digest.
 
 ## Rules
 
 - Keep full terminal control. Don't add permission tiers, sandboxing or agent workflow
   machinery.
+- Sharing is trust. People who share a terminal or a room, and the programs and agents
+  in it, are trusted: don't restrict what they can do (clipboard, links, escape
+  sequences, commands). Prompt injection is the agent provider's concern. Protect only
+  against the network, the backend and people without access.
 - Leave provider execution, permissions, settings and conversations with the provider.
 - Preserve end-to-end encryption, chosen sharing, identity continuity, bounded resource
   use and ordered terminal state.
