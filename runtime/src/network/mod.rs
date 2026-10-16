@@ -267,6 +267,7 @@ pub enum PublishedFrame {
     Resize {
         rows: u16,
         cols: u16,
+        cell: crate::terminal::CellPixels,
         at_sequence: u64,
     },
     Closed {
@@ -289,6 +290,7 @@ pub enum RemoteUpdate {
     Resize {
         rows: u16,
         cols: u16,
+        cell: crate::terminal::CellPixels,
         at_sequence: u64,
     },
     Resync,

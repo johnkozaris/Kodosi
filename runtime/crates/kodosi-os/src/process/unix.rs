@@ -55,4 +55,12 @@ pub(super) fn computer_name() -> Option<String> {
     String::from_utf8(output.stdout).ok()
 }
 
+pub(super) fn host_name() -> Option<String> {
+    rustix::system::uname()
+        .nodename()
+        .to_str()
+        .ok()
+        .map(str::to_owned)
+}
+
 pub(super) const fn allow_foreground(_pid: u32) {}

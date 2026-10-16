@@ -2,15 +2,12 @@ use std::{path::PathBuf, str, thread, time::Duration};
 
 use super::{
     status::{BlockedKind, ProgramState, ProgramStatusReport},
-    types::{
-        Checkpoint, TERMINAL_SNAPSHOT_MAX_BYTES, TerminalPixelGeometry, TerminalSize,
-        is_valid_folder,
-    },
+    types::{CellPixels, Checkpoint, TerminalSize, is_valid_folder, snapshot_limits},
 };
 use crate::{Error, Result};
 use ghostty_vt::{
-    CompressionProgress, Effect, ProgramStatusKind, ProgramStatusState, ProgressState, Terminal,
-    TerminalPolicy,
+    CompressionProgress, ContextSignal, Effect, ProgramStatusKind, ProgramStatusState,
+    ProgressState, Terminal, TerminalPolicy,
 };
 use tokio::{
     runtime::Builder as TokioRuntimeBuilder,
@@ -31,6 +28,7 @@ pub(super) enum TerminalEffect {
     Cwd(PathBuf),
     ProgramStatus(ProgramStatusReport),
     Progress(ProgramStatusReport),
+    Context(ContextSignal),
     Reset,
 }
 
@@ -59,11 +57,12 @@ enum TerminalCommand {
     Resize {
         rows: u16,
         cols: u16,
-        pixel_geometry: Option<TerminalPixelGeometry>,
+        cell: CellPixels,
         reply_tx: oneshot::Sender<Result<Vec<TerminalEffect>>>,
     },
     CheckpointData {
         history: bool,
+        image_data_bytes: u64,
         reply_tx: oneshot::Sender<Result<CheckpointWithSequence>>,
     },
     SetFocused {
@@ -118,13 +117,13 @@ impl SessionTerminalHandle {
         &self,
         rows: u16,
         cols: u16,
-        pixel_geometry: Option<TerminalPixelGeometry>,
+        cell: CellPixels,
     ) -> Result<Vec<Vec<u8>>> {
         let effects = self
             .request(|reply_tx| TerminalCommand::Resize {
                 rows,
                 cols,
-                pixel_geometry,
+                cell,
                 reply_tx,
             })
             .await?;
@@ -139,9 +138,18 @@ impl SessionTerminalHandle {
             .collect()
     }
 
-    pub(super) async fn checkpoint_data(&self, history: bool) -> Result<CheckpointWithSequence> {
-        self.request(|reply_tx| TerminalCommand::CheckpointData { history, reply_tx })
-            .await
+    /// A checkpoint holds at most `image_data_bytes` of image pixels.
+    pub(super) async fn checkpoint_data(
+        &self,
+        history: bool,
+        image_data_bytes: u64,
+    ) -> Result<CheckpointWithSequence> {
+        self.request(|reply_tx| TerminalCommand::CheckpointData {
+            history,
+            image_data_bytes,
+            reply_tx,
+        })
+        .await
     }
 
     pub(super) async fn set_focused(&self, focused: bool) -> Result<Vec<u8>> {
@@ -217,27 +225,24 @@ impl SessionTerminal {
         })
     }
 
-    fn resize(
-        &mut self,
-        rows: u16,
-        cols: u16,
-        pixel_geometry: Option<TerminalPixelGeometry>,
-    ) -> Result<Vec<TerminalEffect>> {
-        let (cell_width, cell_height) = pixel_geometry.map_or((0, 0), |geometry| {
-            (geometry.cell_width_pixels(), geometry.cell_height_pixels())
-        });
+    fn resize(&mut self, rows: u16, cols: u16, cell: CellPixels) -> Result<Vec<TerminalEffect>> {
         self.terminal
-            .resize(cols, rows, cell_width, cell_height)
+            .resize(cols, rows, cell.width, cell.height)
             .map_err(terminal_error)
             .map(|effects| effects.into_iter().filter_map(convert_effect).collect())
     }
 
     /// A history too large for one snapshot gives the visible part, so a view
     /// always gets the screen.
-    fn checkpoint_data(&mut self, history: bool) -> Result<CheckpointWithSequence> {
-        let snapshot = match history.then(|| self.terminal.snapshot(TERMINAL_SNAPSHOT_MAX_BYTES)) {
+    fn checkpoint_data(
+        &mut self,
+        history: bool,
+        image_data_bytes: u64,
+    ) -> Result<CheckpointWithSequence> {
+        let limits = snapshot_limits(image_data_bytes);
+        let snapshot = match history.then(|| self.terminal.snapshot(limits)) {
             None | Some(Err(ghostty_vt::Error::LimitExceeded)) => {
-                self.terminal.visible_snapshot(TERMINAL_SNAPSHOT_MAX_BYTES)
+                self.terminal.visible_snapshot(limits)
             }
             Some(full) => full,
         }
@@ -289,6 +294,7 @@ fn convert_effect(effect: Effect) -> Option<TerminalEffect> {
                 message: None,
             }))
         }
+        Effect::Context(signal) => Some(TerminalEffect::Context(signal)),
         Effect::Reset => Some(TerminalEffect::Reset),
     }
 }
@@ -446,15 +452,19 @@ async fn terminal_actor_main(
                     TerminalCommand::Resize {
                         rows,
                         cols,
-                        pixel_geometry,
+                        cell,
                         reply_tx,
                     } => {
-                        let result = terminal.resize(rows, cols, pixel_geometry);
+                        let result = terminal.resize(rows, cols, cell);
                         mutated = result.is_ok();
                         drop(reply_tx.send(result));
                     }
-                    TerminalCommand::CheckpointData { history, reply_tx } => {
-                        let result = terminal.checkpoint_data(history);
+                    TerminalCommand::CheckpointData {
+                        history,
+                        image_data_bytes,
+                        reply_tx,
+                    } => {
+                        let result = terminal.checkpoint_data(history, image_data_bytes);
                         if result.is_ok() {
                             compression.restart_idle();
                         }

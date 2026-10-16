@@ -20,6 +20,8 @@ const SNAPSHOT_ENVELOPE: &[u8] = b"GHOSTSNP\x01\x00";
 const SNAPSHOT_RECORD_HEADER_BYTES: usize = 10;
 const SNAPSHOT_TERMINAL_TAG: u16 = 1;
 const SNAPSHOT_READY_TAG: u16 = 5;
+const SNAPSHOT_KITTY_STORAGE_TAG: u16 = 8;
+const SNAPSHOT_KITTY_TAGS: std::ops::RangeInclusive<u16> = SNAPSHOT_KITTY_STORAGE_TAG..=11;
 const SNAPSHOT_TERMINAL_HEADER_BYTES: usize = 103;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,7 +45,25 @@ pub enum Effect {
         state: ProgressState,
         progress: Option<u8>,
     },
+    Context(ContextSignal),
     Reset,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ContextAction {
+    Start,
+    End,
+}
+
+/// A context signal (OSC 3008): the program enters, changes or leaves a context,
+/// such as a shell, a remote login or a container.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ContextSignal {
+    pub action: ContextAction,
+    pub id: Vec<u8>,
+    /// The fields after the identifier as the program sent them: `key=value`
+    /// pairs separated by `;`, with `;` written as `\x3b` and `\` as `\x5c`.
+    pub fields: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -106,6 +126,8 @@ pub struct FormatOptions {
     pub protection: bool,
     pub kitty_keyboard: bool,
     pub charsets: bool,
+    /// Only the active area, without the history above it.
+    pub screen_only: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -132,6 +154,8 @@ pub enum CompressionProgress {
 pub struct SnapshotHeader {
     pub cols: u16,
     pub rows: u16,
+    pub width_px: u32,
+    pub height_px: u32,
     pub scrollback_max_bytes: Option<u64>,
     pub scrollback_max_lines: Option<u64>,
 }
@@ -165,10 +189,50 @@ impl SnapshotHeader {
         Ok(Self {
             cols: u16::from_le_bytes([fields[0], fields[1]]),
             rows: u16::from_le_bytes([fields[2], fields[3]]),
+            width_px: u32::from_le_bytes([fields[4], fields[5], fields[6], fields[7]]),
+            height_px: u32::from_le_bytes([fields[8], fields[9], fields[10], fields[11]]),
             scrollback_max_bytes: limit(87),
             scrollback_max_lines: limit(95),
         })
     }
+}
+
+/// The records of a snapshot by the documented framing of snapshot format
+/// version 1: each tag with its payload, up to the first record that does not
+/// end in the snapshot.
+fn snapshot_records(snapshot: &[u8]) -> impl Iterator<Item = (u16, &[u8])> {
+    let mut rest = snapshot.strip_prefix(SNAPSHOT_ENVELOPE).unwrap_or_default();
+    std::iter::from_fn(move || {
+        let header = rest.get(..SNAPSHOT_RECORD_HEADER_BYTES)?;
+        let tag = u16::from_le_bytes([header[0], header[1]]);
+        let len = u32::from_le_bytes([header[2], header[3], header[4], header[5]]) as usize;
+        let payload = rest.get(SNAPSHOT_RECORD_HEADER_BYTES..SNAPSHOT_RECORD_HEADER_BYTES + len)?;
+        rest = &rest[SNAPSHOT_RECORD_HEADER_BYTES + len..];
+        Some((tag, payload))
+    })
+}
+
+/// The bounds of an encoded snapshot.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SnapshotLimits {
+    /// The most bytes of the snapshot without its image records.
+    pub text_bytes: usize,
+    /// The most bytes of the whole snapshot.
+    pub total_bytes: usize,
+    /// The most bytes of image pixels it holds. An image beyond keeps only its
+    /// size, and a terminal restored from the snapshot draws nothing for it.
+    pub image_data_bytes: u64,
+}
+
+/// The resource limits of a terminal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Limits {
+    pub continuation_max_bytes: usize,
+    pub scrollback_max_bytes: usize,
+    pub scrollback_max_lines: usize,
+    /// The most bytes of Kitty image pixels that each screen stores; zero turns
+    /// images off.
+    pub image_storage_max_bytes: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -208,42 +272,42 @@ pub struct Terminal {
 }
 
 impl Terminal {
-    pub fn new(
-        cols: u16,
-        rows: u16,
-        continuation_max_bytes: usize,
-        scrollback_max_bytes: usize,
-        scrollback_max_lines: usize,
-    ) -> Result<Self, Error> {
+    pub fn new(cols: u16, rows: u16, limits: Limits) -> Result<Self, Error> {
         let mut raw = ptr::null_mut();
 
         result(unsafe { ghostty_terminal_new(ptr::null(), ptr::from_mut(&mut raw), cols, rows) })?;
         let mut terminal = Self::adopt(raw, cols, rows)?;
-        terminal.configure(
-            continuation_max_bytes,
-            scrollback_max_bytes,
-            scrollback_max_lines,
-        )?;
+        terminal.configure(limits)?;
         Ok(terminal)
     }
 
     /// Restores a terminal from a Ghostty snapshot. A snapshot that ends at READY
     /// restores the screens without the history after them. The decoder keeps
-    /// history up to the limits the snapshot declares, so a snapshot that
-    /// declares more than these limits is refused before it is decoded.
-    pub fn from_snapshot(
-        snapshot: &[u8],
-        continuation_max_bytes: usize,
-        scrollback_max_bytes: usize,
-        scrollback_max_lines: usize,
-    ) -> Result<Self, Error> {
+    /// history and images up to the limits the snapshot declares, so a snapshot
+    /// that declares more than these limits is refused before it is decoded.
+    pub fn from_snapshot(snapshot: &[u8], limits: Limits) -> Result<Self, Error> {
+        let Limits {
+            continuation_max_bytes,
+            scrollback_max_bytes,
+            scrollback_max_lines,
+            ..
+        } = limits;
         let header = SnapshotHeader::read(snapshot)?;
         let within = |declared: Option<u64>, limit: usize| {
             declared
                 .is_some_and(|declared| u64::try_from(limit).is_ok_and(|limit| declared <= limit))
         };
+        let images_within = snapshot_records(snapshot)
+            .filter(|(tag, _)| *tag == SNAPSHOT_KITTY_STORAGE_TAG)
+            .all(|(_, payload)| {
+                payload.get(1..9).is_some_and(|declared| {
+                    u64::from_le_bytes(declared.try_into().unwrap_or_default())
+                        <= limits.image_storage_max_bytes
+                })
+            });
         if !within(header.scrollback_max_bytes, scrollback_max_bytes)
             || !within(header.scrollback_max_lines, scrollback_max_lines)
+            || !images_within
         {
             return Err(Error::LimitExceeded);
         }
@@ -278,11 +342,7 @@ impl Terminal {
         let state = terminal.state()?;
         terminal.callbacks.size.rows = state.rows;
         terminal.callbacks.size.columns = state.cols;
-        terminal.configure(
-            continuation_max_bytes,
-            scrollback_max_bytes,
-            scrollback_max_lines,
-        )?;
+        terminal.configure(limits)?;
         Ok(terminal)
     }
 
@@ -309,12 +369,7 @@ impl Terminal {
         })
     }
 
-    fn configure(
-        &mut self,
-        continuation_max_bytes: usize,
-        scrollback_max_bytes: usize,
-        scrollback_max_lines: usize,
-    ) -> Result<(), Error> {
+    fn configure(&mut self, limits: Limits) -> Result<(), Error> {
         let userdata = ptr::from_mut(self.callbacks.as_mut()).cast::<c_void>();
         self.set_raw(
             GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_USERDATA,
@@ -349,6 +404,10 @@ impl Terminal {
             progress_report_callback as *const c_void,
         )?;
         self.set_callback(
+            GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_HIERARCHICAL_CONTEXT,
+            context_callback as *const c_void,
+        )?;
+        self.set_callback(
             GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_RESET,
             reset_callback as *const c_void,
         )?;
@@ -366,20 +425,19 @@ impl Terminal {
         )?;
         self.set_value(
             GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_CONTINUATION_MAX_BYTES,
-            &continuation_max_bytes,
+            &limits.continuation_max_bytes,
         )?;
         self.set_value(
             GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_SCROLLBACK_MAX_BYTES,
-            &scrollback_max_bytes,
+            &limits.scrollback_max_bytes,
         )?;
         self.set_value(
             GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_SCROLLBACK_MAX_LINES,
-            &scrollback_max_lines,
+            &limits.scrollback_max_lines,
         )?;
-        let graphics_disabled = 0_u64;
         self.set_value(
             GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_KITTY_IMAGE_STORAGE_LIMIT,
-            &graphics_disabled,
+            &limits.image_storage_max_bytes,
         )?;
         let glyph_protocol_disabled = false;
         self.set_value(
@@ -534,6 +592,15 @@ impl Terminal {
             },
             selection: ptr::null(),
         };
+        let active = if options.screen_only {
+            Some(self.active_area()?)
+        } else {
+            None
+        };
+        let raw_options = GhosttyFormatterTerminalOptions {
+            selection: active.as_ref().map_or(ptr::null(), ptr::from_ref),
+            ..raw_options
+        };
         let mut formatter = ptr::null_mut();
 
         result(unsafe {
@@ -576,6 +643,33 @@ impl Terminal {
         bytes.truncate(written);
         self.ensure_healthy()?;
         Ok(bytes)
+    }
+
+    /// A selection of the whole active area.
+    fn active_area(&mut self) -> Result<GhosttySelection, Error> {
+        let state = self.state()?;
+        let corner = |x: u16, y: u16| {
+            let point = GhosttyPoint {
+                tag: GhosttyPointTag_GHOSTTY_POINT_TAG_ACTIVE,
+                value: GhosttyPointValue {
+                    coordinate: GhosttyPointCoordinate { x, y: u32::from(y) },
+                },
+            };
+            let mut grid_ref = GhosttyGridRef {
+                size: mem::size_of::<GhosttyGridRef>(),
+                ..GhosttyGridRef::default()
+            };
+            result(unsafe {
+                ghostty_terminal_grid_ref(self.raw, point, ptr::from_mut(&mut grid_ref))
+            })
+            .map(|()| grid_ref)
+        };
+        Ok(GhosttySelection {
+            size: mem::size_of::<GhosttySelection>(),
+            start: corner(0, 0)?,
+            end: corner(state.cols.saturating_sub(1), state.rows.saturating_sub(1))?,
+            rectangle: false,
+        })
     }
 
     pub fn state(&mut self) -> Result<TerminalState, Error> {
@@ -648,18 +742,19 @@ impl Terminal {
     }
 
     /// Encodes a Ghostty snapshot. Without history it ends at READY: the screens,
-    /// their cursors and modes, and the unfinished input.
+    /// their cursors and modes, their images, and the unfinished input.
     pub fn encode_snapshot(
         &mut self,
         history: bool,
-        maximum_bytes: usize,
+        limits: SnapshotLimits,
     ) -> Result<Vec<u8>, Error> {
         self.ensure_healthy()?;
         let mut sink = SnapshotSink {
             bytes: Vec::new(),
-            maximum_bytes,
+            limits,
             history,
             scanned: 0,
+            text_bytes: 0,
             ready: None,
             exceeded: false,
             unknown_format: false,
@@ -669,7 +764,12 @@ impl Terminal {
             userdata: ptr::from_mut(&mut sink).cast::<c_void>(),
         };
 
-        let encoded = unsafe { ghostty_snapshot_encode(self.raw, writer) };
+        let options = GhosttySnapshotEncodeOptions {
+            size: mem::size_of::<GhosttySnapshotEncodeOptions>(),
+            kitty_image_data_limit: limits.image_data_bytes,
+        };
+        let encoded =
+            unsafe { ghostty_snapshot_encode_options(self.raw, writer, ptr::from_ref(&options)) };
         if sink.exceeded {
             return Err(Error::LimitExceeded);
         }
@@ -808,9 +908,11 @@ impl Drop for DecoderGuard {
 
 struct SnapshotSink {
     bytes: Vec<u8>,
-    maximum_bytes: usize,
+    limits: SnapshotLimits,
     history: bool,
+    /// Where the next record header starts.
     scanned: usize,
+    text_bytes: usize,
     ready: Option<usize>,
     exceeded: bool,
     unknown_format: bool,
@@ -818,20 +920,20 @@ struct SnapshotSink {
 
 impl SnapshotSink {
     fn accept(&mut self, data: &[u8]) -> bool {
-        if data.len() > self.maximum_bytes - self.bytes.len() {
+        if data.len() > self.limits.total_bytes - self.bytes.len() {
             self.exceeded = true;
             return false;
         }
         self.bytes.extend_from_slice(data);
-        if self.history {
-            return true;
-        }
-        self.find_ready();
-        self.ready.is_none() && !self.unknown_format
+        self.scan();
+        let finished = !self.history && self.ready.is_some_and(|end| self.bytes.len() >= end);
+        !finished && !self.exceeded && !self.unknown_format
     }
 
-    /// Follows the documented record framing of snapshot format version 1.
-    fn find_ready(&mut self) {
+    /// Follows the documented record framing of snapshot format version 1. A
+    /// record counts when its header arrives, so a snapshot whose text is over
+    /// its limit stops before the rest is written.
+    fn scan(&mut self) {
         if self.scanned == 0 {
             let Some(envelope) = self.bytes.get(..SNAPSHOT_ENVELOPE.len()) else {
                 return;
@@ -841,21 +943,28 @@ impl SnapshotSink {
                 return;
             }
             self.scanned = SNAPSHOT_ENVELOPE.len();
+            self.text_bytes = self.scanned;
         }
-        while let Some(header) = self
-            .bytes
-            .get(self.scanned..self.scanned + SNAPSHOT_RECORD_HEADER_BYTES)
-        {
+        while self.ready.is_none() || self.history {
+            let Some(header) = self
+                .bytes
+                .get(self.scanned..self.scanned + SNAPSHOT_RECORD_HEADER_BYTES)
+            else {
+                return;
+            };
             let tag = u16::from_le_bytes([header[0], header[1]]);
-            let payload = u32::from_le_bytes([header[2], header[3], header[4], header[5]]) as usize;
-            let end = self.scanned + SNAPSHOT_RECORD_HEADER_BYTES + payload;
-            if end > self.bytes.len() {
-                return;
+            let record = SNAPSHOT_RECORD_HEADER_BYTES
+                + u32::from_le_bytes([header[2], header[3], header[4], header[5]]) as usize;
+            self.scanned += record;
+            if !SNAPSHOT_KITTY_TAGS.contains(&tag) {
+                self.text_bytes += record;
+                if self.text_bytes > self.limits.text_bytes {
+                    self.exceeded = true;
+                    return;
+                }
             }
-            self.scanned = end;
             if tag == SNAPSHOT_READY_TAG {
-                self.ready = Some(end);
-                return;
+                self.ready = Some(self.scanned);
             }
         }
     }
@@ -1102,6 +1211,41 @@ unsafe extern "C" fn program_status_callback(
     });
 }
 
+unsafe extern "C" fn context_callback(
+    _terminal: GhosttyTerminal,
+    userdata: *mut c_void,
+    signal: *const GhosttyTerminalHierarchicalContext,
+) {
+    callback(userdata, (), |state| {
+        if signal.is_null() {
+            state.poisoned = true;
+            return;
+        }
+        let signal = unsafe { &*signal };
+        if signal.size < mem::size_of::<GhosttyTerminalHierarchicalContext>() {
+            state.poisoned = true;
+            return;
+        }
+        let action = match signal.action {
+            GhosttyHierarchicalContextAction_GHOSTTY_HIERARCHICAL_CONTEXT_ACTION_START => {
+                ContextAction::Start
+            }
+            GhosttyHierarchicalContextAction_GHOSTTY_HIERARCHICAL_CONTEXT_ACTION_END => {
+                ContextAction::End
+            }
+            _ => return,
+        };
+        let text = |string: &GhosttyString| unsafe { borrowed_bytes(string.ptr, string.len) };
+        let (Some(id), Some(fields)) = (text(&signal.id), text(&signal.fields)) else {
+            state.poisoned = true;
+            return;
+        };
+        state
+            .effects
+            .push(Effect::Context(ContextSignal { action, id, fields }));
+    });
+}
+
 unsafe extern "C" fn progress_report_callback(
     _terminal: GhosttyTerminal,
     userdata: *mut c_void,
@@ -1244,8 +1388,17 @@ unsafe extern "C" fn device_attributes_callback(
 mod tests {
     use super::*;
 
+    fn limits(scrollback_max_bytes: usize, scrollback_max_lines: usize) -> Limits {
+        Limits {
+            continuation_max_bytes: 1024 * 1024,
+            scrollback_max_bytes,
+            scrollback_max_lines,
+            image_storage_max_bytes: 1024 * 1024,
+        }
+    }
+
     fn terminal() -> Terminal {
-        Terminal::new(20, 4, 1024 * 1024, 8 * 1024 * 1024, 10_000).expect("terminal")
+        Terminal::new(20, 4, limits(8 * 1024 * 1024, 10_000)).expect("terminal")
     }
 
     #[test]
@@ -1501,14 +1654,27 @@ mod tests {
         );
     }
 
+    const UNLIMITED: SnapshotLimits = SnapshotLimits {
+        text_bytes: usize::MAX,
+        total_bytes: usize::MAX,
+        image_data_bytes: u64::MAX,
+    };
+
+    fn within(total_bytes: usize) -> SnapshotLimits {
+        SnapshotLimits {
+            total_bytes,
+            ..UNLIMITED
+        }
+    }
+
     fn snapshot(terminal: &mut Terminal, history: bool) -> Vec<u8> {
         terminal
-            .encode_snapshot(history, usize::MAX)
+            .encode_snapshot(history, UNLIMITED)
             .expect("snapshot")
     }
 
     fn restore(snapshot: &[u8]) -> Result<Terminal, Error> {
-        Terminal::from_snapshot(snapshot, 1024 * 1024, 8 * 1024 * 1024, 10_000)
+        Terminal::from_snapshot(snapshot, limits(8 * 1024 * 1024, 10_000))
     }
 
     fn with_history() -> Terminal {
@@ -1540,21 +1706,25 @@ mod tests {
         let full = snapshot(&mut terminal, true);
 
         assert_eq!(
-            terminal.encode_snapshot(true, full.len() - 1),
+            terminal.encode_snapshot(true, within(full.len() - 1)),
             Err(Error::LimitExceeded)
         );
-        assert_eq!(terminal.encode_snapshot(true, full.len()), Ok(full));
+        assert_eq!(terminal.encode_snapshot(true, within(full.len())), Ok(full));
     }
 
     #[test]
     fn a_snapshot_tells_its_size_and_scrollback_before_it_is_decoded() {
-        let visible = snapshot(&mut with_history(), false);
+        let mut terminal = with_history();
+        terminal.resize(20, 4, 2, 4).expect("pixels");
+        let visible = snapshot(&mut terminal, false);
 
         assert_eq!(
             SnapshotHeader::read(&visible),
             Ok(SnapshotHeader {
                 cols: 20,
                 rows: 4,
+                width_px: 40,
+                height_px: 16,
                 scrollback_max_bytes: Some(8 * 1024 * 1024),
                 scrollback_max_lines: Some(10_000),
             })
@@ -1569,8 +1739,7 @@ mod tests {
     #[test]
     fn a_snapshot_that_keeps_more_history_than_allowed_is_refused_before_decoding() {
         let full = snapshot(&mut with_history(), true);
-        let mut unbounded =
-            Terminal::new(20, 4, 1024 * 1024, usize::MAX, usize::MAX).expect("terminal");
+        let mut unbounded = Terminal::new(20, 4, limits(usize::MAX, usize::MAX)).expect("terminal");
         unbounded.write(b"history").expect("history");
         let unbounded = snapshot(&mut unbounded, true);
 
@@ -1580,7 +1749,7 @@ mod tests {
             (&unbounded, usize::MAX - 1, usize::MAX - 1),
         ] {
             assert_eq!(
-                Terminal::from_snapshot(snapshot, 1024 * 1024, bytes, lines).err(),
+                Terminal::from_snapshot(snapshot, limits(bytes, lines)).err(),
                 Some(Error::LimitExceeded)
             );
         }
@@ -1598,7 +1767,7 @@ mod tests {
         assert_eq!(snapshot(&mut restored, false), visible);
         assert_eq!(restored.state(), source.state());
         assert_eq!(
-            source.encode_snapshot(false, visible.len() - 1),
+            source.encode_snapshot(false, within(visible.len() - 1)),
             Err(Error::LimitExceeded)
         );
     }
@@ -1638,5 +1807,150 @@ mod tests {
         ] {
             assert_eq!(restore(input).err(), Some(Error::InvalidValue));
         }
+    }
+
+    #[test]
+    fn a_context_signal_reaches_the_effects_as_sent() {
+        let mut terminal = terminal();
+
+        let effects = terminal
+            .write(b"\x1b]3008;start=s1;type=remote;targethost=build\x1b\\\x1b]3008;end=s1\x07")
+            .expect("signals");
+
+        assert_eq!(
+            effects,
+            vec![
+                Effect::Context(ContextSignal {
+                    action: ContextAction::Start,
+                    id: b"s1".to_vec(),
+                    fields: b"type=remote;targethost=build".to_vec(),
+                }),
+                Effect::Context(ContextSignal {
+                    action: ContextAction::End,
+                    id: b"s1".to_vec(),
+                    fields: Vec::new(),
+                }),
+            ]
+        );
+    }
+
+    /// A 1x1 RGBA image placed at the cursor; with 2x4 pixel cells it covers
+    /// one cell.
+    const IMAGE: &[u8] = b"\x1b_Ga=T,f=32,s=1,v=1,i=7;AQIDBA==\x1b\\";
+    const PLACE_IMAGE_AGAIN: &[u8] = b"\x1b_Ga=p,i=7\x1b\\";
+
+    #[test]
+    fn a_snapshot_keeps_images_and_their_pixels_within_the_limit() {
+        let mut source = terminal();
+        source.resize(20, 4, 2, 4).expect("pixels");
+        source.write(b"ab").expect("text");
+        source.write(IMAGE).expect("image");
+        let complete = snapshot(&mut source, true);
+        let without_pixels = source
+            .encode_snapshot(
+                true,
+                SnapshotLimits {
+                    image_data_bytes: 0,
+                    ..UNLIMITED
+                },
+            )
+            .expect("snapshot without pixels");
+        let at_snapshot = source.state().expect("state");
+        source.write(PLACE_IMAGE_AGAIN).expect("place again");
+        let placed_again = source.state().expect("state");
+
+        // The four pixel bytes and the animation flag are left out.
+        assert_eq!(without_pixels.len() + 5, complete.len());
+        assert_ne!(placed_again, at_snapshot);
+        for snapshot in [complete, without_pixels] {
+            let mut restored = restore(&snapshot).expect("restore");
+            assert_eq!(restored.state().expect("state"), at_snapshot);
+            restored.write(PLACE_IMAGE_AGAIN).expect("place again");
+            assert_eq!(restored.state().expect("state"), placed_again);
+        }
+    }
+
+    #[test]
+    fn a_snapshot_limits_its_text_apart_from_its_images() {
+        let mut source = terminal();
+        source.resize(20, 4, 2, 4).expect("pixels");
+        source.write(IMAGE).expect("image");
+        let complete = snapshot(&mut source, true);
+        let images: usize = snapshot_records(&complete)
+            .filter(|(tag, _)| SNAPSHOT_KITTY_TAGS.contains(tag))
+            .map(|(_, payload)| SNAPSHOT_RECORD_HEADER_BYTES + payload.len())
+            .sum();
+        let text = |text_bytes| SnapshotLimits {
+            text_bytes,
+            ..UNLIMITED
+        };
+
+        assert!(images > 0);
+        assert_eq!(
+            source.encode_snapshot(true, text(complete.len() - images)),
+            Ok(complete.clone())
+        );
+        assert_eq!(
+            source.encode_snapshot(true, text(complete.len() - images - 1)),
+            Err(Error::LimitExceeded)
+        );
+    }
+
+    #[test]
+    fn a_snapshot_that_stores_more_images_than_allowed_is_refused_before_decoding() {
+        let mut source = terminal();
+        source.write(IMAGE).expect("image");
+        let snapshot = snapshot(&mut source, true);
+        let viewer = |image_storage_max_bytes| Limits {
+            image_storage_max_bytes,
+            ..limits(8 * 1024 * 1024, 10_000)
+        };
+
+        assert!(Terminal::from_snapshot(&snapshot, viewer(1024 * 1024)).is_ok());
+        assert_eq!(
+            Terminal::from_snapshot(&snapshot, viewer(1024 * 1024 - 1)).err(),
+            Some(Error::LimitExceeded)
+        );
+    }
+
+    #[test]
+    fn a_screen_only_format_leaves_the_history_out() {
+        let options = FormatOptions {
+            format: Format::Plain,
+            unwrap: false,
+            trim: true,
+            palette: false,
+            modes: false,
+            scrolling_region: false,
+            tabstops: false,
+            pwd: false,
+            keyboard: false,
+            cursor: false,
+            style: false,
+            hyperlink: false,
+            protection: false,
+            kitty_keyboard: false,
+            charsets: false,
+            screen_only: true,
+        };
+        let mut terminal = with_history();
+
+        let screen = terminal.format(options, usize::MAX).expect("screen");
+        let all = terminal
+            .format(
+                FormatOptions {
+                    screen_only: false,
+                    ..options
+                },
+                usize::MAX,
+            )
+            .expect("all");
+
+        let screen = String::from_utf8(screen).expect("text");
+        assert_eq!(
+            screen.lines().collect::<Vec<_>>(),
+            ["history line 397", "history line 398", "history line 399"]
+        );
+        assert!(all.len() > 10 * screen.len());
     }
 }

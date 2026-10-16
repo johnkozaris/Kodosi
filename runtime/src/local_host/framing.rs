@@ -25,6 +25,7 @@ pub enum TerminalFrame {
     Resize {
         rows: u16,
         cols: u16,
+        cell: terminal::CellPixels,
         at_sequence: u64,
     },
     Closed {
@@ -32,6 +33,9 @@ pub enum TerminalFrame {
         final_sequence: u64,
     },
 }
+/// The largest frame: a checkpoint with its sequence and console state.
+pub(super) const TERMINAL_FRAME_MAX: usize = terminal::TERMINAL_SNAPSHOT_MAX_BYTES + 10;
+
 pub(super) fn checkpoint_frame(checkpoint: &terminal::Checkpoint, next: u64) -> Vec<u8> {
     let snapshot = checkpoint.snapshot();
     let mut bytes = Vec::with_capacity(10 + snapshot.len());
@@ -41,6 +45,16 @@ pub(super) fn checkpoint_frame(checkpoint: &terminal::Checkpoint, next: u64) -> 
     bytes.extend(snapshot);
     bytes
 }
+pub(super) fn resize_frame(
+    rows: u16,
+    cols: u16,
+    cell: terminal::CellPixels,
+    at_sequence: u64,
+) -> Result<Vec<u8>> {
+    control_frame(&json!({"type":"resize","rows":rows,"cols":cols,
+        "cellWidthPixels":cell.width,"cellHeightPixels":cell.height,"atSequence":at_sequence}))
+}
+
 pub(super) fn control_frame(value: &Value) -> Result<Vec<u8>> {
     let mut bytes = vec![CONTROL];
     bytes.extend(serde_json::to_vec(value)?);
@@ -91,6 +105,10 @@ pub async fn read_terminal<R: AsyncRead + Unpin>(
                 Some("resize") => Ok(TerminalFrame::Resize {
                     rows: number(&value, "rows")?,
                     cols: number(&value, "cols")?,
+                    cell: terminal::CellPixels {
+                        width: number(&value, "cellWidthPixels")?,
+                        height: number(&value, "cellHeightPixels")?,
+                    },
                     at_sequence: number(&value, "atSequence")?,
                 }),
                 Some("closed") => Ok(TerminalFrame::Closed {
@@ -201,7 +219,7 @@ pub(super) async fn read_frame<R: AsyncRead + Unpin>(
     Ok(std::mem::take(&mut reader.body))
 }
 pub(super) async fn write_frame<W: AsyncWrite + Unpin>(writer: &mut W, bytes: &[u8]) -> Result<()> {
-    if bytes.is_empty() || bytes.len() > MAX_FRAME {
+    if bytes.is_empty() || bytes.len() > TERMINAL_FRAME_MAX {
         return Err(Error::Invalid("local frame exceeds its bound".into()));
     }
     let size = u32::try_from(bytes.len())

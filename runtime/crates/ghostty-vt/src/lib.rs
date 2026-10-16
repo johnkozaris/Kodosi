@@ -7,15 +7,23 @@
 )]
 
 pub use ghostty_vt_sys::raw::{
-    CompressionProgress, Effect, Error, ProgramStatus, ProgramStatusKind, ProgramStatusState,
-    ProgressState, Screen, SnapshotHeader, TerminalState,
+    CompressionProgress, ContextAction, ContextSignal, Effect, Error, ProgramStatus,
+    ProgramStatusKind, ProgramStatusState, ProgressState, Screen, SnapshotHeader, SnapshotLimits,
+    TerminalState,
 };
 
-use ghostty_vt_sys::raw::{Format, FormatOptions, Terminal as RawTerminal};
+use ghostty_vt_sys::raw::{Format, FormatOptions, Limits, Terminal as RawTerminal};
 
 const FORMATTER_PROFILE_MAX_BYTES: usize = 8 * 1024 * 1024;
 
-const CLI_REPLAY_PREFIX: &[u8] = b"\x1b]8;;\x1b\\\x1b[0m\x1b[2J\x1b[3J\x1b[H";
+/// The most bytes of Kitty image data each screen of a terminal stores, and
+/// the most an unfinished image transmission holds. It fits one full-screen
+/// image of a 5K display.
+pub const IMAGE_STORAGE_MAX_BYTES: u64 = 64 * 1024 * 1024;
+
+/// The replay shows only the screen, in the alternate screen of the terminal
+/// that shows it, so it never clears that terminal's scrollback.
+const CLI_REPLAY_PREFIX: &[u8] = b"\x1b]8;;\x1b\\\x1b[0m\x1b[2J\x1b[H";
 const CLI_REPLAY_SUFFIX: &[u8] = b"\x1b]8;;\x1b\\\x1b[0m";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,6 +31,10 @@ pub struct TerminalPolicy {
     pub continuation_max_bytes: usize,
     pub scrollback_max_bytes: usize,
     pub scrollback_max_lines: usize,
+    /// The most bytes of Kitty image pixels each screen stores. Zero turns
+    /// images off. Every terminal that replays the same output needs the same
+    /// value, or they store different images.
+    pub image_storage_max_bytes: u64,
     pub console: bool,
 }
 
@@ -32,7 +44,19 @@ impl Default for TerminalPolicy {
             continuation_max_bytes: 1024 * 1024,
             scrollback_max_bytes: 64 * 1024 * 1024,
             scrollback_max_lines: 1_024,
+            image_storage_max_bytes: IMAGE_STORAGE_MAX_BYTES,
             console: false,
+        }
+    }
+}
+
+impl TerminalPolicy {
+    const fn limits(self) -> Limits {
+        Limits {
+            continuation_max_bytes: self.continuation_max_bytes,
+            scrollback_max_bytes: self.scrollback_max_bytes,
+            scrollback_max_lines: self.scrollback_max_lines,
+            image_storage_max_bytes: self.image_storage_max_bytes,
         }
     }
 }
@@ -50,13 +74,7 @@ pub struct Terminal {
 
 impl Terminal {
     pub fn new(cols: u16, rows: u16, policy: TerminalPolicy) -> Result<Self, Error> {
-        let mut raw = RawTerminal::new(
-            cols,
-            rows,
-            policy.continuation_max_bytes,
-            policy.scrollback_max_bytes,
-            policy.scrollback_max_lines,
-        )?;
+        let mut raw = RawTerminal::new(cols, rows, policy.limits())?;
         if policy.console {
             raw.use_console_profile()?;
         }
@@ -69,12 +87,7 @@ impl Terminal {
     /// Restores a terminal from a Ghostty snapshot. The snapshot holds the console
     /// modes, so the policy adds only the console rule for resizes.
     pub fn from_snapshot(snapshot: &[u8], policy: TerminalPolicy) -> Result<Self, Error> {
-        let mut raw = RawTerminal::from_snapshot(
-            snapshot,
-            policy.continuation_max_bytes,
-            policy.scrollback_max_bytes,
-            policy.scrollback_max_lines,
-        )?;
+        let mut raw = RawTerminal::from_snapshot(snapshot, policy.limits())?;
         if policy.console {
             raw.keep_scrollback_on_resize()?;
         }
@@ -134,13 +147,13 @@ impl Terminal {
         self.raw.state()
     }
 
-    pub fn snapshot(&mut self, maximum_bytes: usize) -> Result<Vec<u8>, Error> {
-        self.raw.encode_snapshot(true, maximum_bytes)
+    pub fn snapshot(&mut self, limits: SnapshotLimits) -> Result<Vec<u8>, Error> {
+        self.raw.encode_snapshot(true, limits)
     }
 
     /// Ends at READY. The first page of a screen can also hold some history rows.
-    pub fn visible_snapshot(&mut self, maximum_bytes: usize) -> Result<Vec<u8>, Error> {
-        self.raw.encode_snapshot(false, maximum_bytes)
+    pub fn visible_snapshot(&mut self, limits: SnapshotLimits) -> Result<Vec<u8>, Error> {
+        self.raw.encode_snapshot(false, limits)
     }
 
     pub fn format_finite_cli_replay(&mut self) -> Result<Vec<u8>, Error> {
@@ -161,6 +174,7 @@ impl Terminal {
                 protection: false,
                 kitty_keyboard: false,
                 charsets: false,
+                screen_only: true,
             },
             FORMATTER_PROFILE_MAX_BYTES,
         )?;
@@ -178,6 +192,11 @@ mod tests {
     use super::*;
 
     const MAXIMUM: usize = 8 * 1024 * 1024;
+    const LIMITS: SnapshotLimits = SnapshotLimits {
+        text_bytes: MAXIMUM,
+        total_bytes: MAXIMUM,
+        image_data_bytes: u64::MAX,
+    };
 
     /// A restored terminal lays out its pages anew, so tests compare what the
     /// terminals show, not snapshot bytes.
@@ -201,6 +220,7 @@ mod tests {
                     protection: true,
                     kitty_keyboard: true,
                     charsets: true,
+                    screen_only: false,
                 },
                 MAXIMUM,
             )
@@ -221,7 +241,7 @@ mod tests {
             host.write(format!("line {line}\r\n").as_bytes())
                 .expect("output");
         }
-        let snapshot = host.snapshot(MAXIMUM).expect("snapshot");
+        let snapshot = host.snapshot(LIMITS).expect("snapshot");
         let mut replica = Terminal::from_snapshot(&snapshot, console).expect("replica");
         let mut pulling =
             Terminal::from_snapshot(&snapshot, TerminalPolicy::default()).expect("pulling replica");
@@ -241,7 +261,7 @@ mod tests {
     fn assert_snapshot_suffix_parity(cols: u16, rows: u16, prefix: &[u8], suffix: &[u8]) {
         let mut source = Terminal::new(cols, rows, TerminalPolicy::default()).expect("source");
         source.write(prefix).expect("source prefix");
-        let snapshot = source.snapshot(MAXIMUM).expect("snapshot");
+        let snapshot = source.snapshot(LIMITS).expect("snapshot");
 
         let mut restored =
             Terminal::from_snapshot(&snapshot, TerminalPolicy::default()).expect("restore");
@@ -256,11 +276,28 @@ mod tests {
         let policy = TerminalPolicy::default();
         let mut host = Terminal::new(20, 4, policy).expect("host");
         host.write(host_bytes).expect("host bytes");
-        let visible = host.visible_snapshot(MAXIMUM).expect("visible");
+        let visible = host.visible_snapshot(LIMITS).expect("visible");
         let mut viewer = Terminal::from_snapshot(&visible, policy).expect("viewer");
         host.write(suffix).expect("host suffix");
         viewer.write(suffix).expect("viewer suffix");
         assert_eq!(appearance(&mut viewer), appearance(&mut host));
+    }
+
+    #[test]
+    fn a_cli_replay_draws_only_the_screen_and_keeps_the_scrollback_that_shows_it() {
+        let mut host = Terminal::new(20, 4, TerminalPolicy::default()).expect("host");
+        for line in 0..30 {
+            host.write(format!("line {line}\r\n").as_bytes())
+                .expect("output");
+        }
+
+        let replay = host.format_finite_cli_replay().expect("replay");
+        let text = String::from_utf8_lossy(&replay);
+
+        assert!(replay.starts_with(CLI_REPLAY_PREFIX) && replay.ends_with(CLI_REPLAY_SUFFIX));
+        assert!(!text.contains("\x1b[3J"));
+        assert!(text.contains("line 27") && text.contains("line 29"));
+        assert!(!text.contains("line 26"));
     }
 
     #[test]
@@ -296,12 +333,12 @@ mod tests {
             host.write(format!("history line {line} with some more text in it\r\n").as_bytes())
                 .expect("write");
         }
-        let visible = host.visible_snapshot(MAXIMUM).expect("visible");
-        let full = host.snapshot(MAXIMUM).expect("full");
+        let visible = host.visible_snapshot(LIMITS).expect("visible");
+        let full = host.snapshot(LIMITS).expect("full");
         assert!(visible.len() * 2 < full.len());
         let mut viewer =
             Terminal::from_snapshot(&visible, TerminalPolicy::default()).expect("viewer");
-        assert!(viewer.snapshot(MAXIMUM).expect("viewer").len() < full.len());
+        assert!(viewer.snapshot(LIMITS).expect("viewer").len() < full.len());
         assert_eq!(viewer.state().expect("viewer"), host.state().expect("host"));
     }
 

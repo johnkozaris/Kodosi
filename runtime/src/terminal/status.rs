@@ -263,7 +263,7 @@ const fn is_invisible_format(character: char) -> bool {
     )
 }
 
-fn is_display_text(text: &str, max_chars: usize) -> bool {
+pub(super) fn is_display_text(text: &str, max_chars: usize) -> bool {
     !text.is_empty()
         && text.chars().count() <= max_chars
         && !text

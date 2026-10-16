@@ -12,11 +12,13 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore, broadcast, mpsc, oneshot, wat
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
+use super::context::{Contexts, LocalMachine, TerminalContext};
 use super::emulator::{SessionTerminalHandle, TerminalEffect};
 use super::status::ProgramStatusRecords;
 use super::subscribers::Subscribers;
 use super::{
-    ControlFrame, DataFrame, SessionChange, Subscription, TerminalPixelGeometry, TerminalSize,
+    CellPixels, ControlFrame, DataFrame, SessionChange, Subscription,
+    TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES, TerminalPixelGeometry, TerminalSize,
 };
 use crate::{
     Error, Result,
@@ -145,6 +147,7 @@ impl LocalSession {
             queue: VecDeque::new(),
             focused: HashMap::new(),
             resize_owner: None,
+            cell: CellPixels::default(),
             sequence: 0,
             host_stop_reply: None,
             program: None,
@@ -162,6 +165,8 @@ impl LocalSession {
             status: ProgramStatusRecords::default(),
             status_program: None,
             published_status: None,
+            contexts: Contexts::default(),
+            published_context: None,
             metadata_dirty: false,
             next_program_check: tokio::time::Instant::now() + Duration::from_secs(1),
             next_refresh: tokio::time::Instant::now(),
@@ -225,7 +230,7 @@ impl LocalSession {
         claim: bool,
     ) -> impl Future<Output = Result<()>> + Send + use<> {
         let (reply, response) = oneshot::channel();
-        let admission = validated_pixels(size, geometry).and_then(|_| {
+        let admission = validate_pixels(size, geometry).and_then(|()| {
             self.send(Request::Resize {
                 connection,
                 size,
@@ -413,21 +418,18 @@ impl ResizeError {
     }
 }
 
-fn validated_pixels(
-    size: TerminalSize,
-    geometry: Option<TerminalPixelGeometry>,
-) -> Result<(Option<u16>, Option<u16>)> {
+fn validate_pixels(size: TerminalSize, geometry: Option<TerminalPixelGeometry>) -> Result<()> {
     let Some(geometry) = geometry else {
-        return Ok((None, None));
+        return Ok(());
     };
     let geometry = geometry
         .validate_for_size(size)
         .map_err(|error| Error::Invalid(error.to_string()))?;
-    let width = u16::try_from(geometry.width_pixels())
+    u16::try_from(geometry.width_pixels())
         .map_err(|_| Error::Invalid("terminal pixel width exceeds the PTY limit".to_owned()))?;
-    let height = u16::try_from(geometry.height_pixels())
+    u16::try_from(geometry.height_pixels())
         .map_err(|_| Error::Invalid("terminal pixel height exceeds the PTY limit".to_owned()))?;
-    Ok((Some(width), Some(height)))
+    Ok(())
 }
 
 /// The `PATH` of a new terminal with the folder of the running app at its end, when that
@@ -486,6 +488,8 @@ struct LocalActor {
     queue: VecDeque<PendingWrite>,
     focused: HashMap<Controller, CancellationToken>,
     resize_owner: Option<ResizeOwner>,
+    /// The cell size of the last resize that had one.
+    cell: CellPixels,
     sequence: u64,
     host_stop_reply: Option<oneshot::Sender<std::result::Result<serde_json::Value, String>>>,
     program: Option<String>,
@@ -503,6 +507,8 @@ struct LocalActor {
     status: ProgramStatusRecords,
     status_program: Option<u32>,
     published_status: Option<super::ProgramStatus>,
+    contexts: Contexts,
+    published_context: Option<TerminalContext>,
     metadata_dirty: bool,
     next_program_check: tokio::time::Instant,
     next_refresh: tokio::time::Instant,
@@ -547,6 +553,23 @@ impl LocalActor {
                 .map(|title| title.chars().take(1024).collect()),
             program: self.live_program(),
             status: self.status.summary(),
+            context: self.published_context.clone(),
+        }
+    }
+
+    fn publish_context(&mut self) {
+        let context = self.contexts.summary(LocalMachine::get());
+        if context != self.published_context
+            && self
+                .changes
+                .try_send(SessionChange::Context {
+                    id: self.id,
+                    context: context.clone(),
+                })
+                .is_ok()
+        {
+            self.published_context = context;
+            self.metadata_dirty = true;
         }
     }
 
@@ -567,7 +590,7 @@ impl LocalActor {
     }
 
     fn metadata_checkpoint(&self, mut checkpoint: super::Checkpoint) -> super::Checkpoint {
-        checkpoint.metadata = Some(self.metadata());
+        checkpoint.metadata = Some(Box::new(self.metadata()));
         checkpoint
     }
 
@@ -650,7 +673,9 @@ impl LocalActor {
         geometry: Option<TerminalPixelGeometry>,
         claim: bool,
     ) -> std::result::Result<(), ResizeError> {
-        let (width, height) = validated_pixels(size, geometry).map_err(ResizeError::Rejected)?;
+        validate_pixels(size, geometry).map_err(ResizeError::Rejected)?;
+        let cell = geometry.map_or(self.cell, CellPixels::of);
+        let (width, height) = cell.pty_pixels(size);
         if authorization.is_cancelled() {
             return Err(ResizeError::Rejected(Error::Stale));
         }
@@ -668,9 +693,10 @@ impl LocalActor {
             .map_err(ResizeError::Rejected)?;
         let effects = self
             .emulator
-            .resize(size.rows(), size.cols(), geometry)
+            .resize(size.rows(), size.cols(), cell)
             .await
             .map_err(ResizeError::Diverged)?;
+        self.cell = cell;
         for bytes in effects {
             self.enqueue(Bytes::from(bytes), None)
                 .map_err(ResizeError::Diverged)?;
@@ -682,11 +708,13 @@ impl LocalActor {
         self.subscribers.control(&ControlFrame::Resize {
             rows: size.rows(),
             cols: size.cols(),
+            cell,
             at_sequence: self.sequence,
         });
         drop(self.output.send(PublishedFrame::Resize {
             rows: size.rows(),
             cols: size.cols(),
+            cell,
             at_sequence: self.sequence,
         }));
         Ok(())
@@ -774,7 +802,7 @@ impl LocalActor {
         self.subscribers.prune();
         self.type_start_line();
         if self.subscribers.caught_up() && tokio::time::Instant::now() >= self.next_refresh {
-            match self.emulator.checkpoint_data(true).await {
+            match self.emulator.checkpoint_data(true, u64::MAX).await {
                 Ok(cut) => self
                     .subscribers
                     .refresh(&cut.checkpoint, cut.applied_sequence),
@@ -823,8 +851,14 @@ impl LocalActor {
                 self.status_program = None;
                 self.status.program_exited();
             }
+            if self.pty.foreground_is_child()
+                && let Some(shell) = self.pty.foreground_process_group()
+            {
+                self.contexts.shell_in_front(shell);
+            }
         }
         self.publish_status();
+        self.publish_context();
         if self.title != self.published_title
             && let Some(title) = &self.title
             && self
@@ -911,6 +945,11 @@ impl LocalActor {
                     self.status.reset();
                     self.publish_status();
                 }
+                TerminalEffect::Context(signal) => {
+                    self.contexts
+                        .apply(signal, self.pty.foreground_process_group());
+                    self.publish_context();
+                }
                 TerminalEffect::DesktopNotification { title, body } => {
                     drop(self.changes.try_send(SessionChange::Notification {
                         id: self.id,
@@ -972,7 +1011,7 @@ impl LocalActor {
                 if reply.is_closed() {
                     return None;
                 }
-                let result = match self.emulator.checkpoint_data(true).await {
+                let result = match self.emulator.checkpoint_data(true, u64::MAX).await {
                     Ok(cut) => self.subscribers.subscribe(
                         self.incarnation,
                         cut.checkpoint,
@@ -1055,7 +1094,7 @@ impl LocalActor {
 
     async fn capture_for(&self, connection: Uuid) -> Result<CheckpointCut> {
         let authorization = self.subscribers.authorization(connection)?;
-        let cut = self.emulator.checkpoint_data(true).await?;
+        let cut = self.emulator.checkpoint_data(true, u64::MAX).await?;
         if authorization.is_cancelled() {
             return Err(Error::Stale);
         }
@@ -1110,7 +1149,7 @@ impl LocalActor {
                 if !reply.is_closed() {
                     let result = self
                         .emulator
-                        .checkpoint_data(history)
+                        .checkpoint_data(history, TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES)
                         .await
                         .map_err(|error| error.to_string())
                         .and_then(|cut| {

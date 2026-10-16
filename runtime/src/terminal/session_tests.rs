@@ -1,4 +1,4 @@
-use super::super::{BlockedKind, ProgramState, ProgramStatus};
+use super::super::{BlockedKind, ContextPlace, PlaceKind, ProgramState, ProgramStatus};
 use super::*;
 
 async fn shell(
@@ -131,6 +131,52 @@ async fn invalid_geometry_is_rejected_without_stopping_the_process() {
 }
 
 #[tokio::test]
+async fn a_resize_without_pixels_keeps_the_cell_size_of_the_last_resize() {
+    let (session, _changes, _root) = shell("stty -echo; exec /bin/cat").await;
+    let mut subscription = session.subscribe().await.expect("subscribe");
+    let size = TerminalSize::new(20, 80).expect("size");
+    let wider = TerminalSize::new(20, 100).expect("wider");
+    let geometry = TerminalPixelGeometry::new(640, 320, 8, 16).expect("geometry");
+    session
+        .resize(subscription.connection_id, size, Some(geometry), true)
+        .await
+        .expect("resize with pixels");
+    session
+        .resize(subscription.connection_id, wider, None, true)
+        .await
+        .expect("resize without pixels");
+
+    let cell = CellPixels {
+        width: 8,
+        height: 16,
+    };
+    for expected in [size, wider] {
+        let received = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                if let Some(ControlFrame::Resize {
+                    rows, cols, cell, ..
+                }) = subscription.control.recv().await
+                {
+                    break (rows, cols, cell);
+                }
+            }
+        })
+        .await
+        .expect("resize frame");
+        assert_eq!(received, (expected.rows(), expected.cols(), cell));
+    }
+    let cut = session
+        .checkpoint(subscription.connection_id)
+        .await
+        .expect("checkpoint");
+    assert_eq!(
+        (cut.checkpoint.size(), cut.checkpoint.cell()),
+        (wider, cell)
+    );
+    session.close().await.expect("close");
+}
+
+#[tokio::test]
 async fn resize_claim_is_current_connection_ownership_not_a_permission_role() {
     let (session, _changes, _root) = shell("exec /bin/cat").await;
     let first = session.subscribe().await.expect("first");
@@ -259,9 +305,11 @@ async fn resize_checkpoint_precedes_bootstrap_barrier_at_the_same_output_cut() {
             PublishedFrame::Resize {
                 rows,
                 cols,
+                cell,
                 at_sequence,
             } => {
                 assert_eq!((rows, cols), (size.rows(), size.cols()));
+                assert_eq!(cell, CellPixels::default());
                 assert_eq!(at_sequence, cut.next_sequence);
                 resized = true;
             }
@@ -372,6 +420,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         queue: VecDeque::new(),
         focused: HashMap::new(),
         resize_owner: None,
+        cell: CellPixels::default(),
         sequence: 0,
         host_stop_reply: None,
         program: None,
@@ -389,6 +438,8 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         status: ProgramStatusRecords::default(),
         status_program: None,
         published_status: None,
+        contexts: Contexts::default(),
+        published_context: None,
         metadata_dirty: false,
         next_program_check: tokio::time::Instant::now(),
         next_refresh: tokio::time::Instant::now(),
@@ -497,6 +548,69 @@ async fn a_progress_bar_shows_as_work_and_ends_with_its_program() {
         })
     );
     assert_eq!(next_status(&mut changes).await, None);
+    session.close().await.expect("close");
+}
+
+async fn next_context(changes: &mut mpsc::Receiver<SessionChange>) -> Option<TerminalContext> {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Some(SessionChange::Context { context, .. }) = changes.recv().await {
+                break context;
+            }
+        }
+    })
+    .await
+    .expect("context change")
+}
+
+#[tokio::test]
+async fn a_context_names_its_place_until_it_ends() {
+    let (session, mut changes, _root) = shell(
+        "printf '\\033]3008;start=run;type=elevate;user=me;targetuser=root\\007'; sleep 1; printf '\\033]3008;end=run\\007'; exec /bin/cat",
+    )
+    .await;
+    assert_eq!(
+        next_context(&mut changes).await,
+        Some(TerminalContext {
+            place: None,
+            root: true,
+        })
+    );
+    assert_eq!(next_context(&mut changes).await, None);
+    session.close().await.expect("close");
+}
+
+#[tokio::test]
+async fn the_contexts_of_a_job_end_when_the_shell_is_in_front_again() {
+    let (session, mut changes, _root) = shell(
+        "set -m; /bin/sh -c \"printf '\\033]3008;start=ssh;type=remote;targethost=build\\007'; sleep 1\"; exec /bin/cat",
+    )
+    .await;
+    let mut output = session.output();
+    let place = Some(ContextPlace {
+        kind: PlaceKind::Remote,
+        name: "build".to_owned(),
+    });
+    assert_eq!(
+        next_context(&mut changes).await,
+        Some(TerminalContext {
+            place: place.clone(),
+            root: false,
+        })
+    );
+    let metadata = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Ok(PublishedFrame::Metadata(metadata)) = output.recv().await
+                && metadata.context.is_some()
+            {
+                break metadata;
+            }
+        }
+    })
+    .await
+    .expect("metadata for viewers");
+    assert_eq!(metadata.context.and_then(|context| context.place), place);
+    assert_eq!(next_context(&mut changes).await, None);
     session.close().await.expect("close");
 }
 

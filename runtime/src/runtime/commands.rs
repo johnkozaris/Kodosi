@@ -725,6 +725,7 @@ impl Runtime {
                     repository: started.repository,
                     title: None,
                     program_status: None,
+                    context: None,
                     id: id.to_string(),
                     incarnation_id: terminal.incarnation_id.to_string(),
                     kind: SessionKind::Local,

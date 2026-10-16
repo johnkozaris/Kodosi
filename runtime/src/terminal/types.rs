@@ -3,9 +3,44 @@ use serde::{Deserialize, Serialize};
 pub const MAX_TERMINAL_ROWS: u16 = 512;
 pub const MAX_TERMINAL_COLS: u16 = 1024;
 
-pub const TERMINAL_CHECKPOINT_SCHEMA_VERSION: u32 = 4;
+pub const TERMINAL_CHECKPOINT_SCHEMA_VERSION: u32 = 5;
 
-pub const TERMINAL_SNAPSHOT_MAX_BYTES: usize = 8 * 1024 * 1024;
+/// The most bytes of a snapshot without its images.
+///
+/// When the full history is larger, a view gets the visible part.
+pub const TERMINAL_SNAPSHOT_TEXT_MAX_BYTES: usize = 8 * 1024 * 1024;
+
+/// The most bytes of Kitty image data that each screen of a terminal stores.
+pub const TERMINAL_IMAGE_STORAGE_MAX_BYTES: u64 = ghostty_vt::IMAGE_STORAGE_MAX_BYTES;
+
+/// The most bytes of a snapshot.
+///
+/// It holds its text and, for each of the two screens, the stored images and
+/// an unfinished image transmission of at most the storage limit each, with
+/// the records of at most 4,096 images and 16,384 placements.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "the image storage limit is 64 MiB"
+)]
+pub const TERMINAL_SNAPSHOT_MAX_BYTES: usize = TERMINAL_SNAPSHOT_TEXT_MAX_BYTES
+    + 4 * TERMINAL_IMAGE_STORAGE_MAX_BYTES as usize
+    + 4 * 1024 * 1024;
+
+/// The most bytes of image pixels in a snapshot for remote views.
+///
+/// An image beyond it stays blank in those views until the program sends it
+/// again.
+pub const TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES: u64 = 4 * 1024 * 1024;
+
+/// The bounds of a checkpoint that holds at most `image_data_bytes` of pixels.
+#[cfg(any(feature = "host", test))]
+pub(crate) const fn snapshot_limits(image_data_bytes: u64) -> ghostty_vt::SnapshotLimits {
+    ghostty_vt::SnapshotLimits {
+        text_bytes: TERMINAL_SNAPSHOT_TEXT_MAX_BYTES,
+        total_bytes: TERMINAL_SNAPSHOT_MAX_BYTES,
+        image_data_bytes,
+    }
+}
 
 pub const TERMINAL_INPUT_MAX_BYTES: usize = 1024 * 1024;
 
@@ -95,6 +130,48 @@ impl TerminalPixelGeometry {
     }
 }
 
+/// The pixel size of one cell of a terminal on its host.
+///
+/// Each view keeps it in its own terminal state, so a Kitty image covers the
+/// same cells in every view, and scales it to its own cells when it draws.
+/// Zero means that no view reported a pixel size.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CellPixels {
+    pub width: u32,
+    pub height: u32,
+}
+
+impl CellPixels {
+    /// The cells of a terminal of this pixel size.
+    pub fn within(width_pixels: u32, height_pixels: u32, size: TerminalSize) -> Self {
+        Self {
+            width: width_pixels / u32::from(size.cols),
+            height: height_pixels / u32::from(size.rows),
+        }
+    }
+
+    pub const fn of(geometry: TerminalPixelGeometry) -> Self {
+        Self {
+            width: geometry.cell_width_pixels,
+            height: geometry.cell_height_pixels,
+        }
+    }
+
+    /// The size of a terminal of these cells in pixels, where a PTY can hold it.
+    pub fn pty_pixels(self, size: TerminalSize) -> (Option<u16>, Option<u16>) {
+        let pixels = |cells: u16, cell: u32| {
+            u32::from(cells)
+                .checked_mul(cell)
+                .and_then(|pixels| u16::try_from(pixels).ok())
+                .filter(|&pixels| pixels > 0)
+        };
+        (
+            pixels(size.cols, self.width),
+            pixels(size.rows, self.height),
+        )
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TerminalSize {
     rows: u16,
@@ -144,6 +221,8 @@ pub struct TerminalMetadata {
     pub program: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<super::ProgramStatus>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<super::TerminalContext>,
 }
 
 impl TerminalMetadata {
@@ -163,6 +242,10 @@ impl TerminalMetadata {
                 .status
                 .as_ref()
                 .is_none_or(super::ProgramStatus::is_valid)
+            && self
+                .context
+                .as_ref()
+                .is_none_or(super::TerminalContext::is_valid)
     }
 }
 
@@ -182,8 +265,9 @@ mod tests;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Checkpoint {
-    pub metadata: Option<TerminalMetadata>,
+    pub metadata: Option<Box<TerminalMetadata>>,
     size: TerminalSize,
+    cell: CellPixels,
     /// A Ghostty snapshot; one that ends at READY has no history.
     snapshot: Vec<u8>,
     /// The host terminal is a console: a resize does not pull rows from history.
@@ -213,9 +297,11 @@ impl Checkpoint {
         }
         let header = ghostty_vt::SnapshotHeader::read(&snapshot)
             .map_err(|_| TerminalCheckpointError::UnreadableSnapshot)?;
+        let size = TerminalSize::new(header.rows, header.cols)?;
         Ok(Self {
             metadata: None,
-            size: TerminalSize::new(header.rows, header.cols)?,
+            size,
+            cell: CellPixels::within(header.width_px, header.height_px, size),
             snapshot,
             console,
         })
@@ -223,6 +309,11 @@ impl Checkpoint {
 
     pub const fn size(&self) -> TerminalSize {
         self.size
+    }
+
+    /// The cell size of the host terminal when the snapshot was taken.
+    pub const fn cell(&self) -> CellPixels {
+        self.cell
     }
 
     pub const fn rows(&self) -> u16 {
