@@ -90,6 +90,55 @@ struct TerminalLifecycleTests {
     }
 
     @Test
+    func `a host resize sets the grid, and the view's own size does not`() async throws {
+        let view = NSView(frame: NSRect(x: 0, y: 0, width: 640, height: 480))
+        view.wantsLayer = true
+        let session = InMemoryTerminalSession(write: { _ in }, resize: { _ in })
+        let controller = TerminalController()
+        let bridge = TerminalCallbackBridge()
+        let surface = try #require(controller.createSurface(
+            bridge: bridge,
+            configuration: TerminalSurfaceOptions(session: session),
+            platformSetup: { config in
+                config.platform_tag = GHOSTTY_PLATFORM_MACOS
+                config.platform = ghostty_platform_u(macos: ghostty_platform_macos_s(
+                    nsview: Unmanaged.passUnretained(view).toOpaque()
+                ))
+                config.scale_factor = 1
+            }
+        ))
+        session.setSurface(surface)
+        defer {
+            session.clearSurface(ifMatches: surface)
+            ghostty_surface_free(surface)
+            controller.remove(bridge)
+        }
+        let visibleCrosses = {
+            session.waitForPendingOutput()
+            return session.readViewportText()?.count { $0 == "x" }
+        }
+
+        #expect(session.applyHostResize(InMemoryTerminalViewport(
+            columns: 10, rows: 4, cellWidthPixels: 7, cellHeightPixels: 15
+        )))
+        #expect(session.receive(String(repeating: "x", count: 25) + "\r\ny\r\nz"))
+        // Ten columns wrap the crosses into three rows, and four rows scroll the first away.
+        #expect(visibleCrosses() == 15)
+        let hostGrid = ghostty_surface_size(surface)
+        #expect(hostGrid.columns == 10)
+        #expect(hostGrid.rows == 4)
+
+        ghostty_surface_set_size(surface, 320, 240)
+        let viewGrid = ghostty_surface_size(surface)
+        #expect(viewGrid.columns > 10)
+        #expect(viewGrid.rows > 4)
+        try? await Task.sleep(for: .milliseconds(200))
+        #expect(visibleCrosses() == 15)
+        #expect(session.receive("\r\nw"))
+        #expect(visibleCrosses() == 5)
+    }
+
+    @Test
     func `surface initialization and checkpoint restore retain destination scrollback`() throws {
         let fixtureURL = try #require(Bundle.module.url(forResource: "visual-checkpoint", withExtension: "snapshot"))
         let checkpoint = try Data(contentsOf: fixtureURL)

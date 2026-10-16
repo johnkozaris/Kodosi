@@ -162,40 +162,10 @@ index ef0367bd1..e0347cdd0 100644
      const testing = std.testing;
      const alloc = testing.allocator;
 diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
-index e782bd143..5fce99a8d 100644
+index e782bd143..865aade38 100644
 --- a/src/termio/Termio.zig
 +++ b/src/termio/Termio.zig
-@@ -540,15 +540,26 @@ pub fn resize(
-         // its redraw cannot be parsed against the old terminal dimensions.
-         try self.backend.resize(grid_size, size.terminal());
- 
--        // Update the size of our terminal state
-+        // Update the size of our terminal state. A host-managed terminal
-+        // takes its cell size from the computer that sets its size, so
-+        // images are placed as on that computer; a local resize keeps it.
-+        const cell_width, const cell_height = cell: {
-+            const t = &self.terminal;
-+            if (std.meta.activeTag(self.backend) == .host_managed and
-+                t.width_px >= t.cols and t.height_px >= t.rows)
-+            {
-+                break :cell .{ t.width_px / t.cols, t.height_px / t.rows };
-+            }
-+            break :cell .{ self.size.cell.width, self.size.cell.height };
-+        };
-         try self.terminal.resize(
-             self.alloc,
-             .{
-                 .cols = grid_size.columns,
-                 .rows = grid_size.rows,
-                 .cell_size_px = .{
--                    .width = self.size.cell.width,
--                    .height = self.size.cell.height,
-+                    .width = cell_width,
-+                    .height = cell_height,
-                 },
-             },
-         );
-@@ -756,7 +767,9 @@ pub fn restoreCheckpointLocked(
+@@ -756,7 +756,9 @@ pub fn restoreCheckpointLocked(
                  screen,
                  self.config.image_storage_limit,
              );
@@ -206,7 +176,7 @@ index e782bd143..5fce99a8d 100644
          }
      }
  
-@@ -795,8 +808,8 @@ pub fn restoreCheckpointLocked(
+@@ -795,8 +797,8 @@ pub fn restoreCheckpointLocked(
          .cell = self.size.cell,
          .padding = self.size.padding,
      };

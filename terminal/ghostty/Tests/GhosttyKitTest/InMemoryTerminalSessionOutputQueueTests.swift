@@ -93,6 +93,90 @@ struct InMemoryTerminalSessionOutputQueueTests {
     }
 
     @Test
+    func `a host resize applies between the output before it and the output after it`() {
+        let writeStarted = DispatchSemaphore(value: 0)
+        let allowWriteToFinish = DispatchSemaphore(value: 0)
+        let events = LockedValues<String>()
+        let session = makeSession(
+            surfaceWrite: { _, data in
+                let value = String(decoding: data, as: UTF8.self)
+                events.append(value)
+                if value == "blocking" {
+                    writeStarted.signal()
+                    allowWriteToFinish.wait()
+                }
+            },
+            surfaceHostResize: { _, viewport in
+                events.append(
+                    "resize \(viewport.columns)x\(viewport.rows) cell \(viewport.cellWidthPixels)x\(viewport.cellHeightPixels)"
+                )
+                return true
+            }
+        )
+        session.setSurface(testSurface(22))
+        session.receive("blocking")
+        #expect(writeStarted.wait(timeout: .now() + 1) == .success)
+        #expect(session.applyHostResize(InMemoryTerminalViewport(
+            columns: 20, rows: 5, cellWidthPixels: 7, cellHeightPixels: 15
+        )))
+        session.receive("after")
+        allowWriteToFinish.signal()
+        session.waitForPendingOutput()
+
+        #expect(events.values == ["blocking", "resize 20x5 cell 7x15", "after"])
+    }
+
+    @Test
+    func `a host resize before attachment applies in order with the output`() {
+        let events = LockedValues<String>()
+        let session = makeSession(
+            surfaceWrite: { _, data in events.append(String(decoding: data, as: UTF8.self)) },
+            surfaceHostResize: { _, viewport in
+                events.append("resize \(viewport.columns)x\(viewport.rows)")
+                return true
+            }
+        )
+        session.receive("first")
+        session.applyHostResize(InMemoryTerminalViewport(columns: 30, rows: 8))
+        session.receive("second")
+        session.setSurface(testSurface(23))
+        session.waitForPendingOutput()
+
+        #expect(events.values == ["first", "resize 30x8", "second"])
+    }
+
+    @Test
+    func `output after a failed host resize waits for a checkpoint`() {
+        let resizeStarted = DispatchSemaphore(value: 0)
+        let allowResizeToFail = DispatchSemaphore(value: 0)
+        let events = LockedValues<String>()
+        let session = makeSession(
+            surfaceWrite: { _, data in events.append(String(decoding: data, as: UTF8.self)) },
+            surfaceHostResize: { _, _ in
+                resizeStarted.signal()
+                allowResizeToFail.wait()
+                return false
+            },
+            surfaceRestore: { _, data, _ in
+                events.append("restore \(String(decoding: data, as: UTF8.self))")
+                return true
+            }
+        )
+        session.setSurface(testSurface(24))
+        #expect(session.applyHostResize(InMemoryTerminalViewport(columns: 20, rows: 5)))
+        #expect(resizeStarted.wait(timeout: .now() + 1) == .success)
+        #expect(session.receive("queued"))
+        allowResizeToFail.signal()
+        session.waitForPendingOutput()
+
+        #expect(!session.receive("later"))
+        #expect(session.restoreCheckpointSynchronously(Data("checkpoint".utf8), console: false))
+        #expect(session.receive("live"))
+        session.waitForPendingOutput()
+        #expect(events.values == ["restore checkpoint", "live"])
+    }
+
+    @Test
     func `synchronous checkpoint restore requires attached surface`() {
         let session = makeSession(
             surfaceWrite: { _, _ in },
@@ -340,12 +424,14 @@ struct InMemoryTerminalSessionOutputQueueTests {
 
 private func makeSession(
     surfaceWrite: @escaping InMemoryTerminalSurfaceAccess.Write,
+    surfaceHostResize: @escaping InMemoryTerminalSurfaceAccess.HostResize = { _, _ in true },
     surfaceRestore: InMemoryTerminalSurfaceAccess.Restore? = nil
 ) -> InMemoryTerminalSession {
     InMemoryTerminalSession(
         write: { _ in },
         resize: { _ in },
         surfaceWrite: surfaceWrite,
+        surfaceHostResize: surfaceHostResize,
         surfaceRestore: surfaceRestore ?? { surface, data, _ in
             surfaceWrite(surface, data)
             return true

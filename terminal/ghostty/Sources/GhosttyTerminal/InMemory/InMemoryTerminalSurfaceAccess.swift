@@ -3,33 +3,47 @@ import GhosttyKit
 
 final class InMemoryTerminalSurfaceAccess: @unchecked Sendable {
     typealias Write = @Sendable (ghostty_surface_t, Data) -> Void
+    typealias HostResize = @Sendable (ghostty_surface_t, InMemoryTerminalViewport) -> Bool
     typealias Restore = @Sendable (ghostty_surface_t, Data, Bool) -> Bool
 
+    /// The host's output and its resizes apply in the order they arrive.
+    private enum Operation {
+        case write(Data)
+        case hostResize(InMemoryTerminalViewport)
+
+        var byteCount: Int {
+            guard case let .write(data) = self else { return 0 }
+            return data.count
+        }
+    }
+
     static let maximumPendingWriteBytes = 8 * 1024 * 1024
-    private static let maximumPendingWrites = 256
+    private static let maximumPendingOperations = 256
 
     private let condition = NSCondition()
     private let outputQueue: DispatchQueue
     private let outputQueueKey = DispatchSpecificKey<UInt8>()
     private let write: Write
+    private let hostResize: HostResize
     private let restore: Restore
 
     private var surface: ghostty_surface_t?
     private var generation: UInt64 = 0
     private var activeOperations = 0
-    private var pendingOperations: [Data] = []
+    private var pendingOperations: [Operation] = []
     private var pendingWriteBytes = 0
     private var queuedWriteBytes = 0
-    private var queuedWrites = 0
+    private var queuedOperations = 0
     private var discardsWritesUntilReplacement = false
 
-    init(write: @escaping Write, restore: @escaping Restore) {
+    init(write: @escaping Write, hostResize: @escaping HostResize, restore: @escaping Restore) {
         outputQueue = DispatchQueue(
             label: "com.lakr233.libghostty-spm.in-memory-output",
             qos: .userInitiated
         )
         outputQueue.setSpecific(key: outputQueueKey, value: 1)
         self.write = write
+        self.hostResize = hostResize
         self.restore = restore
     }
 
@@ -88,34 +102,12 @@ final class InMemoryTerminalSurfaceAccess: @unchecked Sendable {
 
     @discardableResult
     func enqueueWrite(_ data: Data) -> Bool {
-        condition.lock()
-        guard !discardsWritesUntilReplacement else {
-            condition.unlock()
-            return false
-        }
-        guard data.count <= Self.maximumPendingWriteBytes,
-              queuedWriteBytes + pendingWriteBytes <= Self.maximumPendingWriteBytes - data.count,
-              queuedWrites + pendingOperations.count < Self.maximumPendingWrites
-        else {
-            pendingOperations.removeAll()
-            pendingWriteBytes = 0
-            discardsWritesUntilReplacement = true
-            condition.unlock()
-            return false
-        }
-        guard !data.isEmpty else {
-            condition.unlock()
-            return true
-        }
-        guard surface != nil else {
-            pendingOperations.append(data)
-            pendingWriteBytes += data.count
-            condition.unlock()
-            return true
-        }
-        enqueue(data, generation: generation)
-        condition.unlock()
-        return true
+        admit(.write(data))
+    }
+
+    @discardableResult
+    func enqueueHostResize(_ viewport: InMemoryTerminalViewport) -> Bool {
+        admit(.hostResize(viewport))
     }
 
     func withCurrentSurface<Result>(
@@ -141,23 +133,65 @@ final class InMemoryTerminalSurfaceAccess: @unchecked Sendable {
         outputQueue.sync {}
     }
 
-    private func enqueue(_ data: Data, generation: UInt64) {
-        queuedWriteBytes += data.count
-        queuedWrites += 1
+    private func admit(_ operation: Operation) -> Bool {
+        condition.lock()
+        defer { condition.unlock() }
+        guard !discardsWritesUntilReplacement else { return false }
+        let bytes = operation.byteCount
+        guard bytes <= Self.maximumPendingWriteBytes,
+              queuedWriteBytes + pendingWriteBytes <= Self.maximumPendingWriteBytes - bytes,
+              queuedOperations + pendingOperations.count < Self.maximumPendingOperations
+        else {
+            pendingOperations.removeAll()
+            pendingWriteBytes = 0
+            discardsWritesUntilReplacement = true
+            return false
+        }
+        if case let .write(data) = operation, data.isEmpty {
+            return true
+        }
+        guard surface != nil else {
+            pendingOperations.append(operation)
+            pendingWriteBytes += bytes
+            return true
+        }
+        enqueue(operation, generation: generation)
+        return true
+    }
+
+    private func enqueue(_ operation: Operation, generation: UInt64) {
+        let bytes = operation.byteCount
+        queuedWriteBytes += bytes
+        queuedOperations += 1
         outputQueue.async { [self] in
             defer {
                 condition.lock()
-                queuedWriteBytes -= data.count
-                queuedWrites -= 1
+                queuedWriteBytes -= bytes
+                queuedOperations -= 1
                 condition.unlock()
             }
             withSurface(generation: generation) { surface in
-                write(surface, data)
+                apply(operation, to: surface)
             }
         }
     }
 
-    private func takePendingOperations() -> [Data] {
+    private func apply(_ operation: Operation, to surface: ghostty_surface_t) {
+        switch operation {
+        case let .write(data):
+            write(surface, data)
+        case let .hostResize(viewport):
+            guard !hostResize(surface, viewport) else { return }
+            // The terminal does not have the host's grid, so the output that
+            // follows waits for a checkpoint.
+            condition.lock()
+            generation &+= 1
+            discardsWritesUntilReplacement = true
+            condition.unlock()
+        }
+    }
+
+    private func takePendingOperations() -> [Operation] {
         defer {
             pendingOperations.removeAll(keepingCapacity: false)
             pendingWriteBytes = 0

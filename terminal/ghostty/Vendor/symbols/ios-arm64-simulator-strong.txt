@@ -1520,6 +1520,7 @@ _ghostty_surface_foreground_pid
 _ghostty_surface_free
 _ghostty_surface_free_text
 _ghostty_surface_has_selection
+_ghostty_surface_host_resize
 _ghostty_surface_ime_point
 _ghostty_surface_inherited_config
 _ghostty_surface_inspector
