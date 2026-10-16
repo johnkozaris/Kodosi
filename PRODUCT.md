@@ -94,6 +94,12 @@ progress where work happens and give each failure a clear recovery action.
   terminal's shell types the command. A missing agent offers its install command.
 - A terminal at its prompt offers a mark for each installed agent, which starts it with
   the person's last choice. Kodosi types the command into the shell and does no more.
+- Programs get what Ghostty gives them: Kitty images, clipboard writes, and clipboard
+  reads, which ask first in another person's terminal. Kodosi starts a login zsh or bash
+  (not the bash 3.2 of macOS) with its own small scripts that mark each prompt, so ⌘↑
+  and ⌘↓ (Ctrl+Shift+↑ and ↓ on Linux and Windows) jump between prompts. A terminal shows
+  when its program runs on another computer, in a container or virtual machine, or as
+  root.
 - A room shows a dot when someone else, or one of the person's agents, wrote in it since
   the person last looked.
 - A terminal can start on a new branch in its own Git worktree, which the host removes
