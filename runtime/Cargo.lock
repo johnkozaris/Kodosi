@@ -1256,6 +1256,7 @@ dependencies = [
  "directories",
  "dunce",
  "keyring",
+ "nix",
  "rustix",
  "security-framework",
  "tempfile",
