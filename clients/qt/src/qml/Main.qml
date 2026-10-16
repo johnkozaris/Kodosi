@@ -276,7 +276,7 @@ ApplicationWindow {
     }
     Shortcut {
         enabled: !window.modalOpen
-        sequence: "Ctrl+,"
+        sequences: ["Ctrl+Shift+,", "Ctrl+,"]
 
         onActivated: Models.DesktopState.activeView = Models.DesktopState.Settings
     }
