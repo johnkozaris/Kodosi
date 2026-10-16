@@ -285,7 +285,7 @@ async fn serve_terminal(
     let mut reader = FrameReader::new(reader);
     write_frame(
         &mut writer,
-        &checkpoint_frame(&subscription.checkpoint, subscription.next_sequence)?,
+        &checkpoint_frame(&subscription.checkpoint, subscription.next_sequence),
     )
     .await?;
     let mut next = subscription.next_sequence;
@@ -362,7 +362,7 @@ async fn serve_terminal(
                 }
                 Some(terminal::ControlFrame::Snapshot{checkpoint,next_sequence})=>{
                     if next_sequence<next{return Err(Error::Invalid("terminal snapshot regressed".into()));}
-                    write_frame(&mut writer,&checkpoint_frame(&checkpoint,next_sequence)?).await?;
+                    write_frame(&mut writer,&checkpoint_frame(&checkpoint,next_sequence)).await?;
                     next=next_sequence;controls.clear();
                 }
                 Some(terminal::ControlFrame::Closed{reason,final_sequence})=>closing=Some((reason,final_sequence)),

@@ -1,18 +1,20 @@
 diff --git a/include/ghostty.h b/include/ghostty.h
+index 5b2d56dc8..ae31b506a 100644
 --- a/include/ghostty.h
 +++ b/include/ghostty.h
-@@ -536,6 +536,7 @@
+@@ -536,6 +536,7 @@ typedef struct {
    const char* initial_input;
    bool wait_after_command;
    ghostty_surface_context_e context;
 +  ghostty_config_t config;
  } ghostty_surface_config_s;
  
- typedef struct {
+ typedef enum {
 diff --git a/src/apprt/embedded.zig b/src/apprt/embedded.zig
+index dffd0addb..a8be74a00 100644
 --- a/src/apprt/embedded.zig
 +++ b/src/apprt/embedded.zig
-@@ -527,6 +527,7 @@
+@@ -528,6 +528,7 @@ pub const Surface = struct {
  
          /// Context for the new surface
          context: apprt.surface.NewSurfaceContext = .window,
@@ -20,7 +22,7 @@ diff --git a/src/apprt/embedded.zig b/src/apprt/embedded.zig
      };
  
      pub fn init(self: *Surface, app: *App, opts: Options) !void {
-@@ -554,7 +555,10 @@
+@@ -555,7 +556,10 @@ pub const Surface = struct {
          errdefer app.core_app.deleteSurface(self);
  
          // Shallow copy the config so that we can modify it.
@@ -33,9 +35,10 @@ diff --git a/src/apprt/embedded.zig b/src/apprt/embedded.zig
  
          // If we have a working directory from the options then we set it.
 diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
+index 935f9f3a0..e782bd143 100644
 --- a/src/termio/Termio.zig
 +++ b/src/termio/Termio.zig
-@@ -172,6 +172,8 @@
+@@ -185,6 +185,8 @@ pub const DerivedConfig = struct {
  
      palette: terminalpkg.color.Palette,
      image_storage_limit: usize,
@@ -44,7 +47,7 @@ diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
      cursor_style: terminalpkg.CursorStyle,
      cursor_blink: ?bool,
      cursor_color: ?configpkg.Config.TerminalColor,
-@@ -209,6 +211,8 @@
+@@ -224,6 +226,8 @@ pub const DerivedConfig = struct {
          return .{
              .palette = palette,
              .image_storage_limit = config.@"image-storage-limit",
@@ -53,7 +56,7 @@ diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
              .cursor_style = config.@"cursor-style",
              .cursor_blink = config.@"cursor-style-blink",
              .cursor_color = config.@"cursor-color",
-@@ -492,6 +496,8 @@
+@@ -511,6 +515,8 @@ pub fn changeConfig(self: *Termio, td: *ThreadData, config: *DerivedConfig) !voi
      };
  
      // Set the image limits
@@ -62,54 +65,12 @@ diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
      self.terminal.setKittyGraphicsSizeLimit(self.alloc, config.image_storage_limit);
      self.terminal.setKittyGraphicsLoadingLimits(.allWithTempDir(global.tmpDirPath()));
  }
-@@ -696,9 +702,11 @@
-     var new_terminal = constructed.terminal;
-     var new_terminal_owned = true;
-     defer constructed.parser.deinit(self.alloc);
--    errdefer if (new_terminal_owned) new_terminal.deinit(self.alloc);
-+    defer if (new_terminal_owned) new_terminal.deinit(self.alloc);
+@@ -724,6 +730,8 @@ pub fn restoreCheckpointLocked(
+     }
  
      // Preserve visual configuration and safety policy, never source policy.
 +    new_terminal.setScrollbackMaxBytes(self.config.scrollback_max_bytes);
 +    new_terminal.setScrollbackMaxLines(self.config.scrollback_max_lines);
-     new_terminal.screens.replaceGenerationsFrom(&self.terminal.screens);
-     new_terminal.flags.focused = self.terminal.flags.focused;
-     new_terminal.flags.visible = self.terminal.flags.visible;
-@@ -727,7 +735,7 @@
-         ),
-     });
-     var new_stream_owned = true;
--    errdefer if (new_stream_owned) new_stream.deinit();
-+    defer if (new_stream_owned) new_stream.deinit();
-     terminalpkg.checkpoint_screen_json.restoreParser(
+     new_terminal.colors.palette.changeDefault(
          self.alloc,
-         &new_stream,
-diff --git a/src/terminal/checkpoint_screen_json.zig b/src/terminal/checkpoint_screen_json.zig
---- a/src/terminal/checkpoint_screen_json.zig
-+++ b/src/terminal/checkpoint_screen_json.zig
-@@ -733,14 +733,15 @@
- ) RestoreError!Screen {
-     try state.validate(pages.cols, pages.rows);
-     var owned_pages = pages;
--    errdefer owned_pages.deinit();
-+    var transferred = false;
-+    errdefer if (!transferred) owned_pages.deinit();
- 
-     const pin_value = owned_pages.pin(.{ .active = .{
-         .x = state.cursor.x,
-         .y = state.cursor.y,
-     } }) orelse return error.InvalidCursor;
-     const cursor_pin = try owned_pages.trackPin(pin_value);
--    errdefer owned_pages.untrackPin(cursor_pin);
-+    errdefer if (!transferred) owned_pages.untrackPin(cursor_pin);
-     const rac = cursor_pin.rowAndCell();
- 
-     var result: Screen = .{
-@@ -771,6 +772,7 @@
-             .click = state.cursor.semantic.click.native(),
-         },
-     };
-+    transferred = true;
-     errdefer result.deinit();
-     try result.manualStyleUpdate();
-     if (state.cursor.activeHyperlink) |link| {
+         self.config.palette,

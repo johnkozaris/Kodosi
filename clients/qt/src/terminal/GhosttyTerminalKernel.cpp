@@ -6,6 +6,7 @@
 #include <QByteArray>
 
 #include <algorithm>
+#include <bit>
 #include <iterator>
 #include <limits>
 #include <mutex>
@@ -40,6 +41,74 @@ QColor color(const GhosttyColorRgb value)
     return {value.r, value.g, value.b};
 }
 
+constexpr std::size_t maximumClipboardReads = 8;
+
+bool isTextMime(const QByteArrayView mime)
+{
+    return mime == "text/plain" || mime == "text/plain;charset=utf-8" || mime == "UTF8_STRING"
+        || mime == "TEXT" || mime == "STRING";
+}
+
+TerminalClipboardOperations& clipboardOperations(void* userdata)
+{
+    return *static_cast<TerminalClipboardOperations*>(userdata);
+}
+
+void recordClipboardWrite(
+    GhosttyTerminal,
+    void* userdata,
+    const GhosttyClipboardWrite* write)
+{
+    if (write == nullptr || write->size < sizeof(GhosttyClipboardWrite)) {
+        return;
+    }
+    std::optional<QString> text;
+    if (write->contents_len == 0) {
+        text = QString {};
+    }
+    for (std::size_t index = 0; !text && index < write->contents_len; ++index) {
+        const auto& content = write->contents[index];
+        if (isTextMime(QByteArrayView(content.mime.ptr, static_cast<qsizetype>(content.mime.len)))) {
+            text = QString::fromUtf8(
+                QByteArrayView(content.data.ptr, static_cast<qsizetype>(content.data.len)));
+        }
+    }
+    if (text) {
+        appendClipboardOperation(clipboardOperations(userdata), {
+            .selection = write->location != GHOSTTY_CLIPBOARD_LOCATION_STANDARD,
+            .write = std::move(text),
+            .answerPrefix = {},
+            .answerTerminator = {},
+        });
+    }
+}
+
+// An unanswered read makes Ghostty write an empty OSC 52 answer, which the
+// focused view fills with its clipboard.
+void deferClipboardRead(GhosttyTerminal, void*, const GhosttyClipboardRead*) {}
+
+void recordClipboardRead(
+    GhosttyTerminal,
+    void* userdata,
+    const std::uint8_t* data,
+    const std::size_t length)
+{
+    const QByteArrayView answer(data, static_cast<qsizetype>(length));
+    if (answer.size() < 8 || !answer.startsWith("\x1b]52;") || answer.at(6) != ';') {
+        return;
+    }
+    auto terminator = answer.sliced(7).toByteArray();
+    if (terminator != "\x07" && terminator != "\x1b\\") {
+        return;
+    }
+    appendClipboardOperation(clipboardOperations(userdata), {
+        .selection = answer.at(5) != 'c',
+        .write = std::nullopt,
+        .answerPrefix = answer.first(7).toByteArray(),
+        .answerTerminator = std::move(terminator),
+    });
+}
+
 class TerminalHandle final {
 public:
     TerminalHandle() = default;
@@ -52,6 +121,20 @@ public:
     TerminalHandle& operator=(const TerminalHandle&) = delete;
 
     GhosttyTerminal value = nullptr;
+};
+
+class SnapshotDecoderHandle final {
+public:
+    SnapshotDecoderHandle() = default;
+    ~SnapshotDecoderHandle()
+    {
+        ghostty_snapshot_decoder_free(value);
+    }
+
+    SnapshotDecoderHandle(const SnapshotDecoderHandle&) = delete;
+    SnapshotDecoderHandle& operator=(const SnapshotDecoderHandle&) = delete;
+
+    GhosttySnapshotDecoder value = nullptr;
 };
 
 class RenderStateHandle final {
@@ -604,6 +687,29 @@ FrameResult extractFrame(
     return frame;
 }
 
+// A snapshot that ends at READY holds the screens without history.
+GhosttyResult restoreSnapshotHistory(const GhosttySnapshotDecoder decoder, const std::size_t size)
+{
+    std::size_t consumed = 0;
+    auto result = ghostty_snapshot_decoder_get(
+        decoder, GHOSTTY_SNAPSHOT_DECODER_DATA_SOURCE_OFFSET, &consumed);
+    if (result != GHOSTTY_SUCCESS || consumed == size) {
+        return result;
+    }
+    do {
+        result = ghostty_snapshot_decoder_next(decoder);
+    } while (result == GHOSTTY_SUCCESS);
+    if (result != GHOSTTY_NO_VALUE) {
+        return result;
+    }
+    result = ghostty_snapshot_decoder_get(
+        decoder, GHOSTTY_SNAPSHOT_DECODER_DATA_SOURCE_OFFSET, &consumed);
+    if (result != GHOSTTY_SUCCESS) {
+        return result;
+    }
+    return consumed == size ? GHOSTTY_SUCCESS : GHOSTTY_INVALID_VALUE;
+}
+
 GhosttyTerminalKernel::ConfigureResult applySettings(
     const GhosttyTerminal terminal,
     const TerminalKernelSettings& settings)
@@ -707,6 +813,7 @@ public:
     std::uint64_t displayRevision = 0;
     Frame currentFrame;
     TerminalKernelSettings settings;
+    TerminalClipboardOperations clipboard;
     bool selectionRectangular = false;
     bool admitted = false;
     bool failed = false;
@@ -721,16 +828,16 @@ GhosttyTerminalKernel::GhosttyTerminalKernel(TerminalKernelSettings settings)
 GhosttyTerminalKernel::~GhosttyTerminalKernel() = default;
 
 GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
-    const TerminalSemanticCheckpoint& checkpoint)
+    const TerminalCheckpoint& checkpoint)
 {
     if (checkpoint.rows == 0 || checkpoint.columns == 0
-        || checkpoint.semanticJson.isEmpty()
-        || checkpoint.semanticJson.size() > KODOSI_TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES
+        || checkpoint.snapshot.isEmpty()
+        || checkpoint.snapshot.size() > KODOSI_TERMINAL_SNAPSHOT_MAX_BYTES
         || static_cast<std::uint64_t>(checkpoint.rows) * checkpoint.columns
             > static_cast<std::uint64_t>(maximumVisibleCells)) {
         return std::unexpected(Failure {
             Failure::Code::ResourceLimit,
-            QStringLiteral("Semantic checkpoint dimensions or payload are invalid."),
+            QStringLiteral("Checkpoint dimensions or snapshot size are invalid."),
         });
     }
 
@@ -743,13 +850,24 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
         });
     }
     TerminalHandle candidateTerminal;
-    auto result = ghostty_terminal_new(
+    SnapshotDecoderHandle decoder;
+    const auto snapshotSize = static_cast<std::size_t>(checkpoint.snapshot.size());
+    auto result = ghostty_snapshot_decoder_new_buf(
         nullptr,
-        &candidateTerminal.value,
-        checkpoint.columns,
-        checkpoint.rows);
+        &decoder.value,
+        reinterpret_cast<const std::uint8_t*>(checkpoint.snapshot.constData()),
+        snapshotSize);
+    if (result != GHOSTTY_SUCCESS || decoder.value == nullptr) {
+        return std::unexpected(
+            ghosttyFailure(QStringLiteral("snapshot decoder creation"), result));
+    }
+    result = ghostty_snapshot_decoder_ready(decoder.value, &candidateTerminal.value);
     if (result != GHOSTTY_SUCCESS || candidateTerminal.value == nullptr) {
-        return std::unexpected(ghosttyFailure(QStringLiteral("terminal creation"), result));
+        return std::unexpected(ghosttyFailure(QStringLiteral("snapshot restore"), result));
+    }
+    result = restoreSnapshotHistory(decoder.value, snapshotSize);
+    if (result != GHOSTTY_SUCCESS) {
+        return std::unexpected(ghosttyFailure(QStringLiteral("snapshot history restore"), result));
     }
     const std::uint64_t imageStorageLimit = 0;
     result = ghostty_terminal_set(
@@ -769,18 +887,31 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
         return std::unexpected(
             ghosttyFailure(QStringLiteral("disable Glyph Protocol"), result));
     }
+    const GhosttyTerminalWritePtyFn writePty = recordClipboardRead;
+    const GhosttyTerminalClipboardWriteFn clipboardWrite = recordClipboardWrite;
+    const GhosttyTerminalClipboardReadFn clipboardRead = deferClipboardRead;
+    const std::pair<GhosttyTerminalOption, const void*> clipboardCallbacks[] {
+        {GHOSTTY_TERMINAL_OPT_USERDATA, &m_impl->clipboard},
+        {GHOSTTY_TERMINAL_OPT_WRITE_PTY, std::bit_cast<const void*>(writePty)},
+        {GHOSTTY_TERMINAL_OPT_CLIPBOARD_WRITE, std::bit_cast<const void*>(clipboardWrite)},
+        {GHOSTTY_TERMINAL_OPT_CLIPBOARD_READ, std::bit_cast<const void*>(clipboardRead)},
+    };
+    for (const auto& [option, value] : clipboardCallbacks) {
+        result = ghostty_terminal_set(candidateTerminal.value, option, value);
+        if (result != GHOSTTY_SUCCESS) {
+            return std::unexpected(
+                ghosttyFailure(QStringLiteral("clipboard callbacks"), result));
+        }
+    }
 
-    const GhosttyCheckpointRestoreOptions options = GHOSTTY_CHECKPOINT_RESTORE_OPTIONS_INIT;
-    GhosttyCheckpointInfo info = GHOSTTY_INIT_SIZED(GhosttyCheckpointInfo);
-    result = ghostty_checkpoint_restore(
+    const bool resizePullsScrollback = !checkpoint.console;
+    result = ghostty_terminal_set(
         candidateTerminal.value,
-        reinterpret_cast<const std::uint8_t*>(checkpoint.semanticJson.constData()),
-        static_cast<std::size_t>(checkpoint.semanticJson.size()),
-        &options,
-        &info);
-    if (result != GHOSTTY_SUCCESS || info.schema_version != GHOSTTY_CHECKPOINT_SCHEMA_VERSION
-        || info.json_bytes != static_cast<std::size_t>(checkpoint.semanticJson.size())) {
-        return std::unexpected(ghosttyFailure(QStringLiteral("checkpoint restore"), result));
+        GHOSTTY_TERMINAL_OPT_RESIZE_PULL_SCROLLBACK,
+        &resizePullsScrollback);
+    if (result != GHOSTTY_SUCCESS) {
+        return std::unexpected(
+            ghosttyFailure(QStringLiteral("console resize rule"), result));
     }
     if (auto configured = applySettings(candidateTerminal.value, m_impl->settings);
         !configured) {
@@ -807,7 +938,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
         || (*candidateFrame)->columns != checkpoint.columns) {
         return std::unexpected(Failure {
             Failure::Code::GhosttyRejected,
-            QStringLiteral("Semantic checkpoint dimensions do not match callback metadata."),
+            QStringLiteral("Snapshot dimensions do not match callback metadata."),
         });
     }
     KeyEncoderHandle candidateKeyEncoder;
@@ -833,6 +964,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
     m_impl->viewportRevision = viewportRevision;
     m_impl->displayRevision = displayRevision;
     m_impl->currentFrame = *candidateFrame;
+    m_impl->clipboard.clear();
     m_impl->selectionRectangular = false;
     m_impl->admitted = true;
     m_impl->failed = false;
@@ -845,7 +977,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::applyData(const TerminalDat
     if (!m_impl->admitted || m_impl->failed) {
         return std::unexpected(Failure {
             Failure::Code::MissingCheckpoint,
-            QStringLiteral("Raw terminal data requires an admitted semantic checkpoint."),
+            QStringLiteral("Raw terminal data requires an admitted checkpoint."),
         });
     }
     if (!sameSubscription(data.subscription, m_impl->subscription)) {
@@ -906,6 +1038,29 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::applyData(const TerminalDat
     return m_impl->currentFrame;
 }
 
+TerminalClipboardOperations GhosttyTerminalKernel::takeClipboardOperations()
+{
+    std::scoped_lock lock(m_impl->mutex);
+    return std::exchange(m_impl->clipboard, {});
+}
+
+void appendClipboardOperation(
+    TerminalClipboardOperations& operations,
+    TerminalClipboardOperation operation)
+{
+    if (operation.write && !operations.empty() && operations.back().write
+        && operations.back().selection == operation.selection) {
+        operations.back() = std::move(operation);
+        return;
+    }
+    if (!operation.write
+        && std::ranges::count_if(operations, [](const auto& queued) { return !queued.write; })
+            >= static_cast<std::ptrdiff_t>(maximumClipboardReads)) {
+        return;
+    }
+    operations.push_back(std::move(operation));
+}
+
 GhosttyTerminalKernel::Result GhosttyTerminalKernel::applyResize(
     const TerminalSubscription& subscription,
     const std::uint64_t atSequence,
@@ -916,7 +1071,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::applyResize(
     if (!m_impl->admitted || m_impl->failed) {
         return std::unexpected(Failure {
             Failure::Code::MissingCheckpoint,
-            QStringLiteral("Terminal resize requires an admitted semantic checkpoint."),
+            QStringLiteral("Terminal resize requires an admitted checkpoint."),
         });
     }
     if (!sameSubscription(subscription, m_impl->subscription)) {
@@ -979,7 +1134,7 @@ GhosttyTerminalKernel::encodeKey(
     if (!m_impl->admitted || m_impl->failed) {
         return std::unexpected(Failure {
             Failure::Code::MissingCheckpoint,
-            QStringLiteral("Terminal key encoding requires an admitted semantic checkpoint."),
+            QStringLiteral("Terminal key encoding requires an admitted checkpoint."),
         });
     }
     if (!sameSubscription(subscription, m_impl->subscription)) {
@@ -1060,7 +1215,7 @@ GhosttyTerminalKernel::encodePaste(
     if (!m_impl->admitted || m_impl->failed) {
         return std::unexpected(Failure {
             Failure::Code::MissingCheckpoint,
-            QStringLiteral("Terminal paste requires an admitted semantic checkpoint."),
+            QStringLiteral("Terminal paste requires an admitted checkpoint."),
         });
     }
     if (!sameSubscription(subscription, m_impl->subscription)) {
@@ -1084,18 +1239,6 @@ GhosttyTerminalKernel::encodePaste(
     if (result != GHOSTTY_SUCCESS) {
         return std::unexpected(
             ghosttyFailure(QStringLiteral("bracketed paste mode"), result));
-    }
-    if (!bracketed.value
-        && std::any_of(text.cbegin(), text.cend(), [](const char value) {
-            const auto byte = static_cast<unsigned char>(value);
-            return byte < 0x20 || byte == 0x7f;
-        })) {
-        return std::unexpected(Failure {
-            Failure::Code::UnsafePaste,
-            QStringLiteral(
-                "Multiline or control-character paste requires bracketed paste mode; "
-                "no input was sent."),
-        });
     }
 
     std::size_t required = 0;
@@ -1137,7 +1280,7 @@ GhosttyTerminalKernel::encodeMouse(
     if (!m_impl->admitted || m_impl->failed) {
         return std::unexpected(Failure {
             Failure::Code::MissingCheckpoint,
-            QStringLiteral("Terminal mouse input requires an admitted semantic checkpoint."),
+            QStringLiteral("Terminal mouse input requires an admitted checkpoint."),
         });
     }
     if (!sameSubscription(subscription, m_impl->subscription)) {
@@ -1249,7 +1392,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::scrollViewport(
     if (!m_impl->admitted || m_impl->failed) {
         return std::unexpected(Failure {
             Failure::Code::MissingCheckpoint,
-            QStringLiteral("Terminal scrolling requires an admitted semantic checkpoint."),
+            QStringLiteral("Terminal scrolling requires an admitted checkpoint."),
         });
     }
     if (!sameSubscription(subscription, m_impl->subscription)) {
@@ -1311,7 +1454,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::scrollViewportToBottom(
     if (!m_impl->admitted || m_impl->failed) {
         return std::unexpected(Failure {
             Failure::Code::MissingCheckpoint,
-            QStringLiteral("Terminal scrolling requires an admitted semantic checkpoint."),
+            QStringLiteral("Terminal scrolling requires an admitted checkpoint."),
         });
     }
     if (!sameSubscription(subscription, m_impl->subscription)) {
@@ -1372,7 +1515,7 @@ GhosttyTerminalKernel::linkAt(
     if (!m_impl->admitted || m_impl->failed) {
         return std::unexpected(Failure {
             Failure::Code::MissingCheckpoint,
-            QStringLiteral("Terminal link lookup requires an admitted semantic checkpoint."),
+            QStringLiteral("Terminal link lookup requires an admitted checkpoint."),
         });
     }
     if (!sameSubscription(subscription, m_impl->subscription)) {

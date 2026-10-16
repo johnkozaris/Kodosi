@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import Kodosi 1.0
 import QtQuick
+import QtQuick.Controls.impl
 import Kodosi.Models 1.0 as Models
 
 Item {
@@ -53,25 +54,22 @@ Item {
             NumberAnimation on opacity { from: 0; to: 1; duration: KodosiTheme.motionFade }
         }
     }
-    Rectangle {
+    Squircle {
         anchors.fill: parent
-        radius: root.size * 0.3
-        gradient: Gradient {
-            GradientStop { position: 0; color: root.asleep ? KodosiTheme.mix(KodosiTheme.raised, root.tint, 0.14) : KodosiTheme.mix(root.tint, "#ffffff", 0.2) }
-            GradientStop { position: 0.5; color: root.asleep ? KodosiTheme.mix(KodosiTheme.raised, root.tint, 0.22) : root.tint }
-            GradientStop { position: 1; color: root.asleep ? KodosiTheme.mix(KodosiTheme.raised, root.tint, 0.3) : KodosiTheme.mix(root.tint, "#000000", 0.2) }
-        }
-        border.width: 1
-        border.color: Qt.rgba(1, 1, 1, root.asleep ? 0.06 : 0.18)
+        lightColor: root.asleep ? KodosiTheme.mix(KodosiTheme.raised, root.tint, 0.14) : KodosiTheme.mix(root.tint, "#ffffff", 0.2)
+        baseColor: root.asleep ? KodosiTheme.mix(KodosiTheme.raised, root.tint, 0.22) : root.tint
+        darkColor: root.asleep ? KodosiTheme.mix(KodosiTheme.raised, root.tint, 0.3) : KodosiTheme.mix(root.tint, "#000000", 0.2)
+        rimLight: root.asleep ? 0.12 : 0.4
+        shadow: root.asleep ? 0 : KodosiTheme.isDark ? 0.45 : 0.2
     }
-    Image {
+    IconImage {
         anchors.centerIn: parent
         visible: root.kind !== "shell"
         width: Math.round(root.size * 0.6)
         height: width
         sourceSize.width: width * 2
         sourceSize.height: height * 2
-        opacity: root.asleep ? 0.6 : 1
+        color: root.asleep ? KodosiTheme.mix(root.tint, KodosiTheme.ink, 0.35) : "#ffffff"
         source: root.kind === "shell" ? "" : "qrc:/qt/qml/Kodosi/qml/assets/providers/" + root.kind + (root.kind === "claude" ? "-mark.svg" : "-dark.svg")
     }
     Row {
@@ -83,8 +81,8 @@ Item {
             width: root.size * 0.44
             height: width
             name: "prompt"
-            strokeWidth: 3.2
-            color: root.asleep ? KodosiTheme.mix(root.tint, KodosiTheme.ink, 0.45) : "#ffffff"
+            strokeWidth: 4.2
+            color: root.asleep ? KodosiTheme.mix(root.tint, KodosiTheme.ink, 0.35) : "#ffffff"
         }
         Rectangle {
             anchors.verticalCenter: parent.verticalCenter

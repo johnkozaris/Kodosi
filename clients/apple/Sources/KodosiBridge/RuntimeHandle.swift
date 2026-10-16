@@ -35,7 +35,7 @@ public final class RuntimeHandle: @unchecked Sendable {
         return body(snapshot.pointer)
     }
 
-    public static let expectedFFIABIVersion: Int32 = 8
+    public static let expectedFFIABIVersion: Int32 = 9
 
     public static let expectedProtocolVersion: UInt32 = 61
 
@@ -308,9 +308,9 @@ public final class RuntimeHandle: @unchecked Sendable {
         connection.onControl(Data(bytes: json, count: Int(len)))
     }
 
-    private static let onTerminalCheckpoint: kodosi_terminal_checkpoint_cb_t = { sid, subscriptionId, generation, _, rows, cols, bytes, len, ud in
+    private static let onTerminalCheckpoint: kodosi_terminal_checkpoint_cb_t = { sid, subscriptionId, generation, _, rows, cols, console, bytes, len, ud in
         guard rows > 0, cols > 0,
-              len > 0, len <= KODOSI_TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES,
+              len > 0, len <= KODOSI_TERMINAL_SNAPSHOT_MAX_BYTES,
               let sid, let subscriptionId, let bytes, let self_ = resolve(ud)
         else { return Int32(KODOSI_FFI_TERMINAL_CHECKPOINT_REJECTED) }
         let sessionId = String(cString: sid)
@@ -320,7 +320,7 @@ public final class RuntimeHandle: @unchecked Sendable {
             subscriptionId: subscriptionIdValue,
             subscriptionGeneration: generation
         ) else { return Int32(KODOSI_FFI_STALE_SUBSCRIPTION) }
-        return connection.onSemanticCheckpoint(Data(bytes: bytes, count: Int(len)))
+        return connection.onCheckpoint(Data(bytes: bytes, count: Int(len)), console)
     }
 
     private static let onTerminalConnectResult: kodosi_terminal_connect_result_cb_t = { sid, subscriptionId, subscriptionGeneration, result, ud in

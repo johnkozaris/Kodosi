@@ -5930,11 +5930,11 @@
       }
     ]
   },
-  "ffiAbiVersion": 8,
+  "ffiAbiVersion": 9,
   "protocolVersion": 61,
   "terminal": {
     "checkpointMaxBytes": 8388608,
-    "checkpointSchema": 2,
+    "checkpointSchema": 4,
     "rawInputMaxBytes": 1048576
   }
 }

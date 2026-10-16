@@ -8,7 +8,7 @@ import Testing
 @Suite(.serialized)
 struct TerminalLifecycleTests {
     @Test
-    func `semantic checkpoint restores a live host managed surface transactionally`() async {
+    func `a snapshot restores a live host managed surface transactionally`() async {
         let view = NSView(frame: NSRect(x: 0, y: 0, width: 640, height: 480))
         view.wantsLayer = true
         let session = InMemoryTerminalSession(write: { _ in }, resize: { _ in })
@@ -48,7 +48,7 @@ struct TerminalLifecycleTests {
 
         guard let fixtureURL = Bundle.module.url(
             forResource: "visual-checkpoint",
-            withExtension: "json"
+            withExtension: "snapshot"
         ), let checkpoint = try? Data(contentsOf: fixtureURL) else {
             Issue.record("missing visual checkpoint fixture")
             return
@@ -63,7 +63,7 @@ struct TerminalLifecycleTests {
         try? await Task.sleep(for: .milliseconds(20))
         selectionChanges = 0
         restoreInProgress.value = true
-        #expect(session.restoreCheckpointSynchronously(checkpoint))
+        #expect(session.restoreCheckpointSynchronously(checkpoint, console: false))
         restoreInProgress.value = false
         #expect(callbacksDuringRestore == 0)
         #expect(!ghostty_surface_has_selection(surface))
@@ -77,7 +77,7 @@ struct TerminalLifecycleTests {
         #expect(selectionChanges == 1)
 
         let beforeSize = ghostty_surface_size(surface)
-        #expect(!session.restoreCheckpointSynchronously(Data("{".utf8)))
+        #expect(!session.restoreCheckpointSynchronously(Data("{".utf8), console: false))
         controller.handleWakeup()
         try? await Task.sleep(for: .milliseconds(20))
         #expect(selectionChanges == 1)
@@ -85,13 +85,13 @@ struct TerminalLifecycleTests {
         #expect(afterSize.columns == beforeSize.columns)
         #expect(afterSize.rows == beforeSize.rows)
 
-        #expect(session.restoreCheckpointSynchronously(checkpoint))
+        #expect(session.restoreCheckpointSynchronously(checkpoint, console: false))
         #expect(callbacksDuringRestore == 0)
     }
 
     @Test
     func `surface initialization and checkpoint restore retain destination scrollback`() throws {
-        let fixtureURL = try #require(Bundle.module.url(forResource: "visual-checkpoint", withExtension: "json"))
+        let fixtureURL = try #require(Bundle.module.url(forResource: "visual-checkpoint", withExtension: "snapshot"))
         let checkpoint = try Data(contentsOf: fixtureURL)
         for budget in [0, 64 * 1024 * 1024] {
             let view = NSView(frame: NSRect(x: 0, y: 0, width: 160, height: 80))
@@ -118,7 +118,7 @@ struct TerminalLifecycleTests {
             }
             for restore in [false, true] {
                 if restore {
-                    #expect(session.restoreCheckpointSynchronously(checkpoint))
+                    #expect(session.restoreCheckpointSynchronously(checkpoint, console: false))
                 }
                 #expect(session.receive(Data("\u{1B}[?1049l\u{1B}[2J\u{1B}[3J\u{1B}[H".utf8)))
                 let lines = (0 ..< 12000).map { "\($0)\r\n" }.joined()
@@ -210,16 +210,67 @@ struct TerminalLifecycleTests {
     }
 
     @Test
-    func `host managed clipboard callbacks admit only user paste`() {
-        #expect(terminalClipboardRequestAllowed(
-            request: GHOSTTY_CLIPBOARD_REQUEST_PASTE
-        ))
-        #expect(!terminalClipboardRequestAllowed(
-            request: GHOSTTY_CLIPBOARD_REQUEST_OSC_52_READ
-        ))
-        #expect(!terminalClipboardRequestAllowed(
-            request: GHOSTTY_CLIPBOARD_REQUEST_OSC_52_WRITE
-        ))
+    func `programs write the clipboard and only the focused view answers a read`() {
+        let writes = LockedTerminalWrites()
+        let session = InMemoryTerminalSession(write: { writes.append($0) }, resize: { _ in })
+        let controller = TerminalController(configuration: .init {
+            $0.withCustom("clipboard-read", "allow")
+            $0.withCustom("clipboard-write", "allow")
+        })
+        let coordinator = TerminalSurfaceCoordinator()
+        let hostView = NSView(frame: NSRect(x: 0, y: 0, width: 640, height: 480))
+        hostView.wantsLayer = true
+        let window = NSWindow(
+            contentRect: hostView.frame,
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostView
+        coordinator.isAttached = { hostView.window != nil }
+        coordinator.scaleFactor = { 1 }
+        coordinator.viewSize = { (hostView.bounds.width, hostView.bounds.height) }
+        coordinator.platformSetup = { config in
+            config.platform_tag = GHOSTTY_PLATFORM_MACOS
+            config.platform = ghostty_platform_u(
+                macos: ghostty_platform_macos_s(
+                    nsview: Unmanaged.passUnretained(hostView).toOpaque()
+                )
+            )
+        }
+        coordinator.configuration = .init(session: session)
+        coordinator.controller = controller
+        let pasteboard = NSPasteboard.general
+        let saved = (pasteboard.pasteboardItems ?? []).map { item in
+            let copy = NSPasteboardItem()
+            for type in item.types {
+                if let data = item.data(forType: type) {
+                    copy.setData(data, forType: type)
+                }
+            }
+            return copy
+        }
+        defer {
+            coordinator.freeSurface()
+            window.contentView = nil
+            pasteboard.clearContents()
+            pasteboard.writeObjects(saved)
+        }
+        let output = { (bytes: String) in
+            #expect(session.receive(Data(bytes.utf8)))
+            session.waitForPendingOutput()
+            controller.handleWakeup()
+        }
+
+        output("\u{1B}]52;c;a29kb3NpLWNsaXBib2FyZA==\u{07}")
+        #expect(pasteboard.string(forType: .string) == "kodosi-clipboard")
+
+        output("\u{1B}]52;c;?\u{07}")
+        #expect(writes.values.isEmpty)
+
+        coordinator.setFocus(true)
+        output("\u{1B}]52;c;?\u{07}")
+        #expect(writes.values == [Data("\u{1B}]52;c;a29kb3NpLWNsaXBib2FyZA==\u{1B}\\".utf8)])
     }
 
     @Test
@@ -298,26 +349,6 @@ struct TerminalLifecycleTests {
             }
         }
         #expect(!terminalClipboardRequestsPlainText(mimeTypes: nil, count: 0))
-    }
-
-    @Test
-    func `host managed clipboard writes fail closed`() {
-        #expect(terminalClipboardWriteAllowed(
-            clipboard: GHOSTTY_CLIPBOARD_STANDARD,
-            requiresConfirmation: false
-        ))
-        #expect(!terminalClipboardWriteAllowed(
-            clipboard: GHOSTTY_CLIPBOARD_STANDARD,
-            requiresConfirmation: true
-        ))
-        #expect(!terminalClipboardWriteAllowed(
-            clipboard: GHOSTTY_CLIPBOARD_SELECTION,
-            requiresConfirmation: false
-        ))
-        #expect(!terminalClipboardWriteAllowed(
-            clipboard: GHOSTTY_CLIPBOARD_PRIMARY,
-            requiresConfirmation: false
-        ))
     }
 
     @Test

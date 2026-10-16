@@ -262,8 +262,8 @@ public final class TerminalRendererSession: ObservableObject {
     }
 
     @discardableResult
-    public nonisolated func restoreCheckpointSynchronously(_ data: Data) -> Bool {
-        guard backend.restoreCheckpointSynchronously(data) else { return false }
+    public nonisolated func restoreCheckpointSynchronously(_ snapshot: Data, console: Bool) -> Bool {
+        guard backend.restoreCheckpointSynchronously(snapshot, console: console) else { return false }
         accessibilityUpdateRelay.signal()
         return true
     }
@@ -280,8 +280,8 @@ public final class TerminalRendererSession: ObservableObject {
     }
 
     nonisolated static let hostManagedPolicyOverrides: [(key: String, value: String)] = [
-        ("clipboard-read", "deny"),
-        ("clipboard-write", "deny"),
+        ("clipboard-read", "allow"),
+        ("clipboard-write", "allow"),
         ("image-storage-limit", "0"),
         ("mouse-shift-capture", "never"),
     ]

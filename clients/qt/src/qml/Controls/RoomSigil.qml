@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import Kodosi 1.0
 import QtQuick
+import QtQuick.Shapes
 import Kodosi.Models 1.0 as Models
 
 Item {
@@ -18,34 +19,31 @@ Item {
     implicitHeight: size
     Accessible.ignored: true
 
-    Rectangle {
-        anchors.fill: parent
-        radius: root.size * 0.3
-        gradient: Gradient {
-            GradientStop { position: 0; color: KodosiTheme.mix(root.tint, "#ffffff", 0.16) }
-            GradientStop { position: 0.5; color: KodosiTheme.mix(root.tint, "#000000", 0.08) }
-            GradientStop { position: 1; color: KodosiTheme.mix(root.tint, "#000000", 0.34) }
-        }
-        border.width: 1
-        border.color: Qt.rgba(1, 1, 1, 0.18)
+    component Cell: ShapePath {
+        id: cell
+
+        required property int index
+        readonly property real left: root.size * 0.2 + (index % 2) * (root.cell + root.gap)
+        readonly property real top: root.size * 0.2 + Math.floor(index / 2) * (root.cell + root.gap)
+
+        strokeColor: "transparent"
+        fillColor: Qt.rgba(1, 1, 1, ((root.seed >> (index + 3)) & 1) === 1 || index === root.seed % 4 ? 0.92 : 0.28)
+
+        PathSvg { path: KodosiTheme.squircle(cell.left, cell.top, root.cell, root.cell, root.cell * 0.28) }
     }
-    Grid {
-        anchors.centerIn: parent
-        columns: 2
-        spacing: root.gap
 
-        Repeater {
-            model: 4
+    Squircle {
+        anchors.fill: parent
+        lightColor: KodosiTheme.mix(root.tint, "#ffffff", 0.16)
+        baseColor: KodosiTheme.mix(root.tint, "#000000", 0.08)
+        darkColor: KodosiTheme.mix(root.tint, "#000000", 0.34)
+        rimLight: 0.42
+        rimShade: 0.2
+        shadow: KodosiTheme.isDark ? 0.45 : 0.2
 
-            Rectangle {
-                required property int index
-
-                width: root.cell
-                height: root.cell
-                radius: root.cell * 0.28
-                color: "#ffffff"
-                opacity: ((root.seed >> (index + 3)) & 1) === 1 || index === root.seed % 4 ? 0.92 : 0.28
-            }
-        }
+        Cell { index: 0 }
+        Cell { index: 1 }
+        Cell { index: 2 }
+        Cell { index: 3 }
     }
 }
