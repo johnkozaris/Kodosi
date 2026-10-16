@@ -77,6 +77,9 @@ pub const KODOSI_LOG_ERROR: i32 = 2;
 
 #[cfg(feature = "host")]
 const _: () = assert!(KODOSI_ACTIVATION_MAX_BYTES == local_host::MAX_ACTIVATION_BYTES);
+const _: () = assert!(KODOSI_TERMINAL_SNAPSHOT_MAX_BYTES == terminal::TERMINAL_SNAPSHOT_MAX_BYTES);
+const _: () =
+    assert!(KODOSI_TERMINAL_IMAGE_STORAGE_MAX_BYTES == terminal::TERMINAL_IMAGE_STORAGE_MAX_BYTES);
 
 const MAX_SUBSCRIPTIONS: usize = 4_096;
 const STOP_BUDGET: Duration = Duration::from_secs(10);
