@@ -93,6 +93,8 @@ signals:
 
 private:
     QVector<Session> m_sessions;
+    mutable std::optional<QVariantList> m_sessionsCache;
+    mutable std::optional<QVariantList> m_groupsCache;
     QStringList m_attention;
     AuthorityState m_state = Loading;
     QString m_error;
@@ -105,6 +107,7 @@ private:
     [[nodiscard]] static QString report(const Session& session);
     [[nodiscard]] static QString activity(const Session& session);
     [[nodiscard]] QVariantMap fields(const Session& session) const;
+    [[nodiscard]] bool samePresentation(const QVector<Session>& before, const QVector<Session>& after) const;
 };
 
 }

@@ -4,6 +4,7 @@ import Kodosi 1.0
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import Kodosi.Models 1.0 as Models
 
 Item {
     id: root
@@ -49,9 +50,14 @@ Item {
         y: 3
         height: root.height - 6
 
+        Models.KeyedList {
+            id: optionList
+            key: "value"
+            values: root.options
+        }
         Repeater {
             id: items
-            model: root.options
+            model: optionList
 
             AbstractButton {
                 id: option
@@ -106,9 +112,9 @@ Item {
 
                             Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
                         }
-                        Text {
+                        RollingText {
                             visible: root.dock && !option.selected && option.modelData.count > 0
-                            text: option.modelData.count ?? ""
+                            text: String(option.modelData.count ?? "")
                             color: label.color
                             font.pixelSize: KodosiTheme.fontFootnote
                             font.weight: Font.Medium
@@ -120,6 +126,14 @@ Item {
                     color: "transparent"
                     border.width: option.visualFocus ? 1.5 : 0
                     border.color: KodosiTheme.accentStrong
+                }
+
+                BreathingDot {
+                    x: option.width - width - 3
+                    y: 3
+                    size: 6
+                    color: KodosiTheme.glowOrange
+                    visible: option.modelData.fresh === true && !option.selected
                 }
 
                 onClicked: root.activated(modelData.value)

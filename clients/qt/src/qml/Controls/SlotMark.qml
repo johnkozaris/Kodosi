@@ -26,12 +26,13 @@ Item {
             dashPattern: [2.2, 1.8]
             fillColor: "transparent"
 
-            PathRectangle {
-                x: 0.6
-                y: 0.6
-                width: root.size - 1.2
-                height: root.size - 1.2
-                radius: root.round ? (root.size - 1.2) / 2 : root.size * 0.3
+            PathSvg {
+                readonly property real edge: root.size - 1.2
+
+                path: root.round
+                    ? "M 0.6 " + root.size / 2 + " A " + edge / 2 + " " + edge / 2 + " 0 1 0 " + (root.size - 0.6) + " " + root.size / 2
+                        + " A " + edge / 2 + " " + edge / 2 + " 0 1 0 0.6 " + root.size / 2 + " Z"
+                    : KodosiTheme.squircle(0.6, 0.6, edge, edge, root.size * 0.3)
             }
         }
     }

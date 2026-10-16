@@ -30,6 +30,27 @@ private slots:
 
 void ControlsTest::messageTextKeepsSpacesEscapesMarkupAndSkipsYourself()
 {
+    class Commands final : public kodosi::CommandDispatcher {
+    public:
+        Result send(QByteArrayView) override { return {}; }
+    } commands;
+    QTemporaryDir directory;
+    kodosi::AppearanceModel appearance(
+        std::make_unique<QSettings>(directory.filePath(QStringLiteral("appearance.ini")), QSettings::IniFormat),
+        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
+    kodosi::DesktopStateModel desktop(
+        std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat));
+    kodosi::DesktopSettings settings(
+        std::make_unique<QSettings>(directory.filePath(QStringLiteral("settings.ini")), QSettings::IniFormat));
+    kodosi::SessionCatalogModel sessions;
+    kodosi::Workspace workspace(commands, sessions, desktop, settings);
+    kodosi::qml::AppearanceModelForeign::instance = &appearance;
+    kodosi::qml::DesktopStateModelForeign::instance = &desktop;
+    kodosi::qml::DesktopSettingsForeign::instance = &settings;
+    kodosi::qml::SessionCatalogModelForeign::instance = &sessions;
+    kodosi::qml::AppStateForeign::instance = &workspace;
+    kodosi::qml::AccountModelForeign::instance = &workspace.account();
+    kodosi::qml::PeopleModelForeign::instance = &workspace.people();
     QQmlEngine engine;
     QQmlComponent component(&engine);
     component.setData(R"(
@@ -39,19 +60,25 @@ void ControlsTest::messageTextKeepsSpacesEscapesMarkupAndSkipsYourself()
             readonly property var targets: [
                 { id: "u1", name: "Leo Park", kind: "person" },
                 { id: "u2", name: "Maya Chen", kind: "person" },
-                { id: "t\"1", name: "Amber Wren", kind: "terminal" }
+                { id: "t\"1", name: "Amber Wren", kind: "terminal", program: "" }
             ]
-            readonly property string html: Mentions.html("a  <b> @maya chen\n  @Amber Wren a@Maya.com", targets, "#112233", "#445566")
+            readonly property var parts: Mentions.segments("a  <b> @maya chen\n  @Amber Wren a@Maya.com", targets)
+            readonly property string html: Mentions.html(parts, "u1")
+            readonly property string chips: Mentions.chips(parts, "u1").map(chip => chip.start + "-" + chip.end + " " + chip.color).join(",")
             readonly property string offered: Mentions.suggestions("@", targets, "u1").map(target => target.id).join(",")
-            readonly property bool mine: Mentions.mentionsUser("ping @Leo Park", targets, "u1")
+            readonly property bool mine: Mentions.mentions(Mentions.segments("ping @Leo Park", targets), "u1")
         }
     )", {});
     std::unique_ptr<QObject> object(component.create());
     QVERIFY2(object, qPrintable(component.errorString()));
     const auto html = object->property("html").toString();
-    QVERIFY2(html.startsWith(QStringLiteral("<span style=\"white-space:pre-wrap\">a  &lt;b&gt; <span ")), qPrintable(html));
-    QVERIFY2(html.contains(QStringLiteral("&nbsp;@maya chen&nbsp;</span>\n  <a href=\"kodosi-mention://terminal/t&quot;1\"")), qPrintable(html));
-    QVERIFY2(html.endsWith(QStringLiteral("&nbsp;@Amber Wren&nbsp;</a> a@Maya.com</span>")), qPrintable(html));
+    QVERIFY2(html.startsWith(QStringLiteral("<span style=\"white-space:pre-wrap\">a  &lt;b&gt; <span style=\"color:#")), qPrintable(html));
+    QVERIFY2(html.contains(QStringLiteral(";font-weight:600;text-decoration:none\">@maya&nbsp;chen</span>\n  <a href=\"kodosi-mention://terminal/t&quot;1\"")), qPrintable(html));
+    QVERIFY2(html.endsWith(QStringLiteral("\">@Amber&nbsp;Wren</a> a@Maya.com</span>")), qPrintable(html));
+    QVERIFY2(!html.contains(QStringLiteral("background")), qPrintable(html));
+    const auto chips = object->property("chips").toString();
+    QVERIFY2(chips.startsWith(QStringLiteral("7-17 #")), qPrintable(chips));
+    QVERIFY2(chips.endsWith(QStringLiteral(",20-31 #eaa47e")), qPrintable(chips));
     QCOMPARE(object->property("offered").toString(), QStringLiteral("u2,t\"1"));
     QVERIFY(object->property("mine").toBool());
 }

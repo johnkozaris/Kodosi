@@ -12,10 +12,10 @@ Rectangle {
     radius: 8
     color: KodosiTheme.accent
 
-    Text {
+    RollingText {
         id: label
         anchors.centerIn: parent
-        text: root.count > 99 ? "99+" : root.count
+        text: root.count > 99 ? "99+" : String(root.count)
         color: KodosiTheme.accentInk
         font.pixelSize: KodosiTheme.fontCaption2
         font.weight: Font.Bold

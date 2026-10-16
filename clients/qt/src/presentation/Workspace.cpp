@@ -388,6 +388,9 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         return;
     if (!type.endsWith(QStringLiteral(".error")))
         return;
+    // Another client, such as the kodosi command, sent the request that failed.
+    if (!id.isEmpty() && !m_pending.contains(id))
+        return;
 
     if (type == QStringLiteral("room.error")) {
         const auto pending = m_pending.take(id);

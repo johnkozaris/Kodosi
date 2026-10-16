@@ -69,7 +69,7 @@ Item {
                     Layout.fillWidth: true
                     spacing: 4
                     PlainLabel { text: qsTr("Rooms"); font.pixelSize: KodosiTheme.fontLarge; font.weight: Font.DemiBold; font.letterSpacing: -0.6 }
-                    PlainLabel {
+                    RollingText {
                         text: Identity.count(root.rooms.length, qsTr("1 room"), qsTr("%1 rooms"))
                         color: KodosiTheme.inkMuted
                         font.pixelSize: KodosiTheme.fontFootnote
@@ -202,12 +202,8 @@ Item {
                     objectName: "missions.create.slot"
                     Accessible.id: objectName
                     Accessible.name: label.text
-                    background: Rectangle {
-                        radius: KodosiTheme.radiusXl
-                        color: KodosiTheme.alpha(KodosiTheme.ink, slot.hovered ? 0.05 : 0)
-                        border.width: 1
-                        border.color: KodosiTheme.alpha(KodosiTheme.inkFaint, slot.hovered ? 0.8 : 0.45)
-                    }
+                    scale: pressed ? 0.98 : 1
+                    background: DashedSlot { hovered: slot.hovered || slot.visualFocus }
                     contentItem: Item {
                         ColumnLayout {
                             anchors.centerIn: parent
