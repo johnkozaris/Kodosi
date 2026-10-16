@@ -43,6 +43,12 @@ QColor color(const GhosttyColorRgb value)
 
 constexpr std::size_t maximumClipboardReads = 8;
 
+bool isTextMime(const QByteArrayView mime)
+{
+    return mime == "text/plain" || mime == "text/plain;charset=utf-8" || mime == "UTF8_STRING"
+        || mime == "TEXT" || mime == "STRING";
+}
+
 TerminalClipboardOperations& clipboardOperations(void* userdata)
 {
     return *static_cast<TerminalClipboardOperations*>(userdata);
@@ -62,8 +68,7 @@ void recordClipboardWrite(
     }
     for (std::size_t index = 0; !text && index < write->contents_len; ++index) {
         const auto& content = write->contents[index];
-        if (QByteArrayView(content.mime.ptr, static_cast<qsizetype>(content.mime.len))
-                .startsWith("text/plain")) {
+        if (isTextMime(QByteArrayView(content.mime.ptr, static_cast<qsizetype>(content.mime.len)))) {
             text = QString::fromUtf8(
                 QByteArrayView(content.data.ptr, static_cast<qsizetype>(content.data.len)));
         }
@@ -998,7 +1003,8 @@ void appendClipboardOperation(
     TerminalClipboardOperations& operations,
     TerminalClipboardOperation operation)
 {
-    if (operation.write && !operations.empty() && operations.back().write) {
+    if (operation.write && !operations.empty() && operations.back().write
+        && operations.back().selection == operation.selection) {
         operations.back() = std::move(operation);
         return;
     }

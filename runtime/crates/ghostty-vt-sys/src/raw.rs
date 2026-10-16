@@ -894,10 +894,39 @@ unsafe extern "C" fn clipboard_callback(
     };
     let response = GhosttyClipboardWriteReply {
         size: mem::size_of::<GhosttyClipboardWriteReply>(),
-        result: GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_SUCCESS,
+        result: if writes_text(write) {
+            GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_SUCCESS
+        } else {
+            GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_UNSUPPORTED
+        },
         remember: false,
     };
     unsafe { reply(write, &raw const response) };
+}
+
+const TEXT_MIME_TYPES: [&[u8]; 5] = [
+    b"text/plain",
+    b"text/plain;charset=utf-8",
+    b"UTF8_STRING",
+    b"TEXT",
+    b"STRING",
+];
+
+fn writes_text(write: &GhosttyClipboardWrite) -> bool {
+    if write.contents_len == 0 {
+        return true;
+    }
+    if write.contents.is_null()
+        || write.contents_len > isize::MAX as usize / mem::size_of::<GhosttyClipboardContent>()
+    {
+        return false;
+    }
+    unsafe { slice::from_raw_parts(write.contents, write.contents_len) }
+        .iter()
+        .any(|content| {
+            unsafe { borrowed_bytes(content.mime.ptr, content.mime.len) }
+                .is_some_and(|mime| TEXT_MIME_TYPES.contains(&mime.as_slice()))
+        })
 }
 
 unsafe extern "C" fn desktop_notification_callback(
@@ -1317,27 +1346,32 @@ mod tests {
     }
 
     #[test]
-    fn a_kitty_clipboard_write_is_acknowledged_for_the_viewers_to_apply() {
-        let mut terminal = terminal();
-        let mut effects = terminal
-            .write(b"\x1b]5522;type=write:id=linux\x1b\\")
-            .expect("begin clipboard write");
-        effects.extend(
-            terminal
-                .write(b"\x1b]5522;type=wdata:mime=dGV4dC9wbGFpbg==;S29kb3Np\x1b\\")
-                .expect("write clipboard data"),
-        );
-        effects.extend(
-            terminal
-                .write(b"\x1b]5522;type=wdata\x1b\\")
-                .expect("commit clipboard write"),
-        );
-        assert_eq!(
-            effects,
-            vec![Effect::PtyWrite(
-                b"\x1b]5522;type=write:status=DONE:id=linux\x1b\\".to_vec()
-            )]
-        );
+    fn the_host_acknowledges_the_kitty_clipboard_writes_that_viewers_apply() {
+        for (mime, status) in [
+            (&b"dGV4dC9wbGFpbg=="[..], &b"DONE"[..]),
+            (b"aW1hZ2UvcG5n", b"ENOSYS"),
+        ] {
+            let mut terminal = terminal();
+            let mut effects = terminal
+                .write(b"\x1b]5522;type=write:id=linux\x1b\\")
+                .expect("begin clipboard write");
+            effects.extend(
+                terminal
+                    .write(&[b"\x1b]5522;type=wdata:mime=", mime, b";S29kb3Np\x1b\\"].concat())
+                    .expect("write clipboard data"),
+            );
+            effects.extend(
+                terminal
+                    .write(b"\x1b]5522;type=wdata\x1b\\")
+                    .expect("commit clipboard write"),
+            );
+            assert_eq!(
+                effects,
+                vec![Effect::PtyWrite(
+                    [b"\x1b]5522;type=write:status=", status, b":id=linux\x1b\\"].concat()
+                )]
+            );
+        }
     }
 
     #[test]

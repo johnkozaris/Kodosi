@@ -16,6 +16,10 @@ func terminalClipboardReport(_ text: String) -> Data {
     Data("\u{1B}]52;c;\(Data(text.utf8).base64EncodedString())\u{1B}\\".utf8)
 }
 
+private let terminalTextMimeTypes: Set<String> = [
+    "text/plain", "text/plain;charset=utf-8", "UTF8_STRING", "TEXT", "STRING",
+]
+
 private func copyTerminalAction(_ action: ghostty_action_s) -> TerminalActionSnapshot {
     switch action.tag {
     case GHOSTTY_ACTION_CELL_SIZE:
@@ -99,7 +103,7 @@ private enum TerminalCallbacks {
         guard let content = (0..<contentsLen)
             .map({ contents[$0] })
             .first(where: { content in
-                content.mime.map { String(cString: $0) == "text/plain" } ?? false
+                content.mime.map { terminalTextMimeTypes.contains(String(cString: $0)) } ?? false
             }),
             let data = content.data
         else { return }

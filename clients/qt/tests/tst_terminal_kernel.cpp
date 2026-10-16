@@ -1877,7 +1877,7 @@ void TerminalKernelTest::terminalProgramsWriteTheClipboardAndTheFocusedViewAnswe
 
     window.requestActivate();
     view.forceActiveFocus();
-    QTRY_VERIFY(view.hasActiveFocus());
+    QTRY_VERIFY(window.isActive() && view.hasActiveFocus());
     registry.receiveData({subscription, 3, QByteArrayLiteral("\x1b]52;c;?\x07")});
     QTRY_COMPARE(
         dispatcher.inputCommands,

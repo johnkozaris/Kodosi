@@ -12,6 +12,7 @@
 #include <QKeyEvent>
 #include <QKeySequence>
 #include <QMouseEvent>
+#include <QQuickWindow>
 #include <QTimer>
 #include <QWheelEvent>
 
@@ -693,10 +694,11 @@ void TerminalView::applyClipboard(const TerminalClipboardOperations& operations)
             } else {
                 clipboard->setText(*operation.write, mode);
             }
-        } else if (hasActiveFocus() && interactionAvailable()) {
-            (void)enqueueInput(
-                operation.answerPrefix + clipboard->text(mode).toUtf8().toBase64()
-                + operation.answerTerminator);
+        } else if (hasActiveFocus() && interactionAvailable() && window()->isActive()) {
+            const auto text = clipboard->text(mode).toUtf8().toBase64();
+            if (!enqueueInput(operation.answerPrefix + text + operation.answerTerminator)) {
+                (void)enqueueInput(operation.answerPrefix + operation.answerTerminator);
+            }
         }
     }
 }
