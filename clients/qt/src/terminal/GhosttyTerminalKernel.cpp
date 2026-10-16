@@ -412,7 +412,7 @@ ViewCapture captureView(
     if (result != GHOSTTY_SUCCESS) {
         return std::unexpected(ghosttyFailure(QStringLiteral("terminal scrollbar"), result));
     }
-    return CapturedView {scrollbar, images.capture(terminal)};
+    return CapturedView {scrollbar, images.capture(terminal, renderState)};
 }
 
 FrameResult buildFrame(

@@ -2,6 +2,7 @@
 #include "terminal/GhosttyC.hpp"
 #include "terminal/TerminalLink.hpp"
 #include "terminal/TerminalAccessibility.hpp"
+#include "terminal/TerminalPlaceholders.hpp"
 #include "terminal/TerminalRasterizer.hpp"
 #include "terminal/TerminalSessionRegistry.hpp"
 #include "terminal/TerminalSurfaceController.hpp"
@@ -370,6 +371,8 @@ private slots:
     void synchronizedOutputThatNeverEndsShowsAfterOneSecond();
     void kittyImagesCoverTheHostsCells();
     void checkpointsCarryImagesWithinTheirPixelBudget();
+    void placeholderImagesFitAndCropAsInGhostty();
+    void placeholderCellsShowTheirPartOfTheImage();
     void promptJumpsMoveBetweenMarkedPrompts();
     void promptJumpKeysMoveTheViewWithoutTerminalInput();
     void historyCompressesAndKeepsItsText();
@@ -3921,6 +3924,107 @@ void TerminalKernelTest::checkpointsCarryImagesWithinTheirPixelBudget()
     QVERIFY(pending);
     QVERIFY((*pending)->images.isEmpty());
     QCOMPARE((*pending)->cursor.row, (*restored)->cursor.row);
+}
+
+void TerminalKernelTest::placeholderImagesFitAndCropAsInGhostty()
+{
+    // Ghostty's own cases: a 500 by 306 image in cells of 36 by 80 pixels, shown
+    // by runs of four placeholder cells.
+    const QSize image(500, 306);
+    const auto check = [&](
+                           const std::uint32_t columns,
+                           const std::uint32_t rows,
+                           const std::uint32_t imageRow,
+                           const QRect& source,
+                           const QPoint& offset,
+                           const QSize& size) {
+        const auto drawing = kodosi::placeholderDrawing(
+            {.imageRow = imageRow, .width = 4}, columns, rows, image, 36, 80);
+        QVERIFY(drawing);
+        QCOMPARE(drawing->source, source);
+        QCOMPARE(drawing->offset, offset);
+        QCOMPARE(drawing->size, size);
+    };
+    check(4, 2, 0, QRect(0, 0, 500, 153), QPoint(0, 36), QSize(144, 44));
+    check(4, 2, 1, QRect(0, 153, 500, 153), QPoint(0, 0), QSize(144, 44));
+    check(2, 2, 0, QRect(0, 0, 500, 153), QPoint(0, 58), QSize(72, 22));
+    check(2, 2, 1, QRect(0, 153, 500, 153), QPoint(0, 0), QSize(72, 22));
+    check(1, 1, 0, QRect(0, 0, 500, 306), QPoint(0, 29), QSize(36, 22));
+
+    // A grid without a size takes the size of the image.
+    const auto natural =
+        kodosi::placeholderDrawing({.width = 2}, 0, 0, QSize(72, 80), 36, 80);
+    QVERIFY(natural);
+    QCOMPARE(natural->source, QRect(0, 0, 72, 80));
+    QCOMPARE(natural->size, QSize(72, 80));
+
+    // A run beyond the grid shows nothing.
+    QVERIFY(!kodosi::placeholderDrawing({.imageColumn = 2, .width = 1}, 2, 2, image, 36, 80));
+}
+
+void TerminalKernelTest::placeholderCellsShowTheirPartOfTheImage()
+{
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("session"),
+        QStringLiteral("subscription"),
+        2,
+    };
+    kodosi::GhosttyTerminalKernel kernel;
+    QVERIFY(kernel.installCheckpoint({
+        subscription,
+        1,
+        4,
+        10,
+        checkpointFor(QByteArrayLiteral("placeholders"), 10, 4),
+    }));
+    QVERIFY(kernel.applyResize(subscription, 1, 4, 10, 2, 4));
+
+    // An 8 by 8 image, red on the left and blue on the right, in a virtual placement
+    // of two by one cells. Its id 0x01000007 needs the high byte diacritic.
+    QByteArray pixels;
+    for (auto y = 0; y < 8; ++y) {
+        for (auto x = 0; x < 8; ++x) {
+            pixels += QByteArray::fromHex(x < 4 ? "ff0000" : "0000ff");
+        }
+    }
+    const auto cells = [](const char32_t* text) {
+        return QString::fromUcs4(text).toUtf8();
+    };
+    const auto shown = kernel.applyData({
+        subscription,
+        1,
+        "\x1b_Ga=T,U=1,f=24,s=8,v=8,i=16777223,p=3,c=2,r=1,q=2;" + pixels.toBase64() + "\x1b\\"
+            // Both columns from one run: the second cell continues the first.
+            + "\x1b[2;4H\x1b[38;5;7m\x1b[58;5;3m"
+            + cells(U"\U0010EEEE\u0305\u0305\u030D\U0010EEEE")
+            // Only the right column.
+            + "\x1b[3;7H" + cells(U"\U0010EEEE\u0305\u030D\u030D")
+            // An image that does not exist.
+            + "\x1b[4;1H\x1b[38;5;9m\x1b[59m" + cells(U"\U0010EEEE\u0305\u0305") + "\x1b[m",
+    });
+    QVERIFY(shown);
+    const auto& images = (*shown)->images;
+    QCOMPARE(images.size(), 2);
+    QCOMPARE(images[0].bounds, QRectF(3, 1, 2, 1));
+    QCOMPARE(images[0].source, QRect(0, 0, 8, 8));
+    QCOMPARE(images[0].layer, kodosi::TerminalImagePlacement::Layer::BelowText);
+    QCOMPARE(images[1].bounds, QRectF(6, 2, 1, 1));
+    QCOMPARE(images[1].source, QRect(4, 0, 4, 8));
+    QCOMPARE(images[0].pixels.cacheKey(), images[1].pixels.cacheKey());
+
+    auto font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    font.setPixelSize(14);
+    const auto rendered = kodosi::TerminalRasterizer::render(**shown, font, 1.0);
+    const auto cell = kodosi::TerminalRasterizer::cellSize(font);
+    const auto center = [&](const int column, const int row) {
+        return rendered.pixelColor(QPoint(
+            static_cast<int>(cell.width() * (column + 0.5)),
+            static_cast<int>(cell.height() * (row + 0.5))));
+    };
+    QCOMPARE(center(3, 1), QColor(Qt::red));
+    QCOMPARE(center(4, 1), QColor(Qt::blue));
+    QCOMPARE(center(6, 2), QColor(Qt::blue));
+    QCOMPARE(center(0, 3), (*shown)->background);
 }
 
 void TerminalKernelTest::synchronizedOutputThatNeverEndsShowsAfterOneSecond()

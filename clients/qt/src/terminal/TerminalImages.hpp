@@ -14,9 +14,12 @@ namespace kodosi {
 /// converted once for each of its generations and kept while it is visible.
 class TerminalImages final {
 public:
-    /// The placements in the viewport, measured in its cells. The host's cell size
+    /// The placements in the viewport, measured in its cells, with the images that
+    /// placeholder cells of the updated render state show. The host's cell size
     /// converts pixels to cells, so an image covers the same cells as on the host.
-    [[nodiscard]] QVector<TerminalImagePlacement> capture(GhosttyTerminal terminal);
+    [[nodiscard]] QVector<TerminalImagePlacement> capture(
+        GhosttyTerminal terminal,
+        GhosttyRenderState renderState);
 
 private:
     struct Pixels {

@@ -1,5 +1,7 @@
 #include "terminal/TerminalImages.hpp"
 
+#include "terminal/TerminalPlaceholders.hpp"
+
 #include <algorithm>
 #include <climits>
 #include <iterator>
@@ -77,9 +79,44 @@ TerminalImagePlacement::Layer layer(const std::int32_t z)
                  : TerminalImagePlacement::Layer::AboveText;
 }
 
+// Ghostty draws the images of placeholder cells below the text.
+constexpr std::int32_t placeholderZ = -1;
+
+struct Target {
+    std::uint32_t imageId = 0;
+    std::uint32_t placementId = 0;
+    std::uint32_t columns = 0;
+    std::uint32_t rows = 0;
+    bool isVirtual = false;
+};
+
+// The placement whose grid a run fills. The C interface does not tell whether the
+// program chose a placement id, so a virtual placement and then the lowest id win.
+const Target* target(const std::vector<Target>& targets, const PlaceholderRun& run)
+{
+    const Target* best = nullptr;
+    for (const auto& candidate : targets) {
+        if (candidate.imageId != run.imageId) {
+            continue;
+        }
+        if (run.placementId != 0) {
+            if (candidate.placementId == run.placementId
+                && (best == nullptr || (candidate.isVirtual && !best->isVirtual))) {
+                best = &candidate;
+            }
+        } else if (candidate.isVirtual
+            && (best == nullptr || candidate.placementId < best->placementId)) {
+            best = &candidate;
+        }
+    }
+    return best;
 }
 
-QVector<TerminalImagePlacement> TerminalImages::capture(const GhosttyTerminal terminal)
+}
+
+QVector<TerminalImagePlacement> TerminalImages::capture(
+    const GhosttyTerminal terminal,
+    const GhosttyRenderState renderState)
 {
     auto previous = std::exchange(m_pixels, {});
     GhosttyKittyGraphics graphics = nullptr;
@@ -117,18 +154,33 @@ QVector<TerminalImagePlacement> TerminalImages::capture(const GhosttyTerminal te
         std::uint32_t imageId;
     };
     std::vector<Placed> placed;
+    std::vector<Target> targets;
+    auto hasVirtual = false;
     while (ghostty_kitty_graphics_placement_next(m_iterator.get())) {
-        std::uint32_t imageId = 0;
+        Target placement;
         std::uint32_t xOffset = 0;
         std::uint32_t yOffset = 0;
         std::int32_t z = 0;
         const GhosttyKittyGraphicsPlacementData placementKeys[] {
             GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_IMAGE_ID,
+            GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_PLACEMENT_ID,
+            GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_IS_VIRTUAL,
+            GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_COLUMNS,
+            GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_ROWS,
             GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_X_OFFSET,
             GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_Y_OFFSET,
             GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_Z,
         };
-        void* placementValues[] {&imageId, &xOffset, &yOffset, &z};
+        void* placementValues[] {
+            &placement.imageId,
+            &placement.placementId,
+            &placement.isVirtual,
+            &placement.columns,
+            &placement.rows,
+            &xOffset,
+            &yOffset,
+            &z,
+        };
         if (ghostty_kitty_graphics_placement_get_multi(
                 m_iterator.get(),
                 std::size(placementKeys),
@@ -136,6 +188,12 @@ QVector<TerminalImagePlacement> TerminalImages::capture(const GhosttyTerminal te
                 placementValues,
                 nullptr)
             != GHOSTTY_SUCCESS) {
+            continue;
+        }
+        targets.push_back(placement);
+        hasVirtual = hasVirtual || placement.isVirtual;
+        const auto imageId = placement.imageId;
+        if (placement.isVirtual) {
             continue;
         }
         const auto image = ghostty_kitty_graphics_image(graphics, imageId);
@@ -170,6 +228,38 @@ QVector<TerminalImagePlacement> TerminalImages::capture(const GhosttyTerminal te
             },
             .z = z,
             .imageId = imageId,
+        });
+    }
+
+    const auto runs = hasVirtual ? placeholderRuns(renderState) : std::vector<PlaceholderRun> {};
+    for (const auto& run : runs) {
+        const auto* placement = target(targets, run);
+        const auto image = ghostty_kitty_graphics_image(graphics, run.imageId);
+        if (placement == nullptr || image == nullptr) {
+            continue;
+        }
+        auto pixels = this->pixels(image, previous);
+        if (pixels.isNull()) {
+            continue;
+        }
+        const auto drawing = placeholderDrawing(
+            run, placement->columns, placement->rows, pixels.size(), cellWidth, cellHeight);
+        if (!drawing) {
+            continue;
+        }
+        placed.push_back({
+            .placement = {
+                .pixels = std::move(pixels),
+                .source = drawing->source,
+                .bounds = QRectF(
+                    run.column + (static_cast<qreal>(drawing->offset.x()) / cellWidth),
+                    run.row + (static_cast<qreal>(drawing->offset.y()) / cellHeight),
+                    static_cast<qreal>(drawing->size.width()) / cellWidth,
+                    static_cast<qreal>(drawing->size.height()) / cellHeight),
+                .layer = layer(placeholderZ),
+            },
+            .z = placeholderZ,
+            .imageId = run.imageId,
         });
     }
 
