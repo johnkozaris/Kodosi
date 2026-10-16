@@ -4,8 +4,6 @@
 
 namespace kodosi {
 
-
-
 class AccessibilityScope : public QQuickItem {
     Q_OBJECT
     Q_PROPERTY(bool suppressed READ suppressed WRITE setSuppressed NOTIFY suppressedChanged)

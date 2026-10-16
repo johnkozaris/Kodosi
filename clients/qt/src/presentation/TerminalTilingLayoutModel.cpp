@@ -12,6 +12,15 @@
 namespace kodosi {
 namespace {
 
+constexpr qreal baseMinimumTileWidth = 280;
+constexpr qreal baseMinimumTileHeight = 170;
+constexpr qreal accessibilityMinimumTileHeight = 240;
+constexpr qreal accessibilityTextScaleThreshold = 1.3;
+constexpr qreal dividerSize = 6;
+constexpr qreal targetAspect = 1.3;
+constexpr qreal stageInset = 4;
+constexpr qreal singleColumnBreakpoint = 620;
+
 qreal layoutPenalty(
     const int columns,
     const int sessionCount,
@@ -23,11 +32,11 @@ qreal layoutPenalty(
     const auto rows = static_cast<int>(
         std::ceil(static_cast<qreal>(sessionCount) / columns));
     const auto cellWidth =
-        (width - std::max(0, columns - 1) * 6.0) / columns;
+        (width - std::max(0, columns - 1) * dividerSize) / columns;
     const auto cellHeight =
-        (height - std::max(0, rows - 1) * 6.0) / rows;
+        (height - std::max(0, rows - 1) * dividerSize) / rows;
     const auto aspectPenalty = std::abs(
-        std::log(std::max(0.01, cellWidth / cellHeight) / 1.3));
+        std::log(std::max(0.01, cellWidth / cellHeight) / targetAspect));
     const auto widthPenalty =
         std::max(0.0, minimumTileWidth - cellWidth)
         / minimumTileWidth;

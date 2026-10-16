@@ -32,7 +32,7 @@ public:
     QString settingsError() const { return m_error; }
     Q_INVOKABLE bool apply(
         const QString& family, int size, int cursor, double lineHeight, int scrollback, bool blink);
-    Q_INVOKABLE void setWorkingDirectory(const QString& path);
+    void setWorkingDirectory(const QString& path);
     Q_INVOKABLE void setBranchFolder(const QString& path);
     Q_INVOKABLE void resetTerminal();
     Q_INVOKABLE [[nodiscard]] static QString agentOf(const QString& text);

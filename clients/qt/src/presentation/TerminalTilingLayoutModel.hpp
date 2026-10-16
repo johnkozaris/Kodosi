@@ -113,15 +113,6 @@ private:
         bool operator==(const Entry&) const = default;
     };
 
-    static constexpr qreal baseMinimumTileWidth = 280;
-    static constexpr qreal baseMinimumTileHeight = 170;
-    static constexpr qreal accessibilityMinimumTileHeight = 240;
-    static constexpr qreal accessibilityTextScaleThreshold = 1.3;
-    static constexpr qreal dividerSize = 6;
-    static constexpr qreal targetAspect = 1.3;
-    static constexpr qreal stageInset = 4;
-    static constexpr qreal singleColumnBreakpoint = 620;
-
     QVector<Entry> m_entries;
     QStringList m_stagedSessionIds;
     QString m_selectedSessionId;

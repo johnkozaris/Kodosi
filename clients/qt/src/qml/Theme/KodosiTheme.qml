@@ -43,7 +43,6 @@ QtObject {
     readonly property color terminalAccent: "#db8a62"
     readonly property color terminalAccentSoft: "#3e281c"
     readonly property color terminalAccentStrong: "#eaa47e"
-    readonly property color terminalCaution: "#ddb866"
 
     readonly property int fontLarge: 28
     readonly property int fontTitle: 20

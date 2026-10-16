@@ -76,7 +76,6 @@ private:
     void retryPendingAttachments();
     void armCheckpointTimeout(Binding& binding);
     void cancelCheckpointTimeout(Binding& binding);
-
 };
 
 }

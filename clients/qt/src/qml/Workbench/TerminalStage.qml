@@ -37,9 +37,7 @@ Item {
     readonly property int terminalCount:
         Models.DesktopState.stagedSessionIds.length
     readonly property string terminalCountText:
-        terminalCount === 1
-        ? qsTr("1 terminal")
-        : qsTr("%1 terminals").arg(terminalCount)
+        Identity.count(terminalCount, qsTr("1 terminal"), qsTr("%1 terminals"))
     readonly property string overflowAccessibilityDescription:
         verticalOverflow ? qsTr("Scroll for more terminals") : ""
 

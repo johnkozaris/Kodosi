@@ -29,8 +29,6 @@ ApplicationWindow {
         ? Qt.Window | Qt.ExpandedClientAreaHint | Qt.NoTitleBarBackgroundHint | Qt.CustomizeWindowHint
         : Qt.Window
     height: 820
-    minimumHeight: 560
-    minimumWidth: 860
     objectName: "window.main"
     title: qsTr("Kodosi")
     topPadding: 0
