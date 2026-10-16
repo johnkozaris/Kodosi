@@ -335,6 +335,10 @@ impl Terminal {
             pwd_callback as *const c_void,
         )?;
         self.set_callback(
+            GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_CLIPBOARD_WRITE,
+            clipboard_callback as *const c_void,
+        )?;
+        self.set_callback(
             GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_DESKTOP_NOTIFICATION,
             desktop_notification_callback as *const c_void,
         )?;
@@ -988,6 +992,62 @@ unsafe extern "C" fn pwd_callback(terminal: GhosttyTerminal, userdata: *mut c_vo
     });
 }
 
+unsafe extern "C" fn clipboard_callback(
+    _terminal: GhosttyTerminal,
+    userdata: *mut c_void,
+    write: *const GhosttyClipboardWrite,
+) {
+    if write.is_null() {
+        callback(userdata, (), |state| state.poisoned = true);
+        return;
+    }
+
+    let write = unsafe { &*write };
+    if write.size < mem::size_of::<GhosttyClipboardWrite>() {
+        callback(userdata, (), |state| state.poisoned = true);
+        return;
+    }
+    let Some(reply) = write.reply else {
+        callback(userdata, (), |state| state.poisoned = true);
+        return;
+    };
+    let response = GhosttyClipboardWriteReply {
+        size: mem::size_of::<GhosttyClipboardWriteReply>(),
+        result: if writes_text(write) {
+            GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_SUCCESS
+        } else {
+            GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_UNSUPPORTED
+        },
+        remember: false,
+    };
+    unsafe { reply(write, &raw const response) };
+}
+
+const TEXT_MIME_TYPES: [&[u8]; 5] = [
+    b"text/plain",
+    b"text/plain;charset=utf-8",
+    b"UTF8_STRING",
+    b"TEXT",
+    b"STRING",
+];
+
+fn writes_text(write: &GhosttyClipboardWrite) -> bool {
+    if write.contents_len == 0 {
+        return true;
+    }
+    if write.contents.is_null()
+        || write.contents_len > isize::MAX as usize / mem::size_of::<GhosttyClipboardContent>()
+    {
+        return false;
+    }
+    unsafe { slice::from_raw_parts(write.contents, write.contents_len) }
+        .iter()
+        .any(|content| {
+            unsafe { borrowed_bytes(content.mime.ptr, content.mime.len) }
+                .is_some_and(|mime| TEXT_MIME_TYPES.contains(&mime.as_slice()))
+        })
+}
+
 unsafe extern "C" fn desktop_notification_callback(
     _terminal: GhosttyTerminal,
     userdata: *mut c_void,
@@ -1192,12 +1252,16 @@ unsafe extern "C" fn device_attributes_callback(
             state.poisoned = true;
             return false;
         };
+        let Ok(clipboard) = u16::try_from(GHOSTTY_DA_FEATURE_CLIPBOARD) else {
+            state.poisoned = true;
+            return false;
+        };
         let Ok(device_type) = u16::try_from(GHOSTTY_DA_DEVICE_TYPE_VT220) else {
             state.poisoned = true;
             return false;
         };
         attributes.primary.conformance_level = conformance_level;
-        let features = [selective_erase, ansi_color];
+        let features = [selective_erase, ansi_color, clipboard];
         attributes.primary.features[..features.len()].copy_from_slice(&features);
         attributes.primary.num_features = features.len();
         attributes.secondary.device_type = device_type;
@@ -1371,6 +1435,29 @@ mod tests {
     }
 
     #[test]
+    fn malformed_clipboard_callback_poisons_terminal_before_writing() {
+        for write in [
+            None,
+            Some(GhosttyClipboardWrite::default()),
+            Some(GhosttyClipboardWrite {
+                size: mem::size_of::<GhosttyClipboardWrite>(),
+                ..GhosttyClipboardWrite::default()
+            }),
+        ] {
+            let mut terminal = terminal();
+            let userdata = ptr::from_mut(terminal.callbacks.as_mut()).cast::<c_void>();
+            unsafe {
+                clipboard_callback(
+                    terminal.raw,
+                    userdata,
+                    write.as_ref().map_or(ptr::null(), ptr::from_ref),
+                );
+            }
+            assert_eq!(terminal.state(), Err(Error::CallbackRejected));
+        }
+    }
+
+    #[test]
     fn ordered_effects_are_copied_before_return() {
         let mut terminal = terminal();
         let effects = terminal
@@ -1383,22 +1470,31 @@ mod tests {
     }
 
     #[test]
-    fn a_kitty_clipboard_write_is_refused_before_it_keeps_data() {
-        let mut terminal = terminal();
-        let begin = terminal
-            .write(b"\x1b]5522;type=write:id=linux\x1b\\")
-            .expect("begin clipboard write");
-        assert_eq!(
-            begin,
-            vec![Effect::PtyWrite(
-                b"\x1b]5522;type=write:status=ENOSYS:id=linux\x1b\\".to_vec()
-            )]
-        );
-        for packet in [
-            &b"\x1b]5522;type=wdata:mime=dGV4dC9wbGFpbg==;S29kb3Np\x1b\\"[..],
-            b"\x1b]5522;type=wdata\x1b\\",
+    fn the_host_acknowledges_the_kitty_clipboard_writes_that_viewers_apply() {
+        for (mime, status) in [
+            (&b"dGV4dC9wbGFpbg=="[..], &b"DONE"[..]),
+            (b"aW1hZ2UvcG5n", b"ENOSYS"),
         ] {
-            assert_eq!(terminal.write(packet).expect("later packet"), []);
+            let mut terminal = terminal();
+            let mut effects = terminal
+                .write(b"\x1b]5522;type=write:id=linux\x1b\\")
+                .expect("begin clipboard write");
+            effects.extend(
+                terminal
+                    .write(&[b"\x1b]5522;type=wdata:mime=", mime, b";S29kb3Np\x1b\\"].concat())
+                    .expect("write clipboard data"),
+            );
+            effects.extend(
+                terminal
+                    .write(b"\x1b]5522;type=wdata\x1b\\")
+                    .expect("commit clipboard write"),
+            );
+            assert_eq!(
+                effects,
+                vec![Effect::PtyWrite(
+                    [b"\x1b]5522;type=write:status=", status, b":id=linux\x1b\\"].concat()
+                )]
+            );
         }
     }
 
@@ -1435,7 +1531,7 @@ mod tests {
         assert!(effects.iter().any(
             |effect| matches!(effect, Effect::Pwd(value) if value == b"file://host/tmp/project")
         ));
-        assert!(effects.iter().any(|effect| matches!(effect, Effect::PtyWrite(value) if value.starts_with(b"\x1b[?") && !value.windows(3).any(|window| window == b";52"))));
+        assert!(effects.iter().any(|effect| matches!(effect, Effect::PtyWrite(value) if value.starts_with(b"\x1b[?") && value.windows(3).any(|window| window == b";52"))));
     }
 
     #[test]
