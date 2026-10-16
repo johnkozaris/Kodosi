@@ -18,7 +18,6 @@ namespace {
 
 constexpr int maximumTextureDimension = 16'384;
 constexpr std::uint64_t maximumImageBytes = 256ULL * 1024ULL * 1024ULL;
-// The cells of a Kitty image's virtual placement. Kodosi draws no virtual placements.
 constexpr QStringView kittyPlaceholder = u"\U0010EEEE";
 
 struct CellMetrics {

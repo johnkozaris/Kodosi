@@ -1,4 +1,3 @@
-# Kodosi's prompt marks (OSC 133) for zsh.
 builtin autoload -Uz add-zsh-hook
 
 _kodosi_precmd() {
@@ -17,8 +16,7 @@ _kodosi_preexec() {
     builtin typeset -g _kodosi_running=1
 }
 
-# The hooks start at the first prompt, after the user's startup files, so the
-# marks wrap the prompt that those files make.
+# The hooks start at the first prompt, so the marks wrap the prompt of the user's startup files.
 _kodosi_start() {
     add-zsh-hook -d precmd _kodosi_start
     add-zsh-hook precmd _kodosi_precmd

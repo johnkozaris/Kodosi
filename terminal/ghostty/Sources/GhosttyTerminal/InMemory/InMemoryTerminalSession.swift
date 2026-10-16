@@ -129,9 +129,6 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
         return true
     }
 
-    /// Gives the terminal the grid that the host gave its own, after the output
-    /// that came before the resize, with the host's cell size so that images
-    /// cover the same cells. The view's size never changes the grid.
     @discardableResult
     public func applyHostResize(_ viewport: InMemoryTerminalViewport) -> Bool {
         guard surfaceAccess.enqueueHostResize(viewport) else {

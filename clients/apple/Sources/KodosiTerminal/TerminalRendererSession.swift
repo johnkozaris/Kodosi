@@ -262,8 +262,6 @@ public final class TerminalRendererSession: ObservableObject {
         return true
     }
 
-    /// Gives the terminal the host's grid and cell size at this place in its
-    /// output.
     @discardableResult
     public nonisolated func applyHostResize(_ viewport: TerminalViewport) -> Bool {
         guard backend.applyHostResize(InMemoryTerminalViewport(
@@ -294,7 +292,6 @@ public final class TerminalRendererSession: ObservableObject {
         TerminalDebugLog.enable([.lifecycle, .metrics])
     }
 
-    /// The view replays the host's output, so it stores images as the host does.
     nonisolated static let hostManagedPolicyOverrides: [(key: String, value: String)] = [
         ("clipboard-read", "allow"),
         ("clipboard-write", "allow"),

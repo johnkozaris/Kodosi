@@ -55,14 +55,10 @@ pub enum ContextAction {
     End,
 }
 
-/// A context signal (OSC 3008): the program enters, changes or leaves a context,
-/// such as a shell, a remote login or a container.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContextSignal {
     pub action: ContextAction,
     pub id: Vec<u8>,
-    /// The fields after the identifier as the program sent them: `key=value`
-    /// pairs separated by `;`, with `;` written as `\x3b` and `\` as `\x5c`.
     pub fields: Vec<u8>,
 }
 
@@ -126,7 +122,6 @@ pub struct FormatOptions {
     pub protection: bool,
     pub kitty_keyboard: bool,
     pub charsets: bool,
-    /// Only the active area, without the history above it.
     pub screen_only: bool,
 }
 
@@ -197,9 +192,6 @@ impl SnapshotHeader {
     }
 }
 
-/// The records of a snapshot by the documented framing of snapshot format
-/// version 1: each tag with its payload, up to the first record that does not
-/// end in the snapshot.
 fn snapshot_records(snapshot: &[u8]) -> impl Iterator<Item = (u16, &[u8])> {
     let mut rest = snapshot.strip_prefix(SNAPSHOT_ENVELOPE).unwrap_or_default();
     std::iter::from_fn(move || {
@@ -212,26 +204,18 @@ fn snapshot_records(snapshot: &[u8]) -> impl Iterator<Item = (u16, &[u8])> {
     })
 }
 
-/// The bounds of an encoded snapshot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SnapshotLimits {
-    /// The most bytes of the snapshot without its image records.
     pub text_bytes: usize,
-    /// The most bytes of the whole snapshot.
     pub total_bytes: usize,
-    /// The most bytes of image pixels it holds. An image beyond keeps only its
-    /// size, and a terminal restored from the snapshot draws nothing for it.
     pub image_data_bytes: u64,
 }
 
-/// The resource limits of a terminal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Limits {
     pub continuation_max_bytes: usize,
     pub scrollback_max_bytes: usize,
     pub scrollback_max_lines: usize,
-    /// The most bytes of Kitty image pixels that each screen stores; zero turns
-    /// images off.
     pub image_storage_max_bytes: u64,
 }
 
@@ -649,7 +633,6 @@ impl Terminal {
         Ok(bytes)
     }
 
-    /// A selection of the whole active area.
     fn active_area(&mut self) -> Result<GhosttySelection, Error> {
         let state = self.state()?;
         let corner = |x: u16, y: u16| {
@@ -914,7 +897,6 @@ struct SnapshotSink {
     bytes: Vec<u8>,
     limits: SnapshotLimits,
     history: bool,
-    /// Where the next record header starts.
     scanned: usize,
     text_bytes: usize,
     ready: Option<usize>,
@@ -934,9 +916,7 @@ impl SnapshotSink {
         !finished && !self.exceeded && !self.unknown_format
     }
 
-    /// Follows the documented record framing of snapshot format version 1. A
-    /// record counts when its header arrives, so a snapshot whose text is over
-    /// its limit stops before the rest is written.
+    /// Follows the documented record framing of snapshot format version 1.
     fn scan(&mut self) {
         if self.scanned == 0 {
             let Some(envelope) = self.bytes.get(..SNAPSHOT_ENVELOPE.len()) else {
@@ -1926,8 +1906,6 @@ mod tests {
         );
     }
 
-    /// A 1x1 RGBA image placed at the cursor; with 2x4 pixel cells it covers
-    /// one cell.
     const IMAGE: &[u8] = b"\x1b_Ga=T,f=32,s=1,v=1,i=7;AQIDBA==\x1b\\";
     const PLACE_IMAGE_AGAIN: &[u8] = b"\x1b_Ga=p,i=7\x1b\\";
 
@@ -1951,7 +1929,6 @@ mod tests {
         source.write(PLACE_IMAGE_AGAIN).expect("place again");
         let placed_again = source.state().expect("state");
 
-        // The four pixel bytes and the animation flag are left out.
         assert_eq!(without_pixels.len() + 5, complete.len());
         assert_ne!(placed_again, at_snapshot);
         for snapshot in [complete, without_pixels] {

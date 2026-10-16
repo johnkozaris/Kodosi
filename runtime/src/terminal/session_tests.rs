@@ -332,7 +332,6 @@ async fn resize_checkpoint_precedes_bootstrap_barrier_at_the_same_output_cut() {
 
 #[tokio::test]
 async fn a_remote_bootstrap_holds_image_pixels_up_to_its_budget() {
-    // 1100 by 1000 RGBA pixels are 4.4 MB, more than a view on a link of unknown speed gets.
     let (width, height) = (1100, 1000);
     let mut compressed = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::fast());
     std::io::Write::write_all(&mut compressed, &vec![0x7f; width * height * 4]).expect("compress");

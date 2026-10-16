@@ -162,7 +162,6 @@ public:
     [[nodiscard]] Result installCheckpoint(const TerminalCheckpoint& checkpoint);
     [[nodiscard]] Result applyData(const TerminalData& data);
     [[nodiscard]] TerminalClipboardOperations takeClipboardOperations();
-    /// The cell size is the host's, so images cover the same cells as on the host.
     [[nodiscard]] Result applyResize(
         const TerminalSubscription& subscription,
         std::uint64_t atSequence,

@@ -6,10 +6,6 @@ const ZSH_ENV: &str = include_str!("../../shell-integration/zsh/.zshenv");
 const ZSH_MARKS: &str = include_str!("../../shell-integration/zsh/kodosi.zsh");
 const BASH_MARKS: &str = include_str!("../../shell-integration/bash/kodosi.bash");
 
-/// Starts a login zsh or bash with Kodosi's prompt marks (OSC 133), as Ghostty
-/// starts its shells with its shell integration. The shell still reads the
-/// user's startup files. A shell whose scripts cannot be written starts
-/// without the marks.
 pub(super) fn add(
     shell: &str,
     program: &Path,
@@ -63,7 +59,7 @@ fn variable(environment: &[(&str, &str)], name: &str) -> Option<OsString> {
         .or_else(|| env::var_os(name))
 }
 
-/// The bash 3.2 of macOS has no PS0, so it keeps starting as before.
+/// The bash 3.2 of macOS has no PS0.
 fn is_macos_system_bash(program: &Path) -> bool {
     cfg!(target_os = "macos") && program == Path::new("/bin/bash")
 }

@@ -14,11 +14,9 @@ namespace {
 
 constexpr std::uint32_t placeholder = 0x10EEEE;
 
-// A cell with more marks than this cannot be a placeholder that a program wrote.
 constexpr std::uint32_t maximumPlaceholderCodepoints = 64;
 
-// The row and column diacritics of the Kitty graphics protocol, sorted. The index
-// of a diacritic is its value.
+// The Kitty graphics protocol's row and column diacritics, sorted; the index is the value.
 constexpr std::array<std::uint32_t, 297> diacritics {
     0x0305, 0x030D, 0x030E, 0x0310, 0x0312, 0x033D, 0x033E, 0x033F,
     0x0346, 0x034A, 0x034B, 0x034C, 0x0350, 0x0351, 0x0352, 0x0357,
@@ -82,7 +80,6 @@ std::uint32_t colorId(const GhosttyStyleColor& color)
     }
 }
 
-// One placeholder cell. A missing value continues the run that the cell joins.
 struct PlaceholderCell {
     std::uint32_t imageIdLow = 0;
     std::optional<std::uint32_t> imageIdHigh = std::nullopt;
@@ -250,7 +247,6 @@ std::optional<PlaceholderDrawing> placeholderDrawing(
         return std::nullopt;
     }
 
-    // Fit the image into the grid and keep its aspect ratio, centered.
     const auto width = static_cast<double>(imageWidth);
     const auto height = static_cast<double>(imageHeight);
     const auto gridWidth = static_cast<double>(columns * cellWidth);
@@ -266,7 +262,6 @@ std::optional<PlaceholderDrawing> placeholderDrawing(
         marginX = (gridWidth - (width * scale)) / 2 / scale;
     }
 
-    // The run's part of the image with its margins, in image pixels.
     const auto paddedWidth = width + (marginX * 2);
     const auto paddedHeight = height + (marginY * 2);
     const auto columnsF = static_cast<double>(columns);
@@ -276,7 +271,6 @@ std::optional<PlaceholderDrawing> placeholderDrawing(
     auto sourceWidth = paddedWidth * (static_cast<double>(run.width) / columnsF);
     auto sourceHeight = paddedHeight * (1.0 / rowsF);
 
-    // Cut the margins away, since the image has no pixels there.
     const auto cut = [scale](
                          double& source,
                          double& length,

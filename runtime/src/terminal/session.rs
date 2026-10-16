@@ -486,7 +486,6 @@ struct LocalActor {
     queue: VecDeque<PendingWrite>,
     focused: HashMap<Controller, CancellationToken>,
     resize_owner: Option<ResizeOwner>,
-    /// The cell size of the last resize that had one.
     cell: CellPixels,
     sequence: u64,
     host_stop_reply: Option<oneshot::Sender<std::result::Result<serde_json::Value, String>>>,

@@ -1,6 +1,4 @@
-# Kodosi's prompt marks (OSC 133) for bash. Kodosi starts bash in POSIX mode
-# with ENV set to this file, so bash reads it before any startup file. The file
-# leaves POSIX mode, reads the startup files that bash reads, and adds the marks.
+# Kodosi starts bash in POSIX mode with ENV set to this file, so it runs before any startup file.
 [ -n "${BASH_VERSION-}" ] || return 0
 
 if [[ -n "${KODOSI_BASH_INJECT-}" ]]; then

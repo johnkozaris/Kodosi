@@ -11,7 +11,6 @@
 namespace kodosi {
 namespace {
 
-// The formats match the rasterizer's target, so drawing an image is a plain blend.
 QImage convert(
     const std::uint8_t* const data,
     const std::size_t length,
@@ -79,7 +78,6 @@ TerminalImagePlacement::Layer layer(const std::int32_t z)
                  : TerminalImagePlacement::Layer::AboveText;
 }
 
-// Ghostty draws the images of placeholder cells below the text.
 constexpr std::int32_t placeholderZ = -1;
 
 struct Target {
@@ -90,8 +88,7 @@ struct Target {
     bool isVirtual = false;
 };
 
-// The placement whose grid a run fills. The C interface does not tell whether the
-// program chose a placement id, so a virtual placement and then the lowest id win.
+// The C interface hides whether a program chose a placement id, so virtual and then lowest id win.
 const Target* target(const std::vector<Target>& targets, const PlaceholderRun& run)
 {
     const Target* best = nullptr;
@@ -141,7 +138,6 @@ QVector<TerminalImagePlacement> TerminalImages::capture(
         || generation == 0) {
         return {};
     }
-    // Without the host's cell size an image covers no cells, as on the host.
     const auto cellWidth = widthPixels / columns;
     const auto cellHeight = heightPixels / rows;
     if (cellWidth == 0 || cellHeight == 0 || !iteratePlacements(graphics)) {
@@ -263,7 +259,6 @@ QVector<TerminalImagePlacement> TerminalImages::capture(
         });
     }
 
-    // Ghostty's order: the z-index, then the image id.
     std::ranges::stable_sort(placed, {}, [](const Placed& entry) {
         return std::pair {entry.z, entry.imageId};
     });
@@ -326,7 +321,6 @@ QImage TerminalImages::pixels(const GhosttyKittyGraphicsImage image, Cache& prev
         GHOSTTY_KITTY_IMAGE_DATA_DATA_PTR,
     };
     void* values[] {&width, &height, &format, &length, &data};
-    // A pending image, whose pixels a snapshot left out, has no data yet.
     if (ghostty_kitty_graphics_image_get_multi(image, std::size(keys), keys, values, nullptr)
             != GHOSTTY_SUCCESS
         || data == nullptr) {

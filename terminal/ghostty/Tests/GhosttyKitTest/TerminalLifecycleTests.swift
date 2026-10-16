@@ -122,7 +122,6 @@ struct TerminalLifecycleTests {
             columns: 10, rows: 4, cellWidthPixels: 7, cellHeightPixels: 15
         )))
         #expect(session.receive(String(repeating: "x", count: 25) + "\r\ny\r\nz"))
-        // Ten columns wrap the crosses into three rows, and four rows scroll the first away.
         #expect(visibleCrosses() == 15)
         let hostGrid = ghostty_surface_size(surface)
         #expect(hostGrid.columns == 10)
@@ -928,7 +927,6 @@ private final class ClipboardReadDelegate: TerminalSurfaceClipboardReadDelegate 
     }
 }
 
-/// Every item on the general pasteboard, so a test can put back what the person copied.
 @MainActor
 private struct SavedPasteboard {
     private let items: [NSPasteboardItem]

@@ -43,12 +43,10 @@ pub fn computer_name() -> Option<String> {
         .filter(|name| !name.is_empty())
 }
 
-/// The host name of this computer as `gethostname` gives it.
 pub fn host_name() -> Option<String> {
     imp::host_name().filter(|name| !name.is_empty())
 }
 
-/// The machine ID of this computer (`/etc/machine-id`), where it has one.
 pub fn machine_id() -> Option<String> {
     if !cfg!(target_os = "linux") {
         return None;

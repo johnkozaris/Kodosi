@@ -5,19 +5,11 @@ const MAX_TERMINAL_COLS: u16 = 1024;
 
 pub const TERMINAL_CHECKPOINT_SCHEMA_VERSION: u32 = 5;
 
-/// The most bytes of a snapshot without its images.
-///
-/// When the full history is larger, a view gets the visible part.
 pub const TERMINAL_SNAPSHOT_TEXT_MAX_BYTES: usize = 8 * 1024 * 1024;
 
-/// The most bytes of Kitty image data that each screen of a terminal stores.
 pub const TERMINAL_IMAGE_STORAGE_MAX_BYTES: u64 = ghostty_vt::IMAGE_STORAGE_MAX_BYTES;
 
-/// The most bytes of a snapshot.
-///
-/// It holds its text and, for each of the two screens, the stored images and
-/// an unfinished image transmission of at most the storage limit each, with
-/// the records of at most 4,096 images and 16,384 placements.
+/// Text, plus two screens of stored images and unfinished transmissions, plus image records.
 #[expect(
     clippy::cast_possible_truncation,
     reason = "the image storage limit is 64 MiB"
@@ -26,17 +18,10 @@ pub const TERMINAL_SNAPSHOT_MAX_BYTES: usize = TERMINAL_SNAPSHOT_TEXT_MAX_BYTES
     + 4 * TERMINAL_IMAGE_STORAGE_MAX_BYTES as usize
     + 4 * 1024 * 1024;
 
-/// The bytes of image pixels in a snapshot for a remote view whose link speed
-/// is not known yet.
-///
-/// A faster link gets more, up to `TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES`. An
-/// image beyond the budget of a view stays blank in that view.
 pub const TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES: u64 = 4 * 1024 * 1024;
 
-/// The most bytes of image pixels in a snapshot for a remote view.
 pub const TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES: u64 = 16 * 1024 * 1024;
 
-/// The bounds of a checkpoint that holds at most `image_data_bytes` of pixels.
 #[cfg(any(feature = "host", test))]
 pub(crate) const fn snapshot_limits(image_data_bytes: u64) -> ghostty_vt::SnapshotLimits {
     ghostty_vt::SnapshotLimits {
@@ -134,11 +119,7 @@ impl TerminalPixelGeometry {
     }
 }
 
-/// The pixel size of one cell of a terminal on its host.
-///
-/// Each view keeps it in its own terminal state, so a Kitty image covers the
-/// same cells in every view, and scales it to its own cells when it draws.
-/// Zero means that no view reported a pixel size.
+/// The host's cell size, which every view keeps so images cover the same cells; zero if unknown.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct CellPixels {
     pub width: u32,
@@ -146,7 +127,6 @@ pub struct CellPixels {
 }
 
 impl CellPixels {
-    /// The cells of a terminal of this pixel size.
     pub fn within(width_pixels: u32, height_pixels: u32, size: TerminalSize) -> Self {
         Self {
             width: width_pixels / u32::from(size.cols),
@@ -161,7 +141,6 @@ impl CellPixels {
         }
     }
 
-    /// The size of a terminal of these cells in pixels, where a PTY can hold it.
     pub fn pty_pixels(self, size: TerminalSize) -> (Option<u16>, Option<u16>) {
         let pixels = |cells: u16, cell: u32| {
             u32::from(cells)
@@ -315,7 +294,6 @@ impl Checkpoint {
         self.size
     }
 
-    /// The cell size of the host terminal when the snapshot was taken.
     pub const fn cell(&self) -> CellPixels {
         self.cell
     }

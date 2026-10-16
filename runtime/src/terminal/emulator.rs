@@ -138,7 +138,6 @@ impl SessionTerminalHandle {
             .collect()
     }
 
-    /// A checkpoint holds at most `image_data_bytes` of image pixels.
     pub(super) async fn checkpoint_data(
         &self,
         history: bool,

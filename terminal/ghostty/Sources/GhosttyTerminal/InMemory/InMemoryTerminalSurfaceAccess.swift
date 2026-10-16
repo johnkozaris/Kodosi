@@ -6,7 +6,6 @@ final class InMemoryTerminalSurfaceAccess: @unchecked Sendable {
     typealias HostResize = @Sendable (ghostty_surface_t, InMemoryTerminalViewport) -> Bool
     typealias Restore = @Sendable (ghostty_surface_t, Data, Bool) -> Bool
 
-    /// The host's output and its resizes apply in the order they arrive.
     private enum Operation {
         case write(Data)
         case hostResize(InMemoryTerminalViewport)
@@ -182,8 +181,6 @@ final class InMemoryTerminalSurfaceAccess: @unchecked Sendable {
             write(surface, data)
         case let .hostResize(viewport):
             guard !hostResize(surface, viewport) else { return }
-            // The terminal does not have the host's grid, so the output that
-            // follows waits for a checkpoint.
             condition.lock()
             generation &+= 1
             discardsWritesUntilReplacement = true
