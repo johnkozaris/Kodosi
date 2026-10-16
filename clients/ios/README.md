@@ -12,14 +12,13 @@ targets (`just ios-rust-targets-install`), and `just`, Python 3, `xcodegen`,
 just ios-build
 ```
 
-This generates `KodosiMobile.xcodeproj` from `project.yml` and builds the runtime and the
-app for the simulator; run the `KodosiMobile` scheme in Xcode. Debug builds use a
+Then run the `KodosiMobile` scheme in Xcode. Debug builds use a
 [local backend](../../docs/DEVELOPMENT.md#run-the-backend) at `127.0.0.1:5180`, which a
 simulator can reach and a device cannot.
 
-`just ios-check` lints, runs the unit tests on a `Kodosi iPhone 17 Pro` simulator (set
-`KODOSI_IOS_SIMULATOR` for another) and builds Release for devices. Keep
-[PrivacyInfo.xcprivacy](Resources/PrivacyInfo.xcprivacy) current when the app starts to
-use another
+`just ios-check` lints, runs the unit tests on the `Kodosi iPhone 17 Pro` simulator
+(`KODOSI_IOS_SIMULATOR` names another) and builds Release for devices. Update
+[PrivacyInfo.xcprivacy](Resources/PrivacyInfo.xcprivacy) when the app starts to use
+another
 [required reason API](https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api)
 or sends new data to the service.

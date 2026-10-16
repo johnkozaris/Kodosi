@@ -67,37 +67,30 @@ components:
 A warm workbench lit from the top left. A source list rests on the ground, one framed surface holds the work, raised objects rest on it and inputs sink into wells. The copper cursor is the sign of life: it ends the wordmark, marks the slot for a new terminal, and new terminals open from it. Each screen starts with the objects of its job, and text is short.
 
 ## Colors
-Copper `accent` means "act here" or "selected". `glowAmber` flashes behind a fresh change and `glowOrange` is a breathing dot for work or for a change out of view. Green `ready` means done or verified and is never a person's color. Plain tokens are dark and `-light` tokens their light pair. Use `AppTheme` roles, not literals. Terminals stay dark in both themes (`terminalScope`).
+Copper `accent` means "act here" or "selected". `glowAmber` flashes behind a fresh change and `glowOrange` is a breathing dot for work or for a change out of view. Green `ready` means done or verified and is never a person's color. Plain tokens are dark and `-light` tokens their light pair. Use `AppTheme` roles, not literals. Terminals stay dark in both appearances.
 
 ## Typography
 Use `AppTextStyle`: `large` for page titles, `title` for sheets, `headline` for object names, `body` for conversation and rows, `footnote` and `caption` for facts, monospace for code and paths. Labels use sentence case. The wordmark is a picture.
 
 ## Layout
-No title bar. The source list is 252 pt, or a 78 pt rail of marks. The main frame is inset 8 pt with an 18 pt radius, and pages are one centered column with 36 pt margins. A room has a 54 pt header, a canvas, and the conversation on a 300–540 pt sheet from the right; below 720 pt it shows one of the two. When chrome moves, the terminal takes its final size at once and does not animate.
+No title bar. The source list can shrink to a rail of marks, one inset frame holds the work, and pages are one centered column. A room has a header, a canvas, and the conversation on a 300–540 pt sheet from the right; below 720 pt it shows one of the two. When chrome moves, the terminal takes its final size at once.
 
 ## Elevation & Depth
-Three levels: resting, lifted (hover, focused composer, popovers) and floating (sheets, notices, Go to, the join card). Raised shapes have a light top-left rim, a dark bottom-right rim and two shadows falling down and right; wells have an inner shadow. Sheets and popovers are the app's own surfaces: a sheet rises in the middle of the dimmed window, a popover rises from its source, and a click outside or Escape dismisses either, unless the sheet waits for a decision.
+Three levels: resting, lifted (hover, focused composer, popovers) and floating (sheets, notices, Go to). Raised shapes have a light top-left rim, a dark bottom-right rim and two shadows falling down and right; wells have an inner shadow. A sheet rises in the middle of the dimmed window and a popover from its source; a click outside or Escape dismisses either, unless the sheet waits for a decision.
 
 ## Shapes
-Capsules for tags and pills, rounded rectangles (8, 10 and 12 pt) for buttons, squircles for agents, rooms and kinds of things, circles for people, and a dashed outline for a slot you can fill.
+Capsules for tags and pills, rounded rectangles for buttons, squircles for agents, rooms and kinds of things, circles for people, and a dashed outline for a slot you can fill.
 
 ## Components
-- **Button:** a flat face lit from the top left, with a fine light top and left edge and a tight shadow; a dark hairline in the light appearance and a darker bottom-right edge in the dark one. Primary is copper; secondary and tinted are quiet. Hover shifts the face; a press darkens and shrinks it. Ghost buttons are words with a hover fill, and symbol-only buttons are round.
-- **Agent mark:** a squircle in the program's color with its glyph (a shell shows a prompt and the copper cursor), pale when minimized. A ring of cells shows only work: the cursor types round it while the program works, and a percent fills it from the top. The status sign shows why the program stopped. Solid colors, no glow; the mark squashes a little at each change.
-- **Status sign:** one sign at the end of a row, card, tab or tile header, and the only sign that a program waits: a copper hand, question or key while waiting (the hand waves once), a self-drawing green check for done and a `caution` triangle for failed until opened, and a breathing copper dot for a bell or an agent that stopped without a report.
-- **Person avatar:** a circle colored from the person's identifier; your own is copper.
-- **Room sigil:** a squircle with four tiles, colored and lit from the room's identifier. A copper dot beside a room says that someone else wrote in it since you last looked.
-- **Selection pill:** a raised pill with a copper caret that slides between source list rows.
-- **Sliding pills:** segmented controls and terminal tabs use a sliding raised thumb. The room dock shows icons and names the selected section; a section that changed out of view gets a breathing dot.
-- **Terminal tile:** a rounded tile with a header whose actions stay faint until hover or selection. At the prompt, a mark for each installed agent comes first. A new terminal opens from a copper veil, and a person who joins shows as a card for a few seconds.
-- **Launcher:** the terminal about to open, dark in both appearances. Its band has a tab per kind of terminal (plain terminal first, missing agents behind a plus) and names the computer and room at its right end. Its line reads `[folder] ❯ program [account] [model]`, then the first prompt with a block cursor on a fixed hint; folder, account and model are small pop-up buttons whose popovers align to them. An account is a person mark in its sign-in's color with name and e-mail, dashed until signed in; effort is a row of rising bars. Start and Resume sit under it; with terminals open it is a sheet.
-- **Folder header:** a faint label above a folder's terminals; closed, it shows the number of its terminals and the sign of a terminal in it that waits; on hover, a plus for a new terminal and, for a Git repository, a branch button that opens a one-field panel.
-- **Conversation:** your messages are bubbles on the right; others show an avatar and a name; agents show their mark, name, owner and terminal. Mentions are tinted chips, a terminal mention opens the terminal, and a message that mentions you has a tinted row.
-- **Composer:** a lifted capsule with a copper halo on focus; "@" lists people and terminals.
-- **Tasks:** cards in "Up for grabs", "In progress" and "Done"; a changed card washes warm once.
-- **Go to (⌘K):** one field in a well finds terminals, rooms, people and actions; the chosen row is a raised pill with a copper notch.
+- **Agent mark:** a squircle in the program's color with its glyph, pale when minimized. A ring of cells shows only work: the cursor types round it while the program works, and a percent fills it from the top. Solid colors, no glow; the mark squashes a little at each change.
+- **Status sign:** one sign at the end of a row, card, tab or tile header, and the only sign that a program waits: a copper hand, question or key while waiting, a green check for done and a `caution` triangle for failed until opened, and a breathing copper dot for a bell or an agent that stopped without a report.
+- **People and rooms:** a person is a circle colored from their identifier, and yours is copper. A room is a squircle of four tiles colored from its identifier; a copper dot beside it says that someone else wrote in it since you last looked.
+- **Buttons:** a flat face lit from the top left. Primary is copper, secondary and tinted are quiet, ghost buttons are words with a hover fill, and symbol-only buttons are round.
+- **Selection:** a raised pill with a copper caret; segmented controls and terminal tabs slide a raised thumb.
+- **Terminal tile:** a rounded tile whose header actions stay faint until hover or selection. The launcher is the terminal about to open, dark in both appearances.
+- **Conversation:** your messages are bubbles on the right; others show an avatar and a name, and agents their mark, owner and terminal. Mentions are tinted chips.
 
-The text of an action in progress shimmers, counts roll and symbols replace in place. A state has one moving sign: a working terminal shows its work on its rim, and its text and the wordmark stay still. With reduced motion, from the system or from Settings, or while the window does not show, every change is instant and nothing loops.
+A state has one moving sign: a working terminal shows its work on its rim, and its text and the wordmark stay still. With reduced motion, from the system or from Settings, or while the window does not show, every change is instant and nothing loops.
 
 ## Do's and Don'ts
 - **Do** use the springs in `AppTheme.Motion`, and animate only for an action or a real change of state.

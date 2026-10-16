@@ -7,50 +7,30 @@ distribution.
 
 ## Pins
 
-`MacOSGhostty.ref`, `LinuxGhostty.ref` and `WindowsGhostty.ref` select the upstream
-commit of each platform; iOS uses the macOS ref. Apple platforms get one image per slice
-in `Vendor/GhosttyKit.xcframework`; Linux and each Windows architecture get a VT library
-in `Vendor/GhosttyVt`. Each artifact's `.version` file records its measured inputs and
-outputs. `VERSION` names this package, not the Ghostty version.
+`MacOSGhostty.ref`, `LinuxGhostty.ref` and `WindowsGhostty.ref` pick the upstream commit
+of each platform; iOS uses the macOS one. Root `Ghostty.lock` pins those commits and the
+archive digests of the artifacts in `Vendor/`, and each artifact's `.version` file
+records its inputs and outputs. The build options are in `NativeBuild.env` (Apple),
+`LinuxVtBuild.env` and `WindowsVtBuild.env`. `VERSION` names this package, not the
+Ghostty version.
 
-Root `Ghostty.lock` has `<platform>_ghostty_commit` (the commit of the platform's ref)
-and `<artifact>_archive_sha256` (the archive digest of an Apple slice or VT layout, with
-underscores for hyphens, as in `ios_arm64_simulator_archive_sha256`).
-
-`NativeBuild.env` is the only record of the Apple slices, Zig targets and i18n options;
-scripts read it rather than copying values. The iOS version in
-`GHOSTTY_BUILD_IOS_TARGET` must not exceed `clients/apple/Config/iOSDeploymentTarget`
-and must match `Package.swift`; `just mac-check` and `just ios-check` check this.
-
-## Checks
-
-`scripts/verify-ghostty-pins.py` is the only pin check: it compares the lock, refs,
-build records and `.version` files with the vendored files. `--working-tree` skips the
-lock (never publish such a build), `--vendor <folder>` checks another folder,
-`--platform <macos|linux|windows>` checks one platform, and `--patched-source <folder>`
-also checks the patched source of a build. `scripts/digest.py` is the only digest code.
-`just ghostty-check` runs the verifier, the digest tests and the host's notice checks.
-
-The other `verify-*` scripts probe the native artifacts and compare the notices with
-them; `ghostty-vt-sys` checks its target's artifact against the lock. The workflow
-`.github/workflows/ghostty-windows.yml` builds the Windows x64 artifact from a clean
-checkout and compares its `.version` record and headers with the committed ones (Zig's
-output bytes can differ).
+`just ghostty-check` checks the pins, digests and notices without a build. The Windows
+Ghostty library workflow rebuilds the Windows x64 artifact from a clean checkout and
+compares its record and headers with the committed ones.
 
 ## Update Ghostty
 
-1. Rebase `Patches/ghostty` on the new upstream commit; remove patches that upstream
-   already contains (they fail the build).
-2. Rebuild each platform with `./scripts/build.sh` on that platform. For Windows x64,
-   commit the artifact of the Windows Ghostty workflow.
-3. Update the notices from the real source and artifacts.
-4. If a VT header changed or the runtime needs a new symbol (add it to the allowlist
-   first), run `runtime/crates/ghostty-vt-sys/generate-bindings.sh` on that platform; it
-   needs network access, libclang and rustfmt.
-5. Run `./scripts/test.sh`, update `Ghostty.lock` from the `.version` files, and run
-   `just ghostty-check` and `just rust-check`.
-6. Test the Rust, Swift and Qt integration and the terminal lifecycle.
-7. Commit the patches, artifacts, notices, bindings and consumers together.
+1. Rebase `Patches/ghostty` on the new upstream commit and drop the patches that
+   upstream already contains.
+2. Run `./scripts/build.sh` on each platform; for Windows x64, commit the artifact of
+   the Windows Ghostty library workflow.
+3. Update the third-party notices from the real source and artifacts.
+4. If a VT header changed or the runtime needs a new symbol, add it to the allowlist of
+   `runtime/crates/ghostty-vt-sys/generate-bindings.sh` and run the script on each
+   platform; it needs network access, libclang and rustfmt.
+5. Update `Ghostty.lock` from the `.version` files, run `./scripts/test.sh`,
+   `just ghostty-check` and `just rust-check`, and try terminals in the apps.
+6. Commit the patches, artifacts, notices, bindings and their users together.
 
 Keep the licenses, corresponding source and relinking materials that the artifacts
-require. Builds need not be byte-for-byte reproducible.
+require.
