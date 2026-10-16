@@ -36,7 +36,7 @@ Settings › Terminal chooses where these folders go; from a shell, run
 
 | You see | Meaning |
 | --- | --- |
-| A warm rim turning round the mark | Working. An arc shows the percent. |
+| A warm light circling the mark | Working. The mark's edge fills to show a percent. |
 | A hand, question mark or key | Waiting for your approval, answer or sign-in. |
 | A green check | Done. |
 | A yellow warning sign | Failed. |

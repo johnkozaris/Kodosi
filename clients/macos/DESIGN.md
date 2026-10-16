@@ -82,7 +82,7 @@ Three levels: resting, lifted (hover, focused composer, popovers) and floating (
 Capsules for tags and pills, rounded rectangles for buttons, squircles for agents, rooms and kinds of things, circles for people, and a dashed outline for a slot you can fill.
 
 ## Components
-- **Agent mark:** a squircle in the program's color with its glyph, pale when minimized. A ring of cells shows only work: the cursor types round it while the program works, and a percent fills it from the top. Solid colors, no glow; the mark squashes a little at each change.
+- **Agent mark:** a squircle in the program's color with its glyph, pale when minimized. While its program works, a warm light circles the mark's edge, in step on every mark; a percent fills the edge clockwise from the top. Nothing glows outside the mark.
 - **Status sign:** one sign at the end of a row, card, tab or tile header, and the only sign that a program waits: a copper hand, question or key while waiting, a green check for done and a `caution` triangle for failed until opened, and a breathing copper dot for a bell or an agent that stopped without a report.
 - **People and rooms:** a person is a circle colored from their identifier, and yours is copper. A room is a squircle of four tiles colored from its identifier; a copper dot beside it says that someone else wrote in it since you last looked.
 - **Buttons:** a flat face lit from the top left. Primary is copper, secondary and tinted are quiet, ghost buttons are words with a hover fill, and symbol-only buttons are round.
@@ -90,7 +90,7 @@ Capsules for tags and pills, rounded rectangles for buttons, squircles for agent
 - **Terminal tile:** a rounded tile whose header actions stay faint until hover or selection. The launcher is the terminal about to open, dark in both appearances.
 - **Conversation:** your messages are bubbles on the right; others show an avatar and a name, and agents their mark, owner and terminal. Mentions are tinted chips.
 
-A state has one moving sign: a working terminal shows its work on its rim, and its text and the wordmark stay still. With reduced motion, from the system or from Settings, or while the window does not show, every change is instant and nothing loops.
+A state has one moving sign: the light circling a working terminal's mark. Its text and the wordmark stay still. With reduced motion, from the system or from Settings, or while the window does not show, every change is instant and nothing loops.
 
 ## Do's and Don'ts
 - **Do** use the springs in `AppTheme.Motion`, and animate only for an action or a real change of state.
