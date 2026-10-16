@@ -1,13 +1,19 @@
 import KodosiBridge
-import KodosiDesign
 import SwiftUI
 
-struct SessionPlace: View {
+public struct SessionPlace: View {
+    @Environment(\.font) private var font
     let place: TerminalPlace
+    let glyphFont: Font?
 
-    var body: some View {
+    public init(place: TerminalPlace, glyphFont: Font? = nil) {
+        self.place = place
+        self.glyphFont = glyphFont
+    }
+
+    public var body: some View {
         HStack(spacing: 4) {
-            PlaceGlyph(kind: place.kind).font(.system(size: 9, weight: .semibold))
+            PlaceGlyph(kind: place.kind).font(glyphFont ?? font)
             Text(place.name).lineLimit(1)
         }
     }

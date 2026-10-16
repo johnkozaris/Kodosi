@@ -41,11 +41,8 @@ struct TerminalTitle: View {
         } else if session.activity != nil || session.progress != nil {
             TerminalCaption(session: session)
         } else if let runsIn = session.place {
-            HStack(spacing: 4) {
-                PlaceGlyph(kind: runsIn.kind)
-                Text(runsIn.name)
-            }
-            .foregroundStyle(theme.colors.inkMuted)
+            SessionPlace(place: runsIn)
+                .foregroundStyle(theme.colors.inkMuted)
         } else {
             HStack(spacing: 4) {
                 DeviceGlyph(label: session.hostLabel)
