@@ -18,7 +18,7 @@ rooms when you are away.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: light)" srcset="docs/media/app-light.webp">
-    <img src="docs/media/app-dark.webp" width="900" alt="The Kodosi Mac app with four terminals on three computers.">
+    <img src="docs/media/app-dark.webp" width="900" alt="The Kodosi Mac app: Claude Code waits for an approval while Codex works.">
   </picture>
 </p>
 
@@ -33,8 +33,8 @@ you, is done or failed. A notification tells you when Kodosi is in the backgroun
 
 <p align="center">
   <picture>
-    <source media="(prefers-reduced-motion: reduce)" srcset="docs/media/status.webp">
-    <img src="docs/media/status.gif" width="790" alt="A terminal works, waits for an approval, works again and is done.">
+    <source media="(prefers-reduced-motion: reduce)" srcset="docs/media/status-still.webp">
+    <img src="docs/media/status.webp" width="750" alt="A terminal works, waits for an approval, works again and is done.">
   </picture>
 </p>
 
@@ -42,26 +42,26 @@ you, is done or failed. A notification tells you when Kodosi is in the backgroun
 own harness with its own settings and sign-in. Pick an agent, account, model and folder,
 type a first prompt, and a new terminal starts it.
 
-<p align="center"><img src="docs/media/start.webp" width="550" alt="A terminal at its prompt with marks that start Claude Code, Codex and a second Claude account."></p>
+<p align="center"><img src="docs/media/launcher.webp" width="580" alt="Claude Code chosen in the launcher with a folder, an account, a model and a first prompt."></p>
 
 **A branch for each agent.** Name a branch and Kodosi starts a terminal in its own Git
 worktree, so two agents never change the same files.
 
-<p align="center"><img src="docs/media/branch.webp" width="750" alt="The New branch panel beside a repository folder."></p>
+<p align="center"><img src="docs/media/branch.webp" width="546" alt="The New branch panel beside a repository folder."></p>
 
 **Work together in a room.** A room holds terminals, a conversation and tasks. Share a
 terminal with the room once and every member can use it. Agents join through the
 bundled [room skill](runtime/skills/kodosi-room/SKILL.md), and GitHub or Gitea issues
 can become tasks.
 
-<p align="center"><img src="docs/media/room.webp" width="900" alt="A room with shared terminals and a conversation of people and agents."></p>
+<p align="center"><img src="docs/media/room.webp" width="900" alt="A room with a friend's shared terminal and a conversation of people and agents."></p>
 <p align="center"><img src="docs/media/tasks.webp" width="600" alt="Room tasks up for grabs, in progress and done."></p>
 
 **End-to-end encrypted.** Private keys stay on your devices. The service relays
 encrypted traffic and cannot read your terminals or rooms; it sees only whether each
 agent works, waits or is done. [Security](docs/SECURITY.md)
 
-<p align="center"><img src="docs/media/share.webp" width="560" alt="The share panel of a terminal."></p>
+<p align="center"><img src="docs/media/share.webp" width="378" alt="The share panel of a terminal, end-to-end encrypted, with a room and two friends."></p>
 
 ## Build
 
