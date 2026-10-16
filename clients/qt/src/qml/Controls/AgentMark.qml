@@ -61,7 +61,7 @@ Item {
             radius: root.size * 0.3
             lineWidth: root.edge
 
-            Behavior on fraction { NumberAnimation { duration: KodosiTheme.motionSoft; easing.type: Easing.OutCubic } }
+            Behavior on fraction { NumberAnimation { duration: KodosiTheme.motionFade; easing.type: Easing.OutCubic } }
             Binding {
                 target: meter
                 property: "fraction"
