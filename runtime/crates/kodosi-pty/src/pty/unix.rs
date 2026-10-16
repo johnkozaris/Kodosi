@@ -742,12 +742,14 @@ mod tests {
             let command = b"sh -c 'trap \"\" HUP TERM; printf \"%s\\n\" \"$$\" > child; exec sleep 30' &\n";
             type_line(&mut reader, command).await;
             let mut buffer = [0; 4096];
-            tokio::time::timeout(Duration::from_secs(3), async {
-                while !root.path().join("child").exists() {
+            let child: i32 = tokio::time::timeout(Duration::from_secs(3), async {
+                loop {
+                    if let Some(child) = std::fs::read_to_string(root.path().join("child")).ok().and_then(|text| text.trim().parse().ok()) {
+                        break child;
+                    }
                     let _ = tokio::time::timeout(Duration::from_millis(10), reader.read(&mut buffer)).await;
                 }
             }).await.unwrap();
-            let child: i32 = std::fs::read_to_string(root.path().join("child")).unwrap().trim().parse().unwrap();
             assert_ne!(nix::unistd::getpgid(Some(nix::unistd::Pid::from_raw(child))).unwrap().as_raw(), pty.child_pid as i32);
             pty.request_shutdown(ShutdownStage::Hangup).unwrap();
             assert_eq!(pty.wait_within(Duration::from_millis(100)).await.unwrap(), super::WaitOutcome::TimedOut);
