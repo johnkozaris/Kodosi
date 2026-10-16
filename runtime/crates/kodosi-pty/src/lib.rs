@@ -42,9 +42,9 @@
 #[cfg(target_os = "ios")]
 compile_error!("iOS views terminals hosted elsewhere; build it with --no-default-features");
 
-pub mod pty;
+mod pty;
 
-pub type Result<T> = std::result::Result<T, KodosiError>;
+type Result<T> = std::result::Result<T, KodosiError>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum KodosiError {

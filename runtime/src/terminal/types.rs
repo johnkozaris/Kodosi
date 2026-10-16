@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-pub const MAX_TERMINAL_ROWS: u16 = 512;
-pub const MAX_TERMINAL_COLS: u16 = 1024;
+const MAX_TERMINAL_ROWS: u16 = 512;
+const MAX_TERMINAL_COLS: u16 = 1024;
 
 pub const TERMINAL_CHECKPOINT_SCHEMA_VERSION: u32 = 2;
 

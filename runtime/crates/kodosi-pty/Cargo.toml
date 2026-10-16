@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["io-util", "macros", "net", "process", "rt", "sync", "time"] }
+tokio = { workspace = true, features = ["macros", "net", "process", "rt", "sync", "time"] }
 
 [target.'cfg(unix)'.dependencies]
 close_fds = "0.3.2"

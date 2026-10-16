@@ -72,7 +72,6 @@ pub(crate) struct Inner {
     rooms: Mutex<rooms::RoomCache>,
 }
 
-/// A sign-in in the app's own window, which waits for the answer that the app gives back.
 struct AppLogin {
     login: BrowserLogin,
     cancel: CancellationToken,
@@ -80,7 +79,6 @@ struct AppLogin {
     until: tokio::time::Instant,
 }
 
-/// The time to sign in or to register in a browser, the same as a device code.
 const BROWSER_LOGIN_TIME: Duration = Duration::from_mins(15);
 
 pub(crate) struct State {
@@ -235,7 +233,6 @@ impl BackendClient {
         }
     }
 
-    /// Finishes a sign-in once its tokens come, unless a newer sign-in or a sign-out began.
     async fn complete_login(
         &self,
         tokens: impl Future<Output = Result<Tokens>>,

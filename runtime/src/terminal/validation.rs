@@ -2,7 +2,7 @@ use super::types::{Checkpoint, TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES, TerminalS
 use crate::{Error, Result};
 use ghostty_vt::{CheckpointLimits, Screen, SemanticCheckpoint, Terminal, TerminalPolicy};
 
-pub fn validate_terminal_checkpoint(checkpoint: &Checkpoint) -> Result<()> {
+pub(super) fn validate_terminal_checkpoint(checkpoint: &Checkpoint) -> Result<()> {
     let mut terminal = Terminal::new(
         checkpoint.cols(),
         checkpoint.rows(),

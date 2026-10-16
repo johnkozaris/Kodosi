@@ -93,8 +93,6 @@ fn tilde(path: &Path, home: &Path) -> String {
     }
 }
 
-/// The name that sets a sign-in folder apart; a folder named like the agent, such as
-/// `~/work/.claude`, takes the name of the folder that holds it.
 fn folder_name(path: &Path, usual: &str, program: &str) -> String {
     let short = |path: &Path| {
         let name = path

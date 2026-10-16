@@ -16,13 +16,10 @@ pub(crate) use session::LocalSession;
 pub use status::{BlockedKind, ProgramState, ProgramStatus};
 pub use subscribers::{ControlFrame, DataFrame, Subscription};
 pub use types::{
-    Checkpoint, MAX_TERMINAL_COLS, MAX_TERMINAL_ROWS, TERMINAL_CHECKPOINT_SCHEMA_VERSION,
-    TERMINAL_INPUT_MAX_BYTES, TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES, TerminalPixelGeometry,
+    Checkpoint, TERMINAL_CHECKPOINT_SCHEMA_VERSION, TERMINAL_INPUT_MAX_BYTES,
+    TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES, TerminalMetadata, TerminalPixelGeometry,
     TerminalScreen, TerminalSize,
 };
-pub use validation::validate_terminal_checkpoint;
-
-pub use types::TerminalMetadata;
 
 pub(crate) enum SessionChange {
     RemoteEnded {

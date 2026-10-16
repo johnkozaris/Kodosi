@@ -428,8 +428,6 @@ fn validated_pixels(
     Ok((Some(width), Some(height)))
 }
 
-/// The `PATH` of a new terminal with the folder of the running app at its end, when that
-/// folder holds the `kodosi` command and the `PATH` lacks it.
 fn command_path() -> Option<String> {
     if cfg!(windows) {
         return None;
