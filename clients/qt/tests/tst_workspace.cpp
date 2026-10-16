@@ -950,6 +950,15 @@ private slots:
         f.workspace.apply(error(f.commands.values.last().value(QStringLiteral("requestId")).toString()), 0);
         QCOMPARE(f.workspace.error(), QStringLiteral("No"));
         QVERIFY(!f.workspace.sessionActions().busy());
+        f.workspace.clearError();
+        f.workspace.people().request(QStringLiteral("ada"));
+        const auto friendRequest = f.commands.values.last().value(QStringLiteral("requestId")).toString();
+        QVERIFY(!friendRequest.isEmpty());
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("friends.error") },
+            { QStringLiteral("operation"), QStringLiteral("friends.request.send") },
+            { QStringLiteral("message"), QStringLiteral("Nobody is called ada") },
+            { QStringLiteral("requestId"), friendRequest } }, 0);
+        QCOMPARE(f.workspace.error(), QStringLiteral("Nobody is called ada"));
     }
 
     void strictRefreshHasNoRequestId()
