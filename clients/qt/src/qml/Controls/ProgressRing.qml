@@ -30,7 +30,7 @@ Item {
             }
         }
         ShapePath {
-            strokeColor: root.progress > 0 ? KodosiTheme.accent : "transparent"
+            strokeColor: root.progress >= 1 ? KodosiTheme.ready : root.progress > 0 ? KodosiTheme.accent : "transparent"
             strokeWidth: 2
             fillColor: "transparent"
             capStyle: ShapePath.RoundCap

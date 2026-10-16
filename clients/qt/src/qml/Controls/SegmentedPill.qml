@@ -69,13 +69,17 @@ Item {
                 objectName: root.identifier + "." + modelData.value
                 Accessible.id: objectName
                 Accessible.name: modelData.label
+                Accessible.description: root.dock && modelData.count > 0 ? String(modelData.count) : ""
                 Accessible.role: Accessible.PageTab
                 Accessible.selected: selected
                 activeFocusOnTab: true
                 hoverEnabled: true
                 height: row.height
-                width: content.implicitWidth + (root.compact ? 22 : 28)
+                width: content.implicitWidth + (root.compact || root.dock ? 22 : 28)
                 clip: true
+                ToolTip.text: modelData.label
+                ToolTip.visible: root.dock && hovered && !selected
+                ToolTip.delay: 600
 
                 Behavior on width { enabled: root.dock; NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
 
@@ -83,22 +87,22 @@ Item {
                     RowLayout {
                         id: content
                         anchors.verticalCenter: parent.verticalCenter
-                        x: root.compact ? 11 : 14
+                        x: root.compact || root.dock ? 11 : 14
                         spacing: 6
 
                         ProgressRing {
                             visible: option.modelData.progress !== undefined
-                            Layout.preferredWidth: 13
-                            Layout.preferredHeight: 13
+                            Layout.preferredWidth: 14
+                            Layout.preferredHeight: 14
                             progress: option.modelData.progress || 0
-                            track: KodosiTheme.alpha(label.color, 0.35)
+                            track: KodosiTheme.alpha(KodosiTheme.ink, 0.16)
                         }
                         KIcon {
                             visible: !!option.modelData.icon && option.modelData.progress === undefined
                             Layout.preferredWidth: 13
                             Layout.preferredHeight: 13
                             name: option.modelData.icon || ""
-                            color: label.color
+                            color: root.dock ? (option.selected ? KodosiTheme.accentStrong : KodosiTheme.inkMuted) : label.color
                             strokeWidth: 2
                         }
                         Text {
@@ -107,15 +111,15 @@ Item {
                             text: option.modelData.label
                             textFormat: Text.PlainText
                             color: option.selected ? KodosiTheme.ink : option.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
-                            font.pixelSize: root.compact ? KodosiTheme.fontFootnote : KodosiTheme.fontBody
-                            font.weight: option.selected ? Font.DemiBold : Font.Medium
+                            font.pixelSize: root.compact || root.dock ? KodosiTheme.fontFootnote : KodosiTheme.fontBody
+                            font.weight: option.selected && !root.dock ? Font.DemiBold : Font.Medium
 
                             Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
                         }
                         RollingText {
                             visible: root.dock && !option.selected && option.modelData.count > 0
                             text: String(option.modelData.count ?? "")
-                            color: label.color
+                            color: KodosiTheme.inkFaint
                             font.pixelSize: KodosiTheme.fontFootnote
                             font.weight: Font.Medium
                         }
