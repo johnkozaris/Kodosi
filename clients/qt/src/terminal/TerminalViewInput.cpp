@@ -344,7 +344,11 @@ void TerminalView::keyPressEvent(QKeyEvent* event)
         event->accept();
         return;
     }
-    if (!text.isEmpty()
+    // Some displays, such as VNC, give a modifier key a NUL text.
+    const auto typed = std::ranges::none_of(text, [](const QChar character) {
+        return character.category() == QChar::Other_Control;
+    });
+    if (!text.isEmpty() && typed
         && !event->modifiers().testAnyFlags(
             Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier)
         && event->key() != Qt::Key_Return

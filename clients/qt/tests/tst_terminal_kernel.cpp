@@ -391,6 +391,7 @@ private slots:
     void terminalViewRoutesTrackedMouseToPty();
     void remoteGridFitsAndMapsAccessibleMouseCoordinates();
     void terminalViewPreservesControlAndEscapeKeys();
+    void modifierKeysWithControlTextSendNothing();
     void runtimeBellAndTitleKeepTerminalAvailable();
     void hiddenAndDisabledTerminalRejectsInputAndCancelsRetries();
     void terminalControlsStayBoundedAndFenceReattachment();
@@ -460,6 +461,40 @@ void TerminalKernelTest::terminalViewPreservesControlAndEscapeKeys()
     applicationShortcut.ignore();
     QCoreApplication::sendEvent(&view, &applicationShortcut);
     QVERIFY(!applicationShortcut.isAccepted());
+}
+
+void TerminalKernelTest::modifierKeysWithControlTextSendNothing()
+{
+    kodosi::TerminalSessionRegistry registry;
+    FakeTerminalDispatcher dispatcher;
+    QQuickWindow window;
+    window.resize(400, 200);
+    kodosi::TerminalView view(window.contentItem());
+    view.setSize(QSizeF(400, 200));
+    view.setTerminalInteraction(true, true);
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("modifier-keys"),
+        QStringLiteral("modifier-keys-subscription"),
+        1,
+    };
+    QVERIFY(view.attach(registry, dispatcher, subscription, QStringLiteral("incarnation")));
+    makeTerminalReady(registry, subscription);
+    window.show();
+    window.requestActivate();
+    view.forceActiveFocus();
+    QTRY_VERIFY(view.hasActiveFocus());
+
+    for (const auto key : {Qt::Key_Control, Qt::Key_Shift, Qt::Key_Alt}) {
+        QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier, QString(QChar(0)));
+        QCoreApplication::sendEvent(&view, &press);
+        QKeyEvent release(QEvent::KeyRelease, key, Qt::NoModifier, QString(QChar(0)));
+        QCoreApplication::sendEvent(&view, &release);
+    }
+    QKeyEvent letter(QEvent::KeyPress, Qt::Key_unknown, Qt::NoModifier, QStringLiteral("\u00e9"));
+    QCoreApplication::sendEvent(&view, &letter);
+    QTRY_COMPARE(dispatcher.inputCommands.size(), 1);
+    QCOMPARE(dispatcher.inputCommands.front(), QStringLiteral("\u00e9").toUtf8());
+    window.hide();
 }
 
 void TerminalKernelTest::runtimeBellAndTitleKeepTerminalAvailable()
