@@ -93,19 +93,21 @@ def patch_application_sha256(source: Path, commit: str) -> str:
     with tempfile.TemporaryDirectory(prefix="kodosi-ghostty-index.") as temporary:
         environment = dict(os.environ, GIT_INDEX_FILE=str(Path(temporary) / "index"))
         git(source, "read-tree", "HEAD", environment=environment)
-        git(source, "add", "--all", environment=environment)
+        git(source, "-c", f"core.excludesFile={os.devnull}", "add", "--all", environment=environment)
         unchanged = subprocess.run(
-            ["git", "-C", str(source), "diff", "--cached", "--quiet", "HEAD"],
+            ["git", "-C", str(source), "diff-index", "--cached", "--quiet", "HEAD"],
             env=environment,
             check=False,
         ).returncode
         if unchanged == 0:
             fail(f"patched source {source} has no patch application")
         if unchanged != 1:
-            fail(f"git diff failed in {source}")
-        return bytes_sha256(
-            git(source, "diff", "--cached", "--binary", "--full-index", "HEAD", environment=environment)
+            fail(f"git diff-index failed in {source}")
+        patch = git(
+            source, "diff-index", "--cached", "--patch", "--binary", "--full-index", "--histogram",
+            "--indent-heuristic", "HEAD", environment=environment,
         )
+        return bytes_sha256(patch)
 
 
 def main() -> None:

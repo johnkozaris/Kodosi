@@ -24,7 +24,7 @@ FILES = {
     "dir with space/file name": b"z\n",
 }
 TREE = "5b817b3b1f61341b437a29a970c0b65e447343783c60197da164970ca0e7fe55"
-PATCH_APPLICATION = "9b46920555ca5b3ed1f9ce8c3d8beb22c1c1bfe9109ac4d1297819b7c59065a2"
+PATCH_APPLICATION = "f403573b14abca14715ea4ded4ebec788291a5763a528f5ea8779e1121f9470d"
 
 
 class DigestTests(unittest.TestCase):
@@ -44,10 +44,17 @@ class DigestTests(unittest.TestCase):
     def test_tree_digest_keeps_its_value(self) -> None:
         self.assertEqual(digest.tree_sha256(self.root / "tree"), TREE)
 
-    @mock.patch.dict(os.environ, {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"})
-    def test_patch_application_digest_keeps_its_value(self) -> None:
+    def test_patch_application_digest_ignores_the_git_settings_of_the_builder(self) -> None:
         source = self.root / "source"
         source.mkdir()
+        exclusions = self.root / "ignore"
+        exclusions.write_bytes(b"added.zig\n")
+        settings = self.root / "gitconfig"
+        settings.write_text(
+            "[diff]\n algorithm = myers\n renames = copies\n noprefix = true\n context = 1\n"
+            f"[color]\n ui = always\n[core]\n excludesFile = {exclusions.as_posix()}\n",
+            encoding="utf-8",
+        )
 
         def git(*arguments: str) -> str:
             return subprocess.run(
@@ -57,17 +64,22 @@ class DigestTests(unittest.TestCase):
                 check=True,
             ).stdout.strip()
 
-        git("init", "-q")
-        (source / ".gitignore").write_bytes(b"zig-pkg/\n")
-        (source / "build.zig").write_bytes(b"upstream\n")
-        git("add", "--all")
-        git("commit", "-q", "-m", "upstream")
-        commit = git("rev-parse", "HEAD")
-        (source / "build.zig").write_bytes(b"patched\n")
-        (source / "added.zig").write_bytes(b"new\n")
-        (source / "zig-pkg").mkdir()
-        (source / "zig-pkg" / "x").write_bytes(b"ignored\n")
-        self.assertEqual(digest.patch_application_sha256(source, commit), PATCH_APPLICATION)
+        with mock.patch.dict(os.environ, {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}):
+            git("init", "-q")
+            (source / ".gitignore").write_bytes(b"zig-pkg/\n")
+            (source / "build.zig").write_bytes(b"a\nb\nc\na\nb\nc\n")
+            (source / "moved.zig").write_bytes(b"moved\n")
+            git("add", "--all")
+            git("commit", "-q", "-m", "upstream")
+            commit = git("rev-parse", "HEAD")
+            (source / "build.zig").write_bytes(b"c\nb\na\nb\nc\nx\n")
+            (source / "moved.zig").rename(source / "renamed.zig")
+            (source / "added.zig").write_bytes(b"new\n")
+            (source / "zig-pkg").mkdir()
+            (source / "zig-pkg" / "x").write_bytes(b"ignored\n")
+            self.assertEqual(digest.patch_application_sha256(source, commit), PATCH_APPLICATION)
+        with mock.patch.dict(os.environ, {"GIT_CONFIG_GLOBAL": str(settings), "GIT_CONFIG_NOSYSTEM": "1"}):
+            self.assertEqual(digest.patch_application_sha256(source, commit), PATCH_APPLICATION)
 
 
 if __name__ == "__main__":
