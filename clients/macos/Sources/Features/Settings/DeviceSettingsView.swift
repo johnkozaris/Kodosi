@@ -66,12 +66,15 @@ struct DeviceSettingsView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "laptopcomputer.and.arrow.down").font(.system(size: 13, weight: .semibold))
                                 .foregroundStyle(theme.colors.inkFaint)
-                            TextField("Code shown on the other device", text: $code)
-                                .textFieldStyle(.plain).appTextStyle(.callout).onSubmit(approve)
-                                .accessibilityIdentifier("settings.devices.code")
+                            TextField(
+                                "Code shown on the other device",
+                                text: Binding(get: { code }, set: { code = DeviceCode.format($0) })
+                            )
+                            .textFieldStyle(.plain).appTextStyle(.callout).onSubmit(approve)
+                            .accessibilityIdentifier("settings.devices.code")
                             Button("Approve", action: approve)
                                 .buttonStyle(.kodosi(.primary))
-                                .disabled(code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                                .disabled(!DeviceCode.isComplete(code) || deps.account.approval == .approving)
                                 .accessibilityIdentifier("settings.devices.approve")
                         }
                         .padding(.leading, 16).padding(.trailing, 6).frame(height: 46)
@@ -165,9 +168,8 @@ struct DeviceSettingsView: View {
     }
 
     private func approve() {
-        let value = code.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !value.isEmpty else { return }
-        deps.perform("devices.link.approve", ["code": .string(value)])
+        guard DeviceCode.isComplete(code) else { return }
+        deps.account.approveDevice(code: code)
         code = ""
     }
 }
