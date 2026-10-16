@@ -173,17 +173,19 @@ trap 'cleanup_vendor_stage; cleanup' EXIT
     "$VENDOR_STAGE/GhosttyVt/macos-arm64" \
     "$VENDOR_STAGE/symbols"
 
-LINUX_ARTIFACT="$ROOT_DIR/Vendor/GhosttyVt/linux-x86_64"
-LINUX_METADATA="$ROOT_DIR/Vendor/GhosttyVt/linux-x86_64.version"
-if [ -e "$LINUX_ARTIFACT" ] || [ -e "$LINUX_METADATA" ]; then
-    if [ ! -d "$LINUX_ARTIFACT" ] || [ ! -f "$LINUX_METADATA" ]; then
-        echo "[!] Linux VT artifact and metadata must both exist" >&2
-        exit 1
+# The new Vendor replaces the old one, so it keeps the Linux and Windows VT artifacts.
+for layout in linux-x86_64 windows-x86_64 windows-arm64; do
+    artifact="$ROOT_DIR/Vendor/GhosttyVt/$layout"
+    if [ -e "$artifact" ] || [ -e "$artifact.version" ]; then
+        if [ ! -d "$artifact" ] || [ ! -f "$artifact.version" ]; then
+            echo "[!] $layout VT artifact and metadata must both exist" >&2
+            exit 1
+        fi
+        cp -R "$artifact" "$VENDOR_STAGE/GhosttyVt/$layout"
+        cp "$artifact.version" "$VENDOR_STAGE/GhosttyVt/$layout.version"
+        python3 "$ROOT_DIR/scripts/verify-ghostty-pins.py" --working-tree --vendor "$VENDOR_STAGE" --platform "${layout%%-*}"
     fi
-    cp -R "$LINUX_ARTIFACT" "$VENDOR_STAGE/GhosttyVt/linux-x86_64"
-    cp "$LINUX_METADATA" "$VENDOR_STAGE/GhosttyVt/linux-x86_64.version"
-    python3 "$ROOT_DIR/scripts/verify-ghostty-pins.py" --working-tree --vendor "$VENDOR_STAGE" --platform linux
-fi
+done
 
 # shellcheck disable=SC1091
 source Toolchain.env

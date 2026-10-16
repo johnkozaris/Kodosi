@@ -821,6 +821,7 @@ pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_XT_CHECKSUM_REPORT: Ghostty
 pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_XT_CHECKSUM_EXTENSION: GhosttyTerminalOption =
     45;
 pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_PROGRAM_STATUS: GhosttyTerminalOption = 46;
+pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_RESIZE_WINDOW: GhosttyTerminalOption = 47;
 pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_MAX_VALUE: GhosttyTerminalOption = 2147483647;
 pub type GhosttyTerminalOption = ::std::os::raw::c_int;
 pub const GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_INVALID: GhosttyTerminalData = 0;
@@ -1011,12 +1012,11 @@ pub struct GhosttyFormatterTerminalOptions {
     pub trim: bool,
     pub extra: GhosttyFormatterTerminalExtra,
     pub selection: *const GhosttySelection,
-    pub screen: *const GhosttyTerminalScreen,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
     ["Size of GhosttyFormatterTerminalOptions"]
-        [::std::mem::size_of::<GhosttyFormatterTerminalOptions>() - 64usize];
+        [::std::mem::size_of::<GhosttyFormatterTerminalOptions>() - 56usize];
     ["Alignment of GhosttyFormatterTerminalOptions"]
         [::std::mem::align_of::<GhosttyFormatterTerminalOptions>() - 8usize];
     ["Offset of field: GhosttyFormatterTerminalOptions::size"]
@@ -1031,8 +1031,6 @@ const _: () = {
         [::std::mem::offset_of!(GhosttyFormatterTerminalOptions, extra) - 16usize];
     ["Offset of field: GhosttyFormatterTerminalOptions::selection"]
         [::std::mem::offset_of!(GhosttyFormatterTerminalOptions, selection) - 48usize];
-    ["Offset of field: GhosttyFormatterTerminalOptions::screen"]
-        [::std::mem::offset_of!(GhosttyFormatterTerminalOptions, screen) - 56usize];
 };
 impl Default for GhosttyFormatterTerminalOptions {
     fn default() -> Self {

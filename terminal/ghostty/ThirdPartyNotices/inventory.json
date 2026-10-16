@@ -1175,7 +1175,7 @@
   "components": [
     {
       "id": "ghostty",
-      "identity": "ghostty:c770410dbb57909ff4f6921a6497688a957f85db;patch_set:f92f3eec8424e6a6035c7d7e6ba61cf0789bcbdca988411203385c41bc585fe6;patch_application:26f8346d2c28bcd22708223cb609e85ff8306c70912cfcd0406a2b7a9af3b4fa",
+      "identity": "ghostty:22fa134a07f5749edd9e92c6bc17d8aaf61843be;patch_set:d1dc0df473ffee40642e6878cf4babb336d854e1a01a4442b4ce468826386b4e;patch_application:7b8f6868bd200219c3bd2ea57c470a453e68a09735f73bbc4ff6728c502bf65b",
       "name": "Ghostty",
       "notices": [
         "LICENSE-GHOSTTY"
@@ -1188,7 +1188,7 @@
         "pinned-source:pkg/wuffs/src/"
       ],
       "spdx": "MIT",
-      "version": "commit c770410dbb57909ff4f6921a6497688a957f85db"
+      "version": "commit 22fa134a07f5749edd9e92c6bc17d8aaf61843be"
     },
     {
       "id": "freetype",
@@ -1613,7 +1613,7 @@
     },
     {
       "id": "freetype-gl-atlas",
-      "identity": "ghostty:c770410dbb57909ff4f6921a6497688a957f85db:Atlas.zig:af51b844da19c6318261df99bd99ed580ee26dbd9f88bc6e060ac02cb591e61b;freetype-gl:85d7850744465ac1dcd00b202787d72a4a3a1f5d;rectangle-bin-pack:a40fcaf3871da57b0f6a080655b3387374840877",
+      "identity": "ghostty:22fa134a07f5749edd9e92c6bc17d8aaf61843be:Atlas.zig:af51b844da19c6318261df99bd99ed580ee26dbd9f88bc6e060ac02cb591e61b;freetype-gl:85d7850744465ac1dcd00b202787d72a4a3a1f5d;rectangle-bin-pack:a40fcaf3871da57b0f6a080655b3387374840877",
       "name": "Ghostty texture atlas derived from freetype-gl with RectangleBinPack lineage",
       "notices": [
         "freetype-gl-BSD-2-Clause.txt",
@@ -1663,7 +1663,7 @@
       "version": "Unicode 6.0.0 / Kitty d63eeada73bacce2374c6b1f1523e0551dbbd5b6 / Ghostty d29073d999e88f8a35cd3c368f97f6a3bfa8a0fc"
     }
   ],
-  "ghosttyCommit": "c770410dbb57909ff4f6921a6497688a957f85db",
+  "ghosttyCommit": "22fa134a07f5749edd9e92c6bc17d8aaf61843be",
   "notices": {
     "RectangleBinPack-Public-Domain.txt": {
       "path": "ThirdPartyNotices/licenses/RectangleBinPack-Public-Domain.txt",
@@ -1837,5 +1837,5 @@
       "zigIdentity": "z2d-0.12.1-j5P_Hsw8EQAKyZTQICCQnAH2xYkLDW8k9uefbsYdfPZ-"
     }
   },
-  "zigStoreSha256": "a30b27bd61499a557fccc042c6ce7c232fe2c90cc19f26c2cdbd6b968e37006f"
+  "zigStoreSha256": "5dcaafe0b1db2fe4ef8837e0071d6dcf22160c53247a1eea59d26e97ebbb2350"
 }

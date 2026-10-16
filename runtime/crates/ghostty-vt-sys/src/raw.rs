@@ -88,7 +88,6 @@ pub struct FormatOptions {
     pub format: Format,
     pub unwrap: bool,
     pub trim: bool,
-    pub screen: Option<Screen>,
     pub palette: bool,
     pub modes: bool,
     pub scrolling_region: bool,
@@ -400,7 +399,6 @@ impl Terminal {
         maximum_bytes: usize,
     ) -> Result<Vec<u8>, Error> {
         self.ensure_healthy()?;
-        let screen = options.screen.map(screen_to_raw);
         let raw_options = GhosttyFormatterTerminalOptions {
             size: mem::size_of::<GhosttyFormatterTerminalOptions>(),
             emit: match options.format {
@@ -428,7 +426,6 @@ impl Terminal {
                 },
             },
             selection: ptr::null(),
-            screen: screen.as_ref().map_or(ptr::null(), ptr::from_ref),
         };
         let mut formatter = ptr::null_mut();
 
@@ -772,13 +769,6 @@ const fn result(value: GhosttyResult) -> Result<(), Error> {
         GhosttyResult_GHOSTTY_IO_ERROR => Err(Error::Io),
         GhosttyResult_GHOSTTY_LIMIT_EXCEEDED => Err(Error::LimitExceeded),
         other => Err(Error::UnexpectedResult(other)),
-    }
-}
-
-const fn screen_to_raw(screen: Screen) -> GhosttyTerminalScreen {
-    match screen {
-        Screen::Primary => GhosttyTerminalScreen_GHOSTTY_TERMINAL_SCREEN_PRIMARY,
-        Screen::Alternate => GhosttyTerminalScreen_GHOSTTY_TERMINAL_SCREEN_ALTERNATE,
     }
 }
 
@@ -1188,7 +1178,12 @@ mod tests {
                 _ => None,
             })
             .collect::<Vec<_>>();
-        assert_eq!(replies.first().copied(), Some(&b"\x1b]7501;?\x1b\\"[..]));
+        assert_eq!(
+            replies.first().copied(),
+            Some(
+                &b"\x1b]7501;?:states=idle,working,done,blocked,error:kinds=permission,question,auth\x1b\\"[..]
+            )
+        );
         assert!(
             replies
                 .get(1)
@@ -1340,42 +1335,6 @@ mod tests {
         let value = 1_u8;
 
         assert!(unsafe { borrowed_bytes(&raw const value, usize::MAX) }.is_none());
-    }
-
-    #[test]
-    fn formatter_can_select_inactive_primary() {
-        let mut terminal = terminal();
-        terminal
-            .write(b"primary\x1b[?1049halternate")
-            .expect("write");
-        let output = terminal
-            .format(
-                FormatOptions {
-                    format: Format::Plain,
-                    unwrap: false,
-                    trim: true,
-                    screen: Some(Screen::Primary),
-                    palette: false,
-                    modes: false,
-                    scrolling_region: false,
-                    tabstops: false,
-                    pwd: false,
-                    keyboard: false,
-                    cursor: false,
-                    style: false,
-                    hyperlink: false,
-                    protection: false,
-                    kitty_keyboard: false,
-                    charsets: false,
-                },
-                usize::MAX,
-            )
-            .expect("format");
-        assert_eq!(output, b"primary");
-        assert_eq!(
-            terminal.state().expect("state").active_screen,
-            Screen::Alternate
-        );
     }
 
     #[test]

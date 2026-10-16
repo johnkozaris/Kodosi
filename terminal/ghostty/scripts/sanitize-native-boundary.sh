@@ -65,11 +65,7 @@ static void write_pty(
     state->bytes += len;
 }
 
-static void format_screen(
-    GhosttyTerminal terminal,
-    GhosttyFormatterFormat emit,
-    GhosttyTerminalScreen screen
-) {
+static void format_screen(GhosttyTerminal terminal, GhosttyFormatterFormat emit) {
     GhosttyFormatterTerminalOptions options =
         GHOSTTY_INIT_SIZED(GhosttyFormatterTerminalOptions);
     options.emit = emit;
@@ -82,7 +78,6 @@ static void format_screen(
     options.extra.scrolling_region = true;
     options.extra.tabstops = true;
     options.extra.keyboard = true;
-    options.screen = &screen;
 
     GhosttyFormatter formatter = NULL;
     assert(ghostty_formatter_terminal_new(
@@ -308,9 +303,11 @@ int vt_sanitizer_probe(void) {
 
         assert(ghostty_terminal_resize(terminal, 200, 50, 8, 16) == GHOSTTY_SUCCESS);
         assert(ghostty_terminal_resize(terminal, 80, 24, 8, 16) == GHOSTTY_SUCCESS);
-        format_screen(terminal, GHOSTTY_FORMATTER_FORMAT_PLAIN, GHOSTTY_TERMINAL_SCREEN_PRIMARY);
-        format_screen(terminal, GHOSTTY_FORMATTER_FORMAT_VT, GHOSTTY_TERMINAL_SCREEN_PRIMARY);
-        format_screen(terminal, GHOSTTY_FORMATTER_FORMAT_VT, GHOSTTY_TERMINAL_SCREEN_ALTERNATE);
+        format_screen(terminal, GHOSTTY_FORMATTER_FORMAT_PLAIN);
+        format_screen(terminal, GHOSTTY_FORMATTER_FORMAT_VT);
+        ghostty_terminal_vt_write(terminal, (const uint8_t *)"\x1b[?1049h", 8);
+        format_screen(terminal, GHOSTTY_FORMATTER_FORMAT_VT);
+        ghostty_terminal_vt_write(terminal, (const uint8_t *)"\x1b[?1049l", 8);
 
         GhosttyTerminalCompressionResult compression;
         do {
