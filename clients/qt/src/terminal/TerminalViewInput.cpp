@@ -677,6 +677,30 @@ void TerminalView::pasteClipboard()
     (void)enqueueInput(std::move(*encoded));
 }
 
+void TerminalView::applyClipboard(const TerminalClipboardOperations& operations)
+{
+    auto* clipboard = QGuiApplication::clipboard();
+    if (clipboard == nullptr) {
+        return;
+    }
+    for (const auto& operation : operations) {
+        const auto mode = operation.selection && clipboard->supportsSelection()
+            ? QClipboard::Selection
+            : QClipboard::Clipboard;
+        if (operation.write) {
+            if (operation.write->isEmpty()) {
+                clipboard->clear(mode);
+            } else {
+                clipboard->setText(*operation.write, mode);
+            }
+        } else if (hasActiveFocus() && interactionAvailable()) {
+            (void)enqueueInput(
+                operation.answerPrefix + clipboard->text(mode).toUtf8().toBase64()
+                + operation.answerTerminator);
+        }
+    }
+}
+
 bool TerminalView::sendKey(QKeyEvent* event, const TerminalKeyAction action)
 {
     const auto key = terminalKey(event);

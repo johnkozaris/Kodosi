@@ -619,6 +619,9 @@ bool TerminalView::attach(
                 enqueueGuiEvent(epoch, std::move(outcome));
             },
             .closed = [this, epoch] { enqueueGuiEvent(epoch, Closed {}); },
+            .clipboard = [this, epoch](auto operations) {
+                enqueueGuiEvent(epoch, std::move(operations));
+            },
         },
         kernelSettings());
     if (!registered) {
@@ -840,7 +843,15 @@ void TerminalView::enqueueGuiEvent(const std::uint64_t epoch, GuiEvent event)
     std::scoped_lock lock(m_guiEventMutex);
     if (m_attachmentEpoch.load(std::memory_order_acquire) != epoch || m_guiOverflow)
         return;
-    if (m_guiEvents.size() >= 64) {
+    auto* clipboard = std::get_if<TerminalClipboardOperations>(&event);
+    auto* queuedClipboard = m_guiEvents.empty()
+        ? nullptr
+        : std::get_if<TerminalClipboardOperations>(&m_guiEvents.back());
+    if (clipboard != nullptr && queuedClipboard != nullptr) {
+        for (auto& operation : *clipboard) {
+            appendClipboardOperation(*queuedClipboard, std::move(operation));
+        }
+    } else if (m_guiEvents.size() >= 64) {
         m_guiEvents.clear();
         m_guiOverflow = true;
     } else {
@@ -884,7 +895,8 @@ void TerminalView::drainGuiEvents(const std::uint64_t epoch)
                 handleFocusOutcome(std::move(value));
             } else if constexpr (std::is_same_v<T, TerminalResizeOutcome>) {
                 handleResizeOutcome(std::move(value));
-
+            } else if constexpr (std::is_same_v<T, TerminalClipboardOperations>) {
+                applyClipboard(value);
             } else {
                 drainFrame(epoch);
                 if (m_attachmentEpoch.load(std::memory_order_acquire) != epoch) return;

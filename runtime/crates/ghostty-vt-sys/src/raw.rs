@@ -894,7 +894,7 @@ unsafe extern "C" fn clipboard_callback(
     };
     let response = GhosttyClipboardWriteReply {
         size: mem::size_of::<GhosttyClipboardWriteReply>(),
-        result: GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_DENIED,
+        result: GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_SUCCESS,
         remember: false,
     };
     unsafe { reply(write, &raw const response) };
@@ -1104,12 +1104,16 @@ unsafe extern "C" fn device_attributes_callback(
             state.poisoned = true;
             return false;
         };
+        let Ok(clipboard) = u16::try_from(GHOSTTY_DA_FEATURE_CLIPBOARD) else {
+            state.poisoned = true;
+            return false;
+        };
         let Ok(device_type) = u16::try_from(GHOSTTY_DA_DEVICE_TYPE_VT220) else {
             state.poisoned = true;
             return false;
         };
         attributes.primary.conformance_level = conformance_level;
-        let features = [selective_erase, ansi_color];
+        let features = [selective_erase, ansi_color, clipboard];
         attributes.primary.features[..features.len()].copy_from_slice(&features);
         attributes.primary.num_features = features.len();
         attributes.secondary.device_type = device_type;
@@ -1313,7 +1317,7 @@ mod tests {
     }
 
     #[test]
-    fn kitty_clipboard_write_is_denied_without_a_writer_capability() {
+    fn a_kitty_clipboard_write_is_acknowledged_for_the_viewers_to_apply() {
         let mut terminal = terminal();
         let mut effects = terminal
             .write(b"\x1b]5522;type=write:id=linux\x1b\\")
@@ -1328,11 +1332,12 @@ mod tests {
                 .write(b"\x1b]5522;type=wdata\x1b\\")
                 .expect("commit clipboard write"),
         );
-        assert!(effects.iter().any(|effect| matches!(
-            effect,
-            Effect::PtyWrite(response)
-                if response == b"\x1b]5522;type=write:status=EPERM:id=linux\x1b\\"
-        )));
+        assert_eq!(
+            effects,
+            vec![Effect::PtyWrite(
+                b"\x1b]5522;type=write:status=DONE:id=linux\x1b\\".to_vec()
+            )]
+        );
     }
 
     #[test]
@@ -1404,7 +1409,7 @@ mod tests {
         assert!(effects.iter().any(
             |effect| matches!(effect, Effect::Pwd(value) if value == b"file://host/tmp/project")
         ));
-        assert!(effects.iter().any(|effect| matches!(effect, Effect::PtyWrite(value) if value.starts_with(b"\x1b[?") && !value.windows(3).any(|window| window == b";52"))));
+        assert!(effects.iter().any(|effect| matches!(effect, Effect::PtyWrite(value) if value.starts_with(b"\x1b[?") && value.windows(3).any(|window| window == b";52"))));
     }
 
     #[test]

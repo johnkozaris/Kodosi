@@ -26,7 +26,9 @@ CLI so that it shares the app's Keychain identity.
 The host owns each process, its terminal state and output order. A viewer gets a
 checkpoint and then ordered updates over its own encrypted channel with bounded
 buffering. Input whose delivery is uncertain is not replayed, and a stale view cannot
-control a replacement terminal.
+control a replacement terminal. Programs use the clipboard without a prompt: every view
+of a terminal applies a clipboard write, and only the view with keyboard focus answers a
+read, so the program gets one answer.
 
 The host keeps the status that programs report (OSC 7501, or a progress bar). For each
 terminal it sends the agent and state, without the program's text and without

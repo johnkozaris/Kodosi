@@ -307,6 +307,7 @@ final class TerminalSurfaceCoordinator {
 
     func setFocus(_ focused: Bool) {
         isSurfaceFocused = focused
+        bridge.hasFocus = focused
         requestImmediateTick()
         TerminalDebugLog.log(.lifecycle, "focus=\(focused)")
         surface?.setFocus(focused)
@@ -326,11 +327,13 @@ final class TerminalSurfaceCoordinator {
     func attachInMemorySession(to rawSurface: ghostty_surface_t) {
         attachedSession = configuration?.session
         attachedRawSurface = rawSurface
+        bridge.session = attachedSession
         attachedSession?.setSurface(rawSurface)
     }
 
     private func detachInMemorySession() {
         attachedSession?.clearSurface(ifMatches: attachedRawSurface)
+        bridge.session = nil
         attachedSession = nil
         attachedRawSurface = nil
     }

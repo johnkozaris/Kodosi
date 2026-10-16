@@ -210,16 +210,61 @@ struct TerminalLifecycleTests {
     }
 
     @Test
-    func `host managed clipboard callbacks admit only user paste`() {
-        #expect(terminalClipboardRequestAllowed(
-            request: GHOSTTY_CLIPBOARD_REQUEST_PASTE
-        ))
-        #expect(!terminalClipboardRequestAllowed(
-            request: GHOSTTY_CLIPBOARD_REQUEST_OSC_52_READ
-        ))
-        #expect(!terminalClipboardRequestAllowed(
-            request: GHOSTTY_CLIPBOARD_REQUEST_OSC_52_WRITE
-        ))
+    func `programs write the clipboard and only the focused view answers a read`() {
+        let writes = LockedTerminalWrites()
+        let session = InMemoryTerminalSession(write: { writes.append($0) }, resize: { _ in })
+        let controller = TerminalController(configuration: .init {
+            $0.withCustom("clipboard-read", "allow")
+            $0.withCustom("clipboard-write", "allow")
+        })
+        let coordinator = TerminalSurfaceCoordinator()
+        let hostView = NSView(frame: NSRect(x: 0, y: 0, width: 640, height: 480))
+        hostView.wantsLayer = true
+        let window = NSWindow(
+            contentRect: hostView.frame,
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostView
+        coordinator.isAttached = { hostView.window != nil }
+        coordinator.scaleFactor = { 1 }
+        coordinator.viewSize = { (hostView.bounds.width, hostView.bounds.height) }
+        coordinator.platformSetup = { config in
+            config.platform_tag = GHOSTTY_PLATFORM_MACOS
+            config.platform = ghostty_platform_u(
+                macos: ghostty_platform_macos_s(
+                    nsview: Unmanaged.passUnretained(hostView).toOpaque()
+                )
+            )
+        }
+        coordinator.configuration = .init(session: session)
+        coordinator.controller = controller
+        let pasteboard = NSPasteboard.general
+        let previous = pasteboard.string(forType: .string)
+        defer {
+            coordinator.freeSurface()
+            window.contentView = nil
+            pasteboard.clearContents()
+            if let previous {
+                pasteboard.setString(previous, forType: .string)
+            }
+        }
+        let output = { (bytes: String) in
+            #expect(session.receive(Data(bytes.utf8)))
+            session.waitForPendingOutput()
+            controller.handleWakeup()
+        }
+
+        output("\u{1B}]52;c;a29kb3NpLWNsaXBib2FyZA==\u{07}")
+        #expect(pasteboard.string(forType: .string) == "kodosi-clipboard")
+
+        output("\u{1B}]52;c;?\u{07}")
+        #expect(writes.values.isEmpty)
+
+        coordinator.setFocus(true)
+        output("\u{1B}]52;c;?\u{07}")
+        #expect(writes.values == [Data("\u{1B}]52;c;a29kb3NpLWNsaXBib2FyZA==\u{1B}\\".utf8)])
     }
 
     @Test
@@ -298,26 +343,6 @@ struct TerminalLifecycleTests {
             }
         }
         #expect(!terminalClipboardRequestsPlainText(mimeTypes: nil, count: 0))
-    }
-
-    @Test
-    func `host managed clipboard writes fail closed`() {
-        #expect(terminalClipboardWriteAllowed(
-            clipboard: GHOSTTY_CLIPBOARD_STANDARD,
-            requiresConfirmation: false
-        ))
-        #expect(!terminalClipboardWriteAllowed(
-            clipboard: GHOSTTY_CLIPBOARD_STANDARD,
-            requiresConfirmation: true
-        ))
-        #expect(!terminalClipboardWriteAllowed(
-            clipboard: GHOSTTY_CLIPBOARD_SELECTION,
-            requiresConfirmation: false
-        ))
-        #expect(!terminalClipboardWriteAllowed(
-            clipboard: GHOSTTY_CLIPBOARD_PRIMARY,
-            requiresConfirmation: false
-        ))
     }
 
     @Test

@@ -28,6 +28,10 @@ enum TerminalPasteboardContent {
         )
     }
 
+    static func plainText(from pasteboard: NSPasteboard = .general) -> String? {
+        pasteboard.string(forType: .string)
+    }
+
     static func write(_ string: String, to pasteboard: NSPasteboard = .general) {
         pasteboard.clearContents()
         pasteboard.setString(string, forType: .string)
@@ -35,6 +39,10 @@ enum TerminalPasteboardContent {
     #elseif os(iOS)
     static func text(from pasteboard: UIPasteboard = .general) -> String? {
         text(string: pasteboard.string, urls: pasteboard.urls ?? [])
+    }
+
+    static func plainText(from pasteboard: UIPasteboard = .general) -> String? {
+        pasteboard.hasStrings ? pasteboard.string : nil
     }
 
     static func write(_ string: String, to pasteboard: UIPasteboard = .general) {

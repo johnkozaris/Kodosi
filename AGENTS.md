@@ -24,7 +24,7 @@ Read `PRODUCT.md` first. Before changing a client's interface, read that client'
   projects read it.
 - `terminal/ghostty/`: pinned, patched Ghostty, selected by root `Ghostty.lock`. Read
   its `PROVENANCE.md` first; every file in `Patches/ghostty/` is part of the pinned
-  digest. Programs in a terminal may not read or write the clipboard.
+  digest.
 
 ## Rules
 
