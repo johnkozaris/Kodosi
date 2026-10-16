@@ -75,7 +75,7 @@ pub fn open_file_beneath(parent: &File, name: &str) -> io::Result<File> {
     Ok(file)
 }
 
-pub fn path_from_file_url(host: &str, path: &str) -> PathBuf {
+pub fn path_from_file_url(host: &str, path: &str) -> Option<PathBuf> {
     imp::path_from_file_url(host, path)
 }
 

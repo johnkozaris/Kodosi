@@ -1,12 +1,15 @@
 use std::{fs, path::Path};
 
+#[cfg(unix)]
+use super::shell::Definition;
 use super::{
     accounts::{self, referenced_home},
     models::{self, codex, copilot, cursor, listed_values, opencode},
-    shell::{Definition, Facts},
+    shell::Facts,
     *,
 };
 
+#[cfg(unix)]
 fn definition(name: &str, text: &str) -> Definition {
     Definition {
         name: name.to_owned(),
@@ -157,6 +160,11 @@ fn definitions_name_the_sign_in_folder_they_give_the_agent() {
     );
     assert_eq!(claude("CLAUDE_CONFIG_DIR=$HOME/../x claude"), None);
     assert_eq!(claude("env -u CLAUDE_CONFIG_DIR claude"), None);
+    assert_eq!(claude("MY_CLAUDE_CONFIG_DIR=~/notes claude"), None);
+    assert_eq!(
+        claude("OLD_CLAUDE_CONFIG_DIR=~/notes CLAUDE_CONFIG_DIR=~/.claude-work claude"),
+        Some(home.join(".claude-work"))
+    );
 }
 
 #[cfg(unix)]
