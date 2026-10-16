@@ -1,3 +1,4 @@
+using System.Globalization;
 using Kodosi.Data;
 using Npgsql;
 
@@ -54,7 +55,7 @@ public sealed partial class ConnectionLease(DatabaseConnection database, Connect
             candidate = new NpgsqlConnection(database.LeaseConnectionString);
             await candidate.OpenAsync(limit.Token);
             // PostgreSQL ends the session of a silent holder, so a hung or cut-off holder cannot block the next start.
-            await using (var silence = new NpgsqlCommand("SET idle_session_timeout = '30s'", candidate) { CommandTimeout = 3 })
+            await using (var silence = new NpgsqlCommand(string.Create(CultureInfo.InvariantCulture, $"SET idle_session_timeout = {HolderSilence.TotalMilliseconds}"), candidate) { CommandTimeout = 3 })
                 await silence.ExecuteNonQueryAsync(limit.Token);
             await using var command = new NpgsqlCommand("SELECT pg_try_advisory_lock(@key)", candidate) { CommandTimeout = 3 };
             command.Parameters.AddWithValue("key", Key);

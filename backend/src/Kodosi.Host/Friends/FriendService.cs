@@ -56,7 +56,7 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
         if (list is null) db.FriendLists.Add(list = new FriendList { UserId = user });
         list.Revision = request.Revision; list.Body = body; list.Signature = signature;
         await db.SaveChangesAsync(ct);
-        connections.Notify(user, "friends");
+        connections.Notify([user], "friends");
     }
 
     public sealed record SignedFriendList(long ExpectedRevision, long Revision, string Body, string Signature);

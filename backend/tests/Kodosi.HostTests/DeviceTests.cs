@@ -198,7 +198,7 @@ public sealed class DeviceTests(PostgresFixture postgres)
         Assert.Equal(recovery.DeviceId, Assert.Single(keys.EnumerateArray()).GetProperty("deviceId").GetString());
         var challenge = JsonSerializer.SerializeToElement(store.Devices.CreateChallenge(owner.User.Id), TestJson.Options).GetProperty("challengeId").GetGuid();
         var session = await Assert.ThrowsAsync<ApiException>(() => store.Devices.OpenSessionAsync(owner.User.Id,
-            new(recovery.DeviceId, challenge, Convert.ToBase64String(new byte[3309])), ct));
+            new(recovery.DeviceId, challenge, Convert.ToBase64String(new byte[IdentityWireFormat.MlDsa65SignatureLength])), ct));
         Assert.Equal(403, session.Status);
         Assert.Contains("recovery key", session.Message);
         var replacement = new DeviceFixture(owner.User.Id, "1a1b2c3d-4e5f-8a6b-9c7d-0e1f2a3b4c5d");

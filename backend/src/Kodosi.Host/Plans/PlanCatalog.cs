@@ -14,7 +14,6 @@ public sealed record PlanLimits(int Devices, int OwnedRooms, int RoomPeople, int
 
 public sealed class PlanCatalog
 {
-    public const int MostDevices = 16;
     public const long LeastRoomBytes = 128 * 1024;
     private static readonly string[] LimitNames =
         ["Devices", "OwnedRooms", "RoomPeople", "SharePeople", "RoomBytes", "Friends", "SentFriendRequests", "ReceivedFriendRequests"];
@@ -75,7 +74,7 @@ public sealed class PlanCatalog
             if (value < least || value > most)
                 throw new InvalidOperationException($"Plans:Definitions:{name}:{limit} must be from {least} to {most}.");
         }
-        Within("Devices", limits.Devices, 1, MostDevices);
+        Within("Devices", limits.Devices, 1, Limits.MaxDevicesPerUser);
         Within("OwnedRooms", limits.OwnedRooms, 1, safety.OwnedRooms);
         Within("RoomPeople", limits.RoomPeople, 1, safety.RoomPeople);
         Within("SharePeople", limits.SharePeople, 1, safety.SharePeople);

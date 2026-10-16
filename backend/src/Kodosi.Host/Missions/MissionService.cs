@@ -89,7 +89,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
             throw ApiException.Forbidden($"You own {Limits.Count(owned, "room", "rooms")}, the most that you can own. Delete a room to make a new one.");
         await RequireMissionCapacityAsync(userId, ct);
         db.Missions.Add(new Mission { Id = body.Id, Name = name, OwnerUserId = userId });
-        await db.SaveChangesAsync(ct); connections.Notify(userId, "missions", body.Id);
+        await db.SaveChangesAsync(ct); connections.Notify([userId], "missions", body.Id);
     }
 
     public async Task RenameAsync(Guid id, Guid userId, string name, CancellationToken ct)
@@ -141,7 +141,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         await db.SaveChangesAsync(ct);
         await AppendKeysAsync(mission, keys, ct);
         await transaction.CommitAsync(ct);
-        connections.Notify(body.UserId, "missions", id);
+        connections.Notify([body.UserId], "missions", id);
         await NotifyAsync(id, ct);
     }
 
@@ -165,7 +165,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         if (!accept) await AppendKeysAsync(mission, leaving, ct);
         await TerminalsOf(mission.Id).ExecuteUpdateAsync(set => set.SetProperty(x => x.AuthorizationRevision, x => x.AuthorizationRevision + 1), ct);
         await transaction.CommitAsync(ct);
-        await NotifyAsync(mission.Id, ct); connections.Notify(userId, "missions", mission.Id);
+        await NotifyAsync(mission.Id, ct); connections.Notify([userId], "missions", mission.Id);
         await TerminalAccess.RevokeAsync(db, connections, await TerminalsOf(mission.Id).AsNoTracking().ToListAsync(ct), ct);
         connections.Notify((await TerminalPeopleAsync(mission.Id, ct)).Append(userId), "sessions");
     }
@@ -190,7 +190,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         await AppendKeysAsync(mission, prepared, ct);
         await transaction.CommitAsync(ct);
         await TerminalAccess.RevokeAsync(db, connections, terminals, ct);
-        await NotifyAsync(id, ct); connections.Notify(userId, "missions", id);
+        await NotifyAsync(id, ct); connections.Notify([userId], "missions", id);
         connections.Notify(viewers.Append(userId), "sessions");
     }
 

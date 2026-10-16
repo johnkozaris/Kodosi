@@ -48,7 +48,7 @@ public sealed class RoomContentTests(PostgresFixture postgres)
         Assert.Equal(2,page.GetProperty("sequence").GetInt64());
         Assert.Single(page.GetProperty("items").EnumerateArray());
         Assert.False(page.GetProperty("hasMore").GetBoolean());
-        var badSignature = first with { Signature=Convert.ToBase64String(new byte[3309]) };
+        var badSignature = first with { Signature=Convert.ToBase64String(new byte[IdentityWireFormat.MlDsa65SignatureLength]) };
         await Assert.ThrowsAsync<ApiException>(() => store.Missions.PutContentAsync(room,task,alice.User.Id,badSignature,ct));
     }
 

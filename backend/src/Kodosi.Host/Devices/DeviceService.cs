@@ -123,7 +123,7 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
         user.IdentityIncarnationId = Guid.CreateVersion7(); user.IdentityRevision = 1;
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
-        connections.Notify(userId, "devices");
+        connections.Notify([userId], "devices");
     }
 
     public async Task ReplaceListAsync(Guid userId, ReplaceDeviceList request, CancellationToken ct)
@@ -151,7 +151,7 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
         await transaction.CommitAsync(ct);
         foreach (var device in removed) { sessions.Remove(userId, device.Id); connections.RemoveDevice(userId, device.Id); }
         await PublishSessionChangesAsync(userId, affected, removed, ct);
-        connections.Notify(userId, "devices");
+        connections.Notify([userId], "devices");
         await RoomMembership.NotifyRoomsOfAsync(db, connections, userId, ct);
     }
 
@@ -174,7 +174,7 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
         sessions.Remove(userId);
         foreach (var device in devices) connections.RemoveDevice(userId, device.Id);
         await PublishSessionChangesAsync(userId, affected, devices, ct);
-        connections.Notify(userId, "devices");
+        connections.Notify([userId], "devices");
         await RoomMembership.NotifyRoomsOfAsync(db, connections, userId, ct);
     }
 
@@ -234,11 +234,7 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
         foreach (var session in affected)
         {
             session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
-            if (hosts.Contains(session.HostDeviceId))
-            {
-                session.Ended = true;
-                session.ExpiresAt = clock.GetUtcNow() + SessionService.EndedRecordLife;
-            }
+            if (hosts.Contains(session.HostDeviceId)) SessionService.End(session, clock.GetUtcNow());
         }
         return affected;
     }

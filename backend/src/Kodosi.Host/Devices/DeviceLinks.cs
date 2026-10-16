@@ -55,7 +55,7 @@ public sealed partial class DeviceService
             ExpiresAt = now.AddMinutes(10)
         };
         db.DeviceLinks.Add(link); await db.SaveChangesAsync(ct);
-        connections.Notify(userId, "devices");
+        connections.Notify([userId], "devices");
         return new { deviceCode = secret, requestId = link.Id };
     }
 
@@ -95,7 +95,7 @@ public sealed partial class DeviceService
         await StageDeviceAsync(userId, approvingDevice, link.DeviceId, link.SigningPublicKey, certBytes, certSig, listBytes, listSig, ct);
         link.State = "approved"; link.ApprovalProof = approval;
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
-        connections.Notify(userId, "devices");
+        connections.Notify([userId], "devices");
     }
 
     public async Task<object> PollLinkAsync(Guid userId, string deviceCode, CancellationToken ct)
@@ -122,7 +122,7 @@ public sealed partial class DeviceService
         var changed = await db.DeviceLinks.Where(x => x.UserId == userId && x.Id == requestId && x.State == "pending")
             .ExecuteUpdateAsync(set => set.SetProperty(x => x.State, "cancelled"), ct);
         if (changed != 1) throw ApiException.Missing();
-        connections.Notify(userId, "devices");
+        connections.Notify([userId], "devices");
     }
 
     private async Task RequireDeviceSpaceAsync(Guid userId, CancellationToken ct)

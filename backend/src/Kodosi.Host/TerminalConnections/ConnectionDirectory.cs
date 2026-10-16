@@ -8,7 +8,6 @@ public sealed class ConnectionDirectory
     internal const int MaximumHostedTerminals = 65_536;
     internal const int MaximumSessionPipes = 64;
     internal const int MaximumDevicePipes = 256;
-    internal const int MaximumUserDevices = 16;
     private readonly Lock sync = new();
     private readonly Dictionary<Guid, Dictionary<string, Entry>> accounts = [];
     private readonly Dictionary<DeviceConnection, Entry> entries = new(ReferenceEqualityComparer.Instance);
@@ -38,16 +37,8 @@ public sealed class ConnectionDirectory
         lock (sync) return entries.Keys.Where(x => x.IsOpen).ToArray();
     }
 
-    public void Notify(Guid userId, string surface) => Send([userId], Wire.Encode(new ChangedNotice(surface)));
-
-    public void Notify(IEnumerable<Guid> users, string surface) => Send(users, Wire.Encode(new ChangedNotice(surface)));
-
-    public void Notify(Guid userId, string surface, Guid roomId) => Send([userId], Wire.Encode(new ChangedNotice(surface, roomId)));
-
-    public void Notify(IEnumerable<Guid> users, string surface, Guid roomId) => Send(users, Wire.Encode(new ChangedNotice(surface, roomId)));
-
-    public void NotifyContent(IEnumerable<Guid> users, Guid roomId, long sequence) =>
-        Send(users, Wire.Encode(new ChangedNotice("rooms", roomId, sequence)));
+    public void Notify(IEnumerable<Guid> users, string surface, Guid? roomId = null, long? sequence = null) =>
+        Send(users, Wire.Encode(new ChangedNotice(surface, roomId, sequence)));
 
     public void NotifyTerminal(Guid sessionId, Guid incarnationId, Guid ownerId, string hostDeviceId, IEnumerable<Guid> people)
     {
@@ -73,7 +64,7 @@ public sealed class ConnectionDirectory
         {
             var devices = accounts.GetValueOrDefault(connection.UserId);
             var previous = devices?.GetValueOrDefault(connection.DeviceId);
-            if (previous is null && ((devices?.Count ?? 0) >= MaximumUserDevices || entries.Count >= MaximumDeviceConnections))
+            if (previous is null && ((devices?.Count ?? 0) >= Limits.MaxDevicesPerUser || entries.Count >= MaximumDeviceConnections))
                 throw new ApiException(503, "Too many device connections.");
             if (previous is not null) DetachLocked(previous, ending);
             if (devices is null) accounts[connection.UserId] = devices = new Dictionary<string, Entry>(StringComparer.Ordinal);
@@ -106,7 +97,7 @@ public sealed class ConnectionDirectory
         var ending = new Ending();
         lock (sync)
         {
-            if (!entries.TryGetValue(connection, out var entry) || !connection.IsOpen) throw new ApiException(409, "The device connection closed.");
+            if (!entries.TryGetValue(connection, out var entry) || !connection.IsOpen) throw ApiException.Conflict("The device connection closed.");
             if (hosted.TryGetValue(session.Id, out var live))
             {
                 if (live.Host == entry && live.IncarnationId == session.IncarnationId) return;
@@ -156,8 +147,8 @@ public sealed class ConnectionDirectory
     {
         lock (sync)
         {
-            if (!entries.TryGetValue(viewer, out var watcher)) throw new ApiException(409, "The device connection closed.");
-            if (!hosted.TryGetValue(session.Id, out var live) || !live.Host.Connection.IsOpen) throw new ApiException(409, "The host is offline.");
+            if (!entries.TryGetValue(viewer, out var watcher)) throw ApiException.Conflict("The device connection closed.");
+            if (!hosted.TryGetValue(session.Id, out var live) || !live.Host.Connection.IsOpen) throw ApiException.Conflict("The host is offline.");
             if (live.IncarnationId != session.IncarnationId) throw ApiException.Conflict("Session publication changed.");
             if (live.Pipes.Count >= MaximumSessionPipes) throw new ApiException(503, "Too many connected participants.");
             if (watcher.Views >= MaximumDevicePipes) throw new ApiException(503, "Too many open views.");

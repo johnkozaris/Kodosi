@@ -2,7 +2,6 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Kodosi.Data;
 using Kodosi.Devices;
-using Kodosi.Plans;
 using Kodosi.Security;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,7 +16,7 @@ public sealed partial class MissionService
 
     public const int RoomPublicKeyLength = 1184 + 32;
 
-    internal const int MaxRoomRecipients = (PlanCatalog.MostDevices + 1) * (Limits.MaxMissionMembers + 1);
+    internal const int MaxRoomRecipients = (Limits.MaxDevicesPerUser + 1) * (Limits.MaxMissionMembers + 1);
 
     internal static (byte[] Key, byte[] Signature) ValidRoomKey(Guid userId, string deviceId, byte[] signingKey, RecipientKeyWrite request)
     {
@@ -204,7 +203,7 @@ public sealed partial class MissionService
         item.UserId = userId; item.DeviceId = device.Id;
         if (existing is null) db.MissionItems.Add(item);
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
-        connections.NotifyContent(await MemberIdsAsync(id, ct), id, item.Sequence);
+        connections.Notify(await MemberIdsAsync(id, ct), "rooms", id, item.Sequence);
         return ItemDto(item);
     }
 
@@ -230,15 +229,7 @@ public sealed partial class MissionService
         room.HistoryTrimmed = true;
     }
 
-    private static readonly JsonSerializerOptions BodyJson = new(JsonSerializerDefaults.Web)
-    {
-        RespectRequiredConstructorParameters = true,
-        RespectNullableAnnotations = true,
-        UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow,
-        MaxDepth = 32,
-        Converters = { new CanonicalGuidConverter() }
-    };
-    private static T ReadBody<T>(byte[] body) where T : class => JsonSerializer.Deserialize<T>(body, BodyJson) ?? throw ApiException.Invalid("Invalid room data.");
+    private static T ReadBody<T>(byte[] body) where T : class => JsonSerializer.Deserialize<T>(body, StrictJson.Options) ?? throw ApiException.Invalid("Invalid room data.");
     private sealed record PreparedKeys(ApprovedDevice Device, byte[] Body, byte[] Signature, KeyStateBody State);
     private sealed record SealedBody(string Nonce, string Ciphertext);
     private sealed record RecipientBody(Guid UserId, string DeviceId, string KemCiphertext, SealedBody Sealed);

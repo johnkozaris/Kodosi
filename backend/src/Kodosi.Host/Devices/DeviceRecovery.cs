@@ -52,7 +52,7 @@ public sealed partial class DeviceService
         added.RecoveryBox = box;
         db.RoomRecipientKeys.Add(new RoomRecipientKey { DeviceId = added.Id, UserId = userId, PublicKey = roomKey, Signature = roomKeySignature });
         await db.SaveChangesAsync(ct);
-        connections.Notify(userId, "devices");
+        connections.Notify([userId], "devices");
         await RoomMembership.NotifyRoomsOfAsync(db, connections, userId, ct);
     }
 
@@ -69,7 +69,7 @@ public sealed partial class DeviceService
         var recovery = await RecoveryDeviceAsync(userId, ct) ?? throw ApiException.Forbidden("This account has no recovery key.");
         await StageDeviceAsync(userId, ApprovedDevice.From(recovery), request.DeviceId, signingKey, certBytes, certSig, listBytes, listSig, ct);
         await db.SaveChangesAsync(ct);
-        connections.Notify(userId, "devices");
+        connections.Notify([userId], "devices");
     }
 
     public sealed record RecoveryKeyWrite(string DeviceCertificate, string DeviceCertificateSignature,
