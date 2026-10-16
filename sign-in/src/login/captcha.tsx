@@ -22,7 +22,6 @@ interface Given {
   turnstileRequired?: boolean;
   turnstileSkipped?: boolean;
   turnstileSiteKey?: string;
-  turnstileMode?: string;
   captchaRequired?: boolean;
   captchaSiteKey?: string;
   captchaAction?: string;

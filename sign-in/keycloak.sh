@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# A disposable Keycloak in Docker with the built theme, the settings of the hosted realm and a
-# mailbox. Usage: ./keycloak.sh [code | check pass|block|ask|refuse|off | down]
+# Usage: ./keycloak.sh [code | check pass|block|ask|refuse|off | down]
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -71,7 +70,7 @@ if [ "${1:-}" = code ]; then
   address=$(printf '%s' "$answer" | sed -E 's/.*"verification_uri":"([^"]+)".*/\1/')
   echo "The code:            $code"
   echo "With the code shown: $address#$code"
-  echo "As the app opens it: $address?user_code=$code"
+  echo "Without the code:    $address?user_code=$code"
   exit
 fi
 
@@ -198,7 +197,7 @@ for provider in kodosi-turnstile-reset reset-credential-email reset-password; do
   calm kc update "authentication/flows/$reset/executions" -r $realm \
     -b "{\"id\":\"$(step_of "$reset" $provider)\",\"requirement\":\"REQUIRED\",\"priority\":$priority}"
 done
-check "${KODOSI_SIGN_IN_CHECK:-pass}"
+check pass
 
 keys='"clientId":"sample","clientSecret":"sample"'
 calm kc create identity-provider/instances -r $realm -s alias=google -s providerId=google \

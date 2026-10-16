@@ -13,7 +13,7 @@ import { buttonClass } from "../../parts/button";
 import { cn } from "../../parts/cn";
 import { Avatar } from "../../parts/person";
 import { Go, PasswordRow, rule, SignOutOthers, SwitchRow, TextRow } from "../../parts/rows";
-import { QuietLink, quietLink, safeHtml } from "../../parts/text";
+import { plain, QuietLink, quietLink, safeHtml } from "../../parts/text";
 import { askOnPress, PersonCheckRow, usePersonCheck } from "../captcha";
 import type { I18n } from "../i18n";
 import { Stage } from "../stage";
@@ -250,7 +250,7 @@ function Steps({
         ? detailsTitle
         : msgStr("kdsPasswordTitle");
   const termsText = terms ? safeHtml(msgStr("termsText")) : "";
-  const termsShort = !!termsText && termsText.replace(/<[^>]*>/g, "").length <= SHORT_TERMS;
+  const termsShort = !!termsText && plain(termsText).length <= SHORT_TERMS;
 
   const finishing = (
     <>
