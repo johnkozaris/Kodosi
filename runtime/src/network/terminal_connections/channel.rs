@@ -404,6 +404,17 @@ pub(super) mod tests {
             .collect()
     }
 
+    /// The first record of a real snapshot and then noise, `length` bytes in all.
+    /// A checkpoint reads only that record, and these tests restore nothing.
+    pub(in crate::network::terminal_connections) fn stand_in_snapshot(length: usize) -> Vec<u8> {
+        let mut snapshot = ghostty_vt::Terminal::new(80, 24, ghostty_vt::TerminalPolicy::default())
+            .and_then(|mut terminal| terminal.visible_snapshot(usize::MAX))
+            .expect("snapshot");
+        snapshot.truncate(length);
+        snapshot.extend(noise(length - snapshot.len()));
+        snapshot
+    }
+
     use super::*;
     use crate::identity::keys::DeviceKeys;
 

@@ -162,7 +162,7 @@
     "speed": "the host measures the acknowledged bytes for 200 ms or more while output waits for the window, while a keyframe is in transit, or while the viewer is behind; all data that is acknowledged in full also shows a least speed, which can only increase the value",
     "behind": "when output that waits for one viewer is more than its window, the host drops it for that viewer and sends the current state when all sent data is acknowledged",
     "currentState": "an exact keyframe when the last exact keyframe was at most half of the window; if not, a visible keyframe",
-    "visibleKeyframe": "a checkpoint with the exact visible rows, cursor, modes and styles of the primary and the alternate screen and no history rows; a view starts with one",
+    "visibleKeyframe": "a checkpoint that ends at the snapshot's READY record: the exact visible rows, cursor, modes and styles of the primary and the alternate screen, and only the history rows that share the first memory page of a screen; a view starts with one",
     "exactKeyframe": "a checkpoint with the history rows; the host sends one after a visible keyframe when the terminal made no output for 1 second",
     "keyframeSpacingMilliseconds": 500,
     "refresh": "a viewer can ask for the current state",

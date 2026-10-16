@@ -1,8 +1,8 @@
 diff --git a/src/build/GhosttyLibVt.zig b/src/build/GhosttyLibVt.zig
-index a97fdf78f..844ef561b 100644
+index 690f864c5..a24e5f832 100644
 --- a/src/build/GhosttyLibVt.zig
 +++ b/src/build/GhosttyLibVt.zig
-@@ -268,6 +268,11 @@ fn initLib(
+@@ -270,6 +270,11 @@ fn initLib(
          }
      }
  
@@ -16,20 +16,16 @@ index a97fdf78f..844ef561b 100644
          lib.link_z_max_page_size = 16384; // 16kb
 diff --git a/src/build/libghostty-vt.map b/src/build/libghostty-vt.map
 new file mode 100644
-index 000000000..94e3e2258
+index 000000000..05695c87a
 --- /dev/null
 +++ b/src/build/libghostty-vt.map
-@@ -0,0 +1,213 @@
+@@ -0,0 +1,209 @@
 +{
 +  global:
 +    ghostty_alloc;
 +    ghostty_build_info;
 +    ghostty_cell_get;
 +    ghostty_cell_get_multi;
-+    ghostty_checkpoint_encode_alloc;
-+    ghostty_checkpoint_encode_buf;
-+    ghostty_checkpoint_restore;
-+    ghostty_checkpoint_schema;
 +    ghostty_color_contrast;
 +    ghostty_color_luminance;
 +    ghostty_color_palette_default;

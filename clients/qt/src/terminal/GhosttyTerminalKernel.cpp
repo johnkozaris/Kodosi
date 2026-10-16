@@ -123,6 +123,20 @@ public:
     GhosttyTerminal value = nullptr;
 };
 
+class SnapshotDecoderHandle final {
+public:
+    SnapshotDecoderHandle() = default;
+    ~SnapshotDecoderHandle()
+    {
+        ghostty_snapshot_decoder_free(value);
+    }
+
+    SnapshotDecoderHandle(const SnapshotDecoderHandle&) = delete;
+    SnapshotDecoderHandle& operator=(const SnapshotDecoderHandle&) = delete;
+
+    GhosttySnapshotDecoder value = nullptr;
+};
+
 class RenderStateHandle final {
 public:
     RenderStateHandle() = default;
@@ -673,6 +687,29 @@ FrameResult extractFrame(
     return frame;
 }
 
+// A snapshot that ends at READY holds the screens without history.
+GhosttyResult restoreSnapshotHistory(const GhosttySnapshotDecoder decoder, const std::size_t size)
+{
+    std::size_t consumed = 0;
+    auto result = ghostty_snapshot_decoder_get(
+        decoder, GHOSTTY_SNAPSHOT_DECODER_DATA_SOURCE_OFFSET, &consumed);
+    if (result != GHOSTTY_SUCCESS || consumed == size) {
+        return result;
+    }
+    do {
+        result = ghostty_snapshot_decoder_next(decoder);
+    } while (result == GHOSTTY_SUCCESS);
+    if (result != GHOSTTY_NO_VALUE) {
+        return result;
+    }
+    result = ghostty_snapshot_decoder_get(
+        decoder, GHOSTTY_SNAPSHOT_DECODER_DATA_SOURCE_OFFSET, &consumed);
+    if (result != GHOSTTY_SUCCESS) {
+        return result;
+    }
+    return consumed == size ? GHOSTTY_SUCCESS : GHOSTTY_INVALID_VALUE;
+}
+
 GhosttyTerminalKernel::ConfigureResult applySettings(
     const GhosttyTerminal terminal,
     const TerminalKernelSettings& settings)
@@ -791,16 +828,16 @@ GhosttyTerminalKernel::GhosttyTerminalKernel(TerminalKernelSettings settings)
 GhosttyTerminalKernel::~GhosttyTerminalKernel() = default;
 
 GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
-    const TerminalSemanticCheckpoint& checkpoint)
+    const TerminalCheckpoint& checkpoint)
 {
     if (checkpoint.rows == 0 || checkpoint.columns == 0
-        || checkpoint.semanticJson.isEmpty()
-        || checkpoint.semanticJson.size() > KODOSI_TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES
+        || checkpoint.snapshot.isEmpty()
+        || checkpoint.snapshot.size() > KODOSI_TERMINAL_SNAPSHOT_MAX_BYTES
         || static_cast<std::uint64_t>(checkpoint.rows) * checkpoint.columns
             > static_cast<std::uint64_t>(maximumVisibleCells)) {
         return std::unexpected(Failure {
             Failure::Code::ResourceLimit,
-            QStringLiteral("Semantic checkpoint dimensions or payload are invalid."),
+            QStringLiteral("Checkpoint dimensions or snapshot size are invalid."),
         });
     }
 
@@ -813,13 +850,24 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
         });
     }
     TerminalHandle candidateTerminal;
-    auto result = ghostty_terminal_new(
+    SnapshotDecoderHandle decoder;
+    const auto snapshotSize = static_cast<std::size_t>(checkpoint.snapshot.size());
+    auto result = ghostty_snapshot_decoder_new_buf(
         nullptr,
-        &candidateTerminal.value,
-        checkpoint.columns,
-        checkpoint.rows);
+        &decoder.value,
+        reinterpret_cast<const std::uint8_t*>(checkpoint.snapshot.constData()),
+        snapshotSize);
+    if (result != GHOSTTY_SUCCESS || decoder.value == nullptr) {
+        return std::unexpected(
+            ghosttyFailure(QStringLiteral("snapshot decoder creation"), result));
+    }
+    result = ghostty_snapshot_decoder_ready(decoder.value, &candidateTerminal.value);
     if (result != GHOSTTY_SUCCESS || candidateTerminal.value == nullptr) {
-        return std::unexpected(ghosttyFailure(QStringLiteral("terminal creation"), result));
+        return std::unexpected(ghosttyFailure(QStringLiteral("snapshot restore"), result));
+    }
+    result = restoreSnapshotHistory(decoder.value, snapshotSize);
+    if (result != GHOSTTY_SUCCESS) {
+        return std::unexpected(ghosttyFailure(QStringLiteral("snapshot history restore"), result));
     }
     const std::uint64_t imageStorageLimit = 0;
     result = ghostty_terminal_set(
@@ -856,17 +904,14 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
         }
     }
 
-    const GhosttyCheckpointRestoreOptions options = GHOSTTY_CHECKPOINT_RESTORE_OPTIONS_INIT;
-    GhosttyCheckpointInfo info = GHOSTTY_INIT_SIZED(GhosttyCheckpointInfo);
-    result = ghostty_checkpoint_restore(
+    const bool resizePullsScrollback = !checkpoint.console;
+    result = ghostty_terminal_set(
         candidateTerminal.value,
-        reinterpret_cast<const std::uint8_t*>(checkpoint.semanticJson.constData()),
-        static_cast<std::size_t>(checkpoint.semanticJson.size()),
-        &options,
-        &info);
-    if (result != GHOSTTY_SUCCESS || info.schema_version != GHOSTTY_CHECKPOINT_SCHEMA_VERSION
-        || info.json_bytes != static_cast<std::size_t>(checkpoint.semanticJson.size())) {
-        return std::unexpected(ghosttyFailure(QStringLiteral("checkpoint restore"), result));
+        GHOSTTY_TERMINAL_OPT_RESIZE_PULL_SCROLLBACK,
+        &resizePullsScrollback);
+    if (result != GHOSTTY_SUCCESS) {
+        return std::unexpected(
+            ghosttyFailure(QStringLiteral("console resize rule"), result));
     }
     if (auto configured = applySettings(candidateTerminal.value, m_impl->settings);
         !configured) {
@@ -893,7 +938,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
         || (*candidateFrame)->columns != checkpoint.columns) {
         return std::unexpected(Failure {
             Failure::Code::GhosttyRejected,
-            QStringLiteral("Semantic checkpoint dimensions do not match callback metadata."),
+            QStringLiteral("Snapshot dimensions do not match callback metadata."),
         });
     }
     KeyEncoderHandle candidateKeyEncoder;
@@ -932,7 +977,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::applyData(const TerminalDat
     if (!m_impl->admitted || m_impl->failed) {
         return std::unexpected(Failure {
             Failure::Code::MissingCheckpoint,
-            QStringLiteral("Raw terminal data requires an admitted semantic checkpoint."),
+            QStringLiteral("Raw terminal data requires an admitted checkpoint."),
         });
     }
     if (!sameSubscription(data.subscription, m_impl->subscription)) {
@@ -1026,7 +1071,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::applyResize(
     if (!m_impl->admitted || m_impl->failed) {
         return std::unexpected(Failure {
             Failure::Code::MissingCheckpoint,
-            QStringLiteral("Terminal resize requires an admitted semantic checkpoint."),
+            QStringLiteral("Terminal resize requires an admitted checkpoint."),
         });
     }
     if (!sameSubscription(subscription, m_impl->subscription)) {
@@ -1089,7 +1134,7 @@ GhosttyTerminalKernel::encodeKey(
     if (!m_impl->admitted || m_impl->failed) {
         return std::unexpected(Failure {
             Failure::Code::MissingCheckpoint,
-            QStringLiteral("Terminal key encoding requires an admitted semantic checkpoint."),
+            QStringLiteral("Terminal key encoding requires an admitted checkpoint."),
         });
     }
     if (!sameSubscription(subscription, m_impl->subscription)) {
@@ -1170,7 +1215,7 @@ GhosttyTerminalKernel::encodePaste(
     if (!m_impl->admitted || m_impl->failed) {
         return std::unexpected(Failure {
             Failure::Code::MissingCheckpoint,
-            QStringLiteral("Terminal paste requires an admitted semantic checkpoint."),
+            QStringLiteral("Terminal paste requires an admitted checkpoint."),
         });
     }
     if (!sameSubscription(subscription, m_impl->subscription)) {
@@ -1235,7 +1280,7 @@ GhosttyTerminalKernel::encodeMouse(
     if (!m_impl->admitted || m_impl->failed) {
         return std::unexpected(Failure {
             Failure::Code::MissingCheckpoint,
-            QStringLiteral("Terminal mouse input requires an admitted semantic checkpoint."),
+            QStringLiteral("Terminal mouse input requires an admitted checkpoint."),
         });
     }
     if (!sameSubscription(subscription, m_impl->subscription)) {
@@ -1347,7 +1392,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::scrollViewport(
     if (!m_impl->admitted || m_impl->failed) {
         return std::unexpected(Failure {
             Failure::Code::MissingCheckpoint,
-            QStringLiteral("Terminal scrolling requires an admitted semantic checkpoint."),
+            QStringLiteral("Terminal scrolling requires an admitted checkpoint."),
         });
     }
     if (!sameSubscription(subscription, m_impl->subscription)) {
@@ -1409,7 +1454,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::scrollViewportToBottom(
     if (!m_impl->admitted || m_impl->failed) {
         return std::unexpected(Failure {
             Failure::Code::MissingCheckpoint,
-            QStringLiteral("Terminal scrolling requires an admitted semantic checkpoint."),
+            QStringLiteral("Terminal scrolling requires an admitted checkpoint."),
         });
     }
     if (!sameSubscription(subscription, m_impl->subscription)) {
@@ -1470,7 +1515,7 @@ GhosttyTerminalKernel::linkAt(
     if (!m_impl->admitted || m_impl->failed) {
         return std::unexpected(Failure {
             Failure::Code::MissingCheckpoint,
-            QStringLiteral("Terminal link lookup requires an admitted semantic checkpoint."),
+            QStringLiteral("Terminal link lookup requires an admitted checkpoint."),
         });
     }
     if (!sameSubscription(subscription, m_impl->subscription)) {

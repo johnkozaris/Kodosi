@@ -8,11 +8,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define KODOSI_FFI_ABI_VERSION 8
+#define KODOSI_FFI_ABI_VERSION 9
 
 #define KODOSI_MAX_FRAME_BYTES 8388608
 
-#define KODOSI_TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES 8388608
+#define KODOSI_TERMINAL_SNAPSHOT_MAX_BYTES 8388608
 
 #define KODOSI_TERMINAL_CONTROL_MAX_BYTES 65536
 
@@ -123,6 +123,7 @@ typedef int32_t (*kodosi_terminal_checkpoint_cb_t)(const char*,
                                                    uint64_t,
                                                    uint16_t,
                                                    uint16_t,
+                                                   bool,
                                                    const uint8_t*,
                                                    uintptr_t,
                                                    void*);

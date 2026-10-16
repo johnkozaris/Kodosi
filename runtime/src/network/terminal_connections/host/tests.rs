@@ -1,14 +1,10 @@
 use std::sync::atomic::AtomicU64;
 
 use super::{
-    super::channel::tests::{Pipe, noise, pair},
+    super::channel::tests::{Pipe, noise, pair, stand_in_snapshot},
     *,
 };
-use crate::{
-    identity::keys::DeviceKeys,
-    network::CheckpointCut,
-    terminal::{Checkpoint, TerminalScreen, TerminalSize},
-};
+use crate::{identity::keys::DeviceKeys, network::CheckpointCut, terminal::Checkpoint};
 
 struct Terminal {
     frames: broadcast::Sender<PublishedFrame>,
@@ -103,16 +99,8 @@ async fn terminal(snapshot_bytes: usize) -> Terminal {
                     history,
                     reply,
                 } => {
-                    let body = noise(if history { snapshot_bytes } else { VISIBLE });
-                    let checkpoint = Checkpoint::new(
-                        TerminalSize::new(24, 80).unwrap(),
-                        TerminalScreen::Primary,
-                        body,
-                        0,
-                        0,
-                        false,
-                    )
-                    .unwrap();
+                    let body = stand_in_snapshot(if history { snapshot_bytes } else { VISIBLE });
+                    let checkpoint = Checkpoint::new(body, false).unwrap();
                     drop(barrier.send(PublishedFrame::BootstrapBarrier { request_id }));
                     drop(reply.send(Ok(CheckpointCut {
                         checkpoint,

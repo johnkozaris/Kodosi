@@ -233,28 +233,24 @@ QByteArray checkpointFor(const QByteArray& bytes, const std::uint16_t columns, c
         reinterpret_cast<const std::uint8_t*>(bytes.constData()),
         static_cast<std::size_t>(bytes.size()));
 
-    const GhosttyCheckpointEncodeOptions options = GHOSTTY_CHECKPOINT_ENCODE_OPTIONS_INIT;
-    GhosttyBuffer buffer {};
-    GhosttyCheckpointInfo info = GHOSTTY_INIT_SIZED(GhosttyCheckpointInfo);
-    if (ghostty_checkpoint_encode_buf(terminal, &options, &buffer, &info)
-        != GHOSTTY_OUT_OF_SPACE) {
+    std::size_t required = 0;
+    if (ghostty_snapshot_encode_buf(terminal, nullptr, 0, &required) != GHOSTTY_OUT_OF_SPACE) {
         ghostty_terminal_free(terminal);
-        QTest::qFail("failed to size checkpoint", __FILE__, __LINE__);
+        QTest::qFail("failed to size snapshot", __FILE__, __LINE__);
         return {};
     }
-    QByteArray checkpoint(static_cast<qsizetype>(buffer.len), Qt::Uninitialized);
-    buffer.ptr = reinterpret_cast<std::uint8_t*>(checkpoint.data());
-    buffer.cap = static_cast<std::size_t>(checkpoint.size());
-    buffer.len = 0;
-    if (ghostty_checkpoint_encode_buf(terminal, &options, &buffer, &info)
+    QByteArray snapshot(static_cast<qsizetype>(required), Qt::Uninitialized);
+    std::size_t written = 0;
+    if (ghostty_snapshot_encode_buf(
+            terminal, reinterpret_cast<std::uint8_t*>(snapshot.data()), required, &written)
         != GHOSTTY_SUCCESS) {
         ghostty_terminal_free(terminal);
-        QTest::qFail("failed to encode checkpoint", __FILE__, __LINE__);
+        QTest::qFail("failed to encode snapshot", __FILE__, __LINE__);
         return {};
     }
-    checkpoint.resize(static_cast<qsizetype>(buffer.len));
+    snapshot.resize(static_cast<qsizetype>(written));
     ghostty_terminal_free(terminal);
-    return checkpoint;
+    return snapshot;
 }
 
 QString frameText(const kodosi::TerminalFrame& frame)
@@ -276,7 +272,7 @@ void makeTerminalReady(
     kodosi::TerminalSessionRegistry& registry,
     const kodosi::TerminalSubscription& subscription)
 {
-    QVERIFY(registry.installSemanticCheckpoint({
+    QVERIFY(registry.installCheckpoint({
         subscription,
         1,
         24,
@@ -314,6 +310,7 @@ private slots:
     void checkpointPrecedesContiguousRawData();
     void failedCheckpointPreservesPriorFrame();
     void resizeRequiresExactSequenceBoundary();
+    void consoleCheckpointKeepsHistoryOnResize();
     void registryConsumesNormativeControlWireWithoutLosingU64Precision();
     void rasterizerPreservesTerminalCellBackgrounds();
     void rasterizerUsesBrandedSelectionAndPreeditPalette();
@@ -547,7 +544,7 @@ void TerminalKernelTest::retiredTerminalCloseCannotDetachReplacement()
         if (replaced || !view.accessibleText().contains(QStringLiteral("FINAL-MARKER"))) return;
         replaced = true;
         QVERIFY(view.attach(registry, dispatcher, replacement, QStringLiteral("new-incarnation")));
-        QVERIFY(registry.installSemanticCheckpoint({replacement, 1, 24, 80,
+        QVERIFY(registry.installCheckpoint({replacement, 1, 24, 80,
             checkpointFor(QByteArrayLiteral("replacement"), 80, 24)}));
         registry.receiveConnectResult({replacement, ffiOk});
     });
@@ -966,7 +963,7 @@ void TerminalKernelTest::scrollbackReconfigurationPublishesReplacementFrame()
         output += QByteArray::number(line).rightJustified(4, '0');
         output += QByteArrayLiteral("\r\n");
     }
-    QVERIFY(registry.installSemanticCheckpoint({
+    QVERIFY(registry.installCheckpoint({
         subscription,
         1,
         5,
@@ -1197,7 +1194,7 @@ void TerminalKernelTest::terminalViewRoutesTrackedMouseToPty()
         dispatcher,
         subscription,
         QStringLiteral("mouse-incarnation")));
-    QVERIFY(registry.installSemanticCheckpoint({
+    QVERIFY(registry.installCheckpoint({
         subscription,
         1,
         4,
@@ -1251,7 +1248,7 @@ void TerminalKernelTest::remoteGridFitsAndMapsAccessibleMouseCoordinates()
     const kodosi::TerminalSubscription subscription {
         QStringLiteral("remote"), QStringLiteral("remote-view"), 1};
     QVERIFY(view.attach(registry, dispatcher, subscription, QStringLiteral("remote-incarnation")));
-    QVERIFY(registry.installSemanticCheckpoint({
+    QVERIFY(registry.installCheckpoint({
         subscription, 1, 24, 120,
         checkpointFor(QByteArrayLiteral(
             "\x1b[?1000h\x1b[?1006hLEFT\x1b[1;116HRIGHT\x1b[24;114HBOTTOM"), 120, 24),
@@ -1920,7 +1917,7 @@ void TerminalKernelTest::terminalViewWheelUpdatesFrameWithoutPtyInput()
         output += QByteArray::number(line).rightJustified(2, '0');
         output += QByteArrayLiteral("\r\n");
     }
-    QVERIFY(registry.installSemanticCheckpoint({
+    QVERIFY(registry.installCheckpoint({
         subscription,
         1,
         6,
@@ -2004,7 +2001,7 @@ void TerminalKernelTest::terminalViewAcceptedInputReturnsViewportToBottom()
         output += QByteArray::number(line).rightJustified(2, '0');
         output += QByteArrayLiteral("\r\n");
     }
-    QVERIFY(registry.installSemanticCheckpoint({
+    QVERIFY(registry.installCheckpoint({
         subscription,
         1,
         5,
@@ -2102,7 +2099,7 @@ void TerminalKernelTest::terminalViewSelectionAnchorSurvivesPresentedScroll()
         output += QByteArray::number(line).rightJustified(2, '0');
         output += QByteArrayLiteral("\r\n");
     }
-    QVERIFY(registry.installSemanticCheckpoint({
+    QVERIFY(registry.installCheckpoint({
         subscription,
         1,
         5,
@@ -2202,7 +2199,7 @@ void TerminalKernelTest::terminalViewCancelsSelectionAgainstStaleDisplayedViewpo
         output += QByteArray::number(line).rightJustified(2, '0');
         output += QByteArrayLiteral("\r\n");
     }
-    QVERIFY(registry.installSemanticCheckpoint({
+    QVERIFY(registry.installCheckpoint({
         subscription,
         1,
         5,
@@ -2308,7 +2305,7 @@ void TerminalKernelTest::terminalViewActivatesGhosttyLinks()
         dispatcher,
         subscription,
         QStringLiteral("link-incarnation")));
-    QVERIFY(registry.installSemanticCheckpoint({
+    QVERIFY(registry.installCheckpoint({
         subscription,
         1,
         4,
@@ -2424,7 +2421,7 @@ void TerminalKernelTest::terminalViewCannotActivateLinkFromUndisplayedFrame()
         dispatcher,
         subscription,
         QStringLiteral("link-stale-incarnation")));
-    QVERIFY(registry.installSemanticCheckpoint({
+    QVERIFY(registry.installCheckpoint({
         subscription,
         1,
         4,
@@ -2491,7 +2488,7 @@ void TerminalKernelTest::terminalViewCancelsLinkReleaseOutsideBounds()
         dispatcher,
         subscription,
         QStringLiteral("link-bounds-incarnation")));
-    QVERIFY(registry.installSemanticCheckpoint({
+    QVERIFY(registry.installCheckpoint({
         subscription,
         1,
         4,
@@ -2672,7 +2669,7 @@ void TerminalKernelTest::terminalViewWaitsQuietlyForItsConnection()
         dispatcher,
         subscription,
         QStringLiteral("incarnation")));
-    QVERIFY(registry.installSemanticCheckpoint({
+    QVERIFY(registry.installCheckpoint({
         subscription,
         1,
         24,
@@ -2992,7 +2989,7 @@ void TerminalKernelTest::surfaceControllerKeepsSameSessionSurfacesIndependent()
         output += QByteArray::number(line).rightJustified(2, '0');
         output += QByteArrayLiteral("\r\n");
     }
-    QVERIFY(registry.installSemanticCheckpoint({
+    QVERIFY(registry.installCheckpoint({
         stageSubscription,
         1,
         5,
@@ -3058,7 +3055,7 @@ void TerminalKernelTest::surfaceControllerKeepsSameSessionSurfacesIndependent()
     runtime.refreshHandler =
         [&](const kodosi::TerminalSubscription& subscription) {
             refreshCheckpointInstalled =
-                registry.installSemanticCheckpoint({
+                registry.installCheckpoint({
                     subscription,
                     1,
                     5,
@@ -3085,7 +3082,7 @@ void TerminalKernelTest::surfaceControllerKeepsSameSessionSurfacesIndependent()
     runtime.refreshHandler = {};
     QVERIFY(controller.bind(&focusView, QStringLiteral("0198aaaa-0000-7000-8000-000000000004")));
     controller.detach(&focusView);
-    QVERIFY(registry.installSemanticCheckpoint({ stageSubscription, 1, 5, 12, checkpointFor(output, 12, 5) }));
+    QVERIFY(registry.installCheckpoint({ stageSubscription, 1, 5, 12, checkpointFor(output, 12, 5) }));
     QCOMPARE(runtime.disconnectedSubscriptions.size(), 0);
     QVERIFY(!focusView.terminalReady());
     QVERIFY(stageView.terminalReady());
@@ -3140,7 +3137,7 @@ void TerminalKernelTest::surfaceControllerRetriesFailedSeedRefresh()
     runtime.refreshHandler =
         [&](const kodosi::TerminalSubscription& refreshed) {
             refreshCheckpointInstalled =
-                registry.installSemanticCheckpoint({
+                registry.installCheckpoint({
                     refreshed,
                     1,
                     24,
@@ -3200,7 +3197,7 @@ void TerminalKernelTest::surfaceControllerTimesOutAcceptedSeedRefresh()
     runtime.refreshHandler =
         [&](const kodosi::TerminalSubscription& refreshed) {
             refreshCheckpointInstalled =
-                registry.installSemanticCheckpoint({
+                registry.installCheckpoint({
                     refreshed,
                     3,
                     24,
@@ -3286,7 +3283,7 @@ void TerminalKernelTest::registryRetiresAbandonedSeedCapacity()
         registry.registerSurface(primary, {});
     QVERIFY(primaryRegistration.has_value());
     QVERIFY(primaryRegistration->requiresConnection);
-    QVERIFY(registry.installSemanticCheckpoint({
+    QVERIFY(registry.installCheckpoint({
         subscription,
         1,
         24,
@@ -3355,7 +3352,7 @@ void TerminalKernelTest::registryRoutesMultiSurfaceControlExactly()
         },
         {}));
 
-    QVERIFY(registry.installSemanticCheckpoint({
+    QVERIFY(registry.installCheckpoint({
         subscription,
         1,
         3,
@@ -3427,7 +3424,7 @@ void TerminalKernelTest::registryRestoresOpenSurfacesFromMovedSnapshot()
             },
             .failed = [&](auto) { ++failures; },
         }));
-    QVERIFY(registry.installSemanticCheckpoint({
+    QVERIFY(registry.installCheckpoint({
         subscription,
         1,
         3,
@@ -3446,7 +3443,7 @@ void TerminalKernelTest::registryRestoresOpenSurfacesFromMovedSnapshot()
     QVERIFY(secondRegistration);
     QVERIFY(secondRegistration->requiresRefresh);
 
-    QVERIFY(registry.installSemanticCheckpoint({
+    QVERIFY(registry.installCheckpoint({
         subscription,
         5,
         3,
@@ -3474,7 +3471,7 @@ void TerminalKernelTest::registryRestoresOpenSurfacesFromMovedSnapshot()
         });
     QVERIFY(thirdRegistration);
     QVERIFY(thirdRegistration->requiresRefresh);
-    QVERIFY(registry.installSemanticCheckpoint({
+    QVERIFY(registry.installCheckpoint({
         subscription,
         6,
         3,
@@ -3517,7 +3514,7 @@ void TerminalKernelTest::registryConsumesNormativeControlWireWithoutLosingU64Pre
             },
             .closed = [&] { closed = true; },
         }));
-    QVERIFY(registry.installSemanticCheckpoint({
+    QVERIFY(registry.installCheckpoint({
         subscription,
         sequence,
         2,
@@ -3620,6 +3617,29 @@ void TerminalKernelTest::resizeRequiresExactSequenceBoundary()
     QCOMPARE((*resized)->rows, 4);
     QCOMPARE((*resized)->columns, 24);
     QCOMPARE((*resized)->nextSequence, 5);
+}
+
+void TerminalKernelTest::consoleCheckpointKeepsHistoryOnResize()
+{
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("session"),
+        QStringLiteral("subscription"),
+        3,
+    };
+    QByteArray lines;
+    for (int line = 0; line < 8; ++line) {
+        lines += QByteArrayLiteral("line ") + QByteArray::number(line) + QByteArrayLiteral("\r\n");
+    }
+    const auto snapshot = checkpointFor(lines, 12, 3);
+    for (const bool console : { false, true }) {
+        kodosi::GhosttyTerminalKernel kernel;
+        QVERIFY(kernel.installCheckpoint({ subscription, 1, 3, 12, snapshot, console }));
+
+        const auto resized = kernel.applyResize(subscription, 1, 6, 12);
+
+        QVERIFY(resized);
+        QCOMPARE(frameText(**resized).contains(QStringLiteral("line 3")), !console);
+    }
 }
 
 QTEST_MAIN(TerminalKernelTest)

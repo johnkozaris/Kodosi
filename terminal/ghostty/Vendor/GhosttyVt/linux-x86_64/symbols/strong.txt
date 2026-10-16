@@ -746,10 +746,6 @@ ghostty_alloc
 ghostty_build_info
 ghostty_cell_get
 ghostty_cell_get_multi
-ghostty_checkpoint_encode_alloc
-ghostty_checkpoint_encode_buf
-ghostty_checkpoint_restore
-ghostty_checkpoint_schema
 ghostty_color_contrast
 ghostty_color_luminance
 ghostty_color_palette_default

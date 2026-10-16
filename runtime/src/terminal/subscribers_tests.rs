@@ -1,16 +1,10 @@
-use super::super::{TerminalScreen, TerminalSize};
 use super::*;
 
 fn checkpoint() -> Checkpoint {
-    Checkpoint::new(
-        TerminalSize::new(4, 10).expect("valid size"),
-        TerminalScreen::Primary,
-        b"not-restored-in-subscriber-tests".to_vec(),
-        0,
-        0,
-        false,
-    )
-    .expect("metadata checkpoint")
+    let snapshot = ghostty_vt::Terminal::new(10, 4, ghostty_vt::TerminalPolicy::default())
+        .and_then(|mut terminal| terminal.visible_snapshot(usize::MAX))
+        .expect("snapshot");
+    Checkpoint::new(snapshot, false).expect("checkpoint")
 }
 
 #[tokio::test]
