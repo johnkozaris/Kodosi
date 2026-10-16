@@ -623,6 +623,9 @@ void TerminalSessionRegistry::receiveData(TerminalData data) noexcept
             continue;
         }
         current = publishFrame(entry, entry->kernel.applyData(data)) || current;
+        if (auto write = entry->kernel.takeClipboardWrite()) {
+            publishValue(entry, &Listener::clipboardWritten, std::move(*write));
+        }
     }
     if (!current) {
         span.setOutcome(QStringLiteral("inactive"));

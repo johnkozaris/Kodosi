@@ -344,7 +344,7 @@ private slots:
     void terminalViewJoinsSurrogateHalvesFromSeparateKeyEvents();
     void terminalViewPastesClipboardThroughBoundedAuthority();
     void terminalViewTracksShiftInsertPasteReleaseExactly();
-    void terminalOriginatedClipboardCommandsCannotReachHostClipboard();
+    void terminalProgramsWriteTheClipboard();
     void terminalViewWheelUpdatesFrameWithoutPtyInput();
     void terminalViewAcceptedInputReturnsViewportToBottom();
     void terminalViewSelectionAnchorSurvivesPresentedScroll();
@@ -1848,7 +1848,7 @@ void TerminalKernelTest::terminalViewTracksShiftInsertPasteReleaseExactly()
     QCOMPARE(dispatcher.inputCommands.size(), 1);
 }
 
-void TerminalKernelTest::terminalOriginatedClipboardCommandsCannotReachHostClipboard()
+void TerminalKernelTest::terminalProgramsWriteTheClipboard()
 {
     kodosi::TerminalSessionRegistry registry;
     FakeTerminalDispatcher dispatcher;
@@ -1871,12 +1871,21 @@ void TerminalKernelTest::terminalOriginatedClipboardCommandsCannotReachHostClipb
     registry.receiveData({
         subscription,
         1,
-        QByteArrayLiteral("\x1b]52;c;dGVybWluYWwtb3duZWQ=\x07"),
+        QByteArrayLiteral("\x1b]52;c;?\x07"),
     });
     QCoreApplication::processEvents();
     QCOMPARE(
         clipboard->text(QClipboard::Clipboard),
         QStringLiteral("host-owned"));
+
+    registry.receiveData({
+        subscription,
+        2,
+        QByteArrayLiteral("\x1b]52;c;Zmlyc3Q=\x07\x1b]52;c;dGVybWluYWwtb3duZWQ=\x07"),
+    });
+    QTRY_COMPARE(
+        clipboard->text(QClipboard::Clipboard),
+        QStringLiteral("terminal-owned"));
     QCOMPARE(dispatcher.inputCommands.size(), 0);
 }
 

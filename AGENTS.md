@@ -24,12 +24,13 @@ Read `PRODUCT.md` first. Before changing a client's interface, read that client'
   projects read it.
 - `terminal/ghostty/`: pinned, patched Ghostty, selected by root `Ghostty.lock`. Read
   its `PROVENANCE.md` first; every file in `Patches/ghostty/` is part of the pinned
-  digest. Programs in a terminal may not read or write the clipboard.
+  digest.
 
 ## Rules
 
 - Keep full terminal control. Don't add permission tiers, sandboxing or agent workflow
-  machinery.
+  machinery. Programs in a terminal get what Ghostty gives them, such as clipboard
+  writes; don't add limits that Ghostty does not have.
 - Leave provider execution, permissions, settings and conversations with the provider.
 - Preserve end-to-end encryption, chosen sharing, identity continuity, bounded resource
   use and ordered terminal state.

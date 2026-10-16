@@ -11,6 +11,7 @@
 #include <QInputMethodEvent>
 #include <QKeyEvent>
 #include <QKeySequence>
+#include <QMimeData>
 #include <QMouseEvent>
 #include <QTimer>
 #include <QWheelEvent>
@@ -948,6 +949,28 @@ void TerminalView::updateSelection(const QPoint& endpoint)
         }
         emit operationError(selected.error().message);
     }
+}
+
+void TerminalView::writeClipboard(GhosttyTerminalKernel::ClipboardWrite write)
+{
+    auto* clipboard = QGuiApplication::clipboard();
+    const auto mode = write.selection ? QClipboard::Selection : QClipboard::Clipboard;
+    if (write.selection && !clipboard->supportsSelection()) {
+        return;
+    }
+    if (write.contents.empty()) {
+        clipboard->clear(mode);
+        return;
+    }
+    auto* data = new QMimeData;
+    for (auto& [mime, bytes] : write.contents) {
+        if (mime.startsWith(QStringLiteral("text/plain"))) {
+            data->setText(QString::fromUtf8(bytes));
+        } else {
+            data->setData(mime, std::move(bytes));
+        }
+    }
+    clipboard->setMimeData(data, mode);
 }
 
 bool TerminalView::copySelection()

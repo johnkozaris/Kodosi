@@ -227,7 +227,8 @@ private:
     detail::TerminalFrameMailbox m_frameMailbox;
     struct Closed {};
     using GuiEvent = std::variant<GhosttyTerminalKernel::Failure, std::int32_t,
-        TerminalFocusOutcome, TerminalResizeOutcome, Closed>;
+        TerminalFocusOutcome, TerminalResizeOutcome, GhosttyTerminalKernel::ClipboardWrite,
+        Closed>;
     std::mutex m_guiEventMutex;
     std::deque<GuiEvent> m_guiEvents;
     bool m_guiDrainQueued = false;
@@ -256,6 +257,7 @@ private:
     [[nodiscard]] TerminalSurfaceIdentity surfaceIdentity() const;
     void sendText(const QString& text);
     void pasteClipboard();
+    void writeClipboard(GhosttyTerminalKernel::ClipboardWrite write);
     [[nodiscard]] bool sendKey(QKeyEvent* event, TerminalKeyAction action);
     [[nodiscard]] bool enqueueInput(QByteArray bytes);
     static constexpr int inputBackoffMilliseconds[] {4, 8, 16, 32, 64};

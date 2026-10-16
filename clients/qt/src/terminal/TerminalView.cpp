@@ -618,6 +618,9 @@ bool TerminalView::attach(
                 outcome.reason = outcome.reason.left(1024);
                 enqueueGuiEvent(epoch, std::move(outcome));
             },
+            .clipboardWritten = [this, epoch](auto write) {
+                enqueueGuiEvent(epoch, std::move(write));
+            },
             .closed = [this, epoch] { enqueueGuiEvent(epoch, Closed {}); },
         },
         kernelSettings());
@@ -840,6 +843,11 @@ void TerminalView::enqueueGuiEvent(const std::uint64_t epoch, GuiEvent event)
     std::scoped_lock lock(m_guiEventMutex);
     if (m_attachmentEpoch.load(std::memory_order_acquire) != epoch || m_guiOverflow)
         return;
+    if (std::holds_alternative<GhosttyTerminalKernel::ClipboardWrite>(event)) {
+        std::erase_if(m_guiEvents, [](const GuiEvent& queued) {
+            return std::holds_alternative<GhosttyTerminalKernel::ClipboardWrite>(queued);
+        });
+    }
     if (m_guiEvents.size() >= 64) {
         m_guiEvents.clear();
         m_guiOverflow = true;
@@ -884,7 +892,8 @@ void TerminalView::drainGuiEvents(const std::uint64_t epoch)
                 handleFocusOutcome(std::move(value));
             } else if constexpr (std::is_same_v<T, TerminalResizeOutcome>) {
                 handleResizeOutcome(std::move(value));
-
+            } else if constexpr (std::is_same_v<T, GhosttyTerminalKernel::ClipboardWrite>) {
+                writeClipboard(std::move(value));
             } else {
                 drainFrame(epoch);
                 if (m_attachmentEpoch.load(std::memory_order_acquire) != epoch) return;

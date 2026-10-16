@@ -9,6 +9,7 @@
 #include <iterator>
 #include <limits>
 #include <mutex>
+#include <optional>
 #include <utility>
 
 namespace kodosi {
@@ -693,6 +694,39 @@ GhosttyTerminalKernel::ConfigureResult applySettings(
     return {};
 }
 
+void receiveClipboardWrite(
+    const GhosttyTerminal,
+    void* const userdata,
+    const GhosttyClipboardWrite* const write)
+{
+    if (userdata == nullptr || write == nullptr || write->size < sizeof(GhosttyClipboardWrite)
+        || write->reply == nullptr) {
+        return;
+    }
+    GhosttyTerminalKernel::ClipboardWrite received {
+        .selection = write->location != GHOSTTY_CLIPBOARD_LOCATION_STANDARD,
+        .contents = {},
+    };
+    for (std::size_t index = 0; index < write->contents_len; ++index) {
+        const auto& content = write->contents[index];
+        received.contents.emplace_back(
+            QString::fromUtf8(
+                reinterpret_cast<const char*>(content.mime.ptr),
+                static_cast<qsizetype>(content.mime.len)),
+            QByteArray(
+                reinterpret_cast<const char*>(content.data.ptr),
+                static_cast<qsizetype>(content.data.len)));
+    }
+    *static_cast<std::optional<GhosttyTerminalKernel::ClipboardWrite>*>(userdata) =
+        std::move(received);
+    const GhosttyClipboardWriteReply reply {
+        sizeof(GhosttyClipboardWriteReply),
+        GHOSTTY_CLIPBOARD_WRITE_RESULT_SUCCESS,
+        false,
+    };
+    write->reply(write, &reply);
+}
+
 }
 
 class GhosttyTerminalKernel::Impl final {
@@ -743,6 +777,7 @@ public:
     std::uint64_t viewportRevision = 0;
     std::uint64_t displayRevision = 0;
     Frame currentFrame;
+    std::optional<ClipboardWrite> clipboardWrite;
     TerminalKernelSettings settings;
     bool selectionRectangular = false;
     bool admitted = false;
@@ -816,6 +851,20 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
     if (result != GHOSTTY_SUCCESS) {
         return std::unexpected(
             ghosttyFailure(QStringLiteral("disable Glyph Protocol"), result));
+    }
+
+    result = ghostty_terminal_set(
+        candidateTerminal.value,
+        GHOSTTY_TERMINAL_OPT_USERDATA,
+        &m_impl->clipboardWrite);
+    if (result == GHOSTTY_SUCCESS) {
+        result = ghostty_terminal_set(
+            candidateTerminal.value,
+            GHOSTTY_TERMINAL_OPT_CLIPBOARD_WRITE,
+            reinterpret_cast<const void*>(&receiveClipboardWrite));
+    }
+    if (result != GHOSTTY_SUCCESS) {
+        return std::unexpected(ghosttyFailure(QStringLiteral("clipboard writes"), result));
     }
 
     const bool resizePullsScrollback = !checkpoint.console;
@@ -1850,6 +1899,12 @@ GhosttyTerminalKernel::Frame GhosttyTerminalKernel::frame() const
 {
     std::scoped_lock lock(m_impl->mutex);
     return m_impl->currentFrame;
+}
+
+std::optional<GhosttyTerminalKernel::ClipboardWrite> GhosttyTerminalKernel::takeClipboardWrite()
+{
+    std::scoped_lock lock(m_impl->mutex);
+    return std::exchange(m_impl->clipboardWrite, std::nullopt);
 }
 
 }

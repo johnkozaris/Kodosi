@@ -112,20 +112,17 @@ private enum TerminalCallbacks {
             return
         }
         guard let contents, contentsLen > 0 else { return }
-        guard let content = (0..<contentsLen)
-            .map({ contents[$0] })
-            .first(where: { content in
-                content.mime.map { String(cString: $0) == "text/plain" } ?? false
-            }),
-            let data = content.data
-        else { return }
-        let bytes = UnsafeRawBufferPointer(
-            start: data,
-            count: content.len
-        )
-        let string = String(decoding: bytes, as: UTF8.self)
-
-        TerminalPasteboardContent.write(string)
+        let representations = (0..<contentsLen).compactMap { index in
+            let content = contents[index]
+            return content.mime.map { mime in
+                TerminalPasteboardContent.Representation(
+                    mime: String(cString: mime),
+                    data: content.data.map { Data(bytes: $0, count: content.len) } ?? Data()
+                )
+            }
+        }
+        guard !representations.isEmpty else { return }
+        TerminalPasteboardContent.write(representations)
     }
 
     static func readClipboard(

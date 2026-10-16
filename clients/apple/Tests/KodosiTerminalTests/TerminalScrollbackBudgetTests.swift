@@ -50,18 +50,16 @@
         #expect(TerminalScrollbackBudget(lines: .max).bytes == TerminalScrollbackBudget.maximumBytes)
     }
 
-    @Test func hostManagedRendererDeniesClipboardProtocolsAndImages() {
+    @Test func programsWriteTheClipboard() {
         #expect(TerminalRendererSession.hostManagedPolicyOverrides.map(\.key) == [
             "clipboard-read",
             "clipboard-write",
             "image-storage-limit",
-            "mouse-shift-capture",
         ])
         #expect(TerminalRendererSession.hostManagedPolicyOverrides.map(\.value) == [
             "deny",
-            "deny",
+            "allow",
             "0",
-            "never",
         ])
     }
 

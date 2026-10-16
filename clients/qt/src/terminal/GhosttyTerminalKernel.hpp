@@ -4,11 +4,14 @@
 #include "terminal/TerminalFrame.hpp"
 #include "terminal/TerminalSettings.hpp"
 
+#include <QByteArray>
 #include <QString>
 
 #include <expected>
 #include <memory>
 #include <optional>
+#include <utility>
+#include <vector>
 
 namespace kodosi {
 
@@ -124,6 +127,11 @@ public:
         }
     };
 
+    struct ClipboardWrite {
+        bool selection = false;
+        std::vector<std::pair<QString, QByteArray>> contents;
+    };
+
     using Frame = std::shared_ptr<const TerminalFrame>;
     using Result = std::expected<Frame, Failure>;
     using ConfigureResult = std::expected<std::optional<Frame>, Failure>;
@@ -182,6 +190,7 @@ public:
     [[nodiscard]] std::expected<std::size_t, Failure> scrollbackLimitLines() const;
     [[nodiscard]] std::expected<std::size_t, Failure> scrollbackLimitBytes() const;
     [[nodiscard]] Frame frame() const;
+    [[nodiscard]] std::optional<ClipboardWrite> takeClipboardWrite();
 
 private:
     class Impl;

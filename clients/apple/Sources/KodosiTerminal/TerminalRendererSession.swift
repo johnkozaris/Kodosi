@@ -281,9 +281,8 @@ public final class TerminalRendererSession: ObservableObject {
 
     nonisolated static let hostManagedPolicyOverrides: [(key: String, value: String)] = [
         ("clipboard-read", "deny"),
-        ("clipboard-write", "deny"),
+        ("clipboard-write", "allow"),
         ("image-storage-limit", "0"),
-        ("mouse-shift-capture", "never"),
     ]
 
     private static func makeConfiguration(style: TerminalStyle) -> TerminalConfiguration {
