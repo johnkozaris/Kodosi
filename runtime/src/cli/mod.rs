@@ -1151,52 +1151,22 @@ async fn open_remote(
     context: &mut Context,
     session: Uuid,
 ) -> Result<()> {
-    let entry = context.session(session)?;
-    if entry.get("kind").and_then(Value::as_str) != Some("remote") {
+    if context
+        .session(session)?
+        .get("kind")
+        .and_then(Value::as_str)
+        != Some("remote")
+    {
         return Ok(());
     }
-    let request = Uuid::now_v7().to_string();
-    client
-        .command(context.envelope(
-            json!({"type":"session.openRemote","requestId":request,"sessionId":session}),
-        )?)
-        .await?;
-    tokio::time::timeout(Duration::from_secs(15), async {
-        loop {
-            let frame = client.next().await?;
-            if frame.get("kind").and_then(Value::as_str) == Some("rejected") {
-                return Err(Error::Other(
-                    frame["message"]
-                        .as_str()
-                        .unwrap_or("remote connection rejected")
-                        .to_owned(),
-                ));
-            }
-            let Some(event) = frame.get("event") else {
-                continue;
-            };
-            if !context.observe(event) {
-                continue;
-            }
-            if event.get("type").and_then(Value::as_str) == Some("session.error")
-                && event.get("requestId").and_then(Value::as_str) == Some(&request)
-            {
-                return Err(Error::Other(
-                    event["message"]
-                        .as_str()
-                        .unwrap_or("remote connection failed")
-                        .to_owned(),
-                ));
-            }
-            if event.get("type").and_then(Value::as_str) == Some("session.result")
-                && event.get("requestId").and_then(Value::as_str) == Some(&request)
-            {
-                return Ok(());
-            }
-        }
-    })
+    request(
+        client,
+        context,
+        json!({"type":"session.openRemote","requestId":Uuid::now_v7().to_string(),"sessionId":session}),
+        false,
+    )
     .await
-    .map_err(|_| Error::Other("The remote host did not connect.".into()))?
+    .map(drop)
 }
 async fn connect_or_start(config: &Config) -> Result<local_host::Client> {
     match local_host::Client::connect(&config.data_root).await {

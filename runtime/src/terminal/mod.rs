@@ -14,7 +14,7 @@ pub(crate) use remote::RemoteTerminal;
 #[cfg(feature = "host")]
 pub(crate) use session::LocalSession;
 pub use status::{BlockedKind, ProgramState, ProgramStatus};
-pub use subscribers::{ControlFrame, DataFrame, Subscription};
+pub use subscribers::{ControlFrame, DataFrame, Frame, Subscription};
 pub use types::{
     Checkpoint, TERMINAL_CHECKPOINT_SCHEMA_VERSION, TERMINAL_INPUT_MAX_BYTES,
     TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES, TerminalMetadata, TerminalPixelGeometry,

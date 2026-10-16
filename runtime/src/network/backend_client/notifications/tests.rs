@@ -158,6 +158,7 @@ async fn room_notifications_use_the_renewed_token_on_the_existing_connection() {
         let state = network.inner.state.lock().await;
         Credentials {
             user_id: user.clone(),
+            display_name: "You".to_owned(),
             token: Zeroizing::new("expired-token".into()),
             keys: Arc::new(DeviceKeys::load_or_create(&state.secrets, &user).unwrap()),
             enrolled: true,

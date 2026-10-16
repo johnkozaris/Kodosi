@@ -100,7 +100,7 @@ impl LinkKey {
 }
 
 fn request(identity: &LinkIdentity<'_>) -> Result<Vec<u8>> {
-    let mut fields = LpWriter::with_capacity("device link request", 3400);
+    let mut fields = LpWriter::new("device link request");
     fields.write_lp_str("request")?;
     fields.write_lp_str(identity.user_id)?;
     fields.write_lp_str(identity.device_id)?;
@@ -110,7 +110,7 @@ fn request(identity: &LinkIdentity<'_>) -> Result<Vec<u8>> {
 }
 
 fn approval(user_id: &str, device_id: &str, root: &Root) -> Result<Vec<u8>> {
-    let mut fields = LpWriter::with_capacity("device link approval", 400);
+    let mut fields = LpWriter::new("device link approval");
     fields.write_lp_str("approval")?;
     fields.write_lp_str(user_id)?;
     fields.write_lp_str(device_id)?;

@@ -64,20 +64,7 @@ impl SignedDeviceList {
             reason: "device list: entry count exceeds u32".to_owned(),
         })?;
 
-        let mut writer = LpWriter::with_capacity(
-            DEVICE_LIST_CONTEXT,
-            4 + self.user_id.len()
-                + 8
-                + 4
-                + self
-                    .entries
-                    .iter()
-                    .map(|e| 8 + e.device_id.len() + e.signer_device_id.len())
-                    .sum::<usize>()
-                + 4
-                + self.signer_device_id.len()
-                + 16,
-        );
+        let mut writer = LpWriter::new(DEVICE_LIST_CONTEXT);
         writer.write_lp_str(&self.user_id)?;
         writer.write_u64_be(self.generation);
         writer.write_u32_be(entry_count);

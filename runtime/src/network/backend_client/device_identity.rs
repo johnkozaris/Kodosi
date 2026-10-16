@@ -41,6 +41,34 @@ impl BackendClient {
             now,
             Some(now + DEVICE_LIST_LIFE_MS),
         )?;
+        let mut body = json!({
+            "deviceCertificate":BASE64.encode(cert.body_bytes),"deviceCertificateSignature":BASE64.encode(cert.signature),
+            "signedDeviceList":BASE64.encode(list.body_bytes),"signedDeviceListSignature":BASE64.encode(list.signature),
+        });
+        self.prove_possession(credentials, &mut body).await?;
+        let _response: Value = self
+            .inner
+            .http
+            .bearer(
+                Method::POST,
+                "api/me/devices",
+                &credentials.token,
+                Some(body),
+            )
+            .await?;
+        let bundle = self
+            .inner
+            .http
+            .bearer(Method::GET, "api/me/identity", &credentials.token, None)
+            .await?;
+        Ok((bundle, root))
+    }
+
+    pub(super) async fn prove_possession(
+        &self,
+        credentials: &Credentials,
+        body: &mut Value,
+    ) -> Result<()> {
         let challenge: Value = self
             .inner
             .http
@@ -51,20 +79,15 @@ impl BackendClient {
                 None,
             )
             .await?;
-        let challenge_bytes = wire::decode_b64(&challenge, "challengeBytes", 32)?;
-        let signature =
-            crypto::sign_pop_challenge(&credentials.keys.signing_key()?, &challenge_bytes)?;
-        let _response:Value=self.inner.http.bearer(Method::POST,"api/me/devices",&credentials.token,Some(json!({
-        "deviceId":credentials.keys.device_id,"signingPublicKey":BASE64.encode(credentials.keys.signing_public()),
-        "challengeId":challenge["challengeId"],"popSignature":BASE64.encode(signature),"deviceCertificate":BASE64.encode(cert.body_bytes),"deviceCertificateSignature":BASE64.encode(cert.signature),
-        "signedDeviceList":BASE64.encode(list.body_bytes),"signedDeviceListSignature":BASE64.encode(list.signature),
-    }))).await?;
-        let bundle = self
-            .inner
-            .http
-            .bearer(Method::GET, "api/me/identity", &credentials.token, None)
-            .await?;
-        Ok((bundle, root))
+        let signature = crypto::sign_pop_challenge(
+            &credentials.keys.signing_key()?,
+            &wire::decode_b64(&challenge, "challengeBytes", 32)?,
+        )?;
+        body["deviceId"] = json!(credentials.keys.device_id);
+        body["signingPublicKey"] = json!(BASE64.encode(credentials.keys.signing_public()));
+        body["challengeId"] = challenge["challengeId"].clone();
+        body["popSignature"] = json!(BASE64.encode(signature));
+        Ok(())
     }
 
     pub(super) async fn ensure_enrolled(&self) -> Result<()> {
@@ -111,15 +134,6 @@ impl BackendClient {
         credentials.enrolled = enrolled;
         credentials.notice = (!enrolled).then_some(notice);
         *self.inner.credentials.write().map_err(|_| Error::Closed)? = Some(credentials);
-        if let Some(identity) = self
-            .inner
-            .identity
-            .write()
-            .map_err(|_| Error::Closed)?
-            .as_mut()
-        {
-            identity.enrolled = enrolled;
-        }
         Ok(enrolled)
     }
 

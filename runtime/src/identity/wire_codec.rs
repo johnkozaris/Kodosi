@@ -11,16 +11,16 @@ pub(crate) const MAX_SIGNED_DEVICE_LIST_BODY_LEN: usize = 527_432;
 pub(super) const NO_EXPIRY_SENTINEL: u64 = 0;
 pub(super) const MAX_UNIX_TIME_MILLISECONDS: u64 = 253_402_300_799_999;
 
-pub(super) struct LpWriter {
+pub(crate) struct LpWriter {
     context: &'static str,
     out: Vec<u8>,
 }
 
 impl LpWriter {
-    pub(super) fn with_capacity(context: &'static str, capacity: usize) -> Self {
+    pub(crate) const fn new(context: &'static str) -> Self {
         Self {
             context,
-            out: Vec::with_capacity(capacity),
+            out: Vec::new(),
         }
     }
 
@@ -28,7 +28,7 @@ impl LpWriter {
         self.write_lp_bytes(value.as_bytes())
     }
 
-    pub(super) fn write_lp_bytes(&mut self, bytes: &[u8]) -> Result<()> {
+    pub(crate) fn write_lp_bytes(&mut self, bytes: &[u8]) -> Result<()> {
         let len_u32 = u32::try_from(bytes.len()).map_err(|_| Error::Invalid {
             reason: format!("{} field exceeds u32 length prefix", self.context),
         })?;
@@ -53,7 +53,7 @@ impl LpWriter {
         self.out.extend_from_slice(&value.to_be_bytes());
     }
 
-    pub(super) fn finish(self) -> Vec<u8> {
+    pub(crate) fn finish(self) -> Vec<u8> {
         self.out
     }
 }

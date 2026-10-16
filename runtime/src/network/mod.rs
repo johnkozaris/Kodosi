@@ -225,6 +225,7 @@ pub enum TerminalControl {
     Close,
 }
 
+#[derive(Debug)]
 pub struct CheckpointCut {
     pub checkpoint: crate::terminal::Checkpoint,
     pub next_sequence: u64,

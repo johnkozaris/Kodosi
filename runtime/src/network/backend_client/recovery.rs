@@ -191,24 +191,7 @@ impl BackendClient {
             &key.device_id,
             key.signing_key(),
         )?;
-        let challenge: Value = self
-            .inner
-            .http
-            .bearer(
-                Method::POST,
-                "api/me/devices/challenge",
-                &credentials.token,
-                None,
-            )
-            .await?;
-        let possession = crypto::sign_pop_challenge(
-            &credentials.keys.signing_key()?,
-            &wire::decode_b64(&challenge, "challengeBytes", 32)?,
-        )?;
-        body["deviceId"] = json!(credentials.keys.device_id);
-        body["signingPublicKey"] = json!(BASE64.encode(credentials.keys.signing_public()));
-        body["challengeId"] = challenge["challengeId"].clone();
-        body["popSignature"] = json!(BASE64.encode(possession));
+        self.prove_possession(credentials, &mut body).await?;
         let _response: Value = self
             .inner
             .http

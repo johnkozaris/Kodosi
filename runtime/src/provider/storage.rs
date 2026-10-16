@@ -56,12 +56,16 @@ pub(super) fn encoded_claude_directory(directory: &Path) -> Result<String, Strin
     Ok(encoded)
 }
 
+fn provider_home(provider: Provider) -> Result<(&'static str, &'static str), String> {
+    provider
+        .agent()
+        .home()
+        .ok_or_else(|| "This agent keeps no conversations".to_owned())
+}
+
 pub(super) fn provider_root(home: &Path, provider: Provider) -> Result<PathBuf, String> {
-    let key = match provider {
-        Provider::Claude => "CLAUDE_CONFIG_DIR",
-        Provider::Copilot => "COPILOT_HOME",
-    };
-    resolve_provider_root(home, provider, std::env::var_os(key).as_deref())
+    let (_, variable) = provider_home(provider)?;
+    resolve_provider_root(home, provider, std::env::var_os(variable).as_deref())
 }
 
 pub(super) fn resolve_provider_root(
@@ -69,15 +73,10 @@ pub(super) fn resolve_provider_root(
     provider: Provider,
     configured: Option<&std::ffi::OsStr>,
 ) -> Result<PathBuf, String> {
-    let root = configured.filter(|value| !value.is_empty()).map_or_else(
-        || {
-            home.join(match provider {
-                Provider::Claude => ".claude",
-                Provider::Copilot => ".copilot",
-            })
-        },
-        PathBuf::from,
-    );
+    let (folder, _) = provider_home(provider)?;
+    let root = configured
+        .filter(|value| !value.is_empty())
+        .map_or_else(|| home.join(folder), PathBuf::from);
     let value = root.to_str().ok_or("Provider root must be UTF-8")?;
     if !root.is_absolute()
         || value.len() > 4096

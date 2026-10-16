@@ -398,20 +398,29 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         )
         .expect("queued input");
     authorization.cancel();
-    actor.flush().expect("flush excludes revoked input");
+    assert!(actor.pending_input().is_none());
     assert!(actor.queue.is_empty());
     assert_eq!(actor.input_budget.available_permits(), MAX_PENDING_BYTES);
     actor
         .enqueue(Bytes::from_static(b"ALLOWED\n"), None)
         .expect("allowed input");
-    actor.flush().expect("write allowed bytes");
     let mut captured = Vec::new();
     let mut buffer = [0_u8; 4096];
     tokio::time::timeout(Duration::from_secs(2), async {
         while !captured.windows(7).any(|slice| slice == b"ALLOWED") {
-            let count = actor.reader.read(&mut buffer).await.expect("read pty");
-            assert!(count > 0);
-            captured.extend_from_slice(&buffer[..count]);
+            let input = actor.pending_input();
+            match actor
+                .reader
+                .transfer(&mut buffer, input.as_deref())
+                .await
+                .expect("pty transfer")
+            {
+                Transfer::Wrote(count) => actor.wrote(count),
+                Transfer::Read(count) => {
+                    assert!(count > 0);
+                    captured.extend_from_slice(&buffer[..count]);
+                }
+            }
         }
     })
     .await

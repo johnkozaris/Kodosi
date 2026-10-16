@@ -63,7 +63,7 @@ impl Agent {
     }
 
     #[cfg(feature = "host")]
-    const fn home(self) -> Option<(&'static str, &'static str)> {
+    pub(crate) const fn home(self) -> Option<(&'static str, &'static str)> {
         match self {
             Self::Claude => Some((".claude", "CLAUDE_CONFIG_DIR")),
             Self::Codex => Some((".codex", "CODEX_HOME")),

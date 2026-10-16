@@ -24,7 +24,6 @@
     unix,
     expect(
         clippy::cast_possible_wrap,
-        clippy::match_same_arms,
         clippy::needless_continue,
         clippy::option_if_let_else,
         reason = "Kodosi PTY keeps platform control flow explicit"

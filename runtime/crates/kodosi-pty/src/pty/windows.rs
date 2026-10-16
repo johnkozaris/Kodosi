@@ -305,11 +305,6 @@ impl KodosiPty {
         self.observe().agent.map(|(_, name)| name.to_owned())
     }
 
-    /// Input goes through `PtyReader::transfer`.
-    pub fn write(&mut self, _buf: &[u8]) -> Result<usize> {
-        Ok(0)
-    }
-
     pub fn resize(
         &self,
         rows: u16,

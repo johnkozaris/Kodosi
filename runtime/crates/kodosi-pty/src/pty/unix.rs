@@ -235,15 +235,6 @@ impl KodosiPty {
         program_identity(&arguments).map(str::to_owned)
     }
 
-    pub fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        try_write_to_fd(self.master_fd, buf).map_err(|error| {
-            KodosiError::Io(io::Error::new(
-                io::ErrorKind::BrokenPipe,
-                format!("failed to write to PTY stdin: {error}"),
-            ))
-        })
-    }
-
     pub fn resize(
         &self,
         rows: u16,
@@ -495,21 +486,6 @@ fn set_terminal_size_using_fd(
     }
 }
 
-fn try_write_to_fd(fd: RawFd, buf: &[u8]) -> std::result::Result<usize, nix::Error> {
-    let borrowed = unsafe { BorrowedFd::borrow_raw(fd) };
-    let mut written = 0;
-    while written < buf.len() {
-        match unistd::write(borrowed, &buf[written..]) {
-            Ok(0) => break,
-            Ok(count) => written += count,
-            Err(nix::errno::Errno::EINTR) => continue,
-            Err(nix::errno::Errno::EAGAIN) => break,
-            Err(error) => return Err(error),
-        }
-    }
-    Ok(written)
-}
-
 const LOGIN_SHELLS: [&str; 8] = ["bash", "csh", "dash", "fish", "ksh", "sh", "tcsh", "zsh"];
 
 fn login_shell_name(program: &Path) -> Option<&str> {
@@ -646,14 +622,20 @@ fn foreground_process_group(fd: RawFd) -> Option<u32> {
 #[cfg(test)]
 mod tests {
     use super::{
-        KodosiPty, ShutdownStage, find_executable, login_shell_name, openpty, resolve_program,
-        set_terminal_size_using_fd, try_write_to_fd, validate_working_dir,
+        KodosiPty, PtyReader, ShutdownStage, Transfer, find_executable, login_shell_name,
+        resolve_program, set_terminal_size_using_fd, validate_working_dir,
     };
-    use nix::{
-        fcntl::{FcntlArg, OFlag, fcntl},
-        sys::termios,
-    };
-    use std::{env, io::Read, os::fd::AsRawFd, path::Path, time::Duration};
+    use std::{env, path::Path, time::Duration};
+
+    async fn type_line(reader: &mut PtyReader, mut line: &[u8]) {
+        let mut buffer = [0; 4096];
+        while !line.is_empty() {
+            match reader.transfer(&mut buffer, Some(line)).await.unwrap() {
+                Transfer::Wrote(count) => line = &line[count..],
+                Transfer::Read(count) => assert!(count > 0, "the shell ended before its input"),
+            }
+        }
+    }
 
     #[test]
     fn shutdown_signals_other_processes_after_a_permission_failure() {
@@ -724,8 +706,11 @@ mod tests {
                 let (mut pty, mut reader) =
                     KodosiPty::spawn_program(Path::new("/bin/zsh"), &[], None, 24, 80, &[])
                         .unwrap();
-                pty.write(b"print -r -- \"probe=${options[login]}:$0:$SHELL\"; exit\n")
-                    .unwrap();
+                type_line(
+                    &mut reader,
+                    b"print -r -- \"probe=${options[login]}:$0:$SHELL\"; exit\n",
+                )
+                .await;
                 let mut output = Vec::new();
                 let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
                 while !String::from_utf8_lossy(&output).contains("probe=on:-zsh:/bin/zsh") {
@@ -755,7 +740,7 @@ mod tests {
                 &["-i".to_owned()], root.path().to_str(), 24, 80, &[]
             ).unwrap();
             let command = b"sh -c 'trap \"\" HUP TERM; printf \"%s\\n\" \"$$\" > child; exec sleep 30' &\n";
-            assert_eq!(pty.write(command).unwrap(), command.len());
+            type_line(&mut reader, command).await;
             let mut buffer = [0; 4096];
             tokio::time::timeout(Duration::from_secs(3), async {
                 while !root.path().join("child").exists() {
@@ -771,81 +756,6 @@ mod tests {
             assert!(matches!(pty.wait_within(Duration::from_secs(2)).await.unwrap(), super::WaitOutcome::Reaped));
             assert_eq!(super::session_processes(pty.child_pid).unwrap(), Vec::<i32>::new());
         });
-    }
-
-    #[test]
-    fn try_write_to_fd_returns_partial_on_full_buffer() {
-        let pty = openpty(None, &None).expect("openpty failed");
-
-        let mut attrs = termios::tcgetattr(&pty.slave).expect("tcgetattr failed");
-        termios::cfmakeraw(&mut attrs);
-        termios::tcsetattr(&pty.slave, termios::SetArg::TCSANOW, &attrs).expect("tcsetattr failed");
-
-        let flags = fcntl(&pty.master, FcntlArg::F_GETFL).expect("F_GETFL");
-        let mut oflags = OFlag::from_bits_truncate(flags);
-        oflags.insert(OFlag::O_NONBLOCK);
-        fcntl(&pty.master, FcntlArg::F_SETFL(oflags)).expect("F_SETFL");
-
-        let master_raw = pty.master.as_raw_fd();
-        let chunk = vec![0x42u8; 1024];
-        let mut total_filled = 0;
-        loop {
-            match try_write_to_fd(master_raw, &chunk) {
-                Ok(0) => break,
-                Ok(n) => total_filled += n,
-                Err(error) => panic!("unexpected error filling buffer: {error}"),
-            }
-        }
-        assert!(
-            total_filled > 0,
-            "should have written some bytes to fill buffer"
-        );
-
-        let slave_file = std::fs::File::from(pty.slave);
-        let mut slave_reader = std::io::BufReader::new(&slave_file);
-        let mut drain = vec![0u8; 512];
-        let drained = slave_reader.read(&mut drain).expect("slave read failed");
-        assert!(drained > 0, "should have drained some bytes");
-
-        let size = 128 * 1024;
-        let data: Vec<u8> = (0..size)
-            .map(|index| u8::try_from(index % 256).unwrap())
-            .collect();
-        let written =
-            try_write_to_fd(master_raw, &data).expect("try_write_to_fd should not error on EAGAIN");
-
-        assert!(
-            written > 0 && written < size,
-            "expected partial write, got {written}/{size}"
-        );
-    }
-
-    #[test]
-    fn try_write_to_fd_returns_zero_on_stuck_pty() {
-        let pty = openpty(None, &None).expect("openpty failed");
-
-        let mut attrs = termios::tcgetattr(&pty.slave).expect("tcgetattr failed");
-        termios::cfmakeraw(&mut attrs);
-        termios::tcsetattr(&pty.slave, termios::SetArg::TCSANOW, &attrs).expect("tcsetattr failed");
-
-        let flags = fcntl(&pty.master, FcntlArg::F_GETFL).expect("F_GETFL");
-        let mut oflags = OFlag::from_bits_truncate(flags);
-        oflags.insert(OFlag::O_NONBLOCK);
-        fcntl(&pty.master, FcntlArg::F_SETFL(oflags)).expect("F_SETFL");
-
-        let master_raw = pty.master.as_raw_fd();
-        let fill = vec![0x42u8; 1024];
-        loop {
-            match try_write_to_fd(master_raw, &fill) {
-                Ok(0) => break,
-                Ok(_) => continue,
-                Err(error) => panic!("unexpected error filling buffer: {error}"),
-            }
-        }
-
-        let written = try_write_to_fd(master_raw, &[0x01, 0x02, 0x03])
-            .expect("try_write_to_fd should not error on EAGAIN");
-        assert_eq!(written, 0, "expected zero bytes written on full buffer");
     }
 
     #[test]

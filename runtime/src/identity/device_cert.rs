@@ -28,16 +28,7 @@ impl DeviceCertificate {
 
     pub(crate) fn serialize_body(&self) -> Result<Vec<u8>> {
         validate_certificate(self)?;
-        let mut writer = LpWriter::with_capacity(
-            DEVICE_CERT_CONTEXT,
-            5 * 4
-                + 2 * 8
-                + self.user_id.len()
-                + self.device_id.len()
-                + self.device_label.len()
-                + self.signer_device_id.len()
-                + self.sig_public_key.len(),
-        );
+        let mut writer = LpWriter::new(DEVICE_CERT_CONTEXT);
         writer.write_lp_str(&self.user_id)?;
         writer.write_lp_str(&self.device_id)?;
         writer.write_lp_str(&self.device_label)?;

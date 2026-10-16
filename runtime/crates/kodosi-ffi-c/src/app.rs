@@ -410,7 +410,20 @@ mod tests {
     fn a_prepared_app_serves_activations_and_closes_after_its_callback() {
         let directory = tempfile::tempdir().unwrap();
         let isolated = kodosi_os::fs::canonicalize(directory.path()).unwrap();
-        let config = Config::isolated(&isolated).unwrap();
+        let config = Config {
+            data_root: isolated.join("core"),
+            preferences: Some(isolated.join("preferences.ini")),
+            home: isolated.clone(),
+            initial_shell: None,
+            backend_url: "http://127.0.0.1:1".parse().unwrap(),
+            oidc_issuer: "http://127.0.0.1:1".to_owned(),
+            oidc_client_id: "kodosi-test".to_owned(),
+            oidc_scopes: vec!["openid".to_owned()],
+            secret_service: "kodosi.isolated".to_owned(),
+            isolated: true,
+            host: kodosi_runtime::HostKind::App,
+        };
+        kodosi_os::fs::create_private_dir(&config.data_root).unwrap();
         let root = config.data_root.clone();
         let (delivered, received) = std::sync::mpsc::sync_channel(4);
         let (release, released) = std::sync::mpsc::channel();

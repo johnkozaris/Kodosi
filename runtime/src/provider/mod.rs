@@ -18,6 +18,8 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::agents::Agent;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum Provider {
@@ -26,11 +28,15 @@ pub enum Provider {
 }
 
 impl Provider {
-    pub const fn executable(self) -> &'static str {
+    pub const fn agent(self) -> Agent {
         match self {
-            Self::Claude => "claude",
-            Self::Copilot => "copilot",
+            Self::Claude => Agent::Claude,
+            Self::Copilot => Agent::Copilot,
         }
+    }
+
+    pub const fn executable(self) -> &'static str {
+        self.agent().program()
     }
 }
 

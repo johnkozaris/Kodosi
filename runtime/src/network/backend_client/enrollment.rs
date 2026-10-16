@@ -153,17 +153,8 @@ impl BackendClient {
                 .await?,
         );
         self.check_credentials(&credentials)?;
+        credentials.enrolled = false;
         *self.inner.credentials.write().map_err(|_| Error::Closed)? = Some(credentials.clone());
-        if let Some(identity) = self
-            .inner
-            .identity
-            .write()
-            .map_err(|_| Error::Closed)?
-            .as_mut()
-        {
-            identity.device_id.clone_from(&credentials.keys.device_id);
-            identity.enrolled = false;
-        }
         Ok(credentials)
     }
 

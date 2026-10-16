@@ -132,6 +132,7 @@ async fn logout_cancels_credentials_without_deleting_device_identity() {
         let state = network.inner.state.lock().await;
         Credentials {
             user_id: user.clone(),
+            display_name: "You".to_owned(),
             token: Zeroizing::new("secret".into()),
             keys: Arc::new(DeviceKeys::load_or_create(&state.secrets, &user).unwrap()),
             enrolled: true,
@@ -441,6 +442,7 @@ async fn signed_in_at(address: &str) -> (tempfile::TempDir, BackendClient, Strin
         let state = network.inner.state.lock().await;
         Credentials {
             user_id: user.clone(),
+            display_name: "You".to_owned(),
             token: Zeroizing::new("token".into()),
             keys: Arc::new(DeviceKeys::load_or_create(&state.secrets, &user).unwrap()),
             enrolled: true,

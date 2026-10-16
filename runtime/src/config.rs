@@ -82,7 +82,8 @@ impl Config {
         })
     }
 
-    pub fn isolated(root: &Path) -> Result<Self> {
+    #[cfg(test)]
+    pub(crate) fn isolated(root: &Path) -> Result<Self> {
         secure_directory(root)?;
         let home = root.join("home");
         secure_directory(&home)?;

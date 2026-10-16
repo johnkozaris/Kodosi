@@ -6,23 +6,16 @@ use uuid::Uuid;
 use zeroize::Zeroizing;
 
 use super::{Result, invalid};
+use crate::identity::LpWriter;
 
 const SIGNATURE_BYTES: usize = 3309;
 
 pub fn signed_fields(domain: &[u8], fields: &[&[u8]]) -> Result<Vec<u8>> {
-    let mut result = domain.to_vec();
+    let mut writer = LpWriter::new("signed field");
     for field in fields {
-        append_field(&mut result, field)?;
+        writer.write_lp_bytes(field)?;
     }
-    Ok(result)
-}
-
-fn append_field(out: &mut Vec<u8>, field: &[u8]) -> Result<()> {
-    let len =
-        u32::try_from(field.len()).map_err(|_| invalid("Signed field exceeds the wire limit."))?;
-    out.extend_from_slice(&len.to_be_bytes());
-    out.extend_from_slice(field);
-    Ok(())
+    Ok([domain, &writer.finish()].concat())
 }
 
 pub(crate) const NONCE_BYTES: usize = 12;
