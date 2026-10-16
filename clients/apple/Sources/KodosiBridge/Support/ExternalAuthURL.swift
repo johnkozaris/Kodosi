@@ -1,7 +1,7 @@
 import Foundation
 
-public enum ExternalAuthURL {
-    public static func parse(_ raw: String) -> URL? {
+enum ExternalAuthURL {
+    static func parse(_ raw: String) -> URL? {
         guard let components = URLComponents(string: raw),
               components.scheme?.lowercased() == "https" || isLoopback(components),
               components.host?.isEmpty == false,
