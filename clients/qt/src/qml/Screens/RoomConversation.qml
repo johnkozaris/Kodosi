@@ -555,10 +555,19 @@ Item {
                     background: Item {
                         Bezel { anchors.fill: parent; radius: 15; fill: KodosiTheme.accent; visible: root.canSend; pressed: sendButton.pressed }
                         Rectangle { anchors.fill: parent; radius: 15; color: KodosiTheme.alpha(KodosiTheme.ink, 0.08); visible: !root.canSend }
+                        Loader {
+                            anchors.fill: parent
+                            anchors.margins: -4
+                            opacity: Models.Missions.busy ? 1 : 0
+                            active: opacity > 0
+
+                            Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
+
+                            sourceComponent: LightRim {}
+                        }
                     }
                     contentItem: Item {
-                        KIcon { anchors.centerIn: parent; width: 14; height: 14; name: "send"; strokeWidth: 2.6; color: root.canSend ? KodosiTheme.accentInk : KodosiTheme.inkFaint; visible: !Models.Missions.busy }
-                        CursorBlock { anchors.centerIn: parent; width: 6; height: 12; blinks: true; visible: Models.Missions.busy }
+                        KIcon { anchors.centerIn: parent; width: 14; height: 14; name: "send"; strokeWidth: 2.6; color: root.canSend ? KodosiTheme.accentInk : KodosiTheme.inkFaint }
                     }
                     onClicked: root.send()
                 }
