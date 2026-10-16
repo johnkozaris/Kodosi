@@ -35,6 +35,16 @@
               }
             ]
           },
+          "requestId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "type": {
             "const": "auth.login.start"
           }
@@ -54,6 +64,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
             "anyOf": [
               {
                 "type": "string"
@@ -95,6 +115,16 @@
               }
             ]
           },
+          "requestId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "type": {
             "const": "auth.login.cancel"
           }
@@ -114,6 +144,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
             "anyOf": [
               {
                 "type": "string"
@@ -151,6 +191,16 @@
               }
             ]
           },
+          "requestId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "type": {
             "const": "auth.deleteAccount"
           }
@@ -170,6 +220,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
             "anyOf": [
               {
                 "type": "string"
@@ -207,6 +267,16 @@
               }
             ]
           },
+          "requestId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "type": {
             "const": "auth.refresh"
           }
@@ -226,6 +296,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
             "anyOf": [
               {
                 "type": "string"
@@ -266,6 +346,16 @@
           "deviceId": {
             "type": "string"
           },
+          "requestId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "type": {
             "const": "devices.revoke"
           }
@@ -298,6 +388,16 @@
           "code": {
             "type": "string"
           },
+          "requestId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "type": {
             "const": "devices.link.approve"
           }
@@ -318,6 +418,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
             "anyOf": [
               {
                 "type": "string"
@@ -355,6 +465,16 @@
               }
             ]
           },
+          "requestId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "type": {
             "const": "devices.link.cancelSelf"
           }
@@ -383,6 +503,16 @@
               }
             ]
           },
+          "requestId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "type": {
             "const": "devices.reset"
           }
@@ -402,6 +532,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
             "anyOf": [
               {
                 "type": "string"
@@ -442,6 +582,16 @@
           "key": {
             "type": "string"
           },
+          "requestId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "type": {
             "const": "devices.recovery.use"
           }
@@ -462,6 +612,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
             "anyOf": [
               {
                 "type": "string"
@@ -535,6 +695,16 @@
               }
             ]
           },
+          "requestId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "type": {
             "const": "friends.request.accept"
           },
@@ -558,6 +728,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
             "anyOf": [
               {
                 "type": "string"
@@ -599,6 +779,16 @@
               }
             ]
           },
+          "requestId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "type": {
             "const": "friends.request.cancel"
           },
@@ -631,6 +821,16 @@
               }
             ]
           },
+          "requestId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "type": {
             "const": "friends.remove"
           },
@@ -654,6 +854,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
             "anyOf": [
               {
                 "type": "string"
@@ -698,6 +908,16 @@
           "invite": {
             "type": "string"
           },
+          "requestId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "type": {
             "const": "friends.verify"
           },
@@ -731,6 +951,16 @@
               }
             ]
           },
+          "requestId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "type": {
             "const": "friends.invite"
           }
@@ -750,6 +980,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
             "anyOf": [
               {
                 "type": "string"
@@ -1108,6 +1348,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
             "anyOf": [
               {
                 "type": "string"
@@ -1541,6 +1791,16 @@
             "type": "integer"
           },
           "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
             "anyOf": [
               {
                 "type": "string"
@@ -2424,6 +2684,16 @@
           },
           "expectedRuntimeIncarnationId": {
             "type": "string"
+          },
+          "requestId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "sessionId": {
             "type": "string"
@@ -5713,7 +5983,7 @@
     ]
   },
   "ffiAbiVersion": 9,
-  "protocolVersion": 61,
+  "protocolVersion": 62,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 5,

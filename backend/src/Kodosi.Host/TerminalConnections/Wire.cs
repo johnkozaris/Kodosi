@@ -82,8 +82,17 @@ internal static class Wire
 
     public static byte[] Encode(ServerMessage message) => JsonSerializer.SerializeToUtf8Bytes(message, WireJson.Default.ServerMessage);
 
-    public static DeviceMessage Decode(ReadOnlySpan<byte> message) =>
-        JsonSerializer.Deserialize(message, WireJson.Default.DeviceMessage) ?? throw ApiException.Invalid("Unknown connection message.");
+    public static DeviceMessage Decode(ReadOnlySpan<byte> message)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize(message, WireJson.Default.DeviceMessage) ?? throw ApiException.Invalid("Unknown connection message.");
+        }
+        catch (NotSupportedException)
+        {
+            throw ApiException.Invalid("Unknown connection message.");
+        }
+    }
 }
 
 /// <summary>Reads whole WebSocket messages into one buffer, which the next read reuses.</summary>

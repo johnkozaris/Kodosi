@@ -338,7 +338,12 @@ async fn slow_login_does_not_block_local_terminal_or_runtime_observation() {
     };
     let (session, incarnation) = runtime.create().await;
     let mut terminal = runtime.handle.subscribe_terminal(session).await.unwrap();
-    runtime.send(Command::Login { browser: None }).await;
+    runtime
+        .send(Command::Login {
+            browser: None,
+            request_id: None,
+        })
+        .await;
     timeout(Duration::from_secs(3), received.notified())
         .await
         .unwrap();
@@ -391,7 +396,7 @@ async fn stale_epoch_cannot_create_in_current_runtime() {
         .try_send(CommandEnvelope {
             account_user_id: scope.account_user_id.clone(),
             account_epoch: scope.account_epoch,
-            command: Command::ListSessions {},
+            command: Command::ListSessions { request_id: None },
         })
         .unwrap();
     timeout(Duration::from_secs(2), async {
@@ -662,7 +667,12 @@ async fn login_failure_after_retiring_account_is_visible_and_retryable() {
     let runtime = TestRuntime::new().await;
     for _ in 0..2 {
         let (_, mut events) = runtime.handle.observe().await.unwrap();
-        runtime.send(Command::Login { browser: None }).await;
+        runtime
+            .send(Command::Login {
+                browser: None,
+                request_id: None,
+            })
+            .await;
         let error = timeout(Duration::from_secs(5), async {
             loop {
                 let event = events.recv().await.unwrap();
@@ -680,6 +690,25 @@ async fn login_failure_after_retiring_account_is_visible_and_retryable() {
     }
     runtime.shutdown().await;
     drop(runtime);
+}
+
+#[tokio::test]
+async fn a_refresh_of_the_runtime_fails_quietly_and_a_request_hears_its_own_error() {
+    let (mut runtime, _root) = registry_fixture();
+    let mut events = runtime.events.subscribe();
+    let (scope, generation) = (runtime.scope.clone(), runtime.network.generation());
+    let unreachable = || Err(Error::Other("The server is not reachable.".to_owned()));
+    let refresh = Command::RefreshFriends { request_id: None };
+    runtime.network_completed(&scope, &refresh, false, generation, unreachable());
+    assert!(events.try_recv().is_err());
+    let request = Uuid::now_v7().to_string();
+    let asked = Command::RefreshFriends {
+        request_id: Some(request.clone()),
+    };
+    runtime.network_completed(&scope, &asked, true, generation, unreachable());
+    let error = serde_json::to_value(events.try_recv().unwrap()).unwrap();
+    assert_eq!(error["type"], "friends.error");
+    assert_eq!(error["requestId"], request.as_str());
 }
 
 #[tokio::test]
@@ -878,6 +907,7 @@ async fn first_remote_open_retains_retry_demand_until_explicit_disconnect() {
         .apply_for_consumer(
             &Command::DisconnectRemote {
                 session_id: id.to_string(),
+                request_id: None,
             },
             consumer,
             CancellationToken::new(),
@@ -1128,6 +1158,7 @@ async fn remote_demand_is_released_only_by_its_consumer() {
         .apply_for_consumer(
             &Command::DisconnectRemote {
                 session_id: id.to_string(),
+                request_id: None,
             },
             desktop,
             CancellationToken::new(),

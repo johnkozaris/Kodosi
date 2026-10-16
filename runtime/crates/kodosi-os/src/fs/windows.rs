@@ -261,16 +261,20 @@ pub(super) fn open_beneath(parent: &File, name: &str, directory: bool) -> io::Re
     Ok(File::from(unsafe { OwnedHandle::from_raw_handle(handle) }))
 }
 
-pub(super) fn path_from_file_url(host: &str, path: &str) -> PathBuf {
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "the Unix form refuses the folders of other computers, and both forms share one signature"
+)]
+pub(super) fn path_from_file_url(host: &str, path: &str) -> Option<PathBuf> {
     let bytes = path.as_bytes();
     let path = path.replace('/', "\\");
     if bytes.len() >= 3 && bytes[0] == b'/' && bytes[1].is_ascii_alphabetic() && bytes[2] == b':' {
-        return PathBuf::from(&path[1..]);
+        return Some(PathBuf::from(&path[1..]));
     }
     if !host.is_empty() && !host.eq_ignore_ascii_case("localhost") {
-        return PathBuf::from(format!(r"\\{host}{path}"));
+        return Some(PathBuf::from(format!(r"\\{host}{path}")));
     }
-    PathBuf::from(path)
+    Some(PathBuf::from(path))
 }
 
 pub(super) fn can_read(path: &Path) -> bool {

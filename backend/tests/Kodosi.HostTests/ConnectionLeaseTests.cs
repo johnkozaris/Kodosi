@@ -36,6 +36,16 @@ public sealed class ConnectionLeaseTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task ALeaseStopsOnceWhenItStopsTwiceAtOnceOrAfterItsDisposal()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var lease = Lease("Host=db.test;Database=kodosi", TimeSpan.Zero);
+        await Task.WhenAll(lease.StopAsync(ct), lease.StopAsync(ct), lease.DisposeAsync().AsTask());
+        await lease.StopAsync(ct);
+        await lease.DisposeAsync();
+    }
+
+    [Fact]
     public void ThePoolHasALimitThatTheConnectionStringCanChangeAndTheLeaseUsesNoPool()
     {
         const string server = "Host=db.test;Database=kodosi;Username=kodosi";

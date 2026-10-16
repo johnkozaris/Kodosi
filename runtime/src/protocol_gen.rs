@@ -467,7 +467,7 @@ mod tests {
         check(&protocol::CommandEnvelope {
             account_user_id: None,
             account_epoch: 0,
-            command: protocol::Command::ListSessions {},
+            command: protocol::Command::ListSessions { request_id: None },
         });
         check(&protocol::CommandEnvelope {
             account_user_id: None,
@@ -509,7 +509,7 @@ mod tests {
         let mut malformed = serde_json::to_value(protocol::CommandEnvelope {
             account_user_id: None,
             account_epoch: 0,
-            command: protocol::Command::ListSessions {},
+            command: protocol::Command::ListSessions { request_id: None },
         })
         .unwrap();
         malformed["unexpected"] = json!(true);

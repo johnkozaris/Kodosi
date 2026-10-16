@@ -22,7 +22,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 61;
+pub const VERSION: u32 = 62;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 
@@ -43,40 +43,89 @@ pub enum Command {
     Login {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         browser: Option<SignInBrowser>,
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
     },
     #[serde(rename = "auth.login.finish")]
-    FinishLogin { url: String },
+    FinishLogin {
+        url: String,
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "auth.login.cancel")]
-    CancelLogin {},
+    CancelLogin {
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "auth.logout")]
-    Logout {},
+    Logout {
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "auth.deleteAccount")]
-    DeleteAccount {},
+    DeleteAccount {
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "auth.deleteAccount.cancel")]
-    CancelDeleteAccount {},
+    CancelDeleteAccount {
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "auth.refresh")]
-    RefreshAuth {},
+    RefreshAuth {
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "devices.refresh")]
-    RefreshDevices {},
+    RefreshDevices {
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "devices.revoke")]
     RevokeDevice {
         #[serde(rename = "deviceId")]
         device_id: String,
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
     },
     #[serde(rename = "devices.link.approve")]
-    ApproveDevice { code: String },
+    ApproveDevice {
+        code: String,
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "devices.link.startSelf")]
-    LinkDevice {},
+    LinkDevice {
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "devices.link.cancelSelf")]
-    CancelDeviceLink {},
+    CancelDeviceLink {
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "devices.reset")]
-    ResetDevices {},
+    ResetDevices {
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "devices.recovery.create")]
-    CreateRecoveryKey {},
+    CreateRecoveryKey {
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "devices.recovery.use")]
-    UseRecoveryKey { key: String },
+    UseRecoveryKey {
+        key: String,
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "friends.refresh")]
-    RefreshFriends {},
+    RefreshFriends {
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "friends.request.send")]
     RequestFriend {
         username: String,
@@ -84,21 +133,52 @@ pub enum Command {
         request_id: String,
     },
     #[serde(rename = "friends.request.accept")]
-    AcceptFriend { username: String },
+    AcceptFriend {
+        username: String,
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "friends.request.reject")]
-    RejectFriend { username: String },
+    RejectFriend {
+        username: String,
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "friends.request.cancel")]
-    CancelFriend { username: String },
+    CancelFriend {
+        username: String,
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "friends.remove")]
-    RemoveFriend { username: String },
+    RemoveFriend {
+        username: String,
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "friends.identity.trust")]
-    TrustFriend { username: String },
+    TrustFriend {
+        username: String,
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "friends.verify")]
-    VerifyFriend { username: String, invite: String },
+    VerifyFriend {
+        username: String,
+        invite: String,
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "friends.invite")]
-    FriendInvite {},
+    FriendInvite {
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "session.list")]
-    ListSessions {},
+    ListSessions {
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "session.create")]
     CreateSession {
         #[serde(rename = "requestId")]
@@ -168,6 +248,8 @@ pub enum Command {
     DisconnectRemote {
         #[serde(rename = "sessionId")]
         session_id: String,
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
     },
     #[serde(rename = "session.share")]
     ShareSession {
@@ -215,7 +297,10 @@ pub enum Command {
         action: crate::rooms::Action,
     },
     #[serde(rename = "mission.list")]
-    ListMissions {},
+    ListMissions {
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     #[serde(rename = "mission.create")]
     CreateMission {
         #[serde(rename = "requestId")]
@@ -370,6 +455,8 @@ pub enum Command {
         client_id: String,
         #[serde(rename = "subscriptionGeneration")]
         subscription_generation: u64,
+        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
     },
 }
 
@@ -872,20 +959,20 @@ impl Command {
         match self {
             Self::Login { .. } => "auth.login.start",
             Self::FinishLogin { .. } => "auth.login.finish",
-            Self::CancelLogin {} => "auth.login.cancel",
-            Self::Logout {} => "auth.logout",
-            Self::DeleteAccount {} => "auth.deleteAccount",
-            Self::CancelDeleteAccount {} => "auth.deleteAccount.cancel",
-            Self::RefreshAuth {} => "auth.refresh",
-            Self::RefreshDevices {} => "devices.refresh",
+            Self::CancelLogin { .. } => "auth.login.cancel",
+            Self::Logout { .. } => "auth.logout",
+            Self::DeleteAccount { .. } => "auth.deleteAccount",
+            Self::CancelDeleteAccount { .. } => "auth.deleteAccount.cancel",
+            Self::RefreshAuth { .. } => "auth.refresh",
+            Self::RefreshDevices { .. } => "devices.refresh",
             Self::RevokeDevice { .. } => "devices.revoke",
             Self::ApproveDevice { .. } => "devices.link.approve",
-            Self::LinkDevice {} => "devices.link.startSelf",
-            Self::CancelDeviceLink {} => "devices.link.cancelSelf",
-            Self::ResetDevices {} => "devices.reset",
-            Self::CreateRecoveryKey {} => "devices.recovery.create",
+            Self::LinkDevice { .. } => "devices.link.startSelf",
+            Self::CancelDeviceLink { .. } => "devices.link.cancelSelf",
+            Self::ResetDevices { .. } => "devices.reset",
+            Self::CreateRecoveryKey { .. } => "devices.recovery.create",
             Self::UseRecoveryKey { .. } => "devices.recovery.use",
-            Self::RefreshFriends {} => "friends.refresh",
+            Self::RefreshFriends { .. } => "friends.refresh",
             Self::RequestFriend { .. } => "friends.request.send",
             Self::AcceptFriend { .. } => "friends.request.accept",
             Self::RejectFriend { .. } => "friends.request.reject",
@@ -893,8 +980,8 @@ impl Command {
             Self::RemoveFriend { .. } => "friends.remove",
             Self::TrustFriend { .. } => "friends.identity.trust",
             Self::VerifyFriend { .. } => "friends.verify",
-            Self::FriendInvite {} => "friends.invite",
-            Self::ListSessions {} => "session.list",
+            Self::FriendInvite { .. } => "friends.invite",
+            Self::ListSessions { .. } => "session.list",
             Self::CreateSession { .. } => "session.create",
             Self::RenameSession { .. } => "session.rename",
             Self::CloseSession { .. } => "session.close",
@@ -906,7 +993,7 @@ impl Command {
             Self::LeaveSession { .. } => "session.leave",
             Self::AttachSession { .. } => "session.attachMission",
             Self::Room { .. } => "room.command",
-            Self::ListMissions {} => "mission.list",
+            Self::ListMissions { .. } => "mission.list",
             Self::CreateMission { .. } => "mission.create",
             Self::RenameMission { .. } => "mission.rename",
             Self::DeleteMission { .. } => "mission.delete",
@@ -957,7 +1044,33 @@ impl Command {
             | Self::AddAgentAccount { request_id, .. }
             | Self::Focus { request_id, .. } => Some(request_id),
             Self::Resize { identity, .. } => Some(&identity.request_id),
-            _ => None,
+            Self::Login { request_id, .. }
+            | Self::FinishLogin { request_id, .. }
+            | Self::CancelLogin { request_id }
+            | Self::Logout { request_id }
+            | Self::DeleteAccount { request_id }
+            | Self::CancelDeleteAccount { request_id }
+            | Self::RefreshAuth { request_id }
+            | Self::RefreshDevices { request_id }
+            | Self::RevokeDevice { request_id, .. }
+            | Self::ApproveDevice { request_id, .. }
+            | Self::LinkDevice { request_id }
+            | Self::CancelDeviceLink { request_id }
+            | Self::ResetDevices { request_id }
+            | Self::CreateRecoveryKey { request_id }
+            | Self::UseRecoveryKey { request_id, .. }
+            | Self::RefreshFriends { request_id }
+            | Self::AcceptFriend { request_id, .. }
+            | Self::RejectFriend { request_id, .. }
+            | Self::CancelFriend { request_id, .. }
+            | Self::RemoveFriend { request_id, .. }
+            | Self::TrustFriend { request_id, .. }
+            | Self::VerifyFriend { request_id, .. }
+            | Self::FriendInvite { request_id }
+            | Self::ListSessions { request_id }
+            | Self::DisconnectRemote { request_id, .. }
+            | Self::ListMissions { request_id }
+            | Self::Blur { request_id, .. } => request_id.as_deref(),
         }
     }
     pub fn session_id(&self) -> Option<&str> {
@@ -1127,16 +1240,16 @@ impl Command {
         self.validate_resource_ids()?;
         self.validate_provider()?;
         match self {
-            Self::RevokeDevice { device_id } => text(device_id, "deviceId", 1024)?,
-            Self::FinishLogin { url } => text(url, "url", 8192)?,
-            Self::ApproveDevice { code } => text(code, "code", 64)?,
+            Self::RevokeDevice { device_id, .. } => text(device_id, "deviceId", 1024)?,
+            Self::FinishLogin { url, .. } => text(url, "url", 8192)?,
+            Self::ApproveDevice { code, .. } => text(code, "code", 64)?,
             Self::RequestFriend { username, .. } if parse_invite(username).is_some() => {}
             Self::RequestFriend { username, .. }
-            | Self::AcceptFriend { username }
-            | Self::RejectFriend { username }
-            | Self::CancelFriend { username }
-            | Self::RemoveFriend { username }
-            | Self::TrustFriend { username }
+            | Self::AcceptFriend { username, .. }
+            | Self::RejectFriend { username, .. }
+            | Self::CancelFriend { username, .. }
+            | Self::RemoveFriend { username, .. }
+            | Self::TrustFriend { username, .. }
             | Self::VerifyFriend { username, .. } => {
                 let username = username.trim();
                 if !(3..=64).contains(&username.len())
@@ -1429,6 +1542,18 @@ mod tests {
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
         assert_eq!(kinds.len(), 50);
+    }
+
+    #[test]
+    fn every_command_carries_the_request_identity_that_its_error_names() {
+        for mut sample in commands() {
+            sample["requestId"] = json!(ID);
+            let command: CommandEnvelope =
+                serde_json::from_value(envelope(sample.clone())).unwrap();
+            assert_eq!(command.command.request_id(), Some(ID), "{sample}");
+            sample["requestId"] = json!("bad");
+            assert!(serde_json::from_value::<CommandEnvelope>(envelope(sample)).is_err());
+        }
     }
 
     #[test]

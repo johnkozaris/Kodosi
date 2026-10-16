@@ -1198,6 +1198,8 @@ fn session_result(operation: &str, args: &Value) -> Value {
 }
 
 mod account;
+#[cfg(feature = "cli")]
+pub(crate) use account::DELETION_LIFE;
 mod device_identity;
 mod enrollment;
 mod friends;

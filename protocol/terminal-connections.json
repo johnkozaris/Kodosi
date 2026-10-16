@@ -1,7 +1,7 @@
 {
   "terminalConnectionProtocolVersion": 22,
   "oldestTerminalConnectionProtocolVersion": 22,
-  "channelProtocolVersion": 1,
+  "channelProtocolVersion": 2,
   "compatibilityPolicy": {
     "deviceConnection": "the server admits each device whose hello protocolVersion is from oldestTerminalConnectionProtocolVersion to terminalConnectionProtocolVersion; it refuses others with refused, reason version",
     "channel": "the accept frame carries channelProtocolVersion; a viewer with another channel version closes the channel and shows which side must update Kodosi"
@@ -104,12 +104,12 @@
       "resize": {
         "type": 6,
         "direction": "host",
-        "body": "rows:u16be, cols:u16be, atSequence:u64be"
+        "body": "rows:u16be, cols:u16be, cellWidth:u32be, cellHeight:u32be (the pixel size of a cell on the host, 0 when no view reported one), atSequence:u64be"
       },
       "metadata": {
         "type": 7,
         "direction": "host",
-        "body": "JSON terminal metadata (directory, title, program, status, connectedUsers); maximum 16384 bytes"
+        "body": "JSON terminal metadata (directory, title, program, status, context, connectedUsers); maximum 16384 bytes"
       },
       "heartbeat": {
         "type": 8,
@@ -170,10 +170,10 @@
   },
   "input": {
     "stream": "ordered bytes with offsets; the host accepts a frame only at the offset it expects",
-    "confirmation": "inputAck when the terminal accepted the bytes; the viewer keeps at most 65536 bytes without confirmation",
+    "confirmation": "inputAck when the terminal accepted the bytes; the viewer sends more input only while less than 65536 bytes wait for confirmation, one input frame carries at most 1048576 bytes, and the host ends a channel that sends input while more than 262144 bytes wait",
     "replayAfterReconnect": false,
     "late": "the host refuses input that carries a heartbeat number more than 2 behind its own",
-    "unconfirmed": "when a channel is lost, the view reports the count of bytes without confirmation"
+    "unconfirmed": "when a channel is lost while input waits for confirmation, the view says that some of the input was not sent"
   },
   "controls": {
     "actions": [
@@ -189,6 +189,7 @@
     "revocation": "the host closes the channels of a person at once when it stops sharing with that person; the server closes the pipes of removed people and the connections of removed devices; other viewers are not affected",
     "identityReplacement": "never silently trust a replacement pinned identity",
     "silenceSeconds": 45,
+    "silence": "each side ends a channel that sent nothing for silenceSeconds; the viewer answers each heartbeat",
     "trustCheckSeconds": 300,
     "tokenExpiry": "the device connection ends when the access token that opened it expires, unless the device proves a newer token with POST /api/me/connections/renew; the runtime does this after each token refresh",
     "participantReconnect": "a participant runtime keeps its open views when a pipe or the device connection is lost, opens a new pipe and installs the first keyframe in place",

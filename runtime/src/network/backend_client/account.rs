@@ -2,7 +2,7 @@ use super::*;
 
 const ENROLLMENT_CHECK_MS: u64 = 5 * 60 * 1000;
 const DELETION_POLL: Duration = Duration::from_secs(3);
-const DELETION_LIFE: Duration = Duration::from_mins(15);
+pub(crate) const DELETION_LIFE: Duration = Duration::from_mins(15);
 
 impl BackendClient {
     pub(super) async fn restore_saved(&self, generation: u64) -> Result<()> {

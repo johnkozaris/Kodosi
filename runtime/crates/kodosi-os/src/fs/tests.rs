@@ -147,20 +147,29 @@ fn executables_need_execute_permission() {
 fn file_urls_name_drives_and_shares() {
     assert_eq!(
         path_from_file_url("pc", "/C:/Users/me"),
-        PathBuf::from(r"C:\Users\me")
+        Some(PathBuf::from(r"C:\Users\me"))
     );
-    assert_eq!(path_from_file_url("", "/d:/"), PathBuf::from(r"d:\"));
+    assert_eq!(path_from_file_url("", "/d:/"), Some(PathBuf::from(r"d:\")));
     assert_eq!(
         path_from_file_url("server", "/share/x"),
-        PathBuf::from(r"\\server\share\x")
+        Some(PathBuf::from(r"\\server\share\x"))
     );
 }
 
 #[cfg(unix)]
 #[test]
-fn file_urls_name_unix_paths() {
+fn a_file_url_names_a_folder_only_of_this_computer() {
+    let here = rustix::system::uname();
+    let here = here.nodename().to_str().unwrap();
+    for host in ["", "localhost", "LOCALHOST", here] {
+        assert_eq!(
+            path_from_file_url(host, "/home/ada"),
+            Some(PathBuf::from("/home/ada")),
+            "{host}"
+        );
+    }
     assert_eq!(
-        path_from_file_url("pc", "/home/me"),
-        PathBuf::from("/home/me")
+        path_from_file_url("another-computer.invalid", "/home/ada"),
+        None
     );
 }

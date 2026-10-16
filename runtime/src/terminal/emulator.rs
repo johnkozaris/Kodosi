@@ -331,7 +331,7 @@ fn parse_cwd(raw: &[u8]) -> Option<PathBuf> {
     let path = if let Some(rest) = text.strip_prefix("file://") {
         let slash = rest.find('/')?;
         let decoded = String::from_utf8(percent_decode(&rest.as_bytes()[slash..])?).ok()?;
-        kodosi_os::fs::path_from_file_url(&rest[..slash], &decoded)
+        kodosi_os::fs::path_from_file_url(&rest[..slash], &decoded)?
     } else {
         // Windows Terminal and ConEmu shell integrations quote the OSC 9;9 path.
         PathBuf::from(

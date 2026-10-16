@@ -231,7 +231,7 @@ pub struct TerminalMetadata {
 
 impl TerminalMetadata {
     pub fn is_valid(&self) -> bool {
-        self.connected_users.len() <= 64
+        self.connected_users.len() <= crate::protocol::TERMINAL_VIEWERS_MOST
             && self
                 .connected_users
                 .iter()

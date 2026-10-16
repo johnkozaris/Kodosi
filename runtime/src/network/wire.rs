@@ -20,6 +20,7 @@ pub(crate) const RAW_BATCH_LIMIT: usize = 128;
 const METADATA_LIMIT: usize = 16_384;
 const CHECKPOINT_HEADER: usize = 9;
 const SNAPSHOT_LIMIT: usize = TERMINAL_SNAPSHOT_MAX_BYTES + CHECKPOINT_HEADER + METADATA_LIMIT;
+pub(crate) const PACKED_SNAPSHOT_LIMIT: usize = 2 * SNAPSHOT_LIMIT;
 #[cfg(any(feature = "host", test))]
 const SNAPSHOT_LEVEL: u32 = 6;
 

@@ -232,6 +232,16 @@ public sealed class TerminalConnectionTests
     }
 
     [Fact]
+    public void AConnectionMessageWithoutAKnownTypeIsRefused()
+    {
+        foreach (var message in new[] { "{}", $$"""{"sessionId":"{{Guid.Empty}}"}""", """{"type":"other"}""", "null" })
+        {
+            var refusal = Record.Exception(() => Wire.Decode(Encoding.UTF8.GetBytes(message)));
+            Assert.True(refusal is ApiException or JsonException, $"{message}: {refusal?.GetType().Name}");
+        }
+    }
+
+    [Fact]
     public async Task TheWatchdogEndsASilentConnectionAndOneThatDoesNotTakeItsMessages()
     {
         var ct = TestContext.Current.CancellationToken;

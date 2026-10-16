@@ -128,7 +128,16 @@ fn home_command(variable: &str, path: &Path, program: &str) -> Option<String> {
 
 pub(super) fn referenced_home(text: &str, home: &Path, variable: &str) -> Option<PathBuf> {
     let key = format!("{variable}=");
+    let names_another = |index: usize| {
+        text[..index]
+            .chars()
+            .next_back()
+            .is_some_and(|before| before.is_alphanumeric() || matches!(before, '_' | '$'))
+    };
     text.match_indices(&key).find_map(|(index, _)| {
+        if names_another(index) {
+            return None;
+        }
         let value = &text[index + key.len()..];
         let value = match text[..index].chars().next_back() {
             Some(quote @ ('"' | '\'')) => value.split(quote).next(),

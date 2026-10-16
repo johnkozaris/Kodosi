@@ -160,6 +160,26 @@ async fn a_view_installs_each_whole_snapshot_and_acknowledges_what_it_received()
 }
 
 #[tokio::test]
+async fn a_view_refuses_a_snapshot_that_does_not_end() {
+    let (host, viewer) = (
+        DeviceKeys::generate().unwrap(),
+        DeviceKeys::generate().unwrap(),
+    );
+    let (channel, _host) = pair(&host, &viewer).await;
+    let (_commands, requests) = mpsc::channel(1);
+    let (updates, _updates) = mpsc::channel(1);
+    let mut viewer = Viewer::new(channel, requests, updates);
+    viewer.snapshot_sequence = Some(1);
+    viewer.snapshot = vec![0; wire::PACKED_SNAPSHOT_LIMIT - wire::KEYFRAME_PART / 2];
+    let part = Frame::Keyframe {
+        next_sequence: 1,
+        more: true,
+        part: Bytes::from(vec![0; wire::KEYFRAME_PART]),
+    };
+    assert!(viewer.frame(part, 0).await.is_err());
+}
+
+#[tokio::test]
 async fn input_goes_at_once_in_order_and_waits_only_when_too_much_is_not_confirmed() {
     let mut view = view().await;
     assert!(view.input(b"early").await.is_err());
