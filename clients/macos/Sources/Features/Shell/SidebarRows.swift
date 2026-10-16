@@ -181,6 +181,15 @@ struct SidebarFolderHeader: View {
             }
             .buttonStyle(.plain).help(group.directory ?? group.name)
             .accessibilityValue(Text(collapsed ? "Collapsed" : "Expanded"))
+            .accessibilityIdentifier("sidebar.folder.\(AccessibilityIdentifier.token(group.id))")
+            .contextMenu {
+                if group.host == nil, let directory = group.directory {
+                    Button("New terminal here") { deps.openLauncher(folder: directory) }
+                    if group.sessions.contains(where: { $0.repository == true }) {
+                        Button("New terminal on a new branch…") { branching = true }
+                    }
+                }
+            }
             if group.host == nil, let directory = group.directory {
                 if group.sessions.contains(where: { $0.repository == true }) {
                     IconButton(title: "New terminal on a new branch", symbol: "arrow.triangle.branch",

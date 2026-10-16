@@ -99,7 +99,7 @@ struct RoomTerminals: View {
                     added += 1
                 }
             } catch {
-                rooms.report(error, announcedByRuntime: true)
+                rooms.report(error)
             }
         }
     }

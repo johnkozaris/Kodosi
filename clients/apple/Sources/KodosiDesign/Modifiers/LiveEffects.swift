@@ -2,7 +2,6 @@ import SwiftUI
 
 private struct Shimmer: ViewModifier {
     @Environment(\.theme) private var theme
-    @State private var passing = false
     let active: Bool
 
     func body(content: Content) -> some View {
@@ -15,13 +14,14 @@ private struct Shimmer: ViewModifier {
                         startPoint: .leading, endPoint: .trailing
                     )
                     .frame(width: band)
-                    .offset(x: passing ? geometry.size.width : -band)
+                    .keyframeAnimator(initialValue: -band, repeating: true) { gradient, offset in
+                        gradient.offset(x: offset)
+                    } keyframes: { _ in
+                        LinearKeyframe(geometry.size.width, duration: 1.9, timingCurve: .easeInOut)
+                    }
                 }
                 .mask(content)
                 .allowsHitTesting(false)
-            }
-            .onAppear {
-                withAnimation(.easeInOut(duration: 1.9).repeatForever(autoreverses: false)) { passing = true }
             }
         } else {
             content
@@ -283,7 +283,6 @@ private struct RimTrack {
 
 public struct BreathingDot: View {
     @Environment(\.theme) private var theme
-    @State private var out = false
     public let color: Color
     public var size: CGFloat = 7
 
@@ -295,14 +294,13 @@ public struct BreathingDot: View {
     public var body: some View {
         Circle().fill(color).frame(width: size, height: size)
             .overlay {
-                Circle().stroke(color.opacity(out ? 0 : 0.55), lineWidth: 1.5)
-                    .scaleEffect(out ? 2.4 : 1)
-            }
-            .onChange(of: theme.motion.reduced, initial: true) { _, reduced in
-                if reduced {
-                    out = false
-                } else {
-                    withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) { out = true }
+                if !theme.motion.reduced {
+                    Circle().stroke(color, lineWidth: 1.5)
+                        .keyframeAnimator(initialValue: 0.0, repeating: true) { ring, breath in
+                            ring.opacity(0.55 * (1 - breath)).scaleEffect(1 + 1.4 * breath)
+                        } keyframes: { _ in
+                            LinearKeyframe(1.0, duration: 1.6, timingCurve: .easeOut)
+                        }
                 }
             }
             .accessibilityHidden(true)
@@ -311,7 +309,6 @@ public struct BreathingDot: View {
 
 public struct CursorBlock: View {
     @Environment(\.theme) private var theme
-    @State private var dim = false
     public var width: CGFloat = 9
     public var height: CGFloat = 17
     public var blinks = true
@@ -323,18 +320,22 @@ public struct CursorBlock: View {
     }
 
     public var body: some View {
-        RoundedRectangle(cornerRadius: max(1, width * 0.14), style: .continuous)
+        let block = RoundedRectangle(cornerRadius: max(1, width * 0.14), style: .continuous)
             .fill(theme.colors.accent)
             .frame(width: width, height: height)
-            .opacity(dim ? 0.25 : 1)
-            .onChange(of: blinks && !theme.motion.reduced, initial: true) { _, active in
-                if active {
-                    withAnimation(.easeInOut(duration: 0.62).repeatForever(autoreverses: true)) { dim = true }
-                } else {
-                    withAnimation(.easeOut(duration: 0.2)) { dim = false }
+        Group {
+            if blinks, !theme.motion.reduced {
+                block.keyframeAnimator(initialValue: 1.0, repeating: true) { cursor, opacity in
+                    cursor.opacity(opacity)
+                } keyframes: { _ in
+                    LinearKeyframe(0.25, duration: 0.62, timingCurve: .easeInOut)
+                    LinearKeyframe(1.0, duration: 0.62, timingCurve: .easeInOut)
                 }
+            } else {
+                block
             }
-            .accessibilityHidden(true)
+        }
+        .accessibilityHidden(true)
     }
 }
 

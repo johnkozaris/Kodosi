@@ -163,7 +163,7 @@ struct RoomInvitationRow: View {
                     joined(invitation.missionId)
                 }
             } catch {
-                model.rooms.report(error, announcedByRuntime: true)
+                model.rooms.report(error)
             }
         }
     }

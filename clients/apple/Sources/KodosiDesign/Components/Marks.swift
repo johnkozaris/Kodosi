@@ -162,6 +162,7 @@ public struct AgentMark: View {
             SpringKeyframe(1.0, duration: 0.5, spring: .bouncy)
         }
         .animation(theme.motion.fade, value: activity)
+        .accessibilityElement(children: .ignore)
         .accessibilityHidden(true)
     }
 

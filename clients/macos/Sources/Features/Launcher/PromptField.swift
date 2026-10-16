@@ -108,7 +108,14 @@ final class PromptTextView: NSTextView {
     var caretColor = NSColor.systemOrange
     var hintColor = NSColor.secondaryLabelColor
     var inverseColor = NSColor.black
-    var blinks = true
+    var blinks = true {
+        didSet {
+            if blinks != oldValue {
+                wake()
+            }
+        }
+    }
+
     var hint = "" {
         didSet {
             if hint != oldValue {

@@ -6,6 +6,13 @@ public final class CommandSink {
     public typealias DispatchCompletion = @MainActor (Int32?) -> Void
     public typealias Transport = @MainActor (Data) -> Int32?
 
+    /// Who an event answers. An event that names no request answers the app.
+    public enum Delivery: Equatable, Sendable {
+        case caller
+        case app
+        case otherClient
+    }
+
     private struct Pending {
         let operation: String
         let replyType: String
@@ -17,6 +24,7 @@ public final class CommandSink {
     private(set) var accountEpoch: UInt64 = 0
     private var pending: [String: Pending] = [:]
     private var timeouts: [String: Task<Void, Never>] = [:]
+    private var unawaited: [String] = []
     public var onFailure: ((String) -> Void)?
 
     public init(transport: Transport? = nil) {
@@ -51,6 +59,9 @@ public final class CommandSink {
     }
 
     public func perform(_ type: String, _ fields: [String: JSONValue] = [:]) {
+        if let requestId = fields["requestId"]?.stringValue {
+            remember(requestId)
+        }
         let result = send(type, fields)
         if !Self.didAcceptSynchronously(result) {
             onFailure?(result.map { RuntimeError.rejected($0).localizedDescription }
@@ -109,18 +120,30 @@ public final class CommandSink {
         _ = try await request(operation, fields)
     }
 
-    public func receive(_ event: RuntimeEvent) {
-        guard event.accountEpoch == accountEpoch, event.accountUserId == accountUserId,
-              let requestId = event.string("requestId"), let pending = pending[requestId] else { return }
+    @discardableResult
+    public func receive(_ event: RuntimeEvent) -> Delivery {
+        guard let requestId = event.string("requestId") else { return .app }
+        guard let pending = pending[requestId] else {
+            return unawaited.contains(requestId) ? .app : .otherClient
+        }
         let errorType = String(pending.operation.prefix(while: { $0 != "." })) + ".error"
         let isError = event.type == errorType
-        guard event.type == pending.replyType || isError,
-              event.type == "mission.snapshot" || event.string("operation") == pending.operation else { return }
+        guard event.accountEpoch == accountEpoch, event.accountUserId == accountUserId,
+              event.type == pending.replyType || isError,
+              event.type == "mission.snapshot" || event.string("operation") == pending.operation else { return .app }
         if isError {
             finish(requestId, result: .failure(RuntimeError.operation(event.string("message") ?? String(localized: "That did not work.", bundle: .module))))
         } else {
             finish(requestId, result: .success(event))
         }
+        return .caller
+    }
+
+    private func remember(_ requestId: String) {
+        if unawaited.count == 64 {
+            unawaited.removeFirst()
+        }
+        unawaited.append(requestId)
     }
 
     public func cancelPending(_ error: any Error = RuntimeError.unavailable) {
@@ -145,8 +168,9 @@ public final class CommandSink {
     public func sendTerminalFocus(sessionId: String, clientId: String, subscriptionGeneration: UInt64, requestId: String,
                                   expectedRuntimeIncarnationId: String) -> Int32?
     {
-        send(TerminalCommand.focus(sessionId: sessionId, clientId: clientId, subscriptionGeneration: subscriptionGeneration,
-                                   requestId: requestId, expectedRuntimeIncarnationId: expectedRuntimeIncarnationId))
+        remember(requestId)
+        return send(TerminalCommand.focus(sessionId: sessionId, clientId: clientId, subscriptionGeneration: subscriptionGeneration,
+                                          requestId: requestId, expectedRuntimeIncarnationId: expectedRuntimeIncarnationId))
     }
 
     public func sendTerminalBlur(sessionId: String, clientId: String, subscriptionGeneration: UInt64,
@@ -160,6 +184,7 @@ public final class CommandSink {
     public func sendTerminalResize(sessionId: String, identity: TerminalResizeIdentity,
                                    claim: Bool = false, completion: DispatchCompletion? = nil) -> Int32?
     {
+        remember(identity.requestId)
         let result = send(TerminalCommand.resize(sessionId: sessionId, identity: identity, claim: claim))
         completion?(result)
         return result

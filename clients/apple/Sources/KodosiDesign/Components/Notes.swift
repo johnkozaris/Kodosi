@@ -120,7 +120,6 @@ public struct EmptyState<Art: View, Actions: View>: View {
 
 public struct SkeletonBlock: View {
     @Environment(\.theme) private var theme
-    @State private var sweeping = false
     public var width: CGFloat?
     public var height: CGFloat = 10
     public var radius: CGFloat = 5
@@ -139,16 +138,17 @@ public struct SkeletonBlock: View {
             .overlay {
                 if !theme.motion.reduced {
                     GeometryReader { geometry in
+                        let band = geometry.size.width * 0.6
                         LinearGradient(colors: [.clear, theme.colors.ink.opacity(0.08), .clear], startPoint: .leading, endPoint: .trailing)
-                            .frame(width: geometry.size.width * 0.6)
-                            .offset(x: sweeping ? geometry.size.width : -geometry.size.width * 0.6)
+                            .frame(width: band)
+                            .keyframeAnimator(initialValue: -band, repeating: true) { gradient, offset in
+                                gradient.offset(x: offset)
+                            } keyframes: { _ in
+                                LinearKeyframe(geometry.size.width, duration: 1.5, timingCurve: .easeInOut)
+                            }
                     }
                     .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
                 }
-            }
-            .onAppear {
-                guard !theme.motion.reduced else { return }
-                withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: false)) { sweeping = true }
             }
     }
 }
