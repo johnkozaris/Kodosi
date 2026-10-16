@@ -75,23 +75,9 @@ struct TerminalCaption: View {
         .animation(theme.motion.snappy, value: session.progress)
     }
 
-    @ViewBuilder
     private var activity: some View {
-        let words = session.activity ?? place
-        ZStack(alignment: .leading) {
-            Text(words)
-                .foregroundStyle(session.activity == nil ? theme.colors.inkFaint : theme.colors.inkMuted)
-                .shimmer(session.isWorking)
-                .id(words)
-                .transition(.blurReplace)
-        }
-        if let progress = session.progress {
-            Text(Double(progress) / 100, format: .percent)
-                .monospacedDigit()
-                .foregroundStyle(theme.colors.inkMuted)
-                .contentTransition(.numericText(value: Double(progress)))
-                .layoutPriority(1)
-        }
+        SessionActivityText(session: session, fallback: place)
+            .foregroundStyle(session.activity == nil ? theme.colors.inkFaint : theme.colors.inkMuted)
     }
 }
 

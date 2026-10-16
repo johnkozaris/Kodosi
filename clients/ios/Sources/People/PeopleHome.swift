@@ -86,7 +86,7 @@ struct PeopleHome: View {
             Friends can open the terminals you share, and you can open theirs.
             """
         ) {
-            FriendsArt()
+            TogetherArt(size: 52, ring: theme.colors.ground)
         } actions: {
             VStack(spacing: 10) { emptyActions }
                 .frame(maxWidth: 300)

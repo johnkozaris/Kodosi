@@ -200,11 +200,11 @@ private struct FriendHero: View {
     @ViewBuilder
     private var statusTag: some View {
         if friend.identityChanged {
-            StatusCapsule(text: String(localized: "New identity"), symbol: "exclamationmark", tone: .caution)
+            Tag(text: String(localized: "New identity"), symbol: "exclamationmark", tone: .caution)
         } else if friend.isVerified {
-            StatusCapsule(text: String(localized: "Verified"), symbol: "checkmark", tone: .ready)
+            Tag(text: String(localized: "Verified"), symbol: "checkmark", tone: .ready)
         } else {
-            StatusCapsule(text: String(localized: "Not verified"))
+            Tag(text: String(localized: "Not verified"))
         }
     }
 }

@@ -3,47 +3,6 @@ import KodosiDesign
 import KodosiTerminalSessions
 import SwiftUI
 
-struct TerminalStateCard<Actions: View>: View {
-    @Environment(\.theme) private var theme
-    let symbol: String?
-    let title: String
-    let message: String?
-    let working: Bool
-    @ViewBuilder let actions: () -> Actions
-
-    var body: some View {
-        VStack(spacing: 14) {
-            if let symbol {
-                Image(systemName: symbol)
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(theme.colors.inkMuted)
-                    .frame(width: 50, height: 50)
-                    .well(Radius.lg)
-            } else {
-                CursorBlock(width: 12, height: 22)
-            }
-            VStack(spacing: 5) {
-                Text(title)
-                    .appTextStyle(.headline)
-                    .foregroundStyle(theme.colors.ink)
-                    .shimmer(working)
-                if let message {
-                    Text(message)
-                        .appTextStyle(.footnote)
-                        .foregroundStyle(theme.colors.inkMuted)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: 320)
-                        .textSelection(.enabled)
-                }
-            }
-            actions()
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityElement(children: .contain)
-    }
-}
-
 struct TerminalSessionState: View {
     let session: RuntimeSession
     let opening: Bool

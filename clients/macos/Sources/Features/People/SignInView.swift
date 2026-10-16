@@ -19,19 +19,3 @@ struct SignInView: View {
         }
     }
 }
-
-struct TogetherArt: View {
-    @Environment(\.theme) private var theme
-
-    var body: some View {
-        HStack(spacing: -10) {
-            PersonAvatar(name: "A", key: "art.a", size: 46, ring: theme.colors.surface)
-            AgentMark(kind: .claude, size: 54).zIndex(1)
-                .overlay { RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(theme.colors.surface, lineWidth: 3).padding(-1.5) }
-            AgentMark(kind: .shell, size: 46)
-                .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(theme.colors.surface, lineWidth: 3).padding(-1.5) }
-            PersonAvatar(name: "B", key: "art.d", size: 46, ring: theme.colors.surface)
-        }
-        .accessibilityHidden(true)
-    }
-}

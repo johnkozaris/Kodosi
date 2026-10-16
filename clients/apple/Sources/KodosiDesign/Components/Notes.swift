@@ -183,3 +183,45 @@ public struct DashedSlot<Content: View>: View {
             .animation(theme.motion.hover, value: hovered)
     }
 }
+
+public struct TerminalStateCard<Actions: View>: View {
+    @Environment(\.theme) private var theme
+    let symbol: String?
+    let title: String
+    let message: String?
+    let working: Bool
+    @ViewBuilder let actions: () -> Actions
+
+    public init(symbol: String?, title: String, message: String?, working: Bool, @ViewBuilder actions: @escaping () -> Actions) {
+        self.symbol = symbol
+        self.title = title
+        self.message = message
+        self.working = working
+        self.actions = actions
+    }
+
+    public var body: some View {
+        VStack(spacing: 14) {
+            if let symbol {
+                Image(systemName: symbol)
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(theme.colors.inkMuted)
+                    .frame(width: 48, height: 48)
+                    .well(Radius.lg)
+            } else {
+                CursorBlock(width: 12, height: 22)
+            }
+            VStack(spacing: 5) {
+                Text(title).appTextStyle(.headline).foregroundStyle(theme.colors.ink).shimmer(working)
+                if let message {
+                    Text(message).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                        .multilineTextAlignment(.center).frame(maxWidth: 320).textSelection(.enabled)
+                }
+            }
+            actions()
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .contain)
+    }
+}

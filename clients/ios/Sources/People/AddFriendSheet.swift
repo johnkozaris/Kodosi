@@ -17,7 +17,7 @@ struct AddFriendSheet: View {
             ScrollView {
                 VStack(spacing: 26) {
                     VStack(spacing: 14) {
-                        FriendsArt()
+                        TogetherArt(size: 52, ring: theme.colors.ground)
                             .scaleEffect(0.8)
                             .arrive()
                         Text("Friends can open the terminals you share, and you can open theirs.")

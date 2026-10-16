@@ -18,7 +18,7 @@ struct RoomTerminals: View {
                     title: "No terminals here yet",
                     message: "Share one of your terminals with this room. Everyone in the room gets full control."
                 ) {
-                    RoomTerminalGhost()
+                    TerminalGhost()
                 } actions: {
                     if !mine.isEmpty {
                         addMenu(mine)
@@ -157,26 +157,5 @@ private struct RoomTerminalRow: View {
 
     private var place: String {
         [session.hostLabel, session.folderName].compactMap(\.self).joined(separator: " · ")
-    }
-}
-
-private struct RoomTerminalGhost: View {
-    @Environment(\.theme) private var theme
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "chevron.right")
-                .font(.system(size: 16, weight: .heavy))
-                .foregroundStyle(theme.colors.inkFaint)
-            CursorBlock(width: 11, height: 20)
-            Spacer()
-        }
-        .padding(16)
-        .frame(width: 180, height: 92, alignment: .topLeading)
-        .overlay {
-            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-                .strokeBorder(theme.colors.inkFaint.opacity(0.5), style: StrokeStyle(lineWidth: 1.2, dash: [5, 5]))
-        }
-        .accessibilityHidden(true)
     }
 }

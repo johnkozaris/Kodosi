@@ -214,7 +214,6 @@ public struct CountBadge: View {
     }
 }
 
-/// Marks a room with messages that you have not seen.
 public struct NewDot: View {
     @Environment(\.theme) private var theme
 
@@ -242,14 +241,15 @@ public struct Tag: View {
     public var body: some View {
         HStack(spacing: 4) {
             if let symbol {
-                Image(systemName: symbol).font(.system(size: 9, weight: .bold))
+                Image(systemName: symbol).imageScale(.small).fontWeight(.bold)
             }
             Text(text).lineLimit(1)
         }
         .appTextStyle(.caption)
         .foregroundStyle(foreground)
         .padding(.horizontal, 8)
-        .frame(height: 20)
+        .padding(.vertical, 3)
+        .frame(minHeight: 20)
         .background(background, in: Capsule())
     }
 

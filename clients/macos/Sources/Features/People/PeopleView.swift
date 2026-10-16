@@ -167,8 +167,7 @@ private struct FriendCard: View {
                     HStack(spacing: 5) {
                         Text(name).appTextStyle(.headline).foregroundStyle(theme.colors.ink).lineLimit(1)
                         if friend.isVerified {
-                            Image(systemName: "checkmark.seal.fill").font(.system(size: 12)).foregroundStyle(theme.colors.ready)
-                                .help("Verified").accessibilityLabel(Text("Verified"))
+                            VerifiedSeal(size: 12).help("Verified")
                         }
                     }
                     Text(verbatim: "@\(friend.handle)").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).lineLimit(1)

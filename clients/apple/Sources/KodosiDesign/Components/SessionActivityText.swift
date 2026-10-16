@@ -1,17 +1,21 @@
 import KodosiBridge
-import KodosiDesign
 import SwiftUI
 
-struct SessionActivityText: View {
+public struct SessionActivityText: View {
     @Environment(\.theme) private var theme
     let session: RuntimeSession
-    var fallback: String?
+    let fallback: String?
+
+    public init(session: RuntimeSession, fallback: String? = nil) {
+        self.session = session
+        self.fallback = fallback
+    }
 
     private var words: String? {
         session.activity ?? fallback
     }
 
-    var body: some View {
+    public var body: some View {
         HStack(spacing: 5) {
             if let words {
                 ZStack(alignment: .leading) {
