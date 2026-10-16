@@ -150,12 +150,11 @@ struct RuntimeStorageBootstrap {
         guard (raw as NSString).isAbsolutePath else {
             throw BootstrapError.invalidDataRoot("must be absolute")
         }
-        let candidate = URL(fileURLWithPath: raw, isDirectory: true)
+        let normalized = URL(fileURLWithPath: raw, isDirectory: true)
         let components = raw.split(separator: "/", omittingEmptySubsequences: false)
         guard !components.contains("."), !components.contains("..") else {
             throw BootstrapError.invalidDataRoot("must not contain . or .. components")
         }
-        let normalized = candidate
         guard normalized.path != "/" else {
             throw BootstrapError.invalidDataRoot("must not be the filesystem root")
         }

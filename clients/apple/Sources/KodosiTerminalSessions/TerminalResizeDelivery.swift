@@ -20,23 +20,9 @@ public final class ResizeDeliveryState: Sendable {
 
     public init() {}
 
-    public func begin(
-        _ request: TerminalResizeIdentity,
-        key: String
-    ) -> TerminalResizeIdentity? {
-        begin(
-            request,
-            key: key,
-            nowNanoseconds: DispatchTime.now().uptimeNanoseconds
-        )
-    }
-
-    private func begin(
-        _ request: TerminalResizeIdentity,
-        key: String,
-        nowNanoseconds: UInt64
-    ) -> TerminalResizeIdentity? {
-        state.withLock {
+    public func begin(_ request: TerminalResizeIdentity, key: String) -> TerminalResizeIdentity? {
+        let nowNanoseconds = DispatchTime.now().uptimeNanoseconds
+        return state.withLock {
             $0.pending = $0.pending.filter {
                 nowNanoseconds &- $0.value.admittedAtNanoseconds < Self.pendingLeaseNanoseconds
             }

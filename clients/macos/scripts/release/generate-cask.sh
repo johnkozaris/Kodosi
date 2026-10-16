@@ -34,7 +34,7 @@ cask "kodosi" do
 
   url "$KODOSI_DOWNLOAD_URL"
   name "Kodosi"
-  desc "Real terminals on your machines, shared with trusted people"
+  desc "Shared terminals and rooms for people and their coding agents"
   homepage "https://kodosi.com"
 
   livecheck do

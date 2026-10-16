@@ -77,7 +77,7 @@ struct RoomHeader: View {
     }
 
     private var isOwner: Bool {
-        detail.mission.ownerUserId == deps.userId
+        detail.mission.ownerUserId == deps.account.userId
     }
 
     private var sessions: [RuntimeSession] {
@@ -115,7 +115,7 @@ struct RoomHeader: View {
             Button { state.peopleVisible.toggle() } label: {
                 AvatarStack(people: detail.members.map { member in
                     AvatarStack.Person(id: member.userId, name: member.personName,
-                                       isSelf: member.userId == deps.userId)
+                                       isSelf: member.userId == deps.account.userId)
                 }, size: 24, limit: 4, ring: theme.colors.surface)
             }
             .buttonStyle(PressScaleStyle()).help("People").accessibilityLabel(Text("Room members"))
@@ -226,11 +226,11 @@ struct RoomPeoplePopover: View {
     @State private var invited: Set<String> = []
 
     private var isOwner: Bool {
-        detail.mission.ownerUserId == deps.userId
+        detail.mission.ownerUserId == deps.account.userId
     }
 
     private var candidates: [FriendEntry] {
-        deps.friends.filter { friend in !detail.members.contains { $0.userId == friend.userId } }
+        deps.people.friends.filter { friend in !detail.members.contains { $0.userId == friend.userId } }
     }
 
     var body: some View {
@@ -271,9 +271,9 @@ struct RoomPeoplePopover: View {
     private func memberRow(_ member: MissionMemberEntry) -> some View {
         let name = member.personName
         return HStack(spacing: 10) {
-            PersonAvatar(name: name, key: member.userId, size: 26, isSelf: member.userId == deps.userId)
+            PersonAvatar(name: name, key: member.userId, size: 26, isSelf: member.userId == deps.account.userId)
             VStack(alignment: .leading, spacing: 0) {
-                Text(member.userId == deps.userId ? String(localized: "\(name) (you)") : name)
+                Text(member.userId == deps.account.userId ? String(localized: "\(name) (you)") : name)
                     .appTextStyle(.body).foregroundStyle(theme.colors.ink).lineLimit(1)
                 Text(verbatim: "@\(member.handle)").appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint)
             }

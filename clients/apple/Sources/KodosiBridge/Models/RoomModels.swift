@@ -24,6 +24,11 @@ public extension RoomSnapshot {
         }
         self.tasks = tasks.values.sorted { $0.id < $1.id }
     }
+
+    func newMessages(after previous: RoomSnapshot, userId: String?) -> Int {
+        let latest = previous.messages.map(\.sequence).max() ?? 0
+        return messages.count { $0.sequence > latest && !$0.isWritten(by: userId) }
+    }
 }
 
 public struct RoomMessage: Decodable, Identifiable {
@@ -35,6 +40,10 @@ public struct RoomMessage: Decodable, Identifiable {
     public let terminalId: String?
     public let text: String
     public let createdAt: String
+
+    public func isWritten(by userId: String?) -> Bool {
+        agent == nil && authorId == userId
+    }
 }
 
 public struct RoomTask: Decodable, Identifiable {
@@ -71,4 +80,9 @@ public struct RoomIssue: Decodable, Identifiable {
     public let url: String
     public let closed: Bool
     public let assignees: [String]
+
+    public var address: URL? {
+        guard let url = URL(string: url), ["https", "http"].contains(url.scheme?.lowercased() ?? "") else { return nil }
+        return url
+    }
 }

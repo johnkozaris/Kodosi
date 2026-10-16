@@ -29,7 +29,7 @@ struct FriendRow: View {
                     }
                 }
                 if friend.identityChanged {
-                    StatusCapsule(text: String(localized: "New identity"), symbol: "exclamationmark", tone: .caution)
+                    Tag(text: String(localized: "New identity"), symbol: "exclamationmark", tone: .caution)
                         .transition(.opacity)
                 } else {
                     Text(verbatim: "@\(friend.handle)")
@@ -50,59 +50,6 @@ struct FriendRow: View {
         .padding(.vertical, 4)
         .animation(theme.motion.spring, value: friend)
         .accessibilityElement(children: .combine)
-    }
-}
-
-struct StatusCapsule: View {
-    enum Tone { case neutral, ready, caution }
-
-    @Environment(\.theme) private var theme
-    let text: String
-    var symbol: String?
-    var tone: Tone = .neutral
-
-    var body: some View {
-        HStack(spacing: 4) {
-            if let symbol {
-                Image(systemName: symbol)
-                    .imageScale(.small)
-                    .fontWeight(.bold)
-            }
-            Text(text)
-        }
-        .appTextStyle(.caption)
-        .foregroundStyle(foreground)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .background(background, in: Capsule())
-    }
-
-    private var foreground: Color {
-        switch tone {
-        case .neutral: theme.colors.inkMuted
-        case .ready: theme.colors.ready
-        case .caution: theme.colors.caution
-        }
-    }
-
-    private var background: Color {
-        switch tone {
-        case .neutral: theme.colors.ink.opacity(0.08)
-        case .ready: theme.colors.readySoft
-        case .caution: theme.colors.cautionSoft
-        }
-    }
-}
-
-struct VerifiedSeal: View {
-    @Environment(\.theme) private var theme
-    var size: CGFloat = 13
-
-    var body: some View {
-        Image(systemName: "checkmark.seal.fill")
-            .font(.system(size: size, weight: .semibold))
-            .foregroundStyle(theme.colors.ready)
-            .accessibilityLabel(Text("Verified"))
     }
 }
 
@@ -264,7 +211,7 @@ struct OutgoingRequestRow: View {
                     .appTextStyle(.body)
                     .foregroundStyle(theme.colors.ink)
                     .lineLimit(typeSize.isAccessibilitySize ? 2 : 1)
-                StatusCapsule(text: String(localized: "Waiting for them"))
+                Tag(text: String(localized: "Waiting for them"))
             }
         }
         .accessibilityElement(children: .combine)
@@ -280,30 +227,5 @@ struct OutgoingRequestRow: View {
                 .accessibilityLabel(Text("Cancel the request to \(request.personName)"))
                 .accessibilityIdentifier("people.request.cancel.\(request.handle)")
         }
-    }
-}
-
-struct FriendsArt: View {
-    @Environment(\.theme) private var theme
-
-    var body: some View {
-        HStack(spacing: -12) {
-            PersonAvatar(name: "A", key: "art.a", size: 52, ring: theme.colors.ground)
-            AgentMark(kind: .claude, size: 60)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(theme.colors.ground, lineWidth: 3)
-                        .padding(-1.5)
-                }
-                .zIndex(1)
-            AgentMark(kind: .shell, size: 52)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(theme.colors.ground, lineWidth: 3)
-                        .padding(-1.5)
-                }
-            PersonAvatar(name: "B", key: "art.d", size: 52, ring: theme.colors.ground)
-        }
-        .accessibilityHidden(true)
     }
 }

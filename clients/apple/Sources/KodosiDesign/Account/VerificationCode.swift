@@ -5,13 +5,13 @@
 #endif
 import SwiftUI
 
-public struct VerificationCode: View {
+struct VerificationCode: View {
     @Environment(\.theme) private var theme
     @State private var copied = false
     let code: String
     let identifier: String
 
-    public init(code: String, identifier: String) {
+    init(code: String, identifier: String) {
         self.code = code
         self.identifier = identifier
     }
@@ -20,7 +20,7 @@ public struct VerificationCode: View {
         code.split(whereSeparator: { $0 == "-" || $0 == " " }).map(String.init)
     }
 
-    public var body: some View {
+    var body: some View {
         VStack(spacing: 14) {
             HStack(spacing: 8) {
                 ForEach(Array(groups.enumerated()), id: \.offset) { index, group in

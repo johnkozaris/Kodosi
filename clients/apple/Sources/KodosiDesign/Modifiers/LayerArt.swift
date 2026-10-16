@@ -6,7 +6,6 @@ import SwiftUI
     import UIKit
 #endif
 
-/// Draws with Core Animation, which plays a looping animation without work in the app for each frame.
 struct LayerArt<Setup: Hashable>: View {
     let setup: Setup
     let draw: @MainActor (Setup, LayerCanvas) -> Void
@@ -38,7 +37,6 @@ struct LayerCanvas {
     }
 }
 
-/// The phase of a loop on the wall clock, so that every copy of a loop moves together and a redrawn copy does not jump.
 func loopPhase(_ period: TimeInterval) -> TimeInterval {
     Date.now.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: period)
 }

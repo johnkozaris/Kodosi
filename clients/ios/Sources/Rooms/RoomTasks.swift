@@ -269,7 +269,7 @@ struct RoomTaskRow: View {
                 Button { change(.close) } label: { Label("Complete", systemImage: "checkmark.circle") }
             }
         }
-        if let issue = task.issue, let url = RoomTaskChips.address(issue) {
+        if let issue = task.issue, let url = issue.address {
             Link(destination: url) { Label("Open issue #\(issue.number)", systemImage: "arrow.up.right") }
         }
         Button { UIPasteboard.general.string = task.title } label: { Label("Copy title", systemImage: "doc.on.doc") }
@@ -299,11 +299,6 @@ struct RoomTaskChips: View {
     @Environment(AppModel.self) private var model
     let roomId: String
     let task: RoomTask
-
-    static func address(_ issue: RoomIssue) -> URL? {
-        guard let url = URL(string: issue.url), ["https", "http"].contains(url.scheme?.lowercased() ?? "") else { return nil }
-        return url
-    }
 
     var body: some View {
         let repositories = (model.rooms.snapshots[roomId]?.repositories ?? []).filter { task.repositoryIds.contains($0.id) }

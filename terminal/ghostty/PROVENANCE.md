@@ -32,27 +32,21 @@ also checks the patched source of a build. `scripts/digest.py` is the only diges
 `just ghostty-check` runs the verifier, the digest tests and the host's notice checks.
 
 The other `verify-*` scripts probe the native artifacts and compare the notices with
-them; `ghostty-vt-sys` checks its target's artifact against the lock because Cargo
-cannot run Python. On Windows, Git writes the Linux artifact's symlinks as files, so the
-verifier skips that folder digest there.
-
-The workflow `.github/workflows/ghostty-windows.yml` builds the Windows x64 artifact
-from a clean checkout. It fails when the committed artifact has another `.version`
-record, apart from its digest, or other headers; Zig does not always lay out its code
-the same way, so the bytes can differ.
+them; `ghostty-vt-sys` checks its target's artifact against the lock. The workflow
+`.github/workflows/ghostty-windows.yml` builds the Windows x64 artifact from a clean
+checkout and compares its `.version` record and headers with the committed ones (Zig's
+output bytes can differ).
 
 ## Update Ghostty
 
-1. Review the upstream changes and rebase `Patches/ghostty`. A patch that upstream
-   already contains fails the build: remove it.
-2. Rebuild each platform with `./scripts/build.sh` on that platform; it applies the
-   patches to a clean checkout, builds, verifies and records digests. For Windows x64,
-   commit the artifact of the Windows Ghostty library workflow, not a local build.
+1. Rebase `Patches/ghostty` on the new upstream commit; remove patches that upstream
+   already contains (they fail the build).
+2. Rebuild each platform with `./scripts/build.sh` on that platform. For Windows x64,
+   commit the artifact of the Windows Ghostty workflow.
 3. Update the notices from the real source and artifacts.
-4. If a VT header changed, or the runtime needs a new Ghostty symbol (add it to the
-   allowlist first), run `runtime/crates/ghostty-vt-sys/generate-bindings.sh` on that
-   platform (or pass `macos-arm64`, `linux-x86_64`, `windows-x86_64` or
-   `windows-arm64`). It needs network access, libclang and rustfmt.
+4. If a VT header changed or the runtime needs a new symbol (add it to the allowlist
+   first), run `runtime/crates/ghostty-vt-sys/generate-bindings.sh` on that platform; it
+   needs network access, libclang and rustfmt.
 5. Run `./scripts/test.sh`, update `Ghostty.lock` from the `.version` files, and run
    `just ghostty-check` and `just rust-check`.
 6. Test the Rust, Swift and Qt integration and the terminal lifecycle.

@@ -138,7 +138,6 @@ impl SessionTerminalHandle {
             .collect()
     }
 
-    /// A checkpoint holds at most `image_data_bytes` of image pixels.
     pub(super) async fn checkpoint_data(
         &self,
         history: bool,
@@ -324,8 +323,6 @@ fn program_status(status: ghostty_vt::ProgramStatus) -> Option<ProgramStatusRepo
     })
 }
 
-/// The folder an OSC 7 file URL or an OSC 9;9 path reports, when it is a folder
-/// of this computer that viewers accept.
 fn parse_cwd(raw: &[u8]) -> Option<PathBuf> {
     let text = str::from_utf8(raw).ok()?;
     let path = if let Some(rest) = text.strip_prefix("file://") {

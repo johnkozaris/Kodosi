@@ -133,8 +133,6 @@ internal static partial class ConnectionEndpoints
                 case PingMessage:
                     connection.Send(Wire.Pong);
                     break;
-                case PongMessage:
-                    break;
                 case HostMessage host:
                 {
                     var refusal = await AdmitAsync(scopes, ct, async (sessions, admission) =>
@@ -143,9 +141,7 @@ internal static partial class ConnectionEndpoints
                         SessionService.Incarnation(session, host.IncarnationId);
                         directory.Host(connection, session);
                     });
-                    connection.Send(Wire.Encode(refusal is null
-                        ? new HostedNotice(host.SessionId)
-                        : new UnhostedNotice(host.SessionId, refusal.Status, refusal.Message)));
+                    if (refusal is not null) connection.Send(Wire.Encode(new UnhostedNotice(host.SessionId, refusal.Status, refusal.Message)));
                     break;
                 }
                 case UnhostMessage unhost:
@@ -222,10 +218,6 @@ internal static partial class ConnectionEndpoints
     private static partial void Flooded(ILogger logger, Guid account, string device);
 }
 
-/// <summary>
-/// The messages that one device connection can send: a burst, then a steady number each second. The control burst fits
-/// a reconnect with the most terminals and views; a message that reads the database costs more.
-/// </summary>
 internal struct TokenBucket(double burst, double eachSecond, TimeProvider clock)
 {
     private readonly double burst = burst;

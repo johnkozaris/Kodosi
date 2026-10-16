@@ -798,8 +798,7 @@ public:
         }
     }
 
-    // An unanswered read makes Ghostty write an empty OSC 52 answer, which the
-    // focused view fills with its clipboard.
+    // An unanswered read makes Ghostty write an empty OSC 52 answer for the focused view to fill.
     static void deferClipboardRead(const GhosttyTerminal, void* const, const GhosttyClipboardRead* const) {}
 
     static void recordClipboardRead(
@@ -1065,7 +1064,6 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
     if (result != GHOSTTY_SUCCESS) {
         return std::unexpected(ghosttyFailure(QStringLiteral("snapshot history restore"), result));
     }
-    // The view replays the host's output, so it stores images as the host does.
     const std::uint64_t imageStorageLimit = KODOSI_TERMINAL_IMAGE_STORAGE_MAX_BYTES;
     result = ghostty_terminal_set(
         candidateTerminal.value,

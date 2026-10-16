@@ -265,55 +265,19 @@ async fn stream_terminal(
     token: &SubscriptionState,
     mut subscriber: terminal::Subscription,
 ) {
-    let mut next = subscriber.next_sequence;
-    let mut pending = std::collections::VecDeque::<(u16, u16, terminal::CellPixels, u64)>::new();
-    let mut seed: Option<kodosi_runtime::network::CheckpointCut> = None;
-    let mut closed: Option<(String, u64)> = None;
     let mut retry: Option<tokio::time::Instant> = None;
     loop {
-        if let Some(cut) = seed.as_ref() {
-            if cut.next_sequence < next {
-                closed = Some(("terminal refresh snapshot regressed".into(), next));
-                seed = None;
-            } else if cut.next_sequence == next {
-                if !state.checkpoint(token, &cut.checkpoint, cut.next_sequence) {
-                    closed = Some(("the terminal snapshot could not be restored".into(), next));
-                }
-                seed = None;
-            }
-        }
-        while let Some(&(rows, cols, cell, at_sequence)) = pending.front() {
-            if at_sequence > next {
-                break;
-            }
-            pending.pop_front();
-            if at_sequence != next {
-                closed = Some(("terminal resize arrived out of order".into(), next));
-                break;
-            }
-            state.control(token, &serde_json::json!({"type":"term.resize","rows":rows,"cols":cols,
-                "cellWidthPixels":cell.width,"cellHeightPixels":cell.height,"atSequence":at_sequence}));
-        }
-        if let Some((reason, final_sequence)) = &closed
-            && *final_sequence <= next
-        {
-            state.control(
-                token,
-                &serde_json::json!({"type":"term.closed","reason":reason,"finalSequence":next}),
-            );
-            break;
-        }
         tokio::select! {
             biased;
             () = token.cancel.cancelled() => break,
-            () = token.refresh.notified(), if closed.is_none() && seed.is_none() => {
+            () = token.refresh.notified(), if subscriber.can_refresh() => {
                 let fresh = tokio::select! {
                     biased;
                     () = token.cancel.cancelled() => break,
                     result = runtime.terminal_checkpoint(session, subscriber.connection_id) => result,
                 };
                 match fresh {
-                    Ok(cut) => seed = Some(cut),
+                    Ok(cut) => subscriber.refresh(cut),
                     Err(error) => {
                         tracing::warn!(%session, %error, "terminal view refresh failed; it will be tried again");
                         retry = Some(tokio::time::Instant::now() + REFRESH_RETRY);
@@ -324,37 +288,35 @@ async fn stream_terminal(
                 retry = None;
                 token.refresh.notify_one();
             }
-            control = subscriber.control.recv(), if closed.is_none() => match control {
-                Some(terminal::ControlFrame::Resize { rows, cols, cell, at_sequence }) => {
-                    if pending.len() >= 32 || pending.back().is_some_and(|&(_, _, _, last)| last > at_sequence) {
-                        closed = Some(("terminal resize queue exceeded its ordering bound".into(), next));
-                    } else { pending.push_back((rows, cols, cell, at_sequence)); }
-                }
-                Some(terminal::ControlFrame::Snapshot { checkpoint, next_sequence }) => {
-                    if next_sequence >= next && state.checkpoint(token, &checkpoint, next_sequence) {
-                        next = next_sequence;
-                        pending.clear();
-                        seed = None;
-                        retry = None;
-                    } else {
-                        closed = Some(("the terminal snapshot could not be restored".into(), next));
+            frame = subscriber.recv() => {
+                let (reason, final_sequence) = match frame {
+                    Ok(Some(terminal::Frame::Data(frame))) => {
+                        state.data(token, &frame);
+                        continue;
                     }
-                }
-                Some(terminal::ControlFrame::Closed { reason, final_sequence }) => closed = Some((reason, final_sequence)),
-                None => closed = Some(("terminal disconnected".into(), next)),
-            },
-            data = subscriber.data.recv() => match data {
-                Some(frame) if frame.sequence < next => {},
-                Some(frame) if frame.sequence == next => {
-                    if let Some(sequence) = next.checked_add(1) { state.data(token, &frame); next = sequence; }
-                    else { closed = Some(("terminal output sequence exhausted".into(), next)); }
-                }
-                Some(_) => closed = Some(("terminal output needs a fresh snapshot".into(), next)),
-                None => {
-                    let reason = closed.take().map_or_else(|| "terminal disconnected".into(), |(reason, _)| reason);
-                    state.control(token, &serde_json::json!({"type":"term.closed","reason":reason,"finalSequence":next}));
-                    break;
-                }
+                    Ok(Some(terminal::Frame::Control(terminal::ControlFrame::Resize { rows, cols, cell, at_sequence }))) => {
+                        state.control(token, &serde_json::json!({"type":"term.resize","rows":rows,"cols":cols,
+                            "cellWidthPixels":cell.width,"cellHeightPixels":cell.height,"atSequence":at_sequence}));
+                        continue;
+                    }
+                    Ok(Some(terminal::Frame::Control(terminal::ControlFrame::Snapshot { checkpoint, next_sequence }))) => {
+                        if state.checkpoint(token, &checkpoint, next_sequence) {
+                            retry = None;
+                            continue;
+                        }
+                        ("the terminal snapshot could not be restored".to_owned(), subscriber.next_sequence)
+                    }
+                    Ok(Some(terminal::Frame::Control(terminal::ControlFrame::Closed { reason, final_sequence }))) => {
+                        (reason, final_sequence)
+                    }
+                    Ok(None) => ("terminal disconnected".to_owned(), subscriber.next_sequence),
+                    Err(error) => (error.to_string(), subscriber.next_sequence),
+                };
+                state.control(
+                    token,
+                    &serde_json::json!({"type":"term.closed","reason":reason,"finalSequence":final_sequence}),
+                );
+                break;
             }
         }
     }

@@ -65,7 +65,6 @@ internal sealed class TestStore : IAsyncDisposable
         {
             UserId = user.Id,
             Generation = 1,
-            SignerDeviceId = fixture.DeviceId,
             Body = list,
             Signature = fixture.Sign(Proofs.Tagged(DomainTags.DeviceListV1, list)),
             IssuedAtMs = issued

@@ -1,5 +1,6 @@
 import Foundation
 @testable import Kodosi
+import KodosiBridge
 import Testing
 
 struct SettingsTests {

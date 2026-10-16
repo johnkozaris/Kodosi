@@ -6,12 +6,15 @@ on:
     paths:
       - clients/qt/**
       - protocol/**
-      - runtime/crates/kodosi-ffi-c/**
-      - runtime/Cargo.lock
-      - terminal/ghostty/Vendor/GhosttyVt/linux-x86_64/**
+      - runtime/**
+      - terminal/ghostty/**
       - Ghostty.lock
+      - VERSION
+      - justfile
       - rust-toolchain.toml
       - scripts/build-runtime-library.py
+      - scripts/generate-update-site.py
+      - scripts/tests/**
       - .github/workflows/linux.yml
   workflow_dispatch:
 
@@ -50,3 +53,4 @@ jobs:
         with:
           workspaces: runtime
       - run: just linux-check
+      - run: just release-test

@@ -3,10 +3,6 @@ using System.Threading.Channels;
 
 namespace Kodosi.TerminalConnections;
 
-/// <summary>
-/// The WebSocket of one device. One writer task sends the queue in order. The queue is bounded by bytes: a full relay
-/// queue refuses the frame, so that the directory closes only that pipe; a full control queue ends the connection.
-/// </summary>
 internal sealed class DeviceConnection : IAsyncDisposable
 {
     internal const long RelayQueueBytes = 16 * 1024 * 1024;
@@ -43,10 +39,8 @@ internal sealed class DeviceConnection : IAsyncDisposable
     public CancellationToken Expired => expired.Token;
     public bool IsOpen => Volatile.Read(ref closing) == 0 && !stopped.IsCancellationRequested && Socket.State == WebSocketState.Open;
 
-    /// <summary>The time since the device sent its last message.</summary>
     public TimeSpan Silence => clock.GetElapsedTime(Volatile.Read(ref heard));
 
-    /// <summary>The time that the current send waits for the device; zero when no send waits.</summary>
     public TimeSpan Sending => Volatile.Read(ref sendingSince) is var since and not 0 ? clock.GetElapsedTime(since) : TimeSpan.Zero;
 
     public void Heard() => Volatile.Write(ref heard, clock.GetTimestamp());
@@ -62,7 +56,6 @@ internal sealed class DeviceConnection : IAsyncDisposable
         }
     }
 
-    /// <summary>Queues a control message. The same bytes can go to many connections.</summary>
     public bool Send(byte[] message)
     {
         if (!IsOpen) return false;
@@ -72,7 +65,6 @@ internal sealed class DeviceConnection : IAsyncDisposable
         return false;
     }
 
-    /// <summary>Queues a pipe frame; the connection owns the frame when the result is <see cref="Relayed.Sent"/>.</summary>
     public Relayed Relay(byte[] frame)
     {
         if (!IsOpen) return Relayed.Slow;
@@ -92,7 +84,6 @@ internal sealed class DeviceConnection : IAsyncDisposable
         return Relayed.Slow;
     }
 
-    /// <summary>Closes the connection with "service restart" after the current send; queued messages are dropped.</summary>
     public void Close()
     {
         if (Interlocked.Exchange(ref closing, 1) == 0) queue.Writer.TryComplete();
@@ -164,7 +155,6 @@ internal sealed record Pipe(Guid Id, Guid SessionId, DeviceConnection Viewer, De
 
 internal enum Relayed { Sent, Slow, Busy }
 
-/// <summary>The bytes that wait in all relay queues of the server together.</summary>
 internal sealed class RelayBudget(long limit)
 {
     public const long ServerBytes = 256L * 1024 * 1024;

@@ -5,17 +5,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.Sessions;
 
-/// <summary>One person who can use one terminal.</summary>
 internal sealed class TerminalPerson
 {
     public Guid SessionId { get; init; }
     public Guid UserId { get; init; }
 }
 
-/// <summary>
-/// Who can use a terminal: its owner, and the people of its room or, for a terminal outside a room, the friends it
-/// is shared with. The catalog, each check of access, each notice and each revocation use this one rule.
-/// </summary>
 internal static class TerminalAccess
 {
     public static IQueryable<TerminalPerson> People(KodosiDbContext db) =>
@@ -44,10 +39,6 @@ internal static class TerminalAccess
         return people.ToLookup(x => x.SessionId, x => x.UserId);
     }
 
-    /// <summary>
-    /// After a committed change, closes the views of the people who can no longer use each terminal, and of the
-    /// devices that <paramref name="keepDevice"/> refuses, and tells each host to check its viewers again.
-    /// </summary>
     public static async Task RevokeAsync(KodosiDbContext db, ConnectionDirectory connections, IReadOnlyCollection<Session> sessions,
         CancellationToken ct, Func<Guid, string, bool>? keepDevice = null)
     {

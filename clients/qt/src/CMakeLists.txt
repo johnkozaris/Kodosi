@@ -180,7 +180,6 @@ foreach(module Core Gui Qml Quick)
             list(APPEND KODOSI_QT_PRIVATE_INCLUDES "${private_root}" "${private_root}/Qt${module}")
             target_include_directories(kodosi-terminal-kernel PRIVATE
                 "${private_root}" "${private_root}/Qt${module}")
-            # The Windows window frame corrects Qt's frame margins.
             if(WIN32 AND module MATCHES "^(Core|Gui)$")
                 target_include_directories(kodosi-desktop-integration PRIVATE
                     "${private_root}" "${private_root}/Qt${module}")
@@ -336,31 +335,7 @@ target_compile_definitions(kodosi-runtime
         QT_NO_CAST_TO_ASCII
         QT_NO_URL_CAST_FROM_STRING
 )
-target_compile_definitions(kodosi-application
-    PUBLIC
-        QT_NO_CAST_FROM_ASCII
-        QT_NO_CAST_TO_ASCII
-        QT_NO_URL_CAST_FROM_STRING
-)
-target_compile_definitions(kodosi-desktop-integration
-    PUBLIC
-        QT_NO_CAST_FROM_ASCII
-        QT_NO_CAST_TO_ASCII
-        QT_NO_URL_CAST_FROM_STRING
-)
-target_compile_definitions(kodosi-terminal-kernel
-    PUBLIC
-        QT_NO_CAST_FROM_ASCII
-        QT_NO_CAST_TO_ASCII
-        QT_NO_URL_CAST_FROM_STRING
-)
-target_compile_definitions(
-    kodosi-qt
-    PRIVATE
-        QT_NO_CAST_FROM_ASCII
-        QT_NO_CAST_TO_ASCII
-        KODOSI_VERSION="${PROJECT_VERSION}"
-)
+target_compile_definitions(kodosi-qt PRIVATE KODOSI_VERSION="${PROJECT_VERSION}")
 foreach(target kodosi-runtime kodosi-application kodosi-desktop-integration kodosi-terminal-kernel kodosi-qt)
     target_compile_options(${target} PRIVATE ${KODOSI_COMPILE_OPTIONS})
 endforeach()

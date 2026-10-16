@@ -319,7 +319,8 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         await SendAsync(viewer, new { type = "open", pipe = early, sessionId = id, incarnationId = incarnation });
         Assert.Equal(404, (await NextAsync(viewer, "closed")).GetProperty("status").GetInt32());
         await SendAsync(host, new { type = "host", sessionId = id, incarnationId = incarnation });
-        Assert.Equal(id, (await NextAsync(host, "hosted")).GetProperty("sessionId").GetGuid());
+        await SendAsync(host, new { type = "ping" });
+        await NextAsync(host, "pong");
         await SendAsync(viewer, new { type = "host", sessionId = id, incarnationId = incarnation });
         Assert.NotEqual(0, (await NextAsync(viewer, "unhosted")).GetProperty("status").GetInt32());
         var shared = await CallAsync(owner, HttpMethod.Put, path + "/members", new { incarnationId = incarnation, expectedRevision = 1, userIds = new[] { friend.Fixture.UserId } });

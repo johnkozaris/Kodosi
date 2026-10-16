@@ -50,7 +50,6 @@ async fn a_listener_serves_its_user_and_refuses_a_second_owner() {
         assert_eq!(reply[0], value + 1);
     }
     let listener = server.await.unwrap();
-    // A Unix bind connects to a live listener, so probe after it served its clients.
     assert_eq!(
         Listener::bind(&endpoint)
             .await

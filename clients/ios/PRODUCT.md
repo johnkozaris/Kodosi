@@ -6,13 +6,11 @@ The app follows, answers and controls the terminals of your computers and of the
 friends who share with you, and takes part in rooms. Starting terminals or programs,
 changing sharing and reading provider conversations stay on the computer.
 
-- Sign-in opens the sign-in page in a sign-in window of the system and returns to the
-  app with no code. A new device is trusted like a computer: by a code entered on a trusted device, the recovery key, or
-  starting fresh.
-- The Terminals tab groups your terminals by computer, then friends' terminals. Each
-  row shows the sign of its state, which the host sends through the server; the
-  agent's question shows when you open the terminal. The tab shows the number of your
-  own terminals that wait for you.
+- Sign-in opens in a system sign-in window. A new device is trusted like a computer: by
+  a code entered on a trusted device, the recovery key, or starting fresh.
+- The Terminals tab groups your terminals by computer, then friends' terminals, each
+  with the sign of its state. The tab counts the waiting terminals that you can answer:
+  your own, and others' while you have them open.
 - In a terminal, the phone sets the size only while it has focus. A key row adds the
   keys a phone lacks; 1, 2 and 3 answer agent menus. The composer sends text as one
   paste and Return only when you tap send. A hardware keyboard types directly.

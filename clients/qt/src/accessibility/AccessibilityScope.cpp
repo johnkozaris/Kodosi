@@ -75,7 +75,6 @@ AccessibilityScope::AccessibilityScope(QQuickItem* parent)
     }();
     Q_UNUSED(installed);
 
-
     auto* accessible = qobject_cast<QQuickAccessibleAttached*>(
         qmlAttachedPropertiesObject<QQuickAccessibleAttached>(this, true));
     accessible->setRole(QAccessible::Grouping);

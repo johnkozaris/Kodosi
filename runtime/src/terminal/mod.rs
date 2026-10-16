@@ -16,16 +16,14 @@ pub(crate) use remote::RemoteTerminal;
 #[cfg(feature = "host")]
 pub(crate) use session::LocalSession;
 pub use status::{BlockedKind, ProgramState, ProgramStatus};
-pub use subscribers::{ControlFrame, DataFrame, Subscription};
+pub use subscribers::{ControlFrame, DataFrame, Frame, Subscription};
 pub use types::{
-    CellPixels, Checkpoint, MAX_TERMINAL_COLS, MAX_TERMINAL_ROWS,
-    TERMINAL_CHECKPOINT_SCHEMA_VERSION, TERMINAL_IMAGE_STORAGE_MAX_BYTES, TERMINAL_INPUT_MAX_BYTES,
-    TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES, TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES,
-    TERMINAL_SNAPSHOT_MAX_BYTES, TERMINAL_SNAPSHOT_TEXT_MAX_BYTES, TerminalPixelGeometry,
-    TerminalSize,
+    CellPixels, Checkpoint, TERMINAL_CHECKPOINT_SCHEMA_VERSION, TERMINAL_IMAGE_STORAGE_MAX_BYTES,
+    TERMINAL_INPUT_MAX_BYTES, TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES,
+    TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES, TERMINAL_SNAPSHOT_MAX_BYTES,
+    TERMINAL_SNAPSHOT_TEXT_MAX_BYTES, TerminalMetadata, TerminalPixelGeometry, TerminalSize,
 };
 
-pub use types::TerminalMetadata;
 #[cfg(test)]
 pub(crate) use types::snapshot_limits;
 

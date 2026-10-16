@@ -2,18 +2,12 @@ using System.Collections.Concurrent;
 
 namespace Kodosi.TerminalConnections;
 
-/// <summary>
-/// The live routes of the server: the device connections of each account, the hosted terminals and the pipes between
-/// a viewer and a host. One lock guards the routes; a relayed frame only reads the pipe table, which needs no lock.
-/// Messages and closes go out after the lock is released, in the order that the lock gave them.
-/// </summary>
 public sealed class ConnectionDirectory
 {
     internal const int MaximumDeviceConnections = 20_000;
     internal const int MaximumHostedTerminals = 65_536;
     internal const int MaximumSessionPipes = 64;
     internal const int MaximumDevicePipes = 256;
-    internal const int MaximumUserDevices = 16;
     private readonly Lock sync = new();
     private readonly Dictionary<Guid, Dictionary<string, Entry>> accounts = [];
     private readonly Dictionary<DeviceConnection, Entry> entries = new(ReferenceEqualityComparer.Instance);
@@ -43,18 +37,9 @@ public sealed class ConnectionDirectory
         lock (sync) return entries.Keys.Where(x => x.IsOpen).ToArray();
     }
 
-    public void Notify(Guid userId, string surface) => Send([userId], Wire.Encode(new ChangedNotice(surface)));
+    public void Notify(IEnumerable<Guid> users, string surface, Guid? roomId = null, long? sequence = null) =>
+        Send(users, Wire.Encode(new ChangedNotice(surface, roomId, sequence)));
 
-    public void Notify(IEnumerable<Guid> users, string surface) => Send(users, Wire.Encode(new ChangedNotice(surface)));
-
-    public void Notify(Guid userId, string surface, Guid roomId) => Send([userId], Wire.Encode(new ChangedNotice(surface, roomId)));
-
-    public void Notify(IEnumerable<Guid> users, string surface, Guid roomId) => Send(users, Wire.Encode(new ChangedNotice(surface, roomId)));
-
-    public void NotifyContent(IEnumerable<Guid> users, Guid roomId, long sequence) =>
-        Send(users, Wire.Encode(new ChangedNotice("rooms", roomId, sequence)));
-
-    /// <summary>Tells the people of a terminal whether its host is online and what its program reports, except the hosting device itself.</summary>
     public void NotifyTerminal(Guid sessionId, Guid incarnationId, Guid ownerId, string hostDeviceId, IEnumerable<Guid> people)
     {
         var (online, status) = Live(sessionId);
@@ -79,7 +64,7 @@ public sealed class ConnectionDirectory
         {
             var devices = accounts.GetValueOrDefault(connection.UserId);
             var previous = devices?.GetValueOrDefault(connection.DeviceId);
-            if (previous is null && ((devices?.Count ?? 0) >= MaximumUserDevices || entries.Count >= MaximumDeviceConnections))
+            if (previous is null && ((devices?.Count ?? 0) >= Limits.MaxDevicesPerUser || entries.Count >= MaximumDeviceConnections))
                 throw new ApiException(503, "Too many device connections.");
             if (previous is not null) DetachLocked(previous, ending);
             if (devices is null) accounts[connection.UserId] = devices = new Dictionary<string, Entry>(StringComparer.Ordinal);
@@ -112,7 +97,7 @@ public sealed class ConnectionDirectory
         var ending = new Ending();
         lock (sync)
         {
-            if (!entries.TryGetValue(connection, out var entry) || !connection.IsOpen) throw new ApiException(409, "The device connection closed.");
+            if (!entries.TryGetValue(connection, out var entry) || !connection.IsOpen) throw ApiException.Conflict("The device connection closed.");
             if (hosted.TryGetValue(session.Id, out var live))
             {
                 if (live.Host == entry && live.IncarnationId == session.IncarnationId) return;
@@ -162,8 +147,8 @@ public sealed class ConnectionDirectory
     {
         lock (sync)
         {
-            if (!entries.TryGetValue(viewer, out var watcher)) throw new ApiException(409, "The device connection closed.");
-            if (!hosted.TryGetValue(session.Id, out var live) || !live.Host.Connection.IsOpen) throw new ApiException(409, "The host is offline.");
+            if (!entries.TryGetValue(viewer, out var watcher)) throw ApiException.Conflict("The device connection closed.");
+            if (!hosted.TryGetValue(session.Id, out var live) || !live.Host.Connection.IsOpen) throw ApiException.Conflict("The host is offline.");
             if (live.IncarnationId != session.IncarnationId) throw ApiException.Conflict("Session publication changed.");
             if (live.Pipes.Count >= MaximumSessionPipes) throw new ApiException(503, "Too many connected participants.");
             if (watcher.Views >= MaximumDevicePipes) throw new ApiException(503, "Too many open views.");
@@ -185,7 +170,6 @@ public sealed class ConnectionDirectory
         ending.Apply(this);
     }
 
-    /// <summary>Copies a frame to the other device of its pipe. Returns the copied bytes, or zero when the frame went nowhere.</summary>
     internal int Relay(DeviceConnection from, Guid pipeId, ReadOnlySpan<byte> frame)
     {
         if (!pipes.TryGetValue(pipeId, out var pipe)) return 0;
@@ -205,7 +189,6 @@ public sealed class ConnectionDirectory
         return 0;
     }
 
-    /// <summary>Closes the pipes of the viewers that <paramref name="keep"/> refuses, and tells the host to check its viewers again.</summary>
     public void Revoke(Guid sessionId, Func<Guid, string, bool> keep)
     {
         var ending = new Ending();
@@ -226,7 +209,6 @@ public sealed class ConnectionDirectory
         lock (sync) accounts.GetValueOrDefault(userId)?.GetValueOrDefault(deviceId)?.Connection.ExtendUntil(expires);
     }
 
-    /// <summary>Ends every route and closes each connection with "service restart", so that devices connect again.</summary>
     public void StopAll()
     {
         DeviceConnection[] all;
@@ -296,7 +278,7 @@ public sealed class ConnectionDirectory
         public HashSet<Guid> Pipes { get; } = [];
     }
 
-    /// <summary>The effects of one change, applied after the lock: closed pipes, aborted connections and changed terminals.</summary>
+    // Messages and closes go out after the lock is released, in the order that the lock gave them.
     private sealed class Ending
     {
         public List<(Pipe Pipe, int Status, string Message, DeviceConnection? Silent)> Pipes { get; } = [];

@@ -71,7 +71,6 @@ struct ContentPage {
     sequence: u64,
     key_version: u64,
     has_more: bool,
-    #[serde(default)]
     history_trimmed: bool,
     items: Vec<Item>,
 }

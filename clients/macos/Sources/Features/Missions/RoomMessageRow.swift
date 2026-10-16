@@ -1,4 +1,3 @@
-import AppKit
 import KodosiBridge
 import KodosiDesign
 import SwiftUI
@@ -19,7 +18,7 @@ struct RoomMessageRow: View {
     }
 
     private var isMine: Bool {
-        message.authorId == deps.userId && message.agent == nil
+        message.isWritten(by: deps.account.userId)
     }
 
     private var terminal: RuntimeSession? {
@@ -145,8 +144,7 @@ struct RoomMessageRow: View {
     private var actions: some View {
         HStack(spacing: 0) {
             IconButton(title: "Copy", symbol: "doc.on.doc", identifier: "room.message.copy", size: 24) {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(message.text, forType: .string)
+                deps.copyText(message.text)
             }
             IconButton(title: madeTask ? "Added to tasks" : "Make this a task", symbol: madeTask ? "checkmark" : "checklist",
                        identifier: "room.message.task", size: 24, active: madeTask, action: makeTask)
@@ -159,7 +157,7 @@ struct RoomMessageRow: View {
     private func makeTask() {
         Task { @MainActor in
             do {
-                try await deps.roomAction(roomId, RoomTaskAction.create(from: message))
+                try await deps.roomAction(roomId, RoomAction.createTask(from: message))
                 madeTask = true
             } catch { state.failure = error.localizedDescription }
         }

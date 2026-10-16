@@ -15,16 +15,13 @@ class ProviderFilesModel final : public QObject {
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
 
 public:
-    enum Provider { Claude, Copilot };
-    Q_ENUM(Provider)
-
     explicit ProviderFilesModel(CommandDispatcher& commands, QObject* parent = nullptr);
 
     QVariantMap installation() const { return m_installation; }
     bool busy() const { return !m_requestId.isEmpty(); }
     QString error() const { return m_error; }
 
-    Q_INVOKABLE void inspect(Provider provider, const QString& directory);
+    Q_INVOKABLE void inspect(const QString& provider, const QString& directory);
     void reset();
 
     void apply(const QJsonObject& event);

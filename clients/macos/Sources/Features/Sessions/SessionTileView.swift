@@ -111,7 +111,7 @@ struct SessionTileView: View {
     @ViewBuilder
     private var terminal: some View {
         if !session.isConnected {
-            TileState(
+            TerminalStateCard(
                 symbol: session.connectionState == .blocked ? "lock" : "wifi.slash",
                 title: session.statusLabel, message: session.message, working: session.connectionState == .connecting
             ) {
@@ -163,7 +163,7 @@ struct SessionTileView: View {
                 switch state {
                 case .rendered: EmptyView()
                 case .connecting:
-                    TileState(symbol: nil, title: String(localized: "Connecting"), message: nil, working: true) { EmptyView() }
+                    TerminalStateCard(symbol: nil, title: String(localized: "Connecting"), message: nil, working: true) { EmptyView() }
                         .accessibilityLabel(Text("Connecting terminal"))
                         .background(theme.colors.terminal)
                 case let .closed(message):
@@ -187,7 +187,7 @@ struct SessionTileView: View {
     }
 
     private func failure(message: String, manager: TerminalSessionManager) -> some View {
-        TileState(symbol: "bolt.slash", title: String(localized: "This terminal is not available"), message: message, working: false) {
+        TerminalStateCard(symbol: "bolt.slash", title: String(localized: "This terminal is not available"), message: message, working: false) {
             Button("Try again") {
                 deps.terminalFocus.releaseSession(sessionId: session.id)
                 manager.retryTerminal(sessionId: session.id)
@@ -206,42 +206,9 @@ struct SessionTileView: View {
     private func closeSession() {
         isClosing = true
         Task { @MainActor in
-            defer { isClosing = false }
-            do {
-                try await deps.mutateSession("session.close", session: session)
-            } catch {
-                deps.errorMessage = error.localizedDescription
-            }
+            await deps.close(session)
+            isClosing = false
         }
-    }
-}
-
-private struct TileState<Actions: View>: View {
-    @Environment(\.theme) private var theme
-    let symbol: String?
-    let title: String
-    let message: String?
-    let working: Bool
-    @ViewBuilder let actions: () -> Actions
-
-    var body: some View {
-        VStack(spacing: 14) {
-            if let symbol {
-                Image(systemName: symbol).font(.system(size: 20, weight: .medium)).foregroundStyle(theme.colors.inkMuted)
-                    .frame(width: 48, height: 48).well(Radius.lg)
-            } else {
-                CursorBlock(width: 12, height: 22)
-            }
-            VStack(spacing: 5) {
-                Text(title).appTextStyle(.headline).foregroundStyle(theme.colors.ink).shimmer(working)
-                if let message {
-                    Text(message).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
-                        .multilineTextAlignment(.center).frame(maxWidth: 320).textSelection(.enabled)
-                }
-            }
-            actions()
-        }
-        .padding(20).frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

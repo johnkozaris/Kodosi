@@ -1,4 +1,3 @@
-using System.Text.Json.Serialization;
 using Kodosi;
 using Kodosi.Accounts;
 using Kodosi.Admission;
@@ -40,14 +39,7 @@ builder.Services.AddScoped<DeviceService>();
 builder.Services.AddScoped<FriendService>();
 builder.Services.AddScoped<MissionService>();
 builder.Services.AddScoped<SessionService>();
-builder.Services.ConfigureHttpJsonOptions(options =>
-{
-    options.SerializerOptions.Converters.Add(new CanonicalGuidConverter());
-    options.SerializerOptions.RespectNullableAnnotations = true;
-    options.SerializerOptions.RespectRequiredConstructorParameters = true;
-    options.SerializerOptions.UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow;
-    options.SerializerOptions.MaxDepth = 32;
-});
+builder.Services.ConfigureHttpJsonOptions(options => StrictJson.Configure(options.SerializerOptions));
 builder.WebHost.ConfigureKestrel(options =>
 {
     options.AddServerHeader = false;

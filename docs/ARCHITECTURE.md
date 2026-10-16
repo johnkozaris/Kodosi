@@ -13,13 +13,11 @@ flowchart LR
 
 Each native app embeds the Rust runtime through its C API. The runtime starts shells on
 a PTY (ConPTY on Windows) and owns terminal state, identity, encryption and rooms.
-Ghostty is linked in-process for terminal state and rendering; native views handle
-presentation, input and accessibility. The iPhone and iPad app embeds the viewer build
-of the runtime and hosts no terminals.
-
-The `kodosi` CLI talks to the running host, or starts its own in the background;
-`kodosi host` runs one in the foreground. On macOS the signed app executable serves the
-CLI so that it shares the app's Keychain identity.
+Ghostty, linked in-process, keeps terminal state and draws it; native views handle
+input and accessibility. The iPhone and iPad app embeds the viewer build and hosts no
+terminals. The `kodosi` CLI talks to the running host, or starts one in the background
+(`kodosi host` in the foreground); on macOS the app executable is the CLI, so both share
+the Keychain identity.
 
 ## Terminals
 
@@ -30,12 +28,10 @@ control a replacement terminal. Programs write the clipboard without a prompt: e
 view of a terminal applies a clipboard write. Only the view with keyboard focus answers a
 read, so the program gets one answer. In the person's own terminals it answers at once; in
 another person's terminal it asks first, because the answer sends the clipboard to that
-person's computer.
-
-The host keeps the status that programs report (OSC 7501, or a progress bar). For each
-terminal it sends the agent and state, without the program's text and without
-encryption, through its device connection; the backend keeps the newest one while the
-host is connected and gives it to everyone who can open the terminal.
+person's computer. The host also sends each terminal's agent and reported state (OSC 7501
+or a progress bar), unencrypted and without its text, through its device connection; the
+backend keeps the newest while the host is connected and gives it to everyone who can
+open the terminal.
 
 ## Backend and rooms
 
@@ -51,19 +47,13 @@ runtime with local credentials. See [Security](SECURITY.md) and the
 
 ## Contracts
 
-`just protocol-gen` writes the desktop contract from the Rust types and
-`just protocol-check` checks it. The `kodosi-ffi-c` build writes the C header, and the
-Apple build checks the committed copy against it. The other contracts are written by
-hand; the runtime build and tests read their versions, room limits and test vectors, and
-the backend tests check the server's versions, routes and limits against them. Change a
-contract together with the runtime, clients and backend.
-
-The backend reports the oldest and the current version of the API contract and of the
-terminal connection protocol on `/health/live`. An app below a range tells the person to
-update Kodosi, and an app above it names the server. The channel between two devices has
-its own version, `channelProtocolVersion`, which must match. After the first public
-release, an older app keeps working for 60 days after a release that raises an oldest
-version.
+`just protocol-gen` writes the desktop contract and `just protocol-check` checks it. The
+`kodosi-ffi-c` build writes the C header, and the Apple build compares the committed
+copy. The other contracts are written by hand; the runtime and the backend tests read
+their versions, limits and test vectors. Change a contract together with the runtime,
+clients and backend. `/health/live` gives the oldest and current versions of the API and
+of the terminal connection protocol: an app below that range asks the person to update,
+and one above it names the server that is behind.
 
 | Contract | File |
 | --- | --- |

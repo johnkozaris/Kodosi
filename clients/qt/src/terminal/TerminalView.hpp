@@ -121,8 +121,6 @@ public:
     void detach();
     Q_INVOKABLE [[nodiscard]] bool copySelectionToClipboard();
     Q_INVOKABLE void pasteFromClipboard();
-    /// Answers the program that asked for the clipboard: with its text when allowed,
-    /// and empty when not.
     Q_INVOKABLE void answerClipboardRead(bool allowed);
 
 signals:

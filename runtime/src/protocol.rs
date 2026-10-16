@@ -756,10 +756,6 @@ pub enum ProviderReply {
     AddAccount(crate::agents::AgentAccount),
 }
 
-/// Where the sign-in page opens; without it, the sign-in uses a device code.
-///
-/// The runtime takes the answer of the system browser on a loopback address. The app's own
-/// sign-in window gives its answer back with `auth.login.finish`.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, specta_macros::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum SignInBrowser {

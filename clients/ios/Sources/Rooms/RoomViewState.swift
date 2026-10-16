@@ -7,13 +7,6 @@ enum RoomSection: Int, Hashable {
     case terminals
 }
 
-enum RoomTaskChange: String {
-    case claim
-    case release
-    case close
-    case reopen
-}
-
 @Observable
 final class RoomViewState {
     var section: RoomSection = .conversation

@@ -11,13 +11,13 @@ struct PeopleView: View {
     @FocusState private var adding: Bool
 
     private var facts: String {
-        let waiting = deps.incomingRequests.count
-        let friends = Counted.friends(deps.friends.count)
+        let waiting = deps.people.incoming.count
+        let friends = Counted.friends(deps.people.friends.count)
         return waiting > 0 ? friends + " · " + String(localized: "\(waiting) waiting") : friends
     }
 
     var body: some View {
-        if !deps.accountReady {
+        if !deps.account.isReady {
             SignInView(title: "Add the people you work with", message: "Friends can open the terminals you share, and you can open theirs.")
         } else {
             ScrollView {
@@ -32,20 +32,20 @@ struct PeopleView: View {
                         .accessibilityIdentifier("people.copyInvite")
                     }.arrive()
                     addCapsule.arrive(delay: 0.04)
-                    if !deps.incomingRequests.isEmpty || !deps.outgoingRequests.isEmpty {
+                    if !deps.people.incoming.isEmpty || !deps.people.outgoing.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
-                            ForEach(deps.incomingRequests) { request in incoming(request).transition(AnyTransition.rise) }
-                            ForEach(deps.outgoingRequests) { request in outgoing(request).transition(AnyTransition.rise) }
+                            ForEach(deps.people.incoming) { request in incoming(request).transition(AnyTransition.rise) }
+                            ForEach(deps.people.outgoing) { request in outgoing(request).transition(AnyTransition.rise) }
                         }
                     }
-                    if deps.friends.isEmpty {
+                    if deps.people.friends.isEmpty {
                         EmptyState(title: "No friends yet", message: "Send your invite, or paste theirs above.") {
                             TogetherArt()
                         } actions: { EmptyView() }
                             .frame(height: 260)
                     } else {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 260, maximum: 360), spacing: 14, alignment: .top)], alignment: .leading, spacing: 14) {
-                            ForEach(Array(deps.friends.enumerated()), id: \.element.id) { index, friend in
+                            ForEach(Array(deps.people.friends.enumerated()), id: \.element.id) { index, friend in
                                 FriendCard(friend: friend) { pendingRemoval = friend }
                                     .arrive(delay: 0.04 * Double(min(index, 8) + 2))
                             }
@@ -55,9 +55,9 @@ struct PeopleView: View {
                 .padding(.horizontal, 36).padding(.top, 54).padding(.bottom, 36)
                 .frame(maxWidth: 1100, alignment: .leading).frame(maxWidth: .infinity)
             }
-            .animation(theme.motion.spring, value: deps.friends.map(\.id))
-            .animation(theme.motion.spring, value: deps.incomingRequests.map(\.id))
-            .animation(theme.motion.spring, value: deps.outgoingRequests.map(\.id))
+            .animation(theme.motion.spring, value: deps.people.friends.map(\.id))
+            .animation(theme.motion.spring, value: deps.people.incoming.map(\.id))
+            .animation(theme.motion.spring, value: deps.people.outgoing.map(\.id))
             .animation(theme.motion.snappy, value: copied)
             .confirmationDialog(
                 "Remove \(pendingRemoval?.personName ?? "")?",
@@ -69,7 +69,7 @@ struct PeopleView: View {
             ) {
                 if let friend = pendingRemoval {
                     Button("Remove", role: .destructive) {
-                        deps.perform("friends.remove", ["username": .string(friend.handle)])
+                        deps.people.remove(friend)
                         pendingRemoval = nil
                     }
                 }
@@ -106,7 +106,7 @@ struct PeopleView: View {
 
     private func add(_ name: String) {
         guard !name.isEmpty else { return }
-        deps.perform("friends.request.send", ["username": .string(name), "requestId": .string(UUIDv7.generate())])
+        deps.people.add(name)
         username = ""
     }
 
@@ -119,8 +119,8 @@ struct PeopleView: View {
                 Text(verbatim: "@\(person.handle)").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
             }
             Spacer()
-            Button("Not now") { deps.perform("friends.request.reject", ["username": .string(person.handle)]) }.buttonStyle(.kodosi(.ghost))
-            Button("Accept") { deps.perform("friends.request.accept", ["username": .string(person.handle)]) }.buttonStyle(.kodosi(.primary))
+            Button("Not now") { deps.people.decline(person) }.buttonStyle(.kodosi(.ghost))
+            Button("Accept") { deps.people.accept(person) }.buttonStyle(.kodosi(.primary))
         }
         .padding(14).frame(maxWidth: 620)
         .raised(Radius.xl)
@@ -134,7 +134,7 @@ struct PeopleView: View {
             Text(name).appTextStyle(.body).foregroundStyle(theme.colors.ink)
             Tag(text: String(localized: "Waiting for them"))
             Spacer()
-            Button("Cancel") { deps.perform("friends.request.cancel", ["username": .string(person.handle)]) }
+            Button("Cancel") { deps.people.cancel(person) }
                 .buttonStyle(.kodosi(.ghost, size: .small))
         }
         .padding(.horizontal, 12).frame(height: 46).frame(maxWidth: 620)
@@ -167,8 +167,7 @@ private struct FriendCard: View {
                     HStack(spacing: 5) {
                         Text(name).appTextStyle(.headline).foregroundStyle(theme.colors.ink).lineLimit(1)
                         if friend.isVerified {
-                            Image(systemName: "checkmark.seal.fill").font(.system(size: 12)).foregroundStyle(theme.colors.ready)
-                                .help("Verified").accessibilityLabel(Text("Verified"))
+                            VerifiedSeal(size: 12).help("Verified")
                         }
                     }
                     Text(verbatim: "@\(friend.handle)").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
@@ -191,7 +190,7 @@ private struct FriendCard: View {
                     HStack(spacing: 8) {
                         Tag(text: String(localized: "New identity"), symbol: "exclamationmark", tone: .caution)
                         Spacer()
-                        Button("Trust") { deps.perform("friends.identity.trust", ["username": .string(friend.handle)]) }
+                        Button("Trust") { deps.people.trust(friend) }
                             .buttonStyle(.kodosi(.primary, size: .small))
                             .accessibilityIdentifier("people.trust.\(friend.handle)")
                     }
@@ -223,10 +222,7 @@ private struct FriendCard: View {
                     TextField("Paste the invite \(name) sent you", text: $invite)
                         .accessibilityIdentifier("people.verifyInvite")
                     Button("Verify") {
-                        deps.perform("friends.verify", [
-                            "username": .string(friend.handle),
-                            "invite": .string(invite.trimmingCharacters(in: .whitespacesAndNewlines)),
-                        ])
+                        deps.people.verify(friend, invite: invite)
                         verifying = false; invite = ""
                     }
                     .buttonStyle(.kodosi(.primary, size: .small))

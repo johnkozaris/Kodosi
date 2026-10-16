@@ -7,13 +7,12 @@ import Kodosi.Models 1.0 as Models
 ColumnLayout {
     id: root
 
-    property int provider: 0
-    readonly property string agent: provider === 0 ? "claude" : "copilot"
+    property string agent: "claude"
     readonly property var installation: Models.ProviderFiles.installation
     readonly property var files: installation.files || []
 
     function inspect() {
-        Models.ProviderFiles.inspect(provider === 0 ? Models.ProviderFiles.Claude : Models.ProviderFiles.Copilot, Models.DesktopSettings.effectiveWorkingDirectory);
+        Models.ProviderFiles.inspect(agent, Models.DesktopSettings.effectiveWorkingDirectory);
     }
 
     spacing: 18
@@ -44,12 +43,12 @@ ColumnLayout {
             compact: true
             identifier: "panel.settingsView.provider"
             options: [
-                { value: 0, label: "Claude" },
-                { value: 1, label: "Copilot" }
+                { value: "claude", label: "Claude" },
+                { value: "copilot", label: "Copilot" }
             ]
-            currentValue: root.provider
+            currentValue: root.agent
             onActivated: value => {
-                root.provider = value;
+                root.agent = value;
                 root.inspect();
             }
         }

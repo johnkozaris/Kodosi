@@ -8,7 +8,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.TerminalConnections;
 
-/// <summary>The agent of a terminal and the state that its program reports, never its title or text.</summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record TerminalStatus(string? Program = null, string? State = null, string? Kind = null)
 {
@@ -23,10 +22,6 @@ public sealed record TerminalStatus(string? Program = null, string? State = null
         && (Kind is null || (State == "blocked" && Kind is "permission" or "question" or "auth"));
 }
 
-/// <summary>
-/// Tells the people of a terminal when its host connects, disconnects or reports a new status. Changes of one terminal
-/// merge, and one terminal is announced at most once each second, always with its newest status.
-/// </summary>
 internal sealed partial class TerminalPresence(IServiceScopeFactory scopes, ConnectionDirectory directory, TimeProvider clock,
     ILogger<TerminalPresence> logger) : BackgroundService
 {

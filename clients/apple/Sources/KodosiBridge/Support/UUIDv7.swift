@@ -1,8 +1,8 @@
 import Foundation
 
 public enum UUIDv7 {
-    public static func generate(now: Date = Date(), random: UUID = UUID()) -> String {
-        let timestamp = UInt64(max(0, now.timeIntervalSince1970 * 1000))
+    public static func generate() -> String {
+        let timestamp = UInt64(max(0, Date().timeIntervalSince1970 * 1000))
         var bytes = [UInt8](repeating: 0, count: 16)
         bytes[0] = UInt8((timestamp >> 40) & 0xFF)
         bytes[1] = UInt8((timestamp >> 32) & 0xFF)
@@ -11,7 +11,7 @@ public enum UUIDv7 {
         bytes[4] = UInt8((timestamp >> 8) & 0xFF)
         bytes[5] = UInt8(timestamp & 0xFF)
 
-        withUnsafeBytes(of: random.uuid) { randomBytes in
+        withUnsafeBytes(of: UUID().uuid) { randomBytes in
             for index in 6 ..< 16 {
                 bytes[index] = randomBytes[index]
             }

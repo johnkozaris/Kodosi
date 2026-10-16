@@ -4,17 +4,20 @@ Run the backend with PostgreSQL and an OIDC sign-in service, behind HTTPS.
 
 ## Sign-in
 
-Create a public OIDC client `kodosi-app` with refresh tokens, the scopes `openid profile
-offline_access`, and two flows: the authorization code flow with PKCE (S256) for the
-apps, and the device authorization flow for the command line. Allow the redirect
-addresses `http://127.0.0.1/callback` (any port: the Mac, Linux and Windows apps) and
-`com.kodosi:/auth` (the iPhone and iPad app). The issuer's discovery document must expose
-`authorization_endpoint`, `device_authorization_endpoint` and `token_endpoint` on the
-issuer's origin, over HTTPS (loopback HTTP works for development). Access tokens use RS256
-or ES256, name the issuer and audience, and include a non-empty `sub`, an expiry and
-`auth_time`. Deleting an account and starting fresh on a device need a sign-in of at most
-15 minutes, which the backend reads from `auth_time`. Accounts are keyed by issuer and
-subject; `preferred_username` and `name` give display names.
+Create a public OIDC client `kodosi-app` with refresh tokens and the scopes `openid
+profile offline_access`:
+
+- Flows: authorization code with PKCE (S256) for the apps, device authorization for the
+  command line.
+- Redirects: `http://127.0.0.1/callback` on any port (Mac, Linux, Windows) and
+  `com.kodosi:/auth` (iPhone and iPad).
+- The discovery document exposes `authorization_endpoint`,
+  `device_authorization_endpoint` and `token_endpoint` on the issuer's origin, over HTTPS
+  (loopback HTTP for development).
+- Access tokens use RS256 or ES256, name the issuer and audience, and carry `sub`, an
+  expiry and `auth_time`. Deleting an account or starting fresh needs a sign-in at most
+  15 minutes old. Accounts are keyed by issuer and subject; `preferred_username` and
+  `name` give display names.
 
 ## Backend
 
@@ -31,15 +34,13 @@ Configure:
 
 Run the host once with the `migrate` argument, then start it normally (`just backend-run`
 does both). Run one serving instance and back up the database before upgrades. Terminate
-HTTPS at a reverse proxy with WebSocket support. `/health/live` checks the process and `/health/ready` readiness.
+HTTPS at a reverse proxy with WebSocket support. `/health/live` checks the process and
+`/health/ready` readiness.
 
-The backend uses at most 32 database connections, and one more for its lease; set
-`Maximum Pool Size` in the connection string to change the 32. A stopping backend closes
-each device connection as a service restart, and the apps connect again. Each minute
-the backend logs one line with its connections, hosted terminals and device sessions,
-and with the data it relayed and the requests that it refused or that failed in that
-minute. The meter `Kodosi.Server` gives the same values, for example to
-`dotnet-counters monitor --counters Kodosi.Server`.
+The backend uses at most 32 database connections plus one for its lease (`Maximum Pool
+Size` in the connection string changes the 32). Each minute it logs its connections,
+hosted terminals, device sessions, relayed data and refused or failed requests; the
+meter `Kodosi.Server` gives the same values.
 
 ## Account deletion
 
@@ -55,11 +56,10 @@ seconds. Give it a confidential client with only a service account and the
 
 ## Plans
 
-Without plans, each account can have 10 devices, own 64 rooms of 64 members, share a
-terminal with 64 people and send 64 open friend requests; room data and friends have no
-limit. To set smaller limits, define plans in the setting `Plans`. The column
-`users.Plan` names the plan of an account; an account without a plan, or with an unknown
-one, gets the default plan:
+Without plans, an account can have 10 devices, own 64 rooms of 64 members, share a
+terminal with 64 people and send 64 open friend requests; room data and friends are
+unlimited. Plans in the setting `Plans` set smaller limits, and the column `users.Plan`
+names an account's plan (the default plan otherwise):
 
 ```json
 "Plans": {
@@ -73,24 +73,14 @@ one, gets the default plan:
 }
 ```
 
-| Limit | The most that an account can have | Values |
-| --- | --- | --- |
-| `Devices` | Approved devices | 1 to 16 |
-| `OwnedRooms` | Rooms that it owns | 1 to 64 |
-| `RoomPeople` | People in each room that it owns, with the owner and open invitations | 1 to 65 |
-| `SharePeople` | People who can see one of its terminals | 1 to 64 |
-| `RoomBytes` | Encrypted bytes in each room that it owns | 131072 or more |
-| `Friends` | Friends | 1 or more |
-| `SentFriendRequests` | Open friend requests that it sent | 1 to 64 |
-| `ReceivedFriendRequests` | Open friend requests to it | 1 or more |
-
-A limit that a plan does not set keeps its value without plans. The owner's plan sets
-the limits of a room or a terminal. A new room item past `RoomBytes` deletes the room's
-oldest messages, and the apps say so; past another limit the backend refuses with status
-403 and the limit's name in `limit`. A smaller plan removes nothing, and a recovery with
-the recovery key is never limited. A plan change in the database applies at once, for
-example `UPDATE users SET "Plan" = 'team' WHERE "Handle" = 'ana';`. An error in the
-setting stops the backend at start.
+Limits: `Devices` (1–16), `OwnedRooms` (1–64), `RoomPeople` per owned room with the owner
+and open invitations (1–65), `SharePeople` who can see one of its terminals (1–64),
+`RoomBytes` of encrypted data per owned room (at least 131072), `Friends`,
+`SentFriendRequests` (1–64) and `ReceivedFriendRequests`. An unset limit keeps its
+default, and the owner's plan applies to a room or terminal. Past `RoomBytes` a room
+drops its oldest messages; past another limit the backend answers 403 with an error
+that says what to do. A smaller plan removes nothing, recovery is never limited, a change in
+the database applies at once, and an invalid setting stops the backend at start.
 
 ## Image
 
@@ -98,5 +88,5 @@ setting stops the backend at start.
 just backend-package linux/amd64 registry.example.com/kodosi/backend:1
 ```
 
-Builds the image for a platform with an optional tag (default `kodosi-backend`) into
-your local Docker images.
+This builds the image for a platform, with an optional tag, into your local Docker
+images.

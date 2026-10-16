@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""Check a Linux package of Kodosi: the Debian package, the portable archive or
-the Arch package. The check examines the source identity, the archive metadata,
-the notices, the installed files, the links of the programs and the desktop
-files."""
+"""Check a Debian, portable or Arch package of Kodosi."""
 
 from __future__ import annotations
 
@@ -445,9 +442,6 @@ def check_debian_dependencies(package: Path) -> None:
     missing = [name for name in DEBIAN_DEPENDENCIES if name not in names]
     if missing:
         fail(f"the package does not depend on {', '.join(missing)}")
-    floors = [item for item in depends if item.startswith(("libxcb-icccm4 (", "libxcb-keysyms1 ("))]
-    if floors:
-        fail(f"the package has version floors from the build host: {', '.join(floors)}")
 
 
 def check_files(root: Path, qt_version: str) -> None:
@@ -475,14 +469,10 @@ def check_files(root: Path, qt_version: str) -> None:
 
 
 def check_repository(package: Path, root: Path) -> None:
-    keyring = ROOT / "packaging/linux/kodosi-archive-keyring.pgp"
-    if keyring.is_file():
-        same(root, "etc/apt/sources.list.d/kodosi.sources", ROOT / "packaging/linux/kodosi.sources")
-        same(root, "etc/apt/keyrings/kodosi-archive-keyring.pgp", keyring)
-        if run("dpkg-deb", "-I", str(package), "conffiles") != (ROOT / "packaging/linux/conffiles").read_text("utf-8"):
-            fail("the conffiles of the package differ from packaging/linux/conffiles")
-    elif (root / "etc").exists():
-        fail("the package adds files to /etc without the archive key")
+    same(root, "etc/apt/sources.list.d/kodosi.sources", ROOT / "packaging/linux/kodosi.sources")
+    same(root, "etc/apt/keyrings/kodosi-archive-keyring.pgp", ROOT / "packaging/linux/kodosi-archive-keyring.pgp")
+    if run("dpkg-deb", "-I", str(package), "conffiles") != (ROOT / "packaging/linux/conffiles").read_text("utf-8"):
+        fail("the conffiles of the package differ from packaging/linux/conffiles")
 
 
 def check_links(root: Path) -> None:

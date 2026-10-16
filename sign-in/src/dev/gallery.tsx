@@ -114,12 +114,7 @@ const maya = {
 };
 const terms =
   '<a href="https://kodosi.com/terms">Terms</a> · <a href="https://kodosi.com/privacy">Privacy</a>';
-const turnstile = (key: string) => ({
-  turnstileRequired: true,
-  turnstileSiteKey: key,
-  turnstileMode: "managed",
-  turnstileTheme: "auto",
-});
+const turnstile = (key: string) => ({ turnstileRequired: true, turnstileSiteKey: key });
 const injected = (key: string) => ({
   scripts: [
     `/realms/kodosi/kodosi-turnstile/config.js?siteKey=${key}&mode=managed&theme=auto&debug=false`,

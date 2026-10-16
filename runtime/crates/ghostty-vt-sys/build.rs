@@ -16,7 +16,6 @@ const NATIVE_BUILD: &str = "NativeBuild.env";
 
 fn main() {
     println!("cargo:rerun-if-env-changed=KODOSI_GHOSTTY_CHECK_ONLY");
-    // Type-checking never links, so a cross-check needs no vendored library.
     if env::var_os("KODOSI_GHOSTTY_CHECK_ONLY").is_some() {
         return;
     }

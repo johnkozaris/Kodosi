@@ -51,8 +51,6 @@ impl Pacer {
         }
     }
 
-    /// The image pixels of a snapshot for this viewer: what its link carries in
-    /// two seconds, within the bounds for remote views.
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,

@@ -9,9 +9,6 @@ const MAX_CONTEXTS: usize = 64;
 const MAX_ID_BYTES: usize = 64;
 const MAX_NAME_CHARS: usize = 255;
 
-/// Where the program of a terminal runs when it is not the terminal's own
-/// computer, and whether it runs as root, from the contexts that programs
-/// report with OSC 3008.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TerminalContext {
@@ -45,7 +42,6 @@ impl TerminalContext {
     }
 }
 
-/// This computer as contexts name it.
 #[cfg(feature = "host")]
 #[derive(Debug, Clone, Default)]
 pub(super) struct LocalMachine {
@@ -80,7 +76,6 @@ enum Kind {
 #[derive(Debug)]
 struct Context {
     id: Vec<u8>,
-    /// The foreground process group of the terminal when the context started.
     group: Option<u32>,
     kind: Kind,
     user: Option<String>,
@@ -92,10 +87,6 @@ struct Context {
     vm: Option<String>,
 }
 
-/// The open contexts of a terminal, innermost last. A start with a new
-/// identifier opens a context inside the active one, a start with an open
-/// identifier replaces it and ends the contexts inside it, and an end closes
-/// the context and the contexts inside it.
 #[cfg(feature = "host")]
 #[derive(Debug, Default)]
 pub(super) struct Contexts {
@@ -132,9 +123,6 @@ impl Contexts {
         }
     }
 
-    /// The shell of the terminal is in front again, so the contexts that its
-    /// jobs reported have ended, even those a job never ended, as when a
-    /// connection drops.
     pub(super) fn shell_in_front(&mut self, shell: u32) {
         let kept = self
             .stack
@@ -210,9 +198,6 @@ impl Context {
         context
     }
 
-    /// The place this context names: the target of a login, a container or a
-    /// virtual machine, or the computer of a context that another computer
-    /// reported, inside the nearest enclosing login, container or machine.
     fn place(
         &self,
         local: &LocalMachine,
@@ -257,7 +242,6 @@ impl Context {
             .unwrap_or(false)
     }
 
-    /// The user that the programs of this context run as.
     fn user(&self) -> Option<&str> {
         let changes_user = matches!(
             self.kind,
@@ -290,8 +274,6 @@ impl Kind {
     }
 }
 
-/// A field value as the specification escapes it: `;` as `\x3b` and `\` as
-/// `\x5c`. A value that is empty, too long or not text is ignored.
 #[cfg(feature = "host")]
 fn unescape(raw: &[u8]) -> Option<String> {
     let mut value = Vec::with_capacity(raw.len());

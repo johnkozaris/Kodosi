@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
-"""Writes the static update site of one release, and SHA256SUMS of its files.
-
-The release folder holds the files of one version: Kodosi-X.Y.Z.dmg with its Sparkle
-deltas, kodosi_X.Y.Z_amd64.deb and the other Linux files, and Kodosi-X.Y.Z.msixbundle
-when the release has a Windows app. The site gets the Sparkle feed from
-generate-appcast.sh, the apt repository, the App Installer file that the Windows
-packages embed, release.json and _redirects. The packages stay on the GitHub release;
-_redirects sends the downloads there."""
+"""Writes the static update site of one release, and SHA256SUMS of its files."""
 
 from __future__ import annotations
 
@@ -25,7 +18,6 @@ from xml.etree import ElementTree
 from pathlib import Path
 
 REPOSITORY = "johnkozaris/Kodosi"
-# The site gives the same key that the Debian package adds.
 APT_KEY = Path(__file__).resolve().parents[1] / "clients/qt/packaging/linux/kodosi-archive-keyring.pgp"
 
 
@@ -95,7 +87,6 @@ def apt_repository(deb: Path, version: str, apt: Path) -> None:
 
 
 def windows_appinstaller(bundle: Path, version: str) -> bytes:
-    """Returns the App Installer file that the packages in the bundle embed."""
     with zipfile.ZipFile(bundle) as outer:
         names = [name for name in outer.namelist() if name.endswith(".msix")]
         embedded = set()

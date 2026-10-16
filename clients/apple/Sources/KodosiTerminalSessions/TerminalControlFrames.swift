@@ -40,8 +40,6 @@ enum TerminalControlFrames {
         }
     }
 
-    /// The grid and cell size that the host gave its terminal, from a
-    /// `term.resize` frame.
     static func hostViewport(from json: [String: Any]) -> TerminalViewport? {
         guard let cols = exactUInt16(json["cols"]),
               let rows = exactUInt16(json["rows"]),

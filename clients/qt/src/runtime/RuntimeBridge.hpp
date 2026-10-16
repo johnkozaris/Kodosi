@@ -16,8 +16,6 @@
 namespace kodosi {
 
 struct RuntimeFailure {
-    enum class Code { ContractMismatch, StartRejected, RuntimeStopped, InvalidArgument, FfiRejected };
-    Code code;
     std::int32_t ffiResult;
     QString message;
 };
@@ -123,6 +121,8 @@ private:
     std::uint64_t m_accountEpoch = 0;
     [[nodiscard]] Result requireRunning() const;
     [[nodiscard]] Result terminalOperationResult(std::int32_t result, QString operation) const;
+    [[nodiscard]] Result subscriptionCommand(const TerminalSubscription& subscription,
+        std::int32_t (*command)(void*, const char*, const char*, std::uint64_t), QString operation) const;
     void queueEvent(const std::uint8_t* json, std::uintptr_t length);
     void deliverEvent(const QByteArray& payload);
     static RuntimeBridge* resolve(void* userdata) noexcept;

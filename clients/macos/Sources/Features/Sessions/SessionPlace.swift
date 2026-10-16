@@ -2,7 +2,6 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-/// The other computer, container or virtual machine that a terminal's program runs in.
 struct SessionPlace: View {
     let place: TerminalPlace
 

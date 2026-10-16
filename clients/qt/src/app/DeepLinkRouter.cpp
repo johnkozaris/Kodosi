@@ -9,23 +9,7 @@ namespace {
 bool forbiddenCodePoint(const char32_t value)
 {
     const auto category = QChar::category(value);
-    return value == 0
-        || value < 0x20
-        || (value >= 0x7f && value <= 0x9f)
-        || category == QChar::Other_Control
-        || category == QChar::Other_Format
-        || value == 0x202a
-        || value == 0x202b
-        || value == 0x202c
-        || value == 0x202d
-        || value == 0x202e
-        || value == 0x2066
-        || value == 0x2067
-        || value == 0x2068
-        || value == 0x2069
-        || value == 0x061c
-        || value == 0x200e
-        || value == 0x200f;
+    return category == QChar::Other_Control || category == QChar::Other_Format;
 }
 
 bool hasForbiddenText(const QStringView value)

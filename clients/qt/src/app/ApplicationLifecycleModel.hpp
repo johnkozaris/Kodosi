@@ -70,8 +70,6 @@ private:
     void handleRuntimeRunningChanged(bool running);
     void fail(QString message);
 
-    [[nodiscard]] static QString safeErrorText(
-        const RuntimeFailure& failure);
     [[nodiscard]] static QString boundedText(
         QString text,
         QString fallback);

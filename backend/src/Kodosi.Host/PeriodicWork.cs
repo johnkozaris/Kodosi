@@ -1,16 +1,11 @@
 namespace Kodosi;
 
-/// <summary>
-/// Background work that runs once in each period. A failed pass is logged and the next pass runs, so that a
-/// fault in one pass never stops the server.
-/// </summary>
 internal abstract partial class PeriodicWork(TimeSpan period, TimeProvider clock, ILogger logger, bool startNow = false) : BackgroundService
 {
     protected TimeProvider Clock => clock;
 
     protected virtual bool Enabled => true;
 
-    /// <summary>A failure that a later pass can overcome, such as an unreachable database. It is a warning, not an error.</summary>
     protected virtual bool Waits(Exception error) => Failures.IsDatabaseUnavailable(error);
 
     protected internal abstract Task RunAsync(CancellationToken ct);

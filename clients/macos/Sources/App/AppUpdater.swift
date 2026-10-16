@@ -1,4 +1,5 @@
 import AppKit
+import KodosiBridge
 import os
 import Sparkle
 
@@ -42,7 +43,6 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
         controller.checkForUpdates(nil)
     }
 
-    /// Restarts into the update that waits, or checks for one. The quit question asks first.
     func restart() {
         guard let install else { return check() }
         restarting = true

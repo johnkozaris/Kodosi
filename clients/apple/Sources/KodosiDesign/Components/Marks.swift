@@ -108,7 +108,6 @@ public struct AgentMark: View {
     public let kind: AgentKind
     public var size: CGFloat = 22
     public var activity: Activity = .awake
-    /// A shell that runs as root shows a root prompt.
     public var root = false
 
     public init(kind: AgentKind, size: CGFloat = 22, activity: Activity = .awake, root: Bool = false) {
@@ -377,8 +376,6 @@ public struct RoomSigil: View {
     }
 }
 
-/// The glyph of the place a program runs in: another computer, a container or a virtual
-/// machine.
 public struct PlaceGlyph: View {
     public let kind: TerminalPlace.Kind
 
@@ -449,5 +446,48 @@ public struct KodosiWordmark: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: "Kodosi"))
+    }
+}
+
+public struct VerifiedSeal: View {
+    @Environment(\.theme) private var theme
+    let size: CGFloat
+
+    public init(size: CGFloat = 13) {
+        self.size = size
+    }
+
+    public var body: some View {
+        Image(systemName: "checkmark.seal.fill")
+            .font(.system(size: size, weight: .semibold))
+            .foregroundStyle(theme.colors.ready)
+            .accessibilityLabel(Text("Verified", bundle: .module))
+    }
+}
+
+public struct TogetherArt: View {
+    @Environment(\.theme) private var theme
+    let size: CGFloat
+    let ring: Color?
+
+    public init(size: CGFloat = 46, ring: Color? = nil) {
+        self.size = size
+        self.ring = ring
+    }
+
+    public var body: some View {
+        let ring = ring ?? theme.colors.surface
+        let center = size + 8
+        HStack(spacing: -size * 0.22) {
+            PersonAvatar(name: "A", key: "art.a", size: size, ring: ring)
+            AgentMark(kind: .claude, size: center)
+                .overlay { RoundedRectangle(cornerRadius: center * 0.3, style: .continuous).stroke(ring, lineWidth: 3).padding(-1.5) }
+                .zIndex(1)
+            AgentMark(kind: .shell, size: size)
+                .overlay { RoundedRectangle(cornerRadius: size * 0.3, style: .continuous).stroke(ring, lineWidth: 3).padding(-1.5) }
+            PersonAvatar(name: "B", key: "art.d", size: size, ring: ring)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityHidden(true)
     }
 }

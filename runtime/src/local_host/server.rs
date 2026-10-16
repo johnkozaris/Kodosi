@@ -288,38 +288,10 @@ async fn serve_terminal(
         &checkpoint_frame(&subscription.checkpoint, subscription.next_sequence),
     )
     .await?;
-    let mut next = subscription.next_sequence;
-    let mut controls = std::collections::VecDeque::<(u16, u16, terminal::CellPixels, u64)>::new();
-    let mut closing: Option<(String, u64)> = None;
     let mut admissions = futures_util::stream::FuturesOrdered::<
         futures_util::future::BoxFuture<'static, Result<()>>,
     >::new();
     loop {
-        while let Some(&(rows, cols, cell, at_sequence)) = controls.front() {
-            if at_sequence > next {
-                break;
-            }
-            controls.pop_front();
-            if at_sequence != next {
-                return Err(Error::Invalid(
-                    "terminal resize crossed output boundary".into(),
-                ));
-            }
-            write_frame(&mut writer, &resize_frame(rows, cols, cell, at_sequence)?).await?;
-        }
-        if let Some((reason, last)) = &closing {
-            if *last == next {
-                write_frame(
-                    &mut writer,
-                    &control_frame(&json!({"type":"closed","reason":reason,"finalSequence":last}))?,
-                )
-                .await?;
-                return Ok(());
-            }
-            if *last < next {
-                return Err(Error::Invalid("terminal close boundary regressed".into()));
-            }
-        }
         tokio::select! {
             biased;
             ()=cancel.cancelled()=>return Ok(()),
@@ -349,26 +321,21 @@ async fn serve_terminal(
                     _=>return Err(Error::Invalid("unsupported terminal input frame".into())),
                 }
             }
-            control=subscription.control.recv(),if closing.is_none()=>match control {
-                Some(terminal::ControlFrame::Resize{rows,cols,cell,at_sequence})=>{
-                    if controls.len()>=32 || controls.back().is_some_and(|&(_,_,_,at)|at>at_sequence){return Err(Error::Invalid("too many terminal resize boundaries".into()));}
-                    controls.push_back((rows,cols,cell,at_sequence));
-                }
-                Some(terminal::ControlFrame::Snapshot{checkpoint,next_sequence})=>{
-                    if next_sequence<next{return Err(Error::Invalid("terminal snapshot regressed".into()));}
-                    write_frame(&mut writer,&checkpoint_frame(&checkpoint,next_sequence)).await?;
-                    next=next_sequence;controls.clear();
-                }
-                Some(terminal::ControlFrame::Closed{reason,final_sequence})=>closing=Some((reason,final_sequence)),
-                None=>return Ok(()),
-            },
-            frame=subscription.data.recv()=>match frame {
-                Some(frame) if frame.sequence<next=>{},
-                Some(frame) if frame.sequence==next=>{
+            frame=subscription.recv()=>match frame? {
+                Some(terminal::Frame::Data(frame))=>{
                     let mut bytes=Vec::with_capacity(9+frame.bytes.len());bytes.push(DATA);bytes.extend(frame.sequence.to_be_bytes());bytes.extend(&frame.bytes);
-                    write_frame(&mut writer,&bytes).await?;next=next.checked_add(1).ok_or_else(||Error::Invalid("terminal sequence exhausted".into()))?;
+                    write_frame(&mut writer,&bytes).await?;
                 }
-                Some(_)=>return Err(Error::Invalid("terminal output needs a fresh snapshot".into())),
+                Some(terminal::Frame::Control(terminal::ControlFrame::Resize{rows,cols,cell,at_sequence}))=>{
+                    write_frame(&mut writer,&resize_frame(rows,cols,cell,at_sequence)?).await?;
+                }
+                Some(terminal::Frame::Control(terminal::ControlFrame::Snapshot{checkpoint,next_sequence}))=>{
+                    write_frame(&mut writer,&checkpoint_frame(&checkpoint,next_sequence)).await?;
+                }
+                Some(terminal::Frame::Control(terminal::ControlFrame::Closed{reason,final_sequence}))=>{
+                    write_frame(&mut writer,&control_frame(&json!({"type":"closed","reason":reason,"finalSequence":final_sequence}))?).await?;
+                    return Ok(());
+                }
                 None=>return Ok(()),
             }
         }

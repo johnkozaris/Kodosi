@@ -31,6 +31,7 @@ struct DeviceSession {
 #[derive(Clone)]
 pub(crate) struct Credentials {
     pub(crate) user_id: String,
+    pub(crate) display_name: String,
     pub(crate) token: Zeroizing<String>,
     pub(crate) keys: Arc<DeviceKeys>,
     pub(crate) enrolled: bool,

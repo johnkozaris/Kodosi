@@ -89,12 +89,15 @@ import Testing
     app.commandSink.transport = { _ in 0 }
     try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner")]))
     app.sessions = try [runtimeSession()]
-    app.localDeviceEnrolled = true
-    app.identityMessage = "old account notice"
+    try app.receive(runtimeEvent("devices.list", fields: [
+        "selfDeviceId": .string("this"), "localDeviceEnrolled": .bool(false), "devices": .array([]),
+        "notice": .string("old account notice"),
+    ]))
+    #expect(app.account.identityMessage == "old account notice")
     try app.receive(runtimeEvent("auth.required", epoch: 2, userId: nil, fields: ["reason": .string("signedOut")]))
     #expect(app.sessions.isEmpty)
-    #expect(!app.localDeviceEnrolled)
-    #expect(app.identityMessage == nil)
+    #expect(app.account.selfDeviceId == nil)
+    #expect(app.account.identityMessage == nil)
     try app.receive(runtimeEvent("friends.snapshot", fields: [
         "friends": .array([.object([
             "userId": .string("other"), "handle": .string("other"), "displayName": .string("Other"),
@@ -102,7 +105,7 @@ import Testing
         ])]),
         "incoming": .array([]), "outgoing": .array([]),
     ]))
-    #expect(app.friends.isEmpty)
+    #expect(app.people.friends.isEmpty)
     app.shutdownProcess()
 }
 
@@ -128,8 +131,8 @@ import Testing
         ]),
         "incoming": .array([]), "outgoing": .array([]),
     ]))
-    #expect(app.friends.map(\.verified) == [true, false])
-    #expect(app.friends.map(\.identityChanged) == [false, true])
+    #expect(app.people.friends.map(\.verified) == [true, false])
+    #expect(app.people.friends.map(\.identityChanged) == [false, true])
     try app.receive(runtimeEvent("friends.invite", fields: ["text": .string("kodosi:owner:abcd")]))
     #expect(copied.isEmpty)
     app.copyInvite()
@@ -137,5 +140,5 @@ import Testing
     try app.receive(runtimeEvent("friends.invite", fields: ["text": .string("kodosi:owner:abcd")]))
     #expect(copied == ["kodosi:owner:abcd"])
     #expect(app.inviteCopies == 1)
-    #expect(app.friends.count == 2)
+    #expect(app.people.friends.count == 2)
 }

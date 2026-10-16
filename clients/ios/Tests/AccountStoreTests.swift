@@ -12,7 +12,8 @@ struct AccountStoreTests {
     private let deletionPage = "https://auth.kodosi.com/realms/kodosi/protocol/openid-connect/auth?kc_action=delete_account"
 
     init() {
-        store = AccountStore(commands: outbox.commands, notices: notices)
+        store = AccountStore(commands: outbox.commands, browser: "app")
+        store.notify = { [notices] message in notices.show(message) }
         store.reset(userId: "user-1")
     }
 

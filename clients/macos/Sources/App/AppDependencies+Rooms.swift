@@ -10,7 +10,7 @@ extension AppDependencies {
         state.busy = true; state.failure = nil
         defer { state.busy = false }
         do {
-            try await roomAction(roomId, ["type": .string("post"), "text": .string(text)])
+            try await roomAction(roomId, RoomAction.post(text))
             if state.messageRevision == revision {
                 state.message = ""
             }
@@ -33,11 +33,7 @@ extension AppDependencies {
         state.failure = nil
         defer { state.loading = false }
         do {
-            var action: [String: JSONValue] = ["type": .string("read")]
-            if let before {
-                action["before"] = .uint(before)
-            }
-            try await roomAction(roomId, action)
+            try await roomAction(roomId, RoomAction.read(before: before))
         } catch { state.failure = error.localizedDescription }
     }
 
@@ -51,15 +47,12 @@ extension AppDependencies {
             var next: RoomSnapshot = try event.value("room")
             if let previous = rooms[next.roomId] {
                 let state = roomView(next.roomId)
-                let latest = previous.messages.map(\.sequence).max() ?? 0
-                let added = next.messages.count { $0.sequence > latest && !($0.agent == nil && $0.authorId == userId) }
-                if !state.followsLatest || !state.conversationVisible || workbench.section != .missions || workbench.selectedMissionId != next
-                    .roomId
-                {
+                let added = next.newMessages(after: previous, userId: account.userId)
+                let watching = workbench.section == .missions && workbench.selectedMissionId == next.roomId
+                if !state.followsLatest || !state.conversationVisible || !watching {
                     state.unread += added
                 }
                 next.merge(previous)
-                let watching = workbench.section == .missions && workbench.selectedMissionId == next.roomId
                 if previous.tasks.map(\.version) != next.tasks.map(\.version), !(watching && state.canvas == 1) {
                     state.fresh.insert(1)
                 }

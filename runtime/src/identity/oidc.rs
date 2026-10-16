@@ -17,7 +17,6 @@ pub struct Oidc {
     scope: String,
 }
 
-/// Where the app's own sign-in window sends its answer.
 pub const APP_REDIRECT: &str = "com.kodosi:/auth";
 
 #[derive(Deserialize)]
@@ -54,8 +53,6 @@ impl Drop for DeviceLogin {
     }
 }
 
-/// A sign-in in a browser (OAuth 2.0 authorization code with PKCE): the page to open, and what
-/// shows that an answer belongs to this sign-in.
 pub struct BrowserLogin {
     pub page: String,
     redirect_uri: String,
@@ -66,7 +63,6 @@ pub struct BrowserLogin {
 }
 
 impl BrowserLogin {
-    /// Whether an answer is for this sign-in: it comes to its address and carries its state.
     pub fn owns(&self, answer: &Url) -> bool {
         let mut address = answer.clone();
         address.set_query(None);
@@ -270,7 +266,6 @@ impl Oidc {
         }
     }
 
-    /// Makes the page of a sign-in whose answer goes to `redirect_uri`.
     pub async fn browser(&self, redirect_uri: &str) -> Result<BrowserLogin> {
         let discovery = self.discover().await?;
         let verifier = random_text()?;
@@ -296,7 +291,6 @@ impl Oidc {
         })
     }
 
-    /// Trades the code in the browser's answer for tokens.
     pub async fn redeem(&self, login: &BrowserLogin, answer: &Url) -> Result<Tokens> {
         let code = login.code(answer)?;
         let response = self
@@ -349,7 +343,6 @@ impl Oidc {
     }
 }
 
-/// The PKCE challenge (S256) of a verifier.
 fn challenge(verifier: &str) -> String {
     URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()))
 }
@@ -478,8 +471,6 @@ mod tests {
         json!({"access_token":"access","refresh_token":"refresh","expires_in":60,"token_type":"Bearer"})
     }
 
-    /// A sign-in server that answers its discovery document and then `replies`, and returns
-    /// the forms of the requests that it answered.
     async fn issuer(
         replies: Vec<serde_json::Value>,
     ) -> (String, tokio::task::JoinHandle<Vec<Url>>) {

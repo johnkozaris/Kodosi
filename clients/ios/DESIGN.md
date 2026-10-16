@@ -10,10 +10,9 @@ The app uses the Mac's visual system from `../apple/Sources/KodosiDesign`; the
   titles, sheets with detents, swipe actions and context menus.
 - The terminal sits in a dark rounded tile in both appearances, in JetBrains Mono at
   12 points on iPhone and 14 on iPad, never scaled.
-- A waiting terminal shows a hand, question or key beside its mark in its own row; no
-  second list copies it. Only your own terminals that wait put a badge on the tab.
-  A room with new messages from someone else shows a copper dot, and the Rooms tab
-  counts those rooms and the open invitations.
-  Haptics mark one of your terminals that starts waiting or finishes, and a sent
-  message.
+- A waiting terminal shows a hand, question or key beside its mark in its row. Waiting
+  terminals that you can answer (your own, and others' while you have them open) badge
+  the Terminals tab; rooms with new messages get a copper dot and
+  count on the Rooms tab with open invitations. Haptics mark one of your terminals that
+  starts waiting or finishes, and a sent message.
 - Don't show controls for host-only actions.

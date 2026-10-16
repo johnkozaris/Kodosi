@@ -12,15 +12,6 @@ fn definition(name: &str, text: &str) -> shell::Definition {
     shell::Definition {
         name: name.to_owned(),
         text: text.to_owned(),
-        alias: false,
-    }
-}
-
-#[cfg(unix)]
-fn alias(name: &str, text: &str) -> shell::Definition {
-    shell::Definition {
-        alias: true,
-        ..definition(name, text)
     }
 }
 
@@ -247,11 +238,11 @@ fn accounts_are_the_sign_in_folders_of_each_agent() {
             definition("claude", r#"command claude "$@""#),
             definition("claude-dyn", r#"CLAUDE_CONFIG_DIR="$dir" claude "$@""#),
             definition("codex", "codex"),
-            alias("claude-x", "CLAUDE_CONFIG_DIR=~/.profiles/x claude"),
-            alias("claude-team", "CLAUDE_CONFIG_DIR=~/team/.claude claude"),
-            alias("claude-alt", "CLAUDE_CONFIG_DIR=~/.claude-alt claude"),
-            alias("claude-gone", "CLAUDE_CONFIG_DIR=~/.claude-gone claude"),
-            alias("cc", "claude --dangerously-skip-permissions"),
+            definition("claude-x", "CLAUDE_CONFIG_DIR=~/.profiles/x claude"),
+            definition("claude-team", "CLAUDE_CONFIG_DIR=~/team/.claude claude"),
+            definition("claude-alt", "CLAUDE_CONFIG_DIR=~/.claude-alt claude"),
+            definition("claude-gone", "CLAUDE_CONFIG_DIR=~/.claude-gone claude"),
+            definition("cc", "claude --dangerously-skip-permissions"),
         ],
     };
     let catalog = accounts::catalog(home, &facts);

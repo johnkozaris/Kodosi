@@ -32,9 +32,9 @@ namespace {
     {
         return !value.isEmpty() && !value.contains('\0');
     }
-    RuntimeFailure failure(RuntimeFailure::Code code, std::int32_t result, QString message)
+    RuntimeFailure failure(std::int32_t result, QString message)
     {
-        return { code, result, std::move(message) };
+        return { result, std::move(message) };
     }
 }
 
@@ -67,12 +67,12 @@ void RuntimeBridge::startAsync(std::function<void(Result)> completion)
     Q_ASSERT(thread() == QThread::currentThread());
     if (isRunning()) { completion({}); return; }
     if (kodosi_protocol_version() != protocolVersion || kodosi_abi_version() != KODOSI_FFI_ABI_VERSION) {
-        completion(std::unexpected(failure(RuntimeFailure::Code::ContractMismatch, KODOSI_FFI_DESER_FAILED,
+        completion(std::unexpected(failure(KODOSI_FFI_DESER_FAILED,
             tr("The linked runtime is incompatible with this version of Kodosi."))));
         return;
     }
     if (m_starting) {
-        completion(std::unexpected(failure(RuntimeFailure::Code::StartRejected, KODOSI_FFI_RUNTIME_STOPPED,
+        completion(std::unexpected(failure(KODOSI_FFI_RUNTIME_STOPPED,
             tr("The runtime is still starting."))));
         return;
     }
@@ -109,7 +109,7 @@ void RuntimeBridge::startAsync(std::function<void(Result)> completion)
                         completion({});
                     } else {
                         current->m_activeGeneration.store(0, std::memory_order_release);
-                        completion(std::unexpected(failure(RuntimeFailure::Code::StartRejected, KODOSI_FFI_RUNTIME_STOPPED,
+                        completion(std::unexpected(failure(KODOSI_FFI_RUNTIME_STOPPED,
                             tr("Kodosi could not start its terminal runtime."))));
                     }
                 }, Qt::QueuedConnection);
@@ -137,30 +137,27 @@ RuntimeBridge::Result RuntimeBridge::send(QByteArrayView json)
     if (auto result = requireRunning(); !result)
         return result;
     if (json.isEmpty() || json.size() > maximumEventBytes) {
-        return std::unexpected(failure(RuntimeFailure::Code::InvalidArgument, KODOSI_FFI_PAYLOAD_TOO_LARGE,
+        return std::unexpected(failure(KODOSI_FFI_PAYLOAD_TOO_LARGE,
             tr("The command exceeds the runtime limit.")));
     }
     const QByteArray command(json.data(), json.size());
     const auto fields = jsonObjectFields(command);
     if (!fields) {
-        return std::unexpected(failure(RuntimeFailure::Code::InvalidArgument,
-            KODOSI_FFI_DESER_FAILED, tr("The command is invalid or contains duplicate fields.")));
+        return std::unexpected(failure(KODOSI_FFI_DESER_FAILED, tr("The command is invalid or contains duplicate fields.")));
     }
     QByteArray bytes = QByteArrayLiteral("{\"accountUserId\":");
     bytes += m_accountUserId.isEmpty() ? QByteArrayLiteral("null") : jsonStringBytes(m_accountUserId);
     bytes += QByteArrayLiteral(",\"accountEpoch\":") + QByteArray::number(m_accountEpoch);
     for (const auto& field : *fields) {
         if (field.name == QStringLiteral("accountUserId") || field.name == QStringLiteral("accountEpoch")) {
-            return std::unexpected(failure(RuntimeFailure::Code::InvalidArgument,
-                KODOSI_FFI_DESER_FAILED, tr("The runtime owns the command account identity.")));
+            return std::unexpected(failure(KODOSI_FFI_DESER_FAILED, tr("The runtime owns the command account identity.")));
         }
         bytes += ',' + jsonStringBytes(field.name) + ':';
         bytes.append(field.value.data(), field.value.size());
     }
     bytes += '}';
     if (bytes.size() > maximumEventBytes)
-        return std::unexpected(failure(RuntimeFailure::Code::InvalidArgument,
-            KODOSI_FFI_PAYLOAD_TOO_LARGE, tr("The command exceeds the runtime limit.")));
+        return std::unexpected(failure(KODOSI_FFI_PAYLOAD_TOO_LARGE, tr("The command exceeds the runtime limit.")));
     return terminalOperationResult(
         kodosi_send_command(m_handle, reinterpret_cast<const std::uint8_t*>(bytes.constData()),
             static_cast<std::uintptr_t>(bytes.size())),
@@ -169,45 +166,29 @@ RuntimeBridge::Result RuntimeBridge::send(QByteArrayView json)
 
 RuntimeBridge::Result RuntimeBridge::connectTerminal(const TerminalSubscription& subscription)
 {
-    if (auto result = requireRunning(); !result)
-        return result;
-    const auto session = subscription.sessionId.toUtf8();
-    const auto id = subscription.subscriptionId.toUtf8();
-    if (!validIdentifier(session) || !validIdentifier(id)) {
-        return std::unexpected(failure(RuntimeFailure::Code::InvalidArgument, KODOSI_FFI_DESER_FAILED,
-            tr("The terminal subscription is invalid.")));
-    }
-    return terminalOperationResult(
-        kodosi_terminal_connect(m_handle, session.constData(), id.constData(), subscription.generation),
-        tr("Terminal connection"));
+    return subscriptionCommand(subscription, kodosi_terminal_connect, tr("Terminal connection"));
 }
 RuntimeBridge::Result RuntimeBridge::refreshTerminal(const TerminalSubscription& subscription)
 {
-    if (auto result = requireRunning(); !result)
-        return result;
-    const auto session = subscription.sessionId.toUtf8();
-    const auto id = subscription.subscriptionId.toUtf8();
-    if (!validIdentifier(session) || !validIdentifier(id)) {
-        return std::unexpected(failure(RuntimeFailure::Code::InvalidArgument, KODOSI_FFI_DESER_FAILED,
-            tr("The terminal subscription is invalid.")));
-    }
-    return terminalOperationResult(
-        kodosi_terminal_refresh(m_handle, session.constData(), id.constData(), subscription.generation),
-        tr("Terminal refresh"));
+    return subscriptionCommand(subscription, kodosi_terminal_refresh, tr("Terminal refresh"));
 }
 RuntimeBridge::Result RuntimeBridge::disconnectTerminal(const TerminalSubscription& subscription)
+{
+    return subscriptionCommand(subscription, kodosi_terminal_disconnect, tr("Terminal disconnect"));
+}
+RuntimeBridge::Result RuntimeBridge::subscriptionCommand(const TerminalSubscription& subscription,
+    std::int32_t (*command)(void*, const char*, const char*, std::uint64_t), QString operation) const
 {
     if (auto result = requireRunning(); !result)
         return result;
     const auto session = subscription.sessionId.toUtf8();
     const auto id = subscription.subscriptionId.toUtf8();
     if (!validIdentifier(session) || !validIdentifier(id)) {
-        return std::unexpected(failure(RuntimeFailure::Code::InvalidArgument, KODOSI_FFI_DESER_FAILED,
+        return std::unexpected(failure(KODOSI_FFI_DESER_FAILED,
             tr("The terminal subscription is invalid.")));
     }
     return terminalOperationResult(
-        kodosi_terminal_disconnect(m_handle, session.constData(), id.constData(), subscription.generation),
-        tr("Terminal disconnect"));
+        command(m_handle, session.constData(), id.constData(), subscription.generation), std::move(operation));
 }
 RuntimeBridge::Result RuntimeBridge::sendTerminalInput(const TerminalSubscription& subscription,
     const QString& expectedRuntimeIncarnationId, QByteArrayView bytes)
@@ -219,7 +200,7 @@ RuntimeBridge::Result RuntimeBridge::sendTerminalInput(const TerminalSubscriptio
     const auto incarnation = expectedRuntimeIncarnationId.toUtf8();
     if (!validIdentifier(session) || !validIdentifier(id) || !validIdentifier(incarnation)
         || bytes.size() > maximumEventBytes) {
-        return std::unexpected(failure(RuntimeFailure::Code::InvalidArgument, KODOSI_FFI_DESER_FAILED,
+        return std::unexpected(failure(KODOSI_FFI_DESER_FAILED,
             tr("The terminal input target is invalid.")));
     }
     return terminalOperationResult(
@@ -232,7 +213,7 @@ RuntimeBridge::Result RuntimeBridge::requireRunning() const
 {
     if (isRunning())
         return {};
-    return std::unexpected(failure(RuntimeFailure::Code::RuntimeStopped, KODOSI_FFI_RUNTIME_STOPPED,
+    return std::unexpected(failure(KODOSI_FFI_RUNTIME_STOPPED,
         tr("The terminal runtime is not running.")));
 }
 RuntimeBridge::Result RuntimeBridge::terminalOperationResult(std::int32_t result, QString operation) const
@@ -240,7 +221,7 @@ RuntimeBridge::Result RuntimeBridge::terminalOperationResult(std::int32_t result
     if (result == KODOSI_FFI_OK)
         return {};
     return std::unexpected(
-        failure(RuntimeFailure::Code::FfiRejected, result, tr("%1 failed (%2).").arg(operation).arg(result)));
+        failure(result, tr("%1 failed (%2).").arg(operation).arg(result)));
 }
 
 void RuntimeBridge::queueEvent(const std::uint8_t* json, std::uintptr_t length)

@@ -74,7 +74,7 @@ private struct RoomTerminals: View {
                     .padding([.horizontal, .bottom], 6)
             } else if sessions.isEmpty {
                 EmptyState(title: "No terminals here yet", message: "Add one. Everyone in the room gets full control.") {
-                    NewTerminalGhost()
+                    TerminalGhost()
                 } actions: {
                     Button { deps.openLauncher(roomId: roomId) } label: { Label("New terminal", systemImage: "plus") }
                         .buttonStyle(.kodosi(.primary)).accessibilityIdentifier("room.terminal.new")
@@ -196,23 +196,5 @@ private struct RoomTerminals: View {
                 state.canvas = 0; deps.activateSession(session.id, inRoom: roomId)
             } catch { state.failure = error.localizedDescription }
         }
-    }
-}
-
-struct NewTerminalGhost: View {
-    @Environment(\.theme) private var theme
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "chevron.right").font(.system(size: 16, weight: .heavy)).foregroundStyle(theme.colors.inkFaint)
-            CursorBlock(width: 11, height: 20)
-            Spacer()
-        }
-        .padding(16).frame(width: 190, height: 96, alignment: .topLeading)
-        .overlay {
-            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-                .strokeBorder(theme.colors.inkFaint.opacity(0.5), style: StrokeStyle(lineWidth: 1.2, dash: [5, 5]))
-        }
-        .accessibilityHidden(true)
     }
 }

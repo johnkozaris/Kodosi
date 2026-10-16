@@ -1,5 +1,3 @@
-//! Takes the answer of a sign-in in the system browser on a loopback address (RFC 8252).
-
 use std::{net::Ipv4Addr, time::Duration};
 
 use reqwest::Url;
@@ -40,8 +38,6 @@ impl Loopback {
         &self.redirect_uri
     }
 
-    /// Waits for the browser's answer to `login`. Other requests get a short page, so a
-    /// browser that opens spare connections or asks for an icon does not hold the answer.
     pub(crate) async fn answer(&self, login: &BrowserLogin) -> Result<(Url, TcpStream)> {
         let mut requests = JoinSet::new();
         loop {
@@ -64,7 +60,6 @@ impl Loopback {
     }
 }
 
-/// Tells the person in the browser how the sign-in ended.
 pub(crate) async fn finish(stream: TcpStream, outcome: std::result::Result<(), String>) {
     let page = match outcome {
         Ok(()) => page(
@@ -79,7 +74,6 @@ pub(crate) async fn finish(stream: TcpStream, outcome: std::result::Result<(), S
     reply(stream, "200 OK", &page).await;
 }
 
-/// The request target of one GET request, or nothing for any other request.
 async fn target(mut stream: TcpStream) -> std::io::Result<Option<(String, TcpStream)>> {
     let mut request = Vec::new();
     let mut chunk = [0_u8; 1024];

@@ -37,7 +37,6 @@ public sealed class DeviceList
 {
     public Guid UserId { get; set; }
     public long Generation { get; set; }
-    public string SignerDeviceId { get; set; } = "";
     public byte[] Body { get; set; } = [];
     public byte[] Signature { get; set; } = [];
     public long IssuedAtMs { get; set; }

@@ -24,7 +24,6 @@
     unix,
     expect(
         clippy::cast_possible_wrap,
-        clippy::match_same_arms,
         clippy::needless_continue,
         clippy::option_if_let_else,
         reason = "Kodosi PTY keeps platform control flow explicit"
@@ -42,9 +41,9 @@
 #[cfg(target_os = "ios")]
 compile_error!("iOS views terminals hosted elsewhere; build it with --no-default-features");
 
-pub mod pty;
+mod pty;
 
-pub type Result<T> = std::result::Result<T, KodosiError>;
+type Result<T> = std::result::Result<T, KodosiError>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum KodosiError {

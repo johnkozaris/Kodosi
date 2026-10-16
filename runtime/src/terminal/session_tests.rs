@@ -332,7 +332,6 @@ async fn resize_checkpoint_precedes_bootstrap_barrier_at_the_same_output_cut() {
 
 #[tokio::test]
 async fn a_remote_bootstrap_holds_image_pixels_up_to_its_budget() {
-    // 1100 by 1000 RGBA pixels are 4.4 MB, more than a view on a link of unknown speed gets.
     let (width, height) = (1100, 1000);
     let mut compressed = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::fast());
     std::io::Write::write_all(&mut compressed, &vec![0x7f; width * height * 4]).expect("compress");
@@ -522,20 +521,29 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         )
         .expect("queued input");
     authorization.cancel();
-    actor.flush().expect("flush excludes revoked input");
+    assert!(actor.pending_input().is_none());
     assert!(actor.queue.is_empty());
     assert_eq!(actor.input_budget.available_permits(), MAX_PENDING_BYTES);
     actor
         .enqueue(Bytes::from_static(b"ALLOWED\n"), None)
         .expect("allowed input");
-    actor.flush().expect("write allowed bytes");
     let mut captured = Vec::new();
     let mut buffer = [0_u8; 4096];
     tokio::time::timeout(Duration::from_secs(2), async {
         while !captured.windows(7).any(|slice| slice == b"ALLOWED") {
-            let count = actor.reader.read(&mut buffer).await.expect("read pty");
-            assert!(count > 0);
-            captured.extend_from_slice(&buffer[..count]);
+            let input = actor.pending_input();
+            match actor
+                .reader
+                .transfer(&mut buffer, input.as_deref())
+                .await
+                .expect("pty transfer")
+            {
+                Transfer::Wrote(count) => actor.wrote(count),
+                Transfer::Read(count) => {
+                    assert!(count > 0);
+                    captured.extend_from_slice(&buffer[..count]);
+                }
+            }
         }
     })
     .await

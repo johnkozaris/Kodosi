@@ -18,7 +18,6 @@ fn session() -> RemoteSession {
     }
 }
 
-/// The cell size of the host in these tests.
 const CELL: CellPixels = CellPixels {
     width: 8,
     height: 16,

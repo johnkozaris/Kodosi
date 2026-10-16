@@ -131,17 +131,17 @@ private struct OffsetEdge<S: Shape>: Shape {
     }
 }
 
-public struct WellBackground<S: InsettableShape>: View {
+struct WellBackground<S: InsettableShape>: View {
     @Environment(\.theme) private var theme
-    public let shape: S
-    public var fill: Color?
+    let shape: S
+    var fill: Color?
 
-    public init(shape: S, fill: Color? = nil) {
+    init(shape: S, fill: Color? = nil) {
         self.shape = shape
         self.fill = fill
     }
 
-    public var body: some View {
+    var body: some View {
         shape
             .fill((fill ?? theme.colors.well).shadow(.inner(
                 color: theme.colors.shadow.opacity(theme.isDark ? 0.5 : 0.1), radius: 2, y: 1

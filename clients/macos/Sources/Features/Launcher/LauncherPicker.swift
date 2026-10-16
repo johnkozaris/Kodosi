@@ -19,7 +19,6 @@ struct PickerRow: Identifiable, Equatable {
     var detail: String?
     var icon = Icon.none
     var current = false
-    var working = false
 }
 
 struct PickerKey<Glyph: View, Accessory: View>: View {
@@ -213,7 +212,6 @@ struct PickerList: View {
                     .appTextStyle(.body).fontWeight(.medium)
                     .foregroundStyle(row.kind == .action ? theme.colors.accentStrong
                         : row.kind == .note ? theme.colors.inkFaint : theme.colors.ink)
-                    .shimmer(row.working)
                 if let subtitle = row.subtitle {
                     Text(verbatim: subtitle)
                         .appTextStyle(row.icon == .folder ? .monoCaption : .footnote)
@@ -306,7 +304,6 @@ struct PickerIcon: View {
 }
 
 struct AccountMark: View {
-    @Environment(\.theme) private var theme
     let initial: String
     let key: String
     let signedIn: Bool

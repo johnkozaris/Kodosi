@@ -8,26 +8,6 @@
 #include <utility>
 
 namespace kodosi {
-namespace {
-
-QString fallbackForFailure(const RuntimeFailure::Code code)
-{
-    switch (code) {
-    case RuntimeFailure::Code::ContractMismatch:
-        return QStringLiteral(
-            "This Kodosi build is not compatible with the installed runtime.");
-    case RuntimeFailure::Code::StartRejected:
-        return QStringLiteral("The Kodosi runtime rejected startup.");
-    case RuntimeFailure::Code::RuntimeStopped:
-        return QStringLiteral("The Kodosi runtime stopped unexpectedly.");
-    case RuntimeFailure::Code::InvalidArgument:
-    case RuntimeFailure::Code::FfiRejected:
-        return QStringLiteral("Kodosi could not start its runtime.");
-    }
-    return QStringLiteral("Kodosi could not start its runtime.");
-}
-
-}
 
 ApplicationLifecycleModel::ApplicationLifecycleModel(
     RuntimeBridge& runtime,
@@ -157,7 +137,7 @@ void ApplicationLifecycleModel::completeAttempt(
     }
     m_attemptInFlight = false;
     if (!result) {
-        fail(safeErrorText(result.error()));
+        fail(result.error().message);
         return;
     }
 
@@ -192,24 +172,13 @@ void ApplicationLifecycleModel::fail(QString message)
     emit stateChanged();
 }
 
-QString ApplicationLifecycleModel::safeErrorText(
-    const RuntimeFailure& failure)
-{
-    return boundedText(
-        failure.message,
-        fallbackForFailure(failure.code));
-}
-
 QString ApplicationLifecycleModel::boundedText(
     QString text,
     QString fallback)
 {
     for (auto& character : text) {
-        if (character.isSpace()) {
+        if (character.isSpace() || !character.isPrint())
             character = QLatin1Char(' ');
-        } else if (!character.isPrint()) {
-            character = QLatin1Char(' ');
-        }
     }
     text = text.simplified();
     if (text.isEmpty()) {

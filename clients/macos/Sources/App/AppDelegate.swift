@@ -39,9 +39,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     func applicationDidFinishLaunching(_: Notification) {
         UNUserNotificationCenter.current().delegate = self
         dependencies.start()
-        if dependencies.updater.configured, !storageBootstrap.isIsolated {
-            dependencies.updater.start()
-            offerUpdates()
+        if !storageBootstrap.isIsolated {
+            if dependencies.updater.configured {
+                dependencies.updater.start()
+                warnWhenUpdatesCannotInstall()
+            }
+            if CommandLineTool.installed {
+                dependencies.commandLink = CommandLineTool.keepLinked()
+            }
         }
         let isRunning = dependencies.runtimeHandle.isRunning
         Logger.app.info("App launched. Runtime running: \(isRunning)")
@@ -52,15 +57,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
     }
 
-    /// Sparkle cannot replace an app that runs from the disk image, and a link there would break.
-    private func offerUpdates() {
+    /// Sparkle cannot replace an app that runs from the disk image.
+    private func warnWhenUpdatesCannotInstall() {
         let path = Bundle.main.bundlePath
         if path.hasPrefix("/Volumes/") || path.contains("/AppTranslocation/") {
             dependencies.errorMessage = String(localized: "Move Kodosi to Applications and open it again. Kodosi cannot update itself here.")
-            return
-        }
-        if CommandLineTool.installed {
-            dependencies.commandLink = CommandLineTool.keepLinked()
         }
     }
 

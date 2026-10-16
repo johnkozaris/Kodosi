@@ -1,73 +1,84 @@
 import Foundation
-import KodosiBridge
 import Observation
 
+@MainActor
 @Observable
-final class AccountStore {
-    enum Deletion: Equatable {
+public final class AccountStore {
+    public enum Deletion: Equatable, Sendable {
         case requested
         case confirming(URL?)
     }
 
-    enum Approval: Equatable {
+    public enum Approval: Equatable, Sendable {
         case approving
         case approved(String)
         case failed(String)
     }
 
-    private(set) var userId: String?
-    private(set) var displayName: String?
-    private(set) var authResolved = false
-    private(set) var localDeviceEnrolled = false
-    private(set) var selfDeviceId: String?
-    private(set) var identityMessage: String?
-    private(set) var stage: SignInStage = .idle
-    private(set) var devices: [MyDeviceEntry] = []
-    private(set) var devicesRevision = 0
-    private(set) var deviceRequests: [DeviceLinkRequest] = []
-    private(set) var approval: Approval?
-    private(set) var creatingRecoveryKey = false
-    var newRecoveryKey: String?
-    private(set) var deletion: Deletion?
-    private(set) var deletionPage: URL?
-    private(set) var signInPage: URL?
+    public private(set) var userId: String?
+    public private(set) var displayName: String?
+    public private(set) var authResolved = false
+    public private(set) var localDeviceEnrolled = false
+    public private(set) var selfDeviceId: String?
+    public private(set) var identityMessage: String?
+    public private(set) var stage: SignInStage = .idle
+    public private(set) var devices: [MyDeviceEntry] = []
+    public private(set) var devicesRevision = 0
+    public private(set) var deviceRequests: [DeviceLinkRequest] = []
+    public private(set) var approval: Approval?
+    public private(set) var creatingRecoveryKey = false
+    public private(set) var newRecoveryKey: String?
+    public private(set) var deletion: Deletion?
+    public private(set) var deletionPage: URL?
+    public private(set) var signInPage: URL?
 
+    @ObservationIgnored public var notify: (String) -> Void = { _ in }
     @ObservationIgnored private let commands: CommandSink
-    @ObservationIgnored private let notices: NoticeCenter
+    @ObservationIgnored private let browser: String
 
-    init(commands: CommandSink, notices: NoticeCenter) {
+    public init(commands: CommandSink, browser: String) {
         self.commands = commands
-        self.notices = notices
+        self.browser = browser
     }
 
-    var isReady: Bool {
+    public var isReady: Bool {
         userId != nil && localDeviceEnrolled
     }
 
-    var needsOnboarding: Bool {
+    public var needsOnboarding: Bool {
         authResolved && !isReady
     }
 
-    var selfName: String {
+    public var selfName: String {
         let name = displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return name.isEmpty ? String(localized: "You") : name
+        return name.isEmpty ? String(localized: "You", bundle: .module) : name
     }
 
-    var orderedDevices: [MyDeviceEntry] {
+    public var orderedDevices: [MyDeviceEntry] {
         devices.filter { $0.deviceId == selfDeviceId }
             + devices.filter { $0.deviceId != selfDeviceId && !$0.recoveryKey }
             + devices.filter(\.recoveryKey)
     }
 
-    var hasRecoveryKey: Bool {
+    public var hasRecoveryKey: Bool {
         devices.contains(where: \.recoveryKey)
     }
 
-    func canRemove(_ device: MyDeviceEntry) -> Bool {
+    public func canRemove(_ device: MyDeviceEntry) -> Bool {
         localDeviceEnrolled && device.deviceId != selfDeviceId
     }
 
-    func reset(userId: String?) {
+    public func deletionSummary(rooms: [MissionEntry], terminals: String) -> String {
+        let owned = rooms.filter { $0.ownerUserId == userId }.map(\.name)
+        var parts = [String(localized: "Your devices, friends and sharing go away. What you wrote in other rooms stays there.", bundle: .module)]
+        if !owned.isEmpty {
+            parts.append(String(localized: "These rooms close for everyone in them: \(owned.formatted(.list(type: .and))).", bundle: .module))
+        }
+        parts.append(terminals)
+        return parts.joined(separator: "\n\n")
+    }
+
+    public func reset(userId: String?) {
         self.userId = userId
         displayName = nil
         authResolved = false
@@ -87,7 +98,7 @@ final class AccountStore {
         }
     }
 
-    func receiveAuth(_ event: RuntimeEvent) throws {
+    public func receiveAuth(_ event: RuntimeEvent) throws {
         switch event.type {
         case "auth.ready": try receiveReady(event)
         case "auth.required": receiveRequired(event)
@@ -107,7 +118,7 @@ final class AccountStore {
         }
     }
 
-    func receiveDevices(_ event: RuntimeEvent) throws {
+    public func receiveDevices(_ event: RuntimeEvent) throws {
         switch event.type {
         case "devices.list":
             selfDeviceId = event.string("selfDeviceId")
@@ -140,7 +151,8 @@ final class AccountStore {
         }
     }
 
-    func absorb(error event: RuntimeEvent, message: String) -> Bool {
+    @discardableResult
+    public func absorb(error event: RuntimeEvent, message: String) -> Bool {
         switch event.string("operation") {
         case "auth.deleteAccount":
             deletion = nil
@@ -170,7 +182,7 @@ final class AccountStore {
 
     private func receiveReady(_ event: RuntimeEvent) throws {
         guard event.string("userId") == userId else {
-            throw RuntimeError.invalidResponse(String(localized: "Kodosi got an answer for a different account."))
+            throw RuntimeError.invalidResponse(String(localized: "Kodosi got an answer for a different account.", bundle: .module))
         }
         authResolved = true
         signInPage = nil
@@ -196,13 +208,13 @@ final class AccountStore {
             stage = .idle
         }
         switch event.string("reason") {
-        case "expired": notices.show(String(localized: "Your sign-in has ended. Sign in again."))
-        case "accountDeleted": notices.show(String(localized: "Your Kodosi account is deleted."))
+        case "expired": notify(String(localized: "Your sign-in has ended. Sign in again.", bundle: .module))
+        case "accountDeleted": notify(String(localized: "Your Kodosi account is deleted.", bundle: .module))
         default: break
         }
     }
 
-    func signIn() {
+    public func signIn() {
         switch stage {
         case .starting, .awaitingBrowser, .finalizing, .trustingDevice:
             return
@@ -215,19 +227,18 @@ final class AccountStore {
         }
     }
 
-    func restartSignIn() {
+    public func restartSignIn() {
         stage = .starting
-        commands.perform("auth.login.start", ["browser": .string("app")])
+        commands.perform("auth.login.start", ["browser": .string(browser)])
     }
 
-    /// Gives the runtime the answer of the sign-in window, or of a page that sent it to the app.
-    func finishSignIn(with answer: URL) {
+    public func finishSignIn(with answer: URL) {
         guard case .awaitingBrowser = stage else { return }
         signInPage = nil
         commands.perform("auth.login.finish", ["url": .string(answer.absoluteString)])
     }
 
-    func cancelSignIn() {
+    public func cancelSignIn() {
         switch stage {
         case .starting, .awaitingBrowser, .finalizing:
             commands.perform("auth.login.cancel")
@@ -238,90 +249,101 @@ final class AccountStore {
         }
     }
 
-    func failSignIn(_ message: String) {
+    public func closeSignIn() {
+        if !stage.isPending {
+            stage = .idle
+        }
+    }
+
+    public func endSignIn() {
+        stage = .idle
+        signInPage = nil
+    }
+
+    public func failSignIn(_ message: String) {
         commands.perform("auth.login.cancel")
         stage = .failed(message: message, completed: 0)
         signInPage = nil
     }
 
-    func requestDeviceApproval() {
+    public func requestDeviceApproval() {
         stage = .trustingDevice(.requesting)
         commands.perform("devices.link.startSelf")
     }
 
-    func cancelDeviceApproval() {
+    public func cancelDeviceApproval() {
         commands.perform("devices.link.cancelSelf")
         stage = .trustingDevice(.choose)
     }
 
-    func useRecoveryKey(_ key: String) {
+    public func useRecoveryKey(_ key: String) {
         let key = key.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { return }
         stage = .trustingDevice(.recovering)
         commands.perform("devices.recovery.use", ["key": .string(key)])
     }
 
-    func startFresh() {
+    public func startFresh() {
         stage = .trustingDevice(.resetting)
         commands.perform("devices.reset")
     }
 
-    func chooseTrust() {
+    public func chooseTrust() {
         stage = .trustingDevice(.choose)
     }
 
-    func signOut() {
+    public func signOut() {
         commands.perform("auth.logout")
     }
 
-    func refreshDevices() async {
+    public func refreshDevices() async {
         let revision = devicesRevision
         commands.perform("devices.refresh")
         await RefreshWait.until { devicesRevision != revision }
     }
 
-    func approveDevice(code: String) {
+    public func approveDevice(code: String) {
         let code = code.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !code.isEmpty, approval != .approving else { return }
         approval = .approving
         commands.perform("devices.link.approve", ["code": .string(code)])
     }
 
-    func finishApproval() {
+    public func finishApproval() {
         approval = nil
     }
 
-    func revokeDevice(_ device: MyDeviceEntry) {
+    public func revokeDevice(_ device: MyDeviceEntry) {
         commands.perform("devices.revoke", ["deviceId": .string(device.deviceId)])
     }
 
-    func createRecoveryKey() {
+    public func createRecoveryKey() {
         guard !creatingRecoveryKey else { return }
         creatingRecoveryKey = true
         commands.perform("devices.recovery.create")
     }
 
-    func dismissRecoveryKey() {
+    public func dismissRecoveryKey() {
         newRecoveryKey = nil
     }
 
-    func deleteAccount() {
+    public func deleteAccount() {
         guard deletion == nil else { return }
         deletion = .requested
         commands.perform("auth.deleteAccount")
     }
 
-    func cancelAccountDeletion() {
+    public func cancelAccountDeletion() {
         deletion = nil
         deletionPage = nil
         commands.perform("auth.deleteAccount.cancel")
     }
 
-    func closeDeletionPage() {
+    public func closeDeletionPage() {
         deletionPage = nil
     }
 
-    func reopenDeletionPage() {
+    public func reopenDeletionPage() {
         if case let .confirming(page) = deletion {
             deletionPage = page
         }

@@ -28,7 +28,6 @@ pub(super) struct Facts {
 pub(super) struct Definition {
     pub name: String,
     pub text: String,
-    pub alias: bool,
 }
 
 impl Facts {
@@ -283,7 +282,6 @@ pub(super) fn parse(output: &str) -> Option<Facts> {
                 facts.definitions.push(Definition {
                     name: name.to_owned(),
                     text: text.chars().take(16 * 1024).collect(),
-                    alias: kind == "alias",
                 });
             }
             _ => {}

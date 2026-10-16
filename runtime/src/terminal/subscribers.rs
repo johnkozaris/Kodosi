@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use bytes::Bytes;
 use tokio::sync::mpsc;
@@ -6,11 +6,12 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use super::{CellPixels, Checkpoint};
-use crate::{Error, Result};
+use crate::{Error, Result, network::CheckpointCut};
 
 pub(super) const DATA_CAPACITY: usize = 512;
 const CONTROL_CAPACITY: usize = 16;
 const MAX_SUBSCRIBERS: usize = 32;
+const MAX_PENDING_RESIZES: usize = 32;
 pub(super) const MAX_RAW_BYTES: usize = 64 * 1024;
 
 #[derive(Debug, Clone)]
@@ -38,6 +39,12 @@ pub enum ControlFrame {
 }
 
 #[derive(Debug)]
+pub enum Frame {
+    Data(DataFrame),
+    Control(ControlFrame),
+}
+
+#[derive(Debug)]
 pub struct Subscription {
     pub connection_id: Uuid,
     pub incarnation_id: Uuid,
@@ -46,6 +53,110 @@ pub struct Subscription {
     pub data: mpsc::Receiver<DataFrame>,
     pub control: mpsc::Receiver<ControlFrame>,
     lifetime: CancellationToken,
+    resizes: VecDeque<(u16, u16, CellPixels, u64)>,
+    closing: Option<(String, u64)>,
+    refreshed: Option<Box<CheckpointCut>>,
+}
+
+impl Subscription {
+    pub async fn recv(&mut self) -> Result<Option<Frame>> {
+        loop {
+            if let Some(frame) = self.ready()? {
+                return Ok(Some(frame));
+            }
+            tokio::select! {
+                biased;
+                control = self.control.recv(), if self.closing.is_none() => match control {
+                    Some(ControlFrame::Resize { rows, cols, cell, at_sequence }) => {
+                        if self.resizes.len() >= MAX_PENDING_RESIZES
+                            || self.resizes.back().is_some_and(|&(_, _, _, last)| last > at_sequence)
+                        {
+                            return Err(invalid("terminal resize queue exceeded its ordering bound"));
+                        }
+                        self.resizes.push_back((rows, cols, cell, at_sequence));
+                    }
+                    Some(ControlFrame::Snapshot { checkpoint, next_sequence }) => {
+                        if next_sequence < self.next_sequence {
+                            return Err(invalid("terminal snapshot regressed"));
+                        }
+                        self.next_sequence = next_sequence;
+                        self.resizes.clear();
+                        self.refreshed = None;
+                        return Ok(Some(Frame::Control(ControlFrame::Snapshot {
+                            checkpoint,
+                            next_sequence,
+                        })));
+                    }
+                    Some(ControlFrame::Closed { reason, final_sequence }) => {
+                        self.closing = Some((reason, final_sequence));
+                    }
+                    None => return Ok(None),
+                },
+                data = self.data.recv() => match data {
+                    Some(frame) if frame.sequence < self.next_sequence => {}
+                    Some(frame) if frame.sequence == self.next_sequence => {
+                        self.next_sequence = self
+                            .next_sequence
+                            .checked_add(1)
+                            .ok_or_else(|| invalid("terminal output sequence exhausted"))?;
+                        return Ok(Some(Frame::Data(frame)));
+                    }
+                    Some(_) => return Err(invalid("terminal output needs a fresh snapshot")),
+                    None => {
+                        return Ok(self.closing.take().map(|(reason, final_sequence)| {
+                            Frame::Control(ControlFrame::Closed { reason, final_sequence })
+                        }));
+                    }
+                },
+            }
+        }
+    }
+
+    fn ready(&mut self) -> Result<Option<Frame>> {
+        let next = self.next_sequence;
+        if let Some(cut) = self.refreshed.take_if(|cut| cut.next_sequence <= next) {
+            if cut.next_sequence < next {
+                return Err(invalid("terminal refresh snapshot regressed"));
+            }
+            return Ok(Some(Frame::Control(ControlFrame::Snapshot {
+                checkpoint: cut.checkpoint,
+                next_sequence: cut.next_sequence,
+            })));
+        }
+        if let Some((rows, cols, cell, at_sequence)) =
+            self.resizes.pop_front_if(|(_, _, _, at)| *at <= next)
+        {
+            if at_sequence != next {
+                return Err(invalid("terminal resize arrived out of order"));
+            }
+            return Ok(Some(Frame::Control(ControlFrame::Resize {
+                rows,
+                cols,
+                cell,
+                at_sequence,
+            })));
+        }
+        match self.closing.take_if(|(_, last)| *last <= next) {
+            Some((_, last)) if last < next => Err(invalid("terminal close boundary regressed")),
+            Some((reason, final_sequence)) => Ok(Some(Frame::Control(ControlFrame::Closed {
+                reason,
+                final_sequence,
+            }))),
+            None => Ok(None),
+        }
+    }
+
+    pub fn refresh(&mut self, cut: CheckpointCut) {
+        self.refreshed = Some(Box::new(cut));
+    }
+
+    pub fn can_refresh(&self) -> bool {
+        self.refreshed.is_none() && self.closing.is_none()
+    }
+}
+
+fn invalid(reason: &str) -> Error {
+    Error::Invalid(reason.to_owned())
 }
 
 impl Drop for Subscription {
@@ -131,6 +242,9 @@ impl Subscribers {
             data,
             control,
             lifetime,
+            resizes: VecDeque::new(),
+            closing: None,
+            refreshed: None,
         })
     }
 

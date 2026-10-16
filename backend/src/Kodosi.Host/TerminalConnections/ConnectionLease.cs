@@ -1,13 +1,9 @@
+using System.Globalization;
 using Kodosi.Data;
 using Npgsql;
 
 namespace Kodosi.TerminalConnections;
 
-/// <summary>
-/// The lease that lets only one process serve: a PostgreSQL advisory lock on a connection of its own. PostgreSQL ends
-/// a lease session that stays silent for <see cref="HolderSilence"/>, so that a hung or cut-off holder cannot block the
-/// next start. A lost lease stops this process.
-/// </summary>
 public sealed partial class ConnectionLease(DatabaseConnection database, ConnectionDirectory connections, IHostApplicationLifetime lifetime,
     TimeProvider clock, ILogger<ConnectionLease> logger) : IHostedService, IAsyncDisposable
 {
@@ -22,7 +18,6 @@ public sealed partial class ConnectionLease(DatabaseConnection database, Connect
     private Task? stopped;
     private int disposed;
 
-    /// <summary>How long a start waits for an earlier holder: longer than PostgreSQL needs to end a silent holder.</summary>
     internal TimeSpan AcquireWait { get; init; } = HolderSilence + TimeSpan.FromSeconds(15);
 
     public bool Held => connection is not null && monitor is not { IsCompleted: true };
@@ -61,7 +56,8 @@ public sealed partial class ConnectionLease(DatabaseConnection database, Connect
             limit.CancelAfter(TimeSpan.FromSeconds(4));
             candidate = new NpgsqlConnection(database.LeaseConnectionString);
             await candidate.OpenAsync(limit.Token);
-            await using (var silence = new NpgsqlCommand("SET idle_session_timeout = '30s'", candidate) { CommandTimeout = 3 })
+            // PostgreSQL ends the session of a silent holder, so a hung or cut-off holder cannot block the next start.
+            await using (var silence = new NpgsqlCommand(string.Create(CultureInfo.InvariantCulture, $"SET idle_session_timeout = {HolderSilence.TotalMilliseconds}"), candidate) { CommandTimeout = 3 })
                 await silence.ExecuteNonQueryAsync(limit.Token);
             await using var command = new NpgsqlCommand("SELECT pg_try_advisory_lock(@key)", candidate) { CommandTimeout = 3 };
             command.Parameters.AddWithValue("key", Key);

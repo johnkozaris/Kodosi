@@ -3,17 +3,12 @@ import KodosiBridge
 import KodosiDesign
 
 extension AppDependencies {
-    var selfName: String {
-        let name = displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return name.isEmpty ? String(localized: "You") : name
-    }
-
     func personName(_ id: String) -> String {
-        if id == userId {
-            return selfName
+        if id == account.userId {
+            return account.selfName
         }
-        if let friend = friends.first(where: { $0.userId == id }) {
-            return friend.personName
+        if let name = people.name(of: id) {
+            return name
         }
         if let member = missionDetail?.members.first(where: { $0.userId == id }) {
             return member.personName
@@ -22,7 +17,7 @@ extension AppDependencies {
     }
 
     func viewers(of session: RuntimeSession) -> [AvatarStack.Person] {
-        (session.connectedUsers ?? []).filter { $0 != userId }.map { AvatarStack.Person(id: $0, name: personName($0)) }
+        (session.connectedUsers ?? []).filter { $0 != account.userId }.map { AvatarStack.Person(id: $0, name: personName($0)) }
     }
 
     func activity(of session: RuntimeSession) -> AgentMark.Activity {
@@ -52,12 +47,10 @@ extension AppDependencies {
         }
     }
 
-    func close(_ session: RuntimeSession) {
-        Task { @MainActor in
-            do {
-                try await mutateSession("session.close", session: session)
-            } catch { errorMessage = error.localizedDescription }
-        }
+    func close(_ session: RuntimeSession) async {
+        do {
+            try await mutateSession("session.close", session: session)
+        } catch { errorMessage = error.localizedDescription }
     }
 
     func showRooms() {

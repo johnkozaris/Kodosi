@@ -32,7 +32,7 @@
     <Application Id="Kodosi" Executable="kodosi-qt.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
           DisplayName="Kodosi"
-          Description="Local terminals with trusted device and friend access"
+          Description="Shared terminals and rooms for people and their coding agents"
           BackgroundColor="transparent"
           Square150x150Logo="Assets\Square150x150Logo.png"
           Square44x44Logo="Assets\Square44x44Logo.png" />

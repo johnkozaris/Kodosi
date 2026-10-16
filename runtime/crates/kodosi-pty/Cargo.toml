@@ -1,13 +1,13 @@
 [package]
 name = "kodosi-pty"
-version = "0.1.0"
-edition = "2024"
-rust-version = "1.99.0"
-publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
 
 [dependencies]
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["io-util", "macros", "net", "process", "rt", "sync", "time"] }
+tokio = { workspace = true, features = ["macros", "net", "process", "rt", "sync", "time"] }
 
 [target.'cfg(unix)'.dependencies]
 close_fds = "0.3.2"

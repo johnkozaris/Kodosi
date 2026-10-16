@@ -11,6 +11,7 @@ on:
       - rust-toolchain.toml
       - deny.toml
       - justfile
+      - VERSION
       - .github/workflows/rust.yml
   workflow_dispatch:
 
@@ -32,7 +33,12 @@ jobs:
           persist-credentials: false
       - uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
         with:
-          tool: just,cargo-deny@0.19.0,cargo-machete@0.9.1
+          tool: just
+      - id: versions
+        run: echo "tools=cargo-deny@$(just --evaluate cargo_deny_version),cargo-machete@$(just --evaluate cargo_machete_version)" >> "$GITHUB_OUTPUT"
+      - uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+        with:
+          tool: ${{ steps.versions.outputs.tools }}
       - name: Put the check tools where the recipes find them
         run: |
           rustup toolchain install

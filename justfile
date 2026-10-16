@@ -2,6 +2,8 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 
 cargo_tools_root := justfile_directory() + "/.tools/rust"
 cargo_tools_bin := cargo_tools_root + "/bin"
+cargo_deny_version := "0.19.0"
+cargo_machete_version := "0.9.1"
 ghostty_dir := env('KODOSI_GHOSTTY_DIR', justfile_directory() + "/terminal/ghostty")
 test_lints := "-D warnings -A clippy::unwrap_used -A clippy::expect_used"
 llvm_cov := "cargo llvm-cov --manifest-path runtime/Cargo.toml --locked --workspace --all-targets --ignore-filename-regex '(^|/)(tests|benches|examples)/'"
@@ -19,8 +21,8 @@ default:
 # Install the Rust check tools in .tools/rust.
 [group('tools')]
 rust-tools-install:
-    cargo install --locked --root "{{ cargo_tools_root }}" cargo-deny --version 0.19.0
-    cargo install --locked --root "{{ cargo_tools_root }}" cargo-machete --version 0.9.1
+    cargo install --locked --root "{{ cargo_tools_root }}" cargo-deny --version {{ cargo_deny_version }}
+    cargo install --locked --root "{{ cargo_tools_root }}" cargo-machete --version {{ cargo_machete_version }}
     cargo install --locked --root "{{ cargo_tools_root }}" cargo-llvm-cov --version 0.8.5
 
 # Install Bacon and the Rust check tools that its jobs use.
@@ -77,7 +79,7 @@ rust-features-check:
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --lib --bins -- -D warnings
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --tests -- {{ test_lints }}
 
-# Check the Rust format. Change no file.
+# Check the Rust format.
 [group('rust')]
 rust-format-check:
     cargo fmt --manifest-path runtime/Cargo.toml --all -- --check
@@ -93,7 +95,7 @@ rust-lint:
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked --workspace --lib --bins --examples -- -D warnings
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked --workspace --tests -- {{ test_lints }}
 
-# Check the Rust dependencies for advisories, bans, licenses and sources with cargo-deny.
+# Check the Rust dependencies with cargo-deny.
 [group('rust')]
 rust-deny-check: rust-dependency-tools-check
     cargo deny --manifest-path runtime/Cargo.toml --workspace --locked check --config deny.toml --hide-inclusion-graph advisories bans licenses sources
@@ -255,7 +257,8 @@ windows-check:
 # Lint the runtime for the two Windows targets in Docker on any host.
 [group('windows')]
 windows-rust-lint:
-    docker build --quiet --tag kodosi-windows-cross --file scripts/windows-cross.Dockerfile scripts >/dev/null
+    docker build --quiet --build-arg "RUST_VERSION=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)" \
+        --tag kodosi-windows-cross --file scripts/windows-cross.Dockerfile scripts >/dev/null
     for target in x86_64-pc-windows-msvc aarch64-pc-windows-msvc; do \
         MSYS_NO_PATHCONV=1 docker run --rm --volume "$PWD:/src" --volume kodosi-cargo-registry:/usr/local/cargo/registry --volume kodosi-xwin-cache:/cache/xwin --workdir /src --env CARGO_BUILD_WARNINGS=deny --env CARGO_INCREMENTAL=0 --env KODOSI_GHOSTTY_CHECK_ONLY=1 kodosi-windows-cross bash -euo pipefail -c "\
             cargo xwin clippy --manifest-path runtime/Cargo.toml --locked --target $target --workspace --lib --bins --examples -- -D warnings && \

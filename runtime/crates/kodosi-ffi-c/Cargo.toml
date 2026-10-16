@@ -1,9 +1,9 @@
 [package]
-edition = "2024"
+edition.workspace = true
 name = "kodosi-ffi-c"
-publish = false
-rust-version = "1.99.0"
-version = "0.1.0"
+publish.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 [lib]
 crate-type = ["staticlib"]

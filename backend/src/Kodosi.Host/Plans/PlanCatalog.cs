@@ -3,47 +3,35 @@ using Kodosi.Data;
 
 namespace Kodosi.Plans;
 
-/// <summary>The most that one account can have. A null value has no limit.</summary>
+// A null limit is no limit.
 public sealed record PlanLimits(int Devices, int OwnedRooms, int RoomPeople, int SharePeople, long? RoomBytes,
     int? Friends, int SentFriendRequests, int? ReceivedFriendRequests)
 {
-    /// <summary>The limits of a server without plans, and the highest value that a plan can set.</summary>
     public static readonly PlanLimits Safety = new(Devices: 10, OwnedRooms: Limits.MaxMissionsPerUser,
         RoomPeople: Limits.MaxMissionMembers + 1, SharePeople: Limits.MaxSessionMembers, RoomBytes: null,
         Friends: null, SentFriendRequests: 64, ReceivedFriendRequests: null);
 }
 
-/// <summary>
-/// The plans of this server (setting <c>Plans</c>). Each account has the plan in <c>users.Plan</c>, or the
-/// default plan. A server without plans gives each account the safety limits.
-/// </summary>
 public sealed class PlanCatalog
 {
-    public const int MostDevices = 16;
     public const long LeastRoomBytes = 128 * 1024;
     private static readonly string[] LimitNames =
         ["Devices", "OwnedRooms", "RoomPeople", "SharePeople", "RoomBytes", "Friends", "SentFriendRequests", "ReceivedFriendRequests"];
+    private readonly string? fallback;
     private readonly IReadOnlyDictionary<string, PlanLimits> plans;
 
     private PlanCatalog(string? fallback, IReadOnlyDictionary<string, PlanLimits> plans)
     {
-        Default = fallback; this.plans = plans;
+        this.fallback = fallback; this.plans = plans;
     }
 
     public static PlanCatalog None { get; } = new(null, new Dictionary<string, PlanLimits>());
 
-    public string? Default { get; }
+    public PlanLimits For(string? plan) =>
+        fallback is null ? PlanLimits.Safety : plans[plan is not null && plans.ContainsKey(plan) ? plan : fallback];
 
-    public (string? Name, PlanLimits Limits) For(string? plan)
-    {
-        if (Default is null) return (null, PlanLimits.Safety);
-        var name = plan is not null && plans.ContainsKey(plan) ? plan : Default;
-        return (name, plans[name]);
-    }
-
-    /// <summary>The limits of an account. An account that the request has already read costs no query.</summary>
     public async Task<PlanLimits> LimitsAsync(KodosiDbContext db, Guid userId, CancellationToken ct)
-        => For((await db.Users.FindAsync([userId], ct))?.Plan).Limits;
+        => For((await db.Users.FindAsync([userId], ct))?.Plan);
 
     public static PlanCatalog Of(string fallback, IReadOnlyDictionary<string, PlanLimits> plans)
     {
@@ -86,7 +74,7 @@ public sealed class PlanCatalog
             if (value < least || value > most)
                 throw new InvalidOperationException($"Plans:Definitions:{name}:{limit} must be from {least} to {most}.");
         }
-        Within("Devices", limits.Devices, 1, MostDevices);
+        Within("Devices", limits.Devices, 1, Limits.MaxDevicesPerUser);
         Within("OwnedRooms", limits.OwnedRooms, 1, safety.OwnedRooms);
         Within("RoomPeople", limits.RoomPeople, 1, safety.RoomPeople);
         Within("SharePeople", limits.SharePeople, 1, safety.SharePeople);

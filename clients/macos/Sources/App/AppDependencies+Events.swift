@@ -7,7 +7,7 @@ import KodosiTerminalSessions
 extension AppDependencies {
     func consumeDeepLink() {
         guard let link = pendingDeepLink else { return }
-        guard session(link.sessionId) != nil || (userId != nil && !signingIn) else { return }
+        guard session(link.sessionId) != nil || (account.userId != nil && !account.stage.isPending) else { return }
         pendingDeepLink = nil
         activateSession(link.sessionId)
     }
@@ -22,23 +22,22 @@ extension AppDependencies {
             }
             sessions.removeAll()
             terminalNotifications.reconcile(sessions: [], accountEpoch: event.accountEpoch)
-            friends.removeAll(); incomingRequests.removeAll(); outgoingRequests.removeAll(); inviteRequested = nil
-            devices.removeAll(); deviceRequests.removeAll(); missions.removeAll(); invitations.removeAll()
+            account.reset(userId: event.accountUserId)
+            people.reset(userId: event.accountUserId); inviteRequested = nil
+            missions.removeAll(); invitations.removeAll()
             missionListTruncated = false
             missionDetail = nil
             rooms.removeAll(); roomIssues.removeAll(); roomViews.removeAll(); roomCreations.removeAll()
-            selfDeviceId = nil; localDeviceEnrolled = false; identityMessage = nil; accountDeletion = nil
-            displayName = nil; attention.removeAll(); freshTerminals.removeAll()
+            attention.removeAll(); freshTerminals.removeAll()
             activationTasks.values.forEach { $0.cancel() }; activationTasks.removeAll()
             pendingCreations.removeAll()
             missionTask?.cancel(); missionTask = nil; missionRequestId = nil
             accountKnown = true
             accountEpoch = event.accountEpoch
-            userId = event.accountUserId
-            commandSink.setAccount(userId: userId, epoch: accountEpoch)
-            workbench.switchAccount(userId)
+            commandSink.setAccount(userId: account.userId, epoch: accountEpoch)
+            workbench.switchAccount(account.userId)
         }
-        return event.accountEpoch == accountEpoch && event.accountUserId == userId
+        return event.accountEpoch == accountEpoch && event.accountUserId == account.userId
     }
 
     func receive(_ event: RuntimeEvent) throws {
@@ -54,7 +53,7 @@ extension AppDependencies {
         case "auth": try receiveAuth(event)
         case "sessions": try receiveSessions(event)
         case "friends": try receiveFriends(event)
-        case "devices": try receiveDevices(event)
+        case "devices": try account.receiveDevices(event)
         case "mission", "missions", "room": try receiveCollaboration(event)
         case "term": receiveTerminalNotification(event)
         default: break
@@ -71,39 +70,21 @@ extension AppDependencies {
 
     private func receiveError(_ event: RuntimeEvent, delivery: CommandSink.Delivery) {
         guard delivery == .app, !event.type.hasPrefix("provider."), !event.type.hasPrefix("room.") else { return }
+        people.absorb(error: event)
         let message = event.string("message") ?? String(localized: "That did not work.")
-        if event.string("operation") == "auth.deleteAccount" {
-            accountDeletion = nil
-            errorMessage = message
-            return
-        }
-        if event.type.hasPrefix("auth.") {
-            signInStage = .failed(message: message, completed: signInStage.completedSteps)
-            if signInPresented {
-                return
-            }
-        }
-        if event.type.hasPrefix("devices."), case .trustingDevice = signInStage {
-            signInStage = .trustingDevice(.failed(message))
-            if signInPresented {
-                return
-            }
-        }
+        let stage = account.stage
+        account.absorb(error: event, message: message)
+        guard !signInPresented || account.stage == stage else { return }
         errorMessage = message
     }
 
     private func receiveFriends(_ event: RuntimeEvent) throws {
-        if event.type == "friends.invite" {
-            guard let text = event.string("text"), let requested = inviteRequested,
-                  Date().timeIntervalSince(requested) < 15 else { return }
-            inviteRequested = nil
-            copyText(text)
-            inviteCopies += 1
-        } else {
-            friends = try event.value("friends")
-            incomingRequests = try event.value("incoming")
-            outgoingRequests = try event.value("outgoing")
-        }
+        try people.receive(event)
+        guard event.type == "friends.invite", let text = event.string("text"), let requested = inviteRequested,
+              Date().timeIntervalSince(requested) < 15 else { return }
+        inviteRequested = nil
+        copyText(text)
+        inviteCopies += 1
     }
 
     private func receiveTerminalNotification(_ event: RuntimeEvent) {
@@ -144,69 +125,35 @@ extension AppDependencies {
         refresh()
     }
 
-    private func receiveReady(_ event: RuntimeEvent) throws {
-        guard event.string("userId") == userId else {
-            throw RuntimeError.invalidResponse(String(localized: "Kodosi got an answer for a different account."))
-        }
-        let trusted = event.payload["enrolled"] != .bool(false)
-        if let name = event.string("displayName") {
-            displayName = name
-        }
-        localDeviceEnrolled = trusted
-        if trusted {
-            identityMessage = nil
-            signInStage = .signedIn
-        } else {
-            let wasSigningIn = signInStage.isPending
-            if case .trustingDevice = signInStage {} else {
-                signInStage = .trustingDevice(.choose)
-            }
-            if wasSigningIn {
+    private func receiveAuth(_ event: RuntimeEvent) throws {
+        let stage = account.stage
+        try account.receiveAuth(event)
+        switch event.type {
+        case "auth.ready":
+            if !account.localDeviceEnrolled, stage.isPending {
                 signInPresented = true
             }
-        }
-        commandSink.perform("session.list"); commandSink.perform("friends.refresh")
-        commandSink.perform("devices.refresh"); commandSink.perform("mission.list")
-        consumeDeepLink()
-    }
-
-    private func receiveAuth(_ event: RuntimeEvent) throws {
-        switch event.type {
-        case "auth.ready": try receiveReady(event)
-        case "auth.required": receiveRequired(event)
+            commandSink.perform("session.list"); commandSink.perform("friends.refresh")
+            commandSink.perform("devices.refresh"); commandSink.perform("mission.list")
+            consumeDeepLink()
+        case "auth.required":
+            commandSink.perform("session.list")
         case "auth.deletion_pending":
-            let page = event.string("confirmationUri").flatMap(ExternalAuthURL.parse)
-            accountDeletion = AccountDeletion(page: page)
-            if let page {
+            if let page = account.deletionPage {
                 openExternalURL(page)
+                account.closeDeletionPage()
             }
         case "auth.browser":
-            let url = event.string("url").flatMap(ExternalAuthURL.parse)
-            signInStage = .awaitingBrowser(url)
-            if signInPresented, let url, openedSignInPage != url {
+            if signInPresented, let url = account.signInPage, openedSignInPage != url {
                 openedSignInPage = url
                 openExternalURL(url)
             }
         case "auth.finalizing":
-            if case .awaitingBrowser = signInStage {
+            if case .awaitingBrowser = stage {
                 bringToFront()
             }
-            signInStage = .finalizing
         default: break
         }
-    }
-
-    private func receiveRequired(_ event: RuntimeEvent) {
-        accountDeletion = nil
-        if case .failed = signInStage {} else {
-            signInStage = .idle
-        }
-        switch event.string("reason") {
-        case "expired": errorMessage = String(localized: "Your sign-in has ended. Sign in again.")
-        case "accountDeleted": errorMessage = String(localized: "Your Kodosi account is deleted.")
-        default: break
-        }
-        commandSink.perform("session.list")
     }
 
     private func receiveSessions(_ event: RuntimeEvent) throws {
@@ -248,27 +195,6 @@ extension AppDependencies {
             activateSession(id)
         }
         consumeDeepLink()
-    }
-
-    private func receiveDevices(_ event: RuntimeEvent) throws {
-        switch event.type {
-        case "devices.list":
-            selfDeviceId = event.string("selfDeviceId")
-            localDeviceEnrolled = try event.value("localDeviceEnrolled")
-            identityMessage = localDeviceEnrolled ? nil : event.string("notice")
-            devices = try event.value("devices")
-        case "devices.link.snapshot": deviceRequests = try event.value("requests")
-        case "devices.link.selfPending":
-            signInStage = .trustingDevice(.pendingApproval(code: event.string("code") ?? ""))
-        case "devices.link.selfResolved":
-            if case .trustingDevice = signInStage, event.string("outcome") != "approved" {
-                signInStage = .trustingDevice(.choose)
-            }
-            commandSink.perform("devices.refresh")
-        case "devices.link.resolved": commandSink.perform("devices.refresh")
-        case "devices.recovery.created": newRecoveryKey = event.string("key")
-        default: break
-        }
     }
 
     private func receiveMission(_ event: RuntimeEvent) throws {

@@ -46,7 +46,6 @@ pub(crate) struct Inner {
     pub(crate) http: Http,
     pub(crate) config: BackendConfig,
     pub(crate) generation: AtomicU64,
-    pub(crate) identity: RwLock<Option<Identity>>,
     pub(crate) credentials: RwLock<Option<Credentials>>,
     pub(crate) state: Mutex<State>,
     pub(crate) operations: Mutex<()>,
@@ -72,7 +71,6 @@ pub(crate) struct Inner {
     rooms: Mutex<rooms::RoomCache>,
 }
 
-/// A sign-in in the app's own window, which waits for the answer that the app gives back.
 struct AppLogin {
     login: BrowserLogin,
     cancel: CancellationToken,
@@ -80,7 +78,6 @@ struct AppLogin {
     until: tokio::time::Instant,
 }
 
-/// The time to sign in or to register in a browser, the same as a device code.
 const BROWSER_LOGIN_TIME: Duration = Duration::from_mins(15);
 
 pub(crate) struct State {
@@ -127,7 +124,6 @@ impl BackendClient {
                 http,
                 config,
                 generation: AtomicU64::new(1),
-                identity: RwLock::new(None),
                 credentials: RwLock::new(None),
                 state: Mutex::new(State {
                     tokens: None,
@@ -169,11 +165,11 @@ impl BackendClient {
         self.inner.generation.load(Ordering::Acquire)
     }
     pub(crate) fn ready_event(&self, user_id: &str, enrolled: bool) -> Value {
-        let display_name = self.inner.identity.read().ok().and_then(|identity| {
-            identity
+        let display_name = self.inner.credentials.read().ok().and_then(|credentials| {
+            credentials
                 .as_ref()
-                .filter(|identity| identity.user_id == user_id)
-                .map(|identity| identity.display_name.clone())
+                .filter(|credentials| credentials.user_id == user_id)
+                .map(|credentials| credentials.display_name.clone())
         });
         json!({"type":"auth.ready","userId":user_id,"displayName":display_name,"enrolled":enrolled})
     }
@@ -182,11 +178,13 @@ impl BackendClient {
         if !self.inner.identity_settled.load(Ordering::Acquire) {
             return None;
         }
-        self.inner
-            .identity
-            .read()
-            .ok()
-            .and_then(|value| value.clone())
+        let credentials = self.inner.credentials.read().ok()?;
+        credentials.as_ref().map(|credentials| Identity {
+            user_id: credentials.user_id.clone(),
+            device_id: credentials.keys.device_id.clone(),
+            display_name: credentials.display_name.clone(),
+            enrolled: credentials.enrolled,
+        })
     }
     pub fn events(&self) -> broadcast::Receiver<BackendEvent> {
         self.inner.events.subscribe()
@@ -235,7 +233,6 @@ impl BackendClient {
         }
     }
 
-    /// Finishes a sign-in once its tokens come, unless a newer sign-in or a sign-out began.
     async fn complete_login(
         &self,
         tokens: impl Future<Output = Result<Tokens>>,
@@ -979,9 +976,18 @@ impl BackendClient {
 
     #[cfg(test)]
     pub(crate) fn assume_identity(&self, identity: Identity) {
-        if let Ok(mut current) = self.inner.identity.write() {
-            *current = Some(identity);
-        }
+        let mut keys = DeviceKeys::generate().expect("device keys");
+        keys.device_id = identity.device_id;
+        *self.inner.credentials.write().expect("credentials") = Some(Credentials {
+            user_id: identity.user_id,
+            display_name: identity.display_name,
+            token: Zeroizing::new(String::new()),
+            keys: Arc::new(keys),
+            enrolled: identity.enrolled,
+            notice: None,
+            generation: self.generation(),
+            cancel: CancellationToken::new(),
+        });
         self.inner.identity_settled.store(true, Ordering::Release);
     }
 

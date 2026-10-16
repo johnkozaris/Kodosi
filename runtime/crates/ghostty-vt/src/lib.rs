@@ -16,13 +16,8 @@ use ghostty_vt_sys::raw::{Format, FormatOptions, Limits, Terminal as RawTerminal
 
 const FORMATTER_PROFILE_MAX_BYTES: usize = 8 * 1024 * 1024;
 
-/// The most bytes of Kitty image data each screen of a terminal stores, and
-/// the most an unfinished image transmission holds. It fits one full-screen
-/// image of a 5K display.
 pub const IMAGE_STORAGE_MAX_BYTES: u64 = 64 * 1024 * 1024;
 
-/// The replay shows only the screen, in the alternate screen of the terminal
-/// that shows it, so it never clears that terminal's scrollback.
 const CLI_REPLAY_PREFIX: &[u8] = b"\x1b]8;;\x1b\\\x1b[0m\x1b[2J\x1b[H";
 const CLI_REPLAY_SUFFIX: &[u8] = b"\x1b]8;;\x1b\\\x1b[0m";
 
@@ -31,9 +26,7 @@ pub struct TerminalPolicy {
     pub continuation_max_bytes: usize,
     pub scrollback_max_bytes: usize,
     pub scrollback_max_lines: usize,
-    /// The most bytes of Kitty image pixels each screen stores. Zero turns
-    /// images off. Every terminal that replays the same output needs the same
-    /// value, or they store different images.
+    /// Terminals that replay the same output need the same value, or they store different images.
     pub image_storage_max_bytes: u64,
     pub console: bool,
 }

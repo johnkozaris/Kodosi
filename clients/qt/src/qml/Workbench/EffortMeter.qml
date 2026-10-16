@@ -7,7 +7,6 @@ import QtQuick.Controls
 Item {
     id: root
 
-    // Each level: { id, argument, label }, from the lowest to the highest.
     property var levels: []
     property string current: ""
     property string hovered: ""

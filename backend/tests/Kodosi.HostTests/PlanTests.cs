@@ -22,12 +22,11 @@ public sealed class PlanTests(PostgresFixture postgres)
     private static PlanCatalog Catalog() =>
         PlanCatalog.Of("free", new Dictionary<string, PlanLimits> { ["free"] = Small, ["unlimited"] = PlanLimits.Safety });
 
-    private static async Task<ApiException> RefusedAsync(string limit, Func<Task> action)
+    private static async Task RefusedAsync(string message, Func<Task> action)
     {
         var refusal = await Assert.ThrowsAsync<ApiException>(action);
         Assert.Equal(403, refusal.Status);
-        Assert.Equal(limit, refusal.Limit);
-        return refusal;
+        Assert.Equal(message, refusal.Message);
     }
 
     private static async Task BefriendAsync(TestStore store, Guid a, Guid b)
@@ -68,15 +67,15 @@ public sealed class PlanTests(PostgresFixture postgres)
     {
         static PlanCatalog Read(Dictionary<string, string?> values) => PlanCatalog.From(new ConfigurationBuilder().AddInMemoryCollection(values).Build());
         Assert.Same(PlanCatalog.None, Read(new()));
-        Assert.Equal(PlanLimits.Safety, PlanCatalog.None.For("free").Limits);
+        Assert.Equal(PlanLimits.Safety, PlanCatalog.None.For("free"));
         var catalog = Read(new()
         {
             ["Plans:Default"] = "free", ["Plans:Definitions:free:Devices"] = "4",
             ["Plans:Definitions:free:RoomBytes"] = "10485760", ["Plans:Definitions:unlimited:Devices"] = "16",
         });
-        Assert.Equal(("free", PlanLimits.Safety with { Devices = 4, RoomBytes = 10485760 }), catalog.For(null));
-        Assert.Equal(16, catalog.For("unlimited").Limits.Devices);
-        Assert.Equal("free", catalog.For("gone").Name);
+        Assert.Equal(PlanLimits.Safety with { Devices = 4, RoomBytes = 10485760 }, catalog.For(null));
+        Assert.Equal(16, catalog.For("unlimited").Devices);
+        Assert.Same(catalog.For(null), catalog.For("gone"));
         Assert.Throws<InvalidOperationException>(() => Read(new() { ["Plans:Default"] = "pro", ["Plans:Definitions:free:Devices"] = "4" }));
         Assert.Throws<InvalidOperationException>(() => Read(new() { ["Plans:Definitions:free:Devices"] = "4" }));
         Assert.Throws<InvalidOperationException>(() => Read(new() { ["Plans:Default"] = "free", ["Plans:Definitions:free:Device"] = "4" }));
@@ -94,14 +93,15 @@ public sealed class PlanTests(PostgresFixture postgres)
         await BefriendAsync(store, alice.User.Id, bob.User.Id); await BefriendAsync(store, alice.User.Id, carol.User.Id);
         var room = Guid.CreateVersion7();
         await store.Missions.CreateAsync(alice.User.Id, new(room, "Workspace"), ct);
-        var rooms = await RefusedAsync("rooms", () => store.Missions.CreateAsync(alice.User.Id, new(Guid.CreateVersion7(), "Second"), ct));
-        Assert.Equal("You own 1 room, the most that you can own. Delete a room to make a new one.", rooms.Message);
+        await RefusedAsync("You own 1 room, the most that you can own. Delete a room to make a new one.",
+            () => store.Missions.CreateAsync(alice.User.Id, new(Guid.CreateVersion7(), "Second"), ct));
         await store.Missions.InviteAsync(room, alice.User.Id, new(Guid.CreateVersion7(), bob.User.Id), ct);
-        var people = await RefusedAsync("room-people", () => store.Missions.InviteAsync(room, alice.User.Id, new(Guid.CreateVersion7(), carol.User.Id), ct));
-        Assert.Equal("This room can have at most 2 people, with its open invitations.", people.Message);
+        await RefusedAsync("This room can have at most 2 people, with its open invitations.",
+            () => store.Missions.InviteAsync(room, alice.User.Id, new(Guid.CreateVersion7(), carol.User.Id), ct));
         var terminal = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7();
         await store.Sessions.CreateAsync(alice.User.Id, alice.Approved, new(terminal, incarnation, "Shell", alice.Device.Id, "Mac", null), ct);
-        await RefusedAsync("share-people", () => store.Sessions.ShareAsync(terminal, alice.User.Id, alice.Device.Id, new(incarnation, 1, [bob.User.Id, carol.User.Id]), ct));
+        await RefusedAsync("You can share a terminal with at most 1 person.",
+            () => store.Sessions.ShareAsync(terminal, alice.User.Id, alice.Device.Id, new(incarnation, 1, [bob.User.Id, carol.User.Id]), ct));
 
         alice.User.Plan = "unlimited"; await store.Db.SaveChangesAsync(ct);
         await store.Missions.CreateAsync(alice.User.Id, new(Guid.CreateVersion7(), "Second"), ct);
@@ -118,15 +118,15 @@ public sealed class PlanTests(PostgresFixture postgres)
         var alice = await store.UserAsync("alice"); var bob = await store.UserAsync("bob");
         var carol = await store.UserAsync("carol"); var dave = await store.UserAsync("dave");
         await store.Friends.MutateAsync(alice.User.Id, "bob", "send", ct);
-        var sent = await RefusedAsync("friend-requests", () => store.Friends.MutateAsync(alice.User.Id, "carol", "send", ct));
-        Assert.Equal("You have 1 open friend request. Wait for an answer, or cancel a request.", sent.Message);
-        var received = await RefusedAsync("friend-requests", () => store.Friends.MutateAsync(carol.User.Id, "bob", "send", ct));
-        Assert.Equal("This person has too many open friend requests. Try again later.", received.Message);
+        await RefusedAsync("You have 1 open friend request. Wait for an answer, or cancel a request.",
+            () => store.Friends.MutateAsync(alice.User.Id, "carol", "send", ct));
+        await RefusedAsync("This person has too many open friend requests. Try again later.",
+            () => store.Friends.MutateAsync(carol.User.Id, "bob", "send", ct));
         await store.Friends.MutateAsync(bob.User.Id, "alice", "accept", ct);
-        var mine = await RefusedAsync("friends", () => store.Friends.MutateAsync(alice.User.Id, "dave", "send", ct));
-        Assert.Equal("You have 1 friend, the most that you can have. Remove a friend first.", mine.Message);
-        var theirs = await RefusedAsync("friends", () => store.Friends.MutateAsync(dave.User.Id, "alice", "send", ct));
-        Assert.Equal("This person has the most friends that they can have.", theirs.Message);
+        await RefusedAsync("You have 1 friend, the most that you can have. Remove a friend first.",
+            () => store.Friends.MutateAsync(alice.User.Id, "dave", "send", ct));
+        await RefusedAsync("This person has the most friends that they can have.",
+            () => store.Friends.MutateAsync(dave.User.Id, "alice", "send", ct));
     }
 
     [Fact]
@@ -139,14 +139,14 @@ public sealed class PlanTests(PostgresFixture postgres)
         DeviceService.LinkInit Init(DeviceFixture device) =>
             new(device.DeviceId, "New", Convert.ToBase64String(device.SigningKey), DeviceFixture.LinkNonce, DeviceFixture.LinkProof);
         var second = new DeviceFixture(owner.User.Id, "second-device");
-        var refused = await RefusedAsync("devices", () => store.Devices.StartLinkAsync(owner.User.Id, Init(second), ct));
-        Assert.Equal("This account has 1 device, the most that it can have. Remove a device in Settings on one of your devices, then try again.", refused.Message);
+        const string full = "This account has 1 device, the most that it can have. Remove a device in Settings on one of your devices, then try again.";
+        await RefusedAsync(full, () => store.Devices.StartLinkAsync(owner.User.Id, Init(second), ct));
 
         owner.User.Plan = "unlimited"; await store.Db.SaveChangesAsync(ct);
         var link = JsonSerializer.SerializeToElement(await store.Devices.StartLinkAsync(owner.User.Id, Init(second), ct), TestJson.Options);
         owner.User.Plan = null; await store.Db.SaveChangesAsync(ct);
         var some = Convert.ToBase64String(new byte[32]);
-        await RefusedAsync("devices", () => store.Devices.ApproveLinkAsync(owner.User.Id, owner.Approved,
+        await RefusedAsync(full, () => store.Devices.ApproveLinkAsync(owner.User.Id, owner.Approved,
             new(link.GetProperty("requestId").GetGuid(), some, some, some, some, some), ct));
 
         owner.Device.Revoked = true; await store.Db.SaveChangesAsync(ct);
@@ -176,32 +176,28 @@ public sealed class PlanTests(PostgresFixture postgres)
         foreach (var id in new[] { Guid.CreateVersion7(), Guid.CreateVersion7() })
             await store.Missions.PutContentAsync(tasks, id, bob.User.Id, Item(bob, tasks, id, "task"), ct);
         var full = Guid.CreateVersion7();
-        var refusal = await RefusedAsync("room-data", () => store.Missions.PutContentAsync(tasks, full, bob.User.Id, Item(bob, tasks, full, "task"), ct));
-        Assert.Equal("This room is full: its tasks and repositories use all of its space. Make a new room to continue.", refusal.Message);
+        await RefusedAsync("This room is full: its tasks and repositories use all of its space. Make a new room to continue.",
+            () => store.Missions.PutContentAsync(tasks, full, bob.User.Id, Item(bob, tasks, full, "task"), ct));
         store.Db.ChangeTracker.Clear();
         Assert.Equal(2, await store.Db.MissionItems.CountAsync(x => x.MissionId == tasks, ct));
         Assert.False((await store.Db.Missions.SingleAsync(x => x.Id == tasks, ct)).HistoryTrimmed);
     }
 
     [Fact]
-    public async Task TheAccountSeesItsPlanAndARefusalNamesTheLimit()
+    public async Task ThePlanSettingLimitsAnAccountAndTheRefusalSaysWhatToDo()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(ct), settings: new Dictionary<string, string?>
         {
-            ["Plans:Default"] = "free", ["Plans:Definitions:free:OwnedRooms"] = "1", ["Plans:Definitions:free:Devices"] = "4",
+            ["Plans:Default"] = "free", ["Plans:Definitions:free:OwnedRooms"] = "1",
         });
         using var owner = await app.EnrollAsync("owner");
-        var plan = (await owner.Client.GetFromJsonAsync<JsonElement>("/api/me", ct)).GetProperty("plan");
-        Assert.Equal("free", plan.GetProperty("name").GetString());
-        Assert.Equal(4, plan.GetProperty("limits").GetProperty("devices").GetInt32());
-        Assert.Equal(JsonValueKind.Null, plan.GetProperty("limits").GetProperty("roomBytes").ValueKind);
         await CallAsync(owner, HttpMethod.Post, "/api/missions", new { id = Guid.CreateVersion7(), name = "Room" });
         using var second = await SignedAsync(owner, HttpMethod.Post, "/api/missions", new { id = Guid.CreateVersion7(), name = "Second" });
         using var response = await owner.Client.SendAsync(second, ct);
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
-        Assert.Equal("rooms", body.GetProperty("limit").GetString());
+        Assert.Equal(["error"], body.EnumerateObject().Select(x => x.Name));
         Assert.Equal("You own 1 room, the most that you can own. Delete a room to make a new one.", body.GetProperty("error").GetString());
     }
 }

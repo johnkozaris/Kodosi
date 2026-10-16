@@ -169,11 +169,6 @@ namespace Kodosi.Data.Migrations
                         .IsRequired()
                         .HasColumnType("bytea");
 
-                    b.Property<string>("SignerDeviceId")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
                     b.HasKey("UserId");
 
                     b.ToTable("device_lists", (string)null);

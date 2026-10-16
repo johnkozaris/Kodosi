@@ -432,8 +432,6 @@ fn validate_pixels(size: TerminalSize, geometry: Option<TerminalPixelGeometry>) 
     Ok(())
 }
 
-/// The `PATH` of a new terminal with the folder of the running app at its end, when that
-/// folder holds the `kodosi` command and the `PATH` lacks it.
 fn command_path() -> Option<String> {
     if cfg!(windows) {
         return None;
@@ -488,7 +486,6 @@ struct LocalActor {
     queue: VecDeque<PendingWrite>,
     focused: HashMap<Controller, CancellationToken>,
     resize_owner: Option<ResizeOwner>,
-    /// The cell size of the last resize that had one.
     cell: CellPixels,
     sequence: u64,
     host_stop_reply: Option<oneshot::Sender<std::result::Result<serde_json::Value, String>>>,
@@ -609,33 +606,6 @@ impl LocalActor {
             index += 1;
             keep
         });
-    }
-
-    fn flush(&mut self) -> Result<()> {
-        if self.reader.write_in_flight() {
-            return Ok(());
-        }
-        while let Some(write) = self.queue.front_mut() {
-            if write.is_cancelled() {
-                self.queue.pop_front();
-                continue;
-            }
-            if write.offset == write.bytes.len() {
-                write.complete();
-                self.queue.pop_front();
-                continue;
-            }
-            let count = self.pty.write(&write.bytes[write.offset..])?;
-            if count == 0 {
-                break;
-            }
-            write.offset += count;
-            if write.offset == write.bytes.len() {
-                write.complete();
-                self.queue.pop_front();
-            }
-        }
-        Ok(())
     }
 
     fn pending_input(&mut self) -> Option<Bytes> {
@@ -799,7 +769,7 @@ impl LocalActor {
         }
     }
 
-    async fn maintain(&mut self) -> Result<()> {
+    async fn maintain(&mut self) {
         self.subscribers.prune();
         self.type_start_line();
         if self.subscribers.caught_up() && tokio::time::Instant::now() >= self.next_refresh {
@@ -893,7 +863,6 @@ impl LocalActor {
             self.resize_owner = None;
         }
         self.drop_cancelled_input();
-        self.flush()
     }
 
     async fn apply_output(&mut self, bytes: Bytes, accepting_input: bool) -> Result<()> {
@@ -994,16 +963,15 @@ impl LocalActor {
         program.is_none() && self.pty.foreground_is_child()
     }
 
-    fn accept_input(&mut self, connection: Uuid, mut write: PendingWrite) -> Option<String> {
+    fn accept_input(&mut self, connection: Uuid, mut write: PendingWrite) {
         let Ok(authorization) = self.subscribers.authorization(connection) else {
             if let Some(completion) = write.completion.take() {
                 completion.send(Err(Error::Stale));
             }
-            return None;
+            return;
         };
         write.authorization = Some(authorization);
         self.queue.push_back(write);
-        self.flush().err().map(|error| error.to_string())
     }
 
     async fn command(&mut self, command: Request) -> Option<String> {
@@ -1037,7 +1005,7 @@ impl LocalActor {
                 self.note_local_view();
                 self.release_logged(Controller::Local(connection)).await;
             }
-            Request::Input { connection, write } => return self.accept_input(connection, write),
+            Request::Input { connection, write } => self.accept_input(connection, write),
             Request::Resize {
                 connection,
                 size,
@@ -1080,7 +1048,6 @@ impl LocalActor {
             Request::Run { command, reply } => {
                 let result = if self.at_prompt(self.live_program().as_deref()) {
                     self.enqueue(Bytes::from(format!("{}{command}\r", self.clear_line)), None)
-                        .and_then(|()| self.flush())
                 } else {
                     Err(Error::Invalid("This terminal runs a program.".to_owned()))
                 };
@@ -1224,7 +1191,7 @@ impl LocalActor {
                     Ok(mut write) => {
                         write.completion = Some(InputCompletion::Remote(reply));
                         self.queue.push_back(write);
-                        return self.flush().err().map(|error| error.to_string());
+                        return None;
                     }
                     Err(error) => Err(error),
                 }
@@ -1362,7 +1329,7 @@ impl LocalActor {
                     Err(error) if error.raw_os_error() == Some(5) => break "Session ended.".to_owned(),
                     Err(error) => break error.to_string(),
                 },
-                _ = tick.tick() => { if let Err(error) = self.maintain().await { break error.to_string(); } }
+                _ = tick.tick() => self.maintain().await,
             }
         };
         self.cancellation.cancel();

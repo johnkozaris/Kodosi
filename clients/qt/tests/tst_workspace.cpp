@@ -18,8 +18,7 @@ public:
     Result send(QByteArrayView bytes) override
     {
         if (reject)
-            return std::unexpected(kodosi::RuntimeFailure {
-                kodosi::RuntimeFailure::Code::FfiRejected, 6, QStringLiteral("Busy") });
+            return std::unexpected(kodosi::RuntimeFailure { 6, QStringLiteral("Busy") });
         values.append(QJsonDocument::fromJson(bytes.toByteArray()).object());
         return {};
     }

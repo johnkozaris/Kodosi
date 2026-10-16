@@ -33,7 +33,6 @@ pub enum TerminalFrame {
         final_sequence: u64,
     },
 }
-/// The largest frame: a checkpoint with its sequence and console state.
 pub(super) const TERMINAL_FRAME_MAX: usize = terminal::TERMINAL_SNAPSHOT_MAX_BYTES + 10;
 
 pub(super) fn checkpoint_frame(checkpoint: &terminal::Checkpoint, next: u64) -> Vec<u8> {

@@ -4,13 +4,13 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - Ghostty.lock
       - scripts/windows-env.sh
       - terminal/ghostty/Patches/ghostty/**
       - terminal/ghostty/Toolchain.env
       - terminal/ghostty/VERSION
       - terminal/ghostty/WindowsGhostty.ref
       - terminal/ghostty/WindowsVtBuild.env
+      - terminal/ghostty/Vendor/GhosttyVt/linux-x86_64/include/**
       - terminal/ghostty/Vendor/GhosttyVt/windows-*/**
       - terminal/ghostty/Vendor/GhosttyVt/windows-*.version
       - terminal/ghostty/scripts/apply-patches.sh

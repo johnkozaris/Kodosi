@@ -24,8 +24,8 @@ internal static class DeviceIdRules
         IsCanonical(value) ? value : throw ApiException.Invalid("Device ID must be canonical.");
 }
 
-public sealed record DeviceCertificate(string UserId, string DeviceId, string DeviceLabel, string SignerDeviceId,
-    byte[] SigPublicKey, long IssuedAtMs, long? ExpiresAtMs)
+public sealed record DeviceCertificate(string UserId, string DeviceId, string SignerDeviceId, byte[] SigPublicKey, long IssuedAtMs,
+    long? ExpiresAtMs)
 {
     public bool IsSelfSigned => SignerDeviceId == DeviceId;
 
@@ -43,7 +43,7 @@ public sealed record DeviceCertificate(string UserId, string DeviceId, string De
             throw new IdentityFormatException("sig_public_key has the wrong length");
         var (issuedAtMs, expiresAtMs) = reader.ReadValidity();
         reader.ExpectEnd();
-        return new(userId, deviceId, label, signerDeviceId, key, issuedAtMs, expiresAtMs);
+        return new(userId, deviceId, signerDeviceId, key, issuedAtMs, expiresAtMs);
     }
 }
 

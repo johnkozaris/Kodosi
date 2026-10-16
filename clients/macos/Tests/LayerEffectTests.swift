@@ -5,7 +5,6 @@ import QuartzCore
 import SwiftUI
 import Testing
 
-/// A reference that walks the keystrokes one by one: absolute step `a` falls at `time(a)` and types on cell `a mod lap`.
 private struct Keystrokes {
     let total: Int
     let offsets: [TimeInterval]

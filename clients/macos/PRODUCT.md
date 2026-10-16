@@ -4,22 +4,17 @@ Shared intent: [PRODUCT.md](../../PRODUCT.md). Visual system: [DESIGN.md](DESIGN
 
 ## Terminals
 
-- New Terminal opens the launcher: with nothing open it is the launcher in the main
-  area, which then lists every terminal by computer; otherwise a sheet. Return with the
-  Terminal tab opens a plain shell. The sidebar groups terminals by folder and names the
-  computer of a remote terminal. Go to (⌘K) finds terminals, rooms, people and
-  actions. A terminal is renamed in place.
-- A terminal carries its program's mark, which shows the program's state. A waiting
-  program gets a sign of what it needs beside its mark, and a closed folder shows that
-  sign too. Done, failed and a bell keep a sign until you look. Faces show who else has
-  a terminal open, the person at its computer included. While Kodosi is not in front,
-  the terminals that you own or have open send a system notification.
+- New Terminal opens the launcher: in the main area when nothing is open, which then
+  lists every terminal by computer, otherwise as a sheet. Return on the Terminal tab
+  opens a plain shell.
+- The sidebar groups terminals by folder and names the computer of a remote terminal.
+  Go to (⌘K) finds terminals, rooms, people and actions. A terminal is renamed in place.
+- A terminal carries its program's mark, which shows the program's state; a waiting
+  program shows what it needs beside the mark, also on a closed folder. Done, failed and
+  a bell keep a sign until you look. Faces show who else has a terminal open.
 - The launcher is the terminal about to open: a tab for each agent after the plain
-  terminal, then one line with pop-up buttons for the folder, the account and the model
-  with its effort, and the first prompt. An account is a sign-in folder and shows its
-  name and the e-mail that is signed in. A terminal at its prompt starts an agent from
-  its mark with the last choice.
-- Kodosi links the `kodosi` command into `~/.local/bin` without a question.
+  terminal, then one line with the folder, the account, the model with its effort, and
+  the first prompt.
 - A repository folder in the sidebar offers a terminal on a new branch.
 - Hidden terminals keep their place and take no input. Sizing is automatic, and keys
   such as Ctrl-C keep their shell meaning. Terminals stay dark in the light appearance.
@@ -34,12 +29,12 @@ task. Drafts and reading position survive switching rooms.
 ## Providers
 
 Preview saved Claude Code and Copilot CLI conversations without changing them. Resume
-starts a new terminal through the provider's own CLI. Kodosi opens provider settings
+starts a new terminal through the provider's own CLI. Settings opens provider settings
 without editing them.
 
 ## Experience
 
 Keep the terminal central and the actions clear, and show objects before explanations.
 Motion follows an action or a real change of state and never moves the terminal
-surface. Native focus, accessibility, localization and reduced motion matter; Settings
-can reduce motion when the system does not.
+surface. Focus, accessibility, localization and reduced motion matter; Settings can
+reduce motion when the system does not.

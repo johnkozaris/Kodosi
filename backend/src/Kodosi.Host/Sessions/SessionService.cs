@@ -9,8 +9,8 @@ namespace Kodosi.Sessions;
 
 public sealed class SessionService(KodosiDbContext db, ConnectionDirectory connections, MissionService missions, TimeProvider clock, PlanCatalog plans)
 {
-    /// <summary>How long the record of an ended terminal stays, so that a late request cannot use its identity again.</summary>
-    public static readonly TimeSpan EndedRecordLife = TimeSpan.FromMinutes(2);
+    // The record of an ended terminal stays so that a late request cannot reuse its identity.
+    private static readonly TimeSpan EndedRecordLife = TimeSpan.FromMinutes(2);
 
     public async Task<Session> AuthorizedAsync(Guid id, Guid userId, CancellationToken ct) =>
         await db.Sessions.Where(x => x.Id == id && !x.Ended).UsableBy(db, userId).SingleOrDefaultAsync(ct) ?? throw ApiException.Missing();
@@ -120,10 +120,10 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         var session = await HostAsync(id, userId, deviceId, ct); Match(session, body.IncarnationId, body.ExpectedRevision);
         if (session.MissionId is not null) throw ApiException.Conflict("This terminal is shared with its room. Remove it from the room to share it individually.");
         if (body.UserIds is null || body.UserIds.Length > Limits.MaxSessionMembers || body.UserIds.Any(x => x == Guid.Empty || x == userId))
-            throw ApiException.Invalid("Choose up to 64 friends, excluding yourself.");
+            throw ApiException.Invalid($"Choose up to {Limits.MaxSessionMembers} friends, excluding yourself.");
         var selected = body.UserIds.ToHashSet();
         var most = (await plans.LimitsAsync(db, userId, ct)).SharePeople;
-        if (selected.Count > most) throw ApiException.Limited("share-people", $"You can share a terminal with at most {Limits.Count(most, "person", "people")}.");
+        if (selected.Count > most) throw ApiException.Forbidden($"You can share a terminal with at most {Limits.Count(most, "person", "people")}.");
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         if (!selected.SetEquals(await LockFriendshipsAsync(userId, [.. selected], ct))) throw ApiException.Forbidden("Session recipients must be accepted friends.");
         var existing = await db.SessionMembers.Where(x => x.SessionId == id).ToListAsync(ct);
@@ -159,17 +159,13 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         if (session.OwnerUserId != userId || session.HostDeviceId != deviceId) throw ApiException.Forbidden();
         Incarnation(session, incarnationId);
         if (session.Ended) return;
-        session.Ended = true;
-        session.ExpiresAt = clock.GetUtcNow() + EndedRecordLife;
+        End(session, clock.GetUtcNow());
         await db.SaveChangesAsync(ct);
         connections.RemoveSession(id);
         connections.Notify(await TerminalAccess.PeopleAsync(db, id, ct), "sessions");
     }
 
-    /// <summary>
-    /// The accepted friends among <paramref name="people"/>, with their friendships locked until the transaction ends,
-    /// so that an unfriend at the same time waits and then also removes this share.
-    /// </summary>
+    // FOR SHARE: an unfriend at the same time waits, and then removes this share too.
     private async Task<List<Guid>> LockFriendshipsAsync(Guid userId, Guid[] people, CancellationToken ct) =>
         (await db.Friendships.FromSqlInterpolated($"""
             SELECT * FROM friendships WHERE "Accepted"
@@ -182,6 +178,12 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         var described = await DescribeAsync(session, ct);
         connections.Notify(described.SharedWith.Append(described.OwnerUserId), "sessions");
         return described;
+    }
+
+    internal static void End(Session session, DateTimeOffset now)
+    {
+        session.Ended = true;
+        session.ExpiresAt = now + EndedRecordLife;
     }
 
     internal static void Incarnation(Session session, Guid expected)

@@ -177,9 +177,8 @@
     }
   },
   "plans": {
-    "account": "GET /api/me gives plan: {name, limits}; name is null on a server without plans",
     "owner": "the plan of the room owner sets the limits of the room; the plan of the terminal owner sets the people who can see it",
-    "refusal": "status 403 with {error, limit}; limit is devices, rooms, room-people, share-people, room-data, friends or friend-requests; the error text tells the person what to do",
+    "refusal": "status 403 with {error}; the error text names the limit and tells the person what to do",
     "recovery": "a recovery never counts against the device limit"
   }
 }

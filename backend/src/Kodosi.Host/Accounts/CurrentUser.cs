@@ -65,7 +65,6 @@ public sealed class CurrentUser(KodosiDbContext db, TimeProvider clock)
         throw ApiException.Conflict("The account could not be created; retry sign-in.");
     }
 
-    /// <summary>When the person signed in, from <c>auth_time</c>. A token refresh does not change it.</summary>
     public static DateTimeOffset? SignedInAt(ClaimsPrincipal principal) =>
         long.TryParse(principal.FindFirstValue("auth_time"), out var seconds) ? DateTimeOffset.FromUnixTimeSeconds(seconds) : null;
 

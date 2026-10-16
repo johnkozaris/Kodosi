@@ -4,10 +4,6 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace Kodosi;
 
-/// <summary>
-/// Token buckets for each account, or for each address before sign-in. A bucket allows a burst up to its size
-/// and then its rate; a refusal is 429 with Retry-After.
-/// </summary>
 internal static class RateLimits
 {
     public const string Challenge = "challenge";

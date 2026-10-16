@@ -141,6 +141,7 @@ async fn a_device_with_new_keys_registers_its_own_room_key() {
     let (_root, network) = super::super::tests::fixture();
     let credentials = Credentials {
         user_id: Uuid::now_v7().to_string(),
+        display_name: "You".to_owned(),
         token: Zeroizing::new("token".into()),
         keys: Arc::new(DeviceKeys::generate().unwrap()),
         enrolled: true,
@@ -306,6 +307,7 @@ async fn a_key_made_by_someone_who_left_is_replaced_before_anyone_writes_with_it
     .unwrap();
     let credentials = Credentials {
         user_id: owner.clone(),
+        display_name: "You".to_owned(),
         token: Zeroizing::new("token".into()),
         keys: Arc::clone(&alice),
         enrolled: true,
@@ -564,6 +566,7 @@ async fn fake_room() -> (tempfile::TempDir, BackendClient, Credentials, Arc<Fake
     .unwrap();
     let credentials = Credentials {
         user_id: fake.user.clone(),
+        display_name: "You".to_owned(),
         token: Zeroizing::new("token".into()),
         keys: Arc::clone(&fake.keys),
         enrolled: true,

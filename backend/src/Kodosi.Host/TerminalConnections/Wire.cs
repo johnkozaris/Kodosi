@@ -7,7 +7,6 @@ namespace Kodosi.TerminalConnections;
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
 [JsonDerivedType(typeof(PingMessage), "ping")]
-[JsonDerivedType(typeof(PongMessage), "pong")]
 [JsonDerivedType(typeof(HostMessage), "host")]
 [JsonDerivedType(typeof(UnhostMessage), "unhost")]
 [JsonDerivedType(typeof(StatusMessage), "status")]
@@ -16,8 +15,6 @@ namespace Kodosi.TerminalConnections;
 internal abstract record DeviceMessage;
 
 internal sealed record PingMessage : DeviceMessage;
-
-internal sealed record PongMessage : DeviceMessage;
 
 internal sealed record HostMessage(Guid SessionId, Guid IncarnationId) : DeviceMessage;
 
@@ -33,7 +30,6 @@ internal sealed record CloseMessage(Guid Pipe) : DeviceMessage;
 [JsonDerivedType(typeof(ReadyNotice), "ready")]
 [JsonDerivedType(typeof(RefusedNotice), "refused")]
 [JsonDerivedType(typeof(PongNotice), "pong")]
-[JsonDerivedType(typeof(HostedNotice), "hosted")]
 [JsonDerivedType(typeof(UnhostedNotice), "unhosted")]
 [JsonDerivedType(typeof(ChangedNotice), "changed")]
 [JsonDerivedType(typeof(TerminalNotice), "terminal")]
@@ -50,8 +46,6 @@ internal sealed record RefusedNotice(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? Current = null) : ServerMessage;
 
 internal sealed record PongNotice : ServerMessage;
-
-internal sealed record HostedNotice(Guid SessionId) : ServerMessage;
 
 internal sealed record UnhostedNotice(Guid SessionId, int Status, string Message) : ServerMessage;
 
@@ -74,7 +68,6 @@ internal sealed record ClosedNotice(Guid Pipe, int Status, string Message) : Ser
 [JsonSerializable(typeof(ServerMessage))]
 internal sealed partial class WireJson : JsonSerializerContext;
 
-/// <summary>The JSON messages of a device connection. A device writes the type in any position.</summary>
 internal static class Wire
 {
     public static readonly byte[] Ready = Encode(new ReadyNotice());
@@ -95,7 +88,6 @@ internal static class Wire
     }
 }
 
-/// <summary>Reads whole WebSocket messages into one buffer, which the next read reuses.</summary>
 internal sealed class MessageReader(WebSocket socket) : IDisposable
 {
     private const int Usual = 16 * 1024;
@@ -107,7 +99,6 @@ internal sealed class MessageReader(WebSocket socket) : IDisposable
 
     public ReadOnlyMemory<byte> Memory => buffer.AsMemory(0, Length);
 
-    /// <summary>Reads the next message; null at a close.</summary>
     public async ValueTask<WebSocketMessageType?> ReadAsync(int maximum, CancellationToken ct)
     {
         if (buffer.Length > Usual) Replace(ArrayPool<byte>.Shared.Rent(Usual), 0);

@@ -58,7 +58,7 @@ struct SessionSharingPopover: View {
                     Text("Here now").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
                 }
             }
-            if !deps.accountReady {
+            if !deps.account.isReady {
                 Button(deps.signInPrompt ?? String(localized: "Sign in")) {
                     dismiss()
                     deps.beginSignIn()
@@ -123,13 +123,13 @@ struct SessionSharingPopover: View {
         if room == nil, current.missionId == nil {
             VStack(alignment: .leading, spacing: 8) {
                 Text("People").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
-                if deps.friends.isEmpty {
+                if deps.people.friends.isEmpty {
                     Button { dismiss(); deps.workbench.section = .people } label: { Label("Add a friend", systemImage: "person.badge.plus") }
                         .buttonStyle(.kodosi(.tinted))
                 } else {
                     ScrollView {
                         FlowLayout(spacing: 10) {
-                            ForEach(deps.friends) { friend in friendChip(friend) }
+                            ForEach(deps.people.friends) { friend in friendChip(friend) }
                         }
                         .padding(3)
                     }

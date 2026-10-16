@@ -83,25 +83,19 @@ impl BackendClient {
         state.tokens = Some(tokens.clone());
         let cancel = state.account_cancel.clone();
         drop(state);
-        let credentials = Credentials {
+        *self.inner.credentials.write().map_err(|_| Error::Closed)? = Some(Credentials {
             user_id: user.clone(),
+            display_name: profile
+                .get("displayName")
+                .and_then(Value::as_str)
+                .unwrap_or("You")
+                .to_owned(),
             token: Zeroizing::new(tokens.access_token.clone()),
             keys,
             enrolled: false,
             notice: None,
             generation: expected_generation,
             cancel,
-        };
-        *self.inner.credentials.write().map_err(|_| Error::Closed)? = Some(credentials.clone());
-        *self.inner.identity.write().map_err(|_| Error::Closed)? = Some(Identity {
-            user_id: user.clone(),
-            device_id: credentials.keys.device_id.clone(),
-            display_name: profile
-                .get("displayName")
-                .and_then(Value::as_str)
-                .unwrap_or("You")
-                .to_owned(),
-            enrolled: false,
         });
         self.ensure_enrolled().await?;
         if self.generation() != expected_generation {
@@ -281,7 +275,6 @@ impl BackendClient {
             credentials.cancel = CancellationToken::new();
             self.delete_publications(&credentials, publications).await;
         }
-        *self.inner.identity.write().map_err(|_| Error::Closed)? = None;
         *self.inner.credentials.write().map_err(|_| Error::Closed)? = None;
         result
     }

@@ -1,16 +1,11 @@
-using Kodosi.Plans;
-
 namespace Kodosi.Accounts;
 
 internal static class AccountEndpoints
 {
     public static void MapAccounts(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/me", (SignedIn me, AccountDeletionSettings deletion, PlanCatalog plans) =>
-        {
-            var (name, limits) = plans.For(me.User.Plan);
-            return Results.Ok(new { me.User.Id, me.User.Handle, me.User.DisplayName, deletionUri = deletion.ConfirmationUri(), plan = new { name, limits } });
-        }).RequireAuthorization();
+        app.MapGet("/api/me", (SignedIn me, AccountDeletionSettings deletion) =>
+            Results.Ok(new { me.User.Id, me.User.Handle, me.User.DisplayName, deletionUri = deletion.ConfirmationUri() })).RequireAuthorization();
         app.MapDelete("/api/me", async (SignedIn me, HttpContext context, AccountService accounts, AccountDeletionSettings deletion, CancellationToken ct) =>
         {
             if (deletion.ReadsSignInService) throw ApiException.Conflict("Delete your account on the account page of the sign-in service.");

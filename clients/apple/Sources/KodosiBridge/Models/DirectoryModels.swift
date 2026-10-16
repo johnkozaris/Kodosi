@@ -44,6 +44,19 @@ public struct MyDeviceEntry: Decodable, Equatable, Identifiable, Sendable {
     public var id: String {
         deviceId
     }
+
+    public var title: String {
+        recoveryKey ? String(localized: "Recovery key", bundle: .module) : label
+    }
+
+    public func removalMessage(hasRecoveryKey: Bool) -> String {
+        if recoveryKey {
+            return String(localized: "The recovery key stops working. You can make a new one.", bundle: .module)
+        }
+        let removal = String(localized: "It disconnects. Approve it again to use it. Commands it already ran stay done.", bundle: .module)
+        guard hasRecoveryKey else { return removal }
+        return removal + " " + String(localized: "If it was lost or stolen, also make a new recovery key.", bundle: .module)
+    }
 }
 
 public struct DeviceLinkRequest: Decodable, Equatable, Identifiable, Sendable {
