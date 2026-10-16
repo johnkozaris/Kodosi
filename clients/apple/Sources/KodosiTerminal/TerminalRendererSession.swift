@@ -262,6 +262,20 @@ public final class TerminalRendererSession: ObservableObject {
         return true
     }
 
+    /// Gives the terminal the host's grid and cell size at this place in its
+    /// output.
+    @discardableResult
+    public nonisolated func applyHostResize(_ viewport: TerminalViewport) -> Bool {
+        guard backend.applyHostResize(InMemoryTerminalViewport(
+            columns: viewport.columns,
+            rows: viewport.rows,
+            cellWidthPixels: viewport.cellWidthPixels,
+            cellHeightPixels: viewport.cellHeightPixels
+        )) else { return false }
+        accessibilityUpdateRelay.signal()
+        return true
+    }
+
     @discardableResult
     public nonisolated func restoreCheckpointSynchronously(_ snapshot: Data, console: Bool) -> Bool {
         guard backend.restoreCheckpointSynchronously(snapshot, console: console) else { return false }

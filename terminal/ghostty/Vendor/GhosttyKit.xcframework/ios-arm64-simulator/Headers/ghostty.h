@@ -1213,17 +1213,24 @@ GHOSTTY_API ghostty_surface_config_s ghostty_surface_inherited_config(ghostty_su
 GHOSTTY_API void ghostty_surface_update_config(ghostty_surface_t, ghostty_config_t);
 GHOSTTY_API bool ghostty_surface_needs_confirm_quit(ghostty_surface_t);
 GHOSTTY_API bool ghostty_surface_process_exited(ghostty_surface_t);
-// Host-managed output, checkpoint restore, and exit calls must be externally
-// serialized. A restore transactionally replaces the terminal with a Ghostty
-// snapshot (include/ghostty/vt/snapshot.h) before any subsequently serialized
-// output; a snapshot that ends at READY has no history. A snapshot does not
-// carry whether a resize pulls rows from scrollback, so the caller gives it.
-// Output after exit and repeated exit notifications are ignored.
+// Host-managed output, checkpoint restore, host resize, and exit calls must be
+// externally serialized. A restore transactionally replaces the terminal with a
+// Ghostty snapshot (include/ghostty/vt/snapshot.h) before any subsequently
+// serialized output; a snapshot that ends at READY has no history. A snapshot
+// does not carry whether a resize pulls rows from scrollback, so the caller
+// gives it. Only the host changes the grid of a host-managed terminal: a host
+// resize gives its columns, rows and cell pixel size. Output after exit and
+// repeated exit notifications are ignored.
 GHOSTTY_API void ghostty_surface_write_buffer(ghostty_surface_t, const uint8_t*, uintptr_t);
 GHOSTTY_API ghostty_result_e ghostty_surface_checkpoint_restore(ghostty_surface_t,
                                                                 const uint8_t*,
                                                                 size_t,
                                                                 bool);
+GHOSTTY_API ghostty_result_e ghostty_surface_host_resize(ghostty_surface_t,
+                                                         uint16_t,
+                                                         uint16_t,
+                                                         uint32_t,
+                                                         uint32_t);
 GHOSTTY_API void ghostty_surface_process_exit(ghostty_surface_t, uint32_t, uint64_t);
 GHOSTTY_API void ghostty_surface_refresh(ghostty_surface_t);
 GHOSTTY_API void ghostty_surface_draw(ghostty_surface_t);
