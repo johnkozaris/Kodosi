@@ -4,11 +4,13 @@
 #include "terminal/TerminalFrame.hpp"
 #include "terminal/TerminalSettings.hpp"
 
+#include <QByteArray>
 #include <QString>
 
 #include <expected>
 #include <memory>
 #include <optional>
+#include <vector>
 
 namespace kodosi {
 
@@ -101,6 +103,19 @@ struct TerminalMouseEvent {
     bool anyButtonPressed = false;
 };
 
+struct TerminalClipboardOperation {
+    bool selection = false;
+    std::optional<QString> write;
+    QByteArray answerPrefix;
+    QByteArray answerTerminator;
+};
+
+using TerminalClipboardOperations = std::vector<TerminalClipboardOperation>;
+
+void appendClipboardOperation(
+    TerminalClipboardOperations& operations,
+    TerminalClipboardOperation operation);
+
 class GhosttyTerminalKernel final {
 public:
     struct Failure {
@@ -109,7 +124,6 @@ public:
             StaleSubscription,
             StaleFrame,
             HitTestRace,
-            UnsafePaste,
             SequenceMismatch,
             ResourceLimit,
             GhosttyRejected,
@@ -140,6 +154,7 @@ public:
 
     [[nodiscard]] Result installCheckpoint(const TerminalCheckpoint& checkpoint);
     [[nodiscard]] Result applyData(const TerminalData& data);
+    [[nodiscard]] TerminalClipboardOperations takeClipboardOperations();
     [[nodiscard]] Result applyResize(
         const TerminalSubscription& subscription,
         std::uint64_t atSequence,

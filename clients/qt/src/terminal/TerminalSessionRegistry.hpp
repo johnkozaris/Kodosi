@@ -47,6 +47,7 @@ public:
         std::function<void(TerminalFocusOutcome)> focusCompleted;
         std::function<void(TerminalResizeOutcome)> resizeCompleted;
         std::function<void()> closed;
+        std::function<void(TerminalClipboardOperations)> clipboard;
     };
 
     struct SurfaceRegistration {

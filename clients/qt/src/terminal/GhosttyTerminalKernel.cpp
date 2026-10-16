@@ -6,6 +6,7 @@
 #include <QByteArray>
 
 #include <algorithm>
+#include <bit>
 #include <iterator>
 #include <limits>
 #include <mutex>
@@ -38,6 +39,74 @@ bool sameSubscription(
 QColor color(const GhosttyColorRgb value)
 {
     return {value.r, value.g, value.b};
+}
+
+constexpr std::size_t maximumClipboardReads = 8;
+
+bool isTextMime(const QByteArrayView mime)
+{
+    return mime == "text/plain" || mime == "text/plain;charset=utf-8" || mime == "UTF8_STRING"
+        || mime == "TEXT" || mime == "STRING";
+}
+
+TerminalClipboardOperations& clipboardOperations(void* userdata)
+{
+    return *static_cast<TerminalClipboardOperations*>(userdata);
+}
+
+void recordClipboardWrite(
+    GhosttyTerminal,
+    void* userdata,
+    const GhosttyClipboardWrite* write)
+{
+    if (write == nullptr || write->size < sizeof(GhosttyClipboardWrite)) {
+        return;
+    }
+    std::optional<QString> text;
+    if (write->contents_len == 0) {
+        text = QString {};
+    }
+    for (std::size_t index = 0; !text && index < write->contents_len; ++index) {
+        const auto& content = write->contents[index];
+        if (isTextMime(QByteArrayView(content.mime.ptr, static_cast<qsizetype>(content.mime.len)))) {
+            text = QString::fromUtf8(
+                QByteArrayView(content.data.ptr, static_cast<qsizetype>(content.data.len)));
+        }
+    }
+    if (text) {
+        appendClipboardOperation(clipboardOperations(userdata), {
+            .selection = write->location != GHOSTTY_CLIPBOARD_LOCATION_STANDARD,
+            .write = std::move(text),
+            .answerPrefix = {},
+            .answerTerminator = {},
+        });
+    }
+}
+
+// An unanswered read makes Ghostty write an empty OSC 52 answer, which the
+// focused view fills with its clipboard.
+void deferClipboardRead(GhosttyTerminal, void*, const GhosttyClipboardRead*) {}
+
+void recordClipboardRead(
+    GhosttyTerminal,
+    void* userdata,
+    const std::uint8_t* data,
+    const std::size_t length)
+{
+    const QByteArrayView answer(data, static_cast<qsizetype>(length));
+    if (answer.size() < 8 || !answer.startsWith("\x1b]52;") || answer.at(6) != ';') {
+        return;
+    }
+    auto terminator = answer.sliced(7).toByteArray();
+    if (terminator != "\x07" && terminator != "\x1b\\") {
+        return;
+    }
+    appendClipboardOperation(clipboardOperations(userdata), {
+        .selection = answer.at(5) != 'c',
+        .write = std::nullopt,
+        .answerPrefix = answer.first(7).toByteArray(),
+        .answerTerminator = std::move(terminator),
+    });
 }
 
 class TerminalHandle final {
@@ -744,6 +813,7 @@ public:
     std::uint64_t displayRevision = 0;
     Frame currentFrame;
     TerminalKernelSettings settings;
+    TerminalClipboardOperations clipboard;
     bool selectionRectangular = false;
     bool admitted = false;
     bool failed = false;
@@ -817,6 +887,22 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
         return std::unexpected(
             ghosttyFailure(QStringLiteral("disable Glyph Protocol"), result));
     }
+    const GhosttyTerminalWritePtyFn writePty = recordClipboardRead;
+    const GhosttyTerminalClipboardWriteFn clipboardWrite = recordClipboardWrite;
+    const GhosttyTerminalClipboardReadFn clipboardRead = deferClipboardRead;
+    const std::pair<GhosttyTerminalOption, const void*> clipboardCallbacks[] {
+        {GHOSTTY_TERMINAL_OPT_USERDATA, &m_impl->clipboard},
+        {GHOSTTY_TERMINAL_OPT_WRITE_PTY, std::bit_cast<const void*>(writePty)},
+        {GHOSTTY_TERMINAL_OPT_CLIPBOARD_WRITE, std::bit_cast<const void*>(clipboardWrite)},
+        {GHOSTTY_TERMINAL_OPT_CLIPBOARD_READ, std::bit_cast<const void*>(clipboardRead)},
+    };
+    for (const auto& [option, value] : clipboardCallbacks) {
+        result = ghostty_terminal_set(candidateTerminal.value, option, value);
+        if (result != GHOSTTY_SUCCESS) {
+            return std::unexpected(
+                ghosttyFailure(QStringLiteral("clipboard callbacks"), result));
+        }
+    }
 
     const bool resizePullsScrollback = !checkpoint.console;
     result = ghostty_terminal_set(
@@ -878,6 +964,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::installCheckpoint(
     m_impl->viewportRevision = viewportRevision;
     m_impl->displayRevision = displayRevision;
     m_impl->currentFrame = *candidateFrame;
+    m_impl->clipboard.clear();
     m_impl->selectionRectangular = false;
     m_impl->admitted = true;
     m_impl->failed = false;
@@ -949,6 +1036,29 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::applyData(const TerminalDat
     }
     m_impl->currentFrame = *nextFrame;
     return m_impl->currentFrame;
+}
+
+TerminalClipboardOperations GhosttyTerminalKernel::takeClipboardOperations()
+{
+    std::scoped_lock lock(m_impl->mutex);
+    return std::exchange(m_impl->clipboard, {});
+}
+
+void appendClipboardOperation(
+    TerminalClipboardOperations& operations,
+    TerminalClipboardOperation operation)
+{
+    if (operation.write && !operations.empty() && operations.back().write
+        && operations.back().selection == operation.selection) {
+        operations.back() = std::move(operation);
+        return;
+    }
+    if (!operation.write
+        && std::ranges::count_if(operations, [](const auto& queued) { return !queued.write; })
+            >= static_cast<std::ptrdiff_t>(maximumClipboardReads)) {
+        return;
+    }
+    operations.push_back(std::move(operation));
 }
 
 GhosttyTerminalKernel::Result GhosttyTerminalKernel::applyResize(
@@ -1129,18 +1239,6 @@ GhosttyTerminalKernel::encodePaste(
     if (result != GHOSTTY_SUCCESS) {
         return std::unexpected(
             ghosttyFailure(QStringLiteral("bracketed paste mode"), result));
-    }
-    if (!bracketed.value
-        && std::any_of(text.cbegin(), text.cend(), [](const char value) {
-            const auto byte = static_cast<unsigned char>(value);
-            return byte < 0x20 || byte == 0x7f;
-        })) {
-        return std::unexpected(Failure {
-            Failure::Code::UnsafePaste,
-            QStringLiteral(
-                "Multiline or control-character paste requires bracketed paste mode; "
-                "no input was sent."),
-        });
     }
 
     std::size_t required = 0;
