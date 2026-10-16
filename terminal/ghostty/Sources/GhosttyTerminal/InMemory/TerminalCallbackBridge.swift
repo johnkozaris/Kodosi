@@ -15,6 +15,8 @@ enum TerminalActionSnapshot: Sendable {
 final class TerminalCallbackBridge {
     weak var delegate: (any TerminalSurfaceViewDelegate)?
     nonisolated(unsafe) var rawSurface: ghostty_surface_t?
+    nonisolated(unsafe) var hasFocus = false
+    nonisolated(unsafe) weak var session: InMemoryTerminalSession?
     var onCellSizeChange: ((UInt32, UInt32) -> Void)?
     var onRenderRequest: (() -> Void)?
     var onSelectionChanged: (() -> Void)?

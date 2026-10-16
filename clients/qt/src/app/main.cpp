@@ -83,6 +83,10 @@ int main(int argc, char* argv[])
     QCoreApplication::setOrganizationDomain(QStringLiteral("kodosi.com"));
     QCoreApplication::setApplicationName(QStringLiteral("Kodosi"));
     QCoreApplication::setApplicationVersion(QStringLiteral(KODOSI_VERSION));
+#ifdef Q_OS_LINUX
+    // Wayland names the window by this entry, so the desktop shows Kodosi's icon and name.
+    QGuiApplication::setDesktopFileName(QStringLiteral("com.kodosi.Kodosi"));
+#endif
     std::optional<QSize> windowSize;
     kodosi::AppActivation launch { .route = {}, .token = kodosi::takeActivationToken() };
     const auto arguments = app.arguments();

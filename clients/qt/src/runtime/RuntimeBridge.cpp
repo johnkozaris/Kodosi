@@ -8,7 +8,7 @@
 #include <utility>
 #include <thread>
 
-static_assert(KODOSI_FFI_ABI_VERSION == 8, "KodosiQT requires FFI ABI 8");
+static_assert(KODOSI_FFI_ABI_VERSION == 9, "KodosiQT requires FFI ABI 9");
 
 namespace kodosi {
 namespace {
@@ -85,7 +85,7 @@ void RuntimeBridge::startAsync(std::function<void(Result)> completion)
     std::thread([context = m_callbacks, generation, completion = std::move(completion)]() mutable {
         const kodosi_callbacks_t callbacks {
             &RuntimeBridge::event, &RuntimeBridge::terminalData, &RuntimeBridge::terminalControl,
-            &RuntimeBridge::terminalConnectResult, &RuntimeBridge::terminalSemanticCheckpoint
+            &RuntimeBridge::terminalConnectResult, &RuntimeBridge::terminalCheckpoint
         };
         auto* handle = kodosi_start(&callbacks, sizeof(callbacks), context.get());
         auto pending = std::shared_ptr<void*>(new void*(handle), [context](void** value) {
@@ -367,21 +367,21 @@ void RuntimeBridge::terminalConnectResult(const char* session, const char* subsc
     bridge->m_terminalSink->receiveConnectResult(
         { copySubscription(session, subscription, generation), result });
 }
-std::int32_t RuntimeBridge::terminalSemanticCheckpoint(const char* session, const char* subscription,
+std::int32_t RuntimeBridge::terminalCheckpoint(const char* session, const char* subscription,
     std::uint64_t generation, std::uint64_t nextSequence, std::uint16_t rows, std::uint16_t columns,
-    const std::uint8_t* json, std::uintptr_t length, void* userdata) noexcept
+    bool console, const std::uint8_t* snapshot, std::uintptr_t length, void* userdata) noexcept
 {
     std::lock_guard lock(static_cast<CallbackContext*>(userdata)->mutex);
     auto* bridge = resolve(userdata);
     if (!bridge || !bridge->m_terminalSink || !bridge->m_activeGeneration.load(std::memory_order_acquire)) {
         return KODOSI_FFI_TERMINAL_CHECKPOINT_REJECTED;
     }
-    auto payload = copyBytes(json, length);
+    auto payload = copyBytes(snapshot, length);
     if (!length || payload.isEmpty())
         return KODOSI_FFI_TERMINAL_CHECKPOINT_REJECTED;
-    return bridge->m_terminalSink->installSemanticCheckpoint(
+    return bridge->m_terminalSink->installCheckpoint(
                { copySubscription(session, subscription, generation), nextSequence, rows, columns,
-                   std::move(payload) })
+                   std::move(payload), console })
         ? KODOSI_FFI_OK
         : KODOSI_FFI_TERMINAL_CHECKPOINT_REJECTED;
 }

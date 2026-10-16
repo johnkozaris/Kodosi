@@ -142,6 +142,81 @@ private slots:
         missions.setPresentation(QStringLiteral("conversation"), true);
         QVERIFY(missions.unreadRooms().isEmpty());
     }
+    void aRoomCountsWhatArrivedOutOfView()
+    {
+        Fixture f;
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.ready") },
+            { QStringLiteral("userId"), test::id(50) }, { QStringLiteral("accountEpoch"), 1 } }, 1);
+        auto& missions = f.workspace.missions();
+        f.desktop.setActiveView(kodosi::DesktopStateModel::Missions);
+        missions.open(test::id(10));
+        int sequence = 0;
+        QJsonArray tasks;
+        QJsonArray repositories;
+        const auto room = [&](int messages) {
+            QJsonArray list;
+            for (int index = 0; index < messages; ++index) {
+                ++sequence;
+                list.append(QJsonObject { { QStringLiteral("id"), test::id(100 + sequence) }, { QStringLiteral("sequence"), sequence },
+                    { QStringLiteral("authorId"), test::id(51) } });
+            }
+            f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("room.snapshot") },
+                { QStringLiteral("room"), QJsonObject { { QStringLiteral("roomId"), test::id(10) }, { QStringLiteral("tasks"), tasks },
+                    { QStringLiteral("repositories"), repositories }, { QStringLiteral("messages"), list } } } }, 1);
+        };
+        const auto fresh = [&] { return missions.presentation().value(QStringLiteral("fresh")).toList(); };
+        const auto unread = [&] { return missions.presentation().value(QStringLiteral("unread")).toInt(); };
+        tasks = { QJsonObject { { QStringLiteral("id"), test::id(1) }, { QStringLiteral("version"), 1 } } };
+        room(0);
+        QVERIFY(fresh().isEmpty());
+        tasks = { QJsonObject { { QStringLiteral("id"), test::id(1) }, { QStringLiteral("version"), 2 } } };
+        room(0);
+        QCOMPARE(fresh(), QVariantList { 1 });
+        repositories = { QJsonObject { { QStringLiteral("id"), test::id(2) } } };
+        room(0);
+        QCOMPARE(fresh(), (QVariantList { 1, 2 }));
+        missions.setPresentation(QStringLiteral("canvas"), 1);
+        QCOMPARE(fresh(), QVariantList { 2 });
+        tasks = { QJsonObject { { QStringLiteral("id"), test::id(1) }, { QStringLiteral("version"), 3 } } };
+        room(0);
+        QCOMPARE(fresh(), QVariantList { 2 });
+
+        room(1);
+        QCOMPARE(unread(), 0);
+        missions.setPresentation(QStringLiteral("conversation"), false);
+        room(2);
+        room(1);
+        QCOMPARE(unread(), 3);
+        missions.setPresentation(QStringLiteral("conversation"), true);
+        QCOMPARE(unread(), 0);
+        missions.setPresentation(QStringLiteral("followLatest"), false);
+        room(1);
+        QCOMPARE(unread(), 1);
+        missions.setPresentation(QStringLiteral("followLatest"), true);
+        QCOMPARE(unread(), 0);
+    }
+
+    void aTitleThatOnlyAnimatesKeepsTheViews()
+    {
+        Fixture f;
+        const auto titled = [](const QString& title) {
+            auto entry = test::session(1);
+            entry.insert(QStringLiteral("title"), title);
+            return test::snapshot({ entry });
+        };
+        f.workspace.apply(titled(QStringLiteral("\u280b Reading the logs")), 0);
+        QSignalSpy views(&f.sessions, &kodosi::SessionCatalogModel::folderGroupsChanged);
+        QSignalSpy applied(&f.sessions, &kodosi::SessionCatalogModel::authoritativeSnapshotApplied);
+        f.workspace.apply(titled(QStringLiteral("\u2819 Reading the logs")), 0);
+        QCOMPARE(views.count(), 0);
+        QCOMPARE(applied.count(), 1);
+        QCOMPARE(f.sessions.sessions().first().toMap().value(QStringLiteral("activity")).toString(), QStringLiteral("Reading the logs"));
+        QVERIFY(f.sessions.sessions().first().toMap().value(QStringLiteral("working")).toBool());
+        f.workspace.apply(titled(QStringLiteral("\u2819 Writing the fix")), 0);
+        QCOMPARE(views.count(), 1);
+        QCOMPARE(f.sessions.sessions().first().toMap().value(QStringLiteral("activity")).toString(), QStringLiteral("Writing the fix"));
+    }
+
     void terminalControlFollowsOneConnectionState()
     {
         Fixture f;
@@ -173,10 +248,20 @@ private slots:
         QCOMPARE(f.sessions.folderGroups().size(), 2);
         const auto fields = f.sessions.presentationForSession(test::id(1));
         QCOMPARE(fields.value(QStringLiteral("name")).toString(), QStringLiteral("Terminal"));
-        QCOMPARE(fields.value(QStringLiteral("headerTitle")).toString(), QStringLiteral("Terminal · GitHub Copilot"));
+        QCOMPARE(fields.value(QStringLiteral("activity")).toString(), QStringLiteral("GitHub Copilot"));
         const auto hosted = f.sessions.presentationForSession(test::id(2));
         QVERIFY(hosted.value(QStringLiteral("workingDirectory")).toString().isEmpty());
         QCOMPARE(hosted.value(QStringLiteral("displayDirectory")).toString(), QStringLiteral("/host/project"));
+    }
+    void detailsNameTheRoomOfATerminal()
+    {
+        Fixture f;
+        auto inRoom = test::session(1);
+        inRoom.insert(QStringLiteral("missionId"), test::id(10));
+        inRoom.insert(QStringLiteral("missionName"), QStringLiteral("Release"));
+        f.sessions.apply(test::snapshot({ inRoom }));
+        QCOMPARE(f.sessions.presentationForSession(test::id(1)).value(QStringLiteral("missionName")).toString(),
+            QStringLiteral("Release"));
     }
     void eachHostFolderShowsItsLastFolder()
     {
@@ -845,6 +930,37 @@ private slots:
         f.workspace.apply(ready, std::numeric_limits<std::uint64_t>::max());
         QVERIFY(f.desktop.stagedSessionIds().isEmpty());
     }
+    void anErrorShowsOnlyForARequestOfThisApp()
+    {
+        Fixture f;
+        const auto error = [](const QString& requestId) {
+            QJsonObject event { { QStringLiteral("type"), QStringLiteral("session.error") },
+                { QStringLiteral("operation"), QStringLiteral("session.rename") }, { QStringLiteral("message"), QStringLiteral("No") } };
+            if (!requestId.isEmpty())
+                event.insert(QStringLiteral("requestId"), requestId);
+            return event;
+        };
+        f.workspace.apply(error(test::id(70)), 0);
+        QVERIFY(f.workspace.error().isEmpty());
+        f.workspace.apply(error({}), 0);
+        QCOMPARE(f.workspace.error(), QStringLiteral("No"));
+        f.workspace.clearError();
+        f.workspace.apply(test::snapshot({ test::session(1) }), 0);
+        QVERIFY(f.workspace.sessionActions().rename(test::id(1), QStringLiteral("Renamed")));
+        f.workspace.apply(error(f.commands.values.last().value(QStringLiteral("requestId")).toString()), 0);
+        QCOMPARE(f.workspace.error(), QStringLiteral("No"));
+        QVERIFY(!f.workspace.sessionActions().busy());
+        f.workspace.clearError();
+        f.workspace.people().request(QStringLiteral("ada"));
+        const auto friendRequest = f.commands.values.last().value(QStringLiteral("requestId")).toString();
+        QVERIFY(!friendRequest.isEmpty());
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("friends.error") },
+            { QStringLiteral("operation"), QStringLiteral("friends.request.send") },
+            { QStringLiteral("message"), QStringLiteral("Nobody is called ada") },
+            { QStringLiteral("requestId"), friendRequest } }, 0);
+        QCOMPARE(f.workspace.error(), QStringLiteral("Nobody is called ada"));
+    }
+
     void strictRefreshHasNoRequestId()
     {
         Fixture f;

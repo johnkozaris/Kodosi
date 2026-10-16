@@ -1316,10 +1316,6 @@ _ghostty_benchmark_cli
 _ghostty_build_info
 _ghostty_cell_get
 _ghostty_cell_get_multi
-_ghostty_checkpoint_encode_alloc
-_ghostty_checkpoint_encode_buf
-_ghostty_checkpoint_restore
-_ghostty_checkpoint_schema
 _ghostty_cli_try_action
 _ghostty_clipboard_request_type
 _ghostty_color_contrast
@@ -1536,6 +1532,7 @@ _ghostty_surface_mouse_pressure
 _ghostty_surface_mouse_scroll
 _ghostty_surface_needs_confirm_quit
 _ghostty_surface_new
+_ghostty_surface_paste_text
 _ghostty_surface_preedit
 _ghostty_surface_process_exit
 _ghostty_surface_process_exited

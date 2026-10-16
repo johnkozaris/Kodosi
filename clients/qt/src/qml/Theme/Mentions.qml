@@ -1,5 +1,6 @@
 pragma Singleton
 
+import Kodosi 1.0
 import QtQuick
 import Kodosi.Models 1.0 as Models
 
@@ -60,20 +61,40 @@ QtObject {
         return result
     }
 
-    function mentionsUser(text: string, targets: var, userId: string): bool {
-        return segments(text, targets).some(segment => segment.target && segment.target.kind === "person" && segment.target.id === userId)
+    function mentions(parts: var, userId: string): bool {
+        return parts.some(segment => segment.target && segment.target.kind === "person" && segment.target.id === userId)
     }
 
-    function html(text: string, targets: var, chip: color, ink: color): string {
-        return "<span style=\"white-space:pre-wrap\">" + segments(text, targets).map(segment => {
+    function tint(target: var, selfId: string): color {
+        if (target.kind === "person")
+            return target.id === selfId ? KodosiTheme.accentStrong : KodosiTheme.mix(Identity.personTint(target.id), KodosiTheme.ink, 0.25)
+        const kind = Models.DesktopSettings.agentOf(target.program || "")
+        return kind === "shell" ? KodosiTheme.accentStrong : KodosiTheme.mix(Identity.kindTint(kind), KodosiTheme.ink, 0.2)
+    }
+
+    // A mention keeps its spaces unbroken, so its chip stays on one line.
+    function html(parts: var, selfId: string): string {
+        return "<span style=\"white-space:pre-wrap\">" + parts.map(segment => {
             const body = escaped(segment.text)
             if (!segment.target)
                 return body
-            const style = "color:" + ink + ";background-color:" + chip + ";font-weight:600;text-decoration:none"
+            const style = "color:" + tint(segment.target, selfId) + ";font-weight:600;text-decoration:none"
+            const word = body.replace(/ /g, "&nbsp;")
             return segment.target.kind === "terminal"
-                ? "<a href=\"kodosi-mention://terminal/" + escaped(segment.target.id) + "\" style=\"" + style + "\">&nbsp;" + body + "&nbsp;</a>"
-                : "<span style=\"" + style + "\">&nbsp;" + body + "&nbsp;</span>"
+                ? "<a href=\"kodosi-mention://terminal/" + escaped(segment.target.id) + "\" style=\"" + style + "\">" + word + "</a>"
+                : "<span style=\"" + style + "\">" + word + "</span>"
         }).join("") + "</span>"
+    }
+
+    function chips(parts: var, selfId: string): var {
+        const result = []
+        let position = 0
+        for (const segment of parts) {
+            if (segment.target)
+                result.push({ start: position, end: position + segment.text.length, color: tint(segment.target, selfId) })
+            position += segment.text.length
+        }
+        return result
     }
 
     function query(text: string): string {

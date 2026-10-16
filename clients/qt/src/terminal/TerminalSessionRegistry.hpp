@@ -47,6 +47,7 @@ public:
         std::function<void(TerminalFocusOutcome)> focusCompleted;
         std::function<void(TerminalResizeOutcome)> resizeCompleted;
         std::function<void()> closed;
+        std::function<void(TerminalClipboardOperations)> clipboard;
     };
 
     struct SurfaceRegistration {
@@ -107,8 +108,8 @@ public:
     void receiveData(TerminalData data) noexcept override;
     void receiveControl(TerminalControl control) noexcept override;
     void receiveConnectResult(TerminalConnectResult result) noexcept override;
-    [[nodiscard]] bool installSemanticCheckpoint(
-        TerminalSemanticCheckpoint checkpoint) noexcept override;
+    [[nodiscard]] bool installCheckpoint(
+        TerminalCheckpoint checkpoint) noexcept override;
 
 private:
     class Impl;

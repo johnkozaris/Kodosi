@@ -17,10 +17,8 @@ pub use status::{BlockedKind, ProgramState, ProgramStatus};
 pub use subscribers::{ControlFrame, DataFrame, Subscription};
 pub use types::{
     Checkpoint, MAX_TERMINAL_COLS, MAX_TERMINAL_ROWS, TERMINAL_CHECKPOINT_SCHEMA_VERSION,
-    TERMINAL_INPUT_MAX_BYTES, TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES, TerminalPixelGeometry,
-    TerminalScreen, TerminalSize,
+    TERMINAL_INPUT_MAX_BYTES, TERMINAL_SNAPSHOT_MAX_BYTES, TerminalPixelGeometry, TerminalSize,
 };
-pub use validation::validate_terminal_checkpoint;
 
 pub use types::TerminalMetadata;
 

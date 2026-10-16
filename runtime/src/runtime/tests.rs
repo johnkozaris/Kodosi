@@ -938,19 +938,11 @@ async fn a_failed_reconnect_waits_longer_each_time_and_only_a_final_answer_ends_
 fn first_snapshot() -> crate::network::RemoteUpdate {
     let mut terminal =
         ghostty_vt::Terminal::new(20, 4, ghostty_vt::TerminalPolicy::default()).unwrap();
-    let semantic = terminal
-        .semantic_checkpoint(ghostty_vt::CheckpointLimits::default())
+    let snapshot = terminal
+        .snapshot(crate::terminal::TERMINAL_SNAPSHOT_MAX_BYTES)
         .unwrap();
     crate::network::RemoteUpdate::Checkpoint {
-        checkpoint: crate::terminal::Checkpoint::new(
-            TerminalSize::new(4, 20).unwrap(),
-            crate::terminal::TerminalScreen::Primary,
-            semantic.into_bytes(),
-            0,
-            0,
-            false,
-        )
-        .unwrap(),
+        checkpoint: crate::terminal::Checkpoint::new(snapshot, false).unwrap(),
         next_sequence: 0,
     }
 }

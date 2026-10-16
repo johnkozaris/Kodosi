@@ -45,7 +45,7 @@ for path in \
     "$ARCHIVE" \
     "$SHARED_REAL" \
     "$HEADERS/ghostty/vt.h" \
-    "$HEADERS/ghostty/vt/checkpoint.h" \
+    "$HEADERS/ghostty/vt/snapshot.h" \
     "$ARTIFACT_ROOT/symbols/strong.txt"; do
     if [ ! -f "$path" ]; then
         echo "[!] incomplete Linux Ghostty VT artifact: $path" >&2
@@ -118,9 +118,9 @@ PY
 for symbol in \
     ghostty_terminal_new \
     ghostty_terminal_vt_write \
-    ghostty_checkpoint_schema \
-    ghostty_checkpoint_encode_alloc \
-    ghostty_checkpoint_restore; do
+    ghostty_snapshot_encode_alloc \
+    ghostty_snapshot_decoder_new_buf \
+    ghostty_snapshot_decoder_decode; do
     if ! grep -Fxq "$symbol" "$ARTIFACT_ROOT/symbols/strong.txt"; then
         echo "[!] Linux Ghostty VT artifact is missing $symbol" >&2
         exit 1
@@ -137,40 +137,35 @@ cat > "$TMP_DIR/probe.c" <<'C'
 #include <stdlib.h>
 
 int main(void) {
-    if (ghostty_checkpoint_schema() != GHOSTTY_CHECKPOINT_SCHEMA_VERSION) return 1;
-
     GhosttyTerminal source = NULL;
-    GhosttyTerminal restored = NULL;
-    if (ghostty_terminal_new(NULL, &source, 80, 24) != GHOSTTY_SUCCESS) return 2;
-    if (ghostty_terminal_new(NULL, &restored, 80, 24) != GHOSTTY_SUCCESS) return 3;
+    if (ghostty_terminal_new(NULL, &source, 80, 24) != GHOSTTY_SUCCESS) return 1;
 
     static const uint8_t payload[] = "hello\r\n";
     ghostty_terminal_vt_write(source, payload, sizeof(payload) - 1);
 
-    GhosttyCheckpointEncodeOptions encode = GHOSTTY_CHECKPOINT_ENCODE_OPTIONS_INIT;
-    GhosttyCheckpointInfo encoded_info = GHOSTTY_INIT_SIZED(GhosttyCheckpointInfo);
-    uint8_t* checkpoint = NULL;
-    size_t checkpoint_len = 0;
-    if (ghostty_checkpoint_encode_alloc(
-            source,
-            &encode,
-            NULL,
-            &checkpoint,
-            &checkpoint_len,
-            &encoded_info) != GHOSTTY_SUCCESS) return 4;
-    if (checkpoint == NULL || checkpoint_len == 0) return 5;
+    uint8_t* snapshot = NULL;
+    size_t snapshot_len = 0;
+    if (ghostty_snapshot_encode_alloc(source, NULL, &snapshot, &snapshot_len) != GHOSTTY_SUCCESS)
+        return 2;
+    if (snapshot == NULL || snapshot_len == 0) return 3;
 
-    GhosttyCheckpointRestoreOptions restore = GHOSTTY_CHECKPOINT_RESTORE_OPTIONS_INIT;
-    GhosttyCheckpointInfo restored_info = GHOSTTY_INIT_SIZED(GhosttyCheckpointInfo);
-    if (ghostty_checkpoint_restore(
-            restored,
-            checkpoint,
-            checkpoint_len,
-            &restore,
-            &restored_info) != GHOSTTY_SUCCESS) return 6;
-    if (restored_info.schema_version != GHOSTTY_CHECKPOINT_SCHEMA_VERSION) return 7;
+    GhosttySnapshotDecoder decoder = NULL;
+    if (ghostty_snapshot_decoder_new_buf(NULL, &decoder, snapshot, snapshot_len) != GHOSTTY_SUCCESS)
+        return 4;
+    GhosttyTerminal restored = NULL;
+    if (ghostty_snapshot_decoder_decode(decoder, &restored) != GHOSTTY_SUCCESS) return 5;
+    size_t consumed = 0;
+    if (ghostty_snapshot_decoder_get(
+            decoder,
+            GHOSTTY_SNAPSHOT_DECODER_DATA_SOURCE_OFFSET,
+            &consumed) != GHOSTTY_SUCCESS ||
+        consumed != snapshot_len) return 6;
+    uint16_t cursor_y = 0;
+    if (ghostty_terminal_get(restored, GHOSTTY_TERMINAL_DATA_CURSOR_Y, &cursor_y) != GHOSTTY_SUCCESS ||
+        cursor_y != 1) return 7;
 
-    ghostty_free(NULL, checkpoint, checkpoint_len);
+    ghostty_snapshot_decoder_free(decoder);
+    ghostty_free(NULL, snapshot, snapshot_len);
     ghostty_terminal_free(restored);
     ghostty_terminal_free(source);
     return 0;
@@ -191,4 +186,4 @@ cc -std=c11 -Wall -Wextra -Werror -I"$HEADERS" \
 "$TMP_DIR/probe-cxx"
 "$TMP_DIR/probe-shared"
 
-echo "[*] verified Linux Ghostty VT artifact and schema-v2 checkpoint round trip"
+echo "[*] verified Linux Ghostty VT artifact and snapshot round trip"

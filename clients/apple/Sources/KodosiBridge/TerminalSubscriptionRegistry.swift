@@ -2,14 +2,15 @@ import Foundation
 
 public final class TerminalSubscriptionRegistry: @unchecked Sendable {
     public typealias ConnectionResult = @Sendable (Bool, String?) -> Void
-    public typealias SemanticCheckpointHandler = @Sendable (Data) -> Int32
+    /// Receives a Ghostty snapshot and whether the host terminal is a console.
+    public typealias CheckpointHandler = @Sendable (Data, Bool) -> Int32
 
     public struct Connection: Sendable {
         public let subscriptionId: String
         public let subscriptionGeneration: UInt64
         public let onData: @Sendable (Data) -> Void
         public let onControl: @Sendable (Data) -> Void
-        public let onSemanticCheckpoint: SemanticCheckpointHandler
+        public let onCheckpoint: CheckpointHandler
         public let onConnectionResult: ConnectionResult
 
         public init(
@@ -17,14 +18,14 @@ public final class TerminalSubscriptionRegistry: @unchecked Sendable {
             subscriptionGeneration: UInt64,
             onData: @escaping @Sendable (Data) -> Void,
             onControl: @escaping @Sendable (Data) -> Void,
-            onSemanticCheckpoint: @escaping SemanticCheckpointHandler,
+            onCheckpoint: @escaping CheckpointHandler,
             onConnectionResult: @escaping ConnectionResult
         ) {
             self.subscriptionId = subscriptionId
             self.subscriptionGeneration = subscriptionGeneration
             self.onData = onData
             self.onControl = onControl
-            self.onSemanticCheckpoint = onSemanticCheckpoint
+            self.onCheckpoint = onCheckpoint
             self.onConnectionResult = onConnectionResult
         }
     }

@@ -143,7 +143,6 @@ extern "C" {
 #include <ghostty/vt/types.h>
 #include <ghostty/vt/allocator.h>
 #include <ghostty/vt/build_info.h>
-#include <ghostty/vt/checkpoint.h>
 #include <ghostty/vt/color.h>
 #include <ghostty/vt/color_scheme.h>
 #include <ghostty/vt/device.h>
