@@ -16,8 +16,10 @@ public sealed partial class ConnectionLease(DatabaseConnection database, Connect
     private static readonly TimeSpan Probe = TimeSpan.FromSeconds(5);
     private enum Attempt { Held, Other, Unreachable }
     private readonly CancellationTokenSource stopping = new();
+    private readonly Lock stopSync = new();
     private NpgsqlConnection? connection;
     private Task? monitor;
+    private Task? stopped;
     private int disposed;
 
     /// <summary>How long a start waits for an earlier holder: longer than PostgreSQL needs to end a silent holder.</summary>
@@ -113,7 +115,12 @@ public sealed partial class ConnectionLease(DatabaseConnection database, Connect
         }
     }
 
-    public async Task StopAsync(CancellationToken ct)
+    public Task StopAsync(CancellationToken ct)
+    {
+        lock (stopSync) return stopped ??= StopOnceAsync();
+    }
+
+    private async Task StopOnceAsync()
     {
         connections.StopAll();
         await stopping.CancelAsync();
