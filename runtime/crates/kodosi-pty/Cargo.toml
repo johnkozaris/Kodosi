@@ -6,6 +6,7 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
+kodosi-os = { path = "../kodosi-os" }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "net", "process", "rt", "sync", "time"] }
 
@@ -15,7 +16,6 @@ libc = "0.2.189"
 nix = { version = "0.31.3", features = ["fs", "process", "signal", "term"] }
 
 [target.'cfg(windows)'.dependencies]
-kodosi-os = { path = "../kodosi-os" }
 windows-sys = { version = "0.61.2", features = [
     "Win32_Foundation",
     "Win32_Security",

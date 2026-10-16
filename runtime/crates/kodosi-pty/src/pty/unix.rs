@@ -199,6 +199,7 @@ impl KodosiPty {
                 Ok(())
             });
         }
+        kodosi_os::process::with_default_signals(command.as_std_mut());
 
         let child = command.spawn()?;
         let child_pid = child.id().ok_or_else(|| {
@@ -795,6 +796,72 @@ mod tests {
             assert!(matches!(pty.wait_within(Duration::from_secs(2)).await.unwrap(), super::WaitOutcome::Reaped));
             assert_eq!(super::session_processes(pty.child_pid).unwrap(), Vec::<i32>::new());
         });
+    }
+
+    #[test]
+    fn a_terminal_program_ends_on_signals_its_host_blocks_and_ignores() {
+        use nix::sys::signal::{SigHandler, SigSet, Signal, signal};
+        const NAME: &str =
+            "pty::unix::tests::a_terminal_program_ends_on_signals_its_host_blocks_and_ignores";
+        const HOST: &str = "KODOSI_TEST_HOST_BLOCKS_SIGNALS";
+        if env::var_os(HOST).is_none() {
+            let output = std::process::Command::new(env::current_exe().unwrap())
+                .args(["--exact", NAME, "--test-threads=1"])
+                .env(HOST, "1")
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stdout)
+            );
+            return;
+        }
+        let signals = [Signal::SIGHUP, Signal::SIGINT, Signal::SIGTERM];
+        SigSet::from_iter(signals).thread_block().unwrap();
+        for host_signal in signals {
+            unsafe { signal(host_signal, SigHandler::SigIgn) }.unwrap();
+        }
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                for stage in [
+                    ShutdownStage::Interrupt,
+                    ShutdownStage::Hangup,
+                    ShutdownStage::Terminate,
+                ] {
+                    let arguments = ["-c", "echo ready; exec sleep 30"].map(str::to_owned);
+                    let (mut pty, mut reader) = KodosiPty::spawn_program(
+                        Path::new("/bin/sh"),
+                        &arguments,
+                        None,
+                        24,
+                        80,
+                        &[],
+                        None,
+                    )
+                    .unwrap();
+                    let mut output = Vec::new();
+                    while !String::from_utf8_lossy(&output).contains("ready") {
+                        let mut bytes = [0; 256];
+                        let count =
+                            tokio::time::timeout(Duration::from_secs(5), reader.read(&mut bytes))
+                                .await
+                                .unwrap()
+                                .unwrap();
+                        assert!(count > 0, "{stage:?}");
+                        output.extend_from_slice(&bytes[..count]);
+                    }
+                    pty.request_shutdown(stage).unwrap();
+                    assert_eq!(
+                        pty.wait_within(Duration::from_secs(5)).await.unwrap(),
+                        super::WaitOutcome::Reaped,
+                        "{stage:?}"
+                    );
+                }
+            });
     }
 
     #[test]
