@@ -13,6 +13,8 @@ on:
       - justfile
       - rust-toolchain.toml
       - scripts/build-runtime-library.py
+      - scripts/generate-update-site.py
+      - scripts/tests/**
       - .github/workflows/linux.yml
   workflow_dispatch:
 
@@ -51,3 +53,4 @@ jobs:
         with:
           workspaces: runtime
       - run: just linux-check
+      - run: just release-test
