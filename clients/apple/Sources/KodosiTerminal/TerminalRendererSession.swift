@@ -262,8 +262,8 @@ public final class TerminalRendererSession: ObservableObject {
     }
 
     @discardableResult
-    public nonisolated func restoreCheckpointSynchronously(_ data: Data) -> Bool {
-        guard backend.restoreCheckpointSynchronously(data) else { return false }
+    public nonisolated func restoreCheckpointSynchronously(_ snapshot: Data, console: Bool) -> Bool {
+        guard backend.restoreCheckpointSynchronously(snapshot, console: console) else { return false }
         accessibilityUpdateRelay.signal()
         return true
     }

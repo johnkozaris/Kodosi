@@ -38,7 +38,7 @@ let package = Package(
         .testTarget(
             name: "GhosttyKitTest",
             dependencies: ["GhosttyKit", "GhosttyTerminal"],
-            resources: [.copy("Resources/visual-checkpoint.json")]
+            resources: [.copy("Resources/visual-checkpoint.snapshot")]
         ),
     ]
 )

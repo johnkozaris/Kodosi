@@ -45,19 +45,17 @@ QByteArray checkpoint()
     const auto bytes = QByteArrayLiteral("private terminal contents");
     ghostty_terminal_vt_write(terminal, reinterpret_cast<const std::uint8_t*>(bytes.constData()),
         static_cast<std::size_t>(bytes.size()));
-    const GhosttyCheckpointEncodeOptions options = GHOSTTY_CHECKPOINT_ENCODE_OPTIONS_INIT;
-    GhosttyBuffer buffer {};
-    GhosttyCheckpointInfo info = GHOSTTY_INIT_SIZED(GhosttyCheckpointInfo);
-    if (ghostty_checkpoint_encode_buf(terminal, &options, &buffer, &info) != GHOSTTY_OUT_OF_SPACE) {
+    std::size_t required = 0;
+    if (ghostty_snapshot_encode_buf(terminal, nullptr, 0, &required) != GHOSTTY_OUT_OF_SPACE) {
         ghostty_terminal_free(terminal);
         return {};
     }
-    QByteArray bytesOut(static_cast<qsizetype>(buffer.len), Qt::Uninitialized);
-    buffer.ptr = reinterpret_cast<std::uint8_t*>(bytesOut.data());
-    buffer.cap = static_cast<std::size_t>(bytesOut.size());
-    buffer.len = 0;
-    const auto result = ghostty_checkpoint_encode_buf(terminal, &options, &buffer, &info);
+    QByteArray bytesOut(static_cast<qsizetype>(required), Qt::Uninitialized);
+    std::size_t written = 0;
+    const auto result = ghostty_snapshot_encode_buf(
+        terminal, reinterpret_cast<std::uint8_t*>(bytesOut.data()), required, &written);
     ghostty_terminal_free(terminal);
+    bytesOut.resize(static_cast<qsizetype>(written));
     return result == GHOSTTY_SUCCESS ? bytesOut : QByteArray {};
 }
 
@@ -207,7 +205,7 @@ void AccessibilityScopeTest::cachedTerminalInterfaceCannotReadSuppressedSubtree(
     QVERIFY(terminal.attach(registry, dispatcher, subscription, QStringLiteral("incarnation")));
     const auto bytes = checkpoint();
     QVERIFY(!bytes.isEmpty());
-    QVERIFY(registry.installSemanticCheckpoint({subscription, 1, 6, 40, bytes}));
+    QVERIFY(registry.installCheckpoint({subscription, 1, 6, 40, bytes}));
     registry.receiveConnectResult({subscription, 0});
     window.show();
     auto* accessible = QAccessible::queryAccessibleInterface(&terminal);

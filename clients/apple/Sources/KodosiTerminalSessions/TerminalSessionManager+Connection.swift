@@ -22,7 +22,7 @@ extension TerminalSessionManager {
             subscriptionGeneration: token.subscriptionGeneration,
             onData: outputHandler(link, renderer: renderer),
             onControl: controlHandler(link, controls: controls),
-            onSemanticCheckpoint: checkpointHandler(link, renderer: renderer),
+            onCheckpoint: checkpointHandler(link, renderer: renderer),
             onConnectionResult: connectionResultHandler(link, resizeDelivery: resizeDelivery)
         ))
     }
@@ -122,15 +122,17 @@ private extension TerminalSessionManager {
 
     func checkpointHandler(
         _ link: RuntimeLink, renderer: TerminalRendererSession
-    ) -> TerminalSubscriptionRegistry.SemanticCheckpointHandler {
-        { [weak self, weak renderer] checkpoint in
-            guard link.token.isActive, let renderer, renderer.restoreCheckpointSynchronously(checkpoint) else {
+    ) -> TerminalSubscriptionRegistry.CheckpointHandler {
+        { [weak self, weak renderer] snapshot, console in
+            guard link.token.isActive, let renderer,
+                  renderer.restoreCheckpointSynchronously(snapshot, console: console)
+            else {
                 return Int32(KODOSI_FFI_TERMINAL_CHECKPOINT_REJECTED)
             }
             link.awaitingResizeCheckpoint.withLock { $0 = false }
             Task { @MainActor [weak self, weak renderer] in
                 guard link.token.isActive, let renderer, self?.sessions[link.sessionId]?.token === link.token else { return }
-                self?.noteSemanticCheckpointRestored(
+                self?.noteCheckpointRestored(
                     sessionId: link.sessionId, token: link.token, surfaceGeneration: renderer.nativeSurfaceGeneration
                 )
             }

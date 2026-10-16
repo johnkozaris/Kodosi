@@ -119,6 +119,7 @@ unsafe extern "C" fn accept_checkpoint(
     _: u64,
     _: u16,
     _: u16,
+    _: bool,
     _: *const u8,
     _: usize,
     _: *mut c_void,

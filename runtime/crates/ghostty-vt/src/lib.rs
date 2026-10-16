@@ -7,8 +7,8 @@
 )]
 
 pub use ghostty_vt_sys::raw::{
-    CheckpointLimits, CompressionProgress, Effect, Error, ProgramStatus, ProgramStatusKind,
-    ProgramStatusState, ProgressState, Screen, TerminalState,
+    CompressionProgress, Effect, Error, ProgramStatus, ProgramStatusKind, ProgramStatusState,
+    ProgressState, Screen, SnapshotHeader, TerminalState,
 };
 
 use ghostty_vt_sys::raw::{Format, FormatOptions, Terminal as RawTerminal};
@@ -37,25 +37,6 @@ impl Default for TerminalPolicy {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SemanticCheckpoint(Vec<u8>);
-
-impl SemanticCheckpoint {
-    fn as_bytes(&self) -> &[u8] {
-        &self.0
-    }
-
-    pub fn into_bytes(self) -> Vec<u8> {
-        self.0
-    }
-}
-
-impl From<Vec<u8>> for SemanticCheckpoint {
-    fn from(bytes: Vec<u8>) -> Self {
-        Self(bytes)
-    }
-}
-
 #[derive(Debug)]
 pub struct WriteOutcome {
     pub effects: Vec<Effect>,
@@ -78,6 +59,24 @@ impl Terminal {
         )?;
         if policy.console {
             raw.use_console_profile()?;
+        }
+        Ok(Self {
+            raw,
+            processing_failed: false,
+        })
+    }
+
+    /// Restores a terminal from a Ghostty snapshot. The snapshot holds the console
+    /// modes, so the policy adds only the console rule for resizes.
+    pub fn from_snapshot(snapshot: &[u8], policy: TerminalPolicy) -> Result<Self, Error> {
+        let mut raw = RawTerminal::from_snapshot(
+            snapshot,
+            policy.continuation_max_bytes,
+            policy.scrollback_max_bytes,
+            policy.scrollback_max_lines,
+        )?;
+        if policy.console {
+            raw.keep_scrollback_on_resize()?;
         }
         Ok(Self {
             raw,
@@ -131,28 +130,13 @@ impl Terminal {
         self.raw.state()
     }
 
-    pub fn semantic_checkpoint(
-        &mut self,
-        limits: CheckpointLimits,
-    ) -> Result<SemanticCheckpoint, Error> {
-        let bytes = self.raw.encode_checkpoint(limits, usize::MAX)?;
-        Ok(SemanticCheckpoint(bytes))
+    pub fn snapshot(&mut self, maximum_bytes: usize) -> Result<Vec<u8>, Error> {
+        self.raw.encode_snapshot(true, maximum_bytes)
     }
 
-    pub fn visible_checkpoint(
-        &mut self,
-        limits: CheckpointLimits,
-    ) -> Result<SemanticCheckpoint, Error> {
-        let bytes = self.raw.encode_checkpoint(limits, 0)?;
-        Ok(SemanticCheckpoint(bytes))
-    }
-
-    pub fn restore_semantic_checkpoint(
-        &mut self,
-        checkpoint: &SemanticCheckpoint,
-        limits: CheckpointLimits,
-    ) -> Result<(), Error> {
-        self.raw.restore_checkpoint(checkpoint.as_bytes(), limits)
+    /// Ends at READY. The first page of a screen can also hold some history rows.
+    pub fn visible_snapshot(&mut self, maximum_bytes: usize) -> Result<Vec<u8>, Error> {
+        self.raw.encode_snapshot(false, maximum_bytes)
     }
 
     pub fn format_finite_cli_replay(&mut self) -> Result<Vec<u8>, Error> {
@@ -189,9 +173,39 @@ impl Terminal {
 mod tests {
     use super::*;
 
+    const MAXIMUM: usize = 8 * 1024 * 1024;
+
+    /// A restored terminal lays out its pages anew, so tests compare what the
+    /// terminals show, not snapshot bytes.
+    fn appearance(terminal: &mut Terminal) -> (Vec<u8>, TerminalState) {
+        let shown = terminal
+            .raw
+            .format(
+                FormatOptions {
+                    format: Format::Vt,
+                    unwrap: false,
+                    trim: false,
+                    palette: true,
+                    modes: true,
+                    scrolling_region: true,
+                    tabstops: true,
+                    pwd: true,
+                    keyboard: true,
+                    cursor: true,
+                    style: true,
+                    hyperlink: true,
+                    protection: true,
+                    kitty_keyboard: true,
+                    charsets: true,
+                },
+                MAXIMUM,
+            )
+            .expect("format");
+        (shown, terminal.state().expect("state"))
+    }
+
     #[test]
     fn console_terminals_keep_grapheme_widths_and_replicas_resize_like_them() {
-        let limits = CheckpointLimits::default();
         let console = TerminalPolicy {
             console: true,
             ..TerminalPolicy::default()
@@ -203,70 +217,50 @@ mod tests {
             host.write(format!("line {line}\r\n").as_bytes())
                 .expect("output");
         }
-        let checkpoint = host.semantic_checkpoint(limits).expect("checkpoint");
-        let mut replica = Terminal::new(10, 4, TerminalPolicy::default()).expect("replica");
-        replica
-            .restore_semantic_checkpoint(&checkpoint, limits)
-            .expect("restore");
-        assert!(replica.raw.mode(2027, false).expect("grapheme mode"));
+        let snapshot = host.snapshot(MAXIMUM).expect("snapshot");
+        let mut replica = Terminal::from_snapshot(&snapshot, console).expect("replica");
+        let mut pulling =
+            Terminal::from_snapshot(&snapshot, TerminalPolicy::default()).expect("pulling replica");
+        let mut reset =
+            Terminal::from_snapshot(&snapshot, TerminalPolicy::default()).expect("reset replica");
+        reset.write(b"\x1bc").expect("replica reset");
+        assert!(reset.raw.mode(2027, false).expect("grapheme default"));
+
         host.resize(10, 8, 0, 0).expect("host resize");
         replica.resize(10, 8, 0, 0).expect("replica resize");
-        assert_eq!(
-            replica.semantic_checkpoint(limits).expect("replica"),
-            host.semantic_checkpoint(limits).expect("host")
-        );
+        pulling.resize(10, 8, 0, 0).expect("pulling resize");
+        let host = appearance(&mut host);
+        assert_eq!(appearance(&mut replica), host);
+        assert_ne!(appearance(&mut pulling), host);
     }
 
-    fn assert_checkpoint_suffix_parity(cols: u16, rows: u16, prefix: &[u8], suffix: &[u8]) {
+    fn assert_snapshot_suffix_parity(cols: u16, rows: u16, prefix: &[u8], suffix: &[u8]) {
         let mut source = Terminal::new(cols, rows, TerminalPolicy::default()).expect("source");
         source.write(prefix).expect("source prefix");
-        let checkpoint = source
-            .semantic_checkpoint(CheckpointLimits::default())
-            .expect("checkpoint");
+        let snapshot = source.snapshot(MAXIMUM).expect("snapshot");
 
-        let mut restored = Terminal::new(cols, rows, TerminalPolicy::default()).expect("restored");
-        restored
-            .restore_semantic_checkpoint(&checkpoint, CheckpointLimits::default())
-            .expect("restore");
+        let mut restored =
+            Terminal::from_snapshot(&snapshot, TerminalPolicy::default()).expect("restore");
         source.write(suffix).expect("source suffix");
         restored.write(suffix).expect("restored suffix");
 
-        let source_after = source
-            .semantic_checkpoint(CheckpointLimits::default())
-            .expect("source after");
-        let restored_after = restored
-            .semantic_checkpoint(CheckpointLimits::default())
-            .expect("restored after");
-        assert_eq!(restored_after, source_after);
+        assert_eq!(appearance(&mut restored), appearance(&mut source));
     }
 
+    /// Twenty columns put the whole history in the first page of the screen.
     fn visible_parity(host_bytes: &[u8], suffix: &[u8]) {
         let policy = TerminalPolicy::default();
-        let limits = CheckpointLimits::default();
         let mut host = Terminal::new(20, 4, policy).expect("host");
         host.write(host_bytes).expect("host bytes");
-        let visible = host.visible_checkpoint(limits).expect("visible");
-        let mut viewer = Terminal::new(20, 4, policy).expect("viewer");
-        viewer
-            .write(b"old viewer text\r\n\x1b[?1049hold")
-            .expect("viewer bytes");
-        viewer
-            .restore_semantic_checkpoint(&visible, limits)
-            .expect("restore");
+        let visible = host.visible_snapshot(MAXIMUM).expect("visible");
+        let mut viewer = Terminal::from_snapshot(&visible, policy).expect("viewer");
         host.write(suffix).expect("host suffix");
         viewer.write(suffix).expect("viewer suffix");
-        assert_eq!(
-            viewer.visible_checkpoint(limits).expect("viewer screen"),
-            host.visible_checkpoint(limits).expect("host screen")
-        );
-        assert_eq!(
-            viewer.state().expect("viewer state"),
-            host.state().expect("host state")
-        );
+        assert_eq!(appearance(&mut viewer), appearance(&mut host));
     }
 
     #[test]
-    fn a_visible_checkpoint_gives_the_exact_rows_modes_and_cursor_of_both_screens() {
+    fn a_visible_snapshot_gives_the_exact_rows_modes_and_cursor_of_both_screens() {
         let mut history = Vec::new();
         for line in 0..300 {
             history.extend_from_slice(format!("history line {line}\r\n").as_bytes());
@@ -292,56 +286,34 @@ mod tests {
     }
 
     #[test]
-    fn a_visible_checkpoint_holds_no_history() {
-        let limits = CheckpointLimits::default();
+    fn a_visible_snapshot_leaves_out_the_older_history() {
         let mut host = Terminal::new(100, 30, TerminalPolicy::default()).expect("host");
         for line in 0..2000 {
             host.write(format!("history line {line} with some more text in it\r\n").as_bytes())
                 .expect("write");
         }
-        let visible = host.visible_checkpoint(limits).expect("visible");
-        let full = host.semantic_checkpoint(limits).expect("full");
-        let text = String::from_utf8_lossy(visible.as_bytes()).into_owned();
-        assert!(visible.as_bytes().len() * 10 < full.as_bytes().len());
-        let mut viewer = Terminal::new(100, 30, TerminalPolicy::default()).expect("viewer");
-        viewer
-            .restore_semantic_checkpoint(&visible, limits)
-            .expect("restore");
-        assert_eq!(
-            viewer
-                .semantic_checkpoint(limits)
-                .expect("viewer")
-                .as_bytes()
-                .len(),
-            text.len()
-        );
+        let visible = host.visible_snapshot(MAXIMUM).expect("visible");
+        let full = host.snapshot(MAXIMUM).expect("full");
+        assert!(visible.len() * 2 < full.len());
+        let mut viewer =
+            Terminal::from_snapshot(&visible, TerminalPolicy::default()).expect("viewer");
+        assert!(viewer.snapshot(MAXIMUM).expect("viewer").len() < full.len());
+        assert_eq!(viewer.state().expect("viewer"), host.state().expect("host"));
     }
 
     #[test]
-    fn semantic_checkpoint_is_owned_json() {
-        let mut terminal = Terminal::new(20, 4, TerminalPolicy::default()).expect("terminal");
-        terminal.write(b"owned").expect("write");
-
-        let checkpoint = terminal
-            .semantic_checkpoint(CheckpointLimits::default())
-            .expect("checkpoint");
-
-        assert!(checkpoint.as_bytes().starts_with(b"{"));
+    fn snapshot_preserves_pending_wrap_and_saved_cursor() {
+        assert_snapshot_suffix_parity(8, 3, b"12345678\x1b7", b"\x1b8Z");
     }
 
     #[test]
-    fn semantic_checkpoint_preserves_pending_wrap_and_saved_cursor() {
-        assert_checkpoint_suffix_parity(8, 3, b"12345678\x1b7", b"\x1b8Z");
+    fn snapshot_preserves_ss2_and_ss3() {
+        assert_snapshot_suffix_parity(8, 2, b"\x1b*0\x1bN", b"q");
+        assert_snapshot_suffix_parity(8, 2, b"\x1b+0\x1bO", b"q");
     }
 
     #[test]
-    fn semantic_checkpoint_preserves_ss2_and_ss3() {
-        assert_checkpoint_suffix_parity(8, 2, b"\x1b*0\x1bN", b"q");
-        assert_checkpoint_suffix_parity(8, 2, b"\x1b+0\x1bO", b"q");
-    }
-
-    #[test]
-    fn semantic_checkpoint_restores_when_a_wrapped_line_is_longer_than_the_history() {
-        assert_checkpoint_suffix_parity(100, 30, &vec![b'x'; 110_000], b"\r\nafter");
+    fn snapshot_restores_when_a_wrapped_line_is_longer_than_the_history() {
+        assert_snapshot_suffix_parity(100, 30, &vec![b'x'; 110_000], b"\r\nafter");
     }
 }

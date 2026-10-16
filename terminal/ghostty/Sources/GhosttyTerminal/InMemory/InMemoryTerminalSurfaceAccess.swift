@@ -3,7 +3,7 @@ import GhosttyKit
 
 final class InMemoryTerminalSurfaceAccess: @unchecked Sendable {
     typealias Write = @Sendable (ghostty_surface_t, Data) -> Void
-    typealias Restore = @Sendable (ghostty_surface_t, Data) -> Bool
+    typealias Restore = @Sendable (ghostty_surface_t, Data, Bool) -> Bool
 
     static let maximumPendingWriteBytes = 8 * 1024 * 1024
     private static let maximumPendingWrites = 256
@@ -70,13 +70,13 @@ final class InMemoryTerminalSurfaceAccess: @unchecked Sendable {
         return surface
     }
 
-    func restoreCheckpointSynchronously(_ data: Data) -> Bool {
+    func restoreCheckpointSynchronously(_ data: Data, console: Bool) -> Bool {
         guard data.count <= Self.maximumPendingWriteBytes,
               DispatchQueue.getSpecific(key: outputQueueKey) == nil
         else { return false }
 
         return outputQueue.sync { [self] in
-            let accepted = withCurrentSurface { surface in restore(surface, data) } ?? false
+            let accepted = withCurrentSurface { surface in restore(surface, data, console) } ?? false
             if accepted {
                 condition.lock()
                 discardsWritesUntilReplacement = false
@@ -134,7 +134,7 @@ final class InMemoryTerminalSurfaceAccess: @unchecked Sendable {
     }
 
     func attemptRestoreFromOutputQueueForTesting(_ data: Data) -> Bool {
-        outputQueue.sync { restoreCheckpointSynchronously(data) }
+        outputQueue.sync { restoreCheckpointSynchronously(data, console: false) }
     }
 
     func waitForPendingOutput() {

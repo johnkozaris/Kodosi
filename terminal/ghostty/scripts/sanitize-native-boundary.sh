@@ -105,127 +105,42 @@ static void format_screen(GhosttyTerminal terminal, GhosttyFormatterFormat emit)
     ghostty_formatter_free(formatter);
 }
 
-static void checkpoint_info_canary(GhosttyTerminal terminal) {
-    GhosttyCheckpointEncodeOptions encode_options =
-        GHOSTTY_CHECKPOINT_ENCODE_OPTIONS_INIT;
-    GhosttyCheckpointRestoreOptions restore_options =
-        GHOSTTY_CHECKPOINT_RESTORE_OPTIONS_INIT;
-    struct {
-        size_t size;
-        uint8_t canary[32];
-    } legacy;
-    memset(&legacy, 0xA5, sizeof(legacy));
-    legacy.size = sizeof(legacy.size);
-    uint8_t expected[sizeof(legacy.canary)];
-    memcpy(expected, legacy.canary, sizeof(expected));
-
-    GhosttyBuffer query = {0};
-    assert(ghostty_checkpoint_schema() == GHOSTTY_CHECKPOINT_SCHEMA_VERSION);
-    assert(ghostty_checkpoint_encode_buf(
+static void snapshot_round_trip(GhosttyTerminal terminal) {
+    size_t required = 0;
+    assert(ghostty_snapshot_encode_buf(terminal, NULL, 0, &required) == GHOSTTY_OUT_OF_SPACE);
+    uint8_t *snapshot = malloc(required);
+    assert(snapshot != NULL);
+    size_t written = 0;
+    assert(ghostty_snapshot_encode_buf(
         terminal,
-        &encode_options,
-        &query,
-        (GhosttyCheckpointInfo *)&legacy) == GHOSTTY_OUT_OF_SPACE);
-    assert(query.len > 0);
-    assert(memcmp(legacy.canary, expected, sizeof(expected)) == 0);
+        snapshot,
+        required,
+        &written) == GHOSTTY_SUCCESS);
+    assert(written == required);
 
-    uint8_t *json = NULL;
-    size_t json_len = 0;
-    assert(ghostty_checkpoint_encode_alloc(
-        terminal,
-        &encode_options,
-        NULL,
-        &json,
-        &json_len,
-        (GhosttyCheckpointInfo *)&legacy) == GHOSTTY_SUCCESS);
-    assert(json != NULL && json_len == query.len);
-    assert(memcmp(legacy.canary, expected, sizeof(expected)) == 0);
+    GhosttySnapshotDecoder decoder = NULL;
+    assert(ghostty_snapshot_decoder_new_buf(NULL, &decoder, snapshot, written) == GHOSTTY_SUCCESS);
+    GhosttyTerminal restored = NULL;
+    assert(ghostty_snapshot_decoder_ready(decoder, &restored) == GHOSTTY_SUCCESS);
+    GhosttyResult next;
+    do {
+        next = ghostty_snapshot_decoder_next(decoder);
+    } while (next == GHOSTTY_SUCCESS);
+    assert(next == GHOSTTY_NO_VALUE);
+    size_t consumed = 0;
+    assert(ghostty_snapshot_decoder_get(
+        decoder,
+        GHOSTTY_SNAPSHOT_DECODER_DATA_SOURCE_OFFSET,
+        &consumed) == GHOSTTY_SUCCESS);
+    assert(consumed == written);
+    ghostty_snapshot_decoder_free(decoder);
 
-    assert(ghostty_checkpoint_restore(
-        terminal,
-        json,
-        json_len,
-        &restore_options,
-        (GhosttyCheckpointInfo *)&legacy) == GHOSTTY_SUCCESS);
-    assert(memcmp(legacy.canary, expected, sizeof(expected)) == 0);
-    ghostty_free(NULL, json, json_len);
-
-    legacy.size = 0;
-    query.len = 99;
-    assert(ghostty_checkpoint_encode_buf(
-        terminal,
-        &encode_options,
-        &query,
-        (GhosttyCheckpointInfo *)&legacy) == GHOSTTY_INVALID_VALUE);
-    assert(query.len == 99);
-    assert(memcmp(legacy.canary, expected, sizeof(expected)) == 0);
-}
-
-static void checkpoint_replay_policy_probe(void) {
-    static const uint8_t prefix[] = "\x1b_25a1;r;cp=e0a0;AAAA";
-    static const uint8_t suffix[] = "AAAAAAAAAA==\x1b\\";
-    GhosttyCheckpointEncodeOptions encode_options =
-        GHOSTTY_CHECKPOINT_ENCODE_OPTIONS_INIT;
-    GhosttyCheckpointRestoreOptions restore_options =
-        GHOSTTY_CHECKPOINT_RESTORE_OPTIONS_INIT;
-
-    GhosttyTerminal source = NULL;
-    assert(ghostty_terminal_new(NULL, &source, 8, 2) == GHOSTTY_SUCCESS);
-    size_t continuation_max = 1024 * 1024;
-    assert(ghostty_terminal_set(
-        source,
-        GHOSTTY_TERMINAL_OPT_CONTINUATION_MAX_BYTES,
-        &continuation_max) == GHOSTTY_SUCCESS);
-    ghostty_terminal_vt_write(source, prefix, sizeof(prefix) - 1);
-    uint8_t *json = NULL;
-    size_t json_len = 0;
-    assert(ghostty_checkpoint_encode_alloc(
-        source,
-        &encode_options,
-        NULL,
-        &json,
-        &json_len,
-        NULL) == GHOSTTY_SUCCESS);
-
-    GhosttyTerminal disabled = NULL;
-    assert(ghostty_terminal_new(NULL, &disabled, 8, 2) == GHOSTTY_SUCCESS);
-    bool glyph_enabled = false;
-    assert(ghostty_terminal_set(
-        disabled,
-        GHOSTTY_TERMINAL_OPT_GLYPH_PROTOCOL,
-        &glyph_enabled) == GHOSTTY_SUCCESS);
-    assert(ghostty_checkpoint_restore(
-        disabled,
-        json,
-        json_len,
-        &restore_options,
-        NULL) == GHOSTTY_SUCCESS);
-    ghostty_terminal_vt_write(disabled, suffix, sizeof(suffix) - 1);
-
-    uint8_t *disabled_json = NULL;
-    size_t disabled_json_len = 0;
-    assert(ghostty_checkpoint_encode_alloc(
-        disabled,
-        &encode_options,
-        NULL,
-        &disabled_json,
-        &disabled_json_len,
-        NULL) == GHOSTTY_SUCCESS);
-    static const uint8_t needle[] = "\"glyphs\":0";
-    assert(memmem(
-        disabled_json,
-        disabled_json_len,
-        needle,
-        sizeof(needle) - 1) != NULL);
-
-    ghostty_free(NULL, disabled_json, disabled_json_len);
-    ghostty_terminal_free(disabled);
-    ghostty_free(NULL, json, json_len);
-    ghostty_terminal_free(source);
+    format_screen(restored, GHOSTTY_FORMATTER_FORMAT_VT);
+    ghostty_terminal_free(restored);
+    free(snapshot);
 }
 
 int vt_sanitizer_probe(void) {
-    checkpoint_replay_policy_probe();
     static const uint8_t corpus[] =
         "\x1b[31mANSI\x1b[0m e\xcc\x81 "
         "\xf0\x9f\x91\xa8\xe2\x80\x8d\xf0\x9f\x91\xa9\xe2\x80\x8d"
@@ -244,7 +159,6 @@ int vt_sanitizer_probe(void) {
     for (size_t iteration = 0; iteration < 256; iteration++) {
         GhosttyTerminal terminal = NULL;
         assert(ghostty_terminal_new(NULL, &terminal, 80, 24) == GHOSTTY_SUCCESS);
-        if (iteration == 0) checkpoint_info_canary(terminal);
 
         struct callback_state state = {0};
         assert(ghostty_terminal_set(
@@ -281,6 +195,7 @@ int vt_sanitizer_probe(void) {
         }
         ghostty_terminal_vt_write(terminal, malformed, sizeof(malformed));
         ghostty_terminal_vt_write(terminal, unfinished, sizeof(unfinished) - 1);
+        if (iteration == 0) snapshot_round_trip(terminal);
 
         uint8_t *continuation = NULL;
         size_t continuation_len = 0;
@@ -308,6 +223,7 @@ int vt_sanitizer_probe(void) {
         ghostty_terminal_vt_write(terminal, (const uint8_t *)"\x1b[?1049h", 8);
         format_screen(terminal, GHOSTTY_FORMATTER_FORMAT_VT);
         ghostty_terminal_vt_write(terminal, (const uint8_t *)"\x1b[?1049l", 8);
+        if (iteration == 0) snapshot_round_trip(terminal);
 
         GhosttyTerminalCompressionResult compression;
         do {
@@ -331,34 +247,15 @@ cat >"$TMP_DIR/renderer.c" <<'C'
 
 #include <assert.h>
 #include <stdint.h>
-#include <string.h>
 
 static void renderer_checkpoint_symbols(void) {
     ghostty_result_e (*restore_checkpoint)(
         ghostty_surface_t,
         const uint8_t *,
         size_t,
-        const ghostty_checkpoint_restore_options_s *,
-        ghostty_checkpoint_info_s *) = ghostty_surface_checkpoint_restore;
+        bool) = ghostty_surface_checkpoint_restore;
     assert(restore_checkpoint != NULL);
-
-    struct {
-        size_t size;
-        uint8_t canary[32];
-    } legacy;
-    memset(&legacy, 0xA5, sizeof(legacy));
-    legacy.size = sizeof(legacy.size);
-    uint8_t expected[sizeof(legacy.canary)];
-    memcpy(expected, legacy.canary, sizeof(expected));
-    ghostty_checkpoint_restore_options_s options =
-        GHOSTTY_CHECKPOINT_RESTORE_OPTIONS_INIT;
-    assert(restore_checkpoint(
-        NULL,
-        NULL,
-        0,
-        &options,
-        (ghostty_checkpoint_info_s *)&legacy) == GHOSTTY_RESULT_INVALID_VALUE);
-    assert(memcmp(legacy.canary, expected, sizeof(expected)) == 0);
+    assert(restore_checkpoint(NULL, NULL, 0, true) == GHOSTTY_RESULT_INVALID_VALUE);
 }
 
 int renderer_sanitizer_probe(int argc, char **argv) {

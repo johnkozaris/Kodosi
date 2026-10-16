@@ -15,8 +15,7 @@ pub enum TerminalFrame {
     },
     Checkpoint {
         bytes: Vec<u8>,
-        rows: u16,
-        cols: u16,
+        console: bool,
         next_sequence: u64,
     },
     Data {
@@ -33,17 +32,14 @@ pub enum TerminalFrame {
         final_sequence: u64,
     },
 }
-pub(super) fn checkpoint_frame(checkpoint: &terminal::Checkpoint, next: u64) -> Result<Vec<u8>> {
-    if checkpoint.semantic_checkpoint.len() > terminal::TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES {
-        return Err(Error::Invalid("checkpoint exceeds bound".into()));
-    }
-    let mut bytes = Vec::with_capacity(13 + checkpoint.semantic_checkpoint.len());
+pub(super) fn checkpoint_frame(checkpoint: &terminal::Checkpoint, next: u64) -> Vec<u8> {
+    let snapshot = checkpoint.snapshot();
+    let mut bytes = Vec::with_capacity(10 + snapshot.len());
     bytes.push(CHECKPOINT);
-    bytes.extend(checkpoint.rows().to_be_bytes());
-    bytes.extend(checkpoint.cols().to_be_bytes());
     bytes.extend(next.to_be_bytes());
-    bytes.extend(&checkpoint.semantic_checkpoint);
-    Ok(bytes)
+    bytes.push(u8::from(checkpoint.console));
+    bytes.extend(snapshot);
+    bytes
 }
 pub(super) fn control_frame(value: &Value) -> Result<Vec<u8>> {
     let mut bytes = vec![CONTROL];
@@ -55,15 +51,18 @@ pub async fn read_terminal<R: AsyncRead + Unpin>(
 ) -> Result<TerminalFrame> {
     let bytes = read_frame(reader).await?;
     match bytes.first() {
-        Some(&CHECKPOINT) if bytes.len() > 13 => Ok(TerminalFrame::Checkpoint {
-            rows: u16::from_be_bytes([bytes[1], bytes[2]]),
-            cols: u16::from_be_bytes([bytes[3], bytes[4]]),
+        Some(&CHECKPOINT) if bytes.len() > 10 => Ok(TerminalFrame::Checkpoint {
             next_sequence: u64::from_be_bytes(
-                bytes[5..13]
+                bytes[1..9]
                     .try_into()
                     .map_err(|_| Error::Invalid("invalid checkpoint sequence".into()))?,
             ),
-            bytes: bytes[13..].to_vec(),
+            console: match bytes[9] {
+                0 => false,
+                1 => true,
+                _ => return Err(Error::Invalid("invalid checkpoint console state".into())),
+            },
+            bytes: bytes[10..].to_vec(),
         }),
         Some(&DATA) if bytes.len() >= 9 => Ok(TerminalFrame::Data {
             sequence: u64::from_be_bytes(

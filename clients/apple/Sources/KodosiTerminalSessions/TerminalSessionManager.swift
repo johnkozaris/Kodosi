@@ -257,7 +257,7 @@ public final class TerminalSessionManager {
         )
     }
 
-    func noteSemanticCheckpointRestored(
+    func noteCheckpointRestored(
         sessionId: String,
         token: TerminalConnectionToken,
         surfaceGeneration: UInt64

@@ -202,8 +202,7 @@ int renderer_probe(int argc, char **argv) {
         ghostty_surface_t,
         const uint8_t *,
         size_t,
-        const ghostty_checkpoint_restore_options_s *,
-        ghostty_checkpoint_info_s *) = ghostty_surface_checkpoint_restore;
+        bool) = ghostty_surface_checkpoint_restore;
     ghostty_clipboard_request_e (*request_type)(const void *) =
         ghostty_clipboard_request_type;
     (void)restore_checkpoint;

@@ -539,39 +539,6 @@ typedef struct {
   ghostty_config_t config;
 } ghostty_surface_config_s;
 
-typedef struct {
-  size_t size;
-  size_t max_json_bytes;
-  size_t max_string_bytes;
-  size_t max_continuation_bytes;
-  size_t max_cells;
-} ghostty_checkpoint_limits_s;
-
-typedef struct {
-  size_t size;
-  ghostty_checkpoint_limits_s limits;
-} ghostty_checkpoint_restore_options_s;
-
-typedef struct {
-  size_t size;
-  uint32_t schema_version;
-  size_t json_bytes;
-  size_t continuation_bytes;
-} ghostty_checkpoint_info_s;
-
-#define GHOSTTY_CHECKPOINT_DEFAULT_MAX_JSON_BYTES (8u * 1024u * 1024u)
-#define GHOSTTY_CHECKPOINT_DEFAULT_MAX_STRING_BYTES (8u * 1024u * 1024u)
-#define GHOSTTY_CHECKPOINT_DEFAULT_MAX_CONTINUATION_BYTES (1024u * 1024u)
-#define GHOSTTY_CHECKPOINT_DEFAULT_MAX_CELLS (4096u * 4096u)
-#define GHOSTTY_CHECKPOINT_LIMITS_INIT \
-  { sizeof(ghostty_checkpoint_limits_s), \
-    GHOSTTY_CHECKPOINT_DEFAULT_MAX_JSON_BYTES, \
-    GHOSTTY_CHECKPOINT_DEFAULT_MAX_STRING_BYTES, \
-    GHOSTTY_CHECKPOINT_DEFAULT_MAX_CONTINUATION_BYTES, \
-    GHOSTTY_CHECKPOINT_DEFAULT_MAX_CELLS }
-#define GHOSTTY_CHECKPOINT_RESTORE_OPTIONS_INIT \
-  { sizeof(ghostty_checkpoint_restore_options_s), GHOSTTY_CHECKPOINT_LIMITS_INIT }
-
 typedef enum {
   GHOSTTY_RESULT_SUCCESS = 0,
   GHOSTTY_RESULT_OUT_OF_MEMORY = -1,
@@ -1247,16 +1214,16 @@ GHOSTTY_API void ghostty_surface_update_config(ghostty_surface_t, ghostty_config
 GHOSTTY_API bool ghostty_surface_needs_confirm_quit(ghostty_surface_t);
 GHOSTTY_API bool ghostty_surface_process_exited(ghostty_surface_t);
 // Host-managed output, checkpoint restore, and exit calls must be externally
-// serialized. Restore transactionally commits semantic terminal/parser state
-// before any subsequently serialized output. Output after exit and repeated
-// exit notifications are ignored.
+// serialized. A restore transactionally replaces the terminal with a Ghostty
+// snapshot (include/ghostty/vt/snapshot.h) before any subsequently serialized
+// output; a snapshot that ends at READY has no history. A snapshot does not
+// carry whether a resize pulls rows from scrollback, so the caller gives it.
+// Output after exit and repeated exit notifications are ignored.
 GHOSTTY_API void ghostty_surface_write_buffer(ghostty_surface_t, const uint8_t*, uintptr_t);
-GHOSTTY_API ghostty_result_e ghostty_surface_checkpoint_restore(
-    ghostty_surface_t,
-    const uint8_t*,
-    size_t,
-    const ghostty_checkpoint_restore_options_s*,
-    ghostty_checkpoint_info_s*);
+GHOSTTY_API ghostty_result_e ghostty_surface_checkpoint_restore(ghostty_surface_t,
+                                                                const uint8_t*,
+                                                                size_t,
+                                                                bool);
 GHOSTTY_API void ghostty_surface_process_exit(ghostty_surface_t, uint32_t, uint64_t);
 GHOSTTY_API void ghostty_surface_refresh(ghostty_surface_t);
 GHOSTTY_API void ghostty_surface_draw(ghostty_surface_t);
