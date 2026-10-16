@@ -145,7 +145,7 @@ private slots:
         }
     }
 
-    void aStillOrHiddenLightRestsAtTheTopLeft()
+    void aStillLightLightsTheWholeEdgeEvenly()
     {
         QQuickWindow window;
         window.resize(120, 80);
@@ -157,25 +157,28 @@ private slots:
         QVERIFY(apart(light.angle(), kodosi::light::phase(QDateTime::currentMSecsSinceEpoch())) < 15);
         light.setProperty("still", true);
         QVERIFY(!light.turning());
-        QCOMPARE(light.angle(), -45.0);
         light.setProperty("still", false);
         QVERIFY(light.turning());
         light.setVisible(false);
         QVERIFY(!light.turning());
-        QCOMPARE(light.angle(), -45.0);
 
         Mesh tile({ QSizeF(44, 44), 13.2, 3.08, 1, true });
-        tile.paint({ .angle = light.angle(), .light = tileLight });
+        tile.paint({ .light = tileLight, .still = true });
         const auto& vertices = tile.vertices();
-        const auto brightest
-            = std::max_element(vertices.begin(), vertices.end(), [](const auto& a, const auto& b) { return a.a < b.a; });
-        QCOMPARE(int { brightest->a }, 255);
-        QVERIFY(apart(angleOf(tile.centre(), *brightest), 315) < 0.01);
-        QVERIFY(brightest->b > 0.9 * 255);
-        QVERIFY(std::any_of(vertices.begin(), vertices.end(),
-            [](const auto& vertex) { return vertex.x > 8 && vertex.x < 16 && vertex.y > 8 && vertex.y < 16 && vertex.a > 0; }));
-        QVERIFY(std::all_of(vertices.begin(), vertices.end(),
-            [](const auto& vertex) { return vertex.x < 26 || vertex.y < 26 || vertex.a == 0; }));
+        QCOMPARE(vertices.size(), std::size_t { 4 * kodosi::light::rays });
+        const int warm = qRound((tileLight.blueF() + 0.92) / 2 * 255);
+        for (std::size_t index = 0; index < vertices.size(); ++index) {
+            const bool lit = index % 4 == 1 || index % 4 == 2;
+            QCOMPARE(int { vertices[index].a }, lit ? 255 : 0);
+            if (lit)
+                QCOMPARE(int { vertices[index].b }, warm);
+        }
+        Mesh ring({ QSizeF(38, 38), -1, 2, 1, false });
+        ring.paint({ .light = QColor(Qt::red), .still = true });
+        for (std::size_t index = 1; index < ring.vertices().size(); index += 4) {
+            QCOMPARE(int { ring.vertices()[index].a }, 255);
+            QCOMPARE(int { ring.vertices()[index].r }, 255);
+        }
     }
 
     void onlyATurningLightRunsTheClock()
@@ -211,7 +214,7 @@ private slots:
         QVERIFY(!kodosi::LightTrack::clockRunning());
     }
 
-    void aRimRestsWhileItsWindowIsHiddenOrMotionIsReduced()
+    void aRimHoldsStillWhileItsWindowIsHiddenOrMotionIsReduced()
     {
         QTemporaryDir directory;
         kodosi::AppearanceModel appearance(
@@ -243,12 +246,12 @@ private slots:
         theme->setProperty("shown", false);
         QVERIFY(!ring->turning() && !tile->turning());
         QVERIFY(!kodosi::LightTrack::clockRunning());
-        QCOMPARE(tile->angle(), -45.0);
+        QVERIFY(tile->property("still").toBool());
         theme->setProperty("shown", true);
         QVERIFY(tile->turning());
         QVERIFY(appearance.setReducesMotion(true));
         QVERIFY(!ring->turning() && !tile->turning());
-        QCOMPARE(tile->angle(), -45.0);
+        QVERIFY(tile->property("still").toBool());
     }
 };
 

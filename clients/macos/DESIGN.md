@@ -82,7 +82,7 @@ Three levels: resting, lifted (hover, focused composer, popovers) and floating (
 Capsules for tags and pills, rounded rectangles for buttons, squircles for agents, rooms and kinds of things, circles for people, and a dashed outline for a slot you can fill.
 
 ## Components
-- **Agent mark:** a squircle in the program's color with its glyph, pale when minimized. While its program works, a warm light circles the mark's edge, in step on every mark; a percent fills the edge clockwise from the top. Nothing glows outside the mark.
+- **Agent mark:** a squircle in the program's color with its glyph, pale when minimized. While its program works, a warm light circles the mark's edge, in step on every mark, and with reduced motion the whole edge glows; a percent fills the edge clockwise from the top. Nothing glows outside the mark.
 - **Status sign:** one sign at the end of a row, card, tab or tile header, and the only sign that a program waits: a copper hand, question or key while waiting, a green check for done and a `caution` triangle for failed until opened, and a breathing copper dot for a bell or an agent that stopped without a report.
 - **People and rooms:** a person is a circle colored from their identifier, and yours is copper. A room is a squircle of four tiles colored from its identifier; a copper dot beside it says that someone else wrote in it since you last looked.
 - **Buttons:** a flat face lit from the top left. Primary is copper, secondary and tinted are quiet, ghost buttons are words with a hover fill, and symbol-only buttons are round.

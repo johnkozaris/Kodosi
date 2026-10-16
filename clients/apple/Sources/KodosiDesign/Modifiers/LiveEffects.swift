@@ -34,6 +34,7 @@ public struct LightRim: View {
 
     static let tileLight = AppTheme.dark.colors.accentStrong
     static let tileCore = Color(red: 1, green: 0.96, blue: 0.92)
+    static let tileGlow = tileLight.mix(with: tileCore, by: 0.5)
 
     @Environment(\.theme) private var theme
     public let mode: Mode
@@ -57,12 +58,14 @@ public struct LightRim: View {
         let rim = RimShape(cornerRadius: cornerRadius).inset(by: lineWidth / 2)
         ZStack {
             switch mode {
+            case .working where theme.motion.reduced:
+                rim.stroke(onTile ? Self.tileGlow : light, lineWidth: lineWidth)
             case .working:
                 if !onTile {
                     rim.stroke(light.opacity(0.2), lineWidth: lineWidth)
                 }
                 LayerArt(setup: TurningLight(cornerRadius: cornerRadius, lineWidth: lineWidth, light: light,
-                                             core: onTile ? Self.tileCore : nil, still: theme.motion.reduced),
+                                             core: onTile ? Self.tileCore : nil),
                          draw: TurningLight.draw)
             case let .progress(fraction):
                 rim.stroke(light.opacity(0.22), lineWidth: lineWidth)
@@ -110,13 +113,11 @@ struct Wedge: Shape {
 
 struct TurningLight: Hashable {
     static let period: TimeInterval = 4
-    static let rest = -CGFloat.pi / 4
 
     let cornerRadius: CGFloat?
     let lineWidth: CGFloat
     let light: Color
     let core: Color?
-    let still: Bool
 
     @MainActor
     static func draw(_ art: TurningLight, _ canvas: LayerCanvas) {
@@ -175,10 +176,6 @@ struct TurningLight: Hashable {
         holder.mask = mask
         holder.addSublayer(gradient)
         canvas.place(holder, bounds)
-        if still {
-            gradient.setAffineTransform(CGAffineTransform(rotationAngle: Self.rest))
-            return
-        }
         let spin = CABasicAnimation(keyPath: "transform.rotation.z")
         spin.fromValue = 0
         spin.toValue = 2 * Double.pi
