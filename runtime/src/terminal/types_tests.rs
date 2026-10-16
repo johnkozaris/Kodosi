@@ -42,7 +42,7 @@ fn relative_or_malformed_folders_are_invalid() {
 fn a_checkpoint_takes_its_size_from_the_snapshot() {
     let mut host = Terminal::new(30, 5, TerminalPolicy::default()).expect("terminal");
     let snapshot = host
-        .snapshot(TERMINAL_SNAPSHOT_MAX_BYTES)
+        .snapshot(crate::terminal::snapshot_limits(u64::MAX))
         .expect("snapshot");
     let checkpoint = Checkpoint::new(snapshot, true).expect("checkpoint");
 
@@ -54,7 +54,7 @@ fn a_checkpoint_takes_its_size_from_the_snapshot() {
 fn a_snapshot_over_the_size_limits_or_unreadable_is_refused_before_it_decodes() {
     let mut wide = Terminal::new(1025, 4, TerminalPolicy::default()).expect("terminal");
     let snapshot = wide
-        .snapshot(TERMINAL_SNAPSHOT_MAX_BYTES)
+        .snapshot(crate::terminal::snapshot_limits(u64::MAX))
         .expect("snapshot");
 
     assert!(matches!(

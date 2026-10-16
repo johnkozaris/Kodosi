@@ -326,8 +326,8 @@ async fn serve_terminal(
                     let mut bytes=Vec::with_capacity(9+frame.bytes.len());bytes.push(DATA);bytes.extend(frame.sequence.to_be_bytes());bytes.extend(&frame.bytes);
                     write_frame(&mut writer,&bytes).await?;
                 }
-                Some(terminal::Frame::Control(terminal::ControlFrame::Resize{rows,cols,at_sequence}))=>{
-                    write_frame(&mut writer,&control_frame(&json!({"type":"resize","rows":rows,"cols":cols,"atSequence":at_sequence}))?).await?;
+                Some(terminal::Frame::Control(terminal::ControlFrame::Resize{rows,cols,cell,at_sequence}))=>{
+                    write_frame(&mut writer,&resize_frame(rows,cols,cell,at_sequence)?).await?;
                 }
                 Some(terminal::Frame::Control(terminal::ControlFrame::Snapshot{checkpoint,next_sequence}))=>{
                     write_frame(&mut writer,&checkpoint_frame(&checkpoint,next_sequence)).await?;

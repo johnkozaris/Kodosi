@@ -5,10 +5,16 @@ public struct SessionActivityText: View {
     @Environment(\.theme) private var theme
     let session: RuntimeSession
     let fallback: String?
+    let showsPlace: Bool
 
-    public init(session: RuntimeSession, fallback: String? = nil) {
+    public init(session: RuntimeSession, fallback: String? = nil, showsPlace: Bool = false) {
         self.session = session
         self.fallback = fallback
+        self.showsPlace = showsPlace
+    }
+
+    private var place: TerminalPlace? {
+        showsPlace && session.activity == nil ? session.place : nil
     }
 
     private var words: String? {
@@ -17,7 +23,13 @@ public struct SessionActivityText: View {
 
     public var body: some View {
         HStack(spacing: 5) {
-            if let words {
+            if let place {
+                HStack(spacing: 4) {
+                    PlaceGlyph(kind: place.kind)
+                    Text(place.name).lineLimit(1)
+                }
+                .id(place.name).transition(.blurReplace)
+            } else if let words {
                 ZStack(alignment: .leading) {
                     Text(words).lineLimit(1).shimmer(session.isWorking)
                         .id(words).transition(.blurReplace)
@@ -29,6 +41,7 @@ public struct SessionActivityText: View {
             }
         }
         .animation(theme.motion.soft, value: words)
+        .animation(theme.motion.soft, value: place?.name)
         .animation(theme.motion.snappy, value: session.progress)
     }
 }

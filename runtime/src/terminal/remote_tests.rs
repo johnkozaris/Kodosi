@@ -18,12 +18,21 @@ fn session() -> RemoteSession {
     }
 }
 
+/// The cell size of the host in these tests.
+const CELL: CellPixels = CellPixels {
+    width: 8,
+    height: 16,
+};
+
 fn checkpoint(rows: u16, cols: u16, bytes: &[u8]) -> Checkpoint {
     let mut terminal = ghostty_vt::Terminal::new(cols, rows, ghostty_vt::TerminalPolicy::default())
         .expect("real terminal");
+    terminal
+        .resize(cols, rows, CELL.width, CELL.height)
+        .expect("host cells");
     terminal.write(bytes).expect("terminal output");
     let snapshot = terminal
-        .snapshot(super::super::TERMINAL_SNAPSHOT_MAX_BYTES)
+        .snapshot(crate::terminal::snapshot_limits(u64::MAX))
         .expect("snapshot");
     Checkpoint::new(snapshot, false).expect("checkpoint")
 }
@@ -101,6 +110,7 @@ async fn live_resize_does_not_satisfy_pending_capture_or_late_subscription() {
         .send(RemoteUpdate::Resize {
             rows: 6,
             cols: 30,
+            cell: CELL,
             at_sequence: 0,
         })
         .await
@@ -110,6 +120,7 @@ async fn live_resize_does_not_satisfy_pending_capture_or_late_subscription() {
         Some(ControlFrame::Resize {
             rows: 6,
             cols: 30,
+            cell: CELL,
             at_sequence: 0
         })
     ));
@@ -555,6 +566,7 @@ async fn same_cut_resize_reaches_existing_viewers_as_an_ordered_geometry_change(
         .send(RemoteUpdate::Resize {
             rows: 6,
             cols: 30,
+            cell: CELL,
             at_sequence: 0,
         })
         .await
@@ -564,6 +576,7 @@ async fn same_cut_resize_reaches_existing_viewers_as_an_ordered_geometry_change(
         Some(ControlFrame::Resize {
             rows: 6,
             cols: 30,
+            cell: CELL,
             at_sequence: 0
         })
     ));

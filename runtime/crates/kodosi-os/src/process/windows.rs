@@ -130,6 +130,10 @@ pub(super) fn computer_name() -> Option<String> {
     String::from_utf16(&buffer).ok()
 }
 
+pub(super) fn host_name() -> Option<String> {
+    computer_name()
+}
+
 pub(super) fn allow_foreground(pid: u32) {
     unsafe { AllowSetForegroundWindow(pid) };
 }

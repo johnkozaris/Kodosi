@@ -27,10 +27,10 @@ Read `PRODUCT.md` first. Before changing a client's interface, read that client'
 ## Rules
 
 - Keep full terminal control. Don't add permission tiers, sandboxing or agent workflow
-  machinery.
-- Sharing is trust. People who share a terminal or a room, and the programs and agents
-  in it, are trusted: don't restrict what they can do (clipboard, links, escape
-  sequences, commands). Prompt injection is the agent provider's concern. Protect only
+  machinery. Programs in a terminal get what Ghostty gives them, such as clipboard
+  writes; don't add limits that Ghostty does not have.
+- Sharing is trust. Don't restrict what the people in a shared terminal or room, or
+  their agents, can do there. Prompt injection is the agent provider's concern; protect
   against the network, the backend and people without access.
 - Leave provider execution, permissions, settings and conversations with the provider.
 - Preserve end-to-end encryption, chosen sharing, identity continuity, bounded resource

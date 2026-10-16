@@ -294,8 +294,9 @@ async fn stream_terminal(
                         state.data(token, &frame);
                         continue;
                     }
-                    Ok(Some(terminal::Frame::Control(terminal::ControlFrame::Resize { rows, cols, at_sequence }))) => {
-                        state.control(token, &serde_json::json!({"type":"term.resize","rows":rows,"cols":cols,"atSequence":at_sequence}));
+                    Ok(Some(terminal::Frame::Control(terminal::ControlFrame::Resize { rows, cols, cell, at_sequence }))) => {
+                        state.control(token, &serde_json::json!({"type":"term.resize","rows":rows,"cols":cols,
+                            "cellWidthPixels":cell.width,"cellHeightPixels":cell.height,"atSequence":at_sequence}));
                         continue;
                     }
                     Ok(Some(terminal::Frame::Control(terminal::ControlFrame::Snapshot { checkpoint, next_sequence }))) => {

@@ -43,7 +43,7 @@ struct SessionSharingPopover: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 11) {
-                AgentMark(kind: session.agent, size: 34)
+                AgentMark(session: session, size: 34)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Share \(session.name)").appTextStyle(.headline).foregroundStyle(theme.colors.ink).lineLimit(1)
                     Label("Encrypted end to end", systemImage: "lock.fill").appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted)

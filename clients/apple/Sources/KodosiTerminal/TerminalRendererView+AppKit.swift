@@ -11,6 +11,7 @@
         private let shouldFocus: Bool
         private let allowsFocus: Bool
         private let allowsInput: Bool
+        private let asksBeforeClipboardRead: Bool
         private let isSurfaceVisible: Bool
         private let onFocus: () -> Void
         private let onFocusChange: (Bool) -> Void
@@ -24,6 +25,7 @@
             shouldFocus: Bool,
             allowsFocus: Bool,
             allowsInput: Bool,
+            asksBeforeClipboardRead: Bool = true,
             isSurfaceVisible: Bool,
             onFocus: @escaping () -> Void,
             onFocusChange: @escaping (Bool) -> Void,
@@ -36,6 +38,7 @@
             self.shouldFocus = shouldFocus
             self.allowsFocus = allowsFocus
             self.allowsInput = allowsInput
+            self.asksBeforeClipboardRead = asksBeforeClipboardRead
             self.isSurfaceVisible = isSurfaceVisible
             self.onFocus = onFocus
             self.onFocusChange = onFocusChange
@@ -51,6 +54,7 @@
                 shouldFocus: shouldFocus,
                 allowsFocus: allowsFocus,
                 allowsInput: allowsInput,
+                asksBeforeClipboardRead: asksBeforeClipboardRead,
                 isSurfaceVisible: isSurfaceVisible,
                 onFocus: onFocus,
                 onFocusChange: onFocusChange,
@@ -75,6 +79,7 @@
         private var accessibilityViewportText = ""
         private var isReadOnlySelectionDrag = false
         private var runtimeRejectedFocus = false
+        private var clipboardPromptOpen = false
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
@@ -91,6 +96,23 @@
             guard allowsFocus else { return false }
             runtimeRejectedFocus = false
             return super.becomeFirstResponder()
+        }
+
+        func askToShareClipboard(
+            sessionName: String,
+            _ answer: @escaping @MainActor (Bool) -> Void
+        ) {
+            guard allowsInput, !clipboardPromptOpen, let window else { return }
+            clipboardPromptOpen = true
+            let alert = NSAlert()
+            alert.messageText = String(localized: "Let a program read your clipboard?")
+            alert.informativeText = String(localized: "A program in \(sessionName) asks for the text that you copied.")
+            alert.addButton(withTitle: String(localized: "Don’t Allow"))
+            alert.addButton(withTitle: String(localized: "Allow"))
+            alert.beginSheetModal(for: window) { [weak self] response in
+                self?.clipboardPromptOpen = false
+                answer(response == .alertSecondButtonReturn)
+            }
         }
 
         func revokeNativeFocus() {
@@ -317,6 +339,7 @@
         let shouldFocus: Bool
         let allowsFocus: Bool
         let allowsInput: Bool
+        let asksBeforeClipboardRead: Bool
         let isSurfaceVisible: Bool
         let onFocus: () -> Void
         let onFocusChange: (Bool) -> Void
@@ -352,6 +375,7 @@
             view.registeredFocusRevoker = nil
             view.delegateProxy.target = nil
             view.delegateProxy.viewportDidResize = nil
+            view.delegateProxy.clipboardReadRequested = nil
             if view.window?.firstResponder === view {
                 view.window?.makeFirstResponder(nil)
             }
@@ -367,6 +391,10 @@
             view.delegateProxy.target = session.viewState
             view.delegateProxy.viewportDidResize = {
                 session.signalAccessibilityViewportChange()
+            }
+            view.delegateProxy.asksBeforeClipboardRead = asksBeforeClipboardRead
+            view.delegateProxy.clipboardReadRequested = { [weak view] answer in
+                view?.askToShareClipboard(sessionName: sessionName, answer)
             }
             if view.delegate !== view.delegateProxy {
                 view.delegate = view.delegateProxy

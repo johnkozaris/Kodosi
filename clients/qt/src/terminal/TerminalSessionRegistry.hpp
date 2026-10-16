@@ -79,6 +79,10 @@ public:
     [[nodiscard]] GhosttyTerminalKernel::Result scrollViewport(
         const TerminalSurfaceIdentity& identity,
         int rows);
+    [[nodiscard]] bool compressHistory(const TerminalSurfaceIdentity& identity);
+    [[nodiscard]] GhosttyTerminalKernel::Result jumpToPrompt(
+        const TerminalSurfaceIdentity& identity,
+        int prompts);
     [[nodiscard]] GhosttyTerminalKernel::Result scrollViewportToBottom(
         const TerminalSurfaceIdentity& identity);
     [[nodiscard]] std::expected<QString, GhosttyTerminalKernel::Failure> linkAt(

@@ -306,6 +306,74 @@ impl Default for GhosttyGridRef {
     }
 }
 #[repr(C)]
+#[derive(Debug, Default, Copy, Clone)]
+pub struct GhosttyPointCoordinate {
+    pub x: u16,
+    pub y: u32,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of GhosttyPointCoordinate"][::std::mem::size_of::<GhosttyPointCoordinate>() - 8usize];
+    ["Alignment of GhosttyPointCoordinate"]
+        [::std::mem::align_of::<GhosttyPointCoordinate>() - 4usize];
+    ["Offset of field: GhosttyPointCoordinate::x"]
+        [::std::mem::offset_of!(GhosttyPointCoordinate, x) - 0usize];
+    ["Offset of field: GhosttyPointCoordinate::y"]
+        [::std::mem::offset_of!(GhosttyPointCoordinate, y) - 4usize];
+};
+pub const GhosttyPointTag_GHOSTTY_POINT_TAG_ACTIVE: GhosttyPointTag = 0;
+pub const GhosttyPointTag_GHOSTTY_POINT_TAG_VIEWPORT: GhosttyPointTag = 1;
+pub const GhosttyPointTag_GHOSTTY_POINT_TAG_SCREEN: GhosttyPointTag = 2;
+pub const GhosttyPointTag_GHOSTTY_POINT_TAG_HISTORY: GhosttyPointTag = 3;
+pub const GhosttyPointTag_GHOSTTY_POINT_TAG_MAX_VALUE: GhosttyPointTag = 2147483647;
+pub type GhosttyPointTag = ::std::os::raw::c_int;
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union GhosttyPointValue {
+    pub coordinate: GhosttyPointCoordinate,
+    pub _padding: [u64; 2usize],
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of GhosttyPointValue"][::std::mem::size_of::<GhosttyPointValue>() - 16usize];
+    ["Alignment of GhosttyPointValue"][::std::mem::align_of::<GhosttyPointValue>() - 8usize];
+    ["Offset of field: GhosttyPointValue::coordinate"]
+        [::std::mem::offset_of!(GhosttyPointValue, coordinate) - 0usize];
+    ["Offset of field: GhosttyPointValue::_padding"]
+        [::std::mem::offset_of!(GhosttyPointValue, _padding) - 0usize];
+};
+impl Default for GhosttyPointValue {
+    fn default() -> Self {
+        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct GhosttyPoint {
+    pub tag: GhosttyPointTag,
+    pub value: GhosttyPointValue,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of GhosttyPoint"][::std::mem::size_of::<GhosttyPoint>() - 24usize];
+    ["Alignment of GhosttyPoint"][::std::mem::align_of::<GhosttyPoint>() - 8usize];
+    ["Offset of field: GhosttyPoint::tag"][::std::mem::offset_of!(GhosttyPoint, tag) - 0usize];
+    ["Offset of field: GhosttyPoint::value"][::std::mem::offset_of!(GhosttyPoint, value) - 8usize];
+};
+impl Default for GhosttyPoint {
+    fn default() -> Self {
+        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
+}
+#[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct GhosttySelection {
     pub size: usize,
@@ -647,6 +715,45 @@ impl Default for GhosttyTerminalProgramStatus {
         }
     }
 }
+pub const GhosttyHierarchicalContextAction_GHOSTTY_HIERARCHICAL_CONTEXT_ACTION_START:
+    GhosttyHierarchicalContextAction = 0;
+pub const GhosttyHierarchicalContextAction_GHOSTTY_HIERARCHICAL_CONTEXT_ACTION_END:
+    GhosttyHierarchicalContextAction = 1;
+pub const GhosttyHierarchicalContextAction_GHOSTTY_HIERARCHICAL_CONTEXT_ACTION_MAX_VALUE:
+    GhosttyHierarchicalContextAction = 2147483647;
+pub type GhosttyHierarchicalContextAction = ::std::os::raw::c_int;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct GhosttyTerminalHierarchicalContext {
+    pub size: usize,
+    pub action: GhosttyHierarchicalContextAction,
+    pub id: GhosttyString,
+    pub fields: GhosttyString,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of GhosttyTerminalHierarchicalContext"]
+        [::std::mem::size_of::<GhosttyTerminalHierarchicalContext>() - 48usize];
+    ["Alignment of GhosttyTerminalHierarchicalContext"]
+        [::std::mem::align_of::<GhosttyTerminalHierarchicalContext>() - 8usize];
+    ["Offset of field: GhosttyTerminalHierarchicalContext::size"]
+        [::std::mem::offset_of!(GhosttyTerminalHierarchicalContext, size) - 0usize];
+    ["Offset of field: GhosttyTerminalHierarchicalContext::action"]
+        [::std::mem::offset_of!(GhosttyTerminalHierarchicalContext, action) - 8usize];
+    ["Offset of field: GhosttyTerminalHierarchicalContext::id"]
+        [::std::mem::offset_of!(GhosttyTerminalHierarchicalContext, id) - 16usize];
+    ["Offset of field: GhosttyTerminalHierarchicalContext::fields"]
+        [::std::mem::offset_of!(GhosttyTerminalHierarchicalContext, fields) - 32usize];
+};
+impl Default for GhosttyTerminalHierarchicalContext {
+    fn default() -> Self {
+        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
+}
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
 pub struct GhosttyTerminalModeConfig {
@@ -726,6 +833,8 @@ pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_XT_CHECKSUM_EXTENSION: Ghos
     45;
 pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_PROGRAM_STATUS: GhosttyTerminalOption = 46;
 pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_RESIZE_WINDOW: GhosttyTerminalOption = 47;
+pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_HIERARCHICAL_CONTEXT: GhosttyTerminalOption =
+    48;
 pub const GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_MAX_VALUE: GhosttyTerminalOption = 2147483647;
 pub type GhosttyTerminalOption = ::std::os::raw::c_int;
 pub const GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_INVALID: GhosttyTerminalData = 0;
@@ -838,6 +947,13 @@ unsafe extern "C" {
         keys: *const GhosttyTerminalData,
         values: *mut *mut ::std::os::raw::c_void,
         out_written: *mut usize,
+    ) -> GhosttyResult;
+}
+unsafe extern "C" {
+    pub fn ghostty_terminal_grid_ref(
+        terminal: GhosttyTerminal,
+        point: GhosttyPoint,
+        out_ref: *mut GhosttyGridRef,
     ) -> GhosttyResult;
 }
 #[repr(C)]
@@ -1000,6 +1116,30 @@ unsafe extern "C" {
     pub fn ghostty_snapshot_encode(
         terminal: GhosttyTerminal,
         writer: GhosttyWriter,
+    ) -> GhosttyResult;
+}
+#[repr(C)]
+#[derive(Debug, Default, Copy, Clone)]
+pub struct GhosttySnapshotEncodeOptions {
+    pub size: usize,
+    pub kitty_image_data_limit: u64,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of GhosttySnapshotEncodeOptions"]
+        [::std::mem::size_of::<GhosttySnapshotEncodeOptions>() - 16usize];
+    ["Alignment of GhosttySnapshotEncodeOptions"]
+        [::std::mem::align_of::<GhosttySnapshotEncodeOptions>() - 8usize];
+    ["Offset of field: GhosttySnapshotEncodeOptions::size"]
+        [::std::mem::offset_of!(GhosttySnapshotEncodeOptions, size) - 0usize];
+    ["Offset of field: GhosttySnapshotEncodeOptions::kitty_image_data_limit"]
+        [::std::mem::offset_of!(GhosttySnapshotEncodeOptions, kitty_image_data_limit) - 8usize];
+};
+unsafe extern "C" {
+    pub fn ghostty_snapshot_encode_options(
+        terminal: GhosttyTerminal,
+        writer: GhosttyWriter,
+        options: *const GhosttySnapshotEncodeOptions,
     ) -> GhosttyResult;
 }
 unsafe extern "C" {

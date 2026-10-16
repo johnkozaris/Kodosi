@@ -24,12 +24,14 @@ the Keychain identity.
 The host owns each process, its terminal state and output order. A viewer gets a
 checkpoint and then ordered updates over its own encrypted channel with bounded
 buffering. Input whose delivery is uncertain is not replayed, and a stale view cannot
-control a replacement terminal. Programs use the clipboard without a prompt: every view
-of a terminal applies a clipboard write, and only the view with keyboard focus answers a
-read, so the program gets one answer. The host also sends each terminal's agent and
-reported state (OSC 7501 or a progress bar), unencrypted and without its text, through
-its device connection; the backend keeps the newest while the host is connected and
-gives it to everyone who can open the terminal.
+control a replacement terminal. Programs write the clipboard without a prompt: every
+view of a terminal applies a clipboard write. Only the view with keyboard focus answers a
+read, so the program gets one answer. In the person's own terminals it answers at once; in
+another person's terminal it asks first, because the answer sends the clipboard to that
+person's computer. The host also sends each terminal's agent and reported state (OSC 7501
+or a progress bar), unencrypted and without its text, through its device connection; the
+backend keeps the newest while the host is connected and gives it to everyone who can
+open the terminal.
 
 ## Backend and rooms
 

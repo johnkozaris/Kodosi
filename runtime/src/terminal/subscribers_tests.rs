@@ -2,7 +2,9 @@ use super::*;
 
 fn checkpoint() -> Checkpoint {
     let snapshot = ghostty_vt::Terminal::new(10, 4, ghostty_vt::TerminalPolicy::default())
-        .and_then(|mut terminal| terminal.visible_snapshot(usize::MAX))
+        .and_then(|mut terminal| {
+            terminal.visible_snapshot(crate::terminal::snapshot_limits(u64::MAX))
+        })
         .expect("snapshot");
     Checkpoint::new(snapshot, false).expect("checkpoint")
 }
@@ -46,6 +48,7 @@ async fn a_view_that_falls_behind_stays_open_and_gets_a_snapshot_after_it_reads_
     subscribers.control(&ControlFrame::Resize {
         rows: 6,
         cols: 30,
+        cell: CellPixels::default(),
         at_sequence: total,
     });
     assert!(subscribers.contains(slow.connection_id));
@@ -118,6 +121,7 @@ async fn a_view_with_a_full_control_queue_stays_open_and_gets_a_snapshot_when_it
         subscribers.control(&ControlFrame::Resize {
             rows: 4,
             cols: 10,
+            cell: CellPixels::default(),
             at_sequence,
         });
     }
@@ -181,6 +185,7 @@ fn resize(subscribers: &mut Subscribers, at_sequence: u64) {
     subscribers.control(&ControlFrame::Resize {
         rows: 6,
         cols: 30,
+        cell: CellPixels::default(),
         at_sequence,
     });
 }

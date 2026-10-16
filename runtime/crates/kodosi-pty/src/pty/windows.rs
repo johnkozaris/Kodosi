@@ -206,6 +206,7 @@ impl KodosiPty {
         rows: u16,
         cols: u16,
         environment: &[(&str, &str)],
+        _prompt_marks: Option<&Path>,
     ) -> Result<(Self, PtyReader)> {
         let api = conpty()?;
         let working_dir = validate_working_dir(working_dir)?;
@@ -1009,7 +1010,7 @@ mod tests {
         let system = std::env::var_os("SystemRoot").unwrap();
         std::fs::copy(Path::new(&system).join(r"System32\cmd.exe"), &agent).unwrap();
         let (pty, _reader) =
-            KodosiPty::spawn_program(&agent, &["/d".into(), "/k".into()], None, 24, 80, &[])
+            KodosiPty::spawn_program(&agent, &["/d".into(), "/k".into()], None, 24, 80, &[], None)
                 .unwrap();
         assert_eq!(pty.foreground_program().as_deref(), Some("codex"));
     }
@@ -1019,11 +1020,12 @@ mod tests {
         let system = std::env::var_os("SystemRoot").unwrap();
         let cmd = Path::new(&system).join(r"System32\cmd.exe");
         let (shell, _output) =
-            KodosiPty::spawn_program(&cmd, &["/d".into(), "/k".into()], None, 24, 80, &[]).unwrap();
+            KodosiPty::spawn_program(&cmd, &["/d".into(), "/k".into()], None, 24, 80, &[], None)
+                .unwrap();
         assert!(shell.job_processes().contains(&shell.child_pid));
         let arguments = ["/d", "/c", "exit", "7"].map(str::to_owned);
         let (program, _output) =
-            KodosiPty::spawn_program(&cmd, &arguments, None, 24, 80, &[]).unwrap();
+            KodosiPty::spawn_program(&cmd, &arguments, None, 24, 80, &[], None).unwrap();
         tokio::time::timeout(Duration::from_secs(10), program.wait())
             .await
             .unwrap();
@@ -1056,7 +1058,7 @@ mod tests {
         let ping = Path::new(&system).join(r"System32\PING.EXE");
         let arguments = ["-t", "127.0.0.1"].map(str::to_owned);
         let (mut program, _output) =
-            KodosiPty::spawn_program(&ping, &arguments, None, 24, 80, &[]).unwrap();
+            KodosiPty::spawn_program(&ping, &arguments, None, 24, 80, &[], None).unwrap();
         tokio::time::sleep(Duration::from_secs(1)).await;
         program.request_shutdown(ShutdownStage::Interrupt).unwrap();
         let exited = tokio::time::timeout(Duration::from_secs(10), program.wait()).await;

@@ -133,7 +133,7 @@ private struct RoomTerminals: View {
     private func tabChip(_ session: RuntimeSession, selected: Bool) -> some View {
         Button { open(session) } label: {
             HStack(spacing: 7) {
-                AgentMark(kind: session.agent, size: 18, activity: session.mark(rested: selected ? .awake : .asleep))
+                AgentMark(session: session, size: 18, activity: session.mark(rested: selected ? .awake : .asleep))
                 Text(session.name).appTextStyle(.footnote).fontWeight(.medium).lineLimit(1)
                     .foregroundStyle(selected ? theme.colors.ink : theme.colors.inkMuted)
                 if !session.isOwner, let owner = session.ownerName {

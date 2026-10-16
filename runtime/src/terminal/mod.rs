@@ -1,3 +1,4 @@
+mod context;
 #[cfg(feature = "host")]
 mod emulator;
 mod remote;
@@ -10,15 +11,21 @@ mod validation;
 
 use uuid::Uuid;
 
+pub use context::{ContextPlace, PlaceKind, TerminalContext};
 pub(crate) use remote::RemoteTerminal;
 #[cfg(feature = "host")]
 pub(crate) use session::LocalSession;
 pub use status::{BlockedKind, ProgramState, ProgramStatus};
 pub use subscribers::{ControlFrame, DataFrame, Frame, Subscription};
 pub use types::{
-    Checkpoint, TERMINAL_CHECKPOINT_SCHEMA_VERSION, TERMINAL_INPUT_MAX_BYTES,
-    TERMINAL_SNAPSHOT_MAX_BYTES, TerminalMetadata, TerminalPixelGeometry, TerminalSize,
+    CellPixels, Checkpoint, TERMINAL_CHECKPOINT_SCHEMA_VERSION, TERMINAL_IMAGE_STORAGE_MAX_BYTES,
+    TERMINAL_INPUT_MAX_BYTES, TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES,
+    TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES, TERMINAL_SNAPSHOT_MAX_BYTES,
+    TERMINAL_SNAPSHOT_TEXT_MAX_BYTES, TerminalMetadata, TerminalPixelGeometry, TerminalSize,
 };
+
+#[cfg(test)]
+pub(crate) use types::snapshot_limits;
 
 pub(crate) enum SessionChange {
     RemoteEnded {
@@ -54,6 +61,11 @@ pub(crate) enum SessionChange {
     Status {
         id: Uuid,
         status: Option<ProgramStatus>,
+    },
+    #[cfg(feature = "host")]
+    Context {
+        id: Uuid,
+        context: Option<TerminalContext>,
     },
     #[cfg(feature = "host")]
     Notification {

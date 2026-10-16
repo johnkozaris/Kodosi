@@ -11,6 +11,7 @@
 #include <QInputMethodEvent>
 #include <QKeyEvent>
 #include <QKeySequence>
+#include <QMimeData>
 #include <QMouseEvent>
 #include <QQuickWindow>
 #include <QTimer>
@@ -248,6 +249,21 @@ std::optional<TerminalKey> terminalKey(const QKeyEvent* event)
     }
 }
 
+int promptJump(const QKeyEvent* event)
+{
+    if (event->modifiers() != (Qt::ControlModifier | Qt::ShiftModifier)) {
+        return 0;
+    }
+    switch (event->key()) {
+    case Qt::Key_Up:
+        return -1;
+    case Qt::Key_Down:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
 bool isPasteShortcut(const QKeyEvent* event)
 {
     const auto modifiers = event->modifiers();
@@ -288,6 +304,13 @@ void TerminalView::keyPressEvent(QKeyEvent* event)
         event->accept();
         return;
     }
+    if (const auto prompts = promptJump(event); prompts != 0) {
+        if (auto jumped = m_registry->jumpToPrompt(surfaceIdentity(), prompts); !jumped) {
+            emit operationError(jumped.error().message);
+        }
+        event->accept();
+        return;
+    }
     if (isPasteShortcut(event)) {
         if (!event->isAutoRepeat()) {
             m_pasteShortcutKey = event->key();
@@ -322,7 +345,11 @@ void TerminalView::keyPressEvent(QKeyEvent* event)
         event->accept();
         return;
     }
-    if (!text.isEmpty()
+    // Some displays, such as VNC, give a modifier key a NUL text.
+    const auto typed = std::ranges::none_of(text, [](const QChar character) {
+        return character.category() == QChar::Other_Control;
+    });
+    if (!text.isEmpty() && typed
         && !event->modifiers().testAnyFlags(
             Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier)
         && event->key() != Qt::Key_Return
@@ -694,10 +721,14 @@ void TerminalView::applyClipboard(const TerminalClipboardOperations& operations)
             } else {
                 clipboard->setText(*operation.write, mode);
             }
-        } else if (hasActiveFocus() && interactionAvailable() && window()->isActive()) {
-            const auto text = clipboard->text(mode).toUtf8().toBase64();
-            if (!enqueueInput(operation.answerPrefix + text + operation.answerTerminator)) {
-                (void)enqueueInput(operation.answerPrefix + operation.answerTerminator);
+        } else if (!m_clipboardRead && hasActiveFocus() && interactionAvailable()
+                   && m_canSendInput && window()->isActive()) {
+            // Only the view that the person types in answers, one read at a time.
+            m_clipboardRead = operation;
+            if (m_asksBeforeClipboardRead) {
+                emit clipboardReadRequested();
+            } else {
+                answerClipboardRead(true);
             }
         }
     }
@@ -973,6 +1004,25 @@ void TerminalView::updateSelection(const QPoint& endpoint)
             return;
         }
         emit operationError(selected.error().message);
+    }
+}
+
+void TerminalView::answerClipboardRead(const bool allowed)
+{
+    const auto read = std::exchange(m_clipboardRead, std::nullopt);
+    if (!read) {
+        return;
+    }
+    QByteArray text;
+    auto* clipboard = QGuiApplication::clipboard();
+    if (allowed && clipboard != nullptr) {
+        const auto mode = read->selection && clipboard->supportsSelection()
+            ? QClipboard::Selection
+            : QClipboard::Clipboard;
+        text = clipboard->text(mode).toUtf8().toBase64();
+    }
+    if (!enqueueInput(read->answerPrefix + text + read->answerTerminator)) {
+        (void)enqueueInput(read->answerPrefix + read->answerTerminator);
     }
 }
 

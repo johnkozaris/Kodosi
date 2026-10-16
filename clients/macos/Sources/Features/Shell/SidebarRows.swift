@@ -253,7 +253,7 @@ struct SidebarTerminalRow: View {
 
     private var label: some View {
         HStack(spacing: 9) {
-            AgentMark(kind: session.agent, size: 22, activity: deps.activity(of: session))
+            AgentMark(session: session, size: 22, activity: deps.activity(of: session))
             VStack(alignment: .leading, spacing: 1) {
                 if renaming {
                     TextField("Name", text: $draft)
@@ -271,9 +271,20 @@ struct SidebarTerminalRow: View {
                         .foregroundStyle(staged || selected ? theme.colors.ink : theme.colors.inkMuted).lineLimit(1)
                         .contentTransition(.interpolate)
                 }
-                if session.activity != nil || session.progress != nil {
-                    SessionActivityText(session: session).appTextStyle(.caption).fontWeight(.regular)
-                        .foregroundStyle(theme.colors.inkFaint)
+                let active = session.activity != nil || session.progress != nil
+                if session.place != nil || active {
+                    HStack(spacing: 4) {
+                        if let place = session.place {
+                            SessionPlace(place: place).layoutPriority(1).help(session.placeLabel ?? "")
+                        }
+                        if active {
+                            if session.place != nil {
+                                Text(verbatim: "·")
+                            }
+                            SessionActivityText(session: session)
+                        }
+                    }
+                    .appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint)
                 }
             }
             Spacer(minLength: 0)

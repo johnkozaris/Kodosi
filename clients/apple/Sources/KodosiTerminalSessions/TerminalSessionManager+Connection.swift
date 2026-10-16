@@ -2,7 +2,6 @@ import Foundation
 import KodosiBridge
 import KodosiKit
 import KodosiTerminal
-import os
 
 extension TerminalSessionManager {
     func connectToRuntime(sessionId: String, token: TerminalConnectionToken) {
@@ -21,7 +20,7 @@ extension TerminalSessionManager {
             subscriptionId: token.subscriptionId,
             subscriptionGeneration: token.subscriptionGeneration,
             onData: outputHandler(link, renderer: renderer),
-            onControl: controlHandler(link, controls: controls),
+            onControl: controlHandler(link, controls: controls, renderer: renderer),
             onCheckpoint: checkpointHandler(link, renderer: renderer),
             onConnectionResult: connectionResultHandler(link, resizeDelivery: resizeDelivery)
         ))
@@ -77,7 +76,6 @@ private struct RuntimeLink: Sendable {
     let sessionId: String
     let token: TerminalConnectionToken
     let runtime: RuntimeHandle
-    let awaitingResizeCheckpoint = OSAllocatedUnfairLock(initialState: false)
 }
 
 private extension TerminalSessionManager {
@@ -91,7 +89,6 @@ private extension TerminalSessionManager {
     func outputHandler(_ link: RuntimeLink, renderer: TerminalRendererSession) -> @Sendable (Data) -> Void {
         { [weak self, weak renderer] data in
             guard link.token.isActive, let renderer else { return }
-            guard !link.awaitingResizeCheckpoint.withLock({ $0 }) else { return }
             guard !renderer.receive(data), link.token.deactivate() else { return }
             Task { @MainActor [weak self] in
                 self?.fail(link, message: String(
@@ -101,15 +98,24 @@ private extension TerminalSessionManager {
         }
     }
 
-    func controlHandler(_ link: RuntimeLink, controls: RuntimeEventInbox) -> @Sendable (Data) -> Void {
-        { [weak self] data in
+    func controlHandler(
+        _ link: RuntimeLink, controls: RuntimeEventInbox, renderer: TerminalRendererSession
+    ) -> @Sendable (Data) -> Void {
+        { [weak self, weak renderer] data in
             guard link.token.isActive else { return }
             if let fields = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                fields["type"] as? String == "term.resize"
             {
-                link.awaitingResizeCheckpoint.withLock { $0 = true }
-                link.runtime.refreshTerminal(sessionId: link.sessionId, subscriptionId: link.token.subscriptionId,
-                                             subscriptionGeneration: link.token.subscriptionGeneration)
+                guard let renderer else { return }
+                let viewport = TerminalControlFrames.hostViewport(from: fields)
+                let applied = viewport.map { renderer.applyHostResize($0) } ?? false
+                guard !applied, link.token.deactivate() else { return }
+                Task { @MainActor [weak self] in
+                    self?.fail(link, message: viewport == nil
+                        ? String(localized: "The terminal received an invalid control frame. Retry the terminal to reconnect.",
+                                 bundle: .module)
+                        : String(localized: "This terminal fell behind. Try again.", bundle: .module))
+                }
                 return
             }
             guard !controls.push(data), link.token.deactivate() else { return }
@@ -129,7 +135,6 @@ private extension TerminalSessionManager {
             else {
                 return Int32(KODOSI_FFI_TERMINAL_CHECKPOINT_REJECTED)
             }
-            link.awaitingResizeCheckpoint.withLock { $0 = false }
             Task { @MainActor [weak self, weak renderer] in
                 guard link.token.isActive, let renderer, self?.sessions[link.sessionId]?.token === link.token else { return }
                 self?.noteCheckpointRestored(

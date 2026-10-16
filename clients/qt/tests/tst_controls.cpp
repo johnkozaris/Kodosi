@@ -24,6 +24,8 @@ private slots:
     void keyboardFocusTracksButtonState();
     void modalControlsSuppressNativeTerminalAccessibility();
     void terminalCloseConfirmsAndMinimizeOnlyHidesView();
+    void terminalTilesAskBeforeAClipboardReadOnlyInAnotherPersonsTerminal();
+    void clipboardReadAnswersOnceTheTerminalTakesInputAgain();
     void leavingTerminalsLeavesNoDeferredWork();
     void missionCreationHasOneNameField();
     void messageTextKeepsSpacesEscapesMarkupAndSkipsYourself();
@@ -177,6 +179,124 @@ void ControlsTest::modalControlsSuppressNativeTerminalAccessibility()
     QTRY_VERIFY(!desktop.modalOpen());
     QVERIFY(terminal->isEnabled());
     QVERIFY(!accessible->text(QAccessible::Name).isEmpty());
+}
+
+void ControlsTest::clipboardReadAnswersOnceTheTerminalTakesInputAgain()
+{
+    QTemporaryDir directory;
+    kodosi::AppearanceModel appearance(
+        std::make_unique<QSettings>(directory.filePath(QStringLiteral("appearance.ini")), QSettings::IniFormat),
+        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
+    kodosi::DesktopStateModel desktop(
+        std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat));
+    kodosi::qml::AppearanceModelForeign::instance = &appearance;
+    kodosi::qml::DesktopStateModelForeign::instance = &desktop;
+    QQmlEngine engine;
+    QQmlComponent component(&engine);
+    component.setData(R"(
+        import QtQuick
+        import QtQuick.Controls
+        import Kodosi 1.0
+        import Kodosi.Models 1.0 as Models
+        ApplicationWindow {
+            id: window
+            property var answers: []
+            width: 640; height: 480; visible: true
+            Item {
+                id: stage
+                anchors.fill: parent
+                enabled: !Models.DesktopState.modalOpen
+            }
+            ClipboardReadDialog {
+                objectName: "test.clipboardRead"
+                sessionName: "Copper Otter"
+                onAnswered: allowed => window.answers = window.answers.concat([[allowed, stage.enabled]])
+            }
+        }
+    )", {});
+    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+    std::unique_ptr<QObject> root(component.create());
+    QVERIFY2(root, qPrintable(component.errorString()));
+    auto* dialog = root->findChild<QObject*>(QStringLiteral("test.clipboardRead"));
+    QVERIFY(dialog);
+    const auto answers = [&] { return root->property("answers").toList(); };
+
+    QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
+    QTRY_VERIFY(desktop.modalOpen());
+    QCOMPARE(dialog->property("title").toString(), QStringLiteral("Let a program read your clipboard?"));
+    QVERIFY(QMetaObject::invokeMethod(dialog, "accept"));
+    QTRY_COMPARE(answers().size(), 1);
+    QCOMPARE(answers().at(0).toList(), (QVariantList {true, true}));
+
+    QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
+    QTRY_VERIFY(desktop.modalOpen());
+    QVERIFY(QMetaObject::invokeMethod(dialog, "reject"));
+    QTRY_COMPARE(answers().size(), 2);
+    QCOMPARE(answers().at(1).toList(), (QVariantList {false, true}));
+}
+
+void ControlsTest::terminalTilesAskBeforeAClipboardReadOnlyInAnotherPersonsTerminal()
+{
+    class Commands final : public kodosi::CommandDispatcher {
+    public:
+        Result send(QByteArrayView) override { return {}; }
+    } commands;
+    QTemporaryDir directory;
+    kodosi::AppearanceModel appearance(
+        std::make_unique<QSettings>(directory.filePath(QStringLiteral("appearance.ini")), QSettings::IniFormat),
+        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
+    kodosi::DesktopStateModel desktop(
+        std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat));
+    kodosi::DesktopSettings settings(
+        std::make_unique<QSettings>(directory.filePath(QStringLiteral("settings.ini")), QSettings::IniFormat));
+    kodosi::SessionCatalogModel sessions;
+    desktop.attachSessionCatalog(&sessions);
+    kodosi::Workspace workspace(commands, sessions, desktop, settings);
+    kodosi::TerminalSessionRegistry registry;
+    kodosi::RuntimeBridge runtime;
+    kodosi::TerminalSurfaceController surfaces(registry, runtime, sessions);
+    kodosi::qml::AppearanceModelForeign::instance = &appearance;
+    kodosi::qml::DesktopStateModelForeign::instance = &desktop;
+    kodosi::qml::DesktopSettingsForeign::instance = &settings;
+    kodosi::qml::SessionCatalogModelForeign::instance = &sessions;
+    kodosi::qml::AppStateForeign::instance = &workspace;
+    kodosi::qml::AccountModelForeign::instance = &workspace.account();
+    kodosi::qml::PeopleModelForeign::instance = &workspace.people();
+    kodosi::qml::DevicesModelForeign::instance = &workspace.devices();
+    kodosi::qml::MissionsModelForeign::instance = &workspace.missions();
+    kodosi::qml::SessionActionsModelForeign::instance = &workspace.sessionActions();
+    kodosi::qml::TerminalSurfaceControllerForeign::instance = &surfaces;
+    workspace.apply(test::snapshot({test::session(1), test::session(2, true, false)}), 0);
+    QQmlEngine engine;
+    QQmlComponent component(&engine);
+    component.setData(R"(
+        import QtQuick
+        import QtQuick.Controls
+        import Kodosi 1.0
+        ApplicationWindow {
+            width: 720; height: 480; visible: true
+            Row {
+                anchors.fill: parent
+                TerminalTile {
+                    width: 360; height: 480
+                    sessionId: "0198aaaa-0000-7000-8000-000000000001"
+                }
+                TerminalTile {
+                    width: 360; height: 480
+                    sessionId: "0198aaaa-0000-7000-8000-000000000002"
+                }
+            }
+        }
+    )", {});
+    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+    std::unique_ptr<QObject> root(component.create());
+    QVERIFY2(root, qPrintable(component.errorString()));
+    const auto terminal = [&](int session) {
+        return root->findChild<QObject*>(QStringLiteral("stage.tile.") + test::id(session) + QStringLiteral(".terminal"));
+    };
+    QVERIFY(terminal(1) && terminal(2));
+    QCOMPARE(terminal(1)->property("asksBeforeClipboardRead").toBool(), false);
+    QCOMPARE(terminal(2)->property("asksBeforeClipboardRead").toBool(), true);
 }
 
 void ControlsTest::terminalCloseConfirmsAndMinimizeOnlyHidesView()

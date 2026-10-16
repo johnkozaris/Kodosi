@@ -135,6 +135,7 @@ struct SessionTileView: View {
                     renderer: managed.renderer, sessionId: session.id, sessionName: session.name, token: managed.token,
                     isFocused: isSelected && state == .rendered,
                     allowsInput: session.canControl && state == .rendered,
+                    asksBeforeClipboardRead: !session.isOwner,
                     isSurfaceVisible: state == .rendered
                 ) {
                     select()

@@ -5,7 +5,7 @@ use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use super::Checkpoint;
+use super::{CellPixels, Checkpoint};
 use crate::{Error, Result, network::CheckpointCut};
 
 pub(super) const DATA_CAPACITY: usize = 512;
@@ -25,6 +25,7 @@ pub enum ControlFrame {
     Resize {
         rows: u16,
         cols: u16,
+        cell: CellPixels,
         at_sequence: u64,
     },
     Snapshot {
@@ -52,7 +53,7 @@ pub struct Subscription {
     pub data: mpsc::Receiver<DataFrame>,
     pub control: mpsc::Receiver<ControlFrame>,
     lifetime: CancellationToken,
-    resizes: VecDeque<(u16, u16, u64)>,
+    resizes: VecDeque<(u16, u16, CellPixels, u64)>,
     closing: Option<(String, u64)>,
     refreshed: Option<Box<CheckpointCut>>,
 }
@@ -66,13 +67,13 @@ impl Subscription {
             tokio::select! {
                 biased;
                 control = self.control.recv(), if self.closing.is_none() => match control {
-                    Some(ControlFrame::Resize { rows, cols, at_sequence }) => {
+                    Some(ControlFrame::Resize { rows, cols, cell, at_sequence }) => {
                         if self.resizes.len() >= MAX_PENDING_RESIZES
-                            || self.resizes.back().is_some_and(|&(_, _, last)| last > at_sequence)
+                            || self.resizes.back().is_some_and(|&(_, _, _, last)| last > at_sequence)
                         {
                             return Err(invalid("terminal resize queue exceeded its ordering bound"));
                         }
-                        self.resizes.push_back((rows, cols, at_sequence));
+                        self.resizes.push_back((rows, cols, cell, at_sequence));
                     }
                     Some(ControlFrame::Snapshot { checkpoint, next_sequence }) => {
                         if next_sequence < self.next_sequence {
@@ -122,7 +123,8 @@ impl Subscription {
                 next_sequence: cut.next_sequence,
             })));
         }
-        if let Some((rows, cols, at_sequence)) = self.resizes.pop_front_if(|(_, _, at)| *at <= next)
+        if let Some((rows, cols, cell, at_sequence)) =
+            self.resizes.pop_front_if(|(_, _, _, at)| *at <= next)
         {
             if at_sequence != next {
                 return Err(invalid("terminal resize arrived out of order"));
@@ -130,6 +132,7 @@ impl Subscription {
             return Ok(Some(Frame::Control(ControlFrame::Resize {
                 rows,
                 cols,
+                cell,
                 at_sequence,
             })));
         }

@@ -10,7 +10,7 @@ struct TerminalRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AgentMark(kind: session.agent, size: 36, activity: session.mark(rested: session.isConnected ? .awake : .asleep))
+            AgentMark(session: session, size: 36, activity: session.mark(rested: session.isConnected ? .awake : .asleep))
                 .padding(3)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
@@ -76,7 +76,7 @@ struct TerminalCaption: View {
     }
 
     private var activity: some View {
-        SessionActivityText(session: session, fallback: place)
+        SessionActivityText(session: session, fallback: place, showsPlace: true)
             .foregroundStyle(session.activity == nil ? theme.colors.inkFaint : theme.colors.inkMuted)
     }
 }

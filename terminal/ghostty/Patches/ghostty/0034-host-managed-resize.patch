@@ -1,0 +1,245 @@
+diff --git a/include/ghostty.h b/include/ghostty.h
+index ae31b506a..c18b077ae 100644
+--- a/include/ghostty.h
++++ b/include/ghostty.h
+@@ -1213,17 +1213,24 @@ GHOSTTY_API ghostty_surface_config_s ghostty_surface_inherited_config(ghostty_su
+ GHOSTTY_API void ghostty_surface_update_config(ghostty_surface_t, ghostty_config_t);
+ GHOSTTY_API bool ghostty_surface_needs_confirm_quit(ghostty_surface_t);
+ GHOSTTY_API bool ghostty_surface_process_exited(ghostty_surface_t);
+-// Host-managed output, checkpoint restore, and exit calls must be externally
+-// serialized. A restore transactionally replaces the terminal with a Ghostty
+-// snapshot (include/ghostty/vt/snapshot.h) before any subsequently serialized
+-// output; a snapshot that ends at READY has no history. A snapshot does not
+-// carry whether a resize pulls rows from scrollback, so the caller gives it.
+-// Output after exit and repeated exit notifications are ignored.
++// Host-managed output, checkpoint restore, host resize, and exit calls must be
++// externally serialized. A restore transactionally replaces the terminal with a
++// Ghostty snapshot (include/ghostty/vt/snapshot.h) before any subsequently
++// serialized output; a snapshot that ends at READY has no history. A snapshot
++// does not carry whether a resize pulls rows from scrollback, so the caller
++// gives it. Only the host changes the grid of a host-managed terminal: a host
++// resize gives its columns, rows and cell pixel size. Output after exit and
++// repeated exit notifications are ignored.
+ GHOSTTY_API void ghostty_surface_write_buffer(ghostty_surface_t, const uint8_t*, uintptr_t);
+ GHOSTTY_API ghostty_result_e ghostty_surface_checkpoint_restore(ghostty_surface_t,
+                                                                 const uint8_t*,
+                                                                 size_t,
+                                                                 bool);
++GHOSTTY_API ghostty_result_e ghostty_surface_host_resize(ghostty_surface_t,
++                                                         uint16_t,
++                                                         uint16_t,
++                                                         uint32_t,
++                                                         uint32_t);
+ GHOSTTY_API void ghostty_surface_process_exit(ghostty_surface_t, uint32_t, uint64_t);
+ GHOSTTY_API void ghostty_surface_refresh(ghostty_surface_t);
+ GHOSTTY_API void ghostty_surface_draw(ghostty_surface_t);
+diff --git a/src/Surface.zig b/src/Surface.zig
+index a56e7a511..ae5d99d73 100644
+--- a/src/Surface.zig
++++ b/src/Surface.zig
+@@ -2821,7 +2821,7 @@ test "checkpoint notifications coalesce without producers when the app mailbox i
+     while (app_mailbox.pop(testing.io)) |_| {}
+ }
+ 
+-pub fn applyCheckpointGeometry(self: *Surface, size: rendererpkg.Size) void {
++pub fn applyHostManagedSize(self: *Surface, size: rendererpkg.Size) void {
+     self.size = size;
+ }
+ 
+diff --git a/src/apprt/embedded.zig b/src/apprt/embedded.zig
+index a8be74a00..3682a3393 100644
+--- a/src/apprt/embedded.zig
++++ b/src/apprt/embedded.zig
+@@ -2003,7 +2003,7 @@ pub const CAPI = struct {
+                 }
+             }.call,
+         );
+-        if (result == .success) core.applyCheckpointGeometry(core.io.size);
++        if (result == .success) core.applyHostManagedSize(core.io.size);
+         const restored = if (result == .success)
+             core.checkpointRestoredMessage()
+         else
+@@ -2020,6 +2020,34 @@ pub const CAPI = struct {
+         return result;
+     }
+ 
++    /// Resize the terminal of a host-managed surface as the host resized its
++    /// own, after the output before the resize and before any subsequently
++    /// serialized output. Calls must be externally serialized with
++    /// ghostty_surface_write_buffer.
++    export fn ghostty_surface_host_resize(
++        surface_: ?*Surface,
++        cols: u16,
++        rows: u16,
++        cell_width_px: u32,
++        cell_height_px: u32,
++    ) Result {
++        const surface = surface_ orelse return .invalid_value;
++        if (surface.termio_backend != .host_managed or
++            surface.core_surface.io.backend.host_managed.isExited()) return .invalid_value;
++
++        const core = &surface.core_surface;
++        core.renderer_state.mutex.lockUncancelable(global.io());
++        const result = core.io.hostResizeLocked(cols, rows, cell_width_px, cell_height_px);
++        if (result == .success) core.applyHostManagedSize(core.io.size);
++        const size = core.io.size;
++        core.renderer_state.mutex.unlock(global.io());
++        if (result == .success) {
++            _ = core.renderer_thread.mailbox.push(global.io(), .{ .resize = size }, .forever);
++            core.queueRender() catch {};
++        }
++        return result;
++    }
++
+     /// Report host process exit once, after all output has been written. Calls
+     /// must be externally serialized with ghostty_surface_write_buffer.
+     export fn ghostty_surface_process_exit(
+diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
+index 865aade38..230ffdddb 100644
+--- a/src/termio/Termio.zig
++++ b/src/termio/Termio.zig
+@@ -527,19 +527,26 @@ pub fn resize(
+     td: *ThreadData,
+     size: renderer.Size,
+ ) !void {
+-    self.size = size;
+     const grid_size = size.grid();
+ 
+     // Enter the critical area that we want to keep small
+-    {
++    critical: {
+         self.renderer_state.mutex.lockUncancelable(global.io());
+         defer self.renderer_state.mutex.unlock(global.io());
+ 
++        // A host-managed surface also sets the size when the host resizes
++        // its terminal, on the thread that feeds it output.
++        self.size = size;
++
+         // Resizing the pty can immediately wake the shell with SIGWINCH.
+         // Hold the same lock used by processOutput before notifying it, so
+         // its redraw cannot be parsed against the old terminal dimensions.
+         try self.backend.resize(grid_size, size.terminal());
+ 
++        // A host-managed terminal keeps the grid of the computer that runs
++        // its program, which resizes it at its place in the output.
++        if (std.meta.activeTag(self.backend) == .host_managed) break :critical;
++
+         // Update the size of our terminal state
+         try self.terminal.resize(
+             self.alloc,
+@@ -771,34 +778,10 @@ pub fn restoreCheckpointLocked(
+     var new_stream_owned = true;
+     defer if (new_stream_owned) new_stream.deinit();
+ 
+-    const terminal_width = std.math.mul(
+-        u32,
+-        @as(u32, new_terminal.cols),
+-        self.size.cell.width,
+-    ) catch return .limit_exceeded;
+-    const terminal_height = std.math.mul(
+-        u32,
+-        @as(u32, new_terminal.rows),
+-        self.size.cell.height,
+-    ) catch return .limit_exceeded;
+-    const new_size: renderer.Size = .{
+-        .screen = .{
+-            .width = std.math.add(
+-                u32,
+-                terminal_width,
+-                self.size.padding.left + self.size.padding.right,
+-            ) catch return .limit_exceeded,
+-            .height = std.math.add(
+-                u32,
+-                terminal_height,
+-                self.size.padding.top + self.size.padding.bottom,
+-            ) catch return .limit_exceeded,
+-        },
+-        .cell = self.size.cell,
+-        .padding = self.size.padding,
+-    };
+     // The restored terminal keeps the host's pixel size from the snapshot,
+     // while this surface draws the same cells at its own cell size.
++    const new_size = hostManagedSize(self.size, new_terminal.cols, new_terminal.rows) catch
++        return .limit_exceeded;
+ 
+     preCommit(pre_commit_context);
+     var old_terminal = self.terminal;
+@@ -826,6 +809,56 @@ pub fn restoreCheckpointLocked(
+     return .success;
+ }
+ 
++/// Resize a host-managed terminal as the host resized its own, between the
++/// output before the resize and the output after it. The cells take the
++/// host's pixel size, so images cover the same cells as on the host, while
++/// this surface draws them at its own cell size.
++pub fn hostResizeLocked(
++    self: *Termio,
++    cols: terminalpkg.size.CellCountInt,
++    rows: terminalpkg.size.CellCountInt,
++    cell_width_px: u32,
++    cell_height_px: u32,
++) Result {
++    const new_size = hostManagedSize(self.size, cols, rows) catch return .limit_exceeded;
++    self.terminal.resize(self.alloc, .{
++        .cols = cols,
++        .rows = rows,
++        .cell_size_px = .{ .width = cell_width_px, .height = cell_height_px },
++    }) catch |err| return switch (err) {
++        error.OutOfMemory => .out_of_memory,
++        error.InvalidValue => .invalid_value,
++    };
++    self.size = new_size;
++    return .success;
++}
++
++/// The size of a host-managed surface that shows the host's grid in the
++/// cells and padding of this surface.
++fn hostManagedSize(
++    surface: renderer.Size,
++    cols: terminalpkg.size.CellCountInt,
++    rows: terminalpkg.size.CellCountInt,
++) error{Overflow}!renderer.Size {
++    const padding = surface.padding;
++    return .{
++        .screen = .{
++            .width = try std.math.add(
++                u32,
++                try std.math.mul(u32, cols, surface.cell.width),
++                try std.math.add(u32, padding.left, padding.right),
++            ),
++            .height = try std.math.add(
++                u32,
++                try std.math.mul(u32, rows, surface.cell.height),
++                try std.math.add(u32, padding.top, padding.bottom),
++            ),
++        },
++        .cell = surface.cell,
++        .padding = padding,
++    };
++}
++
+ fn snapshotResult(err: anyerror) Result {
+     return switch (err) {
+         error.OutOfMemory => .out_of_memory,
+@@ -1017,3 +1050,21 @@ pub const ThreadData = struct {
+ pub fn getProcessInfo(self: *Termio, comptime info: ProcessInfo) ?ProcessInfo.Type(info) {
+     return self.backend.getProcessInfo(info);
+ }
++
++test "a host-managed surface shows the host's grid in its own cells" {
++    const testing = std.testing;
++    const surface: renderer.Size = .{
++        .screen = .{ .width = 1000, .height = 700 },
++        .cell = .{ .width = 10, .height = 20 },
++        .padding = .{ .top = 2, .bottom = 3, .left = 4, .right = 5 },
++    };
++    const size = try hostManagedSize(surface, 80, 24);
++    try testing.expectEqual(@as(u32, 809), size.screen.width);
++    try testing.expectEqual(@as(u32, 485), size.screen.height);
++    try testing.expectEqual(renderer.GridSize{ .columns = 80, .rows = 24 }, size.grid());
++    try testing.expectEqual(surface.cell, size.cell);
++
++    var wide = surface;
++    wide.cell.width = std.math.maxInt(u32);
++    try testing.expectError(error.Overflow, hostManagedSize(wide, 2, 1));
++}

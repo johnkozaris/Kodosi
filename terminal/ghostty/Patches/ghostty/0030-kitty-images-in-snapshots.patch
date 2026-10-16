@@ -1,0 +1,1721 @@
+diff --git a/include/ghostty/vt/snapshot.h b/include/ghostty/vt/snapshot.h
+index feaa36762..e84434c0d 100644
+--- a/include/ghostty/vt/snapshot.h
++++ b/include/ghostty/vt/snapshot.h
+@@ -327,6 +327,52 @@ typedef enum GHOSTTY_ENUM_TYPED {
+ GHOSTTY_API GhosttyResult ghostty_snapshot_encode(GhosttyTerminal terminal,
+                                                   GhosttyWriter writer);
+ 
++/**
++ * Options of ghostty_snapshot_encode_options().
++ *
++ * This is a sized struct. Initialize it with
++ * GHOSTTY_INIT_SIZED(GhosttySnapshotEncodeOptions); fields that `size` does
++ * not cover keep their defaults.
++ *
++ * @ingroup snapshot
++ */
++typedef struct {
++  /** Size of this struct in bytes. */
++  size_t size;
++
++  /**
++   * The most bytes of Kitty image pixels, including animation frames, to
++   * write. The images of the active screen come first, then images placed
++   * on screen, then images placed in history, newer before older. An image
++   * beyond the limit is written without pixels: a decoder restores it as a
++   * pending image of the same size, so its placements, the storage limit
++   * and later commands behave the same, and a renderer draws nothing for
++   * it. An unfinished transmission is always written in full. The default,
++   * UINT64_MAX, writes every image.
++   */
++  uint64_t kitty_image_data_limit;
++} GhosttySnapshotEncodeOptions;
++
++/**
++ * Encode a complete terminal snapshot to a writer, with options.
++ *
++ * This is ghostty_snapshot_encode() with the options of
++ * GhosttySnapshotEncodeOptions.
++ *
++ * @param terminal Terminal to encode (must not be NULL)
++ * @param writer Destination writer whose write callback must not be NULL
++ * @param options Encode options (must not be NULL)
++ * @return GHOSTTY_SUCCESS on success, GHOSTTY_IO_ERROR if the writer rejects
++ *         output, GHOSTTY_LIMIT_EXCEEDED if output accounting overflows, or
++ *         another error code on failure
++ *
++ * @ingroup snapshot
++ */
++GHOSTTY_API GhosttyResult ghostty_snapshot_encode_options(
++    GhosttyTerminal terminal,
++    GhosttyWriter writer,
++    const GhosttySnapshotEncodeOptions* options);
++
+ /**
+  * Encode a complete terminal snapshot to a caller-provided buffer.
+  *
+diff --git a/src/build/libghostty-vt.map b/src/build/libghostty-vt.map
+index 05695c87a..6d0a157c8 100644
+--- a/src/build/libghostty-vt.map
++++ b/src/build/libghostty-vt.map
+@@ -156,6 +156,7 @@
+     ghostty_snapshot_encode;
+     ghostty_snapshot_encode_alloc;
+     ghostty_snapshot_encode_buf;
++    ghostty_snapshot_encode_options;
+     ghostty_style_default;
+     ghostty_style_is_default;
+     ghostty_sys_log_stderr;
+diff --git a/src/lib_vt.zig b/src/lib_vt.zig
+index e1b45fcea..1ef25fc35 100644
+--- a/src/lib_vt.zig
++++ b/src/lib_vt.zig
+@@ -375,6 +375,7 @@ comptime {
+         }
+         if (features.snapshot) {
+             @export(&c.snapshot_encode, .{ .name = "ghostty_snapshot_encode" });
++            @export(&c.snapshot_encode_options, .{ .name = "ghostty_snapshot_encode_options" });
+             @export(&c.snapshot_encode_buf, .{ .name = "ghostty_snapshot_encode_buf" });
+             @export(&c.snapshot_encode_alloc, .{ .name = "ghostty_snapshot_encode_alloc" });
+             @export(&c.snapshot_decoder_new, .{ .name = "ghostty_snapshot_decoder_new" });
+diff --git a/src/terminal/c/main.zig b/src/terminal/c/main.zig
+index 5248c2cb6..3c6e05d8c 100644
+--- a/src/terminal/c/main.zig
++++ b/src/terminal/c/main.zig
+@@ -230,6 +230,7 @@ pub const terminal_grid_ref_track = terminal.grid_ref_track;
+ pub const terminal_point_from_grid_ref = terminal.point_from_grid_ref;
+ 
+ pub const snapshot_encode = snapshot.encode;
++pub const snapshot_encode_options = snapshot.encode_options;
+ pub const snapshot_encode_buf = snapshot.encode_buf;
+ pub const snapshot_encode_alloc = snapshot.encode_alloc;
+ pub const snapshot_decoder_new = snapshot.decoder_new;
+diff --git a/src/terminal/c/snapshot.zig b/src/terminal/c/snapshot.zig
+index 1188d4bc9..3107a3cbb 100644
+--- a/src/terminal/c/snapshot.zig
++++ b/src/terminal/c/snapshot.zig
+@@ -1,6 +1,7 @@
+ //! C ABI wrappers for snapshot encoding and incremental restoration.
+ 
+ const std = @import("std");
++const build_options = @import("terminal_options");
+ const testing = std.testing;
+ const lib = @import("../lib.zig");
+ const CAllocator = lib.alloc.Allocator;
+@@ -554,11 +555,46 @@ fn continuationValue(bytes: []const u8) snapshot_core.Continuation {
+     return if (bytes.len == 0) .ground else .{ .bytes = bytes };
+ }
+ 
++/// Options of ghostty_snapshot_encode_options().
++///
++/// C: GhosttySnapshotEncodeOptions
++pub const EncodeOptions = extern struct {
++    size: usize,
++    kitty_image_data_limit: u64,
++};
++
+ /// Encode a terminal snapshot to a synchronous C writer callback.
+ pub fn encode(
+     terminal: terminal_c.Terminal,
+     writer: io_c.Writer,
+ ) callconv(lib.calling_conv) Result {
++    return encodeWriter(terminal, writer, .{ .continuation = .ground });
++}
++
++/// Encode a terminal snapshot with options to a synchronous C writer
++/// callback.
++pub fn encode_options(
++    terminal: terminal_c.Terminal,
++    writer: io_c.Writer,
++    options_: ?*const EncodeOptions,
++) callconv(lib.calling_conv) Result {
++    const options = options_ orelse return .invalid_value;
++    if (options.size < @sizeOf(usize)) return .invalid_value;
++    var core: snapshot_core.EncodeOptions = .{ .continuation = .ground };
++    if (lib.structSizedFieldFits(EncodeOptions, options.size, "kitty_image_data_limit")) {
++        core.kitty_image_data_limit = std.math.cast(usize, options.kitty_image_data_limit) orelse
++            std.math.maxInt(usize);
++    }
++    return encodeWriter(terminal, writer, core);
++}
++
++/// Encode to a C writer. The continuation in `options` is replaced by the
++/// terminal's own.
++fn encodeWriter(
++    terminal: terminal_c.Terminal,
++    writer: io_c.Writer,
++    options: snapshot_core.EncodeOptions,
++) Result {
+     // Validate both handles and preflight the terminal continuation.
+     const native = terminal_c.zigTerminal(terminal) orelse return .invalid_value;
+     if (writer.write == null) return .invalid_value;
+@@ -570,11 +606,13 @@ pub fn encode(
+     // encoder's writes into few callback invocations.
+     var buffer: [io_c.WriterAdapter.recommended_buffer_len]u8 = undefined;
+     var adapter: io_c.WriterAdapter = .initBuffered(writer, &buffer);
++    var core = options;
++    core.continuation = continuationValue(continuation.bytes);
+     snapshot_core.encode(
+         native.gpa(),
+         &adapter.interface,
+         native,
+-        .{ .continuation = continuationValue(continuation.bytes) },
++        core,
+     ) catch |err| return mapEncodeError(err, &adapter);
+     adapter.interface.flush() catch
+         return mapEncodeError(error.WriteFailed, &adapter);
+@@ -1177,6 +1215,61 @@ test "snapshot encoding accepts an untracked ground terminal" {
+     ));
+ }
+ 
++test "snapshot encode options leave Kitty pixels beyond the limit" {
++    if (comptime !build_options.kitty_graphics) return error.SkipZigTest;
++
++    var source: terminal_c.Terminal = null;
++    try testing.expectEqual(Result.success, terminal_c.new(
++        &lib.alloc.test_allocator,
++        &source,
++        10,
++        3,
++    ));
++    defer terminal_c.free(source);
++    const storage_limit: u64 = 1024 * 1024;
++    try testing.expectEqual(Result.success, terminal_c.set(
++        source,
++        .kitty_image_storage_limit,
++        &storage_limit,
++    ));
++    const image = "\x1b_Ga=t,f=32,s=1,v=1,i=1;AQIDBA==\x1b\\";
++    terminal_c.vt_write(source, image, image.len);
++
++    const Collect = struct {
++        bytes: std.ArrayListUnmanaged(u8) = .empty,
++
++        fn write(
++            userdata: ?*anyopaque,
++            data: [*]const u8,
++            len: usize,
++        ) callconv(lib.calling_conv) bool {
++            const self: *@This() = @ptrCast(@alignCast(userdata.?));
++            self.bytes.appendSlice(testing.allocator, data[0..len]) catch return false;
++            return true;
++        }
++    };
++    var complete: Collect = .{};
++    defer complete.bytes.deinit(testing.allocator);
++    try testing.expectEqual(Result.success, encode(source, .{
++        .write = &Collect.write,
++        .userdata = &complete,
++    }));
++
++    var limited: Collect = .{};
++    defer limited.bytes.deinit(testing.allocator);
++    try testing.expectEqual(Result.success, encode_options(source, .{
++        .write = &Collect.write,
++        .userdata = &limited,
++    }, &.{ .size = @sizeOf(EncodeOptions), .kitty_image_data_limit = 0 }));
++
++    // The four pixel bytes and the animation flag are left out.
++    try testing.expectEqual(complete.bytes.items.len - 5, limited.bytes.items.len);
++    try testing.expectEqual(Result.invalid_value, encode_options(source, .{
++        .write = &Collect.write,
++        .userdata = &limited,
++    }, null));
++}
++
+ test "snapshot callbacks stop at FINISH and map I/O failures" {
+     var source: terminal_c.Terminal = null;
+     try testing.expectEqual(Result.success, terminal_c.new(
+diff --git a/src/terminal/c/types.zig b/src/terminal/c/types.zig
+index ce83d2d17..879ce2b8b 100644
+--- a/src/terminal/c/types.zig
++++ b/src/terminal/c/types.zig
+@@ -368,6 +368,7 @@ const type_decls = [_]TypeDecl{
+     .initOpaque("GhosttySelectionGestureEvent"),
+     .initOpaque("GhosttySgrParser"),
+     .initOpaque("GhosttySnapshotDecoder"),
++    .initStruct("GhosttySnapshotEncodeOptions", snapshot.EncodeOptions),
+     .initOpaque("GhosttyTerminal"),
+     .initOpaque("GhosttyTrackedGridRef"),
+ };
+diff --git a/src/terminal/snapshot/kitty.zig b/src/terminal/snapshot/kitty.zig
+new file mode 100644
+index 000000000..2c63ae499
+--- /dev/null
++++ b/src/terminal/snapshot/kitty.zig
+@@ -0,0 +1,907 @@
++//! KITTY records: the Kitty graphics state of a screen.
++//!
++//! A screen with Kitty graphics state writes these records after its SCREEN
++//! pages, so the state is part of the renderable prefix:
++//!
++//! ```text
++//! KITTY_STORAGE      storage limit, ID counters, image count, loading flag
++//! KITTY_IMAGE        one per stored image, oldest first
++//! KITTY_LOADING      the unfinished chunked transmission, if there is one
++//! KITTY_PLACEMENTS   the placements anchored on the SCREEN pages
++//! ```
++//!
++//! After its HISTORY pages the screen writes one more KITTY_PLACEMENTS record
++//! with the placements anchored on history pages. A screen without Kitty
++//! graphics state writes none of these records, so such snapshots are
++//! unchanged.
++//!
++//! An encoder may limit the bytes of image pixels it writes. An image beyond
++//! that limit is written without pixels and restores as a pending image of
++//! the same size, so that placements, eviction and later commands behave the
++//! same while a renderer draws nothing for it. The unfinished transmission is
++//! always written in full.
++//!
++//! Placement anchors are rows counted from the top of the pages restored at
++//! that point: the first SCREEN page for KITTY_PLACEMENTS before READY, and
++//! the oldest history row after HISTORY. A placement that cannot be anchored
++//! when it is decoded is dropped.
++//!
++//! Only builds with Kitty graphics write or read these records.
++//!
++//! All integers are little-endian.
++
++const std = @import("std");
++const Allocator = std.mem.Allocator;
++const io = @import("io.zig");
++const record = @import("record.zig");
++const TerminalScreen = @import("../Screen.zig");
++const TerminalScreenKey = @import("../ScreenSet.zig").Key;
++const PageList = @import("../PageList.zig");
++const graphics = @import("../kitty.zig").graphics;
++const command = @import("../kitty/graphics_command.zig");
++
++const Storage = graphics.ImageStorage;
++const Image = graphics.Image;
++const LoadingImage = graphics.LoadingImage;
++const Animation = graphics.Animation;
++const Placement = Storage.Placement;
++const PlacementKey = Storage.PlacementKey;
++
++/// The most image storage a decoded snapshot may request. Larger requests
++/// are reduced to it. It is the default storage limit of the Ghostty app.
++const max_storage_limit = 320 * 1000 * 1000;
++
++/// The largest width or height of a stored image, the same as Kitty.
++const max_dimension = 10000;
++
++/// The largest payload of an unfinished transmission, the same as Kitty.
++const max_loading_bytes = 400 * 1024 * 1024;
++
++pub const EncodeError = Allocator.Error ||
++    std.Io.Writer.Error ||
++    record.Writer.FinishError;
++
++pub const DecodeError = Allocator.Error ||
++    std.Io.Reader.Error ||
++    record.Reader.InitError ||
++    record.Reader.FinishError ||
++    error{
++        /// The next record is valid but is not the expected KITTY record.
++        UnexpectedRecordTag,
++
++        /// A KITTY record names another screen than the one it follows.
++        UnexpectedScreenKey,
++
++        /// A KITTY record carries an impossible value.
++        InvalidKittyRecord,
++    };
++
++/// Which images an encoder writes with their pixels. The images of the
++/// active screen come first; within a screen, images placed on the SCREEN
++/// pages come first, then images placed in history, then the rest, and
++/// newer images before older ones.
++pub const Plan = struct {
++    complete: std.AutoHashMapUnmanaged(Entry, void) = .empty,
++
++    const Entry = struct { key: TerminalScreenKey, id: u32 };
++
++    pub fn init(
++        alloc: Allocator,
++        screens: []const Screen,
++        image_data_limit: usize,
++    ) Allocator.Error!Plan {
++        var plan: Plan = .{};
++        errdefer plan.deinit(alloc);
++        var remaining = image_data_limit;
++        for (screens) |screen| {
++            const storage = &screen.screen.kitty_images;
++            var candidates: std.ArrayListUnmanaged(Candidate) = .empty;
++            defer candidates.deinit(alloc);
++            try candidates.ensureTotalCapacity(alloc, storage.images.count());
++
++            const first_y = firstScreenRow(screen.screen);
++            var it = storage.images.iterator();
++            while (it.next()) |entry| candidates.appendAssumeCapacity(.{
++                .id = entry.key_ptr.*,
++                .generation = entry.value_ptr.generation,
++                .size = entry.value_ptr.storageSize(),
++                .class = placementClass(screen.screen, first_y, entry.key_ptr.*),
++            });
++            std.mem.sortUnstable(Candidate, candidates.items, {}, Candidate.before);
++
++            for (candidates.items) |candidate| {
++                if (candidate.size > remaining) continue;
++                remaining -= candidate.size;
++                try plan.complete.put(alloc, .{ .key = screen.key, .id = candidate.id }, {});
++            }
++        }
++        return plan;
++    }
++
++    pub fn deinit(self: *Plan, alloc: Allocator) void {
++        self.complete.deinit(alloc);
++    }
++
++    fn includes(self: *const Plan, key: TerminalScreenKey, id: u32) bool {
++        return self.complete.contains(.{ .key = key, .id = id });
++    }
++
++    const Candidate = struct {
++        id: u32,
++        generation: u64,
++        size: usize,
++        class: u2,
++
++        fn before(_: void, lhs: Candidate, rhs: Candidate) bool {
++            if (lhs.class != rhs.class) return lhs.class < rhs.class;
++            if (lhs.generation != rhs.generation) return lhs.generation > rhs.generation;
++            return lhs.id < rhs.id;
++        }
++    };
++
++    /// 0 for an image placed on the SCREEN pages, 1 for an image placed in
++    /// history only, 2 for an image without placements.
++    fn placementClass(screen: *const TerminalScreen, first_y: u32, id: u32) u2 {
++        var class: u2 = 2;
++        var it = screen.kitty_images.placements.iterator();
++        while (it.next()) |entry| {
++            if (entry.key_ptr.image_id != id) continue;
++            switch (anchor(screen, first_y, entry.value_ptr.*)) {
++                .screen => return 0,
++                .history => class = 1,
++                .none => {},
++            }
++        }
++        return class;
++    }
++};
++
++/// A screen and its key, in the order an encoder plans them.
++pub const Screen = struct {
++    key: TerminalScreenKey,
++    screen: *const TerminalScreen,
++};
++
++/// Whether a screen has Kitty graphics state that a snapshot must keep.
++pub fn hasState(screen: *const TerminalScreen) bool {
++    const storage = &screen.kitty_images;
++    const defaults: Storage = .{};
++    return storage.images.count() > 0 or
++        storage.placements.count() > 0 or
++        storage.loading != null or
++        storage.next_image_id != defaults.next_image_id or
++        storage.next_internal_placement_id != defaults.next_internal_placement_id;
++}
++
++/// Write the KITTY records that follow a screen's SCREEN pages.
++pub fn encodeScreen(
++    alloc: Allocator,
++    screen: *const TerminalScreen,
++    key: TerminalScreenKey,
++    plan: *const Plan,
++    destination: *record.Writer,
++) EncodeError!void {
++    if (!hasState(screen)) return;
++    const storage = &screen.kitty_images;
++
++    // Images restore in their order of transmission, which keeps the
++    // eviction order.
++    const ids = try alloc.alloc(u32, storage.images.count());
++    defer alloc.free(ids);
++    {
++        var it = storage.images.keyIterator();
++        var i: usize = 0;
++        while (it.next()) |id| : (i += 1) ids[i] = id.*;
++        std.mem.sortUnstable(u32, ids, storage, struct {
++            fn lessThan(s: *const Storage, lhs: u32, rhs: u32) bool {
++                return s.images.get(lhs).?.generation < s.images.get(rhs).?.generation;
++            }
++        }.lessThan);
++    }
++
++    {
++        const payload = destination.begin(.kitty_storage);
++        errdefer destination.cancel();
++        try payload.writeByte(@intCast(@intFromEnum(key)));
++        try io.writeInt(payload, u64, storage.total_limit);
++        try io.writeInt(payload, u32, storage.next_image_id);
++        try io.writeInt(payload, u32, storage.next_internal_placement_id);
++        try io.writeInt(payload, u32, @intCast(ids.len));
++        try payload.writeByte(@intFromBool(storage.loading != null));
++        try destination.finish();
++    }
++
++    for (ids) |id| {
++        const image = storage.images.getPtr(id).?;
++        const payload = destination.begin(.kitty_image);
++        errdefer destination.cancel();
++        try encodeImage(image, plan.includes(key, id), payload);
++        try destination.finish();
++    }
++
++    if (storage.loading) |loading| {
++        const payload = destination.begin(.kitty_loading);
++        errdefer destination.cancel();
++        try encodeLoading(storage, loading, payload);
++        try destination.finish();
++    }
++
++    try encodePlacements(alloc, screen, key, .screen, destination);
++}
++
++/// Write the KITTY_PLACEMENTS record that follows a screen's HISTORY pages.
++pub fn encodeHistory(
++    alloc: Allocator,
++    screen: *const TerminalScreen,
++    key: TerminalScreenKey,
++    destination: *record.Writer,
++) EncodeError!void {
++    if (!hasState(screen)) return;
++    try encodePlacements(alloc, screen, key, .history, destination);
++}
++
++/// True if the next record may have the given tag. Every tag is below 256,
++/// so the first byte of the little-endian tag decides, and a reader with a
++/// one-byte buffer can tell. The record decode checks the whole header. A
++/// source that ends or fails here answers false, and the decode that
++/// follows reports it.
++pub fn nextIs(source: *std.Io.Reader, tag: record.Tag) bool {
++    comptime for (std.enums.values(record.Tag)) |value| {
++        std.debug.assert(@intFromEnum(value) < 256);
++    };
++    if (source.buffer.len == 0) return false;
++    const bytes = source.peek(1) catch return false;
++    return bytes[0] == @intFromEnum(tag);
++}
++
++/// Restore the KITTY records that follow a screen's SCREEN pages, if the
++/// next record begins them.
++pub fn decodeScreen(
++    source: *std.Io.Reader,
++    io_: std.Io,
++    alloc: Allocator,
++    screen: *TerminalScreen,
++    key: TerminalScreenKey,
++) DecodeError!void {
++    if (!nextIs(source, .kitty_storage)) return;
++
++    var header_reader: record.Reader = undefined;
++    try header_reader.init(source);
++    const header = try decodeStorageHeader(header_reader.payloadReader(), key);
++    try header_reader.finish();
++
++    const storage = &screen.kitty_images;
++    storage.setLimit(io_, alloc, screen, @intCast(@min(header.total_limit, max_storage_limit)));
++
++    for (0..header.image_count) |_| {
++        var reader: record.Reader = undefined;
++        try reader.init(source);
++        if (reader.header.tag != .kitty_image) return error.UnexpectedRecordTag;
++        try decodeImage(reader.payloadReader(), io_, alloc, screen);
++        try reader.finish();
++    }
++
++    if (header.loading) {
++        var reader: record.Reader = undefined;
++        try reader.init(source);
++        if (reader.header.tag != .kitty_loading) return error.UnexpectedRecordTag;
++        try decodeLoading(reader.payloadReader(), alloc, screen);
++        try reader.finish();
++    }
++
++    storage.next_image_id = header.next_image_id;
++    storage.next_internal_placement_id = header.next_internal_placement_id;
++
++    try decodePlacements(source, io_, alloc, screen, key);
++}
++
++/// Restore the KITTY_PLACEMENTS record that follows a screen's HISTORY pages,
++/// if the next record is one. A null screen consumes and drops it, as when
++/// some history pages were dropped.
++pub fn decodeHistory(
++    source: *std.Io.Reader,
++    io_: std.Io,
++    alloc: Allocator,
++    screen: ?*TerminalScreen,
++    key: TerminalScreenKey,
++) DecodeError!void {
++    if (!nextIs(source, .kitty_placements)) return;
++    if (screen) |s| return decodePlacements(source, io_, alloc, s, key);
++
++    var reader: record.Reader = undefined;
++    try reader.init(source);
++    try reader.payloadReader().discardAll(reader.header.payload_len);
++    try reader.finish();
++}
++
++const StorageHeader = struct {
++    total_limit: u64,
++    next_image_id: u32,
++    next_internal_placement_id: u32,
++    image_count: u32,
++    loading: bool,
++};
++
++fn decodeStorageHeader(
++    reader: *std.Io.Reader,
++    key: TerminalScreenKey,
++) DecodeError!StorageHeader {
++    if (try decodeKey(reader) != key) return error.UnexpectedScreenKey;
++    return .{
++        .total_limit = try io.readInt(reader, u64),
++        .next_image_id = try io.readInt(reader, u32),
++        .next_internal_placement_id = try io.readInt(reader, u32),
++        .image_count = try io.readInt(reader, u32),
++        .loading = try decodeBool(reader),
++    };
++}
++
++fn decodeKey(reader: *std.Io.Reader) DecodeError!TerminalScreenKey {
++    const raw = try reader.takeByte();
++    return std.enums.fromInt(TerminalScreenKey, raw) orelse error.InvalidKittyRecord;
++}
++
++fn decodeBool(reader: *std.Io.Reader) DecodeError!bool {
++    return switch (try reader.takeByte()) {
++        0 => false,
++        1 => true,
++        else => error.InvalidKittyRecord,
++    };
++}
++
++// Image flags.
++const flag_transient: u8 = 1 << 0;
++const flag_implicit_id: u8 = 1 << 1;
++
++fn encodeImage(image: *const Image, with_pixels: bool, payload: *std.Io.Writer) EncodeError!void {
++    const pixels = image.data.bytes();
++    const complete = with_pixels and pixels != null;
++    try encodeImageHeader(image, payload);
++    try payload.writeByte(@intFromBool(complete));
++    if (!complete) return;
++
++    try payload.writeAll(pixels.?);
++    const anim = image.animation orelse return payload.writeByte(0);
++    try payload.writeByte(1);
++    try io.writeInt(payload, u32, anim.root_gap_ms);
++    try io.writeInt(payload, u32, anim.current_index);
++    try payload.writeByte(@intCast(@intFromEnum(anim.state)));
++    try io.writeInt(payload, u32, anim.max_loops);
++    try io.writeInt(payload, u32, anim.current_loop);
++    try io.writeInt(payload, u32, @intCast(anim.frames.items.len));
++    for (anim.frames.items) |frame| {
++        try io.writeInt(payload, u32, frame.gap_ms);
++        try payload.writeAll(frame.data);
++    }
++}
++
++fn encodeImageHeader(image: *const Image, payload: *std.Io.Writer) EncodeError!void {
++    try io.writeInt(payload, u32, image.id);
++    try io.writeInt(payload, u32, image.number);
++    try io.writeInt(payload, u32, image.width);
++    try io.writeInt(payload, u32, image.height);
++    try payload.writeByte(@intCast(@intFromEnum(image.format)));
++    try payload.writeByte(@intCast(@intFromEnum(image.compression)));
++    var flags: u8 = 0;
++    if (image.metadata.transient) flags |= flag_transient;
++    if (image.metadata.implicit_id) flags |= flag_implicit_id;
++    try payload.writeByte(flags);
++}
++
++/// Decode the fields that encodeImageHeader writes.
++fn decodeImageHeader(reader: *std.Io.Reader) DecodeError!Image {
++    var image: Image = .{
++        .id = try io.readInt(reader, u32),
++        .number = try io.readInt(reader, u32),
++        .width = try io.readInt(reader, u32),
++        .height = try io.readInt(reader, u32),
++    };
++    image.format = std.enums.fromInt(
++        @TypeOf(image.format),
++        try reader.takeByte(),
++    ) orelse return error.InvalidKittyRecord;
++    image.compression = std.enums.fromInt(
++        @TypeOf(image.compression),
++        try reader.takeByte(),
++    ) orelse return error.InvalidKittyRecord;
++    const flags = try reader.takeByte();
++    if (flags & ~(flag_transient | flag_implicit_id) != 0) return error.InvalidKittyRecord;
++    image.metadata.transient = flags & flag_transient != 0;
++    image.metadata.implicit_id = flags & flag_implicit_id != 0;
++    return image;
++}
++
++/// The byte length of a stored image of these dimensions and format.
++fn storedLen(image: Image) DecodeError!usize {
++    const bpp: usize = switch (image.format) {
++        .gray => 1,
++        .gray_alpha => 2,
++        .rgb => 3,
++        .rgba => 4,
++        .png => return error.InvalidKittyRecord,
++    };
++    return @as(usize, image.width) * image.height * bpp;
++}
++
++fn decodeImage(
++    reader: *std.Io.Reader,
++    io_: std.Io,
++    alloc: Allocator,
++    screen: *TerminalScreen,
++) DecodeError!void {
++    var image = try decodeImageHeader(reader);
++    if (image.id == 0 or
++        image.compression != .none or
++        image.width > max_dimension or
++        image.height > max_dimension) return error.InvalidKittyRecord;
++    const len = try storedLen(image);
++    if (!try decodeBool(reader)) {
++        image.data = .{ .pending = len };
++        return addImage(io_, alloc, screen, image);
++    }
++
++    // addImage owns the pixels and frames, so the errdefers end here.
++    {
++        const pixels = try alloc.alloc(u8, len);
++        errdefer alloc.free(pixels);
++        try reader.readSliceAll(pixels);
++        image.data = .{ .complete = pixels };
++        if (try decodeBool(reader)) {
++            image.animation = try decodeAnimation(reader, alloc, image);
++        }
++    }
++    try addImage(io_, alloc, screen, image);
++}
++
++fn decodeAnimation(
++    reader: *std.Io.Reader,
++    alloc: Allocator,
++    image: Image,
++) DecodeError!*Animation {
++    const anim = try alloc.create(Animation);
++    anim.* = .{};
++    errdefer {
++        anim.deinit(alloc);
++        alloc.destroy(anim);
++    }
++    anim.root_gap_ms = try io.readInt(reader, u32);
++    anim.current_index = try io.readInt(reader, u32);
++    anim.state = std.enums.fromInt(
++        Animation.State,
++        try reader.takeByte(),
++    ) orelse return error.InvalidKittyRecord;
++    anim.max_loops = try io.readInt(reader, u32);
++    anim.current_loop = try io.readInt(reader, u32);
++    const frame_count = try io.readInt(reader, u32);
++    if (anim.current_index > frame_count) return error.InvalidKittyRecord;
++    const frame_len = @as(usize, image.width) * image.height * 4;
++    for (0..frame_count) |_| {
++        const gap_ms = try io.readInt(reader, u32);
++        const data = try alloc.alloc(u8, frame_len);
++        errdefer alloc.free(data);
++        try reader.readSliceAll(data);
++        try anim.frames.append(alloc, .{ .data = data, .gap_ms = gap_ms });
++    }
++    return anim;
++}
++
++/// Store a decoded image and take ownership of its pixels and frames. A
++/// snapshot that holds more than the storage limit degrades the way the
++/// storage itself does: older images are evicted, and an image larger than
++/// the whole limit is dropped.
++fn addImage(
++    io_: std.Io,
++    alloc: Allocator,
++    screen: *TerminalScreen,
++    image: Image,
++) DecodeError!void {
++    var value = image;
++    const storage = &screen.kitty_images;
++    if (storage.images.contains(value.id)) {
++        value.deinit(alloc);
++        return error.InvalidKittyRecord;
++    }
++    if (value.data.len() > storage.total_limit) {
++        value.deinit(alloc);
++        return;
++    }
++
++    // The storage counts only the base pixels of an added image, so the
++    // frames are attached after it and counted here.
++    const anim = value.animation;
++    value.animation = null;
++    storage.addImage(io_, alloc, screen, value) catch |err| {
++        value.animation = anim;
++        value.deinit(alloc);
++        return err;
++    };
++    const a = anim orelse return;
++    if (storage.total_bytes + a.frameBytes() > storage.total_limit) {
++        a.deinit(alloc);
++        alloc.destroy(a);
++        return;
++    }
++    storage.total_bytes += a.frameBytes();
++    storage.images.getPtr(value.id).?.animation = a;
++}
++
++fn encodeLoading(
++    storage: *const Storage,
++    loading: *const LoadingImage,
++    payload: *std.Io.Writer,
++) EncodeError!void {
++    try encodeImageHeader(&loading.image, payload);
++    try payload.writeByte(@intCast(@intFromEnum(loading.quiet)));
++    try io.writeInt(payload, u32, loading.response.id);
++    try io.writeInt(payload, u32, loading.response.image_number);
++    try io.writeInt(payload, u32, loading.response.placement_id);
++    try io.writeInt(payload, u32, loading.response.frame);
++
++    if (loading.display) |d| {
++        try payload.writeByte(1);
++        try encodeDisplay(d, payload);
++    } else try payload.writeByte(0);
++
++    if (loading.frame) |f| {
++        try payload.writeByte(1);
++        try encodeFrameLoading(f.cmd, payload);
++        // The generation only matters as a match with the target image.
++        const target = if (f.cmd.transmission.image_id != 0)
++            storage.images.get(f.cmd.transmission.image_id)
++        else
++            null;
++        try payload.writeByte(@intFromBool(target != null and target.?.generation == f.image_generation));
++    } else try payload.writeByte(0);
++
++    try io.writeInt(payload, u64, loading.data.items.len);
++    try payload.writeAll(loading.data.items);
++}
++
++fn decodeLoading(
++    reader: *std.Io.Reader,
++    alloc: Allocator,
++    screen: *TerminalScreen,
++) DecodeError!void {
++    const image = try decodeImageHeader(reader);
++    const quiet = std.enums.fromInt(
++        @FieldType(LoadingImage, "quiet"),
++        try reader.takeByte(),
++    ) orelse return error.InvalidKittyRecord;
++    var response: graphics.Response = .{};
++    response.id = try io.readInt(reader, u32);
++    response.image_number = try io.readInt(reader, u32);
++    response.placement_id = try io.readInt(reader, u32);
++    response.frame = try io.readInt(reader, u32);
++
++    const display: ?command.Display = if (try decodeBool(reader))
++        try decodeDisplay(reader)
++    else
++        null;
++
++    var frame: ?LoadingImage.FrameContext = null;
++    if (try decodeBool(reader)) {
++        const cmd = try decodeFrameLoading(reader);
++        const valid = try decodeBool(reader);
++        frame = .{ .cmd = cmd, .image_generation = 0 };
++            if (valid and cmd.transmission.image_id != 0) {
++            if (screen.kitty_images.images.get(cmd.transmission.image_id)) |target| {
++                frame.?.image_generation = target.generation;
++            }
++        }
++    }
++
++    const len = try io.readInt(reader, u64);
++    if (len > max_loading_bytes) return error.InvalidKittyRecord;
++    var data: std.ArrayListUnmanaged(u8) = .empty;
++    errdefer data.deinit(alloc);
++    try data.resize(alloc, @intCast(len));
++    try reader.readSliceAll(data.items);
++
++    if (screen.kitty_images.loading != null) return error.InvalidKittyRecord;
++    const loading = try alloc.create(LoadingImage);
++    loading.* = .{
++        .image = image,
++        .data = data,
++        .display = display,
++        .frame = frame,
++        .quiet = quiet,
++        .response = response,
++        .temporary_directory = null,
++    };
++    screen.kitty_images.loading = loading;
++}
++
++fn encodeDisplay(d: command.Display, payload: *std.Io.Writer) EncodeError!void {
++    inline for (.{
++        d.image_id,    d.image_number, d.placement_id, d.x,       d.y,
++        d.width,       d.height,       d.x_offset,     d.y_offset, d.columns,
++        d.rows,        d.parent_id,    d.parent_placement_id,
++    }) |value| try io.writeInt(payload, u32, value);
++    try payload.writeByte(@intCast(@intFromEnum(d.cursor_movement)));
++    try payload.writeByte(@intFromBool(d.virtual_placement));
++    try io.writeInt(payload, i32, d.horizontal_offset);
++    try io.writeInt(payload, i32, d.vertical_offset);
++    try io.writeInt(payload, i32, d.z);
++}
++
++fn decodeDisplay(reader: *std.Io.Reader) DecodeError!command.Display {
++    var d: command.Display = .{};
++    inline for (.{
++        "image_id", "image_number", "placement_id", "x",        "y",
++        "width",    "height",       "x_offset",     "y_offset", "columns",
++        "rows",     "parent_id",    "parent_placement_id",
++    }) |name| @field(d, name) = try io.readInt(reader, u32);
++    d.cursor_movement = std.enums.fromInt(
++        command.Display.CursorMovement,
++        try reader.takeByte(),
++    ) orelse return error.InvalidKittyRecord;
++    d.virtual_placement = try decodeBool(reader);
++    d.horizontal_offset = try io.readInt(reader, i32);
++    d.vertical_offset = try io.readInt(reader, i32);
++    d.z = try io.readInt(reader, i32);
++    return d;
++}
++
++fn encodeFrameLoading(f: command.AnimationFrameLoading, payload: *std.Io.Writer) EncodeError!void {
++    const t = f.transmission;
++    try payload.writeByte(@intCast(@intFromEnum(t.format)));
++    try payload.writeByte(@intCast(@intFromEnum(t.compression)));
++    inline for (.{
++        t.width,   t.height, t.image_id, t.image_number, t.placement_id,
++        f.x,       f.y,      f.create_frame, f.edit_frame,
++        @as(u32, @bitCast(f.background)),
++    }) |value| try io.writeInt(payload, u32, value);
++    try io.writeInt(payload, i32, f.gap_ms);
++    try payload.writeByte(@intCast(@intFromEnum(f.composition_mode)));
++}
++
++fn decodeFrameLoading(reader: *std.Io.Reader) DecodeError!command.AnimationFrameLoading {
++    var f: command.AnimationFrameLoading = .{};
++    f.transmission.format = std.enums.fromInt(
++        @TypeOf(f.transmission.format),
++        try reader.takeByte(),
++    ) orelse return error.InvalidKittyRecord;
++    f.transmission.compression = std.enums.fromInt(
++        @TypeOf(f.transmission.compression),
++        try reader.takeByte(),
++    ) orelse return error.InvalidKittyRecord;
++    f.transmission.width = try io.readInt(reader, u32);
++    f.transmission.height = try io.readInt(reader, u32);
++    f.transmission.image_id = try io.readInt(reader, u32);
++    f.transmission.image_number = try io.readInt(reader, u32);
++    f.transmission.placement_id = try io.readInt(reader, u32);
++    f.x = try io.readInt(reader, u32);
++    f.y = try io.readInt(reader, u32);
++    f.create_frame = try io.readInt(reader, u32);
++    f.edit_frame = try io.readInt(reader, u32);
++    f.background = @bitCast(try io.readInt(reader, u32));
++    f.gap_ms = try io.readInt(reader, i32);
++    f.composition_mode = std.enums.fromInt(
++        @TypeOf(f.composition_mode),
++        try reader.takeByte(),
++    ) orelse return error.InvalidKittyRecord;
++    return f;
++}
++
++const Phase = enum { screen, history };
++
++const Anchor = union(enum) {
++    /// On the SCREEN pages, in rows from the first SCREEN page's top.
++    screen: Cell,
++
++    /// On a history page, in rows from the oldest history row.
++    history: Cell,
++
++    /// Not anchored on a page: a virtual placement, a relative placement
++    /// rooted at one, or a pin whose row was pruned.
++    none,
++};
++
++const Cell = struct { x: u16, y: u32 };
++
++/// The screen row at the top of the first SCREEN page.
++fn firstScreenRow(screen: *const TerminalScreen) u32 {
++    const first = screen.pages.getTopLeft(.active).node;
++    return screen.pages.pointFromPin(.screen, .{ .node = first }).?.screen.y;
++}
++
++/// Where a placement is anchored. A relative placement is anchored where
++/// its parent chain is rooted.
++fn anchor(screen: *const TerminalScreen, first_y: u32, p: Placement) Anchor {
++    const pin = switch (p.location) {
++        .pin => |pin| pin,
++        .virtual => return .none,
++        .relative => |rel| {
++            const chain = screen.kitty_images.resolveChain(rel) orelse return .none;
++            return switch (chain.root.location) {
++                .pin => anchor(screen, first_y, chain.root),
++                else => .none,
++            };
++        },
++    };
++    if (pin.garbage) return .none;
++    const y = (screen.pages.pointFromPin(.screen, pin.*) orelse return .none).screen.y;
++    return if (y >= first_y)
++        .{ .screen = .{ .x = pin.x, .y = y - first_y } }
++    else
++        .{ .history = .{ .x = pin.x, .y = y } };
++}
++
++/// Write the placements of one phase, parents before their relative
++/// placements so each parent exists when its child is restored.
++fn encodePlacements(
++    alloc: Allocator,
++    screen: *const TerminalScreen,
++    key: TerminalScreenKey,
++    phase: Phase,
++    destination: *record.Writer,
++) EncodeError!void {
++    const storage = &screen.kitty_images;
++    const first_y = firstScreenRow(screen);
++
++    var selected: std.ArrayListUnmanaged(PlacementKey) = .empty;
++    defer selected.deinit(alloc);
++    var written: std.AutoHashMapUnmanaged(PlacementKey, void) = .empty;
++    defer written.deinit(alloc);
++
++    // Placements that are not relative, then relative placements whose
++    // parent was already selected, until no more can be added.
++    var it = storage.placements.iterator();
++    while (it.next()) |entry| {
++        if (entry.value_ptr.location == .relative) continue;
++        if (!inPhase(anchor(screen, first_y, entry.value_ptr.*), phase, entry.value_ptr.location)) continue;
++        try selected.append(alloc, entry.key_ptr.*);
++        try written.put(alloc, entry.key_ptr.*, {});
++    }
++    while (true) {
++        const before = selected.items.len;
++        var rel_it = storage.placements.iterator();
++        while (rel_it.next()) |entry| {
++            const rel = switch (entry.value_ptr.location) {
++                .relative => |rel| rel,
++                else => continue,
++            };
++            if (written.contains(entry.key_ptr.*) or !written.contains(rel.parent)) continue;
++            try selected.append(alloc, entry.key_ptr.*);
++            try written.put(alloc, entry.key_ptr.*, {});
++        }
++        if (selected.items.len == before) break;
++    }
++    if (phase == .history and selected.items.len == 0) {
++        // The history set is optional when it has nothing to restore.
++        return;
++    }
++
++    const payload = destination.begin(.kitty_placements);
++    errdefer destination.cancel();
++    try payload.writeByte(@intCast(@intFromEnum(key)));
++    try io.writeInt(payload, u32, @intCast(selected.items.len));
++    for (selected.items) |placement_key| {
++        const p = storage.placements.get(placement_key).?;
++        try io.writeInt(payload, u32, placement_key.image_id);
++        try payload.writeByte(@intCast(@intFromEnum(placement_key.placement_id.tag)));
++        try io.writeInt(payload, u32, placement_key.placement_id.id);
++        switch (p.location) {
++            .pin => {
++                try payload.writeByte(0);
++                const at = switch (anchor(screen, first_y, p)) {
++                    .screen => |at| at,
++                    .history => |at| at,
++                    .none => unreachable,
++                };
++                try io.writeInt(payload, u16, at.x);
++                try io.writeInt(payload, u32, at.y);
++            },
++            .virtual => try payload.writeByte(1),
++            .relative => |rel| {
++                try payload.writeByte(2);
++                try io.writeInt(payload, u32, rel.parent.image_id);
++                try payload.writeByte(@intCast(@intFromEnum(rel.parent.placement_id.tag)));
++                try io.writeInt(payload, u32, rel.parent.placement_id.id);
++                try io.writeInt(payload, i32, rel.horizontal_offset);
++                try io.writeInt(payload, i32, rel.vertical_offset);
++            },
++        }
++        inline for (.{
++            p.x_offset, p.y_offset, p.source_x, p.source_y, p.source_width,
++            p.source_height, p.columns, p.rows,
++        }) |value| try io.writeInt(payload, u32, value);
++        try io.writeInt(payload, i32, p.z);
++    }
++    try destination.finish();
++}
++
++/// Whether a placement that is not relative belongs to a phase. Virtual
++/// placements have no anchor and restore before READY.
++fn inPhase(at: Anchor, phase: Phase, location: Placement.Location) bool {
++    return switch (at) {
++        .screen => phase == .screen,
++        .history => phase == .history,
++        .none => phase == .screen and location == .virtual,
++    };
++}
++
++fn decodePlacements(
++    source: *std.Io.Reader,
++    io_: std.Io,
++    alloc: Allocator,
++    screen: *TerminalScreen,
++    key: TerminalScreenKey,
++) DecodeError!void {
++    var reader: record.Reader = undefined;
++    try reader.init(source);
++    if (reader.header.tag != .kitty_placements) return error.UnexpectedRecordTag;
++    const payload = reader.payloadReader();
++    if (try decodeKey(payload) != key) return error.UnexpectedScreenKey;
++    const count = try io.readInt(payload, u32);
++    for (0..count) |_| try decodePlacement(payload, alloc, screen);
++    try reader.finish();
++    screen.kitty_images.markMutated(io_);
++}
++
++fn decodePlacementId(reader: *std.Io.Reader) DecodeError!Storage.PlacementId {
++    const tag = std.enums.fromInt(
++        @FieldType(Storage.PlacementId, "tag"),
++        try reader.takeByte(),
++    ) orelse return error.InvalidKittyRecord;
++    return .{ .tag = tag, .id = try io.readInt(reader, u32) };
++}
++
++fn decodePlacement(
++    reader: *std.Io.Reader,
++    alloc: Allocator,
++    screen: *TerminalScreen,
++) DecodeError!void {
++    const key: PlacementKey = .{
++        .image_id = try io.readInt(reader, u32),
++        .placement_id = try decodePlacementId(reader),
++    };
++
++    const At = struct { x: u16, y: u32 };
++    var at: ?At = null;
++    var p: Placement = .{ .location = .virtual };
++    switch (try reader.takeByte()) {
++        0 => at = .{
++            .x = try io.readInt(reader, u16),
++            .y = try io.readInt(reader, u32),
++        },
++        1 => {},
++        2 => p.location = .{ .relative = .{
++            .parent = .{
++                .image_id = try io.readInt(reader, u32),
++                .placement_id = try decodePlacementId(reader),
++            },
++            .horizontal_offset = try io.readInt(reader, i32),
++            .vertical_offset = try io.readInt(reader, i32),
++        } },
++        else => return error.InvalidKittyRecord,
++    }
++    inline for (.{
++        "x_offset", "y_offset", "source_x", "source_y", "source_width",
++        "source_height", "columns", "rows",
++    }) |name| @field(p, name) = try io.readInt(reader, u32);
++    p.z = try io.readInt(reader, i32);
++
++    // A placement whose image, parent, or row is missing, or which repeats
++    // a key, is dropped.
++    const storage = &screen.kitty_images;
++    const image = storage.images.getPtr(key.image_id) orelse return;
++    if (storage.placements.contains(key)) return;
++    const count = std.math.add(
++        @TypeOf(image.metadata.placement_count),
++        image.metadata.placement_count,
++        1,
++    ) catch return;
++    switch (p.location) {
++        .relative => |rel| if (!storage.placements.contains(rel.parent)) return,
++        .virtual => if (at) |pos| {
++            const row = screen.pages.pin(.{ .screen = .{ .x = pos.x, .y = pos.y } }) orelse return;
++            p.location = .{ .pin = try screen.pages.trackPin(row) };
++        },
++        .pin => unreachable,
++    }
++    errdefer p.deinit(screen);
++
++    try storage.placements.put(alloc, key, p);
++    image.metadata.placement_count = count;
++}
+diff --git a/src/terminal/snapshot/record.zig b/src/terminal/snapshot/record.zig
+index 397d00cbe..0347c323a 100644
+--- a/src/terminal/snapshot/record.zig
++++ b/src/terminal/snapshot/record.zig
+@@ -52,6 +52,18 @@ pub const Tag = enum(u16) {
+ 
+     /// Canonical unfinished standard TerminalStream input.
+     continuation = 7,
++
++    /// The Kitty graphics storage of one screen. See `kitty.zig`.
++    kitty_storage = 8,
++
++    /// One stored Kitty graphics image.
++    kitty_image = 9,
++
++    /// One unfinished Kitty graphics transmission.
++    kitty_loading = 10,
++
++    /// Kitty graphics placements of one screen.
++    kitty_placements = 11,
+ };
+ 
+ /// The fixed framing that precedes every record payload.
+@@ -410,7 +422,7 @@ test "golden PAGE record header and checksum" {
+ }
+ 
+ test "reject invalid tags" {
+-    for ([_]u16{ 0, 8, std.math.maxInt(u16) }) |tag| {
++    for ([_]u16{ 0, 12, std.math.maxInt(u16) }) |tag| {
+         var fixture = [_]u8{0} ** Header.len;
+         std.mem.writeInt(u16, fixture[0..2], tag, .little);
+         var reader: std.Io.Reader = .fixed(&fixture);
+diff --git a/src/terminal/snapshot/snapshot.zig b/src/terminal/snapshot/snapshot.zig
+index 16737ca8d..b77157e85 100644
+--- a/src/terminal/snapshot/snapshot.zig
++++ b/src/terminal/snapshot/snapshot.zig
+@@ -5,10 +5,12 @@ const build_options = @import("terminal_options");
+ const assert = std.debug.assert;
+ const Allocator = std.mem.Allocator;
+ const checkpoint = @import("checkpoint.zig");
++const point = @import("../point.zig");
+ const continuation = @import("continuation.zig");
+ const envelope = @import("envelope.zig");
+ const test_fixture = @import("fixture.zig");
+ const history = @import("history.zig");
++const kitty = @import("kitty.zig");
+ const page = @import("page.zig");
+ const record = @import("record.zig");
+ const screen = @import("screen.zig");
+@@ -28,11 +30,17 @@ pub const Continuation = continuation.Value;
+ pub const EncodeError = terminal.EncodeError ||
+     screen.EncodeError ||
+     history.EncodeError ||
++    kitty.EncodeError ||
+     checkpoint.EncodeError ||
+     continuation.EncodeError;
+ 
+ pub const EncodeOptions = struct {
+     continuation: Continuation,
++
++    /// The most bytes of Kitty image pixels to write. Images beyond it are
++    /// written without pixels and restore as pending images of the same
++    /// size. See `kitty.zig`.
++    kitty_image_data_limit: usize = std.math.maxInt(usize),
+ };
+ 
+ /// Encode one complete terminal snapshot.
+@@ -56,23 +64,31 @@ pub fn encode(
+     var stream: record.Writer = .init(stack_alloc.get(), destination);
+     defer stream.deinit();
+ 
++    // Decide which Kitty images keep their pixels.
++    var kitty_plan: KittyPlan = try .init(alloc, t, options.kitty_image_data_limit);
++    defer kitty_plan.deinit(alloc);
++
+     // 1. Envelope
+     try envelope.encode(stream.writer());
+ 
+     // 2. Terminal
+     try terminal.encode(t, &stream);
+ 
+-    // 3. Primary and alt screen
++    // 3. Primary and alt screen, each followed by its Kitty graphics state
+     try screen.encode(
+         t.screens.get(.primary).?,
+         .primary,
+         &stream,
+     );
+-    if (t.screens.get(.alternate)) |alternate| try screen.encode(
+-        alternate,
+-        .alternate,
+-        &stream,
+-    );
++    try kitty_plan.encodeScreen(alloc, t, .primary, &stream);
++    if (t.screens.get(.alternate)) |alternate| {
++        try screen.encode(
++            alternate,
++            .alternate,
++            &stream,
++        );
++        try kitty_plan.encodeScreen(alloc, t, .alternate, &stream);
++    }
+ 
+     // 4. Standard Stream continuation.
+     try continuation.encode(options.continuation, &stream);
+@@ -80,22 +96,79 @@ pub fn encode(
+     // 5. Ready marker.
+     try checkpoint.encode(.ready, &stream);
+ 
+-    // 6. History
++    // 6. History, each followed by the Kitty placements on it
+     try history.encode(
+         t.screens.get(.primary).?,
+         .primary,
+         &stream,
+     );
+-    if (t.screens.get(.alternate)) |alternate| try history.encode(
+-        alternate,
+-        .alternate,
+-        &stream,
+-    );
++    try kitty_plan.encodeHistory(alloc, t, .primary, &stream);
++    if (t.screens.get(.alternate)) |alternate| {
++        try history.encode(
++            alternate,
++            .alternate,
++            &stream,
++        );
++        try kitty_plan.encodeHistory(alloc, t, .alternate, &stream);
++    }
+ 
+     // 7. Finish
+     try checkpoint.encode(.finish, &stream);
+ }
+ 
++/// The Kitty graphics part of an encode. Builds without Kitty graphics
++/// write no Kitty records.
++const KittyPlan = if (build_options.kitty_graphics) struct {
++    plan: kitty.Plan,
++
++    fn init(alloc: Allocator, t: *const Terminal, limit: usize) Allocator.Error!KittyPlan {
++        // The active screen's images keep their pixels first.
++        var screens: [2]kitty.Screen = undefined;
++        var count: usize = 0;
++        for ([_]TerminalScreenKey{ t.screens.active_key, .primary, .alternate }) |key| {
++            const s = t.screens.get(key) orelse continue;
++            for (screens[0..count]) |seen| {
++                if (seen.key == key) break;
++            } else {
++                screens[count] = .{ .key = key, .screen = s };
++                count += 1;
++            }
++        }
++        return .{ .plan = try .init(alloc, screens[0..count], limit) };
++    }
++
++    fn deinit(self: *KittyPlan, alloc: Allocator) void {
++        self.plan.deinit(alloc);
++    }
++
++    fn encodeScreen(
++        self: *const KittyPlan,
++        alloc: Allocator,
++        t: *const Terminal,
++        key: TerminalScreenKey,
++        stream: *record.Writer,
++    ) kitty.EncodeError!void {
++        try kitty.encodeScreen(alloc, t.screens.get(key).?, key, &self.plan, stream);
++    }
++
++    fn encodeHistory(
++        _: *const KittyPlan,
++        alloc: Allocator,
++        t: *const Terminal,
++        key: TerminalScreenKey,
++        stream: *record.Writer,
++    ) kitty.EncodeError!void {
++        try kitty.encodeHistory(alloc, t.screens.get(key).?, key, stream);
++    }
++} else struct {
++    fn init(_: Allocator, _: *const Terminal, _: usize) Allocator.Error!KittyPlan {
++        return .{};
++    }
++    fn deinit(_: *KittyPlan, _: Allocator) void {}
++    fn encodeScreen(_: *const KittyPlan, _: Allocator, _: *const Terminal, _: TerminalScreenKey, _: *record.Writer) error{}!void {}
++    fn encodeHistory(_: *const KittyPlan, _: Allocator, _: *const Terminal, _: TerminalScreenKey, _: *record.Writer) error{}!void {}
++};
++
+ /// Errors possible while restoring one complete terminal snapshot.
+ pub const DecodeError = Decoder.ReadyError || Decoder.NextError;
+ 
+@@ -288,6 +361,7 @@ pub const Decoder = struct {
+     pub const ReadyError = envelope.DecodeError ||
+         terminal.DecodeError ||
+         screen.DecodeError ||
++        kitty.DecodeError ||
+         continuation.DecodeError ||
+         checkpoint.DecodeError ||
+         error{
+@@ -357,6 +431,15 @@ pub const Decoder = struct {
+             );
+             errdefer decoded.deinit();
+ 
++            // The screen's Kitty graphics state follows its pages.
++            if (comptime build_options.kitty_graphics) try kitty.decodeScreen(
++                reader,
++                io_,
++                alloc,
++                &decoded.screen,
++                decoded.key,
++            );
++
+             const slot = result.screens.get(decoded.key) orelse
+                 return error.UnexpectedScreenKey;
+             if (routed.contains(decoded.key)) return error.DuplicateScreen;
+@@ -425,6 +508,7 @@ pub const Decoder = struct {
+     /// Errors possible while decoding history records through FINISH.
+     pub const NextError = checkpoint.DecodeError ||
+         history.Decoder.InitError ||
++        kitty.DecodeError ||
+         page.DiscardError ||
+         page.DecodeError ||
+         Allocator.Error ||
+@@ -495,6 +579,18 @@ pub const Decoder = struct {
+                 if (sequence.remaining > 0) {
+                     return try self.nextPage(alloc, t, sequence);
+                 }
++
++                // The Kitty placements on this history follow its pages.
++                // They apply only on top of the complete history.
++                if (comptime build_options.kitty_graphics) {
++                    try kitty.decodeHistory(
++                        self.source,
++                        t.io(),
++                        alloc,
++                        self.historyDestination(t, sequence),
++                        sequence.key,
++                    );
++                }
+                 state.current = null;
+             }
+ 
+@@ -535,6 +631,23 @@ pub const Decoder = struct {
+         }
+     }
+ 
++    /// The screen that the current sequence still applies to, or null when
++    /// a page was dropped or live terminal use made the history
++    /// inapplicable.
++    fn historyDestination(
++        self: *const Decoder,
++        t: *Terminal,
++        sequence: *const Sequence,
++    ) ?*TerminalScreen {
++        const state = &self.state.history;
++        if (!sequence.apply) return null;
++        if (t.cols != state.cols) return null;
++        const restored = t.screens.get(sequence.key) orelse return null;
++        if (t.screens.generation(sequence.key) !=
++            state.generations.get(sequence.key).?) return null;
++        return restored;
++    }
++
+     /// Consume one PAGE record from the current sequence, applying it to
+     /// the live terminal when it is still applicable and discarding it
+     /// otherwise.
+@@ -548,18 +661,7 @@ pub const Decoder = struct {
+ 
+         // Application is re-decided on every page so live terminal changes
+         // between calls degrade to discarding instead of failing decoding.
+-        const destination: ?*TerminalScreen = destination: {
+-            if (!sequence.apply) break :destination null;
+-            if (t.cols != state.cols) break :destination null;
+-            const restored = t.screens.get(sequence.key) orelse
+-                break :destination null;
+-            if (t.screens.generation(sequence.key) !=
+-                state.generations.get(sequence.key).?)
+-            {
+-                break :destination null;
+-            }
+-            break :destination restored;
+-        };
++        const destination = self.historyDestination(t, sequence);
+ 
+         sequence.remaining -= 1;
+         const rows: usize = rows: {
+@@ -1228,9 +1330,8 @@ test "complete snapshot preserves Kitty virtual placeholders" {
+     defer t.deinit(testing.allocator);
+ 
+     // Register a real virtual placement, then write its grid representation:
+-    // U+10EEEE followed by row and column diacritics. The image and placement
+-    // registry is intentionally omitted, but the grid content must remain
+-    // decodable.
++    // U+10EEEE followed by row and column diacritics. Both the grid content
++    // and the image and placement registry restore.
+     try t.screens.active.kitty_images.addImage(
+         testing.io,
+         testing.allocator,
+@@ -1284,15 +1385,248 @@ test "complete snapshot preserves Kitty virtual placeholders" {
+     try testing.expect(restored_cell.cell.hasGrapheme());
+     try testing.expect(restored_cell.row.kitty_virtual_placeholder);
+     try testing.expectEqual(
+-        @as(usize, 0),
++        @as(usize, 1),
+         restored_terminal.screens.active.kitty_images.images.count(),
+     );
+     try testing.expectEqual(
+-        @as(usize, 0),
++        @as(usize, 1),
+         restored_terminal.screens.active.kitty_images.placements.count(),
+     );
+ }
+ 
++
++/// A primary screen with history pages and Kitty state: three 1x1 RGBA
++/// images; image 1 placed on a history page, image 2 placed on the active
++/// page and again as a virtual placement, and image 3 placed relative to
++/// image 2's active placement.
++fn testKittyTerminal() !Terminal {
++    const testing = std.testing;
++    var t = try testHistoryTerminal(2);
++    errdefer t.deinit(testing.allocator);
++    const s = t.screens.get(.primary).?;
++    const storage = &s.kitty_images;
++    for ([_]u32{ 1, 2, 3 }) |id| {
++        const pixels = try testing.allocator.dupe(u8, &.{ @intCast(id), 2, 3, 4 });
++        errdefer testing.allocator.free(pixels);
++        try storage.addImage(testing.io, testing.allocator, s, .{
++            .id = id,
++            .width = 1,
++            .height = 1,
++            .format = .rgba,
++            .data = .{ .complete = pixels },
++        });
++    }
++    storage.next_image_id = 4000;
++
++    for ([_]struct { id: u32, p: u32, pt: point.Point }{
++        .{ .id = 1, .p = 0, .pt = .{ .screen = .{ .x = 1, .y = 1 } } },
++        .{ .id = 2, .p = 7, .pt = .{ .active = .{ .x = 0, .y = 1 } } },
++    }) |place| {
++        const pin = try s.pages.trackPin(s.pages.pin(place.pt).?);
++        errdefer s.pages.untrackPin(pin);
++        try storage.addPlacement(testing.io, testing.allocator, s, place.id, place.p, .{
++            .location = .{ .pin = pin },
++            .columns = 1,
++            .rows = 1,
++            .z = -3,
++        });
++    }
++    try storage.addPlacement(testing.io, testing.allocator, s, 2, 8, .{
++        .location = .virtual,
++        .columns = 1,
++        .rows = 1,
++    });
++    try storage.addPlacement(testing.io, testing.allocator, s, 3, 9, .{
++        .location = .{ .relative = .{
++            .parent = .{
++                .image_id = 2,
++                .placement_id = .{ .tag = .external, .id = 7 },
++            },
++            .horizontal_offset = 1,
++        } },
++    });
++    return t;
++}
++
++fn testEncodeKitty(t: *const Terminal, image_data_limit: usize) !std.Io.Writer.Allocating {
++    var encoded: std.Io.Writer.Allocating = .init(std.testing.allocator);
++    errdefer encoded.deinit();
++    try encode(std.testing.allocator, &encoded.writer, t, .{
++        .continuation = .ground,
++        .kitty_image_data_limit = image_data_limit,
++    });
++    return encoded;
++}
++
++/// The screen point of a pin placement, or null for other placements.
++fn testPlacementPoint(
++    s: *const TerminalScreen,
++    p: terminal_kitty.graphics.ImageStorage.Placement,
++) ?point.Coordinate {
++    return switch (p.location) {
++        .pin => |pin| s.pages.pointFromPin(.screen, pin.*).?.screen,
++        else => null,
++    };
++}
++
++test "snapshot restores Kitty images and their placements" {
++    if (comptime !build_options.kitty_graphics) return error.SkipZigTest;
++    const testing = std.testing;
++
++    var t = try testKittyTerminal();
++    defer t.deinit(testing.allocator);
++    var encoded = try testEncodeKitty(&t, std.math.maxInt(usize));
++    defer encoded.deinit();
++
++    var source: std.Io.Reader = .fixed(encoded.written());
++    var restored = try decode(testing.allocator, testing.io, &source, test_decode_options);
++    defer restored.deinit(testing.allocator);
++
++    const before = t.screens.get(.primary).?;
++    const after = restored.terminal.?.screens.get(.primary).?;
++    try testing.expectEqual(before.kitty_images.total_limit, after.kitty_images.total_limit);
++    try testing.expectEqual(@as(u32, 4000), after.kitty_images.next_image_id);
++    try testing.expectEqual(
++        before.kitty_images.next_internal_placement_id,
++        after.kitty_images.next_internal_placement_id,
++    );
++    try testing.expectEqual(before.kitty_images.total_bytes, after.kitty_images.total_bytes);
++
++    var previous_generation: u64 = 0;
++    for ([_]u32{ 1, 2, 3 }) |id| {
++        const original = before.kitty_images.imageById(id).?;
++        const copy = after.kitty_images.imageById(id).?;
++        try testing.expectEqualSlices(u8, original.data.bytes().?, copy.data.bytes().?);
++        try testing.expectEqual(original.metadata.placement_count, copy.metadata.placement_count);
++        // Transmission order, and so eviction order, is kept.
++        try testing.expect(copy.generation > previous_generation);
++        previous_generation = copy.generation;
++    }
++
++    try testing.expectEqual(before.kitty_images.placements.count(), after.kitty_images.placements.count());
++    var it = before.kitty_images.placements.iterator();
++    while (it.next()) |entry| {
++        const copy = after.kitty_images.placements.get(entry.key_ptr.*).?;
++        try testing.expectEqual(
++            testPlacementPoint(before, entry.value_ptr.*),
++            testPlacementPoint(after, copy),
++        );
++        try testing.expectEqual(entry.value_ptr.z, copy.z);
++        try testing.expectEqual(std.meta.activeTag(entry.value_ptr.location), std.meta.activeTag(copy.location));
++    }
++}
++
++test "snapshot over its image limit restores the other images as pending" {
++    if (comptime !build_options.kitty_graphics) return error.SkipZigTest;
++    const testing = std.testing;
++
++    var t = try testKittyTerminal();
++    defer t.deinit(testing.allocator);
++
++    // Room for one image: the newest image placed on the screen pages.
++    var encoded = try testEncodeKitty(&t, 4);
++    defer encoded.deinit();
++    var source: std.Io.Reader = .fixed(encoded.written());
++    var restored = try decode(testing.allocator, testing.io, &source, test_decode_options);
++    defer restored.deinit(testing.allocator);
++
++    const storage = &restored.terminal.?.screens.get(.primary).?.kitty_images;
++    try testing.expect(storage.imageById(1).?.data.isPending());
++    try testing.expect(storage.imageById(2).?.data.isPending());
++    try testing.expectEqualSlices(u8, &.{ 3, 2, 3, 4 }, storage.imageById(3).?.data.bytes().?);
++    try testing.expectEqual(@as(usize, 12), storage.total_bytes);
++    try testing.expectEqual(@as(usize, 4), storage.placements.count());
++
++    // Without a limit the two other images also carry their four pixel
++    // bytes and their animation flag.
++    var complete = try testEncodeKitty(&t, std.math.maxInt(usize));
++    defer complete.deinit();
++    try testing.expectEqual(encoded.written().len + 2 * (4 + 1), complete.written().len);
++}
++
++test "snapshot ready prefix keeps Kitty images and the placements on screen" {
++    if (comptime !build_options.kitty_graphics) return error.SkipZigTest;
++    const testing = std.testing;
++
++    var t = try testKittyTerminal();
++    defer t.deinit(testing.allocator);
++    var encoded = try testEncodeKitty(&t, std.math.maxInt(usize));
++    defer encoded.deinit();
++
++    var source: std.Io.Reader = .fixed(encoded.written());
++    var decoder: Decoder = .init(&source);
++    var decoded = try decoder.ready(testing.allocator, testing.io, test_decode_options);
++    defer decoded.deinit(testing.allocator);
++    var restored = decoded.toOwned();
++    defer restored.deinit(testing.allocator);
++
++    // At READY the history page and its placement are not restored yet.
++    const storage = &restored.screens.get(.primary).?.kitty_images;
++    try testing.expectEqual(@as(usize, 3), storage.images.count());
++    try testing.expectEqual(@as(usize, 3), storage.placements.count());
++    try testing.expectEqual(@as(u30, 0), storage.imageById(1).?.metadata.placement_count);
++
++    // The history and its placement follow.
++    while (try decoder.next(testing.allocator, &restored)) |_| {}
++    try testing.expectEqual(@as(usize, 4), storage.placements.count());
++    try testing.expectEqual(@as(u30, 1), storage.imageById(1).?.metadata.placement_count);
++}
++
++test "restored terminal finishes an unfinished image like its source" {
++    if (comptime !build_options.kitty_graphics) return error.SkipZigTest;
++    const testing = std.testing;
++
++    var source_terminal = try Terminal.init(testing.io, testing.allocator, .{
++        .cols = 10,
++        .rows = 5,
++    });
++    defer source_terminal.deinit(testing.allocator);
++    // One pixel wide and two pixels high cells, so a 2x3 image covers two
++    // columns and two rows.
++    source_terminal.width_px = 10;
++    source_terminal.height_px = 10;
++    var source_stream: TerminalStream = .init(.{
++        .allocator = testing.allocator,
++        .handler = .init(&source_terminal),
++    });
++    defer source_stream.deinit();
++
++    // The first half of a chunked transmission that also places the image.
++    source_stream.nextSlice("ab\x1b_Ga=T,f=32,s=2,v=3,i=5,m=1;AAECAwQFBgcICQoL\x1b\\");
++    try testing.expect(source_terminal.screens.active.kitty_images.loading != null);
++
++    var encoded = try testEncodeKitty(&source_terminal, std.math.maxInt(usize));
++    defer encoded.deinit();
++    var reader: std.Io.Reader = .fixed(encoded.written());
++    var decoded = try decode(testing.allocator, testing.io, &reader, test_decode_options);
++    defer decoded.deinit(testing.allocator);
++    var restored_terminal = decoded.toOwned();
++    defer restored_terminal.deinit(testing.allocator);
++    var restored_stream: TerminalStream = .init(.{
++        .allocator = testing.allocator,
++        .handler = .init(&restored_terminal),
++    });
++    defer restored_stream.deinit();
++    try testing.expectEqual(source_terminal.width_px, restored_terminal.width_px);
++
++    // The rest of the transmission, then a second image, reach both.
++    const rest = "\x1b_Gm=0;DA0ODxAREhMUFRYX\x1b\\cd\x1b_Ga=T,f=24,s=1,v=4,i=6;AAECAwQFBgcICQoL\x1b\\e";
++    source_stream.nextSlice(rest);
++    restored_stream.nextSlice(rest);
++
++    const before = &source_terminal.screens.active.kitty_images;
++    const after = &restored_terminal.screens.active.kitty_images;
++    try testing.expectEqual(@as(usize, 2), after.images.count());
++    try testing.expectEqualSlices(
++        u8,
++        before.imageById(5).?.data.bytes().?,
++        after.imageById(5).?.data.bytes().?,
++    );
++    try testing.expectEqual(before.placements.count(), after.placements.count());
++    try testing.expectEqual(source_terminal.screens.active.cursor.x, restored_terminal.screens.active.cursor.x);
++    try testing.expectEqual(source_terminal.screens.active.cursor.y, restored_terminal.screens.active.cursor.y);
++}
++
+ test "complete snapshot encoding streams from the current writer position" {
+     const testing = std.testing;
+ 
+diff --git a/src/terminal/snapshot/terminal.zig b/src/terminal/snapshot/terminal.zig
+index 19305372a..a1adcd617 100644
+--- a/src/terminal/snapshot/terminal.zig
++++ b/src/terminal/snapshot/terminal.zig
+@@ -235,10 +235,9 @@
+ //! hover state, and incremental compression state are presentation or cache
+ //! state and reset during restore.
+ //!
+-//! Kitty image state and glyph glossary registrations are unsupported by this
+-//! snapshot version and are ignored during capture. Unicode virtual placeholder
+-//! cells are preserved as grid content, but their image and placement state is
+-//! not restored. Build-time terminal behavior, Unicode width policy, parser
++//! Kitty image state is in the KITTY records that follow each screen (see
++//! `kitty.zig`). Glyph glossary registrations are unsupported by this
++//! snapshot version and are ignored during capture. Build-time terminal behavior, Unicode width policy, parser
+ //! continuation, and external callbacks are version-level or caller-local
+ //! requirements.
+ //!

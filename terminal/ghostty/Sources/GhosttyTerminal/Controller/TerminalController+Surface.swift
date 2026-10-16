@@ -17,6 +17,7 @@ extension TerminalController {
             Unmanaged.passUnretained(configuration.session).toOpaque()
         surfaceConfig.receive_buffer = InMemoryTerminalSession.receiveBufferCallback
         surfaceConfig.receive_resize = InMemoryTerminalSession.receiveResizeCallback
+        bridge.session = configuration.session
 
         if let fontSize = configuration.fontSize {
             surfaceConfig.font_size = fontSize

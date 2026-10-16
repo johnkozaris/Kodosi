@@ -1,4 +1,7 @@
-use super::super::{BlockedKind, ProgramState, ProgramStatus};
+use super::super::{
+    BlockedKind, ContextPlace, PlaceKind, ProgramState, ProgramStatus,
+    TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES, TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES,
+};
 use super::*;
 
 async fn shell(
@@ -17,6 +20,7 @@ async fn shell(
         PathBuf::from("/bin/sh"),
         vec!["-c".to_owned(), script.to_owned()],
         directory,
+        None,
         changes,
     )
     .await
@@ -126,6 +130,52 @@ async fn invalid_geometry_is_rejected_without_stopping_the_process() {
         .await
         .expect("checkpoint");
     assert_eq!(cut.checkpoint.size(), TerminalSize::default());
+    session.close().await.expect("close");
+}
+
+#[tokio::test]
+async fn a_resize_without_pixels_keeps_the_cell_size_of_the_last_resize() {
+    let (session, _changes, _root) = shell("stty -echo; exec /bin/cat").await;
+    let mut subscription = session.subscribe().await.expect("subscribe");
+    let size = TerminalSize::new(20, 80).expect("size");
+    let wider = TerminalSize::new(20, 100).expect("wider");
+    let geometry = TerminalPixelGeometry::new(640, 320, 8, 16).expect("geometry");
+    session
+        .resize(subscription.connection_id, size, Some(geometry), true)
+        .await
+        .expect("resize with pixels");
+    session
+        .resize(subscription.connection_id, wider, None, true)
+        .await
+        .expect("resize without pixels");
+
+    let cell = CellPixels {
+        width: 8,
+        height: 16,
+    };
+    for expected in [size, wider] {
+        let received = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                if let Some(ControlFrame::Resize {
+                    rows, cols, cell, ..
+                }) = subscription.control.recv().await
+                {
+                    break (rows, cols, cell);
+                }
+            }
+        })
+        .await
+        .expect("resize frame");
+        assert_eq!(received, (expected.rows(), expected.cols(), cell));
+    }
+    let cut = session
+        .checkpoint(subscription.connection_id)
+        .await
+        .expect("checkpoint");
+    assert_eq!(
+        (cut.checkpoint.size(), cut.checkpoint.cell()),
+        (wider, cell)
+    );
     session.close().await.expect("close");
 }
 
@@ -247,6 +297,7 @@ async fn resize_checkpoint_precedes_bootstrap_barrier_at_the_same_output_cut() {
         .send(HostRequest::Bootstrap {
             request_id,
             history: true,
+            image_data_bytes: TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES,
             reply,
         })
         .await
@@ -258,9 +309,11 @@ async fn resize_checkpoint_precedes_bootstrap_barrier_at_the_same_output_cut() {
             PublishedFrame::Resize {
                 rows,
                 cols,
+                cell,
                 at_sequence,
             } => {
                 assert_eq!((rows, cols), (size.rows(), size.cols()));
+                assert_eq!(cell, CellPixels::default());
                 assert_eq!(at_sequence, cut.next_sequence);
                 resized = true;
             }
@@ -274,6 +327,73 @@ async fn resize_checkpoint_precedes_bootstrap_barrier_at_the_same_output_cut() {
             _ => panic!("unexpected publication frame"),
         }
     }
+    session.close().await.expect("close");
+}
+
+#[tokio::test]
+async fn a_remote_bootstrap_holds_image_pixels_up_to_its_budget() {
+    // 1100 by 1000 RGBA pixels are 4.4 MB, more than a view on a link of unknown speed gets.
+    let (width, height) = (1100, 1000);
+    let mut compressed = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::fast());
+    std::io::Write::write_all(&mut compressed, &vec![0x7f; width * height * 4]).expect("compress");
+    let payload = base64::Engine::encode(
+        &base64::engine::general_purpose::STANDARD,
+        compressed.finish().expect("compressed image"),
+    );
+    let (session, _changes, root) =
+        shell("while [ ! -f image ]; do sleep 0.01; done; cat image; printf IMAGE-SHOWN; sleep 30")
+            .await;
+    let mut subscription = session.subscribe().await.expect("subscribe");
+    let geometry = TerminalPixelGeometry::new(640, 320, 8, 16).expect("geometry");
+    session
+        .resize(
+            subscription.connection_id,
+            TerminalSize::new(20, 80).expect("size"),
+            Some(geometry),
+            true,
+        )
+        .await
+        .expect("resize");
+    let staged = root.path().join("image.new");
+    std::fs::write(
+        &staged,
+        format!("\x1b_Ga=T,f=32,o=z,s={width},v={height},i=1,q=2;{payload}\x1b\\"),
+    )
+    .expect("image");
+    std::fs::rename(&staged, root.path().join("image")).expect("show image");
+    wait_text(&mut subscription, b"IMAGE-SHOWN").await;
+
+    let local = session
+        .checkpoint(subscription.connection_id)
+        .await
+        .expect("local checkpoint");
+    let _publication = session.output();
+    let mut remote = Vec::new();
+    for image_data_bytes in [
+        TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES,
+        TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES,
+    ] {
+        let (reply, result) = oneshot::channel();
+        session
+            .host_requests
+            .send(HostRequest::Bootstrap {
+                request_id: Uuid::now_v7(),
+                history: true,
+                image_data_bytes,
+                reply,
+            })
+            .await
+            .expect("bootstrap");
+        let cut = result
+            .await
+            .expect("bootstrap reply")
+            .expect("remote checkpoint");
+        remote.push(cut.checkpoint.snapshot().len());
+    }
+
+    assert!(local.checkpoint.snapshot().len() > width * height * 4);
+    assert!(remote[0] < 64 * 1024);
+    assert!(remote[1] > width * height * 4);
     session.close().await.expect("close");
 }
 
@@ -345,6 +465,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         32,
         120,
         &[],
+        None,
     )
     .expect("pty");
     let (_commands, command_rx) = mpsc::channel(1);
@@ -370,6 +491,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         queue: VecDeque::new(),
         focused: HashMap::new(),
         resize_owner: None,
+        cell: CellPixels::default(),
         sequence: 0,
         host_stop_reply: None,
         program: None,
@@ -387,6 +509,8 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         status: ProgramStatusRecords::default(),
         status_program: None,
         published_status: None,
+        contexts: Contexts::default(),
+        published_context: None,
         metadata_dirty: false,
         next_program_check: tokio::time::Instant::now(),
         next_refresh: tokio::time::Instant::now(),
@@ -507,6 +631,69 @@ async fn a_progress_bar_shows_as_work_and_ends_with_its_program() {
     session.close().await.expect("close");
 }
 
+async fn next_context(changes: &mut mpsc::Receiver<SessionChange>) -> Option<TerminalContext> {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Some(SessionChange::Context { context, .. }) = changes.recv().await {
+                break context;
+            }
+        }
+    })
+    .await
+    .expect("context change")
+}
+
+#[tokio::test]
+async fn a_context_names_its_place_until_it_ends() {
+    let (session, mut changes, _root) = shell(
+        "printf '\\033]3008;start=run;type=elevate;user=me;targetuser=root\\007'; sleep 1; printf '\\033]3008;end=run\\007'; exec /bin/cat",
+    )
+    .await;
+    assert_eq!(
+        next_context(&mut changes).await,
+        Some(TerminalContext {
+            place: None,
+            root: true,
+        })
+    );
+    assert_eq!(next_context(&mut changes).await, None);
+    session.close().await.expect("close");
+}
+
+#[tokio::test]
+async fn the_contexts_of_a_job_end_when_the_shell_is_in_front_again() {
+    let (session, mut changes, _root) = shell(
+        "set -m; /bin/sh -c \"printf '\\033]3008;start=ssh;type=remote;targethost=build\\007'; sleep 1\"; exec /bin/cat",
+    )
+    .await;
+    let mut output = session.output();
+    let place = Some(ContextPlace {
+        kind: PlaceKind::Remote,
+        name: "build".to_owned(),
+    });
+    assert_eq!(
+        next_context(&mut changes).await,
+        Some(TerminalContext {
+            place: place.clone(),
+            root: false,
+        })
+    );
+    let metadata = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Ok(PublishedFrame::Metadata(metadata)) = output.recv().await
+                && metadata.context.is_some()
+            {
+                break metadata;
+            }
+        }
+    })
+    .await
+    .expect("metadata for viewers");
+    assert_eq!(metadata.context.and_then(|context| context.place), place);
+    assert_eq!(next_context(&mut changes).await, None);
+    session.close().await.expect("close");
+}
+
 async fn next_prompt(changes: &mut mpsc::Receiver<SessionChange>) -> bool {
     tokio::time::timeout(Duration::from_secs(5), async {
         loop {
@@ -529,6 +716,7 @@ async fn a_command_runs_only_while_the_shell_is_at_its_prompt() {
         PathBuf::from("/bin/sh"),
         vec!["-i".to_owned()],
         kodosi_os::fs::canonicalize(root.path()).expect("canonical cwd"),
+        None,
         changes,
     )
     .await
@@ -578,6 +766,7 @@ async fn a_start_line_runs_once_the_shell_waits_at_its_prompt() {
         PathBuf::from(program),
         arguments,
         kodosi_os::fs::canonicalize(root.path()).expect("canonical cwd"),
+        None,
         changes,
     )
     .await
@@ -805,6 +994,7 @@ async fn title_delivery_retries_after_the_change_channel_is_full() {
             r"printf '\033]0;Final title\007'; exec /bin/cat".into(),
         ],
         root.path().to_owned(),
+        None,
         changes,
     )
     .await

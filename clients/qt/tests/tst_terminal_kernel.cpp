@@ -2,6 +2,7 @@
 #include "terminal/GhosttyC.hpp"
 #include "terminal/TerminalLink.hpp"
 #include "terminal/TerminalAccessibility.hpp"
+#include "terminal/TerminalPlaceholders.hpp"
 #include "terminal/TerminalRasterizer.hpp"
 #include "terminal/TerminalSessionRegistry.hpp"
 #include "terminal/TerminalSurfaceController.hpp"
@@ -25,13 +26,16 @@
 #include <QQuickWindow>
 #include <QRawFont>
 #include <QSignalSpy>
+#include <QThread>
 #include <QTimer>
 #include <QUrl>
 #include <QWheelEvent>
 #include <QtTest/QTest>
 
 #include <cmath>
+#include <cstdint>
 #include <functional>
+#include <limits>
 #include <optional>
 #include <utility>
 
@@ -250,6 +254,47 @@ QByteArray checkpointFor(const QByteArray& bytes, const std::uint16_t columns, c
     return snapshot;
 }
 
+// A 4 by 8 pixel red image at the third column of the second row, in cells of 2 by 4 pixels.
+QByteArray imageCheckpoint(const std::uint64_t imageDataLimit)
+{
+    GhosttyTerminal terminal = nullptr;
+    if (ghostty_terminal_new(nullptr, &terminal, 10, 4) != GHOSTTY_SUCCESS) {
+        QTest::qFail("failed to create image terminal", __FILE__, __LINE__);
+        return {};
+    }
+    const std::uint64_t storageLimit = 64ULL << 20;
+    ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_KITTY_IMAGE_STORAGE_LIMIT, &storageLimit);
+    ghostty_terminal_resize(terminal, 10, 4, 2, 4);
+    QByteArray red;
+    for (auto pixel = 0; pixel < 4 * 8; ++pixel) {
+        red += QByteArray::fromHex("ff0000");
+    }
+    const auto output = "\x1b[2;4H\x1b_Ga=T,f=24,s=4,v=8,i=7,q=2;" + red.toBase64() + "\x1b\\";
+    ghostty_terminal_vt_write(
+        terminal,
+        reinterpret_cast<const std::uint8_t*>(output.constData()),
+        static_cast<std::size_t>(output.size()));
+    QByteArray snapshot;
+    const GhosttyWriter writer {
+        [](void* const target, const std::uint8_t* const data, const std::size_t length) {
+            static_cast<QByteArray*>(target)->append(
+                reinterpret_cast<const char*>(data),
+                static_cast<qsizetype>(length));
+            return true;
+        },
+        &snapshot,
+    };
+    GhosttySnapshotEncodeOptions options = GHOSTTY_INIT_SIZED(GhosttySnapshotEncodeOptions);
+    options.kitty_image_data_limit = imageDataLimit;
+    const auto result = ghostty_snapshot_encode_options(terminal, writer, &options);
+    ghostty_terminal_free(terminal);
+    if (result != GHOSTTY_SUCCESS) {
+        QTest::qFail("failed to encode image snapshot", __FILE__, __LINE__);
+        return {};
+    }
+    return snapshot;
+}
+
 QString frameText(const kodosi::TerminalFrame& frame)
 {
     QString text;
@@ -263,6 +308,17 @@ QString frameText(const kodosi::TerminalFrame& frame)
         text += QLatin1Char('\n');
     }
     return text;
+}
+
+QByteArray markedPrompts(const int count)
+{
+    QByteArray output;
+    for (int prompt = 0; prompt < count; ++prompt) {
+        const auto number = QByteArray::number(prompt);
+        output += "\x1b]133;A\x07$ \x1b]133;B\x07" "cmd-" + number + "\r\n\x1b]133;C\x07";
+        output += "out-" + number + "a\r\nout-" + number + "b\r\n\x1b]133;D;0\x07";
+    }
+    return output + "\x1b]133;A\x07$ \x1b]133;B\x07";
 }
 
 void makeTerminalReady(
@@ -308,6 +364,15 @@ private slots:
     void failedCheckpointPreservesPriorFrame();
     void resizeRequiresExactSequenceBoundary();
     void consoleCheckpointKeepsHistoryOnResize();
+    void synchronizedOutputShowsOnlyFinishedFrames();
+    void synchronizedOutputThatNeverEndsShowsAfterOneSecond();
+    void kittyImagesCoverTheHostsCells();
+    void checkpointsCarryImagesWithinTheirPixelBudget();
+    void placeholderImagesFitAndCropAsInGhostty();
+    void placeholderCellsShowTheirPartOfTheImage();
+    void promptJumpsMoveBetweenMarkedPrompts();
+    void promptJumpKeysMoveTheViewWithoutTerminalInput();
+    void historyCompressesAndKeepsItsText();
     void registryConsumesNormativeControlWireWithoutLosingU64Precision();
     void rasterizerPreservesTerminalCellBackgrounds();
     void rasterizerUsesBrandedSelectionAndPreeditPalette();
@@ -315,6 +380,7 @@ private slots:
     void rasterizerAppliesLineHeightAndOwnedCursorPolicy();
     void rasterizerAlignsCellsToDevicePixels();
     void rasterizerFillsBlockAndPowerlineCells();
+    void rasterizerDrawsImagesInTheirLayers();
     void kernelAppliesNativeCursorDefaultsAndScrollback();
     void scrollbackReconfigurationPublishesReplacementFrame();
     void terminalViewOwnsValidatedDisplaySettings();
@@ -325,6 +391,7 @@ private slots:
     void terminalViewRoutesTrackedMouseToPty();
     void remoteGridFitsAndMapsAccessibleMouseCoordinates();
     void terminalViewPreservesControlAndEscapeKeys();
+    void modifierKeysWithControlTextSendNothing();
     void runtimeBellAndTitleKeepTerminalAvailable();
     void hiddenAndDisabledTerminalRejectsInputAndCancelsRetries();
     void terminalControlsStayBoundedAndFenceReattachment();
@@ -341,7 +408,8 @@ private slots:
     void terminalViewJoinsSurrogateHalvesFromSeparateKeyEvents();
     void terminalViewPastesClipboardThroughBoundedAuthority();
     void terminalViewTracksShiftInsertPasteReleaseExactly();
-    void terminalProgramsWriteTheClipboardAndTheFocusedViewAnswersReads();
+    void terminalProgramsWriteTheClipboardAndTheFocusedViewOfTheirOwnTerminalAnswersReads();
+    void terminalProgramsReadTheClipboardOnlyWhenAllowed();
     void terminalViewWheelUpdatesFrameWithoutPtyInput();
     void terminalViewAcceptedInputReturnsViewportToBottom();
     void terminalViewSelectionAnchorSurvivesPresentedScroll();
@@ -393,6 +461,40 @@ void TerminalKernelTest::terminalViewPreservesControlAndEscapeKeys()
     applicationShortcut.ignore();
     QCoreApplication::sendEvent(&view, &applicationShortcut);
     QVERIFY(!applicationShortcut.isAccepted());
+}
+
+void TerminalKernelTest::modifierKeysWithControlTextSendNothing()
+{
+    kodosi::TerminalSessionRegistry registry;
+    FakeTerminalDispatcher dispatcher;
+    QQuickWindow window;
+    window.resize(400, 200);
+    kodosi::TerminalView view(window.contentItem());
+    view.setSize(QSizeF(400, 200));
+    view.setTerminalInteraction(true, true);
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("modifier-keys"),
+        QStringLiteral("modifier-keys-subscription"),
+        1,
+    };
+    QVERIFY(view.attach(registry, dispatcher, subscription, QStringLiteral("incarnation")));
+    makeTerminalReady(registry, subscription);
+    window.show();
+    window.requestActivate();
+    view.forceActiveFocus();
+    QTRY_VERIFY(view.hasActiveFocus());
+
+    for (const auto key : {Qt::Key_Control, Qt::Key_Shift, Qt::Key_Alt}) {
+        QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier, QString(QChar(0)));
+        QCoreApplication::sendEvent(&view, &press);
+        QKeyEvent release(QEvent::KeyRelease, key, Qt::NoModifier, QString(QChar(0)));
+        QCoreApplication::sendEvent(&view, &release);
+    }
+    QKeyEvent letter(QEvent::KeyPress, Qt::Key_unknown, Qt::NoModifier, QStringLiteral("\u00e9"));
+    QCoreApplication::sendEvent(&view, &letter);
+    QTRY_COMPARE(dispatcher.inputCommands.size(), 1);
+    QCOMPARE(dispatcher.inputCommands.front(), QStringLiteral("\u00e9").toUtf8());
+    window.hide();
 }
 
 void TerminalKernelTest::runtimeBellAndTitleKeepTerminalAvailable()
@@ -871,6 +973,67 @@ void TerminalKernelTest::rasterizerFillsBlockAndPowerlineCells()
         for (int x = 0; x < image.width(); ++x) {
             QCOMPARE(pixel(x, height - 1), frame.background);
             QCOMPARE(pixel(x, 2 * height), frame.background);
+        }
+    }
+}
+
+void TerminalKernelTest::rasterizerDrawsImagesInTheirLayers()
+{
+    using Layer = kodosi::TerminalImagePlacement::Layer;
+    const auto filled = [](const QColor& color) {
+        QImage image(4, 4, QImage::Format_RGBX8888);
+        image.fill(color);
+        return image;
+    };
+    kodosi::TerminalFrame frame;
+    frame.columns = 4;
+    frame.rows = 1;
+    frame.background = QColor(QStringLiteral("#000000"));
+    frame.foreground = QColor(QStringLiteral("#ffffff"));
+    frame.cells = {
+        {.foreground = frame.foreground, .background = QColor(QStringLiteral("#0000ff"))},
+        {.foreground = frame.foreground, .background = frame.background},
+        {
+            .grapheme = QStringLiteral("\u2588"),
+            .foreground = frame.foreground,
+            .background = frame.background,
+        },
+        {
+            .grapheme = QString::fromUcs4(U"\U0010EEEE"),
+            .foreground = frame.foreground,
+            .background = frame.background,
+        },
+    };
+    frame.images = {
+        {
+            .pixels = filled(Qt::red),
+            .source = QRect(0, 0, 4, 4),
+            .bounds = QRectF(0, 0, 2, 1),
+            .layer = Layer::BelowBackground,
+        },
+        {
+            .pixels = filled(Qt::green),
+            .source = QRect(0, 0, 4, 4),
+            .bounds = QRectF(2, 0, 1, 1),
+            .layer = Layer::AboveText,
+        },
+    };
+    auto font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    font.setPixelSize(14);
+    const auto image = kodosi::TerminalRasterizer::render(frame, font, 1.0);
+    const auto cell = kodosi::TerminalRasterizer::cellSize(font);
+    const auto center = [&](const int column) {
+        return image.pixelColor(QPoint(
+            static_cast<int>(cell.width() * (column + 0.5)),
+            static_cast<int>(cell.height() * 0.5)));
+    };
+
+    QCOMPARE(center(0), QColor(QStringLiteral("#0000ff")));
+    QCOMPARE(center(1), QColor(Qt::red));
+    QCOMPARE(center(2), QColor(Qt::green));
+    for (auto y = 0; y < static_cast<int>(cell.height()); ++y) {
+        for (auto x = static_cast<int>(std::ceil(cell.width() * 3)); x < image.width(); ++x) {
+            QCOMPARE(image.pixelColor(x, y), frame.background);
         }
     }
 }
@@ -1832,7 +1995,7 @@ void TerminalKernelTest::terminalViewTracksShiftInsertPasteReleaseExactly()
     QCOMPARE(dispatcher.inputCommands.size(), 1);
 }
 
-void TerminalKernelTest::terminalProgramsWriteTheClipboardAndTheFocusedViewAnswersReads()
+void TerminalKernelTest::terminalProgramsWriteTheClipboardAndTheFocusedViewOfTheirOwnTerminalAnswersReads()
 {
     kodosi::TerminalSessionRegistry registry;
     FakeTerminalDispatcher dispatcher;
@@ -1846,6 +2009,7 @@ void TerminalKernelTest::terminalProgramsWriteTheClipboardAndTheFocusedViewAnswe
         25,
     };
     view.setTerminalInteraction(true, false);
+    view.setAsksBeforeClipboardRead(false);
     QVERIFY(view.attach(
         registry,
         dispatcher,
@@ -1865,8 +2029,10 @@ void TerminalKernelTest::terminalProgramsWriteTheClipboardAndTheFocusedViewAnswe
         clipboard->text(QClipboard::Clipboard),
         QStringLiteral("kodosi-clipboard"));
 
+    QSignalSpy requests(&view, &kodosi::TerminalView::clipboardReadRequested);
     registry.receiveData({subscription, 2, QByteArrayLiteral("\x1b]52;c;?\x07")});
     QCoreApplication::processEvents();
+    QCOMPARE(requests.count(), 0);
     QCOMPARE(dispatcher.inputCommands.size(), 0);
 
     window.requestActivate();
@@ -1876,6 +2042,7 @@ void TerminalKernelTest::terminalProgramsWriteTheClipboardAndTheFocusedViewAnswe
     QTRY_COMPARE(
         dispatcher.inputCommands,
         QVector<QByteArray> {QByteArrayLiteral("\x1b]52;c;a29kb3NpLWNsaXBib2FyZA==\x07")});
+    QCOMPARE(requests.count(), 0);
 
     QSignalSpy errors(&view, &kodosi::TerminalView::terminalError);
     for (std::uint64_t sequence = 4; sequence < 104; ++sequence) {
@@ -1887,6 +2054,52 @@ void TerminalKernelTest::terminalProgramsWriteTheClipboardAndTheFocusedViewAnswe
     }
     QTRY_COMPARE(clipboard->text(QClipboard::Clipboard), QStringLiteral("103"));
     QCOMPARE(errors.count(), 0);
+}
+
+void TerminalKernelTest::terminalProgramsReadTheClipboardOnlyWhenAllowed()
+{
+    kodosi::TerminalSessionRegistry registry;
+    FakeTerminalDispatcher dispatcher;
+    QQuickWindow window;
+    window.resize(400, 200);
+    kodosi::TerminalView view(window.contentItem());
+    view.setSize(QSizeF(400, 200));
+    view.setTerminalInteraction(true, true);
+    QVERIFY(view.asksBeforeClipboardRead());
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("osc-clipboard-read"),
+        QStringLiteral("osc-clipboard-read-subscription"),
+        1,
+    };
+    QVERIFY(view.attach(registry, dispatcher, subscription, QStringLiteral("incarnation")));
+    makeTerminalReady(registry, subscription);
+    window.show();
+    window.requestActivate();
+    view.forceActiveFocus();
+    QTRY_VERIFY(window.isActive() && view.hasActiveFocus());
+    QGuiApplication::clipboard()->setText(QStringLiteral("host text"), QClipboard::Clipboard);
+    QSignalSpy requests(&view, &kodosi::TerminalView::clipboardReadRequested);
+
+    registry.receiveData({subscription, 1, QByteArrayLiteral("\x1b]52;c;?\x07")});
+    QTRY_COMPARE(requests.count(), 1);
+    QCOMPARE(dispatcher.inputCommands.size(), 0);
+    view.answerClipboardRead(true);
+    QTRY_COMPARE(dispatcher.inputCommands.size(), 1);
+    QCOMPARE(
+        dispatcher.inputCommands.last(),
+        QByteArrayLiteral("\x1b]52;c;") + QByteArrayLiteral("host text").toBase64()
+            + QByteArrayLiteral("\x07"));
+
+    registry.receiveData({subscription, 2, QByteArrayLiteral("\x1b]52;c;?\x1b\\")});
+    QTRY_COMPARE(requests.count(), 2);
+    view.answerClipboardRead(false);
+    QTRY_COMPARE(dispatcher.inputCommands.size(), 2);
+    QCOMPARE(dispatcher.inputCommands.last(), QByteArrayLiteral("\x1b]52;c;\x1b\\"));
+
+    view.answerClipboardRead(true);
+    QTest::qWait(20);
+    QCOMPARE(dispatcher.inputCommands.size(), 2);
+    window.hide();
 }
 
 void TerminalKernelTest::terminalViewWheelUpdatesFrameWithoutPtyInput()
@@ -3522,7 +3735,7 @@ void TerminalKernelTest::registryConsumesNormativeControlWireWithoutLosingU64Pre
     registry.receiveControl({
         subscription,
         QByteArrayLiteral(
-            R"({"type":"term.resize","rows":4,"cols":24,"atSequence":9007199254740993})"),
+            R"({"type":"term.resize","rows":4,"cols":24,"cellWidthPixels":9,"cellHeightPixels":18,"atSequence":9007199254740993})"),
     });
     QVERIFY(currentFrame);
     QCOMPARE(currentFrame->rows, 4);
@@ -3603,17 +3816,386 @@ void TerminalKernelTest::resizeRequiresExactSequenceBoundary()
         checkpointFor(QByteArrayLiteral("resize"), 12, 2),
     }));
 
-    const auto future = kernel.applyResize(subscription, 6, 4, 24);
+    const auto future = kernel.applyResize(subscription, 6, 4, 24, 9, 18);
     QVERIFY(!future);
     QCOMPARE(
         future.error().code,
         kodosi::GhosttyTerminalKernel::Failure::Code::SequenceMismatch);
 
-    const auto resized = kernel.applyResize(subscription, 5, 4, 24);
+    const auto resized = kernel.applyResize(subscription, 5, 4, 24, 9, 18);
     QVERIFY(resized);
     QCOMPARE((*resized)->rows, 4);
     QCOMPARE((*resized)->columns, 24);
     QCOMPARE((*resized)->nextSequence, 5);
+}
+
+void TerminalKernelTest::synchronizedOutputShowsOnlyFinishedFrames()
+{
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("session"),
+        QStringLiteral("subscription"),
+        2,
+    };
+    kodosi::GhosttyTerminalKernel kernel;
+    QVERIFY(kernel.installCheckpoint({
+        subscription,
+        1,
+        2,
+        20,
+        checkpointFor(QByteArrayLiteral("finished"), 20, 2),
+    }));
+
+    const auto begun = kernel.applyData({
+        subscription,
+        1,
+        QByteArrayLiteral("\x1b[?2026h\x1b[2J\x1b[Hhalf"),
+    });
+    QVERIFY(begun);
+    QVERIFY(frameText(**begun).contains(QStringLiteral("finished")));
+    QVERIFY(!frameText(**begun).contains(QStringLiteral("half")));
+
+    const auto during = kernel.applyData({subscription, 2, QByteArrayLiteral(" drawn")});
+    QVERIFY(during);
+    QCOMPARE(*during, *begun);
+    QCOMPARE(kernel.nextSequence(), std::optional<std::uint64_t> {3});
+
+    const auto ended = kernel.applyData({subscription, 3, QByteArrayLiteral("\x1b[?2026l")});
+    QVERIFY(ended);
+    QVERIFY(frameText(**ended).contains(QStringLiteral("half drawn")));
+    QVERIFY(!frameText(**ended).contains(QStringLiteral("finished")));
+
+    const auto whole = kernel.applyData({
+        subscription,
+        4,
+        QByteArrayLiteral("\x1b[?2026h\x1b[2J\x1b[Hone write\x1b[?2026l"),
+    });
+    QVERIFY(whole);
+    QVERIFY(frameText(**whole).contains(QStringLiteral("one write")));
+}
+
+void TerminalKernelTest::kittyImagesCoverTheHostsCells()
+{
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("session"),
+        QStringLiteral("subscription"),
+        2,
+    };
+    kodosi::GhosttyTerminalKernel kernel;
+    QVERIFY(kernel.installCheckpoint({
+        subscription,
+        1,
+        4,
+        10,
+        checkpointFor(QByteArrayLiteral("images"), 10, 4),
+    }));
+    QVERIFY(kernel.applyResize(subscription, 1, 4, 10, 2, 4));
+    QByteArray red;
+    for (auto pixel = 0; pixel < 4 * 8; ++pixel) {
+        red += QByteArray::fromHex("ff0000");
+    }
+
+    const auto placed = kernel.applyData({
+        subscription,
+        1,
+        "\x1b[2;4H\x1b_Ga=T,f=24,s=4,v=8,i=7,q=2;" + red.toBase64()
+            + "\x1b\\\x1b[1;1H\x1b_Ga=p,i=7,p=2,z=-1,X=1,q=2\x1b\\",
+    });
+    QVERIFY(placed);
+    const auto& images = (*placed)->images;
+    QCOMPARE(images.size(), 2);
+    QCOMPARE(images[0].bounds, QRectF(0.5, 0, 2, 2));
+    QCOMPARE(images[0].layer, kodosi::TerminalImagePlacement::Layer::BelowText);
+    QCOMPARE(images[1].bounds, QRectF(3, 1, 2, 2));
+    QCOMPARE(images[1].layer, kodosi::TerminalImagePlacement::Layer::AboveText);
+    QCOMPARE(images[1].source, QRect(0, 0, 4, 8));
+    QCOMPARE(images[1].pixels.pixelColor(1, 1), QColor(Qt::red));
+    QCOMPARE(images[0].pixels.cacheKey(), images[1].pixels.cacheKey());
+
+    const auto scrolled = kernel.applyData({subscription, 2, QByteArrayLiteral("\x1b[4;1H\n\n\n\n")});
+    QVERIFY(scrolled);
+    QVERIFY((*scrolled)->images.isEmpty());
+}
+
+void TerminalKernelTest::checkpointsCarryImagesWithinTheirPixelBudget()
+{
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("session"),
+        QStringLiteral("subscription"),
+        2,
+    };
+    kodosi::GhosttyTerminalKernel complete;
+    const auto restored = complete.installCheckpoint({
+        subscription, 1, 4, 10, imageCheckpoint(std::numeric_limits<std::uint64_t>::max())});
+    QVERIFY(restored);
+    QCOMPARE((*restored)->images.size(), 1);
+    QCOMPARE((*restored)->images.front().bounds, QRectF(3, 1, 2, 2));
+    QCOMPARE((*restored)->images.front().pixels.pixelColor(0, 0), QColor(Qt::red));
+
+    kodosi::GhosttyTerminalKernel withoutPixels;
+    const auto pending = withoutPixels.installCheckpoint({subscription, 1, 4, 10, imageCheckpoint(0)});
+    QVERIFY(pending);
+    QVERIFY((*pending)->images.isEmpty());
+    QCOMPARE((*pending)->cursor.row, (*restored)->cursor.row);
+}
+
+void TerminalKernelTest::placeholderImagesFitAndCropAsInGhostty()
+{
+    // Ghostty's own cases: a 500 by 306 image in cells of 36 by 80 pixels, shown
+    // by runs of four placeholder cells.
+    const QSize image(500, 306);
+    const auto check = [&](
+                           const std::uint32_t columns,
+                           const std::uint32_t rows,
+                           const std::uint32_t imageRow,
+                           const QRect& source,
+                           const QPoint& offset,
+                           const QSize& size) {
+        const auto drawing = kodosi::placeholderDrawing(
+            {.imageRow = imageRow, .width = 4}, columns, rows, image, 36, 80);
+        QVERIFY(drawing);
+        QCOMPARE(drawing->source, source);
+        QCOMPARE(drawing->offset, offset);
+        QCOMPARE(drawing->size, size);
+    };
+    check(4, 2, 0, QRect(0, 0, 500, 153), QPoint(0, 36), QSize(144, 44));
+    check(4, 2, 1, QRect(0, 153, 500, 153), QPoint(0, 0), QSize(144, 44));
+    check(2, 2, 0, QRect(0, 0, 500, 153), QPoint(0, 58), QSize(72, 22));
+    check(2, 2, 1, QRect(0, 153, 500, 153), QPoint(0, 0), QSize(72, 22));
+    check(1, 1, 0, QRect(0, 0, 500, 306), QPoint(0, 29), QSize(36, 22));
+
+    // A grid without a size takes the size of the image.
+    const auto natural =
+        kodosi::placeholderDrawing({.width = 2}, 0, 0, QSize(72, 80), 36, 80);
+    QVERIFY(natural);
+    QCOMPARE(natural->source, QRect(0, 0, 72, 80));
+    QCOMPARE(natural->size, QSize(72, 80));
+
+    // A run beyond the grid shows nothing.
+    QVERIFY(!kodosi::placeholderDrawing({.imageColumn = 2, .width = 1}, 2, 2, image, 36, 80));
+}
+
+void TerminalKernelTest::placeholderCellsShowTheirPartOfTheImage()
+{
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("session"),
+        QStringLiteral("subscription"),
+        2,
+    };
+    kodosi::GhosttyTerminalKernel kernel;
+    QVERIFY(kernel.installCheckpoint({
+        subscription,
+        1,
+        4,
+        10,
+        checkpointFor(QByteArrayLiteral("placeholders"), 10, 4),
+    }));
+    QVERIFY(kernel.applyResize(subscription, 1, 4, 10, 2, 4));
+
+    // An 8 by 8 image, red on the left and blue on the right, in a virtual placement
+    // of two by one cells. Its id 0x01000007 needs the high byte diacritic.
+    QByteArray pixels;
+    for (auto y = 0; y < 8; ++y) {
+        for (auto x = 0; x < 8; ++x) {
+            pixels += QByteArray::fromHex(x < 4 ? "ff0000" : "0000ff");
+        }
+    }
+    const auto cells = [](const char32_t* text) {
+        return QString::fromUcs4(text).toUtf8();
+    };
+    const auto shown = kernel.applyData({
+        subscription,
+        1,
+        "\x1b_Ga=T,U=1,f=24,s=8,v=8,i=16777223,p=3,c=2,r=1,q=2;" + pixels.toBase64() + "\x1b\\"
+            // Both columns from one run: the second cell continues the first.
+            + "\x1b[2;4H\x1b[38;5;7m\x1b[58;5;3m"
+            + cells(U"\U0010EEEE\u0305\u0305\u030D\U0010EEEE")
+            // Only the right column.
+            + "\x1b[3;7H" + cells(U"\U0010EEEE\u0305\u030D\u030D")
+            // An image that does not exist.
+            + "\x1b[4;1H\x1b[38;5;9m\x1b[59m" + cells(U"\U0010EEEE\u0305\u0305") + "\x1b[m",
+    });
+    QVERIFY(shown);
+    const auto& images = (*shown)->images;
+    QCOMPARE(images.size(), 2);
+    QCOMPARE(images[0].bounds, QRectF(3, 1, 2, 1));
+    QCOMPARE(images[0].source, QRect(0, 0, 8, 8));
+    QCOMPARE(images[0].layer, kodosi::TerminalImagePlacement::Layer::BelowText);
+    QCOMPARE(images[1].bounds, QRectF(6, 2, 1, 1));
+    QCOMPARE(images[1].source, QRect(4, 0, 4, 8));
+    QCOMPARE(images[0].pixels.cacheKey(), images[1].pixels.cacheKey());
+
+    auto font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    font.setPixelSize(14);
+    const auto rendered = kodosi::TerminalRasterizer::render(**shown, font, 1.0);
+    const auto cell = kodosi::TerminalRasterizer::cellSize(font);
+    const auto center = [&](const int column, const int row) {
+        return rendered.pixelColor(QPoint(
+            static_cast<int>(cell.width() * (column + 0.5)),
+            static_cast<int>(cell.height() * (row + 0.5))));
+    };
+    QCOMPARE(center(3, 1), QColor(Qt::red));
+    QCOMPARE(center(4, 1), QColor(Qt::blue));
+    QCOMPARE(center(6, 2), QColor(Qt::blue));
+    QCOMPARE(center(0, 3), (*shown)->background);
+}
+
+void TerminalKernelTest::synchronizedOutputThatNeverEndsShowsAfterOneSecond()
+{
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("session"),
+        QStringLiteral("subscription"),
+        2,
+    };
+    kodosi::GhosttyTerminalKernel kernel;
+    QVERIFY(kernel.installCheckpoint({
+        subscription,
+        1,
+        2,
+        20,
+        checkpointFor(QByteArrayLiteral("finished"), 20, 2),
+    }));
+    QVERIFY(kernel.applyData({
+        subscription,
+        1,
+        QByteArrayLiteral("\x1b[?2026h\x1b[2J\x1b[Hstuck"),
+    }));
+
+    QThread::msleep(1'050);
+    const auto later = kernel.applyData({subscription, 2, QByteArrayLiteral(" later")});
+    QVERIFY(later);
+    QVERIFY(frameText(**later).contains(QStringLiteral("stuck later")));
+
+    const auto next = kernel.applyData({subscription, 3, QByteArrayLiteral("!")});
+    QVERIFY(next);
+    QVERIFY(frameText(**next).contains(QStringLiteral("stuck later!")));
+}
+
+void TerminalKernelTest::promptJumpsMoveBetweenMarkedPrompts()
+{
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("session"),
+        QStringLiteral("subscription"),
+        2,
+    };
+    kodosi::GhosttyTerminalKernel unmarked;
+    QVERIFY(unmarked.installCheckpoint({
+        subscription,
+        1,
+        4,
+        20,
+        checkpointFor(QByteArrayLiteral("start"), 20, 4),
+    }));
+    QByteArray plain;
+    for (int line = 0; line < 20; ++line) {
+        plain += "plain-" + QByteArray::number(line) + "\r\n";
+    }
+    const auto plainFrame = unmarked.applyData({subscription, 1, plain});
+    QVERIFY(plainFrame);
+    const auto unmoved = unmarked.jumpToPrompt(subscription, -1);
+    QVERIFY(unmoved);
+    QCOMPARE(*unmoved, *plainFrame);
+
+    kodosi::GhosttyTerminalKernel kernel;
+    QVERIFY(kernel.installCheckpoint({
+        subscription,
+        1,
+        4,
+        20,
+        checkpointFor(QByteArrayLiteral("start"), 20, 4),
+    }));
+    const auto bottom = kernel.applyData({subscription, 1, markedPrompts(6)});
+    QVERIFY(bottom);
+    QVERIFY(frameText(**bottom).startsWith(QStringLiteral("$ cmd-5")));
+
+    const auto previous = kernel.jumpToPrompt(subscription, -1);
+    QVERIFY(previous);
+    QVERIFY(frameText(**previous).startsWith(QStringLiteral("$ cmd-4")));
+    const auto earlier = kernel.jumpToPrompt(subscription, -2);
+    QVERIFY(earlier);
+    QVERIFY(frameText(**earlier).startsWith(QStringLiteral("$ cmd-2")));
+    const auto later = kernel.jumpToPrompt(subscription, 1);
+    QVERIFY(later);
+    QVERIFY(frameText(**later).startsWith(QStringLiteral("$ cmd-3")));
+}
+
+void TerminalKernelTest::promptJumpKeysMoveTheViewWithoutTerminalInput()
+{
+    kodosi::TerminalSessionRegistry registry;
+    FakeTerminalDispatcher dispatcher;
+    kodosi::TerminalView view(m_window.contentItem());
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("prompt-view"),
+        QStringLiteral("prompt-view-subscription"),
+        23,
+    };
+    view.setWidth(400);
+    view.setHeight(160);
+    view.setTerminalInteraction(true, false);
+    QVERIFY(view.attach(
+        registry,
+        dispatcher,
+        subscription,
+        QStringLiteral("prompt-view-incarnation")));
+    QVERIFY(registry.installCheckpoint({
+        subscription,
+        1,
+        4,
+        20,
+        checkpointFor(markedPrompts(6), 20, 4),
+    }));
+    registry.receiveConnectResult({subscription, ffiOk});
+    QCoreApplication::processEvents();
+    QVERIFY(view.accessibleText().startsWith(QStringLiteral("$ cmd-5")));
+
+    QKeyEvent up(QEvent::KeyPress, Qt::Key_Up, Qt::ControlModifier | Qt::ShiftModifier);
+    QCoreApplication::sendEvent(&view, &up);
+    QTRY_VERIFY_WITH_TIMEOUT(view.accessibleText().startsWith(QStringLiteral("$ cmd-4")), 250);
+    QKeyEvent down(QEvent::KeyPress, Qt::Key_Down, Qt::ControlModifier | Qt::ShiftModifier);
+    QCoreApplication::sendEvent(&view, &down);
+    QTRY_VERIFY_WITH_TIMEOUT(view.accessibleText().startsWith(QStringLiteral("$ cmd-5")), 250);
+    QCOMPARE(dispatcher.inputCommands.size(), 0);
+}
+
+void TerminalKernelTest::historyCompressesAndKeepsItsText()
+{
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("session"),
+        QStringLiteral("subscription"),
+        2,
+    };
+    QByteArray restored;
+    for (int line = 0; line < 3'000; ++line) {
+        restored += "restored-" + QByteArray::number(line).rightJustified(4, '0') + "\r\n";
+    }
+    kodosi::GhosttyTerminalKernel kernel;
+    QVERIFY(kernel.installCheckpoint({
+        subscription,
+        1,
+        4,
+        40,
+        checkpointFor(restored, 40, 4),
+    }));
+    const auto afterRestore = kernel.historyMemory();
+    if (!afterRestore.compressionSupported) {
+        QSKIP("This platform cannot compress terminal history.");
+    }
+    QVERIFY(afterRestore.compressedPages > 0);
+
+    QByteArray live;
+    for (int line = 0; line < 3'000; ++line) {
+        live += "live-" + QByteArray::number(line).rightJustified(4, '0') + "\r\n";
+    }
+    QVERIFY(kernel.applyData({subscription, 1, live}));
+    const auto beforeIdle = kernel.historyMemory();
+    while (kernel.compressHistory()) {
+    }
+    const auto afterIdle = kernel.historyMemory();
+    QVERIFY(afterIdle.compressedPages > beforeIdle.compressedPages);
+    QVERIFY(afterIdle.residentBytes < beforeIdle.residentBytes);
+
+    const auto top = kernel.scrollViewport(subscription, -100'000);
+    QVERIFY(top);
+    QVERIFY(frameText(**top).contains(QStringLiteral("restored-")));
 }
 
 void TerminalKernelTest::consoleCheckpointKeepsHistoryOnResize()
@@ -3632,7 +4214,7 @@ void TerminalKernelTest::consoleCheckpointKeepsHistoryOnResize()
         kodosi::GhosttyTerminalKernel kernel;
         QVERIFY(kernel.installCheckpoint({ subscription, 1, 3, 12, snapshot, console }));
 
-        const auto resized = kernel.applyResize(subscription, 1, 6, 12);
+        const auto resized = kernel.applyResize(subscription, 1, 6, 12, 0, 0);
 
         QVERIFY(resized);
         QCOMPARE(frameText(**resized).contains(QStringLiteral("line 3")), !console);
