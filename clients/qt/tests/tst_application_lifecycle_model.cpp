@@ -13,7 +13,6 @@ namespace {
 kodosi::RuntimeBridge::Result rejected(QString message)
 {
     return std::unexpected(kodosi::RuntimeFailure {
-        .code = kodosi::RuntimeFailure::Code::StartRejected,
         .ffiResult = -1,
         .message = std::move(message),
     });

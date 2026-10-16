@@ -75,7 +75,6 @@ public:
         if (unconnectedTerminalCommands > 0) {
             --unconnectedTerminalCommands;
             return std::unexpected(kodosi::RuntimeFailure {
-                .code = kodosi::RuntimeFailure::Code::FfiRejected,
                 .ffiResult = ffiSessionNotFound,
                 .message = QStringLiteral("Command failed (7)."),
             });
@@ -122,7 +121,6 @@ private:
     static Result busyFailure()
     {
         return std::unexpected(kodosi::RuntimeFailure {
-            .code = kodosi::RuntimeFailure::Code::FfiRejected,
             .ffiResult = ffiBusy,
             .message = QStringLiteral("Busy"),
         });
@@ -182,7 +180,6 @@ public:
         if (refreshFailures > 0) {
             --refreshFailures;
             return std::unexpected(kodosi::RuntimeFailure {
-                .code = kodosi::RuntimeFailure::Code::FfiRejected,
                 .ffiResult = ffiBusy,
                 .message = QStringLiteral("Busy"),
             });
