@@ -175,8 +175,9 @@ foreach(module Core Gui Qml Quick)
         if(include_dir MATCHES "/include/Qt${module}$")
             set(private_root "${include_dir}/${Qt6_VERSION}")
             if(NOT IS_DIRECTORY "${private_root}/Qt${module}")
-                message(FATAL_ERROR "Qt ${module} private headers are required for accessibility")
+                message(FATAL_ERROR "Qt ${module} private headers are required for accessibility and the cell rim")
             endif()
+            list(APPEND KODOSI_QT_PRIVATE_INCLUDES "${private_root}" "${private_root}/Qt${module}")
             target_include_directories(kodosi-terminal-kernel PRIVATE
                 "${private_root}" "${private_root}/Qt${module}")
             # The Windows window frame corrects Qt's frame margins.
@@ -203,9 +204,6 @@ qt_add_executable(kodosi-qt
     app/main.cpp
 )
 
-# CellRim imports Typing.js by its path. A qmldir entry for it makes Qt find the
-# Kodosi module twice, and no QML file that imports Kodosi then loads.
-set_source_files_properties(qml/Controls/Typing.js PROPERTIES QT_QML_SKIP_QMLDIR_ENTRY TRUE)
 qt_add_library(kodosi-ui STATIC)
 qt_add_qml_module(kodosi-ui
     URI Kodosi
@@ -214,6 +212,9 @@ qt_add_qml_module(kodosi-ui
     VERSION 1.0
     DEPENDENCIES
         Kodosi.Models
+    SOURCES
+        controls/CellTrack.cpp
+        controls/CellTrack.hpp
     QML_FILES
         qml/Main.qml
         qml/Screens/PeopleView.qml
@@ -274,7 +275,6 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/StartMark.qml
         qml/Controls/StatusSign.qml
         qml/Controls/Tag.qml
-        qml/Controls/Typing.js
         qml/Controls/Well.qml
         qml/Controls/Wordmark.qml
         qml/Shell/CommandPalette.qml
@@ -311,6 +311,9 @@ qt_add_qml_module(kodosi-ui
 )
 
 target_link_libraries(kodosi-ui PUBLIC Qt6::Quick Qt6::QuickControls2 kodosi-qml-modelsplugin)
+target_include_directories(kodosi-ui PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/controls")
+target_include_directories(kodosi-ui SYSTEM PRIVATE ${KODOSI_QT_PRIVATE_INCLUDES})
+set_source_files_properties(controls/CellTrack.cpp PROPERTIES COMPILE_OPTIONS "${KODOSI_COMPILE_OPTIONS}")
 
 target_link_libraries(kodosi-qt
     PRIVATE

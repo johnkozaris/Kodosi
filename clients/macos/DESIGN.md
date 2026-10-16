@@ -97,12 +97,12 @@ Capsules for tags and pills, rounded rectangles (8, 10 and 12 pt) for buttons, s
 - **Tasks:** cards in "Up for grabs", "In progress" and "Done"; a changed card washes warm once.
 - **Go to (⌘K):** one field in a well finds terminals, rooms, people and actions; the chosen row is a raised pill with a copper notch.
 
-Working text shimmers, counts roll and symbols replace in place. With reduced motion, from the system or from Settings, every change is instant and nothing loops.
+The text of an action in progress shimmers, counts roll and symbols replace in place. A state has one moving sign: a working terminal shows its work on its rim, and its text and the wordmark stay still. With reduced motion, from the system or from Settings, or while the window does not show, every change is instant and nothing loops.
 
 ## Do's and Don'ts
 - **Do** use the springs in `AppTheme.Motion`, and animate only for an action or a real change of state.
 - **Do** keep native focus, labels, stable accessibility identifiers and selectable message text.
-- **Do** keep hidden terminal surfaces inactive.
+- **Do** keep hidden terminal surfaces inactive, and let Core Animation run anything that loops.
 - **Don't** clip or scale the terminal surface; inset it in its tile.
 - **Don't** put a glow, blur, colored shadow, gradient, gloss or bright rim on a mark, cursor or button, or use copper as decoration.
 - **Don't** add explanatory text where an object, a state or one short line is enough.

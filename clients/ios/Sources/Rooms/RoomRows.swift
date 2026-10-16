@@ -93,7 +93,6 @@ private struct RoomRowActivity: View {
                     Text(working ? String(localized: "Working") : Counted.terminals(terminals.count))
                         .appTextStyle(.caption)
                         .foregroundStyle(theme.colors.inkMuted)
-                        .shimmer(working)
                 }
             }
             .padding(.top, 4)
@@ -163,7 +162,7 @@ struct RoomInvitationRow: View {
                     joined(invitation.missionId)
                 }
             } catch {
-                model.rooms.report(error, announcedByRuntime: true)
+                model.rooms.report(error)
             }
         }
     }

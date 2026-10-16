@@ -32,6 +32,7 @@ struct TogetherArt: View {
                 .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(theme.colors.surface, lineWidth: 3).padding(-1.5) }
             PersonAvatar(name: "B", key: "art.d", size: 46, ring: theme.colors.surface)
         }
+        .accessibilityElement(children: .ignore)
         .accessibilityHidden(true)
     }
 }

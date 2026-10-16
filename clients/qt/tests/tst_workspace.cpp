@@ -345,12 +345,12 @@ private slots:
         auto working = test::session(1);
         working.insert(QStringLiteral("title"), QStringLiteral("\u2802 Build"));
         f.workspace.apply(test::snapshot({ working, test::session(2) }), 0);
-        QVERIFY(f.sessions.working());
+        QVERIFY(f.sessions.presentationForSession(test::id(1)).value(QStringLiteral("working")).toBool());
         QVERIFY(f.sessions.attention().isEmpty());
         auto idle = test::session(1);
         idle.insert(QStringLiteral("title"), QStringLiteral("Build"));
         f.workspace.apply(test::snapshot({ idle, test::session(2) }), 0);
-        QVERIFY(!f.sessions.working());
+        QVERIFY(!f.sessions.presentationForSession(test::id(1)).value(QStringLiteral("working")).toBool());
         QCOMPARE(f.sessions.attention(), QStringList { test::id(1) });
         f.workspace.apply({{QStringLiteral("type"), QStringLiteral("term.bell")},
             {QStringLiteral("sessionId"), test::id(2)}}, 0);
@@ -414,7 +414,6 @@ private slots:
             reported(1, {{QStringLiteral("state"), QStringLiteral("working")}, {QStringLiteral("progress"), 40}}, QStringLiteral("Build")),
             reported(2, {{QStringLiteral("state"), QStringLiteral("idle")}}, QStringLiteral("\u2802 Build")),
         }), 0);
-        QVERIFY(f.sessions.working());
         QVERIFY(f.sessions.presentationForSession(test::id(1)).value(QStringLiteral("working")).toBool());
         QVERIFY(!f.sessions.presentationForSession(test::id(2)).value(QStringLiteral("working")).toBool());
         QCOMPARE(activity(2), QStringLiteral("Build"));
@@ -428,7 +427,7 @@ private slots:
                 {QStringLiteral("title"), QStringLiteral("Review")}, {QStringLiteral("message"), QStringLiteral("Allow the command?")}}),
             reported(2, {{QStringLiteral("state"), QStringLiteral("blocked")}, {QStringLiteral("kind"), QStringLiteral("question")}}),
         }), 0);
-        QVERIFY(!f.sessions.working());
+        QVERIFY(!field(1, QStringLiteral("working")).toBool());
         QCOMPARE(activity(1), QStringLiteral("Review: Allow the command?"));
         QVERIFY(activity(2).isEmpty());
         QCOMPARE(sign(1), QStringLiteral("hand"));

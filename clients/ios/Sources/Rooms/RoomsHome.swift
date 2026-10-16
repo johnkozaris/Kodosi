@@ -55,10 +55,10 @@ struct RoomsHome: View {
             confirmationTitle, isPresented: confirmationShown, titleVisibility: .visible, presenting: confirming
         ) { mission in
             if rooms.isOwner(of: mission.id) {
-                Button("Delete room", role: .destructive) { rooms.run(announcedByRuntime: true) { try await rooms.delete(mission.id) } }
+                Button("Delete room", role: .destructive) { rooms.run { try await rooms.delete(mission.id) } }
                     .accessibilityIdentifier("rooms.delete.confirm")
             } else {
-                Button("Leave room", role: .destructive) { rooms.run(announcedByRuntime: true) { try await rooms.leave(mission.id) } }
+                Button("Leave room", role: .destructive) { rooms.run { try await rooms.leave(mission.id) } }
                     .accessibilityIdentifier("rooms.leave.confirm")
             }
         } message: { mission in

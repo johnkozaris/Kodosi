@@ -1,4 +1,5 @@
 import AppKit
+import CoreText
 import KodosiDesign
 import SwiftUI
 
@@ -109,14 +110,20 @@ struct TerminalSettingsView: View {
             }
         }
         .animation(theme.motion.snappy, value: changed)
-        .onAppear {
-            draft = deps.settings.terminalSettings
-            let fixed = NSFontManager.shared.availableFontFamilies.filter { family in
-                NSFont(name: family, size: 12)?.isFixedPitch == true
-                    || NSFontManager.shared.font(withFamily: family, traits: [], weight: 5, size: 12)?.isFixedPitch == true
-            }
+        .onAppear { draft = deps.settings.terminalSettings }
+        .task {
+            let fixed = await Self.monospacedFamilies()
             families = Array(Set(fixed + [draft.fontFamily, DesktopSettings.TerminalDefaults.fontFamily])).sorted()
         }
+    }
+
+    @concurrent
+    private static func monospacedFamilies() async -> [String] {
+        let monospaced = CTFontDescriptorCreateWithAttributes([
+            kCTFontTraitsAttribute: [kCTFontSymbolicTrait: CTFontSymbolicTraits.traitMonoSpace.rawValue],
+        ] as CFDictionary)
+        let faces = CTFontDescriptorCreateMatchingFontDescriptors(monospaced, nil) as? [CTFontDescriptor] ?? []
+        return Array(Set(faces.compactMap { CTFontDescriptorCopyAttribute($0, kCTFontFamilyNameAttribute) as? String }))
     }
 }
 

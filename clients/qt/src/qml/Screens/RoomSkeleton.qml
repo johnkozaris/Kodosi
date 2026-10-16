@@ -28,10 +28,10 @@ Item {
         }
         Item { Layout.fillHeight: true }
     }
-    SequentialAnimation on opacity {
+    SequentialAnimation {
         running: root.visible && !KodosiTheme.reduceMotion && KodosiTheme.shown
         loops: Animation.Infinite
-        NumberAnimation { from: 0.4; to: 0.9; duration: 850; easing.type: Easing.InOutSine }
-        NumberAnimation { from: 0.9; to: 0.4; duration: 850; easing.type: Easing.InOutSine }
+        OpacityAnimator { target: root; from: 0.4; to: 0.9; duration: 850; easing.type: Easing.InOutSine }
+        OpacityAnimator { target: root; from: 0.9; to: 0.4; duration: 850; easing.type: Easing.InOutSine }
     }
 }

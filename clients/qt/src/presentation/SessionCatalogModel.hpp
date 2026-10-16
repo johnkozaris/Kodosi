@@ -14,7 +14,6 @@ class SessionCatalogModel final : public QAbstractListModel {
     Q_PROPERTY(QVariantList folderGroups READ folderGroups NOTIFY folderGroupsChanged)
     Q_PROPERTY(QVariantList sessions READ sessions NOTIFY folderGroupsChanged)
     Q_PROPERTY(QStringList attention READ attention NOTIFY attentionChanged)
-    Q_PROPERTY(bool working READ working NOTIFY folderGroupsChanged)
     Q_PROPERTY(AuthorityState authorityState READ authorityState NOTIFY authorityStateChanged)
     Q_PROPERTY(QString authorityError READ authorityError NOTIFY authorityStateChanged)
 public:
@@ -65,7 +64,6 @@ public:
     [[nodiscard]] QVariantList folderGroups() const;
     [[nodiscard]] QVariantList sessions() const;
     [[nodiscard]] QStringList attention() const { return m_attention; }
-    [[nodiscard]] bool working() const;
     Q_INVOKABLE void clearAttention(const QString& id);
     void noteAttention(const QString& id);
     // The last part of a folder path between separators, or the path if it has none, for

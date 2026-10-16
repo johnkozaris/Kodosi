@@ -51,7 +51,7 @@ struct SidebarView: View {
             }
             .frame(height: Metrics.titleBarHeight).padding(.trailing, 8)
             HStack(spacing: 8) {
-                KodosiWordmark(size: 16, blinks: deps.sessions.contains(where: \.isWorking))
+                KodosiWordmark(size: 16, blinks: false)
                 Spacer()
                 IconButton(title: "Go to…", symbol: "magnifyingglass", identifier: "sidebar.palette") {
                     deps.workbench.showsPalette = true
