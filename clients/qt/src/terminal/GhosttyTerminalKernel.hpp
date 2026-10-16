@@ -104,6 +104,19 @@ struct TerminalMouseEvent {
     bool anyButtonPressed = false;
 };
 
+struct TerminalClipboardOperation {
+    bool selection = false;
+    std::optional<QString> write;
+    QByteArray answerPrefix;
+    QByteArray answerTerminator;
+};
+
+using TerminalClipboardOperations = std::vector<TerminalClipboardOperation>;
+
+void appendClipboardOperation(
+    TerminalClipboardOperations& operations,
+    TerminalClipboardOperation operation);
+
 class GhosttyTerminalKernel final {
 public:
     struct Failure {
@@ -112,7 +125,6 @@ public:
             StaleSubscription,
             StaleFrame,
             HitTestRace,
-            UnsafePaste,
             SequenceMismatch,
             ResourceLimit,
             GhosttyRejected,
@@ -125,18 +137,6 @@ public:
         {
             return code == Code::StaleFrame || code == Code::HitTestRace;
         }
-    };
-
-    struct ClipboardWrite {
-        bool selection = false;
-        std::vector<std::pair<QString, QByteArray>> contents;
-    };
-
-    /// A program asks for the clipboard with OSC 52. The view that the person types in
-    /// answers it as input, so the program reads the clipboard of that person.
-    struct ClipboardRead {
-        /// The clipboard as OSC 52 names it: `c`, `s` or `p`.
-        char selector = 'c';
     };
 
     struct HistoryMemory {
@@ -161,6 +161,7 @@ public:
 
     [[nodiscard]] Result installCheckpoint(const TerminalCheckpoint& checkpoint);
     [[nodiscard]] Result applyData(const TerminalData& data);
+    [[nodiscard]] TerminalClipboardOperations takeClipboardOperations();
     /// The cell size is the host's, so images cover the same cells as on the host.
     [[nodiscard]] Result applyResize(
         const TerminalSubscription& subscription,
@@ -212,8 +213,6 @@ public:
     [[nodiscard]] std::optional<std::uint64_t> nextSequence() const;
     [[nodiscard]] bool compressHistory();
     [[nodiscard]] HistoryMemory historyMemory() const;
-    [[nodiscard]] std::optional<ClipboardWrite> takeClipboardWrite();
-    [[nodiscard]] std::optional<ClipboardRead> takeClipboardRead();
 
 private:
     class Impl;

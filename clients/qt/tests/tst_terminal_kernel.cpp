@@ -411,15 +411,15 @@ private slots:
     void terminalViewJoinsSurrogateHalvesFromSeparateKeyEvents();
     void terminalViewPastesClipboardThroughBoundedAuthority();
     void terminalViewTracksShiftInsertPasteReleaseExactly();
-    void terminalProgramsWriteTheClipboard();
+    void terminalProgramsWriteTheClipboardAndTheFocusedViewAsksBeforeAReadIsAnswered();
     void terminalProgramsReadTheClipboardOnlyWhenAllowed();
     void terminalViewWheelUpdatesFrameWithoutPtyInput();
     void terminalViewAcceptedInputReturnsViewportToBottom();
     void terminalViewSelectionAnchorSurvivesPresentedScroll();
     void terminalViewCancelsSelectionAgainstStaleDisplayedViewport();
     void terminalViewMailboxRejectsReversedDisplayRevisions();
-    void terminalLinkValidationRejectsUnsafeValues();
-    void terminalViewActivatesOnlySafeGhosttyLinks();
+    void terminalLinkValidationRejectsMalformedValues();
+    void terminalViewActivatesGhosttyLinks();
     void terminalViewCannotActivateLinkFromUndisplayedFrame();
     void terminalViewCancelsLinkReleaseOutsideBounds();
     void terminalViewCopySelectionStillUsesHostClipboard();
@@ -1492,22 +1492,14 @@ void TerminalKernelTest::pasteEncodingUsesRestoredTerminalModes()
     const auto multiline = kernel.encodePaste(
         subscription,
         QByteArrayLiteral("first\nsecond"));
-    QVERIFY(!multiline);
-    QCOMPARE(
-        multiline.error().code,
-        kodosi::GhosttyTerminalKernel::Failure::Code::UnsafePaste);
-    QVERIFY(multiline.error().message.contains(
-        QStringLiteral("bracketed paste")));
+    QVERIFY(multiline);
+    QCOMPARE(*multiline, QByteArrayLiteral("first\rsecond"));
 
     const auto control = kernel.encodePaste(
         subscription,
         QByteArrayLiteral("echo \x03"));
-    QVERIFY(!control);
-    QCOMPARE(
-        control.error().code,
-        kodosi::GhosttyTerminalKernel::Failure::Code::UnsafePaste);
-    QVERIFY(control.error().message.contains(
-        QStringLiteral("bracketed paste")));
+    QVERIFY(control);
+    QCOMPARE(*control, QByteArrayLiteral("echo  "));
 }
 
 void TerminalKernelTest::wheelScrollsGhosttyViewportWithoutChangingSequence()
@@ -1919,19 +1911,11 @@ void TerminalKernelTest::terminalViewPastesClipboardThroughBoundedAuthority()
         QStringLiteral("first\nsecond"),
         QClipboard::Clipboard);
     QCoreApplication::sendEvent(&view, &accepted);
-    QCOMPARE(dispatcher.inputCommands.size(), 1);
-    QCOMPARE(errors.count(), 1);
-    QVERIFY(errors.constLast().constFirst().toString().contains(
-        QStringLiteral("bracketed paste")));
 
     clipboard->setText(
         QStringLiteral("echo ") + QChar(0x03),
         QClipboard::Clipboard);
     QCoreApplication::sendEvent(&view, &accepted);
-    QCOMPARE(dispatcher.inputCommands.size(), 1);
-    QCOMPARE(errors.count(), 2);
-    QVERIFY(errors.constLast().constFirst().toString().contains(
-        QStringLiteral("bracketed paste")));
 
     registry.receiveData({
         subscription,
@@ -1945,9 +1929,12 @@ void TerminalKernelTest::terminalViewPastesClipboardThroughBoundedAuthority()
     QCoreApplication::sendEvent(&view, &accepted);
     const QVector<QByteArray> expectedPasteCommands {
         QByteArrayLiteral("accepted"),
+        QByteArrayLiteral("first\rsecond"),
+        QByteArrayLiteral("echo  "),
         QByteArrayLiteral("\x1b[200~first\nsecond\x1b[201~"),
     };
     QCOMPARE(dispatcher.inputCommands, expectedPasteCommands);
+    QCOMPARE(errors.count(), 0);
 
     clipboard->setText(
         QString(1024 * 1024 + 1, QLatin1Char('x')),
@@ -1958,8 +1945,8 @@ void TerminalKernelTest::terminalViewPastesClipboardThroughBoundedAuthority()
         Qt::ControlModifier | Qt::ShiftModifier,
         QStringLiteral("V"));
     QCoreApplication::sendEvent(&view, &oversized);
-    QCOMPARE(dispatcher.inputCommands.size(), 2);
-    QCOMPARE(errors.count(), 3);
+    QCOMPARE(dispatcher.inputCommands.size(), 4);
+    QCOMPARE(errors.count(), 1);
     QVERIFY(errors.constLast().constFirst().toString().contains(
         QStringLiteral("queue is full")));
 }
@@ -2011,11 +1998,14 @@ void TerminalKernelTest::terminalViewTracksShiftInsertPasteReleaseExactly()
     QCOMPARE(dispatcher.inputCommands.size(), 1);
 }
 
-void TerminalKernelTest::terminalProgramsWriteTheClipboard()
+void TerminalKernelTest::terminalProgramsWriteTheClipboardAndTheFocusedViewAsksBeforeAReadIsAnswered()
 {
     kodosi::TerminalSessionRegistry registry;
     FakeTerminalDispatcher dispatcher;
-    kodosi::TerminalView view(m_window.contentItem());
+    QQuickWindow window;
+    window.resize(800, 500);
+    kodosi::TerminalView view(window.contentItem());
+    view.setSize(QSizeF(800, 500));
     const kodosi::TerminalSubscription subscription {
         QStringLiteral("osc-clipboard"),
         QStringLiteral("osc-clipboard-subscription"),
@@ -2028,28 +2018,46 @@ void TerminalKernelTest::terminalProgramsWriteTheClipboard()
         subscription,
         QStringLiteral("osc-clipboard-incarnation")));
     makeTerminalReady(registry, subscription);
+    window.show();
 
     auto* clipboard = QGuiApplication::clipboard();
-    clipboard->setText(QStringLiteral("host-owned"), QClipboard::Clipboard);
+    clipboard->setText(QStringLiteral("before"), QClipboard::Clipboard);
     registry.receiveData({
         subscription,
         1,
-        QByteArrayLiteral("\x1b]52;c;?\x07"),
-    });
-    QCoreApplication::processEvents();
-    QCOMPARE(
-        clipboard->text(QClipboard::Clipboard),
-        QStringLiteral("host-owned"));
-
-    registry.receiveData({
-        subscription,
-        2,
-        QByteArrayLiteral("\x1b]52;c;Zmlyc3Q=\x07\x1b]52;c;dGVybWluYWwtb3duZWQ=\x07"),
+        QByteArrayLiteral("\x1b]52;c;a29kb3NpLWNsaXBib2FyZA==\x07"),
     });
     QTRY_COMPARE(
         clipboard->text(QClipboard::Clipboard),
-        QStringLiteral("terminal-owned"));
+        QStringLiteral("kodosi-clipboard"));
+
+    QSignalSpy requests(&view, &kodosi::TerminalView::clipboardReadRequested);
+    registry.receiveData({subscription, 2, QByteArrayLiteral("\x1b]52;c;?\x07")});
+    QCoreApplication::processEvents();
+    QCOMPARE(requests.count(), 0);
     QCOMPARE(dispatcher.inputCommands.size(), 0);
+
+    window.requestActivate();
+    view.forceActiveFocus();
+    QTRY_VERIFY(window.isActive() && view.hasActiveFocus());
+    registry.receiveData({subscription, 3, QByteArrayLiteral("\x1b]52;c;?\x07")});
+    QTRY_COMPARE(requests.count(), 1);
+    QCOMPARE(dispatcher.inputCommands.size(), 0);
+    view.answerClipboardRead(true);
+    QTRY_COMPARE(
+        dispatcher.inputCommands,
+        QVector<QByteArray> {QByteArrayLiteral("\x1b]52;c;a29kb3NpLWNsaXBib2FyZA==\x07")});
+
+    QSignalSpy errors(&view, &kodosi::TerminalView::terminalError);
+    for (std::uint64_t sequence = 4; sequence < 104; ++sequence) {
+        registry.receiveData({
+            subscription,
+            sequence,
+            "\x1b]52;c;" + QByteArray::number(sequence).toBase64() + "\x07",
+        });
+    }
+    QTRY_COMPARE(clipboard->text(QClipboard::Clipboard), QStringLiteral("103"));
+    QCOMPARE(errors.count(), 0);
 }
 
 void TerminalKernelTest::terminalProgramsReadTheClipboardOnlyWhenAllowed()
@@ -2071,7 +2079,7 @@ void TerminalKernelTest::terminalProgramsReadTheClipboardOnlyWhenAllowed()
     window.show();
     window.requestActivate();
     view.forceActiveFocus();
-    QTRY_VERIFY(view.hasActiveFocus());
+    QTRY_VERIFY(window.isActive() && view.hasActiveFocus());
     QGuiApplication::clipboard()->setText(QStringLiteral("host text"), QClipboard::Clipboard);
     QSignalSpy requests(&view, &kodosi::TerminalView::clipboardReadRequested);
 
@@ -2083,9 +2091,9 @@ void TerminalKernelTest::terminalProgramsReadTheClipboardOnlyWhenAllowed()
     QCOMPARE(
         dispatcher.inputCommands.last(),
         QByteArrayLiteral("\x1b]52;c;") + QByteArrayLiteral("host text").toBase64()
-            + QByteArrayLiteral("\x1b\\"));
+            + QByteArrayLiteral("\x07"));
 
-    registry.receiveData({subscription, 2, QByteArrayLiteral("\x1b]52;c;?\x07")});
+    registry.receiveData({subscription, 2, QByteArrayLiteral("\x1b]52;c;?\x1b\\")});
     QTRY_COMPARE(requests.count(), 2);
     view.answerClipboardRead(false);
     QTRY_COMPARE(dispatcher.inputCommands.size(), 2);
@@ -2470,18 +2478,18 @@ void TerminalKernelTest::terminalViewCancelsSelectionAgainstStaleDisplayedViewpo
     QCOMPARE(errors.count(), 0);
 }
 
-void TerminalKernelTest::terminalLinkValidationRejectsUnsafeValues()
+void TerminalKernelTest::terminalLinkValidationRejectsMalformedValues()
 {
     QVERIFY(kodosi::validatedTerminalLink(
         QStringLiteral("https://example.com/path")));
     QVERIFY(kodosi::validatedTerminalLink(
-        QStringLiteral("http://example.com")));
-    QVERIFY(kodosi::validatedTerminalLink(
         QStringLiteral("mailto:user@example.com")));
+    QVERIFY(kodosi::validatedTerminalLink(
+        QStringLiteral("file:///home/user/project/main.rs")));
+    QVERIFY(kodosi::validatedTerminalLink(
+        QStringLiteral("vscode://file/home/user/project/main.rs:12")));
     QVERIFY(!kodosi::validatedTerminalLink(
-        QStringLiteral("file:///home/user/secret")));
-    QVERIFY(!kodosi::validatedTerminalLink(
-        QStringLiteral("javascript:alert(1)")));
+        QStringLiteral("project/main.rs")));
     QVERIFY(!kodosi::validatedTerminalLink(
         QStringLiteral("https://example.com/\nnext")));
     QVERIFY(!kodosi::validatedTerminalLink(
@@ -2492,7 +2500,7 @@ void TerminalKernelTest::terminalLinkValidationRejectsUnsafeValues()
         QStringLiteral("https://example.com/%E2%80%AEtxt")));
 }
 
-void TerminalKernelTest::terminalViewActivatesOnlySafeGhosttyLinks()
+void TerminalKernelTest::terminalViewActivatesGhosttyLinks()
 {
     kodosi::TerminalSessionRegistry registry;
     FakeTerminalDispatcher dispatcher;
@@ -2528,6 +2536,10 @@ void TerminalKernelTest::terminalViewActivatesOnlySafeGhosttyLinks()
     UrlCapture capture;
     QDesktopServices::setUrlHandler(
         QStringLiteral("https"),
+        &capture,
+        "capture");
+    QDesktopServices::setUrlHandler(
+        QStringLiteral("file"),
         &capture,
         "capture");
     const auto cell = kodosi::TerminalRasterizer::cellSize(
@@ -2572,33 +2584,36 @@ void TerminalKernelTest::terminalViewActivatesOnlySafeGhosttyLinks()
     view.setTerminalInteraction(true, false);
 
     const QPointF filePoint(cell.width() * 6.5, cell.height() * 0.5);
-    QHoverEvent unsafeHover(
+    QHoverEvent fileHover(
         QEvent::HoverMove,
         filePoint,
         filePoint,
         safePoint,
         Qt::NoModifier);
-    QCoreApplication::sendEvent(&view, &unsafeHover);
-    QCOMPARE(view.cursor().shape(), Qt::ArrowCursor);
-    QMouseEvent unsafePress(
+    QCoreApplication::sendEvent(&view, &fileHover);
+    QCOMPARE(view.cursor().shape(), Qt::PointingHandCursor);
+    QMouseEvent filePress(
         QEvent::MouseButtonPress,
         filePoint,
         filePoint,
         Qt::LeftButton,
         Qt::LeftButton,
         Qt::NoModifier);
-    QMouseEvent unsafeRelease(
+    QMouseEvent fileRelease(
         QEvent::MouseButtonRelease,
         filePoint,
         filePoint,
         Qt::LeftButton,
         Qt::NoButton,
         Qt::NoModifier);
-    QCoreApplication::sendEvent(&view, &unsafePress);
-    QCoreApplication::sendEvent(&view, &unsafeRelease);
-    QCoreApplication::processEvents();
-    QCOMPARE(capture.values.size(), 1);
+    QCoreApplication::sendEvent(&view, &filePress);
+    QCoreApplication::sendEvent(&view, &fileRelease);
+    QTRY_COMPARE_WITH_TIMEOUT(capture.values.size(), 2, 250);
+    QCOMPARE(
+        capture.values.constLast(),
+        QUrl(QStringLiteral("file:///home/user/secret")));
     QDesktopServices::unsetUrlHandler(QStringLiteral("https"));
+    QDesktopServices::unsetUrlHandler(QStringLiteral("file"));
 }
 
 void TerminalKernelTest::terminalViewCannotActivateLinkFromUndisplayedFrame()

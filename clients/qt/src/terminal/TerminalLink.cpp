@@ -50,19 +50,6 @@ std::optional<QUrl> validatedTerminalLink(const QString& value)
     if (!url.isValid() || url.isRelative()) {
         return std::nullopt;
     }
-    const auto scheme = url.scheme().toLower();
-    if (scheme != QStringLiteral("http")
-        && scheme != QStringLiteral("https")
-        && scheme != QStringLiteral("mailto")) {
-        return std::nullopt;
-    }
-    if ((scheme == QStringLiteral("http") || scheme == QStringLiteral("https"))
-        && url.host().isEmpty()) {
-        return std::nullopt;
-    }
-    if (scheme == QStringLiteral("mailto") && url.path().isEmpty()) {
-        return std::nullopt;
-    }
     return url;
 }
 

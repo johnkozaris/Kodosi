@@ -628,11 +628,10 @@ bool TerminalView::attach(
                 outcome.reason = outcome.reason.left(1024);
                 enqueueGuiEvent(epoch, std::move(outcome));
             },
-            .clipboardWritten = [this, epoch](auto write) {
-                enqueueGuiEvent(epoch, std::move(write));
-            },
-            .clipboardRead = [this, epoch](auto read) { enqueueGuiEvent(epoch, read); },
             .closed = [this, epoch] { enqueueGuiEvent(epoch, Closed {}); },
+            .clipboard = [this, epoch](auto operations) {
+                enqueueGuiEvent(epoch, std::move(operations));
+            },
         },
         kernelSettings());
     if (!registered) {
@@ -856,14 +855,15 @@ void TerminalView::enqueueGuiEvent(const std::uint64_t epoch, GuiEvent event)
     std::scoped_lock lock(m_guiEventMutex);
     if (m_attachmentEpoch.load(std::memory_order_acquire) != epoch || m_guiOverflow)
         return;
-    // A newer clipboard request replaces one of its kind that waits.
-    if (std::holds_alternative<GhosttyTerminalKernel::ClipboardWrite>(event)
-        || std::holds_alternative<GhosttyTerminalKernel::ClipboardRead>(event)) {
-        std::erase_if(m_guiEvents, [&event](const GuiEvent& queued) {
-            return queued.index() == event.index();
-        });
-    }
-    if (m_guiEvents.size() >= 64) {
+    auto* clipboard = std::get_if<TerminalClipboardOperations>(&event);
+    auto* queuedClipboard = m_guiEvents.empty()
+        ? nullptr
+        : std::get_if<TerminalClipboardOperations>(&m_guiEvents.back());
+    if (clipboard != nullptr && queuedClipboard != nullptr) {
+        for (auto& operation : *clipboard) {
+            appendClipboardOperation(*queuedClipboard, std::move(operation));
+        }
+    } else if (m_guiEvents.size() >= 64) {
         m_guiEvents.clear();
         m_guiOverflow = true;
     } else {
@@ -907,10 +907,8 @@ void TerminalView::drainGuiEvents(const std::uint64_t epoch)
                 handleFocusOutcome(std::move(value));
             } else if constexpr (std::is_same_v<T, TerminalResizeOutcome>) {
                 handleResizeOutcome(std::move(value));
-            } else if constexpr (std::is_same_v<T, GhosttyTerminalKernel::ClipboardWrite>) {
-                writeClipboard(std::move(value));
-            } else if constexpr (std::is_same_v<T, GhosttyTerminalKernel::ClipboardRead>) {
-                requestClipboardRead(value);
+            } else if constexpr (std::is_same_v<T, TerminalClipboardOperations>) {
+                applyClipboard(value);
             } else {
                 drainFrame(epoch);
                 if (m_attachmentEpoch.load(std::memory_order_acquire) != epoch) return;

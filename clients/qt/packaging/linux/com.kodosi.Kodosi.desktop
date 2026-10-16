@@ -8,4 +8,5 @@ Terminal=false
 Categories=Development;
 Keywords=agents;terminal;development;room;
 StartupNotify=true
+StartupWMClass=Kodosi
 MimeType=x-scheme-handler/kodosi;

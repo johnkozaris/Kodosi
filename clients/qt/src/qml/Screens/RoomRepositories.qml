@@ -29,7 +29,7 @@ Item {
     Accessible.id: objectName
     onRepositoriesChanged: {
         if (visible && !selected && repositories.length)
-            select(repositories[0].id);
+            Qt.callLater(select, repositories[0].id);
     }
     Component.onCompleted: {
         if (!visible)

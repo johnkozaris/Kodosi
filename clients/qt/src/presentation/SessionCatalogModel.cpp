@@ -20,10 +20,16 @@ QString withSlashes(QString path)
 SessionCatalogModel::SessionCatalogModel(QObject* parent)
     : QAbstractListModel(parent)
 {
+    connect(this, &QAbstractItemModel::modelAboutToBeReset, this, [this] {
+        m_sessionsCache.reset();
+        m_groupsCache.reset();
+    });
     connect(this, &QAbstractItemModel::modelReset, this, &SessionCatalogModel::folderGroupsChanged);
 }
 QVariantList SessionCatalogModel::folderGroups() const
 {
+    if (m_groupsCache)
+        return *m_groupsCache;
     QMap<QString, QVariantMap> groups;
     for (const auto& session : m_sessions) {
         const auto local = session.kind == QStringLiteral("local");
@@ -44,13 +50,17 @@ QVariantList SessionCatalogModel::folderGroups() const
     }
     QVariantList result;
     for (const auto& group : groups) result.append(group);
+    m_groupsCache = result;
     return result;
 }
 
 QVariantList SessionCatalogModel::sessions() const
 {
+    if (m_sessionsCache)
+        return *m_sessionsCache;
     QVariantList result;
     for (const auto& session : m_sessions) result.append(fields(session));
+    m_sessionsCache = result;
     return result;
 }
 
@@ -238,18 +248,13 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
         { QStringLiteral("ownerUserId"), s->ownerUserId },
         { QStringLiteral("kind"), s->kind }, { QStringLiteral("workingDirectory"), local ? withSlashes(s->workingDirectory) : QString {} },
         { QStringLiteral("displayDirectory"), s->workingDirectory },
-        { QStringLiteral("headerTitle"), s->title.isEmpty() || s->title == s->name ? s->name : s->name + QStringLiteral(" · ") + s->title },
         { QStringLiteral("program"), s->program }, { QStringLiteral("connectedUsers"), s->connectedUsers },
         { QStringLiteral("placeKind"), s->placeKind }, { QStringLiteral("placeName"), s->placeName },
         { QStringLiteral("placeLabel"), placeLabel(session) }, { QStringLiteral("root"), s->root },
-        { QStringLiteral("ownerName"), s->ownerName }, { QStringLiteral("hostName"), s->hostName },
-        { QStringLiteral("missionId"), s->missionId }, { QStringLiteral("missionName"), s->missionName },
-        { QStringLiteral("status"), s->status }, { QStringLiteral("message"), s->message },
+        { QStringLiteral("ownerName"), s->ownerName }, { QStringLiteral("missionId"), s->missionId },
+        { QStringLiteral("missionName"), s->missionName }, { QStringLiteral("status"), s->status }, { QStringLiteral("message"), s->message },
         { QStringLiteral("connectionState"), s->connectionState }, { QStringLiteral("isOwner"), s->isOwner },
-        { QStringLiteral("sharedWith"), s->sharedWith },
-        { QStringLiteral("canRetainPresentation"), p.canRetainPresentation },
-        { QStringLiteral("isRemoteConnectable"), p.isRemoteConnectable },
-        { QStringLiteral("canControl"), p.canControl } };
+        { QStringLiteral("sharedWith"), s->sharedWith }, { QStringLiteral("canControl"), p.canControl } };
 }
 std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJsonObject& o)
 {
@@ -344,7 +349,6 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
     s.missionId = text("missionId");
     s.missionName = text("missionName");
     s.message = text("message");
-    s.createRequestId = text("createRequestId");
     for (const auto& v : o.value(QStringLiteral("sharedWith")).toArray()) {
         if (!v.isString() || QUuid(v.toString()).isNull())
             return std::nullopt;
@@ -388,6 +392,14 @@ void SessionCatalogModel::apply(const QJsonObject& event)
     }
     attention.removeIf([&](const QString& id) { return !ids.contains(id); });
     const bool attentionMoved = attention != m_attention;
+    // A program that animates its title sends a snapshot for each frame. When nothing
+    // that Kodosi shows changed, keep the views as they are.
+    if (m_state == Loaded && !attentionMoved && alerts.isEmpty() && samePresentation(m_sessions, result)) {
+        m_sessions = std::move(result);
+        emit authoritativeSnapshotApplied();
+        return;
+    }
+    const auto counted = m_sessions.size();
     beginResetModel();
     m_sessions = std::move(result);
     m_attention = std::move(attention);
@@ -396,12 +408,21 @@ void SessionCatalogModel::apply(const QJsonObject& event)
     endResetModel();
     if (attentionMoved)
         emit attentionChanged();
-    emit countChanged();
+    if (m_sessions.size() != counted)
+        emit countChanged();
     emit authorityStateChanged();
     emit authoritativeSnapshotApplied();
     for (const auto& [id, text] : std::as_const(alerts))
         emit alertChanged(id, text);
 }
+bool SessionCatalogModel::samePresentation(const QVector<Session>& before, const QVector<Session>& after) const
+{
+    return std::ranges::equal(before, after, [this](const Session& left, const Session& right) {
+        return left.id == right.id && left.incarnationId == right.incarnationId && left.repository == right.repository
+            && left.prompt == right.prompt && fields(left) == fields(right);
+    });
+}
+
 void SessionCatalogModel::resetRuntimeAuthority()
 {
     beginResetModel();

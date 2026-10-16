@@ -86,10 +86,7 @@ extension TerminalViewState: @retroactive TerminalSurfaceOpenURLDelegate {
         _ url: String,
         kind _: TerminalOpenURLKind
     ) {
-        guard let parsed = URL(string: url),
-              let scheme = parsed.scheme?.lowercased(),
-              ["https", "http", "mailto"].contains(scheme)
-        else { return }
+        guard let parsed = URL(string: url), parsed.scheme != nil else { return }
         #if os(macOS)
             NSWorkspace.shared.open(parsed)
         #elseif os(iOS)

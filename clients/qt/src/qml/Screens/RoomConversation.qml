@@ -203,7 +203,8 @@ Item {
                     readonly property bool newDay: !previous || new Date(previous.createdAt).toDateString() !== sent.toDateString()
                     readonly property bool grouped: !newDay && !!previous && previous.authorId === modelData.authorId && (previous.agent || "") === (modelData.agent || "")
                         && sent.getTime() - new Date(previous.createdAt).getTime() < 300000
-                    readonly property bool mentionsMe: !own && Mentions.mentionsUser(modelData.text, root.targets, Models.Account.userId)
+                    readonly property var parts: Mentions.segments(modelData.text, root.targets)
+                    readonly property bool mentionsMe: !own && Mentions.mentions(parts, Models.Account.userId)
                     readonly property var terminal: modelData.terminalId ? (Models.Sessions.sessions.find(session => session.id === modelData.terminalId) || null) : null
 
                     width: transcript.width - transcript.rightMargin
@@ -292,15 +293,35 @@ Item {
                                     implicitWidth: Math.min(body.implicitWidth + (entry.own ? 24 : 0), entry.width - 44)
                                     implicitHeight: body.implicitHeight + (entry.own ? 14 : 0)
                                     radius: 16
+                                    bottomRightRadius: entry.own ? 6 : 16
                                     color: entry.own ? KodosiTheme.accentSoft : "transparent"
 
+                                    Repeater {
+                                        model: Mentions.chips(entry.parts, Models.Account.userId)
+
+                                        Rectangle {
+                                            required property var modelData
+                                            readonly property rect head: body.text.length > 0 && body.width > 0 && body.contentHeight > 0
+                                                ? body.positionToRectangle(modelData.start) : Qt.rect(0, 0, 0, 0)
+                                            readonly property rect tail: body.text.length > 0 && body.width > 0 && body.contentHeight > 0
+                                                ? body.positionToRectangle(modelData.end) : Qt.rect(0, 0, 0, 0)
+
+                                            x: body.x + head.x - 3
+                                            y: body.y + head.y
+                                            width: tail.x - head.x + 6
+                                            height: head.height
+                                            radius: 5
+                                            visible: head.y === tail.y && tail.x > head.x
+                                            color: KodosiTheme.alpha(modelData.color, 0.18)
+                                        }
+                                    }
                                     TextEdit {
                                         id: body
                                         anchors.fill: parent
                                         anchors.leftMargin: entry.own ? 12 : 0
                                         anchors.rightMargin: entry.own ? 12 : 0
                                         anchors.topMargin: entry.own ? 7 : 0
-                                        text: Mentions.html(entry.modelData.text, root.targets, entry.own || entry.mentionsMe ? KodosiTheme.mix(KodosiTheme.accentSoft, KodosiTheme.accent, 0.28) : KodosiTheme.accentSoft, KodosiTheme.accentStrong)
+                                        text: Mentions.html(entry.parts, Models.Account.userId)
                                         color: KodosiTheme.ink
                                         font.pixelSize: KodosiTheme.fontBody
                                         readOnly: true
@@ -360,13 +381,18 @@ Item {
                 }
             }
             KButton {
+                readonly property int unread: root.presentation.unread || 0
+
                 anchors.bottom: parent.bottom
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottomMargin: 8
                 visible: !transcript.atYEnd && root.messages.length > 0
                 compact: true
-                text: qsTr("Latest")
+                variant: unread > 0 ? KButton.Primary : KButton.Secondary
+                text: unread > 0 ? qsTr("%n new", "", unread) : qsTr("Latest")
                 iconName: "chevron-down"
+                objectName: "room.messages.latest"
+                Accessible.id: objectName
                 onClicked: { transcript.positionViewAtEnd(); Models.Missions.setPresentation("followLatest", true); }
             }
         }

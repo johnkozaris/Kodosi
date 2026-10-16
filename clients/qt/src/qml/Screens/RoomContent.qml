@@ -21,7 +21,11 @@ Item {
     readonly property var tasks: room.tasks || []
     readonly property int doneTasks: tasks.filter(task => task.closed).length
     readonly property string shownTerminal: presentation.terminal || ""
+    readonly property var fresh: presentation.fresh || []
+    readonly property int unread: presentation.unread || 0
     readonly property real sheetWidth: Math.max(300, Math.min(540, presentation.conversationWidth || 372))
+    readonly property var mine: Models.Sessions.sessions.filter(session => session.kind === "local" && session.isOwner === true
+        && session.missionId !== Models.Missions.selectedMissionId)
     property bool renaming: false
 
     signal inspectSessionRequested(string sessionId)
@@ -103,7 +107,7 @@ Item {
                         spacing: 5
                         visible: !root.renaming
                         KIcon { Layout.preferredWidth: 10; Layout.preferredHeight: 10; name: "lock"; strokeWidth: 2.4; color: KodosiTheme.inkFaint }
-                        PlainLabel {
+                        RollingText {
                             text: Identity.count(root.members.length, qsTr("1 person"), qsTr("%1 people")) + " · " + Identity.count(root.sessionIds.length, qsTr("1 terminal"), qsTr("%1 terminals"))
                             color: KodosiTheme.inkMuted
                             font.pixelSize: KodosiTheme.fontCaption
@@ -117,8 +121,10 @@ Item {
                     currentValue: root.canvas
                     options: [
                         { value: 0, label: qsTr("Terminals"), icon: "terminal", count: root.sessionIds.length },
-                        { value: 1, label: qsTr("Tasks"), count: root.tasks.length - root.doneTasks, progress: root.tasks.length > 0 ? root.doneTasks / root.tasks.length : 0 },
-                        { value: 2, label: qsTr("Repositories"), icon: "repository", count: (root.room.repositories || []).length }
+                        { value: 1, label: qsTr("Tasks"), count: root.tasks.length - root.doneTasks, progress: root.tasks.length > 0 ? root.doneTasks / root.tasks.length : 0,
+                            fresh: root.fresh.indexOf(1) >= 0 },
+                        { value: 2, label: qsTr("Repositories"), icon: "repository", count: (root.room.repositories || []).length,
+                            fresh: root.fresh.indexOf(2) >= 0 }
                     ]
                     onActivated: value => {
                         Models.Missions.setPresentation("canvas", value);
@@ -232,9 +238,16 @@ Item {
                     size: 30
                     active: root.conversation
                     Accessible.name: root.conversation ? qsTr("Hide conversation") : qsTr("Show conversation")
+                    Accessible.description: !root.conversation && root.unread > 0 ? qsTr("%n new messages", "", root.unread) : ""
                     onClicked: Models.Missions.setPresentation("conversation", !root.conversation)
                     objectName: "room.conversation.toggle"
                     Accessible.id: objectName
+
+                    CountBadge {
+                        x: parent.width - width + 6
+                        y: -4
+                        count: root.conversation ? 0 : root.unread
+                    }
                 }
                 KIconButton {
                     id: optionsButton
@@ -365,7 +378,7 @@ Item {
                                     id: addMenu
                                     KMenuItem { text: qsTr("New terminal"); iconName: "plus"; onTriggered: root.newTerminal() }
                                     Instantiator {
-                                        model: Models.Sessions.sessions.filter(session => session.kind === "local" && session.isOwner === true && session.missionId !== Models.Missions.selectedMissionId)
+                                        model: root.mine
                                         onObjectAdded: (index, item) => addMenu.insertItem(index + 1, item)
                                         onObjectRemoved: (index, item) => addMenu.removeItem(item)
                                         delegate: KMenuItem {
@@ -405,9 +418,46 @@ Item {
                                 visible: !terminal.active && root.sessionIds.length === 0
                                 title: qsTr("No terminals here yet")
                                 message: qsTr("Add one. Everyone in the room gets full control.")
-                                art: AgentMark { size: 52; asleep: true }
+                                art: Item {
+                                    implicitWidth: 190
+                                    implicitHeight: 96
+
+                                    DashedSlot { anchors.fill: parent; radius: KodosiTheme.radiusLg }
+                                    Row {
+                                        x: 16
+                                        y: 16
+                                        spacing: 8
+
+                                        KIcon { width: 18; height: 20; name: "prompt"; strokeWidth: 3; color: KodosiTheme.inkFaint }
+                                        CursorBlock { width: 11; height: 20; blinks: true }
+                                    }
+                                }
 
                                 KButton { text: qsTr("New terminal"); iconName: "plus"; variant: KButton.Primary; objectName: "room.terminal.new"; Accessible.id: objectName; onClicked: root.newTerminal() }
+                                KButton {
+                                    id: shareMine
+                                    visible: root.mine.length > 0
+                                    text: qsTr("Share one of mine")
+                                    objectName: "room.terminal.share"
+                                    Accessible.id: objectName
+                                    onClicked: mineMenu.popup(shareMine, 0, shareMine.height + 4)
+
+                                    KMenu {
+                                        id: mineMenu
+
+                                        Instantiator {
+                                            model: root.mine
+                                            onObjectAdded: (index, item) => mineMenu.insertItem(index, item)
+                                            onObjectRemoved: (index, item) => mineMenu.removeItem(item)
+                                            delegate: KMenuItem {
+                                                required property var modelData
+                                                text: modelData.name
+                                                iconName: "terminal"
+                                                onTriggered: Models.SessionActions.attachMission(modelData.id, Models.Missions.selectedMissionId)
+                                            }
+                                        }
+                                    }
+                                }
                             }
                             KScrollView {
                                 id: openGrid

@@ -144,11 +144,11 @@ void DesktopStateModel::attachWindow(QWindow* window, std::optional<QSize> overr
     if (!window)
         return;
     const auto* screen = window->screen() ? window->screen() : QGuiApplication::primaryScreen();
-    const QRect available = screen ? screen->availableGeometry() : QRect(0, 0, 1240, 800);
+    const QRect available = screen ? screen->availableGeometry() : QRect(0, 0, 1280, 820);
     window->setMinimumSize(QSize(std::min(820, available.width()), std::min(560, available.height())));
     QRect geometry = m_settings
                          ->value(QStringLiteral("window/geometry"),
-                             QRect(available.topLeft() + QPoint(40, 40), QSize(1240, 800)))
+                             QRect(available.topLeft() + QPoint(40, 40), QSize(1280, 820)))
                          .toRect();
     if (overrideSize)
         geometry.setSize(*overrideSize);

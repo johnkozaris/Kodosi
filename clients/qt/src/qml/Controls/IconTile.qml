@@ -12,16 +12,16 @@ Item {
     implicitHeight: size
     Accessible.ignored: true
 
-    Rectangle {
+    Squircle {
         anchors.fill: parent
-        radius: root.size * 0.3
-        gradient: Gradient {
-            GradientStop { position: 0; color: KodosiTheme.mix(root.tint, "#ffffff", 0.22) }
-            GradientStop { position: 0.5; color: root.tint }
-            GradientStop { position: 1; color: KodosiTheme.mix(root.tint, "#000000", 0.2) }
-        }
-        border.width: 1
-        border.color: Qt.rgba(1, 1, 1, 0.18)
+        lightColor: KodosiTheme.mix(root.tint, "#ffffff", 0.22)
+        baseColor: root.tint
+        darkColor: KodosiTheme.mix(root.tint, "#000000", 0.2)
+        rim: 0.75
+        shadow: KodosiTheme.isDark ? 0.4 : 0.18
+        shadowRadius: root.size * 0.08
+        shadowX: 1
+        shadowY: 2
     }
     KIcon {
         anchors.centerIn: parent

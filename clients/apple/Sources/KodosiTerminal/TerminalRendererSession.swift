@@ -282,6 +282,8 @@ public final class TerminalRendererSession: ObservableObject {
 
     /// The view replays the host's output, so it stores images as the host does.
     nonisolated static let hostManagedPolicyOverrides: [(key: String, value: String)] = [
+        ("clipboard-read", "allow"),
+        ("clipboard-write", "allow"),
         ("image-storage-limit", String(KODOSI_TERMINAL_IMAGE_STORAGE_MAX_BYTES)),
     ]
 

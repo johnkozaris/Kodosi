@@ -12,6 +12,15 @@ Item {
     readonly property bool selected: Models.Missions.selectedMissionId.length > 0
     readonly property var rooms: Models.Missions.missions
     readonly property var invitations: Models.Missions.invitations
+    readonly property var terminals: {
+        const byRoom = {}
+        for (const session of Models.Sessions.sessions) {
+            if (session.missionId)
+                (byRoom[session.missionId] = byRoom[session.missionId] || []).push(session)
+        }
+        return byRoom
+    }
+    readonly property int shared: Models.Sessions.sessions.filter(session => !!session.missionId).length
 
     signal inspectSessionRequested(string sessionId)
     signal shareSessionRequested(string sessionId)
@@ -69,8 +78,10 @@ Item {
                     Layout.fillWidth: true
                     spacing: 4
                     PlainLabel { text: qsTr("Rooms"); font.pixelSize: KodosiTheme.fontLarge; font.weight: Font.DemiBold; font.letterSpacing: -0.6 }
-                    PlainLabel {
-                        text: Identity.count(root.rooms.length, qsTr("1 room"), qsTr("%1 rooms"))
+                    RollingText {
+                        text: root.rooms.length === 0 ? qsTr("A room keeps people, agents and terminals in one place.")
+                            : Identity.count(root.rooms.length, qsTr("1 room"), qsTr("%1 rooms")) + " · "
+                                + Identity.count(root.shared, qsTr("1 shared terminal"), qsTr("%1 shared terminals"))
                         color: KodosiTheme.inkMuted
                         font.pixelSize: KodosiTheme.fontFootnote
                     }
@@ -114,19 +125,18 @@ Item {
                         anchors.rightMargin: 12
                         spacing: 12
 
-                        RoomSigil { key: invitation.modelData.missionId || ""; size: 36 }
+                        RoomSigil { key: invitation.modelData.missionId || ""; size: 40 }
                         ColumnLayout {
                             Layout.fillWidth: true
                             spacing: 2
                             PlainLabel { Layout.fillWidth: true; text: invitation.modelData.missionName || ""; font.pixelSize: KodosiTheme.fontHeadline; font.weight: Font.DemiBold; elide: Text.ElideRight }
-                            PlainLabel { text: qsTr("You are invited"); color: KodosiTheme.inkMuted; font.pixelSize: KodosiTheme.fontFootnote }
-                        }
-                        KButton {
-                            variant: KButton.Primary
-                            text: qsTr("Join")
-                            objectName: "panel.missionsView.accept." + invitation.modelData.id
-                            Accessible.id: objectName
-                            onClicked: Models.Missions.acceptInvitation(invitation.modelData.id)
+                            PlainLabel {
+                                Layout.fillWidth: true
+                                text: invitation.modelData.inviterName ? qsTr("%1 invited you").arg(invitation.modelData.inviterName) : qsTr("You are invited")
+                                color: KodosiTheme.inkMuted
+                                font.pixelSize: KodosiTheme.fontFootnote
+                                elide: Text.ElideRight
+                            }
                         }
                         KButton {
                             variant: KButton.Ghost
@@ -135,6 +145,13 @@ Item {
                             Accessible.id: objectName
                             Accessible.name: qsTr("Decline invitation")
                             onClicked: Models.Missions.declineInvitation(invitation.modelData.id)
+                        }
+                        KButton {
+                            variant: KButton.Primary
+                            text: qsTr("Join")
+                            objectName: "panel.missionsView.accept." + invitation.modelData.id
+                            Accessible.id: objectName
+                            onClicked: Models.Missions.acceptInvitation(invitation.modelData.id)
                         }
                     }
                 }
@@ -151,6 +168,9 @@ Item {
                         id: card
 
                         required property var modelData
+                        readonly property bool unread: Models.Missions.unreadRooms.indexOf(modelData.id) >= 0
+                        readonly property var sessions: root.terminals[modelData.id] || []
+                        readonly property bool working: sessions.some(session => session.working === true)
 
                         width: grid.cardWidth
                         height: 132
@@ -159,7 +179,9 @@ Item {
                         objectName: "missions.room." + modelData.id
                         Accessible.id: objectName
                         Accessible.name: modelData.name
+                        Accessible.description: unread ? qsTr("New messages") : ""
                         scale: pressed ? 0.98 : 1
+                        transform: Translate { y: card.hovered ? -2 : 0; Behavior on y { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic } } }
 
                         Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover } }
 
@@ -169,26 +191,60 @@ Item {
                             elevation: card.hovered ? 2 : 1
                         }
                         contentItem: Item {
-                            RoomSigil { x: 16; y: 16; key: card.modelData.id; size: 40 }
+                            RoomSigil { x: 16; y: 16; key: card.modelData.id; size: 44 }
                             NewDot {
-                                x: parent.width - width - 18
+                                x: parent.width - width - 20
                                 y: 20
-                                visible: !card.hovered && Models.Missions.unreadRooms.indexOf(card.modelData.id) >= 0
+                                visible: card.unread
+                            }
+                            Tag {
+                                x: parent.width - width - 16
+                                y: 16
+                                visible: !card.unread && card.modelData.ownerUserId === Models.Account.userId
+                                text: qsTr("Yours")
                             }
                             ColumnLayout {
                                 anchors.left: parent.left
                                 anchors.right: parent.right
                                 anchors.bottom: parent.bottom
                                 anchors.margins: 16
-                                spacing: 3
+                                spacing: 6
                                 PlainLabel { Layout.fillWidth: true; text: card.modelData.name; font.pixelSize: KodosiTheme.fontHeadline; font.weight: Font.DemiBold; elide: Text.ElideRight }
-                                PlainLabel {
-                                    text: card.modelData.ownerUserId === Models.Account.userId ? qsTr("Your room") : qsTr("Shared with you")
-                                    color: KodosiTheme.inkMuted
-                                    font.pixelSize: KodosiTheme.fontFootnote
+                                RowLayout {
+                                    Layout.preferredHeight: 24
+                                    spacing: 6
+
+                                    PlainLabel {
+                                        visible: card.sessions.length === 0
+                                        text: qsTr("No terminals yet")
+                                        color: KodosiTheme.inkFaint
+                                        font.pixelSize: KodosiTheme.fontFootnote
+                                    }
+                                    Row {
+                                        visible: card.sessions.length > 0
+                                        spacing: -4
+
+                                        Repeater {
+                                            model: card.sessions.slice(0, 5)
+
+                                            AgentMark {
+                                                required property var modelData
+
+                                                program: modelData.program || ""
+                                                session: modelData
+                                                size: 18
+                                            }
+                                        }
+                                    }
+                                    ShimmerText {
+                                        visible: card.sessions.length > 0
+                                        text: card.working ? qsTr("Working") : Identity.count(card.sessions.length, qsTr("1 terminal"), qsTr("%1 terminals"))
+                                        active: card.working
+                                        color: KodosiTheme.inkMuted
+                                        font.pixelSize: KodosiTheme.fontFootnote
+                                    }
                                 }
                             }
-                            KIcon { anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 18; width: 14; height: 14; name: "arrow-right"; color: KodosiTheme.inkFaint; opacity: card.hovered ? 1 : 0 }
                         }
                         onClicked: Models.Missions.open(modelData.id)
                     }
@@ -202,12 +258,8 @@ Item {
                     objectName: "missions.create.slot"
                     Accessible.id: objectName
                     Accessible.name: label.text
-                    background: Rectangle {
-                        radius: KodosiTheme.radiusXl
-                        color: KodosiTheme.alpha(KodosiTheme.ink, slot.hovered ? 0.05 : 0)
-                        border.width: 1
-                        border.color: KodosiTheme.alpha(KodosiTheme.inkFaint, slot.hovered ? 0.8 : 0.45)
-                    }
+                    scale: pressed ? 0.98 : 1
+                    background: DashedSlot { hovered: slot.hovered || slot.visualFocus }
                     contentItem: Item {
                         ColumnLayout {
                             anchors.centerIn: parent
