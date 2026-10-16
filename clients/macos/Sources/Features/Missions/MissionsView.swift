@@ -105,7 +105,6 @@ private struct RoomCard: View {
                         }
                         Text(sessions.contains(where: \.isWorking) ? String(localized: "Working") : Counted.terminals(sessions.count))
                             .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
-                            .shimmer(sessions.contains(where: \.isWorking))
                     }
                 }
                 .padding(.top, 6).frame(height: 24)

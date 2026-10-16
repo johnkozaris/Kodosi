@@ -101,14 +101,29 @@ import Testing
     ]))
     #expect(app.errorMessage == nil)
 
-    app.perform("friends.request.send", ["username": .string("ana"), "requestId": .string("befriend")])
-    try app.receive(runtimeEvent("friends.error", fields: [
-        "requestId": .string("befriend"), "operation": .string("friends.request.send"), "message": .string("No such person."),
-    ]))
-    #expect(app.errorMessage == "No such person.")
-
     try app.receive(runtimeEvent("friends.error", fields: ["operation": .string("friends.remove"), "message": .string("Try again.")]))
     #expect(app.errorMessage == "Try again.")
+}
+
+@Test @MainActor func aFailedFriendRequestOfThisAppShowsItsError() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "FriendRequestError"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
+    defer { app.shutdownProcess() }
+    var sent: [[String: JSONValue]] = []
+    app.commandSink.transport = { data in
+        if let fields = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
+            sent.append(fields)
+        }
+        return 0
+    }
+    try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner"), "enrolled": .bool(true)]))
+    app.perform("friends.request.send", ["username": .string("nobody"), "requestId": .string(UUIDv7.generate())])
+    let request = try #require(sent.last { $0["type"] == .string("friends.request.send") }?["requestId"])
+    try app.receive(runtimeEvent("friends.error", fields: [
+        "requestId": request, "operation": .string("friends.request.send"), "message": .string("No such person."),
+    ]))
+    #expect(app.errorMessage == "No such person.")
 }
 
 @MainActor private func settle(_ pending: () -> Bool) async {

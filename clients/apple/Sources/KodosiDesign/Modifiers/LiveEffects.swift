@@ -1,5 +1,7 @@
+import QuartzCore
 import SwiftUI
 
+/// A light that passes over the text of an action in progress, 30 times a second.
 private struct Shimmer: ViewModifier {
     @Environment(\.theme) private var theme
     let active: Bool
@@ -7,17 +9,13 @@ private struct Shimmer: ViewModifier {
     func body(content: Content) -> some View {
         if active, !theme.motion.reduced {
             content.overlay {
-                GeometryReader { geometry in
-                    let band = max(geometry.size.width * 0.5, 40)
-                    LinearGradient(
-                        colors: [.clear, theme.colors.ink, .clear],
-                        startPoint: .leading, endPoint: .trailing
-                    )
-                    .frame(width: band)
-                    .keyframeAnimator(initialValue: -band, repeating: true) { gradient, offset in
-                        gradient.offset(x: offset)
-                    } keyframes: { _ in
-                        LinearKeyframe(geometry.size.width, duration: 1.9, timingCurve: .easeInOut)
+                TimelineView(.animation(minimumInterval: 1 / 30)) { context in
+                    GeometryReader { geometry in
+                        let band = max(geometry.size.width * 0.5, 40)
+                        let pass = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.9) / 1.9
+                        LinearGradient(colors: [.clear, theme.colors.ink, .clear], startPoint: .leading, endPoint: .trailing)
+                            .frame(width: band)
+                            .offset(x: -band + (geometry.size.width + band) * pass * pass * (3 - 2 * pass))
                     }
                 }
                 .mask(content)
@@ -30,7 +28,7 @@ private struct Shimmer: ViewModifier {
 }
 
 public struct CellRim: View {
-    public enum Mode: Equatable, Sendable {
+    public enum Mode: Hashable, Sendable {
         case working
         case progress(Double)
     }
@@ -47,54 +45,15 @@ public struct CellRim: View {
     }
 
     public var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 30, paused: theme.motion.reduced)) { context in
-            let time = theme.motion.reduced ? 0 : context.date.timeIntervalSinceReferenceDate
-            Canvas { canvas, size in
-                draw(in: canvas, size: size, time: time)
-            }
-        }
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
-
-    private func draw(in canvas: GraphicsContext, size: CGSize, time: TimeInterval) {
-        let track = RimTrack(size: size, cornerRadius: cornerRadius, inset: lineWidth / 2)
-        guard track.length > 0 else { return }
-        let count = max(8, Int(track.length / (lineWidth * 2.5)))
-        let cells = CellInk(colors: theme.colors, scale: canvas.environment.displayScale, thickness: lineWidth,
-                            length: track.length / CGFloat(count) * 0.6)
-        let reduced = theme.motion.reduced
-        let head = reduced ? 0 : TypingCadence.step(at: time)
-        var cursor: (index: Int, lit: Bool)?
-        for index in 0 ..< count {
-            let color: Color
-            switch mode {
-            case let .progress(fraction):
-                let reach = CGFloat(fraction) * CGFloat(count) - CGFloat(index)
-                color = cells.filling(reach)
-            case .working:
-                let ago = wrapped(head - index, count)
-                color = reduced ? cells.cooling(ago < 4 ? Double(ago) * 0.25 : 9) : cells.cooling(time - TypingCadence.time(of: head - ago))
-            }
-            cells.fill(canvas, track.point(at: (CGFloat(index) + 0.5) / CGFloat(count)), color: color)
-        }
-        switch mode {
-        case .working:
-            let still = time - TypingCadence.time(of: head)
-            cursor = (wrapped(head, count), reduced || still < 0.24 || Int((still - 0.24) / 0.42) % 2 == 1)
-        case let .progress(fraction) where fraction < 1:
-            cursor = (min(count - 1, Int(CGFloat(fraction) * CGFloat(count))), reduced || Int(time / 0.53) % 2 == 0)
-        case .progress:
-            cursor = nil
-        }
-        if let cursor, cursor.lit {
-            cells.cursor(canvas, at: track.point(at: (CGFloat(cursor.index) + 0.5) / CGFloat(count)).0)
-        }
+        let margin = (lineWidth * 1.5).rounded(.up)
+        LayerArt(setup: CellTrackArt(kind: .rim(mode, cornerRadius: cornerRadius), lineWidth: lineWidth, margin: margin,
+                                     colors: theme.colors, still: theme.motion.reduced), draw: CellTrackArt.draw)
+            .padding(-margin)
     }
 }
 
 public struct CellLine: View {
-    public enum Mode: Equatable, Sendable {
+    public enum Mode: Hashable, Sendable {
         case waiting, flowing, done
     }
 
@@ -108,176 +67,154 @@ public struct CellLine: View {
     }
 
     public var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 30, paused: theme.motion.reduced || mode != .flowing)) { context in
-            let time = theme.motion.reduced ? 0 : context.date.timeIntervalSinceReferenceDate
-            Canvas { canvas, size in
-                let count = max(3, Int(size.width / (lineWidth * 2.4)))
-                let pitch = size.width / CGFloat(count)
-                let cells = CellInk(colors: theme.colors, scale: canvas.environment.displayScale, thickness: lineWidth,
-                                    length: pitch * 0.6)
-                let head = TypingCadence.step(at: time)
-                let lap = count + 6
-                let reached = wrapped(head, lap)
-                for index in 0 ..< count {
-                    let color = switch mode {
-                    case .done: theme.colors.accent
-                    case .waiting: theme.colors.accentSoft
-                    case .flowing: index <= reached
-                        ? cells.cooling(time - TypingCadence.time(of: head - (reached - index))) : theme.colors.accentSoft
-                    }
-                    cells.fill(canvas, (CGPoint(x: (CGFloat(index) + 0.5) * pitch, y: size.height / 2), 0), color: color)
-                }
-                if mode == .flowing, reached < count {
-                    cells.cursor(canvas, at: CGPoint(x: (CGFloat(reached) + 0.5) * pitch, y: size.height / 2))
-                }
+        LayerArt(setup: CellTrackArt(kind: .line(mode), lineWidth: lineWidth, margin: 0, colors: theme.colors,
+                                     still: theme.motion.reduced), draw: CellTrackArt.draw)
+            .frame(height: lineWidth * 3)
+    }
+}
+
+struct CellTrackArt: Hashable {
+    enum Kind: Hashable {
+        case rim(CellRim.Mode, cornerRadius: CGFloat?)
+        case line(CellLine.Mode)
+    }
+
+    let kind: Kind
+    let lineWidth: CGFloat
+    let margin: CGFloat
+    let strong: Color
+    let accent: Color
+    let soft: Color
+    let still: Bool
+
+    init(kind: Kind, lineWidth: CGFloat, margin: CGFloat, colors: AppTheme.Colors, still: Bool) {
+        self.kind = kind
+        self.lineWidth = lineWidth
+        self.margin = margin
+        strong = colors.accentStrong
+        accent = colors.accent
+        soft = colors.accentSoft
+        self.still = still
+    }
+
+    @MainActor
+    static func draw(_ art: CellTrackArt, _ canvas: LayerCanvas) {
+        let rect = CGRect(origin: .zero, size: canvas.size).insetBy(dx: art.margin, dy: art.margin)
+        let painter = CellPainter(canvas: canvas, art: art)
+        switch art.kind {
+        case let .rim(mode, cornerRadius):
+            guard let shape = CellTrackShape.rim(in: rect, cornerRadius: cornerRadius, thickness: art.lineWidth, scale: canvas.scale)
+            else { return }
+            painter.rim(shape, mode: mode)
+        case let .line(mode):
+            guard let shape = CellTrackShape.line(in: rect, thickness: art.lineWidth, scale: canvas.scale) else { return }
+            painter.line(shape, mode: mode)
+        }
+    }
+}
+
+@MainActor
+private final class CellPainter {
+    private let canvas: LayerCanvas
+    private let art: CellTrackArt
+    private var colors: [CellInk: CGColor] = [:]
+
+    init(canvas: LayerCanvas, art: CellTrackArt) {
+        self.canvas = canvas
+        self.art = art
+    }
+
+    func rim(_ shape: CellTrackShape, mode: CellRim.Mode) {
+        let count = shape.cells.count
+        switch mode {
+        case .working where art.still:
+            paint(shape, CellTrackFrames.stillRim(count: count), cursor: 0, blinks: false)
+        case .working:
+            animate(shape, .rim(count: count))
+        case let .progress(fraction):
+            let cursor = fraction < 1 ? min(count - 1, Int(fraction * Double(count))) : nil
+            paint(shape, CellTrackFrames.progress(count: count, fraction: fraction), cursor: cursor, blinks: !art.still)
+        }
+    }
+
+    func line(_ shape: CellTrackShape, mode: CellLine.Mode) {
+        let count = shape.cells.count
+        switch mode {
+        case .waiting:
+            paint(shape, Array(repeating: .mix(1), count: count), cursor: nil, blinks: false)
+        case .done:
+            paint(shape, Array(repeating: .mix(0), count: count), cursor: nil, blinks: false)
+        case .flowing where art.still:
+            let frames = CellTrackFrames.line(count: count)
+            paint(shape, frames.inks(at: 0), cursor: frames.cursor(at: 0), blinks: false)
+        case .flowing:
+            animate(shape, .line(count: count))
+        }
+    }
+
+    private func color(_ ink: CellInk) -> CGColor {
+        if let known = colors[ink] {
+            return known
+        }
+        let resolved = switch ink {
+        case .strong: canvas.color(art.strong)
+        case .mix(0): canvas.color(art.accent)
+        case .mix(1): canvas.color(art.soft)
+        case let .mix(amount): canvas.color(art.accent.mix(with: art.soft, by: amount))
+        }
+        colors[ink] = resolved
+        return resolved
+    }
+
+    private func paint(_ shape: CellTrackShape, _ inks: [CellInk], cursor: Int?, blinks: Bool) {
+        for (index, frame) in shape.cells.enumerated() {
+            let cell = CALayer()
+            cell.backgroundColor = color(inks[index])
+            canvas.place(cell, frame, radius: shape.cellRadius)
+        }
+        guard let cursor else { return }
+        let block = CALayer()
+        block.backgroundColor = color(.strong)
+        canvas.place(block, shape.cursors[cursor], radius: shape.cursorRadius)
+        if blinks {
+            block.add(CAKeyframeAnimation.steps("opacity", [(0, Float(1)), (0.53, Float(0))], period: 1.06), forKey: "blink")
+        }
+    }
+
+    private func animate(_ shape: CellTrackShape, _ frames: CellTrackFrames) {
+        let phase = loopPhase(frames.period)
+        let inks = frames.inks(at: phase)
+        for (index, frame) in shape.cells.enumerated() {
+            let cell = CALayer()
+            cell.backgroundColor = color(inks[index])
+            canvas.place(cell, frame, radius: shape.cellRadius)
+            let keys = frames.cells[index]
+            if keys.count > 1 {
+                cell.add(CAKeyframeAnimation.steps("backgroundColor", keys.map { ($0.time, color($0.value)) }, period: frames.period),
+                         forKey: "type")
             }
         }
-        .frame(height: lineWidth * 3)
-        .animation(theme.motion.fade, value: mode)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
-}
-
-private struct CellInk {
-    let colors: AppTheme.Colors
-    let scale: CGFloat
-    let thickness: CGFloat
-    let length: CGFloat
-
-    func cooling(_ age: TimeInterval) -> Color {
-        switch age {
-        case ..<0.14: colors.accentStrong
-        case ..<0.45: colors.accent
-        case ..<0.9: colors.accent.mix(with: colors.accentSoft, by: 0.45)
-        case ..<1.4: colors.accent.mix(with: colors.accentSoft, by: 0.72)
-        default: colors.accentSoft
+        var cell = frames.cursor.last { $0.value != nil }?.value ?? 0
+        let block = CALayer()
+        block.backgroundColor = color(.strong)
+        canvas.place(block, shape.cursors[frames.cursor(at: phase) ?? cell], radius: shape.cursorRadius)
+        block.opacity = frames.cursor(at: phase) == nil ? 0 : 1
+        let places = frames.cursor.map { key -> (time: TimeInterval, value: Any) in
+            cell = key.value ?? cell
+            let frame = shape.cursors[cell]
+            return (key.time, Self.pointValue(CGPoint(x: frame.midX, y: frame.midY)))
         }
+        block.add(CAKeyframeAnimation.steps("position", places, period: frames.period), forKey: "type")
+        block.add(CAKeyframeAnimation.steps("opacity", frames.cursor.map { ($0.time, Float($0.value == nil ? 0 : 1)) }, period: frames.period),
+                  forKey: "blink")
     }
 
-    func filling(_ reach: CGFloat) -> Color {
-        reach >= 1 ? colors.accent : reach <= 0 ? colors.accentSoft : colors.accent.mix(with: colors.accentSoft, by: 1 - reach)
-    }
-
-    func fill(_ canvas: GraphicsContext, _ place: (CGPoint, CGFloat), color: Color) {
-        let (point, angle) = place
-        let across = abs(cos(angle)) >= abs(sin(angle))
-        let corner = abs(abs(cos(angle)) - abs(sin(angle))) < 0.4
-        let side = (length + thickness) / 2
-        let size = corner ? CGSize(width: side, height: side)
-            : across ? CGSize(width: length, height: thickness) : CGSize(width: thickness, height: length)
-        canvas.fill(Path(roundedRect: snapped(point, size), cornerRadius: thickness * 0.3), with: .color(color))
-    }
-
-    func cursor(_ canvas: GraphicsContext, at point: CGPoint) {
-        let size = CGSize(width: max(thickness * 1.5, length), height: thickness * 2.6)
-        canvas.fill(Path(roundedRect: snapped(point, size), cornerRadius: thickness * 0.35), with: .color(colors.accentStrong))
-    }
-
-    private func snapped(_ center: CGPoint, _ size: CGSize) -> CGRect {
-        let scale = max(scale, 1)
-        return CGRect(
-            x: ((center.x - size.width / 2) * scale).rounded() / scale, y: ((center.y - size.height / 2) * scale).rounded() / scale,
-            width: (size.width * scale).rounded() / scale, height: (size.height * scale).rounded() / scale
-        )
-    }
-}
-
-enum TypingCadence {
-    private static let gaps: [TimeInterval] = {
-        var state: UInt64 = 0x2545_F491_4F6C_DD1D
-        func next() -> Double {
-            state = state &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
-            return Double(state >> 11) / Double(UInt64(1) << 53)
-        }
-        var gaps: [TimeInterval] = []
-        var burst = 0
-        while gaps.count < 64 {
-            if burst == 0 {
-                burst = 5 + Int(next() * 9)
-                gaps.append(0.3 + next() * 0.45)
-            } else {
-                gaps.append(0.045 + next() * 0.07)
-            }
-            burst -= 1
-        }
-        return gaps
-    }()
-
-    private static let offsets: [TimeInterval] = gaps.reduce(into: []) { $0.append(($0.last ?? 0) + $1) }
-    private static let period = offsets[offsets.count - 1]
-
-    static func step(at time: TimeInterval) -> Int {
-        let round = (time / period).rounded(.down)
-        let within = time - round * period
-        let index = offsets.firstIndex { $0 > within } ?? offsets.count
-        return Int(round) * offsets.count + index - 1
-    }
-
-    static func time(of step: Int) -> TimeInterval {
-        let round = (Double(step) / Double(offsets.count)).rounded(.down)
-        return round * period + offsets[wrapped(step, offsets.count)]
-    }
-}
-
-private func wrapped(_ value: Int, _ count: Int) -> Int {
-    ((value % count) + count) % count
-}
-
-private struct RimTrack {
-    private enum Piece {
-        case line(CGPoint, CGPoint)
-        case arc(CGPoint, CGFloat)
-    }
-
-    private let pieces: [Piece]
-    private let radius: CGFloat
-    private let start: CGPoint
-    let length: CGFloat
-
-    init(size: CGSize, cornerRadius: CGFloat?, inset: CGFloat) {
-        let rect = CGRect(origin: .zero, size: size).insetBy(dx: inset, dy: inset)
-        let limit = max(0, min(rect.width, rect.height) / 2)
-        let radius = min(max((cornerRadius ?? limit) - inset, 0), limit)
-        self.radius = radius
-        let (left, right, top, bottom) = (rect.minX, rect.maxX, rect.minY, rect.maxY)
-        start = CGPoint(x: rect.midX, y: top)
-        pieces = [
-            .line(CGPoint(x: rect.midX, y: top), CGPoint(x: right - radius, y: top)),
-            .arc(CGPoint(x: right - radius, y: top + radius), -.pi / 2),
-            .line(CGPoint(x: right, y: top + radius), CGPoint(x: right, y: bottom - radius)),
-            .arc(CGPoint(x: right - radius, y: bottom - radius), 0),
-            .line(CGPoint(x: right - radius, y: bottom), CGPoint(x: left + radius, y: bottom)),
-            .arc(CGPoint(x: left + radius, y: bottom - radius), .pi / 2),
-            .line(CGPoint(x: left, y: bottom - radius), CGPoint(x: left, y: top + radius)),
-            .arc(CGPoint(x: left + radius, y: top + radius), .pi),
-            .line(CGPoint(x: left + radius, y: top), CGPoint(x: rect.midX, y: top)),
-        ]
-        length = max(0, 2 * (rect.width - 2 * radius) + 2 * (rect.height - 2 * radius) + 2 * .pi * radius)
-    }
-
-    func point(at fraction: CGFloat) -> (CGPoint, CGFloat) {
-        var rest = (fraction - fraction.rounded(.down)) * length
-        for piece in pieces {
-            switch piece {
-            case let .line(start, end):
-                let span = hypot(end.x - start.x, end.y - start.y)
-                if rest <= span, span > 0 {
-                    let part = rest / span
-                    return (CGPoint(x: start.x + (end.x - start.x) * part, y: start.y + (end.y - start.y) * part),
-                            atan2(end.y - start.y, end.x - start.x))
-                }
-                rest -= span
-            case let .arc(center, start):
-                let span = .pi / 2 * radius
-                if rest <= span, span > 0 {
-                    let angle = start + rest / radius
-                    return (CGPoint(x: center.x + cos(angle) * radius, y: center.y + sin(angle) * radius), angle + .pi / 2)
-                }
-                rest -= span
-            }
-        }
-        return (start, 0)
+    private static func pointValue(_ point: CGPoint) -> NSValue {
+        #if os(macOS)
+            NSValue(point: point)
+        #else
+            NSValue(cgPoint: point)
+        #endif
     }
 }
 
@@ -295,47 +232,108 @@ public struct BreathingDot: View {
         Circle().fill(color).frame(width: size, height: size)
             .overlay {
                 if !theme.motion.reduced {
-                    Circle().stroke(color, lineWidth: 1.5)
-                        .keyframeAnimator(initialValue: 0.0, repeating: true) { ring, breath in
-                            ring.opacity(0.55 * (1 - breath)).scaleEffect(1 + 1.4 * breath)
-                        } keyframes: { _ in
-                            LinearKeyframe(1.0, duration: 1.6, timingCurve: .easeOut)
-                        }
+                    LayerArt(setup: Breath(color: color, size: size), draw: Breath.draw)
+                        .frame(width: size * 2.6, height: size * 2.6)
                 }
             }
             .accessibilityHidden(true)
     }
 }
 
+struct Breath: Hashable {
+    let color: Color
+    let size: CGFloat
+
+    @MainActor
+    static func draw(_ breath: Breath, _ canvas: LayerCanvas) {
+        let ring = CAShapeLayer()
+        let bounds = CGRect(x: 0, y: 0, width: breath.size, height: breath.size)
+        ring.path = CGPath(ellipseIn: bounds, transform: nil)
+        ring.fillColor = nil
+        ring.strokeColor = canvas.color(breath.color)
+        ring.lineWidth = 1.5
+        ring.opacity = 0
+        canvas.place(ring, bounds.offsetBy(dx: (canvas.size.width - breath.size) / 2, dy: (canvas.size.height - breath.size) / 2))
+        let grow = CABasicAnimation(keyPath: "transform.scale")
+        grow.fromValue = 1
+        grow.toValue = 2.4
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 0.55
+        fade.toValue = 0
+        let group = CAAnimationGroup()
+        group.animations = [grow, fade]
+        group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        ring.add(group.looping(period: 1.6), forKey: "breath")
+    }
+}
+
 public struct CursorBlock: View {
+    /// How the cursor blinks: not at all, a slow fade, or as a terminal cursor that rests lit after each change.
+    public enum Blink: Hashable, Sendable {
+        case steady, fading, typing
+    }
+
     @Environment(\.theme) private var theme
     public var width: CGFloat = 9
     public var height: CGFloat = 17
-    public var blinks = true
+    public var blink: Blink = .fading
 
     public init(width: CGFloat = 9, height: CGFloat = 17, blinks: Bool = true) {
+        self.init(width: width, height: height, blink: blinks ? .fading : .steady)
+    }
+
+    public init(width: CGFloat, height: CGFloat, blink: Blink) {
         self.width = width
         self.height = height
-        self.blinks = blinks
+        self.blink = blink
     }
 
     public var body: some View {
-        let block = RoundedRectangle(cornerRadius: max(1, width * 0.14), style: .continuous)
-            .fill(theme.colors.accent)
-            .frame(width: width, height: height)
+        let radius = max(1, width * 0.14)
         Group {
-            if blinks, !theme.motion.reduced {
-                block.keyframeAnimator(initialValue: 1.0, repeating: true) { cursor, opacity in
-                    cursor.opacity(opacity)
-                } keyframes: { _ in
-                    LinearKeyframe(0.25, duration: 0.62, timingCurve: .easeInOut)
-                    LinearKeyframe(1.0, duration: 0.62, timingCurve: .easeInOut)
-                }
+            if blink == .steady || theme.motion.reduced {
+                RoundedRectangle(cornerRadius: radius, style: .continuous).fill(theme.colors.accent)
             } else {
-                block
+                LayerArt(setup: Cursor(color: theme.colors.accent, radius: radius, blink: blink), draw: Cursor.draw)
             }
         }
+        .frame(width: width, height: height)
         .accessibilityHidden(true)
+    }
+}
+
+struct Cursor: Hashable {
+    let color: Color
+    let radius: CGFloat
+    let blink: CursorBlock.Blink
+
+    @MainActor
+    static func draw(_ cursor: Cursor, _ canvas: LayerCanvas) {
+        let block = CALayer()
+        block.backgroundColor = canvas.color(cursor.color)
+        canvas.place(block, CGRect(origin: .zero, size: canvas.size), radius: cursor.radius)
+        switch cursor.blink {
+        case .steady:
+            break
+        case .fading:
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 1
+            fade.toValue = 0.25
+            fade.autoreverses = true
+            fade.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            let loop = fade.looping(period: 0.62)
+            loop.timeOffset = loopPhase(1.24)
+            block.add(loop, forKey: "blink")
+        case .typing:
+            let blink = CAKeyframeAnimation(keyPath: "opacity")
+            blink.values = [1, 0, 0, 1, 1].map { Float($0) }
+            blink.keyTimes = [0, 0.08, 0.44, 0.52, 1]
+            blink.beginTime = block.convertTime(CACurrentMediaTime(), from: nil) + 1.1
+            blink.duration = 1
+            blink.repeatCount = .infinity
+            blink.isRemovedOnCompletion = false
+            block.add(blink, forKey: "blink")
+        }
     }
 }
 

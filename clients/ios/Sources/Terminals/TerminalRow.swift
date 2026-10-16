@@ -81,7 +81,6 @@ struct TerminalCaption: View {
         ZStack(alignment: .leading) {
             Text(words)
                 .foregroundStyle(session.activity == nil ? theme.colors.inkFaint : theme.colors.inkMuted)
-                .shimmer(session.isWorking)
                 .id(words)
                 .transition(.blurReplace)
         }

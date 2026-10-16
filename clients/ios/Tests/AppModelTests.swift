@@ -83,6 +83,15 @@ struct AppModelTests {
         #expect(model.notices.current?.message == "Try again.")
     }
 
+    @Test func aFailedFriendRequestOfThisAppShowsItsError() throws {
+        try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
+        #expect(model.people.add("kodosi:nobody:00ff"))
+        let requestId = try #require(sent.last("friends.request.send")?["requestId"] as? String)
+        try deliver("friends.error", ["requestId": requestId, "operation": "friends.request.send", "message": "No such person."])
+        #expect(model.notices.current?.message == "No such person.")
+        #expect(!model.people.sendingRequest)
+    }
+
     @Test func aTerminalThatArrivesDoneKeepsItsSignUntilYouLook() throws {
         try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
         var shared = session(id: "s2", state: "done")
@@ -123,5 +132,9 @@ final class SentCommands: @unchecked Sendable {
 
     var types: [String] {
         lock.withLock { values.compactMap { $0["type"] as? String } }
+    }
+
+    func last(_ type: String) -> [String: Any]? {
+        lock.withLock { values.last { $0["type"] as? String == type } }
     }
 }

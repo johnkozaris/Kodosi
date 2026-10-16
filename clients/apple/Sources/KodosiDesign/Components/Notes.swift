@@ -1,3 +1,4 @@
+import QuartzCore
 import SwiftUI
 
 public struct ProgressCaption: View {
@@ -11,7 +12,7 @@ public struct ProgressCaption: View {
     public var body: some View {
         HStack(spacing: 8) {
             BreathingDot(color: theme.colors.glowOrange)
-            Text(text).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).shimmer()
+            Text(text).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
         }
     }
 }
@@ -137,19 +138,33 @@ public struct SkeletonBlock: View {
             .frame(maxWidth: width == nil ? .infinity : nil)
             .overlay {
                 if !theme.motion.reduced {
-                    GeometryReader { geometry in
-                        let band = geometry.size.width * 0.6
-                        LinearGradient(colors: [.clear, theme.colors.ink.opacity(0.08), .clear], startPoint: .leading, endPoint: .trailing)
-                            .frame(width: band)
-                            .keyframeAnimator(initialValue: -band, repeating: true) { gradient, offset in
-                                gradient.offset(x: offset)
-                            } keyframes: { _ in
-                                LinearKeyframe(geometry.size.width, duration: 1.5, timingCurve: .easeInOut)
-                            }
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+                    LayerArt(setup: Sweep(color: theme.colors.ink.opacity(0.08), radius: radius), draw: Sweep.draw)
                 }
             }
+    }
+}
+
+struct Sweep: Hashable {
+    let color: Color
+    let radius: CGFloat
+
+    @MainActor
+    static func draw(_ sweep: Sweep, _ canvas: LayerCanvas) {
+        canvas.layer.cornerRadius = sweep.radius
+        canvas.layer.cornerCurve = .continuous
+        canvas.layer.masksToBounds = true
+        let light = canvas.color(sweep.color)
+        let band = CAGradientLayer()
+        band.colors = [light.copy(alpha: 0) ?? light, light, light.copy(alpha: 0) ?? light]
+        band.startPoint = CGPoint(x: 0, y: 0.5)
+        band.endPoint = CGPoint(x: 1, y: 0.5)
+        let width = canvas.size.width * 0.6
+        canvas.place(band, CGRect(x: -width, y: 0, width: width, height: canvas.size.height))
+        let pass = CABasicAnimation(keyPath: "position.x")
+        pass.fromValue = -width / 2
+        pass.toValue = canvas.size.width + width / 2
+        pass.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        band.add(pass.looping(period: 1.5), forKey: "sweep")
     }
 }
 

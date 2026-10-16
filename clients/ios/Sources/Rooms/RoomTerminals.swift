@@ -123,7 +123,6 @@ private struct RoomTerminalRow: View {
                     DeviceGlyph(label: session.hostLabel).font(.system(size: 10, weight: .medium))
                     Text(session.activity ?? place)
                         .lineLimit(1)
-                        .shimmer(session.isWorking)
                         .id(session.activity ?? place)
                         .transition(.blurReplace)
                     if let progress = session.progress {
