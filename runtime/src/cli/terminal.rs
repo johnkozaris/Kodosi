@@ -84,11 +84,7 @@ pub(super) async fn attach(root: &Path, session: Uuid) -> Result<()> {
         tokio::select! {
             input=typed.recv(),if unacknowledged<INPUT_WINDOW=>{
                 let Some(input)=input else{return Ok(());};
-                let mut outgoing=Vec::with_capacity(input.len()+1);
-                for byte in &input{
-                    if escaped{escaped=false;if *byte==b'.'{return Ok(());}outgoing.push(0x1d);}
-                    if *byte==0x1d{escaped=true;}else{outgoing.push(*byte);}
-                }
+                let Some(outgoing)=typed_keys(&input,&mut escaped) else{return Ok(());};
                 if !outgoing.is_empty(){local_host::write_input(&mut client.writer,&outgoing).await?;unacknowledged+=1;}
             }
             frame=local_host::read_terminal(&mut client.reader)=>match frame?{
@@ -117,6 +113,28 @@ pub(super) async fn attach(root: &Path, session: Uuid) -> Result<()> {
         }
     }
 }
+const ESCAPE: u8 = 0x1d;
+
+fn typed_keys(input: &[u8], escaped: &mut bool) -> Option<Vec<u8>> {
+    let mut outgoing = Vec::with_capacity(input.len() + 1);
+    for &byte in input {
+        if std::mem::take(escaped) {
+            if byte == b'.' {
+                return None;
+            }
+            outgoing.push(ESCAPE);
+            if byte == ESCAPE {
+                continue;
+            }
+        } else if byte == ESCAPE {
+            *escaped = true;
+            continue;
+        }
+        outgoing.push(byte);
+    }
+    Some(outgoing)
+}
+
 fn restore(bytes: &[u8], rows: u16, cols: u16) -> Result<Terminal> {
     let mut terminal = Terminal::new(cols, rows, TerminalPolicy::default())
         .map_err(|e| Error::Other(e.to_string()))?;
@@ -146,4 +164,29 @@ fn render(terminal: &mut Terminal) -> Result<()> {
     ended?;
     output.flush()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ESCAPE, typed_keys};
+
+    #[test]
+    fn ctrl_bracket_then_dot_leaves_and_ctrl_bracket_twice_types_one() {
+        let typed = |keys: &[&[u8]]| {
+            let mut escaped = false;
+            keys.iter()
+                .map(|input| typed_keys(input, &mut escaped))
+                .collect::<Option<Vec<_>>>()
+                .map(|sent| sent.concat())
+        };
+        assert_eq!(typed(&[b"ls\r"]), Some(b"ls\r".to_vec()));
+        assert_eq!(typed(&[&[ESCAPE], b"."]), None);
+        assert_eq!(typed(&[&[ESCAPE, b'.']]), None);
+        assert_eq!(
+            typed(&[&[ESCAPE], &[ESCAPE], b"."]),
+            Some(vec![ESCAPE, b'.'])
+        );
+        assert_eq!(typed(&[&[ESCAPE, ESCAPE, b'a']]), Some(vec![ESCAPE, b'a']));
+        assert_eq!(typed(&[&[ESCAPE], b"x"]), Some(vec![ESCAPE, b'x']));
+    }
 }

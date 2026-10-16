@@ -1050,12 +1050,7 @@ async fn wait_result(
     request_id: &str,
     json_output: bool,
 ) -> Result<Value> {
-    let budget = if operation == "auth.login.start" {
-        Duration::from_mins(10)
-    } else {
-        Duration::from_secs(30)
-    };
-    tokio::time::timeout(budget, async {
+    tokio::time::timeout(answer_time(operation), async {
         loop {
             let frame = client.next().await?;
             if frame.get("kind").and_then(Value::as_str) == Some("rejected") {
@@ -1144,6 +1139,14 @@ async fn wait_result(
         Error::Other("No authoritative result arrived. The command was not retried.".into())
     })?
 }
+fn answer_time(operation: &str) -> Duration {
+    match operation {
+        "auth.login.start" => Duration::from_mins(10),
+        "auth.deleteAccount" => crate::network::DELETION_LIFE + Duration::from_mins(1),
+        _ => Duration::from_secs(30),
+    }
+}
+
 fn answers(event: &Value, request_id: &str) -> bool {
     event.get("requestId").and_then(Value::as_str) == Some(request_id)
 }
@@ -1245,6 +1248,12 @@ async fn connect_or_start(config: &Config) -> Result<local_host::Client> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn a_deletion_waits_for_the_person_as_long_as_the_runtime_does() {
+        assert!(answer_time("auth.deleteAccount") > crate::network::DELETION_LIFE);
+        assert_eq!(answer_time("friends.refresh"), Duration::from_secs(30));
+    }
+
     #[test]
     fn a_command_takes_only_the_errors_of_its_own_request() {
         let mine = Uuid::now_v7().to_string();

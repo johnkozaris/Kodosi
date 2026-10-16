@@ -2,7 +2,7 @@ use super::{
     Context, Duration, Error, PathBuf, Result, Subcommand, Uuid, Value, json, local_host,
     mission_id, missions, only, print_json, print_text, render, request,
 };
-use crate::rooms::{Action, Snapshot, TaskChange};
+use crate::rooms::{Action, Issue, Snapshot, TaskChange};
 
 #[derive(clap::Args)]
 pub(super) struct Arguments {
@@ -173,7 +173,8 @@ pub(super) async fn run(
 
 fn done(result: &Value, json_output: bool) -> Result<()> {
     if !result["issues"].is_null() {
-        return print_json(&result["issues"]);
+        let issues: Vec<Issue> = serde_json::from_value(result["issues"].clone())?;
+        return output(&result["issues"], json_output, &issue_lines(&issues));
     }
     let suffix = result["result"]["itemId"]
         .as_str()
@@ -292,6 +293,17 @@ async fn wait(
         Ok(value) => print_json(&value?),
         Err(_) => print_json(&json!({"roomId":room,"sequence":after,"timedOut":true})),
     }
+}
+
+fn issue_lines(issues: &[Issue]) -> String {
+    issues
+        .iter()
+        .map(|issue| {
+            let state = if issue.closed { "closed" } else { "open" };
+            format!("#{}  {state}  {}", issue.number, issue.title)
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn show_tasks(snapshot: &Snapshot, available: bool, json_output: bool) -> Result<()> {
@@ -639,6 +651,19 @@ mod tests {
         assert_eq!(
             conversation(&room),
             "Alice: Can someone review?\nAlice · Claude: I can pick it up."
+        );
+    }
+
+    #[test]
+    fn issues_read_as_lines_of_number_state_and_title() {
+        let issues: Vec<Issue> = serde_json::from_value(json!([
+            {"repositoryId":"r","number":12,"title":"Fix sign-in","body":"","url":"https://example.invalid/12","closed":false,"assignees":[]},
+            {"repositoryId":"r","number":7,"title":"Old crash","body":"","url":"https://example.invalid/7","closed":true,"assignees":["ada"]}
+        ]))
+        .unwrap();
+        assert_eq!(
+            issue_lines(&issues),
+            "#12  open  Fix sign-in\n#7  closed  Old crash"
         );
     }
 }

@@ -17,6 +17,8 @@ mod wire;
 mod tests;
 
 pub use backend_client::BackendClient;
+#[cfg(feature = "cli")]
+pub(crate) use backend_client::DELETION_LIFE;
 #[cfg(target_os = "ios")]
 pub(crate) use backend_client::device_label;
 
