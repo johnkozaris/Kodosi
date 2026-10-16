@@ -18,26 +18,21 @@ public sealed class PlanCatalog
     public const long LeastRoomBytes = 128 * 1024;
     private static readonly string[] LimitNames =
         ["Devices", "OwnedRooms", "RoomPeople", "SharePeople", "RoomBytes", "Friends", "SentFriendRequests", "ReceivedFriendRequests"];
+    private readonly string? fallback;
     private readonly IReadOnlyDictionary<string, PlanLimits> plans;
 
     private PlanCatalog(string? fallback, IReadOnlyDictionary<string, PlanLimits> plans)
     {
-        Default = fallback; this.plans = plans;
+        this.fallback = fallback; this.plans = plans;
     }
 
     public static PlanCatalog None { get; } = new(null, new Dictionary<string, PlanLimits>());
 
-    public string? Default { get; }
-
-    public (string? Name, PlanLimits Limits) For(string? plan)
-    {
-        if (Default is null) return (null, PlanLimits.Safety);
-        var name = plan is not null && plans.ContainsKey(plan) ? plan : Default;
-        return (name, plans[name]);
-    }
+    public PlanLimits For(string? plan) =>
+        fallback is null ? PlanLimits.Safety : plans[plan is not null && plans.ContainsKey(plan) ? plan : fallback];
 
     public async Task<PlanLimits> LimitsAsync(KodosiDbContext db, Guid userId, CancellationToken ct)
-        => For((await db.Users.FindAsync([userId], ct))?.Plan).Limits;
+        => For((await db.Users.FindAsync([userId], ct))?.Plan);
 
     public static PlanCatalog Of(string fallback, IReadOnlyDictionary<string, PlanLimits> plans)
     {

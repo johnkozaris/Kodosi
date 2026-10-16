@@ -1,15 +1,13 @@
 namespace Kodosi;
 
-public sealed class ApiException(int status, string message, string? limit = null) : Exception(message)
+public sealed class ApiException(int status, string message) : Exception(message)
 {
     public int Status { get; } = status;
-    public string? Limit { get; } = limit;
     public static ApiException Invalid(string message) => new(400, message);
     public static ApiException Forbidden(string message = "This operation is not authorized.") => new(403, message);
     public static ApiException Missing() => new(404, "The requested resource is unavailable.");
     public static ApiException Conflict(string message) => new(409, message);
     public static ApiException Gone() => new(410, "This Kodosi account was deleted.");
-    public static ApiException Limited(string limit, string message) => new(403, message, limit);
 }
 
 internal static class Limits

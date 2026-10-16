@@ -123,7 +123,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
             throw ApiException.Invalid("Choose up to 64 friends, excluding yourself.");
         var selected = body.UserIds.ToHashSet();
         var most = (await plans.LimitsAsync(db, userId, ct)).SharePeople;
-        if (selected.Count > most) throw ApiException.Limited("share-people", $"You can share a terminal with at most {Limits.Count(most, "person", "people")}.");
+        if (selected.Count > most) throw ApiException.Forbidden($"You can share a terminal with at most {Limits.Count(most, "person", "people")}.");
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         if (!selected.SetEquals(await LockFriendshipsAsync(userId, [.. selected], ct))) throw ApiException.Forbidden("Session recipients must be accepted friends.");
         var existing = await db.SessionMembers.Where(x => x.SessionId == id).ToListAsync(ct);

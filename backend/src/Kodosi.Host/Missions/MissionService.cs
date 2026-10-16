@@ -86,7 +86,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         }
         var owned = await db.Missions.CountAsync(x => x.OwnerUserId == userId, ct);
         if (owned >= (await plans.LimitsAsync(db, userId, ct)).OwnedRooms)
-            throw ApiException.Limited("rooms", $"You own {Limits.Count(owned, "room", "rooms")}, the most that you can own. Delete a room to make a new one.");
+            throw ApiException.Forbidden($"You own {Limits.Count(owned, "room", "rooms")}, the most that you can own. Delete a room to make a new one.");
         await RequireMissionCapacityAsync(userId, ct);
         db.Missions.Add(new Mission { Id = body.Id, Name = name, OwnerUserId = userId });
         await db.SaveChangesAsync(ct); connections.Notify(userId, "missions", body.Id);
@@ -136,7 +136,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         await RequireMissionCapacityAsync(body.UserId, ct);
         var people = await RoomMembership.PeopleOf(db, id, invited: true).CountAsync(ct);
         var most = (await plans.LimitsAsync(db, mission.OwnerUserId, ct)).RoomPeople;
-        if (people >= most) throw ApiException.Limited("room-people", $"This room can have at most {Limits.Count(most, "person", "people")}, with its open invitations.");
+        if (people >= most) throw ApiException.Forbidden($"This room can have at most {Limits.Count(most, "person", "people")}, with its open invitations.");
         db.MissionInvitations.Add(new MissionInvitation { Id = Limits.Id(body.Id, "Invitation ID"), MissionId = id, UserId = body.UserId, InviterUserId = userId, CreatedAt = clock.GetUtcNow() });
         await db.SaveChangesAsync(ct);
         await AppendKeysAsync(mission, keys, ct);

@@ -219,7 +219,7 @@ public sealed partial class MissionService
                 .Where(x => x.MissionId == room.Id && x.Kind == "message" && x.Sequence > after).OrderBy(x => x.Sequence).Take(64)
                 .Select(x => new { x.Id, x.Sequence, Size = (long)x.Body.Length + x.Signature.Length }).ToListAsync(ct);
             if (oldest.Count == 0)
-                throw ApiException.Limited("room-data", "This room is full: its tasks and repositories use all of its space. Make a new room to continue.");
+                throw ApiException.Forbidden("This room is full: its tasks and repositories use all of its space. Make a new room to continue.");
             foreach (var message in oldest.TakeWhile(_ => freed < excess))
             {
                 removed.Add(message.Id); freed += message.Size; after = message.Sequence;

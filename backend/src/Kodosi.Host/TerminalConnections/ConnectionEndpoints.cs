@@ -133,8 +133,6 @@ internal static partial class ConnectionEndpoints
                 case PingMessage:
                     connection.Send(Wire.Pong);
                     break;
-                case PongMessage:
-                    break;
                 case HostMessage host:
                 {
                     var refusal = await AdmitAsync(scopes, ct, async (sessions, admission) =>
@@ -143,9 +141,7 @@ internal static partial class ConnectionEndpoints
                         SessionService.Incarnation(session, host.IncarnationId);
                         directory.Host(connection, session);
                     });
-                    connection.Send(Wire.Encode(refusal is null
-                        ? new HostedNotice(host.SessionId)
-                        : new UnhostedNotice(host.SessionId, refusal.Status, refusal.Message)));
+                    if (refusal is not null) connection.Send(Wire.Encode(new UnhostedNotice(host.SessionId, refusal.Status, refusal.Message)));
                     break;
                 }
                 case UnhostMessage unhost:

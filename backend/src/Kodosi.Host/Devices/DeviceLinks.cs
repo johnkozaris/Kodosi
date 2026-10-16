@@ -37,7 +37,7 @@ public sealed partial class DeviceService
             pending.Nonce = nonce;
             pending.Proof = proof;
             await db.SaveChangesAsync(ct);
-            return new { deviceCode = retrySecret, requestId = pending.Id, pending.ExpiresAt };
+            return new { deviceCode = retrySecret, requestId = pending.Id };
         }
         if (await db.DeviceLinks.CountAsync(x => x.UserId == userId && x.State == "pending" && x.ExpiresAt > now, ct) >= 5)
             throw new ApiException(429, "Too many pending device approvals.");
@@ -56,7 +56,7 @@ public sealed partial class DeviceService
         };
         db.DeviceLinks.Add(link); await db.SaveChangesAsync(ct);
         connections.Notify(userId, "devices");
-        return new { deviceCode = secret, requestId = link.Id, link.ExpiresAt };
+        return new { deviceCode = secret, requestId = link.Id };
     }
 
     public async Task<object> PendingLinksAsync(Guid userId, CancellationToken ct)
@@ -71,8 +71,7 @@ public sealed partial class DeviceService
             deviceLabel = x.Label,
             signingPublicKey = Convert.ToBase64String(x.SigningPublicKey),
             nonce = Convert.ToBase64String(x.Nonce),
-            proof = Convert.ToBase64String(x.Proof),
-            x.ExpiresAt
+            proof = Convert.ToBase64String(x.Proof)
         });
     }
 
@@ -131,7 +130,7 @@ public sealed partial class DeviceService
         var most = (await plans.LimitsAsync(db, userId, ct)).Devices;
         var count = await db.Devices.CountAsync(x => x.UserId == userId && !x.Revoked && x.RecoveryBox == null, ct);
         if (count >= most)
-            throw ApiException.Limited("devices", $"This account has {Limits.Count(count, "device", "devices")}, the most that it can have. Remove a device in Settings on one of your devices, then try again.");
+            throw ApiException.Forbidden($"This account has {Limits.Count(count, "device", "devices")}, the most that it can have. Remove a device in Settings on one of your devices, then try again.");
     }
 
     private static string HashCode(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));

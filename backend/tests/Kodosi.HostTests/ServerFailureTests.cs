@@ -37,10 +37,9 @@ public sealed class ServerFailureTests(PostgresFixture postgres)
     public async Task EachFailureGetsTheAnswerOfTheContractAndOnlyServerFaultsCount()
     {
         var metrics = Metrics();
-        var (status, body) = await AnswerAsync(ApiException.Limited("devices", "Remove a device."), metrics);
+        var (status, body) = await AnswerAsync(ApiException.Forbidden("Remove a device."), metrics);
         Assert.Equal(403, status);
-        Assert.Equal("devices", body!.Value.GetProperty("limit").GetString());
-        Assert.Equal("Remove a device.", body.Value.GetProperty("error").GetString());
+        Assert.Equal("Remove a device.", body!.Value.GetProperty("error").GetString());
 
         Assert.Equal(400, (await AnswerAsync(new JsonException("bad"), metrics)).Status);
         Assert.Equal(409, (await AnswerAsync(new DbUpdateConcurrencyException("raced"), metrics)).Status);

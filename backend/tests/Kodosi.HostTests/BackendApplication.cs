@@ -145,13 +145,9 @@ internal sealed class BackendApplication(string connection, Action<IServiceColle
     }
     public static async Task<JsonElement> JsonAsync(WebSocket socket)
     {
-        while (true)
-        {
-            var frame = await FrameAsync(socket); Assert.Equal(WebSocketMessageType.Text, frame.Type);
-            using var json = JsonDocument.Parse(frame.Bytes);
-            if (json.RootElement.GetProperty("type").GetString() == "ping") { await SendAsync(socket, new { type = "pong" }); continue; }
-            return json.RootElement.Clone();
-        }
+        var frame = await FrameAsync(socket); Assert.Equal(WebSocketMessageType.Text, frame.Type);
+        using var json = JsonDocument.Parse(frame.Bytes);
+        return json.RootElement.Clone();
     }
     public override async ValueTask DisposeAsync() { await base.DisposeAsync(); key.Dispose(); }
 }
