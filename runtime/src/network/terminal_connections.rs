@@ -52,6 +52,7 @@ pub(crate) const CONTROL_TIMEOUT: Duration = Duration::from_secs(12);
 pub(crate) const INPUT_NOT_SENT: &str = "Some of your last input was not sent.";
 const MESSAGE_LIMIT: usize = 256 * 1024 + 4096;
 const TRUST_CHECK: Duration = Duration::from_mins(5);
+const CHANNEL_SILENCE: Duration = Duration::from_secs(45);
 
 #[cfg(feature = "host")]
 pub(crate) struct Publication {

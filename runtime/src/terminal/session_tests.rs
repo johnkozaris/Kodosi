@@ -421,6 +421,46 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
     actor.run().await;
 }
 
+#[tokio::test]
+async fn the_people_of_a_terminal_with_every_viewer_fit_its_metadata() {
+    use super::super::TerminalMetadata;
+    use crate::protocol::TERMINAL_VIEWERS_MOST;
+    let (session, mut changes, _root) = shell("exec /bin/cat").await;
+    let owner = Some(Uuid::now_v7().to_string());
+    session
+        .host_requests
+        .send(HostRequest::ResetPresence { owner })
+        .await
+        .expect("owner");
+    for _ in 0..TERMINAL_VIEWERS_MOST {
+        let (connection_id, user_id) = (Uuid::now_v7(), Uuid::now_v7().to_string());
+        session
+            .host_requests
+            .send(HostRequest::Connected {
+                connection_id,
+                user_id,
+            })
+            .await
+            .expect("viewer");
+    }
+    let _view = session.subscribe().await.expect("the owner views it here");
+    let mut people = 0;
+    while let Ok(Some(change)) =
+        tokio::time::timeout(Duration::from_millis(500), changes.recv()).await
+    {
+        if let SessionChange::Presence { users, .. } = change {
+            people = users.len();
+            let metadata = TerminalMetadata {
+                connected_users: users,
+                ..TerminalMetadata::default()
+            };
+            assert!(metadata.is_valid(), "{people} people");
+        }
+    }
+    assert_eq!(people, TERMINAL_VIEWERS_MOST);
+    session.close().await.expect("close");
+}
+
 async fn next_status(changes: &mut mpsc::Receiver<SessionChange>) -> Option<ProgramStatus> {
     tokio::time::timeout(Duration::from_secs(5), async {
         loop {

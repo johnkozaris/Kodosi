@@ -15,7 +15,7 @@ use crate::{
     terminal::TerminalMetadata,
 };
 
-const VIEWERS: usize = 32;
+const VIEWERS: usize = crate::protocol::TERMINAL_VIEWERS_MOST;
 const HEARTBEAT: Duration = Duration::from_secs(15);
 const LATE_HEARTBEATS: u32 = 2;
 const KEYFRAME_SPACING: Duration = Duration::from_millis(500);
@@ -478,6 +478,7 @@ struct Stream<'a, T> {
     exact: Exact,
     next_sequence: u64,
     output_at: tokio::time::Instant,
+    heard: tokio::time::Instant,
     keyframe_bytes: usize,
     keyframe_at: Option<tokio::time::Instant>,
     metadata: Option<TerminalMetadata>,
@@ -514,6 +515,7 @@ impl<'a, T: Transport> Stream<'a, T> {
             exact: Exact::Owed,
             next_sequence: 0,
             output_at: tokio::time::Instant::now(),
+            heard: tokio::time::Instant::now(),
             keyframe_bytes: 0,
             keyframe_at: None,
             metadata: None,
@@ -559,6 +561,9 @@ impl<'a, T: Transport> Stream<'a, T> {
                     self.channel.send(&Frame::ControlResult(result)).await?;
                 }
                 _ = heartbeat.tick() => {
+                    if self.heard.elapsed() >= CHANNEL_SILENCE {
+                        return Err(invalid("The viewer did not answer."));
+                    }
                     self.heartbeat = self.heartbeat.wrapping_add(1);
                     self.channel.send(&Frame::Heartbeat { number: self.heartbeat, next_sequence: self.next_sequence }).await?;
                 }
@@ -568,7 +573,10 @@ impl<'a, T: Transport> Stream<'a, T> {
                     }
                 }
                 frame = self.channel.receive() => match frame? {
-                    Some((frame, _)) => self.received(frame).await?,
+                    Some((frame, _)) => {
+                        self.heard = tokio::time::Instant::now();
+                        self.received(frame).await?;
+                    }
                     None => return Err(Error::Closed),
                 },
                 published = self.output.recv() => {

@@ -171,6 +171,30 @@ async fn a_view_installs_each_whole_snapshot_and_acknowledges_what_it_received()
 }
 
 #[tokio::test]
+async fn a_view_refuses_a_snapshot_that_does_not_end() {
+    let mut view = view().await;
+    let part = Frame::Keyframe {
+        next_sequence: 1,
+        more: true,
+        part: Bytes::from(noise(wire::KEYFRAME_PART)),
+    };
+    for _ in 0..=wire::PACKED_SNAPSHOT_LIMIT / wire::KEYFRAME_PART {
+        if view.host.send(&part).await.is_err() {
+            break;
+        }
+        match tokio::time::timeout(Duration::from_secs(5), view.host.receive()).await {
+            Ok(Ok(Some((Frame::Ack { .. }, _)))) => {}
+            _ => break,
+        }
+    }
+    let (ended, _) = tokio::time::timeout(Duration::from_secs(5), view.ended)
+        .await
+        .expect("the view kept growing the snapshot")
+        .unwrap();
+    assert!(ended.is_err());
+}
+
+#[tokio::test]
 async fn input_goes_at_once_in_order_and_waits_only_when_too_much_is_not_confirmed() {
     let mut view = view().await;
     assert!(view.input(b"early").await.is_err());

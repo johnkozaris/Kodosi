@@ -20,6 +20,7 @@ pub(crate) const RAW_CHUNK_LIMIT: usize = 64 * 1024;
 pub(crate) const RAW_BATCH_LIMIT: usize = 128;
 const METADATA_LIMIT: usize = 16_384;
 const SNAPSHOT_LIMIT: usize = TERMINAL_SEMANTIC_CHECKPOINT_MAX_BYTES + 18 + METADATA_LIMIT;
+pub(crate) const PACKED_SNAPSHOT_LIMIT: usize = 2 * SNAPSHOT_LIMIT;
 #[cfg(any(feature = "host", test))]
 const SNAPSHOT_LEVEL: u32 = 6;
 

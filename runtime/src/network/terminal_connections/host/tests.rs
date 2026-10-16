@@ -342,6 +342,28 @@ async fn input_is_confirmed_in_order_and_input_out_of_order_ends_the_channel() {
     assert!(terminal.input.try_recv().is_err());
 }
 
+#[tokio::test(start_paused = true)]
+async fn a_view_stays_while_it_answers_and_ends_once_it_falls_silent() {
+    let mut terminal = terminal(100).await;
+    terminal.keyframe().await;
+    let mut answered = 0;
+    while answered < 4 {
+        let (frame, size) = terminal.viewer.receive().await.unwrap().unwrap();
+        if frame.carries_output() {
+            terminal.received += size as u64;
+        }
+        if matches!(frame, Frame::Heartbeat { .. }) {
+            answered += 1;
+        }
+        terminal.acknowledge().await;
+    }
+    assert!(!terminal.served.is_finished());
+    let ended = tokio::time::timeout(Duration::from_mins(2), &mut terminal.served)
+        .await
+        .expect("the host keeps a silent view");
+    assert!(ended.unwrap().is_err());
+}
+
 #[tokio::test]
 async fn the_end_reaches_the_view_after_the_output_that_waits() {
     let mut terminal = terminal(100).await;

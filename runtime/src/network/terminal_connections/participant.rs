@@ -8,7 +8,6 @@ use super::{
 const ACKNOWLEDGE_BYTES: u64 = 4 * 1024;
 const ACKNOWLEDGE_DELAY: Duration = Duration::from_millis(100);
 const UNCONFIRMED_INPUT: u64 = 64 * 1024;
-const SILENCE: Duration = Duration::from_secs(45);
 
 struct Pending {
     reply: oneshot::Sender<Result<Value>>,
@@ -277,7 +276,7 @@ impl<T: Transport> Viewer<T> {
             _ = trust.tick() => return Ok(true),
             _ = deadlines.tick() => {
                 let now = tokio::time::Instant::now();
-                if self.heard.elapsed() >= SILENCE {
+                if self.heard.elapsed() >= CHANNEL_SILENCE {
                     return Err(invalid("The host did not answer."));
                 }
                 let expired = self.pending.iter().filter(|(_, pending)| pending.deadline <= now).map(|(id, _)| *id).collect::<Vec<_>>();
@@ -408,6 +407,9 @@ impl<T: Transport> Viewer<T> {
                 if self.snapshot_sequence != Some(next_sequence) {
                     self.snapshot.clear();
                     self.snapshot_sequence = Some(next_sequence);
+                }
+                if self.snapshot.len() + part.len() > wire::PACKED_SNAPSHOT_LIMIT {
+                    return Err(invalid("The terminal snapshot exceeds its bound."));
                 }
                 self.snapshot.extend_from_slice(&part);
                 if more {
