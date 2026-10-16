@@ -278,6 +278,31 @@ struct TerminalLifecycleTests {
     }
 
     @Test
+    func `a program reads the clipboard through input after the user allows it`() async {
+        let delegate = AllowingClipboardReadDelegate()
+        await withHostManagedSurface(delegate: delegate, pasteboardText: "copied before") { session, writes in
+            #expect(session.receive(Data("\u{1B}]52;c;?\u{1B}\\".utf8)))
+            session.waitForPendingOutput()
+            await waitUntil { !writes.values.isEmpty }
+
+            #expect(delegate.requests == 1)
+            #expect(writes.values == [Data("\u{1B}]52;c;Y29waWVkIGJlZm9yZQ==\u{1B}\\".utf8)])
+        }
+    }
+
+    @Test
+    func `a program writes the clipboard`() async {
+        await withHostManagedSurface(delegate: nil, pasteboardText: "copied before") { session, writes in
+            #expect(session.receive(Data("\u{1B}]52;c;d3JpdHRlbiBieSBhIHByb2dyYW0=\u{1B}\\".utf8)))
+            session.waitForPendingOutput()
+            await waitUntil { NSPasteboard.general.string(forType: .string) != "copied before" }
+
+            #expect(NSPasteboard.general.string(forType: .string) == "written by a program")
+            #expect(writes.values.isEmpty)
+        }
+    }
+
+    @Test
     func `host managed clipboard reads require canonical plain text`() {
         "text/plain".withCString { plainText in
             let supported: [UnsafePointer<CChar>?] = [plainText]
@@ -793,4 +818,71 @@ private final class LockedTerminalWrites: @unchecked Sendable {
 
 private func testLifecycleSurface(_ address: Int) -> ghostty_surface_t {
     UnsafeMutableRawPointer(bitPattern: address)!
+}
+
+@MainActor
+private final class AllowingClipboardReadDelegate: TerminalSurfaceClipboardReadDelegate {
+    private(set) var requests = 0
+
+    func terminalDidRequestClipboardRead(_ answer: @escaping @MainActor (Bool) -> Void) {
+        requests += 1
+        answer(true)
+    }
+}
+
+@MainActor
+private func withHostManagedSurface(
+    delegate: (any TerminalSurfaceViewDelegate)?,
+    pasteboardText: String,
+    _ body: (InMemoryTerminalSession, LockedTerminalWrites) async -> Void
+) async {
+    let view = NSView(frame: NSRect(x: 0, y: 0, width: 640, height: 480))
+    view.wantsLayer = true
+    let writes = LockedTerminalWrites()
+    let session = InMemoryTerminalSession(
+        write: { writes.append($0) },
+        resize: { _ in }
+    )
+    let controller = TerminalController()
+    let bridge = TerminalCallbackBridge(delegate: delegate)
+    guard let rawSurface = controller.createSurface(
+        bridge: bridge,
+        configuration: TerminalSurfaceOptions(session: session),
+        platformSetup: { config in
+            config.platform_tag = GHOSTTY_PLATFORM_MACOS
+            config.platform = ghostty_platform_u(
+                macos: ghostty_platform_macos_s(
+                    nsview: Unmanaged.passUnretained(view).toOpaque()
+                )
+            )
+            config.scale_factor = 1
+        }
+    ) else {
+        Issue.record("failed to create host-managed surface")
+        return
+    }
+    bridge.rawSurface = rawSurface
+    session.setSurface(rawSurface)
+    let pasteboard = NSPasteboard.general
+    let previous = pasteboard.string(forType: .string)
+    pasteboard.clearContents()
+    pasteboard.setString(pasteboardText, forType: .string)
+
+    await body(session, writes)
+
+    pasteboard.clearContents()
+    if let previous {
+        pasteboard.setString(previous, forType: .string)
+    }
+    session.clearSurface(ifMatches: rawSurface)
+    ghostty_surface_free(rawSurface)
+    controller.remove(bridge)
+}
+
+@MainActor
+private func waitUntil(_ condition: () -> Bool) async {
+    let deadline = Date().addingTimeInterval(2)
+    while !condition(), Date() < deadline {
+        try? await Task.sleep(for: .milliseconds(10))
+    }
 }

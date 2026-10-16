@@ -50,17 +50,10 @@
         #expect(TerminalScrollbackBudget(lines: .max).bytes == TerminalScrollbackBudget.maximumBytes)
     }
 
-    @Test func programsWriteTheClipboard() {
-        #expect(TerminalRendererSession.hostManagedPolicyOverrides.map(\.key) == [
-            "clipboard-read",
-            "clipboard-write",
-            "image-storage-limit",
-        ])
-        #expect(TerminalRendererSession.hostManagedPolicyOverrides.map(\.value) == [
-            "deny",
-            "allow",
-            "0",
-        ])
+    @Test func programsGetGhosttysClipboardSettings() {
+        #expect(!TerminalRendererSession.hostManagedPolicyOverrides.contains {
+            $0.key.hasPrefix("clipboard")
+        })
     }
 
     @MainActor

@@ -12,6 +12,10 @@ enum TerminalPasteboardContent {
         let data: Data
     }
 
+    static func clipboardReadReply(_ text: String) -> Data {
+        Data("\u{1B}]52;c;\(Data(text.utf8).base64EncodedString())\u{1B}\\".utf8)
+    }
+
     static func typeIdentifier(mime: String) -> String {
         if mime.hasPrefix("text/plain") {
             return UTType.utf8PlainText.identifier
@@ -34,6 +38,10 @@ enum TerminalPasteboardContent {
     }
 
     #if os(macOS)
+    static func plainText(from pasteboard: NSPasteboard = .general) -> String {
+        pasteboard.string(forType: .string) ?? ""
+    }
+
     static func text(from pasteboard: NSPasteboard = .general) -> String? {
         text(
             string: pasteboard.string(forType: .string),
@@ -51,6 +59,10 @@ enum TerminalPasteboardContent {
         }
     }
     #elseif os(iOS)
+    static func plainText(from pasteboard: UIPasteboard = .general) -> String {
+        pasteboard.string ?? ""
+    }
+
     static func text(from pasteboard: UIPasteboard = .general) -> String? {
         text(string: pasteboard.string, urls: pasteboard.urls ?? [])
     }

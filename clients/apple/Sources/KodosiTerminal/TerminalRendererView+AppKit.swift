@@ -75,6 +75,7 @@
         private var accessibilityViewportText = ""
         private var isReadOnlySelectionDrag = false
         private var runtimeRejectedFocus = false
+        private var clipboardPromptOpen = false
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
@@ -91,6 +92,23 @@
             guard allowsFocus else { return false }
             runtimeRejectedFocus = false
             return super.becomeFirstResponder()
+        }
+
+        func askToShareClipboard(
+            sessionName: String,
+            _ answer: @escaping @MainActor (Bool) -> Void
+        ) {
+            guard allowsInput, !clipboardPromptOpen, let window else { return }
+            clipboardPromptOpen = true
+            let alert = NSAlert()
+            alert.messageText = String(localized: "Let a program read your clipboard?")
+            alert.informativeText = String(localized: "A program in \(sessionName) asks for the text that you copied.")
+            alert.addButton(withTitle: String(localized: "Don’t Allow"))
+            alert.addButton(withTitle: String(localized: "Allow"))
+            alert.beginSheetModal(for: window) { [weak self] response in
+                self?.clipboardPromptOpen = false
+                answer(response == .alertSecondButtonReturn)
+            }
         }
 
         func revokeNativeFocus() {
@@ -352,6 +370,7 @@
             view.registeredFocusRevoker = nil
             view.delegateProxy.target = nil
             view.delegateProxy.viewportDidResize = nil
+            view.delegateProxy.clipboardReadRequested = nil
             if view.window?.firstResponder === view {
                 view.window?.makeFirstResponder(nil)
             }
@@ -367,6 +386,9 @@
             view.delegateProxy.target = session.viewState
             view.delegateProxy.viewportDidResize = {
                 session.signalAccessibilityViewportChange()
+            }
+            view.delegateProxy.clipboardReadRequested = { [weak view] answer in
+                view?.askToShareClipboard(sessionName: sessionName, answer)
             }
             if view.delegate !== view.delegateProxy {
                 view.delegate = view.delegateProxy

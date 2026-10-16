@@ -52,7 +52,36 @@
     final class TerminalRendererHostedView: UITerminalView {
         let delegateProxy = TerminalRendererDelegateProxy()
         var allowsFocus = true
+        var allowsInput = true
         var requestedFocus = false
+        private var clipboardPromptOpen = false
+
+        func askToShareClipboard(
+            sessionName: String,
+            _ answer: @escaping @MainActor (Bool) -> Void
+        ) {
+            guard allowsInput, !clipboardPromptOpen,
+                  var presenter = window?.rootViewController
+            else { return }
+            while let presented = presenter.presentedViewController {
+                presenter = presented
+            }
+            clipboardPromptOpen = true
+            let alert = UIAlertController(
+                title: String(localized: "Let a program read your clipboard?"),
+                message: String(localized: "A program in \(sessionName) asks for the text that you copied."),
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: String(localized: "Don’t Allow"), style: .cancel) { [weak self] _ in
+                self?.clipboardPromptOpen = false
+                answer(false)
+            })
+            alert.addAction(UIAlertAction(title: String(localized: "Allow"), style: .default) { [weak self] _ in
+                self?.clipboardPromptOpen = false
+                answer(true)
+            })
+            presenter.present(alert, animated: true)
+        }
 
         @discardableResult
         override func becomeFirstResponder() -> Bool {
@@ -92,6 +121,7 @@
             view.onFocusChange = nil
             view.delegateProxy.target = nil
             view.delegateProxy.viewportDidResize = nil
+            view.delegateProxy.clipboardReadRequested = nil
             if view.isFirstResponder {
                 view.resignFirstResponder()
             }
@@ -103,9 +133,13 @@
             session.setAllowsInput(allowsInput)
             session.inputView = view
             view.allowsFocus = allowsFocus
+            view.allowsInput = allowsInput
             view.setSurfaceVisible(isSurfaceVisible)
             view.delegateProxy.target = session.viewState
             view.delegateProxy.viewportDidResize = nil
+            view.delegateProxy.clipboardReadRequested = { [weak view] answer in
+                view?.askToShareClipboard(sessionName: sessionName, answer)
+            }
             if view.delegate !== view.delegateProxy {
                 view.delegate = view.delegateProxy
             }

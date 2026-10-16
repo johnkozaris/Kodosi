@@ -14,6 +14,7 @@ enum TerminalActionSnapshot: Sendable {
 @MainActor
 final class TerminalCallbackBridge {
     weak var delegate: (any TerminalSurfaceViewDelegate)?
+    weak var session: InMemoryTerminalSession?
     nonisolated(unsafe) var rawSurface: ghostty_surface_t?
     var onCellSizeChange: ((UInt32, UInt32) -> Void)?
     var onRenderRequest: (() -> Void)?
@@ -35,6 +36,16 @@ final class TerminalCallbackBridge {
         if let managedConfigURL {
             try? FileManager.default.removeItem(at: managedConfigURL)
             self.managedConfigURL = nil
+        }
+    }
+
+    func askToShareClipboard() {
+        guard let delegate = delegate as? any TerminalSurfaceClipboardReadDelegate else { return }
+        delegate.terminalDidRequestClipboardRead { [weak self] allowed in
+            guard allowed, let session = self?.session else { return }
+            session.sendInput(
+                TerminalPasteboardContent.clipboardReadReply(TerminalPasteboardContent.plainText())
+            )
         }
     }
 

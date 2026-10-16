@@ -144,6 +144,10 @@ private enum TerminalCallbacks {
             return GHOSTTY_CLIPBOARD_READ_UNAVAILABLE
         }
         let request = ghostty_clipboard_request_type(opaquePtr)
+        if request == GHOSTTY_CLIPBOARD_REQUEST_OSC_52_READ {
+            Task { @MainActor in bridge.askToShareClipboard() }
+            return GHOSTTY_CLIPBOARD_READ_UNSUPPORTED
+        }
         if !terminalClipboardRequestAllowed(request: request) {
             TerminalDebugLog.log(.input, "host-managed clipboard read denied")
             return GHOSTTY_CLIPBOARD_READ_UNSUPPORTED
