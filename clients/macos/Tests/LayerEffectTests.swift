@@ -22,10 +22,10 @@ private func lights(_ art: TurningLight, in host: LayerHostView) throws -> [(mas
     }
 }
 
-@Test @MainActor func aWorkingLightTurnsWithTheClockAndRestsAtTheTopLeftWhenMotionIsReduced() throws {
+@Test @MainActor func aWorkingLightTurnsWithTheClock() throws {
     let (window, host) = hosted()
     defer { window.close() }
-    let working = try lights(TurningLight(cornerRadius: 12, lineWidth: 2, light: .orange, core: nil, still: false), in: host)
+    let working = try lights(TurningLight(cornerRadius: 12, lineWidth: 2, light: .orange, core: nil), in: host)
     let rim = try #require(working.first)
     #expect(working.count == 1)
     #expect(rim.mask.fillColor == nil && rim.mask.lineWidth == 2)
@@ -35,16 +35,30 @@ private func lights(_ art: TurningLight, in host: LayerHostView) throws -> [(mas
     #expect(spin.duration == TurningLight.period)
     let gap = abs(spin.timeOffset - loopPhase(TurningLight.period))
     #expect(min(gap, TurningLight.period - gap) < 0.5)
+}
 
-    let still = try #require(try lights(TurningLight(cornerRadius: 12, lineWidth: 2, light: .orange, core: nil, still: true), in: host).first)
-    #expect(still.gradient.animationKeys() == nil)
-    #expect(abs(atan2(still.gradient.affineTransform().b, still.gradient.affineTransform().a) - TurningLight.rest) < 0.001)
+@Test @MainActor func withReducedMotionAWorkingMarkGlowsAlongItsWholeEdge() throws {
+    let renderer = ImageRenderer(content: LightRim(onTile: .working, cornerRadius: 12, lineWidth: 3)
+        .frame(width: 40, height: 40)
+        .environment(\.theme, AppTheme.dark.reducingMotion(true)))
+    renderer.scale = 1
+    let image = try #require(renderer.cgImage)
+    let context = try #require(CGContext(data: nil, width: 40, height: 40, bitsPerComponent: 8, bytesPerRow: 160,
+                                         space: CGColorSpaceCreateDeviceRGB(),
+                                         bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+    context.draw(image, in: CGRect(x: 0, y: 0, width: 40, height: 40))
+    let pixels = try #require(context.data).assumingMemoryBound(to: UInt8.self)
+    let alpha = { (x: Int, y: Int) in pixels[(y * 40 + x) * 4 + 3] }
+    for (x, y) in [(20, 1), (38, 20), (20, 38), (1, 20)] {
+        #expect(alpha(x, y) > 200)
+    }
+    #expect(alpha(20, 20) == 0)
 }
 
 @Test @MainActor func onATileTheLightAlsoWarmsTheFaceOnItsSide() throws {
     let (window, host) = hosted()
     defer { window.close() }
-    let tile = try lights(TurningLight(cornerRadius: 12, lineWidth: 2, light: .orange, core: .white, still: false), in: host)
+    let tile = try lights(TurningLight(cornerRadius: 12, lineWidth: 2, light: .orange, core: .white), in: host)
     #expect(tile.count == 2)
     #expect(tile[0].mask.fillColor != nil && tile[0].gradient.type == .radial)
     #expect(tile[1].mask.fillColor == nil && tile[1].gradient.type == .conic)

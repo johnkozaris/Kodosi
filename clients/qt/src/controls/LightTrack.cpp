@@ -313,6 +313,7 @@ bool Mesh::paint(const Look& look)
 {
     const Layout layout = m_ring.empty() ? Layout::None
         : look.progress                  ? Layout::Progress
+        : look.still                     ? Layout::Steady
         : m_shape.face                   ? Layout::Tile
                                          : Layout::Ring;
     m_vertices.clear();
@@ -322,6 +323,8 @@ bool Mesh::paint(const Look& look)
         turn(look);
     if (layout == Layout::Progress)
         meter(look);
+    if (layout == Layout::Steady)
+        steady(look);
     if (layout == m_layout)
         return false;
     m_layout = layout;
@@ -394,6 +397,16 @@ void Mesh::meter(const Look& look)
     for (; cut != cuts.end(); ++cut)
         place(section(*cut));
     place(Section { 360, m_ring.front().points });
+}
+
+void Mesh::steady(const Look& look)
+{
+    const double warmth = m_shape.face ? 0.5 : 0;
+    const auto warm = [warmth](double from, double to) { return static_cast<float>(from + (to - from) * warmth); };
+    const QColor light = QColor::fromRgbF(warm(look.light.redF(), core[0]), warm(look.light.greenF(), core[1]),
+        warm(look.light.blueF(), core[2]), look.light.alphaF());
+    for (const auto& section : m_ring)
+        put(m_vertices, section, tinted(light, 1));
 }
 
 void Mesh::index()
@@ -553,7 +566,8 @@ void LightTrack::refresh()
         else
             LightClock::leave(this);
     }
-    m_angle = turns ? light::phase(QDateTime::currentMSecsSinceEpoch()) : light::rest;
+    if (turns)
+        m_angle = light::phase(QDateTime::currentMSecsSinceEpoch());
     update();
 }
 
@@ -571,7 +585,8 @@ QSGNode* LightTrack::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData*)
         window() != nullptr ? 1 / window()->effectiveDevicePixelRatio() : 1, m_tile };
     if (!(shape == m_mesh.shape()))
         m_mesh = light::Mesh(shape);
-    const bool reindexed = m_mesh.paint({ m_mode == QLatin1StringView("progress"), m_fraction, m_angle, m_light });
+    const bool reindexed
+        = m_mesh.paint({ m_mode == QLatin1StringView("progress"), m_fraction, m_angle, m_light, m_still });
     const auto& vertices = m_mesh.vertices();
     const auto& indices = m_mesh.indices();
     if (vertices.empty() || indices.empty()) {

@@ -16,7 +16,6 @@ namespace kodosi {
 
 namespace light {
 
-inline constexpr double rest = -45;
 inline constexpr int rays = 120;
 
 [[nodiscard]] double glow(double degrees);
@@ -35,8 +34,9 @@ struct Shape {
 struct Look {
     bool progress = false;
     double fraction = 0;
-    double angle = rest;
+    double angle = 0;
     QColor light;
+    bool still = false;
 };
 
 struct Curve {
@@ -62,13 +62,14 @@ public:
     [[nodiscard]] const std::vector<quint16>& indices() const { return m_indices; }
 
 private:
-    enum class Layout { None, Tile, Ring, Progress };
+    enum class Layout { None, Tile, Ring, Steady, Progress };
 
     [[nodiscard]] Section section(double degrees) const;
     [[nodiscard]] double pixelAngle(const Section& section) const;
     void warm(const Look& look);
     void turn(const Look& look);
     void meter(const Look& look);
+    void steady(const Look& look);
     void index();
 
     Shape m_shape { QSizeF(0, 0) };
@@ -131,7 +132,7 @@ private:
     bool m_tile = false;
     QColor m_light = QColor(Qt::transparent);
     bool m_still = false;
-    double m_angle = light::rest;
+    double m_angle = 0;
     bool m_turning = false;
     light::Mesh m_mesh;
 };
