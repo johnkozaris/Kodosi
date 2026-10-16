@@ -37,7 +37,7 @@ ApplicationWindow {
         : Qt.Window
     height: 820
     minimumHeight: 560
-    minimumWidth: 860
+    minimumWidth: 820
     objectName: "window.main"
     title: qsTr("Kodosi")
     topPadding: 0

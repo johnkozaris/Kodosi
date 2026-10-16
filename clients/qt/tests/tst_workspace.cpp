@@ -253,6 +253,16 @@ private slots:
         QVERIFY(hosted.value(QStringLiteral("workingDirectory")).toString().isEmpty());
         QCOMPARE(hosted.value(QStringLiteral("displayDirectory")).toString(), QStringLiteral("/host/project"));
     }
+    void detailsNameTheRoomOfATerminal()
+    {
+        Fixture f;
+        auto inRoom = test::session(1);
+        inRoom.insert(QStringLiteral("missionId"), test::id(10));
+        inRoom.insert(QStringLiteral("missionName"), QStringLiteral("Release"));
+        f.sessions.apply(test::snapshot({ inRoom }));
+        QCOMPARE(f.sessions.presentationForSession(test::id(1)).value(QStringLiteral("missionName")).toString(),
+            QStringLiteral("Release"));
+    }
     void eachHostFolderShowsItsLastFolder()
     {
         const QList<std::pair<QString, QString>> folders {

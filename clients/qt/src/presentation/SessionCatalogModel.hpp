@@ -44,7 +44,6 @@ public:
         QString status;
         QString connectionState;
         QString message;
-        QString createRequestId;
         QStringList sharedWith;
         bool isOwner = false;
     };
