@@ -79,7 +79,7 @@ rust-features-check:
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --lib --bins -- -D warnings
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --tests -- {{ test_lints }}
 
-# Check the Rust format. Change no file.
+# Check the Rust format.
 [group('rust')]
 rust-format-check:
     cargo fmt --manifest-path runtime/Cargo.toml --all -- --check
@@ -95,7 +95,7 @@ rust-lint:
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked --workspace --lib --bins --examples -- -D warnings
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked --workspace --tests -- {{ test_lints }}
 
-# Check the Rust dependencies for advisories, bans, licenses and sources with cargo-deny.
+# Check the Rust dependencies with cargo-deny.
 [group('rust')]
 rust-deny-check: rust-dependency-tools-check
     cargo deny --manifest-path runtime/Cargo.toml --workspace --locked check --config deny.toml --hide-inclusion-graph advisories bans licenses sources
