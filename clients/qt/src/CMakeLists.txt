@@ -175,9 +175,8 @@ foreach(module Core Gui Qml Quick)
         if(include_dir MATCHES "/include/Qt${module}$")
             set(private_root "${include_dir}/${Qt6_VERSION}")
             if(NOT IS_DIRECTORY "${private_root}/Qt${module}")
-                message(FATAL_ERROR "Qt ${module} private headers are required for accessibility and the cell rim")
+                message(FATAL_ERROR "Qt ${module} private headers are required for accessibility")
             endif()
-            list(APPEND KODOSI_QT_PRIVATE_INCLUDES "${private_root}" "${private_root}/Qt${module}")
             target_include_directories(kodosi-terminal-kernel PRIVATE
                 "${private_root}" "${private_root}/Qt${module}")
             if(WIN32 AND module MATCHES "^(Core|Gui)$")
@@ -212,8 +211,8 @@ qt_add_qml_module(kodosi-ui
     DEPENDENCIES
         Kodosi.Models
     SOURCES
-        controls/CellTrack.cpp
-        controls/CellTrack.hpp
+        controls/LightTrack.cpp
+        controls/LightTrack.hpp
     QML_FILES
         qml/Main.qml
         qml/Screens/PeopleView.qml
@@ -234,7 +233,6 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/AvatarStack.qml
         qml/Controls/Bezel.qml
         qml/Controls/BreathingDot.qml
-        qml/Controls/CellRim.qml
         qml/Controls/CardGrid.qml
         qml/Controls/CodeKeys.qml
         qml/Controls/CountBadge.qml
@@ -257,6 +255,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/KSpinBox.qml
         qml/Controls/KSwitch.qml
         qml/Controls/KTextField.qml
+        qml/Controls/LightRim.qml
         qml/Controls/ListGroup.qml
         qml/Controls/ListRow.qml
         qml/Controls/NewDot.qml
@@ -311,8 +310,7 @@ qt_add_qml_module(kodosi-ui
 
 target_link_libraries(kodosi-ui PUBLIC Qt6::Quick Qt6::QuickControls2 kodosi-qml-modelsplugin)
 target_include_directories(kodosi-ui PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/controls")
-target_include_directories(kodosi-ui SYSTEM PRIVATE ${KODOSI_QT_PRIVATE_INCLUDES})
-set_source_files_properties(controls/CellTrack.cpp PROPERTIES COMPILE_OPTIONS "${KODOSI_COMPILE_OPTIONS}")
+set_source_files_properties(controls/LightTrack.cpp PROPERTIES COMPILE_OPTIONS "${KODOSI_COMPILE_OPTIONS}")
 
 target_link_libraries(kodosi-qt
     PRIVATE

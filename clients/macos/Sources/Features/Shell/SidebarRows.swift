@@ -284,7 +284,8 @@ struct SidebarTerminalRow: View {
                 if session.place != nil || active {
                     HStack(spacing: 4) {
                         if let place = session.place {
-                            SessionPlace(place: place).layoutPriority(1).help(session.placeLabel ?? "")
+                            SessionPlace(place: place, glyphFont: .system(size: 9, weight: .semibold)).layoutPriority(1)
+                                .help(session.placeLabel ?? "")
                         }
                         if active {
                             if session.place != nil {

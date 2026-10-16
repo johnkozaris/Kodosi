@@ -91,7 +91,7 @@ struct RoomComposer: View {
                 }
                 .overlay {
                     if sending {
-                        CellRim(.working, lineWidth: 2).padding(-4)
+                        LightRim(.working, lineWidth: 2).padding(-4)
                     }
                 }
                 .contentShape(Circle())

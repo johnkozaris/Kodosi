@@ -28,8 +28,6 @@ rooms when you are away.
 started it. Open it from your other devices, along with the terminals friends share
 with you.
 
-<p align="center"><img src="docs/media/overview.webp" width="760" alt="Six terminals on three computers, grouped by computer."></p>
-
 **See which agent needs you.** Each terminal shows when its program works, waits for
 you, is done or failed. A notification tells you when Kodosi is in the background.
 
@@ -60,8 +58,8 @@ can become tasks.
 <p align="center"><img src="docs/media/tasks.webp" width="600" alt="Room tasks up for grabs, in progress and done."></p>
 
 **End-to-end encrypted.** Private keys stay on your devices. The service relays
-encrypted traffic and cannot read what your terminals show or your rooms. It sees only
-whether each agent works, waits or is done. [Security](docs/SECURITY.md)
+encrypted traffic and cannot read your terminals or rooms; it sees only whether each
+agent works, waits or is done. [Security](docs/SECURITY.md)
 
 <p align="center"><img src="docs/media/share.webp" width="560" alt="The share panel of a terminal."></p>
 

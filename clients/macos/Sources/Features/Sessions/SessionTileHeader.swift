@@ -41,7 +41,8 @@ struct SessionTileHeader: View {
                     }
                 }
                 if let place = session.place {
-                    tag { SessionPlace(place: place) }.help(session.placeLabel ?? "")
+                    tag { SessionPlace(place: place, glyphFont: .system(size: 9, weight: .semibold)) }
+                        .help(session.placeLabel ?? "")
                 }
             }
             Spacer(minLength: 4)

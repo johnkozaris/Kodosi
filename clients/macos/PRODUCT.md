@@ -4,18 +4,16 @@ Shared intent: [PRODUCT.md](../../PRODUCT.md). Visual system: [DESIGN.md](DESIGN
 
 ## Terminals
 
-- New Terminal opens the launcher: in the main area when nothing is open, which then
-  lists every terminal by computer, otherwise as a sheet. Return on the Terminal tab
-  opens a plain shell.
-- The sidebar groups terminals by folder and names the computer of a remote terminal.
-  Go to (⌘K) finds terminals, rooms, people and actions. A terminal is renamed in place.
-- A terminal carries its program's mark, which shows the program's state; a waiting
-  program shows what it needs beside the mark, also on a closed folder. Done, failed and
-  a bell keep a sign until you look. Faces show who else has a terminal open.
-- The launcher is the terminal about to open: a tab for each agent after the plain
-  terminal, then one line with the folder, the account, the model with its effort, and
-  the first prompt.
-- A repository folder in the sidebar offers a terminal on a new branch.
+- New Terminal opens the launcher, the terminal about to open: a tab for each agent
+  after the plain terminal, then one line with the folder, the account, the model with
+  its effort, and the first prompt. With nothing open it sits in the middle of the main
+  area; otherwise it is a sheet. Return on the Terminal tab opens a plain shell.
+- The sidebar groups terminals by folder and names the computer of a remote terminal. A
+  repository folder offers a terminal on a new branch. Go to (⌘K) finds terminals, rooms,
+  people and actions. A terminal is renamed in place.
+- A terminal's mark shows its program's state; a waiting program shows what it needs
+  beside the mark, also on a closed folder. Done, failed and a bell keep a sign until you
+  look. Faces show who else has a terminal open.
 - Hidden terminals keep their place and take no input. Sizing is automatic, and keys
   such as Ctrl-C keep their shell meaning. Terminals stay dark in the light appearance.
 - One share sheet puts a terminal in a room or shares it with friends.

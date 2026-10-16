@@ -26,16 +26,20 @@ private struct Shimmer: ViewModifier {
     }
 }
 
-public struct CellRim: View {
+public struct LightRim: View {
     public enum Mode: Hashable, Sendable {
         case working
         case progress(Double)
     }
 
+    static let tileLight = AppTheme.dark.colors.accentStrong
+    static let tileCore = Color(red: 1, green: 0.96, blue: 0.92)
+
     @Environment(\.theme) private var theme
     public let mode: Mode
     public var cornerRadius: CGFloat?
     public var lineWidth: CGFloat
+    var onTile = false
 
     public init(_ mode: Mode, cornerRadius: CGFloat? = nil, lineWidth: CGFloat = 2) {
         self.mode = mode
@@ -43,15 +47,147 @@ public struct CellRim: View {
         self.lineWidth = lineWidth
     }
 
+    init(onTile mode: Mode, cornerRadius: CGFloat, lineWidth: CGFloat) {
+        self.init(mode, cornerRadius: cornerRadius, lineWidth: lineWidth)
+        onTile = true
+    }
+
     public var body: some View {
-        let margin = (lineWidth * 1.5).rounded(.up)
-        LayerArt(setup: CellTrackArt(kind: .rim(mode, cornerRadius: cornerRadius), lineWidth: lineWidth, margin: margin,
-                                     colors: theme.colors, still: theme.motion.reduced), draw: CellTrackArt.draw)
-            .padding(-margin)
+        let light = onTile ? Self.tileLight : theme.colors.accent
+        let rim = RimShape(cornerRadius: cornerRadius).inset(by: lineWidth / 2)
+        ZStack {
+            switch mode {
+            case .working:
+                if !onTile {
+                    rim.stroke(light.opacity(0.2), lineWidth: lineWidth)
+                }
+                LayerArt(setup: TurningLight(cornerRadius: cornerRadius, lineWidth: lineWidth, light: light,
+                                             core: onTile ? Self.tileCore : nil, still: theme.motion.reduced),
+                         draw: TurningLight.draw)
+            case let .progress(fraction):
+                rim.stroke(light.opacity(0.22), lineWidth: lineWidth)
+                rim.stroke(light, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)).mask(Wedge(fraction: fraction))
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
-struct CellLine: View {
+struct RimShape: InsettableShape {
+    var cornerRadius: CGFloat?
+    var inset: CGFloat = 0
+
+    func path(in rect: CGRect) -> Path {
+        let rect = rect.insetBy(dx: inset, dy: inset)
+        let radius = min(cornerRadius.map { $0 - inset } ?? .infinity, min(rect.width, rect.height) / 2)
+        return Path(roundedRect: rect, cornerRadius: max(0, radius), style: .continuous)
+    }
+
+    func inset(by amount: CGFloat) -> RimShape {
+        RimShape(cornerRadius: cornerRadius, inset: inset + amount)
+    }
+}
+
+struct Wedge: Shape {
+    var fraction: Double
+
+    var animatableData: Double {
+        get { fraction }
+        set { fraction = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        var path = Path()
+        path.move(to: center)
+        path.addArc(center: center, radius: hypot(rect.width, rect.height), startAngle: .degrees(-90),
+                    endAngle: .degrees(-90 + 360 * min(max(fraction, 0), 1)), clockwise: false)
+        path.closeSubpath()
+        return path
+    }
+}
+
+struct TurningLight: Hashable {
+    static let period: TimeInterval = 4
+    static let rest = -CGFloat.pi / 4
+
+    let cornerRadius: CGFloat?
+    let lineWidth: CGFloat
+    let light: Color
+    let core: Color?
+    let still: Bool
+
+    @MainActor
+    static func draw(_ art: TurningLight, _ canvas: LayerCanvas) {
+        let bounds = CGRect(origin: .zero, size: canvas.size)
+        let shape = RimShape(cornerRadius: art.cornerRadius)
+        let side = hypot(bounds.width, bounds.height)
+        if art.core != nil {
+            let edge = (side - min(bounds.width, bounds.height)) / (2 * side)
+            let reach = 0.42 * min(bounds.width, bounds.height) / side
+            let wash = CAGradientLayer()
+            wash.type = .radial
+            wash.colors = [canvas.color(art.light.opacity(0.34)), canvas.color(art.light.opacity(0))]
+            wash.startPoint = CGPoint(x: 0.5, y: edge)
+            wash.endPoint = CGPoint(x: 0.5 + reach, y: edge + reach)
+            art.turn(wash, within: shape.path(in: bounds), lineWidth: nil, on: canvas)
+        }
+        let arc = CAGradientLayer()
+        arc.type = .conic
+        arc.startPoint = CGPoint(x: 0.5, y: 0.5)
+        arc.endPoint = CGPoint(x: 0.5, y: 0)
+        let stops = (0 ... 36).map { Double($0) / 36 }
+        arc.colors = stops.map { location in
+            let glow = Self.glow(at: location)
+            let color = art.core.map { art.light.mix(with: $0, by: Double(glow * glow * glow)) } ?? art.light
+            return canvas.color(color.opacity(glow))
+        }
+        arc.locations = stops.map { NSNumber(value: $0) }
+        art.turn(arc, within: shape.inset(by: art.lineWidth / 2).path(in: bounds), lineWidth: art.lineWidth, on: canvas)
+    }
+
+    static func glow(at location: Double) -> CGFloat {
+        let ahead = location <= 0.5
+        let degrees = (ahead ? location : 1 - location) * 360
+        let spread: Double = ahead ? 20 : 36
+        return CGFloat(exp(-(degrees * degrees) / (2 * spread * spread)))
+    }
+
+    @MainActor
+    private func turn(_ gradient: CAGradientLayer, within path: Path, lineWidth: CGFloat?, on canvas: LayerCanvas) {
+        let bounds = CGRect(origin: .zero, size: canvas.size)
+        let mask = CAShapeLayer()
+        mask.frame = bounds
+        mask.contentsScale = canvas.scale
+        mask.path = path.cgPath
+        if let lineWidth {
+            mask.fillColor = nil
+            mask.strokeColor = CGColor(gray: 0, alpha: 1)
+            mask.lineWidth = lineWidth
+        } else {
+            mask.fillColor = CGColor(gray: 0, alpha: 1)
+        }
+        let side = hypot(bounds.width, bounds.height)
+        gradient.frame = CGRect(x: bounds.midX - side / 2, y: bounds.midY - side / 2, width: side, height: side)
+        gradient.contentsScale = canvas.scale
+        let holder = CALayer()
+        holder.mask = mask
+        holder.addSublayer(gradient)
+        canvas.place(holder, bounds)
+        if still {
+            gradient.setAffineTransform(CGAffineTransform(rotationAngle: Self.rest))
+            return
+        }
+        let spin = CABasicAnimation(keyPath: "transform.rotation.z")
+        spin.fromValue = 0
+        spin.toValue = 2 * Double.pi
+        spin.timingFunction = CAMediaTimingFunction(name: .linear)
+        gradient.add(spin.looping(period: Self.period), forKey: "turn")
+    }
+}
+
+struct LightLine: View {
     enum Mode: Hashable, Sendable {
         case waiting, flowing, done
     }
@@ -66,154 +202,43 @@ struct CellLine: View {
     }
 
     var body: some View {
-        LayerArt(setup: CellTrackArt(kind: .line(mode), lineWidth: lineWidth, margin: 0, colors: theme.colors,
-                                     still: theme.motion.reduced), draw: CellTrackArt.draw)
-            .frame(height: lineWidth * 3)
+        Capsule()
+            .fill(mode == .done ? theme.colors.accent : theme.colors.accentSoft)
+            .overlay {
+                if mode == .flowing {
+                    LayerArt(setup: GlidingLight(light: theme.colors.accent, still: theme.motion.reduced), draw: GlidingLight.draw)
+                        .clipShape(Capsule())
+                }
+            }
+            .frame(height: lineWidth)
+            .animation(theme.motion.fade, value: mode)
     }
 }
 
-struct CellTrackArt: Hashable {
-    enum Kind: Hashable {
-        case rim(CellRim.Mode, cornerRadius: CGFloat?)
-        case line(CellLine.Mode)
-    }
+struct GlidingLight: Hashable {
+    static let period: TimeInterval = 2.4
 
-    let kind: Kind
-    let lineWidth: CGFloat
-    let margin: CGFloat
-    let strong: Color
-    let accent: Color
-    let soft: Color
+    let light: Color
     let still: Bool
 
-    init(kind: Kind, lineWidth: CGFloat, margin: CGFloat, colors: AppTheme.Colors, still: Bool) {
-        self.kind = kind
-        self.lineWidth = lineWidth
-        self.margin = margin
-        strong = colors.accentStrong
-        accent = colors.accent
-        soft = colors.accentSoft
-        self.still = still
-    }
-
     @MainActor
-    static func draw(_ art: CellTrackArt, _ canvas: LayerCanvas) {
-        let rect = CGRect(origin: .zero, size: canvas.size).insetBy(dx: art.margin, dy: art.margin)
-        let painter = CellPainter(canvas: canvas, art: art)
-        switch art.kind {
-        case let .rim(mode, cornerRadius):
-            guard let shape = CellTrackShape.rim(in: rect, cornerRadius: cornerRadius, thickness: art.lineWidth, scale: canvas.scale)
-            else { return }
-            painter.rim(shape, mode: mode)
-        case let .line(mode):
-            guard let shape = CellTrackShape.line(in: rect, thickness: art.lineWidth, scale: canvas.scale) else { return }
-            painter.line(shape, mode: mode)
+    static func draw(_ art: GlidingLight, _ canvas: LayerCanvas) {
+        let light = canvas.color(art.light)
+        let band = CAGradientLayer()
+        band.startPoint = CGPoint(x: 0, y: 0.5)
+        band.endPoint = CGPoint(x: 1, y: 0.5)
+        band.colors = [light.copy(alpha: 0), light, light.copy(alpha: 0)].compactMap(\.self)
+        let width = max(canvas.size.height * 8, canvas.size.width * 0.45)
+        canvas.place(band, CGRect(x: 0, y: 0, width: width, height: canvas.size.height))
+        if art.still {
+            band.position.x = canvas.size.width / 2
+            return
         }
-    }
-}
-
-@MainActor
-private final class CellPainter {
-    private let canvas: LayerCanvas
-    private let art: CellTrackArt
-    private var colors: [CellInk: CGColor] = [:]
-
-    init(canvas: LayerCanvas, art: CellTrackArt) {
-        self.canvas = canvas
-        self.art = art
-    }
-
-    func rim(_ shape: CellTrackShape, mode: CellRim.Mode) {
-        let count = shape.cells.count
-        switch mode {
-        case .working where art.still:
-            paint(shape, CellTrackFrames.stillRim(count: count), cursor: 0, blinks: false)
-        case .working:
-            animate(shape, .rim(count: count))
-        case let .progress(fraction):
-            let cursor = fraction < 1 ? min(count - 1, Int(fraction * Double(count))) : nil
-            paint(shape, CellTrackFrames.progress(count: count, fraction: fraction), cursor: cursor, blinks: !art.still)
-        }
-    }
-
-    func line(_ shape: CellTrackShape, mode: CellLine.Mode) {
-        let count = shape.cells.count
-        switch mode {
-        case .waiting:
-            paint(shape, Array(repeating: .mix(1), count: count), cursor: nil, blinks: false)
-        case .done:
-            paint(shape, Array(repeating: .mix(0), count: count), cursor: nil, blinks: false)
-        case .flowing where art.still:
-            let frames = CellTrackFrames.line(count: count)
-            paint(shape, frames.inks(at: 0), cursor: frames.cursor(at: 0), blinks: false)
-        case .flowing:
-            animate(shape, .line(count: count))
-        }
-    }
-
-    private func color(_ ink: CellInk) -> CGColor {
-        if let known = colors[ink] {
-            return known
-        }
-        let resolved = switch ink {
-        case .strong: canvas.color(art.strong)
-        case .mix(0): canvas.color(art.accent)
-        case .mix(1): canvas.color(art.soft)
-        case let .mix(amount): canvas.color(art.accent.mix(with: art.soft, by: amount))
-        }
-        colors[ink] = resolved
-        return resolved
-    }
-
-    private func paint(_ shape: CellTrackShape, _ inks: [CellInk], cursor: Int?, blinks: Bool) {
-        for (index, frame) in shape.cells.enumerated() {
-            let cell = CALayer()
-            cell.backgroundColor = color(inks[index])
-            canvas.place(cell, frame, radius: shape.cellRadius)
-        }
-        guard let cursor else { return }
-        let block = CALayer()
-        block.backgroundColor = color(.strong)
-        canvas.place(block, shape.cursors[cursor], radius: shape.cursorRadius)
-        if blinks {
-            block.add(CAKeyframeAnimation.steps("opacity", [(0, Float(1)), (0.53, Float(0))], period: 1.06), forKey: "blink")
-        }
-    }
-
-    private func animate(_ shape: CellTrackShape, _ frames: CellTrackFrames) {
-        let phase = loopPhase(frames.period)
-        let inks = frames.inks(at: phase)
-        for (index, frame) in shape.cells.enumerated() {
-            let cell = CALayer()
-            cell.backgroundColor = color(inks[index])
-            canvas.place(cell, frame, radius: shape.cellRadius)
-            let keys = frames.cells[index]
-            if keys.count > 1 {
-                cell.add(CAKeyframeAnimation.steps("backgroundColor", keys.map { ($0.time, color($0.value)) }, period: frames.period),
-                         forKey: "type")
-            }
-        }
-        var cell = frames.cursor.last { $0.value != nil }?.value ?? 0
-        let block = CALayer()
-        block.backgroundColor = color(.strong)
-        canvas.place(block, shape.cursors[frames.cursor(at: phase) ?? cell], radius: shape.cursorRadius)
-        block.opacity = frames.cursor(at: phase) == nil ? 0 : 1
-        let places = frames.cursor.map { key -> (time: TimeInterval, value: Any) in
-            cell = key.value ?? cell
-            let frame = shape.cursors[cell]
-            return (key.time, Self.pointValue(CGPoint(x: frame.midX, y: frame.midY)))
-        }
-        block.add(CAKeyframeAnimation.steps("position", places, period: frames.period), forKey: "type")
-        block.add(CAKeyframeAnimation.steps("opacity", frames.cursor.map { ($0.time, Float($0.value == nil ? 0 : 1)) }, period: frames.period),
-                  forKey: "blink")
-    }
-
-    private static func pointValue(_ point: CGPoint) -> NSValue {
-        #if os(macOS)
-            NSValue(point: point)
-        #else
-            NSValue(cgPoint: point)
-        #endif
+        let glide = CABasicAnimation(keyPath: "position.x")
+        glide.fromValue = -width / 2
+        glide.toValue = canvas.size.width + width / 2
+        glide.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        band.add(glide.looping(period: period), forKey: "glide")
     }
 }
 

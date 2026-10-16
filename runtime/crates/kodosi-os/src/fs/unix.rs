@@ -159,13 +159,9 @@ pub(super) fn open_beneath(parent: &File, name: &str, directory: bool) -> io::Re
 }
 
 pub(super) fn path_from_file_url(host: &str, path: &str) -> Option<PathBuf> {
-    let here = rustix::system::uname();
     (host.is_empty()
         || host.eq_ignore_ascii_case("localhost")
-        || here
-            .nodename()
-            .to_str()
-            .is_ok_and(|name| name.eq_ignore_ascii_case(host)))
+        || crate::process::host_name().is_some_and(|name| name.eq_ignore_ascii_case(host)))
     .then(|| PathBuf::from(path))
 }
 

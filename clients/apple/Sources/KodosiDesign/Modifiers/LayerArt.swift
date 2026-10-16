@@ -51,16 +51,6 @@ extension CAAnimation {
     }
 }
 
-extension CAKeyframeAnimation {
-    static func steps(_ keyPath: String, _ keys: [(time: TimeInterval, value: Any)], period: TimeInterval) -> CAKeyframeAnimation {
-        let animation = CAKeyframeAnimation(keyPath: keyPath)
-        animation.values = keys.map(\.value)
-        animation.keyTimes = (keys.map { $0.time / period } + [1]).map { NSNumber(value: $0) }
-        animation.calculationMode = .discrete
-        return animation.looping(period: period)
-    }
-}
-
 #if os(macOS)
     private struct LayerHost<Setup: Hashable>: NSViewRepresentable {
         let setup: Setup

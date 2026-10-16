@@ -52,7 +52,7 @@ public struct SignInTrack: View {
                 }
                 .overlay {
                     if active {
-                        CellRim(.working, lineWidth: 2.5)
+                        LightRim(.working, lineWidth: 2.5)
                             .padding(-6)
                             .transition(.opacity)
                     }
@@ -67,7 +67,7 @@ public struct SignInTrack: View {
     }
 
     private func line(_ index: Int) -> some View {
-        CellLine(completed >= index + 2 ? .done : completed == index + 1 ? .flowing : .waiting)
+        LightLine(completed >= index + 2 ? .done : completed == index + 1 ? .flowing : .waiting)
             .padding(.bottom, 26)
             .padding(.horizontal, -10)
     }

@@ -97,7 +97,7 @@ struct RoomComposer: View {
                         }
                         .overlay {
                             if state.busy {
-                                CellRim(.working, lineWidth: 2).padding(-4)
+                                LightRim(.working, lineWidth: 2).padding(-4)
                             }
                         }
                 }

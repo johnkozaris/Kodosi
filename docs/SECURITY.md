@@ -3,7 +3,7 @@
 Terminal traffic and room content are end-to-end encrypted. Private keys stay on
 devices. The backend routes connections and stores encrypted room data; it never runs
 commands or sees their plaintext. The [encryption design](CRYPTOGRAPHY.md) gives the
-keys, rules and known limits; no independent party has audited it yet.
+threat model, mechanisms and known limits; no independent party has audited it yet.
 
 ## What sharing grants
 

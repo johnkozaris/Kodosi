@@ -76,30 +76,28 @@ progress where work happens and give each failure a clear recovery action.
 - The runtime and backend implement room terminal sharing, encrypted conversation and
   task history, repository links, and GitHub and Gitea issue actions.
 - The Mac app and the Qt app host terminals and take part in rooms. The Qt app runs on
-  Linux and on Windows 11 24H2 (x64 and ARM64, ConPTY, MSIX); it is not yet validated on
-  Windows hardware. The iPhone and iPad app follows, answers and controls the terminals
-  of the person's computers and friends, takes part in rooms, and starts no terminals.
+  Linux and Windows 11; it is not yet validated on Windows hardware. The iPhone and iPad
+  app follows, answers and controls the terminals of the person's computers and friends,
+  takes part in rooms, and starts no terminals.
 - Each app contains the `kodosi` CLI. `kodosi room` and its bundled skill let existing
   agents take part through the running host.
 - Apps update themselves in the background and never restart without asking, because a
   restart ends the host's terminals. An app too old for the backend asks for an update.
-- Terminals show the state their programs report (OSC 7501 or a progress bar): working,
-  waiting for a person, done or failed. Everyone who can open a terminal sees its state
-  and who has it open. While the app is in the background, a terminal the person owns or
-  has open sends a notification when it starts to wait, finishes or fails.
+- Terminals show the state their programs report: working, waiting for a person, done
+  or failed. Everyone who can open a terminal sees its state and who has it open. While
+  the app is in the background, a terminal the person owns or has open sends a
+  notification when it starts to wait, finishes or fails.
 - New terminal opens the launcher. The host finds the installed agents (Claude Code,
-  Codex, Copilot CLI, Cursor, Gemini CLI and OpenCode), their accounts (sign-in folders
-  such as `~/.claude-work`, shown by e-mail, including those the person's shell gives an
-  agent), models and efforts. The person picks them and may type a first prompt; the new
-  terminal's shell types the command. A missing agent offers its install command.
+  Codex, Copilot CLI, Cursor, Gemini CLI and OpenCode), their accounts, models and
+  efforts. The person picks them and may type a first prompt; the new terminal's shell
+  types the command. A missing agent offers its install command.
 - A terminal at its prompt offers a mark for each installed agent, which starts it with
   the person's last choice. Kodosi types the command into the shell and does no more.
 - Programs get what Ghostty gives them: Kitty images, clipboard writes, and clipboard
-  reads, which ask first in another person's terminal. Kodosi starts a login zsh or bash
-  (not the bash 3.2 of macOS) with its own small scripts that mark each prompt, so ⌘↑
-  and ⌘↓ (Ctrl+Shift+↑ and ↓ on Linux and Windows) jump between prompts. A terminal shows
-  when its program runs on another computer, in a container or virtual machine, or as
-  root.
+  reads, which ask first in another person's terminal. Kodosi marks each prompt of a
+  login zsh or bash (not macOS's bash 3.2), so ⌘↑ and ⌘↓ (Ctrl+Shift+↑ and ↓ on Linux and
+  Windows) jump between prompts. A terminal shows when its program runs on another
+  computer, in a container or virtual machine, or as root.
 - A room shows a dot when someone else, or one of the person's agents, wrote in it since
   the person last looked.
 - A terminal can start on a new branch in its own Git worktree, which the host removes
@@ -108,5 +106,5 @@ progress where work happens and give each failure a clear recovery action.
   room data. A full room loses its oldest messages first; tasks and repositories stay.
 - A person deletes their account through the sign-in service's account page; what they
   wrote in other rooms stays. Terminals keep running.
-- Direct terminal sharing and Claude Code and Copilot CLI conversation preview and
-  resume remain available.
+- A terminal can also be shared directly with friends, and saved Claude Code and
+  Copilot CLI conversations can be previewed and resumed.

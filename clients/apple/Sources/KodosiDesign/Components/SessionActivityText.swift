@@ -24,11 +24,7 @@ public struct SessionActivityText: View {
     public var body: some View {
         HStack(spacing: 5) {
             if let place {
-                HStack(spacing: 4) {
-                    PlaceGlyph(kind: place.kind)
-                    Text(place.name).lineLimit(1)
-                }
-                .id(place.name).transition(.blurReplace)
+                SessionPlace(place: place).id(place.name).transition(.blurReplace)
             } else if let words {
                 ZStack(alignment: .leading) {
                     Text(words).lineLimit(1)
