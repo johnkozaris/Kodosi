@@ -97,6 +97,18 @@ struct Standing {
     replaced: BTreeSet<String>,
 }
 
+impl CachedRoom {
+    fn key_maker_left(&self) -> bool {
+        let Some((_, current)) = self.states.last_key_value() else {
+            return false;
+        };
+        self.states
+            .values()
+            .find(|state| state.state.epoch == current.state.epoch)
+            .is_some_and(|opener| !current.state.members.contains_key(&opener.state.author_id))
+    }
+}
+
 impl RoomCache {
     fn current(&self, credentials: &Credentials) -> Result<()> {
         if self.generation == credentials.generation {
@@ -180,10 +192,17 @@ impl RoomCache {
         Ok(content.view(room, Vec::new(), content.has_older))
     }
 
+    fn key_maker_left(&self, room: Uuid) -> bool {
+        self.rooms
+            .get(&room)
+            .is_some_and(CachedRoom::key_maker_left)
+    }
+
     fn writing_key(&self, credentials: &Credentials, room: Uuid) -> Result<(u64, u64, Secret)> {
         self.current(credentials)?;
         self.rooms
             .get(&room)
+            .filter(|cached| !cached.key_maker_left())
             .and_then(|cached| {
                 let (_, state) = cached.states.last_key_value()?;
                 let key = cached.keys.get(&state.state.epoch)?.clone();
@@ -823,7 +842,8 @@ impl BackendClient {
             .iter()
             .map(|r| (&r.user_id, &r.device_id))
             .collect::<BTreeSet<_>>();
-        if add.is_none() && remove.is_none() && !returned && old == new {
+        let rotate = cached.key_maker_left();
+        if add.is_none() && remove.is_none() && !returned && !rotate && old == new {
             return Ok(None);
         }
         let mut state = previous.state.clone();
@@ -833,7 +853,8 @@ impl BackendClient {
         state.device_id.clone_from(&credentials.keys.device_id);
         state.created_at_ms = created;
         state.members = standing.members;
-        let key = if remove.is_some() || returned || old.difference(&new).next().is_some() {
+        let key = if remove.is_some() || returned || rotate || old.difference(&new).next().is_some()
+        {
             state.epoch += 1;
             let key = room_crypto::secret()?;
             state.previous_key = Some(room_crypto::seal_previous(
@@ -857,7 +878,10 @@ impl BackendClient {
         lookups: &mut Lookups,
     ) -> Result<()> {
         if !force && self.members_checked(credentials, room).await {
-            return self.ensure_room_keys(credentials, room, None).await;
+            self.ensure_room_keys(credentials, room, None).await?;
+            if !self.inner.rooms.lock().await.key_maker_left(room) {
+                return Ok(());
+            }
         }
         let mut attempts = 0;
         loop {
@@ -1213,23 +1237,13 @@ impl BackendClient {
         payload: &Payload,
     ) -> Result<u64> {
         self.ensure_room_keys(credentials, room, None).await?;
-        let mut key = self
-            .inner
-            .rooms
-            .lock()
-            .await
-            .writing_key(credentials, room)?;
+        let mut key = self.writing_key(credentials, room).await?;
         let mut written = self
             .put_room_item(credentials, room, id, kind, expected, payload, &key)
             .await;
         if matches!(written, Err(Error::Backend { status: 409, .. })) {
             self.room_keys(credentials, room).await?;
-            let newer = self
-                .inner
-                .rooms
-                .lock()
-                .await
-                .writing_key(credentials, room)?;
+            let newer = self.writing_key(credentials, room).await?;
             if newer.0 > key.0 {
                 key = newer;
                 written = self
@@ -1244,6 +1258,18 @@ impl BackendClient {
             .await
             .absorb(credentials, room, &item);
         Ok(item.sequence)
+    }
+
+    async fn writing_key(
+        &self,
+        credentials: &Credentials,
+        room: Uuid,
+    ) -> Result<(u64, u64, Secret)> {
+        if self.inner.rooms.lock().await.key_maker_left(room) {
+            self.refresh_room_keys(credentials, room, true, &mut Lookups::default())
+                .await?;
+        }
+        self.inner.rooms.lock().await.writing_key(credentials, room)
     }
 
     async fn put_room_item(

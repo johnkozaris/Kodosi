@@ -200,6 +200,183 @@ fn signed_room(keys: &DeviceKeys, identity: IdentityBundle) -> (Uuid, CachedRoom
     (room, cached, key)
 }
 
+fn state_signed(
+    state: &KeyState,
+    keys: &DeviceKeys,
+    previous: Option<&VerifiedState>,
+) -> VerifiedState {
+    let (body, signature) = room_crypto::sign(room_crypto::STATE_DOMAIN, keys, state).unwrap();
+    let owner = &state.owner_user_id;
+    let anchor = state.members[owner].root().unwrap();
+    let signed = SignedState {
+        version: state.version,
+        body,
+        signature,
+    };
+    room_crypto::verify_state(&signed, state.room_id, owner, &anchor, previous).unwrap()
+}
+
+fn recipient_key(keys: &DeviceKeys, user: &str) -> RecipientKey {
+    let proof = room_key_proof(user, &keys.device_id, keys.room_public()).unwrap();
+    RecipientKey {
+        user_id: user.to_owned(),
+        device_id: keys.device_id.clone(),
+        public_key: BASE64.encode(keys.room_public()),
+        signature: BASE64
+            .encode(crypto::sign_control_message(keys.signing_pkcs8(), &proof).unwrap()),
+    }
+}
+
+#[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one key history with a departure and the key that replaces it"
+)]
+async fn a_key_made_by_someone_who_left_is_replaced_before_anyone_writes_with_it() {
+    let (alice, alice_identity) = person();
+    let alice = Arc::new(alice);
+    let (bob, bob_identity) = person();
+    let (owner, member) = (alice_identity.user_id.clone(), bob_identity.user_id.clone());
+    let room = Uuid::now_v7();
+    let first_key = room_crypto::secret().unwrap();
+    let mut first = KeyState {
+        room_id: room,
+        owner_user_id: owner.clone(),
+        author_id: owner.clone(),
+        device_id: alice.device_id.clone(),
+        version: 1,
+        epoch: 1,
+        created_at_ms: 2000,
+        previous_hash: String::new(),
+        members: BTreeMap::from([
+            (owner.clone(), alice_identity.clone()),
+            (member.clone(), bob_identity),
+        ]),
+        recipients: vec![],
+        previous_key: None,
+    };
+    first.recipients = vec![
+        room_crypto::wrap(
+            &first,
+            &owner,
+            &alice.device_id,
+            alice.room_public(),
+            &first_key,
+        )
+        .unwrap(),
+        room_crypto::wrap(
+            &first,
+            &member,
+            &bob.device_id,
+            bob.room_public(),
+            &first_key,
+        )
+        .unwrap(),
+    ];
+    let first = state_signed(&first, &alice, None);
+    let departure = |author: &DeviceKeys, author_id: &str, key: &Secret| {
+        let mut left = first.state.clone();
+        left.version = 2;
+        left.epoch = 2;
+        left.author_id = author_id.to_owned();
+        left.device_id.clone_from(&author.device_id);
+        left.previous_hash.clone_from(&first.hash);
+        left.members.remove(&member);
+        left.previous_key = Some(room_crypto::seal_previous(room, 2, key, &first_key).unwrap());
+        left.recipients = vec![
+            room_crypto::wrap(&left, &owner, &alice.device_id, alice.room_public(), key).unwrap(),
+        ];
+        let left = state_signed(&left, author, Some(&first));
+        CachedRoom {
+            states: BTreeMap::from([(1, first.clone()), (2, left)]),
+            keys: BTreeMap::from([(1, first_key.clone()), (2, key.clone())]),
+            ..CachedRoom::default()
+        }
+    };
+    let storage = tempfile::tempdir().unwrap();
+    let network = BackendClient::new(BackendConfig {
+        api_url: "http://127.0.0.1:9/".parse().unwrap(),
+        issuer: "http://127.0.0.1:9".into(),
+        client_id: "test".into(),
+        scopes: vec![],
+        data_root: storage.path().to_owned(),
+        secret_service: "test".into(),
+        isolated: true,
+    })
+    .unwrap();
+    let credentials = Credentials {
+        user_id: owner.clone(),
+        token: Zeroizing::new("token".into()),
+        keys: Arc::clone(&alice),
+        enrolled: true,
+        notice: None,
+        generation: network.generation(),
+        cancel: CancellationToken::new(),
+    };
+    let lookups = || Lookups {
+        bundles: BTreeMap::from([(owner.clone(), alice_identity.clone())]),
+        keys: BTreeMap::from([(owner.clone(), vec![recipient_key(&alice, &owner)])]),
+    };
+
+    let removed = departure(&alice, &owner, &room_crypto::secret().unwrap());
+    assert!(!removed.key_maker_left());
+    assert!(
+        network
+            .next_room_state(&credentials, room, &removed, None, None, &mut lookups())
+            .await
+            .unwrap()
+            .is_none()
+    );
+
+    let bob_key = room_crypto::secret().unwrap();
+    let mut left = departure(&bob, &member, &bob_key);
+    assert!(left.key_maker_left());
+    let mut cache = RoomCache {
+        generation: credentials.generation,
+        rooms: BTreeMap::from([(room, left.clone())]),
+        ..RoomCache::default()
+    };
+    assert!(cache.writing_key(&credentials, room).is_err());
+    let body = network
+        .next_room_state(&credentials, room, &left, None, None, &mut lookups())
+        .await
+        .unwrap()
+        .expect("a new key");
+    let signed = SignedState {
+        version: 3,
+        body: body["body"].as_str().unwrap().to_owned(),
+        signature: body["signature"].as_str().unwrap().to_owned(),
+    };
+    let rotated = room_crypto::verify_state(
+        &signed,
+        room,
+        &owner,
+        &first.state.members[&owner].root().unwrap(),
+        left.states.get(&2),
+    )
+    .unwrap();
+    assert_eq!(
+        (rotated.state.epoch, rotated.state.author_id.as_str()),
+        (3, owner.as_str())
+    );
+    let new_key = room_crypto::unwrap(&rotated.state, &owner, &alice).unwrap();
+    assert_ne!(new_key.as_ref(), bob_key.as_ref());
+    assert_eq!(
+        room_crypto::open_previous(&rotated.state, &new_key)
+            .unwrap()
+            .as_ref(),
+        bob_key.as_ref()
+    );
+    left.states.insert(3, rotated);
+    left.keys.insert(3, new_key.clone());
+    assert!(!left.key_maker_left());
+    cache.rooms.insert(room, left);
+    assert_eq!(
+        cache.writing_key(&credentials, room).unwrap().2.as_ref(),
+        new_key.as_ref()
+    );
+}
+
 fn message(text: &str) -> Payload {
     Payload::Message {
         text: text.into(),
