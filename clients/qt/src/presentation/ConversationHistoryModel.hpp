@@ -13,8 +13,7 @@
 namespace kodosi {
 class ConversationHistoryModel final : public QObject {
     Q_OBJECT
-    Q_PROPERTY(Provider provider READ provider NOTIFY selectionChanged)
-    Q_PROPERTY(QString providerId READ providerId NOTIFY selectionChanged)
+    Q_PROPERTY(QString provider READ provider NOTIFY selectionChanged)
     Q_PROPERTY(QString directory READ directory NOTIFY selectionChanged)
     Q_PROPERTY(QVariantList conversations READ conversations NOTIFY conversationsChanged)
     Q_PROPERTY(QVariantList entries READ entries NOTIFY entriesChanged)
@@ -26,13 +25,9 @@ class ConversationHistoryModel final : public QObject {
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
 
 public:
-    enum Provider { Claude, Copilot };
-    Q_ENUM(Provider)
-
     explicit ConversationHistoryModel(CommandDispatcher& commands, QObject* parent = nullptr);
 
-    Provider provider() const { return m_provider; }
-    QString providerId() const;
+    QString provider() const { return m_provider; }
     QString directory() const { return m_directory; }
     QVariantList conversations() const { return m_conversations; }
     QVariantList entries() const { return m_entries; }
@@ -43,7 +38,7 @@ public:
     bool hasNewer() const { return !m_newer.isEmpty(); }
     QString error() const { return m_error; }
 
-    Q_INVOKABLE void open(Provider provider, const QString& directory);
+    Q_INVOKABLE void open(const QString& provider, const QString& directory);
     Q_INVOKABLE void loadMore();
     Q_INVOKABLE void preview(const QString& nativeId);
     Q_INVOKABLE void loadOlder();
@@ -65,7 +60,7 @@ private:
 
     CommandDispatcher& m_commands;
     QTimer m_timeout;
-    Provider m_provider = Claude;
+    QString m_provider = QStringLiteral("claude");
     QString m_directory;
     QString m_requestId;
     QString m_operation;

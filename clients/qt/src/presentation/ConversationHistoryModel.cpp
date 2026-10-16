@@ -19,12 +19,7 @@ ConversationHistoryModel::ConversationHistoryModel(CommandDispatcher& commands, 
     });
 }
 
-QString ConversationHistoryModel::providerId() const
-{
-    return m_provider == Claude ? QStringLiteral("claude") : QStringLiteral("copilot");
-}
-
-void ConversationHistoryModel::open(Provider provider, const QString& directory)
+void ConversationHistoryModel::open(const QString& provider, const QString& directory)
 {
     const bool changed = m_provider != provider || m_directory != directory;
     reset();
@@ -62,7 +57,7 @@ void ConversationHistoryModel::send(QString operation, QJsonObject values)
     m_operation = operation;
     values.insert(QStringLiteral("type"), operation);
     values.insert(QStringLiteral("requestId"), m_requestId);
-    values.insert(QStringLiteral("provider"), providerId());
+    values.insert(QStringLiteral("provider"), m_provider);
     if (!values.contains(QStringLiteral("workingDirectory")) && !m_directory.isEmpty())
         values.insert(QStringLiteral("workingDirectory"), m_directory);
     auto bytes = QJsonDocument(values).toJson(QJsonDocument::Compact);
@@ -199,7 +194,7 @@ void ConversationHistoryModel::apply(const QJsonObject& event, const QByteArray&
         QVariantList accepted;
         for (const auto& value : items) {
             const auto item = value.toObject();
-            if (item.value(QStringLiteral("provider")).toString() != providerId()
+            if (item.value(QStringLiteral("provider")).toString() != m_provider
                 || (!m_directory.isEmpty()
                     && item.value(QStringLiteral("workingDirectory")).toString()
                         != m_directory)

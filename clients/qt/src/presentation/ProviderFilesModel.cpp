@@ -17,15 +17,14 @@ ProviderFilesModel::ProviderFilesModel(CommandDispatcher& commands, QObject* par
     });
 }
 
-void ProviderFilesModel::inspect(Provider provider, const QString& directory)
+void ProviderFilesModel::inspect(const QString& provider, const QString& directory)
 {
     reset();
     m_requestId = QUuid::createUuidV7().toString(QUuid::WithoutBraces);
     QJsonObject values {
         { QStringLiteral("type"), QStringLiteral("provider.inspect") },
         { QStringLiteral("requestId"), m_requestId },
-        { QStringLiteral("provider"),
-            provider == Claude ? QStringLiteral("claude") : QStringLiteral("copilot") }
+        { QStringLiteral("provider"), provider }
     };
     if (!directory.isEmpty())
         values.insert(QStringLiteral("workingDirectory"), directory);

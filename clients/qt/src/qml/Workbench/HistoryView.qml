@@ -13,7 +13,7 @@ KPopover {
     readonly property string selectedId: history.selectedConversation.nativeConversationId || ""
 
     function openModal() {
-        Models.ConversationHistory.open(Models.ConversationHistory.Claude, "");
+        Models.ConversationHistory.open("claude", "");
         open();
     }
 
@@ -63,8 +63,8 @@ KPopover {
                 compact: true
                 identifier: "panel.history.provider"
                 options: [
-                    { value: Models.ConversationHistory.Claude, label: "Claude" },
-                    { value: Models.ConversationHistory.Copilot, label: "Copilot" }
+                    { value: "claude", label: "Claude" },
+                    { value: "copilot", label: "Copilot" }
                 ]
                 currentValue: root.history.provider
                 onActivated: value => Models.ConversationHistory.open(value, root.history.directory)
@@ -205,7 +205,7 @@ KPopover {
                     visible: root.selectedId.length === 0
                     title: root.hasList ? qsTr("Pick a conversation") : qsTr("Nothing saved here")
                     message: root.hasList ? qsTr("You see it here before you resume it.") : qsTr("Choose another project, or switch the agent.")
-                    art: AgentMark { program: root.history.providerId; size: 52; asleep: true }
+                    art: AgentMark { program: root.history.provider; size: 52; asleep: true }
                 }
                 KScrollView {
                     id: preview
@@ -235,7 +235,7 @@ KPopover {
                                 Layout.fillWidth: true
                                 spacing: 10
 
-                                AgentMark { Layout.alignment: Qt.AlignTop; visible: !entry.own; program: root.history.providerId; size: 22; asleep: entry.tool }
+                                AgentMark { Layout.alignment: Qt.AlignTop; visible: !entry.own; program: root.history.provider; size: 22; asleep: entry.tool }
                                 Item { visible: entry.own; Layout.fillWidth: true; Layout.minimumWidth: 60 }
                                 Rectangle {
                                     Layout.fillWidth: !entry.own
@@ -345,7 +345,7 @@ KPopover {
 
                 onClicked: {
                     const selected = root.history.selectedConversation;
-                    if (Models.SessionActions.resume(root.history.providerId,
+                    if (Models.SessionActions.resume(root.history.provider,
                             selected.nativeConversationId, selected.workingDirectory)) {
                         root.close();
                     }

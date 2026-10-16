@@ -39,7 +39,7 @@ private slots:
     {
         ProviderCommands commands;
         kodosi::ConversationHistoryModel tools(commands);
-        tools.open(kodosi::ConversationHistoryModel::Claude, QStringLiteral("/repo"));
+        tools.open(QStringLiteral("claude"), QStringLiteral("/repo"));
         const QJsonObject item { { QStringLiteral("provider"), QStringLiteral("claude") },
             { QStringLiteral("workingDirectory"), QStringLiteral("/repo") },
             { QStringLiteral("nativeConversationId"), test::id(1) } };
@@ -57,7 +57,7 @@ private slots:
         QCOMPARE(commands.values.last().value(QStringLiteral("beforeByte")).toInt(), 123);
         QVERIFY(!commands.values.last().contains(QStringLiteral("beforeLine")));
         const auto stale = commands.reply({ { QStringLiteral("entries"), QJsonArray { QJsonObject {} } } });
-        tools.open(kodosi::ConversationHistoryModel::Copilot, QStringLiteral("/other"));
+        tools.open(QStringLiteral("copilot"), QStringLiteral("/other"));
         apply(tools, stale);
         QVERIFY(tools.entries().isEmpty());
         QVERIFY(tools.busy());
@@ -68,7 +68,7 @@ private slots:
     {
         ProviderCommands commands;
         kodosi::ConversationHistoryModel tools(commands);
-        tools.open(kodosi::ConversationHistoryModel::Claude, QStringLiteral("/repo"));
+        tools.open(QStringLiteral("claude"), QStringLiteral("/repo"));
         apply(tools, commands.reply({ { QStringLiteral("items"), QJsonArray { QJsonObject {
             { QStringLiteral("provider"), QStringLiteral("claude") },
             { QStringLiteral("workingDirectory"), QStringLiteral("/repo") },
@@ -106,7 +106,7 @@ private slots:
     {
         ProviderCommands commands;
         kodosi::ConversationHistoryModel tools(commands);
-        tools.open(kodosi::ConversationHistoryModel::Claude, {});
+        tools.open(QStringLiteral("claude"), {});
         QVERIFY(!commands.values.last().contains(QStringLiteral("workingDirectory")));
         apply(tools, commands.reply({ { QStringLiteral("items"), QJsonArray { QJsonObject {
             { QStringLiteral("provider"), QStringLiteral("claude") },
@@ -119,7 +119,7 @@ private slots:
     {
         ProviderCommands commands;
         kodosi::ConversationHistoryModel tools(commands);
-        tools.open(kodosi::ConversationHistoryModel::Claude, QStringLiteral("/repo"));
+        tools.open(QStringLiteral("claude"), QStringLiteral("/repo"));
         apply(tools, commands.reply({ { QStringLiteral("items"),
             QJsonArray { QJsonObject { { QStringLiteral("provider"), QStringLiteral("claude") },
                 { QStringLiteral("workingDirectory"), QStringLiteral("/other") },
@@ -131,7 +131,7 @@ private slots:
     {
         ProviderCommands commands;
         kodosi::ConversationHistoryModel tools(commands);
-        tools.open(kodosi::ConversationHistoryModel::Claude, QStringLiteral("/repo"));
+        tools.open(QStringLiteral("claude"), QStringLiteral("/repo"));
         const QJsonObject item {
             {QStringLiteral("provider"), QStringLiteral("claude")},
             {QStringLiteral("workingDirectory"), QStringLiteral("/repo")},
@@ -151,7 +151,7 @@ private slots:
     {
         ProviderCommands commands;
         kodosi::ProviderFilesModel files(commands);
-        files.inspect(kodosi::ProviderFilesModel::Claude, QStringLiteral("/repo"));
+        files.inspect(QStringLiteral("claude"), QStringLiteral("/repo"));
         QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(),
             QStringLiteral("provider.inspect"));
         QVERIFY(!commands.values.last().contains(QStringLiteral("content")));
