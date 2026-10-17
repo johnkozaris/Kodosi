@@ -49,10 +49,17 @@ enum Action {
         about = "Work with rooms and their members, conversation, tasks, repositories and terminals."
     )]
     Room(rooms::Arguments),
+    #[command(subcommand, about = "Work with Dosi, an agent for your other agents.")]
+    Dosi(DosiAction),
     #[command(subcommand)]
     Provider(ProviderAction),
     #[command(hide = true)]
     InternalHost,
+}
+#[derive(Subcommand)]
+enum DosiAction {
+    /// Print the skill that lets an agent act as Dosi: it watches your terminals and acts on them with your consent.
+    Skill,
 }
 #[derive(Subcommand)]
 enum HostAction {
@@ -333,6 +340,9 @@ async fn dispatch(args: Arguments) -> Result<()> {
     {
         return stop_host(&config, force, args.json).await;
     }
+    if matches!(args.command, Action::Dosi(DosiAction::Skill)) {
+        return print_text(include_str!("../../skills/kodosi-dosi/SKILL.md"));
+    }
     let mut client = local_host::connect_or_start(&config.data_root).await?;
     let mut context = Context::from_events(&client.initial_events);
     list_terminals(&args.command, &mut client, &mut context).await;
@@ -436,6 +446,7 @@ async fn command(
         Action::Friends(action) => friend_command(action, &request),
         Action::Provider(action) => provider_command(action, &request)?,
         Action::Room(_)
+        | Action::Dosi(_)
         | Action::Host { .. }
         | Action::InternalHost
         | Action::Status
@@ -1343,6 +1354,42 @@ mod tests {
         ])));
         assert!(!is_invocation(&args(&[app, "statsu"])));
         assert!(!is_invocation(&[]));
+    }
+    #[test]
+    fn every_command_in_a_skill_is_a_command_of_this_cli() {
+        let words = |command: &str| {
+            let mut words = vec![String::new()];
+            let mut quoted = false;
+            for letter in command.chars() {
+                match letter {
+                    '"' => quoted = !quoted,
+                    letter if letter.is_whitespace() && !quoted => words.push(String::new()),
+                    letter => words.last_mut().unwrap().push(letter),
+                }
+            }
+            words
+                .into_iter()
+                .filter(|word| !word.is_empty() && !word.starts_with('['))
+                .map(|word| match word.as_str() {
+                    "<sequence>" | "<issue-number>" => "1".to_owned(),
+                    "<conversation>" => Uuid::nil().to_string(),
+                    word if word.starts_with('<') => "x".to_owned(),
+                    word => word.to_owned(),
+                })
+                .collect::<Vec<_>>()
+        };
+        for skill in [
+            include_str!("../../skills/kodosi-dosi/SKILL.md"),
+            include_str!("../../skills/kodosi-room/SKILL.md"),
+        ] {
+            let commands = skill.split('`').skip(1).step_by(2);
+            for command in commands.filter(|code| code.starts_with("kodosi ")) {
+                assert!(
+                    Arguments::try_parse_from(words(command)).is_ok(),
+                    "{command}"
+                );
+            }
+        }
     }
     #[test]
     fn named_keys_become_the_bytes_a_terminal_reads() {
