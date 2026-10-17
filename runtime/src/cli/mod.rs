@@ -1197,6 +1197,11 @@ async fn connect_or_start(config: &Config) -> Result<local_host::Client> {
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
+    if let Some(session) = kodosi_os::process::session_environment() {
+        command
+            .env_clear()
+            .envs(host_environment(session, std::env::vars_os()));
+    }
     kodosi_os::process::detach(&mut command);
     let mut child = command.spawn()?;
     for _ in 0..100 {
@@ -1213,6 +1218,22 @@ async fn connect_or_start(config: &Config) -> Result<local_host::Client> {
     drop(child.kill());
     drop(child.wait());
     Err(Error::Other("local host startup timed out".into()))
+}
+
+fn host_environment(
+    session: Vec<(OsString, OsString)>,
+    own: impl IntoIterator<Item = (OsString, OsString)>,
+) -> Vec<(OsString, OsString)> {
+    let setting = |name: &OsString| {
+        name.as_encoded_bytes()
+            .get(..6)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(b"KODOSI"))
+    };
+    session
+        .into_iter()
+        .filter(|(name, _)| !setting(name))
+        .chain(own.into_iter().filter(|(name, _)| setting(name)))
+        .collect()
 }
 
 #[cfg(test)]
@@ -1271,6 +1292,34 @@ mod tests {
         ])));
         assert!(!is_invocation(&args(&[app, "statsu"])));
         assert!(!is_invocation(&[]));
+    }
+    #[test]
+    fn a_started_host_gets_the_session_environment_and_this_commands_settings() {
+        let pairs = |list: &[(&str, &str)]| {
+            list.iter()
+                .map(|(name, value)| (OsString::from(name), OsString::from(value)))
+                .collect::<Vec<_>>()
+        };
+        let session = pairs(&[
+            ("PATH", "/usr/bin"),
+            ("SESSION_ONLY", "1"),
+            ("KODOSI_DATA_ROOT", "/session"),
+        ]);
+        let own = pairs(&[
+            ("PATH", "/agent/bin"),
+            ("GH_TOKEN", "fake"),
+            ("KODOSI_DATA_ROOT", "/isolated"),
+            ("KODOSI__BACKEND__API", "http://127.0.0.1:5180"),
+        ]);
+        assert_eq!(
+            host_environment(session, own),
+            pairs(&[
+                ("PATH", "/usr/bin"),
+                ("SESSION_ONLY", "1"),
+                ("KODOSI_DATA_ROOT", "/isolated"),
+                ("KODOSI__BACKEND__API", "http://127.0.0.1:5180"),
+            ])
+        );
     }
     #[test]
     fn background_hosts_only_exit_after_an_idle_grace_period() {

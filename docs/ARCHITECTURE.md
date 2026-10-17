@@ -25,6 +25,11 @@ bounded buffering; a view on another device gets them over its own end-to-end en
 channel through the backend. Input whose delivery is uncertain is not replayed, and a
 stale view cannot control a replacement terminal.
 
+A terminal starts with its host's environment and Kodosi's terminal variables. A host
+that `kodosi` starts gets the user session's environment from Windows or the systemd
+user manager, plus the command's `KODOSI` settings, and otherwise the command's
+environment.
+
 The host also sends each terminal's agent and state, unencrypted and without its text,
 to the backend, which shows the newest to everyone who can open the terminal while the
 host is connected.

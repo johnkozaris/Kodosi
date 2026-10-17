@@ -20,10 +20,7 @@ use tokio::{
     process::{Child, Command},
 };
 
-use super::{
-    ShutdownStage, Transfer, WaitOutcome, inherits_foreign_context, program_identity,
-    validate_working_dir,
-};
+use super::{ShutdownStage, Transfer, WaitOutcome, program_identity, validate_working_dir};
 
 static OPEN_PTY: Mutex<()> = Mutex::new(());
 
@@ -173,13 +170,9 @@ impl KodosiPty {
         command.env("TERM", "xterm-256color");
         command.env("COLORTERM", "truecolor");
         command.env("TERM_PROGRAM", "Kodosi");
+        command.env_remove("TERMINFO");
         if env::var_os("LANG").is_none() && env::var_os("LC_ALL").is_none() {
             command.env("LANG", "en_US.UTF-8");
-        }
-        for (key, _) in env::vars_os() {
-            if key.to_str().is_some_and(inherits_foreign_context) {
-                command.env_remove(&key);
-            }
         }
 
         for (key, value) in environment {
@@ -862,6 +855,76 @@ mod tests {
                     );
                 }
             });
+    }
+
+    #[test]
+    fn a_terminal_program_gets_its_hosts_variables_and_kodosis_terminal() {
+        const NAME: &str =
+            "pty::unix::tests::a_terminal_program_gets_its_hosts_variables_and_kodosis_terminal";
+        const HOST: &str = "KODOSI_TEST_HOST_ENVIRONMENT";
+        if env::var_os(HOST).is_none() {
+            let output = std::process::Command::new(env::current_exe().unwrap())
+                .args(["--exact", NAME, "--test-threads=1"])
+                .env(HOST, "1")
+                .env("CLAUDECODE", "1")
+                .env("TERM", "xterm-ghostty")
+                .env("TERMINFO", "/nowhere")
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stdout)
+            );
+            return;
+        }
+        let output = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                let arguments = ["-c", "env; echo END-OF-ENVIRONMENT"].map(str::to_owned);
+                let (mut pty, mut reader) = KodosiPty::spawn_program(
+                    Path::new("/bin/sh"),
+                    &arguments,
+                    None,
+                    24,
+                    80,
+                    &[("KODOSI_SESSION_ID", "id")],
+                    None,
+                )
+                .unwrap();
+                let mut output = Vec::new();
+                while !String::from_utf8_lossy(&output).contains("END-OF-ENVIRONMENT") {
+                    let mut bytes = [0; 4096];
+                    let count =
+                        tokio::time::timeout(Duration::from_secs(5), reader.read(&mut bytes))
+                            .await
+                            .unwrap()
+                            .unwrap();
+                    assert!(count > 0, "{}", String::from_utf8_lossy(&output));
+                    output.extend_from_slice(&bytes[..count]);
+                }
+                pty.request_shutdown(ShutdownStage::Force).unwrap();
+                pty.wait().await.unwrap();
+                String::from_utf8_lossy(&output).into_owned()
+            });
+        let variables: Vec<&str> = output.lines().map(str::trim_end).collect();
+        for expected in [
+            "CLAUDECODE=1",
+            "TERM=xterm-256color",
+            "COLORTERM=truecolor",
+            "TERM_PROGRAM=Kodosi",
+            "KODOSI_SESSION_ID=id",
+        ] {
+            assert!(variables.contains(&expected), "{expected}: {output}");
+        }
+        assert!(
+            !variables
+                .iter()
+                .any(|variable| variable.starts_with("TERMINFO=")),
+            "{output}"
+        );
     }
 
     #[test]

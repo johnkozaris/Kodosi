@@ -1,4 +1,7 @@
-use std::{ffi::OsStr, path::PathBuf};
+use std::{
+    ffi::{OsStr, OsString},
+    path::PathBuf,
+};
 
 #[cfg(unix)]
 mod unix;
@@ -22,6 +25,11 @@ pub fn find_executable_in(name: &str, paths: &OsStr) -> Option<PathBuf> {
 
 pub fn default_shell() -> PathBuf {
     imp::default_shell()
+}
+
+/// The user session's environment, where Windows or a systemd user manager reports it.
+pub fn session_environment() -> Option<Vec<(OsString, OsString)>> {
+    imp::session_environment()
 }
 
 pub fn detach(command: &mut std::process::Command) {

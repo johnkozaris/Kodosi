@@ -41,10 +41,7 @@ use windows_sys::Win32::{
     },
 };
 
-use super::{
-    ShutdownStage, Transfer, WaitOutcome, inherits_foreign_context, program_identity,
-    validate_working_dir,
-};
+use super::{ShutdownStage, Transfer, WaitOutcome, program_identity, validate_working_dir};
 use crate::{KodosiError, Result};
 
 const PSEUDOCONSOLE_GLYPH_WIDTH_GRAPHEMES: u32 = 0x08;
@@ -212,7 +209,7 @@ impl KodosiPty {
         let working_dir = validate_working_dir(working_dir)?;
         let program = resolve_program(program, working_dir)?;
         let (application, mut line) = command_line(&program, arguments)?;
-        let environment = environment_block(environment);
+        let environment = environment_block(std::env::vars_os(), environment);
         let job = create_job()?;
         let (input_read, input_write) = pipe()?;
         let (output_read, output_write) = pipe()?;
@@ -876,14 +873,16 @@ fn push_argument(line: &mut Vec<u16>, argument: &OsStr) {
 }
 
 /// Windows expects the environment block sorted.
-fn environment_block(overrides: &[(&str, &str)]) -> Vec<u16> {
+fn environment_block(
+    inherited: impl IntoIterator<Item = (OsString, OsString)>,
+    overrides: &[(&str, &str)],
+) -> Vec<u16> {
     let mut variables: BTreeMap<String, (OsString, OsString)> = BTreeMap::new();
-    for (key, value) in std::env::vars_os() {
-        let name = key.to_string_lossy();
-        if name.is_empty() || inherits_foreign_context(&name) {
-            continue;
+    for (key, value) in inherited {
+        let name = key.to_string_lossy().to_uppercase();
+        if !name.is_empty() && name != "TERMINFO" {
+            variables.insert(name, (key, value));
         }
-        variables.insert(name.to_uppercase(), (key.clone(), value));
     }
     for (key, value) in [
         ("TERM", "xterm-256color"),
@@ -1066,17 +1065,27 @@ mod tests {
     }
 
     #[test]
-    fn environment_drops_foreign_context_and_sets_the_terminal() {
-        let block = environment_block(&[("KODOSI_SESSION_ID", "id")]);
+    fn environment_passes_the_hosts_variables_and_describes_the_terminal() {
+        let inherited = [
+            ("WT_SESSION", "1"),
+            ("TERMINFO", r"C:\terminfo"),
+            ("Term", "dumb"),
+            ("Path", r"C:\bin"),
+        ]
+        .map(|(name, value)| (OsString::from(name), OsString::from(value)));
+        let block = environment_block(inherited, &[("KODOSI_SESSION_ID", "id")]);
         let text = String::from_utf16_lossy(&block);
         let variables: Vec<&str> = text.split('\0').filter(|entry| !entry.is_empty()).collect();
-        assert!(variables.contains(&"TERM=xterm-256color"));
-        assert!(variables.contains(&"TERM_PROGRAM=Kodosi"));
-        assert!(variables.contains(&"KODOSI_SESSION_ID=id"));
-        assert!(
-            !variables
-                .iter()
-                .any(|entry| entry.starts_with("WT_SESSION="))
+        assert_eq!(
+            variables,
+            [
+                "COLORTERM=truecolor",
+                "KODOSI_SESSION_ID=id",
+                r"Path=C:\bin",
+                "TERM=xterm-256color",
+                "TERM_PROGRAM=Kodosi",
+                "WT_SESSION=1",
+            ]
         );
         assert!(block.ends_with(&[0, 0]));
     }

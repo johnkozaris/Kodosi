@@ -98,7 +98,10 @@ impl LocalSession {
             let emulator = SessionTerminalHandle::spawn(size)?;
             let session_id = id.to_string();
             let command_path = command_path();
-            let mut environment = vec![("KODOSI_SESSION_ID", session_id.as_str())];
+            let mut environment = vec![
+                ("KODOSI_SESSION_ID", session_id.as_str()),
+                ("TERM_PROGRAM_VERSION", env!("KODOSI_VERSION")),
+            ];
             if let Some(path) = &command_path {
                 environment.push(("PATH", path.as_str()));
             }
