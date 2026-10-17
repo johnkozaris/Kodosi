@@ -30,7 +30,7 @@ use crate::{
     },
 };
 #[cfg(feature = "host")]
-use crate::{network::LocalPublication, terminal::LocalSession};
+use crate::{network::LocalPublication, terminal::TerminalSession};
 
 mod commands;
 #[cfg(test)]
@@ -328,7 +328,7 @@ struct Scope {
 
 #[cfg(feature = "host")]
 struct Local {
-    terminal: LocalSession,
+    terminal: TerminalSession,
     entry: SessionEntry,
     creation: Command,
     published: bool,
@@ -378,7 +378,7 @@ impl Local {
 
 #[cfg(feature = "host")]
 struct StartedSession {
-    terminal: Option<LocalSession>,
+    terminal: Option<TerminalSession>,
     directory: PathBuf,
     repository: bool,
     worktree: Option<crate::worktree::Worktree>,
@@ -467,7 +467,7 @@ enum Completion {
 #[derive(Clone)]
 enum TerminalTarget {
     #[cfg(feature = "host")]
-    Local(LocalSession),
+    Local(TerminalSession),
     Remote(RemoteTerminal),
 }
 

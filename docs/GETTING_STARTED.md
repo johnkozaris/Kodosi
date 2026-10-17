@@ -30,7 +30,7 @@ To give an agent its own copy of a repository, hover the repository folder in th
 sidebar, select the branch button and name a branch. Kodosi starts a terminal in a new
 Git worktree and removes the worktree when the terminal ends if nothing changed.
 Settings › Terminal chooses where these folders go; from a shell, run
-`kodosi session start --directory <repository> --branch <name>`.
+`kodosi terminal start --directory <repository> --branch <name>`.
 
 ## Terminal state
 

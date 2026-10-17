@@ -79,7 +79,8 @@ progress where work happens and give each failure a clear recovery action.
   Linux and Windows 11; it is not yet validated on Windows hardware. The iPhone and iPad
   app follows, answers and controls the terminals of the person's computers and friends,
   takes part in rooms, and starts no terminals.
-- Each app contains the `kodosi` CLI. `kodosi room` and its bundled skill let existing
+- Each app contains the `kodosi` CLI, which uses the apps' words. `kodosi terminal`
+  starts, opens and shares terminals; `kodosi room` and its bundled skill let existing
   agents take part through the running host.
 - Apps update themselves in the background and never restart without asking, because a
   restart ends the host's terminals. An app too old for the backend asks for an update.

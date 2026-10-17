@@ -24,7 +24,7 @@ public sealed partial class DeviceService
         var now = clock.GetUtcNow();
         if (!await db.DeviceLists.AnyAsync(x => x.UserId == userId, ct))
             throw ApiException.Conflict("Register the first device directly.");
-        await RequireDeviceSpaceAsync(userId, ct);
+        await RequireDeviceSpaceAsync(userId, recovering: false, ct);
         if (await db.Devices.AnyAsync(x => x.Id == deviceId, ct))
             throw ApiException.Conflict("This device identity has already been used.");
         var pending = await db.DeviceLinks.SingleOrDefaultAsync(x => x.UserId == userId && x.DeviceId == deviceId && x.State == "pending" && x.ExpiresAt > now, ct);
@@ -91,7 +91,7 @@ public sealed partial class DeviceService
         }
         if (link.State != "pending" || link.ExpiresAt <= clock.GetUtcNow()) throw ApiException.Missing();
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        await RequireDeviceSpaceAsync(userId, ct);
+        await RequireDeviceSpaceAsync(userId, recovering: false, ct);
         await StageDeviceAsync(userId, approvingDevice, link.DeviceId, link.SigningPublicKey, certBytes, certSig, listBytes, listSig, ct);
         link.State = "approved"; link.ApprovalProof = approval;
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
@@ -125,12 +125,13 @@ public sealed partial class DeviceService
         connections.Notify([userId], "devices");
     }
 
-    private async Task RequireDeviceSpaceAsync(Guid userId, CancellationToken ct)
+    private async Task RequireDeviceSpaceAsync(Guid userId, bool recovering, CancellationToken ct)
     {
         var most = (await plans.LimitsAsync(db, userId, ct)).Devices;
         var count = await db.Devices.CountAsync(x => x.UserId == userId && !x.Revoked && x.RecoveryBox == null, ct);
-        if (count >= most)
-            throw ApiException.Forbidden($"This account has {Limits.Count(count, "device", "devices")}, the most that it can have. Remove a device in Settings on one of your devices, then try again.");
+        if (count < most) return;
+        var full = $"This account has {Limits.Count(count, "device", "devices")}, the most that it can have. Remove a device in Settings on one of your devices, then try again.";
+        throw ApiException.Forbidden(recovering ? $"{full} If you have no other device, start fresh on this device." : full);
     }
 
     private static string HashCode(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
