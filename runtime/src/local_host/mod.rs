@@ -27,6 +27,7 @@ const STOP_WAIT: Duration = Duration::from_secs(5);
 const MAX_FRAME: usize = 8 * 1024 * 1024 + 64 * 1024;
 const MAX_CONNECTIONS: usize = 64;
 const HELLO_TIMEOUT: Duration = Duration::from_secs(3);
+const ACCOUNT_TIMEOUT: Duration = Duration::from_secs(30);
 const REFRESH_RETRY: Duration = Duration::from_secs(1);
 const WRITE_TIMEOUT: Duration = Duration::from_secs(5);
 

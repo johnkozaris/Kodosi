@@ -192,6 +192,33 @@ async fn handshake(
 }
 
 pub async fn connect_or_start(root: &Path) -> Result<Client> {
+    let mut client = connect_or_spawn(root).await?;
+    let settled = tokio::time::timeout(ACCOUNT_TIMEOUT, async {
+        while finalizing(&client.initial_events) {
+            if let Some(event) = client.next().await?.get("event") {
+                client.initial_events.push(event.clone());
+            }
+        }
+        Ok::<_, Error>(())
+    })
+    .await;
+    settled.unwrap_or(Ok(()))?;
+    Ok(client)
+}
+
+fn finalizing(events: &[Value]) -> bool {
+    events
+        .iter()
+        .rev()
+        .find_map(|event| match event["type"].as_str() {
+            Some("auth.finalizing") => Some(true),
+            Some("auth.ready" | "auth.required") => Some(false),
+            _ => None,
+        })
+        == Some(true)
+}
+
+async fn connect_or_spawn(root: &Path) -> Result<Client> {
     match Client::connect(root).await {
         Ok(client) => return Ok(client),
         Err(Error::Io(error))

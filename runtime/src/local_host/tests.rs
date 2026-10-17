@@ -135,6 +135,45 @@ async fn a_client_names_an_older_host() {
     host.await.unwrap();
 }
 
+#[tokio::test]
+async fn a_client_waits_until_the_host_has_read_the_saved_sign_in() {
+    let storage = tempfile::tempdir().unwrap();
+    let root = kodosi_os::fs::canonicalize(storage.path()).unwrap();
+    let mut listener = kodosi_os::ipc::Listener::bind(&endpoint(&root).unwrap())
+        .await
+        .unwrap();
+    let host = tokio::spawn(async move {
+        let mut stream = listener.accept().await.unwrap();
+        let hello: Hello = read_json(&mut FrameReader::new(&mut stream)).await.unwrap();
+        assert_eq!(hello.version, VERSION);
+        let welcome = Welcome {
+            version: VERSION,
+            events: vec![json!({"type":"auth.finalizing","accountUserId":null,"accountEpoch":1})],
+            host: Some(HostDescription {
+                pid: 42,
+                kind: HostKind::Background,
+            }),
+            ..Welcome::default()
+        };
+        write_json(&mut stream, &welcome).await.unwrap();
+        for event in [
+            json!({"type":"auth.finalizing","accountUserId":"me","accountEpoch":2}),
+            json!({"type":"sessions.snapshot","accountUserId":"me","accountEpoch":2,"sessions":[]}),
+            json!({"type":"auth.ready","accountUserId":"me","accountEpoch":2}),
+        ] {
+            write_json(&mut stream, &json!({"kind":"event","event":event}))
+                .await
+                .unwrap();
+        }
+        stream
+    });
+    let client = connect_or_start(&root).await.unwrap();
+    let last = client.initial_events.last().unwrap();
+    assert_eq!(last["type"], "auth.ready");
+    assert_eq!(last["accountEpoch"], 2);
+    drop(host.await.unwrap());
+}
+
 #[cfg(unix)]
 #[tokio::test]
 async fn a_terminal_connection_answers_its_controls_and_refreshes() {
