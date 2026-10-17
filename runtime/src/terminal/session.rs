@@ -68,7 +68,7 @@ enum Request {
 }
 
 #[derive(Clone)]
-pub(crate) struct LocalSession {
+pub(crate) struct TerminalSession {
     pub incarnation_id: Uuid,
     commands: mpsc::Sender<Request>,
     pub host_requests: mpsc::Sender<HostRequest>,
@@ -78,7 +78,7 @@ pub(crate) struct LocalSession {
     input_budget: Arc<Semaphore>,
 }
 
-impl LocalSession {
+impl TerminalSession {
     pub(crate) async fn spawn(
         id: Uuid,
         incarnation_id: Uuid,

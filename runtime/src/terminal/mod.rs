@@ -14,7 +14,7 @@ use uuid::Uuid;
 pub use context::{ContextPlace, PlaceKind, TerminalContext};
 pub(crate) use remote::RemoteTerminal;
 #[cfg(feature = "host")]
-pub(crate) use session::LocalSession;
+pub(crate) use session::TerminalSession;
 pub use status::{BlockedKind, ProgramState, ProgramStatus};
 pub use subscribers::{ControlFrame, DataFrame, Frame, Subscription};
 pub use types::{

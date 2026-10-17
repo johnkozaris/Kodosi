@@ -26,7 +26,7 @@ use crate::{
     Config,
     protocol::{SessionEntry, SessionKind},
     provider::{self, ConversationIdentity},
-    terminal::{LocalSession, SessionChange},
+    terminal::{SessionChange, TerminalSession},
 };
 
 const RUN_ON_HOST: &str = "Start a program on the computer that hosts this terminal.";
@@ -1069,7 +1069,7 @@ async fn create_session(
     let directory = worktree
         .as_ref()
         .map_or(directory, |worktree| worktree.path.clone());
-    let terminal = match LocalSession::spawn(
+    let terminal = match TerminalSession::spawn(
         id,
         Uuid::now_v7(),
         program,

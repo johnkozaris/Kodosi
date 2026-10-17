@@ -8,7 +8,7 @@ use super::*;
 async fn runs_start_line(shell: PathBuf, arguments: Vec<String>, line: &str, output: &[u8]) {
     let root = tempfile::tempdir().expect("temp cwd");
     let (changes, _changes) = mpsc::channel(128);
-    let session = LocalSession::spawn(
+    let session = TerminalSession::spawn(
         Uuid::now_v7(),
         Uuid::now_v7(),
         shell,

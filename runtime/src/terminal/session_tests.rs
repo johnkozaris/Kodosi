@@ -7,14 +7,14 @@ use super::*;
 async fn shell(
     script: &str,
 ) -> (
-    LocalSession,
+    TerminalSession,
     mpsc::Receiver<SessionChange>,
     tempfile::TempDir,
 ) {
     let root = tempfile::tempdir().expect("temporary cwd");
     let directory = kodosi_os::fs::canonicalize(root.path()).expect("canonical cwd");
     let (changes, receiver) = mpsc::channel(128);
-    let session = LocalSession::spawn(
+    let session = TerminalSession::spawn(
         Uuid::now_v7(),
         Uuid::now_v7(),
         PathBuf::from("/bin/sh"),
@@ -749,7 +749,7 @@ async fn next_prompt(changes: &mut mpsc::Receiver<SessionChange>) -> bool {
 async fn a_command_runs_only_while_the_shell_is_at_its_prompt() {
     let root = tempfile::tempdir().expect("temp cwd");
     let (changes, mut changes_receiver) = mpsc::channel(128);
-    let session = LocalSession::spawn(
+    let session = TerminalSession::spawn(
         Uuid::now_v7(),
         Uuid::now_v7(),
         PathBuf::from("/bin/sh"),
@@ -799,7 +799,7 @@ async fn a_start_line_runs_once_the_shell_waits_at_its_prompt() {
     };
     let root = tempfile::tempdir().expect("temp cwd");
     let (changes, _changes) = mpsc::channel(128);
-    let session = LocalSession::spawn(
+    let session = TerminalSession::spawn(
         Uuid::now_v7(),
         Uuid::now_v7(),
         PathBuf::from(program),
@@ -1024,7 +1024,7 @@ async fn title_delivery_retries_after_the_change_channel_is_full() {
         .send(SessionChange::Bell { id: Uuid::now_v7() })
         .await
         .unwrap();
-    let local = LocalSession::spawn(
+    let local = TerminalSession::spawn(
         Uuid::now_v7(),
         Uuid::now_v7(),
         "/bin/sh".into(),
