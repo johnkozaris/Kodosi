@@ -137,7 +137,7 @@ int main(int argc, char* argv[])
     kodosi::Workspace workspace(runtime, sessions, desktop, desktopSettings);
     kodosi::ConversationHistoryModel history(runtime);
     kodosi::ProviderFilesModel providerFiles(runtime);
-    kodosi::AgentLauncherModel launcher(runtime, settings());
+    kodosi::AgentLauncherModel launcher(runtime);
     kodosi::AppearanceModel appearance(settings());
     kodosi::DesktopFileIntegration files;
     kodosi::TerminalTilingLayoutModel tiling;

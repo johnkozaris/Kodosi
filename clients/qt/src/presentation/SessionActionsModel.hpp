@@ -8,6 +8,7 @@
 #include <QObject>
 #include <QSet>
 #include <QStringList>
+#include <QVariantMap>
 
 #include <optional>
 
@@ -32,14 +33,14 @@ public:
     Q_INVOKABLE bool activateInRoom(const QString& sessionId);
     Q_INVOKABLE bool minimize(const QString& sessionId);
     Q_INVOKABLE bool create(const QString& name, const QString& directory, const QString& command = {},
-        const QString& prompt = {}, const QString& roomId = {});
+        const QString& prompt = {}, const QString& roomId = {}, const QVariantMap& agent = {});
     Q_INVOKABLE bool createOnBranch(const QString& directory, const QString& branch);
     Q_INVOKABLE QString suggestedBranch() const;
     Q_INVOKABLE bool resume(const QString& provider, const QString& nativeConversationId,
         const QString& workingDirectory);
     Q_INVOKABLE bool close(const QString& sessionId);
     Q_INVOKABLE bool rename(const QString& sessionId, const QString& name);
-    Q_INVOKABLE bool run(const QString& sessionId, const QString& command);
+    Q_INVOKABLE bool startAgent(const QString& sessionId, const QString& agent);
     Q_INVOKABLE bool takeCreated(const QString& sessionId);
     Q_INVOKABLE bool share(const QString& sessionId, const QStringList& userIds,
         const QStringList& expectedUserIds = {});

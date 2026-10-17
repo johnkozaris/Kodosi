@@ -379,20 +379,14 @@ private slots:
         QVERIFY(!atPrompt(3));
         QVERIFY(!atPrompt(4));
     }
-    void aStartLineGoesToTheTerminalAsOnePrintableLine()
+    void aStartMarkAsksTheHostToStartTheAgent()
     {
         Fixture f;
         f.workspace.apply(test::snapshot({ test::session(1) }), 0);
-
-        auto& actions = f.workspace.sessionActions();
-        const auto sent = f.commands.values.size();
-        QVERIFY(!actions.run(test::id(1), QStringLiteral("  ")));
-        QVERIFY(!actions.run(test::id(1), QStringLiteral("claude\nrm -rf x")));
-        QCOMPARE(f.commands.values.size(), sent);
-        const auto line = QStringLiteral("claude --add-dir ~/notes-") + QString::fromUcs4(U"\U0001F4C1");
-        QVERIFY(actions.run(test::id(1), QLatin1Char(' ') + line + QLatin1Char(' ')));
+        QVERIFY(f.workspace.sessionActions().startAgent(test::id(1), QStringLiteral("claude")));
         QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("session.run"));
-        QCOMPARE(f.commands.values.last().value(QStringLiteral("command")).toString(), line);
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("agent")).toObject(),
+            QJsonObject({ { QStringLiteral("agent"), QStringLiteral("claude") } }));
     }
     void aProgramStatusReportIsTheStateOfItsTerminal()
     {
@@ -573,12 +567,16 @@ private slots:
     {
         Fixture f;
         f.workspace.apply(test::snapshot({}), 0);
+        const QVariantMap agent { { QStringLiteral("agent"), QStringLiteral("claude") },
+            { QStringLiteral("account"), QStringLiteral("work") }, { QStringLiteral("model"), QString() },
+            { QStringLiteral("effort"), QStringLiteral("high") } };
         QVERIFY(f.workspace.sessionActions().create(
-            {}, QStringLiteral("/repo"), QStringLiteral("claude"), QStringLiteral(" fix the test "), test::id(7)));
+            {}, QStringLiteral("/repo"), {}, QStringLiteral(" fix the test "), test::id(7), agent));
         const auto sent = f.commands.values.last();
         QCOMPARE(sent.value(QStringLiteral("type")).toString(), QStringLiteral("session.create"));
         QCOMPARE(sent.value(QStringLiteral("missionId")).toString(), test::id(7));
-        QCOMPARE(sent.value(QStringLiteral("command")).toString(), QStringLiteral("claude"));
+        QVERIFY(!sent.contains(QStringLiteral("command")));
+        QCOMPARE(sent.value(QStringLiteral("agent")).toObject(), QJsonObject::fromVariantMap(agent));
         QCOMPARE(sent.value(QStringLiteral("prompt")).toString(), QStringLiteral("fix the test"));
         QVERIFY(!sent.value(QStringLiteral("name")).toString().isEmpty());
     }

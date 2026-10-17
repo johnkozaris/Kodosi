@@ -31,12 +31,12 @@ struct AgentLauncher: View {
         theme.isDark ? theme.colors : AppTheme.dark.colors
     }
 
-    private var choice: LaunchChoice {
-        deps.settings.launchChoice
+    private var choice: AgentChoice {
+        launcher.choice
     }
 
     private var plan: LaunchPlan {
-        LaunchPlan(choice: choice, launcher: launcher)
+        LaunchPlan(launcher: launcher)
     }
 
     private var info: AgentInfo? {
@@ -48,7 +48,8 @@ struct AgentLauncher: View {
     }
 
     private var ready: Bool {
-        info == nil ? choice.agent == nil : plan.line != nil
+        guard let info else { return choice.agent == nil }
+        return !info.installed || plan.start != nil
     }
 
     private var hint: String {
@@ -106,7 +107,7 @@ struct AgentLauncher: View {
                     hidden: (launcher.catalog?.agents ?? []).count { !$0.installed && $0.agent != choice.agent },
                     showsAll: $showsAll
                 ) { id in
-                    update { $0.agent = id == "shell" ? nil : id }
+                    choose(.tab(id == "shell" ? nil : id))
                     closeMenu()
                 }
                 Spacer(minLength: 8)
@@ -191,8 +192,8 @@ struct AgentLauncher: View {
     }
 
     private func modelKey(_ info: AgentInfo) -> some View {
-        let named = plan.model?.label ?? plan.modelArgument.map { String($0.split(separator: " ").last ?? "") }
-        let level = plan.efforts.firstIndex { $0.argument == plan.effortArgument }
+        let named = plan.model?.label ?? plan.modelId
+        let level = plan.efforts.firstIndex { $0.id == plan.effortId }
         return PickerKey(
             title: named ?? String(localized: "Model"), quiet: named == nil,
             loading: plan.models == nil && launcher.loadingModels.contains(info.agent),
@@ -215,8 +216,8 @@ struct AgentLauncher: View {
                 )
                 if !plan.efforts.isEmpty {
                     Rectangle().fill(theme.colors.hairline.opacity(0.6)).frame(height: 0.5)
-                    EffortMeter(levels: plan.efforts, current: plan.effortArgument) { argument in
-                        update { $0.efforts[info.agent] = argument }
+                    EffortMeter(levels: plan.efforts, current: plan.effortId) { effort in
+                        choosePick { $0.effort = effort }
                         closeMenu()
                     }
                 }
@@ -256,7 +257,6 @@ struct AgentLauncher: View {
 
     private func pick(_ id: String) {
         guard let menu else { return }
-        let agent = info?.agent ?? ""
         switch menu.pick(id) {
         case let .folder(path):
             folder = path
@@ -269,10 +269,10 @@ struct AgentLauncher: View {
         case .newAccount:
             withAnimation(theme.motion.snappy) { adding = true }
             return
-        case let .account(command):
-            update { $0.accounts[agent] = command }
-        case let .model(argument):
-            update { $0.models[agent] = argument }
+        case let .account(name):
+            choosePick { $0.account = name }
+        case let .model(model):
+            choosePick { $0.model = model }
         }
         closeMenu()
     }
@@ -285,7 +285,7 @@ struct AgentLauncher: View {
             defer { saving = false }
             do {
                 let account = try await launcher.addAccount(info.agent, name: name)
-                update { $0.accounts[info.agent] = account.command }
+                choosePick { $0.account = account.name }
                 closeMenu()
             } catch {
                 withAnimation(theme.motion.fade) { addError = error.localizedDescription }
@@ -321,26 +321,28 @@ struct AgentLauncher: View {
         return info.installed ? "Start \(info.kind.label)" : "Install \(info.kind.label)"
     }
 
-    private func update(_ change: (inout LaunchChoice) -> Void) {
-        change(&deps.settings.launchChoice)
-        deps.settings.saveLaunchChoice()
+    private func choose(_ change: AgentChoiceChange) {
+        launcher.choose(change)
         focusRequest += 1
+    }
+
+    private func choosePick(_ change: (inout AgentPick) -> Void) {
+        guard var pick = plan.shown else { return }
+        change(&pick)
+        choose(.pick(pick))
     }
 
     private func start() {
         guard !starting, ready else { return }
         let words = prompt.trimmingCharacters(in: .whitespaces)
-        let line = plan.line
-        var command = line
-        var first: String?
-        if let info {
-            if info.installed, !words.isEmpty {
-                command = [line, info.promptFlag].compactMap(\.self).joined(separator: " ")
-                first = words
-            }
-        } else if !words.isEmpty {
-            command = words
+        let installed = info?.installed == true
+        let agent = installed ? plan.start : nil
+        let command: String? = if let info {
+            info.installed ? nil : info.install
+        } else {
+            words.isEmpty ? nil : words
         }
+        let first = installed && !words.isEmpty ? words : nil
         starting = true
         error = nil
         let directory = directory
@@ -348,12 +350,13 @@ struct AgentLauncher: View {
             defer { starting = false }
             do {
                 try await deps.createSession(
-                    name: generateSessionName(), directory: directory, roomId: roomId, command: command, prompt: first
+                    name: generateSessionName(), directory: directory, roomId: roomId, command: command, agent: agent, prompt: first
                 )
                 prompt = ""
                 started()
             } catch {
                 withAnimation(theme.motion.fade) { self.error = error.localizedDescription }
+                await launcher.refresh(force: true)
             }
         }
     }

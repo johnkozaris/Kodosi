@@ -24,10 +24,13 @@ use crate::{
 #[cfg(feature = "host")]
 use crate::{
     Config,
+    agents::{AgentStart, Launcher},
     protocol::{SessionEntry, SessionKind},
     provider::{self, ConversationIdentity},
     terminal::{SessionChange, TerminalSession},
 };
+#[cfg(feature = "host")]
+use std::sync::Arc;
 
 const RUN_ON_HOST: &str = "Start a program on the computer that hosts this terminal.";
 const SHARE_ON_HOST: &str = "Change sharing on the computer hosting this session.";
@@ -129,9 +132,22 @@ impl Runtime {
                 self.job_capacity()?;
                 let home = self.config.home.clone();
                 let shell = shell(&self.config);
+                let launcher = Arc::clone(&self.launcher);
                 let command = command.clone();
                 self.spawn(async move {
-                    let result = provider_reply(&home, &shell, &command).await;
+                    let result = provider_reply(&home, &shell, &launcher, &command).await;
+                    Completion::Provider { command, result }
+                });
+            }
+            #[cfg(feature = "host")]
+            Command::ChooseAgent { change, .. } => {
+                self.job_capacity()?;
+                self.launcher.choose(change);
+                let launcher = Arc::clone(&self.launcher);
+                let command = command.clone();
+                self.spawn(async move {
+                    Arc::clone(&launcher).save().await;
+                    let result = serde_json::to_value(launcher.choice()).map_err(Error::from);
                     Completion::Provider { command, result }
                 });
             }
@@ -146,7 +162,8 @@ impl Runtime {
             #[cfg(not(feature = "host"))]
             Command::InspectAgents { .. }
             | Command::InspectAgentModels { .. }
-            | Command::AddAgentAccount { .. } => {
+            | Command::AddAgentAccount { .. }
+            | Command::ChooseAgent { .. } => {
                 return Err(Error::Invalid(
                     "This device cannot start terminals.".to_owned(),
                 ));
@@ -243,22 +260,39 @@ impl Runtime {
     #[cfg(feature = "host")]
     fn run_in_session(&mut self, command: &Command) -> Result<()> {
         let id = self.command_session(command)?;
-        let Command::RunInSession { command: line, .. } = command else {
+        let Command::RunInSession {
+            command: line,
+            agent,
+            ..
+        } = command
+        else {
             return Err(Error::Invalid("expected a command to run".to_owned()));
         };
         self.job_capacity()?;
-        let response = self
+        let terminal = self
             .local
             .get(&id)
             .ok_or_else(|| Error::Invalid(RUN_ON_HOST.to_owned()))?
             .terminal
-            .run(line.clone());
+            .clone();
+        let launcher = Arc::clone(&self.launcher);
+        let (line, agent) = (line.clone(), agent.clone());
         let command = command.clone();
         self.spawn(async move {
-            Completion::Terminal {
-                command,
-                result: response.await,
+            let result = async {
+                let line = match (line, agent) {
+                    (Some(line), None) => line,
+                    (None, Some(agent)) => launcher.line(&agent).await.map_err(Error::Invalid)?,
+                    _ => {
+                        return Err(Error::Invalid(
+                            "Run either a command or an agent.".to_owned(),
+                        ));
+                    }
+                };
+                terminal.run(line).await
             }
+            .await;
+            Completion::Terminal { command, result }
         });
         Ok(())
     }
@@ -401,9 +435,10 @@ impl Runtime {
         let id = Uuid::now_v7();
         let config = self.config.clone();
         let changes = self.changes.clone();
+        let launcher = Arc::clone(&self.launcher);
         self.creating.insert(id, command.clone());
         self.spawn(async move {
-            let result = create_session(id, config, &command, changes).await;
+            let result = create_session(id, config, &launcher, &command, changes).await;
             Completion::Created { id, result }
         });
         Ok(())
@@ -977,7 +1012,7 @@ impl Runtime {
 }
 
 #[cfg(feature = "host")]
-fn shell(config: &Config) -> PathBuf {
+pub(super) fn shell(config: &Config) -> PathBuf {
     config
         .initial_shell
         .as_ref()
@@ -1019,9 +1054,39 @@ async fn session_program(
 }
 
 #[cfg(feature = "host")]
+async fn start_line(
+    config: &Config,
+    launcher: &Arc<Launcher>,
+    command: Option<&String>,
+    agent: Option<&AgentStart>,
+    prompt: Option<&String>,
+) -> Result<Option<String>> {
+    let quoted = prompt.map(|prompt| crate::agents::quote(&shell(config), prompt));
+    let Some(agent) = agent else {
+        return Ok(command.map(|line| {
+            [Some(line.clone()), quoted]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
+                .join(" ")
+        }));
+    };
+    let line = launcher.line(agent).await.map_err(Error::Invalid)?;
+    let flag = agent.agent.prompt_flag().map(str::to_owned);
+    Ok(Some(
+        [Some(line), quoted.as_ref().and(flag), quoted]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>()
+            .join(" "),
+    ))
+}
+
+#[cfg(feature = "host")]
 async fn create_session(
     id: Uuid,
     config: Config,
+    launcher: &Arc<Launcher>,
     command: &Command,
     changes: mpsc::Sender<SessionChange>,
 ) -> Result<StartedSession> {
@@ -1031,6 +1096,7 @@ async fn create_session(
         branch,
         worktrees,
         command: start,
+        agent,
         prompt,
         ..
     } = command
@@ -1053,11 +1119,24 @@ async fn create_session(
             "A conversation resumes in its own folder, not on a new branch.".to_owned(),
         ));
     }
-    if start.is_some() && resume.is_some() {
+    if (start.is_some() || agent.is_some()) && resume.is_some() {
         return Err(Error::Invalid(
             "A resumed conversation starts without a command.".to_owned(),
         ));
     }
+    if start.is_some() && agent.is_some() {
+        return Err(Error::Invalid(
+            "Start either a command or an agent.".to_owned(),
+        ));
+    }
+    let start = start_line(
+        &config,
+        launcher,
+        start.as_ref(),
+        agent.as_ref(),
+        prompt.as_ref(),
+    )
+    .await?;
     let (program, arguments) = session_program(&config, &directory, resume.as_ref()).await?;
     let worktree = match branch {
         Some(branch) => Some(
@@ -1089,10 +1168,6 @@ async fn create_session(
         }
     };
     if let Some(line) = start {
-        let line = prompt.as_ref().map_or_else(
-            || line.clone(),
-            |prompt| format!("{line} {}", crate::agents::quote(&shell(&config), prompt)),
-        );
         terminal.start(line)?;
     }
     Ok(StartedSession {
@@ -1104,23 +1179,25 @@ async fn create_session(
 }
 
 #[cfg(feature = "host")]
-async fn provider_reply(home: &Path, shell: &Path, command: &Command) -> Result<Value> {
+async fn provider_reply(
+    home: &Path,
+    shell: &Path,
+    launcher: &Launcher,
+    command: &Command,
+) -> Result<Value> {
     match command {
         Command::InspectAgents { .. } => {
             return Ok(serde_json::to_value(
-                crate::agents::catalog(home, shell)
-                    .await
-                    .map_err(Error::Invalid)?,
+                launcher.catalog().await.map_err(Error::Invalid)?,
             )?);
         }
         Command::InspectAgentModels { agent, .. } => {
-            return Ok(serde_json::to_value(
-                crate::agents::models(shell, *agent).await,
-            )?);
+            return Ok(serde_json::to_value(launcher.models(*agent).await)?);
         }
         Command::AddAgentAccount { agent, name, .. } => {
             return Ok(serde_json::to_value(
-                crate::agents::add_account(home, *agent, name)
+                launcher
+                    .add_account(*agent, name)
                     .await
                     .map_err(Error::Invalid)?,
             )?);

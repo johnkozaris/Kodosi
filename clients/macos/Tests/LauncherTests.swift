@@ -21,10 +21,16 @@ private func launcherApp(_ prefix: String) throws -> (AppDependencies, () -> [[S
 
 private let catalog: JSONValue = .object([
     "kodosi": .null,
+    "choice": .object([
+        "agent": .string("claude"),
+        "picks": .array([
+            .object(["agent": .string("claude"), "account": .string("work"), "model": .null, "effort": .string("high")]),
+        ]),
+    ]),
     "agents": .array([
         .object([
             "agent": .string("claude"), "program": .string("claude"), "installed": .bool(true), "install": .string(""),
-            "addsAccounts": .bool(true), "promptFlag": .null,
+            "addsAccounts": .bool(true),
             "accounts": .array([
                 .object(["name": .string("default"), "command": .string("claude"), "identity": .string("ada@example.com"),
                          "folder": .string("~/.claude")]),
@@ -35,7 +41,7 @@ private let catalog: JSONValue = .object([
         .object([
             "agent": .string("codex"), "program": .string("codex"), "installed": .bool(false),
             "install": .string("curl -fsSL https://chatgpt.com/codex/install.sh | sh"), "addsAccounts": .bool(true),
-            "promptFlag": .null, "accounts": .array([]),
+            "accounts": .array([]),
         ]),
     ]),
 ])
@@ -92,19 +98,37 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     try await creating.value
 }
 
-@Test @MainActor func aStartMarkStartsTheAgentWithTheLastChoice() async throws {
-    let (app, sent) = try launcherApp("LauncherMarks")
+@Test @MainActor func theLauncherStartsTheAgentAsItShowsIt() async throws {
+    let (app, sent) = try launcherApp("LauncherPlan")
     defer { app.shutdownProcess() }
     try await answerAgentRequests(app, sent: sent)
     #expect(app.launcher.installed.map(\.agent) == ["claude"])
-    app.settings.launchChoice.accounts["claude"] = "env CLAUDE_CONFIG_DIR=/Users/ada/.claude-work claude"
-    app.settings.launchChoice.efforts["claude"] = "--effort high"
-    #expect(LaunchPlan(choice: app.settings.launchChoice, launcher: app.launcher, agent: "claude").line
-        == "env CLAUDE_CONFIG_DIR=/Users/ada/.claude-work claude --effort high")
-    #expect(LaunchPlan(choice: app.settings.launchChoice, launcher: app.launcher, agent: "codex").line
-        == "curl -fsSL https://chatgpt.com/codex/install.sh | sh")
-    app.settings.launchChoice.accounts["claude"] = "cc"
-    #expect(LaunchPlan(choice: app.settings.launchChoice, launcher: app.launcher, agent: "claude").account?.command == "claude")
+    #expect(LaunchPlan(launcher: app.launcher).start == AgentStart(agent: "claude", account: "work", model: "", effort: "high"))
+    #expect(LaunchPlan(launcher: app.launcher, agent: "codex").start == nil)
+    app.launcher.choose(.pick(AgentPick(agent: "claude", account: "gone")))
+    #expect(LaunchPlan(launcher: app.launcher).account?.name == "default")
+}
+
+@Test @MainActor func aChoiceMadeHereOutlivesAnAnswerAskedBeforeIt() async throws {
+    let (app, sent) = try launcherApp("LauncherChoice")
+    defer { app.shutdownProcess() }
+    var asked: String?
+    for _ in 0 ..< 200 where asked == nil {
+        await Task.yield()
+        asked = sent().last { $0["type"] == .string("provider.agents") }?["requestId"]?.stringValue
+    }
+    app.launcher.choose(.tab("codex"))
+    try app.receive(runtimeEvent("provider.reply", epoch: 0, userId: nil, fields: [
+        "requestId": .string(#require(asked)), "operation": .string("provider.agents"), "result": catalog,
+    ]))
+    var change: [String: JSONValue]?
+    for _ in 0 ..< 200 where app.launcher.catalog == nil || change == nil {
+        await Task.yield()
+        change = sent().last { $0["type"] == .string("provider.choose") }
+    }
+    #expect(app.launcher.catalog != nil)
+    #expect(app.launcher.choice.agent == "codex")
+    #expect(change?["change"] == .object(["type": .string("tab"), "agent": .string("codex")]))
 }
 
 @Test func onlyALocalTerminalAtItsPromptOffersToStartAProgram() throws {

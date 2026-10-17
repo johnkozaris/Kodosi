@@ -312,7 +312,7 @@ final class AppDependencies {
 
     func createSession(
         name: String, directory: String?, roomId: String? = nil, resume: ProviderConversationIdentity? = nil,
-        branch: String? = nil, command: String? = nil, prompt: String? = nil
+        branch: String? = nil, command: String? = nil, agent: AgentStart? = nil, prompt: String? = nil
     ) async throws {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard ProductInput.validName(name) else {
@@ -341,6 +341,9 @@ final class AppDependencies {
         }
         if let command {
             fields["command"] = .string(command)
+        }
+        if let agent {
+            fields["agent"] = agent.json
         }
         if let prompt {
             fields["prompt"] = .string(prompt)

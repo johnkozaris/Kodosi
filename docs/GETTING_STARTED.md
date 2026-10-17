@@ -26,6 +26,10 @@ also finds the accounts your shell sets up, such as
 `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`. A terminal at its prompt shows a
 mark for each installed agent, which starts it with your last choice.
 
+From a shell, `kodosi terminal start --agent claude --prompt "fix the failing test"`
+starts an agent with your last choice. `--account`, `--model` and `--effort` change it;
+`kodosi agent list` shows the agents, their accounts and your last choice.
+
 To give an agent its own copy of a repository, hover the repository folder in the
 sidebar, select the branch button and name a branch. Kodosi starts a terminal in a new
 Git worktree and removes the worktree when the terminal ends if nothing changed.

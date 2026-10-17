@@ -418,7 +418,7 @@ void ControlsTest::leavingTerminalsLeavesNoDeferredWork()
     kodosi::SessionCatalogModel sessions;
     desktop.attachSessionCatalog(&sessions);
     kodosi::Workspace workspace(commands, sessions, desktop, settings);
-    kodosi::AgentLauncherModel launcher(commands, ini("launcher.ini"));
+    kodosi::AgentLauncherModel launcher(commands);
     kodosi::DesktopFileIntegration files;
     kodosi::TerminalTilingLayoutModel tiling;
     const auto followStage = [&] {

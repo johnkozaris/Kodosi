@@ -36,6 +36,8 @@ enum Action {
     #[command(subcommand)]
     Terminal(TerminalAction),
     #[command(subcommand)]
+    Agent(AgentAction),
+    #[command(subcommand)]
     Auth(AuthAction),
     #[command(subcommand)]
     Devices(DeviceAction),
@@ -67,6 +69,37 @@ enum TerminalAction {
         /// Make a new branch of the repository in --directory (or the current folder), with its own folder, and start the terminal there.
         #[arg(long)]
         branch: Option<String>,
+        /// Start an agent in the terminal, for example claude or codex, with your last choice of account, model and effort.
+        #[arg(long)]
+        agent: Option<String>,
+        /// The agent's account, by the name that `kodosi agent list` shows.
+        #[arg(long, requires = "agent")]
+        account: Option<String>,
+        /// The agent's model, by the ID that `kodosi agent models` shows. An empty value starts without a model.
+        #[arg(long, requires = "agent")]
+        model: Option<String>,
+        /// The agent's effort. An empty value starts without one.
+        #[arg(long, requires = "agent")]
+        effort: Option<String>,
+        /// The agent's first prompt.
+        #[arg(long, requires = "agent")]
+        prompt: Option<String>,
+    },
+    /// Start an agent in a terminal that waits at its shell prompt.
+    Run {
+        terminal: String,
+        /// The agent, for example claude or codex. It starts with your last choice of account, model and effort.
+        #[arg(long)]
+        agent: String,
+        /// The agent's account, by the name that `kodosi agent list` shows.
+        #[arg(long)]
+        account: Option<String>,
+        /// The agent's model, by the ID that `kodosi agent models` shows. An empty value starts without a model.
+        #[arg(long)]
+        model: Option<String>,
+        /// The agent's effort. An empty value starts without one.
+        #[arg(long)]
+        effort: Option<String>,
     },
     /// Start a terminal that resumes a saved provider conversation.
     Resume {
@@ -104,6 +137,13 @@ enum TerminalAction {
     },
     /// Leave a terminal that a friend shared with you.
     Leave { terminal: String },
+}
+#[derive(Subcommand)]
+enum AgentAction {
+    /// List the agents, their accounts and your last choice.
+    List,
+    /// List the models and efforts of an agent.
+    Models { agent: String },
 }
 #[derive(Subcommand)]
 enum AuthAction {
@@ -324,6 +364,10 @@ async fn command(
     let request = Uuid::now_v7().to_string();
     Ok(match action {
         Action::Terminal(action) => terminal_command(action, &request, client, context).await?,
+        Action::Agent(AgentAction::List) => json!({"type":"provider.agents","requestId":request}),
+        Action::Agent(AgentAction::Models { agent }) => {
+            json!({"type":"provider.agentModels","requestId":request,"agent":agent_name(&agent)?})
+        }
         Action::Auth(AuthAction::Login) => json!({"type":"auth.login.start"}),
         Action::Auth(AuthAction::Logout) => json!({"type":"auth.logout"}),
         Action::Auth(AuthAction::DeleteAccount) => json!({"type":"auth.deleteAccount"}),
@@ -356,14 +400,47 @@ async fn terminal_command(
             directory,
             room,
             branch,
+            agent,
+            account,
+            model,
+            effort,
+            prompt,
         } => {
             let room = if let Some(reference) = room {
                 Some(mission_id(&missions(client, context).await?, &reference)?)
             } else {
                 None
             };
+            let agent = agent
+                .map(|agent| {
+                    agent_start(
+                        &agent,
+                        account.as_deref(),
+                        model.as_deref(),
+                        effort.as_deref(),
+                    )
+                })
+                .transpose()?;
+            let name = name.or_else(|| {
+                agent.as_ref().and_then(|agent| {
+                    crate::agents::Agent::ALL
+                        .into_iter()
+                        .find(|known| known.name() == agent["agent"])
+                        .map(|known| known.label().to_owned())
+                })
+            });
             let (name, directory) = start_defaults(name, directory, branch.as_deref());
-            json!({"type":"session.create","requestId":request,"name":name,"workingDir":path(directory)?,"missionId":room,"branch":branch})
+            json!({"type":"session.create","requestId":request,"name":name,"workingDir":path(directory)?,"missionId":room,"branch":branch,"agent":agent,"prompt":prompt})
+        }
+        TerminalAction::Run {
+            terminal,
+            agent,
+            account,
+            model,
+            effort,
+        } => {
+            let (id, incarnation) = located(context, &terminal)?;
+            json!({"type":"session.run","requestId":request,"sessionId":id,"expectedRuntimeIncarnationId":incarnation,"agent":agent_start(&agent, account.as_deref(), model.as_deref(), effort.as_deref())?})
         }
         TerminalAction::Resume {
             provider,
@@ -770,6 +847,30 @@ fn friend_command(action: FriendAction, request: &str) -> Value {
             json!({"type":"friends.identity.trust","username":username})
         }
     }
+}
+
+fn agent_name(agent: &str) -> Result<&'static str> {
+    crate::agents::Agent::ALL
+        .into_iter()
+        .map(crate::agents::Agent::name)
+        .find(|name| *name == agent)
+        .ok_or_else(|| {
+            Error::Invalid(format!(
+                "Kodosi knows these agents: {}.",
+                crate::agents::Agent::ALL
+                    .map(crate::agents::Agent::name)
+                    .join(", ")
+            ))
+        })
+}
+
+fn agent_start(
+    agent: &str,
+    account: Option<&str>,
+    model: Option<&str>,
+    effort: Option<&str>,
+) -> Result<Value> {
+    Ok(json!({"agent":agent_name(agent)?,"account":account,"model":model,"effort":effort}))
 }
 
 fn provider_command(action: ProviderAction, request: &str) -> Result<Value> {

@@ -57,7 +57,6 @@ final class DesktopSettings {
     private(set) var terminalSettings = TerminalSettings.defaults
     var lastWorkingDir: String?
     var branchFolder: String?
-    var launchChoice = LaunchChoice()
 
     enum CursorStyle: String, CaseIterable, Codable {
         case block, bar, underline
@@ -76,10 +75,6 @@ final class DesktopSettings {
         terminalSettings = candidate.normalized()
         defaults.set(try? JSONEncoder().encode(terminalSettings), forKey: Self.terminalSettingsKey)
         return terminalSettings
-    }
-
-    func saveLaunchChoice() {
-        defaults.set(try? JSONEncoder().encode(launchChoice), forKey: "launcher.choice")
     }
 
     func save() {
@@ -102,6 +97,5 @@ final class DesktopSettings {
             .flatMap { try? JSONDecoder().decode(TerminalSettings.self, from: $0) } ?? .defaults).normalized()
         lastWorkingDir = d.string(forKey: "session.lastWorkingDir")
         branchFolder = d.string(forKey: "session.branchFolder")
-        launchChoice = d.data(forKey: "launcher.choice").flatMap { try? JSONDecoder().decode(LaunchChoice.self, from: $0) } ?? LaunchChoice()
     }
 }

@@ -1027,6 +1027,74 @@
               }
             ]
           },
+          "agent": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "account": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "agent": {
+                    "oneOf": [
+                      {
+                        "const": "claude"
+                      },
+                      {
+                        "const": "codex"
+                      },
+                      {
+                        "const": "copilot"
+                      },
+                      {
+                        "const": "cursor"
+                      },
+                      {
+                        "const": "gemini"
+                      },
+                      {
+                        "const": "opencode"
+                      }
+                    ]
+                  },
+                  "effort": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "model": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "agent"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "branch": {
             "anyOf": [
               {
@@ -1277,8 +1345,83 @@
               }
             ]
           },
+          "agent": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "account": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "agent": {
+                    "oneOf": [
+                      {
+                        "const": "claude"
+                      },
+                      {
+                        "const": "codex"
+                      },
+                      {
+                        "const": "copilot"
+                      },
+                      {
+                        "const": "cursor"
+                      },
+                      {
+                        "const": "gemini"
+                      },
+                      {
+                        "const": "opencode"
+                      }
+                    ]
+                  },
+                  "effort": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "model": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "agent"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "command": {
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "expectedRuntimeIncarnationId": {
             "type": "string"
@@ -1299,8 +1442,7 @@
           "type",
           "requestId",
           "sessionId",
-          "expectedRuntimeIncarnationId",
-          "command"
+          "expectedRuntimeIncarnationId"
         ],
         "type": "object"
       },
@@ -2522,6 +2664,149 @@
           "requestId",
           "agent",
           "name"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "change": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "agent": {
+                    "anyOf": [
+                      {
+                        "oneOf": [
+                          {
+                            "const": "claude"
+                          },
+                          {
+                            "const": "codex"
+                          },
+                          {
+                            "const": "copilot"
+                          },
+                          {
+                            "const": "cursor"
+                          },
+                          {
+                            "const": "gemini"
+                          },
+                          {
+                            "const": "opencode"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "const": "tab"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "account": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "agent": {
+                    "oneOf": [
+                      {
+                        "const": "claude"
+                      },
+                      {
+                        "const": "codex"
+                      },
+                      {
+                        "const": "copilot"
+                      },
+                      {
+                        "const": "cursor"
+                      },
+                      {
+                        "const": "gemini"
+                      },
+                      {
+                        "const": "opencode"
+                      }
+                    ]
+                  },
+                  "effort": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "model": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "const": "pick"
+                  }
+                },
+                "required": [
+                  "type",
+                  "agent"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "provider.choose"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "change"
         ],
         "type": "object"
       },
@@ -5283,16 +5568,6 @@
                         },
                         "program": {
                           "type": "string"
-                        },
-                        "promptFlag": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
                         }
                       },
                       "required": [
@@ -5301,12 +5576,117 @@
                         "installed",
                         "accounts",
                         "install",
-                        "addsAccounts",
-                        "promptFlag"
+                        "addsAccounts"
                       ],
                       "type": "object"
                     },
                     "type": "array"
+                  },
+                  "choice": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "agent": {
+                        "anyOf": [
+                          {
+                            "oneOf": [
+                              {
+                                "const": "claude"
+                              },
+                              {
+                                "const": "codex"
+                              },
+                              {
+                                "const": "copilot"
+                              },
+                              {
+                                "const": "cursor"
+                              },
+                              {
+                                "const": "gemini"
+                              },
+                              {
+                                "const": "opencode"
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "picks": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "account": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "agent": {
+                              "oneOf": [
+                                {
+                                  "const": "claude"
+                                },
+                                {
+                                  "const": "codex"
+                                },
+                                {
+                                  "const": "copilot"
+                                },
+                                {
+                                  "const": "cursor"
+                                },
+                                {
+                                  "const": "gemini"
+                                },
+                                {
+                                  "const": "opencode"
+                                }
+                              ]
+                            },
+                            "effort": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "model": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "agent",
+                            "account",
+                            "model",
+                            "effort"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "agent",
+                      "picks"
+                    ],
+                    "type": "object"
                   },
                   "kodosi": {
                     "anyOf": [
@@ -5321,7 +5701,8 @@
                 },
                 "required": [
                   "agents",
-                  "kodosi"
+                  "kodosi",
+                  "choice"
                 ],
                 "type": "object"
               },
@@ -5365,6 +5746,112 @@
               "result": {
                 "additionalProperties": false,
                 "properties": {
+                  "choice": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "agent": {
+                        "anyOf": [
+                          {
+                            "oneOf": [
+                              {
+                                "const": "claude"
+                              },
+                              {
+                                "const": "codex"
+                              },
+                              {
+                                "const": "copilot"
+                              },
+                              {
+                                "const": "cursor"
+                              },
+                              {
+                                "const": "gemini"
+                              },
+                              {
+                                "const": "opencode"
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "picks": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "account": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "agent": {
+                              "oneOf": [
+                                {
+                                  "const": "claude"
+                                },
+                                {
+                                  "const": "codex"
+                                },
+                                {
+                                  "const": "copilot"
+                                },
+                                {
+                                  "const": "cursor"
+                                },
+                                {
+                                  "const": "gemini"
+                                },
+                                {
+                                  "const": "opencode"
+                                }
+                              ]
+                            },
+                            "effort": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "model": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "agent",
+                            "account",
+                            "model",
+                            "effort"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "agent",
+                      "picks"
+                    ],
+                    "type": "object"
+                  },
                   "efforts": {
                     "items": {
                       "additionalProperties": false,
@@ -5417,7 +5904,8 @@
                 },
                 "required": [
                   "models",
-                  "efforts"
+                  "efforts",
+                  "choice"
                 ],
                 "type": "object"
               },
@@ -5493,6 +5981,149 @@
                   "command",
                   "identity",
                   "folder"
+                ],
+                "type": "object"
+              },
+              "type": {
+                "const": "provider.reply"
+              }
+            },
+            "required": [
+              "accountUserId",
+              "accountEpoch",
+              "type",
+              "requestId",
+              "operation",
+              "result"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "accountEpoch": {
+                "format": "u64",
+                "type": "integer"
+              },
+              "accountUserId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "operation": {
+                "const": "provider.choose"
+              },
+              "requestId": {
+                "type": "string"
+              },
+              "result": {
+                "additionalProperties": false,
+                "properties": {
+                  "agent": {
+                    "anyOf": [
+                      {
+                        "oneOf": [
+                          {
+                            "const": "claude"
+                          },
+                          {
+                            "const": "codex"
+                          },
+                          {
+                            "const": "copilot"
+                          },
+                          {
+                            "const": "cursor"
+                          },
+                          {
+                            "const": "gemini"
+                          },
+                          {
+                            "const": "opencode"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "picks": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "account": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "agent": {
+                          "oneOf": [
+                            {
+                              "const": "claude"
+                            },
+                            {
+                              "const": "codex"
+                            },
+                            {
+                              "const": "copilot"
+                            },
+                            {
+                              "const": "cursor"
+                            },
+                            {
+                              "const": "gemini"
+                            },
+                            {
+                              "const": "opencode"
+                            }
+                          ]
+                        },
+                        "effort": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "model": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "agent",
+                        "account",
+                        "model",
+                        "effort"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "agent",
+                  "picks"
                 ],
                 "type": "object"
               },
@@ -5983,7 +6614,7 @@
     ]
   },
   "ffiAbiVersion": 9,
-  "protocolVersion": 62,
+  "protocolVersion": 63,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 5,

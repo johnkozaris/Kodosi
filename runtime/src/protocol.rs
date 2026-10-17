@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::{
     Error, Result,
-    agents::Agent,
+    agents::{Agent, AgentChoiceChange, AgentStart},
     identity::friends::parse_invite,
     provider::{ConversationIdentity, Provider},
 };
@@ -22,7 +22,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 62;
+pub const VERSION: u32 = 63;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 
@@ -197,6 +197,8 @@ pub enum Command {
         #[serde(default)]
         command: Option<String>,
         #[serde(default)]
+        agent: Option<AgentStart>,
+        #[serde(default)]
         prompt: Option<String>,
     },
     #[serde(rename = "session.rename")]
@@ -235,7 +237,10 @@ pub enum Command {
         session_id: String,
         #[serde(rename = "expectedRuntimeIncarnationId")]
         expected_runtime_incarnation_id: String,
-        command: String,
+        #[serde(default)]
+        command: Option<String>,
+        #[serde(default)]
+        agent: Option<AgentStart>,
     },
     #[serde(rename = "session.openRemote")]
     OpenRemote {
@@ -423,6 +428,12 @@ pub enum Command {
         request_id: String,
         agent: Agent,
         name: String,
+    },
+    #[serde(rename = "provider.choose")]
+    ChooseAgent {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        change: AgentChoiceChange,
     },
     #[serde(rename = "session.resize")]
     Resize {
@@ -751,9 +762,11 @@ pub enum ProviderReply {
     #[serde(rename = "provider.agents")]
     Agents(crate::agents::AgentCatalog),
     #[serde(rename = "provider.agentModels")]
-    AgentModels(crate::agents::AgentModels),
+    AgentModels(crate::agents::AgentModelsReply),
     #[serde(rename = "provider.addAccount")]
     AddAccount(crate::agents::AgentAccount),
+    #[serde(rename = "provider.choose")]
+    Choice(crate::agents::AgentChoice),
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, specta_macros::Type)]
@@ -1005,6 +1018,7 @@ impl Command {
             Self::InspectAgents { .. } => "provider.agents",
             Self::InspectAgentModels { .. } => "provider.agentModels",
             Self::AddAgentAccount { .. } => "provider.addAccount",
+            Self::ChooseAgent { .. } => "provider.choose",
             Self::Resize { .. } => "session.resize",
             Self::Focus { .. } => "session.focus",
             Self::Blur { .. } => "session.blur",
@@ -1038,6 +1052,7 @@ impl Command {
             | Self::InspectAgents { request_id }
             | Self::InspectAgentModels { request_id, .. }
             | Self::AddAgentAccount { request_id, .. }
+            | Self::ChooseAgent { request_id, .. }
             | Self::Focus { request_id, .. } => Some(request_id),
             Self::Resize { identity, .. } => Some(&identity.request_id),
             Self::Login { request_id, .. }
@@ -1226,11 +1241,27 @@ impl Command {
                 text(name, "name", 128)?;
                 text(name.trim(), "name", 128)?;
             }
-            Self::RunInSession { command, .. } => {
-                text(command, "command", 1024)?;
-                text(command.trim(), "command", 1024)?;
+            Self::RunInSession { command, agent, .. } => {
+                if let Some(command) = command {
+                    text(command, "command", 1024)?;
+                    text(command.trim(), "command", 1024)?;
+                }
+                if let Some(agent) = agent {
+                    agent_start(agent)?;
+                }
             }
             Self::AddAgentAccount { name, .. } => text(name, "name", 64)?,
+            Self::ChooseAgent {
+                change: AgentChoiceChange::Pick(pick),
+                ..
+            } => {
+                for value in [&pick.account, &pick.model, &pick.effort]
+                    .into_iter()
+                    .flatten()
+                {
+                    text(value, "choice", 128)?;
+                }
+            }
             _ => {}
         }
         self.validate_resource_ids()?;
@@ -1270,6 +1301,7 @@ impl Command {
                 branch,
                 worktrees,
                 command,
+                agent,
                 prompt,
                 ..
             } => {
@@ -1280,9 +1312,14 @@ impl Command {
                     text(command, "command", 1024)?;
                     text(command.trim(), "command", 1024)?;
                 }
+                if let Some(agent) = agent {
+                    agent_start(agent)?;
+                }
                 if let Some(prompt) = prompt {
-                    if command.is_none() {
-                        return Err(Error::Invalid("A prompt needs a command.".to_owned()));
+                    if command.is_none() && agent.is_none() {
+                        return Err(Error::Invalid(
+                            "A prompt needs an agent or a command.".to_owned(),
+                        ));
                     }
                     text(prompt, "prompt", 4096)?;
                     text(prompt.trim(), "prompt", 4096)?;
@@ -1389,6 +1426,18 @@ fn text(value: &str, label: &str, maximum: usize) -> Result<()> {
         return Err(Error::Invalid(format!(
             "{label} must contain 1 to {maximum} bytes without control characters"
         )));
+    }
+    Ok(())
+}
+
+fn agent_start(start: &AgentStart) -> Result<()> {
+    if let Some(account) = &start.account {
+        text(account, "account", 128)?;
+    }
+    for value in [&start.model, &start.effort].into_iter().flatten() {
+        if !value.is_empty() {
+            text(value, "choice", 128)?;
+        }
     }
     Ok(())
 }

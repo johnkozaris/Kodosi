@@ -26,19 +26,18 @@ ColumnLayout {
     readonly property bool loadingModels: info !== null && Models.Launcher.loadingModels.indexOf(info.agent) >= 0
     readonly property var plan: info ? Models.Launcher.plans[info.agent] || null : null
     readonly property var account: plan ? plan.account || null : null
-    readonly property string modelArgument: plan ? plan.modelArgument : ""
+    readonly property string modelId: plan ? plan.modelId : ""
     readonly property var model: plan ? plan.model || null : null
     readonly property var efforts: plan ? plan.efforts : []
-    readonly property string effortArgument: plan ? plan.effortArgument : ""
+    readonly property string effortId: plan ? plan.effortId : ""
     readonly property string directory: folder || Models.DesktopSettings.effectiveWorkingDirectory
-    readonly property string line: plan ? plan.line : ""
     readonly property string agentLabel: info ? Models.DesktopSettings.agentLabel(info.agent) : ""
     readonly property string folderTitle: tilde(directory) === "~" ? "~" : Models.Sessions.folderName(directory)
-    readonly property string modelTitle: model ? model.label : modelArgument.length > 0 ? modelArgument.split(" ").pop() : ""
-    readonly property int effortLevel: efforts.findIndex(entry => entry.argument === effortArgument)
+    readonly property string modelTitle: model ? model.label : modelId
+    readonly property int effortLevel: efforts.findIndex(entry => entry.id === effortId)
     readonly property bool takesWords: !info || info.installed
     readonly property bool listsModels: !modelSet || modelSet.models.length > 0
-    readonly property bool ready: !info ? agentId.length === 0 : line.length > 0
+    readonly property bool ready: !info ? agentId.length === 0 : !info.installed || !!(plan && plan.start)
     readonly property string hint: !info ? qsTr("Type a command") : qsTr("Type a task")
     readonly property string roomName: (Models.Missions.missions.find(room => room.id === roomId) || {}).name || ""
 
@@ -57,15 +56,9 @@ ColumnLayout {
         if (!ready)
             return
         const words = promptInput.text.trim()
-        let command = line
-        let first = ""
-        if (!info)
-            command = words
-        else if (info.installed && words.length > 0) {
-            command = [line, info.promptFlag || ""].filter(word => word.length > 0).join(" ")
-            first = words
-        }
-        if (Models.SessionActions.create("", directory, command, first, roomId)) {
+        const installed = !!info && info.installed
+        const command = !info ? words : installed ? "" : info.install
+        if (Models.SessionActions.create("", directory, command, installed ? words : "", roomId, installed ? plan.start : ({}))) {
             promptInput.clear()
             root.started()
         }
@@ -89,10 +82,10 @@ ColumnLayout {
             return []
         const rows = info.accounts.map(entry => {
             const title = accountTitle(entry)
-            return { id: entry.command, kind: "choice", title: title,
+            return { id: entry.name, kind: "choice", title: title,
                 subtitle: entry.identity || qsTr("Signs in when it starts"),
                 icon: "account", initial: title.charAt(0), key: entry.folder || entry.command, signedIn: !!entry.identity,
-                current: account !== null && entry.command === account.command }
+                current: account !== null && entry.name === account.name }
         })
         if (info.addsAccounts)
             rows.push({ id: "menu.add", kind: "action", title: qsTr("Add an account"),
@@ -100,17 +93,17 @@ ColumnLayout {
         return rows
     }
     function modelRows() {
-        const rows = [{ id: "menu.default", kind: "choice", title: qsTr("Default"), current: modelArgument.length === 0 }]
+        const rows = [{ id: "menu.default", kind: "choice", title: qsTr("Default"), current: modelId.length === 0 }]
         if (!modelSet)
             rows.push({ id: "menu.models", kind: "note", working: loadingModels,
                 title: loadingModels ? qsTr("Asking %1 for its models").arg(agentLabel) : qsTr("%1 lists no models").arg(agentLabel) })
         for (const entry of modelSet ? modelSet.models : [])
-            rows.push({ id: entry.argument, kind: "choice", title: entry.label, current: entry.argument === modelArgument,
+            rows.push({ id: entry.id, kind: "choice", title: entry.label, current: entry.id === modelId,
                 detail: entry.label.toLowerCase() === entry.id.toLowerCase() ? "" : entry.id })
         return rows
     }
     function effortLevels() {
-        return efforts.map(entry => ({ id: entry.id, argument: entry.argument,
+        return efforts.map(entry => ({ id: entry.id,
             label: entry.id === "xhigh" ? qsTr("Extra high") : entry.id.charAt(0).toUpperCase() + entry.id.slice(1) }))
     }
     function folderRows() {
@@ -160,11 +153,11 @@ ColumnLayout {
                 accountName.forceActiveFocus()
                 return
             }
-            Models.Launcher.choose("accounts", info.agent, id)
+            Models.Launcher.choose("account", info.agent, id)
         } else if (kind === "model") {
-            Models.Launcher.choose("models", info.agent, id === "menu.default" ? "" : id)
+            Models.Launcher.choose("model", info.agent, id === "menu.default" ? "" : id)
         } else if (kind === "effort") {
-            Models.Launcher.choose("efforts", info.agent, id)
+            Models.Launcher.choose("effort", info.agent, id)
         }
         closeMenu()
     }
@@ -193,7 +186,7 @@ ColumnLayout {
     Connections {
         target: Models.Launcher
 
-        function onAccountAdded(agent, command) {
+        function onAccountAdded(agent, name) {
             root.closeMenu()
         }
     }
@@ -810,10 +803,10 @@ ColumnLayout {
                 visible: root.efforts.length > 0
                 width: parent.width
                 levels: root.effortLevels()
-                current: root.effortArgument
+                current: root.effortId
                 objectName: "launcher.effort"
                 Accessible.id: objectName
-                onPicked: argument => root.pick("effort", argument)
+                onPicked: effort => root.pick("effort", effort)
             }
         }
     }

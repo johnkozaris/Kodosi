@@ -27,7 +27,8 @@ room itself; `--room <name>` picks another room. `--json` gives structured outpu
   `kodosi room task import <repository> <issue-number>` links a GitHub or Gitea issue;
   changing the task updates the issue.
 - `kodosi room share [terminal]`: give every member full control of a terminal, by
-  default this one. `kodosi terminal start --room <name>` starts a terminal in the room.
+  default this one. `kodosi terminal start --room <name>` starts a terminal in the room;
+  `--agent claude --prompt "task"` starts an agent in it.
 
 Give the next person or agent the context they need. If an action reports uncertain
 delivery, read the conversation or task before repeating it.

@@ -590,6 +590,8 @@ struct TerminalNotice {
 struct Runtime {
     #[cfg(feature = "host")]
     config: Config,
+    #[cfg(feature = "host")]
+    launcher: Arc<crate::agents::Launcher>,
     network: BackendClient,
     events: broadcast::Sender<Event>,
     scope: Scope,
@@ -659,9 +661,17 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
     .await?;
     #[cfg(not(feature = "host"))]
     drop(client_count);
+    #[cfg(feature = "host")]
+    let launcher = Arc::new(crate::agents::Launcher::load(
+        &config.data_root,
+        &config.home,
+        &commands::shell(&config),
+    ));
     let runtime = Runtime {
         #[cfg(feature = "host")]
         config,
+        #[cfg(feature = "host")]
+        launcher,
         network,
         events,
         scope,

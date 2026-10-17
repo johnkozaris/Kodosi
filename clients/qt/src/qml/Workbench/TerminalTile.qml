@@ -197,7 +197,7 @@ Item {
                             onTerminal: true
                             objectName: root.objectName + ".start." + modelData.agent
                             Accessible.id: objectName
-                            onClicked: Models.SessionActions.run(root.sessionId, (Models.Launcher.plans[modelData.agent] || {}).line || "")
+                            onClicked: Models.SessionActions.startAgent(root.sessionId, modelData.agent)
                         }
                     }
                     KIconButton {

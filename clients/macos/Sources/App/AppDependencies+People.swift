@@ -25,10 +25,9 @@ extension AppDependencies {
     }
 
     func start(_ agent: String, in session: RuntimeSession) {
-        guard let line = LaunchPlan(choice: settings.launchChoice, launcher: launcher, agent: agent).line else { return }
         Task { @MainActor in
             do {
-                try await mutateSession("session.run", session: session, fields: ["command": .string(line)])
+                try await mutateSession("session.run", session: session, fields: ["agent": AgentStart(agent: agent).json])
             } catch { errorMessage = error.localizedDescription }
         }
     }

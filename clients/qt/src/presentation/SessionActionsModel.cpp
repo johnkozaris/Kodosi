@@ -182,11 +182,13 @@ bool SessionActionsModel::createOnBranch(const QString& directory, const QString
 }
 
 bool SessionActionsModel::create(const QString& name, const QString& directory, const QString& command,
-    const QString& prompt, const QString& roomId)
+    const QString& prompt, const QString& roomId, const QVariantMap& agent)
 {
     QJsonObject line;
     if (!command.trimmed().isEmpty())
         line.insert(QStringLiteral("command"), command.trimmed());
+    if (!agent.isEmpty())
+        line.insert(QStringLiteral("agent"), QJsonObject::fromVariantMap(agent));
     if (!prompt.trimmed().isEmpty())
         line.insert(QStringLiteral("prompt"), prompt.trimmed());
     if (!createInternal(name, directory, {}, {}, roomId, {}, line))
@@ -260,13 +262,10 @@ bool SessionActionsModel::rename(const QString& id, const QString& name)
         { { QStringLiteral("name"), name.trimmed() } });
 }
 
-bool SessionActionsModel::run(const QString& id, const QString& line)
+bool SessionActionsModel::startAgent(const QString& id, const QString& agent)
 {
-    const auto text = line.trimmed();
-    const bool printable = std::ranges::all_of(text.toUcs4(), [](const char32_t scalar) { return QChar::isPrint(scalar); });
-    if (text.isEmpty() || text.toUtf8().size() > 1024 || !printable)
-        return false;
-    return command(QStringLiteral("session.run"), id, { { QStringLiteral("command"), text } });
+    return command(QStringLiteral("session.run"), id,
+        { { QStringLiteral("agent"), QJsonObject { { QStringLiteral("agent"), agent } } } });
 }
 
 bool SessionActionsModel::share(

@@ -58,6 +58,7 @@ impl TestRuntime {
             branch: None,
             worktrees: None,
             command: None,
+            agent: None,
             prompt: None,
         })
         .await;
@@ -125,6 +126,7 @@ async fn a_terminal_on_a_new_branch_starts_in_its_own_folder_and_takes_it_away_u
                 branch: Some(branch.to_owned()),
                 worktrees: None,
                 command: None,
+                agent: None,
                 prompt: None,
             })
             .await;
@@ -387,6 +389,7 @@ async fn stale_epoch_cannot_create_in_current_runtime() {
                 branch: None,
                 worktrees: None,
                 command: None,
+                agent: None,
                 prompt: None,
             },
         })
@@ -443,6 +446,7 @@ async fn a_viewer_says_that_terminals_and_conversations_stay_on_a_computer() {
             branch: None,
             worktrees: None,
             command: None,
+            agent: None,
             prompt: None,
         })
         .await;
@@ -519,6 +523,7 @@ async fn create_retry_is_exact_and_does_not_launch_a_second_process() {
         branch: None,
         worktrees: None,
         command: None,
+        agent: None,
         prompt: None,
     };
     runtime.send(command.clone()).await;
@@ -613,6 +618,12 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
     let (changes, _) = mpsc::channel(128);
     (
         Runtime {
+            #[cfg(feature = "host")]
+            launcher: Arc::new(crate::agents::Launcher::load(
+                &config.data_root,
+                &config.home,
+                &commands::shell(&config),
+            )),
             #[cfg(feature = "host")]
             config,
             network,
@@ -828,6 +839,7 @@ async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_
         branch: None,
         worktrees: None,
         command: None,
+        agent: None,
         prompt: None,
     };
     runtime.send(command).await;
@@ -858,6 +870,7 @@ async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_
             branch: None,
             worktrees: None,
             command: None,
+            agent: None,
             prompt: None,
         })
         .await;
