@@ -35,9 +35,9 @@ public final class RuntimeHandle: @unchecked Sendable {
         return body(snapshot.pointer)
     }
 
-    public static let expectedFFIABIVersion: Int32 = 9
+    public static let expectedFFIABIVersion: Int32 = 10
 
-    public static let expectedProtocolVersion: UInt32 = 62
+    public static let expectedProtocolVersion: UInt32 = 64
 
     public enum StartOutcome: Equatable {
         case started

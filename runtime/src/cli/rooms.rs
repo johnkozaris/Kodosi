@@ -544,57 +544,20 @@ async fn call(
     room: &str,
     action: Action,
 ) -> Result<Value> {
-    let request = Uuid::now_v7().to_string();
-    client
-        .command(context.envelope(
-            json!({"type":"room.command","requestId":request,"roomId":room,"action":action}),
-        )?)
-        .await?;
-    tokio::time::timeout(Duration::from_mins(1), async {
-        let mut snapshot = Value::Null;
-        let mut issues = Value::Null;
-        loop {
-            let frame = client.next().await?;
-            if frame["kind"] == "rejected" {
-                return Err(Error::Other(
-                    frame["message"]
-                        .as_str()
-                        .unwrap_or("Room request was rejected.")
-                        .into(),
-                ));
-            }
-            let Some(event) = frame.get("event") else {
-                continue;
-            };
-            if !context.observe(event) {
-                continue;
-            }
-            match event["type"].as_str() {
-                Some("room.snapshot") if event["room"]["roomId"] == room => {
-                    snapshot = event["room"].clone();
-                }
-                Some("room.issues") if event["requestId"] == request => {
-                    issues = event["issues"].clone();
-                }
-                Some("room.error") if event["requestId"] == request => {
-                    return Err(Error::Other(
-                        event["message"]
-                            .as_str()
-                            .unwrap_or("Room request failed.")
-                            .into(),
-                    ));
-                }
-                Some("room.result") if event["requestId"] == request => {
-                    return Ok(json!({"room":snapshot,"issues":issues,"result":event}));
-                }
-                _ => {}
-            }
-        }
-    })
-    .await
-    .map_err(|_| {
-        Error::Other("The room did not respond in time. The action was not repeated.".into())
-    })?
+    let result = request(
+        client,
+        context,
+        json!({"type":"room.command","roomId":room,"action":action}),
+        true,
+    )
+    .await?;
+    let snapshot = match result.get("room") {
+        Some(page) => page.clone(),
+        None => context.rooms.get(room).cloned().unwrap_or_default(),
+    };
+    Ok(
+        json!({"room":snapshot,"issues":result.get("issues").cloned().unwrap_or_default(),"result":result}),
+    )
 }
 
 #[cfg(test)]

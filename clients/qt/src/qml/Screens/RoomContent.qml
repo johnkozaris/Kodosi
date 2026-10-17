@@ -356,10 +356,7 @@ Item {
                                                 background: Item {
                                                     Raised { anchors.fill: parent; radius: 14; visible: tab.selected }
                                                 }
-                                                onClicked: {
-                                                    Models.Sessions.clearAttention(sessionId);
-                                                    Models.SessionActions.activateInRoom(sessionId);
-                                                }
+                                                onClicked: Models.SessionActions.activateInRoom(sessionId)
                                             }
                                         }
                                     }

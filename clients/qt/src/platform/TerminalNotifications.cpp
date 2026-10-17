@@ -154,7 +154,7 @@ bool TerminalNotifications::current(const Context& context) const
         return false;
     const auto presentation = m_sessions.presentationSession(context.sessionId);
     const bool calls = session->isOwner || (presentation && presentation->canControl);
-    return context.alert ? calls && m_sessions.attention().contains(context.sessionId)
+    return context.alert ? calls && m_sessions.attention().contains(context.sessionId) && m_sessions.waiting(context.sessionId)
                          : session->kind == QStringLiteral("local");
 }
 

@@ -1,6 +1,7 @@
 #include "platform/TerminalNotifications.hpp"
 
 #include <QByteArray>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include "SessionFixture.hpp"
 #include <QSignalSpy>
@@ -189,45 +190,53 @@ void TerminalNotificationsTest::alertsTheOwnerAndThePeopleWhoHaveAWaitingTermina
 {
     Fixture fixture;
     fixture.notifications.isFront = [] { return false; };
-    const auto apply = [&](const QJsonObject& status) {
-        auto own = test::session(1);
-        own.insert(QStringLiteral("incarnationId"), test::id(101));
-        own.insert(QStringLiteral("programStatus"), status);
-        auto open = test::session(2, true, false);
-        open.insert(QStringLiteral("programStatus"), status);
-        auto closed = test::session(3, true, false);
-        closed.insert(QStringLiteral("connectionState"), QStringLiteral("offline"));
-        closed.insert(QStringLiteral("programStatus"), status);
-        fixture.sessionsModel.apply(test::snapshot({own, open, closed}));
+    const QStringList all {test::id(1), test::id(2), test::id(3)};
+    const auto apply = [&](const QJsonObject& status, const QStringList& marked) {
+        QJsonArray entries;
+        for (int number = 1; number <= 3; ++number) {
+            auto entry = test::session(number, number > 1, number == 1);
+            entry.insert(QStringLiteral("programStatus"), status);
+            entry.insert(QStringLiteral("attention"), marked.contains(test::id(number)));
+            if (number == 3)
+                entry.insert(QStringLiteral("connectionState"), QStringLiteral("offline"));
+            entries.append(entry);
+        }
+        fixture.sessionsModel.apply(test::snapshot(entries));
+    };
+    const auto alert = [&] {
+        for (const auto& id : all)
+            fixture.sessionsModel.alert(id);
     };
     const QJsonObject works {{QStringLiteral("state"), QStringLiteral("working")}};
-    apply(works);
+    apply(works, all);
+    alert();
     QVERIFY(fixture.driver.posted.isEmpty());
     apply({{QStringLiteral("state"), QStringLiteral("blocked")}, {QStringLiteral("kind"), QStringLiteral("permission")},
-        {QStringLiteral("message"), QStringLiteral("Allow the command?")}});
+        {QStringLiteral("message"), QStringLiteral("Allow the command?")}}, all);
+    alert();
     QCOMPARE(fixture.driver.posted.size(), 2);
-    for (const auto& alert : std::as_const(fixture.driver.posted)) {
-        QCOMPARE(alert.title, QStringLiteral("Terminal"));
-        QCOMPARE(alert.body, QStringLiteral("Allow the command?"));
+    for (const auto& posted : std::as_const(fixture.driver.posted)) {
+        QCOMPARE(posted.title, QStringLiteral("Terminal"));
+        QCOMPARE(posted.body, QStringLiteral("Allow the command?"));
     }
     QCOMPARE(fixture.driver.posted.at(0).destination.sessionId, test::id(1));
     QCOMPARE(fixture.driver.posted.at(1).destination.sessionId, test::id(2));
-    QCOMPARE(fixture.sessionsModel.attention(), QStringList({test::id(1), test::id(2)}));
 
-    apply(works);
+    apply(works, all);
     QVERIFY(fixture.driver.withdrawn.contains(fixture.driver.posted.at(0).key));
     QVERIFY(fixture.driver.withdrawn.contains(fixture.driver.posted.at(1).key));
-    apply({{QStringLiteral("state"), QStringLiteral("done")}});
+    apply({{QStringLiteral("state"), QStringLiteral("done")}}, all);
+    alert();
     QCOMPARE(fixture.driver.posted.size(), 4);
     QCOMPARE(fixture.driver.posted.at(2).body, QStringLiteral("Done"));
     QCOMPARE(fixture.driver.posted.at(3).destination.sessionId, test::id(2));
     const auto withdrawn = fixture.driver.withdrawn.size();
-    fixture.sessionsModel.clearAttention(test::id(1));
+    apply({{QStringLiteral("state"), QStringLiteral("done")}}, {test::id(2), test::id(3)});
     QCOMPARE(fixture.driver.withdrawn.size(), withdrawn + 1);
 
     fixture.notifications.isFront = [] { return true; };
-    apply(works);
-    apply({{QStringLiteral("state"), QStringLiteral("error")}});
+    apply({{QStringLiteral("state"), QStringLiteral("error")}}, all);
+    alert();
     QCOMPARE(fixture.driver.posted.size(), 4);
 }
 

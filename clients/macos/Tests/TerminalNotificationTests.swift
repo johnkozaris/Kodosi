@@ -95,7 +95,7 @@ private func awaitNotification(_ condition: () -> Bool) async {
     let entry: JSONValue = .object([
         "id": .string(id), "incarnationId": .string(incarnation), "kind": .string("local"),
         "name": .string("Quiet terminal"), "isOwner": .bool(true), "status": .string("running"),
-        "connectionState": .string("local"), "sharedWith": .array([]),
+        "attention": .bool(false), "connectionState": .string("local"), "sharedWith": .array([]),
     ])
     try app.receive(runtimeEvent("system.ready", fields: ["protocolVersion": .int(Int64(RuntimeHandle.expectedProtocolVersion))]))
     try app.receive(runtimeEvent("sessions.snapshot", fields: ["sessions": .array([entry])]))
@@ -121,7 +121,7 @@ private func awaitNotification(_ condition: () -> Bool) async {
     #expect(!app.openTerminalNotification(identifier: request.identifier))
 }
 
-@Test @MainActor func aWaitingTerminalAlertsItsOwnerAndThePeopleWhoHaveItOpenWhileTheAppIsNotInFront() async throws {
+@Test @MainActor func aTerminalThatNeedsItsPersonAlertsWhileTheAppIsNotInFront() async throws {
     let driver = NotificationDriver()
     let defaults = try #require(EphemeralUserDefaults(prefix: "TerminalAlert"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
@@ -132,52 +132,43 @@ private func awaitNotification(_ condition: () -> Bool) async {
     let own = UUIDv7.generate()
     let shared = UUIDv7.generate()
     let closed = UUIDv7.generate()
-    func entry(_ id: String, _ name: String, connection: String, _ status: [String: JSONValue]) -> JSONValue {
+    func entry(_ id: String, _ name: String, connection: String, attention: Bool, _ status: [String: JSONValue]) -> JSONValue {
         .object([
             "id": .string(id), "incarnationId": .string(id), "kind": .string(id == own ? "local" : "remote"),
             "name": .string(name), "isOwner": .bool(id == own), "status": .string("running"),
-            "connectionState": .string(connection), "sharedWith": .array([]), "programStatus": .object(status),
+            "attention": .bool(attention), "connectionState": .string(connection), "sharedWith": .array([]),
+            "programStatus": .object(status),
         ])
     }
-    func receive(_ status: [String: JSONValue]) throws {
+    func receive(_ status: [String: JSONValue], attention: Bool) throws {
         try app.receive(runtimeEvent("sessions.snapshot", fields: [
             "sessions": .array([
-                entry(own, "Review", connection: "local", status),
-                entry(shared, "Shared", connection: "connected", status),
-                entry(closed, "Closed", connection: "offline", status),
+                entry(own, "Review", connection: "local", attention: attention, status),
+                entry(shared, "Shared", connection: "connected", attention: attention, status),
+                entry(closed, "Closed", connection: "offline", attention: attention, status),
             ]),
         ]))
     }
     let waits: [String: JSONValue] = ["state": .string("blocked"), "kind": .string("permission"), "message": .string("Allow the command?")]
     try app.receive(runtimeEvent("system.ready", fields: ["protocolVersion": .int(Int64(RuntimeHandle.expectedProtocolVersion))]))
-    try receive(waits)
-    #expect(driver.posted.isEmpty)
-    try receive(["state": .string("working")])
-    try receive(waits)
+    try receive(waits, attention: true)
+    for id in [own, shared, closed] {
+        try app.receive(runtimeEvent("term.attention", fields: ["sessionId": .string(id)]))
+    }
     await awaitNotification { driver.posted.count == 2 }
     #expect(Set(driver.posted.map(\.content.title)) == ["Review", "Shared"])
     #expect(driver.posted.allSatisfy { $0.content.body == "Allow the command?" })
     for _ in 0 ..< 20 {
         await Task.yield()
     }
-
-    try receive(["state": .string("working")])
+    try receive(waits, attention: false)
     #expect(Set(driver.withdrawn) == Set(driver.posted.map(\.identifier)))
-    try receive(["state": .string("done")])
-    await awaitNotification { driver.posted.count == 4 }
-    #expect(driver.posted.suffix(2).allSatisfy { $0.content.body == "Done" })
-    for _ in 0 ..< 20 {
-        await Task.yield()
-    }
-    app.seen(own)
-    app.seen(shared)
-    #expect(driver.withdrawn.count == 4)
 
     app.isFront = { true }
-    try receive(["state": .string("working")])
-    try receive(["state": .string("error")])
-    #expect(driver.posted.count == 4)
-    #expect(app.attention == [own, shared])
+    try receive(["state": .string("done")], attention: true)
+    try app.receive(runtimeEvent("term.attention", fields: ["sessionId": .string(own)]))
+    #expect(driver.posted.count == 2)
+    #expect(try app.sign(of: #require(app.session(own))) == .done)
 }
 
 @Test func onlyTheOwnerAndThePeopleWhoHaveATerminalOpenGetItsAlert() throws {
@@ -185,7 +176,7 @@ private func awaitNotification(_ condition: () -> Bool) async {
         try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode([
             "id": JSONValue.string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
             "kind": .string(kind), "name": .string("Review"), "isOwner": .bool(owner), "status": .string("running"),
-            "connectionState": .string(connection), "sharedWith": .array([]),
+            "attention": .bool(false), "connectionState": .string(connection), "sharedWith": .array([]),
             "programStatus": .object(["state": .string("done")]),
         ]))
     }
@@ -259,7 +250,7 @@ private func awaitNotification(_ condition: () -> Bool) async {
     let replacement = try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode([
         "id": JSONValue.string(session.id), "incarnationId": .string(UUIDv7.generate()),
         "kind": .string("local"), "name": .string("Replacement"), "isOwner": .bool(true),
-        "status": .string("running"), "connectionState": .string("local"), "sharedWith": .array([]),
+        "status": .string("running"), "attention": .bool(false), "connectionState": .string("local"), "sharedWith": .array([]),
     ]))
     notifications.reconcile(sessions: [replacement], accountEpoch: 1)
     #expect(notifications.sessionToOpen(identifier: old) == nil)

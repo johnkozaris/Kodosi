@@ -68,7 +68,7 @@ import Testing
     let entry: JSONValue = .object([
         "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
         "kind": .string("remote"), "name": .string("Remote terminal"), "isOwner": .bool(true),
-        "status": .string("running"), "connectionState": .string("connected"), "sharedWith": .array([]),
+        "status": .string("running"), "attention": .bool(false), "connectionState": .string("connected"), "sharedWith": .array([]),
     ])
     try app.receive(runtimeEvent("sessions.snapshot", fields: ["sessions": .array([entry])]))
     try app.receive(runtimeEvent("session.result", fields: [
@@ -133,11 +133,12 @@ import Testing
     ]))
     #expect(app.people.friends.map(\.verified) == [true, false])
     #expect(app.people.friends.map(\.identityChanged) == [false, true])
-    try app.receive(runtimeEvent("friends.invite", fields: ["text": .string("kodosi:owner:abcd")]))
+    let invite: [String: JSONValue] = ["operation": .string("friends.invite"), "requestId": .string(UUIDv7.generate()), "text": .string("kodosi:owner:abcd")]
+    try app.receive(runtimeEvent("friends.result", fields: invite))
     #expect(copied.isEmpty)
     app.copyInvite()
-    try app.receive(runtimeEvent("friends.invite", fields: ["text": .string("kodosi:owner:abcd")]))
-    try app.receive(runtimeEvent("friends.invite", fields: ["text": .string("kodosi:owner:abcd")]))
+    try app.receive(runtimeEvent("friends.result", fields: invite))
+    try app.receive(runtimeEvent("friends.result", fields: invite))
     #expect(copied == ["kodosi:owner:abcd"])
     #expect(app.inviteCopies == 1)
     #expect(app.people.friends.count == 2)

@@ -86,10 +86,8 @@ struct SessionTileView: View {
             withAnimation(.interpolatingSpring(stiffness: 210, damping: 28)) { born = true }
             withAnimation(.easeOut(duration: 0.42).delay(0.08)) { veil = 0 }
         }
-        .onChange(of: tileVisible && stageVisible, initial: true) { _, visible in
-            if visible {
-                deps.seen(session.id)
-            }
+        .onChange(of: tileVisible && stageVisible, initial: true) { _, _ in
+            deps.reportVisible()
         }
         .onChange(of: viewers.map(\.id)) { old, new in
             guard let added = new.first(where: { !old.contains($0) }), let person = viewers.first(where: { $0.id == added }) else { return }
@@ -200,7 +198,7 @@ struct SessionTileView: View {
 
     private func select() {
         deps.workbench.selectSession(session.id)
-        deps.seen(session.id)
+        deps.reportVisible()
     }
 
     private func closeSession() {

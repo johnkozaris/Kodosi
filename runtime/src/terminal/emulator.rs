@@ -69,6 +69,10 @@ enum TerminalCommand {
         focused: bool,
         reply_tx: oneshot::Sender<Result<Vec<u8>>>,
     },
+    Text {
+        history: bool,
+        reply_tx: oneshot::Sender<Result<String>>,
+    },
     Shutdown {
         reply_tx: oneshot::Sender<Result<()>>,
     },
@@ -153,6 +157,11 @@ impl SessionTerminalHandle {
 
     pub(super) async fn set_focused(&self, focused: bool) -> Result<Vec<u8>> {
         self.request(|reply_tx| TerminalCommand::SetFocused { focused, reply_tx })
+            .await
+    }
+
+    pub(super) async fn text(&self, history: bool) -> Result<String> {
+        self.request(|reply_tx| TerminalCommand::Text { history, reply_tx })
             .await
     }
 
@@ -469,6 +478,9 @@ async fn terminal_actor_main(
                     }
                     TerminalCommand::SetFocused { focused, reply_tx } => {
                         drop(reply_tx.send(terminal.terminal.encode_focus(focused).map_err(terminal_error)));
+                    }
+                    TerminalCommand::Text { history, reply_tx } => {
+                        drop(reply_tx.send(terminal.terminal.text(history).map_err(terminal_error)));
                     }
                     TerminalCommand::Shutdown { reply_tx } => {
                         drop(terminal);

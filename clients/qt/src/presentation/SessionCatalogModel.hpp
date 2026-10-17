@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QAbstractListModel>
+#include <QHash>
 #include <QJsonObject>
 #include <QStringList>
 #include <QVariantMap>
@@ -48,6 +49,7 @@ public:
         QString message;
         QStringList sharedWith;
         bool isOwner = false;
+        bool attention = false;
     };
     struct PresentationSession {
         QString id;
@@ -64,8 +66,10 @@ public:
     [[nodiscard]] QVariantList folderGroups() const;
     [[nodiscard]] QVariantList sessions() const;
     [[nodiscard]] QStringList attention() const { return m_attention; }
-    Q_INVOKABLE void clearAttention(const QString& id);
-    void noteAttention(const QString& id);
+    [[nodiscard]] QStringList visible() const;
+    Q_INVOKABLE void setVisible(const QString& id, bool visible);
+    [[nodiscard]] bool waiting(const QString& id) const;
+    void alert(const QString& id);
     // The last part of a folder path between separators, or the path if it has none, for
     // example `/`. Hosts report `/…` on Linux and macOS, and `C:\…` or `\\server\share\…` on Windows.
     Q_INVOKABLE [[nodiscard]] static QString folderName(const QString& path);
@@ -89,6 +93,7 @@ signals:
     void authorityStateChanged();
     void authoritativeSnapshotApplied();
     void attentionChanged();
+    void visibleChanged();
     void alertChanged(const QString& sessionId, const QString& text);
 
 private:
@@ -96,6 +101,7 @@ private:
     mutable std::optional<QVariantList> m_sessionsCache;
     mutable std::optional<QVariantList> m_groupsCache;
     QStringList m_attention;
+    QHash<QString, int> m_views;
     AuthorityState m_state = Loading;
     QString m_error;
     [[nodiscard]] static std::optional<Session> decode(const QJsonObject& object);

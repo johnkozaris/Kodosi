@@ -54,7 +54,6 @@ KPopover {
         close()
         switch (item.kind) {
         case "terminal":
-            Models.Sessions.clearAttention(item.key)
             Models.SessionActions.activate(item.key)
             break
         case "room":

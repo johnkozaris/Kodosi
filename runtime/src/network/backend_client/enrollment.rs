@@ -194,7 +194,7 @@ impl BackendClient {
         Ok(events)
     }
 
-    pub(super) async fn start_link(&self) -> Result<Value> {
+    pub(super) async fn start_link(&self) -> Result<String> {
         let credentials = self.reapproval_credentials().await?;
         if credentials.enrolled {
             return Err(invalid("This device is already approved."));
@@ -222,14 +222,13 @@ impl BackendClient {
         .await
         .map_err(|_| Error::Closed)??;
         let link:Value=self.inner.http.bearer(Method::POST,"api/devices/link/init",&credentials.token,Some(json!({"deviceId":credentials.keys.device_id,"deviceLabel":label,"signingPublicKey":BASE64.encode(credentials.keys.signing_public()),"nonce":BASE64.encode(nonce),"proof":BASE64.encode(proof)}))).await?;
-        let result = json!({"type":"devices.link.selfPending","code":code});
         self.inner.state.lock().await.link = Some(PendingLink {
             device_code: wire::text(&link, "deviceCode")?.to_owned(),
             request_id: wire::text(&link, "requestId")?.to_owned(),
             key: Arc::new(key),
             started: Instant::now(),
         });
-        Ok(result)
+        Ok(code)
     }
 
     async fn link_requests(&self, credentials: &Credentials) -> Result<Vec<LinkRequest>> {

@@ -53,7 +53,7 @@ struct TerminalsHome: View {
     }
 
     private var finished: [String] {
-        store.sessions.filter { $0.waitState == .done && store.attention.contains($0.id) }.map(\.id)
+        store.sessions.filter { $0.waitState == .done && $0.attention }.map(\.id)
     }
 
     private func row(_ session: RuntimeSession) -> some View {

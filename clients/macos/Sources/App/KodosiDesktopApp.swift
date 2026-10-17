@@ -46,8 +46,8 @@ struct RootView: View {
                             .accessibilityIdentifier("root.error.retry")
                     }
                 }
-            case let .hostConflict(failure):
-                EmptyState(title: "Kodosi is already running") {
+            case let .hostOutdated(failure):
+                EmptyState(title: "Kodosi was updated") {
                     KodosiWordmark(size: 24, blinks: false)
                 } actions: {
                     VStack(spacing: 16) {
@@ -59,17 +59,13 @@ struct RootView: View {
                         HStack(spacing: 8) {
                             Button("Try again") { deps.retryStartup() }
                                 .buttonStyle(.kodosi(.secondary, size: .large))
-                                .accessibilityIdentifier("root.hostConflict.retry")
-                            if failure.resolution == .quitDuplicateApp {
-                                Button("Quit") { NSApplication.shared.terminate(nil) }
+                                .accessibilityIdentifier("root.hostOutdated.retry")
+                            if failure.hostKind != .foreground {
+                                Button(failure.hostTerminals == 0
+                                    ? String(localized: "Restart Kodosi")
+                                    : String(localized: "Restart it and end its terminals")) { deps.restartOutdatedHost() }
                                     .buttonStyle(.kodosi(.primary, size: .large))
-                                    .accessibilityIdentifier("root.hostConflict.quit")
-                            } else {
-                                Button(failure.hostLocalSessions == 0
-                                    ? String(localized: "Stop the other one")
-                                    : String(localized: "Stop it and its terminals")) { deps.stopConflictingHost() }
-                                    .buttonStyle(.kodosi(.primary, size: .large))
-                                    .accessibilityIdentifier("root.hostConflict.stop")
+                                    .accessibilityIdentifier("root.hostOutdated.restart")
                             }
                         }
                     }
@@ -81,20 +77,18 @@ struct RootView: View {
     }
 
     private static func describe(_ failure: RuntimeStartFailure) -> String {
-        let terminals = String(failure.hostLocalSessions)
+        let terminals = String(failure.hostTerminals)
         let pid = String(failure.hostPID)
         switch failure.hostKind {
-        case .app:
-            return String(localized: "Kodosi is open in another window. Use that one, or quit this one.")
         case .foreground:
             return String(localized: """
-            The `kodosi host` command (process \(pid)) runs \(terminals) terminals. \
-            Stop it in its terminal, or stop it here.
+            The `kodosi host` command (process \(pid)) runs the earlier version. \
+            Stop it in its terminal and start it again.
             """)
         case .background:
             return String(localized: """
-            The kodosi command (process \(pid)) runs \(terminals) terminals in the background. \
-            If you stop it, they end.
+            The earlier version of Kodosi still runs \(terminals) terminals in the background. \
+            Restart it to use the update. Its terminals end.
             """)
         case .unknown:
             return failure.message

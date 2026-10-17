@@ -5,12 +5,9 @@
 #include <QHash>
 #include <QJsonObject>
 #include <QObject>
-#include <QSettings>
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
-
-#include <memory>
 
 namespace kodosi {
 class AgentLauncherModel final : public QObject {
@@ -24,8 +21,7 @@ class AgentLauncherModel final : public QObject {
     Q_PROPERTY(bool addingAccount READ addingAccount NOTIFY accountErrorChanged)
 
 public:
-    AgentLauncherModel(CommandDispatcher& commands, std::unique_ptr<QSettings> settings,
-        QObject* parent = nullptr);
+    explicit AgentLauncherModel(CommandDispatcher& commands, QObject* parent = nullptr);
 
     QVariantList agents() const { return m_agents; }
     QVariantMap models() const { return m_models; }
@@ -50,17 +46,17 @@ signals:
     void choiceChanged();
     void plansChanged();
     void accountErrorChanged();
-    void accountAdded(QString agent, QString command);
+    void accountAdded(QString agent, QString name);
 
 private:
-    enum class Request { Agents, Models, Account };
+    enum class Request { Agents, Models, Account, Choose };
     struct Pending {
         Request request;
         QString agent;
+        int asOf;
     };
 
     CommandDispatcher& m_commands;
-    std::unique_ptr<QSettings> m_settings;
     QHash<QString, Pending> m_pending;
     QVariantList m_agents;
     QVariantMap m_models;
@@ -68,10 +64,12 @@ private:
     QVariantMap m_choice;
     QString m_accountError;
     qint64 m_refreshedAt = 0;
+    int m_changes = 0;
     bool m_refreshesAgain = false;
 
     QVariantMap plan(const QVariantMap& info) const;
     bool send(Request request, const QString& agent, QJsonObject values);
-    void persist();
+    void change(const QJsonObject& change);
+    void adopt(const QJsonObject& choice, int asOf);
 };
 }

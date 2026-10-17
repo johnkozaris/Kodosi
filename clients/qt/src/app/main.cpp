@@ -137,7 +137,7 @@ int main(int argc, char* argv[])
     kodosi::Workspace workspace(runtime, sessions, desktop, desktopSettings);
     kodosi::ConversationHistoryModel history(runtime);
     kodosi::ProviderFilesModel providerFiles(runtime);
-    kodosi::AgentLauncherModel launcher(runtime, settings());
+    kodosi::AgentLauncherModel launcher(runtime);
     kodosi::AppearanceModel appearance(settings());
     kodosi::DesktopFileIntegration files;
     kodosi::TerminalTilingLayoutModel tiling;
@@ -158,7 +158,7 @@ int main(int argc, char* argv[])
         workspace.apply(event, accountEpoch);
         terminalNotifications.apply(event);
         const auto type = event.value(QStringLiteral("type")).toString();
-        if (type == QStringLiteral("provider.reply") || type == QStringLiteral("provider.error")) {
+        if (type == QStringLiteral("provider.result") || type == QStringLiteral("provider.error")) {
             history.apply(event, payload);
             providerFiles.apply(event);
             launcher.apply(event);
@@ -177,9 +177,10 @@ int main(int argc, char* argv[])
             launcher.reset();
         }
     });
-    QObject::connect(&lifecycle, &kodosi::ApplicationLifecycleModel::runtimeReady, &workspace, [&] {
-        workspace.sessionActions().refresh();
-        launcher.refresh(true);
+    QObject::connect(&workspace, &kodosi::Workspace::hostReady, &launcher, [&] { launcher.refresh(true); });
+    QObject::connect(&app, &QGuiApplication::applicationStateChanged, &workspace, [&](Qt::ApplicationState state) {
+        if (state == Qt::ApplicationActive)
+            workspace.missions().readWatched();
     });
     kodosi::qml::configureModelInstances(
         workspace, history, providerFiles, launcher, appearance, desktopSettings, desktop, sessions, tiling, files,
@@ -224,6 +225,10 @@ int main(int argc, char* argv[])
             if (workspace.sessionActions().activate(id))
                 raise(token);
         });
+    QObject::connect(&workspace, &kodosi::Workspace::showRequested, &app, [&](const QString& id) {
+        if (workspace.sessionActions().activate(id))
+            raise({});
+    });
 #ifdef Q_OS_LINUX
     const auto program = QFile::encodeName(QCoreApplication::applicationFilePath());
     struct stat running {};

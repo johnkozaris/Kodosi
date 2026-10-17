@@ -120,7 +120,7 @@ struct RoomsHome: View {
             }
         }
         .contextMenu {
-            if rooms.unread[mission.id] != nil {
+            if mission.unread {
                 Button { rooms.markRead(mission.id) } label: { Label("Mark as read", systemImage: "checkmark.message") }
             }
             Button(role: .destructive) { confirming = mission } label: {

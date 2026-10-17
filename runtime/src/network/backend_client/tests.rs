@@ -1,5 +1,11 @@
 use super::*;
 
+const REQUEST: &str = "11111111-1111-4111-8111-111111111111";
+
+fn request() -> Value {
+    json!({ "requestId": REQUEST })
+}
+
 pub(super) fn fixture() -> (tempfile::TempDir, BackendClient) {
     let root = tempfile::tempdir().unwrap();
     let network = BackendClient::new(BackendConfig {
@@ -19,7 +25,7 @@ pub(super) fn fixture() -> (tempfile::TempDir, BackendClient) {
 async fn queued_command_never_becomes_a_new_account_request() {
     let (_root, network) = fixture();
     let guard = network.inner.operations.lock().await;
-    let operation = network.execute("friends.refresh", Value::Null);
+    let operation = network.execute("friends.refresh", request());
     tokio::pin!(operation);
     assert!(futures_util::poll!(&mut operation).is_pending());
     network.inner.generation.fetch_add(1, Ordering::AcqRel);
@@ -56,7 +62,7 @@ async fn a_sign_in_without_a_network_keeps_the_saved_sign_in() {
         .store("tokens", saved)
         .unwrap();
     let error = network
-        .execute("auth.login.start", Value::Null)
+        .execute("auth.login.start", request())
         .await
         .unwrap_err();
     assert!(error.unanswered(), "{error}");
@@ -110,7 +116,7 @@ async fn quit_retains_saved_signin_but_logout_removes_it() {
         .secrets
         .store("tokens", "saved-token")
         .unwrap();
-    network.execute("auth.logout", Value::Null).await.unwrap();
+    network.execute("auth.logout", request()).await.unwrap();
     assert!(
         network
             .inner
@@ -143,7 +149,7 @@ async fn logout_cancels_credentials_without_deleting_device_identity() {
     };
     let device = credentials.keys.device_id.clone();
     *network.inner.credentials.write().unwrap() = Some(credentials.clone());
-    network.execute("auth.logout", Value::Null).await.unwrap();
+    network.execute("auth.logout", request()).await.unwrap();
     assert!(credentials.cancel.is_cancelled());
     assert!(network.check_credentials(&credentials).is_err());
     let restored =
@@ -290,7 +296,7 @@ fn host_labels_are_bounded_trimmed_and_have_a_fallback() {
 async fn cancelling_a_login_reports_a_cancelled_sign_out() {
     let (_root, network) = fixture();
     let reply = network
-        .execute("auth.login.cancel", Value::Null)
+        .execute("auth.login.cancel", request())
         .await
         .unwrap();
     assert_eq!(
@@ -471,7 +477,7 @@ async fn an_app_below_the_server_range_asks_once_for_an_update() {
     let mut events = network.events();
     for _ in 0..2 {
         assert!(matches!(
-            network.execute("friends.refresh", Value::Null).await,
+            network.execute("friends.refresh", request()).await,
             Err(Error::UpdateRequired)
         ));
     }
@@ -497,7 +503,7 @@ async fn an_app_above_the_server_range_names_the_server() {
     let server = scripted_backend(listener, vec![(200, older)]);
     let (_root, network, _user) = signed_in_at(&address).await;
     assert!(matches!(
-        network.execute("friends.refresh", Value::Null).await,
+        network.execute("friends.refresh", request()).await,
         Err(Error::ServerOutdated)
     ));
     server.await.unwrap();
@@ -526,19 +532,23 @@ async fn a_deletion_confirmed_in_the_browser_ends_the_account_on_this_computer()
     let (_root, network, user) = signed_in_at(&address).await;
     let mut events = network.events();
     let reply = network
-        .execute("auth.deleteAccount", Value::Null)
+        .execute("auth.deleteAccount", request())
         .await
         .unwrap();
     assert_eq!(
         reply.events,
-        vec![json!({"type":"auth.deletion_pending","confirmationUri":page})]
+        vec![json!({"type":"auth.deletion_pending","requestId":REQUEST,"confirmationUri":page})]
     );
+    assert!(reply.answered_later);
     assert!(device_key_kept(&network, &user).await);
-    let ended = tokio::time::timeout(Duration::from_secs(15), async {
+    let (ended, answer) = tokio::time::timeout(Duration::from_secs(15), async {
+        let mut ended = None;
         loop {
             let event = events.recv().await.unwrap().event;
-            if event["type"] == "auth.required" {
-                return event;
+            match event["type"].as_str() {
+                Some("auth.required") => ended = Some(event),
+                Some("auth.result") => return (ended, event),
+                _ => {}
             }
         }
     })
@@ -546,7 +556,11 @@ async fn a_deletion_confirmed_in_the_browser_ends_the_account_on_this_computer()
     .unwrap();
     assert_eq!(
         ended,
-        json!({"type":"auth.required","reason":"accountDeleted"})
+        Some(json!({"type":"auth.required","reason":"accountDeleted"}))
+    );
+    assert_eq!(
+        answer,
+        json!({"type":"auth.result","requestId":REQUEST,"operation":"auth.deleteAccount"})
     );
     assert!(!device_key_kept(&network, &user).await);
     assert!(network.identity().is_none());
@@ -569,12 +583,12 @@ async fn without_a_deletion_page_the_server_deletes_the_account_directly() {
         vec![
             compatible_server(),
             (200, json!({"id": "account", "deletionUri": null})),
-            (204, Value::Null),
+            (204, request()),
         ],
     );
     let (_root, network, user) = signed_in_at(&address).await;
     let reply = network
-        .execute("auth.deleteAccount", Value::Null)
+        .execute("auth.deleteAccount", request())
         .await
         .unwrap();
     assert_eq!(
@@ -608,7 +622,7 @@ async fn a_deletion_page_outside_the_sign_in_service_is_refused() {
     );
     let (_root, network, user) = signed_in_at(&address).await;
     let error = network
-        .execute("auth.deleteAccount", Value::Null)
+        .execute("auth.deleteAccount", request())
         .await
         .unwrap_err();
     assert!(matches!(error, Error::Invalid { .. }), "{error}");
@@ -641,7 +655,7 @@ async fn an_app_sign_in_takes_only_the_answer_of_its_own_page() {
     let reply = network
         .execute(
             "auth.login.start",
-            json!({"type":"auth.login.start","browser":"app"}),
+            json!({"type":"auth.login.start","requestId":REQUEST,"browser":"app"}),
         )
         .await
         .unwrap();
@@ -659,7 +673,7 @@ async fn an_app_sign_in_takes_only_the_answer_of_its_own_page() {
     let finish = |answer: String| {
         network.execute(
             "auth.login.finish",
-            json!({"type":"auth.login.finish","url":answer}),
+            json!({"type":"auth.login.finish","requestId":REQUEST,"url":answer}),
         )
     };
     assert!(
@@ -668,7 +682,7 @@ async fn an_app_sign_in_takes_only_the_answer_of_its_own_page() {
             .is_err()
     );
     network
-        .execute("auth.login.cancel", Value::Null)
+        .execute("auth.login.cancel", request())
         .await
         .unwrap();
     let right = format!("{APP_REDIRECT}?state={}&code=c", value("state"));

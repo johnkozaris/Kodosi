@@ -8,11 +8,17 @@ import os
 final class LauncherState {
     private let commands: CommandSink
     private(set) var catalog: AgentCatalog?
+    private(set) var choice = AgentChoice()
     private(set) var models: [String: AgentModels] = [:]
     private(set) var loadingModels: Set<String> = []
     private var refreshing = false
     private var refreshesAgain = false
     private var refreshedAt: Date?
+    private var changes = 0
+
+    private struct Chosen: Decodable {
+        var choice: AgentChoice
+    }
 
     init(commands: CommandSink) {
         self.commands = commands
@@ -38,6 +44,7 @@ final class LauncherState {
         repeat {
             refreshesAgain = false
             do {
+                let asOf = changes
                 let reply = try await commands.request("provider.agents")
                 let catalog: AgentCatalog = try reply.value("result")
                 if catalog != self.catalog {
@@ -45,6 +52,7 @@ final class LauncherState {
                     models = models.filter { installed.contains($0.key) }
                     self.catalog = catalog
                 }
+                try adopt(reply.value("result", as: Chosen.self).choice, asOf: asOf)
                 refreshedAt = Date()
             } catch {
                 Logger.app.warning("Agents of this Mac unknown: \(error.localizedDescription, privacy: .public)")
@@ -57,10 +65,26 @@ final class LauncherState {
         loadingModels.insert(agent)
         defer { loadingModels.remove(agent) }
         do {
+            let asOf = changes
             let reply = try await commands.request("provider.agentModels", ["agent": .string(agent)])
             models[agent] = try reply.value("result")
+            try adopt(reply.value("result", as: Chosen.self).choice, asOf: asOf)
         } catch {
             Logger.app.warning("Models of \(agent, privacy: .public) unknown: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    func choose(_ change: AgentChoiceChange) {
+        changes += 1
+        let asOf = changes
+        choice.apply(change)
+        Task {
+            do {
+                let reply = try await commands.request("provider.choose", ["change": change.json])
+                try adopt(reply.value("result"), asOf: asOf)
+            } catch {
+                Logger.app.warning("Launch choice not kept: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 
@@ -72,5 +96,10 @@ final class LauncherState {
         }
         await refresh(force: true)
         return account
+    }
+
+    private func adopt(_ choice: AgentChoice, asOf change: Int) {
+        guard change == changes, choice != self.choice else { return }
+        self.choice = choice
     }
 }

@@ -108,38 +108,52 @@ private slots:
         QCOMPARE(tasks.first().toMap().value(QStringLiteral("version")).toInt(), 2);
     }
 
-    void aRoomIsNewWhenSomeoneElseWroteInIt()
+    void aRoomIsNewUntilItsPersonSeesTheLatestMessage()
     {
         Fixture f;
         f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.ready") },
             { QStringLiteral("userId"), test::id(50) }, { QStringLiteral("accountEpoch"), 1 } }, 1);
-        const auto message = [](int sequence, const QString& author, const QString& agent = {}) {
-            return QJsonObject { { QStringLiteral("id"), test::id(100 + sequence) }, { QStringLiteral("sequence"), sequence },
-                { QStringLiteral("authorId"), author }, { QStringLiteral("agent"), agent.isEmpty() ? QJsonValue() : QJsonValue(agent) } };
-        };
-        const auto room = [&](const QJsonArray& messages) {
-            f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("room.snapshot") },
-                { QStringLiteral("room"), QJsonObject { { QStringLiteral("roomId"), test::id(10) },
-                    { QStringLiteral("tasks"), QJsonArray {} }, { QStringLiteral("messages"), messages } } } }, 1);
-        };
         auto& missions = f.workspace.missions();
-        room({ message(5, test::id(51)) });
-        QVERIFY(missions.unreadRooms().isEmpty());
-        room({ message(3, test::id(51)), message(6, test::id(50)) });
-        QVERIFY(missions.unreadRooms().isEmpty());
-        room({ message(7, test::id(50), QStringLiteral("Claude Code")) });
+        const auto catalog = [&](bool unread) {
+            f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("missions.snapshot") },
+                { QStringLiteral("missions"), QJsonArray { QJsonObject { { QStringLiteral("id"), test::id(10) },
+                    { QStringLiteral("name"), QStringLiteral("Ten") }, { QStringLiteral("unread"), unread } } } },
+                { QStringLiteral("invitations"), QJsonArray {} } }, 1);
+        };
+        const auto room = [&](int sequence) {
+            f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("room.snapshot") },
+                { QStringLiteral("room"), QJsonObject { { QStringLiteral("roomId"), test::id(10) }, { QStringLiteral("tasks"), QJsonArray {} },
+                    { QStringLiteral("messages"), QJsonArray { QJsonObject { { QStringLiteral("id"), test::id(100 + sequence) },
+                        { QStringLiteral("sequence"), sequence }, { QStringLiteral("authorId"), test::id(51) } } } } } } }, 1);
+        };
+        const auto seen = [&] {
+            QList<qint64> sequences;
+            for (const auto& command : std::as_const(f.commands.values)) {
+                if (command.value(QStringLiteral("type")).toString() == QStringLiteral("mission.seen"))
+                    sequences.append(command.value(QStringLiteral("sequence")).toInteger());
+            }
+            return sequences;
+        };
+        bool front = false;
+        missions.isFront = [&front] { return front; };
+        catalog(true);
+        room(5);
         QCOMPARE(missions.unreadRooms(), QStringList { test::id(10) });
-
+        QVERIFY(seen().isEmpty());
         f.desktop.setActiveView(kodosi::DesktopStateModel::Missions);
         missions.open(test::id(10));
+        QVERIFY(seen().isEmpty());
+        front = true;
+        missions.readWatched();
+        QCOMPARE(seen(), QList<qint64> { 5 });
+        catalog(false);
         QVERIFY(missions.unreadRooms().isEmpty());
-        room({ message(8, test::id(51)) });
-        QVERIFY(missions.unreadRooms().isEmpty());
-        missions.setPresentation(QStringLiteral("conversation"), false);
-        room({ message(9, test::id(51)) });
-        QCOMPARE(missions.unreadRooms(), QStringList { test::id(10) });
-        missions.setPresentation(QStringLiteral("conversation"), true);
-        QVERIFY(missions.unreadRooms().isEmpty());
+        QCOMPARE(seen(), QList<qint64> { 5 });
+        missions.setPresentation(QStringLiteral("followLatest"), false);
+        room(6);
+        QCOMPARE(seen(), QList<qint64> { 5 });
+        missions.setPresentation(QStringLiteral("followLatest"), true);
+        QCOMPARE(seen(), (QList<qint64> { 5, 6 }));
     }
     void aRoomCountsWhatArrivedOutOfView()
     {
@@ -338,27 +352,28 @@ private slots:
         QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("session.openRemote"));
         QCOMPARE(f.commands.values.size(), count + 2);
     }
-    void aTerminalNeedsYouAfterItsAgentStopsOrItsBellRings()
+    void theHostMarksTerminalsThatNeedYouAndHearsWhatYouSee()
     {
         Fixture f;
-        auto working = test::session(1);
-        working.insert(QStringLiteral("title"), QStringLiteral("\u2802 Build"));
-        f.workspace.apply(test::snapshot({ working, test::session(2) }), 0);
-        QVERIFY(f.sessions.presentationForSession(test::id(1)).value(QStringLiteral("working")).toBool());
-        QVERIFY(f.sessions.attention().isEmpty());
-        auto idle = test::session(1);
-        idle.insert(QStringLiteral("title"), QStringLiteral("Build"));
-        f.workspace.apply(test::snapshot({ idle, test::session(2) }), 0);
-        QVERIFY(!f.sessions.presentationForSession(test::id(1)).value(QStringLiteral("working")).toBool());
+        auto marked = test::session(1);
+        marked.insert(QStringLiteral("attention"), true);
+        f.workspace.apply(test::snapshot({ marked, test::session(2) }), 0);
         QCOMPARE(f.sessions.attention(), QStringList { test::id(1) });
-        f.workspace.apply({{QStringLiteral("type"), QStringLiteral("term.bell")},
-            {QStringLiteral("sessionId"), test::id(2)}}, 0);
-        f.workspace.apply({{QStringLiteral("type"), QStringLiteral("term.bell")},
-            {QStringLiteral("sessionId"), test::id(9)}}, 0);
-        QCOMPARE(f.sessions.attention(), (QStringList { test::id(1), test::id(2) }));
-        f.sessions.clearAttention(test::id(1));
-        QCOMPARE(f.sessions.attention(), QStringList { test::id(2) });
-        f.workspace.apply(test::snapshot({ idle }), 0);
+        f.sessions.setVisible(test::id(2), true);
+        QVERIFY(f.commands.values.isEmpty());
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("system.ready") } }, 0);
+        const auto visible = [&] { return f.commands.values.last().value(QStringLiteral("sessionIds")).toArray(); };
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("session.visible"));
+        QCOMPARE(visible(), QJsonArray { test::id(2) });
+        f.sessions.setVisible(test::id(1), true);
+        f.sessions.setVisible(test::id(1), true);
+        QCOMPARE(visible(), (QJsonArray { test::id(1), test::id(2) }));
+        const auto sent = f.commands.values.size();
+        f.sessions.setVisible(test::id(1), false);
+        QCOMPARE(f.commands.values.size(), sent);
+        f.sessions.setVisible(test::id(1), false);
+        QCOMPARE(visible(), QJsonArray { test::id(2) });
+        f.workspace.apply(test::snapshot({ test::session(1), test::session(2) }), 0);
         QVERIFY(f.sessions.attention().isEmpty());
     }
     void onlyALocalTerminalAtItsPromptOffersToStartAProgram()
@@ -379,20 +394,14 @@ private slots:
         QVERIFY(!atPrompt(3));
         QVERIFY(!atPrompt(4));
     }
-    void aStartLineGoesToTheTerminalAsOnePrintableLine()
+    void aStartMarkAsksTheHostToStartTheAgent()
     {
         Fixture f;
         f.workspace.apply(test::snapshot({ test::session(1) }), 0);
-
-        auto& actions = f.workspace.sessionActions();
-        const auto sent = f.commands.values.size();
-        QVERIFY(!actions.run(test::id(1), QStringLiteral("  ")));
-        QVERIFY(!actions.run(test::id(1), QStringLiteral("claude\nrm -rf x")));
-        QCOMPARE(f.commands.values.size(), sent);
-        const auto line = QStringLiteral("claude --add-dir ~/notes-") + QString::fromUcs4(U"\U0001F4C1");
-        QVERIFY(actions.run(test::id(1), QLatin1Char(' ') + line + QLatin1Char(' ')));
+        QVERIFY(f.workspace.sessionActions().startAgent(test::id(1), QStringLiteral("claude")));
         QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("session.run"));
-        QCOMPARE(f.commands.values.last().value(QStringLiteral("command")).toString(), line);
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("agent")).toObject(),
+            QJsonObject({ { QStringLiteral("agent"), QStringLiteral("claude") } }));
     }
     void aProgramStatusReportIsTheStateOfItsTerminal()
     {
@@ -419,7 +428,6 @@ private slots:
         QCOMPARE(field(1, QStringLiteral("progress")).toInt(), 40);
         QCOMPARE(field(2, QStringLiteral("progress")).toInt(), -1);
         QVERIFY(sign(1).isEmpty());
-        QVERIFY(f.sessions.attention().isEmpty());
 
         f.workspace.apply(test::snapshot({
             reported(1, {{QStringLiteral("state"), QStringLiteral("blocked")}, {QStringLiteral("kind"), QStringLiteral("permission")},
@@ -432,10 +440,7 @@ private slots:
         QCOMPARE(sign(1), QStringLiteral("hand"));
         QCOMPARE(sign(2), QStringLiteral("question"));
         QVERIFY(field(1, QStringLiteral("asks")).toBool());
-        QCOMPARE(f.sessions.attention(), (QStringList { test::id(1), test::id(2) }));
 
-        f.sessions.clearAttention(test::id(1));
-        f.sessions.clearAttention(test::id(2));
         f.workspace.apply(test::snapshot({
             reported(1, {{QStringLiteral("state"), QStringLiteral("blocked")}, {QStringLiteral("kind"), QStringLiteral("permission")}}),
             reported(2, {{QStringLiteral("state"), QStringLiteral("error")}}),
@@ -443,7 +448,6 @@ private slots:
         QVERIFY(activity(2).isEmpty());
         QCOMPARE(sign(2), QStringLiteral("failed"));
         QVERIFY(!field(2, QStringLiteral("asks")).toBool());
-        QCOMPARE(f.sessions.attention(), QStringList { test::id(2) });
 
         f.workspace.apply(test::snapshot({
             reported(1, {{QStringLiteral("state"), QStringLiteral("blocked")}, {QStringLiteral("kind"), QStringLiteral("auth")}}),
@@ -536,10 +540,13 @@ private slots:
         QVERIFY(f.workspace.sessionActions().busy());
         QVERIFY(f.sessions.containsSession(test::id(1)));
         QVERIFY(f.desktop.stagedSessionIds().contains(test::id(1)));
+        const auto request = f.commands.values.last().value(QStringLiteral("requestId"));
         f.workspace.apply(test::snapshot({}), 0);
-        QVERIFY(!f.workspace.sessionActions().busy());
         QVERIFY(!f.sessions.containsSession(test::id(1)));
         QVERIFY(f.desktop.stagedSessionIds().isEmpty());
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("session.result") }, { QStringLiteral("requestId"), request },
+            { QStringLiteral("operation"), QStringLiteral("session.close") } }, 0);
+        QVERIFY(!f.workspace.sessionActions().busy());
     }
     void closingStatusDisablesActivationAndControl()
     {
@@ -556,16 +563,17 @@ private slots:
         f.workspace.apply(test::snapshot({ closing }), 0);
         QCOMPARE(f.sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
     }
-    void createsOnlyAfterCorrelatedSnapshot()
+    void aCreatedTerminalOpensWhenItsResultArrives()
     {
         Fixture f;
         f.workspace.apply(test::snapshot({}), 0);
         QVERIFY(f.workspace.sessionActions().create(QStringLiteral("Work"), QStringLiteral("/repo")));
+        const auto request = f.commands.values.last().value(QStringLiteral("requestId"));
+        f.workspace.apply(test::snapshot({ test::session(1) }), 0);
         QVERIFY(f.desktop.selectedSessionId().isEmpty());
-        auto created = test::session(1);
-        created.insert(
-            QStringLiteral("createRequestId"), f.commands.values.last().value(QStringLiteral("requestId")));
-        f.workspace.apply(test::snapshot({ created }), 0);
+        QVERIFY(f.workspace.sessionActions().busy());
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("session.result") }, { QStringLiteral("requestId"), request },
+            { QStringLiteral("operation"), QStringLiteral("session.create") }, { QStringLiteral("sessionId"), test::id(1) } }, 0);
         QCOMPARE(f.desktop.selectedSessionId(), test::id(1));
         QVERIFY(!f.workspace.sessionActions().busy());
     }
@@ -573,12 +581,16 @@ private slots:
     {
         Fixture f;
         f.workspace.apply(test::snapshot({}), 0);
+        const QVariantMap agent { { QStringLiteral("agent"), QStringLiteral("claude") },
+            { QStringLiteral("account"), QStringLiteral("work") }, { QStringLiteral("model"), QString() },
+            { QStringLiteral("effort"), QStringLiteral("high") } };
         QVERIFY(f.workspace.sessionActions().create(
-            {}, QStringLiteral("/repo"), QStringLiteral("claude"), QStringLiteral(" fix the test "), test::id(7)));
+            {}, QStringLiteral("/repo"), {}, QStringLiteral(" fix the test "), test::id(7), agent));
         const auto sent = f.commands.values.last();
         QCOMPARE(sent.value(QStringLiteral("type")).toString(), QStringLiteral("session.create"));
         QCOMPARE(sent.value(QStringLiteral("missionId")).toString(), test::id(7));
-        QCOMPARE(sent.value(QStringLiteral("command")).toString(), QStringLiteral("claude"));
+        QVERIFY(!sent.contains(QStringLiteral("command")));
+        QCOMPARE(sent.value(QStringLiteral("agent")).toObject(), QJsonObject::fromVariantMap(agent));
         QCOMPARE(sent.value(QStringLiteral("prompt")).toString(), QStringLiteral("fix the test"));
         QVERIFY(!sent.value(QStringLiteral("name")).toString().isEmpty());
     }
@@ -686,7 +698,8 @@ private slots:
         const QJsonObject mission { { QStringLiteral("id"), test::id(11) },
             { QStringLiteral("name"), QStringLiteral("Project") },
             { QStringLiteral("ownerUserId"), test::id(50) } };
-        QJsonObject reply { { QStringLiteral("type"), QStringLiteral("mission.snapshot") },
+        QJsonObject reply { { QStringLiteral("type"), QStringLiteral("mission.result") },
+            { QStringLiteral("operation"), QStringLiteral("mission.open") },
             { QStringLiteral("requestId"), oldRequest }, { QStringLiteral("mission"), mission },
             { QStringLiteral("members"), QJsonArray {} } };
         f.workspace.apply(reply, 0);
@@ -755,17 +768,19 @@ private slots:
         QCOMPARE(detailRequest.value(QStringLiteral("type")).toString(), QStringLiteral("mission.open"));
         QCOMPARE(detailRequest.value(QStringLiteral("missionId")).toString(), test::id(11));
         QVERIFY(detailRequest.value(QStringLiteral("requestId")) != previousRequest);
-        f.workspace.apply({{QStringLiteral("type"), QStringLiteral("mission.snapshot")},
+        f.workspace.apply({{QStringLiteral("type"), QStringLiteral("mission.result")},
+            {QStringLiteral("operation"), QStringLiteral("mission.open")},
             {QStringLiteral("requestId"), detailRequest.value(QStringLiteral("requestId"))},
             {QStringLiteral("mission"), mission}, {QStringLiteral("members"), QJsonArray {}}}, 0);
         QCOMPARE(f.workspace.missions().selectedMission().value(QStringLiteral("name")).toString(), QStringLiteral("Beyond the page"));
         f.workspace.missions().declineInvitation(test::id(12));
         auto command = f.commands.values.last();
         QCOMPARE(command.value(QStringLiteral("type")).toString(), QStringLiteral("mission.invitation.reject"));
+        const auto sent = f.commands.values.size();
         f.workspace.apply({{QStringLiteral("type"), QStringLiteral("mission.result")},
             {QStringLiteral("operation"), command.value(QStringLiteral("type"))},
             {QStringLiteral("requestId"), command.value(QStringLiteral("requestId"))}}, 0);
-        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("mission.list"));
+        QCOMPARE(f.commands.values.size(), sent);
         f.workspace.missions().leave();
         command = f.commands.values.last();
         QCOMPARE(command.value(QStringLiteral("type")).toString(), QStringLiteral("mission.leave"));
@@ -774,7 +789,7 @@ private slots:
             {QStringLiteral("operation"), command.value(QStringLiteral("type"))},
             {QStringLiteral("requestId"), command.value(QStringLiteral("requestId"))}}, 0);
         QVERIFY(f.workspace.missions().selectedMissionId().isEmpty());
-        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("mission.list"));
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("mission.leave"));
         snapshot.remove(QStringLiteral("missionsTruncated"));
         snapshot.remove(QStringLiteral("invitationsTruncated"));
         f.workspace.apply(snapshot, 0);
@@ -825,10 +840,7 @@ private slots:
         QVERIFY(f.workspace.sessionActions().attachMission(test::id(2), test::id(10)));
         f.workspace.devices().approve(QStringLiteral("ABCD-EFGH-JKMN"));
         command = f.commands.values.last();
-        QVERIFY(!command.contains(QStringLiteral("requestId")));
         QCOMPARE(command.value(QStringLiteral("code")).toString(), QStringLiteral("ABCD-EFGH-JKMN"));
-        f.workspace.people().request(QStringLiteral("friend"));
-        QVERIFY(f.commands.values.last().contains(QStringLiteral("requestId")));
         f.workspace.people().verify(QStringLiteral("friend"), QStringLiteral(" kodosi:friend:abcd \n"));
         command = f.commands.values.last();
         QCOMPARE(command.value(QStringLiteral("type")).toString(), QStringLiteral("friends.verify"));
@@ -839,7 +851,8 @@ private slots:
         f.workspace.account().deleteAccount();
         QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(),
             QStringLiteral("auth.deleteAccount"));
-        const QJsonObject invite { { QStringLiteral("type"), QStringLiteral("friends.invite") },
+        const QJsonObject invite { { QStringLiteral("type"), QStringLiteral("friends.result") },
+            { QStringLiteral("operation"), QStringLiteral("friends.invite") },
             { QStringLiteral("text"), QStringLiteral("kodosi:owner:abcd") },
             { QStringLiteral("accountUserId"), test::id(50) }, { QStringLiteral("accountEpoch"), 1 } };
         QSignalSpy copied(&f.workspace.people(), &kodosi::PeopleModel::inviteCopied);
@@ -900,7 +913,6 @@ private slots:
         f.workspace.devices().startFresh();
         const auto command = f.commands.values.last();
         QCOMPARE(command.value(QStringLiteral("type")).toString(), QStringLiteral("devices.reset"));
-        QVERIFY(!command.contains(QStringLiteral("requestId")));
         f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("devices.list") },
             { QStringLiteral("selfDeviceId"), test::id(60) },
             { QStringLiteral("localDeviceEnrolled"), true },
@@ -967,21 +979,14 @@ private slots:
         f.workspace.apply(ready, std::numeric_limits<std::uint64_t>::max());
         QVERIFY(f.desktop.stagedSessionIds().isEmpty());
     }
-    void anErrorShowsOnlyForARequestOfThisApp()
+    void anErrorShowsAndEndsTheWorkOfItsRequest()
     {
         Fixture f;
         const auto error = [](const QString& requestId) {
-            QJsonObject event { { QStringLiteral("type"), QStringLiteral("session.error") },
-                { QStringLiteral("operation"), QStringLiteral("session.rename") }, { QStringLiteral("message"), QStringLiteral("No") } };
-            if (!requestId.isEmpty())
-                event.insert(QStringLiteral("requestId"), requestId);
-            return event;
+            return QJsonObject { { QStringLiteral("type"), QStringLiteral("session.error") },
+                { QStringLiteral("operation"), QStringLiteral("session.rename") }, { QStringLiteral("message"), QStringLiteral("No") },
+                { QStringLiteral("requestId"), requestId } };
         };
-        f.workspace.apply(error(test::id(70)), 0);
-        QVERIFY(f.workspace.error().isEmpty());
-        f.workspace.apply(error({}), 0);
-        QCOMPARE(f.workspace.error(), QStringLiteral("No"));
-        f.workspace.clearError();
         f.workspace.apply(test::snapshot({ test::session(1) }), 0);
         QVERIFY(f.workspace.sessionActions().rename(test::id(1), QStringLiteral("Renamed")));
         f.workspace.apply(error(f.commands.values.last().value(QStringLiteral("requestId")).toString()), 0);
@@ -998,11 +1003,41 @@ private slots:
         QCOMPARE(f.workspace.error(), QStringLiteral("Nobody is called ada"));
     }
 
-    void strictRefreshHasNoRequestId()
+    void aRoomAnswerBringsItsIssuesAndOlderMessages()
     {
         Fixture f;
-        f.workspace.sessionActions().refresh();
-        QVERIFY(!f.commands.values.first().contains(QStringLiteral("requestId")));
+        auto& missions = f.workspace.missions();
+        missions.open(test::id(10));
+        const auto message = [](int sequence) {
+            return QJsonObject { { QStringLiteral("id"), test::id(100 + sequence) }, { QStringLiteral("sequence"), sequence },
+                { QStringLiteral("authorId"), test::id(51) } };
+        };
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("room.snapshot") },
+            { QStringLiteral("room"), QJsonObject { { QStringLiteral("roomId"), test::id(10) }, { QStringLiteral("hasOlder"), true },
+                { QStringLiteral("messages"), QJsonArray { message(5) } } } } }, 0);
+        missions.roomAction({ { QStringLiteral("type"), QStringLiteral("issues") }, { QStringLiteral("repositoryId"), test::id(20) } });
+        const auto issues = f.commands.values.last().value(QStringLiteral("requestId"));
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("room.result") }, { QStringLiteral("requestId"), issues },
+            { QStringLiteral("operation"), QStringLiteral("room.command") }, { QStringLiteral("roomId"), test::id(10) },
+            { QStringLiteral("action"), QStringLiteral("issues") }, { QStringLiteral("repositoryId"), test::id(20) },
+            { QStringLiteral("issues"), QJsonArray { QJsonObject { { QStringLiteral("number"), 7 } } } } }, 0);
+        QCOMPARE(missions.issues().size(), 1);
+        missions.roomAction({ { QStringLiteral("type"), QStringLiteral("read") }, { QStringLiteral("before"), 5 } });
+        const auto older = f.commands.values.last().value(QStringLiteral("requestId"));
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("room.result") }, { QStringLiteral("requestId"), older },
+            { QStringLiteral("operation"), QStringLiteral("room.command") }, { QStringLiteral("roomId"), test::id(10) },
+            { QStringLiteral("action"), QStringLiteral("read") },
+            { QStringLiteral("room"), QJsonObject { { QStringLiteral("roomId"), test::id(10) }, { QStringLiteral("hasOlder"), false },
+                { QStringLiteral("messages"), QJsonArray { message(3), message(4) } } } } }, 0);
+        const auto messages = missions.room().value(QStringLiteral("messages")).toList();
+        QCOMPARE(messages.size(), 3);
+        QCOMPARE(messages.first().toMap().value(QStringLiteral("sequence")).toInt(), 3);
+        QVERIFY(!missions.room().value(QStringLiteral("hasOlder")).toBool());
+    }
+
+    void aRejectedCommandShowsItsErrorAndLeavesNoWork()
+    {
+        Fixture f;
         f.commands.reject = true;
         QVERIFY(!f.workspace.sessionActions().create(QStringLiteral("Work"), QStringLiteral("/repo")));
         QVERIFY(!f.workspace.sessionActions().busy());

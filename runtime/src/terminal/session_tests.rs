@@ -208,6 +208,56 @@ async fn resize_claim_is_current_connection_ownership_not_a_permission_role() {
 }
 
 #[tokio::test]
+async fn the_focused_view_owns_the_size_and_brings_its_size_with_focus() {
+    let (session, _changes, _root) = shell("exec /bin/cat").await;
+    let first = session.subscribe().await.expect("first");
+    let second = session.subscribe().await.expect("second");
+    let small = TerminalSize::new(18, 60).expect("size");
+    let large = TerminalSize::new(30, 100).expect("size");
+    session
+        .focus(first.connection_id, true)
+        .await
+        .expect("focus first");
+    session
+        .resize(first.connection_id, small, None, false)
+        .await
+        .expect("the focused view sets the size");
+    assert!(
+        session
+            .resize(second.connection_id, large, None, false)
+            .await
+            .is_err()
+    );
+    session
+        .focus(second.connection_id, true)
+        .await
+        .expect("focus second");
+    let cut = session
+        .checkpoint(first.connection_id)
+        .await
+        .expect("checkpoint");
+    assert_eq!(cut.checkpoint.size(), large);
+    session.close().await.expect("close");
+}
+
+#[tokio::test]
+async fn command_input_waits_while_a_person_types() {
+    let (session, _changes, _root) = shell("stty raw -echo; exec /bin/cat").await;
+    let view = session.subscribe().await.expect("view");
+    session
+        .send_input(Bytes::from_static(b"agent"))
+        .await
+        .expect("no one types yet");
+    session
+        .write_input(view.connection_id, Bytes::from_static(b"person"))
+        .await
+        .expect("a person types");
+    let refused = session.send_input(Bytes::from_static(b"agent")).await;
+    assert_eq!(refused.expect_err("typing").to_string(), SOMEONE_TYPING);
+    session.close().await.expect("close");
+}
+
+#[tokio::test]
 async fn dropping_a_view_releases_aggregated_focus_without_explicit_unsubscribe() {
     let (session, _changes, root) = shell(
         r"stty raw -echo; while [ ! -f ready ]; do sleep 0.01; done; printf '\033[?1004hREADY'; exec /bin/cat",
@@ -490,6 +540,8 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         queue: VecDeque::new(),
         focused: HashMap::new(),
         resize_owner: None,
+        requested: HashMap::new(),
+        typed_at: None,
         cell: CellPixels::default(),
         sequence: 0,
         host_stop_reply: None,

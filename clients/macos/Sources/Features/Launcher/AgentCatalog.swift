@@ -1,4 +1,5 @@
 import Foundation
+import KodosiBridge
 import KodosiDesign
 
 struct AgentCatalog: Decodable, Equatable {
@@ -13,7 +14,6 @@ struct AgentInfo: Decodable, Equatable, Identifiable {
     var accounts: [AgentAccount]
     var install: String
     var addsAccounts: Bool
-    var promptFlag: String?
 
     var id: String {
         agent
@@ -31,7 +31,7 @@ struct AgentAccount: Decodable, Equatable, Identifiable {
     var folder: String?
 
     var id: String {
-        command
+        name
     }
 
     var signIn: String {
@@ -56,13 +56,11 @@ struct AgentModels: Decodable, Equatable {
 struct AgentModel: Decodable, Equatable, Identifiable {
     var id: String
     var label: String
-    var argument: String
     var efforts: [String]
 }
 
 struct AgentOption: Decodable, Equatable, Identifiable {
     var id: String
-    var argument: String
 
     var label: String {
         switch id {
@@ -72,39 +70,93 @@ struct AgentOption: Decodable, Equatable, Identifiable {
     }
 }
 
-struct LaunchChoice: Codable, Equatable {
+struct AgentChoice: Decodable, Equatable {
     var agent: String?
-    var accounts: [String: String] = [:]
-    var models: [String: String] = [:]
-    var efforts: [String: String] = [:]
+    var picks: [AgentPick] = []
+
+    func pick(_ agent: String) -> AgentPick {
+        picks.first { $0.agent == agent } ?? AgentPick(agent: agent)
+    }
+
+    mutating func apply(_ change: AgentChoiceChange) {
+        switch change {
+        case let .tab(agent):
+            self.agent = agent
+        case let .pick(pick):
+            if let index = picks.firstIndex(where: { $0.agent == pick.agent }) {
+                picks[index] = pick
+            } else {
+                picks.append(pick)
+            }
+        }
+    }
+}
+
+struct AgentPick: Decodable, Equatable {
+    var agent: String
+    var account: String?
+    var model: String?
+    var effort: String?
+}
+
+enum AgentChoiceChange: Equatable {
+    case tab(String?)
+    case pick(AgentPick)
+
+    var json: JSONValue {
+        switch self {
+        case let .tab(agent):
+            .object(["type": .string("tab"), "agent": agent.map(JSONValue.string) ?? .null])
+        case let .pick(pick):
+            .object([
+                "type": .string("pick"), "agent": .string(pick.agent), "account": pick.account.map(JSONValue.string) ?? .null,
+                "model": pick.model.map(JSONValue.string) ?? .null, "effort": pick.effort.map(JSONValue.string) ?? .null,
+            ])
+        }
+    }
+}
+
+struct AgentStart: Equatable {
+    var agent: String
+    var account: String?
+    var model: String?
+    var effort: String?
+
+    var json: JSONValue {
+        var fields: [String: JSONValue] = ["agent": .string(agent)]
+        fields["account"] = account.map(JSONValue.string)
+        fields["model"] = model.map(JSONValue.string)
+        fields["effort"] = effort.map(JSONValue.string)
+        return .object(fields)
+    }
 }
 
 @MainActor
 struct LaunchPlan {
-    let choice: LaunchChoice
     let info: AgentInfo?
+    let pick: AgentPick?
     let models: AgentModels?
 
-    init(choice: LaunchChoice, launcher: LauncherState, agent: String? = nil) {
-        self.choice = choice
-        let agent = agent ?? choice.agent
+    init(launcher: LauncherState, agent: String? = nil) {
+        let agent = agent ?? launcher.choice.agent
         info = launcher.agent(agent)
+        pick = agent.map(launcher.choice.pick)
         models = agent.flatMap { launcher.models[$0] }
     }
 
     var account: AgentAccount? {
         guard let info else { return nil }
-        return info.accounts.first { $0.command == choice.accounts[info.agent] } ?? info.accounts.first
+        return info.accounts.first { $0.name == pick?.account } ?? info.accounts.first
     }
 
-    var modelArgument: String? {
-        guard let info, let saved = choice.models[info.agent] else { return nil }
+    var modelId: String? {
+        guard let saved = pick?.model else { return nil }
         guard let models else { return saved }
-        return models.models.contains { $0.argument == saved } ? saved : nil
+        return models.models.contains { $0.id == saved } ? saved : nil
     }
 
     var model: AgentModel? {
-        models?.models.first { $0.argument == modelArgument }
+        models?.models.first { $0.id == modelId }
     }
 
     var efforts: [AgentOption] {
@@ -113,20 +165,22 @@ struct LaunchPlan {
         return all.filter { model.efforts.contains($0.id) }
     }
 
-    var effortArgument: String? {
-        guard let info, let saved = choice.efforts[info.agent] else { return nil }
+    var effortId: String? {
+        guard let saved = pick?.effort else { return nil }
         guard models != nil else { return saved }
-        return efforts.contains { $0.argument == saved } ? saved : nil
+        return efforts.contains { $0.id == saved } ? saved : nil
     }
 
     var listsModels: Bool {
         models == nil || !(models?.models.isEmpty ?? true)
     }
 
-    var line: String? {
-        guard let info else { return nil }
-        guard info.installed else { return info.install }
-        guard let account else { return nil }
-        return ([account.command] + [modelArgument, effortArgument].compactMap(\.self)).joined(separator: " ")
+    var shown: AgentPick? {
+        info.map { AgentPick(agent: $0.agent, account: account?.name, model: modelId, effort: effortId) }
+    }
+
+    var start: AgentStart? {
+        guard let info, info.installed, let account else { return nil }
+        return AgentStart(agent: info.agent, account: account.name, model: modelId ?? "", effort: effortId ?? "")
     }
 }

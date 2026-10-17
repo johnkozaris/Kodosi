@@ -10,13 +10,6 @@ ConversationHistoryModel::ConversationHistoryModel(CommandDispatcher& commands, 
     : QObject(parent)
     , m_commands(commands)
 {
-    m_timeout.setSingleShot(true);
-    m_timeout.setInterval(15000);
-    connect(&m_timeout, &QTimer::timeout, this, [this] {
-        m_requestId.clear();
-        emit busyChanged();
-        fail(tr("The provider did not respond in time."));
-    });
 }
 
 void ConversationHistoryModel::open(const QString& provider, const QString& directory)
@@ -32,7 +25,6 @@ void ConversationHistoryModel::open(const QString& provider, const QString& dire
 
 void ConversationHistoryModel::reset()
 {
-    m_timeout.stop();
     m_requestId.clear();
     m_operation.clear();
     m_conversations.clear();
@@ -52,7 +44,6 @@ void ConversationHistoryModel::reset()
 
 void ConversationHistoryModel::send(QString operation, QJsonObject values)
 {
-    m_timeout.stop();
     m_requestId = QUuid::createUuidV7().toString(QUuid::WithoutBraces);
     m_operation = operation;
     values.insert(QStringLiteral("type"), operation);
@@ -71,7 +62,6 @@ void ConversationHistoryModel::send(QString operation, QJsonObject values)
         m_requestId.clear();
         fail(result.error().message);
     } else {
-        m_timeout.start();
         clearError();
     }
     emit busyChanged();
@@ -168,12 +158,11 @@ void ConversationHistoryModel::apply(const QJsonObject& event, const QByteArray&
         return;
     }
     const auto type = event.value(QStringLiteral("type")).toString();
-    if (type != QStringLiteral("provider.reply")
+    if (type != QStringLiteral("provider.result")
         && type != QStringLiteral("provider.error")) {
         return;
     }
     m_requestId.clear();
-    m_timeout.stop();
     emit busyChanged();
     if (type == QStringLiteral("provider.error")) {
         fail(event.value(QStringLiteral("message")).toString());

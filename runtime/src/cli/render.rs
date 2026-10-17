@@ -57,21 +57,31 @@ pub(super) fn link_code(event: &Value) -> String {
 }
 
 pub(super) fn result(event: &Value, context: &Context) -> String {
-    match event["type"].as_str().unwrap_or_default() {
-        "auth.ready" => account(context),
-        "auth.required" => "Signed out.".to_owned(),
-        "devices.list" => devices(event),
-        "devices.link.resolved" => format!("{} is approved.", text(event, "deviceLabel")),
-        "devices.recovery.created" => format!(
+    let latest = |kind: &str| context.latest.get(kind).cloned().unwrap_or_default();
+    match (
+        event["type"].as_str().unwrap_or_default(),
+        event["operation"].as_str().unwrap_or_default(),
+    ) {
+        ("auth.result", "auth.logout") => "Signed out.".to_owned(),
+        ("auth.result", "auth.deleteAccount") => "The account is deleted.".to_owned(),
+        ("auth.result", _) => account(context),
+        ("devices.result", "devices.recovery.create") => format!(
             "{}\nKeep this key in a safe place. It approves a new device when you have no other approved device. Kodosi does not show it again.",
             text(event, "key")
         ),
-        "devices.link.selfResolved" => "The request is cancelled.".to_owned(),
-        "friends.snapshot" | "missions.snapshot" if unapproved(context) => account(context),
-        "friends.snapshot" => friends(event),
-        "friends.invite" => text(event, "text"),
-        "missions.snapshot" => missions(event),
-        "session.result" => session_result(event, context),
+        ("devices.result", "devices.link.approve") => format!(
+            "{} is approved.",
+            text(&latest("devices.link.resolved"), "deviceLabel")
+        ),
+        ("devices.result", "devices.link.cancelSelf") => "The request is cancelled.".to_owned(),
+        ("devices.result", _) => devices(&latest("devices.list")),
+        ("friends.result" | "mission.result", _) if unapproved(context) => account(context),
+        ("friends.result", "friends.invite") => text(event, "text"),
+        ("friends.result", _) => friends(&latest("friends.snapshot")),
+        ("mission.result", "mission.list") => missions(&latest("missions.snapshot")),
+        ("session.result", _) => session_result(event, context),
+        ("provider.result", "provider.agents") => agents(&event["result"]),
+        ("provider.result", "provider.agentModels") => agent_models(&event["result"]),
         _ => serde_json::to_string_pretty(event).unwrap_or_default(),
     }
 }
@@ -117,10 +127,107 @@ fn session_result(event: &Value, context: &Context) -> String {
             let reference = &id[id.len().saturating_sub(6)..];
             format!("Started {name} ({reference}). Open it: kodosi terminal attach {reference}")
         }
+        "session.run" => "The agent is starting in the terminal.".to_owned(),
+        "session.input" => "Sent to the terminal.".to_owned(),
+        "session.read" => text(event, "text"),
+        "session.show" => "The Kodosi app shows the terminal when it is open.".to_owned(),
         "session.close" => "The terminal is closed.".to_owned(),
         "session.leave" => "You left the terminal.".to_owned(),
         _ => "Done.".to_owned(),
     }
+}
+
+fn label(agent: &str) -> &'static str {
+    crate::agents::Agent::ALL
+        .into_iter()
+        .find(|known| known.name() == agent)
+        .map_or("Agent", crate::agents::Agent::label)
+}
+
+fn pick<'a>(result: &'a Value, agent: &str) -> &'a Value {
+    result["choice"]["picks"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|pick| pick["agent"] == agent)
+        .unwrap_or(&Value::Null)
+}
+
+fn chosen(pick: &Value) -> String {
+    ["account", "model", "effort"]
+        .into_iter()
+        .filter_map(|key| pick[key].as_str())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn agents(result: &Value) -> String {
+    let mut lines = Vec::new();
+    for info in result["agents"].as_array().into_iter().flatten() {
+        let agent = text(info, "agent");
+        if info["installed"] != true {
+            lines.push(format!(
+                "{agent}  {}: not installed. Install: {}",
+                label(&agent),
+                text(info, "install")
+            ));
+            continue;
+        }
+        let accounts = info["accounts"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|account| {
+                account["identity"].as_str().map_or_else(
+                    || text(account, "name"),
+                    |identity| format!("{} ({identity})", text(account, "name")),
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        let last = chosen(pick(result, &agent));
+        lines.push(format!(
+            "{agent}  {}: accounts {accounts}{}",
+            label(&agent),
+            if last.is_empty() {
+                String::new()
+            } else {
+                format!("; last choice {last}")
+            }
+        ));
+    }
+    lines.join("\n")
+}
+
+fn agent_models(result: &Value) -> String {
+    let models = result["models"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|model| {
+            let id = text(model, "id");
+            let name = text(model, "label");
+            if name == id {
+                id
+            } else {
+                format!("{id} ({name})")
+            }
+        })
+        .collect::<Vec<_>>();
+    let efforts = result["efforts"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|effort| text(effort, "id"))
+        .collect::<Vec<_>>();
+    let list = |items: Vec<String>| {
+        if items.is_empty() {
+            "none".to_owned()
+        } else {
+            items.join(", ")
+        }
+    };
+    format!("Models: {}\nEfforts: {}", list(models), list(efforts))
 }
 
 fn devices(event: &Value) -> String {

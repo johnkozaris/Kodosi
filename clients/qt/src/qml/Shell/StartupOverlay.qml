@@ -8,6 +8,7 @@ KPopover {
     id: root
 
     readonly property bool failed: Models.ApplicationLifecycle.state === Models.ApplicationLifecycle.Failed
+    readonly property bool outdated: failed && Models.ApplicationLifecycle.hostOutdated
 
     function restorePrimaryFocus() {
         if (!visible)
@@ -43,7 +44,7 @@ KPopover {
         Accessible.description: root.failed ? Models.ApplicationLifecycle.errorText : qsTr("Kodosi is starting.")
         Accessible.id: objectName
         Accessible.ignored: !root.visible
-        Accessible.name: root.failed ? qsTr("Kodosi could not start") : qsTr("Starting Kodosi")
+        Accessible.name: root.outdated ? qsTr("Kodosi was updated") : root.failed ? qsTr("Kodosi could not start") : qsTr("Starting Kodosi")
         Accessible.role: Accessible.Dialog
         focus: true
         objectName: "startup.overlay"
@@ -97,7 +98,7 @@ KPopover {
                 font.weight: Font.DemiBold
                 horizontalAlignment: Text.AlignHCenter
                 objectName: "startup.title"
-                text: qsTr("Kodosi could not start")
+                text: root.outdated ? qsTr("Kodosi was updated") : qsTr("Kodosi could not start")
                 visible: root.failed
                 wrapMode: Text.Wrap
             }
@@ -130,9 +131,19 @@ KPopover {
                     iconName: "refresh"
                     objectName: "startup.retry"
                     text: qsTr("Try again")
-                    variant: KButton.Primary
+                    variant: root.outdated && !Models.ApplicationLifecycle.hostForeground ? KButton.Secondary : KButton.Primary
 
                     onClicked: Models.ApplicationLifecycle.retry()
+                }
+                KButton {
+                    Accessible.id: objectName
+                    Accessible.name: text
+                    objectName: "startup.restartHost"
+                    text: Models.ApplicationLifecycle.hostTerminals === 0 ? qsTr("Restart Kodosi") : qsTr("Restart it and end its terminals")
+                    variant: KButton.Primary
+                    visible: root.outdated && !Models.ApplicationLifecycle.hostForeground
+
+                    onClicked: Models.ApplicationLifecycle.restartHost()
                 }
             }
         }

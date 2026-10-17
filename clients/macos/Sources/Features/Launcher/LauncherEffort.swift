@@ -31,12 +31,12 @@ struct EffortMeter: View {
     @State private var hovered: String?
 
     private var level: Int? {
-        levels.firstIndex { $0.argument == current }
+        levels.firstIndex { $0.id == current }
     }
 
     private var shown: String {
-        let argument = hovered ?? current ?? LauncherMenu.standard
-        return levels.first { $0.argument == argument }?.label ?? String(localized: "Model's own level")
+        let effort = hovered ?? current ?? LauncherMenu.standard
+        return levels.first { $0.id == effort }?.label ?? String(localized: "Model's own level")
     }
 
     var body: some View {
@@ -53,7 +53,7 @@ struct EffortMeter: View {
                     Text("Auto").appTextStyle(.caption).padding(.horizontal, 6)
                 }
                 ForEach(Array(levels.enumerated()), id: \.element.id) { index, option in
-                    segment(option.argument, label: option.label) {
+                    segment(option.id, label: option.label) {
                         RoundedRectangle(cornerRadius: 1.5, style: .continuous)
                             .fill(level.map { index <= $0 } == true ? theme.colors.accent : theme.colors.ink.opacity(0.22))
                             .frame(width: 6, height: 5 + 11 * CGFloat(index) / CGFloat(max(levels.count - 1, 1)))
@@ -71,12 +71,12 @@ struct EffortMeter: View {
         .accessibilityIdentifier("launcher.effort")
     }
 
-    private func segment(_ argument: String?, label: String, @ViewBuilder content: () -> some View) -> some View {
-        let selected = argument == current
-        return Button { pick(argument) } label: {
+    private func segment(_ effort: String?, label: String, @ViewBuilder content: () -> some View) -> some View {
+        let selected = effort == current
+        return Button { pick(effort) } label: {
             content()
                 .foregroundStyle(selected ? theme.colors.ink : theme.colors.inkMuted)
-                .frame(minWidth: 30, maxWidth: argument == nil ? nil : .infinity)
+                .frame(minWidth: 30, maxWidth: effort == nil ? nil : .infinity)
                 .frame(height: 26)
                 .background {
                     if selected {
@@ -89,14 +89,14 @@ struct EffortMeter: View {
         .buttonStyle(PressScaleStyle(scale: 0.92))
         .onHover { inside in
             if inside {
-                hovered = argument ?? LauncherMenu.standard
-            } else if hovered == (argument ?? LauncherMenu.standard) {
+                hovered = effort ?? LauncherMenu.standard
+            } else if hovered == (effort ?? LauncherMenu.standard) {
                 hovered = nil
             }
         }
         .help(label)
         .accessibilityLabel(Text(verbatim: label))
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
-        .accessibilityIdentifier("launcher.effort.\(AccessibilityIdentifier.token(argument ?? LauncherMenu.standard))")
+        .accessibilityIdentifier("launcher.effort.\(AccessibilityIdentifier.token(effort ?? LauncherMenu.standard))")
     }
 }

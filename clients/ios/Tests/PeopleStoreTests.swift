@@ -56,8 +56,10 @@ struct PeopleStoreTests {
         try deliverSnapshot()
         #expect(store.inFlight.isEmpty)
         store.decline(incoming)
-        #expect(outbox.sent.last == ["type": .string("friends.request.reject"), "username": .string("cy"),
-                                     "accountUserId": .null, "accountEpoch": .int(0)])
+        var declined = try #require(outbox.sent.last)
+        #expect(declined.removeValue(forKey: "requestId") != nil)
+        #expect(declined == ["type": .string("friends.request.reject"), "username": .string("cy"),
+                             "accountUserId": .null, "accountEpoch": .int(0)])
     }
 
     @Test func friendActionsUseTheFriendHandle() throws {
@@ -87,7 +89,7 @@ struct PeopleStoreTests {
         store.requestInvite()
         #expect(outbox.types == ["friends.invite"])
         #expect(store.fetchingInvite)
-        try store.receive(event("friends.invite", ["text": "kodosi:me:0a1b"]))
+        try store.receive(event("friends.result", ["operation": "friends.invite", "requestId": "request-1", "text": "kodosi:me:0a1b"]))
         #expect(store.ownInvite == "kodosi:me:0a1b")
         #expect(!store.fetchingInvite)
     }
@@ -104,7 +106,7 @@ struct PeopleStoreTests {
 
     @Test func resetForgetsTheEarlierAccount() throws {
         try deliverSnapshot()
-        try store.receive(event("friends.invite", ["text": "kodosi:me:0a1b"]))
+        try store.receive(event("friends.result", ["operation": "friends.invite", "requestId": "request-1", "text": "kodosi:me:0a1b"]))
         store.reset(userId: "user-2")
         #expect(store.userId == "user-2")
         #expect(store.isEmpty)

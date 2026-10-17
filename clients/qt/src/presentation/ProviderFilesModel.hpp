@@ -4,7 +4,6 @@
 
 #include <QJsonObject>
 #include <QObject>
-#include <QTimer>
 #include <QVariantMap>
 
 namespace kodosi {
@@ -33,7 +32,6 @@ signals:
 
 private:
     CommandDispatcher& m_commands;
-    QTimer m_timeout;
     QString m_requestId;
     QString m_error;
     QVariantMap m_installation;

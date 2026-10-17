@@ -12,12 +12,22 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 
 namespace kodosi {
+
+struct OutdatedHost {
+    bool foreground = false;
+    std::uint32_t pid = 0;
+    std::uint32_t terminals = 0;
+};
+
+enum class HostStop { Stopped, Refused, Failed };
 
 struct RuntimeFailure {
     std::int32_t ffiResult;
     QString message;
+    std::optional<OutdatedHost> outdatedHost;
 };
 
 class CommandDispatcher {
@@ -79,7 +89,7 @@ class RuntimeBridge : public QObject, public TerminalCommandDispatcher {
     Q_OBJECT
 public:
     using Result = CommandDispatcher::Result;
-    static constexpr std::uint32_t protocolVersion = 62;
+    static constexpr std::uint32_t protocolVersion = 64;
 
     explicit RuntimeBridge(QObject* parent = nullptr);
     RuntimeBridge(TerminalEventSink& terminalSink, QObject* parent = nullptr);
@@ -88,8 +98,11 @@ public:
     RuntimeBridge& operator=(const RuntimeBridge&) = delete;
 
     [[nodiscard]] bool isRunning() const noexcept override;
+    [[nodiscard]] bool hostForeground() const noexcept { return m_hostForeground; }
     void startAsync(std::function<void(Result)> completion);
     void stop() noexcept;
+    void quit() noexcept;
+    void stopHostAsync(std::function<void(HostStop)> completion);
     [[nodiscard]] Result send(QByteArrayView json) override;
     [[nodiscard]] Result connectTerminal(const TerminalSubscription& subscription) override;
     [[nodiscard]] Result refreshTerminal(const TerminalSubscription& subscription) override;
@@ -100,6 +113,7 @@ public:
 signals:
     void eventReceived(QJsonObject event, quint64 accountEpoch, QByteArray payload);
     void runningChanged(bool running);
+    void hostForegroundChanged();
     void eventError(QString message);
 
 private:
@@ -109,6 +123,7 @@ private:
     };
     std::shared_ptr<CallbackContext> m_callbacks = std::make_shared<CallbackContext>();
     bool m_starting = false;
+    bool m_hostForeground = false;
     QList<QByteArray> m_startupEvents;
     void* m_handle = nullptr;
     TerminalEventSink* m_terminalSink = nullptr;

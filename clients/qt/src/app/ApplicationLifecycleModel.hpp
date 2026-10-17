@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <optional>
 
 namespace kodosi {
 
@@ -14,6 +15,9 @@ class ApplicationLifecycleModel final : public QObject {
     Q_OBJECT
     Q_PROPERTY(State state READ state NOTIFY stateChanged)
     Q_PROPERTY(QString errorText READ errorText NOTIFY stateChanged)
+    Q_PROPERTY(bool hostOutdated READ hostOutdated NOTIFY stateChanged)
+    Q_PROPERTY(bool hostForeground READ hostForeground NOTIFY hostForegroundChanged)
+    Q_PROPERTY(int hostTerminals READ hostTerminals NOTIFY stateChanged)
 
 public:
     enum class State {
@@ -26,6 +30,7 @@ public:
     using Completion = std::function<void(RuntimeBridge::Result)>;
     using StartOperation = std::function<void(Completion)>;
     using StopOperation = std::function<void()>;
+    using StopHostOperation = std::function<void(std::function<void(HostStop)>)>;
 
     explicit ApplicationLifecycleModel(
         RuntimeBridge& runtime,
@@ -34,19 +39,24 @@ public:
         RuntimeBridge& runtime,
         StartOperation startOperation,
         StopOperation stopOperation,
+        StopHostOperation stopHostOperation = {},
         QObject* parent = nullptr);
 
     [[nodiscard]] State state() const noexcept;
     [[nodiscard]] QString errorText() const;
+    [[nodiscard]] bool hostOutdated() const noexcept { return m_outdatedHost.has_value(); }
+    [[nodiscard]] bool hostForeground() const noexcept;
+    [[nodiscard]] int hostTerminals() const noexcept;
 
     void scheduleInitialStart();
     void stop() noexcept;
 
     Q_INVOKABLE void retry();
+    Q_INVOKABLE void restartHost();
 
 signals:
     void stateChanged();
-    void runtimeReady();
+    void hostForegroundChanged();
 
 private:
     static constexpr qsizetype MaximumErrorTextLength = 320;
@@ -55,6 +65,8 @@ private:
     RuntimeBridge& m_runtime;
     StartOperation m_startOperation;
     StopOperation m_stopOperation;
+    StopHostOperation m_stopHostOperation;
+    std::optional<OutdatedHost> m_outdatedHost;
     QString m_errorText;
     State m_state = State::Starting;
     std::uint64_t m_attemptToken = 0;
@@ -68,7 +80,10 @@ private:
         std::uint64_t token,
         RuntimeBridge::Result result);
     void handleRuntimeRunningChanged(bool running);
+    void completeHostStop(std::uint64_t token, HostStop result);
+    void setOutdatedHost(std::optional<OutdatedHost> host);
     void fail(QString message);
+    [[nodiscard]] static QString describe(const OutdatedHost& host);
 
     [[nodiscard]] static QString boundedText(
         QString text,

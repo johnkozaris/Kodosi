@@ -109,6 +109,18 @@ impl State {
             .collect();
         lock(&self.subscriptions).catalog(sessions);
     }
+    pub(super) fn subscription(
+        &self,
+        session: Uuid,
+        id: &str,
+        generation: u64,
+    ) -> Option<Arc<SubscriptionState>> {
+        lock(&self.subscriptions)
+            .entries
+            .get(&session)
+            .filter(|entry| entry.matches(id, generation) && !entry.cancel.is_cancelled())
+            .cloned()
+    }
     pub(super) fn remove(&self, session: Uuid, token: &Arc<SubscriptionState>) {
         let mut registry = lock(&self.subscriptions);
         if registry
@@ -137,56 +149,26 @@ impl State {
         let _scope = CallbackScope::enter();
         Some(action())
     }
-    pub(super) fn event(&self, event: &kodosi_runtime::Event) {
+    pub(super) fn event(&self, event: &serde_json::Value) {
         let Ok(bytes) = serde_json::to_vec(event) else {
             return;
         };
         if bytes.len() > KODOSI_MAX_FRAME_BYTES {
             return;
         }
-        let value = matches!(
-            &event.event,
-            kodosi_runtime::protocol::EventBody::SessionsSnapshot { .. }
-        )
-        .then(|| serde_json::to_value(event).ok())
-        .flatten()
-        .or_else(|| {
-            event
-                .event
-                .kind()
-                .starts_with("term.")
-                .then(|| serde_json::to_value(event).ok())
-                .flatten()
-        });
-        if let Some(value) = &value
-            && value.get("type").and_then(serde_json::Value::as_str) == Some("sessions.snapshot")
-        {
-            self.catalog(value);
+        let kind = event.get("type").and_then(serde_json::Value::as_str);
+        if kind == Some("sessions.snapshot") {
+            self.catalog(event);
         }
-        if let Some(value) = &value
-            && value
-                .get("type")
-                .and_then(serde_json::Value::as_str)
-                .is_some_and(|kind| kind.starts_with("term.") && kind != "term.notification")
-            && let Some(session) = value
+        if kind.is_some_and(|kind| kind.starts_with("term.") && kind != "term.notification")
+            && let Some(session) = event
                 .get("sessionId")
                 .and_then(serde_json::Value::as_str)
                 .and_then(|id| Uuid::parse_str(id).ok())
         {
             let entry = lock(&self.subscriptions).entries.get(&session).cloned();
             if let Some(entry) = entry {
-                let matches = value
-                    .get("subscriptionId")
-                    .and_then(serde_json::Value::as_str)
-                    .is_none_or(|id| {
-                        value
-                            .get("subscriptionGeneration")
-                            .and_then(serde_json::Value::as_u64)
-                            .is_some_and(|generation| entry.matches(id, generation))
-                    });
-                if matches {
-                    self.control(&entry, value);
-                }
+                self.control(&entry, event);
             }
         }
         if let Some(callback) = self.callbacks.on_event {
@@ -255,16 +237,16 @@ impl State {
             })
         }) == Some(KODOSI_FFI_OK)
     }
-    pub(super) fn data(&self, subscription: &SubscriptionState, frame: &terminal::DataFrame) {
+    pub(super) fn data(&self, subscription: &SubscriptionState, sequence: u64, bytes: &[u8]) {
         if let Some(callback) = self.callbacks.on_terminal_data {
             self.callback(Some(subscription), || unsafe {
                 callback(
                     subscription.session.as_ptr(),
                     subscription.id.as_ptr(),
                     subscription.generation,
-                    frame.sequence,
-                    frame.bytes.as_ptr(),
-                    frame.bytes.len(),
+                    sequence,
+                    bytes.as_ptr(),
+                    bytes.len(),
                     self.userdata.get(),
                 );
             });

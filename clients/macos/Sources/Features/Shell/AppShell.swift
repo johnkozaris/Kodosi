@@ -42,11 +42,8 @@ struct AppShell: View {
         .animation(theme.motion.fade, value: sheet)
         .onChange(of: workbench.stagedSessionIds) { _, _ in deps.reconcileTerminals() }
         .onChange(of: workbench.focusedSessionId) { _, _ in deps.reconcileTerminals() }
-        .onChange(of: workbench.selectedSessionId) { _, id in
-            if let id {
-                deps.seen(id)
-            }
-        }
+        .onChange(of: workbench.selectedSessionId) { _, _ in deps.reportVisible() }
+        .onChange(of: workbench.section) { _, _ in deps.reportVisible() }
     }
 
     @ViewBuilder

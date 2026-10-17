@@ -11,6 +11,18 @@ void kodosi_stop(void*)
     runtime_fixture::callbacks = {};
     runtime_fixture::userdata = nullptr;
 }
+int32_t kodosi_last_start_failure(kodosi_start_failure_t* out)
+{
+    if (!runtime_fixture::startFailure)
+        return 0;
+    *out = *runtime_fixture::startFailure;
+    return 1;
+}
+int32_t kodosi_host_stop(int32_t)
+{
+    ++runtime_fixture::hostStops;
+    return KODOSI_HOST_STOP_ACCEPTED;
+}
 uint32_t kodosi_abi_version()
 {
     return KODOSI_FFI_ABI_VERSION;

@@ -60,11 +60,6 @@ class TerminalView : public QQuickItem {
     Q_PROPERTY(bool terminalReady READ terminalReady NOTIFY terminalReadyChanged)
     Q_PROPERTY(bool hasSelection READ hasSelection NOTIFY frameChanged)
     Q_PROPERTY(
-        bool focusedSizeAuthority
-        READ focusedSizeAuthority
-        WRITE setFocusedSizeAuthority
-        NOTIFY focusedSizeAuthorityChanged)
-    Q_PROPERTY(
         bool asksBeforeClipboardRead
         READ asksBeforeClipboardRead
         WRITE setAsksBeforeClipboardRead
@@ -91,7 +86,6 @@ public:
     [[nodiscard]] bool canResize() const noexcept;
     [[nodiscard]] bool readOnly() const noexcept;
     [[nodiscard]] bool hasSelection() const;
-    [[nodiscard]] bool focusedSizeAuthority() const noexcept;
     [[nodiscard]] bool asksBeforeClipboardRead() const noexcept;
     [[nodiscard]] QString accessibleText() const;
     [[nodiscard]] int accessibleCursorPosition() const;
@@ -109,7 +103,6 @@ public:
     void setPreeditBackground(const QColor& color);
     void setPreeditForeground(const QColor& color);
     void setTerminalInteraction(bool canSendInput, bool canResize);
-    void setFocusedSizeAuthority(bool focused);
     void setAsksBeforeClipboardRead(bool asks);
 
     [[nodiscard]] bool attach(
@@ -135,7 +128,6 @@ signals:
     void preeditBackgroundChanged();
     void preeditForegroundChanged();
     void terminalReadyChanged();
-    void focusedSizeAuthorityChanged();
     void asksBeforeClipboardReadChanged();
     void frameChanged();
     void terminalError(QString message);
@@ -186,7 +178,6 @@ private:
         std::uint32_t heightPixels;
         std::uint32_t cellWidthPixels;
         std::uint32_t cellHeightPixels;
-        bool claim = false;
     };
 
     [[nodiscard]] QPointF viewportOffset() const;
@@ -228,9 +219,7 @@ private:
     bool m_desiredFocus = false;
     bool m_canSendInput = false;
     bool m_canResize = false;
-    bool m_focusedSizeAuthority = false;
     bool m_asksBeforeClipboardRead = true;
-    bool m_resizeClaimPending = false;
     std::deque<QByteArray> m_inputQueue;
     qsizetype m_queuedInputBytes = 0;
     bool m_inputRetryQueued = false;

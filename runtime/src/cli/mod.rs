@@ -1,12 +1,11 @@
 use crate::{Config, Error, EventBody, HostKind, Result, local_host, protocol::SessionKind};
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use serde_json::{Value, json};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     ffi::OsString,
     io::{self, IsTerminal as _, Write},
     path::{Path, PathBuf},
-    process::Stdio,
     time::Duration,
 };
 use uuid::Uuid;
@@ -29,12 +28,17 @@ struct Arguments {
 }
 #[derive(Subcommand)]
 enum Action {
-    #[command(about = "Run the local terminal host until interrupted.")]
-    Host,
+    #[command(about = "Run the local terminal host until interrupted, or stop the host that runs.")]
+    Host {
+        #[command(subcommand)]
+        action: Option<HostAction>,
+    },
     #[command(about = "Show the account and the terminals.")]
     Status,
     #[command(subcommand)]
     Terminal(TerminalAction),
+    #[command(subcommand)]
+    Agent(AgentAction),
     #[command(subcommand)]
     Auth(AuthAction),
     #[command(subcommand)]
@@ -51,11 +55,44 @@ enum Action {
     InternalHost,
 }
 #[derive(Subcommand)]
+enum HostAction {
+    /// Stop the host that runs in the background. It refuses while terminals run, unless --force ends them.
+    Stop {
+        #[arg(long)]
+        force: bool,
+    },
+}
+#[derive(Subcommand)]
 enum TerminalAction {
     /// List the terminals of this computer and the terminals that you can open.
     List,
-    /// Show one terminal.
+    /// Show the details of one terminal.
+    Info { terminal: String },
+    /// Show a terminal in the Kodosi app.
     Show { terminal: String },
+    /// Print the text on the screen of a terminal.
+    Read {
+        terminal: String,
+        /// Also print the earlier lines that scrolled away.
+        #[arg(long)]
+        history: bool,
+    },
+    /// Press keys in a terminal, for example enter, escape, up or ctrl-c. It stops with a message while a person types there.
+    Keys {
+        terminal: String,
+        #[arg(required = true)]
+        keys: Vec<String>,
+    },
+    /// Wait until the program in a terminal reaches a state.
+    Wait {
+        terminal: String,
+        /// One or more states, separated by commas.
+        #[arg(long, value_delimiter = ',', required = true)]
+        until: Vec<WaitState>,
+        /// The longest wait, in seconds.
+        #[arg(long, default_value_t = 600)]
+        timeout: u64,
+    },
     /// Start a terminal on this computer.
     Start {
         #[arg(long)]
@@ -67,6 +104,37 @@ enum TerminalAction {
         /// Make a new branch of the repository in --directory (or the current folder), with its own folder, and start the terminal there.
         #[arg(long)]
         branch: Option<String>,
+        /// Start an agent in the terminal, for example claude or codex, with your last choice of account, model and effort.
+        #[arg(long)]
+        agent: Option<String>,
+        /// The agent's account, by the name that `kodosi agent list` shows.
+        #[arg(long, requires = "agent")]
+        account: Option<String>,
+        /// The agent's model, by the ID that `kodosi agent models` shows. An empty value starts without a model.
+        #[arg(long, requires = "agent")]
+        model: Option<String>,
+        /// The agent's effort. An empty value starts without one.
+        #[arg(long, requires = "agent")]
+        effort: Option<String>,
+        /// The agent's first prompt.
+        #[arg(long, requires = "agent")]
+        prompt: Option<String>,
+    },
+    /// Start an agent in a terminal that waits at its shell prompt.
+    Run {
+        terminal: String,
+        /// The agent, for example claude or codex. It starts with your last choice of account, model and effort.
+        #[arg(long)]
+        agent: String,
+        /// The agent's account, by the name that `kodosi agent list` shows.
+        #[arg(long)]
+        account: Option<String>,
+        /// The agent's model, by the ID that `kodosi agent models` shows. An empty value starts without a model.
+        #[arg(long)]
+        model: Option<String>,
+        /// The agent's effort. An empty value starts without one.
+        #[arg(long)]
+        effort: Option<String>,
     },
     /// Start a terminal that resumes a saved provider conversation.
     Resume {
@@ -78,7 +146,7 @@ enum TerminalAction {
     },
     /// Open a terminal in this window. Press Ctrl-] and then . to leave; the terminal keeps running.
     Attach { terminal: String },
-    /// Type text into a terminal.
+    /// Type text into a terminal. It stops with a message while a person types there.
     Input {
         terminal: String,
         text: String,
@@ -104,6 +172,13 @@ enum TerminalAction {
     },
     /// Leave a terminal that a friend shared with you.
     Leave { terminal: String },
+}
+#[derive(Subcommand)]
+enum AgentAction {
+    /// List the agents, their accounts and your last choice.
+    List,
+    /// List the models and efforts of an agent.
+    Models { agent: String },
 }
 #[derive(Subcommand)]
 enum AuthAction {
@@ -191,10 +266,23 @@ pub async fn run_with(args: Vec<OsString>) -> u8 {
     match dispatch(args).await {
         Ok(()) => 0,
         Err(error) => {
+            let message = match error {
+                Error::HostOutdated {
+                    kind: HostKind::Background,
+                    terminals,
+                    ..
+                } => format!(
+                    "{error} Run `kodosi host stop --force` to stop it and its {terminals} terminal(s). The next command starts the new host."
+                ),
+                Error::HostOutdated { .. } => {
+                    format!("{error} Stop `kodosi host` in its terminal and start it again.")
+                }
+                error => error.to_string(),
+            };
             if json_output {
-                drop(print_json(&json!({"error":error.to_string()})));
+                drop(print_json(&json!({"error":message})));
             } else {
-                drop(writeln!(io::stderr().lock(), "Kodosi: {error}"));
+                drop(writeln!(io::stderr().lock(), "Kodosi: {message}"));
             }
             1
         }
@@ -223,7 +311,7 @@ pub fn is_invocation(args: &[OsString]) -> bool {
 
 const fn hosted_kind(action: &Action) -> Option<HostKind> {
     match action {
-        Action::Host => Some(HostKind::Foreground),
+        Action::Host { action: None } => Some(HostKind::Foreground),
         Action::InternalHost => Some(HostKind::Background),
         _ => None,
     }
@@ -239,8 +327,15 @@ async fn dispatch(args: Arguments) -> Result<()> {
         config.host = kind;
         return run_host(config, args.json).await;
     }
-    let mut client = connect_or_start(&config).await?;
+    if let Action::Host {
+        action: Some(HostAction::Stop { force }),
+    } = args.command
+    {
+        return stop_host(&config, force, args.json).await;
+    }
+    let mut client = local_host::connect_or_start(&config.data_root).await?;
     let mut context = Context::from_events(&client.initial_events);
+    list_terminals(&args.command, &mut client, &mut context).await;
     let json_output = args.json;
     match args.command {
         Action::Room(arguments) => {
@@ -248,16 +343,24 @@ async fn dispatch(args: Arguments) -> Result<()> {
         }
         Action::Status
         | Action::Terminal(TerminalAction::List)
-        | Action::Auth(AuthAction::Status) => {
-            if json_output {
-                print_json(
-                    &json!({"accountUserId":context.user,"accountEpoch":context.epoch,"sessions":context.sessions}),
-                )
-            } else {
-                print_text(&render::status(&context))
-            }
+        | Action::Auth(AuthAction::Status) => print_status(&context, json_output),
+        Action::Terminal(TerminalAction::Wait {
+            terminal,
+            until,
+            timeout,
+        }) => {
+            let session = context.session_id(&terminal)?;
+            wait_for(
+                &mut client,
+                &mut context,
+                session,
+                &until,
+                timeout,
+                json_output,
+            )
+            .await
         }
-        Action::Terminal(TerminalAction::Show { terminal }) => {
+        Action::Terminal(TerminalAction::Info { terminal }) => {
             let entry = context.session(context.session_id(&terminal)?)?;
             if json_output {
                 print_json(entry)
@@ -268,16 +371,14 @@ async fn dispatch(args: Arguments) -> Result<()> {
         Action::Terminal(TerminalAction::Attach { terminal }) => {
             let session = context.session_id(&terminal)?;
             open_remote(&mut client, &mut context, session).await?;
+            request(
+                &mut client,
+                &mut context,
+                json!({"type":"session.visible","sessionIds":[session]}),
+                false,
+            )
+            .await?;
             attach_with_demand(&config.data_root, session, &mut client).await
-        }
-        Action::Terminal(TerminalAction::Input {
-            terminal,
-            text,
-            enter,
-        }) => {
-            let session = context.session_id(&terminal)?;
-            open_remote(&mut client, &mut context, session).await?;
-            send_input(&config.data_root, session, text, enter, json_output).await
         }
         Action::Terminal(TerminalAction::Share { terminal, friends }) => {
             share(
@@ -324,6 +425,10 @@ async fn command(
     let request = Uuid::now_v7().to_string();
     Ok(match action {
         Action::Terminal(action) => terminal_command(action, &request, client, context).await?,
+        Action::Agent(AgentAction::List) => json!({"type":"provider.agents","requestId":request}),
+        Action::Agent(AgentAction::Models { agent }) => {
+            json!({"type":"provider.agentModels","requestId":request,"agent":agent_name(&agent)?})
+        }
         Action::Auth(AuthAction::Login) => json!({"type":"auth.login.start"}),
         Action::Auth(AuthAction::Logout) => json!({"type":"auth.logout"}),
         Action::Auth(AuthAction::DeleteAccount) => json!({"type":"auth.deleteAccount"}),
@@ -331,7 +436,7 @@ async fn command(
         Action::Friends(action) => friend_command(action, &request),
         Action::Provider(action) => provider_command(action, &request)?,
         Action::Room(_)
-        | Action::Host
+        | Action::Host { .. }
         | Action::InternalHost
         | Action::Status
         | Action::Auth(AuthAction::Status) => {
@@ -340,65 +445,138 @@ async fn command(
     })
 }
 
+#[expect(clippy::too_many_arguments, reason = "the choices of one new terminal")]
+async fn start_command(
+    request: &str,
+    client: &mut local_host::Client,
+    context: &mut Context,
+    name: Option<String>,
+    directory: Option<PathBuf>,
+    room: Option<String>,
+    branch: Option<String>,
+    agent: Option<Value>,
+    prompt: Option<String>,
+) -> Result<Value> {
+    let room = if let Some(reference) = room {
+        Some(mission_id(&missions(client, context).await?, &reference)?)
+    } else {
+        None
+    };
+    let name = name.or_else(|| {
+        agent.as_ref().and_then(|agent| {
+            crate::agents::Agent::ALL
+                .into_iter()
+                .find(|known| known.name() == agent["agent"])
+                .map(|known| known.label().to_owned())
+        })
+    });
+    let (name, directory) = start_defaults(name, directory, branch.as_deref());
+    Ok(
+        json!({"type":"session.create","requestId":request,"name":name,"workingDir":path(directory)?,"missionId":room,"branch":branch,"agent":agent,"prompt":prompt}),
+    )
+}
+
 async fn terminal_command(
     action: TerminalAction,
     request: &str,
     client: &mut local_host::Client,
     context: &mut Context,
 ) -> Result<Value> {
-    let located = |context: &Context, session: &str| {
-        let id = context.session_id(session)?;
-        Ok::<_, Error>((id, context.incarnation(id)?))
-    };
-    Ok(match action {
+    match action {
         TerminalAction::Start {
             name,
             directory,
             room,
             branch,
+            agent,
+            account,
+            model,
+            effort,
+            prompt,
         } => {
-            let room = if let Some(reference) = room {
-                Some(mission_id(&missions(client, context).await?, &reference)?)
-            } else {
-                None
-            };
-            let (name, directory) = start_defaults(name, directory, branch.as_deref());
-            json!({"type":"session.create","requestId":request,"name":name,"workingDir":path(directory)?,"missionId":room,"branch":branch})
+            let agent = agent
+                .map(|agent| {
+                    agent_start(
+                        &agent,
+                        account.as_deref(),
+                        model.as_deref(),
+                        effort.as_deref(),
+                    )
+                })
+                .transpose()?;
+            start_command(
+                request, client, context, name, directory, room, branch, agent, prompt,
+            )
+            .await
         }
         TerminalAction::Resume {
             provider,
             conversation,
             directory,
             name,
+        } => Ok(
+            json!({"type":"session.create","requestId":request,"name":name.unwrap_or_else(||"Terminal".into()),"workingDir":path(Some(directory))?,"resume":{"provider":provider_name(provider)?,"nativeConversationId":conversation}}),
+        ),
+        TerminalAction::Show { terminal } => {
+            let id = context.session_id(&terminal)?;
+            Ok(json!({"type":"session.show","requestId":request,"sessionId":id}))
+        }
+        action => {
+            let (terminal, kind, remote, fields) = on_terminal(action)?;
+            let id = context.session_id(&terminal)?;
+            let incarnation = context.incarnation(id)?;
+            if remote {
+                open_remote(client, context, id).await?;
+            }
+            let mut command = json!({"type":kind,"requestId":request,"sessionId":id,"expectedRuntimeIncarnationId":incarnation});
+            if let (Some(command), Value::Object(fields)) = (command.as_object_mut(), fields) {
+                command.extend(fields);
+            }
+            Ok(command)
+        }
+    }
+}
+
+fn on_terminal(action: TerminalAction) -> Result<(String, &'static str, bool, Value)> {
+    Ok(match action {
+        TerminalAction::Run {
+            terminal,
+            agent,
+            account,
+            model,
+            effort,
         } => {
-            json!({"type":"session.create","requestId":request,"name":name.unwrap_or_else(||"Terminal".into()),"workingDir":path(Some(directory))?,"resume":{"provider":provider_name(provider)?,"nativeConversationId":conversation}})
+            let agent = agent_start(
+                &agent,
+                account.as_deref(),
+                model.as_deref(),
+                effort.as_deref(),
+            )?;
+            (terminal, "session.run", false, json!({"agent":agent}))
+        }
+        TerminalAction::Read { terminal, history } => {
+            (terminal, "session.read", true, json!({"history":history}))
+        }
+        TerminalAction::Keys { terminal, keys } => {
+            let text = keys.iter().map(|key| key_text(key));
+            let text = text.collect::<Result<String>>()?;
+            (terminal, "session.input", true, json!({"text":text}))
+        }
+        TerminalAction::Input {
+            terminal,
+            text,
+            enter,
+        } => {
+            let text = if enter { format!("{text}\r") } else { text };
+            (terminal, "session.input", true, json!({"text":text}))
         }
         TerminalAction::Rename { terminal, name } => {
-            let (id, incarnation) = located(context, &terminal)?;
-            json!({"type":"session.rename","requestId":request,"sessionId":id,"expectedRuntimeIncarnationId":incarnation,"name":name})
+            (terminal, "session.rename", false, json!({"name":name}))
         }
-        TerminalAction::Close { terminal } => {
-            let (id, incarnation) = located(context, &terminal)?;
-            open_remote(client, context, id).await?;
-            json!({"type":"session.close","requestId":request,"sessionId":id,"expectedRuntimeIncarnationId":incarnation})
-        }
-        TerminalAction::Interrupt { terminal } => {
-            let (id, incarnation) = located(context, &terminal)?;
-            open_remote(client, context, id).await?;
-            json!({"type":"session.interrupt","requestId":request,"sessionId":id,"expectedRuntimeIncarnationId":incarnation})
-        }
-        TerminalAction::Leave { terminal } => {
-            let (id, incarnation) = located(context, &terminal)?;
-            json!({"type":"session.leave","requestId":request,"sessionId":id,"expectedRuntimeIncarnationId":incarnation})
-        }
-        TerminalAction::List
-        | TerminalAction::Show { .. }
-        | TerminalAction::Attach { .. }
-        | TerminalAction::Input { .. }
-        | TerminalAction::Share { .. }
-        | TerminalAction::Unshare { .. } => {
-            return Err(Error::Invalid("unexpected command".into()));
-        }
+        TerminalAction::Close { terminal } => (terminal, "session.close", true, json!({})),
+        TerminalAction::Interrupt { terminal } => (terminal, "session.interrupt", true, json!({})),
+        TerminalAction::Leave { terminal } => (terminal, "session.leave", false, json!({})),
+        _ => return Err(Error::Invalid("unexpected command".into())),
     })
 }
 
@@ -461,7 +639,7 @@ async fn link_device(
         json_output,
     )
     .await?;
-    if event["type"] == "devices.link.selfPending" {
+    if event["code"].is_string() {
         if json_output {
             print_json(&event)?;
         } else {
@@ -512,16 +690,38 @@ async fn request(
         .ok_or_else(|| Error::Invalid("requestId must be text".into()))?
         .to_owned();
     client.command(context.envelope(command)?).await?;
-    wait_result(client, context, &operation, &request_id, json_output).await
+    wait_answer(client, context, &operation, &request_id, json_output).await
+}
+
+async fn list_terminals(action: &Action, client: &mut local_host::Client, context: &mut Context) {
+    if context.user.is_some()
+        && matches!(
+            action,
+            Action::Status | Action::Terminal(_) | Action::Auth(AuthAction::Status)
+        )
+    {
+        drop(
+            tokio::time::timeout(
+                Duration::from_secs(5),
+                request(client, context, json!({"type":"session.list"}), false),
+            )
+            .await,
+        );
+    }
 }
 
 async fn friends(client: &mut local_host::Client, context: &mut Context) -> Result<Vec<Value>> {
-    let snapshot = request(client, context, json!({"type":"friends.refresh"}), true).await?;
-    Ok(snapshot["friends"].as_array().cloned().unwrap_or_default())
+    request(client, context, json!({"type":"friends.refresh"}), true).await?;
+    Ok(context.friends.clone())
 }
 
 async fn missions(client: &mut local_host::Client, context: &mut Context) -> Result<Value> {
-    request(client, context, json!({"type":"mission.list"}), true).await
+    request(client, context, json!({"type":"mission.list"}), true).await?;
+    context
+        .latest
+        .get("missions.snapshot")
+        .cloned()
+        .ok_or_else(|| Error::Other("Kodosi did not list the rooms.".into()))
 }
 
 fn friend_id(friends: &[Value], reference: &str) -> Result<String> {
@@ -573,7 +773,12 @@ async fn device_command(
         DeviceAction::CancelLink => json!({"type":"devices.link.cancelSelf"}),
         DeviceAction::Approve { code } => json!({"type":"devices.link.approve","code":code}),
         DeviceAction::Revoke { device } => {
-            let list = request(client, context, json!({"type":"devices.refresh"}), true).await?;
+            request(client, context, json!({"type":"devices.refresh"}), true).await?;
+            let list = context
+                .latest
+                .get("devices.list")
+                .cloned()
+                .unwrap_or_default();
             let matches = list["devices"]
                 .as_array()
                 .into_iter()
@@ -652,7 +857,7 @@ async fn run_host(config: Config, json_output: bool) -> Result<()> {
                         if let EventBody::SessionsSnapshot{sessions}=&event.event{
                             local_sessions=sessions.iter().filter(|session|session.kind==SessionKind::Local).count();
                         }
-                        if json_output{print_json(&event)?;}
+                        if json_output && event.recipient.is_none(){print_json(&event)?;}
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(_))=>{
                         local_sessions=local_host::local_sessions(&runtime.snapshot().await?);
@@ -688,62 +893,6 @@ async fn attach_with_demand(
     }
 }
 
-async fn send_input(
-    root: &Path,
-    session: Uuid,
-    text: String,
-    enter: bool,
-    json_output: bool,
-) -> Result<()> {
-    let mut terminal = local_host::TerminalClient::connect(root, session).await?;
-    let subscribed = tokio::time::timeout(
-        Duration::from_secs(5),
-        local_host::read_terminal(&mut terminal.reader),
-    )
-    .await
-    .map_err(|_| Error::Other("terminal snapshot timed out; no input was sent".into()))??;
-    if !matches!(subscribed, local_host::TerminalFrame::Checkpoint { .. }) {
-        return Err(Error::Invalid(
-            "terminal did not provide an initial snapshot".into(),
-        ));
-    }
-    let mut bytes = text.into_bytes();
-    if enter {
-        bytes.push(b'\r');
-    }
-    local_host::write_input(&mut terminal.writer, &bytes).await?;
-    tokio::time::timeout(Duration::from_secs(6), async {
-        loop {
-            match local_host::read_terminal(&mut terminal.reader).await? {
-                local_host::TerminalFrame::InputAck { accepted: true, .. } => {
-                    return Ok::<(), Error>(());
-                }
-                local_host::TerminalFrame::InputAck {
-                    accepted: false,
-                    message,
-                } => {
-                    return Err(Error::Other(
-                        message.unwrap_or_else(|| "Input was rejected".into()),
-                    ));
-                }
-                local_host::TerminalFrame::Closed { reason, .. } => {
-                    return Err(Error::Other(reason));
-                }
-                _ => {}
-            }
-        }
-    })
-    .await
-    .map_err(|_| {
-        Error::Other("Input delivery was not confirmed; do not retry automatically.".into())
-    })??;
-    if json_output {
-        print_json(&json!({"submitted":true,"sessionId":session}))
-    } else {
-        Ok(())
-    }
-}
-
 fn friend_command(action: FriendAction, request: &str) -> Value {
     match action {
         FriendAction::List => json!({"type":"friends.refresh"}),
@@ -770,6 +919,30 @@ fn friend_command(action: FriendAction, request: &str) -> Value {
             json!({"type":"friends.identity.trust","username":username})
         }
     }
+}
+
+fn agent_name(agent: &str) -> Result<&'static str> {
+    crate::agents::Agent::ALL
+        .into_iter()
+        .map(crate::agents::Agent::name)
+        .find(|name| *name == agent)
+        .ok_or_else(|| {
+            Error::Invalid(format!(
+                "Kodosi knows these agents: {}.",
+                crate::agents::Agent::ALL
+                    .map(crate::agents::Agent::name)
+                    .join(", ")
+            ))
+        })
+}
+
+fn agent_start(
+    agent: &str,
+    account: Option<&str>,
+    model: Option<&str>,
+    effort: Option<&str>,
+) -> Result<Value> {
+    Ok(json!({"agent":agent_name(agent)?,"account":account,"model":model,"effort":effort}))
 }
 
 fn provider_command(action: ProviderAction, request: &str) -> Result<Value> {
@@ -845,6 +1018,8 @@ struct Context {
     sessions: Vec<Value>,
     account: Option<Value>,
     friends: Vec<Value>,
+    latest: BTreeMap<String, Value>,
+    rooms: BTreeMap<String, Value>,
 }
 impl Context {
     fn from_events(events: &[Value]) -> Self {
@@ -854,6 +1029,8 @@ impl Context {
             sessions: vec![],
             account: None,
             friends: vec![],
+            latest: BTreeMap::new(),
+            rooms: BTreeMap::new(),
         };
         for event in events {
             value.observe(event);
@@ -869,6 +1046,8 @@ impl Context {
                 self.sessions.clear();
                 self.friends.clear();
                 self.account = None;
+                self.latest.clear();
+                self.rooms.clear();
             }
             self.epoch = epoch;
             self.user = event
@@ -876,7 +1055,19 @@ impl Context {
                 .and_then(Value::as_str)
                 .map(str::to_owned);
         }
+        let kind = event
+            .get("type")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if event.get("requestId").is_none() {
+            self.latest.insert(kind.to_owned(), event.clone());
+        }
         match event.get("type").and_then(Value::as_str) {
+            Some("room.snapshot") => {
+                if let Some(room) = event["room"]["roomId"].as_str() {
+                    self.rooms.insert(room.to_owned(), event["room"].clone());
+                }
+            }
             Some("sessions.snapshot") => {
                 self.sessions = event["sessions"].as_array().cloned().unwrap_or_default();
             }
@@ -927,17 +1118,19 @@ impl Context {
         Ok(command)
     }
 }
-async fn wait_result(
+async fn wait_answer(
     client: &mut local_host::Client,
     context: &mut Context,
     operation: &str,
     request_id: &str,
     json_output: bool,
 ) -> Result<Value> {
-    tokio::time::timeout(answer_time(operation), async {
+    tokio::time::timeout(crate::protocol::answer_time(operation), async {
         loop {
             let frame = client.next().await?;
-            if frame.get("kind").and_then(Value::as_str) == Some("rejected") {
+            if frame.get("kind").and_then(Value::as_str) == Some("rejected")
+                && frame.get("requestId").and_then(Value::as_str) == Some(request_id)
+            {
                 return Err(Error::Other(
                     frame["message"]
                         .as_str()
@@ -951,96 +1144,159 @@ async fn wait_result(
             if !context.observe(event) {
                 continue;
             }
-            let kind = event
-                .get("type")
-                .and_then(Value::as_str)
-                .unwrap_or_default();
-            if is_own_error(event, kind, operation, request_id) {
-                return Err(Error::Other(
-                    event
-                        .get("message")
-                        .and_then(Value::as_str)
-                        .unwrap_or("command failed")
-                        .to_owned(),
-                ));
+            if let Some(answer) = crate::protocol::answer(event, request_id) {
+                return answer.map_err(Error::Other);
             }
-            if kind == "auth.device_code" {
-                if json_output {
-                    print_json(event)?;
-                } else {
-                    writeln!(
-                        io::stdout().lock(),
-                        "Open {} and enter {}",
-                        event["verificationUri"].as_str().unwrap_or_default(),
-                        event["userCode"].as_str().unwrap_or_default()
-                    )?;
-                }
+            if event.get("requestId").and_then(Value::as_str) != Some(request_id) {
+                continue;
             }
-            if kind == "auth.deletion_pending" {
-                if json_output {
-                    print_json(event)?;
-                } else {
-                    writeln!(
-                        io::stdout().lock(),
-                        "Open {} and confirm the deletion",
-                        event["confirmationUri"].as_str().unwrap_or_default()
-                    )?;
-                }
-            }
-            let done = match operation {
-                "auth.login.start" => kind == "auth.ready",
-                "auth.logout" | "auth.deleteAccount" => kind == "auth.required",
-                "devices.refresh" | "devices.revoke" | "devices.reset" | "devices.recovery.use" => {
-                    kind == "devices.list"
-                }
-                "devices.recovery.create" => kind == "devices.recovery.created",
-                "devices.link.startSelf" => matches!(
-                    kind,
-                    "devices.link.selfPending" | "devices.link.selfResolved"
-                ),
-                "session.share" => kind == "session.result" && answers(event, request_id),
-                "devices.link.cancelSelf" => kind == "devices.link.selfResolved",
-                "devices.link.approve" => kind == "devices.link.resolved",
-                "friends.invite" => kind == "friends.invite",
-                op if op.starts_with("friends.") => kind == "friends.snapshot",
-                "mission.list" => kind == "missions.snapshot",
-                "mission.open" => kind == "mission.snapshot" && answers(event, request_id),
-                op if op.starts_with("mission.") => {
-                    kind == "mission.result" && answers(event, request_id)
-                }
-                op if op.starts_with("provider.") => {
-                    kind == "provider.reply" && answers(event, request_id)
-                }
-                _ => kind == "session.result" && answers(event, request_id),
-            };
-            if done {
-                return Ok(event.clone());
+            match event.get("type").and_then(Value::as_str) {
+                Some("auth.device_code") if !json_output => writeln!(
+                    io::stdout().lock(),
+                    "Open {} and enter {}",
+                    event["verificationUri"].as_str().unwrap_or_default(),
+                    event["userCode"].as_str().unwrap_or_default()
+                )?,
+                Some("auth.deletion_pending") if !json_output => writeln!(
+                    io::stdout().lock(),
+                    "Open {} and confirm the deletion",
+                    event["confirmationUri"].as_str().unwrap_or_default()
+                )?,
+                _ if json_output => print_json(event)?,
+                _ => {}
             }
         }
     })
     .await
-    .map_err(|_| {
-        Error::Other("No authoritative result arrived. The command was not retried.".into())
-    })?
+    .map_err(|_| Error::Other("No answer arrived in time. The command was not retried.".into()))?
 }
-fn answer_time(operation: &str) -> Duration {
-    match operation {
-        "auth.login.start" => Duration::from_mins(10),
-        "auth.deleteAccount" => crate::network::DELETION_LIFE + Duration::from_mins(1),
-        _ => Duration::from_secs(30),
+
+#[derive(Clone, Copy, ValueEnum)]
+enum WaitState {
+    Working,
+    Waiting,
+    Done,
+    Failed,
+    Prompt,
+    Closed,
+}
+
+impl WaitState {
+    const fn name(self) -> &'static str {
+        match self {
+            Self::Working => "working",
+            Self::Waiting => "waiting",
+            Self::Done => "done",
+            Self::Failed => "failed",
+            Self::Prompt => "prompt",
+            Self::Closed => "closed",
+        }
+    }
+
+    fn reached(self, entry: Option<&Value>) -> bool {
+        let Some(entry) = entry else {
+            return matches!(self, Self::Closed);
+        };
+        let state = entry["programStatus"]["state"].as_str();
+        match self {
+            Self::Working => state == Some("working"),
+            Self::Waiting => state == Some("blocked"),
+            Self::Done => state == Some("done"),
+            Self::Failed => state == Some("error"),
+            Self::Prompt => entry["prompt"] == true,
+            Self::Closed => false,
+        }
     }
 }
 
-fn answers(event: &Value, request_id: &str) -> bool {
-    event.get("requestId").and_then(Value::as_str) == Some(request_id)
+async fn wait_for(
+    client: &mut local_host::Client,
+    context: &mut Context,
+    session: Uuid,
+    until: &[WaitState],
+    seconds: u64,
+    json_output: bool,
+) -> Result<()> {
+    let id = session.to_string();
+    let reached = tokio::time::timeout(Duration::from_secs(seconds), async {
+        loop {
+            let entry = context
+                .sessions
+                .iter()
+                .find(|entry| entry["id"] == id.as_str());
+            if let Some(state) = until.iter().find(|state| state.reached(entry)) {
+                return Ok::<_, Error>((*state, entry.cloned().unwrap_or_default()));
+            }
+            let frame = client.next().await?;
+            if let Some(event) = frame.get("event") {
+                context.observe(event);
+            }
+        }
+    })
+    .await
+    .map_err(|_| Error::Other("The terminal did not reach that state in time.".into()))?;
+    let (state, entry) = reached?;
+    if json_output {
+        print_json(&json!({"state":state.name(),"session":entry}))
+    } else {
+        print_text(state.name())
+    }
 }
 
-fn is_own_error(event: &Value, kind: &str, operation: &str, request_id: &str) -> bool {
-    kind.rsplit('.').next() == Some("error")
-        && (answers(event, request_id)
-            || (kind == "auth.error"
-                && event.get("requestId").is_none()
-                && matches!(operation, "auth.login.start" | "auth.deleteAccount")))
+fn print_status(context: &Context, json_output: bool) -> Result<()> {
+    if json_output {
+        print_json(
+            &json!({"accountUserId":context.user,"accountEpoch":context.epoch,"sessions":context.sessions}),
+        )
+    } else {
+        print_text(&render::status(context))
+    }
+}
+
+async fn stop_host(config: &Config, force: bool, json_output: bool) -> Result<()> {
+    local_host::stop_other_host(&config.data_root, force).await?;
+    if json_output {
+        print_json(&json!({"stopped":true}))
+    } else {
+        print_text("The Kodosi host stopped.")
+    }
+}
+
+fn key_text(key: &str) -> Result<String> {
+    let named = match key.to_ascii_lowercase().as_str() {
+        "enter" | "return" => "\r",
+        "tab" => "\t",
+        "escape" | "esc" => "\u{1b}",
+        "backspace" => "\u{7f}",
+        "delete" => "\u{1b}[3~",
+        "up" => "\u{1b}[A",
+        "down" => "\u{1b}[B",
+        "right" => "\u{1b}[C",
+        "left" => "\u{1b}[D",
+        "home" => "\u{1b}[H",
+        "end" => "\u{1b}[F",
+        "pageup" => "\u{1b}[5~",
+        "pagedown" => "\u{1b}[6~",
+        "space" => " ",
+        control => {
+            return control
+                .strip_prefix("ctrl-")
+                .and_then(|letter| {
+                    let [letter] = letter.as_bytes() else {
+                        return None;
+                    };
+                    letter
+                        .is_ascii_lowercase()
+                        .then(|| char::from(letter - b'a' + 1).to_string())
+                })
+                .ok_or_else(|| {
+                    Error::Invalid(format!(
+                        "Unknown key {key}. Use enter, tab, escape, backspace, delete, up, down, left, right, home, end, pageup, pagedown, space or ctrl- and a letter."
+                    ))
+                });
+        }
+    };
+    Ok(named.to_owned())
 }
 
 async fn open_remote(
@@ -1065,98 +1321,9 @@ async fn open_remote(
     .await
     .map(drop)
 }
-async fn connect_or_start(config: &Config) -> Result<local_host::Client> {
-    match local_host::Client::connect(&config.data_root).await {
-        Ok(client) => return Ok(client),
-        Err(Error::Io(error))
-            if matches!(
-                error.kind(),
-                io::ErrorKind::NotFound | io::ErrorKind::ConnectionRefused
-            ) => {}
-        Err(error) => return Err(error),
-    }
-    let mut command = std::process::Command::new(std::env::current_exe()?);
-    command
-        .arg("internal-host")
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
-    if let Some(session) = kodosi_os::process::session_environment() {
-        command
-            .env_clear()
-            .envs(host_environment(session, std::env::vars_os()));
-    }
-    kodosi_os::process::detach(&mut command);
-    let mut child = command.spawn()?;
-    for _ in 0..100 {
-        tokio::time::sleep(Duration::from_millis(50)).await;
-        if let Ok(client) = local_host::Client::connect(&config.data_root).await {
-            return Ok(client);
-        }
-        if let Some(status) = child.try_wait()? {
-            return Err(Error::Other(format!(
-                "local host exited before startup ({status})"
-            )));
-        }
-    }
-    drop(child.kill());
-    drop(child.wait());
-    Err(Error::Other("local host startup timed out".into()))
-}
-
-fn host_environment(
-    session: Vec<(OsString, OsString)>,
-    own: impl IntoIterator<Item = (OsString, OsString)>,
-) -> Vec<(OsString, OsString)> {
-    let setting = |name: &OsString| {
-        name.as_encoded_bytes()
-            .get(..6)
-            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(b"KODOSI"))
-    };
-    session
-        .into_iter()
-        .filter(|(name, _)| !setting(name))
-        .chain(own.into_iter().filter(|(name, _)| setting(name)))
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn a_deletion_waits_for_the_person_as_long_as_the_runtime_does() {
-        assert!(answer_time("auth.deleteAccount") > crate::network::DELETION_LIFE);
-        assert_eq!(answer_time("friends.refresh"), Duration::from_secs(30));
-    }
-
-    #[test]
-    fn a_command_takes_only_the_errors_of_its_own_request() {
-        let mine = Uuid::now_v7().to_string();
-        let error = |kind: &str, request: Option<&str>| {
-            let mut event = json!({"type":kind,"message":"failed"});
-            if let Some(request) = request {
-                event["requestId"] = json!(request);
-            }
-            event
-        };
-        let own = |event: &Value, operation: &str| {
-            is_own_error(event, event["type"].as_str().unwrap(), operation, &mine)
-        };
-        assert!(own(&error("mission.error", Some(&mine)), "mission.list"));
-        assert!(!own(&error("mission.error", None), "mission.list"));
-        assert!(!own(
-            &error("mission.error", Some(&Uuid::now_v7().to_string())),
-            "mission.list"
-        ));
-        assert!(!own(&error("friends.error", None), "friends.refresh"));
-        assert!(own(&error("auth.error", None), "auth.login.start"));
-        assert!(!own(&error("auth.error", None), "auth.logout"));
-        assert!(!own(
-            &json!({"type":"mission.result","requestId":mine}),
-            "mission.create"
-        ));
-    }
-
     #[test]
     fn app_executables_recognise_cli_invocations() {
         let args = |list: &[&str]| list.iter().map(OsString::from).collect::<Vec<_>>();
@@ -1178,32 +1345,21 @@ mod tests {
         assert!(!is_invocation(&[]));
     }
     #[test]
-    fn a_started_host_gets_the_session_environment_and_this_commands_settings() {
-        let pairs = |list: &[(&str, &str)]| {
-            list.iter()
-                .map(|(name, value)| (OsString::from(name), OsString::from(value)))
-                .collect::<Vec<_>>()
-        };
-        let session = pairs(&[
-            ("PATH", "/usr/bin"),
-            ("SESSION_ONLY", "1"),
-            ("KODOSI_DATA_ROOT", "/session"),
-        ]);
-        let own = pairs(&[
-            ("PATH", "/agent/bin"),
-            ("GH_TOKEN", "fake"),
-            ("KODOSI_DATA_ROOT", "/isolated"),
-            ("KODOSI__BACKEND__API", "http://127.0.0.1:5180"),
-        ]);
-        assert_eq!(
-            host_environment(session, own),
-            pairs(&[
-                ("PATH", "/usr/bin"),
-                ("SESSION_ONLY", "1"),
-                ("KODOSI_DATA_ROOT", "/isolated"),
-                ("KODOSI__BACKEND__API", "http://127.0.0.1:5180"),
-            ])
-        );
+    fn named_keys_become_the_bytes_a_terminal_reads() {
+        assert_eq!(key_text("ctrl-c").unwrap(), "\u{3}");
+        assert_eq!(key_text("Enter").unwrap(), "\r");
+        assert_eq!(key_text("up").unwrap(), "\u{1b}[A");
+        assert!(key_text("ctrl-1").is_err());
+        assert!(key_text("hyper").is_err());
+    }
+    #[test]
+    fn a_wait_ends_on_the_state_the_program_reports() {
+        let entry = json!({"id":"t","prompt":false,"programStatus":{"state":"blocked"}});
+        assert!(WaitState::Waiting.reached(Some(&entry)));
+        assert!(!WaitState::Done.reached(Some(&entry)));
+        assert!(!WaitState::Prompt.reached(Some(&entry)));
+        assert!(WaitState::Closed.reached(None));
+        assert!(!WaitState::Waiting.reached(None));
     }
     #[test]
     fn background_hosts_only_exit_after_an_idle_grace_period() {

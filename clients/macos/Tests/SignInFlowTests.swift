@@ -116,7 +116,9 @@ private let browserPage: [String: JSONValue] = ["url": .string(page)]
     #expect(app.signInPrompt == "Trust this Mac")
     app.account.requestDeviceApproval()
     #expect(record.sent.last == "devices.link.startSelf")
-    try app.receive(runtimeEvent("devices.link.selfPending", fields: ["code": .string("JKMN-PQRS-TVWX"), "expiresAt": .string("2026-09-17T01:00:00Z")]))
+    try app.receive(runtimeEvent("devices.result", fields: [
+        "operation": .string("devices.link.startSelf"), "requestId": .string(UUIDv7.generate()), "code": .string("JKMN-PQRS-TVWX"),
+    ]))
     #expect(app.account.stage == .trustingDevice(.pendingApproval(code: "JKMN-PQRS-TVWX")))
     try app.receive(runtimeEvent("devices.link.selfResolved", fields: ["outcome": .string("expired")]))
     #expect(app.account.stage == .trustingDevice(.choose))

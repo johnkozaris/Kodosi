@@ -17,10 +17,9 @@ mod wire;
 mod tests;
 
 pub use backend_client::BackendClient;
-#[cfg(feature = "cli")]
-pub(crate) use backend_client::DELETION_LIFE;
 #[cfg(target_os = "ios")]
 pub(crate) use backend_client::device_label;
+pub(crate) use backend_client::{DELETION_LIFE, SIGN_IN_LIFE};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -137,6 +136,7 @@ pub struct BackendReply {
     pub generation: u64,
     pub user_id: Option<String>,
     pub events: Vec<Value>,
+    pub answered_later: bool,
 }
 
 #[derive(Debug, Clone)]

@@ -8,7 +8,7 @@
 #include <utility>
 #include <thread>
 
-static_assert(KODOSI_FFI_ABI_VERSION == 9, "KodosiQT requires FFI ABI 9");
+static_assert(KODOSI_FFI_ABI_VERSION == 10, "KodosiQT requires FFI ABI 10");
 
 namespace kodosi {
 namespace {
@@ -34,7 +34,20 @@ namespace {
     }
     RuntimeFailure failure(std::int32_t result, QString message)
     {
-        return { result, std::move(message) };
+        return { result, std::move(message), std::nullopt };
+    }
+    RuntimeFailure startFailure()
+    {
+        kodosi_start_failure_t raw {};
+        if (kodosi_last_start_failure(&raw) != 1)
+            return failure(KODOSI_FFI_RUNTIME_STOPPED, {});
+        auto result = failure(KODOSI_FFI_RUNTIME_STOPPED, QString::fromUtf8(raw.message));
+        if (raw.code == KODOSI_START_HOST_OUTDATED) {
+            result.outdatedHost = OutdatedHost { .foreground = raw.host_kind == KODOSI_HOST_KIND_FOREGROUND,
+                .pid = raw.host_pid,
+                .terminals = raw.host_terminals };
+        }
+        return result;
     }
 }
 
@@ -88,6 +101,7 @@ void RuntimeBridge::startAsync(std::function<void(Result)> completion)
             &RuntimeBridge::terminalConnectResult, &RuntimeBridge::terminalCheckpoint
         };
         auto* handle = kodosi_start(&callbacks, sizeof(callbacks), context.get());
+        auto refusal = handle ? RuntimeFailure {} : startFailure();
         auto pending = std::shared_ptr<void*>(new void*(handle), [context](void** value) {
             auto* abandoned = *value;
             delete value;
@@ -96,7 +110,8 @@ void RuntimeBridge::startAsync(std::function<void(Result)> completion)
         {
             std::lock_guard lock(context->mutex);
             if (auto* bridge = context->bridge) {
-                QMetaObject::invokeMethod(bridge, [context, generation, pending, completion = std::move(completion)]() mutable {
+                QMetaObject::invokeMethod(bridge, [context, generation, pending, refusal = std::move(refusal),
+                                                      completion = std::move(completion)]() mutable {
                     auto* current = context->bridge;
                     current->m_starting = false;
                     if (current->m_activeGeneration.load(std::memory_order_acquire) != generation) return;
@@ -109,8 +124,9 @@ void RuntimeBridge::startAsync(std::function<void(Result)> completion)
                         completion({});
                     } else {
                         current->m_activeGeneration.store(0, std::memory_order_release);
-                        completion(std::unexpected(failure(KODOSI_FFI_RUNTIME_STOPPED,
-                            tr("Kodosi could not start its terminal runtime."))));
+                        if (refusal.message.isEmpty())
+                            refusal.message = tr("Kodosi could not start its terminal runtime.");
+                        completion(std::unexpected(std::move(refusal)));
                     }
                 }, Qt::QueuedConnection);
                 return;
@@ -129,6 +145,30 @@ void RuntimeBridge::stop() noexcept
     auto* handle = std::exchange(m_handle, nullptr);
     kodosi_stop(handle);
     emit runningChanged(false);
+}
+
+void RuntimeBridge::quit() noexcept
+{
+    const bool stopsHost = isRunning() && !m_hostForeground;
+    stop();
+    if (stopsHost)
+        kodosi_host_stop(1);
+}
+
+void RuntimeBridge::stopHostAsync(std::function<void(HostStop)> completion)
+{
+    Q_ASSERT(thread() == QThread::currentThread());
+    std::thread([context = m_callbacks, completion = std::move(completion)]() mutable {
+        const auto code = kodosi_host_stop(1);
+        const auto result = code == KODOSI_HOST_STOP_ACCEPTED || code == KODOSI_HOST_STOP_UNREACHABLE ? HostStop::Stopped
+            : code == KODOSI_HOST_STOP_REFUSED                                                        ? HostStop::Refused
+                                                                                                      : HostStop::Failed;
+        std::lock_guard lock(context->mutex);
+        if (auto* bridge = context->bridge) {
+            QMetaObject::invokeMethod(
+                bridge, [result, completion = std::move(completion)] { completion(result); }, Qt::QueuedConnection);
+        }
+    }).detach();
 }
 
 RuntimeBridge::Result RuntimeBridge::send(QByteArrayView json)
@@ -299,6 +339,11 @@ void RuntimeBridge::deliverEvent(const QByteArray& payload)
         || type == QStringLiteral("system.ready")) {
         m_accountEpoch = *epoch;
         m_accountUserId = user;
+    }
+    if (type == QStringLiteral("system.ready")) {
+        const bool foreground = object.value(QStringLiteral("host")).toString() == QStringLiteral("foreground");
+        if (std::exchange(m_hostForeground, foreground) != foreground)
+            emit hostForegroundChanged();
     }
     emit eventReceived(object, *epoch, payload);
 }

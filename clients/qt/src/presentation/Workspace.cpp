@@ -36,34 +36,7 @@ Workspace::Workspace(CommandDispatcher& commands, SessionCatalogModel& sessions,
     , m_missions(*this, sessions)
     , m_sessionActions(*this, sessions, desktop, settings)
 {
-    m_timeout.setInterval(1000);
-    connect(&m_timeout, &QTimer::timeout, this, [this] {
-        if (m_pending.isEmpty()) {
-            m_timeout.stop();
-            return;
-        }
-        bool expired = false;
-        for (auto it = m_pending.begin(); it != m_pending.end();) {
-            if (!it->deadline.hasExpired()) {
-                ++it;
-                continue;
-            }
-            if (it->operation == QStringLiteral("session.openRemote")
-                && m_sessionActions.m_activeLink
-                && m_sessionActions.m_activeLink->sessionId == it->sessionId) {
-                m_sessionActions.m_activeLink.reset();
-            }
-            it = m_pending.erase(it);
-            expired = true;
-        }
-        if (m_pending.isEmpty())
-            m_timeout.stop();
-        if (expired) {
-            m_sessionActions.activatePendingLink();
-            notifyBusy();
-            setError(tr("The operation has not been confirmed. Refresh to check the current state."));
-        }
-    });
+    connect(&sessions, &SessionCatalogModel::visibleChanged, this, &Workspace::reportVisible);
 }
 
 bool Workspace::validName(const QString& name)
@@ -72,16 +45,10 @@ bool Workspace::validName(const QString& name)
         && !name.contains(QChar::Null);
 }
 
-bool Workspace::sendUntracked(QString type, QJsonObject values, bool includeRequestId)
+bool Workspace::sendUntracked(QString type, QJsonObject values)
 {
     values.insert(QStringLiteral("type"), type);
-    if (includeRequestId) {
-        const auto id = requestId();
-        values.insert(QStringLiteral("requestId"), id);
-        if (m_untrackedRequests.size() == 16)
-            m_untrackedRequests.removeFirst();
-        m_untrackedRequests.append(id);
-    }
+    values.insert(QStringLiteral("requestId"), requestId());
     const auto result = m_commands.send(QJsonDocument(values).toJson(QJsonDocument::Compact));
     if (!result) {
         setError(result.error().message);
@@ -105,12 +72,8 @@ bool Workspace::sendTracked(PendingDomain domain, QString type, QJsonObject valu
         setError(result.error().message);
         return false;
     }
-    const auto timeout = type == QStringLiteral("room.command") ? 60000 : 15000;
     m_pending.insert(id,
-        { domain, std::move(type), std::move(sessionId), std::move(missionId),
-            QDeadlineTimer(timeout), m_missions.presentation() });
-    if (!m_timeout.isActive())
-        m_timeout.start();
+        { domain, std::move(type), std::move(sessionId), std::move(missionId), m_missions.presentation() });
     notifyBusy();
     clearError();
     return true;
@@ -126,6 +89,16 @@ void Workspace::notifyBusy()
 {
     emit m_sessionActions.busyChanged();
     emit m_missions.busyChanged();
+}
+
+void Workspace::reportVisible()
+{
+    const auto visible = m_sessions.visible();
+    if (!m_hostReady || m_reportedVisible == visible)
+        return;
+    if (sendUntracked(QStringLiteral("session.visible"),
+            { { QStringLiteral("sessionIds"), QJsonArray::fromStringList(visible) } }))
+        m_reportedVisible = visible;
 }
 
 void Workspace::clearError()
@@ -145,8 +118,6 @@ void Workspace::setError(QString error)
 void Workspace::clearAccountData(bool clearLinks)
 {
     m_pending.clear();
-    m_untrackedRequests.clear();
-    m_timeout.stop();
     m_people.reset();
     m_devices.reset();
     m_missions.reset();
@@ -158,6 +129,8 @@ void Workspace::clearAccountData(bool clearLinks)
 
 void Workspace::reset()
 {
+    m_hostReady = false;
+    m_reportedVisible.reset();
     clearAccountData(m_account.signedIn());
     m_account.reset();
 }
@@ -167,11 +140,59 @@ void Workspace::route(const DeepLinkDestination& destination)
     m_sessionActions.route(destination);
 }
 
+void Workspace::receiveResult(const QString& type, const QJsonObject& event)
+{
+    if (type == QStringLiteral("room.result")) {
+        if (const auto room = event.value(QStringLiteral("room")).toObject(); !room.isEmpty())
+            m_missions.applyRoom(room);
+        if (event.contains(QStringLiteral("issues"))
+            && event.value(QStringLiteral("roomId")).toString() == m_missions.m_selectedId
+            && event.value(QStringLiteral("repositoryId")).toString() == m_missions.m_issueRepository) {
+            m_missions.m_issues = list(event, "issues");
+            emit m_missions.roomChanged();
+        }
+    }
+    const auto id = event.value(QStringLiteral("requestId")).toString();
+    const auto found = m_pending.constFind(id);
+    if (found == m_pending.cend() || event.value(QStringLiteral("operation")).toString() != found->operation)
+        return;
+    const auto pending = m_pending.take(id);
+    notifyBusy();
+    if (type == QStringLiteral("room.result"))
+        m_missions.completeAction(pending.missionId, event.value(QStringLiteral("action")).toString(), pending.draft);
+    const auto created = event.value(QStringLiteral("sessionId")).toString();
+    if (pending.operation == QStringLiteral("session.create") && !created.isEmpty())
+        m_sessionActions.completeCreation(created, pending.missionId);
+    if (pending.operation == QStringLiteral("mission.open") && pending.missionId == m_missions.m_selectedId) {
+        m_missions.m_selected = event.value(QStringLiteral("mission")).toObject().toVariantMap();
+        m_missions.m_members = list(event, "members");
+        emit m_missions.selectionChanged();
+        m_missions.roomAction({ { QStringLiteral("type"), QStringLiteral("read") } });
+    }
+    if (pending.operation == QStringLiteral("mission.create")) {
+        m_missions.open(id);
+        emit m_missions.created(id);
+    }
+    if (pending.operation == QStringLiteral("mission.invitation.accept") && !pending.missionId.isEmpty())
+        m_missions.open(pending.missionId);
+    if ((pending.operation == QStringLiteral("mission.delete") || pending.operation == QStringLiteral("mission.leave"))
+        && pending.missionId == m_missions.m_selectedId) {
+        m_missions.open({});
+    }
+}
+
 void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
 {
     const auto type = event.value(QStringLiteral("type")).toString();
     if (type == QStringLiteral("system.updateRequired")) {
         setError(tr("This version of Kodosi is too old for the server. Update Kodosi."));
+        return;
+    }
+    if (type == QStringLiteral("system.ready")) {
+        m_hostReady = true;
+        m_reportedVisible = QStringList {};
+        reportVisible();
+        emit hostReady();
         return;
     }
     if (type == QStringLiteral("auth.finalizing")) {
@@ -226,8 +247,12 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         emit m_account.signInPageReady(m_account.m_signInPage);
         return;
     }
-    if (type == QStringLiteral("term.bell")) {
-        m_sessions.noteAttention(event.value(QStringLiteral("sessionId")).toString());
+    if (type == QStringLiteral("term.attention")) {
+        m_sessions.alert(event.value(QStringLiteral("sessionId")).toString());
+        return;
+    }
+    if (type == QStringLiteral("session.show")) {
+        emit showRequested(event.value(QStringLiteral("sessionId")).toString());
         return;
     }
     if (type == QStringLiteral("sessions.snapshot")) {
@@ -236,37 +261,12 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
             setError(m_sessions.authorityError());
             return;
         }
-        QHash<QString, QString> createdSessions;
-        QList<QPair<QString, QString>> readyCreations;
-        for (const auto& value : event.value(QStringLiteral("sessions")).toArray()) {
-            const auto session = value.toObject();
-            const auto request = session.value(QStringLiteral("createRequestId")).toString();
-            if (!request.isEmpty())
-                createdSessions.insert(request, session.value(QStringLiteral("id")).toString());
-        }
-        for (auto it = m_pending.begin(); it != m_pending.end();) {
-            const auto pending = it.value();
-            if (pending.operation == QStringLiteral("session.create")) {
-                const auto created = createdSessions.value(it.key());
-                if (!created.isEmpty()) {
-                    it = m_pending.erase(it);
-                    readyCreations.append({created, pending.missionId});
-                    continue;
-                }
-            } else if (pending.operation == QStringLiteral("session.close")
-                && !m_sessions.containsSession(pending.sessionId)) {
-                it = m_pending.erase(it);
-                continue;
-            }
-            ++it;
-        }
-        for (const auto& [created, room] : readyCreations) m_sessionActions.completeCreation(created, room);
         emit m_missions.selectionChanged();
-        notifyBusy();
         return;
     }
-    if (type == QStringLiteral("friends.invite")) {
-        m_people.receiveInvite(event.value(QStringLiteral("text")).toString());
+    if (type == QStringLiteral("friends.result")) {
+        if (event.value(QStringLiteral("operation")).toString() == QStringLiteral("friends.invite"))
+            m_people.receiveInvite(event.value(QStringLiteral("text")).toString());
         return;
     }
     if (type == QStringLiteral("friends.snapshot")) {
@@ -289,11 +289,6 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         emit m_devices.changed();
         return;
     }
-    if (type == QStringLiteral("devices.link.selfPending")) {
-        m_devices.m_approvalCode = event.value(QStringLiteral("code")).toString();
-        emit m_devices.changed();
-        return;
-    }
     if (type == QStringLiteral("devices.link.selfResolved")) {
         m_devices.m_approvalCode.clear();
         emit m_devices.changed();
@@ -304,21 +299,19 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         sendUntracked(QStringLiteral("devices.refresh"));
         return;
     }
-    if (type == QStringLiteral("devices.recovery.created")) {
-        m_devices.m_newRecoveryKey = event.value(QStringLiteral("key")).toString();
+    if (type == QStringLiteral("devices.result")) {
+        const auto operation = event.value(QStringLiteral("operation")).toString();
+        if (operation == QStringLiteral("devices.link.startSelf"))
+            m_devices.m_approvalCode = event.value(QStringLiteral("code")).toString();
+        else if (operation == QStringLiteral("devices.recovery.create"))
+            m_devices.m_newRecoveryKey = event.value(QStringLiteral("key")).toString();
+        else
+            return;
         emit m_devices.changed();
         return;
     }
     if (type == QStringLiteral("room.snapshot")) {
         m_missions.applyRoom(event.value(QStringLiteral("room")).toObject());
-        return;
-    }
-    if (type == QStringLiteral("room.issues")) {
-        if (event.value(QStringLiteral("roomId")).toString() == m_missions.m_selectedId
-            && event.value(QStringLiteral("repositoryId")).toString() == m_missions.m_issueRepository) {
-            m_missions.m_issues = list(event, "issues");
-            emit m_missions.roomChanged();
-        }
         return;
     }
     if (type == QStringLiteral("missions.snapshot")) {
@@ -342,62 +335,14 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         }
         return;
     }
-    if (type == QStringLiteral("mission.snapshot")) {
-        const auto mission = event.value(QStringLiteral("mission")).toObject();
-        const auto id = event.value(QStringLiteral("requestId")).toString();
-        const auto pending = m_pending.value(id);
-        if (pending.operation != QStringLiteral("mission.open")
-            || pending.missionId != m_missions.m_selectedId) {
-            return;
-        }
-        if (mission.value(QStringLiteral("id")).toString() == m_missions.m_selectedId) {
-            m_missions.m_selected = mission.toVariantMap();
-            m_missions.m_members = list(event, "members");
-            emit m_missions.selectionChanged();
-            m_missions.roomAction({ { QStringLiteral("type"), QStringLiteral("read") } });
-        }
+    if (type == QStringLiteral("session.result") || type == QStringLiteral("room.result")
+        || type == QStringLiteral("mission.result")) {
+        receiveResult(type, event);
+        return;
     }
+    if (type == QStringLiteral("provider.error") || !type.endsWith(QStringLiteral(".error")))
+        return;
     const auto id = event.value(QStringLiteral("requestId")).toString();
-    if (type == QStringLiteral("session.result")
-        || type == QStringLiteral("room.result")
-        || type == QStringLiteral("mission.result")
-        || type == QStringLiteral("mission.snapshot")) {
-        if (!m_pending.contains(id))
-            return;
-        const auto expected = m_pending.value(id).operation;
-        if (type != QStringLiteral("mission.snapshot")
-            && event.value(QStringLiteral("operation")).toString() != expected) {
-            return;
-        }
-        const auto pending = m_pending.take(id);
-        notifyBusy();
-        if (type == QStringLiteral("room.result"))
-            m_missions.completeAction(pending.missionId, event.value(QStringLiteral("action")).toString(), pending.draft);
-        if (pending.operation == QStringLiteral("session.create")
-            && !event.value(QStringLiteral("sessionId")).toString().isEmpty()) {
-            const auto sessionId = event.value(QStringLiteral("sessionId")).toString();
-            m_sessionActions.completeCreation(sessionId, pending.missionId);
-        }
-        if (type == QStringLiteral("mission.result")) {
-            if (pending.operation == QStringLiteral("mission.create")) { m_missions.open(id); emit m_missions.created(id); }
-            if (pending.operation == QStringLiteral("mission.invitation.accept") && !pending.missionId.isEmpty()) m_missions.open(pending.missionId);
-            if ((pending.operation == QStringLiteral("mission.delete")
-                    || pending.operation == QStringLiteral("mission.leave"))
-                && pending.missionId == m_missions.m_selectedId) {
-                m_missions.open({});
-            }
-            sendUntracked(QStringLiteral("mission.list"));
-        }
-        return;
-    }
-    if (type == QStringLiteral("provider.error"))
-        return;
-    if (!type.endsWith(QStringLiteral(".error")))
-        return;
-    // Another client, such as the kodosi command, sent the request that failed.
-    if (!id.isEmpty() && !m_pending.contains(id) && !m_untrackedRequests.removeOne(id))
-        return;
-
     if (type == QStringLiteral("room.error")) {
         const auto pending = m_pending.take(id);
         m_missions.m_presentations[pending.missionId].insert(QStringLiteral("failure"), event.value(QStringLiteral("message")).toString());

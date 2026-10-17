@@ -343,7 +343,6 @@ void completeResize(
     command.insert(
         QStringLiteral("type"),
         QStringLiteral("term.resizeApplied"));
-    command.remove(QStringLiteral("claim"));
     registry.receiveControl({
         subscription,
         QJsonDocument(command).toJson(QJsonDocument::Compact),
@@ -420,9 +419,8 @@ private slots:
     void terminalViewCancelsLinkReleaseOutsideBounds();
     void terminalViewCopySelectionStillUsesHostClipboard();
     void terminalViewRetriesRevocationBlurBeforeRefocus();
-    void terminalViewClaimsFocusedResizeExactly();
+    void terminalViewSendsItsSizeOnlyWhileItMayResize();
     void terminalViewWaitsQuietlyForItsConnection();
-    void terminalViewPreservesClaimAcrossInflightResize();
     void terminalViewDefersResizeWhileEffectivelyHidden();
     void surfaceControllerFencesSessionIncarnations();
     void surfaceControllerKeepsBindingsIndependent();
@@ -1443,7 +1441,6 @@ void TerminalKernelTest::remoteGridFitsAndMapsAccessibleMouseCoordinates()
     auto outcome = rejected;
     outcome.insert(QStringLiteral("type"), QStringLiteral("term.resizeRejected"));
     outcome.insert(QStringLiteral("reason"), QStringLiteral("Another controller owns size"));
-    outcome.remove(QStringLiteral("claim"));
     registry.receiveControl({subscription, QJsonDocument(outcome).toJson(QJsonDocument::Compact)});
     QCoreApplication::processEvents();
     QVERIFY(view.canResize());
@@ -2872,7 +2869,6 @@ void TerminalKernelTest::terminalViewWaitsQuietlyForItsConnection()
     view.setWidth(800);
     view.setHeight(400);
     view.setTerminalInteraction(false, true);
-    view.setFocusedSizeAuthority(true);
     QVERIFY(view.attach(
         registry,
         dispatcher,
@@ -2900,7 +2896,7 @@ void TerminalKernelTest::terminalViewWaitsQuietlyForItsConnection()
     QVERIFY(errors.isEmpty());
 }
 
-void TerminalKernelTest::terminalViewClaimsFocusedResizeExactly()
+void TerminalKernelTest::terminalViewSendsItsSizeOnlyWhileItMayResize()
 {
     kodosi::TerminalSessionRegistry registry;
     FakeTerminalDispatcher dispatcher;
@@ -2914,7 +2910,6 @@ void TerminalKernelTest::terminalViewClaimsFocusedResizeExactly()
     view.setWidth(800);
     view.setHeight(400);
     view.setTerminalInteraction(false, true);
-    view.setFocusedSizeAuthority(true);
     QVERIFY(view.attach(
         registry,
         dispatcher,
@@ -2928,7 +2923,7 @@ void TerminalKernelTest::terminalViewClaimsFocusedResizeExactly()
         QCOMPARE(
             command.value(QStringLiteral("type")).toString(),
             QStringLiteral("session.resize"));
-        QVERIFY(command.value(QStringLiteral("claim")).toBool());
+        QVERIFY(!command.contains(QStringLiteral("claim")));
         QCOMPARE(
             command.value(QStringLiteral("sessionId")).toString(),
             QStringLiteral("session"));
@@ -2945,7 +2940,6 @@ void TerminalKernelTest::terminalViewClaimsFocusedResizeExactly()
     denied.setWidth(800);
     denied.setHeight(400);
     denied.setTerminalInteraction(false, false);
-    denied.setFocusedSizeAuthority(true);
     const kodosi::TerminalSubscription deniedSubscription {
         QStringLiteral("denied"),
         QStringLiteral("denied-subscription"),
@@ -2965,79 +2959,6 @@ void TerminalKernelTest::terminalViewClaimsFocusedResizeExactly()
         dispatcher.terminalCommands.size(),
         beforeDenied + 1,
         250);
-    QVERIFY(dispatcher.terminalCommands.constLast()
-                .value(QStringLiteral("claim"))
-                .toBool());
-
-    FakeTerminalDispatcher gridDispatcher;
-    kodosi::TerminalView grid(m_window.contentItem());
-    grid.setWidth(800);
-    grid.setHeight(400);
-    grid.setTerminalInteraction(false, false);
-    const kodosi::TerminalSubscription gridSubscription {
-        QStringLiteral("grid"),
-        QStringLiteral("grid-subscription"),
-        11,
-    };
-    QVERIFY(grid.attach(
-        registry,
-        gridDispatcher,
-        gridSubscription,
-        QStringLiteral("grid-incarnation")));
-    makeTerminalReady(registry, gridSubscription);
-    QTest::qWait(20);
-    QCOMPARE(gridDispatcher.terminalCommands.size(), 0);
-    grid.setTerminalInteraction(false, true);
-    QTRY_COMPARE_WITH_TIMEOUT(
-        gridDispatcher.terminalCommands.size(),
-        1,
-        250);
-    QVERIFY(!gridDispatcher.terminalCommands.constFirst()
-                 .value(QStringLiteral("claim"))
-                 .toBool());
-}
-
-void TerminalKernelTest::terminalViewPreservesClaimAcrossInflightResize()
-{
-    kodosi::TerminalSessionRegistry registry;
-    FakeTerminalDispatcher dispatcher;
-    kodosi::TerminalView view(m_window.contentItem());
-    const kodosi::TerminalSubscription subscription {
-        QStringLiteral("claim-race"),
-        QStringLiteral("claim-race-subscription"),
-        12,
-    };
-    view.setWidth(800);
-    view.setHeight(400);
-    view.setTerminalInteraction(false, true);
-    QVERIFY(view.attach(
-        registry,
-        dispatcher,
-        subscription,
-        QStringLiteral("claim-race-incarnation")));
-    makeTerminalReady(registry, subscription);
-    QTRY_COMPARE_WITH_TIMEOUT(
-        dispatcher.terminalCommands.size(),
-        1,
-        250);
-    QVERIFY(!dispatcher.terminalCommands.constFirst()
-                 .value(QStringLiteral("claim"))
-                 .toBool());
-
-    view.setFocusedSizeAuthority(true);
-    QCoreApplication::processEvents();
-    QCOMPARE(dispatcher.terminalCommands.size(), 1);
-    completeResize(
-        registry,
-        subscription,
-        dispatcher.terminalCommands.constFirst());
-    QTRY_COMPARE_WITH_TIMEOUT(
-        dispatcher.terminalCommands.size(),
-        2,
-        250);
-    QVERIFY(dispatcher.terminalCommands.constLast()
-                .value(QStringLiteral("claim"))
-                .toBool());
 }
 
 void TerminalKernelTest::terminalViewDefersResizeWhileEffectivelyHidden()
@@ -3081,9 +3002,6 @@ void TerminalKernelTest::terminalViewDefersResizeWhileEffectivelyHidden()
         dispatcher.terminalCommands.size(),
         2,
         250);
-    QVERIFY(!dispatcher.terminalCommands.constLast()
-                 .value(QStringLiteral("claim"))
-                 .toBool());
 }
 
 void TerminalKernelTest::surfaceControllerFencesSessionIncarnations()

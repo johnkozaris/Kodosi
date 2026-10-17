@@ -128,6 +128,7 @@ struct RoomHeader: View {
                 state.conversationVisible.toggle()
                 if state.conversationVisible {
                     state.unread = 0
+                    deps.seeRoom(roomId)
                 }
             }
             .overlay(alignment: .topTrailing) {

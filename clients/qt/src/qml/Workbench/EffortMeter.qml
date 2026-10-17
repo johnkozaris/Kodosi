@@ -10,17 +10,17 @@ Item {
     property var levels: []
     property string current: ""
     property string hovered: ""
-    readonly property int level: levels.findIndex(entry => entry.argument === current)
+    readonly property int level: levels.findIndex(entry => entry.id === current)
     readonly property string shown: {
-        const argument = hovered.length > 0 ? hovered : current
-        const entry = levels.find(item => item.argument === argument)
+        const effort = hovered.length > 0 ? hovered : current
+        const entry = levels.find(item => item.id === effort)
         return entry ? entry.label : qsTr("Model's own level")
     }
     readonly property Item currentItem: segments.count > root.level + 1 ? segments.itemAt(root.level + 1) : null
 
     readonly property real autoWidth: Math.ceil(autoMetrics.advanceWidth) + 20
 
-    signal picked(string argument)
+    signal picked(string effort)
 
     implicitWidth: 290
     implicitHeight: 76
@@ -81,7 +81,7 @@ Item {
             Repeater {
                 id: segments
 
-                model: [{ id: "", argument: "", label: qsTr("Auto") }].concat(root.levels)
+                model: [{ id: "", label: qsTr("Auto") }].concat(root.levels)
 
                 AbstractButton {
                     id: segment
@@ -89,7 +89,7 @@ Item {
                     required property var modelData
                     required property int index
                     readonly property bool auto: index === 0
-                    readonly property bool selected: modelData.argument === root.current
+                    readonly property bool selected: modelData.id === root.current
 
                     width: auto ? root.autoWidth : (track.width - 6 - root.autoWidth) / Math.max(root.levels.length, 1)
                     height: parent.height
@@ -109,11 +109,11 @@ Item {
 
                     onHoveredChanged: {
                         if (hovered)
-                            root.hovered = modelData.argument.length > 0 ? modelData.argument : "\u0000"
-                        else if (root.hovered === (modelData.argument.length > 0 ? modelData.argument : "\u0000"))
+                            root.hovered = modelData.id.length > 0 ? modelData.id : "\u0000"
+                        else if (root.hovered === (modelData.id.length > 0 ? modelData.id : "\u0000"))
                             root.hovered = ""
                     }
-                    onClicked: root.picked(modelData.argument)
+                    onClicked: root.picked(modelData.id)
 
                     contentItem: Item {
                         PlainLabel {

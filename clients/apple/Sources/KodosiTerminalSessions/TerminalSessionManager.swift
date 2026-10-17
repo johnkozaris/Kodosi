@@ -57,8 +57,6 @@ public final class TerminalSessionManager {
     let runtimeHandle: RuntimeHandle
     private let commandSink: CommandSink
     private let style: @MainActor () -> TerminalStyle
-    private let claimsSizeByDefault: Bool
-    @ObservationIgnored private var sizeClaims: Set<String> = []
     let beep: @MainActor () -> Void
     let onFocusResult: @MainActor (String, String, String, Bool) -> Void
     private let disconnectTerminal: Disconnect
@@ -69,7 +67,6 @@ public final class TerminalSessionManager {
         commandSink: CommandSink,
         style: @escaping @MainActor () -> TerminalStyle,
         disconnectTerminal: Disconnect? = nil,
-        claimsSizeByDefault: Bool = true,
         beep: @escaping @MainActor () -> Void = {},
         onFocusResult: @escaping @MainActor (String, String, String, Bool) -> Void = { _, _, _, _ in }
     ) {
@@ -83,7 +80,6 @@ public final class TerminalSessionManager {
                 subscriptionGeneration: subscriptionGeneration
             )
         }
-        self.claimsSizeByDefault = claimsSizeByDefault
         self.beep = beep
         self.onFocusResult = onFocusResult
     }
@@ -284,30 +280,8 @@ public final class TerminalSessionManager {
                 sessionId: sessionId, commandSink: commandSink, lastResize: managed.resizeDelivery,
                 resizeAuthority: managed.resizeAuthority, token: managed.token,
                 runtimeIncarnationId: managed.runtimeIncarnationId, surfaceGeneration: surfaceGeneration
-            ).deliver(viewport, claim: claimsSize(for: sessionId))
+            ).deliver(viewport)
         }
-    }
-
-    public func claimsSize(for sessionId: String) -> Bool {
-        claimsSizeByDefault || sizeClaims.contains(sessionId)
-    }
-
-    public func setClaimsSize(_ claims: Bool, for sessionId: String) {
-        guard claims else {
-            sizeClaims.remove(sessionId)
-            return
-        }
-        sizeClaims.insert(sessionId)
-        claimSize(for: sessionId)
-    }
-
-    private func claimSize(for sessionId: String) {
-        guard let managed = sessions[sessionId], managed.token.isActive,
-              renderStateBySession[sessionId] == .rendered,
-              let viewport = managed.renderer.currentViewport
-        else { return }
-        managed.resizeDelivery.reset()
-        resizeViewport(viewport, sessionId: sessionId, surfaceGeneration: managed.renderer.nativeSurfaceGeneration)
     }
 
     private func connectToRuntimeIfNeeded(

@@ -1468,8 +1468,7 @@ impl BackendClient {
                     .ok_or_else(|| invalid("This repository is unavailable."))?;
                 let issues = rooms::providers::issues(repository, None).await?;
                 return Ok(vec![
-                    json!({"type":"room.issues","requestId":request,"roomId":room,"repositoryId":repository_id,"issues":issues}),
-                    json!({"type":"room.result","requestId":request,"operation":"room.command","roomId":room,"itemId":null,"action":args["action"]["type"]}),
+                    json!({"type":"room.result","requestId":request,"operation":"room.command","roomId":room,"itemId":null,"action":args["action"]["type"],"repositoryId":repository_id,"issues":issues}),
                 ]);
             }
             Action::ImportIssue {
@@ -1520,14 +1519,19 @@ impl BackendClient {
         if let Some(sequence) = written {
             self.sync_room(&credentials, room, Some(sequence)).await?;
         }
-        let current = match before {
-            Some(before) => self.older_messages(&credentials, room, before).await?,
-            None => self.show_room(&credentials, room).await?,
-        };
-        Ok(vec![
-            json!({"type":"room.snapshot","room":current}),
-            json!({"type":"room.result","requestId":request,"operation":"room.command","roomId":room,"itemId":item_id,"action":args["action"]["type"]}),
-        ])
+        let answer = json!({"type":"room.result","requestId":request,"operation":"room.command","roomId":room,"itemId":item_id,"action":args["action"]["type"]});
+        Ok(match before {
+            Some(before) => {
+                let mut answer = answer;
+                answer["room"] =
+                    serde_json::to_value(self.older_messages(&credentials, room, before).await?)?;
+                vec![answer]
+            }
+            None => vec![
+                json!({"type":"room.snapshot","room":self.show_room(&credentials, room).await?}),
+                answer,
+            ],
+        })
     }
 
     async fn sync_linked_issues(

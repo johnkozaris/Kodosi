@@ -149,6 +149,31 @@ impl Terminal {
         self.raw.encode_snapshot(false, limits)
     }
 
+    pub fn text(&mut self, history: bool) -> Result<String, Error> {
+        let text = self.raw.format(
+            FormatOptions {
+                format: Format::Plain,
+                unwrap: true,
+                trim: true,
+                palette: false,
+                modes: false,
+                scrolling_region: false,
+                tabstops: false,
+                pwd: false,
+                keyboard: false,
+                cursor: false,
+                style: false,
+                hyperlink: false,
+                protection: false,
+                kitty_keyboard: false,
+                charsets: false,
+                screen_only: !history,
+            },
+            FORMATTER_PROFILE_MAX_BYTES,
+        )?;
+        Ok(String::from_utf8_lossy(&text).into_owned())
+    }
+
     pub fn format_finite_cli_replay(&mut self) -> Result<Vec<u8>, Error> {
         let screen_vt = self.raw.format(
             FormatOptions {

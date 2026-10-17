@@ -58,28 +58,41 @@ impl TestRuntime {
             branch: None,
             worktrees: None,
             command: None,
+            agent: None,
             prompt: None,
         })
         .await;
-        timeout(Duration::from_secs(10), async {
-            loop {
-                let event = serde_json::to_value(events.recv().await.unwrap()).unwrap();
-                if event["type"] == "sessions.snapshot" {
-                    for entry in event["sessions"].as_array().unwrap() {
-                        if entry["createRequestId"] == request {
-                            return (
-                                Uuid::parse_str(entry["id"].as_str().unwrap()).unwrap(),
-                                Uuid::parse_str(entry["incarnationId"].as_str().unwrap()).unwrap(),
-                            );
-                        }
-                    }
-                }
-                assert_ne!(event["type"], "session.error", "{event}");
-            }
-        })
-        .await
-        .unwrap()
+        let entry = created(&mut events, &request).await;
+        (
+            Uuid::parse_str(entry["id"].as_str().unwrap()).unwrap(),
+            Uuid::parse_str(entry["incarnationId"].as_str().unwrap()).unwrap(),
+        )
     }
+}
+
+#[cfg(feature = "host")]
+async fn created(events: &mut broadcast::Receiver<Event>, request: &str) -> Value {
+    timeout(Duration::from_secs(10), async {
+        let mut sessions = Value::Null;
+        loop {
+            let event = serde_json::to_value(events.recv().await.unwrap()).unwrap();
+            assert_ne!(event["type"], "session.error", "{event}");
+            if event["type"] == "sessions.snapshot" {
+                sessions = event["sessions"].clone();
+            }
+            if event["type"] == "session.result" && event["requestId"] == request {
+                return sessions
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|entry| entry["id"] == event["sessionId"])
+                    .cloned()
+                    .unwrap();
+            }
+        }
+    })
+    .await
+    .unwrap()
 }
 
 impl Drop for TestRuntime {
@@ -125,26 +138,11 @@ async fn a_terminal_on_a_new_branch_starts_in_its_own_folder_and_takes_it_away_u
                 branch: Some(branch.to_owned()),
                 worktrees: None,
                 command: None,
+                agent: None,
                 prompt: None,
             })
             .await;
-        timeout(Duration::from_secs(10), async {
-            loop {
-                let event = serde_json::to_value(events.recv().await.unwrap()).unwrap();
-                assert_ne!(event["type"], "session.error", "{event}");
-                if event["type"] == "sessions.snapshot"
-                    && let Some(entry) = event["sessions"]
-                        .as_array()
-                        .unwrap()
-                        .iter()
-                        .find(|entry| entry["createRequestId"] == request)
-                {
-                    return entry.clone();
-                }
-            }
-        })
-        .await
-        .unwrap()
+        created(&mut events, &request).await
     }
     let root = tempfile::tempdir().unwrap();
     let folder = kodosi_os::fs::canonicalize(root.path())
@@ -341,7 +339,7 @@ async fn slow_login_does_not_block_local_terminal_or_runtime_observation() {
     runtime
         .send(Command::Login {
             browser: None,
-            request_id: None,
+            request_id: Uuid::now_v7().to_string(),
         })
         .await;
     timeout(Duration::from_secs(3), received.notified())
@@ -369,17 +367,18 @@ async fn slow_login_does_not_block_local_terminal_or_runtime_observation() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn stale_epoch_cannot_create_in_current_runtime() {
+async fn a_stale_epoch_creates_nothing_and_hears_why() {
     let runtime = TestRuntime::new().await;
     let (snapshot, mut events) = runtime.handle.observe().await.unwrap();
     let scope = &snapshot[0];
+    let stale = Uuid::now_v7().to_string();
     runtime
         .handle
         .try_send(CommandEnvelope {
             account_user_id: scope.account_user_id.clone(),
             account_epoch: scope.account_epoch + 1,
             command: Command::CreateSession {
-                request_id: Uuid::now_v7().to_string(),
+                request_id: stale.clone(),
                 name: "stale".to_owned(),
                 working_dir: None,
                 mission_id: None,
@@ -387,6 +386,7 @@ async fn stale_epoch_cannot_create_in_current_runtime() {
                 branch: None,
                 worktrees: None,
                 command: None,
+                agent: None,
                 prompt: None,
             },
         })
@@ -396,17 +396,22 @@ async fn stale_epoch_cannot_create_in_current_runtime() {
         .try_send(CommandEnvelope {
             account_user_id: scope.account_user_id.clone(),
             account_epoch: scope.account_epoch,
-            command: Command::ListSessions { request_id: None },
+            command: Command::ListSessions {
+                request_id: Uuid::now_v7().to_string(),
+            },
         })
         .unwrap();
     timeout(Duration::from_secs(2), async {
+        let mut refused = false;
         loop {
             let event = events.recv().await.unwrap();
-            assert!(
-                !matches!(event.event.kind(), "session.error" | "system.error"),
-                "stale requests must stay silent"
-            );
+            if event.event.kind() == "session.error" {
+                assert_eq!(event.event.request_id(), Some(stale.as_str()));
+                assert_eq!(event.recipient, Some(runtime.handle.consumer()));
+                refused = true;
+            }
             if event.event.kind() == "sessions.snapshot" {
+                assert!(refused);
                 break;
             }
         }
@@ -443,6 +448,7 @@ async fn a_viewer_says_that_terminals_and_conversations_stay_on_a_computer() {
             branch: None,
             worktrees: None,
             command: None,
+            agent: None,
             prompt: None,
         })
         .await;
@@ -519,6 +525,7 @@ async fn create_retry_is_exact_and_does_not_launch_a_second_process() {
         branch: None,
         worktrees: None,
         command: None,
+        agent: None,
         prompt: None,
     };
     runtime.send(command.clone()).await;
@@ -614,6 +621,12 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
     (
         Runtime {
             #[cfg(feature = "host")]
+            launcher: Arc::new(crate::agents::Launcher::load(
+                &config.data_root,
+                &config.home,
+                &commands::shell(&config),
+            )),
+            #[cfg(feature = "host")]
             config,
             network,
             events,
@@ -640,6 +653,13 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             auth_pending: false,
             latest_auth: None,
             cached_events: BTreeMap::new(),
+            answers: std::sync::Mutex::new(HashMap::new()),
+            host: Some(crate::HostKind::Background),
+            visible: HashMap::new(),
+            attention: BTreeSet::new(),
+            activity: HashMap::new(),
+            room_latest: HashMap::new(),
+            room_seen: None,
         },
         root,
     )
@@ -670,7 +690,7 @@ async fn login_failure_after_retiring_account_is_visible_and_retryable() {
         runtime
             .send(Command::Login {
                 browser: None,
-                request_id: None,
+                request_id: Uuid::now_v7().to_string(),
             })
             .await;
         let error = timeout(Duration::from_secs(5), async {
@@ -698,15 +718,23 @@ async fn a_refresh_of_the_runtime_fails_quietly_and_a_request_hears_its_own_erro
     let mut events = runtime.events.subscribe();
     let (scope, generation) = (runtime.scope.clone(), runtime.network.generation());
     let unreachable = || Err(Error::Other("The server is not reachable.".to_owned()));
-    let refresh = Command::RefreshFriends { request_id: None };
+    let refresh = Command::RefreshFriends {
+        request_id: Uuid::now_v7().to_string(),
+    };
     runtime.network_completed(&scope, &refresh, false, generation, unreachable());
     assert!(events.try_recv().is_err());
     let request = Uuid::now_v7().to_string();
     let asked = Command::RefreshFriends {
-        request_id: Some(request.clone()),
+        request_id: request.clone(),
     };
+    let client = Uuid::now_v7();
+    runtime
+        .expect_answer(&asked, client, CancellationToken::new())
+        .unwrap();
     runtime.network_completed(&scope, &asked, true, generation, unreachable());
-    let error = serde_json::to_value(events.try_recv().unwrap()).unwrap();
+    let error = events.try_recv().unwrap();
+    assert_eq!(error.recipient, Some(client));
+    let error = serde_json::to_value(error).unwrap();
     assert_eq!(error["type"], "friends.error");
     assert_eq!(error["requestId"], request.as_str());
 }
@@ -793,9 +821,9 @@ async fn closed_remote_is_not_reported_connected_and_old_close_cannot_replace_ne
 }
 
 #[tokio::test]
-async fn observation_retains_pending_sign_in_and_discards_stale_auth_events() {
+async fn observation_retains_a_finishing_sign_in_until_its_answer() {
     let (mut runtime, _root) = registry_fixture();
-    let pending = json!({"type":"auth.device_code", "userCode":"ABCD-EFGH", "verificationUri":"https://example.invalid/device"});
+    let pending = json!({"type":"auth.finalizing"});
     runtime.network_event(BackendEvent {
         generation: runtime.network.generation(),
         user_id: None,
@@ -808,7 +836,7 @@ async fn observation_retains_pending_sign_in_and_discards_stale_auth_events() {
         event: json!({"type":"auth.required", "reason":"signedOut"}),
     });
     assert_eq!(runtime.auth_event(), pending);
-    runtime.network_event(BackendEvent { generation: runtime.network.generation(), user_id: None, event: json!({"type":"auth.error", "operation":"auth.login.start", "message":"Code expired"}) });
+    runtime.network_event(BackendEvent { generation: runtime.network.generation(), user_id: None, event: json!({"type":"auth.error", "requestId":Uuid::now_v7().to_string(), "operation":"auth.login.start", "message":"Code expired"}) });
     assert_eq!(runtime.auth_event()["type"], "auth.required");
 }
 
@@ -828,26 +856,14 @@ async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_
         branch: None,
         worktrees: None,
         command: None,
+        agent: None,
         prompt: None,
     };
     runtime.send(command).await;
-    timeout(Duration::from_secs(5), async {
-        let mut observed = false;
-        loop {
-            let value = serde_json::to_value(events.recv().await.unwrap()).unwrap();
-            if value["type"] == "sessions.snapshot" {
-                observed |= value["sessions"].as_array().unwrap().iter().any(|entry| {
-                    entry["createRequestId"] == request_id && entry["missionId"] == room_id
-                });
-            }
-            if value["type"] == "session.result" && value["requestId"] == request_id {
-                assert!(observed);
-                break;
-            }
-        }
-    })
-    .await
-    .unwrap();
+    assert_eq!(
+        created(&mut events, &request_id).await["missionId"],
+        room_id
+    );
     runtime
         .send(Command::CreateSession {
             request_id: request_id.clone(),
@@ -858,6 +874,7 @@ async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_
             branch: None,
             worktrees: None,
             command: None,
+            agent: None,
             prompt: None,
         })
         .await;
@@ -907,7 +924,7 @@ async fn first_remote_open_retains_retry_demand_until_explicit_disconnect() {
         .apply_for_consumer(
             &Command::DisconnectRemote {
                 session_id: id.to_string(),
-                request_id: None,
+                request_id: Uuid::now_v7().to_string(),
             },
             consumer,
             CancellationToken::new(),
@@ -1158,7 +1175,7 @@ async fn remote_demand_is_released_only_by_its_consumer() {
         .apply_for_consumer(
             &Command::DisconnectRemote {
                 session_id: id.to_string(),
-                request_id: None,
+                request_id: Uuid::now_v7().to_string(),
             },
             desktop,
             CancellationToken::new(),
@@ -1250,6 +1267,77 @@ async fn catalog_replacement_cancels_inflight_automatic_recovery() {
     assert!(cancellation.is_cancelled());
     assert!(!runtime.opening.contains_key(&id));
     assert!(!runtime.reconnect.contains_key(&id));
+}
+
+#[tokio::test]
+async fn a_terminal_that_needs_its_person_waits_for_a_look_unless_someone_watches() {
+    use crate::terminal::{ProgramState, ProgramStatus};
+    let (mut runtime, _root) = registry_fixture();
+    let mut events = runtime.events.subscribe();
+    let id = Uuid::now_v7();
+    runtime.replace_remotes(vec![remote_session(id, Uuid::now_v7())]);
+    let show = |runtime: &mut Runtime, state| {
+        let entry = runtime.remotes.get_mut(&id).unwrap();
+        entry.is_owner = true;
+        entry.program_status = Some(ProgramStatus {
+            state,
+            kind: None,
+            progress: None,
+            title: None,
+            message: None,
+        });
+        runtime.publish_catalog();
+        runtime.entries()[0].attention
+    };
+    assert!(!show(&mut runtime, ProgramState::Working));
+    assert!(show(&mut runtime, ProgramState::Done));
+    let watching = CancellationToken::new();
+    runtime.see(
+        Uuid::now_v7(),
+        watching.clone(),
+        BTreeSet::from([id.to_string()]),
+    );
+    assert!(!runtime.entries()[0].attention);
+    assert!(!show(&mut runtime, ProgramState::Working));
+    assert!(!show(&mut runtime, ProgramState::Done));
+    watching.cancel();
+    assert!(!show(&mut runtime, ProgramState::Working));
+    assert!(show(&mut runtime, ProgramState::Blocked));
+    let mut notices = 0;
+    while let Ok(event) = events.try_recv() {
+        if event.event.kind() == "term.attention" {
+            notices += 1;
+        }
+    }
+    assert_eq!(notices, 2);
+}
+
+#[tokio::test]
+async fn a_room_stays_unread_until_its_person_sees_what_others_wrote() {
+    let (mut runtime, _root) = registry_fixture();
+    runtime.scope.user = Some("me".to_owned());
+    let room = Uuid::now_v7().to_string();
+    runtime.cached_events.insert(
+        "missions.snapshot".to_owned(),
+        json!({"type":"missions.snapshot","missions":[{"id":room,"name":"Room","ownerUserId":"me"}],"invitations":[]}),
+    );
+    let message = |sequence: u64, author: &str, agent: Option<&str>| {
+        json!({"id":Uuid::now_v7().to_string(),"sequence":sequence,"authorId":author,"authorName":author,
+            "agent":agent,"terminalId":null,"text":"hello","createdAt":"2026-10-17T00:00:00Z"})
+    };
+    let unread = |runtime: &Runtime| {
+        runtime.cached_events["missions.snapshot"]["missions"][0]["unread"] == true
+    };
+    runtime.room_changed(&json!({"roomId":room,"messages":[message(1, "friend", None)]}));
+    assert!(!unread(&runtime));
+    runtime.room_changed(&json!({"roomId":room,"messages":[message(2, "me", None)]}));
+    assert!(!unread(&runtime));
+    runtime.room_changed(&json!({"roomId":room,"messages":[message(3, "me", Some("claude"))]}));
+    assert!(unread(&runtime));
+    runtime.see_room(&room, 3).unwrap();
+    assert!(!unread(&runtime));
+    runtime.room_seen = None;
+    assert_eq!(runtime.seen_rooms().unwrap()[&room], 3);
 }
 
 #[tokio::test]

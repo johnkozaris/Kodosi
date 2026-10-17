@@ -15,7 +15,7 @@ struct MainTabView: View {
             Tab("Rooms", systemImage: "square.grid.2x2") {
                 NavigationStack { RoomsHome() }
             }
-            .badge(model.rooms.invitations.count + model.rooms.unread.count)
+            .badge(model.rooms.invitations.count + model.rooms.missions.count(where: \.unread))
             .accessibilityIdentifier("tab.rooms")
 
             Tab("People", systemImage: "person.2") {

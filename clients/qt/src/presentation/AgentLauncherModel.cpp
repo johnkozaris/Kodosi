@@ -6,23 +6,27 @@
 #include <QDateTime>
 #include <QJsonArray>
 #include <QJsonDocument>
-#include <QTimer>
 #include <QUuid>
 
 namespace kodosi {
 namespace {
-constexpr auto ChoiceKey = "launcher/choice";
 constexpr qint64 RefreshMilliseconds = 8000;
-constexpr int ReplyMilliseconds = 30000;
+
+QString field(const QVariant& entry, const char* key)
+{
+    return entry.toMap().value(QLatin1StringView(key)).toString();
 }
 
-AgentLauncherModel::AgentLauncherModel(
-    CommandDispatcher& commands, std::unique_ptr<QSettings> settings, QObject* parent)
+QJsonValue nullable(const QString& value)
+{
+    return value.isEmpty() ? QJsonValue() : QJsonValue(value);
+}
+}
+
+AgentLauncherModel::AgentLauncherModel(CommandDispatcher& commands, QObject* parent)
     : QObject(parent)
     , m_commands(commands)
-    , m_settings(std::move(settings))
 {
-    m_choice = m_settings->value(QLatin1StringView(ChoiceKey)).toMap();
     for (const auto signal : { &AgentLauncherModel::agentsChanged, &AgentLauncherModel::modelsChanged,
              &AgentLauncherModel::choiceChanged })
         connect(this, signal, this, &AgentLauncherModel::plansChanged);
@@ -41,41 +45,39 @@ QVariantMap AgentLauncherModel::plans() const
 QVariantMap AgentLauncherModel::plan(const QVariantMap& info) const
 {
     const auto agent = info.value(QStringLiteral("agent")).toString();
-    const auto saved = [&](const QString& kind) { return m_choice.value(kind).toMap().value(agent).toString(); };
-    const auto argument = [](const QVariant& entry) { return entry.toMap().value(QStringLiteral("argument")).toString(); };
+    const auto id = [](const QVariant& entry) { return field(entry, "id"); };
+    const auto picks = m_choice.value(QStringLiteral("picks")).toList();
+    const auto picked = std::ranges::find(picks, agent, [](const QVariant& entry) { return field(entry, "agent"); });
+    const auto saved = picked == picks.end() ? QVariantMap() : picked->toMap();
     const auto accounts = info.value(QStringLiteral("accounts")).toList();
-    const auto chosen = std::ranges::find_if(accounts, [&](const QVariant& entry) {
-        return entry.toMap().value(QStringLiteral("command")).toString() == saved(QStringLiteral("accounts"));
-    });
+    const auto chosen = std::ranges::find(accounts, saved.value(QStringLiteral("account")).toString(),
+        [](const QVariant& entry) { return field(entry, "name"); });
     const auto account = chosen == accounts.end() ? accounts.value(0) : *chosen;
     const bool listed = m_models.contains(agent);
     const auto offer = m_models.value(agent).toMap();
-    auto modelArgument = saved(QStringLiteral("models"));
+    auto modelId = saved.value(QStringLiteral("model")).toString();
     const auto models = offer.value(QStringLiteral("models")).toList();
-    const auto model = std::ranges::find(models, modelArgument, argument);
+    const auto model = std::ranges::find(models, modelId, id);
     if (listed && model == models.end())
-        modelArgument.clear();
+        modelId.clear();
     const auto allowed = model == models.end() ? QStringList() : model->toMap().value(QStringLiteral("efforts")).toStringList();
     QVariantList efforts;
     for (const auto& entry : offer.value(QStringLiteral("efforts")).toList()) {
-        if (allowed.isEmpty() || allowed.contains(entry.toMap().value(QStringLiteral("id")).toString()))
+        if (allowed.isEmpty() || allowed.contains(id(entry)))
             efforts.append(entry);
     }
-    auto effortArgument = saved(QStringLiteral("efforts"));
-    if (listed && std::ranges::find(efforts, effortArgument, argument) == efforts.end())
-        effortArgument.clear();
-    QString line;
-    if (!info.value(QStringLiteral("installed")).toBool()) {
-        line = info.value(QStringLiteral("install")).toString();
-    } else if (account.isValid()) {
-        QStringList words { account.toMap().value(QStringLiteral("command")).toString(), modelArgument, effortArgument };
-        words.removeAll(QString());
-        line = words.join(QLatin1Char(' '));
+    auto effortId = saved.value(QStringLiteral("effort")).toString();
+    if (listed && std::ranges::find(efforts, effortId, id) == efforts.end())
+        effortId.clear();
+    QVariant start;
+    if (info.value(QStringLiteral("installed")).toBool() && account.isValid()) {
+        start = QVariantMap { { QStringLiteral("agent"), agent }, { QStringLiteral("account"), field(account, "name") },
+            { QStringLiteral("model"), modelId }, { QStringLiteral("effort"), effortId } };
     }
-    return { { QStringLiteral("account"), account }, { QStringLiteral("modelArgument"), modelArgument },
+    return { { QStringLiteral("account"), account }, { QStringLiteral("modelId"), modelId },
         { QStringLiteral("model"), model == models.end() ? QVariant() : *model },
-        { QStringLiteral("efforts"), efforts }, { QStringLiteral("effortArgument"), effortArgument },
-        { QStringLiteral("line"), line } };
+        { QStringLiteral("efforts"), efforts }, { QStringLiteral("effortId"), effortId },
+        { QStringLiteral("start"), start } };
 }
 
 bool AgentLauncherModel::addingAccount() const
@@ -124,24 +126,33 @@ void AgentLauncherModel::addAccount(const QString& agent, const QString& name)
 
 void AgentLauncherModel::chooseAgent(const QString& agent)
 {
-    if (agent.isEmpty())
-        m_choice.remove(QStringLiteral("agent"));
-    else
-        m_choice.insert(QStringLiteral("agent"), agent);
-    persist();
+    m_choice.insert(QStringLiteral("agent"), agent.isEmpty() ? QVariant() : QVariant(agent));
+    emit choiceChanged();
+    change({ { QStringLiteral("type"), QStringLiteral("tab") }, { QStringLiteral("agent"), nullable(agent) } });
 }
 
 void AgentLauncherModel::choose(const QString& kind, const QString& agent, const QString& value)
 {
-    if (kind != QStringLiteral("accounts") && kind != QStringLiteral("models") && kind != QStringLiteral("efforts"))
+    const auto info = std::ranges::find(m_agents, agent, [](const QVariant& entry) { return field(entry, "agent"); });
+    if (info == m_agents.end()
+        || (kind != QStringLiteral("account") && kind != QStringLiteral("model") && kind != QStringLiteral("effort")))
         return;
-    auto values = m_choice.value(kind).toMap();
-    if (value.isEmpty())
-        values.remove(agent);
+    const auto shown = plan(info->toMap());
+    QJsonObject pick { { QStringLiteral("agent"), agent },
+        { QStringLiteral("account"), nullable(field(shown.value(QStringLiteral("account")), "name")) },
+        { QStringLiteral("model"), nullable(shown.value(QStringLiteral("modelId")).toString()) },
+        { QStringLiteral("effort"), nullable(shown.value(QStringLiteral("effortId")).toString()) } };
+    pick.insert(kind, nullable(value));
+    auto picks = m_choice.value(QStringLiteral("picks")).toList();
+    const auto saved = std::ranges::find(picks, agent, [](const QVariant& entry) { return field(entry, "agent"); });
+    if (saved == picks.end())
+        picks.append(pick.toVariantMap());
     else
-        values.insert(agent, value);
-    m_choice.insert(kind, values);
-    persist();
+        *saved = pick.toVariantMap();
+    m_choice.insert(QStringLiteral("picks"), picks);
+    emit choiceChanged();
+    pick.insert(QStringLiteral("type"), QStringLiteral("pick"));
+    change(pick);
 }
 
 void AgentLauncherModel::apply(const QJsonObject& event)
@@ -158,6 +169,7 @@ void AgentLauncherModel::apply(const QJsonObject& event)
     case Request::Agents:
         if (!failed) {
             m_refreshedAt = QDateTime::currentMSecsSinceEpoch();
+            adopt(result.value(QStringLiteral("choice")).toObject(), pending.asOf);
             auto agents = result.value(QStringLiteral("agents")).toArray().toVariantList();
             if (agents != m_agents) {
                 m_agents = std::move(agents);
@@ -180,15 +192,18 @@ void AgentLauncherModel::apply(const QJsonObject& event)
         break;
     case Request::Models:
         m_loading.removeAll(pending.agent);
-        if (!failed)
-            m_models.insert(pending.agent, result.toVariantMap());
+        if (!failed) {
+            m_models.insert(pending.agent,
+                QVariantMap { { QStringLiteral("models"), result.value(QStringLiteral("models")).toArray().toVariantList() },
+                    { QStringLiteral("efforts"), result.value(QStringLiteral("efforts")).toArray().toVariantList() } });
+            adopt(result.value(QStringLiteral("choice")).toObject(), pending.asOf);
+        }
         emit modelsChanged();
         break;
     case Request::Account:
         if (failed) {
             m_accountError = event.value(QStringLiteral("message")).toString();
         } else {
-            const auto command = result.value(QStringLiteral("command")).toString();
             for (auto& value : m_agents) {
                 auto info = value.toMap();
                 if (info.value(QStringLiteral("agent")).toString() != pending.agent)
@@ -198,11 +213,16 @@ void AgentLauncherModel::apply(const QJsonObject& event)
                 value = info;
                 emit agentsChanged();
             }
-            choose(QStringLiteral("accounts"), pending.agent, command);
-            emit accountAdded(pending.agent, command);
+            const auto name = result.value(QStringLiteral("name")).toString();
+            choose(QStringLiteral("account"), pending.agent, name);
+            emit accountAdded(pending.agent, name);
             refresh(true);
         }
         emit accountErrorChanged();
+        break;
+    case Request::Choose:
+        if (!failed)
+            adopt(result, pending.asOf);
         break;
     }
 }
@@ -229,21 +249,22 @@ bool AgentLauncherModel::send(Request request, const QString& agent, QJsonObject
         }
         return false;
     }
-    m_pending.insert(requestId, { request, agent });
-    QTimer::singleShot(ReplyMilliseconds, this, [this, requestId] {
-        const auto found = m_pending.constFind(requestId);
-        if (found == m_pending.constEnd())
-            return;
-        apply(QJsonObject { { QStringLiteral("type"), QStringLiteral("provider.error") },
-            { QStringLiteral("requestId"), requestId },
-            { QStringLiteral("message"), tr("The agent did not answer in time.") } });
-    });
+    m_pending.insert(requestId, { request, agent, m_changes });
     return true;
 }
 
-void AgentLauncherModel::persist()
+void AgentLauncherModel::change(const QJsonObject& change)
 {
-    m_settings->setValue(QLatin1StringView(ChoiceKey), m_choice);
+    ++m_changes;
+    send(Request::Choose, {}, { { QStringLiteral("type"), QStringLiteral("provider.choose") }, { QStringLiteral("change"), change } });
+}
+
+void AgentLauncherModel::adopt(const QJsonObject& choice, int asOf)
+{
+    auto chosen = choice.toVariantMap();
+    if (asOf != m_changes || chosen == m_choice)
+        return;
+    m_choice = std::move(chosen);
     emit choiceChanged();
 }
 }

@@ -6,8 +6,7 @@ import KodosiTerminalSessions
 
 extension AppDependencies {
     func consumeDeepLink() {
-        guard let link = pendingDeepLink else { return }
-        guard session(link.sessionId) != nil || (account.userId != nil && !account.stage.isPending) else { return }
+        guard let link = pendingDeepLink, session(link.sessionId) != nil || (account.userId != nil && !account.stage.isPending) else { return }
         pendingDeepLink = nil
         activateSession(link.sessionId)
     }
@@ -27,10 +26,9 @@ extension AppDependencies {
             missions.removeAll(); invitations.removeAll()
             missionListTruncated = false
             missionDetail = nil
-            rooms.removeAll(); roomIssues.removeAll(); roomViews.removeAll(); roomCreations.removeAll()
-            attention.removeAll(); freshTerminals.removeAll()
+            rooms.removeAll(); roomIssues.removeAll(); roomViews.removeAll(); roomSeen.removeAll()
+            freshTerminals.removeAll(); reportedVisible = nil
             activationTasks.values.forEach { $0.cancel() }; activationTasks.removeAll()
-            pendingCreations.removeAll()
             missionTask?.cancel(); missionTask = nil; missionRequestId = nil
             accountKnown = true
             accountEpoch = event.accountEpoch
@@ -55,7 +53,7 @@ extension AppDependencies {
         case "friends": try receiveFriends(event)
         case "devices": try account.receiveDevices(event)
         case "mission", "missions", "room": try receiveCollaboration(event)
-        case "term": receiveTerminalNotification(event)
+        case "term", "session": receiveTerminal(event)
         default: break
         }
     }
@@ -80,16 +78,25 @@ extension AppDependencies {
 
     private func receiveFriends(_ event: RuntimeEvent) throws {
         try people.receive(event)
-        guard event.type == "friends.invite", let text = event.string("text"), let requested = inviteRequested,
+        guard event.type == "friends.result", event.string("operation") == "friends.invite",
+              let text = event.string("text"), let requested = inviteRequested,
               Date().timeIntervalSince(requested) < 15 else { return }
         inviteRequested = nil
         copyText(text)
         inviteCopies += 1
     }
 
-    private func receiveTerminalNotification(_ event: RuntimeEvent) {
-        if event.type == "term.bell", let id = event.string("sessionId") {
-            noteAttention(id)
+    private func receiveTerminal(_ event: RuntimeEvent) {
+        if event.type == "session.show", let id = event.string("sessionId") {
+            bringToFront()
+            workbench.section = .sessions
+            activateSession(id)
+            return
+        }
+        if event.type == "term.attention", let id = event.string("sessionId"), let current = session(id) {
+            if let alert = current.alert, !isFront() {
+                terminalNotifications.alert(alert, session: current)
+            }
             return
         }
         guard event.type == "term.notification",
@@ -117,12 +124,15 @@ extension AppDependencies {
             return
         }
         guard event.type == "system.ready" else { return }
+        hostForeground = event.string("host") == "foreground"
         let version: UInt32 = try event.value("protocolVersion")
         guard version == RuntimeHandle.expectedProtocolVersion else {
             throw RuntimeError.invalidResponse(String(localized: "This copy of Kodosi is damaged. Install it again."))
         }
         appState = .ready
         refresh()
+        reportedVisible = []
+        reportVisible()
     }
 
     private func receiveAuth(_ event: RuntimeEvent) throws {
@@ -164,36 +174,25 @@ extension AppDependencies {
         }
         guard received != sessions else { return }
         let previous = Dictionary(uniqueKeysWithValues: sessions.map { ($0.id, $0) })
-        var createdIds: [String] = []
         sessions = received
-        attention.formIntersection(received.map(\.id))
         freshTerminals.formIntersection(received.map(\.id))
-        for value in received where value.needsAttention(after: previous[value.id]) {
-            noteAttention(value.id)
-        }
         terminalNotifications.reconcile(sessions: received, accountEpoch: accountEpoch)
-        alert(received, after: previous)
         for value in received {
             if let old = previous[value.id], old.incarnationId != value.incarnationId {
                 terminalFocus.releaseSession(sessionId: value.id)
             }
-            if let request = value.createRequestId, pendingCreations.remove(request) != nil {
-                createdIds.append(value.id)
-                freshTerminals.insert(value.id)
-            }
-            if let request = value.createRequestId, let room = roomCreations.removeValue(forKey: request) {
-                freshTerminals.insert(value.id)
-                activateSession(value.id, inRoom: room)
+            if !value.attention || value.waitState == nil {
+                terminalNotifications.withdrawAlert(value.id)
             }
         }
         for id in Set(previous.keys).subtracting(received.map(\.id)) {
             terminalFocus.releaseSession(sessionId: id)
         }
         reconcileTerminals()
-        let restore = workbench.reconcile(received)
-        for id in createdIds + restore {
+        for id in workbench.reconcile(received) {
             activateSession(id)
         }
+        reportVisible()
         consumeDeepLink()
     }
 
@@ -211,36 +210,16 @@ extension AppDependencies {
                     workbench.selectedMissionId = nil; missionDetail = nil
                 }
             }
-        case "mission.snapshot":
-            let mission: MissionEntry = try event.value("mission")
-            if workbench.selectedMissionId == mission.id, event.string("requestId") == missionRequestId {
-                missionDetail = try MissionDetail(mission: mission, members: event.value("members"))
-            }
-        case "mission.result":
-            commandSink.perform("mission.list")
         default: break
         }
     }
 
-    private func alert(_ received: [RuntimeSession], after before: [String: RuntimeSession]) {
-        for value in received {
-            guard let was = before[value.id], value.waitState != was.waitState else { continue }
-            if let alert = value.alert, !isFront() {
-                terminalNotifications.alert(alert, session: value)
-            } else {
-                terminalNotifications.withdrawAlert(value.id)
-            }
-        }
-    }
-
-    func noteAttention(_ id: String) {
-        guard session(id) != nil, !isWatching(id) else { return }
-        attention.insert(id)
-    }
-
-    func seen(_ id: String) {
-        attention.remove(id)
-        terminalNotifications.withdrawAlert(id)
+    func reportVisible() {
+        let visible = sessions.map(\.id).filter(isWatching).sorted()
+        guard visible != reportedVisible, commandSink.transport != nil else { return }
+        reportedVisible = visible
+        commandSink.perform("session.visible", ["sessionIds": .array(visible.map(JSONValue.string))])
+        visible.forEach(terminalNotifications.withdrawAlert)
     }
 
     func isWatching(_ id: String) -> Bool {
