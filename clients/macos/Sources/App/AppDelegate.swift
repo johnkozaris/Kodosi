@@ -89,14 +89,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     func applicationDidBecomeActive(_: Notification) {
         Task { await dependencies.launcher.refresh() }
+        dependencies.reportVisible()
+    }
+
+    func applicationDidResignActive(_: Notification) {
+        dependencies.reportVisible()
     }
 
     func applicationShouldTerminate(_ application: NSApplication) -> NSApplication.TerminateReply {
         if terminating {
             return .terminateLater
         }
+        let stopsHost = !dependencies.hostForeground
         let local = dependencies.sessions.count(where: { $0.kind == .local })
-        if !storageBootstrap.isIsolated, local > 0 {
+        if !storageBootstrap.isIsolated, stopsHost, local > 0 {
             let restarting = dependencies.updater.restarting
             let alert = NSAlert()
             alert.messageText = restarting ? String(localized: "Restart Kodosi to update?") : String(localized: "Quit Kodosi?")
@@ -112,7 +118,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             }
         }
         terminating = true
-        dependencies.shutdownProcess { [weak self] in self?.finishTermination(application) }
+        dependencies.shutdownProcess { [weak self] in
+            Task { @MainActor in
+                if stopsHost {
+                    _ = await HostStopResult.stopHost(force: true)
+                }
+                self?.finishTermination(application)
+            }
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.shutdownDeadline) { [weak self] in
             guard let self, !terminationReplied else { return }
             Logger.app.error("Runtime shutdown exceeded its deadline; quitting anyway.")

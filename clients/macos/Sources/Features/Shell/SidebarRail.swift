@@ -31,7 +31,7 @@ struct SidebarRail: View {
                         } content: {
                             RoomSigil(key: mission.id, size: 26)
                                 .overlay(alignment: .topTrailing) {
-                                    if (deps.roomViews[mission.id]?.unread ?? 0) > 0 {
+                                    if mission.unread {
                                         Circle().fill(theme.colors.accent).frame(width: 8, height: 8)
                                             .overlay { Circle().stroke(theme.colors.ground, lineWidth: 1.5) }.offset(x: 3, y: -3)
                                     }

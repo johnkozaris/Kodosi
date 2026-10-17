@@ -71,6 +71,7 @@ public struct MissionEntry: Decodable, Equatable, Identifiable, Sendable {
     public let id: String
     public let name: String
     public let ownerUserId: String
+    public let unread: Bool
 }
 
 public struct MissionMemberEntry: Decodable, Equatable, Identifiable, Sendable {

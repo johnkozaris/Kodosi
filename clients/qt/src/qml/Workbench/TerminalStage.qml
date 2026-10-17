@@ -253,7 +253,7 @@ Item {
                                     interactionEnabled: root.interactionEnabled && layoutEntry.entryVisible
                                     accessibilitySuppressed:
                                         !layoutEntry.entryVisible
-                                    focusedSizeAuthority:
+                                    zoomed:
                                         root.focusMode
                                         && layoutEntry.sessionId
                                             === Models.DesktopState

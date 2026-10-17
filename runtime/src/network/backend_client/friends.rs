@@ -476,7 +476,7 @@ impl BackendClient {
                 .fetch_identity_with(&credentials, &credentials.user_id)
                 .await?;
             return Ok(vec![
-                json!({"type":"friends.invite","text":invite(wire::text(&profile, "handle")?, &own.root)}),
+                json!({"type":"friends.result","requestId":args["requestId"],"operation":operation,"text":invite(wire::text(&profile, "handle")?, &own.root)}),
             ]);
         }
         let typed = wire::text(args, "username")?;

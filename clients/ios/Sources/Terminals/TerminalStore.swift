@@ -7,16 +7,15 @@ import Observation
 @Observable
 final class TerminalStore {
     private(set) var sessions: [RuntimeSession] = []
-    private(set) var attention: Set<String> = []
     private(set) var userId: String?
     private(set) var loaded = false
     private(set) var revision = 0
     private(set) var bells: [String: Int] = [:]
     var watchingSessionId: String? {
         didSet {
-            if let watchingSessionId {
-                attention.remove(watchingSessionId)
-            }
+            guard watchingSessionId != oldValue else { return }
+            let visible = watchingSessionId.map { [JSONValue.string($0)] } ?? []
+            commands.perform("session.visible", ["sessionIds": .array(visible)])
         }
     }
 
@@ -34,7 +33,6 @@ final class TerminalStore {
             runtimeHandle: runtime,
             commandSink: commands,
             style: { TerminalAppearance.style },
-            claimsSizeByDefault: false,
             onFocusResult: { sessionId, incarnation, requestId, accepted in
                 focus.applyResult(sessionId: sessionId, runtimeIncarnationId: incarnation, requestId: requestId, accepted: accepted)
             }
@@ -49,7 +47,6 @@ final class TerminalStore {
         releaseLive()
         self.userId = userId
         sessions = []
-        attention = []
         bells = [:]
         loaded = false
         watchingSessionId = nil
@@ -65,7 +62,7 @@ final class TerminalStore {
     }
 
     func sign(of session: RuntimeSession) -> StatusSign.Form? {
-        session.sign(unseen: attention.contains(session.id))
+        session.sign(unseen: session.attention)
     }
 
     func watch(_ sessionId: String, _ watching: Bool) {
@@ -83,12 +80,8 @@ final class TerminalStore {
         case "sessions.snapshot":
             try receiveSnapshot(event)
         case "term.bell":
-            guard let id = event.string("sessionId") else { return }
-            if watchingSessionId == id {
-                bells[id, default: 0] += 1
-            } else {
-                noteAttention(id)
-            }
+            guard let id = event.string("sessionId"), watchingSessionId == id else { return }
+            bells[id, default: 0] += 1
         default:
             break
         }
@@ -105,26 +98,16 @@ final class TerminalStore {
         let ids = Set(received.map(\.id))
         sessions = received
         loaded = true
-        attention.formIntersection(ids)
         bells = bells.filter { ids.contains($0.key) }
         for value in received {
-            let old = before[value.id]
-            if let old, old.incarnationId != value.incarnationId {
+            if let old = before[value.id], old.incarnationId != value.incarnationId {
                 focus.releaseSession(sessionId: value.id)
-            }
-            if value.needsAttention(after: old) {
-                noteAttention(value.id)
             }
         }
         for id in Set(before.keys).subtracting(ids) {
             focus.releaseSession(sessionId: id)
         }
         live.reconcile(with: received)
-    }
-
-    func noteAttention(_ id: String) {
-        guard session(id) != nil, watchingSessionId != id else { return }
-        attention.insert(id)
     }
 
     func refresh() async {

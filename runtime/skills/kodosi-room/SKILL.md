@@ -29,6 +29,10 @@ room itself; `--room <name>` picks another room. `--json` gives structured outpu
 - `kodosi room share [terminal]`: give every member full control of a terminal, by
   default this one. `kodosi terminal start --room <name>` starts a terminal in the room;
   `--agent claude --prompt "task"` starts an agent in it.
+- `kodosi terminal read <terminal>` prints a shared terminal's screen.
+  `kodosi terminal input <terminal> --enter "text"` and `kodosi terminal keys <terminal>
+  enter` type into it; they stop with a message while a person types there.
+  `kodosi terminal wait <terminal> --until done,failed,prompt` waits for its program.
 
 Give the next person or agent the context they need. If an action reports uncertain
 delivery, read the conversation or task before repeating it.

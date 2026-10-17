@@ -69,11 +69,10 @@ Windows app and the CLI, set `KODOSI__BACKEND__API=http://127.0.0.1:5180`, and
 Validate by running the app or calling the real boundary, with a disposable database and
 a disposable `KODOSI_DATA_ROOT`. Set `KODOSI_PRODUCTION_DATA_ROOT` to the real data root
 too, so the runtime refuses an overlap. `KODOSI__RUNTIME__INITIAL_SHELL` picks the shell
-of new terminals; a `kodosi` CLI host gives its terminals your real `HOME`, so point it at
-a script that sets a disposable one. Never touch real provider settings, memory,
-conversations, credentials or working files. The app writes a redacted `app.log` in the
-data root, and a CLI host `host.log`; check them for private data before you attach them
-to an issue.
+of new terminals; the host gives its terminals your real `HOME`, so point it at a script
+that sets a disposable one. Never touch real provider settings, memory, conversations,
+credentials or working files. The app writes a redacted `app.log` in the data root, and
+the host `host.log`; check them for private data before you attach them to an issue.
 
 ## Data formats
 

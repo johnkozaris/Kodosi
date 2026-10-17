@@ -6,13 +6,11 @@
 #include <QDateTime>
 #include <QJsonArray>
 #include <QJsonDocument>
-#include <QTimer>
 #include <QUuid>
 
 namespace kodosi {
 namespace {
 constexpr qint64 RefreshMilliseconds = 8000;
-constexpr int ReplyMilliseconds = 30000;
 
 QString field(const QVariant& entry, const char* key)
 {
@@ -252,14 +250,6 @@ bool AgentLauncherModel::send(Request request, const QString& agent, QJsonObject
         return false;
     }
     m_pending.insert(requestId, { request, agent, m_changes });
-    QTimer::singleShot(ReplyMilliseconds, this, [this, requestId] {
-        const auto found = m_pending.constFind(requestId);
-        if (found == m_pending.constEnd())
-            return;
-        apply(QJsonObject { { QStringLiteral("type"), QStringLiteral("provider.error") },
-            { QStringLiteral("requestId"), requestId },
-            { QStringLiteral("message"), tr("The agent did not answer in time.") } });
-    });
     return true;
 }
 

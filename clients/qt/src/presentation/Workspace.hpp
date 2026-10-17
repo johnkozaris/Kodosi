@@ -7,12 +7,12 @@
 #include "presentation/PeopleModel.hpp"
 #include "presentation/SessionActionsModel.hpp"
 
-#include <QDeadlineTimer>
 #include <QHash>
 #include <QJsonObject>
 #include <QObject>
 #include <QStringList>
-#include <QTimer>
+
+#include <optional>
 
 namespace kodosi {
 class CommandDispatcher;
@@ -43,6 +43,8 @@ public:
 
 signals:
     void errorChanged();
+    void hostReady();
+    void showRequested(const QString& sessionId);
 
 private:
     friend class AccountModel;
@@ -57,7 +59,6 @@ private:
         QString operation;
         QString sessionId;
         QString missionId;
-        QDeadlineTimer deadline;
         QVariantMap draft;
     };
 
@@ -65,8 +66,8 @@ private:
     SessionCatalogModel& m_sessions;
     DesktopStateModel& m_desktop;
     QHash<QString, Pending> m_pending;
-    QStringList m_untrackedRequests;
-    QTimer m_timeout;
+    std::optional<QStringList> m_reportedVisible;
+    bool m_hostReady = false;
     QString m_error;
     AccountModel m_account;
     PeopleModel m_people;
@@ -74,11 +75,13 @@ private:
     MissionsModel m_missions;
     SessionActionsModel m_sessionActions;
 
-    bool sendUntracked(QString type, QJsonObject values = {}, bool includeRequestId = false);
+    bool sendUntracked(QString type, QJsonObject values = {});
     bool sendTracked(PendingDomain domain, QString type, QJsonObject values = {},
         QString sessionId = {}, QString missionId = {});
     bool hasPending(PendingDomain domain) const;
     void notifyBusy();
+    void reportVisible();
+    void receiveResult(const QString& type, const QJsonObject& event);
     void clearAccountData(bool clearLinks);
     static bool validName(const QString& name);
 };

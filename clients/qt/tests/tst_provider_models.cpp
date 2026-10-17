@@ -19,7 +19,7 @@ public:
     QJsonObject reply(QJsonObject result, qsizetype index = -1) const
     {
         const auto command = values.at(index < 0 ? values.size() - 1 : index);
-        return { { QStringLiteral("type"), QStringLiteral("provider.reply") },
+        return { { QStringLiteral("type"), QStringLiteral("provider.result") },
             { QStringLiteral("requestId"), command.value(QStringLiteral("requestId")) },
             { QStringLiteral("operation"), command.value(QStringLiteral("type")) },
             { QStringLiteral("result"), result } };

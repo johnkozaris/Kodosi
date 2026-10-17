@@ -14,6 +14,7 @@ final class RoomStore {
     private(set) var detailFailures: [String: String] = [:]
     private(set) var issues: [String: [RoomIssue]] = [:]
     private(set) var unread: [String: Int] = [:]
+    @ObservationIgnored private var seen: [String: UInt64] = [:]
     private(set) var departed: Set<String> = []
     var visibleRoomId: String?
 
@@ -41,6 +42,7 @@ final class RoomStore {
         detailFailures = [:]
         issues = [:]
         unread = [:]
+        seen = [:]
         departed = []
         visibleRoomId = nil
         views = [:]
@@ -74,19 +76,25 @@ final class RoomStore {
         if unread[roomId] != nil {
             unread[roomId] = nil
         }
+        guard let sequence = snapshots[roomId]?.messages.map(\.sequence).max(),
+              mission(roomId)?.unread == true || sequence > seen[roomId] ?? 0 else { return }
+        seen[roomId] = sequence
+        commands.perform("mission.seen", ["missionId": .string(roomId), "sequence": .uint(sequence)])
     }
 
     func receive(_ event: RuntimeEvent) throws {
         switch event.type {
         case "missions.snapshot":
             try receiveList(event)
-        case "mission.result":
-            commands.perform("mission.list")
         case "room.snapshot":
             try receiveRoom(event.value("room"))
-        case "room.issues":
-            guard let repository = event.string("repositoryId") else { return }
-            issues[repository] = try event.value("issues")
+        case "room.result":
+            if let repository = event.string("repositoryId") {
+                issues[repository] = try event.value("issues")
+            }
+            if event.payload["room"] != nil {
+                try receiveRoom(event.value("room"))
+            }
         default:
             break
         }

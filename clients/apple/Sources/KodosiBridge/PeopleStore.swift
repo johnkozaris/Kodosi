@@ -45,7 +45,7 @@ public final class PeopleStore {
             loaded = true
             revision += 1
             settle()
-        case "friends.invite":
+        case "friends.result" where event.string("operation") == "friends.invite":
             ownInvite = event.string("text")
             fetchingInvite = false
         default:

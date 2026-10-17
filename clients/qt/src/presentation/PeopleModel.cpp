@@ -14,7 +14,7 @@ PeopleModel::PeopleModel(Workspace& workspace)
 void PeopleModel::request(const QString& username)
 {
     m_workspace.sendUntracked(QStringLiteral("friends.request.send"),
-        { { QStringLiteral("username"), username.trimmed() } }, true);
+        { { QStringLiteral("username"), username.trimmed() } });
 }
 
 void PeopleModel::accept(const QString& username)

@@ -20,15 +20,40 @@ MissionsModel::MissionsModel(Workspace& workspace, SessionCatalogModel& sessions
 
 bool MissionsModel::watching(const QString& roomId) const
 {
+    const auto view = m_presentations.value(roomId);
     return !roomId.isEmpty() && roomId == m_selectedId && m_workspace.m_desktop.activeView() == DesktopStateModel::Missions
-        && m_presentations.value(roomId).value(QStringLiteral("conversation"), true).toBool();
+        && view.value(QStringLiteral("conversation"), true).toBool() && view.value(QStringLiteral("followLatest"), true).toBool();
 }
 
 void MissionsModel::readWatched()
 {
-    if (watching(m_selectedId) && m_unread.removeAll(m_selectedId) > 0)
-        emit unreadChanged();
+    see(m_selectedId);
     seeCanvas();
+}
+
+void MissionsModel::see(const QString& roomId)
+{
+    if (!watching(roomId))
+        return;
+    quint64 latest = 0;
+    for (const auto& value : m_rooms.value(roomId).value(QStringLiteral("messages")).toList())
+        latest = std::max(latest, value.toMap().value(QStringLiteral("sequence")).toULongLong());
+    if (latest == 0 || (latest <= m_seen.value(roomId) && !unreadRooms().contains(roomId)))
+        return;
+    m_seen.insert(roomId, latest);
+    m_workspace.sendUntracked(QStringLiteral("mission.seen"),
+        { { QStringLiteral("missionId"), roomId }, { QStringLiteral("sequence"), static_cast<qint64>(latest) } });
+}
+
+QStringList MissionsModel::unreadRooms() const
+{
+    QStringList result;
+    for (const auto& value : m_missions) {
+        const auto mission = value.toMap();
+        if (mission.value(QStringLiteral("unread")).toBool())
+            result.append(mission.value(QStringLiteral("id")).toString());
+    }
+    return result;
 }
 
 bool MissionsModel::busy() const
@@ -166,7 +191,7 @@ void MissionsModel::setPresentation(const QString& key, const QVariant& value)
     if ((key == QStringLiteral("conversation") || key == QStringLiteral("followLatest")) && value.toBool())
         state.remove(QStringLiteral("unread"));
     emit presentationChanged();
-    if (key == QStringLiteral("conversation"))
+    if (key == QStringLiteral("conversation") || key == QStringLiteral("followLatest"))
         readWatched();
     if (key == QStringLiteral("canvas"))
         seeCanvas();
@@ -205,17 +230,12 @@ void MissionsModel::applyRoom(const QJsonObject& room)
             latest = std::max(latest, value.toMap().value(QStringLiteral("sequence")).toULongLong());
         const auto userId = m_workspace.account().userId();
         const auto messages = room.value(QStringLiteral("messages")).toArray();
-        // Messages of your agents count as new; only what you wrote yourself does not.
         const auto added = std::count_if(messages.cbegin(), messages.cend(), [&](const QJsonValue& value) {
             const auto message = value.toObject();
             const bool own = message.value(QStringLiteral("agent")).toString().isEmpty()
                 && message.value(QStringLiteral("authorId")).toString() == userId;
             return message.value(QStringLiteral("sequence")).toInteger() > static_cast<qint64>(latest) && !own;
         });
-        if (added > 0 && !watching(roomId) && !m_unread.contains(roomId)) {
-            m_unread.append(roomId);
-            emit unreadChanged();
-        }
         const bool following = view.value(QStringLiteral("conversation"), true).toBool()
             && view.value(QStringLiteral("followLatest"), true).toBool();
         if (added > 0 && !(shown && following))
@@ -269,6 +289,7 @@ void MissionsModel::applyRoom(const QJsonObject& room)
         if (view != before)
             emit presentationChanged();
     }
+    see(roomId);
 }
 
 void MissionsModel::seeCanvas()
@@ -290,8 +311,7 @@ void MissionsModel::reset()
     m_selected.clear();
     m_members.clear();
     m_selectedId.clear(); m_room.clear(); m_rooms.clear(); m_presentations.clear(); m_issueRepository.clear(); m_issues.clear(); emit roomChanged(); emit presentationChanged();
-    m_unread.clear();
-    emit unreadChanged();
+    m_seen.clear();
     m_catalogTruncated = false;
     emit catalogChanged();
     emit selectionChanged();

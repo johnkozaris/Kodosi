@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashSet, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     future::Future,
     pin::Pin,
     sync::{
@@ -132,7 +132,7 @@ impl RemoteTerminal {
         bytes: Bytes,
     ) -> impl Future<Output = Result<()>> + Send + use<> {
         let (reply, result) = oneshot::channel();
-        let admission = self.queue_input(connection, bytes, Some(reply));
+        let admission = self.queue_input(Some(connection), bytes, Some(reply));
         async move {
             wait_for(admission, result, CONTROL_TIMEOUT)
                 .await
@@ -142,12 +142,46 @@ impl RemoteTerminal {
 
     #[cfg(test)]
     pub(crate) fn input(&self, connection: Uuid, bytes: Bytes) -> Result<()> {
-        self.queue_input(connection, bytes, None)
+        self.queue_input(Some(connection), bytes, None)
+    }
+
+    pub(crate) fn read(
+        &self,
+        history: bool,
+    ) -> impl Future<Output = Result<String>> + Send + use<> {
+        let subscribing = self.subscribe();
+        let terminal = self.clone();
+        async move {
+            let subscription = subscribing.await?;
+            let policy = ghostty_vt::TerminalPolicy {
+                console: subscription.checkpoint.console,
+                ..ghostty_vt::TerminalPolicy::default()
+            };
+            let text =
+                ghostty_vt::Terminal::from_snapshot(subscription.checkpoint.snapshot(), policy)
+                    .and_then(|mut restored| restored.text(history))
+                    .map_err(|error| Error::Other(error.to_string()));
+            terminal.unsubscribe(subscription.connection_id);
+            text
+        }
+    }
+
+    pub(crate) fn send_input(
+        &self,
+        bytes: Bytes,
+    ) -> impl Future<Output = Result<()>> + Send + use<> {
+        let (reply, result) = oneshot::channel();
+        let admission = self.queue_input(None, bytes, Some(reply));
+        async move {
+            wait_for(admission, result, CONTROL_TIMEOUT)
+                .await
+                .map(|_| ())
+        }
     }
 
     fn queue_input(
         &self,
-        connection: Uuid,
+        connection: Option<Uuid>,
         bytes: Bytes,
         reply: Option<oneshot::Sender<Result<Value>>>,
     ) -> Result<()> {
@@ -159,7 +193,7 @@ impl RemoteTerminal {
             .try_acquire_many_owned(count)
             .map_err(|_| Error::Busy)?;
         self.send(Request::Control(QueuedControl {
-            connection: Some(connection),
+            connection,
             control: TerminalControl::Input {
                 bytes: bytes.into(),
             },
@@ -303,6 +337,8 @@ struct RemoteActor {
     focused: HashSet<Uuid>,
     confirmed_focus: bool,
     resize_owner: Option<(Uuid, CancellationToken)>,
+    requested: HashMap<Uuid, TerminalControl>,
+    typed_at: Option<tokio::time::Instant>,
 }
 
 impl RemoteActor {
@@ -339,6 +375,8 @@ impl RemoteActor {
             focused: HashSet::new(),
             confirmed_focus: false,
             resize_owner: None,
+            requested: HashMap::new(),
+            typed_at: None,
         }
     }
 
@@ -626,17 +664,53 @@ impl RemoteActor {
                 "Remote input exceeded its connection buffer. It was not retried.".to_owned(),
             ));
         }
+        let resize = match (&queued.connection, &queued.control) {
+            (Some(_), TerminalControl::Input { .. }) => {
+                self.typed_at = Some(tokio::time::Instant::now());
+                None
+            }
+            (Some(id), TerminalControl::Focus { focused: true })
+                if !self
+                    .resize_owner
+                    .as_ref()
+                    .is_some_and(|(owner, token)| owner == id && !token.is_cancelled()) =>
+            {
+                self.requested
+                    .get(id)
+                    .cloned()
+                    .map(|control| (*id, control))
+            }
+            (None, TerminalControl::Input { .. })
+                if self.typed_at.is_some_and(|at| at.elapsed() < super::TYPING) =>
+            {
+                if let Some(reply) = queued.reply {
+                    drop(reply.send(Err(Error::Invalid(super::SOMEONE_TYPING.to_owned()))));
+                }
+                return Ok(());
+            }
+            _ => None,
+        };
         self.queued.push_back(queued);
+        if let Some((id, control)) = resize {
+            self.queued.push_back(QueuedControl {
+                connection: Some(id),
+                control,
+                reply: None,
+                budget: None,
+            });
+        }
         Ok(())
     }
 
-    fn next_control(&mut self) -> Result<()> {
+    fn next_control(&mut self) {
         // The connection refuses controls until its first snapshot proves the
         // terminal, so controls wait for it rather than fail.
         if self.in_flight.is_some() || self.next_sequence.is_none() {
-            return Ok(());
+            return;
         }
         self.focused.retain(|id| self.subscribers.contains(*id));
+        self.requested
+            .retain(|id, _| self.subscribers.contains(*id));
         if self
             .resize_owner
             .as_ref()
@@ -652,7 +726,7 @@ impl RemoteActor {
                 None,
                 Vec::new(),
             );
-            return Ok(());
+            return;
         }
         while let Some(queued) = self.queued.pop_front() {
             if queued
@@ -700,7 +774,7 @@ impl RemoteActor {
                     }
                 }
                 TerminalControl::Resize { .. } => {
-                    let id = match self.check_resize(queued.connection, &control) {
+                    let id = match self.check_resize(queued.connection, &mut control) {
                         Ok(id) => id,
                         Err(error) => {
                             if let Some(reply) = queued.reply {
@@ -712,9 +786,6 @@ impl RemoteActor {
                     resize_owner = authorization.map(|token| (id, token));
                 }
                 TerminalControl::Input { bytes } => {
-                    if authorization.is_none() {
-                        return Err(Error::Stale);
-                    }
                     self.merge_input(queued.connection, bytes, &mut replies, &mut budgets);
                 }
                 TerminalControl::Interrupt | TerminalControl::Close => {}
@@ -726,7 +797,6 @@ impl RemoteActor {
             self.begin(control, replies, resize_owner, budgets);
             break;
         }
-        Ok(())
     }
 
     fn merge_input(
@@ -753,8 +823,14 @@ impl RemoteActor {
         }
     }
 
-    fn check_resize(&self, connection: Option<Uuid>, control: &TerminalControl) -> Result<Uuid> {
+    fn check_resize(
+        &mut self,
+        connection: Option<Uuid>,
+        control: &mut TerminalControl,
+    ) -> Result<Uuid> {
         let id = connection.ok_or(Error::Stale)?;
+        self.requested.insert(id, control.clone());
+        let focused = self.focused.contains(&id);
         let TerminalControl::Resize {
             rows,
             cols,
@@ -776,11 +852,12 @@ impl RemoteActor {
             *cell_width_pixels,
             *cell_height_pixels,
         )?;
+        *claim = *claim || focused;
         if self
             .resize_owner
             .as_ref()
             .is_some_and(|(owner, token)| *owner != id && !token.is_cancelled())
-            && !claim
+            && !*claim
         {
             return Err(Error::Invalid(
                 "Another terminal view controls the size. Focus this view to resize it.".to_owned(),
@@ -907,8 +984,8 @@ impl RemoteActor {
 
     async fn step(&mut self, tick: &mut tokio::time::Interval) -> Step {
         let interrupted = self.interrupted.load(Ordering::Acquire);
-        if !interrupted && let Err(error) = self.next_control() {
-            return Step::Failed(error.to_string());
+        if !interrupted {
+            self.next_control();
         }
         let outcome = tokio::select! {
             () = self.cancellation.cancelled() => return Step::Stop("Disconnected from the remote terminal.".to_owned()),

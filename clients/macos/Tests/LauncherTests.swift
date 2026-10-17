@@ -53,7 +53,7 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
         await Task.yield()
         let requests = sent().filter { $0["type"] == .string("provider.agents") }.compactMap { $0["requestId"]?.stringValue }
         for request in requests where answered.insert(request).inserted {
-            try app.receive(runtimeEvent("provider.reply", epoch: 0, userId: nil, fields: [
+            try app.receive(runtimeEvent("provider.result", epoch: 0, userId: nil, fields: [
                 "requestId": .string(request), "operation": .string("provider.agents"), "result": catalog,
             ]))
         }
@@ -90,12 +90,12 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     #expect(fields["missionId"] == .string("room"))
     #expect(fields["command"] == .string("claude"))
     let request = try #require(fields["requestId"]?.stringValue)
-    #expect(app.roomCreations[request] == "room")
-    #expect(!app.pendingCreations.contains(request))
+    let created = UUIDv7.generate()
     try app.receive(runtimeEvent("session.result", epoch: 0, userId: nil, fields: [
-        "requestId": .string(request), "sessionId": .string(UUIDv7.generate()), "operation": .string("session.create"),
+        "requestId": .string(request), "sessionId": .string(created), "operation": .string("session.create"),
     ]))
     try await creating.value
+    #expect(app.freshTerminals.contains(created))
 }
 
 @Test @MainActor func theLauncherStartsTheAgentAsItShowsIt() async throws {
@@ -118,7 +118,7 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
         asked = sent().last { $0["type"] == .string("provider.agents") }?["requestId"]?.stringValue
     }
     app.launcher.choose(.tab("codex"))
-    try app.receive(runtimeEvent("provider.reply", epoch: 0, userId: nil, fields: [
+    try app.receive(runtimeEvent("provider.result", epoch: 0, userId: nil, fields: [
         "requestId": .string(#require(asked)), "operation": .string("provider.agents"), "result": catalog,
     ]))
     var change: [String: JSONValue]?
@@ -136,7 +136,7 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
         var fields: [String: JSONValue] = [
             "id": .string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()), "kind": .string(kind),
             "name": .string("Terminal"), "isOwner": .bool(true), "status": .string("running"),
-            "connectionState": .string(kind == "local" ? "local" : "connected"), "sharedWith": .array([]),
+            "attention": .bool(false), "connectionState": .string(kind == "local" ? "local" : "connected"), "sharedWith": .array([]),
         ]
         if let prompt {
             fields["prompt"] = .bool(prompt)

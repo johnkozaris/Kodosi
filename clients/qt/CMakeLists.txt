@@ -52,8 +52,10 @@ set(KODOSI_RUNTIME_MANIFEST "${KODOSI_RUNTIME_ROOT}/runtime/Cargo.toml")
 set(KODOSI_RUNTIME_BUNDLE_ROOT "${CMAKE_CURRENT_BINARY_DIR}/runtime-library")
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     set(KODOSI_RUST_PROFILE "release")
+    set(KODOSI_RUST_PROFILE_DIR "release")
 else()
     set(KODOSI_RUST_PROFILE "dev")
+    set(KODOSI_RUST_PROFILE_DIR "debug")
 endif()
 set(KODOSI_RUNTIME_BUNDLE
     "${KODOSI_RUNTIME_BUNDLE_ROOT}/${KODOSI_RUST_TARGET}/${KODOSI_RUST_PROFILE}")
@@ -61,7 +63,7 @@ set(KODOSI_RUNTIME_HEADER_DIR "${KODOSI_RUNTIME_BUNDLE}/include")
 set(KODOSI_RUNTIME_ARCHIVE "${KODOSI_RUNTIME_BUNDLE}/${KODOSI_RUNTIME_ARCHIVE_NAME}")
 set(
     KODOSI_RUNTIME_CLI
-    "${KODOSI_RUNTIME_ROOT}/runtime/target/${KODOSI_RUST_TARGET}/release/${KODOSI_RUNTIME_CLI_NAME}"
+    "${KODOSI_RUNTIME_ROOT}/runtime/target/${KODOSI_RUST_TARGET}/${KODOSI_RUST_PROFILE_DIR}/${KODOSI_RUNTIME_CLI_NAME}"
 )
 file(MAKE_DIRECTORY "${KODOSI_RUNTIME_BUNDLE_ROOT}")
 set(KODOSI_GHOSTTY_VT_ROOT "${KODOSI_GHOSTTY_ROOT}/Vendor/GhosttyVt/${KODOSI_GHOSTTY_LAYOUT}")
@@ -97,7 +99,7 @@ add_custom_target(kodosi-runtime-library-build
     BYPRODUCTS
         "${KODOSI_RUNTIME_ARCHIVE}"
         "${KODOSI_RUNTIME_HEADER_DIR}/kodosi_runtime.h"
-    COMMENT "Building the Kodosi ABI-8 runtime"
+    COMMENT "Building the Kodosi runtime"
     WORKING_DIRECTORY "${KODOSI_RUNTIME_ROOT}"
     VERBATIM
 )
@@ -119,27 +121,27 @@ set_property(TARGET kodosi-rust-runtime PROPERTY INTERFACE_LINK_LIBRARIES
 )
 add_dependencies(kodosi-rust-runtime kodosi-runtime-library-build)
 
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    add_custom_target(kodosi-rust-cli-build ALL
-        COMMAND ${KODOSI_VERIFY_GHOSTTY_COMMAND}
-        COMMAND
-            "${CMAKE_COMMAND}" -E env
-            "KODOSI_GHOSTTY_DIR=${KODOSI_GHOSTTY_ROOT}"
-            "SOURCE_DATE_EPOCH=${KODOSI_SOURCE_DATE_EPOCH}"
-            "${CARGO_EXECUTABLE}" build
-            --manifest-path "${KODOSI_RUNTIME_MANIFEST}"
-            --locked
-            --target "${KODOSI_RUST_TARGET}"
-            --release
-            -p kodosi-runtime
-            --bin kodosi
-        BYPRODUCTS "${KODOSI_RUNTIME_CLI}"
-        COMMENT "Building the pinned Kodosi CLI"
-        WORKING_DIRECTORY "${KODOSI_RUNTIME_ROOT}"
-        VERBATIM
-    )
-    add_dependencies(kodosi-rust-cli-build kodosi-runtime-library-build)
+add_custom_target(kodosi-rust-cli-build ALL
+    COMMAND ${KODOSI_VERIFY_GHOSTTY_COMMAND}
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
+        "KODOSI_GHOSTTY_DIR=${KODOSI_GHOSTTY_ROOT}"
+        "SOURCE_DATE_EPOCH=${KODOSI_SOURCE_DATE_EPOCH}"
+        "${CARGO_EXECUTABLE}" build
+        --manifest-path "${KODOSI_RUNTIME_MANIFEST}"
+        --locked
+        --target "${KODOSI_RUST_TARGET}"
+        --profile "${KODOSI_RUST_PROFILE}"
+        -p kodosi-runtime
+        --bin kodosi
+    BYPRODUCTS "${KODOSI_RUNTIME_CLI}"
+    COMMENT "Building the pinned Kodosi CLI"
+    WORKING_DIRECTORY "${KODOSI_RUNTIME_ROOT}"
+    VERBATIM
+)
+add_dependencies(kodosi-rust-cli-build kodosi-runtime-library-build)
 
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
     set(KODOSI_SOURCE_IDENTITY
         "${CMAKE_CURRENT_BINARY_DIR}/generated/source-identity.json"
     )

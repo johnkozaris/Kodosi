@@ -57,25 +57,31 @@ pub(super) fn link_code(event: &Value) -> String {
 }
 
 pub(super) fn result(event: &Value, context: &Context) -> String {
-    match event["type"].as_str().unwrap_or_default() {
-        "auth.ready" => account(context),
-        "auth.required" => "Signed out.".to_owned(),
-        "devices.list" => devices(event),
-        "devices.link.resolved" => format!("{} is approved.", text(event, "deviceLabel")),
-        "devices.recovery.created" => format!(
+    let latest = |kind: &str| context.latest.get(kind).cloned().unwrap_or_default();
+    match (
+        event["type"].as_str().unwrap_or_default(),
+        event["operation"].as_str().unwrap_or_default(),
+    ) {
+        ("auth.result", "auth.logout") => "Signed out.".to_owned(),
+        ("auth.result", "auth.deleteAccount") => "The account is deleted.".to_owned(),
+        ("auth.result", _) => account(context),
+        ("devices.result", "devices.recovery.create") => format!(
             "{}\nKeep this key in a safe place. It approves a new device when you have no other approved device. Kodosi does not show it again.",
             text(event, "key")
         ),
-        "devices.link.selfResolved" => "The request is cancelled.".to_owned(),
-        "friends.snapshot" | "missions.snapshot" if unapproved(context) => account(context),
-        "friends.snapshot" => friends(event),
-        "friends.invite" => text(event, "text"),
-        "missions.snapshot" => missions(event),
-        "session.result" => session_result(event, context),
-        "provider.reply" if event["operation"] == "provider.agents" => agents(&event["result"]),
-        "provider.reply" if event["operation"] == "provider.agentModels" => {
-            agent_models(&event["result"])
-        }
+        ("devices.result", "devices.link.approve") => format!(
+            "{} is approved.",
+            text(&latest("devices.link.resolved"), "deviceLabel")
+        ),
+        ("devices.result", "devices.link.cancelSelf") => "The request is cancelled.".to_owned(),
+        ("devices.result", _) => devices(&latest("devices.list")),
+        ("friends.result" | "mission.result", _) if unapproved(context) => account(context),
+        ("friends.result", "friends.invite") => text(event, "text"),
+        ("friends.result", _) => friends(&latest("friends.snapshot")),
+        ("mission.result", "mission.list") => missions(&latest("missions.snapshot")),
+        ("session.result", _) => session_result(event, context),
+        ("provider.result", "provider.agents") => agents(&event["result"]),
+        ("provider.result", "provider.agentModels") => agent_models(&event["result"]),
         _ => serde_json::to_string_pretty(event).unwrap_or_default(),
     }
 }
@@ -122,6 +128,9 @@ fn session_result(event: &Value, context: &Context) -> String {
             format!("Started {name} ({reference}). Open it: kodosi terminal attach {reference}")
         }
         "session.run" => "The agent is starting in the terminal.".to_owned(),
+        "session.input" => "Sent to the terminal.".to_owned(),
+        "session.read" => text(event, "text"),
+        "session.show" => "The Kodosi app shows the terminal when it is open.".to_owned(),
         "session.close" => "The terminal is closed.".to_owned(),
         "session.leave" => "You left the terminal.".to_owned(),
         _ => "Done.".to_owned(),

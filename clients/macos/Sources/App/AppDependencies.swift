@@ -7,7 +7,7 @@ import Observation
 @MainActor
 @Observable
 final class AppDependencies {
-    enum AppState: Equatable { case launching, ready, error(String), hostConflict(RuntimeStartFailure) }
+    enum AppState: Equatable { case launching, ready, error(String), hostOutdated(RuntimeStartFailure) }
 
     let storageBootstrap: RuntimeStorageBootstrap
     let commandSink: CommandSink
@@ -26,8 +26,9 @@ final class AppDependencies {
     var rooms: [String: RoomSnapshot] = [:]
     var roomIssues: [String: [RoomIssue]] = [:]
     var roomViews: [String: RoomViewState] = [:]
-    var roomCreations: [String: String] = [:]
-    var attention: Set<String> = []
+    var roomSeen: [String: UInt64] = [:]
+    var reportedVisible: [String]?
+    var hostForeground = false
     var isFront: () -> Bool = { NSApp?.isActive == true }
     var freshTerminals: Set<String> = []
     var signInPresented = false
@@ -50,10 +51,8 @@ final class AppDependencies {
 
     var accountEpoch: UInt64 = 0
     var accountKnown = false
-    private var hostTakeoverAttempted = false
     private var eventTask: Task<Void, Never>?
     var activationTasks: [String: Task<Void, Never>] = [:]
-    var pendingCreations: Set<String> = []
     var missionTask: Task<Void, Never>?
     var missionRequestId: String?
     private let inbox: RuntimeEventInbox
@@ -122,7 +121,6 @@ final class AppDependencies {
     private func finishStart(_ outcome: RuntimeHandle.StartOutcome) {
         switch outcome {
         case .started:
-            hostTakeoverAttempted = false
             if !storageBootstrap.isIsolated {
                 terminalNotifications.activate()
             }
@@ -139,40 +137,29 @@ final class AppDependencies {
             failRuntime(String(localized: "Terminals could not start."))
             return
         }
-        switch failure.resolution {
-        case .takeOverIdleHost where !hostTakeoverAttempted:
-            hostTakeoverAttempted = true
-            Task { @MainActor [weak self] in
-                let result = await HostStopResult.stopOtherHost(force: false)
-                guard let self else { return }
-                switch result {
-                case .accepted, .unreachable: retryStartup()
-                case .refused, .failed: present(.hostConflict(failure))
-                }
-            }
-        case .takeOverIdleHost, .askToStopHost, .quitDuplicateApp:
-            present(.hostConflict(failure))
-        case .report:
+        if failure.code == .hostOutdated {
+            present(.hostOutdated(failure))
+        } else {
             failRuntime(failure.message)
         }
     }
 
-    func stopConflictingHost() {
-        guard case let .hostConflict(failure) = appState else { return }
+    func restartOutdatedHost() {
+        guard case let .hostOutdated(failure) = appState else { return }
         errorMessage = nil
         appState = .launching
         Task { @MainActor [weak self] in
-            let result = await HostStopResult.stopOtherHost(force: true)
+            let result = await HostStopResult.stopHost(force: true)
             guard let self else { return }
             switch result {
             case .accepted, .unreachable:
                 retryStartup()
             case .refused:
-                errorMessage = String(localized: "The other Kodosi did not stop.")
-                present(.hostConflict(failure))
+                errorMessage = String(localized: "The earlier Kodosi did not stop.")
+                present(.hostOutdated(failure))
             case .failed:
-                errorMessage = String(localized: "Kodosi could not reach the other Kodosi.")
-                present(.hostConflict(failure))
+                errorMessage = String(localized: "Kodosi could not reach the earlier Kodosi.")
+                present(.hostOutdated(failure))
             }
         }
     }
@@ -189,6 +176,7 @@ final class AppDependencies {
             inbox.reopen()
             accountKnown = false
             accountEpoch = 0
+            reportedVisible = nil
             account.reset(userId: nil)
             commandSink.setAccount(userId: nil, epoch: 0)
             start()
@@ -247,7 +235,7 @@ final class AppDependencies {
                 return
             }
             workbench.showSession(id, inRoom: roomId)
-            seen(id)
+            reportVisible()
             if let roomId {
                 roomView(roomId).selectedTerminal = id
             }
@@ -318,14 +306,10 @@ final class AppDependencies {
         guard ProductInput.validName(name) else {
             throw RuntimeError.operation(String(localized: "Use a shorter name."))
         }
-        let requestId = UUIDv7.generate()
-        var fields: [String: JSONValue] = ["requestId": .string(requestId), "name": .string(name)]
+        var fields: [String: JSONValue] = ["name": .string(name)]
         if let roomId {
-            roomCreations[requestId] = roomId
             roomView(roomId).canvas = 0
             fields["missionId"] = .string(roomId)
-        } else {
-            pendingCreations.insert(requestId)
         }
         if let directory {
             fields["workingDir"] = .string(directory)
@@ -348,15 +332,12 @@ final class AppDependencies {
         if let prompt {
             fields["prompt"] = .string(prompt)
         }
-        do {
-            _ = try await commandSink.request("session.create", fields)
-            settings.lastWorkingDir = directory
-            settings.save()
-        } catch {
-            pendingCreations.remove(requestId)
-            roomCreations.removeValue(forKey: requestId)
-            throw error
-        }
+        let created = try await commandSink.request("session.create", fields)
+        settings.lastWorkingDir = directory
+        settings.save()
+        guard let id = created.string("sessionId") else { return }
+        freshTerminals.insert(id)
+        activateSession(id, inRoom: roomId)
     }
 
     func mutateSession(_ operation: String, session target: RuntimeSession, fields: [String: JSONValue] = [:]) async throws {
@@ -376,7 +357,9 @@ final class AppDependencies {
         missionTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                _ = try await commandSink.request("mission.open", ["missionId": .string(id), "requestId": .string(requestId)])
+                let opened = try await commandSink.request("mission.open", ["missionId": .string(id), "requestId": .string(requestId)])
+                guard !Task.isCancelled, missionRequestId == requestId, workbench.selectedMissionId == id else { return }
+                missionDetail = try MissionDetail(mission: opened.value("mission"), members: opened.value("members"))
             } catch {
                 guard !Task.isCancelled, missionRequestId == requestId else { return }
                 workbench.selectedMissionId = nil

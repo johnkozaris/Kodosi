@@ -17,31 +17,37 @@ import Testing
     }
     try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner")]))
     let id = UUIDv7.generate()
-    let initial: JSONValue = .object(["id": .string(id), "name": .string("Before"), "ownerUserId": .string("owner")])
+    let initial: JSONValue = .object(["id": .string(id), "name": .string("Before"), "ownerUserId": .string("owner"), "unread": .bool(false)])
     try app.receive(runtimeEvent("missions.snapshot", fields: ["missions": .array([initial]), "invitations": .array([])]))
     try app.openMission(#require(app.missions.first))
     for _ in 0 ..< 200 where !commands.contains(where: { $0["type"] == .string("mission.open") }) {
         await Task.yield()
     }
     let first = try #require(commands.last(where: { $0["type"] == .string("mission.open") }))
-    try app.receive(runtimeEvent("mission.snapshot", fields: [
-        "requestId": #require(first["requestId"]), "mission": initial, "members": .array([]),
+    try app.receive(runtimeEvent("mission.result", fields: [
+        "requestId": #require(first["requestId"]), "operation": .string("mission.open"), "mission": initial, "members": .array([]),
     ]))
+    for _ in 0 ..< 200 where app.missionDetail?.mission.name != "Before" {
+        await Task.yield()
+    }
     #expect(app.missionDetail?.mission.name == "Before")
-    let changed: JSONValue = .object(["id": .string(id), "name": .string("After"), "ownerUserId": .string("owner")])
+    let changed: JSONValue = .object(["id": .string(id), "name": .string("After"), "ownerUserId": .string("owner"), "unread": .bool(false)])
     try app.receive(runtimeEvent("missions.snapshot", fields: ["missions": .array([changed]), "invitations": .array([])]))
     for _ in 0 ..< 200 where commands.filter({ $0["type"] == .string("mission.open") }).count < 2 {
         await Task.yield()
     }
     let latest = try #require(commands.last(where: { $0["type"] == .string("mission.open") }))
     #expect(latest["requestId"] != first["requestId"])
-    try app.receive(runtimeEvent("mission.snapshot", fields: [
-        "requestId": #require(first["requestId"]), "mission": initial, "members": .array([]),
+    try app.receive(runtimeEvent("mission.result", fields: [
+        "requestId": #require(first["requestId"]), "operation": .string("mission.open"), "mission": initial, "members": .array([]),
     ]))
     #expect(app.missionDetail == nil)
-    try app.receive(runtimeEvent("mission.snapshot", fields: [
-        "requestId": #require(latest["requestId"]), "mission": changed, "members": .array([]),
+    try app.receive(runtimeEvent("mission.result", fields: [
+        "requestId": #require(latest["requestId"]), "operation": .string("mission.open"), "mission": changed, "members": .array([]),
     ]))
+    for _ in 0 ..< 200 where app.missionDetail?.mission.name != "After" {
+        await Task.yield()
+    }
     #expect(app.missionDetail?.mission.name == "After")
     try app.receive(runtimeEvent("missions.snapshot", fields: [
         "missions": .array([]), "invitations": .array([]), "missionsTruncated": .bool(true),
@@ -52,9 +58,12 @@ import Testing
         await Task.yield()
     }
     let offPage = try #require(commands.last(where: { $0["type"] == .string("mission.open") }))
-    try app.receive(runtimeEvent("mission.snapshot", fields: [
-        "requestId": #require(offPage["requestId"]), "mission": changed, "members": .array([]),
+    try app.receive(runtimeEvent("mission.result", fields: [
+        "requestId": #require(offPage["requestId"]), "operation": .string("mission.open"), "mission": changed, "members": .array([]),
     ]))
+    for _ in 0 ..< 200 where app.missionDetail?.mission.name != "After" {
+        await Task.yield()
+    }
     #expect(app.missionDetail?.mission.name == "After")
     try app.receive(runtimeEvent("missions.snapshot", fields: ["missions": .array([]), "invitations": .array([])]))
     #expect(!app.missionListTruncated)

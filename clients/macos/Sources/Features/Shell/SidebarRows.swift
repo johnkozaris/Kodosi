@@ -79,10 +79,6 @@ struct SidebarRoomRow: View {
     let selected: Bool
     let pill: Namespace.ID
 
-    private var unread: Int {
-        deps.roomViews[mission.id]?.unread ?? 0
-    }
-
     private var live: [RuntimeSession] {
         deps.sessions.filter { $0.missionId == mission.id }
     }
@@ -91,10 +87,10 @@ struct SidebarRoomRow: View {
         Button { deps.workbench.section = .missions; deps.openMission(mission) } label: {
             HStack(spacing: 9) {
                 RoomSigil(key: mission.id, size: 22)
-                Text(mission.name).appTextStyle(.body).fontWeight(selected || unread > 0 ? .medium : .regular)
+                Text(mission.name).appTextStyle(.body).fontWeight(selected || mission.unread ? .medium : .regular)
                     .foregroundStyle(theme.colors.ink).lineLimit(1)
                 Spacer(minLength: 4)
-                if unread > 0 {
+                if mission.unread {
                     NewDot().padding(.trailing, 4).transition(AnyTransition.pop)
                 } else if live.contains(where: \.needsUser) {
                     StatusSign(form: .hand).transition(AnyTransition.pop)
@@ -113,8 +109,8 @@ struct SidebarRoomRow: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier("missions.mission.\(AccessibilityIdentifier.token(mission.id))")
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityValue(unread > 0 ? Text("New messages") : Text(verbatim: ""))
-        .animation(theme.motion.snappy, value: unread > 0)
+        .accessibilityValue(mission.unread ? Text("New messages") : Text(verbatim: ""))
+        .animation(theme.motion.snappy, value: mission.unread)
     }
 }
 

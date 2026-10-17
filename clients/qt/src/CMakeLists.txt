@@ -338,5 +338,13 @@ foreach(target kodosi-runtime kodosi-application kodosi-desktop-integration kodo
     target_compile_options(${target} PRIVATE ${KODOSI_COMPILE_OPTIONS})
 endforeach()
 
+add_custom_target(kodosi-qt-host-program ALL
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${KODOSI_RUNTIME_CLI}"
+        "$<TARGET_FILE_DIR:kodosi-qt>/${KODOSI_RUNTIME_CLI_NAME}"
+    COMMENT "Placing the kodosi program next to the app"
+    VERBATIM
+)
+add_dependencies(kodosi-qt-host-program kodosi-qt kodosi-rust-cli-build)
+
 kodosi_install(kodosi-qt)
 

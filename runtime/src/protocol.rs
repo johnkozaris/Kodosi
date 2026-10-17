@@ -1,5 +1,5 @@
 use serde::{Deserialize, Deserializer, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 use crate::{
@@ -22,7 +22,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 63;
+pub const VERSION: u32 = 64;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 
@@ -43,88 +43,88 @@ pub enum Command {
     Login {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         browser: Option<SignInBrowser>,
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "auth.login.finish")]
     FinishLogin {
         url: String,
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "auth.login.cancel")]
     CancelLogin {
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "auth.logout")]
     Logout {
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "auth.deleteAccount")]
     DeleteAccount {
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "auth.deleteAccount.cancel")]
     CancelDeleteAccount {
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "auth.refresh")]
     RefreshAuth {
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "devices.refresh")]
     RefreshDevices {
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "devices.revoke")]
     RevokeDevice {
         #[serde(rename = "deviceId")]
         device_id: String,
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "devices.link.approve")]
     ApproveDevice {
         code: String,
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "devices.link.startSelf")]
     LinkDevice {
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "devices.link.cancelSelf")]
     CancelDeviceLink {
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "devices.reset")]
     ResetDevices {
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "devices.recovery.create")]
     CreateRecoveryKey {
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "devices.recovery.use")]
     UseRecoveryKey {
         key: String,
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "friends.refresh")]
     RefreshFriends {
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "friends.request.send")]
     RequestFriend {
@@ -135,49 +135,49 @@ pub enum Command {
     #[serde(rename = "friends.request.accept")]
     AcceptFriend {
         username: String,
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "friends.request.reject")]
     RejectFriend {
         username: String,
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "friends.request.cancel")]
     CancelFriend {
         username: String,
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "friends.remove")]
     RemoveFriend {
         username: String,
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "friends.identity.trust")]
     TrustFriend {
         username: String,
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "friends.verify")]
     VerifyFriend {
         username: String,
         invite: String,
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "friends.invite")]
     FriendInvite {
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "session.list")]
     ListSessions {
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "session.create")]
     CreateSession {
@@ -242,6 +242,41 @@ pub enum Command {
         #[serde(default)]
         agent: Option<AgentStart>,
     },
+    #[serde(rename = "session.input")]
+    Input {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "expectedRuntimeIncarnationId")]
+        expected_runtime_incarnation_id: String,
+        text: String,
+    },
+    #[serde(rename = "session.read")]
+    Read {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "expectedRuntimeIncarnationId")]
+        expected_runtime_incarnation_id: String,
+        #[serde(default)]
+        history: bool,
+    },
+    #[serde(rename = "session.show")]
+    Show {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+    },
+    #[serde(rename = "session.visible")]
+    Visible {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "sessionIds")]
+        session_ids: Vec<String>,
+    },
     #[serde(rename = "session.openRemote")]
     OpenRemote {
         #[serde(rename = "requestId")]
@@ -253,8 +288,8 @@ pub enum Command {
     DisconnectRemote {
         #[serde(rename = "sessionId")]
         session_id: String,
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "session.share")]
     ShareSession {
@@ -303,8 +338,8 @@ pub enum Command {
     },
     #[serde(rename = "mission.list")]
     ListMissions {
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "mission.create")]
     CreateMission {
@@ -333,6 +368,14 @@ pub enum Command {
         request_id: String,
         #[serde(rename = "missionId")]
         mission_id: String,
+    },
+    #[serde(rename = "mission.seen")]
+    SeeMission {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "missionId")]
+        mission_id: String,
+        sequence: u64,
     },
     #[serde(rename = "mission.invite")]
     InviteMission {
@@ -441,7 +484,6 @@ pub enum Command {
         session_id: String,
         #[serde(flatten)]
         identity: ResizeIdentity,
-        claim: bool,
     },
     #[serde(rename = "session.focus")]
     Focus {
@@ -466,8 +508,8 @@ pub enum Command {
         client_id: String,
         #[serde(rename = "subscriptionGeneration")]
         subscription_generation: u64,
-        #[serde(rename = "requestId", default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
 }
 
@@ -489,7 +531,13 @@ pub struct ResizeIdentity {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta_macros::Type)]
 #[serde(rename_all = "camelCase")]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is a separate fact about one terminal"
+)]
 pub struct SessionEntry {
+    #[serde(default)]
+    pub attention: bool,
     #[serde(default)]
     pub connected_users: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -526,8 +574,6 @@ pub struct SessionEntry {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mission_name: Option<String>,
     pub shared_with: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub create_request_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, specta_macros::Type)]
@@ -560,13 +606,19 @@ pub struct Event {
     pub account_epoch: u64,
     #[serde(flatten)]
     pub event: EventBody,
+    #[serde(skip)]
+    pub recipient: Option<Uuid>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
 #[serde(tag = "type", rename_all_fields = "camelCase", deny_unknown_fields)]
 pub enum EventBody {
     #[serde(rename = "system.ready")]
-    SystemReady { protocol_version: u32 },
+    SystemReady {
+        protocol_version: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        host: Option<crate::HostKind>,
+    },
     #[serde(rename = "system.error")]
     SystemError { message: String },
     #[serde(rename = "system.updateRequired")]
@@ -583,38 +635,48 @@ pub enum EventBody {
     AuthRequired { reason: AuthRequiredReason },
     #[serde(rename = "auth.device_code")]
     AuthDeviceCode {
+        request_id: String,
         user_code: String,
         verification_uri: String,
     },
     #[serde(rename = "auth.browser")]
-    AuthBrowser { url: String },
+    AuthBrowser { request_id: String, url: String },
     #[serde(rename = "auth.finalizing")]
     AuthFinalizing {},
     #[serde(rename = "auth.deletion_pending")]
-    AuthDeletionPending { confirmation_uri: String },
+    AuthDeletionPending {
+        request_id: String,
+        confirmation_uri: String,
+    },
+    #[serde(rename = "auth.result")]
+    AuthResult {
+        request_id: String,
+        operation: String,
+    },
     #[serde(rename = "auth.error")]
     AuthError {
+        request_id: String,
         operation: String,
         message: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
     },
     #[serde(rename = "friends.snapshot")]
     FriendsSnapshot {
         friends: Vec<FriendEntry>,
         incoming: Vec<FriendRequestEntry>,
         outgoing: Vec<FriendRequestEntry>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
     },
-    #[serde(rename = "friends.invite")]
-    FriendInviteText { text: String },
+    #[serde(rename = "friends.result")]
+    FriendsResult {
+        request_id: String,
+        operation: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        text: Option<String>,
+    },
     #[serde(rename = "friends.error")]
     FriendsError {
+        request_id: String,
         operation: String,
         message: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
     },
     #[serde(rename = "devices.list")]
     DevicesList {
@@ -631,18 +693,22 @@ pub enum EventBody {
         device_label: String,
         outcome: DeviceLinkOutcome,
     },
-    #[serde(rename = "devices.link.selfPending")]
-    DeviceLinkSelfPending { code: String },
     #[serde(rename = "devices.link.selfResolved")]
     DeviceLinkSelfResolved { outcome: DeviceLinkOutcome },
-    #[serde(rename = "devices.recovery.created")]
-    RecoveryKeyCreated { key: String },
+    #[serde(rename = "devices.result")]
+    DevicesResult {
+        request_id: String,
+        operation: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        code: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        key: Option<String>,
+    },
     #[serde(rename = "devices.error")]
     DevicesError {
+        request_id: String,
         operation: String,
         message: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
     },
     #[serde(rename = "sessions.snapshot")]
     SessionsSnapshot { sessions: Vec<SessionEntry> },
@@ -652,25 +718,21 @@ pub enum EventBody {
         operation: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         session_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        text: Option<String>,
     },
+    #[serde(rename = "session.show")]
+    SessionShow { session_id: String },
     #[serde(rename = "session.error")]
     SessionError {
+        request_id: String,
         operation: String,
         message: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         session_id: Option<String>,
     },
     #[serde(rename = "room.snapshot")]
     RoomSnapshot { room: crate::rooms::Snapshot },
-    #[serde(rename = "room.issues")]
-    RoomIssues {
-        request_id: String,
-        room_id: String,
-        repository_id: String,
-        issues: Vec<crate::rooms::Issue>,
-    },
     #[serde(rename = "room.result")]
     RoomResult {
         request_id: String,
@@ -679,12 +741,18 @@ pub enum EventBody {
         item_id: Option<String>,
         #[serde(default)]
         action: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        repository_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        issues: Option<Vec<crate::rooms::Issue>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        room: Option<crate::rooms::Snapshot>,
     },
     #[serde(rename = "room.error")]
     RoomError {
+        request_id: String,
         operation: String,
         message: String,
-        request_id: Option<String>,
     },
     #[serde(rename = "missions.snapshot")]
     MissionsSnapshot {
@@ -695,30 +763,27 @@ pub enum EventBody {
         #[serde(default)]
         invitations_truncated: bool,
     },
-    #[serde(rename = "mission.snapshot")]
-    MissionSnapshot {
-        request_id: String,
-        mission: MissionEntry,
-        members: Vec<MissionMemberEntry>,
-    },
     #[serde(rename = "mission.result")]
     MissionResult {
         request_id: String,
         operation: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         mission_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mission: Option<MissionEntry>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        members: Option<Vec<MissionMemberEntry>>,
     },
     #[serde(rename = "mission.error")]
     MissionError {
+        request_id: String,
         operation: String,
         message: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        request_id: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         mission_id: Option<String>,
     },
-    #[serde(rename = "provider.reply")]
-    ProviderReply {
+    #[serde(rename = "provider.result")]
+    ProviderResult {
         request_id: String,
         #[serde(flatten)]
         reply: ProviderReply,
@@ -731,6 +796,8 @@ pub enum EventBody {
     },
     #[serde(rename = "term.bell")]
     TerminalBell { session_id: String },
+    #[serde(rename = "term.attention")]
+    TerminalAttention { session_id: String },
     #[serde(rename = "term.title")]
     TerminalTitle { session_id: String, title: String },
     #[serde(rename = "term.notification")]
@@ -740,14 +807,6 @@ pub enum EventBody {
         title: String,
         body: String,
     },
-    #[serde(rename = "term.focusApplied")]
-    FocusApplied(FocusResult),
-    #[serde(rename = "term.focusRejected")]
-    FocusRejected(FocusResult),
-    #[serde(rename = "term.resizeApplied")]
-    ResizeApplied(ResizeResult),
-    #[serde(rename = "term.resizeRejected")]
-    ResizeRejected(ResizeResult),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
@@ -841,6 +900,8 @@ pub struct MissionEntry {
     pub id: String,
     pub name: String,
     pub owner_user_id: String,
+    #[serde(default)]
+    pub unread: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
@@ -884,9 +945,84 @@ pub struct ResizeResult {
     pub reason: Option<String>,
 }
 
+pub fn control_answer(command: &Command, result: Result<()>) -> Option<Value> {
+    let reason = result.err().map(|error| error.to_string());
+    let applied = reason.is_none();
+    let (kind, value) = match command {
+        Command::Resize {
+            session_id,
+            identity,
+        } => (
+            if applied {
+                "term.resizeApplied"
+            } else {
+                "term.resizeRejected"
+            },
+            serde_json::to_value(ResizeResult {
+                session_id: session_id.clone(),
+                runtime_incarnation_id: identity.expected_runtime_incarnation_id.clone(),
+                identity: identity.clone(),
+                reason,
+            }),
+        ),
+        Command::Focus {
+            request_id,
+            session_id,
+            expected_runtime_incarnation_id,
+            client_id,
+            subscription_generation,
+        } => (
+            if applied {
+                "term.focusApplied"
+            } else {
+                "term.focusRejected"
+            },
+            serde_json::to_value(FocusResult {
+                session_id: session_id.clone(),
+                request_id: request_id.clone(),
+                runtime_incarnation_id: expected_runtime_incarnation_id.clone(),
+                subscription_id: client_id.clone(),
+                subscription_generation: *subscription_generation,
+                reason,
+            }),
+        ),
+        _ => return None,
+    };
+    let mut value = value.ok()?;
+    value["type"] = json!(kind);
+    Some(value)
+}
+
 impl EventBody {
     pub fn new(value: Value) -> Result<Self> {
         serde_json::from_value(value).map_err(Error::from)
+    }
+
+    pub fn request_id(&self) -> Option<&str> {
+        match self {
+            Self::AuthDeviceCode { request_id, .. }
+            | Self::AuthBrowser { request_id, .. }
+            | Self::AuthDeletionPending { request_id, .. }
+            | Self::AuthResult { request_id, .. }
+            | Self::AuthError { request_id, .. }
+            | Self::FriendsResult { request_id, .. }
+            | Self::FriendsError { request_id, .. }
+            | Self::DevicesResult { request_id, .. }
+            | Self::DevicesError { request_id, .. }
+            | Self::SessionResult { request_id, .. }
+            | Self::SessionError { request_id, .. }
+            | Self::RoomResult { request_id, .. }
+            | Self::RoomError { request_id, .. }
+            | Self::MissionResult { request_id, .. }
+            | Self::MissionError { request_id, .. }
+            | Self::ProviderResult { request_id, .. }
+            | Self::ProviderError { request_id, .. } => Some(request_id),
+            _ => None,
+        }
+    }
+
+    pub fn is_answer(&self) -> bool {
+        self.request_id().is_some() && is_final(self.kind())
     }
 
     pub const fn kind(&self) -> &'static str {
@@ -900,37 +1036,33 @@ impl EventBody {
             Self::AuthBrowser { .. } => "auth.browser",
             Self::AuthFinalizing {} => "auth.finalizing",
             Self::AuthDeletionPending { .. } => "auth.deletion_pending",
+            Self::AuthResult { .. } => "auth.result",
             Self::AuthError { .. } => "auth.error",
             Self::FriendsSnapshot { .. } => "friends.snapshot",
-            Self::FriendInviteText { .. } => "friends.invite",
+            Self::FriendsResult { .. } => "friends.result",
             Self::FriendsError { .. } => "friends.error",
             Self::DevicesList { .. } => "devices.list",
             Self::DeviceLinksSnapshot { .. } => "devices.link.snapshot",
             Self::DeviceLinkResolved { .. } => "devices.link.resolved",
-            Self::DeviceLinkSelfPending { .. } => "devices.link.selfPending",
             Self::DeviceLinkSelfResolved { .. } => "devices.link.selfResolved",
-            Self::RecoveryKeyCreated { .. } => "devices.recovery.created",
+            Self::DevicesResult { .. } => "devices.result",
             Self::DevicesError { .. } => "devices.error",
             Self::SessionsSnapshot { .. } => "sessions.snapshot",
+            Self::SessionShow { .. } => "session.show",
             Self::SessionResult { .. } => "session.result",
             Self::SessionError { .. } => "session.error",
             Self::RoomSnapshot { .. } => "room.snapshot",
-            Self::RoomIssues { .. } => "room.issues",
             Self::RoomResult { .. } => "room.result",
             Self::RoomError { .. } => "room.error",
             Self::MissionsSnapshot { .. } => "missions.snapshot",
-            Self::MissionSnapshot { .. } => "mission.snapshot",
             Self::MissionResult { .. } => "mission.result",
             Self::MissionError { .. } => "mission.error",
-            Self::ProviderReply { .. } => "provider.reply",
+            Self::ProviderResult { .. } => "provider.result",
             Self::ProviderError { .. } => "provider.error",
             Self::TerminalBell { .. } => "term.bell",
+            Self::TerminalAttention { .. } => "term.attention",
             Self::TerminalTitle { .. } => "term.title",
             Self::TerminalNotification { .. } => "term.notification",
-            Self::FocusApplied(_) => "term.focusApplied",
-            Self::FocusRejected(_) => "term.focusRejected",
-            Self::ResizeApplied(_) => "term.resizeApplied",
-            Self::ResizeRejected(_) => "term.resizeRejected",
         }
     }
 }
@@ -941,7 +1073,12 @@ impl Event {
             account_user_id: user,
             account_epoch: epoch,
             event: EventBody::new(value)?,
+            recipient: None,
         })
+    }
+
+    pub fn reaches(&self, consumer: Uuid) -> bool {
+        self.recipient.is_none_or(|recipient| recipient == consumer)
     }
 }
 
@@ -996,6 +1133,10 @@ impl Command {
             Self::CloseSession { .. } => "session.close",
             Self::InterruptSession { .. } => "session.interrupt",
             Self::RunInSession { .. } => "session.run",
+            Self::Input { .. } => "session.input",
+            Self::Visible { .. } => "session.visible",
+            Self::Read { .. } => "session.read",
+            Self::Show { .. } => "session.show",
             Self::OpenRemote { .. } => "session.openRemote",
             Self::DisconnectRemote { .. } => "session.disconnect",
             Self::ShareSession { .. } => "session.share",
@@ -1006,6 +1147,7 @@ impl Command {
             Self::CreateMission { .. } => "mission.create",
             Self::RenameMission { .. } => "mission.rename",
             Self::DeleteMission { .. } => "mission.delete",
+            Self::SeeMission { .. } => "mission.seen",
             Self::OpenMission { .. } => "mission.open",
             Self::InviteMission { .. } => "mission.invite",
             Self::AcceptMission { .. } => "mission.invitation.accept",
@@ -1024,37 +1166,9 @@ impl Command {
             Self::Blur { .. } => "session.blur",
         }
     }
-    pub fn request_id(&self) -> Option<&str> {
+    pub fn request_id(&self) -> &str {
         match self {
-            Self::RequestFriend { request_id, .. }
-            | Self::CreateSession { request_id, .. }
-            | Self::RenameSession { request_id, .. }
-            | Self::CloseSession { request_id, .. }
-            | Self::InterruptSession { request_id, .. }
-            | Self::RunInSession { request_id, .. }
-            | Self::OpenRemote { request_id, .. }
-            | Self::ShareSession { request_id, .. }
-            | Self::LeaveSession { request_id, .. }
-            | Self::AttachSession { request_id, .. }
-            | Self::Room { request_id, .. }
-            | Self::CreateMission { request_id, .. }
-            | Self::RenameMission { request_id, .. }
-            | Self::DeleteMission { request_id, .. }
-            | Self::OpenMission { request_id, .. }
-            | Self::InviteMission { request_id, .. }
-            | Self::AcceptMission { request_id, .. }
-            | Self::RejectMission { request_id, .. }
-            | Self::RemoveMissionMember { request_id, .. }
-            | Self::LeaveMission { request_id, .. }
-            | Self::DiscoverConversations { request_id, .. }
-            | Self::ReadConversation { request_id, .. }
-            | Self::InspectProvider { request_id, .. }
-            | Self::InspectAgents { request_id }
-            | Self::InspectAgentModels { request_id, .. }
-            | Self::AddAgentAccount { request_id, .. }
-            | Self::ChooseAgent { request_id, .. }
-            | Self::Focus { request_id, .. } => Some(request_id),
-            Self::Resize { identity, .. } => Some(&identity.request_id),
+            Self::Resize { identity, .. } => &identity.request_id,
             Self::Login { request_id, .. }
             | Self::FinishLogin { request_id, .. }
             | Self::CancelLogin { request_id }
@@ -1071,6 +1185,7 @@ impl Command {
             | Self::CreateRecoveryKey { request_id }
             | Self::UseRecoveryKey { request_id, .. }
             | Self::RefreshFriends { request_id }
+            | Self::RequestFriend { request_id, .. }
             | Self::AcceptFriend { request_id, .. }
             | Self::RejectFriend { request_id, .. }
             | Self::CancelFriend { request_id, .. }
@@ -1079,9 +1194,41 @@ impl Command {
             | Self::VerifyFriend { request_id, .. }
             | Self::FriendInvite { request_id }
             | Self::ListSessions { request_id }
+            | Self::CreateSession { request_id, .. }
+            | Self::RenameSession { request_id, .. }
+            | Self::CloseSession { request_id, .. }
+            | Self::InterruptSession { request_id, .. }
+            | Self::RunInSession { request_id, .. }
+            | Self::Input { request_id, .. }
+            | Self::Visible { request_id, .. }
+            | Self::Read { request_id, .. }
+            | Self::Show { request_id, .. }
+            | Self::OpenRemote { request_id, .. }
             | Self::DisconnectRemote { request_id, .. }
+            | Self::ShareSession { request_id, .. }
+            | Self::LeaveSession { request_id, .. }
+            | Self::AttachSession { request_id, .. }
+            | Self::Room { request_id, .. }
             | Self::ListMissions { request_id }
-            | Self::Blur { request_id, .. } => request_id.as_deref(),
+            | Self::CreateMission { request_id, .. }
+            | Self::RenameMission { request_id, .. }
+            | Self::DeleteMission { request_id, .. }
+            | Self::SeeMission { request_id, .. }
+            | Self::OpenMission { request_id, .. }
+            | Self::InviteMission { request_id, .. }
+            | Self::AcceptMission { request_id, .. }
+            | Self::RejectMission { request_id, .. }
+            | Self::RemoveMissionMember { request_id, .. }
+            | Self::LeaveMission { request_id, .. }
+            | Self::DiscoverConversations { request_id, .. }
+            | Self::ReadConversation { request_id, .. }
+            | Self::InspectProvider { request_id, .. }
+            | Self::InspectAgents { request_id }
+            | Self::InspectAgentModels { request_id, .. }
+            | Self::AddAgentAccount { request_id, .. }
+            | Self::ChooseAgent { request_id, .. }
+            | Self::Focus { request_id, .. }
+            | Self::Blur { request_id, .. } => request_id,
         }
     }
     pub fn session_id(&self) -> Option<&str> {
@@ -1090,6 +1237,9 @@ impl Command {
             | Self::CloseSession { session_id, .. }
             | Self::InterruptSession { session_id, .. }
             | Self::RunInSession { session_id, .. }
+            | Self::Input { session_id, .. }
+            | Self::Read { session_id, .. }
+            | Self::Show { session_id, .. }
             | Self::OpenRemote { session_id, .. }
             | Self::DisconnectRemote { session_id, .. }
             | Self::ShareSession { session_id, .. }
@@ -1116,6 +1266,14 @@ impl Command {
                 ..
             }
             | Self::RunInSession {
+                expected_runtime_incarnation_id,
+                ..
+            }
+            | Self::Input {
+                expected_runtime_incarnation_id,
+                ..
+            }
+            | Self::Read {
                 expected_runtime_incarnation_id,
                 ..
             }
@@ -1151,6 +1309,7 @@ impl Command {
             | Self::RenameMission { mission_id, .. }
             | Self::DeleteMission { mission_id, .. }
             | Self::OpenMission { mission_id, .. }
+            | Self::SeeMission { mission_id, .. }
             | Self::LeaveMission { mission_id, .. } => {
                 parse_id(mission_id)?;
             }
@@ -1227,9 +1386,7 @@ impl Command {
             parse_id(room_id)?;
             action.validate()?;
         }
-        if let Some(id) = self.request_id() {
-            parse_id(id)?;
-        }
+        parse_id(self.request_id())?;
         if let Some(id) = self.session_id() {
             parse_id(id)?;
         }
@@ -1249,6 +1406,23 @@ impl Command {
                 if let Some(agent) = agent {
                     agent_start(agent)?;
                 }
+            }
+            Self::Visible { session_ids, .. } => {
+                if session_ids.len() > 256 {
+                    return Err(Error::Invalid(
+                        "Name at most 256 visible terminals.".to_owned(),
+                    ));
+                }
+                for id in session_ids {
+                    parse_id(id)?;
+                }
+            }
+            Self::Input { text, .. }
+                if text.is_empty() || text.len() > crate::terminal::TERMINAL_INPUT_MAX_BYTES =>
+            {
+                return Err(Error::Invalid(
+                    "Input must contain 1 byte to 1 MiB.".to_owned(),
+                ));
             }
             Self::AddAgentAccount { name, .. } => text(name, "name", 64)?,
             Self::ChooseAgent {
@@ -1457,6 +1631,39 @@ fn directory_input(value: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn answer_time(operation: &str) -> std::time::Duration {
+    match operation {
+        "auth.login.start" => crate::network::SIGN_IN_LIFE + std::time::Duration::from_mins(1),
+        "auth.deleteAccount" => crate::network::DELETION_LIFE + std::time::Duration::from_mins(1),
+        "room.command" => std::time::Duration::from_mins(1),
+        _ => std::time::Duration::from_secs(30),
+    }
+}
+
+pub fn is_final(kind: &str) -> bool {
+    matches!(kind.rsplit_once('.'), Some((_, "result" | "error")))
+}
+
+pub fn answer(event: &Value, request: &str) -> Option<std::result::Result<Value, String>> {
+    if event.get("requestId").and_then(Value::as_str) != Some(request) {
+        return None;
+    }
+    match event
+        .get("type")
+        .and_then(Value::as_str)?
+        .rsplit_once('.')?
+        .1
+    {
+        "result" => Some(Ok(event.clone())),
+        "error" => Some(Err(event
+            .get("message")
+            .and_then(Value::as_str)
+            .unwrap_or("That did not work.")
+            .to_owned())),
+        _ => None,
+    }
+}
+
 pub fn parse_id(value: &str) -> Result<Uuid> {
     let id = Uuid::parse_str(value).map_err(|_| Error::Invalid("expected a UUID".to_owned()))?;
     if id.is_nil() || id.hyphenated().to_string() != value {
@@ -1503,21 +1710,21 @@ mod tests {
             "mission.list",
         ]
         .into_iter()
-        .map(|kind| json!({"type":kind}))
+        .map(|kind| json!({"type":kind,"requestId":ID}))
         .collect::<Vec<_>>();
         values.extend([
-            json!({"type":"auth.login.start","browser":"system"}),
-            json!({"type":"auth.login.start","browser":"app"}),
-            json!({"type":"auth.login.finish","url":"com.kodosi:/auth?code=c&state=s"}),
-            json!({"type":"devices.revoke","deviceId":"native-device-name"}),
-            json!({"type":"devices.link.approve","code":"ABCD-EFGH-JKMN"}),
-            json!({"type":"devices.recovery.use","key":"ABCD-EFGH-JKMN-PQRS-TVWX-YZ01-2345-6789"}),
+            json!({"type":"auth.login.start","requestId":ID,"browser":"system"}),
+            json!({"type":"auth.login.start","requestId":ID,"browser":"app"}),
+            json!({"type":"auth.login.finish","requestId":ID,"url":"com.kodosi:/auth?code=c&state=s"}),
+            json!({"type":"devices.revoke","requestId":ID,"deviceId":"native-device-name"}),
+            json!({"type":"devices.link.approve","requestId":ID,"code":"ABCD-EFGH-JKMN"}),
+            json!({"type":"devices.recovery.use","requestId":ID,"key":"ABCD-EFGH-JKMN-PQRS-TVWX-YZ01-2345-6789"}),
             json!({"type":"friends.request.send","username":"example","requestId":ID}),
             json!({"type":"session.create","requestId":ID,"name":"Terminal"}),
             json!({"type":"session.create","requestId":ID,"name":"Resume","workingDir":DIRECTORY,"resume":{"provider":"claude","nativeConversationId":ID}}),
             json!({"type":"session.rename","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"name":"Renamed"}),
             json!({"type":"session.openRemote","requestId":ID,"sessionId":ID}),
-            json!({"type":"session.disconnect","sessionId":ID}),
+            json!({"type":"session.disconnect","requestId":ID,"sessionId":ID}),
             json!({"type":"session.share","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"userIds":[ID]}),
             json!({"type":"session.attachMission","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"missionId":null}),
             json!({"type":"mission.create","requestId":ID,"name":"Release"}),
@@ -1527,7 +1734,7 @@ mod tests {
             json!({"type":"provider.inspect","requestId":ID,"provider":"claude"}),
             resize(),
             json!({"type":"session.focus","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"clientId":ID,"subscriptionGeneration":1}),
-            json!({"type":"session.blur","sessionId":ID,"expectedRuntimeIncarnationId":ID,"clientId":ID,"subscriptionGeneration":1}),
+            json!({"type":"session.blur","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"clientId":ID,"subscriptionGeneration":1}),
         ]);
         values.extend(
             [
@@ -1538,12 +1745,12 @@ mod tests {
                 "friends.identity.trust",
             ]
             .into_iter()
-            .map(|kind| json!({"type":kind,"username":"example"})),
+            .map(|kind| json!({"type":kind,"requestId":ID,"username":"example"})),
         );
         let invite = format!("kodosi:example:{}", "ab".repeat(32));
         values.extend([
             json!({"type":"friends.request.send","username":invite,"requestId":ID}),
-            json!({"type":"friends.verify","username":"example","invite":invite}),
+            json!({"type":"friends.verify","requestId":ID,"username":"example","invite":invite}),
         ]);
         values.extend(["session.close","session.interrupt","session.leave"].into_iter().map(|kind| json!({"type":kind,"requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID})));
         values.extend(
@@ -1565,7 +1772,7 @@ mod tests {
     }
 
     fn resize() -> Value {
-        json!({"type":"session.resize","sessionId":ID,"requestId":ID,"expectedRuntimeIncarnationId":ID,"subscriptionId":ID,"subscriptionGeneration":1,"surfaceGeneration":1,"cols":80,"rows":24,"widthPixels":800,"heightPixels":480,"cellWidthPixels":10,"cellHeightPixels":20,"claim":true})
+        json!({"type":"session.resize","sessionId":ID,"requestId":ID,"expectedRuntimeIncarnationId":ID,"subscriptionId":ID,"subscriptionGeneration":1,"surfaceGeneration":1,"cols":80,"rows":24,"widthPixels":800,"heightPixels":480,"cellWidthPixels":10,"cellHeightPixels":20})
     }
 
     #[test]
@@ -1595,7 +1802,7 @@ mod tests {
             sample["requestId"] = json!(ID);
             let command: CommandEnvelope =
                 serde_json::from_value(envelope(sample.clone())).unwrap();
-            assert_eq!(command.command.request_id(), Some(ID), "{sample}");
+            assert_eq!(command.command.request_id(), ID, "{sample}");
             sample["requestId"] = json!("bad");
             assert!(serde_json::from_value::<CommandEnvelope>(envelope(sample)).is_err());
         }
@@ -1704,21 +1911,13 @@ mod tests {
     }
 
     #[test]
-    fn closed_events_preserve_flattened_terminal_and_provider_payloads() {
-        let mut resized = resize();
-        resized.as_object_mut().unwrap().remove("claim");
-        resized["type"] = json!("term.resizeApplied");
-        resized["runtimeIncarnationId"] = json!(ID);
-        let result = Event::new(None, 0, resized).unwrap();
-        assert_eq!(result.event.kind(), "term.resizeApplied");
-        let value = serde_json::to_value(result).unwrap();
-        assert_eq!(value["cols"], 80);
-        assert!(value.get("identity").is_none());
-        let reply = json!({"type":"provider.reply","requestId":ID,"operation":"provider.inspect","result":{"provider":"claude","executable":null,"files":[],"message":null}});
+    fn closed_events_preserve_flattened_provider_payloads() {
+        let reply = json!({"type":"provider.result","requestId":ID,"operation":"provider.inspect","result":{"provider":"claude","executable":null,"files":[],"message":null}});
         let event = Event::new(None, 0, reply.clone()).unwrap();
+        assert!(event.event.is_answer());
         let encoded = serde_json::to_value(event).unwrap();
         assert_eq!(encoded["result"], reply["result"]);
-        assert!(Event::new(None,0,json!({"type":"provider.reply","requestId":ID,"operation":"provider.inspect","result":{"anything":true}})).is_err());
+        assert!(Event::new(None,0,json!({"type":"provider.result","requestId":ID,"operation":"provider.inspect","result":{"anything":true}})).is_err());
         assert!(Event::new(None, 0, json!({"type":"unknown.event"})).is_err());
         assert!(Event::new(None, 0, json!({"type":"auth.finalizing","extra":true})).is_err());
     }

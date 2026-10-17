@@ -13,7 +13,7 @@ struct TerminalResizeContext {
     let runtimeIncarnationId: String
     let surfaceGeneration: UInt64
 
-    func deliver(_ viewport: TerminalViewport, claim: Bool) {
+    func deliver(_ viewport: TerminalViewport) {
         let cols = Int(viewport.columns)
         let rows = Int(viewport.rows)
         guard resizeAuthority.isAllowed,
@@ -58,11 +58,7 @@ struct TerminalResizeContext {
                 signposter.endInterval("resize.deliver", interval, "queued=0")
                 return
             }
-            commandSink.sendTerminalResize(
-                sessionId: sessionId,
-                identity: identity,
-                claim: claim
-            ) { result in
+            commandSink.sendTerminalResize(sessionId: sessionId, identity: identity) { result in
                 let queued = result == Int32(KODOSI_FFI_OK)
                 lastResize.queued(identity, accepted: queued)
                 signposter.endInterval(

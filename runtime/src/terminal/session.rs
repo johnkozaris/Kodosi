@@ -17,8 +17,8 @@ use super::emulator::{SessionTerminalHandle, TerminalEffect};
 use super::status::ProgramStatusRecords;
 use super::subscribers::Subscribers;
 use super::{
-    CellPixels, ControlFrame, DataFrame, SessionChange, Subscription, TerminalPixelGeometry,
-    TerminalSize,
+    CellPixels, ControlFrame, DataFrame, SOMEONE_TYPING, SessionChange, Subscription, TYPING,
+    TerminalPixelGeometry, TerminalSize,
 };
 use crate::{
     Error, Result,
@@ -46,6 +46,11 @@ enum Request {
     Input {
         connection: Uuid,
         write: PendingWrite,
+    },
+    Send(PendingWrite),
+    Read {
+        history: bool,
+        reply: oneshot::Sender<Result<String>>,
     },
     Resize {
         connection: Uuid,
@@ -150,6 +155,8 @@ impl TerminalSession {
             queue: VecDeque::new(),
             focused: HashMap::new(),
             resize_owner: None,
+            requested: HashMap::new(),
+            typed_at: None,
             cell: CellPixels::default(),
             sequence: 0,
             host_stop_reply: None,
@@ -223,6 +230,26 @@ impl TerminalSession {
             self.send(Request::Input { connection, write })
         });
         await_reply(admission, response)
+    }
+
+    pub(crate) fn send_input(
+        &self,
+        bytes: Bytes,
+    ) -> impl Future<Output = Result<()>> + Send + use<> {
+        let (reply, response) = oneshot::channel();
+        let admission = PendingWrite::new(bytes, &self.input_budget, None).and_then(|mut write| {
+            write.completion = Some(InputCompletion::Local(reply));
+            self.send(Request::Send(write))
+        });
+        await_reply(admission, response)
+    }
+
+    pub(crate) fn read(
+        &self,
+        history: bool,
+    ) -> impl Future<Output = Result<String>> + Send + use<> {
+        let (reply, response) = oneshot::channel();
+        await_reply(self.send(Request::Read { history, reply }), response)
     }
 
     pub(crate) fn resize(
@@ -489,6 +516,8 @@ struct LocalActor {
     queue: VecDeque<PendingWrite>,
     focused: HashMap<Controller, CancellationToken>,
     resize_owner: Option<ResizeOwner>,
+    requested: HashMap<Controller, (TerminalSize, Option<TerminalPixelGeometry>)>,
+    typed_at: Option<tokio::time::Instant>,
     cell: CellPixels,
     sequence: u64,
     host_stop_reply: Option<oneshot::Sender<std::result::Result<serde_json::Value, String>>>,
@@ -648,6 +677,8 @@ impl LocalActor {
         claim: bool,
     ) -> std::result::Result<(), ResizeError> {
         validate_pixels(size, geometry).map_err(ResizeError::Rejected)?;
+        self.requested.insert(controller, (size, geometry));
+        let claim = claim || self.focused.contains_key(&controller);
         let cell = geometry.map_or(self.cell, CellPixels::of);
         let (width, height) = cell.pty_pixels(size);
         if authorization.is_cancelled() {
@@ -733,7 +764,47 @@ impl LocalActor {
         }
     }
 
+    async fn focus_view(
+        &mut self,
+        controller: Controller,
+        authorization: CancellationToken,
+        focused: bool,
+    ) -> (Result<()>, bool) {
+        if let Err(error) = self
+            .set_focus(controller, Some(authorization.clone()), focused)
+            .await
+        {
+            return (Err(error), false);
+        }
+        let owner = self
+            .resize_owner
+            .as_ref()
+            .is_some_and(|owner| owner.controller == controller);
+        let Some((size, geometry)) = self.requested.get(&controller).copied() else {
+            return (Ok(()), false);
+        };
+        if !focused || owner {
+            return (Ok(()), false);
+        }
+        match self
+            .apply_resize(controller, authorization, size, geometry, true)
+            .await
+        {
+            Ok(()) => (Ok(()), false),
+            Err(ResizeError::Rejected(error)) => {
+                tracing::debug!(id = %self.id, %error, "a focused view kept the terminal size");
+                (Ok(()), false)
+            }
+            Err(ResizeError::Diverged(error)) => (Err(error), true),
+        }
+    }
+
+    fn typing(&self) -> bool {
+        self.typed_at.is_some_and(|at| at.elapsed() < TYPING)
+    }
+
     async fn release(&mut self, controller: Controller) -> Result<()> {
+        self.requested.remove(&controller);
         if self
             .resize_owner
             .as_ref()
@@ -974,6 +1045,17 @@ impl LocalActor {
             return;
         };
         write.authorization = Some(authorization);
+        self.typed_at = Some(tokio::time::Instant::now());
+        self.queue.push_back(write);
+    }
+
+    fn accept_command_input(&mut self, mut write: PendingWrite) {
+        if self.typing() {
+            if let Some(completion) = write.completion.take() {
+                completion.send(Err(Error::Invalid(SOMEONE_TYPING.to_owned())));
+            }
+            return;
+        }
         self.queue.push_back(write);
     }
 
@@ -1009,6 +1091,12 @@ impl LocalActor {
                 self.release_logged(Controller::Local(connection)).await;
             }
             Request::Input { connection, write } => self.accept_input(connection, write),
+            Request::Send(write) => self.accept_command_input(write),
+            Request::Read { history, reply } => {
+                if !reply.is_closed() {
+                    drop(reply.send(self.emulator.text(history).await));
+                }
+            }
             Request::Resize {
                 connection,
                 size,
@@ -1028,14 +1116,17 @@ impl LocalActor {
                 if reply.is_closed() {
                     return None;
                 }
-                let result = match self.subscribers.authorization(connection) {
+                let (result, diverged) = match self.subscribers.authorization(connection) {
                     Ok(authorization) => {
-                        self.set_focus(Controller::Local(connection), Some(authorization), focused)
+                        self.focus_view(Controller::Local(connection), authorization, focused)
                             .await
                     }
-                    Err(error) => Err(error),
+                    Err(error) => (Err(error), false),
                 };
                 drop(reply.send(result));
+                if diverged {
+                    return Some("The terminal could not apply its new size.".to_owned());
+                }
             }
             Request::Interrupt(reply) => {
                 if !reply.is_closed() {
@@ -1193,6 +1284,7 @@ impl LocalActor {
                 {
                     Ok(mut write) => {
                         write.completion = Some(InputCompletion::Remote(reply));
+                        self.typed_at = Some(tokio::time::Instant::now());
                         self.queue.push_back(write);
                         return None;
                     }
@@ -1238,16 +1330,13 @@ impl LocalActor {
                 }
             }
             TerminalControl::Focus { focused } => {
-                let result = self
-                    .set_focus(
-                        Controller::Remote(connection_id),
-                        Some(authorization),
-                        focused,
-                    )
+                let (result, diverged) = self
+                    .focus_view(Controller::Remote(connection_id), authorization, focused)
                     .await;
-                fatal = result
-                    .as_ref()
-                    .is_err_and(|error| !matches!(error, Error::Stale));
+                fatal = diverged
+                    || result
+                        .as_ref()
+                        .is_err_and(|error| !matches!(error, Error::Stale));
                 result
             }
             TerminalControl::Interrupt => self

@@ -33,7 +33,7 @@ extension AppDependencies {
     }
 
     func sign(of session: RuntimeSession) -> StatusSign.Form? {
-        session.sign(unseen: attention.contains(session.id))
+        session.sign(unseen: session.attention)
     }
 
     func rename(_ session: RuntimeSession, to name: String) {

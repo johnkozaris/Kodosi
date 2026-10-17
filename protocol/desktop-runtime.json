@@ -36,14 +36,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "auth.login.start"
@@ -52,7 +45,8 @@
         "required": [
           "accountUserId",
           "accountEpoch",
-          "type"
+          "type",
+          "requestId"
         ],
         "type": "object"
       },
@@ -74,14 +68,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "auth.login.finish"
@@ -94,7 +81,8 @@
           "accountUserId",
           "accountEpoch",
           "type",
-          "url"
+          "url",
+          "requestId"
         ],
         "type": "object"
       },
@@ -116,14 +104,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "auth.login.cancel"
@@ -132,7 +113,8 @@
         "required": [
           "accountUserId",
           "accountEpoch",
-          "type"
+          "type",
+          "requestId"
         ],
         "type": "object"
       },
@@ -154,14 +136,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "auth.logout"
@@ -170,7 +145,8 @@
         "required": [
           "accountUserId",
           "accountEpoch",
-          "type"
+          "type",
+          "requestId"
         ],
         "type": "object"
       },
@@ -192,14 +168,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "auth.deleteAccount"
@@ -208,7 +177,8 @@
         "required": [
           "accountUserId",
           "accountEpoch",
-          "type"
+          "type",
+          "requestId"
         ],
         "type": "object"
       },
@@ -230,14 +200,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "auth.deleteAccount.cancel"
@@ -246,7 +209,8 @@
         "required": [
           "accountUserId",
           "accountEpoch",
-          "type"
+          "type",
+          "requestId"
         ],
         "type": "object"
       },
@@ -268,14 +232,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "auth.refresh"
@@ -284,7 +241,8 @@
         "required": [
           "accountUserId",
           "accountEpoch",
-          "type"
+          "type",
+          "requestId"
         ],
         "type": "object"
       },
@@ -306,14 +264,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "devices.refresh"
@@ -322,7 +273,8 @@
         "required": [
           "accountUserId",
           "accountEpoch",
-          "type"
+          "type",
+          "requestId"
         ],
         "type": "object"
       },
@@ -347,14 +299,7 @@
             "type": "string"
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "devices.revoke"
@@ -364,7 +309,8 @@
           "accountUserId",
           "accountEpoch",
           "type",
-          "deviceId"
+          "deviceId",
+          "requestId"
         ],
         "type": "object"
       },
@@ -389,14 +335,7 @@
             "type": "string"
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "devices.link.approve"
@@ -406,7 +345,8 @@
           "accountUserId",
           "accountEpoch",
           "type",
-          "code"
+          "code",
+          "requestId"
         ],
         "type": "object"
       },
@@ -428,14 +368,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "devices.link.startSelf"
@@ -444,7 +377,8 @@
         "required": [
           "accountUserId",
           "accountEpoch",
-          "type"
+          "type",
+          "requestId"
         ],
         "type": "object"
       },
@@ -466,14 +400,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "devices.link.cancelSelf"
@@ -482,7 +409,8 @@
         "required": [
           "accountUserId",
           "accountEpoch",
-          "type"
+          "type",
+          "requestId"
         ],
         "type": "object"
       },
@@ -504,14 +432,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "devices.reset"
@@ -520,7 +441,8 @@
         "required": [
           "accountUserId",
           "accountEpoch",
-          "type"
+          "type",
+          "requestId"
         ],
         "type": "object"
       },
@@ -542,14 +464,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "devices.recovery.create"
@@ -558,7 +473,8 @@
         "required": [
           "accountUserId",
           "accountEpoch",
-          "type"
+          "type",
+          "requestId"
         ],
         "type": "object"
       },
@@ -583,14 +499,7 @@
             "type": "string"
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "devices.recovery.use"
@@ -600,7 +509,8 @@
           "accountUserId",
           "accountEpoch",
           "type",
-          "key"
+          "key",
+          "requestId"
         ],
         "type": "object"
       },
@@ -622,14 +532,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "friends.refresh"
@@ -638,7 +541,8 @@
         "required": [
           "accountUserId",
           "accountEpoch",
-          "type"
+          "type",
+          "requestId"
         ],
         "type": "object"
       },
@@ -696,14 +600,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "friends.request.accept"
@@ -716,7 +613,8 @@
           "accountUserId",
           "accountEpoch",
           "type",
-          "username"
+          "username",
+          "requestId"
         ],
         "type": "object"
       },
@@ -738,14 +636,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "friends.request.reject"
@@ -758,7 +649,8 @@
           "accountUserId",
           "accountEpoch",
           "type",
-          "username"
+          "username",
+          "requestId"
         ],
         "type": "object"
       },
@@ -780,14 +672,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "friends.request.cancel"
@@ -800,7 +685,8 @@
           "accountUserId",
           "accountEpoch",
           "type",
-          "username"
+          "username",
+          "requestId"
         ],
         "type": "object"
       },
@@ -822,14 +708,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "friends.remove"
@@ -842,7 +721,8 @@
           "accountUserId",
           "accountEpoch",
           "type",
-          "username"
+          "username",
+          "requestId"
         ],
         "type": "object"
       },
@@ -864,14 +744,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "friends.identity.trust"
@@ -884,7 +757,8 @@
           "accountUserId",
           "accountEpoch",
           "type",
-          "username"
+          "username",
+          "requestId"
         ],
         "type": "object"
       },
@@ -909,14 +783,7 @@
             "type": "string"
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "friends.verify"
@@ -930,7 +797,8 @@
           "accountEpoch",
           "type",
           "username",
-          "invite"
+          "invite",
+          "requestId"
         ],
         "type": "object"
       },
@@ -952,14 +820,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "friends.invite"
@@ -968,7 +829,8 @@
         "required": [
           "accountUserId",
           "accountEpoch",
-          "type"
+          "type",
+          "requestId"
         ],
         "type": "object"
       },
@@ -990,14 +852,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "session.list"
@@ -1006,7 +861,8 @@
         "required": [
           "accountUserId",
           "accountEpoch",
-          "type"
+          "type",
+          "requestId"
         ],
         "type": "object"
       },
@@ -1463,6 +1319,168 @@
               }
             ]
           },
+          "expectedRuntimeIncarnationId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "type": {
+            "const": "session.input"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "sessionId",
+          "expectedRuntimeIncarnationId",
+          "text"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expectedRuntimeIncarnationId": {
+            "type": "string"
+          },
+          "history": {
+            "type": "boolean"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "session.read"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "sessionId",
+          "expectedRuntimeIncarnationId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "session.show"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "sessionId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sessionIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": {
+            "const": "session.visible"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "sessionIds"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -1500,14 +1518,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "sessionId": {
             "type": "string"
@@ -1520,7 +1531,8 @@
           "accountUserId",
           "accountEpoch",
           "type",
-          "sessionId"
+          "sessionId",
+          "requestId"
         ],
         "type": "object"
       },
@@ -1943,14 +1955,7 @@
             ]
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "mission.list"
@@ -1959,7 +1964,8 @@
         "required": [
           "accountUserId",
           "accountEpoch",
-          "type"
+          "type",
+          "requestId"
         ],
         "type": "object"
       },
@@ -2108,6 +2114,47 @@
           "type",
           "requestId",
           "missionId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "missionId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sequence": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "type": {
+            "const": "mission.seen"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "missionId",
+          "sequence"
         ],
         "type": "object"
       },
@@ -2835,9 +2882,6 @@
             "format": "u32",
             "type": "integer"
           },
-          "claim": {
-            "type": "boolean"
-          },
           "cols": {
             "format": "u16",
             "type": "integer"
@@ -2893,8 +2937,7 @@
           "widthPixels",
           "heightPixels",
           "cellWidthPixels",
-          "cellHeightPixels",
-          "claim"
+          "cellHeightPixels"
         ],
         "type": "object"
       },
@@ -2971,14 +3014,7 @@
             "type": "string"
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "sessionId": {
             "type": "string"
@@ -2998,7 +3034,8 @@
           "sessionId",
           "expectedRuntimeIncarnationId",
           "clientId",
-          "subscriptionGeneration"
+          "subscriptionGeneration",
+          "requestId"
         ],
         "type": "object"
       }
@@ -3017,6 +3054,23 @@
             "anyOf": [
               {
                 "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "host": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "const": "foreground"
+                  },
+                  {
+                    "const": "background"
+                  }
+                ]
               },
               {
                 "type": "null"
@@ -3213,6 +3267,9 @@
               }
             ]
           },
+          "requestId": {
+            "type": "string"
+          },
           "type": {
             "const": "auth.device_code"
           },
@@ -3227,6 +3284,7 @@
           "accountUserId",
           "accountEpoch",
           "type",
+          "requestId",
           "userCode",
           "verificationUri"
         ],
@@ -3249,6 +3307,9 @@
               }
             ]
           },
+          "requestId": {
+            "type": "string"
+          },
           "type": {
             "const": "auth.browser"
           },
@@ -3260,6 +3321,7 @@
           "accountUserId",
           "accountEpoch",
           "type",
+          "requestId",
           "url"
         ],
         "type": "object"
@@ -3312,6 +3374,9 @@
           "confirmationUri": {
             "type": "string"
           },
+          "requestId": {
+            "type": "string"
+          },
           "type": {
             "const": "auth.deletion_pending"
           }
@@ -3320,7 +3385,44 @@
           "accountUserId",
           "accountEpoch",
           "type",
+          "requestId",
           "confirmationUri"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "auth.result"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation"
         ],
         "type": "object"
       },
@@ -3348,14 +3450,7 @@
             "type": "string"
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "auth.error"
@@ -3365,6 +3460,7 @@
           "accountUserId",
           "accountEpoch",
           "type",
+          "requestId",
           "operation",
           "message"
         ],
@@ -3479,16 +3575,6 @@
             },
             "type": "array"
           },
-          "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "type": {
             "const": "friends.snapshot"
           }
@@ -3520,18 +3606,32 @@
               }
             ]
           },
-          "text": {
+          "operation": {
             "type": "string"
           },
+          "requestId": {
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "type": {
-            "const": "friends.invite"
+            "const": "friends.result"
           }
         },
         "required": [
           "accountUserId",
           "accountEpoch",
           "type",
-          "text"
+          "requestId",
+          "operation"
         ],
         "type": "object"
       },
@@ -3559,14 +3659,7 @@
             "type": "string"
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "friends.error"
@@ -3576,6 +3669,7 @@
           "accountUserId",
           "accountEpoch",
           "type",
+          "requestId",
           "operation",
           "message"
         ],
@@ -3767,38 +3861,6 @@
               }
             ]
           },
-          "code": {
-            "type": "string"
-          },
-          "type": {
-            "const": "devices.link.selfPending"
-          }
-        },
-        "required": [
-          "accountUserId",
-          "accountEpoch",
-          "type",
-          "code"
-        ],
-        "type": "object"
-      },
-      {
-        "additionalProperties": false,
-        "properties": {
-          "accountEpoch": {
-            "format": "u64",
-            "type": "integer"
-          },
-          "accountUserId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "outcome": {
             "oneOf": [
               {
@@ -3841,18 +3903,42 @@
               }
             ]
           },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
             "type": "string"
           },
           "type": {
-            "const": "devices.recovery.created"
+            "const": "devices.result"
           }
         },
         "required": [
           "accountUserId",
           "accountEpoch",
           "type",
-          "key"
+          "requestId",
+          "operation"
         ],
         "type": "object"
       },
@@ -3880,14 +3966,7 @@
             "type": "string"
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "devices.error"
@@ -3897,6 +3976,7 @@
           "accountUserId",
           "accountEpoch",
           "type",
+          "requestId",
           "operation",
           "message"
         ],
@@ -3923,6 +4003,9 @@
             "items": {
               "additionalProperties": false,
               "properties": {
+                "attention": {
+                  "type": "boolean"
+                },
                 "connectedUsers": {
                   "items": {
                     "type": "string"
@@ -3994,16 +4077,6 @@
                         "root"
                       ],
                       "type": "object"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "createRequestId": {
-                  "anyOf": [
-                    {
-                      "type": "string"
                     },
                     {
                       "type": "null"
@@ -4245,6 +4318,7 @@
                 }
               },
               "required": [
+                "attention",
                 "connectedUsers",
                 "prompt",
                 "repository",
@@ -4306,6 +4380,16 @@
               }
             ]
           },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "type": {
             "const": "session.result"
           }
@@ -4336,13 +4420,29 @@
               }
             ]
           },
-          "message": {
+          "sessionId": {
             "type": "string"
           },
-          "operation": {
-            "type": "string"
+          "type": {
+            "const": "session.show"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "sessionId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
           },
-          "requestId": {
+          "accountUserId": {
             "anyOf": [
               {
                 "type": "string"
@@ -4351,6 +4451,15 @@
                 "type": "null"
               }
             ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
           },
           "sessionId": {
             "anyOf": [
@@ -4370,6 +4479,7 @@
           "accountUserId",
           "accountEpoch",
           "type",
+          "requestId",
           "operation",
           "message"
         ],
@@ -4677,81 +4787,7 @@
               }
             ]
           },
-          "issues": {
-            "items": {
-              "additionalProperties": false,
-              "properties": {
-                "assignees": {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                "body": {
-                  "type": "string"
-                },
-                "closed": {
-                  "type": "boolean"
-                },
-                "number": {
-                  "format": "u64",
-                  "type": "integer"
-                },
-                "repositoryId": {
-                  "type": "string"
-                },
-                "title": {
-                  "type": "string"
-                },
-                "url": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "repositoryId",
-                "number",
-                "title",
-                "body",
-                "url",
-                "closed",
-                "assignees"
-              ],
-              "type": "object"
-            },
-            "type": "array"
-          },
-          "repositoryId": {
-            "type": "string"
-          },
-          "requestId": {
-            "type": "string"
-          },
-          "roomId": {
-            "type": "string"
-          },
-          "type": {
-            "const": "room.issues"
-          }
-        },
-        "required": [
-          "accountUserId",
-          "accountEpoch",
-          "type",
-          "requestId",
-          "roomId",
-          "repositoryId",
-          "issues"
-        ],
-        "type": "object"
-      },
-      {
-        "additionalProperties": false,
-        "properties": {
-          "accountEpoch": {
-            "format": "u64",
-            "type": "integer"
-          },
-          "accountUserId": {
+          "action": {
             "anyOf": [
               {
                 "type": "string"
@@ -4761,10 +4797,50 @@
               }
             ]
           },
-          "action": {
+          "issues": {
             "anyOf": [
               {
-                "type": "string"
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "assignees": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "body": {
+                      "type": "string"
+                    },
+                    "closed": {
+                      "type": "boolean"
+                    },
+                    "number": {
+                      "format": "u64",
+                      "type": "integer"
+                    },
+                    "repositoryId": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "repositoryId",
+                    "number",
+                    "title",
+                    "body",
+                    "url",
+                    "closed",
+                    "assignees"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
               },
               {
                 "type": "null"
@@ -4784,8 +4860,281 @@
           "operation": {
             "type": "string"
           },
+          "repositoryId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
+          },
+          "room": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "hasOlder": {
+                    "type": "boolean"
+                  },
+                  "historyTrimmed": {
+                    "type": "boolean"
+                  },
+                  "messages": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "agent": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "authorId": {
+                          "type": "string"
+                        },
+                        "authorName": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "sequence": {
+                          "format": "u64",
+                          "type": "integer"
+                        },
+                        "terminalId": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "text": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "sequence",
+                        "authorId",
+                        "authorName",
+                        "agent",
+                        "terminalId",
+                        "text",
+                        "createdAt"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "repositories": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "host": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "owner": {
+                          "type": "string"
+                        },
+                        "provider": {
+                          "type": "string"
+                        },
+                        "repository": {
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "url",
+                        "host",
+                        "owner",
+                        "repository",
+                        "provider"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "roomId": {
+                    "type": "string"
+                  },
+                  "sequence": {
+                    "format": "u64",
+                    "type": "integer"
+                  },
+                  "tasks": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "assignedName": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "assignedTo": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "closed": {
+                          "type": "boolean"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "issue": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "assignees": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "body": {
+                                  "type": "string"
+                                },
+                                "closed": {
+                                  "type": "boolean"
+                                },
+                                "number": {
+                                  "format": "u64",
+                                  "type": "integer"
+                                },
+                                "repositoryId": {
+                                  "type": "string"
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "url": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "repositoryId",
+                                "number",
+                                "title",
+                                "body",
+                                "url",
+                                "closed",
+                                "assignees"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "note": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "repositoryIds": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "terminalId": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "format": "u64",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "version",
+                        "title",
+                        "description",
+                        "closed",
+                        "assignedTo",
+                        "assignedName",
+                        "terminalId",
+                        "repositoryIds",
+                        "note",
+                        "issue"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "roomId",
+                  "messages",
+                  "tasks",
+                  "repositories",
+                  "sequence",
+                  "hasOlder",
+                  "historyTrimmed"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "roomId": {
             "type": "string"
@@ -4830,14 +5179,7 @@
             "type": "string"
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "room.error"
@@ -4847,9 +5189,9 @@
           "accountUserId",
           "accountEpoch",
           "type",
+          "requestId",
           "operation",
-          "message",
-          "requestId"
+          "message"
         ],
         "type": "object"
       },
@@ -4916,12 +5258,16 @@
                 },
                 "ownerUserId": {
                   "type": "string"
+                },
+                "unread": {
+                  "type": "boolean"
                 }
               },
               "required": [
                 "id",
                 "name",
-                "ownerUserId"
+                "ownerUserId",
+                "unread"
               ],
               "type": "object"
             },
@@ -4963,80 +5309,64 @@
             ]
           },
           "members": {
-            "items": {
-              "additionalProperties": false,
-              "properties": {
-                "displayName": {
-                  "type": "string"
-                },
-                "handle": {
-                  "type": "string"
-                },
-                "isOwner": {
-                  "type": "boolean"
-                },
-                "userId": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "userId",
-                "handle",
-                "displayName",
-                "isOwner"
-              ],
-              "type": "object"
-            },
-            "type": "array"
-          },
-          "mission": {
-            "additionalProperties": false,
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string"
-              },
-              "ownerUserId": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "id",
-              "name",
-              "ownerUserId"
-            ],
-            "type": "object"
-          },
-          "requestId": {
-            "type": "string"
-          },
-          "type": {
-            "const": "mission.snapshot"
-          }
-        },
-        "required": [
-          "accountUserId",
-          "accountEpoch",
-          "type",
-          "requestId",
-          "mission",
-          "members"
-        ],
-        "type": "object"
-      },
-      {
-        "additionalProperties": false,
-        "properties": {
-          "accountEpoch": {
-            "format": "u64",
-            "type": "integer"
-          },
-          "accountUserId": {
             "anyOf": [
               {
-                "type": "string"
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "displayName": {
+                      "type": "string"
+                    },
+                    "handle": {
+                      "type": "string"
+                    },
+                    "isOwner": {
+                      "type": "boolean"
+                    },
+                    "userId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "userId",
+                    "handle",
+                    "displayName",
+                    "isOwner"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mission": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "ownerUserId": {
+                    "type": "string"
+                  },
+                  "unread": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "ownerUserId",
+                  "unread"
+                ],
+                "type": "object"
               },
               {
                 "type": "null"
@@ -5106,14 +5436,7 @@
             "type": "string"
           },
           "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "type": {
             "const": "mission.error"
@@ -5123,6 +5446,7 @@
           "accountUserId",
           "accountEpoch",
           "type",
+          "requestId",
           "operation",
           "message"
         ],
@@ -5241,7 +5565,7 @@
                 "type": "object"
               },
               "type": {
-                "const": "provider.reply"
+                "const": "provider.result"
               }
             },
             "required": [
@@ -5345,7 +5669,7 @@
                 "type": "object"
               },
               "type": {
-                "const": "provider.reply"
+                "const": "provider.result"
               }
             },
             "required": [
@@ -5451,7 +5775,7 @@
                 "type": "object"
               },
               "type": {
-                "const": "provider.reply"
+                "const": "provider.result"
               }
             },
             "required": [
@@ -5707,7 +6031,7 @@
                 "type": "object"
               },
               "type": {
-                "const": "provider.reply"
+                "const": "provider.result"
               }
             },
             "required": [
@@ -5910,7 +6234,7 @@
                 "type": "object"
               },
               "type": {
-                "const": "provider.reply"
+                "const": "provider.result"
               }
             },
             "required": [
@@ -5985,7 +6309,7 @@
                 "type": "object"
               },
               "type": {
-                "const": "provider.reply"
+                "const": "provider.result"
               }
             },
             "required": [
@@ -6128,7 +6452,7 @@
                 "type": "object"
               },
               "type": {
-                "const": "provider.reply"
+                "const": "provider.result"
               }
             },
             "required": [
@@ -6235,6 +6559,38 @@
           "sessionId": {
             "type": "string"
           },
+          "type": {
+            "const": "term.attention"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "sessionId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sessionId": {
+            "type": "string"
+          },
           "title": {
             "type": "string"
           },
@@ -6294,327 +6650,11 @@
           "body"
         ],
         "type": "object"
-      },
-      {
-        "additionalProperties": false,
-        "properties": {
-          "accountEpoch": {
-            "format": "u64",
-            "type": "integer"
-          },
-          "accountUserId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "requestId": {
-            "type": "string"
-          },
-          "runtimeIncarnationId": {
-            "type": "string"
-          },
-          "sessionId": {
-            "type": "string"
-          },
-          "subscriptionGeneration": {
-            "format": "u64",
-            "type": "integer"
-          },
-          "subscriptionId": {
-            "type": "string"
-          },
-          "type": {
-            "const": "term.focusApplied"
-          }
-        },
-        "required": [
-          "accountUserId",
-          "accountEpoch",
-          "type",
-          "sessionId",
-          "requestId",
-          "runtimeIncarnationId",
-          "subscriptionId",
-          "subscriptionGeneration",
-          "reason"
-        ],
-        "type": "object"
-      },
-      {
-        "additionalProperties": false,
-        "properties": {
-          "accountEpoch": {
-            "format": "u64",
-            "type": "integer"
-          },
-          "accountUserId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "requestId": {
-            "type": "string"
-          },
-          "runtimeIncarnationId": {
-            "type": "string"
-          },
-          "sessionId": {
-            "type": "string"
-          },
-          "subscriptionGeneration": {
-            "format": "u64",
-            "type": "integer"
-          },
-          "subscriptionId": {
-            "type": "string"
-          },
-          "type": {
-            "const": "term.focusRejected"
-          }
-        },
-        "required": [
-          "accountUserId",
-          "accountEpoch",
-          "type",
-          "sessionId",
-          "requestId",
-          "runtimeIncarnationId",
-          "subscriptionId",
-          "subscriptionGeneration",
-          "reason"
-        ],
-        "type": "object"
-      },
-      {
-        "additionalProperties": false,
-        "properties": {
-          "accountEpoch": {
-            "format": "u64",
-            "type": "integer"
-          },
-          "accountUserId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "cellHeightPixels": {
-            "format": "u32",
-            "type": "integer"
-          },
-          "cellWidthPixels": {
-            "format": "u32",
-            "type": "integer"
-          },
-          "cols": {
-            "format": "u16",
-            "type": "integer"
-          },
-          "expectedRuntimeIncarnationId": {
-            "type": "string"
-          },
-          "heightPixels": {
-            "format": "u32",
-            "type": "integer"
-          },
-          "reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "requestId": {
-            "type": "string"
-          },
-          "rows": {
-            "format": "u16",
-            "type": "integer"
-          },
-          "runtimeIncarnationId": {
-            "type": "string"
-          },
-          "sessionId": {
-            "type": "string"
-          },
-          "subscriptionGeneration": {
-            "format": "u64",
-            "type": "integer"
-          },
-          "subscriptionId": {
-            "type": "string"
-          },
-          "surfaceGeneration": {
-            "format": "u64",
-            "type": "integer"
-          },
-          "type": {
-            "const": "term.resizeApplied"
-          },
-          "widthPixels": {
-            "format": "u32",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "accountUserId",
-          "accountEpoch",
-          "type",
-          "sessionId",
-          "runtimeIncarnationId",
-          "requestId",
-          "expectedRuntimeIncarnationId",
-          "subscriptionId",
-          "subscriptionGeneration",
-          "surfaceGeneration",
-          "cols",
-          "rows",
-          "widthPixels",
-          "heightPixels",
-          "cellWidthPixels",
-          "cellHeightPixels"
-        ],
-        "type": "object"
-      },
-      {
-        "additionalProperties": false,
-        "properties": {
-          "accountEpoch": {
-            "format": "u64",
-            "type": "integer"
-          },
-          "accountUserId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "cellHeightPixels": {
-            "format": "u32",
-            "type": "integer"
-          },
-          "cellWidthPixels": {
-            "format": "u32",
-            "type": "integer"
-          },
-          "cols": {
-            "format": "u16",
-            "type": "integer"
-          },
-          "expectedRuntimeIncarnationId": {
-            "type": "string"
-          },
-          "heightPixels": {
-            "format": "u32",
-            "type": "integer"
-          },
-          "reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "requestId": {
-            "type": "string"
-          },
-          "rows": {
-            "format": "u16",
-            "type": "integer"
-          },
-          "runtimeIncarnationId": {
-            "type": "string"
-          },
-          "sessionId": {
-            "type": "string"
-          },
-          "subscriptionGeneration": {
-            "format": "u64",
-            "type": "integer"
-          },
-          "subscriptionId": {
-            "type": "string"
-          },
-          "surfaceGeneration": {
-            "format": "u64",
-            "type": "integer"
-          },
-          "type": {
-            "const": "term.resizeRejected"
-          },
-          "widthPixels": {
-            "format": "u32",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "accountUserId",
-          "accountEpoch",
-          "type",
-          "sessionId",
-          "runtimeIncarnationId",
-          "requestId",
-          "expectedRuntimeIncarnationId",
-          "subscriptionId",
-          "subscriptionGeneration",
-          "surfaceGeneration",
-          "cols",
-          "rows",
-          "widthPixels",
-          "heightPixels",
-          "cellWidthPixels",
-          "cellHeightPixels"
-        ],
-        "type": "object"
       }
     ]
   },
-  "ffiAbiVersion": 9,
-  "protocolVersion": 63,
+  "ffiAbiVersion": 10,
+  "protocolVersion": 64,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 5,

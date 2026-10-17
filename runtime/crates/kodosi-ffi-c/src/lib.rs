@@ -11,7 +11,7 @@ use std::{
 };
 
 use bytes::Bytes;
-use kodosi_runtime::{CommandEnvelope, Config, Error, RuntimeHandle, terminal};
+use kodosi_runtime::{CommandEnvelope, Config, Error, protocol::Command, terminal};
 #[cfg(feature = "host")]
 use kodosi_runtime::{HostKind, local_host};
 use tokio::{runtime::Runtime as Executor, task::JoinSet};
@@ -21,6 +21,9 @@ use uuid::Uuid;
 mod app;
 mod callbacks;
 mod instance;
+#[cfg_attr(feature = "host", path = "host_link.rs")]
+#[cfg_attr(not(feature = "host"), path = "viewer_link.rs")]
+mod link;
 mod subscriptions;
 mod terminal_bridge;
 
@@ -35,7 +38,7 @@ pub use terminal_bridge::*;
 #[cfg(test)]
 use instance::Completion;
 
-pub const KODOSI_FFI_ABI_VERSION: u32 = 9;
+pub const KODOSI_FFI_ABI_VERSION: u32 = 10;
 pub const KODOSI_MAX_FRAME_BYTES: usize = 8_388_608;
 pub const KODOSI_TERMINAL_SNAPSHOT_MAX_BYTES: usize = 281_018_368;
 pub const KODOSI_TERMINAL_IMAGE_STORAGE_MAX_BYTES: u64 = 67_108_864;
@@ -52,14 +55,13 @@ pub const KODOSI_FFI_TERMINAL_CHECKPOINT_REJECTED: i32 = 9;
 pub const KODOSI_FFI_PANIC: i32 = -1;
 pub const KODOSI_START_INVALID_CALLBACKS: i32 = 1;
 pub const KODOSI_START_ALREADY_ACTIVE: i32 = 2;
-pub const KODOSI_START_HOST_BUSY: i32 = 3;
+pub const KODOSI_START_HOST_OUTDATED: i32 = 3;
 pub const KODOSI_START_REJECTED: i32 = 4;
 pub const KODOSI_START_FAILED: i32 = 5;
 pub const KODOSI_START_FAILURE_MESSAGE_BYTES: usize = 512;
 pub const KODOSI_HOST_KIND_UNKNOWN: i32 = 0;
-pub const KODOSI_HOST_KIND_APP: i32 = 1;
-pub const KODOSI_HOST_KIND_FOREGROUND: i32 = 2;
-pub const KODOSI_HOST_KIND_BACKGROUND: i32 = 3;
+pub const KODOSI_HOST_KIND_FOREGROUND: i32 = 1;
+pub const KODOSI_HOST_KIND_BACKGROUND: i32 = 2;
 pub const KODOSI_HOST_STOP_ACCEPTED: i32 = 0;
 pub const KODOSI_HOST_STOP_REFUSED: i32 = 1;
 pub const KODOSI_HOST_STOP_UNREACHABLE: i32 = 2;
@@ -130,7 +132,7 @@ pub struct KodosiStartFailure {
     pub code: i32,
     pub host_kind: i32,
     pub host_pid: u32,
-    pub host_local_sessions: u32,
+    pub host_terminals: u32,
     pub message: [c_char; KODOSI_START_FAILURE_MESSAGE_BYTES],
 }
 
@@ -141,7 +143,7 @@ fn start_failure(code: i32, message: &str) -> Box<KodosiStartFailure> {
         code,
         host_kind: KODOSI_HOST_KIND_UNKNOWN,
         host_pid: 0,
-        host_local_sessions: 0,
+        host_terminals: 0,
         message: [0; KODOSI_START_FAILURE_MESSAGE_BYTES],
     });
     let mut end = message.len().min(KODOSI_START_FAILURE_MESSAGE_BYTES - 1);
@@ -155,18 +157,25 @@ fn start_failure(code: i32, message: &str) -> Box<KodosiStartFailure> {
 }
 
 #[cfg(feature = "host")]
-fn host_busy(message: &str, status: Option<local_host::HostStatus>) -> Box<KodosiStartFailure> {
-    let mut failure = start_failure(KODOSI_START_HOST_BUSY, message);
-    if let Some(status) = status {
-        failure.host_kind = match status.host.kind {
-            HostKind::App => KODOSI_HOST_KIND_APP,
-            HostKind::Foreground => KODOSI_HOST_KIND_FOREGROUND,
-            HostKind::Background => KODOSI_HOST_KIND_BACKGROUND,
-        };
-        failure.host_pid = status.host.pid;
-        failure.host_local_sessions = u32::try_from(status.local_sessions).unwrap_or(u32::MAX);
+fn start_error(error: &Error) -> Box<KodosiStartFailure> {
+    match error {
+        Error::HostOutdated {
+            kind,
+            pid,
+            terminals,
+        } => {
+            let mut failure = start_failure(KODOSI_START_HOST_OUTDATED, &error.to_string());
+            failure.host_kind = match kind {
+                HostKind::Foreground => KODOSI_HOST_KIND_FOREGROUND,
+                HostKind::Background => KODOSI_HOST_KIND_BACKGROUND,
+            };
+            failure.host_pid = *pid;
+            failure.host_terminals = u32::try_from(*terminals).unwrap_or(u32::MAX);
+            failure
+        }
+        Error::Invalid(_) => start_failure(KODOSI_START_REJECTED, &error.to_string()),
+        _ => start_failure(KODOSI_START_FAILED, &error.to_string()),
     }
-    failure
 }
 
 fn record_start_failure(failure: Option<&KodosiStartFailure>) {
@@ -312,75 +321,85 @@ pub unsafe extern "C" fn kodosi_send_command(
             Ok(value) => value,
             Err(error) => return error,
         };
-        let value: serde_json::Value = match serde_json::from_slice(bytes) {
-            Ok(value) => value,
-            Err(_) => return KODOSI_FFI_DESER_FAILED,
+        let Ok(value) = serde_json::from_slice::<serde_json::Value>(bytes) else {
+            return KODOSI_FFI_DESER_FAILED;
         };
-        if matches!(
-            value.get("type").and_then(serde_json::Value::as_str),
-            Some("session.resize" | "session.focus" | "session.blur")
-        ) {
-            let Some(session) = value
-                .get("sessionId")
-                .and_then(serde_json::Value::as_str)
-                .and_then(|s| Uuid::parse_str(s).ok())
-            else {
-                return KODOSI_FFI_DESER_FAILED;
-            };
-            let Some(id) = value
-                .get("subscriptionId")
-                .or_else(|| value.get("clientId"))
-                .and_then(serde_json::Value::as_str)
-            else {
-                return KODOSI_FFI_STALE_SUBSCRIPTION;
-            };
-            let Some(generation) = value
-                .get("subscriptionGeneration")
-                .and_then(serde_json::Value::as_u64)
-            else {
-                return KODOSI_FFI_STALE_SUBSCRIPTION;
-            };
-            let Some(incarnation) = value
-                .get("expectedRuntimeIncarnationId")
-                .and_then(serde_json::Value::as_str)
-                .and_then(|id| Uuid::parse_str(id).ok())
-            else {
-                return KODOSI_FFI_DESER_FAILED;
-            };
-            let registry = lock(&instance.state.subscriptions);
-            let Some(subscription) = registry
-                .entries
-                .get(&session)
-                .filter(|s| s.matches(id, generation) && !s.cancel.is_cancelled())
-            else {
-                return KODOSI_FFI_STALE_SUBSCRIPTION;
-            };
-            let Some((connection, current)) = *lock(&subscription.connected) else {
-                return KODOSI_FFI_SESSION_NOT_FOUND;
-            };
-            if current != incarnation {
-                return KODOSI_FFI_STALE_SUBSCRIPTION;
+        let Ok(envelope) = serde_json::from_value::<CommandEnvelope>(value.clone()) else {
+            return KODOSI_FFI_DESER_FAILED;
+        };
+        let target = match &envelope.command {
+            Command::Resize {
+                session_id,
+                identity,
+            } => Some((
+                session_id.clone(),
+                identity.subscription_id.clone(),
+                identity.subscription_generation,
+                identity.expected_runtime_incarnation_id.clone(),
+            )),
+            Command::Focus {
+                session_id,
+                expected_runtime_incarnation_id,
+                client_id,
+                subscription_generation,
+                ..
             }
-            let command: CommandEnvelope = match serde_json::from_value(value) {
-                Ok(value) => value,
-                Err(_) => return KODOSI_FFI_DESER_FAILED,
-            };
-            let result = instance
-                .runtime
-                .try_send_terminal(command, connection)
-                .map_or_else(|error| code(&error), |()| KODOSI_FFI_OK);
-            drop(registry);
-            return result;
-        }
-        let command: CommandEnvelope = match serde_json::from_value(value) {
-            Ok(value) => value,
-            Err(_) => return KODOSI_FFI_DESER_FAILED,
+            | Command::Blur {
+                session_id,
+                expected_runtime_incarnation_id,
+                client_id,
+                subscription_generation,
+                ..
+            } => Some((
+                session_id.clone(),
+                client_id.clone(),
+                *subscription_generation,
+                expected_runtime_incarnation_id.clone(),
+            )),
+            _ => None,
         };
-        instance
-            .runtime
-            .try_send(command)
-            .map_or_else(|error| code(&error), |()| KODOSI_FFI_OK)
+        match target {
+            Some((session, subscription, generation, incarnation)) => control(
+                &instance,
+                &session,
+                &subscription,
+                generation,
+                &incarnation,
+                &envelope,
+            ),
+            None => instance.link.command(value, &envelope),
+        }
     })
+}
+
+fn control(
+    instance: &Instance,
+    session: &str,
+    subscription: &str,
+    generation: u64,
+    incarnation: &str,
+    envelope: &CommandEnvelope,
+) -> i32 {
+    let (Ok(session), Ok(incarnation)) = (Uuid::parse_str(session), Uuid::parse_str(incarnation))
+    else {
+        return KODOSI_FFI_DESER_FAILED;
+    };
+    let Some(entry) = instance
+        .state
+        .subscription(session, subscription, generation)
+    else {
+        return KODOSI_FFI_STALE_SUBSCRIPTION;
+    };
+    let guard = lock(&entry.connected);
+    let Some(connected) = guard.as_ref() else {
+        return KODOSI_FFI_SESSION_NOT_FOUND;
+    };
+    if connected.incarnation != incarnation {
+        return KODOSI_FFI_STALE_SUBSCRIPTION;
+    }
+    let result = connected.control(instance, &entry, envelope);
+    drop(guard);
+    result
 }
 
 #[cfg(test)]

@@ -1,4 +1,5 @@
 use super::Reconnect;
+use bytes::Bytes;
 #[cfg(feature = "host")]
 use serde_json::Value;
 use serde_json::json;
@@ -9,6 +10,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 #[cfg(feature = "host")]
 use tokio::sync::mpsc;
+use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -62,6 +64,12 @@ impl Runtime {
             }
             Command::DisconnectRemote { session_id, .. } => {
                 self.release_view(parse_id(session_id)?, consumer);
+                self.result(command);
+                Ok(())
+            }
+            Command::Visible { session_ids, .. } => {
+                self.see(consumer, lifetime, session_ids.iter().cloned().collect());
+                self.result(command);
                 Ok(())
             }
             _ => self.apply(command),
@@ -93,7 +101,12 @@ impl Runtime {
         match command {
             Command::ListSessions { .. } => {
                 self.publish_catalog();
-                self.refresh_catalog(command);
+                if self.scope.user.is_some() {
+                    self.job_capacity()?;
+                    self.network_command(command.clone());
+                } else {
+                    self.result(command);
+                }
             }
             #[cfg(feature = "host")]
             Command::CreateSession { .. } => self.create(command.clone())?,
@@ -104,6 +117,21 @@ impl Runtime {
                 ));
             }
             Command::RenameSession { .. } => self.rename(command)?,
+            Command::Input { .. } => self.send_input(command)?,
+            Command::Read { .. } => self.read(command)?,
+            Command::Show { session_id, .. } => {
+                self.target(parse_id(session_id)?)?;
+                self.emit(json!({"type":"session.show", "sessionId":session_id}));
+                self.result(command);
+            }
+            Command::SeeMission {
+                mission_id,
+                sequence,
+                ..
+            } => {
+                self.see_room(mission_id, *sequence)?;
+                self.result(command);
+            }
             Command::CloseSession { .. } | Command::InterruptSession { .. } => {
                 self.end_session(command)?;
             }
@@ -114,7 +142,9 @@ impl Runtime {
                 self.command_session(command)?;
                 return Err(Error::Invalid(RUN_ON_HOST.to_owned()));
             }
-            Command::OpenRemote { .. } | Command::DisconnectRemote { .. } => {
+            Command::OpenRemote { .. }
+            | Command::DisconnectRemote { .. }
+            | Command::Visible { .. } => {
                 return Err(Error::Invalid(
                     "remote view commands require a current client".to_owned(),
                 ));
@@ -128,29 +158,8 @@ impl Runtime {
             | Command::InspectProvider { .. }
             | Command::InspectAgents { .. }
             | Command::InspectAgentModels { .. }
-            | Command::AddAgentAccount { .. } => {
-                self.job_capacity()?;
-                let home = self.config.home.clone();
-                let shell = shell(&self.config);
-                let launcher = Arc::clone(&self.launcher);
-                let command = command.clone();
-                self.spawn(async move {
-                    let result = provider_reply(&home, &shell, &launcher, &command).await;
-                    Completion::Provider { command, result }
-                });
-            }
-            #[cfg(feature = "host")]
-            Command::ChooseAgent { change, .. } => {
-                self.job_capacity()?;
-                self.launcher.choose(change);
-                let launcher = Arc::clone(&self.launcher);
-                let command = command.clone();
-                self.spawn(async move {
-                    Arc::clone(&launcher).save().await;
-                    let result = serde_json::to_value(launcher.choice()).map_err(Error::from);
-                    Completion::Provider { command, result }
-                });
-            }
+            | Command::AddAgentAccount { .. }
+            | Command::ChooseAgent { .. } => self.provider(command)?,
             #[cfg(not(feature = "host"))]
             Command::DiscoverConversations { .. }
             | Command::ReadConversation { .. }
@@ -186,6 +195,79 @@ impl Runtime {
                 self.network_command(command.clone());
             }
         }
+        Ok(())
+    }
+
+    #[cfg(feature = "host")]
+    fn provider(&mut self, command: &Command) -> Result<()> {
+        self.job_capacity()?;
+        let launcher = Arc::clone(&self.launcher);
+        let command = command.clone();
+        if let Command::ChooseAgent { change, .. } = &command {
+            launcher.choose(change);
+            self.spawn(async move {
+                Arc::clone(&launcher).save().await;
+                let result = serde_json::to_value(launcher.choice()).map_err(Error::from);
+                Completion::Provider { command, result }
+            });
+        } else {
+            let home = self.config.home.clone();
+            let shell = shell(&self.config);
+            self.spawn(async move {
+                let result = provider_reply(&home, &shell, &launcher, &command).await;
+                Completion::Provider { command, result }
+            });
+        }
+        Ok(())
+    }
+
+    fn read(&mut self, command: &Command) -> Result<()> {
+        let Command::Read {
+            session_id,
+            expected_runtime_incarnation_id,
+            history,
+            ..
+        } = command
+        else {
+            return Err(Error::Invalid("expected a terminal read".to_owned()));
+        };
+        let id = parse_id(session_id)?;
+        self.check_incarnation(id, parse_id(expected_runtime_incarnation_id)?)?;
+        self.job_capacity()?;
+        let read = self.target(id)?.read(*history);
+        let command = command.clone();
+        self.spawn(async move {
+            Completion::Read {
+                command,
+                result: read.await,
+            }
+        });
+        Ok(())
+    }
+
+    fn send_input(&mut self, command: &Command) -> Result<()> {
+        let Command::Input {
+            session_id,
+            expected_runtime_incarnation_id,
+            text,
+            ..
+        } = command
+        else {
+            return Err(Error::Invalid("expected terminal input".to_owned()));
+        };
+        let id = parse_id(session_id)?;
+        self.check_incarnation(id, parse_id(expected_runtime_incarnation_id)?)?;
+        self.job_capacity()?;
+        let input = self
+            .target(id)?
+            .send_input(Bytes::from(text.clone().into_bytes()));
+        let command = command.clone();
+        self.spawn(async move {
+            Completion::Terminal {
+                command,
+                result: input.await,
+            }
+        });
         Ok(())
     }
 
@@ -398,7 +480,7 @@ impl Runtime {
             return Err(Error::Invalid("expected session creation".to_owned()));
         };
         let existing = self.local.iter().find_map(|(id, local)| {
-            (local.creation.request_id() == Some(request_id)).then_some((*id, &local.creation))
+            (local.creation.request_id() == request_id).then_some((*id, &local.creation))
         });
         if let Some((id, existing)) = existing {
             if existing != &command {
@@ -409,19 +491,6 @@ impl Runtime {
             self.publish_catalog();
             self.emit(json!({"type":"session.result", "requestId":request_id, "sessionId":id, "operation":"session.create"}));
             return Ok(());
-        }
-        if let Some(existing) = self
-            .creating
-            .values()
-            .find(|pending| pending.request_id() == Some(request_id))
-        {
-            return if existing == &command {
-                Ok(())
-            } else {
-                Err(Error::Invalid(
-                    "request ID was reused for another session".to_owned(),
-                ))
-            };
         }
         if self.local.len() + self.creating.len() >= MAX_SESSIONS {
             return Err(Error::Busy);
@@ -581,7 +650,28 @@ impl Runtime {
         });
     }
 
-    pub(super) fn terminal_command(&mut self, command: Command, connection: Uuid) -> Result<()> {
+    pub(super) fn terminal_command(
+        &mut self,
+        command: &Command,
+        connection: Uuid,
+        reply: oneshot::Sender<Result<()>>,
+    ) {
+        match self.terminal_response(command, connection) {
+            Ok(response) => self.spawn(async move {
+                Completion::HeadlessControl {
+                    reply,
+                    result: response.await,
+                }
+            }),
+            Err(error) => drop(reply.send(Err(error))),
+        }
+    }
+
+    fn terminal_response(
+        &self,
+        command: &Command,
+        connection: Uuid,
+    ) -> Result<std::pin::Pin<Box<dyn Future<Output = Result<()>> + Send>>> {
         self.job_capacity()?;
         let (session_id, incarnation_id) = match &command {
             Command::Resize {
@@ -604,66 +694,15 @@ impl Runtime {
         let id = parse_id(session_id)?;
         self.check_incarnation(id, parse_id(incarnation_id)?)?;
         let target = self.target(id)?;
-        let response = match &command {
-            Command::Resize {
-                identity, claim, ..
-            } => {
+        match command {
+            Command::Resize { identity, .. } => {
                 let (size, geometry) = identity.geometry()?;
-                target.resize(connection, size, Some(geometry), *claim)
+                Ok(target.resize(connection, size, Some(geometry), false))
             }
             Command::Focus { .. } | Command::Blur { .. } => {
-                target.focus(connection, matches!(command, Command::Focus { .. }))
+                Ok(target.focus(connection, matches!(command, Command::Focus { .. })))
             }
-            _ => return Err(Error::Invalid("expected terminal control".to_owned())),
-        };
-        self.spawn(async move {
-            Completion::Terminal {
-                command,
-                result: response.await,
-            }
-        });
-        Ok(())
-    }
-
-    pub(super) fn terminal_result(&self, command: &Command, result: Result<()>) {
-        match command {
-            Command::Resize {
-                session_id,
-                identity,
-                ..
-            } => {
-                if let Ok(mut value) = serde_json::to_value(identity) {
-                    value["type"] = json!(if result.is_ok() {
-                        "term.resizeApplied"
-                    } else {
-                        "term.resizeRejected"
-                    });
-                    value["sessionId"] = json!(session_id);
-                    value["runtimeIncarnationId"] = json!(identity.expected_runtime_incarnation_id);
-                    if let Err(error) = result {
-                        value["reason"] = json!(error.to_string());
-                    }
-                    self.emit(value);
-                }
-            }
-            Command::Focus {
-                request_id,
-                session_id,
-                expected_runtime_incarnation_id,
-                client_id,
-                subscription_generation,
-            } => {
-                self.emit(json!({"type":if result.is_ok() {"term.focusApplied"} else {"term.focusRejected"},
-                    "sessionId":session_id, "requestId":request_id,
-                    "runtimeIncarnationId":expected_runtime_incarnation_id,
-                    "subscriptionId":client_id, "subscriptionGeneration":subscription_generation,
-                    "reason":result.err().map(|error| error.to_string())}));
-            }
-            Command::Blur { .. } => {}
-            _ => match result {
-                Ok(()) => self.result(command),
-                Err(error) => self.error(command, &error),
-            },
+            _ => Err(Error::Invalid("expected terminal control".to_owned())),
         }
     }
 
@@ -681,7 +720,7 @@ impl Runtime {
             Completion::Initialized(result) => {
                 self.initializing = false;
                 self.emit(self.auth_event());
-                if job.scope.network_generation == self.network.generation() && let Err(error) = result && !matches!(error, Error::Stale) { self.error(&Command::RefreshAuth { request_id: None }, &error); }
+                if job.scope.network_generation == self.network.generation() && let Err(error) = result && !matches!(error, Error::Stale) { self.emit(json!({"type":"system.error", "message":error.to_string()})); }
                 #[cfg(feature = "host")]
                 self.publish_locals();
             }
@@ -702,7 +741,10 @@ impl Runtime {
                 }
             }
             Completion::Terminal { command, result } if current => {
-                self.terminal_result(&command, result);
+                match result {
+                    Ok(()) => self.result(&command),
+                    Err(error) => self.error(&command, &error),
+                }
                 if matches!(command, Command::CloseSession { .. } | Command::InterruptSession { .. })
                     && let Some(id) = command.session_id().and_then(|id| Uuid::parse_str(id).ok())
                     && !self.hosts(&id) && !self.views.contains_key(&id)
@@ -712,7 +754,7 @@ impl Runtime {
             },
             #[cfg(feature = "host")]
             Completion::Provider { command, result } if current => match result {
-                Ok(value) => self.emit(json!({"type":"provider.reply", "requestId":command.request_id(), "operation":command.operation(), "result":value})),
+                Ok(value) => self.emit(json!({"type":"provider.result", "requestId":command.request_id(), "operation":command.operation(), "result":value})),
                 Err(error) => self.error(&command, &error),
             },
             Completion::Checkpoint { reply, result } => { drop(reply.send(if current { result } else { Err(Error::Stale) })); }
@@ -724,9 +766,19 @@ impl Runtime {
                 Ok(subscription) => { target.unsubscribe(subscription.connection_id); drop(reply.send(Err(Error::Stale))); }
                 Err(error) => { drop(reply.send(Err(error))); }
             },
-            Completion::Unpublished { .. } | Completion::Terminal { .. } => {},
+            Completion::Unpublished { .. } => {},
+            Completion::Terminal { command, .. } => self.error(&command, &Error::Stale),
+            Completion::Read { command, result } if current => match result {
+                Ok(text) => {
+                    let mut value = super::answer(&command, Ok(()));
+                    value["text"] = json!(text);
+                    self.emit(value);
+                }
+                Err(error) => self.error(&command, &error),
+            },
+            Completion::Read { command, .. } => self.error(&command, &Error::Stale),
             #[cfg(feature = "host")]
-            Completion::Provider { .. } => {},
+            Completion::Provider { command, .. } => self.error(&command, &Error::Stale),
         }
     }
 
@@ -736,6 +788,7 @@ impl Runtime {
             return;
         };
         if !current {
+            self.error(&command, &Error::Stale);
             return;
         }
         match result {
@@ -763,6 +816,7 @@ impl Runtime {
                     return;
                 }
                 let entry = SessionEntry {
+                    attention: false,
                     connected_users: vec![],
                     program: None,
                     prompt: false,
@@ -786,7 +840,6 @@ impl Runtime {
                     mission_id: mission_id.clone(),
                     mission_name: None,
                     shared_with: vec![],
-                    create_request_id: Some(request_id.clone()),
                 };
                 let created = json!({"type":"session.result", "requestId":request_id, "sessionId":id, "operation":"session.create"});
                 self.local.insert(
@@ -827,6 +880,7 @@ impl Runtime {
             && scope.network_generation.checked_add(1) == Some(generation)
             && generation == self.network.generation();
         if !current && !own_retirement {
+            self.error(command, &Error::Stale);
             return;
         }
         if let Some(id) = command.session_id().and_then(|id| Uuid::parse_str(id).ok()) {
@@ -839,10 +893,15 @@ impl Runtime {
                         == self.network.identity().map(|identity| identity.user_id) =>
             {
                 self.apply_metadata(command);
+                let later = reply.answered_later;
                 self.network_reply(reply);
+                if !later {
+                    self.finish(command);
+                }
             }
+            Ok(_) => self.error(command, &Error::Stale),
             Err(error) if requested => self.error(command, &error),
-            Err(Error::Stale | Error::Stopped) | Ok(_) => {}
+            Err(Error::Stale | Error::Stopped) => {}
             Err(error) => {
                 tracing::warn!(operation = command.operation(), %error, "a refresh of the runtime failed");
             }

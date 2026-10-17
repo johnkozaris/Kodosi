@@ -76,9 +76,10 @@ struct AppLogin {
     cancel: CancellationToken,
     generation: u64,
     until: tokio::time::Instant,
+    request: String,
 }
 
-const BROWSER_LOGIN_TIME: Duration = Duration::from_mins(15);
+pub(crate) const SIGN_IN_LIFE: Duration = Duration::from_mins(15);
 
 pub(crate) struct State {
     tokens: Option<Tokens>,
@@ -164,6 +165,27 @@ impl BackendClient {
     pub fn generation(&self) -> u64 {
         self.inner.generation.load(Ordering::Acquire)
     }
+
+    fn seen_rooms(&self) -> (std::path::PathBuf, BTreeMap<String, BTreeMap<String, u64>>) {
+        let path = self.inner.config.data_root.join("network/room-seen.json");
+        let seen = std::fs::read(&path)
+            .ok()
+            .filter(|bytes| bytes.len() <= 1024 * 1024)
+            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+            .unwrap_or_default();
+        (path, seen)
+    }
+
+    pub(crate) fn rooms_seen(&self, user: &str) -> BTreeMap<String, u64> {
+        self.seen_rooms().1.remove(user).unwrap_or_default()
+    }
+
+    pub(crate) fn remember_seen(&self, user: &str, rooms: &BTreeMap<String, u64>) -> Result<()> {
+        let (path, mut seen) = self.seen_rooms();
+        seen.insert(user.to_owned(), rooms.clone());
+        kodosi_os::fs::write_private(&path, &serde_json::to_vec(&seen)?)?;
+        Ok(())
+    }
     pub(crate) fn ready_event(&self, user_id: &str, enrolled: bool) -> Value {
         let display_name = self.inner.credentials.read().ok().and_then(|credentials| {
             credentials
@@ -238,6 +260,7 @@ impl BackendClient {
         tokens: impl Future<Output = Result<Tokens>>,
         cancel: CancellationToken,
         generation: u64,
+        request: String,
     ) {
         let result = async {
             let tokens = tokens.await?;
@@ -253,16 +276,23 @@ impl BackendClient {
             }
         }
         .await;
-        if let Err(error) = result
-            && !cancel.is_cancelled()
-            && error.user_facing()
-        {
-            self.emit_for(
-                generation,
-                None,
-                json!({"type":"auth.error","operation":"login.start","message":error.to_string()}),
-            );
-        }
+        let answer = match result {
+            Ok(()) => {
+                json!({"type":"auth.result","requestId":request,"operation":"auth.login.start"})
+            }
+            Err(Error::Closed) => return,
+            Err(error) if error.user_facing() && !cancel.is_cancelled() => {
+                json!({"type":"auth.error","requestId":request,"operation":"auth.login.start","message":error.to_string()})
+            }
+            Err(_) => {
+                json!({"type":"auth.error","requestId":request,"operation":"auth.login.start","message":"The sign-in was cancelled."})
+            }
+        };
+        self.emit_for(
+            self.generation(),
+            self.identity().map(|identity| identity.user_id),
+            answer,
+        );
     }
 
     async fn saved_sign_in_returns(&self, generation: u64) -> Result<bool> {
@@ -363,7 +393,9 @@ impl BackendClient {
         let before = self.generation();
         let _operation = self.inner.operations.lock().await;
         terminal_connections::check_generation(self, before)?;
+        let request = wire::text(&args, "requestId")?.to_owned();
         let mut events = Vec::new();
+        let mut answered_later = false;
         match operation {
             "auth.login.start" if self.saved_sign_in_returns(before).await? => {}
             "auth.login.start" => match args.get("browser").and_then(Value::as_str) {
@@ -373,12 +405,14 @@ impl BackendClient {
                     self.logout().await?;
                     let cancel = self.new_login_interrupt()?;
                     let generation = self.generation();
-                    events.push(json!({"type":"auth.device_code","userCode":login.user_code,"verificationUri":login.code_page()}));
+                    events.push(json!({"type":"auth.device_code","requestId":request,"userCode":login.user_code,"verificationUri":login.code_page()}));
+                    answered_later = true;
                     let this = self.clone();
                     tokio::spawn(async move {
                         let waiting = cancel.clone();
                         let tokens = oidc.poll(login, &waiting);
-                        this.complete_login(tokens, cancel, generation).await;
+                        this.complete_login(tokens, cancel, generation, request)
+                            .await;
                     });
                 }
                 Some("system") => {
@@ -388,7 +422,9 @@ impl BackendClient {
                     self.logout().await?;
                     let cancel = self.new_login_interrupt()?;
                     let generation = self.generation();
-                    events.push(json!({"type":"auth.browser","url":login.page}));
+                    events
+                        .push(json!({"type":"auth.browser","requestId":request,"url":login.page}));
+                    answered_later = true;
                     let this = self.clone();
                     let waiting = cancel.clone();
                     tokio::spawn(async move {
@@ -396,7 +432,7 @@ impl BackendClient {
                             let (answer, stream) = tokio::select! {
                                 () = waiting.cancelled() => return Err(Error::Stale),
                                 () = this.inner.shutdown.cancelled() => return Err(Error::Closed),
-                                () = tokio::time::sleep(BROWSER_LOGIN_TIME) => {
+                                () = tokio::time::sleep(SIGN_IN_LIFE) => {
                                     return Err(invalid("The sign-in took too long. Try again."));
                                 }
                                 answer = loopback.answer(&login) => answer?,
@@ -406,19 +442,23 @@ impl BackendClient {
                             loopback::finish(stream, outcome).await;
                             tokens
                         };
-                        this.complete_login(tokens, cancel, generation).await;
+                        this.complete_login(tokens, cancel, generation, request)
+                            .await;
                     });
                 }
                 Some("app") => {
                     let login = self.oidc()?.browser(APP_REDIRECT).await?;
                     self.logout().await?;
                     let cancel = self.new_login_interrupt()?;
-                    events.push(json!({"type":"auth.browser","url":login.page}));
+                    events
+                        .push(json!({"type":"auth.browser","requestId":request,"url":login.page}));
+                    answered_later = true;
                     *self.inner.app_login.lock().map_err(|_| Error::Closed)? = Some(AppLogin {
                         login,
                         cancel,
                         generation: self.generation(),
-                        until: tokio::time::Instant::now() + BROWSER_LOGIN_TIME,
+                        until: tokio::time::Instant::now() + SIGN_IN_LIFE,
+                        request,
                     });
                 }
                 Some(_) => return Err(invalid("Unknown sign-in browser.")),
@@ -440,8 +480,13 @@ impl BackendClient {
                 let this = self.clone();
                 tokio::spawn(async move {
                     let tokens = oidc.redeem(&pending.login, &answer);
-                    this.complete_login(tokens, pending.cancel, pending.generation)
-                        .await;
+                    this.complete_login(
+                        tokens,
+                        pending.cancel,
+                        pending.generation,
+                        pending.request,
+                    )
+                    .await;
                 });
             }
             "auth.logout" => {
@@ -461,8 +506,9 @@ impl BackendClient {
                     .await?;
                 if let Some(page) = profile.get("deletionUri").and_then(Value::as_str) {
                     let page = self.deletion_page(page)?;
-                    events.push(json!({"type":"auth.deletion_pending","confirmationUri":page}));
-                    self.watch_deletion(credentials).await;
+                    events.push(json!({"type":"auth.deletion_pending","requestId":request,"confirmationUri":page}));
+                    answered_later = true;
+                    self.watch_deletion(credentials, request).await;
                 } else {
                     let _response: Value = self
                         .inner
@@ -491,7 +537,8 @@ impl BackendClient {
                 events.extend(self.reset_devices().await?);
             }
             "devices.link.startSelf" => {
-                events.push(self.start_link().await?);
+                let code = self.start_link().await?;
+                events.push(json!({"type":"devices.result","requestId":request,"operation":operation,"code":code}));
                 self.watch_link().await;
             }
             "devices.link.cancelSelf" => {
@@ -510,7 +557,9 @@ impl BackendClient {
                 events.extend(self.device_events().await?);
             }
             "devices.recovery.create" => {
-                events.extend(self.create_recovery_key().await?);
+                let key = self.create_recovery_key().await?;
+                events.extend(self.device_events().await?);
+                events.push(json!({"type":"devices.result","requestId":request,"operation":operation,"key":key}));
             }
             "devices.recovery.use" => {
                 events.extend(self.use_recovery_key(wire::text(&args, "key")?).await?);
@@ -559,8 +608,8 @@ impl BackendClient {
                 self.require_trusted_friends(&self.credentials()?, &users)
                     .await?;
                 self.set_shares(id, expected, users).await?;
-                events.push(session_result(operation, &args));
                 events.push(self.session_event().await?);
+                events.push(session_result(operation, &args));
             }
             "session.leave" => {
                 let credentials = self.credentials()?;
@@ -579,8 +628,8 @@ impl BackendClient {
                     return Err(Error::Stale);
                 }
                 let _response:Value=self.inner.http.device(Method::DELETE,&format!("api/sessions/{id}/members/me"),&credentials,Some(json!({"incarnationId":current.incarnation_id,"expectedRevision":current.authorization_revision}))).await?;
-                events.push(session_result(operation, &args));
                 events.push(self.session_event().await?);
+                events.push(session_result(operation, &args));
             }
             "session.rename" | "session.attachMission" => {
                 let credentials = self.credentials()?;
@@ -612,14 +661,14 @@ impl BackendClient {
                     }
                     let _response:Value=self.inner.http.device(Method::PUT,&format!("api/sessions/{id}/mission"),&credentials,Some(json!({"incarnationId":current.incarnation_id,"missionId":args.get("missionId").cloned().unwrap_or(Value::Null)}))).await?;
                 }
-                events.push(session_result(operation, &args));
                 events.push(self.session_event().await?);
+                events.push(session_result(operation, &args));
             }
             "mission.list" => events.push(self.mission_list().await?),
             "mission.open" => {
                 let credentials = self.credentials()?;
                 let id = wire::id(&args, "missionId")?;
-                let mut value: Value = self
+                let value: Value = self
                     .inner
                     .http
                     .device(
@@ -629,9 +678,8 @@ impl BackendClient {
                         None,
                     )
                     .await?;
-                value["type"] = json!("mission.snapshot");
-                value["requestId"] = args["requestId"].clone();
-                events.push(value);
+                events.push(json!({"type":"mission.result","requestId":args["requestId"],"operation":operation,
+                    "missionId":id,"mission":value["mission"],"members":value["members"]}));
             }
             "mission.create"
             | "mission.rename"
@@ -642,8 +690,8 @@ impl BackendClient {
             | "mission.removeMember"
             | "mission.leave" => {
                 self.mission_mutation(operation, &args).await?;
-                events.push(json!({"type":"mission.result","requestId":args["requestId"],"missionId":args.get("missionId"),"operation":operation}));
                 events.push(self.mission_list().await?);
+                events.push(json!({"type":"mission.result","requestId":args["requestId"],"missionId":args.get("missionId"),"operation":operation}));
             }
             _ => return Err(invalid("Unsupported network command.")),
         }
@@ -658,6 +706,7 @@ impl BackendClient {
             generation: self.generation(),
             user_id: self.identity().map(|value| value.user_id),
             events,
+            answered_later,
         })
     }
 
@@ -1204,7 +1253,6 @@ fn session_result(operation: &str, args: &Value) -> Value {
 }
 
 mod account;
-#[cfg(feature = "cli")]
 pub(crate) use account::DELETION_LIFE;
 mod device_identity;
 mod enrollment;

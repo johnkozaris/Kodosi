@@ -62,16 +62,136 @@ fn root_identity_and_socket_namespace_are_stable_and_separate() {
     );
 }
 #[test]
-fn local_protocol_requires_exact_version_and_root() {
+fn a_hello_of_another_version_still_reads() {
     assert!(serde_json::from_str::<Hello>(r#"{"version":20,"root":"a","sessionId":null}"#).is_ok());
+    assert!(serde_json::from_str::<Hello>(r#"{"version":30,"root":"a","added":true}"#).is_ok());
     assert!(serde_json::from_str::<Hello>(r#"{"version":19}"#).is_err());
-    assert!(serde_json::from_str::<Hello>(r#"{"version":20,"root":"a","legacy":true}"#).is_err());
+}
+
+#[tokio::test]
+async fn a_host_names_itself_to_another_version_and_stops_for_it() {
+    let (_storage, root, handle) = hosted(HostKind::Background).await;
+    let root = kodosi_os::fs::canonicalize(&root).unwrap();
+    let mut stream = kodosi_os::ipc::connect(&endpoint(&root).unwrap())
+        .await
+        .unwrap();
+    let hello = Hello {
+        version: VERSION + 1,
+        root: root_identity(&root),
+        session_id: None,
+    };
+    write_json(&mut stream, &hello).await.unwrap();
+    let welcome: Welcome = read_json(&mut FrameReader::new(&mut stream)).await.unwrap();
+    assert!(welcome.error.is_some());
+    assert_eq!(welcome.terminals, 0);
+    assert_eq!(
+        welcome.host,
+        Some(HostDescription {
+            pid: std::process::id(),
+            kind: HostKind::Background
+        })
+    );
+    write_json(&mut stream, &ClientRequest::Stop { force: false })
+        .await
+        .unwrap();
+    let reply: Value = read_json(&mut FrameReader::new(&mut stream)).await.unwrap();
+    assert_eq!(reply["kind"], "stopping");
+    tokio::time::timeout(Duration::from_secs(10), handle.stopped())
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn a_client_names_an_older_host() {
+    let storage = tempfile::tempdir().unwrap();
+    let root = kodosi_os::fs::canonicalize(storage.path()).unwrap();
+    let mut listener = kodosi_os::ipc::Listener::bind(&endpoint(&root).unwrap())
+        .await
+        .unwrap();
+    let host = tokio::spawn(async move {
+        let mut stream = listener.accept().await.unwrap();
+        let hello: Hello = read_json(&mut FrameReader::new(&mut stream)).await.unwrap();
+        assert_eq!(hello.version, VERSION);
+        let welcome = Welcome {
+            version: VERSION - 1,
+            error: Some("local runtime protocol mismatch".into()),
+            host: Some(HostDescription {
+                pid: 42,
+                kind: HostKind::Foreground,
+            }),
+            terminals: 2,
+            ..Welcome::default()
+        };
+        write_json(&mut stream, &welcome).await.unwrap();
+    });
+    assert!(matches!(
+        Client::connect(&root).await,
+        Err(Error::HostOutdated {
+            kind: HostKind::Foreground,
+            pid: 42,
+            terminals: 2
+        })
+    ));
+    host.await.unwrap();
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_terminal_connection_answers_its_controls_and_refreshes() {
+    let (_storage, root, handle) = hosted(HostKind::Background).await;
+    let mut client = Client::connect(&root).await.unwrap();
+    let epoch = client.initial_events[0]["accountEpoch"].clone();
+    let create = Uuid::now_v7().to_string();
+    client
+        .command(
+            json!({"type":"session.create","requestId":create,"name":"Terminal",
+            "accountUserId":null,"accountEpoch":epoch}),
+        )
+        .await
+        .unwrap();
+    let session: Uuid = answered(&mut client, &create).await["sessionId"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let mut terminal = TerminalClient::connect(&root, session).await.unwrap();
+    assert!(matches!(
+        read_terminal(&mut terminal.reader).await.unwrap(),
+        TerminalFrame::Checkpoint { .. }
+    ));
+    let focus = Uuid::now_v7().to_string();
+    write_control(
+        &mut terminal.writer,
+        &json!({"type":"session.focus","requestId":focus,"sessionId":session,
+            "expectedRuntimeIncarnationId":terminal.incarnation_id,"clientId":Uuid::now_v7(),
+            "subscriptionGeneration":1,"accountUserId":null,"accountEpoch":epoch}),
+    )
+    .await
+    .unwrap();
+    write_refresh(&mut terminal.writer).await.unwrap();
+    let (mut focused, mut refreshed) = (false, false);
+    while !(focused && refreshed) {
+        let frame =
+            tokio::time::timeout(Duration::from_secs(10), read_terminal(&mut terminal.reader))
+                .await
+                .unwrap()
+                .unwrap();
+        match frame {
+            TerminalFrame::Answer(answer) => {
+                assert_eq!(answer["type"], "term.focusApplied", "{answer}");
+                assert_eq!(answer["requestId"], focus.as_str());
+                focused = true;
+            }
+            TerminalFrame::Checkpoint { .. } => refreshed = true,
+            _ => {}
+        }
+    }
+    handle.shutdown().await;
 }
 #[test]
-fn stop_permission_protects_the_app_and_open_terminals() {
-    assert!(stop_permission(HostKind::App, true, 0).is_err());
+fn stop_permission_protects_a_foreground_host_and_open_terminals() {
     assert!(stop_permission(HostKind::Foreground, false, 0).is_err());
-    assert!(stop_permission(HostKind::Foreground, true, 2).is_ok());
+    assert!(stop_permission(HostKind::Foreground, true, 0).is_err());
     assert!(stop_permission(HostKind::Background, false, 1).is_err());
     assert!(stop_permission(HostKind::Background, false, 0).is_ok());
     assert!(stop_permission(HostKind::Background, true, 1).is_ok());
@@ -90,6 +210,35 @@ fn local_session_counts_ignore_remote_entries() {
     assert_eq!(local_sessions(&events), 2);
     assert_eq!(local_sessions(&[]), 0);
 }
+#[tokio::test]
+async fn an_answer_reaches_only_the_client_that_asked() {
+    let (_storage, root, handle) = hosted(HostKind::Background).await;
+    let mut asking = Client::connect(&root).await.unwrap();
+    let mut other = Client::connect(&root).await.unwrap();
+    let epoch = asking.initial_events[0]["accountEpoch"].clone();
+    let ask = |request: &str| json!({"type":"session.list","requestId":request,"accountUserId":null,"accountEpoch":epoch});
+    let mine = Uuid::now_v7().to_string();
+    asking.command(ask(&mine)).await.unwrap();
+    assert_eq!(answered(&mut asking, &mine).await["type"], "session.result");
+    let theirs = Uuid::now_v7().to_string();
+    other.command(ask(&theirs)).await.unwrap();
+    assert_eq!(
+        answered(&mut other, &theirs).await["type"],
+        "session.result"
+    );
+    handle.shutdown().await;
+}
+
+async fn answered(client: &mut Client, request: &str) -> Value {
+    loop {
+        let frame = client.next().await.unwrap();
+        if let Some(answer) = crate::protocol::answer(&frame["event"], request) {
+            return answer.unwrap();
+        }
+        assert!(frame["event"].get("requestId").is_none(), "{frame}");
+    }
+}
+
 async fn hosted(kind: HostKind) -> (tempfile::TempDir, PathBuf, RuntimeHandle) {
     let storage = tempfile::tempdir().unwrap();
     let mut config =
@@ -117,16 +266,15 @@ async fn idle_background_hosts_identify_themselves_and_yield() {
         .unwrap();
 }
 #[tokio::test]
-async fn foreground_hosts_only_stop_when_forced() {
+async fn a_foreground_host_stops_only_from_its_own_terminal() {
     let (_storage, root, handle) = hosted(HostKind::Foreground).await;
-    assert!(matches!(
-        stop_other_host(&root, false).await,
-        Err(Error::HostBusy(_))
-    ));
-    stop_other_host(&root, true).await.unwrap();
-    tokio::time::timeout(Duration::from_secs(10), handle.stopped())
-        .await
-        .unwrap();
+    for force in [false, true] {
+        assert!(matches!(
+            stop_other_host(&root, force).await,
+            Err(Error::HostBusy(_))
+        ));
+    }
+    handle.shutdown().await;
 }
 
 async fn serve_into(
@@ -236,4 +384,37 @@ async fn activations_from_another_version_or_of_another_shape_are_refused() {
     }
     server.shutdown().await;
     assert!(received.try_recv().is_err());
+}
+#[test]
+fn a_started_host_gets_the_session_environment_and_this_commands_settings() {
+    let pairs = |list: &[(&str, &str)]| {
+        list.iter()
+            .map(|(name, value)| {
+                (
+                    std::ffi::OsString::from(name),
+                    std::ffi::OsString::from(value),
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    let session = pairs(&[
+        ("PATH", "/usr/bin"),
+        ("SESSION_ONLY", "1"),
+        ("KODOSI_DATA_ROOT", "/session"),
+    ]);
+    let own = pairs(&[
+        ("PATH", "/agent/bin"),
+        ("GH_TOKEN", "fake"),
+        ("KODOSI_DATA_ROOT", "/isolated"),
+        ("KODOSI__BACKEND__API", "http://127.0.0.1:5180"),
+    ]);
+    assert_eq!(
+        client::host_environment(session, own),
+        pairs(&[
+            ("PATH", "/usr/bin"),
+            ("SESSION_ONLY", "1"),
+            ("KODOSI_DATA_ROOT", "/isolated"),
+            ("KODOSI__BACKEND__API", "http://127.0.0.1:5180"),
+        ])
+    );
 }

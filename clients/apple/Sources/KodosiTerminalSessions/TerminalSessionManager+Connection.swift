@@ -54,13 +54,11 @@ extension TerminalSessionManager {
                     self?.onFocusResult(sessionId, incarnationId, requestId, accepted)
                 },
                 onResizeApplied: { [weak self, token] identity in
-                    guard resizeDelivery?.apply(identity) == true else { return }
-                    guard self?.sessions[sessionId]?.token === token else { return }
+                    guard resizeDelivery?.apply(identity) == true, self?.sessions[sessionId]?.token === token else { return }
                     self?.resizeNotesBySession.removeValue(forKey: sessionId)
                 },
                 onResizeRejected: { [weak self, token] identity, reason in
-                    guard resizeDelivery?.reject(identity) == true else { return }
-                    guard let reason, self?.sessions[sessionId]?.token === token else { return }
+                    guard resizeDelivery?.reject(identity) == true, let reason, self?.sessions[sessionId]?.token === token else { return }
                     self?.resizeNotesBySession[sessionId] = reason
                 },
                 onBell: { [weak self, token] in
@@ -88,8 +86,7 @@ private extension TerminalSessionManager {
 
     func outputHandler(_ link: RuntimeLink, renderer: TerminalRendererSession) -> @Sendable (Data) -> Void {
         { [weak self, weak renderer] data in
-            guard link.token.isActive, let renderer else { return }
-            guard !renderer.receive(data), link.token.deactivate() else { return }
+            guard link.token.isActive, let renderer, !renderer.receive(data), link.token.deactivate() else { return }
             Task { @MainActor [weak self] in
                 self?.fail(link, message: String(
                     localized: "This terminal fell behind. Try again.", bundle: .module

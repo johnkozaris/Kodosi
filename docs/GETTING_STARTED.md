@@ -10,8 +10,8 @@ Sign in through your browser; `kodosi auth login` shows a code to enter in any b
 
 A terminal is a real shell on the computer that runs it. The sidebar lists your rooms
 and terminals by folder and computer. Minimize hides a terminal and keeps it running;
-Close ends it and its programs. Closing the window keeps the app hosting its terminals,
-and Quit ends them. Terminals on other computers keep running.
+Close ends it and its programs. Closing the window keeps your terminals running, and Quit
+ends them. Terminals on other computers keep running.
 
 After a lost connection the view returns to the current state. If Kodosi reports
 uncertain input delivery, look at the terminal before you repeat a command.
@@ -29,6 +29,15 @@ mark for each installed agent, which starts it with your last choice.
 From a shell, `kodosi terminal start --agent claude --prompt "fix the failing test"`
 starts an agent with your last choice. `--account`, `--model` and `--effort` change it;
 `kodosi agent list` shows the agents, their accounts and your last choice.
+
+The `kodosi` command works on the same terminals as the app, and the app shows what it
+does. `kodosi terminal read <terminal>` prints the screen, and `--history` adds the
+lines that scrolled away. `kodosi terminal input <terminal> --enter "make test"` types a
+line, and `kodosi terminal keys <terminal> ctrl-c` presses keys; both stop with a
+message while you type in that terminal. `kodosi terminal wait <terminal> --until
+done,failed` waits for a state, and `kodosi terminal show <terminal>` shows the terminal
+in the app. To keep terminals running after you quit the app, run `kodosi host` in a
+terminal of its own; `kodosi host stop` stops a host that runs in the background.
 
 To give an agent its own copy of a repository, hover the repository folder in the
 sidebar, select the branch button and name a branch. Kodosi starts a terminal in a new

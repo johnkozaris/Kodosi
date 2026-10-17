@@ -64,7 +64,9 @@ struct AccountStoreTests {
         store.createRecoveryKey()
         #expect(outbox.types == ["devices.recovery.create"])
         #expect(store.creatingRecoveryKey)
-        try store.receiveDevices(event("devices.recovery.created", ["key": "AAAA-BBBB-CCCC-DDDD-EEEE-FFFF-GGGG-HHHH"]))
+        try store.receiveDevices(event("devices.result", [
+            "operation": "devices.recovery.create", "requestId": "request-1", "key": "AAAA-BBBB-CCCC-DDDD-EEEE-FFFF-GGGG-HHHH",
+        ]))
         #expect(store.newRecoveryKey == "AAAA-BBBB-CCCC-DDDD-EEEE-FFFF-GGGG-HHHH")
         #expect(!store.creatingRecoveryKey)
         store.dismissRecoveryKey()

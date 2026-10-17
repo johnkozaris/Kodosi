@@ -3,10 +3,9 @@ use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::path::{Component, Path, PathBuf};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum HostKind {
-    App,
     Foreground,
     Background,
 }
@@ -78,7 +77,7 @@ impl Config {
                 .map(str::to_owned)
                 .to_vec(),
             secret_service: "com.kodosi.local".to_owned(),
-            host: HostKind::App,
+            host: HostKind::Background,
         })
     }
 
@@ -101,7 +100,7 @@ impl Config {
             oidc_scopes: vec!["openid".to_owned()],
             secret_service: "kodosi.isolated".to_owned(),
             isolated: true,
-            host: HostKind::App,
+            host: HostKind::Background,
         })
     }
 }

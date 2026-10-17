@@ -17,7 +17,7 @@ struct SavedRoomKey {
 }
 
 impl BackendClient {
-    pub(super) async fn create_recovery_key(&self) -> Result<Vec<Value>> {
+    pub(super) async fn create_recovery_key(&self) -> Result<String> {
         let credentials = self.credentials()?;
         if !credentials.enrolled {
             return Err(Error::EnrollmentRequired);
@@ -62,9 +62,7 @@ impl BackendClient {
                 Some(body),
             )
             .await?;
-        let mut events = vec![json!({"type":"devices.recovery.created","key":text.as_str()})];
-        events.extend(self.device_events().await?);
-        Ok(events)
+        Ok(text.as_str().to_owned())
     }
 
     pub(super) async fn use_recovery_key(&self, typed: &str) -> Result<Vec<Value>> {
