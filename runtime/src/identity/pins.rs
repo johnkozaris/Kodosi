@@ -34,7 +34,6 @@ pub struct DeviceListEnvelope {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct IdentityBundle {
     pub user_id: String,
-    pub identity_revision: u64,
     pub identity_incarnation_id: Uuid,
     pub device_list: DeviceListEnvelope,
     pub devices: Vec<CertificateEnvelope>,
@@ -82,7 +81,6 @@ pub(crate) struct VerifiedIdentity {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 struct Pin {
     identity_incarnation_id: Uuid,
-    identity_revision: u64,
     generation: u64,
     list_body: String,
     list_signature: String,
@@ -217,7 +215,6 @@ impl Pins {
         persist: bool,
     ) -> Result<VerifiedIdentity> {
         if bundle.identity_incarnation_id.is_nil()
-            || bundle.identity_revision == 0
             || bundle.devices.is_empty()
             || bundle.devices.len() > 256
         {
@@ -250,7 +247,6 @@ impl Pins {
         if let Some(pin) = existing {
             if pin.identity_incarnation_id != bundle.identity_incarnation_id
                 || pin.root != root
-                || bundle.identity_revision < pin.identity_revision
                 || list.generation < pin.generation
             {
                 return Err(Error::Trust("This account's device identity changed. Approve the replacement before reconnecting.".into()));
@@ -426,7 +422,6 @@ impl Pins {
         }
         let pin = Pin {
             identity_incarnation_id: bundle.identity_incarnation_id,
-            identity_revision: bundle.identity_revision,
             generation: list.generation,
             list_body: bundle.device_list.body.clone(),
             list_signature: bundle.device_list.signature.clone(),

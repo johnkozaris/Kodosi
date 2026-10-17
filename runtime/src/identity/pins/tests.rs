@@ -86,7 +86,6 @@ impl Fixture {
         .unwrap();
         let bundle = IdentityBundle {
             user_id: user.clone(),
-            identity_revision: 1,
             identity_incarnation_id: Uuid::now_v7(),
             device_list: list(&initial),
             devices: vec![cert_a.clone()],
@@ -135,7 +134,6 @@ impl Fixture {
         .unwrap();
         IdentityBundle {
             user_id: self.user.clone(),
-            identity_revision: 1,
             identity_incarnation_id: Uuid::now_v7(),
             device_list: list(&first),
             devices: vec![certificate(cert)],

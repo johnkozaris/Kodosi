@@ -34,7 +34,6 @@ fn person_with(user: String, list_expires_at_ms: Option<u64>) -> (DeviceKeys, Id
     .unwrap();
     let bundle = IdentityBundle {
         user_id: user,
-        identity_revision: 1,
         identity_incarnation_id: Uuid::now_v7(),
         device_list: DeviceListEnvelope {
             body: BASE64.encode(list.body_bytes),
