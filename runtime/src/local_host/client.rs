@@ -134,7 +134,10 @@ async fn connect(
     let (stream, welcome) = handshake(root, session_id).await?;
     if welcome.version < VERSION {
         let host = welcome.host.ok_or_else(|| {
-            Error::Invalid("The running Kodosi host is from an earlier version.".into())
+            Error::Invalid(
+                "An earlier version of Kodosi still runs. Quit it, or end its `internal-host` process, and try again."
+                    .into(),
+            )
         })?;
         return Err(Error::HostOutdated {
             kind: host.kind,
