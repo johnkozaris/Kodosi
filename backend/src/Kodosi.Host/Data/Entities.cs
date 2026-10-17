@@ -8,7 +8,6 @@ public sealed class User
     public string Handle { get; set; } = "";
     public string DisplayName { get; set; } = "";
     public Guid? IdentityIncarnationId { get; set; }
-    public long IdentityRevision { get; set; }
     public string? Plan { get; set; }
 }
 
