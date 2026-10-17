@@ -44,8 +44,7 @@ internal sealed class TestStore : IAsyncDisposable
             Subject = handle,
             Handle = handle,
             DisplayName = handle,
-            IdentityIncarnationId = Guid.CreateVersion7(),
-            IdentityRevision = 1
+            IdentityIncarnationId = Guid.CreateVersion7()
         };
         var fixture = new DeviceFixture(user.Id, $"{handle}-device");
         var issued = DateTimeOffset.UtcNow.AddMinutes(-1).ToUnixTimeMilliseconds();

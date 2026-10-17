@@ -120,7 +120,7 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
         db.Devices.Add(ToDevice(userId, cert, certBytes, certSig));
         db.DeviceLists.Add(ToList(userId, list, listBytes, listSig));
         var user = await db.Users.SingleAsync(x => x.Id == userId, ct);
-        user.IdentityIncarnationId = Guid.CreateVersion7(); user.IdentityRevision = 1;
+        user.IdentityIncarnationId = Guid.CreateVersion7();
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         connections.Notify([userId], "devices");
@@ -196,7 +196,7 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
     {
         await RequireRelationAsync(callerId, userId, ct);
         var user = await db.Users.AsNoTracking().Where(x => x.Id == userId)
-            .Select(x => new { x.Id, x.IdentityRevision, x.IdentityIncarnationId }).SingleOrDefaultAsync(ct)
+            .Select(x => new { x.Id, x.IdentityIncarnationId }).SingleOrDefaultAsync(ct)
             ?? throw ApiException.Missing();
         var list = await db.DeviceLists.AsNoTracking().SingleOrDefaultAsync(x => x.UserId == userId, ct)
             ?? throw ApiException.Missing();
@@ -222,7 +222,7 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
             }
         }
         if (ancestors.Count > IdentityWireFormat.MaxEntries) throw ApiException.Conflict("Device certificate chain is too large.");
-        return (new IdentityBundle(user.Id, user.IdentityRevision, incarnation,
+        return (new IdentityBundle(user.Id, incarnation,
             new SignedList(Convert.ToBase64String(list.Body), Convert.ToBase64String(list.Signature)),
             active.Select(CertificateWire).ToArray(), ancestors.Values.Select(CertificateWire).ToArray()), tag);
     }
@@ -302,6 +302,6 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
         [property: System.Text.Json.Serialization.JsonPropertyName("certificate")] string Body,
         string CertificateSignature);
     public sealed record SignedList(string Body, string Signature);
-    public sealed record IdentityBundle(Guid UserId, long IdentityRevision, Guid IdentityIncarnationId,
+    public sealed record IdentityBundle(Guid UserId, Guid IdentityIncarnationId,
         SignedList DeviceList, IReadOnlyList<Certificate> Devices, IReadOnlyList<Certificate> CertificateChain);
 }

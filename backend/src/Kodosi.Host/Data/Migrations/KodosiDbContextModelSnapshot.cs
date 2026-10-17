@@ -488,9 +488,6 @@ namespace Kodosi.Data.Migrations
                     b.Property<Guid?>("IdentityIncarnationId")
                         .HasColumnType("uuid");
 
-                    b.Property<long>("IdentityRevision")
-                        .HasColumnType("bigint");
-
                     b.Property<string>("Issuer")
                         .IsRequired()
                         .HasMaxLength(512)
