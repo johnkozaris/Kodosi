@@ -4,9 +4,7 @@ The pictures are captures of the Mac app with invented people and data on a loca
 backend. To replace one, use a disposable database and a `KODOSI_DATA_ROOT` for each
 person ([isolated validation](../DEVELOPMENT.md#isolated-validation)), give
 `<KODOSI_DATA_ROOT>/harness-home/.zshrc` a neutral prompt, never capture your own
-terminals, names, hosts or paths, and keep the file name. A `kodosi` CLI host gives its
-terminals your real HOME, so set `KODOSI__RUNTIME__INITIAL_SHELL` to a script that
-gives them a disposable one.
+terminals, names, hosts or paths, and keep the file name.
 
 ## Credits
 
