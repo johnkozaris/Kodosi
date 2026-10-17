@@ -3,6 +3,7 @@ using Kodosi.Accounts;
 using Kodosi.Data;
 using Kodosi.Devices;
 using Kodosi.Missions;
+using Kodosi.Plans;
 using Kodosi.Security;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -226,5 +227,37 @@ public sealed class DeviceTests(PostgresFixture postgres)
 
         var other = await store.UserAsync("other");
         Assert.Equal(404, (await Assert.ThrowsAsync<ApiException>(() => store.Devices.RecoveryBoxAsync(other.User.Id, ct))).Status);
+    }
+
+    [Fact]
+    public async Task TheDeviceLimitStopsARecoveryAndOffersAFreshStart()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        store.Plans = PlanCatalog.Of("one", new Dictionary<string, PlanLimits> { ["one"] = PlanLimits.Safety with { Devices = 1 } });
+        var owner = await store.UserAsync("owner");
+        var recovery = new DeviceFixture(owner.User.Id, "0a1b2c3d-4e5f-8a6b-9c7d-0e1f2a3b4c5d");
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var roomKey = new byte[MissionService.RoomPublicKeyLength];
+        var keyCert = recovery.CertificateBody(owner.Device.Id, now);
+        var keyList = DeviceFixture.ListBody(owner.User.Id, 2, [(owner.Device.Id, owner.Device.Id), (recovery.DeviceId, owner.Device.Id)], owner.Device.Id, now);
+        await store.Devices.AddRecoveryKeyAsync(owner.User.Id, owner.Approved, new(Convert.ToBase64String(keyCert), owner.Fixture.SignedCertificate(keyCert),
+            Convert.ToBase64String(keyList), owner.Fixture.SignedList(keyList), Convert.ToBase64String(new byte[64]),
+            new(Convert.ToBase64String(roomKey), Convert.ToBase64String(recovery.Sign(Proofs.RoomRecipient(owner.User.Id, recovery.DeviceId, roomKey))))), ct);
+
+        var next = new DeviceFixture(owner.User.Id, "new-computer");
+        var cert = next.CertificateBody(recovery.DeviceId, now + 10);
+        var list = DeviceFixture.ListBody(owner.User.Id, 3,
+            [(owner.Device.Id, owner.Device.Id), (recovery.DeviceId, owner.Device.Id), (next.DeviceId, recovery.DeviceId)], recovery.DeviceId, now + 10);
+        var challenge = JsonSerializer.SerializeToElement(store.Devices.CreateChallenge(owner.User.Id), TestJson.Options);
+        var proof = next.Sign(Proofs.Tagged(DomainTags.DevicePopV1, Convert.FromBase64String(challenge.GetProperty("challengeBytes").GetString()!)));
+        var refusal = await Assert.ThrowsAsync<ApiException>(() => store.Devices.RecoverAsync(owner.User.Id, new(next.DeviceId,
+            Convert.ToBase64String(next.SigningKey), challenge.GetProperty("challengeId").GetGuid(), Convert.ToBase64String(proof),
+            Convert.ToBase64String(cert), recovery.SignedCertificate(cert), Convert.ToBase64String(list), recovery.SignedList(list)), ct));
+        Assert.Equal(403, refusal.Status);
+        Assert.Equal("This account has 1 device, the most that it can have. Remove a device in Settings on one of your devices, then try again. "
+            + "If you have no other device, start fresh on this device.", refusal.Message);
+        Assert.False(await store.Db.Devices.AnyAsync(x => x.Id == next.DeviceId, ct));
+        Assert.Equal(2, (await store.Db.DeviceLists.SingleAsync(ct)).Generation);
     }
 }

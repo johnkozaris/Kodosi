@@ -67,8 +67,10 @@ public sealed partial class DeviceService
         var (certBytes, certSig, listBytes, listSig) = SignedParts(request.DeviceCertificate, request.DeviceCertificateSignature, request.SignedDeviceList, request.SignedDeviceListSignature);
         if (await NewDeviceKeyAsync(userId, request, certBytes, certSig, ct) is not { } signingKey) return;
         var recovery = await RecoveryDeviceAsync(userId, ct) ?? throw ApiException.Forbidden("This account has no recovery key.");
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await RequireDeviceSpaceAsync(userId, ct, recovering: true);
         await StageDeviceAsync(userId, ApprovedDevice.From(recovery), request.DeviceId, signingKey, certBytes, certSig, listBytes, listSig, ct);
-        await db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
         connections.Notify([userId], "devices");
     }
 

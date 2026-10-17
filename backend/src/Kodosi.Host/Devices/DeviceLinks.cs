@@ -125,12 +125,13 @@ public sealed partial class DeviceService
         connections.Notify([userId], "devices");
     }
 
-    private async Task RequireDeviceSpaceAsync(Guid userId, CancellationToken ct)
+    private async Task RequireDeviceSpaceAsync(Guid userId, CancellationToken ct, bool recovering = false)
     {
         var most = (await plans.LimitsAsync(db, userId, ct)).Devices;
         var count = await db.Devices.CountAsync(x => x.UserId == userId && !x.Revoked && x.RecoveryBox == null, ct);
-        if (count >= most)
-            throw ApiException.Forbidden($"This account has {Limits.Count(count, "device", "devices")}, the most that it can have. Remove a device in Settings on one of your devices, then try again.");
+        if (count < most) return;
+        var full = $"This account has {Limits.Count(count, "device", "devices")}, the most that it can have. Remove a device in Settings on one of your devices, then try again.";
+        throw ApiException.Forbidden(recovering ? $"{full} If you have no other device, start fresh on this device." : full);
     }
 
     private static string HashCode(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
