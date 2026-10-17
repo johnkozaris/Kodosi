@@ -90,6 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     func applicationDidBecomeActive(_: Notification) {
         Task { await dependencies.launcher.refresh() }
         dependencies.reportVisible()
+        dependencies.seeShownRoom()
     }
 
     func applicationDidResignActive(_: Notification) {

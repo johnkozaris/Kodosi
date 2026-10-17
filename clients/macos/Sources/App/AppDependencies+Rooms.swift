@@ -61,10 +61,8 @@ extension AppDependencies {
                 }
             }
             rooms[next.roomId] = next
-            if workbench.section == .missions, workbench.selectedMissionId == next.roomId,
-               roomView(next.roomId).followsLatest, roomView(next.roomId).conversationVisible
-            {
-                seeRoom(next.roomId)
+            if workbench.selectedMissionId == next.roomId {
+                seeShownRoom()
             }
         case "room.result":
             try receiveRoomResult(event)
@@ -83,6 +81,12 @@ extension AppDependencies {
             }
             rooms[page.roomId] = page
         }
+    }
+
+    func seeShownRoom() {
+        guard workbench.section == .missions, let roomId = workbench.selectedMissionId,
+              roomView(roomId).followsLatest, roomView(roomId).conversationVisible else { return }
+        seeRoom(roomId)
     }
 
     func seeRoom(_ roomId: String) {

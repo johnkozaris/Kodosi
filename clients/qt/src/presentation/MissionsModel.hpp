@@ -7,6 +7,8 @@
 #include <QVariantList>
 #include <QVariantMap>
 
+#include <functional>
+
 namespace kodosi {
 class SessionCatalogModel;
 class Workspace;
@@ -30,6 +32,8 @@ class MissionsModel final : public QObject {
 public:
     MissionsModel(Workspace& workspace, SessionCatalogModel& sessions);
 
+    std::function<bool()> isFront;
+    void readWatched();
     bool busy() const;
     QVariantMap room() const { return m_room; }
     QVariantMap presentation() const { return m_presentations.value(m_selectedId); }
@@ -84,7 +88,6 @@ private:
     void completeAction(const QString& room, const QString& action, const QVariantMap& submitted);
     void applyRoom(const QJsonObject& room);
     bool watching(const QString& roomId) const;
-    void readWatched();
     void see(const QString& roomId);
     void seeCanvas();
     bool m_catalogTruncated = false;

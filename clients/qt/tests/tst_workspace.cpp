@@ -134,12 +134,17 @@ private slots:
             }
             return sequences;
         };
+        bool front = false;
+        missions.isFront = [&front] { return front; };
         catalog(true);
         room(5);
         QCOMPARE(missions.unreadRooms(), QStringList { test::id(10) });
         QVERIFY(seen().isEmpty());
         f.desktop.setActiveView(kodosi::DesktopStateModel::Missions);
         missions.open(test::id(10));
+        QVERIFY(seen().isEmpty());
+        front = true;
+        missions.readWatched();
         QCOMPARE(seen(), QList<qint64> { 5 });
         catalog(false);
         QVERIFY(missions.unreadRooms().isEmpty());

@@ -178,6 +178,10 @@ int main(int argc, char* argv[])
         }
     });
     QObject::connect(&workspace, &kodosi::Workspace::hostReady, &launcher, [&] { launcher.refresh(true); });
+    QObject::connect(&app, &QGuiApplication::applicationStateChanged, &workspace, [&](Qt::ApplicationState state) {
+        if (state == Qt::ApplicationActive)
+            workspace.missions().readWatched();
+    });
     kodosi::qml::configureModelInstances(
         workspace, history, providerFiles, launcher, appearance, desktopSettings, desktop, sessions, tiling, files,
         lifecycle, surfaces);

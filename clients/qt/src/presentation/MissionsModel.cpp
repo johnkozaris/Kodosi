@@ -11,7 +11,8 @@
 
 namespace kodosi {
 MissionsModel::MissionsModel(Workspace& workspace, SessionCatalogModel& sessions)
-    : m_workspace(workspace)
+    : isFront([] { return QGuiApplication::applicationState() == Qt::ApplicationActive; })
+    , m_workspace(workspace)
     , m_sessions(sessions)
 {
     connect(&sessions, &SessionCatalogModel::authorityStateChanged, this, &MissionsModel::selectionChanged);
@@ -22,7 +23,8 @@ bool MissionsModel::watching(const QString& roomId) const
 {
     const auto view = m_presentations.value(roomId);
     return !roomId.isEmpty() && roomId == m_selectedId && m_workspace.m_desktop.activeView() == DesktopStateModel::Missions
-        && view.value(QStringLiteral("conversation"), true).toBool() && view.value(QStringLiteral("followLatest"), true).toBool();
+        && view.value(QStringLiteral("conversation"), true).toBool() && view.value(QStringLiteral("followLatest"), true).toBool()
+        && isFront();
 }
 
 void MissionsModel::readWatched()
