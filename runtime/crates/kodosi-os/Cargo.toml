@@ -21,6 +21,7 @@ security-framework = { version = "3.7", features = ["OSX_10_15"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 keyring = { version = "4.2.0", default-features = false, features = ["v1"] }
+zbus = "5.19.0"
 
 [target.'cfg(windows)'.dependencies]
 dunce = "1.0.5"
@@ -33,6 +34,7 @@ windows-sys = { version = "0.61.2", features = [
     "Win32_Security_Cryptography",
     "Win32_Storage_FileSystem",
     "Win32_System_Console",
+    "Win32_System_Environment",
     "Win32_System_IO",
     "Win32_System_Pipes",
     "Win32_System_SystemInformation",

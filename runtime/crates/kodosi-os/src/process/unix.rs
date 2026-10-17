@@ -1,5 +1,5 @@
 use std::{
-    ffi::OsStr,
+    ffi::{OsStr, OsString},
     path::{Path, PathBuf},
 };
 
@@ -16,6 +16,40 @@ pub(super) fn default_shell() -> PathBuf {
     std::env::var_os("SHELL")
         .filter(|shell| Path::new(shell).is_absolute())
         .map_or_else(|| PathBuf::from("/bin/sh"), PathBuf::from)
+}
+
+#[cfg(target_os = "linux")]
+pub(super) fn session_environment() -> Option<Vec<(OsString, OsString)>> {
+    use zbus::{blocking, proxy::CacheProperties};
+
+    let connection = blocking::connection::Builder::session()
+        .ok()?
+        .method_timeout(std::time::Duration::from_secs(2))
+        .build()
+        .ok()?;
+    let manager: blocking::Proxy<'_> = blocking::proxy::Builder::new(&connection)
+        .destination("org.freedesktop.systemd1")
+        .ok()?
+        .path("/org/freedesktop/systemd1")
+        .ok()?
+        .interface("org.freedesktop.systemd1.Manager")
+        .ok()?
+        .cache_properties(CacheProperties::No)
+        .build()
+        .ok()?;
+    let variables: Vec<String> = manager.get_property("Environment").ok()?;
+    Some(
+        variables
+            .iter()
+            .filter_map(|variable| variable.split_once('='))
+            .map(|(name, value)| (name.into(), value.into()))
+            .collect(),
+    )
+}
+
+#[cfg(not(target_os = "linux"))]
+pub(super) const fn session_environment() -> Option<Vec<(OsString, OsString)>> {
+    None
 }
 
 pub(super) fn detach(command: &mut std::process::Command) {

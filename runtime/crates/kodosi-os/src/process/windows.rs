@@ -1,9 +1,10 @@
 #![allow(unsafe_code)]
 
 use std::{
-    ffi::OsStr,
+    ffi::{OsStr, OsString, c_void},
     fs,
     os::windows::{
+        ffi::OsStringExt as _,
         io::{AsRawHandle as _, FromRawHandle as _, OwnedHandle},
         process::CommandExt as _,
     },
@@ -12,15 +13,18 @@ use std::{
 
 use windows_sys::Win32::{
     Foundation::{
-        ERROR_INVALID_PARAMETER, HANDLE_FLAG_INHERIT, INVALID_HANDLE_VALUE, SetHandleInformation,
-        WAIT_TIMEOUT,
+        ERROR_INVALID_PARAMETER, HANDLE, HANDLE_FLAG_INHERIT, INVALID_HANDLE_VALUE,
+        SetHandleInformation, WAIT_TIMEOUT,
     },
+    Security::{TOKEN_DUPLICATE, TOKEN_QUERY},
     System::{
         Console::{GetStdHandle, STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE},
+        Environment::{CreateEnvironmentBlock, DestroyEnvironmentBlock},
         SystemInformation::{ComputerNameDnsHostname, GetComputerNameExW},
         Threading::{
-            CREATE_NEW_PROCESS_GROUP, DETACHED_PROCESS, OpenProcess,
-            PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE, WaitForSingleObject,
+            CREATE_NEW_PROCESS_GROUP, DETACHED_PROCESS, GetCurrentProcess, OpenProcess,
+            OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE,
+            WaitForSingleObject,
         },
     },
     UI::WindowsAndMessaging::AllowSetForegroundWindow,
@@ -74,6 +78,51 @@ pub(super) fn default_shell() -> PathBuf {
         }
     }
     std::env::var_os("ComSpec").map_or_else(|| PathBuf::from("cmd.exe"), PathBuf::from)
+}
+
+pub(super) fn session_environment() -> Option<Vec<(OsString, OsString)>> {
+    let mut token: HANDLE = std::ptr::null_mut();
+    if unsafe {
+        OpenProcessToken(
+            GetCurrentProcess(),
+            TOKEN_QUERY | TOKEN_DUPLICATE,
+            &raw mut token,
+        )
+    } == 0
+    {
+        return None;
+    }
+    let token = unsafe { OwnedHandle::from_raw_handle(token) };
+    let mut block: *mut c_void = std::ptr::null_mut();
+    if unsafe { CreateEnvironmentBlock(&raw mut block, token.as_raw_handle(), 0) } == 0 {
+        return None;
+    }
+    let mut variables = Vec::new();
+    let mut entry = block.cast::<u16>().cast_const();
+    loop {
+        // SAFETY: the block holds NUL-terminated entries and ends with an empty one.
+        let text = unsafe {
+            let mut length = 0;
+            while *entry.add(length) != 0 {
+                length += 1;
+            }
+            std::slice::from_raw_parts(entry, length)
+        };
+        if text.is_empty() {
+            break;
+        }
+        if let Some(separator) = text
+            .iter()
+            .skip(1)
+            .position(|unit| *unit == u16::from(b'='))
+        {
+            let (name, value) = text.split_at(separator + 1);
+            variables.push((OsString::from_wide(name), OsString::from_wide(&value[1..])));
+        }
+        entry = unsafe { entry.add(text.len() + 1) };
+    }
+    unsafe { DestroyEnvironmentBlock(block) };
+    Some(variables)
 }
 
 pub(super) fn detach(command: &mut std::process::Command) {
@@ -197,6 +246,33 @@ mod tests {
         assert!(
             open < Duration::from_secs(30),
             "the output stayed open for {open:?}"
+        );
+    }
+
+    #[test]
+    fn the_session_environment_leaves_out_variables_of_this_program() {
+        const NAME: &str =
+            "process::windows::tests::the_session_environment_leaves_out_variables_of_this_program";
+        const OWN: &str = "KODOSI_TEST_PROGRAM_ONLY";
+        if std::env::var_os(OWN).is_none() {
+            let status = Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", NAME, "--test-threads=1"])
+                .env(OWN, "1")
+                .status()
+                .unwrap();
+            assert!(status.success());
+            return;
+        }
+        let session = super::session_environment().unwrap();
+        assert!(
+            session
+                .iter()
+                .any(|(name, _)| name.eq_ignore_ascii_case("SystemRoot"))
+        );
+        assert!(
+            !session
+                .iter()
+                .any(|(name, _)| name.eq_ignore_ascii_case(OWN))
         );
     }
 }
