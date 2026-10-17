@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 pub(super) fn status(context: &Context) -> String {
     let mut lines = vec![account(context)];
     if context.sessions.is_empty() {
-        lines.push("No terminals. Start one: kodosi session start".to_owned());
+        lines.push("No terminals. Start one: kodosi terminal start".to_owned());
     } else {
         let mut rows = vec![["NAME", "WHERE", "STATE", "SHARED WITH", "ID"].map(str::to_owned)];
         rows.extend(context.sessions.iter().map(|session| {
@@ -29,7 +29,7 @@ pub(super) fn session(session: &Value, context: &Context) -> String {
         ["State".to_owned(), state(session)],
         ["Message".to_owned(), message(session)],
         ["Folder".to_owned(), text(session, "workingDir")],
-        ["Mission".to_owned(), text(session, "missionName")],
+        ["Room".to_owned(), text(session, "missionName")],
         [
             "Shared with".to_owned(),
             names(&users(session), &context.friends),
@@ -71,8 +71,6 @@ pub(super) fn result(event: &Value, context: &Context) -> String {
         "friends.snapshot" => friends(event),
         "friends.invite" => text(event, "text"),
         "missions.snapshot" => missions(event),
-        "mission.snapshot" => mission(event),
-        "mission.result" => "Done.".to_owned(),
         "session.result" => session_result(event, context),
         _ => serde_json::to_string_pretty(event).unwrap_or_default(),
     }
@@ -117,7 +115,7 @@ fn session_result(event: &Value, context: &Context) -> String {
                     |session| text(session, "name"),
                 );
             let reference = &id[id.len().saturating_sub(6)..];
-            format!("Started {name} ({reference}). Open it: kodosi session attach {reference}")
+            format!("Started {name} ({reference}). Open it: kodosi terminal attach {reference}")
         }
         "session.close" => "The terminal is closed.".to_owned(),
         "session.leave" => "You left the terminal.".to_owned(),
@@ -216,39 +214,19 @@ fn missions(event: &Value) -> String {
         .map(|mission| text(mission, "name"))
         .collect::<Vec<_>>();
     if names.is_empty() {
-        lines.push("No Missions. Make one: kodosi mission create <name>".to_owned());
+        lines.push("No rooms. Make one: kodosi room create <name>".to_owned());
     } else {
-        lines.push(format!("Missions: {}", names.join(", ")));
+        lines.push(format!("Rooms: {}", names.join(", ")));
     }
     for invitation in list("invitations") {
         lines.push(format!(
-            "{} invited you to {}: kodosi mission accept \"{}\"",
+            "{} invited you to {}: kodosi room accept \"{}\"",
             text(&invitation, "inviterName"),
             text(&invitation, "missionName"),
             text(&invitation, "missionName")
         ));
     }
     lines.join("\n")
-}
-
-fn mission(event: &Value) -> String {
-    let members = event["members"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .map(|member| {
-            if member["isOwner"] == true {
-                format!("{} (owner)", text(member, "handle"))
-            } else {
-                text(member, "handle")
-            }
-        })
-        .collect::<Vec<_>>();
-    format!(
-        "{}\nMembers: {}",
-        text(&event["mission"], "name"),
-        members.join(", ")
-    )
 }
 
 fn place(session: &Value) -> String {
@@ -419,5 +397,19 @@ mod tests {
             "This device is not approved. Approve this device from one of your existing devices."
         ));
         assert!(listed.contains("kodosi devices link"));
+    }
+
+    #[test]
+    fn a_room_list_names_the_rooms_and_the_command_that_accepts_an_invitation() {
+        assert_eq!(
+            missions(
+                &json!({"missions":[{"name":"Work"}],"invitations":[{"inviterName":"bob","missionName":"Launch"}]})
+            ),
+            "Rooms: Work\nbob invited you to Launch: kodosi room accept \"Launch\""
+        );
+        assert_eq!(
+            missions(&json!({})),
+            "No rooms. Make one: kodosi room create <name>"
+        );
     }
 }

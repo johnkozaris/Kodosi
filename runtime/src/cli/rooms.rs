@@ -1,6 +1,6 @@
 use super::{
-    Context, Duration, Error, PathBuf, Result, Subcommand, Uuid, Value, json, local_host,
-    mission_id, missions, only, print_json, print_text, render, request,
+    Context, Duration, Error, PathBuf, Result, Subcommand, Uuid, Value, friend_id, friends, json,
+    local_host, mission_id, missions, only, print_json, print_text, render, request,
 };
 use crate::rooms::{Action, Issue, Snapshot, TaskChange};
 
@@ -17,31 +17,56 @@ pub(super) struct Arguments {
 }
 #[derive(Subcommand)]
 enum RoomAction {
+    /// List your rooms and your invitations to rooms.
     List,
+    /// Make a room.
+    Create { name: String },
+    /// Give the room a new name.
+    Rename { name: String },
+    /// Delete the room. Its terminals keep running.
+    Delete,
+    /// Invite a friend to the room.
+    Invite { friend: String },
+    /// Accept the invitation to a room.
+    Accept { name: String },
+    /// Reject the invitation to a room.
+    Reject { name: String },
+    /// Remove a member from the room.
+    RemoveMember { member: String },
+    /// Leave the room.
+    Leave,
+    /// Print the skill that lets an agent take part in a room.
     Skill,
+    /// Show the room, its members and its terminals.
     Context,
+    /// Read the conversation.
     Read {
         #[arg(long)]
         since: Option<u64>,
         #[arg(long)]
         before: Option<u64>,
     },
+    /// Post a message.
     Post {
         text: String,
         #[arg(long)]
         agent: Option<String>,
     },
+    /// Wait for activity in the room.
     Wait {
         #[arg(long, default_value_t = 60)]
         timeout: u64,
         #[arg(long)]
         after: Option<u64>,
     },
-    Share {
-        session: Option<String>,
-    },
+    /// Give every member full control of a terminal, by default this one.
+    Share { terminal: Option<String> },
+    /// Take a terminal out of its room, by default this one.
+    Unshare { terminal: Option<String> },
+    /// Work with the room's tasks.
     #[command(subcommand)]
     Task(TaskAction),
+    /// Work with the room's repositories.
     #[command(subcommand)]
     Repo(RepoAction),
 }
@@ -108,16 +133,47 @@ pub(super) async fn run(
         return print_text(include_str!("../../skills/kodosi-room/SKILL.md"));
     }
     let catalog = missions(client, context).await?;
-    if matches!(args.action, RoomAction::List) {
-        return output(&catalog, json_output, &render::result(&catalog, context));
+    let command = match &args.action {
+        RoomAction::List => {
+            return output(&catalog, json_output, &render::result(&catalog, context));
+        }
+        RoomAction::Unshare { terminal: chosen } => {
+            return share_terminal(client, context, None, chosen.clone(), json_output).await;
+        }
+        RoomAction::Create { name } => Some(json!({"type":"mission.create","name":name})),
+        RoomAction::Accept { name } => Some(answer("mission.invitation.accept", &catalog, name)?),
+        RoomAction::Reject { name } => Some(answer("mission.invitation.reject", &catalog, name)?),
+        _ => None,
+    };
+    if let Some(command) = command {
+        return change(client, context, command, json_output).await;
     }
     let room = resolve_room(args.room, &catalog, context)?;
-    match args.action {
+    let command = match &args.action {
         RoomAction::Context => return show_context(client, context, &room).await,
-        RoomAction::Share { session } => {
-            return share_terminal(client, context, &room, session, json_output).await;
+        RoomAction::Share { terminal: chosen } => {
+            return share_terminal(client, context, Some(&room), chosen.clone(), json_output).await;
         }
-        _ => {}
+        RoomAction::Rename { name } => Some(json!({"type":"mission.rename","name":name})),
+        RoomAction::Delete => Some(json!({"type":"mission.delete"})),
+        RoomAction::Leave => Some(json!({"type":"mission.leave"})),
+        RoomAction::Invite { friend } => {
+            let user = friend_id(&friends(client, context).await?, friend)?;
+            Some(json!({"type":"mission.invite","userId":user}))
+        }
+        RoomAction::RemoveMember { member } => {
+            let user = if Uuid::parse_str(member).is_ok() {
+                member.clone()
+            } else {
+                friend_id(&friends(client, context).await?, member)?
+            };
+            Some(json!({"type":"mission.removeMember","userId":user}))
+        }
+        _ => None,
+    };
+    if let Some(mut command) = command {
+        command["missionId"] = json!(room);
+        return change(client, context, command, json_output).await;
     }
     if let RoomAction::Post { text, agent } = args.action {
         let action = Action::Post {
@@ -237,13 +293,13 @@ async fn show_context(
 async fn share_terminal(
     client: &mut local_host::Client,
     context: &mut Context,
-    room: &str,
-    session: Option<String>,
+    room: Option<&str>,
+    chosen: Option<String>,
     json_output: bool,
 ) -> Result<()> {
-    let reference = session
+    let reference = chosen
         .or_else(terminal)
-        .ok_or_else(|| Error::Invalid("Choose the terminal to share.".into()))?;
+        .ok_or_else(|| Error::Invalid("Choose a terminal.".into()))?;
     let id = context.session_id(&reference)?;
     let event = request(
         client,
@@ -253,7 +309,38 @@ async fn share_terminal(
         json_output,
     )
     .await?;
-    output(&event, json_output, "The terminal is shared with the room.")
+    let text = if room.is_some() {
+        "The terminal is shared with the room."
+    } else {
+        "The terminal is no longer shared with a room."
+    };
+    output(&event, json_output, text)
+}
+
+async fn change(
+    client: &mut local_host::Client,
+    context: &mut Context,
+    command: Value,
+    json_output: bool,
+) -> Result<()> {
+    let event = request(client, context, command, json_output).await?;
+    output(&event, json_output, "Done.")
+}
+
+fn answer(operation: &str, catalog: &Value, reference: &str) -> Result<Value> {
+    let matches = catalog["invitations"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|invitation| {
+            invitation["id"] == reference
+                || invitation["missionId"] == reference
+                || invitation["missionName"] == reference
+        })
+        .filter_map(|invitation| invitation["id"].as_str())
+        .collect::<Vec<_>>();
+    let id = only(&matches, "invitation", reference, "kodosi room list")?;
+    Ok(json!({"type":operation,"invitationId":id}))
 }
 
 async fn wait(
