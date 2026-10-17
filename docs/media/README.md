@@ -1,8 +1,8 @@
 # Pictures
 
-The pictures are captures of the Mac app with invented sample data on a local backend.
-To replace one, use a disposable database and `KODOSI_DATA_ROOT`
-([isolated validation](../DEVELOPMENT.md#isolated-validation)), give
+The pictures are captures of the Mac app with invented people and data on a local
+backend. To replace one, use a disposable database and a `KODOSI_DATA_ROOT` for each
+person ([isolated validation](../DEVELOPMENT.md#isolated-validation)), give
 `<KODOSI_DATA_ROOT>/harness-home/.zshrc` a neutral prompt, never capture your own
 terminals, names, hosts or paths, and keep the file name.
 

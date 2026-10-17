@@ -62,7 +62,7 @@ Remove a lost device from another device, and make a new recovery key if it was 
 In People, send your invite, or paste a friend's invite or username. An invite lets
 Kodosi verify the friend.
 
-<p align="center"><img src="media/people.webp" width="760" alt="People with two verified friends."></p>
+<p align="center"><img src="media/people.webp" width="655" alt="People with two verified friends."></p>
 
 The share button in a terminal's header shares it with friends or rooms. Everyone you
 share with gets full control, with your privileges on that computer. Your other
