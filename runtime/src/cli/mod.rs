@@ -335,6 +335,7 @@ async fn dispatch(args: Arguments) -> Result<()> {
     }
     let mut client = local_host::connect_or_start(&config.data_root).await?;
     let mut context = Context::from_events(&client.initial_events);
+    list_terminals(&args.command, &mut client, &mut context).await;
     let json_output = args.json;
     match args.command {
         Action::Room(arguments) => {
@@ -690,6 +691,23 @@ async fn request(
         .to_owned();
     client.command(context.envelope(command)?).await?;
     wait_answer(client, context, &operation, &request_id, json_output).await
+}
+
+async fn list_terminals(action: &Action, client: &mut local_host::Client, context: &mut Context) {
+    if context.user.is_some()
+        && matches!(
+            action,
+            Action::Status | Action::Terminal(_) | Action::Auth(AuthAction::Status)
+        )
+    {
+        drop(
+            tokio::time::timeout(
+                Duration::from_secs(5),
+                request(client, context, json!({"type":"session.list"}), false),
+            )
+            .await,
+        );
+    }
 }
 
 async fn friends(client: &mut local_host::Client, context: &mut Context) -> Result<Vec<Value>> {
