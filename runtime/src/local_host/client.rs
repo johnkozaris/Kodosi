@@ -193,17 +193,24 @@ async fn handshake(
 
 pub async fn connect_or_start(root: &Path) -> Result<Client> {
     let mut client = connect_or_spawn(root).await?;
-    let settled = tokio::time::timeout(ACCOUNT_TIMEOUT, async {
-        while finalizing(&client.initial_events) {
-            if let Some(event) = client.next().await?.get("event") {
-                client.initial_events.push(event.clone());
-            }
+    let deadline = tokio::time::Instant::now() + ACCOUNT_TIMEOUT;
+    while finalizing(&client.initial_events) {
+        let Ok(frame) = tokio::time::timeout_at(deadline, client.next()).await else {
+            break;
+        };
+        if let Some(event) = frame?.get("event") {
+            client.initial_events.push(event.clone());
         }
-        Ok::<_, Error>(())
-    })
-    .await;
-    settled.unwrap_or(Ok(()))?;
+        if account_changed(&client.initial_events) {
+            client = Client::connect(root).await?;
+        }
+    }
     Ok(client)
+}
+
+fn account_changed(events: &[Value]) -> bool {
+    events.first().map(|event| &event["accountEpoch"])
+        != events.last().map(|event| &event["accountEpoch"])
 }
 
 fn finalizing(events: &[Value]) -> bool {

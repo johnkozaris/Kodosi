@@ -135,42 +135,111 @@ async fn a_client_names_an_older_host() {
     host.await.unwrap();
 }
 
+async fn welcome_client(
+    listener: &mut kodosi_os::ipc::Listener,
+    welcomed: Vec<Value>,
+    then: Vec<Value>,
+) -> kodosi_os::ipc::Stream {
+    let mut stream = listener.accept().await.unwrap();
+    let hello: Hello = read_json(&mut FrameReader::new(&mut stream)).await.unwrap();
+    assert_eq!(hello.version, VERSION);
+    let welcome = Welcome {
+        version: VERSION,
+        events: welcomed,
+        host: Some(HostDescription {
+            pid: 42,
+            kind: HostKind::Background,
+        }),
+        ..Welcome::default()
+    };
+    write_json(&mut stream, &welcome).await.unwrap();
+    for event in then {
+        write_json(&mut stream, &json!({"kind":"event","event":event}))
+            .await
+            .unwrap();
+    }
+    stream
+}
+
+fn scoped(kind: &str, user: Option<&str>, epoch: u64) -> Value {
+    json!({"type":kind,"accountUserId":user,"accountEpoch":epoch})
+}
+
 #[tokio::test]
-async fn a_client_waits_until_the_host_has_read_the_saved_sign_in() {
+async fn a_client_starts_from_the_account_that_the_host_read() {
     let storage = tempfile::tempdir().unwrap();
     let root = kodosi_os::fs::canonicalize(storage.path()).unwrap();
     let mut listener = kodosi_os::ipc::Listener::bind(&endpoint(&root).unwrap())
         .await
         .unwrap();
     let host = tokio::spawn(async move {
-        let mut stream = listener.accept().await.unwrap();
-        let hello: Hello = read_json(&mut FrameReader::new(&mut stream)).await.unwrap();
-        assert_eq!(hello.version, VERSION);
-        let welcome = Welcome {
-            version: VERSION,
-            events: vec![json!({"type":"auth.finalizing","accountUserId":null,"accountEpoch":1})],
-            host: Some(HostDescription {
-                pid: 42,
-                kind: HostKind::Background,
-            }),
-            ..Welcome::default()
-        };
-        write_json(&mut stream, &welcome).await.unwrap();
-        for event in [
-            json!({"type":"auth.finalizing","accountUserId":"me","accountEpoch":2}),
-            json!({"type":"sessions.snapshot","accountUserId":"me","accountEpoch":2,"sessions":[]}),
-            json!({"type":"auth.ready","accountUserId":"me","accountEpoch":2}),
-        ] {
-            write_json(&mut stream, &json!({"kind":"event","event":event}))
-                .await
-                .unwrap();
-        }
-        stream
+        let before = welcome_client(
+            &mut listener,
+            vec![
+                scoped("system.ready", None, 1),
+                scoped("auth.finalizing", None, 1),
+            ],
+            vec![
+                scoped("auth.finalizing", Some("me"), 2),
+                scoped("auth.ready", Some("me"), 2),
+            ],
+        )
+        .await;
+        let after = welcome_client(
+            &mut listener,
+            vec![
+                scoped("system.ready", Some("me"), 2),
+                scoped("auth.finalizing", Some("me"), 2),
+            ],
+            vec![scoped("auth.ready", Some("me"), 2)],
+        )
+        .await;
+        (before, after)
     });
     let client = connect_or_start(&root).await.unwrap();
-    let last = client.initial_events.last().unwrap();
-    assert_eq!(last["type"], "auth.ready");
-    assert_eq!(last["accountEpoch"], 2);
+    let heard: Vec<_> = client
+        .initial_events
+        .iter()
+        .map(|event| {
+            (
+                event["type"].as_str().unwrap(),
+                event["accountEpoch"].as_u64().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        heard,
+        [
+            ("system.ready", 2),
+            ("auth.finalizing", 2),
+            ("auth.ready", 2)
+        ]
+    );
+    drop(host.await.unwrap());
+}
+
+#[tokio::test]
+async fn a_client_hears_why_the_host_could_not_read_the_saved_sign_in() {
+    let storage = tempfile::tempdir().unwrap();
+    let root = kodosi_os::fs::canonicalize(storage.path()).unwrap();
+    let mut listener = kodosi_os::ipc::Listener::bind(&endpoint(&root).unwrap())
+        .await
+        .unwrap();
+    let host = tokio::spawn(async move {
+        let mut expired = scoped("auth.required", None, 1);
+        expired["reason"] = json!("expired");
+        welcome_client(
+            &mut listener,
+            vec![
+                scoped("system.ready", None, 1),
+                scoped("auth.finalizing", None, 1),
+            ],
+            vec![expired],
+        )
+        .await
+    });
+    let client = connect_or_start(&root).await.unwrap();
+    assert_eq!(client.initial_events.last().unwrap()["reason"], "expired");
     drop(host.await.unwrap());
 }
 
