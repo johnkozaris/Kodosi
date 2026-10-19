@@ -222,6 +222,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       usernameExistsMessage: "That username is taken. Pick a different one.",
       federatedIdentityConfirmLinkMessage: "An account with the {0} {1} exists already.",
       federatedIdentityConfirmOverrideMessage: "Your account signs in with {4} now.",
+      federatedIdentityConfirmReauthenticateMessage: "Sign in to your account to add {0}.",
       "error-user-attribute-required": "Fill in each marked row.",
       termsAcceptanceRequired: "Accept the terms to go on.",
       successLogout: "You are signed out",

@@ -191,6 +191,8 @@ calm kc create "authentication/flows/$broker%20Handle%20Existing%20Account/execu
   -r $realm -s provider=idp-confirm-override-link
 calm kc update "authentication/flows/$broker/executions" -r $realm \
   -b "{\"id\":\"$(step_of $broker idp-confirm-override-link)\",\"requirement\":\"REQUIRED\",\"priority\":30}"
+calm kc update "authentication/flows/$broker/executions" -r $realm \
+  -b "{\"id\":\"$(step_of $broker idp-email-verification)\",\"requirement\":\"DISABLED\"}"
 
 calm kc create "authentication/flows/$form/executions/execution" -r $realm \
   -s provider=kodosi-turnstile-registration
