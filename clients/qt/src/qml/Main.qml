@@ -93,6 +93,10 @@ ApplicationWindow {
                 onResumeRequested: history.openModal()
                 onPaletteRequested: palette.open()
                 onNewRoomRequested: window.openNewRoom()
+                onDosiSettingsRequested: {
+                    Models.DesktopState.activeView = Models.DesktopState.Settings
+                    settings.section = 4
+                }
             }
             Item {
                 Layout.fillHeight: true
@@ -128,7 +132,9 @@ ApplicationWindow {
                         onShareSessionRequested: id => share.openSession(id)
                     }
                     PeopleView {}
-                    SettingsView {}
+                    SettingsView {
+                        id: settings
+                    }
                 }
             }
         }
@@ -296,6 +302,18 @@ ApplicationWindow {
         sequences: ["Ctrl+Shift+]", "Ctrl+}"]
 
         onActivated: window.openAdjacentTerminal(1)
+    }
+    Shortcut {
+        enabled: !window.modalOpen
+        sequence: "Ctrl+Shift+J"
+
+        onActivated: Models.DesktopState.toggleDosi()
+    }
+    Shortcut {
+        enabled: !window.modalOpen && Models.Dosi.busy && Models.DesktopState.dosiOpen && Models.DesktopState.sidebarOpen
+        sequence: "Ctrl+Shift+."
+
+        onActivated: Models.Dosi.stop()
     }
     Shortcut {
         enabled: !window.modalOpen

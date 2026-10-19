@@ -8,6 +8,7 @@
 #include "presentation/DesktopStateModel.hpp"
 #include "presentation/AgentLauncherModel.hpp"
 #include "presentation/DevicesModel.hpp"
+#include "presentation/DosiModel.hpp"
 #include "presentation/KeyedListModel.hpp"
 #include "presentation/MissionsModel.hpp"
 #include "presentation/PeopleModel.hpp"
@@ -77,6 +78,16 @@ struct MissionsModelForeign {
 public:
     inline static kodosi::MissionsModel* instance = nullptr;
     static kodosi::MissionsModel* create(QQmlEngine* engine, QJSEngine*) { return singleton(instance, engine); }
+};
+
+struct DosiModelForeign {
+    Q_GADGET
+    QML_FOREIGN(kodosi::DosiModel)
+    QML_NAMED_ELEMENT(Dosi)
+    QML_SINGLETON
+public:
+    inline static kodosi::DosiModel* instance = nullptr;
+    static kodosi::DosiModel* create(QQmlEngine* engine, QJSEngine*) { return singleton(instance, engine); }
 };
 
 struct SessionActionsModelForeign {

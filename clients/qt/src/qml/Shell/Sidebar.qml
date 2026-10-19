@@ -10,6 +10,7 @@ Item {
     id: root
 
     readonly property bool collapsed: !Models.DesktopState.sidebarOpen
+    readonly property bool dosi: Models.DesktopState.dosiOpen && !collapsed
     readonly property var groups: Models.Sessions.folderGroups
     readonly property var rooms: Models.Missions.missions
     readonly property var invitations: Models.Missions.invitations
@@ -44,6 +45,7 @@ Item {
     signal resumeRequested
     signal paletteRequested
     signal newRoomRequested
+    signal dosiSettingsRequested
 
     function signIn() {
         Models.DesktopState.activeView = Models.DesktopState.Settings
@@ -84,7 +86,7 @@ Item {
     Accessible.id: objectName
     Accessible.name: qsTr("Rooms and terminals")
     Accessible.role: Accessible.Pane
-    implicitWidth: collapsed ? KodosiTheme.railWidth : KodosiTheme.sidebarWidth
+    implicitWidth: Models.DesktopState.sidebarWidth
 
     onPillTargetChanged: Qt.callLater(syncPill)
     onGroupsChanged: Qt.callLater(syncPill)
@@ -244,6 +246,9 @@ Item {
                 Accessible.name: qsTr("Show sidebar")
                 onClicked: Models.DesktopState.sidebarOpen = true
             }
+            DosiIsland {
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
             AbstractButton {
                 id: railNew
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -261,9 +266,19 @@ Item {
                     radius: 17
                     fill: railNew.hovered ? KodosiTheme.accentHover : KodosiTheme.accent
                     pressed: railNew.pressed
+                    opacity: railNewSpot.hidden ? 0 : 1
+
+                    FoldSpot {
+                        id: railNewSpot
+                        anchors.fill: parent
+                        key: "new"
+                        place: "rail"
+                        fill: KodosiTheme.accent
+                        radius: 17
+                    }
                 }
                 contentItem: Item {
-                    KIcon { anchors.centerIn: parent; width: 14; height: 14; name: "plus"; color: KodosiTheme.accentInk; strokeWidth: 2.6 }
+                    KIcon { anchors.centerIn: parent; width: 14; height: 14; name: "plus"; color: KodosiTheme.accentInk; strokeWidth: 2.6; opacity: railNewSpot.hidden ? 0 : 1 }
                 }
                 onClicked: root.newTerminalRequested("")
             }
@@ -298,6 +313,15 @@ Item {
                                 anchors.centerIn: parent
                                 key: railRoom.entry.id || ""
                                 size: 26
+                                opacity: railRoomSpot.hidden ? 0 : 1
+
+                                FoldSpot {
+                                    id: railRoomSpot
+                                    anchors.fill: parent
+                                    key: "room:" + (railRoom.entry.id || "")
+                                    place: "rail"
+                                    sigil: railRoom.entry.id || ""
+                                }
                             }
                             NewDot {
                                 x: railSigil.x + railSigil.width - width / 2 - 1
@@ -336,6 +360,15 @@ Item {
                                 size: 26
                                 asleep: !mark.connected || Models.DesktopState.stagedSessionIds.indexOf(mark.session.id) < 0
                                 session: mark.session
+                                opacity: railMarkSpot.hidden ? 0 : 1
+
+                                FoldSpot {
+                                    id: railMarkSpot
+                                    anchors.fill: parent
+                                    key: "terminal:" + (mark.session.id || "")
+                                    place: "rail"
+                                    session: mark.session
+                                }
                             }
                             StatusSign {
                                 anchors.right: parent.right
@@ -355,6 +388,12 @@ Item {
             Layout.alignment: Qt.AlignHCenter
             Layout.bottomMargin: 12
             spacing: 6
+            opacity: railFoot.progress
+            transform: Arrive { id: railFoot; delay: 250; rise: 6 }
+            onVisibleChanged: {
+                if (visible)
+                    railFoot.play()
+            }
 
             KIconButton {
                 glyph: "people"
@@ -397,6 +436,15 @@ Item {
             }
             Item { Layout.fillWidth: true }
             KIconButton {
+                visible: root.dosi
+                glyph: "list"
+                objectName: "dosi.close"
+                Accessible.id: objectName
+                Accessible.name: qsTr("Terminals and rooms (Esc)")
+                onClicked: Models.DesktopState.dosiOpen = false
+            }
+            KIconButton {
+                visible: !root.dosi
                 glyph: "search"
                 objectName: "sidebar.palette"
                 Accessible.id: objectName
@@ -414,18 +462,36 @@ Item {
                 onClicked: Models.DesktopState.sidebarOpen = false
             }
         }
-        Item {
+        DosiRow {
             Layout.fillWidth: true
             Layout.leftMargin: 12
             Layout.rightMargin: 12
             Layout.topMargin: root.titleBar ? 10 : 14
+            visible: !root.dosi
+        }
+        Item {
+            Layout.fillWidth: true
+            Layout.leftMargin: 12
+            Layout.rightMargin: 12
+            Layout.topMargin: 8
             Layout.bottomMargin: 10
             implicitHeight: 34
+            visible: !root.dosi
 
             Bezel {
                 anchors.fill: parent
                 fill: newTerminal.hovered ? KodosiTheme.accentHover : KodosiTheme.accent
                 pressed: newTerminal.pressed
+                opacity: newSpot.hidden ? 0 : 1
+
+                FoldSpot {
+                    id: newSpot
+                    anchors.fill: parent
+                    key: "new"
+                    place: "row"
+                    fill: KodosiTheme.accent
+                    radius: KodosiTheme.radiusMd
+                }
             }
             AbstractButton {
                 id: newTerminal
@@ -438,12 +504,21 @@ Item {
                 scale: pressed ? 0.98 : 1
                 contentItem: RowLayout {
                     spacing: 8
+                    opacity: newSpot.hidden ? 0 : 1
                     KIcon { Layout.leftMargin: 14; Layout.preferredWidth: 13; Layout.preferredHeight: 13; name: "plus"; color: KodosiTheme.accentInk; strokeWidth: 2.6 }
                     PlainLabel { Layout.fillWidth: true; text: qsTr("New terminal"); color: KodosiTheme.accentInk; font.weight: Font.DemiBold }
                     PlainLabel { Layout.rightMargin: 12; text: qsTr("Ctrl+Shift+N"); color: KodosiTheme.alpha(KodosiTheme.accentInk, 0.6); font.pixelSize: KodosiTheme.fontCaption }
                 }
                 onClicked: root.newTerminalRequested("")
             }
+        }
+        DosiPanel {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.dosi
+            onNewTerminalRequested: root.newTerminalRequested("")
+            onNewRoomRequested: root.accountReady ? root.newRoomRequested() : root.signIn()
+            onSettingsRequested: root.dosiSettingsRequested()
         }
         Flickable {
             id: flick
@@ -453,6 +528,13 @@ Item {
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             ScrollBar.vertical: KScrollBar {}
+            visible: !root.dosi
+            opacity: listArrive.progress
+            transform: Arrive { id: listArrive; delay: 220; rise: 6 }
+            onVisibleChanged: {
+                if (visible)
+                    listArrive.play()
+            }
 
             Raised {
                 id: pill
@@ -630,6 +712,15 @@ Item {
                                 Layout.leftMargin: 8
                                 key: room.entry.id || ""
                                 size: 22
+                                opacity: roomSpot.hidden ? 0 : 1
+
+                                FoldSpot {
+                                    id: roomSpot
+                                    anchors.fill: parent
+                                    key: "room:" + (room.entry.id || "")
+                                    place: "row"
+                                    sigil: room.entry.id || ""
+                                }
                             }
                             PlainLabel {
                                 Layout.fillWidth: true
@@ -816,6 +907,15 @@ Item {
                                         size: 22
                                         asleep: !row.staged || !row.connected
                                         session: row.session
+                                        opacity: rowSpot.hidden ? 0 : 1
+
+                                        FoldSpot {
+                                            id: rowSpot
+                                            anchors.fill: parent
+                                            key: "terminal:" + row.sessionId
+                                            place: "row"
+                                            session: row.session
+                                        }
                                     }
                                     ColumnLayout {
                                         Layout.fillWidth: true
@@ -997,6 +1097,13 @@ Item {
             Layout.topMargin: 8
             Layout.bottomMargin: 10
             spacing: 2
+            visible: !root.dosi
+            opacity: footArrive.progress
+            transform: Arrive { id: footArrive; delay: 280; rise: 6 }
+            onVisibleChanged: {
+                if (visible)
+                    footArrive.play()
+            }
 
             NavRow {
                 title: qsTr("People")
@@ -1143,6 +1250,27 @@ Item {
         }
     }
 
+    MouseArea {
+        id: resizer
+
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.right: parent.right
+        anchors.rightMargin: -4
+        width: 8
+        visible: !root.collapsed
+        cursorShape: Qt.SizeHorCursor
+        preventStealing: true
+        Accessible.ignored: true
+        onPositionChanged: mouse => {
+            if (pressed)
+                Models.DesktopState.resizeSidebar(mapToItem(root, mouse.x, 0).x)
+        }
+    }
+    DosiFold {
+        anchors.fill: parent
+        z: 10
+    }
     KMenu {
         id: menu
 

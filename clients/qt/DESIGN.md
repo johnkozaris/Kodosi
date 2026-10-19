@@ -42,7 +42,7 @@ typography:
   footnote: {fontFamily: "system-ui", fontSize: "12px"}
   caption: {fontFamily: "system-ui", fontSize: "11px", fontWeight: 500}
 rounded: {xs: "6px", sm: "8px", md: "10px", lg: "14px", xl: "18px", sheet: "22px", tile: "12px"}
-spacing: {sidebar: "252px", rail: "78px", frame-inset: "8px", header: "54px", page: "36px"}
+spacing: {sidebar: "252px", dosi: "420px", rail: "78px", frame-inset: "8px", header: "54px", page: "36px"}
 motion:
   hover: "120ms ease-out"
   fade: "200ms ease-out"

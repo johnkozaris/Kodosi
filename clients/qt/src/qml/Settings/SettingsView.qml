@@ -54,6 +54,7 @@ Item {
                     options: [
                         { value: 0, label: qsTr("Terminal"), icon: "terminal" },
                         { value: 1, label: qsTr("Agents"), icon: "agent" },
+                        { value: 4, label: "Dosi", icon: "eye" },
                         { value: 2, label: qsTr("Account"), icon: "people" },
                         { value: 3, label: qsTr("Devices"), icon: "laptop" }
                     ]
@@ -83,6 +84,10 @@ Item {
             DeviceSettings {
                 Layout.fillWidth: true
                 visible: root.section === 3
+            }
+            DosiSettings {
+                Layout.fillWidth: true
+                visible: root.section === 4
             }
             Item { Layout.preferredHeight: 30 }
         }

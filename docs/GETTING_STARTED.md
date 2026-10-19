@@ -39,9 +39,13 @@ done,failed` waits for a state, and `kodosi terminal show <terminal>` shows the 
 in the app. To keep terminals running after you quit the app, run `kodosi host` in a
 terminal of its own; `kodosi host stop` stops a host that runs in the background.
 
-To let one agent look after your other agents, give it the Dosi skill, which
-`kodosi dosi skill` prints. Dosi reads your terminals and rooms, tells you which ones need
-you, and asks you before it types, starts or closes anything.
+Dosi looks after your other agents. Select Dosi at the top of the sidebar (⌘J on the
+Mac, Ctrl+Shift+J on Linux and Windows) and choose its agent in Settings › Dosi. Dosi
+reads your terminals and rooms, tells you what needs you, and types, starts and closes
+things for you; when it needs a choice, it asks with buttons. Your conversation with Dosi
+is the same on all your computers. From a shell, `kodosi dosi say "What needs me?"` asks
+Dosi, `kodosi dosi show` prints the conversation and `kodosi dosi stop` stops it. To let
+another agent act as Dosi, give it the skill that `kodosi dosi skill` prints.
 
 To give an agent its own copy of a repository, hover the repository folder in the
 sidebar, select the branch button and name a branch. Kodosi starts a terminal in a new

@@ -15,6 +15,8 @@ class DesktopStateModel final : public QObject {
     Q_OBJECT
     Q_PROPERTY(ActiveView activeView READ activeView WRITE setActiveView NOTIFY activeViewChanged)
     Q_PROPERTY(bool sidebarOpen READ sidebarOpen WRITE setSidebarOpen NOTIFY sidebarOpenChanged)
+    Q_PROPERTY(bool dosiOpen READ dosiOpen WRITE setDosiOpen NOTIFY dosiOpenChanged)
+    Q_PROPERTY(qreal sidebarWidth READ sidebarWidth NOTIFY sidebarWidthChanged)
     Q_PROPERTY(QString selectedSessionId READ selectedSessionId NOTIFY selectedSessionIdChanged)
     Q_PROPERTY(QStringList stagedSessionIds READ stagedSessionIds NOTIFY stagedSessionIdsChanged)
     Q_PROPERTY(StageLayoutMode stageLayoutMode READ stageLayoutMode NOTIFY stageLayoutModeChanged)
@@ -29,12 +31,18 @@ public:
     ~DesktopStateModel() override;
     ActiveView activeView() const { return m_activeView; }
     bool sidebarOpen() const { return m_sidebarOpen; }
+    bool dosiOpen() const { return m_dosiOpen; }
+    qreal sidebarWidth() const;
     QString selectedSessionId() const { return m_selected; }
     QStringList stagedSessionIds() const { return m_staged; }
     StageLayoutMode stageLayoutMode() const { return m_mode; }
     QString lastError() const { return m_error; }
     void setActiveView(ActiveView value);
     void setSidebarOpen(bool value);
+    void setDosiOpen(bool value);
+    Q_INVOKABLE void openDosi();
+    Q_INVOKABLE void toggleDosi();
+    Q_INVOKABLE void resizeSidebar(qreal width);
     void attachSessionCatalog(SessionCatalogModel* sessions);
     void attachWindow(QWindow* window, std::optional<QSize> sizeOverride = std::nullopt);
     Q_INVOKABLE bool selectSession(const QString& id);
@@ -48,6 +56,8 @@ public:
 signals:
     void activeViewChanged();
     void sidebarOpenChanged();
+    void dosiOpenChanged();
+    void sidebarWidthChanged();
     void selectedSessionIdChanged();
     void stagedSessionIdsChanged();
     void stageLayoutModeChanged();
@@ -67,6 +77,9 @@ private:
     QString m_error;
     ActiveView m_activeView = Sessions;
     bool m_sidebarOpen = true;
+    bool m_dosiOpen = false;
+    qreal m_listWidth = 252;
+    qreal m_dosiWidth = 420;
     StageLayoutMode m_mode = Grid;
     void exitFocusMode();
     void reconcile();

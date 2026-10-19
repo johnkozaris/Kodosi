@@ -35,6 +35,7 @@ Workspace::Workspace(CommandDispatcher& commands, SessionCatalogModel& sessions,
     , m_devices(*this)
     , m_missions(*this, sessions)
     , m_sessionActions(*this, sessions, desktop, settings)
+    , m_dosi(*this, sessions)
 {
     connect(&sessions, &SessionCatalogModel::visibleChanged, this, &Workspace::reportVisible);
 }
@@ -45,16 +46,22 @@ bool Workspace::validName(const QString& name)
         && !name.contains(QChar::Null);
 }
 
-bool Workspace::sendUntracked(QString type, QJsonObject values)
+QString Workspace::sendRequest(QString type, QJsonObject values)
 {
+    const auto id = requestId();
     values.insert(QStringLiteral("type"), type);
-    values.insert(QStringLiteral("requestId"), requestId());
+    values.insert(QStringLiteral("requestId"), id);
     const auto result = m_commands.send(QJsonDocument(values).toJson(QJsonDocument::Compact));
     if (!result) {
         setError(result.error().message);
-        return false;
+        return {};
     }
-    return true;
+    return id;
+}
+
+bool Workspace::sendUntracked(QString type, QJsonObject values)
+{
+    return !sendRequest(std::move(type), std::move(values)).isEmpty();
 }
 
 bool Workspace::sendTracked(PendingDomain domain, QString type, QJsonObject values,
@@ -121,6 +128,7 @@ void Workspace::clearAccountData(bool clearLinks)
     m_people.reset();
     m_devices.reset();
     m_missions.reset();
+    m_dosi.reset();
     m_sessionActions.reset(clearLinks);
     m_desktop.clearSessions();
     m_sessions.resetRuntimeAuthority();
@@ -245,6 +253,10 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         m_account.m_signInPage = event.value(QStringLiteral("url")).toString();
         emit m_account.loginChanged();
         emit m_account.signInPageReady(m_account.m_signInPage);
+        return;
+    }
+    if (type.startsWith(QStringLiteral("dosi."))) {
+        m_dosi.apply(type, event);
         return;
     }
     if (type == QStringLiteral("term.attention")) {

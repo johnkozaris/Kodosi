@@ -2,6 +2,7 @@ set_source_files_properties(
     qml/Theme/KodosiTheme.qml
     qml/Theme/Identity.qml
     qml/Theme/Mentions.qml
+    qml/Dosi/Fold.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE
 )
 set_source_files_properties(
@@ -9,6 +10,7 @@ set_source_files_properties(
     qml/Settings/DeviceSettings.qml
     qml/Settings/TerminalSettings.qml
     qml/Settings/ProviderSettings.qml
+    qml/Settings/DosiSettings.qml
     PROPERTIES QT_QML_INTERNAL_TYPE TRUE
 )
 
@@ -49,6 +51,10 @@ qt_add_library(kodosi-application STATIC
     presentation/ConversationHistoryModel.hpp
     presentation/DevicesModel.cpp
     presentation/DevicesModel.hpp
+    presentation/DosiModel.cpp
+    presentation/DosiModel.hpp
+    presentation/DosiWords.cpp
+    presentation/DosiWords.hpp
     presentation/KeyedListModel.cpp
     presentation/KeyedListModel.hpp
     presentation/MissionsModel.cpp
@@ -227,7 +233,27 @@ qt_add_qml_module(kodosi-ui
         qml/Settings/DeviceSettings.qml
         qml/Settings/TerminalSettings.qml
         qml/Settings/ProviderSettings.qml
+        qml/Settings/DosiSettings.qml
         qml/Controls/AccountMark.qml
+        qml/Controls/Arrive.qml
+        qml/Controls/Cue.qml
+        qml/Controls/DosiFace.qml
+        qml/Controls/Spinner.qml
+        qml/Dosi/DosiComposer.qml
+        qml/Dosi/DosiFold.qml
+        qml/Dosi/DosiIsland.qml
+        qml/Dosi/DosiKeys.qml
+        qml/Dosi/DosiMini.qml
+        qml/Dosi/DosiNewChat.qml
+        qml/Dosi/DosiPanel.qml
+        qml/Dosi/DosiQuestion.qml
+        qml/Dosi/DosiRow.qml
+        qml/Dosi/DosiShelf.qml
+        qml/Dosi/DosiSteps.qml
+        qml/Dosi/DosiThread.qml
+        qml/Dosi/DosiTouch.qml
+        qml/Dosi/Fold.qml
+        qml/Dosi/FoldSpot.qml
         qml/Controls/ActivityLine.qml
         qml/Controls/AgentMark.qml
         qml/Controls/AvatarStack.qml

@@ -12,6 +12,7 @@ void configureModelInstances(Workspace& workspace, ConversationHistoryModel& his
     PeopleModelForeign::instance = &workspace.people();
     DevicesModelForeign::instance = &workspace.devices();
     MissionsModelForeign::instance = &workspace.missions();
+    DosiModelForeign::instance = &workspace.dosi();
     SessionActionsModelForeign::instance = &workspace.sessionActions();
     ConversationHistoryModelForeign::instance = &history;
     ProviderFilesModelForeign::instance = &providerFiles;

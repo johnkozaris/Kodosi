@@ -264,6 +264,7 @@ void ControlsTest::terminalTilesAskBeforeAClipboardReadOnlyInAnotherPersonsTermi
     kodosi::qml::PeopleModelForeign::instance = &workspace.people();
     kodosi::qml::DevicesModelForeign::instance = &workspace.devices();
     kodosi::qml::MissionsModelForeign::instance = &workspace.missions();
+    kodosi::qml::DosiModelForeign::instance = &workspace.dosi();
     kodosi::qml::SessionActionsModelForeign::instance = &workspace.sessionActions();
     kodosi::qml::TerminalSurfaceControllerForeign::instance = &surfaces;
     workspace.apply(test::snapshot({test::session(1), test::session(2, true, false)}), 0);
@@ -333,6 +334,7 @@ void ControlsTest::terminalCloseConfirmsAndMinimizeOnlyHidesView()
     kodosi::qml::PeopleModelForeign::instance = &workspace.people();
     kodosi::qml::DevicesModelForeign::instance = &workspace.devices();
     kodosi::qml::MissionsModelForeign::instance = &workspace.missions();
+    kodosi::qml::DosiModelForeign::instance = &workspace.dosi();
     kodosi::qml::SessionActionsModelForeign::instance = &workspace.sessionActions();
     kodosi::qml::TerminalSurfaceControllerForeign::instance = &surfaces;
     workspace.apply(test::snapshot({test::session(1)}), 0);
@@ -441,6 +443,7 @@ void ControlsTest::leavingTerminalsLeavesNoDeferredWork()
     kodosi::qml::PeopleModelForeign::instance = &workspace.people();
     kodosi::qml::DevicesModelForeign::instance = &workspace.devices();
     kodosi::qml::MissionsModelForeign::instance = &workspace.missions();
+    kodosi::qml::DosiModelForeign::instance = &workspace.dosi();
     kodosi::qml::SessionActionsModelForeign::instance = &workspace.sessionActions();
     kodosi::qml::AgentLauncherModelForeign::instance = &launcher;
     kodosi::qml::DesktopFileIntegrationForeign::instance = &files;
@@ -516,6 +519,7 @@ void ControlsTest::missionCreationHasOneNameField()
     kodosi::qml::PeopleModelForeign::instance = &workspace.people();
     kodosi::qml::DevicesModelForeign::instance = &workspace.devices();
     kodosi::qml::MissionsModelForeign::instance = &workspace.missions();
+    kodosi::qml::DosiModelForeign::instance = &workspace.dosi();
     kodosi::qml::SessionActionsModelForeign::instance = &workspace.sessionActions();
     workspace.apply({ {QStringLiteral("type"), QStringLiteral("auth.ready")},
         {QStringLiteral("userId"), test::id(50)} }, 1);

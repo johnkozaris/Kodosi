@@ -170,6 +170,9 @@ Item {
                     session: root.session
                     color: KodosiTheme.terminalInkMuted
                 }
+                DosiKeys {
+                    sessionId: root.sessionId
+                }
                 StatusSign {
                     session: root.session
                     size: 12
@@ -388,6 +391,10 @@ Item {
         border.color: root.ringed ? KodosiTheme.alpha(KodosiTheme.terminalAccent, 0.8) : KodosiTheme.alpha(KodosiTheme.terminalHairline, 0.8)
 
         Behavior on border.color { ColorAnimation { duration: KodosiTheme.motionFade } }
+    }
+    DosiTouch {
+        anchors.fill: parent
+        sessionId: root.sessionId
     }
     Rectangle {
         id: veil
