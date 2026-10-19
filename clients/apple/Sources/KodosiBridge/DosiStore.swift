@@ -140,8 +140,8 @@ public final class DosiStore {
         _ = try await commands.request("dosi.new")
     }
 
-    public func configure(_ setup: DosiSetup) async throws {
-        _ = try await commands.request("dosi.setup", ["setup": setup.json])
+    public func choose(_ change: AgentChoiceChange) async throws {
+        _ = try await commands.request("dosi.setup", ["change": change.json])
     }
 
     public func instructions() async throws -> DosiInstructions {

@@ -62,7 +62,7 @@ public:
     Q_INVOKABLE void unqueue(const QString& id);
     Q_INVOKABLE void answer(const QString& itemId, const QStringList& choices);
     Q_INVOKABLE void renew();
-    Q_INVOKABLE void configure(const QVariantMap& setup);
+    Q_INVOKABLE void choose(const QVariantMap& change);
     Q_INVOKABLE void loadInstructions();
     Q_INVOKABLE void saveInstructions(const QString& text);
     Q_INVOKABLE void resetInstructions();
@@ -78,6 +78,7 @@ signals:
     void touchesChanged();
     void instructionsChanged();
     void draftChanged();
+    void saved();
 
 private:
     friend class Workspace;

@@ -75,52 +75,6 @@ struct AgentOption: Decodable, Equatable, Identifiable {
     }
 }
 
-struct AgentChoice: Decodable, Equatable {
-    var agent: String?
-    var picks: [AgentPick] = []
-
-    func pick(_ agent: String) -> AgentPick {
-        picks.first { $0.agent == agent } ?? AgentPick(agent: agent)
-    }
-
-    mutating func apply(_ change: AgentChoiceChange) {
-        switch change {
-        case let .tab(agent):
-            self.agent = agent
-        case let .pick(pick):
-            if let index = picks.firstIndex(where: { $0.agent == pick.agent }) {
-                picks[index] = pick
-            } else {
-                picks.append(pick)
-            }
-        }
-    }
-}
-
-struct AgentPick: Decodable, Equatable {
-    var agent: String
-    var account: String?
-    var model: String?
-    var effort: String?
-}
-
-enum AgentChoiceChange: Equatable {
-    case tab(String?)
-    case pick(AgentPick)
-
-    var json: JSONValue {
-        switch self {
-        case let .tab(agent):
-            .object(["type": .string("tab"), "agent": agent.map(JSONValue.string) ?? .null])
-        case let .pick(pick):
-            .object([
-                "type": .string("pick"), "agent": .string(pick.agent), "account": pick.account.map(JSONValue.string) ?? .null,
-                "model": pick.model.map(JSONValue.string) ?? .null, "effort": pick.effort.map(JSONValue.string) ?? .null,
-            ])
-        }
-    }
-}
-
 struct AgentStart: Equatable {
     var agent: String
     var account: String?

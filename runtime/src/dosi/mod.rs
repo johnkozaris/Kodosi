@@ -24,7 +24,7 @@ pub(crate) use engine::{Engine, Failure, Installed, Message, Output};
 
 use serde::{Deserialize, Serialize};
 
-use crate::agents::Agent;
+use crate::agents::{Agent, AgentChoice};
 
 pub const MAX_MESSAGE_BYTES: usize = 24 * 1024;
 pub const MAX_INSTRUCTIONS_BYTES: usize = 32 * 1024;
@@ -34,19 +34,6 @@ pub const MAX_OPTIONS: usize = 8;
 pub const TOKEN_VARIABLE: &str = "KODOSI_DOSI_TOKEN";
 
 pub const AGENTS: [Agent; 2] = [Agent::Claude, Agent::Codex];
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct DosiSetup {
-    #[serde(default)]
-    pub agent: Option<Agent>,
-    #[serde(default)]
-    pub account: Option<String>,
-    #[serde(default)]
-    pub model: Option<String>,
-    #[serde(default)]
-    pub effort: Option<String>,
-}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -71,7 +58,7 @@ pub enum DosiState {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DosiSnapshot {
     pub state: DosiState,
-    pub setup: DosiSetup,
+    pub setup: AgentChoice,
     pub agents: Vec<DosiAgent>,
     pub instructions_edited: bool,
     pub folder: String,

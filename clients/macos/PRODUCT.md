@@ -36,8 +36,9 @@ shows what it typed. Until Dosi shows its next step or words, the conversation s
 it is thinking. A question waits in the conversation, and the line says that Dosi
 has a question. A collapsed sidebar keeps Dosi at the bottom of the rail.
 Settings › Dosi chooses its agent, account, model and effort, edits its instructions and
-shows its folder. Turned off there, Dosi leaves the sidebar, the rail and the terminal
-tiles of this computer, and ⌘J does nothing.
+shows its folder. Each agent keeps its own account, model and effort. A choice is saved
+at once, and Dosi uses it from the next message. Turned off there, Dosi leaves the
+sidebar, the rail and the terminal tiles of this computer, and ⌘J does nothing.
 
 ## Providers
 

@@ -285,12 +285,15 @@ void DosiModel::renew()
     request(QStringLiteral("dosi.new"));
 }
 
-void DosiModel::configure(const QVariantMap& setup)
+void DosiModel::choose(const QVariantMap& change)
 {
-    QJsonObject value;
-    for (const auto* key : { "agent", "account", "model", "effort" })
-        value.insert(QLatin1String(key), optional(setup.value(QLatin1String(key)).toString()));
-    request(QStringLiteral("dosi.setup"), { { QStringLiteral("setup"), value } });
+    QJsonObject value { { QStringLiteral("type"), change.value(QStringLiteral("type")).toString() } };
+    const QStringList keys = value.value(QStringLiteral("type")).toString() == QStringLiteral("pick")
+        ? QStringList { QStringLiteral("agent"), QStringLiteral("account"), QStringLiteral("model"), QStringLiteral("effort") }
+        : QStringList { QStringLiteral("agent") };
+    for (const auto& key : keys)
+        value.insert(key, optional(change.value(key).toString()));
+    request(QStringLiteral("dosi.setup"), { { QStringLiteral("change"), value } }, QString {});
 }
 
 void DosiModel::loadInstructions()
@@ -483,6 +486,10 @@ void DosiModel::receiveResult(const QJsonObject& event)
             { QStringLiteral("edited"), saved.value(QStringLiteral("edited")).toBool() },
             { QStringLiteral("loaded"), true }, { QStringLiteral("saving"), false }, { QStringLiteral("message"), QString {} } };
         emit instructionsChanged();
+        return;
+    }
+    if (pending.operation == QStringLiteral("dosi.setup")) {
+        emit saved();
         return;
     }
     if (pending.operation != QStringLiteral("dosi.history"))

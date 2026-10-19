@@ -6,7 +6,7 @@ public struct DosiSnapshot: Decodable, Equatable, Sendable {
     }
 
     public var state: State
-    public var setup: DosiSetup
+    public var setup: AgentChoice
     public var agents: [DosiAgent]
     public var instructionsEdited: Bool
     public var folder: String
@@ -16,25 +16,6 @@ public struct DosiSnapshot: Decodable, Equatable, Sendable {
     public var items: [DosiItem]
     public var earlier: Bool
     public var queued: [DosiQueued]
-}
-
-public struct DosiSetup: Codable, Equatable, Sendable {
-    public var agent: String?
-    public var account: String?
-    public var model: String?
-    public var effort: String?
-
-    public init(agent: String? = nil, account: String? = nil, model: String? = nil, effort: String? = nil) {
-        self.agent = agent
-        self.account = account
-        self.model = model
-        self.effort = effort
-    }
-
-    var json: JSONValue {
-        let value: (String?) -> JSONValue = { $0.map(JSONValue.string) ?? .null }
-        return .object(["agent": value(agent), "account": value(account), "model": value(model), "effort": value(effort)])
-    }
 }
 
 public struct DosiAgent: Decodable, Equatable, Sendable, Identifiable {

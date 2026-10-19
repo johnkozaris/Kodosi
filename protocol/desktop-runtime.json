@@ -3183,25 +3183,63 @@
               }
             ]
           },
-          "requestId": {
-            "type": "string"
-          },
-          "setup": {
-            "additionalProperties": false,
-            "properties": {
-              "account": {
-                "anyOf": [
-                  {
-                    "type": "string"
+          "change": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "agent": {
+                    "anyOf": [
+                      {
+                        "oneOf": [
+                          {
+                            "const": "claude"
+                          },
+                          {
+                            "const": "codex"
+                          },
+                          {
+                            "const": "copilot"
+                          },
+                          {
+                            "const": "cursor"
+                          },
+                          {
+                            "const": "gemini"
+                          },
+                          {
+                            "const": "opencode"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
-                  {
-                    "type": "null"
+                  "type": {
+                    "const": "tab"
                   }
-                ]
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
               },
-              "agent": {
-                "anyOf": [
-                  {
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "account": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "agent": {
                     "oneOf": [
                       {
                         "const": "claude"
@@ -3223,34 +3261,40 @@
                       }
                     ]
                   },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "effort": {
-                "anyOf": [
-                  {
-                    "type": "string"
+                  "effort": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "model": {
-                "anyOf": [
-                  {
-                    "type": "string"
+                  "model": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
-                  {
-                    "type": "null"
+                  "type": {
+                    "const": "pick"
                   }
-                ]
+                },
+                "required": [
+                  "type",
+                  "agent"
+                ],
+                "type": "object"
               }
-            },
-            "required": [],
-            "type": "object"
+            ]
+          },
+          "requestId": {
+            "type": "string"
           },
           "type": {
             "const": "dosi.setup"
@@ -3261,7 +3305,7 @@
           "accountEpoch",
           "type",
           "requestId",
-          "setup"
+          "change"
         ],
         "type": "object"
       },
@@ -7558,16 +7602,6 @@
               "setup": {
                 "additionalProperties": false,
                 "properties": {
-                  "account": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
                   "agent": {
                     "anyOf": [
                       {
@@ -7597,32 +7631,77 @@
                       }
                     ]
                   },
-                  "effort": {
-                    "anyOf": [
-                      {
-                        "type": "string"
+                  "picks": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "account": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "agent": {
+                          "oneOf": [
+                            {
+                              "const": "claude"
+                            },
+                            {
+                              "const": "codex"
+                            },
+                            {
+                              "const": "copilot"
+                            },
+                            {
+                              "const": "cursor"
+                            },
+                            {
+                              "const": "gemini"
+                            },
+                            {
+                              "const": "opencode"
+                            }
+                          ]
+                        },
+                        "effort": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "model": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
                       },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "model": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
+                      "required": [
+                        "agent",
+                        "account",
+                        "model",
+                        "effort"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
                   }
                 },
                 "required": [
                   "agent",
-                  "account",
-                  "model",
-                  "effort"
+                  "picks"
                 ],
                 "type": "object"
               },
@@ -8696,7 +8775,7 @@
     ]
   },
   "ffiAbiVersion": 10,
-  "protocolVersion": 65,
+  "protocolVersion": 66,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 5,

@@ -9,9 +9,9 @@ use serde_json::{Value, json};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use crate::agents::{Agent, Runner};
+use crate::agents::{Agent, AgentChoiceChange, AgentPick, Runner};
 use crate::dosi::{
-    DosiAction, DosiAgent, DosiBody, DosiEntry, DosiItem, DosiLog, DosiRecord, DosiSetup, DosiTone,
+    DosiAction, DosiAgent, DosiBody, DosiEntry, DosiItem, DosiLog, DosiRecord, DosiTone,
     DosiToolStatus, SharedInstructions,
     engine::{Answer, Engine, Message, Output, Runners},
 };
@@ -374,16 +374,27 @@ async fn a_lost_provider_conversation_starts_over_with_the_whole_history() {
     let mut rig = Rig::new();
     rig.send("hello");
     rig.idle().await;
-    rig.engine
-        .configure(
-            DosiSetup {
-                agent: Some(Agent::Claude),
-                model: Some("sonnet".to_owned()),
-                ..DosiSetup::default()
-            },
-            &mut Output::default(),
-        )
-        .unwrap();
+    for change in [
+        AgentChoiceChange::Pick(AgentPick {
+            agent: Agent::Claude,
+            account: None,
+            model: Some("sonnet".to_owned()),
+            effort: Some("high".to_owned()),
+        }),
+        AgentChoiceChange::Tab {
+            agent: Some(Agent::Codex),
+        },
+        AgentChoiceChange::Tab {
+            agent: Some(Agent::Claude),
+        },
+    ] {
+        rig.engine
+            .configure(&change, &mut Output::default())
+            .unwrap();
+    }
+    let setup = &rig.snapshot()["setup"];
+    assert_eq!(setup["agent"], "claude");
+    assert_eq!(setup["picks"][0]["model"], "sonnet");
     std::fs::write(rig.base.join("missing"), "").unwrap();
     rig.send("hello again");
     rig.until(|rig| texts(&rig.items()).len() == 2 && rig.snapshot()["state"] == "idle")
@@ -391,7 +402,9 @@ async fn a_lost_provider_conversation_starts_over_with_the_whole_history() {
     let arguments = rig.file("arguments");
     let launches = arguments.lines().collect::<Vec<_>>();
     assert_eq!(launches.len(), 3);
-    assert!(launches[1].contains("--resume") && launches[1].contains("--model sonnet"));
+    assert!(
+        launches[1].contains("--resume") && launches[1].contains("--model sonnet --effort high")
+    );
     assert!(launches[2].contains("--session-id"));
     let input = rig.file("input");
     let last = input.lines().last().unwrap();

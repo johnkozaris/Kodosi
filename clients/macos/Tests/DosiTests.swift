@@ -12,7 +12,7 @@ private func snapshot(state: String = "idle", conversation: String = "c1", items
                       remote: JSONValue = .null) -> [String: JSONValue]
 {
     ["dosi": .object([
-        "state": .string(state), "setup": .object(["agent": .string("claude"), "account": .null, "model": .null, "effort": .null]),
+        "state": .string(state), "setup": .object(["agent": .string("claude"), "picks": .array([])]),
         "agents": .array([.object(["agent": .string("claude"), "installed": .bool(true)])]),
         "instructionsEdited": .bool(false), "folder": .string("/tmp/dosi"), "shared": .bool(true), "remote": remote,
         "conversation": .object(["id": .string(conversation), "startedAt": .int(1_792_000_000_000)]),
