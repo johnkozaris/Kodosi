@@ -1,113 +1,143 @@
 # Getting started
 
-Build the app for your [Mac](../clients/macos/README.md),
+Build Kodosi for your [Mac](../clients/macos/README.md), your
 [Linux or Windows](../clients/qt/README.md) computer, or your
-[iPhone or iPad](../clients/ios/README.md). It needs a Kodosi backend and an OIDC
-sign-in service; for development run a [local backend](DEVELOPMENT.md#run-the-backend).
-Sign in through your browser; `kodosi auth login` shows a code to enter in any browser.
+[iPhone or iPad](../clients/ios/README.md). This guide uses the Mac keys; on Linux and
+Windows, use Ctrl+Shift with the same letter.
 
-## Terminals
+## 1. Sign in
 
-A terminal is a real shell on the computer that runs it. The sidebar lists your rooms
-and terminals by folder and computer. Minimize hides a terminal and keeps it running;
-Close ends it and its programs. Closing the window keeps your terminals running, and Quit
-ends them. Terminals on other computers keep running.
+Open Kodosi and select Sign in at the bottom of the sidebar. Kodosi opens your browser,
+where you sign in. In a terminal, `kodosi auth login` shows a code to enter in any
+browser.
 
-After a lost connection the view returns to the current state. If Kodosi reports
-uncertain input delivery, look at the terminal before you repeat a command.
+Without an account, Kodosi runs terminals on this computer. Sign in to use your other
+computers, friends and rooms.
 
-## Agents
+## 2. Start an agent
 
-New terminal (⌘N on a Mac, Ctrl+Shift+N on Linux and Windows) opens the launcher. Pick
-an agent, a folder, an account, a model and an effort, type a first prompt and press
-Return: the new terminal's shell types the command. A missing agent offers its install
-command, and a new account gets its own sign-in folder, such as `~/.claude-work`. Kodosi
-also finds the accounts your shell sets up, such as
-`alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`. A terminal at its prompt shows a
-mark for each installed agent, which starts it with your last choice.
+Select New terminal (⌘N). Choose an agent and a folder, and if you want, an account, a
+model and an effort. Type a first prompt and press Return. Kodosi types the command into
+the shell of the new terminal.
 
-From a shell, `kodosi terminal start --agent claude --prompt "fix the failing test"`
-starts an agent with your last choice. `--account`, `--model` and `--effort` change it;
-`kodosi agent list` shows the agents, their accounts and your last choice.
+<p align="center"><img src="media/launcher.webp" width="580" alt="Claude Code chosen in the launcher, with a folder and a first prompt."></p>
 
-The `kodosi` command works on the same terminals as the app, and the app shows what it
-does. `kodosi terminal read <terminal>` prints the screen, and `--history` adds the
-lines that scrolled away. `kodosi terminal input <terminal> --enter "make test"` types a
-line, and `kodosi terminal keys <terminal> ctrl-c` presses keys; both stop with a
-message while you type in that terminal. `kodosi terminal wait <terminal> --until
-done,failed` waits for a state, and `kodosi terminal show <terminal>` shows the terminal
-in the app. To keep terminals running after you quit the app, run `kodosi host` in a
-terminal of its own; `kodosi host stop` stops a host that runs in the background.
+- If an agent is missing, the launcher shows its install command.
+- A new account gets its own sign-in folder, such as `~/.claude-work`. Kodosi also finds
+  the accounts that your shell sets up, such as
+  `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
+- A terminal at its prompt shows a mark for each installed agent. Select a mark to start
+  that agent with your last choice.
+- To give an agent its own copy of a repository, hover the repository folder in the
+  sidebar, select the branch button and name a branch. Kodosi starts the terminal in a new
+  Git worktree. When the terminal ends, Kodosi removes the worktree if nothing changed.
+  Settings › Terminal sets where these folders go.
 
-Dosi looks after your other agents. Select its face at the bottom of the sidebar (⌘J on
-the Mac, Ctrl+Shift+J on Linux and Windows) and choose its agent in Settings › Dosi. Dosi
-reads your terminals and rooms, tells you what needs you, and types, starts and closes
-things for you; when it needs a choice, it asks with buttons. Your conversation with Dosi
-is the same on all your computers. From a shell, `kodosi dosi say "What needs me?"` asks
-Dosi, `kodosi dosi show` prints the conversation and `kodosi dosi stop` stops it. To let
-another agent act as Dosi, give it the skill that `kodosi dosi skill` prints. To remove
-Dosi from a computer, turn off Use Dosi in Settings › Dosi.
+A terminal is a real shell on the computer that runs it. Minimize hides a terminal and
+keeps it running; Close ends it and its programs. When you close the window, your
+terminals keep running; when you quit Kodosi, they end.
 
-To give an agent its own copy of a repository, hover the repository folder in the
-sidebar, select the branch button and name a branch. Kodosi starts a terminal in a new
-Git worktree and removes the worktree when the terminal ends if nothing changed.
-Settings › Terminal chooses where these folders go; from a shell, run
-`kodosi terminal start --directory <repository> --branch <name>`.
+## 3. See which agent needs you
 
-## Terminal state
+The mark of each terminal shows what its program does.
 
-| You see | Meaning |
+| You see | It means |
 | --- | --- |
-| A warm light circling the mark | Working. The mark's edge fills to show a percent. |
-| A hand, question mark or key | Waiting for your approval, answer or sign-in. |
+| A warm light that goes around the mark | Working. The edge fills to show a percent. |
+| A hand, a question mark or a key | Waiting for your approval, answer or sign-in. |
 | A green check | Done. |
 | A yellow warning sign | Failed. |
 
-Everyone who can open a terminal sees its state, and small faces show who has it open.
 The check and the warning go away when you open the terminal. While Kodosi is in the
-background, your terminals and the ones you have open notify you when they start to
-wait, finish or fail. Programs report their state through the
-[Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) or
-a progress bar; a program that reports nothing shows no state.
+background, a notification tells you when one of your terminals starts to wait, finishes
+or fails. Programs report their state with the
+[Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) or a
+progress bar. A program that reports nothing shows no state.
 
-## Devices
+## 4. Ask Dosi
 
-Sign in on the new device with the same account, and enter the code it shows in
-Settings › Devices on a device you already use. An iPhone or iPad joins the same way.
+Dosi is your agent for your other agents. Select Dosi's face at the bottom of the sidebar
+(⌘J). The first time, choose its agent in Settings › Dosi.
 
-Make a recovery key in Settings › Devices and keep it safe. If you lose every device,
-sign in on a new one and choose "Use my recovery key" to keep your friends and rooms.
-Remove a lost device from another device, and make a new recovery key if it was stolen.
+<p align="center">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="media/dosi-still.webp">
+    <img src="media/dosi.webp" width="900" alt="Asked what needs you, Dosi reads the terminals, says that checkout waits for an approval and asks whether to allow it.">
+  </picture>
+</p>
 
-## Friends and sharing
+Ask Dosi what needs you, or ask it to do something. Dosi reads your terminals and rooms,
+answers, and types, starts and closes things for you. When it needs a choice, it asks with
+buttons. Your conversation with Dosi is the same on all your computers.
 
-Open Friends from the ⋯ menu beside your account. There, send your invite, or paste a
-friend's invite or username. An invite lets Kodosi verify the friend.
+The line beside Dosi's face tells you when Dosi works, when it answered and when it has a
+question. To remove Dosi from a computer, turn off Use Dosi in Settings › Dosi.
 
-<p align="center"><img src="media/people.webp" width="655" alt="The Friends page with two verified friends."></p>
+## 5. Add your other computers
 
-The share button in a terminal's header shares it with friends or rooms. Everyone you
-share with gets full control, with your privileges on that computer. Your other
-terminals stay private.
+Sign in on the new computer with the same account. It shows a code: enter the code in
+Settings › Devices on a computer that you already use. An iPhone or iPad joins the same
+way. Then each computer shows the terminals of all your computers.
 
-## Rooms
+Make a recovery key in Settings › Devices and keep it in a safe place. If you lose all
+your devices, sign in on a new one and choose "Use my recovery key" to keep your friends
+and rooms. Remove a lost device from another device. If a device was stolen, also make a
+new recovery key.
 
-Create a room in Rooms, add friends, then start a terminal in the room or share one into
-it. Members can use every shared terminal and share their own, and people who join later
-get the terminals and the whole conversation. Files stay on each terminal's host. Put
-tasks up for grabs, claim them, hand them back, close them with a result or reopen them.
-Link GitHub or Gitea repositories to turn issues into tasks; changing such a task
-updates its issue.
+## 6. Work with friends
 
-Agents in Kodosi terminals can use the `kodosi` command. Give your agent the room
-[skill](../runtime/skills/kodosi-room/SKILL.md) through its usual way of loading skills;
-`kodosi room skill` prints it. In a Kodosi terminal the command finds the room itself;
-elsewhere pass `--room <name>`. GitHub actions use your `gh` sign-in or Git credential
-helper; Gitea uses the credential helper, or `KODOSI_GITEA_TOKEN` for the server in
-`KODOSI_GITEA_URL`. Credentials never leave your computer.
+Open Friends from the ⋯ menu beside your account. Send your invite, or paste the invite or
+username of a friend. An invite lets Kodosi verify your friend.
+
+<p align="center"><img src="media/friends.webp" width="900" alt="The Friends page with two verified friends."></p>
+
+To share a terminal, select the share button in its header and choose friends or rooms.
+The people you share with get full control, with your privileges on that computer. Your
+other terminals stay private.
+
+A room holds shared terminals, a conversation and tasks. Select + beside Rooms, add
+friends, then start a terminal in the room or share one into it.
+
+<p align="center"><img src="media/room.webp" width="900" alt="A room with a shared terminal and a conversation of people and agents."></p>
+
+- All members can use the shared terminals and share their own. People who join later
+  get the terminals and the full conversation. Files stay on the computer of each
+  terminal.
+- Put tasks up for grabs, claim them, give them back, close them with a result or open
+  them again. Link GitHub or Gitea repositories to turn issues into tasks; when you change
+  such a task, Kodosi changes its issue.
+- To let your agent work in a room, give it the
+  [room skill](../runtime/skills/kodosi-room/SKILL.md) in the usual way of that agent;
+  `kodosi room skill` prints it. In a Kodosi terminal, the command finds the room;
+  elsewhere, add `--room <name>`. GitHub uses your `gh` sign-in or Git credential helper.
+  Gitea uses the credential helper, or `KODOSI_GITEA_TOKEN` for the server in
+  `KODOSI_GITEA_URL`. Your credentials stay on your computer.
+
+## 7. Use the command line
+
+The `kodosi` command works on the same terminals as the app, and the app shows what it
+does.
+
+| Command | What it does |
+| --- | --- |
+| `kodosi terminal start --agent claude --prompt "fix the failing test"` | Starts an agent with your last choice. `--account`, `--model` and `--effort` change it. |
+| `kodosi terminal start --directory <repository> --branch <name>` | Starts a terminal on a new branch, in its own worktree. |
+| `kodosi agent list` | Shows the agents, their accounts and your last choice. |
+| `kodosi terminal read <terminal>` | Prints the screen. `--history` adds the lines that scrolled away. |
+| `kodosi terminal input <terminal> --enter "make test"` | Types a line. |
+| `kodosi terminal keys <terminal> ctrl-c` | Presses keys. |
+| `kodosi terminal wait <terminal> --until done,failed` | Waits for a state. |
+| `kodosi terminal show <terminal>` | Shows the terminal in the app. |
+| `kodosi dosi say "What needs me?"` | Asks Dosi. `kodosi dosi show` prints the conversation, and `kodosi dosi stop` stops Dosi. |
+| `kodosi dosi skill` | Prints the skill that lets another agent act as Dosi. |
+| `kodosi host` | Keeps your terminals running after you quit the app. `kodosi host stop` stops a host that runs in the background. |
+
+`input` and `keys` stop with a message while you type in that terminal.
 
 ## If something does not connect
 
-Check that the host is online with Kodosi running and that the terminal is still shared.
-A new device may need approval, and a friend with a changed identity may need
-verification in Friends.
+Make sure that the computer of the terminal is online, with Kodosi open, and that the
+terminal is still shared. A new device can need approval, and a friend with a changed
+identity can need verification in Friends. After a lost connection, Kodosi shows the
+current state again. If Kodosi says that it is not sure your input arrived, look at the
+terminal before you type the command again.

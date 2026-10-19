@@ -10,10 +10,9 @@
   <img src="https://img.shields.io/badge/status-in%20development-8a7a70?style=flat-square&labelColor=2a211d" alt="In development">
 </p>
 
-Kodosi is a native app where people and their coding agents work together. Your
-terminals, your other computers, your friends' terminals and the agents in them are in
-one place, end-to-end encrypted. The iPhone and iPad app follows the same terminals and
-rooms when you are away.
+Kodosi is a terminal app for coding agents. It keeps the terminals of all your computers
+in one window, shows which agent needs you, and lets your friends work in the same
+terminals. Everything is end-to-end encrypted.
 
 <p align="center">
   <picture>
@@ -22,73 +21,61 @@ rooms when you are away.
   </picture>
 </p>
 
-## What it does
+## What Kodosi does
 
-**Every terminal, on every computer.** A terminal is a real shell on the computer that
-started it. Open it from your other devices, along with the terminals friends share
-with you.
+**Every terminal in one window.** The terminals of your Mac, your Linux computer and your
+friends' computers are in one sidebar. Each one is a real shell on its own computer.
 
-**See which agent needs you.** Each terminal shows when its program works, waits for
-you, is done or failed. A notification tells you when Kodosi is in the background.
+**Know which agent needs you.** Run Claude Code, Codex, Copilot CLI or any other terminal
+agent. Each terminal shows when its agent works, waits for your approval, is done or
+failed, and a notification tells you while Kodosi is in the background.
+
+**Dosi, your agent for your agents.** Ask Dosi what needs you. It reads all your terminals
+and rooms, tells you, and acts for you: it types the answer into a terminal, starts agents
+and closes what is done. Your conversation with Dosi follows you to every computer.
 
 <p align="center">
   <picture>
-    <source media="(prefers-reduced-motion: reduce)" srcset="docs/media/status-still.webp">
-    <img src="docs/media/status.webp" width="750" alt="A terminal works, waits for an approval, works again and is done.">
+    <source media="(prefers-reduced-motion: reduce)" srcset="docs/media/dosi-still.webp">
+    <img src="docs/media/dosi.webp" width="900" alt="Asked what needs you, Dosi reads the terminals, says that checkout waits for an approval and asks whether to allow it.">
   </picture>
 </p>
 
-**Bring your agents.** Claude Code, Codex, Copilot CLI or any terminal agent runs in its
-own harness with its own settings and sign-in. Pick an agent, account, model and folder,
-type a first prompt, and a new terminal starts it.
+**Share a live terminal.** Give a friend full control of a running terminal and its agent.
 
-<p align="center"><img src="docs/media/launcher.webp" width="580" alt="Claude Code chosen in the launcher with a folder, an account, a model and a first prompt."></p>
+**Rooms for people and agents.** A room holds shared terminals, a conversation and tasks.
+Agents read and post in the conversation and take tasks, and GitHub or Gitea issues
+become tasks.
 
-**A branch for each agent.** Name a branch and Kodosi starts a terminal in its own Git
-worktree, so two agents never change the same files.
+<p align="center"><img src="docs/media/room.webp" width="900" alt="A room with a shared terminal and a conversation of people and agents."></p>
 
-<p align="center"><img src="docs/media/branch.webp" width="546" alt="The New branch panel beside a repository folder."></p>
+**A branch for each agent.** Start an agent on a new branch in its own Git worktree, so
+two agents never change the same files.
 
-**Work together in a room.** A room holds terminals, a conversation and tasks. Share a
-terminal with the room once and every member can use it. Agents join through the
-bundled [room skill](runtime/skills/kodosi-room/SKILL.md), and GitHub or Gitea issues
-can become tasks.
+**On your iPhone and iPad.** Follow, answer and control your terminals and rooms when you
+are away from your computer.
 
-<p align="center"><img src="docs/media/room.webp" width="900" alt="A room with a friend's shared terminal and a conversation of people and agents."></p>
-<p align="center"><img src="docs/media/tasks.webp" width="600" alt="Room tasks up for grabs, in progress and done."></p>
+**End-to-end encrypted, post-quantum.** Your keys stay on your devices. Terminals and rooms
+are encrypted end to end with ML-KEM-768 together with X25519, and the service cannot read
+them. [Security](docs/SECURITY.md)
 
-**End-to-end encrypted.** Private keys stay on your devices. The service relays
-encrypted traffic and cannot read your terminals or rooms; it sees only whether each
-agent works, waits or is done. [Security](docs/SECURITY.md)
+## Get Kodosi
 
-<p align="center"><img src="docs/media/share.webp" width="378" alt="The share panel of a terminal, end-to-end encrypted, with a room and two friends."></p>
+Kodosi is in development and has no release yet. Build it for your
+[Mac](clients/macos/README.md), your [Linux or Windows](clients/qt/README.md) computer, or
+your [iPhone or iPad](clients/ios/README.md), then follow
+[Getting started](docs/GETTING_STARTED.md).
 
-## Build
+## Learn more
 
-You need a Mac with Apple silicon and macOS 26.4 or later, or Linux x86-64 (Ubuntu 24.04
-recommended), plus the pinned Rust toolchain, `just` and Python 3. Kodosi also needs a
-backend and an OIDC sign-in service; for development run a
-[local backend](docs/DEVELOPMENT.md#run-the-backend).
+- [Getting started](docs/GETTING_STARTED.md)
+- [Security](docs/SECURITY.md) and the [encryption design](docs/CRYPTOGRAPHY.md)
+- [Architecture](docs/ARCHITECTURE.md), [development](docs/DEVELOPMENT.md) and
+  [contributing](CONTRIBUTING.md)
+- [Self-hosting](docs/SELF-HOSTING.md)
 
-```sh
-just mac-build      # Mac app; then run the KodosiDesktop scheme in Xcode
-just linux-build    # Linux app; then run ./clients/qt/build/dev/src/kodosi-qt
-just ios-build      # iPhone and iPad app; then run the KodosiMobile scheme in Xcode
-```
-
-Platform guides: [macOS](clients/macos/README.md), [Linux and Windows](clients/qt/README.md),
-[iPhone and iPad](clients/ios/README.md).
-
-## Documentation
-
-- [Getting started](docs/GETTING_STARTED.md): terminals, agents, sharing and rooms.
-- [Development](docs/DEVELOPMENT.md) and [contributing](CONTRIBUTING.md).
-- [Architecture](docs/ARCHITECTURE.md) and [self-hosting](docs/SELF-HOSTING.md).
-- [Security](docs/SECURITY.md) and the [encryption design](docs/CRYPTOGRAPHY.md).
-
-Kodosi is in active development and has no release yet. Report bugs in
-[GitHub issues](https://github.com/johnkozaris/Kodosi/issues) and vulnerabilities
-[in private](docs/SECURITY.md#report-a-vulnerability).
+Report bugs in [GitHub issues](https://github.com/johnkozaris/Kodosi/issues) and
+vulnerabilities [in private](docs/SECURITY.md#report-a-vulnerability).
 
 ## License
 
