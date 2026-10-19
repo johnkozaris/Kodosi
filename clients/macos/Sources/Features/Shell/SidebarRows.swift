@@ -86,7 +86,7 @@ struct SidebarRoomRow: View {
     var body: some View {
         Button { deps.workbench.section = .missions; deps.openMission(mission) } label: {
             HStack(spacing: 9) {
-                RoomSigil(key: mission.id, size: 22)
+                RoomSigil(key: mission.id, size: 22).fold(.room(mission.id), at: .row)
                 Text(mission.name).appTextStyle(.body).fontWeight(selected || mission.unread ? .medium : .regular)
                     .foregroundStyle(theme.colors.ink).lineLimit(1)
                 Spacer(minLength: 4)
@@ -258,7 +258,7 @@ struct SidebarTerminalRow: View {
 
     private var label: some View {
         HStack(spacing: 9) {
-            AgentMark(session: session, size: 22, activity: deps.activity(of: session))
+            AgentMark(session: session, size: 22, activity: deps.activity(of: session)).fold(.terminal(session.id), at: .row)
             VStack(alignment: .leading, spacing: 1) {
                 if renaming {
                     TextField("Name", text: $draft)

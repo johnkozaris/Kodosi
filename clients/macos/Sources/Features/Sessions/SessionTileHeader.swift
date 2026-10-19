@@ -46,6 +46,9 @@ struct SessionTileHeader: View {
                 }
             }
             Spacer(minLength: 4)
+            if let (item, question) = deps.dosi.question(forTerminal: session) {
+                DosiKeys(item: item, question: question).transition(AnyTransition.pop)
+            }
             status
             AvatarStack(people: viewers, size: 20, limit: 3, ring: theme.colors.terminal)
                 .help(viewers.isEmpty ? "" : String(localized: "Here now: \(viewers.map(\.name).joined(separator: ", "))"))
@@ -133,6 +136,29 @@ struct SessionTileHeader: View {
         }
         .opacity(showsActions ? 1 : 0.28)
         .animation(theme.motion.snappy, value: session.atPrompt)
+    }
+}
+
+struct DosiKeys: View {
+    @Environment(AppDependencies.self) private var deps
+    let item: DosiItem
+    let question: DosiQuestion
+
+    var body: some View {
+        HStack(spacing: 4) {
+            DosiFace(mood: .asking, size: 16).help(question.question)
+            if question.multiple {
+                Button("Answer") { deps.workbench.openDosi() }.buttonStyle(.kodosi(.tinted, size: .small))
+            } else {
+                ForEach(question.options.prefix(4), id: \.self) { option in
+                    Button(option) { deps.answerDosi(item, [option]) }
+                        .buttonStyle(.kodosi(.secondary, size: .small))
+                        .accessibilityIdentifier("dosi.keys.\(AccessibilityIdentifier.token(option))")
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text(question.question))
     }
 }
 

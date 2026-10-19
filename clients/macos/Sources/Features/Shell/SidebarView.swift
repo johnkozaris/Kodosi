@@ -15,6 +15,8 @@ struct SidebarView: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
     @Namespace private var pill
+    @Namespace private var fold
+    @State private var frames = FoldFrames()
     @State private var collapsedFolders: Set<String> = []
 
     private var selection: SidebarSelection {
@@ -28,37 +30,82 @@ struct SidebarView: View {
     }
 
     var body: some View {
-        Group {
-            if deps.workbench.sidebarCollapsed {
-                SidebarRail(selection: selection, pill: pill)
+        let workbench = deps.workbench
+        ZStack(alignment: .topLeading) {
+            if workbench.sidebarCollapsed {
+                SidebarRail(selection: selection, pill: pill).frame(width: Metrics.sidebarRailWidth).leaving(theme)
             } else {
-                expanded
+                VStack(spacing: 0) {
+                    HStack {
+                        Spacer()
+                        IconButton(title: "Hide sidebar", symbol: "sidebar.left", identifier: "sidebar.toggle") {
+                            workbench.sidebarCollapsed.toggle()
+                        }
+                    }
+                    .frame(height: Metrics.titleBarHeight).padding(.trailing, 8)
+                    header
+                    if workbench.dosiOpen {
+                        DosiPanel().frame(width: workbench.dosiWidth).leaving(theme)
+                    } else {
+                        expanded.frame(width: workbench.sidebarWidth).leaving(theme)
+                    }
+                }
+                .frame(width: workbench.dosiOpen ? workbench.dosiWidth : workbench.sidebarWidth, alignment: .leading)
+                .leaving(theme)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .clipped()
+        .overlay(alignment: .topLeading) {
+            if !theme.motion.reduced {
+                FoldFlights(place: workbench.foldPlace)
+            }
+        }
+        .coordinateSpace(.named(FoldFrames.space))
+        .environment(\.sidebarFold, fold)
+        .environment(\.sidebarFrames, frames)
+        .environment(\.sidebarFolding, workbench.folding && !theme.motion.reduced)
+        .animation(theme.motion.soft, value: workbench.dosiOpen)
+        .animation(theme.motion.soft, value: workbench.sidebarCollapsed)
         .animation(theme.motion.snappy, value: selection)
         .animation(theme.motion.spring, value: deps.sessions.map(\.id))
         .animation(theme.motion.spring, value: deps.missions.map(\.id))
         .animation(theme.motion.spring, value: deps.sessions.map(\.attention))
     }
 
-    private var expanded: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Spacer()
-                IconButton(title: "Hide sidebar", symbol: "sidebar.left", identifier: "sidebar.toggle") {
-                    deps.workbench.sidebarCollapsed.toggle()
+    private var header: some View {
+        HStack(spacing: 8) {
+            KodosiWordmark(size: 16, blinks: false)
+            Spacer(minLength: 8)
+            if deps.workbench.dosiOpen {
+                IconButton(title: "Terminals and rooms (Esc)", symbol: "list.bullet", identifier: "dosi.close") {
+                    deps.workbench.closeDosi()
                 }
-            }
-            .frame(height: Metrics.titleBarHeight).padding(.trailing, 8)
-            HStack(spacing: 8) {
-                KodosiWordmark(size: 16, blinks: false)
-                Spacer()
+                .transition(Self.swap(theme))
+            } else {
                 IconButton(title: "Go to…", symbol: "magnifyingglass", identifier: "sidebar.palette") {
                     deps.workbench.showsPalette = true
                 }
+                .transition(Self.swap(theme))
             }
-            .padding(.leading, 16).padding(.trailing, 8).padding(.top, 6)
-            NewTerminalButton().padding(.horizontal, 12).padding(.top, 14).padding(.bottom, 10)
+        }
+        .frame(height: 30)
+        .padding(.leading, 16).padding(.trailing, 8).padding(.top, 4)
+        .arrive(delay: 0.15, rise: 0)
+    }
+
+    private static func swap(_ theme: AppTheme) -> AnyTransition {
+        guard !theme.motion.reduced else { return .identity }
+        return .asymmetric(
+            insertion: .opacity.combined(with: .scale(scale: 0.92)).animation(.easeOut(duration: 0.2).delay(0.25)),
+            removal: .opacity.animation(.easeOut(duration: 0.1))
+        )
+    }
+
+    private var expanded: some View {
+        VStack(spacing: 0) {
+            SidebarDosiRow().padding(.horizontal, 8).padding(.top, 12)
+            NewTerminalButton().padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 6)
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     rooms
@@ -67,7 +114,8 @@ struct SidebarView: View {
                 .padding(.horizontal, 8).padding(.vertical, 8)
             }
             .scrollIndicators(.never)
-            footer
+            .arrive(delay: 0.22, rise: 6)
+            footer.arrive(delay: 0.28, rise: 0)
         }
     }
 
@@ -129,6 +177,16 @@ struct SidebarView: View {
                         }
                     }
                 }
+                .background(alignment: .leading) {
+                    if collapsed {
+                        ZStack {
+                            ForEach(group.sessions) { session in
+                                Color.clear.frame(width: 22, height: 22).fold(.terminal(session.id), at: .row)
+                            }
+                        }
+                        .padding(.leading, 4)
+                    }
+                }
                 if !collapsed {
                     ForEach(group.sessions) { session in
                         SidebarTerminalRow(session: session, selected: selection == .terminal(session.id), pill: pill)
@@ -188,6 +246,7 @@ struct NewTerminalButton: View {
             .frame(height: 34).contentShape(Rectangle())
         }
         .buttonStyle(.kodosi(.primary))
+        .fold(FoldPart.newTerminal)
         .accessibilityIdentifier("sidebar.newSession")
     }
 }

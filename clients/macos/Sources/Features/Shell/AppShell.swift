@@ -12,7 +12,13 @@ struct AppShell: View {
             GroundBackdrop()
             HStack(spacing: 0) {
                 SidebarView()
-                    .frame(width: workbench.sidebarCollapsed ? Metrics.sidebarRailWidth : Metrics.sidebarWidth)
+                    .frame(width: workbench.shownSidebarWidth)
+                    .overlay(alignment: .trailing) {
+                        if !workbench.sidebarCollapsed {
+                            SidebarResizeHandle().offset(x: 4)
+                        }
+                    }
+                    .zIndex(1)
                 destination
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background {
@@ -127,7 +133,7 @@ struct AppShell: View {
             }
         }
         .padding(.top, Metrics.frameInset + 10)
-        .padding(.leading, deps.workbench.sidebarCollapsed ? Metrics.sidebarRailWidth : Metrics.sidebarWidth)
+        .padding(.leading, deps.workbench.shownSidebarWidth)
         .transition(.move(edge: .top).combined(with: .opacity))
     }
 }

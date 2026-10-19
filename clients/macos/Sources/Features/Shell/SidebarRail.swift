@@ -14,12 +14,14 @@ struct SidebarRail: View {
             IconButton(title: "Show sidebar", symbol: "sidebar.left", identifier: "sidebar.toggle") {
                 deps.workbench.sidebarCollapsed.toggle()
             }
+            RailDosiIsland()
             Button { deps.openLauncher() } label: {
                 Image(systemName: "plus").font(.system(size: 14, weight: .bold)).foregroundStyle(theme.colors.onAccent)
                     .frame(width: 34, height: 34)
                     .background { BezelBackground(shape: Circle(), fill: theme.colors.accent) }
             }
             .buttonStyle(PressScaleStyle())
+            .fold(FoldPart.newTerminal)
             .help("New terminal").accessibilityLabel(Text("New terminal")).accessibilityIdentifier("sidebar.newSession")
             ScrollView {
                 VStack(spacing: 6) {
@@ -30,6 +32,7 @@ struct SidebarRail: View {
                             deps.workbench.section = .missions; deps.openMission(mission)
                         } content: {
                             RoomSigil(key: mission.id, size: 26)
+                                .fold(.room(mission.id), at: .rail)
                                 .overlay(alignment: .topTrailing) {
                                     if mission.unread {
                                         Circle().fill(theme.colors.accent).frame(width: 8, height: 8)
@@ -48,6 +51,7 @@ struct SidebarRail: View {
                             deps.activateSession(session.id)
                         } content: {
                             AgentMark(session: session, size: 26, activity: deps.activity(of: session))
+                                .fold(.terminal(session.id), at: .rail)
                                 .overlay(alignment: .topTrailing) {
                                     if let sign = deps.sign(of: session) {
                                         StatusSign(form: sign, size: 9, backing: theme.colors.ground).offset(x: 5, y: -5)
@@ -72,6 +76,7 @@ struct SidebarRail: View {
                 }
             }
             .padding(.bottom, 12)
+            .arrive(delay: 0.25, rise: 0)
         }
         .frame(maxWidth: .infinity)
     }

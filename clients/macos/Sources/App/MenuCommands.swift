@@ -1,3 +1,4 @@
+import KodosiBridge
 import SwiftUI
 
 struct KodosiCommands: Commands {
@@ -37,6 +38,9 @@ struct KodosiCommands: Commands {
         }
         CommandGroup(after: .sidebar) {
             Button("Show or Hide Sidebar") { dependencies.workbench.sidebarCollapsed.toggle() }.keyboardShortcut("b")
+            Button("Dosi") { dependencies.workbench.toggleDosi() }.keyboardShortcut("j")
+            Button("Stop Dosi") { dependencies.dosi.stop() }.keyboardShortcut(".")
+                .disabled(!dependencies.dosi.busy || !dependencies.workbench.dosiOpen)
         }
         CommandMenu("Navigate") {
             Button("Previous Terminal") { dependencies.workbench.selectAdjacentSession(offset: -1) }.keyboardShortcut("[", modifiers: [.command, .shift])

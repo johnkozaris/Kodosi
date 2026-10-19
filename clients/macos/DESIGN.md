@@ -46,7 +46,7 @@ typography:
   caption: {fontFamily: "system-ui", fontSize: "11pt", fontWeight: 500}
   mono: {fontFamily: "ui-monospace", fontSize: "12.5pt"}
 rounded: {xs: "6pt", sm: "8pt", md: "10pt", lg: "14pt", xl: "18pt", sheet: "22pt", tile: "12pt"}
-spacing: {sidebar: "252pt", rail: "78pt", frame-inset: "8pt", header: "54pt", page: "36pt"}
+spacing: {sidebar: "252pt", dosi: "420pt", rail: "78pt", frame-inset: "8pt", header: "54pt", page: "36pt"}
 motion:
   spring: {stiffness: 420, damping: 34, mass: 0.9}
   soft: {stiffness: 260, damping: 30}
@@ -73,7 +73,7 @@ Copper `accent` means "act here" or "selected". `glowAmber` flashes behind a fre
 Use `AppTextStyle`: `large` for page titles, `title` for sheets, `headline` for object names, `body` for conversation and rows, `footnote` and `caption` for facts, monospace for code and paths. Labels use sentence case. The wordmark is a picture.
 
 ## Layout
-No title bar. The source list can shrink to a rail of marks, one inset frame holds the work, and pages are one centered column. A room has a header, a canvas, and the conversation on a 300–540 pt sheet from the right; below 720 pt it shows one of the two. When chrome moves, the terminal takes its final size at once.
+No title bar. The source list can shrink to a rail of marks or widen for Dosi, and its edge resizes it; one inset frame holds the work, and pages are one centered column. A room has a header, a canvas, and the conversation on a 300–540 pt sheet from the right; below 720 pt it shows one of the two. When chrome moves, the terminal takes its final size at once.
 
 ## Elevation & Depth
 Three levels: resting, lifted (hover, focused composer, popovers) and floating (sheets, notices, Go to). Raised shapes have a light top-left rim, a dark bottom-right rim and two shadows falling down and right; wells have an inner shadow. A sheet rises in the middle of the dimmed window and a popover from its source; a click outside or Escape dismisses either, unless the sheet waits for a decision.
@@ -89,8 +89,9 @@ Capsules for tags and pills, rounded rectangles for buttons, squircles for agent
 - **Selection:** a raised pill with a copper caret; segmented controls and terminal tabs slide a raised thumb.
 - **Terminal tile:** a rounded tile whose header actions stay faint until hover or selection. The launcher is the terminal about to open, dark in both appearances.
 - **Conversation:** your messages are bubbles on the right; others show an avatar and a name, and agents their mark, owner and terminal. Mentions are tinted chips.
+- **Dosi:** its face is the copper cursor doubled into two eyes on a dark squircle. Opening Dosi folds each row into a named chip in a well, one after another, terminals on one line and rooms on the next, and moves the Dosi row down to become the field; closing reverses it. Chips that do not fit become one chip with their count and a down arrow that opens them in a popover. The header's round button shows the list, and New chat is a round button in the field. A turn's steps are pills with the target's mark under one line that folds when the work ends, a question is a raised card that folds into a line when answered, and a chip glints while Dosi reads its terminal or room. When Dosi types in a terminal, the tile's rim lights and a card on the tile says what it typed.
 
-A state has one moving sign: the light circling a working terminal's mark. Its text and the wordmark stay still. With reduced motion, from the system or from Settings, or while the window does not show, every change is instant and nothing loops.
+A state has one moving sign: the light circling a working terminal's mark, or Dosi's face, which reads, types and thinks while Dosi works. Its text and the wordmark stay still. With reduced motion, from the system or from Settings, or while the window does not show, every change is instant and nothing loops.
 
 ## Do's and Don'ts
 - **Do** use the springs in `AppTheme.Motion`, and animate only for an action or a real change of state.
